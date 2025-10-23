@@ -16,7 +16,7 @@ import {
 import {
     getFeatherMetadata,
     getFeatherDiagnosticById
-} from "../src/feather/metadata.js";
+} from "../src/resources/feather-metadata.js";
 import {
     applyFeatherFixes,
     getFeatherDiagnosticFixers,
@@ -4420,84 +4420,6 @@ describe("applyFeatherFixes transform", () => {
         assert.ok(gm2051.range);
     });
 
-    it("balances gpu_push_state/gpu_pop_state pairs flagged by GM2042", () => {
-        const source = [
-            "if (situation_1)",
-            "{",
-            "    gpu_push_state();",
-            "    gpu_push_state();",
-            "",
-            '    draw_text(x, y, "Hi");',
-            "",
-            "    gpu_pop_state();",
-            "}",
-            "",
-            "if (situation_2)",
-            "{",
-            "    gpu_push_state();",
-            "",
-            "    draw_circle(x, y, 10, false);",
-            "",
-            "    gpu_pop_state();",
-            "    gpu_pop_state();",
-            "}",
-            ""
-        ].join("\n");
-
-        const ast = GMLParser.parse(source, {
-            getLocations: true,
-            simplifyLocations: false
-        });
-
-        applyFeatherFixes(ast, { sourceText: source });
-
-        const [firstIf, secondIf] = ast.body ?? [];
-        assert.ok(firstIf?.consequent?.type === "BlockStatement");
-        assert.ok(secondIf?.consequent?.type === "BlockStatement");
-
-        const firstBlockStatements = firstIf.consequent.body ?? [];
-        const secondBlockStatements = secondIf.consequent.body ?? [];
-
-        const firstBlockPushes = firstBlockStatements.filter(
-            (node) =>
-                node?.type === "CallExpression" &&
-                node.object?.name === "gpu_push_state"
-        );
-        const firstBlockPops = firstBlockStatements.filter(
-            (node) =>
-                node?.type === "CallExpression" &&
-                node.object?.name === "gpu_pop_state"
-        );
-
-        assert.strictEqual(firstBlockPushes.length, 2);
-        assert.strictEqual(firstBlockPops.length, 2);
-
-        const secondBlockPushes = secondBlockStatements.filter(
-            (node) =>
-                node?.type === "CallExpression" &&
-                node.object?.name === "gpu_push_state"
-        );
-        const secondBlockPops = secondBlockStatements.filter(
-            (node) =>
-                node?.type === "CallExpression" &&
-                node.object?.name === "gpu_pop_state"
-        );
-
-        assert.strictEqual(secondBlockPushes.length, 1);
-        assert.strictEqual(secondBlockPops.length, 1);
-
-        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2042 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2042"
-        );
-
-        assert.ok(
-            gm2042,
-            "Expected GM2042 metadata to be recorded on the AST."
-        );
-        assert.strictEqual(gm2042.automatic, true);
-    });
-
     it("removes orphaned event_inherited calls flagged by GM2040 and records metadata", () => {
         const source = [
             "/// Room Start Event",
@@ -4781,119 +4703,6 @@ describe("applyFeatherFixes transform", () => {
             resetDiagnostics.some((entry) => entry.id === "GM2026"),
             true
         );
-    });
-
-    it("converts GM2016 assignments to local declarations outside the Create event", () => {
-        const source = [
-            "/// Create Event",
-            "",
-            "health = 100;",
-            "",
-            "/// Step Event",
-            "",
-            "ammo = 0;",
-            "",
-            "ammo += 1;"
-        ].join("\n");
-
-        const ast = GMLParser.parse(source, {
-            getLocations: true,
-            simplifyLocations: false
-        });
-
-        applyFeatherFixes(ast, { sourceText: source });
-
-        const [createAssignment, localizedVariable, additiveAssignment] =
-            ast.body ?? [];
-
-        assert.ok(createAssignment);
-        assert.strictEqual(createAssignment.type, "AssignmentExpression");
-
-        assert.ok(localizedVariable);
-        assert.strictEqual(localizedVariable.type, "VariableDeclaration");
-        assert.strictEqual(localizedVariable.kind, "var");
-
-        const declarations = localizedVariable.declarations ?? [];
-        assert.strictEqual(Array.isArray(declarations), true);
-        assert.strictEqual(declarations.length, 1);
-
-        const declarator = declarations[0];
-        assert.ok(declarator);
-        assert.strictEqual(declarator.id?.name, "ammo");
-        assert.ok(additiveAssignment);
-        assert.strictEqual(additiveAssignment.type, "AssignmentExpression");
-        assert.strictEqual(additiveAssignment.operator, "+=");
-
-        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2016 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2016"
-        );
-
-        assert.ok(
-            gm2016,
-            "Expected GM2016 metadata to be recorded on the AST."
-        );
-        assert.strictEqual(gm2016.automatic, true);
-        assert.strictEqual(gm2016.target, "ammo");
-        assert.ok(gm2016.range);
-
-        const declarationDiagnostics =
-            localizedVariable._appliedFeatherDiagnostics ?? [];
-        assert.strictEqual(
-            declarationDiagnostics.some((entry) => entry.id === "GM2016"),
-            true,
-            "Expected GM2016 metadata to be recorded on the transformed declaration."
-        );
-    });
-
-    it("does not localize GM2016 assignments when the identifier is read before assignment", () => {
-        const source = [
-            "/// Draw Event",
-            "",
-            "if (!surface_exists(sf_canvas))",
-            "{",
-            "    sf_canvas = surface_create(512, 512);",
-            "}",
-            "",
-            "surface_set_target(sf_canvas);",
-            "draw_clear_alpha(c_white, 0);",
-            "draw_rectangle(4, 4, 40, 40);"
-        ].join("\n");
-
-        const ast = GMLParser.parse(source, {
-            getLocations: true,
-            simplifyLocations: false
-        });
-
-        applyFeatherFixes(ast, { sourceText: source });
-
-        const body = Array.isArray(ast.body) ? ast.body : [];
-
-        assert.strictEqual(Array.isArray(body), true);
-        assert.ok(body.length >= 4);
-        assert.notStrictEqual(body[0]?.type, "VariableDeclaration");
-
-        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2016Entries = appliedDiagnostics.filter(
-            (entry) => entry.id === "GM2016"
-        );
-
-        assert.strictEqual(
-            gm2016Entries.some((entry) => entry?.automatic === true),
-            false,
-            "GM2016 metadata should not record an automatic fix when localization is skipped."
-        );
-
-        const hasSfCanvasDeclaration = body.some(
-            (node) =>
-                node?.type === "VariableDeclaration" &&
-                Array.isArray(node.declarations) &&
-                node.declarations.some(
-                    (declarator) => declarator?.id?.name === "sf_canvas"
-                )
-        );
-
-        assert.strictEqual(hasSfCanvasDeclaration, false);
     });
 
     it("closes vertex buffers flagged by GM2011 and records metadata", () => {

@@ -185,6 +185,50 @@ function transformSnakeUpper(token) {
     return normalized;
 }
 
+const IDENTIFIER_CASE_STYLE_METADATA = Object.freeze({
+    off: Object.freeze({
+        description: "Disable automatic identifier case rewriting."
+    }),
+    camel: Object.freeze({
+        description:
+            "Convert identifiers to lower camelCase (e.g. `exampleName`).",
+        format: buildCamelCase
+    }),
+    pascal: Object.freeze({
+        description:
+            "Convert identifiers to Upper PascalCase (e.g. `ExampleName`).",
+        format: buildPascalCase
+    }),
+    "snake-lower": Object.freeze({
+        description:
+            "Convert identifiers to lower snake_case (e.g. `example_name`).",
+        format: (normalized) => buildSnakeCase(normalized, transformSnakeLower)
+    }),
+    "snake-upper": Object.freeze({
+        description:
+            "Convert identifiers to UPPER_SNAKE_CASE (e.g. `EXAMPLE_NAME`).",
+        format: (normalized) => buildSnakeCase(normalized, transformSnakeUpper)
+    })
+});
+
+export function getIdentifierCaseStyleMetadata(style) {
+    const metadata = IDENTIFIER_CASE_STYLE_METADATA[style];
+    if (!metadata) {
+        throw new Error(`Unsupported identifier case: ${style}`);
+    }
+
+    return metadata;
+}
+
+function getIdentifierCaseFormatter(style) {
+    const metadata = getIdentifierCaseStyleMetadata(style);
+    if (typeof metadata.format !== "function") {
+        throw new TypeError(`Unsupported identifier case: ${style}`);
+    }
+
+    return metadata.format;
+}
+
 export function normalizeIdentifierCase(identifier) {
     if (typeof identifier !== "string") {
         throw new TypeError("Identifier must be a string");
@@ -197,29 +241,14 @@ export function normalizeIdentifierCase(identifier) {
 export function formatIdentifierCase(input, style) {
     const normalized =
         typeof input === "string" ? normalizeIdentifierCase(input) : input;
-
-    switch (style) {
-        case "camel": {
-            return buildCamelCase(normalized);
-        }
-        case "pascal": {
-            return buildPascalCase(normalized);
-        }
-        case "snake-lower": {
-            return buildSnakeCase(normalized, transformSnakeLower);
-        }
-        case "snake-upper": {
-            return buildSnakeCase(normalized, transformSnakeUpper);
-        }
-        default: {
-            throw new Error(`Unsupported identifier case: ${style}`);
-        }
-    }
+    const format = getIdentifierCaseFormatter(style);
+    return format(normalized);
 }
 
 export function isIdentifierCase(identifier, style) {
     const normalized = normalizeIdentifierCase(identifier);
-    return formatIdentifierCase(normalized, style) === identifier;
+    const format = getIdentifierCaseFormatter(style);
+    return format(normalized) === identifier;
 }
 
 export const RESERVED_IDENTIFIER_PREFIXES = Object.freeze([
@@ -310,10 +339,12 @@ export function formatIdentifierCaseWithOptions(input, style, options = {}) {
             ? normalizeIdentifierCaseWithOptions(input, options)
             : input;
 
-    return formatIdentifierCase(normalized, style);
+    const format = getIdentifierCaseFormatter(style);
+    return format(normalized);
 }
 
 export function isIdentifierCaseWithOptions(identifier, style, options = {}) {
     const normalized = normalizeIdentifierCaseWithOptions(identifier, options);
-    return formatIdentifierCase(normalized, style) === identifier;
+    const format = getIdentifierCaseFormatter(style);
+    return format(normalized) === identifier;
 }

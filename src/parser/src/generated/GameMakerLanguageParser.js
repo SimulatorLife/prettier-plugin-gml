@@ -3,6 +3,7 @@
 import antlr4 from 'antlr4';
 import GameMakerLanguageParserListener from './GameMakerLanguageParserListener.js';
 import GameMakerLanguageParserVisitor from './GameMakerLanguageParserVisitor.js';
+import { isRecognitionExceptionLike } from '../shared/utils/recognition-exception.js';
 
 const serializedATN = [4,1,114,720,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,
 4,2,5,7,5,2,6,7,6,2,7,7,7,2,8,7,8,2,9,7,9,2,10,7,10,2,11,7,11,2,12,7,12,
@@ -413,7 +414,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 149;
 	        this.match(GameMakerLanguageParser.EOF);
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -445,7 +446,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            _la = this._input.LA(1);
 	        } while((((_la) & ~0x1f) === 0 && ((1 << _la) & 12751880) !== 0) || ((((_la - 63)) & ~0x1f) === 0 && ((1 << (_la - 63)) & 3955127295) !== 0) || ((((_la - 95)) & ~0x1f) === 0 && ((1 << (_la - 95)) & 4079) !== 0));
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -599,7 +600,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -633,7 +634,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 189;
 	        this.closeBlock();
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -679,7 +680,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -789,7 +790,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            throw new antlr4.error.NoViableAltException(this);
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -816,7 +817,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 234;
 	        this.statement();
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -843,7 +844,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 238;
 	        this.caseBlock();
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -866,7 +867,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 240;
 	        this.match(GameMakerLanguageParser.Continue);
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -889,7 +890,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 242;
 	        this.match(GameMakerLanguageParser.Break);
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -912,7 +913,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 244;
 	        this.match(GameMakerLanguageParser.Exit);
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -935,7 +936,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 246;
 	        this.match(GameMakerLanguageParser.SemiColon);
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -985,7 +986,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 258;
 	        this.closeBlock();
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -1017,7 +1018,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            _la = this._input.LA(1);
 	        } while(_la===73);
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -1053,7 +1054,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        }
 
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -1087,7 +1088,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        }
 
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -1112,7 +1113,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 277;
 	        this.expression(0);
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -1159,7 +1160,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            throw new antlr4.error.NoViableAltException(this);
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -1203,7 +1204,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 296;
 	        this.statement();
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -1228,7 +1229,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 299;
 	        this.statement();
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -1259,7 +1260,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -1284,7 +1285,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 306;
 	        this.expression(0);
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -1307,7 +1308,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 308;
 	        this.literal();
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -1334,7 +1335,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 312;
 	        this.expressionOrFunction();
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -1372,7 +1373,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            _la = this._input.LA(1);
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -1417,7 +1418,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            throw new antlr4.error.NoViableAltException(this);
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -1451,7 +1452,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        }
 
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -1491,7 +1492,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 345;
 	        this.match(GameMakerLanguageParser.SemiColon);
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -1518,7 +1519,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 349;
 	        this.arguments();
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -1557,7 +1558,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            throw new antlr4.error.NoViableAltException(this);
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -1601,7 +1602,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -1656,7 +1657,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            throw new antlr4.error.NoViableAltException(this);
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -1705,7 +1706,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            throw new antlr4.error.NoViableAltException(this);
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -1741,7 +1742,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            _la = this._input.LA(1);
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -1778,7 +1779,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -2138,7 +2139,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        }
 
 	    } catch( error) {
-	        if(error instanceof antlr4.error.RecognitionException) {
+	        if (isRecognitionExceptionLike(error)) {
 		        localctx.exception = error;
 		        this._errHandler.reportError(this, error);
 		        this._errHandler.recover(this, error);
@@ -2193,7 +2194,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        }
 
 	    } catch( error) {
-	        if(error instanceof antlr4.error.RecognitionException) {
+	        if (isRecognitionExceptionLike(error)) {
 		        localctx.exception = error;
 		        this._errHandler.reportError(this, error);
 		        this._errHandler.recover(this, error);
@@ -2250,7 +2251,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            throw new antlr4.error.NoViableAltException(this);
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -2284,7 +2285,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 484;
 	        this.lValueExpression();
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -2318,7 +2319,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            this.consume();
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -2357,7 +2358,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            throw new antlr4.error.NoViableAltException(this);
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -2388,7 +2389,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            this.consume();
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -2446,7 +2447,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -2525,7 +2526,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -2567,7 +2568,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -2590,7 +2591,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 534;
 	        this.match(GameMakerLanguageParser.Comma);
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -2621,7 +2622,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            this.consume();
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -2708,7 +2709,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            throw new antlr4.error.NoViableAltException(this);
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -2744,7 +2745,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 559;
 	        this.match(GameMakerLanguageParser.TemplateStringEnd);
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -2784,7 +2785,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            throw new antlr4.error.NoViableAltException(this);
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -2811,7 +2812,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 570;
 	        this.match(GameMakerLanguageParser.CloseBracket);
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -2885,7 +2886,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        }
 
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -2942,7 +2943,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 609;
 	        this.closeBlock();
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -2969,7 +2970,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 613;
 	        this.expressionOrFunction();
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -3010,7 +3011,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            throw new antlr4.error.NoViableAltException(this);
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -3054,7 +3055,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 628;
 	        this.block();
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -3090,7 +3091,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 635;
 	        this.match(GameMakerLanguageParser.Constructor);
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -3147,7 +3148,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 651;
 	        this.match(GameMakerLanguageParser.CloseParen);
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -3181,7 +3182,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        }
 
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -3217,7 +3218,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            throw new antlr4.error.NoViableAltException(this);
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -3255,7 +3256,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 668;
 	        this.closeBlock();
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -3302,7 +3303,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        }
 
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -3336,7 +3337,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
                 }
 
             } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -3381,7 +3382,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            this.consume();
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -3416,7 +3417,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            this.consume();
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -3464,7 +3465,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            this.consume();
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -3487,7 +3488,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 705;
 	        this.identifier();
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -3510,7 +3511,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 707;
 	        this.match(GameMakerLanguageParser.Constructor);
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -3533,7 +3534,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 709;
 	        this.match(GameMakerLanguageParser.NoOneLiteral);
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -3564,7 +3565,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            this.consume();
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -3595,7 +3596,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            this.consume();
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -3618,7 +3619,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	        this.state = 715;
 	        this.match(GameMakerLanguageParser.SemiColon);
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);
@@ -3649,7 +3650,7 @@ export default class GameMakerLanguageParser extends antlr4.Parser {
 	            this.consume();
 	        }
 	    } catch (re) {
-	    	if(re instanceof antlr4.error.RecognitionException) {
+	    	if (isRecognitionExceptionLike(re)) {
 		        localctx.exception = re;
 		        this._errHandler.reportError(this, re);
 		        this._errHandler.recover(this, re);

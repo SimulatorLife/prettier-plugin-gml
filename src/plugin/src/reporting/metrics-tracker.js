@@ -1,7 +1,4 @@
-import {
-    getNonEmptyString,
-    normalizeStringList
-} from "../../../shared/string-utils.js";
+import { getNonEmptyString } from "../../../shared/string-utils.js";
 import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
 
 const hasHrtime = typeof process?.hrtime?.bigint === "function";
@@ -27,24 +24,21 @@ const SUMMARY_SECTIONS = Object.freeze([
 ]);
 
 function normalizeCacheKeys(keys) {
-    const candidates = keys ?? DEFAULT_CACHE_KEYS;
+    const candidates =
+        Array.isArray(keys) || typeof keys?.[Symbol.iterator] === "function"
+            ? keys
+            : DEFAULT_CACHE_KEYS;
 
-    if (
-        !Array.isArray(candidates) &&
-        typeof candidates?.[Symbol.iterator] !== "function"
-    ) {
-        return [...DEFAULT_CACHE_KEYS];
+    const labels = new Set();
+
+    for (const candidate of candidates) {
+        const label = getNonEmptyString(candidate)?.trim();
+        if (label) {
+            labels.add(label);
+        }
     }
 
-    const normalized = normalizeStringList(
-        Array.isArray(candidates) ? candidates : Array.from(candidates),
-        {
-            splitPattern: null,
-            allowInvalidType: true
-        }
-    );
-
-    return normalized.length > 0 ? normalized : [...DEFAULT_CACHE_KEYS];
+    return labels.size > 0 ? Array.from(labels) : [...DEFAULT_CACHE_KEYS];
 }
 
 function normalizeIncrementAmount(amount, fallback = 1) {
@@ -82,10 +76,7 @@ function createCacheStatsEnsurer(caches, cacheKeys) {
 function recordCacheIncrement(ensureCacheStats, cacheName, key, amount = 1) {
     const stats = ensureCacheStats(cacheName);
     const normalizedKey = normalizeLabel(key);
-    if (!stats.has(normalizedKey)) {
-        stats.set(normalizedKey, 0);
-    }
-
+    const previous = getOrCreateMapEntry(stats, normalizedKey, () => 0);
     const increment = normalizeIncrementAmount(
         amount,
         amount === undefined ? 1 : 0
@@ -94,7 +85,7 @@ function recordCacheIncrement(ensureCacheStats, cacheName, key, amount = 1) {
         return;
     }
 
-    stats.set(normalizedKey, (stats.get(normalizedKey) ?? 0) + increment);
+    stats.set(normalizedKey, previous + increment);
 }
 
 function mergeSummarySections(summary, extra) {
@@ -161,6 +152,46 @@ function createFinalizer({ autoLog, logger, category, snapshot }) {
     };
 }
 
+/**
+ * Build a metrics collector tailored to a specific reporting category.
+ *
+ * The tracker records timing samples, counter increments, cache hit/miss
+ * metrics, and arbitrary metadata. Callers can optionally provide a
+ * `logger.debug` implementation to receive structured summary logs either
+ * on-demand (via the returned `logSummary` helper) or automatically when
+ * `finalize` runs and the `autoLog` option is enabled.
+ *
+ * Cache statistics default to tracking `hits`, `misses`, and `stale` entries.
+ * Supplying `options.cacheKeys` expands that schema while still ensuring each
+ * cache starts with zeroed counters for the configured labels.
+ *
+ * @param {object} [options]
+ * @param {string} [options.category="metrics"] Identifier included in emitted
+ *        summaries and log messages.
+ * @param {{ debug?: (message: string, payload: object) => void } | null}
+ *        [options.logger] Logger receiving summary output. When omitted or
+ *        lacking a `debug` method, logging helpers become no-ops.
+ * @param {boolean} [options.autoLog=false] When `true`, the tracker emits a
+ *        summary through `logger.debug` when `finalize` is invoked.
+ * @param {Iterable<string> | Array<string> | null | undefined}
+ *        [options.cacheKeys] Custom cache metric labels to initialize for each
+ *        cache. Falsy values fall back to the default trio.
+ * @returns {{
+ *     category: string;
+ *     timeSync: (label: string, callback: () => unknown) => unknown;
+ *     timeAsync: (label: string, callback: () => Promise<unknown>) => Promise<unknown>;
+ *     startTimer: (label: string) => () => void;
+ *     incrementCounter: (label: string, amount?: number) => void;
+ *     recordCacheHit: (cacheName: string) => void;
+ *     recordCacheMiss: (cacheName: string) => void;
+ *     recordCacheStale: (cacheName: string) => void;
+ *     recordCacheMetric: (cacheName: string, key: string, amount?: number) => void;
+ *     snapshot: (extra?: object) => object;
+ *     finalize: (extra?: object) => object;
+ *     logSummary: (message?: string, extra?: object) => void;
+ *     setMetadata: (key: string, value: unknown) => void;
+ * }} Interface for recording and retrieving metrics.
+ */
 export function createMetricsTracker({
     category = "metrics",
     logger = null,
