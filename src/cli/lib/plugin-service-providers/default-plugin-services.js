@@ -1,13 +1,9 @@
-import { resolveDefaultCliPluginServiceDescriptors } from "./default-plugin-service-descriptors.js";
-
-/**
- * The legacy `identifierCasePlanService` facade coupled plan preparation with
- * cache clearing behind one "service" surface. That wide contract forced CLI
- * collaborators that only needed to warm caches or only needed to clear them
- * to depend on both behaviours. The typedefs below capture the narrower
- * preparation and cache responsibilities so consumers can opt into the precise
- * collaborator they require.
- */
+import { buildProjectIndex } from "prettier-plugin-gamemaker/project-index";
+import {
+    prepareIdentifierCasePlan,
+    clearIdentifierCaseOptionStore,
+    clearIdentifierCaseDryRunContexts
+} from "prettier-plugin-gamemaker/identifier-case";
 
 /**
  * @typedef {object} CliIdentifierCasePlanPreparationService
@@ -19,15 +15,27 @@ import { resolveDefaultCliPluginServiceDescriptors } from "./default-plugin-serv
  * @property {() => void} clearIdentifierCaseCaches
  */
 
-function normalizeDescriptorSource(descriptorSource) {
-    const resolved =
-        descriptorSource ?? resolveDefaultCliPluginServiceDescriptors;
+function clearIdentifierCaseCaches() {
+    clearIdentifierCaseOptionStore(null);
+    clearIdentifierCaseDryRunContexts();
+}
 
-    if (typeof resolved === "function") {
-        return resolved();
+function resolveDescriptorSource(descriptorSource) {
+    if (descriptorSource == null) {
+        return {};
     }
 
-    return resolved;
+    if (typeof descriptorSource === "function") {
+        return resolveDescriptorSource(descriptorSource());
+    }
+
+    if (typeof descriptorSource === "object") {
+        return descriptorSource;
+    }
+
+    throw new TypeError(
+        "CLI plugin service descriptors must be provided as objects."
+    );
 }
 
 function assertDescriptorValue(value, description) {
@@ -39,19 +47,14 @@ function assertDescriptorValue(value, description) {
 }
 
 export function createDefaultCliPluginServices(descriptorSource) {
-    const descriptors = normalizeDescriptorSource(descriptorSource);
+    const descriptors = resolveDescriptorSource(descriptorSource);
 
-    if (!descriptors || typeof descriptors !== "object") {
-        throw new TypeError(
-            "CLI plugin service descriptors must be provided as objects."
-        );
-    }
-
-    const {
-        projectIndexBuilder,
-        identifierCasePlanPreparer,
-        identifierCaseCacheClearer
-    } = descriptors;
+    const projectIndexBuilder =
+        descriptors.projectIndexBuilder ?? buildProjectIndex;
+    const identifierCasePlanPreparer =
+        descriptors.identifierCasePlanPreparer ?? prepareIdentifierCasePlan;
+    const identifierCaseCacheClearer =
+        descriptors.identifierCaseCacheClearer ?? clearIdentifierCaseCaches;
 
     assertDescriptorValue(projectIndexBuilder, "project index builder");
     assertDescriptorValue(
