@@ -37,14 +37,16 @@ import {
     createProjectIndexMetrics,
     finalizeProjectIndexMetrics
 } from "./metrics.js";
-import {
-    createAbortGuard,
-    throwIfAborted
-} from "../../../shared/abort-utils.js";
+import { throwIfAborted } from "../../../shared/abort-utils.js";
 import {
     analyseResourceFiles,
     createFileScopeDescriptor
 } from "./resource-analysis.js";
+import {
+    PROJECT_INDEX_BUILD_ABORT_MESSAGE,
+    PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE,
+    createProjectIndexAbortGuard
+} from "./abort-guard.js";
 import { loadBuiltInIdentifiers } from "./built-in-identifiers.js";
 import { createProjectIndexCoordinatorFactory } from "./coordinator.js";
 
@@ -55,10 +57,6 @@ const PARSER_FACADE_OPTION_KEYS = [
     "gmlParserFacade",
     "parserFacade"
 ];
-
-const PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE =
-    "Project root discovery was aborted.";
-const PROJECT_INDEX_BUILD_ABORT_MESSAGE = "Project index build was aborted.";
 
 /**
  * Create shallow clones of common entry collections stored on project index
@@ -105,8 +103,8 @@ function resolveProjectIndexParser(options) {
 
 export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
     const filepath = options?.filepath;
-    const { signal, ensureNotAborted } = createAbortGuard(options, {
-        fallbackMessage: PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE
+    const { signal, ensureNotAborted } = createProjectIndexAbortGuard(options, {
+        message: PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE
     });
 
     if (!filepath) {
@@ -387,9 +385,7 @@ async function scanProjectTree(
     metrics = null,
     options = {}
 ) {
-    const { signal, ensureNotAborted } = createAbortGuard(options, {
-        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
-    });
+    const { signal, ensureNotAborted } = createProjectIndexAbortGuard(options);
     const traversal = createDirectoryTraversal(projectRoot);
     const collector = createProjectTreeCollector(metrics);
 
@@ -1802,9 +1798,7 @@ async function processWithConcurrency(items, limit, worker, options = {}) {
 
     assertFunction(worker, "worker");
 
-    const { ensureNotAborted } = createAbortGuard(options, {
-        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
-    });
+    const { ensureNotAborted } = createProjectIndexAbortGuard(options);
 
     const limitValue = Number(limit);
     const effectiveLimit =
@@ -2320,9 +2314,7 @@ export async function buildProjectIndex(
 
     const stopTotal = metrics.startTimer("total");
 
-    const { signal, ensureNotAborted } = createAbortGuard(options, {
-        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
-    });
+    const { signal, ensureNotAborted } = createProjectIndexAbortGuard(options);
 
     const builtInNames = await loadBuiltInNamesForProjectIndex({
         fsFacade,
