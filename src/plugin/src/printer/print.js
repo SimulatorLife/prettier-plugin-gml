@@ -733,7 +733,8 @@ export function print(path, options, print) {
             return concat([node.kind, " ", decls]);
         }
         case "VariableDeclarator": {
-            const initializerOverride = resolveArgumentAliasInitializerDoc(path);
+            const initializerOverride =
+                resolveArgumentAliasInitializerDoc(path);
             if (initializerOverride) {
                 return concat(
                     printSimpleDeclaration(print("id"), initializerOverride)

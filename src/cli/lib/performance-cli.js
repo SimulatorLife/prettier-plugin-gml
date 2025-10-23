@@ -18,7 +18,11 @@ import {
     ensureSuitesAreKnown,
     resolveRequestedSuites
 } from "./command-suite-helpers.js";
-import { coercePositiveInteger, getIdentifierText } from "./shared-deps.js";
+import {
+    assertArray,
+    coercePositiveInteger,
+    getIdentifierText
+} from "./shared-deps.js";
 import {
     PerformanceSuiteName,
     isPerformanceThroughputSuite,
@@ -178,14 +182,15 @@ async function loadFixtureDataset({ directories } = {}) {
 }
 
 function normalizeCustomDataset(dataset) {
-    if (!Array.isArray(dataset)) {
-        throw new TypeError("Custom datasets must be provided as an array.");
-    }
+    const entries = assertArray(dataset, {
+        name: "dataset",
+        errorMessage: "Custom datasets must be provided as an array."
+    });
 
     const files = [];
     let totalBytes = 0;
 
-    dataset.forEach((entry, index) => {
+    entries.forEach((entry, index) => {
         if (!entry || typeof entry !== "object") {
             throw new TypeError(
                 "Each dataset entry must be an object with a source string."

@@ -1,5 +1,6 @@
 export {
     applyEnvironmentOverride,
+    assertArray,
     assertFunction,
     assertNonEmptyString,
     assertPlainObject,
