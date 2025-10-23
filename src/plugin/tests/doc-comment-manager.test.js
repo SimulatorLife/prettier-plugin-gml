@@ -3,7 +3,8 @@ import test from "node:test";
 
 import {
     getDocCommentManager,
-    resolveDocCommentInspectionService,
+    resolveDocCommentLookupService,
+    resolveDocCommentTraversalService,
     resolveDocCommentUpdateService
 } from "../src/comments/doc-comment-manager.js";
 
@@ -11,14 +12,16 @@ test("doc comment services expose segregated contracts", () => {
     const ast = { type: "Program", body: [] };
 
     const manager = getDocCommentManager(ast);
-    const inspection = resolveDocCommentInspectionService(ast);
+    const traversal = resolveDocCommentTraversalService(ast);
+    const lookup = resolveDocCommentLookupService(ast);
     const updates = resolveDocCommentUpdateService(ast);
 
-    assert.ok(Object.isFrozen(inspection));
+    assert.ok(Object.isFrozen(traversal));
+    assert.ok(Object.isFrozen(lookup));
     assert.ok(Object.isFrozen(updates));
 
-    assert.deepStrictEqual(Object.keys(inspection), [
-        "forEach",
+    assert.deepStrictEqual(Object.keys(traversal), ["forEach"]);
+    assert.deepStrictEqual(Object.keys(lookup), [
         "getComments",
         "extractDescription",
         "hasDocComment"
@@ -26,21 +29,21 @@ test("doc comment services expose segregated contracts", () => {
     assert.deepStrictEqual(Object.keys(updates), ["applyUpdates"]);
 
     assert.ok(
-        inspection.forEach.name.endsWith(manager.forEach.name),
+        traversal.forEach.name.endsWith(manager.forEach.name),
         "forEach binding should preserve original function name"
     );
     assert.ok(
-        inspection.getComments.name.endsWith(manager.getComments.name),
+        lookup.getComments.name.endsWith(manager.getComments.name),
         "getComments binding should preserve original function name"
     );
     assert.ok(
-        inspection.extractDescription.name.endsWith(
+        lookup.extractDescription.name.endsWith(
             manager.extractDescription.name
         ),
         "extractDescription binding should preserve original function name"
     );
     assert.ok(
-        inspection.hasDocComment.name.endsWith(manager.hasDocComment.name),
+        lookup.hasDocComment.name.endsWith(manager.hasDocComment.name),
         "hasDocComment binding should preserve original function name"
     );
     assert.ok(
@@ -52,18 +55,27 @@ test("doc comment services expose segregated contracts", () => {
 test("doc comment services reuse cached views and tolerate missing AST", () => {
     const ast = { type: "Program", body: [] };
 
-    const firstInspection = resolveDocCommentInspectionService(ast);
-    const secondInspection = resolveDocCommentInspectionService(ast);
+    const firstTraversal = resolveDocCommentTraversalService(ast);
+    const secondTraversal = resolveDocCommentTraversalService(ast);
+    const firstLookup = resolveDocCommentLookupService(ast);
+    const secondLookup = resolveDocCommentLookupService(ast);
     const firstUpdates = resolveDocCommentUpdateService(ast);
     const secondUpdates = resolveDocCommentUpdateService(ast);
 
-    assert.strictEqual(firstInspection, secondInspection);
+    assert.strictEqual(firstTraversal, secondTraversal);
+    assert.strictEqual(firstLookup, secondLookup);
     assert.strictEqual(firstUpdates, secondUpdates);
 
-    const noopInspection = resolveDocCommentInspectionService(null);
+    const noopTraversal = resolveDocCommentTraversalService(null);
+    const noopLookup = resolveDocCommentLookupService(null);
     const noopUpdates = resolveDocCommentUpdateService();
 
-    assert.deepStrictEqual(noopInspection.getComments({}), []);
-    assert.strictEqual(noopInspection.hasDocComment({}), false);
+    let visited = false;
+    noopTraversal.forEach(() => {
+        visited = true;
+    });
+    assert.strictEqual(visited, false);
+    assert.deepStrictEqual(noopLookup.getComments({}), []);
+    assert.strictEqual(noopLookup.hasDocComment({}), false);
     assert.doesNotThrow(() => noopUpdates.applyUpdates(new Map()));
 });

@@ -91,3 +91,16 @@ no code changes were required.
   files, refs, and commits. Updated the manual CLI commands and unit tests to
   use `createManualManualAccessContext` and `createManualGitHubExecutionContext`
   so each call site depends only on the GitHub behaviour it requires.
+
+## Follow-up audit (2025-03-19)
+
+- Found the `DocCommentInspectionService` facade in
+  `src/plugin/src/comments/doc-comment-manager.js`. The service exposed both
+  traversal and read-only doc comment lookups behind one contract, so
+  transforms that only iterated doc comments received lookup helpers and vice
+  versa.
+- Split the facade into `DocCommentTraversalService` (providing the `forEach`
+  iterator) and `DocCommentLookupService` (surfacing `getComments`,
+  `extractDescription`, and `hasDocComment`). Updated comment-aware transforms
+  to depend on the specific collaborator they require and refreshed the tests to
+  exercise the segregated contracts.

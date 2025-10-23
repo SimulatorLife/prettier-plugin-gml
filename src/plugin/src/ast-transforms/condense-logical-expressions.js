@@ -1,7 +1,7 @@
 import {
     hasComment as sharedHasComment,
     normalizeHasCommentHelpers,
-    resolveDocCommentInspectionService,
+    resolveDocCommentLookupService,
     resolveDocCommentUpdateService
 } from "../comments/index.js";
 import { cloneLocation } from "../../../shared/ast-locations.js";
@@ -48,14 +48,14 @@ export function condenseLogicalExpressions(ast, helpers) {
         return ast;
     }
 
-    const docCommentManager = resolveDocCommentInspectionService(ast);
+    const docCommentLookup = resolveDocCommentLookupService(ast);
     const docCommentUpdateService = resolveDocCommentUpdateService(ast);
     const normalizedHelpers = normalizeHasCommentHelpers(helpers);
     const context = {
         ast,
         helpers: normalizedHelpers,
         docUpdates: new Map(),
-        docCommentManager,
+        docCommentLookup,
         docCommentUpdateService,
         expressionSignatures: new Map()
     };
@@ -186,7 +186,7 @@ function removeDuplicateCondensedFunctions(context) {
         return null;
     }
 
-    const docCommentManager = context.docCommentManager;
+    const docCommentLookup = context.docCommentLookup;
     const signatureToFunctions = new Map();
     for (const [fn, signature] of context.expressionSignatures.entries()) {
         if (!signature) {
@@ -226,7 +226,7 @@ function removeDuplicateCondensedFunctions(context) {
             const update = context.docUpdates.get(fn);
             const hasDocComment =
                 update?.hasDocComment ||
-                (docCommentManager?.hasDocComment(fn) ?? false);
+                (docCommentLookup?.hasDocComment(fn) ?? false);
             if (hasDocComment && !keeper) {
                 keeper = fn;
             }
@@ -241,7 +241,7 @@ function removeDuplicateCondensedFunctions(context) {
                 const update = context.docUpdates.get(fn);
                 const hasDocComment =
                     update?.hasDocComment ||
-                    (docCommentManager?.hasDocComment(fn) ?? false);
+                    (docCommentLookup?.hasDocComment(fn) ?? false);
                 if (!hasDocComment) {
                     toRemove.add(fn);
                 }
@@ -581,9 +581,9 @@ function tryCondenseIfStatement(
         activeTransformationContext
     ) {
         const docString = renderExpressionForDocComment(argumentAst);
-        const docCommentManager = activeTransformationContext.docCommentManager;
-        const description = docCommentManager
-            ? docCommentManager.extractDescription(parentNode)
+        const docCommentLookup = activeTransformationContext.docCommentLookup;
+        const description = docCommentLookup
+            ? docCommentLookup.extractDescription(parentNode)
             : null;
 
         if (docString) {

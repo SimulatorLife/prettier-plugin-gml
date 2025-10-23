@@ -32,7 +32,8 @@ export {
 export {
     getDocCommentManager,
     prepareDocCommentEnvironment,
-    resolveDocCommentInspectionService,
+    resolveDocCommentLookupService,
+    resolveDocCommentTraversalService,
     resolveDocCommentUpdateService
 } from "./doc-comment-manager.js";
 export { getCommentValue } from "./comment-utils.js";
