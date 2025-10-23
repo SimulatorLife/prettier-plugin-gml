@@ -77,8 +77,35 @@ export function assertNonEmptyString(
     return normalized;
 }
 
+const CHAR_CODE_0 = "0".charCodeAt(0);
+const CHAR_CODE_9 = "9".charCodeAt(0);
+const CHAR_CODE_UPPER_A = "A".charCodeAt(0);
+const CHAR_CODE_UPPER_Z = "Z".charCodeAt(0);
+const CHAR_CODE_LOWER_A = "a".charCodeAt(0);
+const CHAR_CODE_LOWER_Z = "z".charCodeAt(0);
+const CHAR_CODE_UNDERSCORE = "_".charCodeAt(0);
+
 export function isWordChar(character) {
-    return typeof character === "string" && /[\w]/.test(character);
+    if (typeof character !== "string" || character.length === 0) {
+        return false;
+    }
+
+    // Avoid the overhead of `RegExp#test` in tight lexing loops by scanning the
+    // string for an ASCII word character directly.
+    for (let index = 0; index < character.length; index += 1) {
+        const code = character.charCodeAt(index);
+
+        if (
+            (code >= CHAR_CODE_0 && code <= CHAR_CODE_9) ||
+            (code >= CHAR_CODE_UPPER_A && code <= CHAR_CODE_UPPER_Z) ||
+            (code >= CHAR_CODE_LOWER_A && code <= CHAR_CODE_LOWER_Z) ||
+            code === CHAR_CODE_UNDERSCORE
+        ) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 export function toTrimmedString(value) {
