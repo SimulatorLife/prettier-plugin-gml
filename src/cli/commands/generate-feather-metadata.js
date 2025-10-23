@@ -222,7 +222,9 @@ function extractTable(table) {
             return lines.join("\n");
         });
 
-        const hasContent = values.some((value) => value && value.trim());
+        const hasContent = values.some((value) =>
+            getNonEmptyTrimmedString(value)
+        );
         if (!hasContent) {
             return;
         }
