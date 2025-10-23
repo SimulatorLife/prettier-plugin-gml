@@ -138,7 +138,10 @@ for (var i = 0; i < queue_count; i += 1) {
   repository health check, with links back to the
   [May 2024 audit](docs/architecture-audit-2024-05-15.md) and
   [shared module layout refresh](docs/shared-module-layout.md) for historical
-  context around the `src/shared/` consolidation.
+  context around the `src/shared/` consolidation. Pair it with the
+  [interface segregation investigation](docs/interface-segregation-investigation.md)
+  when you need a refresher on why the CLI and plugin expose separate entry
+  points.
 - [Identifier casing handbook](docs/naming-conventions.md) &mdash; End-to-end
   coverage of the rename pipeline paired with the
   [scope reference](docs/identifier-case-reference.md),
@@ -150,6 +153,10 @@ for (var i = 0; i < queue_count; i += 1) {
   alongside the [Feather data plan](docs/feather-data-plan.md). Pair them with
   the [reserved identifier metadata hook overview](docs/reserved-identifier-metadata-hook.md)
   when staging bespoke metadata sources or regeneration scripts.
+- [Live reloading concept](docs/live-reloading-concept.md) &mdash; Concept brief for
+  the HTML5 runtime fork and watcher pipeline that powers in-place code reloads
+  during gameplay. Use it alongside the architecture audits when evaluating
+  runtime tooling work.
 
 ---
 
@@ -412,6 +419,9 @@ without editing project scripts:
   Adds repository-relative or absolute plugin entry point paths for the wrapper
   to consider before falling back to its built-in candidates. Useful when CI
   jobs build the plugin into a temporary directory.
+- `PRETTIER_PLUGIN_GML_PRETTIER_MODULE` &mdash; Overrides the module specifier used
+  to resolve Prettier. Handy when the formatter runs inside a monorepo with a
+  custom Prettier build or when you pin a nightly via a local alias.
 - `PRETTIER_PLUGIN_GML_VERSION` &mdash; Injects the version label surfaced by
   `node ./node_modules/root/src/cli/cli.js --version`. Handy when mirroring
   release tags or packaging nightly builds.
