@@ -121,6 +121,9 @@ const VALID_PRETTIER_LOG_LEVEL_CHOICES = formatValidChoiceList(
     VALID_PRETTIER_LOG_LEVELS
 );
 
+const PRETTIER_MODULE_ID =
+    process.env.PRETTIER_PLUGIN_GML_PRETTIER_MODULE ?? "prettier";
+
 function formatExtensionListForDisplay(extensions) {
     return extensions.map((extension) => `"${extension}"`).join(", ");
 }
@@ -158,7 +161,7 @@ let prettierModulePromise = null;
 
 async function resolvePrettier() {
     if (!prettierModulePromise) {
-        prettierModulePromise = import("prettier")
+        prettierModulePromise = import(PRETTIER_MODULE_ID)
             .then((module) => module?.default ?? module)
             .catch((error) => {
                 if (isMissingPrettierDependency(error)) {

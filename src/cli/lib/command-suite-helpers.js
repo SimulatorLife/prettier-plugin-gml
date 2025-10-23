@@ -184,6 +184,13 @@ function assertSuiteRegistryContract(availableSuites) {
 export function createSuiteResultsPayload(results, { generatedAt } = {}) {
     return {
         generatedAt: generatedAt ?? new Date().toISOString(),
+        environment: {
+            nodeVersion: process.version,
+            platform: process.platform,
+            arch: process.arch,
+            pid: process.pid,
+            cwd: process.cwd()
+        },
         suites: results
     };
 }
