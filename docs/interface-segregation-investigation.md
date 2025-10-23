@@ -91,3 +91,18 @@ no code changes were required.
   files, refs, and commits. Updated the manual CLI commands and unit tests to
   use `createManualManualAccessContext` and `createManualGitHubExecutionContext`
   so each call site depends only on the GitHub behaviour it requires.
+
+## Follow-up audit (2025-03-19)
+
+- Audited the manual GitHub execution helpers again and found the
+  `ManualCommandGitHubClients` contract in
+  `src/cli/lib/manual-command-context.js`. The catch-all "clients" object still
+  combined the raw request executor, commit resolver, ref resolver, and file
+  fetcher into one dependency, which meant consumers importing the execution
+  context needed to accept all four collaborators even when they only required
+  one.
+- Removed the aggregated `ManualCommandGitHubClients` interface in favour of
+  exposing the individual collaborators (`request`, `commitResolver`,
+  `refResolver`, and `fileClient`) directly on the execution context. Updated
+  the associated unit test to assert against the focused properties so each
+  call site now depends solely on the GitHub behaviour it needs.

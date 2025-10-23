@@ -55,23 +55,17 @@ test("createManualGitHubExecutionContext exposes execution helpers", () => {
         userAgent: "manual-context-test"
     });
 
-    assert.ok(Object.isFrozen(context.clients));
     assert.ok(Object.isFrozen(context.requests));
     assert.ok(Object.isFrozen(context.commits));
-    assert.equal(typeof context.clients.request, "function");
+    assert.ok(Object.isFrozen(context));
+    assert.equal(typeof context.request, "function");
+    assert.equal(context.request, context.requests.executeManualRequest);
     assert.equal(
-        context.clients.request,
-        context.requests.executeManualRequest
-    );
-    assert.equal(
-        typeof context.clients.commitResolver.resolveCommitFromRef,
+        typeof context.commitResolver.resolveCommitFromRef,
         "function"
     );
-    assert.equal(
-        typeof context.clients.refResolver.resolveManualRef,
-        "function"
-    );
-    assert.equal(typeof context.clients.fileClient.fetchManualFile, "function");
+    assert.equal(typeof context.refResolver.resolveManualRef, "function");
+    assert.equal(typeof context.fileClient.fetchManualFile, "function");
     assert.equal(typeof context.commits.resolveCommitFromRef, "function");
 });
 
