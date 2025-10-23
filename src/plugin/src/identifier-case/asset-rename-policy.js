@@ -13,84 +13,48 @@ const IdentifierCaseAssetRenamePolicyReason = Object.freeze({
     APPLY: "apply"
 });
 
-function createResult(shouldApply, reason, renames, conflicts) {
-    return { shouldApply, reason, renames, conflicts };
-}
-
-function evaluateIdentifierCaseAssetRenamePolicy({
-    options = {},
-    projectIndex = null,
-    assetRenames = [],
-    assetConflicts = []
-} = {}) {
-    if (options?.__identifierCaseDryRun !== false) {
-        return createResult(
-            false,
-            IdentifierCaseAssetRenamePolicyReason.DRY_RUN_ENABLED,
-            [],
-            []
-        );
-    }
+export function evaluateIdentifierCaseAssetRenamePolicy(context = {}) {
+    const {
+        options = {},
+        projectIndex = null,
+        assetRenames = [],
+        assetConflicts = []
+    } = context;
 
     const renames = asArray(assetRenames);
-    if (!isNonEmptyArray(renames)) {
-        return createResult(
-            false,
-            IdentifierCaseAssetRenamePolicyReason.NO_RENAMES,
-            [],
-            []
-        );
-    }
-
     const conflicts = asArray(assetConflicts);
-    if (isNonEmptyArray(conflicts)) {
-        return createResult(
-            false,
-            IdentifierCaseAssetRenamePolicyReason.HAS_CONFLICTS,
-            [],
-            conflicts
-        );
+
+    let reason;
+    if (options?.__identifierCaseDryRun !== false) {
+        reason = IdentifierCaseAssetRenamePolicyReason.DRY_RUN_ENABLED;
+    } else if (!isNonEmptyArray(renames)) {
+        reason = IdentifierCaseAssetRenamePolicyReason.NO_RENAMES;
+    } else if (isNonEmptyArray(conflicts)) {
+        reason = IdentifierCaseAssetRenamePolicyReason.HAS_CONFLICTS;
+    } else if (!projectIndex) {
+        reason = IdentifierCaseAssetRenamePolicyReason.MISSING_PROJECT_INDEX;
+    } else if (options?.__identifierCaseAssetRenamesApplied === true) {
+        reason = IdentifierCaseAssetRenamePolicyReason.ALREADY_APPLIED;
+    } else {
+        reason = IdentifierCaseAssetRenamePolicyReason.APPLY;
     }
 
-    if (!projectIndex) {
-        return createResult(
-            false,
-            IdentifierCaseAssetRenamePolicyReason.MISSING_PROJECT_INDEX,
-            renames,
-            conflicts
-        );
-    }
+    const shouldApply = reason === IdentifierCaseAssetRenamePolicyReason.APPLY;
 
-    if (options?.__identifierCaseAssetRenamesApplied === true) {
-        return createResult(
-            false,
-            IdentifierCaseAssetRenamePolicyReason.ALREADY_APPLIED,
-            renames,
-            conflicts
-        );
-    }
+    const includeRenames =
+        reason === IdentifierCaseAssetRenamePolicyReason.APPLY ||
+        reason ===
+            IdentifierCaseAssetRenamePolicyReason.MISSING_PROJECT_INDEX ||
+        reason === IdentifierCaseAssetRenamePolicyReason.ALREADY_APPLIED;
+    const includeConflicts =
+        reason === IdentifierCaseAssetRenamePolicyReason.HAS_CONFLICTS;
 
-    return createResult(
-        true,
-        IdentifierCaseAssetRenamePolicyReason.APPLY,
-        renames,
-        conflicts
-    );
+    return {
+        shouldApply,
+        reason,
+        renames: includeRenames ? renames : [],
+        conflicts: includeConflicts ? conflicts : []
+    };
 }
 
-class IdentifierCaseAssetRenamePolicy {
-    evaluate(context) {
-        return evaluateIdentifierCaseAssetRenamePolicy(context);
-    }
-}
-
-function createIdentifierCaseAssetRenamePolicy() {
-    return new IdentifierCaseAssetRenamePolicy();
-}
-
-export {
-    IdentifierCaseAssetRenamePolicy,
-    IdentifierCaseAssetRenamePolicyReason,
-    createIdentifierCaseAssetRenamePolicy,
-    evaluateIdentifierCaseAssetRenamePolicy
-};
+export { IdentifierCaseAssetRenamePolicyReason };
