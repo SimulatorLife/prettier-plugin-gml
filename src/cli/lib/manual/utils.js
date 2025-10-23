@@ -23,7 +23,11 @@ export const MANUAL_REPO_REQUIREMENT_SOURCE = Object.freeze({
 });
 
 /**
- * @typedef {typeof MANUAL_REPO_REQUIREMENT_SOURCE[keyof typeof MANUAL_REPO_REQUIREMENT_SOURCE]} ManualRepoRequirementSource
+ * @typedef {
+ *     typeof MANUAL_REPO_REQUIREMENT_SOURCE[
+ *         keyof typeof MANUAL_REPO_REQUIREMENT_SOURCE
+ *     ]
+ * } ManualRepoRequirementSource
  */
 
 const MANUAL_REPO_REQUIREMENT_MESSAGES = Object.freeze({
@@ -77,15 +81,26 @@ function describeManualRepoInput(value) {
  */
 
 /**
+ * @typedef {object} ManualGitHubResolveCommitOptions
+ * @property {string} apiRoot
+ */
+
+/**
+ * @typedef {object} ManualGitHubCommitReference
+ * @property {string} ref
+ * @property {string} sha
+ */
+
+/**
  * @typedef {object} ManualGitHubCommitResolver
- * @property {(ref: string, options: { apiRoot: string }) => Promise<{ ref: string, sha: string }>}
- *   resolveCommitFromRef
+ * @property {(ref: string, options: ManualGitHubResolveCommitOptions) =>
+ *     Promise<ManualGitHubCommitReference>} resolveCommitFromRef
  */
 
 /**
  * @typedef {object} ManualGitHubRefResolver
- * @property {(ref: string | null | undefined, options: ManualGitHubResolveOptions) => Promise<{ ref: string, sha: string }>}
- *   resolveManualRef
+ * @property {(ref: string | null | undefined, options: ManualGitHubResolveOptions) =>
+ *     Promise<ManualGitHubCommitReference>} resolveManualRef
  */
 
 /**
