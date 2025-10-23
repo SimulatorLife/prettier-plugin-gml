@@ -1,11 +1,23 @@
 import path from "node:path";
 
 import { toPosixPath } from "../../../shared/path-utils.js";
+import { assertFunction } from "../../../shared/object-utils.js";
 import {
     getNonEmptyString,
     isNonEmptyString
 } from "../../../shared/string-utils.js";
 import { resolveProjectPathInfo } from "./path-info.js";
+
+function withProjectPathInfo(filePath, projectRoot, projector) {
+    assertFunction(projector, "projector");
+
+    const info = resolveProjectPathInfo(filePath, projectRoot);
+    if (!info) {
+        return null;
+    }
+
+    return projector(info);
+}
 
 export function normalizeProjectResourcePath(rawPath, { projectRoot } = {}) {
     if (!isNonEmptyString(rawPath)) {
@@ -20,25 +32,16 @@ export function normalizeProjectResourcePath(rawPath, { projectRoot } = {}) {
     const absoluteCandidate = path.isAbsolute(normalized)
         ? normalized
         : path.join(projectRoot, normalized);
-    const info = resolveProjectPathInfo(absoluteCandidate, projectRoot);
-    if (!info) {
-        return null;
-    }
 
-    return toPosixPath(info.relativePath);
+    return withProjectPathInfo(absoluteCandidate, projectRoot, (info) =>
+        toPosixPath(info.relativePath)
+    );
 }
 
 export function resolveProjectRelativeFilePath(projectRoot, absoluteFilePath) {
-    const info = resolveProjectPathInfo(absoluteFilePath, projectRoot);
-    if (!info) {
-        return null;
-    }
-
-    if (!info.hasProjectRoot) {
-        return toPosixPath(info.absolutePath);
-    }
-
-    return toPosixPath(info.relativePath);
+    return withProjectPathInfo(absoluteFilePath, projectRoot, (info) =>
+        toPosixPath(info.hasProjectRoot ? info.relativePath : info.absolutePath)
+    );
 }
 
 export function resolveProjectDisplayPath(filePath, projectRoot) {
@@ -47,21 +50,18 @@ export function resolveProjectDisplayPath(filePath, projectRoot) {
         return null;
     }
 
-    const info = resolveProjectPathInfo(normalizedFilePath, projectRoot);
-    if (!info) {
-        return null;
-    }
-
-    if (!info.inputWasAbsolute) {
-        return normalizedFilePath;
-    }
-
-    if (info.hasProjectRoot && info.isInsideProjectRoot) {
-        const relative = info.relativePath;
-        if (relative) {
-            return relative;
+    return withProjectPathInfo(normalizedFilePath, projectRoot, (info) => {
+        if (!info.inputWasAbsolute) {
+            return normalizedFilePath;
         }
-    }
 
-    return normalizedFilePath;
+        if (info.hasProjectRoot && info.isInsideProjectRoot) {
+            const relative = info.relativePath;
+            if (relative) {
+                return relative;
+            }
+        }
+
+        return normalizedFilePath;
+    });
 }
