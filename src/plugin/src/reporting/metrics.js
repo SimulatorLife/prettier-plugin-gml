@@ -89,19 +89,30 @@ export function createMetricsTracker({
     function adjustCacheMetric(cacheName, key, amount) {
         const stats = ensureCacheStats(cacheName);
         const normalizedKey = normalizeLabel(key);
-        if (!stats.has(normalizedKey)) {
-            stats.set(normalizedKey, 0);
-        }
-
         const increment = normalizeIncrementAmount(
             amount,
             amount === undefined ? 1 : 0
         );
+        const previous = stats.get(normalizedKey);
+
+        if (previous === undefined) {
+            // Lazily seed unknown keys so the hot path only performs a single
+            // map lookup. This mirrors the previous semantics that created the
+            // entry even when the increment was `0`.
+            if (increment === 0) {
+                stats.set(normalizedKey, 0);
+                return;
+            }
+
+            stats.set(normalizedKey, increment);
+            return;
+        }
+
         if (increment === 0) {
             return;
         }
 
-        stats.set(normalizedKey, (stats.get(normalizedKey) ?? 0) + increment);
+        stats.set(normalizedKey, previous + increment);
     }
 
     function snapshot(extra = {}) {
