@@ -7,8 +7,12 @@ import {
 import { isObjectLike } from "../../../shared/object-utils.js";
 import { parseJsonWithContext } from "../../../shared/json-utils.js";
 import { fromPosixPath } from "../../../shared/path-utils.js";
+import { isFsErrorCode } from "../../../shared/fs-utils.js";
 import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
 import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
+
+const DEFAULT_WRITE_ACCESS_ARGS =
+    DEFAULT_WRITE_ACCESS_MODE == undefined ? [] : [DEFAULT_WRITE_ACCESS_MODE];
 
 function tryAccess(fsFacade, method, targetPath, ...args) {
     if (!targetPath || !fsFacade) {
@@ -24,7 +28,7 @@ function tryAccess(fsFacade, method, targetPath, ...args) {
         const result = fn.call(fsFacade, targetPath, ...args);
         return method === "existsSync" ? Boolean(result) : true;
     } catch (error) {
-        if (error?.code === "ENOENT") {
+        if (isFsErrorCode(error, "ENOENT")) {
             return false;
         }
         throw error;
@@ -125,18 +129,19 @@ function updateReferenceObject(json, propertyPath, newResourcePath, newName) {
 }
 
 function hasWriteAccess(fsFacade, targetPath, probeMethod) {
-    const accessArgs =
-        DEFAULT_WRITE_ACCESS_MODE == undefined
-            ? []
-            : [DEFAULT_WRITE_ACCESS_MODE];
-
-    if (tryAccess(fsFacade, "accessSync", targetPath, ...accessArgs)) {
+    if (
+        tryAccess(
+            fsFacade,
+            "accessSync",
+            targetPath,
+            ...DEFAULT_WRITE_ACCESS_ARGS
+        )
+    ) {
         return true;
     }
 
     return tryAccess(fsFacade, probeMethod, targetPath);
 }
-
 function ensureWritableDirectory(fsFacade, directoryPath) {
     if (!directoryPath) {
         return;
