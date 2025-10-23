@@ -4,7 +4,10 @@ import { pathToFileURL } from "node:url";
 import test from "node:test";
 
 import { createManualCommandContext } from "../lib/manual-command-context.js";
-import { resolveManualCacheRoot } from "../lib/manual/utils.js";
+import {
+    buildManualRepositoryEndpoints,
+    resolveManualCacheRoot
+} from "../lib/manual/utils.js";
 
 test("createManualCommandContext centralizes manual command defaults", () => {
     const commandUrl = pathToFileURL(
@@ -18,25 +21,35 @@ test("createManualCommandContext centralizes manual command defaults", () => {
     });
 
     const expectedRepoRoot = path.resolve("src/cli/commands", "..", "..");
-    assert.equal(context.repoRoot, expectedRepoRoot);
+    assert.equal(context.environment.repoRoot, expectedRepoRoot);
     assert.equal(
-        context.defaultCacheRoot,
+        context.environment.defaultCacheRoot,
         resolveManualCacheRoot({ repoRoot: expectedRepoRoot })
     );
     assert.equal(
-        context.defaultOutputPath,
+        context.environment.defaultOutputPath,
         path.join(expectedRepoRoot, "resources", "example.json")
     );
-    assert.equal(typeof context.manualRequests.execute, "function");
-    assert.equal(typeof context.manualRefResolver.resolveManualRef, "function");
     assert.equal(
-        typeof context.manualCommitResolver.resolveCommitFromRef,
+        context.environment.defaultManualRawRoot,
+        buildManualRepositoryEndpoints().rawRoot
+    );
+    assert.ok(Object.isFrozen(context.environment));
+    assert.ok(Object.isFrozen(context.clients));
+    assert.ok(Object.isFrozen(context.operations));
+    assert.equal(typeof context.clients.requests.execute, "function");
+    assert.equal(
+        typeof context.clients.refResolver.resolveManualRef,
         "function"
     );
-    assert.equal(typeof context.manualFileFetcher.fetchManualFile, "function");
-    assert.equal(typeof context.fetchManualFile, "function");
-    assert.equal(typeof context.resolveManualRef, "function");
-    assert.equal(typeof context.resolveCommitFromRef, "function");
+    assert.equal(
+        typeof context.clients.commitResolver.resolveCommitFromRef,
+        "function"
+    );
+    assert.equal(typeof context.clients.fileClient.fetchManualFile, "function");
+    assert.equal(typeof context.operations.fetchManualFile, "function");
+    assert.equal(typeof context.operations.resolveManualRef, "function");
+    assert.equal(typeof context.operations.resolveCommitFromRef, "function");
 });
 
 test("createManualCommandContext validates required arguments", () => {

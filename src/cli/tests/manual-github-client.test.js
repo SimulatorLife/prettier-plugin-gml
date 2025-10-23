@@ -220,6 +220,40 @@ describe("manual GitHub client validation", () => {
         assert.equal(responses.length, 0);
     });
 
+    it("resolves manual refs when verbose state is omitted", async () => {
+        const client = createManualClientBundle({
+            userAgent: "test-agent",
+            defaultCacheRoot: "/tmp/manual-cache",
+            defaultRawRoot: "https://raw.github.com/example/manual"
+        });
+        const { refResolver } = client;
+
+        const responses = [
+            {
+                url: `${API_ROOT}/tags?per_page=1`,
+                response: makeResponse({
+                    body: JSON.stringify([
+                        { name: "v9.9.9", commit: { sha: "cafeba" } }
+                    ])
+                })
+            }
+        ];
+
+        globalThis.fetch = async (url) => {
+            const next = responses.shift();
+            assert.ok(next, "Unexpected fetch call");
+            assert.equal(url, next.url);
+            return next.response;
+        };
+
+        const result = await refResolver.resolveManualRef(undefined, {
+            apiRoot: API_ROOT
+        });
+
+        assert.deepEqual(result, { ref: "v9.9.9", sha: "cafeba" });
+        assert.equal(responses.length, 0);
+    });
+
     it("exposes a focused commit resolver for direct commit lookups", async () => {
         const client = createManualClientBundle({
             userAgent: "test-agent",
