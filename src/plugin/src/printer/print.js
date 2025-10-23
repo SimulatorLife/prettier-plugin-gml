@@ -1219,14 +1219,26 @@ export function print(path, options, print) {
                 getArgumentIndexFromIdentifier(identifierName);
             if (argumentIndex !== null) {
                 const functionNode = findEnclosingFunctionDeclaration(path);
-                const preferredArgumentName = resolvePreferredParameterName(
-                    functionNode,
-                    argumentIndex,
-                    node.name,
-                    options
-                );
-                if (isNonEmptyString(preferredArgumentName)) {
-                    identifierName = preferredArgumentName;
+                const parentNode =
+                    typeof path?.getParentNode === "function"
+                        ? path.getParentNode()
+                        : null;
+                const isAliasInitializerForParameterlessFunction =
+                    parentNode?.type === "VariableDeclarator" &&
+                    parentNode.init === node &&
+                    (!Array.isArray(functionNode?.params) ||
+                        functionNode.params.length === 0);
+
+                if (!isAliasInitializerForParameterlessFunction) {
+                    const preferredArgumentName = resolvePreferredParameterName(
+                        functionNode,
+                        argumentIndex,
+                        node.name,
+                        options
+                    );
+                    if (isNonEmptyString(preferredArgumentName)) {
+                        identifierName = preferredArgumentName;
+                    }
                 }
             }
 
@@ -3622,6 +3634,18 @@ function getPreferredFunctionParameterName(path, node, options) {
         return null;
     }
 
+    const parentNode =
+        typeof path?.getParentNode === "function" ? path.getParentNode() : null;
+    const isAliasInitializerForParameterlessFunction =
+        parentNode?.type === "VariableDeclarator" &&
+        parentNode.init === node &&
+        (!Array.isArray(functionNode?.params) ||
+            functionNode.params.length === 0);
+
+    if (isAliasInitializerForParameterlessFunction) {
+        return null;
+    }
+
     const preferredName = resolvePreferredParameterName(
         functionNode,
         argumentIndex,
@@ -3736,6 +3760,17 @@ function resolvePreferredParameterName(
         return null;
     }
 
+    const hadSourceDocComment =
+        functionNode && functionNode._hasSourceDocComment === true;
+
+    if (
+        (!Array.isArray(functionNode.params) ||
+            functionNode.params.length === 0) &&
+        !hadSourceDocComment
+    ) {
+        return null;
+    }
+
     const docPreferences = preferredParamDocNamesByNode.get(functionNode);
     let preferredSource =
         (docPreferences && docPreferences.get(paramIndex)) || null;
@@ -3805,21 +3840,20 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
         return false;
     }
 
+    const params =
+        functionNode && Array.isArray(functionNode.params)
+            ? functionNode.params
+            : null;
+    if (!params || argumentIndex < 0 || argumentIndex >= params.length) {
+        return false;
+    }
+
     const normalizedPreferred = preferredName
         ? normalizePreferredParameterName(preferredName)
         : null;
 
     if (normalizedPreferred && normalizedPreferred === normalizedAlias) {
         return true;
-    }
-
-    if (!functionNode || !Array.isArray(functionNode.params)) {
-        return false;
-    }
-
-    const params = functionNode.params;
-    if (argumentIndex < 0 || argumentIndex >= params.length) {
-        return false;
     }
 
     const identifier = getIdentifierFromParameterNode(params[argumentIndex]);

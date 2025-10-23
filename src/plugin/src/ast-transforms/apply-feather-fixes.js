@@ -4112,6 +4112,13 @@ function fixArgumentReferencesWithinFunction(
                     continue;
                 }
 
+                if (
+                    alias.declarator?.init === reference.node ||
+                    alias.init === reference.node
+                ) {
+                    continue;
+                }
+
                 if (reference.node?.type !== "Identifier") {
                     continue;
                 }
@@ -4146,6 +4153,20 @@ function fixArgumentReferencesWithinFunction(
 
                 reference.node.name = alias.name;
             }
+
+            for (const alias of aliasInfos) {
+                const normalizedIndex = mapping.has(alias.index)
+                    ? mapping.get(alias.index)
+                    : alias.index;
+                const initializer = alias.declarator?.init;
+
+                if (
+                    typeof normalizedIndex === "number" &&
+                    initializer?.type === "Identifier"
+                ) {
+                    initializer.name = `argument${normalizedIndex}`;
+                }
+            }
         }
     }
 
@@ -4165,6 +4186,10 @@ function buildDocumentedParamNameLookup(ast, sourceText, docCommentInspection) {
     inspection.forEach((node, comments = []) => {
         if (!isFunctionLikeNode(node)) {
             return;
+        }
+
+        if (node && typeof node === "object") {
+            node._hasSourceDocComment = isNonEmptyArray(comments);
         }
 
         const documentedNames = extractDocumentedParamNames(
