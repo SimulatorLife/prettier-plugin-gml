@@ -59,8 +59,7 @@ export async function loadBuiltInIdentifiers(
     metrics = null,
     options = {}
 ) {
-    const { fallbackMessage, ...guardOptions } =
-        options && typeof options === "object" ? options : {};
+    const { fallbackMessage, ...guardOptions } = options;
     const { signal, ensureNotAborted } = createAbortGuard(guardOptions, {
         fallbackMessage: fallbackMessage ?? DEFAULT_ABORT_MESSAGE
     });

@@ -54,7 +54,8 @@ real projects. The collected metrics surfaced three practical improvements:
    hit. The tracker exposes hit/miss/stale counters so we can detect unexpected
    churn during benchmarking.
 2. **I/O batching with bounded concurrency** – scanning and parsing GML files
-   now honours a configurable concurrency limit (defaulting to four workers).
+   now honours a configurable concurrency limit (defaulting to four workers and
+   clamped between one and sixteen).
    The metrics include the active concurrency to make it obvious when the
    system is CPU- or I/O-bound. Processing happens in batches so slow network
    storage no longer serialises the entire pipeline.

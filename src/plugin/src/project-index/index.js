@@ -13,7 +13,8 @@ import {
 import {
     assertFunction,
     getOrCreateMapEntry,
-    hasOwn
+    hasOwn,
+    isObjectLike
 } from "../../../shared/object-utils.js";
 import {
     buildLocationKey,
@@ -65,7 +66,7 @@ const PROJECT_INDEX_BUILD_ABORT_MESSAGE = "Project index build was aborted.";
  * sourced from partially populated caches.
  */
 function cloneEntryCollections(entry, ...keys) {
-    const source = entry && typeof entry === "object" ? entry : {};
+    const source = isObjectLike(entry) ? entry : {};
     const clones = {};
 
     for (const key of keys) {
@@ -76,7 +77,7 @@ function cloneEntryCollections(entry, ...keys) {
 }
 
 function getProjectIndexParserOverride(options) {
-    if (!options || typeof options !== "object") {
+    if (!isObjectLike(options)) {
         return null;
     }
 
@@ -99,6 +100,118 @@ function resolveProjectIndexParser(options) {
         getProjectIndexParserOverride(options)?.parse ??
         defaultProjectIndexParser
     );
+}
+
+function normalizeEnsureReadyDescriptor(descriptor) {
+    const projectRoot = descriptor?.projectRoot;
+    if (!projectRoot) {
+        throw new Error("projectRoot must be provided to ensureReady");
+    }
+
+    return {
+        descriptor,
+        resolvedRoot: path.resolve(projectRoot)
+    };
+}
+
+function resolveEnsureReadyContext({
+    descriptor,
+    abortController,
+    disposedMessage
+}) {
+    const { resolvedRoot } = normalizeEnsureReadyDescriptor(descriptor);
+    const signal = abortController.signal;
+    throwIfAborted(signal, disposedMessage);
+
+    return {
+        descriptor,
+        resolvedRoot,
+        key: resolvedRoot,
+        signal
+    };
+}
+
+function trackInFlightOperation(map, key, createOperation) {
+    if (map.has(key)) {
+        return map.get(key);
+    }
+
+    const pending = Promise.resolve()
+        .then(createOperation)
+        .finally(() => {
+            map.delete(key);
+        });
+
+    map.set(key, pending);
+    return pending;
+}
+
+async function executeEnsureReadyOperation({
+    descriptor,
+    resolvedRoot,
+    signal,
+    fsFacade,
+    loadCache,
+    saveCache,
+    buildIndex,
+    cacheMaxSizeBytes,
+    disposedMessage
+}) {
+    const descriptorOptions = descriptor ?? {};
+    const loadResult = await loadCache(
+        { ...descriptorOptions, projectRoot: resolvedRoot },
+        fsFacade,
+        { signal }
+    );
+    throwIfAborted(signal, disposedMessage);
+
+    if (loadResult.status === "hit") {
+        throwIfAborted(signal, disposedMessage);
+        return {
+            source: "cache",
+            projectIndex: loadResult.projectIndex,
+            cache: loadResult
+        };
+    }
+
+    const projectIndex = await buildIndex(resolvedRoot, fsFacade, {
+        ...descriptorOptions?.buildOptions,
+        signal
+    });
+    throwIfAborted(signal, disposedMessage);
+
+    const descriptorMaxSizeBytes =
+        descriptorOptions?.maxSizeBytes === undefined
+            ? cacheMaxSizeBytes
+            : descriptorOptions.maxSizeBytes;
+
+    const saveResult = await saveCache(
+        {
+            ...descriptorOptions,
+            projectRoot: resolvedRoot,
+            projectIndex,
+            metricsSummary: projectIndex.metrics,
+            maxSizeBytes: descriptorMaxSizeBytes
+        },
+        fsFacade,
+        { signal }
+    ).catch((error) => {
+        return {
+            status: "failed",
+            error,
+            cacheFilePath: loadResult.cacheFilePath
+        };
+    });
+    throwIfAborted(signal, disposedMessage);
+
+    return {
+        source: "build",
+        projectIndex,
+        cache: {
+            ...loadResult,
+            saveResult
+        }
+    };
 }
 
 export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
@@ -159,80 +272,25 @@ export function createProjectIndexCoordinator(options = {}) {
 
     async function ensureReady(descriptor) {
         ensureNotDisposed();
-        const { projectRoot } = descriptor ?? {};
-        if (!projectRoot) {
-            throw new Error("projectRoot must be provided to ensureReady");
-        }
-        const resolvedRoot = path.resolve(projectRoot);
-        const key = resolvedRoot;
-        const signal = abortController.signal;
-        throwIfAborted(signal, DISPOSED_MESSAGE);
-
-        if (inFlight.has(key)) {
-            return inFlight.get(key);
-        }
-
-        const operation = (async () => {
-            const loadResult = await loadCache(
-                { ...descriptor, projectRoot: resolvedRoot },
-                fsFacade,
-                { signal }
-            );
-            throwIfAborted(signal, DISPOSED_MESSAGE);
-
-            if (loadResult.status === "hit") {
-                throwIfAborted(signal, DISPOSED_MESSAGE);
-                return {
-                    source: "cache",
-                    projectIndex: loadResult.projectIndex,
-                    cache: loadResult
-                };
-            }
-
-            const projectIndex = await buildIndex(resolvedRoot, fsFacade, {
-                ...descriptor?.buildOptions,
-                signal
-            });
-            throwIfAborted(signal, DISPOSED_MESSAGE);
-
-            const descriptorMaxSizeBytes =
-                descriptor?.maxSizeBytes === undefined
-                    ? cacheMaxSizeBytes
-                    : descriptor.maxSizeBytes;
-
-            const saveResult = await saveCache(
-                {
-                    ...descriptor,
-                    projectRoot: resolvedRoot,
-                    projectIndex,
-                    metricsSummary: projectIndex.metrics,
-                    maxSizeBytes: descriptorMaxSizeBytes
-                },
-                fsFacade,
-                { signal }
-            ).catch((error) => {
-                return {
-                    status: "failed",
-                    error,
-                    cacheFilePath: loadResult.cacheFilePath
-                };
-            });
-            throwIfAborted(signal, DISPOSED_MESSAGE);
-
-            return {
-                source: "build",
-                projectIndex,
-                cache: {
-                    ...loadResult,
-                    saveResult
-                }
-            };
-        })().finally(() => {
-            inFlight.delete(key);
+        const context = resolveEnsureReadyContext({
+            descriptor,
+            abortController,
+            disposedMessage: DISPOSED_MESSAGE
         });
 
-        inFlight.set(key, operation);
-        return operation;
+        return trackInFlightOperation(inFlight, context.key, () =>
+            executeEnsureReadyOperation({
+                descriptor,
+                resolvedRoot: context.resolvedRoot,
+                signal: context.signal,
+                fsFacade,
+                loadCache,
+                saveCache,
+                buildIndex,
+                cacheMaxSizeBytes,
+                disposedMessage: DISPOSED_MESSAGE
+            })
+        );
     }
 
     function dispose() {
@@ -281,29 +339,57 @@ export {
     PROJECT_INDEX_GML_CONCURRENCY_BASELINE
 } from "./concurrency.js";
 
+const ProjectFileCategory = Object.freeze({
+    RESOURCE_METADATA: "yy",
+    SOURCE: "gml"
+});
+
+const PROJECT_FILE_CATEGORIES = new Set(Object.values(ProjectFileCategory));
+
+const PROJECT_FILE_CATEGORY_CHOICES = Object.freeze(
+    [...PROJECT_FILE_CATEGORIES].sort().join(", ")
+);
+
+export function normalizeProjectFileCategory(value) {
+    if (PROJECT_FILE_CATEGORIES.has(value)) {
+        return value;
+    }
+
+    const received = value === undefined ? "undefined" : `'${String(value)}'`;
+    throw new RangeError(
+        `Project file category must be one of: ${PROJECT_FILE_CATEGORY_CHOICES}. Received ${received}.`
+    );
+}
+
+export function resolveProjectFileCategory(relativePosix) {
+    const lowerPath = relativePosix.toLowerCase();
+    if (lowerPath.endsWith(".yy") || isProjectManifestPath(relativePosix)) {
+        return ProjectFileCategory.RESOURCE_METADATA;
+    }
+    if (lowerPath.endsWith(".gml")) {
+        return ProjectFileCategory.SOURCE;
+    }
+    return null;
+}
+
 function createProjectTreeCollector(metrics = null) {
     const yyFiles = [];
     const gmlFiles = [];
 
     function recordFile(category, record) {
-        if (category === "yy") {
+        const normalizedCategory = normalizeProjectFileCategory(category);
+
+        if (normalizedCategory === ProjectFileCategory.RESOURCE_METADATA) {
             yyFiles.push(record);
             metrics?.incrementCounter("files.yyDiscovered");
-        } else if (category === "gml") {
+            return;
+        }
+
+        if (normalizedCategory === ProjectFileCategory.SOURCE) {
             gmlFiles.push(record);
             metrics?.incrementCounter("files.gmlDiscovered");
+            return;
         }
-    }
-
-    function classify(relativePosix) {
-        const lowerPath = relativePosix.toLowerCase();
-        if (lowerPath.endsWith(".yy") || isProjectManifestPath(relativePosix)) {
-            return "yy";
-        }
-        if (lowerPath.endsWith(".gml")) {
-            return "gml";
-        }
-        return null;
     }
 
     function createRecord(absolutePath, relativePosix) {
@@ -314,7 +400,7 @@ function createProjectTreeCollector(metrics = null) {
     }
 
     function register(relativePosix, absolutePath) {
-        const category = classify(relativePosix);
+        const category = resolveProjectFileCategory(relativePosix);
         if (!category) {
             return;
         }
@@ -509,7 +595,7 @@ async function scanProjectTree(
 }
 
 function cloneIdentifierDeclaration(declaration) {
-    if (!declaration || typeof declaration !== "object") {
+    if (!isObjectLike(declaration)) {
         return null;
     }
 
@@ -772,7 +858,7 @@ function createEnumLookup(ast, filePath) {
 
     while (visitStack.length > 0) {
         const node = visitStack.pop();
-        if (!node || typeof node !== "object") {
+        if (!isObjectLike(node)) {
             continue;
         }
 
@@ -822,11 +908,11 @@ function createEnumLookup(ast, filePath) {
             if (Array.isArray(value)) {
                 for (let index = value.length - 1; index >= 0; index -= 1) {
                     const child = value[index];
-                    if (child && typeof child === "object") {
+                    if (isObjectLike(child)) {
                         visitStack.push(child);
                     }
                 }
-            } else if (value && typeof value === "object") {
+            } else if (isObjectLike(value)) {
                 visitStack.push(value);
             }
         }
@@ -1449,7 +1535,7 @@ function ensureFileRecord(filesMap, relativePath, scopeId) {
 }
 
 function traverseAst(root, visitor) {
-    if (!root || typeof root !== "object") {
+    if (!isObjectLike(root)) {
         return;
     }
 
@@ -1458,7 +1544,7 @@ function traverseAst(root, visitor) {
 
     while (stack.length > 0) {
         const node = stack.pop();
-        if (!node || typeof node !== "object") {
+        if (!isObjectLike(node)) {
             continue;
         }
 
@@ -1478,11 +1564,11 @@ function traverseAst(root, visitor) {
             if (Array.isArray(value)) {
                 for (let i = value.length - 1; i >= 0; i -= 1) {
                     const child = value[i];
-                    if (child && typeof child === "object") {
+                    if (isObjectLike(child)) {
                         stack.push(child);
                     }
                 }
-            } else if (value && typeof value === "object") {
+            } else if (isObjectLike(value)) {
                 stack.push(value);
             }
         }
@@ -2235,6 +2321,131 @@ function createProjectIndexResultSnapshot({
     };
 }
 
+async function loadBuiltInNamesForProjectIndex({
+    fsFacade,
+    metrics,
+    signal,
+    ensureNotAborted
+}) {
+    const builtInIdentifiers = await metrics.timeAsync("loadBuiltIns", () =>
+        loadBuiltInIdentifiers(fsFacade, metrics, {
+            signal,
+            fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+        })
+    );
+    ensureNotAborted();
+
+    return builtInIdentifiers.names ?? new Set();
+}
+
+async function discoverProjectFilesForIndex({
+    projectRoot,
+    fsFacade,
+    metrics,
+    signal,
+    ensureNotAborted
+}) {
+    const projectFiles = await metrics.timeAsync("scanProjectTree", () =>
+        scanProjectTree(projectRoot, fsFacade, metrics, { signal })
+    );
+    ensureNotAborted();
+
+    metrics.setMetadata("yyFileCount", projectFiles.yyFiles.length);
+    metrics.setMetadata("gmlFileCount", projectFiles.gmlFiles.length);
+
+    return projectFiles;
+}
+
+async function analyseProjectResourcesForIndex({
+    projectRoot,
+    yyFiles,
+    fsFacade,
+    metrics,
+    signal,
+    ensureNotAborted
+}) {
+    const resourceAnalysis = await metrics.timeAsync(
+        "analyseResourceFiles",
+        () =>
+            analyseResourceFiles({
+                projectRoot,
+                yyFiles,
+                fsFacade,
+                signal
+            })
+    );
+    ensureNotAborted();
+
+    metrics.incrementCounter(
+        "resources.total",
+        resourceAnalysis.resourcesMap.size
+    );
+
+    return resourceAnalysis;
+}
+
+function configureGmlProcessing({ options, metrics }) {
+    const concurrencySettings = options?.concurrency ?? {};
+    const gmlConcurrency = clampConcurrency(
+        concurrencySettings.gml ?? concurrencySettings.gmlParsing
+    );
+    metrics.setMetadata("gmlParseConcurrency", gmlConcurrency);
+
+    const parseProjectSource = resolveProjectIndexParser(options);
+
+    return { gmlConcurrency, parseProjectSource };
+}
+
+async function processProjectGmlFilesForIndex({
+    gmlFiles,
+    gmlConcurrency,
+    parseProjectSource,
+    fsFacade,
+    metrics,
+    ensureNotAborted,
+    resourceAnalysis,
+    scopeMap,
+    filesMap,
+    identifierCollections,
+    relationships,
+    builtInNames,
+    projectRoot,
+    signal
+}) {
+    await processWithConcurrency(
+        gmlFiles,
+        gmlConcurrency,
+        async (file) =>
+            processProjectGmlFile({
+                file,
+                fsFacade,
+                metrics,
+                ensureNotAborted,
+                parseProjectSource,
+                resourceAnalysis,
+                scopeMap,
+                filesMap,
+                identifierCollections,
+                relationships,
+                builtInNames,
+                projectRoot
+            }),
+        { signal }
+    );
+
+    ensureNotAborted();
+}
+
+function finalizeProjectIndexResult({ metrics, options, projectIndex }) {
+    const metricsReport = finalizeProjectIndexMetrics(metrics);
+    if (metricsReport) {
+        projectIndex.metrics = metricsReport;
+        options?.onMetrics?.(metricsReport, projectIndex);
+    }
+
+    return projectIndex;
+}
+
 export async function buildProjectIndex(
     projectRoot,
     fsFacade = defaultFsFacade,
@@ -2258,71 +2469,54 @@ export async function buildProjectIndex(
         fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
     });
 
-    const builtInIdentifiers = await metrics.timeAsync("loadBuiltIns", () =>
-        loadBuiltInIdentifiers(fsFacade, metrics, {
-            signal,
-            fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
-        })
-    );
-    ensureNotAborted();
-    const builtInNames = builtInIdentifiers.names ?? new Set();
+    const builtInNames = await loadBuiltInNamesForProjectIndex({
+        fsFacade,
+        metrics,
+        signal,
+        ensureNotAborted
+    });
 
-    const { yyFiles, gmlFiles } = await metrics.timeAsync(
-        "scanProjectTree",
-        () => scanProjectTree(resolvedRoot, fsFacade, metrics, { signal })
-    );
-    ensureNotAborted();
-    metrics.setMetadata("yyFileCount", yyFiles.length);
-    metrics.setMetadata("gmlFileCount", gmlFiles.length);
+    const { yyFiles, gmlFiles } = await discoverProjectFilesForIndex({
+        projectRoot: resolvedRoot,
+        fsFacade,
+        metrics,
+        signal,
+        ensureNotAborted
+    });
 
-    const resourceAnalysis = await metrics.timeAsync(
-        "analyseResourceFiles",
-        () =>
-            analyseResourceFiles({
-                projectRoot: resolvedRoot,
-                yyFiles,
-                fsFacade,
-                signal
-            })
-    );
-    ensureNotAborted();
-
-    metrics.incrementCounter(
-        "resources.total",
-        resourceAnalysis.resourcesMap.size
-    );
+    const resourceAnalysis = await analyseProjectResourcesForIndex({
+        projectRoot: resolvedRoot,
+        yyFiles,
+        fsFacade,
+        metrics,
+        signal,
+        ensureNotAborted
+    });
 
     const { scopeMap, filesMap, relationships, identifierCollections } =
         createProjectIndexAggregationState(resourceAnalysis);
 
-    const concurrencySettings = options?.concurrency ?? {};
-    const gmlConcurrency = clampConcurrency(
-        concurrencySettings.gml ?? concurrencySettings.gmlParsing
-    );
-    metrics.setMetadata("gmlParseConcurrency", gmlConcurrency);
-    const parseProjectSource = resolveProjectIndexParser(options);
+    const { gmlConcurrency, parseProjectSource } = configureGmlProcessing({
+        options,
+        metrics
+    });
 
-    await processWithConcurrency(
+    await processProjectGmlFilesForIndex({
         gmlFiles,
         gmlConcurrency,
-        async (file) =>
-            processProjectGmlFile({
-                file,
-                fsFacade,
-                metrics,
-                ensureNotAborted,
-                parseProjectSource,
-                resourceAnalysis,
-                scopeMap,
-                filesMap,
-                identifierCollections,
-                relationships,
-                builtInNames,
-                projectRoot: resolvedRoot
-            }),
-        { signal }
-    );
-    ensureNotAborted();
+        parseProjectSource,
+        fsFacade,
+        metrics,
+        ensureNotAborted,
+        resourceAnalysis,
+        scopeMap,
+        filesMap,
+        identifierCollections,
+        relationships,
+        builtInNames,
+        projectRoot: resolvedRoot,
+        signal
+    });
 
     recordScriptCallMetricsAndReferences({
         relationships,
@@ -2342,14 +2536,13 @@ export async function buildProjectIndex(
     stopTotal();
     const projectIndex = projectIndexPayload;
 
-    const metricsReport = finalizeProjectIndexMetrics(metrics);
-    if (metricsReport) {
-        projectIndex.metrics = metricsReport;
-        options?.onMetrics?.(metricsReport, projectIndex);
-    }
-
-    return projectIndex;
+    return finalizeProjectIndexResult({
+        metrics,
+        options,
+        projectIndex
+    });
 }
-export { getDefaultFsFacade } from "./fs-facade.js";
+export { defaultFsFacade } from "./fs-facade.js";
 export { getProjectIndexParserOverride };
+export { ProjectFileCategory };
 export { __loadBuiltInIdentifiersForTests } from "./built-in-identifiers.js";

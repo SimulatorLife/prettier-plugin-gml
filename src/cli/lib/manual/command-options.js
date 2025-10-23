@@ -1,18 +1,17 @@
 import path from "node:path";
 import process from "node:process";
 
-import { wrapInvalidArgumentResolver } from "./command-parsing.js";
+import { wrapInvalidArgumentResolver } from "../command-parsing.js";
 import {
     DEFAULT_MANUAL_REPO,
     createManualVerboseState,
     resolveManualRepoValue
-} from "./manual/utils.js";
+} from "./utils.js";
 import {
     getDefaultProgressBarWidth,
     resolveProgressBarWidth
-} from "./progress-bar.js";
-import { assertFunction, hasOwn } from "./shared/object-utils.js";
-import { isNonEmptyString } from "./shared/string-utils.js";
+} from "../progress-bar.js";
+import { assertFunction, hasOwn, isNonEmptyString } from "../shared-deps.js";
 
 function resolveDefaultValue(option, name, fallback) {
     const config = option ?? {};
@@ -54,30 +53,6 @@ function resolveManualOptionBaseConfig(
     };
 }
 
-function resolveOptionFunction(
-    optionConfig,
-    property,
-    fallback,
-    { assertName } = {}
-) {
-    const candidate =
-        optionConfig && typeof optionConfig === "object"
-            ? optionConfig[property]
-            : undefined;
-    const resolved =
-        typeof candidate === "function"
-            ? candidate
-            : typeof fallback === "function"
-              ? fallback
-              : undefined;
-
-    if (assertName) {
-        assertFunction(resolved, assertName);
-    }
-
-    return resolved;
-}
-
 const DEFAULT_OPTION_ORDER = Object.freeze([
     "outputPath",
     "forceRefresh",
@@ -86,18 +61,40 @@ const DEFAULT_OPTION_ORDER = Object.freeze([
     "cacheRoot",
     "progressBarWidth"
 ]);
+const DEFAULT_PATH_NORMALIZER = (value) => path.resolve(value);
 
-function createOptionOrder({ optionOrder, handlers, customHandlers }) {
-    const preferredOrder = Array.isArray(optionOrder) ? optionOrder : [];
-    const customKeys = Array.from(customHandlers.keys());
-    const ordering = new Set([
-        ...preferredOrder,
-        ...DEFAULT_OPTION_ORDER,
-        ...customKeys
-    ]);
+function configurePathOption(command, option) {
+    const normalize =
+        typeof option.config.normalize === "function"
+            ? option.config.normalize
+            : DEFAULT_PATH_NORMALIZER;
 
-    return [...ordering].filter(
-        (key) => handlers.has(key) || customHandlers.has(key)
+    command.option(
+        option.flag,
+        option.description,
+        normalize,
+        option.defaultValue
+    );
+}
+
+function configureResolvedOption({
+    command,
+    option,
+    fallbackResolve,
+    resolverName
+}) {
+    const resolveFn =
+        typeof option.config.resolve === "function"
+            ? option.config.resolve
+            : fallbackResolve;
+
+    assertFunction(resolveFn, resolverName);
+
+    command.option(
+        option.flag,
+        option.description,
+        wrapInvalidArgumentResolver(resolveFn),
+        option.defaultValue
     );
 }
 
@@ -147,89 +144,58 @@ export function applySharedManualCommandOptions(
         fallbackDefault: () => DEFAULT_MANUAL_REPO
     });
 
-    const handlers = new Map();
+    const builtInHandlers = new Map();
+    const addBuiltInHandler = (key, handler) => {
+        if (typeof handler === "function") {
+            builtInHandlers.set(key, handler);
+        }
+    };
 
-    if (outputOption) {
-        const normalize = resolveOptionFunction(
-            outputOption.config,
-            "normalize",
-            (value) => path.resolve(value)
-        );
-
-        handlers.set("outputPath", () =>
-            command.option(
-                outputOption.flag,
-                outputOption.description,
-                normalize,
-                outputOption.defaultValue
-            )
-        );
-    }
+    addBuiltInHandler(
+        "outputPath",
+        outputOption && (() => configurePathOption(command, outputOption))
+    );
 
     if (forceRefreshDescription !== false) {
-        handlers.set("forceRefresh", () =>
+        addBuiltInHandler("forceRefresh", () =>
             command.option("--force-refresh", forceRefreshDescription)
         );
     }
 
     if (quietDescription !== false) {
-        handlers.set("quiet", () =>
+        addBuiltInHandler("quiet", () =>
             command.option("--quiet", quietDescription)
         );
     }
 
-    if (progressOption) {
-        const resolveFn = resolveOptionFunction(
-            progressOption.config,
-            "resolve",
-            resolveProgressBarWidth,
-            { assertName: "progressBarWidth.resolve" }
-        );
+    addBuiltInHandler(
+        "progressBarWidth",
+        progressOption &&
+            (() =>
+                configureResolvedOption({
+                    command,
+                    option: progressOption,
+                    fallbackResolve: resolveProgressBarWidth,
+                    resolverName: "progressBarWidth.resolve"
+                }))
+    );
 
-        handlers.set("progressBarWidth", () =>
-            command.option(
-                progressOption.flag,
-                progressOption.description,
-                wrapInvalidArgumentResolver(resolveFn),
-                progressOption.defaultValue
-            )
-        );
-    }
+    addBuiltInHandler(
+        "manualRepo",
+        manualRepoOption &&
+            (() =>
+                configureResolvedOption({
+                    command,
+                    option: manualRepoOption,
+                    fallbackResolve: resolveManualRepoValue,
+                    resolverName: "manualRepo.resolve"
+                }))
+    );
 
-    if (manualRepoOption) {
-        const resolveFn = resolveOptionFunction(
-            manualRepoOption.config,
-            "resolve",
-            resolveManualRepoValue,
-            { assertName: "manualRepo.resolve" }
-        );
-
-        handlers.set("manualRepo", () =>
-            command.option(
-                manualRepoOption.flag,
-                manualRepoOption.description,
-                wrapInvalidArgumentResolver(resolveFn),
-                manualRepoOption.defaultValue
-            )
-        );
-    }
-
-    if (cacheOption) {
-        const normalize = resolveOptionFunction(
-            cacheOption.config,
-            "normalize",
-            (value) => path.resolve(value)
-        );
-
-        handlers.set("cacheRoot", () =>
-            command.option(
-                cacheOption.flag,
-                cacheOption.description,
-                normalize,
-                cacheOption.defaultValue
-            )
-        );
-    }
+    addBuiltInHandler(
+        "cacheRoot",
+        cacheOption && (() => configurePathOption(command, cacheOption))
+    );
 
     const customHandlers = new Map();
     if (customOptions && typeof customOptions === "object") {
@@ -240,21 +206,20 @@ export function applySharedManualCommandOptions(
         }
     }
 
-    const sequence = createOptionOrder({
-        optionOrder,
-        handlers,
-        customHandlers
-    });
+    const preferredOrder = Array.isArray(optionOrder) ? optionOrder : [];
+    const customKeys = [...customHandlers.keys()];
+    const builtInKeys = [...builtInHandlers.keys()];
+    const ordering = new Set([
+        ...preferredOrder,
+        ...DEFAULT_OPTION_ORDER,
+        ...customKeys,
+        ...builtInKeys
+    ]);
 
-    for (const key of sequence) {
-        if (handlers.has(key)) {
-            handlers.get(key)();
-            continue;
-        }
-
-        const customHandler = customHandlers.get(key);
-        if (customHandler) {
-            customHandler();
+    for (const key of ordering) {
+        const handler = builtInHandlers.get(key) ?? customHandlers.get(key);
+        if (handler) {
+            handler();
         }
     }
 

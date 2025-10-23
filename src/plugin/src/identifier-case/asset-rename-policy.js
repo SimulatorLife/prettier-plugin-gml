@@ -13,77 +13,48 @@ const IdentifierCaseAssetRenamePolicyReason = Object.freeze({
     APPLY: "apply"
 });
 
-class IdentifierCaseAssetRenamePolicy {
-    evaluate(context = {}) {
-        const {
-            options = {},
-            projectIndex = null,
-            assetRenames = [],
-            assetConflicts = []
-        } = context;
+export function evaluateIdentifierCaseAssetRenamePolicy(context = {}) {
+    const {
+        options = {},
+        projectIndex = null,
+        assetRenames = [],
+        assetConflicts = []
+    } = context;
 
-        if (options?.__identifierCaseDryRun !== false) {
-            return {
-                shouldApply: false,
-                reason: IdentifierCaseAssetRenamePolicyReason.DRY_RUN_ENABLED,
-                renames: [],
-                conflicts: []
-            };
-        }
+    const renames = asArray(assetRenames);
+    const conflicts = asArray(assetConflicts);
 
-        const renames = asArray(assetRenames);
-        if (!isNonEmptyArray(renames)) {
-            return {
-                shouldApply: false,
-                reason: IdentifierCaseAssetRenamePolicyReason.NO_RENAMES,
-                renames: [],
-                conflicts: []
-            };
-        }
-
-        const conflicts = asArray(assetConflicts);
-        if (isNonEmptyArray(conflicts)) {
-            return {
-                shouldApply: false,
-                reason: IdentifierCaseAssetRenamePolicyReason.HAS_CONFLICTS,
-                renames: [],
-                conflicts
-            };
-        }
-
-        if (!projectIndex) {
-            return {
-                shouldApply: false,
-                reason: IdentifierCaseAssetRenamePolicyReason.MISSING_PROJECT_INDEX,
-                renames,
-                conflicts
-            };
-        }
-
-        if (options?.__identifierCaseAssetRenamesApplied === true) {
-            return {
-                shouldApply: false,
-                reason: IdentifierCaseAssetRenamePolicyReason.ALREADY_APPLIED,
-                renames,
-                conflicts
-            };
-        }
-
-        return {
-            shouldApply: true,
-            reason: IdentifierCaseAssetRenamePolicyReason.APPLY,
-            renames,
-            conflicts
-        };
+    let reason;
+    if (options?.__identifierCaseDryRun !== false) {
+        reason = IdentifierCaseAssetRenamePolicyReason.DRY_RUN_ENABLED;
+    } else if (!isNonEmptyArray(renames)) {
+        reason = IdentifierCaseAssetRenamePolicyReason.NO_RENAMES;
+    } else if (isNonEmptyArray(conflicts)) {
+        reason = IdentifierCaseAssetRenamePolicyReason.HAS_CONFLICTS;
+    } else if (!projectIndex) {
+        reason = IdentifierCaseAssetRenamePolicyReason.MISSING_PROJECT_INDEX;
+    } else if (options?.__identifierCaseAssetRenamesApplied === true) {
+        reason = IdentifierCaseAssetRenamePolicyReason.ALREADY_APPLIED;
+    } else {
+        reason = IdentifierCaseAssetRenamePolicyReason.APPLY;
     }
+
+    const shouldApply = reason === IdentifierCaseAssetRenamePolicyReason.APPLY;
+
+    const includeRenames =
+        reason === IdentifierCaseAssetRenamePolicyReason.APPLY ||
+        reason ===
+            IdentifierCaseAssetRenamePolicyReason.MISSING_PROJECT_INDEX ||
+        reason === IdentifierCaseAssetRenamePolicyReason.ALREADY_APPLIED;
+    const includeConflicts =
+        reason === IdentifierCaseAssetRenamePolicyReason.HAS_CONFLICTS;
+
+    return {
+        shouldApply,
+        reason,
+        renames: includeRenames ? renames : [],
+        conflicts: includeConflicts ? conflicts : []
+    };
 }
 
-function createIdentifierCaseAssetRenamePolicy() {
-    return new IdentifierCaseAssetRenamePolicy();
-}
-
-export {
-    IdentifierCaseAssetRenamePolicy,
-    IdentifierCaseAssetRenamePolicyReason,
-    createIdentifierCaseAssetRenamePolicy
-};
+export { IdentifierCaseAssetRenamePolicyReason };

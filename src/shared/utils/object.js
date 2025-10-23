@@ -1,3 +1,5 @@
+import { toArray } from "./array.js";
+
 /**
  * Determine whether a value is a plain object (non-null object without an
  * Array instance). Some callers additionally require objects with prototypes
@@ -5,7 +7,7 @@
  *
  * @param {unknown} value Candidate value to inspect.
  * @param {{ allowNullPrototype?: boolean }} [options]
- * @returns {value is object}
+ * @returns {value is object} `true` when {@link value} is a plain object.
  */
 export function isPlainObject(value, { allowNullPrototype = true } = {}) {
     if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -132,22 +134,14 @@ export function coalesceOption(
         return fallback;
     }
 
-    if (Array.isArray(keys)) {
-        for (const key of keys) {
-            const value = object[key];
+    const lookupKeys = toArray(keys);
 
-            if (value !== undefined && (acceptNull || value !== null)) {
-                return value;
-            }
+    for (const key of lookupKeys) {
+        const value = object[key];
+
+        if (value !== undefined && (acceptNull || value !== null)) {
+            return value;
         }
-
-        return fallback;
-    }
-
-    // Avoid allocating a throwaway array when callers supply a single key.
-    const value = object[keys];
-    if (value !== undefined && (acceptNull || value !== null)) {
-        return value;
     }
 
     return fallback;

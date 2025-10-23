@@ -1,8 +1,4 @@
-import {
-    getNonEmptyString,
-    normalizeStringList
-} from "../../../shared/string-utils.js";
-import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
+import { getNonEmptyString } from "../../../shared/string-utils.js";
 
 const hasHrtime = typeof process?.hrtime?.bigint === "function";
 
@@ -28,23 +24,24 @@ const SUMMARY_SECTIONS = Object.freeze([
 
 function normalizeCacheKeys(keys) {
     const candidates = keys ?? DEFAULT_CACHE_KEYS;
+    const iterable =
+        Array.isArray(candidates) ||
+        typeof candidates?.[Symbol.iterator] === "function"
+            ? candidates
+            : DEFAULT_CACHE_KEYS;
 
-    if (
-        !Array.isArray(candidates) &&
-        typeof candidates?.[Symbol.iterator] !== "function"
-    ) {
-        return [...DEFAULT_CACHE_KEYS];
+    const normalized = new Set();
+
+    for (const candidate of iterable) {
+        const label = getNonEmptyString(candidate)?.trim();
+        if (label) {
+            normalized.add(label);
+        }
     }
 
-    const normalized = normalizeStringList(
-        Array.isArray(candidates) ? candidates : Array.from(candidates),
-        {
-            splitPattern: null,
-            allowInvalidType: true
-        }
-    );
-
-    return normalized.length > 0 ? normalized : [...DEFAULT_CACHE_KEYS];
+    return normalized.size > 0
+        ? Array.from(normalized)
+        : [...DEFAULT_CACHE_KEYS];
 }
 
 function normalizeIncrementAmount(amount, fallback = 1) {
@@ -68,20 +65,22 @@ function createMapIncrementer(store) {
     };
 }
 
-function createCacheStatsEnsurer(caches, cacheKeys) {
-    return (cacheName) => {
-        const normalized = normalizeLabel(cacheName);
-        return getOrCreateMapEntry(
-            caches,
-            normalized,
-            () => new Map(cacheKeys.map((key) => [key, 0]))
-        );
-    };
+function ensureCacheStats(caches, cacheKeys, cacheName) {
+    const normalized = normalizeLabel(cacheName);
+    let stats = caches.get(normalized);
+
+    if (!stats) {
+        stats = new Map(cacheKeys.map((key) => [key, 0]));
+        caches.set(normalized, stats);
+    }
+
+    return stats;
 }
 
-function recordCacheIncrement(ensureCacheStats, cacheName, key, amount = 1) {
-    const stats = ensureCacheStats(cacheName);
+function incrementCacheMetric(caches, cacheKeys, cacheName, key, amount = 1) {
+    const stats = ensureCacheStats(caches, cacheKeys, cacheName);
     const normalizedKey = normalizeLabel(key);
+
     if (!stats.has(normalizedKey)) {
         stats.set(normalizedKey, 0);
     }
@@ -90,6 +89,7 @@ function recordCacheIncrement(ensureCacheStats, cacheName, key, amount = 1) {
         amount,
         amount === undefined ? 1 : 0
     );
+
     if (increment === 0) {
         return;
     }
@@ -176,7 +176,6 @@ export function createMetricsTracker({
 
     const incrementTiming = createMapIncrementer(timings);
     const incrementCounterBy = createMapIncrementer(counters);
-    const ensureCacheStats = createCacheStatsEnsurer(caches, cacheKeys);
     const snapshot = createSnapshotFactory({
         category,
         startTime,
@@ -221,16 +220,16 @@ export function createMetricsTracker({
         incrementCounterBy(label, amount);
     }
 
-    function recordCacheEvent(cacheName, key, amount = 1) {
-        recordCacheIncrement(ensureCacheStats, cacheName, key, amount);
-    }
-
     function setMetadata(key, value) {
         const normalizedKey = getNonEmptyString(key);
         if (!normalizedKey) {
             return;
         }
         metadata[normalizedKey] = value;
+    }
+
+    function recordCacheEvent(cacheName, key, amount = 1) {
+        incrementCacheMetric(caches, cacheKeys, cacheName, key, amount);
     }
 
     return {
