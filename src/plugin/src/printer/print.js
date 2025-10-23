@@ -733,7 +733,8 @@ export function print(path, options, print) {
             return concat([node.kind, " ", decls]);
         }
         case "VariableDeclarator": {
-            const initializerOverride = resolveArgumentAliasInitializerDoc(path);
+            const initializerOverride =
+                resolveArgumentAliasInitializerDoc(path);
             if (initializerOverride) {
                 return concat(
                     printSimpleDeclaration(print("id"), initializerOverride)
@@ -1941,6 +1942,39 @@ function getNextNonWhitespaceCharacter(text, startIndex) {
     return null;
 }
 
+function shouldForceTrailingBlankLineBetweenStatementAndBlockTerminator(
+    node,
+    parentNode
+) {
+    if (!node || parentNode?.type !== "BlockStatement") {
+        return false;
+    }
+
+    if (FUNCTION_LIKE_NODE_TYPES.has(node.type)) {
+        return true;
+    }
+
+    if (node.type === "VariableDeclaration") {
+        return Array.isArray(node.declarations)
+            ? node.declarations.some((declaration) =>
+                  FUNCTION_LIKE_NODE_TYPES.has(declaration?.init?.type)
+              )
+            : false;
+    }
+
+    if (node.type === "ExpressionStatement") {
+        const expression = node.expression;
+        if (expression?.type === "AssignmentExpression") {
+            const right = expression.right;
+            if (right && FUNCTION_LIKE_NODE_TYPES.has(right.type)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 function printStatements(path, options, print, childrenAttribute) {
     let previousNodeHadNewlineAddedAfter = false; // tracks newline added after the previous node
 
@@ -2256,7 +2290,17 @@ function printStatements(path, options, print, childrenAttribute) {
                     : false;
             }
 
+            const shouldForceTrailingBlankLine =
+                !suppressFollowingEmptyLine &&
+                shouldForceTrailingBlankLineBetweenStatementAndBlockTerminator(
+                    node,
+                    parentNode
+                );
+
             if (shouldPreserveTrailingBlankLine) {
+                parts.push(hardline);
+                previousNodeHadNewlineAddedAfter = true;
+            } else if (shouldForceTrailingBlankLine) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
             }

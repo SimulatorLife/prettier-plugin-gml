@@ -54,3 +54,23 @@ test("preserves blank line before constructor closing brace", async () => {
         "Expected constructors to retain blank lines between the final statement and closing brace."
     );
 });
+
+test("inserts blank line before constructor closing brace after nested function declarations", async () => {
+    const source = [
+        "function Demo() constructor {",
+        "    function helper() {",
+        "        return 1;",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.trim().split("\n");
+
+    assert.equal(
+        lines.at(-2),
+        "",
+        "Expected constructors to introduce a blank line between nested function declarations and the closing brace."
+    );
+});
