@@ -93,26 +93,17 @@ export function createMetricsTracker({
             amount,
             amount === undefined ? 1 : 0
         );
-        const previous = stats.get(normalizedKey);
-
-        if (previous === undefined) {
-            // Lazily seed unknown keys so the hot path only performs a single
-            // map lookup. This mirrors the previous semantics that created the
-            // entry even when the increment was `0`.
-            if (increment === 0) {
-                stats.set(normalizedKey, 0);
-                return;
-            }
-
-            stats.set(normalizedKey, increment);
-            return;
-        }
-
         if (increment === 0) {
+            if (!stats.has(normalizedKey)) {
+                // Lazily seed unknown keys so the hot path only performs a
+                // single map lookup. This mirrors the previous semantics that
+                // created the entry even when the increment was `0`.
+                stats.set(normalizedKey, 0);
+            }
             return;
         }
 
-        stats.set(normalizedKey, previous + increment);
+        stats.set(normalizedKey, (stats.get(normalizedKey) ?? 0) + increment);
     }
 
     function snapshot(extra = {}) {
