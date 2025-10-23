@@ -1,5 +1,5 @@
-import { getNonEmptyString } from "./string.js";
-import { getOrCreateMapEntry } from "./object.js";
+import { getNonEmptyString } from "../../../shared/string-utils.js";
+import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
 
 const hasHrtime = typeof process?.hrtime?.bigint === "function";
 
