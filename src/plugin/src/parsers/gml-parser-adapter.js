@@ -22,6 +22,7 @@ import {
     getNodeEndIndex
 } from "../../../shared/ast-locations.js";
 import { toMutableArray } from "../../../shared/array-utils.js";
+import { visitChildNodes } from "../../../shared/ast/node-helpers.js";
 import { annotateStaticFunctionOverrides } from "../ast-transforms/annotate-static-overrides.js";
 import {
     prepareIdentifierCaseEnvironment,
@@ -962,18 +963,7 @@ function markCallsMissingArgumentSeparators(ast, originalText) {
         }
         visitedNodes.add(node);
 
-        if (Array.isArray(node)) {
-            for (const entry of node) {
-                visit(entry);
-            }
-            return;
-        }
-
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
+        visitChildNodes(node, visit);
 
         if (shouldPreserveCallWithMissingSeparators(node, originalText)) {
             Object.defineProperty(node, "preserveOriginalCallText", {

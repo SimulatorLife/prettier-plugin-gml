@@ -13,7 +13,6 @@ import { CliUsageError } from "../lib/cli-errors.js";
 import { assertSupportedNodeVersion } from "../lib/node-version.js";
 import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
 import {
-    renderProgressBar,
     disposeProgressBars,
     withProgressBarCleanup
 } from "../lib/progress-bar.js";
@@ -22,7 +21,9 @@ import {
     MANUAL_CACHE_ROOT_ENV_VAR,
     DEFAULT_MANUAL_REPO,
     MANUAL_REPO_ENV_VAR,
-    buildManualRepositoryEndpoints
+    buildManualRepositoryEndpoints,
+    createManualDownloadReporter,
+    downloadManualFileEntries
 } from "../lib/manual/utils.js";
 import {
     MANUAL_REF_ENV_VAR,
@@ -33,18 +34,20 @@ import { applyStandardCommandOptions } from "../lib/command-standard-options.js"
 import {
     applySharedManualCommandOptions,
     resolveManualCommandOptions
-} from "../lib/manual-command-options.js";
-import { createManualCommandContext } from "../lib/manual-command-context.js";
+} from "../lib/manual/command-options.js";
+import { createManualManualAccessContext } from "../lib/manual-command-context.js";
 
 /** @typedef {ReturnType<typeof resolveManualCommandOptions>} ManualCommandOptions */
 
 const {
-    repoRoot: REPO_ROOT,
-    defaultCacheRoot: DEFAULT_CACHE_ROOT,
-    defaultOutputPath: OUTPUT_DEFAULT,
-    fetchManualFile,
-    resolveManualRef
-} = createManualCommandContext({
+    environment: {
+        repoRoot: REPO_ROOT,
+        defaultCacheRoot: DEFAULT_CACHE_ROOT,
+        defaultOutputPath: OUTPUT_DEFAULT
+    },
+    files: { fetchManualFile },
+    refs: { resolveManualRef }
+} = createManualManualAccessContext({
     importMetaUrl: import.meta.url,
     userAgent: "prettier-plugin-gml feather metadata generator",
     outputFileName: "feather-metadata.json"
@@ -221,7 +224,9 @@ function extractTable(table) {
             return lines.join("\n");
         });
 
-        const hasContent = values.some((value) => value && value.trim());
+        const hasContent = values.some((value) =>
+            getNonEmptyTrimmedString(value)
+        );
         if (!hasContent) {
             return;
         }
@@ -384,6 +389,49 @@ function normalizeTextBlock(block) {
     return getNonEmptyTrimmedString(block.text);
 }
 
+function pushNormalizedText(target, value) {
+    const normalized = normalizeMultilineText(value);
+    if (normalized) {
+        target.push(normalized);
+    }
+}
+
+function normalizeListItems(items) {
+    if (!Array.isArray(items)) {
+        return [];
+    }
+
+    return items.map((item) => normalizeMultilineText(item)).filter(Boolean);
+}
+
+const BLOCK_NORMALIZERS = {
+    code(content, block) {
+        if (block.text) {
+            content.codeExamples.push(block.text);
+        }
+    },
+    note(content, block) {
+        pushNormalizedText(content.notes, block.text);
+    },
+    list(content, block) {
+        const items = normalizeListItems(block.items);
+        if (items.length > 0) {
+            content.lists.push(items);
+        }
+    },
+    table(content, block) {
+        if (block.table) {
+            content.tables.push(block.table);
+        }
+    },
+    heading(content, block) {
+        pushNormalizedText(content.headings, block.text);
+    },
+    default(content, block) {
+        pushNormalizedText(content.paragraphs, block.text);
+    }
+};
+
 function normalizeContent(blocks) {
     const content = {
         paragraphs: [],
@@ -393,55 +441,17 @@ function normalizeContent(blocks) {
         headings: [],
         tables: []
     };
-    const appendNormalizedText = (target, text) => {
-        const normalized = normalizeMultilineText(text);
-        if (normalized) {
-            target.push(normalized);
-        }
-    };
 
     for (const block of blocks) {
         if (!block) {
             continue;
         }
 
-        switch (block.type) {
-            case "code": {
-                if (block.text) {
-                    content.codeExamples.push(block.text);
-                }
-                break;
-            }
-            case "note": {
-                appendNormalizedText(content.notes, block.text);
-                break;
-            }
-            case "list": {
-                const items = Array.isArray(block.items)
-                    ? block.items
-                          .map((item) => normalizeMultilineText(item))
-                          .filter(Boolean)
-                    : [];
-                if (items.length > 0) {
-                    content.lists.push(items);
-                }
-                break;
-            }
-            case "table": {
-                if (block.table) {
-                    content.tables.push(block.table);
-                }
-                break;
-            }
-            case "heading": {
-                appendNormalizedText(content.headings, block.text);
-                break;
-            }
-            default: {
-                appendNormalizedText(content.paragraphs, block.text);
-            }
-        }
+        const normalizeBlock =
+            BLOCK_NORMALIZERS[block.type] ?? BLOCK_NORMALIZERS.default;
+        normalizeBlock(content, block);
     }
+
     return content;
 }
 
@@ -521,20 +531,20 @@ function collectDiagnosticTrailingContent(blocks) {
             continue;
         }
 
-        if (block.type === "code") {
-            if (!badExample) {
-                badExample = text;
-                continue;
-            }
-
-            goodExampleParts.push(text);
+        if (block.type !== "code") {
+            const targetParts = badExample
+                ? correctionParts
+                : additionalDescriptionParts;
+            targetParts.push(text);
             continue;
         }
 
-        const targetParts = badExample
-            ? correctionParts
-            : additionalDescriptionParts;
-        targetParts.push(text);
+        if (!badExample) {
+            badExample = text;
+            continue;
+        }
+
+        goodExampleParts.push(text);
     }
 
     const goodExample =
@@ -1005,8 +1015,14 @@ async function fetchFeatherManualPayloads({
 
         announceManualDownloadStart(totalManualPages, verbose);
 
-        return downloadManualEntries({
-            manualEntries,
+        const reportProgress = createManualDownloadReporter({
+            label: "Downloading manual pages",
+            verbose,
+            progressBarWidth
+        });
+
+        return downloadManualFileEntries({
+            entries: manualEntries,
             manualRefSha: manualRef.sha,
             fetchManualFile: fetchManualFileFn,
             requestOptions: {
@@ -1015,44 +1031,14 @@ async function fetchFeatherManualPayloads({
                 cacheRoot,
                 rawRoot
             },
-            onProgress: ({
-                manualPath,
-                fetchedCount,
-                totalManualPages: total
-            }) =>
-                reportManualFetchProgress({
-                    manualPath,
+            onProgress: ({ path, fetchedCount, totalEntries }) =>
+                reportProgress({
+                    path,
                     fetchedCount,
-                    totalManualPages: total,
-                    verbose,
-                    progressBarWidth
+                    totalEntries
                 })
         });
     });
-}
-
-function reportManualFetchProgress({
-    manualPath,
-    fetchedCount,
-    totalManualPages,
-    verbose,
-    progressBarWidth
-}) {
-    if (!verbose.downloads) {
-        return;
-    }
-
-    if (verbose.progressBar) {
-        renderProgressBar(
-            "Downloading manual pages",
-            fetchedCount,
-            totalManualPages,
-            progressBarWidth
-        );
-        return;
-    }
-
-    console.log(`✓ ${manualPath}`);
 }
 
 function announceManualDownloadStart(totalManualPages, verbose) {
@@ -1073,29 +1059,6 @@ function announceManualDownloadStart(totalManualPages, verbose) {
  * mirroring the structure previously built inline inside
  * fetchFeatherManualPayloads.
  */
-async function downloadManualEntries({
-    manualEntries,
-    manualRefSha,
-    fetchManualFile,
-    requestOptions,
-    onProgress
-}) {
-    const htmlPayloads = {};
-    let fetchedCount = 0;
-    const totalManualPages = manualEntries.length;
-
-    for (const [key, manualPath] of manualEntries) {
-        htmlPayloads[key] = await fetchManualFile(
-            manualRefSha,
-            manualPath,
-            requestOptions
-        );
-        fetchedCount += 1;
-        onProgress?.({ manualPath, fetchedCount, totalManualPages });
-    }
-
-    return htmlPayloads;
-}
 
 function parseFeatherManualPayloads(htmlPayloads, { verbose }) {
     if (verbose.parsing) {
