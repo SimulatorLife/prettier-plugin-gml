@@ -14,6 +14,7 @@
  * editor integrations directly.
  */
 
+import { randomUUID } from "node:crypto";
 import {
     lstat,
     mkdtemp,
@@ -23,10 +24,9 @@ import {
     stat,
     writeFile
 } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import process from "node:process";
-import os from "node:os";
-import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 import { Command, InvalidArgumentError, Option } from "commander";
@@ -34,21 +34,22 @@ import { Command, InvalidArgumentError, Option } from "commander";
 import {
     coerceNonNegativeInteger,
     getErrorMessage,
+    getNonEmptyTrimmedString,
     isErrorWithCode,
-    isObjectLike,
     normalizeEnumeratedOption,
     normalizeStringList,
     resolveIntegerOption,
     toArray,
     toNormalizedLowerCaseSet,
     toNormalizedLowerCaseString,
-    uniqueArray
-} from "./lib/shared/utils.js";
-import { isErrorLike } from "./lib/shared/utils/capability-probes.js";
+    uniqueArray,
+    withObjectLike
+} from "../shared/utils.js";
+import { isErrorLike } from "../shared/utils/capability-probes.js";
 import {
     collectAncestorDirectories,
     isPathInside
-} from "./lib/shared/path-utils.js";
+} from "../shared/utils/path.js";
 import {
     hasIgnoreRuleNegations,
     markIgnoreRuleNegationsDetected,
@@ -69,6 +70,7 @@ import {
 } from "./lib/ignore-path-registry.js";
 import { createCliCommandManager } from "./lib/cli-command-manager.js";
 import { resolveCliVersion } from "./lib/cli-version.js";
+import { wrapInvalidArgumentResolver } from "./lib/command-parsing.js";
 import {
     createPerformanceCommand,
     runPerformanceCommand
@@ -83,7 +85,11 @@ import {
     runGenerateFeatherMetadata
 } from "./commands/generate-feather-metadata.js";
 import { resolveCliIdentifierCaseCacheClearer } from "./lib/plugin-services.js";
-import { wrapInvalidArgumentResolver } from "./lib/command-parsing.js";
+import {
+    getDefaultSkippedDirectorySampleLimit,
+    resolveSkippedDirectorySampleLimit,
+    SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR
+} from "./lib/skipped-directory-sample-limit.js";
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolvePluginEntryPoint();
@@ -117,6 +123,9 @@ const VALID_PARSE_ERROR_ACTION_CHOICES = formatValidChoiceList(
 const VALID_PRETTIER_LOG_LEVEL_CHOICES = formatValidChoiceList(
     VALID_PRETTIER_LOG_LEVELS
 );
+
+const PRETTIER_MODULE_ID =
+    process.env.PRETTIER_PLUGIN_GML_PRETTIER_MODULE ?? "prettier";
 
 function formatExtensionListForDisplay(extensions) {
     return extensions.map((extension) => `"${extension}"`).join(", ");
@@ -155,7 +164,7 @@ let prettierModulePromise = null;
 
 async function resolvePrettier() {
     if (!prettierModulePromise) {
-        prettierModulePromise = import("prettier")
+        prettierModulePromise = import(PRETTIER_MODULE_ID)
             .then((module) => module?.default ?? module)
             .catch((error) => {
                 if (isMissingPrettierDependency(error)) {
@@ -233,40 +242,6 @@ const DEFAULT_PRETTIER_LOG_LEVEL =
         VALID_PRETTIER_LOG_LEVELS
     ) ?? "warn";
 
-const SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV =
-    "PRETTIER_PLUGIN_GML_MAX_SKIPPED_DIRECTORY_SAMPLES";
-
-const DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT = resolveIntegerOption(
-    process.env[SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV],
-    {
-        defaultValue: 5,
-        coerce: (value, { received }) =>
-            coerceNonNegativeInteger(value, {
-                received,
-                createErrorMessage: (receivedValue) =>
-                    `${SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV} must be a non-negative integer (received ${receivedValue}).`
-            })
-    }
-);
-
-const resolveIgnoredDirectorySampleLimit = wrapInvalidArgumentResolver(
-    (value) =>
-        resolveIntegerOption(value, {
-            defaultValue: DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT,
-            coerce: (numericValue, { received }) =>
-                coerceNonNegativeInteger(numericValue, {
-                    received,
-                    createErrorMessage: (receivedValue) =>
-                        `--ignored-directory-sample-limit must be a non-negative integer (received ${receivedValue}).`
-                }),
-            blankStringReturnsDefault: false
-        }),
-    {
-        fallbackMessage:
-            "--ignored-directory-sample-limit must be a non-negative integer."
-    }
-);
-
 const program = applyStandardCommandOptions(new Command())
     .name("prettier-plugin-gml")
     .usage("[command] [options]")
@@ -307,6 +282,13 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
             formatExtensionListForDisplay(DEFAULT_EXTENSIONS)
         );
 
+    const defaultSkippedDirectorySampleLimit =
+        getDefaultSkippedDirectorySampleLimit();
+    const resolveSkippedDirectoryLimit = (value) =>
+        resolveSkippedDirectorySampleLimit(value, {
+            defaultLimit: defaultSkippedDirectorySampleLimit
+        });
+
     return applyStandardCommandOptions(
         new Command()
             .name(name)
@@ -328,11 +310,11 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
             "--ignored-directory-sample-limit <count>",
             [
                 "Maximum number of ignored directories to include in skip summaries.",
-                `Defaults to ${DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT}.`,
-                "Respects PRETTIER_PLUGIN_GML_MAX_SKIPPED_DIRECTORY_SAMPLES when set."
+                `Defaults to ${defaultSkippedDirectorySampleLimit}.`,
+                `Respects ${SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR} when set. Provide 0 to suppress the sample list.`
             ].join(" "),
-            resolveIgnoredDirectorySampleLimit,
-            DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT
+            wrapInvalidArgumentResolver(resolveSkippedDirectoryLimit),
+            defaultSkippedDirectorySampleLimit
         )
         .option(
             "--log-level <level>",
@@ -375,6 +357,16 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
                 return normalized;
             },
             DEFAULT_PARSE_ERROR_ACTION
+        )
+        .option(
+            "--ignored-directory-samples <count>",
+            [
+                "Maximum number of ignored directories to include in summary output.",
+                `Defaults to ${defaultSkippedDirectorySampleLimit}.`,
+                `Respects ${SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR} when set. Provide 0 to suppress the sample list.`
+            ].join(" "),
+            wrapInvalidArgumentResolver(resolveSkippedDirectoryLimit),
+            defaultSkippedDirectorySampleLimit
         );
 }
 
@@ -387,9 +379,9 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
  */
 function normalizeTargetPathInput(rawInput) {
     if (typeof rawInput === "string") {
-        const trimmed = rawInput.trim();
+        const trimmed = getNonEmptyTrimmedString(rawInput);
         return {
-            targetPathInput: trimmed.length > 0 ? trimmed : null,
+            targetPathInput: trimmed ?? null,
             targetPathProvided: true
         };
     }
@@ -410,17 +402,18 @@ function collectFormatCommandOptions(command) {
         options.path ?? positionalTarget ?? null
     );
 
+    const skippedDirectorySampleLimit =
+        options.ignoredDirectorySampleLimit ?? options.ignoredDirectorySamples;
+
     return {
         targetPathInput,
         targetPathProvided,
         extensions: Array.isArray(extensions)
             ? extensions
             : [...(extensions ?? DEFAULT_EXTENSIONS)],
-        ignoredDirectorySampleLimit:
-            options.ignoredDirectorySampleLimit ??
-            DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT,
         prettierLogLevel: options.logLevel ?? DEFAULT_PRETTIER_LOG_LEVEL,
         onParseError: options.onParseError ?? DEFAULT_PARSE_ERROR_ACTION,
+        skippedDirectorySampleLimit,
         usage: command.helpInformation()
     };
 }
@@ -482,29 +475,30 @@ function configurePrettierOptions({ logLevel } = {}) {
     options.loglevel = normalized;
 }
 
-function configureSkippedDirectorySampleLimit(limit) {
-    skippedDirectorySampleLimit =
-        typeof limit === "number"
-            ? limit
-            : DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT;
-}
+const UNSUPPORTED_EXTENSION_SAMPLE_LIMIT = 5;
 
 const skippedFileSummary = {
     ignored: 0,
     unsupportedExtension: 0,
+    unsupportedExtensionSamples: [],
     symbolicLink: 0
 };
-
-let skippedDirectorySampleLimit = DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT;
 
 const skippedDirectorySummary = {
     ignored: 0,
     ignoredSamples: []
 };
 
+let skippedDirectorySampleLimit = getDefaultSkippedDirectorySampleLimit();
+
+function configureSkippedDirectorySampleLimit(limit) {
+    skippedDirectorySampleLimit = resolveSkippedDirectorySampleLimit(limit);
+}
+
 function resetSkippedFileSummary() {
     skippedFileSummary.ignored = 0;
     skippedFileSummary.unsupportedExtension = 0;
+    skippedFileSummary.unsupportedExtensionSamples.length = 0;
     skippedFileSummary.symbolicLink = 0;
 }
 
@@ -517,6 +511,7 @@ function recordSkippedDirectory(directory) {
     skippedDirectorySummary.ignored += 1;
 
     if (
+        skippedDirectorySampleLimit > 0 &&
         skippedDirectorySummary.ignoredSamples.length <
             skippedDirectorySampleLimit &&
         !skippedDirectorySummary.ignoredSamples.includes(directory)
@@ -588,25 +583,23 @@ async function cleanupRevertSnapshotDirectory() {
 }
 
 async function releaseSnapshot(snapshot) {
-    if (!isObjectLike(snapshot)) {
-        return;
-    }
-
-    const snapshotPath = snapshot.snapshotPath;
-    if (!snapshotPath) {
-        return;
-    }
-
-    try {
-        await rm(snapshotPath, { force: true });
-    } catch {
-        // Ignore individual file cleanup failures to avoid masking the
-        // original error that triggered the revert.
-    } finally {
-        if (revertSnapshotFileCount > 0) {
-            revertSnapshotFileCount -= 1;
+    await withObjectLike(snapshot, async (snapshotObject) => {
+        const { snapshotPath } = snapshotObject;
+        if (!snapshotPath) {
+            return;
         }
-    }
+
+        try {
+            await rm(snapshotPath, { force: true });
+        } catch {
+            // Ignore individual file cleanup failures to avoid masking the
+            // original error that triggered the revert.
+        } finally {
+            if (revertSnapshotFileCount > 0) {
+                revertSnapshotFileCount -= 1;
+            }
+        }
+    });
 }
 
 async function discardFormattedFileOriginalContents() {
@@ -629,20 +622,22 @@ async function discardFormattedFileOriginalContents() {
 }
 
 async function readSnapshotContents(snapshot) {
-    if (!isObjectLike(snapshot)) {
+    if (!snapshot || typeof snapshot !== "object") {
         return "";
     }
 
-    if (snapshot.inlineContents != null) {
-        return snapshot.inlineContents;
+    const { inlineContents, snapshotPath } = snapshot;
+
+    if (inlineContents != null) {
+        return inlineContents;
     }
 
-    if (!snapshot.snapshotPath) {
+    if (!snapshotPath) {
         return "";
     }
 
     try {
-        return await readFile(snapshot.snapshotPath, "utf8");
+        return await readFile(snapshotPath, "utf8");
     } catch {
         return null;
     }
@@ -743,7 +738,7 @@ async function revertFormattedFiles() {
             // decide whether the temporary directory is still needed. Skipping
             // this step after a failed write would leak backups, block future
             // revert attempts from creating fresh snapshots, and leave the
-            // `revertSnapshotFileCount` counter desynchronised from reality.
+            // `revertSnapshotFileCount` counter desynchronized from reality.
             await releaseSnapshot(snapshot);
         }
     }
@@ -969,7 +964,7 @@ async function processDirectoryEntry(filePath, currentIgnorePaths) {
         return;
     }
 
-    skippedFileSummary.unsupportedExtension += 1;
+    recordUnsupportedExtension(filePath);
 }
 
 async function processDirectoryEntries(directory, files, currentIgnorePaths) {
@@ -1106,17 +1101,22 @@ function resolveTargetPathFromInput(targetPathInput) {
 /**
  * Configure global state for a formatting run based on CLI flags.
  *
- * @param {{ configuredExtensions: readonly string[], prettierLogLevel: string, onParseError: string }} params
+ * @param {{
+ *   configuredExtensions: readonly string[],
+ *   prettierLogLevel: string,
+ *   onParseError: string,
+ *   skippedDirectorySampleLimit: number
+ * }} params
  */
 async function prepareFormattingRun({
     configuredExtensions,
-    ignoredDirectorySampleLimit,
     prettierLogLevel,
-    onParseError
+    onParseError,
+    skippedDirectorySampleLimit
 }) {
     configurePrettierOptions({ logLevel: prettierLogLevel });
     configureTargetExtensionState(configuredExtensions);
-    configureSkippedDirectorySampleLimit(ignoredDirectorySampleLimit);
+    configureSkippedDirectorySampleLimit(skippedDirectorySampleLimit);
     await resetFormattingSession(onParseError);
 }
 
@@ -1157,7 +1157,7 @@ async function processNonDirectoryTarget(targetPath) {
         return;
     }
 
-    skippedFileSummary.unsupportedExtension += 1;
+    recordUnsupportedExtension(targetPath);
 }
 
 /**
@@ -1185,13 +1185,18 @@ async function processResolvedTarget({
  *
  * @param {{ targetPath: string, targetIsDirectory: boolean }} params
  */
-function finalizeFormattingRun({ targetPath, targetIsDirectory }) {
+function finalizeFormattingRun({
+    targetPath,
+    targetIsDirectory,
+    targetPathProvided
+}) {
     if (encounteredFormattableFile) {
         logSkippedFileSummary();
     } else {
         logNoMatchingFiles({
             targetPath,
             targetIsDirectory,
+            targetPathProvided,
             extensions: targetExtensions
         });
     }
@@ -1205,7 +1210,11 @@ function finalizeFormattingRun({ targetPath, targetIsDirectory }) {
  *
  * @param {{ targetPath: string, usage: string }} params
  */
-async function runFormattingWorkflow({ targetPath, usage }) {
+async function runFormattingWorkflow({
+    targetPath,
+    usage,
+    targetPathProvided
+}) {
     const { targetIsDirectory, projectRoot } = await resolveTargetContext(
         targetPath,
         usage
@@ -1217,36 +1226,58 @@ async function runFormattingWorkflow({ targetPath, usage }) {
         projectRoot
     });
 
-    finalizeFormattingRun({ targetPath, targetIsDirectory });
+    finalizeFormattingRun({
+        targetPath,
+        targetIsDirectory,
+        targetPathProvided
+    });
 }
 
 async function executeFormatCommand(command) {
     const commandOptions = collectFormatCommandOptions(command);
-    const { usage, targetPathInput } = commandOptions;
+    const {
+        usage,
+        targetPathInput,
+        targetPathProvided,
+        skippedDirectorySampleLimit
+    } = commandOptions;
 
     validateTargetPathInput(commandOptions);
 
     const targetPath = resolveTargetPathFromInput(targetPathInput);
     await prepareFormattingRun({
         configuredExtensions: commandOptions.extensions,
-        ignoredDirectorySampleLimit: commandOptions.ignoredDirectorySampleLimit,
         prettierLogLevel: commandOptions.prettierLogLevel,
-        onParseError: commandOptions.onParseError
+        onParseError: commandOptions.onParseError,
+        skippedDirectorySampleLimit
     });
 
     try {
-        await runFormattingWorkflow({ targetPath, usage });
+        await runFormattingWorkflow({
+            targetPath,
+            usage,
+            targetPathProvided
+        });
     } finally {
         await discardFormattedFileOriginalContents();
         clearIdentifierCaseCaches();
     }
 }
 
-function logNoMatchingFiles({ targetPath, targetIsDirectory, extensions }) {
+function logNoMatchingFiles({
+    targetPath,
+    targetIsDirectory,
+    targetPathProvided,
+    extensions
+}) {
     const formattedExtensions = formatExtensionListForDisplay(extensions);
+    const formattedTarget = formatPathForDisplay(targetPath);
     const locationDescription = targetIsDirectory
-        ? `in ${formatPathForDisplay(targetPath)}`
-        : formatPathForDisplay(targetPath);
+        ? describeDirectoryWithoutMatches({
+              formattedTargetPath: formattedTarget,
+              targetPathProvided
+          })
+        : formattedTarget;
     const guidance = targetIsDirectory
         ? "Adjust --extensions or update your .prettierignore files if this is unexpected."
         : "Pass --extensions to include this file or adjust your .prettierignore files if this is unexpected.";
@@ -1272,15 +1303,36 @@ function logNoMatchingFiles({ targetPath, targetIsDirectory, extensions }) {
     logSkippedFileSummary();
 }
 
+function describeDirectoryWithoutMatches({
+    formattedTargetPath,
+    targetPathProvided
+}) {
+    if (!targetPathProvided) {
+        return "in the current working directory (.)";
+    }
+
+    if (formattedTargetPath === ".") {
+        return "in the current directory";
+    }
+
+    return `in ${formattedTargetPath}`;
+}
+
 /**
  * Build human-readable detail messages describing skipped file categories.
  *
- * @param {{ ignored: number, unsupportedExtension: number, symbolicLink: number }} summary
+ * @param {{
+ *     ignored: number,
+ *     unsupportedExtension: number,
+ *     unsupportedExtensionSamples: readonly string[],
+ *     symbolicLink: number
+ * }} summary
  * @returns {string[]}
  */
 function buildSkippedFileDetailEntries({
     ignored,
     unsupportedExtension,
+    unsupportedExtensionSamples,
     symbolicLink
 }) {
     const detailEntries = [];
@@ -1290,7 +1342,20 @@ function buildSkippedFileDetailEntries({
     }
 
     if (unsupportedExtension > 0) {
-        detailEntries.push(`unsupported extensions (${unsupportedExtension})`);
+        const formattedSamples = unsupportedExtensionSamples.map((sample) =>
+            formatPathForDisplay(sample)
+        );
+        let suffix = "";
+
+        if (formattedSamples.length > 0) {
+            const sampleList = formattedSamples.join(", ");
+            const ellipsis =
+                unsupportedExtension > formattedSamples.length ? ", ..." : "";
+            suffix = ` (e.g., ${sampleList}${ellipsis})`;
+        }
+        detailEntries.push(
+            `unsupported extensions (${unsupportedExtension})${suffix}`
+        );
     }
 
     if (symbolicLink > 0) {
@@ -1413,4 +1478,18 @@ if (process.env.PRETTIER_PLUGIN_GML_SKIP_CLI_RUN !== "1") {
             exitCode: 1
         });
     });
+}
+function recordUnsupportedExtension(filePath) {
+    skippedFileSummary.unsupportedExtension += 1;
+
+    if (
+        skippedFileSummary.unsupportedExtensionSamples.length >=
+        UNSUPPORTED_EXTENSION_SAMPLE_LIMIT
+    ) {
+        return;
+    }
+
+    if (!skippedFileSummary.unsupportedExtensionSamples.includes(filePath)) {
+        skippedFileSummary.unsupportedExtensionSamples.push(filePath);
+    }
 }

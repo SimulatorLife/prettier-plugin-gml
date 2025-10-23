@@ -4,7 +4,7 @@ import { CliUsageError, createCliErrorDetails } from "./cli-errors.js";
 import { normalizeEnumeratedOption } from "./shared-deps.js";
 // Pull array helpers from the shared utils barrel so new call sites avoid the
 // legacy `array-utils` shim slated for removal.
-import { toMutableArray } from "./shared/utils.js";
+import { isNonEmptyArray, toMutableArray } from "./shared-deps.js";
 
 export const SuiteOutputFormat = Object.freeze({
     JSON: "json",
@@ -98,40 +98,6 @@ export function ensureSuitesAreKnown(suiteNames, availableSuites, command) {
 }
 
 /**
- * @param {Map<string, unknown>} availableSuites
- * @param {string} suiteName
- * @returns {((options: unknown) => unknown) | null}
- */
-function getSuiteRunner(availableSuites, suiteName) {
-    const runner = availableSuites.get(suiteName);
-    return typeof runner === "function" ? runner : null;
-}
-
-/**
- * @param {(options: unknown) => unknown} runner
- * @param {{
- *   suiteName: string,
- *   runnerOptions: unknown,
- *   onError?: (error: unknown, context: { suiteName: string }) => unknown
- * }} context
- * @returns {Promise<unknown>}
- */
-async function executeSuiteRunner(
-    runner,
-    { suiteName, runnerOptions, onError }
-) {
-    try {
-        return await runner(runnerOptions);
-    } catch (error) {
-        if (typeof onError === "function") {
-            return onError(error, { suiteName });
-        }
-
-        return { error: createCliErrorDetails(error) };
-    }
-}
-
-/**
  * Execute the provided suite runners and collect their results.
  *
  * @param {{
@@ -148,32 +114,85 @@ export async function collectSuiteResults({
     runnerOptions,
     onError
 }) {
-    if (!availableSuites || typeof availableSuites.get !== "function") {
-        throw new TypeError(
-            "availableSuites must provide a get function returning suite runners"
-        );
-    }
+    assertSuiteRegistryContract(availableSuites);
 
-    if (!Array.isArray(suiteNames) || suiteNames.length === 0) {
+    if (!isNonEmptyArray(suiteNames)) {
         return {};
     }
 
     const results = {};
 
     for (const suiteName of suiteNames) {
-        const runner = getSuiteRunner(availableSuites, suiteName);
+        const runner = resolveSuiteRunner(availableSuites, suiteName);
         if (!runner) {
             continue;
         }
 
-        results[suiteName] = await executeSuiteRunner(runner, {
+        const result = await executeSuiteRunner(runner, {
             suiteName,
             runnerOptions,
             onError
         });
+
+        recordSuiteResult(results, suiteName, result);
     }
 
     return results;
+}
+
+function resolveSuiteRunner(availableSuites, suiteName) {
+    const runner = availableSuites.get(suiteName);
+    return typeof runner === "function" ? runner : null;
+}
+
+async function executeSuiteRunner(
+    runner,
+    { suiteName, runnerOptions, onError }
+) {
+    try {
+        return await runner(runnerOptions);
+    } catch (error) {
+        return handleSuiteRunnerError(error, { suiteName, onError });
+    }
+}
+
+function handleSuiteRunnerError(error, { suiteName, onError }) {
+    if (typeof onError === "function") {
+        return onError(error, { suiteName });
+    }
+
+    return { error: createCliErrorDetails(error) };
+}
+
+/**
+ * Record the resolved suite result on the shared accumulator. Keeping the
+ * mutation here makes the orchestrator's control flow read as a series of
+ * delegations rather than direct property writes.
+ */
+function recordSuiteResult(results, suiteName, result) {
+    results[suiteName] = result;
+}
+
+function assertSuiteRegistryContract(availableSuites) {
+    if (!availableSuites || typeof availableSuites.get !== "function") {
+        throw new TypeError(
+            "availableSuites must provide a get function returning suite runners"
+        );
+    }
+}
+
+export function createSuiteResultsPayload(results, { generatedAt } = {}) {
+    return {
+        generatedAt: generatedAt ?? new Date().toISOString(),
+        environment: {
+            nodeVersion: process.version,
+            platform: process.platform,
+            arch: process.arch,
+            pid: process.pid,
+            cwd: process.cwd()
+        },
+        suites: results
+    };
 }
 
 /**
@@ -183,7 +202,11 @@ export async function collectSuiteResults({
  * @param {{ format?: string, pretty?: boolean }} options
  * @returns {boolean} `true` when JSON output was emitted.
  */
-export function emitSuiteResults(results, { format, pretty } = {}) {
+export function emitSuiteResults(
+    results,
+    { format, pretty } = {},
+    extras = {}
+) {
     const normalizedFormat = resolveSuiteOutputFormatOrThrow(format, {
         fallback: SuiteOutputFormat.JSON,
         errorConstructor: RangeError,
@@ -195,10 +218,10 @@ export function emitSuiteResults(results, { format, pretty } = {}) {
         return false;
     }
 
-    const payload = {
-        generatedAt: new Date().toISOString(),
-        suites: results
-    };
+    const payload =
+        extras && typeof extras === "object" && extras.payload
+            ? extras.payload
+            : createSuiteResultsPayload(results);
     const spacing = pretty ? 2 : 0;
     process.stdout.write(`${JSON.stringify(payload, null, spacing)}\n`);
     return true;

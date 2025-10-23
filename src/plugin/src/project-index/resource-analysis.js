@@ -1,14 +1,7 @@
 import path from "node:path";
 
-import {
-    toPosixPath,
-    resolveProjectPathInfo
-} from "../../../shared/path-utils.js";
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
-import {
-    isNonEmptyString,
-    isNonEmptyTrimmedString
-} from "../../../shared/string-utils.js";
+import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
 import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
 import {
     createAbortGuard,
@@ -17,9 +10,14 @@ import {
 
 import { isFsErrorCode } from "../../../shared/fs-utils.js";
 import {
+    isJsonParseError,
+    parseJsonWithContext
+} from "../../../shared/json-utils.js";
+import {
     PROJECT_MANIFEST_EXTENSION,
     isProjectManifestPath
 } from "./constants.js";
+import { normalizeProjectResourcePath } from "./path-normalization.js";
 
 const RESOURCE_ANALYSIS_ABORT_MESSAGE = "Project index build was aborted.";
 
@@ -34,27 +32,6 @@ function deriveScopeId(kind, parts) {
         ? parts.join("::")
         : String(parts ?? "");
     return `scope:${kind}:${suffix}`;
-}
-
-function normalizeResourcePath(rawPath, { projectRoot } = {}) {
-    if (!isNonEmptyString(rawPath)) {
-        return null;
-    }
-
-    const normalized = toPosixPath(rawPath).replace(/^\.\//, "");
-    if (!projectRoot) {
-        return normalized;
-    }
-
-    const absoluteCandidate = path.isAbsolute(normalized)
-        ? normalized
-        : path.join(projectRoot, normalized);
-    const info = resolveProjectPathInfo(absoluteCandidate, projectRoot);
-    if (!info) {
-        return null;
-    }
-
-    return toPosixPath(info.relativePath);
 }
 
 function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
@@ -105,29 +82,30 @@ function createScriptScopeDescriptor(resourceRecord, gmlRelativePath) {
     };
 }
 
+function getNumericEventField(event, keys) {
+    for (const key of keys) {
+        const value = event?.[key];
+        if (typeof value === "number") {
+            return value;
+        }
+    }
+
+    return null;
+}
+
 function resolveEventMetadata(event) {
-    const eventType =
-        typeof event?.eventType === "number"
-            ? event.eventType
-            : typeof event?.eventtype === "number"
-              ? event.eventtype
-              : null;
-    const eventNum =
-        typeof event?.eventNum === "number"
-            ? event.eventNum
-            : typeof event?.enumb === "number"
-              ? event.enumb
-              : null;
+    const eventType = getNumericEventField(event, ["eventType", "eventtype"]);
+    const eventNum = getNumericEventField(event, ["eventNum", "enumb"]);
 
     if (isNonEmptyTrimmedString(event?.name)) {
         return { eventType, eventNum, displayName: event.name };
     }
 
-    if (eventType == undefined && eventNum == undefined) {
+    if (eventType == null && eventNum == null) {
         return { eventType, eventNum, displayName: "event" };
     }
 
-    if (eventNum == undefined) {
+    if (eventNum == null) {
         return { eventType, eventNum, displayName: String(eventType) };
     }
 
@@ -192,7 +170,7 @@ function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
     }
 
     for (const candidate of candidatePaths) {
-        const normalized = normalizeResourcePath(candidate);
+        const normalized = normalizeProjectResourcePath(candidate);
         if (normalized) {
             return normalized;
         }
@@ -209,6 +187,15 @@ function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
     return guessed;
 }
 
+function pushChildNode(stack, parentPath, key, candidate) {
+    if (!candidate || typeof candidate !== "object") {
+        return;
+    }
+
+    const childPath = parentPath ? `${parentPath}.${key}` : String(key);
+    stack.push({ value: candidate, path: childPath });
+}
+
 function collectAssetReferences(root, callback) {
     if (!root || typeof root !== "object") {
         return;
@@ -219,18 +206,9 @@ function collectAssetReferences(root, callback) {
     while (stack.length > 0) {
         const { value, path } = stack.pop();
 
-        const pushChild = (nextValue, key) => {
-            if (!nextValue || typeof nextValue !== "object") {
-                return;
-            }
-
-            const childPath = path ? `${path}.${key}` : String(key);
-            stack.push({ value: nextValue, path: childPath });
-        };
-
         if (Array.isArray(value)) {
             for (let index = value.length - 1; index >= 0; index -= 1) {
-                pushChild(value[index], index);
+                pushChildNode(stack, path, index, value[index]);
             }
             continue;
         }
@@ -246,7 +224,7 @@ function collectAssetReferences(root, callback) {
         const entries = Object.entries(value);
         for (let i = entries.length - 1; i >= 0; i -= 1) {
             const [key, child] = entries[i];
-            pushChild(child, key);
+            pushChildNode(stack, path, key, child);
         }
     }
 }
@@ -278,9 +256,15 @@ async function loadResourceDocument(file, fsFacade, options = {}) {
     ensureNotAborted();
 
     try {
-        return JSON.parse(rawContents);
-    } catch {
-        return null;
+        return parseJsonWithContext(rawContents, {
+            source: file.absolutePath ?? file.relativePath,
+            description: "resource document"
+        });
+    } catch (error) {
+        if (isJsonParseError(error)) {
+            return null;
+        }
+        throw error;
     }
 }
 
@@ -381,7 +365,7 @@ function collectResourceAssetReferences({
     collectAssetReferences(
         parsed,
         ({ propertyPath, targetPath, targetName }) => {
-            const normalizedTarget = normalizeResourcePath(targetPath, {
+            const normalizedTarget = normalizeProjectResourcePath(targetPath, {
                 projectRoot
             });
             if (!normalizedTarget) {
