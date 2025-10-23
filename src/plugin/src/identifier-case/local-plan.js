@@ -1,7 +1,7 @@
 import { formatIdentifierCase } from "./identifier-case-utils.js";
 import { buildRenameKey } from "./plan-state.js";
 import { asArray, isNonEmptyArray } from "../../../shared/array-utils.js";
-import { createMetricsTracker } from "../reporting/metrics.js";
+import { createMetricsTracker } from "../reporting.js";
 import {
     isNonEmptyString,
     getNonEmptyString,
