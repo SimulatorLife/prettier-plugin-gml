@@ -3,6 +3,8 @@ import GMLParser from "gamemaker-language-parser";
 import {
     getNodeEndIndex,
     getNodeStartIndex,
+    getNodeEndLine,
+    getNodeStartLine,
     cloneLocation,
     assignClonedLocation
 } from "../../../shared/ast-locations.js";
@@ -13601,12 +13603,8 @@ function createEmptyStatementLike(template) {
 }
 
 function hasOriginalBlankLineBetween(beforeNode, afterNode) {
-    const beforeEndLine =
-        typeof beforeNode?.end?.line === "number" ? beforeNode.end.line : null;
-    const afterStartLine =
-        typeof afterNode?.start?.line === "number"
-            ? afterNode.start.line
-            : null;
+    const beforeEndLine = getNodeEndLine(beforeNode);
+    const afterStartLine = getNodeStartLine(afterNode);
 
     if (beforeEndLine == undefined || afterStartLine == undefined) {
         return false;
@@ -18241,20 +18239,6 @@ function getArgumentBuiltinName(name) {
     }
 
     return null;
-}
-
-function getNodeStartLine(node) {
-    const location = node?.start;
-
-    if (
-        location &&
-        typeof location === "object" &&
-        typeof location.line === "number"
-    ) {
-        return location.line;
-    }
-
-    return;
 }
 
 function collectGM1100Candidates(node) {
