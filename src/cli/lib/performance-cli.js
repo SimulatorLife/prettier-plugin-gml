@@ -1,243 +1,368 @@
+import fs from "node:fs/promises";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
 import { Command, InvalidArgumentError } from "commander";
+import GMLParser from "gamemaker-language-parser";
 
 import { applyStandardCommandOptions } from "./command-standard-options.js";
 import { createCliErrorDetails } from "./cli-errors.js";
-import {
-    resolveCliProjectIndexBuilder,
-    resolveCliIdentifierCasePlanPreparer
-} from "./plugin-services.js";
-import { getIdentifierText } from "./shared-deps.js";
+import { resolvePluginEntryPoint } from "./plugin-entry-point.js";
 import { formatByteSize } from "./byte-format.js";
 import {
     SuiteOutputFormat,
     resolveSuiteOutputFormatOrThrow,
-    emitSuiteResults as emitSuiteResultsJson,
     collectSuiteResults,
     ensureSuitesAreKnown,
     resolveRequestedSuites
 } from "./command-suite-helpers.js";
+import { coercePositiveInteger, getIdentifierText } from "./shared-deps.js";
 
 const AVAILABLE_SUITES = new Map();
 
-function collectSuite(value, previous = []) {
+const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
+const CLI_DIRECTORY = path.resolve(MODULE_DIRECTORY, "..");
+const REPO_ROOT = path.resolve(CLI_DIRECTORY, "..");
+const TEST_RESULTS_DIRECTORY = path.resolve(REPO_ROOT, "test-results");
+const DEFAULT_REPORT_FILE = path.join(
+    TEST_RESULTS_DIRECTORY,
+    "performance-report.json"
+);
+const DEFAULT_FIXTURE_DIRECTORIES = Object.freeze([
+    path.resolve(REPO_ROOT, "src", "parser", "tests", "input"),
+    path.resolve(REPO_ROOT, "src", "plugin", "tests")
+]);
+const DATASET_CACHE_KEY = "gml-fixtures";
+
+function collectValue(value, previous = []) {
     previous.push(value);
     return previous;
 }
 
-function formatErrorDetails(error, { hint, fallbackMessage } = {}) {
-    const details = createCliErrorDetails(error, {
+function formatErrorDetails(error, { fallbackMessage } = {}) {
+    return createCliErrorDetails(error, {
         fallbackMessage: fallbackMessage ?? "Unknown error"
     });
+}
 
-    if (hint) {
-        details.hint = hint;
+function normalizeFixtureRoots(additionalRoots = []) {
+    const resolved = [];
+    const seen = new Set();
+
+    for (const candidate of [
+        ...DEFAULT_FIXTURE_DIRECTORIES,
+        ...additionalRoots
+    ]) {
+        if (!candidate || typeof candidate !== "string") {
+            continue;
+        }
+
+        const absolute = path.resolve(candidate);
+        if (seen.has(absolute)) {
+            continue;
+        }
+
+        seen.add(absolute);
+        resolved.push(absolute);
     }
 
-    return details;
+    return resolved;
 }
 
-function formatMetrics(label, metrics) {
-    return {
-        label,
-        totalTimeMs: metrics?.totalTimeMs ?? null,
-        counters: metrics?.counters ?? {},
-        timings: metrics?.timings ?? {},
-        caches: metrics?.caches ?? {},
-        metadata: metrics?.metadata ?? {}
-    };
-}
-
-function createBenchmarkContext(resolvedProjectRoot) {
-    return {
-        results: {
-            projectRoot: resolvedProjectRoot,
-            index: []
-        }
-    };
-}
-
-async function executeProjectIndexAttempt({
-    resolvedProjectRoot,
-    logger,
-    verbose,
-    attempt
-}) {
-    const buildProjectIndex = resolveCliProjectIndexBuilder();
+async function traverseForFixtures(directory, visitor) {
+    let entries;
     try {
-        const index = await buildProjectIndex(resolvedProjectRoot, undefined, {
-            logger,
-            logMetrics: verbose
-        });
-
-        return {
-            index,
-            runRecord: formatMetrics(
-                `project-index-run-${attempt}`,
-                index.metrics
-            )
-        };
+        entries = await fs.readdir(directory, { withFileTypes: true });
     } catch (error) {
-        const formattedError = formatErrorDetails(error, {
-            hint: "Provide --project <path> to a GameMaker project to run this benchmark against real data."
-        });
+        if (error && error.code === "ENOENT") {
+            return;
+        }
+        throw error;
+    }
 
-        return {
-            index: null,
-            error: formattedError,
-            runRecord: {
-                label: `project-index-run-${attempt}`,
-                error: formattedError
+    entries.sort((a, b) => a.name.localeCompare(b.name));
+
+    for (const entry of entries) {
+        const resolvedPath = path.join(directory, entry.name);
+        if (entry.isDirectory()) {
+            await traverseForFixtures(resolvedPath, visitor);
+        } else if (
+            entry.isFile() &&
+            entry.name.toLowerCase().endsWith(".gml")
+        ) {
+            visitor(resolvedPath);
+        }
+    }
+}
+
+async function collectFixtureFilePaths(directories) {
+    const fileMap = new Map();
+
+    for (const directory of directories) {
+        await traverseForFixtures(directory, (filePath) => {
+            const relative = path.relative(REPO_ROOT, filePath);
+            if (!fileMap.has(relative)) {
+                fileMap.set(relative, filePath);
             }
-        };
-    }
-}
-
-async function collectProjectIndexRuns({
-    context,
-    resolvedProjectRoot,
-    logger,
-    verbose
-}) {
-    const { results } = context;
-    let latestIndex = null;
-    for (let attempt = 1; attempt <= 2; attempt += 1) {
-        const attemptResult = await executeProjectIndexAttempt({
-            resolvedProjectRoot,
-            logger,
-            verbose,
-            attempt
         });
-        results.index.push(attemptResult.runRecord);
-
-        if (attemptResult.error) {
-            results.error = attemptResult.error;
-            return { latestIndex: null };
-        }
-
-        latestIndex = attemptResult.index ?? null;
     }
 
-    return { latestIndex };
+    return [...fileMap.values()].sort((a, b) => a.localeCompare(b));
 }
 
-function createRenameOptions({ file, latestIndex, logger, verbose }) {
+async function loadFixtureDataset({ directories } = {}) {
+    const fixtureDirectories = normalizeFixtureRoots(directories ?? []);
+    const fixturePaths = await collectFixtureFilePaths(fixtureDirectories);
+
+    const files = [];
+    let totalBytes = 0;
+
+    for (const absolutePath of fixturePaths) {
+        const source = await fs.readFile(absolutePath, "utf8");
+        const size = Buffer.byteLength(source);
+        totalBytes += size;
+        files.push({
+            path: absolutePath,
+            relativePath: path.relative(REPO_ROOT, absolutePath),
+            source,
+            size
+        });
+    }
+
     return {
-        filepath: path.resolve(file),
-        __identifierCaseProjectIndex: latestIndex,
-        gmlIdentifierCase: "camel",
-        gmlIdentifierCaseLocals: "camel",
-        gmlIdentifierCaseAssets: "pascal",
-        gmlIdentifierCaseAcknowledgeAssetRenames: true,
-        logIdentifierCaseMetrics: verbose,
-        logger
+        files,
+        summary: {
+            files: files.length,
+            totalBytes
+        }
     };
 }
 
-function createRenamePlanResult(renameOptions) {
-    const renamePlan = formatMetrics(
-        "identifier-case-plan",
-        renameOptions.__identifierCaseMetricsReport
-    );
-    renamePlan.operations =
-        renameOptions.__identifierCaseRenamePlan?.operations?.length ?? 0;
-    renamePlan.conflicts = renameOptions.__identifierCaseConflicts?.length ?? 0;
-    return renamePlan;
-}
-
-function disposeIdentifierCaseBootstrap(renameOptions, logger = null) {
-    const bootstrap =
-        renameOptions?.__identifierCaseProjectIndexBootstrap ?? null;
-    if (!bootstrap || typeof bootstrap.dispose !== "function") {
-        return;
+function normalizeCustomDataset(dataset) {
+    if (!Array.isArray(dataset)) {
+        throw new TypeError("Custom datasets must be provided as an array.");
     }
 
-    try {
-        bootstrap.dispose();
-    } catch (error) {
-        if (logger && typeof logger.warn === "function") {
-            const reason = error?.message ?? error;
-            logger.warn(
-                `[performance] Failed to dispose identifier case resources: ${reason}`
+    const files = [];
+    let totalBytes = 0;
+
+    dataset.forEach((entry, index) => {
+        if (!entry || typeof entry !== "object") {
+            throw new TypeError(
+                "Each dataset entry must be an object with a source string."
             );
         }
-    } finally {
-        delete renameOptions.__identifierCaseProjectIndexBootstrap;
-    }
-}
 
-async function attachRenamePlanIfRequested({
-    context,
-    file,
-    latestIndex,
-    logger,
-    verbose
-}) {
-    if (!file) {
-        return;
-    }
+        const source = entry.source;
+        if (typeof source !== "string") {
+            throw new TypeError(
+                "Dataset entries must include a string `source` property."
+            );
+        }
 
-    if (!latestIndex) {
-        context.results.renamePlan = {
-            skipped: true,
-            reason: "Project index could not be built; rename plan skipped."
-        };
-        return;
-    }
+        const providedPath =
+            typeof entry.path === "string" ? entry.path : `<fixture-${index}>`;
+        const relativePath =
+            typeof entry.relativePath === "string"
+                ? entry.relativePath
+                : providedPath.startsWith("<")
+                  ? providedPath
+                  : path.relative(REPO_ROOT, providedPath);
+        const size = entry.size ?? Buffer.byteLength(source);
+        totalBytes += size;
 
-    const renameOptions = createRenameOptions({
-        file,
-        latestIndex,
-        logger,
-        verbose
+        files.push({
+            path: providedPath,
+            relativePath,
+            source,
+            size
+        });
     });
 
-    try {
-        const prepareIdentifierCasePlan =
-            resolveCliIdentifierCasePlanPreparer();
-        await prepareIdentifierCasePlan(renameOptions);
-        context.results.renamePlan = createRenamePlanResult(renameOptions);
-    } catch (error) {
-        context.results.renamePlan = { error: formatErrorDetails(error) };
-    } finally {
-        disposeIdentifierCaseBootstrap(renameOptions, logger);
+    return {
+        files,
+        summary: {
+            files: files.length,
+            totalBytes
+        }
+    };
+}
+
+async function resolveDatasetFromOptions(options = {}) {
+    if (options.dataset) {
+        return normalizeCustomDataset(options.dataset);
     }
-}
 
-async function runIdentifierPipelineBenchmark({ projectRoot, file, verbose }) {
-    const resolvedProjectRoot = path.resolve(projectRoot ?? process.cwd());
-    const logger = verbose
-        ? { debug: (...args) => console.debug(...args) }
-        : null;
+    if (options.datasetCache?.has(DATASET_CACHE_KEY)) {
+        return options.datasetCache.get(DATASET_CACHE_KEY);
+    }
 
-    const context = createBenchmarkContext(resolvedProjectRoot);
-    const { latestIndex } = await collectProjectIndexRuns({
-        context,
-        resolvedProjectRoot,
-        logger,
-        verbose
+    const dataset = await loadFixtureDataset({
+        directories: options.fixtureRoots
     });
 
-    await attachRenamePlanIfRequested({
-        context,
-        file,
-        latestIndex,
-        logger,
-        verbose
-    });
+    if (options.datasetCache) {
+        options.datasetCache.set(DATASET_CACHE_KEY, dataset);
+    }
 
-    return context.results;
+    return dataset;
 }
 
-/**
- * Provide sample nodes used by the identifier text benchmark to mimic common
- * AST structures.
- *
- * @returns {Array<unknown>}
- */
+function resolveIterationCount(value) {
+    if (value === undefined || value === null) {
+        return 1;
+    }
+
+    return coercePositiveInteger(value, {
+        createErrorMessage: (received) =>
+            `Iterations must be a positive integer (received ${received}).`
+    });
+}
+
+function createSkipResult(reason) {
+    return {
+        skipped: true,
+        reason
+    };
+}
+
+function createDefaultParser() {
+    return async (file) => {
+        GMLParser.parse(file.source, {
+            getComments: false,
+            getLocations: false,
+            simplifyLocations: true,
+            getIdentifierMetadata: false
+        });
+    };
+}
+
+let prettierModulePromise = null;
+
+async function resolvePrettier() {
+    if (!prettierModulePromise) {
+        prettierModulePromise = import("prettier").then(
+            (module) => module?.default ?? module
+        );
+    }
+
+    return prettierModulePromise;
+}
+
+function createDefaultFormatter({ prettier, pluginPath }) {
+    return async (file) => {
+        await prettier.format(file.source, {
+            plugins: [pluginPath],
+            parser: "gml-parse",
+            filepath: file.path
+        });
+    };
+}
+
+function resolveNow(now) {
+    if (typeof now === "function") {
+        return now;
+    }
+
+    return () => performance.now();
+}
+
+function createBenchmarkResult({ dataset, durations, iterations }) {
+    const totalDuration = durations.reduce(
+        (sum, duration) => sum + duration,
+        0
+    );
+    const datasetFiles = dataset.summary.files;
+    const datasetBytes = dataset.summary.totalBytes;
+    const totalFilesProcessed = datasetFiles * iterations;
+    const totalBytesProcessed = datasetBytes * iterations;
+
+    return {
+        iterations,
+        durations,
+        totalDurationMs: totalDuration,
+        averageDurationMs: iterations > 0 ? totalDuration / iterations : 0,
+        dataset: {
+            files: datasetFiles,
+            totalBytes: datasetBytes
+        },
+        throughput: {
+            filesPerMs:
+                totalDuration > 0 ? totalFilesProcessed / totalDuration : null,
+            bytesPerMs:
+                totalDuration > 0 ? totalBytesProcessed / totalDuration : null
+        }
+    };
+}
+
+export async function runParserBenchmark(options = {}) {
+    const dataset = await resolveDatasetFromOptions(options);
+
+    if (!dataset || dataset.summary.files === 0) {
+        return createSkipResult(
+            "No GameMaker fixtures were available to parse."
+        );
+    }
+
+    const iterations = resolveIterationCount(options.iterations);
+    const parser =
+        typeof options.parser === "function"
+            ? options.parser
+            : createDefaultParser();
+    const now = resolveNow(options.now);
+    const durations = [];
+
+    for (let iteration = 0; iteration < iterations; iteration += 1) {
+        const start = now();
+
+        for (const file of dataset.files) {
+            // Await in case callers provide asynchronous parser implementations.
+            await parser(file);
+        }
+
+        durations.push(now() - start);
+    }
+
+    return createBenchmarkResult({ dataset, durations, iterations });
+}
+
+export async function runFormatterBenchmark(options = {}) {
+    const dataset = await resolveDatasetFromOptions(options);
+
+    if (!dataset || dataset.summary.files === 0) {
+        return createSkipResult(
+            "No GameMaker fixtures were available to format."
+        );
+    }
+
+    const iterations = resolveIterationCount(options.iterations);
+    const prettierInstance = options.prettier ?? (await resolvePrettier());
+    const pluginPath = options.pluginPath ?? resolvePluginEntryPoint();
+    const formatter =
+        typeof options.formatter === "function"
+            ? options.formatter
+            : createDefaultFormatter({
+                  prettier: prettierInstance,
+                  pluginPath
+              });
+    const now = resolveNow(options.now);
+    const durations = [];
+
+    for (let iteration = 0; iteration < iterations; iteration += 1) {
+        const start = now();
+
+        for (const file of dataset.files) {
+            await formatter(file);
+        }
+
+        durations.push(now() - start);
+    }
+
+    return createBenchmarkResult({ dataset, durations, iterations });
+}
+
 function createIdentifierTextDataset() {
     return [
         "simple",
@@ -272,22 +397,10 @@ function createIdentifierTextDataset() {
     ];
 }
 
-/**
- * Resolve the number of iterations the identifier text benchmark should run.
- *
- * @returns {number}
- */
 function resolveIdentifierTextIterations() {
     return 5_000_000;
 }
 
-/**
- * Execute the identifier text benchmark and capture timing plus checksum data.
- *
- * @param {Array<unknown>} dataset
- * @param {number} iterations
- * @returns {{ iterations: number, checksum: number, duration: number }}
- */
 function benchmarkIdentifierTextDataset(dataset, iterations) {
     let checksum = 0;
 
@@ -310,153 +423,183 @@ function runIdentifierTextBenchmark() {
     return benchmarkIdentifierTextDataset(dataset, iterations);
 }
 
-async function runProjectIndexMemoryMeasurement({ projectRoot }) {
-    if (typeof globalThis.gc !== "function") {
-        return {
-            skipped: true,
-            reason: "Garbage collection is not exposed. Run with 'node --expose-gc' to enable the memory benchmark."
-        };
-    }
-
-    const { readFile } = await import("node:fs/promises");
-
-    const buildProjectIndex = resolveCliProjectIndexBuilder();
-
-    const fsFacade = {
-        async readDir() {
-            return [];
-        },
-        async stat() {
-            return { mtimeMs: 0 };
-        },
-        async readFile(targetPath, encoding) {
-            if (targetPath.endsWith("gml-identifiers.json")) {
-                return readFile(targetPath, encoding);
-            }
-
-            const error = new Error("ENOENT");
-            error.code = "ENOENT";
-            throw error;
-        }
-    };
-
-    globalThis.gc();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    const before = process.memoryUsage().heapUsed;
-
-    await buildProjectIndex(
-        path.resolve(projectRoot ?? "/tmp/prettier-plugin-gml"),
-        fsFacade
-    );
-
-    globalThis.gc();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    const after = process.memoryUsage().heapUsed;
-
-    return {
-        before,
-        after,
-        delta: after - before,
-        formatted: {
-            before: formatByteSize(before, {
-                decimals: 2,
-                decimalsForBytes: 2,
-                separator: " "
-            }),
-            after: formatByteSize(after, {
-                decimals: 2,
-                decimalsForBytes: 2,
-                separator: " "
-            }),
-            delta: formatByteSize(Math.abs(after - before), {
-                decimals: 2,
-                decimalsForBytes: 2,
-                separator: " "
-            })
-        }
-    };
-}
-
-AVAILABLE_SUITES.set("identifier-pipeline", runIdentifierPipelineBenchmark);
+AVAILABLE_SUITES.set("parser", runParserBenchmark);
+AVAILABLE_SUITES.set("formatter", runFormatterBenchmark);
 AVAILABLE_SUITES.set("identifier-text", () => runIdentifierTextBenchmark());
-AVAILABLE_SUITES.set("project-index-memory", runProjectIndexMemoryMeasurement);
 
 export function createPerformanceCommand() {
     return applyStandardCommandOptions(
         new Command()
             .name("performance")
             .usage("[options]")
-            .description("Run performance and benchmarking suites for the CLI.")
+            .description(
+                "Run parser and formatter performance benchmarks for the CLI."
+            )
     )
-        .option(
-            "-p, --project <path>",
-            "Project root to index during benchmarks.",
-            (value) => path.resolve(value),
-            process.cwd()
-        )
-        .option(
-            "-f, --file <path>",
-            "Optional file path used by the identifier pipeline benchmark.",
-            (value) => path.resolve(value)
-        )
         .option(
             "-s, --suite <name>",
             "Benchmark suite to run (can be provided multiple times).",
-            collectSuite,
+            collectValue,
             []
         )
         .option(
+            "-i, --iterations <count>",
+            "Repeat each suite this many times (default: 1).",
+            (value) =>
+                coercePositiveInteger(value, {
+                    createErrorMessage: (received) =>
+                        `Iterations must be a positive integer (received ${received}).`
+                }),
+            1
+        )
+        .option(
+            "--fixture-root <path>",
+            "Include an additional directory of .gml fixtures (may be provided multiple times).",
+            collectValue,
+            []
+        )
+        .option(
+            "--report-file <path>",
+            `File path for the JSON performance report (default: ${DEFAULT_REPORT_FILE}).`,
+            (value) => path.resolve(value),
+            DEFAULT_REPORT_FILE
+        )
+        .option(
+            "--skip-report",
+            "Disable writing the JSON performance report to disk."
+        )
+        .option("--stdout", "Emit the performance report to stdout.")
+        .option(
             "--format <format>",
-            "Output format: json (default) or human.",
+            "Console output format when --stdout is used: json (default) or human.",
             (value) =>
                 resolveSuiteOutputFormatOrThrow(value, {
                     errorConstructor: InvalidArgumentError
                 }),
             SuiteOutputFormat.JSON
         )
-        .option("--pretty", "Pretty-print JSON output.")
-        .option(
-            "--verbose",
-            "Enable verbose logging for suites that support it."
-        );
+        .option("--pretty", "Pretty-print JSON output.");
 }
 
-export { runIdentifierPipelineBenchmark };
+function createSuiteExecutionOptions(options) {
+    return {
+        iterations: resolveIterationCount(options.iterations),
+        fixtureRoots: normalizeFixtureRoots(options.fixtureRoot ?? []),
+        datasetCache: new Map()
+    };
+}
 
-function printHumanReadable(results) {
-    const lines = ["Performance benchmark results:"];
-    for (const [suite, payload] of Object.entries(results)) {
+async function writeReport(report, options) {
+    if (options.skipReport) {
+        return;
+    }
+
+    const targetFile = options.reportFile ?? DEFAULT_REPORT_FILE;
+    if (!targetFile) {
+        return;
+    }
+
+    const directory = path.dirname(targetFile);
+    await fs.mkdir(directory, { recursive: true });
+
+    const spacing = options.pretty ? 2 : 0;
+    const payload = `${JSON.stringify(report, null, spacing)}\n`;
+    await fs.writeFile(targetFile, payload, "utf8");
+}
+
+function formatThroughput(value, unit) {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+        return "n/a";
+    }
+
+    return `${value.toFixed(3)} ${unit}`;
+}
+
+function formatDuration(value) {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+        return "n/a";
+    }
+
+    return `${value.toFixed(3)} ms`;
+}
+
+function printHumanReadable(report) {
+    const lines = [
+        "Performance benchmark results:",
+        `Generated at: ${report.generatedAt}`
+    ];
+
+    const entries = Object.entries(report.suites);
+    if (entries.length === 0) {
+        lines.push("No suites were executed.");
+    }
+
+    for (const [suite, payload] of entries) {
         lines.push(`\n• ${suite}`);
+
         if (payload?.skipped) {
             lines.push(
                 `  - skipped: ${payload.reason ?? "No reason provided"}`
             );
             continue;
         }
+
+        if (payload?.error) {
+            const errorMessage = payload.error?.message ?? "Unknown error";
+            lines.push(`  - error: ${errorMessage}`);
+            continue;
+        }
+
+        if (suite === "parser" || suite === "formatter") {
+            const datasetBytes = payload.dataset?.totalBytes ?? 0;
+            lines.push(`  - iterations: ${payload.iterations}`, `  - files: ${payload.dataset?.files ?? 0}`);
+            lines.push(
+                `  - total duration: ${formatDuration(payload.totalDurationMs)}`
+            );
+            lines.push(
+                `  - average duration: ${formatDuration(payload.averageDurationMs)}`
+            );
+            lines.push(
+                `  - dataset size: ${formatByteSize(datasetBytes, {
+                    decimals: 2,
+                    decimalsForBytes: 2,
+                    separator: " "
+                })}`
+            );
+            lines.push(
+                `  - throughput (files/ms): ${formatThroughput(
+                    payload.throughput?.filesPerMs,
+                    "files/ms"
+                )}`
+            );
+            lines.push(
+                `  - throughput (bytes/ms): ${formatThroughput(
+                    payload.throughput?.bytesPerMs,
+                    "bytes/ms"
+                )}`
+            );
+            continue;
+        }
+
         lines.push(`  - result: ${JSON.stringify(payload)}`);
     }
+
     console.log(lines.join("\n"));
 }
 
-/**
- * Determine whether the current invocation only requested CLI help output.
- *
- * @param {import("commander").Command} command
- * @param {Array<string>} argv
- * @returns {boolean}
- */
-/**
- * Normalize the requested benchmark suite names.
- *
- * @param {{ suite: Array<string> }} options
- * @returns {Array<string>}
- */
-function createSuiteExecutionOptions(options) {
-    return {
-        projectRoot: options.project,
-        file: options.file,
-        verbose: Boolean(options.verbose)
-    };
+function emitReport(report, options) {
+    const format = resolveSuiteOutputFormatOrThrow(options.format, {
+        fallback: SuiteOutputFormat.JSON,
+        errorConstructor: InvalidArgumentError
+    });
+
+    if (format === SuiteOutputFormat.JSON) {
+        const spacing = options.pretty ? 2 : 0;
+        process.stdout.write(`${JSON.stringify(report, null, spacing)}\n`);
+        return;
+    }
+
+    printHumanReadable(report);
 }
 
 export async function runPerformanceCommand({ command } = {}) {
@@ -465,16 +608,24 @@ export async function runPerformanceCommand({ command } = {}) {
     const requestedSuites = resolveRequestedSuites(options, AVAILABLE_SUITES);
     ensureSuitesAreKnown(requestedSuites, AVAILABLE_SUITES, command);
 
+    const runnerOptions = createSuiteExecutionOptions(options);
+
     const suiteResults = await collectSuiteResults({
         suiteNames: requestedSuites,
         availableSuites: AVAILABLE_SUITES,
-        runnerOptions: createSuiteExecutionOptions(options),
+        runnerOptions,
         onError: (error) => ({ error: formatErrorDetails(error) })
     });
 
-    const emittedJson = emitSuiteResultsJson(suiteResults, options);
-    if (!emittedJson) {
-        printHumanReadable(suiteResults);
+    const report = {
+        generatedAt: new Date().toISOString(),
+        suites: suiteResults
+    };
+
+    await writeReport(report, options);
+
+    if (options.stdout) {
+        emitReport(report, options);
     }
 
     return 0;
