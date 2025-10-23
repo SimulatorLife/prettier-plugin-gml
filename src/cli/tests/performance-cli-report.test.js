@@ -4,8 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import { after, describe, it } from "node:test";
 
-import { runPerformanceCommand } from "../lib/performance-cli.js";
-import { PerformanceSuiteName } from "../lib/performance-suite-options.js";
+import { runPerformanceCommand } from "../features/performance/index.js";
+import { PerformanceSuiteName } from "../features/performance/suite-options.js";
 
 describe("performance CLI report output", () => {
     const disposals = [];

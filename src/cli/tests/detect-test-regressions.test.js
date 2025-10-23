@@ -10,7 +10,7 @@ import {
     ensureResultsAvailability,
     reportRegressionSummary
 } from "../commands/detect-test-regressions.mjs";
-import { isCliUsageError } from "../lib/cli-errors.js";
+import { isCliUsageError } from "../core/errors.js";
 
 const xmlHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
 

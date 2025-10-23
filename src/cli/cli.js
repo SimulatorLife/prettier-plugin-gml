@@ -54,28 +54,31 @@ import {
     hasIgnoreRuleNegations,
     markIgnoreRuleNegationsDetected,
     resetIgnoreRuleNegations
-} from "./lib/ignore-rules-negation-tracker.js";
+} from "./shared/ignore-rules-negation-tracker.js";
 
 import {
     CliUsageError,
     formatCliError,
     handleCliError
-} from "./lib/cli-errors.js";
-import { applyStandardCommandOptions } from "./lib/command-standard-options.js";
-import { resolvePluginEntryPoint } from "./lib/plugin-entry-point.js";
+} from "./core/errors.js";
+import { applyStandardCommandOptions } from "./core/command-standard-options.js";
+import { resolvePluginEntryPoint } from "./plugin/entry-point.js";
 import {
     hasRegisteredIgnorePath,
     registerIgnorePath,
     resetRegisteredIgnorePaths
-} from "./lib/ignore-path-registry.js";
-import { createCliCommandManager } from "./lib/cli-command-manager.js";
-import { resolveCliVersion } from "./lib/cli-version.js";
-import { wrapInvalidArgumentResolver } from "./lib/command-parsing.js";
+} from "./shared/ignore-path-registry.js";
+import { createCliCommandManager } from "./core/command-manager.js";
+import { resolveCliVersion } from "./core/version.js";
+import { wrapInvalidArgumentResolver } from "./core/command-parsing.js";
 import {
     createPerformanceCommand,
     runPerformanceCommand
-} from "./lib/performance-cli.js";
-import { createMemoryCommand, runMemoryCommand } from "./lib/memory-cli.js";
+} from "./features/performance/index.js";
+import {
+    createMemoryCommand,
+    runMemoryCommand
+} from "./features/memory/index.js";
 import {
     createGenerateIdentifiersCommand,
     runGenerateGmlIdentifiers
@@ -84,12 +87,12 @@ import {
     createFeatherMetadataCommand,
     runGenerateFeatherMetadata
 } from "./commands/generate-feather-metadata.js";
-import { resolveCliIdentifierCaseCacheClearer } from "./lib/plugin-services.js";
+import { resolveCliIdentifierCaseCacheClearer } from "./plugin/services.js";
 import {
     getDefaultSkippedDirectorySampleLimit,
     resolveSkippedDirectorySampleLimit,
     SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR
-} from "./lib/skipped-directory-sample-limit.js";
+} from "./shared/skipped-directory-sample-limit.js";
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolvePluginEntryPoint();

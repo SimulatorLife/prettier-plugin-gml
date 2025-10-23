@@ -2,44 +2,44 @@ import vm from "node:vm";
 
 import { Command } from "commander";
 
-import { CliUsageError } from "../lib/cli-errors.js";
-import { assertSupportedNodeVersion } from "../lib/node-version.js";
+import { CliUsageError } from "../core/errors.js";
+import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import {
     getErrorMessage,
     normalizeIdentifierMetadataEntries,
     toNormalizedLowerCaseSet,
     toPosixPath
-} from "../lib/shared-deps.js";
-import { writeManualJsonArtifact } from "../lib/manual-file-helpers.js";
+} from "../shared/dependencies.js";
+import { writeManualJsonArtifact } from "../features/manual/file-helpers.js";
 import {
     DEFAULT_MANUAL_REPO,
     buildManualRepositoryEndpoints
-} from "../lib/manual/utils.js";
-import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
+} from "../features/manual/utils.js";
+import { timeSync, createVerboseDurationLogger } from "../shared/time-utils.js";
 import {
     renderProgressBar,
     disposeProgressBars,
     withProgressBarCleanup
-} from "../lib/progress-bar.js";
+} from "../shared/progress-bar.js";
 import {
     resolveVmEvalTimeout,
     getDefaultVmEvalTimeoutMs
-} from "../lib/vm-eval-timeout.js";
+} from "../shared/vm-eval-timeout.js";
 import {
     applyManualEnvOptionOverrides,
     IDENTIFIER_VM_TIMEOUT_ENV_VAR
-} from "../lib/manual-env.js";
-import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
+} from "../features/manual/env.js";
+import { applyStandardCommandOptions } from "../core/command-standard-options.js";
 import {
     applySharedManualCommandOptions,
     resolveManualCommandOptions
-} from "../lib/manual/command-options.js";
-import { wrapInvalidArgumentResolver } from "../lib/command-parsing.js";
-import { createManualManualAccessContext } from "../lib/manual-command-context.js";
+} from "../features/manual/command-options.js";
+import { wrapInvalidArgumentResolver } from "../core/command-parsing.js";
+import { createManualManualAccessContext } from "../features/manual/command-context.js";
 import {
     decodeManualKeywordsPayload,
     decodeManualTagsPayload
-} from "../lib/manual-payload-validation.js";
+} from "../features/manual/payload-validation.js";
 
 const {
     environment: {

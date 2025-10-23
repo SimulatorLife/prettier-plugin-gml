@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import {
     runFormatterBenchmark,
     runParserBenchmark
-} from "../lib/performance-cli.js";
+} from "../features/performance/index.js";
 
 function createNowStub(step) {
     let current = 0;

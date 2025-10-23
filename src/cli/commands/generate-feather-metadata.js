@@ -8,33 +8,33 @@ import {
     isNonEmptyArray,
     isNonEmptyString,
     toNormalizedLowerCaseSet
-} from "../lib/shared-deps.js";
-import { CliUsageError } from "../lib/cli-errors.js";
-import { assertSupportedNodeVersion } from "../lib/node-version.js";
-import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
+} from "../shared/dependencies.js";
+import { CliUsageError } from "../core/errors.js";
+import { assertSupportedNodeVersion } from "../shared/node-version.js";
+import { timeSync, createVerboseDurationLogger } from "../shared/time-utils.js";
 import {
     renderProgressBar,
     disposeProgressBars,
     withProgressBarCleanup
-} from "../lib/progress-bar.js";
-import { writeManualJsonArtifact } from "../lib/manual-file-helpers.js";
+} from "../shared/progress-bar.js";
+import { writeManualJsonArtifact } from "../features/manual/file-helpers.js";
 import {
     MANUAL_CACHE_ROOT_ENV_VAR,
     DEFAULT_MANUAL_REPO,
     MANUAL_REPO_ENV_VAR,
     buildManualRepositoryEndpoints
-} from "../lib/manual/utils.js";
+} from "../features/manual/utils.js";
 import {
     MANUAL_REF_ENV_VAR,
     PROGRESS_BAR_WIDTH_ENV_VAR,
     applyManualEnvOptionOverrides
-} from "../lib/manual-env.js";
-import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
+} from "../features/manual/env.js";
+import { applyStandardCommandOptions } from "../core/command-standard-options.js";
 import {
     applySharedManualCommandOptions,
     resolveManualCommandOptions
-} from "../lib/manual/command-options.js";
-import { createManualManualAccessContext } from "../lib/manual-command-context.js";
+} from "../features/manual/command-options.js";
+import { createManualManualAccessContext } from "../features/manual/command-context.js";
 
 /** @typedef {ReturnType<typeof resolveManualCommandOptions>} ManualCommandOptions */
 

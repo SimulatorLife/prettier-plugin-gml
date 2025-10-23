@@ -7,11 +7,11 @@ import {
     createManualEnvironmentContext,
     createManualManualAccessContext,
     createManualGitHubExecutionContext
-} from "../lib/manual-command-context.js";
+} from "../features/manual/command-context.js";
 import {
     buildManualRepositoryEndpoints,
     resolveManualCacheRoot
-} from "../lib/manual/utils.js";
+} from "../features/manual/utils.js";
 
 test("createManualManualAccessContext centralizes manual access defaults", () => {
     const commandUrl = pathToFileURL(
