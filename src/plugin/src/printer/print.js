@@ -2002,8 +2002,12 @@ function printStatements(path, options, print, childrenAttribute) {
         const nodeStartIndex = locStart ? locStart(node) : fallbackStart;
         const nodeEndIndex = locEnd ? locEnd(node) - 1 : fallbackEnd;
 
+        const nodePrefersSurroundingPadding = shouldAddNewlinesAroundStatement(
+            node,
+            options
+        );
         const currentNodeRequiresNewline =
-            shouldAddNewlinesAroundStatement(node, options) && isTopLevel;
+            nodePrefersSurroundingPadding && isTopLevel;
 
         // Check if a newline should be added BEFORE the statement
         if (currentNodeRequiresNewline && !previousNodeHadNewlineAddedAfter) {
@@ -2259,6 +2263,12 @@ function printStatements(path, options, print, childrenAttribute) {
             }
 
             if (shouldPreserveTrailingBlankLine) {
+                parts.push(hardline);
+                previousNodeHadNewlineAddedAfter = true;
+            } else if (
+                nodePrefersSurroundingPadding &&
+                !suppressFollowingEmptyLine
+            ) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
             }
@@ -3746,8 +3756,7 @@ function getCanonicalParamNameFromText(name) {
         let depth = 0;
         let closingIndex = -1;
 
-        for (let index = 0; index < trimmed.length; index += 1) {
-            const char = trimmed[index];
+        for (const [index, char] of trimmed.entries()) {
             if (char === "[") {
                 depth += 1;
             } else if (char === "]") {
