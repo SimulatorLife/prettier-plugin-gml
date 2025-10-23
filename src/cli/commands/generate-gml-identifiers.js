@@ -329,8 +329,75 @@ function collectManualArrayIdentifiers(
     }
 }
 
+const MANUAL_IDENTIFIER_ARRAYS = Object.freeze([
+    {
+        identifier: "KEYWORDS",
+        parseLabel: "Parsing keyword array",
+        collectLabel: "Collecting keywords",
+        collectOptions: {
+            type: "keyword",
+            source: "manual:gml.js:KEYWORDS"
+        }
+    },
+    {
+        identifier: "LITERALS",
+        parseLabel: "Parsing literal array",
+        collectLabel: "Collecting literals",
+        collectOptions: {
+            type: "literal",
+            source: "manual:gml.js:LITERALS"
+        }
+    },
+    {
+        identifier: "SYMBOLS",
+        parseLabel: "Parsing symbol array",
+        collectLabel: "Collecting symbols",
+        collectOptions: {
+            type: "symbol",
+            source: "manual:gml.js:SYMBOLS"
+        }
+    }
+]);
+
 const MANUAL_KEYWORD_SOURCE = "manual:ZeusDocs_keywords.json";
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9_$.]+$/;
+
+/**
+ * Parse the manual identifier arrays embedded in gml.js and merge their
+ * contents into a single identifier metadata map.
+ *
+ * Centralizing the parsing and collection steps keeps the main command flow
+ * focused on orchestration while preserving the original timeSync reporting.
+ */
+function buildManualIdentifierMap({ gmlSource, vmEvalTimeoutMs, verbose }) {
+    const identifierMap = new Map();
+    const parsedArrays = MANUAL_IDENTIFIER_ARRAYS.map((descriptor) => ({
+        descriptor,
+        values: timeSync(
+            descriptor.parseLabel,
+            () =>
+                parseArrayLiteral(gmlSource, descriptor.identifier, {
+                    timeoutMs: vmEvalTimeoutMs
+                }),
+            { verbose }
+        )
+    }));
+
+    for (const { descriptor, values } of parsedArrays) {
+        timeSync(
+            descriptor.collectLabel,
+            () =>
+                collectManualArrayIdentifiers(
+                    identifierMap,
+                    values,
+                    descriptor.collectOptions
+                ),
+            { verbose }
+        );
+    }
+
+    return identifierMap;
+}
 
 function shouldIncludeManualReference(normalizedPath) {
     return (
@@ -516,65 +583,11 @@ export async function runGenerateGmlIdentifiers({ command } = {}) {
         );
 
         const gmlSource = fetchedPayloads.gmlSource;
-        const keywordsArray = timeSync(
-            "Parsing keyword array",
-            () =>
-                parseArrayLiteral(gmlSource, "KEYWORDS", {
-                    timeoutMs: vmEvalTimeoutMs
-                }),
-            { verbose }
-        );
-        const literalsArray = timeSync(
-            "Parsing literal array",
-            () =>
-                parseArrayLiteral(gmlSource, "LITERALS", {
-                    timeoutMs: vmEvalTimeoutMs
-                }),
-            { verbose }
-        );
-        const symbolsArray = timeSync(
-            "Parsing symbol array",
-            () =>
-                parseArrayLiteral(gmlSource, "SYMBOLS", {
-                    timeoutMs: vmEvalTimeoutMs
-                }),
-            { verbose }
-        );
-
-        const identifierMap = new Map();
-
-        timeSync(
-            "Collecting keywords",
-            () => {
-                collectManualArrayIdentifiers(identifierMap, keywordsArray, {
-                    type: "keyword",
-                    source: "manual:gml.js:KEYWORDS"
-                });
-            },
-            { verbose }
-        );
-
-        timeSync(
-            "Collecting literals",
-            () => {
-                collectManualArrayIdentifiers(identifierMap, literalsArray, {
-                    type: "literal",
-                    source: "manual:gml.js:LITERALS"
-                });
-            },
-            { verbose }
-        );
-
-        timeSync(
-            "Collecting symbols",
-            () => {
-                collectManualArrayIdentifiers(identifierMap, symbolsArray, {
-                    type: "symbol",
-                    source: "manual:gml.js:SYMBOLS"
-                });
-            },
-            { verbose }
-        );
+        const identifierMap = buildManualIdentifierMap({
+            gmlSource,
+            vmEvalTimeoutMs,
+            verbose
+        });
 
         if (verbose.parsing) {
             console.log("Merging manual keyword metadata…");
