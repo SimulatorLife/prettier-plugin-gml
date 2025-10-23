@@ -306,7 +306,7 @@ function mergeEntry(map, identifier, data) {
     }
 }
 
-function normaliseIdentifier(name) {
+function normalizeIdentifier(name) {
     return name.trim();
 }
 
@@ -318,7 +318,7 @@ function collectManualArrayIdentifiers(
     const entry = { type, sources: [source] };
 
     for (const value of values) {
-        const identifier = normaliseIdentifier(value);
+        const identifier = normalizeIdentifier(value);
         mergeEntry(identifierMap, identifier, entry);
     }
 }
@@ -326,17 +326,17 @@ function collectManualArrayIdentifiers(
 const MANUAL_KEYWORD_SOURCE = "manual:ZeusDocs_keywords.json";
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9_$.]+$/;
 
-function shouldIncludeManualReference(normalisedPath) {
+function shouldIncludeManualReference(normalizedPath) {
     return (
-        normalisedPath.startsWith("3_Scripting") &&
-        normalisedPath.includes("4_GML_Reference")
+        normalizedPath.startsWith("3_Scripting") &&
+        normalizedPath.includes("4_GML_Reference")
     );
 }
 
-function findManualTagEntry(manualTags, normalisedPath) {
+function findManualTagEntry(manualTags, normalizedPath) {
     const tagKeyCandidates = [
-        `${normalisedPath}.html`,
-        `${normalisedPath}/index.html`
+        `${normalizedPath}.html`,
+        `${normalizedPath}/index.html`
     ];
 
     for (const key of tagKeyCandidates) {
@@ -348,8 +348,8 @@ function findManualTagEntry(manualTags, normalisedPath) {
     return null;
 }
 
-function resolveManualTagsForPath(manualTags, normalisedPath) {
-    const entry = findManualTagEntry(manualTags, normalisedPath);
+function resolveManualTagsForPath(manualTags, normalizedPath) {
+    const entry = findManualTagEntry(manualTags, normalizedPath);
     if (!entry) {
         return [];
     }
@@ -360,8 +360,8 @@ function resolveManualTagsForPath(manualTags, normalisedPath) {
         .filter(Boolean);
 }
 
-function isManualEntryDeprecated(normalisedPath, tags) {
-    const lowercasePath = normalisedPath.toLowerCase();
+function isManualEntryDeprecated(normalizedPath, tags) {
+    const lowercasePath = normalizedPath.toLowerCase();
     return (
         tags.some((tag) => tag.toLowerCase().includes("deprecated")) ||
         lowercasePath.includes("deprecated")
@@ -370,7 +370,7 @@ function isManualEntryDeprecated(normalisedPath, tags) {
 
 function classifyManualIdentifiers(identifierMap, manualKeywords, manualTags) {
     for (const [rawIdentifier, manualPath] of Object.entries(manualKeywords)) {
-        const identifier = normaliseIdentifier(rawIdentifier);
+        const identifier = normalizeIdentifier(rawIdentifier);
         if (!IDENTIFIER_PATTERN.test(identifier)) {
             continue;
         }
@@ -379,19 +379,19 @@ function classifyManualIdentifiers(identifierMap, manualKeywords, manualTags) {
             continue;
         }
 
-        const normalisedPath = toPosixPath(manualPath);
-        if (!shouldIncludeManualReference(normalisedPath)) {
+        const normalizedPath = toPosixPath(manualPath);
+        if (!shouldIncludeManualReference(normalizedPath)) {
             continue;
         }
 
-        const tags = resolveManualTagsForPath(manualTags, normalisedPath);
-        const type = classifyFromPath(normalisedPath, tags);
-        const deprecated = isManualEntryDeprecated(normalisedPath, tags);
+        const tags = resolveManualTagsForPath(manualTags, normalizedPath);
+        const type = classifyFromPath(normalizedPath, tags);
+        const deprecated = isManualEntryDeprecated(normalizedPath, tags);
 
         mergeEntry(identifierMap, identifier, {
             type,
             sources: [MANUAL_KEYWORD_SOURCE],
-            manualPath: normalisedPath,
+            manualPath: normalizedPath,
             tags,
             deprecated
         });
