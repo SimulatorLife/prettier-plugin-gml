@@ -8548,9 +8548,17 @@ function convertAllAssignment(node, parent, property, diagnostic) {
         end: cloneLocation(node.end)
     };
 
+    const assignmentStatement = {
+        type: "ExpressionStatement",
+        expression: normalizedAssignment,
+        start: cloneLocation(node.start),
+        end: cloneLocation(node.end)
+    };
+    assignmentStatement._featherSuppressFollowingEmptyLine = true;
+
     const blockStatement = {
         type: "BlockStatement",
-        body: [normalizedAssignment],
+        body: [assignmentStatement],
         start: cloneLocation(node.start),
         end: cloneLocation(node.end)
     };
@@ -8570,6 +8578,7 @@ function convertAllAssignment(node, parent, property, diagnostic) {
         end: cloneLocation(node.end)
     };
 
+    copyCommentMetadata(node, assignmentStatement);
     copyCommentMetadata(node, withStatement);
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
