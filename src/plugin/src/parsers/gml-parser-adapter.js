@@ -19,10 +19,10 @@ import { condenseLogicalExpressions } from "../ast-transforms/condense-logical-e
 import { convertManualMathExpressions } from "../ast-transforms/convert-manual-math.js";
 import {
     getNodeStartIndex,
-    getNodeEndIndex
-} from "../../../shared/ast-locations.js";
-import { toMutableArray } from "../../../shared/array-utils.js";
-import { visitChildNodes } from "../../../shared/ast/node-helpers.js";
+    getNodeEndIndex,
+    toMutableArray,
+    visitChildNodes
+} from "./parser-shared.js";
 import { annotateStaticFunctionOverrides } from "../ast-transforms/annotate-static-overrides.js";
 import {
     prepareIdentifierCaseEnvironment,
