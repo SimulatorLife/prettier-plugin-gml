@@ -10,6 +10,7 @@ import {
 import { formatDuration } from "../time-utils.js";
 import { formatBytes } from "../byte-format.js";
 import { writeManualFile } from "../manual-file-helpers.js";
+import { createAbortGuard } from "../../../shared/abort-utils.js";
 import { isFsErrorCode } from "../../../shared/utils/fs.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
@@ -293,7 +294,7 @@ function createManualGitHubRequestDispatcher({ userAgent } = {}) {
         ...(token ? { Authorization: `Bearer ${token}` } : {})
     };
 
-    async function execute(url, { headers, acceptJson } = {}) {
+    async function execute(url, { headers, acceptJson, signal } = {}) {
         const finalHeaders = {
             ...baseHeaders,
             ...headers,
@@ -302,7 +303,8 @@ function createManualGitHubRequestDispatcher({ userAgent } = {}) {
 
         const response = await fetch(url, {
             headers: finalHeaders,
-            redirect: "follow"
+            redirect: "follow",
+            signal
         });
 
         const bodyText = await response.text();
@@ -434,15 +436,22 @@ function createManualGitHubFileClient({
             forceRefresh = false,
             verbose = {},
             cacheRoot = defaultCacheRoot,
-            rawRoot = defaultRawRoot
+            rawRoot = defaultRawRoot,
+            signal: externalSignal
         } = {}
     ) {
+        const abortMessage = "Manual file fetch was aborted.";
+        const { signal, ensureNotAborted } = createAbortGuard(
+            { signal: externalSignal },
+            { fallbackMessage: abortMessage }
+        );
         const shouldLogDetails = verbose.downloads && !verbose.progressBar;
         const cachePath = path.join(cacheRoot, sha, filePath);
 
         if (!forceRefresh) {
             try {
                 const cached = await fs.readFile(cachePath, "utf8");
+                ensureNotAborted();
                 if (shouldLogDetails) {
                     console.log(`[cache] ${filePath}`);
                 }
@@ -455,19 +464,25 @@ function createManualGitHubFileClient({
             }
         }
 
+        ensureNotAborted();
         const startTime = Date.now();
         if (shouldLogDetails) {
             console.log(`[download] ${filePath}…`);
         }
 
         const url = `${rawRoot}/${sha}/${filePath}`;
-        const content = await request(url);
+        const requestOptions = signal ? { signal } : {};
+        const content = await request(url, requestOptions);
+        ensureNotAborted();
 
         await writeManualFile({
             outputPath: cachePath,
             contents: content,
             encoding: "utf8",
             onAfterWrite: () => {
+                if (signal?.aborted) {
+                    return;
+                }
                 if (!shouldLogDetails) {
                     return;
                 }
@@ -480,6 +495,7 @@ function createManualGitHubFileClient({
             }
         });
 
+        ensureNotAborted();
         return content;
     }
 
