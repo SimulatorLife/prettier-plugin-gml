@@ -475,7 +475,7 @@ async function runParserAstSuite({ iterations }) {
         Math.min(requestedIterations, MAX_PARSER_ITERATIONS)
     );
 
-    const [{ contents: source, path: samplePath }] = await loadSampleText(
+    const { contents: source, path: samplePath } = await loadSampleText(
         "parser:sample",
         PARSER_SAMPLE_RELATIVE_PATH
     );
