@@ -252,8 +252,7 @@ export function normalizeStringList(
 
 function collectUniqueTrimmedStrings(entries) {
     const normalized = [];
-    /** @type {null | string | Set<string>} */
-    let seen = null;
+    const seen = new Set();
 
     for (const entry of entries) {
         if (typeof entry !== "string") {
@@ -261,27 +260,7 @@ function collectUniqueTrimmedStrings(entries) {
         }
 
         const trimmed = entry.trim();
-        if (!trimmed) {
-            continue;
-        }
-
-        if (seen === null) {
-            seen = trimmed;
-            normalized.push(trimmed);
-            continue;
-        }
-
-        if (typeof seen === "string") {
-            if (trimmed === seen) {
-                continue;
-            }
-
-            seen = new Set([seen, trimmed]);
-            normalized.push(trimmed);
-            continue;
-        }
-
-        if (seen.has(trimmed)) {
+        if (!trimmed || seen.has(trimmed)) {
             continue;
         }
 
