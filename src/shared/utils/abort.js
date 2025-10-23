@@ -106,7 +106,7 @@ export function throwIfAborted(signal, fallbackMessage) {
  * The helper mirrors the pattern previously implemented in the project index
  * layer where callers repeatedly pulled the signal from `options`, checked for
  * cancellation, and forwarded the same fallback message. Centralizing the
- * guard alongside the rest of the abort helpers keeps the behaviour consistent
+ * guard alongside the rest of the abort helpers keeps the behavior consistent
  * across feature areas while making the utility discoverable to other
  * long-running workflows.
  *

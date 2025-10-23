@@ -1,7 +1,7 @@
 import {
     bootstrapProjectIndex,
     applyBootstrappedProjectIndex
-} from "../project-index/bootstrap.js";
+} from "./project-index-bootstrap.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
 import { setIdentifierCaseOption } from "./option-store.js";
 

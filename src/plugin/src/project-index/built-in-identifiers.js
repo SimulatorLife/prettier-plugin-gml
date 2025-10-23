@@ -57,7 +57,11 @@ export async function loadBuiltInIdentifiers(
     metrics = null,
     options = {}
 ) {
-    const { signal, ensureNotAborted } = createProjectIndexAbortGuard(options);
+    const { fallbackMessage, ...guardOptions } = options ?? {};
+    const { signal, ensureNotAborted } = createProjectIndexAbortGuard(
+        guardOptions,
+        { fallbackMessage }
+    );
 
     const currentMtime = await getFileMtime(
         fsFacade,
@@ -109,3 +113,4 @@ export async function loadBuiltInIdentifiers(
 }
 
 export { GML_IDENTIFIER_FILE_PATH as __BUILT_IN_IDENTIFIER_PATH_FOR_TESTS };
+export const __loadBuiltInIdentifiersForTests = loadBuiltInIdentifiers;

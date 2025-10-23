@@ -1,13 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
     escapeRegExp,
     getNonEmptyTrimmedString,
     normalizeStringList,
-    toArray
+    toArray,
+    uniqueArray
 } from "./shared-deps.js";
 
 const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
@@ -78,20 +79,11 @@ function resolveCandidatePaths({ env, candidates } = {}) {
         ...DEFAULT_CANDIDATE_PLUGIN_PATHS
     ];
 
-    const resolvedCandidates = [];
-    const seen = new Set();
+    const resolvedCandidates = orderedCandidates
+        .map((candidate) => resolveCandidatePath(candidate))
+        .filter(Boolean);
 
-    for (const candidate of orderedCandidates) {
-        const resolvedPath = resolveCandidatePath(candidate);
-        if (!resolvedPath || seen.has(resolvedPath)) {
-            continue;
-        }
-
-        seen.add(resolvedPath);
-        resolvedCandidates.push(resolvedPath);
-    }
-
-    return resolvedCandidates;
+    return uniqueArray(resolvedCandidates);
 }
 
 function findFirstExistingPath(candidates) {
@@ -123,4 +115,9 @@ export function resolvePluginEntryPoint({ env, candidates } = {}) {
     }
 
     throw createMissingEntryPointError(resolvedCandidates);
+}
+
+export function importPluginModule(options = {}) {
+    const pluginPath = resolvePluginEntryPoint(options);
+    return import(pathToFileURL(pluginPath).href);
 }

@@ -1,5 +1,4 @@
 import path from "node:path";
-
 import { cloneLocation } from "../../../shared/ast-locations.js";
 import { getCallExpressionIdentifier } from "../../../shared/ast-node-helpers.js";
 import {
@@ -14,7 +13,8 @@ import {
 import {
     assertFunction,
     getOrCreateMapEntry,
-    hasOwn
+    hasOwn,
+    isObjectLike
 } from "../../../shared/object-utils.js";
 import {
     buildLocationKey,
@@ -48,6 +48,7 @@ import {
     createProjectIndexAbortGuard
 } from "./abort-guard.js";
 import { loadBuiltInIdentifiers } from "./built-in-identifiers.js";
+import { createProjectIndexCoordinatorFactory } from "./coordinator.js";
 
 const defaultProjectIndexParser = getDefaultProjectIndexParser();
 
@@ -64,7 +65,7 @@ const PARSER_FACADE_OPTION_KEYS = [
  * sourced from partially populated caches.
  */
 function cloneEntryCollections(entry, ...keys) {
-    const source = entry && typeof entry === "object" ? entry : {};
+    const source = isObjectLike(entry) ? entry : {};
     const clones = {};
 
     for (const key of keys) {
@@ -75,7 +76,7 @@ function cloneEntryCollections(entry, ...keys) {
 }
 
 function getProjectIndexParserOverride(options) {
-    if (!options || typeof options !== "object") {
+    if (!isObjectLike(options)) {
         return null;
     }
 
@@ -126,131 +127,16 @@ export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
     return null;
 }
 
-export function createProjectIndexCoordinator(options = {}) {
-    const {
-        fsFacade = defaultFsFacade,
-        loadCache = loadProjectIndexCache,
-        saveCache = saveProjectIndexCache,
-        buildIndex = buildProjectIndex,
-        cacheMaxSizeBytes: rawCacheMaxSizeBytes
-    } = options;
+export const createProjectIndexCoordinator =
+    createProjectIndexCoordinatorFactory({
+        defaultFsFacade,
+        defaultLoadCache: loadProjectIndexCache,
+        defaultSaveCache: saveProjectIndexCache,
+        defaultBuildIndex: buildProjectIndex,
+        getDefaultCacheMaxSize: getDefaultProjectIndexCacheMaxSize
+    });
 
-    const cacheMaxSizeBytes =
-        rawCacheMaxSizeBytes === undefined
-            ? getDefaultProjectIndexCacheMaxSize()
-            : rawCacheMaxSizeBytes;
-
-    const inFlight = new Map();
-    let disposed = false;
-    const abortController = new AbortController();
-    const DISPOSED_MESSAGE = "ProjectIndexCoordinator has been disposed";
-
-    function createDisposedError() {
-        return new Error(DISPOSED_MESSAGE);
-    }
-
-    function ensureNotDisposed() {
-        if (disposed) {
-            throw createDisposedError();
-        }
-        throwIfAborted(abortController.signal, DISPOSED_MESSAGE);
-    }
-
-    async function ensureReady(descriptor) {
-        ensureNotDisposed();
-        const { projectRoot } = descriptor ?? {};
-        if (!projectRoot) {
-            throw new Error("projectRoot must be provided to ensureReady");
-        }
-        const resolvedRoot = path.resolve(projectRoot);
-        const key = resolvedRoot;
-        const signal = abortController.signal;
-        throwIfAborted(signal, DISPOSED_MESSAGE);
-
-        if (inFlight.has(key)) {
-            return inFlight.get(key);
-        }
-
-        const operation = (async () => {
-            const loadResult = await loadCache(
-                { ...descriptor, projectRoot: resolvedRoot },
-                fsFacade,
-                { signal }
-            );
-            throwIfAborted(signal, DISPOSED_MESSAGE);
-
-            if (loadResult.status === "hit") {
-                throwIfAborted(signal, DISPOSED_MESSAGE);
-                return {
-                    source: "cache",
-                    projectIndex: loadResult.projectIndex,
-                    cache: loadResult
-                };
-            }
-
-            const projectIndex = await buildIndex(resolvedRoot, fsFacade, {
-                ...descriptor?.buildOptions,
-                signal
-            });
-            throwIfAborted(signal, DISPOSED_MESSAGE);
-
-            const descriptorMaxSizeBytes =
-                descriptor?.maxSizeBytes === undefined
-                    ? cacheMaxSizeBytes
-                    : descriptor.maxSizeBytes;
-
-            const saveResult = await saveCache(
-                {
-                    ...descriptor,
-                    projectRoot: resolvedRoot,
-                    projectIndex,
-                    metricsSummary: projectIndex.metrics,
-                    maxSizeBytes: descriptorMaxSizeBytes
-                },
-                fsFacade,
-                { signal }
-            ).catch((error) => {
-                return {
-                    status: "failed",
-                    error,
-                    cacheFilePath: loadResult.cacheFilePath
-                };
-            });
-            throwIfAborted(signal, DISPOSED_MESSAGE);
-
-            return {
-                source: "build",
-                projectIndex,
-                cache: {
-                    ...loadResult,
-                    saveResult
-                }
-            };
-        })().finally(() => {
-            inFlight.delete(key);
-        });
-
-        inFlight.set(key, operation);
-        return operation;
-    }
-
-    function dispose() {
-        if (disposed) {
-            return;
-        }
-
-        disposed = true;
-        if (!abortController.signal.aborted) {
-            abortController.abort(createDisposedError());
-        }
-        inFlight.clear();
-    }
-
-    return {
-        ensureReady,
-        dispose
-    };
-}
+export { createProjectIndexCoordinatorFactory } from "./coordinator.js";
 
 export {
     PROJECT_MANIFEST_EXTENSION,
@@ -534,7 +420,7 @@ async function scanProjectTree(
 }
 
 function cloneIdentifierDeclaration(declaration) {
-    if (!declaration || typeof declaration !== "object") {
+    if (!isObjectLike(declaration)) {
         return null;
     }
 
@@ -575,6 +461,71 @@ function cloneIdentifierForCollections(record, filePath) {
 
 function ensureCollectionEntry(map, key, initializer) {
     return getOrCreateMapEntry(map, key, initializer);
+}
+
+function recordIdentifierCollectionRole(
+    entry,
+    identifierRecord,
+    filePath,
+    role
+) {
+    if (!entry || !identifierRecord) {
+        return;
+    }
+
+    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
+
+    if (role === "declaration") {
+        entry.declarations?.push?.(clone);
+    } else if (role === "reference") {
+        entry.references?.push?.(clone);
+    }
+}
+
+function assignIdentifierEntryMetadata(entry, metadata) {
+    if (!entry || typeof entry !== "object") {
+        return entry;
+    }
+
+    const {
+        identifierId,
+        name,
+        displayName,
+        resourcePath,
+        enumName,
+        scopeId,
+        scopeKind
+    } = metadata ?? {};
+
+    if (identifierId !== undefined && !entry.identifierId) {
+        entry.identifierId = identifierId;
+    }
+
+    if (name && !entry.name) {
+        entry.name = name;
+    }
+
+    if (displayName && !entry.displayName) {
+        entry.displayName = displayName;
+    }
+
+    if (resourcePath && !entry.resourcePath) {
+        entry.resourcePath = resourcePath;
+    }
+
+    if (enumName && !entry.enumName) {
+        entry.enumName = enumName;
+    }
+
+    if (scopeId !== undefined && !entry.scopeId) {
+        entry.scopeId = scopeId;
+    }
+
+    if (scopeKind !== undefined && !entry.scopeKind) {
+        entry.scopeKind = scopeKind;
+    }
+
+    return entry;
 }
 
 function createIdentifierCollections() {
@@ -797,7 +748,7 @@ function createEnumLookup(ast, filePath) {
 
     while (visitStack.length > 0) {
         const node = visitStack.pop();
-        if (!node || typeof node !== "object") {
+        if (!isObjectLike(node)) {
             continue;
         }
 
@@ -847,11 +798,11 @@ function createEnumLookup(ast, filePath) {
             if (Array.isArray(value)) {
                 for (let index = value.length - 1; index >= 0; index -= 1) {
                     const child = value[index];
-                    if (child && typeof child === "object") {
+                    if (isObjectLike(child)) {
                         visitStack.push(child);
                     }
                 }
-            } else if (value && typeof value === "object") {
+            } else if (isObjectLike(value)) {
                 visitStack.push(value);
             }
         }
@@ -895,19 +846,13 @@ function registerScriptDeclaration({
         return;
     }
 
-    if (!entry.identifierId) {
-        entry.identifierId = buildIdentifierId("script", descriptor?.id ?? "");
-    }
-
-    if (descriptor.name && !entry.name) {
-        entry.name = descriptor.name;
-    }
-    if (descriptor.displayName && !entry.displayName) {
-        entry.displayName = descriptor.displayName;
-    }
-    if (descriptor.resourcePath && !entry.resourcePath) {
-        entry.resourcePath = descriptor.resourcePath;
-    }
+    const identifierId = buildIdentifierId("script", descriptor?.id ?? "");
+    assignIdentifierEntryMetadata(entry, {
+        identifierId,
+        name: descriptor?.name ?? null,
+        displayName: descriptor?.displayName ?? null,
+        resourcePath: descriptor?.resourcePath ?? null
+    });
 
     if (!declarationRecord) {
         return;
@@ -1027,16 +972,11 @@ function registerScriptReference({ identifierCollections, callRecord }) {
         })
     );
 
-    if (!entry.identifierId) {
-        entry.identifierId = identifierId;
-    }
-
-    if (callRecord.target?.name && !entry.name) {
-        entry.name = callRecord.target.name;
-    }
-    if (callRecord.target?.resourcePath && !entry.resourcePath) {
-        entry.resourcePath = callRecord.target.resourcePath;
-    }
+    assignIdentifierEntryMetadata(entry, {
+        identifierId,
+        name: callRecord.target?.name ?? null,
+        resourcePath: callRecord.target?.resourcePath ?? null
+    });
 
     const reference = cloneScriptReference(callRecord);
     if (reference) {
@@ -1104,16 +1044,9 @@ function registerMacroOccurrence({
         })
     );
 
-    if (!entry.identifierId) {
-        entry.identifierId = identifierId;
-    }
+    assignIdentifierEntryMetadata(entry, { identifierId });
 
-    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
-    if (role === "declaration") {
-        entry.declarations.push(clone);
-    } else if (role === "reference") {
-        entry.references.push(clone);
-    }
+    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
 }
 
 function registerEnumOccurrence({
@@ -1148,21 +1081,15 @@ function registerEnumOccurrence({
         })
     );
 
-    if (!entry.identifierId) {
-        entry.identifierId = identifierId;
-    }
+    const enumName = enumInfo
+        ? (enumInfo.name ?? identifierRecord?.name ?? null)
+        : null;
+    assignIdentifierEntryMetadata(entry, {
+        identifierId,
+        name: enumName
+    });
 
-    if (enumInfo && !entry.name) {
-        entry.name =
-            enumInfo.name ?? entry.name ?? identifierRecord?.name ?? null;
-    }
-
-    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
-    if (role === "declaration") {
-        entry.declarations.push(clone);
-    } else if (role === "reference") {
-        entry.references.push(clone);
-    }
+    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
 }
 
 function registerEnumMemberOccurrence({
@@ -1204,22 +1131,15 @@ function registerEnumMemberOccurrence({
         })
     );
 
-    if (!entry.identifierId) {
-        entry.identifierId = identifierId;
-    }
+    const enumName = memberInfo?.enumKey
+        ? (enumLookup?.enumDeclarations?.get(memberInfo.enumKey)?.name ?? null)
+        : null;
+    assignIdentifierEntryMetadata(entry, {
+        identifierId,
+        enumName
+    });
 
-    if (memberInfo?.enumKey && !entry.enumName) {
-        entry.enumName =
-            enumLookup?.enumDeclarations?.get(memberInfo.enumKey)?.name ??
-            entry.enumName;
-    }
-
-    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
-    if (role === "declaration") {
-        entry.declarations.push(clone);
-    } else if (role === "reference") {
-        entry.references.push(clone);
-    }
+    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
 }
 
 function registerGlobalOccurrence({
@@ -1245,16 +1165,9 @@ function registerGlobalOccurrence({
         })
     );
 
-    if (!entry.identifierId) {
-        entry.identifierId = identifierId;
-    }
+    assignIdentifierEntryMetadata(entry, { identifierId });
 
-    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
-    if (role === "declaration") {
-        entry.declarations.push(clone);
-    } else if (role === "reference") {
-        entry.references.push(clone);
-    }
+    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
 }
 
 function registerInstanceOccurrence({
@@ -1284,16 +1197,13 @@ function registerInstanceOccurrence({
         })
     );
 
-    if (!entry.identifierId) {
-        entry.identifierId = identifierId;
-    }
+    assignIdentifierEntryMetadata(entry, {
+        identifierId,
+        scopeId: scopeDescriptor?.id ?? null,
+        scopeKind: scopeDescriptor?.kind ?? null
+    });
 
-    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
-    if (role === "declaration") {
-        entry.declarations.push(clone);
-    } else if (role === "reference") {
-        entry.references.push(clone);
-    }
+    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
 }
 
 function shouldTreatAsInstance({ identifierRecord, role, scopeDescriptor }) {
@@ -1429,9 +1339,11 @@ function registerInstanceAssignment({
         })
     );
 
-    if (!entry.identifierId) {
-        entry.identifierId = identifierId;
-    }
+    assignIdentifierEntryMetadata(entry, {
+        identifierId,
+        scopeId: scopeDescriptor?.id ?? null,
+        scopeKind: scopeDescriptor?.kind ?? null
+    });
 
     const clone = cloneIdentifierForCollections(identifierRecord, filePath);
 
@@ -1474,7 +1386,7 @@ function ensureFileRecord(filesMap, relativePath, scopeId) {
 }
 
 function traverseAst(root, visitor) {
-    if (!root || typeof root !== "object") {
+    if (!isObjectLike(root)) {
         return;
     }
 
@@ -1483,7 +1395,7 @@ function traverseAst(root, visitor) {
 
     while (stack.length > 0) {
         const node = stack.pop();
-        if (!node || typeof node !== "object") {
+        if (!isObjectLike(node)) {
             continue;
         }
 
@@ -1503,11 +1415,11 @@ function traverseAst(root, visitor) {
             if (Array.isArray(value)) {
                 for (let i = value.length - 1; i >= 0; i -= 1) {
                     const child = value[i];
-                    if (child && typeof child === "object") {
+                    if (isObjectLike(child)) {
                         stack.push(child);
                     }
                 }
-            } else if (value && typeof value === "object") {
+            } else if (isObjectLike(value)) {
                 stack.push(value);
             }
         }
@@ -2265,7 +2177,10 @@ async function loadBuiltInNamesForProjectIndex({
     ensureNotAborted
 }) {
     const builtInIdentifiers = await metrics.timeAsync("loadBuiltIns", () =>
-        loadBuiltInIdentifiers(fsFacade, metrics, { signal })
+        loadBuiltInIdentifiers(fsFacade, metrics, {
+            signal,
+            fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+        })
     );
     ensureNotAborted();
 
@@ -2477,4 +2392,4 @@ export async function buildProjectIndex(
 export { defaultFsFacade } from "./fs-facade.js";
 export { getProjectIndexParserOverride };
 export { ProjectFileCategory };
-export { loadBuiltInIdentifiers as __loadBuiltInIdentifiersForTests } from "./built-in-identifiers.js";
+export { __loadBuiltInIdentifiersForTests } from "./built-in-identifiers.js";
