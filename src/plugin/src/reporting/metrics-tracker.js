@@ -25,28 +25,24 @@ const SUMMARY_SECTIONS = Object.freeze([
 
 function normalizeCacheKeys(keys) {
     const candidates = keys ?? DEFAULT_CACHE_KEYS;
+    const iterable =
+        Array.isArray(candidates) ||
+        typeof candidates?.[Symbol.iterator] === "function"
+            ? candidates
+            : DEFAULT_CACHE_KEYS;
 
-    if (
-        !Array.isArray(candidates) &&
-        typeof candidates?.[Symbol.iterator] !== "function"
-    ) {
-        return [...DEFAULT_CACHE_KEYS];
-    }
+    const normalized = new Set();
 
-    const seen = new Set();
-    const normalized = [];
-
-    for (const candidate of candidates) {
+    for (const candidate of iterable) {
         const label = getNonEmptyString(candidate)?.trim();
-        if (!label || seen.has(label)) {
-            continue;
+        if (label) {
+            normalized.add(label);
         }
-
-        seen.add(label);
-        normalized.push(label);
     }
 
-    return normalized.length > 0 ? normalized : [...DEFAULT_CACHE_KEYS];
+    return normalized.size > 0
+        ? Array.from(normalized)
+        : [...DEFAULT_CACHE_KEYS];
 }
 
 function normalizeIncrementAmount(amount, fallback = 1) {

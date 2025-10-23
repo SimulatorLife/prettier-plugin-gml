@@ -7,7 +7,85 @@
 
 import { resolveGmlPluginComponents } from "./plugin-components.js";
 
-const { parsers, printers, options } = resolveGmlPluginComponents();
+function selectPluginComponents() {
+    return resolveGmlPluginComponents();
+}
+
+function createReadOnlyView(selector, description) {
+    const base = Object.create(null);
+    const readOnlyError = new TypeError(
+        `${description} cannot be modified once resolved.`
+    );
+
+    const ensureSource = () => {
+        const source = selector();
+        if (source && typeof source === "object") {
+            return source;
+        }
+
+        throw new TypeError(`${description} must resolve to an object.`);
+    };
+
+    const throwReadOnlyError = () => {
+        throw readOnlyError;
+    };
+
+    const forward =
+        (method) =>
+        (_target, ...args) =>
+            Reflect[method](ensureSource(), ...args);
+
+    return new Proxy(base, {
+        get: (_target, property, receiver) => {
+            if (property === Symbol.toStringTag) {
+                return "Object";
+            }
+
+            return Reflect.get(ensureSource(), property, receiver);
+        },
+        has: forward("has"),
+        ownKeys: forward("ownKeys"),
+        getOwnPropertyDescriptor: (_target, property) => {
+            const descriptor = Reflect.getOwnPropertyDescriptor(
+                ensureSource(),
+                property
+            );
+
+            if (!descriptor) {
+                return;
+            }
+
+            return {
+                configurable: true,
+                enumerable:
+                    descriptor.enumerable === undefined
+                        ? true
+                        : descriptor.enumerable,
+                value: descriptor.value,
+                writable: false
+            };
+        },
+        getPrototypeOf: () => Object.prototype,
+        set: throwReadOnlyError,
+        defineProperty: throwReadOnlyError,
+        deleteProperty: throwReadOnlyError
+    });
+}
+
+const parsers = createReadOnlyView(
+    () => selectPluginComponents().parsers,
+    "GML plugin parsers"
+);
+
+const printers = createReadOnlyView(
+    () => selectPluginComponents().printers,
+    "GML plugin printers"
+);
+
+const options = createReadOnlyView(
+    () => selectPluginComponents().options,
+    "GML plugin options"
+);
 
 export const languages = [
     {
@@ -18,15 +96,13 @@ export const languages = [
     }
 ];
 
-export { parsers, printers, options };
-
 // Hard overrides for GML regardless of incoming config. These knobs either map
 // to syntax that GameMaker never emits (for example JSX attributes) or would
 // let callers re-enable formatting modes the printers deliberately avoid. The
 // fixtures showcased in README.md#formatter-at-a-glance and the
 // docs/examples/* snapshots all assume "no trailing commas" plus
 // "always-parenthesised arrow parameters", so letting user configs flip those
-// bits would desynchronise the documented contract from the code we ship. We
+// bits would desynchronize the documented contract from the code we ship. We
 // therefore clamp the values here to advertise a single canonical style and to
 // prevent project-level `.prettierrc` files from surfacing ineffective or
 // misleading toggles.
@@ -59,12 +135,24 @@ function extractOptionDefaults(optionConfigMap) {
     return defaults;
 }
 
-const gmlOptionDefaults = extractOptionDefaults(options);
+function computeOptionDefaults() {
+    const components = selectPluginComponents();
+    return extractOptionDefaults(components.options);
+}
 
-export const defaultOptions = {
-    // Merge order:
-    // GML Prettier defaults -> option defaults -> fixed overrides
-    ...BASE_PRETTIER_DEFAULTS,
-    ...gmlOptionDefaults,
-    ...CORE_OPTION_OVERRIDES
-};
+function createDefaultOptionsSnapshot() {
+    return {
+        // Merge order:
+        // GML Prettier defaults -> option defaults -> fixed overrides
+        ...BASE_PRETTIER_DEFAULTS,
+        ...computeOptionDefaults(),
+        ...CORE_OPTION_OVERRIDES
+    };
+}
+
+const defaultOptions = createReadOnlyView(
+    () => createDefaultOptionsSnapshot(),
+    "GML default options"
+);
+
+export { parsers, printers, options, defaultOptions };

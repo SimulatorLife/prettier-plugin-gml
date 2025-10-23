@@ -4,15 +4,15 @@ const contextMap = new Map();
 /**
  * Normalizes optional file path inputs into a consistent map key.
  *
- * @param {string | null | undefined} filePath
+ * @param {string | null | undefined} filepath
  * @returns {string}
  */
-function normalizeKey(filePath) {
-    if (typeof filePath !== "string" || filePath.length === 0) {
+function normalizeKey(filepath) {
+    if (typeof filepath !== "string" || filepath.length === 0) {
         return DEFAULT_CONTEXT_KEY;
     }
 
-    return filePath;
+    return filepath;
 }
 
 /**
@@ -55,11 +55,7 @@ export function setIdentifierCaseDryRunContext({
  */
 export function consumeIdentifierCaseDryRunContext(filepath = null) {
     const key = normalizeKey(filepath);
-    if (!contextMap.has(key)) {
-        return null;
-    }
-
-    const context = contextMap.get(key);
+    const context = contextMap.get(key) ?? null;
     contextMap.delete(key);
     return context;
 }
@@ -72,12 +68,7 @@ export function consumeIdentifierCaseDryRunContext(filepath = null) {
  * @returns {object | null}
  */
 export function peekIdentifierCaseDryRunContext(filepath = null) {
-    const key = normalizeKey(filepath);
-    if (!contextMap.has(key)) {
-        return null;
-    }
-
-    return contextMap.get(key);
+    return contextMap.get(normalizeKey(filepath)) ?? null;
 }
 
 /**

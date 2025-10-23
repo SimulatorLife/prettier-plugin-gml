@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { buildProjectIndex } from "../src/project-index/index.js";
+import { createMetricsTracker } from "../src/reporting/metrics.js";
 
 async function writeProjectFile(rootDir, relativePath, contents) {
     const absolutePath = path.join(rootDir, relativePath);
@@ -135,4 +136,53 @@ test("buildProjectIndex reuses a provided metrics tracker", async () => {
     } finally {
         await cleanup();
     }
+});
+
+test("createMetricsTracker trims and deduplicates configured cache keys", () => {
+    const tracker = createMetricsTracker({
+        cacheKeys: new Set([
+            " hits ",
+            "Misses",
+            "custom",
+            "custom",
+            "",
+            null,
+            " stale "
+        ])
+    });
+
+    tracker.recordCacheMetric("demo", "custom", 0);
+
+    assert.deepEqual(tracker.snapshot().caches.demo, {
+        hits: 0,
+        Misses: 0,
+        custom: 0,
+        stale: 0
+    });
+});
+
+test("createMetricsTracker falls back to default cache keys when normalization is empty", () => {
+    const tracker = createMetricsTracker({ cacheKeys: [null, "   "] });
+
+    tracker.recordCacheMetric("demo", "custom", 0);
+
+    assert.deepEqual(tracker.snapshot().caches.demo, {
+        hits: 0,
+        misses: 0,
+        stale: 0,
+        custom: 0
+    });
+});
+
+test("createMetricsTracker falls back to default cache keys when option is invalid", () => {
+    const tracker = createMetricsTracker({ cacheKeys: 42 });
+
+    tracker.recordCacheMetric("demo", "custom", 0);
+
+    assert.deepEqual(tracker.snapshot().caches.demo, {
+        hits: 0,
+        misses: 0,
+        stale: 0,
+        custom: 0
+    });
 });

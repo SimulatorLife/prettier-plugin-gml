@@ -36,6 +36,38 @@ export function toArray(value) {
 }
 
 /**
+ * Assert that the provided value is an array. Centralizes the guard so callers
+ * can reuse the same error messaging while keeping their control flow focused
+ * on the surrounding logic. Optionally tolerates `null`/`undefined` inputs by
+ * returning an empty array when {@link allowNull} is enabled.
+ *
+ * @template T
+ * @param {Array<T> | null | undefined | unknown} value Candidate value to validate.
+ * @param {{
+ *   name?: string,
+ *   allowNull?: boolean,
+ *   errorMessage?: string
+ * }} [options]
+ * @returns {Array<T>} The validated array or a fresh empty array when
+ *                     `allowNull` permits nullable inputs.
+ */
+export function assertArray(
+    value,
+    { name = "value", allowNull = false, errorMessage } = {}
+) {
+    if (Array.isArray(value)) {
+        return value;
+    }
+
+    if (allowNull && value == null) {
+        return [];
+    }
+
+    const message = errorMessage ?? `${name} must be provided as an array.`;
+    throw new TypeError(message);
+}
+
+/**
  * Return the provided value when it is already an array, otherwise yield an
  * empty array. Useful for treating optional array-like properties as a safe
  * iterable without introducing conditional branches at each call site.
@@ -58,24 +90,16 @@ export function asArray(value) {
  *
  * @template T
  * @param {Array<T> | null | undefined | unknown} value
- * @param {Object} [options]
+ * @param {{ clone?: boolean }} [options]
  * @param {boolean} [options.clone=false]
  * @returns {Array<T>} Mutably safe array representation of {@link value}.
  */
 export function toMutableArray(value, { clone = false } = {}) {
-    if (value == null) {
-        return [];
-    }
-
     if (!Array.isArray(value)) {
         return [];
     }
 
-    if (!clone) {
-        return value;
-    }
-
-    return [...value];
+    return clone ? [...value] : value;
 }
 
 /**
@@ -143,7 +167,7 @@ export function cloneObjectEntries(entries) {
  *
  * @template T
  * @param {Iterable<T> | Array<T> | null | undefined} values
- * @param {Object} [options]
+ * @param {{ freeze?: boolean }} [options]
  * @param {boolean} [options.freeze=false]
  * @returns {Array<T> | ReadonlyArray<T>}
  */
@@ -161,7 +185,11 @@ export function uniqueArray(values, { freeze = false } = {}) {
  * @template T
  * @param {ReadonlyArray<T>} defaultValues
  * @param {Iterable<unknown> | null | undefined} additionalValues
- * @param {Object} [options]
+ * @param {{
+ *   coerce?: (value: unknown) => T | null | undefined,
+ *   getKey?: (value: T) => unknown,
+ *   freeze?: boolean
+ * }} [options]
  * @param {(value: unknown) => T | null | undefined} [options.coerce]
  * @param {(value: T) => unknown} [options.getKey]
  * @param {boolean} [options.freeze]

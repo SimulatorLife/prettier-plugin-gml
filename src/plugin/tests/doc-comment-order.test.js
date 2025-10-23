@@ -43,3 +43,31 @@ test("orders doc comments for implicit argument references", async () => {
         "/// @param argument4"
     ]);
 });
+
+test("retains misordered optional parameter docs", async () => {
+    const source = [
+        "/// @function misordered_docs",
+        "/// @param required",
+        "/// @param {real} [optional_b]",
+        "/// @param {string} [optional_a]",
+        "function misordered_docs(required, optional_a = undefined, optional_b = 0) {",
+        "    return required + optional_b;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    const docLines = formatted
+        .split("\n")
+        .filter((line) => line.startsWith("/// @param"));
+
+    assert.deepStrictEqual(docLines, [
+        "/// @param required",
+        "/// @param {string} [optional_a]",
+        "/// @param {real} [optional_b=0]"
+    ]);
+});

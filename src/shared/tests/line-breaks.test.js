@@ -26,7 +26,7 @@ describe("line-breaks", () => {
         });
 
         it("normalizes non-string input to an empty array", () => {
-            // eslint-disable-next-line unicorn/no-useless-undefined
+            // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined mirrors optional metadata usage
             assert.deepStrictEqual(splitLines(undefined), []);
             assert.deepStrictEqual(splitLines(null), []);
         });

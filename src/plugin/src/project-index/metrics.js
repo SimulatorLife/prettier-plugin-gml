@@ -1,4 +1,4 @@
-import { createMetricsTracker } from "../reporting/index.js";
+import { createMetricsTracker } from "../reporting/metrics.js";
 
 const PROJECT_INDEX_METRICS_CATEGORY = "project-index";
 const REQUIRED_METRIC_METHODS = [

@@ -28,7 +28,7 @@ import { resolveVmEvalTimeout } from "../lib/vm-eval-timeout.js";
 import {
     applySharedManualCommandOptions,
     resolveManualCommandOptions
-} from "../lib/manual-command-options.js";
+} from "../lib/manual/command-options.js";
 
 describe("manual option helpers", () => {
     describe("normalizeManualRepository", () => {
