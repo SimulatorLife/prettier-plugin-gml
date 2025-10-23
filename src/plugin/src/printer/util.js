@@ -67,6 +67,10 @@ function optionalSemicolon(nodeType) {
 // re-allocating arrays on every call (see PR #110 micro-benchmark in commit
 // message).
 // These top-level statements are surrounded by empty lines by default.
+const FEATHER_COMMENT_OUT_SYMBOL = Symbol.for(
+    "prettier.gml.feather.commentOut"
+);
+
 const NODE_TYPES_WITH_SURROUNDING_NEWLINES = new Set([
     "FunctionDeclaration",
     "ConstructorDeclaration",
@@ -123,6 +127,10 @@ function defineReplacementRequiresNewlines(node) {
 function shouldAddNewlinesAroundStatement(node) {
     const nodeType = node?.type;
     if (!nodeType) {
+        return false;
+    }
+
+    if (node?.[FEATHER_COMMENT_OUT_SYMBOL]) {
         return false;
     }
 

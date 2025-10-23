@@ -150,6 +150,7 @@ const FEATHER_COMMENT_TEXT_SYMBOL = Symbol.for(
     "prettier.gml.feather.commentText"
 );
 const VERTEX_BEGIN_TEMPLATE_CACHE = new WeakMap();
+const VERTEX_FORMAT_COMMENT_PROXIMITY_PADDING = 16;
 const FILE_FIND_BLOCK_CALL_TARGETS = new Set(["file_find_next"]);
 const FILE_FIND_CLOSE_FUNCTION_NAME = "file_find_close";
 const READ_ONLY_BUILT_IN_VARIABLES = new Set(["working_directory"]);
@@ -14507,12 +14508,13 @@ function ensureVertexFormatDefinitionsAreClosed({ ast, diagnostic }) {
         }
 
         if (node.type === "CallExpression") {
-            const fix = ensureVertexFormatDefinitionIsClosed(
+            const fix = ensureVertexFormatDefinitionIsClosed({
+                ast,
                 node,
                 parent,
                 property,
                 diagnostic
-            );
+            });
 
             if (fix) {
                 fixes.push(fix);
@@ -14846,12 +14848,13 @@ function countVertexFormatEndCalls(node) {
     return count;
 }
 
-function ensureVertexFormatDefinitionIsClosed(
+function ensureVertexFormatDefinitionIsClosed({
+    ast,
     node,
     parent,
     property,
     diagnostic
-) {
+}) {
     if (!Array.isArray(parent) || typeof property !== "number") {
         return null;
     }
@@ -14907,6 +14910,17 @@ function ensureVertexFormatDefinitionIsClosed(
     siblings.splice(insertionIndex, 0, vertexFormatEndCall);
     attachFeatherFixMetadata(vertexFormatEndCall, [fixDetail]);
 
+    for (let index = insertionIndex - 1; index >= property; index -= 1) {
+        const candidate = siblings[index];
+
+        if (candidate && candidate.type === "EmptyStatement") {
+            siblings.splice(index, 1);
+            if (index < insertionIndex) {
+                insertionIndex -= 1;
+            }
+        }
+    }
+
     const commentTargets = [];
 
     for (let index = property; index < insertionIndex; index += 1) {
@@ -14919,8 +14933,83 @@ function ensureVertexFormatDefinitionIsClosed(
 
     commentTargets.push(vertexFormatEndCall);
 
+    const normalizedCommentTexts = new Set();
+
+    for (const target of commentTargets) {
+        const comparisonText = normalizeFeatherCommentComparisonText(
+            createCallExpressionCommentText(target)
+        );
+
+        if (comparisonText) {
+            normalizedCommentTexts.add(comparisonText);
+        }
+    }
+
+    const baselineStartIndex = getNodeStartIndex(commentTargets[0]);
+    const baselineStartLine = getNodeStartLine(commentTargets[0]);
+
+    if (normalizedCommentTexts.size > 0 && ast && typeof ast === "object") {
+        const existingComments = getCommentArray(ast);
+
+        if (existingComments.length > 0) {
+            const startLine =
+                typeof baselineStartLine === "number"
+                    ? baselineStartLine
+                    : null;
+            const maxLine =
+                startLine === null
+                    ? null
+                    : startLine +
+                      commentTargets.length +
+                      VERTEX_FORMAT_COMMENT_PROXIMITY_PADDING;
+
+            const filteredComments = existingComments.filter((comment) => {
+                const normalizedValue = normalizeFeatherCommentComparisonText(
+                    getCommentValue(comment, { trim: true })
+                );
+
+                if (!normalizedCommentTexts.has(normalizedValue)) {
+                    return true;
+                }
+
+                if (startLine === null) {
+                    return true;
+                }
+
+                const commentLine = getNodeStartLine(comment);
+
+                if (typeof commentLine !== "number") {
+                    return true;
+                }
+
+                if (commentLine < startLine) {
+                    return true;
+                }
+
+                if (maxLine !== null && commentLine > maxLine) {
+                    return true;
+                }
+
+                return false;
+            });
+
+            if (filteredComments.length !== existingComments.length) {
+                ast.comments = filteredComments;
+            }
+        }
+    }
+
     for (const target of commentTargets) {
         markCallExpressionForFeatherComment(target);
+    }
+
+    for (const [offset, commentTarget] of commentTargets.entries()) {
+        normalizeCommentTargetLocation({
+            node: commentTarget,
+            baselineStartIndex,
+            baselineStartLine,
+            offset
+        });
     }
 
     return fixDetail;
@@ -15024,6 +15113,48 @@ function createCallExpressionCommentText(node) {
 
     const placeholderArgs = args.map(() => "...").join(", ");
     return `${calleeName}(${placeholderArgs})`;
+}
+
+function normalizeFeatherCommentComparisonText(text) {
+    if (typeof text !== "string") {
+        return "";
+    }
+
+    let normalized = text.trim();
+
+    if (normalized.endsWith(";")) {
+        normalized = normalized.slice(0, -1);
+    }
+
+    return normalized;
+}
+
+function normalizeCommentTargetLocation({
+    node,
+    baselineStartIndex,
+    baselineStartLine,
+    offset
+}) {
+    if (!node || typeof node !== "object") {
+        return;
+    }
+
+    const startIndex =
+        typeof baselineStartIndex === "number" ? baselineStartIndex : 0;
+    const startLine =
+        typeof baselineStartLine === "number" ? baselineStartLine : 0;
+    const normalizedIndex = startIndex + offset;
+    const normalizedLine = startLine + offset;
+
+    if (node.start && typeof node.start === "object") {
+        node.start.index = normalizedIndex;
+        node.start.line = normalizedLine;
+    }
+
+    if (node.end && typeof node.end === "object") {
+        node.end.index = normalizedIndex;
+        node.end.line = normalizedLine;
+    }
 }
 
 function createVertexFormatEndCall(template) {

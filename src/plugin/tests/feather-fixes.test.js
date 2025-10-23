@@ -3146,6 +3146,42 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(formatted.trimEnd(), expected);
     });
 
+    it("deduplicates existing commented vertex format definitions flagged by GM2015", async () => {
+        const source = [
+            "/// Malformed vertex formats should be removed",
+            "",
+            "vertex_format_begin();",
+            "",
+            "vertex_format_add_position_3d();",
+            "vertex_format_add_colour();",
+            "vertex_format_add_texcoord();",
+            "",
+            "// vertex_format_begin();",
+            "// vertex_format_add_position_3d();",
+            "// vertex_format_add_colour();",
+            "// vertex_format_add_texcoord();",
+            "// vertex_format_end();"
+        ].join("\n");
+
+        const formatted = await prettier.format(source, {
+            parser: "gml-parse",
+            plugins: [pluginPath],
+            applyFeatherFixes: true
+        });
+
+        const expected = [
+            "/// Malformed vertex formats should be removed",
+            "",
+            "// vertex_format_begin();",
+            "// vertex_format_add_position_3d();",
+            "// vertex_format_add_colour();",
+            "// vertex_format_add_texcoord();",
+            "// vertex_format_end();"
+        ].join("\n");
+
+        assert.strictEqual(formatted.trimEnd(), expected);
+    });
+
     it("removes incomplete vertex format definitions before subsequent begins and records metadata", () => {
         const source = [
             "vertex_format_begin();",
