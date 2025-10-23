@@ -4,6 +4,7 @@ import {
     defaultCliIdentifierCasePlanPreparationService,
     defaultCliIdentifierCaseCacheService
 } from "./plugin-service-providers/default-plugin-services.js";
+import { assertFunction } from "./shared-deps.js";
 
 /**
  * @typedef {(projectRoot: string, manifest?: unknown, options?: object) => Promise<object>} CliProjectIndexBuilder
@@ -26,11 +27,9 @@ export const defaultCliPluginServices = Object.freeze({
 resetRegisteredCliPluginServices();
 
 function assertService(candidate, description) {
-    if (typeof candidate !== "function") {
-        throw new TypeError(
-            `CLI plugin services must provide a ${description} function`
-        );
-    }
+    assertFunction(candidate, description, {
+        errorMessage: `CLI plugin services must provide a ${description} function`
+    });
 }
 
 export function resolveCliProjectIndexBuilder() {
