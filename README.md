@@ -130,39 +130,41 @@ for (var i = 0; i < queue_count; i += 1) {
 
 ## Documentation map
 
-- [Documentation index](docs/README.md) &mdash; Start here for an overview of the
-  deep dives, rollout guides, and planning notes that live alongside the
-  formatter source.
+- [Documentation index](docs/README.md) &mdash; Jumping-off point for the design
+  notes, rollout guides, and metadata playbooks that live alongside the
+  formatter source. Each entry includes a short synopsis so you can scan for the
+  right level of detail.
 - [Architecture audits](docs/architecture-audit-2025-10-22.md) &mdash; Latest
-  repository-wide health check with links back to the
+  repository health check, with links back to the
   [May 2024 audit](docs/architecture-audit-2024-05-15.md) and
   [shared module layout refresh](docs/shared-module-layout.md) for historical
-  context.
-- [Identifier casing handbook](docs/naming-conventions.md) &mdash; Pipeline
-  walkthrough paired with the
+  context around the `src/shared/` consolidation.
+- [Identifier casing handbook](docs/naming-conventions.md) &mdash; End-to-end
+  coverage of the rename pipeline paired with the
   [scope reference](docs/identifier-case-reference.md),
   [rollout playbook](docs/identifier-case-rollout.md), and
   [tricky examples](docs/examples/naming-convention/tricky-identifiers.md) so
-  you can trial `gmlIdentifierCase` safely.
-- [Operational runbooks](docs/project-index-cache-design.md) &mdash; Design notes
-  and the rolling [project index roadmap](docs/project-index-next-steps.md)
-  alongside the [Feather data plan](docs/feather-data-plan.md) that explains
-  how metadata scrapers are versioned and refreshed. Pair them with the
-  [reserved identifier metadata hook overview](docs/reserved-identifier-metadata-hook.md)
-  when you need to stage bespoke metadata sources or regression fixtures.
+  you can dry-run `gmlIdentifierCase` safely before enabling writes.
+- [Operational runbooks](docs/project-index-cache-design.md) &mdash; Design notes,
+  cache architecture, and the rolling [project index roadmap](docs/project-index-next-steps.md)
+  alongside the [Feather data plan](docs/feather-data-plan.md). Pair them with
+  the [reserved identifier metadata hook overview](docs/reserved-identifier-metadata-hook.md)
+  when staging bespoke metadata sources or regeneration scripts.
 
 ---
 
 ## Quick start
 
-Start by confirming your toolchain, then pick the workflow that fits how you want to consume the formatter.
+Confirm your runtime, then choose the workflow that matches how you plan to run
+the formatter.
 
-### Requirements
+### 1. Verify prerequisites
 
-- Node.js **25.0.0+**. Run `nvm use` against the bundled `.nvmrc` before installing dependencies so local tooling matches CI.
-  The formatter targets the same engine matrix as the packages under `src/`
-  and fails fast when an older runtime slips through.
-- npm (installed with Node.js). Verify availability with `node -v` and `npm -v`.
+- Node.js **25.0.0+**. Run `nvm use` against the bundled `.nvmrc` so local
+  tooling matches CI. The workspace enforces the same floor across the parser,
+  plugin, and CLI packages.
+- npm (bundled with Node.js). Double-check availability with `node -v` and
+  `npm -v`.
 
 <details>
 <summary><strong>Install Node.js with nvm</strong></summary>
@@ -177,9 +179,9 @@ nvm use
 
 </details>
 
-### Install in a GameMaker project
+### 2. Install in a GameMaker project
 
-1. Change into the folder that contains your `.yyp` file.
+1. Change into the directory that contains your `.yyp` file.
 2. Install Prettier v3, the plugin, and the ANTLR runtime alongside the
    project:
 
@@ -194,13 +196,11 @@ nvm use
      builds for CI or audits.
    - Swap the Git URL for the npm package name once releases publish; packaged
      builds expose the plugin under `node_modules/prettier-plugin-gamemaker/`.
-3. Point Prettier at the plugin entry point from your project configuration
-   (for example `prettier.config.cjs` or the `prettier` field inside
-   `package.json`). Git installs surface the formatter at
+3. Configure Prettier to load the plugin. Git installs surface the formatter at
    `node_modules/root/src/plugin/src/gml.js`; packaged releases resolve from
-   `prettier-plugin-gamemaker/src/gml.js`. Confirm the path under
-   `node_modules` so direct CLI runs and Prettier invocations use the same
-   build.
+   `prettier-plugin-gamemaker/src/gml.js`. Update your `prettier.config` (or the
+   `prettier` field in `package.json`) so direct CLI runs and Prettier
+   invocations use the same entry:
 
    ```json
    {
@@ -218,12 +218,11 @@ nvm use
    }
    ```
 
-4. Add a wrapper script so every teammate uses the same entry point. The
-   workspace CLI resolves the plugin automatically, even when build artefacts
-   move or CI injects custom paths through the environment. Replace the script
-   value with `prettier-plugin-gamemaker` once the package lands on npm. The
-   CLI defaults to the `format` command, so extra arguments are only needed
-   when you want to override defaults:
+4. Expose a wrapper script so every teammate resolves the plugin the same way.
+   The workspace CLI defaults to the `format` command and falls back to the
+   bundled entry points when builds move or CI injects temporary paths. Replace
+   the script value with `prettier-plugin-gamemaker` once the package lands on
+   npm:
 
    ```jsonc
    {
@@ -239,9 +238,9 @@ nvm use
    overrides such as `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` when CI builds the
    plugin into a temporary directory or when a packaged release exposes a
    different folder name.
-5. Run the formatter. The wrapper defaults to the current working directory
-   when no path is provided. Pass `--help` at any time to confirm which plugin
-   entry was resolved and which extensions will run:
+5. Run the formatter. The wrapper defaults to the current working directory when
+   no path is provided. Pass `--help` at any time to confirm which plugin entry
+   was resolved and which extensions will run:
 
    ```bash
    npm run format:gml
@@ -250,7 +249,7 @@ nvm use
    node ./node_modules/root/src/cli/cli.js --help
    ```
 
-### 3. Format from a local clone
+### 3. Use a local clone
 
 1. Clone this repository and install dependencies:
 
@@ -260,9 +259,9 @@ nvm use
    npm install
    ```
 
-2. Target any GameMaker project without adding dependencies to that project.
-   The CLI exposes a `format` command that accepts an explicit path and
-   optional extensions:
+2. Format any GameMaker project without adding dependencies to that project. The
+   CLI exposes a `format` command that accepts an explicit path and optional
+   extensions:
 
    ```bash
    npm run cli -- format "/absolute/path/to/MyGame" --extensions=.gml,.yy
@@ -294,7 +293,7 @@ folders created by previous installs and retry.
 
 </details>
 
-### 4. Validate your setup regularly
+### 4. Validate your setup
 
 Run these commands after dependency updates or when onboarding a teammate. Swap
 the `--plugin` path for `prettier-plugin-gamemaker` when consuming a published
