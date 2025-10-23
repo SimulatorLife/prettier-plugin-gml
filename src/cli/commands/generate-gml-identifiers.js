@@ -5,6 +5,7 @@ import { Command } from "commander";
 import { CliUsageError } from "../lib/cli-errors.js";
 import { assertSupportedNodeVersion } from "../lib/node-version.js";
 import {
+    getErrorMessage,
     normalizeIdentifierMetadataEntries,
     toNormalizedLowerCaseSet,
     toPosixPath
@@ -175,8 +176,11 @@ function parseArrayLiteral(source, identifier, { timeoutMs } = {}) {
     try {
         return vm.runInNewContext(literal, {}, vmOptions);
     } catch (error) {
+        const message =
+            getErrorMessage(error, { fallback: "" }) || "Unknown error";
         throw new Error(
-            `Failed to evaluate array literal for ${identifier}: ${error.message}`
+            `Failed to evaluate array literal for ${identifier}: ${message}`,
+            { cause: error }
         );
     }
 }
@@ -654,3 +658,7 @@ export async function runGenerateGmlIdentifiers({ command } = {}) {
         disposeProgressBars();
     }
 }
+
+export const __test__ = Object.freeze({
+    parseArrayLiteral
+});
