@@ -1116,7 +1116,15 @@ function buildFeatherFixImplementations(diagnostics) {
         if (diagnosticId === "GM2040") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = removeInvalidEventInheritedCalls({
-                    // TODO: This will have to be integrated into the project-indexing/scoping process to correctly identify inherited events
+                    // TODO: Once the identifier-case project index can expose event
+                    // ancestry we should query it here instead of trusting the
+                    // diagnostic payload alone. GM2040 only fires when
+                    // `event_inherited()` is orphaned, but without project-scope
+                    // metadata the fixer cannot distinguish a legitimate override
+                    // from a missing parent event. Integrating with the scoping
+                    // pipeline outlined in `docs/project-index-next-steps.md` will
+                    // let us re-evaluate inherited events during formatting and avoid
+                    // deleting valid calls when Feather diagnostics are unavailable.
                     ast,
                     diagnostic
                 });
