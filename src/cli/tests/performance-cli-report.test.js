@@ -5,6 +5,7 @@ import path from "node:path";
 import { after, describe, it } from "node:test";
 
 import { runPerformanceCommand } from "../lib/performance-cli.js";
+import { PerformanceSuiteName } from "../lib/performance-suite-options.js";
 
 describe("performance CLI report output", () => {
     const disposals = [];
@@ -27,7 +28,7 @@ describe("performance CLI report output", () => {
 
         const command = {
             opts: () => ({
-                suite: ["identifier-text"],
+                suite: [PerformanceSuiteName.IDENTIFIER_TEXT],
                 iterations: 1,
                 fixtureRoot: [],
                 reportFile,
@@ -48,6 +49,6 @@ describe("performance CLI report output", () => {
         assert.equal(typeof parsedReport.generatedAt, "string");
         assert.ok(parsedReport.generatedAt.length > 0);
         assert.ok(parsedReport.suites);
-        assert.ok(parsedReport.suites["identifier-text"]);
+        assert.ok(parsedReport.suites[PerformanceSuiteName.IDENTIFIER_TEXT]);
     });
 });

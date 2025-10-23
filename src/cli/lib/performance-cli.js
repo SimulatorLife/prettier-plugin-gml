@@ -19,6 +19,11 @@ import {
     resolveRequestedSuites
 } from "./command-suite-helpers.js";
 import { coercePositiveInteger, getIdentifierText } from "./shared-deps.js";
+import {
+    PerformanceSuiteName,
+    isPerformanceThroughputSuite,
+    normalizePerformanceSuiteName
+} from "./performance-suite-options.js";
 
 const AVAILABLE_SUITES = new Map();
 
@@ -61,6 +66,15 @@ function createDatasetSummary({ fileCount, totalBytes }) {
 
 function collectValue(value, previous = []) {
     previous.push(value);
+    return previous;
+}
+
+function collectPerformanceSuite(value, previous = []) {
+    const normalized = normalizePerformanceSuiteName(value, {
+        errorConstructor: InvalidArgumentError
+    });
+
+    previous.push(normalized);
     return previous;
 }
 
@@ -439,9 +453,11 @@ function runIdentifierTextBenchmark() {
     return benchmarkIdentifierTextDataset(dataset, iterations);
 }
 
-AVAILABLE_SUITES.set("parser", runParserBenchmark);
-AVAILABLE_SUITES.set("formatter", runFormatterBenchmark);
-AVAILABLE_SUITES.set("identifier-text", () => runIdentifierTextBenchmark());
+AVAILABLE_SUITES.set(PerformanceSuiteName.PARSER, runParserBenchmark);
+AVAILABLE_SUITES.set(PerformanceSuiteName.FORMATTER, runFormatterBenchmark);
+AVAILABLE_SUITES.set(PerformanceSuiteName.IDENTIFIER_TEXT, () =>
+    runIdentifierTextBenchmark()
+);
 
 export function createPerformanceCommand() {
     return applyStandardCommandOptions(
@@ -455,7 +471,7 @@ export function createPerformanceCommand() {
         .option(
             "-s, --suite <name>",
             "Benchmark suite to run (can be provided multiple times).",
-            collectValue,
+            collectPerformanceSuite,
             []
         )
         .option(
@@ -566,7 +582,7 @@ function printHumanReadable(report) {
             continue;
         }
 
-        if (suite === "parser" || suite === "formatter") {
+        if (isPerformanceThroughputSuite(suite)) {
             const datasetBytes = payload.dataset?.totalBytes ?? 0;
             lines.push(
                 `  - iterations: ${payload.iterations}`,
