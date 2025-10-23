@@ -1,24 +1,22 @@
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 
-import { parseJsonWithContext } from "../../../shared/json-utils.js";
 import {
     areNumbersApproximatelyEqual,
-    isFiniteNumber
-} from "../../../shared/number-utils.js";
-import { isObjectLike } from "../../../shared/object-utils.js";
-import { createEnvConfiguredValue } from "../../../shared/environment-utils.js";
+    createAbortGuard,
+    createEnvConfiguredValue,
+    getFileMtime,
+    isFiniteNumber,
+    isFsErrorCode,
+    isObjectLike,
+    listDirectory,
+    parseJsonWithContext
+} from "./shared-deps.js";
 import {
     PROJECT_MANIFEST_EXTENSION,
     isProjectManifestPath
 } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
-import { createAbortGuard } from "../../../shared/abort-utils.js";
-import {
-    isFsErrorCode,
-    listDirectory,
-    getFileMtime
-} from "../../../shared/fs-utils.js";
 
 export const PROJECT_INDEX_CACHE_SCHEMA_VERSION = 1;
 export const PROJECT_INDEX_CACHE_DIRECTORY = ".prettier-plugin-gml";

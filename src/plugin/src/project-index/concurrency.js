@@ -1,4 +1,4 @@
-import { createEnvConfiguredValue } from "../../../shared/environment-utils.js";
+import { createEnvConfiguredValue } from "./shared-deps.js";
 
 const PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR = "GML_PROJECT_INDEX_CONCURRENCY";
 const PROJECT_INDEX_GML_CONCURRENCY_BASELINE = 4;

@@ -1,25 +1,23 @@
 import path from "node:path";
-import { cloneLocation } from "../../../shared/ast-locations.js";
-import { getCallExpressionIdentifier } from "../../../shared/ast-node-helpers.js";
-import {
-    toPosixPath,
-    walkAncestorDirectories
-} from "../../../shared/path-utils.js";
 import {
     asArray,
-    cloneObjectEntries,
-    isNonEmptyArray
-} from "../../../shared/array-utils.js";
-import {
     assertFunction,
+    buildFileLocationKey,
+    buildLocationKey,
+    cloneLocation,
+    cloneObjectEntries,
+    createAbortGuard,
+    getCallExpressionIdentifier,
     getOrCreateMapEntry,
     hasOwn,
-    isObjectLike
-} from "../../../shared/object-utils.js";
-import {
-    buildLocationKey,
-    buildFileLocationKey
-} from "../../../shared/location-keys.js";
+    isFsErrorCode,
+    isNonEmptyArray,
+    isObjectLike,
+    listDirectory,
+    throwIfAborted,
+    toPosixPath,
+    walkAncestorDirectories
+} from "./shared-deps.js";
 import { getDefaultProjectIndexParser } from "./gml-parser-facade.js";
 import { clampConcurrency } from "./concurrency.js";
 import {
@@ -27,7 +25,6 @@ import {
     isProjectManifestPath
 } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
-import { isFsErrorCode, listDirectory } from "../../../shared/fs-utils.js";
 import {
     getDefaultProjectIndexCacheMaxSize,
     loadProjectIndexCache,
@@ -37,10 +34,6 @@ import {
     createProjectIndexMetrics,
     finalizeProjectIndexMetrics
 } from "./metrics.js";
-import {
-    createAbortGuard,
-    throwIfAborted
-} from "../../../shared/abort-utils.js";
 import {
     analyseResourceFiles,
     createFileScopeDescriptor

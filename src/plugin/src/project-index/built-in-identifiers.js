@@ -1,11 +1,13 @@
 import { fileURLToPath } from "node:url";
 
-import { createAbortGuard } from "../../../shared/abort-utils.js";
-import { getFileMtime } from "../../../shared/fs-utils.js";
-import { normalizeIdentifierMetadataEntries } from "../../../shared/identifier-metadata.js";
-import { parseJsonWithContext } from "../../../shared/json-utils.js";
-import { areNumbersApproximatelyEqual } from "../../../shared/number-utils.js";
-import { isPlainObject } from "../../../shared/object-utils.js";
+import {
+    areNumbersApproximatelyEqual,
+    createAbortGuard,
+    getFileMtime,
+    isPlainObject,
+    normalizeIdentifierMetadataEntries,
+    parseJsonWithContext
+} from "./shared-deps.js";
 
 import { defaultFsFacade } from "./fs-facade.js";
 
