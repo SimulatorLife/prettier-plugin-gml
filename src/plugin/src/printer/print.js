@@ -2975,9 +2975,7 @@ function mergeSyntheticDocComments(
                 typeof metadata?.name === "string" &&
                 metadata.name.length > 0
             ) {
-                let fallbackLineIndex = null;
-
-                fallbackLineIndex =
+                const fallbackLineIndex =
                     orderedParamLineIndices.find(
                         (idx) => !usedParamLineIndices.has(idx)
                     ) ?? null;
