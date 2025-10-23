@@ -3746,8 +3746,8 @@ function getCanonicalParamNameFromText(name) {
         let depth = 0;
         let closingIndex = -1;
 
-        for (let index = 0; index < trimmed.length; index += 1) {
-            const char = trimmed[index];
+        let index = 0;
+        for (const char of trimmed) {
             if (char === "[") {
                 depth += 1;
             } else if (char === "]") {
@@ -3757,6 +3757,8 @@ function getCanonicalParamNameFromText(name) {
                     break;
                 }
             }
+
+            index += 1;
         }
 
         if (closingIndex > 0) {
