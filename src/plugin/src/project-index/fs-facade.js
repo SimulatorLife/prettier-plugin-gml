@@ -24,8 +24,4 @@ const defaultFsFacade = {
     }
 };
 
-export function getDefaultFsFacade() {
-    return defaultFsFacade;
-}
-
 export { defaultFsFacade };

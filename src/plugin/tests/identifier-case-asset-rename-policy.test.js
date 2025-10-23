@@ -2,18 +2,13 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
-    createIdentifierCaseAssetRenamePolicy,
+    evaluateIdentifierCaseAssetRenamePolicy,
     IdentifierCaseAssetRenamePolicyReason
 } from "../src/identifier-case/asset-rename-policy.js";
 
-function evaluate(context) {
-    const policy = createIdentifierCaseAssetRenamePolicy();
-    return policy.evaluate(context);
-}
-
 describe("identifier case asset rename policy", () => {
     it("requires explicit opt-in when dry run is enabled", () => {
-        const result = evaluate({
+        const result = evaluateIdentifierCaseAssetRenamePolicy({
             options: {},
             assetRenames: [{ name: "demo" }]
         });
@@ -27,7 +22,7 @@ describe("identifier case asset rename policy", () => {
     });
 
     it("skips when no renames are planned", () => {
-        const result = evaluate({
+        const result = evaluateIdentifierCaseAssetRenamePolicy({
             options: { __identifierCaseDryRun: false },
             assetRenames: [],
             projectIndex: {}
@@ -42,7 +37,7 @@ describe("identifier case asset rename policy", () => {
     });
 
     it("skips when conflicts are present", () => {
-        const result = evaluate({
+        const result = evaluateIdentifierCaseAssetRenamePolicy({
             options: { __identifierCaseDryRun: false },
             assetRenames: [{ name: "demo" }],
             assetConflicts: [{ resourcePath: "foo.yy" }],
@@ -58,7 +53,7 @@ describe("identifier case asset rename policy", () => {
     });
 
     it("skips when the project index is unavailable", () => {
-        const result = evaluate({
+        const result = evaluateIdentifierCaseAssetRenamePolicy({
             options: { __identifierCaseDryRun: false },
             assetRenames: [{ name: "demo" }]
         });
@@ -72,7 +67,7 @@ describe("identifier case asset rename policy", () => {
     });
 
     it("skips when renames were already applied", () => {
-        const result = evaluate({
+        const result = evaluateIdentifierCaseAssetRenamePolicy({
             options: {
                 __identifierCaseDryRun: false,
                 __identifierCaseAssetRenamesApplied: true
@@ -90,7 +85,7 @@ describe("identifier case asset rename policy", () => {
     });
 
     it("approves the rename when all conditions are satisfied", () => {
-        const result = evaluate({
+        const result = evaluateIdentifierCaseAssetRenamePolicy({
             options: { __identifierCaseDryRun: false },
             assetRenames: [{ name: "demo" }],
             projectIndex: { id: "project" }

@@ -5,6 +5,7 @@ import { Command } from "commander";
 import {
     escapeRegExp,
     getNonEmptyTrimmedString,
+    isNonEmptyArray,
     isNonEmptyString,
     toNormalizedLowerCaseSet
 } from "../lib/shared-deps.js";
@@ -35,12 +36,15 @@ import {
 } from "../lib/manual-command-options.js";
 import { createManualCommandContext } from "../lib/manual-command-context.js";
 
+/** @typedef {ReturnType<typeof resolveManualCommandOptions>} ManualCommandOptions */
+
 const {
-    repoRoot: REPO_ROOT,
-    defaultCacheRoot: DEFAULT_CACHE_ROOT,
-    defaultOutputPath: OUTPUT_DEFAULT,
-    fetchManualFile,
-    resolveManualRef
+    environment: {
+        repoRoot: REPO_ROOT,
+        defaultCacheRoot: DEFAULT_CACHE_ROOT,
+        defaultOutputPath: OUTPUT_DEFAULT
+    },
+    operations: { fetchManualFile, resolveManualRef }
 } = createManualCommandContext({
     importMetaUrl: import.meta.url,
     userAgent: "prettier-plugin-gml feather metadata generator",
@@ -57,6 +61,12 @@ const FEATHER_PAGES = {
         "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Data_Types.htm"
 };
 
+/**
+ * Create the CLI command for generating Feather metadata.
+ *
+ * @param {{ env?: NodeJS.ProcessEnv }} [options]
+ * @returns {import("commander").Command}
+ */
 export function createFeatherMetadataCommand({ env = process.env } = {}) {
     const command = applyStandardCommandOptions(
         new Command()
@@ -94,6 +104,13 @@ export function createFeatherMetadataCommand({ env = process.env } = {}) {
 
     return command;
 }
+
+/**
+ * Resolve normalized CLI options for the Feather metadata command.
+ *
+ * @param {import("commander").Command} command
+ * @returns {ManualCommandOptions}
+ */
 function resolveFeatherMetadataOptions(command) {
     return resolveManualCommandOptions(command, {
         defaults: {
@@ -105,7 +122,7 @@ function resolveFeatherMetadataOptions(command) {
     });
 }
 
-// Manual fetching helpers are provided by manual-cli-helpers.js.
+// Manual fetching helpers are wired via the shared manual command context.
 
 function normalizeMultilineText(text) {
     if (!isNonEmptyString(text)) {
@@ -432,7 +449,7 @@ function normalizeContent(blocks) {
 }
 
 function joinSections(parts) {
-    if (!Array.isArray(parts) || parts.length === 0) {
+    if (!isNonEmptyArray(parts)) {
         return null;
     }
 
@@ -440,7 +457,7 @@ function joinSections(parts) {
         .map((part) => getNonEmptyTrimmedString(part))
         .filter(Boolean);
 
-    if (normalizedParts.length === 0) {
+    if (!isNonEmptyArray(normalizedParts)) {
         return null;
     }
 
@@ -507,20 +524,20 @@ function collectDiagnosticTrailingContent(blocks) {
             continue;
         }
 
-        if (block.type === "code") {
-            if (badExample) {
-                goodExampleParts.push(text);
-            } else {
-                badExample = text;
-            }
+        if (block.type !== "code") {
+            const targetParts = badExample
+                ? correctionParts
+                : additionalDescriptionParts;
+            targetParts.push(text);
             continue;
         }
 
-        if (badExample) {
-            correctionParts.push(text);
-        } else {
-            additionalDescriptionParts.push(text);
+        if (!badExample) {
+            badExample = text;
+            continue;
         }
+
+        goodExampleParts.push(text);
     }
 
     const goodExample =
@@ -989,38 +1006,31 @@ async function fetchFeatherManualPayloads({
         const manualEntries = Object.entries(FEATHER_PAGES);
         const totalManualPages = manualEntries.length;
 
-        if (verbose.downloads) {
-            console.log(
-                `Fetching ${totalManualPages} manual page${
-                    totalManualPages === 1 ? "" : "s"
-                }…`
-            );
-        }
+        announceManualDownloadStart(totalManualPages, verbose);
 
-        const htmlPayloads = {};
-        let fetchedCount = 0;
-        for (const [key, manualPath] of manualEntries) {
-            htmlPayloads[key] = await fetchManualFileFn(
-                manualRef.sha,
-                manualPath,
-                {
-                    forceRefresh,
-                    verbose,
-                    cacheRoot,
-                    rawRoot
-                }
-            );
-            fetchedCount += 1;
-            reportManualFetchProgress({
+        return downloadManualEntries({
+            manualEntries,
+            manualRefSha: manualRef.sha,
+            fetchManualFile: fetchManualFileFn,
+            requestOptions: {
+                forceRefresh,
+                verbose,
+                cacheRoot,
+                rawRoot
+            },
+            onProgress: ({
                 manualPath,
                 fetchedCount,
-                totalManualPages,
-                verbose,
-                progressBarWidth
-            });
-        }
-
-        return htmlPayloads;
+                totalManualPages: total
+            }) =>
+                reportManualFetchProgress({
+                    manualPath,
+                    fetchedCount,
+                    totalManualPages: total,
+                    verbose,
+                    progressBarWidth
+                })
+        });
     });
 }
 
@@ -1046,6 +1056,48 @@ function reportManualFetchProgress({
     }
 
     console.log(`✓ ${manualPath}`);
+}
+
+function announceManualDownloadStart(totalManualPages, verbose) {
+    if (!verbose?.downloads) {
+        return;
+    }
+
+    console.log(
+        `Fetching ${totalManualPages} manual page${
+            totalManualPages === 1 ? "" : "s"
+        }…`
+    );
+}
+
+/**
+ * Download each requested manual page while reporting progress.
+ * The helper returns a map from feather page keys to their HTML payloads,
+ * mirroring the structure previously built inline inside
+ * fetchFeatherManualPayloads.
+ */
+async function downloadManualEntries({
+    manualEntries,
+    manualRefSha,
+    fetchManualFile,
+    requestOptions,
+    onProgress
+}) {
+    const htmlPayloads = {};
+    let fetchedCount = 0;
+    const totalManualPages = manualEntries.length;
+
+    for (const [key, manualPath] of manualEntries) {
+        htmlPayloads[key] = await fetchManualFile(
+            manualRefSha,
+            manualPath,
+            requestOptions
+        );
+        fetchedCount += 1;
+        onProgress?.({ manualPath, fetchedCount, totalManualPages });
+    }
+
+    return htmlPayloads;
 }
 
 function parseFeatherManualPayloads(htmlPayloads, { verbose }) {
@@ -1077,6 +1129,12 @@ function parseFeatherManualPayloads(htmlPayloads, { verbose }) {
     };
 }
 
+/**
+ * Execute the Feather metadata generation workflow.
+ *
+ * @param {{ command?: import("commander").Command }} [context]
+ * @returns {Promise<number>}
+ */
 export async function runGenerateFeatherMetadata({ command } = {}) {
     try {
         assertSupportedNodeVersion();

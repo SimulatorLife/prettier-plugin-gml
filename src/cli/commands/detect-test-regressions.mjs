@@ -13,7 +13,7 @@ import {
     isObjectLike,
     toArray,
     toTrimmedString
-} from "../lib/shared/utils.js";
+} from "../lib/shared-deps.js";
 import { CliUsageError, handleCliError } from "../lib/cli-errors.js";
 
 let parser;
@@ -276,14 +276,28 @@ function normalizeSuiteName(name) {
     return toTrimmedString(name);
 }
 
+function pushNormalizedSuiteSegments(target, segments) {
+    if (!Array.isArray(target)) {
+        throw new TypeError("target must be an array");
+    }
+
+    const sourceSegments = Array.isArray(segments) ? segments : [segments];
+
+    for (const segment of sourceSegments) {
+        const normalized = normalizeSuiteName(segment);
+        if (!normalized) {
+            continue;
+        }
+
+        target.push(normalized);
+    }
+
+    return target;
+}
+
 function buildTestKey(testNode, suitePath) {
     const parts = [];
-    const normalizedSuitePath = suitePath
-        .map(normalizeSuiteName)
-        .filter(Boolean);
-    if (normalizedSuitePath.length > 0) {
-        parts.push(...normalizedSuitePath);
-    }
+    pushNormalizedSuiteSegments(parts, suitePath);
     const className = toTrimmedString(testNode.classname);
     if (className && (parts.length === 0 || parts.at(-1) !== className)) {
         parts.push(className);
@@ -295,12 +309,7 @@ function buildTestKey(testNode, suitePath) {
 
 function describeTestCase(testNode, suitePath) {
     const parts = [];
-    const normalizedSuitePath = suitePath
-        .map(normalizeSuiteName)
-        .filter(Boolean);
-    if (normalizedSuitePath.length > 0) {
-        parts.push(...normalizedSuitePath);
-    }
+    pushNormalizedSuiteSegments(parts, suitePath);
     const testName = toTrimmedString(testNode.name);
     if (testName) {
         parts.push(testName);
@@ -354,7 +363,7 @@ function collectTestCases(root) {
         const shouldExtendSuitePath =
             normalizedSuiteName && (hasTestcase || hasTestsuite);
         const nextSuitePath = shouldExtendSuitePath
-            ? [...suitePath, normalizedSuiteName]
+            ? pushNormalizedSuiteSegments([...suitePath], normalizedSuiteName)
             : suitePath;
 
         if (looksLikeTestCase(node)) {
@@ -412,52 +421,96 @@ function normalizeResultDirectories(candidateDirs, workspaceRoot) {
         });
 }
 
-function scanResultDirectory({ resolved, display }) {
-    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+function scanResultDirectory(directory) {
+    if (!isExistingDirectory(directory.resolved)) {
         return { status: "missing", notes: [], cases: [] };
     }
 
-    const xmlFiles = fs
-        .readdirSync(resolved)
-        .filter((file) => file.endsWith(".xml"));
+    const xmlFiles = listXmlFiles(directory.resolved);
     if (xmlFiles.length === 0) {
         return { status: "empty", notes: [], cases: [] };
     }
 
-    const notes = [];
-    const cases = [];
-
-    for (const file of xmlFiles) {
-        const filePath = path.join(resolved, file);
-        let xml = "";
-        try {
-            xml = fs.readFileSync(filePath, "utf8");
-        } catch (error) {
-            notes.push(
-                `Failed to read ${path.join(display, file)}: ${error?.message}`
-            );
-            continue;
-        }
-
-        if (!xml.trim()) {
-            continue;
-        }
-
-        try {
-            const data = parser.parse(xml);
-            cases.push(...collectTestCases(data));
-        } catch (error) {
-            notes.push(
-                `Failed to parse ${path.join(display, file)}: ${error?.message}`
-            );
-        }
-    }
+    const { cases, notes } = collectDirectoryTestCases(directory, xmlFiles);
 
     if (cases.length === 0) {
         return { status: "empty", notes, cases: [] };
     }
 
     return { status: "found", notes, cases };
+}
+
+function isExistingDirectory(resolvedPath) {
+    return (
+        fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isDirectory()
+    );
+}
+
+function listXmlFiles(resolvedPath) {
+    return fs.readdirSync(resolvedPath).filter((file) => file.endsWith(".xml"));
+}
+
+function collectDirectoryTestCases(directory, xmlFiles) {
+    const aggregate = { cases: [], notes: [] };
+
+    for (const file of xmlFiles) {
+        const displayPath = path.join(directory.display, file);
+        const filePath = path.join(directory.resolved, file);
+        const { cases, notes } = collectTestCasesFromXmlFile(
+            filePath,
+            displayPath
+        );
+        aggregate.cases.push(...cases);
+        aggregate.notes.push(...notes);
+    }
+
+    return aggregate;
+}
+
+function collectTestCasesFromXmlFile(filePath, displayPath) {
+    const readResult = readXmlFile(filePath, displayPath);
+    if (readResult.status === "error") {
+        return { cases: [], notes: [readResult.note] };
+    }
+
+    const xml = readResult.contents;
+    if (!xml.trim()) {
+        return { cases: [], notes: [] };
+    }
+
+    const parseResult = parseXmlTestCases(xml, displayPath);
+    if (parseResult.status === "error") {
+        return { cases: [], notes: [parseResult.note] };
+    }
+
+    return { cases: parseResult.cases, notes: [] };
+}
+
+function readXmlFile(filePath, displayPath) {
+    try {
+        return { status: "ok", contents: fs.readFileSync(filePath, "utf8") };
+    } catch (error) {
+        const message =
+            getErrorMessage(error, { fallback: "" }) || "Unknown error";
+        return {
+            status: "error",
+            note: `Failed to read ${displayPath}: ${message}`
+        };
+    }
+}
+
+function parseXmlTestCases(xml, displayPath) {
+    try {
+        const data = parser.parse(xml);
+        return { status: "ok", cases: collectTestCases(data) };
+    } catch (error) {
+        const message =
+            getErrorMessage(error, { fallback: "" }) || "Unknown error";
+        return {
+            status: "error",
+            note: `Failed to parse ${displayPath}: ${message}`
+        };
+    }
 }
 
 function recordTestCases(aggregates, testCases) {
@@ -531,20 +584,33 @@ function applyScanOutcome(context, directory, scan) {
     return buildSuccessfulReadResult(context, directory);
 }
 
+function pushAvailabilityNote(notes, entries, { single, multiple }) {
+    const count = entries.length;
+
+    if (count === 0) {
+        return;
+    }
+
+    if (count === 1) {
+        notes.push(single(entries[0]));
+        return;
+    }
+
+    notes.push(multiple(entries));
+}
+
 function appendAvailabilityNotes(context) {
     const { missingDirs, emptyDirs, notes } = context;
 
-    if (missingDirs.length === 1) {
-        notes.push(`No directory found at ${missingDirs[0]}.`);
-    } else if (missingDirs.length > 1) {
-        notes.push(`No directory found at any of: ${missingDirs.join(", ")}.`);
-    }
+    pushAvailabilityNote(notes, missingDirs, {
+        single: (dir) => `No directory found at ${dir}.`,
+        multiple: (dirs) => `No directory found at any of: ${dirs.join(", ")}.`
+    });
 
-    if (emptyDirs.length === 1) {
-        notes.push(`No JUnit XML files found in ${emptyDirs[0]}.`);
-    } else if (emptyDirs.length > 1) {
-        notes.push(`No JUnit XML files found in: ${emptyDirs.join(", ")}.`);
-    }
+    pushAvailabilityNote(notes, emptyDirs, {
+        single: (dir) => `No JUnit XML files found in ${dir}.`,
+        multiple: (dirs) => `No JUnit XML files found in: ${dirs.join(", ")}.`
+    });
 }
 
 function buildUnavailableResult(context) {
@@ -574,61 +640,122 @@ function readTestResults(candidateDirs, { workspace } = {}) {
     return buildUnavailableResult(context);
 }
 
-function detectRegressions(baseResults, targetResults) {
-    const baseStats = baseResults?.stats;
-    const targetStats = targetResults?.stats;
-
-    if (
+function shouldSkipRegressionDetection(baseStats, targetStats) {
+    return (
         baseStats &&
         targetStats &&
         baseStats.total === targetStats.total &&
         targetStats.failed <= baseStats.failed
+    );
+}
+
+/**
+ * Normalize result-set inputs so downstream helpers can rely on Map semantics.
+ */
+function resolveResultsMap(resultSet) {
+    const { results } = resultSet ?? {};
+    return results instanceof Map ? results : new Map();
+}
+
+function createRegressionRecord({ baseResults, key, targetRecord }) {
+    if (!targetRecord || targetRecord.status !== "failed") {
+        return null;
+    }
+
+    const baseRecord = baseResults.get(key);
+    const baseStatus = baseRecord?.status;
+    if (baseStatus === "failed") {
+        return null;
+    }
+
+    return {
+        key,
+        from: baseStatus ?? "missing",
+        to: targetRecord.status,
+        detail: targetRecord
+    };
+}
+
+/**
+ * Derive regression summaries for each failed target test case.
+ */
+function collectRegressions({ baseResults, targetResults }) {
+    const regressions = [];
+
+    for (const [key, targetRecord] of targetResults.entries()) {
+        const regression = createRegressionRecord({
+            baseResults,
+            key,
+            targetRecord
+        });
+
+        if (regression) {
+            regressions.push(regression);
+        }
+    }
+
+    return regressions;
+}
+
+function createResolvedFailureRecord({ baseResults, key, targetResults }) {
+    const baseRecord = baseResults.get(key);
+    if (!baseRecord || baseRecord.status !== "failed") {
+        return null;
+    }
+
+    const targetRecord = targetResults.get(key);
+    const targetStatus = targetRecord?.status;
+    if (targetStatus === "failed") {
+        return null;
+    }
+
+    return {
+        key,
+        from: baseRecord.status,
+        to: targetStatus ?? "missing",
+        detail: baseRecord
+    };
+}
+
+/**
+ * Derive records for historical failures that are no longer failing.
+ */
+function collectResolvedFailures({ baseResults, targetResults }) {
+    const resolved = [];
+
+    for (const key of baseResults.keys()) {
+        const record = createResolvedFailureRecord({
+            baseResults,
+            key,
+            targetResults
+        });
+
+        if (record) {
+            resolved.push(record);
+        }
+    }
+
+    return resolved;
+}
+
+function detectRegressions(baseResults, targetResults) {
+    if (
+        shouldSkipRegressionDetection(baseResults?.stats, targetResults?.stats)
     ) {
         return [];
     }
 
-    const regressions = [];
-    for (const [key, targetRecord] of targetResults.results.entries()) {
-        if (!targetRecord || targetRecord.status !== "failed") {
-            continue;
-        }
-        const baseRecord = baseResults.results.get(key);
-        const baseStatus = baseRecord?.status;
-        if (baseStatus === "failed") {
-            continue;
-        }
-        regressions.push({
-            key,
-            from: baseStatus ?? "missing",
-            to: targetRecord.status,
-            detail: targetRecord
-        });
-    }
-    return regressions;
+    return collectRegressions({
+        baseResults: resolveResultsMap(baseResults),
+        targetResults: resolveResultsMap(targetResults)
+    });
 }
 
 function detectResolvedFailures(baseResults, targetResults) {
-    const resolved = [];
-    for (const [key, baseRecord] of baseResults.results.entries()) {
-        if (!baseRecord || baseRecord.status !== "failed") {
-            continue;
-        }
-
-        const targetRecord = targetResults.results.get(key);
-        const targetStatus = targetRecord?.status;
-        if (targetStatus === "failed") {
-            continue;
-        }
-
-        resolved.push({
-            key,
-            from: baseRecord.status,
-            to: targetStatus ?? "missing",
-            detail: baseRecord
-        });
-    }
-
-    return resolved;
+    return collectResolvedFailures({
+        baseResults: resolveResultsMap(baseResults),
+        targetResults: resolveResultsMap(targetResults)
+    });
 }
 
 function formatRegression(regression) {
