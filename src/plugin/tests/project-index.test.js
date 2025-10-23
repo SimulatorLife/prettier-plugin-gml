@@ -5,7 +5,8 @@ import test from "node:test";
 import {
     deriveCacheKey,
     findProjectRoot,
-    PROJECT_MANIFEST_EXTENSION
+    PROJECT_MANIFEST_EXTENSION,
+    __loadBuiltInIdentifiersForTests as loadBuiltInIdentifiersForTests
 } from "../src/project-index/index.js";
 
 function createMockFs(entries) {
@@ -115,6 +116,35 @@ test("findProjectRoot treats nullish directory listings as empty", async () => {
     });
 });
 
+test("findProjectRoot surfaces abort message before filesystem access", async () => {
+    const controller = new AbortController();
+    controller.abort(null);
+
+    let readAttempted = false;
+    const stubFs = {
+        async readDir() {
+            readAttempted = true;
+            throw new Error("readDir should not run when aborted");
+        }
+    };
+
+    await assert.rejects(
+        findProjectRoot(
+            {
+                filepath: path.resolve("/workspace/project/scripts/file.gml"),
+                signal: controller.signal
+            },
+            stubFs
+        ),
+        (error) => {
+            assert.equal(error?.message, "Project root discovery was aborted.");
+            return true;
+        }
+    );
+
+    assert.equal(readAttempted, false);
+});
+
 test("deriveCacheKey changes when manifest mtime changes", async () => {
     const projectRoot = path.resolve("/workspace/project");
     const manifestName = `project${PROJECT_MANIFEST_EXTENSION}`;
@@ -196,4 +226,35 @@ test("deriveCacheKey is stable across manifest ordering", async () => {
     );
 
     assert.equal(firstKey, secondKey);
+});
+
+test("loadBuiltInIdentifiers respects abort guard", async () => {
+    const controller = new AbortController();
+    controller.abort(null);
+
+    let statAttempted = false;
+    let readAttempted = false;
+    const stubFs = {
+        async stat() {
+            statAttempted = true;
+            throw new Error("stat should not run when aborted");
+        },
+        async readFile() {
+            readAttempted = true;
+            throw new Error("readFile should not run when aborted");
+        }
+    };
+
+    await assert.rejects(
+        loadBuiltInIdentifiersForTests(stubFs, null, {
+            signal: controller.signal
+        }),
+        (error) => {
+            assert.equal(error?.message, "Project index build was aborted.");
+            return true;
+        }
+    );
+
+    assert.equal(statAttempted, false);
+    assert.equal(readAttempted, false);
 });
