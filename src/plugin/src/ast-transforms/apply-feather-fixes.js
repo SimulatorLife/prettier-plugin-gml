@@ -1231,11 +1231,23 @@ function buildFeatherFixImplementations(diagnostics) {
         }
 
         if (diagnosticId === "GM2009") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = ensureVertexBeginPrecedesEnd({ ast, diagnostic });
+            registerFeatherFixer(
+                registry,
+                diagnosticId,
+                () =>
+                    ({ ast, options }) => {
+                        const fixes = ensureVertexBeginPrecedesEnd({
+                            ast,
+                            diagnostic,
+                            options
+                        });
 
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
+                        return resolveAutomaticFixes(fixes, {
+                            ast,
+                            diagnostic
+                        });
+                    }
+            );
             continue;
         }
 
@@ -11245,7 +11257,7 @@ function ensureCullModeResetAfterCall(node, parent, property, diagnostic) {
     return fixDetail;
 }
 
-function ensureVertexBeginPrecedesEnd({ ast, diagnostic }) {
+function ensureVertexBeginPrecedesEnd({ ast, diagnostic, options }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
@@ -11272,7 +11284,8 @@ function ensureVertexBeginPrecedesEnd({ ast, diagnostic }) {
             node,
             parent,
             property,
-            diagnostic
+            diagnostic,
+            options
         );
 
         if (fix) {
@@ -11296,7 +11309,8 @@ function ensureVertexBeginBeforeVertexEndCall(
     node,
     parent,
     property,
-    diagnostic
+    diagnostic,
+    options
 ) {
     if (!Array.isArray(parent) || typeof property !== "number") {
         return null;
@@ -11336,15 +11350,16 @@ function ensureVertexBeginBeforeVertexEndCall(
         }
     }
 
-    const vertexBeginCall = createVertexBeginCall({
-        diagnostic,
-        referenceCall: node,
-        bufferIdentifier: bufferArgument
-    });
+    const shouldRemoveStandaloneVertexEnd =
+        options?.removeStandaloneVertexEnd === true;
 
-    if (!vertexBeginCall) {
-        return null;
-    }
+    const vertexBeginCall = shouldRemoveStandaloneVertexEnd
+        ? null
+        : createVertexBeginCall({
+              diagnostic,
+              referenceCall: node,
+              bufferIdentifier: bufferArgument
+          });
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: typeof bufferName === "string" ? bufferName : null,
@@ -11358,12 +11373,19 @@ function ensureVertexBeginBeforeVertexEndCall(
         return null;
     }
 
-    parent.splice(property, 0, vertexBeginCall);
-    attachFeatherFixMetadata(vertexBeginCall, [fixDetail]);
-    attachFeatherFixMetadata(node, [fixDetail]);
-    markStatementToSuppressFollowingEmptyLine(vertexBeginCall);
-    markStatementToSuppressLeadingEmptyLine(node);
+    const shouldInsertVertexBegin =
+        !shouldRemoveStandaloneVertexEnd && !!vertexBeginCall;
 
+    if (shouldInsertVertexBegin) {
+        parent.splice(property, 0, vertexBeginCall);
+        attachFeatherFixMetadata(vertexBeginCall, [fixDetail]);
+        attachFeatherFixMetadata(node, [fixDetail]);
+        markStatementToSuppressFollowingEmptyLine(vertexBeginCall);
+        markStatementToSuppressLeadingEmptyLine(node);
+        return fixDetail;
+    }
+
+    parent.splice(property, 1);
     return fixDetail;
 }
 
