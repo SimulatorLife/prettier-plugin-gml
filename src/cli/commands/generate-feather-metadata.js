@@ -34,7 +34,7 @@ import {
     applySharedManualCommandOptions,
     resolveManualCommandOptions
 } from "../lib/manual/command-options.js";
-import { createManualCommandContext } from "../lib/manual-command-context.js";
+import { createManualManualAccessContext } from "../lib/manual-command-context.js";
 
 /** @typedef {ReturnType<typeof resolveManualCommandOptions>} ManualCommandOptions */
 
@@ -44,8 +44,9 @@ const {
         defaultCacheRoot: DEFAULT_CACHE_ROOT,
         defaultOutputPath: OUTPUT_DEFAULT
     },
-    operations: { fetchManualFile, resolveManualRef }
-} = createManualCommandContext({
+    files: { fetchManualFile },
+    refs: { resolveManualRef }
+} = createManualManualAccessContext({
     importMetaUrl: import.meta.url,
     userAgent: "prettier-plugin-gml feather metadata generator",
     outputFileName: "feather-metadata.json"
