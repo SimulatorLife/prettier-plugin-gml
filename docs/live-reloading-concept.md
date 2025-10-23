@@ -1292,7 +1292,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { analyzeToScipOccurrences } from "./analyze-to-scip";
 import { makeDummyOracle } from "./sem-oracle-dummy";
-import { ScipMemoryIndex } from "./scip-index";  // from earlier message
+import { ScipMemoryIndex } from "./scip-index"; // from earlier message
 import { emitPatchForSymbol, wsBroadcast } from "./your-patch-pipeline"; // your implementation
 
 const scip = new ScipMemoryIndex(); // start empty; or load from file if you persisted one
@@ -1309,7 +1309,12 @@ export async function onFileChanged(absPath: string) {
   const doc = analyzeToScipOccurrences(source, rel, oracle);
 
   // 2) Update in-memory SCIP
-  const occs = doc.occurrences.map(o => ({ docPath: doc.relativePath, range: o.range, symbol: o.symbol, isDef: (o.symbolRoles & 1) === 1 }));
+  const occs = doc.occurrences.map((occurrence) => ({
+    docPath: doc.relativePath,
+    range: occurrence.range,
+    symbol: occurrence.symbol,
+    isDef: (occurrence.symbolRoles & 1) === 1
+  }));
   scip.upsertDocument(doc.relativePath, occs);
 
   // 3) Changed symbols (DEFs in this file)
@@ -1317,8 +1322,12 @@ export async function onFileChanged(absPath: string) {
 
   // 4) Direct dependents (REFs to changed symbols)
   const targets = new Set<string>(changed);
-  for (const s of changed) for (const ref of scip.refsOf(s)) {
-    for (const def of scip.defsInDoc(ref.docPath)) targets.add(def.symbol);
+  for (const changedSymbol of changed) {
+    for (const reference of scip.refsOf(changedSymbol)) {
+      for (const definition of scip.defsInDoc(reference.docPath)) {
+        targets.add(definition.symbol);
+      }
+    }
   }
 
   // 5) Emit patches
