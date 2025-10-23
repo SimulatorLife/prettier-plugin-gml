@@ -17,6 +17,7 @@ import {
     createProjectIndexCoordinator,
     getProjectIndexParserOverride
 } from "../project-index/index.js";
+import { clampConcurrency } from "../project-index/concurrency.js";
 
 const PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME =
     "__identifierCaseProjectIndexCacheMaxBytes";
@@ -181,15 +182,13 @@ function coerceCacheMaxSize(
 }
 
 function coerceProjectIndexConcurrency(numericValue, { optionName, received }) {
-    if (Number.isFinite(numericValue) && numericValue < 1) {
-        throw new Error(formatConcurrencyValueError(optionName, received));
-    }
-
-    return coercePositiveInteger(numericValue, {
+    const positiveInteger = coercePositiveInteger(numericValue, {
         received,
         createErrorMessage: (value) =>
             formatConcurrencyValueError(optionName, value)
     });
+
+    return clampConcurrency(positiveInteger);
 }
 
 function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
