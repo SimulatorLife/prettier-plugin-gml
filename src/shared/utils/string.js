@@ -77,14 +77,6 @@ export function assertNonEmptyString(
     return normalized;
 }
 
-const CHAR_CODE_0 = "0".charCodeAt(0);
-const CHAR_CODE_9 = "9".charCodeAt(0);
-const CHAR_CODE_UPPER_A = "A".charCodeAt(0);
-const CHAR_CODE_UPPER_Z = "Z".charCodeAt(0);
-const CHAR_CODE_LOWER_A = "a".charCodeAt(0);
-const CHAR_CODE_LOWER_Z = "z".charCodeAt(0);
-const CHAR_CODE_UNDERSCORE = "_".charCodeAt(0);
-
 export function isWordChar(character) {
     if (typeof character !== "string" || character.length === 0) {
         return false;
