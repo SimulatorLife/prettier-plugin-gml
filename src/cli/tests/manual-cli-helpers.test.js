@@ -1,50 +1,67 @@
 import assert from "node:assert/strict";
-import { describe, it, mock } from "node:test";
+import { afterEach, describe, it, mock } from "node:test";
 
-import { SingleBar } from "cli-progress";
+import {
+    disposeProgressBars,
+    renderProgressBar,
+    setProgressBarFactoryForTesting,
+    resetProgressBarRegistryForTesting
+} from "../lib/progress-bar.js";
 
-import { disposeProgressBars, renderProgressBar } from "../lib/progress-bar.js";
+function createMockStdout() {
+    return {
+        isTTY: true,
+        clearLine: () => {},
+        cursorTo: () => {},
+        moveCursor: () => {},
+        on: () => {},
+        removeListener: () => {},
+        write: () => {}
+    };
+}
 
 describe("manual CLI helpers", () => {
+    afterEach(() => {
+        setProgressBarFactoryForTesting();
+        resetProgressBarRegistryForTesting();
+    });
+
     it("disposes active progress bars", () => {
         const createdBars = new Set();
         const stopCounts = new Map();
-        const startMock = mock.method(
-            SingleBar.prototype,
-            "start",
-            function () {
-                createdBars.add(this);
-            }
-        );
-        const stopMock = mock.method(SingleBar.prototype, "stop", function () {
-            stopCounts.set(this, (stopCounts.get(this) ?? 0) + 1);
+        const stdout = createMockStdout();
+        const createBar = mock.fn(() => {
+            const bar = {
+                setTotal: () => {},
+                update: () => {}
+            };
+
+            bar.start = () => {
+                createdBars.add(bar);
+            };
+
+            bar.stop = () => {
+                stopCounts.set(bar, (stopCounts.get(bar) ?? 0) + 1);
+            };
+
+            return bar;
         });
 
-        const originalIsTTY = process.stdout.isTTY;
-        process.stdout.isTTY = true;
+        disposeProgressBars();
+        renderProgressBar("Task", 1, 4, 10, { stdout, createBar });
+        renderProgressBar("Task", 2, 4, 10, { stdout, createBar });
 
-        try {
-            disposeProgressBars();
-            renderProgressBar("Task", 1, 4, 10);
-            renderProgressBar("Task", 2, 4, 10);
+        assert.equal(createdBars.size, 1);
+        const [firstBar] = createdBars;
+        assert.equal(stopCounts.get(firstBar) ?? 0, 0);
 
-            assert.equal(createdBars.size, 1);
-            const [firstBar] = createdBars;
-            assert.equal(stopCounts.get(firstBar) ?? 0, 0);
+        disposeProgressBars();
+        assert.equal(stopCounts.get(firstBar), 1);
 
-            disposeProgressBars();
-            assert.equal(stopCounts.get(firstBar), 1);
+        disposeProgressBars();
+        assert.equal(stopCounts.get(firstBar), 1);
 
-            disposeProgressBars();
-            assert.equal(stopCounts.get(firstBar), 1);
-
-            renderProgressBar("Task", 3, 4, 10);
-            assert.equal(createdBars.size, 2);
-        } finally {
-            stopMock.mock.restore();
-            startMock.mock.restore();
-            process.stdout.isTTY = originalIsTTY;
-            disposeProgressBars();
-        }
+        renderProgressBar("Task", 3, 4, 10, { stdout, createBar });
+        assert.equal(createdBars.size, 2);
     });
 });

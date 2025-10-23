@@ -39,7 +39,7 @@ export function createIntegerOptionCoercer({
 
 /**
  * Create a stateful integer option backed by {@link createEnvConfiguredValue}.
- * The helper centralises the logic shared by CLI utilities that expose numeric
+ * The helper centralizes the logic shared by CLI utilities that expose numeric
  * configuration flags with environment overrides.
  *
  * @param {object} parameters
@@ -48,7 +48,7 @@ export function createIntegerOptionCoercer({
  * @param {string} [parameters.envVar] Environment variable that drives the
  *        default when defined.
  * @param {(value: number, context: object) => number} parameters.coerce Function
- *        that validates and normalises numeric input.
+ *        that validates and normalizes numeric input.
  * @param {string | ((type: string) => string)} [parameters.typeErrorMessage]
  *        Error message used when {@link resolveIntegerOption} receives an
  *        unsupported type.

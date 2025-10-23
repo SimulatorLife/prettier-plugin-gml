@@ -3,7 +3,8 @@ import { builders } from "prettier/doc";
 import {
     getLineBreakCount,
     isCommentNode,
-    isObjectLike
+    isObjectLike,
+    splitLines
 } from "./comment-boundary.js";
 import {
     applyInlinePadding,
@@ -48,7 +49,8 @@ function attachDanglingCommentToEmptyNode(comment, descriptors) {
         const collection = node[property];
         const isEmptyArray =
             Array.isArray(collection) && collection.length === 0;
-        const isCollectionMissing = collection == undefined;
+        const isCollectionMissing =
+            collection === undefined || collection === null;
         if (isEmptyArray || isCollectionMissing) {
             addDanglingComment(node, comment);
             return true;
@@ -209,6 +211,16 @@ function printComment(commentPath, options) {
     }
 }
 
+/**
+ * Normalize the inline padding hint applied to trailing comments. Enum members
+ * and struct properties annotate their comment nodes with extra padding so the
+ * printer can preserve column alignment after banner normalization. This helper
+ * makes sure that metadata is respected without clobbering explicit padding
+ * requested by other formatting passes.
+ *
+ * @param {unknown} comment Candidate comment node to update.
+ * @returns {void}
+ */
 function applyTrailingCommentPadding(comment) {
     if (!isObjectLike(comment)) {
         return;
@@ -377,7 +389,12 @@ function isCommentOnNodeStartLine(comment, node) {
     const commentLine = comment.start?.line;
     const nodeStartLine = node?.start?.line;
 
-    if (commentLine == null || nodeStartLine == null) {
+    const isCommentLineMissing =
+        commentLine === undefined || commentLine === null;
+    const isNodeStartLineMissing =
+        nodeStartLine === undefined || nodeStartLine === null;
+
+    if (isCommentLineMissing || isNodeStartLineMissing) {
         return false;
     }
 
@@ -387,7 +404,7 @@ function isCommentOnNodeStartLine(comment, node) {
 function handleCommentInEmptyParens(
     comment /*, text, options, ast, isLastComment */
 ) {
-    if (comment.leadingChar != "(" || comment.trailingChar != ")") {
+    if (comment.leadingChar !== "(" || comment.trailingChar !== ")") {
         return false;
     }
 
@@ -483,7 +500,7 @@ function whitespaceToDoc(text) {
         return text;
     }
 
-    const lines = text.split(/[\r\n\u2028\u2029]/);
+    const lines = splitLines(text);
     return join(hardline, lines);
 }
 

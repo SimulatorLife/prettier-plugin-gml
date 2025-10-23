@@ -1,8 +1,11 @@
-import { gmlParserAdapter } from "../parsers/gml-parser-adapter.js";
-import { print } from "../printer/print.js";
-import { handleComments, printComment } from "../comments/comment-printer.js";
-import { identifierCaseOptions } from "../options/identifier-case.js";
-import { LogicalOperatorsStyle } from "../options/logical-operators-style.js";
+import {
+    gmlParserAdapter,
+    print,
+    handleComments,
+    printComment,
+    identifierCaseOptions,
+    LogicalOperatorsStyle
+} from "./default-plugin-component-dependencies.js";
 
 export function createDefaultGmlPluginComponents() {
     return {
@@ -111,7 +114,7 @@ export function createDefaultGmlPluginComponents() {
                 default: 0,
                 range: { start: 0, end: Infinity },
                 description:
-                    "Maximum number of arguments allowed on a single line before a function call is forced to wrap. Set to 0 to disable."
+                    "Maximum number of arguments allowed on a single line before a function call is forced to wrap. Set to 0 to disable the numeric limit (nested callback arguments may still wrap for readability)."
             },
             applyFeatherFixes: {
                 since: "0.0.0",
@@ -161,6 +164,7 @@ export function createDefaultGmlPluginComponents() {
                 description:
                     "Combine complementary 'if' branches that return literal booleans into a single return statement with the simplified expression."
             }
+
             // Legacy whitespace toggles (preserveLineBreaks, maintainArrayIndentation,
             // maintainStructIndentation, maintainWithIndentation, maintainSwitchIndentation)
             // were intentionally removed so the formatter can enforce a single opinionated

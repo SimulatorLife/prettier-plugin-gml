@@ -48,7 +48,7 @@ export function getNonEmptyString(value) {
  * without repeating `String#trim` checks.
  *
  * @param {unknown} value Candidate value to validate.
- * @param {Object} [options]
+ * @param {object} [options]
  * @param {string} [options.name="value"] Descriptive name used when
  *        constructing the default error message.
  * @param {boolean} [options.trim=false] When `true`, trim the value before
@@ -78,7 +78,11 @@ export function assertNonEmptyString(
 }
 
 export function isWordChar(character) {
-    return typeof character === "string" && /[\w]/.test(character);
+    if (typeof character !== "string" || character.length === 0) {
+        return false;
+    }
+    // Use regex to match ASCII word characters on the first character.
+    return /\w/.test(character[0]);
 }
 
 export function toTrimmedString(value) {
@@ -150,37 +154,43 @@ export function trimStringEntries(values) {
  * @returns {string | null} Inner string content when wrapped in matching quotes.
  */
 export function stripStringQuotes(value) {
-    if (typeof value !== "string" || value.length < 2) {
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    const length = value.length;
+    if (length < 2) {
         return null;
     }
 
     const firstChar = value[0];
-    const lastChar = value.at(-1);
-
-    if (isQuoteCharacter(firstChar) && firstChar === lastChar) {
-        return value.slice(1, -1);
+    if (
+        firstChar !== DOUBLE_QUOTE_CHARACTER &&
+        firstChar !== SINGLE_QUOTE_CHARACTER
+    ) {
+        return null;
     }
 
-    return null;
+    if (value[length - 1] !== firstChar) {
+        return null;
+    }
+
+    // Use explicit end index instead of a negative offset so V8 can avoid the
+    // additional bounds normalization performed by `String#slice` when a
+    // negative argument is supplied.
+    return value.slice(1, length - 1);
 }
 
 /**
  * Literal double-quote character shared by quote normalization helpers.
  * @type {string}
  */
-const DOUBLE_QUOTE_CHARACTER = '"';
+const DOUBLE_QUOTE_CHARACTER = `"`;
 /**
  * Literal single-quote character shared by quote normalization helpers.
  * @type {string}
  */
 const SINGLE_QUOTE_CHARACTER = "'";
-
-function isQuoteCharacter(character) {
-    return (
-        character === DOUBLE_QUOTE_CHARACTER ||
-        character === SINGLE_QUOTE_CHARACTER
-    );
-}
 
 const DEFAULT_STRING_LIST_SPLIT_PATTERN = /[\n,]/;
 
@@ -196,7 +206,7 @@ const DEFAULT_STRING_LIST_SPLIT_PATTERN = /[\n,]/;
  * @param {string | string[] | null | undefined} value Raw option value provided by a
  *        consumer. Arrays are flattened as-is; strings are split using
  *        `splitPattern`.
- * @param {Object} [options]
+ * @param {object} [options]
  * @param {RegExp | null | false} [options.splitPattern=/[\n,]/] Pattern used to split
  *        string input. Provide a falsy value (for example `false`) to keep the entire
  *        string as a single entry.
@@ -225,7 +235,10 @@ export function normalizeStringList(
     }
 
     if (typeof value === "string") {
-        const pattern = splitPattern ?? DEFAULT_STRING_LIST_SPLIT_PATTERN;
+        const pattern =
+            splitPattern === undefined
+                ? DEFAULT_STRING_LIST_SPLIT_PATTERN
+                : splitPattern;
         const entries = pattern ? value.split(pattern) : [value];
         return collectUniqueTrimmedStrings(entries);
     }
@@ -287,7 +300,7 @@ function collectUniqueTrimmedStrings(entries) {
  * minor formatting differences.
  *
  * @param {string | string[] | null | undefined} value Raw option value.
- * @param {Object} [options]
+ * @param {object} [options]
  * @param {RegExp | null | false} [options.splitPattern=null] Pattern passed through
  *        to `normalizeStringList` for string input. Provide a falsy value to keep
  *        entire strings intact.
