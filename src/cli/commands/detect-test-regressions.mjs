@@ -61,6 +61,21 @@ function looksLikeTestCase(node) {
     return hasAnyOwn(node, ["time", "duration", "elapsed"]);
 }
 
+function toFiniteNumber(value) {
+    if (typeof value === "number") {
+        return Number.isFinite(value) ? value : null;
+    }
+    if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (!trimmed) {
+            return null;
+        }
+        const parsed = Number.parseFloat(trimmed);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+}
+
 function decodeEntities(value) {
     if (!isNonEmptyString(value)) {
         return value ?? "";
@@ -446,7 +461,14 @@ function isExistingDirectory(resolvedPath) {
 }
 
 function listXmlFiles(resolvedPath) {
-    return fs.readdirSync(resolvedPath).filter((file) => file.endsWith(".xml"));
+    return fs
+        .readdirSync(resolvedPath)
+        .filter(
+            (file) =>
+                file.endsWith(".xml") &&
+                !/checkstyle/i.test(file) &&
+                !file.toLowerCase().endsWith("-summary.xml")
+        );
 }
 
 function collectDirectoryTestCases(directory, xmlFiles) {
@@ -512,6 +534,20 @@ function parseXmlTestCases(xml, displayPath) {
     }
 }
 
+function getTestCaseDurationSeconds(testCase) {
+    const node = testCase?.node ?? {};
+    const candidates = [node.time, node.duration, node.elapsed];
+
+    for (const candidate of candidates) {
+        const parsed = toFiniteNumber(candidate);
+        if (parsed !== null) {
+            return parsed;
+        }
+    }
+
+    return null;
+}
+
 function recordTestCases(aggregates, testCases) {
     const { results, stats } = aggregates;
 
@@ -526,13 +562,18 @@ function recordTestCases(aggregates, testCases) {
         } else {
             stats.passed += 1;
         }
+
+        const duration = getTestCaseDurationSeconds(testCase);
+        if (duration !== null) {
+            stats.duration += duration;
+        }
     }
 }
 
 function createResultAggregates() {
     return {
         results: new Map(),
-        stats: { total: 0, passed: 0, failed: 0, skipped: 0 }
+        stats: { total: 0, passed: 0, failed: 0, skipped: 0, duration: 0 }
     };
 }
 
@@ -876,7 +917,1247 @@ function reportRegressionSummary(
     };
 }
 
-function runCli() {
+function relativeToWorkspace(resolvedPath) {
+    const workspaceRoot = process.env.GITHUB_WORKSPACE || process.cwd();
+    const relative = path.relative(workspaceRoot, resolvedPath);
+    return relative && !relative.startsWith("..")
+        ? relative || "."
+        : resolvedPath;
+}
+
+function summarizeTestArtifacts(inputDir) {
+    const workspaceRoot = process.env.GITHUB_WORKSPACE || process.cwd();
+    const testResults = readTestResults([inputDir], {
+        workspace: workspaceRoot
+    });
+    const stats = testResults.stats ?? {};
+    const duration = toFiniteNumber(stats.duration);
+
+    const summary = {
+        total: stats.total ?? 0,
+        passed: stats.passed ?? 0,
+        failed: stats.failed ?? 0,
+        skipped: stats.skipped ?? 0,
+        duration:
+            duration !== null && duration > 0
+                ? duration
+                : stats.total > 0
+                  ? 0
+                  : null
+    };
+
+    const source = toTrimmedString(testResults.displayDir)
+        ? testResults.displayDir
+        : relativeToWorkspace(inputDir);
+
+    return {
+        summary,
+        notes: Array.isArray(testResults.notes) ? [...testResults.notes] : [],
+        source
+    };
+}
+
+function parseCheckstyleSeverity(severity) {
+    const normalized = toTrimmedString(severity)?.toLowerCase();
+    if (!normalized) {
+        return null;
+    }
+    if (normalized === "error" || normalized === "fatal") {
+        return "error";
+    }
+    if (normalized === "warning" || normalized === "info") {
+        return "warning";
+    }
+    return null;
+}
+
+function summarizeLintArtifacts(inputDir) {
+    const reportPath = path.join(inputDir, "eslint-checkstyle.xml");
+    const notes = [];
+    const summary = { warnings: 0, errors: 0 };
+
+    if (!fs.existsSync(reportPath)) {
+        notes.push(
+            `No lint report found at ${relativeToWorkspace(reportPath)}.`
+        );
+        return { summary, notes, source: relativeToWorkspace(reportPath) };
+    }
+
+    let xml;
+    try {
+        xml = fs.readFileSync(reportPath, "utf8");
+    } catch (error) {
+        const message =
+            getErrorMessage(error, { fallback: "" }) || "Unknown error";
+        notes.push(
+            `Failed to read lint report at ${relativeToWorkspace(reportPath)}: ${message}`
+        );
+        return { summary, notes, source: relativeToWorkspace(reportPath) };
+    }
+
+    if (!xml.trim()) {
+        notes.push(
+            `Lint report at ${relativeToWorkspace(reportPath)} was empty.`
+        );
+        return { summary, notes, source: relativeToWorkspace(reportPath) };
+    }
+
+    try {
+        const data = parser.parse(xml);
+        const files = toArray(data?.checkstyle?.file);
+        for (const file of files) {
+            for (const error of toArray(file?.error)) {
+                const severity = parseCheckstyleSeverity(error?.severity);
+                if (severity === "error") {
+                    summary.errors += 1;
+                } else if (severity === "warning") {
+                    summary.warnings += 1;
+                }
+            }
+        }
+    } catch (error) {
+        const message =
+            getErrorMessage(error, { fallback: "" }) || "Unknown error";
+        notes.push(
+            `Failed to parse lint report at ${relativeToWorkspace(reportPath)}: ${message}`
+        );
+    }
+
+    return { summary, notes, source: relativeToWorkspace(reportPath) };
+}
+
+function parseLcovValue(line, prefix) {
+    if (!line.startsWith(prefix)) {
+        return null;
+    }
+    const value = Number.parseInt(line.slice(prefix.length), 10);
+    return Number.isFinite(value) ? value : null;
+}
+
+function summarizeCoverageArtifacts(inputDir) {
+    const coveragePath = path.join(inputDir, "lcov.info");
+    const notes = [];
+    const summary = { pct: null, covered: 0, total: 0 };
+
+    if (!fs.existsSync(coveragePath)) {
+        notes.push(
+            `No coverage report found at ${relativeToWorkspace(coveragePath)}.`
+        );
+        return { summary, notes, source: relativeToWorkspace(coveragePath) };
+    }
+
+    let raw;
+    try {
+        raw = fs.readFileSync(coveragePath, "utf8");
+    } catch (error) {
+        const message =
+            getErrorMessage(error, { fallback: "" }) || "Unknown error";
+        notes.push(
+            `Failed to read coverage report at ${relativeToWorkspace(coveragePath)}: ${message}`
+        );
+        return { summary, notes, source: relativeToWorkspace(coveragePath) };
+    }
+
+    const trimmed = raw.trim();
+    if (!trimmed) {
+        notes.push(
+            `Coverage report at ${relativeToWorkspace(coveragePath)} was empty.`
+        );
+        return { summary, notes, source: relativeToWorkspace(coveragePath) };
+    }
+
+    let totalFound = 0;
+    let totalHit = 0;
+    for (const line of trimmed.split(/\r?\n/)) {
+        const found = parseLcovValue(line, "LF:");
+        if (found !== null) {
+            totalFound += found;
+            continue;
+        }
+        const hit = parseLcovValue(line, "LH:");
+        if (hit !== null) {
+            totalHit += hit;
+        }
+    }
+
+    if (totalFound > 0) {
+        summary.total = totalFound;
+        summary.covered = totalHit;
+        summary.pct = (totalHit / totalFound) * 100;
+    } else {
+        notes.push(
+            `Coverage report at ${relativeToWorkspace(
+                coveragePath
+            )} did not contain any LF entries.`
+        );
+    }
+
+    return { summary, notes, source: relativeToWorkspace(coveragePath) };
+}
+
+function dedupeStrings(values) {
+    const seen = new Set();
+    const result = [];
+    for (const value of values || []) {
+        const normalized = toTrimmedString(value);
+        if (!normalized || seen.has(normalized)) {
+            continue;
+        }
+        seen.add(normalized);
+        result.push(normalized);
+    }
+    return result;
+}
+
+function buildSummaryReport({ inputDir, target } = {}) {
+    const tests = summarizeTestArtifacts(inputDir);
+    const lint = summarizeLintArtifacts(inputDir);
+    const coverage = summarizeCoverageArtifacts(inputDir);
+
+    return {
+        generatedAt: new Date().toISOString(),
+        target: target ?? null,
+        inputDirectory: relativeToWorkspace(inputDir),
+        tests: {
+            ...tests.summary,
+            notes: dedupeStrings(tests.notes),
+            source: tests.source
+        },
+        lint: {
+            ...lint.summary,
+            notes: dedupeStrings(lint.notes),
+            source: lint.source
+        },
+        coverage: {
+            ...coverage.summary,
+            notes: dedupeStrings(coverage.notes),
+            source: coverage.source
+        }
+    };
+}
+
+function resolveOutputSpec({
+    outputDir,
+    outputFile,
+    outputPath,
+    defaultFile
+} = {}) {
+    if (isNonEmptyTrimmedString(outputPath)) {
+        const resolvedPath = path.resolve(outputPath);
+        return {
+            dir: path.dirname(resolvedPath),
+            file: path.basename(resolvedPath),
+            path: resolvedPath
+        };
+    }
+
+    if (isNonEmptyTrimmedString(outputDir)) {
+        const resolvedDir = path.resolve(outputDir);
+        const fileName = isNonEmptyTrimmedString(outputFile)
+            ? outputFile
+            : defaultFile;
+        return {
+            dir: resolvedDir,
+            file: fileName,
+            path: path.join(resolvedDir, fileName)
+        };
+    }
+
+    return { dir: null, file: null, path: null };
+}
+
+function summarizeReports({
+    inputDir,
+    outputDir,
+    outputFile,
+    outputPath,
+    target
+} = {}) {
+    if (!isNonEmptyTrimmedString(inputDir)) {
+        throw new CliUsageError(
+            "summarizeReports requires an input directory via --input."
+        );
+    }
+
+    const resolvedInput = path.resolve(inputDir);
+    const summary = buildSummaryReport({ inputDir: resolvedInput, target });
+    const resolvedOutput = resolveOutputSpec({
+        outputDir,
+        outputFile,
+        outputPath,
+        defaultFile: "summary.json"
+    });
+
+    if (resolvedOutput.path) {
+        fs.mkdirSync(resolvedOutput.dir, { recursive: true });
+        fs.writeFileSync(
+            resolvedOutput.path,
+            `${JSON.stringify(summary, null, 2)}\n`
+        );
+    }
+
+    return {
+        summary,
+        outputPath: resolvedOutput.path,
+        inputDir: resolvedInput,
+        outputDir: resolvedOutput.path ? resolvedOutput.dir : null
+    };
+}
+
+function normalizeReportSpec(spec) {
+    if (typeof spec === "string") {
+        const index = spec.indexOf("=");
+        if (index === -1) {
+            throw new CliUsageError(
+                "Report specifications must use the format <label>=<path>."
+            );
+        }
+        const label = toTrimmedString(spec.slice(0, index));
+        const file = toTrimmedString(spec.slice(index + 1));
+        if (!label || !file) {
+            throw new CliUsageError(
+                "Report specifications must include both a label and a path."
+            );
+        }
+        return { label, path: file };
+    }
+
+    if (spec && typeof spec === "object") {
+        const label = toTrimmedString(spec.label ?? spec.name ?? spec.target);
+        const file = toTrimmedString(spec.path ?? spec.file);
+        if (!label || !file) {
+            throw new CliUsageError(
+                "Report specifications must include a label and path properties."
+            );
+        }
+        return { label, path: file };
+    }
+
+    throw new CliUsageError(
+        "Invalid report specification; expected string or object."
+    );
+}
+
+function loadSummaryReport(spec) {
+    const resolvedPath = path.resolve(spec.path);
+    const notes = [];
+    let data = null;
+    let ok = false;
+
+    if (fs.existsSync(resolvedPath)) {
+        try {
+            const raw = fs.readFileSync(resolvedPath, "utf8");
+            if (raw.trim()) {
+                data = JSON.parse(raw);
+                ok = true;
+            } else {
+                notes.push(
+                    `Summary at ${relativeToWorkspace(resolvedPath)} was empty.`
+                );
+            }
+        } catch (error) {
+            const message =
+                getErrorMessage(error, { fallback: "" }) || "Unknown error";
+            notes.push(
+                `Failed to read summary at ${relativeToWorkspace(
+                    resolvedPath
+                )}: ${message}`
+            );
+        }
+    } else {
+        notes.push(
+            `Summary not found at ${relativeToWorkspace(resolvedPath)}.`
+        );
+    }
+
+    return {
+        label: spec.label,
+        path: resolvedPath,
+        data,
+        ok,
+        notes
+    };
+}
+
+function collectSummaryNotesFromData(data) {
+    if (!data || typeof data !== "object") {
+        return [];
+    }
+    const buckets = [];
+    for (const key of ["tests", "lint", "coverage"]) {
+        const list = data[key]?.notes;
+        if (Array.isArray(list)) {
+            buckets.push(...list);
+        }
+    }
+    if (Array.isArray(data.notes)) {
+        buckets.push(...data.notes);
+    }
+    return dedupeStrings(buckets);
+}
+
+function positiveDifference(targetValue, baseValue) {
+    const target = toFiniteNumber(targetValue) ?? 0;
+    const base = toFiniteNumber(baseValue) ?? 0;
+    const diff = target - base;
+    return Math.max(diff, 0);
+}
+
+function positiveDrop(baseValue, targetValue) {
+    const base = toFiniteNumber(baseValue);
+    const target = toFiniteNumber(targetValue);
+    if (base === null || target === null) {
+        return null;
+    }
+    const diff = base - target;
+    return Math.max(diff, 0);
+}
+
+function pickTestSnapshot(source = {}) {
+    return {
+        total: toFiniteNumber(source.total),
+        passed: toFiniteNumber(source.passed),
+        failed: toFiniteNumber(source.failed),
+        skipped: toFiniteNumber(source.skipped),
+        duration: toFiniteNumber(source.duration)
+    };
+}
+
+function computeTestDelta(baseTests = {}, targetTests = {}) {
+    const keys = ["total", "passed", "failed", "skipped", "duration"];
+    const delta = {};
+    for (const key of keys) {
+        const base = toFiniteNumber(baseTests[key]);
+        const target = toFiniteNumber(targetTests[key]);
+        delta[key] =
+            base === null && target === null
+                ? null
+                : (target ?? 0) - (base ?? 0);
+    }
+    return delta;
+}
+
+function pickLintSnapshot(source = {}) {
+    return {
+        warnings: toFiniteNumber(source.warnings),
+        errors: toFiniteNumber(source.errors)
+    };
+}
+
+function computeLintDelta(baseLint = {}, targetLint = {}) {
+    return {
+        warnings:
+            (toFiniteNumber(targetLint.warnings) ?? 0) -
+            (toFiniteNumber(baseLint.warnings) ?? 0),
+        errors:
+            (toFiniteNumber(targetLint.errors) ?? 0) -
+            (toFiniteNumber(baseLint.errors) ?? 0)
+    };
+}
+
+function pickCoverageSnapshot(source = {}) {
+    return {
+        pct: toFiniteNumber(source.pct),
+        covered: toFiniteNumber(source.covered),
+        total: toFiniteNumber(source.total)
+    };
+}
+
+function computeCoverageDelta(baseCoverage = {}, targetCoverage = {}) {
+    return {
+        pct:
+            (toFiniteNumber(targetCoverage.pct) ?? 0) -
+            (toFiniteNumber(baseCoverage.pct) ?? 0),
+        covered:
+            (toFiniteNumber(targetCoverage.covered) ?? 0) -
+            (toFiniteNumber(baseCoverage.covered) ?? 0),
+        total:
+            (toFiniteNumber(targetCoverage.total) ?? 0) -
+            (toFiniteNumber(baseCoverage.total) ?? 0)
+    };
+}
+
+function createSummaryComparison(baseReport, targetReport) {
+    const baseData = baseReport.data ?? {};
+    const targetData = targetReport.data ?? {};
+    const baseTests = baseData.tests ?? {};
+    const targetTests = targetData.tests ?? {};
+    const baseLint = baseData.lint ?? {};
+    const targetLint = targetData.lint ?? {};
+    const baseCoverage = baseData.coverage ?? {};
+    const targetCoverage = targetData.coverage ?? {};
+
+    const newFailures = positiveDifference(
+        targetTests.failed,
+        baseTests.failed
+    );
+    const lintErrors = positiveDifference(targetLint.errors, baseLint.errors);
+    const coverageDropValue = positiveDrop(
+        baseCoverage.pct,
+        targetCoverage.pct
+    );
+
+    const comparisonNotes = dedupeStrings([
+        ...collectSummaryNotesFromData(baseData),
+        ...collectSummaryNotesFromData(targetData),
+        ...(baseReport.notes ?? []),
+        ...(targetReport.notes ?? [])
+    ]);
+
+    return {
+        base: baseReport.label,
+        target: targetReport.label,
+        regressions: {
+            hasRegression:
+                newFailures > 0 ||
+                lintErrors > 0 ||
+                (coverageDropValue ?? 0) > 0,
+            newFailures,
+            lintErrors,
+            coverageDrop: coverageDropValue ?? 0
+        },
+        tests: {
+            base: pickTestSnapshot(baseTests),
+            target: pickTestSnapshot(targetTests),
+            delta: computeTestDelta(baseTests, targetTests)
+        },
+        lint: {
+            base: pickLintSnapshot(baseLint),
+            target: pickLintSnapshot(targetLint),
+            delta: computeLintDelta(baseLint, targetLint)
+        },
+        coverage: {
+            base: pickCoverageSnapshot(baseCoverage),
+            target: pickCoverageSnapshot(targetCoverage),
+            delta: computeCoverageDelta(baseCoverage, targetCoverage)
+        },
+        notes: comparisonNotes
+    };
+}
+
+function compareSummaryReports(
+    reportSpecs,
+    { outputDir, outputFile, outputPath } = {}
+) {
+    if (!Array.isArray(reportSpecs) || reportSpecs.length < 2) {
+        throw new CliUsageError(
+            "compareSummaryReports requires at least two labeled summaries."
+        );
+    }
+
+    const normalized = reportSpecs.map((spec) => normalizeReportSpec(spec));
+    const reports = normalized.map((spec) => loadSummaryReport(spec));
+    const result = {
+        generatedAt: new Date().toISOString(),
+        reports: reports.map((report) => ({
+            label: report.label,
+            path: relativeToWorkspace(report.path),
+            ok: report.ok,
+            notes: [...report.notes]
+        })),
+        comparisons: [],
+        notes: []
+    };
+
+    const base = reports[0];
+    if (!base.ok) {
+        result.notes.push(
+            `Unable to read summary for base target '${base.label}'.`,
+            ...base.notes
+        );
+    }
+
+    for (let index = 1; index < reports.length; index += 1) {
+        const target = reports[index];
+        if (!target.ok) {
+            result.notes.push(
+                `Unable to read summary for target '${target.label}'.`,
+                ...target.notes
+            );
+            continue;
+        }
+        if (!base.ok) {
+            continue;
+        }
+        result.comparisons.push(createSummaryComparison(base, target));
+    }
+
+    result.notes = dedupeStrings(result.notes);
+
+    const resolvedOutput = resolveOutputSpec({
+        outputDir,
+        outputFile,
+        outputPath,
+        defaultFile: "comparison.json"
+    });
+
+    if (resolvedOutput.path) {
+        fs.mkdirSync(resolvedOutput.dir, { recursive: true });
+        fs.writeFileSync(
+            resolvedOutput.path,
+            `${JSON.stringify(result, null, 2)}\n`
+        );
+    }
+
+    return { report: result, outputPath: resolvedOutput.path };
+}
+
+function parseCommandLine(argv) {
+    const args = Array.isArray(argv) ? argv.slice(2) : [];
+    if (args.length === 0) {
+        return { command: null, args: [] };
+    }
+
+    const [first, ...rest] = args;
+    if (
+        first === "summarize" ||
+        first === "compare" ||
+        first === "pr-summary-table-comment"
+    ) {
+        return { command: first, args: rest };
+    }
+
+    return { command: null, args };
+}
+
+function looksLikeOutputFile(value) {
+    if (!isNonEmptyTrimmedString(value)) {
+        return false;
+    }
+    const ext = path.extname(value);
+    return Boolean(ext);
+}
+
+function parseSummarizeArgs(args) {
+    const options = {
+        inputDir: null,
+        outputDir: null,
+        outputFile: null,
+        outputPath: null,
+        target: null
+    };
+
+    for (let index = 0; index < args.length; index += 1) {
+        const arg = args[index];
+        switch (arg) {
+            case "--input": {
+                options.inputDir = args[index + 1];
+                index += 1;
+
+                break;
+            }
+            case "--output": {
+                const value = args[index + 1];
+                if (looksLikeOutputFile(value)) {
+                    options.outputPath = value;
+                } else {
+                    options.outputDir = value;
+                }
+                index += 1;
+
+                break;
+            }
+            case "--output-path":
+            case "--comparison":
+            case "--comparison-path": {
+                options.outputPath = args[index + 1];
+                index += 1;
+
+                break;
+            }
+            case "--file":
+            case "--output-file": {
+                options.outputFile = args[index + 1];
+                index += 1;
+
+                break;
+            }
+            case "--target":
+            case "--label": {
+                options.target = args[index + 1];
+                index += 1;
+
+                break;
+            }
+            default: {
+                throw new CliUsageError(`Unknown option for summarize: ${arg}`);
+            }
+        }
+    }
+
+    if (!isNonEmptyTrimmedString(options.inputDir)) {
+        throw new CliUsageError("summarize requires --input <directory>.");
+    }
+
+    if (
+        !isNonEmptyTrimmedString(options.outputDir) &&
+        !isNonEmptyTrimmedString(options.outputPath)
+    ) {
+        throw new CliUsageError(
+            "summarize requires --output <directory or file>."
+        );
+    }
+
+    return options;
+}
+
+function parseCompareArgs(args) {
+    const specs = [];
+    let outputDir = null;
+    let outputFile = null;
+    let outputPath = null;
+
+    for (let index = 0; index < args.length; index += 1) {
+        const arg = args[index];
+        if (arg === "--output") {
+            const value = args[index + 1];
+            if (looksLikeOutputFile(value)) {
+                outputPath = value;
+            } else {
+                outputDir = value;
+            }
+            index += 1;
+            continue;
+        }
+        if (arg === "--output-path" || arg === "--comparison-path") {
+            outputPath = args[index + 1];
+            index += 1;
+            continue;
+        }
+        if (arg === "--file" || arg === "--output-file") {
+            outputFile = args[index + 1];
+            index += 1;
+            continue;
+        }
+        if (arg.startsWith("--")) {
+            throw new CliUsageError(`Unknown option for compare: ${arg}`);
+        }
+        specs.push(arg);
+    }
+
+    if (specs.length < 2) {
+        throw new CliUsageError(
+            "compare requires at least two labeled summary paths."
+        );
+    }
+
+    if (
+        !isNonEmptyTrimmedString(outputDir) &&
+        !isNonEmptyTrimmedString(outputPath)
+    ) {
+        throw new CliUsageError(
+            "compare requires --output <directory or file>."
+        );
+    }
+
+    return {
+        reports: specs.map((spec) => normalizeReportSpec(spec)),
+        outputDir,
+        outputFile,
+        outputPath
+    };
+}
+
+function parseLegacyPrSummaryArgs(args) {
+    const options = {
+        workspace: null,
+        comparison: null,
+        summaryRoot: null,
+        baseDir: null,
+        headDir: null,
+        mergeDir: null
+    };
+    const warnings = [];
+
+    for (let index = 0; index < args.length; index += 1) {
+        const token = args[index];
+        if (!token.startsWith("--")) {
+            warnings.push(
+                `Ignoring positional argument '${token}' for pr-summary-table-comment.`
+            );
+            continue;
+        }
+
+        const eqIndex = token.indexOf("=");
+        const name = eqIndex === -1 ? token.slice(2) : token.slice(2, eqIndex);
+        const normalized = name.toLowerCase();
+        let value = null;
+
+        if (eqIndex === -1) {
+            const next = args[index + 1];
+            if (next && !next.startsWith("--")) {
+                value = next;
+                index += 1;
+            }
+        } else {
+            value = token.slice(eqIndex + 1);
+        }
+
+        switch (normalized) {
+            case "workspace": {
+                options.workspace = value;
+                break;
+            }
+            case "comparison":
+            case "comparison-path":
+            case "comparison-file":
+            case "output":
+            case "output-path":
+            case "output-file": {
+                options.comparison = value;
+                break;
+            }
+            case "summary":
+            case "summary-root":
+            case "summary-dir":
+            case "summary-output": {
+                options.summaryRoot = value;
+                break;
+            }
+            case "base":
+            case "base-dir": {
+                options.baseDir = value;
+                break;
+            }
+            case "head":
+            case "head-dir": {
+                options.headDir = value;
+                break;
+            }
+            case "merge":
+            case "merge-dir": {
+                options.mergeDir = value;
+                break;
+            }
+            default: {
+                warnings.push(
+                    `Unknown option '--${normalized}' for pr-summary-table-comment.`
+                );
+            }
+        }
+    }
+
+    return { options, warnings };
+}
+
+function resolveMaybeRelativePath(filePath, workspaceRoot) {
+    if (!isNonEmptyTrimmedString(filePath)) {
+        return null;
+    }
+    return path.isAbsolute(filePath)
+        ? path.normalize(filePath)
+        : path.resolve(workspaceRoot, filePath);
+}
+
+function writeJsonFile(filePath, data) {
+    if (!isNonEmptyTrimmedString(filePath)) {
+        return null;
+    }
+
+    const resolvedPath = path.resolve(filePath);
+    fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
+    fs.writeFileSync(resolvedPath, `${JSON.stringify(data, null, 2)}\n`);
+    return resolvedPath;
+}
+
+function computeComparisonStatus(report) {
+    const comparisons = report?.comparisons;
+    if (!Array.isArray(comparisons) || comparisons.length === 0) {
+        return { status: "error", allGreen: false };
+    }
+
+    const hasRegression = comparisons.some(
+        (entry) => entry?.regressions?.hasRegression
+    );
+
+    return {
+        status: hasRegression ? "regressions" : "clean",
+        allGreen: !hasRegression
+    };
+}
+
+function formatLegacyNumber(value) {
+    return typeof value === "number" && Number.isFinite(value)
+        ? value.toLocaleString("en-US")
+        : "—";
+}
+
+function formatLegacyCoverage(coverage) {
+    const pct = coverage?.pct;
+    if (typeof pct === "number" && Number.isFinite(pct)) {
+        return `${pct.toFixed(1)}%`;
+    }
+    return "—";
+}
+
+function formatLegacyDuration(seconds) {
+    if (typeof seconds === "number" && Number.isFinite(seconds)) {
+        return `${seconds.toFixed(1)}s`;
+    }
+    return "—";
+}
+
+function buildLegacySummaryComment({
+    summaries,
+    comparisons,
+    status,
+    allGreen
+}) {
+    const lines = [];
+    if (summaries.length > 0) {
+        lines.push(
+            "| Target | Total | Passed | Failed | Skipped | Lint warnings | Lint errors | Coverage | Duration |"
+        , 
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
+        );
+
+        for (const entry of summaries) {
+            const tests = entry.summary?.tests ?? {};
+            const lint = entry.summary?.lint ?? {};
+            const coverage = entry.summary?.coverage ?? {};
+
+            lines.push(
+                `| ${entry.title} | ${formatLegacyNumber(
+                    tests.total
+                )} | ${formatLegacyNumber(tests.passed)} | ${formatLegacyNumber(
+                    tests.failed
+                )} | ${formatLegacyNumber(tests.skipped)} | ${formatLegacyNumber(
+                    lint.warnings
+                )} | ${formatLegacyNumber(lint.errors)} | ${formatLegacyCoverage(
+                    coverage
+                )} | ${formatLegacyDuration(tests.duration)} |`
+            );
+        }
+
+        lines.push("");
+    }
+
+    lines.push(`Status: **${status}** (all green: ${allGreen})`);
+
+    const regressionSummaries = (comparisons || [])
+        .filter((entry) => entry?.regressions)
+        .map((entry) => {
+            const reg = entry.regressions;
+            const details = [];
+            if (reg.newFailures > 0) {
+                details.push(
+                    `${reg.newFailures} new failing test${
+                        reg.newFailures === 1 ? "" : "s"
+                    }`
+                );
+            }
+            if (reg.lintErrors > 0) {
+                details.push(
+                    `${reg.lintErrors} additional lint error${
+                        reg.lintErrors === 1 ? "" : "s"
+                    }`
+                );
+            }
+            if (typeof reg.coverageDrop === "number" && reg.coverageDrop > 0) {
+                details.push(
+                    `coverage dropped by ${reg.coverageDrop.toFixed(1)} pts`
+                );
+            }
+
+            const suffix = details.length > 0 ? ` (${details.join(", ")})` : "";
+            return `- **${entry.base} → ${entry.target}**: ${
+                reg.hasRegression ? "regressions detected" : "no regressions"
+            }${suffix}`;
+        });
+
+    if (regressionSummaries.length > 0) {
+        lines.push("", "Regression summary:", ...regressionSummaries);
+    }
+
+    return lines.join("\n");
+}
+
+function runLegacyPrSummaryCommand(args) {
+    const { options, warnings } = parseLegacyPrSummaryArgs(args);
+    for (const warning of warnings) {
+        console.warn(`[pr-summary-table-comment] ${warning}`);
+    }
+
+    const workspaceRoot =
+        resolveMaybeRelativePath(
+            options.workspace,
+            process.env.GITHUB_WORKSPACE || process.cwd()
+        ) ||
+        process.env.GITHUB_WORKSPACE ||
+        process.cwd();
+
+    const summaryRoot =
+        resolveMaybeRelativePath(options.summaryRoot, workspaceRoot) ||
+        workspaceRoot;
+
+    const baseCandidates = buildResultCandidates(
+        [
+            ...(isNonEmptyTrimmedString(options.baseDir)
+                ? [options.baseDir]
+                : []),
+            path.join("base", "test-results"),
+            "base-test-results"
+        ],
+        "BASE_RESULTS_DIR"
+    );
+    const headCandidates = [
+        ...(isNonEmptyTrimmedString(options.headDir) ? [options.headDir] : []),
+        "test-results"
+    ];
+    const mergeCandidates = buildResultCandidates(
+        [
+            ...(isNonEmptyTrimmedString(options.mergeDir)
+                ? [options.mergeDir]
+                : []),
+            path.join("merge", "test-results"),
+            "merge-test-results"
+        ],
+        "MERGE_RESULTS_DIR"
+    );
+
+    const base = readTestResults(baseCandidates, { workspace: workspaceRoot });
+    const head = readTestResults(headCandidates, { workspace: workspaceRoot });
+    const merged = readTestResults(mergeCandidates, {
+        workspace: workspaceRoot
+    });
+
+    const targets = [
+        { label: "base", title: "Base", results: base },
+        { label: "head", title: "PR head", results: head },
+        { label: "merge", title: "Merged (base+PR)", results: merged }
+    ];
+
+    const summaries = [];
+    for (const target of targets) {
+        if (!target.results.usedDir) {
+            continue;
+        }
+
+        const summaryDir = path.join(summaryRoot, `junit-${target.label}`);
+        const { summary, outputPath } = summarizeReports({
+            inputDir: target.results.usedDir,
+            outputDir: summaryDir,
+            target: target.label
+        });
+
+        summaries.push({
+            label: target.label,
+            title: target.title,
+            summary,
+            outputPath
+        });
+
+        if (outputPath) {
+            console.log(
+                `[pr-summary-table-comment] Wrote summary for ${
+                    target.label
+                } to ${formatDisplayPath(outputPath)}.`
+            );
+        }
+
+        for (const note of summary.tests?.notes ?? []) {
+            console.log(
+                `[pr-summary-table-comment] note for ${target.label}: ${note}`
+            );
+        }
+        for (const note of summary.lint?.notes ?? []) {
+            console.log(
+                `[pr-summary-table-comment] note for ${target.label}: ${note}`
+            );
+        }
+        for (const note of summary.coverage?.notes ?? []) {
+            console.log(
+                `[pr-summary-table-comment] note for ${target.label}: ${note}`
+            );
+        }
+    }
+
+    if (summaries.length === 0) {
+        console.warn(
+            "[pr-summary-table-comment] No test summaries were generated; unable to produce a comparison report."
+        );
+    }
+
+    const comparisonDefault = path.join("test-results", "comparison.json");
+    const comparisonPath =
+        resolveMaybeRelativePath(options.comparison, workspaceRoot) ||
+        path.resolve(workspaceRoot, comparisonDefault);
+
+    const baseSummary = summaries.find((entry) => entry.label === "base");
+    const targetSummaries = summaries.filter((entry) => entry.label !== "base");
+
+    let comparisonResult;
+    if (baseSummary && targetSummaries.length > 0) {
+        const specs = [baseSummary, ...targetSummaries].map((entry) => ({
+            label: entry.label,
+            path: entry.outputPath
+        }));
+
+        comparisonResult = compareSummaryReports(specs, {
+            outputPath: comparisonPath
+        });
+    } else {
+        const reason = baseSummary
+            ? "Unable to generate comparisons because no additional summaries were produced."
+            : "Unable to generate comparisons because the base summary is missing.";
+        const reports = summaries.map((entry) => ({
+            label: entry.label,
+            path: entry.outputPath
+                ? relativeToWorkspace(path.resolve(entry.outputPath))
+                : "",
+            ok: Boolean(entry.outputPath),
+            notes: []
+        }));
+        const stub = {
+            generatedAt: new Date().toISOString(),
+            reports,
+            comparisons: [],
+            notes: dedupeStrings([reason])
+        };
+
+        comparisonResult = {
+            report: stub,
+            outputPath: writeJsonFile(comparisonPath, stub)
+        };
+    }
+
+    if (comparisonResult.outputPath) {
+        console.log(
+            `[pr-summary-table-comment] Wrote comparison report to ${formatDisplayPath(
+                comparisonResult.outputPath
+            )}.`
+        );
+    }
+
+    const { status, allGreen } = computeComparisonStatus(
+        comparisonResult.report
+    );
+    const comment = buildLegacySummaryComment({
+        summaries,
+        comparisons: comparisonResult.report?.comparisons ?? [],
+        status,
+        allGreen
+    });
+
+    if (comment) {
+        console.log(comment);
+    }
+
+    return 0;
+}
+
+function formatDisplayPath(filePath) {
+    if (!filePath) {
+        return "";
+    }
+    const relative = relativeToWorkspace(path.resolve(filePath));
+    return relative || filePath;
+}
+
+function runSummarizeCommand(args) {
+    const options = parseSummarizeArgs(args);
+    const { summary, outputPath } = summarizeReports(options);
+
+    const tests = summary.tests ?? {};
+    const lint = summary.lint ?? {};
+    const coverage = summary.coverage ?? {};
+
+    const coverageDisplay = Number.isFinite(coverage.pct)
+        ? `${coverage.pct.toFixed(1)}%`
+        : "—";
+
+    console.log(
+        `[summarize] tests=${tests.total ?? 0} (failed=${tests.failed ?? 0}, skipped=${tests.skipped ?? 0}) | ` +
+            `lint errors=${lint.errors ?? 0}, warnings=${lint.warnings ?? 0} | coverage=${coverageDisplay}`
+    );
+
+    if (outputPath) {
+        console.log(
+            `[summarize] Wrote summary to ${formatDisplayPath(outputPath)}.`
+        );
+    }
+
+    const notes = collectSummaryNotesFromData(summary);
+    for (const note of notes) {
+        console.log(`[summarize] note: ${note}`);
+    }
+
+    return 0;
+}
+
+function runCompareCommand(args) {
+    const {
+        reports,
+        outputDir,
+        outputFile,
+        outputPath: outputSpec
+    } = parseCompareArgs(args);
+    const { report, outputPath } = compareSummaryReports(reports, {
+        outputDir,
+        outputFile,
+        outputPath: outputSpec
+    });
+
+    if (report.comparisons.length === 0) {
+        console.warn("[compare] No comparisons were generated.");
+    } else {
+        for (const comparison of report.comparisons) {
+            const regressions = comparison.regressions ?? {};
+            const status = regressions.hasRegression ? "regressions" : "clean";
+            const coverageDrop = Number.isFinite(regressions.coverageDrop)
+                ? regressions.coverageDrop.toFixed(1)
+                : "0.0";
+            console.log(
+                `[compare] ${comparison.base} -> ${comparison.target}: ${status} ` +
+                    `(newFailures=${regressions.newFailures ?? 0}, lintErrors=${regressions.lintErrors ?? 0}, coverageDrop=${coverageDrop}).`
+            );
+            for (const note of comparison.notes ?? []) {
+                console.log(
+                    `[compare] note for ${comparison.base} -> ${comparison.target}: ${note}`
+                );
+            }
+        }
+    }
+
+    const globalNotes = dedupeStrings([
+        ...report.notes,
+        ...report.reports.flatMap((entry) => entry.notes ?? [])
+    ]);
+    for (const note of globalNotes) {
+        console.log(`[compare] note: ${note}`);
+    }
+
+    if (outputPath) {
+        console.log(
+            `[compare] Wrote comparison report to ${formatDisplayPath(outputPath)}.`
+        );
+    }
+
+    return 0;
+}
+
+function runCli(argv = process.argv) {
+    const { command, args } = parseCommandLine(argv);
+    if (command === "summarize") {
+        return runSummarizeCommand(args);
+    }
+    if (command === "compare") {
+        return runCompareCommand(args);
+    }
+    if (command === "pr-summary-table-comment") {
+        return runLegacyPrSummaryCommand(args);
+    }
+    if (args.length > 0) {
+        const details = args.map((arg) => `'${arg}'`).join(", ");
+        const suffix = args.length === 1 ? "" : "s";
+        console.warn(
+            `[detect-test-regressions] Ignoring ${args.length} legacy CLI argument${suffix}: ${details}.`
+        );
+    }
+    return runRegressionDetectionCli();
+}
+
+function runRegressionDetectionCli() {
     const workspaceRoot = process.env.GITHUB_WORKSPACE || process.cwd();
     const { base, head, merged } = loadResultSets(workspaceRoot);
     const { target, targetLabel, usingMerged } = chooseTargetResultSet({
@@ -912,7 +2193,7 @@ if (isMainModule) {
         }
     } catch (error) {
         handleCliError(error, {
-            prefix: "Failed to detect test regressions.",
+            prefix: "Failed to run detect-test-regressions CLI.",
             exitCode: typeof error?.exitCode === "number" ? error.exitCode : 1
         });
     }
@@ -924,5 +2205,7 @@ export {
     detectResolvedFailures,
     readTestResults,
     ensureResultsAvailability,
-    reportRegressionSummary
+    reportRegressionSummary,
+    summarizeReports,
+    compareSummaryReports
 };
