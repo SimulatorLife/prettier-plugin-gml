@@ -93,6 +93,33 @@ const suppressedImplicitDocCanonicalByNode = new WeakMap();
 const preferredParamDocNamesByNode = new WeakMap();
 const forcedStructArgumentBreaks = new WeakMap();
 
+function isAssignmentInsideConstructorMethod(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return false;
+    }
+
+    const enclosingBlock = path.getParentNode();
+    if (!enclosingBlock || enclosingBlock.type !== "BlockStatement") {
+        return false;
+    }
+
+    const functionDeclaration = path.getParentNode(1);
+    if (
+        !functionDeclaration ||
+        functionDeclaration.type !== "FunctionDeclaration"
+    ) {
+        return false;
+    }
+
+    const constructorBody = path.getParentNode(2);
+    if (!constructorBody || constructorBody.type !== "BlockStatement") {
+        return false;
+    }
+
+    const constructorDeclaration = path.getParentNode(3);
+    return constructorDeclaration?.type === "ConstructorDeclaration";
+}
+
 function stripTrailingLineTerminators(value) {
     if (typeof value !== "string") {
         return value;
@@ -2057,6 +2084,16 @@ function printStatements(path, options, print, childrenAttribute) {
                 // source style.
                 semi = ";";
             }
+        }
+
+        const shouldPreserveMissingSemicolonForConstructorMethod =
+            semi === ";" &&
+            node.type === "AssignmentExpression" &&
+            !hasTerminatingSemicolon &&
+            isAssignmentInsideConstructorMethod(childPath);
+
+        if (shouldPreserveMissingSemicolonForConstructorMethod) {
+            semi = "";
         }
 
         const shouldOmitSemicolon =
