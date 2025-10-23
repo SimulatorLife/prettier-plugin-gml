@@ -32,11 +32,13 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError, Option } from "commander";
 
 import {
+    coerceNonNegativeInteger,
     getErrorMessage,
     getNonEmptyTrimmedString,
     isErrorWithCode,
     normalizeEnumeratedOption,
     normalizeStringList,
+    resolveIntegerOption,
     toArray,
     toNormalizedLowerCaseSet,
     toNormalizedLowerCaseString,
@@ -282,6 +284,10 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
 
     const defaultSkippedDirectorySampleLimit =
         getDefaultSkippedDirectorySampleLimit();
+    const resolveSkippedDirectoryLimit = (value) =>
+        resolveSkippedDirectorySampleLimit(value, {
+            defaultLimit: defaultSkippedDirectorySampleLimit
+        });
 
     return applyStandardCommandOptions(
         new Command()
@@ -300,6 +306,16 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
             "Directory or file to format (alias for positional argument)."
         )
         .addOption(extensionsOption)
+        .option(
+            "--ignored-directory-sample-limit <count>",
+            [
+                "Maximum number of ignored directories to include in skip summaries.",
+                `Defaults to ${defaultSkippedDirectorySampleLimit}.`,
+                `Respects ${SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR} when set. Provide 0 to suppress the sample list.`
+            ].join(" "),
+            wrapInvalidArgumentResolver(resolveSkippedDirectoryLimit),
+            defaultSkippedDirectorySampleLimit
+        )
         .option(
             "--log-level <level>",
             [
@@ -349,7 +365,7 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
                 `Defaults to ${defaultSkippedDirectorySampleLimit}.`,
                 `Respects ${SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR} when set. Provide 0 to suppress the sample list.`
             ].join(" "),
-            wrapInvalidArgumentResolver(resolveSkippedDirectorySampleLimit),
+            wrapInvalidArgumentResolver(resolveSkippedDirectoryLimit),
             defaultSkippedDirectorySampleLimit
         );
 }
@@ -386,6 +402,9 @@ function collectFormatCommandOptions(command) {
         options.path ?? positionalTarget ?? null
     );
 
+    const skippedDirectorySampleLimit =
+        options.ignoredDirectorySampleLimit ?? options.ignoredDirectorySamples;
+
     return {
         targetPathInput,
         targetPathProvided,
@@ -394,7 +413,7 @@ function collectFormatCommandOptions(command) {
             : [...(extensions ?? DEFAULT_EXTENSIONS)],
         prettierLogLevel: options.logLevel ?? DEFAULT_PRETTIER_LOG_LEVEL,
         onParseError: options.onParseError ?? DEFAULT_PARSE_ERROR_ACTION,
-        skippedDirectorySampleLimit: options.ignoredDirectorySamples,
+        skippedDirectorySampleLimit,
         usage: command.helpInformation()
     };
 }

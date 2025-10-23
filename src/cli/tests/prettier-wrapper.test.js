@@ -435,6 +435,65 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
+    it("honours the ignored directory sample limit", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const targetFile = path.join(tempDirectory, "script.gml");
+            await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
+
+            const ignorePath = path.join(tempDirectory, ".prettierignore");
+            await fs.writeFile(
+                ignorePath,
+                ["ignored-one/", "ignored-two/", "ignored-three/"].join("\n") +
+                    "\n",
+                "utf8"
+            );
+
+            for (const directoryName of [
+                "ignored-one",
+                "ignored-two",
+                "ignored-three"
+            ]) {
+                const directory = path.join(tempDirectory, directoryName);
+                await fs.mkdir(directory);
+            }
+
+            const { stdout } = await execFileAsync("node", [
+                wrapperPath,
+                "--ignored-directory-sample-limit",
+                "0",
+                tempDirectory
+            ]);
+
+            const summaryLines = stdout
+                .split("\n")
+                .filter((line) => line.length > 0);
+            const directorySummaryLine = summaryLines.find((line) =>
+                line.startsWith(
+                    "Skipped 3 directories ignored by .prettierignore"
+                )
+            );
+
+            assert.ok(
+                directorySummaryLine,
+                "Expected to find the ignored-directory summary line"
+            );
+            assert.strictEqual(
+                directorySummaryLine,
+                "Skipped 3 directories ignored by .prettierignore.",
+                "Expected ignored directory summary to omit examples when the sample limit is zero"
+            );
+            assert.doesNotMatch(
+                directorySummaryLine,
+                /e\.g\./,
+                "Expected ignored directory summary to omit sample prefixes when disabled"
+            );
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
     it("respects .prettierignore entries in ancestor directories when formatting a subdirectory", async () => {
         const tempDirectory = await createTemporaryDirectory();
 

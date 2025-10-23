@@ -269,7 +269,12 @@ nvm use
 
    The wrapper honours both repositories’ `.prettierrc` and `.prettierignore`
    files, prints a skipped-file summary with concrete examples of unsupported
-   files, explains when no files match the configured extensions, accepts
+   files, lets you cap the ignored-directory sample list surfaced in summaries
+   with `--ignored-directory-sample-limit` (alias
+   `--ignored-directory-samples`) or the
+   `PRETTIER_PLUGIN_GML_SKIPPED_DIRECTORY_SAMPLE_LIMIT` environment variable,
+   explains when no files
+   match the configured extensions, accepts
    `--on-parse-error=skip|abort|revert` (or
    `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR`), surfaces Prettier’s logging knob via
    `--log-level=debug|info|warn|error|silent` (or
@@ -398,6 +403,11 @@ without editing project scripts:
   `debug`, `info`, `warn`, `error`, or `silent`.
 - `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` &mdash; Sets the default
   `--on-parse-error` strategy (`skip`, `revert`, or `abort`).
+- `PRETTIER_PLUGIN_GML_SKIPPED_DIRECTORY_SAMPLE_LIMIT` &mdash; Caps how many
+  ignored directories appear in the summary when the wrapper honours
+  `.prettierignore` entries. Combine with
+  `--ignored-directory-sample-limit` (or `--ignored-directory-samples`) for
+  per-run overrides.
 - `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` (or the singular `PRETTIER_PLUGIN_GML_PLUGIN_PATH`) &mdash;
   Adds repository-relative or absolute plugin entry point paths for the wrapper
   to consider before falling back to its built-in candidates. Useful when CI
