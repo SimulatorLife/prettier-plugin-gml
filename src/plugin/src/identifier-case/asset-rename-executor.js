@@ -128,20 +128,26 @@ function updateReferenceObject(json, propertyPath, newResourcePath, newName) {
     return changed;
 }
 
+function hasWriteAccess(fsFacade, targetPath, probeMethod) {
+    if (
+        tryAccess(
+            fsFacade,
+            "accessSync",
+            targetPath,
+            ...DEFAULT_WRITE_ACCESS_ARGS
+        )
+    ) {
+        return true;
+    }
+
+    return tryAccess(fsFacade, probeMethod, targetPath);
+}
 function ensureWritableDirectory(fsFacade, directoryPath) {
     if (!directoryPath) {
         return;
     }
 
-    if (
-        tryAccess(
-            fsFacade,
-            "accessSync",
-            directoryPath,
-            ...DEFAULT_WRITE_ACCESS_ARGS
-        ) ||
-        tryAccess(fsFacade, "existsSync", directoryPath)
-    ) {
+    if (hasWriteAccess(fsFacade, directoryPath, "existsSync")) {
         return;
     }
 
@@ -151,15 +157,7 @@ function ensureWritableDirectory(fsFacade, directoryPath) {
 }
 
 function ensureWritableFile(fsFacade, filePath) {
-    if (
-        tryAccess(
-            fsFacade,
-            "accessSync",
-            filePath,
-            ...DEFAULT_WRITE_ACCESS_ARGS
-        ) ||
-        tryAccess(fsFacade, "statSync", filePath)
-    ) {
+    if (hasWriteAccess(fsFacade, filePath, "statSync")) {
         return;
     }
 

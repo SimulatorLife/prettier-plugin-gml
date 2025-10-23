@@ -4,6 +4,7 @@ import {
     captureIdentifierCasePlanSnapshot
 } from "./plan-service.js";
 import { withObjectLike } from "../../../shared/object-utils.js";
+import { getErrorMessage } from "../../../shared/utils.js";
 import {
     setIdentifierCaseOption,
     deleteIdentifierCaseOption
@@ -12,6 +13,36 @@ import {
 const IDENTIFIER_CASE_LOGGER_NAMESPACE = "identifier-case";
 
 const managedBootstraps = new WeakSet();
+
+function nullifyProjectIndex(target) {
+    if (
+        target &&
+        typeof target === "object" &&
+        Object.hasOwn(target, "projectIndex")
+    ) {
+        target.projectIndex = null;
+    }
+}
+
+function sanitizeBootstrapResult(bootstrap) {
+    if (!bootstrap || typeof bootstrap !== "object") {
+        return;
+    }
+
+    nullifyProjectIndex(bootstrap);
+
+    if (Object.hasOwn(bootstrap, "coordinator")) {
+        bootstrap.coordinator = null;
+    }
+
+    if (typeof bootstrap.dispose === "function") {
+        bootstrap.dispose = () => {};
+    }
+
+    const { cache } = bootstrap;
+    nullifyProjectIndex(cache);
+    nullifyProjectIndex(cache?.payload);
+}
 
 function registerBootstrapCleanup(bootstrapResult) {
     if (typeof bootstrapResult?.dispose !== "function") {
@@ -37,7 +68,8 @@ function disposeBootstrap(bootstrapResult, logger = null) {
         bootstrapResult.dispose();
     } catch (error) {
         if (typeof logger?.warn === "function") {
-            const reason = error?.message ?? error;
+            const reason =
+                getErrorMessage(error, { fallback: "" }) || "Unknown error";
             logger.warn(
                 `[${IDENTIFIER_CASE_LOGGER_NAMESPACE}] Failed to dispose identifier case resources: ${reason}`
             );
@@ -56,9 +88,12 @@ export async function prepareIdentifierCaseEnvironment(options) {
                 const logger = object?.logger ?? null;
                 if (typeof logger?.warn === "function") {
                     const reason =
-                        bootstrapResult.error?.message ??
-                        bootstrapResult.error ??
-                        bootstrapResult.reason ??
+                        getErrorMessage(bootstrapResult.error, {
+                            fallback: ""
+                        }) ||
+                        getErrorMessage(bootstrapResult.reason, {
+                            fallback: ""
+                        }) ||
                         "Unknown error";
                     logger.warn(
                         `[${IDENTIFIER_CASE_LOGGER_NAMESPACE}] Project index bootstrap failed. Identifier case renames will be skipped: ${reason}`
@@ -100,6 +135,8 @@ export function attachIdentifierCasePlanSnapshot(ast, options) {
 export function teardownIdentifierCaseEnvironment(options) {
     const bootstrap = options?.__identifierCaseProjectIndexBootstrap ?? null;
     disposeBootstrap(bootstrap, options?.logger ?? null);
+    sanitizeBootstrapResult(bootstrap);
+    deleteIdentifierCaseOption(options, "__identifierCaseProjectIndex");
     deleteIdentifierCaseOption(options, "__identifierCasePlanSnapshot");
     deleteIdentifierCaseOption(options, "__identifierCaseRenameMap");
 }
