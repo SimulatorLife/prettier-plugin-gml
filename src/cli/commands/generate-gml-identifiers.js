@@ -420,42 +420,89 @@ function sortIdentifierEntries(identifierMap) {
 
 const DOWNLOAD_PROGRESS_LABEL = "Downloading manual assets";
 
+/**
+ * Render download progress updates using the configured verbosity options.
+ * The helper centralizes console/progress-bar branching so callers can simply
+ * forward status snapshots.
+ */
+function reportManualAssetFetchProgress({
+    asset,
+    fetchedCount,
+    totalAssets,
+    verbose,
+    progressBarWidth
+}) {
+    if (!verbose.downloads) {
+        return;
+    }
+
+    if (verbose.progressBar) {
+        renderProgressBar(
+            DOWNLOAD_PROGRESS_LABEL,
+            fetchedCount,
+            totalAssets,
+            progressBarWidth
+        );
+        return;
+    }
+
+    console.log(`✓ ${asset.path}`);
+}
+
+/**
+ * Download each manual asset and return a map of payloads keyed by the asset
+ * descriptor's {@link key}. Progress callbacks receive the raw asset metadata
+ * along with the running totals so orchestrators can surface meaningful status
+ * updates without duplicating counter bookkeeping.
+ */
+async function downloadManualAssetPayloads({
+    manualRefSha,
+    manualAssets,
+    requestOptions,
+    onProgress
+}) {
+    const payloads = {};
+    let fetchedCount = 0;
+    const totalAssets = manualAssets.length;
+
+    for (const asset of manualAssets) {
+        payloads[asset.key] = await fetchManualFile(
+            manualRefSha,
+            asset.path,
+            requestOptions
+        );
+
+        fetchedCount += 1;
+        onProgress?.({ asset, fetchedCount, totalAssets });
+    }
+
+    return payloads;
+}
+
 async function fetchManualAssets(
     manualRefSha,
     manualAssets,
     { forceRefresh, verbose, cacheRoot, rawRoot, progressBarWidth }
 ) {
     return withProgressBarCleanup(async () => {
-        const payloads = {};
-        let fetchedCount = 0;
-        const downloadsTotal = manualAssets.length;
-
-        for (const asset of manualAssets) {
-            payloads[asset.key] = await fetchManualFile(
-                manualRefSha,
-                asset.path,
-                {
-                    forceRefresh,
-                    verbose,
-                    cacheRoot,
-                    rawRoot
-                }
-            );
-
-            fetchedCount += 1;
-            if (verbose.progressBar && verbose.downloads) {
-                renderProgressBar(
-                    DOWNLOAD_PROGRESS_LABEL,
+        return downloadManualAssetPayloads({
+            manualRefSha,
+            manualAssets,
+            requestOptions: {
+                forceRefresh,
+                verbose,
+                cacheRoot,
+                rawRoot
+            },
+            onProgress: ({ asset, fetchedCount, totalAssets }) =>
+                reportManualAssetFetchProgress({
+                    asset,
                     fetchedCount,
-                    downloadsTotal,
+                    totalAssets,
+                    verbose,
                     progressBarWidth
-                );
-            } else if (verbose.downloads) {
-                console.log(`✓ ${asset.path}`);
-            }
-        }
-
-        return payloads;
+                })
+        });
     });
 }
 
