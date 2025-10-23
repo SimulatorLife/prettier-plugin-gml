@@ -3794,6 +3794,13 @@ function resolvePreferredParameterName(
         return null;
     }
 
+    const params = Array.isArray(functionNode.params)
+        ? functionNode.params
+        : null;
+    if (!params || paramIndex >= params.length) {
+        return null;
+    }
+
     const hasRenamableCurrentName =
         typeof currentName === "string" &&
         getArgumentIndexFromIdentifier(currentName) !== null;
@@ -3953,14 +3960,6 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
         return false;
     }
 
-    const normalizedPreferred = preferredName
-        ? normalizePreferredParameterName(preferredName)
-        : null;
-
-    if (normalizedPreferred && normalizedPreferred === normalizedAlias) {
-        return true;
-    }
-
     if (!functionNode || !Array.isArray(functionNode.params)) {
         return false;
     }
@@ -3979,11 +3978,23 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
         identifier.name
     );
 
-    return (
+    if (
         typeof normalizedParamName === "string" &&
         normalizedParamName.length > 0 &&
         normalizedParamName === normalizedAlias
-    );
+    ) {
+        return true;
+    }
+
+    const normalizedPreferred = preferredName
+        ? normalizePreferredParameterName(preferredName)
+        : null;
+
+    if (normalizedPreferred && normalizedPreferred === normalizedAlias) {
+        return true;
+    }
+
+    return false;
 }
 
 function getIdentifierFromParameterNode(param) {
