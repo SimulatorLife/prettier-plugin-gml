@@ -2802,12 +2802,9 @@ function mergeSyntheticDocComments(
             ) {
                 let fallbackLineIndex = null;
 
-                for (const candidateIndex of orderedParamLineIndices) {
-                    if (!usedParamLineIndices.has(candidateIndex)) {
-                        fallbackLineIndex = candidateIndex;
-                        break;
-                    }
-                }
+                fallbackLineIndex = orderedParamLineIndices.find(
+                    idx => !usedParamLineIndices.has(idx)
+                ) ?? null;
 
                 if (fallbackLineIndex !== null) {
                     const existingLine = mergedLines[fallbackLineIndex];
