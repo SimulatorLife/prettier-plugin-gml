@@ -1228,7 +1228,7 @@ function normalizeReportSpec(spec) {
         const file = toTrimmedString(spec.path ?? spec.file);
         if (!label || !file) {
             throw new CliUsageError(
-                "Report specifications must include a label and path properties."
+                "Report specifications must include label and path properties."
             );
         }
         return { label, path: file };
