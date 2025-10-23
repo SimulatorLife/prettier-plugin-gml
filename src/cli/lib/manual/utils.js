@@ -92,29 +92,25 @@ export function createManualDownloadReporter({
     formatPath = (path) => path,
     render = renderProgressBar
 } = {}) {
-    const normalizedLabel = normalizeDownloadLabel(label);
+    if (!verbose.downloads) {
+        return () => {};
+    }
 
-    return ({ path, fetchedCount, totalEntries }) => {
-        if (!verbose.downloads) {
-            return;
-        }
+    if (verbose.progressBar) {
+        const normalizedLabel = normalizeDownloadLabel(label);
+        const width = progressBarWidth ?? 0;
 
-        if (verbose.progressBar) {
-            render(
-                normalizedLabel,
-                fetchedCount,
-                totalEntries,
-                progressBarWidth ?? 0
-            );
-            return;
-        }
+        return ({ fetchedCount, totalEntries }) => {
+            render(normalizedLabel, fetchedCount, totalEntries, width);
+        };
+    }
 
-        const displayPath = formatPath(path);
-        if (displayPath) {
-            console.log(`✓ ${displayPath}`);
-        } else {
-            console.log("✓");
-        }
+    const normalizePath =
+        typeof formatPath === "function" ? formatPath : (path) => path;
+
+    return ({ path }) => {
+        const displayPath = normalizePath(path);
+        console.log(displayPath ? `✓ ${displayPath}` : "✓");
     };
 }
 
