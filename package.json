@@ -45,7 +45,7 @@
     "report": "npm run lint:report && npm run test:report && npm run test:coverage && npm run memory",
     "check": "npm run format:check && npm run lint:ci && npm test",
     "test": "node --test",
-    "test:report": "rm -f reports/tests.xml && mkdir -p reports && node --test --test-reporter=junit --test-reporter-destination=./reports/tests.xml",
+    "test:report": "node src/cli/commands/run-tests-with-junit.mjs",
     "test:coverage": "bash -lc 'rm -f reports/lcov.info && mkdir -p reports && ./node_modules/.bin/c8 --reporter=lcovonly --report-dir=reports node --test; status=$?; rm -rf .nyc_output reports/tmp reports/lcov-report; exit $status'",
     "test:shared": "node --test src/shared/tests/*.test.js",
     "test:shared:report": "node --test --test-reporter=junit --test-reporter-destination=./reports/shared.xml src/shared/tests/*.test.js",
