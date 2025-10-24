@@ -32,18 +32,15 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError, Option } from "commander";
 
 import {
-    coerceNonNegativeInteger,
     getErrorMessage,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
     isErrorWithCode,
     normalizeEnumeratedOption,
     normalizeStringList,
-    resolveIntegerOption,
     toArray,
     mergeUniqueValues,
     toNormalizedLowerCaseSet,
-    toNormalizedLowerCaseString,
     uniqueArray,
     withObjectLike
 } from "../shared/utils.js";
