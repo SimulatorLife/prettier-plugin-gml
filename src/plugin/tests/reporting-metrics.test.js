@@ -60,11 +60,14 @@ test("finalize logs once when auto logging is enabled", () => {
 
     tracker.incrementCounter("items", 3);
     const report = tracker.finalize({ counters: { extra: 1 } });
+    const second = tracker.finalize({ counters: { extra: 999 } });
 
     assert.deepEqual(report.counters, { items: 3, extra: 1 });
     assert.equal(events.length, 1);
     assert.equal(events[0].message, "[auto] summary");
     assert.deepEqual(events[0].payload, report);
+    assert.deepEqual(second.counters, { extra: 999 });
+    assert.equal(events.length, 1);
 });
 
 test("cache keys are configurable and support custom metrics", () => {

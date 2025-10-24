@@ -63,6 +63,7 @@ export function createMetricsTracker({
     const caches = new Map();
     const metadata = Object.create(null);
     const cacheKeys = normalizeCacheKeys(cacheKeyOption);
+    let hasLoggedSummary = false;
 
     const debug =
         typeof logger?.debug === "function" ? logger.debug.bind(logger) : null;
@@ -140,9 +141,18 @@ export function createMetricsTracker({
 
     function finalize(extra = {}) {
         const report = snapshot(extra);
-        if (autoLog && debug) {
+        if (autoLog && debug && !hasLoggedSummary) {
             debug(`[${category}] summary`, report);
+            hasLoggedSummary = true;
         }
+
+        timings.clear();
+        counters.clear();
+        caches.clear();
+        for (const key of Object.keys(metadata)) {
+            delete metadata[key];
+        }
+
         return report;
     }
 
