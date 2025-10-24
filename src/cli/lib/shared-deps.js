@@ -8,6 +8,7 @@ export {
     coerceNonNegativeInteger,
     coercePositiveInteger,
     createEnvConfiguredValue,
+    createEnvConfiguredValueWithFallback,
     getErrorCode,
     getErrorMessage,
     getNonEmptyTrimmedString,

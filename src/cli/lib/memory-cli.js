@@ -8,7 +8,7 @@ import { Command, InvalidArgumentError } from "commander";
 
 import {
     assertPlainObject,
-    createEnvConfiguredValue,
+    createEnvConfiguredValueWithFallback,
     ensureDir,
     getErrorMessage,
     isNonEmptyString,
@@ -57,25 +57,25 @@ export const MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR =
     "GML_MEMORY_FORMAT_MAX_ITERATIONS";
 export const DEFAULT_MAX_FORMAT_ITERATIONS = 25;
 
-const parserIterationLimitConfig = createEnvConfiguredValue({
+const parserIterationLimitConfig = createEnvConfiguredValueWithFallback({
     defaultValue: DEFAULT_MAX_PARSER_ITERATIONS,
     envVar: MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR,
-    normalize: (value, { defaultValue, previousValue }) =>
-        normalizeIterationLimit(value, {
-            fallback:
-                previousValue ?? defaultValue ?? DEFAULT_MAX_PARSER_ITERATIONS,
-            baseline: DEFAULT_MAX_PARSER_ITERATIONS
+    resolve: (value, { fallback }) =>
+        resolveIntegerOption(value, {
+            defaultValue: fallback,
+            coerce: coerceMemoryIterations,
+            typeErrorMessage: createIterationTypeErrorMessage
         })
 });
 
-const formatIterationLimitConfig = createEnvConfiguredValue({
+const formatIterationLimitConfig = createEnvConfiguredValueWithFallback({
     defaultValue: DEFAULT_MAX_FORMAT_ITERATIONS,
     envVar: MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR,
-    normalize: (value, { defaultValue, previousValue }) =>
-        normalizeIterationLimit(value, {
-            fallback:
-                previousValue ?? defaultValue ?? DEFAULT_MAX_FORMAT_ITERATIONS,
-            baseline: DEFAULT_MAX_FORMAT_ITERATIONS
+    resolve: (value, { fallback }) =>
+        resolveIntegerOption(value, {
+            defaultValue: fallback,
+            coerce: coerceMemoryIterations,
+            typeErrorMessage: createIterationTypeErrorMessage
         })
 });
 
@@ -414,23 +414,6 @@ const {
     set: setMaxFormatIterations,
     applyEnvOverride: applyFormatMaxIterationsEnvOverride
 } = formatIterationLimitConfig;
-
-function normalizeIterationLimit(value, { fallback, baseline }) {
-    const effectiveBaseline =
-        fallback ?? baseline ?? DEFAULT_MAX_PARSER_ITERATIONS;
-
-    try {
-        const normalized = resolveIntegerOption(value, {
-            defaultValue: effectiveBaseline,
-            coerce: coerceMemoryIterations,
-            typeErrorMessage: createIterationTypeErrorMessage
-        });
-
-        return normalized ?? effectiveBaseline;
-    } catch {
-        return effectiveBaseline;
-    }
-}
 
 function getMaxParserIterations() {
     return parserIterationLimitConfig.get();
