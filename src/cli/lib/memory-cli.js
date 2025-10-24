@@ -41,7 +41,7 @@ import { importPluginModule } from "./plugin-entry-point.js";
 export const DEFAULT_ITERATIONS = 500_000;
 export const MEMORY_ITERATIONS_ENV_VAR = "GML_MEMORY_ITERATIONS";
 
-const DEFAULT_MEMORY_REPORT_DIR = "test-results";
+const DEFAULT_MEMORY_REPORT_DIR = "reports";
 const DEFAULT_MEMORY_REPORT_FILENAME = "memory.json";
 const CLI_MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(CLI_MODULE_DIR, "../../..");
