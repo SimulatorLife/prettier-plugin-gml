@@ -82,10 +82,22 @@ function resolveOutputPath(repoRoot, fileName) {
  */
 
 /**
- * @typedef {object} ManualAccessContext
+ * @typedef {object} ManualFileAccessContext
  * @property {ManualCommandEnvironment} environment
  * @property {ManualCommandFileService} files
+ */
+
+/**
+ * @typedef {object} ManualReferenceAccessContext
+ * @property {ManualCommandEnvironment} environment
  * @property {ManualCommandRefResolutionService} refs
+ */
+
+/**
+ * @typedef {object} ManualAccessContexts
+ * @property {ManualCommandEnvironment} environment
+ * @property {ManualFileAccessContext} fileAccess
+ * @property {ManualReferenceAccessContext} referenceAccess
  */
 
 function buildManualCommandContext({
@@ -155,6 +167,14 @@ function buildManualCommandContext({
     });
 }
 
+function mapManualFileAccessContext({ environment, files }) {
+    return Object.freeze({ environment, files });
+}
+
+function mapManualReferenceAccessContext({ environment, refs }) {
+    return Object.freeze({ environment, refs });
+}
+
 /**
  * Resolve only the repository environment metadata shared by manual commands.
  *
@@ -171,11 +191,36 @@ export function createManualEnvironmentContext(options = {}) {
  * information commonly needed by artefact generators.
  *
  * @param {Parameters<typeof buildManualCommandContext>[0]} options
- * @returns {ManualAccessContext}
+ * @returns {ManualFileAccessContext}
  */
-export function createManualAccessContext(options = {}) {
-    const { environment, files, refs } = buildManualCommandContext(options);
-    return Object.freeze({ environment, files, refs });
+export function createManualFileAccessContext(options = {}) {
+    return mapManualFileAccessContext(buildManualCommandContext(options));
+}
+
+/**
+ * Resolve manual reference helpers along with the shared environment metadata.
+ *
+ * @param {Parameters<typeof buildManualCommandContext>[0]} options
+ * @returns {ManualReferenceAccessContext}
+ */
+export function createManualReferenceAccessContext(options = {}) {
+    return mapManualReferenceAccessContext(buildManualCommandContext(options));
+}
+
+/**
+ * Resolve both manual file and reference collaborators while reusing the
+ * underlying GitHub wiring and shared environment metadata.
+ *
+ * @param {Parameters<typeof buildManualCommandContext>[0]} options
+ * @returns {ManualAccessContexts}
+ */
+export function createManualAccessContexts(options = {}) {
+    const context = buildManualCommandContext(options);
+    return Object.freeze({
+        environment: context.environment,
+        fileAccess: mapManualFileAccessContext(context),
+        referenceAccess: mapManualReferenceAccessContext(context)
+    });
 }
 
 /**
