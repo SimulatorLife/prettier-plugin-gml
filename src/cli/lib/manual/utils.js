@@ -67,6 +67,11 @@ function normalizeDownloadLabel(label) {
     return isNonEmptyTrimmedString(label) ? label : "Downloading manual files";
 }
 
+function withCleanup(fn, cleanup = () => {}) {
+    fn.cleanup = cleanup;
+    return fn;
+}
+
 /**
  * Create a progress reporter for manual file downloads. Callers receive a
  * stable callback that mirrors the branching previously duplicated across CLI
@@ -93,9 +98,7 @@ export function createManualDownloadReporter({
     render = renderProgressBar
 } = {}) {
     if (!verbose.downloads) {
-        const noop = () => {};
-        noop.cleanup = () => {};
-        return noop;
+        return withCleanup(() => {});
     }
 
     if (verbose.progressBar) {
@@ -103,33 +106,28 @@ export function createManualDownloadReporter({
         const width = progressBarWidth ?? 0;
         let cleanedUp = false;
 
-        const report = ({ fetchedCount, totalEntries }) => {
-            render(normalizedLabel, fetchedCount, totalEntries, width);
-        };
+        return withCleanup(
+            ({ fetchedCount, totalEntries }) => {
+                render(normalizedLabel, fetchedCount, totalEntries, width);
+            },
+            () => {
+                if (cleanedUp) {
+                    return;
+                }
 
-        report.cleanup = () => {
-            if (cleanedUp) {
-                return;
+                cleanedUp = true;
+                disposeProgressBars();
             }
-
-            cleanedUp = true;
-            disposeProgressBars();
-        };
-
-        return report;
+        );
     }
 
     const normalizePath =
         typeof formatPath === "function" ? formatPath : (path) => path;
 
-    const report = ({ path }) => {
+    return withCleanup(({ path }) => {
         const displayPath = normalizePath(path);
         console.log(displayPath ? `✓ ${displayPath}` : "✓");
-    };
-
-    report.cleanup = () => {};
-
-    return report;
+    });
 }
 
 /**
