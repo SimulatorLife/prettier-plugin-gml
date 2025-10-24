@@ -95,68 +95,78 @@ function createIdentifierCaseServiceRegistry({
     return { resolve, register, reset };
 }
 
-function normalizeIdentifierCasePlanPreparationService(service) {
-    const { prepareIdentifierCasePlan } = assertPlainObject(service, {
-        errorMessage:
-            "Identifier case plan preparation service must be provided as an object"
+/**
+ * Normalize a service object to ensure it exposes the expected function
+ * collaborators. The identifier case plan services previously repeated the
+ * same validation scaffolding (plain-object guard followed by function
+ * assertions) which obscured the differences between each service. Centralising
+ * the logic keeps error messaging consistent and makes future service additions
+ * trivial—callers simply describe the required function names.
+ */
+function normalizeIdentifierCaseServiceFunctions(
+    service,
+    { serviceErrorMessage, functionDescriptors }
+) {
+    const normalized = assertPlainObject(service, {
+        errorMessage: serviceErrorMessage
     });
 
-    return Object.freeze({
-        prepareIdentifierCasePlan: assertFunction(
-            prepareIdentifierCasePlan,
-            "prepareIdentifierCasePlan",
+    return Object.freeze(
+        Object.fromEntries(
+            functionDescriptors.map(({ property, errorMessage }) => [
+                property,
+                assertFunction(normalized[property], property, {
+                    errorMessage
+                })
+            ])
+        )
+    );
+}
+
+function normalizeIdentifierCasePlanPreparationService(service) {
+    return normalizeIdentifierCaseServiceFunctions(service, {
+        serviceErrorMessage:
+            "Identifier case plan preparation service must be provided as an object",
+        functionDescriptors: [
             {
+                property: "prepareIdentifierCasePlan",
                 errorMessage:
                     "Identifier case plan preparation service must provide a prepareIdentifierCasePlan function"
             }
-        )
+        ]
     });
 }
 
 function normalizeIdentifierCaseRenameLookupService(service) {
-    const { getIdentifierCaseRenameForNode } = assertPlainObject(service, {
-        errorMessage:
-            "Identifier case rename lookup service must be provided as an object"
-    });
-
-    return Object.freeze({
-        getIdentifierCaseRenameForNode: assertFunction(
-            getIdentifierCaseRenameForNode,
-            "getIdentifierCaseRenameForNode",
+    return normalizeIdentifierCaseServiceFunctions(service, {
+        serviceErrorMessage:
+            "Identifier case rename lookup service must be provided as an object",
+        functionDescriptors: [
             {
+                property: "getIdentifierCaseRenameForNode",
                 errorMessage:
                     "Identifier case rename lookup service must provide a getIdentifierCaseRenameForNode function"
             }
-        )
+        ]
     });
 }
 
 function normalizeIdentifierCasePlanSnapshotService(service) {
-    const {
-        captureIdentifierCasePlanSnapshot,
-        applyIdentifierCasePlanSnapshot
-    } = assertPlainObject(service, {
-        errorMessage:
-            "Identifier case plan snapshot service must be provided as an object"
-    });
-
-    return Object.freeze({
-        captureIdentifierCasePlanSnapshot: assertFunction(
-            captureIdentifierCasePlanSnapshot,
-            "captureIdentifierCasePlanSnapshot",
+    return normalizeIdentifierCaseServiceFunctions(service, {
+        serviceErrorMessage:
+            "Identifier case plan snapshot service must be provided as an object",
+        functionDescriptors: [
             {
+                property: "captureIdentifierCasePlanSnapshot",
                 errorMessage:
                     "Identifier case plan snapshot service must provide a captureIdentifierCasePlanSnapshot function"
-            }
-        ),
-        applyIdentifierCasePlanSnapshot: assertFunction(
-            applyIdentifierCasePlanSnapshot,
-            "applyIdentifierCasePlanSnapshot",
+            },
             {
+                property: "applyIdentifierCasePlanSnapshot",
                 errorMessage:
                     "Identifier case plan snapshot service must provide an applyIdentifierCasePlanSnapshot function"
             }
-        )
+        ]
     });
 }
 
