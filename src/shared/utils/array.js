@@ -1,11 +1,9 @@
+import { identity } from "./function.js";
+
 // Reuse a frozen empty array to avoid allocating a new array on every call to
 // `asArray`. The array is frozen so accidental mutations surface loudly during
 // development instead of leaking shared state across callers.
 const EMPTY_ARRAY = Object.freeze([]);
-// Share a single identity function so hot paths like `mergeUniqueValues` avoid
-// allocating a new closure on each invocation when callers omit custom
-// coercion logic.
-const identity = (value) => value;
 
 /**
  * Normalize an iterable (or nullable) input into a concrete array so callers

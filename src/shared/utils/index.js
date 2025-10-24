@@ -5,6 +5,7 @@ export * from "./enumerated-options.js";
 export * from "./environment.js";
 export * from "./error.js";
 export * from "./fs.js";
+export * from "./function.js";
 export * from "./identifier-metadata.js";
 export * from "./json.js";
 export * from "./line-breaks.js";
