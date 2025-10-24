@@ -6,6 +6,7 @@ export {
     assertNonEmptyString,
     assertPlainObject,
     hasOwn,
+    identity,
     coerceNonNegativeInteger,
     coercePositiveInteger,
     createEnvConfiguredValue,

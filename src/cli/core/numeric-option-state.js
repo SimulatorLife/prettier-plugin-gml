@@ -2,10 +2,9 @@ import {
     assertFunction,
     createEnvConfiguredValue,
     resolveIntegerOption,
-    hasOwn
+    hasOwn,
+    identity
 } from "../shared/dependencies.js";
-
-const identity = (value) => value;
 
 /**
  * Wrap a numeric option coercer so callers can reuse consistent error handling
