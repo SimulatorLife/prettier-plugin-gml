@@ -756,8 +756,9 @@ test.describe(
                     PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE
                 );
 
-                const unlimited = setDefaultProjectIndexCacheMaxSize(0);
-                assert.equal(unlimited, PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE);
+                const disabled = setDefaultProjectIndexCacheMaxSize(0);
+                assert.equal(disabled, 0);
+                assert.equal(getDefaultProjectIndexCacheMaxSize(), 0);
             } finally {
                 setDefaultProjectIndexCacheMaxSize(originalMax);
             }
@@ -772,6 +773,20 @@ test.describe(
                 });
 
                 assert.equal(getDefaultProjectIndexCacheMaxSize(), 2048);
+            } finally {
+                setDefaultProjectIndexCacheMaxSize(originalMax);
+            }
+        });
+
+        test("environment overrides can disable the cache max size", () => {
+            const originalMax = getDefaultProjectIndexCacheMaxSize();
+
+            try {
+                applyProjectIndexCacheEnvOverride({
+                    [PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR]: "0"
+                });
+
+                assert.equal(getDefaultProjectIndexCacheMaxSize(), 0);
             } finally {
                 setDefaultProjectIndexCacheMaxSize(originalMax);
             }
