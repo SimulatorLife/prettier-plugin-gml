@@ -170,6 +170,18 @@ function collectConcatenationParts(node, helpers, output) {
     return true;
 }
 
+/**
+ * Convert the collected concatenation {@link parts} into template string
+ * atoms. The builder keeps adjacent text atoms coalesced and aborts when it
+ * encounters an unexpected node so the caller can fall back to the original
+ * binary expression without mutating the AST.
+ *
+ * @param {Array<unknown>} parts Ordered nodes collected from the concatenation
+ *        chain.
+ * @returns {Array<object> | null} Template atoms ready to attach to the AST, or
+ *          `null` when the inputs cannot be safely represented as a template
+ *          string.
+ */
 function buildTemplateAtoms(parts) {
     const atoms = [];
     let pendingText = "";
