@@ -7,6 +7,7 @@ import {
     getOrCreateMapEntry,
     isObjectLike,
     isPlainObject,
+    withDefinedValue,
     withObjectLike
 } from "../object-utils.js";
 
@@ -93,6 +94,46 @@ test("withObjectLike falls back when value is not object-like", () => {
 test("withObjectLike returns fallback value when provided directly", () => {
     const result = withObjectLike(null, () => "ok", "fallback-value");
     assert.strictEqual(result, "fallback-value");
+});
+
+test("withDefinedValue invokes callback when value is defined", () => {
+    let callCount = 0;
+    const result = withDefinedValue(42, (value) => {
+        callCount++;
+        assert.strictEqual(value, 42);
+        return value * 2;
+    });
+
+    assert.strictEqual(callCount, 1);
+    assert.strictEqual(result, 84);
+});
+
+test("withDefinedValue uses provided fallback when value is undefined", () => {
+    let fallbackCalls = 0;
+    const result = withDefinedValue(
+        undefined,
+        () => {
+            throw new Error("onDefined should not run");
+        },
+        () => {
+            fallbackCalls++;
+            return "fallback";
+        }
+    );
+
+    assert.strictEqual(fallbackCalls, 1);
+    assert.strictEqual(result, "fallback");
+});
+
+test("withDefinedValue returns undefined when no fallback is provided", () => {
+    let called = false;
+    const result = withDefinedValue(undefined, () => {
+        called = true;
+        return "value";
+    });
+
+    assert.strictEqual(called, false);
+    assert.strictEqual(result, undefined);
 });
 
 test("coalesceOption returns the first non-nullish property", () => {

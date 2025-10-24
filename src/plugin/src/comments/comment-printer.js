@@ -3,7 +3,8 @@ import { builders } from "prettier/doc";
 import {
     getLineBreakCount,
     isCommentNode,
-    isObjectLike
+    isObjectLike,
+    splitLines
 } from "./comment-boundary.js";
 import {
     applyInlinePadding,
@@ -48,7 +49,8 @@ function attachDanglingCommentToEmptyNode(comment, descriptors) {
         const collection = node[property];
         const isEmptyArray =
             Array.isArray(collection) && collection.length === 0;
-        const isCollectionMissing = collection == undefined;
+        const isCollectionMissing =
+            collection === undefined || collection === null;
         if (isEmptyArray || isCollectionMissing) {
             addDanglingComment(node, comment);
             return true;
@@ -86,11 +88,13 @@ const COMMON_COMMENT_HANDLERS = [
 ];
 
 const END_OF_LINE_COMMENT_HANDLERS = [
+    handleDetachedOwnLineComment,
     ...COMMON_COMMENT_HANDLERS,
     handleMacroComments
 ];
 
 const REMAINING_COMMENT_HANDLERS = [
+    handleDetachedOwnLineComment,
     ...COMMON_COMMENT_HANDLERS,
     handleCommentInEmptyLiteral,
     handleMacroComments
@@ -344,6 +348,40 @@ function handleCommentInEmptyBody(
     return attachDanglingCommentToEmptyNode(comment, EMPTY_BODY_TARGETS);
 }
 
+function handleDetachedOwnLineComment(comment /*, text, options, ast */) {
+    const { precedingNode, followingNode } = comment;
+
+    if (!precedingNode || !followingNode) {
+        return false;
+    }
+
+    const commentLine = comment?.start?.line;
+    const precedingEndLine = precedingNode?.end?.line;
+    const followingStartLine = followingNode?.start?.line;
+
+    if (
+        !Number.isFinite(commentLine) ||
+        !Number.isFinite(precedingEndLine) ||
+        !Number.isFinite(followingStartLine)
+    ) {
+        return false;
+    }
+
+    if (commentLine <= precedingEndLine) {
+        return false;
+    }
+
+    if (commentLine >= followingStartLine) {
+        return false;
+    }
+
+    addLeadingComment(followingNode, comment);
+    comment.leading = true;
+    comment.trailing = false;
+    delete comment.placement;
+    return true;
+}
+
 function handleMacroComments(comment) {
     if (comment.enclosingNode?.type === "MacroDeclaration") {
         comment.printed = true;
@@ -387,7 +425,12 @@ function isCommentOnNodeStartLine(comment, node) {
     const commentLine = comment.start?.line;
     const nodeStartLine = node?.start?.line;
 
-    if (commentLine == null || nodeStartLine == null) {
+    const isCommentLineMissing =
+        commentLine === undefined || commentLine === null;
+    const isNodeStartLineMissing =
+        nodeStartLine === undefined || nodeStartLine === null;
+
+    if (isCommentLineMissing || isNodeStartLineMissing) {
         return false;
     }
 
@@ -397,7 +440,7 @@ function isCommentOnNodeStartLine(comment, node) {
 function handleCommentInEmptyParens(
     comment /*, text, options, ast, isLastComment */
 ) {
-    if (comment.leadingChar != "(" || comment.trailingChar != ")") {
+    if (comment.leadingChar !== "(" || comment.trailingChar !== ")") {
         return false;
     }
 
@@ -493,7 +536,7 @@ function whitespaceToDoc(text) {
         return text;
     }
 
-    const lines = text.split(/[\r\n\u2028\u2029]/);
+    const lines = splitLines(text);
     return join(hardline, lines);
 }
 

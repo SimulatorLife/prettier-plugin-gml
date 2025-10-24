@@ -1,27 +1,35 @@
+import { isObjectLike, withObjectLike } from "../object-utils.js";
+
 // Shared helpers for working with AST node location metadata.
 // These utilities centralize the logic for reading start/end positions
 // so both the parser and printer can remain consistent without duplicating
 // defensive checks around optional location shapes.
 
 function getLocationIndex(node, key) {
-    if (!node) {
-        return null;
-    }
+    return withObjectLike(
+        node,
+        (nodeObject) => {
+            const location = nodeObject[key];
 
-    const location = node[key];
-    if (typeof location === "number") {
-        return location;
-    }
+            if (typeof location === "number") {
+                return location;
+            }
 
-    if (location && typeof location.index === "number") {
-        return location.index;
-    }
-
-    return null;
+            return withObjectLike(
+                location,
+                (locationObject) => {
+                    const { index } = locationObject;
+                    return typeof index === "number" ? index : null;
+                },
+                () => null
+            );
+        },
+        () => null
+    );
 }
 
 function getStartIndex(node) {
-    if (!node) {
+    if (!isObjectLike(node)) {
         return null;
     }
 
@@ -78,15 +86,15 @@ function getNodeEndIndex(node) {
 }
 
 function cloneLocation(location) {
-    let cloned = location;
-
-    if (location && typeof location === "object") {
-        cloned = structuredClone(location);
-    } else if (location === undefined || location === null) {
-        cloned = undefined;
+    if (isObjectLike(location)) {
+        return structuredClone(location);
     }
 
-    return cloned;
+    if (location == null) {
+        return location ?? undefined;
+    }
+
+    return location;
 }
 
 /**
@@ -105,29 +113,26 @@ function cloneLocation(location) {
  *   chaining.
  */
 function assignClonedLocation(target, template) {
-    if (!target || typeof target !== "object") {
-        return target;
-    }
+    return withObjectLike(
+        target,
+        (mutableTarget) =>
+            withObjectLike(
+                template,
+                (templateNode) => {
+                    if (Object.hasOwn(templateNode, "start")) {
+                        mutableTarget.start = cloneLocation(templateNode.start);
+                    }
 
-    if (!template || typeof template !== "object") {
-        return target;
-    }
+                    if (Object.hasOwn(templateNode, "end")) {
+                        mutableTarget.end = cloneLocation(templateNode.end);
+                    }
 
-    const updates = {};
-
-    if (Object.hasOwn(template, "start")) {
-        updates.start = cloneLocation(template.start);
-    }
-
-    if (Object.hasOwn(template, "end")) {
-        updates.end = cloneLocation(template.end);
-    }
-
-    if (Object.keys(updates).length > 0) {
-        Object.assign(target, updates);
-    }
-
-    return target;
+                    return mutableTarget;
+                },
+                () => mutableTarget
+            ),
+        () => target
+    );
 }
 
 /**
@@ -152,17 +157,19 @@ function getNodeRangeIndices(node) {
 }
 
 function getNodeLocationLine(node, key) {
-    if (!node || typeof node !== "object") {
-        return null;
-    }
-
-    const location = node[key];
-    if (!location || typeof location !== "object") {
-        return null;
-    }
-
-    const { line } = location;
-    return typeof line === "number" ? line : null;
+    return withObjectLike(
+        node,
+        (nodeObject) =>
+            withObjectLike(
+                nodeObject[key],
+                (location) => {
+                    const { line } = location;
+                    return typeof line === "number" ? line : null;
+                },
+                () => null
+            ),
+        () => null
+    );
 }
 
 function getNodeStartLine(node) {

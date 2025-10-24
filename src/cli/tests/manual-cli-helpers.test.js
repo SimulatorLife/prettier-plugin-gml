@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { describe, it, mock } from "node:test";
+import { afterEach, describe, it, mock } from "node:test";
 
 import {
     disposeProgressBars,
     renderProgressBar,
-    setProgressBarFactoryForTesting
+    setProgressBarFactoryForTesting,
+    resetProgressBarRegistryForTesting
 } from "../lib/progress-bar.js";
 
 function createMockStdout() {
@@ -20,7 +21,12 @@ function createMockStdout() {
 }
 
 describe("manual CLI helpers", () => {
-    it("disposes active progress bars", { concurrency: false }, () => {
+    afterEach(() => {
+        setProgressBarFactoryForTesting();
+        resetProgressBarRegistryForTesting();
+    });
+
+    it("disposes active progress bars", () => {
         const createdBars = new Set();
         const stopCounts = new Map();
         const stdout = createMockStdout();
@@ -41,26 +47,21 @@ describe("manual CLI helpers", () => {
             return bar;
         });
 
-        try {
-            disposeProgressBars();
-            renderProgressBar("Task", 1, 4, 10, { stdout, createBar });
-            renderProgressBar("Task", 2, 4, 10, { stdout, createBar });
+        disposeProgressBars();
+        renderProgressBar("Task", 1, 4, 10, { stdout, createBar });
+        renderProgressBar("Task", 2, 4, 10, { stdout, createBar });
 
-            assert.equal(createdBars.size, 1);
-            const [firstBar] = createdBars;
-            assert.equal(stopCounts.get(firstBar) ?? 0, 0);
+        assert.equal(createdBars.size, 1);
+        const [firstBar] = createdBars;
+        assert.equal(stopCounts.get(firstBar) ?? 0, 0);
 
-            disposeProgressBars();
-            assert.equal(stopCounts.get(firstBar), 1);
+        disposeProgressBars();
+        assert.equal(stopCounts.get(firstBar), 1);
 
-            disposeProgressBars();
-            assert.equal(stopCounts.get(firstBar), 1);
+        disposeProgressBars();
+        assert.equal(stopCounts.get(firstBar), 1);
 
-            renderProgressBar("Task", 3, 4, 10, { stdout, createBar });
-            assert.equal(createdBars.size, 2);
-        } finally {
-            setProgressBarFactoryForTesting();
-            disposeProgressBars();
-        }
+        renderProgressBar("Task", 3, 4, 10, { stdout, createBar });
+        assert.equal(createdBars.size, 2);
     });
 });

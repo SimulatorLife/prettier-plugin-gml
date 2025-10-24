@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { describe, it, mock } from "node:test";
+import { afterEach, describe, it, mock } from "node:test";
 
 import {
-    disposeProgressBars,
     renderProgressBar,
     setProgressBarFactoryForTesting,
-    withProgressBarCleanup
+    withProgressBarCleanup,
+    resetProgressBarRegistryForTesting
 } from "../lib/progress-bar.js";
 
 function createMockStdout() {
@@ -21,38 +21,34 @@ function createMockStdout() {
 }
 
 describe("progress bar cleanup", () => {
-    it(
-        "disposes active progress bars when callbacks fail",
-        { concurrency: false },
-        async () => {
-            const stdout = createMockStdout();
-            const stopMock = mock.fn();
-            const createBar = mock.fn(() => ({
-                setTotal: () => {},
-                update: () => {},
-                start: () => {},
-                stop: (...args) => {
-                    stopMock(...args);
-                }
-            }));
+    afterEach(() => {
+        setProgressBarFactoryForTesting();
+        resetProgressBarRegistryForTesting();
+    });
 
-            try {
-                await assert.rejects(
-                    withProgressBarCleanup(async () => {
-                        renderProgressBar("Task", 0, 2, 10, {
-                            stdout,
-                            createBar
-                        });
-                        throw new Error("boom");
-                    }),
-                    /boom/
-                );
-
-                assert.equal(stopMock.mock.callCount(), 1);
-            } finally {
-                setProgressBarFactoryForTesting();
-                disposeProgressBars();
+    it("disposes active progress bars when callbacks fail", async () => {
+        const stdout = createMockStdout();
+        const stopMock = mock.fn();
+        const createBar = mock.fn(() => ({
+            setTotal: () => {},
+            update: () => {},
+            start: () => {},
+            stop: (...args) => {
+                stopMock(...args);
             }
-        }
-    );
+        }));
+
+        await assert.rejects(
+            withProgressBarCleanup(async () => {
+                renderProgressBar("Task", 0, 2, 10, {
+                    stdout,
+                    createBar
+                });
+                throw new Error("boom");
+            }),
+            /boom/
+        );
+
+        assert.equal(stopMock.mock.callCount(), 1);
+    });
 });

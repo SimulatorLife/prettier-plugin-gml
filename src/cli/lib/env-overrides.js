@@ -1,5 +1,10 @@
 import { CliUsageError } from "./cli-errors.js";
-import { isNonEmptyString, isObjectLike, isErrorLike } from "./shared-deps.js";
+import {
+    assertArray,
+    isNonEmptyString,
+    isObjectLike,
+    isErrorLike
+} from "./shared-deps.js";
 
 const DEFAULT_SOURCE = "env";
 
@@ -94,11 +99,12 @@ export function applyEnvOptionOverride({
  *                                                             without its own.
  */
 export function applyEnvOptionOverrides({ command, env, overrides, getUsage }) {
-    if (!Array.isArray(overrides)) {
-        throw new TypeError("overrides must be provided as an array");
-    }
+    const overrideEntries = assertArray(overrides, {
+        name: "overrides",
+        errorMessage: "overrides must be provided as an array"
+    });
 
-    for (const override of overrides) {
+    for (const override of overrideEntries) {
         if (!isObjectLike(override)) {
             continue;
         }

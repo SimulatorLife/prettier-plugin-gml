@@ -288,6 +288,26 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         resolveSkippedDirectorySampleLimit(value, {
             defaultLimit: defaultSkippedDirectorySampleLimit
         });
+    const skippedDirectorySampleLimitOption = new Option(
+        "--ignored-directory-sample-limit <count>",
+        [
+            "Maximum number of ignored directories to include in skip summaries.",
+            `Defaults to ${defaultSkippedDirectorySampleLimit}.`,
+            "Alias: --ignored-directory-samples.",
+            `Respects ${SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR} when set. Provide 0 to suppress the sample list.`
+        ].join(" ")
+    )
+        .argParser(wrapInvalidArgumentResolver(resolveSkippedDirectoryLimit))
+        .default(
+            defaultSkippedDirectorySampleLimit,
+            String(defaultSkippedDirectorySampleLimit)
+        );
+    const skippedDirectorySamplesAliasOption = new Option(
+        "--ignored-directory-samples <count>",
+        "Alias for --ignored-directory-sample-limit <count>."
+    )
+        .argParser(wrapInvalidArgumentResolver(resolveSkippedDirectoryLimit))
+        .hideHelp();
 
     return applyStandardCommandOptions(
         new Command()
@@ -305,17 +325,16 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
             "--path <path>",
             "Directory or file to format (alias for positional argument)."
         )
-        .addOption(extensionsOption)
         .option(
-            "--ignored-directory-sample-limit <count>",
+            "--check",
             [
-                "Maximum number of ignored directories to include in skip summaries.",
-                `Defaults to ${defaultSkippedDirectorySampleLimit}.`,
-                `Respects ${SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR} when set. Provide 0 to suppress the sample list.`
-            ].join(" "),
-            wrapInvalidArgumentResolver(resolveSkippedDirectoryLimit),
-            defaultSkippedDirectorySampleLimit
+                "Check whether files are already formatted without writing changes.",
+                "Exits with a non-zero status when differences are found."
+            ].join(" ")
         )
+        .addOption(extensionsOption)
+        .addOption(skippedDirectorySampleLimitOption)
+        .addOption(skippedDirectorySamplesAliasOption)
         .option(
             "--log-level <level>",
             [
@@ -357,16 +376,6 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
                 return normalized;
             },
             DEFAULT_PARSE_ERROR_ACTION
-        )
-        .option(
-            "--ignored-directory-samples <count>",
-            [
-                "Maximum number of ignored directories to include in summary output.",
-                `Defaults to ${defaultSkippedDirectorySampleLimit}.`,
-                `Respects ${SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR} when set. Provide 0 to suppress the sample list.`
-            ].join(" "),
-            wrapInvalidArgumentResolver(resolveSkippedDirectoryLimit),
-            defaultSkippedDirectorySampleLimit
         );
 }
 
@@ -413,6 +422,7 @@ function collectFormatCommandOptions(command) {
             : [...(extensions ?? DEFAULT_EXTENSIONS)],
         prettierLogLevel: options.logLevel ?? DEFAULT_PRETTIER_LOG_LEVEL,
         onParseError: options.onParseError ?? DEFAULT_PARSE_ERROR_ACTION,
+        checkMode: Boolean(options.check),
         skippedDirectorySampleLimit,
         usage: command.helpInformation()
     };
@@ -488,6 +498,18 @@ const skippedDirectorySummary = {
     ignored: 0,
     ignoredSamples: []
 };
+
+let checkModeEnabled = false;
+let pendingFormatCount = 0;
+
+function resetCheckModeTracking() {
+    pendingFormatCount = 0;
+}
+
+function configureCheckMode(enabled) {
+    checkModeEnabled = Boolean(enabled);
+    resetCheckModeTracking();
+}
 
 let skippedDirectorySampleLimit = getDefaultSkippedDirectorySampleLimit();
 
@@ -660,6 +682,7 @@ async function resetFormattingSession(onParseError) {
     resetRegisteredIgnorePaths();
     resetIgnoreRuleNegations();
     encounteredFormattableFile = false;
+    resetCheckModeTracking();
 }
 
 /**
@@ -903,10 +926,30 @@ async function resolveTargetStats(target, { usage } = {}) {
         const details =
             getErrorMessage(error, { fallback: "Unknown error" }) ||
             "Unknown error";
-        const cliError = new CliUsageError(
-            `Unable to access ${target}: ${details}`,
-            { usage }
-        );
+        const formattedTarget = formatPathForDisplay(target);
+        const guidance = (() => {
+            if (isErrorWithCode(error, "ENOENT")) {
+                return [
+                    "Verify the path exists relative to the current working directory",
+                    `(${INITIAL_WORKING_DIRECTORY}) or provide an absolute path.`
+                ].join(" ");
+            }
+
+            if (isErrorWithCode(error, "EACCES")) {
+                return "Check that you have permission to read the path.";
+            }
+
+            return null;
+        })();
+        const messageParts = [
+            `Unable to access ${formattedTarget}: ${details}.`
+        ];
+
+        if (guidance) {
+            messageParts.push(guidance);
+        }
+
+        const cliError = new CliUsageError(messageParts.join(" "), { usage });
         throw cliError;
     }
 }
@@ -1059,6 +1102,12 @@ async function processFile(filePath, activeIgnorePaths = []) {
             return;
         }
 
+        if (checkModeEnabled) {
+            pendingFormatCount += 1;
+            console.log(`Would format ${formatPathForDisplay(filePath)}`);
+            return;
+        }
+
         await recordFormattedFileOriginalContents(filePath, data);
         await writeFile(filePath, formatted);
         console.log(`Formatted ${filePath}`);
@@ -1112,12 +1161,14 @@ async function prepareFormattingRun({
     configuredExtensions,
     prettierLogLevel,
     onParseError,
-    skippedDirectorySampleLimit
+    skippedDirectorySampleLimit,
+    checkMode
 }) {
     configurePrettierOptions({ logLevel: prettierLogLevel });
     configureTargetExtensionState(configuredExtensions);
     configureSkippedDirectorySampleLimit(skippedDirectorySampleLimit);
     await resetFormattingSession(onParseError);
+    configureCheckMode(checkMode);
 }
 
 /**
@@ -1191,6 +1242,9 @@ function finalizeFormattingRun({
     targetPathProvided
 }) {
     if (encounteredFormattableFile) {
+        if (checkModeEnabled) {
+            logCheckModeSummary();
+        }
         logSkippedFileSummary();
     } else {
         logNoMatchingFiles({
@@ -1199,6 +1253,10 @@ function finalizeFormattingRun({
             targetPathProvided,
             extensions: targetExtensions
         });
+    }
+
+    if (checkModeEnabled && pendingFormatCount > 0) {
+        process.exitCode = 1;
     }
     if (encounteredFormattingError) {
         process.exitCode = 1;
@@ -1249,7 +1307,8 @@ async function executeFormatCommand(command) {
         configuredExtensions: commandOptions.extensions,
         prettierLogLevel: commandOptions.prettierLogLevel,
         onParseError: commandOptions.onParseError,
-        skippedDirectorySampleLimit
+        skippedDirectorySampleLimit,
+        checkMode: commandOptions.checkMode
     });
 
     try {
@@ -1316,6 +1375,18 @@ function describeDirectoryWithoutMatches({
     }
 
     return `in ${formattedTargetPath}`;
+}
+
+function logCheckModeSummary() {
+    if (pendingFormatCount === 0) {
+        console.log("All matched files are already formatted.");
+        return;
+    }
+
+    const label = pendingFormatCount === 1 ? "file requires" : "files require";
+    console.log(
+        `${pendingFormatCount} ${label} formatting. Re-run without --check to write changes.`
+    );
 }
 
 /**
@@ -1415,8 +1486,29 @@ function buildSkippedDirectorySummaryMessage() {
     return `Skipped ${ignored} ${label} ignored by .prettierignore (e.g., ${sampleList}${suffix}).`;
 }
 
+function normalizeCommandLineArguments(argv) {
+    if (!Array.isArray(argv)) {
+        return [];
+    }
+
+    if (argv.length === 0) {
+        return [];
+    }
+
+    if (argv[0] !== "help") {
+        return [...argv];
+    }
+
+    if (argv.length === 1) {
+        return ["--help"];
+    }
+
+    return [...argv.slice(1), "--help"];
+}
+
 export const __test__ = Object.freeze({
-    resetFormattingSessionForTests: resetFormattingSession
+    resetFormattingSessionForTests: resetFormattingSession,
+    normalizeCommandLineArguments
 });
 
 const formatCommand = createFormatCommand({ name: "format" });
@@ -1472,7 +1564,11 @@ cliCommandRegistry.registerCommand({
 });
 
 if (process.env.PRETTIER_PLUGIN_GML_SKIP_CLI_RUN !== "1") {
-    cliCommandRunner.run(process.argv.slice(2)).catch((error) => {
+    const normalizedArguments = normalizeCommandLineArguments(
+        process.argv.slice(2)
+    );
+
+    cliCommandRunner.run(normalizedArguments).catch((error) => {
         handleCliError(error, {
             prefix: "Failed to run prettier-plugin-gml CLI.",
             exitCode: 1
