@@ -128,27 +128,25 @@ function parseSizeRetrievalFunctionSuffixOverrides(rawValue) {
         allowInvalidType: true
     });
 
-    if (entries.length === 0) {
-        return new Map();
-    }
+    const overrides = new Map();
 
-    const overrides = entries.flatMap((entry) => {
+    for (const entry of entries) {
         const [rawName, rawSuffix = ""] = entry.split(/[:=]/);
         const normalizedName = toNormalizedLowerCaseString(rawName);
         if (!normalizedName) {
-            return [];
+            continue;
         }
 
         const trimmedSuffix = rawSuffix.trim();
         if (trimmedSuffix === "-") {
-            return [[normalizedName, null]];
+            overrides.set(normalizedName, null);
+            continue;
         }
 
-        const normalizedSuffix = trimmedSuffix || "len";
-        return [[normalizedName, normalizedSuffix]];
-    });
+        overrides.set(normalizedName, trimmedSuffix || "len");
+    }
 
-    return new Map(overrides);
+    return overrides;
 }
 
 /**
