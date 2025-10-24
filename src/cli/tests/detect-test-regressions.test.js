@@ -1,4 +1,5 @@
 import { strict as assert } from "node:assert";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -8,7 +9,9 @@ import {
     detectResolvedFailures,
     readTestResults,
     ensureResultsAvailability,
-    reportRegressionSummary
+    reportRegressionSummary,
+    summarizeReports,
+    compareSummaryReports
 } from "../commands/detect-test-regressions.mjs";
 import { isCliUsageError } from "../lib/cli-errors.js";
 
@@ -21,6 +24,19 @@ const xmlHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
 function writeXml(dir, name, contents) {
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, `${name}.xml`), xmlHeader + contents);
+}
+
+function writeCheckstyle(dir, contents) {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+        path.join(dir, "eslint-checkstyle.xml"),
+        xmlHeader + contents
+    );
+}
+
+function writeLcov(dir, contents) {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "lcov.info"), contents);
 }
 
 let workspace;
@@ -270,6 +286,233 @@ test("ensureResultsAvailability throws when base results are unavailable", () =>
     );
 });
 
+test("summarizeReports aggregates test, lint, and coverage artifacts", () => {
+    const root = path.join(workspace, "junit-head");
+    const inputDir = path.join(root, "reports");
+
+    writeXml(
+        inputDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="passes" classname="spec" time="0.5" />
+        <testcase name="fails" classname="spec" time="0.5">
+          <failure message="boom" />
+        </testcase>
+      </testsuite>
+    </testsuites>`
+    );
+
+    writeCheckstyle(
+        inputDir,
+        `<checkstyle version="1.0">
+      <file name="src/example.js">
+        <error line="1" severity="warning" message="warn" source="x" />
+        <error line="2" severity="error" message="error" source="x" />
+      </file>
+    </checkstyle>`
+    );
+
+    writeLcov(
+        inputDir,
+        `TN:\nSF:/tmp/example.js\nDA:1,1\nDA:2,0\nLF:2\nLH:1\nend_of_record\n`
+    );
+
+    const { summary, outputPath } = summarizeReports({
+        inputDir,
+        outputDir: root,
+        target: "head"
+    });
+
+    assert.ok(outputPath);
+    const fromDisk = JSON.parse(fs.readFileSync(outputPath, "utf8"));
+    assert.deepEqual(fromDisk, summary);
+
+    assert.strictEqual(summary.target, "head");
+    assert.strictEqual(summary.tests.total, 2);
+    assert.strictEqual(summary.tests.failed, 1);
+    assert.strictEqual(summary.tests.passed, 1);
+    assert.strictEqual(summary.tests.skipped, 0);
+    assert.strictEqual(summary.lint.errors, 1);
+    assert.strictEqual(summary.lint.warnings, 1);
+    assert.strictEqual(summary.coverage.covered, 1);
+    assert.strictEqual(summary.coverage.total, 2);
+    assert.ok(
+        summary.coverage.pct !== null &&
+            Math.abs(summary.coverage.pct - 50) < 0.001
+    );
+});
+
+test("compareSummaryReports highlights regressions across summaries", () => {
+    const baseRoot = path.join(workspace, "junit-base");
+    const headRoot = path.join(workspace, "junit-head");
+    const baseInput = path.join(baseRoot, "reports");
+    const headInput = path.join(headRoot, "reports");
+
+    writeXml(
+        baseInput,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="shared" classname="spec" time="0.25" />
+      </testsuite>
+    </testsuites>`
+    );
+    writeXml(
+        headInput,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="shared" classname="spec" time="0.25">
+          <failure message="boom" />
+        </testcase>
+      </testsuite>
+    </testsuites>`
+    );
+
+    writeCheckstyle(
+        baseInput,
+        `<checkstyle version="1.0">
+      <file name="src/base.js" />
+    </checkstyle>`
+    );
+    writeCheckstyle(
+        headInput,
+        `<checkstyle version="1.0">
+      <file name="src/head.js">
+        <error line="5" severity="error" message="lint" source="x" />
+      </file>
+    </checkstyle>`
+    );
+
+    writeLcov(
+        baseInput,
+        `TN:\nSF:/tmp/example.js\nDA:1,1\nDA:2,1\nLF:2\nLH:2\nend_of_record\n`
+    );
+    writeLcov(
+        headInput,
+        `TN:\nSF:/tmp/example.js\nDA:1,1\nDA:2,0\nLF:2\nLH:1\nend_of_record\n`
+    );
+
+    const baseSummary = summarizeReports({
+        inputDir: baseInput,
+        outputDir: baseRoot,
+        target: "base"
+    });
+    const headSummary = summarizeReports({
+        inputDir: headInput,
+        outputDir: headRoot,
+        target: "head"
+    });
+
+    assert.ok(baseSummary.outputPath);
+    assert.ok(headSummary.outputPath);
+
+    const comparisonDir = path.join(workspace, "reports");
+    const { report, outputPath } = compareSummaryReports(
+        [
+            { label: "base", path: baseSummary.outputPath },
+            { label: "head", path: headSummary.outputPath }
+        ],
+        { outputDir: comparisonDir }
+    );
+
+    assert.ok(outputPath);
+    const parsed = JSON.parse(fs.readFileSync(outputPath, "utf8"));
+    assert.deepEqual(parsed, report);
+
+    assert.strictEqual(report.comparisons.length, 1);
+    const comparison = report.comparisons[0];
+    assert.strictEqual(comparison.base, "base");
+    assert.strictEqual(comparison.target, "head");
+    assert.strictEqual(comparison.regressions.hasRegression, true);
+    assert.strictEqual(comparison.regressions.newFailures, 1);
+    assert.strictEqual(comparison.regressions.lintErrors, 1);
+    assert.ok(comparison.regressions.coverageDrop > 0);
+});
+
+test("summarizeReports writes to an explicit output file when provided", () => {
+    const inputDir = path.join(workspace, "custom/reports");
+    writeXml(
+        inputDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="one" classname="spec" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    const targetFile = path.join(workspace, "artifacts", "summary-custom.json");
+    const { summary, outputPath, outputDir } = summarizeReports({
+        inputDir,
+        outputPath: targetFile,
+        target: "custom"
+    });
+
+    assert.strictEqual(outputPath, path.resolve(targetFile));
+    assert.strictEqual(outputDir, path.dirname(path.resolve(targetFile)));
+    const parsed = JSON.parse(fs.readFileSync(outputPath, "utf8"));
+    assert.deepEqual(parsed, summary);
+    assert.strictEqual(summary.target, "custom");
+});
+
+test("compareSummaryReports supports explicit output file paths", () => {
+    const baseRoot = path.join(workspace, "junit-base");
+    const headRoot = path.join(workspace, "junit-head");
+    const baseInput = path.join(baseRoot, "reports");
+    const headInput = path.join(headRoot, "reports");
+
+    writeXml(
+        baseInput,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="passes" classname="spec" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    writeXml(
+        headInput,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="passes" classname="spec" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    const baseSummary = summarizeReports({
+        inputDir: baseInput,
+        outputDir: baseRoot,
+        target: "base"
+    });
+    const headSummary = summarizeReports({
+        inputDir: headInput,
+        outputDir: headRoot,
+        target: "head"
+    });
+
+    const comparisonFile = path.join(
+        workspace,
+        "custom",
+        "comparison-report.json"
+    );
+    const { report, outputPath } = compareSummaryReports(
+        [
+            { label: "base", path: baseSummary.outputPath },
+            { label: "head", path: headSummary.outputPath }
+        ],
+        { outputPath: comparisonFile }
+    );
+
+    assert.strictEqual(outputPath, path.resolve(comparisonFile));
+    assert.ok(fs.existsSync(outputPath));
+    const parsed = JSON.parse(fs.readFileSync(outputPath, "utf8"));
+    assert.deepEqual(parsed, report);
+});
+
 test("reportRegressionSummary returns failure details when regressions exist", () => {
     const summary = reportRegressionSummary(
         [
@@ -329,6 +572,74 @@ test("reportRegressionSummary clarifies when regressions offset resolved failure
         "- suite :: new failure (passed -> failed)",
         "Note: 1 previously failing test is now passing or missing, so totals may appear unchanged."
     ]);
+});
+
+test("runCli generates summary table for legacy pr-summary-table-comment", () => {
+    const baseDir = path.join(workspace, "base/reports");
+    const headDir = path.join(workspace, "reports");
+
+    writeXml(
+        baseDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="stable" classname="test" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    writeXml(
+        headDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="stable" classname="test">
+          <failure message="boom" />
+        </testcase>
+      </testsuite>
+    </testsuites>`
+    );
+
+    const cliPath = path.resolve(
+        "src/cli/commands/detect-test-regressions.mjs"
+    );
+    const result = spawnSync(
+        process.execPath,
+        [cliPath, "pr-summary-table-comment"],
+        {
+            cwd: workspace,
+            env: { ...process.env, GITHUB_WORKSPACE: workspace },
+            encoding: "utf8"
+        }
+    );
+
+    assert.strictEqual(result.status, 0);
+    assert.strictEqual(result.stderr.trim(), "");
+    assert.match(result.stdout, /\| Target \| Total \| Passed \| Failed/);
+    assert.match(
+        result.stdout,
+        /Status: \*\*regressions\*\* \(all green: false\)/
+    );
+    assert.match(
+        result.stdout,
+        /Regression summary:\n- \*\*base → head\*\*: regressions detected \(1 new failing test\)/
+    );
+
+    const baseSummaryPath = path.join(workspace, "junit-base", "summary.json");
+    const headSummaryPath = path.join(workspace, "junit-head", "summary.json");
+    const comparisonPath = path.join(workspace, "reports", "comparison.json");
+
+    assert.ok(fs.existsSync(baseSummaryPath));
+    assert.ok(fs.existsSync(headSummaryPath));
+    assert.ok(fs.existsSync(comparisonPath));
+
+    const comparison = JSON.parse(fs.readFileSync(comparisonPath, "utf8"));
+    assert.ok(Array.isArray(comparison.comparisons));
+    assert.ok(comparison.comparisons.length > 0);
+    assert.strictEqual(
+        comparison.comparisons[0].regressions.hasRegression,
+        true
+    );
 });
 
 test("detectResolvedFailures returns failures that now pass or are missing", () => {
