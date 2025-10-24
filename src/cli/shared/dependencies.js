@@ -35,6 +35,8 @@ export {
     toTrimmedString
 } from "../../shared/utils.js";
 
+export { createAbortGuard } from "../../shared/abort-utils.js";
+
 export { normalizeStringList } from "../../shared/utils/string.js";
 
 export {
@@ -54,8 +56,9 @@ export {
 } from "../../shared/utils/capability-probes.js";
 
 export {
+    JsonParseError,
     isJsonParseError,
     stringifyJsonForFile
 } from "../../shared/json-utils.js";
 
-export { ensureDir } from "../../shared/fs-utils.js";
+export { ensureDir, isFsErrorCode } from "../../shared/fs-utils.js";
