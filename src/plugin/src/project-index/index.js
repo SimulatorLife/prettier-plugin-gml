@@ -1,13 +1,9 @@
 import path from "node:path";
 import { cloneLocation } from "../../../shared/ast-locations.js";
 import { getCallExpressionIdentifier } from "../../../shared/ast-node-helpers.js";
-import {
-    toPosixPath,
-    walkAncestorDirectories
-} from "../../../shared/path-utils.js";
+import { toPosixPath } from "../../../shared/path-utils.js";
 import {
     asArray,
-    cloneObjectEntries,
     isNonEmptyArray,
     pushUnique
 } from "../../../shared/array-utils.js";
@@ -23,10 +19,7 @@ import {
 } from "../../../shared/location-keys.js";
 import { resolveProjectIndexParser } from "./parser-override.js";
 import { clampConcurrency } from "./concurrency.js";
-import {
-    PROJECT_MANIFEST_EXTENSION,
-    isProjectManifestPath
-} from "./constants.js";
+import { isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { isFsErrorCode, listDirectory } from "../../../shared/fs-utils.js";
 import {
@@ -38,18 +31,17 @@ import {
     createProjectIndexMetrics,
     finalizeProjectIndexMetrics
 } from "./metrics.js";
-import { throwIfAborted } from "../../../shared/abort-utils.js";
 import {
     analyseResourceFiles,
     createFileScopeDescriptor
 } from "./resource-analysis.js";
 import {
     PROJECT_INDEX_BUILD_ABORT_MESSAGE,
-    PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE,
     createProjectIndexAbortGuard
 } from "./abort-guard.js";
 import { loadBuiltInIdentifiers } from "./built-in-identifiers.js";
 import { createProjectIndexCoordinatorFactory } from "./coordinator.js";
+import { cloneObjectEntries } from "./clone-object-entries.js";
 
 /**
  * Create shallow clones of common entry collections stored on project index
@@ -64,32 +56,6 @@ function cloneEntryCollections(entry, ...keys) {
     );
 }
 
-export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
-    const filepath = options?.filepath;
-    const { signal, ensureNotAborted } = createProjectIndexAbortGuard(options, {
-        message: PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE
-    });
-
-    if (!filepath) {
-        return null;
-    }
-
-    const startDirectory = path.dirname(path.resolve(filepath));
-
-    for (const directory of walkAncestorDirectories(startDirectory)) {
-        ensureNotAborted();
-
-        const entries = await listDirectory(fsFacade, directory, { signal });
-        ensureNotAborted();
-
-        if (entries.some(isProjectManifestPath)) {
-            return directory;
-        }
-    }
-
-    return null;
-}
-
 export const createProjectIndexCoordinator =
     createProjectIndexCoordinatorFactory({
         defaultFsFacade,
@@ -100,6 +66,8 @@ export const createProjectIndexCoordinator =
     });
 
 export { createProjectIndexCoordinatorFactory } from "./coordinator.js";
+
+export { findProjectRoot } from "./project-root.js";
 
 export {
     PROJECT_MANIFEST_EXTENSION,
@@ -187,6 +155,16 @@ const PROJECT_FILE_CATEGORY_CHOICES = Object.freeze(
     [...PROJECT_FILE_CATEGORIES].sort().join(", ")
 );
 
+/**
+ * Validate and normalize the category used when registering project files.
+ * Ensures downstream collectors receive only the canonical string literals the
+ * index understands, preserving stable cache keys and metrics labeling.
+ *
+ * @param {unknown} value Candidate category provided by a caller.
+ * @returns {"gml" | "yy"} Canonical project file category string.
+ * @throws {RangeError} When {@link value} is not one of the supported
+ *         categories.
+ */
 export function normalizeProjectFileCategory(value) {
     if (PROJECT_FILE_CATEGORIES.has(value)) {
         return value;

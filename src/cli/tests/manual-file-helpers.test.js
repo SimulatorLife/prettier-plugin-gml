@@ -7,7 +7,7 @@ import { beforeEach, describe, it } from "node:test";
 import {
     writeManualFile,
     writeManualJsonArtifact
-} from "../lib/manual/file-helpers.js";
+} from "../features/manual/file-helpers.js";
 
 function createTempDirFactory() {
     let counter = 0;

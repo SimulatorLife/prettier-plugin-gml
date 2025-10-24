@@ -8,10 +8,7 @@ import {
 } from "../../../shared/number-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
 import { createEnvConfiguredValueWithFallback } from "../../../shared/environment-utils.js";
-import {
-    PROJECT_MANIFEST_EXTENSION,
-    isProjectManifestPath
-} from "./constants.js";
+import { isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { createAbortGuard } from "../../../shared/abort-utils.js";
 import {
