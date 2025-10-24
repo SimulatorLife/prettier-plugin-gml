@@ -147,17 +147,206 @@ jobs:
           # Falls back to head when merge isn't available (handled by your script)
           node src/cli/commands/detect-test-regressions.mjs 2>&1 | tee "$log_file"
           code=${PIPESTATUS[0]}
+          all_green="true"
+          status="clean"
           if [ $code -eq 0 ]; then
-            echo "all_green=true" >> "$GITHUB_OUTPUT"
-            echo "status=clean" >> "$GITHUB_OUTPUT"
+            all_green="true"
+            status="clean"
           else
-            echo "all_green=false" >> "$GITHUB_OUTPUT"
+            all_green="false"
             if grep -q "New failing tests detected" "$log_file"; then
-              echo "status=regressions" >> "$GITHUB_OUTPUT"
+              status="regressions"
             else
-              echo "status=error" >> "$GITHUB_OUTPUT"
+              status="error"
             fi
           fi
+
+          lint_output_file="$(pwd)/lint-new-errors.json"
+          lint_info="$(node <<'NODE'
+const fs = require('node:fs');
+const path = require('node:path');
+
+function listFilesRecursive(root) {
+  if (!fs.existsSync(root)) return [];
+  const files = [];
+  const stack = [root];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      if (entry.name === '.' || entry.name === '..') continue;
+      const fullPath = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(fullPath);
+      } else {
+        files.push(fullPath);
+      }
+    }
+  }
+  return files;
+}
+
+function toRelative(filePath) {
+  if (!filePath) return '';
+  const normalized = filePath.replace(/\\/g, '/');
+  const repoName = (process.env.GITHUB_REPOSITORY || '').split('/')[1] || '';
+  if (repoName) {
+    const marker = `/${repoName}/`;
+    const idx = normalized.lastIndexOf(marker);
+    if (idx >= 0) {
+      return normalized.slice(idx + marker.length);
+    }
+  }
+  return normalized;
+}
+
+function parseCheckstyleFile(filePath) {
+  const xml = fs.readFileSync(filePath, 'utf8');
+  const errors = [];
+  const filePattern = /<file\b[^>]*name="([^"]*)"[^>]*>([\s\S]*?)<\/file>/gi;
+  let match;
+  while ((match = filePattern.exec(xml)) !== null) {
+    const name = toRelative(match[1] || '');
+    const body = match[2] || '';
+    const errorPattern = /<error\b([^>]*)\/>/gi;
+    let errorMatch;
+    while ((errorMatch = errorPattern.exec(body)) !== null) {
+      const attrs = errorMatch[1] || '';
+      const severity = ((attrs.match(/severity="([^"]*)"/i) || [])[1] || '').toLowerCase();
+      if (severity !== 'error') continue;
+      const line = (attrs.match(/line="([^"]*)"/i) || [])[1] || '';
+      const column = (attrs.match(/column="([^"]*)"/i) || [])[1] || '';
+      const message = (attrs.match(/message="([^"]*)"/i) || [])[1] || '';
+      const source = (attrs.match(/source="([^"]*)"/i) || [])[1] || '';
+      errors.push({
+        file: name,
+        line: line ? Number.parseInt(line, 10) || null : null,
+        column: column ? Number.parseInt(column, 10) || null : null,
+        message,
+        rule: source.split('.').slice(-1)[0] || source,
+        descriptor: `${name}|${line}|${column}|${message}|${source}`
+      });
+    }
+  }
+  return errors;
+}
+
+function collectLintErrors(rootDir) {
+  const files = listFilesRecursive(rootDir).filter(file => /checkstyle/i.test(path.basename(file)));
+  const errors = [];
+  for (const file of files) {
+    try {
+      errors.push(...parseCheckstyleFile(file));
+    } catch {
+      // ignore malformed files and continue
+    }
+  }
+  const descriptors = new Set(errors.map(entry => entry.descriptor));
+  return {
+    available: files.length > 0,
+    errors,
+    descriptors,
+    count: descriptors.size
+  };
+}
+
+const cwd = process.cwd();
+const baseDir = path.join(cwd, 'junit-base');
+const headDir = path.join(cwd, 'junit-head');
+const mergeDir = path.join(cwd, 'junit-merge');
+
+const base = collectLintErrors(baseDir);
+const head = collectLintErrors(headDir);
+const merge = collectLintErrors(mergeDir);
+
+let targetKey = null;
+let target = null;
+if (merge.available) {
+  targetKey = 'merge';
+  target = merge;
+} else if (head.available) {
+  targetKey = 'head';
+  target = head;
+}
+
+let status = 'clean';
+let summary = '';
+let newErrors = [];
+
+if (!target || (!base.available && !target.available)) {
+  status = 'unknown';
+  summary = 'Unable to evaluate lint errors (missing artifacts).';
+} else {
+  const targetErrors = target ? target.errors : [];
+  const baseDescriptors = base.descriptors || new Set();
+  newErrors = targetErrors.filter(entry => !baseDescriptors.has(entry.descriptor));
+  if (!base.available && targetErrors.length > 0) {
+    newErrors = targetErrors.slice();
+  }
+  if (newErrors.length > 0) {
+    status = 'new_errors';
+    summary = `${newErrors.length} new lint error${newErrors.length === 1 ? '' : 's'} detected.`;
+  }
+}
+
+const payload = {
+  base: { count: base.count || 0 },
+  target: { key: targetKey, count: target ? target.count || 0 : 0 },
+  newErrors: newErrors.map(({ descriptor, ...rest }) => rest)
+};
+
+try {
+  fs.writeFileSync(path.resolve(process.cwd(), 'lint-new-errors.json'), JSON.stringify(payload, null, 2));
+} catch {
+  // ignore write failures
+}
+
+const lines = [
+  `lint_status=${status}`,
+  `lint_target=${targetKey || ''}`,
+  `lint_new_errors=${newErrors.length}`,
+  `lint_target_errors=${target ? target.count || 0 : 0}`,
+  `lint_base_errors=${base.count || 0}`,
+  `lint_summary=${summary.replace(/\r?\n/g, ' ').trim()}`,
+  `lint_report_file=${lint_output_file}`
+];
+
+process.stdout.write(lines.join('\n'));
+NODE
+)"
+
+          lint_status=$(printf '%s\n' "$lint_info" | awk -F= '/^lint_status=/{print $2}' | tail -n 1)
+          lint_target=$(printf '%s\n' "$lint_info" | awk -F= '/^lint_target=/{print $2}' | tail -n 1)
+          lint_new_errors=$(printf '%s\n' "$lint_info" | awk -F= '/^lint_new_errors=/{print $2}' | tail -n 1)
+          lint_summary=$(printf '%s\n' "$lint_info" | sed -n 's/^lint_summary=//p' | tail -n 1)
+
+          if [ "$lint_status" = "new_errors" ]; then
+            all_green="false"
+            if [ "$status" = "clean" ]; then
+              status="lint_regressions"
+            fi
+          elif [ "$lint_status" = "unknown" ] && [ "$status" = "clean" ]; then
+            all_green="false"
+            status="error"
+          fi
+
+          echo "all_green=$all_green" >> "$GITHUB_OUTPUT"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          if [ -n "$lint_status" ]; then
+            echo "lint_status=$lint_status" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -n "$lint_target" ]; then
+            echo "lint_target=$lint_target" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -n "$lint_new_errors" ]; then
+            echo "lint_new_errors=$lint_new_errors" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -n "$lint_summary" ]; then
+            echo "lint_summary=$lint_summary" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -f "$lint_output_file" ]; then
+            echo "lint_report_file=$lint_output_file" >> "$GITHUB_OUTPUT"
+          fi
+
           rm -f "$log_file"
           exit 0
 
@@ -166,6 +355,11 @@ jobs:
         env:
           REGRESSION_ALL_GREEN: ${{ steps.regress.outputs.all_green }}
           REGRESSION_STATUS: ${{ steps.regress.outputs.status }}
+          LINT_STATUS: ${{ steps.regress.outputs.lint_status }}
+          LINT_NEW_ERRORS: ${{ steps.regress.outputs.lint_new_errors }}
+          LINT_TARGET: ${{ steps.regress.outputs.lint_target }}
+          LINT_SUMMARY: ${{ steps.regress.outputs.lint_summary }}
+          LINT_REPORT_FILE: ${{ steps.regress.outputs.lint_report_file }}
         with:
           script: |
             const fs = require('node:fs');
@@ -183,6 +377,28 @@ jobs:
             const modulePath = path.resolve(process.cwd(), 'src/cli/commands/detect-test-regressions.mjs');
             const regressionModule = await import(pathToFileURL(modulePath).href);
             const { readTestResults, detectRegressions } = regressionModule;
+
+            const lintStatusFlag = (process.env.LINT_STATUS || '').toLowerCase();
+            const lintNewErrorCount = Number.parseInt(process.env.LINT_NEW_ERRORS || '0', 10) || 0;
+            const lintTargetKey = (process.env.LINT_TARGET || '').toLowerCase();
+            const lintSummaryFlag = process.env.LINT_SUMMARY || '';
+            const lintReportFile = process.env.LINT_REPORT_FILE || '';
+            let lintDiff = null;
+
+            if (lintReportFile) {
+              if (fs.existsSync(lintReportFile)) {
+                try {
+                  const raw = fs.readFileSync(lintReportFile, 'utf8');
+                  lintDiff = JSON.parse(raw);
+                } catch (error) {
+                  lintDiff = null;
+                  notes.push(`Unable to parse lint diff data: ${error.message}`);
+                }
+              } else {
+                lintDiff = null;
+                notes.push(`Lint diff file not found at ${lintReportFile}.`);
+              }
+            }
 
             function listFilesRecursive(root) {
               if (!fs.existsSync(root)) return [];
@@ -435,6 +651,44 @@ jobs:
               return `${label}: ${formatted}`;
             }
 
+            function summarizeLintErrors(errors, limit = 5) {
+              if (!Array.isArray(errors) || errors.length === 0) {
+                return '';
+              }
+
+              const normalizedLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 5;
+              const maxItems = Math.max(1, normalizedLimit);
+
+              const formatted = errors.map(error => {
+                const file = (error?.file || '').trim();
+                const line = Number.isFinite(error?.line) ? error.line : null;
+                const rule = (error?.rule || '').trim();
+                const message = (error?.message || '').trim();
+                const location = file ? `${file}${line ? `:${line}` : ''}` : 'Unknown location';
+                const rulePart = rule ? ` [${rule}]` : '';
+                const messagePart = message ? ` – ${message}` : '';
+                return `\`${location}\`${rulePart}${messagePart}`;
+              });
+
+              const visible = formatted.slice(0, maxItems);
+              const remaining = formatted.length - visible.length;
+
+              if (remaining > 0) {
+                return `New lint errors (showing ${visible.length} of ${formatted.length}): ${visible.join('; ')}`;
+              }
+
+              return `New lint errors: ${visible.join('; ')}`;
+            }
+
+            function describeLintTarget(key) {
+              if (!key) return '';
+              const normalized = String(key).toLowerCase();
+              if (normalized === 'merge') return 'merged (base + PR) results';
+              if (normalized === 'head') return 'PR (head) results';
+              if (normalized === 'base') return 'base results';
+              return `${key} results`;
+            }
+
             for (const tgt of targets) {
               const dir = path.join(process.cwd(), `junit-${tgt}`);
               const files = listFilesRecursive(dir);
@@ -520,9 +774,22 @@ jobs:
 
             const statusFlag = (process.env.REGRESSION_STATUS || '').toLowerCase();
             const allGreenFlag = (process.env.REGRESSION_ALL_GREEN || '').toLowerCase() === 'true';
+            const resolvedLintTarget = lintTargetKey || (typeof lintDiff?.target?.key === 'string' ? lintDiff.target.key : '');
+            const lintErrors = Array.isArray(lintDiff?.newErrors) ? lintDiff.newErrors : [];
+            const lintSummaryFromData = summarizeLintErrors(lintErrors, 5);
+            const lintSummaryParts = [lintSummaryFlag.trim(), lintSummaryFromData].filter(Boolean);
+            const lintSummaryCombined = lintSummaryParts.join(' ');
+            const lintLocationLabel = describeLintTarget(resolvedLintTarget);
+            const lintStatusIsRegression = lintStatusFlag === 'new_errors' || statusFlag === 'lint_regressions';
+            const lintCount = Number.isFinite(lintNewErrorCount) && lintNewErrorCount > 0 ? lintNewErrorCount : lintErrors.length;
+            const lintCountLabel = lintCount === 1 ? '1 new lint error' : `${lintCount} new lint errors`;
+            const lintSummarySentence = [
+              lintSummaryCombined || (lintStatusIsRegression ? `${lintCount > 0 ? lintCountLabel : 'New lint errors'} detected${lintLocationLabel ? ` on ${lintLocationLabel}` : ''}.` : ''),
+              lintSummaryCombined && lintLocationLabel ? `Detected on ${lintLocationLabel}.` : ''
+            ].filter(Boolean).join(' ');
 
             let statusLine;
-            if (statusFlag === 'clean' || allGreenFlag) {
+            if ((statusFlag === 'clean' || allGreenFlag) && !lintStatusIsRegression) {
               statusLine = '✅ No test regressions detected — this PR will be auto-merged.';
             } else if (statusFlag === 'regressions') {
               let causeDetails = '';
@@ -554,7 +821,15 @@ jobs:
                   'Cause could not be determined from available data.'
                 ].filter(Boolean).join(' ');
               }
-            } else if (statusFlag === 'error') {
+              if (lintStatusIsRegression) {
+                statusLine = [statusLine, lintSummarySentence].filter(Boolean).join(' ');
+              }
+            } else if (lintStatusIsRegression) {
+              statusLine = [
+                '❌ Lint regressions detected — auto-merge is disabled.',
+                lintSummarySentence
+              ].filter(Boolean).join(' ');
+            } else if (statusFlag === 'error' || lintStatusFlag === 'unknown') {
               statusLine = '⚠️ Regression checks did not complete — auto-merge is blocked.';
             } else {
               statusLine = '⚠️ Regression status unknown — auto-merge is blocked.';
