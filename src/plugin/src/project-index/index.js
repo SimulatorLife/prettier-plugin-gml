@@ -8,7 +8,8 @@ import {
 import {
     asArray,
     cloneObjectEntries,
-    isNonEmptyArray
+    isNonEmptyArray,
+    pushUnique
 } from "../../../shared/array-utils.js";
 import {
     assertFunction,
@@ -66,13 +67,9 @@ const PARSER_FACADE_OPTION_KEYS = [
  */
 function cloneEntryCollections(entry, ...keys) {
     const source = isObjectLike(entry) ? entry : {};
-    const clones = {};
-
-    for (const key of keys) {
-        clones[key] = cloneObjectEntries(source[key]);
-    }
-
-    return clones;
+    return Object.fromEntries(
+        keys.map((key) => [key, cloneObjectEntries(source[key])])
+    );
 }
 
 function getProjectIndexParserOverride(options) {
@@ -714,8 +711,8 @@ function createFunctionLikeIdentifierRecord({
         : [classification];
     const classificationTags = ["identifier", "declaration"];
     for (const tag of classificationArray) {
-        if (tag && !classificationTags.includes(tag)) {
-            classificationTags.push(tag);
+        if (tag) {
+            pushUnique(classificationTags, tag);
         }
     }
 
@@ -1850,9 +1847,7 @@ function registerFilePathWithScope(scopeRecord, filePath) {
         return;
     }
 
-    if (!scopeRecord.filePaths.includes(filePath)) {
-        scopeRecord.filePaths.push(filePath);
-    }
+    pushUnique(scopeRecord.filePaths, filePath);
 }
 
 function prepareProjectIndexRecords({

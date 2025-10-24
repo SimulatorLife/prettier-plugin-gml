@@ -1,5 +1,5 @@
-import { getNonEmptyString, normalizeStringList } from "./string.js";
-import { toArrayFromIterable } from "./array.js";
+import { getNonEmptyString, normalizeStringList } from "../string-utils.js";
+import { toArrayFromIterable } from "../array-utils.js";
 
 const hasHrtime = typeof process?.hrtime?.bigint === "function";
 

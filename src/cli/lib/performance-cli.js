@@ -21,7 +21,8 @@ import {
 import {
     assertArray,
     coercePositiveInteger,
-    getIdentifierText
+    getIdentifierText,
+    stringifyJsonForFile
 } from "./shared-deps.js";
 import {
     PerformanceSuiteName,
@@ -34,7 +35,7 @@ const AVAILABLE_SUITES = new Map();
 const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const CLI_DIRECTORY = path.resolve(MODULE_DIRECTORY, "..");
 const REPO_ROOT = path.resolve(CLI_DIRECTORY, "..");
-const TEST_RESULTS_DIRECTORY = path.resolve(REPO_ROOT, "test-results");
+const TEST_RESULTS_DIRECTORY = path.resolve(REPO_ROOT, "reports");
 const DEFAULT_REPORT_FILE = path.join(
     TEST_RESULTS_DIRECTORY,
     "performance-report.json"
@@ -156,20 +157,34 @@ async function collectFixtureFilePaths(directories) {
 async function loadFixtureDataset({ directories } = {}) {
     const fixtureDirectories = normalizeFixtureRoots(directories ?? []);
     const fixturePaths = await collectFixtureFilePaths(fixtureDirectories);
+    const files = await loadFixtureFiles(fixturePaths);
 
-    const files = [];
+    return createDatasetFromFiles(files);
+}
+
+function normalizeCustomDataset(dataset) {
+    const entries = assertArray(dataset, {
+        name: "dataset",
+        errorMessage: "Custom datasets must be provided as an array."
+    });
+
+    const files = entries.map((entry, index) =>
+        normalizeCustomDatasetEntry(entry, index)
+    );
+
+    return createDatasetFromFiles(files);
+}
+
+/**
+ * Combine normalized fixture records into the dataset payload expected by
+ * benchmark runners.
+ *
+ * @param {Array<{ path: string, relativePath: string, source: string, size: number }>} files
+ */
+function createDatasetFromFiles(files) {
     let totalBytes = 0;
-
-    for (const absolutePath of fixturePaths) {
-        const source = await fs.readFile(absolutePath, "utf8");
-        const size = Buffer.byteLength(source);
-        totalBytes += size;
-        files.push({
-            path: absolutePath,
-            relativePath: path.relative(REPO_ROOT, absolutePath),
-            source,
-            size
-        });
+    for (const file of files) {
+        totalBytes += file.size;
     }
 
     return {
@@ -181,55 +196,79 @@ async function loadFixtureDataset({ directories } = {}) {
     };
 }
 
-function normalizeCustomDataset(dataset) {
-    const entries = assertArray(dataset, {
-        name: "dataset",
-        errorMessage: "Custom datasets must be provided as an array."
-    });
+/**
+ * Read the benchmark fixture files in a stable order so dataset consumers see
+ * deterministic output regardless of the underlying filesystem.
+ *
+ * @param {Array<string>} fixturePaths
+ */
+async function loadFixtureFiles(fixturePaths) {
+    const records = [];
+    for (const absolutePath of fixturePaths) {
+        records.push(await readFixtureFileRecord(absolutePath));
+    }
+    return records;
+}
 
-    const files = [];
-    let totalBytes = 0;
+/**
+ * Resolve a single fixture file into the canonical dataset record structure.
+ */
+async function readFixtureFileRecord(absolutePath) {
+    const source = await fs.readFile(absolutePath, "utf8");
+    return createFixtureRecord({ absolutePath, source });
+}
 
-    entries.forEach((entry, index) => {
-        if (!entry || typeof entry !== "object") {
-            throw new TypeError(
-                "Each dataset entry must be an object with a source string."
-            );
-        }
-
-        const source = entry.source;
-        if (typeof source !== "string") {
-            throw new TypeError(
-                "Dataset entries must include a string `source` property."
-            );
-        }
-
-        const providedPath =
-            typeof entry.path === "string" ? entry.path : `<fixture-${index}>`;
-        const relativePath =
-            typeof entry.relativePath === "string"
-                ? entry.relativePath
-                : providedPath.startsWith("<")
-                  ? providedPath
-                  : path.relative(REPO_ROOT, providedPath);
-        const size = entry.size ?? Buffer.byteLength(source);
-        totalBytes += size;
-
-        files.push({
-            path: providedPath,
-            relativePath,
-            source,
-            size
-        });
-    });
+/**
+ * Normalize fixture metadata while enforcing consistent size and relative path
+ * semantics regardless of where the record originated.
+ */
+function createFixtureRecord({ absolutePath, source, size, relativePath }) {
+    const resolvedSize =
+        typeof size === "number" && Number.isFinite(size)
+            ? size
+            : Buffer.byteLength(source);
+    const resolvedRelativePath =
+        typeof relativePath === "string"
+            ? relativePath
+            : path.relative(REPO_ROOT, absolutePath);
 
     return {
-        files,
-        summary: createDatasetSummary({
-            fileCount: files.length,
-            totalBytes
-        })
+        path: absolutePath,
+        relativePath: resolvedRelativePath,
+        source,
+        size: resolvedSize
     };
+}
+
+function normalizeCustomDatasetEntry(entry, index) {
+    if (!entry || typeof entry !== "object") {
+        throw new TypeError(
+            "Each dataset entry must be an object with a source string."
+        );
+    }
+
+    const source = entry.source;
+    if (typeof source !== "string") {
+        throw new TypeError(
+            "Dataset entries must include a string `source` property."
+        );
+    }
+
+    const providedPath =
+        typeof entry.path === "string" ? entry.path : `<fixture-${index}>`;
+    const resolvedRelativePath =
+        typeof entry.relativePath === "string"
+            ? entry.relativePath
+            : providedPath.startsWith("<")
+              ? providedPath
+              : path.relative(REPO_ROOT, providedPath);
+
+    return createFixtureRecord({
+        absolutePath: providedPath,
+        source,
+        size: entry.size,
+        relativePath: resolvedRelativePath
+    });
 }
 
 async function resolveDatasetFromOptions(options = {}) {
@@ -540,7 +579,7 @@ async function writeReport(report, options) {
     await fs.mkdir(directory, { recursive: true });
 
     const spacing = options.pretty ? 2 : 0;
-    const payload = `${JSON.stringify(report, null, spacing)}\n`;
+    const payload = stringifyJsonForFile(report, { space: spacing });
     await fs.writeFile(targetFile, payload, "utf8");
 
     return { skipped: false, path: targetFile };

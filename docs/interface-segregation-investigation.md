@@ -74,7 +74,8 @@ no code changes were required.
   object, which forced commands that only needed one facet (for example,
   `fetchManualFile`) to depend on all of the manual wiring details.
 - Split the contract into explicit helpers – `createManualEnvironmentContext`,
-  `createManualGitHubExecutionContext`, and `createManualManualAccessContext` – so
+  the since-superseded `createManualGitHubExecutionContext`, and
+  `createManualManualAccessContext` – so
   callers can depend solely on the slice they require. Updated the manual CLI
   commands and associated tests to destructure the focused views instead of the
   wide context.
@@ -89,8 +90,9 @@ no code changes were required.
   were forced to depend on all four behaviours.
 - Replaced the combined operations facade with focused services for requests,
   files, refs, and commits. Updated the manual CLI commands and unit tests to
-  use `createManualManualAccessContext` and `createManualGitHubExecutionContext`
-  so each call site depends only on the GitHub behaviour it requires.
+  use `createManualManualAccessContext` and
+  (at the time) `createManualGitHubExecutionContext` so each call site depends
+  only on the GitHub behaviour it requires.
 
 ## Follow-up audit (2025-03-19)
 
@@ -106,3 +108,18 @@ no code changes were required.
   `refResolver`, and `fileClient`) directly on the execution context. Updated
   the associated unit test to assert against the focused properties so each
   call site now depends solely on the GitHub behaviour it needs.
+
+## Follow-up audit (2025-03-26)
+
+- Revisited the manual GitHub helpers once more and found the exported
+  `ManualGitHubExecutionContext` contract still coupled service facades with the
+  raw request/commit/ref/file clients. Even after earlier splits, callers that
+  only needed one collaborator had to depend on the entire execution bundle.
+- Replaced the umbrella helper with targeted resolvers
+  (`resolveManualGitHubRequestService`,
+  `resolveManualGitHubRequestExecutor`,
+  `resolveManualGitHubCommitService`,
+  `resolveManualGitHubCommitResolver`,
+  `resolveManualGitHubRefResolver`, and
+  `resolveManualGitHubFileClient`). Updated the CLI unit test to import the
+  specialised helpers so consumers opt into only the collaborator they require.

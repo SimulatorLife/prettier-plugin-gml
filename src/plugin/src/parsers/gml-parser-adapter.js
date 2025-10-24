@@ -10,7 +10,8 @@ import GMLParser, {
 import { consolidateStructAssignments } from "../ast-transforms/consolidate-struct-assignments.js";
 import {
     applyFeatherFixes,
-    preprocessSourceForFeatherFixes
+    preprocessSourceForFeatherFixes,
+    applyRemovedIndexAdjustments
 } from "../ast-transforms/apply-feather-fixes.js";
 import { preprocessFunctionArgumentDefaults } from "../ast-transforms/preprocess-function-argument-defaults.js";
 import { enforceVariableBlockSpacing } from "../ast-transforms/enforce-variable-block-spacing.js";
@@ -36,6 +37,7 @@ const { addTrailingComment } = util;
 async function parse(text, options) {
     let parseSource = text;
     let preprocessedFixMetadata = null;
+    let enumIndexAdjustments = null;
     let environmentPrepared = false;
 
     if (options && typeof options === "object") {
@@ -59,6 +61,7 @@ async function parse(text, options) {
             }
 
             preprocessedFixMetadata = preprocessResult?.metadata ?? null;
+            enumIndexAdjustments = preprocessResult?.indexAdjustments ?? null;
         }
 
         const sanitizedResult = sanitizeConditionalAssignments(parseSource);
@@ -152,6 +155,16 @@ async function parse(text, options) {
                 applySanitizedIndexAdjustments(
                     preprocessedFixMetadata,
                     indexAdjustments
+                );
+            }
+        }
+
+        if (enumIndexAdjustments && enumIndexAdjustments.length > 0) {
+            applyRemovedIndexAdjustments(ast, enumIndexAdjustments);
+            if (preprocessedFixMetadata) {
+                applyRemovedIndexAdjustments(
+                    preprocessedFixMetadata,
+                    enumIndexAdjustments
                 );
             }
         }
