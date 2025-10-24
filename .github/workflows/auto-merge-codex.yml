@@ -26,29 +26,52 @@ jobs:
           script: |
             const pr = context.payload.pull_request;
             const prefixes = ['codex/', 'copilot/'];
-            const headOk = prefixes.some(prefix => pr.head.ref.startsWith(prefix));
-            const baseOk = prefixes.some(prefix => pr.base.ref.startsWith(prefix));
-            if (!headOk || !baseOk) {
-              core.info(`Skipping PR with head ${pr.head.ref} and base ${pr.base.ref}`);
+
+            function hasAllowedPrefix(ref) {
+              for (const prefix of prefixes) {
+                if (ref.startsWith(prefix)) {
+                  return true;
+                }
+              }
+              return false;
+            }
+
+            if (!hasAllowedPrefix(pr.head.ref) || !hasAllowedPrefix(pr.base.ref)) {
+              core.info(
+                'Skipping PR with head ' + pr.head.ref + ' and base ' + pr.base.ref
+              );
               return;
             }
-            const { owner, repo } = context.repo;
+
+            const repoContext = context.repo;
+            const owner = repoContext.owner;
+            const repo = repoContext.repo;
             const pull_number = pr.number;
 
-            const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+            function sleep(ms) {
+              return new Promise(function (resolve) {
+                setTimeout(resolve, ms);
+              });
+            }
             let attempt = 0;
             let current;
             const maxAttempts = 10;
             const delayMs = 2000;
 
             while (attempt < maxAttempts) {
-              const { data } = await github.rest.pulls.get({ owner, repo, pull_number });
-              current = data;
+              const pull = await github.rest.pulls.get({ owner, repo, pull_number });
+              current = pull.data;
               if (current.mergeable !== null) {
                 break;
               }
               attempt += 1;
-              core.info(`Mergeable state pending (attempt ${attempt}/${maxAttempts}). Retrying...`);
+              core.info(
+                'Mergeable state pending (attempt ' +
+                  attempt +
+                  '/' +
+                  maxAttempts +
+                  '). Retrying...'
+              );
               await sleep(delayMs);
             }
 
@@ -58,7 +81,7 @@ jobs:
             }
 
             if (current.state !== 'open') {
-              core.info(`PR #${pull_number} is no longer open.`);
+              core.info('PR #' + pull_number + ' is no longer open.');
               return;
             }
 
@@ -68,7 +91,9 @@ jobs:
             }
 
             if (current.mergeable !== true) {
-              core.info(`PR #${pull_number} is not mergeable (state: ${current.mergeable_state}).`);
+              core.info(
+                'PR #' + pull_number + ' is not mergeable (state: ' + current.mergeable_state + ').'
+              );
               return;
             }
 
@@ -76,7 +101,6 @@ jobs:
               owner,
               repo,
               pull_number,
-              # We use 'merge' instead of 'squash' or 'rebase' to preserve the full commit history and context of codex/copilot branches, which is important for traceability and debugging.
               merge_method: 'merge'
             });
-            core.info(`Merged PR #${pull_number}.`);
+            core.info('Merged PR #' + pull_number + '.');
