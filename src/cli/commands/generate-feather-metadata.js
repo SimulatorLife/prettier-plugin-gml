@@ -13,28 +13,29 @@ import { CliUsageError } from "../lib/cli-errors.js";
 import { assertSupportedNodeVersion } from "../lib/node-version.js";
 import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
 import {
-    renderProgressBar,
     disposeProgressBars,
     withProgressBarCleanup
 } from "../lib/progress-bar.js";
-import { writeManualJsonArtifact } from "../lib/manual-file-helpers.js";
+import { writeManualJsonArtifact } from "../lib/manual/file-helpers.js";
 import {
     MANUAL_CACHE_ROOT_ENV_VAR,
     DEFAULT_MANUAL_REPO,
     MANUAL_REPO_ENV_VAR,
-    buildManualRepositoryEndpoints
+    buildManualRepositoryEndpoints,
+    createManualDownloadReporter,
+    downloadManualFileEntries
 } from "../lib/manual/utils.js";
 import {
     MANUAL_REF_ENV_VAR,
     PROGRESS_BAR_WIDTH_ENV_VAR,
     applyManualEnvOptionOverrides
-} from "../lib/manual-env.js";
+} from "../lib/manual/environment.js";
 import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
 import {
     applySharedManualCommandOptions,
     resolveManualCommandOptions
-} from "../lib/manual-command-options.js";
-import { createManualCommandContext } from "../lib/manual-command-context.js";
+} from "../lib/manual/command-options.js";
+import { createManualAccessContext } from "../lib/manual/context.js";
 
 /** @typedef {ReturnType<typeof resolveManualCommandOptions>} ManualCommandOptions */
 
@@ -44,8 +45,9 @@ const {
         defaultCacheRoot: DEFAULT_CACHE_ROOT,
         defaultOutputPath: OUTPUT_DEFAULT
     },
-    operations: { fetchManualFile, resolveManualRef }
-} = createManualCommandContext({
+    files: { fetchManualFile },
+    refs: { resolveManualRef }
+} = createManualAccessContext({
     importMetaUrl: import.meta.url,
     userAgent: "prettier-plugin-gml feather metadata generator",
     outputFileName: "feather-metadata.json"
@@ -145,6 +147,29 @@ function sanitizeManualString(value) {
     return normalizeMultilineText(value);
 }
 
+function normalizeMultilineTextCollection(
+    values,
+    { preserveEmptyEntries = false, emptyEntryValue = null } = {}
+) {
+    if (!Array.isArray(values)) {
+        return [];
+    }
+
+    const normalized = [];
+
+    for (const value of values) {
+        const text = normalizeMultilineText(value);
+
+        if (text) {
+            normalized.push(text);
+        } else if (preserveEmptyEntries) {
+            normalized.push(emptyEntryValue);
+        }
+    }
+
+    return normalized;
+}
+
 function getNormalizedTextContent(element, { trim = false } = {}) {
     if (!element) {
         return trim ? null : "";
@@ -222,7 +247,9 @@ function extractTable(table) {
             return lines.join("\n");
         });
 
-        const hasContent = values.some((value) => value && value.trim());
+        const hasContent = values.some((value) =>
+            getNonEmptyTrimmedString(value)
+        );
         if (!hasContent) {
             return;
         }
@@ -231,15 +258,15 @@ function extractTable(table) {
             (cell) => getTagName(cell) === "th"
         );
         if (rowIndex === 0 && hasHeaderCells) {
-            headers.push(
-                ...values
-                    .map((value) => normalizeMultilineText(value))
-                    .filter(Boolean)
-            );
+            headers.push(...normalizeMultilineTextCollection(values));
             return;
         }
 
-        rows.push(values.map((value) => normalizeMultilineText(value) ?? null));
+        rows.push(
+            normalizeMultilineTextCollection(values, {
+                preserveEmptyEntries: true
+            })
+        );
     });
 
     return { headers, rows };
@@ -385,6 +412,45 @@ function normalizeTextBlock(block) {
     return getNonEmptyTrimmedString(block.text);
 }
 
+function pushNormalizedText(target, value) {
+    const normalized = normalizeMultilineText(value);
+    if (normalized) {
+        target.push(normalized);
+    }
+}
+
+function normalizeListItems(items) {
+    return normalizeMultilineTextCollection(items);
+}
+
+const BLOCK_NORMALIZERS = {
+    code(content, block) {
+        if (block.text) {
+            content.codeExamples.push(block.text);
+        }
+    },
+    note(content, block) {
+        pushNormalizedText(content.notes, block.text);
+    },
+    list(content, block) {
+        const items = normalizeListItems(block.items);
+        if (items.length > 0) {
+            content.lists.push(items);
+        }
+    },
+    table(content, block) {
+        if (block.table) {
+            content.tables.push(block.table);
+        }
+    },
+    heading(content, block) {
+        pushNormalizedText(content.headings, block.text);
+    },
+    default(content, block) {
+        pushNormalizedText(content.paragraphs, block.text);
+    }
+};
+
 function normalizeContent(blocks) {
     const content = {
         paragraphs: [],
@@ -394,55 +460,17 @@ function normalizeContent(blocks) {
         headings: [],
         tables: []
     };
-    const appendNormalizedText = (target, text) => {
-        const normalized = normalizeMultilineText(text);
-        if (normalized) {
-            target.push(normalized);
-        }
-    };
 
     for (const block of blocks) {
         if (!block) {
             continue;
         }
 
-        switch (block.type) {
-            case "code": {
-                if (block.text) {
-                    content.codeExamples.push(block.text);
-                }
-                break;
-            }
-            case "note": {
-                appendNormalizedText(content.notes, block.text);
-                break;
-            }
-            case "list": {
-                const items = Array.isArray(block.items)
-                    ? block.items
-                          .map((item) => normalizeMultilineText(item))
-                          .filter(Boolean)
-                    : [];
-                if (items.length > 0) {
-                    content.lists.push(items);
-                }
-                break;
-            }
-            case "table": {
-                if (block.table) {
-                    content.tables.push(block.table);
-                }
-                break;
-            }
-            case "heading": {
-                appendNormalizedText(content.headings, block.text);
-                break;
-            }
-            default: {
-                appendNormalizedText(content.paragraphs, block.text);
-            }
-        }
+        const normalizeBlock =
+            BLOCK_NORMALIZERS[block.type] ?? BLOCK_NORMALIZERS.default;
+        normalizeBlock(content, block);
     }
+
     return content;
 }
 
@@ -895,9 +923,9 @@ function parseTypeSystem(html) {
     const noteBlocks = Array.from(document.querySelectorAll("p.note"))
         .map((element) => createBlock(element))
         .filter(Boolean);
-    const notes = noteBlocks
-        .map((block) => normalizeMultilineText(block.text))
-        .filter(Boolean);
+    const notes = normalizeMultilineTextCollection(
+        noteBlocks.map((block) => block.text)
+    );
 
     const specifierSections = [];
     for (const element of document.querySelectorAll("h3")) {
@@ -953,9 +981,9 @@ function parseTypeSystem(html) {
         overviewNotes: introContent.notes,
         baseTypes: baseTypes.map((type) => ({
             name: type.name,
-            specifierExamples: type.specifierExamples
-                .map((example) => normalizeMultilineText(example))
-                .filter(Boolean),
+            specifierExamples: normalizeMultilineTextCollection(
+                type.specifierExamples
+            ),
             description: normalizeMultilineText(type.description)
         })),
         notes,
@@ -1006,8 +1034,14 @@ async function fetchFeatherManualPayloads({
 
         announceManualDownloadStart(totalManualPages, verbose);
 
-        return downloadManualEntries({
-            manualEntries,
+        const reportProgress = createManualDownloadReporter({
+            label: "Downloading manual pages",
+            verbose,
+            progressBarWidth
+        });
+
+        return downloadManualFileEntries({
+            entries: manualEntries,
             manualRefSha: manualRef.sha,
             fetchManualFile: fetchManualFileFn,
             requestOptions: {
@@ -1016,44 +1050,14 @@ async function fetchFeatherManualPayloads({
                 cacheRoot,
                 rawRoot
             },
-            onProgress: ({
-                manualPath,
-                fetchedCount,
-                totalManualPages: total
-            }) =>
-                reportManualFetchProgress({
-                    manualPath,
+            onProgress: ({ path, fetchedCount, totalEntries }) =>
+                reportProgress({
+                    path,
                     fetchedCount,
-                    totalManualPages: total,
-                    verbose,
-                    progressBarWidth
+                    totalEntries
                 })
         });
     });
-}
-
-function reportManualFetchProgress({
-    manualPath,
-    fetchedCount,
-    totalManualPages,
-    verbose,
-    progressBarWidth
-}) {
-    if (!verbose.downloads) {
-        return;
-    }
-
-    if (verbose.progressBar) {
-        renderProgressBar(
-            "Downloading manual pages",
-            fetchedCount,
-            totalManualPages,
-            progressBarWidth
-        );
-        return;
-    }
-
-    console.log(`✓ ${manualPath}`);
 }
 
 function announceManualDownloadStart(totalManualPages, verbose) {
@@ -1074,29 +1078,6 @@ function announceManualDownloadStart(totalManualPages, verbose) {
  * mirroring the structure previously built inline inside
  * fetchFeatherManualPayloads.
  */
-async function downloadManualEntries({
-    manualEntries,
-    manualRefSha,
-    fetchManualFile,
-    requestOptions,
-    onProgress
-}) {
-    const htmlPayloads = {};
-    let fetchedCount = 0;
-    const totalManualPages = manualEntries.length;
-
-    for (const [key, manualPath] of manualEntries) {
-        htmlPayloads[key] = await fetchManualFile(
-            manualRefSha,
-            manualPath,
-            requestOptions
-        );
-        fetchedCount += 1;
-        onProgress?.({ manualPath, fetchedCount, totalManualPages });
-    }
-
-    return htmlPayloads;
-}
 
 function parseFeatherManualPayloads(htmlPayloads, { verbose }) {
     if (verbose.parsing) {

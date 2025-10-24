@@ -54,7 +54,8 @@ real projects. The collected metrics surfaced three practical improvements:
    hit. The tracker exposes hit/miss/stale counters so we can detect unexpected
    churn during benchmarking.
 2. **I/O batching with bounded concurrency** – scanning and parsing GML files
-   now honours a configurable concurrency limit (defaulting to four workers).
+   now honours a configurable concurrency limit (defaulting to four workers and
+   clamped between one and sixteen).
    The metrics include the active concurrency to make it obvious when the
    system is CPU- or I/O-bound. Processing happens in batches so slow network
    storage no longer serialises the entire pipeline.
@@ -95,7 +96,8 @@ inputs (`manifest-mtime-mismatch`, `formatter-version-mismatch`, etc.).
 atomic rename and refuses to persist entries that exceed the configured size
 limit (8 MiB by default) to avoid unbounded disk growth. Callers can tune the
 limit with the `gmlIdentifierCaseProjectIndexCacheMaxBytes` Prettier option;
-setting it to `0` disables the cap when larger caches are required.
+setting the option (or `GML_PROJECT_INDEX_CACHE_MAX_SIZE`) to `0` disables the
+cap when larger caches are required.
 
 ## Coordination and locking
 

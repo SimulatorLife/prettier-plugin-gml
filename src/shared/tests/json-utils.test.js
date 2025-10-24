@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { isJsonParseError, parseJsonWithContext } from "../json-utils.js";
+import {
+    isJsonParseError,
+    parseJsonWithContext,
+    stringifyJsonForFile
+} from "../json-utils.js";
 import { isErrorLike } from "../utils/capability-probes.js";
 
 describe("parseJsonWithContext", () => {
@@ -69,5 +73,49 @@ describe("parseJsonWithContext", () => {
             error.message,
             /Failed to parse custom from demo\.json: spaced message/
         );
+    });
+});
+
+describe("stringifyJsonForFile", () => {
+    it("serializes objects with a trailing newline by default", () => {
+        const contents = stringifyJsonForFile({ value: 1 }, { space: 2 });
+        assert.equal(contents, '{\n  "value": 1\n}\n');
+    });
+
+    it("respects newline suppression requests", () => {
+        const contents = stringifyJsonForFile(
+            { value: 1 },
+            {
+                space: 2,
+                includeTrailingNewline: false
+            }
+        );
+
+        assert.equal(contents, '{\n  "value": 1\n}');
+    });
+
+    it("honours custom newline tokens without duplicating them", () => {
+        const contents = stringifyJsonForFile(
+            { value: 1 },
+            {
+                space: 2,
+                newline: "\r\n"
+            }
+        );
+
+        assert.ok(contents.endsWith("\r\n"));
+        assert.ok(!contents.endsWith("\r\n\r\n"));
+    });
+
+    it("falls back to standard newlines when provided an invalid terminator", () => {
+        const contents = stringifyJsonForFile(
+            { value: 1 },
+            {
+                space: 0,
+                newline: ""
+            }
+        );
+
+        assert.ok(contents.endsWith("\n"));
     });
 });
