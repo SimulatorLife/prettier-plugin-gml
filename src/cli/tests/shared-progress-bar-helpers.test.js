@@ -4,16 +4,22 @@ import { afterEach, describe, it, mock } from "node:test";
 import {
     disposeProgressBars,
     renderProgressBar,
-    setProgressBarFactoryForTesting,
     resetProgressBarRegistryForTesting
 } from "../shared/progress-bar.js";
+import { SingleBar } from "cli-progress";
 
 function createMockStdout() {
     return {
         isTTY: true,
+        columns: 80,
         clearLine: () => {},
+        clearScreenDown: () => {},
+        cursor: () => {},
+        cursorSave: () => {},
+        cursorRestore: () => {},
         cursorTo: () => {},
         moveCursor: () => {},
+        lineWrapping: () => {},
         on: () => {},
         removeListener: () => {},
         write: () => {}
@@ -22,8 +28,30 @@ function createMockStdout() {
 
 describe("manual CLI helpers", () => {
     afterEach(() => {
-        setProgressBarFactoryForTesting();
+        mock.restoreAll();
         resetProgressBarRegistryForTesting();
+    });
+
+    it("creates default progress bars when no factory override is provided", () => {
+        const stdout = createMockStdout();
+
+        const startMock = mock.method(SingleBar.prototype, "start", () => {});
+        const updateMock = mock.method(SingleBar.prototype, "update", () => {});
+        const setTotalMock = mock.method(
+            SingleBar.prototype,
+            "setTotal",
+            () => {}
+        );
+        const stopMock = mock.method(SingleBar.prototype, "stop", () => {});
+
+        renderProgressBar("Task", 0, 3, 10, { stdout });
+        renderProgressBar("Task", 1, 3, 10, { stdout });
+        renderProgressBar("Task", 3, 3, 10, { stdout });
+
+        assert.equal(startMock.mock.callCount(), 1);
+        assert.equal(setTotalMock.mock.callCount(), 2);
+        assert.equal(updateMock.mock.callCount(), 2);
+        assert.equal(stopMock.mock.callCount(), 1);
     });
 
     it("disposes active progress bars", () => {

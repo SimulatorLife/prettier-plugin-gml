@@ -7,14 +7,12 @@ import {
 } from "../features/manual/utils.js";
 import {
     renderProgressBar,
-    resetProgressBarRegistryForTesting,
-    setProgressBarFactoryForTesting
+    resetProgressBarRegistryForTesting
 } from "../shared/progress-bar.js";
 
 describe("manual download helpers", () => {
     afterEach(() => {
         mock.restoreAll();
-        setProgressBarFactoryForTesting();
         resetProgressBarRegistryForTesting();
     });
 
