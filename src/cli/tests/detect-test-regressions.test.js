@@ -376,3 +376,55 @@ test("detectResolvedFailures returns failures that now pass or are missing", () 
     assert.strictEqual(regressions.length, 1);
     assert.strictEqual(regressions[0].key, "sample :: test :: new failure");
 });
+
+test("detectRegressions accepts heterogeneous result containers", () => {
+    const base = {
+        results: {
+            "suite :: test :: scenario": {
+                key: "suite :: test :: scenario",
+                status: "passed"
+            }
+        },
+        stats: { total: 1, passed: 1, failed: 0, skipped: 0 }
+    };
+
+    const backing = new Map([
+        [
+            "suite :: test :: scenario",
+            {
+                key: "suite :: test :: scenario",
+                status: "failed",
+                displayName: "suite :: test :: scenario"
+            }
+        ]
+    ]);
+
+    const target = {
+        results: {
+            get(key) {
+                return backing.get(key);
+            },
+            set(key, value) {
+                backing.set(key, value);
+                return this;
+            },
+            entries() {
+                return backing.entries();
+            },
+            [Symbol.iterator]() {
+                return backing[Symbol.iterator]();
+            }
+        },
+        stats: { total: 1, passed: 0, failed: 1, skipped: 0 }
+    };
+
+    const regressions = detectRegressions(base, target);
+
+    assert.equal(regressions.length, 1);
+    assert.equal(regressions[0].from, "passed");
+    assert.equal(regressions[0].to, "failed");
+    assert.equal(
+        regressions[0].detail?.displayName,
+        "suite :: test :: scenario"
+    );
+});

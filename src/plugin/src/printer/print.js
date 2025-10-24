@@ -37,6 +37,7 @@ import {
     toTrimmedString
 } from "../../../shared/string-utils.js";
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
+import { ensureSet } from "../../../shared/utils/capability-probes.js";
 import {
     getNodeStartIndex,
     getNodeEndIndex,
@@ -6253,21 +6254,13 @@ function getSanitizedMacroNames(path) {
                 return null;
             }
 
-            if (names instanceof Set) {
-                return names.size > 0 ? names : null;
-            }
+            const registry = ensureSet(names);
 
-            if (Array.isArray(names)) {
-                if (names.length === 0) {
-                    return null;
-                }
-
-                const registry = new Set(names);
+            if (registry !== names) {
                 ancestor._featherSanitizedMacroNames = registry;
-                return registry;
             }
 
-            return null;
+            return registry.size > 0 ? registry : null;
         }
 
         depth += 1;
