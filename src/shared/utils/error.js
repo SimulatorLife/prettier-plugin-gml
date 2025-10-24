@@ -96,3 +96,38 @@ export function getErrorMessage(error, { fallback } = {}) {
         return "";
     }
 }
+
+/**
+ * Retrieve an error message that always resolves to a non-empty string.
+ *
+ * Several CLI commands previously duplicated the pattern
+ * `getErrorMessage(error, { fallback: "" }) || "Unknown error"` to ensure a
+ * readable fallback. This helper centralizes that behaviour while tolerating
+ * non-string fallbacks, mirroring how other shared utilities normalize input.
+ *
+ * @param {unknown} error Value that may represent an error.
+ * @param {{ fallback?: unknown }} [options]
+ * @returns {string} Guaranteed non-empty error message string.
+ */
+export function getErrorMessageOrFallback(error, { fallback } = {}) {
+    const message = getErrorMessage(error, { fallback: "" });
+
+    if (typeof message === "string" && message.length > 0) {
+        return message;
+    }
+
+    if (typeof fallback === "string" && fallback.length > 0) {
+        return fallback;
+    }
+
+    if (fallback == null) {
+        return "Unknown error";
+    }
+
+    try {
+        const normalized = String(fallback);
+        return normalized.length > 0 ? normalized : "Unknown error";
+    } catch {
+        return "Unknown error";
+    }
+}
