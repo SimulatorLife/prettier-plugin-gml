@@ -1,10 +1,7 @@
 import { SingleBar, Presets } from "cli-progress";
 
 import { coercePositiveInteger } from "./dependencies.js";
-import {
-    createIntegerOptionCoercer,
-    createIntegerOptionState
-} from "../core/numeric-option-state.js";
+import { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
@@ -31,30 +28,19 @@ const createWidthErrorMessage = (received) =>
 const createTypeErrorMessage = (type) =>
     `Progress bar width must be provided as a number (received type '${type}').`;
 
-const coerceProgressBarWidth = createIntegerOptionCoercer({
-    baseCoerce: coercePositiveInteger,
-    createErrorMessage: createWidthErrorMessage
-});
-
-const progressBarWidthState = createIntegerOptionState({
-    defaultValue: DEFAULT_PROGRESS_BAR_WIDTH,
-    envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
-    coerce: coerceProgressBarWidth,
-    typeErrorMessage: createTypeErrorMessage
-});
-
 const {
     getDefault: getDefaultProgressBarWidth,
     setDefault: setDefaultProgressBarWidth,
-    resolve: resolveProgressBarWidthState,
+    resolve: resolveProgressBarWidth,
     applyEnvOverride: applyProgressBarWidthEnvOverride
-} = progressBarWidthState;
-
-function resolveProgressBarWidth(rawValue, { defaultWidth } = {}) {
-    return resolveProgressBarWidthState(rawValue, {
-        defaultValue: defaultWidth
-    });
-}
+} = createIntegerOptionToolkit({
+    defaultValue: DEFAULT_PROGRESS_BAR_WIDTH,
+    envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
+    baseCoerce: coercePositiveInteger,
+    createErrorMessage: createWidthErrorMessage,
+    typeErrorMessage: createTypeErrorMessage,
+    defaultValueOption: "defaultWidth"
+});
 
 applyProgressBarWidthEnvOverride();
 

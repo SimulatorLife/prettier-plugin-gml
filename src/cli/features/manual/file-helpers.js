@@ -1,11 +1,15 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { ensureDir, isNonEmptyString } from "../../shared/dependencies.js";
+import {
+    ensureDir,
+    isNonEmptyString,
+    stringifyJsonForFile
+} from "../../shared/dependencies.js";
 
 /**
  * Persist manual-derived artefacts to disk while guaranteeing parent directories
- * exist. Centralises the file-system ceremony shared by manual helpers so
+ * exist. Centralizes the file-system ceremony shared by manual helpers so
  * commands and caching logic can focus on their payloads and logging.
  *
  * @param {{
@@ -61,8 +65,11 @@ export async function writeManualJsonArtifact({
     includeTrailingNewline = true,
     onAfterWrite
 }) {
-    const serialized = JSON.stringify(payload, replacer, space);
-    const contents = includeTrailingNewline ? `${serialized}\n` : serialized;
+    const contents = stringifyJsonForFile(payload, {
+        replacer,
+        space,
+        includeTrailingNewline
+    });
 
     await writeManualFile({
         outputPath,

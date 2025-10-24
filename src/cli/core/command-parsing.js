@@ -2,7 +2,7 @@ import { InvalidArgumentError } from "commander";
 
 import { CliUsageError } from "./errors.js";
 import { isCommanderErrorLike } from "./commander-error-utils.js";
-import { getErrorMessage } from "../shared/dependencies.js";
+import { assertFunction, getErrorMessage } from "../shared/dependencies.js";
 
 function isCommanderError(error) {
     return (
@@ -37,9 +37,7 @@ export function wrapInvalidArgumentResolver(
         fallbackMessage = "Invalid option value."
     } = {}
 ) {
-    if (typeof resolver !== "function") {
-        throw new TypeError("resolver must be a function");
-    }
+    assertFunction(resolver, "resolver");
 
     const ErrorConstructor =
         typeof errorConstructor === "function"

@@ -42,4 +42,18 @@ describe("Feather fix regressions", () => {
             ].join("\n")
         );
     });
+
+    it("removes standalone vertex_end calls without preceding vertex_begin", async () => {
+        const source = [
+            "/// @description GM2009 - A standalone 'vertex_end' is invalid, so we'll remove it here",
+            "vertex_end(vb);"
+        ].join("\n");
+
+        const formatted = await format(source, { applyFeatherFixes: true });
+
+        assert.strictEqual(
+            formatted,
+            "/// @description GM2009 - A standalone 'vertex_end' is invalid, so we'll remove it here"
+        );
+    });
 });

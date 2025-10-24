@@ -1,7 +1,8 @@
 import {
     assertFunction,
     createEnvConfiguredValue,
-    resolveIntegerOption
+    resolveIntegerOption,
+    hasOwn
 } from "../shared/dependencies.js";
 
 const identity = (value) => value;
@@ -39,7 +40,7 @@ export function createIntegerOptionCoercer({
 
 /**
  * Create a stateful integer option backed by {@link createEnvConfiguredValue}.
- * The helper centralises the logic shared by CLI utilities that expose numeric
+ * The helper centralizes the logic shared by CLI utilities that expose numeric
  * configuration flags with environment overrides.
  *
  * @param {object} parameters
@@ -48,7 +49,7 @@ export function createIntegerOptionCoercer({
  * @param {string} [parameters.envVar] Environment variable that drives the
  *        default when defined.
  * @param {(value: number, context: object) => number} parameters.coerce Function
- *        that validates and normalises numeric input.
+ *        that validates and normalizes numeric input.
  * @param {string | ((type: string) => string)} [parameters.typeErrorMessage]
  *        Error message used when {@link resolveIntegerOption} receives an
  *        unsupported type.
@@ -116,4 +117,50 @@ export function createIntegerOptionState({
     }
 
     return { getDefault, setDefault, resolve, applyEnvOverride };
+}
+
+/**
+ * Create a resolver that maps a descriptive alias (for example `defaultWidth`)
+ * to the `defaultValue` option consumed by {@link createIntegerOptionState}.
+ * Centralizes the boilerplate used across CLI modules that expose numeric
+ * configuration so each module can keep its public API expressive without
+ * re-implementing the aliasing logic.
+ *
+ * @param {(value: unknown, options?: { defaultValue?: number }) => unknown} resolve
+ *        Resolver returned from {@link createIntegerOptionState}.
+ * @param {{ defaultValueOption?: string }} [options]
+ * @param {string} [options.defaultValueOption] Alias forwarded to
+ *        `defaultValue` when present.
+ * @returns {(value: unknown, options?: Record<string, unknown>) => unknown}
+ */
+export function createIntegerOptionResolver(
+    resolve,
+    { defaultValueOption } = {}
+) {
+    assertFunction(resolve, "resolve");
+
+    const alias =
+        typeof defaultValueOption === "string" && defaultValueOption.length > 0
+            ? defaultValueOption
+            : null;
+
+    return (rawValue, options = {}) => {
+        const normalizedOptions =
+            options && typeof options === "object" ? { ...options } : {};
+
+        if (!alias) {
+            return resolve(rawValue, normalizedOptions);
+        }
+
+        if (!hasOwn(normalizedOptions, alias)) {
+            return resolve(rawValue, normalizedOptions);
+        }
+
+        const { [alias]: aliasDefault, ...rest } = normalizedOptions;
+
+        return resolve(rawValue, {
+            ...rest,
+            defaultValue: aliasDefault
+        });
+    };
 }

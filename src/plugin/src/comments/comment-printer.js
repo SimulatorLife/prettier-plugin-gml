@@ -88,11 +88,13 @@ const COMMON_COMMENT_HANDLERS = [
 ];
 
 const END_OF_LINE_COMMENT_HANDLERS = [
+    handleDetachedOwnLineComment,
     ...COMMON_COMMENT_HANDLERS,
     handleMacroComments
 ];
 
 const REMAINING_COMMENT_HANDLERS = [
+    handleDetachedOwnLineComment,
     ...COMMON_COMMENT_HANDLERS,
     handleCommentInEmptyLiteral,
     handleMacroComments
@@ -344,6 +346,40 @@ function handleCommentInEmptyBody(
     comment /*, text, options, ast, isLastComment */
 ) {
     return attachDanglingCommentToEmptyNode(comment, EMPTY_BODY_TARGETS);
+}
+
+function handleDetachedOwnLineComment(comment /*, text, options, ast */) {
+    const { precedingNode, followingNode } = comment;
+
+    if (!precedingNode || !followingNode) {
+        return false;
+    }
+
+    const commentLine = comment?.start?.line;
+    const precedingEndLine = precedingNode?.end?.line;
+    const followingStartLine = followingNode?.start?.line;
+
+    if (
+        !Number.isFinite(commentLine) ||
+        !Number.isFinite(precedingEndLine) ||
+        !Number.isFinite(followingStartLine)
+    ) {
+        return false;
+    }
+
+    if (commentLine <= precedingEndLine) {
+        return false;
+    }
+
+    if (commentLine >= followingStartLine) {
+        return false;
+    }
+
+    addLeadingComment(followingNode, comment);
+    comment.leading = true;
+    comment.trailing = false;
+    delete comment.placement;
+    return true;
 }
 
 function handleMacroComments(comment) {

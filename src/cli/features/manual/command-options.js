@@ -148,31 +148,40 @@ export function applySharedManualCommandOptions(
         fallbackDefault: () => DEFAULT_MANUAL_REPO
     });
 
-    const builtInHandlers = new Map();
-    const addBuiltInHandler = (key, handler) => {
+    const handlers = new Map();
+
+    if (customOptions && typeof customOptions === "object") {
+        for (const [key, handler] of Object.entries(customOptions)) {
+            if (typeof handler === "function") {
+                handlers.set(key, () => handler(command));
+            }
+        }
+    }
+
+    const registerBuiltInHandler = (key, handler) => {
         if (typeof handler === "function") {
-            builtInHandlers.set(key, handler);
+            handlers.set(key, handler);
         }
     };
 
-    addBuiltInHandler(
+    registerBuiltInHandler(
         "outputPath",
         outputOption && (() => configurePathOption(command, outputOption))
     );
 
     if (forceRefreshDescription !== false) {
-        addBuiltInHandler("forceRefresh", () =>
+        registerBuiltInHandler("forceRefresh", () =>
             command.option("--force-refresh", forceRefreshDescription)
         );
     }
 
     if (quietDescription !== false) {
-        addBuiltInHandler("quiet", () =>
+        registerBuiltInHandler("quiet", () =>
             command.option("--quiet", quietDescription)
         );
     }
 
-    addBuiltInHandler(
+    registerBuiltInHandler(
         "progressBarWidth",
         progressOption &&
             (() =>
@@ -184,7 +193,7 @@ export function applySharedManualCommandOptions(
                 }))
     );
 
-    addBuiltInHandler(
+    registerBuiltInHandler(
         "manualRepo",
         manualRepoOption &&
             (() =>
@@ -196,35 +205,20 @@ export function applySharedManualCommandOptions(
                 }))
     );
 
-    addBuiltInHandler(
+    registerBuiltInHandler(
         "cacheRoot",
         cacheOption && (() => configurePathOption(command, cacheOption))
     );
 
-    const customHandlers = new Map();
-    if (customOptions && typeof customOptions === "object") {
-        for (const [key, handler] of Object.entries(customOptions)) {
-            if (typeof handler === "function") {
-                customHandlers.set(key, () => handler(command));
-            }
-        }
-    }
-
     const preferredOrder = Array.isArray(optionOrder) ? optionOrder : [];
-    const customKeys = [...customHandlers.keys()];
-    const builtInKeys = [...builtInHandlers.keys()];
     const ordering = new Set([
         ...preferredOrder,
         ...DEFAULT_OPTION_ORDER,
-        ...customKeys,
-        ...builtInKeys
+        ...handlers.keys()
     ]);
 
     for (const key of ordering) {
-        const handler = builtInHandlers.get(key) ?? customHandlers.get(key);
-        if (handler) {
-            handler();
-        }
+        handlers.get(key)?.();
     }
 
     return command;

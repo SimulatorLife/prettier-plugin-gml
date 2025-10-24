@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { after, describe, it } from "node:test";
+import { after, describe, it, mock } from "node:test";
 
 import { runPerformanceCommand } from "../features/performance/index.js";
 import { PerformanceSuiteName } from "../features/performance/suite-options.js";
@@ -40,8 +40,17 @@ describe("performance CLI report output", () => {
             helpInformation: () => "usage"
         };
 
-        const exitCode = await runPerformanceCommand({ command });
-        assert.equal(exitCode, 0);
+        const logMessages = [];
+        const restoreLog = mock.method(console, "log", (...args) => {
+            logMessages.push(args.join(" "));
+        });
+
+        try {
+            const exitCode = await runPerformanceCommand({ command });
+            assert.equal(exitCode, 0);
+        } finally {
+            restoreLog.mock.restore();
+        }
 
         const rawReport = await readFile(reportFile, "utf8");
         const parsedReport = JSON.parse(rawReport);
@@ -50,5 +59,17 @@ describe("performance CLI report output", () => {
         assert.ok(parsedReport.generatedAt.length > 0);
         assert.ok(parsedReport.suites);
         assert.ok(parsedReport.suites[PerformanceSuiteName.IDENTIFIER_TEXT]);
+
+        const relativePath = path.relative(process.cwd(), reportFile);
+        const expectedPath =
+            relativePath &&
+            !relativePath.startsWith("..") &&
+            !path.isAbsolute(relativePath)
+                ? relativePath
+                : path.resolve(reportFile);
+
+        assert.deepEqual(logMessages, [
+            `Performance report written to ${expectedPath}.`
+        ]);
     });
 });

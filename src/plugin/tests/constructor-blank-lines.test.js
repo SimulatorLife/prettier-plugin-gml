@@ -54,3 +54,48 @@ test("preserves blank line before constructor closing brace", async () => {
         "Expected constructors to retain blank lines between the final statement and closing brace."
     );
 });
+
+test("preserves blank line after documented static constructor members", async () => {
+    const source = [
+        "function Demo() constructor {",
+        "    /// @function helper",
+        "    /// @returns {real}",
+        "    static helper = function() {",
+        "        return 1;",
+        "    };",
+        "",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.trim().split("\n");
+
+    assert.equal(
+        lines.at(-2),
+        "",
+        "Expected documented static members to retain the blank line before the constructor closes."
+    );
+});
+
+test("preserves blank lines after nested function declarations inside constructors", async () => {
+    const source = [
+        "function Demo() constructor {",
+        "",
+        "    function nested() {",
+        "        return 1;",
+        "    }",
+        "",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.trim().split("\n");
+
+    assert.equal(
+        lines.at(-2),
+        "",
+        "Expected nested function declarations to retain their trailing blank line before the constructor closes."
+    );
+});

@@ -8,9 +8,10 @@ import { Command, InvalidArgumentError } from "commander";
 
 import {
     assertPlainObject,
-    createEnvConfiguredValue,
+    createEnvConfiguredValueWithFallback,
     ensureDir,
     getErrorMessage,
+    isNonEmptyString,
     normalizeStringList,
     splitLines,
     parseJsonWithContext
@@ -22,10 +23,7 @@ import {
     wrapInvalidArgumentResolver
 } from "../../core/command-parsing.js";
 import { applyEnvOptionOverrides } from "../../core/env-overrides.js";
-import {
-    createIntegerOptionCoercer,
-    createIntegerOptionState
-} from "../../core/numeric-option-state.js";
+import { createIntegerOptionToolkit } from "../../core/integer-option-toolkit.js";
 import {
     SuiteOutputFormat,
     resolveSuiteOutputFormatOrThrow,
@@ -40,7 +38,7 @@ import { importPluginModule } from "../../plugin/entry-point.js";
 export const DEFAULT_ITERATIONS = 500_000;
 export const MEMORY_ITERATIONS_ENV_VAR = "GML_MEMORY_ITERATIONS";
 
-const DEFAULT_MEMORY_REPORT_DIR = "test-results";
+const DEFAULT_MEMORY_REPORT_DIR = "reports";
 const DEFAULT_MEMORY_REPORT_FILENAME = "memory.json";
 const CLI_MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(CLI_MODULE_DIR, "..", "..", "..", "..");
@@ -52,15 +50,29 @@ const FORMAT_OPTIONS_RELATIVE_PATH =
 export const MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR =
     "GML_MEMORY_PARSER_MAX_ITERATIONS";
 export const DEFAULT_MAX_PARSER_ITERATIONS = 25;
-const MAX_FORMAT_ITERATIONS = 25;
+export const MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR =
+    "GML_MEMORY_FORMAT_MAX_ITERATIONS";
+export const DEFAULT_MAX_FORMAT_ITERATIONS = 25;
 
-const parserIterationLimitConfig = createEnvConfiguredValue({
+const parserIterationLimitConfig = createEnvConfiguredValueWithFallback({
     defaultValue: DEFAULT_MAX_PARSER_ITERATIONS,
     envVar: MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR,
-    normalize: (value, { defaultValue, previousValue }) =>
-        normalizeParserIterationLimit(value, {
-            fallback:
-                previousValue ?? defaultValue ?? DEFAULT_MAX_PARSER_ITERATIONS
+    resolve: (value, { fallback }) =>
+        resolveIntegerOption(value, {
+            defaultValue: fallback,
+            coerce: coerceMemoryIterations,
+            typeErrorMessage: createIterationTypeErrorMessage
+        })
+});
+
+const formatIterationLimitConfig = createEnvConfiguredValueWithFallback({
+    defaultValue: DEFAULT_MAX_FORMAT_ITERATIONS,
+    envVar: MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR,
+    resolve: (value, { fallback }) =>
+        resolveIntegerOption(value, {
+            defaultValue: fallback,
+            coerce: coerceMemoryIterations,
+            typeErrorMessage: createIterationTypeErrorMessage
         })
 });
 
@@ -272,7 +284,7 @@ function buildSuiteResult({ measurement, extraWarnings = [] }) {
     };
 
     const mergedWarnings = [...(warnings ?? []), ...extraWarnings].filter(
-        (warning) => typeof warning === "string" && warning.length > 0
+        (warning) => isNonEmptyString(warning)
     );
 
     if (mergedWarnings.length > 0) {
@@ -283,7 +295,7 @@ function buildSuiteResult({ measurement, extraWarnings = [] }) {
 }
 
 function countLines(text) {
-    if (typeof text !== "string" || text.length === 0) {
+    if (!isNonEmptyString(text)) {
         return 0;
     }
 
@@ -375,40 +387,26 @@ const createIterationErrorMessage = (received) =>
 const createIterationTypeErrorMessage = (type) =>
     `Iteration count must be provided as a number (received type '${type}').`;
 
-const coerceMemoryIterations = createIntegerOptionCoercer({
-    baseCoerce: coercePositiveInteger,
-    createErrorMessage: createIterationErrorMessage
-});
-
-const memoryIterationsState = createIntegerOptionState({
+const {
+    coerce: coerceMemoryIterations,
+    getDefault: getDefaultMemoryIterations,
+    setDefault: setDefaultMemoryIterations,
+    resolve: resolveMemoryIterations,
+    applyEnvOverride: applyMemoryIterationsEnvOverride
+} = createIntegerOptionToolkit({
     defaultValue: DEFAULT_ITERATIONS,
     envVar: MEMORY_ITERATIONS_ENV_VAR,
-    coerce: coerceMemoryIterations,
-    typeErrorMessage: createIterationTypeErrorMessage
+    baseCoerce: coercePositiveInteger,
+    createErrorMessage: createIterationErrorMessage,
+    typeErrorMessage: createIterationTypeErrorMessage,
+    defaultValueOption: "defaultIterations"
 });
 
 const {
-    getDefault: getDefaultMemoryIterations,
-    setDefault: setDefaultMemoryIterations,
-    resolve: resolveMemoryIterationsState,
-    applyEnvOverride: applyMemoryIterationsEnvOverride
-} = memoryIterationsState;
-
-function normalizeParserIterationLimit(value, { fallback }) {
-    const baseline = fallback ?? DEFAULT_MAX_PARSER_ITERATIONS;
-
-    try {
-        const normalized = resolveIntegerOption(value, {
-            defaultValue: baseline,
-            coerce: coerceMemoryIterations,
-            typeErrorMessage: createIterationTypeErrorMessage
-        });
-
-        return normalized ?? baseline;
-    } catch {
-        return baseline;
-    }
-}
+    get: getMaxFormatIterations,
+    set: setMaxFormatIterations,
+    applyEnvOverride: applyFormatMaxIterationsEnvOverride
+} = formatIterationLimitConfig;
 
 function getMaxParserIterations() {
     return parserIterationLimitConfig.get();
@@ -428,14 +426,13 @@ export {
     applyMemoryIterationsEnvOverride,
     getMaxParserIterations,
     setMaxParserIterations,
-    applyParserMaxIterationsEnvOverride
+    applyParserMaxIterationsEnvOverride,
+    getMaxFormatIterations,
+    setMaxFormatIterations,
+    applyFormatMaxIterationsEnvOverride
 };
 
-export function resolveMemoryIterations(rawValue, { defaultIterations } = {}) {
-    return resolveMemoryIterationsState(rawValue, {
-        defaultValue: defaultIterations
-    });
-}
+export { resolveMemoryIterations };
 
 export function applyMemoryEnvOptionOverrides({ command, env } = {}) {
     if (!command || typeof command.setOptionValueWithSource !== "function") {
@@ -457,6 +454,7 @@ export function applyMemoryEnvOptionOverrides({ command, env } = {}) {
 
 applyMemoryIterationsEnvOverride();
 applyParserMaxIterationsEnvOverride();
+applyFormatMaxIterationsEnvOverride();
 
 const AVAILABLE_SUITES = new Map();
 
@@ -627,9 +625,10 @@ AVAILABLE_SUITES.set("parser-ast", runParserAstSuite);
 async function runPluginFormatSuite({ iterations }) {
     const tracker = createMemoryTracker({ requirePreciseGc: true });
     const requestedIterations = typeof iterations === "number" ? iterations : 1;
+    const maxIterations = getMaxFormatIterations();
     const effectiveIterations = Math.max(
         1,
-        Math.min(requestedIterations, MAX_FORMAT_ITERATIONS)
+        Math.min(requestedIterations, maxIterations)
     );
 
     const notes = [];

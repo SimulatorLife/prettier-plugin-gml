@@ -1,8 +1,5 @@
 import { coerceNonNegativeInteger } from "./dependencies.js";
-import {
-    createIntegerOptionCoercer,
-    createIntegerOptionState
-} from "../core/numeric-option-state.js";
+import { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
 
 export const DEFAULT_VM_EVAL_TIMEOUT_MS = 5000;
 
@@ -12,28 +9,21 @@ const createTimeoutErrorMessage = (received) =>
 const createTimeoutTypeErrorMessage = (type) =>
     `VM evaluation timeout must be provided as a number (received type '${type}'). Provide 0 to disable the timeout.`;
 
-const coerceVmTimeout = createIntegerOptionCoercer({
-    baseCoerce: coerceNonNegativeInteger,
-    createErrorMessage: createTimeoutErrorMessage
-});
-
-const vmEvalTimeoutState = createIntegerOptionState({
-    defaultValue: DEFAULT_VM_EVAL_TIMEOUT_MS,
-    coerce: coerceVmTimeout,
-    typeErrorMessage: createTimeoutTypeErrorMessage,
-    finalizeResolved: (value) => (value === 0 ? null : value)
-});
-
 const {
     getDefault: getDefaultVmEvalTimeoutMs,
     setDefault: setDefaultVmEvalTimeoutMs,
-    resolve: resolveVmEvalTimeoutState
-} = vmEvalTimeoutState;
+    resolve: resolveVmEvalTimeout
+} = createIntegerOptionToolkit({
+    defaultValue: DEFAULT_VM_EVAL_TIMEOUT_MS,
+    baseCoerce: coerceNonNegativeInteger,
+    createErrorMessage: createTimeoutErrorMessage,
+    typeErrorMessage: createTimeoutTypeErrorMessage,
+    finalizeResolved: (value) => (value === 0 ? null : value),
+    defaultValueOption: "defaultTimeout"
+});
 
-export { getDefaultVmEvalTimeoutMs, setDefaultVmEvalTimeoutMs };
-
-export function resolveVmEvalTimeout(rawValue, { defaultTimeout } = {}) {
-    return resolveVmEvalTimeoutState(rawValue, {
-        defaultValue: defaultTimeout
-    });
-}
+export {
+    getDefaultVmEvalTimeoutMs,
+    setDefaultVmEvalTimeoutMs,
+    resolveVmEvalTimeout
+};

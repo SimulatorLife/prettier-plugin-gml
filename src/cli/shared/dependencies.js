@@ -8,6 +8,7 @@ export {
     coerceNonNegativeInteger,
     coercePositiveInteger,
     createEnvConfiguredValue,
+    createEnvConfiguredValueWithFallback,
     getErrorCode,
     getErrorMessage,
     getNonEmptyTrimmedString,
@@ -49,6 +50,9 @@ export {
     isErrorLike
 } from "../../shared/utils/capability-probes.js";
 
-export { isJsonParseError } from "../../shared/json-utils.js";
+export {
+    isJsonParseError,
+    stringifyJsonForFile
+} from "../../shared/json-utils.js";
 
-export { ensureDir } from "../../shared/utils/fs.js";
+export { ensureDir } from "../../shared/fs-utils.js";
