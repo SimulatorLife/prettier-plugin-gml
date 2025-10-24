@@ -35,7 +35,8 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
     applyTrailingCommentPadding({
         memberStats,
         maxMemberWidth,
-        hasTrailingComma
+        hasTrailingComma,
+        shouldAlignInitializers
     });
 }
 
@@ -176,8 +177,13 @@ function applyEnumMemberAlignment({
 function applyTrailingCommentPadding({
     memberStats,
     maxMemberWidth,
-    hasTrailingComma
+    hasTrailingComma,
+    shouldAlignInitializers
 }) {
+    if (shouldAlignInitializers) {
+        return;
+    }
+
     const lastIndex = memberStats.length - 1;
 
     // Manual index iteration avoids allocating iterator tuples from
