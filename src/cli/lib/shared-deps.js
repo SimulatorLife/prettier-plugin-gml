@@ -1,5 +1,6 @@
 export {
     applyEnvironmentOverride,
+    assertArray,
     assertFunction,
     assertNonEmptyString,
     assertPlainObject,
@@ -20,6 +21,7 @@ export {
     normalizeIdentifierMetadataEntries,
     normalizeEnumeratedOption,
     parseJsonWithContext,
+    splitLines,
     resolveIntegerOption,
     toArray,
     uniqueArray,

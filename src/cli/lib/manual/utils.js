@@ -4,13 +4,16 @@ import {
     assertPlainObject,
     assertNonEmptyString,
     isNonEmptyArray,
+    isNonEmptyTrimmedString,
     parseJsonWithContext,
     toTrimmedString
 } from "../shared-deps.js";
 import { formatDuration } from "../time-utils.js";
 import { formatBytes } from "../byte-format.js";
 import { writeManualFile } from "../manual-file-helpers.js";
+import { createAbortGuard } from "../../../shared/abort-utils.js";
 import { isFsErrorCode } from "../../../shared/utils/fs.js";
+import { renderProgressBar } from "../progress-bar.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
@@ -36,23 +39,12 @@ const MANUAL_REPO_REQUIREMENTS = Object.freeze({
         "Manual repository must be provided in 'owner/name' format"
 });
 
-const MANUAL_REPO_REQUIREMENT_SOURCES = Object.values(
+const MANUAL_REPO_REQUIREMENT_SOURCE_LIST = Object.values(
     MANUAL_REPO_REQUIREMENT_SOURCE
-);
-
-const MANUAL_REPO_REQUIREMENTS_BY_SOURCE = new Map(
-    MANUAL_REPO_REQUIREMENT_SOURCES.flatMap((source) => {
-        const requirement = MANUAL_REPO_REQUIREMENTS[source];
-        return typeof requirement === "string" ? [[source, requirement]] : [];
-    })
-);
-
-const MANUAL_REPO_REQUIREMENT_SOURCE_LIST = Array.from(
-    MANUAL_REPO_REQUIREMENTS_BY_SOURCE.keys()
 ).join(", ");
 
 function getManualRepoRequirement(source) {
-    const requirement = MANUAL_REPO_REQUIREMENTS_BY_SOURCE.get(source);
+    const requirement = MANUAL_REPO_REQUIREMENTS[source];
     if (typeof requirement === "string") {
         return requirement;
     }
@@ -69,6 +61,108 @@ function describeManualRepoInput(value) {
     }
 
     return `'${String(value)}'`;
+}
+
+function normalizeDownloadLabel(label) {
+    return isNonEmptyTrimmedString(label) ? label : "Downloading manual files";
+}
+
+/**
+ * Create a progress reporter for manual file downloads. Callers receive a
+ * stable callback that mirrors the branching previously duplicated across CLI
+ * commands when switching between progress bars and verbose console output.
+ *
+ * @param {{
+ *   label?: string,
+ *   verbose?: { downloads?: boolean, progressBar?: boolean },
+ *   progressBarWidth?: number,
+ *   formatPath?: (path: string) => string,
+ *   render?: typeof renderProgressBar
+ * }} options
+ * @returns {(update: {
+ *   path: string,
+ *   fetchedCount: number,
+ *   totalEntries: number
+ * }) => void}
+ */
+export function createManualDownloadReporter({
+    label,
+    verbose = {},
+    progressBarWidth,
+    formatPath = (path) => path,
+    render = renderProgressBar
+} = {}) {
+    if (!verbose.downloads) {
+        return () => {};
+    }
+
+    if (verbose.progressBar) {
+        const normalizedLabel = normalizeDownloadLabel(label);
+        const width = progressBarWidth ?? 0;
+
+        return ({ fetchedCount, totalEntries }) => {
+            render(normalizedLabel, fetchedCount, totalEntries, width);
+        };
+    }
+
+    const normalizePath =
+        typeof formatPath === "function" ? formatPath : (path) => path;
+
+    return ({ path }) => {
+        const displayPath = normalizePath(path);
+        console.log(displayPath ? `✓ ${displayPath}` : "✓");
+    };
+}
+
+/**
+ * Download the provided manual file entries while collecting their payloads
+ * into an object keyed by the entry identifier. The helper centralizes the
+ * bookkeeping previously inlined by multiple commands so they can share the
+ * same progress reporting pipeline.
+ *
+ * @param {{
+ *   entries: Iterable<[string, string]>,
+ *   manualRefSha: string,
+ *   fetchManualFile: ManualGitHubFileClient["fetchManualFile"],
+ *   requestOptions?: import("./utils.js").ManualGitHubFetchOptions,
+ *   onProgress?: (update: {
+ *     key: string,
+ *     path: string,
+ *     fetchedCount: number,
+ *     totalEntries: number
+ *   }) => void
+ * }} options
+ * @returns {Promise<Record<string, string>>}
+ */
+export async function downloadManualFileEntries({
+    entries,
+    manualRefSha,
+    fetchManualFile,
+    requestOptions,
+    onProgress
+}) {
+    const normalizedEntries = Array.from(entries);
+    const payloads = {};
+    const totalEntries = normalizedEntries.length;
+    let fetchedCount = 0;
+
+    for (const [key, filePath] of normalizedEntries) {
+        payloads[key] = await fetchManualFile(
+            manualRefSha,
+            filePath,
+            requestOptions
+        );
+
+        fetchedCount += 1;
+        onProgress?.({
+            key,
+            path: filePath,
+            fetchedCount,
+            totalEntries
+        });
+    }
+
+    return payloads;
 }
 
 /**
@@ -299,7 +393,7 @@ function createManualGitHubRequestDispatcher({ userAgent } = {}) {
         ...(token ? { Authorization: `Bearer ${token}` } : {})
     };
 
-    async function execute(url, { headers, acceptJson } = {}) {
+    async function execute(url, { headers, acceptJson, signal } = {}) {
         const finalHeaders = {
             ...baseHeaders,
             ...headers,
@@ -308,7 +402,8 @@ function createManualGitHubRequestDispatcher({ userAgent } = {}) {
 
         const response = await fetch(url, {
             headers: finalHeaders,
-            redirect: "follow"
+            redirect: "follow",
+            signal
         });
 
         const bodyText = await response.text();
@@ -324,16 +419,11 @@ function createManualGitHubRequestDispatcher({ userAgent } = {}) {
 }
 
 function resolveManualRequestExecutor(requestDispatcher, callerName) {
-    const message = `${callerName} requires a request dispatcher with an execute function.`;
-
-    if (!requestDispatcher || typeof requestDispatcher !== "object") {
-        throw new TypeError(message);
-    }
-
-    const { execute } = requestDispatcher;
-
+    const execute = requestDispatcher?.execute;
     if (typeof execute !== "function") {
-        throw new TypeError(message);
+        throw new TypeError(
+            `${callerName} requires a request dispatcher with an execute function.`
+        );
     }
 
     return execute;
@@ -420,6 +510,30 @@ function createManualGitHubRefResolver({ requestDispatcher, commitResolver }) {
     return Object.freeze({ resolveManualRef });
 }
 
+async function tryReadManualFileCache({
+    cachePath,
+    filePath,
+    ensureNotAborted,
+    shouldLogDetails
+}) {
+    try {
+        const cached = await fs.readFile(cachePath, "utf8");
+        ensureNotAborted();
+
+        if (shouldLogDetails) {
+            console.log(`[cache] ${filePath}`);
+        }
+
+        return cached;
+    } catch (error) {
+        if (isFsErrorCode(error, "ENOENT")) {
+            return null;
+        }
+
+        throw error;
+    }
+}
+
 /**
  * @param {{
  *   requestDispatcher: ManualGitHubRequestDispatcher,
@@ -445,41 +559,48 @@ function createManualGitHubFileClient({
             forceRefresh = false,
             verbose = {},
             cacheRoot = defaultCacheRoot,
-            rawRoot = defaultRawRoot
+            rawRoot = defaultRawRoot,
+            signal: externalSignal
         } = {}
     ) {
+        const abortMessage = "Manual file fetch was aborted.";
+        const { signal, ensureNotAborted } = createAbortGuard(
+            { signal: externalSignal },
+            { fallbackMessage: abortMessage }
+        );
         const shouldLogDetails = verbose.downloads && !verbose.progressBar;
         const cachePath = path.join(cacheRoot, sha, filePath);
 
-        if (!forceRefresh) {
-            try {
-                const cached = await fs.readFile(cachePath, "utf8");
-                if (shouldLogDetails) {
-                    console.log(`[cache] ${filePath}`);
-                }
+        const cached = forceRefresh
+            ? null
+            : await tryReadManualFileCache({
+                  cachePath,
+                  filePath,
+                  ensureNotAborted,
+                  shouldLogDetails
+              });
 
-                return cached;
-            } catch (error) {
-                if (!isFsErrorCode(error, "ENOENT")) {
-                    throw error;
-                }
-            }
+        if (cached !== null) {
+            return cached;
         }
 
+        ensureNotAborted();
         const startTime = Date.now();
         if (shouldLogDetails) {
             console.log(`[download] ${filePath}…`);
         }
 
         const url = `${rawRoot}/${sha}/${filePath}`;
-        const content = await request(url);
+        const requestOptions = signal ? { signal } : {};
+        const content = await request(url, requestOptions);
+        ensureNotAborted();
 
         await writeManualFile({
             outputPath: cachePath,
             contents: content,
             encoding: "utf8",
             onAfterWrite: () => {
-                if (!shouldLogDetails) {
+                if (signal?.aborted || !shouldLogDetails) {
                     return;
                 }
 
@@ -491,6 +612,7 @@ function createManualGitHubFileClient({
             }
         });
 
+        ensureNotAborted();
         return content;
     }
 

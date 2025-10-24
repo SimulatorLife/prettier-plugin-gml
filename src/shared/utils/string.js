@@ -48,7 +48,7 @@ export function getNonEmptyString(value) {
  * without repeating `String#trim` checks.
  *
  * @param {unknown} value Candidate value to validate.
- * @param {Object} [options]
+ * @param {object} [options]
  * @param {string} [options.name="value"] Descriptive name used when
  *        constructing the default error message.
  * @param {boolean} [options.trim=false] When `true`, trim the value before
@@ -206,7 +206,7 @@ const DEFAULT_STRING_LIST_SPLIT_PATTERN = /[\n,]/;
  * @param {string | string[] | null | undefined} value Raw option value provided by a
  *        consumer. Arrays are flattened as-is; strings are split using
  *        `splitPattern`.
- * @param {Object} [options]
+ * @param {object} [options]
  * @param {RegExp | null | false} [options.splitPattern=/[\n,]/] Pattern used to split
  *        string input. Provide a falsy value (for example `false`) to keep the entire
  *        string as a single entry.
@@ -235,7 +235,10 @@ export function normalizeStringList(
     }
 
     if (typeof value === "string") {
-        const pattern = splitPattern ?? DEFAULT_STRING_LIST_SPLIT_PATTERN;
+        const pattern =
+            splitPattern === undefined
+                ? DEFAULT_STRING_LIST_SPLIT_PATTERN
+                : splitPattern;
         const entries = pattern ? value.split(pattern) : [value];
         return collectUniqueTrimmedStrings(entries);
     }
@@ -257,10 +260,12 @@ function collectUniqueTrimmedStrings(entries) {
         }
 
         const trimmed = entry.trim();
-        if (trimmed && !seen.has(trimmed)) {
-            seen.add(trimmed);
-            normalized.push(trimmed);
+        if (!trimmed || seen.has(trimmed)) {
+            continue;
         }
+
+        seen.add(trimmed);
+        normalized.push(trimmed);
     }
 
     return normalized;
@@ -274,7 +279,7 @@ function collectUniqueTrimmedStrings(entries) {
  * minor formatting differences.
  *
  * @param {string | string[] | null | undefined} value Raw option value.
- * @param {Object} [options]
+ * @param {object} [options]
  * @param {RegExp | null | false} [options.splitPattern=null] Pattern passed through
  *        to `normalizeStringList` for string input. Provide a falsy value to keep
  *        entire strings intact.

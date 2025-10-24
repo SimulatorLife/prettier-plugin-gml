@@ -1,6 +1,4 @@
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-
 import { cloneLocation } from "../../../shared/ast-locations.js";
 import { getCallExpressionIdentifier } from "../../../shared/ast-node-helpers.js";
 import {
@@ -16,8 +14,7 @@ import {
     assertFunction,
     getOrCreateMapEntry,
     hasOwn,
-    isObjectLike,
-    isPlainObject
+    isObjectLike
 } from "../../../shared/object-utils.js";
 import {
     buildLocationKey,
@@ -30,12 +27,7 @@ import {
     isProjectManifestPath
 } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
-import {
-    isFsErrorCode,
-    listDirectory,
-    getFileMtime
-} from "../../../shared/fs-utils.js";
-import { areNumbersApproximatelyEqual } from "../../../shared/number-utils.js";
+import { isFsErrorCode, listDirectory } from "../../../shared/fs-utils.js";
 import {
     getDefaultProjectIndexCacheMaxSize,
     loadProjectIndexCache,
@@ -45,16 +37,18 @@ import {
     createProjectIndexMetrics,
     finalizeProjectIndexMetrics
 } from "./metrics.js";
-import {
-    createAbortGuard,
-    throwIfAborted
-} from "../../../shared/abort-utils.js";
-import { parseJsonWithContext } from "../../../shared/json-utils.js";
-import { normalizeIdentifierMetadataEntries } from "../../../shared/identifier-metadata.js";
+import { throwIfAborted } from "../../../shared/abort-utils.js";
 import {
     analyseResourceFiles,
     createFileScopeDescriptor
 } from "./resource-analysis.js";
+import {
+    PROJECT_INDEX_BUILD_ABORT_MESSAGE,
+    PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE,
+    createProjectIndexAbortGuard
+} from "./abort-guard.js";
+import { loadBuiltInIdentifiers } from "./built-in-identifiers.js";
+import { createProjectIndexCoordinatorFactory } from "./coordinator.js";
 
 const defaultProjectIndexParser = getDefaultProjectIndexParser();
 
@@ -64,10 +58,6 @@ const PARSER_FACADE_OPTION_KEYS = [
     "parserFacade"
 ];
 
-const PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE =
-    "Project root discovery was aborted.";
-const PROJECT_INDEX_BUILD_ABORT_MESSAGE = "Project index build was aborted.";
-
 /**
  * Create shallow clones of common entry collections stored on project index
  * records (for example declaration/reference lists). Guarding against
@@ -76,13 +66,9 @@ const PROJECT_INDEX_BUILD_ABORT_MESSAGE = "Project index build was aborted.";
  */
 function cloneEntryCollections(entry, ...keys) {
     const source = isObjectLike(entry) ? entry : {};
-    const clones = {};
-
-    for (const key of keys) {
-        clones[key] = cloneObjectEntries(source[key]);
-    }
-
-    return clones;
+    return Object.fromEntries(
+        keys.map((key) => [key, cloneObjectEntries(source[key])])
+    );
 }
 
 function getProjectIndexParserOverride(options) {
@@ -113,8 +99,8 @@ function resolveProjectIndexParser(options) {
 
 export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
     const filepath = options?.filepath;
-    const { signal, ensureNotAborted } = createAbortGuard(options, {
-        fallbackMessage: PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE
+    const { signal, ensureNotAborted } = createProjectIndexAbortGuard(options, {
+        message: PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE
     });
 
     if (!filepath) {
@@ -137,131 +123,16 @@ export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
     return null;
 }
 
-export function createProjectIndexCoordinator(options = {}) {
-    const {
-        fsFacade = defaultFsFacade,
-        loadCache = loadProjectIndexCache,
-        saveCache = saveProjectIndexCache,
-        buildIndex = buildProjectIndex,
-        cacheMaxSizeBytes: rawCacheMaxSizeBytes
-    } = options;
+export const createProjectIndexCoordinator =
+    createProjectIndexCoordinatorFactory({
+        defaultFsFacade,
+        defaultLoadCache: loadProjectIndexCache,
+        defaultSaveCache: saveProjectIndexCache,
+        defaultBuildIndex: buildProjectIndex,
+        getDefaultCacheMaxSize: getDefaultProjectIndexCacheMaxSize
+    });
 
-    const cacheMaxSizeBytes =
-        rawCacheMaxSizeBytes === undefined
-            ? getDefaultProjectIndexCacheMaxSize()
-            : rawCacheMaxSizeBytes;
-
-    const inFlight = new Map();
-    let disposed = false;
-    const abortController = new AbortController();
-    const DISPOSED_MESSAGE = "ProjectIndexCoordinator has been disposed";
-
-    function createDisposedError() {
-        return new Error(DISPOSED_MESSAGE);
-    }
-
-    function ensureNotDisposed() {
-        if (disposed) {
-            throw createDisposedError();
-        }
-        throwIfAborted(abortController.signal, DISPOSED_MESSAGE);
-    }
-
-    async function ensureReady(descriptor) {
-        ensureNotDisposed();
-        const { projectRoot } = descriptor ?? {};
-        if (!projectRoot) {
-            throw new Error("projectRoot must be provided to ensureReady");
-        }
-        const resolvedRoot = path.resolve(projectRoot);
-        const key = resolvedRoot;
-        const signal = abortController.signal;
-        throwIfAborted(signal, DISPOSED_MESSAGE);
-
-        if (inFlight.has(key)) {
-            return inFlight.get(key);
-        }
-
-        const operation = (async () => {
-            const loadResult = await loadCache(
-                { ...descriptor, projectRoot: resolvedRoot },
-                fsFacade,
-                { signal }
-            );
-            throwIfAborted(signal, DISPOSED_MESSAGE);
-
-            if (loadResult.status === "hit") {
-                throwIfAborted(signal, DISPOSED_MESSAGE);
-                return {
-                    source: "cache",
-                    projectIndex: loadResult.projectIndex,
-                    cache: loadResult
-                };
-            }
-
-            const projectIndex = await buildIndex(resolvedRoot, fsFacade, {
-                ...descriptor?.buildOptions,
-                signal
-            });
-            throwIfAborted(signal, DISPOSED_MESSAGE);
-
-            const descriptorMaxSizeBytes =
-                descriptor?.maxSizeBytes === undefined
-                    ? cacheMaxSizeBytes
-                    : descriptor.maxSizeBytes;
-
-            const saveResult = await saveCache(
-                {
-                    ...descriptor,
-                    projectRoot: resolvedRoot,
-                    projectIndex,
-                    metricsSummary: projectIndex.metrics,
-                    maxSizeBytes: descriptorMaxSizeBytes
-                },
-                fsFacade,
-                { signal }
-            ).catch((error) => {
-                return {
-                    status: "failed",
-                    error,
-                    cacheFilePath: loadResult.cacheFilePath
-                };
-            });
-            throwIfAborted(signal, DISPOSED_MESSAGE);
-
-            return {
-                source: "build",
-                projectIndex,
-                cache: {
-                    ...loadResult,
-                    saveResult
-                }
-            };
-        })().finally(() => {
-            inFlight.delete(key);
-        });
-
-        inFlight.set(key, operation);
-        return operation;
-    }
-
-    function dispose() {
-        if (disposed) {
-            return;
-        }
-
-        disposed = true;
-        if (!abortController.signal.aborted) {
-            abortController.abort(createDisposedError());
-        }
-        inFlight.clear();
-    }
-
-    return {
-        ensureReady,
-        dispose
-    };
-}
+export { createProjectIndexCoordinatorFactory } from "./coordinator.js";
 
 export {
     PROJECT_MANIFEST_EXTENSION,
@@ -290,107 +161,6 @@ export {
     PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
     PROJECT_INDEX_GML_CONCURRENCY_BASELINE
 } from "./concurrency.js";
-
-const GML_IDENTIFIER_FILE_PATH = fileURLToPath(
-    new URL("../../../../resources/gml-identifiers.json", import.meta.url)
-);
-
-let cachedBuiltInIdentifiers = null;
-
-function extractBuiltInIdentifierNames(payload) {
-    if (!isPlainObject(payload)) {
-        throw new TypeError(
-            "Built-in identifier metadata must be an object payload."
-        );
-    }
-
-    const { identifiers } = payload;
-    if (!isPlainObject(identifiers)) {
-        throw new TypeError(
-            "Built-in identifier metadata must expose an identifiers object."
-        );
-    }
-
-    const entries = normalizeIdentifierMetadataEntries(payload);
-    const names = new Set();
-
-    for (const { name, type } of entries) {
-        if (type.length === 0) {
-            continue;
-        }
-
-        names.add(name);
-    }
-
-    return names;
-}
-
-function parseBuiltInIdentifierNames(rawContents) {
-    const payload = parseJsonWithContext(rawContents, {
-        source: GML_IDENTIFIER_FILE_PATH,
-        description: "built-in identifier metadata"
-    });
-
-    return extractBuiltInIdentifierNames(payload);
-}
-
-async function loadBuiltInIdentifiers(
-    fsFacade = defaultFsFacade,
-    metrics = null,
-    options = {}
-) {
-    const { signal, ensureNotAborted } = createAbortGuard(options, {
-        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
-    });
-
-    const currentMtime = await getFileMtime(
-        fsFacade,
-        GML_IDENTIFIER_FILE_PATH,
-        { signal }
-    );
-    ensureNotAborted();
-    const cached = cachedBuiltInIdentifiers;
-    const cachedMtime = cached?.metadata?.mtimeMs ?? null;
-
-    if (!cached) {
-        metrics?.recordCacheMiss("builtInIdentifiers");
-    } else if (
-        cachedMtime === currentMtime ||
-        (typeof cachedMtime === "number" &&
-            typeof currentMtime === "number" &&
-            areNumbersApproximatelyEqual(cachedMtime, currentMtime))
-    ) {
-        metrics?.recordCacheHit("builtInIdentifiers");
-        return cached;
-    } else {
-        metrics?.recordCacheStale("builtInIdentifiers");
-    }
-
-    let names = new Set();
-
-    try {
-        const rawContents = await fsFacade.readFile(
-            GML_IDENTIFIER_FILE_PATH,
-            "utf8"
-        );
-        ensureNotAborted();
-        names = parseBuiltInIdentifierNames(rawContents);
-    } catch {
-        // Built-in identifier metadata ships with the formatter bundle; if the
-        // file is missing or unreadable we intentionally degrade to an empty
-        // set rather than aborting project indexing. That keeps the CLI usable
-        // when installations are partially upgraded or when read permissions
-        // are restricted, and the metrics recorder above still notes the cache
-        // miss for observability.
-    }
-
-    cachedBuiltInIdentifiers = {
-        metadata: { mtimeMs: currentMtime },
-        names
-    };
-
-    return cachedBuiltInIdentifiers;
-}
 
 const ProjectFileCategory = Object.freeze({
     RESOURCE_METADATA: "yy",
@@ -611,9 +381,7 @@ async function scanProjectTree(
     metrics = null,
     options = {}
 ) {
-    const { signal, ensureNotAborted } = createAbortGuard(options, {
-        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
-    });
+    const { signal, ensureNotAborted } = createProjectIndexAbortGuard(options);
     const traversal = createDirectoryTraversal(projectRoot);
     const collector = createProjectTreeCollector(metrics);
 
@@ -689,6 +457,71 @@ function cloneIdentifierForCollections(record, filePath) {
 
 function ensureCollectionEntry(map, key, initializer) {
     return getOrCreateMapEntry(map, key, initializer);
+}
+
+function recordIdentifierCollectionRole(
+    entry,
+    identifierRecord,
+    filePath,
+    role
+) {
+    if (!entry || !identifierRecord) {
+        return;
+    }
+
+    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
+
+    if (role === "declaration") {
+        entry.declarations?.push?.(clone);
+    } else if (role === "reference") {
+        entry.references?.push?.(clone);
+    }
+}
+
+function assignIdentifierEntryMetadata(entry, metadata) {
+    if (!entry || typeof entry !== "object") {
+        return entry;
+    }
+
+    const {
+        identifierId,
+        name,
+        displayName,
+        resourcePath,
+        enumName,
+        scopeId,
+        scopeKind
+    } = metadata ?? {};
+
+    if (identifierId !== undefined && !entry.identifierId) {
+        entry.identifierId = identifierId;
+    }
+
+    if (name && !entry.name) {
+        entry.name = name;
+    }
+
+    if (displayName && !entry.displayName) {
+        entry.displayName = displayName;
+    }
+
+    if (resourcePath && !entry.resourcePath) {
+        entry.resourcePath = resourcePath;
+    }
+
+    if (enumName && !entry.enumName) {
+        entry.enumName = enumName;
+    }
+
+    if (scopeId !== undefined && !entry.scopeId) {
+        entry.scopeId = scopeId;
+    }
+
+    if (scopeKind !== undefined && !entry.scopeKind) {
+        entry.scopeKind = scopeKind;
+    }
+
+    return entry;
 }
 
 function createIdentifierCollections() {
@@ -1009,19 +842,13 @@ function registerScriptDeclaration({
         return;
     }
 
-    if (!entry.identifierId) {
-        entry.identifierId = buildIdentifierId("script", descriptor?.id ?? "");
-    }
-
-    if (descriptor.name && !entry.name) {
-        entry.name = descriptor.name;
-    }
-    if (descriptor.displayName && !entry.displayName) {
-        entry.displayName = descriptor.displayName;
-    }
-    if (descriptor.resourcePath && !entry.resourcePath) {
-        entry.resourcePath = descriptor.resourcePath;
-    }
+    const identifierId = buildIdentifierId("script", descriptor?.id ?? "");
+    assignIdentifierEntryMetadata(entry, {
+        identifierId,
+        name: descriptor?.name ?? null,
+        displayName: descriptor?.displayName ?? null,
+        resourcePath: descriptor?.resourcePath ?? null
+    });
 
     if (!declarationRecord) {
         return;
@@ -1141,16 +968,11 @@ function registerScriptReference({ identifierCollections, callRecord }) {
         })
     );
 
-    if (!entry.identifierId) {
-        entry.identifierId = identifierId;
-    }
-
-    if (callRecord.target?.name && !entry.name) {
-        entry.name = callRecord.target.name;
-    }
-    if (callRecord.target?.resourcePath && !entry.resourcePath) {
-        entry.resourcePath = callRecord.target.resourcePath;
-    }
+    assignIdentifierEntryMetadata(entry, {
+        identifierId,
+        name: callRecord.target?.name ?? null,
+        resourcePath: callRecord.target?.resourcePath ?? null
+    });
 
     const reference = cloneScriptReference(callRecord);
     if (reference) {
@@ -1218,16 +1040,9 @@ function registerMacroOccurrence({
         })
     );
 
-    if (!entry.identifierId) {
-        entry.identifierId = identifierId;
-    }
+    assignIdentifierEntryMetadata(entry, { identifierId });
 
-    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
-    if (role === "declaration") {
-        entry.declarations.push(clone);
-    } else if (role === "reference") {
-        entry.references.push(clone);
-    }
+    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
 }
 
 function registerEnumOccurrence({
@@ -1262,21 +1077,15 @@ function registerEnumOccurrence({
         })
     );
 
-    if (!entry.identifierId) {
-        entry.identifierId = identifierId;
-    }
+    const enumName = enumInfo
+        ? (enumInfo.name ?? identifierRecord?.name ?? null)
+        : null;
+    assignIdentifierEntryMetadata(entry, {
+        identifierId,
+        name: enumName
+    });
 
-    if (enumInfo && !entry.name) {
-        entry.name =
-            enumInfo.name ?? entry.name ?? identifierRecord?.name ?? null;
-    }
-
-    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
-    if (role === "declaration") {
-        entry.declarations.push(clone);
-    } else if (role === "reference") {
-        entry.references.push(clone);
-    }
+    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
 }
 
 function registerEnumMemberOccurrence({
@@ -1318,22 +1127,15 @@ function registerEnumMemberOccurrence({
         })
     );
 
-    if (!entry.identifierId) {
-        entry.identifierId = identifierId;
-    }
+    const enumName = memberInfo?.enumKey
+        ? (enumLookup?.enumDeclarations?.get(memberInfo.enumKey)?.name ?? null)
+        : null;
+    assignIdentifierEntryMetadata(entry, {
+        identifierId,
+        enumName
+    });
 
-    if (memberInfo?.enumKey && !entry.enumName) {
-        entry.enumName =
-            enumLookup?.enumDeclarations?.get(memberInfo.enumKey)?.name ??
-            entry.enumName;
-    }
-
-    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
-    if (role === "declaration") {
-        entry.declarations.push(clone);
-    } else if (role === "reference") {
-        entry.references.push(clone);
-    }
+    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
 }
 
 function registerGlobalOccurrence({
@@ -1359,16 +1161,9 @@ function registerGlobalOccurrence({
         })
     );
 
-    if (!entry.identifierId) {
-        entry.identifierId = identifierId;
-    }
+    assignIdentifierEntryMetadata(entry, { identifierId });
 
-    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
-    if (role === "declaration") {
-        entry.declarations.push(clone);
-    } else if (role === "reference") {
-        entry.references.push(clone);
-    }
+    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
 }
 
 function registerInstanceOccurrence({
@@ -1398,16 +1193,13 @@ function registerInstanceOccurrence({
         })
     );
 
-    if (!entry.identifierId) {
-        entry.identifierId = identifierId;
-    }
+    assignIdentifierEntryMetadata(entry, {
+        identifierId,
+        scopeId: scopeDescriptor?.id ?? null,
+        scopeKind: scopeDescriptor?.kind ?? null
+    });
 
-    const clone = cloneIdentifierForCollections(identifierRecord, filePath);
-    if (role === "declaration") {
-        entry.declarations.push(clone);
-    } else if (role === "reference") {
-        entry.references.push(clone);
-    }
+    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
 }
 
 function shouldTreatAsInstance({ identifierRecord, role, scopeDescriptor }) {
@@ -1543,9 +1335,11 @@ function registerInstanceAssignment({
         })
     );
 
-    if (!entry.identifierId) {
-        entry.identifierId = identifierId;
-    }
+    assignIdentifierEntryMetadata(entry, {
+        identifierId,
+        scopeId: scopeDescriptor?.id ?? null,
+        scopeKind: scopeDescriptor?.kind ?? null
+    });
 
     const clone = cloneIdentifierForCollections(identifierRecord, filePath);
 
@@ -2000,9 +1794,7 @@ async function processWithConcurrency(items, limit, worker, options = {}) {
 
     assertFunction(worker, "worker");
 
-    const { ensureNotAborted } = createAbortGuard(options, {
-        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
-    });
+    const { ensureNotAborted } = createProjectIndexAbortGuard(options);
 
     const limitValue = Number(limit);
     const effectiveLimit =
@@ -2381,7 +2173,10 @@ async function loadBuiltInNamesForProjectIndex({
     ensureNotAborted
 }) {
     const builtInIdentifiers = await metrics.timeAsync("loadBuiltIns", () =>
-        loadBuiltInIdentifiers(fsFacade, metrics, { signal })
+        loadBuiltInIdentifiers(fsFacade, metrics, {
+            signal,
+            fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+        })
     );
     ensureNotAborted();
 
@@ -2515,9 +2310,7 @@ export async function buildProjectIndex(
 
     const stopTotal = metrics.startTimer("total");
 
-    const { signal, ensureNotAborted } = createAbortGuard(options, {
-        fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
-    });
+    const { signal, ensureNotAborted } = createProjectIndexAbortGuard(options);
 
     const builtInNames = await loadBuiltInNamesForProjectIndex({
         fsFacade,
@@ -2595,4 +2388,4 @@ export async function buildProjectIndex(
 export { defaultFsFacade } from "./fs-facade.js";
 export { getProjectIndexParserOverride };
 export { ProjectFileCategory };
-export { loadBuiltInIdentifiers as __loadBuiltInIdentifiersForTests };
+export { __loadBuiltInIdentifiersForTests } from "./built-in-identifiers.js";

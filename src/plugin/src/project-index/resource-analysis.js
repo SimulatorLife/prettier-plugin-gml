@@ -1,11 +1,7 @@
 import path from "node:path";
 
-import { toPosixPath } from "../../../shared/path-utils.js";
 import { isNonEmptyArray } from "../../../shared/array-utils.js";
-import {
-    isNonEmptyString,
-    isNonEmptyTrimmedString
-} from "../../../shared/string-utils.js";
+import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
 import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
 import {
     createAbortGuard,
@@ -21,7 +17,7 @@ import {
     PROJECT_MANIFEST_EXTENSION,
     isProjectManifestPath
 } from "./constants.js";
-import { resolveProjectPathInfo } from "./path-info.js";
+import { normalizeProjectResourcePath } from "./path-normalization.js";
 
 const RESOURCE_ANALYSIS_ABORT_MESSAGE = "Project index build was aborted.";
 
@@ -36,27 +32,6 @@ function deriveScopeId(kind, parts) {
         ? parts.join("::")
         : String(parts ?? "");
     return `scope:${kind}:${suffix}`;
-}
-
-function normalizeResourcePath(rawPath, { projectRoot } = {}) {
-    if (!isNonEmptyString(rawPath)) {
-        return null;
-    }
-
-    const normalized = toPosixPath(rawPath).replace(/^\.\//, "");
-    if (!projectRoot) {
-        return normalized;
-    }
-
-    const absoluteCandidate = path.isAbsolute(normalized)
-        ? normalized
-        : path.join(projectRoot, normalized);
-    const info = resolveProjectPathInfo(absoluteCandidate, projectRoot);
-    if (!info) {
-        return null;
-    }
-
-    return toPosixPath(info.relativePath);
 }
 
 function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
@@ -195,7 +170,7 @@ function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
     }
 
     for (const candidate of candidatePaths) {
-        const normalized = normalizeResourcePath(candidate);
+        const normalized = normalizeProjectResourcePath(candidate);
         if (normalized) {
             return normalized;
         }
@@ -390,7 +365,7 @@ function collectResourceAssetReferences({
     collectAssetReferences(
         parsed,
         ({ propertyPath, targetPath, targetName }) => {
-            const normalizedTarget = normalizeResourcePath(targetPath, {
+            const normalizedTarget = normalizeProjectResourcePath(targetPath, {
                 projectRoot
             });
             if (!normalizedTarget) {

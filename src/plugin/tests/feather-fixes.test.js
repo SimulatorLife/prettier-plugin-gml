@@ -3121,6 +3121,63 @@ describe("applyFeatherFixes transform", () => {
         );
     });
 
+    it("comments out incomplete vertex format definitions flagged by GM2015", async () => {
+        const source = [
+            "/// Create Event",
+            "",
+            "vertex_format_begin();",
+            "vertex_format_add_position_3d();"
+        ].join("\n");
+
+        const formatted = await prettier.format(source, {
+            parser: "gml-parse",
+            plugins: [pluginPath],
+            applyFeatherFixes: true
+        });
+
+        const expected = [
+            "/// Create Event",
+            "",
+            "// vertex_format_begin();",
+            "// vertex_format_add_position_3d();",
+            "// vertex_format_end();"
+        ].join("\n");
+
+        assert.strictEqual(formatted.trimEnd(), expected);
+    });
+
+    it("avoids duplicating vertex format comments when definitions are already commented", async () => {
+        const source = [
+            "vertex_format_begin();",
+            "",
+            "vertex_format_add_position_3d();",
+            "vertex_format_add_colour();",
+            "vertex_format_add_texcoord();",
+            "",
+            "// vertex_format_begin();",
+            "// vertex_format_add_position_3d();",
+            "// vertex_format_add_colour();",
+            "// vertex_format_add_texcoord();",
+            "// vertex_format_end();"
+        ].join("\n");
+
+        const formatted = await prettier.format(source, {
+            parser: "gml-parse",
+            plugins: [pluginPath],
+            applyFeatherFixes: true
+        });
+
+        const expected = [
+            "// vertex_format_begin();",
+            "// vertex_format_add_position_3d();",
+            "// vertex_format_add_colour();",
+            "// vertex_format_add_texcoord();",
+            "// vertex_format_end();"
+        ].join("\n");
+
+        assert.strictEqual(formatted.trimEnd(), expected);
+    });
+
     it("removes incomplete vertex format definitions before subsequent begins and records metadata", () => {
         const source = [
             "vertex_format_begin();",
@@ -3457,7 +3514,7 @@ describe("applyFeatherFixes transform", () => {
     it("normalizes simple syntax errors flagged by GM1100 and records metadata", () => {
         const source = ["var _this * something;", "", "    = 48;"].join("\n");
 
-        const { sourceText, metadata } =
+        const { sourceText, metadata, indexAdjustments } =
             preprocessSourceForFeatherFixes(source);
 
         assert.notStrictEqual(
@@ -3709,7 +3766,7 @@ describe("applyFeatherFixes transform", () => {
             ""
         ].join("\n");
 
-        const { sourceText, metadata } =
+        const { sourceText, metadata, indexAdjustments } =
             preprocessSourceForFeatherFixes(source);
 
         assert.notStrictEqual(
@@ -3787,7 +3844,7 @@ describe("applyFeatherFixes transform", () => {
             ""
         ].join("\n");
 
-        const { sourceText, metadata } =
+        const { sourceText, metadata, indexAdjustments } =
             preprocessSourceForFeatherFixes(source);
 
         assert.notStrictEqual(
@@ -3812,6 +3869,15 @@ describe("applyFeatherFixes transform", () => {
             metadata === null || metadata === undefined,
             true,
             "Expected no additional metadata to be required for GM1003 preprocessing."
+        );
+
+        assert.deepStrictEqual(
+            indexAdjustments,
+            [
+                { index: 28, delta: 2 },
+                { index: 44, delta: 2 }
+            ],
+            "Expected GM1003 preprocessing to record index adjustments for removed quotes."
         );
 
         const ast = GMLParser.parse(sourceText, {
@@ -4536,6 +4602,51 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(gm2033.automatic, true);
         assert.strictEqual(gm2033.target, "file_find_next");
         assert.ok(gm2033.range);
+    });
+
+    it("removes consecutive file_find_close calls flagged by GM2032", () => {
+        const source = [
+            "file_find_close();",
+            "file_find_close();",
+            "",
+            'show_debug_message("done");'
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const statements = Array.isArray(ast.body) ? ast.body : [];
+        const remainingClosers = statements.filter(
+            (statement) =>
+                statement?.type === "CallExpression" &&
+                statement?.object?.name === "file_find_close"
+        );
+
+        assert.strictEqual(
+            remainingClosers.length,
+            0,
+            "Expected all stray file_find_close() calls to be removed."
+        );
+
+        const gm2032 = (ast._appliedFeatherDiagnostics ?? []).filter(
+            (entry) => entry.id === "GM2032"
+        );
+
+        assert.strictEqual(
+            gm2032.length,
+            2,
+            "Expected GM2032 metadata to be recorded for each removal."
+        );
+
+        for (const entry of gm2032) {
+            assert.strictEqual(entry.automatic, true);
+            assert.strictEqual(entry.target, "file_find_close");
+            assert.ok(entry.range);
+        }
     });
 
     it("moves draw_primitive_end calls outside flagged GM2030 conditionals", () => {
