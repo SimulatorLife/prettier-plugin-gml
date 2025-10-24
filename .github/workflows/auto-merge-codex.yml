@@ -24,7 +24,6 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const core = require('@actions/core');
             const pr = context.payload.pull_request;
             const prefixes = ['codex/', 'copilot/'];
             const headOk = prefixes.some(prefix => pr.head.ref.startsWith(prefix));
