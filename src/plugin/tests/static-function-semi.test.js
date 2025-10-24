@@ -43,6 +43,7 @@ describe("constructor static function assignments", () => {
             "    static build = function() {",
             "        return 1;",
             "    };",
+            "",
             "}",
             ""
         ].join("\n");

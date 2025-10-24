@@ -2288,6 +2288,7 @@ function printStatements(path, options, print, childrenAttribute) {
                 hasFunctionInitializer &&
                 isConstructorBlock;
             let shouldPreserveTrailingBlankLine = false;
+            let hasExplicitTrailingBlankLine = false;
 
             if (
                 parentNode?.type === "BlockStatement" &&
@@ -2297,7 +2298,7 @@ function printStatements(path, options, print, childrenAttribute) {
                     typeof options.originalText === "string"
                         ? options.originalText
                         : null;
-                const hasExplicitTrailingBlankLine =
+                hasExplicitTrailingBlankLine =
                     originalText !== null &&
                     isNextLineEmpty(originalText, trailingProbeIndex);
 
@@ -2346,8 +2347,17 @@ function printStatements(path, options, print, childrenAttribute) {
                 }
             }
 
+            const requiresTrailingPadding =
+                (node?.type === "FunctionDeclaration" ||
+                    (isStaticDeclaration && hasFunctionInitializer)) &&
+                !hasExplicitTrailingBlankLine;
+
+            if (!shouldPreserveTrailingBlankLine && requiresTrailingPadding) {
+                shouldPreserveTrailingBlankLine = true;
+            }
+
             if (shouldPreserveTrailingBlankLine) {
-                parts.push(hardline);
+                parts.push(lineSuffixBoundary, hardline);
                 previousNodeHadNewlineAddedAfter = true;
             }
         }
