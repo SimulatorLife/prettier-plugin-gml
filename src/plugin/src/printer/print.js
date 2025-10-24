@@ -911,12 +911,58 @@ export function print(path, options, print) {
                     node.arguments.length === 1 &&
                     node.arguments[0]?.type === "CallExpression";
 
+                const shouldForceBreakSingleCallArgument =
+                    hasSingleCallArgument &&
+                    (() => {
+                        const [callArgument] = node.arguments;
+                        if (!callArgument) {
+                            return false;
+                        }
+
+                        const nestedCallArguments =
+                            getCallExpressionArguments(callArgument) ?? [];
+                        const hasNestedCallbackArgument =
+                            nestedCallArguments.some(
+                                (argumentNode) =>
+                                    argumentNode?.type ===
+                                        "FunctionDeclaration" ||
+                                    argumentNode?.type === "StructExpression"
+                            );
+
+                        if (
+                            hasNestedCallbackArgument ||
+                            hasComment(callArgument)
+                        ) {
+                            return true;
+                        }
+
+                        const callSource = getSourceTextForNode(node, options);
+                        if (
+                            typeof callSource === "string" &&
+                            callSource.length > 0
+                        ) {
+                            const resolvedPrintWidth = Number.isFinite(
+                                options?.printWidth
+                            )
+                                ? options.printWidth
+                                : 80;
+                            const heuristicWidth = Math.min(
+                                resolvedPrintWidth,
+                                80
+                            );
+
+                            return callSource.length > heuristicWidth;
+                        }
+
+                        return false;
+                    })();
+
                 const shouldForceBreakArguments =
                     (maxParamsPerLine > 0 &&
                         node.arguments.length > maxParamsPerLine) ||
                     callbackArguments.length > 1 ||
                     structArgumentsToBreak.length > 0 ||
-                    hasSingleCallArgument;
+                    shouldForceBreakSingleCallArgument;
 
                 const shouldUseCallbackLayout = [
                     node.arguments[0],
