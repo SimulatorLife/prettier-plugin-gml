@@ -1,4 +1,7 @@
-import { assertPlainObject } from "../../../shared/object-utils.js";
+import {
+    assertFunction,
+    assertPlainObject
+} from "../../../shared/object-utils.js";
 import { prepareIdentifierCasePlan as defaultPrepareIdentifierCasePlan } from "./local-plan.js";
 import {
     getIdentifierCaseRenameForNode as defaultGetIdentifierCaseRenameForNode,
@@ -77,11 +80,10 @@ function createIdentifierCaseServiceRegistry({
     }
 
     function register(nextProvider) {
-        if (typeof nextProvider !== "function") {
-            throw new TypeError(providerTypeErrorMessage);
-        }
+        provider = assertFunction(nextProvider, "provider", {
+            errorMessage: providerTypeErrorMessage
+        });
 
-        provider = nextProvider;
         cachedService = null;
     }
 
@@ -99,13 +101,16 @@ function normalizeIdentifierCasePlanPreparationService(service) {
             "Identifier case plan preparation service must be provided as an object"
     });
 
-    if (typeof prepareIdentifierCasePlan !== "function") {
-        throw new TypeError(
-            "Identifier case plan preparation service must provide a prepareIdentifierCasePlan function"
-        );
-    }
-
-    return Object.freeze({ prepareIdentifierCasePlan });
+    return Object.freeze({
+        prepareIdentifierCasePlan: assertFunction(
+            prepareIdentifierCasePlan,
+            "prepareIdentifierCasePlan",
+            {
+                errorMessage:
+                    "Identifier case plan preparation service must provide a prepareIdentifierCasePlan function"
+            }
+        )
+    });
 }
 
 function normalizeIdentifierCaseRenameLookupService(service) {
@@ -114,13 +119,16 @@ function normalizeIdentifierCaseRenameLookupService(service) {
             "Identifier case rename lookup service must be provided as an object"
     });
 
-    if (typeof getIdentifierCaseRenameForNode !== "function") {
-        throw new TypeError(
-            "Identifier case rename lookup service must provide a getIdentifierCaseRenameForNode function"
-        );
-    }
-
-    return Object.freeze({ getIdentifierCaseRenameForNode });
+    return Object.freeze({
+        getIdentifierCaseRenameForNode: assertFunction(
+            getIdentifierCaseRenameForNode,
+            "getIdentifierCaseRenameForNode",
+            {
+                errorMessage:
+                    "Identifier case rename lookup service must provide a getIdentifierCaseRenameForNode function"
+            }
+        )
+    });
 }
 
 function normalizeIdentifierCasePlanSnapshotService(service) {
@@ -132,21 +140,23 @@ function normalizeIdentifierCasePlanSnapshotService(service) {
             "Identifier case plan snapshot service must be provided as an object"
     });
 
-    if (typeof captureIdentifierCasePlanSnapshot !== "function") {
-        throw new TypeError(
-            "Identifier case plan snapshot service must provide a captureIdentifierCasePlanSnapshot function"
-        );
-    }
-
-    if (typeof applyIdentifierCasePlanSnapshot !== "function") {
-        throw new TypeError(
-            "Identifier case plan snapshot service must provide an applyIdentifierCasePlanSnapshot function"
-        );
-    }
-
     return Object.freeze({
-        captureIdentifierCasePlanSnapshot,
-        applyIdentifierCasePlanSnapshot
+        captureIdentifierCasePlanSnapshot: assertFunction(
+            captureIdentifierCasePlanSnapshot,
+            "captureIdentifierCasePlanSnapshot",
+            {
+                errorMessage:
+                    "Identifier case plan snapshot service must provide a captureIdentifierCasePlanSnapshot function"
+            }
+        ),
+        applyIdentifierCasePlanSnapshot: assertFunction(
+            applyIdentifierCasePlanSnapshot,
+            "applyIdentifierCasePlanSnapshot",
+            {
+                errorMessage:
+                    "Identifier case plan snapshot service must provide an applyIdentifierCasePlanSnapshot function"
+            }
+        )
     });
 }
 
