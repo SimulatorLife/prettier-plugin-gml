@@ -416,8 +416,16 @@ function enqueueObjectChildValues(stack, value) {
     }
 
     if (Array.isArray(value)) {
-        for (const item of value) {
-            if (item && typeof item === "object") {
+        const { length } = value;
+
+        // Manual index iteration avoids the iterator/closure overhead paid by
+        // `for...of` on every call. The helper sits on tight AST traversal
+        // loops, so keeping the branch predictable and allocation-free helps
+        // repeated walks stay lean.
+        for (let index = 0; index < length; index += 1) {
+            const item = value[index];
+
+            if (item !== null && typeof item === "object") {
                 stack.push(item);
             }
         }
