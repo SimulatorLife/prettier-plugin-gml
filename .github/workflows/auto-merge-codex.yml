@@ -1,0 +1,82 @@
+name: Auto merge codex/copilot branches
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    if: >-
+      github.event.action != 'closed' &&
+      github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Attempt auto-merge
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const core = require('@actions/core');
+            const pr = context.payload.pull_request;
+            const prefixes = ['codex/', 'copilot/'];
+            const headOk = prefixes.some(prefix => pr.head.ref.startsWith(prefix));
+            const baseOk = prefixes.some(prefix => pr.base.ref.startsWith(prefix));
+            if (!headOk || !baseOk) {
+              core.info(`Skipping PR with head ${pr.head.ref} and base ${pr.base.ref}`);
+              return;
+            }
+            const { owner, repo } = context.repo;
+            const pull_number = pr.number;
+
+            const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+            let attempt = 0;
+            let current;
+            const maxAttempts = 10;
+            const delayMs = 2000;
+
+            while (attempt < maxAttempts) {
+              const { data } = await github.rest.pulls.get({ owner, repo, pull_number });
+              current = data;
+              if (current.mergeable !== null) {
+                break;
+              }
+              attempt += 1;
+              core.info(`Mergeable state pending (attempt ${attempt}/${maxAttempts}). Retrying...`);
+              await sleep(delayMs);
+            }
+
+            if (!current) {
+              core.info('Unable to retrieve pull request details.');
+              return;
+            }
+
+            if (current.state !== 'open') {
+              core.info(`PR #${pull_number} is no longer open.`);
+              return;
+            }
+
+            if (current.mergeable === null) {
+              core.info('Mergeability could not be determined.');
+              return;
+            }
+
+            if (current.mergeable !== true) {
+              core.info(`PR #${pull_number} is not mergeable (state: ${current.mergeable_state}).`);
+              return;
+            }
+
+            await github.rest.pulls.merge({
+              owner,
+              repo,
+              pull_number,
+              merge_method: 'merge'
+            });
+            core.info(`Merged PR #${pull_number}.`);
