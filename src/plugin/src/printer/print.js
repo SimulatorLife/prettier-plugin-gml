@@ -36,7 +36,10 @@ import {
     isNonEmptyTrimmedString,
     toTrimmedString
 } from "../../../shared/string-utils.js";
-import { isNonEmptyArray } from "../../../shared/array-utils.js";
+import {
+    isNonEmptyArray,
+    toMutableArray
+} from "../../../shared/array-utils.js";
 import { ensureSet } from "../../../shared/utils/capability-probes.js";
 import {
     getNodeStartIndex,
@@ -2909,12 +2912,14 @@ function hasCommentImmediatelyBefore(text, index) {
 }
 
 function reorderDescriptionLinesAfterFunction(docLines) {
-    if (!Array.isArray(docLines) || docLines.length === 0) {
-        return Array.isArray(docLines) ? docLines : [];
+    const normalizedDocLines = toMutableArray(docLines);
+
+    if (normalizedDocLines.length === 0) {
+        return normalizedDocLines;
     }
 
     const descriptionIndices = [];
-    for (const [index, line] of docLines.entries()) {
+    for (const [index, line] of normalizedDocLines.entries()) {
         if (
             typeof line === "string" &&
             /^\/\/\/\s*@description\b/i.test(line.trim())
@@ -2924,26 +2929,26 @@ function reorderDescriptionLinesAfterFunction(docLines) {
     }
 
     if (descriptionIndices.length === 0) {
-        return docLines;
+        return normalizedDocLines;
     }
 
-    const functionIndex = docLines.findIndex(
+    const functionIndex = normalizedDocLines.findIndex(
         (line) =>
             typeof line === "string" &&
             /^\/\/\/\s*@function\b/i.test(line.trim())
     );
 
     if (functionIndex === -1) {
-        return docLines;
+        return normalizedDocLines;
     }
 
     const earliestDescriptionIndex = Math.min(...descriptionIndices);
     if (earliestDescriptionIndex > functionIndex) {
-        return docLines;
+        return normalizedDocLines;
     }
 
     const descriptionLines = descriptionIndices
-        .map((index) => docLines[index])
+        .map((index) => normalizedDocLines[index])
         .filter((line) => {
             const metadata = parseDocCommentMetadata(line);
             const descriptionText =
@@ -2953,12 +2958,12 @@ function reorderDescriptionLinesAfterFunction(docLines) {
         });
 
     if (descriptionLines.length === 0) {
-        return docLines.filter(
+        return normalizedDocLines.filter(
             (_, index) => !descriptionIndices.includes(index)
         );
     }
 
-    const remainingLines = docLines.filter(
+    const remainingLines = normalizedDocLines.filter(
         (_, index) => !descriptionIndices.includes(index)
     );
 
@@ -3008,7 +3013,7 @@ function mergeSyntheticDocComments(
     overrides = {}
 ) {
     const normalizedExistingLines = reorderDescriptionLinesAfterFunction(
-        Array.isArray(existingDocLines) ? existingDocLines : []
+        toMutableArray(existingDocLines)
     );
 
     const syntheticLines = reorderDescriptionLinesAfterFunction(
@@ -4075,7 +4080,7 @@ function findFunctionParameterContext(path) {
             parent.type === "FunctionDeclaration" ||
             parent.type === "ConstructorDeclaration"
         ) {
-            const params = Array.isArray(parent.params) ? parent.params : [];
+            const params = toMutableArray(parent.params);
             const index = params.indexOf(candidate);
             if (index !== -1) {
                 return { functionNode: parent, paramIndex: index };
@@ -5588,7 +5593,7 @@ function updateCallExpressionNameAndArgs(node, newName, newArgs) {
         node.object.name = newName;
     }
 
-    node.arguments = Array.isArray(newArgs) ? [...newArgs] : [];
+    node.arguments = toMutableArray(newArgs, { clone: true });
 }
 
 function negateExpressionDoc(expressionDoc, expressionNode) {
