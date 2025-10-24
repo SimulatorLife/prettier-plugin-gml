@@ -2267,6 +2267,21 @@ function printStatements(path, options, print, childrenAttribute) {
                     : nodeEndIndex + 1;
             const enforceTrailingPadding =
                 shouldAddNewlinesAroundStatement(node);
+            const blockParent =
+                typeof childPath.getParentNode === "function"
+                    ? childPath.getParentNode()
+                    : childPath.parent;
+            const constructorAncestor =
+                typeof childPath.getParentNode === "function"
+                    ? childPath.getParentNode(1)
+                    : (blockParent?.parent ?? null);
+            const isConstructorBlock =
+                blockParent?.type === "BlockStatement" &&
+                constructorAncestor?.type === "ConstructorDeclaration";
+            const shouldPreserveConstructorStaticPadding =
+                isStaticDeclaration &&
+                hasFunctionInitializer &&
+                isConstructorBlock;
             let shouldPreserveTrailingBlankLine = false;
 
             if (
@@ -2284,6 +2299,11 @@ function printStatements(path, options, print, childrenAttribute) {
                 if (enforceTrailingPadding) {
                     shouldPreserveTrailingBlankLine =
                         hasExplicitTrailingBlankLine;
+                } else if (
+                    shouldPreserveConstructorStaticPadding &&
+                    hasExplicitTrailingBlankLine
+                ) {
+                    shouldPreserveTrailingBlankLine = true;
                 } else if (hasExplicitTrailingBlankLine && originalText) {
                     const textLength = originalText.length;
                     let scanIndex = trailingProbeIndex;
