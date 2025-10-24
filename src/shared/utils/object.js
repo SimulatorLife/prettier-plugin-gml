@@ -25,21 +25,23 @@ export function isPlainObject(value, { allowNullPrototype = true } = {}) {
  * preserving the specific error messages historically raised by each call
  * site.
  *
- * @param {unknown} value Candidate function to validate.
+ * @template {Function} TFunction
+ * @param {TFunction | unknown} value Candidate function to validate.
  * @param {string} name Descriptive name used when constructing the error.
+ * @returns {TFunction} The validated function reference.
  */
 export function assertFunction(value, name, { errorMessage } = {}) {
     const message =
         errorMessage ??
         (typeof name === "string" && name.length > 0
-            ? `${name} must be a function`
-            : "Value must be a function");
+            ? `${name} must be a function.`
+            : "Value must be a function.");
 
     if (typeof value !== "function") {
         throw new TypeError(message);
     }
 
-    return value;
+    return /** @type {TFunction} */ (value);
 }
 
 /**
