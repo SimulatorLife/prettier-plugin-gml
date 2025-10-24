@@ -1,8 +1,5 @@
 import { coerceNonNegativeInteger } from "./shared-deps.js";
-import {
-    createIntegerOptionCoercer,
-    createIntegerOptionState
-} from "./numeric-option-state.js";
+import { createIntegerOptionToolkit } from "./integer-option-toolkit.js";
 
 export const DEFAULT_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT = 5;
 export const UNSUPPORTED_EXTENSION_SAMPLE_LIMIT_ENV_VAR =
@@ -14,38 +11,25 @@ const createSampleLimitErrorMessage = (received) =>
 const createSampleLimitTypeErrorMessage = (type) =>
     `Unsupported extension sample limit must be provided as a number (received type '${type}').`;
 
-const coerceUnsupportedExtensionSampleLimit = createIntegerOptionCoercer({
-    baseCoerce: coerceNonNegativeInteger,
-    createErrorMessage: createSampleLimitErrorMessage
-});
-
-const unsupportedExtensionSampleLimitState = createIntegerOptionState({
-    defaultValue: DEFAULT_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT,
-    envVar: UNSUPPORTED_EXTENSION_SAMPLE_LIMIT_ENV_VAR,
-    coerce: coerceUnsupportedExtensionSampleLimit,
-    typeErrorMessage: createSampleLimitTypeErrorMessage
-});
-
 const {
     getDefault: getDefaultUnsupportedExtensionSampleLimit,
     setDefault: setDefaultUnsupportedExtensionSampleLimit,
-    resolve: resolveUnsupportedExtensionSampleLimitState,
+    resolve: resolveUnsupportedExtensionSampleLimit,
     applyEnvOverride: applyUnsupportedExtensionSampleLimitEnvOverride
-} = unsupportedExtensionSampleLimitState;
+} = createIntegerOptionToolkit({
+    defaultValue: DEFAULT_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT,
+    envVar: UNSUPPORTED_EXTENSION_SAMPLE_LIMIT_ENV_VAR,
+    baseCoerce: coerceNonNegativeInteger,
+    createErrorMessage: createSampleLimitErrorMessage,
+    typeErrorMessage: createSampleLimitTypeErrorMessage,
+    defaultValueOption: "defaultLimit"
+});
 
 export {
     getDefaultUnsupportedExtensionSampleLimit,
     setDefaultUnsupportedExtensionSampleLimit,
-    applyUnsupportedExtensionSampleLimitEnvOverride
+    applyUnsupportedExtensionSampleLimitEnvOverride,
+    resolveUnsupportedExtensionSampleLimit
 };
-
-export function resolveUnsupportedExtensionSampleLimit(
-    rawValue,
-    { defaultLimit } = {}
-) {
-    return resolveUnsupportedExtensionSampleLimitState(rawValue, {
-        defaultValue: defaultLimit
-    });
-}
 
 applyUnsupportedExtensionSampleLimitEnvOverride();
