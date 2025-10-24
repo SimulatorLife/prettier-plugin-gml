@@ -21,7 +21,8 @@ import {
 import {
     assertArray,
     coercePositiveInteger,
-    getIdentifierText
+    getIdentifierText,
+    stringifyJsonForFile
 } from "./shared-deps.js";
 import {
     PerformanceSuiteName,
@@ -578,7 +579,7 @@ async function writeReport(report, options) {
     await fs.mkdir(directory, { recursive: true });
 
     const spacing = options.pretty ? 2 : 0;
-    const payload = `${JSON.stringify(report, null, spacing)}\n`;
+    const payload = stringifyJsonForFile(report, { space: spacing });
     await fs.writeFile(targetFile, payload, "utf8");
 
     return { skipped: false, path: targetFile };
