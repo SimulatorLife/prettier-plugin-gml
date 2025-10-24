@@ -848,16 +848,16 @@ function buildResultCandidates(defaultCandidates, envVariable) {
 
 function loadResultSets(workspaceRoot) {
     const baseCandidates = buildResultCandidates(
-        [path.join("base", "test-results"), "base-test-results"],
+        [path.join("base", "reports"), "base-reports"],
         "BASE_RESULTS_DIR"
     );
     const mergeCandidates = buildResultCandidates(
-        [path.join("merge", "test-results"), "merge-test-results"],
+        [path.join("merge", "reports"), "merge-reports"],
         "MERGE_RESULTS_DIR"
     );
 
     const base = readTestResults(baseCandidates, { workspace: workspaceRoot });
-    const head = readTestResults(["test-results"], {
+    const head = readTestResults(["reports"], {
         workspace: workspaceRoot
     });
     const merged = readTestResults(mergeCandidates, {
@@ -871,8 +871,8 @@ function chooseTargetResultSet({ merged, head }) {
     const usingMerged = Boolean(merged.usedDir);
     const target = usingMerged ? merged : head;
     const targetLabel = usingMerged
-        ? `synthetic merge (${merged.displayDir || "merge/test-results"})`
-        : `PR head (${head.displayDir || "test-results"})`;
+        ? `synthetic merge (${merged.displayDir || "merge/reports"})`
+        : `PR head (${head.displayDir || "reports"})`;
 
     return { target, targetLabel, usingMerged };
 }
@@ -1926,22 +1926,22 @@ function runLegacyPrSummaryCommand(args) {
             ...(isNonEmptyTrimmedString(options.baseDir)
                 ? [options.baseDir]
                 : []),
-            path.join("base", "test-results"),
-            "base-test-results"
+            path.join("base", "reports"),
+            "base-reports"
         ],
         "BASE_RESULTS_DIR"
     );
     const headCandidates = [
         ...(isNonEmptyTrimmedString(options.headDir) ? [options.headDir] : []),
-        "test-results"
+        "reports"
     ];
     const mergeCandidates = buildResultCandidates(
         [
             ...(isNonEmptyTrimmedString(options.mergeDir)
                 ? [options.mergeDir]
                 : []),
-            path.join("merge", "test-results"),
-            "merge-test-results"
+            path.join("merge", "reports"),
+            "merge-reports"
         ],
         "MERGE_RESULTS_DIR"
     );
@@ -2009,7 +2009,7 @@ function runLegacyPrSummaryCommand(args) {
         );
     }
 
-    const comparisonDefault = path.join("test-results", "comparison.json");
+    const comparisonDefault = path.join("reports", "comparison.json");
     const comparisonPath =
         resolveMaybeRelativePath(options.comparison, workspaceRoot) ||
         path.resolve(workspaceRoot, comparisonDefault);
