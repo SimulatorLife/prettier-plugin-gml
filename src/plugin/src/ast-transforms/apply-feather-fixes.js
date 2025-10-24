@@ -912,6 +912,27 @@ function hasFeatherDiagnosticContext(ast, diagnostic) {
     return true;
 }
 
+function hasFeatherSourceTextContext(
+    ast,
+    diagnostic,
+    sourceText,
+    { allowEmpty = false } = {}
+) {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
+        return false;
+    }
+
+    if (typeof sourceText !== "string") {
+        return false;
+    }
+
+    if (!allowEmpty && sourceText.length === 0) {
+        return false;
+    }
+
+    return true;
+}
+
 function removeDuplicateEnumMembers({ ast, diagnostic }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
@@ -5319,12 +5340,7 @@ function buildNestedMemberIndexExpression({ object, indices, template }) {
 }
 
 function removeDuplicateSemicolons({ ast, sourceText, diagnostic }) {
-    if (
-        !diagnostic ||
-        !ast ||
-        typeof sourceText !== "string" ||
-        sourceText.length === 0
-    ) {
+    if (!hasFeatherSourceTextContext(ast, diagnostic, sourceText)) {
         return [];
     }
 
@@ -5693,11 +5709,7 @@ function normalizeObviousSyntaxErrors({ ast, diagnostic, metadata }) {
 }
 
 function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
-    if (
-        !diagnostic ||
-        typeof sourceText !== "string" ||
-        sourceText.length === 0
-    ) {
+    if (!hasFeatherSourceTextContext(ast, diagnostic, sourceText)) {
         return [];
     }
 
@@ -6248,16 +6260,7 @@ function registerSanitizedMacroName(ast, macroName) {
 }
 
 function ensureVarDeclarationsAreTerminated({ ast, sourceText, diagnostic }) {
-    if (
-        !diagnostic ||
-        !ast ||
-        typeof ast !== "object" ||
-        typeof sourceText !== "string"
-    ) {
-        return [];
-    }
-
-    if (sourceText.length === 0) {
+    if (!hasFeatherSourceTextContext(ast, diagnostic, sourceText)) {
         return [];
     }
 
@@ -6575,10 +6578,9 @@ function markStatementToSuppressLeadingEmptyLine(statement) {
 
 function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {
     if (
-        !diagnostic ||
-        !ast ||
-        typeof ast !== "object" ||
-        typeof sourceText !== "string"
+        !hasFeatherSourceTextContext(ast, diagnostic, sourceText, {
+            allowEmpty: true
+        })
     ) {
         return [];
     }
