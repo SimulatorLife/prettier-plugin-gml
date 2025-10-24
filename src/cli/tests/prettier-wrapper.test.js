@@ -800,6 +800,11 @@ describe("Prettier wrapper CLI", () => {
                     error.stderr.includes(`Unable to access ${missingPath}`),
                     "Expected stderr to mention the inaccessible target"
                 );
+                assert.match(
+                    error.stderr,
+                    /Verify the path exists relative to the current working directory/i,
+                    "Expected stderr to explain how to resolve missing paths"
+                );
                 assert.ok(
                     /Usage: prettier-plugin-gml/.test(error.stderr),
                     "Expected stderr to include the CLI usage information"

@@ -905,10 +905,30 @@ async function resolveTargetStats(target, { usage } = {}) {
         const details =
             getErrorMessage(error, { fallback: "Unknown error" }) ||
             "Unknown error";
-        const cliError = new CliUsageError(
-            `Unable to access ${target}: ${details}`,
-            { usage }
-        );
+        const formattedTarget = formatPathForDisplay(target);
+        const guidance = (() => {
+            if (isErrorWithCode(error, "ENOENT")) {
+                return [
+                    "Verify the path exists relative to the current working directory",
+                    `(${INITIAL_WORKING_DIRECTORY}) or provide an absolute path.`
+                ].join(" ");
+            }
+
+            if (isErrorWithCode(error, "EACCES")) {
+                return "Check that you have permission to read the path.";
+            }
+
+            return null;
+        })();
+        const messageParts = [
+            `Unable to access ${formattedTarget}: ${details}.`
+        ];
+
+        if (guidance) {
+            messageParts.push(guidance);
+        }
+
+        const cliError = new CliUsageError(messageParts.join(" "), { usage });
         throw cliError;
     }
 }
