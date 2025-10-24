@@ -13,7 +13,7 @@ import { formatBytes } from "../byte-format.js";
 import { writeManualFile } from "./file-helpers.js";
 import { createAbortGuard } from "../../../shared/abort-utils.js";
 import { isFsErrorCode } from "../../../shared/fs-utils.js";
-import { renderProgressBar } from "../progress-bar.js";
+import { disposeProgressBars, renderProgressBar } from "../progress-bar.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
@@ -93,25 +93,43 @@ export function createManualDownloadReporter({
     render = renderProgressBar
 } = {}) {
     if (!verbose.downloads) {
-        return () => {};
+        const noop = () => {};
+        noop.cleanup = () => {};
+        return noop;
     }
 
     if (verbose.progressBar) {
         const normalizedLabel = normalizeDownloadLabel(label);
         const width = progressBarWidth ?? 0;
+        let cleanedUp = false;
 
-        return ({ fetchedCount, totalEntries }) => {
+        const report = ({ fetchedCount, totalEntries }) => {
             render(normalizedLabel, fetchedCount, totalEntries, width);
         };
+
+        report.cleanup = () => {
+            if (cleanedUp) {
+                return;
+            }
+
+            cleanedUp = true;
+            disposeProgressBars();
+        };
+
+        return report;
     }
 
     const normalizePath =
         typeof formatPath === "function" ? formatPath : (path) => path;
 
-    return ({ path }) => {
+    const report = ({ path }) => {
         const displayPath = normalizePath(path);
         console.log(displayPath ? `✓ ${displayPath}` : "✓");
     };
+
+    report.cleanup = () => {};
+
+    return report;
 }
 
 /**
@@ -139,27 +157,41 @@ export async function downloadManualFileEntries({
     manualRefSha,
     fetchManualFile,
     requestOptions,
-    onProgress
+    onProgress,
+    onProgressCleanup
 }) {
     const normalizedEntries = Array.from(entries);
     const payloads = {};
     const totalEntries = normalizedEntries.length;
     let fetchedCount = 0;
+    const cleanup =
+        typeof onProgressCleanup === "function" ? onProgressCleanup : null;
 
-    for (const [key, filePath] of normalizedEntries) {
-        payloads[key] = await fetchManualFile(
-            manualRefSha,
-            filePath,
-            requestOptions
-        );
+    try {
+        for (const [key, filePath] of normalizedEntries) {
+            payloads[key] = await fetchManualFile(
+                manualRefSha,
+                filePath,
+                requestOptions
+            );
 
-        fetchedCount += 1;
-        onProgress?.({
-            key,
-            path: filePath,
-            fetchedCount,
-            totalEntries
-        });
+            fetchedCount += 1;
+            onProgress?.({
+                key,
+                path: filePath,
+                fetchedCount,
+                totalEntries
+            });
+        }
+    } finally {
+        if (cleanup) {
+            try {
+                cleanup();
+            } catch {
+                // Ignore cleanup failures so manual downloads still bubble the
+                // original error.
+            }
+        }
     }
 
     return payloads;

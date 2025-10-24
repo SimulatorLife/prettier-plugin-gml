@@ -1055,7 +1055,8 @@ async function fetchFeatherManualPayloads({
                     path,
                     fetchedCount,
                     totalEntries
-                })
+                }),
+            onProgressCleanup: reportProgress.cleanup
         });
     });
 }
