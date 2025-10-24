@@ -6,7 +6,6 @@ import { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
 let activeProgressBars = new Map();
-let progressBarFactory = (options, preset) => new SingleBar(options, preset);
 
 function resolveProgressStream(stdout) {
     if (!stdout) {
@@ -44,15 +43,8 @@ const {
 
 applyProgressBarWidthEnvOverride();
 
-function setProgressBarFactoryForTesting(factory) {
-    progressBarFactory =
-        typeof factory === "function"
-            ? factory
-            : (options, preset) => new SingleBar(options, preset);
-}
-
 function createDefaultProgressBar(label, width, { stream } = {}) {
-    return progressBarFactory(
+    return new SingleBar(
         {
             format: `${label} [{bar}] {value}/{total}`,
             barsize: width,
@@ -61,8 +53,7 @@ function createDefaultProgressBar(label, width, { stream } = {}) {
             linewrap: true,
             ...(stream ? { stream } : {})
         },
-        Presets.shades_classic,
-        label
+        Presets.shades_classic
     );
 }
 
@@ -131,7 +122,6 @@ export {
     disposeProgressBars,
     getDefaultProgressBarWidth,
     setDefaultProgressBarWidth,
-    setProgressBarFactoryForTesting,
     renderProgressBar,
     resolveProgressBarWidth,
     withProgressBarCleanup,
