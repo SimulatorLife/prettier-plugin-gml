@@ -160,27 +160,6 @@ export function withDefinedValue(value, onDefined, onUndefined) {
  * @param {boolean} [options.acceptNull=false]
  * @returns {unknown} The first matching property value or the fallback.
  */
-function isCoalescableValue(value, acceptNull) {
-    return value !== undefined && (acceptNull || value !== null);
-}
-
-function coalesceFromArray(object, keys, { fallback, acceptNull }) {
-    for (const key of keys) {
-        const value = object[key];
-
-        if (isCoalescableValue(value, acceptNull)) {
-            return value;
-        }
-    }
-
-    return fallback;
-}
-
-function coalesceFromKey(object, key, { fallback, acceptNull }) {
-    const value = object[key];
-    return isCoalescableValue(value, acceptNull) ? value : fallback;
-}
-
 export function coalesceOption(
     object,
     keys,
@@ -190,17 +169,17 @@ export function coalesceOption(
         return fallback;
     }
 
-    if (Array.isArray(keys)) {
-        return coalesceFromArray(object, keys, { fallback, acceptNull });
+    const keyList = Array.isArray(keys) ? keys : keys == null ? [] : [keys];
+
+    for (const key of keyList) {
+        const value = object[key];
+
+        if (value !== undefined && (acceptNull || value !== null)) {
+            return value;
+        }
     }
 
-    if (keys == null) {
-        return fallback;
-    }
-
-    // Fast-path singular keys to avoid allocating an intermediate array in the
-    // tight option-lookup loops used by the formatter and CLI entry points.
-    return coalesceFromKey(object, keys, { fallback, acceptNull });
+    return fallback;
 }
 
 /**
