@@ -1,13 +1,15 @@
-import {
-    gmlParserAdapter,
-    print,
-    handleComments,
-    printComment,
-    identifierCaseOptions,
-    LogicalOperatorsStyle
-} from "./default-plugin-component-dependencies.js";
+import { resolveGmlPluginComponentDependencies } from "./gml-plugin-component-dependency-registry.js";
 
 export function createDefaultGmlPluginComponents() {
+    const {
+        gmlParserAdapter,
+        print,
+        handleComments,
+        printComment,
+        identifierCaseOptions,
+        LogicalOperatorsStyle
+    } = resolveGmlPluginComponentDependencies();
+
     return {
         parsers: {
             "gml-parse": {
