@@ -8,14 +8,13 @@ import { Command, InvalidArgumentError } from "commander";
 
 import {
     appendToCollection,
-    assertPlainObject,
     createEnvConfiguredValueWithFallback,
     ensureDir,
     getErrorMessage,
     isNonEmptyString,
     normalizeStringList,
-    splitLines,
-    parseJsonWithContext
+    parseJsonObjectWithContext,
+    splitLines
 } from "../../shared/dependencies.js";
 import { applyStandardCommandOptions } from "../../core/command-standard-options.js";
 import {
@@ -144,13 +143,12 @@ function buildFormatterOptionsTypeErrorMessage(source, value) {
  * @returns {Record<string, unknown>} Normalized option overrides.
  */
 export function parseFormatterOptionsFixture(optionsRaw, { source } = {}) {
-    const payload = parseJsonWithContext(optionsRaw, {
+    return parseJsonObjectWithContext(optionsRaw, {
         source,
-        description: "formatter options fixture"
-    });
-
-    return assertPlainObject(payload, {
-        errorMessage: buildFormatterOptionsTypeErrorMessage(source, payload)
+        description: "formatter options fixture",
+        createAssertOptions: (payload) => ({
+            errorMessage: buildFormatterOptionsTypeErrorMessage(source, payload)
+        })
     });
 }
 
