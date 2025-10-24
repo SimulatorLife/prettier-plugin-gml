@@ -38,6 +38,7 @@ import {
     isErrorWithCode,
     normalizeEnumeratedOption,
     normalizeStringList,
+    resolveModuleDefaultExport,
     toArray,
     mergeUniqueValues,
     toNormalizedLowerCaseSet,
@@ -186,7 +187,7 @@ let prettierModulePromise = null;
 async function resolvePrettier() {
     if (!prettierModulePromise) {
         prettierModulePromise = import(PRETTIER_MODULE_ID)
-            .then((module) => module?.default ?? module)
+            .then(resolveModuleDefaultExport)
             .catch((error) => {
                 if (isMissingPrettierDependency(error)) {
                     const instructions = [

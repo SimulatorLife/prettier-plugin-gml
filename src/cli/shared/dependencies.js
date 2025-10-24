@@ -28,6 +28,7 @@ export {
     parseJsonWithContext,
     splitLines,
     resolveIntegerOption,
+    resolveModuleDefaultExport,
     toArray,
     toNormalizedInteger,
     uniqueArray,

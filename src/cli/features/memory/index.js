@@ -13,6 +13,7 @@ import {
     getErrorMessageOrFallback,
     isNonEmptyString,
     normalizeStringList,
+    resolveModuleDefaultExport,
     parseJsonObjectWithContext,
     splitLines
 } from "../../shared/dependencies.js";
@@ -84,7 +85,7 @@ function resolveProjectPath(relativePath) {
 
 async function loadPrettierStandalone() {
     const module = await import("prettier/standalone.mjs");
-    return module?.default ?? module;
+    return resolveModuleDefaultExport(module);
 }
 
 async function loadSampleText(label, relativePath) {

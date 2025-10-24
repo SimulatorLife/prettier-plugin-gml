@@ -25,7 +25,8 @@ import {
     isFiniteNumber,
     getIdentifierText,
     toNormalizedInteger,
-    stringifyJsonForFile
+    stringifyJsonForFile,
+    resolveModuleDefaultExport
 } from "../../shared/dependencies.js";
 import {
     PerformanceSuiteName,
@@ -334,7 +335,7 @@ let prettierModulePromise = null;
 async function resolvePrettier() {
     if (!prettierModulePromise) {
         prettierModulePromise = import("prettier").then(
-            (module) => module?.default ?? module
+            resolveModuleDefaultExport
         );
     }
 
