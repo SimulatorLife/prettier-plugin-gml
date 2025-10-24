@@ -1,4 +1,4 @@
-import { toNormalizedLowerCaseString } from "./string.js";
+import { isNonEmptyString, toNormalizedLowerCaseString } from "./string.js";
 
 /**
  * Normalize enumerated option values against a set of valid entries.
@@ -14,7 +14,7 @@ import { toNormalizedLowerCaseString } from "./string.js";
  *        normalizes to an empty string.
  * @param {{ has(value: string): boolean }} validValues Collection used to
  *        determine whether the normalized value is accepted.
- * @param {Object} [options]
+ * @param {object} [options]
  * @param {(value: unknown) => string} [options.coerce=toNormalizedLowerCaseString]
  *        Normalization function applied before validation.
  * @returns {string | null | unknown} Normalized value when valid, the fallback
@@ -37,7 +37,7 @@ export function normalizeEnumeratedOption(
 
     const normalized = coerce(value);
 
-    if (typeof normalized !== "string" || normalized.length === 0) {
+    if (!isNonEmptyString(normalized)) {
         return fallbackValue;
     }
 

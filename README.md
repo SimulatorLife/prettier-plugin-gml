@@ -138,7 +138,10 @@ for (var i = 0; i < queue_count; i += 1) {
   repository health check, with links back to the
   [May 2024 audit](docs/architecture-audit-2024-05-15.md) and
   [shared module layout refresh](docs/shared-module-layout.md) for historical
-  context around the `src/shared/` consolidation.
+  context around the `src/shared/` consolidation. Pair it with the
+  [interface segregation investigation](docs/interface-segregation-investigation.md)
+  when you need a refresher on why the CLI and plugin expose separate entry
+  points.
 - [Identifier casing handbook](docs/naming-conventions.md) &mdash; End-to-end
   coverage of the rename pipeline paired with the
   [scope reference](docs/identifier-case-reference.md),
@@ -150,6 +153,10 @@ for (var i = 0; i < queue_count; i += 1) {
   alongside the [Feather data plan](docs/feather-data-plan.md). Pair them with
   the [reserved identifier metadata hook overview](docs/reserved-identifier-metadata-hook.md)
   when staging bespoke metadata sources or regeneration scripts.
+- [Live reloading concept](docs/live-reloading-concept.md) &mdash; Concept brief for
+  the HTML5 runtime fork and watcher pipeline that powers in-place code reloads
+  during gameplay. Use it alongside the architecture audits when evaluating
+  runtime tooling work.
 
 ---
 
@@ -175,6 +182,7 @@ export NVM_DIR="${XDG_CONFIG_HOME:-$HOME/.nvm}"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 nvm install
 nvm use
+nvm alias default node
 ```
 
 </details>
@@ -412,6 +420,9 @@ without editing project scripts:
   Adds repository-relative or absolute plugin entry point paths for the wrapper
   to consider before falling back to its built-in candidates. Useful when CI
   jobs build the plugin into a temporary directory.
+- `PRETTIER_PLUGIN_GML_PRETTIER_MODULE` &mdash; Overrides the module specifier used
+  to resolve Prettier. Handy when the formatter runs inside a monorepo with a
+  custom Prettier build or when you pin a nightly via a local alias.
 - `PRETTIER_PLUGIN_GML_VERSION` &mdash; Injects the version label surfaced by
   `node ./node_modules/root/src/cli/cli.js --version`. Handy when mirroring
   release tags or packaging nightly builds.
@@ -517,7 +528,7 @@ Banner line comments are automatically detected when they contain five or more c
 | `gmlIdentifierCaseAcknowledgeAssetRenames` | `false` | Required confirmation before asset renames update `.yy` metadata and on-disk file names. |
 | `gmlIdentifierCaseDiscoverProject` | `true` | Controls whether the formatter auto-discovers the nearest `.yyp` manifest to bootstrap the project index. |
 | `gmlIdentifierCaseProjectRoot` | `""` | Pins project discovery to a specific directory when auto-detection is undesirable (e.g. CI or monorepos). |
-| `gmlIdentifierCaseProjectIndexCacheMaxBytes` | `8 MiB` | Upper bound for the persisted project-index cache. Set to `0` to disable the size guard when coordinating cache writes manually. |
+| `gmlIdentifierCaseProjectIndexCacheMaxBytes` | `8 MiB` | Upper bound for the persisted project-index cache. Set the option or `GML_PROJECT_INDEX_CACHE_MAX_SIZE` to `0` to disable the size guard when coordinating cache writes manually. |
 | `gmlIdentifierCaseProjectIndexConcurrency` | `4` (overridable via `GML_PROJECT_INDEX_CONCURRENCY`, clamped to `1`–`16`) | Caps how many GameMaker source files are parsed in parallel while building the identifier-case project index. |
 | `gmlIdentifierCaseOptionStoreMaxEntries` | `128` | Caps the identifier-case option store size; set to `0` to keep all historical entries without eviction. |
 
@@ -601,8 +612,8 @@ append `-- --watch` to any `npm run test --workspace …` command for watch mode
 package to emit the XML file that the GitHub automerge workflow parses when it
 builds its warning/error summary table. Keep the dependency in `devDependencies`
 so the CI job continues producing checkstyle output; removing it leaves the
-formatter unavailable at runtime and collapses the summary into the
-"No lint (checkstyle) data found" fallback state.
+formatter unavailable at runtime and collapses the summary into the "No lint
+(checkstyle) data found" fallback state.
 
 Fixtures under `src/plugin/tests` and `src/parser/tests/input` are golden. Update them only when deliberately changing formatter output or parser behaviour.
 
@@ -633,6 +644,12 @@ npm run cli -- --help       # Explore CLI utilities without switching directorie
 npm run cli -- performance  # Run the benchmarking helpers registered with the CLI
 npm run memory -- --suite normalize-string-list --pretty      # Measure normalizeStringList memory usage
 ```
+
+Tune the memory suites with environment variables when scripting CI runs:
+`GML_MEMORY_ITERATIONS` adjusts the default iteration count, while
+`GML_MEMORY_PARSER_MAX_ITERATIONS` and `GML_MEMORY_FORMAT_MAX_ITERATIONS`
+cap the parser and formatter hot loops respectively when a suite requests more
+work than the configured ceiling.
 
 ---
 

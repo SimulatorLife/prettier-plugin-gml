@@ -47,13 +47,6 @@ function buildAssetConflictSuggestions(identifierName) {
     return suggestions;
 }
 
-function createRenameScopeDescriptor(renameEntry) {
-    return {
-        id: renameEntry.resourcePath,
-        displayName: `${renameEntry.resourceType}.${renameEntry.originalName}`
-    };
-}
-
 function mapRenameConflictDetails(entries) {
     return entries.map((entry) => ({
         resourcePath: entry.resourcePath,
@@ -63,6 +56,55 @@ function mapRenameConflictDetails(entries) {
     }));
 }
 
+function pushAssetRenameConflict({
+    conflicts,
+    metrics,
+    metricKey,
+    code,
+    severity = "error",
+    message,
+    resourcePath,
+    resourceType,
+    identifierName,
+    details,
+    includeSuggestions = true,
+    suggestions
+}) {
+    const scope = {
+        id: resourcePath,
+        displayName: `${resourceType}.${identifierName}`
+    };
+
+    const resolvedSuggestions =
+        suggestions === undefined
+            ? includeSuggestions && isNonEmptyString(identifierName)
+              ? buildAssetConflictSuggestions(identifierName)
+              : null
+            : suggestions;
+
+    const conflict = {
+        code,
+        severity,
+        message,
+        scope,
+        identifier: identifierName
+    };
+
+    if (details !== undefined) {
+        conflict.details = details;
+    }
+
+    if (resolvedSuggestions && resolvedSuggestions.length > 0) {
+        conflict.suggestions = resolvedSuggestions;
+    }
+
+    conflicts.push(createConflict(conflict));
+
+    if (metricKey) {
+        metrics?.incrementCounter(metricKey);
+    }
+}
+
 function recordAssetRenameCollision({
     conflicts,
     renameEntry,
@@ -70,23 +112,20 @@ function recordAssetRenameCollision({
     message,
     metrics
 }) {
-    conflicts.push(
-        createConflict({
-            code: COLLISION_CONFLICT_CODE,
-            severity: "error",
-            message,
-            scope: createRenameScopeDescriptor(renameEntry),
-            identifier: renameEntry.originalName,
-            suggestions: buildAssetConflictSuggestions(
-                renameEntry.originalName
-            ),
-            details: {
-                targetName: renameEntry.finalName,
-                conflicts: mapRenameConflictDetails(conflictingEntries)
-            }
-        })
-    );
-    metrics?.incrementCounter("assets.collisionConflicts");
+    pushAssetRenameConflict({
+        conflicts,
+        metrics,
+        metricKey: "assets.collisionConflicts",
+        code: COLLISION_CONFLICT_CODE,
+        message,
+        resourcePath: renameEntry.resourcePath,
+        resourceType: renameEntry.resourceType,
+        identifierName: renameEntry.originalName,
+        details: {
+            targetName: renameEntry.finalName,
+            conflicts: mapRenameConflictDetails(conflictingEntries)
+        }
+    });
 }
 
 function collectDirectoryEntries({ projectIndex, renames }) {
@@ -205,25 +244,19 @@ function detectAssetRenameConflicts({ projectIndex, renames, metrics = null }) {
             continue;
         }
 
-        const scopeDescriptor = {
-            id: rename.resourcePath,
-            displayName: `${rename.resourceType}.${rename.fromName}`
-        };
-
-        conflicts.push(
-            createConflict({
-                code: RESERVED_CONFLICT_CODE,
-                severity: "error",
-                message: `Renaming '${rename.fromName}' to '${rename.toName}' conflicts with reserved identifier '${rename.toName}'.`,
-                scope: scopeDescriptor,
-                identifier: rename.fromName,
-                suggestions: buildAssetConflictSuggestions(rename.fromName),
-                details: {
-                    targetName: rename.toName
-                }
-            })
-        );
-        metrics?.incrementCounter("assets.reservedConflicts");
+        pushAssetRenameConflict({
+            conflicts,
+            metrics,
+            metricKey: "assets.reservedConflicts",
+            code: RESERVED_CONFLICT_CODE,
+            message: `Renaming '${rename.fromName}' to '${rename.toName}' conflicts with reserved identifier '${rename.toName}'.`,
+            resourcePath: rename.resourcePath,
+            resourceType: rename.resourceType,
+            identifierName: rename.fromName,
+            details: {
+                targetName: rename.toName
+            }
+        });
     }
 
     return conflicts;
@@ -299,48 +332,41 @@ export function planAssetRenames({
 
         if (configConflict) {
             metrics?.incrementCounter("assets.configurationConflicts");
-            const scopeDescriptor = {
-                id: resourcePath,
-                displayName: `${resourceRecord.resourceType}.${originalName}`
-            };
-
             const message = formatConfigurationConflictMessage({
                 configConflict,
                 identifierName: originalName,
                 noun: "Asset"
             });
 
-            conflicts.push(
-                createConflict({
-                    code: configConflict.code,
-                    severity: "info",
-                    message,
-                    scope: scopeDescriptor,
-                    identifier: originalName
-                })
-            );
+            pushAssetRenameConflict({
+                conflicts,
+                code: configConflict.code,
+                severity: "info",
+                message,
+                resourcePath,
+                resourceType: resourceRecord.resourceType,
+                identifierName: originalName,
+                includeSuggestions: false
+            });
             continue;
         }
 
         const directory = path.posix.dirname(resourcePath);
         const collisionKey = `${directory}|${convertedName.toLowerCase()}`;
         if (namesByDirectory.has(collisionKey)) {
-            const scopeDescriptor = {
-                id: resourcePath,
-                displayName: `${resourceRecord.resourceType}.${originalName}`
-            };
-            conflicts.push(
-                createConflict({
-                    code: COLLISION_CONFLICT_CODE,
-                    severity: "error",
-                    message: `Renaming '${originalName}' to '${convertedName}' collides with existing asset '${
-                        namesByDirectory.get(collisionKey).name
-                    }'.`,
-                    scope: scopeDescriptor,
-                    identifier: originalName
-                })
-            );
-            metrics?.incrementCounter("assets.collisionConflicts");
+            pushAssetRenameConflict({
+                conflicts,
+                metrics,
+                metricKey: "assets.collisionConflicts",
+                code: COLLISION_CONFLICT_CODE,
+                message: `Renaming '${originalName}' to '${convertedName}' collides with existing asset '${
+                    namesByDirectory.get(collisionKey).name
+                }'.`,
+                resourcePath,
+                resourceType: resourceRecord.resourceType,
+                identifierName: originalName,
+                includeSuggestions: false
+            });
             continue;
         }
         namesByDirectory.set(collisionKey, {
