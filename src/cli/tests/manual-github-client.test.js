@@ -10,7 +10,7 @@ import {
     createManualGitHubRefResolver,
     createManualGitHubRequestDispatcher,
     createManualVerboseState
-} from "../lib/manual/utils.js";
+} from "../features/manual/utils.js";
 
 const API_ROOT = "https://api.github.com/repos/example/manual";
 const RAW_ROOT = "https://raw.github.com/example/manual";

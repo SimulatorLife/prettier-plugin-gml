@@ -14,8 +14,8 @@ import {
     isObjectLike,
     toArray,
     toTrimmedString
-} from "../lib/shared-deps.js";
-import { CliUsageError, handleCliError } from "../lib/cli-errors.js";
+} from "../shared/dependencies.js";
+import { CliUsageError, handleCliError } from "../core/errors.js";
 import { ensureMap } from "../../shared/utils/capability-probes.js";
 
 let parser;

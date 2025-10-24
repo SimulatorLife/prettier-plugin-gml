@@ -12,11 +12,11 @@ import {
     resolveManualGitHubCommitResolver,
     resolveManualGitHubRefResolver,
     resolveManualGitHubFileClient
-} from "../lib/manual/context.js";
+} from "../features/manual/context.js";
 import {
     buildManualRepositoryEndpoints,
     resolveManualCacheRoot
-} from "../lib/manual/utils.js";
+} from "../features/manual/utils.js";
 
 test("createManualAccessContext centralizes manual access defaults", () => {
     const commandUrl = pathToFileURL(

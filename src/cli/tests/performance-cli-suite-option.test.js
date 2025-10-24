@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createPerformanceCommand } from "../lib/performance-cli.js";
-import { PerformanceSuiteName } from "../lib/performance-suite-options.js";
+import { createPerformanceCommand } from "../features/performance/index.js";
+import { PerformanceSuiteName } from "../features/performance/suite-options.js";
 
 describe("performance CLI suite option", () => {
     it("accepts known suite names", () => {
