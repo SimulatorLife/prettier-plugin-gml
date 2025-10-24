@@ -187,6 +187,16 @@ const PROJECT_FILE_CATEGORY_CHOICES = Object.freeze(
     [...PROJECT_FILE_CATEGORIES].sort().join(", ")
 );
 
+/**
+ * Validate and normalize the category used when registering project files.
+ * Ensures downstream collectors receive only the canonical string literals the
+ * index understands, preserving stable cache keys and metrics labeling.
+ *
+ * @param {unknown} value Candidate category provided by a caller.
+ * @returns {"gml" | "yy"} Canonical project file category string.
+ * @throws {RangeError} When {@link value} is not one of the supported
+ *         categories.
+ */
 export function normalizeProjectFileCategory(value) {
     if (PROJECT_FILE_CATEGORIES.has(value)) {
         return value;
