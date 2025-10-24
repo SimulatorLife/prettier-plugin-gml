@@ -908,8 +908,10 @@ async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
             return true;
         }
     } catch (error) {
+        const message =
+            getErrorMessage(error, { fallback: "" }) || "Unknown error";
         console.warn(
-            `Unable to evaluate ignore rules for ${directory}: ${error.message}`
+            `Unable to evaluate ignore rules for ${directory}: ${message}`
         );
     }
 
