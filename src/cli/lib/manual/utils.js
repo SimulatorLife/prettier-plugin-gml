@@ -10,7 +10,7 @@ import {
 } from "../shared-deps.js";
 import { formatDuration } from "../time-utils.js";
 import { formatBytes } from "../byte-format.js";
-import { writeManualFile } from "../manual-file-helpers.js";
+import { writeManualFile } from "./file-helpers.js";
 import { createAbortGuard } from "../../../shared/abort-utils.js";
 import { isFsErrorCode } from "../../../shared/utils/fs.js";
 import { renderProgressBar } from "../progress-bar.js";

@@ -4,7 +4,7 @@ import test from "node:test";
 import {
     decodeManualKeywordsPayload,
     decodeManualTagsPayload
-} from "../lib/manual-payload-validation.js";
+} from "../lib/manual/payload-validation.js";
 import { isJsonParseError } from "../lib/shared-deps.js";
 
 test("decodeManualKeywordsPayload validates keyword mappings", () => {

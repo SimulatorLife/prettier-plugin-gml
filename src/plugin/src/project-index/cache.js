@@ -7,7 +7,7 @@ import {
     isFiniteNumber
 } from "../../../shared/number-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
-import { createEnvConfiguredValue } from "../../../shared/environment-utils.js";
+import { createEnvConfiguredValueWithFallback } from "../../../shared/environment-utils.js";
 import {
     PROJECT_MANIFEST_EXTENSION,
     isProjectManifestPath
@@ -35,10 +35,10 @@ export const PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR =
 // published guidance so operational runbooks stay trustworthy.
 export const PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE = 8 * 1024 * 1024; // 8 MiB
 
-const projectIndexCacheSizeConfig = createEnvConfiguredValue({
+const projectIndexCacheSizeConfig = createEnvConfiguredValueWithFallback({
     defaultValue: PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE,
     envVar: PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR,
-    normalize: (value, { defaultValue }) => {
+    resolve: (value, { fallback }) => {
         const normalized = normalizeMaxSizeBytes(value);
         if (normalized !== null) {
             return normalized;
@@ -60,8 +60,9 @@ const projectIndexCacheSizeConfig = createEnvConfiguredValue({
             }
         }
 
-        return defaultValue;
-    }
+        return fallback;
+    },
+    computeFallback: ({ defaultValue }) => defaultValue
 });
 
 export const DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE =
