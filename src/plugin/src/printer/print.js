@@ -1876,11 +1876,15 @@ function shouldForceBreakStructArgument(argument) {
         ? argument.properties
         : [];
 
-    if (properties.length <= 1) {
-        return properties.some((property) => hasComment(property));
+    if (properties.length === 0) {
+        return false;
     }
 
-    return true;
+    if (properties.some((property) => hasComment(property))) {
+        return true;
+    }
+
+    return properties.length > 2;
 }
 
 function getStructAlignmentInfo(structNode, options) {
