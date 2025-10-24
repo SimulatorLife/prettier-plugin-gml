@@ -814,16 +814,16 @@ function buildResultCandidates(defaultCandidates, envVariable) {
 
 function loadResultSets(workspaceRoot) {
     const baseCandidates = buildResultCandidates(
-        [path.join("base", "test-results"), "base-test-results"],
+        [path.join("base", "reports"), "base-reports"],
         "BASE_RESULTS_DIR"
     );
     const mergeCandidates = buildResultCandidates(
-        [path.join("merge", "test-results"), "merge-test-results"],
+        [path.join("merge", "reports"), "merge-reports"],
         "MERGE_RESULTS_DIR"
     );
 
     const base = readTestResults(baseCandidates, { workspace: workspaceRoot });
-    const head = readTestResults(["test-results"], {
+    const head = readTestResults(["reports"], {
         workspace: workspaceRoot
     });
     const merged = readTestResults(mergeCandidates, {
@@ -837,8 +837,8 @@ function chooseTargetResultSet({ merged, head }) {
     const usingMerged = Boolean(merged.usedDir);
     const target = usingMerged ? merged : head;
     const targetLabel = usingMerged
-        ? `synthetic merge (${merged.displayDir || "merge/test-results"})`
-        : `PR head (${head.displayDir || "test-results"})`;
+        ? `synthetic merge (${merged.displayDir || "merge/reports"})`
+        : `PR head (${head.displayDir || "reports"})`;
 
     return { target, targetLabel, usingMerged };
 }

@@ -6,7 +6,12 @@ import test from "node:test";
 import {
     createManualEnvironmentContext,
     createManualManualAccessContext,
-    createManualGitHubExecutionContext
+    resolveManualGitHubRequestService,
+    resolveManualGitHubRequestExecutor,
+    resolveManualGitHubCommitService,
+    resolveManualGitHubCommitResolver,
+    resolveManualGitHubRefResolver,
+    resolveManualGitHubFileClient
 } from "../lib/manual-command-context.js";
 import {
     buildManualRepositoryEndpoints,
@@ -45,28 +50,35 @@ test("createManualManualAccessContext centralizes manual access defaults", () =>
     assert.equal(typeof context.refs.resolveManualRef, "function");
 });
 
-test("createManualGitHubExecutionContext exposes execution helpers", () => {
+test("manual GitHub helpers expose narrow collaborators", () => {
     const commandUrl = pathToFileURL(
         path.resolve("src/cli/commands/generate-feather-metadata.js")
     ).href;
 
-    const context = createManualGitHubExecutionContext({
+    const options = {
         importMetaUrl: commandUrl,
         userAgent: "manual-context-test"
-    });
+    };
 
-    assert.ok(Object.isFrozen(context.requests));
-    assert.ok(Object.isFrozen(context.commits));
-    assert.ok(Object.isFrozen(context));
-    assert.equal(typeof context.request, "function");
-    assert.equal(context.request, context.requests.executeManualRequest);
-    assert.equal(
-        typeof context.commitResolver.resolveCommitFromRef,
-        "function"
-    );
-    assert.equal(typeof context.refResolver.resolveManualRef, "function");
-    assert.equal(typeof context.fileClient.fetchManualFile, "function");
-    assert.equal(typeof context.commits.resolveCommitFromRef, "function");
+    const requestService = resolveManualGitHubRequestService(options);
+    assert.ok(Object.isFrozen(requestService));
+    assert.equal(typeof requestService.executeManualRequest, "function");
+
+    const requestExecutor = resolveManualGitHubRequestExecutor(options);
+    assert.equal(typeof requestExecutor, "function");
+
+    const commitService = resolveManualGitHubCommitService(options);
+    assert.ok(Object.isFrozen(commitService));
+    assert.equal(typeof commitService.resolveCommitFromRef, "function");
+
+    const commitResolver = resolveManualGitHubCommitResolver(options);
+    assert.equal(typeof commitResolver.resolveCommitFromRef, "function");
+
+    const refResolver = resolveManualGitHubRefResolver(options);
+    assert.equal(typeof refResolver.resolveManualRef, "function");
+
+    const fileClient = resolveManualGitHubFileClient(options);
+    assert.equal(typeof fileClient.fetchManualFile, "function");
 });
 
 test("createManualEnvironmentContext isolates repository metadata", () => {
