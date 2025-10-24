@@ -1,5 +1,7 @@
 import { isNonEmptyString } from "./string.js";
 
+const UNKNOWN_ERROR_FALLBACK = "Unknown error";
+
 /**
  * Extract a string `code` property from an error-like value.
  *
@@ -121,13 +123,13 @@ export function getErrorMessageOrFallback(error, { fallback } = {}) {
     }
 
     if (fallback == null) {
-        return "Unknown error";
+        return UNKNOWN_ERROR_FALLBACK;
     }
 
     try {
         const normalized = String(fallback);
-        return normalized.length > 0 ? normalized : "Unknown error";
+        return normalized.length > 0 ? normalized : UNKNOWN_ERROR_FALLBACK;
     } catch {
-        return "Unknown error";
+        return UNKNOWN_ERROR_FALLBACK;
     }
 }
