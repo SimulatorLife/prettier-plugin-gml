@@ -1,7 +1,8 @@
 import {
     assertFunction,
     createEnvConfiguredValue,
-    resolveIntegerOption
+    resolveIntegerOption,
+    hasOwn
 } from "./shared-deps.js";
 
 const identity = (value) => value;
@@ -116,4 +117,47 @@ export function createIntegerOptionState({
     }
 
     return { getDefault, setDefault, resolve, applyEnvOverride };
+}
+
+/**
+ * Create a resolver that maps a descriptive alias (for example `defaultWidth`)
+ * to the `defaultValue` option consumed by {@link createIntegerOptionState}.
+ * Centralizes the boilerplate used across CLI modules that expose numeric
+ * configuration so each module can keep its public API expressive without
+ * re-implementing the aliasing logic.
+ *
+ * @param {(value: unknown, options?: { defaultValue?: number }) => unknown} resolve
+ *        Resolver returned from {@link createIntegerOptionState}.
+ * @param {{ defaultValueOption?: string }} [options]
+ * @param {string} [options.defaultValueOption] Alias forwarded to
+ *        `defaultValue` when present.
+ * @returns {(value: unknown, options?: Record<string, unknown>) => unknown}
+ */
+export function createIntegerOptionResolver(
+    resolve,
+    { defaultValueOption } = {}
+) {
+    assertFunction(resolve, "resolve");
+
+    const alias =
+        typeof defaultValueOption === "string" && defaultValueOption.length > 0
+            ? defaultValueOption
+            : null;
+
+    return (rawValue, options = {}) => {
+        const normalizedOptions =
+            options && typeof options === "object" ? { ...options } : {};
+
+        let defaultValue = normalizedOptions.defaultValue;
+
+        if (alias && hasOwn(normalizedOptions, alias)) {
+            defaultValue = normalizedOptions[alias];
+            delete normalizedOptions[alias];
+        }
+
+        return resolve(rawValue, {
+            ...normalizedOptions,
+            defaultValue
+        });
+    };
 }

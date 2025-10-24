@@ -25,7 +25,8 @@ import {
 import { applyEnvOptionOverrides } from "./env-overrides.js";
 import {
     createIntegerOptionCoercer,
-    createIntegerOptionState
+    createIntegerOptionState,
+    createIntegerOptionResolver
 } from "./numeric-option-state.js";
 import {
     SuiteOutputFormat,
@@ -409,6 +410,11 @@ const {
     applyEnvOverride: applyMemoryIterationsEnvOverride
 } = memoryIterationsState;
 
+const resolveMemoryIterations = createIntegerOptionResolver(
+    resolveMemoryIterationsState,
+    { defaultValueOption: "defaultIterations" }
+);
+
 const {
     get: getMaxFormatIterations,
     set: setMaxFormatIterations,
@@ -439,11 +445,7 @@ export {
     applyFormatMaxIterationsEnvOverride
 };
 
-export function resolveMemoryIterations(rawValue, { defaultIterations } = {}) {
-    return resolveMemoryIterationsState(rawValue, {
-        defaultValue: defaultIterations
-    });
-}
+export { resolveMemoryIterations };
 
 export function applyMemoryEnvOptionOverrides({ command, env } = {}) {
     if (!command || typeof command.setOptionValueWithSource !== "function") {
