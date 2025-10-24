@@ -1,4 +1,5 @@
 import { Buffer } from "node:buffer";
+import { isFiniteNumber } from "../../shared/number-utils.js";
 
 const BYTE_UNITS = Object.freeze(["B", "KB", "MB", "GB", "TB", "PB"]);
 const BYTE_RADIX = 1024;
@@ -6,7 +7,7 @@ const BYTE_RADIX = 1024;
 function normalizeByteCount(value) {
     const numericValue = typeof value === "bigint" ? Number(value) : value;
 
-    if (typeof numericValue !== "number" || !Number.isFinite(numericValue)) {
+    if (!isFiniteNumber(numericValue)) {
         return 0;
     }
 
