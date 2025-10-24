@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createMetricsTracker } from "../src/reporting/metrics.js";
+import { createMetricsTracker } from "../metrics-utils.js";
 
 test("snapshot exposes accumulated metrics as plain objects", () => {
     const tracker = createMetricsTracker({ category: "demo" });
@@ -82,6 +82,33 @@ test("cache keys are configurable and support custom metrics", () => {
         hits: 1,
         evictions: 2,
         misses: 3
+    });
+});
+
+test("cache key normalization trims duplicates from iterable input", () => {
+    const tracker = createMetricsTracker({
+        cacheKeys: new Set([" hits ", "", "misses", "hits"])
+    });
+
+    tracker.recordCacheHit("store");
+    tracker.recordCacheMetric("store", "misses", 2);
+
+    const report = tracker.snapshot();
+    assert.deepEqual(report.caches.store, {
+        hits: 1,
+        misses: 2
+    });
+});
+
+test("cache key normalization falls back to defaults when empty", () => {
+    const tracker = createMetricsTracker({ cacheKeys: [null, undefined] });
+    tracker.recordCacheHit("store");
+
+    const report = tracker.snapshot();
+    assert.deepEqual(report.caches.store, {
+        hits: 1,
+        misses: 0,
+        stale: 0
     });
 });
 

@@ -1,4 +1,4 @@
-import { createMetricsTracker } from "../reporting/metrics.js";
+import { createMetricsTracker } from "../reporting.js";
 
 const PROJECT_INDEX_METRICS_CATEGORY = "project-index";
 const REQUIRED_METRIC_METHODS = [
@@ -37,7 +37,12 @@ function createMetricsSnapshot(extra = {}) {
 
 const noop = () => {};
 
-const NOOP_METRIC_HANDLERS = Object.freeze({
+const NOOP_METRIC_METHODS = Object.freeze({
+    startTimer: () => () => {},
+    timeAsync: async (_label, callback) => await callback(),
+    timeSync: (_label, callback) => callback(),
+    snapshot: createMetricsSnapshot,
+    finalize: createMetricsSnapshot,
     incrementCounter: noop,
     setMetadata: noop,
     recordCacheHit: noop,
@@ -46,22 +51,15 @@ const NOOP_METRIC_HANDLERS = Object.freeze({
     logSummary: noop
 });
 
-const finalizeSnapshot = (extra = {}) => createMetricsSnapshot(extra);
-
 function createNoopProjectIndexMetrics() {
     return {
         category: PROJECT_INDEX_METRICS_CATEGORY,
-        startTimer: () => () => {},
-        timeAsync: async (_label, callback) => await callback(),
-        timeSync: (_label, callback) => callback(),
-        snapshot: createMetricsSnapshot,
-        finalize: finalizeSnapshot,
-        ...NOOP_METRIC_HANDLERS
+        ...NOOP_METRIC_METHODS
     };
 }
 
 export function createProjectIndexMetrics(options = {}) {
-    const { metrics, logger = null, logMetrics = false } = options ?? {};
+    const { metrics, logger = null, logMetrics = false } = options;
 
     if (isMetricsTracker(metrics)) {
         return metrics;

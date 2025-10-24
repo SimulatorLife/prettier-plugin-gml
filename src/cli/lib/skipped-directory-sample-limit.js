@@ -1,7 +1,8 @@
 import { coerceNonNegativeInteger } from "./shared-deps.js";
 import {
     createIntegerOptionCoercer,
-    createIntegerOptionState
+    createIntegerOptionState,
+    createIntegerOptionResolver
 } from "./numeric-option-state.js";
 
 export const DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT = 5;
@@ -39,13 +40,9 @@ export {
     applySkippedDirectorySampleLimitEnvOverride
 };
 
-export function resolveSkippedDirectorySampleLimit(
-    rawValue,
-    { defaultLimit } = {}
-) {
-    return resolveSkippedDirectorySampleLimitState(rawValue, {
-        defaultValue: defaultLimit
-    });
-}
+export const resolveSkippedDirectorySampleLimit = createIntegerOptionResolver(
+    resolveSkippedDirectorySampleLimitState,
+    { defaultValueOption: "defaultLimit" }
+);
 
 applySkippedDirectorySampleLimitEnvOverride();

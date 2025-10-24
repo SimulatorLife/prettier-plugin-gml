@@ -1,7 +1,8 @@
 import { coerceNonNegativeInteger } from "./shared-deps.js";
 import {
     createIntegerOptionCoercer,
-    createIntegerOptionState
+    createIntegerOptionState,
+    createIntegerOptionResolver
 } from "./numeric-option-state.js";
 
 export const DEFAULT_VM_EVAL_TIMEOUT_MS = 5000;
@@ -32,8 +33,7 @@ const {
 
 export { getDefaultVmEvalTimeoutMs, setDefaultVmEvalTimeoutMs };
 
-export function resolveVmEvalTimeout(rawValue, { defaultTimeout } = {}) {
-    return resolveVmEvalTimeoutState(rawValue, {
-        defaultValue: defaultTimeout
-    });
-}
+export const resolveVmEvalTimeout = createIntegerOptionResolver(
+    resolveVmEvalTimeoutState,
+    { defaultValueOption: "defaultTimeout" }
+);

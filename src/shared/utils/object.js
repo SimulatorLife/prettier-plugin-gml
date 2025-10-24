@@ -1,5 +1,3 @@
-import { toArray } from "./array.js";
-
 /**
  * Determine whether a value is a plain object (non-null object without an
  * Array instance). Some callers additionally require objects with prototypes
@@ -30,10 +28,18 @@ export function isPlainObject(value, { allowNullPrototype = true } = {}) {
  * @param {unknown} value Candidate function to validate.
  * @param {string} name Descriptive name used when constructing the error.
  */
-export function assertFunction(value, name) {
+export function assertFunction(value, name, { errorMessage } = {}) {
+    const message =
+        errorMessage ??
+        (typeof name === "string" && name.length > 0
+            ? `${name} must be a function`
+            : "Value must be a function");
+
     if (typeof value !== "function") {
-        throw new TypeError(`${name} must be a function`);
+        throw new TypeError(message);
     }
+
+    return value;
 }
 
 /**
@@ -109,6 +115,35 @@ export function withObjectLike(value, onObjectLike, onNotObjectLike) {
 }
 
 /**
+ * Execute {@link onDefined} when {@link value} is not `undefined`. Centralizes
+ * the guard around optional values so call sites can focus on their core logic
+ * instead of repeating `!== undefined` checks and callback validation.
+ *
+ * Callers can optionally supply {@link onUndefined} which mirrors the fallback
+ * semantics of {@link withObjectLike}, accepting either a thunk or a direct
+ * value. When omitted the helper returns `undefined` to keep its behavior
+ * aligned with existing conditional assignments in the codebase.
+ *
+ * @template TValue
+ * @template TResult
+ * @param {TValue | undefined} value Candidate value to inspect.
+ * @param {(value: TValue) => TResult} onDefined Callback invoked when
+ *        {@link value} is defined.
+ * @param {(() => TResult) | TResult} [onUndefined] Optional fallback returned
+ *        (or invoked) when {@link value} is `undefined`.
+ * @returns {TResult | undefined}
+ */
+export function withDefinedValue(value, onDefined, onUndefined) {
+    assertFunction(onDefined, "onDefined");
+
+    if (value === undefined) {
+        return typeof onUndefined === "function" ? onUndefined() : onUndefined;
+    }
+
+    return onDefined(value);
+}
+
+/**
  * Returns the first property value on the provided object that is neither
  * `undefined` nor `null`.
  *
@@ -120,7 +155,7 @@ export function withObjectLike(value, onObjectLike, onNotObjectLike) {
  * @template {string | number | symbol} TKey
  * @param {unknown} object Candidate object containing the properties.
  * @param {Array<TKey> | TKey} keys Property names to inspect in order.
- * @param {Object} [options]
+ * @param {object} [options]
  * @param {unknown} [options.fallback]
  * @param {boolean} [options.acceptNull=false]
  * @returns {unknown} The first matching property value or the fallback.
@@ -134,17 +169,28 @@ export function coalesceOption(
         return fallback;
     }
 
-    const lookupKeys = toArray(keys);
+    if (Array.isArray(keys)) {
+        for (const key of keys) {
+            const value = object[key];
 
-    for (const key of lookupKeys) {
-        const value = object[key];
-
-        if (value !== undefined && (acceptNull || value !== null)) {
-            return value;
+            if (value !== undefined && (acceptNull || value !== null)) {
+                return value;
+            }
         }
+
+        return fallback;
     }
 
-    return fallback;
+    if (keys == null) {
+        return fallback;
+    }
+
+    // Fast-path singular keys to avoid allocating an intermediate array in the
+    // tight option-lookup loops used by the formatter and CLI entry points.
+    const value = object[keys];
+    return value !== undefined && (acceptNull || value !== null)
+        ? value
+        : fallback;
 }
 
 /**

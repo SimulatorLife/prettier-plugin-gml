@@ -2,7 +2,7 @@
 ### (Based on the Open-Source HTML5 Runtime)
 
 ## Overview
-This document outlines the design and milestone plan for a new **live-reloading development runner** for GameMaker, inspired by **GMLive** but built on top of the **open-sourced HTML5 runtime**.  
+This document outlines the design and milestone plan for a new **live-reloading development runner** for GameMaker, inspired by **GMLive** but built on top of the **open-sourced HTML5 runtime**.
 The goal is to allow **true hot-loading** of GML code, assets, and shaders **without restarting the game or losing runtime state**.
 
 ---
@@ -10,16 +10,16 @@ The goal is to allow **true hot-loading** of GML code, assets, and shaders **wit
 ## Core Concept
 The system is composed of two parts:
 
-1. **Dev Runner (HTML5 Runtime Fork)**  
-   - Wraps GameMaker’s script and event dispatch through a hot-swappable registry.  
-   - Listens for WebSocket “patches” from a local dev server.  
-   - Replaces function references at runtime (scripts, events, shaders, etc.).  
+1. **Dev Runner (HTML5 Runtime Fork)**
+   - Wraps GameMaker’s script and event dispatch through a hot-swappable registry.
+   - Listens for WebSocket “patches” from a local dev server.
+   - Replaces function references at runtime (scripts, events, shaders, etc.).
    - Retains in-game state (instances, rooms, variables, etc.).
 
-2. **Dev Server (Node.js)**  
-   - Watches GML source files and resources.  
-   - Uses the ANTLR4 parser to transpile changed code into JavaScript or emit patch stubs.  
-   - Sends real-time patches to the runner over WebSocket.  
+2. **Dev Server (Node.js)**
+   - Watches GML source files and resources.
+   - Uses the ANTLR4 parser to transpile changed code into JavaScript or emit patch stubs.
+   - Sends real-time patches to the runner over WebSocket.
    - Optionally runs headless smoke tests (via Puppeteer/Playwright).
 
 ---
@@ -335,12 +335,12 @@ The wrapper can establish a WebSocket connection to receive patches, apply them 
 ## Transpiler Implementation Strategy
 There is no ready-made, open-source ANTLR4 → JavaScript transpiler for GML. Two realistic paths exist:
 
-1. **Build atop the existing ANTLR4 grammar.**  
-   - Start from the `grammars-v4` GameMaker grammar and generate a JavaScript (or TypeScript) parser.  
-   - Implement a visitor or listener that emits JavaScript matching HTML5 semantics, beginning with core expressions, control flow, and local variables.  
+1. **Build atop the existing ANTLR4 grammar.**
+   - Start from the `grammars-v4` GameMaker grammar and generate a JavaScript (or TypeScript) parser.
+   - Implement a visitor or listener that emits JavaScript matching HTML5 semantics, beginning with core expressions, control flow, and local variables.
    - Gradually expand coverage to structs, enums, macros, methods, `with` blocks, and asset references.
-2. **Study existing but non-reusable compilers.**  
-   - Tools such as GMLive include bespoke GML → JS compilers, yet they are not published as libraries.  
+2. **Study existing but non-reusable compilers.**
+   - Tools such as GMLive include bespoke GML → JS compilers, yet they are not published as libraries.
    - OpenGML functions as an interpreter rather than a transpiler, so it serves as reference material, not a drop-in solution.
 
 Recommended practice:
@@ -1292,7 +1292,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { analyzeToScipOccurrences } from "./analyze-to-scip";
 import { makeDummyOracle } from "./sem-oracle-dummy";
-import { ScipMemoryIndex } from "./scip-index";  // from earlier message
+import { ScipMemoryIndex } from "./scip-index"; // from earlier message
 import { emitPatchForSymbol, wsBroadcast } from "./your-patch-pipeline"; // your implementation
 
 const scip = new ScipMemoryIndex(); // start empty; or load from file if you persisted one
@@ -1309,7 +1309,12 @@ export async function onFileChanged(absPath: string) {
   const doc = analyzeToScipOccurrences(source, rel, oracle);
 
   // 2) Update in-memory SCIP
-  const occs = doc.occurrences.map(o => ({ docPath: doc.relativePath, range: o.range, symbol: o.symbol, isDef: (o.symbolRoles & 1) === 1 }));
+  const occs = doc.occurrences.map((occurrence) => ({
+    docPath: doc.relativePath,
+    range: occurrence.range,
+    symbol: occurrence.symbol,
+    isDef: (occurrence.symbolRoles & 1) === 1
+  }));
   scip.upsertDocument(doc.relativePath, occs);
 
   // 3) Changed symbols (DEFs in this file)
@@ -1317,8 +1322,12 @@ export async function onFileChanged(absPath: string) {
 
   // 4) Direct dependents (REFs to changed symbols)
   const targets = new Set<string>(changed);
-  for (const s of changed) for (const ref of scip.refsOf(s)) {
-    for (const def of scip.defsInDoc(ref.docPath)) targets.add(def.symbol);
+  for (const changedSymbol of changed) {
+    for (const reference of scip.refsOf(changedSymbol)) {
+      for (const definition of scip.defsInDoc(reference.docPath)) {
+        targets.add(definition.symbol);
+      }
+    }
   }
 
   // 5) Emit patches

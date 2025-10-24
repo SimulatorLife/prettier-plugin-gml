@@ -1,4 +1,4 @@
-import { assertPlainObject, parseJsonWithContext } from "./shared-deps.js";
+import { assertPlainObject, parseJsonWithContext } from "../shared-deps.js";
 
 function validateManualMapping(record, { valueDescription }) {
     for (const [key, value] of Object.entries(record)) {
