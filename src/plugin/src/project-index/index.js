@@ -8,7 +8,8 @@ import {
 import {
     asArray,
     cloneObjectEntries,
-    isNonEmptyArray
+    isNonEmptyArray,
+    pushUnique
 } from "../../../shared/array-utils.js";
 import {
     assertFunction,
@@ -20,7 +21,7 @@ import {
     buildLocationKey,
     buildFileLocationKey
 } from "../../../shared/location-keys.js";
-import { getDefaultProjectIndexParser } from "./gml-parser-facade.js";
+import { resolveProjectIndexParser } from "./parser-override.js";
 import { clampConcurrency } from "./concurrency.js";
 import {
     PROJECT_MANIFEST_EXTENSION,
@@ -50,14 +51,6 @@ import {
 import { loadBuiltInIdentifiers } from "./built-in-identifiers.js";
 import { createProjectIndexCoordinatorFactory } from "./coordinator.js";
 
-const defaultProjectIndexParser = getDefaultProjectIndexParser();
-
-const PARSER_FACADE_OPTION_KEYS = [
-    "identifierCaseProjectIndexParserFacade",
-    "gmlParserFacade",
-    "parserFacade"
-];
-
 /**
  * Create shallow clones of common entry collections stored on project index
  * records (for example declaration/reference lists). Guarding against
@@ -68,32 +61,6 @@ function cloneEntryCollections(entry, ...keys) {
     const source = isObjectLike(entry) ? entry : {};
     return Object.fromEntries(
         keys.map((key) => [key, cloneObjectEntries(source[key])])
-    );
-}
-
-function getProjectIndexParserOverride(options) {
-    if (!isObjectLike(options)) {
-        return null;
-    }
-
-    for (const key of PARSER_FACADE_OPTION_KEYS) {
-        const facade = options[key];
-        if (typeof facade?.parse === "function") {
-            return {
-                facade,
-                parse: facade.parse.bind(facade)
-            };
-        }
-    }
-
-    const parse = options.parseGml;
-    return typeof parse === "function" ? { facade: null, parse } : null;
-}
-
-function resolveProjectIndexParser(options) {
-    return (
-        getProjectIndexParserOverride(options)?.parse ??
-        defaultProjectIndexParser
     );
 }
 
@@ -710,8 +677,8 @@ function createFunctionLikeIdentifierRecord({
         : [classification];
     const classificationTags = ["identifier", "declaration"];
     for (const tag of classificationArray) {
-        if (tag && !classificationTags.includes(tag)) {
-            classificationTags.push(tag);
+        if (tag) {
+            pushUnique(classificationTags, tag);
         }
     }
 
@@ -1846,9 +1813,7 @@ function registerFilePathWithScope(scopeRecord, filePath) {
         return;
     }
 
-    if (!scopeRecord.filePaths.includes(filePath)) {
-        scopeRecord.filePaths.push(filePath);
-    }
+    pushUnique(scopeRecord.filePaths, filePath);
 }
 
 function prepareProjectIndexRecords({
@@ -2386,6 +2351,7 @@ export async function buildProjectIndex(
     });
 }
 export { defaultFsFacade } from "./fs-facade.js";
-export { getProjectIndexParserOverride };
+
 export { ProjectFileCategory };
 export { __loadBuiltInIdentifiersForTests } from "./built-in-identifiers.js";
+export { getProjectIndexParserOverride } from "./parser-override.js";

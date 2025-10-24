@@ -154,3 +154,43 @@ export function parseJsonWithContext(text, options = {}) {
         });
     }
 }
+
+/**
+ * Serialize a JSON payload for file output while normalizing trailing
+ * newlines. Helpers across the CLI and plugin previously reimplemented this
+ * behaviour, often appending "\n" manually after JSON.stringify. Centralising
+ * the logic ensures all call sites respect the same newline semantics and keeps
+ * indentation handling in one place.
+ *
+ * @param {unknown} payload Data structure to serialize.
+ * @param {{
+ *   replacer?: Parameters<typeof JSON.stringify>[1],
+ *   space?: Parameters<typeof JSON.stringify>[2],
+ *   includeTrailingNewline?: boolean,
+ *   newline?: string
+ * }} [options]
+ * @returns {string} Stringified JSON with optional trailing newline.
+ */
+export function stringifyJsonForFile(payload, options = {}) {
+    const {
+        replacer = null,
+        space = 0,
+        includeTrailingNewline = true,
+        newline = "\n"
+    } = options;
+
+    const serialized = JSON.stringify(payload, replacer, space);
+
+    if (!includeTrailingNewline) {
+        return serialized;
+    }
+
+    const terminator =
+        typeof newline === "string" && newline.length > 0 ? newline : "\n";
+
+    if (serialized.endsWith(terminator)) {
+        return serialized;
+    }
+
+    return `${serialized}${terminator}`;
+}

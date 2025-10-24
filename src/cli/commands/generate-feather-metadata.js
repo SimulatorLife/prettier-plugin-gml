@@ -16,7 +16,7 @@ import {
     disposeProgressBars,
     withProgressBarCleanup
 } from "../lib/progress-bar.js";
-import { writeManualJsonArtifact } from "../lib/manual-file-helpers.js";
+import { writeManualJsonArtifact } from "../lib/manual/file-helpers.js";
 import {
     MANUAL_CACHE_ROOT_ENV_VAR,
     DEFAULT_MANUAL_REPO,
@@ -29,13 +29,13 @@ import {
     MANUAL_REF_ENV_VAR,
     PROGRESS_BAR_WIDTH_ENV_VAR,
     applyManualEnvOptionOverrides
-} from "../lib/manual-env.js";
+} from "../lib/manual/environment.js";
 import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
 import {
     applySharedManualCommandOptions,
     resolveManualCommandOptions
 } from "../lib/manual/command-options.js";
-import { createManualManualAccessContext } from "../lib/manual-command-context.js";
+import { createManualAccessContext } from "../lib/manual/context.js";
 
 /** @typedef {ReturnType<typeof resolveManualCommandOptions>} ManualCommandOptions */
 
@@ -47,7 +47,7 @@ const {
     },
     files: { fetchManualFile },
     refs: { resolveManualRef }
-} = createManualManualAccessContext({
+} = createManualAccessContext({
     importMetaUrl: import.meta.url,
     userAgent: "prettier-plugin-gml feather metadata generator",
     outputFileName: "feather-metadata.json"

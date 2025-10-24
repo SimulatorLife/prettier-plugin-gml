@@ -1,5 +1,3 @@
-import { toArray } from "./array.js";
-
 /**
  * Determine whether a value is a plain object (non-null object without an
  * Array instance). Some callers additionally require objects with prototypes
@@ -171,17 +169,28 @@ export function coalesceOption(
         return fallback;
     }
 
-    const lookupKeys = toArray(keys);
+    if (Array.isArray(keys)) {
+        for (const key of keys) {
+            const value = object[key];
 
-    for (const key of lookupKeys) {
-        const value = object[key];
-
-        if (value !== undefined && (acceptNull || value !== null)) {
-            return value;
+            if (value !== undefined && (acceptNull || value !== null)) {
+                return value;
+            }
         }
+
+        return fallback;
     }
 
-    return fallback;
+    if (keys == null) {
+        return fallback;
+    }
+
+    // Fast-path singular keys to avoid allocating an intermediate array in the
+    // tight option-lookup loops used by the formatter and CLI entry points.
+    const value = object[keys];
+    return value !== undefined && (acceptNull || value !== null)
+        ? value
+        : fallback;
 }
 
 /**

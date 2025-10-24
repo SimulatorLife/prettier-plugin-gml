@@ -5,6 +5,7 @@ import {
     asArray,
     cloneObjectEntries,
     isNonEmptyArray,
+    pushUnique,
     toArray,
     uniqueArray
 } from "../array-utils.js";
@@ -57,6 +58,41 @@ test("uniqueArray supports iterables and optional freezing", () => {
 
     assert.deepEqual(result, ["one", "two"]);
     assert.ok(Object.isFrozen(result));
+});
+
+test("pushUnique appends values that are not present", () => {
+    const entries = ["alpha"];
+
+    const added = pushUnique(entries, "beta");
+
+    assert.equal(added, true);
+    assert.deepEqual(entries, ["alpha", "beta"]);
+});
+
+test("pushUnique skips existing values", () => {
+    const entries = ["alpha", "beta"];
+
+    const added = pushUnique(entries, "alpha");
+
+    assert.equal(added, false);
+    assert.deepEqual(entries, ["alpha", "beta"]);
+});
+
+test("pushUnique can use a custom equality comparator", () => {
+    const entries = [{ id: 1 }, { id: 2 }];
+
+    const added = pushUnique(
+        entries,
+        { id: 2 },
+        { isEqual: (existing, candidate) => existing.id === candidate.id }
+    );
+
+    assert.equal(added, false);
+    assert.equal(entries.length, 2);
+});
+
+test("pushUnique throws when provided a non-array target", () => {
+    assert.throws(() => pushUnique(null, "value"), /requires an array/i);
 });
 
 test("cloneObjectEntries shallowly clones object entries", () => {
