@@ -7,14 +7,11 @@ export const PROJECT_INDEX_BUILD_ABORT_MESSAGE =
 
 export function createProjectIndexAbortGuard(options, config = {}) {
     const { message, fallbackMessage, key } = config ?? {};
-    const guardOptions = {};
-
-    if (key != null) {
-        guardOptions.key = key;
-    }
-
-    guardOptions.fallbackMessage =
+    const resolvedFallback =
         fallbackMessage ?? message ?? PROJECT_INDEX_BUILD_ABORT_MESSAGE;
 
-    return createAbortGuard(options, guardOptions);
+    return createAbortGuard(options, {
+        ...(key == null ? {} : { key }),
+        fallbackMessage: resolvedFallback
+    });
 }

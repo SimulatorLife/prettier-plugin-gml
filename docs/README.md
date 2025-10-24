@@ -30,6 +30,9 @@ sheet, then return here when you need deeper context.
 - [Locals-first identifier-case config example](examples/identifier-case/locals-first.prettierrc.mjs)
   — Scripted configuration that warms the project-index cache and captures
   dry-run reports for review.
+- [Quick start](../README.md#quick-start) — Installation flows for npm
+  consumers and nightly testers, plus wrapper scripts you can copy into your
+  GameMaker project.
 - [Configuration reference](../README.md#configuration-reference) — Baseline
   Prettier options for `.gml` files, plus the identifier-case defaults surfaced
   by the plugin.

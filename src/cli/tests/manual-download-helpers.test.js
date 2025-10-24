@@ -4,11 +4,18 @@ import { afterEach, describe, it, mock } from "node:test";
 import {
     createManualDownloadReporter,
     downloadManualFileEntries
-} from "../lib/manual/utils.js";
+} from "../features/manual/utils.js";
+import {
+    renderProgressBar,
+    resetProgressBarRegistryForTesting,
+    setProgressBarFactoryForTesting
+} from "../shared/progress-bar.js";
 
 describe("manual download helpers", () => {
     afterEach(() => {
         mock.restoreAll();
+        setProgressBarFactoryForTesting();
+        resetProgressBarRegistryForTesting();
     });
 
     it("downloads manual entries while forwarding progress updates", async () => {
@@ -84,6 +91,7 @@ describe("manual download helpers", () => {
                 24
             ]);
             assert.equal(restoreLog.mock.callCount(), 0);
+            report.cleanup();
         } finally {
             restoreLog.mock.restore();
         }
@@ -111,6 +119,7 @@ describe("manual download helpers", () => {
             });
 
             assert.deepEqual(logCalls, ["✓ Manual/file.htm"]);
+            report.cleanup();
         } finally {
             restoreLog.mock.restore();
         }
@@ -137,8 +146,71 @@ describe("manual download helpers", () => {
             });
 
             assert.equal(restoreLog.mock.callCount(), 0);
+            report.cleanup();
         } finally {
             restoreLog.mock.restore();
         }
+    });
+
+    it("disposes progress bars when downloads fail mid-flight", async () => {
+        const stopMock = mock.fn();
+        const bar = {
+            setTotal: () => {},
+            update: () => {},
+            start: () => {},
+            stop: (...args) => {
+                stopMock(...args);
+            }
+        };
+        const stdout = {
+            isTTY: true,
+            clearLine: () => {},
+            cursorTo: () => {},
+            moveCursor: () => {},
+            on: () => {},
+            removeListener: () => {},
+            write: () => {}
+        };
+
+        const report = createManualDownloadReporter({
+            label: "Downloading manual files",
+            verbose: { downloads: true, progressBar: true },
+            progressBarWidth: 24,
+            render: (label, current, total, width) => {
+                renderProgressBar(label, current, total, width, {
+                    stdout,
+                    createBar: () => bar
+                });
+            }
+        });
+
+        await assert.rejects(
+            downloadManualFileEntries({
+                entries: [
+                    ["keywords", "Manual/keywords.json"],
+                    ["tags", "Manual/tags.json"]
+                ],
+                manualRefSha: "abc123",
+                fetchManualFile: async (sha, filePath) => {
+                    if (filePath.endsWith("tags.json")) {
+                        throw new Error("network failure");
+                    }
+
+                    return `${sha}:${filePath}`;
+                },
+                requestOptions: { forceRefresh: true },
+                onProgress: ({ path, fetchedCount, totalEntries }) =>
+                    report({
+                        path,
+                        fetchedCount,
+                        totalEntries
+                    }),
+                onProgressCleanup: report.cleanup
+            }),
+            /network failure/
+        );
+
+        assert.equal(stopMock.mock.callCount(), 1);
+        report.cleanup();
     });
 });

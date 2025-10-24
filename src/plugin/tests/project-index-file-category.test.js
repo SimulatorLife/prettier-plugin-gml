@@ -4,8 +4,15 @@ import test from "node:test";
 import {
     ProjectFileCategory,
     normalizeProjectFileCategory,
-    resolveProjectFileCategory
+    resolveProjectFileCategory,
+    getProjectIndexSourceExtensions,
+    resetProjectIndexSourceExtensions,
+    setProjectIndexSourceExtensions
 } from "../src/project-index/index.js";
+
+test.afterEach(() => {
+    resetProjectIndexSourceExtensions();
+});
 
 test("normalizeProjectFileCategory accepts known categories", () => {
     assert.equal(
@@ -45,4 +52,49 @@ test("resolveProjectFileCategory recognises resource manifests", () => {
 
 test("resolveProjectFileCategory returns null for unrelated files", () => {
     assert.equal(resolveProjectFileCategory("notes/readme.md"), null);
+});
+
+test("project index source extensions expose the default list", () => {
+    const defaults = getProjectIndexSourceExtensions();
+    assert.deepEqual(defaults, [".gml"]);
+    assert.throws(() => {
+        defaults.push(".gmlx");
+    }, TypeError);
+});
+
+test("setProjectIndexSourceExtensions extends recognised source files", () => {
+    setProjectIndexSourceExtensions([".gmlx"]);
+    assert.deepEqual(getProjectIndexSourceExtensions(), [".gml", ".gmlx"]);
+    assert.equal(
+        resolveProjectFileCategory("scripts/player/move.gmlx"),
+        ProjectFileCategory.SOURCE
+    );
+    assert.equal(
+        resolveProjectFileCategory("scripts/player/move.gml"),
+        ProjectFileCategory.SOURCE
+    );
+});
+
+test("setProjectIndexSourceExtensions normalises and deduplicates extensions", () => {
+    setProjectIndexSourceExtensions([" GMLX ", ".gmlx", "custom"]);
+    assert.deepEqual(getProjectIndexSourceExtensions(), [
+        ".gml",
+        ".gmlx",
+        ".custom"
+    ]);
+});
+
+test("setProjectIndexSourceExtensions rejects invalid input", () => {
+    assert.throws(
+        () => setProjectIndexSourceExtensions("gml"),
+        /array of strings/
+    );
+    assert.throws(
+        () => setProjectIndexSourceExtensions([""]),
+        /cannot be empty/
+    );
+    assert.throws(
+        () => setProjectIndexSourceExtensions([42]),
+        /must be strings/
+    );
 });

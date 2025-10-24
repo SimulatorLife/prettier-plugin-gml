@@ -20,7 +20,9 @@ import {
 import {
     applyFeatherFixes,
     getFeatherDiagnosticFixers,
-    preprocessSourceForFeatherFixes
+    getRoomNavigationHelpers,
+    preprocessSourceForFeatherFixes,
+    ROOM_NAVIGATION_DIRECTION
 } from "../src/ast-transforms/apply-feather-fixes.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
@@ -830,6 +832,38 @@ describe("applyFeatherFixes transform", () => {
             gotoFixes.some((entry) => entry.id === "GM1009"),
             true,
             "Expected GM1009 fix metadata for the converted room_goto helper."
+        );
+    });
+
+    it("maps room navigation directions to helper names", () => {
+        const nextHelpers = getRoomNavigationHelpers(
+            ROOM_NAVIGATION_DIRECTION.NEXT
+        );
+
+        assert.deepStrictEqual(nextHelpers, {
+            binary: "room_next",
+            goto: "room_goto_next"
+        });
+
+        const previousHelpers = getRoomNavigationHelpers(
+            ROOM_NAVIGATION_DIRECTION.PREVIOUS
+        );
+
+        assert.deepStrictEqual(previousHelpers, {
+            binary: "room_previous",
+            goto: "room_goto_previous"
+        });
+    });
+
+    it("rejects unrecognized room navigation directions", () => {
+        assert.throws(
+            () => {
+                getRoomNavigationHelpers("sideways");
+            },
+            {
+                name: "RangeError",
+                message: /Unsupported room navigation direction/
+            }
         );
     });
 
@@ -3146,6 +3180,38 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(formatted.trimEnd(), expected);
     });
 
+    it("avoids duplicating vertex format comments when definitions are already commented", async () => {
+        const source = [
+            "vertex_format_begin();",
+            "",
+            "vertex_format_add_position_3d();",
+            "vertex_format_add_colour();",
+            "vertex_format_add_texcoord();",
+            "",
+            "// vertex_format_begin();",
+            "// vertex_format_add_position_3d();",
+            "// vertex_format_add_colour();",
+            "// vertex_format_add_texcoord();",
+            "// vertex_format_end();"
+        ].join("\n");
+
+        const formatted = await prettier.format(source, {
+            parser: "gml-parse",
+            plugins: [pluginPath],
+            applyFeatherFixes: true
+        });
+
+        const expected = [
+            "// vertex_format_begin();",
+            "// vertex_format_add_position_3d();",
+            "// vertex_format_add_colour();",
+            "// vertex_format_add_texcoord();",
+            "// vertex_format_end();"
+        ].join("\n");
+
+        assert.strictEqual(formatted.trimEnd(), expected);
+    });
+
     it("removes incomplete vertex format definitions before subsequent begins and records metadata", () => {
         const source = [
             "vertex_format_begin();",
@@ -3482,7 +3548,7 @@ describe("applyFeatherFixes transform", () => {
     it("normalizes simple syntax errors flagged by GM1100 and records metadata", () => {
         const source = ["var _this * something;", "", "    = 48;"].join("\n");
 
-        const { sourceText, metadata } =
+        const { sourceText, metadata, indexAdjustments } =
             preprocessSourceForFeatherFixes(source);
 
         assert.notStrictEqual(
@@ -3734,7 +3800,7 @@ describe("applyFeatherFixes transform", () => {
             ""
         ].join("\n");
 
-        const { sourceText, metadata } =
+        const { sourceText, metadata, indexAdjustments } =
             preprocessSourceForFeatherFixes(source);
 
         assert.notStrictEqual(
@@ -3812,7 +3878,7 @@ describe("applyFeatherFixes transform", () => {
             ""
         ].join("\n");
 
-        const { sourceText, metadata } =
+        const { sourceText, metadata, indexAdjustments } =
             preprocessSourceForFeatherFixes(source);
 
         assert.notStrictEqual(
@@ -3837,6 +3903,15 @@ describe("applyFeatherFixes transform", () => {
             metadata === null || metadata === undefined,
             true,
             "Expected no additional metadata to be required for GM1003 preprocessing."
+        );
+
+        assert.deepStrictEqual(
+            indexAdjustments,
+            [
+                { index: 28, delta: 2 },
+                { index: 44, delta: 2 }
+            ],
+            "Expected GM1003 preprocessing to record index adjustments for removed quotes."
         );
 
         const ast = GMLParser.parse(sourceText, {

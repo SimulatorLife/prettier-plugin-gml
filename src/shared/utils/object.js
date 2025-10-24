@@ -1,5 +1,3 @@
-import { toArray } from "./array.js";
-
 /**
  * Determine whether a value is a plain object (non-null object without an
  * Array instance). Some callers additionally require objects with prototypes
@@ -162,6 +160,27 @@ export function withDefinedValue(value, onDefined, onUndefined) {
  * @param {boolean} [options.acceptNull=false]
  * @returns {unknown} The first matching property value or the fallback.
  */
+function isCoalescableValue(value, acceptNull) {
+    return value !== undefined && (acceptNull || value !== null);
+}
+
+function coalesceFromArray(object, keys, { fallback, acceptNull }) {
+    for (const key of keys) {
+        const value = object[key];
+
+        if (isCoalescableValue(value, acceptNull)) {
+            return value;
+        }
+    }
+
+    return fallback;
+}
+
+function coalesceFromKey(object, key, { fallback, acceptNull }) {
+    const value = object[key];
+    return isCoalescableValue(value, acceptNull) ? value : fallback;
+}
+
 export function coalesceOption(
     object,
     keys,
@@ -171,17 +190,17 @@ export function coalesceOption(
         return fallback;
     }
 
-    const lookupKeys = toArray(keys);
-
-    for (const key of lookupKeys) {
-        const value = object[key];
-
-        if (value !== undefined && (acceptNull || value !== null)) {
-            return value;
-        }
+    if (Array.isArray(keys)) {
+        return coalesceFromArray(object, keys, { fallback, acceptNull });
     }
 
-    return fallback;
+    if (keys == null) {
+        return fallback;
+    }
+
+    // Fast-path singular keys to avoid allocating an intermediate array in the
+    // tight option-lookup loops used by the formatter and CLI entry points.
+    return coalesceFromKey(object, keys, { fallback, acceptNull });
 }
 
 /**
@@ -223,25 +242,23 @@ export function hasOwn(object, key) {
  * @returns {TValue} Existing or newly created entry.
  */
 export function getOrCreateMapEntry(store, key, initializer) {
-    if (
-        !store ||
-        typeof store.get !== "function" ||
-        typeof store.set !== "function"
-    ) {
+    const { get, set, has } = store ?? {};
+
+    if (typeof get !== "function" || typeof set !== "function") {
         throw new TypeError("store must provide get and set functions");
     }
 
-    if (typeof store.has !== "function") {
+    if (typeof has !== "function") {
         throw new TypeError("store must provide a has function");
     }
 
     assertFunction(initializer, "initializer");
 
-    if (store.has(key)) {
-        return store.get(key);
+    if (has.call(store, key)) {
+        return get.call(store, key);
     }
 
     const value = initializer(key);
-    store.set(key, value);
+    set.call(store, key, value);
     return value;
 }

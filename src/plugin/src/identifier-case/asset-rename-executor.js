@@ -5,9 +5,13 @@ import {
     trimStringEntries
 } from "../../../shared/string-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
-import { parseJsonWithContext } from "../../../shared/json-utils.js";
+import {
+    parseJsonWithContext,
+    stringifyJsonForFile
+} from "../../../shared/json-utils.js";
 import { fromPosixPath } from "../../../shared/path-utils.js";
 import { isFsErrorCode } from "../../../shared/fs-utils.js";
+import { getErrorMessage } from "../../../shared/error-utils.js";
 import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
 import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
 
@@ -46,10 +50,6 @@ function resolveAbsolutePath(projectRoot, relativePath) {
 
     const systemRelative = fromPosixPath(relativePath);
     return path.join(projectRoot, systemRelative);
-}
-
-function stringifyJson(json) {
-    return `${JSON.stringify(json, null, 4)}\n`;
 }
 
 function readJsonFile(fsFacade, absolutePath, cache) {
@@ -259,8 +259,11 @@ export function createAssetRenameExecutor({
                     );
                 } catch (error) {
                     if (logger && typeof logger.warn === "function") {
+                        const message =
+                            getErrorMessage(error, { fallback: "" }) ||
+                            "Unknown error";
                         logger.warn(
-                            `Skipping asset reference update for '${filePath}': ${error.message}`
+                            `Skipping asset reference update for '${filePath}': ${message}`
                         );
                     }
                     continue;
@@ -332,7 +335,7 @@ export function createAssetRenameExecutor({
             const writeActions = [...pendingWrites.entries()].map(
                 ([filePath, jsonData]) => ({
                     filePath,
-                    contents: stringifyJson(jsonData)
+                    contents: stringifyJsonForFile(jsonData, { space: 4 })
                 })
             );
 
@@ -379,7 +382,6 @@ export const __private__ = {
     defaultFsFacade,
     fromPosixPath,
     resolveAbsolutePath,
-    stringifyJson,
     readJsonFile,
     getObjectAtPath,
     updateReferenceObject,

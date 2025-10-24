@@ -2,45 +2,45 @@ import vm from "node:vm";
 
 import { Command } from "commander";
 
-import { CliUsageError } from "../lib/cli-errors.js";
-import { assertSupportedNodeVersion } from "../lib/node-version.js";
+import { CliUsageError } from "../core/errors.js";
+import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import {
     getErrorMessage,
     normalizeIdentifierMetadataEntries,
     toNormalizedLowerCaseSet,
     toPosixPath
-} from "../lib/shared-deps.js";
-import { writeManualJsonArtifact } from "../lib/manual-file-helpers.js";
+} from "../shared/dependencies.js";
+import { writeManualJsonArtifact } from "../features/manual/file-helpers.js";
 import {
     DEFAULT_MANUAL_REPO,
     buildManualRepositoryEndpoints,
     createManualDownloadReporter,
     downloadManualFileEntries
-} from "../lib/manual/utils.js";
-import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
+} from "../features/manual/utils.js";
+import { timeSync, createVerboseDurationLogger } from "../shared/time-utils.js";
 import {
     disposeProgressBars,
     withProgressBarCleanup
-} from "../lib/progress-bar.js";
+} from "../shared/progress-bar.js";
 import {
     resolveVmEvalTimeout,
     getDefaultVmEvalTimeoutMs
-} from "../lib/vm-eval-timeout.js";
+} from "../shared/vm-eval-timeout.js";
 import {
     applyManualEnvOptionOverrides,
     IDENTIFIER_VM_TIMEOUT_ENV_VAR
-} from "../lib/manual-env.js";
-import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
+} from "../features/manual/environment.js";
+import { applyStandardCommandOptions } from "../core/command-standard-options.js";
 import {
     applySharedManualCommandOptions,
     resolveManualCommandOptions
-} from "../lib/manual/command-options.js";
-import { wrapInvalidArgumentResolver } from "../lib/command-parsing.js";
-import { createManualManualAccessContext } from "../lib/manual-command-context.js";
+} from "../features/manual/command-options.js";
+import { wrapInvalidArgumentResolver } from "../core/command-parsing.js";
+import { createManualAccessContext } from "../features/manual/context.js";
 import {
     decodeManualKeywordsPayload,
     decodeManualTagsPayload
-} from "../lib/manual-payload-validation.js";
+} from "../features/manual/payload-validation.js";
 
 const {
     environment: {
@@ -50,7 +50,7 @@ const {
     },
     files: { fetchManualFile },
     refs: { resolveManualRef }
-} = createManualManualAccessContext({
+} = createManualAccessContext({
     importMetaUrl: import.meta.url,
     userAgent: "prettier-plugin-gml identifier generator",
     outputFileName: "gml-identifiers.json"
@@ -471,6 +471,47 @@ function classifyManualIdentifiers(identifierMap, manualKeywords, manualTags) {
     }
 }
 
+function createIdentifierArtifactPayload({
+    identifierMap,
+    manualRef,
+    manualRepo,
+    verbose
+}) {
+    const sortedIdentifiers = timeSync(
+        "Sorting identifiers",
+        () => sortIdentifierEntries(identifierMap),
+        { verbose }
+    );
+
+    const identifiersObject = Object.fromEntries(sortedIdentifiers);
+    const normalizedEntries = normalizeIdentifierMetadataEntries({
+        identifiers: identifiersObject
+    });
+
+    if (normalizedEntries.length !== sortedIdentifiers.length) {
+        throw new Error(
+            "Generated manual identifier metadata contained invalid entries."
+        );
+    }
+
+    const identifiers = Object.fromEntries(
+        normalizedEntries.map(({ name, descriptor }) => [name, descriptor])
+    );
+
+    return {
+        payload: {
+            meta: {
+                manualRef: manualRef.ref,
+                commitSha: manualRef.sha,
+                generatedAt: new Date().toISOString(),
+                source: manualRepo
+            },
+            identifiers
+        },
+        entryCount: normalizedEntries.length
+    };
+}
+
 function sortIdentifierEntries(identifierMap) {
     return [...identifierMap.entries()]
         .map(([identifier, data]) => [
@@ -487,6 +528,31 @@ function sortIdentifierEntries(identifierMap) {
 }
 
 const DOWNLOAD_PROGRESS_LABEL = "Downloading manual assets";
+
+function createManualAssetDescriptors() {
+    return [
+        {
+            key: "gmlSource",
+            path: "Manual/contents/assets/scripts/gml.js",
+            label: "gml.js"
+        },
+        { key: "keywords", path: "ZeusDocs_keywords.json", label: "keywords" },
+        { key: "tags", path: "ZeusDocs_tags.json", label: "tags" }
+    ];
+}
+
+function logManualAssetDownloadStart(manualAssets, verbose) {
+    const downloadsTotal = manualAssets.length;
+    if (!verbose.downloads) {
+        return;
+    }
+
+    console.log(
+        `Fetching ${downloadsTotal} manual asset${
+            downloadsTotal === 1 ? "" : "s"
+        }…`
+    );
+}
 
 /**
  * Render download progress updates using the configured verbosity options.
@@ -520,7 +586,8 @@ async function fetchManualAssets(
                     path,
                     fetchedCount,
                     totalEntries
-                })
+                }),
+            onProgressCleanup: reportProgress.cleanup
         });
     });
 }
@@ -554,27 +621,8 @@ export async function runGenerateGmlIdentifiers({ command } = {}) {
 
         console.log(`Using manual ref '${manualRef.ref}' (${manualRef.sha}).`);
 
-        const manualAssets = [
-            {
-                key: "gmlSource",
-                path: "Manual/contents/assets/scripts/gml.js",
-                label: "gml.js"
-            },
-            {
-                key: "keywords",
-                path: "ZeusDocs_keywords.json",
-                label: "keywords"
-            },
-            { key: "tags", path: "ZeusDocs_tags.json", label: "tags" }
-        ];
-        const downloadsTotal = manualAssets.length;
-        if (verbose.downloads) {
-            console.log(
-                `Fetching ${downloadsTotal} manual asset${
-                    downloadsTotal === 1 ? "" : "s"
-                }…`
-            );
-        }
+        const manualAssets = createManualAssetDescriptors();
+        logManualAssetDownloadStart(manualAssets, verbose);
 
         const fetchedPayloads = await fetchManualAssets(
             manualRef.sha,
@@ -624,44 +672,18 @@ export async function runGenerateGmlIdentifiers({ command } = {}) {
             { verbose }
         );
 
-        const sortedIdentifiers = timeSync(
-            "Sorting identifiers",
-            () => sortIdentifierEntries(identifierMap),
-            { verbose }
-        );
-
-        const identifiersObject = Object.fromEntries(sortedIdentifiers);
-        const normalizedEntries = normalizeIdentifierMetadataEntries({
-            identifiers: identifiersObject
+        const { payload, entryCount } = createIdentifierArtifactPayload({
+            identifierMap,
+            manualRef,
+            manualRepo,
+            verbose
         });
-
-        if (normalizedEntries.length !== sortedIdentifiers.length) {
-            throw new Error(
-                "Generated manual identifier metadata contained invalid entries."
-            );
-        }
-
-        const normalizedIdentifiers = Object.fromEntries(
-            normalizedEntries.map(({ name, descriptor }) => [name, descriptor])
-        );
-
-        const payload = {
-            meta: {
-                manualRef: manualRef.ref,
-                commitSha: manualRef.sha,
-                generatedAt: new Date().toISOString(),
-                source: manualRepo
-            },
-            identifiers: normalizedIdentifiers
-        };
 
         await writeManualJsonArtifact({
             outputPath,
             payload,
             onAfterWrite: () => {
-                console.log(
-                    `Wrote ${normalizedEntries.length} identifiers to ${outputPath}`
-                );
+                console.log(`Wrote ${entryCount} identifiers to ${outputPath}`);
             }
         });
         logCompletion();

@@ -14,8 +14,9 @@ import {
     isObjectLike,
     toArray,
     toTrimmedString
-} from "../lib/shared-deps.js";
-import { CliUsageError, handleCliError } from "../lib/cli-errors.js";
+} from "../shared/dependencies.js";
+import { CliUsageError, handleCliError } from "../core/errors.js";
+import { ensureMap } from "../../shared/utils/capability-probes.js";
 
 let parser;
 
@@ -63,6 +64,8 @@ function looksLikeTestCase(node) {
     return hasAnyOwn(node, ["time", "duration", "elapsed"]);
 }
 
+const HTML_DOUBLE_QUOTE = '"';
+
 function decodeEntities(value) {
     if (!isNonEmptyString(value)) {
         return value ?? "";
@@ -77,7 +80,7 @@ function decodeEntities(value) {
         .replaceAll("&lt;", "<")
         .replaceAll("&gt;", ">")
         .replaceAll("&apos;", "'")
-        .replaceAll("&quot;", '"')
+        .replaceAll("&quot;", HTML_DOUBLE_QUOTE)
         .replaceAll("&amp;", "&");
 }
 
@@ -692,7 +695,7 @@ function shouldSkipRegressionDetection(baseStats, targetStats) {
  */
 function resolveResultsMap(resultSet) {
     const { results } = resultSet ?? {};
-    return results instanceof Map ? results : new Map();
+    return ensureMap(results);
 }
 
 function createRegressionRecord({ baseResults, key, targetRecord }) {
@@ -814,16 +817,16 @@ function buildResultCandidates(defaultCandidates, envVariable) {
 
 function loadResultSets(workspaceRoot) {
     const baseCandidates = buildResultCandidates(
-        [path.join("base", "test-results"), "base-test-results"],
+        [path.join("base", "reports"), "base-reports"],
         "BASE_RESULTS_DIR"
     );
     const mergeCandidates = buildResultCandidates(
-        [path.join("merge", "test-results"), "merge-test-results"],
+        [path.join("merge", "reports"), "merge-reports"],
         "MERGE_RESULTS_DIR"
     );
 
     const base = readTestResults(baseCandidates, { workspace: workspaceRoot });
-    const head = readTestResults(["test-results"], {
+    const head = readTestResults(["reports"], {
         workspace: workspaceRoot
     });
     const merged = readTestResults(mergeCandidates, {
@@ -837,8 +840,8 @@ function chooseTargetResultSet({ merged, head }) {
     const usingMerged = Boolean(merged.usedDir);
     const target = usingMerged ? merged : head;
     const targetLabel = usingMerged
-        ? `synthetic merge (${merged.displayDir || "merge/test-results"})`
-        : `PR head (${head.displayDir || "test-results"})`;
+        ? `synthetic merge (${merged.displayDir || "merge/reports"})`
+        : `PR head (${head.displayDir || "reports"})`;
 
     return { target, targetLabel, usingMerged };
 }

@@ -78,7 +78,7 @@ export function assertNonEmptyString(
 }
 
 export function isWordChar(character) {
-    if (typeof character !== "string" || character.length === 0) {
+    if (!isNonEmptyString(character)) {
         return false;
     }
     // Use regex to match ASCII word characters on the first character.

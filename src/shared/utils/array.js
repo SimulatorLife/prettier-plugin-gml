@@ -177,6 +177,67 @@ export function uniqueArray(values, { freeze = false } = {}) {
 }
 
 /**
+ * Append {@link value} to {@link array} when it is not already present.
+ *
+ * Centralizes the inclusion guard used throughout the project index and
+ * resource analysis modules so callers can focus on their domain logic while
+ * keeping duplicate prevention consistent. The helper mirrors the semantics of
+ * `Array#includes`, including `NaN` handling, and returns a boolean so hot
+ * paths can detect when a new entry was appended.
+ *
+ * @template T
+ * @param {Array<T>} array Array that should receive {@link value} when absent.
+ * @param {T} value Candidate value to append.
+ * @param {{ isEqual?: (existing: T, candidate: T) => boolean }} [options]
+ *        Optional equality comparator for cases where strict equality is not
+ *        sufficient.
+ * @returns {boolean} `true` when the value was appended.
+ */
+export function pushUnique(array, value, { isEqual } = {}) {
+    if (!Array.isArray(array)) {
+        throw new TypeError("pushUnique requires an array to append to.");
+    }
+
+    const hasMatch =
+        typeof isEqual === "function"
+            ? array.some((entry) => isEqual(entry, value))
+            : array.includes(value);
+
+    if (!hasMatch) {
+        array.push(value);
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * Append {@link value} to {@link collection}, tolerating accumulator values
+ * that have not been initialized yet or that were previously provided as a
+ * single scalar. Centralizes the guard logic used by Commander option
+ * collectors so each command can focus on its domain-specific normalization
+ * without re-implementing array wrapping semantics.
+ *
+ * @template T
+ * @param {T} value Value to append to the collection.
+ * @param {Array<T> | T | undefined} collection Current accumulator provided by
+ *        Commander (or similar collectors).
+ * @returns {Array<T>} Array containing both prior entries and {@link value}.
+ */
+export function appendToCollection(value, collection) {
+    if (collection === undefined) {
+        return [value];
+    }
+
+    if (Array.isArray(collection)) {
+        collection.push(value);
+        return collection;
+    }
+
+    return [collection, value];
+}
+
+/**
  * Merge a collection of additional entries into a default array while
  * preserving order and eliminating duplicates. Callers can optionally supply a
  * coercion function to normalize raw entries before they are compared and a
