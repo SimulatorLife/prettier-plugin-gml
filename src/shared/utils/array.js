@@ -7,6 +7,19 @@ const EMPTY_ARRAY = Object.freeze([]);
 // coercion logic.
 const identity = (value) => value;
 
+/**
+ * Normalize an iterable (or nullable) input into a concrete array so callers
+ * can eagerly snapshot values before mutating the source. Unlike
+ * {@link toArray}, which preserves array identity when possible, this helper
+ * always returns a new array for iterables to avoid consuming generators more
+ * than once.
+ *
+ * @template T
+ * @param {Iterable<T> | Array<T> | null | undefined} values Candidate collection
+ *        to normalize.
+ * @returns {Array<T>} Array containing the iterable's elements, or an empty
+ *          array when the input is nullish or non-iterable.
+ */
 export function toArrayFromIterable(values) {
     if (values == null) {
         return [];
