@@ -22,7 +22,9 @@ import {
     appendToCollection,
     assertArray,
     coercePositiveInteger,
+    isFiniteNumber,
     getIdentifierText,
+    toNormalizedInteger,
     stringifyJsonForFile
 } from "../../shared/dependencies.js";
 import {
@@ -48,21 +50,13 @@ const DEFAULT_FIXTURE_DIRECTORIES = Object.freeze([
 const DATASET_CACHE_KEY = "gml-fixtures";
 
 function createDatasetSummary({ fileCount, totalBytes }) {
-    const normalizedFileCount =
-        typeof fileCount === "number" &&
-        Number.isFinite(fileCount) &&
-        fileCount >= 0
-            ? Math.trunc(fileCount)
-            : 0;
+    const normalizedFileCount = Math.max(
+        0,
+        toNormalizedInteger(fileCount) ?? 0
+    );
 
-    let normalizedTotalBytes = 0;
-    if (
-        typeof totalBytes === "number" &&
-        Number.isFinite(totalBytes) &&
-        totalBytes >= 0
-    ) {
-        normalizedTotalBytes = totalBytes;
-    }
+    const normalizedTotalBytes =
+        isFiniteNumber(totalBytes) && totalBytes >= 0 ? totalBytes : 0;
 
     return {
         files: normalizedFileCount,
@@ -239,10 +233,9 @@ async function readFixtureFileRecord(absolutePath) {
  * semantics regardless of where the record originated.
  */
 function createFixtureRecord({ absolutePath, source, size, relativePath }) {
-    const resolvedSize =
-        typeof size === "number" && Number.isFinite(size)
-            ? size
-            : Buffer.byteLength(source);
+    const resolvedSize = isFiniteNumber(size)
+        ? size
+        : Buffer.byteLength(source);
     const resolvedRelativePath =
         typeof relativePath === "string"
             ? relativePath
@@ -649,7 +642,7 @@ function formatReportFilePath(targetFile) {
 }
 
 function formatThroughput(value, unit) {
-    if (typeof value !== "number" || !Number.isFinite(value)) {
+    if (!isFiniteNumber(value)) {
         return "n/a";
     }
 
@@ -657,7 +650,7 @@ function formatThroughput(value, unit) {
 }
 
 function formatDuration(value) {
-    if (typeof value !== "number" || !Number.isFinite(value)) {
+    if (!isFiniteNumber(value)) {
         return "n/a";
     }
 
