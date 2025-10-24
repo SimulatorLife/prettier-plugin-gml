@@ -15147,7 +15147,6 @@ function suppressDuplicateVertexFormatComments(ast, commentTargets, node) {
     const removalIndexes = new Set();
 
     for (const [index, comment] of comments.entries()) {
-
         if (!comment || comment.type !== "CommentLine") {
             continue;
         }
