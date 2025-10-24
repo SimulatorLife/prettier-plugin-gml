@@ -66,6 +66,10 @@ import {
     LogicalOperatorsStyle,
     normalizeLogicalOperatorsStyle
 } from "../options/logical-operators-style.js";
+import {
+    ObjectWrapOption,
+    resolveObjectWrapOption
+} from "../options/object-wrap-option.js";
 
 const {
     breakParent,
@@ -88,17 +92,6 @@ const FEATHER_COMMENT_OUT_SYMBOL = Symbol.for(
 const FEATHER_COMMENT_TEXT_SYMBOL = Symbol.for(
     "prettier.gml.feather.commentText"
 );
-
-const ObjectWrapOption = Object.freeze({
-    PRESERVE: "preserve",
-    COLLAPSE: "collapse"
-});
-
-function resolveObjectWrapOption(options) {
-    return options?.objectWrap === ObjectWrapOption.COLLAPSE
-        ? ObjectWrapOption.COLLAPSE
-        : ObjectWrapOption.PRESERVE;
-}
 
 const preservedUndefinedDefaultParameters = new WeakSet();
 const ARGUMENT_IDENTIFIER_PATTERN = /^argument(\d+)$/;
