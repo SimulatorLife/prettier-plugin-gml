@@ -1,4 +1,4 @@
-import { toNormalizedLowerCaseString } from "./string.js";
+import { isNonEmptyString, toNormalizedLowerCaseString } from "./string.js";
 
 /**
  * Normalize enumerated option values against a set of valid entries.
@@ -37,7 +37,7 @@ export function normalizeEnumeratedOption(
 
     const normalized = coerce(value);
 
-    if (typeof normalized !== "string" || normalized.length === 0) {
+    if (!isNonEmptyString(normalized)) {
         return fallbackValue;
     }
 
