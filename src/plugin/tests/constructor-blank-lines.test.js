@@ -125,3 +125,23 @@ test("collapses blank lines between simple constructor assignments", async () =>
         "Expected constructors to collapse author-inserted blank lines between simple assignments."
     );
 });
+
+test("adds trailing blank line after nested constructor functions when missing", async () => {
+    const source = [
+        "function Demo() constructor {",
+        "    function nested() {",
+        "        return 1;",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.trim().split("\n");
+
+    assert.equal(
+        lines.at(-2),
+        "",
+        "Expected nested constructor functions to emit a blank line before the closing brace even when the source omits it."
+    );
+});
