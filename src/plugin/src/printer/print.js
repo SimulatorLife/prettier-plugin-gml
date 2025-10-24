@@ -477,6 +477,12 @@ export function print(path, options, print) {
             let docCommentDocs = [];
             const lineCommentOptions = resolveLineCommentOptions(options);
             let needsLeadingBlankLine = false;
+            const isFirstTopLevelStatement =
+                node?._gmlIsFirstTopLevelStatement === true;
+
+            if (isFirstTopLevelStatement) {
+                needsLeadingBlankLine = true;
+            }
 
             if (isNonEmptyArray(node.docComments)) {
                 const firstDocComment = node.docComments[0];
@@ -1133,7 +1139,13 @@ export function print(path, options, print) {
             );
         }
         case "EnumDeclaration": {
-            prepareEnumMembersForPrinting(node, getNodeName);
+            const minAlignmentGroupSize =
+                getAssignmentAlignmentMinimum(options);
+            prepareEnumMembersForPrinting(
+                node,
+                getNodeName,
+                minAlignmentGroupSize
+            );
             return concat([
                 "enum ",
                 print("name"),
@@ -2024,7 +2036,20 @@ function printStatements(path, options, print, childrenAttribute) {
         const parts = [];
         const node = childPath.getValue();
         const isTopLevel = childPath.parent?.type === "Program";
-        const printed = print();
+        const isFirstTopLevelStatement = isTopLevel && index === 0;
+
+        if (isFirstTopLevelStatement && node && typeof node === "object") {
+            node._gmlIsFirstTopLevelStatement = true;
+        }
+
+        let printed;
+        try {
+            printed = print();
+        } finally {
+            if (isFirstTopLevelStatement && node && typeof node === "object") {
+                delete node._gmlIsFirstTopLevelStatement;
+            }
+        }
 
         if (printed == undefined) {
             return [];
@@ -2052,7 +2077,11 @@ function printStatements(path, options, print, childrenAttribute) {
             shouldAddNewlinesAroundStatement(node, options) && isTopLevel;
 
         // Check if a newline should be added BEFORE the statement
-        if (currentNodeRequiresNewline && !previousNodeHadNewlineAddedAfter) {
+        if (
+            currentNodeRequiresNewline &&
+            !previousNodeHadNewlineAddedAfter &&
+            !isFirstTopLevelStatement
+        ) {
             const hasLeadingComment = isTopLevel
                 ? hasCommentImmediatelyBefore(originalTextCache, nodeStartIndex)
                 : false;

@@ -3,7 +3,11 @@ import { getCommentArray } from "../../../shared/comments.js";
 
 const ENUM_INITIALIZER_OPERATOR_WIDTH = " = ".length;
 
-export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
+export function prepareEnumMembersForPrinting(
+    enumNode,
+    getNodeName,
+    minAlignmentGroupSize = 1
+) {
     if (!enumNode || typeof enumNode !== "object") {
         return;
     }
@@ -15,12 +19,16 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
 
     const resolveName =
         typeof getNodeName === "function" ? getNodeName : undefined;
-    const { memberStats, maxInitializerNameLength } = collectEnumMemberStats(
-        members,
-        resolveName
+    const { memberStats, maxInitializerNameLength, initializerCount } =
+        collectEnumMemberStats(members, resolveName);
+
+    const effectiveThreshold = Math.max(
+        Number.isFinite(minAlignmentGroupSize) ? minAlignmentGroupSize : 1,
+        1
     );
 
-    const shouldAlignInitializers = maxInitializerNameLength > 0;
+    const shouldAlignInitializers =
+        maxInitializerNameLength > 0 && initializerCount >= effectiveThreshold;
 
     const maxMemberWidth = applyEnumMemberAlignment({
         memberStats,
@@ -33,10 +41,12 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
     }
 
     const hasTrailingComma = enumNode?.hasTrailingComma === true;
+    const shouldAlignTrailingComments = !shouldAlignInitializers;
     applyTrailingCommentPadding({
         memberStats,
         maxMemberWidth,
-        hasTrailingComma
+        hasTrailingComma,
+        shouldAlignTrailingComments
     });
 }
 
@@ -112,6 +122,7 @@ function collectEnumMemberStats(members, resolveName) {
     const memberCount = members.length;
     const memberStats = new Array(memberCount);
     let maxInitializerNameLength = 0;
+    let initializerCount = 0;
 
     // Avoid `Array#map` here so the hot enum printing path does not allocate a
     // new callback for each member. The manual loop keeps the same data shape
@@ -128,6 +139,10 @@ function collectEnumMemberStats(members, resolveName) {
             maxInitializerNameLength = nameLength;
         }
 
+        if (hasInitializer) {
+            initializerCount += 1;
+        }
+
         memberStats[index] = {
             member,
             nameLength,
@@ -137,7 +152,7 @@ function collectEnumMemberStats(members, resolveName) {
         };
     }
 
-    return { memberStats, maxInitializerNameLength };
+    return { memberStats, maxInitializerNameLength, initializerCount };
 }
 
 function applyEnumMemberAlignment({
@@ -174,8 +189,13 @@ function applyEnumMemberAlignment({
 function applyTrailingCommentPadding({
     memberStats,
     maxMemberWidth,
-    hasTrailingComma
+    hasTrailingComma,
+    shouldAlignTrailingComments
 }) {
+    if (!shouldAlignTrailingComments) {
+        return;
+    }
+
     const lastIndex = memberStats.length - 1;
 
     // Manual index iteration avoids allocating iterator tuples from
