@@ -3,7 +3,9 @@ import { builders } from "prettier/doc";
 import {
     getLineBreakCount,
     isCommentNode,
-    isObjectLike
+    isDocCommentLine,
+    isObjectLike,
+    splitLines
 } from "./comment-boundary.js";
 import {
     applyInlinePadding,
@@ -48,7 +50,8 @@ function attachDanglingCommentToEmptyNode(comment, descriptors) {
         const collection = node[property];
         const isEmptyArray =
             Array.isArray(collection) && collection.length === 0;
-        const isCollectionMissing = collection == undefined;
+        const isCollectionMissing =
+            collection === undefined || collection === null;
         if (isEmptyArray || isCollectionMissing) {
             addDanglingComment(node, comment);
             return true;
@@ -87,12 +90,14 @@ const COMMON_COMMENT_HANDLERS = [
 ];
 
 const END_OF_LINE_COMMENT_HANDLERS = [
+    handleDetachedOwnLineComment,
     ...COMMON_COMMENT_HANDLERS,
     handleSeparatedEndOfLineComment,
     handleMacroComments
 ];
 
 const REMAINING_COMMENT_HANDLERS = [
+    handleDetachedOwnLineComment,
     ...COMMON_COMMENT_HANDLERS,
     handleSeparatedRemainingComment,
     handleCommentInEmptyLiteral,
@@ -367,12 +372,18 @@ function reattachSeparatedComment(comment) {
         return false;
     }
 
-    const commentLine = comment.start?.line;
+    if (isDocCommentLine(comment)) {
+        return false;
+    }
+
+    const commentLine = comment?.start?.line;
     const precedingEndLine = getNodeEndLine(precedingNode);
+    const followingStartLine = followingNode?.start?.line;
 
     if (
-        typeof commentLine !== "number" ||
-        typeof precedingEndLine !== "number"
+        !Number.isFinite(commentLine) ||
+        !Number.isFinite(precedingEndLine) ||
+        !Number.isFinite(followingStartLine)
     ) {
         return false;
     }
@@ -381,14 +392,22 @@ function reattachSeparatedComment(comment) {
         return false;
     }
 
+    if (commentLine >= followingStartLine - 1) {
+        return false;
+    }
+
     comment.leading = true;
     comment.trailing = false;
     comment.precedingNode = null;
+    delete comment.placement;
+
+    addLeadingComment(followingNode, comment);
+
     followingNode._gmlForceLeadingBlankLine = true;
     followingNode._gmlDisableEnumTrailingCommentPadding = true;
     precedingNode._gmlForceFollowingEmptyLine = true;
     precedingNode._gmlDisableEnumAlignment = true;
-    addLeadingComment(followingNode, comment);
+
     return true;
 }
 
@@ -404,6 +423,40 @@ function getNodeEndLine(node) {
     }
 
     return;
+}
+
+function handleDetachedOwnLineComment(comment /*, text, options, ast */) {
+    const { precedingNode, followingNode } = comment;
+
+    if (!precedingNode || !followingNode) {
+        return false;
+    }
+
+    const commentLine = comment?.start?.line;
+    const precedingEndLine = precedingNode?.end?.line;
+    const followingStartLine = followingNode?.start?.line;
+
+    if (
+        !Number.isFinite(commentLine) ||
+        !Number.isFinite(precedingEndLine) ||
+        !Number.isFinite(followingStartLine)
+    ) {
+        return false;
+    }
+
+    if (commentLine <= precedingEndLine) {
+        return false;
+    }
+
+    if (commentLine >= followingStartLine) {
+        return false;
+    }
+
+    addLeadingComment(followingNode, comment);
+    comment.leading = true;
+    comment.trailing = false;
+    delete comment.placement;
+    return true;
 }
 
 function handleMacroComments(comment) {
@@ -449,7 +502,12 @@ function isCommentOnNodeStartLine(comment, node) {
     const commentLine = comment.start?.line;
     const nodeStartLine = node?.start?.line;
 
-    if (commentLine == null || nodeStartLine == null) {
+    const isCommentLineMissing =
+        commentLine === undefined || commentLine === null;
+    const isNodeStartLineMissing =
+        nodeStartLine === undefined || nodeStartLine === null;
+
+    if (isCommentLineMissing || isNodeStartLineMissing) {
         return false;
     }
 
@@ -459,7 +517,7 @@ function isCommentOnNodeStartLine(comment, node) {
 function handleCommentInEmptyParens(
     comment /*, text, options, ast, isLastComment */
 ) {
-    if (comment.leadingChar != "(" || comment.trailingChar != ")") {
+    if (comment.leadingChar !== "(" || comment.trailingChar !== ")") {
         return false;
     }
 
@@ -555,7 +613,7 @@ function whitespaceToDoc(text) {
         return text;
     }
 
-    const lines = text.split(/[\r\n\u2028\u2029]/);
+    const lines = splitLines(text);
     return join(hardline, lines);
 }
 

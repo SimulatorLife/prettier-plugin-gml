@@ -5,8 +5,8 @@ import { resolveProjectDisplayPath } from "./path-normalization.js";
 /**
  * Format parser-originated syntax errors into the structured messages surfaced
  * by the project-index tooling. Co-locating the formatter with the rest of the
- * project-index helpers keeps the shared reporting layer focused on generic
- * metrics utilities while still allowing consumers (like the CLI) to import the
+ * project-index helpers keeps the plugin reporting layer focused on the metrics
+ * utilities while still allowing consumers (like the CLI) to import the
  * specialised behaviour directly from the project-index module tree.
  */
 export function formatProjectIndexSyntaxError(error, sourceText, context) {

@@ -18,7 +18,7 @@ import {
     MANUAL_REF_ENV_VAR,
     PROGRESS_BAR_WIDTH_ENV_VAR,
     IDENTIFIER_VM_TIMEOUT_ENV_VAR
-} from "../lib/manual-env.js";
+} from "../lib/manual/environment.js";
 import {
     DEFAULT_PROGRESS_BAR_WIDTH,
     resolveProgressBarWidth,
@@ -28,7 +28,7 @@ import { resolveVmEvalTimeout } from "../lib/vm-eval-timeout.js";
 import {
     applySharedManualCommandOptions,
     resolveManualCommandOptions
-} from "../lib/manual-command-options.js";
+} from "../lib/manual/command-options.js";
 
 describe("manual option helpers", () => {
     describe("normalizeManualRepository", () => {

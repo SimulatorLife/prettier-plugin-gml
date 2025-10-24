@@ -7,5 +7,8 @@ export {
     isDocCommentLine,
     isLineComment
 } from "../../../shared/comments.js";
-export { getLineBreakCount } from "../../../shared/utils/line-breaks.js";
+export {
+    getLineBreakCount,
+    splitLines
+} from "../../../shared/utils/line-breaks.js";
 export { isObjectLike } from "../../../shared/object-utils.js";
