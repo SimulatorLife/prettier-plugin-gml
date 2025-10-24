@@ -2272,20 +2272,25 @@ function printStatements(path, options, print, childrenAttribute) {
                 parentNode?.type === "BlockStatement" &&
                 !suppressFollowingEmptyLine
             ) {
+                const originalText =
+                    typeof options.originalText === "string"
+                        ? options.originalText
+                        : null;
+                const hasExplicitTrailingBlankLine =
+                    originalText !== null &&
+                    isNextLineEmpty(originalText, trailingProbeIndex);
+
                 if (enforceTrailingPadding) {
-                    shouldPreserveTrailingBlankLine = true;
-                } else if (
-                    typeof options.originalText === "string" &&
-                    isNextLineEmpty(options.originalText, trailingProbeIndex)
-                ) {
-                    const text = options.originalText;
-                    const textLength = text.length;
+                    shouldPreserveTrailingBlankLine =
+                        hasExplicitTrailingBlankLine;
+                } else if (hasExplicitTrailingBlankLine && originalText) {
+                    const textLength = originalText.length;
                     let scanIndex = trailingProbeIndex;
                     let nextCharacter = null;
 
                     while (scanIndex < textLength) {
                         nextCharacter = getNextNonWhitespaceCharacter(
-                            text,
+                            originalText,
                             scanIndex
                         );
 
@@ -2294,7 +2299,10 @@ function printStatements(path, options, print, childrenAttribute) {
                                 break;
                             }
 
-                            const semicolonIndex = text.indexOf(";", scanIndex);
+                            const semicolonIndex = originalText.indexOf(
+                                ";",
+                                scanIndex
+                            );
                             if (semicolonIndex === -1) {
                                 nextCharacter = null;
                                 break;
