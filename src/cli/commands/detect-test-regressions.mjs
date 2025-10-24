@@ -16,6 +16,7 @@ import {
     toTrimmedString
 } from "../lib/shared-deps.js";
 import { CliUsageError, handleCliError } from "../lib/cli-errors.js";
+import { ensureMap } from "../../shared/utils/capability-probes.js";
 
 let parser;
 
@@ -692,7 +693,7 @@ function shouldSkipRegressionDetection(baseStats, targetStats) {
  */
 function resolveResultsMap(resultSet) {
     const { results } = resultSet ?? {};
-    return results instanceof Map ? results : new Map();
+    return ensureMap(results);
 }
 
 function createRegressionRecord({ baseResults, key, targetRecord }) {

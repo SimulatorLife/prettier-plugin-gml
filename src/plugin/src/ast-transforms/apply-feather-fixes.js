@@ -37,6 +37,7 @@ import {
     isArrayIndex,
     isNonEmptyArray
 } from "../../../shared/array-utils.js";
+import { ensureSet } from "../../../shared/utils/capability-probes.js";
 import {
     getOrCreateMapEntry,
     hasOwn,
@@ -6182,14 +6183,7 @@ function registerSanitizedMacroName(ast, macroName) {
         return;
     }
 
-    let registry = ast._featherSanitizedMacroNames;
-
-    if (registry instanceof Set) {
-        registry.add(macroName);
-        return;
-    }
-
-    registry = Array.isArray(registry) ? new Set(registry) : new Set();
+    const registry = ensureSet(ast._featherSanitizedMacroNames);
 
     registry.add(macroName);
     ast._featherSanitizedMacroNames = registry;

@@ -183,3 +183,62 @@ export function getIterableSize(iterable) {
 
     return count;
 }
+
+function getIteratorEntries(iterable) {
+    const iterator = getIterator(iterable);
+    if (!iterator) {
+        return [];
+    }
+
+    const entries = [];
+    for (const entry of iterator) {
+        if (!Array.isArray(entry) || entry.length < 2) {
+            return [];
+        }
+
+        entries.push([entry[0], entry[1]]);
+    }
+
+    return entries;
+}
+
+export function ensureSet(candidate) {
+    if (isSetLike(candidate)) {
+        return candidate;
+    }
+
+    if (Array.isArray(candidate)) {
+        return new Set(candidate);
+    }
+
+    if (candidate && typeof candidate !== "string" && hasIterator(candidate)) {
+        return new Set(candidate);
+    }
+
+    return new Set();
+}
+
+export function ensureMap(candidate) {
+    if (isMapLike(candidate)) {
+        return candidate;
+    }
+
+    if (isSetLike(candidate)) {
+        return new Map();
+    }
+
+    if (Array.isArray(candidate)) {
+        return new Map(candidate);
+    }
+
+    if (candidate && typeof candidate !== "string" && hasIterator(candidate)) {
+        const entries = getIteratorEntries(candidate);
+        return new Map(entries);
+    }
+
+    if (isObjectLike(candidate)) {
+        return new Map(Object.entries(candidate));
+    }
+
+    return new Map();
+}
