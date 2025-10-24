@@ -23,11 +23,7 @@ import {
     wrapInvalidArgumentResolver
 } from "./command-parsing.js";
 import { applyEnvOptionOverrides } from "./env-overrides.js";
-import {
-    createIntegerOptionCoercer,
-    createIntegerOptionState,
-    createIntegerOptionResolver
-} from "./numeric-option-state.js";
+import { createIntegerOptionToolkit } from "./integer-option-toolkit.js";
 import {
     SuiteOutputFormat,
     resolveSuiteOutputFormatOrThrow,
@@ -391,29 +387,20 @@ const createIterationErrorMessage = (received) =>
 const createIterationTypeErrorMessage = (type) =>
     `Iteration count must be provided as a number (received type '${type}').`;
 
-const coerceMemoryIterations = createIntegerOptionCoercer({
-    baseCoerce: coercePositiveInteger,
-    createErrorMessage: createIterationErrorMessage
-});
-
-const memoryIterationsState = createIntegerOptionState({
-    defaultValue: DEFAULT_ITERATIONS,
-    envVar: MEMORY_ITERATIONS_ENV_VAR,
-    coerce: coerceMemoryIterations,
-    typeErrorMessage: createIterationTypeErrorMessage
-});
-
 const {
+    coerce: coerceMemoryIterations,
     getDefault: getDefaultMemoryIterations,
     setDefault: setDefaultMemoryIterations,
-    resolve: resolveMemoryIterationsState,
+    resolve: resolveMemoryIterations,
     applyEnvOverride: applyMemoryIterationsEnvOverride
-} = memoryIterationsState;
-
-const resolveMemoryIterations = createIntegerOptionResolver(
-    resolveMemoryIterationsState,
-    { defaultValueOption: "defaultIterations" }
-);
+} = createIntegerOptionToolkit({
+    defaultValue: DEFAULT_ITERATIONS,
+    envVar: MEMORY_ITERATIONS_ENV_VAR,
+    baseCoerce: coercePositiveInteger,
+    createErrorMessage: createIterationErrorMessage,
+    typeErrorMessage: createIterationTypeErrorMessage,
+    defaultValueOption: "defaultIterations"
+});
 
 const {
     get: getMaxFormatIterations,
