@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError } from "commander";
 
 import {
+    appendToCollection,
     assertPlainObject,
     createEnvConfiguredValueWithFallback,
     ensureDir,
@@ -458,9 +459,8 @@ applyFormatMaxIterationsEnvOverride();
 
 const AVAILABLE_SUITES = new Map();
 
-function collectSuite(value, previous = []) {
-    previous.push(value);
-    return previous;
+function collectSuite(value, previous) {
+    return appendToCollection(value, previous);
 }
 
 export function createMemoryCommand({ env = process.env } = {}) {
