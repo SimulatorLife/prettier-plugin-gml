@@ -166,6 +166,54 @@ const STRING_LENGTH_CALL_BLACKLIST = new Set([
     "string_width",
     "string_width_ext"
 ]);
+
+export const ROOM_NAVIGATION_DIRECTION = Object.freeze({
+    NEXT: "next",
+    PREVIOUS: "previous"
+});
+
+/**
+ * @typedef {typeof ROOM_NAVIGATION_DIRECTION[keyof typeof ROOM_NAVIGATION_DIRECTION]} RoomNavigationDirection
+ */
+
+const ROOM_NAVIGATION_DIRECTION_VALUES = new Set(
+    Object.values(ROOM_NAVIGATION_DIRECTION)
+);
+const ROOM_NAVIGATION_DIRECTION_LABELS = Array.from(
+    ROOM_NAVIGATION_DIRECTION_VALUES
+).join(", ");
+
+const ROOM_NAVIGATION_HELPERS = Object.freeze({
+    [ROOM_NAVIGATION_DIRECTION.NEXT]: Object.freeze({
+        binary: "room_next",
+        goto: "room_goto_next"
+    }),
+    [ROOM_NAVIGATION_DIRECTION.PREVIOUS]: Object.freeze({
+        binary: "room_previous",
+        goto: "room_goto_previous"
+    })
+});
+
+function normalizeRoomNavigationDirection(direction) {
+    if (typeof direction !== "string") {
+        throw new TypeError(
+            "Room navigation direction must be provided as a string."
+        );
+    }
+
+    if (!ROOM_NAVIGATION_DIRECTION_VALUES.has(direction)) {
+        throw new RangeError(
+            `Unsupported room navigation direction: ${direction}. Expected one of: ${ROOM_NAVIGATION_DIRECTION_LABELS}.`
+        );
+    }
+
+    return direction;
+}
+
+export function getRoomNavigationHelpers(direction) {
+    const normalizedDirection = normalizeRoomNavigationDirection(direction);
+    return ROOM_NAVIGATION_HELPERS[normalizedDirection];
+}
 const IDENTIFIER_TOKEN_PATTERN = /\b[A-Za-z_][A-Za-z0-9_]*\b/g;
 const RESERVED_KEYWORD_TOKENS = new Set([
     "and",
@@ -228,7 +276,7 @@ const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers(
 );
 
 export function preprocessSourceForFeatherFixes(sourceText) {
-    if (typeof sourceText !== "string" || sourceText.length === 0) {
+    if (!isNonEmptyString(sourceText)) {
         return {
             sourceText,
             metadata: null
@@ -405,7 +453,7 @@ export function preprocessSourceForFeatherFixes(sourceText) {
 }
 
 function sanitizeEnumInitializerStrings(sourceText) {
-    if (typeof sourceText !== "string" || sourceText.length === 0) {
+    if (!isNonEmptyString(sourceText)) {
         return { sourceText, adjustments: null };
     }
 
@@ -474,7 +522,7 @@ function sanitizeEnumBodyInitializerStrings(
     bodyStartIndex,
     totalRemoved
 ) {
-    if (typeof body !== "string" || body.length === 0) {
+    if (!isNonEmptyString(body)) {
         return { sanitizedBody: body, adjustments: [], removedCount: 0 };
     }
 
@@ -858,6 +906,27 @@ function hasFeatherDiagnosticContext(ast, diagnostic) {
     }
 
     if (typeof ast !== "object") {
+        return false;
+    }
+
+    return true;
+}
+
+function hasFeatherSourceTextContext(
+    ast,
+    diagnostic,
+    sourceText,
+    { allowEmpty = false } = {}
+) {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
+        return false;
+    }
+
+    if (typeof sourceText !== "string") {
+        return false;
+    }
+
+    if (!allowEmpty && sourceText.length === 0) {
         return false;
     }
 
@@ -3633,8 +3702,7 @@ function rewriteRoomNavigationBinaryExpression({
     }
 
     const { direction, baseIdentifier } = navigation;
-    const replacementName =
-        direction === "previous" ? "room_previous" : "room_next";
+    const { binary: replacementName } = getRoomNavigationHelpers(direction);
     const calleeIdentifier = createIdentifier(replacementName, baseIdentifier);
     const argumentIdentifier = cloneIdentifier(baseIdentifier);
 
@@ -3711,10 +3779,9 @@ function rewriteRoomGotoCall({ node, diagnostic, sourceText }) {
         return null;
     }
 
-    const replacementName =
-        navigation.direction === "previous"
-            ? "room_goto_previous"
-            : "room_goto_next";
+    const { goto: replacementName } = getRoomNavigationHelpers(
+        navigation.direction
+    );
 
     const startIndex = getNodeStartIndex(node);
     const endIndex = getNodeEndIndex(node);
@@ -3770,12 +3837,15 @@ function resolveRoomNavigationFromBinaryExpression(node) {
     if (isIdentifierWithName(leftIdentifier, "room")) {
         if (node.operator === "+") {
             if (isLiteralOne(rightLiteral)) {
-                return { direction: "next", baseIdentifier: leftIdentifier };
+                return {
+                    direction: ROOM_NAVIGATION_DIRECTION.NEXT,
+                    baseIdentifier: leftIdentifier
+                };
             }
 
             if (isNegativeOneLiteral(rightLiteral)) {
                 return {
-                    direction: "previous",
+                    direction: ROOM_NAVIGATION_DIRECTION.PREVIOUS,
                     baseIdentifier: leftIdentifier
                 };
             }
@@ -3784,13 +3854,16 @@ function resolveRoomNavigationFromBinaryExpression(node) {
         if (node.operator === "-") {
             if (isLiteralOne(rightLiteral)) {
                 return {
-                    direction: "previous",
+                    direction: ROOM_NAVIGATION_DIRECTION.PREVIOUS,
                     baseIdentifier: leftIdentifier
                 };
             }
 
             if (isNegativeOneLiteral(rightLiteral)) {
-                return { direction: "next", baseIdentifier: leftIdentifier };
+                return {
+                    direction: ROOM_NAVIGATION_DIRECTION.NEXT,
+                    baseIdentifier: leftIdentifier
+                };
             }
         }
     }
@@ -3798,12 +3871,15 @@ function resolveRoomNavigationFromBinaryExpression(node) {
     if (isIdentifierWithName(rightIdentifier, "room")) {
         if (node.operator === "+") {
             if (isLiteralOne(leftLiteral)) {
-                return { direction: "next", baseIdentifier: rightIdentifier };
+                return {
+                    direction: ROOM_NAVIGATION_DIRECTION.NEXT,
+                    baseIdentifier: rightIdentifier
+                };
             }
 
             if (isNegativeOneLiteral(leftLiteral)) {
                 return {
-                    direction: "previous",
+                    direction: ROOM_NAVIGATION_DIRECTION.PREVIOUS,
                     baseIdentifier: rightIdentifier
                 };
             }
@@ -3812,13 +3888,16 @@ function resolveRoomNavigationFromBinaryExpression(node) {
         if (node.operator === "-") {
             if (isLiteralOne(leftLiteral)) {
                 return {
-                    direction: "previous",
+                    direction: ROOM_NAVIGATION_DIRECTION.PREVIOUS,
                     baseIdentifier: rightIdentifier
                 };
             }
 
             if (isNegativeOneLiteral(leftLiteral)) {
-                return { direction: "next", baseIdentifier: rightIdentifier };
+                return {
+                    direction: ROOM_NAVIGATION_DIRECTION.NEXT,
+                    baseIdentifier: rightIdentifier
+                };
             }
         }
     }
@@ -5261,12 +5340,7 @@ function buildNestedMemberIndexExpression({ object, indices, template }) {
 }
 
 function removeDuplicateSemicolons({ ast, sourceText, diagnostic }) {
-    if (
-        !diagnostic ||
-        !ast ||
-        typeof sourceText !== "string" ||
-        sourceText.length === 0
-    ) {
+    if (!hasFeatherSourceTextContext(ast, diagnostic, sourceText)) {
         return [];
     }
 
@@ -5635,11 +5709,7 @@ function normalizeObviousSyntaxErrors({ ast, diagnostic, metadata }) {
 }
 
 function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
-    if (
-        !diagnostic ||
-        typeof sourceText !== "string" ||
-        sourceText.length === 0
-    ) {
+    if (!hasFeatherSourceTextContext(ast, diagnostic, sourceText)) {
         return [];
     }
 
@@ -6190,16 +6260,7 @@ function registerSanitizedMacroName(ast, macroName) {
 }
 
 function ensureVarDeclarationsAreTerminated({ ast, sourceText, diagnostic }) {
-    if (
-        !diagnostic ||
-        !ast ||
-        typeof ast !== "object" ||
-        typeof sourceText !== "string"
-    ) {
-        return [];
-    }
-
-    if (sourceText.length === 0) {
+    if (!hasFeatherSourceTextContext(ast, diagnostic, sourceText)) {
         return [];
     }
 
@@ -6517,10 +6578,9 @@ function markStatementToSuppressLeadingEmptyLine(statement) {
 
 function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {
     if (
-        !diagnostic ||
-        !ast ||
-        typeof ast !== "object" ||
-        typeof sourceText !== "string"
+        !hasFeatherSourceTextContext(ast, diagnostic, sourceText, {
+            allowEmpty: true
+        })
     ) {
         return [];
     }

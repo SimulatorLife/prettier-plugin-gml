@@ -202,6 +202,22 @@ function getIteratorEntries(iterable) {
     return entries;
 }
 
+function resolveMapEntries(candidate) {
+    if (Array.isArray(candidate)) {
+        return candidate;
+    }
+
+    if (candidate && typeof candidate !== "string" && hasIterator(candidate)) {
+        return getIteratorEntries(candidate);
+    }
+
+    if (isObjectLike(candidate)) {
+        return Object.entries(candidate);
+    }
+
+    return [];
+}
+
 export function ensureSet(candidate) {
     if (isSetLike(candidate)) {
         return candidate;
@@ -227,18 +243,5 @@ export function ensureMap(candidate) {
         return new Map();
     }
 
-    if (Array.isArray(candidate)) {
-        return new Map(candidate);
-    }
-
-    if (candidate && typeof candidate !== "string" && hasIterator(candidate)) {
-        const entries = getIteratorEntries(candidate);
-        return new Map(entries);
-    }
-
-    if (isObjectLike(candidate)) {
-        return new Map(Object.entries(candidate));
-    }
-
-    return new Map();
+    return new Map(resolveMapEntries(candidate));
 }

@@ -2,7 +2,10 @@ import path from "node:path";
 
 import { isNonEmptyArray, pushUnique } from "../../../shared/array-utils.js";
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
-import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
+import {
+    getOrCreateMapEntry,
+    isObjectLike
+} from "../../../shared/object-utils.js";
 import {
     createAbortGuard,
     throwIfAborted
@@ -22,7 +25,7 @@ import { normalizeProjectResourcePath } from "./path-normalization.js";
 const RESOURCE_ANALYSIS_ABORT_MESSAGE = "Project index build was aborted.";
 
 function normalizeResourceDocumentMetadata(resourceData) {
-    if (!resourceData || typeof resourceData !== "object") {
+    if (!isObjectLike(resourceData)) {
         return { name: null, resourceType: null };
     }
 
@@ -162,24 +165,17 @@ export function createFileScopeDescriptor(relativePath) {
 
 function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
     const { displayName } = resolveEventMetadata(event);
-    const candidatePaths = [];
-    if (typeof event.eventContents === "string") {
-        candidatePaths.push(event.eventContents);
-    }
-    if (typeof event.event === "string") {
-        candidatePaths.push(event.event);
-    }
-    if (event.event && typeof event.event.path === "string") {
-        candidatePaths.push(event.event.path);
-    }
-    if (event.eventId && typeof event.eventId.path === "string") {
-        candidatePaths.push(event.eventId.path);
-    }
-    if (event.code && typeof event.code === "string") {
-        candidatePaths.push(event.code);
-    }
+    for (const candidate of [
+        event?.eventContents,
+        event?.event,
+        event?.event?.path,
+        event?.eventId?.path,
+        event?.code
+    ]) {
+        if (typeof candidate !== "string") {
+            continue;
+        }
 
-    for (const candidate of candidatePaths) {
         const normalized = normalizeProjectResourcePath(candidate);
         if (normalized) {
             return normalized;
@@ -198,7 +194,7 @@ function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
 }
 
 function pushChildNode(stack, parentPath, key, candidate) {
-    if (!candidate || typeof candidate !== "object") {
+    if (!isObjectLike(candidate)) {
         return;
     }
 
@@ -207,7 +203,7 @@ function pushChildNode(stack, parentPath, key, candidate) {
 }
 
 function collectAssetReferences(root, callback) {
-    if (!root || typeof root !== "object") {
+    if (!isObjectLike(root)) {
         return;
     }
 

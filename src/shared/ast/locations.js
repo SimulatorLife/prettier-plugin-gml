@@ -90,7 +90,11 @@ function cloneLocation(location) {
         return structuredClone(location);
     }
 
-    return location == null ? undefined : location;
+    if (location == null) {
+        return location ?? undefined;
+    }
+
+    return location;
 }
 
 /**
@@ -115,12 +119,23 @@ function assignClonedLocation(target, template) {
             withObjectLike(
                 template,
                 (templateNode) => {
+                    let shouldAssign = false;
+                    const clonedLocations = {};
+
                     if (Object.hasOwn(templateNode, "start")) {
-                        mutableTarget.start = cloneLocation(templateNode.start);
+                        clonedLocations.start = cloneLocation(
+                            templateNode.start
+                        );
+                        shouldAssign = true;
                     }
 
                     if (Object.hasOwn(templateNode, "end")) {
-                        mutableTarget.end = cloneLocation(templateNode.end);
+                        clonedLocations.end = cloneLocation(templateNode.end);
+                        shouldAssign = true;
+                    }
+
+                    if (shouldAssign) {
+                        Object.assign(mutableTarget, clonedLocations);
                     }
 
                     return mutableTarget;
@@ -144,11 +159,22 @@ function assignClonedLocation(target, template) {
  */
 function getNodeRangeIndices(node) {
     const start = getNodeStartIndex(node);
-    const end = getNodeEndIndex(node);
+    const endLocation = getLocationIndex(node, "end");
+
+    // `getNodeEndIndex` falls back to the node's start location when the end
+    // marker is missing. Callers frequently request both bounds together, so
+    // cache the normalized start index locally and reuse it for the fallback to
+    // avoid repeating the nested location walk inside `getNodeEndIndex`.
+    let end = null;
+    if (typeof endLocation === "number") {
+        end = endLocation + 1;
+    } else if (typeof start === "number") {
+        end = start;
+    }
 
     return {
-        start: typeof start === "number" ? start : null,
-        end: typeof end === "number" ? end : null
+        start,
+        end
     };
 }
 
