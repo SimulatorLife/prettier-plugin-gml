@@ -10,7 +10,7 @@ import {
     createManualGitHubRefResolver,
     createManualGitHubRequestDispatcher,
     createManualVerboseState
-} from "../lib/manual/utils.js";
+} from "../features/manual/utils.js";
 
 const API_ROOT = "https://api.github.com/repos/example/manual";
 const RAW_ROOT = "https://raw.github.com/example/manual";
@@ -108,6 +108,65 @@ describe("manual GitHub client validation", () => {
             );
             assert.equal(second, "cached body");
             assert.equal(responses.length, 0);
+        } finally {
+            await fs.rm(cacheRoot, { recursive: true, force: true });
+        }
+    });
+
+    it("aborts manual file fetches when a signal is triggered", async () => {
+        const cacheRoot = await fs.mkdtemp(
+            path.join(os.tmpdir(), "manual-cache-")
+        );
+
+        const client = createManualClientBundle({
+            userAgent: "test-agent",
+            defaultCacheRoot: cacheRoot,
+            defaultRawRoot: RAW_ROOT
+        });
+
+        const controller = new AbortController();
+        let abortHandlerRegistered = false;
+
+        globalThis.fetch = async (url, options = {}) => {
+            const { signal } = options;
+            assert.equal(url, `${RAW_ROOT}/sha/path/to/file`);
+            assert.ok(
+                signal instanceof AbortSignal,
+                "Expected fetch to receive an abort signal"
+            );
+            abortHandlerRegistered = true;
+
+            return new Promise((_resolve, reject) => {
+                const onAbort = () => {
+                    signal.removeEventListener("abort", onAbort);
+                    reject(signal.reason ?? new Error("aborted"));
+                };
+
+                signal.addEventListener("abort", onAbort, { once: true });
+                if (signal.aborted) {
+                    onAbort();
+                }
+                // Keep the promise pending until the abort handler runs so the
+                // test does not rely on real timers or event loop jitter.
+            });
+        };
+
+        try {
+            const pending = client.fileFetcher.fetchManualFile(
+                "sha",
+                "path/to/file",
+                {
+                    signal: controller.signal,
+                    cacheRoot,
+                    rawRoot: RAW_ROOT,
+                    forceRefresh: true
+                }
+            );
+
+            controller.abort(new Error("stop"));
+
+            await assert.rejects(pending, /stop/);
+            assert.equal(abortHandlerRegistered, true);
         } finally {
             await fs.rm(cacheRoot, { recursive: true, force: true });
         }

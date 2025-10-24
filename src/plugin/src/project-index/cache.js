@@ -7,7 +7,7 @@ import {
     isFiniteNumber
 } from "../../../shared/number-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
-import { createEnvConfiguredValue } from "../../../shared/environment-utils.js";
+import { createEnvConfiguredValueWithFallback } from "../../../shared/environment-utils.js";
 import {
     PROJECT_MANIFEST_EXTENSION,
     isProjectManifestPath
@@ -25,15 +25,44 @@ export const PROJECT_INDEX_CACHE_DIRECTORY = ".prettier-plugin-gml";
 export const PROJECT_INDEX_CACHE_FILENAME = "project-index-cache.json";
 export const PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR =
     "GML_PROJECT_INDEX_CACHE_MAX_SIZE";
+// The identifier-case rollout docs promise an 8 MiB default cache ceiling so
+// teams can size disk allowances ahead of enabling the project index.
+// `docs/project-index-cache-design.md` explains how exceeding that limit risks
+// unbounded cache growth on large projects, while
+// `docs/identifier-case-rollout.md#configuration-switches` calls out the
+// `gmlIdentifierCaseProjectIndexCacheMaxBytes` override for installations that
+// consciously trade space for determinism. Keep this baseline in sync with the
+// published guidance so operational runbooks stay trustworthy.
 export const PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE = 8 * 1024 * 1024; // 8 MiB
 
-const projectIndexCacheSizeConfig = createEnvConfiguredValue({
+const projectIndexCacheSizeConfig = createEnvConfiguredValueWithFallback({
     defaultValue: PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE,
     envVar: PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR,
-    normalize: (value, { defaultValue }) => {
+    resolve: (value, { fallback }) => {
         const normalized = normalizeMaxSizeBytes(value);
-        return normalized ?? defaultValue;
-    }
+        if (normalized !== null) {
+            return normalized;
+        }
+
+        if (value === 0) {
+            return 0;
+        }
+
+        if (typeof value === "string") {
+            const trimmed = value.trim();
+
+            if (trimmed !== "") {
+                const numeric = Number(trimmed);
+
+                if (Number.isFinite(numeric) && numeric === 0) {
+                    return 0;
+                }
+            }
+        }
+
+        return fallback;
+    },
+    computeFallback: ({ defaultValue }) => defaultValue
 });
 
 export const DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE =
@@ -157,7 +186,7 @@ function areMtimeMapsEqual(expected = {}, actual = {}) {
 }
 
 function validateCachePayload(payload) {
-    if (!payload || typeof payload !== "object") {
+    if (!isObjectLike(payload)) {
         return false;
     }
 
@@ -180,22 +209,22 @@ function validateCachePayload(payload) {
         return false;
     }
 
-    if (!payload.manifestMtimes || typeof payload.manifestMtimes !== "object") {
+    if (!isObjectLike(payload.manifestMtimes)) {
         return false;
     }
 
-    if (!payload.sourceMtimes || typeof payload.sourceMtimes !== "object") {
+    if (!isObjectLike(payload.sourceMtimes)) {
         return false;
     }
 
     if (
         payload.metricsSummary != undefined &&
-        typeof payload.metricsSummary !== "object"
+        !isObjectLike(payload.metricsSummary)
     ) {
         return false;
     }
 
-    if (!payload.projectIndex || typeof payload.projectIndex !== "object") {
+    if (!isObjectLike(payload.projectIndex)) {
         return false;
     }
 
@@ -357,7 +386,7 @@ export async function saveProjectIndexCache(
             "projectRoot must be provided to saveProjectIndexCache"
         );
     }
-    if (!projectIndex || typeof projectIndex !== "object") {
+    if (!isObjectLike(projectIndex)) {
         throw new Error(
             "projectIndex must be provided to saveProjectIndexCache"
         );

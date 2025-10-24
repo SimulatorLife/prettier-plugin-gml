@@ -20,7 +20,7 @@ import {
     isNonEmptyArray,
     toArray
 } from "../../../shared/array-utils.js";
-import { getErrorMessage } from "../../../shared/utils.js";
+import { warnWithReason } from "./logger.js";
 
 import { consumeIdentifierCaseDryRunContext } from "./identifier-case-context.js";
 import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
@@ -57,14 +57,16 @@ function extractOperations(plan) {
         return plan;
     }
 
-    if (plan && typeof plan === "object") {
-        if (Array.isArray(plan.operations)) {
-            return plan.operations;
-        }
+    if (!plan || typeof plan !== "object") {
+        return [];
+    }
 
-        if (Array.isArray(plan.renames)) {
-            return plan.renames;
-        }
+    if (Array.isArray(plan.operations)) {
+        return plan.operations;
+    }
+
+    if (Array.isArray(plan.renames)) {
+        return plan.renames;
     }
 
     return [];
@@ -552,15 +554,12 @@ export function reportIdentifierCasePlan({
                 );
             }
         } catch (error) {
-            if (typeof logger?.warn === "function") {
-                const reason =
-                    getErrorMessage(error, { fallback: "" }) || "Unknown error";
-                logger.warn(
-                    `[${REPORT_NAMESPACE}] Failed to write identifier case report: ${
-                        reason
-                    }`
-                );
-            }
+            warnWithReason(
+                logger,
+                REPORT_NAMESPACE,
+                "Failed to write identifier case report",
+                error
+            );
         }
     }
 

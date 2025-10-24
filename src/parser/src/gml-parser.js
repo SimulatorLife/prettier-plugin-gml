@@ -9,6 +9,7 @@ import GameMakerParseErrorListener, {
 import { isObjectLike } from "./shared/object-utils.js";
 import { isErrorLike } from "./shared/utils/capability-probes.js";
 import { getLineBreakCount } from "./shared/utils/line-breaks.js";
+import { enqueueObjectChildValues } from "./shared/ast.js";
 
 function normalizeSimpleEscapeCase(text) {
     if (typeof text !== "string" || text.length === 0) {
@@ -247,14 +248,17 @@ export default class GMLParser {
         try {
             tree = parser.program();
         } catch (error) {
-            if (error) {
-                if (isErrorLike(error)) {
-                    throw error;
-                }
-
-                throw new Error(String(error));
+            if (!error) {
+                throw new Error(
+                    "Unknown syntax error while parsing GML source."
+                );
             }
-            throw new Error("Unknown syntax error while parsing GML source.");
+
+            if (isErrorLike(error)) {
+                throw error;
+            }
+
+            throw new Error(String(error));
         }
 
         if (this.options.getComments) {
@@ -344,20 +348,7 @@ export default class GMLParser {
             }
 
             for (const value of Object.values(node)) {
-                if (!value || typeof value !== "object") {
-                    continue;
-                }
-
-                if (Array.isArray(value)) {
-                    for (const item of value) {
-                        if (item && typeof item === "object") {
-                            stack.push(item);
-                        }
-                    }
-                    continue;
-                }
-
-                stack.push(value);
+                enqueueObjectChildValues(stack, value);
             }
         }
     }

@@ -15,14 +15,11 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
 
     const resolveName =
         typeof getNodeName === "function" ? getNodeName : undefined;
-    const { memberStats, maxInitializerNameLength } = collectEnumMemberStats(
-        members,
-        resolveName
-    );
+    const { memberStats, maxInitializerNameLength, allMembersHaveInitializer } =
+        collectEnumMemberStats(members, resolveName);
 
     const shouldAlignInitializers =
-        maxInitializerNameLength > 0 &&
-        memberStats.every((entry) => entry.hasInitializer);
+        allMembersHaveInitializer && maxInitializerNameLength > 0;
 
     const maxMemberWidth = applyEnumMemberAlignment({
         memberStats,
@@ -38,7 +35,8 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
     applyTrailingCommentPadding({
         memberStats,
         maxMemberWidth,
-        hasTrailingComma
+        hasTrailingComma,
+        shouldAlignInitializers
     });
 }
 
@@ -114,6 +112,7 @@ function collectEnumMemberStats(members, resolveName) {
     const memberCount = members.length;
     const memberStats = new Array(memberCount);
     let maxInitializerNameLength = 0;
+    let allMembersHaveInitializer = true;
 
     // Avoid `Array#map` here so the hot enum printing path does not allocate a
     // new callback for each member. The manual loop keeps the same data shape
@@ -128,6 +127,8 @@ function collectEnumMemberStats(members, resolveName) {
 
         if (hasInitializer && nameLength > maxInitializerNameLength) {
             maxInitializerNameLength = nameLength;
+        } else if (!hasInitializer) {
+            allMembersHaveInitializer = false;
         }
 
         memberStats[index] = {
@@ -139,7 +140,7 @@ function collectEnumMemberStats(members, resolveName) {
         };
     }
 
-    return { memberStats, maxInitializerNameLength };
+    return { memberStats, maxInitializerNameLength, allMembersHaveInitializer };
 }
 
 function applyEnumMemberAlignment({
@@ -176,8 +177,13 @@ function applyEnumMemberAlignment({
 function applyTrailingCommentPadding({
     memberStats,
     maxMemberWidth,
-    hasTrailingComma
+    hasTrailingComma,
+    shouldAlignInitializers
 }) {
+    if (!shouldAlignInitializers) {
+        return;
+    }
+
     const lastIndex = memberStats.length - 1;
 
     // Manual index iteration avoids allocating iterator tuples from

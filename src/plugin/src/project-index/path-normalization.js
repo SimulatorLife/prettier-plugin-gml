@@ -51,11 +51,11 @@ export function resolveProjectDisplayPath(filePath, projectRoot) {
     }
 
     return withProjectPathInfo(normalizedFilePath, projectRoot, (info) => {
-        if (!info.inputWasAbsolute) {
-            return normalizedFilePath;
-        }
-
-        if (!info.hasProjectRoot || !info.isInsideProjectRoot) {
+        if (
+            !info.inputWasAbsolute ||
+            !info.hasProjectRoot ||
+            !info.isInsideProjectRoot
+        ) {
             return normalizedFilePath;
         }
 
