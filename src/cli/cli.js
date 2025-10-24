@@ -1056,7 +1056,6 @@ async function processDirectoryEntry(filePath, currentIgnorePaths) {
     }
 
     if (shouldFormatFile(filePath)) {
-        encounteredFormattableFile = true;
         await processFile(filePath, currentIgnorePaths);
         return;
     }
@@ -1154,6 +1153,8 @@ async function processFile(filePath, activeIgnorePaths = []) {
             skippedFileSummary.ignored += 1;
             return;
         }
+
+        encounteredFormattableFile = true;
 
         const data = await readFile(filePath, "utf8");
         const formatted = await prettier.format(data, formattingOptions);
@@ -1266,7 +1267,6 @@ async function resolveTargetContext(targetPath, usage) {
  */
 async function processNonDirectoryTarget(targetPath) {
     if (shouldFormatFile(targetPath)) {
-        encounteredFormattableFile = true;
         await processFile(targetPath, baseProjectIgnorePaths);
         return;
     }
@@ -1405,23 +1405,46 @@ function logNoMatchingFiles({
     const guidance = targetIsDirectory
         ? "Adjust --extensions or update your .prettierignore files if this is unexpected."
         : "Pass --extensions to include this file or adjust your .prettierignore files if this is unexpected.";
+    const ignoredFilesSkipped = skippedFileSummary.ignored > 0;
+    const ignoredMessageSuffix =
+        "Adjust your .prettierignore files or refine the target path if this is unexpected.";
 
     if (targetIsDirectory) {
-        console.log(
-            [
-                `No files matching ${formattedExtensions} were found ${locationDescription}.`,
-                "Nothing to format.",
-                guidance
-            ].join(" ")
-        );
+        if (ignoredFilesSkipped) {
+            console.log(
+                [
+                    `All files matching ${formattedExtensions} were skipped ${locationDescription} by ignore rules.`,
+                    "Nothing to format.",
+                    ignoredMessageSuffix
+                ].join(" ")
+            );
+        } else {
+            console.log(
+                [
+                    `No files matching ${formattedExtensions} were found ${locationDescription}.`,
+                    "Nothing to format.",
+                    guidance
+                ].join(" ")
+            );
+        }
     } else {
-        console.log(
-            [
-                `${locationDescription} does not match the configured extensions ${formattedExtensions}.`,
-                "Nothing to format.",
-                guidance
-            ].join(" ")
-        );
+        if (ignoredFilesSkipped) {
+            console.log(
+                [
+                    `${locationDescription} was skipped by ignore rules and not formatted.`,
+                    "Nothing to format.",
+                    ignoredMessageSuffix
+                ].join(" ")
+            );
+        } else {
+            console.log(
+                [
+                    `${locationDescription} does not match the configured extensions ${formattedExtensions}.`,
+                    "Nothing to format.",
+                    guidance
+                ].join(" ")
+            );
+        }
     }
 
     logSkippedFileSummary();
