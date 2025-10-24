@@ -3218,16 +3218,7 @@ function mergeSyntheticDocComments(
         }
     }
 
-    const findLastFunctionIndex = () => {
-        for (let index = mergedLines.length - 1; index >= 0; index -= 1) {
-            if (isFunctionLine(mergedLines[index])) {
-                return index;
-            }
-        }
-        return -1;
-    };
-
-    const lastFunctionIndex = findLastFunctionIndex();
+    const lastFunctionIndex = mergedLines.findLastIndex(isFunctionLine);
     let insertionIndex = lastFunctionIndex === -1 ? 0 : lastFunctionIndex + 1;
 
     if (lastFunctionIndex === -1) {
