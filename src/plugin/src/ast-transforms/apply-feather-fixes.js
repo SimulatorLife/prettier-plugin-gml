@@ -562,7 +562,7 @@ function normalizeRemovalAdjustments(adjustments) {
                 Number.isFinite(index) && Number.isFinite(delta) && delta > 0
             );
         })
-        .sort((a, b) => a.index - b.index);
+        .toSorted((a, b) => a.index - b.index);
 }
 
 function adjustLocationForRemoval(node, property, adjustments) {
@@ -4241,7 +4241,9 @@ function fixArgumentReferencesWithinFunction(
 
     if (documentedParamNames.size > 0 && aliasDeclarations.length > 0) {
         const normalizedDocNames = new Set(
-            [...documentedParamNames].map(normalizeDocParamNameForComparison)
+            [...documentedParamNames].map((paramName) =>
+                normalizeDocParamNameForComparison(paramName)
+            )
         );
 
         const aliasInfos = aliasDeclarations
@@ -4384,7 +4386,7 @@ function extractDocumentedParamNames(functionNode, docComments, sourceText) {
                 typeof comment.value === "string" &&
                 /@param\b/i.test(comment.value)
         )
-        .sort((left, right) => {
+        .toSorted((left, right) => {
             const leftStart = getCommentStartIndex(left);
             const rightStart = getCommentStartIndex(right);
 
@@ -4495,24 +4497,112 @@ function extractParamNameFromComment(value) {
         return null;
     }
 
-    const match = value.match(/@param\s+(?:\{[^}]+\}\s*)?(\S+)/i);
-    if (!match) {
+    const normalized = value.trim();
+    const remainder = sliceAfterParamTag(normalized);
+
+    if (!remainder) {
         return null;
     }
 
-    let name = match[1] ?? "";
-    name = name.trim();
+    const afterTypeAnnotation = stripLeadingTypeAnnotation(remainder);
+
+    if (!afterTypeAnnotation) {
+        return null;
+    }
+
+    const token = readNextDocToken(afterTypeAnnotation);
+
+    return cleanDocParamName(token);
+}
+
+function sliceAfterParamTag(commentText) {
+    if (typeof commentText !== "string" || commentText.length === 0) {
+        return null;
+    }
+
+    const lower = commentText.toLowerCase();
+    const tagIndex = lower.indexOf("@param");
+
+    if (tagIndex === -1) {
+        return null;
+    }
+
+    const remainder = commentText.slice(tagIndex + "@param".length);
+    const trimmed = remainder.trimStart();
+
+    return trimmed.length > 0 ? trimmed : null;
+}
+
+function stripLeadingTypeAnnotation(segment) {
+    if (typeof segment !== "string" || segment.length === 0) {
+        return null;
+    }
+
+    if (!segment.startsWith("{")) {
+        return segment;
+    }
+
+    let depth = 0;
+
+    for (let index = 0; index < segment.length; index += 1) {
+        const char = segment[index];
+
+        if (char === "{") {
+            depth += 1;
+            continue;
+        }
+
+        if (char === "}") {
+            depth -= 1;
+
+            if (depth === 0) {
+                const remainder = segment.slice(index + 1).trimStart();
+                return remainder.length > 0 ? remainder : null;
+            }
+        }
+    }
+
+    return null;
+}
+
+function readNextDocToken(segment) {
+    if (typeof segment !== "string" || segment.length === 0) {
+        return null;
+    }
+
+    let endIndex = 0;
+
+    while (endIndex < segment.length) {
+        if (segment[endIndex].trim().length === 0) {
+            break;
+        }
+
+        endIndex += 1;
+    }
+
+    const token = segment.slice(0, endIndex === 0 ? segment.length : endIndex);
+    return token.length > 0 ? token : null;
+}
+
+function cleanDocParamName(token) {
+    if (typeof token !== "string") {
+        return null;
+    }
+
+    let name = token.trim();
 
     if (name.startsWith("[") && name.endsWith("]")) {
         name = name.slice(1, -1);
     }
 
     const equalsIndex = name.indexOf("=");
+
     if (equalsIndex !== -1) {
         name = name.slice(0, equalsIndex);
     }
 
-    return name.trim();
+    const trimmed = name.trim();
+    return trimmed.length > 0 ? trimmed : null;
 }
 
 function normalizeDocParamNameForComparison(name) {
@@ -4532,7 +4622,7 @@ function createArgumentIndexMapping(indices) {
         ...new Set(
             indices.filter((index) => Number.isInteger(index) && index >= 0)
         )
-    ].sort((left, right) => left - right);
+    ].toSorted((left, right) => left - right);
 
     if (uniqueIndices.length === 0) {
         return null;
@@ -4582,7 +4672,7 @@ function getArgumentIdentifierIndex(node) {
         return null;
     }
 
-    const parsed = Number.parseInt(match[1], 10);
+    const parsed = Number.parseInt(match[1]);
 
     if (!Number.isInteger(parsed) || parsed < 0) {
         return null;
@@ -4722,20 +4812,22 @@ function replaceDeprecatedBuiltinVariables({ ast, diagnostic }) {
 }
 
 function replaceDeprecatedIdentifier(
-    node,
+    identifierNode,
     parent,
     property,
     owner,
     ownerKey,
     diagnostic
 ) {
-    if (!node || node.type !== "Identifier") {
+    if (!identifierNode || identifierNode.type !== "Identifier") {
         return null;
     }
 
+    const targetIdentifier = identifierNode;
+
     const normalizedName =
-        typeof node.name === "string"
-            ? toNormalizedLowerCaseString(node.name)
+        typeof targetIdentifier.name === "string"
+            ? toNormalizedLowerCaseString(targetIdentifier.name)
             : null;
 
     if (!normalizedName || normalizedName.length === 0) {
@@ -4760,20 +4852,20 @@ function replaceDeprecatedIdentifier(
         return null;
     }
 
-    const originalName = node.name;
+    const originalName = targetIdentifier.name;
     const replacementName = replacementEntry.replacement;
 
     if (!replacementName || replacementName === originalName) {
         return null;
     }
 
-    node.name = replacementName;
+    targetIdentifier.name = replacementName;
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: replacementEntry.deprecated ?? originalName,
         range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
+            start: getNodeStartIndex(targetIdentifier),
+            end: getNodeEndIndex(targetIdentifier)
         }
     });
 
@@ -4781,7 +4873,7 @@ function replaceDeprecatedIdentifier(
         return null;
     }
 
-    attachFeatherFixMetadata(node, [fixDetail]);
+    attachFeatherFixMetadata(targetIdentifier, [fixDetail]);
 
     return fixDetail;
 }
@@ -5201,10 +5293,12 @@ function convertMultidimensionalMemberIndex(
 
     copyCommentMetadata(node, nestedExpression);
 
-    if (Array.isArray(parent)) {
-        parent[property] = nestedExpression;
-    } else if (isObjectLike(parent)) {
-        parent[property] = nestedExpression;
+    const containerNode = parent;
+
+    if (Array.isArray(containerNode)) {
+        containerNode[property] = nestedExpression;
+    } else if (isObjectLike(containerNode)) {
+        containerNode[property] = nestedExpression;
     }
 
     attachFeatherFixMetadata(nestedExpression, [fixDetail]);
@@ -7851,9 +7945,7 @@ function buildEventMarkerIndex(ast) {
         });
     }
 
-    markers.sort((left, right) => left.index - right.index);
-
-    return markers;
+    return markers.toSorted((left, right) => left.index - right.index);
 }
 
 function extractEventNameFromComment(value) {
@@ -15655,7 +15747,7 @@ function resolveUserEventIndex(node) {
             return null;
         }
 
-        const numericValue = Number.parseInt(match[1], 10);
+        const numericValue = Number.parseInt(match[1]);
 
         if (
             !Number.isInteger(numericValue) ||
@@ -16746,12 +16838,12 @@ function sanitizeMalformedJsDocTypes({ ast, diagnostic, typeSystemInfo }) {
     return fixes;
 }
 
-function sanitizeDocCommentType(comment, typeSystemInfo) {
-    if (!comment || comment.type !== "CommentLine") {
+function sanitizeDocCommentType(commentNode, typeSystemInfo) {
+    if (!commentNode || commentNode.type !== "CommentLine") {
         return null;
     }
 
-    const rawValue = getCommentValue(comment);
+    const rawValue = getCommentValue(commentNode);
 
     if (!rawValue || !rawValue.includes("@") || !rawValue.includes("{")) {
         return null;
@@ -16795,10 +16887,12 @@ function sanitizeDocCommentType(comment, typeSystemInfo) {
         return null;
     }
 
-    comment.value = updatedValue;
+    const targetComment = commentNode;
 
-    if (typeof comment.raw === "string") {
-        comment.raw = `//${updatedValue}`;
+    targetComment.value = updatedValue;
+
+    if (typeof targetComment.raw === "string") {
+        targetComment.raw = `//${updatedValue}`;
     }
 
     const target =
@@ -16976,7 +17070,7 @@ function balanceTypeAnnotationDelimiters(typeText) {
         return typeText;
     }
 
-    return typeText + stack.reverse().join("");
+    return typeText + stack.toReversed().join("");
 }
 
 function fixSpecifierSpacing(typeText, specifierBaseTypes) {
@@ -17680,12 +17774,17 @@ function renameReservedIdentifiersInVariableDeclaration(node, diagnostic) {
     return fixes;
 }
 
-function renameReservedIdentifierNode(identifier, diagnostic, options = {}) {
-    if (!identifier || identifier.type !== "Identifier") {
+function renameReservedIdentifierNode(
+    identifierNode,
+    diagnostic,
+    options = {}
+) {
+    if (!identifierNode || identifierNode.type !== "Identifier") {
         return null;
     }
 
-    const name = identifier.name;
+    const targetIdentifier = identifierNode;
+    const name = targetIdentifier.name;
 
     if (!isReservedIdentifier(name)) {
         return null;
@@ -17700,8 +17799,8 @@ function renameReservedIdentifierNode(identifier, diagnostic, options = {}) {
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: name ?? null,
         range: {
-            start: getNodeStartIndex(identifier),
-            end: getNodeEndIndex(identifier)
+            start: getNodeStartIndex(targetIdentifier),
+            end: getNodeEndIndex(targetIdentifier)
         }
     });
 
@@ -17709,12 +17808,12 @@ function renameReservedIdentifierNode(identifier, diagnostic, options = {}) {
         return null;
     }
 
-    identifier.name = replacement;
+    targetIdentifier.name = replacement;
 
     if (typeof options.onRename === "function") {
         try {
             options.onRename({
-                identifier,
+                identifier: targetIdentifier,
                 originalName: name,
                 replacement
             });
@@ -17723,27 +17822,29 @@ function renameReservedIdentifierNode(identifier, diagnostic, options = {}) {
         }
     }
 
-    attachFeatherFixMetadata(identifier, [fixDetail]);
+    attachFeatherFixMetadata(targetIdentifier, [fixDetail]);
 
     return fixDetail;
 }
 
-function renameReservedIdentifierInMacro(node, diagnostic, sourceText) {
-    if (!node || node.type !== "MacroDeclaration") {
+function renameReservedIdentifierInMacro(macroNode, diagnostic, sourceText) {
+    if (!macroNode || macroNode.type !== "MacroDeclaration") {
         return null;
     }
 
-    return renameReservedIdentifierNode(node.name, diagnostic, {
+    const targetMacro = macroNode;
+
+    return renameReservedIdentifierNode(targetMacro.name, diagnostic, {
         onRename: ({ originalName, replacement }) => {
             const updatedText = buildMacroReplacementText({
-                macro: node,
+                macro: targetMacro,
                 originalName,
                 replacement,
                 sourceText
             });
 
             if (typeof updatedText === "string") {
-                node._featherMacroText = updatedText;
+                targetMacro._featherMacroText = updatedText;
             }
         }
     });
@@ -18043,28 +18144,6 @@ function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
     }
 
     return fixes;
-}
-
-function createGpuStateCall(name, template) {
-    if (!name) {
-        return null;
-    }
-
-    const identifier = createIdentifier(name, template?.object);
-
-    if (!identifier) {
-        return null;
-    }
-
-    const callExpression = {
-        type: "CallExpression",
-        object: identifier,
-        arguments: []
-    };
-
-    assignClonedLocation(callExpression, template);
-
-    return callExpression;
 }
 
 function isGpuPushStateCall(node) {
