@@ -91,7 +91,7 @@ function cloneLocation(location) {
     }
 
     if (location == null) {
-        return;
+        return location ?? undefined;
     }
 
     return location;
