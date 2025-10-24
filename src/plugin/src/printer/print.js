@@ -2267,6 +2267,10 @@ function printStatements(path, options, print, childrenAttribute) {
                     : nodeEndIndex + 1;
             const enforceTrailingPadding =
                 shouldAddNewlinesAroundStatement(node);
+            const shouldForceTrailingPadding =
+                enforceTrailingPadding &&
+                (node?.type === "FunctionDeclaration" ||
+                    node?.type === "ConstructorDeclaration");
             const blockParent =
                 typeof childPath.getParentNode === "function"
                     ? childPath.getParentNode()
@@ -2296,7 +2300,9 @@ function printStatements(path, options, print, childrenAttribute) {
                     originalText !== null &&
                     isNextLineEmpty(originalText, trailingProbeIndex);
 
-                if (enforceTrailingPadding) {
+                if (shouldForceTrailingPadding) {
+                    shouldPreserveTrailingBlankLine = true;
+                } else if (enforceTrailingPadding) {
                     shouldPreserveTrailingBlankLine =
                         hasExplicitTrailingBlankLine;
                 } else if (
