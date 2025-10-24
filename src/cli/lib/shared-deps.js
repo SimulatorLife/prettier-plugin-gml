@@ -55,4 +55,4 @@ export {
     stringifyJsonForFile
 } from "../../shared/json-utils.js";
 
-export { ensureDir } from "../../shared/utils/fs.js";
+export { ensureDir } from "../../shared/fs-utils.js";
