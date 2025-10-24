@@ -14873,10 +14873,54 @@ function ensureSequentialVertexFormatsAreClosed(statements, diagnostic, fixes) {
         const closingCount = countVertexFormatEndCalls(statement);
 
         let unmatchedClosers = closingCount;
+        const closedBegins = [];
 
         while (unmatchedClosers > 0 && openBegins.length > 0) {
-            openBegins.pop();
+            const entry = openBegins.pop();
+            if (entry) {
+                closedBegins.push(entry);
+            }
             unmatchedClosers -= 1;
+        }
+
+        if (
+            closedBegins.length > 0 &&
+            isCallExpressionStatementWithName(statement, "vertex_format_end")
+        ) {
+            const matchedBegin = closedBegins.shift();
+
+            if (matchedBegin) {
+                const removalCount = removeDanglingVertexFormatDefinition({
+                    statements,
+                    startIndex: matchedBegin.index,
+                    stopIndex: index,
+                    diagnostic,
+                    fixes
+                });
+
+                if (removalCount > 0) {
+                    const endIndex = index - removalCount;
+                    const removedEnd = removeDanglingVertexFormatEndCall({
+                        statements,
+                        index: endIndex,
+                        diagnostic,
+                        fixes
+                    });
+
+                    if (removedEnd) {
+                        const totalRemoved = removalCount + 1;
+
+                        for (const entry of openBegins) {
+                            if (entry && entry.index > matchedBegin.index) {
+                                entry.index -= totalRemoved;
+                            }
+                        }
+
+                        index = matchedBegin.index;
+                        continue;
+                    }
+                }
+            }
         }
 
         if (unmatchedClosers > 0) {

@@ -56,4 +56,16 @@ describe("Feather fix regressions", () => {
             "/// @description GM2009 - A standalone 'vertex_end' is invalid, so we'll remove it here"
         );
     });
+
+    it("removes vertex format definitions when the result is discarded", async () => {
+        const source = [
+            "vertex_format_begin();",
+            "vertex_format_add_position_3d();",
+            "vertex_format_end();"
+        ].join("\n");
+
+        const formatted = await format(source, { applyFeatherFixes: true });
+
+        assert.strictEqual(formatted, "");
+    });
 });
