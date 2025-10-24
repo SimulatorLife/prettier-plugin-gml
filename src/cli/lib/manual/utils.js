@@ -3,6 +3,8 @@ import path from "node:path";
 import {
     assertPlainObject,
     assertNonEmptyString,
+    createAbortGuard,
+    isFsErrorCode,
     isNonEmptyArray,
     isNonEmptyTrimmedString,
     parseJsonWithContext,
@@ -11,8 +13,6 @@ import {
 import { formatDuration } from "../time-utils.js";
 import { formatBytes } from "../byte-format.js";
 import { writeManualFile } from "./file-helpers.js";
-import { createAbortGuard } from "../../../shared/abort-utils.js";
-import { isFsErrorCode } from "../../../shared/utils/fs.js";
 import { renderProgressBar } from "../progress-bar.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";

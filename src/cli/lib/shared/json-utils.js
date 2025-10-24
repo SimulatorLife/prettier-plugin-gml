@@ -1,1 +1,6 @@
-export * from "../../../shared/json-utils.js";
+export {
+    JsonParseError,
+    isJsonParseError,
+    parseJsonWithContext,
+    stringifyJsonForFile
+} from "../shared-deps.js";
