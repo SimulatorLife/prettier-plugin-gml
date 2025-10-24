@@ -5,7 +5,7 @@ import { Command } from "commander";
 import { CliUsageError } from "../core/errors.js";
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import {
-    getErrorMessage,
+    getErrorMessageOrFallback,
     normalizeIdentifierMetadataEntries,
     toNormalizedLowerCaseSet,
     toPosixPath
@@ -181,8 +181,7 @@ function parseArrayLiteral(source, identifier, { timeoutMs } = {}) {
     try {
         return vm.runInNewContext(literal, {}, vmOptions);
     } catch (error) {
-        const message =
-            getErrorMessage(error, { fallback: "" }) || "Unknown error";
+        const message = getErrorMessageOrFallback(error);
         throw new Error(
             `Failed to evaluate array literal for ${identifier}: ${message}`,
             { cause: error }

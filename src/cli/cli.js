@@ -34,6 +34,7 @@ import { Command, InvalidArgumentError, Option } from "commander";
 import {
     coerceNonNegativeInteger,
     getErrorMessage,
+    getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
     isErrorWithCode,
     normalizeEnumeratedOption,
@@ -926,8 +927,7 @@ async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
             return true;
         }
     } catch (error) {
-        const message =
-            getErrorMessage(error, { fallback: "" }) || "Unknown error";
+        const message = getErrorMessageOrFallback(error);
         console.warn(
             `Unable to evaluate ignore rules for ${directory}: ${message}`
         );
@@ -980,9 +980,7 @@ async function resolveTargetStats(target, { usage } = {}) {
     try {
         return await stat(target);
     } catch (error) {
-        const details =
-            getErrorMessage(error, { fallback: "Unknown error" }) ||
-            "Unknown error";
+        const details = getErrorMessageOrFallback(error);
         const formattedTarget = formatPathForDisplay(target);
         const guidance = (() => {
             if (isErrorWithCode(error, "ENOENT")) {

@@ -10,7 +10,7 @@ import {
     appendToCollection,
     createEnvConfiguredValueWithFallback,
     ensureDir,
-    getErrorMessage,
+    getErrorMessageOrFallback,
     isNonEmptyString,
     normalizeStringList,
     parseJsonObjectWithContext,
@@ -716,7 +716,7 @@ AVAILABLE_SUITES.set("plugin-format", runPluginFormatSuite);
 
 function formatSuiteError(error) {
     const name = error?.name ?? error?.constructor?.name ?? "Error";
-    const message = getErrorMessage(error, { fallback: "" }) || "Unknown error";
+    const message = getErrorMessageOrFallback(error);
     const stackLines =
         typeof error?.stack === "string" ? error.stack.split("\n") : undefined;
 

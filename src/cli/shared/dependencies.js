@@ -12,6 +12,7 @@ export {
     createEnvConfiguredValueWithFallback,
     getErrorCode,
     getErrorMessage,
+    getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
     getOrCreateMapEntry,
     isNonEmptyArray,
