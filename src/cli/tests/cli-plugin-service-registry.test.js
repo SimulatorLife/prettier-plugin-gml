@@ -3,7 +3,6 @@ import test from "node:test";
 
 import {
     createDefaultCliPluginServices,
-    defaultCliIdentifierCasePlanService,
     defaultCliIdentifierCasePlanPreparationService,
     defaultCliIdentifierCaseCacheService,
     defaultCliIdentifierCaseServices,
@@ -44,22 +43,6 @@ test("CLI plugin services expose validated defaults", () => {
         services.identifierCase,
         identifierCaseServices,
         "root registry should expose the identifier case bundle"
-    );
-
-    const identifierCasePlanService = defaultCliIdentifierCasePlanService;
-    assert.ok(
-        Object.isFrozen(identifierCasePlanService),
-        "identifier case plan service should be frozen"
-    );
-    assert.strictEqual(
-        identifierCasePlanService.prepareIdentifierCasePlan,
-        defaultIdentifierCasePlanPreparer,
-        "plan service should expose the default preparer"
-    );
-    assert.strictEqual(
-        identifierCasePlanService.clearIdentifierCaseCaches,
-        defaultIdentifierCaseCacheClearer,
-        "plan service should expose the default cache clearer"
     );
 
     const identifierCasePlanPreparationService =
@@ -104,6 +87,13 @@ test("CLI plugin services expose validated defaults", () => {
         identifierCaseServices.cache.clearIdentifierCaseCaches,
         defaultIdentifierCaseCacheClearer,
         "cache bundle should expose the default clearer"
+    );
+    assert.ok(
+        Object.prototype.hasOwnProperty.call(
+            services,
+            "identifierCasePlanService"
+        ) === false,
+        "root registry should no longer expose the combined plan service"
     );
     assert.strictEqual(
         projectIndexService.buildProjectIndex,
@@ -185,14 +175,14 @@ test("default plugin services can be customized with overrides", () => {
         "project index service should wrap override builder"
     );
     assert.strictEqual(
-        services.identifierCasePlanService.prepareIdentifierCasePlan,
+        services.identifierCasePlanPreparationService.prepareIdentifierCasePlan,
         identifierCasePlanPreparer,
-        "identifier case plan service should wrap override preparer"
+        "preparation service should wrap override preparer"
     );
     assert.strictEqual(
-        services.identifierCasePlanService.clearIdentifierCaseCaches,
+        services.identifierCasePlanCacheService.clearIdentifierCaseCaches,
         identifierCaseCacheClearer,
-        "identifier case plan service should wrap override clearer"
+        "cache service should wrap override clearer"
     );
     assert.ok(
         Object.isFrozen(services.pluginServiceRegistry),
