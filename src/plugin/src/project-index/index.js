@@ -66,13 +66,9 @@ const PARSER_FACADE_OPTION_KEYS = [
  */
 function cloneEntryCollections(entry, ...keys) {
     const source = isObjectLike(entry) ? entry : {};
-    const clones = {};
-
-    for (const key of keys) {
-        clones[key] = cloneObjectEntries(source[key]);
-    }
-
-    return clones;
+    return Object.fromEntries(
+        keys.map((key) => [key, cloneObjectEntries(source[key])])
+    );
 }
 
 function getProjectIndexParserOverride(options) {

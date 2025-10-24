@@ -34,7 +34,7 @@ const AVAILABLE_SUITES = new Map();
 const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const CLI_DIRECTORY = path.resolve(MODULE_DIRECTORY, "..");
 const REPO_ROOT = path.resolve(CLI_DIRECTORY, "..");
-const TEST_RESULTS_DIRECTORY = path.resolve(REPO_ROOT, "test-results");
+const TEST_RESULTS_DIRECTORY = path.resolve(REPO_ROOT, "reports");
 const DEFAULT_REPORT_FILE = path.join(
     TEST_RESULTS_DIRECTORY,
     "performance-report.json"
