@@ -2258,7 +2258,28 @@ function printStatements(path, options, print, childrenAttribute) {
                     const statementEmitsSemicolon =
                         semi === ";" || hasTerminatingSemicolon;
 
-                    shouldPreserveTrailingBlankLine = statementEmitsSemicolon;
+                    if (statementEmitsSemicolon) {
+                        const closingBraceIndex = text.indexOf(
+                            "}",
+                            trailingProbeIndex
+                        );
+
+                        if (closingBraceIndex > trailingProbeIndex) {
+                            const interstitial = text.slice(
+                                trailingProbeIndex,
+                                closingBraceIndex
+                            );
+
+                            const newlineCount =
+                                interstitial.match(/\r?\n/g)?.length ?? 0;
+
+                            shouldPreserveTrailingBlankLine = newlineCount >= 3;
+                        } else {
+                            shouldPreserveTrailingBlankLine = false;
+                        }
+                    } else {
+                        shouldPreserveTrailingBlankLine = false;
+                    }
                 } else {
                     shouldPreserveTrailingBlankLine = true;
                 }
