@@ -14693,7 +14693,8 @@ function ensureVertexFormatDefinitionsAreClosed({ ast, diagnostic }) {
                 node,
                 parent,
                 property,
-                diagnostic
+                diagnostic,
+                ast
             );
 
             if (fix) {
@@ -15032,7 +15033,8 @@ function ensureVertexFormatDefinitionIsClosed(
     node,
     parent,
     property,
-    diagnostic
+    diagnostic,
+    ast
 ) {
     if (!Array.isArray(parent) || typeof property !== "number") {
         return null;
@@ -15103,9 +15105,81 @@ function ensureVertexFormatDefinitionIsClosed(
 
     for (const target of commentTargets) {
         markCallExpressionForFeatherComment(target);
+        target._featherSuppressFollowingEmptyLine = true;
     }
 
+    suppressDuplicateVertexFormatComments(ast, commentTargets, node);
+
     return fixDetail;
+}
+
+function suppressDuplicateVertexFormatComments(ast, commentTargets, node) {
+    if (!ast || typeof ast !== "object") {
+        return;
+    }
+
+    if (!Array.isArray(commentTargets) || commentTargets.length === 0) {
+        return;
+    }
+
+    const comments = Array.isArray(ast.comments) ? ast.comments : [];
+
+    if (comments.length === 0) {
+        return;
+    }
+
+    const normalizedTexts = new Set();
+
+    for (const target of commentTargets) {
+        const text = createCallExpressionCommentText(target);
+
+        if (isNonEmptyString(text)) {
+            normalizedTexts.add(`${text};`);
+        }
+    }
+
+    if (normalizedTexts.size === 0) {
+        return;
+    }
+
+    const referenceLine = getNodeStartLine(node);
+
+    const removalIndexes = new Set();
+
+    for (const [index, comment] of comments.entries()) {
+
+        if (!comment || comment.type !== "CommentLine") {
+            continue;
+        }
+
+        if (comment.leadingChar !== ";") {
+            continue;
+        }
+
+        const commentLine = comment?.start?.line;
+
+        if (
+            typeof referenceLine === "number" &&
+            typeof commentLine === "number" &&
+            commentLine <= referenceLine
+        ) {
+            continue;
+        }
+
+        const normalizedValue = toTrimmedString(comment.value);
+
+        if (!normalizedTexts.has(normalizedValue)) {
+            continue;
+        }
+
+        removalIndexes.add(index);
+    }
+
+    if (removalIndexes.size === 0) {
+        return;
+    }
+
+    ast.comments = comments.filter((_, index) => !removalIndexes.has(index));
 }
 
 function nodeContainsVertexFormatEndCall(node) {
