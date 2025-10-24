@@ -228,7 +228,7 @@ const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers(
 );
 
 export function preprocessSourceForFeatherFixes(sourceText) {
-    if (typeof sourceText !== "string" || sourceText.length === 0) {
+    if (!isNonEmptyString(sourceText)) {
         return {
             sourceText,
             metadata: null
@@ -405,7 +405,7 @@ export function preprocessSourceForFeatherFixes(sourceText) {
 }
 
 function sanitizeEnumInitializerStrings(sourceText) {
-    if (typeof sourceText !== "string" || sourceText.length === 0) {
+    if (!isNonEmptyString(sourceText)) {
         return { sourceText, adjustments: null };
     }
 
@@ -474,7 +474,7 @@ function sanitizeEnumBodyInitializerStrings(
     bodyStartIndex,
     totalRemoved
 ) {
-    if (typeof body !== "string" || body.length === 0) {
+    if (!isNonEmptyString(body)) {
         return { sanitizedBody: body, adjustments: [], removedCount: 0 };
     }
 
