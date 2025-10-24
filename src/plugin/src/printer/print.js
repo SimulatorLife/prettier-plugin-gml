@@ -546,6 +546,8 @@ export function print(path, options, print) {
                 parts.push(join(hardline, docCommentDocs), hardline);
             }
 
+            node._gmlHasDocComments = docCommentDocs.length > 0;
+
             let functionNameDoc = "";
             if (isNonEmptyString(node.id)) {
                 let renamed = null;
@@ -2347,6 +2349,12 @@ function printStatements(path, options, print, childrenAttribute) {
             }
 
             if (shouldPreserveTrailingBlankLine) {
+                parts.push(hardline);
+                previousNodeHadNewlineAddedAfter = true;
+            } else if (
+                node?._gmlHasDocComments === true &&
+                parentNode?.type === "BlockStatement"
+            ) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
             }
