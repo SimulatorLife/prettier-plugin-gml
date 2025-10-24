@@ -2312,6 +2312,16 @@ function printStatements(path, options, print, childrenAttribute) {
                 }
             }
 
+            if (
+                !shouldPreserveTrailingBlankLine &&
+                isStaticDeclaration &&
+                hasFunctionInitializer &&
+                typeof options.originalText === "string" &&
+                isNextLineEmpty(options.originalText, trailingProbeIndex)
+            ) {
+                shouldPreserveTrailingBlankLine = true;
+            }
+
             if (shouldPreserveTrailingBlankLine) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
@@ -3545,6 +3555,34 @@ function mergeSyntheticDocComments(
 
         const [, prefix, rawTypeSection = "", rawName = "", remainder = ""] =
             match;
+
+        let nameSection = rawName;
+        let remainderSection = remainder;
+
+        const trimmedName = nameSection.trimStart();
+        if (trimmedName.startsWith("[") && !trimmedName.endsWith("]")) {
+            const combined = `${nameSection}${remainderSection}`;
+            let depth = 0;
+            let closingIndex = -1;
+
+            for (const [index, character] of combined.entries()) {
+                if (character === "[") {
+                    depth += 1;
+                } else if (character === "]" && depth > 0) {
+                    depth -= 1;
+                    if (depth === 0) {
+                        closingIndex = index;
+                        break;
+                    }
+                }
+            }
+
+            if (closingIndex !== -1) {
+                nameSection = combined.slice(0, closingIndex + 1);
+                remainderSection = combined.slice(closingIndex + 1);
+            }
+        }
+
         const normalizedPrefix = `${prefix.replace(/\s*$/, "")} `;
         let normalizedTypeSection = rawTypeSection.trim();
         if (
@@ -3557,8 +3595,8 @@ function mergeSyntheticDocComments(
         }
         const typePart =
             normalizedTypeSection.length > 0 ? `${normalizedTypeSection} ` : "";
-        const normalizedName = rawName.trim();
-        const remainderText = remainder.trim();
+        const normalizedName = nameSection.trim();
+        const remainderText = remainderSection.trim();
         const hasDescription = remainderText.length > 0;
         let descriptionPart = "";
 
@@ -6565,10 +6603,11 @@ function printSingleClauseStatement(
         clauseExpressionNode?.type === "CallExpression" &&
         clauseExpressionNode.preserveOriginalCallText === true;
 
-    if (allowSingleLineIfStatements && bodyNode && !clauseIsPreservedCall) {
-        let inlineReturnDoc = null;
-        let inlineStatementType = null;
+    let inlineReturnDoc = null;
+    let inlineStatementType = null;
+    let inlineDerivedFromBlock = false;
 
+    if (bodyNode && !clauseIsPreservedCall) {
         const inlineableTypes = new Set(["ReturnStatement", "ExitStatement"]);
 
         if (inlineableTypes.has(bodyNode.type) && !hasComment(bodyNode)) {
@@ -6604,21 +6643,26 @@ function printSingleClauseStatement(
                         bodyKey
                     );
                     inlineStatementType = onlyStatement.type;
+                    inlineDerivedFromBlock = true;
                 }
             }
         }
+    }
 
-        if (inlineReturnDoc) {
-            return group([
-                keyword,
-                " ",
-                clauseDoc,
-                " { ",
-                inlineReturnDoc,
-                optionalSemicolon(inlineStatementType ?? "ReturnStatement"),
-                " }"
-            ]);
-        }
+    if (
+        inlineReturnDoc &&
+        (allowSingleLineIfStatements ||
+            (!allowSingleLineIfStatements && !inlineDerivedFromBlock))
+    ) {
+        return group([
+            keyword,
+            " ",
+            clauseDoc,
+            " { ",
+            inlineReturnDoc,
+            optionalSemicolon(inlineStatementType ?? "ReturnStatement"),
+            " }"
+        ]);
     }
 
     return concat([
