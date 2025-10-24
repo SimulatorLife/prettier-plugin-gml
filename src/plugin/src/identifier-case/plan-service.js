@@ -197,42 +197,100 @@ const snapshotRegistry = createIdentifierCaseServiceRegistry({
         "No identifier case plan snapshot provider has been registered"
 });
 
+/**
+ * Inject a custom preparation provider so embedders can override how the
+ * identifier-case plan bootstraps itself. Passing `null` or a non-function will
+ * surface a descriptive `TypeError` via the shared assertion helpers.
+ *
+ * @param {IdentifierCasePlanPreparationProvider} provider Factory returning the
+ *        preparation service to use for subsequent calls.
+ */
 export function registerIdentifierCasePlanPreparationProvider(provider) {
     preparationRegistry.register(provider);
 }
 
+/**
+ * Register a lookup provider responsible for mapping AST nodes to their case
+ * corrections. Consumers typically install this when they need project-aware
+ * rename logic during tests or bespoke integrations.
+ *
+ * @param {IdentifierCaseRenameLookupProvider} provider Function returning the
+ *        lookup service implementation.
+ */
 export function registerIdentifierCaseRenameLookupProvider(provider) {
     renameLookupRegistry.register(provider);
 }
 
+/**
+ * Register snapshot orchestration hooks so hosts can persist and restore
+ * identifier-case state between formatter runs. Used primarily by long-lived
+ * processes that cache rename plans across files.
+ *
+ * @param {IdentifierCasePlanSnapshotProvider} provider Function producing the
+ *        snapshot service implementation.
+ */
 export function registerIdentifierCasePlanSnapshotProvider(provider) {
     snapshotRegistry.register(provider);
 }
 
+/**
+ * Restore the default provider trio. Useful for tests that temporarily swap in
+ * bespoke collaborators and need a predictable baseline afterwards.
+ */
 export function resetIdentifierCasePlanServiceProvider() {
     preparationRegistry.reset();
     renameLookupRegistry.reset();
     snapshotRegistry.reset();
 }
 
+/**
+ * Resolve the active preparation service.
+ *
+ * @returns {IdentifierCasePlanPreparationService}
+ */
 export function resolveIdentifierCasePlanPreparationService() {
     return preparationRegistry.resolve();
 }
 
+/**
+ * Resolve the registered rename lookup service.
+ *
+ * @returns {IdentifierCaseRenameLookupService}
+ */
 export function resolveIdentifierCaseRenameLookupService() {
     return renameLookupRegistry.resolve();
 }
 
+/**
+ * Resolve the active snapshot service used to capture and rehydrate plan
+ * state.
+ *
+ * @returns {IdentifierCasePlanSnapshotService}
+ */
 export function resolveIdentifierCasePlanSnapshotService() {
     return snapshotRegistry.resolve();
 }
 
+/**
+ * Prepare the identifier-case plan using the active preparation service.
+ *
+ * @param {object | null | undefined} options Caller-provided configuration.
+ * @returns {Promise<void>}
+ */
 export function prepareIdentifierCasePlan(options) {
     return resolveIdentifierCasePlanPreparationService().prepareIdentifierCasePlan(
         options
     );
 }
 
+/**
+ * Look up the rename to apply for a given AST node using the registered
+ * lookup service.
+ *
+ * @param {import("../../../shared/ast.js").GameMakerAstNode | null} node
+ * @param {Record<string, unknown> | null | undefined} options
+ * @returns {string | null}
+ */
 export function getIdentifierCaseRenameForNode(node, options) {
     return resolveIdentifierCaseRenameLookupService().getIdentifierCaseRenameForNode(
         node,
@@ -240,12 +298,26 @@ export function getIdentifierCaseRenameForNode(node, options) {
     );
 }
 
+/**
+ * Capture the identifier-case plan snapshot for later reuse.
+ *
+ * @param {unknown} options Snapshot configuration passed through to the
+ *        provider.
+ * @returns {ReturnType<typeof defaultCaptureIdentifierCasePlanSnapshot>}
+ */
 export function captureIdentifierCasePlanSnapshot(options) {
     return resolveIdentifierCasePlanSnapshotService().captureIdentifierCasePlanSnapshot(
         options
     );
 }
 
+/**
+ * Rehydrate identifier-case plan state from a previously captured snapshot.
+ *
+ * @param {ReturnType<typeof defaultCaptureIdentifierCasePlanSnapshot>} snapshot
+ * @param {Record<string, unknown> | null | undefined} options
+ * @returns {void}
+ */
 export function applyIdentifierCasePlanSnapshot(snapshot, options) {
     return resolveIdentifierCasePlanSnapshotService().applyIdentifierCasePlanSnapshot(
         snapshot,
