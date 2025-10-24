@@ -99,3 +99,26 @@ test("preserves blank lines after nested function declarations inside constructo
         "Expected nested function declarations to retain their trailing blank line before the constructor closes."
     );
 });
+
+test("preserves blank lines after documented nested functions inside constructors", async () => {
+    const source = [
+        "function Demo() constructor {",
+        "    /// @function nested",
+        "    /// @returns {real}",
+        "    function nested() {",
+        "        return 1;",
+        "    }",
+        "",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.trim().split("\n");
+
+    assert.equal(
+        lines.at(-2),
+        "",
+        "Expected documented nested constructor functions to retain their trailing blank line before the constructor closes."
+    );
+});
