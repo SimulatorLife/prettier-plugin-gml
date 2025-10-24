@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { isNonEmptyArray } from "../../../shared/array-utils.js";
+import { isNonEmptyArray, pushUnique } from "../../../shared/array-utils.js";
 import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
 import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
 import {
@@ -20,12 +20,6 @@ import {
 import { normalizeProjectResourcePath } from "./path-normalization.js";
 
 const RESOURCE_ANALYSIS_ABORT_MESSAGE = "Project index build was aborted.";
-
-function pushUnique(array, value) {
-    if (!array.includes(value)) {
-        array.push(value);
-    }
-}
 
 function deriveScopeId(kind, parts) {
     const suffix = Array.isArray(parts)

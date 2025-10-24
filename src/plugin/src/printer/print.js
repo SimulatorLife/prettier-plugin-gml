@@ -2264,44 +2264,60 @@ function printStatements(path, options, print, childrenAttribute) {
                 node?.type === "MacroDeclaration"
                     ? nodeEndIndex
                     : nodeEndIndex + 1;
+            const enforceTrailingPadding =
+                shouldAddNewlinesAroundStatement(node);
             let shouldPreserveTrailingBlankLine = false;
+
             if (
                 parentNode?.type === "BlockStatement" &&
-                typeof options.originalText === "string" &&
-                isNextLineEmpty(options.originalText, trailingProbeIndex) &&
                 !suppressFollowingEmptyLine
             ) {
-                const text = options.originalText;
-                const textLength = text.length;
-                let scanIndex = trailingProbeIndex;
-                let nextCharacter = null;
+                const originalText =
+                    typeof options.originalText === "string"
+                        ? options.originalText
+                        : null;
+                const hasExplicitTrailingBlankLine =
+                    originalText !== null &&
+                    isNextLineEmpty(originalText, trailingProbeIndex);
 
-                while (scanIndex < textLength) {
-                    nextCharacter = getNextNonWhitespaceCharacter(
-                        text,
-                        scanIndex
-                    );
+                if (enforceTrailingPadding) {
+                    shouldPreserveTrailingBlankLine =
+                        hasExplicitTrailingBlankLine;
+                } else if (hasExplicitTrailingBlankLine && originalText) {
+                    const textLength = originalText.length;
+                    let scanIndex = trailingProbeIndex;
+                    let nextCharacter = null;
 
-                    if (nextCharacter === ";") {
-                        if (hasFunctionInitializer) {
-                            break;
+                    while (scanIndex < textLength) {
+                        nextCharacter = getNextNonWhitespaceCharacter(
+                            originalText,
+                            scanIndex
+                        );
+
+                        if (nextCharacter === ";") {
+                            if (hasFunctionInitializer) {
+                                break;
+                            }
+
+                            const semicolonIndex = originalText.indexOf(
+                                ";",
+                                scanIndex
+                            );
+                            if (semicolonIndex === -1) {
+                                nextCharacter = null;
+                                break;
+                            }
+                            scanIndex = semicolonIndex + 1;
+                            continue;
                         }
 
-                        const semicolonIndex = text.indexOf(";", scanIndex);
-                        if (semicolonIndex === -1) {
-                            nextCharacter = null;
-                            break;
-                        }
-                        scanIndex = semicolonIndex + 1;
-                        continue;
+                        break;
                     }
 
-                    break;
+                    shouldPreserveTrailingBlankLine = nextCharacter
+                        ? nextCharacter !== "}"
+                        : false;
                 }
-
-                shouldPreserveTrailingBlankLine = nextCharacter
-                    ? nextCharacter !== "}"
-                    : false;
             }
 
             if (shouldPreserveTrailingBlankLine) {
@@ -3218,16 +3234,7 @@ function mergeSyntheticDocComments(
         }
     }
 
-    const findLastFunctionIndex = () => {
-        for (let index = mergedLines.length - 1; index >= 0; index -= 1) {
-            if (isFunctionLine(mergedLines[index])) {
-                return index;
-            }
-        }
-        return -1;
-    };
-
-    const lastFunctionIndex = findLastFunctionIndex();
+    const lastFunctionIndex = mergedLines.findLastIndex(isFunctionLine);
     let insertionIndex = lastFunctionIndex === -1 ? 0 : lastFunctionIndex + 1;
 
     if (lastFunctionIndex === -1) {

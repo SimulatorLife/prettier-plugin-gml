@@ -288,7 +288,7 @@ test("ensureResultsAvailability throws when base results are unavailable", () =>
 
 test("summarizeReports aggregates test, lint, and coverage artifacts", () => {
     const root = path.join(workspace, "junit-head");
-    const inputDir = path.join(root, "test-results");
+    const inputDir = path.join(root, "reports");
 
     writeXml(
         inputDir,
@@ -343,11 +343,41 @@ test("summarizeReports aggregates test, lint, and coverage artifacts", () => {
     );
 });
 
+test("summarizeReports captures aggregate suite totals when no test cases exist", () => {
+    const root = path.join(workspace, "junit-aggregate");
+    const inputDir = path.join(root, "reports");
+
+    writeXml(
+        inputDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="summary" tests="4" failures="1" skipped="2" errors="0" time="3.25" />
+    </testsuites>`
+    );
+
+    const { summary } = summarizeReports({
+        inputDir,
+        outputDir: root,
+        target: "aggregate"
+    });
+
+    assert.strictEqual(summary.tests.total, 4);
+    assert.strictEqual(summary.tests.failed, 1);
+    assert.strictEqual(summary.tests.skipped, 2);
+    assert.strictEqual(summary.tests.passed, 1);
+    assert.strictEqual(summary.tests.duration, 3.25);
+    assert.strictEqual(summary.tests.notes.length, 1);
+    assert.match(
+        summary.tests.notes[0],
+        /Using aggregate suite counts from .*suite\.xml because no individual test cases were found\./
+    );
+});
+
 test("compareSummaryReports highlights regressions across summaries", () => {
     const baseRoot = path.join(workspace, "junit-base");
     const headRoot = path.join(workspace, "junit-head");
-    const baseInput = path.join(baseRoot, "test-results");
-    const headInput = path.join(headRoot, "test-results");
+    const baseInput = path.join(baseRoot, "reports");
+    const headInput = path.join(headRoot, "reports");
 
     writeXml(
         baseInput,
@@ -408,7 +438,7 @@ test("compareSummaryReports highlights regressions across summaries", () => {
     assert.ok(baseSummary.outputPath);
     assert.ok(headSummary.outputPath);
 
-    const comparisonDir = path.join(workspace, "test-results");
+    const comparisonDir = path.join(workspace, "reports");
     const { report, outputPath } = compareSummaryReports(
         [
             { label: "base", path: baseSummary.outputPath },
@@ -432,7 +462,7 @@ test("compareSummaryReports highlights regressions across summaries", () => {
 });
 
 test("summarizeReports writes to an explicit output file when provided", () => {
-    const inputDir = path.join(workspace, "custom/test-results");
+    const inputDir = path.join(workspace, "custom/reports");
     writeXml(
         inputDir,
         "suite",
@@ -460,8 +490,8 @@ test("summarizeReports writes to an explicit output file when provided", () => {
 test("compareSummaryReports supports explicit output file paths", () => {
     const baseRoot = path.join(workspace, "junit-base");
     const headRoot = path.join(workspace, "junit-head");
-    const baseInput = path.join(baseRoot, "test-results");
-    const headInput = path.join(headRoot, "test-results");
+    const baseInput = path.join(baseRoot, "reports");
+    const headInput = path.join(headRoot, "reports");
 
     writeXml(
         baseInput,
@@ -575,8 +605,8 @@ test("reportRegressionSummary clarifies when regressions offset resolved failure
 });
 
 test("runCli generates summary table for legacy pr-summary-table-comment", () => {
-    const baseDir = path.join(workspace, "base/test-results");
-    const headDir = path.join(workspace, "test-results");
+    const baseDir = path.join(workspace, "base/reports");
+    const headDir = path.join(workspace, "reports");
 
     writeXml(
         baseDir,
@@ -627,11 +657,7 @@ test("runCli generates summary table for legacy pr-summary-table-comment", () =>
 
     const baseSummaryPath = path.join(workspace, "junit-base", "summary.json");
     const headSummaryPath = path.join(workspace, "junit-head", "summary.json");
-    const comparisonPath = path.join(
-        workspace,
-        "test-results",
-        "comparison.json"
-    );
+    const comparisonPath = path.join(workspace, "reports", "comparison.json");
 
     assert.ok(fs.existsSync(baseSummaryPath));
     assert.ok(fs.existsSync(headSummaryPath));

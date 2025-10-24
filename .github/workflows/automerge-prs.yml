@@ -67,14 +67,14 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: .nvmrc
           cache: 'npm'
 
       - name: Install deps
         run: npm ci
         continue-on-error: ${{ matrix.target == 'merge' }}
 
-      # Your npm script should create ./test-results/*.xml and NOT hard-exit early
+      # Your npm script should create ./reports/*.xml and NOT hard-exit early
       - name: Run test suite (JUnit XML)
         run: npm run test:report
         continue-on-error: true
@@ -88,7 +88,7 @@ jobs:
         uses: dorny/test-reporter@v2
         with:
           name: Publish test summary (${{ matrix.target }})
-          path: test-results/*.xml
+          path: reports/*.xml
           reporter: java-junit
           fail-on-error: false
           fail-on-empty: false
@@ -104,8 +104,8 @@ jobs:
         with:
           name: junit-${{ matrix.target }}
           path: |
-            test-results/*.xml
-            test-results/lcov.info
+            reports/*.xml
+            reports/lcov.info
           retention-days: 7
 
   summarize:
@@ -123,7 +123,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: .nvmrc
           cache: 'npm'
 
       - name: Install deps
@@ -138,17 +138,15 @@ jobs:
       - name: Generate summary reports
         run: |
           set -euo pipefail
-          mkdir -p test-results
+          mkdir -p reports
           reports=()
           for target in base head merge; do
-            dir="junit-${target}/test-results"
-            if [ -d "${dir}" ]; then
-              node src/cli/commands/detect-test-regressions.mjs summarize --input "${dir}" --output "junit-${target}"
-              reports+=("${target}=junit-${target}/summary.json")
-            fi
+            dir="junit-${target}/reports"
+            node src/cli/commands/detect-test-regressions.mjs summarize --input "${dir}" --output "junit-${target}" --target "${target}"
+            reports+=("${target}=junit-${target}/summary.json")
           done
           if [ ${#reports[@]} -ge 2 ]; then
-            if ! node src/cli/commands/detect-test-regressions.mjs compare "${reports[@]}" --output test-results; then
+            if ! node src/cli/commands/detect-test-regressions.mjs compare "${reports[@]}" --output reports; then
               echo "::error::Test regression comparison failed. See above for details."
               exit 1
             fi
@@ -158,7 +156,7 @@ jobs:
       - name: Detect regressions (repo script)
         id: regress
         env:
-          COMPARISON_PATH: ${{ github.workspace }}/test-results/comparison.json
+          COMPARISON_PATH: ${{ github.workspace }}/reports/comparison.json
         run: |
           if [ ! -f "${COMPARISON_PATH}" ]; then
             echo "::warning::Comparison report not found; treating as error."
@@ -243,7 +241,7 @@ jobs:
               }
             }
 
-            const comparisonPath = path.join(process.cwd(), 'test-results', 'comparison.json');
+            const comparisonPath = path.join(process.cwd(), 'reports', 'comparison.json');
             let comparisons = [];
             if (fs.existsSync(comparisonPath)) {
               try {

@@ -8,13 +8,13 @@ import {
     createManualGitHubRefResolver,
     createManualGitHubRequestDispatcher,
     resolveManualCacheRoot
-} from "./manual/utils.js";
-import { assertNonEmptyString } from "./shared-deps.js";
+} from "./utils.js";
+import { assertNonEmptyString, isNonEmptyString } from "../shared-deps.js";
 
-/** @typedef {import("./manual/utils.js").ManualGitHubRequestDispatcher} ManualGitHubRequestDispatcher */
-/** @typedef {import("./manual/utils.js").ManualGitHubCommitResolver} ManualGitHubCommitResolver */
-/** @typedef {import("./manual/utils.js").ManualGitHubRefResolver} ManualGitHubRefResolver */
-/** @typedef {import("./manual/utils.js").ManualGitHubFileClient} ManualGitHubFileClient */
+/** @typedef {import("./utils.js").ManualGitHubRequestDispatcher} ManualGitHubRequestDispatcher */
+/** @typedef {import("./utils.js").ManualGitHubCommitResolver} ManualGitHubCommitResolver */
+/** @typedef {import("./utils.js").ManualGitHubRefResolver} ManualGitHubRefResolver */
+/** @typedef {import("./utils.js").ManualGitHubFileClient} ManualGitHubFileClient */
 /** @typedef {ManualGitHubRequestDispatcher["execute"]} ManualGitHubRequestExecutor */
 
 function assertFileUrl(value) {
@@ -29,7 +29,7 @@ function assertUserAgent(value) {
 }
 
 function resolveOutputPath(repoRoot, fileName) {
-    if (typeof fileName !== "string" || fileName.length === 0) {
+    if (!isNonEmptyString(fileName)) {
         return null;
     }
 
@@ -79,7 +79,7 @@ function resolveOutputPath(repoRoot, fileName) {
  */
 
 /**
- * @typedef {object} ManualManualAccessContext
+ * @typedef {object} ManualAccessContext
  * @property {ManualCommandEnvironment} environment
  * @property {ManualCommandFileService} files
  * @property {ManualCommandRefResolutionService} refs
@@ -168,9 +168,9 @@ export function createManualEnvironmentContext(options = {}) {
  * information commonly needed by artefact generators.
  *
  * @param {Parameters<typeof buildManualCommandContext>[0]} options
- * @returns {ManualManualAccessContext}
+ * @returns {ManualAccessContext}
  */
-export function createManualManualAccessContext(options = {}) {
+export function createManualAccessContext(options = {}) {
     const { environment, files, refs } = buildManualCommandContext(options);
     return Object.freeze({ environment, files, refs });
 }
