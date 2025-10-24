@@ -35,12 +35,6 @@ import { assertFunction } from "../shared-deps.js";
  */
 
 /**
- * @typedef {object} CliIdentifierCasePlanService
- * @property {(options: object) => Promise<void>} prepareIdentifierCasePlan
- * @property {() => void} clearIdentifierCaseCaches
- */
-
-/**
  * The previous default CLI plugin services registry combined the raw builder
  * functions with their scoped service facades under a single
  * `defaultCliPluginServices` object. That catch-all contract forced callers
@@ -126,13 +120,6 @@ export function createDefaultCliPluginServices(descriptorSource) {
         })
     );
 
-    const identifierCasePlanService = Object.freeze(
-        /** @type {CliIdentifierCasePlanService} */ ({
-            ...identifierCasePlanPreparationService,
-            ...identifierCasePlanCacheService
-        })
-    );
-
     const identifierCaseServices = Object.freeze(
         /** @type {CliIdentifierCaseServices} */ ({
             preparation: identifierCasePlanPreparationService,
@@ -152,7 +139,6 @@ export function createDefaultCliPluginServices(descriptorSource) {
         identifierCasePlanPreparer,
         identifierCaseCacheClearer,
         projectIndexService,
-        identifierCasePlanService,
         identifierCasePlanPreparationService,
         identifierCasePlanCacheService,
         identifierCaseServices,
@@ -165,7 +151,6 @@ const {
     identifierCasePlanPreparer: defaultIdentifierCasePlanPreparer,
     identifierCaseCacheClearer: defaultIdentifierCaseCacheClearer,
     projectIndexService: defaultCliProjectIndexService,
-    identifierCasePlanService: defaultCliIdentifierCasePlanService,
     identifierCasePlanPreparationService:
         defaultCliIdentifierCasePlanPreparationService,
     identifierCasePlanCacheService: defaultCliIdentifierCaseCacheService,
@@ -178,7 +163,6 @@ export { defaultIdentifierCasePlanPreparer };
 export { defaultIdentifierCaseCacheClearer };
 
 export { defaultCliProjectIndexService };
-export { defaultCliIdentifierCasePlanService };
 export { defaultCliIdentifierCasePlanPreparationService };
 export { defaultCliIdentifierCaseCacheService };
 export { defaultCliIdentifierCaseServices };
