@@ -19,6 +19,7 @@ import {
     resolveRequestedSuites
 } from "../../core/command-suite-helpers.js";
 import {
+    appendToCollection,
     assertArray,
     coercePositiveInteger,
     getIdentifierText,
@@ -69,18 +70,16 @@ function createDatasetSummary({ fileCount, totalBytes }) {
     };
 }
 
-function collectValue(value, previous = []) {
-    previous.push(value);
-    return previous;
+function collectValue(value, previous) {
+    return appendToCollection(value, previous);
 }
 
-function collectPerformanceSuite(value, previous = []) {
+function collectPerformanceSuite(value, previous) {
     const normalized = normalizePerformanceSuiteName(value, {
         errorConstructor: InvalidArgumentError
     });
 
-    previous.push(normalized);
-    return previous;
+    return appendToCollection(normalized, previous);
 }
 
 function formatErrorDetails(error, { fallbackMessage } = {}) {
