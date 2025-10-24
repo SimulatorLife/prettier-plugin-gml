@@ -2,6 +2,10 @@
 // `asArray`. The array is frozen so accidental mutations surface loudly during
 // development instead of leaking shared state across callers.
 const EMPTY_ARRAY = Object.freeze([]);
+// Share a single identity function so hot paths like `mergeUniqueValues` avoid
+// allocating a new closure on each invocation when callers omit custom
+// coercion logic.
+const identity = (value) => value;
 
 export function toArrayFromIterable(values) {
     if (values == null) {
@@ -262,7 +266,7 @@ export function mergeUniqueValues(
     { coerce, getKey = (value) => value, freeze = true } = {}
 ) {
     const merged = Array.isArray(defaultValues) ? [...defaultValues] : [];
-    const normalize = typeof coerce === "function" ? coerce : (value) => value;
+    const normalize = typeof coerce === "function" ? coerce : identity;
     const seen = new Set();
 
     for (const element of merged) {
