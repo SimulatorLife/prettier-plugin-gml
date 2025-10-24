@@ -2306,7 +2306,9 @@ function printStatements(path, options, print, childrenAttribute) {
 
                 if (enforceTrailingPadding) {
                     shouldPreserveTrailingBlankLine =
-                        hasExplicitTrailingBlankLine;
+                        node?.type === "FunctionDeclaration"
+                            ? true
+                            : hasExplicitTrailingBlankLine;
                 } else if (
                     shouldPreserveConstructorStaticPadding &&
                     hasExplicitTrailingBlankLine

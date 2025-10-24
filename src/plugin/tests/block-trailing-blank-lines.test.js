@@ -38,3 +38,25 @@ test("omits blank lines between nested and enclosing block braces", async () => 
         "Expected the formatter to collapse extraneous blank lines between adjacent closing braces."
     );
 });
+
+test("adds a blank line after nested function declarations", async () => {
+    const source = [
+        "function outer() constructor {",
+        "    function inner() {",
+        "        return 1;",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.trim().split("\n");
+
+    const closingBraceTriplet = lines.slice(-3);
+
+    assert.deepEqual(
+        closingBraceTriplet,
+        ["    }", "", "}"],
+        "Expected the formatter to preserve a separating blank line before closing the outer block."
+    );
+});
