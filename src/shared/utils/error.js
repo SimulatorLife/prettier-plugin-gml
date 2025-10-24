@@ -7,7 +7,7 @@ import { isNonEmptyString } from "./string.js";
  * and third-party libraries where the `code` field is optional. Instead of
  * repeating the null checks and type guards, this helper centralizes the
  * logic and returns `null` when the code is missing or non-string. The
- * behavior mirrors how the formatter already treats optional metadata: only
+ * behaviour mirrors how the formatter already treats optional metadata: only
  * truthy, non-empty strings are considered actionable.
  *
  * @param {unknown} error Candidate error-like value.
