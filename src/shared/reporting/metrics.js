@@ -24,10 +24,17 @@ const SUMMARY_SECTIONS = Object.freeze([
 ]);
 
 function normalizeCacheKeys(keys) {
-    const entries =
-        keys == null || typeof keys?.[Symbol.iterator] !== "function"
-            ? DEFAULT_CACHE_KEYS
-            : toArrayFromIterable(keys);
+    let entries;
+
+    if (keys == null || typeof keys?.[Symbol.iterator] !== "function") {
+        entries = DEFAULT_CACHE_KEYS;
+    } else if (typeof keys === "string") {
+        entries = keys;
+    } else if (Array.isArray(keys)) {
+        entries = keys;
+    } else {
+        entries = toArrayFromIterable(keys);
+    }
 
     const normalized = normalizeStringList(entries, { allowInvalidType: true });
 

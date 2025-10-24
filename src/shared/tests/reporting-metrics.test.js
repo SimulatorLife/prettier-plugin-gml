@@ -88,6 +88,19 @@ test("cache keys are configurable and support custom metrics", () => {
     });
 });
 
+test("cache key normalization accepts delimited strings", () => {
+    const tracker = createMetricsTracker({ cacheKeys: " hits , misses " });
+
+    tracker.recordCacheHit("store");
+    tracker.recordCacheMetric("store", "misses", 2);
+
+    const report = tracker.snapshot();
+    assert.deepEqual(report.caches.store, {
+        hits: 1,
+        misses: 2
+    });
+});
+
 test("cache key normalization trims duplicates from iterable input", () => {
     const tracker = createMetricsTracker({
         cacheKeys: new Set([" hits ", "", "misses", "hits"])
