@@ -298,11 +298,14 @@ nvm alias default node
 
    The wrapper honours both repositories’ `.prettierrc` and `.prettierignore`
    files, prints a skipped-file summary with concrete examples of unsupported
-   files, lets you cap the ignored-directory sample list surfaced in summaries
-   with `--ignored-directory-sample-limit` (alias
-   `--ignored-directory-samples`) or the
-   `PRETTIER_PLUGIN_GML_SKIPPED_DIRECTORY_SAMPLE_LIMIT` environment variable,
-   explains when no files match the configured extensions, supports dry-run
+  files, lets you cap the ignored-directory sample list surfaced in summaries
+  with `--ignored-directory-sample-limit` (alias
+  `--ignored-directory-samples`) or the
+  `PRETTIER_PLUGIN_GML_SKIPPED_DIRECTORY_SAMPLE_LIMIT` environment variable,
+  and trims unsupported-extension examples with
+  `--unsupported-extension-sample-limit` or
+  `PRETTIER_PLUGIN_GML_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT`, explains when no
+  files match the configured extensions, supports dry-run
    enforcement via `--check` (exits with code 1 when differences remain),
    accepts
    `--on-parse-error=skip|abort|revert` (or
@@ -458,6 +461,9 @@ without editing project scripts:
   `.prettierignore` entries. Combine with
   `--ignored-directory-sample-limit` (or `--ignored-directory-samples`) for
   per-run overrides.
+- `PRETTIER_PLUGIN_GML_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT` &mdash; Limits how many
+  example files appear in the unsupported-extension summary. Pair with
+  `--unsupported-extension-sample-limit` when tuning individual runs.
 - `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` (or the singular `PRETTIER_PLUGIN_GML_PLUGIN_PATH`) &mdash;
   Adds repository-relative or absolute plugin entry point paths for the wrapper
   to consider before falling back to its built-in candidates. Useful when CI

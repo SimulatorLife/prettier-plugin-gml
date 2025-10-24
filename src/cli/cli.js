@@ -90,6 +90,11 @@ import {
     resolveSkippedDirectorySampleLimit,
     SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR
 } from "./lib/skipped-directory-sample-limit.js";
+import {
+    getDefaultUnsupportedExtensionSampleLimit,
+    resolveUnsupportedExtensionSampleLimit,
+    UNSUPPORTED_EXTENSION_SAMPLE_LIMIT_ENV_VAR
+} from "./lib/unsupported-extension-sample-limit.js";
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolvePluginEntryPoint();
@@ -309,6 +314,28 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         .argParser(wrapInvalidArgumentResolver(resolveSkippedDirectoryLimit))
         .hideHelp();
 
+    const defaultUnsupportedExtensionSampleLimit =
+        getDefaultUnsupportedExtensionSampleLimit();
+    const resolveUnsupportedExtensionLimit = (value) =>
+        resolveUnsupportedExtensionSampleLimit(value, {
+            defaultLimit: defaultUnsupportedExtensionSampleLimit
+        });
+    const unsupportedExtensionSampleLimitOption = new Option(
+        "--unsupported-extension-sample-limit <count>",
+        [
+            "Maximum number of unsupported files to include in skip summaries.",
+            `Defaults to ${defaultUnsupportedExtensionSampleLimit}.`,
+            `Respects ${UNSUPPORTED_EXTENSION_SAMPLE_LIMIT_ENV_VAR} when set. Provide 0 to suppress the sample list.`
+        ].join(" ")
+    )
+        .argParser(
+            wrapInvalidArgumentResolver(resolveUnsupportedExtensionLimit)
+        )
+        .default(
+            defaultUnsupportedExtensionSampleLimit,
+            String(defaultUnsupportedExtensionSampleLimit)
+        );
+
     return applyStandardCommandOptions(
         new Command()
             .name(name)
@@ -335,6 +362,7 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         .addOption(extensionsOption)
         .addOption(skippedDirectorySampleLimitOption)
         .addOption(skippedDirectorySamplesAliasOption)
+        .addOption(unsupportedExtensionSampleLimitOption)
         .option(
             "--log-level <level>",
             [
@@ -413,6 +441,8 @@ function collectFormatCommandOptions(command) {
 
     const skippedDirectorySampleLimit =
         options.ignoredDirectorySampleLimit ?? options.ignoredDirectorySamples;
+    const unsupportedExtensionSampleLimit =
+        options.unsupportedExtensionSampleLimit;
 
     return {
         targetPathInput,
@@ -424,6 +454,7 @@ function collectFormatCommandOptions(command) {
         onParseError: options.onParseError ?? DEFAULT_PARSE_ERROR_ACTION,
         checkMode: Boolean(options.check),
         skippedDirectorySampleLimit,
+        unsupportedExtensionSampleLimit,
         usage: command.helpInformation()
     };
 }
@@ -485,8 +516,6 @@ function configurePrettierOptions({ logLevel } = {}) {
     options.loglevel = normalized;
 }
 
-const UNSUPPORTED_EXTENSION_SAMPLE_LIMIT = 5;
-
 const skippedFileSummary = {
     ignored: 0,
     unsupportedExtension: 0,
@@ -515,6 +544,14 @@ let skippedDirectorySampleLimit = getDefaultSkippedDirectorySampleLimit();
 
 function configureSkippedDirectorySampleLimit(limit) {
     skippedDirectorySampleLimit = resolveSkippedDirectorySampleLimit(limit);
+}
+
+let unsupportedExtensionSampleLimit =
+    getDefaultUnsupportedExtensionSampleLimit();
+
+function configureUnsupportedExtensionSampleLimit(limit) {
+    unsupportedExtensionSampleLimit =
+        resolveUnsupportedExtensionSampleLimit(limit);
 }
 
 function resetSkippedFileSummary() {
@@ -1154,7 +1191,8 @@ function resolveTargetPathFromInput(targetPathInput) {
  *   configuredExtensions: readonly string[],
  *   prettierLogLevel: string,
  *   onParseError: string,
- *   skippedDirectorySampleLimit: number
+ *   skippedDirectorySampleLimit: number,
+ *   unsupportedExtensionSampleLimit: number
  * }} params
  */
 async function prepareFormattingRun({
@@ -1162,11 +1200,13 @@ async function prepareFormattingRun({
     prettierLogLevel,
     onParseError,
     skippedDirectorySampleLimit,
+    unsupportedExtensionSampleLimit,
     checkMode
 }) {
     configurePrettierOptions({ logLevel: prettierLogLevel });
     configureTargetExtensionState(configuredExtensions);
     configureSkippedDirectorySampleLimit(skippedDirectorySampleLimit);
+    configureUnsupportedExtensionSampleLimit(unsupportedExtensionSampleLimit);
     await resetFormattingSession(onParseError);
     configureCheckMode(checkMode);
 }
@@ -1297,7 +1337,8 @@ async function executeFormatCommand(command) {
         usage,
         targetPathInput,
         targetPathProvided,
-        skippedDirectorySampleLimit
+        skippedDirectorySampleLimit,
+        unsupportedExtensionSampleLimit
     } = commandOptions;
 
     validateTargetPathInput(commandOptions);
@@ -1308,6 +1349,7 @@ async function executeFormatCommand(command) {
         prettierLogLevel: commandOptions.prettierLogLevel,
         onParseError: commandOptions.onParseError,
         skippedDirectorySampleLimit,
+        unsupportedExtensionSampleLimit,
         checkMode: commandOptions.checkMode
     });
 
@@ -1579,8 +1621,9 @@ function recordUnsupportedExtension(filePath) {
     skippedFileSummary.unsupportedExtension += 1;
 
     if (
+        unsupportedExtensionSampleLimit <= 0 ||
         skippedFileSummary.unsupportedExtensionSamples.length >=
-        UNSUPPORTED_EXTENSION_SAMPLE_LIMIT
+            unsupportedExtensionSampleLimit
     ) {
         return;
     }

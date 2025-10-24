@@ -409,6 +409,39 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
+    it("honours the unsupported extension sample limit", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const ignoredFile = path.join(tempDirectory, "notes.txt");
+            await fs.writeFile(ignoredFile, "hello", "utf8");
+
+            const { stdout } = await execFileAsync("node", [
+                wrapperPath,
+                "--unsupported-extension-sample-limit",
+                "0",
+                tempDirectory
+            ]);
+
+            const unsupportedSummaryLine = stdout
+                .split("\n")
+                .map((line) => line.trim())
+                .find((line) => line.includes("unsupported extensions (1)"));
+
+            assert.ok(
+                unsupportedSummaryLine,
+                "Expected summary to mention unsupported extensions"
+            );
+            assert.doesNotMatch(
+                unsupportedSummaryLine,
+                /\(e\.g\.,/,
+                "Expected unsupported extension summary to omit examples when the sample limit is zero"
+            );
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
     it("summarizes files ignored by .prettierignore", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
