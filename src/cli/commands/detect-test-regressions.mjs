@@ -49,6 +49,10 @@ function looksLikeTestCase(node) {
         return false;
     }
 
+    if (toFiniteNumber(node.tests) !== null) {
+        return false;
+    }
+
     if (isNonEmptyTrimmedString(node.classname)) {
         return true;
     }
@@ -422,6 +426,159 @@ function collectTestCases(root) {
     return cases;
 }
 
+function extractAggregateStatsFromNode(node) {
+    const tests = toFiniteNumber(
+        node.tests ?? node.totalTests ?? node.total ?? node.testcaseCount
+    );
+    const passed = toFiniteNumber(
+        node.passed ?? node.success ?? node.passes ?? node.passedTests
+    );
+    const failures = toFiniteNumber(
+        node.failures ?? node.failure ?? node.failed ?? node.failedTests
+    );
+    const errors = toFiniteNumber(
+        node.errors ?? node.error ?? node.errored ?? node.errorCount
+    );
+    const skipped = toFiniteNumber(
+        node.skipped ??
+            node.skip ??
+            node.ignored ??
+            node.disabled ??
+            node.notrun ??
+            node.pending ??
+            node.todo
+    );
+    const duration = toFiniteNumber(
+        node.time ??
+            node.duration ??
+            node.elapsed ??
+            node.runtime ??
+            node.timeSeconds ??
+            node.time_sec
+    );
+
+    const hasAny =
+        tests !== null ||
+        passed !== null ||
+        failures !== null ||
+        errors !== null ||
+        skipped !== null ||
+        duration !== null;
+
+    if (!hasAny) {
+        return null;
+    }
+
+    const summary = {};
+    if (tests !== null) {
+        summary.total = tests;
+    }
+
+    const failureCount = (failures ?? 0) + (errors ?? 0);
+    if (failures !== null || errors !== null) {
+        summary.failed = failureCount;
+    }
+
+    if (skipped !== null) {
+        summary.skipped = skipped;
+    }
+
+    if (passed !== null) {
+        summary.passed = passed;
+    } else if (tests !== null) {
+        const safeFailed = summary.failed ?? 0;
+        const safeSkipped = summary.skipped ?? 0;
+        const computed = tests - safeFailed - safeSkipped;
+        if (Number.isFinite(computed)) {
+            summary.passed = Math.max(computed, 0);
+        }
+    }
+
+    if (duration !== null) {
+        summary.duration = duration;
+    }
+
+    return Object.keys(summary).length > 0 ? summary : null;
+}
+
+function collectAggregateTestStats(root) {
+    if (!root) {
+        return null;
+    }
+
+    const queue = [root];
+    const leafStats = [];
+    let fallback = null;
+
+    while (queue.length > 0) {
+        const node = queue.pop();
+
+        if (Array.isArray(node)) {
+            for (const child of node) {
+                queue.push(child);
+            }
+            continue;
+        }
+
+        if (!isObjectLike(node)) {
+            continue;
+        }
+
+        const stats = extractAggregateStatsFromNode(node);
+        const hasNestedSuites = hasAnyOwn(node, [
+            "testsuite",
+            "suites",
+            "suite"
+        ]);
+
+        if (stats) {
+            if (!hasNestedSuites) {
+                leafStats.push(stats);
+            } else if (!fallback) {
+                fallback = stats;
+            }
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                queue.push(value);
+            }
+        }
+    }
+
+    const candidates =
+        leafStats.length > 0 ? leafStats : fallback ? [fallback] : [];
+    if (candidates.length === 0) {
+        return null;
+    }
+
+    const totals = { total: 0, passed: 0, failed: 0, skipped: 0, duration: 0 };
+    const touched = new Set();
+
+    for (const entry of candidates) {
+        for (const key of Object.keys(totals)) {
+            const value = toFiniteNumber(entry[key]);
+            if (value === null) {
+                continue;
+            }
+            totals[key] += value;
+            touched.add(key);
+        }
+    }
+
+    if (touched.size === 0) {
+        return null;
+    }
+
+    for (const key of Object.keys(totals)) {
+        if (!touched.has(key)) {
+            totals[key] = null;
+        }
+    }
+
+    return totals;
+}
+
 function normalizeResultDirectories(candidateDirs, workspaceRoot) {
     return toArray(candidateDirs)
         .filter(Boolean)
@@ -446,13 +603,16 @@ function scanResultDirectory(directory) {
         return { status: "empty", notes: [], cases: [] };
     }
 
-    const { cases, notes } = collectDirectoryTestCases(directory, xmlFiles);
+    const { cases, notes, aggregates } = collectDirectoryTestCases(
+        directory,
+        xmlFiles
+    );
 
-    if (cases.length === 0) {
+    if (cases.length === 0 && !aggregates) {
         return { status: "empty", notes, cases: [] };
     }
 
-    return { status: "found", notes, cases };
+    return { status: "found", notes, cases, aggregates };
 }
 
 function isExistingDirectory(resolvedPath) {
@@ -470,17 +630,43 @@ function listXmlFiles(resolvedPath) {
 }
 
 function collectDirectoryTestCases(directory, xmlFiles) {
-    const aggregate = { cases: [], notes: [] };
+    const aggregate = {
+        cases: [],
+        notes: [],
+        aggregates: { total: 0, passed: 0, failed: 0, skipped: 0, duration: 0 },
+        hasAggregateData: false
+    };
 
     for (const file of xmlFiles) {
         const displayPath = path.join(directory.display, file);
         const filePath = path.join(directory.resolved, file);
-        const { cases, notes } = collectTestCasesFromXmlFile(
+        const { cases, notes, aggregateStats } = collectTestCasesFromXmlFile(
             filePath,
             displayPath
         );
         aggregate.cases.push(...cases);
         aggregate.notes.push(...notes);
+
+        if (aggregateStats) {
+            for (const key of [
+                "total",
+                "passed",
+                "failed",
+                "skipped",
+                "duration"
+            ]) {
+                const value = toFiniteNumber(aggregateStats[key]);
+                if (value === null) {
+                    continue;
+                }
+                aggregate.aggregates[key] += value;
+                aggregate.hasAggregateData = true;
+            }
+        }
+    }
+
+    if (!aggregate.hasAggregateData) {
+        aggregate.aggregates = null;
     }
 
     return aggregate;
@@ -506,7 +692,20 @@ function collectTestCasesFromXmlFile(filePath, displayPath) {
         return { cases: [], notes: [parseResult.note] };
     }
 
-    return { cases: parseResult.cases, notes: [] };
+    const cases = parseResult.cases;
+    let aggregateStats = null;
+    if (cases.length === 0) {
+        aggregateStats = collectAggregateTestStats(parseResult.document);
+    }
+
+    const notes = [];
+    if (aggregateStats) {
+        notes.push(
+            `Using aggregate suite counts from ${displayPath} because no individual test cases were found.`
+        );
+    }
+
+    return { cases, notes, aggregateStats };
 }
 
 function readXmlFile(filePath, displayPath) {
@@ -531,7 +730,11 @@ function parseXmlTestCases(xml, displayPath) {
                 note: `Ignoring checkstyle report ${displayPath}; no test cases found.`
             };
         }
-        return { status: "ok", cases: collectTestCases(data) };
+        return {
+            status: "ok",
+            document: data,
+            cases: collectTestCases(data)
+        };
     } catch (error) {
         const message =
             getErrorMessage(error, { fallback: "" }) || "Unknown error";
@@ -602,6 +805,43 @@ function recordTestCases(aggregates, testCases) {
     }
 }
 
+function recordAggregateStats(aggregates, summary) {
+    const { stats } = aggregates;
+
+    const total = toFiniteNumber(summary.total);
+    const failed = toFiniteNumber(summary.failed);
+    const skipped = toFiniteNumber(summary.skipped);
+    const passed = toFiniteNumber(summary.passed);
+    const duration = toFiniteNumber(summary.duration);
+
+    if (total !== null) {
+        stats.total += total;
+    }
+
+    if (failed !== null) {
+        stats.failed += failed;
+    }
+
+    if (skipped !== null) {
+        stats.skipped += skipped;
+    }
+
+    if (duration !== null) {
+        stats.duration += duration;
+    }
+
+    if (passed !== null) {
+        stats.passed += passed;
+    } else if (total !== null) {
+        const safeFailed = failed ?? 0;
+        const safeSkipped = skipped ?? 0;
+        const computed = total - safeFailed - safeSkipped;
+        if (Number.isFinite(computed)) {
+            stats.passed += Math.max(computed, 0);
+        }
+    }
+}
+
 function createResultAggregates() {
     return {
         results: new Map(),
@@ -652,7 +892,11 @@ function applyScanOutcome(context, directory, scan) {
         return null;
     }
 
-    recordTestCases(context.aggregates, scan.cases);
+    if (scan.cases.length > 0) {
+        recordTestCases(context.aggregates, scan.cases);
+    } else if (scan.aggregates) {
+        recordAggregateStats(context.aggregates, scan.aggregates);
+    }
     return buildSuccessfulReadResult(context, directory);
 }
 
