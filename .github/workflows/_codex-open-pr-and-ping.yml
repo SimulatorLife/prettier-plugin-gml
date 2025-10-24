@@ -166,4 +166,9 @@ jobs:
               "```"
             ].join("\n");
 
-            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+            await github.rest.issues.createComment({ 
+              owner, 
+              repo, 
+              issue_number: prNumber, 
+              body 
+            });

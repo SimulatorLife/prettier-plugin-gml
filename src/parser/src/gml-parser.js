@@ -9,6 +9,7 @@ import GameMakerParseErrorListener, {
 import { isObjectLike } from "./shared/object-utils.js";
 import { isErrorLike } from "./shared/utils/capability-probes.js";
 import { getLineBreakCount } from "./shared/utils/line-breaks.js";
+import { enqueueObjectChildValues } from "./shared/ast.js";
 
 function normalizeSimpleEscapeCase(text) {
     if (typeof text !== "string" || text.length === 0) {
@@ -28,6 +29,178 @@ function isQuotedString(value) {
 
     const first = value[0];
     return (first === '"' || first === "'") && value.endsWith(first);
+}
+
+function createCommentLineNode({ token, tokenText, leadingWS, leadingChar }) {
+    const value = (tokenText ?? "").replace(/^[\/][\/]/, "");
+
+    return {
+        type: "CommentLine",
+        value,
+        start: { line: token.line, index: token.start },
+        end: { line: token.line, index: token.stop },
+        leadingWS: leadingWS ?? "",
+        trailingWS: "",
+        leadingChar: leadingChar ?? "",
+        trailingChar: ""
+    };
+}
+
+function createCommentBlockNode({ token, tokenText, leadingWS, leadingChar }) {
+    const text = tokenText ?? "";
+    const lineBreakCount = getLineBreakCount(text);
+
+    return {
+        type: "CommentBlock",
+        value: text.replace(/^[\/][\*]/, "").replace(/[\*][\/]$/, ""),
+        start: { line: token.line, index: token.start },
+        end: {
+            line: token.line + lineBreakCount,
+            index: token.stop
+        },
+        lineCount: lineBreakCount + 1,
+        leadingWS: leadingWS ?? "",
+        trailingWS: "",
+        leadingChar: leadingChar ?? "",
+        trailingChar: ""
+    };
+}
+
+function createWhitespaceNode({ token, tokenText, isNewline }) {
+    const text = tokenText ?? "";
+    const lineBreakCount = getLineBreakCount(text);
+
+    return {
+        type: "Whitespace",
+        value: text,
+        start: { line: token.line, index: token.start },
+        end: {
+            line: token.line + lineBreakCount,
+            index: token.stop
+        },
+        line: token.line,
+        isNewline
+    };
+}
+
+function createHiddenNodeProcessor({ comments, whitespaces, lexerTokens }) {
+    const state = {
+        reachedEOF: false,
+        prevComment: null,
+        finalComment: null,
+        prevWS: "",
+        prevSignificantChar: "",
+        foundFirstSignificantToken: false
+    };
+
+    function markTopCommentIfNeeded() {
+        if (!state.foundFirstSignificantToken && state.prevComment) {
+            state.prevComment.isTopComment = true;
+            state.foundFirstSignificantToken = true;
+        }
+    }
+
+    function registerComment(node) {
+        state.prevComment = node;
+        state.finalComment = node;
+        state.prevWS = "";
+        comments.push(node);
+        markTopCommentIfNeeded();
+    }
+
+    function handleSingleLineComment(token, tokenText) {
+        const node = createCommentLineNode({
+            token,
+            tokenText,
+            leadingWS: state.prevWS,
+            leadingChar: state.prevSignificantChar
+        });
+        registerComment(node);
+    }
+
+    function handleMultiLineComment(token, tokenText) {
+        const node = createCommentBlockNode({
+            token,
+            tokenText,
+            leadingWS: state.prevWS,
+            leadingChar: state.prevSignificantChar
+        });
+        registerComment(node);
+    }
+
+    function handleWhitespace(token, tokenText, isNewline) {
+        const text = tokenText ?? "";
+        const node = createWhitespaceNode({
+            token,
+            tokenText: text,
+            isNewline
+        });
+        whitespaces.push(node);
+
+        if (state.prevComment) {
+            state.prevComment.trailingWS += text;
+        }
+
+        state.prevComment = null;
+        state.prevWS += text;
+    }
+
+    function handleSignificantToken(tokenText) {
+        const text = tokenText ?? "";
+        state.foundFirstSignificantToken = true;
+        if (state.prevComment) {
+            state.prevComment.trailingChar = text;
+        }
+        state.prevComment = null;
+        state.prevWS = "";
+        state.prevSignificantChar = text.slice(-1);
+    }
+
+    function handleEOF() {
+        state.reachedEOF = true;
+        if (state.finalComment) {
+            state.finalComment.isBottomComment = true;
+        }
+    }
+
+    return {
+        hasReachedEnd() {
+            return state.reachedEOF;
+        },
+        processToken(token) {
+            const tokenType = token.type;
+            if (tokenType === lexerTokens.EOF) {
+                handleEOF();
+                return;
+            }
+
+            const tokenText = token.text ?? "";
+
+            if (tokenType === lexerTokens.SingleLineComment) {
+                handleSingleLineComment(token, tokenText);
+                return;
+            }
+
+            if (tokenType === lexerTokens.MultiLineComment) {
+                handleMultiLineComment(token, tokenText);
+                return;
+            }
+
+            if (
+                tokenType === lexerTokens.WhiteSpaces ||
+                tokenType === lexerTokens.LineTerminator
+            ) {
+                handleWhitespace(
+                    token,
+                    tokenText,
+                    tokenType === lexerTokens.LineTerminator
+                );
+                return;
+            }
+
+            handleSignificantToken(tokenText);
+        }
+    };
 }
 
 export default class GMLParser {
@@ -172,20 +345,7 @@ export default class GMLParser {
             }
 
             for (const value of Object.values(node)) {
-                if (!value || typeof value !== "object") {
-                    continue;
-                }
-
-                if (Array.isArray(value)) {
-                    for (const item of value) {
-                        if (item && typeof item === "object") {
-                            stack.push(item);
-                        }
-                    }
-                    continue;
-                }
-
-                stack.push(value);
+                enqueueObjectChildValues(stack, value);
             }
         }
     }
@@ -193,13 +353,6 @@ export default class GMLParser {
     // Populates the comments array and whitespaces array.
     // Comments are annotated with surrounding whitespace and characters.
     getHiddenNodes(lexer) {
-        let reachedEOF = false;
-        let prevComment = null;
-        let finalComment = null;
-        let prevWS = "";
-        let prevSignificantChar = "";
-        let foundFirstSignificantToken = false;
-
         const {
             EOF,
             SingleLineComment,
@@ -207,115 +360,20 @@ export default class GMLParser {
             WhiteSpaces,
             LineTerminator
         } = GameMakerLanguageLexer;
-
-        const markTopCommentIfNeeded = () => {
-            if (!foundFirstSignificantToken && prevComment) {
-                prevComment.isTopComment = true;
-                foundFirstSignificantToken = true;
+        const processor = createHiddenNodeProcessor({
+            comments: this.comments,
+            whitespaces: this.whitespaces,
+            lexerTokens: {
+                EOF,
+                SingleLineComment,
+                MultiLineComment,
+                WhiteSpaces,
+                LineTerminator
             }
-        };
+        });
 
-        while (!reachedEOF) {
-            const token = lexer.nextToken();
-
-            if (token.type === EOF) {
-                reachedEOF = true;
-                if (finalComment) {
-                    finalComment.isBottomComment = true;
-                }
-                continue;
-            }
-
-            const tokenText = token.text;
-
-            if (token.type === SingleLineComment) {
-                const node = {
-                    type: "CommentLine",
-                    value: tokenText.replace(/^[\/][\/]/, ""),
-                    start: { line: token.line, index: token.start },
-                    end: {
-                        line: token.line,
-                        index: token.stop
-                    },
-                    leadingWS: prevWS,
-                    trailingWS: "",
-                    leadingChar: prevSignificantChar,
-                    trailingChar: ""
-                };
-                prevComment = node;
-                finalComment = node;
-                prevWS = "";
-                this.comments.push(node);
-                markTopCommentIfNeeded();
-                continue;
-            }
-
-            if (token.type === MultiLineComment) {
-                const lineBreakCount = getLineBreakCount(tokenText);
-                const node = {
-                    type: "CommentBlock",
-                    value: tokenText
-                        .replace(/^[\/][\*]/, "")
-                        .replace(/[\*][\/]$/, ""),
-                    start: { line: token.line, index: token.start },
-                    end: {
-                        line: token.line + lineBreakCount,
-                        index: token.stop
-                    },
-                    lineCount: lineBreakCount + 1,
-                    leadingWS: prevWS,
-                    trailingWS: "",
-                    leadingChar: prevSignificantChar,
-                    trailingChar: ""
-                };
-                prevComment = node;
-                finalComment = node;
-                prevWS = "";
-                this.comments.push(node);
-                markTopCommentIfNeeded();
-                continue;
-            }
-
-            if (token.type === WhiteSpaces || token.type === LineTerminator) {
-                const isNewline = token.type === LineTerminator;
-                const lineBreakCount = getLineBreakCount(tokenText);
-                const node = {
-                    type: "Whitespace",
-                    value: tokenText,
-                    start: { line: token.line, index: token.start },
-                    end: {
-                        line: token.line + lineBreakCount,
-                        index: token.stop
-                    },
-                    line: token.line,
-                    isNewline
-                };
-                this.whitespaces.push(node);
-                if (prevComment !== null) {
-                    prevComment.trailingWS += tokenText;
-                }
-                prevComment = null;
-                prevWS += tokenText;
-                continue;
-            }
-
-            // Any token that reaches this branch represents "real" syntax
-            // rather than trivia. Close out the bookkeeping for any comment we
-            // just saw so downstream printers can make correct decisions: once
-            // we encounter significant code we stop marking subsequent
-            // comments as file-level top comments, capture the adjacent token
-            // text so helpers like `handleCommentInEmptyParens` know whether a
-            // comment lives inside wrapping punctuation, and clear the cached
-            // whitespace buffer. Skipping this reset causes later formatting
-            // passes to mis-classify top/bottom comments and smear leftover
-            // whitespace onto unrelated nodes.
-            foundFirstSignificantToken = true;
-            if (prevComment !== null) {
-                prevComment.trailingChar = tokenText;
-            }
-            prevComment = null;
-            prevWS = "";
-            prevSignificantChar = tokenText.slice(-1);
+        while (!processor.hasReachedEnd()) {
+            processor.processToken(lexer.nextToken());
         }
     }
 

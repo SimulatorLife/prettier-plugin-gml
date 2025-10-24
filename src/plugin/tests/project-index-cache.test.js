@@ -18,7 +18,7 @@ import {
     setDefaultProjectIndexCacheMaxSize,
     applyProjectIndexCacheEnvOverride
 } from "../src/project-index/index.js";
-import { bootstrapProjectIndex } from "../src/project-index/bootstrap.js";
+import { bootstrapProjectIndex } from "../src/identifier-case/project-index-bootstrap.js";
 
 function createProjectIndex(projectRoot, metrics = null) {
     return {
@@ -269,6 +269,13 @@ test("bootstrapProjectIndex normalizes concurrency overrides", async () => {
             assert.equal(options.__identifierCaseProjectIndexConcurrency, 8);
             assert.equal(descriptor.buildOptions?.concurrency?.gml, 8);
             assert.equal(descriptor.buildOptions?.concurrency?.gmlParsing, 8);
+        }
+
+        {
+            const { options, descriptor } = await runCase("64");
+            assert.equal(options.__identifierCaseProjectIndexConcurrency, 16);
+            assert.equal(descriptor.buildOptions?.concurrency?.gml, 16);
+            assert.equal(descriptor.buildOptions?.concurrency?.gmlParsing, 16);
         }
 
         {
@@ -749,8 +756,9 @@ test.describe(
                     PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE
                 );
 
-                const unlimited = setDefaultProjectIndexCacheMaxSize(0);
-                assert.equal(unlimited, PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE);
+                const disabled = setDefaultProjectIndexCacheMaxSize(0);
+                assert.equal(disabled, 0);
+                assert.equal(getDefaultProjectIndexCacheMaxSize(), 0);
             } finally {
                 setDefaultProjectIndexCacheMaxSize(originalMax);
             }
@@ -765,6 +773,20 @@ test.describe(
                 });
 
                 assert.equal(getDefaultProjectIndexCacheMaxSize(), 2048);
+            } finally {
+                setDefaultProjectIndexCacheMaxSize(originalMax);
+            }
+        });
+
+        test("environment overrides can disable the cache max size", () => {
+            const originalMax = getDefaultProjectIndexCacheMaxSize();
+
+            try {
+                applyProjectIndexCacheEnvOverride({
+                    [PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR]: "0"
+                });
+
+                assert.equal(getDefaultProjectIndexCacheMaxSize(), 0);
             } finally {
                 setDefaultProjectIndexCacheMaxSize(originalMax);
             }

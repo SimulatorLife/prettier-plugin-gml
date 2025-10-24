@@ -56,28 +56,34 @@ export class JsonParseError extends SyntaxError {
     }
 }
 
+/**
+ * Check whether a thrown value matches the {@link JsonParseError} contract.
+ *
+ * The guard intentionally mirrors the properties populated by
+ * {@link parseJsonWithContext}, allowing callers to branch on the enriched
+ * metadata without trusting arbitrary userland errors. It tolerates a missing
+ * `source` (which is optional) but otherwise requires the canonical
+ * `JsonParseError` naming, a string description, and an error-like `cause` so
+ * diagnostic pipelines remain predictable.
+ *
+ * @param {unknown} value Candidate error object to interrogate.
+ * @returns {value is JsonParseError} `true` when the value exposes the
+ *     expected shape for {@link JsonParseError}.
+ */
 export function isJsonParseError(value) {
     if (!isErrorLike(value)) {
         return false;
     }
 
-    if (value.name !== "JsonParseError") {
-        return false;
-    }
+    const { name, description, source, cause } = value;
+    const hasValidSource = source == null || typeof source === "string";
 
-    if (typeof value.description !== "string") {
-        return false;
-    }
-
-    if (value.source != null && typeof value.source !== "string") {
-        return false;
-    }
-
-    if (!isErrorLike(value.cause)) {
-        return false;
-    }
-
-    return true;
+    return (
+        name === "JsonParseError" &&
+        typeof description === "string" &&
+        hasValidSource &&
+        isErrorLike(cause)
+    );
 }
 
 function normalizeDescription(description) {
@@ -147,4 +153,44 @@ export function parseJsonWithContext(text, options = {}) {
             description: normalizedDescription
         });
     }
+}
+
+/**
+ * Serialize a JSON payload for file output while normalizing trailing
+ * newlines. Helpers across the CLI and plugin previously reimplemented this
+ * behaviour, often appending "\n" manually after JSON.stringify. Centralising
+ * the logic ensures all call sites respect the same newline semantics and keeps
+ * indentation handling in one place.
+ *
+ * @param {unknown} payload Data structure to serialize.
+ * @param {{
+ *   replacer?: Parameters<typeof JSON.stringify>[1],
+ *   space?: Parameters<typeof JSON.stringify>[2],
+ *   includeTrailingNewline?: boolean,
+ *   newline?: string
+ * }} [options]
+ * @returns {string} Stringified JSON with optional trailing newline.
+ */
+export function stringifyJsonForFile(payload, options = {}) {
+    const {
+        replacer = null,
+        space = 0,
+        includeTrailingNewline = true,
+        newline = "\n"
+    } = options;
+
+    const serialized = JSON.stringify(payload, replacer, space);
+
+    if (!includeTrailingNewline) {
+        return serialized;
+    }
+
+    const terminator =
+        typeof newline === "string" && newline.length > 0 ? newline : "\n";
+
+    if (serialized.endsWith(terminator)) {
+        return serialized;
+    }
+
+    return `${serialized}${terminator}`;
 }

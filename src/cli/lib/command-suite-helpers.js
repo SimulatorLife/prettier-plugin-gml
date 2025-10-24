@@ -1,10 +1,13 @@
 import process from "node:process";
 
 import { CliUsageError, createCliErrorDetails } from "./cli-errors.js";
-import { normalizeEnumeratedOption } from "./shared-deps.js";
-// Pull array helpers from the shared utils barrel so new call sites avoid the
-// legacy `array-utils` shim slated for removal.
-import { isNonEmptyArray, toMutableArray } from "./shared-deps.js";
+// Pull shared helpers from the barrel so new call sites avoid the legacy
+// `array-utils` shim slated for removal.
+import {
+    normalizeEnumeratedOption,
+    isNonEmptyArray,
+    toMutableArray
+} from "./shared-deps.js";
 
 export const SuiteOutputFormat = Object.freeze({
     JSON: "json",
@@ -184,6 +187,13 @@ function assertSuiteRegistryContract(availableSuites) {
 export function createSuiteResultsPayload(results, { generatedAt } = {}) {
     return {
         generatedAt: generatedAt ?? new Date().toISOString(),
+        environment: {
+            nodeVersion: process.version,
+            platform: process.platform,
+            arch: process.arch,
+            pid: process.pid,
+            cwd: process.cwd()
+        },
         suites: results
     };
 }

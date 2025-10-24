@@ -1,10 +1,15 @@
-import { gmlParserAdapter } from "../parsers/gml-parser-adapter.js";
-import { print } from "../printer/print.js";
-import { handleComments, printComment } from "../comments/comment-printer.js";
-import { identifierCaseOptions } from "../options/identifier-case.js";
-import { LogicalOperatorsStyle } from "../options/logical-operators-style.js";
+import { resolveGmlPluginComponentDependencies } from "./gml-plugin-component-dependency-registry.js";
 
 export function createDefaultGmlPluginComponents() {
+    const {
+        gmlParserAdapter,
+        print,
+        handleComments,
+        printComment,
+        identifierCaseOptions,
+        LogicalOperatorsStyle
+    } = resolveGmlPluginComponentDependencies();
+
     return {
         parsers: {
             "gml-parse": {
@@ -161,6 +166,7 @@ export function createDefaultGmlPluginComponents() {
                 description:
                     "Combine complementary 'if' branches that return literal booleans into a single return statement with the simplified expression."
             }
+
             // Legacy whitespace toggles (preserveLineBreaks, maintainArrayIndentation,
             // maintainStructIndentation, maintainWithIndentation, maintainSwitchIndentation)
             // were intentionally removed so the formatter can enforce a single opinionated

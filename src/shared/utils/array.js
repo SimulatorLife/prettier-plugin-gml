@@ -36,6 +36,38 @@ export function toArray(value) {
 }
 
 /**
+ * Assert that the provided value is an array. Centralizes the guard so callers
+ * can reuse the same error messaging while keeping their control flow focused
+ * on the surrounding logic. Optionally tolerates `null`/`undefined` inputs by
+ * returning an empty array when {@link allowNull} is enabled.
+ *
+ * @template T
+ * @param {Array<T> | null | undefined | unknown} value Candidate value to validate.
+ * @param {{
+ *   name?: string,
+ *   allowNull?: boolean,
+ *   errorMessage?: string
+ * }} [options]
+ * @returns {Array<T>} The validated array or a fresh empty array when
+ *                     `allowNull` permits nullable inputs.
+ */
+export function assertArray(
+    value,
+    { name = "value", allowNull = false, errorMessage } = {}
+) {
+    if (Array.isArray(value)) {
+        return value;
+    }
+
+    if (allowNull && value == null) {
+        return [];
+    }
+
+    const message = errorMessage ?? `${name} must be provided as an array.`;
+    throw new TypeError(message);
+}
+
+/**
  * Return the provided value when it is already an array, otherwise yield an
  * empty array. Useful for treating optional array-like properties as a safe
  * iterable without introducing conditional branches at each call site.
@@ -142,6 +174,41 @@ export function cloneObjectEntries(entries) {
 export function uniqueArray(values, { freeze = false } = {}) {
     const uniqueValues = [...new Set(toArrayFromIterable(values))];
     return freeze ? Object.freeze(uniqueValues) : uniqueValues;
+}
+
+/**
+ * Append {@link value} to {@link array} when it is not already present.
+ *
+ * Centralizes the inclusion guard used throughout the project index and
+ * resource analysis modules so callers can focus on their domain logic while
+ * keeping duplicate prevention consistent. The helper mirrors the semantics of
+ * `Array#includes`, including `NaN` handling, and returns a boolean so hot
+ * paths can detect when a new entry was appended.
+ *
+ * @template T
+ * @param {Array<T>} array Array that should receive {@link value} when absent.
+ * @param {T} value Candidate value to append.
+ * @param {{ isEqual?: (existing: T, candidate: T) => boolean }} [options]
+ *        Optional equality comparator for cases where strict equality is not
+ *        sufficient.
+ * @returns {boolean} `true` when the value was appended.
+ */
+export function pushUnique(array, value, { isEqual } = {}) {
+    if (!Array.isArray(array)) {
+        throw new TypeError("pushUnique requires an array to append to.");
+    }
+
+    const hasMatch =
+        typeof isEqual === "function"
+            ? array.some((entry) => isEqual(entry, value))
+            : array.includes(value);
+
+    if (!hasMatch) {
+        array.push(value);
+        return true;
+    }
+
+    return false;
 }
 
 /**

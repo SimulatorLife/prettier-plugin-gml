@@ -1,5 +1,6 @@
 export {
     applyEnvironmentOverride,
+    assertArray,
     assertFunction,
     assertNonEmptyString,
     assertPlainObject,
@@ -7,6 +8,7 @@ export {
     coerceNonNegativeInteger,
     coercePositiveInteger,
     createEnvConfiguredValue,
+    createEnvConfiguredValueWithFallback,
     getErrorCode,
     getErrorMessage,
     getNonEmptyTrimmedString,
@@ -20,8 +22,10 @@ export {
     normalizeIdentifierMetadataEntries,
     normalizeEnumeratedOption,
     parseJsonWithContext,
+    splitLines,
     resolveIntegerOption,
     toArray,
+    uniqueArray,
     toNormalizedLowerCaseSet,
     toNormalizedLowerCaseString,
     toPosixPath,
@@ -46,6 +50,9 @@ export {
     isErrorLike
 } from "../../shared/utils/capability-probes.js";
 
-export { isJsonParseError } from "../../shared/json-utils.js";
+export {
+    isJsonParseError,
+    stringifyJsonForFile
+} from "../../shared/json-utils.js";
 
 export { ensureDir } from "../../shared/utils/fs.js";

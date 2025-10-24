@@ -113,6 +113,68 @@ describe("manual GitHub client validation", () => {
         }
     });
 
+    it("aborts manual file fetches when a signal is triggered", async () => {
+        const cacheRoot = await fs.mkdtemp(
+            path.join(os.tmpdir(), "manual-cache-")
+        );
+
+        const client = createManualClientBundle({
+            userAgent: "test-agent",
+            defaultCacheRoot: cacheRoot,
+            defaultRawRoot: RAW_ROOT
+        });
+
+        const controller = new AbortController();
+        let abortHandlerRegistered = false;
+
+        globalThis.fetch = async (url, options = {}) => {
+            const { signal } = options;
+            assert.equal(url, `${RAW_ROOT}/sha/path/to/file`);
+            assert.ok(
+                signal instanceof AbortSignal,
+                "Expected fetch to receive an abort signal"
+            );
+            abortHandlerRegistered = true;
+
+            return new Promise((resolve, reject) => {
+                const onAbort = () => {
+                    clearTimeout(timeoutId);
+                    signal.removeEventListener("abort", onAbort);
+                    reject(signal.reason ?? new Error("aborted"));
+                };
+                const timeoutId = setTimeout(() => {
+                    signal.removeEventListener("abort", onAbort);
+                    resolve(makeResponse({ body: "late body" }));
+                }, 25);
+
+                signal.addEventListener("abort", onAbort, { once: true });
+                if (signal.aborted) {
+                    onAbort();
+                }
+            });
+        };
+
+        try {
+            const pending = client.fileFetcher.fetchManualFile(
+                "sha",
+                "path/to/file",
+                {
+                    signal: controller.signal,
+                    cacheRoot,
+                    rawRoot: RAW_ROOT,
+                    forceRefresh: true
+                }
+            );
+
+            controller.abort(new Error("stop"));
+
+            await assert.rejects(pending, /stop/);
+            assert.equal(abortHandlerRegistered, true);
+        } finally {
+            await fs.rm(cacheRoot, { recursive: true, force: true });
+        }
+    });
+
     it("rejects manual commit payloads without a SHA", async () => {
         const client = createManualClientBundle({
             userAgent: "test-agent",
@@ -217,6 +279,40 @@ describe("manual GitHub client validation", () => {
         });
 
         assert.deepEqual(result, { ref: "v1.2.3", sha: "def456" });
+        assert.equal(responses.length, 0);
+    });
+
+    it("resolves manual refs when verbose state is omitted", async () => {
+        const client = createManualClientBundle({
+            userAgent: "test-agent",
+            defaultCacheRoot: "/tmp/manual-cache",
+            defaultRawRoot: "https://raw.github.com/example/manual"
+        });
+        const { refResolver } = client;
+
+        const responses = [
+            {
+                url: `${API_ROOT}/tags?per_page=1`,
+                response: makeResponse({
+                    body: JSON.stringify([
+                        { name: "v9.9.9", commit: { sha: "cafeba" } }
+                    ])
+                })
+            }
+        ];
+
+        globalThis.fetch = async (url) => {
+            const next = responses.shift();
+            assert.ok(next, "Unexpected fetch call");
+            assert.equal(url, next.url);
+            return next.response;
+        };
+
+        const result = await refResolver.resolveManualRef(undefined, {
+            apiRoot: API_ROOT
+        });
+
+        assert.deepEqual(result, { ref: "v9.9.9", sha: "cafeba" });
         assert.equal(responses.length, 0);
     });
 
