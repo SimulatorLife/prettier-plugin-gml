@@ -1,6 +1,6 @@
-import { isNonEmptyString, toTrimmedString } from "./string.js";
 import { isErrorLike } from "./capability-probes.js";
 import { assertPlainObject } from "./object.js";
+import { isNonEmptyString, toTrimmedString } from "./string.js";
 
 function getErrorMessage(value) {
     if (typeof value === "string") {
