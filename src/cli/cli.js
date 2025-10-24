@@ -40,6 +40,7 @@ import {
     normalizeStringList,
     resolveIntegerOption,
     toArray,
+    mergeUniqueValues,
     toNormalizedLowerCaseSet,
     toNormalizedLowerCaseString,
     uniqueArray,
@@ -1022,12 +1023,11 @@ async function resolveDirectoryIgnoreContext(directory, inheritedIgnorePaths) {
         if (ignoreStats.isFile()) {
             shouldRegisterLocalIgnore = true;
 
-            if (!inheritedIgnorePaths.includes(localIgnorePath)) {
-                effectiveIgnorePaths = [
-                    ...inheritedIgnorePaths,
-                    localIgnorePath
-                ];
-            }
+            effectiveIgnorePaths = mergeUniqueValues(
+                inheritedIgnorePaths,
+                [localIgnorePath],
+                { freeze: false }
+            );
         }
     } catch {
         // Ignore missing files.
