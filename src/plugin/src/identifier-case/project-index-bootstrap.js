@@ -12,10 +12,8 @@ import {
     isObjectLike,
     withDefinedValue
 } from "../../../shared/object-utils.js";
-import {
-    findProjectRoot,
-    createProjectIndexCoordinator
-} from "../project-index/index.js";
+import { createProjectIndexCoordinator } from "../project-index/index.js";
+import { findProjectRoot } from "../project-index/project-root.js";
 import { getProjectIndexParserOverride } from "../project-index/parser-override.js";
 import {
     createProjectIndexBuildOptions,

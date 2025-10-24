@@ -55,6 +55,29 @@ test("preserves blank line before constructor closing brace", async () => {
     );
 });
 
+test("preserves blank line after documented static constructor members", async () => {
+    const source = [
+        "function Demo() constructor {",
+        "    /// @function helper",
+        "    /// @returns {real}",
+        "    static helper = function() {",
+        "        return 1;",
+        "    };",
+        "",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.trim().split("\n");
+
+    assert.equal(
+        lines.at(-2),
+        "",
+        "Expected documented static members to retain the blank line before the constructor closes."
+    );
+});
+
 test("preserves blank lines after nested function declarations inside constructors", async () => {
     const source = [
         "function Demo() constructor {",
@@ -74,6 +97,32 @@ test("preserves blank lines after nested function declarations inside constructo
         lines.at(-2),
         "",
         "Expected nested function declarations to retain their trailing blank line before the constructor closes."
+    );
+});
+
+test("collapses blank lines between simple constructor assignments", async () => {
+    const source = [
+        "Demo = function() constructor {",
+        "    self.value = 1;",
+        "",
+        "    self.copied = self.value;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.trim().split("\n");
+    const assignmentIndex = lines.indexOf("    self.value = 1;");
+
+    assert.notStrictEqual(
+        assignmentIndex,
+        -1,
+        "Expected the constructor body to contain the first assignment statement."
+    );
+    assert.equal(
+        lines[assignmentIndex + 1],
+        "    self.copied = self.value;",
+        "Expected constructors to collapse author-inserted blank lines between simple assignments."
     );
 });
 

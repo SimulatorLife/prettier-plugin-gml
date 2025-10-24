@@ -1,13 +1,9 @@
 import path from "node:path";
 import { cloneLocation } from "../../../shared/ast-locations.js";
 import { getCallExpressionIdentifier } from "../../../shared/ast-node-helpers.js";
-import {
-    toPosixPath,
-    walkAncestorDirectories
-} from "../../../shared/path-utils.js";
+import { toPosixPath } from "../../../shared/path-utils.js";
 import {
     asArray,
-    cloneObjectEntries,
     isNonEmptyArray,
     pushUnique
 } from "../../../shared/array-utils.js";
@@ -45,11 +41,11 @@ import {
 } from "./resource-analysis.js";
 import {
     PROJECT_INDEX_BUILD_ABORT_MESSAGE,
-    PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE,
     createProjectIndexAbortGuard
 } from "./abort-guard.js";
 import { loadBuiltInIdentifiers } from "./built-in-identifiers.js";
 import { createProjectIndexCoordinatorFactory } from "./coordinator.js";
+import { cloneObjectEntries } from "./clone-object-entries.js";
 
 /**
  * Create shallow clones of common entry collections stored on project index
@@ -64,32 +60,6 @@ function cloneEntryCollections(entry, ...keys) {
     );
 }
 
-export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
-    const filepath = options?.filepath;
-    const { signal, ensureNotAborted } = createProjectIndexAbortGuard(options, {
-        message: PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE
-    });
-
-    if (!filepath) {
-        return null;
-    }
-
-    const startDirectory = path.dirname(path.resolve(filepath));
-
-    for (const directory of walkAncestorDirectories(startDirectory)) {
-        ensureNotAborted();
-
-        const entries = await listDirectory(fsFacade, directory, { signal });
-        ensureNotAborted();
-
-        if (entries.some(isProjectManifestPath)) {
-            return directory;
-        }
-    }
-
-    return null;
-}
-
 export const createProjectIndexCoordinator =
     createProjectIndexCoordinatorFactory({
         defaultFsFacade,
@@ -100,6 +70,8 @@ export const createProjectIndexCoordinator =
     });
 
 export { createProjectIndexCoordinatorFactory } from "./coordinator.js";
+
+export { findProjectRoot } from "./project-root.js";
 
 export {
     PROJECT_MANIFEST_EXTENSION,
@@ -129,6 +101,53 @@ export {
     PROJECT_INDEX_GML_CONCURRENCY_BASELINE
 } from "./concurrency.js";
 
+const DEFAULT_PROJECT_SOURCE_EXTENSIONS = Object.freeze([".gml"]);
+let projectSourceExtensions = DEFAULT_PROJECT_SOURCE_EXTENSIONS;
+
+function getProjectIndexSourceExtensions() {
+    return projectSourceExtensions;
+}
+
+function resetProjectIndexSourceExtensions() {
+    projectSourceExtensions = DEFAULT_PROJECT_SOURCE_EXTENSIONS;
+    return projectSourceExtensions;
+}
+
+function normalizeProjectSourceExtensions(extensions) {
+    if (!Array.isArray(extensions)) {
+        throw new TypeError(
+            "Project source extensions must be provided as an array of strings."
+        );
+    }
+
+    const normalized = new Set(DEFAULT_PROJECT_SOURCE_EXTENSIONS);
+
+    for (const extension of extensions) {
+        if (typeof extension !== "string") {
+            throw new TypeError(
+                "Project source extensions must be strings (for example '.gml')."
+            );
+        }
+
+        const trimmed = extension.trim();
+        if (trimmed.length === 0) {
+            throw new TypeError(
+                "Project source extensions cannot be empty strings."
+            );
+        }
+
+        const candidate = trimmed.startsWith(".") ? trimmed : `.${trimmed}`;
+        normalized.add(candidate.toLowerCase());
+    }
+
+    return Object.freeze([...normalized]);
+}
+
+function setProjectIndexSourceExtensions(extensions) {
+    projectSourceExtensions = normalizeProjectSourceExtensions(extensions);
+    return projectSourceExtensions;
+}
+
 const ProjectFileCategory = Object.freeze({
     RESOURCE_METADATA: "yy",
     SOURCE: "gml"
@@ -140,6 +159,16 @@ const PROJECT_FILE_CATEGORY_CHOICES = Object.freeze(
     [...PROJECT_FILE_CATEGORIES].sort().join(", ")
 );
 
+/**
+ * Validate and normalize the category used when registering project files.
+ * Ensures downstream collectors receive only the canonical string literals the
+ * index understands, preserving stable cache keys and metrics labeling.
+ *
+ * @param {unknown} value Candidate category provided by a caller.
+ * @returns {"gml" | "yy"} Canonical project file category string.
+ * @throws {RangeError} When {@link value} is not one of the supported
+ *         categories.
+ */
 export function normalizeProjectFileCategory(value) {
     if (PROJECT_FILE_CATEGORIES.has(value)) {
         return value;
@@ -156,7 +185,8 @@ export function resolveProjectFileCategory(relativePosix) {
     if (lowerPath.endsWith(".yy") || isProjectManifestPath(relativePosix)) {
         return ProjectFileCategory.RESOURCE_METADATA;
     }
-    if (lowerPath.endsWith(".gml")) {
+    const sourceExtensions = getProjectIndexSourceExtensions();
+    if (sourceExtensions.some((extension) => lowerPath.endsWith(extension))) {
         return ProjectFileCategory.SOURCE;
     }
     return null;
@@ -2353,5 +2383,10 @@ export async function buildProjectIndex(
 export { defaultFsFacade } from "./fs-facade.js";
 
 export { ProjectFileCategory };
+export {
+    getProjectIndexSourceExtensions,
+    resetProjectIndexSourceExtensions,
+    setProjectIndexSourceExtensions
+};
 export { __loadBuiltInIdentifiersForTests } from "./built-in-identifiers.js";
 export { getProjectIndexParserOverride } from "./parser-override.js";

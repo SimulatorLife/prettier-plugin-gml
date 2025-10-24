@@ -36,7 +36,11 @@ import {
     isNonEmptyTrimmedString,
     toTrimmedString
 } from "../../../shared/string-utils.js";
-import { isNonEmptyArray } from "../../../shared/array-utils.js";
+import {
+    isNonEmptyArray,
+    toMutableArray
+} from "../../../shared/array-utils.js";
+import { ensureSet } from "../../../shared/utils/capability-probes.js";
 import {
     getNodeStartIndex,
     getNodeEndIndex,
@@ -62,6 +66,10 @@ import {
     LogicalOperatorsStyle,
     normalizeLogicalOperatorsStyle
 } from "../options/logical-operators-style.js";
+import {
+    ObjectWrapOption,
+    resolveObjectWrapOption
+} from "../options/object-wrap-option.js";
 
 const {
     breakParent,
@@ -84,17 +92,6 @@ const FEATHER_COMMENT_OUT_SYMBOL = Symbol.for(
 const FEATHER_COMMENT_TEXT_SYMBOL = Symbol.for(
     "prettier.gml.feather.commentText"
 );
-
-const ObjectWrapOption = Object.freeze({
-    PRESERVE: "preserve",
-    COLLAPSE: "collapse"
-});
-
-function resolveObjectWrapOption(options) {
-    return options?.objectWrap === ObjectWrapOption.COLLAPSE
-        ? ObjectWrapOption.COLLAPSE
-        : ObjectWrapOption.PRESERVE;
-}
 
 const preservedUndefinedDefaultParameters = new WeakSet();
 const ARGUMENT_IDENTIFIER_PATTERN = /^argument(\d+)$/;
@@ -979,9 +976,11 @@ export function print(path, options, print) {
                 }
             }
 
+            const calleeDoc = print("object");
+
             return isInLValueChain(path)
-                ? concat([print("object"), ...printedArgs])
-                : group([indent(print("object")), ...printedArgs]);
+                ? concat([calleeDoc, ...printedArgs])
+                : group([calleeDoc, ...printedArgs]);
         }
         case "MemberDotExpression": {
             if (
@@ -1011,9 +1010,11 @@ export function print(path, options, print) {
                 //     ".",
                 //     print("property")
                 // ];
-                let property = print("property");
-                if (property === undefined) {
-                    property = printCommaSeparatedList(
+                const objectDoc = print("object");
+                let propertyDoc = print("property");
+
+                if (propertyDoc === undefined) {
+                    propertyDoc = printCommaSeparatedList(
                         path,
                         print,
                         "property",
@@ -1022,7 +1023,8 @@ export function print(path, options, print) {
                         options
                     );
                 }
-                return concat([print("object"), ".", group(indent(property))]);
+
+                return concat([objectDoc, ".", propertyDoc]);
                 // return [
                 //     print("object"),
                 //     ".",
@@ -1874,11 +1876,15 @@ function shouldForceBreakStructArgument(argument) {
         ? argument.properties
         : [];
 
-    if (properties.length <= 1) {
-        return properties.some((property) => hasComment(property));
+    if (properties.length === 0) {
+        return false;
     }
 
-    return true;
+    if (properties.some((property) => hasComment(property))) {
+        return true;
+    }
+
+    return properties.length > 2;
 }
 
 function getStructAlignmentInfo(structNode, options) {
@@ -2004,10 +2010,9 @@ function printStatements(path, options, print, childrenAttribute) {
     const syntheticDocByNode = new Map();
     if (statements) {
         for (const statement of statements) {
-            const docComment = getSyntheticDocCommentForStaticVariable(
-                statement,
-                options
-            );
+            const docComment =
+                getSyntheticDocCommentForStaticVariable(statement, options) ??
+                getSyntheticDocCommentForFunctionAssignment(statement, options);
             if (docComment) {
                 syntheticDocByNode.set(statement, docComment);
             }
@@ -2108,7 +2113,8 @@ function printStatements(path, options, print, childrenAttribute) {
             index === 0 && childPath.parent?.type !== "Program";
 
         const suppressFollowingEmptyLine =
-            node?._featherSuppressFollowingEmptyLine === true;
+            node?._featherSuppressFollowingEmptyLine === true ||
+            node?._gmlSuppressFollowingEmptyLine === true;
 
         if (
             isFirstStatementInBlock &&
@@ -2266,6 +2272,21 @@ function printStatements(path, options, print, childrenAttribute) {
                     : nodeEndIndex + 1;
             const enforceTrailingPadding =
                 shouldAddNewlinesAroundStatement(node);
+            const blockParent =
+                typeof childPath.getParentNode === "function"
+                    ? childPath.getParentNode()
+                    : childPath.parent;
+            const constructorAncestor =
+                typeof childPath.getParentNode === "function"
+                    ? childPath.getParentNode(1)
+                    : (blockParent?.parent ?? null);
+            const isConstructorBlock =
+                blockParent?.type === "BlockStatement" &&
+                constructorAncestor?.type === "ConstructorDeclaration";
+            const shouldPreserveConstructorStaticPadding =
+                isStaticDeclaration &&
+                hasFunctionInitializer &&
+                isConstructorBlock;
             let shouldPreserveTrailingBlankLine = false;
             let hasExplicitTrailingBlankLine = false;
 
@@ -2284,6 +2305,11 @@ function printStatements(path, options, print, childrenAttribute) {
                 if (enforceTrailingPadding) {
                     shouldPreserveTrailingBlankLine =
                         hasExplicitTrailingBlankLine;
+                } else if (
+                    shouldPreserveConstructorStaticPadding &&
+                    hasExplicitTrailingBlankLine
+                ) {
+                    shouldPreserveTrailingBlankLine = true;
                 } else if (hasExplicitTrailingBlankLine && originalText) {
                     const textLength = originalText.length;
                     let scanIndex = trailingProbeIndex;
@@ -2696,28 +2722,15 @@ function getNodeEndIndexForAlignment(node, locEnd) {
     return Number.isInteger(startIndex) ? startIndex : null;
 }
 
-function getSyntheticDocCommentForStaticVariable(node, options) {
-    if (
-        !node ||
-        node.type !== "VariableDeclaration" ||
-        node.kind !== "static"
-    ) {
-        return null;
-    }
-
-    const declarator = getSingleVariableDeclarator(node);
-    if (!declarator || declarator.id?.type !== "Identifier") {
-        return null;
-    }
-
-    if (declarator.init?.type !== "FunctionDeclaration") {
-        return null;
-    }
-
-    const hasFunctionDoc =
-        declarator.init.docComments && declarator.init.docComments.length > 0;
-
+function collectSyntheticDocCommentLines(node, options) {
     const rawComments = getCommentArray(node);
+    if (!Array.isArray(rawComments) || rawComments.length === 0) {
+        return {
+            existingDocLines: [],
+            remainingComments: Array.isArray(rawComments) ? rawComments : []
+        };
+    }
+
     const lineCommentOptions = resolveLineCommentOptions(options);
     const existingDocLines = [];
     const remainingComments = [];
@@ -2741,6 +2754,103 @@ function getSyntheticDocCommentForStaticVariable(node, options) {
         existingDocLines.push(formatted);
     }
 
+    return { existingDocLines, remainingComments };
+}
+
+function buildSyntheticDocComment(
+    functionNode,
+    existingDocLines,
+    options,
+    overrides = {}
+) {
+    const hasExistingDocLines = existingDocLines.length > 0;
+
+    const syntheticLines = hasExistingDocLines
+        ? mergeSyntheticDocComments(
+              functionNode,
+              existingDocLines,
+              options,
+              overrides
+          )
+        : reorderDescriptionLinesAfterFunction(
+              computeSyntheticFunctionDocLines(
+                  functionNode,
+                  [],
+                  options,
+                  overrides
+              )
+          );
+
+    if (syntheticLines.length === 0) {
+        return null;
+    }
+
+    return {
+        doc: concat([hardline, join(hardline, syntheticLines)]),
+        hasExistingDocLines
+    };
+}
+
+function suppressConstructorAssignmentPadding(functionNode) {
+    if (
+        !functionNode ||
+        functionNode.type !== "ConstructorDeclaration" ||
+        functionNode.body?.type !== "BlockStatement" ||
+        !Array.isArray(functionNode.body.body)
+    ) {
+        return;
+    }
+
+    for (const statement of functionNode.body.body) {
+        if (!statement) {
+            continue;
+        }
+
+        if (hasComment(statement)) {
+            break;
+        }
+
+        if (statement.type === "AssignmentExpression") {
+            statement._gmlSuppressFollowingEmptyLine = true;
+            continue;
+        }
+
+        if (
+            statement.type === "VariableDeclaration" &&
+            statement.kind !== "static"
+        ) {
+            statement._gmlSuppressFollowingEmptyLine = true;
+            continue;
+        }
+
+        break;
+    }
+}
+
+function getSyntheticDocCommentForStaticVariable(node, options) {
+    if (
+        !node ||
+        node.type !== "VariableDeclaration" ||
+        node.kind !== "static"
+    ) {
+        return null;
+    }
+
+    const declarator = getSingleVariableDeclarator(node);
+    if (!declarator || declarator.id?.type !== "Identifier") {
+        return null;
+    }
+
+    if (declarator.init?.type !== "FunctionDeclaration") {
+        return null;
+    }
+
+    const hasFunctionDoc =
+        declarator.init.docComments && declarator.init.docComments.length > 0;
+
+    const { existingDocLines, remainingComments } =
+        collectSyntheticDocCommentLines(node, options);
+
     if (existingDocLines.length > 0) {
         node.comments = remainingComments;
     }
@@ -2755,32 +2865,76 @@ function getSyntheticDocCommentForStaticVariable(node, options) {
     if (node._overridesStaticFunction === true) {
         syntheticOverrides.includeOverrideTag = true;
     }
-    const hasExistingDocLines = existingDocLines.length > 0;
 
-    const syntheticLines = hasExistingDocLines
-        ? mergeSyntheticDocComments(
-              functionNode,
-              existingDocLines,
-              options,
-              syntheticOverrides
-          )
-        : reorderDescriptionLinesAfterFunction(
-              computeSyntheticFunctionDocLines(
-                  functionNode,
-                  [],
-                  options,
-                  syntheticOverrides
-              )
-          );
+    return buildSyntheticDocComment(
+        functionNode,
+        existingDocLines,
+        options,
+        syntheticOverrides
+    );
+}
 
-    if (syntheticLines.length === 0) {
+function getSyntheticDocCommentForFunctionAssignment(node, options) {
+    if (!node) {
         return null;
     }
 
-    return {
-        doc: concat([hardline, join(hardline, syntheticLines)]),
-        hasExistingDocLines
-    };
+    let assignment = null;
+    let commentTarget = node;
+
+    if (node.type === "ExpressionStatement") {
+        assignment = node.expression;
+    } else if (node.type === "AssignmentExpression") {
+        assignment = node;
+    } else {
+        return null;
+    }
+
+    if (
+        !assignment ||
+        assignment.type !== "AssignmentExpression" ||
+        assignment.operator !== "=" ||
+        assignment.left?.type !== "Identifier" ||
+        typeof assignment.left.name !== "string"
+    ) {
+        return null;
+    }
+
+    const functionNode = assignment.right;
+    if (
+        !functionNode ||
+        (functionNode.type !== "FunctionDeclaration" &&
+            functionNode.type !== "FunctionExpression" &&
+            functionNode.type !== "ConstructorDeclaration")
+    ) {
+        return null;
+    }
+
+    suppressConstructorAssignmentPadding(functionNode);
+
+    const hasFunctionDoc =
+        Array.isArray(functionNode.docComments) &&
+        functionNode.docComments.length > 0;
+
+    const { existingDocLines, remainingComments } =
+        collectSyntheticDocCommentLines(commentTarget, options);
+
+    if (existingDocLines.length > 0) {
+        commentTarget.comments = remainingComments;
+    }
+
+    if (hasFunctionDoc && existingDocLines.length === 0) {
+        return null;
+    }
+
+    const syntheticOverrides = { nameOverride: assignment.left.name };
+
+    return buildSyntheticDocComment(
+        functionNode,
+        existingDocLines,
+        options,
+        syntheticOverrides
+    );
 }
 
 function isSkippableSemicolonWhitespace(charCode) {
@@ -2893,12 +3047,14 @@ function hasCommentImmediatelyBefore(text, index) {
 }
 
 function reorderDescriptionLinesAfterFunction(docLines) {
-    if (!Array.isArray(docLines) || docLines.length === 0) {
-        return Array.isArray(docLines) ? docLines : [];
+    const normalizedDocLines = toMutableArray(docLines);
+
+    if (normalizedDocLines.length === 0) {
+        return normalizedDocLines;
     }
 
     const descriptionIndices = [];
-    for (const [index, line] of docLines.entries()) {
+    for (const [index, line] of normalizedDocLines.entries()) {
         if (
             typeof line === "string" &&
             /^\/\/\/\s*@description\b/i.test(line.trim())
@@ -2908,26 +3064,26 @@ function reorderDescriptionLinesAfterFunction(docLines) {
     }
 
     if (descriptionIndices.length === 0) {
-        return docLines;
+        return normalizedDocLines;
     }
 
-    const functionIndex = docLines.findIndex(
+    const functionIndex = normalizedDocLines.findIndex(
         (line) =>
             typeof line === "string" &&
             /^\/\/\/\s*@function\b/i.test(line.trim())
     );
 
     if (functionIndex === -1) {
-        return docLines;
+        return normalizedDocLines;
     }
 
     const earliestDescriptionIndex = Math.min(...descriptionIndices);
     if (earliestDescriptionIndex > functionIndex) {
-        return docLines;
+        return normalizedDocLines;
     }
 
     const descriptionLines = descriptionIndices
-        .map((index) => docLines[index])
+        .map((index) => normalizedDocLines[index])
         .filter((line) => {
             const metadata = parseDocCommentMetadata(line);
             const descriptionText =
@@ -2937,12 +3093,12 @@ function reorderDescriptionLinesAfterFunction(docLines) {
         });
 
     if (descriptionLines.length === 0) {
-        return docLines.filter(
+        return normalizedDocLines.filter(
             (_, index) => !descriptionIndices.includes(index)
         );
     }
 
-    const remainingLines = docLines.filter(
+    const remainingLines = normalizedDocLines.filter(
         (_, index) => !descriptionIndices.includes(index)
     );
 
@@ -2992,7 +3148,7 @@ function mergeSyntheticDocComments(
     overrides = {}
 ) {
     const normalizedExistingLines = reorderDescriptionLinesAfterFunction(
-        Array.isArray(existingDocLines) ? existingDocLines : []
+        toMutableArray(existingDocLines)
     );
 
     const syntheticLines = reorderDescriptionLinesAfterFunction(
@@ -4059,7 +4215,7 @@ function findFunctionParameterContext(path) {
             parent.type === "FunctionDeclaration" ||
             parent.type === "ConstructorDeclaration"
         ) {
-            const params = Array.isArray(parent.params) ? parent.params : [];
+            const params = toMutableArray(parent.params);
             const index = params.indexOf(candidate);
             if (index !== -1) {
                 return { functionNode: parent, paramIndex: index };
@@ -5572,7 +5728,7 @@ function updateCallExpressionNameAndArgs(node, newName, newArgs) {
         node.object.name = newName;
     }
 
-    node.arguments = Array.isArray(newArgs) ? [...newArgs] : [];
+    node.arguments = toMutableArray(newArgs, { clone: true });
 }
 
 function negateExpressionDoc(expressionDoc, expressionNode) {
@@ -5935,7 +6091,16 @@ function shouldOmitSyntheticParens(path) {
             typeof path.getName === "function" ? path.getName() : undefined;
         if (parentKey === "test") {
             const expression = node.expression;
-            // Remove parens around simple expressions that don't need them
+            // Trim redundant parentheses when the ternary guard is just a bare
+            // identifier or property lookup. The parser faithfully records the
+            // author-supplied parens as a `ParenthesizedExpression`, so without
+            // this branch the printer would emit `(foo) ?` style guards that look
+            // like extra precedence handling. The formatter's ternary examples in
+            // README.md#formatter-at-a-glance promise minimal grouping, and
+            // teams lean on that contract when reviewing formatter diffs. We keep
+            // the removal scoped to trivially safe shapes so we do not second-
+            // guess parentheses that communicate evaluation order for compound
+            // boolean logic or arithmetic.
             if (
                 expression?.type === "Identifier" ||
                 expression?.type === "MemberDotExpression" ||
@@ -6263,21 +6428,13 @@ function getSanitizedMacroNames(path) {
                 return null;
             }
 
-            if (names instanceof Set) {
-                return names.size > 0 ? names : null;
-            }
+            const registry = ensureSet(names);
 
-            if (Array.isArray(names)) {
-                if (names.length === 0) {
-                    return null;
-                }
-
-                const registry = new Set(names);
+            if (registry !== names) {
                 ancestor._featherSanitizedMacroNames = registry;
-                return registry;
             }
 
-            return null;
+            return registry.size > 0 ? registry : null;
         }
 
         depth += 1;
@@ -6915,7 +7072,12 @@ function hasLineBreak(text) {
 }
 
 function isInLValueChain(path) {
-    const { node, parent } = path ?? {};
+    if (!path || typeof path.getParentNode !== "function") {
+        return false;
+    }
+
+    const node = path.getValue();
+    const parent = path.getParentNode();
 
     if (!parent || typeof parent.type !== "string") {
         return false;
@@ -6927,6 +7089,16 @@ function isInLValueChain(path) {
         parent.arguments.includes(node)
     ) {
         return false;
+    }
+
+    if (parent.type === "CallExpression" && parent.object === node) {
+        const grandparent = path.getParentNode(1);
+
+        if (!grandparent || typeof grandparent.type !== "string") {
+            return false;
+        }
+
+        return isLValueExpression(grandparent.type);
     }
 
     return isLValueExpression(parent.type);

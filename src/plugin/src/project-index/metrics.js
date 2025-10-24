@@ -37,19 +37,25 @@ function createMetricsSnapshot(extra = {}) {
 
 const noop = () => {};
 
-function startNoopTimer() {
-    return function stopNoopTimer() {};
-}
-
-async function runAsyncCallback(_label, callback) {
-    return await callback();
-}
-
-function runSyncCallback(_label, callback) {
-    return callback();
-}
-
-const NOOP_METRIC_HANDLERS = Object.freeze({
+// The project-index builder, rename planner, and CLI performance harness all
+// assume that a metrics tracker exposes timing helpers returning cleanup
+// handles plus structured snapshot/finalize data (see
+// docs/project-index-cache-design.md#metrics-driven-tuning-and-operational-heuristics).
+// When hosts inject a custom tracker we happily delegate to it, but if they
+// supply something truthy that fails the capability probe we must degrade to a
+// "no-op" shim that preserves the public surface. Dropping the callbacks or
+// returning nullish sentinels would short-circuit the timing wrappers and break
+// code paths that expect to await the original callback, while omitting
+// `snapshot`/`finalize` would crash cache writers that persist the metrics
+// summary. Keeping these fallbacks wired like the real implementation protects
+// both the CLI (which logs metrics after each run) and long-lived integrations
+// that rely on the tracker contract remaining stable even when misconfigured.
+const NOOP_METRIC_METHODS = Object.freeze({
+    startTimer: () => () => {},
+    timeAsync: async (_label, callback) => await callback(),
+    timeSync: (_label, callback) => callback(),
+    snapshot: createMetricsSnapshot,
+    finalize: createMetricsSnapshot,
     incrementCounter: noop,
     setMetadata: noop,
     recordCacheHit: noop,
@@ -58,17 +64,10 @@ const NOOP_METRIC_HANDLERS = Object.freeze({
     logSummary: noop
 });
 
-const finalizeSnapshot = createMetricsSnapshot;
-
 function createNoopProjectIndexMetrics() {
     return {
         category: PROJECT_INDEX_METRICS_CATEGORY,
-        startTimer: startNoopTimer,
-        timeAsync: runAsyncCallback,
-        timeSync: runSyncCallback,
-        snapshot: createMetricsSnapshot,
-        finalize: finalizeSnapshot,
-        ...NOOP_METRIC_HANDLERS
+        ...NOOP_METRIC_METHODS
     };
 }
 

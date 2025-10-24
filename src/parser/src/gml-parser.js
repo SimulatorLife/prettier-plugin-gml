@@ -248,14 +248,17 @@ export default class GMLParser {
         try {
             tree = parser.program();
         } catch (error) {
-            if (error) {
-                if (isErrorLike(error)) {
-                    throw error;
-                }
-
-                throw new Error(String(error));
+            if (!error) {
+                throw new Error(
+                    "Unknown syntax error while parsing GML source."
+                );
             }
-            throw new Error("Unknown syntax error while parsing GML source.");
+
+            if (isErrorLike(error)) {
+                throw error;
+            }
+
+            throw new Error(String(error));
         }
 
         if (this.options.getComments) {
