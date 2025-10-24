@@ -162,24 +162,17 @@ export function createFileScopeDescriptor(relativePath) {
 
 function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
     const { displayName } = resolveEventMetadata(event);
-    const candidatePaths = [];
-    if (typeof event.eventContents === "string") {
-        candidatePaths.push(event.eventContents);
-    }
-    if (typeof event.event === "string") {
-        candidatePaths.push(event.event);
-    }
-    if (event.event && typeof event.event.path === "string") {
-        candidatePaths.push(event.event.path);
-    }
-    if (event.eventId && typeof event.eventId.path === "string") {
-        candidatePaths.push(event.eventId.path);
-    }
-    if (event.code && typeof event.code === "string") {
-        candidatePaths.push(event.code);
-    }
+    for (const candidate of [
+        event?.eventContents,
+        event?.event,
+        event?.event?.path,
+        event?.eventId?.path,
+        event?.code
+    ]) {
+        if (typeof candidate !== "string") {
+            continue;
+        }
 
-    for (const candidate of candidatePaths) {
         const normalized = normalizeProjectResourcePath(candidate);
         if (normalized) {
             return normalized;
