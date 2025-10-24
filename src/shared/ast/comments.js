@@ -135,7 +135,8 @@ export function collectCommentNodes(root) {
             continue;
         }
 
-        for (const value of Object.values(current)) {
+        const values = Object.values(current);
+        for (const value of values) {
             enqueueObjectChildValues(stack, value);
         }
     }
