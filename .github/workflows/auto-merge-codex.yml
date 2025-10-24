@@ -76,6 +76,7 @@ jobs:
               owner,
               repo,
               pull_number,
+              # We use 'merge' instead of 'squash' or 'rebase' to preserve the full commit history and context of codex/copilot branches, which is important for traceability and debugging.
               merge_method: 'merge'
             });
             core.info(`Merged PR #${pull_number}.`);
