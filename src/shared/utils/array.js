@@ -143,7 +143,7 @@ export function isArrayIndex(container, index) {
  * This helper centralizes the "map and spread" pattern used throughout the
  * project index serialization logic so call sites stay focused on the
  * surrounding data shaping instead of re-implementing the cloning loop.
- * Non-object values are preserved as-is to mirror the behavior of
+ * Non-object values are preserved as-is to mirror the behaviour of
  * `Array#map` paired with object spreading while gracefully handling
  * unexpected primitives.
  *

@@ -121,7 +121,7 @@ export function withObjectLike(value, onObjectLike, onNotObjectLike) {
  *
  * Callers can optionally supply {@link onUndefined} which mirrors the fallback
  * semantics of {@link withObjectLike}, accepting either a thunk or a direct
- * value. When omitted the helper returns `undefined` to keep its behavior
+ * value. When omitted the helper returns `undefined` to keep its behaviour
  * aligned with existing conditional assignments in the codebase.
  *
  * @template TValue

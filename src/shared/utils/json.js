@@ -158,7 +158,7 @@ export function parseJsonWithContext(text, options = {}) {
 /**
  * Serialize a JSON payload for file output while normalizing trailing
  * newlines. Helpers across the CLI and plugin previously reimplemented this
- * behavior, often appending "\n" manually after JSON.stringify. Centralizing
+ * behaviour, often appending "\n" manually after JSON.stringify. Centralizing
  * the logic ensures all call sites respect the same newline semantics and keeps
  * indentation handling in one place.
  *
