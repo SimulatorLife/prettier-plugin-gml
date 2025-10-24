@@ -21,10 +21,7 @@ import {
     buildLocationKey,
     buildFileLocationKey
 } from "../../../shared/location-keys.js";
-import {
-    
-    resolveProjectIndexParser
-} from "./parser-override.js";
+import { resolveProjectIndexParser } from "./parser-override.js";
 import { clampConcurrency } from "./concurrency.js";
 import {
     PROJECT_MANIFEST_EXTENSION,
@@ -2357,4 +2354,4 @@ export { defaultFsFacade } from "./fs-facade.js";
 
 export { ProjectFileCategory };
 export { __loadBuiltInIdentifiersForTests } from "./built-in-identifiers.js";
-export {getProjectIndexParserOverride} from "./parser-override.js";
+export { getProjectIndexParserOverride } from "./parser-override.js";
