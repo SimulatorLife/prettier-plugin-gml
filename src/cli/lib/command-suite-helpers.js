@@ -1,10 +1,13 @@
 import process from "node:process";
 
 import { CliUsageError, createCliErrorDetails } from "./cli-errors.js";
-import { normalizeEnumeratedOption } from "./shared-deps.js";
-// Pull array helpers from the shared utils barrel so new call sites avoid the
-// legacy `array-utils` shim slated for removal.
-import { isNonEmptyArray, toMutableArray } from "./shared-deps.js";
+// Pull shared helpers from the barrel so new call sites avoid the legacy
+// `array-utils` shim slated for removal.
+import {
+    normalizeEnumeratedOption,
+    isNonEmptyArray,
+    toMutableArray
+} from "./shared-deps.js";
 
 export const SuiteOutputFormat = Object.freeze({
     JSON: "json",
@@ -181,6 +184,20 @@ function assertSuiteRegistryContract(availableSuites) {
     }
 }
 
+export function createSuiteResultsPayload(results, { generatedAt } = {}) {
+    return {
+        generatedAt: generatedAt ?? new Date().toISOString(),
+        environment: {
+            nodeVersion: process.version,
+            platform: process.platform,
+            arch: process.arch,
+            pid: process.pid,
+            cwd: process.cwd()
+        },
+        suites: results
+    };
+}
+
 /**
  * Emit suite results using the preferred output format.
  *
@@ -188,7 +205,11 @@ function assertSuiteRegistryContract(availableSuites) {
  * @param {{ format?: string, pretty?: boolean }} options
  * @returns {boolean} `true` when JSON output was emitted.
  */
-export function emitSuiteResults(results, { format, pretty } = {}) {
+export function emitSuiteResults(
+    results,
+    { format, pretty } = {},
+    extras = {}
+) {
     const normalizedFormat = resolveSuiteOutputFormatOrThrow(format, {
         fallback: SuiteOutputFormat.JSON,
         errorConstructor: RangeError,
@@ -200,10 +221,10 @@ export function emitSuiteResults(results, { format, pretty } = {}) {
         return false;
     }
 
-    const payload = {
-        generatedAt: new Date().toISOString(),
-        suites: results
-    };
+    const payload =
+        extras && typeof extras === "object" && extras.payload
+            ? extras.payload
+            : createSuiteResultsPayload(results);
     const spacing = pretty ? 2 : 0;
     process.stdout.write(`${JSON.stringify(payload, null, spacing)}\n`);
     return true;

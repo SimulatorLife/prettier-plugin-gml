@@ -28,6 +28,20 @@ import { isCommanderErrorLike } from "./commander-error-utils.js";
  * @typedef {object} CliCommandRunner
  * @property {(argv: Array<string>) => Promise<void>} run
  */
+
+function isCommanderCommandInstance(value) {
+    return (
+        value &&
+        typeof value === "object" &&
+        typeof value.helpInformation === "function"
+    );
+}
+
+function resolveContextCommandFromActionArgs(actionArgs, fallbackCommand) {
+    const candidate = actionArgs.at(-1);
+    return isCommanderCommandInstance(candidate) ? candidate : fallbackCommand;
+}
+
 class CliCommandManager {
     /**
      * @param {{
@@ -131,25 +145,32 @@ class CliCommandManager {
         }
 
         if (entry.run) {
-            command.action(async (...actionArgs) => {
-                const invokedCommand = actionArgs.at(-1);
-                const contextCommand =
-                    invokedCommand &&
-                    typeof invokedCommand.helpInformation === "function"
-                        ? invokedCommand
-                        : command;
-                try {
-                    const result = await entry.run({ command: contextCommand });
-                    if (typeof result === "number") {
-                        process.exitCode = result;
-                    }
-                } catch (error) {
-                    this._handleCommandError(error, contextCommand);
-                }
-            });
+            command.action(this._createCommandAction(entry, command));
         }
 
         return entry;
+    }
+
+    _createCommandAction(entry, defaultCommand) {
+        return async (...actionArgs) => {
+            const contextCommand = resolveContextCommandFromActionArgs(
+                actionArgs,
+                defaultCommand
+            );
+
+            try {
+                const result = await entry.run({ command: contextCommand });
+                this._applyCommandResult(result);
+            } catch (error) {
+                this._handleCommandError(error, contextCommand);
+            }
+        };
+    }
+
+    _applyCommandResult(result) {
+        if (typeof result === "number") {
+            process.exitCode = result;
+        }
     }
 
     _handleCommanderError(error) {

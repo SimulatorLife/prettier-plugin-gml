@@ -16,7 +16,7 @@ jobs:
     secrets: inherit
     with:
       pr_title: "Codex: Project Organization Sweep"
-      pr_body: "Seed PR for Codex to relocate one function, module, or asset to a more coherent home and tidy references."
+      pr_body: "Seed PR for Codex to relocate one function, module, or asset to a more coherent home and tidy references while preserving inline documentation."
       prompt: >
         Perform a focused organization pass. Locate one function, module, or file/asset that
         currently lives in an ill-fitting directory or file (e.g., UI helper in core
@@ -30,7 +30,8 @@ jobs:
             test code, performance testing code, and plugin code separate.
           • When moving code, ensure barrel files/index exports remain consistent, update
             documentation and comments referencing the old location, and adjust tests or
-            fixtures.
+            fixtures. Preserve existing inline code comments and function docstrings so
+            context is not lost during the move.
           • Include a short summary in the commit message explaining the original location, the
             new location, and the rationale.
           • If no valid candidate is found, document why in the commit message and propose a
