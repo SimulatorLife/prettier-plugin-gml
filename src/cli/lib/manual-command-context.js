@@ -9,7 +9,7 @@ import {
     createManualGitHubRequestDispatcher,
     resolveManualCacheRoot
 } from "./manual/utils.js";
-import { assertNonEmptyString } from "./shared-deps.js";
+import { assertNonEmptyString, isNonEmptyString } from "./shared-deps.js";
 
 /** @typedef {import("./manual/utils.js").ManualGitHubRequestDispatcher} ManualGitHubRequestDispatcher */
 /** @typedef {import("./manual/utils.js").ManualGitHubCommitResolver} ManualGitHubCommitResolver */
@@ -29,7 +29,7 @@ function assertUserAgent(value) {
 }
 
 function resolveOutputPath(repoRoot, fileName) {
-    if (typeof fileName !== "string" || fileName.length === 0) {
+    if (!isNonEmptyString(fileName)) {
         return null;
     }
 

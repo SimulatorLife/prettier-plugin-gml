@@ -1,6 +1,7 @@
 import {
     hasOwn,
     isNonEmptyArray,
+    isNonEmptyString,
     isNonEmptyTrimmedString,
     isWordChar
 } from "./shared/utils.js";
@@ -124,7 +125,7 @@ function adjustLocationProperty(node, propertyName, mapIndex) {
  *     to map parser indices to the original string.
  */
 export function sanitizeConditionalAssignments(sourceText) {
-    if (typeof sourceText !== "string" || sourceText.length === 0) {
+    if (!isNonEmptyString(sourceText)) {
         return {
             sourceText,
             indexAdjustments: null

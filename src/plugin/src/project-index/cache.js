@@ -40,7 +40,27 @@ const projectIndexCacheSizeConfig = createEnvConfiguredValue({
     envVar: PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR,
     normalize: (value, { defaultValue }) => {
         const normalized = normalizeMaxSizeBytes(value);
-        return normalized ?? defaultValue;
+        if (normalized !== null) {
+            return normalized;
+        }
+
+        if (value === 0) {
+            return 0;
+        }
+
+        if (typeof value === "string") {
+            const trimmed = value.trim();
+
+            if (trimmed !== "") {
+                const numeric = Number(trimmed);
+
+                if (Number.isFinite(numeric) && numeric === 0) {
+                    return 0;
+                }
+            }
+        }
+
+        return defaultValue;
     }
 });
 
