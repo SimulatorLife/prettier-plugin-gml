@@ -343,6 +343,36 @@ test("summarizeReports aggregates test, lint, and coverage artifacts", () => {
     );
 });
 
+test("summarizeReports captures aggregate suite totals when no test cases exist", () => {
+    const root = path.join(workspace, "junit-aggregate");
+    const inputDir = path.join(root, "reports");
+
+    writeXml(
+        inputDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="summary" tests="4" failures="1" skipped="2" errors="0" time="3.25" />
+    </testsuites>`
+    );
+
+    const { summary } = summarizeReports({
+        inputDir,
+        outputDir: root,
+        target: "aggregate"
+    });
+
+    assert.strictEqual(summary.tests.total, 4);
+    assert.strictEqual(summary.tests.failed, 1);
+    assert.strictEqual(summary.tests.skipped, 2);
+    assert.strictEqual(summary.tests.passed, 1);
+    assert.strictEqual(summary.tests.duration, 3.25);
+    assert.strictEqual(summary.tests.notes.length, 1);
+    assert.match(
+        summary.tests.notes[0],
+        /Using aggregate suite counts from .*suite\.xml because no individual test cases were found\./
+    );
+});
+
 test("compareSummaryReports highlights regressions across summaries", () => {
     const baseRoot = path.join(workspace, "junit-base");
     const headRoot = path.join(workspace, "junit-head");
