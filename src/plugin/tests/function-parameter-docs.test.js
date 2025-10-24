@@ -134,6 +134,14 @@ function create_fx(sprite) {
     return sprite;
 }`;
 
+const SOURCE_WITH_DOC_COMMENT_ALIAS = `/// @function sample
+/// @param alias
+function sample() {
+    var alias = argument0;
+    var other = argument0;
+    return alias + other;
+}`;
+
 test("preserves parameter order when doc comments are misordered", async () => {
     const formatted = await prettier.format(SOURCE_WITH_NAMED_PARAMS, {
         parser: "gml-parse",
@@ -189,5 +197,24 @@ test("normalizes doc comments that reference renamed parameters", async () => {
     assert.ok(
         !formatted.includes("sprite_index"),
         "Expected stale doc comment names to be replaced."
+    );
+});
+
+test("retains alias declarations when functions lack parameters", async () => {
+    const formatted = await prettier.format(SOURCE_WITH_DOC_COMMENT_ALIAS, {
+        parser: "gml-parse",
+        plugins: [pluginPath],
+        applyFeatherFixes: true
+    });
+
+    assert.match(
+        formatted,
+        /var alias = argument0;/,
+        "Expected the alias declaration to remain for parameterless functions."
+    );
+    assert.match(
+        formatted,
+        /var other = alias;/,
+        "Expected subsequent references to use the documented alias."
     );
 });

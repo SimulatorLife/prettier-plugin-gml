@@ -1268,14 +1268,26 @@ export function print(path, options, print) {
                 getArgumentIndexFromIdentifier(identifierName);
             if (argumentIndex !== null) {
                 const functionNode = findEnclosingFunctionDeclaration(path);
-                const preferredArgumentName = resolvePreferredParameterName(
-                    functionNode,
-                    argumentIndex,
-                    node.name,
-                    options
-                );
-                if (isNonEmptyString(preferredArgumentName)) {
-                    identifierName = preferredArgumentName;
+                const parentNode =
+                    typeof path?.getParentNode === "function"
+                        ? path.getParentNode()
+                        : null;
+                const isAliasInitializerForParameterlessFunction =
+                    parentNode?.type === "VariableDeclarator" &&
+                    parentNode.init === node &&
+                    (!Array.isArray(functionNode?.params) ||
+                        functionNode.params.length === 0);
+
+                if (!isAliasInitializerForParameterlessFunction) {
+                    const preferredArgumentName = resolvePreferredParameterName(
+                        functionNode,
+                        argumentIndex,
+                        node.name,
+                        options
+                    );
+                    if (isNonEmptyString(preferredArgumentName)) {
+                        identifierName = preferredArgumentName;
+                    }
                 }
             }
 
@@ -3904,6 +3916,18 @@ function getPreferredFunctionParameterName(path, node, options) {
         return null;
     }
 
+    const parentNode =
+        typeof path?.getParentNode === "function" ? path.getParentNode() : null;
+    const isAliasInitializerForParameterlessFunction =
+        parentNode?.type === "VariableDeclarator" &&
+        parentNode.init === node &&
+        (!Array.isArray(functionNode?.params) ||
+            functionNode.params.length === 0);
+
+    if (isAliasInitializerForParameterlessFunction) {
+        return null;
+    }
+
     const preferredName = resolvePreferredParameterName(
         functionNode,
         argumentIndex,
@@ -3936,6 +3960,41 @@ function getPreferredFunctionParameterName(path, node, options) {
         isValidIdentifierName(normalizedIdentifier)
     ) {
         return normalizedIdentifier;
+    }
+
+    return null;
+}
+
+function findFunctionParameterContext(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return null;
+    }
+
+    let candidate = path.getValue();
+    for (let depth = 0; ; depth += 1) {
+        const parent =
+            depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        if (!parent) {
+            break;
+        }
+
+        if (parent.type === "DefaultParameter") {
+            candidate = parent;
+            continue;
+        }
+
+        if (
+            parent.type === "FunctionDeclaration" ||
+            parent.type === "ConstructorDeclaration"
+        ) {
+            const params = Array.isArray(parent.params) ? parent.params : [];
+            const index = params.indexOf(candidate);
+            if (index !== -1) {
+                return { functionNode: parent, paramIndex: index };
+            }
+        }
+
+        candidate = parent;
     }
 
     return null;
@@ -4052,42 +4111,6 @@ function isFunctionLikeNode(node) {
         node.type === "ConstructorDeclaration"
     );
 }
-
-function findFunctionParameterContext(path) {
-    if (!path || typeof path.getParentNode !== "function") {
-        return null;
-    }
-
-    let candidate = path.getValue();
-    for (let depth = 0; ; depth += 1) {
-        const parent =
-            depth === 0 ? path.getParentNode() : path.getParentNode(depth);
-        if (!parent) {
-            break;
-        }
-
-        if (parent.type === "DefaultParameter") {
-            candidate = parent;
-            continue;
-        }
-
-        if (
-            parent.type === "FunctionDeclaration" ||
-            parent.type === "ConstructorDeclaration"
-        ) {
-            const params = Array.isArray(parent.params) ? parent.params : [];
-            const index = params.indexOf(candidate);
-            if (index !== -1) {
-                return { functionNode: parent, paramIndex: index };
-            }
-        }
-
-        candidate = parent;
-    }
-
-    return null;
-}
-
 function shouldOmitParameterAlias(declarator, functionNode, options) {
     if (
         !declarator ||
