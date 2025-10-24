@@ -136,21 +136,18 @@ describe("manual GitHub client validation", () => {
             );
             abortHandlerRegistered = true;
 
-            return new Promise((resolve, reject) => {
+            return new Promise((_resolve, reject) => {
                 const onAbort = () => {
-                    clearTimeout(timeoutId);
                     signal.removeEventListener("abort", onAbort);
                     reject(signal.reason ?? new Error("aborted"));
                 };
-                const timeoutId = setTimeout(() => {
-                    signal.removeEventListener("abort", onAbort);
-                    resolve(makeResponse({ body: "late body" }));
-                }, 25);
 
                 signal.addEventListener("abort", onAbort, { once: true });
                 if (signal.aborted) {
                     onAbort();
                 }
+                // Keep the promise pending until the abort handler runs so the
+                // test does not rely on real timers or event loop jitter.
             });
         };
 

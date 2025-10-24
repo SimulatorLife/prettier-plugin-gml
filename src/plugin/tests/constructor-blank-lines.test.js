@@ -119,3 +119,29 @@ test("adds a blank line after nested function declarations when missing", async 
         "Expected nested function declarations to insert a blank line before the constructor closes."
     );
 });
+
+test("collapses blank lines between simple constructor assignments", async () => {
+    const source = [
+        "Demo = function() constructor {",
+        "    self.value = 1;",
+        "",
+        "    self.copied = self.value;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.trim().split("\n");
+    const assignmentIndex = lines.indexOf("    self.value = 1;");
+
+    assert.notStrictEqual(
+        assignmentIndex,
+        -1,
+        "Expected the constructor body to contain the first assignment statement."
+    );
+    assert.equal(
+        lines[assignmentIndex + 1],
+        "    self.copied = self.value;",
+        "Expected constructors to collapse author-inserted blank lines between simple assignments."
+    );
+});

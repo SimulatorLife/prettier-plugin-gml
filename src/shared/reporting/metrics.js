@@ -1,8 +1,5 @@
-import { toArrayFromIterable } from "../../../shared/array-utils.js";
-import {
-    getNonEmptyString,
-    normalizeStringList
-} from "../../../shared/string-utils.js";
+import { toArrayFromIterable } from "../array-utils.js";
+import { getNonEmptyString, normalizeStringList } from "../string-utils.js";
 
 const hasHrtime = typeof process?.hrtime?.bigint === "function";
 
@@ -27,10 +24,15 @@ const SUMMARY_SECTIONS = Object.freeze([
 ]);
 
 function normalizeCacheKeys(keys) {
-    const entries =
-        keys == null || typeof keys?.[Symbol.iterator] !== "function"
-            ? DEFAULT_CACHE_KEYS
-            : toArrayFromIterable(keys);
+    let entries = DEFAULT_CACHE_KEYS;
+
+    if (typeof keys === "string") {
+        entries = keys;
+    } else if (Array.isArray(keys)) {
+        entries = keys;
+    } else if (typeof keys?.[Symbol.iterator] === "function") {
+        entries = toArrayFromIterable(keys);
+    }
 
     const normalized = normalizeStringList(entries, { allowInvalidType: true });
 
@@ -141,13 +143,31 @@ function createSummaryLogger({ logger, category, snapshot }) {
     };
 }
 
-function createFinalizer({ autoLog, logger, category, snapshot }) {
+function createFinalizer({
+    autoLog,
+    logger,
+    category,
+    snapshot,
+    timings,
+    counters,
+    caches,
+    metadata,
+    state
+}) {
     const hasDebug = typeof logger?.debug === "function";
 
     return (extra = {}) => {
         const report = snapshot(extra);
-        if (autoLog && hasDebug) {
+        if (autoLog && hasDebug && !state.hasLoggedSummary) {
             logger.debug(`[${category}] summary`, report);
+            state.hasLoggedSummary = true;
+        }
+
+        timings.clear();
+        counters.clear();
+        caches.clear();
+        for (const key of Object.keys(metadata)) {
+            delete metadata[key];
         }
 
         return report;
@@ -213,6 +233,7 @@ export function createMetricsTracker({
     const caches = new Map();
     const metadata = Object.create(null);
     const cacheKeys = normalizeCacheKeys(cacheKeyOption);
+    const state = { hasLoggedSummary: false };
 
     const incrementTiming = createMapIncrementer(timings);
     const incrementCounterBy = createMapIncrementer(counters);
@@ -225,7 +246,17 @@ export function createMetricsTracker({
         metadata
     });
     const logSummary = createSummaryLogger({ logger, category, snapshot });
-    const finalize = createFinalizer({ autoLog, logger, category, snapshot });
+    const finalize = createFinalizer({
+        autoLog,
+        logger,
+        category,
+        snapshot,
+        timings,
+        counters,
+        caches,
+        metadata,
+        state
+    });
 
     function recordTiming(label, durationMs) {
         incrementTiming(label, Math.max(0, durationMs));

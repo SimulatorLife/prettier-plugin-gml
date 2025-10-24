@@ -5,7 +5,7 @@ import { Command } from "commander";
 import { CliUsageError } from "../core/errors.js";
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import {
-    getErrorMessage,
+    getErrorMessageOrFallback,
     normalizeIdentifierMetadataEntries,
     toNormalizedLowerCaseSet,
     toPosixPath
@@ -36,7 +36,7 @@ import {
     resolveManualCommandOptions
 } from "../features/manual/command-options.js";
 import { wrapInvalidArgumentResolver } from "../core/command-parsing.js";
-import { createManualAccessContext } from "../features/manual/context.js";
+import { createManualAccessContexts } from "../features/manual/context.js";
 import {
     decodeManualKeywordsPayload,
     decodeManualTagsPayload
@@ -48,9 +48,13 @@ const {
         defaultCacheRoot: DEFAULT_CACHE_ROOT,
         defaultOutputPath: OUTPUT_DEFAULT
     },
-    files: { fetchManualFile },
-    refs: { resolveManualRef }
-} = createManualAccessContext({
+    fileAccess: {
+        files: { fetchManualFile }
+    },
+    referenceAccess: {
+        refs: { resolveManualRef }
+    }
+} = createManualAccessContexts({
     importMetaUrl: import.meta.url,
     userAgent: "prettier-plugin-gml identifier generator",
     outputFileName: "gml-identifiers.json"
@@ -177,8 +181,7 @@ function parseArrayLiteral(source, identifier, { timeoutMs } = {}) {
     try {
         return vm.runInNewContext(literal, {}, vmOptions);
     } catch (error) {
-        const message =
-            getErrorMessage(error, { fallback: "" }) || "Unknown error";
+        const message = getErrorMessageOrFallback(error);
         throw new Error(
             `Failed to evaluate array literal for ${identifier}: ${message}`,
             { cause: error }

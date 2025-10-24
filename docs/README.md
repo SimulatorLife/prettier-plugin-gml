@@ -40,6 +40,15 @@ sheet, then return here when you need deeper context.
   lookup for environment variables and wrapper behaviour when scripting
   formatter runs in CI or editor tooling.
 
+## Extension hooks & overrides
+
+- [Object-wrap option resolver hook](object-wrap-option-resolver-hook.md) —
+  Register temporary overrides for struct wrapping heuristics while keeping the
+  default resolver easy to restore.
+- [Project index source extension hook](project-index-source-extensions-hook.md)
+  — Extend the recognised GML suffix list so the identifier-case bootstrap and
+  formatter refactors include generated or experimental file extensions.
+
 ## Architecture & planning
 
 - [Architecture audit (October 2025)](architecture-audit-2025-10-22.md) — Daily
@@ -76,3 +85,9 @@ sheet, then return here when you need deeper context.
   refresh them. Pair it with the reserved identifier coverage in the
   [Identifier Case & Naming Convention Guide](naming-conventions.md#5-reserved-identifier-dataset)
   when updating the scrapers or running metadata rebuilds through the CLI.
+
+## Performance & diagnostics
+
+- [Metrics tracker finalize memory experiment](metrics-tracker-finalize-memory.md)
+  — Documents the `node --expose-gc` benchmark that verifies tracker clean-up
+  reduces retained heap size once reports are materialised.

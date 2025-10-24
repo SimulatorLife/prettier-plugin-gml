@@ -1,4 +1,4 @@
-import { assignClonedLocation, cloneLocation } from "./shared/ast.js";
+import { assignClonedLocation } from "./shared/ast.js";
 import { isObjectLike, toArray } from "./shared/utils.js";
 import {
     ScopeOverrideKeyword,

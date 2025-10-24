@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import {
     assertArray,
     getErrorMessage,
+    getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
     hasOwn,
     isErrorWithCode,
@@ -501,8 +502,7 @@ function readXmlFile(filePath, displayPath) {
     try {
         return { status: "ok", contents: fs.readFileSync(filePath, "utf8") };
     } catch (error) {
-        const message =
-            getErrorMessage(error, { fallback: "" }) || "Unknown error";
+        const message = getErrorMessageOrFallback(error);
         return {
             status: "error",
             note: `Failed to read ${displayPath}: ${message}`
@@ -521,8 +521,7 @@ function parseXmlTestCases(xml, displayPath) {
         }
         return { status: "ok", cases: collectTestCases(data) };
     } catch (error) {
-        const message =
-            getErrorMessage(error, { fallback: "" }) || "Unknown error";
+        const message = getErrorMessageOrFallback(error);
         return {
             status: "error",
             note: `Failed to parse ${displayPath}: ${message}`

@@ -32,16 +32,16 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError, Option } from "commander";
 
 import {
-    coerceNonNegativeInteger,
     getErrorMessage,
+    getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
     isErrorWithCode,
     normalizeEnumeratedOption,
     normalizeStringList,
-    resolveIntegerOption,
+    resolveModuleDefaultExport,
     toArray,
+    mergeUniqueValues,
     toNormalizedLowerCaseSet,
-    toNormalizedLowerCaseString,
     uniqueArray,
     withObjectLike
 } from "../shared/utils.js";
@@ -187,7 +187,7 @@ let prettierModulePromise = null;
 async function resolvePrettier() {
     if (!prettierModulePromise) {
         prettierModulePromise = import(PRETTIER_MODULE_ID)
-            .then((module) => module?.default ?? module)
+            .then(resolveModuleDefaultExport)
             .catch((error) => {
                 if (isMissingPrettierDependency(error)) {
                     const instructions = [
@@ -856,27 +856,41 @@ async function handleFormattingError(error, filePath) {
     await revertFormattedFiles();
 }
 
+async function detectNegatedIgnoreRules(ignoreFilePath) {
+    try {
+        const contents = await readFile(ignoreFilePath, "utf8");
+
+        if (NEGATED_IGNORE_RULE_PATTERN.test(contents)) {
+            markIgnoreRuleNegationsDetected();
+        }
+    } catch {
+        // Ignore missing or unreadable files.
+    }
+}
+
+/**
+ * Register a single ignore file and capture negated rule metadata when needed.
+ *
+ * Centralizing the per-file bookkeeping keeps the bulk registration flow
+ * focused on coordinating the overall workflow.
+ */
+async function registerIgnoreFile(ignoreFilePath) {
+    if (!ignoreFilePath || hasRegisteredIgnorePath(ignoreFilePath)) {
+        return;
+    }
+
+    registerIgnorePath(ignoreFilePath);
+
+    if (hasIgnoreRuleNegations()) {
+        return;
+    }
+
+    await detectNegatedIgnoreRules(ignoreFilePath);
+}
+
 async function registerIgnorePaths(ignoreFiles) {
     for (const ignoreFilePath of ignoreFiles) {
-        if (!ignoreFilePath || hasRegisteredIgnorePath(ignoreFilePath)) {
-            continue;
-        }
-
-        registerIgnorePath(ignoreFilePath);
-
-        if (hasIgnoreRuleNegations()) {
-            continue;
-        }
-
-        try {
-            const contents = await readFile(ignoreFilePath, "utf8");
-
-            if (NEGATED_IGNORE_RULE_PATTERN.test(contents)) {
-                markIgnoreRuleNegationsDetected();
-            }
-        } catch {
-            // Ignore missing or unreadable files.
-        }
+        await registerIgnoreFile(ignoreFilePath);
     }
 }
 
@@ -925,8 +939,7 @@ async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
             return true;
         }
     } catch (error) {
-        const message =
-            getErrorMessage(error, { fallback: "" }) || "Unknown error";
+        const message = getErrorMessageOrFallback(error);
         console.warn(
             `Unable to evaluate ignore rules for ${directory}: ${message}`
         );
@@ -979,9 +992,7 @@ async function resolveTargetStats(target, { usage } = {}) {
     try {
         return await stat(target);
     } catch (error) {
-        const details =
-            getErrorMessage(error, { fallback: "Unknown error" }) ||
-            "Unknown error";
+        const details = getErrorMessageOrFallback(error);
         const formattedTarget = formatPathForDisplay(target);
         const guidance = (() => {
             if (isErrorWithCode(error, "ENOENT")) {
@@ -1022,12 +1033,11 @@ async function resolveDirectoryIgnoreContext(directory, inheritedIgnorePaths) {
         if (ignoreStats.isFile()) {
             shouldRegisterLocalIgnore = true;
 
-            if (!inheritedIgnorePaths.includes(localIgnorePath)) {
-                effectiveIgnorePaths = [
-                    ...inheritedIgnorePaths,
-                    localIgnorePath
-                ];
-            }
+            effectiveIgnorePaths = mergeUniqueValues(
+                inheritedIgnorePaths,
+                [localIgnorePath],
+                { freeze: false }
+            );
         }
     } catch {
         // Ignore missing files.
@@ -1058,7 +1068,6 @@ async function processDirectoryEntry(filePath, currentIgnorePaths) {
     }
 
     if (shouldFormatFile(filePath)) {
-        encounteredFormattableFile = true;
         await processFile(filePath, currentIgnorePaths);
         return;
     }
@@ -1156,6 +1165,8 @@ async function processFile(filePath, activeIgnorePaths = []) {
             skippedFileSummary.ignored += 1;
             return;
         }
+
+        encounteredFormattableFile = true;
 
         const data = await readFile(filePath, "utf8");
         const formatted = await prettier.format(data, formattingOptions);
@@ -1268,7 +1279,6 @@ async function resolveTargetContext(targetPath, usage) {
  */
 async function processNonDirectoryTarget(targetPath) {
     if (shouldFormatFile(targetPath)) {
-        encounteredFormattableFile = true;
         await processFile(targetPath, baseProjectIgnorePaths);
         return;
     }
@@ -1407,23 +1417,46 @@ function logNoMatchingFiles({
     const guidance = targetIsDirectory
         ? "Adjust --extensions or update your .prettierignore files if this is unexpected."
         : "Pass --extensions to include this file or adjust your .prettierignore files if this is unexpected.";
+    const ignoredFilesSkipped = skippedFileSummary.ignored > 0;
+    const ignoredMessageSuffix =
+        "Adjust your .prettierignore files or refine the target path if this is unexpected.";
 
     if (targetIsDirectory) {
-        console.log(
-            [
-                `No files matching ${formattedExtensions} were found ${locationDescription}.`,
-                "Nothing to format.",
-                guidance
-            ].join(" ")
-        );
+        if (ignoredFilesSkipped) {
+            console.log(
+                [
+                    `All files matching ${formattedExtensions} were skipped ${locationDescription} by ignore rules.`,
+                    "Nothing to format.",
+                    ignoredMessageSuffix
+                ].join(" ")
+            );
+        } else {
+            console.log(
+                [
+                    `No files matching ${formattedExtensions} were found ${locationDescription}.`,
+                    "Nothing to format.",
+                    guidance
+                ].join(" ")
+            );
+        }
     } else {
-        console.log(
-            [
-                `${locationDescription} does not match the configured extensions ${formattedExtensions}.`,
-                "Nothing to format.",
-                guidance
-            ].join(" ")
-        );
+        if (ignoredFilesSkipped) {
+            console.log(
+                [
+                    `${locationDescription} was skipped by ignore rules and not formatted.`,
+                    "Nothing to format.",
+                    ignoredMessageSuffix
+                ].join(" ")
+            );
+        } else {
+            console.log(
+                [
+                    `${locationDescription} does not match the configured extensions ${formattedExtensions}.`,
+                    "Nothing to format.",
+                    guidance
+                ].join(" ")
+            );
+        }
     }
 
     logSkippedFileSummary();
