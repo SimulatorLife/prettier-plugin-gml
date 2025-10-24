@@ -472,6 +472,38 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
+    it("identifies the ignore file that excluded a target", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const targetFile = path.join(tempDirectory, "script.gml");
+            await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
+
+            const ignorePath = path.join(tempDirectory, ".prettierignore");
+            await fs.writeFile(ignorePath, "script.gml\n", "utf8");
+
+            const { stdout } = await execFileAsync("node", [
+                wrapperPath,
+                targetFile
+            ]);
+
+            const expectedPattern = new RegExp(
+                String.raw`Skipping ${escapeForRegex(targetFile)} \(ignored by ${escapeForRegex(
+                    ignorePath
+                )}\)`,
+                "m"
+            );
+
+            assert.match(
+                stdout,
+                expectedPattern,
+                "Expected skip log to reference the matching .prettierignore"
+            );
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
     it("honours the ignored directory sample limit", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
