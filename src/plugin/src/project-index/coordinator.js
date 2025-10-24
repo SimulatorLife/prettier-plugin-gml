@@ -36,11 +36,13 @@ function trackInFlightOperation(map, key, createOperation) {
         return map.get(key);
     }
 
-    const pending = Promise.resolve()
-        .then(createOperation)
-        .finally(() => {
+    const pending = (async () => {
+        try {
+            return await createOperation();
+        } finally {
             map.delete(key);
-        });
+        }
+    })();
 
     map.set(key, pending);
     return pending;

@@ -484,6 +484,13 @@ function collectTestCasesFromXmlFile(filePath, displayPath) {
         return { cases: [], notes: [parseResult.note] };
     }
 
+    if (parseResult.status === "ignored") {
+        return {
+            cases: [],
+            notes: parseResult.note ? [parseResult.note] : []
+        };
+    }
+
     return { cases: parseResult.cases, notes: [] };
 }
 
@@ -503,6 +510,12 @@ function readXmlFile(filePath, displayPath) {
 function parseXmlTestCases(xml, displayPath) {
     try {
         const data = parser.parse(xml);
+        if (isCheckstyleDocument(data)) {
+            return {
+                status: "ignored",
+                note: `Ignoring checkstyle report ${displayPath}; no test cases found.`
+            };
+        }
         return { status: "ok", cases: collectTestCases(data) };
     } catch (error) {
         const message =
@@ -512,6 +525,30 @@ function parseXmlTestCases(xml, displayPath) {
             note: `Failed to parse ${displayPath}: ${message}`
         };
     }
+}
+
+function isCheckstyleDocument(document) {
+    if (!isObjectLike(document) || Array.isArray(document)) {
+        return false;
+    }
+
+    const root = document.checkstyle;
+    if (!isObjectLike(root) || Array.isArray(root)) {
+        return false;
+    }
+
+    if (hasAnyOwn(root, ["testsuite", "testcase"])) {
+        return false;
+    }
+
+    const files = toArray(root.file);
+    if (files.length === 0) {
+        return true;
+    }
+
+    return files.every(
+        (file) => isObjectLike(file) && isNonEmptyTrimmedString(file.name)
+    );
 }
 
 function recordTestCases(aggregates, testCases) {
@@ -777,16 +814,16 @@ function buildResultCandidates(defaultCandidates, envVariable) {
 
 function loadResultSets(workspaceRoot) {
     const baseCandidates = buildResultCandidates(
-        [path.join("base", "test-results"), "base-test-results"],
+        [path.join("base", "reports"), "base-reports"],
         "BASE_RESULTS_DIR"
     );
     const mergeCandidates = buildResultCandidates(
-        [path.join("merge", "test-results"), "merge-test-results"],
+        [path.join("merge", "reports"), "merge-reports"],
         "MERGE_RESULTS_DIR"
     );
 
     const base = readTestResults(baseCandidates, { workspace: workspaceRoot });
-    const head = readTestResults(["test-results"], {
+    const head = readTestResults(["reports"], {
         workspace: workspaceRoot
     });
     const merged = readTestResults(mergeCandidates, {
@@ -800,8 +837,8 @@ function chooseTargetResultSet({ merged, head }) {
     const usingMerged = Boolean(merged.usedDir);
     const target = usingMerged ? merged : head;
     const targetLabel = usingMerged
-        ? `synthetic merge (${merged.displayDir || "merge/test-results"})`
-        : `PR head (${head.displayDir || "test-results"})`;
+        ? `synthetic merge (${merged.displayDir || "merge/reports"})`
+        : `PR head (${head.displayDir || "reports"})`;
 
     return { target, targetLabel, usingMerged };
 }

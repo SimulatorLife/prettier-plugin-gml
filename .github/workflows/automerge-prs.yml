@@ -74,7 +74,7 @@ jobs:
         run: npm ci
         continue-on-error: ${{ matrix.target == 'merge' }}
 
-      # Your npm script should create ./test-results/*.xml and NOT hard-exit early
+      # Your npm script should create ./reports/*.xml and NOT hard-exit early
       - name: Run test suite (JUnit XML)
         run: npm run test:report
         continue-on-error: true
@@ -88,7 +88,7 @@ jobs:
         uses: dorny/test-reporter@v2
         with:
           name: Publish test summary (${{ matrix.target }})
-          path: test-results/*.xml
+          path: reports/*.xml
           reporter: java-junit
           fail-on-error: false
           fail-on-empty: false
@@ -104,8 +104,8 @@ jobs:
         with:
           name: junit-${{ matrix.target }}
           path: |
-            test-results/*.xml
-            test-results/lcov.info
+            reports/*.xml
+            reports/lcov.info
           retention-days: 7
 
   summarize:
@@ -445,7 +445,7 @@ jobs:
               coverage[tgt] = readCoverage(lcovFiles);
               lint[tgt] = readCheckstyle(checkstyleFiles);
               testResults[tgt] = readTestResults([
-                path.join(dir, 'test-results'),
+                path.join(dir, 'reports'),
                 dir
               ], { workspace: process.cwd() });
               if (xmlFiles.length === 0) notes.push(`No JUnit XML found for **${tgt}**.`);

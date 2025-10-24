@@ -9,7 +9,7 @@ import {
     createManualGitHubRequestDispatcher,
     resolveManualCacheRoot
 } from "./manual/utils.js";
-import { assertNonEmptyString } from "./shared-deps.js";
+import { assertNonEmptyString, isNonEmptyString } from "./shared-deps.js";
 
 /** @typedef {import("./manual/utils.js").ManualGitHubRequestDispatcher} ManualGitHubRequestDispatcher */
 /** @typedef {import("./manual/utils.js").ManualGitHubCommitResolver} ManualGitHubCommitResolver */
@@ -29,7 +29,7 @@ function assertUserAgent(value) {
 }
 
 function resolveOutputPath(repoRoot, fileName) {
-    if (typeof fileName !== "string" || fileName.length === 0) {
+    if (!isNonEmptyString(fileName)) {
         return null;
     }
 
@@ -83,16 +83,6 @@ function resolveOutputPath(repoRoot, fileName) {
  * @property {ManualCommandEnvironment} environment
  * @property {ManualCommandFileService} files
  * @property {ManualCommandRefResolutionService} refs
- */
-
-/**
- * @typedef {object} ManualGitHubExecutionContext
- * @property {ManualGitHubRequestExecutor} request
- * @property {ManualGitHubCommitResolver} commitResolver
- * @property {ManualGitHubRefResolver} refResolver
- * @property {ManualGitHubFileClient} fileClient
- * @property {ManualCommandRequestService} requests
- * @property {ManualCommandCommitResolutionService} commits
  */
 
 function buildManualCommandContext({
@@ -186,27 +176,69 @@ export function createManualManualAccessContext(options = {}) {
 }
 
 /**
- * Resolve the GitHub-facing collaborators used by manual commands that need to
- * dispatch requests or look up commits directly.
+ * Resolve the frozen manual GitHub request service used to execute raw API calls.
  *
  * @param {Parameters<typeof buildManualCommandContext>[0]} options
- * @returns {ManualGitHubExecutionContext}
+ * @returns {ManualCommandRequestService}
  */
-export function createManualGitHubExecutionContext(options = {}) {
-    const {
-        request,
-        commitResolver,
-        refResolver,
-        fileClient,
-        requests,
-        commits
-    } = buildManualCommandContext(options);
-    return Object.freeze({
-        request,
-        commitResolver,
-        refResolver,
-        fileClient,
-        requests,
-        commits
-    });
+export function resolveManualGitHubRequestService(options = {}) {
+    const { requests } = buildManualCommandContext(options);
+    return requests;
+}
+
+/**
+ * Resolve the manual GitHub request executor function for callers that need the
+ * bare dispatcher rather than the service facade.
+ *
+ * @param {Parameters<typeof buildManualCommandContext>[0]} options
+ * @returns {ManualGitHubRequestExecutor}
+ */
+export function resolveManualGitHubRequestExecutor(options = {}) {
+    const { request } = buildManualCommandContext(options);
+    return request;
+}
+
+/**
+ * Resolve the frozen manual GitHub commit resolution service.
+ *
+ * @param {Parameters<typeof buildManualCommandContext>[0]} options
+ * @returns {ManualCommandCommitResolutionService}
+ */
+export function resolveManualGitHubCommitService(options = {}) {
+    const { commits } = buildManualCommandContext(options);
+    return commits;
+}
+
+/**
+ * Resolve the commit resolver used to look up manual commits directly.
+ *
+ * @param {Parameters<typeof buildManualCommandContext>[0]} options
+ * @returns {ManualGitHubCommitResolver}
+ */
+export function resolveManualGitHubCommitResolver(options = {}) {
+    const { commitResolver } = buildManualCommandContext(options);
+    return commitResolver;
+}
+
+/**
+ * Resolve the low-level manual GitHub ref resolver for callers that need to
+ * work with the raw collaborator.
+ *
+ * @param {Parameters<typeof buildManualCommandContext>[0]} options
+ * @returns {ManualGitHubRefResolver}
+ */
+export function resolveManualGitHubRefResolver(options = {}) {
+    const { refResolver } = buildManualCommandContext(options);
+    return refResolver;
+}
+
+/**
+ * Resolve the manual GitHub file client used for fetching artefacts.
+ *
+ * @param {Parameters<typeof buildManualCommandContext>[0]} options
+ * @returns {ManualGitHubFileClient}
+ */
+export function resolveManualGitHubFileClient(options = {}) {
+    const { fileClient } = buildManualCommandContext(options);
+    return fileClient;
 }

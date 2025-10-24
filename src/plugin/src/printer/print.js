@@ -633,6 +633,9 @@ export function print(path, options, print) {
                 printSimpleDeclaration(print("left"), print("right"))
             );
         }
+        case "ExpressionStatement": {
+            return print("expression");
+        }
         case "AssignmentExpression": {
             const padding =
                 node.operator === "=" &&
