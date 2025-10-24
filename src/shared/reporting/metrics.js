@@ -24,15 +24,13 @@ const SUMMARY_SECTIONS = Object.freeze([
 ]);
 
 function normalizeCacheKeys(keys) {
-    let entries;
+    let entries = DEFAULT_CACHE_KEYS;
 
-    if (keys == null || typeof keys?.[Symbol.iterator] !== "function") {
-        entries = DEFAULT_CACHE_KEYS;
-    } else if (typeof keys === "string") {
+    if (typeof keys === "string") {
         entries = keys;
     } else if (Array.isArray(keys)) {
         entries = keys;
-    } else {
+    } else if (typeof keys?.[Symbol.iterator] === "function") {
         entries = toArrayFromIterable(keys);
     }
 
