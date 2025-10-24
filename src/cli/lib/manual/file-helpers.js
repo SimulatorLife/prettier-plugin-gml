@@ -5,7 +5,7 @@ import {
     ensureDir,
     isNonEmptyString,
     stringifyJsonForFile
-} from "./shared-deps.js";
+} from "../shared-deps.js";
 
 /**
  * Persist manual-derived artefacts to disk while guaranteeing parent directories
