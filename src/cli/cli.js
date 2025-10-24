@@ -156,6 +156,20 @@ function formatPathForDisplay(targetPath) {
     return resolvedTarget;
 }
 
+function describeIgnoreSource(ignorePaths) {
+    if (!Array.isArray(ignorePaths) || ignorePaths.length === 0) {
+        return null;
+    }
+
+    const ignorePath = ignorePaths.at(-1);
+
+    if (typeof ignorePath !== "string" || ignorePath.length === 0) {
+        return null;
+    }
+
+    return formatPathForDisplay(ignorePath);
+}
+
 function isMissingPrettierDependency(error) {
     if (!isErrorWithCode(error, "ERR_MODULE_NOT_FOUND")) {
         return false;
@@ -1129,7 +1143,13 @@ async function processFile(filePath, activeIgnorePaths = []) {
         });
 
         if (fileInfo.ignored) {
-            console.log(`Skipping ${filePath} (ignored)`);
+            const ignoreSourceDescription =
+                describeIgnoreSource(activeIgnorePaths);
+            const formattedIgnoreSource = ignoreSourceDescription
+                ? `ignored by ${ignoreSourceDescription}`
+                : "ignored";
+
+            console.log(`Skipping ${filePath} (${formattedIgnoreSource})`);
             skippedFileSummary.ignored += 1;
             return;
         }
