@@ -8,7 +8,8 @@ import {
 import {
     asArray,
     cloneObjectEntries,
-    isNonEmptyArray
+    isNonEmptyArray,
+    pushUnique
 } from "../../../shared/array-utils.js";
 import {
     assertFunction,
@@ -710,8 +711,8 @@ function createFunctionLikeIdentifierRecord({
         : [classification];
     const classificationTags = ["identifier", "declaration"];
     for (const tag of classificationArray) {
-        if (tag && !classificationTags.includes(tag)) {
-            classificationTags.push(tag);
+        if (tag) {
+            pushUnique(classificationTags, tag);
         }
     }
 
@@ -1846,9 +1847,7 @@ function registerFilePathWithScope(scopeRecord, filePath) {
         return;
     }
 
-    if (!scopeRecord.filePaths.includes(filePath)) {
-        scopeRecord.filePaths.push(filePath);
-    }
+    pushUnique(scopeRecord.filePaths, filePath);
 }
 
 function prepareProjectIndexRecords({
