@@ -5,7 +5,7 @@ import { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
-let activeProgressBars = new Map();
+const activeProgressBars = new Map();
 
 function resolveProgressStream(stdout) {
     if (!stdout) {
@@ -70,7 +70,6 @@ function disposeProgressBars() {
 
 function resetProgressBarRegistryForTesting() {
     disposeProgressBars();
-    activeProgressBars = new Map();
 }
 
 function renderProgressBar(label, current, total, width, options = {}) {
