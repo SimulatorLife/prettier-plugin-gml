@@ -5,7 +5,7 @@ import test from "node:test";
 
 import {
     createManualEnvironmentContext,
-    createManualManualAccessContext,
+    createManualAccessContext,
     resolveManualGitHubRequestService,
     resolveManualGitHubRequestExecutor,
     resolveManualGitHubCommitService,
@@ -18,12 +18,12 @@ import {
     resolveManualCacheRoot
 } from "../lib/manual/utils.js";
 
-test("createManualManualAccessContext centralizes manual access defaults", () => {
+test("createManualAccessContext centralizes manual access defaults", () => {
     const commandUrl = pathToFileURL(
         path.resolve("src/cli/commands/generate-gml-identifiers.js")
     ).href;
 
-    const context = createManualManualAccessContext({
+    const context = createManualAccessContext({
         importMetaUrl: commandUrl,
         userAgent: "manual-context-test",
         outputFileName: "example.json"
@@ -100,7 +100,7 @@ test("createManualEnvironmentContext isolates repository metadata", () => {
 
 test("manual command context builders validate required arguments", () => {
     assert.throws(
-        () => createManualManualAccessContext({ userAgent: "missing-url" }),
+        () => createManualAccessContext({ userAgent: "missing-url" }),
         /importMetaUrl must be provided/i
     );
 
@@ -109,7 +109,7 @@ test("manual command context builders validate required arguments", () => {
     ).href;
 
     assert.throws(
-        () => createManualManualAccessContext({ importMetaUrl: commandUrl }),
+        () => createManualAccessContext({ importMetaUrl: commandUrl }),
         /userAgent must be provided/i
     );
 });
