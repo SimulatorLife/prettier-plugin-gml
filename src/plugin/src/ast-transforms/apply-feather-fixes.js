@@ -369,8 +369,10 @@ export function preprocessSourceForFeatherFixes(sourceText) {
     }
 
     const sanitizedSourceText = sanitizedParts.join("");
-    const enumSanitizedSourceText =
+    const enumSanitizedResult =
         sanitizeEnumInitializerStrings(sanitizedSourceText);
+    const enumSanitizedSourceText = enumSanitizedResult.sourceText;
+    const enumIndexAdjustments = enumSanitizedResult.adjustments;
     const metadata = {};
 
     if (gm1100Metadata.length > 0) {
@@ -383,29 +385,35 @@ export function preprocessSourceForFeatherFixes(sourceText) {
 
     const hasMetadata = Object.keys(metadata).length > 0;
     const sourceChanged = enumSanitizedSourceText !== sourceText;
+    const hasIndexAdjustments =
+        Array.isArray(enumIndexAdjustments) && enumIndexAdjustments.length > 0;
 
     if (!hasMetadata && !sourceChanged) {
         return {
             sourceText,
-            metadata: null
+            metadata: null,
+            indexAdjustments: null
         };
     }
 
     return {
         sourceText: sourceChanged ? enumSanitizedSourceText : sourceText,
-        metadata: hasMetadata ? metadata : null
+        metadata: hasMetadata ? metadata : null,
+        indexAdjustments: hasIndexAdjustments ? enumIndexAdjustments : null
     };
 }
 
 function sanitizeEnumInitializerStrings(sourceText) {
     if (typeof sourceText !== "string" || sourceText.length === 0) {
-        return sourceText;
+        return { sourceText, adjustments: null };
     }
 
     const enumPattern = /\benum\b/g;
     let lastIndex = 0;
     let match;
     let result = "";
+    const adjustments = [];
+    let totalRemoved = 0;
 
     while ((match = enumPattern.exec(sourceText)) !== null) {
         const openBraceIndex = findNextOpenBrace(
@@ -427,18 +435,22 @@ function sanitizeEnumInitializerStrings(sourceText) {
 
         result += sourceText.slice(lastIndex, openBraceIndex + 1);
 
-        const body = sourceText.slice(openBraceIndex + 1, closeBraceIndex);
-        const sanitizedBody = body.replaceAll(
-            /(\s*[A-Za-z_][A-Za-z0-9_]*\s*=\s*)(["'])([^"']*)(\2)/g,
-            (fullMatch, prefix, _quote, rawValue) => {
-                const normalizedValue = rawValue.trim();
-                if (!isIntegerLiteralString(normalizedValue)) {
-                    return fullMatch;
-                }
-
-                return `${prefix}${normalizedValue}`;
-            }
+        const bodyStartIndex = openBraceIndex + 1;
+        const body = sourceText.slice(bodyStartIndex, closeBraceIndex);
+        const {
+            sanitizedBody,
+            adjustments: bodyAdjustments,
+            removedCount: bodyRemoved
+        } = sanitizeEnumBodyInitializerStrings(
+            body,
+            bodyStartIndex,
+            totalRemoved
         );
+
+        if (bodyAdjustments.length > 0) {
+            adjustments.push(...bodyAdjustments);
+            totalRemoved += bodyRemoved;
+        }
 
         result += sanitizedBody;
         lastIndex = closeBraceIndex;
@@ -446,11 +458,150 @@ function sanitizeEnumInitializerStrings(sourceText) {
     }
 
     if (lastIndex === 0) {
-        return sourceText;
+        return { sourceText, adjustments: null };
     }
 
     result += sourceText.slice(lastIndex);
-    return result;
+    return {
+        sourceText: result,
+        adjustments: adjustments.length > 0 ? adjustments : null
+    };
+}
+
+function sanitizeEnumBodyInitializerStrings(
+    body,
+    bodyStartIndex,
+    totalRemoved
+) {
+    if (typeof body !== "string" || body.length === 0) {
+        return { sanitizedBody: body, adjustments: [], removedCount: 0 };
+    }
+
+    let bodyRemoved = 0;
+    const adjustments = [];
+
+    const sanitizedBody = body.replaceAll(
+        /(\s*[A-Za-z_][A-Za-z0-9_]*\s*=\s*)(["'])([^"']*)(\2)/g,
+        (fullMatch, prefix, _quote, rawValue, _closingQuote, offset) => {
+            const normalizedValue = rawValue.trim();
+            if (!isIntegerLiteralString(normalizedValue)) {
+                return fullMatch;
+            }
+
+            const replacement = `${prefix}${normalizedValue}`;
+            const removedCount = fullMatch.length - replacement.length;
+
+            if (removedCount > 0) {
+                const sanitizedIndex =
+                    bodyStartIndex +
+                    offset +
+                    replacement.length -
+                    (totalRemoved + bodyRemoved);
+
+                adjustments.push({
+                    index: sanitizedIndex,
+                    delta: removedCount
+                });
+                bodyRemoved += removedCount;
+            }
+
+            return replacement;
+        }
+    );
+
+    return { sanitizedBody, adjustments, removedCount: bodyRemoved };
+}
+
+export function applyRemovedIndexAdjustments(target, adjustments) {
+    const normalized = normalizeRemovalAdjustments(adjustments);
+    if (normalized.length === 0) {
+        return;
+    }
+
+    const stack = [target];
+    const seen = new WeakSet();
+
+    while (stack.length > 0) {
+        const current = stack.pop();
+
+        if (!current || typeof current !== "object" || seen.has(current)) {
+            continue;
+        }
+
+        seen.add(current);
+
+        if (Array.isArray(current)) {
+            for (const value of current) {
+                stack.push(value);
+            }
+            continue;
+        }
+
+        adjustLocationForRemoval(current, "start", normalized);
+        adjustLocationForRemoval(current, "end", normalized);
+
+        for (const value of Object.values(current)) {
+            stack.push(value);
+        }
+    }
+}
+
+function normalizeRemovalAdjustments(adjustments) {
+    if (!Array.isArray(adjustments)) {
+        return [];
+    }
+
+    return adjustments
+        .filter((entry) => {
+            if (!entry || typeof entry !== "object") {
+                return false;
+            }
+
+            const { index, delta } = entry;
+            return (
+                Number.isFinite(index) && Number.isFinite(delta) && delta > 0
+            );
+        })
+        .sort((a, b) => a.index - b.index);
+}
+
+function adjustLocationForRemoval(node, property, adjustments) {
+    if (!Object.hasOwn(node, property)) {
+        return;
+    }
+
+    const location = node[property];
+
+    if (typeof location === "number") {
+        node[property] = mapIndexForRemoval(location, adjustments);
+        return;
+    }
+
+    if (
+        location &&
+        typeof location === "object" &&
+        typeof location.index === "number"
+    ) {
+        location.index = mapIndexForRemoval(location.index, adjustments);
+    }
+}
+
+function mapIndexForRemoval(index, adjustments) {
+    if (!Number.isFinite(index)) {
+        return index;
+    }
+
+    let adjusted = index;
+
+    for (const { index: cutoff, delta } of adjustments) {
+        if (index >= cutoff) {
+            adjusted += delta;
+        } else {
+            break;
+        }
+    }
+
+    return adjusted;
 }
 
 function findNextOpenBrace(sourceText, startIndex) {
