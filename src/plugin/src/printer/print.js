@@ -2297,8 +2297,7 @@ function printStatements(path, options, print, childrenAttribute) {
                     isNextLineEmpty(originalText, trailingProbeIndex);
 
                 if (enforceTrailingPadding) {
-                    shouldPreserveTrailingBlankLine =
-                        hasExplicitTrailingBlankLine;
+                    shouldPreserveTrailingBlankLine = true;
                 } else if (
                     shouldPreserveConstructorStaticPadding &&
                     hasExplicitTrailingBlankLine
