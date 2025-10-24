@@ -142,10 +142,8 @@ jobs:
           reports=()
           for target in base head merge; do
             dir="junit-${target}/reports"
-            if [ -d "${dir}" ]; then
-              node src/cli/commands/detect-test-regressions.mjs summarize --input "${dir}" --output "junit-${target}"
-              reports+=("${target}=junit-${target}/summary.json")
-            fi
+            node src/cli/commands/detect-test-regressions.mjs summarize --input "${dir}" --output "junit-${target}" --target "${target}"
+            reports+=("${target}=junit-${target}/summary.json")
           done
           if [ ${#reports[@]} -ge 2 ]; then
             if ! node src/cli/commands/detect-test-regressions.mjs compare "${reports[@]}" --output reports; then

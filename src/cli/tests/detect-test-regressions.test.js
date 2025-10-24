@@ -627,11 +627,7 @@ test("runCli generates summary table for legacy pr-summary-table-comment", () =>
 
     const baseSummaryPath = path.join(workspace, "junit-base", "summary.json");
     const headSummaryPath = path.join(workspace, "junit-head", "summary.json");
-    const comparisonPath = path.join(
-        workspace,
-        "reports",
-        "comparison.json"
-    );
+    const comparisonPath = path.join(workspace, "reports", "comparison.json");
 
     assert.ok(fs.existsSync(baseSummaryPath));
     assert.ok(fs.existsSync(headSummaryPath));
