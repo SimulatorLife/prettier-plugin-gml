@@ -76,3 +76,43 @@ test("preserves blank lines after nested function declarations inside constructo
         "Expected nested function declarations to retain their trailing blank line before the constructor closes."
     );
 });
+
+test("adds trailing padding after nested function declarations when missing", async () => {
+    const source = [
+        "function Demo() constructor {",
+        "    function nested() {",
+        "        return 1;",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.trim().split("\n");
+
+    assert.equal(
+        lines.at(-2),
+        "",
+        "Expected nested function declarations to emit a trailing blank line when the input omits it."
+    );
+});
+
+test("adds trailing padding after static function declarations when missing", async () => {
+    const source = [
+        "function Demo() constructor {",
+        "    static helper = function() {",
+        "        return 1;",
+        "    };",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.trim().split("\n");
+
+    assert.equal(
+        lines.at(-2),
+        "",
+        "Expected static function assignments to emit a trailing blank line when the input omits it."
+    );
+});
