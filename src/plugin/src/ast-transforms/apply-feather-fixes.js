@@ -14622,7 +14622,12 @@ function ensureVertexFormatsClosedBeforeStartingNewOnes({ ast, diagnostic }) {
 
         if (Array.isArray(node)) {
             if (shouldProcessStatementSequence(parent, property)) {
-                ensureSequentialVertexFormatsAreClosed(node, diagnostic, fixes);
+                ensureSequentialVertexFormatsAreClosed(
+                    node,
+                    diagnostic,
+                    fixes,
+                    ast
+                );
             }
 
             for (let index = 0; index < node.length; index += 1) {
@@ -14648,7 +14653,12 @@ function ensureVertexFormatsClosedBeforeStartingNewOnes({ ast, diagnostic }) {
     return fixes;
 }
 
-function ensureSequentialVertexFormatsAreClosed(statements, diagnostic, fixes) {
+function ensureSequentialVertexFormatsAreClosed(
+    statements,
+    diagnostic,
+    fixes,
+    ast
+) {
     if (!isNonEmptyArray(statements)) {
         return;
     }
@@ -14733,6 +14743,16 @@ function ensureSequentialVertexFormatsAreClosed(statements, diagnostic, fixes) {
 
         index += 1;
     }
+
+    if (openBegins.length > 0) {
+        removeTrailingVertexFormatDefinitions({
+            statements,
+            openBegins,
+            diagnostic,
+            fixes,
+            ast
+        });
+    }
 }
 
 function removeDanglingVertexFormatDefinition({
@@ -14783,6 +14803,114 @@ function removeDanglingVertexFormatDefinition({
     }
 
     return removalCount;
+}
+
+function removeTrailingVertexFormatDefinitions({
+    statements,
+    openBegins,
+    diagnostic,
+    fixes,
+    ast
+}) {
+    if (!Array.isArray(statements) || !isNonEmptyArray(openBegins)) {
+        return;
+    }
+
+    for (let offset = openBegins.length - 1; offset >= 0; offset -= 1) {
+        const entry = openBegins[offset];
+
+        if (!entry || typeof entry !== "object") {
+            continue;
+        }
+
+        const { node } = entry;
+
+        if (!node || typeof node !== "object") {
+            continue;
+        }
+
+        const startIndex = statements.indexOf(node);
+
+        if (startIndex === -1) {
+            continue;
+        }
+
+        const previousStatement =
+            startIndex > 0 ? statements[startIndex - 1] : null;
+        const startLine = getNodeStartLine(node);
+
+        let stopIndex = startIndex + 1;
+
+        while (
+            stopIndex < statements.length &&
+            isVertexFormatAddCall(statements[stopIndex])
+        ) {
+            stopIndex += 1;
+        }
+
+        if (
+            stopIndex < statements.length &&
+            isVertexFormatEndCall(statements[stopIndex])
+        ) {
+            removeDanglingVertexFormatEndCall({
+                statements,
+                index: stopIndex,
+                diagnostic,
+                fixes
+            });
+        }
+
+        const removalCount = removeDanglingVertexFormatDefinition({
+            statements,
+            startIndex,
+            stopIndex,
+            diagnostic,
+            fixes
+        });
+
+        if (removalCount === 0) {
+            continue;
+        }
+
+        const shouldPreserveBlankLine =
+            (startIndex === 0 &&
+                typeof startLine === "number" &&
+                startLine > 1) ||
+            (previousStatement &&
+                hasOriginalBlankLineBetween(previousStatement, node));
+
+        if (!shouldPreserveBlankLine) {
+            continue;
+        }
+
+        if (previousStatement) {
+            previousStatement._featherForceFollowingEmptyLine = true;
+            continue;
+        }
+
+        if (!ast || !Array.isArray(ast.comments)) {
+            continue;
+        }
+
+        const topComment = ast.comments.find(
+            (comment) => comment?.isTopComment
+        );
+
+        if (!topComment) {
+            continue;
+        }
+
+        const existingWhitespace =
+            typeof topComment.trailingWS === "string"
+                ? topComment.trailingWS
+                : "\n";
+
+        if (existingWhitespace.includes("\n\n")) {
+            continue;
+        }
+
+        topComment.trailingWS = "\n\n";
+    }
 }
 
 function removeDanglingVertexFormatEndCall({
