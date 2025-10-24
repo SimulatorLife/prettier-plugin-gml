@@ -520,7 +520,8 @@ async function fetchManualAssets(
                     path,
                     fetchedCount,
                     totalEntries
-                })
+                }),
+            onProgressCleanup: reportProgress.cleanup
         });
     });
 }
