@@ -19,10 +19,7 @@ import {
 } from "../../../shared/location-keys.js";
 import { resolveProjectIndexParser } from "./parser-override.js";
 import { clampConcurrency } from "./concurrency.js";
-import {
-    PROJECT_MANIFEST_EXTENSION,
-    isProjectManifestPath
-} from "./constants.js";
+import { isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { isFsErrorCode, listDirectory } from "../../../shared/fs-utils.js";
 import {
@@ -34,7 +31,6 @@ import {
     createProjectIndexMetrics,
     finalizeProjectIndexMetrics
 } from "./metrics.js";
-import { throwIfAborted } from "../../../shared/abort-utils.js";
 import {
     analyseResourceFiles,
     createFileScopeDescriptor
