@@ -8,25 +8,43 @@ import {
 } from "../ast-node-helpers.js";
 
 describe("boolean literal helpers", () => {
+    // Node deprecated assert.equal; prefer the strict helpers to avoid legacy coercion.
     it("normalizes string literal values", () => {
         const literal = { type: "Literal", value: "TRUE" };
 
-        assert.equal(getBooleanLiteralValue(literal), "true");
-        assert.equal(isBooleanLiteral(literal), true);
+        assert.strictEqual(getBooleanLiteralValue(literal), "true");
+        assert.strictEqual(isBooleanLiteral(literal), true);
     });
 
     it("accepts boolean literal nodes when enabled", () => {
         const literal = { type: "Literal", value: false };
 
-        assert.equal(getBooleanLiteralValue(literal), null);
-        assert.equal(isBooleanLiteral(literal), false);
-        assert.equal(getBooleanLiteralValue(literal, true), "false");
-        assert.equal(isBooleanLiteral(literal, true), true);
-        assert.equal(
+        assert.strictEqual(getBooleanLiteralValue(literal), null);
+        assert.strictEqual(isBooleanLiteral(literal), false);
+        assert.strictEqual(getBooleanLiteralValue(literal, true), "false");
+        assert.strictEqual(isBooleanLiteral(literal, true), true);
+        assert.strictEqual(
             getBooleanLiteralValue(literal, { acceptBooleanPrimitives: true }),
             "false"
         );
-        assert.equal(
+        assert.strictEqual(
+            isBooleanLiteral(literal, { acceptBooleanPrimitives: true }),
+            true
+        );
+    });
+
+    it("normalizes true boolean primitives when enabled", () => {
+        const literal = { type: "Literal", value: true };
+
+        assert.strictEqual(getBooleanLiteralValue(literal), null);
+        assert.strictEqual(isBooleanLiteral(literal), false);
+        assert.strictEqual(getBooleanLiteralValue(literal, true), "true");
+        assert.strictEqual(isBooleanLiteral(literal, true), true);
+        assert.strictEqual(
+            getBooleanLiteralValue(literal, { acceptBooleanPrimitives: true }),
+            "true"
+        );
+        assert.strictEqual(
             isBooleanLiteral(literal, { acceptBooleanPrimitives: true }),
             true
         );
@@ -36,9 +54,9 @@ describe("boolean literal helpers", () => {
         const numberLiteral = { type: "Literal", value: 0 };
         const identifier = { type: "Identifier", name: "value" };
 
-        assert.equal(getBooleanLiteralValue(numberLiteral), null);
-        assert.equal(isBooleanLiteral(numberLiteral), false);
-        assert.equal(getBooleanLiteralValue(identifier), null);
-        assert.equal(isBooleanLiteral(identifier), false);
+        assert.strictEqual(getBooleanLiteralValue(numberLiteral), null);
+        assert.strictEqual(isBooleanLiteral(numberLiteral), false);
+        assert.strictEqual(getBooleanLiteralValue(identifier), null);
+        assert.strictEqual(isBooleanLiteral(identifier), false);
     });
 });

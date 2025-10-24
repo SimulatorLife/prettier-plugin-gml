@@ -401,6 +401,40 @@ function visitChildNodes(node, callback) {
     }
 }
 
+/**
+ * Pushes {@link value} onto {@link stack} when it is an object, recursively
+ * walking array entries so callers can enqueue nested nodes without repeating
+ * the defensive guards. Non-object values are ignored to match the manual
+ * traversal patterns used across the parser and printer.
+ *
+ * @param {Array<unknown>} stack
+ * @param {unknown} value
+ */
+function enqueueObjectChildValues(stack, value) {
+    if (!value || typeof value !== "object") {
+        return;
+    }
+
+    if (Array.isArray(value)) {
+        const { length } = value;
+
+        // Manual index iteration avoids the iterator/closure overhead paid by
+        // `for...of` on every call. The helper sits on tight AST traversal
+        // loops, so keeping the branch predictable and allocation-free helps
+        // repeated walks stay lean.
+        for (let index = 0; index < length; index += 1) {
+            const item = value[index];
+
+            if (item !== null && typeof item === "object") {
+                stack.push(item);
+            }
+        }
+        return;
+    }
+
+    stack.push(value);
+}
+
 function unwrapParenthesizedExpression(node) {
     let current = node;
 
@@ -436,6 +470,7 @@ export {
     isUndefinedLiteral,
     isNode,
     visitChildNodes,
+    enqueueObjectChildValues,
     unwrapParenthesizedExpression,
     isVariableDeclarationOfKind,
     isVarVariableDeclaration

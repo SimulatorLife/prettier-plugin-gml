@@ -4,11 +4,11 @@ import {
     captureIdentifierCasePlanSnapshot
 } from "./plan-service.js";
 import { withObjectLike } from "../../../shared/object-utils.js";
-import { getErrorMessage } from "../../../shared/utils.js";
 import {
     setIdentifierCaseOption,
     deleteIdentifierCaseOption
 } from "./option-store.js";
+import { warnWithReason } from "./logger.js";
 
 const IDENTIFIER_CASE_LOGGER_NAMESPACE = "identifier-case";
 
@@ -67,13 +67,12 @@ function disposeBootstrap(bootstrapResult, logger = null) {
     try {
         bootstrapResult.dispose();
     } catch (error) {
-        if (typeof logger?.warn === "function") {
-            const reason =
-                getErrorMessage(error, { fallback: "" }) || "Unknown error";
-            logger.warn(
-                `[${IDENTIFIER_CASE_LOGGER_NAMESPACE}] Failed to dispose identifier case resources: ${reason}`
-            );
-        }
+        warnWithReason(
+            logger,
+            IDENTIFIER_CASE_LOGGER_NAMESPACE,
+            "Failed to dispose identifier case resources",
+            error
+        );
     }
 }
 
@@ -86,19 +85,13 @@ export async function prepareIdentifierCaseEnvironment(options) {
         if (bootstrapResult?.status === "failed") {
             if (object.__identifierCaseProjectIndexFailureLogged !== true) {
                 const logger = object?.logger ?? null;
-                if (typeof logger?.warn === "function") {
-                    const reason =
-                        getErrorMessage(bootstrapResult.error, {
-                            fallback: ""
-                        }) ||
-                        getErrorMessage(bootstrapResult.reason, {
-                            fallback: ""
-                        }) ||
-                        "Unknown error";
-                    logger.warn(
-                        `[${IDENTIFIER_CASE_LOGGER_NAMESPACE}] Project index bootstrap failed. Identifier case renames will be skipped: ${reason}`
-                    );
-                }
+                warnWithReason(
+                    logger,
+                    IDENTIFIER_CASE_LOGGER_NAMESPACE,
+                    "Project index bootstrap failed. Identifier case renames will be skipped",
+                    bootstrapResult.error,
+                    bootstrapResult.reason
+                );
                 setIdentifierCaseOption(
                     object,
                     "__identifierCaseProjectIndexFailureLogged",

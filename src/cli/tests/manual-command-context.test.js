@@ -3,18 +3,27 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import test from "node:test";
 
-import { createManualCommandContext } from "../lib/manual-command-context.js";
+import {
+    createManualEnvironmentContext,
+    createManualAccessContext,
+    resolveManualGitHubRequestService,
+    resolveManualGitHubRequestExecutor,
+    resolveManualGitHubCommitService,
+    resolveManualGitHubCommitResolver,
+    resolveManualGitHubRefResolver,
+    resolveManualGitHubFileClient
+} from "../lib/manual/context.js";
 import {
     buildManualRepositoryEndpoints,
     resolveManualCacheRoot
 } from "../lib/manual/utils.js";
 
-test("createManualCommandContext centralizes manual command defaults", () => {
+test("createManualAccessContext centralizes manual access defaults", () => {
     const commandUrl = pathToFileURL(
         path.resolve("src/cli/commands/generate-gml-identifiers.js")
     ).href;
 
-    const context = createManualCommandContext({
+    const context = createManualAccessContext({
         importMetaUrl: commandUrl,
         userAgent: "manual-context-test",
         outputFileName: "example.json"
@@ -35,26 +44,63 @@ test("createManualCommandContext centralizes manual command defaults", () => {
         buildManualRepositoryEndpoints().rawRoot
     );
     assert.ok(Object.isFrozen(context.environment));
-    assert.ok(Object.isFrozen(context.clients));
-    assert.ok(Object.isFrozen(context.operations));
-    assert.equal(typeof context.clients.requests.execute, "function");
-    assert.equal(
-        typeof context.clients.refResolver.resolveManualRef,
-        "function"
-    );
-    assert.equal(
-        typeof context.clients.commitResolver.resolveCommitFromRef,
-        "function"
-    );
-    assert.equal(typeof context.clients.fileClient.fetchManualFile, "function");
-    assert.equal(typeof context.operations.fetchManualFile, "function");
-    assert.equal(typeof context.operations.resolveManualRef, "function");
-    assert.equal(typeof context.operations.resolveCommitFromRef, "function");
+    assert.ok(Object.isFrozen(context.files));
+    assert.ok(Object.isFrozen(context.refs));
+    assert.equal(typeof context.files.fetchManualFile, "function");
+    assert.equal(typeof context.refs.resolveManualRef, "function");
 });
 
-test("createManualCommandContext validates required arguments", () => {
+test("manual GitHub helpers expose narrow collaborators", () => {
+    const commandUrl = pathToFileURL(
+        path.resolve("src/cli/commands/generate-feather-metadata.js")
+    ).href;
+
+    const options = {
+        importMetaUrl: commandUrl,
+        userAgent: "manual-context-test"
+    };
+
+    const requestService = resolveManualGitHubRequestService(options);
+    assert.ok(Object.isFrozen(requestService));
+    assert.equal(typeof requestService.executeManualRequest, "function");
+
+    const requestExecutor = resolveManualGitHubRequestExecutor(options);
+    assert.equal(typeof requestExecutor, "function");
+
+    const commitService = resolveManualGitHubCommitService(options);
+    assert.ok(Object.isFrozen(commitService));
+    assert.equal(typeof commitService.resolveCommitFromRef, "function");
+
+    const commitResolver = resolveManualGitHubCommitResolver(options);
+    assert.equal(typeof commitResolver.resolveCommitFromRef, "function");
+
+    const refResolver = resolveManualGitHubRefResolver(options);
+    assert.equal(typeof refResolver.resolveManualRef, "function");
+
+    const fileClient = resolveManualGitHubFileClient(options);
+    assert.equal(typeof fileClient.fetchManualFile, "function");
+});
+
+test("createManualEnvironmentContext isolates repository metadata", () => {
+    const commandUrl = pathToFileURL(
+        path.resolve("src/cli/commands/generate-feather-metadata.js")
+    ).href;
+
+    const context = createManualEnvironmentContext({
+        importMetaUrl: commandUrl,
+        userAgent: "manual-context-test"
+    });
+
+    assert.ok(Object.isFrozen(context.environment));
+    assert.equal(
+        context.environment.repoRoot,
+        path.resolve("src/cli/commands", "..", "..")
+    );
+});
+
+test("manual command context builders validate required arguments", () => {
     assert.throws(
-        () => createManualCommandContext({ userAgent: "missing-url" }),
+        () => createManualAccessContext({ userAgent: "missing-url" }),
         /importMetaUrl must be provided/i
     );
 
@@ -63,7 +109,7 @@ test("createManualCommandContext validates required arguments", () => {
     ).href;
 
     assert.throws(
-        () => createManualCommandContext({ importMetaUrl: commandUrl }),
+        () => createManualAccessContext({ importMetaUrl: commandUrl }),
         /userAgent must be provided/i
     );
 });

@@ -1,9 +1,10 @@
 import {
     defaultCliProjectIndexService,
-    defaultCliIdentifierCasePlanService,
     defaultCliIdentifierCasePlanPreparationService,
-    defaultCliIdentifierCaseCacheService
+    defaultCliIdentifierCaseCacheService,
+    defaultCliIdentifierCaseServices
 } from "./plugin-service-providers/default-plugin-services.js";
+import { assertFunction } from "./shared-deps.js";
 
 /**
  * @typedef {(projectRoot: string, manifest?: unknown, options?: object) => Promise<object>} CliProjectIndexBuilder
@@ -17,20 +18,15 @@ let identifierCaseCacheClearer;
 
 export const defaultCliPluginServices = Object.freeze({
     projectIndex: defaultCliProjectIndexService,
-    identifierCasePlan: defaultCliIdentifierCasePlanService,
-    identifierCasePlanPreparation:
-        defaultCliIdentifierCasePlanPreparationService,
-    identifierCasePlanCache: defaultCliIdentifierCaseCacheService
+    identifierCase: defaultCliIdentifierCaseServices
 });
 
 resetRegisteredCliPluginServices();
 
 function assertService(candidate, description) {
-    if (typeof candidate !== "function") {
-        throw new TypeError(
-            `CLI plugin services must provide a ${description} function`
-        );
-    }
+    assertFunction(candidate, description, {
+        errorMessage: `CLI plugin services must provide a ${description} function`
+    });
 }
 
 export function resolveCliProjectIndexBuilder() {
@@ -64,15 +60,10 @@ export function registerCliIdentifierCaseCacheClearer(clearer) {
 }
 
 export function resetRegisteredCliPluginServices() {
-    const {
-        projectIndex,
-        identifierCasePlanPreparation,
-        identifierCasePlanCache
-    } = defaultCliPluginServices;
+    const { projectIndex, identifierCase } = defaultCliPluginServices;
+    const { preparation, cache } = identifierCase;
 
     projectIndexBuilder = projectIndex.buildProjectIndex;
-    identifierCasePlanPreparer =
-        identifierCasePlanPreparation.prepareIdentifierCasePlan;
-    identifierCaseCacheClearer =
-        identifierCasePlanCache.clearIdentifierCaseCaches;
+    identifierCasePlanPreparer = preparation.prepareIdentifierCasePlan;
+    identifierCaseCacheClearer = cache.clearIdentifierCaseCaches;
 }
