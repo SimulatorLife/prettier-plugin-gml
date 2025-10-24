@@ -1,10 +1,7 @@
 import path from "node:path";
 import { cloneLocation } from "../../../shared/ast-locations.js";
 import { getCallExpressionIdentifier } from "../../../shared/ast-node-helpers.js";
-import {
-    toPosixPath,
-    walkAncestorDirectories
-} from "../../../shared/path-utils.js";
+import { toPosixPath } from "../../../shared/path-utils.js";
 import {
     asArray,
     cloneObjectEntries,
@@ -45,7 +42,6 @@ import {
 } from "./resource-analysis.js";
 import {
     PROJECT_INDEX_BUILD_ABORT_MESSAGE,
-    PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE,
     createProjectIndexAbortGuard
 } from "./abort-guard.js";
 import { loadBuiltInIdentifiers } from "./built-in-identifiers.js";
@@ -64,32 +60,6 @@ function cloneEntryCollections(entry, ...keys) {
     );
 }
 
-export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
-    const filepath = options?.filepath;
-    const { signal, ensureNotAborted } = createProjectIndexAbortGuard(options, {
-        message: PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE
-    });
-
-    if (!filepath) {
-        return null;
-    }
-
-    const startDirectory = path.dirname(path.resolve(filepath));
-
-    for (const directory of walkAncestorDirectories(startDirectory)) {
-        ensureNotAborted();
-
-        const entries = await listDirectory(fsFacade, directory, { signal });
-        ensureNotAborted();
-
-        if (entries.some(isProjectManifestPath)) {
-            return directory;
-        }
-    }
-
-    return null;
-}
-
 export const createProjectIndexCoordinator =
     createProjectIndexCoordinatorFactory({
         defaultFsFacade,
@@ -100,6 +70,8 @@ export const createProjectIndexCoordinator =
     });
 
 export { createProjectIndexCoordinatorFactory } from "./coordinator.js";
+
+export { findProjectRoot } from "./project-root.js";
 
 export {
     PROJECT_MANIFEST_EXTENSION,
