@@ -858,27 +858,41 @@ async function handleFormattingError(error, filePath) {
     await revertFormattedFiles();
 }
 
+async function detectNegatedIgnoreRules(ignoreFilePath) {
+    try {
+        const contents = await readFile(ignoreFilePath, "utf8");
+
+        if (NEGATED_IGNORE_RULE_PATTERN.test(contents)) {
+            markIgnoreRuleNegationsDetected();
+        }
+    } catch {
+        // Ignore missing or unreadable files.
+    }
+}
+
+/**
+ * Register a single ignore file and capture negated rule metadata when needed.
+ *
+ * Centralizing the per-file bookkeeping keeps the bulk registration flow
+ * focused on coordinating the overall workflow.
+ */
+async function registerIgnoreFile(ignoreFilePath) {
+    if (!ignoreFilePath || hasRegisteredIgnorePath(ignoreFilePath)) {
+        return;
+    }
+
+    registerIgnorePath(ignoreFilePath);
+
+    if (hasIgnoreRuleNegations()) {
+        return;
+    }
+
+    await detectNegatedIgnoreRules(ignoreFilePath);
+}
+
 async function registerIgnorePaths(ignoreFiles) {
     for (const ignoreFilePath of ignoreFiles) {
-        if (!ignoreFilePath || hasRegisteredIgnorePath(ignoreFilePath)) {
-            continue;
-        }
-
-        registerIgnorePath(ignoreFilePath);
-
-        if (hasIgnoreRuleNegations()) {
-            continue;
-        }
-
-        try {
-            const contents = await readFile(ignoreFilePath, "utf8");
-
-            if (NEGATED_IGNORE_RULE_PATTERN.test(contents)) {
-                markIgnoreRuleNegationsDetected();
-            }
-        } catch {
-            // Ignore missing or unreadable files.
-        }
+        await registerIgnoreFile(ignoreFilePath);
     }
 }
 
