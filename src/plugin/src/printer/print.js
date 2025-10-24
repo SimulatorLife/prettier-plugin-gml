@@ -2284,6 +2284,10 @@ function printStatements(path, options, print, childrenAttribute) {
                 hasFunctionInitializer &&
                 isConstructorBlock;
             let shouldPreserveTrailingBlankLine = false;
+            const requiresTrailingPadding =
+                enforceTrailingPadding &&
+                parentNode?.type === "BlockStatement" &&
+                !suppressFollowingEmptyLine;
 
             if (
                 parentNode?.type === "BlockStatement" &&
@@ -2343,6 +2347,9 @@ function printStatements(path, options, print, childrenAttribute) {
             }
 
             if (shouldPreserveTrailingBlankLine) {
+                parts.push(hardline);
+                previousNodeHadNewlineAddedAfter = true;
+            } else if (requiresTrailingPadding) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
             }
