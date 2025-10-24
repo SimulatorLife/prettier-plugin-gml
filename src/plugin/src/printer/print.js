@@ -2264,44 +2264,52 @@ function printStatements(path, options, print, childrenAttribute) {
                 node?.type === "MacroDeclaration"
                     ? nodeEndIndex
                     : nodeEndIndex + 1;
+            const enforceTrailingPadding =
+                shouldAddNewlinesAroundStatement(node);
             let shouldPreserveTrailingBlankLine = false;
+
             if (
                 parentNode?.type === "BlockStatement" &&
-                typeof options.originalText === "string" &&
-                isNextLineEmpty(options.originalText, trailingProbeIndex) &&
                 !suppressFollowingEmptyLine
             ) {
-                const text = options.originalText;
-                const textLength = text.length;
-                let scanIndex = trailingProbeIndex;
-                let nextCharacter = null;
+                if (enforceTrailingPadding) {
+                    shouldPreserveTrailingBlankLine = true;
+                } else if (
+                    typeof options.originalText === "string" &&
+                    isNextLineEmpty(options.originalText, trailingProbeIndex)
+                ) {
+                    const text = options.originalText;
+                    const textLength = text.length;
+                    let scanIndex = trailingProbeIndex;
+                    let nextCharacter = null;
 
-                while (scanIndex < textLength) {
-                    nextCharacter = getNextNonWhitespaceCharacter(
-                        text,
-                        scanIndex
-                    );
+                    while (scanIndex < textLength) {
+                        nextCharacter = getNextNonWhitespaceCharacter(
+                            text,
+                            scanIndex
+                        );
 
-                    if (nextCharacter === ";") {
-                        if (hasFunctionInitializer) {
-                            break;
+                        if (nextCharacter === ";") {
+                            if (hasFunctionInitializer) {
+                                break;
+                            }
+
+                            const semicolonIndex = text.indexOf(";", scanIndex);
+                            if (semicolonIndex === -1) {
+                                nextCharacter = null;
+                                break;
+                            }
+                            scanIndex = semicolonIndex + 1;
+                            continue;
                         }
 
-                        const semicolonIndex = text.indexOf(";", scanIndex);
-                        if (semicolonIndex === -1) {
-                            nextCharacter = null;
-                            break;
-                        }
-                        scanIndex = semicolonIndex + 1;
-                        continue;
+                        break;
                     }
 
-                    break;
+                    shouldPreserveTrailingBlankLine = nextCharacter
+                        ? nextCharacter !== "}"
+                        : false;
                 }
-
-                shouldPreserveTrailingBlankLine = nextCharacter
-                    ? nextCharacter !== "}"
-                    : false;
             }
 
             if (shouldPreserveTrailingBlankLine) {
