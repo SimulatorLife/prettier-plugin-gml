@@ -4,7 +4,7 @@ const contextMap = new Map();
 /**
  * Normalizes optional file path inputs into a consistent map key.
  *
- * @param {string | null | undefined} filePath
+ * @param {string | null | undefined} filepath
  * @returns {string}
  */
 function normalizeKey(filepath) {
@@ -13,28 +13,6 @@ function normalizeKey(filepath) {
     }
 
     return filepath;
-}
-
-/**
- * Resolve the normalized map key and associated context entry. Consolidates
- * the repeated `has`/`get` guards used when consuming or peeking at stored
- * metadata so each call site stays consistent when converting missing entries
- * to `null` and optionally removing consumed records.
- *
- * @param {string | null | undefined} filepath
- * @param {{ remove?: boolean }} [options]
- * @returns {{ key: string, context: object | null }}
- */
-function accessContextEntry(filepath, { remove = false } = {}) {
-    const key = normalizeKey(filepath);
-    const hasEntry = contextMap.has(key);
-    const context = hasEntry ? contextMap.get(key) : null;
-
-    if (remove && hasEntry) {
-        contextMap.delete(key);
-    }
-
-    return { key, context };
 }
 
 /**
@@ -55,7 +33,7 @@ export function setIdentifierCaseDryRunContext({
     now = null,
     projectIndex = null
 } = {}) {
-    const { key } = accessContextEntry(filepath);
+    const key = normalizeKey(filepath);
     contextMap.set(key, {
         renamePlan,
         conflicts,
@@ -76,7 +54,9 @@ export function setIdentifierCaseDryRunContext({
  * @returns {object | null}
  */
 export function consumeIdentifierCaseDryRunContext(filepath = null) {
-    const { context } = accessContextEntry(filepath, { remove: true });
+    const key = normalizeKey(filepath);
+    const context = contextMap.get(key) ?? null;
+    contextMap.delete(key);
     return context;
 }
 
@@ -88,8 +68,7 @@ export function consumeIdentifierCaseDryRunContext(filepath = null) {
  * @returns {object | null}
  */
 export function peekIdentifierCaseDryRunContext(filepath = null) {
-    const { context } = accessContextEntry(filepath);
-    return context;
+    return contextMap.get(normalizeKey(filepath)) ?? null;
 }
 
 /**

@@ -35,7 +35,12 @@ function loadIdentifierMetadata() {
  *
  * @param {() => unknown} loader
  * @returns {() => void} Cleanup handler that restores the previous loader when
- *          invoked. The handler is a no-op if the loader changed again.
+ *          invoked. The handler intentionally degrades to a no-op when another
+ *          caller swapped the loader before cleanup runs. Identifier casing
+ *          integrations layer overrides during try/finally flows described in
+ *          `docs/naming-conventions.md#objective-and-constraints`; blindly
+ *          reinstating `previousLoader` would roll back those newer overrides
+ *          and leave the formatter reading stale metadata mid-run.
  */
 function setReservedIdentifierMetadataLoader(loader) {
     if (typeof loader !== "function") {

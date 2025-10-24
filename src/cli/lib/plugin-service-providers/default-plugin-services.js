@@ -1,4 +1,10 @@
-import { resolveDefaultCliPluginServiceDescriptors } from "./default-plugin-service-descriptors.js";
+import { buildProjectIndex } from "prettier-plugin-gamemaker/project-index";
+import {
+    prepareIdentifierCasePlan,
+    clearIdentifierCaseOptionStore,
+    clearIdentifierCaseDryRunContexts
+} from "prettier-plugin-gamemaker/identifier-case";
+import { assertFunction } from "../shared-deps.js";
 
 /**
  * The legacy `identifierCasePlanService` facade coupled plan preparation with
@@ -7,6 +13,15 @@ import { resolveDefaultCliPluginServiceDescriptors } from "./default-plugin-serv
  * to depend on both behaviours. The typedefs below capture the narrower
  * preparation and cache responsibilities so consumers can opt into the precise
  * collaborator they require.
+ */
+
+/**
+ * @typedef {(projectRoot: string, manifest?: unknown, options?: object) => Promise<object>} CliProjectIndexBuilder
+ */
+
+/**
+ * @typedef {object} CliProjectIndexService
+ * @property {CliProjectIndexBuilder} buildProjectIndex
  */
 
 /**
@@ -19,39 +34,71 @@ import { resolveDefaultCliPluginServiceDescriptors } from "./default-plugin-serv
  * @property {() => void} clearIdentifierCaseCaches
  */
 
-function normalizeDescriptorSource(descriptorSource) {
-    const resolved =
-        descriptorSource ?? resolveDefaultCliPluginServiceDescriptors;
+/**
+ * @typedef {object} CliIdentifierCasePlanService
+ * @property {(options: object) => Promise<void>} prepareIdentifierCasePlan
+ * @property {() => void} clearIdentifierCaseCaches
+ */
 
-    if (typeof resolved === "function") {
-        return resolved();
+/**
+ * The previous default CLI plugin services registry combined the raw builder
+ * functions with their scoped service facades under a single
+ * `defaultCliPluginServices` object. That catch-all contract forced callers
+ * that only needed the identifier case cache helpers, for example, to depend
+ * on the project index builder as well. The bundles below keep the surfaces
+ * cohesive so collaborators can choose just the family they require.
+ */
+
+/**
+ * @typedef {object} CliIdentifierCaseServices
+ * @property {CliIdentifierCasePlanPreparationService} preparation
+ * @property {CliIdentifierCasePlanCacheService} cache
+ */
+
+/**
+ * @typedef {object} CliPluginServiceRegistry
+ * @property {CliProjectIndexService} projectIndex
+ * @property {CliIdentifierCaseServices} identifierCase
+ */
+
+function clearIdentifierCaseCaches() {
+    clearIdentifierCaseOptionStore(null);
+    clearIdentifierCaseDryRunContexts();
+}
+
+function resolveDescriptorSource(descriptorSource) {
+    if (descriptorSource == null) {
+        return {};
     }
 
-    return resolved;
+    if (typeof descriptorSource === "function") {
+        return resolveDescriptorSource(descriptorSource());
+    }
+
+    if (typeof descriptorSource === "object") {
+        return descriptorSource;
+    }
+
+    throw new TypeError(
+        "CLI plugin service descriptors must be provided as objects."
+    );
 }
 
 function assertDescriptorValue(value, description) {
-    if (typeof value !== "function") {
-        throw new TypeError(
-            `CLI plugin service descriptors must include a ${description} function.`
-        );
-    }
+    assertFunction(value, description, {
+        errorMessage: `CLI plugin service descriptors must include a ${description} function.`
+    });
 }
 
 export function createDefaultCliPluginServices(descriptorSource) {
-    const descriptors = normalizeDescriptorSource(descriptorSource);
+    const descriptors = resolveDescriptorSource(descriptorSource);
 
-    if (!descriptors || typeof descriptors !== "object") {
-        throw new TypeError(
-            "CLI plugin service descriptors must be provided as objects."
-        );
-    }
-
-    const {
-        projectIndexBuilder,
-        identifierCasePlanPreparer,
-        identifierCaseCacheClearer
-    } = descriptors;
+    const projectIndexBuilder =
+        descriptors.projectIndexBuilder ?? buildProjectIndex;
+    const identifierCasePlanPreparer =
+        descriptors.identifierCasePlanPreparer ?? prepareIdentifierCasePlan;
+    const identifierCaseCacheClearer =
+        descriptors.identifierCaseCacheClearer ?? clearIdentifierCaseCaches;
 
     assertDescriptorValue(projectIndexBuilder, "project index builder");
     assertDescriptorValue(
@@ -79,10 +126,26 @@ export function createDefaultCliPluginServices(descriptorSource) {
         })
     );
 
-    const identifierCasePlanService = Object.freeze({
-        ...identifierCasePlanPreparationService,
-        ...identifierCasePlanCacheService
-    });
+    const identifierCasePlanService = Object.freeze(
+        /** @type {CliIdentifierCasePlanService} */ ({
+            ...identifierCasePlanPreparationService,
+            ...identifierCasePlanCacheService
+        })
+    );
+
+    const identifierCaseServices = Object.freeze(
+        /** @type {CliIdentifierCaseServices} */ ({
+            preparation: identifierCasePlanPreparationService,
+            cache: identifierCasePlanCacheService
+        })
+    );
+
+    const pluginServiceRegistry = Object.freeze(
+        /** @type {CliPluginServiceRegistry} */ ({
+            projectIndex: projectIndexService,
+            identifierCase: identifierCaseServices
+        })
+    );
 
     return {
         projectIndexBuilder,
@@ -91,7 +154,9 @@ export function createDefaultCliPluginServices(descriptorSource) {
         projectIndexService,
         identifierCasePlanService,
         identifierCasePlanPreparationService,
-        identifierCasePlanCacheService
+        identifierCasePlanCacheService,
+        identifierCaseServices,
+        pluginServiceRegistry
     };
 }
 
@@ -103,7 +168,9 @@ const {
     identifierCasePlanService: defaultCliIdentifierCasePlanService,
     identifierCasePlanPreparationService:
         defaultCliIdentifierCasePlanPreparationService,
-    identifierCasePlanCacheService: defaultCliIdentifierCaseCacheService
+    identifierCasePlanCacheService: defaultCliIdentifierCaseCacheService,
+    identifierCaseServices: defaultCliIdentifierCaseServices,
+    pluginServiceRegistry: defaultCliPluginServices
 } = createDefaultCliPluginServices();
 
 export { defaultProjectIndexBuilder };
@@ -111,17 +178,8 @@ export { defaultIdentifierCasePlanPreparer };
 export { defaultIdentifierCaseCacheClearer };
 
 export { defaultCliProjectIndexService };
+export { defaultCliIdentifierCasePlanService };
 export { defaultCliIdentifierCasePlanPreparationService };
 export { defaultCliIdentifierCaseCacheService };
-export { defaultCliIdentifierCasePlanService };
-
-export const defaultCliPluginServices = Object.freeze({
-    buildProjectIndex: defaultProjectIndexBuilder,
-    prepareIdentifierCasePlan: defaultIdentifierCasePlanPreparer,
-    clearIdentifierCaseCaches: defaultIdentifierCaseCacheClearer,
-    projectIndex: defaultCliProjectIndexService,
-    identifierCasePlan: defaultCliIdentifierCasePlanService,
-    identifierCasePlanPreparation:
-        defaultCliIdentifierCasePlanPreparationService,
-    identifierCasePlanCache: defaultCliIdentifierCaseCacheService
-});
+export { defaultCliIdentifierCaseServices };
+export { defaultCliPluginServices };

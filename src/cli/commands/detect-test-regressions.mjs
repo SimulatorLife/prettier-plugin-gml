@@ -465,10 +465,7 @@ function listXmlFiles(resolvedPath) {
     return fs
         .readdirSync(resolvedPath)
         .filter(
-            (file) =>
-                file.endsWith(".xml") &&
-                !/checkstyle/i.test(file) &&
-                !/-summary\.xml$/i.test(file)
+            (file) => file.endsWith(".xml") && !/-summary\.xml$/i.test(file)
         );
 }
 
@@ -505,6 +502,10 @@ function collectTestCasesFromXmlFile(filePath, displayPath) {
         return { cases: [], notes: [parseResult.note] };
     }
 
+    if (parseResult.status === "ignored") {
+        return { cases: [], notes: [parseResult.note] };
+    }
+
     return { cases: parseResult.cases, notes: [] };
 }
 
@@ -524,6 +525,12 @@ function readXmlFile(filePath, displayPath) {
 function parseXmlTestCases(xml, displayPath) {
     try {
         const data = parser.parse(xml);
+        if (isCheckstyleDocument(data)) {
+            return {
+                status: "ignored",
+                note: `Ignoring checkstyle report ${displayPath}; no test cases found.`
+            };
+        }
         return { status: "ok", cases: collectTestCases(data) };
     } catch (error) {
         const message =
@@ -533,6 +540,30 @@ function parseXmlTestCases(xml, displayPath) {
             note: `Failed to parse ${displayPath}: ${message}`
         };
     }
+}
+
+function isCheckstyleDocument(document) {
+    if (!isObjectLike(document) || Array.isArray(document)) {
+        return false;
+    }
+
+    const root = document.checkstyle;
+    if (!isObjectLike(root) || Array.isArray(root)) {
+        return false;
+    }
+
+    if (hasAnyOwn(root, ["testsuite", "testcase"])) {
+        return false;
+    }
+
+    const files = toArray(root.file);
+    if (files.length === 0) {
+        return true;
+    }
+
+    return files.every(
+        (file) => isObjectLike(file) && isNonEmptyTrimmedString(file.name)
+    );
 }
 
 function getTestCaseDurationSeconds(testCase) {

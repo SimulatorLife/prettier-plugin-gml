@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { __loadBuiltInIdentifiersForTests as loadBuiltInIdentifiers } from "../src/project-index/index.js";
+import { __loadBuiltInIdentifiersForTests as loadBuiltInIdentifiers } from "../src/project-index/built-in-identifiers.js";
 
 function createMockFsFacade({ contents, mtimeMs }) {
     return {

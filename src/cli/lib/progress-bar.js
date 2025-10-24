@@ -8,7 +8,7 @@ import {
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
-const activeProgressBars = new Map();
+let activeProgressBars = new Map();
 let progressBarFactory = (options, preset) => new SingleBar(options, preset);
 
 function resolveProgressStream(stdout) {
@@ -91,6 +91,11 @@ function disposeProgressBars() {
     activeProgressBars.clear();
 }
 
+function resetProgressBarRegistryForTesting() {
+    disposeProgressBars();
+    activeProgressBars = new Map();
+}
+
 function renderProgressBar(label, current, total, width, options = {}) {
     const { stdout = process.stdout, createBar = createDefaultProgressBar } =
         options;
@@ -143,5 +148,6 @@ export {
     setProgressBarFactoryForTesting,
     renderProgressBar,
     resolveProgressBarWidth,
-    withProgressBarCleanup
+    withProgressBarCleanup,
+    resetProgressBarRegistryForTesting
 };

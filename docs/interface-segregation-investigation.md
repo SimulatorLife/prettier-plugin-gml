@@ -73,7 +73,53 @@ no code changes were required.
   paths, raw GitHub client adapters, and high-level operations as a single
   object, which forced commands that only needed one facet (for example,
   `fetchManualFile`) to depend on all of the manual wiring details.
-- Split the contract into `environment`, `clients`, and `operations` views so
+- Split the contract into explicit helpers – `createManualEnvironmentContext`,
+  the since-superseded `createManualGitHubExecutionContext`, and
+  `createManualManualAccessContext` – so
   callers can depend solely on the slice they require. Updated the manual CLI
   commands and associated tests to destructure the focused views instead of the
   wide context.
+
+## Follow-up audit (2025-03-12)
+
+- Revisited `createManualCommandContext` in
+  `src/cli/lib/manual-command-context.js` and noticed the
+  `ManualCommandGitHubOperations` surface still bundled manual request
+  execution, file fetching, ref resolution, and commit resolution behind one
+  catch-all interface. Commands that only needed one of those collaborators
+  were forced to depend on all four behaviours.
+- Replaced the combined operations facade with focused services for requests,
+  files, refs, and commits. Updated the manual CLI commands and unit tests to
+  use `createManualManualAccessContext` and
+  (at the time) `createManualGitHubExecutionContext` so each call site depends
+  only on the GitHub behaviour it requires.
+
+## Follow-up audit (2025-03-19)
+
+- Audited the manual GitHub execution helpers again and found the
+  `ManualCommandGitHubClients` contract in
+  `src/cli/lib/manual-command-context.js`. The catch-all "clients" object still
+  combined the raw request executor, commit resolver, ref resolver, and file
+  fetcher into one dependency, which meant consumers importing the execution
+  context needed to accept all four collaborators even when they only required
+  one.
+- Removed the aggregated `ManualCommandGitHubClients` interface in favour of
+  exposing the individual collaborators (`request`, `commitResolver`,
+  `refResolver`, and `fileClient`) directly on the execution context. Updated
+  the associated unit test to assert against the focused properties so each
+  call site now depends solely on the GitHub behaviour it needs.
+
+## Follow-up audit (2025-03-26)
+
+- Revisited the manual GitHub helpers once more and found the exported
+  `ManualGitHubExecutionContext` contract still coupled service facades with the
+  raw request/commit/ref/file clients. Even after earlier splits, callers that
+  only needed one collaborator had to depend on the entire execution bundle.
+- Replaced the umbrella helper with targeted resolvers
+  (`resolveManualGitHubRequestService`,
+  `resolveManualGitHubRequestExecutor`,
+  `resolveManualGitHubCommitService`,
+  `resolveManualGitHubCommitResolver`,
+  `resolveManualGitHubRefResolver`, and
+  `resolveManualGitHubFileClient`). Updated the CLI unit test to import the
+  specialised helpers so consumers opt into only the collaborator they require.

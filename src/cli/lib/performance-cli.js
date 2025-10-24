@@ -18,14 +18,23 @@ import {
     ensureSuitesAreKnown,
     resolveRequestedSuites
 } from "./command-suite-helpers.js";
-import { coercePositiveInteger, getIdentifierText } from "./shared-deps.js";
+import {
+    assertArray,
+    coercePositiveInteger,
+    getIdentifierText
+} from "./shared-deps.js";
+import {
+    PerformanceSuiteName,
+    isPerformanceThroughputSuite,
+    normalizePerformanceSuiteName
+} from "./performance-suite-options.js";
 
 const AVAILABLE_SUITES = new Map();
 
 const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const CLI_DIRECTORY = path.resolve(MODULE_DIRECTORY, "..");
 const REPO_ROOT = path.resolve(CLI_DIRECTORY, "..");
-const TEST_RESULTS_DIRECTORY = path.resolve(REPO_ROOT, "test-results");
+const TEST_RESULTS_DIRECTORY = path.resolve(REPO_ROOT, "reports");
 const DEFAULT_REPORT_FILE = path.join(
     TEST_RESULTS_DIRECTORY,
     "performance-report.json"
@@ -36,8 +45,40 @@ const DEFAULT_FIXTURE_DIRECTORIES = Object.freeze([
 ]);
 const DATASET_CACHE_KEY = "gml-fixtures";
 
+function createDatasetSummary({ fileCount, totalBytes }) {
+    const normalizedFileCount =
+        typeof fileCount === "number" &&
+        Number.isFinite(fileCount) &&
+        fileCount >= 0
+            ? Math.trunc(fileCount)
+            : 0;
+
+    let normalizedTotalBytes = 0;
+    if (
+        typeof totalBytes === "number" &&
+        Number.isFinite(totalBytes) &&
+        totalBytes >= 0
+    ) {
+        normalizedTotalBytes = totalBytes;
+    }
+
+    return {
+        files: normalizedFileCount,
+        totalBytes: normalizedTotalBytes
+    };
+}
+
 function collectValue(value, previous = []) {
     previous.push(value);
+    return previous;
+}
+
+function collectPerformanceSuite(value, previous = []) {
+    const normalized = normalizePerformanceSuiteName(value, {
+        errorConstructor: InvalidArgumentError
+    });
+
+    previous.push(normalized);
     return previous;
 }
 
@@ -115,79 +156,118 @@ async function collectFixtureFilePaths(directories) {
 async function loadFixtureDataset({ directories } = {}) {
     const fixtureDirectories = normalizeFixtureRoots(directories ?? []);
     const fixturePaths = await collectFixtureFilePaths(fixtureDirectories);
+    const files = await loadFixtureFiles(fixturePaths);
 
-    const files = [];
-    let totalBytes = 0;
-
-    for (const absolutePath of fixturePaths) {
-        const source = await fs.readFile(absolutePath, "utf8");
-        const size = Buffer.byteLength(source);
-        totalBytes += size;
-        files.push({
-            path: absolutePath,
-            relativePath: path.relative(REPO_ROOT, absolutePath),
-            source,
-            size
-        });
-    }
-
-    return {
-        files,
-        summary: {
-            files: files.length,
-            totalBytes
-        }
-    };
+    return createDatasetFromFiles(files);
 }
 
 function normalizeCustomDataset(dataset) {
-    if (!Array.isArray(dataset)) {
-        throw new TypeError("Custom datasets must be provided as an array.");
-    }
-
-    const files = [];
-    let totalBytes = 0;
-
-    dataset.forEach((entry, index) => {
-        if (!entry || typeof entry !== "object") {
-            throw new TypeError(
-                "Each dataset entry must be an object with a source string."
-            );
-        }
-
-        const source = entry.source;
-        if (typeof source !== "string") {
-            throw new TypeError(
-                "Dataset entries must include a string `source` property."
-            );
-        }
-
-        const providedPath =
-            typeof entry.path === "string" ? entry.path : `<fixture-${index}>`;
-        const relativePath =
-            typeof entry.relativePath === "string"
-                ? entry.relativePath
-                : providedPath.startsWith("<")
-                  ? providedPath
-                  : path.relative(REPO_ROOT, providedPath);
-        const size = entry.size ?? Buffer.byteLength(source);
-        totalBytes += size;
-
-        files.push({
-            path: providedPath,
-            relativePath,
-            source,
-            size
-        });
+    const entries = assertArray(dataset, {
+        name: "dataset",
+        errorMessage: "Custom datasets must be provided as an array."
     });
+
+    const files = entries.map((entry, index) =>
+        normalizeCustomDatasetEntry(entry, index)
+    );
+
+    return createDatasetFromFiles(files);
+}
+
+/**
+ * Combine normalized fixture records into the dataset payload expected by
+ * benchmark runners.
+ *
+ * @param {Array<{ path: string, relativePath: string, source: string, size: number }>} files
+ */
+function createDatasetFromFiles(files) {
+    let totalBytes = 0;
+    for (const file of files) {
+        totalBytes += file.size;
+    }
 
     return {
         files,
-        summary: {
-            files: files.length,
+        summary: createDatasetSummary({
+            fileCount: files.length,
             totalBytes
-        }
+        })
     };
+}
+
+/**
+ * Read the benchmark fixture files in a stable order so dataset consumers see
+ * deterministic output regardless of the underlying filesystem.
+ *
+ * @param {Array<string>} fixturePaths
+ */
+async function loadFixtureFiles(fixturePaths) {
+    const records = [];
+    for (const absolutePath of fixturePaths) {
+        records.push(await readFixtureFileRecord(absolutePath));
+    }
+    return records;
+}
+
+/**
+ * Resolve a single fixture file into the canonical dataset record structure.
+ */
+async function readFixtureFileRecord(absolutePath) {
+    const source = await fs.readFile(absolutePath, "utf8");
+    return createFixtureRecord({ absolutePath, source });
+}
+
+/**
+ * Normalize fixture metadata while enforcing consistent size and relative path
+ * semantics regardless of where the record originated.
+ */
+function createFixtureRecord({ absolutePath, source, size, relativePath }) {
+    const resolvedSize =
+        typeof size === "number" && Number.isFinite(size)
+            ? size
+            : Buffer.byteLength(source);
+    const resolvedRelativePath =
+        typeof relativePath === "string"
+            ? relativePath
+            : path.relative(REPO_ROOT, absolutePath);
+
+    return {
+        path: absolutePath,
+        relativePath: resolvedRelativePath,
+        source,
+        size: resolvedSize
+    };
+}
+
+function normalizeCustomDatasetEntry(entry, index) {
+    if (!entry || typeof entry !== "object") {
+        throw new TypeError(
+            "Each dataset entry must be an object with a source string."
+        );
+    }
+
+    const source = entry.source;
+    if (typeof source !== "string") {
+        throw new TypeError(
+            "Dataset entries must include a string `source` property."
+        );
+    }
+
+    const providedPath =
+        typeof entry.path === "string" ? entry.path : `<fixture-${index}>`;
+    const resolvedRelativePath =
+        typeof entry.relativePath === "string"
+            ? entry.relativePath
+            : providedPath.startsWith("<")
+              ? providedPath
+              : path.relative(REPO_ROOT, providedPath);
+
+    return createFixtureRecord({
+        absolutePath: providedPath,
+        source,
+        size: entry.size,
+        relativePath: resolvedRelativePath
+    });
 }
 
 async function resolveDatasetFromOptions(options = {}) {
@@ -274,20 +354,19 @@ function createBenchmarkResult({ dataset, durations, iterations }) {
         (sum, duration) => sum + duration,
         0
     );
-    const datasetFiles = dataset.summary.files;
-    const datasetBytes = dataset.summary.totalBytes;
-    const totalFilesProcessed = datasetFiles * iterations;
-    const totalBytesProcessed = datasetBytes * iterations;
+    const datasetSummary = createDatasetSummary({
+        fileCount: dataset.summary.files,
+        totalBytes: dataset.summary.totalBytes
+    });
+    const totalFilesProcessed = datasetSummary.files * iterations;
+    const totalBytesProcessed = datasetSummary.totalBytes * iterations;
 
     return {
         iterations,
         durations,
         totalDurationMs: totalDuration,
         averageDurationMs: iterations > 0 ? totalDuration / iterations : 0,
-        dataset: {
-            files: datasetFiles,
-            totalBytes: datasetBytes
-        },
+        dataset: datasetSummary,
         throughput: {
             filesPerMs:
                 totalDuration > 0 ? totalFilesProcessed / totalDuration : null,
@@ -417,9 +496,11 @@ function runIdentifierTextBenchmark() {
     return benchmarkIdentifierTextDataset(dataset, iterations);
 }
 
-AVAILABLE_SUITES.set("parser", runParserBenchmark);
-AVAILABLE_SUITES.set("formatter", runFormatterBenchmark);
-AVAILABLE_SUITES.set("identifier-text", () => runIdentifierTextBenchmark());
+AVAILABLE_SUITES.set(PerformanceSuiteName.PARSER, runParserBenchmark);
+AVAILABLE_SUITES.set(PerformanceSuiteName.FORMATTER, runFormatterBenchmark);
+AVAILABLE_SUITES.set(PerformanceSuiteName.IDENTIFIER_TEXT, () =>
+    runIdentifierTextBenchmark()
+);
 
 export function createPerformanceCommand() {
     return applyStandardCommandOptions(
@@ -433,7 +514,7 @@ export function createPerformanceCommand() {
         .option(
             "-s, --suite <name>",
             "Benchmark suite to run (can be provided multiple times).",
-            collectValue,
+            collectPerformanceSuite,
             []
         )
         .option(
@@ -485,12 +566,12 @@ function createSuiteExecutionOptions(options) {
 
 async function writeReport(report, options) {
     if (options.skipReport) {
-        return;
+        return { skipped: true };
     }
 
     const targetFile = options.reportFile ?? DEFAULT_REPORT_FILE;
     if (!targetFile) {
-        return;
+        return { skipped: true };
     }
 
     const directory = path.dirname(targetFile);
@@ -499,6 +580,27 @@ async function writeReport(report, options) {
     const spacing = options.pretty ? 2 : 0;
     const payload = `${JSON.stringify(report, null, spacing)}\n`;
     await fs.writeFile(targetFile, payload, "utf8");
+
+    return { skipped: false, path: targetFile };
+}
+
+function formatReportFilePath(targetFile) {
+    if (!targetFile) {
+        return "";
+    }
+
+    const absolutePath = path.resolve(targetFile);
+    const relativeToCwd = path.relative(process.cwd(), absolutePath);
+
+    if (!relativeToCwd) {
+        return ".";
+    }
+
+    if (!relativeToCwd.startsWith("..") && !path.isAbsolute(relativeToCwd)) {
+        return relativeToCwd;
+    }
+
+    return absolutePath;
 }
 
 function formatThroughput(value, unit) {
@@ -544,7 +646,7 @@ function printHumanReadable(report) {
             continue;
         }
 
-        if (suite === "parser" || suite === "formatter") {
+        if (isPerformanceThroughputSuite(suite)) {
             const datasetBytes = payload.dataset?.totalBytes ?? 0;
             lines.push(
                 `  - iterations: ${payload.iterations}`,
@@ -619,7 +721,12 @@ export async function runPerformanceCommand({ command } = {}) {
         suites: suiteResults
     };
 
-    await writeReport(report, options);
+    const reportResult = await writeReport(report, options);
+
+    if (reportResult?.path) {
+        const displayPath = formatReportFilePath(reportResult.path);
+        console.log(`Performance report written to ${displayPath}.`);
+    }
 
     if (options.stdout) {
         emitReport(report, options);
