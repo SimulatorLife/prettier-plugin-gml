@@ -3482,7 +3482,7 @@ describe("applyFeatherFixes transform", () => {
     it("normalizes simple syntax errors flagged by GM1100 and records metadata", () => {
         const source = ["var _this * something;", "", "    = 48;"].join("\n");
 
-        const { sourceText, metadata } =
+        const { sourceText, metadata, indexAdjustments } =
             preprocessSourceForFeatherFixes(source);
 
         assert.notStrictEqual(
@@ -3734,7 +3734,7 @@ describe("applyFeatherFixes transform", () => {
             ""
         ].join("\n");
 
-        const { sourceText, metadata } =
+        const { sourceText, metadata, indexAdjustments } =
             preprocessSourceForFeatherFixes(source);
 
         assert.notStrictEqual(
@@ -3812,7 +3812,7 @@ describe("applyFeatherFixes transform", () => {
             ""
         ].join("\n");
 
-        const { sourceText, metadata } =
+        const { sourceText, metadata, indexAdjustments } =
             preprocessSourceForFeatherFixes(source);
 
         assert.notStrictEqual(
@@ -3837,6 +3837,15 @@ describe("applyFeatherFixes transform", () => {
             metadata === null || metadata === undefined,
             true,
             "Expected no additional metadata to be required for GM1003 preprocessing."
+        );
+
+        assert.deepStrictEqual(
+            indexAdjustments,
+            [
+                { index: 28, delta: 2 },
+                { index: 44, delta: 2 }
+            ],
+            "Expected GM1003 preprocessing to record index adjustments for removed quotes."
         );
 
         const ast = GMLParser.parse(sourceText, {
