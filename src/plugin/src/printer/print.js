@@ -5926,7 +5926,16 @@ function shouldOmitSyntheticParens(path) {
             typeof path.getName === "function" ? path.getName() : undefined;
         if (parentKey === "test") {
             const expression = node.expression;
-            // Remove parens around simple expressions that don't need them
+            // Trim redundant parentheses when the ternary guard is just a bare
+            // identifier or property lookup. The parser faithfully records the
+            // author-supplied parens as a `ParenthesizedExpression`, so without
+            // this branch the printer would emit `(foo) ?` style guards that look
+            // like extra precedence handling. The formatter's ternary examples in
+            // README.md#formatter-at-a-glance promise minimal grouping, and
+            // teams lean on that contract when reviewing formatter diffs. We keep
+            // the removal scoped to trivially safe shapes so we do not second-
+            // guess parentheses that communicate evaluation order for compound
+            // boolean logic or arithmetic.
             if (
                 expression?.type === "Identifier" ||
                 expression?.type === "MemberDotExpression" ||
