@@ -14,9 +14,14 @@ import {
 } from "../../../shared/object-utils.js";
 import {
     findProjectRoot,
-    createProjectIndexCoordinator,
-    getProjectIndexParserOverride
+    createProjectIndexCoordinator
 } from "../project-index/index.js";
+import { getProjectIndexParserOverride } from "../project-index/parser-override.js";
+import {
+    createProjectIndexBuildOptions,
+    createProjectIndexDescriptor
+} from "../project-index/bootstrap-descriptor.js";
+import { clampConcurrency } from "../project-index/concurrency.js";
 
 const PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME =
     "__identifierCaseProjectIndexCacheMaxBytes";
@@ -181,15 +186,13 @@ function coerceCacheMaxSize(
 }
 
 function coerceProjectIndexConcurrency(numericValue, { optionName, received }) {
-    if (Number.isFinite(numericValue) && numericValue < 1) {
-        throw new Error(formatConcurrencyValueError(optionName, received));
-    }
-
-    return coercePositiveInteger(numericValue, {
+    const positiveInteger = coercePositiveInteger(numericValue, {
         received,
         createErrorMessage: (value) =>
             formatConcurrencyValueError(optionName, value)
     });
+
+    return clampConcurrency(positiveInteger);
 }
 
 function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
@@ -375,51 +378,6 @@ function resolveProjectIndexCoordinator(
     return { coordinator, dispose };
 }
 
-function createProjectIndexBuildOptions(
-    options,
-    { projectIndexConcurrency, parserOverride }
-) {
-    const buildOptions = {
-        logger: options?.logger ?? null,
-        logMetrics: options?.logIdentifierCaseMetrics === true
-    };
-
-    withDefinedValue(projectIndexConcurrency, (value) => {
-        buildOptions.concurrency = {
-            gml: value,
-            gmlParsing: value
-        };
-    });
-
-    if (parserOverride) {
-        if (parserOverride.facade) {
-            buildOptions.gmlParserFacade = parserOverride.facade;
-        }
-        buildOptions.parseGml = parserOverride.parse;
-    }
-
-    return buildOptions;
-}
-
-function createProjectIndexDescriptor(
-    options,
-    { projectRoot, cacheMaxSizeBytes, buildOptions }
-) {
-    const descriptor = {
-        projectRoot,
-        cacheFilePath: options?.identifierCaseProjectIndexCachePath ?? null,
-        formatterVersion: getFormatterVersion(options) ?? undefined,
-        pluginVersion: getPluginVersion(options) ?? undefined,
-        buildOptions
-    };
-
-    withDefinedValue(cacheMaxSizeBytes, (value) => {
-        descriptor.maxSizeBytes = value;
-    });
-
-    return descriptor;
-}
-
 function finalizeBootstrapSuccess(
     options,
     ready,
@@ -501,14 +459,19 @@ export async function bootstrapProjectIndex(options = {}, storeOption) {
     });
 
     const parserOverride = getProjectIndexParserOverride(options);
-    const buildOptions = createProjectIndexBuildOptions(options, {
+    const buildOptions = createProjectIndexBuildOptions({
+        logger: options?.logger ?? null,
+        logMetrics: options?.logIdentifierCaseMetrics === true,
         projectIndexConcurrency,
         parserOverride
     });
 
-    const descriptor = createProjectIndexDescriptor(options, {
+    const descriptor = createProjectIndexDescriptor({
         projectRoot,
         cacheMaxSizeBytes,
+        cacheFilePath: options?.identifierCaseProjectIndexCachePath ?? null,
+        formatterVersion: getFormatterVersion(options) ?? undefined,
+        pluginVersion: getPluginVersion(options) ?? undefined,
         buildOptions
     });
 

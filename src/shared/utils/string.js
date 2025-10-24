@@ -78,7 +78,7 @@ export function assertNonEmptyString(
 }
 
 export function isWordChar(character) {
-    if (typeof character !== "string" || character.length === 0) {
+    if (!isNonEmptyString(character)) {
         return false;
     }
     // Use regex to match ASCII word characters on the first character.
@@ -260,10 +260,12 @@ function collectUniqueTrimmedStrings(entries) {
         }
 
         const trimmed = entry.trim();
-        if (trimmed && !seen.has(trimmed)) {
-            seen.add(trimmed);
-            normalized.push(trimmed);
+        if (!trimmed || seen.has(trimmed)) {
+            continue;
         }
+
+        seen.add(trimmed);
+        normalized.push(trimmed);
     }
 
     return normalized;

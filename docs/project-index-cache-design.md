@@ -96,7 +96,8 @@ inputs (`manifest-mtime-mismatch`, `formatter-version-mismatch`, etc.).
 atomic rename and refuses to persist entries that exceed the configured size
 limit (8 MiB by default) to avoid unbounded disk growth. Callers can tune the
 limit with the `gmlIdentifierCaseProjectIndexCacheMaxBytes` Prettier option;
-setting it to `0` disables the cap when larger caches are required.
+setting the option (or `GML_PROJECT_INDEX_CACHE_MAX_SIZE`) to `0` disables the
+cap when larger caches are required.
 
 ## Coordination and locking
 

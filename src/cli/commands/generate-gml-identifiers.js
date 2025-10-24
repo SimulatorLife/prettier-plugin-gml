@@ -13,11 +13,12 @@ import {
 import { writeManualJsonArtifact } from "../lib/manual-file-helpers.js";
 import {
     DEFAULT_MANUAL_REPO,
-    buildManualRepositoryEndpoints
+    buildManualRepositoryEndpoints,
+    createManualDownloadReporter,
+    downloadManualFileEntries
 } from "../lib/manual/utils.js";
 import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
 import {
-    renderProgressBar,
     disposeProgressBars,
     withProgressBarCleanup
 } from "../lib/progress-bar.js";
@@ -35,7 +36,7 @@ import {
     resolveManualCommandOptions
 } from "../lib/manual/command-options.js";
 import { wrapInvalidArgumentResolver } from "../lib/command-parsing.js";
-import { createManualManualAccessContext } from "../lib/manual-command-context.js";
+import { createManualAccessContext } from "../lib/manual-command-context.js";
 import {
     decodeManualKeywordsPayload,
     decodeManualTagsPayload
@@ -49,7 +50,7 @@ const {
     },
     files: { fetchManualFile },
     refs: { resolveManualRef }
-} = createManualManualAccessContext({
+} = createManualAccessContext({
     importMetaUrl: import.meta.url,
     userAgent: "prettier-plugin-gml identifier generator",
     outputFileName: "gml-identifiers.json"
@@ -328,8 +329,75 @@ function collectManualArrayIdentifiers(
     }
 }
 
+const MANUAL_IDENTIFIER_ARRAYS = Object.freeze([
+    {
+        identifier: "KEYWORDS",
+        parseLabel: "Parsing keyword array",
+        collectLabel: "Collecting keywords",
+        collectOptions: {
+            type: "keyword",
+            source: "manual:gml.js:KEYWORDS"
+        }
+    },
+    {
+        identifier: "LITERALS",
+        parseLabel: "Parsing literal array",
+        collectLabel: "Collecting literals",
+        collectOptions: {
+            type: "literal",
+            source: "manual:gml.js:LITERALS"
+        }
+    },
+    {
+        identifier: "SYMBOLS",
+        parseLabel: "Parsing symbol array",
+        collectLabel: "Collecting symbols",
+        collectOptions: {
+            type: "symbol",
+            source: "manual:gml.js:SYMBOLS"
+        }
+    }
+]);
+
 const MANUAL_KEYWORD_SOURCE = "manual:ZeusDocs_keywords.json";
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9_$.]+$/;
+
+/**
+ * Parse the manual identifier arrays embedded in gml.js and merge their
+ * contents into a single identifier metadata map.
+ *
+ * Centralizing the parsing and collection steps keeps the main command flow
+ * focused on orchestration while preserving the original timeSync reporting.
+ */
+function buildManualIdentifierMap({ gmlSource, vmEvalTimeoutMs, verbose }) {
+    const identifierMap = new Map();
+    const parsedArrays = MANUAL_IDENTIFIER_ARRAYS.map((descriptor) => ({
+        descriptor,
+        values: timeSync(
+            descriptor.parseLabel,
+            () =>
+                parseArrayLiteral(gmlSource, descriptor.identifier, {
+                    timeoutMs: vmEvalTimeoutMs
+                }),
+            { verbose }
+        )
+    }));
+
+    for (const { descriptor, values } of parsedArrays) {
+        timeSync(
+            descriptor.collectLabel,
+            () =>
+                collectManualArrayIdentifiers(
+                    identifierMap,
+                    values,
+                    descriptor.collectOptions
+                ),
+            { verbose }
+        );
+    }
+
+    return identifierMap;
+}
 
 function shouldIncludeManualReference(normalizedPath) {
     return (
@@ -425,82 +493,33 @@ const DOWNLOAD_PROGRESS_LABEL = "Downloading manual assets";
  * The helper centralizes console/progress-bar branching so callers can simply
  * forward status snapshots.
  */
-function reportManualAssetFetchProgress({
-    asset,
-    fetchedCount,
-    totalAssets,
-    verbose,
-    progressBarWidth
-}) {
-    if (!verbose.downloads) {
-        return;
-    }
-
-    if (verbose.progressBar) {
-        renderProgressBar(
-            DOWNLOAD_PROGRESS_LABEL,
-            fetchedCount,
-            totalAssets,
-            progressBarWidth
-        );
-        return;
-    }
-
-    console.log(`✓ ${asset.path}`);
-}
-
-/**
- * Download each manual asset and return a map of payloads keyed by the asset
- * descriptor's {@link key}. Progress callbacks receive the raw asset metadata
- * along with the running totals so orchestrators can surface meaningful status
- * updates without duplicating counter bookkeeping.
- */
-async function downloadManualAssetPayloads({
-    manualRefSha,
-    manualAssets,
-    requestOptions,
-    onProgress
-}) {
-    const payloads = {};
-    let fetchedCount = 0;
-    const totalAssets = manualAssets.length;
-
-    for (const asset of manualAssets) {
-        payloads[asset.key] = await fetchManualFile(
-            manualRefSha,
-            asset.path,
-            requestOptions
-        );
-
-        fetchedCount += 1;
-        onProgress?.({ asset, fetchedCount, totalAssets });
-    }
-
-    return payloads;
-}
-
 async function fetchManualAssets(
     manualRefSha,
     manualAssets,
     { forceRefresh, verbose, cacheRoot, rawRoot, progressBarWidth }
 ) {
     return withProgressBarCleanup(async () => {
-        return downloadManualAssetPayloads({
+        const reportProgress = createManualDownloadReporter({
+            label: DOWNLOAD_PROGRESS_LABEL,
+            verbose,
+            progressBarWidth
+        });
+
+        return downloadManualFileEntries({
+            entries: manualAssets.map((asset) => [asset.key, asset.path]),
             manualRefSha,
-            manualAssets,
+            fetchManualFile,
             requestOptions: {
                 forceRefresh,
                 verbose,
                 cacheRoot,
                 rawRoot
             },
-            onProgress: ({ asset, fetchedCount, totalAssets }) =>
-                reportManualAssetFetchProgress({
-                    asset,
+            onProgress: ({ path, fetchedCount, totalEntries }) =>
+                reportProgress({
+                    path,
                     fetchedCount,
-                    totalAssets,
-                    verbose,
-                    progressBarWidth
+                    totalEntries
                 })
         });
     });
@@ -564,65 +583,11 @@ export async function runGenerateGmlIdentifiers({ command } = {}) {
         );
 
         const gmlSource = fetchedPayloads.gmlSource;
-        const keywordsArray = timeSync(
-            "Parsing keyword array",
-            () =>
-                parseArrayLiteral(gmlSource, "KEYWORDS", {
-                    timeoutMs: vmEvalTimeoutMs
-                }),
-            { verbose }
-        );
-        const literalsArray = timeSync(
-            "Parsing literal array",
-            () =>
-                parseArrayLiteral(gmlSource, "LITERALS", {
-                    timeoutMs: vmEvalTimeoutMs
-                }),
-            { verbose }
-        );
-        const symbolsArray = timeSync(
-            "Parsing symbol array",
-            () =>
-                parseArrayLiteral(gmlSource, "SYMBOLS", {
-                    timeoutMs: vmEvalTimeoutMs
-                }),
-            { verbose }
-        );
-
-        const identifierMap = new Map();
-
-        timeSync(
-            "Collecting keywords",
-            () => {
-                collectManualArrayIdentifiers(identifierMap, keywordsArray, {
-                    type: "keyword",
-                    source: "manual:gml.js:KEYWORDS"
-                });
-            },
-            { verbose }
-        );
-
-        timeSync(
-            "Collecting literals",
-            () => {
-                collectManualArrayIdentifiers(identifierMap, literalsArray, {
-                    type: "literal",
-                    source: "manual:gml.js:LITERALS"
-                });
-            },
-            { verbose }
-        );
-
-        timeSync(
-            "Collecting symbols",
-            () => {
-                collectManualArrayIdentifiers(identifierMap, symbolsArray, {
-                    type: "symbol",
-                    source: "manual:gml.js:SYMBOLS"
-                });
-            },
-            { verbose }
-        );
+        const identifierMap = buildManualIdentifierMap({
+            gmlSource,
+            vmEvalTimeoutMs,
+            verbose
+        });
 
         if (verbose.parsing) {
             console.log("Merging manual keyword metadata…");

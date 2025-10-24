@@ -1417,8 +1417,29 @@ function buildSkippedDirectorySummaryMessage() {
     return `Skipped ${ignored} ${label} ignored by .prettierignore (e.g., ${sampleList}${suffix}).`;
 }
 
+function normalizeCommandLineArguments(argv) {
+    if (!Array.isArray(argv)) {
+        return [];
+    }
+
+    if (argv.length === 0) {
+        return [];
+    }
+
+    if (argv[0] !== "help") {
+        return [...argv];
+    }
+
+    if (argv.length === 1) {
+        return ["--help"];
+    }
+
+    return [...argv.slice(1), "--help"];
+}
+
 export const __test__ = Object.freeze({
-    resetFormattingSessionForTests: resetFormattingSession
+    resetFormattingSessionForTests: resetFormattingSession,
+    normalizeCommandLineArguments
 });
 
 const formatCommand = createFormatCommand({ name: "format" });
@@ -1474,7 +1495,11 @@ cliCommandRegistry.registerCommand({
 });
 
 if (process.env.PRETTIER_PLUGIN_GML_SKIP_CLI_RUN !== "1") {
-    cliCommandRunner.run(process.argv.slice(2)).catch((error) => {
+    const normalizedArguments = normalizeCommandLineArguments(
+        process.argv.slice(2)
+    );
+
+    cliCommandRunner.run(normalizedArguments).catch((error) => {
         handleCliError(error, {
             prefix: "Failed to run prettier-plugin-gml CLI.",
             exitCode: 1
