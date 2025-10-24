@@ -7,7 +7,7 @@ import { isNonEmptyString } from "./string.js";
  * and third-party libraries where the `code` field is optional. Instead of
  * repeating the null checks and type guards, this helper centralizes the
  * logic and returns `null` when the code is missing or non-string. The
- * behavior mirrors how the formatter already treats optional metadata: only
+ * behaviour mirrors how the formatter already treats optional metadata: only
  * truthy, non-empty strings are considered actionable.
  *
  * @param {unknown} error Candidate error-like value.
@@ -94,5 +94,40 @@ export function getErrorMessage(error, { fallback } = {}) {
         return String(error);
     } catch {
         return "";
+    }
+}
+
+/**
+ * Retrieve an error message that always resolves to a non-empty string.
+ *
+ * Several CLI commands previously duplicated the pattern
+ * `getErrorMessage(error, { fallback: "" }) || "Unknown error"` to ensure a
+ * readable fallback. This helper centralizes that behaviour while tolerating
+ * non-string fallbacks, mirroring how other shared utilities normalize input.
+ *
+ * @param {unknown} error Value that may represent an error.
+ * @param {{ fallback?: unknown }} [options]
+ * @returns {string} Guaranteed non-empty error message string.
+ */
+export function getErrorMessageOrFallback(error, { fallback } = {}) {
+    const message = getErrorMessage(error, { fallback: "" });
+
+    if (typeof message === "string" && message.length > 0) {
+        return message;
+    }
+
+    if (typeof fallback === "string" && fallback.length > 0) {
+        return fallback;
+    }
+
+    if (fallback == null) {
+        return "Unknown error";
+    }
+
+    try {
+        const normalized = String(fallback);
+        return normalized.length > 0 ? normalized : "Unknown error";
+    } catch {
+        return "Unknown error";
     }
 }

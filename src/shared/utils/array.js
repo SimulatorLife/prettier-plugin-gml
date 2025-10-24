@@ -2,6 +2,10 @@
 // `asArray`. The array is frozen so accidental mutations surface loudly during
 // development instead of leaking shared state across callers.
 const EMPTY_ARRAY = Object.freeze([]);
+// Share a single identity function so hot paths like `mergeUniqueValues` avoid
+// allocating a new closure on each invocation when callers omit custom
+// coercion logic.
+const identity = (value) => value;
 
 export function toArrayFromIterable(values) {
     if (values == null) {
@@ -138,30 +142,6 @@ export function isArrayIndex(container, index) {
 }
 
 /**
- * Create shallow clones of object-like entries in an array.
- *
- * This helper centralizes the "map and spread" pattern used throughout the
- * project index serialization logic so call sites stay focused on the
- * surrounding data shaping instead of re-implementing the cloning loop.
- * Non-object values are preserved as-is to mirror the behavior of
- * `Array#map` paired with object spreading while gracefully handling
- * unexpected primitives.
- *
- * @template T
- * @param {Array<T> | null | undefined} entries Collection of entries to clone.
- * @returns {Array<T>} Array containing shallow clones of object entries.
- */
-export function cloneObjectEntries(entries) {
-    if (!Array.isArray(entries) || entries.length === 0) {
-        return [];
-    }
-
-    return entries.map((entry) =>
-        entry && typeof entry === "object" ? { ...entry } : entry
-    );
-}
-
-/**
  * Create a new array containing the first occurrence of each unique value
  * encountered in the provided iterable while preserving the original order.
  *
@@ -212,6 +192,32 @@ export function pushUnique(array, value, { isEqual } = {}) {
 }
 
 /**
+ * Append {@link value} to {@link collection}, tolerating accumulator values
+ * that have not been initialized yet or that were previously provided as a
+ * single scalar. Centralizes the guard logic used by Commander option
+ * collectors so each command can focus on its domain-specific normalization
+ * without re-implementing array wrapping semantics.
+ *
+ * @template T
+ * @param {T} value Value to append to the collection.
+ * @param {Array<T> | T | undefined} collection Current accumulator provided by
+ *        Commander (or similar collectors).
+ * @returns {Array<T>} Array containing both prior entries and {@link value}.
+ */
+export function appendToCollection(value, collection) {
+    if (collection === undefined) {
+        return [value];
+    }
+
+    if (Array.isArray(collection)) {
+        collection.push(value);
+        return collection;
+    }
+
+    return [collection, value];
+}
+
+/**
  * Merge a collection of additional entries into a default array while
  * preserving order and eliminating duplicates. Callers can optionally supply a
  * coercion function to normalize raw entries before they are compared and a
@@ -236,7 +242,7 @@ export function mergeUniqueValues(
     { coerce, getKey = (value) => value, freeze = true } = {}
 ) {
     const merged = Array.isArray(defaultValues) ? [...defaultValues] : [];
-    const normalize = typeof coerce === "function" ? coerce : (value) => value;
+    const normalize = typeof coerce === "function" ? coerce : identity;
     const seen = new Set();
 
     for (const element of merged) {

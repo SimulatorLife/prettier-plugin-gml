@@ -9,8 +9,8 @@ import {
     getDefaultMemoryIterations,
     resolveMemoryIterations,
     setDefaultMemoryIterations
-} from "../lib/memory-cli.js";
-import { isCliUsageError } from "../lib/cli-errors.js";
+} from "../features/memory/index.js";
+import { isCliUsageError } from "../core/errors.js";
 
 describe("memory iteration configuration", () => {
     afterEach(() => {

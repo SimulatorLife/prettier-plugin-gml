@@ -20,7 +20,9 @@ import {
 import {
     applyFeatherFixes,
     getFeatherDiagnosticFixers,
-    preprocessSourceForFeatherFixes
+    getRoomNavigationHelpers,
+    preprocessSourceForFeatherFixes,
+    ROOM_NAVIGATION_DIRECTION
 } from "../src/ast-transforms/apply-feather-fixes.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
@@ -830,6 +832,38 @@ describe("applyFeatherFixes transform", () => {
             gotoFixes.some((entry) => entry.id === "GM1009"),
             true,
             "Expected GM1009 fix metadata for the converted room_goto helper."
+        );
+    });
+
+    it("maps room navigation directions to helper names", () => {
+        const nextHelpers = getRoomNavigationHelpers(
+            ROOM_NAVIGATION_DIRECTION.NEXT
+        );
+
+        assert.deepStrictEqual(nextHelpers, {
+            binary: "room_next",
+            goto: "room_goto_next"
+        });
+
+        const previousHelpers = getRoomNavigationHelpers(
+            ROOM_NAVIGATION_DIRECTION.PREVIOUS
+        );
+
+        assert.deepStrictEqual(previousHelpers, {
+            binary: "room_previous",
+            goto: "room_goto_previous"
+        });
+    });
+
+    it("rejects unrecognized room navigation directions", () => {
+        assert.throws(
+            () => {
+                getRoomNavigationHelpers("sideways");
+            },
+            {
+                name: "RangeError",
+                message: /Unsupported room navigation direction/
+            }
         );
     });
 

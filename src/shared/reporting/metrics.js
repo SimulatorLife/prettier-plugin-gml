@@ -1,5 +1,5 @@
-import { getNonEmptyString, normalizeStringList } from "../string-utils.js";
 import { toArrayFromIterable } from "../array-utils.js";
+import { getNonEmptyString, normalizeStringList } from "../string-utils.js";
 
 const hasHrtime = typeof process?.hrtime?.bigint === "function";
 
@@ -24,16 +24,12 @@ const SUMMARY_SECTIONS = Object.freeze([
 ]);
 
 function normalizeCacheKeys(keys) {
-    const entries = toArrayFromIterable(keys ?? DEFAULT_CACHE_KEYS);
+    const entries =
+        keys == null || typeof keys?.[Symbol.iterator] !== "function"
+            ? DEFAULT_CACHE_KEYS
+            : toArrayFromIterable(keys);
 
-    if (entries.length === 0) {
-        return [...DEFAULT_CACHE_KEYS];
-    }
-
-    const normalized = normalizeStringList(entries, {
-        splitPattern: null,
-        allowInvalidType: true
-    });
+    const normalized = normalizeStringList(entries, { allowInvalidType: true });
 
     return normalized.length > 0 ? normalized : [...DEFAULT_CACHE_KEYS];
 }
@@ -51,59 +47,64 @@ function toPlainObject(map) {
     return Object.fromEntries(map);
 }
 
-export function createMetricsTracker({
-    category = "metrics",
-    logger = null,
-    autoLog = false,
-    cacheKeys: cacheKeyOption
-} = {}) {
-    const startTime = nowMs();
-    const timings = new Map();
-    const counters = new Map();
-    const caches = new Map();
-    const metadata = Object.create(null);
-    const cacheKeys = normalizeCacheKeys(cacheKeyOption);
-
-    const debug =
-        typeof logger?.debug === "function" ? logger.debug.bind(logger) : null;
-
-    function incrementMap(store, label, amount = 1) {
+function createMapIncrementer(store) {
+    return (label, amount = 1) => {
         const normalized = normalizeLabel(label);
         const previous = store.get(normalized) ?? 0;
         store.set(normalized, previous + amount);
+    };
+}
+
+function ensureCacheStats(caches, cacheKeys, cacheName) {
+    const normalized = normalizeLabel(cacheName);
+    let stats = caches.get(normalized);
+
+    if (!stats) {
+        stats = new Map(cacheKeys.map((key) => [key, 0]));
+        caches.set(normalized, stats);
     }
 
-    function ensureCacheStats(cacheName) {
-        const normalized = normalizeLabel(cacheName);
-        let stats = caches.get(normalized);
-        if (!stats) {
-            stats = new Map(cacheKeys.map((key) => [key, 0]));
-            caches.set(normalized, stats);
+    return stats;
+}
+
+function incrementCacheMetric(caches, cacheKeys, cacheName, key, amount = 1) {
+    const stats = ensureCacheStats(caches, cacheKeys, cacheName);
+    const normalizedKey = normalizeLabel(key);
+
+    if (!stats.has(normalizedKey)) {
+        stats.set(normalizedKey, 0);
+    }
+
+    const increment = normalizeIncrementAmount(
+        amount,
+        amount === undefined ? 1 : 0
+    );
+
+    if (increment === 0) {
+        return;
+    }
+
+    stats.set(normalizedKey, (stats.get(normalizedKey) ?? 0) + increment);
+}
+
+function mergeSummarySections(summary, extra) {
+    for (const key of SUMMARY_SECTIONS) {
+        const additions = extra[key];
+        if (additions && typeof additions === "object") {
+            Object.assign(summary[key], additions);
         }
-        return stats;
     }
+}
 
-    function adjustCacheMetric(cacheName, key, amount) {
-        const stats = ensureCacheStats(cacheName);
-        const normalizedKey = normalizeLabel(key);
-        const increment = normalizeIncrementAmount(
-            amount,
-            amount === undefined ? 1 : 0
-        );
-        if (increment === 0) {
-            if (!stats.has(normalizedKey)) {
-                // Lazily seed unknown keys so the hot path only performs a
-                // single map lookup. This mirrors the previous semantics that
-                // created the entry even when the increment was `0`.
-                stats.set(normalizedKey, 0);
-            }
-            return;
-        }
-
-        stats.set(normalizedKey, (stats.get(normalizedKey) ?? 0) + increment);
-    }
-
-    function snapshot(extra = {}) {
+function createSnapshotFactory({
+    category,
+    startTime,
+    timings,
+    counters,
+    caches,
+    metadata
+}) {
+    return (extra = {}) => {
         const summary = {
             category,
             totalTimeMs: nowMs() - startTime,
@@ -118,36 +119,142 @@ export function createMetricsTracker({
             metadata: { ...metadata }
         };
 
-        if (extra && typeof extra === "object") {
-            for (const key of SUMMARY_SECTIONS) {
-                const additions = extra[key];
-                if (additions && typeof additions === "object") {
-                    summary[key] = { ...summary[key], ...additions };
-                }
-            }
+        if (!extra || typeof extra !== "object") {
+            return summary;
         }
 
+        mergeSummarySections(summary, extra);
         return summary;
+    };
+}
+
+function createSummaryLogger({ logger, category, snapshot }) {
+    if (!logger || typeof logger.debug !== "function") {
+        return () => {};
     }
 
-    function logSummary(message = "summary", extra = {}) {
-        if (!debug) {
-            return;
-        }
+    return (message = "summary", extra = {}) => {
+        logger.debug(`[${category}] ${message}`, snapshot(extra));
+    };
+}
 
-        debug(`[${category}] ${message}`, snapshot(extra));
-    }
+function createFinalizer({
+    autoLog,
+    logger,
+    category,
+    snapshot,
+    timings,
+    counters,
+    caches,
+    metadata,
+    state
+}) {
+    const hasDebug = typeof logger?.debug === "function";
 
-    function finalize(extra = {}) {
+    return (extra = {}) => {
         const report = snapshot(extra);
-        if (autoLog && debug) {
-            debug(`[${category}] summary`, report);
+        if (autoLog && hasDebug && !state.hasLoggedSummary) {
+            logger.debug(`[${category}] summary`, report);
+            state.hasLoggedSummary = true;
         }
+
+        timings.clear();
+        counters.clear();
+        caches.clear();
+        for (const key of Object.keys(metadata)) {
+            delete metadata[key];
+        }
+
         return report;
-    }
+    };
+}
+
+/**
+ * Construct a metrics tracker that records timing, counter, cache, and metadata
+ * information for a formatter run.
+ *
+ * The tracker intentionally embraces loose inputs so callers can feed
+ * user-supplied configuration without pre-validating everything. Cache keys can
+ * arrive as iterables, timers tolerate synchronous or asynchronous callbacks,
+ * and metadata gracefully ignores blank labels. All numeric inputs are coerced
+ * through {@link Number} to avoid `NaN` pollution while still accepting string
+ * representations from environment variables.
+ *
+ * @param {{
+ *   category?: string,
+ *   logger?: { debug?: (message: string, payload: unknown) => void } | null,
+ *   autoLog?: boolean,
+ *   cacheKeys?: Iterable<string> | ArrayLike<string>
+ * }} [options]
+ * @returns {{
+ *   category: string,
+ *   timeSync: <T>(label: string, callback: () => T) => T,
+ *   timeAsync: <T>(label: string, callback: () => Promise<T>) => Promise<T>,
+ *   startTimer: (label: string) => () => void,
+ *   incrementCounter: (label: string, amount?: number) => void,
+ *   recordCacheHit: (cacheName: string) => void,
+ *   recordCacheMiss: (cacheName: string) => void,
+ *   recordCacheStale: (cacheName: string) => void,
+ *   recordCacheMetric: (cacheName: string, key: string, amount?: number) => void,
+ *   snapshot: (extra?: object) => {
+ *     category: string,
+ *     totalTimeMs: number,
+ *     timings: Record<string, number>,
+ *     counters: Record<string, number>,
+ *     caches: Record<string, Record<string, number>>,
+ *     metadata: Record<string, unknown>
+ *   },
+ *   finalize: (extra?: object) => {
+ *     category: string,
+ *     totalTimeMs: number,
+ *     timings: Record<string, number>,
+ *     counters: Record<string, number>,
+ *     caches: Record<string, Record<string, number>>,
+ *     metadata: Record<string, unknown>
+ *   },
+ *   logSummary: (message?: string, extra?: object) => void,
+ *   setMetadata: (key: string, value: unknown) => void
+ * }}
+ */
+export function createMetricsTracker({
+    category = "metrics",
+    logger = null,
+    autoLog = false,
+    cacheKeys: cacheKeyOption
+} = {}) {
+    const startTime = nowMs();
+    const timings = new Map();
+    const counters = new Map();
+    const caches = new Map();
+    const metadata = Object.create(null);
+    const cacheKeys = normalizeCacheKeys(cacheKeyOption);
+    const state = { hasLoggedSummary: false };
+
+    const incrementTiming = createMapIncrementer(timings);
+    const incrementCounterBy = createMapIncrementer(counters);
+    const snapshot = createSnapshotFactory({
+        category,
+        startTime,
+        timings,
+        counters,
+        caches,
+        metadata
+    });
+    const logSummary = createSummaryLogger({ logger, category, snapshot });
+    const finalize = createFinalizer({
+        autoLog,
+        logger,
+        category,
+        snapshot,
+        timings,
+        counters,
+        caches,
+        metadata,
+        state
+    });
 
     function recordTiming(label, durationMs) {
-        incrementMap(timings, label, Math.max(0, durationMs));
+        incrementTiming(label, Math.max(0, durationMs));
     }
 
     function startTimer(label) {
@@ -176,7 +283,7 @@ export function createMetricsTracker({
     }
 
     function incrementCounter(label, amount = 1) {
-        incrementMap(counters, label, amount);
+        incrementCounterBy(label, amount);
     }
 
     function setMetadata(key, value) {
@@ -187,6 +294,10 @@ export function createMetricsTracker({
         metadata[normalizedKey] = value;
     }
 
+    function recordCacheEvent(cacheName, key, amount = 1) {
+        incrementCacheMetric(caches, cacheKeys, cacheName, key, amount);
+    }
+
     return {
         category,
         timeSync,
@@ -194,16 +305,16 @@ export function createMetricsTracker({
         startTimer,
         incrementCounter,
         recordCacheHit(cacheName) {
-            adjustCacheMetric(cacheName, "hits");
+            recordCacheEvent(cacheName, "hits");
         },
         recordCacheMiss(cacheName) {
-            adjustCacheMetric(cacheName, "misses");
+            recordCacheEvent(cacheName, "misses");
         },
         recordCacheStale(cacheName) {
-            adjustCacheMetric(cacheName, "stale");
+            recordCacheEvent(cacheName, "stale");
         },
         recordCacheMetric(cacheName, key, amount = 1) {
-            adjustCacheMetric(cacheName, key, amount);
+            recordCacheEvent(cacheName, key, amount);
         },
         snapshot,
         finalize,

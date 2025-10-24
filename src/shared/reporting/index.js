@@ -1,1 +1,1 @@
-export * from "./metrics.js";
+export { createMetricsTracker } from "./metrics.js";
