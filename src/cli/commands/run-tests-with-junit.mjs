@@ -72,7 +72,7 @@ async function runNodeTests(args) {
 
 function writeFallbackReport(reportPath, result) {
     const fallback = buildFallbackReport(result);
-    fs.writeFileSync(reportPath, `${fallback}`);
+    fs.writeFileSync(reportPath, fallback);
     const relative = path.relative(process.cwd(), reportPath) || reportPath;
     console.warn(
         `[test:report] Generated fallback JUnit report at ${relative} because the test runner did not produce one.`
