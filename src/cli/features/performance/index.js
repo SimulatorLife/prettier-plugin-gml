@@ -89,25 +89,42 @@ function formatErrorDetails(error, { fallbackMessage } = {}) {
     });
 }
 
-function normalizeFixtureRoots(additionalRoots = []) {
+function collectFixtureRootCandidates(additionalRoots = []) {
+    const extras = Array.isArray(additionalRoots)
+        ? additionalRoots
+        : [additionalRoots];
+    return [...DEFAULT_FIXTURE_DIRECTORIES, ...extras];
+}
+
+function normalizeFixtureRootCandidate(candidate) {
+    if (!candidate || typeof candidate !== "string") {
+        return null;
+    }
+
+    return path.resolve(candidate);
+}
+
+function appendFixtureRootCandidate({ candidate, resolved, seen }) {
+    const normalized = normalizeFixtureRootCandidate(candidate);
+
+    if (!normalized || seen.has(normalized)) {
+        return;
+    }
+
+    seen.add(normalized);
+    resolved.push(normalized);
+}
+
+export function normalizeFixtureRoots(additionalRoots = []) {
     const resolved = [];
     const seen = new Set();
 
-    for (const candidate of [
-        ...DEFAULT_FIXTURE_DIRECTORIES,
-        ...additionalRoots
-    ]) {
-        if (!candidate || typeof candidate !== "string") {
-            continue;
-        }
-
-        const absolute = path.resolve(candidate);
-        if (seen.has(absolute)) {
-            continue;
-        }
-
-        seen.add(absolute);
-        resolved.push(absolute);
+    for (const candidate of collectFixtureRootCandidates(additionalRoots)) {
+        appendFixtureRootCandidate({
+            candidate,
+            resolved,
+            seen
+        });
     }
 
     return resolved;
