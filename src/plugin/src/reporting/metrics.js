@@ -24,20 +24,23 @@ const SUMMARY_SECTIONS = Object.freeze([
 
 function normalizeCacheKeys(keys) {
     const source =
-        keys == null
+        keys == null || typeof keys?.[Symbol.iterator] !== "function"
             ? DEFAULT_CACHE_KEYS
-            : Array.isArray(keys) ||
-                typeof keys?.[Symbol.iterator] === "function"
-              ? keys
-              : DEFAULT_CACHE_KEYS;
+            : keys;
 
-    const uniqueKeys = [
-        ...new Set(
-            Array.from(source, (value) =>
-                getNonEmptyString(value)?.trim()
-            ).filter(Boolean)
-        )
-    ];
+    const uniqueKeys = [];
+    const seen = new Set();
+
+    for (const value of source) {
+        const normalized = getNonEmptyString(value)?.trim();
+
+        if (!normalized || seen.has(normalized)) {
+            continue;
+        }
+
+        seen.add(normalized);
+        uniqueKeys.push(normalized);
+    }
 
     return uniqueKeys.length > 0 ? uniqueKeys : [...DEFAULT_CACHE_KEYS];
 }
