@@ -197,7 +197,9 @@ export function parseJsonObjectWithContext(text, options = {}) {
     );
 
     const mergedOptions =
-        optionSources.length > 0 ? Object.assign({}, ...optionSources) : undefined;
+        optionSources.length > 0
+            ? Object.assign({}, ...optionSources)
+            : undefined;
 
     return assertPlainObject(payload, mergedOptions);
 }
