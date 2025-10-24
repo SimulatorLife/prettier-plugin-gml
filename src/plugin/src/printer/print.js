@@ -2003,9 +2003,15 @@ function printStatements(path, options, print, childrenAttribute) {
 
         const currentNodeRequiresNewline =
             shouldAddNewlinesAroundStatement(node, options) && isTopLevel;
+        const isAtStartOfProgram =
+            isTopLevel && (nodeStartIndex == null || nodeStartIndex <= 0);
 
         // Check if a newline should be added BEFORE the statement
-        if (currentNodeRequiresNewline && !previousNodeHadNewlineAddedAfter) {
+        if (
+            currentNodeRequiresNewline &&
+            !previousNodeHadNewlineAddedAfter &&
+            !isAtStartOfProgram
+        ) {
             const hasLeadingComment = isTopLevel
                 ? hasCommentImmediatelyBefore(originalTextCache, nodeStartIndex)
                 : false;
