@@ -66,4 +66,25 @@ describe("line comment formatting", () => {
 
         assert.strictEqual(formatted, "/// @param {real} [func_fx_callback]");
     });
+
+    it("retains optional parameter defaults with embedded spaces", () => {
+        const comment = {
+            type: "CommentLine",
+            value: "/// @param {array<real>} [light_dir=[0, 0, -1]] - The direction of the light",
+            raw: "/// @param {array<real>} [light_dir=[0, 0, -1]] - The direction of the light",
+            leadingText:
+                "/// @param {array<real>} [light_dir=[0, 0, -1]] - The direction of the light",
+            leadingWS: "\n"
+        };
+
+        const formatted = formatLineComment(
+            comment,
+            DEFAULT_LINE_COMMENT_OPTIONS
+        );
+
+        assert.strictEqual(
+            formatted,
+            "/// @param {array<real>} [light_dir=[0, 0, -1]] - The direction of the light"
+        );
+    });
 });
