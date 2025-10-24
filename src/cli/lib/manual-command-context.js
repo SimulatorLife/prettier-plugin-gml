@@ -79,7 +79,7 @@ function resolveOutputPath(repoRoot, fileName) {
  */
 
 /**
- * @typedef {object} ManualManualAccessContext
+ * @typedef {object} ManualAccessContext
  * @property {ManualCommandEnvironment} environment
  * @property {ManualCommandFileService} files
  * @property {ManualCommandRefResolutionService} refs
@@ -168,9 +168,9 @@ export function createManualEnvironmentContext(options = {}) {
  * information commonly needed by artefact generators.
  *
  * @param {Parameters<typeof buildManualCommandContext>[0]} options
- * @returns {ManualManualAccessContext}
+ * @returns {ManualAccessContext}
  */
-export function createManualManualAccessContext(options = {}) {
+export function createManualAccessContext(options = {}) {
     const { environment, files, refs } = buildManualCommandContext(options);
     return Object.freeze({ environment, files, refs });
 }
