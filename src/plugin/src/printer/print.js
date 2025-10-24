@@ -2288,6 +2288,10 @@ function printStatements(path, options, print, childrenAttribute) {
                 hasFunctionInitializer &&
                 isConstructorBlock;
             let shouldPreserveTrailingBlankLine = false;
+            const hasAttachedDocComment =
+                (Array.isArray(node?.docComments) &&
+                    node.docComments.length > 0) ||
+                Boolean(syntheticDocComment);
 
             if (
                 parentNode?.type === "BlockStatement" &&
@@ -2343,6 +2347,21 @@ function printStatements(path, options, print, childrenAttribute) {
                     shouldPreserveTrailingBlankLine = nextCharacter
                         ? nextCharacter !== "}"
                         : false;
+                }
+            }
+
+            if (
+                !shouldPreserveTrailingBlankLine &&
+                !suppressFollowingEmptyLine &&
+                hasAttachedDocComment &&
+                blockParent?.type === "BlockStatement"
+            ) {
+                const isFunctionLikeDeclaration =
+                    node?.type === "FunctionDeclaration" ||
+                    node?.type === "ConstructorDeclaration";
+
+                if (isFunctionLikeDeclaration) {
+                    shouldPreserveTrailingBlankLine = true;
                 }
             }
 
