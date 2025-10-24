@@ -1,4 +1,8 @@
-import { getNonEmptyString } from "../../../shared/string-utils.js";
+import { toArrayFromIterable } from "../../../shared/array-utils.js";
+import {
+    getNonEmptyString,
+    normalizeStringList
+} from "../../../shared/string-utils.js";
 
 const hasHrtime = typeof process?.hrtime?.bigint === "function";
 
@@ -23,26 +27,14 @@ const SUMMARY_SECTIONS = Object.freeze([
 ]);
 
 function normalizeCacheKeys(keys) {
-    const source =
+    const entries =
         keys == null || typeof keys?.[Symbol.iterator] !== "function"
             ? DEFAULT_CACHE_KEYS
-            : keys;
+            : toArrayFromIterable(keys);
 
-    const uniqueKeys = [];
-    const seen = new Set();
+    const normalized = normalizeStringList(entries, { allowInvalidType: true });
 
-    for (const value of source) {
-        const normalized = getNonEmptyString(value)?.trim();
-
-        if (!normalized || seen.has(normalized)) {
-            continue;
-        }
-
-        seen.add(normalized);
-        uniqueKeys.push(normalized);
-    }
-
-    return uniqueKeys.length > 0 ? uniqueKeys : [...DEFAULT_CACHE_KEYS];
+    return normalized.length > 0 ? normalized : [...DEFAULT_CACHE_KEYS];
 }
 
 function normalizeIncrementAmount(amount, fallback = 1) {
