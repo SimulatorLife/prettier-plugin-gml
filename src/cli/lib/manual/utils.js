@@ -67,9 +67,19 @@ function normalizeDownloadLabel(label) {
     return isNonEmptyTrimmedString(label) ? label : "Downloading manual files";
 }
 
-function withCleanup(fn, cleanup = () => {}) {
-    fn.cleanup = cleanup;
-    return fn;
+function attachCleanup(handler, cleanup = () => {}) {
+    let cleanedUp = false;
+
+    handler.cleanup = () => {
+        if (cleanedUp) {
+            return;
+        }
+
+        cleanedUp = true;
+        cleanup();
+    };
+
+    return handler;
 }
 
 /**
@@ -98,33 +108,21 @@ export function createManualDownloadReporter({
     render = renderProgressBar
 } = {}) {
     if (!verbose.downloads) {
-        return withCleanup(() => {});
+        return attachCleanup(() => {});
     }
 
     if (verbose.progressBar) {
         const normalizedLabel = normalizeDownloadLabel(label);
         const width = progressBarWidth ?? 0;
-        let cleanedUp = false;
-
-        return withCleanup(
-            ({ fetchedCount, totalEntries }) => {
-                render(normalizedLabel, fetchedCount, totalEntries, width);
-            },
-            () => {
-                if (cleanedUp) {
-                    return;
-                }
-
-                cleanedUp = true;
-                disposeProgressBars();
-            }
-        );
+        return attachCleanup(({ fetchedCount, totalEntries }) => {
+            render(normalizedLabel, fetchedCount, totalEntries, width);
+        }, disposeProgressBars);
     }
 
     const normalizePath =
         typeof formatPath === "function" ? formatPath : (path) => path;
 
-    return withCleanup(({ path }) => {
+    return attachCleanup(({ path }) => {
         const displayPath = normalizePath(path);
         console.log(displayPath ? `✓ ${displayPath}` : "✓");
     });
