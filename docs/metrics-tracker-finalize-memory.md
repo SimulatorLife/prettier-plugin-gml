@@ -8,7 +8,7 @@ This note captures the `node --expose-gc` experiment used to confirm that cleari
 The measurement runs the following inline script against the current checkout:
 
 ```bash
-node --expose-gc --input-type=module -e "import { createMetricsTracker } from './src/plugin/src/reporting/metrics.js';
+node --expose-gc --input-type=module -e "import { createMetricsTracker } from './src/shared/reporting/metrics.js';
 function run() {
   if (typeof global.gc !== 'function') {
     throw new Error('GC not available');
