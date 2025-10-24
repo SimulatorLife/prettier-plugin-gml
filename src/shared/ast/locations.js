@@ -90,7 +90,11 @@ function cloneLocation(location) {
         return structuredClone(location);
     }
 
-    return location == null ? undefined : location;
+    if (location == null) {
+        return location ?? undefined;
+    }
+
+    return location;
 }
 
 /**
