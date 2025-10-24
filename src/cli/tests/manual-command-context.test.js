@@ -12,7 +12,7 @@ import {
     resolveManualGitHubCommitResolver,
     resolveManualGitHubRefResolver,
     resolveManualGitHubFileClient
-} from "../lib/manual-command-context.js";
+} from "../lib/manual/context.js";
 import {
     buildManualRepositoryEndpoints,
     resolveManualCacheRoot

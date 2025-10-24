@@ -69,7 +69,7 @@ no code changes were required.
 ## Follow-up audit (2025-03-05)
 
 - Investigated the manual tooling pipeline and found `createManualCommandContext`
-  in `src/cli/lib/manual-command-context.js`. The context returned repository
+  in `src/cli/lib/manual/context.js`. The context returned repository
   paths, raw GitHub client adapters, and high-level operations as a single
   object, which forced commands that only needed one facet (for example,
   `fetchManualFile`) to depend on all of the manual wiring details.
@@ -83,7 +83,7 @@ no code changes were required.
 ## Follow-up audit (2025-03-12)
 
 - Revisited `createManualCommandContext` in
-  `src/cli/lib/manual-command-context.js` and noticed the
+  `src/cli/lib/manual/context.js` and noticed the
   `ManualCommandGitHubOperations` surface still bundled manual request
   execution, file fetching, ref resolution, and commit resolution behind one
   catch-all interface. Commands that only needed one of those collaborators
@@ -98,7 +98,7 @@ no code changes were required.
 
 - Audited the manual GitHub execution helpers again and found the
   `ManualCommandGitHubClients` contract in
-  `src/cli/lib/manual-command-context.js`. The catch-all "clients" object still
+  `src/cli/lib/manual/context.js`. The catch-all "clients" object still
   combined the raw request executor, commit resolver, ref resolver, and file
   fetcher into one dependency, which meant consumers importing the execution
   context needed to accept all four collaborators even when they only required
