@@ -54,4 +54,34 @@ describe("constructor method semicolons", () => {
 
         assert.strictEqual(formatted, expected);
     });
+
+    it("still adds semicolons for nested functions outside constructors", async () => {
+        const source = [
+            "function container() {",
+            "    function helper() {",
+            "        self.x = x",
+            "    }",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await formatWithPlugin(source);
+
+        const expected = [
+            "",
+            "/// @function container",
+            "/// @returns {undefined}",
+            "function container() {",
+            "",
+            "    /// @function helper",
+            "    /// @returns {undefined}",
+            "    function helper() {",
+            "        self.x = x;",
+            "    }",
+            "}",
+            ""
+        ].join("\n");
+
+        assert.strictEqual(formatted, expected);
+    });
 });

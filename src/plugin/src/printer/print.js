@@ -98,26 +98,25 @@ function isAssignmentInsideConstructorMethod(path) {
         return false;
     }
 
-    const enclosingBlock = path.getParentNode();
-    if (!enclosingBlock || enclosingBlock.type !== "BlockStatement") {
-        return false;
-    }
+    let hasFunctionAncestor = false;
 
-    const functionDeclaration = path.getParentNode(1);
-    if (
-        !functionDeclaration ||
-        functionDeclaration.type !== "FunctionDeclaration"
-    ) {
-        return false;
-    }
+    for (let depth = 0; ; depth += 1) {
+        const ancestor = path.getParentNode(depth);
+        if (!ancestor) {
+            return false;
+        }
 
-    const constructorBody = path.getParentNode(2);
-    if (!constructorBody || constructorBody.type !== "BlockStatement") {
-        return false;
+        if (!hasFunctionAncestor) {
+            if (
+                ancestor.type === "FunctionDeclaration" ||
+                ancestor.type === "FunctionExpression"
+            ) {
+                hasFunctionAncestor = true;
+            }
+        } else if (ancestor.type === "ConstructorDeclaration") {
+            return true;
+        }
     }
-
-    const constructorDeclaration = path.getParentNode(3);
-    return constructorDeclaration?.type === "ConstructorDeclaration";
 }
 
 function stripTrailingLineTerminators(value) {
