@@ -1,5 +1,3 @@
-import { toArray } from "./array.js";
-
 /**
  * Determine whether a value is a plain object (non-null object without an
  * Array instance). Some callers additionally require objects with prototypes
@@ -30,10 +28,18 @@ export function isPlainObject(value, { allowNullPrototype = true } = {}) {
  * @param {unknown} value Candidate function to validate.
  * @param {string} name Descriptive name used when constructing the error.
  */
-export function assertFunction(value, name) {
+export function assertFunction(value, name, { errorMessage } = {}) {
+    const message =
+        errorMessage ??
+        (typeof name === "string" && name.length > 0
+            ? `${name} must be a function`
+            : "Value must be a function");
+
     if (typeof value !== "function") {
-        throw new TypeError(`${name} must be a function`);
+        throw new TypeError(message);
     }
+
+    return value;
 }
 
 /**
@@ -163,17 +169,28 @@ export function coalesceOption(
         return fallback;
     }
 
-    const lookupKeys = toArray(keys);
+    if (Array.isArray(keys)) {
+        for (const key of keys) {
+            const value = object[key];
 
-    for (const key of lookupKeys) {
-        const value = object[key];
-
-        if (value !== undefined && (acceptNull || value !== null)) {
-            return value;
+            if (value !== undefined && (acceptNull || value !== null)) {
+                return value;
+            }
         }
+
+        return fallback;
     }
 
-    return fallback;
+    if (keys == null) {
+        return fallback;
+    }
+
+    // Fast-path singular keys to avoid allocating an intermediate array in the
+    // tight option-lookup loops used by the formatter and CLI entry points.
+    const value = object[keys];
+    return value !== undefined && (acceptNull || value !== null)
+        ? value
+        : fallback;
 }
 
 /**

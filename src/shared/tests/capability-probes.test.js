@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+    ensureMap,
+    ensureSet,
     getIterableSize,
     hasFunction,
     hasIterableItems,
@@ -107,5 +109,56 @@ describe("capability probes", () => {
         };
 
         assert.equal(getIterableSize(iterable), 2);
+    });
+
+    it("ensures set-like collaborators remain writable", () => {
+        const existing = new Set(["macro"]);
+        assert.equal(ensureSet(existing), existing);
+
+        const fromArray = ensureSet(["macro", "macro"]);
+        assert.deepEqual([...fromArray], ["macro"]);
+
+        assert.equal(ensureSet("macro").size, 0);
+    });
+
+    it("coerces map-like collaborators into normalized maps", () => {
+        const base = new Map([["id", { status: "passed" }]]);
+        const adapter = {
+            get(key) {
+                return base.get(key);
+            },
+            set(key, value) {
+                base.set(key, value);
+                return this;
+            },
+            has(key) {
+                return base.has(key);
+            },
+            entries() {
+                return base.entries();
+            }
+        };
+
+        const normalized = ensureMap(adapter);
+        assert.equal(normalized, adapter);
+
+        const fromObject = ensureMap({
+            id: { status: "failed" }
+        });
+
+        assert.equal(fromObject instanceof Map, true);
+        assert.equal(fromObject.get("id")?.status, "failed");
+    });
+
+    it("ignores invalid iterable shapes when normalizing maps", () => {
+        assert.equal(ensureMap(new Set(["value"])).size, 0);
+
+        const invalidIterable = {
+            [Symbol.iterator]() {
+                return ["value"][Symbol.iterator]();
+            }
+        };
+
+        assert.equal(ensureMap(invalidIterable).size, 0);
     });
 });

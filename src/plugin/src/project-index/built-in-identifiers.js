@@ -1,19 +1,17 @@
 import { fileURLToPath } from "node:url";
 
-import { createAbortGuard } from "../../../shared/abort-utils.js";
-import { getFileMtime } from "../../../shared/fs-utils.js";
-import { normalizeIdentifierMetadataEntries } from "../../../shared/identifier-metadata.js";
 import { parseJsonWithContext } from "../../../shared/json-utils.js";
+import { normalizeIdentifierMetadataEntries } from "../../../shared/identifier-metadata.js";
 import { areNumbersApproximatelyEqual } from "../../../shared/number-utils.js";
+import { getFileMtime } from "../../../shared/fs-utils.js";
 import { isPlainObject } from "../../../shared/object-utils.js";
 
 import { defaultFsFacade } from "./fs-facade.js";
+import { createProjectIndexAbortGuard } from "./abort-guard.js";
 
 const GML_IDENTIFIER_FILE_PATH = fileURLToPath(
     new URL("../../../../resources/gml-identifiers.json", import.meta.url)
 );
-
-const DEFAULT_ABORT_MESSAGE = "Project index build was aborted.";
 
 let cachedBuiltInIdentifiers = null;
 
@@ -59,10 +57,11 @@ export async function loadBuiltInIdentifiers(
     metrics = null,
     options = {}
 ) {
-    const { fallbackMessage, ...guardOptions } = options;
-    const { signal, ensureNotAborted } = createAbortGuard(guardOptions, {
-        fallbackMessage: fallbackMessage ?? DEFAULT_ABORT_MESSAGE
-    });
+    const { fallbackMessage, ...guardOptions } = options ?? {};
+    const { signal, ensureNotAborted } = createProjectIndexAbortGuard(
+        guardOptions,
+        { fallbackMessage }
+    );
 
     const currentMtime = await getFileMtime(
         fsFacade,
@@ -113,4 +112,5 @@ export async function loadBuiltInIdentifiers(
     return cachedBuiltInIdentifiers;
 }
 
+export { GML_IDENTIFIER_FILE_PATH as __BUILT_IN_IDENTIFIER_PATH_FOR_TESTS };
 export const __loadBuiltInIdentifiersForTests = loadBuiltInIdentifiers;

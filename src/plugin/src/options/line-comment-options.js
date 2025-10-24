@@ -28,13 +28,10 @@ const DEFAULT_LINE_COMMENT_OPTIONS = Object.freeze({
     codeDetectionPatterns: DEFAULT_COMMENTED_OUT_CODE_PATTERNS
 });
 
-function resolveLineCommentOptions() {
-    return DEFAULT_LINE_COMMENT_OPTIONS;
-}
+const getDefaultLineCommentOptions = () => DEFAULT_LINE_COMMENT_OPTIONS;
 
-function normalizeLineCommentOptions() {
-    return DEFAULT_LINE_COMMENT_OPTIONS;
-}
+const resolveLineCommentOptions = getDefaultLineCommentOptions;
+const normalizeLineCommentOptions = getDefaultLineCommentOptions;
 
 export {
     DEFAULT_LINE_COMMENT_OPTIONS,

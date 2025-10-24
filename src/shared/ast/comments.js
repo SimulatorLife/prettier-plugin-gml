@@ -15,6 +15,7 @@
  */
 
 import { isObjectLike } from "../utils/object.js";
+import { enqueueObjectChildValues } from "./node-helpers.js";
 
 // Reuse a frozen empty array so repeated `getCommentArray` calls do not
 // allocate. This mirrors the strategy used by the shared array utilities while
@@ -129,14 +130,14 @@ export function collectCommentNodes(root) {
             results.push(current);
         }
 
-        const children = Array.isArray(current)
-            ? current
-            : Object.values(current);
+        if (Array.isArray(current)) {
+            enqueueObjectChildValues(stack, current);
+            continue;
+        }
 
-        for (const child of children) {
-            if (isObjectLike(child)) {
-                stack.push(child);
-            }
+        const values = Object.values(current);
+        for (const value of values) {
+            enqueueObjectChildValues(stack, value);
         }
     }
 
