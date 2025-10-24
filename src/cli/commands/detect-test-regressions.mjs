@@ -8,7 +8,6 @@ import {
     getErrorMessage,
     getNonEmptyTrimmedString,
     hasOwn,
-    isErrorWithCode,
     isNonEmptyString,
     isNonEmptyTrimmedString,
     isObjectLike,
@@ -18,21 +17,7 @@ import {
 import { CliUsageError, handleCliError } from "../core/errors.js";
 import { ensureMap } from "../../shared/utils/capability-probes.js";
 
-let parser;
-
-try {
-    const { XMLParser } = await import("fast-xml-parser");
-    parser = new XMLParser({
-        ignoreAttributes: false,
-        attributeNamePrefix: ""
-    });
-} catch (error) {
-    if (isMissingFastXmlParserError(error)) {
-        parser = createFallbackXmlParser();
-    } else {
-        throw error;
-    }
-}
+const parser = createFallbackXmlParser();
 
 function hasAnyOwn(object, keys) {
     return keys.some((key) => hasOwn(object, key));
@@ -82,15 +67,6 @@ function decodeEntities(value) {
         .replaceAll("&apos;", "'")
         .replaceAll("&quot;", HTML_DOUBLE_QUOTE)
         .replaceAll("&amp;", "&");
-}
-
-function isMissingFastXmlParserError(error) {
-    if (!isErrorWithCode(error, "ERR_MODULE_NOT_FOUND")) {
-        return false;
-    }
-    return getErrorMessage(error, { fallback: "" }).includes(
-        "'fast-xml-parser'"
-    );
 }
 
 function createFallbackXmlParser() {
