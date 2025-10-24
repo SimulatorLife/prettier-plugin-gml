@@ -166,6 +166,54 @@ const STRING_LENGTH_CALL_BLACKLIST = new Set([
     "string_width",
     "string_width_ext"
 ]);
+
+export const ROOM_NAVIGATION_DIRECTION = Object.freeze({
+    NEXT: "next",
+    PREVIOUS: "previous"
+});
+
+/**
+ * @typedef {typeof ROOM_NAVIGATION_DIRECTION[keyof typeof ROOM_NAVIGATION_DIRECTION]} RoomNavigationDirection
+ */
+
+const ROOM_NAVIGATION_DIRECTION_VALUES = new Set(
+    Object.values(ROOM_NAVIGATION_DIRECTION)
+);
+const ROOM_NAVIGATION_DIRECTION_LABELS = Array.from(
+    ROOM_NAVIGATION_DIRECTION_VALUES
+).join(", ");
+
+const ROOM_NAVIGATION_HELPERS = Object.freeze({
+    [ROOM_NAVIGATION_DIRECTION.NEXT]: Object.freeze({
+        binary: "room_next",
+        goto: "room_goto_next"
+    }),
+    [ROOM_NAVIGATION_DIRECTION.PREVIOUS]: Object.freeze({
+        binary: "room_previous",
+        goto: "room_goto_previous"
+    })
+});
+
+function normalizeRoomNavigationDirection(direction) {
+    if (typeof direction !== "string") {
+        throw new TypeError(
+            "Room navigation direction must be provided as a string."
+        );
+    }
+
+    if (!ROOM_NAVIGATION_DIRECTION_VALUES.has(direction)) {
+        throw new RangeError(
+            `Unsupported room navigation direction: ${direction}. Expected one of: ${ROOM_NAVIGATION_DIRECTION_LABELS}.`
+        );
+    }
+
+    return direction;
+}
+
+export function getRoomNavigationHelpers(direction) {
+    const normalizedDirection = normalizeRoomNavigationDirection(direction);
+    return ROOM_NAVIGATION_HELPERS[normalizedDirection];
+}
 const IDENTIFIER_TOKEN_PATTERN = /\b[A-Za-z_][A-Za-z0-9_]*\b/g;
 const RESERVED_KEYWORD_TOKENS = new Set([
     "and",
@@ -3633,8 +3681,7 @@ function rewriteRoomNavigationBinaryExpression({
     }
 
     const { direction, baseIdentifier } = navigation;
-    const replacementName =
-        direction === "previous" ? "room_previous" : "room_next";
+    const { binary: replacementName } = getRoomNavigationHelpers(direction);
     const calleeIdentifier = createIdentifier(replacementName, baseIdentifier);
     const argumentIdentifier = cloneIdentifier(baseIdentifier);
 
@@ -3711,10 +3758,9 @@ function rewriteRoomGotoCall({ node, diagnostic, sourceText }) {
         return null;
     }
 
-    const replacementName =
-        navigation.direction === "previous"
-            ? "room_goto_previous"
-            : "room_goto_next";
+    const { goto: replacementName } = getRoomNavigationHelpers(
+        navigation.direction
+    );
 
     const startIndex = getNodeStartIndex(node);
     const endIndex = getNodeEndIndex(node);
@@ -3770,12 +3816,15 @@ function resolveRoomNavigationFromBinaryExpression(node) {
     if (isIdentifierWithName(leftIdentifier, "room")) {
         if (node.operator === "+") {
             if (isLiteralOne(rightLiteral)) {
-                return { direction: "next", baseIdentifier: leftIdentifier };
+                return {
+                    direction: ROOM_NAVIGATION_DIRECTION.NEXT,
+                    baseIdentifier: leftIdentifier
+                };
             }
 
             if (isNegativeOneLiteral(rightLiteral)) {
                 return {
-                    direction: "previous",
+                    direction: ROOM_NAVIGATION_DIRECTION.PREVIOUS,
                     baseIdentifier: leftIdentifier
                 };
             }
@@ -3784,13 +3833,16 @@ function resolveRoomNavigationFromBinaryExpression(node) {
         if (node.operator === "-") {
             if (isLiteralOne(rightLiteral)) {
                 return {
-                    direction: "previous",
+                    direction: ROOM_NAVIGATION_DIRECTION.PREVIOUS,
                     baseIdentifier: leftIdentifier
                 };
             }
 
             if (isNegativeOneLiteral(rightLiteral)) {
-                return { direction: "next", baseIdentifier: leftIdentifier };
+                return {
+                    direction: ROOM_NAVIGATION_DIRECTION.NEXT,
+                    baseIdentifier: leftIdentifier
+                };
             }
         }
     }
@@ -3798,12 +3850,15 @@ function resolveRoomNavigationFromBinaryExpression(node) {
     if (isIdentifierWithName(rightIdentifier, "room")) {
         if (node.operator === "+") {
             if (isLiteralOne(leftLiteral)) {
-                return { direction: "next", baseIdentifier: rightIdentifier };
+                return {
+                    direction: ROOM_NAVIGATION_DIRECTION.NEXT,
+                    baseIdentifier: rightIdentifier
+                };
             }
 
             if (isNegativeOneLiteral(leftLiteral)) {
                 return {
-                    direction: "previous",
+                    direction: ROOM_NAVIGATION_DIRECTION.PREVIOUS,
                     baseIdentifier: rightIdentifier
                 };
             }
@@ -3812,13 +3867,16 @@ function resolveRoomNavigationFromBinaryExpression(node) {
         if (node.operator === "-") {
             if (isLiteralOne(leftLiteral)) {
                 return {
-                    direction: "previous",
+                    direction: ROOM_NAVIGATION_DIRECTION.PREVIOUS,
                     baseIdentifier: rightIdentifier
                 };
             }
 
             if (isNegativeOneLiteral(leftLiteral)) {
-                return { direction: "next", baseIdentifier: rightIdentifier };
+                return {
+                    direction: ROOM_NAVIGATION_DIRECTION.NEXT,
+                    baseIdentifier: rightIdentifier
+                };
             }
         }
     }
