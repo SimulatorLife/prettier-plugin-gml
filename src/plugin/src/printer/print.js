@@ -915,7 +915,9 @@ export function print(path, options, print) {
                     ? options.maxParamsPerLine
                     : 0;
                 const elementsPerLineLimit =
-                    maxParamsPerLine > 0 ? maxParamsPerLine : Infinity;
+                    maxParamsPerLine > 0
+                        ? maxParamsPerLine
+                        : Number.MAX_SAFE_INTEGER;
 
                 const callbackArguments = node.arguments.filter(
                     (argument) => argument?.type === "FunctionDeclaration"
@@ -997,21 +999,23 @@ export function print(path, options, print) {
                         objectNode.type === "MemberIndexExpression");
 
                 if (shouldAllowBreakBeforeDot) {
-                    return concat([
-                        print("object"),
-                        softline,
-                        ".",
-                        print("property")
-                    ]);
+                    const memberChainGroupId = Symbol("gml.member.dot.chain");
+
+                    return group(
+                        concat([
+                            print("object"),
+                            ifBreak(softline, "", {
+                                groupId: memberChainGroupId
+                            }),
+                            ".",
+                            print("property")
+                        ]),
+                        { id: memberChainGroupId }
+                    );
                 }
 
-                return concat([print("object"), ".", print("property")]);
+                return group(concat([print("object"), ".", print("property")]));
             } else {
-                // return [
-                //     print("object"),
-                //     ".",
-                //     print("property")
-                // ];
                 let property = print("property");
                 if (property === undefined) {
                     property = printCommaSeparatedList(
@@ -1023,12 +1027,10 @@ export function print(path, options, print) {
                         options
                     );
                 }
-                return concat([print("object"), ".", group(indent(property))]);
-                // return [
-                //     print("object"),
-                //     ".",
-                //     print("property")
-                // ];
+
+                const objectDoc = print("object");
+
+                return group(concat([objectDoc, ".", property]));
             }
         }
         case "MemberIndexExpression": {
@@ -1830,16 +1832,20 @@ function printElements(
                 const childNode = childPath.getValue();
                 const nextNode =
                     index < finalIndex ? node[listKey][index + 1] : null;
-                const shouldBreakAfter =
-                    isComplexArgumentNode(childNode) ||
-                    isComplexArgumentNode(nextNode) ||
-                    itemsSinceLastBreak >= maxElementsPerLine;
 
-                if (shouldBreakAfter) {
+                const childIsComplex = isComplexArgumentNode(childNode);
+                const nextIsComplex = isComplexArgumentNode(nextNode);
+                const canInlineWithNext =
+                    !childIsComplex &&
+                    !nextIsComplex &&
+                    itemsSinceLastBreak < maxElementsPerLine &&
+                    remainingArgumentsAreCallbacks(node[listKey], index + 2);
+
+                if (canInlineWithNext) {
+                    parts.push(" ");
+                } else {
                     parts.push(lineBreak);
                     itemsSinceLastBreak = 0;
-                } else {
-                    parts.push(" ");
                 }
             } else {
                 parts.push(lineBreak);
@@ -1860,6 +1866,20 @@ function isComplexArgumentNode(node) {
         node.type === "FunctionDeclaration" ||
         node.type === "StructExpression"
     );
+}
+
+function remainingArgumentsAreCallbacks(list, startIndex) {
+    if (!Array.isArray(list) || startIndex >= list.length) {
+        return false;
+    }
+
+    for (let index = startIndex; index < list.length; index += 1) {
+        if (!isComplexArgumentNode(list[index])) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 function shouldForceBreakStructArgument(argument) {
