@@ -22,6 +22,7 @@ export {
     toMutableArray,
     normalizeIdentifierMetadataEntries,
     normalizeEnumeratedOption,
+    parseJsonObjectWithContext,
     parseJsonWithContext,
     splitLines,
     resolveIntegerOption,

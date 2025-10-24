@@ -1,5 +1,6 @@
 import { isNonEmptyString, toTrimmedString } from "./string.js";
 import { isErrorLike } from "./capability-probes.js";
+import { assertPlainObject } from "./object.js";
 
 function getErrorMessage(value) {
     if (typeof value === "string") {
@@ -153,6 +154,57 @@ export function parseJsonWithContext(text, options = {}) {
             description: normalizedDescription
         });
     }
+}
+
+/**
+ * Parse a JSON payload that is expected to yield a plain object.
+ *
+ * The helper reuses {@link parseJsonWithContext} to surface enriched syntax
+ * errors and then validates the resulting value with
+ * {@link assertPlainObject}. Callers can supply either static assertion
+ * options via {@link assertOptions} or compute them dynamically based on the
+ * parsed payload via {@link createAssertOptions}. When both are provided, the
+ * dynamic options take precedence while still layering on top of the static
+ * bag so shared settings like `allowNullPrototype` remain in effect.
+ *
+ * @param {string} text Raw JSON text to parse.
+ * @param {{
+ *   source?: string,
+ *   description?: string,
+ *   reviver?: (this: any, key: string, value: any) => any,
+ *   assertOptions?: Parameters<typeof assertPlainObject>[1],
+ *   createAssertOptions?: (payload: unknown) => Parameters<typeof assertPlainObject>[1]
+ * }} [options]
+ * @returns {Record<string, unknown>} Parsed JSON object.
+ */
+export function parseJsonObjectWithContext(text, options = {}) {
+    const { source, description, reviver, assertOptions, createAssertOptions } =
+        options;
+
+    const payload = parseJsonWithContext(text, {
+        source,
+        description,
+        reviver
+    });
+
+    const dynamicOptions =
+        typeof createAssertOptions === "function"
+            ? (createAssertOptions(payload) ?? undefined)
+            : undefined;
+
+    let mergedOptions;
+
+    if (assertOptions && typeof assertOptions === "object") {
+        mergedOptions = { ...assertOptions };
+    }
+
+    if (dynamicOptions && typeof dynamicOptions === "object") {
+        mergedOptions = mergedOptions
+            ? { ...mergedOptions, ...dynamicOptions }
+            : { ...dynamicOptions };
+    }
+
+    return assertPlainObject(payload, mergedOptions);
 }
 
 /**
