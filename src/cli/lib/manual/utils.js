@@ -222,7 +222,7 @@ export async function downloadManualFileEntries({
  * Manual commands historically used a catch-all `ManualGitHubClient` surface
  * that bundled request dispatching, reference resolution, and file fetching.
  * That broad contract violated the Interface Segregation Principle by forcing
- * collaborators that only needed one behaviour to depend on all of them. The
+ * collaborators that only needed one behavior to depend on all of them. The
  * helpers below expose each concern behind its own focused facade so call sites
  * can compose only what they require.
  */

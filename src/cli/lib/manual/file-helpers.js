@@ -9,7 +9,7 @@ import {
 
 /**
  * Persist manual-derived artefacts to disk while guaranteeing parent directories
- * exist. Centralises the file-system ceremony shared by manual helpers so
+ * exist. Centralizes the file-system ceremony shared by manual helpers so
  * commands and caching logic can focus on their payloads and logging.
  *
  * @param {{
