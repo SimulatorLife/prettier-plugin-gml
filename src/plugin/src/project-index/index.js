@@ -4,7 +4,6 @@ import { getCallExpressionIdentifier } from "../../../shared/ast-node-helpers.js
 import { toPosixPath } from "../../../shared/path-utils.js";
 import {
     asArray,
-    cloneObjectEntries,
     isNonEmptyArray,
     pushUnique
 } from "../../../shared/array-utils.js";
@@ -46,6 +45,7 @@ import {
 } from "./abort-guard.js";
 import { loadBuiltInIdentifiers } from "./built-in-identifiers.js";
 import { createProjectIndexCoordinatorFactory } from "./coordinator.js";
+import { cloneObjectEntries } from "./clone-object-entries.js";
 
 /**
  * Create shallow clones of common entry collections stored on project index
