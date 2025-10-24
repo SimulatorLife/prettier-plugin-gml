@@ -136,7 +136,7 @@ describe("manual GitHub client validation", () => {
             );
             abortHandlerRegistered = true;
 
-            return new Promise((_, reject) => {
+            return new Promise((_resolve, reject) => {
                 const onAbort = () => {
                     signal.removeEventListener("abort", onAbort);
                     reject(signal.reason ?? new Error("aborted"));

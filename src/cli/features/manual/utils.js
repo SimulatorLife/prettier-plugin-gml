@@ -86,9 +86,12 @@ function createReporter(handler, cleanup) {
         }
     };
 
-    return Object.assign((update) => {
-        execute(update);
-    }, { cleanup: performCleanup });
+    return Object.assign(
+        (update) => {
+            execute(update);
+        },
+        { cleanup: performCleanup }
+    );
 }
 
 /**

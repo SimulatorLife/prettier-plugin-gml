@@ -119,12 +119,23 @@ function assignClonedLocation(target, template) {
             withObjectLike(
                 template,
                 (templateNode) => {
+                    let shouldAssign = false;
+                    const clonedLocations = {};
+
                     if (Object.hasOwn(templateNode, "start")) {
-                        mutableTarget.start = cloneLocation(templateNode.start);
+                        clonedLocations.start = cloneLocation(
+                            templateNode.start
+                        );
+                        shouldAssign = true;
                     }
 
                     if (Object.hasOwn(templateNode, "end")) {
-                        mutableTarget.end = cloneLocation(templateNode.end);
+                        clonedLocations.end = cloneLocation(templateNode.end);
+                        shouldAssign = true;
+                    }
+
+                    if (shouldAssign) {
+                        Object.assign(mutableTarget, clonedLocations);
                     }
 
                     return mutableTarget;
