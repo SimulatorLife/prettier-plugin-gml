@@ -3,7 +3,8 @@ import { SingleBar, Presets } from "cli-progress";
 import { coercePositiveInteger } from "./shared-deps.js";
 import {
     createIntegerOptionCoercer,
-    createIntegerOptionState
+    createIntegerOptionState,
+    createIntegerOptionResolver
 } from "./numeric-option-state.js";
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
@@ -50,11 +51,10 @@ const {
     applyEnvOverride: applyProgressBarWidthEnvOverride
 } = progressBarWidthState;
 
-function resolveProgressBarWidth(rawValue, { defaultWidth } = {}) {
-    return resolveProgressBarWidthState(rawValue, {
-        defaultValue: defaultWidth
-    });
-}
+const resolveProgressBarWidth = createIntegerOptionResolver(
+    resolveProgressBarWidthState,
+    { defaultValueOption: "defaultWidth" }
+);
 
 applyProgressBarWidthEnvOverride();
 
