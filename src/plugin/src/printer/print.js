@@ -2349,7 +2349,13 @@ function printStatements(path, options, print, childrenAttribute) {
                 }
             }
 
-            if (shouldPreserveTrailingBlankLine) {
+            const shouldForceTrailingBlankLine =
+                enforceTrailingPadding && !suppressFollowingEmptyLine;
+
+            if (shouldForceTrailingBlankLine) {
+                parts.push(hardline);
+                previousNodeHadNewlineAddedAfter = true;
+            } else if (shouldPreserveTrailingBlankLine) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
             }
