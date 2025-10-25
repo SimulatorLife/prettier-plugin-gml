@@ -1,24 +1,28 @@
 import { createMetricsTracker } from "../reporting.js";
 
 const PROJECT_INDEX_METRICS_CATEGORY = "project-index";
-const REQUIRED_METRIC_METHODS = [
-    "startTimer",
-    "timeAsync",
-    "timeSync",
-    "incrementCounter",
-    "setMetadata",
-    "recordCacheHit",
-    "recordCacheMiss",
-    "recordCacheStale",
-    "finalize"
-];
+const REQUIRED_METRIC_GROUPS = Object.freeze({
+    timers: ["startTimer", "timeAsync", "timeSync"],
+    counters: ["increment"],
+    caches: ["recordHit", "recordMiss", "recordStale", "recordMetric"],
+    reporting: ["snapshot", "finalize", "setMetadata", "logSummary"]
+});
+
+function hasMetricGroup(candidate, groupName, methodNames) {
+    const group = candidate?.[groupName];
+    return (
+        group &&
+        typeof group === "object" &&
+        methodNames.every((method) => typeof group[method] === "function")
+    );
+}
 
 function isMetricsTracker(candidate) {
     return (
         candidate &&
         typeof candidate === "object" &&
-        REQUIRED_METRIC_METHODS.every(
-            (method) => typeof candidate[method] === "function"
+        Object.entries(REQUIRED_METRIC_GROUPS).every(([groupName, methods]) =>
+            hasMetricGroup(candidate, groupName, methods)
         )
     );
 }
@@ -50,24 +54,33 @@ const noop = () => {};
 // summary. Keeping these fallbacks wired like the real implementation protects
 // both the CLI (which logs metrics after each run) and long-lived integrations
 // that rely on the tracker contract remaining stable even when misconfigured.
-const NOOP_METRIC_METHODS = Object.freeze({
-    startTimer: () => () => {},
-    timeAsync: async (_label, callback) => await callback(),
-    timeSync: (_label, callback) => callback(),
-    snapshot: createMetricsSnapshot,
-    finalize: createMetricsSnapshot,
-    incrementCounter: noop,
-    setMetadata: noop,
-    recordCacheHit: noop,
-    recordCacheMiss: noop,
-    recordCacheStale: noop,
-    logSummary: noop
+const NOOP_METRIC_GROUPS = Object.freeze({
+    timers: Object.freeze({
+        startTimer: () => () => {},
+        timeAsync: async (_label, callback) => await callback(),
+        timeSync: (_label, callback) => callback()
+    }),
+    counters: Object.freeze({
+        increment: noop
+    }),
+    caches: Object.freeze({
+        recordHit: noop,
+        recordMiss: noop,
+        recordStale: noop,
+        recordMetric: noop
+    }),
+    reporting: Object.freeze({
+        snapshot: createMetricsSnapshot,
+        finalize: createMetricsSnapshot,
+        setMetadata: noop,
+        logSummary: noop
+    })
 });
 
 function createNoopProjectIndexMetrics() {
     return {
         category: PROJECT_INDEX_METRICS_CATEGORY,
-        ...NOOP_METRIC_METHODS
+        ...NOOP_METRIC_GROUPS
     };
 }
 
@@ -94,5 +107,5 @@ export function finalizeProjectIndexMetrics(metrics) {
         return null;
     }
 
-    return metrics.finalize();
+    return metrics.reporting.finalize();
 }

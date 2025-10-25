@@ -6,7 +6,6 @@ import {
     defaultCliIdentifierCasePlanPreparationService,
     defaultCliIdentifierCaseCacheService,
     defaultCliIdentifierCaseServices,
-    defaultCliPluginServices,
     defaultCliProjectIndexService,
     defaultIdentifierCaseCacheClearer,
     defaultIdentifierCasePlanPreparer,
@@ -14,9 +13,7 @@ import {
 } from "../plugin/service-providers/default.js";
 
 test("CLI plugin services expose validated defaults", () => {
-    const services = defaultCliPluginServices;
-
-    assert.ok(Object.isFrozen(services), "service registry should be frozen");
+    const services = createDefaultCliPluginServices();
 
     const projectIndexService = defaultCliProjectIndexService;
     assert.ok(
@@ -28,21 +25,10 @@ test("CLI plugin services expose validated defaults", () => {
         defaultProjectIndexBuilder,
         "project index service should expose the default builder"
     );
-    assert.strictEqual(
-        services.projectIndex,
-        projectIndexService,
-        "root registry should expose the same project index service"
-    );
-
     const identifierCaseServices = defaultCliIdentifierCaseServices;
     assert.ok(
         Object.isFrozen(identifierCaseServices),
         "identifier case service bundle should be frozen"
-    );
-    assert.strictEqual(
-        services.identifierCase,
-        identifierCaseServices,
-        "root registry should expose the identifier case bundle"
     );
 
     const identifierCasePlanPreparationService =
@@ -61,6 +47,11 @@ test("CLI plugin services expose validated defaults", () => {
         identifierCasePlanPreparationService,
         "identifier case bundle should expose the preparation service"
     );
+    assert.strictEqual(
+        services.identifierCasePlanPreparationService.prepareIdentifierCasePlan,
+        identifierCasePlanPreparationService.prepareIdentifierCasePlan,
+        "service factory should expose the preparation function"
+    );
 
     const identifierCasePlanCacheService = defaultCliIdentifierCaseCacheService;
     assert.ok(
@@ -76,6 +67,11 @@ test("CLI plugin services expose validated defaults", () => {
         identifierCaseServices.cache,
         identifierCasePlanCacheService,
         "identifier case bundle should expose the cache service"
+    );
+    assert.strictEqual(
+        services.identifierCasePlanCacheService.clearIdentifierCaseCaches,
+        identifierCasePlanCacheService.clearIdentifierCaseCaches,
+        "service factory should expose the cache function"
     );
 
     assert.strictEqual(
@@ -95,35 +91,48 @@ test("CLI plugin services expose validated defaults", () => {
         ) === false,
         "root registry should no longer expose the combined plan service"
     );
+    assert.ok(
+        Object.isFrozen(services.identifierCaseServices),
+        "service factory should expose a frozen identifier case bundle"
+    );
+    assert.strictEqual(
+        services.identifierCaseServices.preparation.prepareIdentifierCasePlan,
+        identifierCaseServices.preparation.prepareIdentifierCasePlan,
+        "identifier case bundle should expose the preparation function"
+    );
+    assert.strictEqual(
+        services.identifierCaseServices.cache.clearIdentifierCaseCaches,
+        identifierCaseServices.cache.clearIdentifierCaseCaches,
+        "identifier case bundle should expose the cache function"
+    );
     assert.strictEqual(
         projectIndexService.buildProjectIndex,
         defaultProjectIndexBuilder,
         "project index service should expose the default builder"
     );
+    assert.ok(
+        Object.isFrozen(services.projectIndexService),
+        "service factory should expose a frozen project index service"
+    );
+    assert.strictEqual(
+        services.projectIndexService.buildProjectIndex,
+        projectIndexService.buildProjectIndex,
+        "service factory should expose the project index builder"
+    );
 });
 
 test("CLI plugin services cannot be mutated", () => {
-    const services = defaultCliPluginServices;
-
     assert.throws(
         () => {
-            services.extra = {};
+            defaultCliProjectIndexService.extra = {};
         },
         TypeError,
-        "frozen registry should reject new entries"
+        "frozen project index service should reject new entries"
     );
 
     assert.throws(
         () => {
-            services.projectIndex.extra = {};
-        },
-        TypeError,
-        "nested project index service should be frozen"
-    );
-
-    assert.throws(
-        () => {
-            services.identifierCase.preparation.extra = {};
+            defaultCliIdentifierCasePlanPreparationService.extra = {};
         },
         TypeError,
         "identifier case plan preparation service should be frozen"
@@ -131,10 +140,10 @@ test("CLI plugin services cannot be mutated", () => {
 
     assert.throws(
         () => {
-            services.identifierCase.cache.extra = {};
+            defaultCliIdentifierCaseCacheService.extra = {};
         },
         TypeError,
-        "identifier case plan cache service should be frozen"
+        "identifier case cache service should be frozen"
     );
 });
 
@@ -185,13 +194,18 @@ test("default plugin services can be customized with overrides", () => {
         "cache service should wrap override clearer"
     );
     assert.ok(
-        Object.isFrozen(services.pluginServiceRegistry),
-        "plugin service registry should remain frozen"
+        Object.isFrozen(services.identifierCaseServices),
+        "identifier case service bundle should remain frozen"
     );
-    assert.deepStrictEqual(
-        services.pluginServiceRegistry.identifierCase,
-        services.identifierCaseServices,
-        "nested identifier case bundle should be reused"
+    assert.strictEqual(
+        services.identifierCaseServices.preparation,
+        services.identifierCasePlanPreparationService,
+        "identifier case services should reuse the preparation bundle"
+    );
+    assert.strictEqual(
+        services.identifierCaseServices.cache,
+        services.identifierCasePlanCacheService,
+        "identifier case services should reuse the cache bundle"
     );
 });
 
