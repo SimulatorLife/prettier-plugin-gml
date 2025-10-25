@@ -2401,6 +2401,10 @@ function printStatements(path, options, print, childrenAttribute) {
                 (Array.isArray(node?.docComments) &&
                     node.docComments.length > 0) ||
                 Boolean(syntheticDocComment);
+            const requiresTrailingPadding =
+                enforceTrailingPadding &&
+                parentNode?.type === "BlockStatement" &&
+                !suppressFollowingEmptyLine;
 
             if (
                 parentNode?.type === "BlockStatement" &&
@@ -2475,6 +2479,9 @@ function printStatements(path, options, print, childrenAttribute) {
             }
 
             if (shouldPreserveTrailingBlankLine) {
+                parts.push(hardline);
+                previousNodeHadNewlineAddedAfter = true;
+            } else if (requiresTrailingPadding) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
             }
