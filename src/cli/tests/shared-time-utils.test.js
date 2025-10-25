@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { formatDuration, timeSync } from "../features/shared/time-utils.js";
+import { formatDuration, timeSync } from "../shared/time-utils.js";
 
 function withMockedConsole(callback) {
     const originalLog = console.log;
