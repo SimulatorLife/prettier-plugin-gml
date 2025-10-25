@@ -2477,6 +2477,14 @@ function printStatements(path, options, print, childrenAttribute) {
             if (shouldPreserveTrailingBlankLine) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
+            } else if (
+                enforceTrailingPadding &&
+                !suppressFollowingEmptyLine &&
+                parentNode?.type === "BlockStatement" &&
+                isConstructorBlock
+            ) {
+                parts.push(hardline);
+                previousNodeHadNewlineAddedAfter = true;
             }
         }
 
