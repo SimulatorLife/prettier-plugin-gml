@@ -7,7 +7,7 @@ import {
     applyParserMaxIterationsEnvOverride,
     getMaxParserIterations,
     setMaxParserIterations
-} from "../lib/memory-cli.js";
+} from "../features/memory/index.js";
 
 describe("memory parser iteration limit configuration", () => {
     afterEach(() => {

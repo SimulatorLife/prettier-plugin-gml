@@ -30,12 +30,24 @@ sheet, then return here when you need deeper context.
 - [Locals-first identifier-case config example](examples/identifier-case/locals-first.prettierrc.mjs)
   — Scripted configuration that warms the project-index cache and captures
   dry-run reports for review.
+- [Quick start](../README.md#quick-start) — Installation flows for npm
+  consumers and nightly testers, plus wrapper scripts you can copy into your
+  GameMaker project.
 - [Configuration reference](../README.md#configuration-reference) — Baseline
   Prettier options for `.gml` files, plus the identifier-case defaults surfaced
   by the plugin.
 - [CLI wrapper reference](../README.md#cli-wrapper-environment-knobs) — Quick
   lookup for environment variables and wrapper behaviour when scripting
   formatter runs in CI or editor tooling.
+
+## Extension hooks & overrides
+
+- [Object-wrap option resolver hook](object-wrap-option-resolver-hook.md) —
+  Register temporary overrides for struct wrapping heuristics while keeping the
+  default resolver easy to restore.
+- [Project index source extension hook](project-index-source-extensions-hook.md)
+  — Extend the recognised GML suffix list so the identifier-case bootstrap and
+  formatter refactors include generated or experimental file extensions.
 
 ## Architecture & planning
 
@@ -50,6 +62,10 @@ sheet, then return here when you need deeper context.
   — Research notes that detail why the CLI and plugin expose separate entry
   points, how shared utilities are packaged, and where the CLI wrapper inserts
   additional behaviour such as `.prettierignore` discovery.
+- [Live reloading concept](live-reloading-concept.md) — Exploration of the HTML5
+  runtime fork, watcher pipeline, and transpiler requirements behind prospective
+  hot-reload tooling. Start here when scoping runtime experimentation work or
+  cross-referencing the architecture audits.
 - [Project Index Cache Design](project-index-cache-design.md) — Captures the
   shipped cache shape plus the instrumentation used to keep bootstrap behaviour
   predictable.
@@ -69,3 +85,9 @@ sheet, then return here when you need deeper context.
   refresh them. Pair it with the reserved identifier coverage in the
   [Identifier Case & Naming Convention Guide](naming-conventions.md#5-reserved-identifier-dataset)
   when updating the scrapers or running metadata rebuilds through the CLI.
+
+## Performance & diagnostics
+
+- [Metrics tracker finalize memory experiment](metrics-tracker-finalize-memory.md)
+  — Documents the `node --expose-gc` benchmark that verifies tracker clean-up
+  reduces retained heap size once reports are materialised.

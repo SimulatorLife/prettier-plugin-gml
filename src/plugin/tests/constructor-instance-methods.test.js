@@ -48,6 +48,7 @@ describe("constructor instance method semicolons", () => {
             "        self.x1 = x1",
             "        self.y1 = y1",
             "    }",
+            "",
             "}",
             ""
         ].join("\n");

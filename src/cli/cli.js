@@ -32,16 +32,16 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError, Option } from "commander";
 
 import {
-    coerceNonNegativeInteger,
     getErrorMessage,
+    getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
     isErrorWithCode,
+    mergeUniqueValues,
     normalizeEnumeratedOption,
     normalizeStringList,
-    resolveIntegerOption,
+    resolveModuleDefaultExport,
     toArray,
     toNormalizedLowerCaseSet,
-    toNormalizedLowerCaseString,
     uniqueArray,
     withObjectLike
 } from "../shared/utils.js";
@@ -54,28 +54,31 @@ import {
     hasIgnoreRuleNegations,
     markIgnoreRuleNegationsDetected,
     resetIgnoreRuleNegations
-} from "./lib/ignore-rules-negation-tracker.js";
+} from "./shared/ignore-rules-negation-tracker.js";
 
 import {
     CliUsageError,
     formatCliError,
     handleCliError
-} from "./lib/cli-errors.js";
-import { applyStandardCommandOptions } from "./lib/command-standard-options.js";
-import { resolvePluginEntryPoint } from "./lib/plugin-entry-point.js";
+} from "./core/errors.js";
+import { applyStandardCommandOptions } from "./core/command-standard-options.js";
+import { resolvePluginEntryPoint } from "./plugin/entry-point.js";
 import {
     hasRegisteredIgnorePath,
     registerIgnorePath,
     resetRegisteredIgnorePaths
-} from "./lib/ignore-path-registry.js";
-import { createCliCommandManager } from "./lib/cli-command-manager.js";
-import { resolveCliVersion } from "./lib/cli-version.js";
-import { wrapInvalidArgumentResolver } from "./lib/command-parsing.js";
+} from "./shared/ignore-path-registry.js";
+import { createCliCommandManager } from "./core/command-manager.js";
+import { resolveCliVersion } from "./core/version.js";
+import { wrapInvalidArgumentResolver } from "./core/command-parsing.js";
 import {
     createPerformanceCommand,
     runPerformanceCommand
-} from "./lib/performance-cli.js";
-import { createMemoryCommand, runMemoryCommand } from "./lib/memory-cli.js";
+} from "./features/performance/index.js";
+import {
+    createMemoryCommand,
+    runMemoryCommand
+} from "./features/memory/index.js";
 import {
     createGenerateIdentifiersCommand,
     runGenerateGmlIdentifiers
@@ -84,12 +87,17 @@ import {
     createFeatherMetadataCommand,
     runGenerateFeatherMetadata
 } from "./commands/generate-feather-metadata.js";
-import { resolveCliIdentifierCaseCacheClearer } from "./lib/plugin-services.js";
+import { resolveCliIdentifierCaseCacheClearer } from "./plugin/services.js";
 import {
     getDefaultSkippedDirectorySampleLimit,
     resolveSkippedDirectorySampleLimit,
     SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR
-} from "./lib/skipped-directory-sample-limit.js";
+} from "./shared/skipped-directory-sample-limit.js";
+import {
+    getDefaultUnsupportedExtensionSampleLimit,
+    resolveUnsupportedExtensionSampleLimit,
+    UNSUPPORTED_EXTENSION_SAMPLE_LIMIT_ENV_VAR
+} from "./shared/unsupported-extension-sample-limit.js";
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolvePluginEntryPoint();
@@ -151,6 +159,20 @@ function formatPathForDisplay(targetPath) {
     return resolvedTarget;
 }
 
+function describeIgnoreSource(ignorePaths) {
+    if (!Array.isArray(ignorePaths) || ignorePaths.length === 0) {
+        return null;
+    }
+
+    const ignorePath = ignorePaths.at(-1);
+
+    if (typeof ignorePath !== "string" || ignorePath.length === 0) {
+        return null;
+    }
+
+    return formatPathForDisplay(ignorePath);
+}
+
 function isMissingPrettierDependency(error) {
     if (!isErrorWithCode(error, "ERR_MODULE_NOT_FOUND")) {
         return false;
@@ -165,7 +187,7 @@ let prettierModulePromise = null;
 async function resolvePrettier() {
     if (!prettierModulePromise) {
         prettierModulePromise = import(PRETTIER_MODULE_ID)
-            .then((module) => module?.default ?? module)
+            .then(resolveModuleDefaultExport)
             .catch((error) => {
                 if (isMissingPrettierDependency(error)) {
                     const instructions = [
@@ -309,6 +331,28 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         .argParser(wrapInvalidArgumentResolver(resolveSkippedDirectoryLimit))
         .hideHelp();
 
+    const defaultUnsupportedExtensionSampleLimit =
+        getDefaultUnsupportedExtensionSampleLimit();
+    const resolveUnsupportedExtensionLimit = (value) =>
+        resolveUnsupportedExtensionSampleLimit(value, {
+            defaultLimit: defaultUnsupportedExtensionSampleLimit
+        });
+    const unsupportedExtensionSampleLimitOption = new Option(
+        "--unsupported-extension-sample-limit <count>",
+        [
+            "Maximum number of unsupported files to include in skip summaries.",
+            `Defaults to ${defaultUnsupportedExtensionSampleLimit}.`,
+            `Respects ${UNSUPPORTED_EXTENSION_SAMPLE_LIMIT_ENV_VAR} when set. Provide 0 to suppress the sample list.`
+        ].join(" ")
+    )
+        .argParser(
+            wrapInvalidArgumentResolver(resolveUnsupportedExtensionLimit)
+        )
+        .default(
+            defaultUnsupportedExtensionSampleLimit,
+            String(defaultUnsupportedExtensionSampleLimit)
+        );
+
     return applyStandardCommandOptions(
         new Command()
             .name(name)
@@ -325,9 +369,17 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
             "--path <path>",
             "Directory or file to format (alias for positional argument)."
         )
+        .option(
+            "--check",
+            [
+                "Check whether files are already formatted without writing changes.",
+                "Exits with a non-zero status when differences are found."
+            ].join(" ")
+        )
         .addOption(extensionsOption)
         .addOption(skippedDirectorySampleLimitOption)
         .addOption(skippedDirectorySamplesAliasOption)
+        .addOption(unsupportedExtensionSampleLimitOption)
         .option(
             "--log-level <level>",
             [
@@ -406,6 +458,8 @@ function collectFormatCommandOptions(command) {
 
     const skippedDirectorySampleLimit =
         options.ignoredDirectorySampleLimit ?? options.ignoredDirectorySamples;
+    const unsupportedExtensionSampleLimit =
+        options.unsupportedExtensionSampleLimit;
 
     return {
         targetPathInput,
@@ -415,7 +469,9 @@ function collectFormatCommandOptions(command) {
             : [...(extensions ?? DEFAULT_EXTENSIONS)],
         prettierLogLevel: options.logLevel ?? DEFAULT_PRETTIER_LOG_LEVEL,
         onParseError: options.onParseError ?? DEFAULT_PARSE_ERROR_ACTION,
+        checkMode: Boolean(options.check),
         skippedDirectorySampleLimit,
+        unsupportedExtensionSampleLimit,
         usage: command.helpInformation()
     };
 }
@@ -477,8 +533,6 @@ function configurePrettierOptions({ logLevel } = {}) {
     options.loglevel = normalized;
 }
 
-const UNSUPPORTED_EXTENSION_SAMPLE_LIMIT = 5;
-
 const skippedFileSummary = {
     ignored: 0,
     unsupportedExtension: 0,
@@ -491,10 +545,30 @@ const skippedDirectorySummary = {
     ignoredSamples: []
 };
 
+let checkModeEnabled = false;
+let pendingFormatCount = 0;
+
+function resetCheckModeTracking() {
+    pendingFormatCount = 0;
+}
+
+function configureCheckMode(enabled) {
+    checkModeEnabled = Boolean(enabled);
+    resetCheckModeTracking();
+}
+
 let skippedDirectorySampleLimit = getDefaultSkippedDirectorySampleLimit();
 
 function configureSkippedDirectorySampleLimit(limit) {
     skippedDirectorySampleLimit = resolveSkippedDirectorySampleLimit(limit);
+}
+
+let unsupportedExtensionSampleLimit =
+    getDefaultUnsupportedExtensionSampleLimit();
+
+function configureUnsupportedExtensionSampleLimit(limit) {
+    unsupportedExtensionSampleLimit =
+        resolveUnsupportedExtensionSampleLimit(limit);
 }
 
 function resetSkippedFileSummary() {
@@ -662,6 +736,7 @@ async function resetFormattingSession(onParseError) {
     resetRegisteredIgnorePaths();
     resetIgnoreRuleNegations();
     encounteredFormattableFile = false;
+    resetCheckModeTracking();
 }
 
 /**
@@ -781,27 +856,41 @@ async function handleFormattingError(error, filePath) {
     await revertFormattedFiles();
 }
 
+async function detectNegatedIgnoreRules(ignoreFilePath) {
+    try {
+        const contents = await readFile(ignoreFilePath, "utf8");
+
+        if (NEGATED_IGNORE_RULE_PATTERN.test(contents)) {
+            markIgnoreRuleNegationsDetected();
+        }
+    } catch {
+        // Ignore missing or unreadable files.
+    }
+}
+
+/**
+ * Register a single ignore file and capture negated rule metadata when needed.
+ *
+ * Centralizing the per-file bookkeeping keeps the bulk registration flow
+ * focused on coordinating the overall workflow.
+ */
+async function registerIgnoreFile(ignoreFilePath) {
+    if (!ignoreFilePath || hasRegisteredIgnorePath(ignoreFilePath)) {
+        return;
+    }
+
+    registerIgnorePath(ignoreFilePath);
+
+    if (hasIgnoreRuleNegations()) {
+        return;
+    }
+
+    await detectNegatedIgnoreRules(ignoreFilePath);
+}
+
 async function registerIgnorePaths(ignoreFiles) {
     for (const ignoreFilePath of ignoreFiles) {
-        if (!ignoreFilePath || hasRegisteredIgnorePath(ignoreFilePath)) {
-            continue;
-        }
-
-        registerIgnorePath(ignoreFilePath);
-
-        if (hasIgnoreRuleNegations()) {
-            continue;
-        }
-
-        try {
-            const contents = await readFile(ignoreFilePath, "utf8");
-
-            if (NEGATED_IGNORE_RULE_PATTERN.test(contents)) {
-                markIgnoreRuleNegationsDetected();
-            }
-        } catch {
-            // Ignore missing or unreadable files.
-        }
+        await registerIgnoreFile(ignoreFilePath);
     }
 }
 
@@ -850,8 +939,9 @@ async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
             return true;
         }
     } catch (error) {
+        const message = getErrorMessageOrFallback(error);
         console.warn(
-            `Unable to evaluate ignore rules for ${directory}: ${error.message}`
+            `Unable to evaluate ignore rules for ${directory}: ${message}`
         );
     }
 
@@ -902,13 +992,31 @@ async function resolveTargetStats(target, { usage } = {}) {
     try {
         return await stat(target);
     } catch (error) {
-        const details =
-            getErrorMessage(error, { fallback: "Unknown error" }) ||
-            "Unknown error";
-        const cliError = new CliUsageError(
-            `Unable to access ${target}: ${details}`,
-            { usage }
-        );
+        const details = getErrorMessageOrFallback(error);
+        const formattedTarget = formatPathForDisplay(target);
+        const guidance = (() => {
+            if (isErrorWithCode(error, "ENOENT")) {
+                return [
+                    "Verify the path exists relative to the current working directory",
+                    `(${INITIAL_WORKING_DIRECTORY}) or provide an absolute path.`
+                ].join(" ");
+            }
+
+            if (isErrorWithCode(error, "EACCES")) {
+                return "Check that you have permission to read the path.";
+            }
+
+            return null;
+        })();
+        const messageParts = [
+            `Unable to access ${formattedTarget}: ${details}.`
+        ];
+
+        if (guidance) {
+            messageParts.push(guidance);
+        }
+
+        const cliError = new CliUsageError(messageParts.join(" "), { usage });
         throw cliError;
     }
 }
@@ -925,12 +1033,11 @@ async function resolveDirectoryIgnoreContext(directory, inheritedIgnorePaths) {
         if (ignoreStats.isFile()) {
             shouldRegisterLocalIgnore = true;
 
-            if (!inheritedIgnorePaths.includes(localIgnorePath)) {
-                effectiveIgnorePaths = [
-                    ...inheritedIgnorePaths,
-                    localIgnorePath
-                ];
-            }
+            effectiveIgnorePaths = mergeUniqueValues(
+                inheritedIgnorePaths,
+                [localIgnorePath],
+                { freeze: false }
+            );
         }
     } catch {
         // Ignore missing files.
@@ -961,7 +1068,6 @@ async function processDirectoryEntry(filePath, currentIgnorePaths) {
     }
 
     if (shouldFormatFile(filePath)) {
-        encounteredFormattableFile = true;
         await processFile(filePath, currentIgnorePaths);
         return;
     }
@@ -1049,15 +1155,29 @@ async function processFile(filePath, activeIgnorePaths = []) {
         });
 
         if (fileInfo.ignored) {
-            console.log(`Skipping ${filePath} (ignored)`);
+            const ignoreSourceDescription =
+                describeIgnoreSource(activeIgnorePaths);
+            const formattedIgnoreSource = ignoreSourceDescription
+                ? `ignored by ${ignoreSourceDescription}`
+                : "ignored";
+
+            console.log(`Skipping ${filePath} (${formattedIgnoreSource})`);
             skippedFileSummary.ignored += 1;
             return;
         }
+
+        encounteredFormattableFile = true;
 
         const data = await readFile(filePath, "utf8");
         const formatted = await prettier.format(data, formattingOptions);
 
         if (formatted === data) {
+            return;
+        }
+
+        if (checkModeEnabled) {
+            pendingFormatCount += 1;
+            console.log(`Would format ${formatPathForDisplay(filePath)}`);
             return;
         }
 
@@ -1107,19 +1227,24 @@ function resolveTargetPathFromInput(targetPathInput) {
  *   configuredExtensions: readonly string[],
  *   prettierLogLevel: string,
  *   onParseError: string,
- *   skippedDirectorySampleLimit: number
+ *   skippedDirectorySampleLimit: number,
+ *   unsupportedExtensionSampleLimit: number
  * }} params
  */
 async function prepareFormattingRun({
     configuredExtensions,
     prettierLogLevel,
     onParseError,
-    skippedDirectorySampleLimit
+    skippedDirectorySampleLimit,
+    unsupportedExtensionSampleLimit,
+    checkMode
 }) {
     configurePrettierOptions({ logLevel: prettierLogLevel });
     configureTargetExtensionState(configuredExtensions);
     configureSkippedDirectorySampleLimit(skippedDirectorySampleLimit);
+    configureUnsupportedExtensionSampleLimit(unsupportedExtensionSampleLimit);
     await resetFormattingSession(onParseError);
+    configureCheckMode(checkMode);
 }
 
 /**
@@ -1154,7 +1279,6 @@ async function resolveTargetContext(targetPath, usage) {
  */
 async function processNonDirectoryTarget(targetPath) {
     if (shouldFormatFile(targetPath)) {
-        encounteredFormattableFile = true;
         await processFile(targetPath, baseProjectIgnorePaths);
         return;
     }
@@ -1193,6 +1317,9 @@ function finalizeFormattingRun({
     targetPathProvided
 }) {
     if (encounteredFormattableFile) {
+        if (checkModeEnabled) {
+            logCheckModeSummary();
+        }
         logSkippedFileSummary();
     } else {
         logNoMatchingFiles({
@@ -1201,6 +1328,10 @@ function finalizeFormattingRun({
             targetPathProvided,
             extensions: targetExtensions
         });
+    }
+
+    if (checkModeEnabled && pendingFormatCount > 0) {
+        process.exitCode = 1;
     }
     if (encounteredFormattingError) {
         process.exitCode = 1;
@@ -1241,7 +1372,8 @@ async function executeFormatCommand(command) {
         usage,
         targetPathInput,
         targetPathProvided,
-        skippedDirectorySampleLimit
+        skippedDirectorySampleLimit,
+        unsupportedExtensionSampleLimit
     } = commandOptions;
 
     validateTargetPathInput(commandOptions);
@@ -1251,7 +1383,9 @@ async function executeFormatCommand(command) {
         configuredExtensions: commandOptions.extensions,
         prettierLogLevel: commandOptions.prettierLogLevel,
         onParseError: commandOptions.onParseError,
-        skippedDirectorySampleLimit
+        skippedDirectorySampleLimit,
+        unsupportedExtensionSampleLimit,
+        checkMode: commandOptions.checkMode
     });
 
     try {
@@ -1283,23 +1417,46 @@ function logNoMatchingFiles({
     const guidance = targetIsDirectory
         ? "Adjust --extensions or update your .prettierignore files if this is unexpected."
         : "Pass --extensions to include this file or adjust your .prettierignore files if this is unexpected.";
+    const ignoredFilesSkipped = skippedFileSummary.ignored > 0;
+    const ignoredMessageSuffix =
+        "Adjust your .prettierignore files or refine the target path if this is unexpected.";
 
     if (targetIsDirectory) {
-        console.log(
-            [
-                `No files matching ${formattedExtensions} were found ${locationDescription}.`,
-                "Nothing to format.",
-                guidance
-            ].join(" ")
-        );
+        if (ignoredFilesSkipped) {
+            console.log(
+                [
+                    `All files matching ${formattedExtensions} were skipped ${locationDescription} by ignore rules.`,
+                    "Nothing to format.",
+                    ignoredMessageSuffix
+                ].join(" ")
+            );
+        } else {
+            console.log(
+                [
+                    `No files matching ${formattedExtensions} were found ${locationDescription}.`,
+                    "Nothing to format.",
+                    guidance
+                ].join(" ")
+            );
+        }
     } else {
-        console.log(
-            [
-                `${locationDescription} does not match the configured extensions ${formattedExtensions}.`,
-                "Nothing to format.",
-                guidance
-            ].join(" ")
-        );
+        if (ignoredFilesSkipped) {
+            console.log(
+                [
+                    `${locationDescription} was skipped by ignore rules and not formatted.`,
+                    "Nothing to format.",
+                    ignoredMessageSuffix
+                ].join(" ")
+            );
+        } else {
+            console.log(
+                [
+                    `${locationDescription} does not match the configured extensions ${formattedExtensions}.`,
+                    "Nothing to format.",
+                    guidance
+                ].join(" ")
+            );
+        }
     }
 
     logSkippedFileSummary();
@@ -1318,6 +1475,18 @@ function describeDirectoryWithoutMatches({
     }
 
     return `in ${formattedTargetPath}`;
+}
+
+function logCheckModeSummary() {
+    if (pendingFormatCount === 0) {
+        console.log("All matched files are already formatted.");
+        return;
+    }
+
+    const label = pendingFormatCount === 1 ? "file requires" : "files require";
+    console.log(
+        `${pendingFormatCount} ${label} formatting. Re-run without --check to write changes.`
+    );
 }
 
 /**
@@ -1417,8 +1586,29 @@ function buildSkippedDirectorySummaryMessage() {
     return `Skipped ${ignored} ${label} ignored by .prettierignore (e.g., ${sampleList}${suffix}).`;
 }
 
+function normalizeCommandLineArguments(argv) {
+    if (!Array.isArray(argv)) {
+        return [];
+    }
+
+    if (argv.length === 0) {
+        return [];
+    }
+
+    if (argv[0] !== "help") {
+        return [...argv];
+    }
+
+    if (argv.length === 1) {
+        return ["--help"];
+    }
+
+    return [...argv.slice(1), "--help"];
+}
+
 export const __test__ = Object.freeze({
-    resetFormattingSessionForTests: resetFormattingSession
+    resetFormattingSessionForTests: resetFormattingSession,
+    normalizeCommandLineArguments
 });
 
 const formatCommand = createFormatCommand({ name: "format" });
@@ -1474,7 +1664,11 @@ cliCommandRegistry.registerCommand({
 });
 
 if (process.env.PRETTIER_PLUGIN_GML_SKIP_CLI_RUN !== "1") {
-    cliCommandRunner.run(process.argv.slice(2)).catch((error) => {
+    const normalizedArguments = normalizeCommandLineArguments(
+        process.argv.slice(2)
+    );
+
+    cliCommandRunner.run(normalizedArguments).catch((error) => {
         handleCliError(error, {
             prefix: "Failed to run prettier-plugin-gml CLI.",
             exitCode: 1
@@ -1485,8 +1679,9 @@ function recordUnsupportedExtension(filePath) {
     skippedFileSummary.unsupportedExtension += 1;
 
     if (
+        unsupportedExtensionSampleLimit <= 0 ||
         skippedFileSummary.unsupportedExtensionSamples.length >=
-        UNSUPPORTED_EXTENSION_SAMPLE_LIMIT
+            unsupportedExtensionSampleLimit
     ) {
         return;
     }

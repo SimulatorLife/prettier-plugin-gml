@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import {
     assertArray,
     getErrorMessage,
+    getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
     hasOwn,
     isErrorWithCode,
@@ -14,8 +15,9 @@ import {
     isObjectLike,
     toArray,
     toTrimmedString
-} from "../lib/shared-deps.js";
-import { CliUsageError, handleCliError } from "../lib/cli-errors.js";
+} from "../shared/dependencies.js";
+import { CliUsageError, handleCliError } from "../core/errors.js";
+import { ensureMap } from "../../shared/utils/capability-probes.js";
 
 let parser;
 
@@ -63,6 +65,8 @@ function looksLikeTestCase(node) {
     return hasAnyOwn(node, ["time", "duration", "elapsed"]);
 }
 
+const HTML_DOUBLE_QUOTE = '"';
+
 function decodeEntities(value) {
     if (!isNonEmptyString(value)) {
         return value ?? "";
@@ -77,7 +81,7 @@ function decodeEntities(value) {
         .replaceAll("&lt;", "<")
         .replaceAll("&gt;", ">")
         .replaceAll("&apos;", "'")
-        .replaceAll("&quot;", '"')
+        .replaceAll("&quot;", HTML_DOUBLE_QUOTE)
         .replaceAll("&amp;", "&");
 }
 
@@ -484,6 +488,13 @@ function collectTestCasesFromXmlFile(filePath, displayPath) {
         return { cases: [], notes: [parseResult.note] };
     }
 
+    if (parseResult.status === "ignored") {
+        return {
+            cases: [],
+            notes: parseResult.note ? [parseResult.note] : []
+        };
+    }
+
     return { cases: parseResult.cases, notes: [] };
 }
 
@@ -491,8 +502,7 @@ function readXmlFile(filePath, displayPath) {
     try {
         return { status: "ok", contents: fs.readFileSync(filePath, "utf8") };
     } catch (error) {
-        const message =
-            getErrorMessage(error, { fallback: "" }) || "Unknown error";
+        const message = getErrorMessageOrFallback(error);
         return {
             status: "error",
             note: `Failed to read ${displayPath}: ${message}`
@@ -503,15 +513,44 @@ function readXmlFile(filePath, displayPath) {
 function parseXmlTestCases(xml, displayPath) {
     try {
         const data = parser.parse(xml);
+        if (isCheckstyleDocument(data)) {
+            return {
+                status: "ignored",
+                note: `Ignoring checkstyle report ${displayPath}; no test cases found.`
+            };
+        }
         return { status: "ok", cases: collectTestCases(data) };
     } catch (error) {
-        const message =
-            getErrorMessage(error, { fallback: "" }) || "Unknown error";
+        const message = getErrorMessageOrFallback(error);
         return {
             status: "error",
             note: `Failed to parse ${displayPath}: ${message}`
         };
     }
+}
+
+function isCheckstyleDocument(document) {
+    if (!isObjectLike(document) || Array.isArray(document)) {
+        return false;
+    }
+
+    const root = document.checkstyle;
+    if (!isObjectLike(root) || Array.isArray(root)) {
+        return false;
+    }
+
+    if (hasAnyOwn(root, ["testsuite", "testcase"])) {
+        return false;
+    }
+
+    const files = toArray(root.file);
+    if (files.length === 0) {
+        return true;
+    }
+
+    return files.every(
+        (file) => isObjectLike(file) && isNonEmptyTrimmedString(file.name)
+    );
 }
 
 function recordTestCases(aggregates, testCases) {
@@ -655,7 +694,7 @@ function shouldSkipRegressionDetection(baseStats, targetStats) {
  */
 function resolveResultsMap(resultSet) {
     const { results } = resultSet ?? {};
-    return results instanceof Map ? results : new Map();
+    return ensureMap(results);
 }
 
 function createRegressionRecord({ baseResults, key, targetRecord }) {
@@ -777,16 +816,16 @@ function buildResultCandidates(defaultCandidates, envVariable) {
 
 function loadResultSets(workspaceRoot) {
     const baseCandidates = buildResultCandidates(
-        [path.join("base", "test-results"), "base-test-results"],
+        [path.join("base", "reports"), "base-reports"],
         "BASE_RESULTS_DIR"
     );
     const mergeCandidates = buildResultCandidates(
-        [path.join("merge", "test-results"), "merge-test-results"],
+        [path.join("merge", "reports"), "merge-reports"],
         "MERGE_RESULTS_DIR"
     );
 
     const base = readTestResults(baseCandidates, { workspace: workspaceRoot });
-    const head = readTestResults(["test-results"], {
+    const head = readTestResults(["reports"], {
         workspace: workspaceRoot
     });
     const merged = readTestResults(mergeCandidates, {
@@ -800,8 +839,8 @@ function chooseTargetResultSet({ merged, head }) {
     const usingMerged = Boolean(merged.usedDir);
     const target = usingMerged ? merged : head;
     const targetLabel = usingMerged
-        ? `synthetic merge (${merged.displayDir || "merge/test-results"})`
-        : `PR head (${head.displayDir || "test-results"})`;
+        ? `synthetic merge (${merged.displayDir || "merge/reports"})`
+        : `PR head (${head.displayDir || "reports"})`;
 
     return { target, targetLabel, usingMerged };
 }

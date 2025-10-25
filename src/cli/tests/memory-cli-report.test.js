@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { runMemoryCli } from "../lib/memory-cli.js";
+import { runMemoryCli } from "../features/memory/index.js";
 
 test("memory CLI writes suite results to a JSON report", async () => {
     const workspace = await mkdtemp(

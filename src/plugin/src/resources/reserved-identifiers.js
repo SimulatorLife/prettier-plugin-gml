@@ -45,6 +45,14 @@ function loadIdentifierMetadata() {
 function setReservedIdentifierMetadataLoader(loader) {
     if (typeof loader !== "function") {
         resetReservedIdentifierMetadataLoader();
+        // Callers expect a cleanup handler even when the override is rejected.
+        // Advanced integrations wrap `setReservedIdentifierMetadataLoader` in
+        // try/finally blocks (documented in
+        // docs/reserved-identifier-metadata-hook.md) so their staged metadata
+        // only applies during a scoped experiment. Returning a stubbed
+        // unregister callback keeps those flows balanced; throwing or returning
+        // `null` would explode the finally handler and leave the override logic
+        // in an indeterminate state.
         return () => {};
     }
 

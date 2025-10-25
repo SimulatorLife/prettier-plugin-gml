@@ -1,5 +1,6 @@
-import { isNonEmptyString, toTrimmedString } from "./string.js";
 import { isErrorLike } from "./capability-probes.js";
+import { assertPlainObject } from "./object.js";
+import { isNonEmptyString, toTrimmedString } from "./string.js";
 
 function getErrorMessage(value) {
     if (typeof value === "string") {
@@ -153,4 +154,92 @@ export function parseJsonWithContext(text, options = {}) {
             description: normalizedDescription
         });
     }
+}
+
+/**
+ * Parse a JSON payload that is expected to yield a plain object.
+ *
+ * The helper reuses {@link parseJsonWithContext} to surface enriched syntax
+ * errors and then validates the resulting value with
+ * {@link assertPlainObject}. Callers can supply either static assertion
+ * options via {@link assertOptions} or compute them dynamically based on the
+ * parsed payload via {@link createAssertOptions}. When both are provided, the
+ * dynamic options take precedence while still layering on top of the static
+ * bag so shared settings like `allowNullPrototype` remain in effect.
+ *
+ * @param {string} text Raw JSON text to parse.
+ * @param {{
+ *   source?: string,
+ *   description?: string,
+ *   reviver?: (this: any, key: string, value: any) => any,
+ *   assertOptions?: Parameters<typeof assertPlainObject>[1],
+ *   createAssertOptions?: (payload: unknown) => Parameters<typeof assertPlainObject>[1]
+ * }} [options]
+ * @returns {Record<string, unknown>} Parsed JSON object.
+ */
+export function parseJsonObjectWithContext(text, options = {}) {
+    const { source, description, reviver, assertOptions, createAssertOptions } =
+        options;
+
+    const payload = parseJsonWithContext(text, {
+        source,
+        description,
+        reviver
+    });
+
+    const dynamicOptions =
+        typeof createAssertOptions === "function"
+            ? createAssertOptions(payload)
+            : null;
+
+    const optionSources = [assertOptions, dynamicOptions].filter(
+        (value) => value && typeof value === "object"
+    );
+
+    const mergedOptions =
+        optionSources.length > 0
+            ? Object.assign({}, ...optionSources)
+            : undefined;
+
+    return assertPlainObject(payload, mergedOptions);
+}
+
+/**
+ * Serialize a JSON payload for file output while normalizing trailing
+ * newlines. Helpers across the CLI and plugin previously reimplemented this
+ * behaviour, often appending "\n" manually after JSON.stringify. Centralizing
+ * the logic ensures all call sites respect the same newline semantics and keeps
+ * indentation handling in one place.
+ *
+ * @param {unknown} payload Data structure to serialize.
+ * @param {{
+ *   replacer?: Parameters<typeof JSON.stringify>[1],
+ *   space?: Parameters<typeof JSON.stringify>[2],
+ *   includeTrailingNewline?: boolean,
+ *   newline?: string
+ * }} [options]
+ * @returns {string} Stringified JSON with optional trailing newline.
+ */
+export function stringifyJsonForFile(payload, options = {}) {
+    const {
+        replacer = null,
+        space = 0,
+        includeTrailingNewline = true,
+        newline = "\n"
+    } = options;
+
+    const serialized = JSON.stringify(payload, replacer, space);
+
+    if (!includeTrailingNewline) {
+        return serialized;
+    }
+
+    const terminator =
+        typeof newline === "string" && newline.length > 0 ? newline : "\n";
+
+    if (serialized.endsWith(terminator)) {
+        return serialized;
+    }
+
+    return `${serialized}${terminator}`;
 }

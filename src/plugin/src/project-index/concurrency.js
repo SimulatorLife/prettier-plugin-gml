@@ -1,18 +1,19 @@
-import { createEnvConfiguredValue } from "../../../shared/environment-utils.js";
+import { createEnvConfiguredValueWithFallback } from "../../../shared/environment-utils.js";
 
 const PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR = "GML_PROJECT_INDEX_CONCURRENCY";
 const PROJECT_INDEX_GML_CONCURRENCY_BASELINE = 4;
 const MIN_CONCURRENCY = 1;
 const MAX_CONCURRENCY = 16;
 
-const projectIndexConcurrencyConfig = createEnvConfiguredValue({
+const projectIndexConcurrencyConfig = createEnvConfiguredValueWithFallback({
     defaultValue: PROJECT_INDEX_GML_CONCURRENCY_BASELINE,
     envVar: PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
-    normalize: (value, { defaultValue }) =>
+    resolve: (value, { fallback }) =>
         normalizeConcurrencyValue(value, {
-            fallback: defaultValue,
-            onInvalid: defaultValue
-        })
+            fallback,
+            onInvalid: fallback
+        }),
+    computeFallback: ({ defaultValue }) => defaultValue
 });
 
 function getDefaultProjectIndexGmlConcurrency() {

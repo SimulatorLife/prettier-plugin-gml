@@ -122,6 +122,24 @@ test("adds synthetic @returns metadata for parameterless static functions", asyn
     );
 });
 
+test("adds synthetic docs for named constructor assignments", async () => {
+    const source = [
+        "item = function() constructor {",
+        "    value = 1;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.trim().split("\n");
+
+    assert.deepStrictEqual(
+        lines.slice(0, 2),
+        ["/// @function item", "item = function() constructor {"],
+        "Named constructor assignments should receive synthetic @function doc comments."
+    );
+});
+
 test("updates existing @function tags to reflect static function names", async () => {
     const source = [
         "function Demo() constructor {",
