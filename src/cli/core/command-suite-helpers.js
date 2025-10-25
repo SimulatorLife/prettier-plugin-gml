@@ -7,7 +7,8 @@ import {
     normalizeEnumeratedOption,
     isNonEmptyArray,
     resolveCommandUsage,
-    toMutableArray
+    toMutableArray,
+    stringifyJsonForFile
 } from "../shared/dependencies.js";
 
 export const SuiteOutputFormat = Object.freeze({
@@ -235,6 +236,7 @@ export function emitSuiteResults(
             ? extras.payload
             : createSuiteResultsPayload(results);
     const spacing = pretty ? 2 : 0;
-    process.stdout.write(`${JSON.stringify(payload, null, spacing)}\n`);
+    const serialized = stringifyJsonForFile(payload, { space: spacing });
+    process.stdout.write(serialized);
     return true;
 }
