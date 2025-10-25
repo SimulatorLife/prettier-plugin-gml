@@ -15285,7 +15285,7 @@ function suppressDuplicateVertexFormatComments(ast, commentTargets, node) {
         return;
     }
 
-    const comments = Array.isArray(ast.comments) ? ast.comments : [];
+    const comments = asArray(ast.comments);
 
     if (comments.length === 0) {
         return;
