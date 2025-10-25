@@ -1,11 +1,12 @@
 export {
     collectCommentNodes,
     getCommentArray,
+    getLineBreakCount,
     hasComment,
     isBlockComment,
     isCommentNode,
     isDocCommentLine,
-    isLineComment
+    isLineComment,
+    isObjectLike,
+    splitLines
 } from "../shared/index.js";
-export { getLineBreakCount, splitLines } from "../shared/index.js";
-export { isObjectLike } from "../shared/index.js";
