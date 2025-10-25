@@ -1648,10 +1648,26 @@ function buildCallArgumentsDocs(
         const multilineDoc = buildCallbackArgumentsWithSimplePrefix(
             path,
             print,
-            simplePrefixLength
+            simplePrefixLength,
+            options
         );
 
-        return { inlineDoc: null, multilineDoc };
+        const inlineDoc = printCommaSeparatedList(
+            path,
+            print,
+            "arguments",
+            "(",
+            ")",
+            options,
+            {
+                addIndent: false,
+                forceInline: true,
+                leadingNewline: false,
+                trailingNewline: false
+            }
+        );
+
+        return { inlineDoc, multilineDoc };
     }
 
     const multilineDoc = printCommaSeparatedList(
@@ -1953,30 +1969,60 @@ function countLeadingSimpleCallArguments(node) {
 function buildCallbackArgumentsWithSimplePrefix(
     path,
     print,
-    simplePrefixLength
+    simplePrefixLength,
+    options
 ) {
     const node = path.getValue();
     const args = Array.isArray(node?.arguments) ? node.arguments : [];
-    const parts = [];
+    const printedArgs = args.map((_, index) =>
+        path.call(print, "arguments", index)
+    );
 
-    for (let index = 0; index < args.length; index += 1) {
-        parts.push(path.call(print, "arguments", index));
+    const prefixParts = [];
+    const prefixLimit = Math.min(simplePrefixLength, args.length);
+
+    for (let index = 0; index < prefixLimit; index += 1) {
+        prefixParts.push(printedArgs[index]);
 
         if (index >= args.length - 1) {
             continue;
         }
 
-        parts.push(",");
+        prefixParts.push(",");
 
-        if (index < simplePrefixLength - 1) {
-            parts.push(" ");
+        if (index < prefixLimit - 1) {
+            prefixParts.push(" ");
+        }
+    }
+
+    if (prefixLimit >= args.length) {
+        return group(["(", ...prefixParts, ")"]);
+    }
+
+    const suffixParts = [];
+
+    for (let index = prefixLimit; index < args.length; index += 1) {
+        suffixParts.push(printedArgs[index]);
+
+        if (index >= args.length - 1) {
             continue;
         }
 
-        parts.push(line);
+        suffixParts.push(",", line);
     }
 
-    return group(["(", indent([softline, ...parts]), softline, ")"]);
+    const trailingCommaDoc = shouldAllowTrailingComma(options)
+        ? ifBreak(",", "")
+        : "";
+
+    return group([
+        "(",
+        ...prefixParts,
+        indent([line, ...suffixParts]),
+        trailingCommaDoc,
+        softline,
+        ")"
+    ]);
 }
 
 function shouldForceBreakStructArgument(argument) {
