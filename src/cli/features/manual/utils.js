@@ -16,7 +16,8 @@ import { formatBytes } from "../../runtime-options/byte-format.js";
 import { writeManualFile } from "./file-helpers.js";
 import {
     disposeProgressBars,
-    renderProgressBar
+    renderProgressBar,
+    withProgressBarCleanup
 } from "../shared/progress-bar.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
@@ -86,6 +87,24 @@ function reporterWithCleanup(handler, cleanup) {
     };
 
     return report;
+}
+
+export function announceManualDownloadStart(
+    totalEntries,
+    { verbose, description = "manual file" } = {}
+) {
+    if (!verbose?.downloads) {
+        return;
+    }
+
+    const normalizedDescription = isNonEmptyTrimmedString(description)
+        ? description
+        : "manual file";
+    const pluralSuffix = totalEntries === 1 ? "" : "s";
+
+    console.log(
+        `Fetching ${totalEntries} ${normalizedDescription}${pluralSuffix}…`
+    );
 }
 
 /**
@@ -206,6 +225,33 @@ export async function downloadManualFileEntries({
     }
 
     return payloads;
+}
+
+export async function downloadManualEntriesWithProgress({
+    entries,
+    manualRefSha,
+    fetchManualFile,
+    requestOptions,
+    progress: { label, verbose, progressBarWidth, formatPath, render } = {}
+}) {
+    return withProgressBarCleanup(async () => {
+        const reportProgress = createManualDownloadReporter({
+            label,
+            verbose,
+            progressBarWidth,
+            formatPath,
+            render
+        });
+
+        return downloadManualFileEntries({
+            entries,
+            manualRefSha,
+            fetchManualFile,
+            requestOptions,
+            onProgress: (update) => reportProgress(update),
+            onProgressCleanup: reportProgress.cleanup
+        });
+    });
 }
 
 /**
