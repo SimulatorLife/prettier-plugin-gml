@@ -1,5 +1,5 @@
 import { toArrayFromIterable } from "../array-utils.js";
-import { incrementMapValue } from "../object-utils.js";
+import { getOrCreateMapEntry, incrementMapValue } from "../object-utils.js";
 import { getNonEmptyString, normalizeStringList } from "../string-utils.js";
 
 const hasHrtime = typeof process?.hrtime?.bigint === "function";
@@ -70,23 +70,16 @@ function createMapIncrementer(store) {
 
 function ensureCacheStats(caches, cacheKeys, cacheName) {
     const normalized = normalizeLabel(cacheName);
-    let stats = caches.get(normalized);
-
-    if (!stats) {
-        stats = new Map(cacheKeys.map((key) => [key, 0]));
-        caches.set(normalized, stats);
-    }
-
-    return stats;
+    return getOrCreateMapEntry(
+        caches,
+        normalized,
+        () => new Map(cacheKeys.map((key) => [key, 0]))
+    );
 }
 
 function incrementCacheMetric(caches, cacheKeys, cacheName, key, amount = 1) {
     const stats = ensureCacheStats(caches, cacheKeys, cacheName);
     const normalizedKey = normalizeLabel(key);
-
-    if (!stats.has(normalizedKey)) {
-        stats.set(normalizedKey, 0);
-    }
 
     const increment = normalizeIncrementAmount(
         amount,
@@ -97,7 +90,7 @@ function incrementCacheMetric(caches, cacheKeys, cacheName, key, amount = 1) {
         return;
     }
 
-    stats.set(normalizedKey, (stats.get(normalizedKey) ?? 0) + increment);
+    incrementMapValue(stats, normalizedKey, increment, { fallback: 0 });
 }
 
 function mergeSummarySections(summary, extra) {
