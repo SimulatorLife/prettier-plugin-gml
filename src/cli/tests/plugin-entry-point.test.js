@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import {
     importPluginModule,
     resolvePluginEntryPoint
-} from "../lib/plugin-entry-point.js";
+} from "../plugin/entry-point.js";
 
 const temporaryDirectories = new Set();
 

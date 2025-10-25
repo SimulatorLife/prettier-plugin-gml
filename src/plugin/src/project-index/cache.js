@@ -8,10 +8,7 @@ import {
 } from "../../../shared/number-utils.js";
 import { isObjectLike } from "../../../shared/object-utils.js";
 import { createEnvConfiguredValueWithFallback } from "../../../shared/environment-utils.js";
-import {
-    PROJECT_MANIFEST_EXTENSION,
-    isProjectManifestPath
-} from "./constants.js";
+import { isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { createAbortGuard } from "../../../shared/abort-utils.js";
 import {
@@ -186,7 +183,7 @@ function areMtimeMapsEqual(expected = {}, actual = {}) {
 }
 
 function validateCachePayload(payload) {
-    if (!payload || typeof payload !== "object") {
+    if (!isObjectLike(payload)) {
         return false;
     }
 
@@ -209,22 +206,22 @@ function validateCachePayload(payload) {
         return false;
     }
 
-    if (!payload.manifestMtimes || typeof payload.manifestMtimes !== "object") {
+    if (!isObjectLike(payload.manifestMtimes)) {
         return false;
     }
 
-    if (!payload.sourceMtimes || typeof payload.sourceMtimes !== "object") {
+    if (!isObjectLike(payload.sourceMtimes)) {
         return false;
     }
 
     if (
         payload.metricsSummary != undefined &&
-        typeof payload.metricsSummary !== "object"
+        !isObjectLike(payload.metricsSummary)
     ) {
         return false;
     }
 
-    if (!payload.projectIndex || typeof payload.projectIndex !== "object") {
+    if (!isObjectLike(payload.projectIndex)) {
         return false;
     }
 
@@ -386,7 +383,7 @@ export async function saveProjectIndexCache(
             "projectRoot must be provided to saveProjectIndexCache"
         );
     }
-    if (!projectIndex || typeof projectIndex !== "object") {
+    if (!isObjectLike(projectIndex)) {
         throw new Error(
             "projectIndex must be provided to saveProjectIndexCache"
         );

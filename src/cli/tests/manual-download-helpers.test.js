@@ -4,17 +4,15 @@ import { afterEach, describe, it, mock } from "node:test";
 import {
     createManualDownloadReporter,
     downloadManualFileEntries
-} from "../lib/manual/utils.js";
+} from "../features/manual/utils.js";
 import {
     renderProgressBar,
-    resetProgressBarRegistryForTesting,
-    setProgressBarFactoryForTesting
-} from "../lib/progress-bar.js";
+    resetProgressBarRegistryForTesting
+} from "../shared/progress-bar.js";
 
 describe("manual download helpers", () => {
     afterEach(() => {
         mock.restoreAll();
-        setProgressBarFactoryForTesting();
         resetProgressBarRegistryForTesting();
     });
 

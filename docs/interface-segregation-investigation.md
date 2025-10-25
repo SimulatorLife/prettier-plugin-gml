@@ -123,3 +123,17 @@ no code changes were required.
   `resolveManualGitHubRefResolver`, and
   `resolveManualGitHubFileClient`). Updated the CLI unit test to import the
   specialised helpers so consumers opt into only the collaborator they require.
+
+## Follow-up audit (2025-04-09)
+
+- Audited `createManualAccessContext` in
+  `src/cli/features/manual/context.js` and found it still returned a combined
+  `ManualAccessContext` interface that bundled manual file fetching with
+  reference resolution. CLI commands that only needed to download manual pages
+  were forced to depend on reference helpers (and vice versa), violating the
+  Interface Segregation Principle.
+- Split the contract into `ManualFileAccessContext` and
+  `ManualReferenceAccessContext`, plus a helper that produces both specialised
+  views without rebuilding the underlying GitHub wiring. Updated the manual CLI
+  commands and unit tests to import the targeted contexts so each call site
+  depends only on the collaborators it requires.

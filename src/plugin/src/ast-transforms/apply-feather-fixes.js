@@ -53,7 +53,7 @@ import {
     collectCommentNodes,
     getCommentArray,
     hasComment,
-    resolveDocCommentInspectionService,
+    resolveDocCommentTraversalService,
     getCommentValue
 } from "../comments/index.js";
 import {
@@ -122,6 +122,22 @@ function hasArrayParentWithNumericIndex(parent, property) {
     return true;
 }
 
+function resolveCallExpressionArrayContext(node, parent, property) {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
+        return null;
+    }
+
+    if (!isNode(node) || node.type !== "CallExpression") {
+        return null;
+    }
+
+    return {
+        callExpression: node,
+        siblings: parent,
+        index: property
+    };
+}
+
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
@@ -166,6 +182,54 @@ const STRING_LENGTH_CALL_BLACKLIST = new Set([
     "string_width",
     "string_width_ext"
 ]);
+
+export const ROOM_NAVIGATION_DIRECTION = Object.freeze({
+    NEXT: "next",
+    PREVIOUS: "previous"
+});
+
+/**
+ * @typedef {typeof ROOM_NAVIGATION_DIRECTION[keyof typeof ROOM_NAVIGATION_DIRECTION]} RoomNavigationDirection
+ */
+
+const ROOM_NAVIGATION_DIRECTION_VALUES = new Set(
+    Object.values(ROOM_NAVIGATION_DIRECTION)
+);
+const ROOM_NAVIGATION_DIRECTION_LABELS = Array.from(
+    ROOM_NAVIGATION_DIRECTION_VALUES
+).join(", ");
+
+const ROOM_NAVIGATION_HELPERS = Object.freeze({
+    [ROOM_NAVIGATION_DIRECTION.NEXT]: Object.freeze({
+        binary: "room_next",
+        goto: "room_goto_next"
+    }),
+    [ROOM_NAVIGATION_DIRECTION.PREVIOUS]: Object.freeze({
+        binary: "room_previous",
+        goto: "room_goto_previous"
+    })
+});
+
+function normalizeRoomNavigationDirection(direction) {
+    if (typeof direction !== "string") {
+        throw new TypeError(
+            "Room navigation direction must be provided as a string."
+        );
+    }
+
+    if (!ROOM_NAVIGATION_DIRECTION_VALUES.has(direction)) {
+        throw new RangeError(
+            `Unsupported room navigation direction: ${direction}. Expected one of: ${ROOM_NAVIGATION_DIRECTION_LABELS}.`
+        );
+    }
+
+    return direction;
+}
+
+export function getRoomNavigationHelpers(direction) {
+    const normalizedDirection = normalizeRoomNavigationDirection(direction);
+    return ROOM_NAVIGATION_HELPERS[normalizedDirection];
+}
 const IDENTIFIER_TOKEN_PATTERN = /\b[A-Za-z_][A-Za-z0-9_]*\b/g;
 const RESERVED_KEYWORD_TOKENS = new Set([
     "and",
@@ -858,6 +922,27 @@ function hasFeatherDiagnosticContext(ast, diagnostic) {
     }
 
     if (typeof ast !== "object") {
+        return false;
+    }
+
+    return true;
+}
+
+function hasFeatherSourceTextContext(
+    ast,
+    diagnostic,
+    sourceText,
+    { allowEmpty = false } = {}
+) {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
+        return false;
+    }
+
+    if (typeof sourceText !== "string") {
+        return false;
+    }
+
+    if (!allowEmpty && sourceText.length === 0) {
         return false;
     }
 
@@ -3633,8 +3718,7 @@ function rewriteRoomNavigationBinaryExpression({
     }
 
     const { direction, baseIdentifier } = navigation;
-    const replacementName =
-        direction === "previous" ? "room_previous" : "room_next";
+    const { binary: replacementName } = getRoomNavigationHelpers(direction);
     const calleeIdentifier = createIdentifier(replacementName, baseIdentifier);
     const argumentIdentifier = cloneIdentifier(baseIdentifier);
 
@@ -3711,10 +3795,9 @@ function rewriteRoomGotoCall({ node, diagnostic, sourceText }) {
         return null;
     }
 
-    const replacementName =
-        navigation.direction === "previous"
-            ? "room_goto_previous"
-            : "room_goto_next";
+    const { goto: replacementName } = getRoomNavigationHelpers(
+        navigation.direction
+    );
 
     const startIndex = getNodeStartIndex(node);
     const endIndex = getNodeEndIndex(node);
@@ -3770,12 +3853,15 @@ function resolveRoomNavigationFromBinaryExpression(node) {
     if (isIdentifierWithName(leftIdentifier, "room")) {
         if (node.operator === "+") {
             if (isLiteralOne(rightLiteral)) {
-                return { direction: "next", baseIdentifier: leftIdentifier };
+                return {
+                    direction: ROOM_NAVIGATION_DIRECTION.NEXT,
+                    baseIdentifier: leftIdentifier
+                };
             }
 
             if (isNegativeOneLiteral(rightLiteral)) {
                 return {
-                    direction: "previous",
+                    direction: ROOM_NAVIGATION_DIRECTION.PREVIOUS,
                     baseIdentifier: leftIdentifier
                 };
             }
@@ -3784,13 +3870,16 @@ function resolveRoomNavigationFromBinaryExpression(node) {
         if (node.operator === "-") {
             if (isLiteralOne(rightLiteral)) {
                 return {
-                    direction: "previous",
+                    direction: ROOM_NAVIGATION_DIRECTION.PREVIOUS,
                     baseIdentifier: leftIdentifier
                 };
             }
 
             if (isNegativeOneLiteral(rightLiteral)) {
-                return { direction: "next", baseIdentifier: leftIdentifier };
+                return {
+                    direction: ROOM_NAVIGATION_DIRECTION.NEXT,
+                    baseIdentifier: leftIdentifier
+                };
             }
         }
     }
@@ -3798,12 +3887,15 @@ function resolveRoomNavigationFromBinaryExpression(node) {
     if (isIdentifierWithName(rightIdentifier, "room")) {
         if (node.operator === "+") {
             if (isLiteralOne(leftLiteral)) {
-                return { direction: "next", baseIdentifier: rightIdentifier };
+                return {
+                    direction: ROOM_NAVIGATION_DIRECTION.NEXT,
+                    baseIdentifier: rightIdentifier
+                };
             }
 
             if (isNegativeOneLiteral(leftLiteral)) {
                 return {
-                    direction: "previous",
+                    direction: ROOM_NAVIGATION_DIRECTION.PREVIOUS,
                     baseIdentifier: rightIdentifier
                 };
             }
@@ -3812,13 +3904,16 @@ function resolveRoomNavigationFromBinaryExpression(node) {
         if (node.operator === "-") {
             if (isLiteralOne(leftLiteral)) {
                 return {
-                    direction: "previous",
+                    direction: ROOM_NAVIGATION_DIRECTION.PREVIOUS,
                     baseIdentifier: rightIdentifier
                 };
             }
 
             if (isNegativeOneLiteral(leftLiteral)) {
-                return { direction: "next", baseIdentifier: rightIdentifier };
+                return {
+                    direction: ROOM_NAVIGATION_DIRECTION.NEXT,
+                    baseIdentifier: rightIdentifier
+                };
             }
         }
     }
@@ -4073,11 +4168,11 @@ function normalizeArgumentBuiltinReferences({ ast, diagnostic, sourceText }) {
     }
 
     const fixes = [];
-    const docCommentInspection = resolveDocCommentInspectionService(ast);
+    const docCommentTraversal = resolveDocCommentTraversalService(ast);
     const documentedParamNamesByFunction = buildDocumentedParamNameLookup(
         ast,
         sourceText,
-        docCommentInspection
+        docCommentTraversal
     );
 
     const visit = (node) => {
@@ -4332,17 +4427,17 @@ function fixArgumentReferencesWithinFunction(
     return fixes;
 }
 
-function buildDocumentedParamNameLookup(ast, sourceText, docCommentInspection) {
+function buildDocumentedParamNameLookup(ast, sourceText, docCommentTraversal) {
     const lookup = new WeakMap();
 
     if (!ast || typeof ast !== "object") {
         return lookup;
     }
 
-    const inspection =
-        docCommentInspection ?? resolveDocCommentInspectionService(ast);
+    const traversal =
+        docCommentTraversal ?? resolveDocCommentTraversalService(ast);
 
-    inspection.forEach((node, comments = []) => {
+    traversal.forEach((node, comments = []) => {
         if (!isFunctionLikeNode(node)) {
             return;
         }
@@ -5261,12 +5356,7 @@ function buildNestedMemberIndexExpression({ object, indices, template }) {
 }
 
 function removeDuplicateSemicolons({ ast, sourceText, diagnostic }) {
-    if (
-        !diagnostic ||
-        !ast ||
-        typeof sourceText !== "string" ||
-        sourceText.length === 0
-    ) {
+    if (!hasFeatherSourceTextContext(ast, diagnostic, sourceText)) {
         return [];
     }
 
@@ -5635,11 +5725,7 @@ function normalizeObviousSyntaxErrors({ ast, diagnostic, metadata }) {
 }
 
 function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
-    if (
-        !diagnostic ||
-        typeof sourceText !== "string" ||
-        sourceText.length === 0
-    ) {
+    if (!hasFeatherSourceTextContext(ast, diagnostic, sourceText)) {
         return [];
     }
 
@@ -6190,16 +6276,7 @@ function registerSanitizedMacroName(ast, macroName) {
 }
 
 function ensureVarDeclarationsAreTerminated({ ast, sourceText, diagnostic }) {
-    if (
-        !diagnostic ||
-        !ast ||
-        typeof ast !== "object" ||
-        typeof sourceText !== "string"
-    ) {
-        return [];
-    }
-
-    if (sourceText.length === 0) {
+    if (!hasFeatherSourceTextContext(ast, diagnostic, sourceText)) {
         return [];
     }
 
@@ -6517,19 +6594,18 @@ function markStatementToSuppressLeadingEmptyLine(statement) {
 
 function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {
     if (
-        !diagnostic ||
-        !ast ||
-        typeof ast !== "object" ||
-        typeof sourceText !== "string"
+        !hasFeatherSourceTextContext(ast, diagnostic, sourceText, {
+            allowEmpty: true
+        })
     ) {
         return [];
     }
 
-    const docCommentInspection = resolveDocCommentInspectionService(ast);
+    const docCommentTraversal = resolveDocCommentTraversalService(ast);
     const deprecatedFunctions = collectDeprecatedFunctionNames(
         ast,
         sourceText,
-        docCommentInspection
+        docCommentTraversal
     );
 
     if (!deprecatedFunctions || deprecatedFunctions.size === 0) {
@@ -6613,7 +6689,7 @@ function recordDeprecatedCallMetadata(node, deprecatedFunctions, diagnostic) {
     return fixDetail;
 }
 
-function collectDeprecatedFunctionNames(ast, sourceText, docCommentInspection) {
+function collectDeprecatedFunctionNames(ast, sourceText, docCommentTraversal) {
     const names = new Set();
 
     if (!ast || typeof ast !== "object" || typeof sourceText !== "string") {
@@ -6639,10 +6715,10 @@ function collectDeprecatedFunctionNames(ast, sourceText, docCommentInspection) {
         return names;
     }
 
-    const inspection =
-        docCommentInspection ?? resolveDocCommentInspectionService(ast);
+    const traversal =
+        docCommentTraversal ?? resolveDocCommentTraversalService(ast);
 
-    inspection.forEach((node, comments = []) => {
+    traversal.forEach((node, comments = []) => {
         if (!topLevelFunctions.has(node)) {
             return;
         }
@@ -9056,11 +9132,7 @@ function ensureShaderResetAfterSet(
     diagnostic,
     sourceText
 ) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
-        return null;
-    }
-
-    if (!node || node.type !== "CallExpression") {
+    if (!resolveCallExpressionArrayContext(node, parent, property)) {
         return null;
     }
 
@@ -9172,11 +9244,7 @@ function ensureFogIsReset({ ast, diagnostic }) {
 }
 
 function ensureFogResetAfterCall(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
-        return null;
-    }
-
-    if (!node || node.type !== "CallExpression") {
+    if (!resolveCallExpressionArrayContext(node, parent, property)) {
         return null;
     }
 
@@ -9293,11 +9361,7 @@ function ensureSurfaceTargetsAreReset({ ast, diagnostic }) {
 }
 
 function ensureSurfaceTargetResetAfterCall(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
-        return null;
-    }
-
-    if (!node || node.type !== "CallExpression") {
+    if (!resolveCallExpressionArrayContext(node, parent, property)) {
         return null;
     }
 
@@ -9420,11 +9484,7 @@ function ensureBlendEnableIsReset({ ast, diagnostic }) {
 }
 
 function ensureBlendEnableResetAfterCall(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
-        return null;
-    }
-
-    if (!node || node.type !== "CallExpression") {
+    if (!resolveCallExpressionArrayContext(node, parent, property)) {
         return null;
     }
 
@@ -9563,11 +9623,7 @@ function ensureBlendModeIsReset({ ast, diagnostic }) {
 }
 
 function ensureBlendModeResetAfterCall(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
-        return null;
-    }
-
-    if (!node || node.type !== "CallExpression") {
+    if (!resolveCallExpressionArrayContext(node, parent, property)) {
         return null;
     }
 
@@ -10590,11 +10646,7 @@ function ensureAlphaTestEnableResetAfterCall(
     property,
     diagnostic
 ) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
-        return null;
-    }
-
-    if (!node || node.type !== "CallExpression") {
+    if (!resolveCallExpressionArrayContext(node, parent, property)) {
         return null;
     }
 

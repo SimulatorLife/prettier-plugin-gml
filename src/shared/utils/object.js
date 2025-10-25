@@ -25,21 +25,23 @@ export function isPlainObject(value, { allowNullPrototype = true } = {}) {
  * preserving the specific error messages historically raised by each call
  * site.
  *
- * @param {unknown} value Candidate function to validate.
+ * @template {Function} TFunction
+ * @param {TFunction | unknown} value Candidate function to validate.
  * @param {string} name Descriptive name used when constructing the error.
+ * @returns {TFunction} The validated function reference.
  */
 export function assertFunction(value, name, { errorMessage } = {}) {
     const message =
         errorMessage ??
         (typeof name === "string" && name.length > 0
-            ? `${name} must be a function`
-            : "Value must be a function");
+            ? `${name} must be a function.`
+            : "Value must be a function.");
 
     if (typeof value !== "function") {
         throw new TypeError(message);
     }
 
-    return value;
+    return /** @type {TFunction} */ (value);
 }
 
 /**
@@ -121,7 +123,7 @@ export function withObjectLike(value, onObjectLike, onNotObjectLike) {
  *
  * Callers can optionally supply {@link onUndefined} which mirrors the fallback
  * semantics of {@link withObjectLike}, accepting either a thunk or a direct
- * value. When omitted the helper returns `undefined` to keep its behavior
+ * value. When omitted the helper returns `undefined` to keep its behaviour
  * aligned with existing conditional assignments in the codebase.
  *
  * @template TValue
@@ -170,6 +172,8 @@ export function coalesceOption(
     }
 
     if (Array.isArray(keys)) {
+        // Iterate the provided array directly so repeated option lookups avoid
+        // allocating a throwaway wrapper array for single-key calls.
         for (const key of keys) {
             const value = object[key];
 
@@ -185,8 +189,6 @@ export function coalesceOption(
         return fallback;
     }
 
-    // Fast-path singular keys to avoid allocating an intermediate array in the
-    // tight option-lookup loops used by the formatter and CLI entry points.
     const value = object[keys];
     return value !== undefined && (acceptNull || value !== null)
         ? value
@@ -232,25 +234,23 @@ export function hasOwn(object, key) {
  * @returns {TValue} Existing or newly created entry.
  */
 export function getOrCreateMapEntry(store, key, initializer) {
-    if (
-        !store ||
-        typeof store.get !== "function" ||
-        typeof store.set !== "function"
-    ) {
+    const { get, set, has } = store ?? {};
+
+    if (typeof get !== "function" || typeof set !== "function") {
         throw new TypeError("store must provide get and set functions");
     }
 
-    if (typeof store.has !== "function") {
+    if (typeof has !== "function") {
         throw new TypeError("store must provide a has function");
     }
 
     assertFunction(initializer, "initializer");
 
-    if (store.has(key)) {
-        return store.get(key);
+    if (has.call(store, key)) {
+        return get.call(store, key);
     }
 
     const value = initializer(key);
-    store.set(key, value);
+    set.call(store, key, value);
     return value;
 }

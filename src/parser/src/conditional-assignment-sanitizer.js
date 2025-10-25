@@ -3,9 +3,10 @@ import {
     isNonEmptyArray,
     isNonEmptyString,
     isNonEmptyTrimmedString,
-    isWordChar
-} from "./shared/utils.js";
-import { enqueueObjectChildValues } from "./shared/ast.js";
+    isWordChar,
+    identity
+} from "../../shared/utils.js";
+import { enqueueObjectChildValues } from "../../shared/ast.js";
 
 const ASSIGNMENT_GUARD_CHARACTERS = new Set([
     "*",
@@ -22,8 +23,6 @@ const ASSIGNMENT_GUARD_CHARACTERS = new Set([
     "=",
     ":"
 ]);
-
-const identity = (value) => value;
 
 /**
  * Create a function that remaps parser indices back to the original source

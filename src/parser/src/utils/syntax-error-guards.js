@@ -1,4 +1,4 @@
-import { isErrorLike } from "../shared/utils/capability-probes.js";
+import { isErrorLike } from "../../../shared/utils/capability-probes.js";
 
 /**
  * Determine whether a thrown value exposes the location-rich fields emitted by
