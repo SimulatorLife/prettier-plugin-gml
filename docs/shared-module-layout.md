@@ -19,6 +19,11 @@
     modules that work with AST metadata can import from one place.
   - `src/shared/utils/` consolidates general-purpose utilities (array, string,
     number, path, JSON, RegExp, etc.) with an accompanying barrel export.
+  - Domain-specific helpers that carry formatter metadata now live in
+    dedicated directories (for example `src/shared/identifier-metadata/`).
+    This keeps the generic utility barrel focused on cross-cutting helpers
+    while still surfacing the specialized modules through the existing
+    top-level shims.
 - The original file names at `src/shared/*-utils.js` (and the AST helper entry
   points) remain as thin re-export shims. This keeps every existing import path
   working while the codebase transitions toward the new structure.
