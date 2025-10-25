@@ -270,7 +270,8 @@ const program = applyStandardCommandOptions(new Command())
     .description(
         [
             "Utilities for working with the prettier-plugin-gml project.",
-            "Provides formatting, benchmarking, and manual data generation commands."
+            "Provides formatting, benchmarking, and manual data generation commands.",
+            "Defaults to running the format command when no command is provided."
         ].join(" \n")
     )
     .version(

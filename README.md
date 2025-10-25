@@ -301,7 +301,8 @@ nvm alias default node
 
 2. Format any GameMaker project without adding dependencies to that project. The
    CLI exposes a `format` command that accepts an explicit path and optional
-   extensions:
+   extensions. Invoking the wrapper without a subcommand automatically runs
+   `format`, so `npm run cli` formats the current working directory by default:
 
    ```bash
    npm run cli -- format "/absolute/path/to/MyGame" --extensions=.gml,.yy
