@@ -1,1 +1,6 @@
-export { createMetricsTracker } from "../../../shared/reporting/index.js";
+export {
+    createMetricsTracker,
+    formatDuration,
+    createVerboseDurationLogger,
+    timeSync
+} from "../../../shared/reporting/index.js";
