@@ -79,9 +79,21 @@ const formatIterationLimitConfig = createEnvConfiguredValueWithFallback({
 });
 
 const sampleCache = new Map();
+const objectPrototypeToString = Object.prototype.toString;
 
 function resolveProjectPath(relativePath) {
     return path.resolve(PROJECT_ROOT, relativePath);
+}
+
+/**
+ * Capture the intrinsic tag for a value without exposing the full
+ * Object.prototype chain at call sites.
+ *
+ * @param {unknown} value A runtime value to classify.
+ * @returns {string} ECMAScript "toString" tag for the value.
+ */
+function getObjectTag(value) {
+    return objectPrototypeToString.call(value);
 }
 
 async function loadPrettierStandalone() {
@@ -116,7 +128,7 @@ function describeFormatterOptionsValue(value) {
     }
 
     if (type === "object") {
-        const tag = Object.prototype.toString.call(value);
+        const tag = getObjectTag(value);
         const match = /^\[object (\w+)\]$/.exec(tag);
         if (match && match[1] !== "Object") {
             const label = match[1];
