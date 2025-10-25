@@ -6403,6 +6403,33 @@ function shouldOmitSyntheticParens(path) {
             }
 
             if (
+                (parent.operator === "+" || parent.operator === "-") &&
+                isArithmeticBinaryOperator(expression.operator) &&
+                expression.operator !== "+" &&
+                expression.operator !== "-" &&
+                isNumericComputationNode(parent) &&
+                isNumericComputationNode(expression)
+            ) {
+                const sanitizedMacroNames = getSanitizedMacroNames(path);
+
+                if (
+                    !(
+                        sanitizedMacroNames &&
+                        (expressionReferencesSanitizedMacro(
+                            parent,
+                            sanitizedMacroNames
+                        ) ||
+                            expressionReferencesSanitizedMacro(
+                                expression,
+                                sanitizedMacroNames
+                            ))
+                    )
+                ) {
+                    return true;
+                }
+            }
+
+            if (
                 expression.operator === "*" &&
                 isNumericComputationNode(expression)
             ) {
