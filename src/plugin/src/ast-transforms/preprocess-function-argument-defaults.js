@@ -499,7 +499,7 @@ function matchArgumentCountFallbackVarThenIf(
 
     return {
         declarator,
-        guardExpression: ifStatement.test,
+        guardExpression: unwrapParenthesizedExpression(ifStatement.test),
         argumentExpression: assignment.right,
         fallbackExpression: declarator.init,
         ifStatement,
