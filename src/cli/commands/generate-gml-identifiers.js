@@ -17,7 +17,10 @@ import {
     createManualDownloadReporter,
     downloadManualFileEntries
 } from "../features/manual/utils.js";
-import { timeSync, createVerboseDurationLogger } from "../shared/time-utils.js";
+import {
+    timeSync,
+    createVerboseDurationLogger
+} from "../features/shared/time-utils.js";
 import {
     disposeProgressBars,
     withProgressBarCleanup
