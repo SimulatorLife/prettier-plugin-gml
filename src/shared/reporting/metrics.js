@@ -1,6 +1,6 @@
-import { toArrayFromIterable } from "../array-utils.js";
-import { incrementMapValue } from "../object-utils.js";
-import { getNonEmptyString, normalizeStringList } from "../string-utils.js";
+import { toArrayFromIterable } from "../utils/array.js";
+import { getOrCreateMapEntry, incrementMapValue } from "../utils/object.js";
+import { getNonEmptyString, normalizeStringList } from "../utils/string.js";
 
 const hasHrtime = typeof process?.hrtime?.bigint === "function";
 
@@ -80,19 +80,20 @@ const SUMMARY_SECTIONS = Object.freeze([
  * @property {MetricsReportingTools} reporting
  */
 
-function isIterable(value) {
-    return value != null && typeof value[Symbol.iterator] === "function";
+function toCandidateCacheKeys(keys) {
+    if (typeof keys === "string" || Array.isArray(keys)) {
+        return keys;
+    }
+
+    if (typeof keys?.[Symbol.iterator] === "function") {
+        return toArrayFromIterable(keys);
+    }
+
+    return DEFAULT_CACHE_KEYS;
 }
 
 function normalizeCacheKeys(keys) {
-    const candidates =
-        typeof keys === "string" || Array.isArray(keys)
-            ? keys
-            : isIterable(keys)
-              ? toArrayFromIterable(keys)
-              : DEFAULT_CACHE_KEYS;
-
-    const normalized = normalizeStringList(candidates, {
+    const normalized = normalizeStringList(toCandidateCacheKeys(keys), {
         allowInvalidType: true
     });
 
@@ -125,23 +126,18 @@ function createMapIncrementer(store) {
 
 function ensureCacheStats(caches, cacheKeys, cacheName) {
     const normalized = normalizeLabel(cacheName);
-    let stats = caches.get(normalized);
-
-    if (!stats) {
-        stats = new Map(cacheKeys.map((key) => [key, 0]));
-        caches.set(normalized, stats);
-    }
-
-    return stats;
+    return getOrCreateMapEntry(
+        caches,
+        normalized,
+        () => new Map(cacheKeys.map((key) => [key, 0]))
+    );
 }
 
 function incrementCacheMetric(caches, cacheKeys, cacheName, key, amount = 1) {
     const stats = ensureCacheStats(caches, cacheKeys, cacheName);
     const normalizedKey = normalizeLabel(key);
 
-    if (!stats.has(normalizedKey)) {
-        stats.set(normalizedKey, 0);
-    }
+    getOrCreateMapEntry(stats, normalizedKey, () => 0);
 
     const increment = normalizeIncrementAmount(
         amount,
@@ -152,7 +148,7 @@ function incrementCacheMetric(caches, cacheKeys, cacheName, key, amount = 1) {
         return;
     }
 
-    stats.set(normalizedKey, (stats.get(normalizedKey) ?? 0) + increment);
+    incrementMapValue(stats, normalizedKey, increment, { fallback: 0 });
 }
 
 function mergeSummarySections(summary, extra) {

@@ -3,15 +3,13 @@ import path from "node:path";
 import {
     normalizeNumericOption,
     coerceNonNegativeInteger,
-    coercePositiveInteger
-} from "../shared/numeric-option-utils.js";
-import { isNonEmptyTrimmedString } from "../shared/string-utils.js";
-import {
+    coercePositiveInteger,
+    isNonEmptyTrimmedString,
     assertFunction,
     coalesceOption,
     isObjectLike,
     withDefinedValue
-} from "../shared/object-utils.js";
+} from "../shared/index.js";
 import { createProjectIndexCoordinator } from "gamemaker-language-semantic/project-index/index.js";
 import { findProjectRoot } from "gamemaker-language-semantic/project-index/project-root.js";
 import { getProjectIndexParserOverride } from "gamemaker-language-semantic/project-index/parser-override.js";

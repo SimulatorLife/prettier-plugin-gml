@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { normalizeEnumeratedOption } from "../enumerated-option-utils.js";
+import { normalizeEnumeratedOption } from "../utils/enumerated-options.js";
 
 describe("normalizeEnumeratedOption", () => {
     const formats = new Set(["json", "human"]);

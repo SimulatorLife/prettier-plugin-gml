@@ -100,32 +100,6 @@ export function ensureSuitesAreKnown(suiteNames, availableSuites, command) {
 }
 
 /**
- * Create the mutable container used to accumulate suite results.
- */
-function createSuiteResultContainer() {
-    return {};
-}
-
-/**
- * Record the resolved payload for a suite inside the shared container.
- */
-function assignSuiteResult(container, suiteName, payload) {
-    container[suiteName] = payload;
-}
-
-/**
- * Resolve a callable suite runner from the registry.
- */
-function resolveSuiteRunner(availableSuites, suiteName) {
-    if (!availableSuites || typeof availableSuites.get !== "function") {
-        return null;
-    }
-
-    const runner = availableSuites.get(suiteName);
-    return typeof runner === "function" ? runner : null;
-}
-
-/**
  * Execute a suite runner while normalizing thrown errors through the supplied
  * callback.
  */
@@ -173,11 +147,11 @@ export async function collectSuiteResults({
         return {};
     }
 
-    const results = createSuiteResultContainer();
+    const results = {};
 
     for (const suiteName of suiteNames) {
-        const runner = resolveSuiteRunner(availableSuites, suiteName);
-        if (!runner) {
+        const runner = availableSuites.get(suiteName);
+        if (typeof runner !== "function") {
             continue;
         }
 
@@ -188,7 +162,7 @@ export async function collectSuiteResults({
             onError
         });
 
-        assignSuiteResult(results, suiteName, suiteResult);
+        results[suiteName] = suiteResult;
     }
 
     return results;

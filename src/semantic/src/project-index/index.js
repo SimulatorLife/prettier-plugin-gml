@@ -1,27 +1,21 @@
 import path from "node:path";
-import { cloneLocation } from "../../../shared/ast-locations.js";
-import { getCallExpressionIdentifier } from "../../../shared/ast-node-helpers.js";
-import { toPosixPath } from "../../../shared/path-utils.js";
 import {
     asArray,
-    isNonEmptyArray,
-    pushUnique
-} from "../../../shared/array-utils.js";
-import {
     assertFunction,
+    buildFileLocationKey,
+    buildLocationKey,
+    cloneLocation,
+    getCallExpressionIdentifier,
     getOrCreateMapEntry,
     hasOwn,
-    isObjectLike
-} from "../../../shared/object-utils.js";
-import {
-    buildLocationKey,
-    buildFileLocationKey
-} from "../../../shared/location-keys.js";
-import { resolveProjectIndexParser } from "./parser-override.js";
-import { clampConcurrency } from "./concurrency.js";
-import { isProjectManifestPath } from "./constants.js";
+    isFsErrorCode,
+    isNonEmptyArray,
+    isObjectLike,
+    pushUnique
+} from "../../../shared/index.js";
 import { defaultFsFacade } from "./fs-facade.js";
-import { isFsErrorCode, listDirectory } from "../../../shared/fs-utils.js";
+import { clampConcurrency } from "./concurrency.js";
+import { resolveProjectIndexParser } from "./parser-override.js";
 import {
     getDefaultProjectIndexCacheMaxSize,
     loadProjectIndexCache,
@@ -35,6 +29,7 @@ import {
     analyseResourceFiles,
     createFileScopeDescriptor
 } from "./resource-analysis.js";
+import { scanProjectTree } from "./project-tree.js";
 import {
     PROJECT_INDEX_BUILD_ABORT_MESSAGE,
     createProjectIndexAbortGuard
@@ -109,317 +104,6 @@ export {
     PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
     PROJECT_INDEX_GML_CONCURRENCY_BASELINE
 } from "./concurrency.js";
-
-const DEFAULT_PROJECT_SOURCE_EXTENSIONS = Object.freeze([".gml"]);
-let projectSourceExtensions = DEFAULT_PROJECT_SOURCE_EXTENSIONS;
-
-function getProjectIndexSourceExtensions() {
-    return projectSourceExtensions;
-}
-
-function resetProjectIndexSourceExtensions() {
-    projectSourceExtensions = DEFAULT_PROJECT_SOURCE_EXTENSIONS;
-    return projectSourceExtensions;
-}
-
-function normalizeProjectSourceExtensions(extensions) {
-    if (!Array.isArray(extensions)) {
-        throw new TypeError(
-            "Project source extensions must be provided as an array of strings."
-        );
-    }
-
-    const normalized = new Set(DEFAULT_PROJECT_SOURCE_EXTENSIONS);
-
-    for (const extension of extensions) {
-        if (typeof extension !== "string") {
-            throw new TypeError(
-                "Project source extensions must be strings (for example '.gml')."
-            );
-        }
-
-        const trimmed = extension.trim();
-        if (trimmed.length === 0) {
-            throw new TypeError(
-                "Project source extensions cannot be empty strings."
-            );
-        }
-
-        const candidate = trimmed.startsWith(".") ? trimmed : `.${trimmed}`;
-        normalized.add(candidate.toLowerCase());
-    }
-
-    return Object.freeze([...normalized]);
-}
-
-function setProjectIndexSourceExtensions(extensions) {
-    projectSourceExtensions = normalizeProjectSourceExtensions(extensions);
-    return projectSourceExtensions;
-}
-
-const ProjectFileCategory = Object.freeze({
-    RESOURCE_METADATA: "yy",
-    SOURCE: "gml"
-});
-
-const PROJECT_FILE_CATEGORIES = new Set(Object.values(ProjectFileCategory));
-
-const PROJECT_FILE_CATEGORY_CHOICES = Object.freeze(
-    [...PROJECT_FILE_CATEGORIES].sort().join(", ")
-);
-
-/**
- * Validate and normalize the category used when registering project files.
- * Ensures downstream collectors receive only the canonical string literals the
- * index understands, preserving stable cache keys and metrics labeling.
- *
- * @param {unknown} value Candidate category provided by a caller.
- * @returns {"gml" | "yy"} Canonical project file category string.
- * @throws {RangeError} When {@link value} is not one of the supported
- *         categories.
- */
-export function normalizeProjectFileCategory(value) {
-    if (PROJECT_FILE_CATEGORIES.has(value)) {
-        return value;
-    }
-
-    const received = value === undefined ? "undefined" : `'${String(value)}'`;
-    throw new RangeError(
-        `Project file category must be one of: ${PROJECT_FILE_CATEGORY_CHOICES}. Received ${received}.`
-    );
-}
-
-export function resolveProjectFileCategory(relativePosix) {
-    const lowerPath = relativePosix.toLowerCase();
-    if (lowerPath.endsWith(".yy") || isProjectManifestPath(relativePosix)) {
-        return ProjectFileCategory.RESOURCE_METADATA;
-    }
-    const sourceExtensions = getProjectIndexSourceExtensions();
-    if (sourceExtensions.some((extension) => lowerPath.endsWith(extension))) {
-        return ProjectFileCategory.SOURCE;
-    }
-    return null;
-}
-
-function createProjectTreeCollector(metrics = null) {
-    const yyFiles = [];
-    const gmlFiles = [];
-
-    function recordFile(category, record) {
-        const normalizedCategory = normalizeProjectFileCategory(category);
-
-        if (normalizedCategory === ProjectFileCategory.RESOURCE_METADATA) {
-            yyFiles.push(record);
-            metrics?.counters?.increment("files.yyDiscovered");
-            return;
-        }
-
-        if (normalizedCategory === ProjectFileCategory.SOURCE) {
-            gmlFiles.push(record);
-            metrics?.counters?.increment("files.gmlDiscovered");
-            return;
-        }
-    }
-
-    function createRecord(absolutePath, relativePosix) {
-        return {
-            absolutePath,
-            relativePath: relativePosix
-        };
-    }
-
-    function register(relativePosix, absolutePath) {
-        const category = resolveProjectFileCategory(relativePosix);
-        if (!category) {
-            return;
-        }
-
-        recordFile(category, createRecord(absolutePath, relativePosix));
-    }
-
-    function snapshot() {
-        yyFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
-        gmlFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
-
-        return { yyFiles, gmlFiles };
-    }
-
-    return {
-        register,
-        snapshot
-    };
-}
-
-/**
- * Manage pending directory traversal state so scanProjectTree can delegate the
- * raw stack bookkeeping. Keeps the orchestrator focused on the high-level
- * traversal lifecycle.
- */
-function createDirectoryTraversal(projectRoot) {
-    const pending = ["."];
-
-    return {
-        hasPending() {
-            return pending.length > 0;
-        },
-        next() {
-            if (pending.length === 0) {
-                return null;
-            }
-
-            const relativePath = pending.pop();
-            return {
-                relativePath,
-                absolutePath: path.join(projectRoot, relativePath)
-            };
-        },
-        enqueue(relativePath) {
-            pending.push(relativePath);
-        }
-    };
-}
-
-function createDirectoryEntryDescriptor(directoryContext, entry, projectRoot) {
-    const relativePath = path.join(directoryContext.relativePath, entry);
-    const absolutePath = path.join(projectRoot, relativePath);
-
-    return {
-        relativePath,
-        absolutePath,
-        relativePosix: toPosixPath(relativePath)
-    };
-}
-
-/**
- * Load a directory listing while updating traversal metrics and respecting the
- * configured abort signal.
- */
-async function resolveDirectoryListing({
-    directoryContext,
-    fsFacade,
-    metrics,
-    ensureNotAborted,
-    signal
-}) {
-    ensureNotAborted();
-    const entries = await listDirectory(
-        fsFacade,
-        directoryContext.absolutePath,
-        {
-            signal
-        }
-    );
-    ensureNotAborted();
-    metrics?.counters?.increment("io.directoriesScanned");
-    return entries;
-}
-
-function isDirectoryStat(stats) {
-    return typeof stats?.isDirectory === "function" && stats.isDirectory();
-}
-
-async function resolveEntryStats({
-    absolutePath,
-    fsFacade,
-    ensureNotAborted,
-    metrics,
-    signal
-}) {
-    try {
-        const stats = await fsFacade.stat(absolutePath);
-        ensureNotAborted();
-        return stats;
-    } catch (error) {
-        if (isFsErrorCode(error, "ENOENT")) {
-            metrics?.counters?.increment("io.skippedMissingEntries");
-            return null;
-        }
-        throw error;
-    }
-}
-
-/**
- * Walk each entry discovered in a directory, routing directories back onto the
- * traversal queue and registering leaf files with the collector.
- */
-async function processDirectoryEntries({
-    entries,
-    directoryContext,
-    traversal,
-    collector,
-    projectRoot,
-    fsFacade,
-    ensureNotAborted,
-    metrics,
-    signal
-}) {
-    for (const entry of entries) {
-        ensureNotAborted();
-        const descriptor = createDirectoryEntryDescriptor(
-            directoryContext,
-            entry,
-            projectRoot
-        );
-        const stats = await resolveEntryStats({
-            absolutePath: descriptor.absolutePath,
-            fsFacade,
-            ensureNotAborted,
-            metrics,
-            signal
-        });
-
-        if (!stats) {
-            continue;
-        }
-
-        if (isDirectoryStat(stats)) {
-            traversal.enqueue(descriptor.relativePath);
-            continue;
-        }
-
-        collector.register(descriptor.relativePosix, descriptor.absolutePath);
-    }
-}
-
-async function scanProjectTree(
-    projectRoot,
-    fsFacade,
-    metrics = null,
-    options = {}
-) {
-    const { signal, ensureNotAborted } = createProjectIndexAbortGuard(options);
-    const traversal = createDirectoryTraversal(projectRoot);
-    const collector = createProjectTreeCollector(metrics);
-
-    while (traversal.hasPending()) {
-        const directoryContext = traversal.next();
-        if (!directoryContext) {
-            continue;
-        }
-
-        const entries = await resolveDirectoryListing({
-            directoryContext,
-            fsFacade,
-            metrics,
-            ensureNotAborted,
-            signal
-        });
-
-        await processDirectoryEntries({
-            entries,
-            directoryContext,
-            traversal,
-            collector,
-            projectRoot,
-            fsFacade,
-            ensureNotAborted,
-            metrics,
-            signal
-        });
-    }
-
-    return collector.snapshot();
-}
 
 function cloneIdentifierDeclaration(declaration) {
     if (!isObjectLike(declaration)) {
@@ -2447,11 +2131,13 @@ export async function buildProjectIndex(
 }
 export { defaultFsFacade } from "./fs-facade.js";
 
-export { ProjectFileCategory };
 export {
+    ProjectFileCategory,
     getProjectIndexSourceExtensions,
     resetProjectIndexSourceExtensions,
-    setProjectIndexSourceExtensions
-};
+    setProjectIndexSourceExtensions,
+    normalizeProjectFileCategory,
+    resolveProjectFileCategory
+} from "./project-file-categories.js";
 export { __loadBuiltInIdentifiersForTests } from "./built-in-identifiers.js";
 export { getProjectIndexParserOverride } from "./parser-override.js";

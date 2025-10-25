@@ -5,7 +5,7 @@ import {
     createAbortError,
     createAbortGuard,
     throwIfAborted
-} from "../abort-utils.js";
+} from "../utils/abort.js";
 
 describe("createAbortError", () => {
     it("returns null for non-aborted signals", () => {

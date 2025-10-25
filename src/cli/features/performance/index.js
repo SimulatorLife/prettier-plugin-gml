@@ -4,7 +4,7 @@ import { performance } from "node:perf_hooks";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { Command, InvalidArgumentError } from "commander";
+import { Command, InvalidArgumentError, Option } from "commander";
 import GMLParser from "gamemaker-language-parser";
 
 import { applyStandardCommandOptions } from "../../core/command-standard-options.js";
@@ -585,6 +585,18 @@ AVAILABLE_SUITES.set(PerformanceSuiteName.IDENTIFIER_TEXT, () =>
 );
 
 export function createPerformanceCommand() {
+    const defaultReportFileDescription =
+        formatReportFilePath(DEFAULT_REPORT_FILE);
+    const reportFileOption = new Option(
+        "--report-file <path>",
+        [
+            "File path for the JSON performance report.",
+            `Defaults to ${defaultReportFileDescription}.`
+        ].join(" ")
+    )
+        .argParser((value) => path.resolve(value))
+        .default(DEFAULT_REPORT_FILE, defaultReportFileDescription);
+
     return applyStandardCommandOptions(
         new Command()
             .name("performance")
@@ -613,12 +625,7 @@ export function createPerformanceCommand() {
             collectValue,
             []
         )
-        .option(
-            "--report-file <path>",
-            `File path for the JSON performance report (default: ${DEFAULT_REPORT_FILE}).`,
-            (value) => path.resolve(value),
-            DEFAULT_REPORT_FILE
-        )
+        .addOption(reportFileOption)
         .option(
             "--skip-report",
             "Disable writing the JSON performance report to disk."

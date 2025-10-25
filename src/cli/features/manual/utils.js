@@ -4,6 +4,7 @@ import {
     assertPlainObject,
     assertNonEmptyString,
     createAbortGuard,
+    identity,
     isFsErrorCode,
     isNonEmptyArray,
     isNonEmptyTrimmedString,
@@ -73,8 +74,8 @@ function normalizeDownloadLabel(label) {
 }
 
 function createReporter(handler, cleanup) {
-    const report = typeof handler === "function" ? handler : () => {};
-    const cleanupHandler = typeof cleanup === "function" ? cleanup : () => {};
+    const report = resolveFunction(handler);
+    const cleanupHandler = resolveFunction(cleanup);
     let cleanedUp = false;
 
     const reporter = (...args) => report(...args);
@@ -143,8 +144,7 @@ export function createManualDownloadReporter({
     if (progressBar) {
         const normalizedLabel = normalizeDownloadLabel(label);
         const width = progressBarWidth ?? 0;
-        const progressRenderer =
-            typeof render === "function" ? render : renderProgressBar;
+        const progressRenderer = resolveFunction(render, renderProgressBar);
 
         return createReporter(({ fetchedCount, totalEntries }) => {
             progressRenderer(
@@ -156,8 +156,7 @@ export function createManualDownloadReporter({
         }, disposeProgressBars);
     }
 
-    const normalizePath =
-        typeof formatPath === "function" ? formatPath : (path) => path;
+    const normalizePath = resolveFunction(formatPath, identity);
 
     return createReporter(({ path }) => {
         const displayPath = normalizePath(path);

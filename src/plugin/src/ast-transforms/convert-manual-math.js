@@ -5,9 +5,9 @@ import {
 import {
     assignClonedLocation,
     getNodeEndIndex,
-    getNodeStartIndex
-} from "../shared/ast-locations.js";
-import { getCallExpressionArguments } from "../shared/ast-node-helpers.js";
+    getNodeStartIndex,
+    getCallExpressionArguments
+} from "../shared/index.js";
 
 const DEFAULT_HELPERS = Object.freeze({
     hasComment: sharedHasComment

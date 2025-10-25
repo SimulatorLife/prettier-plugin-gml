@@ -108,11 +108,15 @@ function attachChildNode(parent, name, value) {
     const existing = parent[name];
     if (existing === undefined) {
         parent[name] = value;
-    } else if (Array.isArray(existing)) {
-        existing.push(value);
-    } else {
-        parent[name] = [existing, value];
+        return;
     }
+
+    if (Array.isArray(existing)) {
+        existing.push(value);
+        return;
+    }
+
+    parent[name] = [existing, value];
 }
 
 function parseAttributes(source) {

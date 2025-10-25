@@ -32,26 +32,24 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError, Option } from "commander";
 
 import {
-    escapeRegExp,
+    collectAncestorDirectories,
     getErrorMessage,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
+    isErrorLike,
     isMissingModuleDependency,
     isErrorWithCode,
+    isPathInside,
     mergeUniqueValues,
     normalizeEnumeratedOption,
+    createListSplitPattern,
     normalizeStringList,
     resolveModuleDefaultExport,
     toArray,
     toNormalizedLowerCaseSet,
     uniqueArray,
     withObjectLike
-} from "../shared/utils.js";
-import { isErrorLike } from "../shared/utils/capability-probes.js";
-import {
-    collectAncestorDirectories,
-    isPathInside
-} from "../shared/utils/path.js";
+} from "../shared/index.js";
 import {
     hasIgnoreRuleNegations,
     markIgnoreRuleNegationsDetected,
@@ -113,12 +111,11 @@ const INITIAL_WORKING_DIRECTORY = path.resolve(process.cwd());
 
 const FALLBACK_EXTENSIONS = Object.freeze([".gml"]);
 
-const EXTENSION_LIST_SEPARATORS = Array.from(
-    new Set([",", path.delimiter].filter(Boolean))
-);
-
-const EXTENSION_LIST_SPLIT_PATTERN = new RegExp(
-    `[${EXTENSION_LIST_SEPARATORS.map((separator) => escapeRegExp(separator)).join("")}\\s]+`
+const EXTENSION_LIST_SPLIT_PATTERN = createListSplitPattern(
+    [",", path.delimiter].filter(Boolean),
+    {
+        includeWhitespace: true
+    }
 );
 
 const ParseErrorAction = Object.freeze({

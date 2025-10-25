@@ -8,10 +8,7 @@ import { describe, it } from "node:test";
 import GMLParser from "gamemaker-language-parser";
 import prettier from "prettier";
 
-import {
-    getNodeEndIndex,
-    getNodeStartIndex
-} from "../src/shared/ast-locations.js";
+import { getNodeEndIndex, getNodeStartIndex } from "../src/shared/index.js";
 
 import {
     getFeatherMetadata,

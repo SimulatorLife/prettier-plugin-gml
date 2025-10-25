@@ -5,12 +5,10 @@
 import {
     getIdentifierText,
     getCallExpressionArguments,
-    getCallExpressionIdentifierName
-} from "../shared/ast-node-helpers.js";
-import {
+    getCallExpressionIdentifierName,
     normalizeStringList,
     toNormalizedLowerCaseString
-} from "../shared/string-utils.js";
+} from "../shared/index.js";
 
 const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
     ["array_length", "len"],

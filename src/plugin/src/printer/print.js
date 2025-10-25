@@ -28,31 +28,31 @@ import {
     normalizeDocCommentTypeAnnotations
 } from "../comments/line-comment-formatting.js";
 import { resolveLineCommentOptions } from "../options/line-comment-options.js";
-import { getCommentArray, isCommentNode } from "../shared/comments.js";
-import { coercePositiveIntegerOption } from "../shared/numeric-option-utils.js";
 import {
+    getCommentArray,
+    isCommentNode,
+    coercePositiveIntegerOption,
     getNonEmptyString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
-    toTrimmedString
-} from "../shared/string-utils.js";
-import { isNonEmptyArray, toMutableArray } from "../shared/array-utils.js";
-import { ensureSet } from "../shared/utils/capability-probes.js";
-import {
+    toTrimmedString,
+    isNonEmptyArray,
+    getNodeType,
+    toMutableArray,
+    ensureSet,
     getNodeStartIndex,
     getNodeEndIndex,
-    getNodeRangeIndices
-} from "../shared/ast-locations.js";
-import {
+    getNodeRangeIndices,
     getBodyStatements,
     getCallExpressionArguments,
+    getCallExpressionIdentifier,
     getIdentifierText,
     getSingleVariableDeclarator,
     isCallExpressionIdentifierMatch,
     isBooleanLiteral,
     isUndefinedLiteral,
     enqueueObjectChildValues
-} from "../shared/ast-node-helpers.js";
+} from "../shared/index.js";
 import { maybeReportIdentifierCaseDryRun } from "../identifier-case/identifier-case-report.js";
 import {
     getIdentifierCaseRenameForNode,
@@ -943,7 +943,13 @@ export function print(path, options, print) {
                     );
                 });
 
+                const hasSingleCallExpressionArgument =
+                    maxParamsPerLine > 0 &&
+                    node.arguments.length === 1 &&
+                    node.arguments[0]?.type === "CallExpression";
+
                 const shouldForceBreakArguments =
+                    hasSingleCallExpressionArgument ||
                     (maxParamsPerLine > 0 &&
                         node.arguments.length > maxParamsPerLine) ||
                     callbackArguments.length > 1 ||
@@ -1443,7 +1449,7 @@ function getFeatherCommentCallText(node) {
 
     const args = getCallExpressionArguments(node);
 
-    if (!Array.isArray(args) || args.length === 0) {
+    if (!isNonEmptyArray(args)) {
         return `${calleeName}()`;
     }
 
@@ -1907,15 +1913,54 @@ function printElements(
     }, listKey);
 }
 
-function isComplexArgumentNode(node) {
-    if (!node || typeof node.type !== "string") {
+function isSimpleCallExpression(node) {
+    if (!node || node.type !== "CallExpression") {
         return false;
     }
 
+    if (!getCallExpressionIdentifier(node)) {
+        return false;
+    }
+
+    const args = getCallExpressionArguments(node);
+    if (args.length === 0) {
+        return true;
+    }
+
+    if (args.length > 1) {
+        return false;
+    }
+
+    const [onlyArgument] = args;
+    const argumentType = getNodeType(onlyArgument);
+
+    if (
+        argumentType === "FunctionDeclaration" ||
+        argumentType === "StructExpression" ||
+        argumentType === "CallExpression"
+    ) {
+        return false;
+    }
+
+    if (hasComment(onlyArgument)) {
+        return false;
+    }
+
+    return true;
+}
+
+function isComplexArgumentNode(node) {
+    const nodeType = getNodeType(node);
+    if (!nodeType) {
+        return false;
+    }
+
+    if (nodeType === "CallExpression") {
+        return !isSimpleCallExpression(node);
+    }
+
     return (
-        node.type === "CallExpression" ||
-        node.type === "FunctionDeclaration" ||
-        node.type === "StructExpression"
+        nodeType === "FunctionDeclaration" || nodeType === "StructExpression"
     );
 }
 
@@ -1930,7 +1975,8 @@ const SIMPLE_CALL_ARGUMENT_TYPES = new Set([
 ]);
 
 function isSimpleCallArgument(node) {
-    if (!node || typeof node.type !== "string") {
+    const nodeType = getNodeType(node);
+    if (!nodeType) {
         return false;
     }
 
@@ -1938,11 +1984,11 @@ function isSimpleCallArgument(node) {
         return false;
     }
 
-    if (SIMPLE_CALL_ARGUMENT_TYPES.has(node.type)) {
+    if (SIMPLE_CALL_ARGUMENT_TYPES.has(nodeType)) {
         return true;
     }
 
-    if (node.type === "Literal" && typeof node.value === "string") {
+    if (nodeType === "Literal" && typeof node.value === "string") {
         const literalValue = node.value.toLowerCase();
         if (literalValue === "undefined" || literalValue === "noone") {
             return true;
@@ -2072,15 +2118,16 @@ function getStructPropertyNameLength(property, options) {
 
 // variation of printElements that handles semicolons and line breaks in a program or block
 function isMacroLikeStatement(node) {
-    if (!node || typeof node.type !== "string") {
+    const nodeType = getNodeType(node);
+    if (!nodeType) {
         return false;
     }
 
-    if (node.type === "MacroDeclaration") {
+    if (nodeType === "MacroDeclaration") {
         return true;
     }
 
-    if (node.type === "DefineStatement") {
+    if (nodeType === "DefineStatement") {
         return getNormalizedDefineReplacementDirective(node) === "#macro";
     }
 
@@ -2924,7 +2971,7 @@ function getNodeEndIndexForAlignment(node, locEnd) {
 
 function collectSyntheticDocCommentLines(node, options) {
     const rawComments = getCommentArray(node);
-    if (!Array.isArray(rawComments) || rawComments.length === 0) {
+    if (!isNonEmptyArray(rawComments)) {
         return {
             existingDocLines: [],
             remainingComments: Array.isArray(rawComments) ? rawComments : []
@@ -5472,7 +5519,7 @@ function structLiteralHasLeadingLineBreak(node, options) {
         return false;
     }
 
-    if (!Array.isArray(node.properties) || node.properties.length === 0) {
+    if (!isNonEmptyArray(node.properties)) {
         return false;
     }
 

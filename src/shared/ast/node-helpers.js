@@ -350,6 +350,29 @@ function isUndefinedLiteral(node) {
     return getLiteralStringValue(node) === "undefined";
 }
 
+/**
+ * Retrieve the `type` string from an AST node when present.
+ *
+ * @param {unknown} node Candidate AST node-like value.
+ * @returns {string | null} The node's `type` when available, otherwise `null`.
+ */
+function getNodeType(node) {
+    if (node === undefined || node === null) {
+        return null;
+    }
+
+    if (typeof node !== "object") {
+        return null;
+    }
+
+    const { type } = node;
+    if (typeof type !== "string") {
+        return null;
+    }
+
+    return type;
+}
+
 function isNode(value) {
     return value !== undefined && value !== null && typeof value === "object";
 }
@@ -468,6 +491,7 @@ export {
     getBooleanLiteralValue,
     isBooleanLiteral,
     isUndefinedLiteral,
+    getNodeType,
     isNode,
     visitChildNodes,
     enqueueObjectChildValues,

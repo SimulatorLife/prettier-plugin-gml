@@ -1,4 +1,4 @@
-import { isObjectLike } from "../shared/object-utils.js";
+import { isObjectLike } from "../shared/index.js";
 
 /**
  * Extract the string value from a comment node or raw string input.
