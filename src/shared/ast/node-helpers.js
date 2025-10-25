@@ -372,7 +372,14 @@ function visitChildNodes(node, callback) {
     }
 
     if (Array.isArray(node)) {
-        for (const item of node) {
+        // Iterate over a shallow snapshot so callers that mutate the source
+        // collection (for example by splicing siblings) do not cause entries to
+        // be skipped. Forwarding the original references preserves behavioural
+        // parity while keeping traversal order stable regardless of
+        // modifications performed by the callback.
+        const items = node.slice();
+
+        for (const item of items) {
             callback(item);
         }
 
