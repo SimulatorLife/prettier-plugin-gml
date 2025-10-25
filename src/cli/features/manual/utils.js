@@ -120,8 +120,7 @@ export function createManualDownloadReporter({
 
     if (!downloads) {
         const noop = () => {};
-        noop.cleanup = () => {};
-        return noop;
+        return { report: noop, cleanup: noop };
     }
 
     if (progressBar) {
@@ -131,7 +130,7 @@ export function createManualDownloadReporter({
             typeof render === "function" ? render : renderProgressBar;
         let cleanedUp = false;
 
-        const reporter = ({ fetchedCount, totalEntries }) => {
+        const report = ({ fetchedCount, totalEntries }) => {
             progressRenderer(
                 normalizedLabel,
                 fetchedCount,
@@ -140,7 +139,7 @@ export function createManualDownloadReporter({
             );
         };
 
-        reporter.cleanup = () => {
+        const cleanup = () => {
             if (cleanedUp) {
                 return;
             }
@@ -149,19 +148,19 @@ export function createManualDownloadReporter({
             disposeProgressBars();
         };
 
-        return reporter;
+        return { report, cleanup };
     }
 
     const normalizePath =
         typeof formatPath === "function" ? formatPath : identity;
-    const reporter = ({ path }) => {
+    const report = ({ path }) => {
         const displayPath = normalizePath(path);
         console.log(displayPath ? `✓ ${displayPath}` : "✓");
     };
 
-    reporter.cleanup = () => {};
+    const cleanup = () => {};
 
-    return reporter;
+    return { report, cleanup };
 }
 
 /**
@@ -238,21 +237,22 @@ export async function downloadManualEntriesWithProgress({
     progress: { label, verbose, progressBarWidth, formatPath, render } = {}
 }) {
     return withProgressBarCleanup(async () => {
-        const reportProgress = createManualDownloadReporter({
-            label,
-            verbose,
-            progressBarWidth,
-            formatPath,
-            render
-        });
+        const { report: reportProgress, cleanup } =
+            createManualDownloadReporter({
+                label,
+                verbose,
+                progressBarWidth,
+                formatPath,
+                render
+            });
 
         return downloadManualFileEntries({
             entries,
             manualRefSha,
             fetchManualFile,
             requestOptions,
-            onProgress: (update) => reportProgress(update),
-            onProgressCleanup: reportProgress.cleanup
+            onProgress: reportProgress,
+            onProgressCleanup: cleanup
         });
     });
 }
