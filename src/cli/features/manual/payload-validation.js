@@ -1,7 +1,4 @@
-import {
-    assertPlainObject,
-    parseJsonWithContext
-} from "../../shared/dependencies.js";
+import { parseJsonObjectWithContext } from "../../shared/dependencies.js";
 
 function validateManualMapping(record, { valueDescription }) {
     for (const [key, value] of Object.entries(record)) {
@@ -17,12 +14,12 @@ function validateManualMapping(record, { valueDescription }) {
 }
 
 export function decodeManualKeywordsPayload(jsonText, { source } = {}) {
-    const payload = parseJsonWithContext(jsonText, {
+    const record = parseJsonObjectWithContext(jsonText, {
         description: "manual keywords payload",
-        source
-    });
-    const record = assertPlainObject(payload, {
-        errorMessage: "Manual keywords payload must be a JSON object."
+        source,
+        assertOptions: {
+            errorMessage: "Manual keywords payload must be a JSON object."
+        }
     });
 
     return validateManualMapping(record, {
@@ -31,12 +28,12 @@ export function decodeManualKeywordsPayload(jsonText, { source } = {}) {
 }
 
 export function decodeManualTagsPayload(jsonText, { source } = {}) {
-    const payload = parseJsonWithContext(jsonText, {
+    const record = parseJsonObjectWithContext(jsonText, {
         description: "manual tags payload",
-        source
-    });
-    const record = assertPlainObject(payload, {
-        errorMessage: "Manual tags payload must be a JSON object."
+        source,
+        assertOptions: {
+            errorMessage: "Manual tags payload must be a JSON object."
+        }
     });
 
     return validateManualMapping(record, {

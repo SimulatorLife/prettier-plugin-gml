@@ -57,14 +57,16 @@ function extractOperations(plan) {
         return plan;
     }
 
-    if (plan && typeof plan === "object") {
-        if (Array.isArray(plan.operations)) {
-            return plan.operations;
-        }
+    if (!plan || typeof plan !== "object") {
+        return [];
+    }
 
-        if (Array.isArray(plan.renames)) {
-            return plan.renames;
-        }
+    if (Array.isArray(plan.operations)) {
+        return plan.operations;
+    }
+
+    if (Array.isArray(plan.renames)) {
+        return plan.renames;
     }
 
     return [];

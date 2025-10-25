@@ -25,7 +25,9 @@ const DOC_COMMENT_TARGET_TYPES = new Set([
 ]);
 
 const DOC_COMMENT_MANAGERS = new WeakMap();
-const DOC_COMMENT_INSPECTION_SERVICES = new WeakMap();
+const DOC_COMMENT_TRAVERSAL_SERVICES = new WeakMap();
+const DOC_COMMENT_LOOKUP_SERVICES = new WeakMap();
+const DOC_COMMENT_DESCRIPTION_SERVICES = new WeakMap();
 const DOC_COMMENT_UPDATE_SERVICES = new WeakMap();
 
 const NOOP_DOC_COMMENT_MANAGER = Object.freeze({
@@ -63,11 +65,19 @@ export function getDocCommentManager(ast) {
 }
 
 /**
- * @typedef {object} DocCommentInspectionService
+ * @typedef {object} DocCommentTraversalService
  * @property {(callback: (node: object, comments: Array<object>) => void) => void} forEach
+ */
+
+/**
+ * @typedef {object} DocCommentLookupService
  * @property {(functionNode: object) => Array<object>} getComments
- * @property {(functionNode: object) => string | null} extractDescription
  * @property {(functionNode: object) => boolean} hasDocComment
+ */
+
+/**
+ * @typedef {object} DocCommentDescriptionService
+ * @property {(functionNode: object) => string | null} extractDescription
  */
 
 /**
@@ -79,21 +89,47 @@ export function getDocCommentManager(ast) {
  * }>) => void} applyUpdates
  */
 
-export function resolveDocCommentInspectionService(ast) {
+export function resolveDocCommentTraversalService(ast) {
     const manager = prepareDocCommentEnvironment(ast);
-    let inspection = DOC_COMMENT_INSPECTION_SERVICES.get(manager);
+    let traversal = DOC_COMMENT_TRAVERSAL_SERVICES.get(manager);
 
-    if (!inspection) {
-        inspection = Object.freeze({
-            forEach: manager.forEach.bind(manager),
-            getComments: manager.getComments.bind(manager),
-            extractDescription: manager.extractDescription.bind(manager),
-            hasDocComment: manager.hasDocComment.bind(manager)
+    if (!traversal) {
+        traversal = Object.freeze({
+            forEach: manager.forEach.bind(manager)
         });
-        DOC_COMMENT_INSPECTION_SERVICES.set(manager, inspection);
+        DOC_COMMENT_TRAVERSAL_SERVICES.set(manager, traversal);
     }
 
-    return inspection;
+    return traversal;
+}
+
+export function resolveDocCommentLookupService(ast) {
+    const manager = prepareDocCommentEnvironment(ast);
+    let lookup = DOC_COMMENT_LOOKUP_SERVICES.get(manager);
+
+    if (!lookup) {
+        lookup = Object.freeze({
+            getComments: manager.getComments.bind(manager),
+            hasDocComment: manager.hasDocComment.bind(manager)
+        });
+        DOC_COMMENT_LOOKUP_SERVICES.set(manager, lookup);
+    }
+
+    return lookup;
+}
+
+export function resolveDocCommentDescriptionService(ast) {
+    const manager = prepareDocCommentEnvironment(ast);
+    let description = DOC_COMMENT_DESCRIPTION_SERVICES.get(manager);
+
+    if (!description) {
+        description = Object.freeze({
+            extractDescription: manager.extractDescription.bind(manager)
+        });
+        DOC_COMMENT_DESCRIPTION_SERVICES.set(manager, description);
+    }
+
+    return description;
 }
 
 export function resolveDocCommentUpdateService(ast) {

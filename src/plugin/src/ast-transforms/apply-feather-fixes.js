@@ -53,7 +53,7 @@ import {
     collectCommentNodes,
     getCommentArray,
     hasComment,
-    resolveDocCommentInspectionService,
+    resolveDocCommentTraversalService,
     getCommentValue
 } from "../comments/index.js";
 import {
@@ -120,6 +120,22 @@ function hasArrayParentWithNumericIndex(parent, property) {
     }
 
     return true;
+}
+
+function resolveCallExpressionArrayContext(node, parent, property) {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
+        return null;
+    }
+
+    if (!isNode(node) || node.type !== "CallExpression") {
+        return null;
+    }
+
+    return {
+        callExpression: node,
+        siblings: parent,
+        index: property
+    };
 }
 
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
@@ -4152,11 +4168,11 @@ function normalizeArgumentBuiltinReferences({ ast, diagnostic, sourceText }) {
     }
 
     const fixes = [];
-    const docCommentInspection = resolveDocCommentInspectionService(ast);
+    const docCommentTraversal = resolveDocCommentTraversalService(ast);
     const documentedParamNamesByFunction = buildDocumentedParamNameLookup(
         ast,
         sourceText,
-        docCommentInspection
+        docCommentTraversal
     );
 
     const visit = (node) => {
@@ -4411,17 +4427,17 @@ function fixArgumentReferencesWithinFunction(
     return fixes;
 }
 
-function buildDocumentedParamNameLookup(ast, sourceText, docCommentInspection) {
+function buildDocumentedParamNameLookup(ast, sourceText, docCommentTraversal) {
     const lookup = new WeakMap();
 
     if (!ast || typeof ast !== "object") {
         return lookup;
     }
 
-    const inspection =
-        docCommentInspection ?? resolveDocCommentInspectionService(ast);
+    const traversal =
+        docCommentTraversal ?? resolveDocCommentTraversalService(ast);
 
-    inspection.forEach((node, comments = []) => {
+    traversal.forEach((node, comments = []) => {
         if (!isFunctionLikeNode(node)) {
             return;
         }
@@ -6585,11 +6601,11 @@ function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {
         return [];
     }
 
-    const docCommentInspection = resolveDocCommentInspectionService(ast);
+    const docCommentTraversal = resolveDocCommentTraversalService(ast);
     const deprecatedFunctions = collectDeprecatedFunctionNames(
         ast,
         sourceText,
-        docCommentInspection
+        docCommentTraversal
     );
 
     if (!deprecatedFunctions || deprecatedFunctions.size === 0) {
@@ -6673,7 +6689,7 @@ function recordDeprecatedCallMetadata(node, deprecatedFunctions, diagnostic) {
     return fixDetail;
 }
 
-function collectDeprecatedFunctionNames(ast, sourceText, docCommentInspection) {
+function collectDeprecatedFunctionNames(ast, sourceText, docCommentTraversal) {
     const names = new Set();
 
     if (!ast || typeof ast !== "object" || typeof sourceText !== "string") {
@@ -6699,10 +6715,10 @@ function collectDeprecatedFunctionNames(ast, sourceText, docCommentInspection) {
         return names;
     }
 
-    const inspection =
-        docCommentInspection ?? resolveDocCommentInspectionService(ast);
+    const traversal =
+        docCommentTraversal ?? resolveDocCommentTraversalService(ast);
 
-    inspection.forEach((node, comments = []) => {
+    traversal.forEach((node, comments = []) => {
         if (!topLevelFunctions.has(node)) {
             return;
         }
@@ -9116,11 +9132,7 @@ function ensureShaderResetAfterSet(
     diagnostic,
     sourceText
 ) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
-        return null;
-    }
-
-    if (!node || node.type !== "CallExpression") {
+    if (!resolveCallExpressionArrayContext(node, parent, property)) {
         return null;
     }
 
@@ -9232,11 +9244,7 @@ function ensureFogIsReset({ ast, diagnostic }) {
 }
 
 function ensureFogResetAfterCall(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
-        return null;
-    }
-
-    if (!node || node.type !== "CallExpression") {
+    if (!resolveCallExpressionArrayContext(node, parent, property)) {
         return null;
     }
 
@@ -9353,11 +9361,7 @@ function ensureSurfaceTargetsAreReset({ ast, diagnostic }) {
 }
 
 function ensureSurfaceTargetResetAfterCall(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
-        return null;
-    }
-
-    if (!node || node.type !== "CallExpression") {
+    if (!resolveCallExpressionArrayContext(node, parent, property)) {
         return null;
     }
 
@@ -9480,11 +9484,7 @@ function ensureBlendEnableIsReset({ ast, diagnostic }) {
 }
 
 function ensureBlendEnableResetAfterCall(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
-        return null;
-    }
-
-    if (!node || node.type !== "CallExpression") {
+    if (!resolveCallExpressionArrayContext(node, parent, property)) {
         return null;
     }
 
@@ -9623,11 +9623,7 @@ function ensureBlendModeIsReset({ ast, diagnostic }) {
 }
 
 function ensureBlendModeResetAfterCall(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
-        return null;
-    }
-
-    if (!node || node.type !== "CallExpression") {
+    if (!resolveCallExpressionArrayContext(node, parent, property)) {
         return null;
     }
 
@@ -10650,11 +10646,7 @@ function ensureAlphaTestEnableResetAfterCall(
     property,
     diagnostic
 ) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
-        return null;
-    }
-
-    if (!node || node.type !== "CallExpression") {
+    if (!resolveCallExpressionArrayContext(node, parent, property)) {
         return null;
     }
 

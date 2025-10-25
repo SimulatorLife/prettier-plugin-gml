@@ -3,6 +3,8 @@ import path from "node:path";
 import {
     assertPlainObject,
     assertNonEmptyString,
+    createAbortGuard,
+    isFsErrorCode,
     isNonEmptyArray,
     isNonEmptyTrimmedString,
     parseJsonWithContext,
@@ -11,8 +13,6 @@ import {
 import { formatDuration } from "../../shared/time-utils.js";
 import { formatBytes } from "../../shared/byte-format.js";
 import { writeManualFile } from "./file-helpers.js";
-import { createAbortGuard } from "../../../shared/abort-utils.js";
-import { isFsErrorCode } from "../../../shared/fs-utils.js";
 import {
     disposeProgressBars,
     renderProgressBar
@@ -70,28 +70,50 @@ function normalizeDownloadLabel(label) {
     return isNonEmptyTrimmedString(label) ? label : "Downloading manual files";
 }
 
-function createReporter(handler, cleanup) {
-    const execute = typeof handler === "function" ? handler : () => {};
+const noop = () => {};
+
+function createReporter(handler, cleanup = noop) {
+    return Object.assign(handler, { cleanup });
+}
+
+const IDLE_DOWNLOAD_REPORTER = createReporter(noop);
+
+function createProgressDownloadReporter({ label, progressBarWidth, render }) {
+    const normalizedLabel = normalizeDownloadLabel(label);
+    const width = progressBarWidth ?? 0;
+    const progressRenderer =
+        typeof render === "function" ? render : renderProgressBar;
+
     let cleanedUp = false;
 
-    const performCleanup = () => {
-        if (cleanedUp) {
-            return;
-        }
-
-        cleanedUp = true;
-
-        if (typeof cleanup === "function") {
-            cleanup();
-        }
-    };
-
-    return Object.assign(
-        (update) => {
-            execute(update);
+    return createReporter(
+        ({ fetchedCount, totalEntries }) => {
+            progressRenderer(
+                normalizedLabel,
+                fetchedCount,
+                totalEntries,
+                width
+            );
         },
-        { cleanup: performCleanup }
+        () => {
+            if (cleanedUp) {
+                return;
+            }
+
+            cleanedUp = true;
+            disposeProgressBars();
+        }
     );
+}
+
+function createLoggingDownloadReporter(formatPath) {
+    const normalizePath =
+        typeof formatPath === "function" ? formatPath : (path) => path;
+
+    return createReporter(({ path }) => {
+        const displayPath = normalizePath(path);
+        console.log(displayPath ? `✓ ${displayPath}` : "✓");
+    });
 }
 
 /**
@@ -120,23 +142,18 @@ export function createManualDownloadReporter({
     render = renderProgressBar
 } = {}) {
     if (!verbose.downloads) {
-        return createReporter();
+        return IDLE_DOWNLOAD_REPORTER;
     }
 
     if (verbose.progressBar) {
-        const normalizedLabel = normalizeDownloadLabel(label);
-        const width = progressBarWidth ?? 0;
-        return createReporter(({ fetchedCount, totalEntries }) => {
-            render(normalizedLabel, fetchedCount, totalEntries, width);
-        }, disposeProgressBars);
+        return createProgressDownloadReporter({
+            label,
+            progressBarWidth,
+            render
+        });
     }
 
-    const normalizePath =
-        typeof formatPath === "function" ? formatPath : (path) => path;
-    return createReporter(({ path }) => {
-        const displayPath = normalizePath(path);
-        console.log(displayPath ? `✓ ${displayPath}` : "✓");
-    });
+    return createLoggingDownloadReporter(formatPath);
 }
 
 /**

@@ -3,7 +3,6 @@ import { afterEach, describe, it, mock } from "node:test";
 
 import {
     renderProgressBar,
-    setProgressBarFactoryForTesting,
     withProgressBarCleanup,
     resetProgressBarRegistryForTesting
 } from "../shared/progress-bar.js";
@@ -12,8 +11,13 @@ function createMockStdout() {
     return {
         isTTY: true,
         clearLine: () => {},
+        clearScreenDown: () => {},
         cursorTo: () => {},
         moveCursor: () => {},
+        cursor: () => {},
+        cursorSave: () => {},
+        cursorRestore: () => {},
+        lineWrapping: () => {},
         on: () => {},
         removeListener: () => {},
         write: () => {}
@@ -22,7 +26,7 @@ function createMockStdout() {
 
 describe("progress bar cleanup", () => {
     afterEach(() => {
-        setProgressBarFactoryForTesting();
+        mock.restoreAll();
         resetProgressBarRegistryForTesting();
     });
 

@@ -9,6 +9,7 @@ import GMLParser from "gamemaker-language-parser";
 
 import { applyStandardCommandOptions } from "../../core/command-standard-options.js";
 import { createCliErrorDetails } from "../../core/errors.js";
+import { wrapInvalidArgumentResolver } from "../../core/command-parsing.js";
 import { resolvePluginEntryPoint } from "../../plugin/entry-point.js";
 import { formatByteSize } from "../../shared/byte-format.js";
 import {
@@ -22,8 +23,12 @@ import {
     appendToCollection,
     assertArray,
     coercePositiveInteger,
+    isFiniteNumber,
     getIdentifierText,
-    stringifyJsonForFile
+    resolveIntegerOption,
+    toNormalizedInteger,
+    stringifyJsonForFile,
+    resolveModuleDefaultExport
 } from "../../shared/dependencies.js";
 import {
     PerformanceSuiteName,
@@ -46,23 +51,51 @@ const DEFAULT_FIXTURE_DIRECTORIES = Object.freeze([
     path.resolve(REPO_ROOT, "src", "plugin", "tests")
 ]);
 const DATASET_CACHE_KEY = "gml-fixtures";
+const SUPPORTS_WEAK_REF = typeof WeakRef === "function";
+
+function resolveCachedDataset(cache) {
+    if (!cache || typeof cache.get !== "function") {
+        return null;
+    }
+
+    const entry = cache.get(DATASET_CACHE_KEY);
+    if (!entry) {
+        return null;
+    }
+
+    if (typeof entry?.deref === "function") {
+        const dataset = entry.deref();
+        if (dataset) {
+            return dataset;
+        }
+        cache.delete(DATASET_CACHE_KEY);
+        return null;
+    }
+
+    return entry;
+}
+
+function storeDatasetInCache(cache, dataset) {
+    if (!cache || typeof cache.set !== "function") {
+        return;
+    }
+
+    if (SUPPORTS_WEAK_REF) {
+        cache.set(DATASET_CACHE_KEY, new WeakRef(dataset));
+        return;
+    }
+
+    cache.set(DATASET_CACHE_KEY, dataset);
+}
 
 function createDatasetSummary({ fileCount, totalBytes }) {
-    const normalizedFileCount =
-        typeof fileCount === "number" &&
-        Number.isFinite(fileCount) &&
-        fileCount >= 0
-            ? Math.trunc(fileCount)
-            : 0;
+    const normalizedFileCount = Math.max(
+        0,
+        toNormalizedInteger(fileCount) ?? 0
+    );
 
-    let normalizedTotalBytes = 0;
-    if (
-        typeof totalBytes === "number" &&
-        Number.isFinite(totalBytes) &&
-        totalBytes >= 0
-    ) {
-        normalizedTotalBytes = totalBytes;
-    }
+    const normalizedTotalBytes =
+        isFiniteNumber(totalBytes) && totalBytes >= 0 ? totalBytes : 0;
 
     return {
         files: normalizedFileCount,
@@ -239,10 +272,9 @@ async function readFixtureFileRecord(absolutePath) {
  * semantics regardless of where the record originated.
  */
 function createFixtureRecord({ absolutePath, source, size, relativePath }) {
-    const resolvedSize =
-        typeof size === "number" && Number.isFinite(size)
-            ? size
-            : Buffer.byteLength(source);
+    const resolvedSize = isFiniteNumber(size)
+        ? size
+        : Buffer.byteLength(source);
     const resolvedRelativePath =
         typeof relativePath === "string"
             ? relativePath
@@ -292,30 +324,35 @@ async function resolveDatasetFromOptions(options = {}) {
         return normalizeCustomDataset(options.dataset);
     }
 
-    if (options.datasetCache?.has(DATASET_CACHE_KEY)) {
-        return options.datasetCache.get(DATASET_CACHE_KEY);
+    const cachedDataset = resolveCachedDataset(options.datasetCache);
+    if (cachedDataset) {
+        return cachedDataset;
     }
 
     const dataset = await loadFixtureDataset({
         directories: options.fixtureRoots
     });
 
-    if (options.datasetCache) {
-        options.datasetCache.set(DATASET_CACHE_KEY, dataset);
-    }
+    storeDatasetInCache(options.datasetCache, dataset);
 
     return dataset;
 }
 
-function resolveIterationCount(value) {
-    if (value === undefined || value === null) {
-        return 1;
-    }
+const formatIterationErrorMessage = (received) =>
+    `Iterations must be a positive integer (received ${received}).`;
 
-    return coercePositiveInteger(value, {
-        createErrorMessage: (received) =>
-            `Iterations must be a positive integer (received ${received}).`
+function resolveIterationCount(value) {
+    const normalized = resolveIntegerOption(value, {
+        defaultValue: 1,
+        blankStringReturnsDefault: false,
+        coerce: (numericValue, context) =>
+            coercePositiveInteger(numericValue, {
+                ...context,
+                createErrorMessage: formatIterationErrorMessage
+            })
     });
+
+    return normalized ?? 1;
 }
 
 function createSkipResult(reason) {
@@ -341,7 +378,7 @@ let prettierModulePromise = null;
 async function resolvePrettier() {
     if (!prettierModulePromise) {
         prettierModulePromise = import("prettier").then(
-            (module) => module?.default ?? module
+            resolveModuleDefaultExport
         );
     }
 
@@ -393,6 +430,40 @@ function createBenchmarkResult({ dataset, durations, iterations }) {
     };
 }
 
+/**
+ * Execute a single dataset iteration and measure its duration. Centralizing the
+ * bookkeeping keeps the high-level benchmark runner focused on orchestration.
+ */
+async function measureSingleIterationDuration({ files, worker, now }) {
+    const start = now();
+
+    for (const file of files) {
+        // Await in case callers provide asynchronous worker implementations.
+        await worker(file);
+    }
+
+    return now() - start;
+}
+
+/**
+ * Collect durations for each benchmark iteration so the orchestrator can simply
+ * request a duration list without managing array mutation directly.
+ */
+async function measureBenchmarkDurations({ dataset, iterations, worker, now }) {
+    const durations = [];
+
+    for (let iteration = 0; iteration < iterations; iteration += 1) {
+        const duration = await measureSingleIterationDuration({
+            files: dataset.files,
+            worker,
+            now
+        });
+        durations.push(duration);
+    }
+
+    return durations;
+}
+
 async function runFixtureDatasetBenchmark(
     options,
     { skipReason, resolveWorker }
@@ -406,18 +477,12 @@ async function runFixtureDatasetBenchmark(
     const iterations = resolveIterationCount(options.iterations);
     const worker = await resolveWorker(options);
     const now = resolveNow(options.now);
-    const durations = [];
-
-    for (let iteration = 0; iteration < iterations; iteration += 1) {
-        const start = now();
-
-        for (const file of dataset.files) {
-            // Await in case callers provide asynchronous worker implementations.
-            await worker(file);
-        }
-
-        durations.push(now() - start);
-    }
+    const durations = await measureBenchmarkDurations({
+        dataset,
+        iterations,
+        worker,
+        now
+    });
 
     return createBenchmarkResult({ dataset, durations, iterations });
 }
@@ -537,11 +602,9 @@ export function createPerformanceCommand() {
         .option(
             "-i, --iterations <count>",
             "Repeat each suite this many times (default: 1).",
-            (value) =>
-                coercePositiveInteger(value, {
-                    createErrorMessage: (received) =>
-                        `Iterations must be a positive integer (received ${received}).`
-                }),
+            wrapInvalidArgumentResolver((value) =>
+                resolveIterationCount(value)
+            ),
             1
         )
         .option(
@@ -621,7 +684,7 @@ function formatReportFilePath(targetFile) {
 }
 
 function formatThroughput(value, unit) {
-    if (typeof value !== "number" || !Number.isFinite(value)) {
+    if (!isFiniteNumber(value)) {
         return "n/a";
     }
 
@@ -629,7 +692,7 @@ function formatThroughput(value, unit) {
 }
 
 function formatDuration(value) {
-    if (typeof value !== "number" || !Number.isFinite(value)) {
+    if (!isFiniteNumber(value)) {
         return "n/a";
     }
 
@@ -726,12 +789,17 @@ export async function runPerformanceCommand({ command } = {}) {
 
     const runnerOptions = createSuiteExecutionOptions(options);
 
-    const suiteResults = await collectSuiteResults({
-        suiteNames: requestedSuites,
-        availableSuites: AVAILABLE_SUITES,
-        runnerOptions,
-        onError: (error) => ({ error: formatErrorDetails(error) })
-    });
+    let suiteResults;
+    try {
+        suiteResults = await collectSuiteResults({
+            suiteNames: requestedSuites,
+            availableSuites: AVAILABLE_SUITES,
+            runnerOptions,
+            onError: (error) => ({ error: formatErrorDetails(error) })
+        });
+    } finally {
+        runnerOptions.datasetCache.clear();
+    }
 
     const report = {
         generatedAt: new Date().toISOString(),

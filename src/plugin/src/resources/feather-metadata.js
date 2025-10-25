@@ -2,7 +2,7 @@
  * Lightweight helpers for accessing the bundled Feather metadata artefact.
  *
  * The formatter queries individual diagnostics to understand the intent
- * behind specific auto-fixes. Centralising metadata access keeps downstream
+ * behind specific auto-fixes. Centralizing metadata access keeps downstream
  * modules from worrying about relative path resolution or cache management.
  */
 
