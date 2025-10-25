@@ -475,9 +475,9 @@ function recordIdentifierCollectionRole(
 
     const clone = cloneIdentifierForCollections(identifierRecord, filePath);
 
-    if (validatedRole === IdentifierRole.Declaration) {
+    if (validatedRole === IdentifierRole.DECLARATION) {
         entry.declarations?.push?.(clone);
-    } else if (validatedRole === IdentifierRole.Reference) {
+    } else if (validatedRole === IdentifierRole.REFERENCE) {
         entry.references?.push?.(clone);
     }
 }
@@ -1066,7 +1066,7 @@ function registerEnumOccurrence({
     const validatedRole = assertValidIdentifierRole(role);
 
     const targetLocation =
-        validatedRole === IdentifierRole.Reference
+        validatedRole === IdentifierRole.REFERENCE
             ? identifierRecord?.declaration?.start
             : identifierRecord?.start;
 
@@ -1116,7 +1116,7 @@ function registerEnumMemberOccurrence({
     const validatedRole = assertValidIdentifierRole(role);
 
     const targetLocation =
-        validatedRole === IdentifierRole.Reference
+        validatedRole === IdentifierRole.REFERENCE
             ? identifierRecord?.declaration?.start
             : identifierRecord?.start;
 
@@ -1248,7 +1248,7 @@ function shouldTreatAsInstance({ identifierRecord, role, scopeDescriptor }) {
 
     const validatedRole = assertValidIdentifierRole(role);
 
-    if (validatedRole !== IdentifierRole.Reference) {
+    if (validatedRole !== IdentifierRole.REFERENCE) {
         return false;
     }
 
@@ -1294,7 +1294,7 @@ function registerIdentifierOccurrence({
     const classifications = asArray(identifierRecord?.classifications);
 
     if (
-        validatedRole === IdentifierRole.Declaration &&
+        validatedRole === IdentifierRole.DECLARATION &&
         classifications.includes("script")
     ) {
         registerScriptDeclaration({
@@ -1357,7 +1357,7 @@ function registerIdentifierOccurrence({
             identifierCollections,
             identifierRecord,
             filePath,
-            role: IdentifierRole.Reference,
+            role: IdentifierRole.REFERENCE,
             scopeDescriptor
         });
     }
@@ -1589,7 +1589,7 @@ function handleIdentifierNode({
             identifierCollections,
             identifierRecord,
             filePath: fileRecord?.filePath ?? null,
-            role: IdentifierRole.Declaration,
+            role: IdentifierRole.DECLARATION,
             enumLookup,
             scopeDescriptor: scopeDescriptor ?? scopeRecord
         });
@@ -1604,7 +1604,7 @@ function handleIdentifierNode({
             identifierCollections,
             identifierRecord,
             filePath: fileRecord?.filePath ?? null,
-            role: IdentifierRole.Reference,
+            role: IdentifierRole.REFERENCE,
             enumLookup,
             scopeDescriptor: scopeDescriptor ?? scopeRecord
         });
