@@ -37,6 +37,7 @@ import {
     isNonEmptyTrimmedString,
     toTrimmedString,
     isNonEmptyArray,
+    getNodeType,
     toMutableArray,
     ensureSet,
     getNodeStartIndex,
@@ -1902,14 +1903,15 @@ function printElements(
 }
 
 function isComplexArgumentNode(node) {
-    if (!node || typeof node.type !== "string") {
+    const nodeType = getNodeType(node);
+    if (!nodeType) {
         return false;
     }
 
     return (
-        node.type === "CallExpression" ||
-        node.type === "FunctionDeclaration" ||
-        node.type === "StructExpression"
+        nodeType === "CallExpression" ||
+        nodeType === "FunctionDeclaration" ||
+        nodeType === "StructExpression"
     );
 }
 
@@ -1924,7 +1926,8 @@ const SIMPLE_CALL_ARGUMENT_TYPES = new Set([
 ]);
 
 function isSimpleCallArgument(node) {
-    if (!node || typeof node.type !== "string") {
+    const nodeType = getNodeType(node);
+    if (!nodeType) {
         return false;
     }
 
@@ -1932,11 +1935,11 @@ function isSimpleCallArgument(node) {
         return false;
     }
 
-    if (SIMPLE_CALL_ARGUMENT_TYPES.has(node.type)) {
+    if (SIMPLE_CALL_ARGUMENT_TYPES.has(nodeType)) {
         return true;
     }
 
-    if (node.type === "Literal" && typeof node.value === "string") {
+    if (nodeType === "Literal" && typeof node.value === "string") {
         const literalValue = node.value.toLowerCase();
         if (literalValue === "undefined" || literalValue === "noone") {
             return true;
@@ -2066,15 +2069,16 @@ function getStructPropertyNameLength(property, options) {
 
 // variation of printElements that handles semicolons and line breaks in a program or block
 function isMacroLikeStatement(node) {
-    if (!node || typeof node.type !== "string") {
+    const nodeType = getNodeType(node);
+    if (!nodeType) {
         return false;
     }
 
-    if (node.type === "MacroDeclaration") {
+    if (nodeType === "MacroDeclaration") {
         return true;
     }
 
-    if (node.type === "DefineStatement") {
+    if (nodeType === "DefineStatement") {
         return getNormalizedDefineReplacementDirective(node) === "#macro";
     }
 
