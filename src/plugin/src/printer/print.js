@@ -1889,7 +1889,7 @@ function printElements(
                     itemsSinceLastBreak >= maxElementsPerLine;
 
                 if (shouldBreakAfter) {
-                    parts.push(lineBreak);
+                    parts.push(hardline);
                     itemsSinceLastBreak = 0;
                 } else {
                     parts.push(" ");
