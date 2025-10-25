@@ -235,33 +235,30 @@ export function print(path, options, print) {
                     ? path.getParentNode()
                     : null;
 
-            if (
-                parentNode?.type === "ConstructorDeclaration" &&
-                typeof options.originalText === "string"
-            ) {
-                const firstStatement = node.body[0];
-                const startProp = firstStatement?.start;
-                const fallbackStart =
-                    typeof startProp === "number"
-                        ? startProp
-                        : typeof startProp?.index === "number"
-                          ? startProp.index
-                          : 0;
-                const locStart =
-                    typeof options.locStart === "function"
-                        ? options.locStart
-                        : null;
-                const firstStatementStartIndex = locStart
-                    ? locStart(firstStatement)
-                    : fallbackStart;
+            if (parentNode?.type === "ConstructorDeclaration") {
+                const { originalText, locStart } =
+                    resolvePrinterSourceMetadata(options);
+                if (originalText !== null) {
+                    const firstStatement = node.body[0];
+                    const startProp = firstStatement?.start;
+                    const fallbackStart =
+                        typeof startProp === "number"
+                            ? startProp
+                            : typeof startProp?.index === "number"
+                              ? startProp.index
+                              : 0;
+                    const firstStatementStartIndex = locStart
+                        ? locStart(firstStatement)
+                        : fallbackStart;
 
-                if (
-                    isPreviousLineEmpty(
-                        options.originalText,
-                        firstStatementStartIndex
-                    )
-                ) {
-                    leadingDocs.push(lineSuffixBoundary, hardline);
+                    if (
+                        isPreviousLineEmpty(
+                            originalText,
+                            firstStatementStartIndex
+                        )
+                    ) {
+                        leadingDocs.push(lineSuffixBoundary, hardline);
+                    }
                 }
             }
 
@@ -473,10 +470,8 @@ export function print(path, options, print) {
         case "ConstructorDeclaration": {
             const parts = [];
 
-            const locStart =
-                typeof options.locStart === "function"
-                    ? options.locStart
-                    : null;
+            const { originalText, locStart } =
+                resolvePrinterSourceMetadata(options);
             const fallbackStart =
                 typeof node?.start === "number"
                     ? node.start
@@ -484,10 +479,6 @@ export function print(path, options, print) {
                       ? node.start.index
                       : 0;
             const nodeStartIndex = locStart ? locStart(node) : fallbackStart;
-            const originalText =
-                typeof options.originalText === "string"
-                    ? options.originalText
-                    : null;
 
             let docCommentDocs = [];
             const lineCommentOptions = resolveLineCommentOptions(options);
