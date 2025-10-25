@@ -13,30 +13,32 @@ function validateManualMapping(record, { valueDescription }) {
     return record;
 }
 
-export function decodeManualKeywordsPayload(jsonText, { source } = {}) {
-    const record = parseJsonObjectWithContext(jsonText, {
-        description: "manual keywords payload",
-        source,
-        assertOptions: {
-            errorMessage: "Manual keywords payload must be a JSON object."
-        }
-    });
+function createManualMappingDecoder({
+    payloadDescription,
+    payloadErrorMessage,
+    valueDescription
+}) {
+    return (jsonText, { source } = {}) => {
+        const record = parseJsonObjectWithContext(jsonText, {
+            description: payloadDescription,
+            source,
+            assertOptions: {
+                errorMessage: payloadErrorMessage
+            }
+        });
 
-    return validateManualMapping(record, {
-        valueDescription: "Manual keywords"
-    });
+        return validateManualMapping(record, { valueDescription });
+    };
 }
 
-export function decodeManualTagsPayload(jsonText, { source } = {}) {
-    const record = parseJsonObjectWithContext(jsonText, {
-        description: "manual tags payload",
-        source,
-        assertOptions: {
-            errorMessage: "Manual tags payload must be a JSON object."
-        }
-    });
+export const decodeManualKeywordsPayload = createManualMappingDecoder({
+    payloadDescription: "manual keywords payload",
+    payloadErrorMessage: "Manual keywords payload must be a JSON object.",
+    valueDescription: "Manual keywords"
+});
 
-    return validateManualMapping(record, {
-        valueDescription: "Manual tags"
-    });
-}
+export const decodeManualTagsPayload = createManualMappingDecoder({
+    payloadDescription: "manual tags payload",
+    payloadErrorMessage: "Manual tags payload must be a JSON object.",
+    valueDescription: "Manual tags"
+});
