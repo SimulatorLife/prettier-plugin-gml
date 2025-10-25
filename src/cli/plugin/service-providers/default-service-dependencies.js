@@ -28,8 +28,10 @@ export async function createDefaultCliPluginServiceDependencies() {
     if (shouldSkipDefaultPluginServices) {
         return {
             projectIndexBuilder: createSkippedProjectIndexBuilder(),
-            identifierCasePlanPreparer: createSkippedIdentifierCasePlanPreparer(),
-            identifierCaseCacheClearer: createSkippedIdentifierCaseCacheClearer()
+            identifierCasePlanPreparer:
+                createSkippedIdentifierCasePlanPreparer(),
+            identifierCaseCacheClearer:
+                createSkippedIdentifierCaseCacheClearer()
         };
     }
 
@@ -54,7 +56,8 @@ export async function createDefaultCliPluginServiceDependencies() {
 
     return {
         projectIndexBuilder: buildProjectIndex,
-        identifierCasePlanPreparer: identifierCaseModule.prepareIdentifierCasePlan,
+        identifierCasePlanPreparer:
+            identifierCaseModule.prepareIdentifierCasePlan,
         identifierCaseCacheClearer: createIdentifierCaseCacheClearer()
     };
 }

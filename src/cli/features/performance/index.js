@@ -873,7 +873,8 @@ export async function runPerformanceCommand({ command } = {}) {
 
     if (reportResult?.path) {
         const displayPath = formatReportFilePath(reportResult.path);
-        console.log(`Performance report written to ${displayPath}.`);
+        const log = options.stdout ? console.error : console.log;
+        log(`Performance report written to ${displayPath}.`);
     }
 
     if (options.stdout) {
