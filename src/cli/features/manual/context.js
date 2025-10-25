@@ -10,6 +10,7 @@ import {
     resolveManualCacheRoot
 } from "./utils.js";
 import {
+    assertFunction,
     assertNonEmptyString,
     isNonEmptyString
 } from "../shared/dependencies.js";
@@ -175,6 +176,25 @@ function mapManualReferenceAccessContext({ environment, refs }) {
     return Object.freeze({ environment, refs });
 }
 
+function resolveManualContextSelection(options = {}, selector, { label } = {}) {
+    const contextSelector = assertFunction(
+        selector,
+        label ?? "manual context selector"
+    );
+
+    const context = buildManualCommandContext(options);
+    const selection = contextSelector(context);
+
+    if (selection === undefined) {
+        const description = label ?? contextSelector.name ?? "selector";
+        throw new Error(
+            `Manual context selector '${description}' returned undefined.`
+        );
+    }
+
+    return selection;
+}
+
 /**
  * Resolve only the repository environment metadata shared by manual commands.
  *
@@ -230,8 +250,13 @@ export function createManualAccessContexts(options = {}) {
  * @returns {ManualCommandRequestService}
  */
 export function resolveManualGitHubRequestService(options = {}) {
-    const { requests } = buildManualCommandContext(options);
-    return requests;
+    return resolveManualContextSelection(
+        options,
+        (context) => context.requests,
+        {
+            label: "requests"
+        }
+    );
 }
 
 /**
@@ -242,8 +267,13 @@ export function resolveManualGitHubRequestService(options = {}) {
  * @returns {ManualGitHubRequestExecutor}
  */
 export function resolveManualGitHubRequestExecutor(options = {}) {
-    const { request } = buildManualCommandContext(options);
-    return request;
+    return resolveManualContextSelection(
+        options,
+        (context) => context.request,
+        {
+            label: "request"
+        }
+    );
 }
 
 /**
@@ -253,8 +283,13 @@ export function resolveManualGitHubRequestExecutor(options = {}) {
  * @returns {ManualCommandCommitResolutionService}
  */
 export function resolveManualGitHubCommitService(options = {}) {
-    const { commits } = buildManualCommandContext(options);
-    return commits;
+    return resolveManualContextSelection(
+        options,
+        (context) => context.commits,
+        {
+            label: "commits"
+        }
+    );
 }
 
 /**
@@ -264,8 +299,11 @@ export function resolveManualGitHubCommitService(options = {}) {
  * @returns {ManualGitHubCommitResolver}
  */
 export function resolveManualGitHubCommitResolver(options = {}) {
-    const { commitResolver } = buildManualCommandContext(options);
-    return commitResolver;
+    return resolveManualContextSelection(
+        options,
+        (context) => context.commitResolver,
+        { label: "commitResolver" }
+    );
 }
 
 /**
@@ -276,8 +314,13 @@ export function resolveManualGitHubCommitResolver(options = {}) {
  * @returns {ManualGitHubRefResolver}
  */
 export function resolveManualGitHubRefResolver(options = {}) {
-    const { refResolver } = buildManualCommandContext(options);
-    return refResolver;
+    return resolveManualContextSelection(
+        options,
+        (context) => context.refResolver,
+        {
+            label: "refResolver"
+        }
+    );
 }
 
 /**
@@ -287,6 +330,11 @@ export function resolveManualGitHubRefResolver(options = {}) {
  * @returns {ManualGitHubFileClient}
  */
 export function resolveManualGitHubFileClient(options = {}) {
-    const { fileClient } = buildManualCommandContext(options);
-    return fileClient;
+    return resolveManualContextSelection(
+        options,
+        (context) => context.fileClient,
+        {
+            label: "fileClient"
+        }
+    );
 }
