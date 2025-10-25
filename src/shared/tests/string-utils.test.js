@@ -16,7 +16,8 @@ import {
     normalizeStringList,
     capitalize,
     getNonEmptyString,
-    stripStringQuotes
+    stripStringQuotes,
+    createListSplitPattern
 } from "../utils/string.js";
 
 test("toTrimmedString returns trimmed strings", () => {
@@ -48,6 +49,28 @@ test("normalizeStringList preserves entire strings when splitting is disabled", 
         normalizeStringList("alpha,beta", { splitPattern: false }),
         ["alpha,beta"]
     );
+});
+
+test("createListSplitPattern deduplicates separators and preserves order", () => {
+    const pattern = createListSplitPattern([",", ":", ","]);
+    assert.deepStrictEqual("alpha,beta:gamma".split(pattern), [
+        "alpha",
+        "beta",
+        "gamma"
+    ]);
+});
+
+test("createListSplitPattern optionally includes whitespace separators", () => {
+    const pattern = createListSplitPattern([","], { includeWhitespace: true });
+    assert.deepStrictEqual("one, two  three".split(pattern), [
+        "one",
+        "two",
+        "three"
+    ]);
+});
+
+test("createListSplitPattern requires a separator when whitespace is disabled", () => {
+    assert.throws(() => createListSplitPattern([]), TypeError);
 });
 
 test("toNormalizedLowerCaseString trims and lowercases input values", () => {
