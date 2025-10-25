@@ -12,9 +12,9 @@ import {
 
 const temporaryDirectories = new Set();
 
-function createTemporaryPluginFile() {
+function createTemporaryPluginFile({ baseDirectory = os.tmpdir() } = {}) {
     const directory = fs.mkdtempSync(
-        path.join(os.tmpdir(), "prettier-plugin-gml-entry-")
+        path.join(baseDirectory, "prettier-plugin-gml-entry-")
     );
     temporaryDirectories.add(directory);
 
@@ -54,6 +54,24 @@ describe("resolvePluginEntryPoint", () => {
 
         const resolved = resolvePluginEntryPoint({
             env: { PRETTIER_PLUGIN_GML_PLUGIN_PATHS: envValue }
+        });
+
+        assert.equal(resolved, pluginPath);
+    });
+
+    it("expands leading tildes in environment overrides", () => {
+        const homeDirectory = os.homedir();
+        if (!homeDirectory) {
+            return;
+        }
+
+        const pluginPath = createTemporaryPluginFile({
+            baseDirectory: homeDirectory
+        });
+        const tildePath = `~${pluginPath.slice(homeDirectory.length)}`;
+
+        const resolved = resolvePluginEntryPoint({
+            env: { PRETTIER_PLUGIN_GML_PLUGIN_PATH: tildePath }
         });
 
         assert.equal(resolved, pluginPath);
