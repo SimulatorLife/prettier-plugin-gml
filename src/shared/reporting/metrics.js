@@ -1,4 +1,5 @@
 import { toArrayFromIterable } from "../array-utils.js";
+import { incrementMapValue } from "../object-utils.js";
 import { getNonEmptyString, normalizeStringList } from "../string-utils.js";
 
 const hasHrtime = typeof process?.hrtime?.bigint === "function";
@@ -55,8 +56,7 @@ function toPlainObject(map) {
 function createMapIncrementer(store) {
     return (label, amount = 1) => {
         const normalized = normalizeLabel(label);
-        const previous = store.get(normalized) ?? 0;
-        store.set(normalized, previous + amount);
+        incrementMapValue(store, normalized, amount);
     };
 }
 

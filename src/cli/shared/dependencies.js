@@ -15,6 +15,7 @@ export {
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
     getOrCreateMapEntry,
+    incrementMapValue,
     isFiniteNumber,
     isNonEmptyArray,
     isNonEmptyString,

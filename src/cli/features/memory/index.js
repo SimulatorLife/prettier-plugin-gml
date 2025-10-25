@@ -11,6 +11,7 @@ import {
     createEnvConfiguredValueWithFallback,
     ensureDir,
     getErrorMessageOrFallback,
+    incrementMapValue,
     isNonEmptyString,
     normalizeStringList,
     resolveModuleDefaultExport,
@@ -348,7 +349,7 @@ function summarizeAst(root) {
 
         nodeCount += 1;
         if (typeof value.type === "string") {
-            typeCounts.set(value.type, (typeCounts.get(value.type) ?? 0) + 1);
+            incrementMapValue(typeCounts, value.type);
         }
 
         const nextDepth = depth + 1;
