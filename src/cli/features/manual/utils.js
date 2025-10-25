@@ -72,12 +72,14 @@ function normalizeDownloadLabel(label) {
     return isNonEmptyTrimmedString(label) ? label : "Downloading manual files";
 }
 
-function reporterWithCleanup(handler, cleanup) {
-    const report = resolveFunction(handler);
-    const cleanupHandler = resolveFunction(cleanup);
+function createReporter(handler, cleanup) {
+    const report = typeof handler === "function" ? handler : () => {};
+    const cleanupHandler = typeof cleanup === "function" ? cleanup : () => {};
     let cleanedUp = false;
 
-    report.cleanup = () => {
+    const reporter = (...args) => report(...args);
+
+    reporter.cleanup = () => {
         if (cleanedUp) {
             return;
         }
@@ -86,7 +88,7 @@ function reporterWithCleanup(handler, cleanup) {
         cleanupHandler();
     };
 
-    return report;
+    return reporter;
 }
 
 export function announceManualDownloadStart(
@@ -135,15 +137,16 @@ export function createManualDownloadReporter({
     const { downloads = false, progressBar = false } = verbose ?? {};
 
     if (!downloads) {
-        return reporterWithCleanup();
+        return createReporter();
     }
 
     if (progressBar) {
         const normalizedLabel = normalizeDownloadLabel(label);
         const width = progressBarWidth ?? 0;
-        const progressRenderer = resolveFunction(render, renderProgressBar);
+        const progressRenderer =
+            typeof render === "function" ? render : renderProgressBar;
 
-        return reporterWithCleanup(({ fetchedCount, totalEntries }) => {
+        return createReporter(({ fetchedCount, totalEntries }) => {
             progressRenderer(
                 normalizedLabel,
                 fetchedCount,
@@ -153,9 +156,10 @@ export function createManualDownloadReporter({
         }, disposeProgressBars);
     }
 
-    const normalizePath = resolveFunction(formatPath, (path) => path);
+    const normalizePath =
+        typeof formatPath === "function" ? formatPath : (path) => path;
 
-    return reporterWithCleanup(({ path }) => {
+    return createReporter(({ path }) => {
         const displayPath = normalizePath(path);
         console.log(displayPath ? `✓ ${displayPath}` : "✓");
     });
