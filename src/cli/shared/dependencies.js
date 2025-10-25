@@ -44,16 +44,14 @@ export { appendToCollection } from "../core/collection-utils.js";
 
 export { createAbortGuard } from "../../shared/index.js";
 
-export { normalizeStringList } from "../../shared/utils/string.js";
-
 export {
+    normalizeStringList,
     collectAncestorDirectories,
     collectUniqueAncestorDirectories,
     isPathInside,
-    resolveContainedRelativePath
-} from "../../shared/utils/path.js";
-
-export { escapeRegExp } from "../../shared/utils/regexp.js";
+    resolveContainedRelativePath,
+    escapeRegExp
+} from "../../shared/index.js";
 
 export { getIdentifierText } from "../../shared/index.js";
 

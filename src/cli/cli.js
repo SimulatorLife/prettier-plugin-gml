@@ -32,11 +32,13 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError, Option } from "commander";
 
 import {
+    collectAncestorDirectories,
     getErrorMessage,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
     isErrorLike,
     isErrorWithCode,
+    isPathInside,
     mergeUniqueValues,
     normalizeEnumeratedOption,
     normalizeStringList,
@@ -46,10 +48,6 @@ import {
     uniqueArray,
     withObjectLike
 } from "../shared/index.js";
-import {
-    collectAncestorDirectories,
-    isPathInside
-} from "../shared/utils/path.js";
 import {
     hasIgnoreRuleNegations,
     markIgnoreRuleNegationsDetected,
