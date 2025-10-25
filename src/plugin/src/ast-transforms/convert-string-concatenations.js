@@ -5,6 +5,7 @@ import {
 import { unwrapParenthesizedExpression } from "../shared/ast-node-helpers.js";
 import { stripStringQuotes } from "../shared/string-utils.js";
 import { isObjectLike } from "../shared/object-utils.js";
+import { asArray } from "../shared/array-utils.js";
 
 const DEFAULT_HELPERS = Object.freeze({
     hasComment: sharedHasComment
@@ -224,7 +225,7 @@ function buildTemplateAtoms(parts) {
         }
 
         if (core.type === TEMPLATE_STRING_EXPRESSION) {
-            const nestedAtoms = Array.isArray(core.atoms) ? core.atoms : [];
+            const nestedAtoms = asArray(core.atoms);
             if (nestedAtoms.length === 0) {
                 return null;
             }

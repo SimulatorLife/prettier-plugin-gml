@@ -13,6 +13,7 @@ import {
 } from "../shared/progress-bar.js";
 import {
     assertFunction,
+    asArray,
     hasOwn,
     isNonEmptyString
 } from "../shared/dependencies.js";
@@ -210,7 +211,7 @@ export function applySharedManualCommandOptions(
         cacheOption && (() => configurePathOption(command, cacheOption))
     );
 
-    const preferredOrder = Array.isArray(optionOrder) ? optionOrder : [];
+    const preferredOrder = asArray(optionOrder);
     const ordering = new Set([
         ...preferredOrder,
         ...DEFAULT_OPTION_ORDER,
