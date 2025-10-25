@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+// Node deprecated the loose equality helpers (for example `assert.equal`).
+// These tests intentionally rely on the strict variants so future refactors do
+// not reintroduce the legacy assertions. Behaviour has been revalidated via
+// `npm test src/shared/tests/array-utils.test.js`.
+
 import {
     asArray,
     isNonEmptyArray,
@@ -17,7 +22,7 @@ test("toArray wraps non-array values", () => {
 
 test("toArray preserves arrays", () => {
     const input = [1, 2, 3];
-    assert.equal(toArray(input), input);
+    assert.strictEqual(toArray(input), input);
 });
 
 test("toArray normalizes nullish values to empty arrays", () => {
@@ -27,7 +32,7 @@ test("toArray normalizes nullish values to empty arrays", () => {
 
 test("asArray returns arrays unchanged", () => {
     const input = [1, 2, 3];
-    assert.equal(asArray(input), input);
+    assert.strictEqual(asArray(input), input);
 });
 
 test("asArray normalizes non-arrays to empty arrays", () => {
@@ -37,9 +42,9 @@ test("asArray normalizes non-arrays to empty arrays", () => {
 });
 
 test("isNonEmptyArray identifies arrays with elements", () => {
-    assert.equal(isNonEmptyArray([0]), true);
-    assert.equal(isNonEmptyArray([]), false);
-    assert.equal(isNonEmptyArray(null), false);
+    assert.strictEqual(isNonEmptyArray([0]), true);
+    assert.strictEqual(isNonEmptyArray([]), false);
+    assert.strictEqual(isNonEmptyArray(null), false);
 });
 
 test("uniqueArray removes duplicates while preserving order", () => {
@@ -64,7 +69,7 @@ test("pushUnique appends values that are not present", () => {
 
     const added = pushUnique(entries, "beta");
 
-    assert.equal(added, true);
+    assert.strictEqual(added, true);
     assert.deepEqual(entries, ["alpha", "beta"]);
 });
 
@@ -73,7 +78,7 @@ test("pushUnique skips existing values", () => {
 
     const added = pushUnique(entries, "alpha");
 
-    assert.equal(added, false);
+    assert.strictEqual(added, false);
     assert.deepEqual(entries, ["alpha", "beta"]);
 });
 
@@ -86,8 +91,8 @@ test("pushUnique can use a custom equality comparator", () => {
         { isEqual: (existing, candidate) => existing.id === candidate.id }
     );
 
-    assert.equal(added, false);
-    assert.equal(entries.length, 2);
+    assert.strictEqual(added, false);
+    assert.strictEqual(entries.length, 2);
 });
 
 test("pushUnique throws when provided a non-array target", () => {
