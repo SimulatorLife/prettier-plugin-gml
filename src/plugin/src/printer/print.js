@@ -116,6 +116,23 @@ function stripTrailingLineTerminators(value) {
     return value.replace(/(?:\r?\n)+$/, "");
 }
 
+function resolvePrinterSourceMetadata(options) {
+    if (
+        !options ||
+        (typeof options !== "object" && typeof options !== "function")
+    ) {
+        return { originalText: null, locStart: null, locEnd: null };
+    }
+
+    const originalText =
+        typeof options.originalText === "string" ? options.originalText : null;
+    const locStart =
+        typeof options.locStart === "function" ? options.locStart : null;
+    const locEnd = typeof options.locEnd === "function" ? options.locEnd : null;
+
+    return { originalText, locStart, locEnd };
+}
+
 function macroTextHasExplicitTrailingBlankLine(text) {
     if (typeof text !== "string") {
         return false;
@@ -2499,12 +2516,8 @@ export function applyAssignmentAlignment(
     let currentGroupMaxLength = 0;
     let currentGroupHasAlias = false;
 
-    const originalText =
-        typeof options?.originalText === "string" ? options.originalText : null;
-    const locStart =
-        typeof options?.locStart === "function" ? options.locStart : null;
-    const locEnd =
-        typeof options?.locEnd === "function" ? options.locEnd : null;
+    const { originalText, locStart, locEnd } =
+        resolvePrinterSourceMetadata(options);
 
     const insideFunctionBody = isPathInsideFunctionBody(
         path,
@@ -5236,18 +5249,23 @@ function normalizeOptionalParamNameToken(name) {
 }
 
 function getSourceTextForNode(node, options) {
-    if (!node || !options || typeof options.originalText !== "string") {
+    if (!node) {
+        return null;
+    }
+
+    const { originalText, locStart, locEnd } =
+        resolvePrinterSourceMetadata(options);
+
+    if (originalText === null) {
         return null;
     }
 
     const startIndex =
-        typeof options.locStart === "function"
-            ? options.locStart(node)
+        typeof locStart === "function"
+            ? locStart(node)
             : getNodeStartIndex(node);
     const endIndex =
-        typeof options.locEnd === "function"
-            ? options.locEnd(node)
-            : getNodeEndIndex(node);
+        typeof locEnd === "function" ? locEnd(node) : getNodeEndIndex(node);
 
     if (typeof startIndex !== "number" || typeof endIndex !== "number") {
         return null;
@@ -5257,7 +5275,7 @@ function getSourceTextForNode(node, options) {
         return null;
     }
 
-    return options.originalText.slice(startIndex, endIndex).trim();
+    return originalText.slice(startIndex, endIndex).trim();
 }
 
 function shouldPreserveCompactUpdateAssignmentSpacing(path, options) {
@@ -5311,7 +5329,12 @@ function shouldPreserveCompactUpdateAssignmentSpacing(path, options) {
 }
 
 function structLiteralHasLeadingLineBreak(node, options) {
-    if (!node || !options || typeof options.originalText !== "string") {
+    if (!node) {
+        return false;
+    }
+
+    const { originalText } = resolvePrinterSourceMetadata(options);
+    if (originalText === null) {
         return false;
     }
 
@@ -5324,7 +5347,7 @@ function structLiteralHasLeadingLineBreak(node, options) {
         return false;
     }
 
-    const source = options.originalText.slice(start, end);
+    const source = originalText.slice(start, end);
     const openBraceIndex = source.indexOf("{");
     if (openBraceIndex === -1) {
         return false;
@@ -5408,7 +5431,12 @@ function structLiteralHasLeadingLineBreak(node, options) {
 }
 
 function getStructPropertyPrefix(node, options) {
-    if (!node || !options || typeof options.originalText !== "string") {
+    if (!node) {
+        return null;
+    }
+
+    const { originalText } = resolvePrinterSourceMetadata(options);
+    if (originalText === null) {
         return null;
     }
 
@@ -5423,7 +5451,7 @@ function getStructPropertyPrefix(node, options) {
         return null;
     }
 
-    const prefix = options.originalText.slice(propertyStart, valueStart);
+    const prefix = originalText.slice(propertyStart, valueStart);
     if (prefix.length === 0 || !prefix.includes(":")) {
         return null;
     }
