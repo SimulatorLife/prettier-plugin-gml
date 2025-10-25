@@ -1,4 +1,4 @@
-import { resolveAbortSignalFromOptions } from "../../shared/abort-utils.js";
+import { resolveAbortSignalFromOptions } from "./shared/abort-utils.js";
 import { createDefaultGmlPluginComponents } from "./component-providers/default-plugin-components.js";
 import { normalizeGmlPluginComponents } from "./component-providers/plugin-component-normalizer.js";
 

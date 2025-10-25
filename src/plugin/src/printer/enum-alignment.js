@@ -1,5 +1,5 @@
-import { isNonEmptyArray } from "../../../shared/array-utils.js";
-import { getCommentArray } from "../../../shared/comments.js";
+import { isNonEmptyArray } from "../shared/array-utils.js";
+import { getCommentArray } from "../shared/comments.js";
 
 const ENUM_INITIALIZER_OPERATOR_WIDTH = " = ".length;
 

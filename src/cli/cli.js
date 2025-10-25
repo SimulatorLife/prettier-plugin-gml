@@ -36,10 +36,11 @@ import {
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
     isErrorWithCode,
+    mergeUniqueValues,
     normalizeEnumeratedOption,
     normalizeStringList,
+    resolveModuleDefaultExport,
     toArray,
-    mergeUniqueValues,
     toNormalizedLowerCaseSet,
     uniqueArray,
     withObjectLike
@@ -91,12 +92,12 @@ import {
     getDefaultSkippedDirectorySampleLimit,
     resolveSkippedDirectorySampleLimit,
     SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR
-} from "./shared/skipped-directory-sample-limit.js";
+} from "./runtime-options/skipped-directory-sample-limit.js";
 import {
     getDefaultUnsupportedExtensionSampleLimit,
     resolveUnsupportedExtensionSampleLimit,
     UNSUPPORTED_EXTENSION_SAMPLE_LIMIT_ENV_VAR
-} from "./shared/unsupported-extension-sample-limit.js";
+} from "./runtime-options/unsupported-extension-sample-limit.js";
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolvePluginEntryPoint();
@@ -186,7 +187,7 @@ let prettierModulePromise = null;
 async function resolvePrettier() {
     if (!prettierModulePromise) {
         prettierModulePromise = import(PRETTIER_MODULE_ID)
-            .then((module) => module?.default ?? module)
+            .then(resolveModuleDefaultExport)
             .catch((error) => {
                 if (isMissingPrettierDependency(error)) {
                     const instructions = [
@@ -269,7 +270,8 @@ const program = applyStandardCommandOptions(new Command())
     .description(
         [
             "Utilities for working with the prettier-plugin-gml project.",
-            "Provides formatting, benchmarking, and manual data generation commands."
+            "Provides formatting, benchmarking, and manual data generation commands.",
+            "Defaults to running the format command when no command is provided."
         ].join(" \n")
     )
     .version(

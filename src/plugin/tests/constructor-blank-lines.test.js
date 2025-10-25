@@ -100,7 +100,7 @@ test("preserves blank lines after nested function declarations inside constructo
     );
 });
 
-test("adds a blank line after nested function declarations inside constructors", async () => {
+test("inserts trailing blank line after nested constructor functions when missing", async () => {
     const source = [
         "function Demo() constructor {",
         "    function nested() {",
@@ -116,7 +116,7 @@ test("adds a blank line after nested function declarations inside constructors",
     assert.equal(
         lines.at(-2),
         "",
-        "Expected nested function declarations to end with a blank line before the constructor closes."
+        "Expected constructor blocks to gain a separating blank line when nested functions close immediately before the brace."
     );
 });
 
@@ -143,5 +143,25 @@ test("collapses blank lines between simple constructor assignments", async () =>
         lines[assignmentIndex + 1],
         "    self.copied = self.value;",
         "Expected constructors to collapse author-inserted blank lines between simple assignments."
+    );
+});
+
+test("inserts blank line after synthetic constructor doc comments", async () => {
+    const source = [
+        "function Demo() constructor {",
+        "    function nested(value) {",
+        "        return value;",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.trim().split("\n");
+
+    assert.equal(
+        lines.at(-2),
+        "",
+        "Expected constructors to retain a blank line after nested functions when synthetic doc comments are generated."
     );
 });

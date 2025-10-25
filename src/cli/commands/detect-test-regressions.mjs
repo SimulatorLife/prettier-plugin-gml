@@ -17,7 +17,7 @@ import {
     toTrimmedString
 } from "../shared/dependencies.js";
 import { CliUsageError, handleCliError } from "../core/errors.js";
-import { ensureMap } from "../../shared/utils/capability-probes.js";
+import { ensureMap } from "../shared/dependencies.js";
 
 let parser;
 
@@ -519,6 +519,12 @@ function parseXmlTestCases(xml, displayPath) {
                 note: `Ignoring checkstyle report ${displayPath}; no test cases found.`
             };
         }
+        if (!documentContainsTestElements(data)) {
+            return {
+                status: "error",
+                note: `Parsed ${displayPath} but it does not contain any test suites or cases.`
+            };
+        }
         return { status: "ok", cases: collectTestCases(data) };
     } catch (error) {
         const message = getErrorMessageOrFallback(error);
@@ -551,6 +557,37 @@ function isCheckstyleDocument(document) {
     return files.every(
         (file) => isObjectLike(file) && isNonEmptyTrimmedString(file.name)
     );
+}
+
+function documentContainsTestElements(document) {
+    const queue = [document];
+
+    while (queue.length > 0) {
+        const current = queue.pop();
+
+        if (Array.isArray(current)) {
+            queue.push(...current);
+            continue;
+        }
+
+        if (!isObjectLike(current)) {
+            continue;
+        }
+
+        if (
+            hasOwn(current, "testcase") ||
+            hasOwn(current, "testsuite") ||
+            hasOwn(current, "testsuites")
+        ) {
+            return true;
+        }
+
+        for (const value of Object.values(current)) {
+            queue.push(value);
+        }
+    }
+
+    return false;
 }
 
 function recordTestCases(aggregates, testCases) {

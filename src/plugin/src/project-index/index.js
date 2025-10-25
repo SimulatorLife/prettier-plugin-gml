@@ -1,27 +1,23 @@
 import path from "node:path";
-import { cloneLocation } from "../../../shared/ast-locations.js";
-import { getCallExpressionIdentifier } from "../../../shared/ast-node-helpers.js";
-import { toPosixPath } from "../../../shared/path-utils.js";
-import {
-    asArray,
-    isNonEmptyArray,
-    pushUnique
-} from "../../../shared/array-utils.js";
+import { cloneLocation } from "../shared/ast-locations.js";
+import { getCallExpressionIdentifier } from "../shared/ast-node-helpers.js";
+import { toPosixPath } from "../shared/path-utils.js";
+import { asArray, isNonEmptyArray, pushUnique } from "../shared/array-utils.js";
 import {
     assertFunction,
     getOrCreateMapEntry,
     hasOwn,
     isObjectLike
-} from "../../../shared/object-utils.js";
+} from "../shared/object-utils.js";
 import {
     buildLocationKey,
     buildFileLocationKey
-} from "../../../shared/location-keys.js";
+} from "../shared/location-keys.js";
 import { resolveProjectIndexParser } from "./parser-override.js";
 import { clampConcurrency } from "./concurrency.js";
 import { isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
-import { isFsErrorCode, listDirectory } from "../../../shared/fs-utils.js";
+import { isFsErrorCode, listDirectory } from "../shared/fs-utils.js";
 import {
     getDefaultProjectIndexCacheMaxSize,
     loadProjectIndexCache,
@@ -40,7 +36,7 @@ import {
     createProjectIndexAbortGuard
 } from "./abort-guard.js";
 import { loadBuiltInIdentifiers } from "./built-in-identifiers.js";
-import { createProjectIndexCoordinatorFactory } from "./coordinator.js";
+import { createProjectIndexCoordinator as createProjectIndexCoordinatorCore } from "./coordinator.js";
 import { cloneObjectEntries } from "./clone-object-entries.js";
 
 /**
@@ -56,16 +52,25 @@ function cloneEntryCollections(entry, ...keys) {
     );
 }
 
-export const createProjectIndexCoordinator =
-    createProjectIndexCoordinatorFactory({
-        defaultFsFacade,
-        defaultLoadCache: loadProjectIndexCache,
-        defaultSaveCache: saveProjectIndexCache,
-        defaultBuildIndex: buildProjectIndex,
-        getDefaultCacheMaxSize: getDefaultProjectIndexCacheMaxSize
-    });
+export function createProjectIndexCoordinator(options = {}) {
+    const {
+        fsFacade = defaultFsFacade,
+        loadCache = loadProjectIndexCache,
+        saveCache = saveProjectIndexCache,
+        buildIndex = buildProjectIndex,
+        cacheMaxSizeBytes,
+        getDefaultCacheMaxSize = getDefaultProjectIndexCacheMaxSize
+    } = options;
 
-export { createProjectIndexCoordinatorFactory } from "./coordinator.js";
+    return createProjectIndexCoordinatorCore({
+        fsFacade,
+        loadCache,
+        saveCache,
+        buildIndex,
+        cacheMaxSizeBytes,
+        getDefaultCacheMaxSize
+    });
+}
 
 export { findProjectRoot } from "./project-root.js";
 

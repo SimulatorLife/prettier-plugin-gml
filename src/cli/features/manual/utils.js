@@ -9,14 +9,14 @@ import {
     isNonEmptyTrimmedString,
     parseJsonWithContext,
     toTrimmedString
-} from "../../shared/dependencies.js";
-import { formatDuration } from "../../shared/time-utils.js";
-import { formatBytes } from "../../shared/byte-format.js";
+} from "../shared/dependencies.js";
+import { formatDuration } from "../shared/time-utils.js";
+import { formatBytes } from "../../runtime-options/byte-format.js";
 import { writeManualFile } from "./file-helpers.js";
 import {
     disposeProgressBars,
     renderProgressBar
-} from "../../shared/progress-bar.js";
+} from "../shared/progress-bar.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
@@ -70,28 +70,22 @@ function normalizeDownloadLabel(label) {
     return isNonEmptyTrimmedString(label) ? label : "Downloading manual files";
 }
 
-function createReporter(handler, cleanup) {
-    const execute = typeof handler === "function" ? handler : () => {};
+const noop = () => {};
+
+function reporterWithCleanup(handler, cleanup = noop) {
+    const report = typeof handler === "function" ? handler : noop;
     let cleanedUp = false;
 
-    const performCleanup = () => {
+    report.cleanup = () => {
         if (cleanedUp) {
             return;
         }
 
         cleanedUp = true;
-
-        if (typeof cleanup === "function") {
-            cleanup();
-        }
+        cleanup();
     };
 
-    return Object.assign(
-        (update) => {
-            execute(update);
-        },
-        { cleanup: performCleanup }
-    );
+    return report;
 }
 
 /**
@@ -119,21 +113,32 @@ export function createManualDownloadReporter({
     formatPath = (path) => path,
     render = renderProgressBar
 } = {}) {
-    if (!verbose.downloads) {
-        return createReporter();
+    const { downloads = false, progressBar = false } = verbose ?? {};
+
+    if (!downloads) {
+        return reporterWithCleanup(noop);
     }
 
-    if (verbose.progressBar) {
+    if (progressBar) {
         const normalizedLabel = normalizeDownloadLabel(label);
         const width = progressBarWidth ?? 0;
-        return createReporter(({ fetchedCount, totalEntries }) => {
-            render(normalizedLabel, fetchedCount, totalEntries, width);
+        const progressRenderer =
+            typeof render === "function" ? render : renderProgressBar;
+
+        return reporterWithCleanup(({ fetchedCount, totalEntries }) => {
+            progressRenderer(
+                normalizedLabel,
+                fetchedCount,
+                totalEntries,
+                width
+            );
         }, disposeProgressBars);
     }
 
     const normalizePath =
         typeof formatPath === "function" ? formatPath : (path) => path;
-    return createReporter(({ path }) => {
+
+    return reporterWithCleanup(({ path }) => {
         const displayPath = normalizePath(path);
         console.log(displayPath ? `✓ ${displayPath}` : "✓");
     });
