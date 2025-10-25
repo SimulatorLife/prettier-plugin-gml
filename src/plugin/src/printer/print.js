@@ -3336,7 +3336,17 @@ function reorderDescriptionLinesAfterFunction(docLines) {
     }
 
     const earliestDescriptionIndex = Math.min(...descriptionIndices);
-    if (earliestDescriptionIndex > functionIndex) {
+    const firstReturnsIndex = normalizedDocLines.findIndex(
+        (line, index) =>
+            index > functionIndex &&
+            typeof line === "string" &&
+            /^\/\/\/\s*@returns\b/i.test(line.trim())
+    );
+    if (
+        earliestDescriptionIndex > functionIndex &&
+        (firstReturnsIndex === -1 ||
+            earliestDescriptionIndex < firstReturnsIndex)
+    ) {
         return normalizedDocLines;
     }
 
@@ -3418,7 +3428,25 @@ function mergeSyntheticDocComments(
         )
     );
 
-    if (syntheticLines.length === 0) {
+    const implicitDocEntries =
+        node?.type === "FunctionDeclaration"
+            ? collectImplicitArgumentDocNames(node, options)
+            : [];
+    const declaredParamCount = Array.isArray(node?.params)
+        ? node.params.length
+        : 0;
+    const hasImplicitDocEntries = implicitDocEntries.length > 0;
+    const hasParamDocLines = normalizedExistingLines.some((line) => {
+        if (typeof line !== "string") {
+            return false;
+        }
+
+        return /^\/\/\/\s*@param\b/i.test(toTrimmedString(line));
+    });
+    const shouldForceParamPrune =
+        hasParamDocLines && declaredParamCount === 0 && !hasImplicitDocEntries;
+
+    if (syntheticLines.length === 0 && !shouldForceParamPrune) {
         return normalizedExistingLines;
     }
 
@@ -3720,7 +3748,6 @@ function mergeSyntheticDocComments(
         }
     }
 
-    const implicitDocEntries = collectImplicitArgumentDocNames(node, options);
     const suppressedCanonicals = suppressedImplicitDocCanonicalByNode.get(node);
 
     if (suppressedCanonicals && suppressedCanonicals.size > 0) {
@@ -3778,8 +3805,15 @@ function mergeSyntheticDocComments(
         }
     }
 
-    for (const doc of paramDocsByCanonical.values()) {
-        orderedParamDocs.push(doc);
+    const shouldDropRemainingParamDocs =
+        !hasImplicitDocEntries &&
+        declaredParamCount === 0 &&
+        paramDocsByCanonical.size > 0;
+
+    if (!shouldDropRemainingParamDocs) {
+        for (const doc of paramDocsByCanonical.values()) {
+            orderedParamDocs.push(doc);
+        }
     }
 
     if (orderedParamDocs.length > 0) {
@@ -6154,7 +6188,10 @@ function shouldGenerateSyntheticDocForFunction(
         return true;
     }
 
-    if (node.type !== "FunctionDeclaration") {
+    if (
+        node.type !== "FunctionDeclaration" &&
+        node.type !== "StructFunctionDeclaration"
+    ) {
         return false;
     }
 
@@ -6166,6 +6203,34 @@ function shouldGenerateSyntheticDocForFunction(
 
     if (syntheticLines.length > 0) {
         return true;
+    }
+
+    const hasParamDocLines = existingDocLines.some((line) => {
+        if (typeof line !== "string") {
+            return false;
+        }
+
+        const trimmed = toTrimmedString(line);
+        return /^\/\/\/\s*@param\b/i.test(trimmed);
+    });
+
+    if (hasParamDocLines) {
+        const declaredParamCount = Array.isArray(node.params)
+            ? node.params.length
+            : 0;
+        let hasImplicitDocEntries = false;
+
+        if (node.type === "FunctionDeclaration") {
+            const implicitEntries = collectImplicitArgumentDocNames(
+                node,
+                options
+            );
+            hasImplicitDocEntries = implicitEntries.length > 0;
+        }
+
+        if (declaredParamCount === 0 && !hasImplicitDocEntries) {
+            return true;
+        }
     }
 
     return (
