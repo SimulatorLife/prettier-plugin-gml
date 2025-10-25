@@ -2115,6 +2115,8 @@ function printStatements(path, options, print, childrenAttribute) {
     let previousNodeHadNewlineAddedAfter = false; // tracks newline added after the previous node
 
     const parentNode = path.getValue();
+    const containerNode =
+        typeof path.getParentNode === "function" ? path.getParentNode() : null;
     const statements =
         parentNode && Array.isArray(parentNode[childrenAttribute])
             ? parentNode[childrenAttribute]
@@ -2473,16 +2475,27 @@ function printStatements(path, options, print, childrenAttribute) {
 
             if (
                 !shouldPreserveTrailingBlankLine &&
-                !suppressFollowingEmptyLine &&
-                hasAttachedDocComment &&
-                blockParent?.type === "BlockStatement"
+                !suppressFollowingEmptyLine
             ) {
-                const isFunctionLikeDeclaration =
-                    node?.type === "FunctionDeclaration" ||
-                    node?.type === "ConstructorDeclaration";
-
-                if (isFunctionLikeDeclaration) {
+                if (
+                    shouldForceTrailingBlankLineForNestedFunction(
+                        node,
+                        parentNode,
+                        containerNode
+                    )
+                ) {
                     shouldPreserveTrailingBlankLine = true;
+                } else if (
+                    hasAttachedDocComment &&
+                    blockParent?.type === "BlockStatement"
+                ) {
+                    const isFunctionLikeDeclaration =
+                        node?.type === "FunctionDeclaration" ||
+                        node?.type === "ConstructorDeclaration";
+
+                    if (isFunctionLikeDeclaration) {
+                        shouldPreserveTrailingBlankLine = true;
+                    }
                 }
             }
 
@@ -2491,7 +2504,6 @@ function printStatements(path, options, print, childrenAttribute) {
                 node?.type === "FunctionDeclaration" &&
                 !suppressFollowingEmptyLine &&
                 !shouldPreserveTrailingBlankLine;
-
             if (shouldPreserveTrailingBlankLine) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
@@ -2616,6 +2628,31 @@ export function applyAssignmentAlignment(
     }
 
     flushGroup();
+}
+
+function shouldForceTrailingBlankLineForNestedFunction(
+    node,
+    blockNode,
+    containerNode
+) {
+    if (!isFunctionLikeDeclaration(node)) {
+        return false;
+    }
+
+    if (!blockNode || blockNode.type !== "BlockStatement") {
+        return false;
+    }
+
+    return isFunctionLikeDeclaration(containerNode);
+}
+
+function isFunctionLikeDeclaration(node) {
+    const nodeType = node?.type;
+    return (
+        nodeType === "FunctionDeclaration" ||
+        nodeType === "ConstructorDeclaration" ||
+        nodeType === "FunctionExpression"
+    );
 }
 
 function isPathInsideFunctionBody(path, childrenAttribute) {
