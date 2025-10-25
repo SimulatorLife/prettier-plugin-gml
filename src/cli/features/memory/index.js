@@ -16,7 +16,8 @@ import {
     normalizeStringList,
     resolveModuleDefaultExport,
     parseJsonObjectWithContext,
-    splitLines
+    splitLines,
+    stringifyJsonForFile
 } from "../shared/dependencies.js";
 import { applyStandardCommandOptions } from "../../core/command-standard-options.js";
 import {
@@ -855,7 +856,7 @@ export async function runMemoryCli({
         command,
         onResults: async ({ payload }) => {
             await ensureDir(resolvedReportDir);
-            const reportContents = `${JSON.stringify(payload, null, 2)}\n`;
+            const reportContents = stringifyJsonForFile(payload, { space: 2 });
             await effectiveWriteFile(reportPath, reportContents, "utf8");
         }
     });

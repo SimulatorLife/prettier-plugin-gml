@@ -4,8 +4,8 @@ import test from "node:test";
 import { createMetricsTracker } from "../reporting/index.js";
 
 function getCacheKeys(tracker, cacheName = "example") {
-    tracker.recordCacheHit(cacheName);
-    return Object.keys(tracker.snapshot().caches[cacheName]);
+    tracker.caches.recordHit(cacheName);
+    return Object.keys(tracker.reporting.snapshot().caches[cacheName]);
 }
 
 test("createMetricsTracker uses default cache keys when none provided", () => {

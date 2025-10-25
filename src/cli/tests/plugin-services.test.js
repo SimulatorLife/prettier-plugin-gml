@@ -8,13 +8,15 @@ import {
     resetRegisteredCliPluginServices,
     resolveCliProjectIndexBuilder,
     resolveCliIdentifierCasePlanPreparer,
-    resolveCliIdentifierCaseCacheClearer,
-    defaultCliPluginServices
+    resolveCliIdentifierCaseCacheClearer
 } from "../plugin/services.js";
 import {
     defaultProjectIndexBuilder,
     defaultIdentifierCasePlanPreparer,
-    defaultIdentifierCaseCacheClearer
+    defaultIdentifierCaseCacheClearer,
+    defaultCliProjectIndexService,
+    defaultCliIdentifierCasePlanPreparationService,
+    defaultCliIdentifierCaseCacheService
 } from "../plugin/service-providers/default.js";
 
 async function metricsOnlyProjectIndexBuilder() {
@@ -74,24 +76,20 @@ test("CLI plugin service registration", async (t) => {
             defaultClearIdentifierCaseCaches,
             "default identifier case cache clearer should be registered"
         );
-        assert.deepStrictEqual(
-            defaultCliPluginServices,
-            {
-                projectIndex: {
-                    buildProjectIndex: defaultBuildProjectIndex
-                },
-                identifierCase: {
-                    preparation: {
-                        prepareIdentifierCasePlan:
-                            defaultPrepareIdentifierCasePlan
-                    },
-                    cache: {
-                        clearIdentifierCaseCaches:
-                            defaultClearIdentifierCaseCaches
-                    }
-                }
-            },
-            "default CLI services should expose dedicated identifier case collaborators"
+        assert.strictEqual(
+            defaultCliProjectIndexService.buildProjectIndex,
+            defaultBuildProjectIndex,
+            "default project index service should expose the default builder"
+        );
+        assert.strictEqual(
+            defaultCliIdentifierCasePlanPreparationService.prepareIdentifierCasePlan,
+            defaultPrepareIdentifierCasePlan,
+            "default preparation service should expose the default planner"
+        );
+        assert.strictEqual(
+            defaultCliIdentifierCaseCacheService.clearIdentifierCaseCaches,
+            defaultClearIdentifierCaseCaches,
+            "default cache service should expose the default clearer"
         );
     });
 

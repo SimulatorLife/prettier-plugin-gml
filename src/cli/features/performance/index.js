@@ -793,7 +793,8 @@ function emitReport(report, options) {
 
     if (format === SuiteOutputFormat.JSON) {
         const spacing = options.pretty ? 2 : 0;
-        process.stdout.write(`${JSON.stringify(report, null, spacing)}\n`);
+        const serialized = stringifyJsonForFile(report, { space: spacing });
+        process.stdout.write(serialized);
         return;
     }
 

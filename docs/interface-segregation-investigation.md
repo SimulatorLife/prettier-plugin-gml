@@ -137,3 +137,28 @@ no code changes were required.
   views without rebuilding the underlying GitHub wiring. Updated the manual CLI
   commands and unit tests to import the targeted contexts so each call site
   depends only on the collaborators it requires.
+
+## Follow-up audit (2025-04-16)
+
+- Identified `createMetricsTracker` in `src/shared/reporting/metrics.js` as a
+  wide surface that combined timing helpers, counter incrementers, cache
+  recorders, and reporting utilities behind one "tracker" object. Callers that
+  only needed to bump counters or capture a snapshot still depended on all of
+  the other behaviours.
+- Split the contract into focused collaborator bundles: `timers`, `counters`,
+  `caches`, and `reporting`. Updated the tracker implementation, metrics
+  consumers, tests, and documentation to rely on the specialised interfaces so
+  each consumer opts into only the responsibilities it uses.
+
+## Follow-up audit (2025-04-23)
+
+- Audited the CLI plugin defaults and found the `CliPluginServiceRegistry`
+  typedef in `src/cli/plugin/service-providers/default.js`. The registry
+  reintroduced a catch-all `defaultCliPluginServices` bundle that coupled the
+  project index helpers with the identifier case services. Modules that only
+  needed identifier case collaborators were forced to depend on the project
+  index builder as well.
+- Removed the combined registry typedef and now expose the project index and
+  identifier case service families as separate exports. Updated the service
+  factory, module-level defaults, and unit tests to depend on the specialised
+  collaborators so each call site opts into only the helpers it uses.

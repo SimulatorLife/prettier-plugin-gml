@@ -72,17 +72,17 @@ export async function loadBuiltInIdentifiers(
     const cachedMtime = cached?.metadata?.mtimeMs ?? null;
 
     if (!cached) {
-        metrics?.recordCacheMiss("builtInIdentifiers");
+        metrics?.caches?.recordMiss("builtInIdentifiers");
     } else if (
         cachedMtime === currentMtime ||
         (typeof cachedMtime === "number" &&
             typeof currentMtime === "number" &&
             areNumbersApproximatelyEqual(cachedMtime, currentMtime))
     ) {
-        metrics?.recordCacheHit("builtInIdentifiers");
+        metrics?.caches?.recordHit("builtInIdentifiers");
         return cached;
     } else {
-        metrics?.recordCacheStale("builtInIdentifiers");
+        metrics?.caches?.recordStale("builtInIdentifiers");
     }
 
     let names = new Set();

@@ -207,13 +207,13 @@ function createProjectTreeCollector(metrics = null) {
 
         if (normalizedCategory === ProjectFileCategory.RESOURCE_METADATA) {
             yyFiles.push(record);
-            metrics?.incrementCounter("files.yyDiscovered");
+            metrics?.counters?.increment("files.yyDiscovered");
             return;
         }
 
         if (normalizedCategory === ProjectFileCategory.SOURCE) {
             gmlFiles.push(record);
-            metrics?.incrementCounter("files.gmlDiscovered");
+            metrics?.counters?.increment("files.gmlDiscovered");
             return;
         }
     }
@@ -307,7 +307,7 @@ async function resolveDirectoryListing({
         }
     );
     ensureNotAborted();
-    metrics?.incrementCounter("io.directoriesScanned");
+    metrics?.counters?.increment("io.directoriesScanned");
     return entries;
 }
 
@@ -328,7 +328,7 @@ async function resolveEntryStats({
         return stats;
     } catch (error) {
         if (isFsErrorCode(error, "ENOENT")) {
-            metrics?.incrementCounter("io.skippedMissingEntries");
+            metrics?.counters?.increment("io.skippedMissingEntries");
             return null;
         }
         throw error;
@@ -992,11 +992,11 @@ function recordScriptCallMetricsAndReferences({
 }) {
     const scriptCalls = relationships?.scriptCalls ?? [];
     for (const callRecord of scriptCalls) {
-        metrics.incrementCounter("scriptCalls.total");
+        metrics.counters.increment("scriptCalls.total");
         if (callRecord.isResolved) {
-            metrics.incrementCounter("scriptCalls.resolved");
+            metrics.counters.increment("scriptCalls.resolved");
         } else {
-            metrics.incrementCounter("scriptCalls.unresolved");
+            metrics.counters.increment("scriptCalls.unresolved");
         }
 
         registerScriptReference({
@@ -1567,10 +1567,10 @@ function handleIdentifierNode({
     const isBuiltIn = builtInNames.has(identifierRecord.name);
     identifierRecord.isBuiltIn = isBuiltIn;
 
-    metrics?.incrementCounter("identifiers.encountered");
+    metrics?.counters?.increment("identifiers.encountered");
 
     if (isBuiltIn) {
-        metrics?.incrementCounter("identifiers.builtInSkipped");
+        metrics?.counters?.increment("identifiers.builtInSkipped");
         identifierRecord.reason = "built-in";
         fileRecord.ignoredIdentifiers.push(identifierRecord);
         scopeRecord.ignoredIdentifiers.push(identifierRecord);
@@ -1582,7 +1582,7 @@ function handleIdentifierNode({
     const isReference = identifierRecord.classifications.includes("reference");
 
     if (isDeclaration) {
-        metrics?.incrementCounter("identifiers.declarations");
+        metrics?.counters?.increment("identifiers.declarations");
         fileRecord.declarations.push(identifierRecord);
         scopeRecord.declarations.push(identifierRecord);
 
@@ -1597,7 +1597,7 @@ function handleIdentifierNode({
     }
 
     if (isReference) {
-        metrics?.incrementCounter("identifiers.references");
+        metrics?.counters?.increment("identifiers.references");
         fileRecord.references.push(identifierRecord);
         scopeRecord.references.push(identifierRecord);
 
@@ -1660,7 +1660,7 @@ function handleCallExpressionNode({
     fileRecord.scriptCalls.push(callRecord);
     scopeRecord.scriptCalls.push(callRecord);
     relationships.scriptCalls.push(callRecord);
-    metrics?.incrementCounter("scriptCalls.discovered");
+    metrics?.counters?.increment("scriptCalls.discovered");
 }
 
 function handleNewExpressionScriptCall({
@@ -1712,7 +1712,7 @@ function handleNewExpressionScriptCall({
     fileRecord.scriptCalls.push(callRecord);
     scopeRecord.scriptCalls.push(callRecord);
     relationships.scriptCalls.push(callRecord);
-    metrics?.incrementCounter("scriptCalls.discovered");
+    metrics?.counters?.increment("scriptCalls.discovered");
 }
 
 function handleObjectEventAssignmentNode({
@@ -1754,7 +1754,7 @@ function handleObjectEventAssignmentNode({
             filePath: fileRecord?.filePath ?? null,
             scopeDescriptor: scopeDescriptor ?? scopeRecord
         });
-        metrics?.incrementCounter("identifiers.instanceAssignments");
+        metrics?.counters?.increment("identifiers.instanceAssignments");
     }
 }
 
@@ -1884,14 +1884,14 @@ async function processWithConcurrency(items, limit, worker, options = {}) {
  */
 async function readProjectGmlFile({ file, fsFacade, metrics }) {
     try {
-        const contents = await metrics.timeAsync("fs.readGml", () =>
+        const contents = await metrics.timers.timeAsync("fs.readGml", () =>
             fsFacade.readFile(file.absolutePath, "utf8")
         );
-        metrics.incrementCounter("io.gmlBytes", Buffer.byteLength(contents));
+        metrics.counters.increment("io.gmlBytes", Buffer.byteLength(contents));
         return contents;
     } catch (error) {
         if (isFsErrorCode(error, "ENOENT")) {
-            metrics.incrementCounter("files.missingDuringRead");
+            metrics.counters.increment("files.missingDuringRead");
             return null;
         }
         throw error;
@@ -1944,7 +1944,7 @@ function parseProjectGmlSource({
     metrics,
     projectRoot
 }) {
-    return metrics.timeSync("gml.parse", () =>
+    return metrics.timers.timeSync("gml.parse", () =>
         parseProjectSource(contents, {
             filePath: file.relativePath,
             projectRoot
@@ -1965,7 +1965,7 @@ function analyseProjectGmlAst({
     sourceContents,
     lineOffsets
 }) {
-    metrics.timeSync("gml.analyse", () =>
+    metrics.timers.timeSync("gml.analyse", () =>
         analyseGmlAst({
             ast,
             builtInNames,
@@ -1998,7 +1998,7 @@ async function processProjectGmlFile({
     projectRoot
 }) {
     ensureNotAborted();
-    metrics.incrementCounter("files.gmlProcessed");
+    metrics.counters.increment("files.gmlProcessed");
 
     const contents = await readProjectGmlFile({ file, fsFacade, metrics });
     if (contents === null) {
@@ -2227,11 +2227,13 @@ async function loadBuiltInNamesForProjectIndex({
     signal,
     ensureNotAborted
 }) {
-    const builtInIdentifiers = await metrics.timeAsync("loadBuiltIns", () =>
-        loadBuiltInIdentifiers(fsFacade, metrics, {
-            signal,
-            fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
-        })
+    const builtInIdentifiers = await metrics.timers.timeAsync(
+        "loadBuiltIns",
+        () =>
+            loadBuiltInIdentifiers(fsFacade, metrics, {
+                signal,
+                fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+            })
     );
     ensureNotAborted();
 
@@ -2245,13 +2247,13 @@ async function discoverProjectFilesForIndex({
     signal,
     ensureNotAborted
 }) {
-    const projectFiles = await metrics.timeAsync("scanProjectTree", () =>
+    const projectFiles = await metrics.timers.timeAsync("scanProjectTree", () =>
         scanProjectTree(projectRoot, fsFacade, metrics, { signal })
     );
     ensureNotAborted();
 
-    metrics.setMetadata("yyFileCount", projectFiles.yyFiles.length);
-    metrics.setMetadata("gmlFileCount", projectFiles.gmlFiles.length);
+    metrics.reporting.setMetadata("yyFileCount", projectFiles.yyFiles.length);
+    metrics.reporting.setMetadata("gmlFileCount", projectFiles.gmlFiles.length);
 
     return projectFiles;
 }
@@ -2264,7 +2266,7 @@ async function analyseProjectResourcesForIndex({
     signal,
     ensureNotAborted
 }) {
-    const resourceAnalysis = await metrics.timeAsync(
+    const resourceAnalysis = await metrics.timers.timeAsync(
         "analyseResourceFiles",
         () =>
             analyseResourceFiles({
@@ -2276,7 +2278,7 @@ async function analyseProjectResourcesForIndex({
     );
     ensureNotAborted();
 
-    metrics.incrementCounter(
+    metrics.counters.increment(
         "resources.total",
         resourceAnalysis.resourcesMap.size
     );
@@ -2289,7 +2291,7 @@ function configureGmlProcessing({ options, metrics }) {
     const gmlConcurrency = clampConcurrency(
         concurrencySettings.gml ?? concurrencySettings.gmlParsing
     );
-    metrics.setMetadata("gmlParseConcurrency", gmlConcurrency);
+    metrics.reporting.setMetadata("gmlParseConcurrency", gmlConcurrency);
 
     const parseProjectSource = resolveProjectIndexParser(options);
 
@@ -2363,7 +2365,7 @@ export async function buildProjectIndex(
         logMetrics: options?.logMetrics
     });
 
-    const stopTotal = metrics.startTimer("total");
+    const stopTotal = metrics.timers.startTimer("total");
 
     const { signal, ensureNotAborted } = createProjectIndexAbortGuard(options);
 
