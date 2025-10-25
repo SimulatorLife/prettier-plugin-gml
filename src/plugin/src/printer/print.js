@@ -1792,7 +1792,7 @@ function printCommaSeparatedList(
 // Force statement-shaped children into explicit `{}` blocks so every call site
 // that relies on this helper inherits the same guard rails. The printer uses it
 // for `if`, loop, and struct bodies where we always emit braces regardless of
-// how the source was written. Centralising the wrapping ensures semicolon
+// how the source was written. Centralizing the wrapping ensures semicolon
 // bookkeeping stays wired through `optionalSemicolon`, keeps synthetic doc
 // comments anchored to the block node they describe, and prevents individual
 // callers from drifting in how they indent or collapse single-statement bodies.
