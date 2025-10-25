@@ -1,6 +1,7 @@
 import {
     toNormalizedLowerCaseSet,
-    normalizeIdentifierMetadataEntries
+    normalizeIdentifierMetadataEntries,
+    isObjectLike
 } from "../shared/index.js";
 import {
     GML_IDENTIFIER_METADATA_PATH,
@@ -15,7 +16,7 @@ let metadataLoader = defaultLoadIdentifierMetadata;
 function defaultLoadIdentifierMetadata() {
     try {
         const metadata = loadBundledIdentifierMetadata();
-        return metadata && typeof metadata === "object" ? metadata : null;
+        return isObjectLike(metadata) ? metadata : null;
     } catch {
         return null;
     }
@@ -24,7 +25,7 @@ function defaultLoadIdentifierMetadata() {
 function loadIdentifierMetadata() {
     try {
         const metadata = metadataLoader();
-        return metadata && typeof metadata === "object" ? metadata : null;
+        return isObjectLike(metadata) ? metadata : null;
     } catch {
         return null;
     }
