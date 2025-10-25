@@ -11,6 +11,7 @@ import {
     normalizeStringList,
     toNormalizedLowerCaseString
 } from "../shared/string-utils.js";
+import { hasOwn, isObjectLike } from "../shared/object-utils.js";
 
 const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
     ["array_length", "len"],
@@ -26,16 +27,12 @@ const LOOP_SIZE_SUFFIX_CACHE = Symbol.for(
 
 const SIZE_SUFFIX_CACHE = new WeakMap();
 
-function isCacheableOptions(options) {
-    return typeof options === "object" && options !== null;
-}
-
 function readCachedSuffixes(options) {
-    if (!isCacheableOptions(options)) {
+    if (!isObjectLike(options)) {
         return null;
     }
 
-    if (Object.hasOwn(options, LOOP_SIZE_SUFFIX_CACHE)) {
+    if (hasOwn(options, LOOP_SIZE_SUFFIX_CACHE)) {
         return options[LOOP_SIZE_SUFFIX_CACHE];
     }
 
@@ -47,7 +44,7 @@ function readCachedSuffixes(options) {
 }
 
 function cacheSuffixes(options, suffixes) {
-    if (!isCacheableOptions(options)) {
+    if (!isObjectLike(options)) {
         return;
     }
 
@@ -70,7 +67,7 @@ function cacheSuffixes(options, suffixes) {
 
 function createSizeSuffixMap(options) {
     const overrides = parseSizeRetrievalFunctionSuffixOverrides(
-        isCacheableOptions(options)
+        isObjectLike(options)
             ? options.loopLengthHoistFunctionSuffixes
             : undefined
     );
