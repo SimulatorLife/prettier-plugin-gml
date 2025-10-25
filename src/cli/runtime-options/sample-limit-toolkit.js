@@ -45,3 +45,27 @@ export function createSampleLimitToolkit({
         defaultValueOption
     });
 }
+
+/**
+ * Convenience wrapper that applies the environment override during
+ * initialization so modules no longer need to duplicate the
+ * "create, destructure, and immediately invoke" ceremony. The helper also
+ * retains the `applyEnvOverride` method so callers can opt into custom
+ * environment maps while defaulting to the initially provided `env`.
+ *
+ * @param {Parameters<typeof createSampleLimitToolkit>[0]} parameters
+ * @param {{ env?: NodeJS.ProcessEnv | null | undefined }} [options]
+ * @returns {ReturnType<typeof createSampleLimitToolkit>}
+ */
+export function createInitializedSampleLimitToolkit(parameters, { env } = {}) {
+    const toolkit = createSampleLimitToolkit(parameters);
+    const applyEnvOverride = (overrideEnv = env) =>
+        toolkit.applyEnvOverride(overrideEnv);
+    applyEnvOverride();
+    const initializedToolkit = {
+        ...toolkit,
+        applyEnvOverride
+    };
+
+    return initializedToolkit;
+}
