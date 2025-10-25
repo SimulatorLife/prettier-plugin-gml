@@ -9,6 +9,7 @@ import GMLParser from "gamemaker-language-parser";
 
 import { applyStandardCommandOptions } from "../../core/command-standard-options.js";
 import { createCliErrorDetails } from "../../core/errors.js";
+import { wrapInvalidArgumentResolver } from "../../core/command-parsing.js";
 import { resolvePluginEntryPoint } from "../../plugin/entry-point.js";
 import { formatByteSize } from "../../shared/byte-format.js";
 import {
@@ -24,6 +25,7 @@ import {
     coercePositiveInteger,
     isFiniteNumber,
     getIdentifierText,
+    resolveIntegerOption,
     toNormalizedInteger,
     stringifyJsonForFile,
     resolveModuleDefaultExport
@@ -301,15 +303,21 @@ async function resolveDatasetFromOptions(options = {}) {
     return dataset;
 }
 
-function resolveIterationCount(value) {
-    if (value === undefined || value === null) {
-        return 1;
-    }
+const formatIterationErrorMessage = (received) =>
+    `Iterations must be a positive integer (received ${received}).`;
 
-    return coercePositiveInteger(value, {
-        createErrorMessage: (received) =>
-            `Iterations must be a positive integer (received ${received}).`
+function resolveIterationCount(value) {
+    const normalized = resolveIntegerOption(value, {
+        defaultValue: 1,
+        blankStringReturnsDefault: false,
+        coerce: (numericValue, context) =>
+            coercePositiveInteger(numericValue, {
+                ...context,
+                createErrorMessage: formatIterationErrorMessage
+            })
     });
+
+    return normalized ?? 1;
 }
 
 function createSkipResult(reason) {
@@ -559,11 +567,9 @@ export function createPerformanceCommand() {
         .option(
             "-i, --iterations <count>",
             "Repeat each suite this many times (default: 1).",
-            (value) =>
-                coercePositiveInteger(value, {
-                    createErrorMessage: (received) =>
-                        `Iterations must be a positive integer (received ${received}).`
-                }),
+            wrapInvalidArgumentResolver((value) =>
+                resolveIterationCount(value)
+            ),
             1
         )
         .option(
