@@ -72,11 +72,11 @@ function normalizeDownloadLabel(label) {
 
 const noop = () => {};
 
-const IDLE_DOWNLOAD_REPORTER = (() => {
-    const reporter = () => {};
-    reporter.cleanup = noop;
-    return reporter;
-})();
+function createReporter(handler, cleanup = noop) {
+    return Object.assign(handler, { cleanup });
+}
+
+const IDLE_DOWNLOAD_REPORTER = createReporter(noop);
 
 function createProgressDownloadReporter({ label, progressBarWidth, render }) {
     const normalizedLabel = normalizeDownloadLabel(label);
@@ -86,33 +86,34 @@ function createProgressDownloadReporter({ label, progressBarWidth, render }) {
 
     let cleanedUp = false;
 
-    const reporter = ({ fetchedCount, totalEntries }) => {
-        progressRenderer(normalizedLabel, fetchedCount, totalEntries, width);
-    };
+    return createReporter(
+        ({ fetchedCount, totalEntries }) => {
+            progressRenderer(
+                normalizedLabel,
+                fetchedCount,
+                totalEntries,
+                width
+            );
+        },
+        () => {
+            if (cleanedUp) {
+                return;
+            }
 
-    reporter.cleanup = () => {
-        if (cleanedUp) {
-            return;
+            cleanedUp = true;
+            disposeProgressBars();
         }
-
-        cleanedUp = true;
-        disposeProgressBars();
-    };
-
-    return reporter;
+    );
 }
 
 function createLoggingDownloadReporter(formatPath) {
     const normalizePath =
         typeof formatPath === "function" ? formatPath : (path) => path;
 
-    const reporter = ({ path }) => {
+    return createReporter(({ path }) => {
         const displayPath = normalizePath(path);
         console.log(displayPath ? `✓ ${displayPath}` : "✓");
-    };
-
-    reporter.cleanup = noop;
-    return reporter;
+    });
 }
 
 /**
