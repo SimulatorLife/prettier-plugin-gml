@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-    getDocCommentManager,
     resolveDocCommentTraversalService,
     resolveDocCommentLookupService,
     resolveDocCommentDescriptionService,
@@ -12,7 +11,6 @@ import {
 test("doc comment services expose segregated contracts", () => {
     const ast = { type: "Program", body: [] };
 
-    const manager = getDocCommentManager(ast);
     const traversal = resolveDocCommentTraversalService(ast);
     const lookup = resolveDocCommentLookupService(ast);
     const descriptions = resolveDocCommentDescriptionService(ast);
@@ -31,28 +29,11 @@ test("doc comment services expose segregated contracts", () => {
     assert.deepStrictEqual(Object.keys(descriptions), ["extractDescription"]);
     assert.deepStrictEqual(Object.keys(updates), ["applyUpdates"]);
 
-    assert.ok(
-        traversal.forEach.name.endsWith(manager.forEach.name),
-        "forEach binding should preserve original function name"
-    );
-    assert.ok(
-        lookup.getComments.name.endsWith(manager.getComments.name),
-        "getComments binding should preserve original function name"
-    );
-    assert.ok(
-        descriptions.extractDescription.name.endsWith(
-            manager.extractDescription.name
-        ),
-        "extractDescription binding should preserve original function name"
-    );
-    assert.ok(
-        lookup.hasDocComment.name.endsWith(manager.hasDocComment.name),
-        "hasDocComment binding should preserve original function name"
-    );
-    assert.ok(
-        updates.applyUpdates.name.endsWith(manager.applyUpdates.name),
-        "applyUpdates binding should preserve original function name"
-    );
+    assert.strictEqual(typeof traversal.forEach, "function");
+    assert.strictEqual(typeof lookup.getComments, "function");
+    assert.strictEqual(typeof lookup.hasDocComment, "function");
+    assert.strictEqual(typeof descriptions.extractDescription, "function");
+    assert.strictEqual(typeof updates.applyUpdates, "function");
 });
 
 test("doc comment services reuse cached views and tolerate missing AST", () => {
