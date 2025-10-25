@@ -4994,6 +4994,14 @@ function computeSyntheticFunctionDocLines(
         const docName =
             (shouldMarkOptional && `[${baseDocName}]`) || baseDocName;
 
+        const normalizedExistingType = normalizeParamDocType(
+            existingMetadata?.type
+        );
+        const normalizedOrdinalType = normalizeParamDocType(
+            ordinalMetadata?.type
+        );
+        const docType = normalizedExistingType ?? normalizedOrdinalType;
+
         if (documentedParamNames.has(docName)) {
             if (implicitDocEntry?.name) {
                 documentedParamNames.add(implicitDocEntry.name);
@@ -5004,7 +5012,9 @@ function computeSyntheticFunctionDocLines(
         if (implicitDocEntry?.name) {
             documentedParamNames.add(implicitDocEntry.name);
         }
-        lines.push(`/// @param ${docName}`);
+
+        const typePrefix = docType ? `{${docType}} ` : "";
+        lines.push(`/// @param ${typePrefix}${docName}`);
     }
 
     for (const entry of implicitArgumentDocNames) {
@@ -5035,6 +5045,15 @@ function computeSyntheticFunctionDocLines(
     return maybeAppendReturnsDoc(lines, node, hasReturnsTag, overrides).map(
         (line) => normalizeDocCommentTypeAnnotations(line)
     );
+}
+
+function normalizeParamDocType(typeText) {
+    if (typeof typeText !== "string") {
+        return null;
+    }
+
+    const trimmed = typeText.trim();
+    return trimmed.length > 0 ? trimmed : null;
 }
 
 function collectImplicitArgumentDocNames(functionNode, options) {
@@ -5334,11 +5353,13 @@ function parseDocCommentMetadata(line) {
 
     if (tag === "param") {
         let paramSection = remainder;
+        let type = null;
 
         if (paramSection.startsWith("{")) {
-            const typeMatch = paramSection.match(/^\{[^}]*\}\s*(.*)$/);
+            const typeMatch = paramSection.match(/^\{([^}]*)\}\s*(.*)$/);
             if (typeMatch) {
-                paramSection = typeMatch[1] ?? "";
+                type = typeMatch[1]?.trim() ?? null;
+                paramSection = typeMatch[2] ?? "";
             }
         }
 
@@ -5366,7 +5387,12 @@ function parseDocCommentMetadata(line) {
         if (typeof name === "string") {
             name = normalizeOptionalParamNameToken(name);
         }
-        return { tag, name };
+
+        return {
+            tag,
+            name,
+            type: type ?? null
+        };
     }
 
     return { tag, name: remainder };
