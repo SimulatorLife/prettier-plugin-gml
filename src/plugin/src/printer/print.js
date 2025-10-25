@@ -2446,13 +2446,14 @@ function printStatements(path, options, print, childrenAttribute) {
                 if (enforceTrailingPadding) {
                     // Large statements such as nested function declarations and
                     // constructor bodies should remain visually separated from
-                    // the closing brace even when the original source omitted
-                    // the blank line. Relying solely on the input text caused
-                    // regressions where the formatter collapsed this padding
-                    // altogether. When spacing is mandated by the node type,
-                    // always request a trailing hardline so the doc output
-                    // restores the expected empty line.
-                    shouldPreserveTrailingBlankLine = true;
+                    // the closing brace. When padding is mandated by the node
+                    // type we still respect explicitly authored spacing, but we
+                    // guarantee a separator for nested function declarations so
+                    // their closing braces do not collapse into the parent.
+                    shouldPreserveTrailingBlankLine =
+                        node?.type === "FunctionDeclaration"
+                            ? true
+                            : hasExplicitTrailingBlankLine;
                 } else if (
                     shouldPreserveConstructorStaticPadding &&
                     hasExplicitTrailingBlankLine
