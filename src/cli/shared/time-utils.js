@@ -24,7 +24,8 @@ export function formatDuration(startTime, now = Date.now) {
  * @param {{
  *   verbose?: { parsing?: boolean },
  *   formatMessage?: string | ((duration: string) => string),
- *   now?: () => number
+ *   now?: () => number,
+ *   logger?: { log?: (message: string) => void }
  * }} [options]
  * @returns {() => void} A function that logs the elapsed duration when invoked.
  */
@@ -60,8 +61,12 @@ export function createVerboseDurationLogger({
  * @template T
  * @param {string} label Human-readable description of the work being timed.
  * @param {() => T} callback Operation to execute.
- * @param {{ verbose?: { parsing?: boolean }, now?: () => number }} [options]
- *   Optional CLI verbose flags and clock override.
+ * @param {{
+ *   verbose?: { parsing?: boolean },
+ *   now?: () => number,
+ *   logger?: { log?: (message: string) => void }
+ * }} [options]
+ *   Optional CLI verbose flags, clock override, and logger replacement.
  * @returns {T} Whatever the callback returns.
  */
 export function timeSync(
