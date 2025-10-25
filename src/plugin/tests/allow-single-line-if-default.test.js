@@ -25,3 +25,30 @@ test("expands single-line if statements by default", async () => {
         ["if (global.debug) {", "    exit;", "}", ""].join("\n")
     );
 });
+
+test("preserves compact return guards inside functions when disabled", async () => {
+    const source = [
+        "function guard_example() {",
+        "    if (global.debug) return;",
+        "    return 1;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        allowSingleLineIfStatements: false
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function guard_example",
+            "function guard_example() {",
+            "    if (global.debug) { return; }",
+            "    return 1;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});

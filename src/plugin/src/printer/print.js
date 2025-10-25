@@ -6916,6 +6916,54 @@ function buildClauseGroup(doc) {
     return group([indent([ifBreak(line), doc]), ifBreak(line)]);
 }
 
+const INLINEABLE_SINGLE_STATEMENT_TYPES = new Set([
+    "ReturnStatement",
+    "ExitStatement"
+]);
+
+function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
+    if (
+        !path ||
+        typeof path.getValue !== "function" ||
+        typeof path.getParentNode !== "function"
+    ) {
+        return false;
+    }
+
+    const node = path.getValue();
+    if (!node || node.type !== "IfStatement") {
+        return false;
+    }
+
+    if (node.alternate) {
+        return false;
+    }
+
+    if (!INLINEABLE_SINGLE_STATEMENT_TYPES.has(bodyNode?.type)) {
+        return false;
+    }
+
+    if (hasComment(bodyNode)) {
+        return false;
+    }
+
+    const parentNode = path.getParentNode();
+    if (!parentNode || parentNode.type === "Program") {
+        return false;
+    }
+
+    if (!findEnclosingFunctionForPath(path)) {
+        return false;
+    }
+
+    const statementSource = getSourceTextForNode(node, options);
+    if (typeof statementSource === "string" && (statementSource.includes("\n") || statementSource.includes("\r"))) {
+            return false;
+        }
+
+    return true;
+}
+
 function wrapInClauseParens(path, print, clauseKey) {
     const clauseNode = path.getValue()?.[clauseKey];
     const clauseDoc = printWithoutExtraParens(path, print, clauseKey);
@@ -6952,13 +7000,20 @@ function printSingleClauseStatement(
         clauseExpressionNode?.type === "CallExpression" &&
         clauseExpressionNode.preserveOriginalCallText === true;
 
-    if (allowSingleLineIfStatements && bodyNode && !clauseIsPreservedCall) {
+    const allowCollapsedGuard =
+        bodyNode &&
+        !clauseIsPreservedCall &&
+        (allowSingleLineIfStatements ||
+            shouldInlineGuardWhenDisabled(path, options, bodyNode));
+
+    if (allowCollapsedGuard) {
         let inlineReturnDoc = null;
         let inlineStatementType = null;
 
-        const inlineableTypes = new Set(["ReturnStatement", "ExitStatement"]);
-
-        if (inlineableTypes.has(bodyNode.type) && !hasComment(bodyNode)) {
+        if (
+            INLINEABLE_SINGLE_STATEMENT_TYPES.has(bodyNode.type) &&
+            !hasComment(bodyNode)
+        ) {
             inlineReturnDoc = print(bodyKey);
             inlineStatementType = bodyNode.type;
         } else if (
@@ -6970,7 +7025,7 @@ function printSingleClauseStatement(
             const [onlyStatement] = bodyNode.body;
             if (
                 onlyStatement &&
-                inlineableTypes.has(onlyStatement.type) &&
+                INLINEABLE_SINGLE_STATEMENT_TYPES.has(onlyStatement.type) &&
                 !hasComment(onlyStatement)
             ) {
                 const startLine = bodyNode.start?.line;
