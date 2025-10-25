@@ -6048,7 +6048,7 @@ function findSiblingListAndIndex(parent, targetNode) {
         return null;
     }
 
-    // Iterate using `for...in` to preserve the original hot-path optimisation
+    // Iterate using `for...in` to preserve the original hot-path optimization
     // while keeping the scan readable and short-circuiting as soon as the node
     // is located.
     for (const key in parent) {
@@ -6950,9 +6950,12 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
     }
 
     const statementSource = getSourceTextForNode(node, options);
-    if (typeof statementSource === "string" && (statementSource.includes("\n") || statementSource.includes("\r"))) {
-            return false;
-        }
+    if (
+        typeof statementSource === "string" &&
+        (statementSource.includes("\n") || statementSource.includes("\r"))
+    ) {
+        return false;
+    }
 
     return true;
 }
