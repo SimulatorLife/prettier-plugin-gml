@@ -92,6 +92,10 @@ function extractErrorDetails(error) {
     return normalized.length > 0 ? normalized : "Unknown error";
 }
 
+function isObject(value) {
+    return value !== null && typeof value === "object";
+}
+
 /**
  * Parse a JSON payload while annotating any failures with high-level context.
  *
@@ -166,18 +170,21 @@ export function parseJsonObjectWithContext(text, options = {}) {
         reviver
     });
 
-    const dynamicOptions =
+    const staticOptions = isObject(assertOptions) ? assertOptions : undefined;
+    const runtimeOptions =
         typeof createAssertOptions === "function"
             ? createAssertOptions(payload)
-            : null;
-
-    const optionSources = [assertOptions, dynamicOptions].filter(
-        (value) => value && typeof value === "object"
-    );
+            : undefined;
+    const normalizedRuntimeOptions = isObject(runtimeOptions)
+        ? runtimeOptions
+        : undefined;
 
     const mergedOptions =
-        optionSources.length > 0
-            ? Object.assign({}, ...optionSources)
+        staticOptions || normalizedRuntimeOptions
+            ? {
+                  ...staticOptions,
+                  ...normalizedRuntimeOptions
+              }
             : undefined;
 
     return assertPlainObject(payload, mergedOptions);
