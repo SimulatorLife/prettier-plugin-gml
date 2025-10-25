@@ -13,18 +13,15 @@ import {
 import { CliUsageError } from "../core/errors.js";
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import { timeSync, createVerboseDurationLogger } from "../shared/time-utils.js";
-import {
-    disposeProgressBars,
-    withProgressBarCleanup
-} from "../shared/progress-bar.js";
+import { disposeProgressBars } from "../shared/progress-bar.js";
 import { writeManualJsonArtifact } from "../features/manual/file-helpers.js";
 import {
     MANUAL_CACHE_ROOT_ENV_VAR,
     DEFAULT_MANUAL_REPO,
     MANUAL_REPO_ENV_VAR,
+    announceManualDownloadStart,
     buildManualRepositoryEndpoints,
-    createManualDownloadReporter,
-    downloadManualFileEntries
+    downloadManualEntriesWithProgress
 } from "../features/manual/utils.js";
 import {
     MANUAL_REF_ENV_VAR,
@@ -1033,49 +1030,30 @@ async function fetchFeatherManualPayloads({
     rawRoot,
     progressBarWidth
 }) {
-    return withProgressBarCleanup(async () => {
-        const manualEntries = Object.entries(FEATHER_PAGES);
-        const totalManualPages = manualEntries.length;
+    const manualEntries = Object.entries(FEATHER_PAGES);
+    const totalManualPages = manualEntries.length;
 
-        announceManualDownloadStart(totalManualPages, verbose);
+    announceManualDownloadStart(totalManualPages, {
+        verbose,
+        description: "manual page"
+    });
 
-        const reportProgress = createManualDownloadReporter({
+    return downloadManualEntriesWithProgress({
+        entries: manualEntries,
+        manualRefSha: manualRef.sha,
+        fetchManualFile: fetchManualFileFn,
+        requestOptions: {
+            forceRefresh,
+            verbose,
+            cacheRoot,
+            rawRoot
+        },
+        progress: {
             label: "Downloading manual pages",
             verbose,
             progressBarWidth
-        });
-
-        return downloadManualFileEntries({
-            entries: manualEntries,
-            manualRefSha: manualRef.sha,
-            fetchManualFile: fetchManualFileFn,
-            requestOptions: {
-                forceRefresh,
-                verbose,
-                cacheRoot,
-                rawRoot
-            },
-            onProgress: ({ path, fetchedCount, totalEntries }) =>
-                reportProgress({
-                    path,
-                    fetchedCount,
-                    totalEntries
-                }),
-            onProgressCleanup: reportProgress.cleanup
-        });
+        }
     });
-}
-
-function announceManualDownloadStart(totalManualPages, verbose) {
-    if (!verbose?.downloads) {
-        return;
-    }
-
-    console.log(
-        `Fetching ${totalManualPages} manual page${
-            totalManualPages === 1 ? "" : "s"
-        }…`
-    );
 }
 
 /**

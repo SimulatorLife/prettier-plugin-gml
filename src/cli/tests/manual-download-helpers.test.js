@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it, mock } from "node:test";
 
 import {
+    announceManualDownloadStart,
     createManualDownloadReporter,
+    downloadManualEntriesWithProgress,
     downloadManualFileEntries
 } from "../features/manual/utils.js";
 import {
@@ -59,6 +61,41 @@ describe("manual download helpers", () => {
                 totalEntries: 2
             }
         ]);
+    });
+
+    it("downloads manual entries with the shared progress helper", async () => {
+        const logCalls = [];
+        const restoreLog = mock.method(console, "log", (...args) => {
+            logCalls.push(args.join(" "));
+        });
+
+        try {
+            const payloads = await downloadManualEntriesWithProgress({
+                entries: [
+                    ["keywords", "Manual/keywords.json"],
+                    ["tags", "Manual/tags.json"]
+                ],
+                manualRefSha: "abc123",
+                fetchManualFile: async (sha, filePath) => `${sha}:${filePath}`,
+                requestOptions: { forceRefresh: true },
+                progress: {
+                    label: "Downloading manual assets",
+                    verbose: { downloads: true, progressBar: false },
+                    formatPath: (path) => path.toUpperCase()
+                }
+            });
+
+            assert.deepEqual(payloads, {
+                keywords: "abc123:Manual/keywords.json",
+                tags: "abc123:Manual/tags.json"
+            });
+            assert.deepEqual(logCalls, [
+                "✓ MANUAL/KEYWORDS.JSON",
+                "✓ MANUAL/TAGS.JSON"
+            ]);
+        } finally {
+            restoreLog.mock.restore();
+        }
     });
 
     it("renders progress bars when verbose progress output is enabled", () => {
@@ -210,5 +247,34 @@ describe("manual download helpers", () => {
 
         assert.equal(stopMock.mock.callCount(), 1);
         report.cleanup();
+    });
+
+    it("announces manual download activity using the shared helper", () => {
+        const logCalls = [];
+        const restoreLog = mock.method(console, "log", (...args) => {
+            logCalls.push(args.join(" "));
+        });
+
+        try {
+            announceManualDownloadStart(1, {
+                verbose: { downloads: true },
+                description: "manual asset"
+            });
+            announceManualDownloadStart(3, {
+                verbose: { downloads: true },
+                description: "manual page"
+            });
+            announceManualDownloadStart(2, {
+                verbose: { downloads: false },
+                description: "manual file"
+            });
+
+            assert.deepEqual(logCalls, [
+                "Fetching 1 manual asset…",
+                "Fetching 3 manual pages…"
+            ]);
+        } finally {
+            restoreLog.mock.restore();
+        }
     });
 });
