@@ -844,6 +844,59 @@ function emitReport(report, options) {
     printHumanReadable(report);
 }
 
+function clearDatasetCache(cache) {
+    if (cache && typeof cache.clear === "function") {
+        cache.clear();
+    }
+}
+
+async function executeWithDatasetCleanup(runnerOptions, task) {
+    try {
+        return await task();
+    } finally {
+        clearDatasetCache(runnerOptions?.datasetCache);
+    }
+}
+
+async function collectPerformanceSuiteResults({
+    requestedSuites,
+    runnerOptions
+}) {
+    return executeWithDatasetCleanup(runnerOptions, () =>
+        collectSuiteResults({
+            suiteNames: requestedSuites,
+            availableSuites: AVAILABLE_SUITES,
+            runnerOptions,
+            onError: (error) => ({ error: formatErrorDetails(error) })
+        })
+    );
+}
+
+function createPerformanceReportPayload(suiteResults) {
+    return {
+        generatedAt: new Date().toISOString(),
+        suites: suiteResults
+    };
+}
+
+function logReportDestination(reportResult, { stdout }) {
+    if (!reportResult?.path) {
+        return;
+    }
+
+    const displayPath = formatReportFilePath(reportResult.path);
+    const log = stdout ? console.error : console.log;
+    log(`Performance report written to ${displayPath}.`);
+}
+
+function emitReportIfRequested(report, options) {
+    if (!options.stdout) {
+        return;
+    }
+
+    emitReport(report, options);
+}
+
 export async function runPerformanceCommand({ command } = {}) {
     const options = command?.opts?.() ?? {};
 
@@ -851,35 +904,16 @@ export async function runPerformanceCommand({ command } = {}) {
     ensureSuitesAreKnown(requestedSuites, AVAILABLE_SUITES, command);
 
     const runnerOptions = createSuiteExecutionOptions(options);
+    const suiteResults = await collectPerformanceSuiteResults({
+        requestedSuites,
+        runnerOptions
+    });
 
-    let suiteResults;
-    try {
-        suiteResults = await collectSuiteResults({
-            suiteNames: requestedSuites,
-            availableSuites: AVAILABLE_SUITES,
-            runnerOptions,
-            onError: (error) => ({ error: formatErrorDetails(error) })
-        });
-    } finally {
-        runnerOptions.datasetCache.clear();
-    }
-
-    const report = {
-        generatedAt: new Date().toISOString(),
-        suites: suiteResults
-    };
-
+    const report = createPerformanceReportPayload(suiteResults);
     const reportResult = await writeReport(report, options);
 
-    if (reportResult?.path) {
-        const displayPath = formatReportFilePath(reportResult.path);
-        const log = options.stdout ? console.error : console.log;
-        log(`Performance report written to ${displayPath}.`);
-    }
-
-    if (options.stdout) {
-        emitReport(report, options);
-    }
+    logReportDestination(reportResult, options);
+    emitReportIfRequested(report, options);
 
     return 0;
 }
