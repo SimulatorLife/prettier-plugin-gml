@@ -1,7 +1,4 @@
-import {
-    assertFunction,
-    assertPlainObject
-} from "../../../shared/object-utils.js";
+import { assertFunction, assertPlainObject } from "../shared/object-utils.js";
 import { createDefaultGmlPluginComponentDependencies } from "./default-plugin-component-dependencies.js";
 
 const REQUIRED_DEPENDENCY_NAMES = Object.freeze([

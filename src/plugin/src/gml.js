@@ -12,7 +12,6 @@ function selectPluginComponents() {
 }
 
 function createReadOnlyView(selector, description) {
-    const base = Object.create(null);
     const readOnlyError = new TypeError(
         `${description} cannot be modified once resolved.`
     );
@@ -26,26 +25,25 @@ function createReadOnlyView(selector, description) {
         throw new TypeError(`${description} must resolve to an object.`);
     };
 
-    const throwReadOnlyError = () => {
+    const guardMutation = () => {
         throw readOnlyError;
     };
 
-    const forward =
-        (method) =>
-        (_target, ...args) =>
-            Reflect[method](ensureSource(), ...args);
-
-    return new Proxy(base, {
-        get: (_target, property, receiver) => {
+    return new Proxy(Object.create(null), {
+        get(_target, property, receiver) {
             if (property === Symbol.toStringTag) {
                 return "Object";
             }
 
             return Reflect.get(ensureSource(), property, receiver);
         },
-        has: forward("has"),
-        ownKeys: forward("ownKeys"),
-        getOwnPropertyDescriptor: (_target, property) => {
+        has(_target, property) {
+            return Reflect.has(ensureSource(), property);
+        },
+        ownKeys() {
+            return Reflect.ownKeys(ensureSource());
+        },
+        getOwnPropertyDescriptor(_target, property) {
             const descriptor = Reflect.getOwnPropertyDescriptor(
                 ensureSource(),
                 property
@@ -55,20 +53,24 @@ function createReadOnlyView(selector, description) {
                 return;
             }
 
+            const enumerable =
+                descriptor.enumerable === undefined
+                    ? true
+                    : descriptor.enumerable;
+
             return {
                 configurable: true,
-                enumerable:
-                    descriptor.enumerable === undefined
-                        ? true
-                        : descriptor.enumerable,
+                enumerable,
                 value: descriptor.value,
                 writable: false
             };
         },
-        getPrototypeOf: () => Object.prototype,
-        set: throwReadOnlyError,
-        defineProperty: throwReadOnlyError,
-        deleteProperty: throwReadOnlyError
+        getPrototypeOf() {
+            return Object.prototype;
+        },
+        set: guardMutation,
+        defineProperty: guardMutation,
+        deleteProperty: guardMutation
     });
 }
 

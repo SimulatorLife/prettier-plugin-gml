@@ -7,6 +7,7 @@ import {
     getNonEmptyTrimmedString,
     isNonEmptyArray,
     isNonEmptyString,
+    resolveCommandUsage,
     toNormalizedLowerCaseSet
 } from "../shared/dependencies.js";
 import { CliUsageError } from "../core/errors.js";
@@ -105,7 +106,7 @@ export function createFeatherMetadataCommand({ env = process.env } = {}) {
     applyManualEnvOptionOverrides({
         command,
         env,
-        getUsage: () => command.helpInformation()
+        getUsage: resolveCommandUsage(command)
     });
 
     return command;

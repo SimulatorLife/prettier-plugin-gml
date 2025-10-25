@@ -1,10 +1,11 @@
 export {
     applyEnvironmentOverride,
     assertArray,
-    appendToCollection,
+    asArray,
     assertFunction,
     assertNonEmptyString,
     assertPlainObject,
+    resolveFunction,
     hasOwn,
     identity,
     coerceNonNegativeInteger,
@@ -15,7 +16,9 @@ export {
     getErrorMessage,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
+    isMissingModuleDependency,
     getOrCreateMapEntry,
+    incrementMapValue,
     isFiniteNumber,
     isNonEmptyArray,
     isNonEmptyString,
@@ -39,6 +42,10 @@ export {
     toTrimmedString
 } from "../../shared/utils.js";
 
+export { resolveCommandUsage } from "./command-usage.js";
+
+export { appendToCollection } from "../core/collection-utils.js";
+
 export { createAbortGuard } from "../../shared/abort-utils.js";
 
 export { normalizeStringList } from "../../shared/utils/string.js";
@@ -56,7 +63,8 @@ export { getIdentifierText } from "../../shared/ast.js";
 
 export {
     isAggregateErrorLike,
-    isErrorLike
+    isErrorLike,
+    ensureMap
 } from "../../shared/utils/capability-probes.js";
 
 export {

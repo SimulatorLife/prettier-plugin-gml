@@ -4,7 +4,7 @@ import {
     clearIdentifierCaseOptionStore,
     clearIdentifierCaseDryRunContexts
 } from "prettier-plugin-gamemaker/identifier-case";
-import { assertFunction } from "../../shared/dependencies.js";
+import { assertFunction } from "../shared/dependencies.js";
 
 /**
  * The legacy `identifierCasePlanService` facade coupled plan preparation with

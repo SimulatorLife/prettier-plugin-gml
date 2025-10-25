@@ -1,8 +1,9 @@
 import { constants as fsConstants } from "node:fs";
 
-import { isNonEmptyArray } from "../../../shared/array-utils.js";
-import { escapeRegExp } from "../../../shared/regexp.js";
-import { isNonEmptyString } from "../../../shared/string-utils.js";
+import { isNonEmptyArray } from "../shared/array-utils.js";
+import { escapeRegExp } from "../shared/regexp.js";
+import { isNonEmptyString } from "../shared/string-utils.js";
+import { incrementMapValue } from "../shared/object-utils.js";
 
 export const COLLISION_CONFLICT_CODE = "collision";
 export const PRESERVE_CONFLICT_CODE = "preserve";
@@ -172,7 +173,7 @@ export function incrementFileOccurrence(counts, filePath, fallbackPath) {
         return false;
     }
 
-    counts.set(key, (counts.get(key) ?? 0) + 1);
+    incrementMapValue(counts, key);
     return true;
 }
 
