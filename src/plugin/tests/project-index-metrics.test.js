@@ -57,43 +57,51 @@ class TestMetricsTracker {
 
     finalizeCalls = 0;
 
-    startTimer() {
-        this.startTimerCalls += 1;
-        return () => {};
-    }
-
-    async timeAsync(_label, callback) {
-        return await callback();
-    }
-
-    timeSync(_label, callback) {
-        return callback();
-    }
-
-    incrementCounter() {}
-
-    setMetadata() {}
-
-    recordCacheHit() {}
-
-    recordCacheMiss() {}
-
-    recordCacheStale() {}
-
-    finalize(extra = {}) {
-        this.finalizeCalls += 1;
-        return {
-            category: "custom-metrics",
-            totalTimeMs: 0,
-            timings: {},
-            counters: {},
-            caches: {},
-            metadata: { provided: true },
-            ...extra
+    constructor() {
+        this.timers = {
+            startTimer: () => {
+                this.startTimerCalls += 1;
+                return () => {};
+            },
+            timeAsync: async (_label, callback) => await callback(),
+            timeSync: (_label, callback) => callback()
+        };
+        this.counters = {
+            increment() {}
+        };
+        this.caches = {
+            recordHit() {},
+            recordMiss() {},
+            recordStale() {},
+            recordMetric() {}
+        };
+        this.reporting = {
+            snapshot: (extra = {}) => ({
+                category: this.category,
+                totalTimeMs: 0,
+                timings: {},
+                counters: {},
+                caches: {},
+                metadata: { provided: true },
+                ...extra
+            }),
+            finalize: (extra = {}) => {
+                this.finalizeCalls += 1;
+                return {
+                    category: this.category,
+                    totalTimeMs: 0,
+                    timings: {},
+                    counters: {},
+                    caches: {},
+                    metadata: { provided: true },
+                    ...extra
+                };
+            },
+            setMetadata() {},
+            logSummary() {}
         };
     }
-
-    logSummary() {}
+    category = "custom-metrics";
 }
 
 test("buildProjectIndex falls back to a noop metrics tracker when override is invalid", async () => {
@@ -151,9 +159,9 @@ test("createMetricsTracker trims and deduplicates configured cache keys", () => 
         ])
     });
 
-    tracker.recordCacheMetric("demo", "custom", 0);
+    tracker.caches.recordMetric("demo", "custom", 0);
 
-    assert.deepEqual(tracker.snapshot().caches.demo, {
+    assert.deepEqual(tracker.reporting.snapshot().caches.demo, {
         hits: 0,
         Misses: 0,
         custom: 0,
@@ -164,9 +172,9 @@ test("createMetricsTracker trims and deduplicates configured cache keys", () => 
 test("createMetricsTracker falls back to default cache keys when normalization is empty", () => {
     const tracker = createMetricsTracker({ cacheKeys: [null, "   "] });
 
-    tracker.recordCacheMetric("demo", "custom", 0);
+    tracker.caches.recordMetric("demo", "custom", 0);
 
-    assert.deepEqual(tracker.snapshot().caches.demo, {
+    assert.deepEqual(tracker.reporting.snapshot().caches.demo, {
         hits: 0,
         misses: 0,
         stale: 0,
@@ -177,9 +185,9 @@ test("createMetricsTracker falls back to default cache keys when normalization i
 test("createMetricsTracker falls back to default cache keys when option is invalid", () => {
     const tracker = createMetricsTracker({ cacheKeys: 42 });
 
-    tracker.recordCacheMetric("demo", "custom", 0);
+    tracker.caches.recordMetric("demo", "custom", 0);
 
-    assert.deepEqual(tracker.snapshot().caches.demo, {
+    assert.deepEqual(tracker.reporting.snapshot().caches.demo, {
         hits: 0,
         misses: 0,
         stale: 0,
