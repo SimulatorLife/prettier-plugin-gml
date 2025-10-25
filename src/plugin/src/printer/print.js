@@ -6949,9 +6949,12 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
     }
 
     const statementSource = getSourceTextForNode(node, options);
-    if (typeof statementSource === "string" && (statementSource.includes("\n") || statementSource.includes("\r"))) {
-            return false;
-        }
+    if (
+        typeof statementSource === "string" &&
+        (statementSource.includes("\n") || statementSource.includes("\r"))
+    ) {
+        return false;
+    }
 
     return true;
 }
