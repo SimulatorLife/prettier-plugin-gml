@@ -10,7 +10,7 @@ import {
     isPlainObject,
     withDefinedValue,
     withObjectLike
-} from "../object-utils.js";
+} from "../utils/object.js";
 
 test("isPlainObject accepts non-null object literals", () => {
     assert.strictEqual(isPlainObject({}), true);

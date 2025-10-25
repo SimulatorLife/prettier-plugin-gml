@@ -13,15 +13,12 @@ import {
 import { writeManualJsonArtifact } from "../features/manual/file-helpers.js";
 import {
     DEFAULT_MANUAL_REPO,
+    announceManualDownloadStart,
     buildManualRepositoryEndpoints,
-    createManualDownloadReporter,
-    downloadManualFileEntries
+    downloadManualEntriesWithProgress
 } from "../features/manual/utils.js";
 import { timeSync, createVerboseDurationLogger } from "../shared/time-utils.js";
-import {
-    disposeProgressBars,
-    withProgressBarCleanup
-} from "../shared/progress-bar.js";
+import { disposeProgressBars } from "../shared/progress-bar.js";
 import {
     resolveVmEvalTimeout,
     getDefaultVmEvalTimeoutMs
@@ -609,19 +606,6 @@ function createManualAssetDescriptors() {
     ];
 }
 
-function logManualAssetDownloadStart(manualAssets, verbose) {
-    const downloadsTotal = manualAssets.length;
-    if (!verbose.downloads) {
-        return;
-    }
-
-    console.log(
-        `Fetching ${downloadsTotal} manual asset${
-            downloadsTotal === 1 ? "" : "s"
-        }…`
-    );
-}
-
 /**
  * Render download progress updates using the configured verbosity options.
  * The helper centralizes console/progress-bar branching so callers can simply
@@ -644,31 +628,21 @@ async function fetchManualAssets(
             ? overrideFetchManualFile
             : fetchManualFile;
 
-    return withProgressBarCleanup(async () => {
-        const reportProgress = createManualDownloadReporter({
+    return downloadManualEntriesWithProgress({
+        entries: manualAssets.map((asset) => [asset.key, asset.path]),
+        manualRefSha,
+        fetchManualFile: effectiveFetchManualFile,
+        requestOptions: {
+            forceRefresh,
+            verbose,
+            cacheRoot,
+            rawRoot
+        },
+        progress: {
             label: DOWNLOAD_PROGRESS_LABEL,
             verbose,
             progressBarWidth
-        });
-
-        return downloadManualFileEntries({
-            entries: manualAssets.map((asset) => [asset.key, asset.path]),
-            manualRefSha,
-            fetchManualFile: effectiveFetchManualFile,
-            requestOptions: {
-                forceRefresh,
-                verbose,
-                cacheRoot,
-                rawRoot
-            },
-            onProgress: ({ path, fetchedCount, totalEntries }) =>
-                reportProgress({
-                    path,
-                    fetchedCount,
-                    totalEntries
-                }),
-            onProgressCleanup: reportProgress.cleanup
-        });
+        }
     });
 }
 
@@ -698,7 +672,10 @@ async function fetchIdentifierManualPayloads({
     progressBarWidth
 }) {
     const manualAssets = createManualAssetDescriptors();
-    logManualAssetDownloadStart(manualAssets, verbose);
+    announceManualDownloadStart(manualAssets.length, {
+        verbose,
+        description: "manual asset"
+    });
 
     return fetchManualAssets(manualRef.sha, manualAssets, {
         forceRefresh,

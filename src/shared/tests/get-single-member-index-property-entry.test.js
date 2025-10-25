@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { getSingleMemberIndexPropertyEntry } from "../ast-node-helpers.js";
+import { getSingleMemberIndexPropertyEntry } from "../ast/node-helpers.js";
 
 describe("getSingleMemberIndexPropertyEntry", () => {
     it("returns null for non-member index expressions", () => {

@@ -171,28 +171,17 @@ export function coalesceOption(
         return fallback;
     }
 
-    if (Array.isArray(keys)) {
-        // Iterate the provided array directly so repeated option lookups avoid
-        // allocating a throwaway wrapper array for single-key calls.
-        for (const key of keys) {
-            const value = object[key];
+    const candidates = Array.isArray(keys) ? keys : keys == null ? [] : [keys];
 
-            if (value !== undefined && (acceptNull || value !== null)) {
-                return value;
-            }
+    for (const key of candidates) {
+        const value = object[key];
+
+        if (value !== undefined && (acceptNull || value !== null)) {
+            return value;
         }
-
-        return fallback;
     }
 
-    if (keys == null) {
-        return fallback;
-    }
-
-    const value = object[keys];
-    return value !== undefined && (acceptNull || value !== null)
-        ? value
-        : fallback;
+    return fallback;
 }
 
 /**

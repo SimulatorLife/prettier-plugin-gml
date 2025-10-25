@@ -6,7 +6,9 @@ import { CliUsageError, createCliErrorDetails } from "./errors.js";
 import {
     normalizeEnumeratedOption,
     isNonEmptyArray,
-    toMutableArray
+    resolveCommandUsage,
+    toMutableArray,
+    stringifyJsonForFile
 } from "../shared/dependencies.js";
 
 export const SuiteOutputFormat = Object.freeze({
@@ -89,15 +91,59 @@ export function ensureSuitesAreKnown(suiteNames, availableSuites, command) {
         return;
     }
 
-    const usage =
-        typeof command?.helpInformation === "function"
-            ? command.helpInformation()
-            : undefined;
+    const usage = resolveCommandUsage(command);
 
     throw new CliUsageError(
         `Unknown suite${unknownSuites.length === 1 ? "" : "s"}: ${unknownSuites.join(", ")}.`,
         { usage }
     );
+}
+
+/**
+ * Create the mutable container used to accumulate suite results.
+ */
+function createSuiteResultContainer() {
+    return {};
+}
+
+/**
+ * Record the resolved payload for a suite inside the shared container.
+ */
+function assignSuiteResult(container, suiteName, payload) {
+    container[suiteName] = payload;
+}
+
+/**
+ * Resolve a callable suite runner from the registry.
+ */
+function resolveSuiteRunner(availableSuites, suiteName) {
+    if (!availableSuites || typeof availableSuites.get !== "function") {
+        return null;
+    }
+
+    const runner = availableSuites.get(suiteName);
+    return typeof runner === "function" ? runner : null;
+}
+
+/**
+ * Execute a suite runner while normalizing thrown errors through the supplied
+ * callback.
+ */
+async function executeSuiteRunner({
+    runner,
+    suiteName,
+    runnerOptions,
+    onError
+}) {
+    try {
+        return await runner(runnerOptions);
+    } catch (error) {
+        if (typeof onError === "function") {
+            return onError(error, { suiteName });
+        }
+
+        return { error: createCliErrorDetails(error) };
+    }
 }
 
 /**
@@ -127,22 +173,22 @@ export async function collectSuiteResults({
         return {};
     }
 
-    const results = {};
+    const results = createSuiteResultContainer();
 
     for (const suiteName of suiteNames) {
-        const runner = availableSuites.get(suiteName);
-        if (typeof runner !== "function") {
+        const runner = resolveSuiteRunner(availableSuites, suiteName);
+        if (!runner) {
             continue;
         }
 
-        try {
-            results[suiteName] = await runner(runnerOptions);
-        } catch (error) {
-            results[suiteName] =
-                typeof onError === "function"
-                    ? onError(error, { suiteName })
-                    : { error: createCliErrorDetails(error) };
-        }
+        const suiteResult = await executeSuiteRunner({
+            runner,
+            suiteName,
+            runnerOptions,
+            onError
+        });
+
+        assignSuiteResult(results, suiteName, suiteResult);
     }
 
     return results;
@@ -190,6 +236,7 @@ export function emitSuiteResults(
             ? extras.payload
             : createSuiteResultsPayload(results);
     const spacing = pretty ? 2 : 0;
-    process.stdout.write(`${JSON.stringify(payload, null, spacing)}\n`);
+    const serialized = stringifyJsonForFile(payload, { space: spacing });
+    process.stdout.write(serialized);
     return true;
 }

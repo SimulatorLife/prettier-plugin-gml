@@ -1,23 +1,24 @@
 import path from "node:path";
-import { cloneLocation } from "../shared/ast-locations.js";
-import { getCallExpressionIdentifier } from "../shared/ast-node-helpers.js";
-import { toPosixPath } from "../shared/path-utils.js";
-import { asArray, isNonEmptyArray, pushUnique } from "../shared/array-utils.js";
 import {
+    asArray,
     assertFunction,
+    buildFileLocationKey,
+    buildLocationKey,
+    cloneLocation,
+    getCallExpressionIdentifier,
     getOrCreateMapEntry,
     hasOwn,
-    isObjectLike
-} from "../shared/object-utils.js";
-import {
-    buildLocationKey,
-    buildFileLocationKey
-} from "../shared/location-keys.js";
-import { resolveProjectIndexParser } from "./parser-override.js";
-import { clampConcurrency } from "./concurrency.js";
-import { isProjectManifestPath } from "./constants.js";
+    isFsErrorCode,
+    isNonEmptyArray,
+    isObjectLike,
+    listDirectory,
+    pushUnique,
+    toPosixPath
+} from "../shared/index.js";
 import { defaultFsFacade } from "./fs-facade.js";
-import { isFsErrorCode, listDirectory } from "../shared/fs-utils.js";
+import { clampConcurrency } from "./concurrency.js";
+import { resolveProjectIndexParser } from "./parser-override.js";
+import { isProjectManifestPath } from "./constants.js";
 import {
     getDefaultProjectIndexCacheMaxSize,
     loadProjectIndexCache,
@@ -36,8 +37,12 @@ import {
     createProjectIndexAbortGuard
 } from "./abort-guard.js";
 import { loadBuiltInIdentifiers } from "./built-in-identifiers.js";
-import { createProjectIndexCoordinatorFactory } from "./coordinator.js";
+import { createProjectIndexCoordinator as createProjectIndexCoordinatorCore } from "./coordinator.js";
 import { cloneObjectEntries } from "./clone-object-entries.js";
+import {
+    IdentifierRole,
+    assertValidIdentifierRole
+} from "./identifier-roles.js";
 
 /**
  * Create shallow clones of common entry collections stored on project index
@@ -52,16 +57,25 @@ function cloneEntryCollections(entry, ...keys) {
     );
 }
 
-export const createProjectIndexCoordinator =
-    createProjectIndexCoordinatorFactory({
-        defaultFsFacade,
-        defaultLoadCache: loadProjectIndexCache,
-        defaultSaveCache: saveProjectIndexCache,
-        defaultBuildIndex: buildProjectIndex,
-        getDefaultCacheMaxSize: getDefaultProjectIndexCacheMaxSize
-    });
+export function createProjectIndexCoordinator(options = {}) {
+    const {
+        fsFacade = defaultFsFacade,
+        loadCache = loadProjectIndexCache,
+        saveCache = saveProjectIndexCache,
+        buildIndex = buildProjectIndex,
+        cacheMaxSizeBytes,
+        getDefaultCacheMaxSize = getDefaultProjectIndexCacheMaxSize
+    } = options;
 
-export { createProjectIndexCoordinatorFactory } from "./coordinator.js";
+    return createProjectIndexCoordinatorCore({
+        fsFacade,
+        loadCache,
+        saveCache,
+        buildIndex,
+        cacheMaxSizeBytes,
+        getDefaultCacheMaxSize
+    });
+}
 
 export { findProjectRoot } from "./project-root.js";
 
@@ -193,13 +207,13 @@ function createProjectTreeCollector(metrics = null) {
 
         if (normalizedCategory === ProjectFileCategory.RESOURCE_METADATA) {
             yyFiles.push(record);
-            metrics?.incrementCounter("files.yyDiscovered");
+            metrics?.counters?.increment("files.yyDiscovered");
             return;
         }
 
         if (normalizedCategory === ProjectFileCategory.SOURCE) {
             gmlFiles.push(record);
-            metrics?.incrementCounter("files.gmlDiscovered");
+            metrics?.counters?.increment("files.gmlDiscovered");
             return;
         }
     }
@@ -293,7 +307,7 @@ async function resolveDirectoryListing({
         }
     );
     ensureNotAborted();
-    metrics?.incrementCounter("io.directoriesScanned");
+    metrics?.counters?.increment("io.directoriesScanned");
     return entries;
 }
 
@@ -314,7 +328,7 @@ async function resolveEntryStats({
         return stats;
     } catch (error) {
         if (isFsErrorCode(error, "ENOENT")) {
-            metrics?.incrementCounter("io.skippedMissingEntries");
+            metrics?.counters?.increment("io.skippedMissingEntries");
             return null;
         }
         throw error;
@@ -458,11 +472,13 @@ function recordIdentifierCollectionRole(
         return;
     }
 
+    const validatedRole = assertValidIdentifierRole(role);
+
     const clone = cloneIdentifierForCollections(identifierRecord, filePath);
 
-    if (role === "declaration") {
+    if (validatedRole === IdentifierRole.DECLARATION) {
         entry.declarations?.push?.(clone);
-    } else if (role === "reference") {
+    } else if (validatedRole === IdentifierRole.REFERENCE) {
         entry.references?.push?.(clone);
     }
 }
@@ -976,11 +992,11 @@ function recordScriptCallMetricsAndReferences({
 }) {
     const scriptCalls = relationships?.scriptCalls ?? [];
     for (const callRecord of scriptCalls) {
-        metrics.incrementCounter("scriptCalls.total");
+        metrics.counters.increment("scriptCalls.total");
         if (callRecord.isResolved) {
-            metrics.incrementCounter("scriptCalls.resolved");
+            metrics.counters.increment("scriptCalls.resolved");
         } else {
-            metrics.incrementCounter("scriptCalls.unresolved");
+            metrics.counters.increment("scriptCalls.unresolved");
         }
 
         registerScriptReference({
@@ -1016,6 +1032,8 @@ function registerMacroOccurrence({
         return;
     }
 
+    const validatedRole = assertValidIdentifierRole(role);
+
     const identifierId = buildIdentifierId("macro", identifierRecord.name);
 
     const entry = ensureCollectionEntry(
@@ -1031,7 +1049,12 @@ function registerMacroOccurrence({
 
     assignIdentifierEntryMetadata(entry, { identifierId });
 
-    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
+    recordIdentifierCollectionRole(
+        entry,
+        identifierRecord,
+        filePath,
+        validatedRole
+    );
 }
 
 function registerEnumOccurrence({
@@ -1041,8 +1064,10 @@ function registerEnumOccurrence({
     role,
     enumLookup
 }) {
+    const validatedRole = assertValidIdentifierRole(role);
+
     const targetLocation =
-        role === "reference"
+        validatedRole === IdentifierRole.REFERENCE
             ? identifierRecord?.declaration?.start
             : identifierRecord?.start;
 
@@ -1074,7 +1099,12 @@ function registerEnumOccurrence({
         name: enumName
     });
 
-    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
+    recordIdentifierCollectionRole(
+        entry,
+        identifierRecord,
+        filePath,
+        validatedRole
+    );
 }
 
 function registerEnumMemberOccurrence({
@@ -1084,8 +1114,10 @@ function registerEnumMemberOccurrence({
     role,
     enumLookup
 }) {
+    const validatedRole = assertValidIdentifierRole(role);
+
     const targetLocation =
-        role === "reference"
+        validatedRole === IdentifierRole.REFERENCE
             ? identifierRecord?.declaration?.start
             : identifierRecord?.start;
 
@@ -1124,7 +1156,12 @@ function registerEnumMemberOccurrence({
         enumName
     });
 
-    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
+    recordIdentifierCollectionRole(
+        entry,
+        identifierRecord,
+        filePath,
+        validatedRole
+    );
 }
 
 function registerGlobalOccurrence({
@@ -1136,6 +1173,8 @@ function registerGlobalOccurrence({
     if (!identifierRecord?.name) {
         return;
     }
+
+    const validatedRole = assertValidIdentifierRole(role);
 
     const identifierId = buildIdentifierId("global", identifierRecord.name);
 
@@ -1152,7 +1191,12 @@ function registerGlobalOccurrence({
 
     assignIdentifierEntryMetadata(entry, { identifierId });
 
-    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
+    recordIdentifierCollectionRole(
+        entry,
+        identifierRecord,
+        filePath,
+        validatedRole
+    );
 }
 
 function registerInstanceOccurrence({
@@ -1165,6 +1209,8 @@ function registerInstanceOccurrence({
     if (!identifierRecord?.name) {
         return;
     }
+
+    const validatedRole = assertValidIdentifierRole(role);
 
     const key = `${scopeDescriptor?.id ?? "instance"}:${identifierRecord.name}`;
     const identifierId = buildIdentifierId("instance", key);
@@ -1188,11 +1234,22 @@ function registerInstanceOccurrence({
         scopeKind: scopeDescriptor?.kind ?? null
     });
 
-    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
+    recordIdentifierCollectionRole(
+        entry,
+        identifierRecord,
+        filePath,
+        validatedRole
+    );
 }
 
 function shouldTreatAsInstance({ identifierRecord, role, scopeDescriptor }) {
-    if (!identifierRecord || role !== "reference") {
+    if (!identifierRecord) {
+        return false;
+    }
+
+    const validatedRole = assertValidIdentifierRole(role);
+
+    if (validatedRole !== IdentifierRole.REFERENCE) {
         return false;
     }
 
@@ -1233,9 +1290,14 @@ function registerIdentifierOccurrence({
         return;
     }
 
+    const validatedRole = assertValidIdentifierRole(role);
+
     const classifications = asArray(identifierRecord?.classifications);
 
-    if (role === "declaration" && classifications.includes("script")) {
+    if (
+        validatedRole === IdentifierRole.DECLARATION &&
+        classifications.includes("script")
+    ) {
         registerScriptDeclaration({
             identifierCollections,
             descriptor: scopeDescriptor,
@@ -1249,7 +1311,7 @@ function registerIdentifierOccurrence({
             identifierCollections,
             identifierRecord,
             filePath,
-            role
+            role: validatedRole
         });
     }
 
@@ -1258,7 +1320,7 @@ function registerIdentifierOccurrence({
             identifierCollections,
             identifierRecord,
             filePath,
-            role,
+            role: validatedRole,
             enumLookup
         });
     }
@@ -1268,7 +1330,7 @@ function registerIdentifierOccurrence({
             identifierCollections,
             identifierRecord,
             filePath,
-            role,
+            role: validatedRole,
             enumLookup
         });
     }
@@ -1281,16 +1343,22 @@ function registerIdentifierOccurrence({
             identifierCollections,
             identifierRecord,
             filePath,
-            role
+            role: validatedRole
         });
     }
 
-    if (shouldTreatAsInstance({ identifierRecord, role, scopeDescriptor })) {
+    if (
+        shouldTreatAsInstance({
+            identifierRecord,
+            role: validatedRole,
+            scopeDescriptor
+        })
+    ) {
         registerInstanceOccurrence({
             identifierCollections,
             identifierRecord,
             filePath,
-            role: "reference",
+            role: IdentifierRole.REFERENCE,
             scopeDescriptor
         });
     }
@@ -1499,10 +1567,10 @@ function handleIdentifierNode({
     const isBuiltIn = builtInNames.has(identifierRecord.name);
     identifierRecord.isBuiltIn = isBuiltIn;
 
-    metrics?.incrementCounter("identifiers.encountered");
+    metrics?.counters?.increment("identifiers.encountered");
 
     if (isBuiltIn) {
-        metrics?.incrementCounter("identifiers.builtInSkipped");
+        metrics?.counters?.increment("identifiers.builtInSkipped");
         identifierRecord.reason = "built-in";
         fileRecord.ignoredIdentifiers.push(identifierRecord);
         scopeRecord.ignoredIdentifiers.push(identifierRecord);
@@ -1514,7 +1582,7 @@ function handleIdentifierNode({
     const isReference = identifierRecord.classifications.includes("reference");
 
     if (isDeclaration) {
-        metrics?.incrementCounter("identifiers.declarations");
+        metrics?.counters?.increment("identifiers.declarations");
         fileRecord.declarations.push(identifierRecord);
         scopeRecord.declarations.push(identifierRecord);
 
@@ -1522,14 +1590,14 @@ function handleIdentifierNode({
             identifierCollections,
             identifierRecord,
             filePath: fileRecord?.filePath ?? null,
-            role: "declaration",
+            role: IdentifierRole.DECLARATION,
             enumLookup,
             scopeDescriptor: scopeDescriptor ?? scopeRecord
         });
     }
 
     if (isReference) {
-        metrics?.incrementCounter("identifiers.references");
+        metrics?.counters?.increment("identifiers.references");
         fileRecord.references.push(identifierRecord);
         scopeRecord.references.push(identifierRecord);
 
@@ -1537,7 +1605,7 @@ function handleIdentifierNode({
             identifierCollections,
             identifierRecord,
             filePath: fileRecord?.filePath ?? null,
-            role: "reference",
+            role: IdentifierRole.REFERENCE,
             enumLookup,
             scopeDescriptor: scopeDescriptor ?? scopeRecord
         });
@@ -1592,7 +1660,7 @@ function handleCallExpressionNode({
     fileRecord.scriptCalls.push(callRecord);
     scopeRecord.scriptCalls.push(callRecord);
     relationships.scriptCalls.push(callRecord);
-    metrics?.incrementCounter("scriptCalls.discovered");
+    metrics?.counters?.increment("scriptCalls.discovered");
 }
 
 function handleNewExpressionScriptCall({
@@ -1644,7 +1712,7 @@ function handleNewExpressionScriptCall({
     fileRecord.scriptCalls.push(callRecord);
     scopeRecord.scriptCalls.push(callRecord);
     relationships.scriptCalls.push(callRecord);
-    metrics?.incrementCounter("scriptCalls.discovered");
+    metrics?.counters?.increment("scriptCalls.discovered");
 }
 
 function handleObjectEventAssignmentNode({
@@ -1686,7 +1754,7 @@ function handleObjectEventAssignmentNode({
             filePath: fileRecord?.filePath ?? null,
             scopeDescriptor: scopeDescriptor ?? scopeRecord
         });
-        metrics?.incrementCounter("identifiers.instanceAssignments");
+        metrics?.counters?.increment("identifiers.instanceAssignments");
     }
 }
 
@@ -1816,14 +1884,14 @@ async function processWithConcurrency(items, limit, worker, options = {}) {
  */
 async function readProjectGmlFile({ file, fsFacade, metrics }) {
     try {
-        const contents = await metrics.timeAsync("fs.readGml", () =>
+        const contents = await metrics.timers.timeAsync("fs.readGml", () =>
             fsFacade.readFile(file.absolutePath, "utf8")
         );
-        metrics.incrementCounter("io.gmlBytes", Buffer.byteLength(contents));
+        metrics.counters.increment("io.gmlBytes", Buffer.byteLength(contents));
         return contents;
     } catch (error) {
         if (isFsErrorCode(error, "ENOENT")) {
-            metrics.incrementCounter("files.missingDuringRead");
+            metrics.counters.increment("files.missingDuringRead");
             return null;
         }
         throw error;
@@ -1876,7 +1944,7 @@ function parseProjectGmlSource({
     metrics,
     projectRoot
 }) {
-    return metrics.timeSync("gml.parse", () =>
+    return metrics.timers.timeSync("gml.parse", () =>
         parseProjectSource(contents, {
             filePath: file.relativePath,
             projectRoot
@@ -1897,7 +1965,7 @@ function analyseProjectGmlAst({
     sourceContents,
     lineOffsets
 }) {
-    metrics.timeSync("gml.analyse", () =>
+    metrics.timers.timeSync("gml.analyse", () =>
         analyseGmlAst({
             ast,
             builtInNames,
@@ -1930,7 +1998,7 @@ async function processProjectGmlFile({
     projectRoot
 }) {
     ensureNotAborted();
-    metrics.incrementCounter("files.gmlProcessed");
+    metrics.counters.increment("files.gmlProcessed");
 
     const contents = await readProjectGmlFile({ file, fsFacade, metrics });
     if (contents === null) {
@@ -2159,11 +2227,13 @@ async function loadBuiltInNamesForProjectIndex({
     signal,
     ensureNotAborted
 }) {
-    const builtInIdentifiers = await metrics.timeAsync("loadBuiltIns", () =>
-        loadBuiltInIdentifiers(fsFacade, metrics, {
-            signal,
-            fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
-        })
+    const builtInIdentifiers = await metrics.timers.timeAsync(
+        "loadBuiltIns",
+        () =>
+            loadBuiltInIdentifiers(fsFacade, metrics, {
+                signal,
+                fallbackMessage: PROJECT_INDEX_BUILD_ABORT_MESSAGE
+            })
     );
     ensureNotAborted();
 
@@ -2177,13 +2247,13 @@ async function discoverProjectFilesForIndex({
     signal,
     ensureNotAborted
 }) {
-    const projectFiles = await metrics.timeAsync("scanProjectTree", () =>
+    const projectFiles = await metrics.timers.timeAsync("scanProjectTree", () =>
         scanProjectTree(projectRoot, fsFacade, metrics, { signal })
     );
     ensureNotAborted();
 
-    metrics.setMetadata("yyFileCount", projectFiles.yyFiles.length);
-    metrics.setMetadata("gmlFileCount", projectFiles.gmlFiles.length);
+    metrics.reporting.setMetadata("yyFileCount", projectFiles.yyFiles.length);
+    metrics.reporting.setMetadata("gmlFileCount", projectFiles.gmlFiles.length);
 
     return projectFiles;
 }
@@ -2196,7 +2266,7 @@ async function analyseProjectResourcesForIndex({
     signal,
     ensureNotAborted
 }) {
-    const resourceAnalysis = await metrics.timeAsync(
+    const resourceAnalysis = await metrics.timers.timeAsync(
         "analyseResourceFiles",
         () =>
             analyseResourceFiles({
@@ -2208,7 +2278,7 @@ async function analyseProjectResourcesForIndex({
     );
     ensureNotAborted();
 
-    metrics.incrementCounter(
+    metrics.counters.increment(
         "resources.total",
         resourceAnalysis.resourcesMap.size
     );
@@ -2221,7 +2291,7 @@ function configureGmlProcessing({ options, metrics }) {
     const gmlConcurrency = clampConcurrency(
         concurrencySettings.gml ?? concurrencySettings.gmlParsing
     );
-    metrics.setMetadata("gmlParseConcurrency", gmlConcurrency);
+    metrics.reporting.setMetadata("gmlParseConcurrency", gmlConcurrency);
 
     const parseProjectSource = resolveProjectIndexParser(options);
 
@@ -2295,7 +2365,7 @@ export async function buildProjectIndex(
         logMetrics: options?.logMetrics
     });
 
-    const stopTotal = metrics.startTimer("total");
+    const stopTotal = metrics.timers.startTimer("total");
 
     const { signal, ensureNotAborted } = createProjectIndexAbortGuard(options);
 

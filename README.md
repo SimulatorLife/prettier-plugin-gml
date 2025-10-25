@@ -319,7 +319,10 @@ nvm alias default node
   with `--ignored-directory-sample-limit` (alias
   `--ignored-directory-samples`) or the
   `PRETTIER_PLUGIN_GML_SKIPPED_DIRECTORY_SAMPLE_LIMIT` environment variable,
-  and trims unsupported-extension examples with
+  trims verbose ignored-file skip logs with
+  `--ignored-file-sample-limit` or
+  `PRETTIER_PLUGIN_GML_IGNORED_FILE_SAMPLE_LIMIT`, and trims
+  unsupported-extension examples with
   `--unsupported-extension-sample-limit` or
   `PRETTIER_PLUGIN_GML_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT`, explains when no
   files match the configured extensions, supports dry-run
@@ -478,6 +481,9 @@ without editing project scripts:
   `.prettierignore` entries. Combine with
   `--ignored-directory-sample-limit` (or `--ignored-directory-samples`) for
   per-run overrides.
+- `PRETTIER_PLUGIN_GML_IGNORED_FILE_SAMPLE_LIMIT` &mdash; Limits how many
+  ignored files appear in the inline skip logs and summary examples. Combine
+  with `--ignored-file-sample-limit` for per-run overrides.
 - `PRETTIER_PLUGIN_GML_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT` &mdash; Limits how many
   example files appear in the unsupported-extension summary. Pair with
   `--unsupported-extension-sample-limit` when tuning individual runs.
@@ -551,7 +557,7 @@ Template strings that never interpolate expressions automatically collapse back 
 | `optimizeLoopLengthHoisting` | `true` | Hoists supported collection length checks out of `for` loop conditions and caches them in a temporary variable. |
 | `condenseStructAssignments` | `true` | Converts consecutive struct property assignments into a single literal when comments and control flow permit it. |
 | `loopLengthHoistFunctionSuffixes` | `""` | Override cached variable suffixes per function or disable hoisting for specific helpers. |
-| `allowSingleLineIfStatements` | `false` | Enable to keep trivial `if` statements on one line; leave at `false` to always expand blocks. |
+| `allowSingleLineIfStatements` | `false` | Enable to keep trivial `if` statements on one line. When disabled, only guard-style `if` statements that were already written on a single line stay collapsed; other bodies expand across multiple lines. |
 | `logicalOperatorsStyle` | `"keywords"` | Choose `"symbols"` to keep `&&`/`||` instead of rewriting them to `and`/`or`. |
 | `condenseLogicalExpressions` | `false` | Merges adjacent logical expressions that use the same operator. |
 | `preserveGlobalVarStatements` | `true` | Keeps `globalvar` declarations while still prefixing later assignments with `global.`. |

@@ -1,39 +1,18 @@
 import { isErrorLike } from "./capability-probes.js";
+import { getErrorMessageOrFallback } from "./error.js";
 import { assertPlainObject } from "./object.js";
 import { isNonEmptyString, toTrimmedString } from "./string.js";
-
-function getErrorMessage(value) {
-    if (typeof value === "string") {
-        return value;
-    }
-
-    if (value == null) {
-        return null;
-    }
-
-    if (typeof value.toString !== "function") {
-        return null;
-    }
-
-    try {
-        return value.toString();
-    } catch {
-        return null;
-    }
-}
 
 function toError(value) {
     if (isErrorLike(value)) {
         return value;
     }
 
-    const rawMessage = getErrorMessage(value);
-    const message =
-        rawMessage && rawMessage !== "[object Object]"
-            ? rawMessage
-            : "Unknown error";
+    const message = getErrorMessageOrFallback(value);
+    const normalizedMessage =
+        message === "[object Object]" ? "Unknown error" : message;
 
-    const fallback = new Error(message);
+    const fallback = new Error(normalizedMessage);
     fallback.name = "NonErrorThrown";
     return fallback;
 }
@@ -113,6 +92,10 @@ function extractErrorDetails(error) {
     return normalized.length > 0 ? normalized : "Unknown error";
 }
 
+function isObject(value) {
+    return value !== null && typeof value === "object";
+}
+
 /**
  * Parse a JSON payload while annotating any failures with high-level context.
  *
@@ -187,18 +170,23 @@ export function parseJsonObjectWithContext(text, options = {}) {
         reviver
     });
 
-    const dynamicOptions =
-        typeof createAssertOptions === "function"
-            ? createAssertOptions(payload)
-            : null;
+    const optionCandidates = [];
 
-    const optionSources = [assertOptions, dynamicOptions].filter(
-        (value) => value && typeof value === "object"
-    );
+    if (isObject(assertOptions)) {
+        optionCandidates.push(assertOptions);
+    }
+
+    if (typeof createAssertOptions === "function") {
+        const dynamicOptions = createAssertOptions(payload);
+
+        if (isObject(dynamicOptions)) {
+            optionCandidates.push(dynamicOptions);
+        }
+    }
 
     const mergedOptions =
-        optionSources.length > 0
-            ? Object.assign({}, ...optionSources)
+        optionCandidates.length > 0
+            ? Object.assign({}, ...optionCandidates)
             : undefined;
 
     return assertPlainObject(payload, mergedOptions);
@@ -229,6 +217,21 @@ export function stringifyJsonForFile(payload, options = {}) {
     } = options;
 
     const serialized = JSON.stringify(payload, replacer, space);
+
+    if (typeof serialized !== "string") {
+        const payloadDescription =
+            payload === undefined
+                ? "undefined payload"
+                : typeof payload === "function"
+                  ? "function payload"
+                  : typeof payload === "symbol"
+                    ? "symbol payload"
+                    : "provided payload";
+
+        throw new TypeError(
+            `Unable to serialize ${payloadDescription} to JSON. JSON.stringify returned undefined.`
+        );
+    }
 
     if (!includeTrailingNewline) {
         return serialized;

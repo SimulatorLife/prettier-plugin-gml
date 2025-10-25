@@ -1,6 +1,7 @@
 import {
     defaultCliProjectIndexService,
-    defaultCliIdentifierCaseServices
+    defaultCliIdentifierCasePlanPreparationService,
+    defaultCliIdentifierCaseCacheService
 } from "./service-providers/default.js";
 import { assertFunction } from "../shared/dependencies.js";
 
@@ -10,16 +11,11 @@ import { assertFunction } from "../shared/dependencies.js";
  * @typedef {() => void} CliIdentifierCaseCacheClearer
  */
 
-let projectIndexBuilder;
-let identifierCasePlanPreparer;
-let identifierCaseCacheClearer;
-
-export const defaultCliPluginServices = Object.freeze({
-    projectIndex: defaultCliProjectIndexService,
-    identifierCase: defaultCliIdentifierCaseServices
-});
-
-resetRegisteredCliPluginServices();
+let projectIndexBuilder = defaultCliProjectIndexService.buildProjectIndex;
+let identifierCasePlanPreparer =
+    defaultCliIdentifierCasePlanPreparationService.prepareIdentifierCasePlan;
+let identifierCaseCacheClearer =
+    defaultCliIdentifierCaseCacheService.clearIdentifierCaseCaches;
 
 function assertService(candidate, description) {
     assertFunction(candidate, description, {
@@ -58,10 +54,9 @@ export function registerCliIdentifierCaseCacheClearer(clearer) {
 }
 
 export function resetRegisteredCliPluginServices() {
-    const { projectIndex, identifierCase } = defaultCliPluginServices;
-    const { preparation, cache } = identifierCase;
-
-    projectIndexBuilder = projectIndex.buildProjectIndex;
-    identifierCasePlanPreparer = preparation.prepareIdentifierCasePlan;
-    identifierCaseCacheClearer = cache.clearIdentifierCaseCaches;
+    projectIndexBuilder = defaultCliProjectIndexService.buildProjectIndex;
+    identifierCasePlanPreparer =
+        defaultCliIdentifierCasePlanPreparationService.prepareIdentifierCasePlan;
+    identifierCaseCacheClearer =
+        defaultCliIdentifierCaseCacheService.clearIdentifierCaseCaches;
 }

@@ -1,1 +1,1 @@
-export * from "./utils/identifier-metadata.js";
+export * from "./identifier-metadata/index.js";

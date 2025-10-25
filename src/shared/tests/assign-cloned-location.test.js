@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { assignClonedLocation } from "../ast-locations.js";
+import { assignClonedLocation } from "../ast/locations.js";
 
 function createLocation(line) {
     return { line, column: line - 1 };

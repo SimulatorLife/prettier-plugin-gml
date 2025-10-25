@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { throwIfAborted } from "../shared/abort-utils.js";
+import { throwIfAborted } from "../shared/index.js";
 
 function normalizeEnsureReadyDescriptor(descriptor) {
     const projectRoot = descriptor?.projectRoot;
@@ -116,118 +116,93 @@ async function executeEnsureReadyOperation({
     };
 }
 
-export function createProjectIndexCoordinatorFactory({
-    defaultFsFacade,
-    defaultLoadCache,
-    defaultSaveCache,
-    defaultBuildIndex,
+export function createProjectIndexCoordinator({
+    fsFacade,
+    loadCache,
+    saveCache,
+    buildIndex,
+    cacheMaxSizeBytes: rawCacheMaxSizeBytes,
     getDefaultCacheMaxSize
 } = {}) {
-    if (typeof defaultBuildIndex !== "function") {
+    if (typeof loadCache !== "function") {
         throw new TypeError(
-            "createProjectIndexCoordinatorFactory requires a defaultBuildIndex function."
+            "Project index coordinators require a loadCache function."
         );
     }
-    if (typeof defaultLoadCache !== "function") {
+    if (typeof saveCache !== "function") {
         throw new TypeError(
-            "createProjectIndexCoordinatorFactory requires a defaultLoadCache function."
+            "Project index coordinators require a saveCache function."
         );
     }
-    if (typeof defaultSaveCache !== "function") {
+    if (typeof buildIndex !== "function") {
         throw new TypeError(
-            "createProjectIndexCoordinatorFactory requires a defaultSaveCache function."
+            "Project index coordinators require a buildIndex function."
         );
     }
     if (typeof getDefaultCacheMaxSize !== "function") {
         throw new TypeError(
-            "createProjectIndexCoordinatorFactory requires a getDefaultCacheMaxSize function."
+            "Project index coordinators require a getDefaultCacheMaxSize function."
         );
     }
 
-    return function createProjectIndexCoordinator(options = {}) {
-        const {
-            fsFacade = defaultFsFacade,
-            loadCache = defaultLoadCache,
-            saveCache = defaultSaveCache,
-            buildIndex = defaultBuildIndex,
-            cacheMaxSizeBytes: rawCacheMaxSizeBytes
-        } = options;
+    const cacheMaxSizeBytes =
+        rawCacheMaxSizeBytes === undefined
+            ? getDefaultCacheMaxSize()
+            : rawCacheMaxSizeBytes;
 
-        if (typeof loadCache !== "function") {
-            throw new TypeError(
-                "Project index coordinators require a loadCache function."
-            );
+    const inFlight = new Map();
+    let disposed = false;
+    const abortController = new AbortController();
+    const DISPOSED_MESSAGE = "ProjectIndexCoordinator has been disposed";
+
+    function createDisposedError() {
+        return new Error(DISPOSED_MESSAGE);
+    }
+
+    function ensureNotDisposed() {
+        if (disposed) {
+            throw createDisposedError();
         }
-        if (typeof saveCache !== "function") {
-            throw new TypeError(
-                "Project index coordinators require a saveCache function."
-            );
-        }
-        if (typeof buildIndex !== "function") {
-            throw new TypeError(
-                "Project index coordinators require a buildIndex function."
-            );
-        }
+        throwIfAborted(abortController.signal, DISPOSED_MESSAGE);
+    }
 
-        const cacheMaxSizeBytes =
-            rawCacheMaxSizeBytes === undefined
-                ? getDefaultCacheMaxSize()
-                : rawCacheMaxSizeBytes;
+    async function ensureReady(descriptor) {
+        ensureNotDisposed();
+        const context = resolveEnsureReadyContext({
+            descriptor,
+            abortController,
+            disposedMessage: DISPOSED_MESSAGE
+        });
 
-        const inFlight = new Map();
-        let disposed = false;
-        const abortController = new AbortController();
-        const DISPOSED_MESSAGE = "ProjectIndexCoordinator has been disposed";
-
-        function createDisposedError() {
-            return new Error(DISPOSED_MESSAGE);
-        }
-
-        function ensureNotDisposed() {
-            if (disposed) {
-                throw createDisposedError();
-            }
-            throwIfAborted(abortController.signal, DISPOSED_MESSAGE);
-        }
-
-        async function ensureReady(descriptor) {
-            ensureNotDisposed();
-            const context = resolveEnsureReadyContext({
+        return trackInFlightOperation(inFlight, context.key, () =>
+            executeEnsureReadyOperation({
                 descriptor,
-                abortController,
+                resolvedRoot: context.resolvedRoot,
+                signal: context.signal,
+                fsFacade,
+                loadCache,
+                saveCache,
+                buildIndex,
+                cacheMaxSizeBytes,
                 disposedMessage: DISPOSED_MESSAGE
-            });
+            })
+        );
+    }
 
-            return trackInFlightOperation(inFlight, context.key, () =>
-                executeEnsureReadyOperation({
-                    descriptor,
-                    resolvedRoot: context.resolvedRoot,
-                    signal: context.signal,
-                    fsFacade,
-                    loadCache,
-                    saveCache,
-                    buildIndex,
-                    cacheMaxSizeBytes,
-                    disposedMessage: DISPOSED_MESSAGE
-                })
-            );
+    function dispose() {
+        if (disposed) {
+            return;
         }
 
-        function dispose() {
-            if (disposed) {
-                return;
-            }
-
-            disposed = true;
-            if (!abortController.signal.aborted) {
-                abortController.abort(createDisposedError());
-            }
-            inFlight.clear();
+        disposed = true;
+        if (!abortController.signal.aborted) {
+            abortController.abort(createDisposedError());
         }
+        inFlight.clear();
+    }
 
-        return {
-            ensureReady,
-            dispose
-        };
+    return {
+        ensureReady,
+        dispose
     };
 }

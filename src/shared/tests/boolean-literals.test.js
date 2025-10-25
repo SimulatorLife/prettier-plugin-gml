@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 import {
     getBooleanLiteralValue,
     isBooleanLiteral
-} from "../ast-node-helpers.js";
+} from "../ast/node-helpers.js";
 
 describe("boolean literal helpers", () => {
     // Node deprecated assert.equal; prefer the strict helpers to avoid legacy coercion.

@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 import {
     getCallExpressionIdentifier,
     getCallExpressionIdentifierName
-} from "../ast-node-helpers.js";
+} from "../ast/node-helpers.js";
 
 describe("getCallExpressionIdentifier", () => {
     it("returns the identifier node when the callee is a named identifier", () => {

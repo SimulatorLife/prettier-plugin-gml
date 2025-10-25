@@ -9,7 +9,7 @@ import {
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
     hasOwn,
-    isErrorWithCode,
+    isMissingModuleDependency,
     isNonEmptyString,
     isNonEmptyTrimmedString,
     isObjectLike,
@@ -86,12 +86,7 @@ function decodeEntities(value) {
 }
 
 function isMissingFastXmlParserError(error) {
-    if (!isErrorWithCode(error, "ERR_MODULE_NOT_FOUND")) {
-        return false;
-    }
-    return getErrorMessage(error, { fallback: "" }).includes(
-        "'fast-xml-parser'"
-    );
+    return isMissingModuleDependency(error, "fast-xml-parser");
 }
 
 function createFallbackXmlParser() {

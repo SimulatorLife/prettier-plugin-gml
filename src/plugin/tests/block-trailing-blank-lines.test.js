@@ -39,9 +39,9 @@ test("omits blank lines between nested and enclosing block braces", async () => 
     );
 });
 
-test("inserts padding after trailing function declarations", async () => {
+test("adds a blank line after nested function declarations", async () => {
     const source = [
-        "function outer() {",
+        "function outer() constructor {",
         "    function inner() {",
         "        return 1;",
         "    }",
@@ -57,6 +57,6 @@ test("inserts padding after trailing function declarations", async () => {
     assert.deepEqual(
         trailingLines,
         ["    }", "", "}"],
-        "Expected trailing function declarations to remain separated from their enclosing block by a blank line."
+        "Expected the formatter to preserve a separating blank line before closing the outer block."
     );
 });

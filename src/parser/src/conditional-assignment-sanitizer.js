@@ -4,9 +4,9 @@ import {
     isNonEmptyString,
     isNonEmptyTrimmedString,
     isWordChar,
-    identity
-} from "./shared/utils.js";
-import { enqueueObjectChildValues } from "./shared/ast.js";
+    identity,
+    enqueueObjectChildValues
+} from "./shared/index.js";
 
 const ASSIGNMENT_GUARD_CHARACTERS = new Set([
     "*",

@@ -5,14 +5,16 @@ import {
     resolveDocCommentDescriptionService,
     resolveDocCommentUpdateService
 } from "../comments/index.js";
-import { cloneLocation } from "../shared/ast-locations.js";
-import { isNonEmptyArray } from "../shared/array-utils.js";
-import { getBodyStatements, isNode } from "../shared/ast-node-helpers.js";
 import {
+    asArray,
+    cloneLocation,
+    getBodyStatements,
+    getOrCreateMapEntry,
+    isNode,
+    isNonEmptyArray,
     isNonEmptyString,
     toNormalizedLowerCaseString
-} from "../shared/string-utils.js";
-import { getOrCreateMapEntry } from "../shared/object-utils.js";
+} from "../shared/index.js";
 
 const BOOLEAN_NODE_TYPES = Object.freeze({
     CONST: "CONST",
@@ -613,7 +615,7 @@ function extractReturnExpression(node, helpers) {
     }
 
     if (node.type === "BlockStatement") {
-        const body = Array.isArray(node.body) ? node.body : [];
+        const body = asArray(node.body);
         if (body.length === 0) {
             return null;
         }

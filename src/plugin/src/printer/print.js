@@ -28,22 +28,20 @@ import {
     normalizeDocCommentTypeAnnotations
 } from "../comments/line-comment-formatting.js";
 import { resolveLineCommentOptions } from "../options/line-comment-options.js";
-import { getCommentArray, isCommentNode } from "../shared/comments.js";
-import { coercePositiveIntegerOption } from "../shared/numeric-option-utils.js";
 import {
+    getCommentArray,
+    isCommentNode,
+    coercePositiveIntegerOption,
     getNonEmptyString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
-    toTrimmedString
-} from "../shared/string-utils.js";
-import { isNonEmptyArray, toMutableArray } from "../shared/array-utils.js";
-import { ensureSet } from "../shared/utils/capability-probes.js";
-import {
+    toTrimmedString,
+    isNonEmptyArray,
+    toMutableArray,
+    ensureSet,
     getNodeStartIndex,
     getNodeEndIndex,
-    getNodeRangeIndices
-} from "../shared/ast-locations.js";
-import {
+    getNodeRangeIndices,
     getBodyStatements,
     getCallExpressionArguments,
     getIdentifierText,
@@ -52,7 +50,7 @@ import {
     isBooleanLiteral,
     isUndefinedLiteral,
     enqueueObjectChildValues
-} from "../shared/ast-node-helpers.js";
+} from "../shared/index.js";
 import { maybeReportIdentifierCaseDryRun } from "../identifier-case/identifier-case-report.js";
 import {
     getIdentifierCaseRenameForNode,
@@ -1889,7 +1887,7 @@ function printElements(
                     itemsSinceLastBreak >= maxElementsPerLine;
 
                 if (shouldBreakAfter) {
-                    parts.push(lineBreak);
+                    parts.push(hardline);
                     itemsSinceLastBreak = 0;
                 } else {
                     parts.push(" ");
@@ -2446,13 +2444,14 @@ function printStatements(path, options, print, childrenAttribute) {
                 if (enforceTrailingPadding) {
                     // Large statements such as nested function declarations and
                     // constructor bodies should remain visually separated from
-                    // the closing brace even when the original source omitted
-                    // the blank line. Relying solely on the input text caused
-                    // regressions where the formatter collapsed this padding
-                    // altogether. When spacing is mandated by the node type,
-                    // always request a trailing hardline so the doc output
-                    // restores the expected empty line.
-                    shouldPreserveTrailingBlankLine = true;
+                    // the closing brace. When padding is mandated by the node
+                    // type we still respect explicitly authored spacing, but we
+                    // guarantee a separator for nested function declarations so
+                    // their closing braces do not collapse into the parent.
+                    shouldPreserveTrailingBlankLine =
+                        node?.type === "FunctionDeclaration"
+                            ? true
+                            : hasExplicitTrailingBlankLine;
                 } else if (
                     shouldPreserveConstructorStaticPadding &&
                     hasExplicitTrailingBlankLine
@@ -2791,10 +2790,8 @@ function getFunctionParameterNameSetFromPath(path) {
         return null;
     }
 
-    const params = Array.isArray(functionNode.params)
-        ? functionNode.params
-        : null;
-    if (!params || params.length === 0) {
+    const params = getFunctionParams(functionNode);
+    if (params.length === 0) {
         return null;
     }
 
@@ -3928,13 +3925,58 @@ function mergeSyntheticDocComments(
         }
         const typePart =
             normalizedTypeSection.length > 0 ? `${normalizedTypeSection} ` : "";
-        const normalizedName = rawName.trim();
-        const remainderText = remainder.trim();
+        let normalizedName = rawName.trim();
+        let remainingRemainder = remainder;
+
+        if (
+            normalizedName.startsWith("[") &&
+            !normalizedName.endsWith("]") &&
+            typeof remainingRemainder === "string" &&
+            remainingRemainder.length > 0
+        ) {
+            let bracketBalance = 0;
+
+            for (const char of normalizedName) {
+                if (char === "[") {
+                    bracketBalance += 1;
+                } else if (char === "]") {
+                    bracketBalance -= 1;
+                }
+            }
+
+            if (bracketBalance > 0) {
+                let sliceIndex = 0;
+
+                while (
+                    sliceIndex < remainingRemainder.length &&
+                    bracketBalance > 0
+                ) {
+                    const char = remainingRemainder[sliceIndex];
+                    if (char === "[") {
+                        bracketBalance += 1;
+                    } else if (char === "]") {
+                        bracketBalance -= 1;
+                    }
+                    sliceIndex += 1;
+                }
+
+                if (bracketBalance <= 0) {
+                    const continuation = remainingRemainder.slice(
+                        0,
+                        sliceIndex
+                    );
+                    normalizedName = `${normalizedName}${continuation}`.trim();
+                    remainingRemainder = remainingRemainder.slice(sliceIndex);
+                }
+            }
+        }
+
+        const remainderText = remainingRemainder.trim();
         const hasDescription = remainderText.length > 0;
         let descriptionPart = "";
 
         if (hasDescription) {
-            const hyphenMatch = remainder.match(/^(\s*-\s*)(.*)$/);
+            const hyphenMatch = remainingRemainder.match(/^(\s*-\s*)(.*)$/);
             let normalizedDescription = "";
             let hyphenSpacing = " - ";
 
@@ -4199,9 +4241,7 @@ function getPreferredFunctionParameterName(path, node, options) {
             return null;
         }
 
-        const params = Array.isArray(functionNode.params)
-            ? functionNode.params
-            : [];
+        const params = getFunctionParams(functionNode);
         if (paramIndex >= params.length) {
             return null;
         }
@@ -4252,9 +4292,7 @@ function getPreferredFunctionParameterName(path, node, options) {
         return preferredName;
     }
 
-    const params = Array.isArray(functionNode.params)
-        ? functionNode.params
-        : [];
+    const params = getFunctionParams(functionNode);
     if (argumentIndex >= params.length) {
         return null;
     }
@@ -4288,10 +4326,8 @@ function resolvePreferredParameterName(
         return null;
     }
 
-    const params = Array.isArray(functionNode.params)
-        ? functionNode.params
-        : null;
-    if (!params || paramIndex >= params.length) {
+    const params = getFunctionParams(functionNode);
+    if (paramIndex >= params.length) {
         return null;
     }
 
@@ -4454,11 +4490,11 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
         return false;
     }
 
-    if (!functionNode || !Array.isArray(functionNode.params)) {
+    if (!functionNode) {
         return false;
     }
 
-    const params = functionNode.params;
+    const params = getFunctionParams(functionNode);
     if (argumentIndex < 0 || argumentIndex >= params.length) {
         return false;
     }
@@ -4899,6 +4935,14 @@ function computeSyntheticFunctionDocLines(
         const docName =
             (shouldMarkOptional && `[${baseDocName}]`) || baseDocName;
 
+        const normalizedExistingType = normalizeParamDocType(
+            existingMetadata?.type
+        );
+        const normalizedOrdinalType = normalizeParamDocType(
+            ordinalMetadata?.type
+        );
+        const docType = normalizedExistingType ?? normalizedOrdinalType;
+
         if (documentedParamNames.has(docName)) {
             if (implicitDocEntry?.name) {
                 documentedParamNames.add(implicitDocEntry.name);
@@ -4909,7 +4953,9 @@ function computeSyntheticFunctionDocLines(
         if (implicitDocEntry?.name) {
             documentedParamNames.add(implicitDocEntry.name);
         }
-        lines.push(`/// @param ${docName}`);
+
+        const typePrefix = docType ? `{${docType}} ` : "";
+        lines.push(`/// @param ${typePrefix}${docName}`);
     }
 
     for (const entry of implicitArgumentDocNames) {
@@ -4940,6 +4986,15 @@ function computeSyntheticFunctionDocLines(
     return maybeAppendReturnsDoc(lines, node, hasReturnsTag, overrides).map(
         (line) => normalizeDocCommentTypeAnnotations(line)
     );
+}
+
+function normalizeParamDocType(typeText) {
+    if (typeof typeText !== "string") {
+        return null;
+    }
+
+    const trimmed = typeText.trim();
+    return trimmed.length > 0 ? trimmed : null;
 }
 
 function collectImplicitArgumentDocNames(functionNode, options) {
@@ -5239,11 +5294,13 @@ function parseDocCommentMetadata(line) {
 
     if (tag === "param") {
         let paramSection = remainder;
+        let type = null;
 
         if (paramSection.startsWith("{")) {
-            const typeMatch = paramSection.match(/^\{[^}]*\}\s*(.*)$/);
+            const typeMatch = paramSection.match(/^\{([^}]*)\}\s*(.*)$/);
             if (typeMatch) {
-                paramSection = typeMatch[1] ?? "";
+                type = typeMatch[1]?.trim() ?? null;
+                paramSection = typeMatch[2] ?? "";
             }
         }
 
@@ -5271,7 +5328,12 @@ function parseDocCommentMetadata(line) {
         if (typeof name === "string") {
             name = normalizeOptionalParamNameToken(name);
         }
-        return { tag, name };
+
+        return {
+            tag,
+            name,
+            type: type ?? null
+        };
     }
 
     return { tag, name: remainder };
@@ -6055,7 +6117,7 @@ function findSiblingListAndIndex(parent, targetNode) {
         return null;
     }
 
-    // Iterate using `for...in` to preserve the original hot-path optimisation
+    // Iterate using `for...in` to preserve the original hot-path optimization
     // while keeping the scan readable and short-circuiting as soon as the node
     // is located.
     for (const key in parent) {
@@ -6296,6 +6358,8 @@ function shouldOmitSyntheticParens(path) {
         return false;
     }
 
+    const expression = node.expression;
+
     // For ternary expressions, omit unnecessary parentheses around simple
     // identifiers or member expressions in the test position
     if (parent.type === "TernaryExpression") {
@@ -6329,11 +6393,41 @@ function shouldOmitSyntheticParens(path) {
         return false;
     }
 
+    if (parent.type === "CallExpression") {
+        if (
+            !isSyntheticParenFlatteningEnabled(path) ||
+            !isNumericCallExpression(parent)
+        ) {
+            return false;
+        }
+
+        if (expression?.type !== "BinaryExpression") {
+            return false;
+        }
+
+        if (!isNumericComputationNode(expression)) {
+            return false;
+        }
+
+        if (binaryExpressionContainsString(expression)) {
+            return false;
+        }
+
+        const sanitizedMacroNames = getSanitizedMacroNames(path);
+        if (
+            sanitizedMacroNames &&
+            expressionReferencesSanitizedMacro(expression, sanitizedMacroNames)
+        ) {
+            return false;
+        }
+
+        return true;
+    }
+
     if (parent.type !== "BinaryExpression") {
         return false;
     }
 
-    const expression = node.expression;
     if (!isSyntheticParenFlatteningEnabled(path)) {
         return false;
     }
@@ -6364,11 +6458,43 @@ function shouldOmitSyntheticParens(path) {
                 return true;
             }
 
-            if (
-                expression.operator === "*" &&
-                isNumericComputationNode(expression)
-            ) {
-                return false;
+            if (isNumericComputationNode(expression)) {
+                if (parent.operator === "+" || parent.operator === "-") {
+                    const childOperator = expression.operator;
+
+                    if (
+                        childOperator === "/" ||
+                        childOperator === "div" ||
+                        childOperator === "%" ||
+                        childOperator === "mod" ||
+                        (childOperator === "*" &&
+                            !isWithinNumericCallArgument(path))
+                    ) {
+                        return false;
+                    }
+
+                    const sanitizedMacroNames = getSanitizedMacroNames(path);
+
+                    if (
+                        sanitizedMacroNames &&
+                        (expressionReferencesSanitizedMacro(
+                            parent,
+                            sanitizedMacroNames
+                        ) ||
+                            expressionReferencesSanitizedMacro(
+                                expression,
+                                sanitizedMacroNames
+                            ))
+                    ) {
+                        return false;
+                    }
+
+                    return true;
+                }
+
+                if (expression.operator === "*") {
+                    return false;
+                }
             }
         }
     }
@@ -6613,11 +6739,44 @@ function isSyntheticParenFlatteningEnabled(path) {
     }
 }
 
+function isWithinNumericCallArgument(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return false;
+    }
+
+    let depth = 1;
+    let currentNode =
+        typeof path.getValue === "function" ? path.getValue() : null;
+
+    while (true) {
+        const ancestor =
+            depth === 1 ? path.getParentNode() : path.getParentNode(depth - 1);
+
+        if (!ancestor) {
+            return false;
+        }
+
+        if (ancestor.type === "CallExpression") {
+            if (
+                Array.isArray(ancestor.arguments) &&
+                ancestor.arguments.includes(currentNode)
+            ) {
+                return isNumericCallExpression(ancestor);
+            }
+
+            return false;
+        }
+
+        currentNode = ancestor;
+        depth += 1;
+    }
+}
+
 // Synthetic parenthesis flattening only treats select call expressions as
 // numeric so we avoid unwrapping macro invocations that expand to complex
 // expressions. The list is intentionally small and can be extended as other
 // numeric helpers require the same treatment.
-const NUMERIC_CALL_IDENTIFIERS = new Set(["sqr"]);
+const NUMERIC_CALL_IDENTIFIERS = new Set(["sqr", "sqrt"]);
 
 function getSanitizedMacroNames(path) {
     if (!path || typeof path.getParentNode !== "function") {
@@ -6916,6 +7075,57 @@ function buildClauseGroup(doc) {
     return group([indent([ifBreak(line), doc]), ifBreak(line)]);
 }
 
+const INLINEABLE_SINGLE_STATEMENT_TYPES = new Set([
+    "ReturnStatement",
+    "ExitStatement"
+]);
+
+function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
+    if (
+        !path ||
+        typeof path.getValue !== "function" ||
+        typeof path.getParentNode !== "function"
+    ) {
+        return false;
+    }
+
+    const node = path.getValue();
+    if (!node || node.type !== "IfStatement") {
+        return false;
+    }
+
+    if (node.alternate) {
+        return false;
+    }
+
+    if (!INLINEABLE_SINGLE_STATEMENT_TYPES.has(bodyNode?.type)) {
+        return false;
+    }
+
+    if (hasComment(bodyNode)) {
+        return false;
+    }
+
+    const parentNode = path.getParentNode();
+    if (!parentNode || parentNode.type === "Program") {
+        return false;
+    }
+
+    if (!findEnclosingFunctionForPath(path)) {
+        return false;
+    }
+
+    const statementSource = getSourceTextForNode(node, options);
+    if (
+        typeof statementSource === "string" &&
+        (statementSource.includes("\n") || statementSource.includes("\r"))
+    ) {
+        return false;
+    }
+
+    return true;
+}
+
 function wrapInClauseParens(path, print, clauseKey) {
     const clauseNode = path.getValue()?.[clauseKey];
     const clauseDoc = printWithoutExtraParens(path, print, clauseKey);
@@ -6952,13 +7162,20 @@ function printSingleClauseStatement(
         clauseExpressionNode?.type === "CallExpression" &&
         clauseExpressionNode.preserveOriginalCallText === true;
 
-    if (allowSingleLineIfStatements && bodyNode && !clauseIsPreservedCall) {
+    const allowCollapsedGuard =
+        bodyNode &&
+        !clauseIsPreservedCall &&
+        (allowSingleLineIfStatements ||
+            shouldInlineGuardWhenDisabled(path, options, bodyNode));
+
+    if (allowCollapsedGuard) {
         let inlineReturnDoc = null;
         let inlineStatementType = null;
 
-        const inlineableTypes = new Set(["ReturnStatement", "ExitStatement"]);
-
-        if (inlineableTypes.has(bodyNode.type) && !hasComment(bodyNode)) {
+        if (
+            INLINEABLE_SINGLE_STATEMENT_TYPES.has(bodyNode.type) &&
+            !hasComment(bodyNode)
+        ) {
             inlineReturnDoc = print(bodyKey);
             inlineStatementType = bodyNode.type;
         } else if (
@@ -6970,7 +7187,7 @@ function printSingleClauseStatement(
             const [onlyStatement] = bodyNode.body;
             if (
                 onlyStatement &&
-                inlineableTypes.has(onlyStatement.type) &&
+                INLINEABLE_SINGLE_STATEMENT_TYPES.has(onlyStatement.type) &&
                 !hasComment(onlyStatement)
             ) {
                 const startLine = bodyNode.start?.line;
@@ -7110,9 +7327,7 @@ function getFunctionParameterNameByIndex(functionNode, index) {
         return null;
     }
 
-    const params = Array.isArray(functionNode.params)
-        ? functionNode.params
-        : [];
+    const params = getFunctionParams(functionNode);
 
     if (!Number.isInteger(index) || index < 0 || index >= params.length) {
         return null;
@@ -7136,6 +7351,19 @@ function getFunctionParameterNameByIndex(functionNode, index) {
     }
 
     return null;
+}
+
+function getFunctionParams(functionNode) {
+    if (!functionNode || typeof functionNode !== "object") {
+        return [];
+    }
+
+    const { params } = functionNode;
+    if (!Array.isArray(params)) {
+        return [];
+    }
+
+    return params;
 }
 
 // prints empty parens with dangling comments
