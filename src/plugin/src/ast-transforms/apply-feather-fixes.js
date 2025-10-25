@@ -53,7 +53,7 @@ import {
     collectCommentNodes,
     getCommentArray,
     hasComment,
-    resolveDocCommentInspectionService,
+    resolveDocCommentTraversalService,
     getCommentValue
 } from "../comments/index.js";
 import {
@@ -4168,11 +4168,11 @@ function normalizeArgumentBuiltinReferences({ ast, diagnostic, sourceText }) {
     }
 
     const fixes = [];
-    const docCommentInspection = resolveDocCommentInspectionService(ast);
+    const docCommentTraversal = resolveDocCommentTraversalService(ast);
     const documentedParamNamesByFunction = buildDocumentedParamNameLookup(
         ast,
         sourceText,
-        docCommentInspection
+        docCommentTraversal
     );
 
     const visit = (node) => {
@@ -4427,17 +4427,17 @@ function fixArgumentReferencesWithinFunction(
     return fixes;
 }
 
-function buildDocumentedParamNameLookup(ast, sourceText, docCommentInspection) {
+function buildDocumentedParamNameLookup(ast, sourceText, docCommentTraversal) {
     const lookup = new WeakMap();
 
     if (!ast || typeof ast !== "object") {
         return lookup;
     }
 
-    const inspection =
-        docCommentInspection ?? resolveDocCommentInspectionService(ast);
+    const traversal =
+        docCommentTraversal ?? resolveDocCommentTraversalService(ast);
 
-    inspection.forEach((node, comments = []) => {
+    traversal.forEach((node, comments = []) => {
         if (!isFunctionLikeNode(node)) {
             return;
         }
@@ -6601,11 +6601,11 @@ function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {
         return [];
     }
 
-    const docCommentInspection = resolveDocCommentInspectionService(ast);
+    const docCommentTraversal = resolveDocCommentTraversalService(ast);
     const deprecatedFunctions = collectDeprecatedFunctionNames(
         ast,
         sourceText,
-        docCommentInspection
+        docCommentTraversal
     );
 
     if (!deprecatedFunctions || deprecatedFunctions.size === 0) {
@@ -6689,7 +6689,7 @@ function recordDeprecatedCallMetadata(node, deprecatedFunctions, diagnostic) {
     return fixDetail;
 }
 
-function collectDeprecatedFunctionNames(ast, sourceText, docCommentInspection) {
+function collectDeprecatedFunctionNames(ast, sourceText, docCommentTraversal) {
     const names = new Set();
 
     if (!ast || typeof ast !== "object" || typeof sourceText !== "string") {
@@ -6715,10 +6715,10 @@ function collectDeprecatedFunctionNames(ast, sourceText, docCommentInspection) {
         return names;
     }
 
-    const inspection =
-        docCommentInspection ?? resolveDocCommentInspectionService(ast);
+    const traversal =
+        docCommentTraversal ?? resolveDocCommentTraversalService(ast);
 
-    inspection.forEach((node, comments = []) => {
+    traversal.forEach((node, comments = []) => {
         if (!topLevelFunctions.has(node)) {
             return;
         }
