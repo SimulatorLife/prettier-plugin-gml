@@ -1,7 +1,6 @@
 export {
     applyEnvironmentOverride,
     assertArray,
-    appendToCollection,
     assertFunction,
     assertNonEmptyString,
     assertPlainObject,
@@ -38,6 +37,8 @@ export {
     toPosixPath,
     toTrimmedString
 } from "../../shared/utils.js";
+
+export { appendToCollection } from "../core/collection-utils.js";
 
 export { createAbortGuard } from "../../shared/abort-utils.js";
 
