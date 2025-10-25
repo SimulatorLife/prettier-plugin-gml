@@ -24,20 +24,19 @@ const SUMMARY_SECTIONS = Object.freeze([
     "metadata"
 ]);
 
-function toCandidateCacheKeys(keys) {
-    if (typeof keys === "string" || Array.isArray(keys)) {
-        return keys;
-    }
-
-    if (typeof keys?.[Symbol.iterator] === "function") {
-        return toArrayFromIterable(keys);
-    }
-
-    return DEFAULT_CACHE_KEYS;
+function isIterable(value) {
+    return value != null && typeof value[Symbol.iterator] === "function";
 }
 
 function normalizeCacheKeys(keys) {
-    const normalized = normalizeStringList(toCandidateCacheKeys(keys), {
+    const candidates =
+        typeof keys === "string" || Array.isArray(keys)
+            ? keys
+            : isIterable(keys)
+              ? toArrayFromIterable(keys)
+              : DEFAULT_CACHE_KEYS;
+
+    const normalized = normalizeStringList(candidates, {
         allowInvalidType: true
     });
 
