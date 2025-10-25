@@ -1,38 +1,18 @@
-import { isNonEmptyString, toTrimmedString } from "./string.js";
 import { isErrorLike } from "./capability-probes.js";
-
-function getErrorMessage(value) {
-    if (typeof value === "string") {
-        return value;
-    }
-
-    if (value == null) {
-        return null;
-    }
-
-    if (typeof value.toString !== "function") {
-        return null;
-    }
-
-    try {
-        return value.toString();
-    } catch {
-        return null;
-    }
-}
+import { getErrorMessageOrFallback } from "./error.js";
+import { assertPlainObject } from "./object.js";
+import { isNonEmptyString, toTrimmedString } from "./string.js";
 
 function toError(value) {
     if (isErrorLike(value)) {
         return value;
     }
 
-    const rawMessage = getErrorMessage(value);
-    const message =
-        rawMessage && rawMessage !== "[object Object]"
-            ? rawMessage
-            : "Unknown error";
+    const message = getErrorMessageOrFallback(value);
+    const normalizedMessage =
+        message === "[object Object]" ? "Unknown error" : message;
 
-    const fallback = new Error(message);
+    const fallback = new Error(normalizedMessage);
     fallback.name = "NonErrorThrown";
     return fallback;
 }
@@ -112,6 +92,10 @@ function extractErrorDetails(error) {
     return normalized.length > 0 ? normalized : "Unknown error";
 }
 
+function isObject(value) {
+    return value !== null && typeof value === "object";
+}
+
 /**
  * Parse a JSON payload while annotating any failures with high-level context.
  *
@@ -156,9 +140,61 @@ export function parseJsonWithContext(text, options = {}) {
 }
 
 /**
+ * Parse a JSON payload that is expected to yield a plain object.
+ *
+ * The helper reuses {@link parseJsonWithContext} to surface enriched syntax
+ * errors and then validates the resulting value with
+ * {@link assertPlainObject}. Callers can supply either static assertion
+ * options via {@link assertOptions} or compute them dynamically based on the
+ * parsed payload via {@link createAssertOptions}. When both are provided, the
+ * dynamic options take precedence while still layering on top of the static
+ * bag so shared settings like `allowNullPrototype` remain in effect.
+ *
+ * @param {string} text Raw JSON text to parse.
+ * @param {{
+ *   source?: string,
+ *   description?: string,
+ *   reviver?: (this: any, key: string, value: any) => any,
+ *   assertOptions?: Parameters<typeof assertPlainObject>[1],
+ *   createAssertOptions?: (payload: unknown) => Parameters<typeof assertPlainObject>[1]
+ * }} [options]
+ * @returns {Record<string, unknown>} Parsed JSON object.
+ */
+export function parseJsonObjectWithContext(text, options = {}) {
+    const { source, description, reviver, assertOptions, createAssertOptions } =
+        options;
+
+    const payload = parseJsonWithContext(text, {
+        source,
+        description,
+        reviver
+    });
+
+    const optionSources = [];
+
+    if (isObject(assertOptions)) {
+        optionSources.push(assertOptions);
+    }
+
+    if (typeof createAssertOptions === "function") {
+        const dynamicOptions = createAssertOptions(payload);
+        if (isObject(dynamicOptions)) {
+            optionSources.push(dynamicOptions);
+        }
+    }
+
+    const mergedOptions =
+        optionSources.length > 0
+            ? Object.assign({}, ...optionSources)
+            : undefined;
+
+    return assertPlainObject(payload, mergedOptions);
+}
+
+/**
  * Serialize a JSON payload for file output while normalizing trailing
  * newlines. Helpers across the CLI and plugin previously reimplemented this
- * behaviour, often appending "\n" manually after JSON.stringify. Centralising
+ * behaviour, often appending "\n" manually after JSON.stringify. Centralizing
  * the logic ensures all call sites respect the same newline semantics and keeps
  * indentation handling in one place.
  *
@@ -180,6 +216,21 @@ export function stringifyJsonForFile(payload, options = {}) {
     } = options;
 
     const serialized = JSON.stringify(payload, replacer, space);
+
+    if (typeof serialized !== "string") {
+        const payloadDescription =
+            payload === undefined
+                ? "undefined payload"
+                : typeof payload === "function"
+                  ? "function payload"
+                  : typeof payload === "symbol"
+                    ? "symbol payload"
+                    : "provided payload";
+
+        throw new TypeError(
+            `Unable to serialize ${payloadDescription} to JSON. JSON.stringify returned undefined.`
+        );
+    }
 
     if (!includeTrailingNewline) {
         return serialized;

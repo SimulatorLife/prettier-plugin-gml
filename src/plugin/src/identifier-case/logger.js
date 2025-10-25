@@ -1,4 +1,4 @@
-import { getErrorMessage } from "../../../shared/utils.js";
+import { getErrorMessage } from "../shared/index.js";
 
 const DEFAULT_WARNING_FALLBACK = "Unknown error";
 

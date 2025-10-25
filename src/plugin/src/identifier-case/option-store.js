@@ -1,8 +1,9 @@
-import { isNonEmptyString } from "../../../shared/string-utils.js";
 import {
+    isNonEmptyString,
     getOrCreateMapEntry,
-    isObjectLike
-} from "../../../shared/object-utils.js";
+    isObjectLike,
+    isFiniteNumber
+} from "../shared/index.js";
 import {
     DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES,
     IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME
@@ -54,7 +55,7 @@ function resolveMaxOptionStoreEntries(options) {
         return configured;
     }
 
-    if (typeof configured !== "number" || !Number.isFinite(configured)) {
+    if (!isFiniteNumber(configured)) {
         return DEFAULT_MAX_OPTION_STORE_ENTRIES;
     }
 

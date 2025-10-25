@@ -5,11 +5,12 @@ import {
     assertPlainObject,
     coalesceOption,
     getOrCreateMapEntry,
+    incrementMapValue,
     isObjectLike,
     isPlainObject,
     withDefinedValue,
     withObjectLike
-} from "../object-utils.js";
+} from "../utils/object.js";
 
 test("isPlainObject accepts non-null object literals", () => {
     assert.strictEqual(isPlainObject({}), true);
@@ -193,4 +194,35 @@ test("getOrCreateMapEntry works with WeakMap instances", () => {
     const again = getOrCreateMapEntry(store, key, () => ({ hits: 1 }));
 
     assert.strictEqual(again, value);
+});
+
+test("incrementMapValue initializes missing entries with fallback", () => {
+    const store = new Map();
+
+    const result = incrementMapValue(store, "key");
+
+    assert.strictEqual(result, 1);
+    assert.strictEqual(store.get("key"), 1);
+});
+
+test("incrementMapValue coerces existing values before incrementing", () => {
+    const store = new Map([
+        ["alpha", "2"],
+        ["beta", undefined]
+    ]);
+
+    const alpha = incrementMapValue(store, "alpha", 3);
+    const beta = incrementMapValue(store, "beta", 2, { fallback: 5 });
+
+    assert.strictEqual(alpha, 5);
+    assert.strictEqual(store.get("alpha"), 5);
+    assert.strictEqual(beta, 7);
+    assert.strictEqual(store.get("beta"), 7);
+});
+
+test("incrementMapValue throws when store lacks map methods", () => {
+    assert.throws(
+        () => incrementMapValue(null, "key"),
+        /store must provide get and set functions/
+    );
 });

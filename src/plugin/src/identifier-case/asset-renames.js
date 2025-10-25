@@ -3,9 +3,10 @@ import path from "node:path";
 import { formatIdentifierCase } from "./identifier-case-utils.js";
 import {
     isNonEmptyString,
-    toNormalizedLowerCaseString
-} from "../../../shared/string-utils.js";
-import { isNonEmptyArray } from "../../../shared/array-utils.js";
+    toNormalizedLowerCaseString,
+    isNonEmptyArray,
+    getOrCreateMapEntry
+} from "../shared/index.js";
 import { loadReservedIdentifierNames } from "../resources/reserved-identifiers.js";
 import {
     COLLISION_CONFLICT_CODE,
@@ -16,7 +17,6 @@ import {
     summarizeReferenceFileOccurrences
 } from "./common.js";
 import { createAssetRenameExecutor } from "./asset-rename-executor.js";
-import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
 
 const RESERVED_IDENTIFIER_NAMES = loadReservedIdentifierNames();
 
@@ -78,8 +78,8 @@ function pushAssetRenameConflict({
     const resolvedSuggestions =
         suggestions === undefined
             ? includeSuggestions && isNonEmptyString(identifierName)
-              ? buildAssetConflictSuggestions(identifierName)
-              : null
+                ? buildAssetConflictSuggestions(identifierName)
+                : null
             : suggestions;
 
     const conflict = {
@@ -101,7 +101,7 @@ function pushAssetRenameConflict({
     conflicts.push(createConflict(conflict));
 
     if (metricKey) {
-        metrics?.incrementCounter(metricKey);
+        metrics?.counters?.increment(metricKey);
     }
 }
 
@@ -308,7 +308,7 @@ export function planAssetRenames({
             continue;
         }
 
-        metrics?.incrementCounter("assets.resourcesScanned");
+        metrics?.counters?.increment("assets.resourcesScanned");
 
         if (resourceRecord.resourceType !== "GMScript") {
             continue;
@@ -321,7 +321,7 @@ export function planAssetRenames({
             continue;
         }
 
-        metrics?.incrementCounter("assets.renameCandidates");
+        metrics?.counters?.increment("assets.renameCandidates");
 
         const configConflict = resolveIdentifierConfigurationConflict({
             preservedSet,
@@ -331,7 +331,7 @@ export function planAssetRenames({
         });
 
         if (configConflict) {
-            metrics?.incrementCounter("assets.configurationConflicts");
+            metrics?.counters?.increment("assets.configurationConflicts");
             const message = formatConfigurationConflictMessage({
                 configConflict,
                 identifierName: originalName,
@@ -416,7 +416,7 @@ export function planAssetRenames({
             referenceMutations
         });
 
-        metrics?.incrementCounter("assets.renamesQueued");
+        metrics?.counters?.increment("assets.renamesQueued");
 
         operations.push({
             id: `asset:${resourceRecord.resourceType}:${resourcePath}`,

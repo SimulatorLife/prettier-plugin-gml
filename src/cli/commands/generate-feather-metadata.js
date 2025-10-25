@@ -7,37 +7,60 @@ import {
     getNonEmptyTrimmedString,
     isNonEmptyArray,
     isNonEmptyString,
+    resolveCommandUsage,
     toNormalizedLowerCaseSet
-} from "../lib/shared-deps.js";
-import { CliUsageError } from "../lib/cli-errors.js";
-import { assertSupportedNodeVersion } from "../lib/node-version.js";
-import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
-import {
-    disposeProgressBars,
-    withProgressBarCleanup
-} from "../lib/progress-bar.js";
-import { writeManualJsonArtifact } from "../lib/manual-file-helpers.js";
+} from "../shared/dependencies.js";
+import { CliUsageError } from "../core/errors.js";
+import { assertSupportedNodeVersion } from "../shared/node-version.js";
+import { timeSync, createVerboseDurationLogger } from "../shared/time-utils.js";
+import { disposeProgressBars } from "../shared/progress-bar.js";
+import { writeManualJsonArtifact } from "../features/manual/file-helpers.js";
 import {
     MANUAL_CACHE_ROOT_ENV_VAR,
     DEFAULT_MANUAL_REPO,
     MANUAL_REPO_ENV_VAR,
+    announceManualDownloadStart,
     buildManualRepositoryEndpoints,
-    createManualDownloadReporter,
-    downloadManualFileEntries
-} from "../lib/manual/utils.js";
+    downloadManualEntriesWithProgress
+} from "../features/manual/utils.js";
 import {
     MANUAL_REF_ENV_VAR,
     PROGRESS_BAR_WIDTH_ENV_VAR,
     applyManualEnvOptionOverrides
-} from "../lib/manual-env.js";
-import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
+} from "../features/manual/environment.js";
+import { applyStandardCommandOptions } from "../core/command-standard-options.js";
 import {
     applySharedManualCommandOptions,
     resolveManualCommandOptions
-} from "../lib/manual/command-options.js";
-import { createManualAccessContext } from "../lib/manual-command-context.js";
+} from "../features/manual/command-options.js";
+import { createManualAccessContexts } from "../features/manual/context.js";
 
 /** @typedef {ReturnType<typeof resolveManualCommandOptions>} ManualCommandOptions */
+
+const ENVIRONMENT_VARIABLE_HELP_ENTRIES = [
+    [MANUAL_REPO_ENV_VAR, "Override the manual repository (owner/name)."],
+    [
+        MANUAL_CACHE_ROOT_ENV_VAR,
+        "Override the cache directory for manual artefacts."
+    ],
+    [
+        MANUAL_REF_ENV_VAR,
+        "Set the default manual ref (tag, branch, or commit)."
+    ],
+    [PROGRESS_BAR_WIDTH_ENV_VAR, "Override the progress bar width."]
+];
+
+function formatEnvironmentVariableHelp(entries) {
+    const labelWidth = entries.reduce(
+        (max, [name]) => Math.max(max, name.length),
+        0
+    );
+
+    return entries.map(([name, description]) => {
+        const paddedName = name.padEnd(labelWidth);
+        return `  ${paddedName}  ${description}`;
+    });
+}
 
 const {
     environment: {
@@ -45,9 +68,13 @@ const {
         defaultCacheRoot: DEFAULT_CACHE_ROOT,
         defaultOutputPath: OUTPUT_DEFAULT
     },
-    files: { fetchManualFile },
-    refs: { resolveManualRef }
-} = createManualAccessContext({
+    fileAccess: {
+        files: { fetchManualFile }
+    },
+    referenceAccess: {
+        refs: { resolveManualRef }
+    }
+} = createManualAccessContexts({
     importMetaUrl: import.meta.url,
     userAgent: "prettier-plugin-gml feather metadata generator",
     outputFileName: "feather-metadata.json"
@@ -86,22 +113,19 @@ export function createFeatherMetadataCommand({ env = process.env } = {}) {
         quietDescription: "Suppress progress output (useful in CI)."
     });
 
+    const environmentVariableHelp = formatEnvironmentVariableHelp(
+        ENVIRONMENT_VARIABLE_HELP_ENTRIES
+    );
+
     command.addHelpText(
         "after",
-        [
-            "",
-            "Environment variables:",
-            `  ${MANUAL_REPO_ENV_VAR}    Override the manual repository (owner/name).`,
-            `  ${MANUAL_CACHE_ROOT_ENV_VAR}  Override the cache directory for manual artefacts.`,
-            `  ${MANUAL_REF_ENV_VAR}          Set the default manual ref (tag, branch, or commit).`,
-            `  ${PROGRESS_BAR_WIDTH_ENV_VAR}     Override the progress bar width.`
-        ].join("\n")
+        ["", "Environment variables:", ...environmentVariableHelp].join("\n")
     );
 
     applyManualEnvOptionOverrides({
         command,
         env,
-        getUsage: () => command.helpInformation()
+        getUsage: resolveCommandUsage(command)
     });
 
     return command;
@@ -1028,48 +1052,30 @@ async function fetchFeatherManualPayloads({
     rawRoot,
     progressBarWidth
 }) {
-    return withProgressBarCleanup(async () => {
-        const manualEntries = Object.entries(FEATHER_PAGES);
-        const totalManualPages = manualEntries.length;
+    const manualEntries = Object.entries(FEATHER_PAGES);
+    const totalManualPages = manualEntries.length;
 
-        announceManualDownloadStart(totalManualPages, verbose);
+    announceManualDownloadStart(totalManualPages, {
+        verbose,
+        description: "manual page"
+    });
 
-        const reportProgress = createManualDownloadReporter({
+    return downloadManualEntriesWithProgress({
+        entries: manualEntries,
+        manualRefSha: manualRef.sha,
+        fetchManualFile: fetchManualFileFn,
+        requestOptions: {
+            forceRefresh,
+            verbose,
+            cacheRoot,
+            rawRoot
+        },
+        progress: {
             label: "Downloading manual pages",
             verbose,
             progressBarWidth
-        });
-
-        return downloadManualFileEntries({
-            entries: manualEntries,
-            manualRefSha: manualRef.sha,
-            fetchManualFile: fetchManualFileFn,
-            requestOptions: {
-                forceRefresh,
-                verbose,
-                cacheRoot,
-                rawRoot
-            },
-            onProgress: ({ path, fetchedCount, totalEntries }) =>
-                reportProgress({
-                    path,
-                    fetchedCount,
-                    totalEntries
-                })
-        });
+        }
     });
-}
-
-function announceManualDownloadStart(totalManualPages, verbose) {
-    if (!verbose?.downloads) {
-        return;
-    }
-
-    console.log(
-        `Fetching ${totalManualPages} manual page${
-            totalManualPages === 1 ? "" : "s"
-        }…`
-    );
 }
 
 /**

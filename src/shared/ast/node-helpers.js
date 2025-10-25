@@ -94,10 +94,9 @@ function isVarVariableDeclaration(node) {
  *     hot printer paths to skip type checks without risking runtime failures.
  */
 const identifierResolvers = Object.freeze({
-    Identifier: (identifier) =>
-        typeof identifier.name === "string" ? identifier.name : null,
+    Identifier: resolveNodeName,
     Literal: (literal) =>
-        typeof literal.value === "string" ? literal.value : null,
+        typeof literal?.value === "string" ? literal.value : null,
     MemberDotExpression: (expression) => {
         const { object, property } = expression;
         if (!isIdentifierNode(object) || !isIdentifierNode(property)) {
@@ -168,15 +167,9 @@ function getMemberIndexText(indexNode) {
         return null;
     }
 
-    const indexName = indexNode.name;
-    if (typeof indexName === "string") {
-        return indexName;
-    }
-
-    const indexType = indexNode.type;
-    if (indexType === "Literal") {
-        const value = indexNode.value;
-        return typeof value === "string" ? value : null;
+    const directName = resolveNodeName(indexNode);
+    if (directName !== null) {
+        return directName;
     }
 
     return getIdentifierText(indexNode);
@@ -234,7 +227,7 @@ function getCallExpressionIdentifier(callExpression) {
         return null;
     }
 
-    return typeof callee.name === "string" ? callee : null;
+    return resolveNodeName(callee) === null ? null : callee;
 }
 
 function getCallExpressionIdentifierName(callExpression) {
@@ -357,6 +350,29 @@ function isUndefinedLiteral(node) {
     return getLiteralStringValue(node) === "undefined";
 }
 
+/**
+ * Retrieve the `type` string from an AST node when present.
+ *
+ * @param {unknown} node Candidate AST node-like value.
+ * @returns {string | null} The node's `type` when available, otherwise `null`.
+ */
+function getNodeType(node) {
+    if (node === undefined || node === null) {
+        return null;
+    }
+
+    if (typeof node !== "object") {
+        return null;
+    }
+
+    const { type } = node;
+    if (typeof type !== "string") {
+        return null;
+    }
+
+    return type;
+}
+
 function isNode(value) {
     return value !== undefined && value !== null && typeof value === "object";
 }
@@ -379,7 +395,14 @@ function visitChildNodes(node, callback) {
     }
 
     if (Array.isArray(node)) {
-        for (const item of node) {
+        // Iterate over a shallow snapshot so callers that mutate the source
+        // collection (for example by splicing siblings) do not cause entries to
+        // be skipped. Forwarding the original references preserves behavioural
+        // parity while keeping traversal order stable regardless of
+        // modifications performed by the callback.
+        const items = node.slice();
+
+        for (const item of items) {
             callback(item);
         }
 
@@ -416,8 +439,16 @@ function enqueueObjectChildValues(stack, value) {
     }
 
     if (Array.isArray(value)) {
-        for (const item of value) {
-            if (item && typeof item === "object") {
+        const { length } = value;
+
+        // Manual index iteration avoids the iterator/closure overhead paid by
+        // `for...of` on every call. The helper sits on tight AST traversal
+        // loops, so keeping the branch predictable and allocation-free helps
+        // repeated walks stay lean.
+        for (let index = 0; index < length; index += 1) {
+            const item = value[index];
+
+            if (item !== null && typeof item === "object") {
                 stack.push(item);
             }
         }
@@ -460,6 +491,7 @@ export {
     getBooleanLiteralValue,
     isBooleanLiteral,
     isUndefinedLiteral,
+    getNodeType,
     isNode,
     visitChildNodes,
     enqueueObjectChildValues,

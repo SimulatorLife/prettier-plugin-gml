@@ -10,17 +10,17 @@ const CARRIAGE_RETURN = "\r".codePointAt(0);
 const LINE_FEED = "\n".codePointAt(0);
 const LINE_SEPARATOR = "\u2028".codePointAt(0);
 const PARAGRAPH_SEPARATOR = "\u2029".codePointAt(0);
+// Code points above the BMP span two UTF-16 code units. Hoist the numeric
+// boundary so the hot loop in {@link getLineBreakCount} can perform the width
+// check inline without paying a helper call on every iteration.
+const BMP_MAX_CODE_POINT = 65_535;
 
-function getCodePointStep(codePoint) {
-    return codePoint > 65_535 ? 2 : 1;
-}
-
-function advancePastCarriageReturn(text, index, step) {
-    const nextIndex = index + step;
+function advancePastCarriageReturn(text, index) {
+    const nextIndex = index + 1;
     const nextCode = text.codePointAt(nextIndex);
 
     if (typeof nextCode === "number" && nextCode === LINE_FEED) {
-        return nextIndex + getCodePointStep(nextCode);
+        return nextIndex + 1;
     }
 
     return nextIndex;
@@ -50,17 +50,17 @@ export function getLineBreakCount(text) {
     // keep the loop tight and operate on character codes directly.
     while (index < length) {
         const code = text.codePointAt(index);
-        if (typeof code !== "number") {
+        if (code === undefined) {
             break;
         }
 
-        const step = getCodePointStep(code);
-
         if (code === CARRIAGE_RETURN) {
-            index = advancePastCarriageReturn(text, index, step);
+            index = advancePastCarriageReturn(text, index);
             count += 1;
             continue;
         }
+
+        const step = code > BMP_MAX_CODE_POINT ? 2 : 1;
 
         if (
             code === LINE_FEED ||

@@ -5,7 +5,7 @@ import {
     isJsonParseError,
     parseJsonWithContext,
     stringifyJsonForFile
-} from "../json-utils.js";
+} from "../utils/json.js";
 import { isErrorLike } from "../utils/capability-probes.js";
 
 describe("parseJsonWithContext", () => {
@@ -117,5 +117,19 @@ describe("stringifyJsonForFile", () => {
         );
 
         assert.ok(contents.endsWith("\n"));
+    });
+
+    it("throws a descriptive error when the payload cannot be serialized", () => {
+        assert.throws(
+            () => stringifyJsonForFile(),
+            (error) => {
+                assert.equal(error instanceof TypeError, true);
+                assert.match(
+                    error.message,
+                    /Unable to serialize .* JSON\. JSON\.stringify returned undefined\./
+                );
+                return true;
+            }
+        );
     });
 });

@@ -69,7 +69,7 @@ no code changes were required.
 ## Follow-up audit (2025-03-05)
 
 - Investigated the manual tooling pipeline and found `createManualCommandContext`
-  in `src/cli/lib/manual-command-context.js`. The context returned repository
+  in `src/cli/lib/manual/context.js`. The context returned repository
   paths, raw GitHub client adapters, and high-level operations as a single
   object, which forced commands that only needed one facet (for example,
   `fetchManualFile`) to depend on all of the manual wiring details.
@@ -83,7 +83,7 @@ no code changes were required.
 ## Follow-up audit (2025-03-12)
 
 - Revisited `createManualCommandContext` in
-  `src/cli/lib/manual-command-context.js` and noticed the
+  `src/cli/lib/manual/context.js` and noticed the
   `ManualCommandGitHubOperations` surface still bundled manual request
   execution, file fetching, ref resolution, and commit resolution behind one
   catch-all interface. Commands that only needed one of those collaborators
@@ -98,7 +98,7 @@ no code changes were required.
 
 - Audited the manual GitHub execution helpers again and found the
   `ManualCommandGitHubClients` contract in
-  `src/cli/lib/manual-command-context.js`. The catch-all "clients" object still
+  `src/cli/lib/manual/context.js`. The catch-all "clients" object still
   combined the raw request executor, commit resolver, ref resolver, and file
   fetcher into one dependency, which meant consumers importing the execution
   context needed to accept all four collaborators even when they only required
@@ -123,3 +123,42 @@ no code changes were required.
   `resolveManualGitHubRefResolver`, and
   `resolveManualGitHubFileClient`). Updated the CLI unit test to import the
   specialised helpers so consumers opt into only the collaborator they require.
+
+## Follow-up audit (2025-04-09)
+
+- Audited `createManualAccessContext` in
+  `src/cli/features/manual/context.js` and found it still returned a combined
+  `ManualAccessContext` interface that bundled manual file fetching with
+  reference resolution. CLI commands that only needed to download manual pages
+  were forced to depend on reference helpers (and vice versa), violating the
+  Interface Segregation Principle.
+- Split the contract into `ManualFileAccessContext` and
+  `ManualReferenceAccessContext`, plus a helper that produces both specialised
+  views without rebuilding the underlying GitHub wiring. Updated the manual CLI
+  commands and unit tests to import the targeted contexts so each call site
+  depends only on the collaborators it requires.
+
+## Follow-up audit (2025-04-16)
+
+- Identified `createMetricsTracker` in `src/shared/reporting/metrics.js` as a
+  wide surface that combined timing helpers, counter incrementers, cache
+  recorders, and reporting utilities behind one "tracker" object. Callers that
+  only needed to bump counters or capture a snapshot still depended on all of
+  the other behaviours.
+- Split the contract into focused collaborator bundles: `timers`, `counters`,
+  `caches`, and `reporting`. Updated the tracker implementation, metrics
+  consumers, tests, and documentation to rely on the specialised interfaces so
+  each consumer opts into only the responsibilities it uses.
+
+## Follow-up audit (2025-04-23)
+
+- Audited the CLI plugin defaults and found the `CliPluginServiceRegistry`
+  typedef in `src/cli/plugin/service-providers/default.js`. The registry
+  reintroduced a catch-all `defaultCliPluginServices` bundle that coupled the
+  project index helpers with the identifier case services. Modules that only
+  needed identifier case collaborators were forced to depend on the project
+  index builder as well.
+- Removed the combined registry typedef and now expose the project index and
+  identifier case service families as separate exports. Updated the service
+  factory, module-level defaults, and unit tests to depend on the specialised
+  collaborators so each call site opts into only the helpers it uses.

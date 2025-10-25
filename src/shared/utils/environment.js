@@ -7,7 +7,7 @@ import { assertNonEmptyString } from "./string.js";
  *
  * Centralizes the defensive plumbing shared by CLI utilities and the project
  * index so future overrides can opt into consistent validation and fallback
- * behavior without repeating boilerplate guards.
+ * behaviour without repeating boilerplate guards.
  *
  * @param {object} parameters
  * @param {NodeJS.ProcessEnv | null | undefined} [parameters.env] Environment
@@ -135,4 +135,71 @@ export function createEnvConfiguredValue({
     }
 
     return { get, set, applyEnvOverride };
+}
+
+/**
+ * Wrap {@link createEnvConfiguredValue} so callers can provide normalization
+ * logic that gracefully falls back to the previous or default value when
+ * coercion fails. This centralizes the "try, catch, and fallback" pattern used
+ * by CLI and project index modules when parsing environment overrides into a
+ * reusable helper.
+ *
+ * @template TValue
+ * @param {object} parameters
+ * @param {TValue} parameters.defaultValue Baseline value exposed before any
+ *        overrides are applied.
+ * @param {string | null | undefined} [parameters.envVar] Environment variable
+ *        powering the override. When omitted the helper mirrors the behaviour
+ *        of {@link createEnvConfiguredValue} and simply returns the in-memory
+ *        value.
+ * @param {(raw: unknown, context: {
+ *   defaultValue: TValue;
+ *   previousValue: TValue;
+ *   fallback: TValue;
+ * }) => TValue | null | undefined} parameters.resolve Function that normalizes
+ *        the raw value. Returning `null` or `undefined` triggers the fallback.
+ * @param {(context: { defaultValue: TValue; previousValue: TValue }) => TValue}
+ *        [parameters.computeFallback] Optional factory used to derive the
+ *        fallback value. Defaults to using the previous value when available,
+ *        otherwise the configured default.
+ * @returns {{
+ *   get(): TValue;
+ *   set(value: unknown): TValue;
+ *   applyEnvOverride(env?: NodeJS.ProcessEnv | null | undefined): TValue;
+ * }}
+ */
+export function createEnvConfiguredValueWithFallback({
+    defaultValue,
+    envVar,
+    resolve,
+    computeFallback
+} = {}) {
+    assertFunction(resolve, "resolve");
+
+    const fallbackFactory =
+        typeof computeFallback === "function"
+            ? computeFallback
+            : ({ defaultValue, previousValue }) =>
+                  previousValue ?? defaultValue;
+
+    return createEnvConfiguredValue({
+        defaultValue,
+        envVar,
+        normalize: (rawValue, context) => {
+            const fallback = fallbackFactory(context);
+
+            try {
+                const resolved = resolve(rawValue, {
+                    ...context,
+                    fallback
+                });
+
+                return resolved === null || resolved === undefined
+                    ? fallback
+                    : resolved;
+            } catch {
+                return fallback;
+            }
+        }
+    });
 }

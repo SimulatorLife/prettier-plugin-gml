@@ -5,49 +5,74 @@ import test from "node:test";
 
 import {
     createManualEnvironmentContext,
-    createManualAccessContext,
+    createManualAccessContexts,
+    createManualFileAccessContext,
+    createManualReferenceAccessContext,
     resolveManualGitHubRequestService,
     resolveManualGitHubRequestExecutor,
     resolveManualGitHubCommitService,
     resolveManualGitHubCommitResolver,
     resolveManualGitHubRefResolver,
     resolveManualGitHubFileClient
-} from "../lib/manual-command-context.js";
+} from "../features/manual/context.js";
 import {
     buildManualRepositoryEndpoints,
     resolveManualCacheRoot
-} from "../lib/manual/utils.js";
+} from "../features/manual/utils.js";
 
-test("createManualAccessContext centralizes manual access defaults", () => {
+test("createManualAccessContexts centralizes manual access defaults", () => {
     const commandUrl = pathToFileURL(
         path.resolve("src/cli/commands/generate-gml-identifiers.js")
     ).href;
 
-    const context = createManualAccessContext({
-        importMetaUrl: commandUrl,
-        userAgent: "manual-context-test",
-        outputFileName: "example.json"
-    });
+    const { environment, fileAccess, referenceAccess } =
+        createManualAccessContexts({
+            importMetaUrl: commandUrl,
+            userAgent: "manual-context-test",
+            outputFileName: "example.json"
+        });
 
     const expectedRepoRoot = path.resolve("src/cli/commands", "..", "..");
-    assert.equal(context.environment.repoRoot, expectedRepoRoot);
+    assert.equal(environment.repoRoot, expectedRepoRoot);
     assert.equal(
-        context.environment.defaultCacheRoot,
+        environment.defaultCacheRoot,
         resolveManualCacheRoot({ repoRoot: expectedRepoRoot })
     );
     assert.equal(
-        context.environment.defaultOutputPath,
+        environment.defaultOutputPath,
         path.join(expectedRepoRoot, "resources", "example.json")
     );
     assert.equal(
-        context.environment.defaultManualRawRoot,
+        environment.defaultManualRawRoot,
         buildManualRepositoryEndpoints().rawRoot
     );
-    assert.ok(Object.isFrozen(context.environment));
-    assert.ok(Object.isFrozen(context.files));
-    assert.ok(Object.isFrozen(context.refs));
-    assert.equal(typeof context.files.fetchManualFile, "function");
-    assert.equal(typeof context.refs.resolveManualRef, "function");
+    assert.ok(Object.isFrozen(environment));
+    assert.ok(Object.isFrozen(fileAccess));
+    assert.ok(Object.isFrozen(referenceAccess));
+    assert.equal(fileAccess.environment, environment);
+    assert.equal(referenceAccess.environment, environment);
+    assert.equal(typeof fileAccess.files.fetchManualFile, "function");
+    assert.equal(typeof referenceAccess.refs.resolveManualRef, "function");
+});
+
+test("manual access helpers expose focused contexts", () => {
+    const commandUrl = pathToFileURL(
+        path.resolve("src/cli/commands/generate-feather-metadata.js")
+    ).href;
+
+    const fileAccess = createManualFileAccessContext({
+        importMetaUrl: commandUrl,
+        userAgent: "manual-context-test"
+    });
+
+    const referenceAccess = createManualReferenceAccessContext({
+        importMetaUrl: commandUrl,
+        userAgent: "manual-context-test"
+    });
+
+    assert.deepStrictEqual(fileAccess.environment, referenceAccess.environment);
+    assert.equal(typeof fileAccess.files.fetchManualFile, "function");
+    assert.equal(typeof referenceAccess.refs.resolveManualRef, "function");
 });
 
 test("manual GitHub helpers expose narrow collaborators", () => {
@@ -100,7 +125,7 @@ test("createManualEnvironmentContext isolates repository metadata", () => {
 
 test("manual command context builders validate required arguments", () => {
     assert.throws(
-        () => createManualAccessContext({ userAgent: "missing-url" }),
+        () => createManualFileAccessContext({ userAgent: "missing-url" }),
         /importMetaUrl must be provided/i
     );
 
@@ -109,7 +134,7 @@ test("manual command context builders validate required arguments", () => {
     ).href;
 
     assert.throws(
-        () => createManualAccessContext({ importMetaUrl: commandUrl }),
+        () => createManualFileAccessContext({ importMetaUrl: commandUrl }),
         /userAgent must be provided/i
     );
 });

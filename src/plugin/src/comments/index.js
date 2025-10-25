@@ -10,8 +10,10 @@ export {
 export {
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     DEFAULT_LINE_COMMENT_OPTIONS,
+    restoreDefaultLineCommentOptionsResolver,
     resolveLineCommentOptions,
-    normalizeLineCommentOptions
+    normalizeLineCommentOptions,
+    setLineCommentOptionsResolver
 } from "../options/line-comment-options.js";
 export {
     applyInlinePadding,
@@ -32,7 +34,9 @@ export {
 export {
     getDocCommentManager,
     prepareDocCommentEnvironment,
-    resolveDocCommentInspectionService,
+    resolveDocCommentTraversalService,
+    resolveDocCommentLookupService,
+    resolveDocCommentDescriptionService,
     resolveDocCommentUpdateService
 } from "./doc-comment-manager.js";
 export { getCommentValue } from "./comment-utils.js";

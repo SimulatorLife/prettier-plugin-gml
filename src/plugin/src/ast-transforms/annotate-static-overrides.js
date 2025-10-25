@@ -1,6 +1,8 @@
-import { isNonEmptyArray } from "../../../shared/array-utils.js";
-import { getBodyStatements } from "../../../shared/ast-node-helpers.js";
-import { getNonEmptyString } from "../../../shared/string-utils.js";
+import {
+    isNonEmptyArray,
+    getBodyStatements,
+    getNonEmptyString
+} from "../shared/index.js";
 
 function isStaticFunctionDeclaration(statement) {
     if (!statement || statement.type !== "VariableDeclaration") {

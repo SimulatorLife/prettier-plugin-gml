@@ -2,7 +2,7 @@ import {
     bootstrapProjectIndex,
     applyBootstrappedProjectIndex
 } from "./project-index-bootstrap.js";
-import { isObjectLike } from "../../../shared/object-utils.js";
+import { isObjectLike } from "../shared/index.js";
 import { setIdentifierCaseOption } from "./option-store.js";
 
 function getExistingProjectIndex(options) {

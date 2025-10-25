@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createMemoryCommand } from "../lib/memory-cli.js";
-import { SuiteOutputFormat } from "../lib/command-suite-helpers.js";
+import { createMemoryCommand } from "../features/memory/index.js";
+import { SuiteOutputFormat } from "../core/command-suite-helpers.js";
 
 test("memory command accepts valid format values", () => {
     const command = createMemoryCommand({ env: {} });

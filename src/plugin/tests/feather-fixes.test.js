@@ -8,10 +8,7 @@ import { describe, it } from "node:test";
 import GMLParser from "gamemaker-language-parser";
 import prettier from "prettier";
 
-import {
-    getNodeEndIndex,
-    getNodeStartIndex
-} from "../../shared/ast-locations.js";
+import { getNodeEndIndex, getNodeStartIndex } from "../src/shared/index.js";
 
 import {
     getFeatherMetadata,
@@ -20,7 +17,9 @@ import {
 import {
     applyFeatherFixes,
     getFeatherDiagnosticFixers,
-    preprocessSourceForFeatherFixes
+    getRoomNavigationHelpers,
+    preprocessSourceForFeatherFixes,
+    ROOM_NAVIGATION_DIRECTION
 } from "../src/ast-transforms/apply-feather-fixes.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
@@ -830,6 +829,38 @@ describe("applyFeatherFixes transform", () => {
             gotoFixes.some((entry) => entry.id === "GM1009"),
             true,
             "Expected GM1009 fix metadata for the converted room_goto helper."
+        );
+    });
+
+    it("maps room navigation directions to helper names", () => {
+        const nextHelpers = getRoomNavigationHelpers(
+            ROOM_NAVIGATION_DIRECTION.NEXT
+        );
+
+        assert.deepStrictEqual(nextHelpers, {
+            binary: "room_next",
+            goto: "room_goto_next"
+        });
+
+        const previousHelpers = getRoomNavigationHelpers(
+            ROOM_NAVIGATION_DIRECTION.PREVIOUS
+        );
+
+        assert.deepStrictEqual(previousHelpers, {
+            binary: "room_previous",
+            goto: "room_goto_previous"
+        });
+    });
+
+    it("rejects unrecognized room navigation directions", () => {
+        assert.throws(
+            () => {
+                getRoomNavigationHelpers("sideways");
+            },
+            {
+                name: "RangeError",
+                message: /Unsupported room navigation direction/
+            }
         );
     });
 
@@ -3258,6 +3289,44 @@ describe("applyFeatherFixes transform", () => {
             0,
             "Top-level vertex_format_end calls should be removed when no preceding begin exists."
         );
+    });
+
+    it("removes empty vertex format definitions without recorded assignments", () => {
+        const source = [
+            "vertex_format_begin();",
+            "vertex_format_end();",
+            "vertex_format_begin();",
+            "vertex_format_add_texcoord();",
+            "format = vertex_format_end();"
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        const programBody = Array.isArray(ast.body) ? ast.body : [];
+        const callNames = programBody
+            .map(getCallExpressionName)
+            .filter(Boolean);
+
+        assert.deepStrictEqual(callNames, [
+            "vertex_format_begin",
+            "vertex_format_add_texcoord"
+        ]);
+
+        const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const gm2012 = appliedDiagnostics.find(
+            (entry) => entry.id === "GM2012"
+        );
+
+        assert.ok(
+            gm2012,
+            "Expected GM2012 metadata to be recorded when removing empty vertex format definitions."
+        );
+        assert.strictEqual(gm2012.automatic, true);
     });
 
     it("inserts missing vertex_end before subsequent begins and records metadata", () => {

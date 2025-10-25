@@ -87,6 +87,24 @@ test("flattens additive chains that include call expressions", async () => {
     );
 });
 
+test("flattens numeric multiplication groups inside addition chains", async () => {
+    const source = [
+        "var length = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);",
+        ""
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    assert.strictEqual(
+        formatted.trim(),
+        "var length = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);",
+        "Expected multiplication groups inside numeric addition chains to omit redundant synthetic parentheses."
+    );
+});
+
 test("preserves chains of sqr calls without additional parentheses", async () => {
     const source = ["var ll = sqr(dx) + sqr(dy) + sqr(dz);", ""].join("\n");
 
@@ -99,6 +117,34 @@ test("preserves chains of sqr calls without additional parentheses", async () =>
         formatted.trim(),
         "var ll = sqr(dx) + sqr(dy) + sqr(dz);",
         "Expected sqr() addition chains to remain untouched by synthetic parentheses normalization."
+    );
+});
+
+test("flattens synthetic addition within sqrt calls", async () => {
+    const source = [
+        "function distance(dir) {",
+        "    return sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    const expectedLines = [
+        "/// @function distance",
+        "/// @param dir",
+        "function distance(dir) {",
+        "    return sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);",
+        "}"
+    ].join("\n");
+
+    assert.strictEqual(
+        formatted.trim(),
+        expectedLines,
+        "Expected sqrt() addition chains to omit redundant synthetic parentheses."
     );
 });
 
