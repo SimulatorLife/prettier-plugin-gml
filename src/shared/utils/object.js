@@ -174,8 +174,8 @@ export function coalesceOption(
     if (Array.isArray(keys)) {
         // Iterate the provided array directly so repeated option lookups avoid
         // allocating a throwaway wrapper array for single-key calls.
-        for (let index = 0; index < keys.length; index += 1) {
-            const value = object[keys[index]];
+        for (const key of keys) {
+            const value = object[key];
 
             if (value !== undefined && (acceptNull || value !== null)) {
                 return value;
