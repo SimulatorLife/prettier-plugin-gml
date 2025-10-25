@@ -73,10 +73,6 @@ export function prepareDocCommentEnvironment(ast) {
     return manager;
 }
 
-export function getDocCommentManager(ast) {
-    return prepareDocCommentEnvironment(ast);
-}
-
 /**
  * @typedef {object} DocCommentTraversalService
  * @property {(callback: (node: object, comments: Array<object>) => void) => void} forEach

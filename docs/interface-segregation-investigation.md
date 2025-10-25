@@ -162,3 +162,18 @@ no code changes were required.
   identifier case service families as separate exports. Updated the service
   factory, module-level defaults, and unit tests to depend on the specialised
   collaborators so each call site opts into only the helpers it uses.
+
+## Follow-up audit (2025-10-25)
+
+- Surveyed the doc comment tooling and spotted `getDocCommentManager` in
+  `src/plugin/src/comments/doc-comment-manager.js`. The exported "manager"
+  facade surfaced traversal, lookup, description, and update helpers together,
+  so call sites that only needed one behaviour had to depend on the entire
+  contract.
+- Removed the umbrella export so collaborators import the narrow
+  `resolveDocComment*Service` helpers instead. The CLI parser still primes the
+  environment via `prepareDocCommentEnvironment`, but consumers now rely on the
+  focused traversal/lookup/description/update services and no longer observe
+  the wide manager surface.
+- Updated the unit tests to assert against the segregated services, ensuring
+  each interface exposes only the behaviour it owns.
