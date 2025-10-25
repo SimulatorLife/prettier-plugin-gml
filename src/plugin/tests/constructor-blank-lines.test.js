@@ -100,7 +100,7 @@ test("preserves blank lines after nested function declarations inside constructo
     );
 });
 
-test("adds a blank line after nested function declarations when missing", async () => {
+test("inserts trailing blank line after nested constructor functions when missing", async () => {
     const source = [
         "function Demo() constructor {",
         "    function nested() {",
@@ -116,7 +116,7 @@ test("adds a blank line after nested function declarations when missing", async 
     assert.equal(
         lines.at(-2),
         "",
-        "Expected nested function declarations to insert a blank line before the constructor closes."
+        "Expected constructor blocks to gain a separating blank line when nested functions close immediately before the brace."
     );
 });
 
