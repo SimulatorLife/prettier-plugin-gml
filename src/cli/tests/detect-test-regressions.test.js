@@ -223,6 +223,27 @@ test("ignores checkstyle reports when scanning result directories", () => {
     );
 });
 
+test("records a note when XML lacks test suites or cases", () => {
+    const resultsDir = path.join(workspace, "reports");
+
+    writeXml(
+        resultsDir,
+        "invalid",
+        `<report>
+      <message>No structured tests</message>
+    </report>`
+    );
+
+    const result = readTestResults(["reports"], { workspace });
+
+    assert.strictEqual(result.stats.total, 0);
+    assert.ok(
+        result.notes.some((note) =>
+            note.includes("does not contain any test suites or cases")
+        )
+    );
+});
+
 test("normalizes whitespace when describing regression candidates", () => {
     const headDir = path.join(workspace, "reports");
 
