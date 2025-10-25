@@ -105,6 +105,31 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
+    it("recognizes whitespace-separated default extension overrides", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const gmlFile = path.join(tempDirectory, "example.gml");
+            const txtFile = path.join(tempDirectory, "extra.txt");
+            await fs.writeFile(gmlFile, "var    a=1;\n", "utf8");
+            await fs.writeFile(txtFile, "var    b=2;\n", "utf8");
+
+            const env = {
+                ...process.env,
+                PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS: ".gml    .txt"
+            };
+
+            await execFileAsync("node", [wrapperPath, tempDirectory], { env });
+
+            const formattedGml = await fs.readFile(gmlFile, "utf8");
+            const formattedTxt = await fs.readFile(txtFile, "utf8");
+            assert.strictEqual(formattedGml, "var a = 1;\n");
+            assert.strictEqual(formattedTxt, "var b = 2;\n");
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
     it("accepts custom Prettier log levels via CLI option", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
