@@ -1,7 +1,7 @@
 import path from "node:path";
 
-import { walkAncestorDirectories } from "../shared/path-utils.js";
-import { listDirectory } from "../shared/fs-utils.js";
+import { walkAncestorDirectories } from "../../../shared/path-utils.js";
+import { listDirectory } from "../../../shared/fs-utils.js";
 import {
     PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE,
     createProjectIndexAbortGuard

@@ -29,7 +29,7 @@ import {
 } from "./common.js";
 import { planAssetRenames, applyAssetRenames } from "./asset-renames.js";
 import { getIterableSize } from "../shared/utils/capability-probes.js";
-import { resolveProjectRelativeFilePath } from "../project-index/path-normalization.js";
+import { resolveProjectRelativeFilePath } from "gamemaker-language-semantic/project-index/path-normalization.js";
 import { getDefaultIdentifierCaseFsFacade } from "./fs-facade.js";
 import { evaluateIdentifierCaseAssetRenamePolicy } from "./asset-rename-policy.js";
 

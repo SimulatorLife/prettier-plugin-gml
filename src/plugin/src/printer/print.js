@@ -227,6 +227,10 @@ export function print(path, options, print) {
 
             let leadingDocs = [hardline];
 
+            if (node._gmlForceInitialBlankLine) {
+                leadingDocs = [hardline, hardline];
+            }
+
             const parentNode =
                 typeof path.getParentNode === "function"
                     ? path.getParentNode()

@@ -1,4 +1,4 @@
-import { withDefinedValue } from "../shared/object-utils.js";
+import { withDefinedValue } from "../../../shared/object-utils.js";
 
 export function createProjectIndexBuildOptions({
     logger = null,

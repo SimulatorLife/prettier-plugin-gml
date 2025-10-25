@@ -74,7 +74,7 @@ async function loadTestCases() {
         caseMap.set(baseName, { ...existing, singleFile: entry });
     }
 
-    const sortedBaseNames = [...caseMap.keys()].toSorted();
+    const sortedBaseNames = [...caseMap.keys()].sort();
 
     return Promise.all(
         sortedBaseNames.map(async (baseName) => {

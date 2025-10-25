@@ -605,11 +605,11 @@ Advanced integrations can temporarily override the struct wrapping heuristic via
 | `gmlIdentifierCaseIgnore` | `""` | Comma- or newline-separated list of identifiers or glob patterns that should never be renamed. |
 | `gmlIdentifierCasePreserve` | `""` | Locks specific identifiers to their original spelling even when a new style is enabled. |
 | `gmlIdentifierCaseAcknowledgeAssetRenames` | `false` | Required confirmation before asset renames update `.yy` metadata and on-disk file names. |
-| `gmlIdentifierCaseDiscoverProject` | `true` | Controls whether the formatter auto-discovers the nearest `.yyp` manifest to bootstrap the project index. |
-| `gmlIdentifierCaseProjectRoot` | `""` | Pins project discovery to a specific directory when auto-detection is undesirable (e.g. CI or monorepos). |
-| `gmlIdentifierCaseProjectIndexCacheMaxBytes` | `8 MiB` | Upper bound for the persisted project-index cache. Set the option or `GML_PROJECT_INDEX_CACHE_MAX_SIZE` to `0` to disable the size guard when coordinating cache writes manually. |
-| `gmlIdentifierCaseProjectIndexConcurrency` | `4` (overridable via `GML_PROJECT_INDEX_CONCURRENCY`, clamped to `1`–`16`) | Caps how many GameMaker source files are parsed in parallel while building the identifier-case project index. |
 | `gmlIdentifierCaseOptionStoreMaxEntries` | `128` | Caps the identifier-case option store size; set to `0` to keep all historical entries without eviction. |
+
+Project index discovery, cache tuning, and concurrency controls now live under
+the [semantic subsystem](src/semantic/README.md) alongside the new scope-tracking
+entry points.
 
 Additional automation hooks such as `identifierCaseProjectIndex`,
 `identifierCaseDryRun`, and `identifierCaseReportLogPath` are documented in the
@@ -624,7 +624,7 @@ covers the helper trio and intended use cases.
 ## Identifier case rollout
 
 1. **Enable identifier casing** in your Prettier configuration. Start with a locals-first plan similar to [`docs/examples/identifier-case/locals-first.prettierrc.mjs`](docs/examples/identifier-case/locals-first.prettierrc.mjs) so other scopes stay in observation mode.
-2. **Warm the project index cache** by running the formatter once with your target project path. The bootstrap automatically creates `.prettier-plugin-gml/project-index-cache.json` the first time a rename-enabled scope executes. Use the example configuration above when you want to script a manual snapshot or commit a deterministic JSON index for CI.
+2. **Warm the project index cache** (see the [semantic subsystem](src/semantic/README.md) for discovery and cache controls) by running the formatter once with your target project path. The bootstrap automatically creates `.prettier-plugin-gml/project-index-cache.json` the first time a rename-enabled scope executes. Use the example configuration above when you want to script a manual snapshot or commit a deterministic JSON index for CI.
 3. **Dry-run renames** with locals-first safety nets before writing changes to disk. Keep `identifierCaseDryRun` enabled and capture logs via `identifierCaseReportLogPath` until you are comfortable with the rename summaries.
 4. **Promote renames** to write mode once you are satisfied with the preview and have backups ready.
 5. **Follow the migration checklist** in `docs/identifier-case-rollout.md` to confirm that assets, macros, and globals were acknowledged.
