@@ -158,6 +158,7 @@ const BINARY_OPERATOR_INFO = new Map([
 ]);
 
 const COMPARISON_OPERATORS = new Set(["<", "<=", ">", ">=", "==", "!=", "<>"]);
+const DOC_COMMENT_OUTPUT_FLAG = "_gmlHasDocCommentOutput";
 
 function resolveLogicalOperatorsStyle(options) {
     return normalizeLogicalOperatorsStyle(options?.logicalOperatorsStyle);
@@ -521,6 +522,7 @@ export function print(path, options, print) {
             }
 
             if (docCommentDocs.length > 0) {
+                node[DOC_COMMENT_OUTPUT_FLAG] = true;
                 const suppressLeadingBlank =
                     docCommentDocs &&
                     docCommentDocs._suppressLeadingBlank === true;
@@ -544,6 +546,8 @@ export function print(path, options, print) {
                     parts.push(hardline);
                 }
                 parts.push(join(hardline, docCommentDocs), hardline);
+            } else if (Object.hasOwn(node, DOC_COMMENT_OUTPUT_FLAG)) {
+                delete node[DOC_COMMENT_OUTPUT_FLAG];
             }
 
             let functionNameDoc = "";
@@ -2289,6 +2293,7 @@ function printStatements(path, options, print, childrenAttribute) {
                 isConstructorBlock;
             let shouldPreserveTrailingBlankLine = false;
             const hasAttachedDocComment =
+                node?.[DOC_COMMENT_OUTPUT_FLAG] === true ||
                 (Array.isArray(node?.docComments) &&
                     node.docComments.length > 0) ||
                 Boolean(syntheticDocComment);
