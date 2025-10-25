@@ -1,4 +1,4 @@
-import { parseJsonObjectWithContext } from "../../shared/dependencies.js";
+import { parseJsonObjectWithContext } from "../shared/dependencies.js";
 
 function validateManualMapping(record, { valueDescription }) {
     for (const [key, value] of Object.entries(record)) {

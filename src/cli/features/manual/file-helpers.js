@@ -5,7 +5,7 @@ import {
     ensureDir,
     isNonEmptyString,
     stringifyJsonForFile
-} from "../../shared/dependencies.js";
+} from "../shared/dependencies.js";
 
 /**
  * Persist manual-derived artefacts to disk while guaranteeing parent directories

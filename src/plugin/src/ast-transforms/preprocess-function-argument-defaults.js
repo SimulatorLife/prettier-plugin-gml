@@ -9,9 +9,9 @@ import {
     getSingleMemberIndexPropertyEntry as sharedGetSingleMemberIndexPropertyEntry,
     unwrapParenthesizedExpression,
     getBodyStatements
-} from "../../../shared/ast-node-helpers.js";
-import { toMutableArray } from "../../../shared/array-utils.js";
-import { isObjectLike } from "../../../shared/object-utils.js";
+} from "../shared/ast-node-helpers.js";
+import { toMutableArray } from "../shared/array-utils.js";
+import { isObjectLike } from "../shared/object-utils.js";
 
 const DEFAULT_HELPERS = {
     getIdentifierText: sharedGetIdentifierText,

@@ -17,7 +17,7 @@ import {
     resolveModuleDefaultExport,
     parseJsonObjectWithContext,
     splitLines
-} from "../../shared/dependencies.js";
+} from "../shared/dependencies.js";
 import { applyStandardCommandOptions } from "../../core/command-standard-options.js";
 import {
     coercePositiveInteger,

@@ -1,10 +1,10 @@
 import { getCommentArray, isDocCommentLine } from "./comment-boundary.js";
-import { getNodeStartIndex, isNode } from "../../../shared/ast.js";
+import { getNodeStartIndex, isNode } from "../shared/ast.js";
 import {
     isNonEmptyArray,
     isNonEmptyTrimmedString,
     toMutableArray
-} from "../../../shared/utils.js";
+} from "../shared/utils.js";
 
 /**
  * The legacy doc comment "manager" facade bundled traversal helpers with

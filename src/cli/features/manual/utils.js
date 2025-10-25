@@ -9,14 +9,14 @@ import {
     isNonEmptyTrimmedString,
     parseJsonWithContext,
     toTrimmedString
-} from "../../shared/dependencies.js";
-import { formatDuration } from "../../shared/time-utils.js";
+} from "../shared/dependencies.js";
+import { formatDuration } from "../shared/time-utils.js";
 import { formatBytes } from "../../runtime-options/byte-format.js";
 import { writeManualFile } from "./file-helpers.js";
 import {
     disposeProgressBars,
     renderProgressBar
-} from "../../shared/progress-bar.js";
+} from "../shared/progress-bar.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";

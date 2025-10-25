@@ -28,24 +28,21 @@ import {
     normalizeDocCommentTypeAnnotations
 } from "../comments/line-comment-formatting.js";
 import { resolveLineCommentOptions } from "../options/line-comment-options.js";
-import { getCommentArray, isCommentNode } from "../../../shared/comments.js";
-import { coercePositiveIntegerOption } from "../../../shared/numeric-option-utils.js";
+import { getCommentArray, isCommentNode } from "../shared/comments.js";
+import { coercePositiveIntegerOption } from "../shared/numeric-option-utils.js";
 import {
     getNonEmptyString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
     toTrimmedString
-} from "../../../shared/string-utils.js";
-import {
-    isNonEmptyArray,
-    toMutableArray
-} from "../../../shared/array-utils.js";
-import { ensureSet } from "../../../shared/utils/capability-probes.js";
+} from "../shared/string-utils.js";
+import { isNonEmptyArray, toMutableArray } from "../shared/array-utils.js";
+import { ensureSet } from "../shared/utils/capability-probes.js";
 import {
     getNodeStartIndex,
     getNodeEndIndex,
     getNodeRangeIndices
-} from "../../../shared/ast-locations.js";
+} from "../shared/ast-locations.js";
 import {
     getBodyStatements,
     getCallExpressionArguments,
@@ -55,7 +52,7 @@ import {
     isBooleanLiteral,
     isUndefinedLiteral,
     enqueueObjectChildValues
-} from "../../../shared/ast-node-helpers.js";
+} from "../shared/ast-node-helpers.js";
 import { maybeReportIdentifierCaseDryRun } from "../identifier-case/identifier-case-report.js";
 import {
     getIdentifierCaseRenameForNode,

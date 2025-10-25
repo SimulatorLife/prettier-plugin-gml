@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { throwIfAborted } from "../../../shared/abort-utils.js";
+import { throwIfAborted } from "../shared/abort-utils.js";
 
 function normalizeEnsureReadyDescriptor(descriptor) {
     const projectRoot = descriptor?.projectRoot;
