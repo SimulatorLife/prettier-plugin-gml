@@ -1645,13 +1645,31 @@ function buildCallArgumentsDocs(
         hasCallbackArguments &&
         maxElementsPerLine === Infinity
     ) {
+        const inlineDoc = includeInlineVariant
+            ? printCommaSeparatedList(
+                  path,
+                  print,
+                  "arguments",
+                  "(",
+                  ")",
+                  options,
+                  {
+                      addIndent: false,
+                      forceInline: true,
+                      leadingNewline: false,
+                      trailingNewline: false,
+                      maxElementsPerLine
+                  }
+              )
+            : null;
+
         const multilineDoc = buildCallbackArgumentsWithSimplePrefix(
             path,
             print,
             simplePrefixLength
         );
 
-        return { inlineDoc: null, multilineDoc };
+        return { inlineDoc, multilineDoc };
     }
 
     const multilineDoc = printCommaSeparatedList(
