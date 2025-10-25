@@ -7,7 +7,7 @@ import {
     coercePositiveIntegerOption,
     resolveIntegerOption,
     normalizeNumericOption
-} from "../numeric-option-utils.js";
+} from "../utils/numeric-options.js";
 
 test("coercePositiveInteger enforces a minimum of 1", () => {
     assert.strictEqual(

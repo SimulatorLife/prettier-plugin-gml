@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createMetricsTracker } from "../reporting.js";
+import { createMetricsTracker } from "../reporting/index.js";
 
 function getCacheKeys(tracker, cacheName = "example") {
     tracker.recordCacheHit(cacheName);

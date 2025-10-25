@@ -11,7 +11,7 @@ import prettier from "prettier";
 import {
     getNodeEndIndex,
     getNodeStartIndex
-} from "../src/shared/ast-locations.js";
+} from "../src/shared/index.js";
 
 import {
     getFeatherMetadata,

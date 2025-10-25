@@ -8,10 +8,10 @@ import {
     isUndefinedLiteral as sharedIsUndefinedLiteral,
     getSingleMemberIndexPropertyEntry as sharedGetSingleMemberIndexPropertyEntry,
     unwrapParenthesizedExpression,
-    getBodyStatements
-} from "../shared/ast-node-helpers.js";
-import { toMutableArray } from "../shared/array-utils.js";
-import { isObjectLike } from "../shared/object-utils.js";
+    getBodyStatements,
+    toMutableArray,
+    isObjectLike
+} from "../shared/index.js";
 
 const DEFAULT_HELPERS = {
     getIdentifierText: sharedGetIdentifierText,

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 
 import { describe, it } from "node:test";
 
-import { isUndefinedLiteral } from "../ast-node-helpers.js";
+import { isUndefinedLiteral } from "../ast/node-helpers.js";
 
 describe("undefined literal helper", () => {
     it("matches string literal values case-insensitively", () => {

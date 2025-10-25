@@ -1,23 +1,20 @@
 import path from "node:path";
-import { cloneLocation } from "../shared/ast-locations.js";
-import { getCallExpressionIdentifier } from "../shared/ast-node-helpers.js";
-import { toPosixPath } from "../shared/path-utils.js";
-import { asArray, isNonEmptyArray, pushUnique } from "../shared/array-utils.js";
 import {
+    cloneLocation,
+    getCallExpressionIdentifier,
+    toPosixPath,
+    asArray,
+    isNonEmptyArray,
+    pushUnique,
     assertFunction,
     getOrCreateMapEntry,
     hasOwn,
-    isObjectLike
-} from "../shared/object-utils.js";
-import {
+    isObjectLike,
     buildLocationKey,
-    buildFileLocationKey
-} from "../shared/location-keys.js";
-import { resolveProjectIndexParser } from "./parser-override.js";
-import { clampConcurrency } from "./concurrency.js";
-import { isProjectManifestPath } from "./constants.js";
-import { defaultFsFacade } from "./fs-facade.js";
-import { isFsErrorCode, listDirectory } from "../shared/fs-utils.js";
+    buildFileLocationKey,
+    isFsErrorCode,
+    listDirectory
+} from "../shared/index.js";
 import {
     getDefaultProjectIndexCacheMaxSize,
     loadProjectIndexCache,
@@ -38,6 +35,10 @@ import {
 import { loadBuiltInIdentifiers } from "./built-in-identifiers.js";
 import { createProjectIndexCoordinator as createProjectIndexCoordinatorCore } from "./coordinator.js";
 import { cloneObjectEntries } from "./clone-object-entries.js";
+import { isProjectManifestPath } from "./constants.js";
+import { clampConcurrency } from "./concurrency.js";
+import { resolveProjectIndexParser } from "./parser-override.js";
+import { defaultFsFacade } from "./fs-facade.js";
 
 /**
  * Create shallow clones of common entry collections stored on project index

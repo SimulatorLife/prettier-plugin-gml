@@ -28,22 +28,20 @@ import {
     normalizeDocCommentTypeAnnotations
 } from "../comments/line-comment-formatting.js";
 import { resolveLineCommentOptions } from "../options/line-comment-options.js";
-import { getCommentArray, isCommentNode } from "../shared/comments.js";
-import { coercePositiveIntegerOption } from "../shared/numeric-option-utils.js";
 import {
+    getCommentArray,
+    isCommentNode,
+    coercePositiveIntegerOption,
     getNonEmptyString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
-    toTrimmedString
-} from "../shared/string-utils.js";
-import { isNonEmptyArray, toMutableArray } from "../shared/array-utils.js";
-import { ensureSet } from "../shared/utils/capability-probes.js";
-import {
+    toTrimmedString,
+    isNonEmptyArray,
+    toMutableArray,
+    ensureSet,
     getNodeStartIndex,
     getNodeEndIndex,
-    getNodeRangeIndices
-} from "../shared/ast-locations.js";
-import {
+    getNodeRangeIndices,
     getBodyStatements,
     getCallExpressionArguments,
     getIdentifierText,
@@ -52,7 +50,7 @@ import {
     isBooleanLiteral,
     isUndefinedLiteral,
     enqueueObjectChildValues
-} from "../shared/ast-node-helpers.js";
+} from "../shared/index.js";
 import { maybeReportIdentifierCaseDryRun } from "../identifier-case/identifier-case-report.js";
 import {
     getIdentifierCaseRenameForNode,

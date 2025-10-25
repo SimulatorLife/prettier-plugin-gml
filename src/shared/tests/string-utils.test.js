@@ -17,7 +17,7 @@ import {
     capitalize,
     getNonEmptyString,
     stripStringQuotes
-} from "../string-utils.js";
+} from "../utils/string.js";
 
 test("toTrimmedString returns trimmed strings", () => {
     assert.strictEqual(toTrimmedString("  value  "), "value");

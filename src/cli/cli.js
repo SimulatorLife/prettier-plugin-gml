@@ -35,6 +35,7 @@ import {
     getErrorMessage,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
+    isErrorLike,
     isErrorWithCode,
     mergeUniqueValues,
     normalizeEnumeratedOption,
@@ -44,8 +45,7 @@ import {
     toNormalizedLowerCaseSet,
     uniqueArray,
     withObjectLike
-} from "../shared/utils.js";
-import { isErrorLike } from "../shared/utils/capability-probes.js";
+} from "../shared/index.js";
 import {
     collectAncestorDirectories,
     isPathInside

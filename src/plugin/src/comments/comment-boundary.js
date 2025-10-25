@@ -6,6 +6,6 @@ export {
     isCommentNode,
     isDocCommentLine,
     isLineComment
-} from "../shared/comments.js";
-export { getLineBreakCount, splitLines } from "../shared/utils/line-breaks.js";
-export { isObjectLike } from "../shared/object-utils.js";
+} from "../shared/index.js";
+export { getLineBreakCount, splitLines } from "../shared/index.js";
+export { isObjectLike } from "../shared/index.js";

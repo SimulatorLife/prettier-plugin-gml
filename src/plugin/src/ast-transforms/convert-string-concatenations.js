@@ -2,9 +2,11 @@ import {
     hasComment as sharedHasComment,
     normalizeHasCommentHelpers
 } from "../comments/index.js";
-import { unwrapParenthesizedExpression } from "../shared/ast-node-helpers.js";
-import { stripStringQuotes } from "../shared/string-utils.js";
-import { isObjectLike } from "../shared/object-utils.js";
+import {
+    unwrapParenthesizedExpression,
+    stripStringQuotes,
+    isObjectLike
+} from "../shared/index.js";
 
 const DEFAULT_HELPERS = Object.freeze({
     hasComment: sharedHasComment

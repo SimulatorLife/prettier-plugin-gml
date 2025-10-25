@@ -1,4 +1,4 @@
-import { createAbortGuard } from "../shared/abort-utils.js";
+import { createAbortGuard } from "../shared/index.js";
 
 export const PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE =
     "Project root discovery was aborted.";

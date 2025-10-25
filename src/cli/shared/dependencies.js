@@ -38,11 +38,11 @@ export {
     toNormalizedLowerCaseString,
     toPosixPath,
     toTrimmedString
-} from "../../shared/utils.js";
+} from "../../shared/index.js";
 
 export { appendToCollection } from "../core/collection-utils.js";
 
-export { createAbortGuard } from "../../shared/abort-utils.js";
+export { createAbortGuard } from "../../shared/index.js";
 
 export { normalizeStringList } from "../../shared/utils/string.js";
 
@@ -55,18 +55,18 @@ export {
 
 export { escapeRegExp } from "../../shared/utils/regexp.js";
 
-export { getIdentifierText } from "../../shared/ast.js";
+export { getIdentifierText } from "../../shared/index.js";
 
 export {
     isAggregateErrorLike,
     isErrorLike,
     ensureMap
-} from "../../shared/utils/capability-probes.js";
+} from "../../shared/index.js";
 
 export {
     JsonParseError,
     isJsonParseError,
     stringifyJsonForFile
-} from "../../shared/json-utils.js";
+} from "../../shared/index.js";
 
-export { ensureDir, isFsErrorCode } from "../../shared/fs-utils.js";
+export { ensureDir, isFsErrorCode } from "../../shared/index.js";

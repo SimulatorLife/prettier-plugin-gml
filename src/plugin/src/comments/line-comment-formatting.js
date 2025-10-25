@@ -8,9 +8,9 @@ import { isObjectLike } from "./comment-boundary.js";
 import { getCommentValue } from "./comment-utils.js";
 import {
     trimStringEntries,
-    toTrimmedString
-} from "../shared/string-utils.js";
-import { isRegExpLike } from "../shared/utils/capability-probes.js";
+    toTrimmedString,
+    isRegExpLike
+} from "../shared/index.js";
 
 const JSDOC_REPLACEMENTS = {
     "@func": "@function",

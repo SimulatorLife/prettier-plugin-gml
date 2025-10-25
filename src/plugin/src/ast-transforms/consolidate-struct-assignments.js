@@ -3,16 +3,16 @@ import {
     getNodeEndIndex,
     getNodeStartLine,
     getNodeEndLine,
-    cloneLocation
-} from "../shared/ast-locations.js";
-import {
+    cloneLocation,
     getSingleVariableDeclarator,
     isNode,
-    getSingleMemberIndexPropertyEntry
-} from "../shared/ast-node-helpers.js";
-import { getCommentArray, isLineComment } from "../shared/comments.js";
-import { asArray, isNonEmptyArray } from "../shared/array-utils.js";
-import { stripStringQuotes } from "../shared/string-utils.js";
+    getSingleMemberIndexPropertyEntry,
+    getCommentArray,
+    isLineComment,
+    asArray,
+    isNonEmptyArray,
+    stripStringQuotes
+} from "../shared/index.js";
 
 const FALLBACK_COMMENT_TOOLS = Object.freeze({
     addTrailingComment() {}

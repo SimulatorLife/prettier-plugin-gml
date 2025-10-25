@@ -16,8 +16,10 @@
  * @property {Array<FeatherDiagnostic>} [diagnostics]
  */
 
-import { asArray } from "../shared/array-utils.js";
-import { toTrimmedString } from "../shared/string-utils.js";
+import {
+    asArray,
+    toTrimmedString
+} from "../shared/index.js";
 import { loadBundledFeatherMetadata } from "./bundled-resources.js";
 
 /** @type {FeatherMetadata | null} */

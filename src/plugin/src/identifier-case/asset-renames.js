@@ -3,9 +3,10 @@ import path from "node:path";
 import { formatIdentifierCase } from "./identifier-case-utils.js";
 import {
     isNonEmptyString,
-    toNormalizedLowerCaseString
-} from "../shared/string-utils.js";
-import { isNonEmptyArray } from "../shared/array-utils.js";
+    toNormalizedLowerCaseString,
+    isNonEmptyArray,
+    getOrCreateMapEntry
+} from "../shared/index.js";
 import { loadReservedIdentifierNames } from "../resources/reserved-identifiers.js";
 import {
     COLLISION_CONFLICT_CODE,
@@ -16,7 +17,6 @@ import {
     summarizeReferenceFileOccurrences
 } from "./common.js";
 import { createAssetRenameExecutor } from "./asset-rename-executor.js";
-import { getOrCreateMapEntry } from "../shared/object-utils.js";
 
 const RESERVED_IDENTIFIER_NAMES = loadReservedIdentifierNames();
 
