@@ -15,6 +15,7 @@ export {
     getErrorMessage,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
+    isMissingModuleDependency,
     getOrCreateMapEntry,
     incrementMapValue,
     isFiniteNumber,
