@@ -11,6 +11,7 @@ import {
     createEnvConfiguredValueWithFallback,
     ensureDir,
     getErrorMessageOrFallback,
+    incrementMapValue,
     isNonEmptyString,
     normalizeStringList,
     resolveModuleDefaultExport,
@@ -348,7 +349,7 @@ function summarizeAst(root) {
 
         nodeCount += 1;
         if (typeof value.type === "string") {
-            typeCounts.set(value.type, (typeCounts.get(value.type) ?? 0) + 1);
+            incrementMapValue(typeCounts, value.type);
         }
 
         const nextDepth = depth + 1;
@@ -728,20 +729,36 @@ function formatSuiteError(error) {
     };
 }
 
-function printHumanReadable(results) {
-    const lines = ["Memory benchmark results:"];
-    for (const [suite, payload] of Object.entries(results)) {
-        lines.push(`\n• ${suite}`);
-        if (payload?.error) {
-            lines.push(
-                `  - error: ${payload.error.message || "Unknown error"}`
-            );
-            continue;
-        }
+function createHumanReadableMemoryHeader() {
+    return ["Memory benchmark results:"];
+}
 
-        lines.push(`  - result: ${JSON.stringify(payload)}`);
+function createHumanReadableMemorySuiteLines({ suite, payload }) {
+    const lines = [`\n• ${suite}`];
+
+    if (payload?.error) {
+        const message = payload.error.message || "Unknown error";
+        lines.push(`  - error: ${message}`);
+        return lines;
     }
 
+    lines.push(`  - result: ${JSON.stringify(payload)}`);
+    return lines;
+}
+
+function createHumanReadableMemoryLines(results) {
+    const suites = Object.entries(results ?? {});
+    const lines = [...createHumanReadableMemoryHeader()];
+
+    for (const [suite, payload] of suites) {
+        lines.push(...createHumanReadableMemorySuiteLines({ suite, payload }));
+    }
+
+    return lines;
+}
+
+function printHumanReadable(results) {
+    const lines = createHumanReadableMemoryLines(results);
     console.log(lines.join("\n"));
 }
 

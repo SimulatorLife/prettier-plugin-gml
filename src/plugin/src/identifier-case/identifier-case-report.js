@@ -12,6 +12,7 @@ import { setIdentifierCaseOption } from "./option-store.js";
 import { coalesceTrimmedString } from "../../../shared/string-utils.js";
 import {
     coalesceOption,
+    incrementMapValue,
     isObjectLike,
     withObjectLike
 } from "../../../shared/object-utils.js";
@@ -296,7 +297,7 @@ export function summarizeIdentifierCasePlan({
     const severityCounts = new Map();
     for (const conflict of normalizedConflicts) {
         const severity = conflict.severity ?? "info";
-        severityCounts.set(severity, (severityCounts.get(severity) ?? 0) + 1);
+        incrementMapValue(severityCounts, severity);
     }
 
     const summary = {

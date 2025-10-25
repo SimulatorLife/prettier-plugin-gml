@@ -1,4 +1,5 @@
 import { toArrayFromIterable } from "../array-utils.js";
+import { incrementMapValue } from "../object-utils.js";
 import { getNonEmptyString, normalizeStringList } from "../string-utils.js";
 
 const hasHrtime = typeof process?.hrtime?.bigint === "function";
@@ -23,20 +24,28 @@ const SUMMARY_SECTIONS = Object.freeze([
     "metadata"
 ]);
 
-function normalizeCacheKeys(keys) {
-    let entries = DEFAULT_CACHE_KEYS;
-
-    if (typeof keys === "string") {
-        entries = keys;
-    } else if (Array.isArray(keys)) {
-        entries = keys;
-    } else if (typeof keys?.[Symbol.iterator] === "function") {
-        entries = toArrayFromIterable(keys);
+function toCandidateCacheKeys(keys) {
+    if (typeof keys === "string" || Array.isArray(keys)) {
+        return keys;
     }
 
-    const normalized = normalizeStringList(entries, { allowInvalidType: true });
+    if (typeof keys?.[Symbol.iterator] === "function") {
+        return toArrayFromIterable(keys);
+    }
 
-    return normalized.length > 0 ? normalized : [...DEFAULT_CACHE_KEYS];
+    return DEFAULT_CACHE_KEYS;
+}
+
+function normalizeCacheKeys(keys) {
+    const normalized = normalizeStringList(toCandidateCacheKeys(keys), {
+        allowInvalidType: true
+    });
+
+    if (normalized.length > 0) {
+        return normalized;
+    }
+
+    return [...DEFAULT_CACHE_KEYS];
 }
 
 function normalizeIncrementAmount(amount, fallback = 1) {
@@ -55,8 +64,7 @@ function toPlainObject(map) {
 function createMapIncrementer(store) {
     return (label, amount = 1) => {
         const normalized = normalizeLabel(label);
-        const previous = store.get(normalized) ?? 0;
-        store.set(normalized, previous + amount);
+        incrementMapValue(store, normalized, amount);
     };
 }
 
