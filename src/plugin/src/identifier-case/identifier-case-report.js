@@ -9,18 +9,14 @@
 import path from "node:path";
 
 import { setIdentifierCaseOption } from "./option-store.js";
-import { coalesceTrimmedString } from "../../../shared/string-utils.js";
+import { coalesceTrimmedString } from "../shared/string-utils.js";
 import {
     coalesceOption,
     incrementMapValue,
     isObjectLike,
     withObjectLike
-} from "../../../shared/object-utils.js";
-import {
-    asArray,
-    isNonEmptyArray,
-    toArray
-} from "../../../shared/array-utils.js";
+} from "../shared/object-utils.js";
+import { asArray, isNonEmptyArray, toArray } from "../shared/array-utils.js";
 import { warnWithReason } from "./logger.js";
 
 import { consumeIdentifierCaseDryRunContext } from "./identifier-case-context.js";

@@ -5,14 +5,14 @@ import {
     resolveDocCommentDescriptionService,
     resolveDocCommentUpdateService
 } from "../comments/index.js";
-import { cloneLocation } from "../../../shared/ast-locations.js";
-import { isNonEmptyArray } from "../../../shared/array-utils.js";
-import { getBodyStatements, isNode } from "../../../shared/ast-node-helpers.js";
+import { cloneLocation } from "../shared/ast-locations.js";
+import { isNonEmptyArray } from "../shared/array-utils.js";
+import { getBodyStatements, isNode } from "../shared/ast-node-helpers.js";
 import {
     isNonEmptyString,
     toNormalizedLowerCaseString
-} from "../../../shared/string-utils.js";
-import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
+} from "../shared/string-utils.js";
+import { getOrCreateMapEntry } from "../shared/object-utils.js";
 
 const BOOLEAN_NODE_TYPES = Object.freeze({
     CONST: "CONST",

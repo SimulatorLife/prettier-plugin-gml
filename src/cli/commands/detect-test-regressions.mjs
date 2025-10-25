@@ -17,7 +17,7 @@ import {
     toTrimmedString
 } from "../shared/dependencies.js";
 import { CliUsageError, handleCliError } from "../core/errors.js";
-import { ensureMap } from "../../shared/utils/capability-probes.js";
+import { ensureMap } from "../shared/dependencies.js";
 
 let parser;
 

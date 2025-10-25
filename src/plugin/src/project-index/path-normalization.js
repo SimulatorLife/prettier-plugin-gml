@@ -1,11 +1,8 @@
 import path from "node:path";
 
-import { toPosixPath } from "../../../shared/path-utils.js";
-import { assertFunction } from "../../../shared/object-utils.js";
-import {
-    getNonEmptyString,
-    isNonEmptyString
-} from "../../../shared/string-utils.js";
+import { toPosixPath } from "../shared/path-utils.js";
+import { assertFunction } from "../shared/object-utils.js";
+import { getNonEmptyString, isNonEmptyString } from "../shared/string-utils.js";
 import { resolveProjectPathInfo } from "./path-info.js";
 
 function withProjectPathInfo(filePath, projectRoot, projector) {

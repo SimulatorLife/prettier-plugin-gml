@@ -12,7 +12,7 @@ import {
 import {
     assertNonEmptyString,
     isNonEmptyString
-} from "../../shared/dependencies.js";
+} from "../shared/dependencies.js";
 
 /** @typedef {import("./utils.js").ManualGitHubRequestDispatcher} ManualGitHubRequestDispatcher */
 /** @typedef {import("./utils.js").ManualGitHubCommitResolver} ManualGitHubCommitResolver */

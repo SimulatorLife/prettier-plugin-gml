@@ -58,7 +58,8 @@ export { getIdentifierText } from "../../shared/ast.js";
 
 export {
     isAggregateErrorLike,
-    isErrorLike
+    isErrorLike,
+    ensureMap
 } from "../../shared/utils/capability-probes.js";
 
 export {
