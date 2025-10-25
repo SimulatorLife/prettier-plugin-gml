@@ -11,7 +11,7 @@ import {
     isFsErrorCode,
     isJsonParseError,
     parseJsonWithContext
-} from "../shared/index.js";
+} from "../../../shared/index.js";
 import {
     PROJECT_MANIFEST_EXTENSION,
     isProjectManifestPath

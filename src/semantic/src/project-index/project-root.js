@@ -1,6 +1,9 @@
 import path from "node:path";
 
-import { walkAncestorDirectories, listDirectory } from "../shared/index.js";
+import {
+    walkAncestorDirectories,
+    listDirectory
+} from "../../../shared/index.js";
 import {
     PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE,
     createProjectIndexAbortGuard

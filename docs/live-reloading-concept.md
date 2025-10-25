@@ -1210,7 +1210,13 @@ export class ScipOccVisitor extends GMLParserVisitor {
       const sym = this.sem.qualifiedSymbol(ctx);
       if (sym) this.push(tokRange(ctx), sym, false);
     }
-    return null; // don't double-visit children
+    // Returning `null` short-circuits ANTLR's default `visitChildren` fallback.
+    // The semantic hooks above already captured the identifier occurrence, so
+    // letting the base visitor run would enqueue the same node twice and emit
+    // duplicate SCIP references. See "Formatter Semantic Hints" later in this
+    // document for details on how the visitor cooperates with the symbol
+    // pipeline.
+    return null;
   }
 
   /** Calls: add a REF to the target script symbol (builtins usually don't get symbols) */
@@ -1220,12 +1226,18 @@ export class ScipOccVisitor extends GMLParserVisitor {
       const sym = this.sem.callTargetSymbol(ctx);
       if (sym) this.push(tokRange(ctx.Identifier?.() ?? ctx), sym, false);
     }
-    // still visit args
+    // Even though we return `null` to suppress the base visitor, we still
+    // descend into the argument list manually. That ensures nested call
+    // expressions bubble up their own occurrences before this frame unwinds,
+    // matching the expectations laid out in the "Semantic Oracle Interface"
+    // section below.
     if (ctx.argList) this.visit(ctx.argList);
     return null;
   }
 
-  // Default: visit kids
+  // Default: visit kids. Falling back to the generic traversal keeps the
+  // custom visitor aligned with ANTLR's breadth of grammar coverage while
+  // still allowing the targeted overrides above to intercept special cases.
   visitChildren(node: any) {
     if (!node || !node.children) return null;
     for (const ch of node.children) { if (ch.accept) ch.accept(this); }

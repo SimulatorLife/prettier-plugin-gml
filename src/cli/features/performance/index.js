@@ -7,18 +7,18 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError, Option } from "commander";
 import GMLParser from "gamemaker-language-parser";
 
-import { applyStandardCommandOptions } from "../../core/command-standard-options.js";
-import { createCliErrorDetails } from "../../core/errors.js";
-import { wrapInvalidArgumentResolver } from "../../core/command-parsing.js";
-import { resolvePluginEntryPoint } from "../../plugin/entry-point.js";
-import { formatByteSize } from "../../runtime-options/byte-format.js";
 import {
     SuiteOutputFormat,
-    resolveSuiteOutputFormatOrThrow,
+    applyStandardCommandOptions,
     collectSuiteResults,
+    createCliErrorDetails,
     ensureSuitesAreKnown,
-    resolveRequestedSuites
-} from "../../core/command-suite-helpers.js";
+    formatByteSize,
+    resolvePluginEntryPoint,
+    resolveRequestedSuites,
+    resolveSuiteOutputFormatOrThrow,
+    wrapInvalidArgumentResolver
+} from "../command-dependencies.js";
 import {
     appendToCollection,
     assertArray,

@@ -5,7 +5,7 @@ import {
     assertFunction,
     getNonEmptyString,
     isNonEmptyString
-} from "../shared/index.js";
+} from "../../../shared/index.js";
 import { resolveProjectPathInfo } from "./path-info.js";
 
 function withProjectPathInfo(filePath, projectRoot, projector) {

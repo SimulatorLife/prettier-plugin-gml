@@ -139,10 +139,12 @@ function normalizeOperation(rawOperation) {
                 operation.target
             );
 
-            const references = toArray(operation.references)
+            const referenceCandidates = toArray(operation.references)
                 .map(normalizeReference)
-                .filter(Boolean)
-                .toSorted((a, b) => a.filePath.localeCompare(b.filePath));
+                .filter(Boolean);
+            const references = [...referenceCandidates].sort((a, b) =>
+                a.filePath.localeCompare(b.filePath)
+            );
 
             const occurrenceCount = references.reduce(
                 (total, reference) => total + (reference.occurrences ?? 0),
@@ -246,7 +248,7 @@ function sortConflicts(conflicts) {
         ["info", 2]
     ]);
 
-    return [...conflicts].toSorted((left, right) => {
+    return [...conflicts].sort((left, right) => {
         const severityA = severityOrder.get(left.severity) ?? 99;
         const severityB = severityOrder.get(right.severity) ?? 99;
         if (severityA !== severityB) {

@@ -16,7 +16,7 @@ import {
     normalizeIdentifierCaseOptions,
     IdentifierCaseStyle
 } from "../options/identifier-case.js";
-import { resolveProjectRelativeFilePath } from "../project-index/path-normalization.js";
+import { resolveProjectRelativeFilePath } from "gamemaker-language-semantic/project-index/path-normalization.js";
 import {
     applyBootstrappedIdentifierCaseProjectIndex,
     ensureIdentifierCaseProjectIndex,

@@ -11,7 +11,7 @@ import {
     isFsErrorCode,
     listDirectory,
     getFileMtime
-} from "../shared/index.js";
+} from "../../../shared/index.js";
 import { isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 

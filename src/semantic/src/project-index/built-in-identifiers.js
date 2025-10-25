@@ -4,7 +4,7 @@ import {
     areNumbersApproximatelyEqual,
     getFileMtime,
     isPlainObject
-} from "../shared/index.js";
+} from "../../../shared/index.js";
 import { GML_IDENTIFIER_METADATA_PATH } from "../resources/bundled-resources.js";
 
 import { defaultFsFacade } from "./fs-facade.js";

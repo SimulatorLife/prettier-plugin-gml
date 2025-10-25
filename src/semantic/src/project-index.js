@@ -5,4 +5,4 @@ export {
     resetProjectIndexSourceExtensions,
     setProjectIndexSourceExtensions,
     defaultFsFacade
-} from "gamemaker-language-semantic/project-index/index.js";
+} from "./project-index/index.js";

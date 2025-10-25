@@ -4,7 +4,8 @@
   "main": "gml-parser.js",
   "type": "module",
   "dependencies": {
-    "antlr4": "^4.13.2"
+    "antlr4": "^4.13.2",
+    "gamemaker-language-semantic": "file:../semantic"
   },
   "engines": {
     "node": ">=25.0.0"

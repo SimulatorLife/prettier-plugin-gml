@@ -3,7 +3,7 @@ import path from "node:path";
 import {
     isNonEmptyString,
     resolveContainedRelativePath
-} from "../shared/index.js";
+} from "../../../shared/index.js";
 
 /**
  * Resolve high-level metadata about how {@link filePath} relates to

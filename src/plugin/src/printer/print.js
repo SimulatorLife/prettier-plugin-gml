@@ -45,6 +45,7 @@ import {
     getNodeRangeIndices,
     getBodyStatements,
     getCallExpressionArguments,
+    getCallExpressionIdentifier,
     getIdentifierText,
     getSingleVariableDeclarator,
     isCallExpressionIdentifierMatch,
@@ -225,6 +226,10 @@ export function print(path, options, print) {
             }
 
             let leadingDocs = [hardline];
+
+            if (node._gmlForceInitialBlankLine) {
+                leadingDocs = [hardline, hardline];
+            }
 
             const parentNode =
                 typeof path.getParentNode === "function"
@@ -938,7 +943,13 @@ export function print(path, options, print) {
                     );
                 });
 
+                const hasSingleCallExpressionArgument =
+                    maxParamsPerLine > 0 &&
+                    node.arguments.length === 1 &&
+                    node.arguments[0]?.type === "CallExpression";
+
                 const shouldForceBreakArguments =
+                    hasSingleCallExpressionArgument ||
                     (maxParamsPerLine > 0 &&
                         node.arguments.length > maxParamsPerLine) ||
                     callbackArguments.length > 1 ||
@@ -1902,16 +1913,54 @@ function printElements(
     }, listKey);
 }
 
+function isSimpleCallExpression(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    if (!getCallExpressionIdentifier(node)) {
+        return false;
+    }
+
+    const args = getCallExpressionArguments(node);
+    if (args.length === 0) {
+        return true;
+    }
+
+    if (args.length > 1) {
+        return false;
+    }
+
+    const [onlyArgument] = args;
+    const argumentType = getNodeType(onlyArgument);
+
+    if (
+        argumentType === "FunctionDeclaration" ||
+        argumentType === "StructExpression" ||
+        argumentType === "CallExpression"
+    ) {
+        return false;
+    }
+
+    if (hasComment(onlyArgument)) {
+        return false;
+    }
+
+    return true;
+}
+
 function isComplexArgumentNode(node) {
     const nodeType = getNodeType(node);
     if (!nodeType) {
         return false;
     }
 
+    if (nodeType === "CallExpression") {
+        return !isSimpleCallExpression(node);
+    }
+
     return (
-        nodeType === "CallExpression" ||
-        nodeType === "FunctionDeclaration" ||
-        nodeType === "StructExpression"
+        nodeType === "FunctionDeclaration" || nodeType === "StructExpression"
     );
 }
 

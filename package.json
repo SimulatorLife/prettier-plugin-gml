@@ -5,13 +5,15 @@
   "workspaces": [
     "src/cli",
     "src/plugin",
-    "src/parser"
+    "src/parser",
+    "src/semantic"
   ],
   "config": {
     "root_path": ".",
     "plugin_path": "src/plugin",
     "parser_path": "src/parser",
-    "cli_path": "src/cli"
+    "cli_path": "src/cli",
+    "semantic_path": "src/semantic"
   },
   "type": "module",
   "repository": {
@@ -51,6 +53,8 @@
     "test:shared:report": "node --test --test-reporter=junit --test-reporter-destination=./reports/shared.xml src/shared/tests/*.test.js",
     "test:parser": "node --test src/parser/tests/*.test.js",
     "test:parser:report": "node --test --test-reporter=junit --test-reporter-destination=./reports/parser.xml src/parser/tests/*.test.js",
+    "test:semantic": "node --test src/semantic/tests/*.test.js",
+    "test:semantic:report": "node --test --test-reporter=junit --test-reporter-destination=./reports/semantic.xml src/semantic/tests/*.test.js",
     "test:plugin": "node --test src/plugin/tests/*.test.js",
     "test:plugin:report": "node --test --test-reporter=junit --test-reporter-destination=./reports/plugin.xml src/plugin/tests/*.test.js",
     "test:cli": "node --test src/cli/tests/*.test.js",

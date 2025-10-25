@@ -1,4 +1,4 @@
-import { isObjectLike } from "../shared/index.js";
+import { isObjectLike } from "../../../shared/index.js";
 import { getDefaultProjectIndexParser } from "./gml-parser-facade.js";
 
 const defaultProjectIndexParser = getDefaultProjectIndexParser();

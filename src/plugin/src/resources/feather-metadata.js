@@ -17,7 +17,7 @@
  */
 
 import { asArray, toTrimmedString } from "../shared/index.js";
-import { loadBundledFeatherMetadata } from "./bundled-resources.js";
+import { loadBundledFeatherMetadata } from "gamemaker-language-semantic/resources/bundled-resources.js";
 
 /** @type {FeatherMetadata | null} */
 let cachedMetadata = null;

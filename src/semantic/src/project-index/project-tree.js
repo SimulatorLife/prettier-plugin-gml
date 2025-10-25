@@ -1,6 +1,10 @@
 import path from "node:path";
 
-import { isFsErrorCode, listDirectory, toPosixPath } from "../shared/index.js";
+import {
+    isFsErrorCode,
+    listDirectory,
+    toPosixPath
+} from "../../../shared/index.js";
 
 import { createProjectIndexAbortGuard } from "./abort-guard.js";
 import {

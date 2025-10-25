@@ -33,7 +33,6 @@ import { Command, InvalidArgumentError, Option } from "commander";
 
 import {
     collectAncestorDirectories,
-    escapeRegExp,
     getErrorMessage,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
@@ -43,6 +42,7 @@ import {
     isPathInside,
     mergeUniqueValues,
     normalizeEnumeratedOption,
+    createListSplitPattern,
     normalizeStringList,
     resolveModuleDefaultExport,
     toArray,
@@ -111,12 +111,11 @@ const INITIAL_WORKING_DIRECTORY = path.resolve(process.cwd());
 
 const FALLBACK_EXTENSIONS = Object.freeze([".gml"]);
 
-const EXTENSION_LIST_SEPARATORS = Array.from(
-    new Set([",", path.delimiter].filter(Boolean))
-);
-
-const EXTENSION_LIST_SPLIT_PATTERN = new RegExp(
-    `[${EXTENSION_LIST_SEPARATORS.map((separator) => escapeRegExp(separator)).join("")}\\s]+`
+const EXTENSION_LIST_SPLIT_PATTERN = createListSplitPattern(
+    [",", path.delimiter].filter(Boolean),
+    {
+        includeWhitespace: true
+    }
 );
 
 const ParseErrorAction = Object.freeze({

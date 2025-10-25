@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { throwIfAborted } from "../shared/index.js";
+import { throwIfAborted } from "../../../shared/index.js";
 
 function normalizeEnsureReadyDescriptor(descriptor) {
     const projectRoot = descriptor?.projectRoot;

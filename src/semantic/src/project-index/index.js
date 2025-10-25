@@ -12,7 +12,7 @@ import {
     isNonEmptyArray,
     isObjectLike,
     pushUnique
-} from "../shared/index.js";
+} from "../../../shared/index.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { clampConcurrency } from "./concurrency.js";
 import { resolveProjectIndexParser } from "./parser-override.js";

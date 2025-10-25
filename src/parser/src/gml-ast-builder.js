@@ -1,7 +1,7 @@
 import GameMakerLanguageParserVisitor from "./generated/GameMakerLanguageParserVisitor.js";
 import { getLineBreakCount, getNonEmptyTrimmedString } from "./shared/index.js";
-import ScopeTracker from "./scope-tracker.js";
-import { ScopeOverrideKeyword } from "./scope-override-keywords.js";
+import ScopeTracker from "gamemaker-language-semantic/scopes/scope-tracker.js";
+import { ScopeOverrideKeyword } from "gamemaker-language-semantic/scopes/scope-override-keywords.js";
 import BinaryExpressionDelegate from "./binary-expression-delegate.js";
 import {
     IdentifierRoleTracker,
