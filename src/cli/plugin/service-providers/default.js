@@ -1,10 +1,5 @@
-import { buildProjectIndex } from "prettier-plugin-gamemaker/project-index";
-import {
-    prepareIdentifierCasePlan,
-    clearIdentifierCaseOptionStore,
-    clearIdentifierCaseDryRunContexts
-} from "prettier-plugin-gamemaker/identifier-case";
 import { assertFunction } from "../shared/dependencies.js";
+import { defaultCliPluginServiceDependencies } from "./default-service-dependencies.js";
 
 /**
  * The legacy `identifierCasePlanService` facade coupled plan preparation with
@@ -55,11 +50,6 @@ import { assertFunction } from "../shared/dependencies.js";
  * @property {CliIdentifierCaseServices} identifierCase
  */
 
-function clearIdentifierCaseCaches() {
-    clearIdentifierCaseOptionStore(null);
-    clearIdentifierCaseDryRunContexts();
-}
-
 function resolveDescriptorSource(descriptorSource) {
     if (descriptorSource == null) {
         return {};
@@ -87,12 +77,20 @@ function assertDescriptorValue(value, description) {
 export function createDefaultCliPluginServices(descriptorSource) {
     const descriptors = resolveDescriptorSource(descriptorSource);
 
+    const {
+        projectIndexBuilder: defaultProjectIndexBuilder,
+        identifierCasePlanPreparer: defaultIdentifierCasePlanPreparer,
+        identifierCaseCacheClearer: defaultIdentifierCaseCacheClearer
+    } = defaultCliPluginServiceDependencies;
+
     const projectIndexBuilder =
-        descriptors.projectIndexBuilder ?? buildProjectIndex;
+        descriptors.projectIndexBuilder ?? defaultProjectIndexBuilder;
     const identifierCasePlanPreparer =
-        descriptors.identifierCasePlanPreparer ?? prepareIdentifierCasePlan;
+        descriptors.identifierCasePlanPreparer ??
+        defaultIdentifierCasePlanPreparer;
     const identifierCaseCacheClearer =
-        descriptors.identifierCaseCacheClearer ?? clearIdentifierCaseCaches;
+        descriptors.identifierCaseCacheClearer ??
+        defaultIdentifierCaseCacheClearer;
 
     assertDescriptorValue(projectIndexBuilder, "project index builder");
     assertDescriptorValue(
