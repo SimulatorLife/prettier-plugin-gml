@@ -1274,7 +1274,7 @@ export function print(path, options, print) {
 
             const argumentIndex =
                 getArgumentIndexFromIdentifier(identifierName);
-            if (argumentIndex !== null) {
+            if (argumentIndex !== null && !isArgumentAliasInitializer(path)) {
                 const functionNode = findEnclosingFunctionDeclaration(path);
                 const preferredArgumentName = resolvePreferredParameterName(
                     functionNode,
@@ -4192,6 +4192,10 @@ function getCanonicalParamNameFromText(name) {
 }
 
 function getPreferredFunctionParameterName(path, node, options) {
+    if (isArgumentAliasInitializer(path)) {
+        return null;
+    }
+
     const context = findFunctionParameterContext(path);
     if (context) {
         const { functionNode, paramIndex } = context;
@@ -4278,86 +4282,6 @@ function getPreferredFunctionParameterName(path, node, options) {
     return null;
 }
 
-function resolvePreferredParameterName(
-    functionNode,
-    paramIndex,
-    currentName,
-    options
-) {
-    if (!functionNode || !Number.isInteger(paramIndex) || paramIndex < 0) {
-        return null;
-    }
-
-    const params = Array.isArray(functionNode.params)
-        ? functionNode.params
-        : null;
-    if (!params || paramIndex >= params.length) {
-        return null;
-    }
-
-    const hasRenamableCurrentName =
-        typeof currentName === "string" &&
-        getArgumentIndexFromIdentifier(currentName) !== null;
-
-    if (!hasRenamableCurrentName) {
-        return null;
-    }
-
-    const preferredSource = resolvePreferredParameterSource(
-        functionNode,
-        paramIndex,
-        currentName,
-        options
-    );
-
-    const normalizedName = normalizePreferredParameterName(preferredSource);
-    if (!normalizedName || normalizedName === currentName) {
-        return null;
-    }
-
-    return isValidIdentifierName(normalizedName) ? normalizedName : null;
-}
-
-function resolvePreferredParameterSource(
-    functionNode,
-    paramIndex,
-    currentName,
-    options
-) {
-    const docPreferences = preferredParamDocNamesByNode.get(functionNode);
-    if (docPreferences?.has(paramIndex)) {
-        return docPreferences.get(paramIndex) ?? null;
-    }
-
-    const implicitEntries = collectImplicitArgumentDocNames(
-        functionNode,
-        options
-    );
-    if (!Array.isArray(implicitEntries)) {
-        return null;
-    }
-
-    const implicitEntry = implicitEntries.find(
-        (entry) => entry && entry.index === paramIndex
-    );
-    if (!implicitEntry) {
-        return null;
-    }
-
-    if (
-        implicitEntry.canonical &&
-        implicitEntry.canonical !== implicitEntry.fallbackCanonical
-    ) {
-        return implicitEntry.name || implicitEntry.canonical;
-    }
-
-    if (implicitEntry.name && implicitEntry.name !== currentName) {
-        return implicitEntry.name;
-    }
-
-    return null;
-}
-
 function findEnclosingFunctionNode(path) {
     if (!path || typeof path.getParentNode !== "function") {
         return null;
@@ -4423,6 +4347,100 @@ function findFunctionParameterContext(path) {
     }
 
     return null;
+}
+
+function isArgumentAliasInitializer(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return false;
+    }
+
+    const node = path.getValue();
+    if (!node || node.type !== "Identifier") {
+        return false;
+    }
+
+    const argumentIndex = getArgumentIndexFromIdentifier(node.name);
+    if (argumentIndex === null) {
+        return false;
+    }
+
+    const parent = path.getParentNode();
+    if (!parent || parent.type !== "VariableDeclarator") {
+        return false;
+    }
+
+    if (parent.init !== node || parent.id?.type !== "Identifier") {
+        return false;
+    }
+
+    const functionNode = findEnclosingFunctionNode(path);
+    if (!functionNode) {
+        return true;
+    }
+
+    const params = Array.isArray(functionNode.params)
+        ? functionNode.params
+        : [];
+
+    return argumentIndex >= params.length;
+}
+
+function resolvePreferredParameterName(
+    functionNode,
+    paramIndex,
+    currentName,
+    options
+) {
+    if (!functionNode || !Number.isInteger(paramIndex) || paramIndex < 0) {
+        return null;
+    }
+
+    const hasRenamableCurrentName =
+        typeof currentName === "string" &&
+        getArgumentIndexFromIdentifier(currentName) !== null;
+
+    if (!hasRenamableCurrentName) {
+        return null;
+    }
+
+    const docPreferences = preferredParamDocNamesByNode.get(functionNode);
+    let preferredSource =
+        (docPreferences && docPreferences.get(paramIndex)) || null;
+
+    if (!preferredSource) {
+        const implicitEntries = collectImplicitArgumentDocNames(
+            functionNode,
+            options
+        );
+
+        if (Array.isArray(implicitEntries)) {
+            const implicitEntry = implicitEntries.find(
+                (entry) => entry && entry.index === paramIndex
+            );
+
+            if (implicitEntry) {
+                if (
+                    implicitEntry.canonical &&
+                    implicitEntry.canonical !== implicitEntry.fallbackCanonical
+                ) {
+                    preferredSource =
+                        implicitEntry.name || implicitEntry.canonical;
+                } else if (
+                    implicitEntry.name &&
+                    implicitEntry.name !== currentName
+                ) {
+                    preferredSource = implicitEntry.name;
+                }
+            }
+        }
+    }
+
+    const normalizedName = normalizePreferredParameterName(preferredSource);
+    if (!normalizedName || normalizedName === currentName) {
+        return null;
+    }
+
+    return isValidIdentifierName(normalizedName) ? normalizedName : null;
 }
 
 function shouldOmitParameterAlias(declarator, functionNode, options) {
