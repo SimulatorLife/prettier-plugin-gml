@@ -4,7 +4,7 @@ import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
-    escapeRegExp,
+    createListSplitPattern,
     getNonEmptyTrimmedString,
     normalizeStringList,
     toArray,
@@ -23,12 +23,8 @@ const DEFAULT_CANDIDATE_PLUGIN_PATHS = Object.freeze([
     ["plugin", "index.js"]
 ]);
 
-const LIST_SEPARATORS = Array.from(
-    new Set([",", path.delimiter].filter(Boolean))
-);
-
-const LIST_SPLIT_PATTERN = new RegExp(
-    `[${LIST_SEPARATORS.map((separator) => escapeRegExp(separator)).join("")}]+`
+const LIST_SPLIT_PATTERN = createListSplitPattern(
+    [",", path.delimiter].filter(Boolean)
 );
 
 function getEnvironmentCandidates(env) {
