@@ -36,7 +36,7 @@ import {
     createProjectIndexAbortGuard
 } from "./abort-guard.js";
 import { loadBuiltInIdentifiers } from "./built-in-identifiers.js";
-import { createProjectIndexCoordinatorFactory } from "./coordinator.js";
+import { createProjectIndexCoordinator as createProjectIndexCoordinatorCore } from "./coordinator.js";
 import { cloneObjectEntries } from "./clone-object-entries.js";
 
 /**
@@ -52,16 +52,25 @@ function cloneEntryCollections(entry, ...keys) {
     );
 }
 
-export const createProjectIndexCoordinator =
-    createProjectIndexCoordinatorFactory({
-        defaultFsFacade,
-        defaultLoadCache: loadProjectIndexCache,
-        defaultSaveCache: saveProjectIndexCache,
-        defaultBuildIndex: buildProjectIndex,
-        getDefaultCacheMaxSize: getDefaultProjectIndexCacheMaxSize
-    });
+export function createProjectIndexCoordinator(options = {}) {
+    const {
+        fsFacade = defaultFsFacade,
+        loadCache = loadProjectIndexCache,
+        saveCache = saveProjectIndexCache,
+        buildIndex = buildProjectIndex,
+        cacheMaxSizeBytes,
+        getDefaultCacheMaxSize = getDefaultProjectIndexCacheMaxSize
+    } = options;
 
-export { createProjectIndexCoordinatorFactory } from "./coordinator.js";
+    return createProjectIndexCoordinatorCore({
+        fsFacade,
+        loadCache,
+        saveCache,
+        buildIndex,
+        cacheMaxSizeBytes,
+        getDefaultCacheMaxSize
+    });
+}
 
 export { findProjectRoot } from "./project-root.js";
 
