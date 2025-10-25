@@ -134,6 +134,9 @@ for (var i = 0; i < queue_count; i += 1) {
   notes, rollout guides, and metadata playbooks that live alongside the
   formatter source. Each entry includes a short synopsis so you can scan for the
   right level of detail.
+- [Contributor onboarding checklist](docs/contributor-onboarding.md) &mdash; Step-by-
+  step environment setup, validation commands, and a tour of the core
+  workspace scripts for new teammates.
 - [Architecture audits](docs/architecture-audit-2025-10-23.md) &mdash; Latest
   repository health check (October 23, 2025) with links back to the
   [previous day's audit](docs/architecture-audit-2025-10-22.md), the
@@ -143,6 +146,9 @@ for (var i = 0; i < queue_count; i += 1) {
   [interface segregation investigation](docs/interface-segregation-investigation.md)
   when you need a refresher on why the CLI and plugin expose separate entry
   points.
+- [Semantic subsystem reference](src/semantic/README.md) &mdash; Details how the
+  scope trackers and project-index coordinator now live in the dedicated
+  `gamemaker-language-semantic` workspace package.
 - [Identifier casing handbook](docs/naming-conventions.md) &mdash; End-to-end
   coverage of the rename pipeline paired with the
   [scope reference](docs/identifier-case-reference.md),
@@ -301,7 +307,8 @@ nvm alias default node
    ```bash
    git clone https://github.com/SimulatorLife/prettier-plugin-gml.git
    cd prettier-plugin-gml
-   npm install
+   nvm use
+   npm ci
    ```
 
 2. Format any GameMaker project without adding dependencies to that project. The
@@ -380,6 +387,13 @@ Consult the [identifier-case rollout playbook](docs/identifier-case-rollout.md)
 when you plan to enable automated renames and need to audit bootstrap
 behaviour, cache hygiene, or dry-run reports.
 
+### Contributor onboarding
+
+Ready to contribute code or documentation changes? Work through the
+[contributor onboarding checklist](docs/contributor-onboarding.md) for a guided
+environment setup, sanity checks, and a tour of the most common workspace
+scripts before tackling feature work.
+
 ## Architecture overview
 
 The repository is organised as a multi-package workspace so the parser, plugin,
@@ -391,7 +405,8 @@ points while sharing utilities via the `src/shared/` module.
 | `prettier-plugin-gamemaker` | `src/plugin/` | Prettier plugin entry point (`src/gml.js`), printers, option handlers, CLI surface helpers, and regression fixtures. |
 | `gamemaker-language-parser` | `src/parser/` | ANTLR grammar sources, generated parser output, and the parser test suite. |
 | `prettier-plugin-gml-cli` | `src/cli/` | Command-line interface (`cli.js`) for metadata generation, formatting wrapper commands, integration tests, and performance tooling. |
-| Shared modules | `src/shared/` | Helper modules shared by the plugin, CLI, and parser (identifier casing, AST utilities, string helpers). |
+| `gamemaker-language-semantic` | `src/semantic/` | Scope trackers, project-index orchestration, rename bootstrap controls, and the semantic test suite. |
+| Shared modules | `src/shared/` | Helper modules shared by the plugin, CLI, parser, and semantic packages (AST utilities, identifier casing primitives, string helpers). |
 | Metadata snapshots | `resources/` | Generated datasets consumed by the formatter (identifier inventories, Feather metadata). |
 | Documentation | `docs/` | Planning notes, rollout guides, and deep-dive references. Start with [`docs/README.md`](docs/README.md) for an index. |
 
@@ -650,6 +665,7 @@ covers the helper trio and intended use cases.
 prettier-plugin-gml/
 ├─ src/parser/        # ANTLR grammar, generated parser, and parser tests
 ├─ src/plugin/        # Prettier plugin source, printer, CLI wrapper, and plugin tests
+├─ src/semantic/      # Scope trackers, project index coordinator, semantic tests
 ├─ src/shared/        # Shared utilities (AST helpers, identifier casing, CLI plumbing)
 ├─ resources/         # Generated metadata consumed by the formatter
 ├─ docs/              # Design notes and rollout guides
@@ -663,11 +679,11 @@ repository so new tooling remains easy to discover and maintain.
 ### Set up the workspace
 
 ```bash
-nvm use # optional but recommended
-npm install
+nvm use # aligns your Node.js version with the workspace baseline
+npm ci # installs dependencies from package-lock.json
 ```
 
-The first install also wires up a local [Husky](https://typicode.github.io/husky/) pre-commit hook that runs `npm run format` and `npm run lint:fix`. Set `HUSKY=0` to bypass the hook when necessary (for example in CI environments).
+If you prefer `npm install`, run it only after confirming the lockfile is up to date. The initial install wires up a local [Husky](https://typicode.github.io/husky/) pre-commit hook that runs `npm run format` and `npm run lint:fix`. Set `HUSKY=0` to bypass the hook when necessary (for example in CI environments).
 
 ### Test the plugin and parser
 
@@ -676,6 +692,7 @@ npm test
 npm run check
 npm run test:plugin
 npm run test:parser
+npm run test:semantic
 npm run test:shared
 npm run test:cli
 npm run lint
