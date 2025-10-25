@@ -580,6 +580,58 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
+    it("limits ignored file skip logs when requested", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const ignorePath = path.join(tempDirectory, ".prettierignore");
+            await fs.writeFile(ignorePath, "*.gml\n", "utf8");
+
+            for (const index of [1, 2, 3]) {
+                const filePath = path.join(
+                    tempDirectory,
+                    `script-${index}.gml`
+                );
+                await fs.writeFile(filePath, "var    a=1;\n", "utf8");
+            }
+
+            const { stdout } = await execFileAsync("node", [
+                wrapperPath,
+                "--ignored-file-sample-limit",
+                "1",
+                tempDirectory
+            ]);
+
+            const skipMatches =
+                stdout.match(/Skipping .* \(ignored by .*\)/g) ?? [];
+            assert.strictEqual(
+                skipMatches.length,
+                1,
+                "Expected skip logging to honour the ignored file sample limit"
+            );
+
+            const summaryLine = stdout
+                .split("\n")
+                .map((line) => line.trim())
+                .find((line) =>
+                    line.includes("ignored by .prettierignore (3)")
+                );
+
+            assert.ok(
+                summaryLine,
+                "Expected summary to report the total number of ignored files"
+            );
+
+            assert.match(
+                summaryLine,
+                /ignored by \.prettierignore \(3\) \(e\.g\., .*\.gml.*\, \.\.\.\)/,
+                "Expected summary to include an example and ellipsis when output is truncated"
+            );
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
     it("respects .prettierignore entries in ancestor directories when formatting a subdirectory", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
