@@ -4,6 +4,7 @@ export {
     assertFunction,
     assertNonEmptyString,
     assertPlainObject,
+    resolveFunction,
     hasOwn,
     identity,
     coerceNonNegativeInteger,
