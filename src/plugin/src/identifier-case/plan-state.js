@@ -1,6 +1,8 @@
-import { buildLocationKey } from "../shared/location-keys.js";
-import { withObjectLike } from "../shared/object-utils.js";
-import { isMapLike } from "../shared/utils/capability-probes.js";
+import {
+    buildLocationKey,
+    withObjectLike,
+    isMapLike
+} from "../shared/index.js";
 import { setIdentifierCaseOption } from "./option-store.js";
 
 function buildRenameKey(_scopeId, location) {
@@ -21,7 +23,7 @@ function buildRenameKey(_scopeId, location) {
  * - Dry-run executions and plan snapshots marked as dry-run are ignored to
  *   avoid mutating emitted output.
  *
- * @param {import("../shared/ast.js").GameMakerAstNode | null} node
+ * @param {import("../shared/index.js").GameMakerAstNode | null} node
  *        AST node whose identifier may be renamed.
  * @param {Record<string, unknown> | null} options
  *        Active plugin options possibly containing rename plan state.

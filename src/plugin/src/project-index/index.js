@@ -1,23 +1,24 @@
 import path from "node:path";
-import { cloneLocation } from "../shared/ast-locations.js";
-import { getCallExpressionIdentifier } from "../shared/ast-node-helpers.js";
-import { toPosixPath } from "../shared/path-utils.js";
-import { asArray, isNonEmptyArray, pushUnique } from "../shared/array-utils.js";
 import {
+    asArray,
     assertFunction,
+    buildFileLocationKey,
+    buildLocationKey,
+    cloneLocation,
+    getCallExpressionIdentifier,
     getOrCreateMapEntry,
     hasOwn,
-    isObjectLike
-} from "../shared/object-utils.js";
-import {
-    buildLocationKey,
-    buildFileLocationKey
-} from "../shared/location-keys.js";
-import { resolveProjectIndexParser } from "./parser-override.js";
-import { clampConcurrency } from "./concurrency.js";
-import { isProjectManifestPath } from "./constants.js";
+    isFsErrorCode,
+    isNonEmptyArray,
+    isObjectLike,
+    listDirectory,
+    pushUnique,
+    toPosixPath
+} from "../shared/index.js";
 import { defaultFsFacade } from "./fs-facade.js";
-import { isFsErrorCode, listDirectory } from "../shared/fs-utils.js";
+import { clampConcurrency } from "./concurrency.js";
+import { resolveProjectIndexParser } from "./parser-override.js";
+import { isProjectManifestPath } from "./constants.js";
 import {
     getDefaultProjectIndexCacheMaxSize,
     loadProjectIndexCache,

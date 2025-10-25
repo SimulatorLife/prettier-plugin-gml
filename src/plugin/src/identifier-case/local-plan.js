@@ -1,18 +1,22 @@
 import { formatIdentifierCase } from "./identifier-case-utils.js";
+import { peekIdentifierCaseDryRunContext } from "./identifier-case-context.js";
 import { buildRenameKey } from "./plan-state.js";
-import { asArray, isNonEmptyArray } from "../shared/array-utils.js";
-import { createMetricsTracker } from "../reporting.js";
 import {
+    asArray,
+    isNonEmptyArray,
     isNonEmptyString,
     getNonEmptyString,
-    toNormalizedLowerCaseString
-} from "../shared/string-utils.js";
-import { isObjectLike, getOrCreateMapEntry } from "../shared/object-utils.js";
+    toNormalizedLowerCaseString,
+    isObjectLike,
+    getOrCreateMapEntry,
+    getIterableSize,
+    createMetricsTracker
+} from "../shared/index.js";
 import {
     normalizeIdentifierCaseOptions,
     IdentifierCaseStyle
 } from "../options/identifier-case.js";
-import { peekIdentifierCaseDryRunContext } from "./identifier-case-context.js";
+import { resolveProjectRelativeFilePath } from "../project-index/path-normalization.js";
 import {
     applyBootstrappedIdentifierCaseProjectIndex,
     ensureIdentifierCaseProjectIndex,
@@ -28,8 +32,6 @@ import {
     summarizeReferenceFileOccurrences
 } from "./common.js";
 import { planAssetRenames, applyAssetRenames } from "./asset-renames.js";
-import { getIterableSize } from "../shared/utils/capability-probes.js";
-import { resolveProjectRelativeFilePath } from "../project-index/path-normalization.js";
 import { getDefaultIdentifierCaseFsFacade } from "./fs-facade.js";
 import { evaluateIdentifierCaseAssetRenamePolicy } from "./asset-rename-policy.js";
 

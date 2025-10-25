@@ -1,14 +1,15 @@
 import path from "node:path";
 
-import { isNonEmptyString, trimStringEntries } from "../shared/string-utils.js";
-import { isObjectLike } from "../shared/object-utils.js";
 import {
+    isNonEmptyString,
+    trimStringEntries,
+    isObjectLike,
     parseJsonWithContext,
-    stringifyJsonForFile
-} from "../shared/json-utils.js";
-import { fromPosixPath } from "../shared/path-utils.js";
-import { isFsErrorCode } from "../shared/fs-utils.js";
-import { getErrorMessage } from "../shared/error-utils.js";
+    stringifyJsonForFile,
+    fromPosixPath,
+    isFsErrorCode,
+    getErrorMessage
+} from "../shared/index.js";
 import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
 import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
 

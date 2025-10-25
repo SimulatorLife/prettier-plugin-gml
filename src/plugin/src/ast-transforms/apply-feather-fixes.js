@@ -6,9 +6,7 @@ import {
     getNodeEndLine,
     getNodeStartLine,
     cloneLocation,
-    assignClonedLocation
-} from "../shared/ast-locations.js";
-import {
+    assignClonedLocation,
     getArrayProperty,
     getBodyStatements,
     getCallExpressionArguments,
@@ -20,35 +18,26 @@ import {
     isVarVariableDeclaration,
     isNode,
     visitChildNodes,
-    unwrapParenthesizedExpression
-} from "../shared/ast-node-helpers.js";
-import {
+    unwrapParenthesizedExpression,
     getNonEmptyString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
     stripStringQuotes,
     toNormalizedLowerCaseString,
-    toTrimmedString
-} from "../shared/string-utils.js";
-import { loadReservedIdentifierNames } from "../resources/reserved-identifiers.js";
-import { isFiniteNumber } from "../shared/number-utils.js";
-import {
+    toTrimmedString,
+    isFiniteNumber,
     asArray,
     isArrayIndex,
-    isNonEmptyArray
-} from "../shared/array-utils.js";
-import { ensureSet } from "../shared/utils/capability-probes.js";
-import {
+    isNonEmptyArray,
+    ensureSet,
     getOrCreateMapEntry,
     hasOwn,
-    isObjectLike
-} from "../shared/object-utils.js";
-import { escapeRegExp } from "../shared/regexp.js";
-import {
+    isObjectLike,
+    escapeRegExp,
     hasIterableItems,
     isMapLike,
     isSetLike
-} from "../shared/utils/capability-probes.js";
+} from "../shared/index.js";
 import {
     collectCommentNodes,
     getCommentArray,
@@ -61,6 +50,7 @@ import {
     getFeatherDiagnostics,
     getFeatherMetadata
 } from "../resources/feather-metadata.js";
+import { loadReservedIdentifierNames } from "../resources/reserved-identifiers.js";
 
 function forEachNodeChild(node, callback) {
     if (!node || typeof node !== "object") {

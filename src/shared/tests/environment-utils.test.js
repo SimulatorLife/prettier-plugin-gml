@@ -5,7 +5,7 @@ import test from "node:test";
 import {
     applyEnvironmentOverride,
     createEnvConfiguredValue
-} from "../environment-utils.js";
+} from "../utils/environment.js";
 
 test("applyEnvironmentOverride forwards values from provided env", () => {
     let received = null;

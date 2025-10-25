@@ -7,7 +7,7 @@ import {
     pushUnique,
     toArray,
     uniqueArray
-} from "../array-utils.js";
+} from "../utils/array.js";
 
 test("toArray wraps non-array values", () => {
     assert.deepEqual(toArray("value"), ["value"]);

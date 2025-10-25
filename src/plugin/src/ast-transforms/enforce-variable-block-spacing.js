@@ -1,4 +1,4 @@
-import { isNonEmptyArray } from "../shared/array-utils.js";
+import { isNonEmptyArray } from "../shared/index.js";
 
 const MIN_DECLARATION_RUN_LENGTH = 4;
 

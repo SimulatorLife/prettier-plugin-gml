@@ -5,7 +5,7 @@ import {
     getVariableDeclarationKind,
     isVariableDeclarationOfKind,
     isVarVariableDeclaration
-} from "../ast-node-helpers.js";
+} from "../ast/node-helpers.js";
 
 describe("variable declaration helpers", () => {
     describe("getVariableDeclarationKind", () => {
