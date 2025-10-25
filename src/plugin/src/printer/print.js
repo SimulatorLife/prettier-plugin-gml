@@ -2478,7 +2478,16 @@ function printStatements(path, options, print, childrenAttribute) {
                 }
             }
 
+            const shouldForceConstructorNestedFunctionPadding =
+                isConstructorBlock &&
+                node?.type === "FunctionDeclaration" &&
+                !suppressFollowingEmptyLine &&
+                !shouldPreserveTrailingBlankLine;
+
             if (shouldPreserveTrailingBlankLine) {
+                parts.push(hardline);
+                previousNodeHadNewlineAddedAfter = true;
+            } else if (shouldForceConstructorNestedFunctionPadding) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
             } else if (requiresTrailingPadding) {
