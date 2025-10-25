@@ -1,7 +1,7 @@
 import path from "node:path";
 import process from "node:process";
 
-import { wrapInvalidArgumentResolver } from "../../core/command-parsing.js";
+import { wrapInvalidArgumentResolver } from "../command-dependencies.js";
 import {
     DEFAULT_MANUAL_REPO,
     createManualVerboseState,
@@ -10,7 +10,7 @@ import {
 import {
     getDefaultProgressBarWidth,
     resolveProgressBarWidth
-} from "../shared/progress-bar.js";
+} from "../command-dependencies.js";
 import {
     assertFunction,
     asArray,
