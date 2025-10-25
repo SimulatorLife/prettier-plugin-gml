@@ -5,7 +5,6 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { Command, InvalidArgumentError, Option } from "commander";
-import GMLParser from "gamemaker-language-parser";
 
 import {
     SuiteOutputFormat,
@@ -35,6 +34,9 @@ import {
     isPerformanceThroughputSuite,
     normalizePerformanceSuiteName
 } from "./suite-options.js";
+
+const shouldSkipPerformanceDependencies =
+    process.env.PRETTIER_PLUGIN_GML_SKIP_CLI_RUN === "1";
 
 const AVAILABLE_SUITES = new Map();
 
@@ -362,9 +364,43 @@ function createSkipResult(reason) {
     };
 }
 
+function createSkippedPerformanceDependencyError(actionDescription) {
+    return new Error(
+        `Cannot ${actionDescription} while PRETTIER_PLUGIN_GML_SKIP_CLI_RUN=1. ` +
+            "Clear the environment variable to enable CLI performance suites."
+    );
+}
+
+let gmlParserPromise = null;
+
+function resolveGmlParser() {
+    if (shouldSkipPerformanceDependencies) {
+        return Promise.reject(
+            createSkippedPerformanceDependencyError("load the GML parser")
+        );
+    }
+
+    if (!gmlParserPromise) {
+        gmlParserPromise = import("gamemaker-language-parser").then(
+            resolveModuleDefaultExport
+        );
+    }
+
+    return gmlParserPromise;
+}
+
 function createDefaultParser() {
+    if (shouldSkipPerformanceDependencies) {
+        return async () => {
+            throw createSkippedPerformanceDependencyError(
+                "run parser benchmarks"
+            );
+        };
+    }
+
     return async (file) => {
-        GMLParser.parse(file.source, {
+        const gmlParser = await resolveGmlParser();
+        gmlParser.parse(file.source, {
             getComments: false,
             getLocations: false,
             simplifyLocations: true,
