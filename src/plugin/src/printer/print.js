@@ -6384,6 +6384,16 @@ function shouldOmitSyntheticParens(path) {
         return true;
     }
 
+    if (
+        expression?.type === "BinaryExpression" &&
+        parent.operator === "+" &&
+        expression.operator === "*" &&
+        isNumericComputationNode(parent) &&
+        isNumericComputationNode(expression)
+    ) {
+        return true;
+    }
+
     if (expression?.type === "BinaryExpression" && parentInfo != undefined) {
         const childInfo = getBinaryOperatorInfo(expression.operator);
 
