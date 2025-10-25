@@ -72,7 +72,21 @@ function normalizeDownloadLabel(label) {
 
 const noop = () => {};
 
-const IDLE_DOWNLOAD_REPORTER = Object.assign(() => {}, { cleanup: noop });
+function reporterWithCleanup(handler, cleanup = noop) {
+    const report = typeof handler === "function" ? handler : noop;
+    let cleanedUp = false;
+
+    report.cleanup = () => {
+        if (cleanedUp) {
+            return;
+        }
+
+        cleanedUp = true;
+        cleanup();
+    };
+
+    return report;
+}
 
 /**
  * Create a progress reporter for manual file downloads. Callers receive a
@@ -102,7 +116,7 @@ export function createManualDownloadReporter({
     const { downloads = false, progressBar = false } = verbose ?? {};
 
     if (!downloads) {
-        return IDLE_DOWNLOAD_REPORTER;
+        return reporterWithCleanup(noop);
     }
 
     if (progressBar) {
@@ -111,38 +125,23 @@ export function createManualDownloadReporter({
         const progressRenderer =
             typeof render === "function" ? render : renderProgressBar;
 
-        let cleanedUp = false;
-
-        const reporter = ({ fetchedCount, totalEntries }) => {
+        return reporterWithCleanup(({ fetchedCount, totalEntries }) => {
             progressRenderer(
                 normalizedLabel,
                 fetchedCount,
                 totalEntries,
                 width
             );
-        };
-
-        return Object.assign(reporter, {
-            cleanup() {
-                if (cleanedUp) {
-                    return;
-                }
-
-                cleanedUp = true;
-                disposeProgressBars();
-            }
-        });
+        }, disposeProgressBars);
     }
 
     const normalizePath =
         typeof formatPath === "function" ? formatPath : (path) => path;
 
-    const reporter = ({ path }) => {
+    return reporterWithCleanup(({ path }) => {
         const displayPath = normalizePath(path);
         console.log(displayPath ? `✓ ${displayPath}` : "✓");
-    };
-
-    return Object.assign(reporter, { cleanup: noop });
+    });
 }
 
 /**
