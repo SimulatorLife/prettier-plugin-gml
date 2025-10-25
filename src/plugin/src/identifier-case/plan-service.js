@@ -99,7 +99,7 @@ function createIdentifierCaseServiceRegistry({
  * Normalize a service object to ensure it exposes the expected function
  * collaborators. The identifier case plan services previously repeated the
  * same validation scaffolding (plain-object guard followed by function
- * assertions) which obscured the differences between each service. Centralising
+ * assertions) which obscured the differences between each service. Centralizing
  * the logic keeps error messaging consistent and makes future service additions
  * trivial—callers simply describe the required function names.
  */
