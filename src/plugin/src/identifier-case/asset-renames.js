@@ -78,27 +78,23 @@ function pushAssetRenameConflict({
     const resolvedSuggestions =
         suggestions === undefined
             ? includeSuggestions && isNonEmptyString(identifierName)
-                ? buildAssetConflictSuggestions(identifierName)
-                : null
+              ? buildAssetConflictSuggestions(identifierName)
+              : null
             : suggestions;
 
-    const conflict = {
-        code,
-        severity,
-        message,
-        scope,
-        identifier: identifierName
-    };
-
-    if (details !== undefined) {
-        conflict.details = details;
-    }
-
-    if (resolvedSuggestions && resolvedSuggestions.length > 0) {
-        conflict.suggestions = resolvedSuggestions;
-    }
-
-    conflicts.push(createConflict(conflict));
+    conflicts.push(
+        createConflict({
+            code,
+            severity,
+            message,
+            scope,
+            identifier: identifierName,
+            ...(details !== undefined && { details }),
+            ...(resolvedSuggestions?.length
+                ? { suggestions: resolvedSuggestions }
+                : {})
+        })
+    );
 
     if (metricKey) {
         metrics?.counters?.increment(metricKey);
