@@ -25,7 +25,7 @@ import {
 import {
     resolveVmEvalTimeout,
     getDefaultVmEvalTimeoutMs
-} from "../shared/vm-eval-timeout.js";
+} from "../runtime-options/vm-eval-timeout.js";
 import {
     applyManualEnvOptionOverrides,
     IDENTIFIER_VM_TIMEOUT_ENV_VAR

@@ -11,7 +11,7 @@ import {
     toTrimmedString
 } from "../../shared/dependencies.js";
 import { formatDuration } from "../../shared/time-utils.js";
-import { formatBytes } from "../../shared/byte-format.js";
+import { formatBytes } from "../../runtime-options/byte-format.js";
 import { writeManualFile } from "./file-helpers.js";
 import {
     disposeProgressBars,
