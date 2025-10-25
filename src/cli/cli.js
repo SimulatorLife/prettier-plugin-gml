@@ -37,14 +37,12 @@ import {
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
     isErrorLike,
-    isMissingModuleDependency,
     isErrorWithCode,
     isPathInside,
     mergeUniqueValues,
     normalizeEnumeratedOption,
     createListSplitPattern,
     normalizeStringList,
-    resolveModuleDefaultExport,
     toArray,
     toNormalizedLowerCaseSet,
     uniqueArray,
@@ -68,6 +66,10 @@ import {
     registerIgnorePath,
     resetRegisteredIgnorePaths
 } from "./shared/ignore-path-registry.js";
+import {
+    isMissingModuleDependency,
+    resolveModuleDefaultExport
+} from "./shared/module.js";
 import { createCliCommandManager } from "./core/command-manager.js";
 import { resolveCliVersion } from "./core/version.js";
 import { wrapInvalidArgumentResolver } from "./core/command-parsing.js";
