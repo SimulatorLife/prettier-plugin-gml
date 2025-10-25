@@ -101,6 +101,53 @@ export function ensureSuitesAreKnown(suiteNames, availableSuites, command) {
 }
 
 /**
+ * Create the mutable container used to accumulate suite results.
+ */
+function createSuiteResultContainer() {
+    return {};
+}
+
+/**
+ * Record the resolved payload for a suite inside the shared container.
+ */
+function assignSuiteResult(container, suiteName, payload) {
+    container[suiteName] = payload;
+}
+
+/**
+ * Resolve a callable suite runner from the registry.
+ */
+function resolveSuiteRunner(availableSuites, suiteName) {
+    if (!availableSuites || typeof availableSuites.get !== "function") {
+        return null;
+    }
+
+    const runner = availableSuites.get(suiteName);
+    return typeof runner === "function" ? runner : null;
+}
+
+/**
+ * Execute a suite runner while normalizing thrown errors through the supplied
+ * callback.
+ */
+async function executeSuiteRunner({
+    runner,
+    suiteName,
+    runnerOptions,
+    onError
+}) {
+    try {
+        return await runner(runnerOptions);
+    } catch (error) {
+        if (typeof onError === "function") {
+            return onError(error, { suiteName });
+        }
+
+        return { error: createCliErrorDetails(error) };
+    }
+}
+
+/**
  * Execute the provided suite runners and collect their results.
  *
  * @param {{
@@ -117,13 +164,17 @@ export async function collectSuiteResults({
     runnerOptions,
     onError
 }) {
-    assertSuiteRegistryContract(availableSuites);
+    if (!availableSuites || typeof availableSuites.get !== "function") {
+        throw new TypeError(
+            "availableSuites must provide a get function returning suite runners"
+        );
+    }
 
     if (!isNonEmptyArray(suiteNames)) {
         return {};
     }
 
-    const results = {};
+    const results = createSuiteResultContainer();
 
     for (const suiteName of suiteNames) {
         const runner = resolveSuiteRunner(availableSuites, suiteName);
@@ -131,57 +182,17 @@ export async function collectSuiteResults({
             continue;
         }
 
-        const result = await executeSuiteRunner(runner, {
+        const suiteResult = await executeSuiteRunner({
+            runner,
             suiteName,
             runnerOptions,
             onError
         });
 
-        recordSuiteResult(results, suiteName, result);
+        assignSuiteResult(results, suiteName, suiteResult);
     }
 
     return results;
-}
-
-function resolveSuiteRunner(availableSuites, suiteName) {
-    const runner = availableSuites.get(suiteName);
-    return typeof runner === "function" ? runner : null;
-}
-
-async function executeSuiteRunner(
-    runner,
-    { suiteName, runnerOptions, onError }
-) {
-    try {
-        return await runner(runnerOptions);
-    } catch (error) {
-        return handleSuiteRunnerError(error, { suiteName, onError });
-    }
-}
-
-function handleSuiteRunnerError(error, { suiteName, onError }) {
-    if (typeof onError === "function") {
-        return onError(error, { suiteName });
-    }
-
-    return { error: createCliErrorDetails(error) };
-}
-
-/**
- * Record the resolved suite result on the shared accumulator. Keeping the
- * mutation here makes the orchestrator's control flow read as a series of
- * delegations rather than direct property writes.
- */
-function recordSuiteResult(results, suiteName, result) {
-    results[suiteName] = result;
-}
-
-function assertSuiteRegistryContract(availableSuites) {
-    if (!availableSuites || typeof availableSuites.get !== "function") {
-        throw new TypeError(
-            "availableSuites must provide a get function returning suite runners"
-        );
-    }
 }
 
 export function createSuiteResultsPayload(results, { generatedAt } = {}) {

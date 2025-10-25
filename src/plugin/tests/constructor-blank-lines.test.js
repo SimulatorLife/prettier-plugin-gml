@@ -99,3 +99,69 @@ test("preserves blank lines after nested function declarations inside constructo
         "Expected nested function declarations to retain their trailing blank line before the constructor closes."
     );
 });
+
+test("inserts trailing blank line after nested constructor functions when missing", async () => {
+    const source = [
+        "function Demo() constructor {",
+        "    function nested() {",
+        "        return 1;",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.trim().split("\n");
+
+    assert.equal(
+        lines.at(-2),
+        "",
+        "Expected constructor blocks to gain a separating blank line when nested functions close immediately before the brace."
+    );
+});
+
+test("collapses blank lines between simple constructor assignments", async () => {
+    const source = [
+        "Demo = function() constructor {",
+        "    self.value = 1;",
+        "",
+        "    self.copied = self.value;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.trim().split("\n");
+    const assignmentIndex = lines.indexOf("    self.value = 1;");
+
+    assert.notStrictEqual(
+        assignmentIndex,
+        -1,
+        "Expected the constructor body to contain the first assignment statement."
+    );
+    assert.equal(
+        lines[assignmentIndex + 1],
+        "    self.copied = self.value;",
+        "Expected constructors to collapse author-inserted blank lines between simple assignments."
+    );
+});
+
+test("inserts blank line after synthetic constructor doc comments", async () => {
+    const source = [
+        "function Demo() constructor {",
+        "    function nested(value) {",
+        "        return value;",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.trim().split("\n");
+
+    assert.equal(
+        lines.at(-2),
+        "",
+        "Expected constructors to retain a blank line after nested functions when synthetic doc comments are generated."
+    );
+});

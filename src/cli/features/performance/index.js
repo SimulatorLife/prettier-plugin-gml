@@ -9,8 +9,9 @@ import GMLParser from "gamemaker-language-parser";
 
 import { applyStandardCommandOptions } from "../../core/command-standard-options.js";
 import { createCliErrorDetails } from "../../core/errors.js";
+import { wrapInvalidArgumentResolver } from "../../core/command-parsing.js";
 import { resolvePluginEntryPoint } from "../../plugin/entry-point.js";
-import { formatByteSize } from "../../shared/byte-format.js";
+import { formatByteSize } from "../../runtime-options/byte-format.js";
 import {
     SuiteOutputFormat,
     resolveSuiteOutputFormatOrThrow,
@@ -22,9 +23,13 @@ import {
     appendToCollection,
     assertArray,
     coercePositiveInteger,
+    isFiniteNumber,
     getIdentifierText,
-    stringifyJsonForFile
-} from "../../shared/dependencies.js";
+    resolveIntegerOption,
+    toNormalizedInteger,
+    stringifyJsonForFile,
+    resolveModuleDefaultExport
+} from "../shared/dependencies.js";
 import {
     PerformanceSuiteName,
     isPerformanceThroughputSuite,
@@ -46,23 +51,51 @@ const DEFAULT_FIXTURE_DIRECTORIES = Object.freeze([
     path.resolve(REPO_ROOT, "src", "plugin", "tests")
 ]);
 const DATASET_CACHE_KEY = "gml-fixtures";
+const SUPPORTS_WEAK_REF = typeof WeakRef === "function";
+
+function resolveCachedDataset(cache) {
+    if (!cache || typeof cache.get !== "function") {
+        return null;
+    }
+
+    const entry = cache.get(DATASET_CACHE_KEY);
+    if (!entry) {
+        return null;
+    }
+
+    if (typeof entry?.deref === "function") {
+        const dataset = entry.deref();
+        if (dataset) {
+            return dataset;
+        }
+        cache.delete(DATASET_CACHE_KEY);
+        return null;
+    }
+
+    return entry;
+}
+
+function storeDatasetInCache(cache, dataset) {
+    if (!cache || typeof cache.set !== "function") {
+        return;
+    }
+
+    if (SUPPORTS_WEAK_REF) {
+        cache.set(DATASET_CACHE_KEY, new WeakRef(dataset));
+        return;
+    }
+
+    cache.set(DATASET_CACHE_KEY, dataset);
+}
 
 function createDatasetSummary({ fileCount, totalBytes }) {
-    const normalizedFileCount =
-        typeof fileCount === "number" &&
-        Number.isFinite(fileCount) &&
-        fileCount >= 0
-            ? Math.trunc(fileCount)
-            : 0;
+    const normalizedFileCount = Math.max(
+        0,
+        toNormalizedInteger(fileCount) ?? 0
+    );
 
-    let normalizedTotalBytes = 0;
-    if (
-        typeof totalBytes === "number" &&
-        Number.isFinite(totalBytes) &&
-        totalBytes >= 0
-    ) {
-        normalizedTotalBytes = totalBytes;
-    }
+    const normalizedTotalBytes =
+        isFiniteNumber(totalBytes) && totalBytes >= 0 ? totalBytes : 0;
 
     return {
         files: normalizedFileCount,
@@ -239,10 +272,9 @@ async function readFixtureFileRecord(absolutePath) {
  * semantics regardless of where the record originated.
  */
 function createFixtureRecord({ absolutePath, source, size, relativePath }) {
-    const resolvedSize =
-        typeof size === "number" && Number.isFinite(size)
-            ? size
-            : Buffer.byteLength(source);
+    const resolvedSize = isFiniteNumber(size)
+        ? size
+        : Buffer.byteLength(source);
     const resolvedRelativePath =
         typeof relativePath === "string"
             ? relativePath
@@ -292,30 +324,35 @@ async function resolveDatasetFromOptions(options = {}) {
         return normalizeCustomDataset(options.dataset);
     }
 
-    if (options.datasetCache?.has(DATASET_CACHE_KEY)) {
-        return options.datasetCache.get(DATASET_CACHE_KEY);
+    const cachedDataset = resolveCachedDataset(options.datasetCache);
+    if (cachedDataset) {
+        return cachedDataset;
     }
 
     const dataset = await loadFixtureDataset({
         directories: options.fixtureRoots
     });
 
-    if (options.datasetCache) {
-        options.datasetCache.set(DATASET_CACHE_KEY, dataset);
-    }
+    storeDatasetInCache(options.datasetCache, dataset);
 
     return dataset;
 }
 
-function resolveIterationCount(value) {
-    if (value === undefined || value === null) {
-        return 1;
-    }
+const formatIterationErrorMessage = (received) =>
+    `Iterations must be a positive integer (received ${received}).`;
 
-    return coercePositiveInteger(value, {
-        createErrorMessage: (received) =>
-            `Iterations must be a positive integer (received ${received}).`
+function resolveIterationCount(value) {
+    const normalized = resolveIntegerOption(value, {
+        defaultValue: 1,
+        blankStringReturnsDefault: false,
+        coerce: (numericValue, context) =>
+            coercePositiveInteger(numericValue, {
+                ...context,
+                createErrorMessage: formatIterationErrorMessage
+            })
     });
+
+    return normalized ?? 1;
 }
 
 function createSkipResult(reason) {
@@ -341,7 +378,7 @@ let prettierModulePromise = null;
 async function resolvePrettier() {
     if (!prettierModulePromise) {
         prettierModulePromise = import("prettier").then(
-            (module) => module?.default ?? module
+            resolveModuleDefaultExport
         );
     }
 
@@ -565,11 +602,9 @@ export function createPerformanceCommand() {
         .option(
             "-i, --iterations <count>",
             "Repeat each suite this many times (default: 1).",
-            (value) =>
-                coercePositiveInteger(value, {
-                    createErrorMessage: (received) =>
-                        `Iterations must be a positive integer (received ${received}).`
-                }),
+            wrapInvalidArgumentResolver((value) =>
+                resolveIterationCount(value)
+            ),
             1
         )
         .option(
@@ -649,7 +684,7 @@ function formatReportFilePath(targetFile) {
 }
 
 function formatThroughput(value, unit) {
-    if (typeof value !== "number" || !Number.isFinite(value)) {
+    if (!isFiniteNumber(value)) {
         return "n/a";
     }
 
@@ -657,77 +692,96 @@ function formatThroughput(value, unit) {
 }
 
 function formatDuration(value) {
-    if (typeof value !== "number" || !Number.isFinite(value)) {
+    if (!isFiniteNumber(value)) {
         return "n/a";
     }
 
     return `${value.toFixed(3)} ms`;
 }
 
-function printHumanReadable(report) {
-    const lines = [
+function createHumanReadableReportHeader(report) {
+    return [
         "Performance benchmark results:",
         `Generated at: ${report.generatedAt}`
     ];
+}
 
-    const entries = Object.entries(report.suites);
+function createHumanReadableSuiteLines({ suite, payload }) {
+    const lines = [`\n• ${suite}`];
+
+    if (payload?.skipped) {
+        lines.push(`  - skipped: ${payload.reason ?? "No reason provided"}`);
+        return lines;
+    }
+
+    if (payload?.error) {
+        const errorMessage = payload.error?.message ?? "Unknown error";
+        lines.push(`  - error: ${errorMessage}`);
+        return lines;
+    }
+
+    if (isPerformanceThroughputSuite(suite)) {
+        const datasetBytes = payload?.dataset?.totalBytes ?? 0;
+        lines.push(
+            `  - iterations: ${payload?.iterations}`,
+            `  - files: ${payload?.dataset?.files ?? 0}`
+        );
+        lines.push(
+            `  - total duration: ${formatDuration(payload?.totalDurationMs)}`
+        );
+        lines.push(
+            `  - average duration: ${formatDuration(payload?.averageDurationMs)}`
+        );
+        lines.push(
+            `  - dataset size: ${formatByteSize(datasetBytes, {
+                decimals: 2,
+                decimalsForBytes: 2,
+                separator: " "
+            })}`
+        );
+        lines.push(
+            `  - throughput (files/ms): ${formatThroughput(
+                payload?.throughput?.filesPerMs,
+                "files/ms"
+            )}`
+        );
+        lines.push(
+            `  - throughput (bytes/ms): ${formatThroughput(
+                payload?.throughput?.bytesPerMs,
+                "bytes/ms"
+            )}`
+        );
+        return lines;
+    }
+
+    lines.push(`  - result: ${JSON.stringify(payload)}`);
+    return lines;
+}
+
+function createHumanReadableSuiteSections(suites) {
+    const entries = Object.entries(suites ?? {});
+
     if (entries.length === 0) {
-        lines.push("No suites were executed.");
+        return ["No suites were executed."];
     }
 
+    const sections = [];
     for (const [suite, payload] of entries) {
-        lines.push(`\n• ${suite}`);
-
-        if (payload?.skipped) {
-            lines.push(
-                `  - skipped: ${payload.reason ?? "No reason provided"}`
-            );
-            continue;
-        }
-
-        if (payload?.error) {
-            const errorMessage = payload.error?.message ?? "Unknown error";
-            lines.push(`  - error: ${errorMessage}`);
-            continue;
-        }
-
-        if (isPerformanceThroughputSuite(suite)) {
-            const datasetBytes = payload.dataset?.totalBytes ?? 0;
-            lines.push(
-                `  - iterations: ${payload.iterations}`,
-                `  - files: ${payload.dataset?.files ?? 0}`
-            );
-            lines.push(
-                `  - total duration: ${formatDuration(payload.totalDurationMs)}`
-            );
-            lines.push(
-                `  - average duration: ${formatDuration(payload.averageDurationMs)}`
-            );
-            lines.push(
-                `  - dataset size: ${formatByteSize(datasetBytes, {
-                    decimals: 2,
-                    decimalsForBytes: 2,
-                    separator: " "
-                })}`
-            );
-            lines.push(
-                `  - throughput (files/ms): ${formatThroughput(
-                    payload.throughput?.filesPerMs,
-                    "files/ms"
-                )}`
-            );
-            lines.push(
-                `  - throughput (bytes/ms): ${formatThroughput(
-                    payload.throughput?.bytesPerMs,
-                    "bytes/ms"
-                )}`
-            );
-            continue;
-        }
-
-        lines.push(`  - result: ${JSON.stringify(payload)}`);
+        sections.push(...createHumanReadableSuiteLines({ suite, payload }));
     }
 
+    return sections;
+}
+
+function createHumanReadableReportLines(report) {
+    return [
+        ...createHumanReadableReportHeader(report),
+        ...createHumanReadableSuiteSections(report.suites)
+    ];
+}
+
+function printHumanReadable(report) {
+    const lines = createHumanReadableReportLines(report);
     console.log(lines.join("\n"));
 }
 
@@ -754,12 +808,17 @@ export async function runPerformanceCommand({ command } = {}) {
 
     const runnerOptions = createSuiteExecutionOptions(options);
 
-    const suiteResults = await collectSuiteResults({
-        suiteNames: requestedSuites,
-        availableSuites: AVAILABLE_SUITES,
-        runnerOptions,
-        onError: (error) => ({ error: formatErrorDetails(error) })
-    });
+    let suiteResults;
+    try {
+        suiteResults = await collectSuiteResults({
+            suiteNames: requestedSuites,
+            availableSuites: AVAILABLE_SUITES,
+            runnerOptions,
+            onError: (error) => ({ error: formatErrorDetails(error) })
+        });
+    } finally {
+        runnerOptions.datasetCache.clear();
+    }
 
     const report = {
         generatedAt: new Date().toISOString(),

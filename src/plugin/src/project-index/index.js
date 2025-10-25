@@ -1,31 +1,23 @@
 import path from "node:path";
-import { cloneLocation } from "../../../shared/ast-locations.js";
-import { getCallExpressionIdentifier } from "../../../shared/ast-node-helpers.js";
-import { toPosixPath } from "../../../shared/path-utils.js";
-import {
-    asArray,
-    cloneObjectEntries,
-    isNonEmptyArray,
-    pushUnique
-} from "../../../shared/array-utils.js";
+import { cloneLocation } from "../shared/ast-locations.js";
+import { getCallExpressionIdentifier } from "../shared/ast-node-helpers.js";
+import { toPosixPath } from "../shared/path-utils.js";
+import { asArray, isNonEmptyArray, pushUnique } from "../shared/array-utils.js";
 import {
     assertFunction,
     getOrCreateMapEntry,
     hasOwn,
     isObjectLike
-} from "../../../shared/object-utils.js";
+} from "../shared/object-utils.js";
 import {
     buildLocationKey,
     buildFileLocationKey
-} from "../../../shared/location-keys.js";
+} from "../shared/location-keys.js";
 import { resolveProjectIndexParser } from "./parser-override.js";
 import { clampConcurrency } from "./concurrency.js";
-import {
-    PROJECT_MANIFEST_EXTENSION,
-    isProjectManifestPath
-} from "./constants.js";
+import { isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
-import { isFsErrorCode, listDirectory } from "../../../shared/fs-utils.js";
+import { isFsErrorCode, listDirectory } from "../shared/fs-utils.js";
 import {
     getDefaultProjectIndexCacheMaxSize,
     loadProjectIndexCache,
@@ -35,7 +27,6 @@ import {
     createProjectIndexMetrics,
     finalizeProjectIndexMetrics
 } from "./metrics.js";
-import { throwIfAborted } from "../../../shared/abort-utils.js";
 import {
     analyseResourceFiles,
     createFileScopeDescriptor
@@ -45,7 +36,12 @@ import {
     createProjectIndexAbortGuard
 } from "./abort-guard.js";
 import { loadBuiltInIdentifiers } from "./built-in-identifiers.js";
-import { createProjectIndexCoordinatorFactory } from "./coordinator.js";
+import { createProjectIndexCoordinator as createProjectIndexCoordinatorCore } from "./coordinator.js";
+import { cloneObjectEntries } from "./clone-object-entries.js";
+import {
+    IdentifierRole,
+    assertValidIdentifierRole
+} from "./identifier-roles.js";
 
 /**
  * Create shallow clones of common entry collections stored on project index
@@ -60,16 +56,25 @@ function cloneEntryCollections(entry, ...keys) {
     );
 }
 
-export const createProjectIndexCoordinator =
-    createProjectIndexCoordinatorFactory({
-        defaultFsFacade,
-        defaultLoadCache: loadProjectIndexCache,
-        defaultSaveCache: saveProjectIndexCache,
-        defaultBuildIndex: buildProjectIndex,
-        getDefaultCacheMaxSize: getDefaultProjectIndexCacheMaxSize
-    });
+export function createProjectIndexCoordinator(options = {}) {
+    const {
+        fsFacade = defaultFsFacade,
+        loadCache = loadProjectIndexCache,
+        saveCache = saveProjectIndexCache,
+        buildIndex = buildProjectIndex,
+        cacheMaxSizeBytes,
+        getDefaultCacheMaxSize = getDefaultProjectIndexCacheMaxSize
+    } = options;
 
-export { createProjectIndexCoordinatorFactory } from "./coordinator.js";
+    return createProjectIndexCoordinatorCore({
+        fsFacade,
+        loadCache,
+        saveCache,
+        buildIndex,
+        cacheMaxSizeBytes,
+        getDefaultCacheMaxSize
+    });
+}
 
 export { findProjectRoot } from "./project-root.js";
 
@@ -466,11 +471,13 @@ function recordIdentifierCollectionRole(
         return;
     }
 
+    const validatedRole = assertValidIdentifierRole(role);
+
     const clone = cloneIdentifierForCollections(identifierRecord, filePath);
 
-    if (role === "declaration") {
+    if (validatedRole === IdentifierRole.Declaration) {
         entry.declarations?.push?.(clone);
-    } else if (role === "reference") {
+    } else if (validatedRole === IdentifierRole.Reference) {
         entry.references?.push?.(clone);
     }
 }
@@ -1024,6 +1031,8 @@ function registerMacroOccurrence({
         return;
     }
 
+    const validatedRole = assertValidIdentifierRole(role);
+
     const identifierId = buildIdentifierId("macro", identifierRecord.name);
 
     const entry = ensureCollectionEntry(
@@ -1039,7 +1048,12 @@ function registerMacroOccurrence({
 
     assignIdentifierEntryMetadata(entry, { identifierId });
 
-    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
+    recordIdentifierCollectionRole(
+        entry,
+        identifierRecord,
+        filePath,
+        validatedRole
+    );
 }
 
 function registerEnumOccurrence({
@@ -1049,8 +1063,10 @@ function registerEnumOccurrence({
     role,
     enumLookup
 }) {
+    const validatedRole = assertValidIdentifierRole(role);
+
     const targetLocation =
-        role === "reference"
+        validatedRole === IdentifierRole.Reference
             ? identifierRecord?.declaration?.start
             : identifierRecord?.start;
 
@@ -1082,7 +1098,12 @@ function registerEnumOccurrence({
         name: enumName
     });
 
-    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
+    recordIdentifierCollectionRole(
+        entry,
+        identifierRecord,
+        filePath,
+        validatedRole
+    );
 }
 
 function registerEnumMemberOccurrence({
@@ -1092,8 +1113,10 @@ function registerEnumMemberOccurrence({
     role,
     enumLookup
 }) {
+    const validatedRole = assertValidIdentifierRole(role);
+
     const targetLocation =
-        role === "reference"
+        validatedRole === IdentifierRole.Reference
             ? identifierRecord?.declaration?.start
             : identifierRecord?.start;
 
@@ -1132,7 +1155,12 @@ function registerEnumMemberOccurrence({
         enumName
     });
 
-    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
+    recordIdentifierCollectionRole(
+        entry,
+        identifierRecord,
+        filePath,
+        validatedRole
+    );
 }
 
 function registerGlobalOccurrence({
@@ -1144,6 +1172,8 @@ function registerGlobalOccurrence({
     if (!identifierRecord?.name) {
         return;
     }
+
+    const validatedRole = assertValidIdentifierRole(role);
 
     const identifierId = buildIdentifierId("global", identifierRecord.name);
 
@@ -1160,7 +1190,12 @@ function registerGlobalOccurrence({
 
     assignIdentifierEntryMetadata(entry, { identifierId });
 
-    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
+    recordIdentifierCollectionRole(
+        entry,
+        identifierRecord,
+        filePath,
+        validatedRole
+    );
 }
 
 function registerInstanceOccurrence({
@@ -1173,6 +1208,8 @@ function registerInstanceOccurrence({
     if (!identifierRecord?.name) {
         return;
     }
+
+    const validatedRole = assertValidIdentifierRole(role);
 
     const key = `${scopeDescriptor?.id ?? "instance"}:${identifierRecord.name}`;
     const identifierId = buildIdentifierId("instance", key);
@@ -1196,11 +1233,22 @@ function registerInstanceOccurrence({
         scopeKind: scopeDescriptor?.kind ?? null
     });
 
-    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
+    recordIdentifierCollectionRole(
+        entry,
+        identifierRecord,
+        filePath,
+        validatedRole
+    );
 }
 
 function shouldTreatAsInstance({ identifierRecord, role, scopeDescriptor }) {
-    if (!identifierRecord || role !== "reference") {
+    if (!identifierRecord) {
+        return false;
+    }
+
+    const validatedRole = assertValidIdentifierRole(role);
+
+    if (validatedRole !== IdentifierRole.Reference) {
         return false;
     }
 
@@ -1241,9 +1289,14 @@ function registerIdentifierOccurrence({
         return;
     }
 
+    const validatedRole = assertValidIdentifierRole(role);
+
     const classifications = asArray(identifierRecord?.classifications);
 
-    if (role === "declaration" && classifications.includes("script")) {
+    if (
+        validatedRole === IdentifierRole.Declaration &&
+        classifications.includes("script")
+    ) {
         registerScriptDeclaration({
             identifierCollections,
             descriptor: scopeDescriptor,
@@ -1257,7 +1310,7 @@ function registerIdentifierOccurrence({
             identifierCollections,
             identifierRecord,
             filePath,
-            role
+            role: validatedRole
         });
     }
 
@@ -1266,7 +1319,7 @@ function registerIdentifierOccurrence({
             identifierCollections,
             identifierRecord,
             filePath,
-            role,
+            role: validatedRole,
             enumLookup
         });
     }
@@ -1276,7 +1329,7 @@ function registerIdentifierOccurrence({
             identifierCollections,
             identifierRecord,
             filePath,
-            role,
+            role: validatedRole,
             enumLookup
         });
     }
@@ -1289,16 +1342,22 @@ function registerIdentifierOccurrence({
             identifierCollections,
             identifierRecord,
             filePath,
-            role
+            role: validatedRole
         });
     }
 
-    if (shouldTreatAsInstance({ identifierRecord, role, scopeDescriptor })) {
+    if (
+        shouldTreatAsInstance({
+            identifierRecord,
+            role: validatedRole,
+            scopeDescriptor
+        })
+    ) {
         registerInstanceOccurrence({
             identifierCollections,
             identifierRecord,
             filePath,
-            role: "reference",
+            role: IdentifierRole.Reference,
             scopeDescriptor
         });
     }
@@ -1530,7 +1589,7 @@ function handleIdentifierNode({
             identifierCollections,
             identifierRecord,
             filePath: fileRecord?.filePath ?? null,
-            role: "declaration",
+            role: IdentifierRole.Declaration,
             enumLookup,
             scopeDescriptor: scopeDescriptor ?? scopeRecord
         });
@@ -1545,7 +1604,7 @@ function handleIdentifierNode({
             identifierCollections,
             identifierRecord,
             filePath: fileRecord?.filePath ?? null,
-            role: "reference",
+            role: IdentifierRole.Reference,
             enumLookup,
             scopeDescriptor: scopeDescriptor ?? scopeRecord
         });

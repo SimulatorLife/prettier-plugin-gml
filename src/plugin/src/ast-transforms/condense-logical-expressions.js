@@ -1,17 +1,18 @@
 import {
     hasComment as sharedHasComment,
     normalizeHasCommentHelpers,
-    resolveDocCommentInspectionService,
+    resolveDocCommentLookupService,
+    resolveDocCommentDescriptionService,
     resolveDocCommentUpdateService
 } from "../comments/index.js";
-import { cloneLocation } from "../../../shared/ast-locations.js";
-import { isNonEmptyArray } from "../../../shared/array-utils.js";
-import { getBodyStatements, isNode } from "../../../shared/ast-node-helpers.js";
+import { cloneLocation } from "../shared/ast-locations.js";
+import { isNonEmptyArray } from "../shared/array-utils.js";
+import { getBodyStatements, isNode } from "../shared/ast-node-helpers.js";
 import {
     isNonEmptyString,
     toNormalizedLowerCaseString
-} from "../../../shared/string-utils.js";
-import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
+} from "../shared/string-utils.js";
+import { getOrCreateMapEntry } from "../shared/object-utils.js";
 
 const BOOLEAN_NODE_TYPES = Object.freeze({
     CONST: "CONST",
@@ -48,14 +49,16 @@ export function condenseLogicalExpressions(ast, helpers) {
         return ast;
     }
 
-    const docCommentManager = resolveDocCommentInspectionService(ast);
+    const docCommentLookup = resolveDocCommentLookupService(ast);
+    const docCommentDescriptions = resolveDocCommentDescriptionService(ast);
     const docCommentUpdateService = resolveDocCommentUpdateService(ast);
     const normalizedHelpers = normalizeHasCommentHelpers(helpers);
     const context = {
         ast,
         helpers: normalizedHelpers,
         docUpdates: new Map(),
-        docCommentManager,
+        docCommentLookup,
+        docCommentDescriptions,
         docCommentUpdateService,
         expressionSignatures: new Map()
     };
@@ -186,7 +189,7 @@ function removeDuplicateCondensedFunctions(context) {
         return null;
     }
 
-    const docCommentManager = context.docCommentManager;
+    const docCommentLookup = context.docCommentLookup;
     const signatureToFunctions = new Map();
     for (const [fn, signature] of context.expressionSignatures.entries()) {
         if (!signature) {
@@ -226,7 +229,7 @@ function removeDuplicateCondensedFunctions(context) {
             const update = context.docUpdates.get(fn);
             const hasDocComment =
                 update?.hasDocComment ||
-                (docCommentManager?.hasDocComment(fn) ?? false);
+                (docCommentLookup?.hasDocComment(fn) ?? false);
             if (hasDocComment && !keeper) {
                 keeper = fn;
             }
@@ -241,7 +244,7 @@ function removeDuplicateCondensedFunctions(context) {
                 const update = context.docUpdates.get(fn);
                 const hasDocComment =
                     update?.hasDocComment ||
-                    (docCommentManager?.hasDocComment(fn) ?? false);
+                    (docCommentLookup?.hasDocComment(fn) ?? false);
                 if (!hasDocComment) {
                     toRemove.add(fn);
                 }
@@ -581,9 +584,10 @@ function tryCondenseIfStatement(
         activeTransformationContext
     ) {
         const docString = renderExpressionForDocComment(argumentAst);
-        const docCommentManager = activeTransformationContext.docCommentManager;
-        const description = docCommentManager
-            ? docCommentManager.extractDescription(parentNode)
+        const descriptionService =
+            activeTransformationContext.docCommentDescriptions;
+        const description = descriptionService
+            ? descriptionService.extractDescription(parentNode)
             : null;
 
         if (docString) {

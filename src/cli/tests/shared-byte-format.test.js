@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { formatByteSize, formatBytes } from "../shared/byte-format.js";
+import {
+    DEFAULT_BYTE_FORMAT_RADIX,
+    formatByteSize,
+    formatBytes,
+    getDefaultByteFormatRadix,
+    setDefaultByteFormatRadix
+} from "../runtime-options/byte-format.js";
 
 // Prefer `assert.strictEqual` to document Node's supported assertion helper. The
 // surrounding expectations exercise the same byte-formatting paths, providing
@@ -33,6 +39,27 @@ describe("byte-format", () => {
                 }),
                 "5 MB"
             );
+        });
+
+        it("accepts per-call radix overrides", () => {
+            assert.strictEqual(formatByteSize(1000, { radix: 1000 }), "1.0KB");
+            assert.strictEqual(
+                formatByteSize(1000, { radix: "invalid" }),
+                "1000B"
+            );
+        });
+
+        it("allows adjusting the default radix", () => {
+            const originalRadix = getDefaultByteFormatRadix();
+
+            try {
+                assert.strictEqual(originalRadix, DEFAULT_BYTE_FORMAT_RADIX);
+                setDefaultByteFormatRadix(1000);
+                assert.strictEqual(getDefaultByteFormatRadix(), 1000);
+                assert.strictEqual(formatByteSize(1000), "1.0KB");
+            } finally {
+                setDefaultByteFormatRadix(originalRadix);
+            }
         });
     });
 
