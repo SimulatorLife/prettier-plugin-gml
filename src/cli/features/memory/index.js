@@ -7,14 +7,15 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError } from "commander";
 
 import {
-    assertPlainObject,
+    appendToCollection,
     createEnvConfiguredValueWithFallback,
     ensureDir,
-    getErrorMessage,
+    getErrorMessageOrFallback,
     isNonEmptyString,
     normalizeStringList,
-    splitLines,
-    parseJsonWithContext
+    resolveModuleDefaultExport,
+    parseJsonObjectWithContext,
+    splitLines
 } from "../../shared/dependencies.js";
 import { applyStandardCommandOptions } from "../../core/command-standard-options.js";
 import {
@@ -84,7 +85,7 @@ function resolveProjectPath(relativePath) {
 
 async function loadPrettierStandalone() {
     const module = await import("prettier/standalone.mjs");
-    return module?.default ?? module;
+    return resolveModuleDefaultExport(module);
 }
 
 async function loadSampleText(label, relativePath) {
@@ -143,13 +144,12 @@ function buildFormatterOptionsTypeErrorMessage(source, value) {
  * @returns {Record<string, unknown>} Normalized option overrides.
  */
 export function parseFormatterOptionsFixture(optionsRaw, { source } = {}) {
-    const payload = parseJsonWithContext(optionsRaw, {
+    return parseJsonObjectWithContext(optionsRaw, {
         source,
-        description: "formatter options fixture"
-    });
-
-    return assertPlainObject(payload, {
-        errorMessage: buildFormatterOptionsTypeErrorMessage(source, payload)
+        description: "formatter options fixture",
+        createAssertOptions: (payload) => ({
+            errorMessage: buildFormatterOptionsTypeErrorMessage(source, payload)
+        })
     });
 }
 
@@ -458,9 +458,8 @@ applyFormatMaxIterationsEnvOverride();
 
 const AVAILABLE_SUITES = new Map();
 
-function collectSuite(value, previous = []) {
-    previous.push(value);
-    return previous;
+function collectSuite(value, previous) {
+    return appendToCollection(value, previous);
 }
 
 export function createMemoryCommand({ env = process.env } = {}) {
@@ -718,7 +717,7 @@ AVAILABLE_SUITES.set("plugin-format", runPluginFormatSuite);
 
 function formatSuiteError(error) {
     const name = error?.name ?? error?.constructor?.name ?? "Error";
-    const message = getErrorMessage(error, { fallback: "" }) || "Unknown error";
+    const message = getErrorMessageOrFallback(error);
     const stackLines =
         typeof error?.stack === "string" ? error.stack.split("\n") : undefined;
 

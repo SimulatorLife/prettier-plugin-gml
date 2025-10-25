@@ -1,7 +1,5 @@
 import {
     defaultCliProjectIndexService,
-    defaultCliIdentifierCasePlanPreparationService,
-    defaultCliIdentifierCaseCacheService,
     defaultCliIdentifierCaseServices
 } from "./service-providers/default.js";
 import { assertFunction } from "../shared/dependencies.js";

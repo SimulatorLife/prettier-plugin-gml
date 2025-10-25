@@ -3,7 +3,6 @@ import test from "node:test";
 
 import {
     asArray,
-    cloneObjectEntries,
     isNonEmptyArray,
     pushUnique,
     toArray,
@@ -93,29 +92,4 @@ test("pushUnique can use a custom equality comparator", () => {
 
 test("pushUnique throws when provided a non-array target", () => {
     assert.throws(() => pushUnique(null, "value"), /requires an array/i);
-});
-
-test("cloneObjectEntries shallowly clones object entries", () => {
-    const original = [{ value: 1 }, { value: 2 }];
-    const cloned = cloneObjectEntries(original);
-
-    assert.notEqual(cloned, original);
-    assert.deepEqual(cloned, original);
-    assert.notEqual(cloned[0], original[0]);
-    assert.notEqual(cloned[1], original[1]);
-});
-
-test("cloneObjectEntries preserves non-object entries", () => {
-    const original = [1, null, "text"];
-    const cloned = cloneObjectEntries(original);
-
-    assert.deepEqual(cloned, original);
-    assert.strictEqual(cloned[0], original[0]);
-    assert.strictEqual(cloned[1], original[1]);
-    assert.strictEqual(cloned[2], original[2]);
-});
-
-test("cloneObjectEntries normalizes nullish input to empty arrays", () => {
-    assert.deepEqual(cloneObjectEntries(null), []);
-    assert.deepEqual(cloneObjectEntries(), []);
 });

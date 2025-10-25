@@ -5,14 +5,17 @@ export {
     assertNonEmptyString,
     assertPlainObject,
     hasOwn,
+    identity,
     coerceNonNegativeInteger,
     coercePositiveInteger,
     createEnvConfiguredValue,
     createEnvConfiguredValueWithFallback,
     getErrorCode,
     getErrorMessage,
+    getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
     getOrCreateMapEntry,
+    isFiniteNumber,
     isNonEmptyArray,
     isNonEmptyString,
     isNonEmptyTrimmedString,
@@ -21,16 +24,23 @@ export {
     toMutableArray,
     normalizeIdentifierMetadataEntries,
     normalizeEnumeratedOption,
+    parseJsonObjectWithContext,
     parseJsonWithContext,
     splitLines,
     resolveIntegerOption,
+    resolveModuleDefaultExport,
     toArray,
+    toNormalizedInteger,
     uniqueArray,
     toNormalizedLowerCaseSet,
     toNormalizedLowerCaseString,
     toPosixPath,
     toTrimmedString
 } from "../../shared/utils.js";
+
+export { appendToCollection } from "../core/collection-utils.js";
+
+export { createAbortGuard } from "../../shared/abort-utils.js";
 
 export { normalizeStringList } from "../../shared/utils/string.js";
 
@@ -51,8 +61,9 @@ export {
 } from "../../shared/utils/capability-probes.js";
 
 export {
+    JsonParseError,
     isJsonParseError,
     stringifyJsonForFile
 } from "../../shared/json-utils.js";
 
-export { ensureDir } from "../../shared/fs-utils.js";
+export { ensureDir, isFsErrorCode } from "../../shared/fs-utils.js";

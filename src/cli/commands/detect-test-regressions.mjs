@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import {
     assertArray,
     getErrorMessage,
+    getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
     hasOwn,
     isErrorWithCode,
@@ -64,6 +65,8 @@ function looksLikeTestCase(node) {
     return hasAnyOwn(node, ["time", "duration", "elapsed"]);
 }
 
+const HTML_DOUBLE_QUOTE = '"';
+
 function decodeEntities(value) {
     if (!isNonEmptyString(value)) {
         return value ?? "";
@@ -78,7 +81,7 @@ function decodeEntities(value) {
         .replaceAll("&lt;", "<")
         .replaceAll("&gt;", ">")
         .replaceAll("&apos;", "'")
-        .replaceAll("&quot;", '"')
+        .replaceAll("&quot;", HTML_DOUBLE_QUOTE)
         .replaceAll("&amp;", "&");
 }
 
@@ -499,8 +502,7 @@ function readXmlFile(filePath, displayPath) {
     try {
         return { status: "ok", contents: fs.readFileSync(filePath, "utf8") };
     } catch (error) {
-        const message =
-            getErrorMessage(error, { fallback: "" }) || "Unknown error";
+        const message = getErrorMessageOrFallback(error);
         return {
             status: "error",
             note: `Failed to read ${displayPath}: ${message}`
@@ -519,8 +521,7 @@ function parseXmlTestCases(xml, displayPath) {
         }
         return { status: "ok", cases: collectTestCases(data) };
     } catch (error) {
-        const message =
-            getErrorMessage(error, { fallback: "" }) || "Unknown error";
+        const message = getErrorMessageOrFallback(error);
         return {
             status: "error",
             note: `Failed to parse ${displayPath}: ${message}`

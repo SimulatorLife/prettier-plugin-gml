@@ -158,6 +158,7 @@ const BINARY_OPERATOR_INFO = new Map([
 ]);
 
 const COMPARISON_OPERATORS = new Set(["<", "<=", ">", ">=", "==", "!=", "<>"]);
+const DOC_COMMENT_OUTPUT_FLAG = "_gmlHasDocCommentOutput";
 
 function resolveLogicalOperatorsStyle(options) {
     return normalizeLogicalOperatorsStyle(options?.logicalOperatorsStyle);
@@ -521,6 +522,7 @@ export function print(path, options, print) {
             }
 
             if (docCommentDocs.length > 0) {
+                node[DOC_COMMENT_OUTPUT_FLAG] = true;
                 const suppressLeadingBlank =
                     docCommentDocs &&
                     docCommentDocs._suppressLeadingBlank === true;
@@ -544,6 +546,8 @@ export function print(path, options, print) {
                     parts.push(hardline);
                 }
                 parts.push(join(hardline, docCommentDocs), hardline);
+            } else if (Object.hasOwn(node, DOC_COMMENT_OUTPUT_FLAG)) {
+                delete node[DOC_COMMENT_OUTPUT_FLAG];
             }
 
             let functionNameDoc = "";
@@ -948,6 +952,8 @@ export function print(path, options, print) {
                 const shouldIncludeInlineVariant =
                     shouldUseCallbackLayout && !shouldForceBreakArguments;
 
+                const hasCallbackArguments = callbackArguments.length > 0;
+
                 const { inlineDoc, multilineDoc } = buildCallArgumentsDocs(
                     path,
                     print,
@@ -955,7 +961,8 @@ export function print(path, options, print) {
                     {
                         forceBreak: shouldForceBreakArguments,
                         maxElementsPerLine: elementsPerLineLimit,
-                        includeInlineVariant: shouldIncludeInlineVariant
+                        includeInlineVariant: shouldIncludeInlineVariant,
+                        hasCallbackArguments
                     }
                 );
 
@@ -1614,9 +1621,31 @@ function buildCallArgumentsDocs(
     {
         forceBreak = false,
         maxElementsPerLine = Infinity,
-        includeInlineVariant = false
+        includeInlineVariant = false,
+        hasCallbackArguments = false
     } = {}
 ) {
+    const node = path.getValue();
+    const simplePrefixLength = countLeadingSimpleCallArguments(node);
+    const hasTrailingArguments =
+        Array.isArray(node?.arguments) &&
+        node.arguments.length > simplePrefixLength;
+
+    if (
+        simplePrefixLength > 1 &&
+        hasTrailingArguments &&
+        hasCallbackArguments &&
+        maxElementsPerLine === Infinity
+    ) {
+        const multilineDoc = buildCallbackArgumentsWithSimplePrefix(
+            path,
+            print,
+            simplePrefixLength
+        );
+
+        return { inlineDoc: null, multilineDoc };
+    }
+
     const multilineDoc = printCommaSeparatedList(
         path,
         print,
@@ -1863,6 +1892,85 @@ function isComplexArgumentNode(node) {
     );
 }
 
+const SIMPLE_CALL_ARGUMENT_TYPES = new Set([
+    "Identifier",
+    "Literal",
+    "MemberDotExpression",
+    "MemberIndexExpression",
+    "ThisExpression",
+    "BooleanLiteral",
+    "UndefinedLiteral"
+]);
+
+function isSimpleCallArgument(node) {
+    if (!node || typeof node.type !== "string") {
+        return false;
+    }
+
+    if (isComplexArgumentNode(node)) {
+        return false;
+    }
+
+    if (SIMPLE_CALL_ARGUMENT_TYPES.has(node.type)) {
+        return true;
+    }
+
+    if (node.type === "Literal" && typeof node.value === "string") {
+        const literalValue = node.value.toLowerCase();
+        if (literalValue === "undefined" || literalValue === "noone") {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function countLeadingSimpleCallArguments(node) {
+    if (!node || !Array.isArray(node.arguments)) {
+        return 0;
+    }
+
+    let count = 0;
+    for (const argument of node.arguments) {
+        if (!isSimpleCallArgument(argument)) {
+            break;
+        }
+
+        count += 1;
+    }
+
+    return count;
+}
+
+function buildCallbackArgumentsWithSimplePrefix(
+    path,
+    print,
+    simplePrefixLength
+) {
+    const node = path.getValue();
+    const args = Array.isArray(node?.arguments) ? node.arguments : [];
+    const parts = [];
+
+    for (let index = 0; index < args.length; index += 1) {
+        parts.push(path.call(print, "arguments", index));
+
+        if (index >= args.length - 1) {
+            continue;
+        }
+
+        parts.push(",");
+
+        if (index < simplePrefixLength - 1) {
+            parts.push(" ");
+            continue;
+        }
+
+        parts.push(line);
+    }
+
+    return group(["(", indent([softline, ...parts]), softline, ")"]);
+}
+
 function shouldForceBreakStructArgument(argument) {
     if (!argument || argument.type !== "StructExpression") {
         return false;
@@ -1876,11 +1984,15 @@ function shouldForceBreakStructArgument(argument) {
         ? argument.properties
         : [];
 
-    if (properties.length <= 1) {
-        return properties.some((property) => hasComment(property));
+    if (properties.length === 0) {
+        return false;
     }
 
-    return true;
+    if (properties.some((property) => hasComment(property))) {
+        return true;
+    }
+
+    return properties.length > 2;
 }
 
 function getStructAlignmentInfo(structNode, options) {
@@ -2006,10 +2118,9 @@ function printStatements(path, options, print, childrenAttribute) {
     const syntheticDocByNode = new Map();
     if (statements) {
         for (const statement of statements) {
-            const docComment = getSyntheticDocCommentForStaticVariable(
-                statement,
-                options
-            );
+            const docComment =
+                getSyntheticDocCommentForStaticVariable(statement, options) ??
+                getSyntheticDocCommentForFunctionAssignment(statement, options);
             if (docComment) {
                 syntheticDocByNode.set(statement, docComment);
             }
@@ -2110,7 +2221,8 @@ function printStatements(path, options, print, childrenAttribute) {
             index === 0 && childPath.parent?.type !== "Program";
 
         const suppressFollowingEmptyLine =
-            node?._featherSuppressFollowingEmptyLine === true;
+            node?._featherSuppressFollowingEmptyLine === true ||
+            node?._gmlSuppressFollowingEmptyLine === true;
 
         if (
             isFirstStatementInBlock &&
@@ -2284,6 +2396,15 @@ function printStatements(path, options, print, childrenAttribute) {
                 hasFunctionInitializer &&
                 isConstructorBlock;
             let shouldPreserveTrailingBlankLine = false;
+            const hasAttachedDocComment =
+                node?.[DOC_COMMENT_OUTPUT_FLAG] === true ||
+                (Array.isArray(node?.docComments) &&
+                    node.docComments.length > 0) ||
+                Boolean(syntheticDocComment);
+            const requiresTrailingPadding =
+                enforceTrailingPadding &&
+                parentNode?.type === "BlockStatement" &&
+                !suppressFollowingEmptyLine;
 
             if (
                 parentNode?.type === "BlockStatement" &&
@@ -2342,10 +2463,34 @@ function printStatements(path, options, print, childrenAttribute) {
                 }
             }
 
+            if (
+                !shouldPreserveTrailingBlankLine &&
+                !suppressFollowingEmptyLine &&
+                hasAttachedDocComment &&
+                blockParent?.type === "BlockStatement"
+            ) {
+                const isFunctionLikeDeclaration =
+                    node?.type === "FunctionDeclaration" ||
+                    node?.type === "ConstructorDeclaration";
+
+                if (isFunctionLikeDeclaration) {
+                    shouldPreserveTrailingBlankLine = true;
+                }
+            }
+
+            const shouldForceConstructorNestedFunctionPadding =
+                isConstructorBlock &&
+                node?.type === "FunctionDeclaration" &&
+                !suppressFollowingEmptyLine &&
+                !shouldPreserveTrailingBlankLine;
+
             if (shouldPreserveTrailingBlankLine) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
-            } else if (enforceTrailingPadding && !suppressFollowingEmptyLine) {
+            } else if (shouldForceConstructorNestedFunctionPadding) {
+                parts.push(hardline);
+                previousNodeHadNewlineAddedAfter = true;
+            } else if (requiresTrailingPadding) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
             }
@@ -2711,28 +2856,15 @@ function getNodeEndIndexForAlignment(node, locEnd) {
     return Number.isInteger(startIndex) ? startIndex : null;
 }
 
-function getSyntheticDocCommentForStaticVariable(node, options) {
-    if (
-        !node ||
-        node.type !== "VariableDeclaration" ||
-        node.kind !== "static"
-    ) {
-        return null;
-    }
-
-    const declarator = getSingleVariableDeclarator(node);
-    if (!declarator || declarator.id?.type !== "Identifier") {
-        return null;
-    }
-
-    if (declarator.init?.type !== "FunctionDeclaration") {
-        return null;
-    }
-
-    const hasFunctionDoc =
-        declarator.init.docComments && declarator.init.docComments.length > 0;
-
+function collectSyntheticDocCommentLines(node, options) {
     const rawComments = getCommentArray(node);
+    if (!Array.isArray(rawComments) || rawComments.length === 0) {
+        return {
+            existingDocLines: [],
+            remainingComments: Array.isArray(rawComments) ? rawComments : []
+        };
+    }
+
     const lineCommentOptions = resolveLineCommentOptions(options);
     const existingDocLines = [];
     const remainingComments = [];
@@ -2756,6 +2888,103 @@ function getSyntheticDocCommentForStaticVariable(node, options) {
         existingDocLines.push(formatted);
     }
 
+    return { existingDocLines, remainingComments };
+}
+
+function buildSyntheticDocComment(
+    functionNode,
+    existingDocLines,
+    options,
+    overrides = {}
+) {
+    const hasExistingDocLines = existingDocLines.length > 0;
+
+    const syntheticLines = hasExistingDocLines
+        ? mergeSyntheticDocComments(
+              functionNode,
+              existingDocLines,
+              options,
+              overrides
+          )
+        : reorderDescriptionLinesAfterFunction(
+              computeSyntheticFunctionDocLines(
+                  functionNode,
+                  [],
+                  options,
+                  overrides
+              )
+          );
+
+    if (syntheticLines.length === 0) {
+        return null;
+    }
+
+    return {
+        doc: concat([hardline, join(hardline, syntheticLines)]),
+        hasExistingDocLines
+    };
+}
+
+function suppressConstructorAssignmentPadding(functionNode) {
+    if (
+        !functionNode ||
+        functionNode.type !== "ConstructorDeclaration" ||
+        functionNode.body?.type !== "BlockStatement" ||
+        !Array.isArray(functionNode.body.body)
+    ) {
+        return;
+    }
+
+    for (const statement of functionNode.body.body) {
+        if (!statement) {
+            continue;
+        }
+
+        if (hasComment(statement)) {
+            break;
+        }
+
+        if (statement.type === "AssignmentExpression") {
+            statement._gmlSuppressFollowingEmptyLine = true;
+            continue;
+        }
+
+        if (
+            statement.type === "VariableDeclaration" &&
+            statement.kind !== "static"
+        ) {
+            statement._gmlSuppressFollowingEmptyLine = true;
+            continue;
+        }
+
+        break;
+    }
+}
+
+function getSyntheticDocCommentForStaticVariable(node, options) {
+    if (
+        !node ||
+        node.type !== "VariableDeclaration" ||
+        node.kind !== "static"
+    ) {
+        return null;
+    }
+
+    const declarator = getSingleVariableDeclarator(node);
+    if (!declarator || declarator.id?.type !== "Identifier") {
+        return null;
+    }
+
+    if (declarator.init?.type !== "FunctionDeclaration") {
+        return null;
+    }
+
+    const hasFunctionDoc =
+        declarator.init.docComments && declarator.init.docComments.length > 0;
+
+    const { existingDocLines, remainingComments } =
+        collectSyntheticDocCommentLines(node, options);
+
     if (existingDocLines.length > 0) {
         node.comments = remainingComments;
     }
@@ -2770,32 +2999,76 @@ function getSyntheticDocCommentForStaticVariable(node, options) {
     if (node._overridesStaticFunction === true) {
         syntheticOverrides.includeOverrideTag = true;
     }
-    const hasExistingDocLines = existingDocLines.length > 0;
 
-    const syntheticLines = hasExistingDocLines
-        ? mergeSyntheticDocComments(
-              functionNode,
-              existingDocLines,
-              options,
-              syntheticOverrides
-          )
-        : reorderDescriptionLinesAfterFunction(
-              computeSyntheticFunctionDocLines(
-                  functionNode,
-                  [],
-                  options,
-                  syntheticOverrides
-              )
-          );
+    return buildSyntheticDocComment(
+        functionNode,
+        existingDocLines,
+        options,
+        syntheticOverrides
+    );
+}
 
-    if (syntheticLines.length === 0) {
+function getSyntheticDocCommentForFunctionAssignment(node, options) {
+    if (!node) {
         return null;
     }
 
-    return {
-        doc: concat([hardline, join(hardline, syntheticLines)]),
-        hasExistingDocLines
-    };
+    let assignment = null;
+    let commentTarget = node;
+
+    if (node.type === "ExpressionStatement") {
+        assignment = node.expression;
+    } else if (node.type === "AssignmentExpression") {
+        assignment = node;
+    } else {
+        return null;
+    }
+
+    if (
+        !assignment ||
+        assignment.type !== "AssignmentExpression" ||
+        assignment.operator !== "=" ||
+        assignment.left?.type !== "Identifier" ||
+        typeof assignment.left.name !== "string"
+    ) {
+        return null;
+    }
+
+    const functionNode = assignment.right;
+    if (
+        !functionNode ||
+        (functionNode.type !== "FunctionDeclaration" &&
+            functionNode.type !== "FunctionExpression" &&
+            functionNode.type !== "ConstructorDeclaration")
+    ) {
+        return null;
+    }
+
+    suppressConstructorAssignmentPadding(functionNode);
+
+    const hasFunctionDoc =
+        Array.isArray(functionNode.docComments) &&
+        functionNode.docComments.length > 0;
+
+    const { existingDocLines, remainingComments } =
+        collectSyntheticDocCommentLines(commentTarget, options);
+
+    if (existingDocLines.length > 0) {
+        commentTarget.comments = remainingComments;
+    }
+
+    if (hasFunctionDoc && existingDocLines.length === 0) {
+        return null;
+    }
+
+    const syntheticOverrides = { nameOverride: assignment.left.name };
+
+    return buildSyntheticDocComment(
+        functionNode,
+        existingDocLines,
+        options,
+        syntheticOverrides
+    );
 }
 
 function isSkippableSemicolonWhitespace(charCode) {
