@@ -8,6 +8,7 @@ import { Command, InvalidArgumentError } from "commander";
 
 import {
     appendToCollection,
+    createEnvConfiguredValue,
     createEnvConfiguredValueWithFallback,
     ensureDir,
     getErrorMessageOrFallback,
@@ -39,7 +40,7 @@ import {
 export const DEFAULT_ITERATIONS = 500_000;
 export const MEMORY_ITERATIONS_ENV_VAR = "GML_MEMORY_ITERATIONS";
 
-const DEFAULT_MEMORY_REPORT_DIR = "reports";
+export const DEFAULT_MEMORY_REPORT_DIR = "reports";
 const DEFAULT_MEMORY_REPORT_FILENAME = "memory.json";
 const CLI_MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(CLI_MODULE_DIR, "..", "..", "..", "..");
@@ -54,6 +55,50 @@ export const DEFAULT_MAX_PARSER_ITERATIONS = 25;
 export const MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR =
     "GML_MEMORY_FORMAT_MAX_ITERATIONS";
 export const DEFAULT_MAX_FORMAT_ITERATIONS = 25;
+export const MEMORY_REPORT_DIRECTORY_ENV_VAR = "GML_MEMORY_REPORT_DIR";
+
+function normalizeMemoryReportDirectory(value, fallback) {
+    if (typeof value === "string") {
+        const trimmed = value.trim();
+
+        if (trimmed.length > 0) {
+            return trimmed;
+        }
+    }
+
+    return fallback;
+}
+
+const memoryReportDirectoryConfig = createEnvConfiguredValue({
+    defaultValue: DEFAULT_MEMORY_REPORT_DIR,
+    envVar: MEMORY_REPORT_DIRECTORY_ENV_VAR,
+    normalize: (value, { defaultValue: baseline, previousValue }) =>
+        normalizeMemoryReportDirectory(
+            value,
+            previousValue ?? baseline ?? DEFAULT_MEMORY_REPORT_DIR
+        )
+});
+
+function getDefaultMemoryReportDirectory() {
+    return memoryReportDirectoryConfig.get();
+}
+
+function setDefaultMemoryReportDirectory(value) {
+    return memoryReportDirectoryConfig.set(value);
+}
+
+function resolveMemoryReportDirectory(value, { defaultValue } = {}) {
+    const fallback = normalizeMemoryReportDirectory(
+        defaultValue,
+        getDefaultMemoryReportDirectory()
+    );
+
+    return normalizeMemoryReportDirectory(value, fallback);
+}
+
+function applyMemoryReportDirectoryEnvOverride(env) {
+    return memoryReportDirectoryConfig.applyEnvOverride(env);
+}
 
 const parserIterationLimitConfig = createEnvConfiguredValueWithFallback({
     defaultValue: DEFAULT_MAX_PARSER_ITERATIONS,
@@ -441,10 +486,13 @@ export {
     applyParserMaxIterationsEnvOverride,
     getMaxFormatIterations,
     setMaxFormatIterations,
-    applyFormatMaxIterationsEnvOverride
+    applyFormatMaxIterationsEnvOverride,
+    getDefaultMemoryReportDirectory,
+    setDefaultMemoryReportDirectory,
+    applyMemoryReportDirectoryEnvOverride
 };
 
-export { resolveMemoryIterations };
+export { resolveMemoryIterations, resolveMemoryReportDirectory };
 
 export function applyMemoryEnvOptionOverrides({ command, env } = {}) {
     if (!command || typeof command.setOptionValueWithSource !== "function") {
@@ -467,6 +515,7 @@ export function applyMemoryEnvOptionOverrides({ command, env } = {}) {
 applyMemoryIterationsEnvOverride();
 applyParserMaxIterationsEnvOverride();
 applyFormatMaxIterationsEnvOverride();
+applyMemoryReportDirectoryEnvOverride();
 
 const AVAILABLE_SUITES = new Map();
 
@@ -831,7 +880,7 @@ export async function runMemoryCli({
     argv = process.argv.slice(2),
     env = process.env,
     cwd = process.cwd(),
-    reportDir = DEFAULT_MEMORY_REPORT_DIR,
+    reportDir,
     reportFileName = DEFAULT_MEMORY_REPORT_FILENAME,
     writeFile: customWriteFile
 } = {}) {
@@ -839,10 +888,10 @@ export async function runMemoryCli({
 
     await command.parseAsync(argv, { from: "user" });
 
-    const resolvedReportDir = path.resolve(
-        cwd,
-        reportDir ?? DEFAULT_MEMORY_REPORT_DIR
-    );
+    applyMemoryReportDirectoryEnvOverride(env);
+
+    const effectiveReportDir = resolveMemoryReportDirectory(reportDir);
+    const resolvedReportDir = path.resolve(cwd, effectiveReportDir);
     const resolvedReportName = reportFileName ?? DEFAULT_MEMORY_REPORT_FILENAME;
     const reportPath = path.join(resolvedReportDir, resolvedReportName);
     const effectiveWriteFile =

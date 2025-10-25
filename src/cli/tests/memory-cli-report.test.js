@@ -4,13 +4,22 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { runMemoryCli } from "../features/memory/index.js";
+import {
+    DEFAULT_MEMORY_REPORT_DIR,
+    MEMORY_REPORT_DIRECTORY_ENV_VAR,
+    runMemoryCli,
+    setDefaultMemoryReportDirectory
+} from "../features/memory/index.js";
 
-test("memory CLI writes suite results to a JSON report", async () => {
+test("memory CLI writes suite results to a JSON report", async (t) => {
     const workspace = await mkdtemp(
         path.join(os.tmpdir(), "memory-cli-report-")
     );
     const reportDir = path.join(workspace, "reports");
+
+    t.after(() => {
+        setDefaultMemoryReportDirectory(DEFAULT_MEMORY_REPORT_DIR);
+    });
 
     const exitCode = await runMemoryCli({
         argv: ["--iterations", "1"],
@@ -83,4 +92,30 @@ test("memory CLI writes suite results to a JSON report", async () => {
         formatterSuite.memory && typeof formatterSuite.memory === "object"
     );
     assert.equal(typeof formatterSuite.memory.delta.heapUsed, "number");
+});
+
+test("memory CLI resolves report directory from the environment", async (t) => {
+    const workspace = await mkdtemp(
+        path.join(os.tmpdir(), "memory-cli-report-env-")
+    );
+
+    t.after(() => {
+        setDefaultMemoryReportDirectory(DEFAULT_MEMORY_REPORT_DIR);
+    });
+
+    const env = { [MEMORY_REPORT_DIRECTORY_ENV_VAR]: "  env-reports  " };
+
+    const exitCode = await runMemoryCli({
+        argv: ["--iterations", "1"],
+        env,
+        cwd: workspace
+    });
+
+    assert.equal(exitCode, 0);
+
+    const reportPath = path.join(workspace, "env-reports", "memory.json");
+    const reportRaw = await readFile(reportPath, "utf8");
+
+    assert.equal(typeof reportRaw, "string");
+    assert.ok(reportRaw.length > 0);
 });
