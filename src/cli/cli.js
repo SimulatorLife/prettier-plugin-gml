@@ -36,11 +36,11 @@ import {
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
     isErrorWithCode,
+    mergeUniqueValues,
     normalizeEnumeratedOption,
     normalizeStringList,
     resolveModuleDefaultExport,
     toArray,
-    mergeUniqueValues,
     toNormalizedLowerCaseSet,
     uniqueArray,
     withObjectLike
