@@ -1,3 +1,6 @@
+import { toArrayFromIterable } from "./array.js";
+import { escapeRegExp } from "./regexp.js";
+
 export function isNonEmptyString(value) {
     return typeof value === "string" && value.length > 0;
 }
@@ -157,6 +160,73 @@ export function capitalize(value) {
 }
 
 /**
+ * Create a regular expression that splits string lists on the provided
+ * separators. Filters out non-string and empty separator values while
+ * preserving declaration order so callers can describe platform-specific
+ * delimiters without re-implementing deduplication at each site. Optionally
+ * includes `\s` in the character class to trim incidental whitespace when
+ * splitting human-authored option strings.
+ *
+ * @param {Iterable<unknown> | string | null | undefined} separators Raw
+ *        separator candidates. Strings are treated as a single separator rather
+ *        than an iterable of characters.
+ * @param {{ includeWhitespace?: boolean }} [options]
+ * @param {boolean} [options.includeWhitespace=false] When `true`, whitespace
+ *        characters are also treated as delimiters.
+ * @returns {RegExp} A character-class-based regular expression suitable for
+ *          use with `String#split`.
+ */
+export function createListSplitPattern(
+    separators,
+    { includeWhitespace = false } = {}
+) {
+    const candidates =
+        typeof separators === "string"
+            ? [separators]
+            : separators == null
+              ? []
+              : toArrayFromIterable(separators);
+
+    const uniqueSeparators = [];
+    const seen = new Set();
+
+    for (const candidate of candidates) {
+        if (typeof candidate !== "string") {
+            continue;
+        }
+
+        if (candidate.length === 0) {
+            continue;
+        }
+
+        if (seen.has(candidate)) {
+            continue;
+        }
+
+        seen.add(candidate);
+        uniqueSeparators.push(candidate);
+    }
+
+    const characterClassParts = uniqueSeparators.map((separator) =>
+        escapeRegExp(separator)
+    );
+
+    if (includeWhitespace) {
+        characterClassParts.push(String.raw`\s`);
+    }
+
+    if (characterClassParts.length === 0) {
+        throw new TypeError(
+            "createListSplitPattern requires at least one separator or includeWhitespace=true."
+        );
+    }
+
+    return new RegExp(`[${characterClassParts.join("")}]+`);
+}
+
+const DEFAULT_STRING_LIST_SPLIT_PATTERN = createListSplitPattern(["\n", ","]);
+
+/**
  * Trim each string entry in {@link values}, preserving array order. Throws when
  * encountering a non-string entry so call sites relying on `String#split`
  * semantics continue to surface early when provided unexpected input.
@@ -227,8 +297,6 @@ const DOUBLE_QUOTE_CHARACTER = `"`;
  * @type {string}
  */
 const SINGLE_QUOTE_CHARACTER = "'";
-
-const DEFAULT_STRING_LIST_SPLIT_PATTERN = /[\n,]/;
 
 /**
  * Normalize a string-or-string-array option into a deduplicated list of

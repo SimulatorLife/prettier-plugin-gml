@@ -50,6 +50,7 @@ export { createAbortGuard } from "../../shared/index.js";
 
 export {
     normalizeStringList,
+    createListSplitPattern,
     collectAncestorDirectories,
     collectUniqueAncestorDirectories,
     isPathInside,
