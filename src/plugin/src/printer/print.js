@@ -158,6 +158,7 @@ const BINARY_OPERATOR_INFO = new Map([
 ]);
 
 const COMPARISON_OPERATORS = new Set(["<", "<=", ">", ">=", "==", "!=", "<>"]);
+const DOC_COMMENT_OUTPUT_FLAG = "_gmlHasDocCommentOutput";
 
 function resolveLogicalOperatorsStyle(options) {
     return normalizeLogicalOperatorsStyle(options?.logicalOperatorsStyle);
@@ -521,6 +522,7 @@ export function print(path, options, print) {
             }
 
             if (docCommentDocs.length > 0) {
+                node[DOC_COMMENT_OUTPUT_FLAG] = true;
                 const suppressLeadingBlank =
                     docCommentDocs &&
                     docCommentDocs._suppressLeadingBlank === true;
@@ -544,6 +546,8 @@ export function print(path, options, print) {
                     parts.push(hardline);
                 }
                 parts.push(join(hardline, docCommentDocs), hardline);
+            } else if (Object.hasOwn(node, DOC_COMMENT_OUTPUT_FLAG)) {
+                delete node[DOC_COMMENT_OUTPUT_FLAG];
             }
 
             let functionNameDoc = "";
@@ -948,6 +952,8 @@ export function print(path, options, print) {
                 const shouldIncludeInlineVariant =
                     shouldUseCallbackLayout && !shouldForceBreakArguments;
 
+                const hasCallbackArguments = callbackArguments.length > 0;
+
                 const { inlineDoc, multilineDoc } = buildCallArgumentsDocs(
                     path,
                     print,
@@ -955,7 +961,8 @@ export function print(path, options, print) {
                     {
                         forceBreak: shouldForceBreakArguments,
                         maxElementsPerLine: elementsPerLineLimit,
-                        includeInlineVariant: shouldIncludeInlineVariant
+                        includeInlineVariant: shouldIncludeInlineVariant,
+                        hasCallbackArguments
                     }
                 );
 
@@ -1614,9 +1621,31 @@ function buildCallArgumentsDocs(
     {
         forceBreak = false,
         maxElementsPerLine = Infinity,
-        includeInlineVariant = false
+        includeInlineVariant = false,
+        hasCallbackArguments = false
     } = {}
 ) {
+    const node = path.getValue();
+    const simplePrefixLength = countLeadingSimpleCallArguments(node);
+    const hasTrailingArguments =
+        Array.isArray(node?.arguments) &&
+        node.arguments.length > simplePrefixLength;
+
+    if (
+        simplePrefixLength > 1 &&
+        hasTrailingArguments &&
+        hasCallbackArguments &&
+        maxElementsPerLine === Infinity
+    ) {
+        const multilineDoc = buildCallbackArgumentsWithSimplePrefix(
+            path,
+            print,
+            simplePrefixLength
+        );
+
+        return { inlineDoc: null, multilineDoc };
+    }
+
     const multilineDoc = printCommaSeparatedList(
         path,
         print,
@@ -1861,6 +1890,85 @@ function isComplexArgumentNode(node) {
         node.type === "FunctionDeclaration" ||
         node.type === "StructExpression"
     );
+}
+
+const SIMPLE_CALL_ARGUMENT_TYPES = new Set([
+    "Identifier",
+    "Literal",
+    "MemberDotExpression",
+    "MemberIndexExpression",
+    "ThisExpression",
+    "BooleanLiteral",
+    "UndefinedLiteral"
+]);
+
+function isSimpleCallArgument(node) {
+    if (!node || typeof node.type !== "string") {
+        return false;
+    }
+
+    if (isComplexArgumentNode(node)) {
+        return false;
+    }
+
+    if (SIMPLE_CALL_ARGUMENT_TYPES.has(node.type)) {
+        return true;
+    }
+
+    if (node.type === "Literal" && typeof node.value === "string") {
+        const literalValue = node.value.toLowerCase();
+        if (literalValue === "undefined" || literalValue === "noone") {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function countLeadingSimpleCallArguments(node) {
+    if (!node || !Array.isArray(node.arguments)) {
+        return 0;
+    }
+
+    let count = 0;
+    for (const argument of node.arguments) {
+        if (!isSimpleCallArgument(argument)) {
+            break;
+        }
+
+        count += 1;
+    }
+
+    return count;
+}
+
+function buildCallbackArgumentsWithSimplePrefix(
+    path,
+    print,
+    simplePrefixLength
+) {
+    const node = path.getValue();
+    const args = Array.isArray(node?.arguments) ? node.arguments : [];
+    const parts = [];
+
+    for (let index = 0; index < args.length; index += 1) {
+        parts.push(path.call(print, "arguments", index));
+
+        if (index >= args.length - 1) {
+            continue;
+        }
+
+        parts.push(",");
+
+        if (index < simplePrefixLength - 1) {
+            parts.push(" ");
+            continue;
+        }
+
+        parts.push(line);
+    }
+
+    return group(["(", indent([softline, ...parts]), softline, ")"]);
 }
 
 function shouldForceBreakStructArgument(argument) {
@@ -2289,6 +2397,7 @@ function printStatements(path, options, print, childrenAttribute) {
                 isConstructorBlock;
             let shouldPreserveTrailingBlankLine = false;
             const hasAttachedDocComment =
+                node?.[DOC_COMMENT_OUTPUT_FLAG] === true ||
                 (Array.isArray(node?.docComments) &&
                     node.docComments.length > 0) ||
                 Boolean(syntheticDocComment);

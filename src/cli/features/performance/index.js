@@ -9,6 +9,7 @@ import GMLParser from "gamemaker-language-parser";
 
 import { applyStandardCommandOptions } from "../../core/command-standard-options.js";
 import { createCliErrorDetails } from "../../core/errors.js";
+import { wrapInvalidArgumentResolver } from "../../core/command-parsing.js";
 import { resolvePluginEntryPoint } from "../../plugin/entry-point.js";
 import { formatByteSize } from "../../shared/byte-format.js";
 import {
@@ -24,6 +25,7 @@ import {
     coercePositiveInteger,
     isFiniteNumber,
     getIdentifierText,
+    resolveIntegerOption,
     toNormalizedInteger,
     stringifyJsonForFile,
     resolveModuleDefaultExport
@@ -49,6 +51,42 @@ const DEFAULT_FIXTURE_DIRECTORIES = Object.freeze([
     path.resolve(REPO_ROOT, "src", "plugin", "tests")
 ]);
 const DATASET_CACHE_KEY = "gml-fixtures";
+const SUPPORTS_WEAK_REF = typeof WeakRef === "function";
+
+function resolveCachedDataset(cache) {
+    if (!cache || typeof cache.get !== "function") {
+        return null;
+    }
+
+    const entry = cache.get(DATASET_CACHE_KEY);
+    if (!entry) {
+        return null;
+    }
+
+    if (typeof entry?.deref === "function") {
+        const dataset = entry.deref();
+        if (dataset) {
+            return dataset;
+        }
+        cache.delete(DATASET_CACHE_KEY);
+        return null;
+    }
+
+    return entry;
+}
+
+function storeDatasetInCache(cache, dataset) {
+    if (!cache || typeof cache.set !== "function") {
+        return;
+    }
+
+    if (SUPPORTS_WEAK_REF) {
+        cache.set(DATASET_CACHE_KEY, new WeakRef(dataset));
+        return;
+    }
+
+    cache.set(DATASET_CACHE_KEY, dataset);
+}
 
 function createDatasetSummary({ fileCount, totalBytes }) {
     const normalizedFileCount = Math.max(
@@ -286,30 +324,35 @@ async function resolveDatasetFromOptions(options = {}) {
         return normalizeCustomDataset(options.dataset);
     }
 
-    if (options.datasetCache?.has(DATASET_CACHE_KEY)) {
-        return options.datasetCache.get(DATASET_CACHE_KEY);
+    const cachedDataset = resolveCachedDataset(options.datasetCache);
+    if (cachedDataset) {
+        return cachedDataset;
     }
 
     const dataset = await loadFixtureDataset({
         directories: options.fixtureRoots
     });
 
-    if (options.datasetCache) {
-        options.datasetCache.set(DATASET_CACHE_KEY, dataset);
-    }
+    storeDatasetInCache(options.datasetCache, dataset);
 
     return dataset;
 }
 
-function resolveIterationCount(value) {
-    if (value === undefined || value === null) {
-        return 1;
-    }
+const formatIterationErrorMessage = (received) =>
+    `Iterations must be a positive integer (received ${received}).`;
 
-    return coercePositiveInteger(value, {
-        createErrorMessage: (received) =>
-            `Iterations must be a positive integer (received ${received}).`
+function resolveIterationCount(value) {
+    const normalized = resolveIntegerOption(value, {
+        defaultValue: 1,
+        blankStringReturnsDefault: false,
+        coerce: (numericValue, context) =>
+            coercePositiveInteger(numericValue, {
+                ...context,
+                createErrorMessage: formatIterationErrorMessage
+            })
     });
+
+    return normalized ?? 1;
 }
 
 function createSkipResult(reason) {
@@ -559,11 +602,9 @@ export function createPerformanceCommand() {
         .option(
             "-i, --iterations <count>",
             "Repeat each suite this many times (default: 1).",
-            (value) =>
-                coercePositiveInteger(value, {
-                    createErrorMessage: (received) =>
-                        `Iterations must be a positive integer (received ${received}).`
-                }),
+            wrapInvalidArgumentResolver((value) =>
+                resolveIterationCount(value)
+            ),
             1
         )
         .option(
@@ -748,12 +789,17 @@ export async function runPerformanceCommand({ command } = {}) {
 
     const runnerOptions = createSuiteExecutionOptions(options);
 
-    const suiteResults = await collectSuiteResults({
-        suiteNames: requestedSuites,
-        availableSuites: AVAILABLE_SUITES,
-        runnerOptions,
-        onError: (error) => ({ error: formatErrorDetails(error) })
-    });
+    let suiteResults;
+    try {
+        suiteResults = await collectSuiteResults({
+            suiteNames: requestedSuites,
+            availableSuites: AVAILABLE_SUITES,
+            runnerOptions,
+            onError: (error) => ({ error: formatErrorDetails(error) })
+        });
+    } finally {
+        runnerOptions.datasetCache.clear();
+    }
 
     const report = {
         generatedAt: new Date().toISOString(),
