@@ -97,6 +97,28 @@ function isObject(value) {
 }
 
 /**
+ * Describe the payload when JSON serialization fails so error messages stay
+ * readable without relying on nested ternaries inside the guard clause.
+ */
+function describePayloadForSerializationError(payload) {
+    if (payload === undefined) {
+        return "undefined payload";
+    }
+
+    const type = typeof payload;
+
+    if (type === "function") {
+        return "function payload";
+    }
+
+    if (type === "symbol") {
+        return "symbol payload";
+    }
+
+    return "provided payload";
+}
+
+/**
  * Parse a JSON payload while annotating any failures with high-level context.
  *
  * The helper mirrors `JSON.parse` semantics but decorates thrown errors with
@@ -213,13 +235,7 @@ export function stringifyJsonForFile(payload, options = {}) {
 
     if (typeof serialized !== "string") {
         const payloadDescription =
-            payload === undefined
-                ? "undefined payload"
-                : typeof payload === "function"
-                  ? "function payload"
-                  : typeof payload === "symbol"
-                    ? "symbol payload"
-                    : "provided payload";
+            describePayloadForSerializationError(payload);
 
         throw new TypeError(
             `Unable to serialize ${payloadDescription} to JSON. JSON.stringify returned undefined.`
