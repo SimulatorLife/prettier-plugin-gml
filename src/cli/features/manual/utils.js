@@ -465,10 +465,9 @@ function resolveManualRepoValue(
 }
 
 /**
- * Provide specialised GitHub helpers for manual fetching without forcing
+ * Provide specialized GitHub helpers for manual fetching without forcing
  * consumers to depend on unrelated operations.
- */
-/**
+ *
  * @param {{ userAgent: string }} options
  * @returns {ManualGitHubRequestDispatcher}
  */
