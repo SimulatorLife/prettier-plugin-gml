@@ -122,6 +122,22 @@ function hasArrayParentWithNumericIndex(parent, property) {
     return true;
 }
 
+function resolveCallExpressionArrayContext(node, parent, property) {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
+        return null;
+    }
+
+    if (!isNode(node) || node.type !== "CallExpression") {
+        return null;
+    }
+
+    return {
+        callExpression: node,
+        siblings: parent,
+        index: property
+    };
+}
+
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
@@ -9116,11 +9132,7 @@ function ensureShaderResetAfterSet(
     diagnostic,
     sourceText
 ) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
-        return null;
-    }
-
-    if (!node || node.type !== "CallExpression") {
+    if (!resolveCallExpressionArrayContext(node, parent, property)) {
         return null;
     }
 
@@ -9232,11 +9244,7 @@ function ensureFogIsReset({ ast, diagnostic }) {
 }
 
 function ensureFogResetAfterCall(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
-        return null;
-    }
-
-    if (!node || node.type !== "CallExpression") {
+    if (!resolveCallExpressionArrayContext(node, parent, property)) {
         return null;
     }
 
@@ -9353,11 +9361,7 @@ function ensureSurfaceTargetsAreReset({ ast, diagnostic }) {
 }
 
 function ensureSurfaceTargetResetAfterCall(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
-        return null;
-    }
-
-    if (!node || node.type !== "CallExpression") {
+    if (!resolveCallExpressionArrayContext(node, parent, property)) {
         return null;
     }
 
@@ -9480,11 +9484,7 @@ function ensureBlendEnableIsReset({ ast, diagnostic }) {
 }
 
 function ensureBlendEnableResetAfterCall(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
-        return null;
-    }
-
-    if (!node || node.type !== "CallExpression") {
+    if (!resolveCallExpressionArrayContext(node, parent, property)) {
         return null;
     }
 
@@ -9623,11 +9623,7 @@ function ensureBlendModeIsReset({ ast, diagnostic }) {
 }
 
 function ensureBlendModeResetAfterCall(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
-        return null;
-    }
-
-    if (!node || node.type !== "CallExpression") {
+    if (!resolveCallExpressionArrayContext(node, parent, property)) {
         return null;
     }
 
@@ -10650,11 +10646,7 @@ function ensureAlphaTestEnableResetAfterCall(
     property,
     diagnostic
 ) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
-        return null;
-    }
-
-    if (!node || node.type !== "CallExpression") {
+    if (!resolveCallExpressionArrayContext(node, parent, property)) {
         return null;
     }
 
