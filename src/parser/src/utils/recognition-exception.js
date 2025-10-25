@@ -1,8 +1,4 @@
-import {
-    hasFunction,
-    isErrorLike,
-    isObjectLike
-} from "../shared/index.js";
+import { hasFunction, isErrorLike, isObjectLike } from "../shared/index.js";
 
 function hasOffendingTokenProbe(value) {
     if (value?.offendingToken !== undefined) {

@@ -39,6 +39,19 @@ function normalizeByteCount(value) {
     return Math.max(numericValue, 0);
 }
 
+function resolveRadixOverride(radix, defaultRadix) {
+    if (radix === undefined) {
+        return defaultRadix;
+    }
+
+    try {
+        const resolved = resolveByteFormatRadix(radix, { defaultRadix });
+        return typeof resolved === "number" ? resolved : defaultRadix;
+    } catch {
+        return defaultRadix;
+    }
+}
+
 /**
  * Format a byte count using human-readable units. The helper previously lived
  * in the shared numeric utilities even though only CLI reporting paths relied
@@ -66,31 +79,19 @@ function formatByteSize(
     } = {}
 ) {
     let value = normalizeByteCount(bytes);
+    const defaultRadix = getDefaultByteFormatRadix();
+    const resolvedRadix = resolveRadixOverride(radix, defaultRadix);
+    const maxUnitIndex = BYTE_UNITS.length - 1;
     let unitIndex = 0;
 
-    const defaultRadix = getDefaultByteFormatRadix();
-    let resolvedRadix = defaultRadix;
-
-    if (radix !== undefined) {
-        try {
-            const normalized = resolveByteFormatRadix(radix, {
-                defaultRadix
-            });
-            if (typeof normalized === "number") {
-                resolvedRadix = normalized;
-            }
-        } catch {
-            resolvedRadix = defaultRadix;
-        }
-    }
-
-    while (value >= resolvedRadix && unitIndex < BYTE_UNITS.length - 1) {
+    for (; unitIndex < maxUnitIndex && value >= resolvedRadix; unitIndex += 1) {
         value /= resolvedRadix;
-        unitIndex += 1;
     }
 
-    const decimalPlaces =
-        unitIndex === 0 ? Math.max(0, decimalsForBytes) : Math.max(0, decimals);
+    const decimalPlaces = Math.max(
+        0,
+        unitIndex === 0 ? decimalsForBytes : decimals
+    );
 
     let formattedValue = value.toFixed(decimalPlaces);
 

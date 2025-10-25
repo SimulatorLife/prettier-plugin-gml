@@ -118,4 +118,18 @@ describe("stringifyJsonForFile", () => {
 
         assert.ok(contents.endsWith("\n"));
     });
+
+    it("throws a descriptive error when the payload cannot be serialized", () => {
+        assert.throws(
+            () => stringifyJsonForFile(),
+            (error) => {
+                assert.equal(error instanceof TypeError, true);
+                assert.match(
+                    error.message,
+                    /Unable to serialize .* JSON\. JSON\.stringify returned undefined\./
+                );
+                return true;
+            }
+        );
+    });
 });

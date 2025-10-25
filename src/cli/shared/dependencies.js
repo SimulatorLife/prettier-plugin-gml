@@ -1,6 +1,7 @@
 export {
     applyEnvironmentOverride,
     assertArray,
+    asArray,
     assertFunction,
     assertNonEmptyString,
     assertPlainObject,
@@ -15,6 +16,7 @@ export {
     getErrorMessage,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
+    isMissingModuleDependency,
     getOrCreateMapEntry,
     incrementMapValue,
     isFiniteNumber,
@@ -39,6 +41,8 @@ export {
     toPosixPath,
     toTrimmedString
 } from "../../shared/index.js";
+
+export { resolveCommandUsage } from "./command-usage.js";
 
 export { appendToCollection } from "../core/collection-utils.js";
 

@@ -1,8 +1,4 @@
-import {
-    assignClonedLocation,
-    isObjectLike,
-    toArray
-} from "./shared/index.js";
+import { assignClonedLocation, isObjectLike, toArray } from "./shared/index.js";
 import {
     ScopeOverrideKeyword,
     formatKnownScopeOverrideKeywords,

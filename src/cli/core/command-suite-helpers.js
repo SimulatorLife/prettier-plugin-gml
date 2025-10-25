@@ -6,6 +6,7 @@ import { CliUsageError, createCliErrorDetails } from "./errors.js";
 import {
     normalizeEnumeratedOption,
     isNonEmptyArray,
+    resolveCommandUsage,
     toMutableArray
 } from "../shared/dependencies.js";
 
@@ -89,10 +90,7 @@ export function ensureSuitesAreKnown(suiteNames, availableSuites, command) {
         return;
     }
 
-    const usage =
-        typeof command?.helpInformation === "function"
-            ? command.helpInformation()
-            : undefined;
+    const usage = resolveCommandUsage(command);
 
     throw new CliUsageError(
         `Unknown suite${unknownSuites.length === 1 ? "" : "s"}: ${unknownSuites.join(", ")}.`,

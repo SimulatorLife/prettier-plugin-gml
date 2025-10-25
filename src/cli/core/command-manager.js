@@ -1,5 +1,6 @@
 import { CliUsageError, handleCliError } from "./errors.js";
 import { isCommanderErrorLike } from "./commander-error-utils.js";
+import { resolveCommandUsage } from "../shared/dependencies.js";
 
 /**
  * The earlier CLI command "manager" mixed registration APIs with the runner
@@ -190,10 +191,9 @@ class CliCommandManager {
             commandFromError === this._program && this._defaultCommandEntry
                 ? this._defaultCommandEntry.command
                 : commandFromError;
-        const usage =
-            typeof resolvedCommand?.helpInformation === "function"
-                ? resolvedCommand.helpInformation()
-                : this._program.helpInformation();
+        const usage = resolveCommandUsage(resolvedCommand, {
+            fallback: () => this._program.helpInformation()
+        });
         const usageError = new CliUsageError(error.message.trim(), { usage });
         this._handleCommandError(usageError, resolvedCommand ?? this._program);
         return true;

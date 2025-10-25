@@ -1,7 +1,4 @@
-import {
-    getNonEmptyString,
-    splitLines
-} from "../shared/index.js";
+import { getNonEmptyString, splitLines } from "../shared/index.js";
 import { resolveProjectDisplayPath } from "./path-normalization.js";
 
 /**

@@ -6,13 +6,14 @@ import {
     resolveDocCommentUpdateService
 } from "../comments/index.js";
 import {
+    asArray,
     cloneLocation,
-    isNonEmptyArray,
     getBodyStatements,
+    getOrCreateMapEntry,
     isNode,
+    isNonEmptyArray,
     isNonEmptyString,
-    toNormalizedLowerCaseString,
-    getOrCreateMapEntry
+    toNormalizedLowerCaseString
 } from "../shared/index.js";
 
 const BOOLEAN_NODE_TYPES = Object.freeze({
@@ -614,7 +615,7 @@ function extractReturnExpression(node, helpers) {
     }
 
     if (node.type === "BlockStatement") {
-        const body = Array.isArray(node.body) ? node.body : [];
+        const body = asArray(node.body);
         if (body.length === 0) {
             return null;
         }

@@ -3,9 +3,10 @@ import {
     normalizeHasCommentHelpers
 } from "../comments/index.js";
 import {
-    unwrapParenthesizedExpression,
+    asArray,
+    isObjectLike,
     stripStringQuotes,
-    isObjectLike
+    unwrapParenthesizedExpression
 } from "../shared/index.js";
 
 const DEFAULT_HELPERS = Object.freeze({
@@ -226,7 +227,7 @@ function buildTemplateAtoms(parts) {
         }
 
         if (core.type === TEMPLATE_STRING_EXPRESSION) {
-            const nestedAtoms = Array.isArray(core.atoms) ? core.atoms : [];
+            const nestedAtoms = asArray(core.atoms);
             if (nestedAtoms.length === 0) {
                 return null;
             }
