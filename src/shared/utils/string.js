@@ -77,12 +77,48 @@ export function assertNonEmptyString(
     return normalized;
 }
 
+// Use explicit character code boundaries so the hot `isWordChar` guard can run
+// without invoking a regular expression on every call.
+const CHAR_CODE_DIGIT_START = 48; // 0
+const CHAR_CODE_DIGIT_END = 57; // 9
+const CHAR_CODE_UPPER_START = 65; // A
+const CHAR_CODE_UPPER_END = 90; // Z
+const CHAR_CODE_LOWER_START = 97; // a
+const CHAR_CODE_LOWER_END = 122; // z
+const CHAR_CODE_UNDERSCORE = 95; // _
+
 export function isWordChar(character) {
     if (!isNonEmptyString(character)) {
         return false;
     }
-    // Use regex to match ASCII word characters on the first character.
-    return /\w/.test(character[0]);
+
+    const code = character.charCodeAt(0);
+
+    if (code === CHAR_CODE_UNDERSCORE) {
+        return true;
+    }
+
+    if (code < CHAR_CODE_DIGIT_START) {
+        return false;
+    }
+
+    if (code <= CHAR_CODE_DIGIT_END) {
+        return true;
+    }
+
+    if (code < CHAR_CODE_UPPER_START) {
+        return false;
+    }
+
+    if (code <= CHAR_CODE_UPPER_END) {
+        return true;
+    }
+
+    if (code < CHAR_CODE_LOWER_START) {
+        return false;
+    }
+
+    return code <= CHAR_CODE_LOWER_END;
 }
 
 export function toTrimmedString(value) {

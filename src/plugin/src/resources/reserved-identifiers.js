@@ -1,19 +1,18 @@
-import { createRequire } from "node:module";
-
-import { toNormalizedLowerCaseSet } from "../../../shared/string-utils.js";
-import { normalizeIdentifierMetadataEntries } from "../../../shared/identifier-metadata.js";
-
-const require = createRequire(import.meta.url);
+import { toNormalizedLowerCaseSet } from "../shared/string-utils.js";
+import { normalizeIdentifierMetadataEntries } from "../shared/identifier-metadata.js";
+import {
+    GML_IDENTIFIER_METADATA_PATH,
+    loadBundledIdentifierMetadata
+} from "./bundled-resources.js";
 
 const DEFAULT_EXCLUDED_TYPES = new Set(["literal", "keyword"]);
-const DEFAULT_IDENTIFIER_METADATA_PATH =
-    "../../../../resources/gml-identifiers.json";
+const DEFAULT_IDENTIFIER_METADATA_PATH = GML_IDENTIFIER_METADATA_PATH;
 
 let metadataLoader = defaultLoadIdentifierMetadata;
 
 function defaultLoadIdentifierMetadata() {
     try {
-        const metadata = require(DEFAULT_IDENTIFIER_METADATA_PATH);
+        const metadata = loadBundledIdentifierMetadata();
         return metadata && typeof metadata === "object" ? metadata : null;
     } catch {
         return null;

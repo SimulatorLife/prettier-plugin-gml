@@ -1,7 +1,4 @@
-import {
-    assertFunction,
-    assertPlainObject
-} from "../../../shared/object-utils.js";
+import { assertFunction, assertPlainObject } from "../shared/object-utils.js";
 import { prepareIdentifierCasePlan as defaultPrepareIdentifierCasePlan } from "./local-plan.js";
 import {
     getIdentifierCaseRenameForNode as defaultGetIdentifierCaseRenameForNode,
@@ -24,7 +21,7 @@ import {
 
 /**
  * @typedef {object} IdentifierCaseRenameLookupService
- * @property {(node: import("../../../shared/ast.js").GameMakerAstNode | null, options: Record<string, unknown> | null | undefined) => string | null} getIdentifierCaseRenameForNode
+ * @property {(node: import("../shared/ast.js").GameMakerAstNode | null, options: Record<string, unknown> | null | undefined) => string | null} getIdentifierCaseRenameForNode
  */
 
 /**
@@ -99,7 +96,7 @@ function createIdentifierCaseServiceRegistry({
  * Normalize a service object to ensure it exposes the expected function
  * collaborators. The identifier case plan services previously repeated the
  * same validation scaffolding (plain-object guard followed by function
- * assertions) which obscured the differences between each service. Centralising
+ * assertions) which obscured the differences between each service. Centralizing
  * the logic keeps error messaging consistent and makes future service additions
  * trivial—callers simply describe the required function names.
  */
@@ -287,7 +284,7 @@ export function prepareIdentifierCasePlan(options) {
  * Look up the rename to apply for a given AST node using the registered
  * lookup service.
  *
- * @param {import("../../../shared/ast.js").GameMakerAstNode | null} node
+ * @param {import("../shared/ast.js").GameMakerAstNode | null} node
  * @param {Record<string, unknown> | null | undefined} options
  * @returns {string | null}
  */

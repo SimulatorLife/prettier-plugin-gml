@@ -9,8 +9,8 @@ import { getCommentValue } from "./comment-utils.js";
 import {
     trimStringEntries,
     toTrimmedString
-} from "../../../shared/string-utils.js";
-import { isRegExpLike } from "../../../shared/utils/capability-probes.js";
+} from "../shared/string-utils.js";
+import { isRegExpLike } from "../shared/utils/capability-probes.js";
 
 const JSDOC_REPLACEMENTS = {
     "@func": "@function",

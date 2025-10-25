@@ -1,4 +1,4 @@
-import { normalizeEnumeratedOption } from "../../shared/dependencies.js";
+import { normalizeEnumeratedOption } from "../shared/dependencies.js";
 
 const PerformanceSuiteName = Object.freeze({
     PARSER: "parser",

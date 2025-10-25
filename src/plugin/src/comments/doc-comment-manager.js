@@ -1,10 +1,10 @@
 import { getCommentArray, isDocCommentLine } from "./comment-boundary.js";
-import { getNodeStartIndex, isNode } from "../../../shared/ast.js";
+import { getNodeStartIndex, isNode } from "../shared/ast.js";
 import {
     isNonEmptyArray,
     isNonEmptyTrimmedString,
     toMutableArray
-} from "../../../shared/utils.js";
+} from "../shared/utils.js";
 
 /**
  * The legacy doc comment "manager" facade bundled traversal helpers with
@@ -29,6 +29,18 @@ const DOC_COMMENT_TRAVERSAL_SERVICES = new WeakMap();
 const DOC_COMMENT_LOOKUP_SERVICES = new WeakMap();
 const DOC_COMMENT_DESCRIPTION_SERVICES = new WeakMap();
 const DOC_COMMENT_UPDATE_SERVICES = new WeakMap();
+
+function resolveDocCommentService(ast, cache, createService) {
+    const manager = prepareDocCommentEnvironment(ast);
+    let service = cache.get(manager);
+
+    if (!service) {
+        service = Object.freeze(createService(manager));
+        cache.set(manager, service);
+    }
+
+    return service;
+}
 
 const NOOP_DOC_COMMENT_MANAGER = Object.freeze({
     applyUpdates() {},
@@ -90,60 +102,44 @@ export function getDocCommentManager(ast) {
  */
 
 export function resolveDocCommentTraversalService(ast) {
-    const manager = prepareDocCommentEnvironment(ast);
-    let traversal = DOC_COMMENT_TRAVERSAL_SERVICES.get(manager);
-
-    if (!traversal) {
-        traversal = Object.freeze({
+    return resolveDocCommentService(
+        ast,
+        DOC_COMMENT_TRAVERSAL_SERVICES,
+        (manager) => ({
             forEach: manager.forEach.bind(manager)
-        });
-        DOC_COMMENT_TRAVERSAL_SERVICES.set(manager, traversal);
-    }
-
-    return traversal;
+        })
+    );
 }
 
 export function resolveDocCommentLookupService(ast) {
-    const manager = prepareDocCommentEnvironment(ast);
-    let lookup = DOC_COMMENT_LOOKUP_SERVICES.get(manager);
-
-    if (!lookup) {
-        lookup = Object.freeze({
+    return resolveDocCommentService(
+        ast,
+        DOC_COMMENT_LOOKUP_SERVICES,
+        (manager) => ({
             getComments: manager.getComments.bind(manager),
             hasDocComment: manager.hasDocComment.bind(manager)
-        });
-        DOC_COMMENT_LOOKUP_SERVICES.set(manager, lookup);
-    }
-
-    return lookup;
+        })
+    );
 }
 
 export function resolveDocCommentDescriptionService(ast) {
-    const manager = prepareDocCommentEnvironment(ast);
-    let description = DOC_COMMENT_DESCRIPTION_SERVICES.get(manager);
-
-    if (!description) {
-        description = Object.freeze({
+    return resolveDocCommentService(
+        ast,
+        DOC_COMMENT_DESCRIPTION_SERVICES,
+        (manager) => ({
             extractDescription: manager.extractDescription.bind(manager)
-        });
-        DOC_COMMENT_DESCRIPTION_SERVICES.set(manager, description);
-    }
-
-    return description;
+        })
+    );
 }
 
 export function resolveDocCommentUpdateService(ast) {
-    const manager = prepareDocCommentEnvironment(ast);
-    let updateService = DOC_COMMENT_UPDATE_SERVICES.get(manager);
-
-    if (!updateService) {
-        updateService = Object.freeze({
+    return resolveDocCommentService(
+        ast,
+        DOC_COMMENT_UPDATE_SERVICES,
+        (manager) => ({
             applyUpdates: manager.applyUpdates.bind(manager)
-        });
-        DOC_COMMENT_UPDATE_SERVICES.set(manager, updateService);
-    }
-
-    return updateService;
+        })
+    );
 }
 
 function createDocCommentManager(ast) {

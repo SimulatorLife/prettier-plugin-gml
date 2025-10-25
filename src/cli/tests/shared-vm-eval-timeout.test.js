@@ -6,7 +6,7 @@ import {
     resolveVmEvalTimeout,
     getDefaultVmEvalTimeoutMs,
     setDefaultVmEvalTimeoutMs
-} from "../shared/vm-eval-timeout.js";
+} from "../runtime-options/vm-eval-timeout.js";
 
 const originalDefaultTimeout = getDefaultVmEvalTimeoutMs();
 

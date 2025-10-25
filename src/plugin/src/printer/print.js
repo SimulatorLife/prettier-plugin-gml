@@ -28,24 +28,21 @@ import {
     normalizeDocCommentTypeAnnotations
 } from "../comments/line-comment-formatting.js";
 import { resolveLineCommentOptions } from "../options/line-comment-options.js";
-import { getCommentArray, isCommentNode } from "../../../shared/comments.js";
-import { coercePositiveIntegerOption } from "../../../shared/numeric-option-utils.js";
+import { getCommentArray, isCommentNode } from "../shared/comments.js";
+import { coercePositiveIntegerOption } from "../shared/numeric-option-utils.js";
 import {
     getNonEmptyString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
     toTrimmedString
-} from "../../../shared/string-utils.js";
-import {
-    isNonEmptyArray,
-    toMutableArray
-} from "../../../shared/array-utils.js";
-import { ensureSet } from "../../../shared/utils/capability-probes.js";
+} from "../shared/string-utils.js";
+import { isNonEmptyArray, toMutableArray } from "../shared/array-utils.js";
+import { ensureSet } from "../shared/utils/capability-probes.js";
 import {
     getNodeStartIndex,
     getNodeEndIndex,
     getNodeRangeIndices
-} from "../../../shared/ast-locations.js";
+} from "../shared/ast-locations.js";
 import {
     getBodyStatements,
     getCallExpressionArguments,
@@ -55,7 +52,7 @@ import {
     isBooleanLiteral,
     isUndefinedLiteral,
     enqueueObjectChildValues
-} from "../../../shared/ast-node-helpers.js";
+} from "../shared/ast-node-helpers.js";
 import { maybeReportIdentifierCaseDryRun } from "../identifier-case/identifier-case-report.js";
 import {
     getIdentifierCaseRenameForNode,
@@ -1671,26 +1668,29 @@ function buildCallArgumentsDocs(
         maxElementsPerLine === Infinity &&
         trailingCallbacksOnly
     ) {
+        const inlineDoc = includeInlineVariant
+            ? printCommaSeparatedList(
+                  path,
+                  print,
+                  "arguments",
+                  "(",
+                  ")",
+                  options,
+                  {
+                      addIndent: false,
+                      forceInline: true,
+                      leadingNewline: false,
+                      trailingNewline: false,
+                      maxElementsPerLine
+                  }
+              )
+            : null;
+
         const multilineDoc = buildCallbackArgumentsWithSimplePrefix(
             path,
             print,
             simplePrefixLength,
             options
-        );
-
-        const inlineDoc = printCommaSeparatedList(
-            path,
-            print,
-            "arguments",
-            "(",
-            ")",
-            options,
-            {
-                addIndent: false,
-                forceInline: true,
-                leadingNewline: false,
-                trailingNewline: false
-            }
         );
 
         return { inlineDoc, multilineDoc };
@@ -1834,7 +1834,7 @@ function printCommaSeparatedList(
 // Force statement-shaped children into explicit `{}` blocks so every call site
 // that relies on this helper inherits the same guard rails. The printer uses it
 // for `if`, loop, and struct bodies where we always emit braces regardless of
-// how the source was written. Centralising the wrapping ensures semicolon
+// how the source was written. Centralizing the wrapping ensures semicolon
 // bookkeeping stays wired through `optionalSemicolon`, keeps synthetic doc
 // comments anchored to the block node they describe, and prevents individual
 // callers from drifting in how they indent or collapse single-statement bodies.
@@ -2187,6 +2187,8 @@ function printStatements(path, options, print, childrenAttribute) {
     let previousNodeHadNewlineAddedAfter = false; // tracks newline added after the previous node
 
     const parentNode = path.getValue();
+    const containerNode =
+        typeof path.getParentNode === "function" ? path.getParentNode() : null;
     const statements =
         parentNode && Array.isArray(parentNode[childrenAttribute])
             ? parentNode[childrenAttribute]
@@ -2499,8 +2501,16 @@ function printStatements(path, options, print, childrenAttribute) {
                     isNextLineEmpty(originalText, trailingProbeIndex);
 
                 if (enforceTrailingPadding) {
+                    // Large statements such as nested function declarations and
+                    // constructor bodies should remain visually separated from
+                    // the closing brace. When padding is mandated by the node
+                    // type we still respect explicitly authored spacing, but we
+                    // guarantee a separator for nested function declarations so
+                    // their closing braces do not collapse into the parent.
                     shouldPreserveTrailingBlankLine =
-                        hasExplicitTrailingBlankLine;
+                        node?.type === "FunctionDeclaration"
+                            ? true
+                            : hasExplicitTrailingBlankLine;
                 } else if (
                     shouldPreserveConstructorStaticPadding &&
                     hasExplicitTrailingBlankLine
@@ -2545,16 +2555,27 @@ function printStatements(path, options, print, childrenAttribute) {
 
             if (
                 !shouldPreserveTrailingBlankLine &&
-                !suppressFollowingEmptyLine &&
-                hasAttachedDocComment &&
-                blockParent?.type === "BlockStatement"
+                !suppressFollowingEmptyLine
             ) {
-                const isFunctionLikeDeclaration =
-                    node?.type === "FunctionDeclaration" ||
-                    node?.type === "ConstructorDeclaration";
-
-                if (isFunctionLikeDeclaration) {
+                if (
+                    shouldForceTrailingBlankLineForNestedFunction(
+                        node,
+                        parentNode,
+                        containerNode
+                    )
+                ) {
                     shouldPreserveTrailingBlankLine = true;
+                } else if (
+                    hasAttachedDocComment &&
+                    blockParent?.type === "BlockStatement"
+                ) {
+                    const isFunctionLikeDeclaration =
+                        node?.type === "FunctionDeclaration" ||
+                        node?.type === "ConstructorDeclaration";
+
+                    if (isFunctionLikeDeclaration) {
+                        shouldPreserveTrailingBlankLine = true;
+                    }
                 }
             }
 
@@ -2563,7 +2584,6 @@ function printStatements(path, options, print, childrenAttribute) {
                 node?.type === "FunctionDeclaration" &&
                 !suppressFollowingEmptyLine &&
                 !shouldPreserveTrailingBlankLine;
-
             if (shouldPreserveTrailingBlankLine) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
@@ -2690,6 +2710,31 @@ export function applyAssignmentAlignment(
     flushGroup();
 }
 
+function shouldForceTrailingBlankLineForNestedFunction(
+    node,
+    blockNode,
+    containerNode
+) {
+    if (!isFunctionLikeDeclaration(node)) {
+        return false;
+    }
+
+    if (!blockNode || blockNode.type !== "BlockStatement") {
+        return false;
+    }
+
+    return isFunctionLikeDeclaration(containerNode);
+}
+
+function isFunctionLikeDeclaration(node) {
+    const nodeType = node?.type;
+    return (
+        nodeType === "FunctionDeclaration" ||
+        nodeType === "ConstructorDeclaration" ||
+        nodeType === "FunctionExpression"
+    );
+}
+
 function isPathInsideFunctionBody(path, childrenAttribute) {
     if (
         !path ||
@@ -2804,10 +2849,8 @@ function getFunctionParameterNameSetFromPath(path) {
         return null;
     }
 
-    const params = Array.isArray(functionNode.params)
-        ? functionNode.params
-        : null;
-    if (!params || params.length === 0) {
+    const params = getFunctionParams(functionNode);
+    if (params.length === 0) {
         return null;
     }
 
@@ -3941,13 +3984,58 @@ function mergeSyntheticDocComments(
         }
         const typePart =
             normalizedTypeSection.length > 0 ? `${normalizedTypeSection} ` : "";
-        const normalizedName = rawName.trim();
-        const remainderText = remainder.trim();
+        let normalizedName = rawName.trim();
+        let remainingRemainder = remainder;
+
+        if (
+            normalizedName.startsWith("[") &&
+            !normalizedName.endsWith("]") &&
+            typeof remainingRemainder === "string" &&
+            remainingRemainder.length > 0
+        ) {
+            let bracketBalance = 0;
+
+            for (const char of normalizedName) {
+                if (char === "[") {
+                    bracketBalance += 1;
+                } else if (char === "]") {
+                    bracketBalance -= 1;
+                }
+            }
+
+            if (bracketBalance > 0) {
+                let sliceIndex = 0;
+
+                while (
+                    sliceIndex < remainingRemainder.length &&
+                    bracketBalance > 0
+                ) {
+                    const char = remainingRemainder[sliceIndex];
+                    if (char === "[") {
+                        bracketBalance += 1;
+                    } else if (char === "]") {
+                        bracketBalance -= 1;
+                    }
+                    sliceIndex += 1;
+                }
+
+                if (bracketBalance <= 0) {
+                    const continuation = remainingRemainder.slice(
+                        0,
+                        sliceIndex
+                    );
+                    normalizedName = `${normalizedName}${continuation}`.trim();
+                    remainingRemainder = remainingRemainder.slice(sliceIndex);
+                }
+            }
+        }
+
+        const remainderText = remainingRemainder.trim();
         const hasDescription = remainderText.length > 0;
         let descriptionPart = "";
 
         if (hasDescription) {
-            const hyphenMatch = remainder.match(/^(\s*-\s*)(.*)$/);
+            const hyphenMatch = remainingRemainder.match(/^(\s*-\s*)(.*)$/);
             let normalizedDescription = "";
             let hyphenSpacing = " - ";
 
@@ -4212,9 +4300,7 @@ function getPreferredFunctionParameterName(path, node, options) {
             return null;
         }
 
-        const params = Array.isArray(functionNode.params)
-            ? functionNode.params
-            : [];
+        const params = getFunctionParams(functionNode);
         if (paramIndex >= params.length) {
             return null;
         }
@@ -4265,9 +4351,7 @@ function getPreferredFunctionParameterName(path, node, options) {
         return preferredName;
     }
 
-    const params = Array.isArray(functionNode.params)
-        ? functionNode.params
-        : [];
+    const params = getFunctionParams(functionNode);
     if (argumentIndex >= params.length) {
         return null;
     }
@@ -4301,10 +4385,8 @@ function resolvePreferredParameterName(
         return null;
     }
 
-    const params = Array.isArray(functionNode.params)
-        ? functionNode.params
-        : null;
-    if (!params || paramIndex >= params.length) {
+    const params = getFunctionParams(functionNode);
+    if (paramIndex >= params.length) {
         return null;
     }
 
@@ -4467,11 +4549,11 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
         return false;
     }
 
-    if (!functionNode || !Array.isArray(functionNode.params)) {
+    if (!functionNode) {
         return false;
     }
 
-    const params = functionNode.params;
+    const params = getFunctionParams(functionNode);
     if (argumentIndex < 0 || argumentIndex >= params.length) {
         return false;
     }
@@ -6068,7 +6150,7 @@ function findSiblingListAndIndex(parent, targetNode) {
         return null;
     }
 
-    // Iterate using `for...in` to preserve the original hot-path optimisation
+    // Iterate using `for...in` to preserve the original hot-path optimization
     // while keeping the scan readable and short-circuiting as soon as the node
     // is located.
     for (const key in parent) {
@@ -6309,6 +6391,8 @@ function shouldOmitSyntheticParens(path) {
         return false;
     }
 
+    const expression = node.expression;
+
     // For ternary expressions, omit unnecessary parentheses around simple
     // identifiers or member expressions in the test position
     if (parent.type === "TernaryExpression") {
@@ -6342,11 +6426,41 @@ function shouldOmitSyntheticParens(path) {
         return false;
     }
 
+    if (parent.type === "CallExpression") {
+        if (
+            !isSyntheticParenFlatteningEnabled(path) ||
+            !isNumericCallExpression(parent)
+        ) {
+            return false;
+        }
+
+        if (expression?.type !== "BinaryExpression") {
+            return false;
+        }
+
+        if (!isNumericComputationNode(expression)) {
+            return false;
+        }
+
+        if (binaryExpressionContainsString(expression)) {
+            return false;
+        }
+
+        const sanitizedMacroNames = getSanitizedMacroNames(path);
+        if (
+            sanitizedMacroNames &&
+            expressionReferencesSanitizedMacro(expression, sanitizedMacroNames)
+        ) {
+            return false;
+        }
+
+        return true;
+    }
+
     if (parent.type !== "BinaryExpression") {
         return false;
     }
 
-    const expression = node.expression;
     if (!isSyntheticParenFlatteningEnabled(path)) {
         return false;
     }
@@ -6377,11 +6491,43 @@ function shouldOmitSyntheticParens(path) {
                 return true;
             }
 
-            if (
-                expression.operator === "*" &&
-                isNumericComputationNode(expression)
-            ) {
-                return false;
+            if (isNumericComputationNode(expression)) {
+                if (parent.operator === "+" || parent.operator === "-") {
+                    const childOperator = expression.operator;
+
+                    if (
+                        childOperator === "/" ||
+                        childOperator === "div" ||
+                        childOperator === "%" ||
+                        childOperator === "mod" ||
+                        (childOperator === "*" &&
+                            !isWithinNumericCallArgument(path))
+                    ) {
+                        return false;
+                    }
+
+                    const sanitizedMacroNames = getSanitizedMacroNames(path);
+
+                    if (
+                        sanitizedMacroNames &&
+                        (expressionReferencesSanitizedMacro(
+                            parent,
+                            sanitizedMacroNames
+                        ) ||
+                            expressionReferencesSanitizedMacro(
+                                expression,
+                                sanitizedMacroNames
+                            ))
+                    ) {
+                        return false;
+                    }
+
+                    return true;
+                }
+
+                if (expression.operator === "*") {
+                    return false;
+                }
             }
         }
     }
@@ -6626,11 +6772,44 @@ function isSyntheticParenFlatteningEnabled(path) {
     }
 }
 
+function isWithinNumericCallArgument(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return false;
+    }
+
+    let depth = 1;
+    let currentNode =
+        typeof path.getValue === "function" ? path.getValue() : null;
+
+    while (true) {
+        const ancestor =
+            depth === 1 ? path.getParentNode() : path.getParentNode(depth - 1);
+
+        if (!ancestor) {
+            return false;
+        }
+
+        if (ancestor.type === "CallExpression") {
+            if (
+                Array.isArray(ancestor.arguments) &&
+                ancestor.arguments.includes(currentNode)
+            ) {
+                return isNumericCallExpression(ancestor);
+            }
+
+            return false;
+        }
+
+        currentNode = ancestor;
+        depth += 1;
+    }
+}
+
 // Synthetic parenthesis flattening only treats select call expressions as
 // numeric so we avoid unwrapping macro invocations that expand to complex
 // expressions. The list is intentionally small and can be extended as other
 // numeric helpers require the same treatment.
-const NUMERIC_CALL_IDENTIFIERS = new Set(["sqr"]);
+const NUMERIC_CALL_IDENTIFIERS = new Set(["sqr", "sqrt"]);
 
 function getSanitizedMacroNames(path) {
     if (!path || typeof path.getParentNode !== "function") {
@@ -6929,6 +7108,57 @@ function buildClauseGroup(doc) {
     return group([indent([ifBreak(line), doc]), ifBreak(line)]);
 }
 
+const INLINEABLE_SINGLE_STATEMENT_TYPES = new Set([
+    "ReturnStatement",
+    "ExitStatement"
+]);
+
+function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
+    if (
+        !path ||
+        typeof path.getValue !== "function" ||
+        typeof path.getParentNode !== "function"
+    ) {
+        return false;
+    }
+
+    const node = path.getValue();
+    if (!node || node.type !== "IfStatement") {
+        return false;
+    }
+
+    if (node.alternate) {
+        return false;
+    }
+
+    if (!INLINEABLE_SINGLE_STATEMENT_TYPES.has(bodyNode?.type)) {
+        return false;
+    }
+
+    if (hasComment(bodyNode)) {
+        return false;
+    }
+
+    const parentNode = path.getParentNode();
+    if (!parentNode || parentNode.type === "Program") {
+        return false;
+    }
+
+    if (!findEnclosingFunctionForPath(path)) {
+        return false;
+    }
+
+    const statementSource = getSourceTextForNode(node, options);
+    if (
+        typeof statementSource === "string" &&
+        (statementSource.includes("\n") || statementSource.includes("\r"))
+    ) {
+        return false;
+    }
+
+    return true;
+}
+
 function wrapInClauseParens(path, print, clauseKey) {
     const clauseNode = path.getValue()?.[clauseKey];
     const clauseDoc = printWithoutExtraParens(path, print, clauseKey);
@@ -6965,13 +7195,20 @@ function printSingleClauseStatement(
         clauseExpressionNode?.type === "CallExpression" &&
         clauseExpressionNode.preserveOriginalCallText === true;
 
-    if (allowSingleLineIfStatements && bodyNode && !clauseIsPreservedCall) {
+    const allowCollapsedGuard =
+        bodyNode &&
+        !clauseIsPreservedCall &&
+        (allowSingleLineIfStatements ||
+            shouldInlineGuardWhenDisabled(path, options, bodyNode));
+
+    if (allowCollapsedGuard) {
         let inlineReturnDoc = null;
         let inlineStatementType = null;
 
-        const inlineableTypes = new Set(["ReturnStatement", "ExitStatement"]);
-
-        if (inlineableTypes.has(bodyNode.type) && !hasComment(bodyNode)) {
+        if (
+            INLINEABLE_SINGLE_STATEMENT_TYPES.has(bodyNode.type) &&
+            !hasComment(bodyNode)
+        ) {
             inlineReturnDoc = print(bodyKey);
             inlineStatementType = bodyNode.type;
         } else if (
@@ -6983,7 +7220,7 @@ function printSingleClauseStatement(
             const [onlyStatement] = bodyNode.body;
             if (
                 onlyStatement &&
-                inlineableTypes.has(onlyStatement.type) &&
+                INLINEABLE_SINGLE_STATEMENT_TYPES.has(onlyStatement.type) &&
                 !hasComment(onlyStatement)
             ) {
                 const startLine = bodyNode.start?.line;
@@ -7123,9 +7360,7 @@ function getFunctionParameterNameByIndex(functionNode, index) {
         return null;
     }
 
-    const params = Array.isArray(functionNode.params)
-        ? functionNode.params
-        : [];
+    const params = getFunctionParams(functionNode);
 
     if (!Number.isInteger(index) || index < 0 || index >= params.length) {
         return null;
@@ -7149,6 +7384,19 @@ function getFunctionParameterNameByIndex(functionNode, index) {
     }
 
     return null;
+}
+
+function getFunctionParams(functionNode) {
+    if (!functionNode || typeof functionNode !== "object") {
+        return [];
+    }
+
+    const { params } = functionNode;
+    if (!Array.isArray(params)) {
+        return [];
+    }
+
+    return params;
 }
 
 // prints empty parens with dangling comments

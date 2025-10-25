@@ -11,12 +11,13 @@ import {
     createEnvConfiguredValueWithFallback,
     ensureDir,
     getErrorMessageOrFallback,
+    incrementMapValue,
     isNonEmptyString,
     normalizeStringList,
     resolveModuleDefaultExport,
     parseJsonObjectWithContext,
     splitLines
-} from "../../shared/dependencies.js";
+} from "../shared/dependencies.js";
 import { applyStandardCommandOptions } from "../../core/command-standard-options.js";
 import {
     coercePositiveInteger,
@@ -78,9 +79,21 @@ const formatIterationLimitConfig = createEnvConfiguredValueWithFallback({
 });
 
 const sampleCache = new Map();
+const objectPrototypeToString = Object.prototype.toString;
 
 function resolveProjectPath(relativePath) {
     return path.resolve(PROJECT_ROOT, relativePath);
+}
+
+/**
+ * Capture the intrinsic tag for a value without exposing the full
+ * Object.prototype chain at call sites.
+ *
+ * @param {unknown} value A runtime value to classify.
+ * @returns {string} ECMAScript "toString" tag for the value.
+ */
+function getObjectTag(value) {
+    return objectPrototypeToString.call(value);
 }
 
 async function loadPrettierStandalone() {
@@ -115,7 +128,7 @@ function describeFormatterOptionsValue(value) {
     }
 
     if (type === "object") {
-        const tag = Object.prototype.toString.call(value);
+        const tag = getObjectTag(value);
         const match = /^\[object (\w+)\]$/.exec(tag);
         if (match && match[1] !== "Object") {
             const label = match[1];
@@ -348,7 +361,7 @@ function summarizeAst(root) {
 
         nodeCount += 1;
         if (typeof value.type === "string") {
-            typeCounts.set(value.type, (typeCounts.get(value.type) ?? 0) + 1);
+            incrementMapValue(typeCounts, value.type);
         }
 
         const nextDepth = depth + 1;
@@ -728,20 +741,36 @@ function formatSuiteError(error) {
     };
 }
 
-function printHumanReadable(results) {
-    const lines = ["Memory benchmark results:"];
-    for (const [suite, payload] of Object.entries(results)) {
-        lines.push(`\n• ${suite}`);
-        if (payload?.error) {
-            lines.push(
-                `  - error: ${payload.error.message || "Unknown error"}`
-            );
-            continue;
-        }
+function createHumanReadableMemoryHeader() {
+    return ["Memory benchmark results:"];
+}
 
-        lines.push(`  - result: ${JSON.stringify(payload)}`);
+function createHumanReadableMemorySuiteLines({ suite, payload }) {
+    const lines = [`\n• ${suite}`];
+
+    if (payload?.error) {
+        const message = payload.error.message || "Unknown error";
+        lines.push(`  - error: ${message}`);
+        return lines;
     }
 
+    lines.push(`  - result: ${JSON.stringify(payload)}`);
+    return lines;
+}
+
+function createHumanReadableMemoryLines(results) {
+    const suites = Object.entries(results ?? {});
+    const lines = [...createHumanReadableMemoryHeader()];
+
+    for (const [suite, payload] of suites) {
+        lines.push(...createHumanReadableMemorySuiteLines({ suite, payload }));
+    }
+
+    return lines;
+}
+
+function printHumanReadable(results) {
+    const lines = createHumanReadableMemoryLines(results);
     console.log(lines.join("\n"));
 }
 

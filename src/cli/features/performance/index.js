@@ -11,7 +11,7 @@ import { applyStandardCommandOptions } from "../../core/command-standard-options
 import { createCliErrorDetails } from "../../core/errors.js";
 import { wrapInvalidArgumentResolver } from "../../core/command-parsing.js";
 import { resolvePluginEntryPoint } from "../../plugin/entry-point.js";
-import { formatByteSize } from "../../shared/byte-format.js";
+import { formatByteSize } from "../../runtime-options/byte-format.js";
 import {
     SuiteOutputFormat,
     resolveSuiteOutputFormatOrThrow,
@@ -29,7 +29,7 @@ import {
     toNormalizedInteger,
     stringifyJsonForFile,
     resolveModuleDefaultExport
-} from "../../shared/dependencies.js";
+} from "../shared/dependencies.js";
 import {
     PerformanceSuiteName,
     isPerformanceThroughputSuite,
@@ -699,70 +699,89 @@ function formatDuration(value) {
     return `${value.toFixed(3)} ms`;
 }
 
-function printHumanReadable(report) {
-    const lines = [
+function createHumanReadableReportHeader(report) {
+    return [
         "Performance benchmark results:",
         `Generated at: ${report.generatedAt}`
     ];
+}
 
-    const entries = Object.entries(report.suites);
+function createHumanReadableSuiteLines({ suite, payload }) {
+    const lines = [`\n• ${suite}`];
+
+    if (payload?.skipped) {
+        lines.push(`  - skipped: ${payload.reason ?? "No reason provided"}`);
+        return lines;
+    }
+
+    if (payload?.error) {
+        const errorMessage = payload.error?.message ?? "Unknown error";
+        lines.push(`  - error: ${errorMessage}`);
+        return lines;
+    }
+
+    if (isPerformanceThroughputSuite(suite)) {
+        const datasetBytes = payload?.dataset?.totalBytes ?? 0;
+        lines.push(
+            `  - iterations: ${payload?.iterations}`,
+            `  - files: ${payload?.dataset?.files ?? 0}`
+        );
+        lines.push(
+            `  - total duration: ${formatDuration(payload?.totalDurationMs)}`
+        );
+        lines.push(
+            `  - average duration: ${formatDuration(payload?.averageDurationMs)}`
+        );
+        lines.push(
+            `  - dataset size: ${formatByteSize(datasetBytes, {
+                decimals: 2,
+                decimalsForBytes: 2,
+                separator: " "
+            })}`
+        );
+        lines.push(
+            `  - throughput (files/ms): ${formatThroughput(
+                payload?.throughput?.filesPerMs,
+                "files/ms"
+            )}`
+        );
+        lines.push(
+            `  - throughput (bytes/ms): ${formatThroughput(
+                payload?.throughput?.bytesPerMs,
+                "bytes/ms"
+            )}`
+        );
+        return lines;
+    }
+
+    lines.push(`  - result: ${JSON.stringify(payload)}`);
+    return lines;
+}
+
+function createHumanReadableSuiteSections(suites) {
+    const entries = Object.entries(suites ?? {});
+
     if (entries.length === 0) {
-        lines.push("No suites were executed.");
+        return ["No suites were executed."];
     }
 
+    const sections = [];
     for (const [suite, payload] of entries) {
-        lines.push(`\n• ${suite}`);
-
-        if (payload?.skipped) {
-            lines.push(
-                `  - skipped: ${payload.reason ?? "No reason provided"}`
-            );
-            continue;
-        }
-
-        if (payload?.error) {
-            const errorMessage = payload.error?.message ?? "Unknown error";
-            lines.push(`  - error: ${errorMessage}`);
-            continue;
-        }
-
-        if (isPerformanceThroughputSuite(suite)) {
-            const datasetBytes = payload.dataset?.totalBytes ?? 0;
-            lines.push(
-                `  - iterations: ${payload.iterations}`,
-                `  - files: ${payload.dataset?.files ?? 0}`
-            );
-            lines.push(
-                `  - total duration: ${formatDuration(payload.totalDurationMs)}`
-            );
-            lines.push(
-                `  - average duration: ${formatDuration(payload.averageDurationMs)}`
-            );
-            lines.push(
-                `  - dataset size: ${formatByteSize(datasetBytes, {
-                    decimals: 2,
-                    decimalsForBytes: 2,
-                    separator: " "
-                })}`
-            );
-            lines.push(
-                `  - throughput (files/ms): ${formatThroughput(
-                    payload.throughput?.filesPerMs,
-                    "files/ms"
-                )}`
-            );
-            lines.push(
-                `  - throughput (bytes/ms): ${formatThroughput(
-                    payload.throughput?.bytesPerMs,
-                    "bytes/ms"
-                )}`
-            );
-            continue;
-        }
-
-        lines.push(`  - result: ${JSON.stringify(payload)}`);
+        sections.push(...createHumanReadableSuiteLines({ suite, payload }));
     }
 
+    return sections;
+}
+
+function createHumanReadableReportLines(report) {
+    return [
+        ...createHumanReadableReportHeader(report),
+        ...createHumanReadableSuiteSections(report.suites)
+    ];
+}
+
+function printHumanReadable(report) {
+    const lines = createHumanReadableReportLines(report);
     console.log(lines.join("\n"));
 }
 

@@ -1,17 +1,22 @@
-import { createAbortGuard } from "../../../shared/abort-utils.js";
+import { createAbortGuard } from "../shared/abort-utils.js";
 
 export const PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE =
     "Project root discovery was aborted.";
 export const PROJECT_INDEX_BUILD_ABORT_MESSAGE =
     "Project index build was aborted.";
 
-export function createProjectIndexAbortGuard(options, config = {}) {
-    const { message, fallbackMessage, key } = config ?? {};
+export function createProjectIndexAbortGuard(
+    options,
+    { message, fallbackMessage, key } = {}
+) {
     const resolvedFallback =
         fallbackMessage ?? message ?? PROJECT_INDEX_BUILD_ABORT_MESSAGE;
 
-    return createAbortGuard(options, {
-        ...(key == null ? {} : { key }),
-        fallbackMessage: resolvedFallback
-    });
+    const guardConfig = { fallbackMessage: resolvedFallback };
+
+    if (key != null) {
+        guardConfig.key = key;
+    }
+
+    return createAbortGuard(options, guardConfig);
 }

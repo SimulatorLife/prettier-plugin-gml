@@ -7,7 +7,7 @@ import {
     getNodeStartLine,
     cloneLocation,
     assignClonedLocation
-} from "../../../shared/ast-locations.js";
+} from "../shared/ast-locations.js";
 import {
     getArrayProperty,
     getBodyStatements,
@@ -21,7 +21,7 @@ import {
     isNode,
     visitChildNodes,
     unwrapParenthesizedExpression
-} from "../../../shared/ast-node-helpers.js";
+} from "../shared/ast-node-helpers.js";
 import {
     getNonEmptyString,
     isNonEmptyString,
@@ -29,26 +29,26 @@ import {
     stripStringQuotes,
     toNormalizedLowerCaseString,
     toTrimmedString
-} from "../../../shared/string-utils.js";
+} from "../shared/string-utils.js";
 import { loadReservedIdentifierNames } from "../resources/reserved-identifiers.js";
-import { isFiniteNumber } from "../../../shared/number-utils.js";
+import { isFiniteNumber } from "../shared/number-utils.js";
 import {
     asArray,
     isArrayIndex,
     isNonEmptyArray
-} from "../../../shared/array-utils.js";
-import { ensureSet } from "../../../shared/utils/capability-probes.js";
+} from "../shared/array-utils.js";
+import { ensureSet } from "../shared/utils/capability-probes.js";
 import {
     getOrCreateMapEntry,
     hasOwn,
     isObjectLike
-} from "../../../shared/object-utils.js";
-import { escapeRegExp } from "../../../shared/regexp.js";
+} from "../shared/object-utils.js";
+import { escapeRegExp } from "../shared/regexp.js";
 import {
     hasIterableItems,
     isMapLike,
     isSetLike
-} from "../../../shared/utils/capability-probes.js";
+} from "../shared/utils/capability-probes.js";
 import {
     collectCommentNodes,
     getCommentArray,
@@ -14821,6 +14821,14 @@ function ensureSequentialVertexFormatsAreClosed(statements, diagnostic, fixes) {
                 openBegins.length > 0 ? openBegins.at(-1) : null;
 
             if (previousEntry && previousEntry.node !== statement) {
+                const previousEntryIndex = statements.indexOf(
+                    previousEntry.node
+                );
+
+                if (previousEntryIndex !== -1) {
+                    previousEntry.index = previousEntryIndex;
+                }
+
                 const removalCount = removeDanglingVertexFormatDefinition({
                     statements,
                     startIndex: previousEntry.index,
@@ -14854,21 +14862,76 @@ function ensureSequentialVertexFormatsAreClosed(statements, diagnostic, fixes) {
 
             const lastEntry = openBegins.length > 0 ? openBegins.at(-1) : null;
 
+            if (lastEntry) {
+                const lastEntryIndex = statements.indexOf(lastEntry.node);
+
+                if (lastEntryIndex !== -1) {
+                    lastEntry.index = lastEntryIndex;
+                }
+            }
+
             if (!lastEntry || lastEntry.node !== statement) {
-                openBegins.push({ node: statement, index });
+                openBegins.push({
+                    node: statement,
+                    index,
+                    hasVertexAdd: false
+                });
             }
 
             index += 1;
             continue;
         }
 
+        if (isVertexFormatAddCall(statement)) {
+            const activeEntry =
+                openBegins.length > 0 ? openBegins.at(-1) : null;
+
+            if (activeEntry) {
+                activeEntry.hasVertexAdd = true;
+            }
+        }
+
         const closingCount = countVertexFormatEndCalls(statement);
 
         let unmatchedClosers = closingCount;
+        const closedEntries = [];
 
         while (unmatchedClosers > 0 && openBegins.length > 0) {
-            openBegins.pop();
+            const entry = openBegins.pop();
+
+            if (entry) {
+                closedEntries.push(entry);
+            }
+
             unmatchedClosers -= 1;
+        }
+
+        if (
+            closingCount === 1 &&
+            unmatchedClosers === 0 &&
+            closedEntries.length === 1 &&
+            isCallExpressionStatementWithName(statement, "vertex_format_end")
+        ) {
+            const [closedEntry] = closedEntries;
+            const beginIndex = statements.indexOf(closedEntry?.node);
+
+            if (beginIndex !== -1) {
+                closedEntry.index = beginIndex;
+            }
+
+            const removed = removeEmptyVertexFormatDefinition({
+                statements,
+                beginIndex,
+                endIndex: index,
+                diagnostic,
+                fixes,
+                hasVertexAdd: closedEntry?.hasVertexAdd ?? false
+            });
+
+            if (removed) {
+                index = beginIndex;
+                continue;
+            }
         }
 
         if (unmatchedClosers > 0) {
@@ -14967,6 +15030,60 @@ function removeDanglingVertexFormatEndCall({
     }
 
     statements.splice(index, 1);
+
+    if (Array.isArray(fixes)) {
+        fixes.push(fixDetail);
+    }
+
+    return true;
+}
+
+function removeEmptyVertexFormatDefinition({
+    statements,
+    beginIndex,
+    endIndex,
+    diagnostic,
+    fixes,
+    hasVertexAdd
+}) {
+    if (
+        !Array.isArray(statements) ||
+        typeof beginIndex !== "number" ||
+        typeof endIndex !== "number"
+    ) {
+        return false;
+    }
+
+    if (beginIndex < 0 || endIndex < 0 || endIndex < beginIndex) {
+        return false;
+    }
+
+    const beginStatement = statements[beginIndex];
+    const endStatement = statements[endIndex];
+
+    if (!isVertexFormatBeginCall(beginStatement)) {
+        return false;
+    }
+
+    if (!isCallExpressionStatementWithName(endStatement, "vertex_format_end")) {
+        return false;
+    }
+
+    if (hasVertexAdd) {
+        return false;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: getCallExpressionCalleeName(beginStatement) ?? null,
+        range: createRangeFromNodes(beginStatement, endStatement)
+    });
+
+    if (!fixDetail) {
+        return false;
+    }
+
+    statements.splice(endIndex, 1);
+    statements.splice(beginIndex, 1);
 
     if (Array.isArray(fixes)) {
         fixes.push(fixDetail);
@@ -15168,7 +15285,7 @@ function suppressDuplicateVertexFormatComments(ast, commentTargets, node) {
         return;
     }
 
-    const comments = Array.isArray(ast.comments) ? ast.comments : [];
+    const comments = asArray(ast.comments);
 
     if (comments.length === 0) {
         return;

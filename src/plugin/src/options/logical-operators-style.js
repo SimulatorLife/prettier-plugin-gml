@@ -1,4 +1,4 @@
-import { normalizeEnumeratedOption } from "../../../shared/enumerated-option-utils.js";
+import { normalizeEnumeratedOption } from "../shared/enumerated-option-utils.js";
 
 const LogicalOperatorsStyle = Object.freeze({
     KEYWORDS: "keywords",
