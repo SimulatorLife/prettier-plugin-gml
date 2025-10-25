@@ -232,30 +232,34 @@ export function print(path, options, print) {
                     ? path.getParentNode()
                     : null;
 
-            if (parentNode?.type === "ConstructorDeclaration") {
-                const { originalText, locStart } =
-                    resolvePrinterSourceMetadata(options);
-                if (originalText !== null) {
-                    const firstStatement = node.body[0];
-                    const startProp = firstStatement?.start;
-                    const fallbackStart =
-                        typeof startProp === "number"
-                            ? startProp
-                            : typeof startProp?.index === "number"
-                              ? startProp.index
-                              : 0;
-                    const firstStatementStartIndex = locStart
-                        ? locStart(firstStatement)
-                        : fallbackStart;
+            const { originalText, locStart } =
+                resolvePrinterSourceMetadata(options);
 
-                    if (
-                        isPreviousLineEmpty(
-                            originalText,
-                            firstStatementStartIndex
-                        )
-                    ) {
-                        leadingDocs.push(lineSuffixBoundary, hardline);
-                    }
+            let hasExplicitLeadingBlankLine = false;
+            if (originalText !== null) {
+                const firstStatement = node.body[0];
+                const startProp = firstStatement?.start;
+                const fallbackStart =
+                    typeof startProp === "number"
+                        ? startProp
+                        : typeof startProp?.index === "number"
+                          ? startProp.index
+                          : 0;
+                const firstStatementStartIndex = locStart
+                    ? locStart(firstStatement)
+                    : fallbackStart;
+
+                hasExplicitLeadingBlankLine = isPreviousLineEmpty(
+                    originalText,
+                    firstStatementStartIndex
+                );
+            }
+
+            if (hasExplicitLeadingBlankLine) {
+                if (parentNode?.type === "ConstructorDeclaration") {
+                    leadingDocs.push(lineSuffixBoundary, hardline);
+                } else {
+                    leadingDocs.push(hardline);
                 }
             }
 
