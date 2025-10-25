@@ -282,26 +282,24 @@ export function incrementMapValue(
     amount = 1,
     { fallback = 0 } = {}
 ) {
-    const { get, set } = store ?? {};
-
-    if (typeof get !== "function" || typeof set !== "function") {
+    if (
+        !store ||
+        typeof store.get !== "function" ||
+        typeof store.set !== "function"
+    ) {
         throw new TypeError("store must provide get and set functions");
     }
 
-    const numericAmount = Number(amount);
-    const delta = Number.isFinite(numericAmount) ? numericAmount : 0;
-
-    const current = get.call(store, key);
-    const numericCurrent = Number(current);
-    const numericFallback = Number(fallback);
-
-    const base = Number.isFinite(numericCurrent)
-        ? numericCurrent
-        : Number.isFinite(numericFallback)
-          ? numericFallback
-          : 0;
+    const delta = toFiniteNumber(amount) ?? 0;
+    const base =
+        toFiniteNumber(store.get(key)) ?? toFiniteNumber(fallback) ?? 0;
 
     const next = base + delta;
-    set.call(store, key, next);
+    store.set(key, next);
     return next;
+}
+
+function toFiniteNumber(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
 }
