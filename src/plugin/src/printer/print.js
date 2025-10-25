@@ -3508,14 +3508,29 @@ function mergeSyntheticDocComments(
     }
 
     const paramLineIndices = new Map();
+    const orderedParamLineIndices = [];
     for (const [index, line] of mergedLines.entries()) {
         if (!isParamLine(line)) {
             continue;
         }
 
+        orderedParamLineIndices.push(index);
+
         const canonical = getParamCanonicalName(line);
         if (canonical) {
             paramLineIndices.set(canonical, index);
+        }
+    }
+    const usedParamLineIndices = new Set();
+
+    const implicitEntriesForMerge =
+        node?.type === "FunctionDeclaration"
+            ? collectImplicitArgumentDocNames(node, options)
+            : [];
+    const implicitEntryByCanonical = new Map();
+    for (const entry of implicitEntriesForMerge) {
+        if (entry?.canonical) {
+            implicitEntryByCanonical.set(entry.canonical, entry);
         }
     }
 
@@ -3525,6 +3540,20 @@ function mergeSyntheticDocComments(
         for (const line of otherLines) {
             const metadata = parseDocCommentMetadata(line);
             const canonical = getParamCanonicalName(line, metadata);
+            const implicitEntry =
+                canonical && implicitEntryByCanonical.has(canonical)
+                    ? implicitEntryByCanonical.get(canonical)
+                    : null;
+
+            if (
+                implicitEntry &&
+                implicitEntry.canonical === implicitEntry.fallbackCanonical &&
+                Array.isArray(node?.params) &&
+                node.params.length > 0 &&
+                paramLineIndices.size >= node.params.length
+            ) {
+                continue;
+            }
 
             if (
                 canonical &&
@@ -3542,6 +3571,47 @@ function mergeSyntheticDocComments(
                     mergedLines[lineIndex] = updatedLine;
                     removedAnyLine = true;
                 }
+                usedParamLineIndices.add(lineIndex);
+                continue;
+            }
+
+            if (
+                metadata?.tag === "param" &&
+                typeof metadata?.name === "string" &&
+                metadata.name.length > 0 &&
+                !/^\s*argument\d+\s*$/i.test(metadata.name) &&
+                Array.isArray(node?.params) &&
+                node.params.length > 0 &&
+                paramLineIndices.size >= node.params.length &&
+                implicitEntry?.hasDirectReference !== true
+            ) {
+                const fallbackLineIndex =
+                    orderedParamLineIndices.find(
+                        (idx) => !usedParamLineIndices.has(idx)
+                    ) ?? null;
+
+                if (fallbackLineIndex !== null) {
+                    const existingLine = mergedLines[fallbackLineIndex];
+                    const updatedLine = updateParamLineWithDocName(
+                        existingLine,
+                        metadata.name
+                    );
+
+                    if (updatedLine !== existingLine) {
+                        mergedLines[fallbackLineIndex] = updatedLine;
+                        removedAnyLine = true;
+                    }
+                    usedParamLineIndices.add(fallbackLineIndex);
+                    continue;
+                }
+            }
+
+            if (
+                implicitEntry?.hasDirectReference === true &&
+                Array.isArray(node?.params) &&
+                node.params.length > 0 &&
+                paramLineIndices.size >= node.params.length
+            ) {
                 continue;
             }
 
@@ -4855,7 +4925,8 @@ function computeSyntheticFunctionDocLines(
         const ordinalDocName =
             hasCompleteOrdinalDocs &&
             (!existingDocName || existingDocName.length === 0) &&
-            shouldAdoptOrdinalName
+            rawOrdinalName &&
+            (shouldAdoptOrdinalName || canonicalParamName === null)
                 ? rawOrdinalName
                 : null;
         let effectiveImplicitName = implicitName;

@@ -170,6 +170,15 @@ test("retains existing parameter names when docs reference other names", async (
     );
 });
 
+const SOURCE_WITH_STRUCT_ALIAS = `/// @param sprite_index
+/// @param fx_x
+function create(sprite, fx_x) {
+    return {
+        sprite_index : sprite,
+        fx_x         : fx_x
+    };
+}`;
+
 test("normalizes doc comments that reference renamed parameters", async () => {
     const formatted = await prettier.format(SOURCE_WITH_DOC_MISMATCH, {
         parser: "gml-parse",
@@ -189,5 +198,24 @@ test("normalizes doc comments that reference renamed parameters", async () => {
     assert.ok(
         !formatted.includes("sprite_index"),
         "Expected stale doc comment names to be replaced."
+    );
+});
+
+test("renames outdated doc param aliases when struct properties capture arguments", async () => {
+    const formatted = await prettier.format(SOURCE_WITH_STRUCT_ALIAS, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    assert.match(
+        formatted,
+        /\/\/\/ @param sprite\s*\n\/\/\/ @param fx_x/,
+        "Expected doc comment to reference the parameter name instead of the struct property."
+    );
+
+    assert.doesNotMatch(
+        formatted,
+        /@param sprite_index/,
+        "Expected outdated parameter aliases to be replaced."
     );
 });
