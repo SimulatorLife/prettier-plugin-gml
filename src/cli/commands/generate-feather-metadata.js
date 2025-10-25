@@ -11,7 +11,10 @@ import {
 } from "../shared/dependencies.js";
 import { CliUsageError } from "../core/errors.js";
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
-import { timeSync, createVerboseDurationLogger } from "../shared/time-utils.js";
+import {
+    timeSync,
+    createVerboseDurationLogger
+} from "../../shared/reporting.js";
 import {
     disposeProgressBars,
     withProgressBarCleanup
