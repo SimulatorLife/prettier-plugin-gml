@@ -1437,7 +1437,7 @@ function getFeatherCommentCallText(node) {
 
     const args = getCallExpressionArguments(node);
 
-    if (!Array.isArray(args) || args.length === 0) {
+    if (!isNonEmptyArray(args)) {
         return `${calleeName}()`;
     }
 
@@ -2918,7 +2918,7 @@ function getNodeEndIndexForAlignment(node, locEnd) {
 
 function collectSyntheticDocCommentLines(node, options) {
     const rawComments = getCommentArray(node);
-    if (!Array.isArray(rawComments) || rawComments.length === 0) {
+    if (!isNonEmptyArray(rawComments)) {
         return {
             existingDocLines: [],
             remainingComments: Array.isArray(rawComments) ? rawComments : []
@@ -5466,7 +5466,7 @@ function structLiteralHasLeadingLineBreak(node, options) {
         return false;
     }
 
-    if (!Array.isArray(node.properties) || node.properties.length === 0) {
+    if (!isNonEmptyArray(node.properties)) {
         return false;
     }
 
