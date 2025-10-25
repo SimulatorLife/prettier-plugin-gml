@@ -1,1 +1,1 @@
-export * from "../../shared/dependencies.js";
+export * from "../dependencies.js";
