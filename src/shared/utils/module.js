@@ -1,3 +1,6 @@
+import { getErrorMessage, isErrorWithCode } from "./error.js";
+import { assertNonEmptyString } from "./string.js";
+
 /**
  * Normalize dynamically imported modules to their default export when
  * available. Centralizes the optional chaining scattered across CLI entry
@@ -25,4 +28,36 @@ export function resolveModuleDefaultExport(module) {
     }
 
     return defaultExport;
+}
+
+/**
+ * Determine whether an error corresponds to a missing module dependency for
+ * {@link moduleId}. Centralizes the defensive guard shared by dynamic import
+ * call sites so fallback behaviour stays consistent across the CLI.
+ *
+ * @param {unknown} error Value thrown from a dynamic import.
+ * @param {string} moduleId Module identifier expected in the error message.
+ * @returns {boolean} `true` when the error matches the missing module.
+ */
+export function isMissingModuleDependency(error, moduleId) {
+    if (!isErrorWithCode(error, "ERR_MODULE_NOT_FOUND")) {
+        return false;
+    }
+
+    const normalizedModuleId = assertNonEmptyString(moduleId, {
+        name: "moduleId",
+        trim: true
+    });
+
+    const message = getErrorMessage(error, { fallback: "" });
+    if (message.length === 0) {
+        return false;
+    }
+
+    const quotedIdentifiers = [
+        `'${normalizedModuleId}'`,
+        `"${normalizedModuleId}"`
+    ];
+
+    return quotedIdentifiers.some((identifier) => message.includes(identifier));
 }

@@ -35,6 +35,7 @@ import {
     getErrorMessage,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
+    isMissingModuleDependency,
     isErrorWithCode,
     mergeUniqueValues,
     normalizeEnumeratedOption,
@@ -174,12 +175,7 @@ function describeIgnoreSource(ignorePaths) {
 }
 
 function isMissingPrettierDependency(error) {
-    if (!isErrorWithCode(error, "ERR_MODULE_NOT_FOUND")) {
-        return false;
-    }
-
-    const message = getErrorMessage(error, { fallback: "" });
-    return message.includes("'prettier'");
+    return isMissingModuleDependency(error, "prettier");
 }
 
 let prettierModulePromise = null;
