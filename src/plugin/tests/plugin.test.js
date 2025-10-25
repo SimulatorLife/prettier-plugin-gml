@@ -359,6 +359,30 @@ describe("Prettier GameMaker plugin fixtures", () => {
         assert.strictEqual(formatted, expected);
     });
 
+    it("omits redundant guard parentheses when condensing argument_count fallbacks", async () => {
+        const source = [
+            "function example() {",
+            "    var push_out = true;",
+            "    if (argument_count > 0)",
+            "        push_out = argument[0];",
+            "    return push_out;",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await formatWithPlugin(source);
+
+        assert.match(
+            formatted,
+            /var push_out = \(argument_count > 0 \? argument\[0\] : true\);/,
+            "Expected the condensed fallback to exclude redundant guard parentheses."
+        );
+        assert.ok(
+            !formatted.includes("((argument_count > 0) ?"),
+            "Expected the condensed fallback to avoid nested guard parentheses."
+        );
+    });
+
     it("converts argument_count equality fallbacks into default parameters", async () => {
         const source = [
             "function equalityExample(arg) {",
