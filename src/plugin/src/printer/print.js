@@ -144,6 +144,22 @@ function macroTextHasExplicitTrailingBlankLine(text) {
     return (newlineMatches?.length ?? 0) >= 2;
 }
 
+function callPathMethod(path, methodName, { args, defaultValue } = {}) {
+    if (!path) {
+        return defaultValue;
+    }
+
+    const method = path[methodName];
+    if (typeof method !== "function") {
+        return defaultValue;
+    }
+
+    const normalizedArgs =
+        args === undefined ? [] : Array.isArray(args) ? args : [args];
+
+    return method.apply(path, normalizedArgs);
+}
+
 const BINARY_OPERATOR_INFO = new Map([
     ["*", { precedence: 13, associativity: "left" }],
     ["/", { precedence: 13, associativity: "left" }],
@@ -231,10 +247,9 @@ export function print(path, options, print) {
                 leadingDocs = [hardline, hardline];
             }
 
-            const parentNode =
-                typeof path.getParentNode === "function"
-                    ? path.getParentNode()
-                    : null;
+            const parentNode = callPathMethod(path, "getParentNode", {
+                defaultValue: null
+            });
 
             if (parentNode?.type === "ConstructorDeclaration") {
                 const { originalText, locStart } =
@@ -2730,24 +2745,20 @@ function isFunctionLikeDeclaration(node) {
 }
 
 function isPathInsideFunctionBody(path, childrenAttribute) {
-    if (
-        !path ||
-        typeof path.getParentNode !== "function" ||
-        typeof path.getValue !== "function"
-    ) {
-        return false;
-    }
-
     if (childrenAttribute !== "body") {
         return false;
     }
 
-    const containerNode = path.getValue();
+    const containerNode = callPathMethod(path, "getValue", {
+        defaultValue: null
+    });
     if (!containerNode || containerNode.type !== "BlockStatement") {
         return false;
     }
 
-    const parentNode = path.getParentNode();
+    const parentNode = callPathMethod(path, "getParentNode", {
+        defaultValue: null
+    });
     if (!parentNode || typeof parentNode.type !== "string") {
         return false;
     }
@@ -5482,7 +5493,7 @@ function shouldPreserveCompactUpdateAssignmentSpacing(path, options) {
         return false;
     }
 
-    if (typeof path.getName !== "function" || path.getName() !== "update") {
+    if (callPathMethod(path, "getName") !== "update") {
         return false;
     }
 
@@ -6390,11 +6401,7 @@ function getBinaryOperatorInfo(operator) {
 }
 
 function shouldOmitSyntheticParens(path) {
-    if (!path || typeof path.getValue !== "function") {
-        return false;
-    }
-
-    const node = path.getValue();
+    const node = callPathMethod(path, "getValue", { defaultValue: null });
     if (!node || node.type !== "ParenthesizedExpression") {
         return false;
     }
@@ -6402,11 +6409,9 @@ function shouldOmitSyntheticParens(path) {
     // Only process synthetic parentheses for most cases
     const isSynthetic = node.synthetic === true;
 
-    if (typeof path.getParentNode !== "function") {
-        return false;
-    }
-
-    const parent = path.getParentNode();
+    const parent = callPathMethod(path, "getParentNode", {
+        defaultValue: null
+    });
     if (!parent) {
         return false;
     }
@@ -6416,8 +6421,7 @@ function shouldOmitSyntheticParens(path) {
     // For ternary expressions, omit unnecessary parentheses around simple
     // identifiers or member expressions in the test position
     if (parent.type === "TernaryExpression") {
-        const parentKey =
-            typeof path.getName === "function" ? path.getName() : undefined;
+        const parentKey = callPathMethod(path, "getName");
         if (parentKey === "test") {
             const expression = node.expression;
             // Trim redundant parentheses when the ternary guard is just a bare
@@ -6625,11 +6629,9 @@ function isControlFlowLogicalTest(path) {
 }
 
 function shouldWrapTernaryExpression(path) {
-    if (!path || typeof path.getParentNode !== "function") {
-        return false;
-    }
-
-    const parent = path.getParentNode();
+    const parent = callPathMethod(path, "getParentNode", {
+        defaultValue: null
+    });
     if (!parent) {
         return false;
     }
@@ -6638,8 +6640,7 @@ function shouldWrapTernaryExpression(path) {
         return false;
     }
 
-    const parentKey =
-        typeof path.getName === "function" ? path.getName() : undefined;
+    const parentKey = callPathMethod(path, "getName");
 
     if (parent.type === "VariableDeclarator" && parentKey === "init") {
         return true;
@@ -6718,8 +6719,7 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
         }
     }
 
-    const operandName =
-        typeof path.getName === "function" ? path.getName() : undefined;
+    const operandName = callPathMethod(path, "getName");
     const isLeftOperand = operandName === "left";
     const isRightOperand = operandName === "right";
 
@@ -6764,14 +6764,12 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
 }
 
 function isSyntheticParenFlatteningEnabled(path) {
-    if (!path || typeof path.getParentNode !== "function") {
-        return false;
-    }
-
     let depth = 1;
     while (true) {
-        const ancestor =
-            depth === 1 ? path.getParentNode() : path.getParentNode(depth - 1);
+        const ancestor = callPathMethod(path, "getParentNode", {
+            args: depth === 1 ? [] : [depth - 1],
+            defaultValue: null
+        });
 
         if (!ancestor) {
             return false;
@@ -6793,17 +6791,14 @@ function isSyntheticParenFlatteningEnabled(path) {
 }
 
 function isWithinNumericCallArgument(path) {
-    if (!path || typeof path.getParentNode !== "function") {
-        return false;
-    }
-
     let depth = 1;
-    let currentNode =
-        typeof path.getValue === "function" ? path.getValue() : null;
+    let currentNode = callPathMethod(path, "getValue", { defaultValue: null });
 
     while (true) {
-        const ancestor =
-            depth === 1 ? path.getParentNode() : path.getParentNode(depth - 1);
+        const ancestor = callPathMethod(path, "getParentNode", {
+            args: depth === 1 ? [] : [depth - 1],
+            defaultValue: null
+        });
 
         if (!ancestor) {
             return false;
@@ -6832,14 +6827,12 @@ function isWithinNumericCallArgument(path) {
 const NUMERIC_CALL_IDENTIFIERS = new Set(["sqr", "sqrt"]);
 
 function getSanitizedMacroNames(path) {
-    if (!path || typeof path.getParentNode !== "function") {
-        return null;
-    }
-
     let depth = 1;
     while (true) {
-        const ancestor =
-            depth === 1 ? path.getParentNode() : path.getParentNode(depth - 1);
+        const ancestor = callPathMethod(path, "getParentNode", {
+            args: depth === 1 ? [] : [depth - 1],
+            defaultValue: null
+        });
 
         if (!ancestor) {
             return null;
