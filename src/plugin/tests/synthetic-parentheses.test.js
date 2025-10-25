@@ -105,6 +105,23 @@ test("flattens numeric multiplication groups inside addition chains", async () =
     );
 });
 
+test("flattens numeric multiplication groups outside call arguments", async () => {
+    const source = ["var actual_dist = xoff * xoff + yoff * yoff;", ""].join(
+        "\n"
+    );
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    assert.strictEqual(
+        formatted.trim(),
+        "var actual_dist = xoff * xoff + yoff * yoff;",
+        "Expected multiplication groups outside call arguments to omit redundant synthetic parentheses."
+    );
+});
+
 test("preserves chains of sqr calls without additional parentheses", async () => {
     const source = ["var ll = sqr(dx) + sqr(dy) + sqr(dz);", ""].join("\n");
 
