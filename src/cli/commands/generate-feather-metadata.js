@@ -40,6 +40,31 @@ import { createManualAccessContexts } from "../features/manual/context.js";
 
 /** @typedef {ReturnType<typeof resolveManualCommandOptions>} ManualCommandOptions */
 
+const ENVIRONMENT_VARIABLE_HELP_ENTRIES = [
+    [MANUAL_REPO_ENV_VAR, "Override the manual repository (owner/name)."],
+    [
+        MANUAL_CACHE_ROOT_ENV_VAR,
+        "Override the cache directory for manual artefacts."
+    ],
+    [
+        MANUAL_REF_ENV_VAR,
+        "Set the default manual ref (tag, branch, or commit)."
+    ],
+    [PROGRESS_BAR_WIDTH_ENV_VAR, "Override the progress bar width."]
+];
+
+function formatEnvironmentVariableHelp(entries) {
+    const labelWidth = entries.reduce(
+        (max, [name]) => Math.max(max, name.length),
+        0
+    );
+
+    return entries.map(([name, description]) => {
+        const paddedName = name.padEnd(labelWidth);
+        return `  ${paddedName}  ${description}`;
+    });
+}
+
 const {
     environment: {
         repoRoot: REPO_ROOT,
@@ -91,16 +116,13 @@ export function createFeatherMetadataCommand({ env = process.env } = {}) {
         quietDescription: "Suppress progress output (useful in CI)."
     });
 
+    const environmentVariableHelp = formatEnvironmentVariableHelp(
+        ENVIRONMENT_VARIABLE_HELP_ENTRIES
+    );
+
     command.addHelpText(
         "after",
-        [
-            "",
-            "Environment variables:",
-            `  ${MANUAL_REPO_ENV_VAR}    Override the manual repository (owner/name).`,
-            `  ${MANUAL_CACHE_ROOT_ENV_VAR}  Override the cache directory for manual artefacts.`,
-            `  ${MANUAL_REF_ENV_VAR}          Set the default manual ref (tag, branch, or commit).`,
-            `  ${PROGRESS_BAR_WIDTH_ENV_VAR}     Override the progress bar width.`
-        ].join("\n")
+        ["", "Environment variables:", ...environmentVariableHelp].join("\n")
     );
 
     applyManualEnvOptionOverrides({
