@@ -81,7 +81,11 @@ const SUMMARY_SECTIONS = Object.freeze([
  */
 
 function isIterable(value) {
-    return value != null && typeof value[Symbol.iterator] === "function";
+    return (
+        value !== null &&
+        value !== undefined &&
+        typeof value[Symbol.iterator] === "function"
+    );
 }
 
 function normalizeCacheKeys(keys) {
