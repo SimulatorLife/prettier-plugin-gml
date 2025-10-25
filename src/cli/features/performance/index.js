@@ -11,7 +11,7 @@ import { applyStandardCommandOptions } from "../../core/command-standard-options
 import { createCliErrorDetails } from "../../core/errors.js";
 import { wrapInvalidArgumentResolver } from "../../core/command-parsing.js";
 import { resolvePluginEntryPoint } from "../../plugin/entry-point.js";
-import { formatByteSize } from "../../shared/byte-format.js";
+import { formatByteSize } from "../../runtime-options/byte-format.js";
 import {
     SuiteOutputFormat,
     resolveSuiteOutputFormatOrThrow,

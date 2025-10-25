@@ -1,4 +1,4 @@
-import { coerceNonNegativeInteger } from "./dependencies.js";
+import { coerceNonNegativeInteger } from "../shared/dependencies.js";
 import { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
 
 export const DEFAULT_VM_EVAL_TIMEOUT_MS = 5000;
