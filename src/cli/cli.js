@@ -32,6 +32,7 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError, Option } from "commander";
 
 import {
+    escapeRegExp,
     getErrorMessage,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
@@ -111,6 +112,14 @@ const IGNORE_PATH = path.resolve(WRAPPER_DIRECTORY, ".prettierignore");
 const INITIAL_WORKING_DIRECTORY = path.resolve(process.cwd());
 
 const FALLBACK_EXTENSIONS = Object.freeze([".gml"]);
+
+const EXTENSION_LIST_SEPARATORS = Array.from(
+    new Set([",", path.delimiter].filter(Boolean))
+);
+
+const EXTENSION_LIST_SPLIT_PATTERN = new RegExp(
+    `[${EXTENSION_LIST_SEPARATORS.map((separator) => escapeRegExp(separator)).join("")}\\s]+`
+);
 
 const ParseErrorAction = Object.freeze({
     REVERT: "revert",
@@ -235,7 +244,7 @@ function normalizeExtensions(
     const normalized = Array.from(
         new Set(
             normalizeStringList(rawExtensions, {
-                splitPattern: /,/,
+                splitPattern: EXTENSION_LIST_SPLIT_PATTERN,
                 allowInvalidType: true
             })
                 .map(coerceExtensionValue)
