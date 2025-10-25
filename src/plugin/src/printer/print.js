@@ -3927,13 +3927,58 @@ function mergeSyntheticDocComments(
         }
         const typePart =
             normalizedTypeSection.length > 0 ? `${normalizedTypeSection} ` : "";
-        const normalizedName = rawName.trim();
-        const remainderText = remainder.trim();
+        let normalizedName = rawName.trim();
+        let remainingRemainder = remainder;
+
+        if (
+            normalizedName.startsWith("[") &&
+            !normalizedName.endsWith("]") &&
+            typeof remainingRemainder === "string" &&
+            remainingRemainder.length > 0
+        ) {
+            let bracketBalance = 0;
+
+            for (const char of normalizedName) {
+                if (char === "[") {
+                    bracketBalance += 1;
+                } else if (char === "]") {
+                    bracketBalance -= 1;
+                }
+            }
+
+            if (bracketBalance > 0) {
+                let sliceIndex = 0;
+
+                while (
+                    sliceIndex < remainingRemainder.length &&
+                    bracketBalance > 0
+                ) {
+                    const char = remainingRemainder[sliceIndex];
+                    if (char === "[") {
+                        bracketBalance += 1;
+                    } else if (char === "]") {
+                        bracketBalance -= 1;
+                    }
+                    sliceIndex += 1;
+                }
+
+                if (bracketBalance <= 0) {
+                    const continuation = remainingRemainder.slice(
+                        0,
+                        sliceIndex
+                    );
+                    normalizedName = `${normalizedName}${continuation}`.trim();
+                    remainingRemainder = remainingRemainder.slice(sliceIndex);
+                }
+            }
+        }
+
+        const remainderText = remainingRemainder.trim();
         const hasDescription = remainderText.length > 0;
         let descriptionPart = "";
 
         if (hasDescription) {
-            const hyphenMatch = remainder.match(/^(\s*-\s*)(.*)$/);
+            const hyphenMatch = remainingRemainder.match(/^(\s*-\s*)(.*)$/);
             let normalizedDescription = "";
             let hyphenSpacing = " - ";
 
