@@ -319,7 +319,10 @@ nvm alias default node
   with `--ignored-directory-sample-limit` (alias
   `--ignored-directory-samples`) or the
   `PRETTIER_PLUGIN_GML_SKIPPED_DIRECTORY_SAMPLE_LIMIT` environment variable,
-  and trims unsupported-extension examples with
+  trims verbose ignored-file skip logs with
+  `--ignored-file-sample-limit` or
+  `PRETTIER_PLUGIN_GML_IGNORED_FILE_SAMPLE_LIMIT`, and trims
+  unsupported-extension examples with
   `--unsupported-extension-sample-limit` or
   `PRETTIER_PLUGIN_GML_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT`, explains when no
   files match the configured extensions, supports dry-run
@@ -478,6 +481,9 @@ without editing project scripts:
   `.prettierignore` entries. Combine with
   `--ignored-directory-sample-limit` (or `--ignored-directory-samples`) for
   per-run overrides.
+- `PRETTIER_PLUGIN_GML_IGNORED_FILE_SAMPLE_LIMIT` &mdash; Limits how many
+  ignored files appear in the inline skip logs and summary examples. Combine
+  with `--ignored-file-sample-limit` for per-run overrides.
 - `PRETTIER_PLUGIN_GML_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT` &mdash; Limits how many
   example files appear in the unsupported-extension summary. Pair with
   `--unsupported-extension-sample-limit` when tuning individual runs.
