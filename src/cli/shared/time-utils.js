@@ -31,7 +31,8 @@ export function formatDuration(startTime, now = Date.now) {
 export function createVerboseDurationLogger({
     verbose,
     formatMessage,
-    now = Date.now
+    now = Date.now,
+    logger = console
 } = {}) {
     const startTime = now();
 
@@ -46,7 +47,9 @@ export function createVerboseDurationLogger({
                 ? formatMessage(duration)
                 : (formatMessage ?? `Completed in ${duration}.`);
 
-        console.log(message);
+        if (typeof logger?.log === "function") {
+            logger.log(message);
+        }
     };
 }
 
@@ -61,15 +64,20 @@ export function createVerboseDurationLogger({
  *   Optional CLI verbose flags and clock override.
  * @returns {T} Whatever the callback returns.
  */
-export function timeSync(label, callback, { verbose, now } = {}) {
-    if (verbose?.parsing) {
-        console.log(`→ ${label}`);
+export function timeSync(
+    label,
+    callback,
+    { verbose, now, logger = console } = {}
+) {
+    if (verbose?.parsing && typeof logger?.log === "function") {
+        logger.log(`→ ${label}`);
     }
 
     const logCompletion = createVerboseDurationLogger({
         verbose,
         formatMessage: (duration) => `  ${label} completed in ${duration}.`,
-        now
+        now,
+        logger
     });
     const result = callback();
 

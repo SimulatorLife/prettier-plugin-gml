@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { escapeRegExp } from "../regexp.js";
+import { escapeRegExp } from "../utils/regexp.js";
 
 test("escapeRegExp escapes special characters", () => {
     assert.equal(escapeRegExp(".*?^${}"), String.raw`\.\*\?\^\$\{\}`);

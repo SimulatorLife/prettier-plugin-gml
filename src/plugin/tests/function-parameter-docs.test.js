@@ -191,3 +191,22 @@ test("normalizes doc comments that reference renamed parameters", async () => {
         "Expected stale doc comment names to be replaced."
     );
 });
+
+test("preserves doc comment types when renaming parameters", async () => {
+    const formatted = await prettier.format(
+        `/// @param {real} distance
+function spring(dst) {
+    return dst;
+}`,
+        {
+            parser: "gml-parse",
+            plugins: [pluginPath],
+            applyFeatherFixes: true
+        }
+    );
+
+    assert.ok(
+        formatted.includes("/// @param {real} dst"),
+        "Expected doc comment type annotations to be preserved after renaming."
+    );
+});

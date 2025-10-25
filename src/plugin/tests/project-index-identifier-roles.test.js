@@ -8,12 +8,12 @@ import {
 
 test("assertValidIdentifierRole accepts declared roles", () => {
     assert.equal(
-        assertValidIdentifierRole(IdentifierRole.Declaration),
-        IdentifierRole.Declaration
+        assertValidIdentifierRole(IdentifierRole.DECLARATION),
+        IdentifierRole.DECLARATION
     );
     assert.equal(
-        assertValidIdentifierRole(IdentifierRole.Reference),
-        IdentifierRole.Reference
+        assertValidIdentifierRole(IdentifierRole.REFERENCE),
+        IdentifierRole.REFERENCE
     );
 });
 

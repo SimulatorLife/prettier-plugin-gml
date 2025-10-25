@@ -1,7 +1,9 @@
 import path from "node:path";
 
-import { isNonEmptyString } from "../shared/string-utils.js";
-import { resolveContainedRelativePath } from "../shared/path-utils.js";
+import {
+    isNonEmptyString,
+    resolveContainedRelativePath
+} from "../shared/index.js";
 
 /**
  * Resolve high-level metadata about how {@link filePath} relates to

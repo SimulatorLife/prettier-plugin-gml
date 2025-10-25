@@ -28,22 +28,21 @@ import {
     normalizeDocCommentTypeAnnotations
 } from "../comments/line-comment-formatting.js";
 import { resolveLineCommentOptions } from "../options/line-comment-options.js";
-import { getCommentArray, isCommentNode } from "../shared/comments.js";
-import { coercePositiveIntegerOption } from "../shared/numeric-option-utils.js";
 import {
+    getCommentArray,
+    isCommentNode,
+    coercePositiveIntegerOption,
     getNonEmptyString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
-    toTrimmedString
-} from "../shared/string-utils.js";
-import { isNonEmptyArray, toMutableArray } from "../shared/array-utils.js";
-import { ensureSet } from "../shared/utils/capability-probes.js";
-import {
+    toTrimmedString,
+    isNonEmptyArray,
+    getNodeType,
+    toMutableArray,
+    ensureSet,
     getNodeStartIndex,
     getNodeEndIndex,
-    getNodeRangeIndices
-} from "../shared/ast-locations.js";
-import {
+    getNodeRangeIndices,
     getBodyStatements,
     getCallExpressionArguments,
     getIdentifierText,
@@ -52,7 +51,7 @@ import {
     isBooleanLiteral,
     isUndefinedLiteral,
     enqueueObjectChildValues
-} from "../shared/ast-node-helpers.js";
+} from "../shared/index.js";
 import { maybeReportIdentifierCaseDryRun } from "../identifier-case/identifier-case-report.js";
 import {
     getIdentifierCaseRenameForNode,
@@ -1439,7 +1438,7 @@ function getFeatherCommentCallText(node) {
 
     const args = getCallExpressionArguments(node);
 
-    if (!Array.isArray(args) || args.length === 0) {
+    if (!isNonEmptyArray(args)) {
         return `${calleeName}()`;
     }
 
@@ -1889,7 +1888,7 @@ function printElements(
                     itemsSinceLastBreak >= maxElementsPerLine;
 
                 if (shouldBreakAfter) {
-                    parts.push(lineBreak);
+                    parts.push(hardline);
                     itemsSinceLastBreak = 0;
                 } else {
                     parts.push(" ");
@@ -1904,14 +1903,15 @@ function printElements(
 }
 
 function isComplexArgumentNode(node) {
-    if (!node || typeof node.type !== "string") {
+    const nodeType = getNodeType(node);
+    if (!nodeType) {
         return false;
     }
 
     return (
-        node.type === "CallExpression" ||
-        node.type === "FunctionDeclaration" ||
-        node.type === "StructExpression"
+        nodeType === "CallExpression" ||
+        nodeType === "FunctionDeclaration" ||
+        nodeType === "StructExpression"
     );
 }
 
@@ -1926,7 +1926,8 @@ const SIMPLE_CALL_ARGUMENT_TYPES = new Set([
 ]);
 
 function isSimpleCallArgument(node) {
-    if (!node || typeof node.type !== "string") {
+    const nodeType = getNodeType(node);
+    if (!nodeType) {
         return false;
     }
 
@@ -1934,11 +1935,11 @@ function isSimpleCallArgument(node) {
         return false;
     }
 
-    if (SIMPLE_CALL_ARGUMENT_TYPES.has(node.type)) {
+    if (SIMPLE_CALL_ARGUMENT_TYPES.has(nodeType)) {
         return true;
     }
 
-    if (node.type === "Literal" && typeof node.value === "string") {
+    if (nodeType === "Literal" && typeof node.value === "string") {
         const literalValue = node.value.toLowerCase();
         if (literalValue === "undefined" || literalValue === "noone") {
             return true;
@@ -2068,15 +2069,16 @@ function getStructPropertyNameLength(property, options) {
 
 // variation of printElements that handles semicolons and line breaks in a program or block
 function isMacroLikeStatement(node) {
-    if (!node || typeof node.type !== "string") {
+    const nodeType = getNodeType(node);
+    if (!nodeType) {
         return false;
     }
 
-    if (node.type === "MacroDeclaration") {
+    if (nodeType === "MacroDeclaration") {
         return true;
     }
 
-    if (node.type === "DefineStatement") {
+    if (nodeType === "DefineStatement") {
         return getNormalizedDefineReplacementDirective(node) === "#macro";
     }
 
@@ -2920,7 +2922,7 @@ function getNodeEndIndexForAlignment(node, locEnd) {
 
 function collectSyntheticDocCommentLines(node, options) {
     const rawComments = getCommentArray(node);
-    if (!Array.isArray(rawComments) || rawComments.length === 0) {
+    if (!isNonEmptyArray(rawComments)) {
         return {
             existingDocLines: [],
             remainingComments: Array.isArray(rawComments) ? rawComments : []
@@ -4937,6 +4939,14 @@ function computeSyntheticFunctionDocLines(
         const docName =
             (shouldMarkOptional && `[${baseDocName}]`) || baseDocName;
 
+        const normalizedExistingType = normalizeParamDocType(
+            existingMetadata?.type
+        );
+        const normalizedOrdinalType = normalizeParamDocType(
+            ordinalMetadata?.type
+        );
+        const docType = normalizedExistingType ?? normalizedOrdinalType;
+
         if (documentedParamNames.has(docName)) {
             if (implicitDocEntry?.name) {
                 documentedParamNames.add(implicitDocEntry.name);
@@ -4947,7 +4957,9 @@ function computeSyntheticFunctionDocLines(
         if (implicitDocEntry?.name) {
             documentedParamNames.add(implicitDocEntry.name);
         }
-        lines.push(`/// @param ${docName}`);
+
+        const typePrefix = docType ? `{${docType}} ` : "";
+        lines.push(`/// @param ${typePrefix}${docName}`);
     }
 
     for (const entry of implicitArgumentDocNames) {
@@ -4978,6 +4990,15 @@ function computeSyntheticFunctionDocLines(
     return maybeAppendReturnsDoc(lines, node, hasReturnsTag, overrides).map(
         (line) => normalizeDocCommentTypeAnnotations(line)
     );
+}
+
+function normalizeParamDocType(typeText) {
+    if (typeof typeText !== "string") {
+        return null;
+    }
+
+    const trimmed = typeText.trim();
+    return trimmed.length > 0 ? trimmed : null;
 }
 
 function collectImplicitArgumentDocNames(functionNode, options) {
@@ -5277,11 +5298,13 @@ function parseDocCommentMetadata(line) {
 
     if (tag === "param") {
         let paramSection = remainder;
+        let type = null;
 
         if (paramSection.startsWith("{")) {
-            const typeMatch = paramSection.match(/^\{[^}]*\}\s*(.*)$/);
+            const typeMatch = paramSection.match(/^\{([^}]*)\}\s*(.*)$/);
             if (typeMatch) {
-                paramSection = typeMatch[1] ?? "";
+                type = typeMatch[1]?.trim() ?? null;
+                paramSection = typeMatch[2] ?? "";
             }
         }
 
@@ -5309,7 +5332,12 @@ function parseDocCommentMetadata(line) {
         if (typeof name === "string") {
             name = normalizeOptionalParamNameToken(name);
         }
-        return { tag, name };
+
+        return {
+            tag,
+            name,
+            type: type ?? null
+        };
     }
 
     return { tag, name: remainder };
@@ -5442,7 +5470,7 @@ function structLiteralHasLeadingLineBreak(node, options) {
         return false;
     }
 
-    if (!Array.isArray(node.properties) || node.properties.length === 0) {
+    if (!isNonEmptyArray(node.properties)) {
         return false;
     }
 
@@ -6334,6 +6362,8 @@ function shouldOmitSyntheticParens(path) {
         return false;
     }
 
+    const expression = node.expression;
+
     // For ternary expressions, omit unnecessary parentheses around simple
     // identifiers or member expressions in the test position
     if (parent.type === "TernaryExpression") {
@@ -6367,11 +6397,41 @@ function shouldOmitSyntheticParens(path) {
         return false;
     }
 
+    if (parent.type === "CallExpression") {
+        if (
+            !isSyntheticParenFlatteningEnabled(path) ||
+            !isNumericCallExpression(parent)
+        ) {
+            return false;
+        }
+
+        if (expression?.type !== "BinaryExpression") {
+            return false;
+        }
+
+        if (!isNumericComputationNode(expression)) {
+            return false;
+        }
+
+        if (binaryExpressionContainsString(expression)) {
+            return false;
+        }
+
+        const sanitizedMacroNames = getSanitizedMacroNames(path);
+        if (
+            sanitizedMacroNames &&
+            expressionReferencesSanitizedMacro(expression, sanitizedMacroNames)
+        ) {
+            return false;
+        }
+
+        return true;
+    }
+
     if (parent.type !== "BinaryExpression") {
         return false;
     }
 
-    const expression = node.expression;
     if (!isSyntheticParenFlatteningEnabled(path)) {
         return false;
     }
@@ -6402,18 +6462,24 @@ function shouldOmitSyntheticParens(path) {
                 return true;
             }
 
-            if (
-                (parent.operator === "+" || parent.operator === "-") &&
-                isArithmeticBinaryOperator(expression.operator) &&
-                expression.operator !== "+" &&
-                expression.operator !== "-" &&
-                isNumericComputationNode(parent) &&
-                isNumericComputationNode(expression)
-            ) {
-                const sanitizedMacroNames = getSanitizedMacroNames(path);
+            if (isNumericComputationNode(expression)) {
+                if (parent.operator === "+" || parent.operator === "-") {
+                    const childOperator = expression.operator;
 
-                if (
-                    !(
+                    if (
+                        childOperator === "/" ||
+                        childOperator === "div" ||
+                        childOperator === "%" ||
+                        childOperator === "mod" ||
+                        (childOperator === "*" &&
+                            !isWithinNumericCallArgument(path))
+                    ) {
+                        return false;
+                    }
+
+                    const sanitizedMacroNames = getSanitizedMacroNames(path);
+
+                    if (
                         sanitizedMacroNames &&
                         (expressionReferencesSanitizedMacro(
                             parent,
@@ -6423,17 +6489,16 @@ function shouldOmitSyntheticParens(path) {
                                 expression,
                                 sanitizedMacroNames
                             ))
-                    )
-                ) {
+                    ) {
+                        return false;
+                    }
+
                     return true;
                 }
-            }
 
-            if (
-                expression.operator === "*" &&
-                isNumericComputationNode(expression)
-            ) {
-                return false;
+                if (expression.operator === "*") {
+                    return false;
+                }
             }
         }
     }
@@ -6678,11 +6743,44 @@ function isSyntheticParenFlatteningEnabled(path) {
     }
 }
 
+function isWithinNumericCallArgument(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return false;
+    }
+
+    let depth = 1;
+    let currentNode =
+        typeof path.getValue === "function" ? path.getValue() : null;
+
+    while (true) {
+        const ancestor =
+            depth === 1 ? path.getParentNode() : path.getParentNode(depth - 1);
+
+        if (!ancestor) {
+            return false;
+        }
+
+        if (ancestor.type === "CallExpression") {
+            if (
+                Array.isArray(ancestor.arguments) &&
+                ancestor.arguments.includes(currentNode)
+            ) {
+                return isNumericCallExpression(ancestor);
+            }
+
+            return false;
+        }
+
+        currentNode = ancestor;
+        depth += 1;
+    }
+}
+
 // Synthetic parenthesis flattening only treats select call expressions as
 // numeric so we avoid unwrapping macro invocations that expand to complex
 // expressions. The list is intentionally small and can be extended as other
 // numeric helpers require the same treatment.
-const NUMERIC_CALL_IDENTIFIERS = new Set(["sqr"]);
+const NUMERIC_CALL_IDENTIFIERS = new Set(["sqr", "sqrt"]);
 
 function getSanitizedMacroNames(path) {
     if (!path || typeof path.getParentNode !== "function") {

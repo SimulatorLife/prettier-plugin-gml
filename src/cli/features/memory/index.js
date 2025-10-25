@@ -16,7 +16,8 @@ import {
     normalizeStringList,
     resolveModuleDefaultExport,
     parseJsonObjectWithContext,
-    splitLines
+    splitLines,
+    stringifyJsonForFile
 } from "../shared/dependencies.js";
 import { applyStandardCommandOptions } from "../../core/command-standard-options.js";
 import {
@@ -758,15 +759,36 @@ function createHumanReadableMemorySuiteLines({ suite, payload }) {
     return lines;
 }
 
-function createHumanReadableMemoryLines(results) {
-    const suites = Object.entries(results ?? {});
-    const lines = [...createHumanReadableMemoryHeader()];
+function resolveHumanReadableSuites(results) {
+    return Object.entries(results ?? {});
+}
+
+/**
+ * Expand each suite entry into the user-facing lines emitted for that suite.
+ */
+function collectHumanReadableSuiteLines(suites) {
+    const lines = [];
 
     for (const [suite, payload] of suites) {
         lines.push(...createHumanReadableMemorySuiteLines({ suite, payload }));
     }
 
     return lines;
+}
+
+function mergeHumanReadableSections({ headerLines, suiteLines }) {
+    return [...headerLines, ...suiteLines];
+}
+
+function createHumanReadableMemoryLines(results) {
+    const suites = resolveHumanReadableSuites(results);
+    const headerLines = createHumanReadableMemoryHeader();
+    const suiteLines = collectHumanReadableSuiteLines(suites);
+
+    return mergeHumanReadableSections({
+        headerLines,
+        suiteLines
+    });
 }
 
 function printHumanReadable(results) {
@@ -834,7 +856,7 @@ export async function runMemoryCli({
         command,
         onResults: async ({ payload }) => {
             await ensureDir(resolvedReportDir);
-            const reportContents = `${JSON.stringify(payload, null, 2)}\n`;
+            const reportContents = stringifyJsonForFile(payload, { space: 2 });
             await effectiveWriteFile(reportPath, reportContents, "utf8");
         }
     });

@@ -6,7 +6,9 @@ import { CliUsageError, createCliErrorDetails } from "./errors.js";
 import {
     normalizeEnumeratedOption,
     isNonEmptyArray,
-    toMutableArray
+    resolveCommandUsage,
+    toMutableArray,
+    stringifyJsonForFile
 } from "../shared/dependencies.js";
 
 export const SuiteOutputFormat = Object.freeze({
@@ -89,41 +91,12 @@ export function ensureSuitesAreKnown(suiteNames, availableSuites, command) {
         return;
     }
 
-    const usage =
-        typeof command?.helpInformation === "function"
-            ? command.helpInformation()
-            : undefined;
+    const usage = resolveCommandUsage(command);
 
     throw new CliUsageError(
         `Unknown suite${unknownSuites.length === 1 ? "" : "s"}: ${unknownSuites.join(", ")}.`,
         { usage }
     );
-}
-
-/**
- * Create the mutable container used to accumulate suite results.
- */
-function createSuiteResultContainer() {
-    return {};
-}
-
-/**
- * Record the resolved payload for a suite inside the shared container.
- */
-function assignSuiteResult(container, suiteName, payload) {
-    container[suiteName] = payload;
-}
-
-/**
- * Resolve a callable suite runner from the registry.
- */
-function resolveSuiteRunner(availableSuites, suiteName) {
-    if (!availableSuites || typeof availableSuites.get !== "function") {
-        return null;
-    }
-
-    const runner = availableSuites.get(suiteName);
-    return typeof runner === "function" ? runner : null;
 }
 
 /**
@@ -174,11 +147,11 @@ export async function collectSuiteResults({
         return {};
     }
 
-    const results = createSuiteResultContainer();
+    const results = {};
 
     for (const suiteName of suiteNames) {
-        const runner = resolveSuiteRunner(availableSuites, suiteName);
-        if (!runner) {
+        const runner = availableSuites.get(suiteName);
+        if (typeof runner !== "function") {
             continue;
         }
 
@@ -189,7 +162,7 @@ export async function collectSuiteResults({
             onError
         });
 
-        assignSuiteResult(results, suiteName, suiteResult);
+        results[suiteName] = suiteResult;
     }
 
     return results;
@@ -237,6 +210,7 @@ export function emitSuiteResults(
             ? extras.payload
             : createSuiteResultsPayload(results);
     const spacing = pretty ? 2 : 0;
-    process.stdout.write(`${JSON.stringify(payload, null, spacing)}\n`);
+    const serialized = stringifyJsonForFile(payload, { space: spacing });
+    process.stdout.write(serialized);
     return true;
 }

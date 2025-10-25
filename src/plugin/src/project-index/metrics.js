@@ -1,24 +1,28 @@
 import { createMetricsTracker } from "../reporting.js";
 
 const PROJECT_INDEX_METRICS_CATEGORY = "project-index";
-const REQUIRED_METRIC_METHODS = [
-    "startTimer",
-    "timeAsync",
-    "timeSync",
-    "incrementCounter",
-    "setMetadata",
-    "recordCacheHit",
-    "recordCacheMiss",
-    "recordCacheStale",
-    "finalize"
-];
+const REQUIRED_METRIC_GROUPS = Object.freeze({
+    timers: ["startTimer", "timeAsync", "timeSync"],
+    counters: ["increment"],
+    caches: ["recordHit", "recordMiss", "recordStale", "recordMetric"],
+    reporting: ["snapshot", "finalize", "setMetadata", "logSummary"]
+});
+
+function hasMetricGroup(candidate, groupName, methodNames) {
+    const group = candidate?.[groupName];
+    return (
+        group &&
+        typeof group === "object" &&
+        methodNames.every((method) => typeof group[method] === "function")
+    );
+}
 
 function isMetricsTracker(candidate) {
     return (
         candidate &&
         typeof candidate === "object" &&
-        REQUIRED_METRIC_METHODS.every(
-            (method) => typeof candidate[method] === "function"
+        Object.entries(REQUIRED_METRIC_GROUPS).every(([groupName, methods]) =>
+            hasMetricGroup(candidate, groupName, methods)
         )
     );
 }
@@ -48,30 +52,36 @@ const noop = () => {};
 // out. Dropping the callbacks or returning nullish sentinels would short-circuit
 // the timing wrappers and hang cache invalidation waits, while omitting
 // `snapshot`/`finalize` would crash cache writers that persist the metrics
-// summary on shutdown. Maintaining a "no-op" façade that mirrors
-// `createMetricsTracker` keeps the asynchronous contract intact so CLI runs
-// continue to log timings and long-lived integrations remain resilient even
-// when a custom tracker regresses. Altering this guardrail would ripple through
-// every state transition that depends on metrics-driven heuristics, so the
-// shim must behave like the real tracker apart from discarding the results.
-const NOOP_METRIC_METHODS = Object.freeze({
-    startTimer: () => () => {},
-    timeAsync: async (_label, callback) => await callback(),
-    timeSync: (_label, callback) => callback(),
-    snapshot: createMetricsSnapshot,
-    finalize: createMetricsSnapshot,
-    incrementCounter: noop,
-    setMetadata: noop,
-    recordCacheHit: noop,
-    recordCacheMiss: noop,
-    recordCacheStale: noop,
-    logSummary: noop
+// summary. Keeping these fallbacks wired like the real implementation protects
+// both the CLI (which logs metrics after each run) and long-lived integrations
+// that rely on the tracker contract remaining stable even when misconfigured.
+const NOOP_METRIC_GROUPS = Object.freeze({
+    timers: Object.freeze({
+        startTimer: () => () => {},
+        timeAsync: async (_label, callback) => await callback(),
+        timeSync: (_label, callback) => callback()
+    }),
+    counters: Object.freeze({
+        increment: noop
+    }),
+    caches: Object.freeze({
+        recordHit: noop,
+        recordMiss: noop,
+        recordStale: noop,
+        recordMetric: noop
+    }),
+    reporting: Object.freeze({
+        snapshot: createMetricsSnapshot,
+        finalize: createMetricsSnapshot,
+        setMetadata: noop,
+        logSummary: noop
+    })
 });
 
 function createNoopProjectIndexMetrics() {
     return {
         category: PROJECT_INDEX_METRICS_CATEGORY,
-        ...NOOP_METRIC_METHODS
+        ...NOOP_METRIC_GROUPS
     };
 }
 
@@ -98,5 +108,5 @@ export function finalizeProjectIndexMetrics(metrics) {
         return null;
     }
 
-    return metrics.finalize();
+    return metrics.reporting.finalize();
 }

@@ -13,8 +13,10 @@ import {
 } from "../shared/progress-bar.js";
 import {
     assertFunction,
+    asArray,
     hasOwn,
-    isNonEmptyString
+    isNonEmptyString,
+    resolveCommandUsage
 } from "../shared/dependencies.js";
 
 function resolveDefaultValue(option, name, fallback) {
@@ -210,7 +212,7 @@ export function applySharedManualCommandOptions(
         cacheOption && (() => configurePathOption(command, cacheOption))
     );
 
-    const preferredOrder = Array.isArray(optionOrder) ? optionOrder : [];
+    const preferredOrder = asArray(optionOrder);
     const ordering = new Set([
         ...preferredOrder,
         ...DEFAULT_OPTION_ORDER,
@@ -270,10 +272,7 @@ export function resolveManualCommandOptions(
             options.progressBarWidth ?? getDefaultProgressBarWidth(),
         cacheRoot: options.cacheRoot ?? cacheRootFallback,
         manualRepo: options.manualRepo ?? manualRepoFallback,
-        usage:
-            typeof command?.helpInformation === "function"
-                ? command.helpInformation()
-                : undefined
+        usage: resolveCommandUsage(command)
     };
 
     if (typeof mapExtras === "function") {

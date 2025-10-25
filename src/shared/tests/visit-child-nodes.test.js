@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 
 import { describe, it } from "node:test";
 
-import { visitChildNodes } from "../ast-node-helpers.js";
+import { visitChildNodes } from "../ast/node-helpers.js";
 
 describe("visitChildNodes", () => {
     it("invokes the callback for every array entry", () => {

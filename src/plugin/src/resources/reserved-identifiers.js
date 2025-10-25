@@ -1,5 +1,7 @@
-import { toNormalizedLowerCaseSet } from "../shared/string-utils.js";
-import { normalizeIdentifierMetadataEntries } from "../shared/identifier-metadata.js";
+import {
+    toNormalizedLowerCaseSet,
+    normalizeIdentifierMetadataEntries
+} from "../shared/index.js";
 import {
     GML_IDENTIFIER_METADATA_PATH,
     loadBundledIdentifierMetadata

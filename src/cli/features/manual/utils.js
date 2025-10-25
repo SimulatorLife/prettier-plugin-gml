@@ -4,6 +4,7 @@ import {
     assertPlainObject,
     assertNonEmptyString,
     createAbortGuard,
+    identity,
     isFsErrorCode,
     isNonEmptyArray,
     isNonEmptyTrimmedString,
@@ -16,7 +17,8 @@ import { formatBytes } from "../../runtime-options/byte-format.js";
 import { writeManualFile } from "./file-helpers.js";
 import {
     disposeProgressBars,
-    renderProgressBar
+    renderProgressBar,
+    withProgressBarCleanup
 } from "../shared/progress-bar.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
@@ -71,12 +73,14 @@ function normalizeDownloadLabel(label) {
     return isNonEmptyTrimmedString(label) ? label : "Downloading manual files";
 }
 
-function reporterWithCleanup(handler, cleanup) {
+function createReporter(handler, cleanup) {
     const report = resolveFunction(handler);
     const cleanupHandler = resolveFunction(cleanup);
     let cleanedUp = false;
 
-    report.cleanup = () => {
+    const reporter = (...args) => report(...args);
+
+    reporter.cleanup = () => {
         if (cleanedUp) {
             return;
         }
@@ -85,7 +89,25 @@ function reporterWithCleanup(handler, cleanup) {
         cleanupHandler();
     };
 
-    return report;
+    return reporter;
+}
+
+export function announceManualDownloadStart(
+    totalEntries,
+    { verbose, description = "manual file" } = {}
+) {
+    if (!verbose?.downloads) {
+        return;
+    }
+
+    const normalizedDescription = isNonEmptyTrimmedString(description)
+        ? description
+        : "manual file";
+    const pluralSuffix = totalEntries === 1 ? "" : "s";
+
+    console.log(
+        `Fetching ${totalEntries} ${normalizedDescription}${pluralSuffix}…`
+    );
 }
 
 /**
@@ -116,7 +138,7 @@ export function createManualDownloadReporter({
     const { downloads = false, progressBar = false } = verbose ?? {};
 
     if (!downloads) {
-        return reporterWithCleanup();
+        return createReporter();
     }
 
     if (progressBar) {
@@ -124,7 +146,7 @@ export function createManualDownloadReporter({
         const width = progressBarWidth ?? 0;
         const progressRenderer = resolveFunction(render, renderProgressBar);
 
-        return reporterWithCleanup(({ fetchedCount, totalEntries }) => {
+        return createReporter(({ fetchedCount, totalEntries }) => {
             progressRenderer(
                 normalizedLabel,
                 fetchedCount,
@@ -134,9 +156,9 @@ export function createManualDownloadReporter({
         }, disposeProgressBars);
     }
 
-    const normalizePath = resolveFunction(formatPath, (path) => path);
+    const normalizePath = resolveFunction(formatPath, identity);
 
-    return reporterWithCleanup(({ path }) => {
+    return createReporter(({ path }) => {
         const displayPath = normalizePath(path);
         console.log(displayPath ? `✓ ${displayPath}` : "✓");
     });
@@ -206,6 +228,33 @@ export async function downloadManualFileEntries({
     }
 
     return payloads;
+}
+
+export async function downloadManualEntriesWithProgress({
+    entries,
+    manualRefSha,
+    fetchManualFile,
+    requestOptions,
+    progress: { label, verbose, progressBarWidth, formatPath, render } = {}
+}) {
+    return withProgressBarCleanup(async () => {
+        const reportProgress = createManualDownloadReporter({
+            label,
+            verbose,
+            progressBarWidth,
+            formatPath,
+            render
+        });
+
+        return downloadManualFileEntries({
+            entries,
+            manualRefSha,
+            fetchManualFile,
+            requestOptions,
+            onProgress: (update) => reportProgress(update),
+            onProgressCleanup: reportProgress.cleanup
+        });
+    });
 }
 
 /**

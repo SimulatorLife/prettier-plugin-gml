@@ -1,4 +1,4 @@
-import { isObjectLike, withObjectLike } from "../object-utils.js";
+import { isObjectLike, withObjectLike } from "../utils/object.js";
 
 // Shared helpers for working with AST node location metadata.
 // These utilities centralize the logic for reading start/end positions

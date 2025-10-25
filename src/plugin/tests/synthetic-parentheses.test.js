@@ -120,6 +120,34 @@ test("preserves chains of sqr calls without additional parentheses", async () =>
     );
 });
 
+test("flattens synthetic addition within sqrt calls", async () => {
+    const source = [
+        "function distance(dir) {",
+        "    return sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    const expectedLines = [
+        "/// @function distance",
+        "/// @param dir",
+        "function distance(dir) {",
+        "    return sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);",
+        "}"
+    ].join("\n");
+
+    assert.strictEqual(
+        formatted.trim(),
+        expectedLines,
+        "Expected sqrt() addition chains to omit redundant synthetic parentheses."
+    );
+});
+
 test("retains synthetic multiplication parentheses within comparisons", async () => {
     const source = [
         "do {",

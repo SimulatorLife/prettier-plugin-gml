@@ -1,6 +1,6 @@
-import { toArrayFromIterable } from "../array-utils.js";
-import { incrementMapValue } from "../object-utils.js";
-import { getNonEmptyString, normalizeStringList } from "../string-utils.js";
+import { toArrayFromIterable } from "../utils/array.js";
+import { getOrCreateMapEntry, incrementMapValue } from "../utils/object.js";
+import { getNonEmptyString, normalizeStringList } from "../utils/string.js";
 
 const hasHrtime = typeof process?.hrtime?.bigint === "function";
 
@@ -24,19 +24,76 @@ const SUMMARY_SECTIONS = Object.freeze([
     "metadata"
 ]);
 
-function isIterable(value) {
-    return value != null && typeof value[Symbol.iterator] === "function";
+/**
+ * Historically `createMetricsTracker` returned a monolithic "tracker" object
+ * with timing, counter, cache, and reporting helpers all hanging off the same
+ * surface. Downstream modules that only needed to bump counters—or simply read
+ * the snapshot—still depended on the entire API. Grouping the responsibilities
+ * into focused contracts lets call sites depend solely on the collaborators
+ * they actually exercise.
+ */
+
+/**
+ * @typedef {object} MetricsSnapshot
+ * @property {string} category
+ * @property {number} totalTimeMs
+ * @property {Record<string, number>} timings
+ * @property {Record<string, number>} counters
+ * @property {Record<string, Record<string, number>>} caches
+ * @property {Record<string, unknown>} metadata
+ */
+
+/**
+ * @typedef {object} MetricsTimingTools
+ * @property {(label: string) => () => void} startTimer
+ * @property {(label: string, callback: () => any) => any} timeSync
+ * @property {(label: string, callback: () => Promise<any>) => Promise<any>} timeAsync
+ */
+
+/**
+ * @typedef {object} MetricsCounterTools
+ * @property {(label: string, amount?: number) => void} increment
+ */
+
+/**
+ * @typedef {object} MetricsCacheTools
+ * @property {(cacheName: string) => void} recordHit
+ * @property {(cacheName: string) => void} recordMiss
+ * @property {(cacheName: string) => void} recordStale
+ * @property {(cacheName: string, key: string, amount?: number) => void} recordMetric
+ */
+
+/**
+ * @typedef {object} MetricsReportingTools
+ * @property {(extra?: object) => MetricsSnapshot} snapshot
+ * @property {(extra?: object) => MetricsSnapshot} finalize
+ * @property {(message?: string, extra?: object) => void} logSummary
+ * @property {(key: string, value: unknown) => void} setMetadata
+ */
+
+/**
+ * @typedef {object} MetricsTracker
+ * @property {string} category
+ * @property {MetricsTimingTools} timers
+ * @property {MetricsCounterTools} counters
+ * @property {MetricsCacheTools} caches
+ * @property {MetricsReportingTools} reporting
+ */
+
+function toCandidateCacheKeys(keys) {
+    if (typeof keys === "string" || Array.isArray(keys)) {
+        return keys;
+    }
+
+    if (typeof keys?.[Symbol.iterator] === "function") {
+        return toArrayFromIterable(keys);
+    }
+
+    return DEFAULT_CACHE_KEYS;
 }
 
 function normalizeCacheKeys(keys) {
-    const candidates =
-        typeof keys === "string" || Array.isArray(keys)
-            ? keys
-            : isIterable(keys)
-              ? toArrayFromIterable(keys)
-              : DEFAULT_CACHE_KEYS;
-
-    const normalized = normalizeStringList(candidates, {
+    const normalized = normalizeStringList(toCandidateCacheKeys(keys), {
         allowInvalidType: true
     });
 
@@ -69,23 +126,18 @@ function createMapIncrementer(store) {
 
 function ensureCacheStats(caches, cacheKeys, cacheName) {
     const normalized = normalizeLabel(cacheName);
-    let stats = caches.get(normalized);
-
-    if (!stats) {
-        stats = new Map(cacheKeys.map((key) => [key, 0]));
-        caches.set(normalized, stats);
-    }
-
-    return stats;
+    return getOrCreateMapEntry(
+        caches,
+        normalized,
+        () => new Map(cacheKeys.map((key) => [key, 0]))
+    );
 }
 
 function incrementCacheMetric(caches, cacheKeys, cacheName, key, amount = 1) {
     const stats = ensureCacheStats(caches, cacheKeys, cacheName);
     const normalizedKey = normalizeLabel(key);
 
-    if (!stats.has(normalizedKey)) {
-        stats.set(normalizedKey, 0);
-    }
+    getOrCreateMapEntry(stats, normalizedKey, () => 0);
 
     const increment = normalizeIncrementAmount(
         amount,
@@ -96,7 +148,7 @@ function incrementCacheMetric(caches, cacheKeys, cacheName, key, amount = 1) {
         return;
     }
 
-    stats.set(normalizedKey, (stats.get(normalizedKey) ?? 0) + increment);
+    incrementMapValue(stats, normalizedKey, increment, { fallback: 0 });
 }
 
 function mergeSummarySections(summary, extra) {
@@ -198,35 +250,7 @@ function createFinalizer({
  *   autoLog?: boolean,
  *   cacheKeys?: Iterable<string> | ArrayLike<string>
  * }} [options]
- * @returns {{
- *   category: string,
- *   timeSync: <T>(label: string, callback: () => T) => T,
- *   timeAsync: <T>(label: string, callback: () => Promise<T>) => Promise<T>,
- *   startTimer: (label: string) => () => void,
- *   incrementCounter: (label: string, amount?: number) => void,
- *   recordCacheHit: (cacheName: string) => void,
- *   recordCacheMiss: (cacheName: string) => void,
- *   recordCacheStale: (cacheName: string) => void,
- *   recordCacheMetric: (cacheName: string, key: string, amount?: number) => void,
- *   snapshot: (extra?: object) => {
- *     category: string,
- *     totalTimeMs: number,
- *     timings: Record<string, number>,
- *     counters: Record<string, number>,
- *     caches: Record<string, Record<string, number>>,
- *     metadata: Record<string, unknown>
- *   },
- *   finalize: (extra?: object) => {
- *     category: string,
- *     totalTimeMs: number,
- *     timings: Record<string, number>,
- *     counters: Record<string, number>,
- *     caches: Record<string, Record<string, number>>,
- *     metadata: Record<string, unknown>
- *   },
- *   logSummary: (message?: string, extra?: object) => void,
- *   setMetadata: (key: string, value: unknown) => void
- * }}
+ * @returns {MetricsTracker}
  */
 export function createMetricsTracker({
     category = "metrics",
@@ -310,27 +334,43 @@ export function createMetricsTracker({
         incrementCacheMetric(caches, cacheKeys, cacheName, key, amount);
     }
 
-    return {
-        category,
-        timeSync,
-        timeAsync,
+    const timingTools = Object.freeze({
         startTimer,
-        incrementCounter,
-        recordCacheHit(cacheName) {
+        timeSync,
+        timeAsync
+    });
+
+    const counterTools = Object.freeze({
+        increment: incrementCounter
+    });
+
+    const cacheTools = Object.freeze({
+        recordHit(cacheName) {
             recordCacheEvent(cacheName, "hits");
         },
-        recordCacheMiss(cacheName) {
+        recordMiss(cacheName) {
             recordCacheEvent(cacheName, "misses");
         },
-        recordCacheStale(cacheName) {
+        recordStale(cacheName) {
             recordCacheEvent(cacheName, "stale");
         },
-        recordCacheMetric(cacheName, key, amount = 1) {
+        recordMetric(cacheName, key, amount = 1) {
             recordCacheEvent(cacheName, key, amount);
-        },
+        }
+    });
+
+    const reportingTools = Object.freeze({
         snapshot,
         finalize,
         logSummary,
         setMetadata
+    });
+
+    return {
+        category,
+        timers: timingTools,
+        counters: counterTools,
+        caches: cacheTools,
+        reporting: reportingTools
     };
 }

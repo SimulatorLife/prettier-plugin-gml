@@ -1,6 +1,6 @@
 const IdentifierRole = Object.freeze({
-    Declaration: "declaration",
-    Reference: "reference"
+    DECLARATION: "declaration",
+    REFERENCE: "reference"
 });
 
 const VALID_IDENTIFIER_ROLES = new Set(Object.values(IdentifierRole));
