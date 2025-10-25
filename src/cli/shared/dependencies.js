@@ -42,6 +42,8 @@ export {
     toTrimmedString
 } from "../../shared/utils.js";
 
+export { resolveCommandUsage } from "./command-usage.js";
+
 export { appendToCollection } from "../core/collection-utils.js";
 
 export { createAbortGuard } from "../../shared/abort-utils.js";
