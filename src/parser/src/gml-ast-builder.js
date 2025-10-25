@@ -1,6 +1,6 @@
 import GameMakerLanguageParserVisitor from "./generated/GameMakerLanguageParserVisitor.js";
-import { getLineBreakCount } from "../../shared/utils/line-breaks.js";
-import { getNonEmptyTrimmedString } from "../../shared/utils.js";
+import { getLineBreakCount } from "./shared/utils/line-breaks.js";
+import { getNonEmptyTrimmedString } from "./shared/utils.js";
 import ScopeTracker from "./scope-tracker.js";
 import { ScopeOverrideKeyword } from "./scope-override-keywords.js";
 import BinaryExpressionDelegate from "./binary-expression-delegate.js";
@@ -25,7 +25,7 @@ const BINARY_OPERATORS = {
     // instead of treating them as interchangeable unary operators.
     "++": { prec: 15, assoc: "right", type: "unary" },
     // TODO: Mirror the prefix/suffix tracking described above for the
-    // decrement operator so optimisations do not assume `value--` is
+    // decrement operator so optimizations do not assume `value--` is
     // side-effect free. GameMaker emits different bytecode for the two forms,
     // and losing that distinction risks mis-scheduling hoists or duplicate
     // writes when formatters rewrite identifier usages.

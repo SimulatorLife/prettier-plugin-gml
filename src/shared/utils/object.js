@@ -171,28 +171,17 @@ export function coalesceOption(
         return fallback;
     }
 
-    if (Array.isArray(keys)) {
-        // Iterate the provided array directly so repeated option lookups avoid
-        // allocating a throwaway wrapper array for single-key calls.
-        for (const key of keys) {
-            const value = object[key];
+    const candidates = Array.isArray(keys) ? keys : keys == null ? [] : [keys];
 
-            if (value !== undefined && (acceptNull || value !== null)) {
-                return value;
-            }
+    for (const key of candidates) {
+        const value = object[key];
+
+        if (value !== undefined && (acceptNull || value !== null)) {
+            return value;
         }
-
-        return fallback;
     }
 
-    if (keys == null) {
-        return fallback;
-    }
-
-    const value = object[keys];
-    return value !== undefined && (acceptNull || value !== null)
-        ? value
-        : fallback;
+    return fallback;
 }
 
 /**
@@ -253,4 +242,53 @@ export function getOrCreateMapEntry(store, key, initializer) {
     const value = initializer(key);
     set.call(store, key, value);
     return value;
+}
+
+/**
+ * Increment the numeric value stored at {@link key} inside a Map-like
+ * collection, defaulting missing or non-numeric entries to {@link fallback}.
+ * Consolidates the "read, coerce, increment, write" pattern used throughout
+ * the CLI and identifier case modules so callers don't have to repeat the
+ * guards around `Map#get`/`Map#set` or numeric coercion.
+ *
+ * @param {{ get(key: any): unknown; set(key: any, value: number): unknown }} store
+ *        Map-like collection providing `get` and `set` methods.
+ * @param {unknown} key Entry key whose numeric value should be incremented.
+ * @param {number | string | null | undefined} [amount=1] Amount to add to the
+ *        stored value. Non-finite values are treated as zero so accidental
+ *        `NaN` inputs do not corrupt counters.
+ * @param {{ fallback?: number | string | null | undefined }} [options]
+ *        Optional configuration bag.
+ * @param {number | string | null | undefined} [options.fallback=0] Value to use
+ *        when the current entry is missing or not a finite number.
+ * @returns {number} The incremented numeric value stored in the map.
+ */
+export function incrementMapValue(
+    store,
+    key,
+    amount = 1,
+    { fallback = 0 } = {}
+) {
+    const { get, set } = store ?? {};
+
+    if (typeof get !== "function" || typeof set !== "function") {
+        throw new TypeError("store must provide get and set functions");
+    }
+
+    const numericAmount = Number(amount);
+    const delta = Number.isFinite(numericAmount) ? numericAmount : 0;
+
+    const current = get.call(store, key);
+    const numericCurrent = Number(current);
+    const numericFallback = Number(fallback);
+
+    const base = Number.isFinite(numericCurrent)
+        ? numericCurrent
+        : Number.isFinite(numericFallback)
+          ? numericFallback
+          : 0;
+
+    const next = base + delta;
+    set.call(store, key, next);
+    return next;
 }

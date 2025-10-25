@@ -1,17 +1,14 @@
-import { fileURLToPath } from "node:url";
-
-import { parseJsonWithContext } from "../../../shared/json-utils.js";
-import { normalizeIdentifierMetadataEntries } from "../../../shared/identifier-metadata.js";
-import { areNumbersApproximatelyEqual } from "../../../shared/number-utils.js";
-import { getFileMtime } from "../../../shared/fs-utils.js";
-import { isPlainObject } from "../../../shared/object-utils.js";
+import { parseJsonWithContext } from "../shared/json-utils.js";
+import { normalizeIdentifierMetadataEntries } from "../shared/identifier-metadata.js";
+import { areNumbersApproximatelyEqual } from "../shared/number-utils.js";
+import { getFileMtime } from "../shared/fs-utils.js";
+import { isPlainObject } from "../shared/object-utils.js";
+import { GML_IDENTIFIER_METADATA_PATH } from "../resources/bundled-resources.js";
 
 import { defaultFsFacade } from "./fs-facade.js";
 import { createProjectIndexAbortGuard } from "./abort-guard.js";
 
-const GML_IDENTIFIER_FILE_PATH = fileURLToPath(
-    new URL("../../../../resources/gml-identifiers.json", import.meta.url)
-);
+const GML_IDENTIFIER_FILE_PATH = GML_IDENTIFIER_METADATA_PATH;
 
 let cachedBuiltInIdentifiers = null;
 

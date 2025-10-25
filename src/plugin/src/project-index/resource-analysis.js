@@ -1,21 +1,15 @@
 import path from "node:path";
 
-import { isNonEmptyArray, pushUnique } from "../../../shared/array-utils.js";
-import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
-import {
-    getOrCreateMapEntry,
-    isObjectLike
-} from "../../../shared/object-utils.js";
-import {
-    createAbortGuard,
-    throwIfAborted
-} from "../../../shared/abort-utils.js";
+import { isNonEmptyArray, pushUnique } from "../shared/array-utils.js";
+import { isNonEmptyTrimmedString } from "../shared/string-utils.js";
+import { getOrCreateMapEntry, isObjectLike } from "../shared/object-utils.js";
+import { createAbortGuard, throwIfAborted } from "../shared/abort-utils.js";
 
-import { isFsErrorCode } from "../../../shared/fs-utils.js";
+import { isFsErrorCode } from "../shared/fs-utils.js";
 import {
     isJsonParseError,
     parseJsonWithContext
-} from "../../../shared/json-utils.js";
+} from "../shared/json-utils.js";
 import {
     PROJECT_MANIFEST_EXTENSION,
     isProjectManifestPath

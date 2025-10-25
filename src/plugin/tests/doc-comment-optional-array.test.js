@@ -30,3 +30,20 @@ test("doc comments preserve optional parameter defaults with nested brackets", a
         "Expected doc comment to retain the optional parameter default text."
     );
 });
+
+test("doc comment normalization keeps nested optional defaults intact", async () => {
+    const formatted = await prettier.format(SOURCE, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    const docLine = formatted
+        .split("\n")
+        .find((line) => line.includes("@param {array<real>}"));
+
+    assert.equal(
+        docLine,
+        "/// @param {array<real>} [light_dir=[0, 0, -1]] - The direction of the light",
+        "Expected doc comment normalization to preserve nested optional default text without inserting stray spacing."
+    );
+});

@@ -3,17 +3,14 @@ import { describe, it } from "node:test";
 
 import { formatDuration, timeSync } from "../shared/time-utils.js";
 
-function withMockedConsole(callback) {
-    const originalLog = console.log;
-    try {
-        const calls = [];
-        console.log = (...args) => {
+function createCollectingLogger() {
+    const calls = [];
+    return {
+        log: (...args) => {
             calls.push(args);
-        };
-        return callback(calls);
-    } finally {
-        console.log = originalLog;
-    }
+        },
+        calls
+    };
 }
 
 describe("time-utils", () => {
@@ -32,33 +29,29 @@ describe("time-utils", () => {
     it("logs progress when verbose parsing is enabled", () => {
         const timeline = [1000, 1300];
         const now = () => timeline.shift() ?? 1300;
+        const logger = createCollectingLogger();
 
-        const { value, calls } = withMockedConsole((capturedCalls) => {
-            const callbackResult = timeSync("sample task", () => 42, {
-                verbose: { parsing: true },
-                now
-            });
-
-            return { value: callbackResult, calls: capturedCalls };
+        const value = timeSync("sample task", () => 42, {
+            verbose: { parsing: true },
+            now,
+            logger
         });
 
         assert.equal(value, 42);
         assert.deepEqual(
-            calls.map(([message]) => message),
+            logger.calls.map(([message]) => message),
             ["→ sample task", "  sample task completed in 300ms."]
         );
     });
 
     it("skips logging when verbose parsing is disabled", () => {
-        const calls = withMockedConsole((capturedCalls) => {
-            const result = timeSync("quiet task", () => "done", {
-                verbose: { parsing: false }
-            });
-
-            assert.equal(result, "done");
-            return capturedCalls;
+        const logger = createCollectingLogger();
+        const result = timeSync("quiet task", () => "done", {
+            verbose: { parsing: false },
+            logger
         });
 
-        assert.equal(calls.length, 0);
+        assert.equal(result, "done");
+        assert.equal(logger.calls.length, 0);
     });
 });
