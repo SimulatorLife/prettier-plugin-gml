@@ -925,10 +925,21 @@ export function print(path, options, print) {
                 const elementsPerLineLimit =
                     maxParamsPerLine > 0 ? maxParamsPerLine : Infinity;
 
-                const callbackArguments = node.arguments.filter(
+                const callArguments = Array.isArray(node.arguments)
+                    ? node.arguments
+                    : [];
+
+                const simplePrefixLengthForInlineCheck =
+                    countLeadingSimpleCallArguments(node);
+
+                const trailingArguments = callArguments.slice(
+                    simplePrefixLengthForInlineCheck
+                );
+
+                const callbackArguments = callArguments.filter(
                     (argument) => argument?.type === "FunctionDeclaration"
                 );
-                const structArguments = node.arguments.filter(
+                const structArguments = callArguments.filter(
                     (argument) => argument?.type === "StructExpression"
                 );
                 const structArgumentsToBreak = structArguments.filter(
@@ -957,8 +968,14 @@ export function print(path, options, print) {
                         argumentNode?.type === "StructExpression"
                 );
 
+                const hasSingleTrailingCallback =
+                    trailingArguments.length === 1 &&
+                    trailingArguments[0]?.type === "FunctionDeclaration";
+
                 const shouldIncludeInlineVariant =
-                    shouldUseCallbackLayout && !shouldForceBreakArguments;
+                    shouldUseCallbackLayout &&
+                    !shouldForceBreakArguments &&
+                    hasSingleTrailingCallback;
 
                 const hasCallbackArguments = callbackArguments.length > 0;
 
@@ -1634,16 +1651,25 @@ function buildCallArgumentsDocs(
     } = {}
 ) {
     const node = path.getValue();
+    const args = Array.isArray(node?.arguments) ? node.arguments : [];
     const simplePrefixLength = countLeadingSimpleCallArguments(node);
-    const hasTrailingArguments =
-        Array.isArray(node?.arguments) &&
-        node.arguments.length > simplePrefixLength;
+    const hasTrailingArguments = args.length > simplePrefixLength;
+    const trailingArguments = hasTrailingArguments
+        ? args.slice(simplePrefixLength)
+        : [];
+
+    const trailingCallbacksOnly = trailingArguments.every(
+        (argumentNode) =>
+            argumentNode?.type === "FunctionDeclaration" ||
+            argumentNode?.type === "StructExpression"
+    );
 
     if (
         simplePrefixLength > 1 &&
         hasTrailingArguments &&
         hasCallbackArguments &&
-        maxElementsPerLine === Infinity
+        maxElementsPerLine === Infinity &&
+        trailingCallbacksOnly
     ) {
         const multilineDoc = buildCallbackArgumentsWithSimplePrefix(
             path,
@@ -1978,51 +2004,51 @@ function buildCallbackArgumentsWithSimplePrefix(
         path.call(print, "arguments", index)
     );
 
-    const prefixParts = [];
     const prefixLimit = Math.min(simplePrefixLength, args.length);
-
-    for (let index = 0; index < prefixLimit; index += 1) {
-        prefixParts.push(printedArgs[index]);
-
-        if (index >= args.length - 1) {
-            continue;
-        }
-
-        prefixParts.push(",");
-
-        if (index < prefixLimit - 1) {
-            prefixParts.push(" ");
-        }
-    }
+    const prefixDocs = printedArgs.slice(0, prefixLimit);
 
     if (prefixLimit >= args.length) {
-        return group(["(", ...prefixParts, ")"]);
+        return group(["(", join(", ", prefixDocs), ")"]);
     }
 
-    const suffixParts = [];
-
-    for (let index = prefixLimit; index < args.length; index += 1) {
-        suffixParts.push(printedArgs[index]);
-
-        if (index >= args.length - 1) {
-            continue;
-        }
-
-        suffixParts.push(",", line);
-    }
+    const remainingDocs = printedArgs.slice(prefixLimit);
+    const hasSingleTrailingArgument = remainingDocs.length === 1;
+    const basePrefixDoc = join(", ", prefixDocs);
+    const prefixWithTrailingComma =
+        prefixDocs.length > 0
+            ? concat([basePrefixDoc, remainingDocs.length > 0 ? "," : ""])
+            : "";
 
     const trailingCommaDoc = shouldAllowTrailingComma(options)
         ? ifBreak(",", "")
         : "";
 
-    return group([
-        "(",
-        ...prefixParts,
-        indent([line, ...suffixParts]),
-        trailingCommaDoc,
-        softline,
-        ")"
-    ]);
+    if (hasSingleTrailingArgument) {
+        return group([
+            "(",
+            prefixWithTrailingComma,
+            indent([line, remainingDocs[0]]),
+            trailingCommaDoc,
+            softline,
+            ")"
+        ]);
+    }
+
+    const indentParts = [];
+
+    if (prefixDocs.length > 0) {
+        indentParts.push(line, prefixWithTrailingComma);
+    }
+
+    remainingDocs.forEach((doc, index) => {
+        indentParts.push(line, doc);
+
+        if (index < remainingDocs.length - 1) {
+            indentParts.push(",", line);
+        }
+    });
+
+    return group(["(", indent(indentParts), trailingCommaDoc, softline, ")"]);
 }
 
 function shouldForceBreakStructArgument(argument) {
