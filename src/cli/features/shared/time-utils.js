@@ -1,1 +1,5 @@
-export * from "../../shared/time-utils.js";
+export {
+    createVerboseDurationLogger,
+    formatDuration,
+    timeSync
+} from "../command-dependencies.js";

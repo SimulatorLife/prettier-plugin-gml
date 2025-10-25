@@ -40,6 +40,12 @@ sheet, then return here when you need deeper context.
   lookup for environment variables and wrapper behaviour when scripting
   formatter runs in CI or editor tooling.
 
+## Contributor workflow
+
+- [Contributor onboarding checklist](contributor-onboarding.md) — Environment
+  setup, validation commands, and supporting documentation for new
+  contributors.
+
 ## Extension hooks & overrides
 
 - [Object-wrap option resolver hook](object-wrap-option-resolver-hook.md) —

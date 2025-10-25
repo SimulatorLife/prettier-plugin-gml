@@ -1,9 +1,11 @@
-import { toNormalizedLowerCaseSet } from "../shared/string-utils.js";
-import { normalizeIdentifierMetadataEntries } from "../shared/identifier-metadata.js";
+import {
+    toNormalizedLowerCaseSet,
+    normalizeIdentifierMetadataEntries
+} from "../shared/index.js";
 import {
     GML_IDENTIFIER_METADATA_PATH,
     loadBundledIdentifierMetadata
-} from "./bundled-resources.js";
+} from "gamemaker-language-semantic/resources/bundled-resources.js";
 
 const DEFAULT_EXCLUDED_TYPES = new Set(["literal", "keyword"]);
 const DEFAULT_IDENTIFIER_METADATA_PATH = GML_IDENTIFIER_METADATA_PATH;

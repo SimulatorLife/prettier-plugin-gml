@@ -9,14 +9,16 @@
 import path from "node:path";
 
 import { setIdentifierCaseOption } from "./option-store.js";
-import { coalesceTrimmedString } from "../shared/string-utils.js";
 import {
+    coalesceTrimmedString,
     coalesceOption,
     incrementMapValue,
     isObjectLike,
-    withObjectLike
-} from "../shared/object-utils.js";
-import { asArray, isNonEmptyArray, toArray } from "../shared/array-utils.js";
+    withObjectLike,
+    asArray,
+    isNonEmptyArray,
+    toArray
+} from "../shared/index.js";
 import { warnWithReason } from "./logger.js";
 
 import { consumeIdentifierCaseDryRunContext } from "./identifier-case-context.js";
@@ -137,10 +139,12 @@ function normalizeOperation(rawOperation) {
                 operation.target
             );
 
-            const references = toArray(operation.references)
+            const referenceCandidates = toArray(operation.references)
                 .map(normalizeReference)
-                .filter(Boolean)
-                .toSorted((a, b) => a.filePath.localeCompare(b.filePath));
+                .filter(Boolean);
+            const references = [...referenceCandidates].sort((a, b) =>
+                a.filePath.localeCompare(b.filePath)
+            );
 
             const occurrenceCount = references.reduce(
                 (total, reference) => total + (reference.occurrences ?? 0),
@@ -244,7 +248,7 @@ function sortConflicts(conflicts) {
         ["info", 2]
     ]);
 
-    return [...conflicts].toSorted((left, right) => {
+    return [...conflicts].sort((left, right) => {
         const severityA = severityOrder.get(left.severity) ?? 99;
         const severityB = severityOrder.get(right.severity) ?? 99;
         if (severityA !== severityB) {

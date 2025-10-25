@@ -2,7 +2,7 @@ import {
     capitalize,
     normalizeStringList,
     trimStringEntries
-} from "../shared/string-utils.js";
+} from "../shared/index.js";
 
 const RESERVED_PREFIX_PATTERN =
     /^(?<prefix>(?:global|other|self|local|with|noone)\.|argument(?:_(?:local|relative))?(?:\[\d+\]|\d+)?\.?)/;

@@ -16,26 +16,25 @@ import {
     normalizeStringList,
     resolveModuleDefaultExport,
     parseJsonObjectWithContext,
-    splitLines
+    splitLines,
+    stringifyJsonForFile
 } from "../shared/dependencies.js";
-import { applyStandardCommandOptions } from "../../core/command-standard-options.js";
-import {
-    coercePositiveInteger,
-    resolveIntegerOption,
-    wrapInvalidArgumentResolver
-} from "../../core/command-parsing.js";
-import { applyEnvOptionOverrides } from "../../core/env-overrides.js";
-import { createIntegerOptionToolkit } from "../../core/integer-option-toolkit.js";
 import {
     SuiteOutputFormat,
-    resolveSuiteOutputFormatOrThrow,
-    emitSuiteResults as emitSuiteResultsJson,
+    applyEnvOptionOverrides,
+    applyStandardCommandOptions,
+    coercePositiveInteger,
     collectSuiteResults,
+    createIntegerOptionToolkit,
+    createSuiteResultsPayload,
+    emitSuiteResults as emitSuiteResultsJson,
     ensureSuitesAreKnown,
+    importPluginModule,
+    resolveIntegerOption,
     resolveRequestedSuites,
-    createSuiteResultsPayload
-} from "../../core/command-suite-helpers.js";
-import { importPluginModule } from "../../plugin/entry-point.js";
+    resolveSuiteOutputFormatOrThrow,
+    wrapInvalidArgumentResolver
+} from "../command-dependencies.js";
 
 export const DEFAULT_ITERATIONS = 500_000;
 export const MEMORY_ITERATIONS_ENV_VAR = "GML_MEMORY_ITERATIONS";
@@ -855,7 +854,7 @@ export async function runMemoryCli({
         command,
         onResults: async ({ payload }) => {
             await ensureDir(resolvedReportDir);
-            const reportContents = `${JSON.stringify(payload, null, 2)}\n`;
+            const reportContents = stringifyJsonForFile(payload, { space: 2 });
             await effectiveWriteFile(reportPath, reportContents, "utf8");
         }
     });

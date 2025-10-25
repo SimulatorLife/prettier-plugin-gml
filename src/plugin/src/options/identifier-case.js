@@ -4,10 +4,14 @@
 // place so the CLI, documentation, and project-index pipeline can share a
 // single source of truth.
 
-import { capitalize, normalizeStringList } from "../shared/string-utils.js";
+import {
+    capitalize,
+    createListSplitPattern,
+    normalizeStringList
+} from "../shared/index.js";
 import { getIdentifierCaseStyleMetadata } from "../identifier-case/identifier-case-utils.js";
-import { getDefaultProjectIndexCacheMaxSize } from "../project-index/cache.js";
-import { getDefaultProjectIndexGmlConcurrency } from "../project-index/concurrency.js";
+import { getDefaultProjectIndexCacheMaxSize } from "gamemaker-language-semantic/project-index/cache.js";
+import { getDefaultProjectIndexGmlConcurrency } from "gamemaker-language-semantic/project-index/concurrency.js";
 
 export const DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES = 128;
 
@@ -27,6 +31,8 @@ const IDENTIFIER_CASE_STYLE_SET = new Set(Object.values(IdentifierCaseStyle));
 export const IDENTIFIER_CASE_STYLES = Object.freeze(
     Object.values(IdentifierCaseStyle)
 );
+
+const IDENTIFIER_CASE_LIST_SPLIT_PATTERN = createListSplitPattern(["\n", ","]);
 
 export const IDENTIFIER_CASE_INHERIT_VALUE = "inherit";
 
@@ -215,7 +221,7 @@ for (const scope of IDENTIFIER_CASE_SCOPE_NAMES) {
 
 function normalizeList(optionName, value) {
     return normalizeStringList(value, {
-        splitPattern: /[\n,]/,
+        splitPattern: IDENTIFIER_CASE_LIST_SPLIT_PATTERN,
         errorMessage: `${optionName} must be provided as a string or array of strings.`
     });
 }

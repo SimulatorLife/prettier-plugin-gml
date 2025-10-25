@@ -32,26 +32,22 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError, Option } from "commander";
 
 import {
-    escapeRegExp,
+    collectAncestorDirectories,
     getErrorMessage,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
-    isMissingModuleDependency,
+    isErrorLike,
     isErrorWithCode,
+    isPathInside,
     mergeUniqueValues,
     normalizeEnumeratedOption,
+    createListSplitPattern,
     normalizeStringList,
-    resolveModuleDefaultExport,
     toArray,
     toNormalizedLowerCaseSet,
     uniqueArray,
     withObjectLike
-} from "../shared/utils.js";
-import { isErrorLike } from "../shared/utils/capability-probes.js";
-import {
-    collectAncestorDirectories,
-    isPathInside
-} from "../shared/utils/path.js";
+} from "../shared/index.js";
 import {
     hasIgnoreRuleNegations,
     markIgnoreRuleNegationsDetected,
@@ -70,6 +66,10 @@ import {
     registerIgnorePath,
     resetRegisteredIgnorePaths
 } from "./shared/ignore-path-registry.js";
+import {
+    isMissingModuleDependency,
+    resolveModuleDefaultExport
+} from "./shared/module.js";
 import { createCliCommandManager } from "./core/command-manager.js";
 import { resolveCliVersion } from "./core/version.js";
 import { wrapInvalidArgumentResolver } from "./core/command-parsing.js";
@@ -113,12 +113,11 @@ const INITIAL_WORKING_DIRECTORY = path.resolve(process.cwd());
 
 const FALLBACK_EXTENSIONS = Object.freeze([".gml"]);
 
-const EXTENSION_LIST_SEPARATORS = Array.from(
-    new Set([",", path.delimiter].filter(Boolean))
-);
-
-const EXTENSION_LIST_SPLIT_PATTERN = new RegExp(
-    `[${EXTENSION_LIST_SEPARATORS.map((separator) => escapeRegExp(separator)).join("")}\\s]+`
+const EXTENSION_LIST_SPLIT_PATTERN = createListSplitPattern(
+    [",", path.delimiter].filter(Boolean),
+    {
+        includeWhitespace: true
+    }
 );
 
 const ParseErrorAction = Object.freeze({

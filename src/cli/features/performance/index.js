@@ -4,21 +4,20 @@ import { performance } from "node:perf_hooks";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { Command, InvalidArgumentError } from "commander";
-import GMLParser from "gamemaker-language-parser";
+import { Command, InvalidArgumentError, Option } from "commander";
 
-import { applyStandardCommandOptions } from "../../core/command-standard-options.js";
-import { createCliErrorDetails } from "../../core/errors.js";
-import { wrapInvalidArgumentResolver } from "../../core/command-parsing.js";
-import { resolvePluginEntryPoint } from "../../plugin/entry-point.js";
-import { formatByteSize } from "../../runtime-options/byte-format.js";
 import {
     SuiteOutputFormat,
-    resolveSuiteOutputFormatOrThrow,
+    applyStandardCommandOptions,
     collectSuiteResults,
+    createCliErrorDetails,
     ensureSuitesAreKnown,
-    resolveRequestedSuites
-} from "../../core/command-suite-helpers.js";
+    formatByteSize,
+    resolvePluginEntryPoint,
+    resolveRequestedSuites,
+    resolveSuiteOutputFormatOrThrow,
+    wrapInvalidArgumentResolver
+} from "../command-dependencies.js";
 import {
     appendToCollection,
     assertArray,
@@ -35,6 +34,9 @@ import {
     isPerformanceThroughputSuite,
     normalizePerformanceSuiteName
 } from "./suite-options.js";
+
+const shouldSkipPerformanceDependencies =
+    process.env.PRETTIER_PLUGIN_GML_SKIP_CLI_RUN === "1";
 
 const AVAILABLE_SUITES = new Map();
 
@@ -362,9 +364,43 @@ function createSkipResult(reason) {
     };
 }
 
+function createSkippedPerformanceDependencyError(actionDescription) {
+    return new Error(
+        `Cannot ${actionDescription} while PRETTIER_PLUGIN_GML_SKIP_CLI_RUN=1. ` +
+            "Clear the environment variable to enable CLI performance suites."
+    );
+}
+
+let gmlParserPromise = null;
+
+function resolveGmlParser() {
+    if (shouldSkipPerformanceDependencies) {
+        return Promise.reject(
+            createSkippedPerformanceDependencyError("load the GML parser")
+        );
+    }
+
+    if (!gmlParserPromise) {
+        gmlParserPromise = import("gamemaker-language-parser").then(
+            resolveModuleDefaultExport
+        );
+    }
+
+    return gmlParserPromise;
+}
+
 function createDefaultParser() {
+    if (shouldSkipPerformanceDependencies) {
+        return async () => {
+            throw createSkippedPerformanceDependencyError(
+                "run parser benchmarks"
+            );
+        };
+    }
+
     return async (file) => {
-        GMLParser.parse(file.source, {
+        const gmlParser = await resolveGmlParser();
+        gmlParser.parse(file.source, {
             getComments: false,
             getLocations: false,
             simplifyLocations: true,
@@ -585,6 +621,18 @@ AVAILABLE_SUITES.set(PerformanceSuiteName.IDENTIFIER_TEXT, () =>
 );
 
 export function createPerformanceCommand() {
+    const defaultReportFileDescription =
+        formatReportFilePath(DEFAULT_REPORT_FILE);
+    const reportFileOption = new Option(
+        "--report-file <path>",
+        [
+            "File path for the JSON performance report.",
+            `Defaults to ${defaultReportFileDescription}.`
+        ].join(" ")
+    )
+        .argParser((value) => path.resolve(value))
+        .default(DEFAULT_REPORT_FILE, defaultReportFileDescription);
+
     return applyStandardCommandOptions(
         new Command()
             .name("performance")
@@ -613,12 +661,7 @@ export function createPerformanceCommand() {
             collectValue,
             []
         )
-        .option(
-            "--report-file <path>",
-            `File path for the JSON performance report (default: ${DEFAULT_REPORT_FILE}).`,
-            (value) => path.resolve(value),
-            DEFAULT_REPORT_FILE
-        )
+        .addOption(reportFileOption)
         .option(
             "--skip-report",
             "Disable writing the JSON performance report to disk."
@@ -793,7 +836,8 @@ function emitReport(report, options) {
 
     if (format === SuiteOutputFormat.JSON) {
         const spacing = options.pretty ? 2 : 0;
-        process.stdout.write(`${JSON.stringify(report, null, spacing)}\n`);
+        const serialized = stringifyJsonForFile(report, { space: spacing });
+        process.stdout.write(serialized);
         return;
     }
 

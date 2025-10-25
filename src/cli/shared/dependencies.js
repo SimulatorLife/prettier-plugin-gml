@@ -40,37 +40,36 @@ export {
     toNormalizedLowerCaseString,
     toPosixPath,
     toTrimmedString
-} from "../../shared/utils.js";
+} from "../dependencies.js";
 
 export { resolveCommandUsage } from "./command-usage.js";
 
 export { appendToCollection } from "../core/collection-utils.js";
 
-export { createAbortGuard } from "../../shared/abort-utils.js";
-
-export { normalizeStringList } from "../../shared/utils/string.js";
+export { createAbortGuard } from "../dependencies.js";
 
 export {
+    normalizeStringList,
+    createListSplitPattern,
     collectAncestorDirectories,
     collectUniqueAncestorDirectories,
     isPathInside,
-    resolveContainedRelativePath
-} from "../../shared/utils/path.js";
+    resolveContainedRelativePath,
+    escapeRegExp
+} from "../dependencies.js";
 
-export { escapeRegExp } from "../../shared/utils/regexp.js";
-
-export { getIdentifierText } from "../../shared/ast.js";
+export { getIdentifierText } from "../dependencies.js";
 
 export {
     isAggregateErrorLike,
     isErrorLike,
     ensureMap
-} from "../../shared/utils/capability-probes.js";
+} from "../dependencies.js";
 
 export {
     JsonParseError,
     isJsonParseError,
     stringifyJsonForFile
-} from "../../shared/json-utils.js";
+} from "../dependencies.js";
 
-export { ensureDir, isFsErrorCode } from "../../shared/fs-utils.js";
+export { ensureDir, isFsErrorCode } from "../dependencies.js";

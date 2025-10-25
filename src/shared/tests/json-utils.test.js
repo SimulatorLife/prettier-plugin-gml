@@ -5,7 +5,7 @@ import {
     isJsonParseError,
     parseJsonWithContext,
     stringifyJsonForFile
-} from "../json-utils.js";
+} from "../utils/json.js";
 import { isErrorLike } from "../utils/capability-probes.js";
 
 describe("parseJsonWithContext", () => {

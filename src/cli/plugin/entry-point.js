@@ -1,10 +1,11 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
-    escapeRegExp,
+    createListSplitPattern,
     getNonEmptyTrimmedString,
     normalizeStringList,
     toArray,
@@ -23,13 +24,43 @@ const DEFAULT_CANDIDATE_PLUGIN_PATHS = Object.freeze([
     ["plugin", "index.js"]
 ]);
 
-const LIST_SEPARATORS = Array.from(
-    new Set([",", path.delimiter].filter(Boolean))
+const LIST_SPLIT_PATTERN = createListSplitPattern(
+    [",", path.delimiter].filter(Boolean)
 );
 
-const LIST_SPLIT_PATTERN = new RegExp(
-    `[${LIST_SEPARATORS.map((separator) => escapeRegExp(separator)).join("")}]+`
-);
+function expandLeadingTilde(candidate) {
+    if (typeof candidate !== "string" || candidate[0] !== "~") {
+        return candidate;
+    }
+
+    const nextCharacter = candidate[1];
+    const hasExplicitHomeReference =
+        nextCharacter === undefined ||
+        nextCharacter === "/" ||
+        nextCharacter === "\\";
+
+    if (!hasExplicitHomeReference) {
+        return candidate;
+    }
+
+    const homeDirectory = os.homedir();
+    if (!homeDirectory) {
+        return candidate;
+    }
+
+    if (candidate.length === 1) {
+        return homeDirectory;
+    }
+
+    const remainder = candidate.slice(2);
+    const normalizedRemainder = remainder.replace(/^[/\\]+/, "");
+
+    if (!normalizedRemainder) {
+        return homeDirectory;
+    }
+
+    return path.join(homeDirectory, normalizedRemainder);
+}
 
 function getEnvironmentCandidates(env) {
     const rawValue =
@@ -62,11 +93,13 @@ function resolveCandidatePath(candidate) {
             return null;
         }
 
-        if (path.isAbsolute(trimmed)) {
-            return trimmed;
+        const expanded = expandLeadingTilde(trimmed);
+
+        if (path.isAbsolute(expanded)) {
+            return expanded;
         }
 
-        return path.resolve(REPO_ROOT, trimmed);
+        return path.resolve(REPO_ROOT, expanded);
     }
 
     return null;

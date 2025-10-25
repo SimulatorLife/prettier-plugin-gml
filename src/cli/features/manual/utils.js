@@ -4,6 +4,7 @@ import {
     assertPlainObject,
     assertNonEmptyString,
     createAbortGuard,
+    identity,
     isFsErrorCode,
     isNonEmptyArray,
     isNonEmptyTrimmedString,
@@ -11,14 +12,14 @@ import {
     resolveFunction,
     toTrimmedString
 } from "../shared/dependencies.js";
-import { formatDuration } from "../shared/time-utils.js";
-import { formatBytes } from "../../runtime-options/byte-format.js";
+import { formatDuration } from "../command-dependencies.js";
+import { formatBytes } from "../command-dependencies.js";
 import { writeManualFile } from "./file-helpers.js";
 import {
     disposeProgressBars,
     renderProgressBar,
     withProgressBarCleanup
-} from "../shared/progress-bar.js";
+} from "../command-dependencies.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
@@ -72,25 +73,6 @@ function normalizeDownloadLabel(label) {
     return isNonEmptyTrimmedString(label) ? label : "Downloading manual files";
 }
 
-function createReporter(handler, cleanup) {
-    const report = typeof handler === "function" ? handler : () => {};
-    const cleanupHandler = typeof cleanup === "function" ? cleanup : () => {};
-    let cleanedUp = false;
-
-    const reporter = (...args) => report(...args);
-
-    reporter.cleanup = () => {
-        if (cleanedUp) {
-            return;
-        }
-
-        cleanedUp = true;
-        cleanupHandler();
-    };
-
-    return reporter;
-}
-
 export function announceManualDownloadStart(
     totalEntries,
     { verbose, description = "manual file" } = {}
@@ -137,7 +119,9 @@ export function createManualDownloadReporter({
     const { downloads = false, progressBar = false } = verbose ?? {};
 
     if (!downloads) {
-        return createReporter();
+        const noop = () => {};
+        noop.cleanup = () => {};
+        return noop;
     }
 
     if (progressBar) {
@@ -145,24 +129,39 @@ export function createManualDownloadReporter({
         const width = progressBarWidth ?? 0;
         const progressRenderer =
             typeof render === "function" ? render : renderProgressBar;
+        let cleanedUp = false;
 
-        return createReporter(({ fetchedCount, totalEntries }) => {
+        const reporter = ({ fetchedCount, totalEntries }) => {
             progressRenderer(
                 normalizedLabel,
                 fetchedCount,
                 totalEntries,
                 width
             );
-        }, disposeProgressBars);
+        };
+
+        reporter.cleanup = () => {
+            if (cleanedUp) {
+                return;
+            }
+
+            cleanedUp = true;
+            disposeProgressBars();
+        };
+
+        return reporter;
     }
 
     const normalizePath =
-        typeof formatPath === "function" ? formatPath : (path) => path;
-
-    return createReporter(({ path }) => {
+        typeof formatPath === "function" ? formatPath : identity;
+    const reporter = ({ path }) => {
         const displayPath = normalizePath(path);
         console.log(displayPath ? `✓ ${displayPath}` : "✓");
-    });
+    };
+
+    reporter.cleanup = () => {};
+
+    return reporter;
 }
 
 /**
@@ -466,10 +465,9 @@ function resolveManualRepoValue(
 }
 
 /**
- * Provide specialised GitHub helpers for manual fetching without forcing
+ * Provide specialized GitHub helpers for manual fetching without forcing
  * consumers to depend on unrelated operations.
- */
-/**
+ *
  * @param {{ userAgent: string }} options
  * @returns {ManualGitHubRequestDispatcher}
  */

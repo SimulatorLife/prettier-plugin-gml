@@ -16,7 +16,8 @@
     "prettier:plugin": "node ../cli/cli.js $npm_config_path"
   },
   "dependencies": {
-    "gamemaker-language-parser": "file:../parser"
+    "gamemaker-language-parser": "file:../parser",
+    "gamemaker-language-semantic": "file:../semantic"
   },
   "engines": {
     "node": ">=25.0.0"

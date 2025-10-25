@@ -170,21 +170,16 @@ export function parseJsonObjectWithContext(text, options = {}) {
         reviver
     });
 
-    const staticOptions = isObject(assertOptions) ? assertOptions : undefined;
-    const runtimeOptions =
+    const dynamicOptions =
         typeof createAssertOptions === "function"
             ? createAssertOptions(payload)
             : undefined;
-    const normalizedRuntimeOptions = isObject(runtimeOptions)
-        ? runtimeOptions
-        : undefined;
+
+    const optionSources = [assertOptions, dynamicOptions].filter(isObject);
 
     const mergedOptions =
-        staticOptions || normalizedRuntimeOptions
-            ? {
-                  ...staticOptions,
-                  ...normalizedRuntimeOptions
-              }
+        optionSources.length > 0
+            ? Object.assign({}, ...optionSources)
             : undefined;
 
     return assertPlainObject(payload, mergedOptions);
