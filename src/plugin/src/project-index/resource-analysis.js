@@ -1,18 +1,15 @@
 import path from "node:path";
 
-import { isNonEmptyArray, pushUnique } from "../../../shared/array-utils.js";
-import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
-import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
-import {
-    createAbortGuard,
-    throwIfAborted
-} from "../../../shared/abort-utils.js";
+import { isNonEmptyArray, pushUnique } from "../shared/array-utils.js";
+import { isNonEmptyTrimmedString } from "../shared/string-utils.js";
+import { getOrCreateMapEntry, isObjectLike } from "../shared/object-utils.js";
+import { createAbortGuard, throwIfAborted } from "../shared/abort-utils.js";
 
-import { isFsErrorCode } from "../../../shared/fs-utils.js";
+import { isFsErrorCode } from "../shared/fs-utils.js";
 import {
     isJsonParseError,
     parseJsonWithContext
-} from "../../../shared/json-utils.js";
+} from "../shared/json-utils.js";
 import {
     PROJECT_MANIFEST_EXTENSION,
     isProjectManifestPath
@@ -22,7 +19,7 @@ import { normalizeProjectResourcePath } from "./path-normalization.js";
 const RESOURCE_ANALYSIS_ABORT_MESSAGE = "Project index build was aborted.";
 
 function normalizeResourceDocumentMetadata(resourceData) {
-    if (!resourceData || typeof resourceData !== "object") {
+    if (!isObjectLike(resourceData)) {
         return { name: null, resourceType: null };
     }
 
@@ -191,7 +188,7 @@ function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
 }
 
 function pushChildNode(stack, parentPath, key, candidate) {
-    if (!candidate || typeof candidate !== "object") {
+    if (!isObjectLike(candidate)) {
         return;
     }
 
@@ -200,7 +197,7 @@ function pushChildNode(stack, parentPath, key, candidate) {
 }
 
 function collectAssetReferences(root, callback) {
-    if (!root || typeof root !== "object") {
+    if (!isObjectLike(root)) {
         return;
     }
 

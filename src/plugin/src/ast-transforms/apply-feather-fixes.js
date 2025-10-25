@@ -7,7 +7,7 @@ import {
     getNodeStartLine,
     cloneLocation,
     assignClonedLocation
-} from "../../../shared/ast-locations.js";
+} from "../shared/ast-locations.js";
 import {
     getArrayProperty,
     getBodyStatements,
@@ -21,7 +21,7 @@ import {
     isNode,
     visitChildNodes,
     unwrapParenthesizedExpression
-} from "../../../shared/ast-node-helpers.js";
+} from "../shared/ast-node-helpers.js";
 import {
     getNonEmptyString,
     isNonEmptyString,
@@ -29,31 +29,31 @@ import {
     stripStringQuotes,
     toNormalizedLowerCaseString,
     toTrimmedString
-} from "../../../shared/string-utils.js";
+} from "../shared/string-utils.js";
 import { loadReservedIdentifierNames } from "../resources/reserved-identifiers.js";
-import { isFiniteNumber } from "../../../shared/number-utils.js";
+import { isFiniteNumber } from "../shared/number-utils.js";
 import {
     asArray,
     isArrayIndex,
     isNonEmptyArray
-} from "../../../shared/array-utils.js";
-import { ensureSet } from "../../../shared/utils/capability-probes.js";
+} from "../shared/array-utils.js";
+import { ensureSet } from "../shared/utils/capability-probes.js";
 import {
     getOrCreateMapEntry,
     hasOwn,
     isObjectLike
-} from "../../../shared/object-utils.js";
-import { escapeRegExp } from "../../../shared/regexp.js";
+} from "../shared/object-utils.js";
+import { escapeRegExp } from "../shared/regexp.js";
 import {
     hasIterableItems,
     isMapLike,
     isSetLike
-} from "../../../shared/utils/capability-probes.js";
+} from "../shared/utils/capability-probes.js";
 import {
     collectCommentNodes,
     getCommentArray,
     hasComment,
-    resolveDocCommentInspectionService,
+    resolveDocCommentTraversalService,
     getCommentValue
 } from "../comments/index.js";
 import {
@@ -120,6 +120,22 @@ function hasArrayParentWithNumericIndex(parent, property) {
     }
 
     return true;
+}
+
+function resolveCallExpressionArrayContext(node, parent, property) {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
+        return null;
+    }
+
+    if (!isNode(node) || node.type !== "CallExpression") {
+        return null;
+    }
+
+    return {
+        callExpression: node,
+        siblings: parent,
+        index: property
+    };
 }
 
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
@@ -906,6 +922,27 @@ function hasFeatherDiagnosticContext(ast, diagnostic) {
     }
 
     if (typeof ast !== "object") {
+        return false;
+    }
+
+    return true;
+}
+
+function hasFeatherSourceTextContext(
+    ast,
+    diagnostic,
+    sourceText,
+    { allowEmpty = false } = {}
+) {
+    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
+        return false;
+    }
+
+    if (typeof sourceText !== "string") {
+        return false;
+    }
+
+    if (!allowEmpty && sourceText.length === 0) {
         return false;
     }
 
@@ -4131,11 +4168,11 @@ function normalizeArgumentBuiltinReferences({ ast, diagnostic, sourceText }) {
     }
 
     const fixes = [];
-    const docCommentInspection = resolveDocCommentInspectionService(ast);
+    const docCommentTraversal = resolveDocCommentTraversalService(ast);
     const documentedParamNamesByFunction = buildDocumentedParamNameLookup(
         ast,
         sourceText,
-        docCommentInspection
+        docCommentTraversal
     );
 
     const visit = (node) => {
@@ -4390,17 +4427,17 @@ function fixArgumentReferencesWithinFunction(
     return fixes;
 }
 
-function buildDocumentedParamNameLookup(ast, sourceText, docCommentInspection) {
+function buildDocumentedParamNameLookup(ast, sourceText, docCommentTraversal) {
     const lookup = new WeakMap();
 
     if (!ast || typeof ast !== "object") {
         return lookup;
     }
 
-    const inspection =
-        docCommentInspection ?? resolveDocCommentInspectionService(ast);
+    const traversal =
+        docCommentTraversal ?? resolveDocCommentTraversalService(ast);
 
-    inspection.forEach((node, comments = []) => {
+    traversal.forEach((node, comments = []) => {
         if (!isFunctionLikeNode(node)) {
             return;
         }
@@ -5319,12 +5356,7 @@ function buildNestedMemberIndexExpression({ object, indices, template }) {
 }
 
 function removeDuplicateSemicolons({ ast, sourceText, diagnostic }) {
-    if (
-        !diagnostic ||
-        !ast ||
-        typeof sourceText !== "string" ||
-        sourceText.length === 0
-    ) {
+    if (!hasFeatherSourceTextContext(ast, diagnostic, sourceText)) {
         return [];
     }
 
@@ -5693,11 +5725,7 @@ function normalizeObviousSyntaxErrors({ ast, diagnostic, metadata }) {
 }
 
 function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
-    if (
-        !diagnostic ||
-        typeof sourceText !== "string" ||
-        sourceText.length === 0
-    ) {
+    if (!hasFeatherSourceTextContext(ast, diagnostic, sourceText)) {
         return [];
     }
 
@@ -6248,16 +6276,7 @@ function registerSanitizedMacroName(ast, macroName) {
 }
 
 function ensureVarDeclarationsAreTerminated({ ast, sourceText, diagnostic }) {
-    if (
-        !diagnostic ||
-        !ast ||
-        typeof ast !== "object" ||
-        typeof sourceText !== "string"
-    ) {
-        return [];
-    }
-
-    if (sourceText.length === 0) {
+    if (!hasFeatherSourceTextContext(ast, diagnostic, sourceText)) {
         return [];
     }
 
@@ -6575,19 +6594,18 @@ function markStatementToSuppressLeadingEmptyLine(statement) {
 
 function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {
     if (
-        !diagnostic ||
-        !ast ||
-        typeof ast !== "object" ||
-        typeof sourceText !== "string"
+        !hasFeatherSourceTextContext(ast, diagnostic, sourceText, {
+            allowEmpty: true
+        })
     ) {
         return [];
     }
 
-    const docCommentInspection = resolveDocCommentInspectionService(ast);
+    const docCommentTraversal = resolveDocCommentTraversalService(ast);
     const deprecatedFunctions = collectDeprecatedFunctionNames(
         ast,
         sourceText,
-        docCommentInspection
+        docCommentTraversal
     );
 
     if (!deprecatedFunctions || deprecatedFunctions.size === 0) {
@@ -6671,7 +6689,7 @@ function recordDeprecatedCallMetadata(node, deprecatedFunctions, diagnostic) {
     return fixDetail;
 }
 
-function collectDeprecatedFunctionNames(ast, sourceText, docCommentInspection) {
+function collectDeprecatedFunctionNames(ast, sourceText, docCommentTraversal) {
     const names = new Set();
 
     if (!ast || typeof ast !== "object" || typeof sourceText !== "string") {
@@ -6697,10 +6715,10 @@ function collectDeprecatedFunctionNames(ast, sourceText, docCommentInspection) {
         return names;
     }
 
-    const inspection =
-        docCommentInspection ?? resolveDocCommentInspectionService(ast);
+    const traversal =
+        docCommentTraversal ?? resolveDocCommentTraversalService(ast);
 
-    inspection.forEach((node, comments = []) => {
+    traversal.forEach((node, comments = []) => {
         if (!topLevelFunctions.has(node)) {
             return;
         }
@@ -9114,11 +9132,7 @@ function ensureShaderResetAfterSet(
     diagnostic,
     sourceText
 ) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
-        return null;
-    }
-
-    if (!node || node.type !== "CallExpression") {
+    if (!resolveCallExpressionArrayContext(node, parent, property)) {
         return null;
     }
 
@@ -9230,11 +9244,7 @@ function ensureFogIsReset({ ast, diagnostic }) {
 }
 
 function ensureFogResetAfterCall(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
-        return null;
-    }
-
-    if (!node || node.type !== "CallExpression") {
+    if (!resolveCallExpressionArrayContext(node, parent, property)) {
         return null;
     }
 
@@ -9351,11 +9361,7 @@ function ensureSurfaceTargetsAreReset({ ast, diagnostic }) {
 }
 
 function ensureSurfaceTargetResetAfterCall(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
-        return null;
-    }
-
-    if (!node || node.type !== "CallExpression") {
+    if (!resolveCallExpressionArrayContext(node, parent, property)) {
         return null;
     }
 
@@ -9478,11 +9484,7 @@ function ensureBlendEnableIsReset({ ast, diagnostic }) {
 }
 
 function ensureBlendEnableResetAfterCall(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
-        return null;
-    }
-
-    if (!node || node.type !== "CallExpression") {
+    if (!resolveCallExpressionArrayContext(node, parent, property)) {
         return null;
     }
 
@@ -9621,11 +9623,7 @@ function ensureBlendModeIsReset({ ast, diagnostic }) {
 }
 
 function ensureBlendModeResetAfterCall(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
-        return null;
-    }
-
-    if (!node || node.type !== "CallExpression") {
+    if (!resolveCallExpressionArrayContext(node, parent, property)) {
         return null;
     }
 
@@ -10648,11 +10646,7 @@ function ensureAlphaTestEnableResetAfterCall(
     property,
     diagnostic
 ) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
-        return null;
-    }
-
-    if (!node || node.type !== "CallExpression") {
+    if (!resolveCallExpressionArrayContext(node, parent, property)) {
         return null;
     }
 

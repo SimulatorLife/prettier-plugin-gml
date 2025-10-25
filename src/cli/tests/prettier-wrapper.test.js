@@ -457,6 +457,14 @@ describe("Prettier wrapper CLI", () => {
                 tempDirectory
             ]);
 
+            assert.ok(
+                stdout.includes('All files matching ".gml" were skipped'),
+                "Expected stdout to explain that matching files were skipped"
+            );
+            assert.ok(
+                stdout.includes("by ignore rules. Nothing to format."),
+                "Expected stdout to mention that ignores prevented formatting"
+            );
             assert.match(stdout, /ignored by \.prettierignore \(1\)/);
 
             assert.match(
@@ -467,6 +475,47 @@ describe("Prettier wrapper CLI", () => {
 
             const formatted = await fs.readFile(targetFile, "utf8");
             assert.strictEqual(formatted, "var    a=1;\n");
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
+    it("identifies the ignore file that excluded a target", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const targetFile = path.join(tempDirectory, "script.gml");
+            await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
+
+            const ignorePath = path.join(tempDirectory, ".prettierignore");
+            await fs.writeFile(ignorePath, "script.gml\n", "utf8");
+
+            const { stdout } = await execFileAsync("node", [
+                wrapperPath,
+                targetFile
+            ]);
+
+            assert.match(
+                stdout,
+                new RegExp(
+                    `${escapeForRegex(path.basename(targetFile))} was skipped by ignore rules and not formatted\\.`,
+                    "m"
+                ),
+                "Expected summary output to explain that the file was ignored"
+            );
+
+            const expectedPattern = new RegExp(
+                String.raw`Skipping ${escapeForRegex(targetFile)} \(ignored by ${escapeForRegex(
+                    ignorePath
+                )}\)`,
+                "m"
+            );
+
+            assert.match(
+                stdout,
+                expectedPattern,
+                "Expected skip log to reference the matching .prettierignore"
+            );
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
@@ -710,6 +759,37 @@ describe("Prettier wrapper CLI", () => {
 
             const contents = await fs.readFile(targetFile, "utf8");
             assert.strictEqual(contents, "var a = 1;\n");
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
+    it("explains when --check only encounters ignored files", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const targetFile = path.join(tempDirectory, "script.gml");
+            await fs.writeFile(targetFile, "var a = 1;\n", "utf8");
+
+            const ignorePath = path.join(tempDirectory, ".prettierignore");
+            await fs.writeFile(ignorePath, "*.gml\n", "utf8");
+
+            const { stdout } = await execFileAsync("node", [
+                wrapperPath,
+                "--check",
+                tempDirectory
+            ]);
+
+            assert.ok(
+                stdout.includes('All files matching ".gml" were skipped'),
+                "Expected stdout to explain that matching files were ignored"
+            );
+            assert.ok(
+                stdout.includes("by ignore rules. Nothing to format."),
+                "Expected stdout to mention that ignores prevented formatting"
+            );
+            assert.match(stdout, /ignored by \.prettierignore \(1\)/);
+            assert.match(stdout, /Nothing to format\./);
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }

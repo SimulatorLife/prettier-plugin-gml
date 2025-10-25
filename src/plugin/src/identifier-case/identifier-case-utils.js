@@ -2,7 +2,7 @@ import {
     capitalize,
     normalizeStringList,
     trimStringEntries
-} from "../../../shared/string-utils.js";
+} from "../shared/string-utils.js";
 
 const RESERVED_PREFIX_PATTERN =
     /^(?<prefix>(?:global|other|self|local|with|noone)\.|argument(?:_(?:local|relative))?(?:\[\d+\]|\d+)?\.?)/;
@@ -113,13 +113,14 @@ function buildWordCase(normalized, transformToken) {
     }
 
     let base = "";
-    // Avoid using `tokens.entries()` to keep the hot path allocation-free. The
-    // iterator approach materializes a two-element array for every token, which
-    // shows up in identifier formatting micro-benchmarks. A simple index-based
-    // loop lets V8 reuse the existing array slots without synthesizing
-    // temporary tuples on each iteration.
-    for (const [index, token] of tokens.entries()) {
+    // Avoid using the iterator helpers that allocate an intermediate tuple for
+    // each entry (`tokens.entries()`), which shows up in identifier formatting
+    // micro-benchmarks. A simple index-based loop lets V8 reuse the existing
+    // array slots without synthesizing temporary arrays on each iteration.
+    let index = 0;
+    for (const token of tokens) {
         base += transformToken(token, index);
+        index += 1;
     }
 
     return finalizeIdentifier(normalized, base);

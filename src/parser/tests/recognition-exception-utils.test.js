@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { isRecognitionExceptionLike } from "../src/shared/utils/recognition-exception.js";
+import { isRecognitionExceptionLike } from "../src/utils/recognition-exception.js";
 
 test("isRecognitionExceptionLike rejects non-error values", () => {
     assert.strictEqual(isRecognitionExceptionLike(null), false);

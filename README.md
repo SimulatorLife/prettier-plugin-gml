@@ -152,11 +152,22 @@ for (var i = 0; i < queue_count; i += 1) {
   cache architecture, and the rolling [project index roadmap](docs/project-index-next-steps.md)
   alongside the [Feather data plan](docs/feather-data-plan.md). Pair them with
   the [reserved identifier metadata hook overview](docs/reserved-identifier-metadata-hook.md)
-  when staging bespoke metadata sources or regeneration scripts.
+  and the [project index source extension hook](docs/project-index-source-extensions-hook.md)
+  when staging bespoke metadata sources, generated code directories, or
+  regeneration scripts.
 - [Live reloading concept](docs/live-reloading-concept.md) &mdash; Concept brief for
   the HTML5 runtime fork and watcher pipeline that powers in-place code reloads
   during gameplay. Use it alongside the architecture audits when evaluating
   runtime tooling work.
+- [Formatter extension hooks](docs/object-wrap-option-resolver-hook.md) &mdash;
+  Override struct wrapping heuristics or extend identifier-case discovery in
+  controlled experiments. Combine it with the
+  [project index source extension hook](docs/project-index-source-extensions-hook.md)
+  when bespoke suffixes (for example, `.npc.gml`) need to participate in rename
+  plans.
+- [Memory experiments](docs/metrics-tracker-finalize-memory.md) &mdash; Captures the
+  `node --expose-gc` script and before/after measurements that validate the
+  metrics tracker clean-up path.
 
 ---
 
@@ -290,7 +301,8 @@ nvm alias default node
 
 2. Format any GameMaker project without adding dependencies to that project. The
    CLI exposes a `format` command that accepts an explicit path and optional
-   extensions:
+   extensions. Invoking the wrapper without a subcommand automatically runs
+   `format`, so `npm run cli` formats the current working directory by default:
 
    ```bash
    npm run cli -- format "/absolute/path/to/MyGame" --extensions=.gml,.yy
@@ -571,6 +583,8 @@ Bare decimal literals are always padded with leading and trailing zeroes to impr
 
 Banner line comments are automatically detected when they contain five or more consecutive `/` characters. Once identified, the formatter rewrites the banner prefix to 60 slashes so mixed-width comment markers settle on a single, readable standard.
 
+Advanced integrations can temporarily override the struct wrapping heuristic via `setObjectWrapOptionResolver`; the [object-wrap option resolver hook](docs/object-wrap-option-resolver-hook.md) explains how to register an override and reset back to the default resolver after experiments complete.
+
 #### Identifier-case rollout
 
 | Option | Default | Summary |
@@ -588,7 +602,11 @@ Banner line comments are automatically detected when they contain five or more c
 
 Additional automation hooks such as `identifierCaseProjectIndex`,
 `identifierCaseDryRun`, and `identifierCaseReportLogPath` are documented in the
-[Identifier case rollout playbook](docs/identifier-case-rollout.md).
+[Identifier case rollout playbook](docs/identifier-case-rollout.md). Projects
+that checkpoint GML under bespoke suffixes can extend the recognised source
+list with `setProjectIndexSourceExtensions`; the
+[project index source extension hook](docs/project-index-source-extensions-hook.md)
+covers the helper trio and intended use cases.
 
 ---
 

@@ -4,18 +4,16 @@ import {
     normalizeNumericOption,
     coerceNonNegativeInteger,
     coercePositiveInteger
-} from "../../../shared/numeric-option-utils.js";
-import { isNonEmptyTrimmedString } from "../../../shared/string-utils.js";
+} from "../shared/numeric-option-utils.js";
+import { isNonEmptyTrimmedString } from "../shared/string-utils.js";
 import {
     assertFunction,
     coalesceOption,
     isObjectLike,
     withDefinedValue
-} from "../../../shared/object-utils.js";
-import {
-    findProjectRoot,
-    createProjectIndexCoordinator
-} from "../project-index/index.js";
+} from "../shared/object-utils.js";
+import { createProjectIndexCoordinator } from "../project-index/index.js";
+import { findProjectRoot } from "../project-index/project-root.js";
 import { getProjectIndexParserOverride } from "../project-index/parser-override.js";
 import {
     createProjectIndexBuildOptions,

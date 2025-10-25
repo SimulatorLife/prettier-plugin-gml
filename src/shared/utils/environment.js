@@ -7,7 +7,7 @@ import { assertNonEmptyString } from "./string.js";
  *
  * Centralizes the defensive plumbing shared by CLI utilities and the project
  * index so future overrides can opt into consistent validation and fallback
- * behavior without repeating boilerplate guards.
+ * behaviour without repeating boilerplate guards.
  *
  * @param {object} parameters
  * @param {NodeJS.ProcessEnv | null | undefined} [parameters.env] Environment

@@ -38,3 +38,25 @@ test("omits blank lines between nested and enclosing block braces", async () => 
         "Expected the formatter to collapse extraneous blank lines between adjacent closing braces."
     );
 });
+
+test("inserts padding after trailing function declarations", async () => {
+    const source = [
+        "function outer() {",
+        "    function inner() {",
+        "        return 1;",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.trim().split("\n");
+
+    const trailingLines = lines.slice(-3);
+
+    assert.deepEqual(
+        trailingLines,
+        ["    }", "", "}"],
+        "Expected trailing function declarations to remain separated from their enclosing block by a blank line."
+    );
+});

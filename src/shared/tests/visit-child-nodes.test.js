@@ -29,6 +29,21 @@ describe("visitChildNodes", () => {
         assert.deepEqual(calls[0], [child]);
     });
 
+    it("continues iterating when the backing array mutates", () => {
+        const nodes = [{ name: "alpha" }, { name: "beta" }, { name: "gamma" }];
+        const seen = [];
+
+        visitChildNodes(nodes, (child) => {
+            seen.push(child?.name ?? "");
+
+            if (child?.name === "alpha") {
+                nodes.splice(0, 1);
+            }
+        });
+
+        assert.deepEqual(seen, ["alpha", "beta", "gamma"]);
+    });
+
     it("bails early for nullish parents", () => {
         const calls = [];
 

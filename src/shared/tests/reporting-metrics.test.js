@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createMetricsTracker } from "../metrics-utils.js";
+import { createMetricsTracker } from "../reporting.js";
 
 test("snapshot exposes accumulated metrics as plain objects", () => {
     const tracker = createMetricsTracker({ category: "demo" });
@@ -60,11 +60,14 @@ test("finalize logs once when auto logging is enabled", () => {
 
     tracker.incrementCounter("items", 3);
     const report = tracker.finalize({ counters: { extra: 1 } });
+    const second = tracker.finalize({ counters: { extra: 999 } });
 
     assert.deepEqual(report.counters, { items: 3, extra: 1 });
     assert.equal(events.length, 1);
     assert.equal(events[0].message, "[auto] summary");
     assert.deepEqual(events[0].payload, report);
+    assert.deepEqual(second.counters, { extra: 999 });
+    assert.equal(events.length, 1);
 });
 
 test("cache keys are configurable and support custom metrics", () => {
@@ -82,6 +85,19 @@ test("cache keys are configurable and support custom metrics", () => {
         hits: 1,
         evictions: 2,
         misses: 3
+    });
+});
+
+test("cache key normalization accepts delimited strings", () => {
+    const tracker = createMetricsTracker({ cacheKeys: " hits , misses " });
+
+    tracker.recordCacheHit("store");
+    tracker.recordCacheMetric("store", "misses", 2);
+
+    const report = tracker.snapshot();
+    assert.deepEqual(report.caches.store, {
+        hits: 1,
+        misses: 2
     });
 });
 

@@ -1,19 +1,18 @@
-import { createRequire } from "node:module";
-
-import { toNormalizedLowerCaseSet } from "../../../shared/string-utils.js";
-import { normalizeIdentifierMetadataEntries } from "../../../shared/identifier-metadata.js";
-
-const require = createRequire(import.meta.url);
+import { toNormalizedLowerCaseSet } from "../shared/string-utils.js";
+import { normalizeIdentifierMetadataEntries } from "../shared/identifier-metadata.js";
+import {
+    GML_IDENTIFIER_METADATA_PATH,
+    loadBundledIdentifierMetadata
+} from "./bundled-resources.js";
 
 const DEFAULT_EXCLUDED_TYPES = new Set(["literal", "keyword"]);
-const DEFAULT_IDENTIFIER_METADATA_PATH =
-    "../../../../resources/gml-identifiers.json";
+const DEFAULT_IDENTIFIER_METADATA_PATH = GML_IDENTIFIER_METADATA_PATH;
 
 let metadataLoader = defaultLoadIdentifierMetadata;
 
 function defaultLoadIdentifierMetadata() {
     try {
-        const metadata = require(DEFAULT_IDENTIFIER_METADATA_PATH);
+        const metadata = loadBundledIdentifierMetadata();
         return metadata && typeof metadata === "object" ? metadata : null;
     } catch {
         return null;
@@ -45,6 +44,14 @@ function loadIdentifierMetadata() {
 function setReservedIdentifierMetadataLoader(loader) {
     if (typeof loader !== "function") {
         resetReservedIdentifierMetadataLoader();
+        // Callers expect a cleanup handler even when the override is rejected.
+        // Advanced integrations wrap `setReservedIdentifierMetadataLoader` in
+        // try/finally blocks (documented in
+        // docs/reserved-identifier-metadata-hook.md) so their staged metadata
+        // only applies during a scoped experiment. Returning a stubbed
+        // unregister callback keeps those flows balanced; throwing or returning
+        // `null` would explode the finally handler and leave the override logic
+        // in an indeterminate state.
         return () => {};
     }
 
