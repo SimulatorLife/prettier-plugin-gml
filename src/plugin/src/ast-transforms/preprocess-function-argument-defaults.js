@@ -10,7 +10,10 @@ import {
     unwrapParenthesizedExpression,
     getBodyStatements,
     toMutableArray,
-    isObjectLike
+    isObjectLike,
+    getNodeEndIndex,
+    getNodeStartIndex,
+    assignClonedLocation
 } from "../shared/index.js";
 
 const DEFAULT_HELPERS = {
@@ -208,8 +211,58 @@ function preprocessFunctionDeclaration(node, helpers) {
 
         sourceStatement._skipArgumentCountDefault = true;
         statementsToRemove.add(ifStatement);
+        extendStatementEndLocation(sourceStatement, ifStatement);
         appliedChanges = true;
         body._gmlForceInitialBlankLine = true;
+    }
+
+    /**
+     * Extends the location metadata for the variable declaration so the printer
+     * can continue detecting author-authored blank lines that followed the
+     * removed fallback statement.
+     *
+     * @param {unknown} targetDeclaration Variable declaration that now contains
+     *   the condensed fallback logic.
+     * @param {unknown} removedStatement The statement that previously carried
+     *   the fallback assignment.
+     */
+    function extendStatementEndLocation(targetDeclaration, removedStatement) {
+        if (!targetDeclaration || !removedStatement) {
+            return;
+        }
+
+        const removalEnd = getNodeEndIndex(removedStatement);
+        if (removalEnd == null) {
+            return;
+        }
+
+        const declarationEnd = getNodeEndIndex(targetDeclaration);
+        if (declarationEnd != null && declarationEnd >= removalEnd) {
+            return;
+        }
+
+        assignClonedLocation(targetDeclaration, {
+            end: removedStatement.end
+        });
+
+        const removedRangeEnd = Array.isArray(removedStatement.range)
+            ? removedStatement.range[1]
+            : null;
+
+        if (typeof removedRangeEnd === "number") {
+            if (Array.isArray(targetDeclaration.range)) {
+                const [startRange] = targetDeclaration.range;
+                targetDeclaration.range = [startRange, removedRangeEnd];
+            } else {
+                const declarationStart = getNodeStartIndex(targetDeclaration);
+                if (typeof declarationStart === "number") {
+                    targetDeclaration.range = [
+                        declarationStart,
+                        removedRangeEnd
+                    ];
+                }
+            }
+        }
     }
 
     const matches = [];
