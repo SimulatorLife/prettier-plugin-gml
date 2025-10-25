@@ -78,8 +78,8 @@ function pushAssetRenameConflict({
     const resolvedSuggestions =
         suggestions === undefined
             ? includeSuggestions && isNonEmptyString(identifierName)
-              ? buildAssetConflictSuggestions(identifierName)
-              : null
+                ? buildAssetConflictSuggestions(identifierName)
+                : null
             : suggestions;
 
     conflicts.push(
