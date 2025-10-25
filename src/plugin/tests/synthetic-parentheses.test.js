@@ -102,6 +102,24 @@ test("preserves chains of sqr calls without additional parentheses", async () =>
     );
 });
 
+test("removes synthetic multiplication grouping within additive length calculations", async () => {
+    const source = [
+        "var length = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);",
+        ""
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    assert.strictEqual(
+        formatted.trim(),
+        "var length = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);",
+        "Expected synthetic parentheses around multiplicative operands to be removed when forming additive length expressions."
+    );
+});
+
 test("retains synthetic multiplication parentheses within comparisons", async () => {
     const source = [
         "do {",
