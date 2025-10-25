@@ -72,49 +72,7 @@ function normalizeDownloadLabel(label) {
 
 const noop = () => {};
 
-function createReporter(handler, cleanup = noop) {
-    return Object.assign(handler, { cleanup });
-}
-
-const IDLE_DOWNLOAD_REPORTER = createReporter(noop);
-
-function createProgressDownloadReporter({ label, progressBarWidth, render }) {
-    const normalizedLabel = normalizeDownloadLabel(label);
-    const width = progressBarWidth ?? 0;
-    const progressRenderer =
-        typeof render === "function" ? render : renderProgressBar;
-
-    let cleanedUp = false;
-
-    return createReporter(
-        ({ fetchedCount, totalEntries }) => {
-            progressRenderer(
-                normalizedLabel,
-                fetchedCount,
-                totalEntries,
-                width
-            );
-        },
-        () => {
-            if (cleanedUp) {
-                return;
-            }
-
-            cleanedUp = true;
-            disposeProgressBars();
-        }
-    );
-}
-
-function createLoggingDownloadReporter(formatPath) {
-    const normalizePath =
-        typeof formatPath === "function" ? formatPath : (path) => path;
-
-    return createReporter(({ path }) => {
-        const displayPath = normalizePath(path);
-        console.log(displayPath ? `✓ ${displayPath}` : "✓");
-    });
-}
+const IDLE_DOWNLOAD_REPORTER = Object.assign(() => {}, { cleanup: noop });
 
 /**
  * Create a progress reporter for manual file downloads. Callers receive a
@@ -141,19 +99,50 @@ export function createManualDownloadReporter({
     formatPath = (path) => path,
     render = renderProgressBar
 } = {}) {
-    if (!verbose.downloads) {
+    const { downloads = false, progressBar = false } = verbose ?? {};
+
+    if (!downloads) {
         return IDLE_DOWNLOAD_REPORTER;
     }
 
-    if (verbose.progressBar) {
-        return createProgressDownloadReporter({
-            label,
-            progressBarWidth,
-            render
+    if (progressBar) {
+        const normalizedLabel = normalizeDownloadLabel(label);
+        const width = progressBarWidth ?? 0;
+        const progressRenderer =
+            typeof render === "function" ? render : renderProgressBar;
+
+        let cleanedUp = false;
+
+        const reporter = ({ fetchedCount, totalEntries }) => {
+            progressRenderer(
+                normalizedLabel,
+                fetchedCount,
+                totalEntries,
+                width
+            );
+        };
+
+        return Object.assign(reporter, {
+            cleanup() {
+                if (cleanedUp) {
+                    return;
+                }
+
+                cleanedUp = true;
+                disposeProgressBars();
+            }
         });
     }
 
-    return createLoggingDownloadReporter(formatPath);
+    const normalizePath =
+        typeof formatPath === "function" ? formatPath : (path) => path;
+
+    const reporter = ({ path }) => {
+        const displayPath = normalizePath(path);
+        console.log(displayPath ? `✓ ${displayPath}` : "✓");
+    };
+
+    return Object.assign(reporter, { cleanup: noop });
 }
 
 /**
