@@ -1,58 +1,5 @@
 import { assertFunction } from "../shared/dependencies.js";
-
-const shouldSkipDefaultPluginServices =
-    process.env.PRETTIER_PLUGIN_GML_SKIP_CLI_RUN === "1";
-
-function createSkippedServiceError(actionDescription) {
-    return new Error(
-        `Cannot ${actionDescription} while PRETTIER_PLUGIN_GML_SKIP_CLI_RUN=1. ` +
-            "Clear the environment variable to restore CLI plugin services."
-    );
-}
-
-function createSkippedProjectIndexBuilder() {
-    return async function skippedProjectIndexBuilder() {
-        throw createSkippedServiceError("build the project index");
-    };
-}
-
-function createSkippedIdentifierCasePlanPreparer() {
-    return async function skippedIdentifierCasePlanPreparer() {
-        throw createSkippedServiceError("prepare the identifier case plan");
-    };
-}
-
-function createSkippedIdentifierCaseCacheClearer() {
-    return function skippedIdentifierCaseCacheClearer() {};
-}
-
-let baseProjectIndexBuilder;
-let baseIdentifierCasePlanPreparer;
-let baseIdentifierCaseCacheClearer;
-
-if (shouldSkipDefaultPluginServices) {
-    baseProjectIndexBuilder = createSkippedProjectIndexBuilder();
-    baseIdentifierCasePlanPreparer = createSkippedIdentifierCasePlanPreparer();
-    baseIdentifierCaseCacheClearer = createSkippedIdentifierCaseCacheClearer();
-} else {
-    const { buildProjectIndex } = await import(
-        "prettier-plugin-gamemaker/project-index"
-    );
-    const {
-        prepareIdentifierCasePlan,
-        clearIdentifierCaseOptionStore,
-        clearIdentifierCaseDryRunContexts
-    } = await import("prettier-plugin-gamemaker/identifier-case");
-
-    function clearIdentifierCaseCaches() {
-        clearIdentifierCaseOptionStore(null);
-        clearIdentifierCaseDryRunContexts();
-    }
-
-    baseProjectIndexBuilder = buildProjectIndex;
-    baseIdentifierCasePlanPreparer = prepareIdentifierCasePlan;
-    baseIdentifierCaseCacheClearer = clearIdentifierCaseCaches;
-}
+import { defaultCliPluginServiceDependencies } from "./default-service-dependencies.js";
 
 /**
  * The legacy `identifierCasePlanService` facade coupled plan preparation with
@@ -122,6 +69,12 @@ function assertDescriptorValue(value, description) {
 
 export function createDefaultCliPluginServices(descriptorSource) {
     const descriptors = resolveDescriptorSource(descriptorSource);
+
+    const {
+        projectIndexBuilder: baseProjectIndexBuilder,
+        identifierCasePlanPreparer: baseIdentifierCasePlanPreparer,
+        identifierCaseCacheClearer: baseIdentifierCaseCacheClearer
+    } = defaultCliPluginServiceDependencies;
 
     const projectIndexBuilder =
         descriptors.projectIndexBuilder ?? baseProjectIndexBuilder;
