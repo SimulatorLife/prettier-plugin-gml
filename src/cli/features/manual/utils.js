@@ -8,6 +8,7 @@ import {
     isNonEmptyArray,
     isNonEmptyTrimmedString,
     parseJsonWithContext,
+    resolveFunction,
     toTrimmedString
 } from "../shared/dependencies.js";
 import { formatDuration } from "../shared/time-utils.js";
@@ -70,10 +71,9 @@ function normalizeDownloadLabel(label) {
     return isNonEmptyTrimmedString(label) ? label : "Downloading manual files";
 }
 
-const noop = () => {};
-
-function reporterWithCleanup(handler, cleanup = noop) {
-    const report = typeof handler === "function" ? handler : noop;
+function reporterWithCleanup(handler, cleanup) {
+    const report = resolveFunction(handler);
+    const cleanupHandler = resolveFunction(cleanup);
     let cleanedUp = false;
 
     report.cleanup = () => {
@@ -82,7 +82,7 @@ function reporterWithCleanup(handler, cleanup = noop) {
         }
 
         cleanedUp = true;
-        cleanup();
+        cleanupHandler();
     };
 
     return report;
@@ -116,14 +116,13 @@ export function createManualDownloadReporter({
     const { downloads = false, progressBar = false } = verbose ?? {};
 
     if (!downloads) {
-        return reporterWithCleanup(noop);
+        return reporterWithCleanup();
     }
 
     if (progressBar) {
         const normalizedLabel = normalizeDownloadLabel(label);
         const width = progressBarWidth ?? 0;
-        const progressRenderer =
-            typeof render === "function" ? render : renderProgressBar;
+        const progressRenderer = resolveFunction(render, renderProgressBar);
 
         return reporterWithCleanup(({ fetchedCount, totalEntries }) => {
             progressRenderer(
@@ -135,8 +134,7 @@ export function createManualDownloadReporter({
         }, disposeProgressBars);
     }
 
-    const normalizePath =
-        typeof formatPath === "function" ? formatPath : (path) => path;
+    const normalizePath = resolveFunction(formatPath, (path) => path);
 
     return reporterWithCleanup(({ path }) => {
         const displayPath = normalizePath(path);
@@ -176,8 +174,9 @@ export async function downloadManualFileEntries({
     const payloads = {};
     const totalEntries = normalizedEntries.length;
     let fetchedCount = 0;
-    const cleanup =
-        typeof onProgressCleanup === "function" ? onProgressCleanup : null;
+    const cleanup = resolveFunction(onProgressCleanup, null, {
+        allowFallbackNonFunction: true
+    });
 
     try {
         for (const [key, filePath] of normalizedEntries) {
