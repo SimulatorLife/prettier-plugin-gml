@@ -7,10 +7,10 @@ import {
     downloadManualEntriesWithProgress,
     downloadManualFileEntries
 } from "../features/manual/utils.js";
-import {
-    renderProgressBar,
-    resetProgressBarRegistryForTesting
-} from "../shared/progress-bar.js";
+import * as progressBarModule from "../shared/progress-bar.js";
+
+const { renderProgressBar, resetProgressBarRegistryForTesting } =
+    progressBarModule;
 
 describe("manual download helpers", () => {
     afterEach(() => {
@@ -185,6 +185,49 @@ describe("manual download helpers", () => {
         } finally {
             restoreLog.mock.restore();
         }
+    });
+
+    it("only runs progress cleanup once", () => {
+        const stopMock = mock.fn();
+        const stdout = {
+            isTTY: true,
+            clearLine: () => {},
+            cursorTo: () => {},
+            moveCursor: () => {},
+            on: () => {},
+            removeListener: () => {},
+            write: () => {}
+        };
+
+        const report = createManualDownloadReporter({
+            label: "Downloading manual files",
+            verbose: { downloads: true, progressBar: true },
+            progressBarWidth: 12,
+            render: (label, current, total, width) => {
+                renderProgressBar(label, current, total, width, {
+                    stdout,
+                    createBar: () => ({
+                        setTotal: () => {},
+                        update: () => {},
+                        start: () => {},
+                        stop: (...args) => {
+                            stopMock(...args);
+                        }
+                    })
+                });
+            }
+        });
+
+        report({
+            path: "Manual/file.htm",
+            fetchedCount: 1,
+            totalEntries: 2
+        });
+
+        report.cleanup();
+        report.cleanup();
+
+        assert.equal(stopMock.mock.callCount(), 1);
     });
 
     it("disposes progress bars when downloads fail mid-flight", async () => {

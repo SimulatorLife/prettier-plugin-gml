@@ -73,25 +73,6 @@ function normalizeDownloadLabel(label) {
     return isNonEmptyTrimmedString(label) ? label : "Downloading manual files";
 }
 
-function createReporter(handler, cleanup) {
-    const report = resolveFunction(handler);
-    const cleanupHandler = resolveFunction(cleanup);
-    let cleanedUp = false;
-
-    const reporter = (...args) => report(...args);
-
-    reporter.cleanup = () => {
-        if (cleanedUp) {
-            return;
-        }
-
-        cleanedUp = true;
-        cleanupHandler();
-    };
-
-    return reporter;
-}
-
 export function announceManualDownloadStart(
     totalEntries,
     { verbose, description = "manual file" } = {}
@@ -138,30 +119,49 @@ export function createManualDownloadReporter({
     const { downloads = false, progressBar = false } = verbose ?? {};
 
     if (!downloads) {
-        return createReporter();
+        const noop = () => {};
+        noop.cleanup = () => {};
+        return noop;
     }
 
     if (progressBar) {
         const normalizedLabel = normalizeDownloadLabel(label);
         const width = progressBarWidth ?? 0;
-        const progressRenderer = resolveFunction(render, renderProgressBar);
+        const progressRenderer =
+            typeof render === "function" ? render : renderProgressBar;
+        let cleanedUp = false;
 
-        return createReporter(({ fetchedCount, totalEntries }) => {
+        const reporter = ({ fetchedCount, totalEntries }) => {
             progressRenderer(
                 normalizedLabel,
                 fetchedCount,
                 totalEntries,
                 width
             );
-        }, disposeProgressBars);
+        };
+
+        reporter.cleanup = () => {
+            if (cleanedUp) {
+                return;
+            }
+
+            cleanedUp = true;
+            disposeProgressBars();
+        };
+
+        return reporter;
     }
 
-    const normalizePath = resolveFunction(formatPath, identity);
-
-    return createReporter(({ path }) => {
+    const normalizePath =
+        typeof formatPath === "function" ? formatPath : identity;
+    const reporter = ({ path }) => {
         const displayPath = normalizePath(path);
         console.log(displayPath ? `✓ ${displayPath}` : "✓");
-    });
+    };
+
+    reporter.cleanup = () => {};
+
+    return reporter;
 }
 
 /**
