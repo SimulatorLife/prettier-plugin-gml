@@ -1,39 +1,18 @@
 import { isErrorLike } from "./capability-probes.js";
+import { getErrorMessageOrFallback } from "./error.js";
 import { assertPlainObject } from "./object.js";
 import { isNonEmptyString, toTrimmedString } from "./string.js";
-
-function getErrorMessage(value) {
-    if (typeof value === "string") {
-        return value;
-    }
-
-    if (value == null) {
-        return null;
-    }
-
-    if (typeof value.toString !== "function") {
-        return null;
-    }
-
-    try {
-        return value.toString();
-    } catch {
-        return null;
-    }
-}
 
 function toError(value) {
     if (isErrorLike(value)) {
         return value;
     }
 
-    const rawMessage = getErrorMessage(value);
-    const message =
-        rawMessage && rawMessage !== "[object Object]"
-            ? rawMessage
-            : "Unknown error";
+    const message = getErrorMessageOrFallback(value);
+    const normalizedMessage =
+        message === "[object Object]" ? "Unknown error" : message;
 
-    const fallback = new Error(message);
+    const fallback = new Error(normalizedMessage);
     fallback.name = "NonErrorThrown";
     return fallback;
 }
