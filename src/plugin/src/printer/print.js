@@ -2792,10 +2792,8 @@ function getFunctionParameterNameSetFromPath(path) {
         return null;
     }
 
-    const params = Array.isArray(functionNode.params)
-        ? functionNode.params
-        : null;
-    if (!params || params.length === 0) {
+    const params = getFunctionParams(functionNode);
+    if (params.length === 0) {
         return null;
     }
 
@@ -4200,9 +4198,7 @@ function getPreferredFunctionParameterName(path, node, options) {
             return null;
         }
 
-        const params = Array.isArray(functionNode.params)
-            ? functionNode.params
-            : [];
+        const params = getFunctionParams(functionNode);
         if (paramIndex >= params.length) {
             return null;
         }
@@ -4253,9 +4249,7 @@ function getPreferredFunctionParameterName(path, node, options) {
         return preferredName;
     }
 
-    const params = Array.isArray(functionNode.params)
-        ? functionNode.params
-        : [];
+    const params = getFunctionParams(functionNode);
     if (argumentIndex >= params.length) {
         return null;
     }
@@ -4289,10 +4283,8 @@ function resolvePreferredParameterName(
         return null;
     }
 
-    const params = Array.isArray(functionNode.params)
-        ? functionNode.params
-        : null;
-    if (!params || paramIndex >= params.length) {
+    const params = getFunctionParams(functionNode);
+    if (paramIndex >= params.length) {
         return null;
     }
 
@@ -4455,11 +4447,11 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
         return false;
     }
 
-    if (!functionNode || !Array.isArray(functionNode.params)) {
+    if (!functionNode) {
         return false;
     }
 
-    const params = functionNode.params;
+    const params = getFunctionParams(functionNode);
     if (argumentIndex < 0 || argumentIndex >= params.length) {
         return false;
     }
@@ -7166,9 +7158,7 @@ function getFunctionParameterNameByIndex(functionNode, index) {
         return null;
     }
 
-    const params = Array.isArray(functionNode.params)
-        ? functionNode.params
-        : [];
+    const params = getFunctionParams(functionNode);
 
     if (!Number.isInteger(index) || index < 0 || index >= params.length) {
         return null;
@@ -7192,6 +7182,19 @@ function getFunctionParameterNameByIndex(functionNode, index) {
     }
 
     return null;
+}
+
+function getFunctionParams(functionNode) {
+    if (!functionNode || typeof functionNode !== "object") {
+        return [];
+    }
+
+    const { params } = functionNode;
+    if (!Array.isArray(params)) {
+        return [];
+    }
+
+    return params;
 }
 
 // prints empty parens with dangling comments
