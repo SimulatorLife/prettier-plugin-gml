@@ -15,7 +15,8 @@ import {
     assertFunction,
     asArray,
     hasOwn,
-    isNonEmptyString
+    isNonEmptyString,
+    resolveCommandUsage
 } from "../shared/dependencies.js";
 
 function resolveDefaultValue(option, name, fallback) {
@@ -271,10 +272,7 @@ export function resolveManualCommandOptions(
             options.progressBarWidth ?? getDefaultProgressBarWidth(),
         cacheRoot: options.cacheRoot ?? cacheRootFallback,
         manualRepo: options.manualRepo ?? manualRepoFallback,
-        usage:
-            typeof command?.helpInformation === "function"
-                ? command.helpInformation()
-                : undefined
+        usage: resolveCommandUsage(command)
     };
 
     if (typeof mapExtras === "function") {
