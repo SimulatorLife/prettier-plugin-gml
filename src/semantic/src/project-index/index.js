@@ -149,6 +149,37 @@ function ensureCollectionEntry(map, key, initializer) {
     return getOrCreateMapEntry(map, key, initializer);
 }
 
+function ensureIdentifierCollectionEntry({
+    collection,
+    key,
+    identifierId,
+    initializer
+}) {
+    return ensureCollectionEntry(collection, key, () => {
+        const initializerValue =
+            typeof initializer === "function" ? initializer() : initializer;
+        const {
+            declarations: initialDeclarations,
+            references: initialReferences,
+            ...rest
+        } = isObjectLike(initializerValue) ? initializerValue : {};
+
+        const declarations = Array.isArray(initialDeclarations)
+            ? [...initialDeclarations]
+            : [];
+        const references = Array.isArray(initialReferences)
+            ? [...initialReferences]
+            : [];
+
+        return {
+            identifierId,
+            declarations,
+            references,
+            ...rest
+        };
+    });
+}
+
 function recordIdentifierCollectionRole(
     entry,
     identifierRecord,
@@ -506,21 +537,19 @@ function ensureScriptEntry(identifierCollections, descriptor) {
 
     const identifierId = buildIdentifierId("script", descriptor.id);
 
-    return ensureCollectionEntry(
-        identifierCollections.scripts,
-        descriptor.id,
-        () => ({
-            identifierId,
+    return ensureIdentifierCollectionEntry({
+        collection: identifierCollections.scripts,
+        key: descriptor.id,
+        identifierId,
+        initializer: () => ({
             id: descriptor.id,
             name: descriptor.name ?? null,
             displayName:
                 descriptor.displayName ?? descriptor.name ?? descriptor.id,
             resourcePath: descriptor.resourcePath ?? null,
-            declarations: [],
-            references: [],
             declarationKinds: []
         })
-    );
+    });
 }
 
 function registerScriptDeclaration({
@@ -644,21 +673,19 @@ function registerScriptReference({ identifierCollections, callRecord }) {
 
     const identifierId = buildIdentifierId("script", targetScopeId);
 
-    const entry = ensureCollectionEntry(
-        identifierCollections.scripts,
-        targetScopeId,
-        () => ({
-            identifierId,
+    const entry = ensureIdentifierCollectionEntry({
+        collection: identifierCollections.scripts,
+        key: targetScopeId,
+        identifierId,
+        initializer: () => ({
             id: targetScopeId,
             name: callRecord.target?.name ?? null,
             displayName: callRecord.target?.name
                 ? `script.${callRecord.target.name}`
                 : targetScopeId,
-            resourcePath: callRecord.target?.resourcePath ?? null,
-            declarations: [],
-            references: []
+            resourcePath: callRecord.target?.resourcePath ?? null
         })
-    );
+    });
 
     assignIdentifierEntryMetadata(entry, {
         identifierId,
@@ -723,16 +750,14 @@ function registerMacroOccurrence({
 
     const identifierId = buildIdentifierId("macro", identifierRecord.name);
 
-    const entry = ensureCollectionEntry(
-        identifierCollections.macros,
-        identifierRecord.name,
-        () => ({
-            identifierId,
-            name: identifierRecord.name,
-            declarations: [],
-            references: []
+    const entry = ensureIdentifierCollectionEntry({
+        collection: identifierCollections.macros,
+        key: identifierRecord.name,
+        identifierId,
+        initializer: () => ({
+            name: identifierRecord.name
         })
-    );
+    });
 
     assignIdentifierEntryMetadata(entry, { identifierId });
 
@@ -765,18 +790,16 @@ function registerEnumOccurrence({
 
     const enumInfo = enumLookup?.enumDeclarations?.get(enumKey) ?? null;
     const identifierId = buildIdentifierId("enum", enumKey);
-    const entry = ensureCollectionEntry(
-        identifierCollections.enums,
-        enumKey,
-        () => ({
-            identifierId,
+    const entry = ensureIdentifierCollectionEntry({
+        collection: identifierCollections.enums,
+        key: enumKey,
+        identifierId,
+        initializer: () => ({
             key: enumKey,
             name: enumInfo?.name ?? identifierRecord?.name ?? null,
-            filePath: enumInfo?.filePath ?? filePath ?? null,
-            declarations: [],
-            references: []
+            filePath: enumInfo?.filePath ?? filePath ?? null
         })
-    );
+    });
 
     const enumName = enumInfo
         ? (enumInfo.name ?? identifierRecord?.name ?? null)
@@ -817,11 +840,11 @@ function registerEnumMemberOccurrence({
     const enumKey = memberInfo?.enumKey ?? null;
     const identifierId = buildIdentifierId("enum-member", memberKey);
 
-    const entry = ensureCollectionEntry(
-        identifierCollections.enumMembers,
-        memberKey,
-        () => ({
-            identifierId,
+    const entry = ensureIdentifierCollectionEntry({
+        collection: identifierCollections.enumMembers,
+        key: memberKey,
+        identifierId,
+        initializer: () => ({
             key: memberKey,
             name: memberInfo?.name ?? identifierRecord?.name ?? null,
             enumKey,
@@ -829,11 +852,9 @@ function registerEnumMemberOccurrence({
                 ? (enumLookup?.enumDeclarations?.get(memberInfo.enumKey)
                       ?.name ?? null)
                 : null,
-            filePath: memberInfo?.filePath ?? filePath ?? null,
-            declarations: [],
-            references: []
+            filePath: memberInfo?.filePath ?? filePath ?? null
         })
-    );
+    });
 
     const enumName = memberInfo?.enumKey
         ? (enumLookup?.enumDeclarations?.get(memberInfo.enumKey)?.name ?? null)
@@ -865,16 +886,14 @@ function registerGlobalOccurrence({
 
     const identifierId = buildIdentifierId("global", identifierRecord.name);
 
-    const entry = ensureCollectionEntry(
-        identifierCollections.globalVariables,
-        identifierRecord.name,
-        () => ({
-            identifierId,
-            name: identifierRecord.name,
-            declarations: [],
-            references: []
+    const entry = ensureIdentifierCollectionEntry({
+        collection: identifierCollections.globalVariables,
+        key: identifierRecord.name,
+        identifierId,
+        initializer: () => ({
+            name: identifierRecord.name
         })
-    );
+    });
 
     assignIdentifierEntryMetadata(entry, { identifierId });
 
@@ -901,19 +920,17 @@ function registerInstanceOccurrence({
 
     const key = `${scopeDescriptor?.id ?? "instance"}:${identifierRecord.name}`;
     const identifierId = buildIdentifierId("instance", key);
-    const entry = ensureCollectionEntry(
-        identifierCollections.instanceVariables,
+    const entry = ensureIdentifierCollectionEntry({
+        collection: identifierCollections.instanceVariables,
         key,
-        () => ({
-            identifierId,
+        identifierId,
+        initializer: () => ({
             key,
             name: identifierRecord.name,
             scopeId: scopeDescriptor?.id ?? null,
-            scopeKind: scopeDescriptor?.kind ?? null,
-            declarations: [],
-            references: []
+            scopeKind: scopeDescriptor?.kind ?? null
         })
-    );
+    });
 
     assignIdentifierEntryMetadata(entry, {
         identifierId,
@@ -1065,19 +1082,17 @@ function registerInstanceAssignment({
         scopeDescriptor?.id ?? "instance"
     }:${identifierRecord.name}`;
     const identifierId = buildIdentifierId("instance", identifierKey);
-    const entry = ensureCollectionEntry(
-        identifierCollections.instanceVariables,
-        identifierKey,
-        () => ({
-            identifierId,
+    const entry = ensureIdentifierCollectionEntry({
+        collection: identifierCollections.instanceVariables,
+        key: identifierKey,
+        identifierId,
+        initializer: () => ({
             key: identifierKey,
             name: identifierRecord.name,
             scopeId: scopeDescriptor?.id ?? null,
-            scopeKind: scopeDescriptor?.kind ?? null,
-            declarations: [],
-            references: []
+            scopeKind: scopeDescriptor?.kind ?? null
         })
-    );
+    });
 
     assignIdentifierEntryMetadata(entry, {
         identifierId,
