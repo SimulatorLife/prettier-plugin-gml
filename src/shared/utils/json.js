@@ -230,6 +230,21 @@ export function stringifyJsonForFile(payload, options = {}) {
 
     const serialized = JSON.stringify(payload, replacer, space);
 
+    if (typeof serialized !== "string") {
+        const payloadDescription =
+            payload === undefined
+                ? "undefined payload"
+                : typeof payload === "function"
+                  ? "function payload"
+                  : typeof payload === "symbol"
+                    ? "symbol payload"
+                    : "provided payload";
+
+        throw new TypeError(
+            `Unable to serialize ${payloadDescription} to JSON. JSON.stringify returned undefined.`
+        );
+    }
+
     if (!includeTrailingNewline) {
         return serialized;
     }
