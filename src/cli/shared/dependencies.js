@@ -42,7 +42,7 @@ export {
     toTrimmedString
 } from "../dependencies.js";
 
-export { resolveCommandUsage } from "./command-usage.js";
+export { resolveCommandUsage } from "../core/command-usage.js";
 
 export { appendToCollection } from "../core/collection-utils.js";
 
