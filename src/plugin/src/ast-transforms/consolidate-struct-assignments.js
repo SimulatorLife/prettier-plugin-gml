@@ -4,15 +4,15 @@ import {
     getNodeStartLine,
     getNodeEndLine,
     cloneLocation
-} from "../../../shared/ast-locations.js";
+} from "../shared/ast-locations.js";
 import {
     getSingleVariableDeclarator,
     isNode,
     getSingleMemberIndexPropertyEntry
-} from "../../../shared/ast-node-helpers.js";
-import { getCommentArray, isLineComment } from "../../../shared/comments.js";
-import { isNonEmptyArray } from "../../../shared/array-utils.js";
-import { stripStringQuotes } from "../../../shared/string-utils.js";
+} from "../shared/ast-node-helpers.js";
+import { getCommentArray, isLineComment } from "../shared/comments.js";
+import { asArray, isNonEmptyArray } from "../shared/array-utils.js";
+import { stripStringQuotes } from "../shared/string-utils.js";
 
 const FALLBACK_COMMENT_TOOLS = Object.freeze({
     addTrailingComment() {}
@@ -602,7 +602,7 @@ class CommentTracker {
             }
 
             const { comments } = ownerOrComments;
-            return Array.isArray(comments) ? comments : [];
+            return asArray(comments);
         })();
         this.comments = sourceComments;
         this.entries = sourceComments

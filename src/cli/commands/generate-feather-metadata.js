@@ -8,15 +8,18 @@ import {
     isNonEmptyArray,
     isNonEmptyString,
     toNormalizedLowerCaseSet
-} from "../lib/shared-deps.js";
-import { CliUsageError } from "../lib/cli-errors.js";
-import { assertSupportedNodeVersion } from "../lib/node-version.js";
-import { timeSync, createVerboseDurationLogger } from "../lib/time-utils.js";
+} from "../shared/dependencies.js";
+import { CliUsageError } from "../core/errors.js";
+import { assertSupportedNodeVersion } from "../shared/node-version.js";
+import {
+    timeSync,
+    createVerboseDurationLogger
+} from "../features/shared/time-utils.js";
 import {
     disposeProgressBars,
     withProgressBarCleanup
-} from "../lib/progress-bar.js";
-import { writeManualJsonArtifact } from "../lib/manual/file-helpers.js";
+} from "../shared/progress-bar.js";
+import { writeManualJsonArtifact } from "../features/manual/file-helpers.js";
 import {
     MANUAL_CACHE_ROOT_ENV_VAR,
     DEFAULT_MANUAL_REPO,
@@ -24,18 +27,18 @@ import {
     buildManualRepositoryEndpoints,
     createManualDownloadReporter,
     downloadManualFileEntries
-} from "../lib/manual/utils.js";
+} from "../features/manual/utils.js";
 import {
     MANUAL_REF_ENV_VAR,
     PROGRESS_BAR_WIDTH_ENV_VAR,
     applyManualEnvOptionOverrides
-} from "../lib/manual/environment.js";
-import { applyStandardCommandOptions } from "../lib/command-standard-options.js";
+} from "../features/manual/environment.js";
+import { applyStandardCommandOptions } from "../core/command-standard-options.js";
 import {
     applySharedManualCommandOptions,
     resolveManualCommandOptions
-} from "../lib/manual/command-options.js";
-import { createManualAccessContext } from "../lib/manual/context.js";
+} from "../features/manual/command-options.js";
+import { createManualAccessContexts } from "../features/manual/context.js";
 
 /** @typedef {ReturnType<typeof resolveManualCommandOptions>} ManualCommandOptions */
 
@@ -45,9 +48,13 @@ const {
         defaultCacheRoot: DEFAULT_CACHE_ROOT,
         defaultOutputPath: OUTPUT_DEFAULT
     },
-    files: { fetchManualFile },
-    refs: { resolveManualRef }
-} = createManualAccessContext({
+    fileAccess: {
+        files: { fetchManualFile }
+    },
+    referenceAccess: {
+        refs: { resolveManualRef }
+    }
+} = createManualAccessContexts({
     importMetaUrl: import.meta.url,
     userAgent: "prettier-plugin-gml feather metadata generator",
     outputFileName: "feather-metadata.json"

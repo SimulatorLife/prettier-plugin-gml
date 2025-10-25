@@ -12,23 +12,23 @@ import {
     resolveManualCacheRoot,
     createManualVerboseState,
     MANUAL_REPO_REQUIREMENT_SOURCE
-} from "../lib/manual/utils.js";
+} from "../features/manual/utils.js";
 import {
     applyManualEnvOptionOverrides,
     MANUAL_REF_ENV_VAR,
     PROGRESS_BAR_WIDTH_ENV_VAR,
     IDENTIFIER_VM_TIMEOUT_ENV_VAR
-} from "../lib/manual/environment.js";
+} from "../features/manual/environment.js";
 import {
     DEFAULT_PROGRESS_BAR_WIDTH,
     resolveProgressBarWidth,
     getDefaultProgressBarWidth
-} from "../lib/progress-bar.js";
-import { resolveVmEvalTimeout } from "../lib/vm-eval-timeout.js";
+} from "../shared/progress-bar.js";
+import { resolveVmEvalTimeout } from "../runtime-options/vm-eval-timeout.js";
 import {
     applySharedManualCommandOptions,
     resolveManualCommandOptions
-} from "../lib/manual/command-options.js";
+} from "../features/manual/command-options.js";
 
 describe("manual option helpers", () => {
     describe("normalizeManualRepository", () => {

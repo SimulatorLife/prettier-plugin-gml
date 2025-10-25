@@ -25,21 +25,23 @@ export function isPlainObject(value, { allowNullPrototype = true } = {}) {
  * preserving the specific error messages historically raised by each call
  * site.
  *
- * @param {unknown} value Candidate function to validate.
+ * @template {Function} TFunction
+ * @param {TFunction | unknown} value Candidate function to validate.
  * @param {string} name Descriptive name used when constructing the error.
+ * @returns {TFunction} The validated function reference.
  */
 export function assertFunction(value, name, { errorMessage } = {}) {
     const message =
         errorMessage ??
         (typeof name === "string" && name.length > 0
-            ? `${name} must be a function`
-            : "Value must be a function");
+            ? `${name} must be a function.`
+            : "Value must be a function.");
 
     if (typeof value !== "function") {
         throw new TypeError(message);
     }
 
-    return value;
+    return /** @type {TFunction} */ (value);
 }
 
 /**
@@ -121,7 +123,7 @@ export function withObjectLike(value, onObjectLike, onNotObjectLike) {
  *
  * Callers can optionally supply {@link onUndefined} which mirrors the fallback
  * semantics of {@link withObjectLike}, accepting either a thunk or a direct
- * value. When omitted the helper returns `undefined` to keep its behavior
+ * value. When omitted the helper returns `undefined` to keep its behaviour
  * aligned with existing conditional assignments in the codebase.
  *
  * @template TValue
@@ -170,6 +172,8 @@ export function coalesceOption(
     }
 
     if (Array.isArray(keys)) {
+        // Iterate the provided array directly so repeated option lookups avoid
+        // allocating a throwaway wrapper array for single-key calls.
         for (const key of keys) {
             const value = object[key];
 
@@ -185,8 +189,6 @@ export function coalesceOption(
         return fallback;
     }
 
-    // Fast-path singular keys to avoid allocating an intermediate array in the
-    // tight option-lookup loops used by the formatter and CLI entry points.
     const value = object[keys];
     return value !== undefined && (acceptNull || value !== null)
         ? value
@@ -232,25 +234,72 @@ export function hasOwn(object, key) {
  * @returns {TValue} Existing or newly created entry.
  */
 export function getOrCreateMapEntry(store, key, initializer) {
-    if (
-        !store ||
-        typeof store.get !== "function" ||
-        typeof store.set !== "function"
-    ) {
+    const { get, set, has } = store ?? {};
+
+    if (typeof get !== "function" || typeof set !== "function") {
         throw new TypeError("store must provide get and set functions");
     }
 
-    if (typeof store.has !== "function") {
+    if (typeof has !== "function") {
         throw new TypeError("store must provide a has function");
     }
 
     assertFunction(initializer, "initializer");
 
-    if (store.has(key)) {
-        return store.get(key);
+    if (has.call(store, key)) {
+        return get.call(store, key);
     }
 
     const value = initializer(key);
-    store.set(key, value);
+    set.call(store, key, value);
     return value;
+}
+
+/**
+ * Increment the numeric value stored at {@link key} inside a Map-like
+ * collection, defaulting missing or non-numeric entries to {@link fallback}.
+ * Consolidates the "read, coerce, increment, write" pattern used throughout
+ * the CLI and identifier case modules so callers don't have to repeat the
+ * guards around `Map#get`/`Map#set` or numeric coercion.
+ *
+ * @param {{ get(key: any): unknown; set(key: any, value: number): unknown }} store
+ *        Map-like collection providing `get` and `set` methods.
+ * @param {unknown} key Entry key whose numeric value should be incremented.
+ * @param {number | string | null | undefined} [amount=1] Amount to add to the
+ *        stored value. Non-finite values are treated as zero so accidental
+ *        `NaN` inputs do not corrupt counters.
+ * @param {{ fallback?: number | string | null | undefined }} [options]
+ *        Optional configuration bag.
+ * @param {number | string | null | undefined} [options.fallback=0] Value to use
+ *        when the current entry is missing or not a finite number.
+ * @returns {number} The incremented numeric value stored in the map.
+ */
+export function incrementMapValue(
+    store,
+    key,
+    amount = 1,
+    { fallback = 0 } = {}
+) {
+    const { get, set } = store ?? {};
+
+    if (typeof get !== "function" || typeof set !== "function") {
+        throw new TypeError("store must provide get and set functions");
+    }
+
+    const numericAmount = Number(amount);
+    const delta = Number.isFinite(numericAmount) ? numericAmount : 0;
+
+    const current = get.call(store, key);
+    const numericCurrent = Number(current);
+    const numericFallback = Number(fallback);
+
+    const base = Number.isFinite(numericCurrent)
+        ? numericCurrent
+        : Number.isFinite(numericFallback)
+          ? numericFallback
+          : 0;
+
+    const next = base + delta;
+    set.call(store, key, next);
+    return next;
 }

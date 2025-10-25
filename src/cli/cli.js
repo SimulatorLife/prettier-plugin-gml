@@ -32,16 +32,16 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError, Option } from "commander";
 
 import {
-    coerceNonNegativeInteger,
     getErrorMessage,
+    getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
     isErrorWithCode,
+    mergeUniqueValues,
     normalizeEnumeratedOption,
     normalizeStringList,
-    resolveIntegerOption,
+    resolveModuleDefaultExport,
     toArray,
     toNormalizedLowerCaseSet,
-    toNormalizedLowerCaseString,
     uniqueArray,
     withObjectLike
 } from "../shared/utils.js";
@@ -54,28 +54,31 @@ import {
     hasIgnoreRuleNegations,
     markIgnoreRuleNegationsDetected,
     resetIgnoreRuleNegations
-} from "./lib/ignore-rules-negation-tracker.js";
+} from "./shared/ignore-rules-negation-tracker.js";
 
 import {
     CliUsageError,
     formatCliError,
     handleCliError
-} from "./lib/cli-errors.js";
-import { applyStandardCommandOptions } from "./lib/command-standard-options.js";
-import { resolvePluginEntryPoint } from "./lib/plugin-entry-point.js";
+} from "./core/errors.js";
+import { applyStandardCommandOptions } from "./core/command-standard-options.js";
+import { resolvePluginEntryPoint } from "./plugin/entry-point.js";
 import {
     hasRegisteredIgnorePath,
     registerIgnorePath,
     resetRegisteredIgnorePaths
-} from "./lib/ignore-path-registry.js";
-import { createCliCommandManager } from "./lib/cli-command-manager.js";
-import { resolveCliVersion } from "./lib/cli-version.js";
-import { wrapInvalidArgumentResolver } from "./lib/command-parsing.js";
+} from "./shared/ignore-path-registry.js";
+import { createCliCommandManager } from "./core/command-manager.js";
+import { resolveCliVersion } from "./core/version.js";
+import { wrapInvalidArgumentResolver } from "./core/command-parsing.js";
 import {
     createPerformanceCommand,
     runPerformanceCommand
-} from "./lib/performance-cli.js";
-import { createMemoryCommand, runMemoryCommand } from "./lib/memory-cli.js";
+} from "./features/performance/index.js";
+import {
+    createMemoryCommand,
+    runMemoryCommand
+} from "./features/memory/index.js";
 import {
     createGenerateIdentifiersCommand,
     runGenerateGmlIdentifiers
@@ -84,17 +87,17 @@ import {
     createFeatherMetadataCommand,
     runGenerateFeatherMetadata
 } from "./commands/generate-feather-metadata.js";
-import { resolveCliIdentifierCaseCacheClearer } from "./lib/plugin-services.js";
+import { resolveCliIdentifierCaseCacheClearer } from "./plugin/services.js";
 import {
     getDefaultSkippedDirectorySampleLimit,
     resolveSkippedDirectorySampleLimit,
     SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR
-} from "./lib/skipped-directory-sample-limit.js";
+} from "./runtime-options/skipped-directory-sample-limit.js";
 import {
     getDefaultUnsupportedExtensionSampleLimit,
     resolveUnsupportedExtensionSampleLimit,
     UNSUPPORTED_EXTENSION_SAMPLE_LIMIT_ENV_VAR
-} from "./lib/unsupported-extension-sample-limit.js";
+} from "./runtime-options/unsupported-extension-sample-limit.js";
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolvePluginEntryPoint();
@@ -184,7 +187,7 @@ let prettierModulePromise = null;
 async function resolvePrettier() {
     if (!prettierModulePromise) {
         prettierModulePromise = import(PRETTIER_MODULE_ID)
-            .then((module) => module?.default ?? module)
+            .then(resolveModuleDefaultExport)
             .catch((error) => {
                 if (isMissingPrettierDependency(error)) {
                     const instructions = [
@@ -267,7 +270,8 @@ const program = applyStandardCommandOptions(new Command())
     .description(
         [
             "Utilities for working with the prettier-plugin-gml project.",
-            "Provides formatting, benchmarking, and manual data generation commands."
+            "Provides formatting, benchmarking, and manual data generation commands.",
+            "Defaults to running the format command when no command is provided."
         ].join(" \n")
     )
     .version(
@@ -853,27 +857,41 @@ async function handleFormattingError(error, filePath) {
     await revertFormattedFiles();
 }
 
+async function detectNegatedIgnoreRules(ignoreFilePath) {
+    try {
+        const contents = await readFile(ignoreFilePath, "utf8");
+
+        if (NEGATED_IGNORE_RULE_PATTERN.test(contents)) {
+            markIgnoreRuleNegationsDetected();
+        }
+    } catch {
+        // Ignore missing or unreadable files.
+    }
+}
+
+/**
+ * Register a single ignore file and capture negated rule metadata when needed.
+ *
+ * Centralizing the per-file bookkeeping keeps the bulk registration flow
+ * focused on coordinating the overall workflow.
+ */
+async function registerIgnoreFile(ignoreFilePath) {
+    if (!ignoreFilePath || hasRegisteredIgnorePath(ignoreFilePath)) {
+        return;
+    }
+
+    registerIgnorePath(ignoreFilePath);
+
+    if (hasIgnoreRuleNegations()) {
+        return;
+    }
+
+    await detectNegatedIgnoreRules(ignoreFilePath);
+}
+
 async function registerIgnorePaths(ignoreFiles) {
     for (const ignoreFilePath of ignoreFiles) {
-        if (!ignoreFilePath || hasRegisteredIgnorePath(ignoreFilePath)) {
-            continue;
-        }
-
-        registerIgnorePath(ignoreFilePath);
-
-        if (hasIgnoreRuleNegations()) {
-            continue;
-        }
-
-        try {
-            const contents = await readFile(ignoreFilePath, "utf8");
-
-            if (NEGATED_IGNORE_RULE_PATTERN.test(contents)) {
-                markIgnoreRuleNegationsDetected();
-            }
-        } catch {
-            // Ignore missing or unreadable files.
-        }
+        await registerIgnoreFile(ignoreFilePath);
     }
 }
 
@@ -922,8 +940,7 @@ async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
             return true;
         }
     } catch (error) {
-        const message =
-            getErrorMessage(error, { fallback: "" }) || "Unknown error";
+        const message = getErrorMessageOrFallback(error);
         console.warn(
             `Unable to evaluate ignore rules for ${directory}: ${message}`
         );
@@ -976,9 +993,7 @@ async function resolveTargetStats(target, { usage } = {}) {
     try {
         return await stat(target);
     } catch (error) {
-        const details =
-            getErrorMessage(error, { fallback: "Unknown error" }) ||
-            "Unknown error";
+        const details = getErrorMessageOrFallback(error);
         const formattedTarget = formatPathForDisplay(target);
         const guidance = (() => {
             if (isErrorWithCode(error, "ENOENT")) {
@@ -1019,12 +1034,11 @@ async function resolveDirectoryIgnoreContext(directory, inheritedIgnorePaths) {
         if (ignoreStats.isFile()) {
             shouldRegisterLocalIgnore = true;
 
-            if (!inheritedIgnorePaths.includes(localIgnorePath)) {
-                effectiveIgnorePaths = [
-                    ...inheritedIgnorePaths,
-                    localIgnorePath
-                ];
-            }
+            effectiveIgnorePaths = mergeUniqueValues(
+                inheritedIgnorePaths,
+                [localIgnorePath],
+                { freeze: false }
+            );
         }
     } catch {
         // Ignore missing files.
@@ -1055,7 +1069,6 @@ async function processDirectoryEntry(filePath, currentIgnorePaths) {
     }
 
     if (shouldFormatFile(filePath)) {
-        encounteredFormattableFile = true;
         await processFile(filePath, currentIgnorePaths);
         return;
     }
@@ -1153,6 +1166,8 @@ async function processFile(filePath, activeIgnorePaths = []) {
             skippedFileSummary.ignored += 1;
             return;
         }
+
+        encounteredFormattableFile = true;
 
         const data = await readFile(filePath, "utf8");
         const formatted = await prettier.format(data, formattingOptions);
@@ -1265,7 +1280,6 @@ async function resolveTargetContext(targetPath, usage) {
  */
 async function processNonDirectoryTarget(targetPath) {
     if (shouldFormatFile(targetPath)) {
-        encounteredFormattableFile = true;
         await processFile(targetPath, baseProjectIgnorePaths);
         return;
     }
@@ -1404,23 +1418,46 @@ function logNoMatchingFiles({
     const guidance = targetIsDirectory
         ? "Adjust --extensions or update your .prettierignore files if this is unexpected."
         : "Pass --extensions to include this file or adjust your .prettierignore files if this is unexpected.";
+    const ignoredFilesSkipped = skippedFileSummary.ignored > 0;
+    const ignoredMessageSuffix =
+        "Adjust your .prettierignore files or refine the target path if this is unexpected.";
 
     if (targetIsDirectory) {
-        console.log(
-            [
-                `No files matching ${formattedExtensions} were found ${locationDescription}.`,
-                "Nothing to format.",
-                guidance
-            ].join(" ")
-        );
+        if (ignoredFilesSkipped) {
+            console.log(
+                [
+                    `All files matching ${formattedExtensions} were skipped ${locationDescription} by ignore rules.`,
+                    "Nothing to format.",
+                    ignoredMessageSuffix
+                ].join(" ")
+            );
+        } else {
+            console.log(
+                [
+                    `No files matching ${formattedExtensions} were found ${locationDescription}.`,
+                    "Nothing to format.",
+                    guidance
+                ].join(" ")
+            );
+        }
     } else {
-        console.log(
-            [
-                `${locationDescription} does not match the configured extensions ${formattedExtensions}.`,
-                "Nothing to format.",
-                guidance
-            ].join(" ")
-        );
+        if (ignoredFilesSkipped) {
+            console.log(
+                [
+                    `${locationDescription} was skipped by ignore rules and not formatted.`,
+                    "Nothing to format.",
+                    ignoredMessageSuffix
+                ].join(" ")
+            );
+        } else {
+            console.log(
+                [
+                    `${locationDescription} does not match the configured extensions ${formattedExtensions}.`,
+                    "Nothing to format.",
+                    guidance
+                ].join(" ")
+            );
+        }
     }
 
     logSkippedFileSummary();

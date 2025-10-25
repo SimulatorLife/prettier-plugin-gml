@@ -52,10 +52,10 @@ test("adds a blank line after nested function declarations", async () => {
     const formatted = await formatWithPlugin(source);
     const lines = formatted.trim().split("\n");
 
-    const closingBraceTriplet = lines.slice(-3);
+    const trailingLines = lines.slice(-3);
 
     assert.deepEqual(
-        closingBraceTriplet,
+        trailingLines,
         ["    }", "", "}"],
         "Expected the formatter to preserve a separating blank line before closing the outer block."
     );

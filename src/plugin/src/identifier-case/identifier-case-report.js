@@ -9,17 +9,14 @@
 import path from "node:path";
 
 import { setIdentifierCaseOption } from "./option-store.js";
-import { coalesceTrimmedString } from "../../../shared/string-utils.js";
+import { coalesceTrimmedString } from "../shared/string-utils.js";
 import {
     coalesceOption,
+    incrementMapValue,
     isObjectLike,
     withObjectLike
-} from "../../../shared/object-utils.js";
-import {
-    asArray,
-    isNonEmptyArray,
-    toArray
-} from "../../../shared/array-utils.js";
+} from "../shared/object-utils.js";
+import { asArray, isNonEmptyArray, toArray } from "../shared/array-utils.js";
 import { warnWithReason } from "./logger.js";
 
 import { consumeIdentifierCaseDryRunContext } from "./identifier-case-context.js";
@@ -57,14 +54,16 @@ function extractOperations(plan) {
         return plan;
     }
 
-    if (plan && typeof plan === "object") {
-        if (Array.isArray(plan.operations)) {
-            return plan.operations;
-        }
+    if (!plan || typeof plan !== "object") {
+        return [];
+    }
 
-        if (Array.isArray(plan.renames)) {
-            return plan.renames;
-        }
+    if (Array.isArray(plan.operations)) {
+        return plan.operations;
+    }
+
+    if (Array.isArray(plan.renames)) {
+        return plan.renames;
     }
 
     return [];
@@ -294,7 +293,7 @@ export function summarizeIdentifierCasePlan({
     const severityCounts = new Map();
     for (const conflict of normalizedConflicts) {
         const severity = conflict.severity ?? "info";
-        severityCounts.set(severity, (severityCounts.get(severity) ?? 0) + 1);
+        incrementMapValue(severityCounts, severity);
     }
 
     const summary = {

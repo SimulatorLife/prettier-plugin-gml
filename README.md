@@ -134,9 +134,10 @@ for (var i = 0; i < queue_count; i += 1) {
   notes, rollout guides, and metadata playbooks that live alongside the
   formatter source. Each entry includes a short synopsis so you can scan for the
   right level of detail.
-- [Architecture audits](docs/architecture-audit-2025-10-22.md) &mdash; Latest
-  repository health check, with links back to the
-  [May 2024 audit](docs/architecture-audit-2024-05-15.md) and
+- [Architecture audits](docs/architecture-audit-2025-10-23.md) &mdash; Latest
+  repository health check (October 23, 2025) with links back to the
+  [previous day's audit](docs/architecture-audit-2025-10-22.md), the
+  [May 2024 audit](docs/architecture-audit-2024-05-15.md), and the
   [shared module layout refresh](docs/shared-module-layout.md) for historical
   context around the `src/shared/` consolidation. Pair it with the
   [interface segregation investigation](docs/interface-segregation-investigation.md)
@@ -152,11 +153,22 @@ for (var i = 0; i < queue_count; i += 1) {
   cache architecture, and the rolling [project index roadmap](docs/project-index-next-steps.md)
   alongside the [Feather data plan](docs/feather-data-plan.md). Pair them with
   the [reserved identifier metadata hook overview](docs/reserved-identifier-metadata-hook.md)
-  when staging bespoke metadata sources or regeneration scripts.
+  and the [project index source extension hook](docs/project-index-source-extensions-hook.md)
+  when staging bespoke metadata sources, generated code directories, or
+  regeneration scripts.
 - [Live reloading concept](docs/live-reloading-concept.md) &mdash; Concept brief for
   the HTML5 runtime fork and watcher pipeline that powers in-place code reloads
   during gameplay. Use it alongside the architecture audits when evaluating
   runtime tooling work.
+- [Formatter extension hooks](docs/object-wrap-option-resolver-hook.md) &mdash;
+  Override struct wrapping heuristics or extend identifier-case discovery in
+  controlled experiments. Combine it with the
+  [project index source extension hook](docs/project-index-source-extensions-hook.md)
+  when bespoke suffixes (for example, `.npc.gml`) need to participate in rename
+  plans.
+- [Memory experiments](docs/metrics-tracker-finalize-memory.md) &mdash; Captures the
+  `node --expose-gc` script and before/after measurements that validate the
+  metrics tracker clean-up path.
 
 ---
 
@@ -190,31 +202,32 @@ nvm alias default node
 ### 2. Install in a GameMaker project
 
 1. Change into the directory that contains your `.yyp` file.
-2. Decide how you want to source the formatter:
+2. Pick the distribution that matches your workflow:
 
-   - **Published package** &mdash; Install the released plugin directly from npm.
+   #### Option A — Published npm release
 
-     ```bash
-     npm install --save-dev prettier@^3 antlr4@^4.13.2 prettier-plugin-gamemaker@latest
-     ```
+   ```bash
+   npm install --save-dev prettier@^3 antlr4@^4.13.2 prettier-plugin-gamemaker@latest
+   ```
 
-   - **Nightly / workspace build** &mdash; Track `main` (or a specific tag/SHA)
-     straight from GitHub when you need unreleased fixes or want access to the
-     CLI workspace helpers.
+   The npm package ships only the Prettier plugin. Pair it with the
+   [local clone helpers](#3-use-a-local-clone) when you want the CLI wrapper or
+   metadata generators.
 
-     ```bash
-     npm install --save-dev "prettier@^3" "antlr4@^4.13.2" \
-         github:SimulatorLife/prettier-plugin-gml#main
-     ```
+   #### Option B — GitHub workspace / nightly build
 
-     Quote dependency specs when using shells such as `zsh` so `^` is not
-     treated as a glob, and pin the Git reference (`#vX.Y.Z` or `#<sha>`) for
-     reproducible CI builds.
+   ```bash
+   npm install --save-dev "prettier@^3" "antlr4@^4.13.2" \
+       github:SimulatorLife/prettier-plugin-gml#main
+   ```
 
-   Resolve `EBADENGINE` errors by upgrading Node.js to a supported release.
-   The npm package ships only the Prettier plugin; rely on the commands in
-   [Use a local clone](#3-use-a-local-clone) or the Git dependency when you need
-   the CLI wrapper.
+   Quote dependency specs in shells such as `zsh` so `^` is not treated as a
+   glob, and pin a tag or commit (`#vX.Y.Z`, `#<sha>`) when you need reproducible
+   CI builds. The Git dependency includes the CLI wrapper under
+   `node_modules/root/src/cli/cli.js`.
+
+   > Resolve `EBADENGINE` errors by upgrading Node.js to a supported release.
+
 3. Configure Prettier so editor integrations and CLI runs resolve the plugin the
    same way.
 
@@ -222,9 +235,7 @@ nvm alias default node
 
    ```json
    {
-     "plugins": [
-       "prettier-plugin-gamemaker"
-     ],
+     "plugins": ["prettier-plugin-gamemaker"],
      "overrides": [
        {
          "files": "*.gml",
@@ -246,35 +257,40 @@ nvm alias default node
    }
    ```
 
-4. Expose a wrapper script so every teammate resolves the formatter the same
-   way. Git installs bundle the CLI under `node_modules/root/src/cli/cli.js`.
-   Track release notes for the companion CLI package if you prefer referencing
-   an npm binary once it ships.
+4. Standardise the commands your team runs:
 
-   ```jsonc
-   {
-     "scripts": {
-       "format:gml": "node ./node_modules/root/src/cli/cli.js"
+   - **Git installs** &mdash; Add a wrapper script so every teammate resolves the
+     formatter the same way.
+
+     ```jsonc
+     {
+       "scripts": {
+         "format:gml": "node ./node_modules/root/src/cli/cli.js"
+       }
      }
-   }
-   ```
+     ```
 
-   Pass arguments with `npm run format:gml -- <flags>` so wrapper improvements
-   propagate automatically. See [CLI wrapper environment knobs](#cli-wrapper-environment-knobs)
-   for overrides such as `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` when CI builds the
-   plugin into a temporary directory. Use Prettier directly when you depend on
-   the npm package alone—the CLI wrapper currently ships with the Git
-   workspace.
+     Pass arguments with `npm run format:gml -- <flags>` so wrapper improvements
+     propagate automatically. See
+     [CLI wrapper environment knobs](#cli-wrapper-environment-knobs) for
+     overrides such as `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` when CI builds the
+     plugin into a temporary directory.
+
+   - **npm installs** &mdash; Call Prettier directly:
+
+     ```bash
+     npx prettier --plugin=prettier-plugin-gamemaker --write "**/*.gml"
+     ```
+
 5. Run the formatter. The wrapper defaults to the current working directory when
-   no path is provided. Pass `--help` at any time to confirm which plugin entry
-   was resolved and which extensions will run:
+   no path is provided. Pass `--help` to confirm which plugin entry was
+   resolved and which extensions will run.
 
    ```bash
    npm run format:gml
    npm run format:gml -- --check
    npm run format:gml -- --path . --extensions=.gml,.yy
    npx prettier --plugin=prettier-plugin-gamemaker --check "**/*.gml"
-   node ./node_modules/root/src/cli/cli.js --path .
    node ./node_modules/root/src/cli/cli.js --help
    ```
 
@@ -290,7 +306,8 @@ nvm alias default node
 
 2. Format any GameMaker project without adding dependencies to that project. The
    CLI exposes a `format` command that accepts an explicit path and optional
-   extensions:
+   extensions. Invoking the wrapper without a subcommand automatically runs
+   `format`, so `npm run cli` formats the current working directory by default:
 
    ```bash
    npm run cli -- format "/absolute/path/to/MyGame" --extensions=.gml,.yy
@@ -571,6 +588,8 @@ Bare decimal literals are always padded with leading and trailing zeroes to impr
 
 Banner line comments are automatically detected when they contain five or more consecutive `/` characters. Once identified, the formatter rewrites the banner prefix to 60 slashes so mixed-width comment markers settle on a single, readable standard.
 
+Advanced integrations can temporarily override the struct wrapping heuristic via `setObjectWrapOptionResolver`; the [object-wrap option resolver hook](docs/object-wrap-option-resolver-hook.md) explains how to register an override and reset back to the default resolver after experiments complete.
+
 #### Identifier-case rollout
 
 | Option | Default | Summary |
@@ -588,7 +607,11 @@ Banner line comments are automatically detected when they contain five or more c
 
 Additional automation hooks such as `identifierCaseProjectIndex`,
 `identifierCaseDryRun`, and `identifierCaseReportLogPath` are documented in the
-[Identifier case rollout playbook](docs/identifier-case-rollout.md).
+[Identifier case rollout playbook](docs/identifier-case-rollout.md). Projects
+that checkpoint GML under bespoke suffixes can extend the recognised source
+list with `setProjectIndexSourceExtensions`; the
+[project index source extension hook](docs/project-index-source-extensions-hook.md)
+covers the helper trio and intended use cases.
 
 ---
 
