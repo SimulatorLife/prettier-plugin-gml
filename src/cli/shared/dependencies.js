@@ -40,13 +40,13 @@ export {
     toNormalizedLowerCaseString,
     toPosixPath,
     toTrimmedString
-} from "../../shared/index.js";
+} from "../dependencies.js";
 
 export { resolveCommandUsage } from "./command-usage.js";
 
 export { appendToCollection } from "../core/collection-utils.js";
 
-export { createAbortGuard } from "../../shared/index.js";
+export { createAbortGuard } from "../dependencies.js";
 
 export {
     normalizeStringList,
@@ -56,20 +56,20 @@ export {
     isPathInside,
     resolveContainedRelativePath,
     escapeRegExp
-} from "../../shared/index.js";
+} from "../dependencies.js";
 
-export { getIdentifierText } from "../../shared/index.js";
+export { getIdentifierText } from "../dependencies.js";
 
 export {
     isAggregateErrorLike,
     isErrorLike,
     ensureMap
-} from "../../shared/index.js";
+} from "../dependencies.js";
 
 export {
     JsonParseError,
     isJsonParseError,
     stringifyJsonForFile
-} from "../../shared/index.js";
+} from "../dependencies.js";
 
-export { ensureDir, isFsErrorCode } from "../../shared/index.js";
+export { ensureDir, isFsErrorCode } from "../dependencies.js";
