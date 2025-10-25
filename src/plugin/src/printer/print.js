@@ -6490,6 +6490,43 @@ function shouldOmitSyntheticParens(path) {
     }
 
     const parentInfo = getBinaryOperatorInfo(parent.operator);
+
+    if (
+        expression?.type === "BinaryExpression" &&
+        expression.operator === "*" &&
+        parentInfo != undefined &&
+        parent.operator === "+"
+    ) {
+        const childInfo = getBinaryOperatorInfo(expression.operator);
+
+        if (
+            childInfo != undefined &&
+            childInfo.precedence > parentInfo.precedence &&
+            isNumericComputationNode(parent) &&
+            isNumericComputationNode(expression) &&
+            !binaryExpressionContainsString(parent) &&
+            !binaryExpressionContainsString(expression)
+        ) {
+            const sanitizedMacroNames = getSanitizedMacroNames(path);
+
+            if (
+                !(
+                    sanitizedMacroNames &&
+                    (expressionReferencesSanitizedMacro(
+                        parent,
+                        sanitizedMacroNames
+                    ) ||
+                        expressionReferencesSanitizedMacro(
+                            expression,
+                            sanitizedMacroNames
+                        ))
+                )
+            ) {
+                return true;
+            }
+        }
+    }
+
     if (
         expression?.type === "BinaryExpression" &&
         shouldFlattenSyntheticBinary(parent, expression, path)
