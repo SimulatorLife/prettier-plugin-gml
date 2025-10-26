@@ -46,6 +46,7 @@ export {
     resolveContainedRelativePath,
     resolveFunction,
     resolveIntegerOption,
+    resolveEnvironmentMap,
     resolveModuleDefaultExport,
     splitLines,
     stringifyJsonForFile,

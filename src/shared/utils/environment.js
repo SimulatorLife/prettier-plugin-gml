@@ -46,7 +46,7 @@ export function applyEnvironmentOverride({
     applyValue(rawValue);
 }
 
-function resolveEnvironmentMap(candidate) {
+export function resolveEnvironmentMap(candidate) {
     if (isObjectLike(candidate)) {
         return candidate;
     }
