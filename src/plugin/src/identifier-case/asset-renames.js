@@ -198,14 +198,15 @@ function detectAssetRenameConflicts({ projectIndex, renames, metrics = null }) {
             }
 
             const existingEntries = bucket.filter((entry) => !entry.isRename);
-            const existingCollisionSummary = existingEntries.length > 0
-                ? existingEntries
-                      .map(
-                          (entry) =>
-                              `'${entry.originalName}' (${entry.resourcePath})`
-                      )
-                      .join(", ")
-                : "";
+            const existingCollisionSummary =
+                existingEntries.length > 0
+                    ? existingEntries
+                          .map(
+                              (entry) =>
+                                  `'${entry.originalName}' (${entry.resourcePath})`
+                          )
+                          .join(", ")
+                    : "";
             const renameNames = renameEntries.map(
                 (entry) => `'${entry.originalName}'`
             );
@@ -227,9 +228,10 @@ function detectAssetRenameConflicts({ projectIndex, renames, metrics = null }) {
 
                 const otherRenames = [];
                 let otherNames = "";
-                for (
-                    const [otherIndex, otherEntry] of renameEntries.entries()
-                ) {
+                for (const [
+                    otherIndex,
+                    otherEntry
+                ] of renameEntries.entries()) {
                     if (otherIndex === index) {
                         continue;
                     }
