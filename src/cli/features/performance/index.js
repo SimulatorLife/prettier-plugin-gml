@@ -128,42 +128,29 @@ function formatErrorDetails(error, { fallbackMessage } = {}) {
     });
 }
 
-function collectFixtureRootCandidates(additionalRoots = []) {
-    const extras = Array.isArray(additionalRoots)
-        ? additionalRoots
-        : [additionalRoots];
-    return [...DEFAULT_FIXTURE_DIRECTORIES, ...extras];
-}
-
-function normalizeFixtureRootCandidate(candidate) {
-    if (!candidate || typeof candidate !== "string") {
-        return null;
-    }
-
-    return path.resolve(candidate);
-}
-
-function appendFixtureRootCandidate({ candidate, resolved, seen }) {
-    const normalized = normalizeFixtureRootCandidate(candidate);
-
-    if (!normalized || seen.has(normalized)) {
-        return;
-    }
-
-    seen.add(normalized);
-    resolved.push(normalized);
-}
-
 export function normalizeFixtureRoots(additionalRoots = []) {
+    const candidates = [
+        ...DEFAULT_FIXTURE_DIRECTORIES,
+        ...(Array.isArray(additionalRoots)
+            ? additionalRoots
+            : [additionalRoots])
+    ];
+
     const resolved = [];
     const seen = new Set();
 
-    for (const candidate of collectFixtureRootCandidates(additionalRoots)) {
-        appendFixtureRootCandidate({
-            candidate,
-            resolved,
-            seen
-        });
+    for (const candidate of candidates) {
+        if (typeof candidate !== "string" || candidate.length === 0) {
+            continue;
+        }
+
+        const normalized = path.resolve(candidate);
+        if (seen.has(normalized)) {
+            continue;
+        }
+
+        seen.add(normalized);
+        resolved.push(normalized);
     }
 
     return resolved;
