@@ -83,27 +83,6 @@ export function ensureSuitesAreKnown(suiteNames, availableSuites, command) {
     );
 }
 
-/**
- * Execute a suite runner while normalizing thrown errors through the supplied
- * callback.
- */
-async function executeSuiteRunner({
-    runner,
-    suiteName,
-    runnerOptions,
-    onError
-}) {
-    try {
-        return await runner(runnerOptions);
-    } catch (error) {
-        if (typeof onError === "function") {
-            return onError(error, { suiteName });
-        }
-
-        return { error: createCliErrorDetails(error) };
-    }
-}
-
 function assertSuiteRunnerLookup(availableSuites) {
     if (!availableSuites || typeof availableSuites.get !== "function") {
         throw new TypeError(
@@ -113,47 +92,8 @@ function assertSuiteRunnerLookup(availableSuites) {
 }
 
 /**
- * Execute the provided suite runners and capture their results in insertion
- * order. The helper isolates the low-level iteration so orchestrators can stay
- * focused on validation and delegation.
- *
- * @param {{
- *     suiteNames: Array<string>,
- *     availableSuites: Map<string, unknown>,
- *     runnerOptions?: unknown,
- *     onError?: (error: unknown, context: { suiteName: string }) => unknown
- * }} parameters
- * @returns {Promise<Record<string, unknown>>}
- */
-async function collectRegisteredSuiteResults({
-    suiteNames,
-    availableSuites,
-    runnerOptions,
-    onError
-}) {
-    const results = {};
-
-    for (const suiteName of suiteNames) {
-        const runner = availableSuites.get(suiteName);
-        if (typeof runner !== "function") {
-            continue;
-        }
-
-        const suiteResult = await executeSuiteRunner({
-            runner,
-            suiteName,
-            runnerOptions,
-            onError
-        });
-
-        results[suiteName] = suiteResult;
-    }
-
-    return results;
-}
-
-/**
- * Execute the provided suite runners and collect their results.
+ * Execute the provided suite runners and collect their results, applying an
+ * optional error mapper when a runner throws.
  *
  * @param {{
  *     suiteNames: Array<string>,
@@ -175,12 +115,26 @@ export async function collectSuiteResults({
         return {};
     }
 
-    return collectRegisteredSuiteResults({
-        suiteNames,
-        availableSuites,
-        runnerOptions,
-        onError
-    });
+    const results = {};
+    const defaultOnError = (error) => ({ error: createCliErrorDetails(error) });
+    const handleSuiteError =
+        typeof onError === "function" ? onError : defaultOnError;
+
+    for (const suiteName of suiteNames) {
+        const runner = availableSuites.get(suiteName);
+        if (typeof runner !== "function") {
+            continue;
+        }
+
+        try {
+            results[suiteName] = await runner(runnerOptions);
+        } catch (error) {
+            const fallback = handleSuiteError(error, { suiteName });
+            results[suiteName] = fallback;
+        }
+    }
+
+    return results;
 }
 
 export function createSuiteResultsPayload(results, { generatedAt } = {}) {
