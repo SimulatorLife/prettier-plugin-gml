@@ -67,3 +67,30 @@ test("preserves inline comments between manual math operands", async () => {
         ].join("\n")
     );
 });
+
+test("converts distance formula with floating point noise", async () => {
+    const source = [
+        "function convert_distance(x, y) {",
+        "    return sqrt((x - 0.5) * (x - 0.5000000000000001) + (y - 2) * (y - 2));",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function convert_distance",
+            "/// @param x",
+            "/// @param y",
+            "function convert_distance(x, y) {",
+            "    return point_distance(0.5, 2, x, y);",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
