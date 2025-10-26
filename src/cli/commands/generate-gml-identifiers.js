@@ -45,12 +45,8 @@ const {
         defaultCacheRoot: DEFAULT_CACHE_ROOT,
         defaultOutputPath: OUTPUT_DEFAULT
     },
-    fileAccess: {
-        files: { fetchManualFile }
-    },
-    referenceAccess: {
-        refs: { resolveManualRef }
-    }
+    fetchManualFile,
+    resolveManualRef
 } = createManualAccessContexts({
     importMetaUrl: import.meta.url,
     userAgent: "prettier-plugin-gml identifier generator",
