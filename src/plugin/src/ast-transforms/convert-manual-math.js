@@ -7,7 +7,8 @@ import {
     cloneAstNode,
     getNodeEndIndex,
     getNodeStartIndex,
-    getCallExpressionArguments
+    getCallExpressionArguments,
+    toMutableArray
 } from "../shared/index.js";
 
 const DEFAULT_HELPERS = Object.freeze({
@@ -1135,7 +1136,7 @@ function createCallExpressionNode(name, args, template) {
     const call = {
         type: CALL_EXPRESSION,
         object: identifier,
-        arguments: Array.isArray(args) ? args : []
+        arguments: toMutableArray(args)
     };
 
     assignClonedLocation(call, template);

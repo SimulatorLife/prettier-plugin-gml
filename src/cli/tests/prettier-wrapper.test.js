@@ -548,7 +548,7 @@ describe("Prettier wrapper CLI", () => {
             assert.match(
                 stdout,
                 new RegExp(
-                    `${escapeForRegex(path.basename(targetFile))} was skipped by ignore rules and not formatted\\.`,
+                    String.raw`${escapeForRegex(path.basename(targetFile))} was skipped by ignore rules and not formatted\.`,
                     "m"
                 ),
                 "Expected summary output to explain that the file was ignored"

@@ -2,19 +2,19 @@ import { getErrorMessage } from "../shared/index.js";
 
 const DEFAULT_WARNING_FALLBACK = "Unknown error";
 
-function* iterateWarningCandidates(candidates) {
-    for (const candidate of candidates) {
+function resolveWarningReason(candidates, fallback = DEFAULT_WARNING_FALLBACK) {
+    const stack = [...candidates].reverse();
+
+    while (stack.length > 0) {
+        const candidate = stack.pop();
+
         if (Array.isArray(candidate)) {
-            yield* iterateWarningCandidates(candidate);
+            for (let index = candidate.length - 1; index >= 0; index -= 1) {
+                stack.push(candidate[index]);
+            }
             continue;
         }
 
-        yield candidate;
-    }
-}
-
-function resolveWarningReason(candidates, fallback = DEFAULT_WARNING_FALLBACK) {
-    for (const candidate of iterateWarningCandidates(candidates)) {
         const reason = getErrorMessage(candidate, { fallback: "" });
         if (reason) {
             return reason;

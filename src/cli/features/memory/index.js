@@ -832,53 +832,27 @@ function formatSuiteError(error) {
     };
 }
 
-function createHumanReadableMemoryHeader() {
-    return ["Memory benchmark results:"];
-}
-
-function createHumanReadableMemorySuiteLines({ suite, payload }) {
-    const lines = [`\n• ${suite}`];
-
-    if (payload?.error) {
-        const message = getErrorMessageOrFallback(payload.error);
-        lines.push(`  - error: ${message}`);
-        return lines;
-    }
-
-    lines.push(`  - result: ${JSON.stringify(payload)}`);
-    return lines;
-}
-
-function resolveHumanReadableSuites(results) {
-    return Object.entries(results ?? {});
-}
-
 /**
- * Expand each suite entry into the user-facing lines emitted for that suite.
+ * Convert suite results into the newline-delimited lines printed when JSON
+ * output is disabled. Keeps the formatting logic centralized without the
+ * layering of the previous mini-pipeline helpers.
  */
-function collectHumanReadableSuiteLines(suites) {
-    const lines = [];
+function createHumanReadableMemoryLines(results) {
+    const lines = ["Memory benchmark results:"];
 
-    for (const [suite, payload] of suites) {
-        lines.push(...createHumanReadableMemorySuiteLines({ suite, payload }));
+    for (const [suite, payload] of Object.entries(results ?? {})) {
+        lines.push(`\n• ${suite}`);
+
+        if (payload?.error) {
+            const message = getErrorMessageOrFallback(payload.error);
+            lines.push(`  - error: ${message}`);
+            continue;
+        }
+
+        lines.push(`  - result: ${JSON.stringify(payload)}`);
     }
 
     return lines;
-}
-
-function mergeHumanReadableSections({ headerLines, suiteLines }) {
-    return [...headerLines, ...suiteLines];
-}
-
-function createHumanReadableMemoryLines(results) {
-    const suites = resolveHumanReadableSuites(results);
-    const headerLines = createHumanReadableMemoryHeader();
-    const suiteLines = collectHumanReadableSuiteLines(suites);
-
-    return mergeHumanReadableSections({
-        headerLines,
-        suiteLines
-    });
 }
 
 function printHumanReadable(results) {

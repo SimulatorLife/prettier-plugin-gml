@@ -8762,9 +8762,9 @@ function convertAllAssignment(node, parent, property, diagnostic) {
         type: "ExpressionStatement",
         expression: normalizedAssignment,
         start: cloneLocation(node.start),
-        end: cloneLocation(node.end)
+        end: cloneLocation(node.end),
+        _featherSuppressFollowingEmptyLine: true
     };
-    assignmentStatement._featherSuppressFollowingEmptyLine = true;
 
     const blockStatement = {
         type: "BlockStatement",
@@ -17127,7 +17127,7 @@ function fixSpecifierSpacing(typeText, specifierBaseTypes) {
         return typeText;
     }
 
-    const regex = new RegExp(`\\b(${patternSource})\\b`, "gi");
+    const regex = new RegExp(String.raw`\b(${patternSource})\b`, "gi");
     let result = "";
     let lastIndex = 0;
     let match;
@@ -17385,7 +17385,9 @@ function hasDelimiterOutsideNesting(text, delimiters) {
         return false;
     }
 
-    const delimiterSet = new Set(delimiters ?? []);
+    const delimiterSet = hasIterableItems(delimiters)
+        ? new Set(delimiters)
+        : new Set();
     let depthSquare = 0;
     let depthAngle = 0;
     let depthParen = 0;

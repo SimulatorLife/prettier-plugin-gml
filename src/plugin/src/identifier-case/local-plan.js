@@ -773,7 +773,11 @@ export async function prepareIdentifierCasePlan(options) {
         metrics.reporting.setMetadata(key, value);
     }
 
-    const preservedSet = new Set(normalizedOptions.preservedIdentifiers ?? []);
+    const preservedIdentifiers = normalizedOptions.preservedIdentifiers;
+    const preservedSet =
+        preservedIdentifiers === undefined || preservedIdentifiers === null
+            ? new Set()
+            : new Set(preservedIdentifiers);
     const ignoreMatchers = buildPatternMatchers(
         normalizedOptions.ignorePatterns ?? []
     );

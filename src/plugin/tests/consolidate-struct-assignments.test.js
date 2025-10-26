@@ -173,10 +173,97 @@ describe("consolidateStructAssignments", () => {
         assert.equal(structExpression.properties.length, 1);
 
         const [property] = structExpression.properties;
-        assert.equal(Array.isArray(property.comments), true);
-        assert.equal(property.comments.length, 1);
-        assert.equal(property.comments[0], trailingComment);
-        assert.equal(trailingComment.trailing, true);
+        assert.equal(Array.isArray(property._structTrailingComments), true);
+        assert.equal(property._structTrailingComments.length, 1);
+        assert.equal(property._structTrailingComments[0], trailingComment);
+        assert.equal(trailingComment.trailing, false);
         assert.equal(trailingComment._structPropertyTrailing, true);
+        assert.equal(trailingComment._removedByConsolidation, true);
+        assert.equal(property._hasTrailingInlineComment, true);
+    });
+
+    it("normalizes inline comment leading characters for consolidated struct properties", () => {
+        const location = (index, line) => ({ index, line });
+
+        const structExpression = {
+            type: "StructExpression",
+            properties: [],
+            start: location(0, 1),
+            end: location(10, 1)
+        };
+
+        const initializer = {
+            type: "VariableDeclaration",
+            declarations: [
+                {
+                    type: "VariableDeclarator",
+                    id: {
+                        type: "Identifier",
+                        name: "stats",
+                        start: location(0, 1),
+                        end: location(5, 1)
+                    },
+                    init: structExpression,
+                    start: location(0, 1),
+                    end: location(10, 1)
+                }
+            ],
+            start: location(0, 1),
+            end: location(10, 1)
+        };
+
+        const propertyAssignment = {
+            type: "AssignmentExpression",
+            operator: "=",
+            left: {
+                type: "MemberDotExpression",
+                object: {
+                    type: "Identifier",
+                    name: "stats",
+                    start: location(20, 2),
+                    end: location(25, 2)
+                },
+                property: {
+                    type: "Identifier",
+                    name: "hp",
+                    start: location(26, 2),
+                    end: location(28, 2)
+                },
+                start: location(20, 2),
+                end: location(28, 2)
+            },
+            right: {
+                type: "Literal",
+                value: "100",
+                start: location(31, 2),
+                end: location(34, 2)
+            },
+            start: location(20, 2),
+            end: location(34, 2)
+        };
+
+        const trailingComment = {
+            type: "CommentLine",
+            value: " base health",
+            start: location(38, 2),
+            end: location(51, 2),
+            leadingChar: ";"
+        };
+
+        const ast = {
+            type: "Program",
+            body: [initializer, propertyAssignment],
+            comments: [trailingComment]
+        };
+
+        consolidateStructAssignments(ast);
+
+        assert.equal(structExpression.properties.length, 1);
+
+        const [property] = structExpression.properties;
+        assert.equal(Array.isArray(property._structTrailingComments), true);
+        assert.equal(property._structTrailingComments.length, 1);
+        const [propertyComment] = property._structTrailingComments;
+        assert.equal(propertyComment.leadingChar, ",");
     });
 });

@@ -6,6 +6,7 @@ import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import {
     getErrorMessageOrFallback,
     normalizeIdentifierMetadataEntries,
+    toMutableArray,
     toNormalizedLowerCaseSet,
     toPosixPath
 } from "../shared/dependencies.js";
@@ -279,21 +280,27 @@ const TYPE_PRIORITY = new Map([
 
 function mergeEntry(map, identifier, data) {
     const current = map.get(identifier);
+    const sourceList = data.sources ?? [];
+    const tagList = data.tags ?? [];
+
     if (!current) {
+        const sources = toMutableArray(sourceList);
+        const tags = toMutableArray(tagList);
+
         map.set(identifier, {
             type: data.type ?? "unknown",
-            sources: new Set(data.sources ?? []),
+            sources: sources.length === 0 ? new Set() : new Set(sources),
             manualPath: data.manualPath,
-            tags: new Set(data.tags ?? []),
+            tags: tags.length === 0 ? new Set() : new Set(tags),
             deprecated: Boolean(data.deprecated)
         });
         return;
     }
 
-    for (const source of data.sources ?? []) {
+    for (const source of sourceList) {
         current.sources.add(source);
     }
-    for (const tag of data.tags ?? []) {
+    for (const tag of tagList) {
         current.tags.add(tag);
     }
     if (data.manualPath && !current.manualPath) {
