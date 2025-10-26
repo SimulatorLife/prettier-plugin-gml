@@ -316,16 +316,91 @@ function normalizeIdentifier(name) {
     return name.trim();
 }
 
+function describeManualIdentifierArrayValue(value) {
+    if (value === null) {
+        return "null";
+    }
+
+    if (value === undefined) {
+        return "undefined";
+    }
+
+    if (Array.isArray(value)) {
+        return "an array";
+    }
+
+    const type = typeof value;
+
+    if (type === "string") {
+        return value.length === 0 ? "an empty string" : "a string";
+    }
+
+    if (type === "boolean") {
+        return "a boolean";
+    }
+
+    if (type === "number" || type === "bigint") {
+        return `a ${type}`;
+    }
+
+    if (type === "function") {
+        return "a function";
+    }
+
+    if (type === "symbol") {
+        return "a symbol";
+    }
+
+    if (type === "object") {
+        return "an object";
+    }
+
+    return `a ${type}`;
+}
+
+function formatManualIdentifierArrayLabel({ identifier, source }) {
+    const label = source || identifier;
+    return label ? `'${label}'` : "manual identifier array";
+}
+
+function assertManualIdentifierArray(values, { identifier, source }) {
+    const label = formatManualIdentifierArrayLabel({ identifier, source });
+
+    if (!Array.isArray(values)) {
+        const description = describeManualIdentifierArrayValue(values);
+        throw new TypeError(
+            `Manual identifier array ${label} must evaluate to an array of strings. Received ${description}.`
+        );
+    }
+
+    values.forEach((value, index) => {
+        if (typeof value !== "string") {
+            const description = describeManualIdentifierArrayValue(value);
+            throw new TypeError(
+                `Manual identifier array ${label} must contain only strings. Entry at index ${index} was ${description}.`
+            );
+        }
+    });
+
+    return values;
+}
+
 function collectManualArrayIdentifiers(
     identifierMap,
     values,
-    { type, source }
+    { type, source },
+    { identifier } = {}
 ) {
+    const normalizedValues = assertManualIdentifierArray(values, {
+        identifier,
+        source
+    });
+
     const entry = { type, sources: [source] };
 
-    for (const value of values) {
-        const identifier = normalizeIdentifier(value);
-        mergeEntry(identifierMap, identifier, entry);
+    for (const value of normalizedValues) {
+        const identifierText = normalizeIdentifier(value);
+        mergeEntry(identifierMap, identifierText, entry);
     }
 }
 
@@ -390,7 +465,8 @@ function buildManualIdentifierMap({ gmlSource, vmEvalTimeoutMs, verbose }) {
                 collectManualArrayIdentifiers(
                     identifierMap,
                     values,
-                    descriptor.collectOptions
+                    descriptor.collectOptions,
+                    descriptor
                 ),
             { verbose }
         );
@@ -763,5 +839,7 @@ export async function runGenerateGmlIdentifiers({ command } = {}) {
 }
 
 export const __test__ = Object.freeze({
-    parseArrayLiteral
+    parseArrayLiteral,
+    collectManualArrayIdentifiers,
+    assertManualIdentifierArray
 });
