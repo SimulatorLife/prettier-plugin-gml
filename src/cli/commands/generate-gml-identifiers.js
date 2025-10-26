@@ -2,7 +2,6 @@ import vm from "node:vm";
 
 import { Command } from "commander";
 
-import { CliUsageError } from "../core/errors.js";
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import {
     getErrorMessageOrFallback,
@@ -15,7 +14,8 @@ import {
     DEFAULT_MANUAL_REPO,
     announceManualDownloadStart,
     buildManualRepositoryEndpoints,
-    downloadManualEntriesWithProgress
+    downloadManualEntriesWithProgress,
+    ensureManualRefHasSha
 } from "../features/manual/utils.js";
 import { timeSync, createVerboseDurationLogger } from "../shared/time-utils.js";
 import { disposeProgressBars } from "../shared/progress-bar.js";
@@ -685,18 +685,6 @@ async function fetchIdentifierManualPayloads({
         progressBarWidth,
         fetchManualFile: fetchManualFileFn
     });
-}
-
-function ensureManualRefHasSha(manualRef, { usage }) {
-    if (manualRef?.sha) {
-        return manualRef;
-    }
-
-    const refLabel = manualRef?.ref ?? "<unknown>";
-    throw new CliUsageError(
-        `Unable to resolve manual commit SHA for ref '${refLabel}'.`,
-        { usage }
-    );
 }
 
 export async function runGenerateGmlIdentifiers({ command } = {}) {

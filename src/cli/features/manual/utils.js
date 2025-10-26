@@ -21,6 +21,7 @@ import {
     renderProgressBar,
     withProgressBarCleanup
 } from "../command-dependencies.js";
+import { CliUsageError } from "../../core/errors.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
@@ -71,6 +72,29 @@ function describeManualRepoInput(value) {
 
 function normalizeDownloadLabel(label) {
     return isNonEmptyTrimmedString(label) ? label : "Downloading manual files";
+}
+
+/**
+ * Ensure the provided manual ref includes a resolved commit SHA before
+ * continuing. Commands historically repeated this guard inline, so the helper
+ * centralizes the validation and error formatting for all manual workflows.
+ *
+ * @template T extends { ref?: string | null | undefined; sha?: string | null | undefined }
+ * @param {T | null | undefined} manualRef Manual reference resolved by GitHub.
+ * @param {{ usage?: string | null }} [options]
+ * @returns {T & { sha: string }}
+ * @throws {CliUsageError}
+ */
+export function ensureManualRefHasSha(manualRef, { usage } = {}) {
+    if (manualRef?.sha) {
+        return manualRef;
+    }
+
+    const refLabel = manualRef?.ref ?? "<unknown>";
+    throw new CliUsageError(
+        `Unable to resolve manual commit SHA for ref '${refLabel}'.`,
+        { usage }
+    );
 }
 
 export function announceManualDownloadStart(
