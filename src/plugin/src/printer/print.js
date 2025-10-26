@@ -1,4 +1,5 @@
 import { builders, utils } from "prettier/doc";
+import { unwrapParenthesizedExpression as unwrapNodeParenthesizedExpression } from "../../../shared/ast/node-helpers.js";
 
 import {
     isLastStatement,
@@ -6523,9 +6524,19 @@ function shouldOmitSyntheticParens(path) {
                         childOperator === "/" ||
                         childOperator === "div" ||
                         childOperator === "%" ||
-                        childOperator === "mod" ||
-                        (childOperator === "*" &&
-                            !isWithinNumericCallArgument(path))
+                        childOperator === "mod"
+                    ) {
+                        return false;
+                    }
+
+                    if (
+                        childOperator === "*" &&
+                        !isWithinNumericCallArgument(path) &&
+                        !shouldFlattenMultiplicationSibling(
+                            parent,
+                            expression,
+                            path
+                        )
                     ) {
                         return false;
                     }
@@ -6581,6 +6592,46 @@ function shouldOmitSyntheticParens(path) {
 
         depth += 1;
     }
+}
+
+function shouldFlattenMultiplicationSibling(parent, expression, path) {
+    if (!parent || parent.type !== "BinaryExpression") {
+        return false;
+    }
+
+    if (!expression || expression.type !== "BinaryExpression") {
+        return false;
+    }
+
+    if (expression.operator !== "*") {
+        return false;
+    }
+
+    const operandName = callPathMethod(path, "getName");
+
+    if (operandName !== "left" && operandName !== "right") {
+        return false;
+    }
+
+    const siblingKey = operandName === "left" ? "right" : "left";
+    const siblingNode = parent[siblingKey];
+    const siblingExpression = unwrapNodeParenthesizedExpression(siblingNode);
+
+    if (
+        siblingExpression?.type !== "BinaryExpression" ||
+        siblingExpression.operator !== "*"
+    ) {
+        return false;
+    }
+
+    if (
+        !isNumericComputationNode(expression) ||
+        !isNumericComputationNode(siblingExpression)
+    ) {
+        return false;
+    }
+
+    return true;
 }
 
 function isControlFlowLogicalTest(path) {
