@@ -63,6 +63,13 @@ The first command confirms which plugin entry point the wrapper resolves and
 lists accepted flags. Pair it with the [CLI wrapper reference](../README.md#cli-wrapper-environment-knobs)
 when scripting automation.
 
+When you're ready to try the wrapper against a project, provide the target
+directory explicitly so the command has GameMaker sources to process:
+
+```bash
+npm run format:gml -- path/to/project
+```
+
 ## 5. Explore supporting documentation
 
 * Start with the [documentation index](README.md) for deep dives and planning

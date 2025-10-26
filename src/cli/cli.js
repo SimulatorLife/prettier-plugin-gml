@@ -148,6 +148,13 @@ const VALID_PRETTIER_LOG_LEVEL_CHOICES = formatValidChoiceList(
     VALID_PRETTIER_LOG_LEVELS
 );
 
+const FORMAT_COMMAND_CLI_EXAMPLE =
+    "npx prettier-plugin-gml format path/to/project";
+const FORMAT_COMMAND_WORKSPACE_EXAMPLE =
+    "npm run format:gml -- path/to/project";
+const FORMAT_COMMAND_CHECK_EXAMPLE =
+    "npx prettier-plugin-gml format --check path/to/script.gml";
+
 const PRETTIER_MODULE_ID =
     process.env.PRETTIER_PLUGIN_GML_PRETTIER_MODULE ?? "prettier";
 
@@ -462,6 +469,16 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
                 return normalized;
             },
             DEFAULT_PARSE_ERROR_ACTION
+        )
+        .addHelpText("after", () =>
+            [
+                "",
+                "Examples:",
+                `  ${FORMAT_COMMAND_CLI_EXAMPLE}`,
+                `  ${FORMAT_COMMAND_WORKSPACE_EXAMPLE}`,
+                `  ${FORMAT_COMMAND_CHECK_EXAMPLE}`,
+                ""
+            ].join("\n")
         );
 }
 
@@ -1550,13 +1567,17 @@ function logNoMatchingFiles({
               targetPathProvided
           })
         : formattedTarget;
+    const exampleGuidance = `For example: ${FORMAT_COMMAND_CLI_EXAMPLE} or ${FORMAT_COMMAND_WORKSPACE_EXAMPLE}.`;
     const guidance = targetIsDirectory
         ? [
-              "Provide a directory or file containing GameMaker Language sources",
-              "(for example: prettier-plugin-gml format path/to/project) or adjust",
-              "--extensions / update your .prettierignore files if this is unexpected."
+              "Provide a directory or file containing GameMaker Language sources.",
+              exampleGuidance,
+              "Adjust --extensions or update your .prettierignore files if this is unexpected."
           ].join(" ")
-        : "Pass --extensions to include this file or adjust your .prettierignore files if this is unexpected.";
+        : [
+              "Pass --extensions to include this file or adjust your .prettierignore files if this is unexpected.",
+              exampleGuidance
+          ].join(" ");
     const ignoredFilesSkipped = skippedFileSummary.ignored > 0;
     const ignoredMessageSuffix =
         "Adjust your .prettierignore files or refine the target path if this is unexpected.";

@@ -1170,6 +1170,12 @@ describe("Prettier wrapper CLI", () => {
                 /No files matching "\.gml" were found/,
                 "Expected stdout to explain why nothing was formatted"
             );
+            assert.ok(
+                stdout.includes(
+                    "For example: npx prettier-plugin-gml format path/to/project or npm run format:gml -- path/to/project."
+                ),
+                "Expected stdout to suggest both the CLI and workspace wrapper commands"
+            );
             assert.match(
                 stdout,
                 /unsupported extensions \(\d+\) \(e\.g\., .*notes\.txt\)/,
@@ -1197,6 +1203,12 @@ describe("Prettier wrapper CLI", () => {
                 stdout,
                 /found in the current (?:working )?directory(?: \(\.\))?\./,
                 "Expected stdout to describe the current directory explicitly"
+            );
+            assert.ok(
+                stdout.includes(
+                    "For example: npx prettier-plugin-gml format path/to/project or npm run format:gml -- path/to/project."
+                ),
+                "Expected stdout to repeat the CLI guidance when formatting finds no targets"
             );
             assert.ok(
                 stdout.includes("found in the current working directory (.)"),
@@ -1229,6 +1241,41 @@ describe("Prettier wrapper CLI", () => {
         assert.ok(
             !stdout.includes("found in .."),
             "Expected stdout not to include duplicate punctuation when describing the repository root"
+        );
+        assert.ok(
+            stdout.includes(
+                "For example: npx prettier-plugin-gml format path/to/project or npm run format:gml -- path/to/project."
+            ),
+            "Expected stdout to repeat the CLI guidance when invoked from the repository root"
+        );
+    });
+
+    it("surfaces common format examples in the help output", async () => {
+        const { stdout, stderr } = await execFileAsync("node", [
+            wrapperPath,
+            "format",
+            "--help"
+        ]);
+
+        assert.strictEqual(stderr, "", "Expected stderr to be empty");
+        assert.match(
+            stdout,
+            /Examples:/,
+            "Expected help to include an examples section"
+        );
+        assert.ok(
+            stdout.includes("  npx prettier-plugin-gml format path/to/project"),
+            "Expected help output to include the npx usage example"
+        );
+        assert.ok(
+            stdout.includes("  npm run format:gml -- path/to/project"),
+            "Expected help output to include the workspace wrapper example"
+        );
+        assert.ok(
+            stdout.includes(
+                "  npx prettier-plugin-gml format --check path/to/script.gml"
+            ),
+            "Expected help output to include the --check example"
         );
     });
 
