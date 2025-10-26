@@ -187,6 +187,16 @@ const BINARY_OPERATOR_INFO = new Map([
     ["??", { precedence: 4, associativity: "right" }]
 ]);
 
+const LOGICAL_OPERATOR_TOKENS = new Set(["&&", "||", "and", "or"]);
+const COMPARISON_OPERATOR_TOKENS = new Set([
+    "==",
+    "!=",
+    "<>",
+    "<",
+    "<=",
+    ">",
+    ">="
+]);
 const COMPARISON_OPERATORS = new Set(["<", "<=", ">", ">=", "==", "!=", "<>"]);
 const DOC_COMMENT_OUTPUT_FLAG = "_gmlHasDocCommentOutput";
 
@@ -862,6 +872,14 @@ export function print(path, options, print) {
                 } else {
                     operator = styledOperator;
                 }
+            }
+
+            if (shouldStripRedundantBooleanParens(node, operator, "left")) {
+                left = printWithoutExtraParens(path, print, "left");
+            }
+
+            if (shouldStripRedundantBooleanParens(node, operator, "right")) {
+                right = printWithoutExtraParens(path, print, "right");
             }
 
             return group([left, " ", group([operator, line, right])]);
@@ -6392,6 +6410,72 @@ function printWithoutExtraParens(path, print, ...keys) {
         (childPath) => unwrapParenthesizedExpression(childPath, print),
         ...keys
     );
+}
+
+function shouldStripRedundantBooleanParens(node, operator, operandKey) {
+    if (!node) {
+        return false;
+    }
+
+    const normalizedOperator =
+        typeof operator === "string" ? operator.toLowerCase() : "";
+
+    if (!LOGICAL_OPERATOR_TOKENS.has(normalizedOperator)) {
+        return false;
+    }
+
+    const operandNode = node?.[operandKey];
+    if (!operandNode || operandNode.type !== "ParenthesizedExpression") {
+        return false;
+    }
+
+    if (hasComment(operandNode)) {
+        return false;
+    }
+
+    const innermostExpression =
+        getInnermostBooleanOperandExpression(operandNode);
+
+    if (!innermostExpression || hasComment(innermostExpression)) {
+        return false;
+    }
+
+    if (innermostExpression.type !== "BinaryExpression") {
+        return false;
+    }
+
+    const childOperator = innermostExpression.operator;
+    const normalizedChildOperator =
+        typeof childOperator === "string" ? childOperator.toLowerCase() : "";
+
+    if (!COMPARISON_OPERATOR_TOKENS.has(normalizedChildOperator)) {
+        return false;
+    }
+
+    const parentInfo = getBinaryOperatorInfo(normalizedOperator);
+    if (!parentInfo) {
+        return false;
+    }
+
+    const childInfo = getBinaryOperatorInfo(normalizedChildOperator);
+    if (!childInfo) {
+        return false;
+    }
+
+    return childInfo.precedence > parentInfo.precedence;
+}
+
+function getInnermostBooleanOperandExpression(parenthesizedNode) {
+    if (!parenthesizedNode) {
+        return null;
+    }
+
+    let current = parenthesizedNode.expression;
+    while (current?.type === "ParenthesizedExpression") {
+        current = current.expression;
+    }
+
+    return current ?? null;
 }
 
 function getBinaryOperatorInfo(operator) {
