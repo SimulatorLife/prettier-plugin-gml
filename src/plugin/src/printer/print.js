@@ -81,6 +81,7 @@ const {
     hardline,
     softline,
     concat,
+    lineSuffix,
     lineSuffixBoundary
 } = builders;
 const { willBreak } = utils;
@@ -1137,6 +1138,10 @@ export function print(path, options, print) {
             const alignmentInfo = forcedStructArgumentBreaks.get(parentNode);
             const nameDoc = print("name");
             const valueDoc = print("value");
+            const trailingCommentSuffix = buildStructPropertyCommentSuffix(
+                path,
+                options
+            );
 
             if (alignmentInfo?.maxNameLength > 0) {
                 const nameLength = getStructPropertyNameLength(node, options);
@@ -1146,15 +1151,25 @@ export function print(path, options, print) {
                 );
                 const padding = " ".repeat(paddingWidth);
 
-                return concat([nameDoc, padding, ": ", valueDoc]);
+                return concat([
+                    nameDoc,
+                    padding,
+                    ": ",
+                    valueDoc,
+                    trailingCommentSuffix
+                ]);
             }
 
             const originalPrefix = getStructPropertyPrefix(node, options);
             if (originalPrefix) {
-                return concat([originalPrefix, valueDoc]);
+                return concat([
+                    originalPrefix,
+                    valueDoc,
+                    trailingCommentSuffix
+                ]);
             }
 
-            return concat([nameDoc, ": ", valueDoc]);
+            return concat([nameDoc, ": ", valueDoc, trailingCommentSuffix]);
         }
         case "ArrayExpression": {
             const allowTrailingComma = shouldAllowTrailingComma(options);
@@ -2100,11 +2115,52 @@ function shouldForceBreakStructArgument(argument) {
         return false;
     }
 
-    if (properties.some((property) => hasComment(property))) {
+    if (
+        properties.some(
+            (property) =>
+                hasComment(property) || property?._hasTrailingInlineComment
+        )
+    ) {
         return true;
     }
 
     return properties.length > 2;
+}
+
+function buildStructPropertyCommentSuffix(path, options) {
+    const node =
+        path && typeof path.getValue === "function" ? path.getValue() : null;
+    const comments = Array.isArray(node?._structTrailingComments)
+        ? node._structTrailingComments
+        : null;
+    if (!comments || comments.length === 0) {
+        return "";
+    }
+
+    const commentDocs = [];
+
+    for (const comment of comments) {
+        if (comment?._structPropertyTrailing === true) {
+            const formatted = formatLineComment(
+                comment,
+                resolveLineCommentOptions(options)
+            );
+            if (formatted) {
+                commentDocs.push(formatted);
+            }
+            comment._structPropertyHandled = true;
+            comment.printed = true;
+        }
+    }
+
+    if (commentDocs.length === 0) {
+        return "";
+    }
+
+    const commentDoc =
+        commentDocs.length === 1 ? commentDocs[0] : join(hardline, commentDocs);
+
+    return lineSuffix([lineSuffixBoundary, " ", commentDoc]);
 }
 
 function getStructAlignmentInfo(structNode, options) {

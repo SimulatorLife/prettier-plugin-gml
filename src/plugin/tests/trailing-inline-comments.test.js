@@ -42,3 +42,26 @@ test("keeps multi-sentence inline comments on the same line", async () => {
         "The inline comment should not be moved onto a new line."
     );
 });
+
+test("struct property trailing comments remain inline without blank separators", async () => {
+    const source = [
+        "function trailing_comment() {",
+        "    var stats = {};",
+        "    stats.hp = 100; // base health",
+        "    stats.mp = 50;",
+        "    return stats;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+
+    assert.ok(
+        formatted.includes("hp: 100, // base health"),
+        "Trailing inline comment should remain attached to the struct property."
+    );
+    assert.ok(
+        !formatted.includes("{\n\n        hp: 100"),
+        "Struct properties should not be preceded by blank lines after consolidation."
+    );
+});
