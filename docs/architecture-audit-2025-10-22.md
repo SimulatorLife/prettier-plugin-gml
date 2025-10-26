@@ -2,7 +2,7 @@
 
 ## Design rationale
 
-- The CLI layer duplicated shared utilities behind the `src/cli/lib/shared/`
+- The CLI layer duplicated shared utilities behind the `src/cli/src/shared/`
   directory. Each file in that folder simply re-exported helpers that already
   live under `src/shared/`, so contributors had to decide between two nearly
   identical module hierarchies when wiring new features. The audit trims the
@@ -20,7 +20,7 @@
 
 ## Target layout
 
-- Collapse `src/cli/lib/shared/` to a single compatibility shim so existing
+- Collapse `src/cli/src/shared/` to a single compatibility shim so existing
   downstream consumers can still import `json-utils` while the CLI moves to the
   canonical `src/shared/` barrels.
 - Update existing CLI modules (`manual` helpers, shared dependency aggregator,
@@ -53,6 +53,6 @@
 - Continue migrating parser and plugin modules away from the `*-utils.js`
   shims now that the CLI demonstrates how to rely on the barrels. Once no
   external packages import the compatibility wrapper, delete
-  `src/cli/lib/shared/json-utils.js` and retire the directory for good.
+  `src/cli/src/shared/json-utils.js` and retire the directory for good.
 - Consolidate documentation to reference the barrels as the preferred import
   surface so new contributors follow the streamlined structure by default.

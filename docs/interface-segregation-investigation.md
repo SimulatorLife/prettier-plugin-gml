@@ -4,7 +4,7 @@ The repository does not define any TypeScript or JavaScript interfaces with broa
 (such as `*Service`, `*Manager`, or `*Controller`) that expose large contracts. To confirm this, I
 surveyed the codebase using the following searches:
 
-- `rg "interface" src --stats` — returned only a comment in `src/cli/cli.js`, no actual interface definitions.
+- `rg "interface" src --stats` — returned only a comment in `src/cli/src/cli.js`, no actual interface definitions.
 - `rg "@typedef" src -n` — surfaced the handful of small JSDoc object typedefs (`CommentLineNode`, `CommentBlockNode`, `FeatherDiagnostic`, and a couple of helper structs), each of which only contains a few focused properties.
 - `rg "Service" src`, `rg "Manager" src`, and `rg "Controller" src` — produced no matches outside of fixture strings.
 - `find src -name "*.ts"` — confirmed there are no in-repo TypeScript sources beyond vendored dependencies under `node_modules`.
@@ -127,7 +127,7 @@ no code changes were required.
 ## Follow-up audit (2025-04-09)
 
 - Audited `createManualAccessContext` in
-  `src/cli/features/manual/context.js` and found it still returned a combined
+  `src/cli/src/commands/manual/context.js` and found it still returned a combined
   `ManualAccessContext` interface that bundled manual file fetching with
   reference resolution. CLI commands that only needed to download manual pages
   were forced to depend on reference helpers (and vice versa), violating the
@@ -153,7 +153,7 @@ no code changes were required.
 ## Follow-up audit (2025-04-23)
 
 - Audited the CLI plugin defaults and found the `CliPluginServiceRegistry`
-  typedef in `src/cli/plugin/service-providers/default.js`. The registry
+  typedef in `src/cli/src/plugin-support/service-providers/default.js`. The registry
   reintroduced a catch-all `defaultCliPluginServices` bundle that coupled the
   project index helpers with the identifier case services. Modules that only
   needed identifier case collaborators were forced to depend on the project
@@ -182,7 +182,7 @@ no code changes were required.
 
 - Re-audited the CLI plugin default services and found the
   `CliIdentifierCaseServices` bundle lingering in
-  `src/cli/plugin/service-providers/default.js`. The bundle coupled the
+  `src/cli/src/plugin-support/service-providers/default.js`. The bundle coupled the
   preparation and cache collaborators into a single "services" interface,
   forcing callers that only needed one helper to depend on both behaviours.
 - Removed the aggregated contract and now return only the focused preparation
@@ -193,7 +193,7 @@ no code changes were required.
 
 - Surveyed the manual command helpers and found the
   `ManualCommandFileService`/`ManualCommandRefResolutionService` facades in
-  `src/cli/features/manual/context.js`. Each wrapped a single GitHub helper but
+  `src/cli/src/commands/manual/context.js`. Each wrapped a single GitHub helper but
   still forced consumers of the manual access context to depend on nested
   service objects before they could reach the `fetchManualFile` or
   `resolveManualRef` collaborators they actually needed.

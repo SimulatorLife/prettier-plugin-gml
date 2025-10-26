@@ -232,7 +232,7 @@ nvm alias default node
    Quote dependency specs in shells such as `zsh` so `^` is not treated as a
    glob, and pin a tag or commit (`#vX.Y.Z`, `#<sha>`) when you need reproducible
    CI builds. The Git dependency includes the CLI wrapper under
-   `node_modules/root/src/cli/cli.js`.
+   `node_modules/root/src/cli/src/cli.js`.
 
    > Resolve `EBADENGINE` errors by upgrading Node.js to a supported release.
 
@@ -273,7 +273,7 @@ nvm alias default node
      ```jsonc
      {
        "scripts": {
-         "format:gml": "node ./node_modules/root/src/cli/cli.js"
+         "format:gml": "node ./node_modules/root/src/cli/src/cli.js"
        }
      }
      ```
@@ -299,7 +299,7 @@ nvm alias default node
    npm run format:gml -- --check
    npm run format:gml -- --path . --extensions=.gml --extensions=.yy
    npx prettier --plugin=prettier-plugin-gamemaker --check "**/*.gml"
-   node ./node_modules/root/src/cli/cli.js --help
+   node ./node_modules/root/src/cli/src/cli.js --help
    ```
 
 ### 3. Use a local clone
@@ -383,7 +383,7 @@ npx prettier --plugin=./node_modules/root/src/plugin/src/gml.js --check "**/*.gm
 
 ```bash
 npm run format:gml -- --extensions=.gml --extensions=.yy
-node ./node_modules/root/src/cli/cli.js --help
+node ./node_modules/root/src/cli/src/cli.js --help
 npm run cli -- --help
 ```
 
@@ -401,16 +401,17 @@ scripts before tackling feature work.
 ## Architecture overview
 
 The repository is organised as a multi-package workspace so the parser, plugin,
-and CLI can evolve together. Each package ships its own tests and CLI entry
-points while sharing utilities via the `src/shared/` module.
+and CLI can evolve together. Each package ships a dedicated `src/` directory for
+implementation code and a sibling `test/` directory for its suites while sharing
+utilities via the `src/shared/src` barrels.
 
 | Package / folder | Location | Purpose |
 | --- | --- | --- |
 | `prettier-plugin-gamemaker` | `src/plugin/` | Prettier plugin entry point (`src/gml.js`), printers, option handlers, CLI surface helpers, and regression fixtures. |
 | `gamemaker-language-parser` | `src/parser/` | ANTLR grammar sources, generated parser output, and the parser test suite. |
-| `prettier-plugin-gml-cli` | `src/cli/` | Command-line interface (`cli.js`) for metadata generation, formatting wrapper commands, integration tests, and performance tooling. |
+| `prettier-plugin-gml-cli` | `src/cli/src/` | Command-line interface (`cli.js`) for metadata generation, formatting wrapper commands, integration tests, and performance tooling. |
 | `gamemaker-language-semantic` | `src/semantic/` | Scope trackers, project-index orchestration, rename bootstrap controls, and the semantic test suite. |
-| Shared modules | `src/shared/` | Helper modules shared by the plugin, CLI, parser, and semantic packages (AST utilities, identifier casing primitives, string helpers). |
+| Shared modules | `src/shared/src/` | Helper modules shared by the plugin, CLI, parser, and semantic packages (AST utilities, identifier casing primitives, string helpers). |
 | Metadata snapshots | `resources/` | Generated datasets consumed by the formatter (identifier inventories, Feather metadata). |
 | Documentation | `docs/` | Planning notes, rollout guides, and deep-dive references. Start with [`docs/README.md`](docs/README.md) for an index. |
 
@@ -421,7 +422,7 @@ plugin entry. Regeneration helpers such as `npm run build:gml-identifiers` and
 upstream GameMaker releases change. See the [Development](#development) section
 for the full suite of contributor commands.
 
-> **Note:** All developer-facing utilities live under `src/cli/commands/`.
+> **Note:** All developer-facing utilities live under `src/cli/src/commands/`.
 > When adding new helpers, expose them through the CLI instead of creating
 > stand-alone scripts so contributors have a single, discoverable entry point.
 
@@ -457,31 +458,31 @@ for the full suite of contributor commands.
   Pass the project or file you want to format explicitly:
 
   ```bash
-  node ./node_modules/root/src/cli/cli.js format path/to/project --extensions=.gml --extensions=.yy
+  node ./node_modules/root/src/cli/src/cli.js format path/to/project --extensions=.gml --extensions=.yy
   ```
 
 - Preview formatting changes without writing them back:
 
   ```bash
-  node ./node_modules/root/src/cli/cli.js --check
+  node ./node_modules/root/src/cli/src/cli.js --check
   ```
 
 - Discover supported flags or double-check defaults:
 
   ```bash
-  node ./node_modules/root/src/cli/cli.js --help
+  node ./node_modules/root/src/cli/src/cli.js --help
   ```
 
 - Inspect formatter-specific switches:
 
   ```bash
-  node ./node_modules/root/src/cli/cli.js format --help
+  node ./node_modules/root/src/cli/src/cli.js format --help
   ```
 
 - Check the wrapper version label surfaced by `--version` or `-V`:
 
   ```bash
-  node ./node_modules/root/src/cli/cli.js --version
+  node ./node_modules/root/src/cli/src/cli.js --version
   ```
 
 ### CLI wrapper environment knobs
@@ -519,7 +520,7 @@ without editing project scripts:
   to resolve Prettier. Handy when the formatter runs inside a monorepo with a
   custom Prettier build or when you pin a nightly via a local alias.
 - `PRETTIER_PLUGIN_GML_VERSION` &mdash; Injects the version label surfaced by
-  `node ./node_modules/root/src/cli/cli.js --version`. Handy when mirroring
+  `node ./node_modules/root/src/cli/src/cli.js --version`. Handy when mirroring
   release tags or packaging nightly builds.
 
 ### Visual Studio Code
@@ -672,10 +673,11 @@ covers the helper trio and intended use cases.
 
 ```
 prettier-plugin-gml/
+├─ src/cli/          # CLI wrapper (src implementation + test suites)
 ├─ src/parser/        # ANTLR grammar, generated parser, and parser tests
 ├─ src/plugin/        # Prettier plugin source, printer, CLI wrapper, and plugin tests
 ├─ src/semantic/      # Scope trackers, project index coordinator, semantic tests
-├─ src/shared/        # Shared utilities (AST helpers, identifier casing, CLI plumbing)
+├─ src/shared/        # Shared utilities (src modules and focused tests)
 ├─ resources/         # Generated metadata consumed by the formatter
 ├─ docs/              # Design notes and rollout guides
 └─ package.json       # Workspace manifest with scripts and shared tooling

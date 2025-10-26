@@ -1,5 +1,10 @@
 # Shared module layout refresh
 
+> **Note:** The shared package now mirrors the other workspaces by keeping
+> implementation code under `src/shared/src` with matching suites in
+> `src/shared/test`. Historical notes below reference the pre-alignment layout
+> when helpers lived directly under `src/shared/`.
+
 ## Pain points observed during the audit
 
 - `src/shared` mixed AST helpers, printer metadata utilities, and low-level
