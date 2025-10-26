@@ -51,6 +51,7 @@ import {
     getSingleVariableDeclarator,
     isCallExpressionIdentifierMatch,
     isBooleanLiteral,
+    getBooleanLiteralValue,
     isUndefinedLiteral,
     enqueueObjectChildValues
 } from "../shared/index.js";
@@ -2463,12 +2464,23 @@ function printStatements(path, options, print, childrenAttribute) {
                 !nextLineEmpty &&
                 !shouldSuppressExtraEmptyLine &&
                 !sanitizedMacroHasExplicitBlankLine;
+            const shouldForceEarlyReturnPadding =
+                !suppressFollowingEmptyLine &&
+                shouldForceBlankLineBetweenReturnPaths(node, nextNode);
 
             if (shouldForceMacroPadding) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
             } else if (
                 forceFollowingEmptyLine &&
+                !nextLineEmpty &&
+                !shouldSuppressExtraEmptyLine &&
+                !sanitizedMacroHasExplicitBlankLine
+            ) {
+                parts.push(hardline);
+                previousNodeHadNewlineAddedAfter = true;
+            } else if (
+                shouldForceEarlyReturnPadding &&
                 !nextLineEmpty &&
                 !shouldSuppressExtraEmptyLine &&
                 !sanitizedMacroHasExplicitBlankLine
@@ -2768,6 +2780,57 @@ function isFunctionLikeDeclaration(node) {
         nodeType === "ConstructorDeclaration" ||
         nodeType === "FunctionExpression"
     );
+}
+
+function shouldForceBlankLineBetweenReturnPaths(currentNode, nextNode) {
+    if (!currentNode || currentNode.type !== "IfStatement") {
+        return false;
+    }
+
+    if (!nextNode || nextNode.type !== "ReturnStatement") {
+        return false;
+    }
+
+    if (currentNode.alternate) {
+        return false;
+    }
+
+    const consequent = currentNode.consequent;
+    if (!consequent || consequent.type !== "BlockStatement") {
+        return false;
+    }
+
+    const body = Array.isArray(consequent.body) ? consequent.body : [];
+    let lastReturn = null;
+
+    for (let index = body.length - 1; index >= 0; index -= 1) {
+        const statement = body[index];
+        if (!statement) {
+            continue;
+        }
+
+        if (statement.type === "ReturnStatement") {
+            lastReturn = statement;
+            break;
+        }
+
+        // Encountering any other statement means the block does not end with an
+        // early return, so no extra padding is necessary.
+        return false;
+    }
+
+    if (!lastReturn) {
+        return false;
+    }
+
+    const consequentBoolean = getBooleanLiteralValue(lastReturn.argument);
+    const fallbackBoolean = getBooleanLiteralValue(nextNode.argument);
+
+    if (consequentBoolean === null || fallbackBoolean === null) {
+        return false;
+    }
+
+    return consequentBoolean !== fallbackBoolean;
 }
 
 function isPathInsideFunctionBody(path, childrenAttribute) {
