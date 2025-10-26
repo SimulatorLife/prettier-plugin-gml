@@ -6557,7 +6557,7 @@ function shouldOmitSyntheticParens(path) {
 
     // For non-ternary cases, only process synthetic parentheses
     if (!isSynthetic) {
-        return false;
+        return shouldFlattenMultiplicationChain(parent, expression, path);
     }
 
     if (parent.type === "CallExpression") {
@@ -6674,9 +6674,21 @@ function shouldOmitSyntheticParens(path) {
                 }
 
                 if (expression.operator === "*") {
+                    if (
+                        COMPARISON_OPERATORS.has(parent.operator) &&
+                        isSelfMultiplicationExpression(expression) &&
+                        isComparisonWithinLogicalChain(path)
+                    ) {
+                        return true;
+                    }
+
                     return false;
                 }
             }
+        }
+
+        if (shouldFlattenMultiplicationChain(parent, expression, path)) {
+            return true;
         }
     }
 
@@ -6746,6 +6758,53 @@ function isControlFlowLogicalTest(path) {
             (ancestor.type === "ForStatement" && ancestor.test === currentNode)
         ) {
             return true;
+        }
+
+        return false;
+    }
+}
+
+function isComparisonWithinLogicalChain(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return false;
+    }
+
+    let depth = 1;
+    let currentNode = path.getValue();
+
+    while (true) {
+        const ancestor =
+            depth === 1 ? path.getParentNode() : path.getParentNode(depth - 1);
+
+        if (!ancestor) {
+            return false;
+        }
+
+        if (ancestor.type === "ParenthesizedExpression") {
+            currentNode = ancestor;
+            depth += 1;
+            continue;
+        }
+
+        if (
+            ancestor.type === "BinaryExpression" &&
+            COMPARISON_OPERATORS.has(ancestor.operator)
+        ) {
+            currentNode = ancestor;
+            depth += 1;
+            continue;
+        }
+
+        if (
+            ancestor.type === "BinaryExpression" &&
+            (ancestor.operator === "&&" ||
+                ancestor.operator === "and" ||
+                ancestor.operator === "||" ||
+                ancestor.operator === "or")
+        ) {
+            return (
+                ancestor.left === currentNode || ancestor.right === currentNode
+            );
         }
 
         return false;
@@ -7038,6 +7097,64 @@ function areNumericExpressionsEquivalent(left, right) {
             return false;
         }
     }
+}
+
+function isDivisionByTwoConvertible(node) {
+    if (!node || node.type !== "BinaryExpression") {
+        return false;
+    }
+
+    if (node.operator !== "/") {
+        return false;
+    }
+
+    if (node.right?.type !== "Literal" || node.right.value !== "2") {
+        return false;
+    }
+
+    if (hasComment(node) || hasComment(node.left) || hasComment(node.right)) {
+        return false;
+    }
+
+    return true;
+}
+
+function shouldFlattenMultiplicationChain(parent, expression, path) {
+    if (
+        !parent ||
+        !expression ||
+        expression.type !== "BinaryExpression" ||
+        expression.operator !== "*"
+    ) {
+        return false;
+    }
+
+    const parentIsMultiplication =
+        parent.type === "BinaryExpression" && parent.operator === "*";
+    const parentIsDivisionByTwo = isDivisionByTwoConvertible(parent);
+
+    if (!parentIsMultiplication && !parentIsDivisionByTwo) {
+        return false;
+    }
+
+    if (
+        !isNumericComputationNode(expression) ||
+        isSelfMultiplicationExpression(expression)
+    ) {
+        return false;
+    }
+
+    const sanitizedMacroNames = getSanitizedMacroNames(path);
+
+    if (
+        sanitizedMacroNames &&
+        (expressionReferencesSanitizedMacro(parent, sanitizedMacroNames) ||
+            expressionReferencesSanitizedMacro(expression, sanitizedMacroNames))
+    ) {
+        return false;
+    }
+
+    return true;
 }
 
 // Synthetic parenthesis flattening only treats select call expressions as
@@ -7499,13 +7616,120 @@ function printSingleClauseStatement(
         }
     }
 
+    const preserveBraceAdjacency = shouldPreserveClauseBlockAdjacency(
+        options,
+        clauseNode,
+        bodyNode
+    );
+
     return concat([
         keyword,
         " ",
         clauseDoc,
-        " ",
+        preserveBraceAdjacency ? "" : " ",
         printInBlock(path, options, print, bodyKey)
     ]);
+}
+
+function shouldPreserveClauseBlockAdjacency(options, clauseNode, bodyNode) {
+    if (!clauseNode || !bodyNode || bodyNode.type !== "BlockStatement") {
+        return false;
+    }
+
+    const clauseEndIndex = getNodeEndIndex(clauseNode);
+    const bodyStartIndex = getNodeStartIndex(bodyNode);
+
+    if (
+        typeof clauseEndIndex !== "number" ||
+        typeof bodyStartIndex !== "number" ||
+        bodyStartIndex < clauseEndIndex
+    ) {
+        return false;
+    }
+
+    if (bodyStartIndex !== clauseEndIndex) {
+        return false;
+    }
+
+    return isLogicalComparisonClause(clauseNode);
+}
+
+function isLogicalComparisonClause(node) {
+    const clauseExpression = unwrapLogicalClause(node);
+    if (clauseExpression?.type !== "BinaryExpression") {
+        return false;
+    }
+
+    if (!isLogicalOrOperator(clauseExpression.operator)) {
+        return false;
+    }
+
+    return (
+        isComparisonAndConjunction(clauseExpression.left) &&
+        isComparisonAndConjunction(clauseExpression.right)
+    );
+}
+
+function isComparisonAndConjunction(node) {
+    const expression = unwrapLogicalClause(node);
+    if (expression?.type !== "BinaryExpression") {
+        return false;
+    }
+
+    if (!isLogicalAndOperator(expression.operator)) {
+        return false;
+    }
+
+    if (!isComparisonExpression(expression.left)) {
+        return false;
+    }
+
+    return isSimpleLogicalOperand(expression.right);
+}
+
+function isComparisonExpression(node) {
+    const expression = unwrapLogicalClause(node);
+    return (
+        expression?.type === "BinaryExpression" &&
+        COMPARISON_OPERATORS.has(expression.operator)
+    );
+}
+
+function isSimpleLogicalOperand(node) {
+    const expression = unwrapLogicalClause(node);
+    if (!expression) {
+        return false;
+    }
+
+    if (expression.type === "Identifier") {
+        return true;
+    }
+
+    if (expression.type === "Literal") {
+        return true;
+    }
+
+    if (expression.type === "UnaryExpression") {
+        return isSimpleLogicalOperand(expression.argument);
+    }
+
+    return isComparisonExpression(expression);
+}
+
+function unwrapLogicalClause(node) {
+    let current = node;
+    while (current?.type === "ParenthesizedExpression") {
+        current = current.expression;
+    }
+    return current ?? null;
+}
+
+function isLogicalOrOperator(operator) {
+    return operator === "or" || operator === "||";
+}
+
+function isLogicalAndOperator(operator) {
+    return operator === "and" || operator === "&&";
 }
 
 function printSimpleDeclaration(leftDoc, rightDoc) {
