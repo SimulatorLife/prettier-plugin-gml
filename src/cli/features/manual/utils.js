@@ -739,6 +739,52 @@ function createManualGitHubFileClient({
     };
 }
 
+/**
+ * Assemble the core GitHub collaborators used by manual commands. Centralizes
+ * the wiring previously duplicated by context builders and tests so they all
+ * share the same dispatcher, resolver, and file client composition.
+ *
+ * @param {{
+ *   userAgent: string,
+ *   defaultCacheRoot?: string,
+ *   defaultRawRoot: string
+ * }} options
+ * @returns {{
+ *   requestDispatcher: ManualGitHubRequestDispatcher,
+ *   commitResolver: ManualGitHubCommitResolver,
+ *   refResolver: ManualGitHubRefResolver,
+ *   fileClient: ManualGitHubFileClient
+ * }}
+ */
+function createManualGitHubClientBundle({
+    userAgent,
+    defaultCacheRoot,
+    defaultRawRoot
+}) {
+    const requestDispatcher = createManualGitHubRequestDispatcher({
+        userAgent
+    });
+    const commitResolver = createManualGitHubCommitResolver({
+        requestDispatcher
+    });
+    const refResolver = createManualGitHubRefResolver({
+        requestDispatcher,
+        commitResolver
+    });
+    const fileClient = createManualGitHubFileClient({
+        requestDispatcher,
+        defaultCacheRoot,
+        defaultRawRoot
+    });
+
+    return Object.freeze({
+        requestDispatcher,
+        commitResolver,
+        refResolver,
+        fileClient
+    });
+}
+
 export {
     DEFAULT_MANUAL_REPO,
     MANUAL_CACHE_ROOT_ENV_VAR,
@@ -751,5 +797,6 @@ export {
     createManualGitHubRequestDispatcher,
     createManualGitHubCommitResolver,
     createManualGitHubRefResolver,
-    createManualGitHubFileClient
+    createManualGitHubFileClient,
+    createManualGitHubClientBundle
 };
