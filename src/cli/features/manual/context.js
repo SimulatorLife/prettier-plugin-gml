@@ -95,10 +95,17 @@ function resolveOutputPath(repoRoot, fileName) {
  */
 
 /**
- * @typedef {object} ManualAccessBundle
+ * Manual access helpers previously returned a catch-all "bundle" that exposed
+ * file fetching and reference resolution off the same object. Commands that
+ * only needed one collaborator still depended on both behaviours. Returning
+ * the focused access contexts keeps the shared environment available while
+ * letting call sites opt into the narrow collaborator they require.
+ */
+/**
+ * @typedef {object} ManualAccessContexts
  * @property {ManualCommandEnvironment} environment
- * @property {ManualCommandFileService["fetchManualFile"]} fetchManualFile
- * @property {ManualCommandRefResolutionService["resolveManualRef"]} resolveManualRef
+ * @property {ManualFileAccess} fileAccess
+ * @property {ManualReferenceAccess} referenceAccess
  */
 
 function buildManualCommandContext({
@@ -238,7 +245,7 @@ export function createManualReferenceAccessContext(options = {}) {
  * underlying GitHub wiring and shared environment metadata.
  *
  * @param {Parameters<typeof buildManualCommandContext>[0]} options
- * @returns {ManualAccessBundle}
+ * @returns {ManualAccessContexts}
  */
 export function createManualAccessContexts(options = {}) {
     const context = buildManualCommandContext(options);
@@ -246,8 +253,8 @@ export function createManualAccessContexts(options = {}) {
     const referenceAccess = mapManualReferenceAccessContext(context);
     return Object.freeze({
         environment: context.environment,
-        fetchManualFile: fileAccess.fetchManualFile,
-        resolveManualRef: referenceAccess.resolveManualRef
+        fileAccess,
+        referenceAccess
     });
 }
 

@@ -202,3 +202,15 @@ no code changes were required.
   the focused helpers (`fetchManualFile`, `resolveManualRef`) without going
   through the broad service wrappers, and the unit tests assert the narrowed
   surface.
+
+## Follow-up audit (2025-12-10)
+
+- Revisited the manual access utilities and found the exported
+  `ManualAccessBundle` still coupled file fetching and reference resolution
+  behind one umbrella. CLI commands destructured both collaborators even when a
+  change only needed one of them.
+- Replaced the bundle with `ManualAccessContexts`, which surfaces the shared
+  environment plus the focused `ManualFileAccess` and `ManualReferenceAccess`
+  views. Updated the manual CLI commands and unit tests to depend on the
+  specific context they require so each call site opts into only the manual
+  helper it consumes.

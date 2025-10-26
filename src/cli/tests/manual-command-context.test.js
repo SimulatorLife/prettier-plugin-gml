@@ -25,12 +25,15 @@ test("createManualAccessContexts centralizes manual access defaults", () => {
         path.resolve("src/cli/commands/generate-gml-identifiers.js")
     ).href;
 
-    const { environment, fetchManualFile, resolveManualRef } =
-        createManualAccessContexts({
-            importMetaUrl: commandUrl,
-            userAgent: "manual-context-test",
-            outputFileName: "example.json"
-        });
+    const {
+        environment,
+        fileAccess: { fetchManualFile },
+        referenceAccess: { resolveManualRef }
+    } = createManualAccessContexts({
+        importMetaUrl: commandUrl,
+        userAgent: "manual-context-test",
+        outputFileName: "example.json"
+    });
 
     const expectedRepoRoot = path.resolve("src/cli/commands", "..", "..");
     assert.equal(environment.repoRoot, expectedRepoRoot);
