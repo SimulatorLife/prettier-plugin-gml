@@ -8,7 +8,8 @@ import {
     assertFunction,
     coalesceOption,
     isObjectLike,
-    withDefinedValue
+    withDefinedValue,
+    invokeIfFunction
 } from "../shared/index.js";
 import {
     clampConcurrency,
@@ -33,8 +34,7 @@ function resolveOptionWithOverride(options, config = {}) {
 
     assertFunction(onValue, "onValue");
 
-    const getMissingValue = () =>
-        typeof onMissing === "function" ? onMissing() : onMissing;
+    const getMissingValue = () => invokeIfFunction(onMissing);
 
     if (!isObjectLike(options)) {
         return getMissingValue();

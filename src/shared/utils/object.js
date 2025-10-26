@@ -1,3 +1,5 @@
+import { invokeIfFunction } from "./function.js";
+
 /**
  * Determine whether a value is a plain object (non-null object without an
  * Array instance). Some callers additionally require objects with prototypes
@@ -108,9 +110,7 @@ export function withObjectLike(value, onObjectLike, onNotObjectLike) {
     assertFunction(onObjectLike, "onObjectLike");
 
     if (!isObjectLike(value)) {
-        return typeof onNotObjectLike === "function"
-            ? onNotObjectLike()
-            : onNotObjectLike;
+        return invokeIfFunction(onNotObjectLike);
     }
 
     return onObjectLike(value);
@@ -139,7 +139,7 @@ export function withDefinedValue(value, onDefined, onUndefined) {
     assertFunction(onDefined, "onDefined");
 
     if (value === undefined) {
-        return typeof onUndefined === "function" ? onUndefined() : onUndefined;
+        return invokeIfFunction(onUndefined);
     }
 
     return onDefined(value);

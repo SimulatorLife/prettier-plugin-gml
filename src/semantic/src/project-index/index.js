@@ -5,6 +5,7 @@ import {
     buildFileLocationKey,
     buildLocationKey,
     cloneLocation,
+    invokeIfFunction,
     getCallExpressionIdentifier,
     getOrCreateMapEntry,
     hasOwn,
@@ -162,8 +163,7 @@ function ensureIdentifierCollectionEntry({
     initializer
 }) {
     return ensureCollectionEntry(collection, key, () => {
-        const initializerValue =
-            typeof initializer === "function" ? initializer() : initializer;
+        const initializerValue = invokeIfFunction(initializer);
         const {
             declarations: initialDeclarations,
             references: initialReferences,

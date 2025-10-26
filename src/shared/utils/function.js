@@ -61,3 +61,34 @@ export function resolveFunction(
 }
 
 export { NOOP as noop };
+
+/**
+ * Invoke {@link candidate} when it is callable, otherwise return it directly.
+ * Centralizes the "call when function" fallback repeated across option
+ * normalization helpers so they can delegate to a shared utility rather than
+ * inlining ternaries. Accepts either a positional argument list or a single
+ * value which is wrapped for convenience. Call sites can optionally provide a
+ * {@link thisArg} to preserve method bindings when forwarding object methods.
+ *
+ * @template TResult
+ * @param {unknown} candidate Possible function or direct value.
+ * @param {unknown[] | unknown} [args] Arguments forwarded to the function when
+ *        {@link candidate} is callable. When omitted the helper defaults to an
+ *        empty argument list.
+ * @param {{ thisArg?: unknown }} [options]
+ * @returns {TResult | unknown}
+ */
+export function invokeIfFunction(candidate, args, { thisArg } = {}) {
+    if (typeof candidate !== "function") {
+        return candidate;
+    }
+
+    const normalizedArgs =
+        args === undefined ? [] : Array.isArray(args) ? args : [args];
+
+    if (thisArg === undefined) {
+        return candidate(...normalizedArgs);
+    }
+
+    return candidate.apply(thisArg, normalizedArgs);
+}

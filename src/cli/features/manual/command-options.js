@@ -15,6 +15,7 @@ import {
     assertFunction,
     asArray,
     hasOwn,
+    invokeIfFunction,
     isNonEmptyString,
     resolveCommandUsage
 } from "../shared/dependencies.js";
@@ -26,12 +27,8 @@ function resolveDefaultValue(option, name, fallback) {
         return config.defaultValue;
     }
 
-    if (typeof fallback === "function") {
-        return fallback();
-    }
-
     if (fallback !== undefined) {
-        return fallback;
+        return invokeIfFunction(fallback);
     }
 
     throw new TypeError(`${name}.defaultValue must be provided.`);
@@ -248,7 +245,7 @@ export function resolveManualCommandOptions(
     command,
     { defaults = {}, mapExtras } = {}
 ) {
-    const options = typeof command?.opts === "function" ? command.opts() : {};
+    const options = invokeIfFunction(command?.opts?.bind?.(command)) ?? {};
     const isTty = process.stdout.isTTY === true;
 
     const verbose = createManualVerboseState({
@@ -275,11 +272,9 @@ export function resolveManualCommandOptions(
         usage: resolveCommandUsage(command)
     };
 
-    if (typeof mapExtras === "function") {
-        const extras = mapExtras({ options, resolved });
-        if (extras && typeof extras === "object") {
-            return { ...resolved, ...extras };
-        }
+    const extras = invokeIfFunction(mapExtras, [{ options, resolved }]);
+    if (extras && typeof extras === "object") {
+        return { ...resolved, ...extras };
     }
 
     return resolved;
