@@ -1,0 +1,54 @@
+name: Codex 02 – Custom Prompt
+
+on:
+  workflow_dispatch:
+    inputs:
+      custom_feature_prompt:
+        description: "Describe the custom feature you want Codex to implement"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Implement custom feature"
+      pr_body: |
+        This PR was automatically created to have **Codex** implement a user-requested feature.
+
+        ### User Feature Prompt
+        ```
+        ${{ inputs.custom_feature_prompt }}
+        ```
+
+        ### Notes for Reviewers
+        - Codex will keep scope focused, maintain backward compatibility, and update tests if needed.
+        - Any migrations or breaking changes must be documented.
+
+      prompt: >
+        Implement the following custom feature request in a safe, minimal, and well-tested way. Maintain
+        backward compatibility unless the request explicitly requires a breaking change. If any ambiguity
+        exists, resolve it with in-code comments and choose the least risky interpretation. Avoid large
+        rewrites; keep the change set as small as possible while fully delivering the requested behavior.
+        Add or update tests to cover the new behavior without reducing coverage. Update documentation or
+        inline comments where helpful. Prefer incremental refactors that directly enable the feature over
+        broad cleanups.
+
+        The user’s requested feature is:
+
+        ```
+        ${{ inputs.custom_feature_prompt }}
+        ```
+
+        Acceptance criteria:
+        - Feature works end-to-end with existing tooling and CI.
+        - Tests pass locally and in CI; add tests if missing.
+        - Public APIs remain compatible unless a breaking change is explicitly required and documented.
+        - Code is self-contained and scoped to the feature, with any necessary small refactors.
+        - Include concise migration notes in the PR body if behavior changes externally.
