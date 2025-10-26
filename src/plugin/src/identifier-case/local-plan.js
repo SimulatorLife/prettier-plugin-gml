@@ -759,13 +759,19 @@ export async function prepareIdentifierCasePlan(options) {
         );
     }
 
-    metrics.reporting.setMetadata("localStyle", localStyle);
-    metrics.reporting.setMetadata("assetStyle", assetStyle);
-    metrics.reporting.setMetadata("functionStyle", functionStyle);
-    metrics.reporting.setMetadata("structStyle", structStyle);
-    metrics.reporting.setMetadata("macroStyle", macroStyle);
-    metrics.reporting.setMetadata("instanceStyle", instanceStyle);
-    metrics.reporting.setMetadata("globalStyle", globalStyle);
+    const styleMetadataEntries = {
+        localStyle,
+        assetStyle,
+        functionStyle,
+        structStyle,
+        macroStyle,
+        instanceStyle,
+        globalStyle
+    };
+
+    for (const [key, value] of Object.entries(styleMetadataEntries)) {
+        metrics.reporting.setMetadata(key, value);
+    }
 
     const preservedSet = new Set(normalizedOptions.preservedIdentifiers ?? []);
     const ignoreMatchers = buildPatternMatchers(

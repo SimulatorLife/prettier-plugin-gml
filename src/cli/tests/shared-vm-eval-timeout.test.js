@@ -5,12 +5,22 @@ import {
     DEFAULT_VM_EVAL_TIMEOUT_MS,
     resolveVmEvalTimeout,
     getDefaultVmEvalTimeoutMs,
-    setDefaultVmEvalTimeoutMs
+    setDefaultVmEvalTimeoutMs,
+    VM_EVAL_TIMEOUT_ENV_VAR,
+    applyVmEvalTimeoutEnvOverride
 } from "../runtime-options/vm-eval-timeout.js";
 
 const originalDefaultTimeout = getDefaultVmEvalTimeoutMs();
+const originalEnvTimeout = process.env[VM_EVAL_TIMEOUT_ENV_VAR];
 
 afterEach(() => {
+    if (originalEnvTimeout === undefined) {
+        delete process.env[VM_EVAL_TIMEOUT_ENV_VAR];
+    } else {
+        process.env[VM_EVAL_TIMEOUT_ENV_VAR] = originalEnvTimeout;
+    }
+
+    applyVmEvalTimeoutEnvOverride();
     setDefaultVmEvalTimeoutMs(originalDefaultTimeout);
 });
 
@@ -83,5 +93,31 @@ describe("VM evaluation timeout defaults", () => {
         assert.throws(() => setDefaultVmEvalTimeoutMs(-1), {
             name: "TypeError"
         });
+    });
+});
+
+describe("VM evaluation timeout environment overrides", () => {
+    it("applies the timeout from the environment when provided", () => {
+        process.env[VM_EVAL_TIMEOUT_ENV_VAR] = "7500";
+        applyVmEvalTimeoutEnvOverride();
+
+        assert.strictEqual(getDefaultVmEvalTimeoutMs(), 7500);
+        assert.strictEqual(resolveVmEvalTimeout(), 7500);
+    });
+
+    it("treats zero as disabling the timeout", () => {
+        process.env[VM_EVAL_TIMEOUT_ENV_VAR] = "0";
+        applyVmEvalTimeoutEnvOverride();
+
+        assert.strictEqual(getDefaultVmEvalTimeoutMs(), 0);
+        assert.strictEqual(resolveVmEvalTimeout(), null);
+    });
+
+    it("ignores invalid environment overrides", () => {
+        process.env[VM_EVAL_TIMEOUT_ENV_VAR] = "not-a-number";
+        applyVmEvalTimeoutEnvOverride();
+
+        assert.strictEqual(getDefaultVmEvalTimeoutMs(), originalDefaultTimeout);
+        assert.strictEqual(resolveVmEvalTimeout(), originalDefaultTimeout);
     });
 });

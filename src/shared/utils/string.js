@@ -180,22 +180,29 @@ export function createListSplitPattern(
     separators,
     { includeWhitespace = false } = {}
 ) {
-    const rawSeparators =
-        typeof separators === "string"
-            ? [separators]
-            : separators == null
-              ? []
-              : toArrayFromIterable(separators);
+    const characterClassParts = [];
+    const seenSeparators = new Set();
 
-    const characterClassParts = Array.from(
-        new Set(
-            rawSeparators.filter(
-                (candidate) =>
-                    typeof candidate === "string" && candidate.length > 0
-            )
-        ),
-        escapeRegExp
-    );
+    const addSeparator = (candidate) => {
+        if (typeof candidate !== "string" || candidate.length === 0) {
+            return;
+        }
+
+        if (seenSeparators.has(candidate)) {
+            return;
+        }
+
+        seenSeparators.add(candidate);
+        characterClassParts.push(escapeRegExp(candidate));
+    };
+
+    if (typeof separators === "string") {
+        addSeparator(separators);
+    } else {
+        for (const candidate of toArrayFromIterable(separators)) {
+            addSeparator(candidate);
+        }
+    }
 
     if (includeWhitespace) {
         characterClassParts.push(String.raw`\s`);

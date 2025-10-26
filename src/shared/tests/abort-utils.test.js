@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
     createAbortError,
     createAbortGuard,
+    isAbortError,
     throwIfAborted
 } from "../utils/abort.js";
 
@@ -49,6 +50,27 @@ describe("createAbortError", () => {
         const signal = { aborted: true, reason: undefined };
         const error = createAbortError(signal, "custom abort message");
         assert.equal(error.message, "custom abort message");
+    });
+});
+
+describe("isAbortError", () => {
+    it("identifies errors produced by createAbortError", () => {
+        const signal = { aborted: true, reason: "stop" };
+        const error = createAbortError(signal, "fallback");
+        assert.equal(isAbortError(error), true);
+    });
+
+    it("brands reused abort reasons", () => {
+        const reason = new Error("cancelled");
+        const signal = { aborted: true, reason };
+        const error = createAbortError(signal, "fallback");
+        assert.strictEqual(error, reason);
+        assert.equal(isAbortError(error), true);
+    });
+
+    it("returns false for non-abort errors", () => {
+        assert.equal(isAbortError(new Error("boom")), false);
+        assert.equal(isAbortError(null), false);
     });
 });
 

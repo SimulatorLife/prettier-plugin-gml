@@ -25,12 +25,15 @@ test("createManualAccessContexts centralizes manual access defaults", () => {
         path.resolve("src/cli/commands/generate-gml-identifiers.js")
     ).href;
 
-    const { environment, fileAccess, referenceAccess } =
-        createManualAccessContexts({
-            importMetaUrl: commandUrl,
-            userAgent: "manual-context-test",
-            outputFileName: "example.json"
-        });
+    const {
+        environment,
+        fileAccess: { fetchManualFile },
+        referenceAccess: { resolveManualRef }
+    } = createManualAccessContexts({
+        importMetaUrl: commandUrl,
+        userAgent: "manual-context-test",
+        outputFileName: "example.json"
+    });
 
     const expectedRepoRoot = path.resolve("src/cli/commands", "..", "..");
     assert.equal(environment.repoRoot, expectedRepoRoot);
@@ -47,12 +50,8 @@ test("createManualAccessContexts centralizes manual access defaults", () => {
         buildManualRepositoryEndpoints().rawRoot
     );
     assert.ok(Object.isFrozen(environment));
-    assert.ok(Object.isFrozen(fileAccess));
-    assert.ok(Object.isFrozen(referenceAccess));
-    assert.equal(fileAccess.environment, environment);
-    assert.equal(referenceAccess.environment, environment);
-    assert.equal(typeof fileAccess.files.fetchManualFile, "function");
-    assert.equal(typeof referenceAccess.refs.resolveManualRef, "function");
+    assert.equal(typeof fetchManualFile, "function");
+    assert.equal(typeof resolveManualRef, "function");
 });
 
 test("manual access helpers expose focused contexts", () => {
@@ -71,8 +70,8 @@ test("manual access helpers expose focused contexts", () => {
     });
 
     assert.deepStrictEqual(fileAccess.environment, referenceAccess.environment);
-    assert.equal(typeof fileAccess.files.fetchManualFile, "function");
-    assert.equal(typeof referenceAccess.refs.resolveManualRef, "function");
+    assert.equal(typeof fileAccess.fetchManualFile, "function");
+    assert.equal(typeof referenceAccess.resolveManualRef, "function");
 });
 
 test("manual GitHub helpers expose narrow collaborators", () => {

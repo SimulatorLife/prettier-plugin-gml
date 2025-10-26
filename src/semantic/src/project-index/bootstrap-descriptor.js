@@ -1,4 +1,4 @@
-import { withDefinedValue } from "../../../shared/index.js";
+import { withDefinedValue } from "../dependencies.js";
 
 export function createProjectIndexBuildOptions({
     logger = null,
@@ -18,12 +18,17 @@ export function createProjectIndexBuildOptions({
         };
     });
 
-    if (parserOverride) {
-        if (parserOverride.facade) {
-            buildOptions.gmlParserFacade = parserOverride.facade;
-        }
-        buildOptions.parseGml = parserOverride.parse;
+    if (!parserOverride) {
+        return buildOptions;
     }
+
+    const { facade, parse } = parserOverride;
+
+    if (facade) {
+        buildOptions.gmlParserFacade = facade;
+    }
+
+    buildOptions.parseGml = parse;
 
     return buildOptions;
 }

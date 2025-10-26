@@ -289,9 +289,12 @@ export function planAssetRenames({
             continue;
         }
 
-        const existing = referencesByTargetPath.get(reference.targetPath) ?? [];
-        existing.push(reference);
-        referencesByTargetPath.set(reference.targetPath, existing);
+        const references = getOrCreateMapEntry(
+            referencesByTargetPath,
+            reference.targetPath,
+            () => []
+        );
+        references.push(reference);
     }
 
     const operations = [];
