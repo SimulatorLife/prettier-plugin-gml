@@ -8,12 +8,11 @@ import {
     isObjectLike,
     createEnvConfiguredValueWithFallback,
     createAbortGuard,
-    isFsErrorCode,
-    listDirectory,
-    getFileMtime
+    isFsErrorCode
 } from "../../../shared/index.js";
 import { isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
+import { getFileMtime, listDirectory } from "./fs-helpers.js";
 
 export const PROJECT_INDEX_CACHE_SCHEMA_VERSION = 1;
 export const PROJECT_INDEX_CACHE_DIRECTORY = ".prettier-plugin-gml";
