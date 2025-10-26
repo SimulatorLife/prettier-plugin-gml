@@ -6603,6 +6603,10 @@ function shouldOmitSyntheticParens(path) {
             if (isNumericComputationNode(expression)) {
                 if (parent.operator === "+" || parent.operator === "-") {
                     const childOperator = expression.operator;
+                    const flatteningForced =
+                        childOperator === "*"
+                            ? isSyntheticParenFlatteningForced(path)
+                            : false;
 
                     if (
                         childOperator === "/" ||
@@ -6610,12 +6614,17 @@ function shouldOmitSyntheticParens(path) {
                         childOperator === "%" ||
                         childOperator === "mod" ||
                         (childOperator === "*" &&
+                            !flatteningForced &&
                             !isWithinNumericCallArgument(path))
                     ) {
                         return false;
                     }
 
-                    if (parent.operator === "-" && childOperator === "*") {
+                    if (
+                        parent.operator === "-" &&
+                        childOperator === "*" &&
+                        !flatteningForced
+                    ) {
                         return false;
                     }
 
@@ -6873,6 +6882,33 @@ function isSyntheticParenFlatteningEnabled(path) {
             }
         } else if (ancestor.type === "Program") {
             return ancestor._flattenSyntheticNumericParens !== false;
+        }
+
+        depth += 1;
+    }
+}
+
+function isSyntheticParenFlatteningForced(path) {
+    let depth = 1;
+    while (true) {
+        const ancestor = callPathMethod(path, "getParentNode", {
+            args: depth === 1 ? [] : [depth - 1],
+            defaultValue: null
+        });
+
+        if (!ancestor) {
+            return false;
+        }
+
+        if (
+            ancestor.type === "FunctionDeclaration" ||
+            ancestor.type === "ConstructorDeclaration"
+        ) {
+            if (ancestor._flattenSyntheticNumericParens === true) {
+                return true;
+            }
+        } else if (ancestor.type === "Program") {
+            return ancestor._flattenSyntheticNumericParens === true;
         }
 
         depth += 1;
