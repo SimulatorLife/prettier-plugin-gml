@@ -1,4 +1,4 @@
-import { isRegExpLike } from "../shared/index.js";
+import { assertFunction, isRegExpLike } from "../shared/index.js";
 
 const LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES = 5;
 const LINE_COMMENT_BANNER_STANDARD_LENGTH = 60;
@@ -118,13 +118,10 @@ function resolveLineCommentOptions(options = {}) {
  * without exposing additional end-user configuration.
  */
 function setLineCommentOptionsResolver(resolver) {
-    if (typeof resolver !== "function") {
-        throw new TypeError(
+    lineCommentOptionsResolver = assertFunction(resolver, "resolver", {
+        errorMessage:
             "Line comment option resolvers must be functions that return option objects"
-        );
-    }
-
-    lineCommentOptionsResolver = resolver;
+    });
     return resolveLineCommentOptions();
 }
 

@@ -90,14 +90,13 @@ export function resolveGmlPluginComponentDependencies() {
 }
 
 export function setGmlPluginComponentDependencyProvider(provider) {
-    if (typeof provider !== "function") {
-        throw new TypeError(
+    const normalizedProvider = assertFunction(provider, "provider", {
+        errorMessage:
             "GML plugin component dependency providers must be functions that return dependency maps."
-        );
-    }
+    });
 
-    currentProvider = provider;
-    activeDependencies = normalizeDependencyMap(provider());
+    currentProvider = normalizedProvider;
+    activeDependencies = normalizeDependencyMap(normalizedProvider());
     return activeDependencies;
 }
 

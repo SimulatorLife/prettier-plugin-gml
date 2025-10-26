@@ -1,3 +1,5 @@
+import { assertFunction } from "../shared/index.js";
+
 // Hard overrides for GML regardless of incoming config. These knobs either map
 // to syntax that GameMaker never emits (for example JSX attributes) or would let
 // callers re-enable formatting modes the printers deliberately avoid. The
@@ -110,13 +112,10 @@ function resolveCoreOptionOverrides(options = {}) {
 }
 
 function setCoreOptionOverridesResolver(resolver) {
-    if (typeof resolver !== "function") {
-        throw new TypeError(
+    coreOptionOverridesResolver = assertFunction(resolver, "resolver", {
+        errorMessage:
             "Core option override resolvers must be functions that return override objects"
-        );
-    }
-
-    coreOptionOverridesResolver = resolver;
+    });
     return resolveCoreOptionOverrides();
 }
 
