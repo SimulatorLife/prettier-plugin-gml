@@ -95,6 +95,15 @@ export function addGmlPluginComponentObserver(observer, options = {}) {
         });
     } catch (error) {
         if (isAbortError(error)) {
+            // Observer registration may race with an already-aborted signal when
+            // manual CLI flows tear down and rehydrate components during the
+            // live-reload handshake (documented in
+            // docs/live-reloading-concept.md#manual-mode-cleanup-handoffs).
+            // Returning a stable noop unsubscriber lets callers treat "subscribe
+            // after cancellation" as an idempotent cleanup step; propagating the
+            // abort error or returning `null` would explode the finally blocks
+            // that unconditionally invoke the handler and leak component
+            // overrides mid-refresh.
             return () => {};
         }
 
