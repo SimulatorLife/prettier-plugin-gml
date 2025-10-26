@@ -181,4 +181,8 @@ test("invalid plugin service descriptor sources are rejected", () => {
         name: "TypeError",
         message: /descriptors must be provided as objects/
     });
+    assert.throws(() => createDefaultCliPluginServices(() => ({})), {
+        name: "TypeError",
+        message: /descriptors must be provided as objects/
+    });
 });

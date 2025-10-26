@@ -52,3 +52,32 @@ test("preserves compact return guards inside functions when disabled", async () 
         ].join("\n")
     );
 });
+
+test("expands guarded returns with values when single-line is disabled", async () => {
+    const source = [
+        "function guard_with_value() {",
+        "    if (should_stop()) return false;",
+        "    return true;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        allowSingleLineIfStatements: false
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function guard_with_value",
+            "function guard_with_value() {",
+            "    if (should_stop()) {",
+            "        return false;",
+            "    }",
+            "    return true;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
