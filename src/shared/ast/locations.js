@@ -194,10 +194,30 @@ function getNodeLocationLine(node, key) {
     );
 }
 
+/**
+ * Retrieve the zero-based line number where {@link node} begins.
+ *
+ * Mirrors {@link getNodeStartIndex} by collapsing missing or malformed
+ * location metadata to `null` so callers can branch on a single sentinel
+ * value instead of re-validating nested location shapes.
+ *
+ * @param {unknown} node AST node whose starting line should be resolved.
+ * @returns {number | null} Line index or `null` when unavailable.
+ */
 function getNodeStartLine(node) {
     return getNodeLocationLine(node, "start");
 }
 
+/**
+ * Retrieve the zero-based line number where {@link node} ends.
+ *
+ * Follows {@link getNodeEndIndex} by falling back to the node's start line
+ * whenever the parser omits an explicit end marker so downstream consumers can
+ * share the same guard logic across index- and line-based helpers.
+ *
+ * @param {unknown} node AST node whose ending line should be resolved.
+ * @returns {number | null} Line index or `null` when unavailable.
+ */
 function getNodeEndLine(node) {
     return (
         getNodeLocationLine(node, "end") ?? getNodeLocationLine(node, "start")
