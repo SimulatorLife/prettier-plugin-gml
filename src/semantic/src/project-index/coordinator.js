@@ -1,14 +1,16 @@
 import path from "node:path";
 
-import { assertFunction, throwIfAborted } from "../dependencies.js";
+import {
+    assertFunction,
+    throwIfAborted,
+    toTrimmedString
+} from "../dependencies.js";
 
 function assertCoordinatorFunction(value, name) {
-    const trimmedName = typeof name === "string" ? name.trim() : "";
-    const normalizedName = trimmedName.length > 0 ? trimmedName : "dependency";
+    const normalizedName = toTrimmedString(name) || "dependency";
     const errorMessage = `Project index coordinators require a ${normalizedName} function.`;
-    const options = { errorMessage };
 
-    return assertFunction(value, normalizedName, options);
+    return assertFunction(value, normalizedName, { errorMessage });
 }
 
 function normalizeEnsureReadyDescriptor(descriptor) {
