@@ -698,11 +698,15 @@ function buildUnavailableResult(context) {
     };
 }
 
-function readTestResults(candidateDirs, { workspace } = {}) {
-    const workspaceRoot =
-        workspace || process.env.GITHUB_WORKSPACE || process.cwd();
-    const context = buildReadContext(candidateDirs, workspaceRoot);
-
+/**
+ * Iterate over the normalized directories and return the first successful read.
+ * Keeps the orchestration in {@link readTestResults} focused on high-level flow
+ * while this helper owns the bookkeeping involved in scanning each directory.
+ *
+ * @param {ReturnType<typeof buildReadContext>} context
+ * @returns {ReturnType<typeof buildSuccessfulReadResult>|null}
+ */
+function resolveFirstSuccessfulDirectory(context) {
     for (const directory of context.directories) {
         const scan = scanResultDirectory(directory);
         appendScanNotes(context, scan);
@@ -710,6 +714,19 @@ function readTestResults(candidateDirs, { workspace } = {}) {
         if (result) {
             return result;
         }
+    }
+
+    return null;
+}
+
+function readTestResults(candidateDirs, { workspace } = {}) {
+    const workspaceRoot =
+        workspace || process.env.GITHUB_WORKSPACE || process.cwd();
+    const context = buildReadContext(candidateDirs, workspaceRoot);
+
+    const successfulDirectory = resolveFirstSuccessfulDirectory(context);
+    if (successfulDirectory) {
+        return successfulDirectory;
     }
 
     appendAvailabilityNotes(context);
