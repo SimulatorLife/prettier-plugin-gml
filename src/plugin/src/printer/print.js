@@ -6640,7 +6640,8 @@ function shouldOmitSyntheticParens(path) {
                         childOperator === "mod" ||
                         (childOperator === "*" &&
                             !flatteningForced &&
-                            !isWithinNumericCallArgument(path))
+                            !isWithinNumericCallArgument(path) &&
+                            !isSelfMultiplicationExpression(expression))
                     ) {
                         return false;
                     }
@@ -6967,6 +6968,75 @@ function isWithinNumericCallArgument(path) {
 
         currentNode = ancestor;
         depth += 1;
+    }
+}
+
+function isSelfMultiplicationExpression(expression) {
+    if (
+        !expression ||
+        expression.type !== "BinaryExpression" ||
+        expression.operator !== "*"
+    ) {
+        return false;
+    }
+
+    return areNumericExpressionsEquivalent(expression.left, expression.right);
+}
+
+function areNumericExpressionsEquivalent(left, right) {
+    if (!left || !right || left.type !== right.type) {
+        return false;
+    }
+
+    switch (left.type) {
+        case "Identifier": {
+            return left.name === right.name;
+        }
+        case "Literal": {
+            return left.value === right.value;
+        }
+        case "ParenthesizedExpression": {
+            return areNumericExpressionsEquivalent(
+                left.expression,
+                right.expression
+            );
+        }
+        case "MemberDotExpression": {
+            return (
+                areNumericExpressionsEquivalent(left.object, right.object) &&
+                areNumericExpressionsEquivalent(left.property, right.property)
+            );
+        }
+        case "MemberIndexExpression": {
+            if (!areNumericExpressionsEquivalent(left.object, right.object)) {
+                return false;
+            }
+
+            const leftProps = Array.isArray(left.property) ? left.property : [];
+            const rightProps = Array.isArray(right.property)
+                ? right.property
+                : [];
+
+            if (leftProps.length !== rightProps.length) {
+                return false;
+            }
+
+            for (const [index, leftProp] of leftProps.entries()) {
+                if (
+                    !areNumericExpressionsEquivalent(
+                        leftProp,
+                        rightProps[index]
+                    )
+                ) {
+                    return false;
+                }
+            }
+
+            return left.accessor === right.accessor;
+        }
+        default: {
+            return false;
+        }
     }
 }
 

@@ -137,6 +137,32 @@ test("flattens standalone multiplication groups added together", async () => {
     );
 });
 
+test("flattens squared products outside call contexts", async () => {
+    const source = [
+        "var xoff = a.x - b.x;",
+        "var yoff = a.y - b.y;",
+        "var actual_dist = xoff * xoff + yoff * yoff;",
+        ""
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    const expectedLines = [
+        "var xoff = a.x - b.x;",
+        "var yoff = a.y - b.y;",
+        "var actual_dist = xoff * xoff + yoff * yoff;"
+    ].join("\n");
+
+    assert.strictEqual(
+        formatted.trim(),
+        expectedLines,
+        "Expected squared distance calculations outside call arguments to omit redundant multiplication grouping."
+    );
+});
+
 test("flattens forced synthetic multiplication groups outside numeric calls", async () => {
     const source = [
         "function spring(a, b, dst, force) {",
