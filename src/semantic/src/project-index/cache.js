@@ -9,7 +9,7 @@ import {
     createEnvConfiguredValueWithFallback,
     createAbortGuard,
     isFsErrorCode
-} from "../../../shared/index.js";
+} from "../dependencies.js";
 import { isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { getFileMtime, listDirectory } from "./fs-helpers.js";

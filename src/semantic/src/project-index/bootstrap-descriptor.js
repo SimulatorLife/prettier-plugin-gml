@@ -1,4 +1,4 @@
-import { withDefinedValue } from "../../../shared/index.js";
+import { withDefinedValue } from "../dependencies.js";
 
 export function createProjectIndexBuildOptions({
     logger = null,

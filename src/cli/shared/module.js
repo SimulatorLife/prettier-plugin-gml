@@ -1,5 +1,8 @@
-import { getErrorMessage, isErrorWithCode } from "../../shared/utils/error.js";
-import { assertNonEmptyString } from "../../shared/utils/string.js";
+import {
+    assertNonEmptyString,
+    getErrorMessage,
+    isErrorWithCode
+} from "./module-support.js";
 
 /**
  * Normalize dynamically imported modules to their default export when
