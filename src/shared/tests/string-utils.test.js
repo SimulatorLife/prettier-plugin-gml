@@ -69,6 +69,15 @@ test("createListSplitPattern optionally includes whitespace separators", () => {
     ]);
 });
 
+test("createListSplitPattern treats multi-character separators as atomic tokens", () => {
+    const pattern = createListSplitPattern(["::", "END"]);
+    assert.deepStrictEqual("alpha::betaENDgamma".split(pattern), [
+        "alpha",
+        "beta",
+        "gamma"
+    ]);
+});
+
 test("createListSplitPattern requires a separator when whitespace is disabled", () => {
     assert.throws(() => createListSplitPattern([]), TypeError);
 });

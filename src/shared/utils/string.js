@@ -183,7 +183,8 @@ export function createListSplitPattern(
     separators,
     { includeWhitespace = false } = {}
 ) {
-    const characterClassParts = [];
+    const singleCharacterSeparators = [];
+    const multiCharacterSeparators = [];
     const seenSeparators = new Set();
 
     const addSeparator = (candidate) => {
@@ -196,7 +197,13 @@ export function createListSplitPattern(
         }
 
         seenSeparators.add(candidate);
-        characterClassParts.push(escapeRegExp(candidate));
+
+        const escaped = escapeRegExp(candidate);
+        if (candidate.length === 1) {
+            singleCharacterSeparators.push(escaped);
+        } else {
+            multiCharacterSeparators.push(escaped);
+        }
     };
 
     if (typeof separators === "string") {
@@ -208,16 +215,33 @@ export function createListSplitPattern(
     }
 
     if (includeWhitespace) {
-        characterClassParts.push(String.raw`\s`);
+        singleCharacterSeparators.push(String.raw`\s`);
     }
 
-    if (characterClassParts.length === 0) {
+    if (
+        singleCharacterSeparators.length === 0 &&
+        multiCharacterSeparators.length === 0
+    ) {
         throw new TypeError(
             "createListSplitPattern requires at least one separator or includeWhitespace=true."
         );
     }
 
-    return new RegExp(`[${characterClassParts.join("")}]+`);
+    const patternParts = [];
+
+    if (multiCharacterSeparators.length > 0) {
+        patternParts.push(`(?:${multiCharacterSeparators.join("|")})`);
+    }
+
+    if (singleCharacterSeparators.length > 0) {
+        patternParts.push(`[${singleCharacterSeparators.join("")}]`);
+    }
+
+    if (patternParts.length === 1) {
+        return new RegExp(`${patternParts[0]}+`);
+    }
+
+    return new RegExp(`(?:${patternParts.join("|")})+`);
 }
 
 const DEFAULT_STRING_LIST_SPLIT_PATTERN = createListSplitPattern(["\n", ","]);
