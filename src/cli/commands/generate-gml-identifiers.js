@@ -6,6 +6,7 @@ import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import {
     getErrorMessageOrFallback,
     normalizeIdentifierMetadataEntries,
+    toMutableArray,
     toNormalizedLowerCaseSet,
     toPosixPath
 } from "../shared/dependencies.js";
@@ -283,8 +284,8 @@ function mergeEntry(map, identifier, data) {
     const tagList = data.tags ?? [];
 
     if (!current) {
-        const sources = Array.isArray(sourceList) ? sourceList : [];
-        const tags = Array.isArray(tagList) ? tagList : [];
+        const sources = toMutableArray(sourceList);
+        const tags = toMutableArray(tagList);
 
         map.set(identifier, {
             type: data.type ?? "unknown",
