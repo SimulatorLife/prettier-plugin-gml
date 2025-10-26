@@ -295,7 +295,7 @@ nvm alias default node
    ```bash
    npm run format:gml
    npm run format:gml -- --check
-   npm run format:gml -- --path . --extensions=.gml,.yy
+  npm run format:gml -- --path . --extensions=.gml --extensions=.yy
    npx prettier --plugin=prettier-plugin-gamemaker --check "**/*.gml"
    node ./node_modules/root/src/cli/cli.js --help
    ```
@@ -317,7 +317,7 @@ nvm alias default node
    `format`, so `npm run cli` formats the current working directory by default:
 
    ```bash
-   npm run cli -- format "/absolute/path/to/MyGame" --extensions=.gml,.yy
+  npm run cli -- format "/absolute/path/to/MyGame" --extensions=.gml --extensions=.yy
    ```
 
    The wrapper honours both repositories’ `.prettierrc` and `.prettierignore`
@@ -339,9 +339,10 @@ nvm alias default node
    `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR`), surfaces Prettier’s logging knob via
    `--log-level=debug|info|warn|error|silent` (or
    `PRETTIER_PLUGIN_GML_LOG_LEVEL`), and can pick up a default extension list
-   from `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS`. Leave `--extensions` unset to
-   format only `.gml` files, or override it when you also want to process `.yy`
-   metadata. Explore additional helpers with `npm run cli -- --help`,
+  from `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS`. Leave `--extensions` unset to
+  format only `.gml` files, or override it when you also want to process `.yy`
+  metadata. Repeat the flag to append more extension groups alongside the
+  comma-separated form. Explore additional helpers with `npm run cli -- --help`,
    `npm run cli -- format --help`, or the dedicated
    [CLI reference](#cli-wrapper-environment-knobs).
 
@@ -378,7 +379,7 @@ npx prettier --plugin=./node_modules/root/src/plugin/src/gml.js --check "**/*.gm
 ```
 
 ```bash
-npm run format:gml -- --extensions=.gml,.yy
+npm run format:gml -- --extensions=.gml --extensions=.yy
 node ./node_modules/root/src/cli/cli.js --help
 npm run cli -- --help
 ```
@@ -453,7 +454,7 @@ for the full suite of contributor commands.
   Pass the project or file you want to format explicitly:
 
   ```bash
-  node ./node_modules/root/src/cli/cli.js format path/to/project --extensions=.gml,.yy
+  node ./node_modules/root/src/cli/cli.js format path/to/project --extensions=.gml --extensions=.yy
   ```
 
 - Preview formatting changes without writing them back:

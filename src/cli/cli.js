@@ -309,11 +309,20 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
             "Respects PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS when set."
         ].join(" ")
     )
-        .argParser((value) => normalizeExtensions(value, DEFAULT_EXTENSIONS))
-        .default(
-            DEFAULT_EXTENSIONS,
-            formatExtensionListForDisplay(DEFAULT_EXTENSIONS)
-        );
+        .argParser((value, previous) => {
+            const normalized = normalizeExtensions(value, DEFAULT_EXTENSIONS);
+
+            if (previous === undefined) {
+                return normalized;
+            }
+
+            const priorValues = Array.isArray(previous)
+                ? previous
+                : [previous].filter(Boolean);
+
+            return mergeUniqueValues(priorValues, normalized);
+        })
+        .default(undefined, formatExtensionListForDisplay(DEFAULT_EXTENSIONS));
 
     const defaultSkippedDirectorySampleLimit =
         getDefaultSkippedDirectorySampleLimit();
