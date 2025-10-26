@@ -46,4 +46,25 @@ describe("normalizeFixtureRoots", () => {
 
         assert.deepEqual(roots, expected);
     });
+
+    it("filters fixture roots using workflow allow paths", () => {
+        const allowedRelative = path.relative(
+            process.cwd(),
+            DEFAULT_FIXTURE_DIRECTORIES[1]
+        );
+
+        const roots = normalizeFixtureRoots([], {
+            allowPaths: [allowedRelative]
+        });
+
+        assert.deepEqual(roots, [DEFAULT_FIXTURE_DIRECTORIES[1]]);
+    });
+
+    it("omits denied fixture roots from workflow filters", () => {
+        const roots = normalizeFixtureRoots([], {
+            denyPaths: [DEFAULT_FIXTURE_DIRECTORIES[0]]
+        });
+
+        assert.deepEqual(roots, [DEFAULT_FIXTURE_DIRECTORIES[1]]);
+    });
 });

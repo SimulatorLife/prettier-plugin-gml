@@ -4,7 +4,7 @@ import { CliUsageError, createCliErrorDetails } from "./errors.js";
 // Pull shared helpers from the barrel so new call sites avoid the legacy
 // `array-utils` shim slated for removal.
 import {
-    normalizeEnumeratedOption,
+    createEnumeratedOptionHelpers,
     isNonEmptyArray,
     resolveCommandUsage,
     toMutableArray,
@@ -16,46 +16,30 @@ export const SuiteOutputFormat = Object.freeze({
     HUMAN: "human"
 });
 
-const VALID_SUITE_OUTPUT_FORMATS = new Set(Object.values(SuiteOutputFormat));
-
-const SUITE_OUTPUT_FORMAT_LIST = [...VALID_SUITE_OUTPUT_FORMATS]
-    .sort()
-    .join(", ");
+const suiteOutputFormatHelpers = createEnumeratedOptionHelpers(
+    Object.values(SuiteOutputFormat),
+    {
+        formatErrorMessage: ({ list }) => `Format must be one of: ${list}.`
+    }
+);
 
 export function formatSuiteOutputFormatList() {
-    return SUITE_OUTPUT_FORMAT_LIST;
+    return suiteOutputFormatHelpers.formatList();
 }
 
 export function normalizeSuiteOutputFormat(value, { fallback } = {}) {
-    return normalizeEnumeratedOption(
-        value,
-        fallback ?? null,
-        VALID_SUITE_OUTPUT_FORMATS
-    );
+    return suiteOutputFormatHelpers.normalize(value, { fallback });
 }
 
 export function resolveSuiteOutputFormatOrThrow(
     value,
     { fallback, errorConstructor, createErrorMessage } = {}
 ) {
-    const normalized = normalizeSuiteOutputFormat(value, { fallback });
-
-    if (normalized) {
-        return normalized;
-    }
-
-    const ErrorConstructor =
-        typeof errorConstructor === "function" ? errorConstructor : Error;
-    const customMessage =
-        typeof createErrorMessage === "function"
-            ? createErrorMessage(value)
-            : createErrorMessage;
-    const message =
-        customMessage == null
-            ? `Format must be one of: ${formatSuiteOutputFormatList()}.`
-            : String(customMessage);
-
-    throw new ErrorConstructor(message);
+    return suiteOutputFormatHelpers.requireValue(value, {
+        fallback,
+        errorConstructor,
+        createErrorMessage
+    });
 }
 
 /**

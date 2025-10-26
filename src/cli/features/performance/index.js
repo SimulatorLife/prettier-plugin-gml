@@ -25,9 +25,11 @@ import {
     coercePositiveInteger,
     ensureDir,
     isFiniteNumber,
+    isPathInside,
     getErrorMessageOrFallback,
     getIdentifierText,
     resolveIntegerOption,
+    toArray,
     toNormalizedInteger,
     stringifyJsonForFile,
     resolveModuleDefaultExport,
@@ -58,6 +60,87 @@ const DEFAULT_FIXTURE_DIRECTORIES = Object.freeze([
 ]);
 const DATASET_CACHE_KEY = "gml-fixtures";
 const SUPPORTS_WEAK_REF = typeof WeakRef === "function";
+
+function normalizeWorkflowPathList(paths) {
+    const normalized = new Set();
+
+    for (const entry of toArray(paths)) {
+        if (typeof entry !== "string") {
+            continue;
+        }
+
+        const trimmed = entry.trim();
+        if (trimmed.length === 0) {
+            continue;
+        }
+
+        normalized.add(path.resolve(trimmed));
+    }
+
+    return [...normalized];
+}
+
+function createPathFilter(filters = {}) {
+    if (
+        filters &&
+        typeof filters.allowsDirectory === "function" &&
+        typeof filters.allowsPath === "function"
+    ) {
+        return filters;
+    }
+
+    const allowList = normalizeWorkflowPathList(filters.allowPaths);
+    const denyList = normalizeWorkflowPathList(filters.denyPaths);
+    const hasAllow = allowList.length > 0;
+
+    const allowsPath = (candidate) => {
+        if (typeof candidate !== "string") {
+            return false;
+        }
+
+        const normalized = path.resolve(candidate);
+
+        if (denyList.some((deny) => isPathInside(normalized, deny))) {
+            return false;
+        }
+
+        if (!hasAllow) {
+            return true;
+        }
+
+        return allowList.some((allow) => isPathInside(normalized, allow));
+    };
+
+    const allowsDirectory = (candidate) => {
+        if (typeof candidate !== "string") {
+            return false;
+        }
+
+        const normalized = path.resolve(candidate);
+
+        if (denyList.some((deny) => isPathInside(normalized, deny))) {
+            return false;
+        }
+
+        if (!hasAllow) {
+            return true;
+        }
+
+        return allowList.some(
+            (allow) =>
+                isPathInside(normalized, allow) ||
+                isPathInside(allow, normalized)
+        );
+    };
+
+    return {
+        allowList,
+        denyList,
+        hasAllow,
+        allowsPath,
+        allowsDirectory
+    };
+}
 const SKIP_PERFORMANCE_RESOLUTION_MESSAGE =
     "Clear the environment variable to enable CLI performance suites.";
 
@@ -131,12 +214,16 @@ function formatErrorDetails(error, { fallbackMessage } = {}) {
     });
 }
 
-export function normalizeFixtureRoots(additionalRoots = []) {
+export function normalizeFixtureRoots(
+    additionalRoots = [],
+    filterOptions = {}
+) {
+    const pathFilter = createPathFilter(filterOptions);
     const candidates = [
         ...DEFAULT_FIXTURE_DIRECTORIES,
         ...(Array.isArray(additionalRoots)
             ? additionalRoots
-            : [additionalRoots])
+            : toArray(additionalRoots))
     ];
 
     const resolved = [];
@@ -152,6 +239,10 @@ export function normalizeFixtureRoots(additionalRoots = []) {
             continue;
         }
 
+        if (!pathFilter.allowsDirectory(normalized)) {
+            continue;
+        }
+
         seen.add(normalized);
         resolved.push(normalized);
     }
@@ -159,7 +250,11 @@ export function normalizeFixtureRoots(additionalRoots = []) {
     return resolved;
 }
 
-async function traverseForFixtures(directory, visitor) {
+async function traverseForFixtures(directory, visitor, pathFilter) {
+    if (pathFilter && !pathFilter.allowsDirectory(directory)) {
+        return;
+    }
+
     let entries;
     try {
         entries = await fs.readdir(directory, { withFileTypes: true });
@@ -175,34 +270,46 @@ async function traverseForFixtures(directory, visitor) {
     for (const entry of entries) {
         const resolvedPath = path.join(directory, entry.name);
         if (entry.isDirectory()) {
-            await traverseForFixtures(resolvedPath, visitor);
+            await traverseForFixtures(resolvedPath, visitor, pathFilter);
         } else if (
             entry.isFile() &&
-            entry.name.toLowerCase().endsWith(".gml")
+            entry.name.toLowerCase().endsWith(".gml") &&
+            (!pathFilter || pathFilter.allowsPath(resolvedPath))
         ) {
             visitor(resolvedPath);
         }
     }
 }
 
-async function collectFixtureFilePaths(directories) {
+async function collectFixtureFilePaths(directories, pathFilterOptions) {
+    const pathFilter = createPathFilter(pathFilterOptions);
     const fileMap = new Map();
 
     for (const directory of directories) {
-        await traverseForFixtures(directory, (filePath) => {
-            const relative = path.relative(REPO_ROOT, filePath);
-            if (!fileMap.has(relative)) {
-                fileMap.set(relative, filePath);
-            }
-        });
+        await traverseForFixtures(
+            directory,
+            (filePath) => {
+                const relative = path.relative(REPO_ROOT, filePath);
+                if (!fileMap.has(relative)) {
+                    fileMap.set(relative, filePath);
+                }
+            },
+            pathFilter
+        );
     }
 
     return [...fileMap.values()].sort((a, b) => a.localeCompare(b));
 }
 
-async function loadFixtureDataset({ directories } = {}) {
-    const fixtureDirectories = normalizeFixtureRoots(directories ?? []);
-    const fixturePaths = await collectFixtureFilePaths(fixtureDirectories);
+async function loadFixtureDataset({ directories, pathFilter } = {}) {
+    const fixtureDirectories = normalizeFixtureRoots(
+        directories ?? [],
+        pathFilter
+    );
+    const fixturePaths = await collectFixtureFilePaths(
+        fixtureDirectories,
+        pathFilter
+    );
     const files = await loadFixtureFiles(fixturePaths);
 
     return createDatasetFromFiles(files);
@@ -327,7 +434,8 @@ async function resolveDatasetFromOptions(options = {}) {
     }
 
     const dataset = await loadFixtureDataset({
-        directories: options.fixtureRoots
+        directories: options.fixtureRoots,
+        pathFilter: options.pathFilter
     });
 
     storeDatasetInCache(options.datasetCache, dataset);
@@ -673,11 +781,17 @@ export function createPerformanceCommand() {
         .option("--pretty", "Pretty-print JSON output.");
 }
 
-function createSuiteExecutionOptions(options) {
+function createSuiteExecutionOptions(options, { workflow } = {}) {
+    const pathFilter = createPathFilter(workflow);
+
     return {
         iterations: resolveIterationCount(options.iterations),
-        fixtureRoots: normalizeFixtureRoots(options.fixtureRoot ?? []),
-        datasetCache: new Map()
+        fixtureRoots: normalizeFixtureRoots(
+            options.fixtureRoot ?? [],
+            pathFilter
+        ),
+        datasetCache: new Map(),
+        pathFilter
     };
 }
 
@@ -885,13 +999,13 @@ function emitReportIfRequested(report, options) {
     emitReport(report, options);
 }
 
-export async function runPerformanceCommand({ command } = {}) {
+export async function runPerformanceCommand({ command, workflow } = {}) {
     const options = command?.opts?.() ?? {};
 
     const requestedSuites = resolveRequestedSuites(options, AVAILABLE_SUITES);
     ensureSuitesAreKnown(requestedSuites, AVAILABLE_SUITES, command);
 
-    const runnerOptions = createSuiteExecutionOptions(options);
+    const runnerOptions = createSuiteExecutionOptions(options, { workflow });
     const suiteResults = await collectPerformanceSuiteResults({
         requestedSuites,
         runnerOptions

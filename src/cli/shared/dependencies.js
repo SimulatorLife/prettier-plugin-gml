@@ -78,4 +78,6 @@ export {
     collectUniqueAncestorDirectories
 } from "./ancestor-directories.js";
 
+export { createEnumeratedOptionHelpers } from "./enumerated-option-helpers.js";
+
 export { loadGmlParser } from "./gml-parser.js";
