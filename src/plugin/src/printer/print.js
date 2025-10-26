@@ -1854,7 +1854,7 @@ function printCommaSeparatedList(
 // was easy to miss one of those responsibilities and regress either the
 // formatter's brace guarantees or the doc comment synthesis covered by the
 // synthetic doc comment integration tests
-// (`src/plugin/tests/synthetic-doc-comments.test.js`).
+// (`src/plugin/test/synthetic-doc-comments.test.js`).
 function printInBlock(path, options, print, expressionKey) {
     const node = path.getValue()[expressionKey];
     return node.type === "BlockStatement"
