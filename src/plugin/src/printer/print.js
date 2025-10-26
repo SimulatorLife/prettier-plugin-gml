@@ -830,6 +830,14 @@ export function print(path, options, print) {
             if (canConvertDivisionToHalf) {
                 operator = "*";
                 right = "0.5";
+
+                if (
+                    node.left?.type === "ParenthesizedExpression" &&
+                    node.left.expression?.type === "BinaryExpression" &&
+                    node.left.expression.operator === "*"
+                ) {
+                    left = printWithoutExtraParens(path, print, "left");
+                }
             } else {
                 const styledOperator = applyLogicalOperatorsStyle(
                     operator,
@@ -6505,6 +6513,13 @@ function shouldOmitSyntheticParens(path) {
             childInfo.precedence > parentInfo.precedence
         ) {
             if (
+                COMPARISON_OPERATORS.has(parent.operator) &&
+                isMultiplicativeBinaryOperator(expression.operator)
+            ) {
+                return false;
+            }
+
+            if (
                 (parent.operator === "&&" ||
                     parent.operator === "and" ||
                     parent.operator === "||" ||
@@ -6516,6 +6531,22 @@ function shouldOmitSyntheticParens(path) {
             }
 
             if (isNumericComputationNode(expression)) {
+                const sanitizedMacroNames = getSanitizedMacroNames(path);
+
+                if (
+                    sanitizedMacroNames &&
+                    (expressionReferencesSanitizedMacro(
+                        parent,
+                        sanitizedMacroNames
+                    ) ||
+                        expressionReferencesSanitizedMacro(
+                            expression,
+                            sanitizedMacroNames
+                        ))
+                ) {
+                    return false;
+                }
+
                 if (parent.operator === "+" || parent.operator === "-") {
                     const childOperator = expression.operator;
 
@@ -6523,25 +6554,7 @@ function shouldOmitSyntheticParens(path) {
                         childOperator === "/" ||
                         childOperator === "div" ||
                         childOperator === "%" ||
-                        childOperator === "mod" ||
-                        (childOperator === "*" &&
-                            !isWithinNumericCallArgument(path))
-                    ) {
-                        return false;
-                    }
-
-                    const sanitizedMacroNames = getSanitizedMacroNames(path);
-
-                    if (
-                        sanitizedMacroNames &&
-                        (expressionReferencesSanitizedMacro(
-                            parent,
-                            sanitizedMacroNames
-                        ) ||
-                            expressionReferencesSanitizedMacro(
-                                expression,
-                                sanitizedMacroNames
-                            ))
+                        childOperator === "mod"
                     ) {
                         return false;
                     }
@@ -6549,9 +6562,7 @@ function shouldOmitSyntheticParens(path) {
                     return true;
                 }
 
-                if (expression.operator === "*") {
-                    return false;
-                }
+                return true;
             }
         }
     }
@@ -7001,6 +7012,21 @@ function isArithmeticBinaryOperator(operator) {
     }
 }
 
+function isMultiplicativeBinaryOperator(operator) {
+    switch (operator) {
+        case "*":
+        case "/":
+        case "div":
+        case "%":
+        case "mod": {
+            return true;
+        }
+        default: {
+            return false;
+        }
+    }
+}
+
 function binaryExpressionContainsString(node) {
     if (!node || node.type !== "BinaryExpression") {
         return false;
@@ -7148,6 +7174,10 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
         return false;
     }
 
+    if (bodyNode.type === "ReturnStatement" && bodyNode.argument != null) {
+        return false;
+    }
+
     if (hasComment(bodyNode)) {
         return false;
     }
@@ -7166,6 +7196,53 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
         typeof statementSource === "string" &&
         (statementSource.includes("\n") || statementSource.includes("\r"))
     ) {
+        return false;
+    }
+
+    return true;
+}
+
+function shouldPreserveCompactClauseBraceSpacing(path, options, bodyNode) {
+    if (!bodyNode || bodyNode.type !== "BlockStatement") {
+        return false;
+    }
+
+    if (!path || typeof path.getValue !== "function") {
+        return false;
+    }
+
+    const statement = path.getValue();
+    if (!statement) {
+        return false;
+    }
+
+    const statementSource = getSourceTextForNode(statement, options);
+    if (typeof statementSource !== "string") {
+        return false;
+    }
+
+    const braceIndex = statementSource.indexOf("{");
+    if (braceIndex === -1) {
+        return false;
+    }
+
+    const clauseEndIndex = statementSource.lastIndexOf(")", braceIndex);
+    if (clauseEndIndex === -1) {
+        return false;
+    }
+
+    const between = statementSource.slice(clauseEndIndex + 1, braceIndex);
+    if (between.length > 0) {
+        return false;
+    }
+
+    const clauseText = statementSource.slice(0, clauseEndIndex + 1);
+    if (!clauseText.includes("((")) {
+        return false;
+    }
+
+    const blockSource = getSourceTextForNode(bodyNode, options);
+    if (typeof blockSource === "string" && !blockSource.includes("\n")) {
         return false;
     }
 
@@ -7271,12 +7348,19 @@ function printSingleClauseStatement(
         }
     }
 
+    const bodyDoc = printInBlock(path, options, print, bodyKey);
+    const preserveCompactBraceSpacing = shouldPreserveCompactClauseBraceSpacing(
+        path,
+        options,
+        bodyNode
+    );
+
     return concat([
         keyword,
         " ",
         clauseDoc,
-        " ",
-        printInBlock(path, options, print, bodyKey)
+        preserveCompactBraceSpacing ? "" : " ",
+        bodyDoc
     ]);
 }
 
