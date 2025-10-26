@@ -322,9 +322,7 @@ export function formatIdentifierCaseSummaryText(report) {
     }
 
     const { summary, operations, conflicts } = report;
-    const lines = [];
-
-    lines.push(`[${REPORT_NAMESPACE}] Identifier case dry-run summary:`);
+    const lines = [`[${REPORT_NAMESPACE}] Identifier case dry-run summary:`];
 
     const renameDetails =
         summary.renameCount > 0

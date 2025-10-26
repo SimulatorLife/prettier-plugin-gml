@@ -280,11 +280,14 @@ const TYPE_PRIORITY = new Map([
 function mergeEntry(map, identifier, data) {
     const current = map.get(identifier);
     if (!current) {
+        const sources = Array.isArray(data.sources) ? data.sources : [];
+        const tags = Array.isArray(data.tags) ? data.tags : [];
+
         map.set(identifier, {
             type: data.type ?? "unknown",
-            sources: new Set(data.sources ?? []),
+            sources: sources.length === 0 ? new Set() : new Set(sources),
             manualPath: data.manualPath,
-            tags: new Set(data.tags ?? []),
+            tags: tags.length === 0 ? new Set() : new Set(tags),
             deprecated: Boolean(data.deprecated)
         });
         return;
