@@ -6553,6 +6553,8 @@ function shouldOmitSyntheticParens(path) {
                     return false;
                 }
             }
+
+            return true;
         }
     }
 
