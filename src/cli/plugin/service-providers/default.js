@@ -29,32 +29,22 @@ import { defaultCliPluginServiceDependencies } from "./default-service-dependenc
  * @property {() => void} clearIdentifierCaseCaches
  */
 
-function resolveDescriptorSource(descriptorSource) {
-    if (descriptorSource == null) {
-        return {};
-    }
-
-    if (typeof descriptorSource === "function") {
-        return resolveDescriptorSource(descriptorSource());
-    }
-
-    if (typeof descriptorSource === "object") {
-        return descriptorSource;
-    }
-
-    throw new TypeError(
-        "CLI plugin service descriptors must be provided as objects."
-    );
-}
-
 function assertDescriptorValue(value, description) {
     assertFunction(value, description, {
         errorMessage: `CLI plugin service descriptors must include a ${description} function.`
     });
 }
 
-export function createDefaultCliPluginServices(descriptorSource) {
-    const descriptors = resolveDescriptorSource(descriptorSource);
+export function createDefaultCliPluginServices(descriptorOverrides) {
+    if (descriptorOverrides == null) {
+        descriptorOverrides = {};
+    } else if (typeof descriptorOverrides !== "object") {
+        throw new TypeError(
+            "CLI plugin service descriptors must be provided as objects."
+        );
+    }
+
+    const descriptors = descriptorOverrides;
 
     const {
         projectIndexBuilder: baseProjectIndexBuilder,

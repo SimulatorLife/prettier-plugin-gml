@@ -1,4 +1,7 @@
-import { createEnvConfiguredValueWithFallback } from "../dependencies.js";
+import {
+    createEnvConfiguredValueWithFallback,
+    resolveEnvironmentMap
+} from "../dependencies.js";
 
 const PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR = "GML_PROJECT_INDEX_CONCURRENCY";
 const PROJECT_INDEX_GML_CONCURRENCY_BASELINE = 4;
@@ -35,8 +38,9 @@ function setDefaultProjectIndexGmlConcurrency(concurrency) {
     return projectIndexConcurrencyConfig.set(concurrency);
 }
 
-function applyProjectIndexConcurrencyEnvOverride(env = process?.env) {
-    projectIndexConcurrencyConfig.applyEnvOverride(env);
+function applyProjectIndexConcurrencyEnvOverride(env) {
+    const sourceEnv = resolveEnvironmentMap(env);
+    projectIndexConcurrencyConfig.applyEnvOverride(sourceEnv ?? undefined);
 }
 
 applyProjectIndexConcurrencyEnvOverride();

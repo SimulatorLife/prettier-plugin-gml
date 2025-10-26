@@ -4,6 +4,7 @@ import {
 } from "../comments/index.js";
 import {
     assignClonedLocation,
+    cloneAstNode,
     getNodeEndIndex,
     getNodeStartIndex,
     getCallExpressionArguments
@@ -182,7 +183,7 @@ function attemptConvertSquare(node, helpers, context) {
         return false;
     }
 
-    mutateToCallExpression(node, "sqr", [cloneNode(left)], node);
+    mutateToCallExpression(node, "sqr", [cloneAstNode(left)], node);
     return true;
 }
 
@@ -216,7 +217,7 @@ function attemptConvertRepeatedPower(node, helpers) {
     mutateToCallExpression(
         node,
         "power",
-        [cloneNode(base), exponentLiteral],
+        [cloneAstNode(base), exponentLiteral],
         node
     );
     return true;
@@ -280,7 +281,7 @@ function attemptConvertMean(node, helpers) {
     mutateToCallExpression(
         node,
         "mean",
-        [cloneNode(leftTerm), cloneNode(rightTerm)],
+        [cloneAstNode(leftTerm), cloneAstNode(rightTerm)],
         node
     );
     return true;
@@ -309,7 +310,7 @@ function attemptConvertLog2(node, helpers) {
         return false;
     }
 
-    mutateToCallExpression(node, "log2", [cloneNode(numeratorArg)], node);
+    mutateToCallExpression(node, "log2", [cloneAstNode(numeratorArg)], node);
     return true;
 }
 
@@ -348,7 +349,7 @@ function attemptConvertLengthDir(node, helpers) {
             mutateToCallExpression(
                 node,
                 "lengthdir_x",
-                [cloneNode(lengthNode), cloneNode(trigInfo.argument)],
+                [cloneAstNode(lengthNode), cloneAstNode(trigInfo.argument)],
                 node
             );
             return true;
@@ -362,7 +363,7 @@ function attemptConvertLengthDir(node, helpers) {
             mutateToCallExpression(
                 node,
                 "lengthdir_y",
-                [cloneNode(lengthNode), cloneNode(trigInfo.argument)],
+                [cloneAstNode(lengthNode), cloneAstNode(trigInfo.argument)],
                 node
             );
             return true;
@@ -401,8 +402,8 @@ function attemptConvertDotProducts(node, helpers) {
             return false;
         }
 
-        leftVector.push(cloneNode(left));
-        rightVector.push(cloneNode(right));
+        leftVector.push(cloneAstNode(left));
+        rightVector.push(cloneAstNode(right));
     }
 
     const functionName = terms.length === 2 ? "dot_product" : "dot_product_3d";
@@ -453,10 +454,10 @@ function attemptConvertPointDistanceCall(node, helpers) {
 
     const args = [];
     for (const difference of match) {
-        args.push(cloneNode(difference.subtrahend));
+        args.push(cloneAstNode(difference.subtrahend));
     }
     for (const difference of match) {
-        args.push(cloneNode(difference.minuend));
+        args.push(cloneAstNode(difference.minuend));
     }
 
     const functionName =
@@ -486,7 +487,7 @@ function attemptConvertPowerToSqrt(node, helpers) {
         return false;
     }
 
-    mutateToCallExpression(node, "sqrt", [cloneNode(args[0])], node);
+    mutateToCallExpression(node, "sqrt", [cloneAstNode(args[0])], node);
     return true;
 }
 
@@ -512,7 +513,7 @@ function attemptConvertPowerToExp(node, helpers) {
         return false;
     }
 
-    mutateToCallExpression(node, "exp", [cloneNode(exponent)], node);
+    mutateToCallExpression(node, "exp", [cloneAstNode(exponent)], node);
     return true;
 }
 
@@ -545,10 +546,10 @@ function attemptConvertPointDirection(node, helpers) {
         node,
         "point_direction",
         [
-            cloneNode(dxDiff.subtrahend),
-            cloneNode(dyDiff.subtrahend),
-            cloneNode(dxDiff.minuend),
-            cloneNode(dyDiff.minuend)
+            cloneAstNode(dxDiff.subtrahend),
+            cloneAstNode(dyDiff.subtrahend),
+            cloneAstNode(dxDiff.minuend),
+            cloneAstNode(dyDiff.minuend)
         ],
         node
     );
@@ -578,7 +579,7 @@ function attemptConvertTrigDegreeArguments(node, helpers) {
     }
 
     node.arguments = [
-        createCallExpressionNode("degtorad", [cloneNode(angle)], argument)
+        createCallExpressionNode("degtorad", [cloneAstNode(angle)], argument)
     ];
 
     return true;
@@ -1098,10 +1099,6 @@ function createNumericLiteral(value, template) {
     assignClonedLocation(literal, template);
 
     return literal;
-}
-
-function cloneNode(node) {
-    return node ? structuredClone(node) : null;
 }
 
 function hasInlineCommentBetween(left, right, context) {

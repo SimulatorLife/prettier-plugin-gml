@@ -33,6 +33,7 @@ import {
     isCommentNode,
     coercePositiveIntegerOption,
     getNonEmptyString,
+    getNonEmptyTrimmedString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
     toTrimmedString,
@@ -2038,6 +2039,22 @@ function buildCallbackArgumentsWithSimplePrefix(
     const node = path.getValue();
     const args = Array.isArray(node?.arguments) ? node.arguments : [];
     const parts = [];
+    const trailingArguments = args.slice(simplePrefixLength);
+    const isCallbackArgument = (argument) => {
+        const argumentType = argument?.type;
+        return (
+            argumentType === "FunctionDeclaration" ||
+            argumentType === "StructExpression"
+        );
+    };
+    const firstCallbackIndex = trailingArguments.findIndex(isCallbackArgument);
+    const hasTrailingNonCallbackArgument =
+        firstCallbackIndex !== -1 &&
+        trailingArguments
+            .slice(firstCallbackIndex + 1)
+            .some((argument) => !isCallbackArgument(argument));
+    const shouldForcePrefixBreaks =
+        simplePrefixLength > 1 && hasTrailingNonCallbackArgument;
 
     for (let index = 0; index < args.length; index += 1) {
         parts.push(path.call(print, "arguments", index));
@@ -2048,7 +2065,7 @@ function buildCallbackArgumentsWithSimplePrefix(
 
         parts.push(",");
 
-        if (index < simplePrefixLength - 1) {
+        if (index < simplePrefixLength - 1 && !shouldForcePrefixBreaks) {
             parts.push(" ");
             continue;
         }
@@ -2056,7 +2073,16 @@ function buildCallbackArgumentsWithSimplePrefix(
         parts.push(line);
     }
 
-    return group(["(", indent([softline, ...parts]), softline, ")"]);
+    const argumentGroup = group([
+        "(",
+        indent([softline, ...parts]),
+        softline,
+        ")"
+    ]);
+
+    return shouldForcePrefixBreaks
+        ? concat([breakParent, argumentGroup])
+        : argumentGroup;
 }
 
 function shouldForceBreakStructArgument(argument) {
@@ -5101,12 +5127,7 @@ function computeSyntheticFunctionDocLines(
 }
 
 function normalizeParamDocType(typeText) {
-    if (typeof typeText !== "string") {
-        return null;
-    }
-
-    const trimmed = typeText.trim();
-    return trimmed.length > 0 ? trimmed : null;
+    return getNonEmptyTrimmedString(typeText);
 }
 
 function collectImplicitArgumentDocNames(functionNode, options) {
@@ -6607,6 +6628,10 @@ function shouldOmitSyntheticParens(path) {
             if (isNumericComputationNode(expression)) {
                 if (parent.operator === "+" || parent.operator === "-") {
                     const childOperator = expression.operator;
+                    const flatteningForced =
+                        childOperator === "*"
+                            ? isSyntheticParenFlatteningForced(path)
+                            : false;
 
                     if (
                         childOperator === "/" ||
@@ -6617,7 +6642,11 @@ function shouldOmitSyntheticParens(path) {
                         return false;
                     }
 
-                    if (parent.operator === "-" && childOperator === "*") {
+                    if (
+                        parent.operator === "-" &&
+                        childOperator === "*" &&
+                        !flatteningForced
+                    ) {
                         return false;
                     }
 
@@ -6881,6 +6910,33 @@ function isSyntheticParenFlatteningEnabled(path) {
     }
 }
 
+function isSyntheticParenFlatteningForced(path) {
+    let depth = 1;
+    while (true) {
+        const ancestor = callPathMethod(path, "getParentNode", {
+            args: depth === 1 ? [] : [depth - 1],
+            defaultValue: null
+        });
+
+        if (!ancestor) {
+            return false;
+        }
+
+        if (
+            ancestor.type === "FunctionDeclaration" ||
+            ancestor.type === "ConstructorDeclaration"
+        ) {
+            if (ancestor._flattenSyntheticNumericParens === true) {
+                return true;
+            }
+        } else if (ancestor.type === "Program") {
+            return ancestor._flattenSyntheticNumericParens === true;
+        }
+
+        depth += 1;
+    }
+}
+
 function isWithinNumericCallArgument(path) {
     let depth = 1;
     let currentNode = callPathMethod(path, "getValue", { defaultValue: null });
@@ -6908,6 +6964,75 @@ function isWithinNumericCallArgument(path) {
 
         currentNode = ancestor;
         depth += 1;
+    }
+}
+
+function isSelfMultiplicationExpression(expression) {
+    if (
+        !expression ||
+        expression.type !== "BinaryExpression" ||
+        expression.operator !== "*"
+    ) {
+        return false;
+    }
+
+    return areNumericExpressionsEquivalent(expression.left, expression.right);
+}
+
+function areNumericExpressionsEquivalent(left, right) {
+    if (!left || !right || left.type !== right.type) {
+        return false;
+    }
+
+    switch (left.type) {
+        case "Identifier": {
+            return left.name === right.name;
+        }
+        case "Literal": {
+            return left.value === right.value;
+        }
+        case "ParenthesizedExpression": {
+            return areNumericExpressionsEquivalent(
+                left.expression,
+                right.expression
+            );
+        }
+        case "MemberDotExpression": {
+            return (
+                areNumericExpressionsEquivalent(left.object, right.object) &&
+                areNumericExpressionsEquivalent(left.property, right.property)
+            );
+        }
+        case "MemberIndexExpression": {
+            if (!areNumericExpressionsEquivalent(left.object, right.object)) {
+                return false;
+            }
+
+            const leftProps = Array.isArray(left.property) ? left.property : [];
+            const rightProps = Array.isArray(right.property)
+                ? right.property
+                : [];
+
+            if (leftProps.length !== rightProps.length) {
+                return false;
+            }
+
+            for (const [index, leftProp] of leftProps.entries()) {
+                if (
+                    !areNumericExpressionsEquivalent(
+                        leftProp,
+                        rightProps[index]
+                    )
+                ) {
+                    return false;
+                }
+            }
+
+            return left.accessor === right.accessor;
+        }
+        default: {
+            return false;
+        }
     }
 }
 
@@ -7240,6 +7365,14 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
     }
 
     if (hasComment(bodyNode)) {
+        return false;
+    }
+
+    if (
+        bodyNode.type === "ReturnStatement" &&
+        bodyNode.argument !== undefined &&
+        bodyNode.argument !== null
+    ) {
         return false;
     }
 

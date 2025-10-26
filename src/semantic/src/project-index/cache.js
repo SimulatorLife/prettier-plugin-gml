@@ -8,7 +8,9 @@ import {
     isObjectLike,
     createEnvConfiguredValueWithFallback,
     createAbortGuard,
-    isFsErrorCode
+    getNonEmptyTrimmedString,
+    isFsErrorCode,
+    resolveEnvironmentMap
 } from "../dependencies.js";
 import { isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
@@ -42,15 +44,13 @@ const projectIndexCacheSizeConfig = createEnvConfiguredValueWithFallback({
             return 0;
         }
 
-        if (typeof value === "string") {
-            const trimmed = value.trim();
+        const trimmed = getNonEmptyTrimmedString(value);
 
-            if (trimmed !== "") {
-                const numeric = Number(trimmed);
+        if (trimmed !== null) {
+            const numeric = Number(trimmed);
 
-                if (Number.isFinite(numeric) && numeric === 0) {
-                    return 0;
-                }
+            if (Number.isFinite(numeric) && numeric === 0) {
+                return 0;
             }
         }
 
@@ -100,8 +100,9 @@ function setDefaultProjectIndexCacheMaxSize(size) {
     return projectIndexCacheSizeConfig.set(size);
 }
 
-function applyProjectIndexCacheEnvOverride(env = process?.env) {
-    projectIndexCacheSizeConfig.applyEnvOverride(env);
+function applyProjectIndexCacheEnvOverride(env) {
+    const sourceEnv = resolveEnvironmentMap(env);
+    projectIndexCacheSizeConfig.applyEnvOverride(sourceEnv ?? undefined);
 }
 
 applyProjectIndexCacheEnvOverride();

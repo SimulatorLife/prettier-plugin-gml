@@ -32,6 +32,31 @@ function getSingleVariableDeclarator(node) {
 }
 
 /**
+ * Clone an AST node while preserving primitives.
+ *
+ * The helper mirrors the defensive guards scattered across several transforms
+ * that previously reimplemented this logic. Returning the original primitive
+ * values keeps behaviour consistent for callers that occasionally pass
+ * strings or numbers captured from the AST.
+ *
+ * @param {unknown} node Candidate AST fragment to clone.
+ * @returns {unknown} A structural clone of the node or the original primitive
+ *                    when cloning is unnecessary. `null` and `undefined`
+ *                    resolve to `null` for easier downstream checks.
+ */
+function cloneAstNode(node) {
+    if (node === null || node === undefined) {
+        return null;
+    }
+
+    if (typeof node !== "object") {
+        return node;
+    }
+
+    return structuredClone(node);
+}
+
+/**
  * Read and normalize the `kind` field from a variable declaration node.
  *
  * @param {object | null | undefined} node - Possible variable declaration
@@ -475,6 +500,7 @@ function unwrapParenthesizedExpression(node) {
 }
 
 export {
+    cloneAstNode,
     getSingleVariableDeclarator,
     getVariableDeclarationKind,
     getIdentifierText,

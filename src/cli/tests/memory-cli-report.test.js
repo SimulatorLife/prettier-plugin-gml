@@ -8,7 +8,8 @@ import {
     DEFAULT_MEMORY_REPORT_DIR,
     MEMORY_REPORT_DIRECTORY_ENV_VAR,
     runMemoryCli,
-    setDefaultMemoryReportDirectory
+    setDefaultMemoryReportDirectory,
+    MemorySuiteName
 } from "../features/memory/index.js";
 
 test("memory CLI writes suite results to a JSON report", async (t) => {
@@ -41,7 +42,8 @@ test("memory CLI writes suite results to a JSON report", async (t) => {
     assert.ok(payload.generatedAt.length > 0);
     assert.equal(typeof payload.suites, "object");
 
-    const normalizeSuite = payload.suites["normalize-string-list"];
+    const normalizeSuite =
+        payload.suites[MemorySuiteName.NORMALIZE_STRING_LIST];
     assert.ok(normalizeSuite && typeof normalizeSuite === "object");
     assert.equal(normalizeSuite.iterations, 1);
     assert.equal(typeof normalizeSuite.description, "string");
@@ -67,7 +69,7 @@ test("memory CLI writes suite results to a JSON report", async (t) => {
         assert.equal(typeof normalizeSuite.heapUsedAfterGc, "number");
     }
 
-    const parserSuite = payload.suites["parser-ast"];
+    const parserSuite = payload.suites[MemorySuiteName.PARSER_AST];
     assert.ok(parserSuite && typeof parserSuite === "object");
     assert.equal(parserSuite.iterations, 1);
     assert.equal(typeof parserSuite.description, "string");
@@ -79,7 +81,7 @@ test("memory CLI writes suite results to a JSON report", async (t) => {
     assert.ok(parserSuite.memory && typeof parserSuite.memory === "object");
     assert.equal(typeof parserSuite.memory.delta.heapUsed, "number");
 
-    const formatterSuite = payload.suites["plugin-format"];
+    const formatterSuite = payload.suites[MemorySuiteName.PLUGIN_FORMAT];
     assert.ok(formatterSuite && typeof formatterSuite === "object");
     assert.equal(formatterSuite.iterations, 1);
     assert.equal(typeof formatterSuite.description, "string");

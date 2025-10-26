@@ -243,6 +243,15 @@ function buildCachedSizeVariableName(baseName, suffix) {
         return baseName;
     }
 
+    if (
+        normalizedSuffix === "len" &&
+        baseName.length > normalizedSuffix.length &&
+        baseName.endsWith("s") &&
+        !baseName.endsWith("ss")
+    ) {
+        return normalizedSuffix;
+    }
+
     return `${baseName}_${normalizedSuffix}`;
 }
 

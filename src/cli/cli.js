@@ -32,10 +32,10 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError, Option } from "commander";
 
 import {
-    collectAncestorDirectories,
     getErrorMessage,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
+    isNonEmptyArray,
     isErrorLike,
     isErrorWithCode,
     isPathInside,
@@ -48,6 +48,7 @@ import {
     uniqueArray,
     withObjectLike
 } from "../shared/index.js";
+import { collectAncestorDirectories } from "./shared/ancestor-directories.js";
 import {
     hasIgnoreRuleNegations,
     markIgnoreRuleNegationsDetected,
@@ -147,6 +148,13 @@ const VALID_PRETTIER_LOG_LEVEL_CHOICES = formatValidChoiceList(
     VALID_PRETTIER_LOG_LEVELS
 );
 
+const FORMAT_COMMAND_CLI_EXAMPLE =
+    "npx prettier-plugin-gml format path/to/project";
+const FORMAT_COMMAND_WORKSPACE_EXAMPLE =
+    "npm run format:gml -- path/to/project";
+const FORMAT_COMMAND_CHECK_EXAMPLE =
+    "npx prettier-plugin-gml format --check path/to/script.gml";
+
 const PRETTIER_MODULE_ID =
     process.env.PRETTIER_PLUGIN_GML_PRETTIER_MODULE ?? "prettier";
 
@@ -175,7 +183,7 @@ function formatPathForDisplay(targetPath) {
 }
 
 function describeIgnoreSource(ignorePaths) {
-    if (!Array.isArray(ignorePaths) || ignorePaths.length === 0) {
+    if (!isNonEmptyArray(ignorePaths)) {
         return null;
     }
 
@@ -309,11 +317,20 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
             "Respects PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS when set."
         ].join(" ")
     )
-        .argParser((value) => normalizeExtensions(value, DEFAULT_EXTENSIONS))
-        .default(
-            DEFAULT_EXTENSIONS,
-            formatExtensionListForDisplay(DEFAULT_EXTENSIONS)
-        );
+        .argParser((value, previous) => {
+            const normalized = normalizeExtensions(value, DEFAULT_EXTENSIONS);
+
+            if (previous === undefined) {
+                return normalized;
+            }
+
+            const priorValues = Array.isArray(previous)
+                ? previous
+                : [previous].filter(Boolean);
+
+            return mergeUniqueValues(priorValues, normalized);
+        })
+        .default(undefined, formatExtensionListForDisplay(DEFAULT_EXTENSIONS));
 
     const defaultSkippedDirectorySampleLimit =
         getDefaultSkippedDirectorySampleLimit();
@@ -452,6 +469,16 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
                 return normalized;
             },
             DEFAULT_PARSE_ERROR_ACTION
+        )
+        .addHelpText("after", () =>
+            [
+                "",
+                "Examples:",
+                `  ${FORMAT_COMMAND_CLI_EXAMPLE}`,
+                `  ${FORMAT_COMMAND_WORKSPACE_EXAMPLE}`,
+                `  ${FORMAT_COMMAND_CHECK_EXAMPLE}`,
+                ""
+            ].join("\n")
         );
 }
 
@@ -486,7 +513,7 @@ function normalizeTargetPathInput(rawInput) {
  */
 function extractPositionalTarget(command) {
     const args = command?.args;
-    if (!Array.isArray(args) || args.length === 0) {
+    if (!isNonEmptyArray(args)) {
         return null;
     }
 
@@ -1540,13 +1567,17 @@ function logNoMatchingFiles({
               targetPathProvided
           })
         : formattedTarget;
+    const exampleGuidance = `For example: ${FORMAT_COMMAND_CLI_EXAMPLE} or ${FORMAT_COMMAND_WORKSPACE_EXAMPLE}.`;
     const guidance = targetIsDirectory
         ? [
-              "Provide a directory or file containing GameMaker Language sources",
-              "(for example: prettier-plugin-gml format path/to/project) or adjust",
-              "--extensions / update your .prettierignore files if this is unexpected."
+              "Provide a directory or file containing GameMaker Language sources.",
+              exampleGuidance,
+              "Adjust --extensions or update your .prettierignore files if this is unexpected."
           ].join(" ")
-        : "Pass --extensions to include this file or adjust your .prettierignore files if this is unexpected.";
+        : [
+              "Pass --extensions to include this file or adjust your .prettierignore files if this is unexpected.",
+              exampleGuidance
+          ].join(" ");
     const ignoredFilesSkipped = skippedFileSummary.ignored > 0;
     const ignoredMessageSuffix =
         "Adjust your .prettierignore files or refine the target path if this is unexpected.";
@@ -1737,11 +1768,7 @@ function buildSkippedDirectorySummaryMessage() {
 }
 
 function normalizeCommandLineArguments(argv) {
-    if (!Array.isArray(argv)) {
-        return [];
-    }
-
-    if (argv.length === 0) {
+    if (!isNonEmptyArray(argv)) {
         return [];
     }
 

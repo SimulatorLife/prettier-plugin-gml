@@ -68,8 +68,8 @@ const {
         defaultCacheRoot: DEFAULT_CACHE_ROOT,
         defaultOutputPath: OUTPUT_DEFAULT
     },
-    fetchManualFile,
-    resolveManualRef
+    fileAccess: { fetchManualFile },
+    referenceAccess: { resolveManualRef }
 } = createManualAccessContexts({
     importMetaUrl: import.meta.url,
     userAgent: "prettier-plugin-gml feather metadata generator",
@@ -586,10 +586,7 @@ function collectDiagnosticTrailingContent(blocks) {
         goodExampleParts.push(text);
     }
 
-    const goodExample =
-        goodExampleParts.length > 0
-            ? goodExampleParts.join("\n\n").trim()
-            : null;
+    const goodExample = joinSections(goodExampleParts);
 
     return {
         additionalDescriptionParts,
@@ -628,9 +625,7 @@ function parseDiagnostics(html) {
     const diagnostics = [];
 
     for (const element of document.querySelectorAll("h3")) {
-        const headingText = element.textContent
-            ?.replaceAll("\u00A0", " ")
-            .trim();
+        const headingText = getNormalizedTextContent(element, { trim: true });
         if (!headingText) {
             continue;
         }
@@ -653,7 +648,7 @@ function parseDiagnostics(html) {
 
         diagnostics.push({
             id,
-            title: title.trim(),
+            title: getNonEmptyTrimmedString(title) ?? title.trim(),
             description,
             badExample,
             goodExample,
@@ -709,9 +704,9 @@ function parseNamingRules(html) {
 
     if (mainList) {
         for (const strongEl of mainList.querySelectorAll("li > strong")) {
-            const strongText = strongEl.textContent
-                ?.replaceAll("\u00A0", " ")
-                .trim();
+            const strongText = getNormalizedTextContent(strongEl, {
+                trim: true
+            });
             if (!strongText) {
                 continue;
             }

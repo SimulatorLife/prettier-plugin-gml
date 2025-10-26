@@ -1,82 +1,76 @@
 export {
     applyEnvironmentOverride,
-    assertArray,
     asArray,
+    assertArray,
     assertFunction,
     assertNonEmptyString,
     assertPlainObject,
-    resolveFunction,
-    hasOwn,
-    identity,
-    noop,
     coerceNonNegativeInteger,
     coercePositiveInteger,
+    createAbortGuard,
     createEnvConfiguredValue,
     createEnvConfiguredValueWithFallback,
+    createListSplitPattern,
+    escapeRegExp,
+    ensureMap,
     getErrorCode,
     getErrorMessage,
     getErrorMessageOrFallback,
+    getIdentifierText,
     getNonEmptyTrimmedString,
-    isMissingModuleDependency,
     getOrCreateMapEntry,
+    hasOwn,
+    identity,
     incrementMapValue,
+    isAggregateErrorLike,
+    isErrorLike,
+    isErrorWithCode,
     isFiniteNumber,
+    isFsErrorCode,
+    isJsonParseError,
+    isMissingModuleDependency,
     isNonEmptyArray,
     isNonEmptyString,
     isNonEmptyTrimmedString,
-    isErrorWithCode,
     isObjectLike,
-    toMutableArray,
-    normalizeIdentifierMetadataEntries,
+    isPathInside,
+    JsonParseError,
+    noop,
     normalizeEnumeratedOption,
+    normalizeIdentifierMetadataEntries,
+    normalizeStringList,
     parseJsonObjectWithContext,
     parseJsonWithContext,
-    splitLines,
+    resolveContainedRelativePath,
+    resolveFunction,
     resolveIntegerOption,
+    resolveEnvironmentMap,
     resolveModuleDefaultExport,
+    splitLines,
+    stringifyJsonForFile,
     toArray,
+    toMutableArray,
     toNormalizedInteger,
-    uniqueArray,
     toNormalizedLowerCaseSet,
     toNormalizedLowerCaseString,
     toPosixPath,
-    toTrimmedString
+    toTrimmedString,
+    uniqueArray
 } from "../dependencies.js";
 
 export { resolveCommandUsage } from "../core/command-usage.js";
 
 export { appendToCollection } from "../core/collection-utils.js";
 
-export { createAbortGuard } from "../dependencies.js";
+export { ensureDir } from "./ensure-dir.js";
 
 export {
-    normalizeStringList,
-    createListSplitPattern,
-    collectAncestorDirectories,
-    collectUniqueAncestorDirectories,
-    isPathInside,
-    resolveContainedRelativePath,
-    escapeRegExp
-} from "../dependencies.js";
-
-export { getIdentifierText } from "../dependencies.js";
-
-export {
-    isAggregateErrorLike,
-    isErrorLike,
-    ensureMap
-} from "../dependencies.js";
-
-export {
-    JsonParseError,
-    isJsonParseError,
-    stringifyJsonForFile
-} from "../dependencies.js";
-
-export { ensureDir, isFsErrorCode } from "../dependencies.js";
-
-export {
-    SKIP_CLI_RUN_ENV_VAR,
+    createCliRunSkippedError,
     isCliRunSkipped,
-    createCliRunSkippedError
+    SKIP_CLI_RUN_ENV_VAR
 } from "./skip-cli-run.js";
+
+export {
+    collectAncestorDirectories,
+    collectUniqueAncestorDirectories
+} from "./ancestor-directories.js";

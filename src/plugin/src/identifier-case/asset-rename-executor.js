@@ -9,7 +9,7 @@ import {
     stringifyJsonForFile,
     fromPosixPath,
     isFsErrorCode,
-    getErrorMessage
+    getErrorMessageOrFallback
 } from "../shared/index.js";
 import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
 import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
@@ -261,9 +261,7 @@ export function createAssetRenameExecutor({
                     );
                 } catch (error) {
                     if (logger && typeof logger.warn === "function") {
-                        const message =
-                            getErrorMessage(error, { fallback: "" }) ||
-                            "Unknown error";
+                        const message = getErrorMessageOrFallback(error);
                         logger.warn(
                             `Skipping asset reference update for '${filePath}': ${message}`
                         );
