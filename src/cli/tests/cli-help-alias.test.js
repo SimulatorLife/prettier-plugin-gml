@@ -1,24 +1,50 @@
 import assert from "node:assert/strict";
-import { after, describe, it } from "node:test";
+import { describe, it } from "node:test";
 
-const originalSkipRun = process.env.PRETTIER_PLUGIN_GML_SKIP_CLI_RUN;
-process.env.PRETTIER_PLUGIN_GML_SKIP_CLI_RUN = "1";
+const SKIP_CLI_ENV_VAR = "PRETTIER_PLUGIN_GML_SKIP_CLI_RUN";
+const SKIP_CLI_ENV_VALUE = "1";
 
-const cliModulePromise = import("../cli.js");
+// The CLI module inspects the environment at import time to decide whether to
+// execute. Keep the skip flag scoped to the import cycle so concurrent test
+// files do not leak the override into unrelated scenarios.
 
-async function loadCliTestUtilities() {
-    const { __test__ } = await cliModulePromise;
-    return __test__;
-}
+let cliModulePromise;
 
-after(() => {
-    if (originalSkipRun === undefined) {
-        delete process.env.PRETTIER_PLUGIN_GML_SKIP_CLI_RUN;
-        return;
+async function ensureCliModuleLoaded() {
+    if (!cliModulePromise) {
+        const originalValue = process.env[SKIP_CLI_ENV_VAR];
+
+        process.env[SKIP_CLI_ENV_VAR] = SKIP_CLI_ENV_VALUE;
+
+        const cleanupEnvironment = () => {
+            if (process.env[SKIP_CLI_ENV_VAR] !== SKIP_CLI_ENV_VALUE) {
+                return;
+            }
+
+            if (originalValue === undefined) {
+                delete process.env[SKIP_CLI_ENV_VAR];
+            } else {
+                process.env[SKIP_CLI_ENV_VAR] = originalValue;
+            }
+        };
+
+        const moduleLoad = import("../cli.js")
+            .finally(cleanupEnvironment)
+            .catch((error) => {
+                cliModulePromise = undefined;
+                throw error;
+            });
+
+        cliModulePromise = moduleLoad;
     }
 
-    process.env.PRETTIER_PLUGIN_GML_SKIP_CLI_RUN = originalSkipRun;
-});
+    return cliModulePromise;
+}
+
+async function loadCliTestUtilities() {
+    const { __test__ } = await ensureCliModuleLoaded();
+    return __test__;
+}
 
 describe("cli help command normalization", () => {
     it("passes through arguments when the command is not help", async () => {
