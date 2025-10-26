@@ -844,7 +844,7 @@ function createHumanReadableMemorySuiteLines({ suite, payload }) {
     const lines = [`\n• ${suite}`];
 
     if (payload?.error) {
-        const message = payload.error.message || "Unknown error";
+        const message = getErrorMessageOrFallback(payload.error);
         lines.push(`  - error: ${message}`);
         return lines;
     }
