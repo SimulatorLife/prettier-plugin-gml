@@ -1,4 +1,4 @@
-name: Codex – Law of Demeter Guardrails
+name: Codex 82 – Law of Demeter Guardrails
 on:
   schedule:
     - cron: "7 6 * * *"  # once per day at 06:07 UTC

@@ -1,4 +1,4 @@
-name: Codex 77 – POLA Behaviour Audit
+name: Codex 89 – POLA Behaviour Audit
 on:
   schedule:
     - cron: "24 1,13 * * *" # twice daily at 01:24 and 13:24 UTC

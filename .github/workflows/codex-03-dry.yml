@@ -1,4 +1,4 @@
-name: Codex 01 – DRY
+name: Codex 03 – DRY
 on:
   schedule:
     - cron: "0 */2 * * *" # every 2 hours (two runs per 2-hour window via staggered start)

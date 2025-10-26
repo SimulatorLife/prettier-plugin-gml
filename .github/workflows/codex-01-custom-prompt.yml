@@ -1,4 +1,4 @@
-name: Codex 02 – Custom Prompt
+name: Codex 01 – Custom Prompt
 
 on:
   workflow_dispatch:

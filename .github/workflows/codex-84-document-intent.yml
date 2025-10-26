@@ -1,4 +1,4 @@
-name: Codex Document Intent
+name: Codex 84 – Document Intent
 on:
   schedule:
     - cron: "40 4,16 * * *" # twice daily at 04:40, 16:40 UTC

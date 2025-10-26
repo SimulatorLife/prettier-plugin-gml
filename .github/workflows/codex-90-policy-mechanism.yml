@@ -1,4 +1,4 @@
-name: Codex – Policy Mechanism Separation
+name: Codex 90 – Policy Mechanism Separation
 on:
   schedule:
     - cron: "20 1 * * 1" # weekly on Mondays at 01:20 UTC
