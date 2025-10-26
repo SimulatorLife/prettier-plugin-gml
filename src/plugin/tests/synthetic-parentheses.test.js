@@ -105,6 +105,32 @@ test("flattens numeric multiplication groups inside addition chains", async () =
     );
 });
 
+test("flattens numeric multiplication groups outside call contexts", async () => {
+    const source = [
+        "var xoff = a.x - b.x;",
+        "var yoff = a.y - b.y;",
+        "var actual_dist = xoff * xoff + yoff * yoff;",
+        ""
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    const expectedLines = [
+        "var xoff = a.x - b.x;",
+        "var yoff = a.y - b.y;",
+        "var actual_dist = xoff * xoff + yoff * yoff;"
+    ].join("\n");
+
+    assert.strictEqual(
+        formatted.trim(),
+        expectedLines,
+        "Expected squared distance calculations outside call arguments to omit redundant multiplication grouping."
+    );
+});
+
 test("preserves chains of sqr calls without additional parentheses", async () => {
     const source = ["var ll = sqr(dx) + sqr(dy) + sqr(dz);", ""].join("\n");
 
