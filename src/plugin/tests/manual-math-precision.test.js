@@ -42,6 +42,31 @@ test("converts manual mean with floating point noise", async () => {
     );
 });
 
+test("converts literal square with floating point noise", async () => {
+    const source = [
+        "function convert_square() {",
+        "    return 0.5 * 0.5000000000000001;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function convert_square",
+            "function convert_square() {",
+            "    return sqr(0.5);",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
 test("preserves inline comments between manual math operands", async () => {
     const source = [
         "function keep_comment(value) {",

@@ -175,7 +175,10 @@ function attemptConvertSquare(node, helpers, context) {
         return false;
     }
 
-    if (!areNodesEquivalent(left, right)) {
+    if (
+        !areNodesEquivalent(left, right) &&
+        !areNodesApproximatelyEquivalent(left, right)
+    ) {
         return false;
     }
 
