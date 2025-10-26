@@ -43,7 +43,8 @@ export {
     getNonEmptyString,
     getNonEmptyTrimmedString,
     isNonEmptyString,
-    isNonEmptyTrimmedString
+    isNonEmptyTrimmedString,
+    toTrimmedString
 } from "../../shared/utils/string.js";
 export {
     isJsonParseError,
