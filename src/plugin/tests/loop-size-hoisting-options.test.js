@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
     DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES,
+    buildCachedSizeVariableName,
     getSizeRetrievalFunctionSuffixes
 } from "../src/printer/loop-size-hoisting.js";
 
@@ -58,4 +59,13 @@ test("memoizes suffix overrides per options object", () => {
 
     assert.notStrictEqual(second, third);
     assert.strictEqual(third.get("ds_list_size"), "count");
+});
+
+test("plural array identifiers fall back to bare length suffix", () => {
+    assert.strictEqual(buildCachedSizeVariableName("nodes", "len"), "len");
+    assert.strictEqual(buildCachedSizeVariableName("bosses", "len"), "len");
+    assert.strictEqual(
+        buildCachedSizeVariableName("class", "len"),
+        "class_len"
+    );
 });
