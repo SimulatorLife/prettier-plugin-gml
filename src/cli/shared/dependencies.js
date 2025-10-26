@@ -8,6 +8,7 @@ export {
     resolveFunction,
     hasOwn,
     identity,
+    noop,
     coerceNonNegativeInteger,
     coercePositiveInteger,
     createEnvConfiguredValue,
