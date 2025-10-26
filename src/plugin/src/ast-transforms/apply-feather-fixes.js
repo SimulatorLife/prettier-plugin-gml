@@ -21,6 +21,7 @@ import {
     visitChildNodes,
     unwrapParenthesizedExpression,
     getNonEmptyString,
+    getNonEmptyTrimmedString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
     stripStringQuotes,
@@ -7919,13 +7920,9 @@ function buildEventMarkerIndex(ast) {
 }
 
 function extractEventNameFromComment(value) {
-    if (typeof value !== "string") {
-        return null;
-    }
+    const trimmed = getNonEmptyTrimmedString(value);
 
-    const trimmed = value.trim();
-
-    if (!trimmed.startsWith("/")) {
+    if (!trimmed || !trimmed.startsWith("/")) {
         return null;
     }
 

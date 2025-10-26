@@ -33,6 +33,7 @@ import {
     isCommentNode,
     coercePositiveIntegerOption,
     getNonEmptyString,
+    getNonEmptyTrimmedString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
     toTrimmedString,
@@ -5101,12 +5102,7 @@ function computeSyntheticFunctionDocLines(
 }
 
 function normalizeParamDocType(typeText) {
-    if (typeof typeText !== "string") {
-        return null;
-    }
-
-    const trimmed = typeText.trim();
-    return trimmed.length > 0 ? trimmed : null;
+    return getNonEmptyTrimmedString(typeText);
 }
 
 function collectImplicitArgumentDocNames(functionNode, options) {
