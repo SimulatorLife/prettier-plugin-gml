@@ -193,16 +193,21 @@ export function parseJsonObjectWithContext(text, options = {}) {
             ? createAssertOptions(payload)
             : undefined;
 
-    const optionObjects = [assertOptions, dynamicOptions].filter(
-        (options) => options && typeof options === "object"
-    );
+    const staticOptions =
+        assertOptions && typeof assertOptions === "object"
+            ? assertOptions
+            : undefined;
+    const runtimeOptions =
+        dynamicOptions && typeof dynamicOptions === "object"
+            ? dynamicOptions
+            : undefined;
 
-    return assertPlainObject(
-        payload,
-        optionObjects.length > 0
-            ? Object.assign({}, ...optionObjects)
-            : undefined
-    );
+    const mergedOptions =
+        staticOptions || runtimeOptions
+            ? Object.assign({}, staticOptions ?? {}, runtimeOptions ?? {})
+            : undefined;
+
+    return assertPlainObject(payload, mergedOptions);
 }
 
 /**
