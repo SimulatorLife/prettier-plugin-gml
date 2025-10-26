@@ -36,6 +36,7 @@ import {
     getErrorMessage,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
+    isNonEmptyArray,
     isErrorLike,
     isErrorWithCode,
     isPathInside,
@@ -175,7 +176,7 @@ function formatPathForDisplay(targetPath) {
 }
 
 function describeIgnoreSource(ignorePaths) {
-    if (!Array.isArray(ignorePaths) || ignorePaths.length === 0) {
+    if (!isNonEmptyArray(ignorePaths)) {
         return null;
     }
 
@@ -495,7 +496,7 @@ function normalizeTargetPathInput(rawInput) {
  */
 function extractPositionalTarget(command) {
     const args = command?.args;
-    if (!Array.isArray(args) || args.length === 0) {
+    if (!isNonEmptyArray(args)) {
         return null;
     }
 
@@ -1746,11 +1747,7 @@ function buildSkippedDirectorySummaryMessage() {
 }
 
 function normalizeCommandLineArguments(argv) {
-    if (!Array.isArray(argv)) {
-        return [];
-    }
-
-    if (argv.length === 0) {
+    if (!isNonEmptyArray(argv)) {
         return [];
     }
 
