@@ -22,6 +22,7 @@ import {
     appendToCollection,
     assertArray,
     coercePositiveInteger,
+    ensureDir,
     isFiniteNumber,
     getIdentifierText,
     resolveIntegerOption,
@@ -700,7 +701,7 @@ async function writeReport(report, options) {
     }
 
     const directory = path.dirname(targetFile);
-    await fs.mkdir(directory, { recursive: true });
+    await ensureDir(directory);
 
     const spacing = options.pretty ? 2 : 0;
     const payload = stringifyJsonForFile(report, { space: spacing });
