@@ -1,3 +1,5 @@
+import { isNonEmptyArray } from "../dependencies.js";
+
 /**
  * Create shallow clones of object-like entries in an array.
  *
@@ -13,7 +15,7 @@
  * @returns {Array<T>} Array containing shallow clones of object entries.
  */
 export function cloneObjectEntries(entries) {
-    if (!Array.isArray(entries) || entries.length === 0) {
+    if (!isNonEmptyArray(entries)) {
         return [];
     }
 
