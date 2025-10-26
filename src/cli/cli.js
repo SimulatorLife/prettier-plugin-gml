@@ -90,6 +90,7 @@ import {
     runGenerateFeatherMetadata
 } from "./commands/generate-feather-metadata.js";
 import { resolveCliIdentifierCaseCacheClearer } from "./plugin/services.js";
+import { isCliRunSkipped } from "./shared/dependencies.js";
 import {
     getDefaultSkippedDirectorySampleLimit,
     resolveSkippedDirectorySampleLimit,
@@ -1812,7 +1813,7 @@ cliCommandRegistry.registerCommand({
         })
 });
 
-if (process.env.PRETTIER_PLUGIN_GML_SKIP_CLI_RUN !== "1") {
+if (!isCliRunSkipped()) {
     const normalizedArguments = normalizeCommandLineArguments(
         process.argv.slice(2)
     );
