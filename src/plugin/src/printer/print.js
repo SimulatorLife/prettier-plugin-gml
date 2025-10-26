@@ -1137,6 +1137,10 @@ export function print(path, options, print) {
             const alignmentInfo = forcedStructArgumentBreaks.get(parentNode);
             const nameDoc = print("name");
             const valueDoc = print("value");
+            const inlineCommentDocs = getInlineStructPropertyCommentDocs(
+                node,
+                options
+            );
 
             if (alignmentInfo?.maxNameLength > 0) {
                 const nameLength = getStructPropertyNameLength(node, options);
@@ -1146,15 +1150,21 @@ export function print(path, options, print) {
                 );
                 const padding = " ".repeat(paddingWidth);
 
-                return concat([nameDoc, padding, ": ", valueDoc]);
+                const parts = [nameDoc, padding, ": ", valueDoc];
+                appendInlineStructPropertyComments(parts, inlineCommentDocs);
+                return concat(parts);
             }
 
             const originalPrefix = getStructPropertyPrefix(node, options);
             if (originalPrefix) {
-                return concat([originalPrefix, valueDoc]);
+                const parts = [originalPrefix, valueDoc];
+                appendInlineStructPropertyComments(parts, inlineCommentDocs);
+                return concat(parts);
             }
 
-            return concat([nameDoc, ": ", valueDoc]);
+            const parts = [nameDoc, ": ", valueDoc];
+            appendInlineStructPropertyComments(parts, inlineCommentDocs);
+            return concat(parts);
         }
         case "ArrayExpression": {
             const allowTrailingComma = shouldAllowTrailingComma(options);
@@ -1896,7 +1906,15 @@ function printElements(
         const separator = index === finalIndex ? "" : delimiter;
 
         if (docHasTrailingComment(printed)) {
-            printed.splice(-1, 0, separator);
+            if (separator !== "") {
+                const insertionIndex = printed.length - 1;
+                const precedingIndex = insertionIndex - 1;
+                const precedingValue =
+                    precedingIndex >= 0 ? printed[precedingIndex] : null;
+                if (precedingValue !== separator) {
+                    printed.splice(insertionIndex, 0, separator);
+                }
+            }
             parts.push(printed);
         } else {
             parts.push(printed, separator);
@@ -2158,6 +2176,77 @@ function getStructPropertyNameLength(property, options) {
     return typeof source === "string" ? source.length : 0;
 }
 
+function appendInlineStructPropertyComments(parts, inlineCommentDocs) {
+    if (!Array.isArray(parts) || !Array.isArray(inlineCommentDocs)) {
+        return;
+    }
+
+    const normalizedDocs = inlineCommentDocs.filter((doc) => {
+        if (doc === null || doc === undefined) {
+            return false;
+        }
+
+        if (typeof doc === "string") {
+            return doc.length > 0;
+        }
+
+        if (Array.isArray(doc)) {
+            return doc.length > 0;
+        }
+
+        return true;
+    });
+
+    if (normalizedDocs.length === 0) {
+        return;
+    }
+
+    const commentDoc =
+        normalizedDocs.length === 1
+            ? normalizedDocs[0]
+            : join(" ", normalizedDocs);
+
+    parts.push(concat([" ", commentDoc]));
+}
+
+function getInlineStructPropertyCommentDocs(propertyNode, options) {
+    const comments = propertyNode?._structInlineComments;
+    if (!Array.isArray(comments) || comments.length === 0) {
+        return [];
+    }
+
+    const docs = [];
+    const lineCommentOptions = resolveLineCommentOptions(options);
+
+    for (const comment of comments) {
+        if (!isCommentNode(comment)) {
+            continue;
+        }
+
+        comment._structPropertyHandled = true;
+
+        if (comment.type === "CommentLine") {
+            const formatted = formatLineComment(comment, lineCommentOptions);
+            if (formatted) {
+                docs.push(formatted);
+            }
+            continue;
+        }
+
+        if (comment.type === "CommentBlock") {
+            const rawValue =
+                typeof comment.value === "string"
+                    ? comment.value
+                    : comment.value == undefined
+                      ? ""
+                      : String(comment.value);
+            docs.push(`/*${rawValue}*/`);
+        }
+    }
+
+    return docs;
+}
+
 // variation of printElements that handles semicolons and line breaks in a program or block
 function isMacroLikeStatement(node) {
     const nodeType = getNodeType(node);
@@ -2247,7 +2336,8 @@ function countTrailingBlankLines(text, startIndex) {
         if (characterCode === 13) {
             // \r
             newlineCount += 1;
-            index += index + 1 < length && text.charCodeAt(index + 1) === 10 ? 2 : 1;
+            index +=
+                index + 1 < length && text.charCodeAt(index + 1) === 10 ? 2 : 1;
             continue;
         }
 
@@ -2314,6 +2404,29 @@ function printStatements(path, options, print, childrenAttribute) {
         }
 
         let semi = optionalSemicolon(node.type);
+        let printedEndsWithHardline = docEndsWithHardline(printed);
+        if (
+            !printedEndsWithHardline &&
+            node?._gmlSuppressFollowingEmptyLine &&
+            node?.type === "VariableDeclaration" &&
+            Array.isArray(node.declarations) &&
+            node.declarations.some(
+                (declaration) =>
+                    declaration?.init?.type === "StructExpression" ||
+                    declaration?.init?.type === "ConstructorExpression"
+            )
+        ) {
+            printedEndsWithHardline = true;
+        }
+        if (
+            node?._gmlSuppressFollowingEmptyLine &&
+            node?.declarations?.[0]?.init?.type === "StructExpression"
+        ) {
+            // Struct consolidations mark the initializer to suppress blank
+            // lines between the literal and the following statement. The
+            // printed doc may already end with a newline due to forced breaks
+            // inside the struct body.
+        }
         const startProp = node?.start;
         const endProp = node?.end;
         const fallbackStart =
@@ -2476,7 +2589,11 @@ function printStatements(path, options, print, childrenAttribute) {
                 !nextNodeIsMacro;
 
             if (!shouldSkipStandardHardline) {
-                parts.push(hardline);
+                if (suppressFollowingEmptyLine && printedEndsWithHardline) {
+                    // Skip adding another newline to avoid a blank spacer.
+                } else {
+                    parts.push(hardline);
+                }
             }
 
             const nextHasSyntheticDoc = nextNode
@@ -2521,6 +2638,7 @@ function printStatements(path, options, print, childrenAttribute) {
                 shouldForceBlankLineBetweenReturnPaths(node, nextNode);
 
             if (shouldForceMacroPadding) {
+                console.log("extra branch macro", node.type);
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
             } else if (
@@ -2529,6 +2647,7 @@ function printStatements(path, options, print, childrenAttribute) {
                 !shouldSuppressExtraEmptyLine &&
                 !sanitizedMacroHasExplicitBlankLine
             ) {
+                console.log("extra branch force", node.type);
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
             } else if (
@@ -2537,17 +2656,21 @@ function printStatements(path, options, print, childrenAttribute) {
                 !shouldSuppressExtraEmptyLine &&
                 !sanitizedMacroHasExplicitBlankLine
             ) {
+                console.log("extra branch early", node.type);
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
             } else if (currentNodeRequiresNewline && !nextLineEmpty) {
+                console.log("extra branch current", node.type);
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
             } else if (
                 nextLineEmpty &&
                 !nextHasSyntheticDoc &&
                 !shouldSuppressExtraEmptyLine &&
-                !sanitizedMacroHasExplicitBlankLine
+                !sanitizedMacroHasExplicitBlankLine &&
+                !suppressFollowingEmptyLine
             ) {
+                console.log("extra branch next empty", node.type);
                 parts.push(hardline);
             }
         } else if (isTopLevel) {
@@ -6783,20 +6906,154 @@ function normalizeDocMetadataName(name) {
 }
 
 function docHasTrailingComment(doc) {
-    if (isNonEmptyArray(doc)) {
-        const lastItem = doc.at(-1);
-        if (isNonEmptyArray(lastItem)) {
-            const commentArr = lastItem[0];
-            if (isNonEmptyArray(commentArr)) {
-                return commentArr.some((item) => {
-                    return (
-                        typeof item === "string" &&
-                        (item.startsWith("//") || item.startsWith("/*"))
-                    );
-                });
+    if (doc === null || doc === undefined) {
+        return false;
+    }
+
+    if (typeof doc === "string") {
+        const trimmed = doc.trimStart();
+        return trimmed.startsWith("//") || trimmed.startsWith("/*");
+    }
+
+    if (Array.isArray(doc)) {
+        for (let index = doc.length - 1; index >= 0; index -= 1) {
+            const item = doc[index];
+
+            if (item === null || item === undefined) {
+                continue;
             }
+
+            if (
+                typeof item === "object" &&
+                item !== null &&
+                item.type === "line-suffix-boundary"
+            ) {
+                continue;
+            }
+
+            if (docHasTrailingComment(item)) {
+                return true;
+            }
+
+            if (typeof item === "string" && item.trim().length === 0) {
+                continue;
+            }
+
+            if (Array.isArray(item)) {
+                continue;
+            }
+
+            return false;
+        }
+
+        return false;
+    }
+
+    if (typeof doc === "object") {
+        if (doc.type === "line-suffix") {
+            return docHasTrailingComment(doc.contents);
+        }
+
+        if (doc.type === "line-suffix-boundary") {
+            return false;
         }
     }
+
+    return false;
+}
+
+function docEndsWithHardline(doc) {
+    if (doc === null || doc === undefined) {
+        return false;
+    }
+
+    if (Array.isArray(doc)) {
+        for (let index = doc.length - 1; index >= 0; index -= 1) {
+            const item = doc[index];
+
+            if (item === null || item === undefined) {
+                continue;
+            }
+
+            if (typeof item === "string") {
+                if (item.trim().length === 0) {
+                    continue;
+                }
+
+                return false;
+            }
+
+            if (Array.isArray(item)) {
+                if (docEndsWithHardline(item)) {
+                    return true;
+                }
+                continue;
+            }
+
+            if (typeof item === "object") {
+                if (item.type === "line" && item.hard === true) {
+                    return true;
+                }
+
+                if (item.type === "hardline") {
+                    return true;
+                }
+
+                if (item.type === "if-break") {
+                    if (docEndsWithHardline(item.breakContents)) {
+                        return true;
+                    }
+                    if (docEndsWithHardline(item.flatContents)) {
+                        return true;
+                    }
+                    continue;
+                }
+
+                if (item.type === "group" && Array.isArray(item.contents)) {
+                    if (docEndsWithHardline(item.contents)) {
+                        return true;
+                    }
+                    continue;
+                }
+
+                if (item.type === "indent") {
+                    if (docEndsWithHardline(item.contents)) {
+                        return true;
+                    }
+                    continue;
+                }
+
+                continue;
+            }
+
+            return false;
+        }
+
+        return false;
+    }
+
+    if (typeof doc === "object") {
+        if (doc.type === "line" && doc.hard === true) {
+            return true;
+        }
+
+        if (doc.type === "hardline") {
+            return true;
+        }
+
+        if (doc.type === "if-break") {
+            return docEndsWithHardline(doc.breakContents);
+        }
+
+        if (doc.type === "group" && Array.isArray(doc.contents)) {
+            return docEndsWithHardline(doc.contents);
+        }
+
+        if (doc.type === "indent") {
+            return docEndsWithHardline(doc.contents);
+        }
+    }
+
     return false;
 }
 

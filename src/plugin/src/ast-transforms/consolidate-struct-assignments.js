@@ -112,7 +112,8 @@ function consolidateBlock(statements, tracker, commentTools) {
             identifierName,
             previousEnd: structEndIndex,
             tracker,
-            commentTools
+            commentTools,
+            initializerStatement: statements[index]
         });
 
         if (!collected) {
@@ -132,7 +133,8 @@ function collectPropertyAssignments({
     identifierName,
     previousEnd,
     tracker,
-    commentTools
+    commentTools,
+    initializerStatement
 }) {
     const properties = [];
     let cursor = startIndex;
@@ -187,10 +189,11 @@ function collectPropertyAssignments({
         );
 
         if (attachableComments.length > 0) {
-            const existingComments = getCommentArray(property);
-            property.comments = Array.isArray(existingComments)
-                ? [...existingComments]
-                : [];
+            Object.defineProperty(property, "_structInlineComments", {
+                value: [...attachableComments],
+                configurable: true,
+                writable: true
+            });
             for (const comment of attachableComments) {
                 comment.enclosingNode = property;
                 comment.precedingNode = property;
@@ -199,9 +202,29 @@ function collectPropertyAssignments({
                 comment.trailing = true;
                 comment.placement = "endOfLine";
                 comment._structPropertyTrailing = true;
-                comment._structPropertyHandled = false;
-                property.comments.push(comment);
             }
+            if (initializerStatement) {
+                initializerStatement._gmlSuppressFollowingEmptyLine = true;
+            }
+
+            if (commentTools === FALLBACK_COMMENT_TOOLS) {
+                const existingComments = Array.isArray(property.comments)
+                    ? property.comments
+                    : [];
+                const combinedComments =
+                    existingComments.concat(attachableComments);
+
+                Object.defineProperty(property, "comments", {
+                    value: combinedComments,
+                    configurable: true,
+                    writable: true
+                });
+            }
+            Object.defineProperty(property, "_hasTrailingInlineComment", {
+                value: true,
+                configurable: true,
+                writable: true
+            });
             const lastComment = attachableComments.at(-1);
             const commentEnd = getNodeEndIndex(lastComment);
             lastEnd = commentEnd == undefined ? end : commentEnd;
