@@ -151,12 +151,23 @@ function normalizeMultilineText(text) {
         return null;
     }
 
-    const trimmedLines = text.split("\n").map((line) => line.trim());
-    const collapsedLines = trimmedLines.filter((line, index) => {
-        return line.length > 0 || trimmedLines[index - 1]?.length > 0;
-    });
+    const normalizedLines = [];
+    let previousHadContent = false;
 
-    return collapsedLines.join("\n").trim();
+    for (const rawLine of text.split("\n")) {
+        const line = rawLine.trim();
+        const hasContent = line.length > 0;
+
+        if (hasContent) {
+            normalizedLines.push(line);
+        } else if (previousHadContent) {
+            normalizedLines.push("");
+        }
+
+        previousHadContent = hasContent;
+    }
+
+    return normalizedLines.join("\n").trim();
 }
 
 function sanitizeManualString(value) {
