@@ -197,22 +197,16 @@ function applyFormatMaxIterationsEnvOverride(env) {
 
 const sampleCache = new Map();
 const objectPrototypeToString = Object.prototype.toString;
+const OBJECT_TAG_PATTERN = /^\[object (\w+)\]$/;
+const STARTS_WITH_VOWEL_PATTERN = /^[aeiou]/i;
+
+function formatWithIndefiniteArticle(label) {
+    return `${STARTS_WITH_VOWEL_PATTERN.test(label) ? "an" : "a"} ${label}`;
+}
 
 function resolveProjectPath(relativePath) {
     return path.resolve(PROJECT_ROOT, relativePath);
 }
-
-/**
- * Capture the intrinsic tag for a value without exposing the full
- * Object.prototype chain at call sites.
- *
- * @param {unknown} value A runtime value to classify.
- * @returns {string} ECMAScript "toString" tag for the value.
- */
-function getObjectTag(value) {
-    return objectPrototypeToString.call(value);
-}
-
 async function loadPrettierStandalone() {
     const module = await import("prettier/standalone.mjs");
     return resolveModuleDefaultExport(module);
@@ -239,25 +233,23 @@ function describeFormatterOptionsValue(value) {
         return "an array";
     }
 
-    const type = typeof value;
-    if (type === "undefined") {
+    if (value === undefined) {
         return "undefined";
     }
 
-    if (type === "object") {
-        const tag = getObjectTag(value);
-        const match = /^\[object (\w+)\]$/.exec(tag);
-        if (match && match[1] !== "Object") {
-            const label = match[1];
-            const article = /^[AEIOU]/i.test(label) ? "an" : "a";
-            return `${article} ${label} object`;
-        }
-
-        return "an object";
+    const type = typeof value;
+    if (type !== "object") {
+        return formatWithIndefiniteArticle(type);
     }
 
-    const article = /^[aeiou]/i.test(type) ? "an" : "a";
-    return `${article} ${type}`;
+    const [, tagLabel] =
+        OBJECT_TAG_PATTERN.exec(objectPrototypeToString.call(value)) ?? [];
+
+    if (tagLabel && tagLabel !== "Object") {
+        return `${formatWithIndefiniteArticle(tagLabel)} object`;
+    }
+
+    return "an object";
 }
 
 function buildFormatterOptionsTypeErrorMessage(source, value) {
