@@ -6612,9 +6612,7 @@ function shouldOmitSyntheticParens(path) {
                         childOperator === "/" ||
                         childOperator === "div" ||
                         childOperator === "%" ||
-                        childOperator === "mod" ||
-                        (childOperator === "*" &&
-                            !isWithinNumericCallArgument(path))
+                        childOperator === "mod"
                     ) {
                         return false;
                     }

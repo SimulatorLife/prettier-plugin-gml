@@ -125,7 +125,7 @@ test("flattens standalone multiplication groups added together", async () => {
         "/// @param bx",
         "/// @param by",
         "function dot(ax, ay, bx, by) {",
-        "    return (ax * bx) + (ay * by);",
+        "    return ax * bx + ay * by;",
         "}",
         ""
     ].join("\n");
@@ -133,7 +133,24 @@ test("flattens standalone multiplication groups added together", async () => {
     assert.strictEqual(
         formatted.trim(),
         expectedLines.trim(),
-        "Expected additive chains of multiplication groups outside numeric calls to retain synthetic parentheses."
+        "Expected additive chains of multiplication groups outside numeric calls to omit redundant synthetic parentheses."
+    );
+});
+
+test("flattens squared distance additions outside numeric calls", async () => {
+    const source = ["var actual_dist = xoff * xoff + yoff * yoff;", ""].join(
+        "\n"
+    );
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    assert.strictEqual(
+        formatted.trim(),
+        "var actual_dist = xoff * xoff + yoff * yoff;",
+        "Expected squared offset additions outside numeric calls to omit redundant synthetic parentheses."
     );
 });
 
