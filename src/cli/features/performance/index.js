@@ -25,6 +25,7 @@ import {
     coercePositiveInteger,
     ensureDir,
     isFiniteNumber,
+    getErrorMessageOrFallback,
     getIdentifierText,
     resolveIntegerOption,
     toNormalizedInteger,
@@ -749,7 +750,7 @@ function createHumanReadableSuiteLines({ suite, payload }) {
     }
 
     if (payload?.error) {
-        const errorMessage = payload.error?.message ?? "Unknown error";
+        const errorMessage = getErrorMessageOrFallback(payload.error);
         lines.push(`  - error: ${errorMessage}`);
         return lines;
     }
