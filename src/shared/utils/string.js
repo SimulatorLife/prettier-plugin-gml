@@ -91,13 +91,12 @@ const CHAR_CODE_LOWER_END = 122; // z
 const CHAR_CODE_UNDERSCORE = 95; // _
 
 export function isWordChar(character) {
-    if (!isNonEmptyString(character)) {
+    if (typeof character !== "string" || character.length === 0) {
         return false;
     }
 
-    const code = character.codePointAt(0);
-
-    if (code === undefined) {
+    const code = character.charCodeAt(0);
+    if (!Number.isFinite(code)) {
         return false;
     }
 
