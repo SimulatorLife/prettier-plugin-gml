@@ -13,6 +13,7 @@ export {
     coercePositiveInteger,
     createEnvConfiguredValue,
     createEnvConfiguredValueWithFallback,
+    describeValueForMessage,
     getErrorCode,
     getErrorMessage,
     getErrorMessageOrFallback,

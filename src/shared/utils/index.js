@@ -15,3 +15,4 @@ export * from "./object.js";
 export * from "./path.js";
 export * from "./regexp.js";
 export * from "./string.js";
+export * from "./value-description.js";

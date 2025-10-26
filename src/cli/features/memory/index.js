@@ -10,6 +10,7 @@ import {
     appendToCollection,
     createEnvConfiguredValue,
     createEnvConfiguredValueWithFallback,
+    describeValueForMessage,
     getErrorMessageOrFallback,
     incrementMapValue,
     isNonEmptyString,
@@ -122,7 +123,6 @@ const formatIterationLimitConfig = createEnvConfiguredValueWithFallback({
 });
 
 const sampleCache = new Map();
-const objectPrototypeToString = Object.prototype.toString;
 
 function resolveProjectPath(relativePath) {
     return path.resolve(PROJECT_ROOT, relativePath);
@@ -135,10 +135,6 @@ function resolveProjectPath(relativePath) {
  * @param {unknown} value A runtime value to classify.
  * @returns {string} ECMAScript "toString" tag for the value.
  */
-function getObjectTag(value) {
-    return objectPrototypeToString.call(value);
-}
-
 async function loadPrettierStandalone() {
     const module = await import("prettier/standalone.mjs");
     return resolveModuleDefaultExport(module);
@@ -156,39 +152,10 @@ async function loadSampleText(label, relativePath) {
     return record;
 }
 
-function describeFormatterOptionsValue(value) {
-    if (value === null) {
-        return "null";
-    }
-
-    if (Array.isArray(value)) {
-        return "an array";
-    }
-
-    const type = typeof value;
-    if (type === "undefined") {
-        return "undefined";
-    }
-
-    if (type === "object") {
-        const tag = getObjectTag(value);
-        const match = /^\[object (\w+)\]$/.exec(tag);
-        if (match && match[1] !== "Object") {
-            const label = match[1];
-            const article = /^[AEIOU]/i.test(label) ? "an" : "a";
-            return `${article} ${label} object`;
-        }
-
-        return "an object";
-    }
-
-    const article = /^[aeiou]/i.test(type) ? "an" : "a";
-    return `${article} ${type}`;
-}
-
 function buildFormatterOptionsTypeErrorMessage(source, value) {
     const location = source ? ` at ${source}` : "";
-    return `Formatter options fixture${location} must be a JSON object. Received ${describeFormatterOptionsValue(value)}.`;
+    const description = describeValueForMessage(value);
+    return `Formatter options fixture${location} must be a JSON object. Received ${description}.`;
 }
 
 /**

@@ -4,6 +4,7 @@ import { Command } from "commander";
 
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import {
+    describeValueForMessage,
     getErrorMessageOrFallback,
     normalizeIdentifierMetadataEntries,
     toNormalizedLowerCaseSet,
@@ -313,45 +314,11 @@ function normalizeIdentifier(name) {
 }
 
 function describeManualIdentifierArrayValue(value) {
-    if (value === null) {
-        return "null";
-    }
-
-    if (value === undefined) {
-        return "undefined";
-    }
-
-    if (Array.isArray(value)) {
-        return "an array";
-    }
-
-    const type = typeof value;
-
-    if (type === "string") {
-        return value.length === 0 ? "an empty string" : "a string";
-    }
-
-    if (type === "boolean") {
-        return "a boolean";
-    }
-
-    if (type === "number" || type === "bigint") {
-        return `a ${type}`;
-    }
-
-    if (type === "function") {
-        return "a function";
-    }
-
-    if (type === "symbol") {
-        return "a symbol";
-    }
-
-    if (type === "object") {
-        return "an object";
-    }
-
-    return `a ${type}`;
+    return describeValueForMessage(value, {
+        stringDescription: (text) =>
+            text.length === 0 ? "an empty string" : "a string",
+        objectDescription: () => "an object"
+    });
 }
 
 function formatManualIdentifierArrayLabel({ identifier, source }) {

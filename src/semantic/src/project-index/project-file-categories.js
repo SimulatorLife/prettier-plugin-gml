@@ -1,3 +1,4 @@
+import { describeValueForMessage } from "../dependencies.js";
 import { isProjectManifestPath } from "./constants.js";
 
 const DEFAULT_PROJECT_SOURCE_EXTENSIONS = Object.freeze([".gml"]);
@@ -103,7 +104,20 @@ export function normalizeProjectFileCategory(value) {
         return value;
     }
 
-    const received = value === undefined ? "undefined" : `'${String(value)}'`;
+    const quote = (input) => `'${String(input)}'`;
+    const received = describeValueForMessage(value, {
+        undefinedDescription: "undefined",
+        nullDescription: "'null'",
+        arrayDescription: (input) => quote(input),
+        stringDescription: (input) => quote(input),
+        numberDescription: (input) => quote(input),
+        bigintDescription: (input) => quote(input),
+        booleanDescription: (input) => quote(input),
+        functionDescription: (input) => quote(input),
+        symbolDescription: (input) => quote(input),
+        objectDescription: (input) => quote(input),
+        fallbackDescription: (input) => quote(input)
+    });
     throw new RangeError(
         `Project file category must be one of: ${PROJECT_FILE_CATEGORY_CHOICES}. Received ${received}.`
     );
