@@ -247,29 +247,52 @@ export function createCliErrorDetails(
     return details;
 }
 
-export function handleCliError(error, { exitCode = 1, prefix } = {}) {
+function resolveCliErrorUsage(error) {
+    if (error && typeof error === "object" && typeof error.usage === "string") {
+        return error.usage;
+    }
+
+    return null;
+}
+
+function appendLineIfPresent(lines, value) {
+    if (!value) {
+        return;
+    }
+
+    lines.push(value);
+}
+
+function appendUsageSection(lines, usage) {
+    if (!usage) {
+        return;
+    }
+
+    if (lines.length > 0 && lines.at(-1) !== "") {
+        lines.push("");
+    }
+
+    lines.push(usage);
+}
+
+function buildCliErrorLines({ prefix, formattedError, usage }) {
     const lines = [];
 
-    if (prefix) {
-        lines.push(prefix);
-    }
+    appendLineIfPresent(lines, prefix);
+    appendLineIfPresent(lines, formattedError);
+    appendUsageSection(lines, usage);
 
+    return lines;
+}
+
+export function handleCliError(error, { exitCode = 1, prefix } = {}) {
     const formatted = formatCliError(error);
-    if (formatted) {
-        lines.push(formatted);
-    }
-
-    const usage =
-        error && typeof error === "object" && typeof error.usage === "string"
-            ? error.usage
-            : null;
-
-    if (usage) {
-        if (lines.length > 0 && lines.at(-1) !== "") {
-            lines.push("");
-        }
-        lines.push(usage);
-    }
+    const usage = resolveCliErrorUsage(error);
+    const lines = buildCliErrorLines({
+        prefix,
+        formattedError: formatted,
+        usage
+    });
 
     const output = lines.join("\n");
     if (output) {
