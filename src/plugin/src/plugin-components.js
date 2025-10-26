@@ -67,6 +67,22 @@ export function getGmlPluginComponentProvider() {
 const OBSERVER_ABORT_MESSAGE =
     "GML plugin component observer registration was aborted.";
 
+/**
+ * Subscribe to notifications whenever the plugin component map changes.
+ *
+ * Observers receive the most recent, normalized component snapshot each time a
+ * provider update is applied via {@link setGmlPluginComponentProvider} or when
+ * defaults are restored. Callers may supply an {@link AbortSignal} on
+ * `options.signal` to automatically unsubscribe; if that signal is already
+ * aborted, registration resolves to a no-op unsubscribe handler so callers can
+ * treat cancellation as an idempotent cleanup step.
+ *
+ * @param {(components: ReturnType<typeof resolveGmlPluginComponents>) => void} observer
+ *        Callback invoked with the active component map.
+ * @param {{ signal?: AbortSignal }} [options]
+ *        Optional bag supporting abort-driven unsubscription.
+ * @returns {() => void} Function that unsubscribes the observer when invoked.
+ */
 export function addGmlPluginComponentObserver(observer, options = {}) {
     const normalizedObserver = assertFunction(observer, "observer", {
         errorMessage: "GML plugin component observers must be functions"
