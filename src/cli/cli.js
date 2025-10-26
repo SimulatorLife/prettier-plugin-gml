@@ -90,6 +90,7 @@ import {
     runGenerateFeatherMetadata
 } from "./commands/generate-feather-metadata.js";
 import { resolveCliIdentifierCaseCacheClearer } from "./plugin/services.js";
+import { isCliRunSkipped } from "./shared/dependencies.js";
 import {
     getDefaultSkippedDirectorySampleLimit,
     resolveSkippedDirectorySampleLimit,
@@ -477,30 +478,108 @@ function normalizeTargetPathInput(rawInput) {
     };
 }
 
+/**
+ * Extract the first positional argument provided to a Commander command.
+ *
+ * @param {import("commander").Command} command
+ * @returns {unknown}
+ */
+function extractPositionalTarget(command) {
+    const args = command?.args;
+    if (!Array.isArray(args) || args.length === 0) {
+        return null;
+    }
+
+    return args[0];
+}
+
+/**
+ * Determine the raw target path input supplied via positional or option values.
+ *
+ * @param {import("commander").Command} command
+ * @param {Record<string, unknown>} options
+ * @returns {unknown}
+ */
+function resolveTargetPathCandidate(command, options) {
+    return options.path ?? extractPositionalTarget(command) ?? null;
+}
+
+/**
+ * Normalize CLI target path inputs into the structured representation used by
+ * the formatting workflow.
+ *
+ * @param {import("commander").Command} command
+ * @param {Record<string, unknown>} options
+ */
+function resolveTargetPathInputs(command, options) {
+    return normalizeTargetPathInput(
+        resolveTargetPathCandidate(command, options)
+    );
+}
+
+/**
+ * Normalize the configured extensions into the array form expected by the
+ * formatter.
+ *
+ * @param {Record<string, unknown>} options
+ * @returns {readonly string[]}
+ */
+function resolveFormatCommandExtensions(options) {
+    const rawExtensions = options.extensions ?? DEFAULT_EXTENSIONS;
+    return Array.isArray(rawExtensions)
+        ? rawExtensions
+        : [...(rawExtensions ?? DEFAULT_EXTENSIONS)];
+}
+
+/**
+ * Gather the sample limit overrides supplied to the format command.
+ *
+ * @param {Record<string, unknown>} options
+ */
+function resolveFormatCommandSampleLimits(options) {
+    return {
+        skippedDirectorySampleLimit:
+            options.ignoredDirectorySampleLimit ??
+            options.ignoredDirectorySamples,
+        ignoredFileSampleLimit: options.ignoredFileSampleLimit,
+        unsupportedExtensionSampleLimit: options.unsupportedExtensionSampleLimit
+    };
+}
+
+/**
+ * Resolve Prettier configuration flags supplied by the format command.
+ *
+ * @param {Record<string, unknown>} options
+ */
+function resolvePrettierConfiguration(options) {
+    return {
+        prettierLogLevel: options.logLevel ?? DEFAULT_PRETTIER_LOG_LEVEL,
+        onParseError: options.onParseError ?? DEFAULT_PARSE_ERROR_ACTION,
+        checkMode: Boolean(options.check)
+    };
+}
+
 function collectFormatCommandOptions(command) {
     const options = command.opts();
-    const [positionalTarget] = command.args ?? [];
-    const extensions = options.extensions ?? DEFAULT_EXTENSIONS;
-
-    const { targetPathInput, targetPathProvided } = normalizeTargetPathInput(
-        options.path ?? positionalTarget ?? null
+    const { targetPathInput, targetPathProvided } = resolveTargetPathInputs(
+        command,
+        options
     );
-
-    const skippedDirectorySampleLimit =
-        options.ignoredDirectorySampleLimit ?? options.ignoredDirectorySamples;
-    const ignoredFileSampleLimit = options.ignoredFileSampleLimit;
-    const unsupportedExtensionSampleLimit =
-        options.unsupportedExtensionSampleLimit;
+    const {
+        skippedDirectorySampleLimit,
+        ignoredFileSampleLimit,
+        unsupportedExtensionSampleLimit
+    } = resolveFormatCommandSampleLimits(options);
+    const { prettierLogLevel, onParseError, checkMode } =
+        resolvePrettierConfiguration(options);
 
     return {
         targetPathInput,
         targetPathProvided,
-        extensions: Array.isArray(extensions)
-            ? extensions
-            : [...(extensions ?? DEFAULT_EXTENSIONS)],
-        prettierLogLevel: options.logLevel ?? DEFAULT_PRETTIER_LOG_LEVEL,
-        onParseError: options.onParseError ?? DEFAULT_PARSE_ERROR_ACTION,
-        checkMode: Boolean(options.check),
+        extensions: resolveFormatCommandExtensions(options),
+        prettierLogLevel,
+        onParseError,
+        checkMode,
         skippedDirectorySampleLimit,
         ignoredFileSampleLimit,
         unsupportedExtensionSampleLimit,
@@ -1462,7 +1541,11 @@ function logNoMatchingFiles({
           })
         : formattedTarget;
     const guidance = targetIsDirectory
-        ? "Adjust --extensions or update your .prettierignore files if this is unexpected."
+        ? [
+              "Provide a directory or file containing GameMaker Language sources",
+              "(for example: prettier-plugin-gml format path/to/project) or adjust",
+              "--extensions / update your .prettierignore files if this is unexpected."
+          ].join(" ")
         : "Pass --extensions to include this file or adjust your .prettierignore files if this is unexpected.";
     const ignoredFilesSkipped = skippedFileSummary.ignored > 0;
     const ignoredMessageSuffix =
@@ -1730,7 +1813,7 @@ cliCommandRegistry.registerCommand({
         })
 });
 
-if (process.env.PRETTIER_PLUGIN_GML_SKIP_CLI_RUN !== "1") {
+if (!isCliRunSkipped()) {
     const normalizedArguments = normalizeCommandLineArguments(
         process.argv.slice(2)
     );

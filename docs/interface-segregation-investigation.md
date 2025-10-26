@@ -177,3 +177,14 @@ no code changes were required.
   the wide manager surface.
 - Updated the unit tests to assert against the segregated services, ensuring
   each interface exposes only the behaviour it owns.
+
+## Follow-up audit (2025-11-19)
+
+- Re-audited the CLI plugin default services and found the
+  `CliIdentifierCaseServices` bundle lingering in
+  `src/cli/plugin/service-providers/default.js`. The bundle coupled the
+  preparation and cache collaborators into a single "services" interface,
+  forcing callers that only needed one helper to depend on both behaviours.
+- Removed the aggregated contract and now return only the focused preparation
+  and cache services. Updated the accompanying unit tests to assert against the
+  specialised collaborators and verify the bundle property no longer exists.

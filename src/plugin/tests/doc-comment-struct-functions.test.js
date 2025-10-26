@@ -83,6 +83,34 @@ test("struct static functions drop stray @param tags when no parameters", async 
     ]);
 });
 
+test("struct static functions keep implicit argument docs", async () => {
+    const source = `function container() constructor {
+    /// @function dispatch
+    /// @param {real} argument0
+    /// @description Example description
+    /// @returns {real}
+    static dispatch = function() {
+        return argument[0];
+    };
+}`;
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    const docBlocks = extractDocBlocks(formatted);
+    const dispatchBlock = docBlocks.find((block) =>
+        block.includes("/// @function dispatch")
+    );
+
+    assert.ok(dispatchBlock, "Expected to find doc block for dispatch().");
+    assert.ok(
+        dispatchBlock.includes("/// @param {real} argument0"),
+        "Expected to retain documented implicit argument entries."
+    );
+});
+
 test("struct static function descriptions follow the @function tag", async () => {
     const source = `function container() constructor {
     /// @description Example description

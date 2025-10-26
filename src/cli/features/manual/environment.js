@@ -5,9 +5,9 @@ import {
 } from "./utils.js";
 import {
     PROGRESS_BAR_WIDTH_ENV_VAR,
-    resolveProgressBarWidth
+    resolveProgressBarWidth,
+    applyEnvOptionOverrides
 } from "../command-dependencies.js";
-import { applyEnvOptionOverrides } from "../command-dependencies.js";
 import { resolveCommandUsage } from "../shared/dependencies.js";
 
 export const MANUAL_REF_ENV_VAR = "GML_MANUAL_REF";

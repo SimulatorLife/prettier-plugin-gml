@@ -1,4 +1,4 @@
-import { assertFunction } from "./object.js";
+import { assertFunction, isObjectLike } from "./object.js";
 import { assertNonEmptyString } from "./string.js";
 
 /**
@@ -47,7 +47,7 @@ export function applyEnvironmentOverride({
 }
 
 function resolveEnvironmentMap(candidate) {
-    if (candidate && typeof candidate === "object") {
+    if (isObjectLike(candidate)) {
         return candidate;
     }
 

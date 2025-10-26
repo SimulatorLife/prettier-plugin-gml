@@ -171,30 +171,21 @@ export function coalesceOption(
         return fallback;
     }
 
-    // Avoid allocating throwaway arrays for the common case where call sites
-    // probe a single property. This helper is used heavily during option
-    // normalization, so shaving the extra allocation keeps repeated lookups
-    // inexpensive without altering the observable behaviour.
-    if (Array.isArray(keys)) {
-        for (const key of keys) {
-            const value = object[key];
+    const normalizedKeys = Array.isArray(keys)
+        ? keys
+        : keys == null
+          ? []
+          : [keys];
 
-            if (value !== undefined && (acceptNull || value !== null)) {
-                return value;
-            }
+    for (const key of normalizedKeys) {
+        const value = object[key];
+
+        if (value !== undefined && (acceptNull || value !== null)) {
+            return value;
         }
-
-        return fallback;
     }
 
-    if (keys == null) {
-        return fallback;
-    }
-
-    const value = object[keys];
-    return value !== undefined && (acceptNull || value !== null)
-        ? value
-        : fallback;
+    return fallback;
 }
 
 /**
