@@ -59,14 +59,14 @@ function normalizeCoreOptionOverrides(overrides) {
         return DEFAULT_CORE_OPTION_OVERRIDES;
     }
 
-    const normalized = {};
     let changed = false;
+    const normalizedEntries = [];
 
     for (const key of CORE_OVERRIDE_KEYS) {
         const defaultValue = DEFAULT_CORE_OPTION_OVERRIDES[key];
 
         if (!Object.hasOwn(overrides, key)) {
-            normalized[key] = defaultValue;
+            normalizedEntries.push([key, defaultValue]);
             continue;
         }
 
@@ -77,28 +77,25 @@ function normalizeCoreOptionOverrides(overrides) {
             continue;
         }
 
-        const normalizer = CORE_OVERRIDE_NORMALIZERS[key];
-        const value = normalizer(candidate);
+        const value = CORE_OVERRIDE_NORMALIZERS[key](candidate);
 
         if (value === undefined) {
-            normalized[key] = defaultValue;
+            normalizedEntries.push([key, defaultValue]);
             continue;
         }
 
-        normalized[key] = value;
         if (value !== defaultValue) {
             changed = true;
         }
+
+        normalizedEntries.push([key, value]);
     }
 
-    if (
-        !changed &&
-        Object.keys(normalized).length === CORE_OVERRIDE_KEYS.length
-    ) {
+    if (!changed && normalizedEntries.length === CORE_OVERRIDE_KEYS.length) {
         return DEFAULT_CORE_OPTION_OVERRIDES;
     }
 
-    return Object.freeze(normalized);
+    return Object.freeze(Object.fromEntries(normalizedEntries));
 }
 
 function resolveCoreOptionOverrides(options = {}) {
