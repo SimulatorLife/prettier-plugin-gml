@@ -17,7 +17,10 @@ import {
     downloadManualEntriesWithProgress,
     ensureManualRefHasSha
 } from "../features/manual/utils.js";
-import { timeSync, createVerboseDurationLogger } from "../shared/time-utils.js";
+import {
+    timeSync,
+    createVerboseDurationLogger
+} from "../shared/dependencies.js";
 import { disposeProgressBars } from "../shared/progress-bar.js";
 import {
     resolveVmEvalTimeout,

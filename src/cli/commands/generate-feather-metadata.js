@@ -11,7 +11,10 @@ import {
     toNormalizedLowerCaseSet
 } from "../shared/dependencies.js";
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
-import { timeSync, createVerboseDurationLogger } from "../shared/time-utils.js";
+import {
+    timeSync,
+    createVerboseDurationLogger
+} from "../shared/dependencies.js";
 import { disposeProgressBars } from "../shared/progress-bar.js";
 import { writeManualJsonArtifact } from "../features/manual/file-helpers.js";
 import {
