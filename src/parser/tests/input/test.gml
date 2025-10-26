@@ -236,3 +236,12 @@ function vertex_buffer_write_triangular_prism(vbuff, colour = c_white, alpha = 1
     // X = +hx cap: R1, R0, RA
     vertex_buffer_write_triangle(vbuff, R1, R0, RA, uv00, uv10, uv11, colour, alpha, trans_mat);
 }
+
+/// @function InputButtonKeyboard
+/// @param {real} button
+/// @description Input for a keyboard key
+function InputButtonKeyboard(button) : AbstractInputButton(button, eInputType.keyboard) constructor {
+
+    /* Keyboard input handling goes here */
+
+}
