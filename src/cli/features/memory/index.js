@@ -9,11 +9,11 @@ import { Command, InvalidArgumentError } from "commander";
 import {
     appendToCollection,
     createEnvConfiguredValue,
+    createEnumeratedOptionHelpers,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
     incrementMapValue,
     isNonEmptyString,
-    normalizeEnumeratedOption,
     normalizeStringList,
     loadGmlParser,
     resolveModuleDefaultExport,
@@ -63,45 +63,30 @@ export const MemorySuiteName = Object.freeze({
     PLUGIN_FORMAT: "plugin-format"
 });
 
-const MEMORY_SUITE_NAMES = new Set(Object.values(MemorySuiteName));
+const memorySuiteHelpers = createEnumeratedOptionHelpers(
+    Object.values(MemorySuiteName),
+    {
+        coerce(input) {
+            if (typeof input !== "string") {
+                throw new TypeError(
+                    `Memory suite name must be provided as a string (received type '${typeof input}').`
+                );
+            }
 
-const MEMORY_SUITE_NAME_LIST = Object.freeze(
-    [...MEMORY_SUITE_NAMES].sort().join(", ")
+            return input.trim().toLowerCase();
+        },
+        formatErrorMessage({ list, received }) {
+            return `Memory suite must be one of: ${list}. Received: ${received}.`;
+        }
+    }
 );
 
 export function formatMemorySuiteNameList() {
-    return MEMORY_SUITE_NAME_LIST;
+    return memorySuiteHelpers.formatList();
 }
 
 export function normalizeMemorySuiteName(value, { errorConstructor } = {}) {
-    const normalized = normalizeEnumeratedOption(
-        value,
-        null,
-        MEMORY_SUITE_NAMES,
-        {
-            coerce(input) {
-                if (typeof input !== "string") {
-                    throw new TypeError(
-                        `Memory suite name must be provided as a string (received type '${typeof input}').`
-                    );
-                }
-
-                return input.trim().toLowerCase();
-            }
-        }
-    );
-
-    if (normalized) {
-        return normalized;
-    }
-
-    const ErrorConstructor =
-        typeof errorConstructor === "function" ? errorConstructor : Error;
-    const received = JSON.stringify(value);
-
-    throw new ErrorConstructor(
-        `Memory suite must be one of: ${formatMemorySuiteNameList()}. Received: ${received}.`
-    );
+    return memorySuiteHelpers.requireValue(value, { errorConstructor });
 }
 
 function normalizeMemoryReportDirectory(value, fallback) {
