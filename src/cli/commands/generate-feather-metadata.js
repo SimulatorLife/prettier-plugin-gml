@@ -68,8 +68,8 @@ const {
         defaultCacheRoot: DEFAULT_CACHE_ROOT,
         defaultOutputPath: OUTPUT_DEFAULT
     },
-    fetchManualFile,
-    resolveManualRef
+    fileAccess: { fetchManualFile },
+    referenceAccess: { resolveManualRef }
 } = createManualAccessContexts({
     importMetaUrl: import.meta.url,
     userAgent: "prettier-plugin-gml feather metadata generator",
