@@ -1,3 +1,5 @@
+import { isRegExpLike } from "../shared/index.js";
+
 const LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES = 5;
 const LINE_COMMENT_BANNER_STANDARD_LENGTH = 60;
 
@@ -67,7 +69,7 @@ function normalizeBoilerplateFragments(fragments) {
 function normalizeCodeDetectionPatterns(patterns) {
     return normalizeArrayOption(patterns, {
         defaultValue: DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns,
-        filter: (value) => value instanceof RegExp
+        filter: (value) => isRegExpLike(value)
     });
 }
 
