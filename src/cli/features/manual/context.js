@@ -3,10 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import {
     buildManualRepositoryEndpoints,
-    createManualGitHubFileClient,
-    createManualGitHubCommitResolver,
-    createManualGitHubRefResolver,
-    createManualGitHubRequestDispatcher,
+    createManualGitHubClientBundle,
     resolveManualCacheRoot
 } from "./utils.js";
 import {
@@ -121,18 +118,13 @@ function buildManualCommandContext({
     const defaultCacheRoot = resolveManualCacheRoot({ repoRoot });
     const { rawRoot: defaultManualRawRoot } = buildManualRepositoryEndpoints();
 
-    const manualRequests = createManualGitHubRequestDispatcher({
-        userAgent: assertUserAgent(userAgent)
-    });
-    const manualCommitResolver = createManualGitHubCommitResolver({
-        requestDispatcher: manualRequests
-    });
-    const manualRefResolver = createManualGitHubRefResolver({
+    const {
         requestDispatcher: manualRequests,
-        commitResolver: manualCommitResolver
-    });
-    const manualFileFetcher = createManualGitHubFileClient({
-        requestDispatcher: manualRequests,
+        commitResolver: manualCommitResolver,
+        refResolver: manualRefResolver,
+        fileClient: manualFileFetcher
+    } = createManualGitHubClientBundle({
+        userAgent: assertUserAgent(userAgent),
         defaultCacheRoot,
         defaultRawRoot: defaultManualRawRoot
     });

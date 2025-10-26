@@ -5,10 +5,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
 import {
-    createManualGitHubFileClient,
-    createManualGitHubCommitResolver,
-    createManualGitHubRefResolver,
-    createManualGitHubRequestDispatcher,
+    createManualGitHubClientBundle,
     createManualVerboseState
 } from "../features/manual/utils.js";
 
@@ -30,27 +27,18 @@ function createManualClientBundle({
     defaultCacheRoot,
     defaultRawRoot
 }) {
-    const requestDispatcher = createManualGitHubRequestDispatcher({
-        userAgent
-    });
-    const commitResolver = createManualGitHubCommitResolver({
-        requestDispatcher
-    });
-    const refResolver = createManualGitHubRefResolver({
-        requestDispatcher,
-        commitResolver
-    });
-    const fileFetcher = createManualGitHubFileClient({
-        requestDispatcher,
-        defaultCacheRoot,
-        defaultRawRoot
-    });
+    const { requestDispatcher, commitResolver, refResolver, fileClient } =
+        createManualGitHubClientBundle({
+            userAgent,
+            defaultCacheRoot,
+            defaultRawRoot
+        });
 
     return {
         requestDispatcher,
         commitResolver,
         refResolver,
-        fileFetcher
+        fileFetcher: fileClient
     };
 }
 
@@ -173,12 +161,11 @@ describe("manual GitHub client validation", () => {
     });
 
     it("rejects manual commit payloads without a SHA", async () => {
-        const client = createManualClientBundle({
+        const { refResolver } = createManualClientBundle({
             userAgent: "test-agent",
             defaultCacheRoot: "/tmp/manual-cache",
             defaultRawRoot: "https://raw.github.com/example/manual"
         });
-        const { refResolver } = client;
 
         const responses = [
             {
