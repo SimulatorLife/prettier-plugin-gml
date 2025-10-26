@@ -175,7 +175,10 @@ function attemptConvertSquare(node, helpers, context) {
         return false;
     }
 
-    if (!areNodesEquivalent(left, right)) {
+    if (
+        !areNodesEquivalent(left, right) &&
+        !areNodesApproximatelyEquivalent(left, right)
+    ) {
         return false;
     }
 
@@ -604,7 +607,12 @@ function matchSquaredDifferences(expression, helpers) {
         const left = unwrapExpression(product.left);
         const right = unwrapExpression(product.right);
 
-        if (!left || !right || !areNodesEquivalent(left, right)) {
+        if (
+            !left ||
+            !right ||
+            (!areNodesEquivalent(left, right) &&
+                !areNodesApproximatelyEquivalent(left, right))
+        ) {
             return null;
         }
 
@@ -830,6 +838,15 @@ function computeNumericTolerance(expected, providedTolerance) {
     return Number.EPSILON * magnitude * 4;
 }
 
+function areLiteralNumbersApproximatelyEqual(left, right) {
+    const tolerance = Math.max(
+        computeNumericTolerance(left),
+        computeNumericTolerance(right)
+    );
+
+    return Math.abs(left - right) <= tolerance;
+}
+
 function isLiteralNumber(node, expected, tolerance) {
     const value = parseNumericLiteral(node);
     if (value === undefined || value === null) {
@@ -891,6 +908,57 @@ function isPiIdentifier(node) {
         typeof expression.name === "string" &&
         expression.name.toLowerCase() === "pi"
     );
+}
+
+function areNodesApproximatelyEquivalent(a, b) {
+    if (areNodesEquivalent(a, b)) {
+        return true;
+    }
+
+    const left = unwrapExpression(a);
+    const right = unwrapExpression(b);
+
+    if (!left || !right || left.type !== right.type) {
+        return false;
+    }
+
+    switch (left.type) {
+        case IDENTIFIER: {
+            return left.name === right.name;
+        }
+        case LITERAL: {
+            const leftNumber = parseNumericLiteral(left);
+            const rightNumber = parseNumericLiteral(right);
+
+            if (
+                typeof leftNumber === "number" &&
+                typeof rightNumber === "number"
+            ) {
+                return areLiteralNumbersApproximatelyEqual(
+                    leftNumber,
+                    rightNumber
+                );
+            }
+
+            return false;
+        }
+        case BINARY_EXPRESSION: {
+            return (
+                left.operator === right.operator &&
+                areNodesApproximatelyEquivalent(left.left, right.left) &&
+                areNodesApproximatelyEquivalent(left.right, right.right)
+            );
+        }
+        case UNARY_EXPRESSION: {
+            return (
+                left.operator === right.operator &&
+                areNodesApproximatelyEquivalent(left.argument, right.argument)
+            );
+        }
+        default: {
+            return false;
+        }
+    }
 }
 
 function areNodesEquivalent(a, b) {
