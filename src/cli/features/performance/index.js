@@ -71,16 +71,18 @@ function resolveCachedDataset(cache) {
         return null;
     }
 
-    if (typeof entry?.deref === "function") {
-        const dataset = entry.deref();
-        if (dataset) {
-            return dataset;
-        }
-        cache.delete(DATASET_CACHE_KEY);
-        return null;
+    const deref = typeof entry?.deref === "function" ? entry.deref : null;
+    if (!deref) {
+        return entry;
     }
 
-    return entry;
+    const dataset = deref.call(entry);
+    if (dataset) {
+        return dataset;
+    }
+
+    cache.delete(DATASET_CACHE_KEY);
+    return null;
 }
 
 function storeDatasetInCache(cache, dataset) {
