@@ -11,6 +11,7 @@ import {
     applyStandardCommandOptions,
     collectSuiteResults,
     createCliErrorDetails,
+    emitSuiteResults,
     ensureSuitesAreKnown,
     formatByteSize,
     resolvePluginEntryPoint,
@@ -832,19 +833,13 @@ function printHumanReadable(report) {
 }
 
 function emitReport(report, options) {
-    const format = resolveSuiteOutputFormatOrThrow(options.format, {
-        fallback: SuiteOutputFormat.JSON,
-        errorConstructor: InvalidArgumentError
+    const emittedJson = emitSuiteResults(report.suites, options, {
+        payload: report
     });
 
-    if (format === SuiteOutputFormat.JSON) {
-        const spacing = options.pretty ? 2 : 0;
-        const serialized = stringifyJsonForFile(report, { space: spacing });
-        process.stdout.write(serialized);
-        return;
+    if (!emittedJson) {
+        printHumanReadable(report);
     }
-
-    printHumanReadable(report);
 }
 
 function clearDatasetCache(cache) {
