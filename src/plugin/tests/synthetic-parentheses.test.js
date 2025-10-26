@@ -105,6 +105,38 @@ test("flattens numeric multiplication groups inside addition chains", async () =
     );
 });
 
+test("flattens standalone multiplication groups added together", async () => {
+    const source = [
+        "function dot(ax, ay, bx, by) {",
+        "    return ax * bx + ay * by;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    const expectedLines = [
+        "/// @function dot",
+        "/// @param ax",
+        "/// @param ay",
+        "/// @param bx",
+        "/// @param by",
+        "function dot(ax, ay, bx, by) {",
+        "    return ax * bx + ay * by;",
+        "}",
+        ""
+    ].join("\n");
+
+    assert.strictEqual(
+        formatted.trim(),
+        expectedLines.trim(),
+        "Expected additive chains of multiplication groups outside numeric calls to omit redundant synthetic parentheses."
+    );
+});
+
 test("flattens numeric multiplication groups in assignments", async () => {
     const source = ["var dist = dx * dx + dy * dy;", ""].join("\n");
 
@@ -186,5 +218,39 @@ test("retains synthetic multiplication parentheses within comparisons", async ()
         formatted.trim(),
         expectedLines,
         "Expected multiplication grouping parentheses to be preserved when comparing values."
+    );
+});
+
+test("retains synthetic multiplication grouping when subtracting values", async () => {
+    const source = [
+        "function adjust(xnet, ynet, xx, yy, w, i) {",
+        "    return draw_line_width(xnet, ynet, xx, yy, 2 * w - (i * 4));",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    const expectedLines = [
+        "/// @function adjust",
+        "/// @param xnet",
+        "/// @param ynet",
+        "/// @param xx",
+        "/// @param yy",
+        "/// @param w",
+        "/// @param i",
+        "function adjust(xnet, ynet, xx, yy, w, i) {",
+        "    return draw_line_width(xnet, ynet, xx, yy, (2 * w) - (i * 4));",
+        "}",
+        ""
+    ].join("\n");
+
+    assert.strictEqual(
+        formatted.trim(),
+        expectedLines.trim(),
+        "Expected subtraction chains to preserve multiplication grouping parentheses."
     );
 });

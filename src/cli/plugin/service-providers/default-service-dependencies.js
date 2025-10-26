@@ -1,11 +1,16 @@
-const shouldSkipDefaultPluginServices =
-    process.env.PRETTIER_PLUGIN_GML_SKIP_CLI_RUN === "1";
+import {
+    createCliRunSkippedError,
+    isCliRunSkipped
+} from "../shared/dependencies.js";
+
+const shouldSkipDefaultPluginServices = isCliRunSkipped();
+const SKIP_PLUGIN_SERVICES_RESOLUTION_MESSAGE =
+    "Clear the environment variable to restore CLI plugin services.";
 
 function createSkippedServiceError(actionDescription) {
-    return new Error(
-        `Cannot ${actionDescription} while PRETTIER_PLUGIN_GML_SKIP_CLI_RUN=1. ` +
-            "Clear the environment variable to restore CLI plugin services."
-    );
+    return createCliRunSkippedError(actionDescription, {
+        resolution: SKIP_PLUGIN_SERVICES_RESOLUTION_MESSAGE
+    });
 }
 
 function createSkippedProjectIndexBuilder() {

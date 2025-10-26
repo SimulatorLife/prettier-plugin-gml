@@ -1,4 +1,4 @@
-import { resolveAbortSignalFromOptions } from "./shared/index.js";
+import { isAbortError, resolveAbortSignalFromOptions } from "./shared/index.js";
 import { createDefaultGmlPluginComponents } from "./component-providers/default-plugin-components.js";
 import { normalizeGmlPluginComponents } from "./component-providers/plugin-component-normalizer.js";
 
@@ -75,7 +75,7 @@ export function addGmlPluginComponentObserver(observer, options = {}) {
             fallbackMessage: OBSERVER_ABORT_MESSAGE
         });
     } catch (error) {
-        if (error?.name === "AbortError") {
+        if (isAbortError(error)) {
             return () => {};
         }
 

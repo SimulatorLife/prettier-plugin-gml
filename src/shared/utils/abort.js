@@ -1,5 +1,7 @@
 import { getNonEmptyString } from "./string.js";
 
+const abortErrorBrand = new WeakSet();
+
 const DEFAULT_ABORT_MESSAGE = "Operation aborted.";
 const ERROR_METADATA_KEYS = ["message", "name", "stack"];
 
@@ -50,6 +52,13 @@ function normalizeAbortError(reason, fallbackMessage) {
         error.message = fallback;
     }
 
+    if (
+        (typeof error === "object" && error !== null) ||
+        typeof error === "function"
+    ) {
+        abortErrorBrand.add(error);
+    }
+
     return error;
 }
 
@@ -77,6 +86,18 @@ export function createAbortError(
     }
 
     return normalizeAbortError(signal.reason, fallbackMessage);
+}
+
+export function isAbortError(value) {
+    if (value == null) {
+        return false;
+    }
+
+    if (abortErrorBrand.has(value)) {
+        return true;
+    }
+
+    return false;
 }
 
 /**

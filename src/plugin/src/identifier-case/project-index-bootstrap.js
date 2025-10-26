@@ -10,14 +10,14 @@ import {
     isObjectLike,
     withDefinedValue
 } from "../shared/index.js";
-import { createProjectIndexCoordinator } from "gamemaker-language-semantic/project-index/index.js";
-import { findProjectRoot } from "gamemaker-language-semantic/project-index/project-root.js";
-import { getProjectIndexParserOverride } from "gamemaker-language-semantic/project-index/parser-override.js";
 import {
+    clampConcurrency,
     createProjectIndexBuildOptions,
-    createProjectIndexDescriptor
-} from "gamemaker-language-semantic/project-index/bootstrap-descriptor.js";
-import { clampConcurrency } from "gamemaker-language-semantic/project-index/concurrency.js";
+    createProjectIndexCoordinator,
+    createProjectIndexDescriptor,
+    findProjectRoot,
+    getProjectIndexParserOverride
+} from "gamemaker-language-semantic/project-index/index.js";
 
 const PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME =
     "__identifierCaseProjectIndexCacheMaxBytes";

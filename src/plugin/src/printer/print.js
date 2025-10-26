@@ -3313,12 +3313,16 @@ function reorderDescriptionLinesAfterFunction(docLines) {
     }
 
     const descriptionIndices = [];
+    let earliestDescriptionIndex = Infinity;
     for (const [index, line] of normalizedDocLines.entries()) {
         if (
             typeof line === "string" &&
             /^\/\/\/\s*@description\b/i.test(line.trim())
         ) {
             descriptionIndices.push(index);
+            if (index < earliestDescriptionIndex) {
+                earliestDescriptionIndex = index;
+            }
         }
     }
 
@@ -3336,10 +3340,29 @@ function reorderDescriptionLinesAfterFunction(docLines) {
         return normalizedDocLines;
     }
 
-    const earliestDescriptionIndex = Math.min(...descriptionIndices);
-    if (earliestDescriptionIndex > functionIndex) {
+    const firstReturnsIndex = normalizedDocLines.findIndex(
+        (line, index) =>
+            index > functionIndex &&
+            typeof line === "string" &&
+            /^\/\/\/\s*@returns\b/i.test(line.trim())
+    );
+    const allDescriptionsPrecedeReturns = descriptionIndices.every(
+        (index) =>
+            index > functionIndex &&
+            (firstReturnsIndex === -1 || index < firstReturnsIndex)
+    );
+
+    if (
+        earliestDescriptionIndex > functionIndex &&
+        allDescriptionsPrecedeReturns
+    ) {
         return normalizedDocLines;
     }
+
+    // Membership checks run repeatedly when stripping or re-inserting
+    // description lines. Hoist the indices into a Set so the hot filters avoid
+    // rescanning the array for each element.
+    const descriptionIndexSet = new Set(descriptionIndices);
 
     const descriptionLines = descriptionIndices
         .map((index) => normalizedDocLines[index])
@@ -3353,12 +3376,12 @@ function reorderDescriptionLinesAfterFunction(docLines) {
 
     if (descriptionLines.length === 0) {
         return normalizedDocLines.filter(
-            (_, index) => !descriptionIndices.includes(index)
+            (_, index) => !descriptionIndexSet.has(index)
         );
     }
 
     const remainingLines = normalizedDocLines.filter(
-        (_, index) => !descriptionIndices.includes(index)
+        (_, index) => !descriptionIndexSet.has(index)
     );
 
     let lastFunctionIndex = -1;
@@ -3419,7 +3442,26 @@ function mergeSyntheticDocComments(
         )
     );
 
-    if (syntheticLines.length === 0) {
+    const implicitDocEntries =
+        node?.type === "FunctionDeclaration" ||
+        node?.type === "StructFunctionDeclaration"
+            ? collectImplicitArgumentDocNames(node, options)
+            : [];
+    const declaredParamCount = Array.isArray(node?.params)
+        ? node.params.length
+        : 0;
+    const hasImplicitDocEntries = implicitDocEntries.length > 0;
+    const hasParamDocLines = normalizedExistingLines.some((line) => {
+        if (typeof line !== "string") {
+            return false;
+        }
+
+        return /^\/\/\/\s*@param\b/i.test(toTrimmedString(line));
+    });
+    const shouldForceParamPrune =
+        hasParamDocLines && declaredParamCount === 0 && !hasImplicitDocEntries;
+
+    if (syntheticLines.length === 0 && !shouldForceParamPrune) {
         return normalizedExistingLines;
     }
 
@@ -3721,7 +3763,6 @@ function mergeSyntheticDocComments(
         }
     }
 
-    const implicitDocEntries = collectImplicitArgumentDocNames(node, options);
     const suppressedCanonicals = suppressedImplicitDocCanonicalByNode.get(node);
 
     if (suppressedCanonicals && suppressedCanonicals.size > 0) {
@@ -3779,8 +3820,15 @@ function mergeSyntheticDocComments(
         }
     }
 
-    for (const doc of paramDocsByCanonical.values()) {
-        orderedParamDocs.push(doc);
+    const shouldDropRemainingParamDocs =
+        !hasImplicitDocEntries &&
+        declaredParamCount === 0 &&
+        paramDocsByCanonical.size > 0;
+
+    if (!shouldDropRemainingParamDocs) {
+        for (const doc of paramDocsByCanonical.values()) {
+            orderedParamDocs.push(doc);
+        }
     }
 
     if (orderedParamDocs.length > 0) {
@@ -5063,7 +5111,11 @@ function normalizeParamDocType(typeText) {
 }
 
 function collectImplicitArgumentDocNames(functionNode, options) {
-    if (!functionNode || functionNode.type !== "FunctionDeclaration") {
+    if (
+        !functionNode ||
+        (functionNode.type !== "FunctionDeclaration" &&
+            functionNode.type !== "StructFunctionDeclaration")
+    ) {
         return [];
     }
 
@@ -5100,7 +5152,9 @@ function gatherImplicitArgumentReferences(functionNode) {
         }
 
         if (node === functionNode) {
-            visit(functionNode.body, node, "body");
+            if (functionNode.body) {
+                visit(functionNode.body, node, "body");
+            }
             return;
         }
 
@@ -5114,6 +5168,7 @@ function gatherImplicitArgumentReferences(functionNode) {
         if (
             node !== functionNode &&
             (node.type === "FunctionDeclaration" ||
+                node.type === "StructFunctionDeclaration" ||
                 node.type === "FunctionExpression" ||
                 node.type === "ConstructorDeclaration")
         ) {
@@ -6155,7 +6210,10 @@ function shouldGenerateSyntheticDocForFunction(
         return true;
     }
 
-    if (node.type !== "FunctionDeclaration") {
+    if (
+        node.type !== "FunctionDeclaration" &&
+        node.type !== "StructFunctionDeclaration"
+    ) {
         return false;
     }
 
@@ -6167,6 +6225,37 @@ function shouldGenerateSyntheticDocForFunction(
 
     if (syntheticLines.length > 0) {
         return true;
+    }
+
+    const hasParamDocLines = existingDocLines.some((line) => {
+        if (typeof line !== "string") {
+            return false;
+        }
+
+        const trimmed = toTrimmedString(line);
+        return /^\/\/\/\s*@param\b/i.test(trimmed);
+    });
+
+    if (hasParamDocLines) {
+        const declaredParamCount = Array.isArray(node.params)
+            ? node.params.length
+            : 0;
+        let hasImplicitDocEntries = false;
+
+        if (
+            node.type === "FunctionDeclaration" ||
+            node.type === "StructFunctionDeclaration"
+        ) {
+            const implicitEntries = collectImplicitArgumentDocNames(
+                node,
+                options
+            );
+            hasImplicitDocEntries = implicitEntries.length > 0;
+        }
+
+        if (declaredParamCount === 0 && !hasImplicitDocEntries) {
+            return true;
+        }
     }
 
     return (
@@ -6538,6 +6627,10 @@ function shouldOmitSyntheticParens(path) {
                             path
                         )
                     ) {
+                        return false;
+                    }
+
+                    if (parent.operator === "-" && childOperator === "*") {
                         return false;
                     }
 

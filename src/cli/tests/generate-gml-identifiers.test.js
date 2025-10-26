@@ -4,7 +4,11 @@ import vm from "node:vm";
 
 import { __test__ } from "../commands/generate-gml-identifiers.js";
 
-const { parseArrayLiteral } = __test__;
+const {
+    parseArrayLiteral,
+    collectManualArrayIdentifiers,
+    assertManualIdentifierArray
+} = __test__;
 
 const SAMPLE_SOURCE = `
 const KEYWORDS = [
@@ -35,5 +39,64 @@ describe("generate-gml-identifiers", () => {
         } finally {
             restoreVm.mock.restore();
         }
+    });
+
+    it("rejects manual identifier arrays that do not evaluate to arrays", () => {
+        const identifierMap = new Map();
+
+        assert.throws(
+            () =>
+                collectManualArrayIdentifiers(
+                    identifierMap,
+                    null,
+                    { type: "keyword", source: "manual:gml.js:KEYWORDS" },
+                    { identifier: "KEYWORDS" }
+                ),
+            (error) => {
+                assert.equal(error.name, "TypeError");
+                assert.match(
+                    error.message,
+                    /Manual identifier array 'manual:gml\.js:KEYWORDS' must evaluate to an array of strings\./
+                );
+                assert.match(error.message, /Received null/);
+                return true;
+            }
+        );
+
+        assert.equal(identifierMap.size, 0);
+    });
+
+    it("rejects manual identifier arrays containing non-string entries", () => {
+        const identifierMap = new Map();
+
+        assert.throws(
+            () =>
+                collectManualArrayIdentifiers(
+                    identifierMap,
+                    ["alpha", 5],
+                    { type: "keyword", source: "manual:gml.js:KEYWORDS" },
+                    { identifier: "KEYWORDS" }
+                ),
+            (error) => {
+                assert.equal(error.name, "TypeError");
+                assert.match(
+                    error.message,
+                    /Manual identifier array 'manual:gml\.js:KEYWORDS' must contain only strings\./
+                );
+                assert.match(error.message, /Entry at index 1 was a number/);
+                return true;
+            }
+        );
+
+        assert.equal(identifierMap.size, 0);
+    });
+
+    it("exposes assertManualIdentifierArray for tests", () => {
+        const values = assertManualIdentifierArray(["alpha"], {
+            identifier: "KEYWORDS",
+            source: "manual:gml.js:KEYWORDS"
+        });
+
+        assert.deepEqual(values, ["alpha"]);
     });
 });

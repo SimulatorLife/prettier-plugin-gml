@@ -83,22 +83,22 @@ function resolveOutputPath(repoRoot, fileName) {
  */
 
 /**
- * @typedef {object} ManualFileAccessContext
+ * @typedef {object} ManualFileAccess
  * @property {ManualCommandEnvironment} environment
- * @property {ManualCommandFileService} files
+ * @property {ManualCommandFileService["fetchManualFile"]} fetchManualFile
  */
 
 /**
- * @typedef {object} ManualReferenceAccessContext
+ * @typedef {object} ManualReferenceAccess
  * @property {ManualCommandEnvironment} environment
- * @property {ManualCommandRefResolutionService} refs
+ * @property {ManualCommandRefResolutionService["resolveManualRef"]} resolveManualRef
  */
 
 /**
- * @typedef {object} ManualAccessContexts
+ * @typedef {object} ManualAccessBundle
  * @property {ManualCommandEnvironment} environment
- * @property {ManualFileAccessContext} fileAccess
- * @property {ManualReferenceAccessContext} referenceAccess
+ * @property {ManualCommandFileService["fetchManualFile"]} fetchManualFile
+ * @property {ManualCommandRefResolutionService["resolveManualRef"]} resolveManualRef
  */
 
 function buildManualCommandContext({
@@ -169,11 +169,17 @@ function buildManualCommandContext({
 }
 
 function mapManualFileAccessContext({ environment, files }) {
-    return Object.freeze({ environment, files });
+    return Object.freeze({
+        environment,
+        fetchManualFile: files.fetchManualFile
+    });
 }
 
 function mapManualReferenceAccessContext({ environment, refs }) {
-    return Object.freeze({ environment, refs });
+    return Object.freeze({
+        environment,
+        resolveManualRef: refs.resolveManualRef
+    });
 }
 
 function resolveManualContextSelection(options = {}, selector, { label } = {}) {
@@ -211,7 +217,7 @@ export function createManualEnvironmentContext(options = {}) {
  * information commonly needed by artefact generators.
  *
  * @param {Parameters<typeof buildManualCommandContext>[0]} options
- * @returns {ManualFileAccessContext}
+ * @returns {ManualFileAccess}
  */
 export function createManualFileAccessContext(options = {}) {
     return mapManualFileAccessContext(buildManualCommandContext(options));
@@ -221,7 +227,7 @@ export function createManualFileAccessContext(options = {}) {
  * Resolve manual reference helpers along with the shared environment metadata.
  *
  * @param {Parameters<typeof buildManualCommandContext>[0]} options
- * @returns {ManualReferenceAccessContext}
+ * @returns {ManualReferenceAccess}
  */
 export function createManualReferenceAccessContext(options = {}) {
     return mapManualReferenceAccessContext(buildManualCommandContext(options));
@@ -232,14 +238,16 @@ export function createManualReferenceAccessContext(options = {}) {
  * underlying GitHub wiring and shared environment metadata.
  *
  * @param {Parameters<typeof buildManualCommandContext>[0]} options
- * @returns {ManualAccessContexts}
+ * @returns {ManualAccessBundle}
  */
 export function createManualAccessContexts(options = {}) {
     const context = buildManualCommandContext(options);
+    const fileAccess = mapManualFileAccessContext(context);
+    const referenceAccess = mapManualReferenceAccessContext(context);
     return Object.freeze({
         environment: context.environment,
-        fileAccess: mapManualFileAccessContext(context),
-        referenceAccess: mapManualReferenceAccessContext(context)
+        fetchManualFile: fileAccess.fetchManualFile,
+        resolveManualRef: referenceAccess.resolveManualRef
     });
 }
 

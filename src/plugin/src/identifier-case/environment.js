@@ -3,7 +3,7 @@ import {
     prepareIdentifierCasePlan,
     captureIdentifierCasePlanSnapshot
 } from "./plan-service.js";
-import { withObjectLike } from "../shared/index.js";
+import { isObjectLike, withObjectLike } from "../shared/index.js";
 import {
     setIdentifierCaseOption,
     deleteIdentifierCaseOption
@@ -15,17 +15,13 @@ const IDENTIFIER_CASE_LOGGER_NAMESPACE = "identifier-case";
 const managedBootstraps = new WeakSet();
 
 function nullifyProjectIndex(target) {
-    if (
-        target &&
-        typeof target === "object" &&
-        Object.hasOwn(target, "projectIndex")
-    ) {
+    if (isObjectLike(target) && Object.hasOwn(target, "projectIndex")) {
         target.projectIndex = null;
     }
 }
 
 function sanitizeBootstrapResult(bootstrap) {
-    if (!bootstrap || typeof bootstrap !== "object") {
+    if (!isObjectLike(bootstrap)) {
         return;
     }
 

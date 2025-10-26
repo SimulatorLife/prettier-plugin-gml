@@ -29,20 +29,6 @@ import { defaultCliPluginServiceDependencies } from "./default-service-dependenc
  * @property {() => void} clearIdentifierCaseCaches
  */
 
-/**
- * Earlier iterations shipped a `defaultCliPluginServices` registry that
- * coupled the project index helpers with identifier case collaborators. That
- * umbrella forced consumers that only needed one family to depend on the other
- * as well. We now expose the specialised bundles separately so callers can
- * wire the exact behaviour they require.
- */
-
-/**
- * @typedef {object} CliIdentifierCaseServices
- * @property {CliIdentifierCasePlanPreparationService} preparation
- * @property {CliIdentifierCasePlanCacheService} cache
- */
-
 function resolveDescriptorSource(descriptorSource) {
     if (descriptorSource == null) {
         return {};
@@ -111,12 +97,13 @@ export function createDefaultCliPluginServices(descriptorSource) {
         })
     );
 
-    const identifierCaseServices = Object.freeze(
-        /** @type {CliIdentifierCaseServices} */ ({
-            preparation: identifierCasePlanPreparationService,
-            cache: identifierCasePlanCacheService
-        })
-    );
+    /**
+     * Earlier iterations exposed a `CliIdentifierCaseServices` bundle that
+     * coupled the preparation and cache collaborators behind one "services"
+     * contract. That umbrella forced consumers that only needed one helper to
+     * depend on both. We now return only the focused services so call sites can
+     * opt into the precise collaborator they require.
+     */
 
     return {
         projectIndexBuilder,
@@ -124,8 +111,7 @@ export function createDefaultCliPluginServices(descriptorSource) {
         identifierCaseCacheClearer,
         projectIndexService,
         identifierCasePlanPreparationService,
-        identifierCasePlanCacheService,
-        identifierCaseServices
+        identifierCasePlanCacheService
     };
 }
 
@@ -136,8 +122,7 @@ const {
     projectIndexService: defaultCliProjectIndexService,
     identifierCasePlanPreparationService:
         defaultCliIdentifierCasePlanPreparationService,
-    identifierCasePlanCacheService: defaultCliIdentifierCaseCacheService,
-    identifierCaseServices: defaultCliIdentifierCaseServices
+    identifierCasePlanCacheService: defaultCliIdentifierCaseCacheService
 } = createDefaultCliPluginServices();
 
 export { defaultProjectIndexBuilder };
@@ -147,4 +132,3 @@ export { defaultIdentifierCaseCacheClearer };
 export { defaultCliProjectIndexService };
 export { defaultCliIdentifierCasePlanPreparationService };
 export { defaultCliIdentifierCaseCacheService };
-export { defaultCliIdentifierCaseServices };

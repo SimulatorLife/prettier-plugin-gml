@@ -177,3 +177,28 @@ no code changes were required.
   the wide manager surface.
 - Updated the unit tests to assert against the segregated services, ensuring
   each interface exposes only the behaviour it owns.
+
+## Follow-up audit (2025-11-19)
+
+- Re-audited the CLI plugin default services and found the
+  `CliIdentifierCaseServices` bundle lingering in
+  `src/cli/plugin/service-providers/default.js`. The bundle coupled the
+  preparation and cache collaborators into a single "services" interface,
+  forcing callers that only needed one helper to depend on both behaviours.
+- Removed the aggregated contract and now return only the focused preparation
+  and cache services. Updated the accompanying unit tests to assert against the
+  specialised collaborators and verify the bundle property no longer exists.
+
+## Follow-up audit (2025-12-03)
+
+- Surveyed the manual command helpers and found the
+  `ManualCommandFileService`/`ManualCommandRefResolutionService` facades in
+  `src/cli/features/manual/context.js`. Each wrapped a single GitHub helper but
+  still forced consumers of the manual access context to depend on nested
+  service objects before they could reach the `fetchManualFile` or
+  `resolveManualRef` collaborators they actually needed.
+- Removed the indirection by updating the manual access helpers to expose the
+  direct functions alongside the environment metadata. CLI commands now import
+  the focused helpers (`fetchManualFile`, `resolveManualRef`) without going
+  through the broad service wrappers, and the unit tests assert the narrowed
+  surface.

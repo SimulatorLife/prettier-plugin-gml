@@ -10,7 +10,6 @@ import {
     resolveCommandUsage,
     toNormalizedLowerCaseSet
 } from "../shared/dependencies.js";
-import { CliUsageError } from "../core/errors.js";
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import { timeSync, createVerboseDurationLogger } from "../shared/time-utils.js";
 import { disposeProgressBars } from "../shared/progress-bar.js";
@@ -21,7 +20,8 @@ import {
     MANUAL_REPO_ENV_VAR,
     announceManualDownloadStart,
     buildManualRepositoryEndpoints,
-    downloadManualEntriesWithProgress
+    downloadManualEntriesWithProgress,
+    ensureManualRefHasSha
 } from "../features/manual/utils.js";
 import {
     MANUAL_REF_ENV_VAR,
@@ -68,12 +68,8 @@ const {
         defaultCacheRoot: DEFAULT_CACHE_ROOT,
         defaultOutputPath: OUTPUT_DEFAULT
     },
-    fileAccess: {
-        files: { fetchManualFile }
-    },
-    referenceAccess: {
-        refs: { resolveManualRef }
-    }
+    fetchManualFile,
+    resolveManualRef
 } = createManualAccessContexts({
     importMetaUrl: import.meta.url,
     userAgent: "prettier-plugin-gml feather metadata generator",
@@ -1137,12 +1133,11 @@ export async function runGenerateFeatherMetadata({ command } = {}) {
 
         const { apiRoot, rawRoot } = buildManualRepositoryEndpoints(manualRepo);
         const logCompletion = createVerboseDurationLogger({ verbose });
-        const manualRef = await resolveManualRef(ref, { verbose, apiRoot });
-        if (!manualRef?.sha) {
-            throw new CliUsageError("Could not resolve manual commit SHA.", {
-                usage
-            });
-        }
+        const unresolvedManualRef = await resolveManualRef(ref, {
+            verbose,
+            apiRoot
+        });
+        const manualRef = ensureManualRefHasSha(unresolvedManualRef, { usage });
         console.log(`Using manual ref '${manualRef.ref}' (${manualRef.sha}).`);
 
         const htmlPayloads = await fetchFeatherManualPayloads({
