@@ -15,7 +15,7 @@ import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
 import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
 
 const DEFAULT_WRITE_ACCESS_ARGS =
-    DEFAULT_WRITE_ACCESS_MODE == undefined ? [] : [DEFAULT_WRITE_ACCESS_MODE];
+    DEFAULT_WRITE_ACCESS_MODE === undefined ? [] : [DEFAULT_WRITE_ACCESS_MODE];
 
 function tryAccess(fsFacade, method, targetPath, ...args) {
     if (!targetPath || !fsFacade) {
