@@ -7,8 +7,6 @@ export {
     assertPlainObject,
     coerceNonNegativeInteger,
     coercePositiveInteger,
-    collectAncestorDirectories,
-    collectUniqueAncestorDirectories,
     createAbortGuard,
     createEnvConfiguredValue,
     createEnvConfiguredValueWithFallback,
@@ -71,3 +69,8 @@ export {
     isCliRunSkipped,
     SKIP_CLI_RUN_ENV_VAR
 } from "./skip-cli-run.js";
+
+export {
+    collectAncestorDirectories,
+    collectUniqueAncestorDirectories
+} from "./ancestor-directories.js";

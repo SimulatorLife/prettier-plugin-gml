@@ -5,8 +5,6 @@ import path from "node:path";
 // Node.js deprecated the legacy assert.equal-style helpers; use the strict
 // variants to ensure consistent comparisons across runtimes.
 import {
-    collectAncestorDirectories,
-    collectUniqueAncestorDirectories,
     isPathInside,
     resolveContainedRelativePath,
     walkAncestorDirectories
@@ -85,91 +83,6 @@ describe("path-utils", () => {
             ];
 
             assert.strictEqual(ancestors.at(0), path.dirname(resolved));
-        });
-    });
-
-    describe("collectUniqueAncestorDirectories", () => {
-        it("deduplicates ancestors across multiple starting directories", () => {
-            const base = path.join(
-                process.cwd(),
-                "tmp",
-                "shared-path-utils",
-                "multi"
-            );
-            const first = path.join(base, "project", "src");
-            const second = path.join(base, "project", "tests");
-
-            const result = collectUniqueAncestorDirectories([first, second]);
-
-            const expectedFirst = path.resolve(first);
-            const expectedSecond = path.resolve(path.join(base, "project"));
-            const expectedRoot = path.parse(expectedFirst).root;
-
-            assert.strictEqual(result[0], expectedFirst);
-            assert.strictEqual(result[1], expectedSecond);
-            assert.strictEqual(result.includes(expectedRoot), true);
-            assert.strictEqual(result.includes(path.resolve(second)), true);
-        });
-
-        it("accepts a single string without iterating characters", () => {
-            const base = path.join(
-                process.cwd(),
-                "tmp",
-                "shared-path-utils",
-                "single-string"
-            );
-            const nested = path.join(base, "src", "index.gml");
-
-            const result = collectUniqueAncestorDirectories(nested);
-
-            const resolved = path.resolve(nested);
-            const expectedRoot = path.parse(resolved).root;
-
-            assert.strictEqual(result[0], resolved);
-            assert.strictEqual(result.includes(expectedRoot), true);
-        });
-    });
-
-    describe("collectAncestorDirectories", () => {
-        it("accepts multiple path arguments and preserves discovery order", () => {
-            const base = path.join(
-                process.cwd(),
-                "tmp",
-                "shared-path-utils",
-                "rest-args"
-            );
-            const nestedFeature = path.join(base, "src", "features", "core");
-            const nestedSibling = path.join(base, "src", "features", "extras");
-
-            const result = collectAncestorDirectories(
-                nestedFeature,
-                nestedSibling
-            );
-
-            const expectedFirst = path.resolve(nestedFeature);
-            const expectedRoot = path.parse(expectedFirst).root;
-
-            assert.strictEqual(result[0], expectedFirst);
-            assert.strictEqual(result.includes(expectedRoot), true);
-            assert.strictEqual(new Set(result).size, result.length);
-        });
-
-        it("ignores empty inputs while still returning valid ancestors", () => {
-            const projectRoot = path.join(
-                process.cwd(),
-                "tmp",
-                "shared-path-utils",
-                "empties"
-            );
-
-            const result = collectAncestorDirectories(
-                null,
-                undefined,
-                "",
-                projectRoot
-            );
-
-            assert.strictEqual(result[0], path.resolve(projectRoot));
         });
     });
 

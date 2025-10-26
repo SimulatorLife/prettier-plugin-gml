@@ -32,7 +32,6 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError, Option } from "commander";
 
 import {
-    collectAncestorDirectories,
     getErrorMessage,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
@@ -49,6 +48,7 @@ import {
     uniqueArray,
     withObjectLike
 } from "../shared/index.js";
+import { collectAncestorDirectories } from "./shared/ancestor-directories.js";
 import {
     hasIgnoreRuleNegations,
     markIgnoreRuleNegationsDetected,
