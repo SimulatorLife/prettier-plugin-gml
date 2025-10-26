@@ -7,11 +7,12 @@
  * @param {T} value
  * @returns {T}
  */
-const NOOP = () => {};
-
 export function identity(value) {
     return value;
 }
+
+// Shared noop fallback reused by resolveFunction when callers omit overrides.
+const NOOP = () => {};
 
 /**
  * Return the provided {@link candidate} when it is callable, otherwise fall
