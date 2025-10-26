@@ -38,23 +38,17 @@ function normalizeArrayOption(
         return defaultValue;
     }
 
-    const normalized = [];
-
-    for (const value of candidate) {
-        if (!filter(value)) {
-            continue;
+    const normalized = candidate.reduce((result, value) => {
+        if (filter(value)) {
+            result.push(map(value));
         }
-
-        normalized.push(map(value));
-    }
-
-    if (normalized.length === 0) {
-        return defaultValue;
-    }
+        return result;
+    }, []);
 
     if (
-        normalized.length === defaultValue.length &&
-        normalized.every((value, index) => value === defaultValue[index])
+        normalized.length === 0 ||
+        (normalized.length === defaultValue.length &&
+            normalized.every((value, index) => value === defaultValue[index]))
     ) {
         return defaultValue;
     }
