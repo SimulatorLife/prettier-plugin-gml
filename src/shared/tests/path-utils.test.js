@@ -8,7 +8,7 @@ import {
     isPathInside,
     resolveContainedRelativePath,
     walkAncestorDirectories
-} from "../utils/path.js";
+} from "../fs/path.js";
 
 describe("path-utils", () => {
     describe("resolveContainedRelativePath", () => {

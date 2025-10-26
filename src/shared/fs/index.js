@@ -1,5 +1,7 @@
 import { isErrorWithCode } from "../utils/error.js";
 
+export * from "./path.js";
+
 /**
  * Type-safe wrapper over {@link isErrorWithCode} so callers can narrow thrown
  * filesystem errors to specific Node-style `code` strings without repeating the

@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { isNonEmptyString } from "./string.js";
+import { isNonEmptyString } from "../utils/string.js";
 
 const WINDOWS_SEPARATOR_PATTERN = /\\+/g;
 const POSIX_SEPARATOR_PATTERN = /\/+/g;
