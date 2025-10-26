@@ -198,39 +198,59 @@ function detectAssetRenameConflicts({ projectIndex, renames, metrics = null }) {
             }
 
             const existingEntries = bucket.filter((entry) => !entry.isRename);
+            const existingCollisionSummary = existingEntries.length > 0
+                ? existingEntries
+                      .map(
+                          (entry) =>
+                              `'${entry.originalName}' (${entry.resourcePath})`
+                      )
+                      .join(", ")
+                : "";
+            const renameNames = renameEntries.map(
+                (entry) => `'${entry.originalName}'`
+            );
 
-            for (const renameEntry of renameEntries) {
+            for (const [index, renameEntry] of renameEntries.entries()) {
                 if (existingEntries.length > 0) {
-                    const otherNames = existingEntries
-                        .map(
-                            (entry) =>
-                                `'${entry.originalName}' (${entry.resourcePath})`
-                        )
-                        .join(", ");
                     recordAssetRenameCollision({
                         conflicts,
                         renameEntry,
                         conflictingEntries: existingEntries,
-                        message: `Renaming '${renameEntry.originalName}' to '${renameEntry.finalName}' collides with existing asset ${otherNames}.`,
+                        message: `Renaming '${renameEntry.originalName}' to '${renameEntry.finalName}' collides with existing asset ${existingCollisionSummary}.`,
                         metrics
                     });
                 }
 
-                const otherRenames = renameEntries.filter(
-                    (entry) => entry !== renameEntry
-                );
-                if (otherRenames.length > 0) {
-                    const otherNames = otherRenames
-                        .map((entry) => `'${entry.originalName}'`)
-                        .join(", ");
-                    recordAssetRenameCollision({
-                        conflicts,
-                        renameEntry,
-                        conflictingEntries: otherRenames,
-                        message: `Renaming '${renameEntry.originalName}' to '${renameEntry.finalName}' collides with ${otherNames} targeting the same name.`,
-                        metrics
-                    });
+                if (renameEntries.length <= 1) {
+                    continue;
                 }
+
+                const otherRenames = [];
+                let otherNames = "";
+                for (
+                    const [otherIndex, otherEntry] of renameEntries.entries()
+                ) {
+                    if (otherIndex === index) {
+                        continue;
+                    }
+
+                    otherRenames.push(otherEntry);
+                    otherNames = otherNames
+                        ? `${otherNames}, ${renameNames[otherIndex]}`
+                        : renameNames[otherIndex];
+                }
+
+                if (otherRenames.length === 0) {
+                    continue;
+                }
+
+                recordAssetRenameCollision({
+                    conflicts,
+                    renameEntry,
+                    conflictingEntries: otherRenames,
+                    message: `Renaming '${renameEntry.originalName}' to '${renameEntry.finalName}' collides with ${otherNames} targeting the same name.`,
+                    metrics
+                });
             }
         }
     }
