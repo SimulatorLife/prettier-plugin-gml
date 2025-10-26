@@ -11,6 +11,7 @@ import {
     createEnvConfiguredValue,
     createEnvConfiguredValueWithFallback,
     getErrorMessageOrFallback,
+    getNonEmptyTrimmedString,
     incrementMapValue,
     isNonEmptyString,
     normalizeStringList,
@@ -57,15 +58,7 @@ export const DEFAULT_MAX_FORMAT_ITERATIONS = 25;
 export const MEMORY_REPORT_DIRECTORY_ENV_VAR = "GML_MEMORY_REPORT_DIR";
 
 function normalizeMemoryReportDirectory(value, fallback) {
-    if (typeof value === "string") {
-        const trimmed = value.trim();
-
-        if (trimmed.length > 0) {
-            return trimmed;
-        }
-    }
-
-    return fallback;
+    return getNonEmptyTrimmedString(value) ?? fallback;
 }
 
 const memoryReportDirectoryConfig = createEnvConfiguredValue({
