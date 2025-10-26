@@ -24,7 +24,7 @@ export function toArrayFromIterable(values) {
     }
 
     if (Array.isArray(values)) {
-        return values;
+        return [...values];
     }
 
     if (typeof values[Symbol.iterator] === "function") {

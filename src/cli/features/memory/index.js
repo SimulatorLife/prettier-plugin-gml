@@ -1,6 +1,6 @@
 import path from "node:path";
 import process from "node:process";
-import { readFile, writeFile as writeFileAsync } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 
@@ -10,15 +10,14 @@ import {
     appendToCollection,
     createEnvConfiguredValue,
     createEnvConfiguredValueWithFallback,
-    ensureDir,
     getErrorMessageOrFallback,
+    getNonEmptyTrimmedString,
     incrementMapValue,
     isNonEmptyString,
     normalizeStringList,
     resolveModuleDefaultExport,
     parseJsonObjectWithContext,
-    splitLines,
-    stringifyJsonForFile
+    splitLines
 } from "../shared/dependencies.js";
 import {
     SuiteOutputFormat,
@@ -36,6 +35,7 @@ import {
     resolveSuiteOutputFormatOrThrow,
     wrapInvalidArgumentResolver
 } from "../command-dependencies.js";
+import { writeJsonArtifact } from "../fs-artifacts.js";
 
 export const DEFAULT_ITERATIONS = 500_000;
 export const MEMORY_ITERATIONS_ENV_VAR = "GML_MEMORY_ITERATIONS";
@@ -58,15 +58,7 @@ export const DEFAULT_MAX_FORMAT_ITERATIONS = 25;
 export const MEMORY_REPORT_DIRECTORY_ENV_VAR = "GML_MEMORY_REPORT_DIR";
 
 function normalizeMemoryReportDirectory(value, fallback) {
-    if (typeof value === "string") {
-        const trimmed = value.trim();
-
-        if (trimmed.length > 0) {
-            return trimmed;
-        }
-    }
-
-    return fallback;
+    return getNonEmptyTrimmedString(value) ?? fallback;
 }
 
 const memoryReportDirectoryConfig = createEnvConfiguredValue({
@@ -894,17 +886,20 @@ export async function runMemoryCli({
     const resolvedReportDir = path.resolve(cwd, effectiveReportDir);
     const resolvedReportName = reportFileName ?? DEFAULT_MEMORY_REPORT_FILENAME;
     const reportPath = path.join(resolvedReportDir, resolvedReportName);
-    const effectiveWriteFile =
-        typeof customWriteFile === "function"
-            ? customWriteFile
-            : writeFileAsync;
-
     await runMemoryCommand({
         command,
         onResults: async ({ payload }) => {
-            await ensureDir(resolvedReportDir);
-            const reportContents = stringifyJsonForFile(payload, { space: 2 });
-            await effectiveWriteFile(reportPath, reportContents, "utf8");
+            const writeFile =
+                typeof customWriteFile === "function"
+                    ? customWriteFile
+                    : undefined;
+
+            await writeJsonArtifact({
+                outputPath: reportPath,
+                payload,
+                space: 2,
+                writeFile
+            });
         }
     });
 

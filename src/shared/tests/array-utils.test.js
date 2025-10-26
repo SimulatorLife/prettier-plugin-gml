@@ -11,6 +11,7 @@ import {
     isNonEmptyArray,
     pushUnique,
     toArray,
+    toArrayFromIterable,
     uniqueArray
 } from "../utils/array.js";
 
@@ -53,6 +54,20 @@ test("uniqueArray removes duplicates while preserving order", () => {
         "beta",
         "gamma"
     ]);
+});
+
+test("toArrayFromIterable snapshots arrays before mutation", () => {
+    const input = ["alpha", "beta"];
+
+    const snapshot = toArrayFromIterable(input);
+
+    assert.notStrictEqual(snapshot, input);
+    assert.deepEqual(snapshot, input);
+
+    snapshot.push("gamma");
+
+    assert.deepEqual(input, ["alpha", "beta"]);
+    assert.deepEqual(snapshot, ["alpha", "beta", "gamma"]);
 });
 
 test("uniqueArray supports iterables and optional freezing", () => {

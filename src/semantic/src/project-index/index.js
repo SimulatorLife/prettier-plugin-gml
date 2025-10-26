@@ -12,7 +12,7 @@ import {
     isNonEmptyArray,
     isObjectLike,
     pushUnique
-} from "../../../shared/index.js";
+} from "../dependencies.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { clampConcurrency } from "./concurrency.js";
 import { resolveProjectIndexParser } from "./parser-override.js";
@@ -78,6 +78,11 @@ export function createProjectIndexCoordinator(options = {}) {
 export { findProjectRoot } from "./project-root.js";
 
 export {
+    createProjectIndexBuildOptions,
+    createProjectIndexDescriptor
+} from "./bootstrap-descriptor.js";
+
+export {
     PROJECT_MANIFEST_EXTENSION,
     isProjectManifestPath
 } from "./constants.js";
@@ -102,7 +107,8 @@ export {
     getDefaultProjectIndexGmlConcurrency,
     setDefaultProjectIndexGmlConcurrency,
     PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
-    PROJECT_INDEX_GML_CONCURRENCY_BASELINE
+    PROJECT_INDEX_GML_CONCURRENCY_BASELINE,
+    clampConcurrency
 } from "./concurrency.js";
 
 function cloneIdentifierDeclaration(declaration) {

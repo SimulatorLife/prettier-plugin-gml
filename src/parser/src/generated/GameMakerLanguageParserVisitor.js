@@ -4,26 +4,53 @@ import antlr4 from 'antlr4';
 
 const DEFAULT_VISIT_CHILDREN_DELEGATE = ({ fallback }) => fallback();
 
+const { ParseTreeVisitor } = antlr4.tree;
+
+function callParseTreeVisitor(methodName, instance, args) {
+    const method = ParseTreeVisitor.prototype[methodName];
+    if (typeof method !== 'function') {
+        throw new TypeError(`ParseTreeVisitor method '${methodName}' is not available.`);
+    }
+
+    return method.apply(instance, args);
+}
+
 /**
- * Visitor wrapper that relies on composition to forward each visit* method
- * through an injected delegate rather than directly overriding the
- * ParseTreeVisitor behaviour.
+ * Visitor wrapper that composes an underlying {@link ParseTreeVisitor} instead
+ * of subclassing it. Behaviour for `visit*` methods is forwarded to an injected
+ * delegate, while all ParseTreeVisitor primitives are invoked through the
+ * helper so the public API remains intact without deep inheritance.
  */
-export default class GameMakerLanguageParserVisitor extends antlr4.tree.ParseTreeVisitor {
+export default class GameMakerLanguageParserVisitor {
     #visitChildrenDelegate;
 
     constructor(options = {}) {
-        super();
         const delegate = options?.visitChildrenDelegate;
         this.#visitChildrenDelegate =
             typeof delegate === 'function' ? delegate : DEFAULT_VISIT_CHILDREN_DELEGATE;
+    }
+
+    visit(tree) {
+        return callParseTreeVisitor('visit', this, [tree]);
+    }
+
+    visitChildren(node) {
+        return callParseTreeVisitor('visitChildren', this, [node]);
+    }
+
+    visitTerminal(node) {
+        return callParseTreeVisitor('visitTerminal', this, [node]);
+    }
+
+    visitErrorNode(node) {
+        return callParseTreeVisitor('visitErrorNode', this, [node]);
     }
 
     _visitUsingDelegate(methodName, ctx) {
         return this.#visitChildrenDelegate({
             methodName,
             ctx,
-            fallback: () => super.visitChildren(ctx)
+            fallback: () => this.visitChildren(ctx)
         });
     }
 }

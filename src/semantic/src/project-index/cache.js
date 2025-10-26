@@ -8,8 +8,9 @@ import {
     isObjectLike,
     createEnvConfiguredValueWithFallback,
     createAbortGuard,
+    getNonEmptyTrimmedString,
     isFsErrorCode
-} from "../../../shared/index.js";
+} from "../dependencies.js";
 import { isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { getFileMtime, listDirectory } from "./fs-helpers.js";
@@ -42,15 +43,13 @@ const projectIndexCacheSizeConfig = createEnvConfiguredValueWithFallback({
             return 0;
         }
 
-        if (typeof value === "string") {
-            const trimmed = value.trim();
+        const trimmed = getNonEmptyTrimmedString(value);
 
-            if (trimmed !== "") {
-                const numeric = Number(trimmed);
+        if (trimmed !== null) {
+            const numeric = Number(trimmed);
 
-                if (Number.isFinite(numeric) && numeric === 0) {
-                    return 0;
-                }
+            if (Number.isFinite(numeric) && numeric === 0) {
+                return 0;
             }
         }
 

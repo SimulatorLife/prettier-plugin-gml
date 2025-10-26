@@ -5,6 +5,7 @@ import {
     assertNonEmptyString,
     createAbortGuard,
     identity,
+    noop,
     isFsErrorCode,
     isNonEmptyArray,
     isNonEmptyTrimmedString,
@@ -20,13 +21,12 @@ import {
     renderProgressBar,
     withProgressBarCleanup
 } from "../command-dependencies.js";
+import { CliUsageError } from "../command-dependencies.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const REPO_SEGMENT_PATTERN = /^[A-Za-z0-9_.-]+$/;
 const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
-const NOOP = () => {};
-
 export const MANUAL_REPO_REQUIREMENT_SOURCE = Object.freeze({
     CLI: "cli",
     ENV: "env"
@@ -72,6 +72,29 @@ function describeManualRepoInput(value) {
 
 function normalizeDownloadLabel(label) {
     return isNonEmptyTrimmedString(label) ? label : "Downloading manual files";
+}
+
+/**
+ * Ensure the provided manual ref includes a resolved commit SHA before
+ * continuing. Commands historically repeated this guard inline, so the helper
+ * centralizes the validation and error formatting for all manual workflows.
+ *
+ * @template T extends { ref?: string | null | undefined; sha?: string | null | undefined }
+ * @param {T | null | undefined} manualRef Manual reference resolved by GitHub.
+ * @param {{ usage?: string | null }} [options]
+ * @returns {T & { sha: string }}
+ * @throws {CliUsageError}
+ */
+export function ensureManualRefHasSha(manualRef, { usage } = {}) {
+    if (manualRef?.sha) {
+        return manualRef;
+    }
+
+    const refLabel = manualRef?.ref ?? "<unknown>";
+    throw new CliUsageError(
+        `Unable to resolve manual commit SHA for ref '${refLabel}'.`,
+        { usage }
+    );
 }
 
 export function announceManualDownloadStart(
@@ -146,7 +169,7 @@ function createConsoleReporter({ formatPath }) {
             const displayPath = normalizePath(path);
             console.log(displayPath ? `✓ ${displayPath}` : "✓");
         },
-        cleanup: NOOP
+        cleanup: noop
     };
 }
 
@@ -160,7 +183,7 @@ export function createManualDownloadReporter({
     const { downloads = false, progressBar = false } = verbose ?? {};
 
     if (!downloads) {
-        return { report: NOOP, cleanup: NOOP };
+        return { report: noop, cleanup: noop };
     }
 
     return progressBar
