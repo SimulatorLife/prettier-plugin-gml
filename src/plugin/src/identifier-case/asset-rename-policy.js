@@ -24,37 +24,55 @@ export function evaluateIdentifierCaseAssetRenamePolicy(context = {}) {
     const renames = asArray(assetRenames);
     const conflicts = asArray(assetConflicts);
 
-    let reason;
-    if (options?.__identifierCaseDryRun !== false) {
-        reason = IdentifierCaseAssetRenamePolicyReason.DRY_RUN_ENABLED;
-    } else if (!isNonEmptyArray(renames)) {
-        reason = IdentifierCaseAssetRenamePolicyReason.NO_RENAMES;
-    } else if (isNonEmptyArray(conflicts)) {
-        reason = IdentifierCaseAssetRenamePolicyReason.HAS_CONFLICTS;
-    } else if (!projectIndex) {
-        reason = IdentifierCaseAssetRenamePolicyReason.MISSING_PROJECT_INDEX;
-    } else if (options?.__identifierCaseAssetRenamesApplied === true) {
-        reason = IdentifierCaseAssetRenamePolicyReason.ALREADY_APPLIED;
-    } else {
-        reason = IdentifierCaseAssetRenamePolicyReason.APPLY;
-    }
-
-    const shouldApply = reason === IdentifierCaseAssetRenamePolicyReason.APPLY;
-
-    const includeRenames =
-        reason === IdentifierCaseAssetRenamePolicyReason.APPLY ||
-        reason ===
-            IdentifierCaseAssetRenamePolicyReason.MISSING_PROJECT_INDEX ||
-        reason === IdentifierCaseAssetRenamePolicyReason.ALREADY_APPLIED;
-    const includeConflicts =
-        reason === IdentifierCaseAssetRenamePolicyReason.HAS_CONFLICTS;
-
-    return {
+    const createResult = (
+        reason,
+        {
+            shouldApply = false,
+            includeRenames = false,
+            includeConflicts = false
+        } = {}
+    ) => ({
         shouldApply,
         reason,
         renames: includeRenames ? renames : [],
         conflicts: includeConflicts ? conflicts : []
-    };
+    });
+
+    if (options?.__identifierCaseDryRun !== false) {
+        return createResult(
+            IdentifierCaseAssetRenamePolicyReason.DRY_RUN_ENABLED
+        );
+    }
+
+    if (!isNonEmptyArray(renames)) {
+        return createResult(IdentifierCaseAssetRenamePolicyReason.NO_RENAMES);
+    }
+
+    if (isNonEmptyArray(conflicts)) {
+        return createResult(
+            IdentifierCaseAssetRenamePolicyReason.HAS_CONFLICTS,
+            { includeConflicts: true }
+        );
+    }
+
+    if (!projectIndex) {
+        return createResult(
+            IdentifierCaseAssetRenamePolicyReason.MISSING_PROJECT_INDEX,
+            { includeRenames: true }
+        );
+    }
+
+    if (options?.__identifierCaseAssetRenamesApplied === true) {
+        return createResult(
+            IdentifierCaseAssetRenamePolicyReason.ALREADY_APPLIED,
+            { includeRenames: true }
+        );
+    }
+
+    return createResult(IdentifierCaseAssetRenamePolicyReason.APPLY, {
+        shouldApply: true,
+        includeRenames: true
+    });
 }
 
 export { IdentifierCaseAssetRenamePolicyReason };
