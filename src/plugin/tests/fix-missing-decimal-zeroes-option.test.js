@@ -25,7 +25,7 @@ const SOURCE_LINES = [
 ];
 
 // This tests the default, opinionated behavior of the formatter
-// To pad leading and trailing zeroes around decimal points
+// To pad leading zeroes around decimal points and trim unnecessary trailing decimal points
 test("pads bare decimal literals by default", async () => {
     const formatted = await format(SOURCE_LINES.join("\n"));
 
@@ -36,7 +36,7 @@ test("pads bare decimal literals by default", async () => {
             "/// @function coefficients",
             "function coefficients() {",
             "    var a = 0.5;",
-            "    var b = 5.0;",
+            "    var b = 5;",
             "    return a + b;",
             "}",
             ""
