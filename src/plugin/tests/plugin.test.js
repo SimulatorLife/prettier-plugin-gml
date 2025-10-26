@@ -296,6 +296,38 @@ describe("Prettier GameMaker plugin fixtures", () => {
         );
     });
 
+    it("preserves leading blank lines before the first statement in blocks", async () => {
+        const source = [
+            "function keepPadding() {",
+            "",
+            "    instance_destroy();",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await formatWithPlugin(source);
+        const lines = formatted.split("\n");
+        const functionLineIndex = lines.findIndex((line) =>
+            line.startsWith("function keepPadding")
+        );
+
+        assert.ok(
+            functionLineIndex !== -1,
+            "Expected formatted output to include the function declaration."
+        );
+
+        assert.strictEqual(
+            lines[functionLineIndex + 1],
+            "",
+            "Expected a blank line between the function header and its first statement."
+        );
+
+        assert.ok(
+            lines[functionLineIndex + 2]?.includes("instance_destroy"),
+            "Expected the first statement to follow after the preserved blank line."
+        );
+    });
+
     it("normalises legacy #define directives", async () => {
         const source = [
             "#define region Toolbox",
