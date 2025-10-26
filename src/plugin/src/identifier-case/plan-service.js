@@ -11,7 +11,9 @@ import {
  * lookups, and snapshot orchestration behind one "service" facade. That wide
  * surface made collaborators depend on behaviours they did not always need.
  * Providers now register role-specific collaborators so consumers can opt into
- * only the behaviour they require.
+ * only the behaviour they require. Snapshot capture/apply helpers previously
+ * leaked through a single "snapshot service" contract as well, so the helpers
+ * below expose them via focused capture/apply facades.
  */
 
 /**
@@ -25,9 +27,19 @@ import {
  */
 
 /**
- * @typedef {object} IdentifierCasePlanSnapshotService
+ * @typedef {object} IdentifierCasePlanSnapshotCaptureService
  * @property {(options: unknown) => ReturnType<typeof defaultCaptureIdentifierCasePlanSnapshot>} captureIdentifierCasePlanSnapshot
+ */
+
+/**
+ * @typedef {object} IdentifierCasePlanSnapshotApplyService
  * @property {(snapshot: ReturnType<typeof defaultCaptureIdentifierCasePlanSnapshot>, options: Record<string, unknown> | null | undefined) => void} applyIdentifierCasePlanSnapshot
+ */
+
+/**
+ * @typedef {object} IdentifierCasePlanSnapshotCollaborators
+ * @property {IdentifierCasePlanSnapshotCaptureService["captureIdentifierCasePlanSnapshot"]} captureIdentifierCasePlanSnapshot
+ * @property {IdentifierCasePlanSnapshotApplyService["applyIdentifierCasePlanSnapshot"]} applyIdentifierCasePlanSnapshot
  */
 
 /**
@@ -39,7 +51,7 @@ import {
  */
 
 /**
- * @typedef {() => IdentifierCasePlanSnapshotService} IdentifierCasePlanSnapshotProvider
+ * @typedef {() => IdentifierCasePlanSnapshotCollaborators} IdentifierCasePlanSnapshotProvider
  */
 
 const defaultPreparationService = Object.freeze({
@@ -148,20 +160,20 @@ function normalizeIdentifierCaseRenameLookupService(service) {
     });
 }
 
-function normalizeIdentifierCasePlanSnapshotService(service) {
+function normalizeIdentifierCasePlanSnapshotCollaborators(service) {
     return normalizeIdentifierCaseServiceFunctions(service, {
         serviceErrorMessage:
-            "Identifier case plan snapshot service must be provided as an object",
+            "Identifier case plan snapshot collaborators must be provided as an object",
         functionDescriptors: [
             {
                 property: "captureIdentifierCasePlanSnapshot",
                 errorMessage:
-                    "Identifier case plan snapshot service must provide a captureIdentifierCasePlanSnapshot function"
+                    "Identifier case plan snapshot collaborators must provide a captureIdentifierCasePlanSnapshot function"
             },
             {
                 property: "applyIdentifierCasePlanSnapshot",
                 errorMessage:
-                    "Identifier case plan snapshot service must provide an applyIdentifierCasePlanSnapshot function"
+                    "Identifier case plan snapshot collaborators must provide an applyIdentifierCasePlanSnapshot function"
             }
         ]
     });
@@ -187,12 +199,41 @@ const renameLookupRegistry = createIdentifierCaseServiceRegistry({
 
 const snapshotRegistry = createIdentifierCaseServiceRegistry({
     defaultService: defaultSnapshotService,
-    normalize: normalizeIdentifierCasePlanSnapshotService,
+    normalize: normalizeIdentifierCasePlanSnapshotCollaborators,
     providerTypeErrorMessage:
         "Identifier case plan snapshot provider must be a function",
     missingProviderMessage:
         "No identifier case plan snapshot provider has been registered"
 });
+
+const SNAPSHOT_CAPTURE_SERVICES = new WeakMap();
+const SNAPSHOT_APPLY_SERVICES = new WeakMap();
+
+function mapSnapshotCaptureService(collaborators) {
+    let captureService = SNAPSHOT_CAPTURE_SERVICES.get(collaborators);
+    if (!captureService) {
+        captureService = Object.freeze({
+            captureIdentifierCasePlanSnapshot:
+                collaborators.captureIdentifierCasePlanSnapshot
+        });
+        SNAPSHOT_CAPTURE_SERVICES.set(collaborators, captureService);
+    }
+
+    return captureService;
+}
+
+function mapSnapshotApplyService(collaborators) {
+    let applyService = SNAPSHOT_APPLY_SERVICES.get(collaborators);
+    if (!applyService) {
+        applyService = Object.freeze({
+            applyIdentifierCasePlanSnapshot:
+                collaborators.applyIdentifierCasePlanSnapshot
+        });
+        SNAPSHOT_APPLY_SERVICES.set(collaborators, applyService);
+    }
+
+    return applyService;
+}
 
 /**
  * Inject a custom preparation provider so embedders can override how the
@@ -224,7 +265,7 @@ export function registerIdentifierCaseRenameLookupProvider(provider) {
  * processes that cache rename plans across files.
  *
  * @param {IdentifierCasePlanSnapshotProvider} provider Function producing the
- *        snapshot service implementation.
+ *        snapshot collaborators implementation.
  */
 export function registerIdentifierCasePlanSnapshotProvider(provider) {
     snapshotRegistry.register(provider);
@@ -259,13 +300,34 @@ export function resolveIdentifierCaseRenameLookupService() {
 }
 
 /**
- * Resolve the active snapshot service used to capture and rehydrate plan
- * state.
+ * Resolve the active snapshot collaborators shared by the capture/apply views.
  *
- * @returns {IdentifierCasePlanSnapshotService}
+ * @returns {IdentifierCasePlanSnapshotCollaborators}
  */
-export function resolveIdentifierCasePlanSnapshotService() {
+function resolveIdentifierCasePlanSnapshotCollaborators() {
     return snapshotRegistry.resolve();
+}
+
+/**
+ * Resolve the snapshot capture service exposing only the capture helper.
+ *
+ * @returns {IdentifierCasePlanSnapshotCaptureService}
+ */
+export function resolveIdentifierCasePlanSnapshotCaptureService() {
+    return mapSnapshotCaptureService(
+        resolveIdentifierCasePlanSnapshotCollaborators()
+    );
+}
+
+/**
+ * Resolve the snapshot apply service exposing only the rehydration helper.
+ *
+ * @returns {IdentifierCasePlanSnapshotApplyService}
+ */
+export function resolveIdentifierCasePlanSnapshotApplyService() {
+    return mapSnapshotApplyService(
+        resolveIdentifierCasePlanSnapshotCollaborators()
+    );
 }
 
 /**
@@ -303,7 +365,7 @@ export function getIdentifierCaseRenameForNode(node, options) {
  * @returns {ReturnType<typeof defaultCaptureIdentifierCasePlanSnapshot>}
  */
 export function captureIdentifierCasePlanSnapshot(options) {
-    return resolveIdentifierCasePlanSnapshotService().captureIdentifierCasePlanSnapshot(
+    return resolveIdentifierCasePlanSnapshotCaptureService().captureIdentifierCasePlanSnapshot(
         options
     );
 }
@@ -316,7 +378,7 @@ export function captureIdentifierCasePlanSnapshot(options) {
  * @returns {void}
  */
 export function applyIdentifierCasePlanSnapshot(snapshot, options) {
-    return resolveIdentifierCasePlanSnapshotService().applyIdentifierCasePlanSnapshot(
+    return resolveIdentifierCasePlanSnapshotApplyService().applyIdentifierCasePlanSnapshot(
         snapshot,
         options
     );
