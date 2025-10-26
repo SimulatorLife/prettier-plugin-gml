@@ -2795,12 +2795,12 @@ function getSimpleAssignmentLikeEntry(
         };
     }
 
-    if (!insideFunctionBody) {
+    const declarator = getSingleVariableDeclarator(statement);
+    if (!declarator) {
         return null;
     }
 
-    const declarator = getSingleVariableDeclarator(statement);
-    if (!declarator) {
+    if (!insideFunctionBody) {
         return null;
     }
 
@@ -2814,16 +2814,15 @@ function getSimpleAssignmentLikeEntry(
         return null;
     }
 
-    let enablesAlignment = false;
+    let enablesAlignment = true;
     if (init.type === "Identifier" && typeof init.name === "string") {
         const argumentIndex = getArgumentIndexFromIdentifier(init.name);
         const hasNamedParameters =
             functionParameterNames && functionParameterNames.size > 0;
 
         if (argumentIndex !== null) {
-            if (!options?.applyFeatherFixes || hasNamedParameters) {
-                enablesAlignment = true;
-            }
+            enablesAlignment =
+                !options?.applyFeatherFixes || hasNamedParameters;
         } else if (functionParameterNames?.has(init.name)) {
             enablesAlignment = true;
         }
