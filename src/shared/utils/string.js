@@ -95,7 +95,11 @@ export function isWordChar(character) {
         return false;
     }
 
-    const code = character.charCodeAt(0);
+    const code = character.codePointAt(0);
+
+    if (code === undefined) {
+        return false;
+    }
 
     if (code === CHAR_CODE_UNDERSCORE) {
         return true;
