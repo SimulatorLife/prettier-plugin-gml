@@ -126,4 +126,4 @@ function InputButtonKeyboard(button) : AbstractInputButton(button, eInputType.ke
 
 }
 var kbInput = new InputButtonKeyboard(); kbInput.cleanup()
-delete kbInput
+delete kbInput    /// delete the struct
