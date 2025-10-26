@@ -25,6 +25,7 @@ const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const REPO_SEGMENT_PATTERN = /^[A-Za-z0-9_.-]+$/;
 const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
+const NOOP = () => {};
 
 export const MANUAL_REPO_REQUIREMENT_SOURCE = Object.freeze({
     CLI: "cli",
@@ -109,6 +110,46 @@ export function announceManualDownloadStart(
  *   totalEntries: number
  * }) => void}
  */
+function createProgressBarReporter({ label, progressBarWidth, render }) {
+    const normalizedLabel = normalizeDownloadLabel(label);
+    const width = progressBarWidth ?? 0;
+    const progressRenderer =
+        typeof render === "function" ? render : renderProgressBar;
+    let cleanedUp = false;
+
+    return {
+        report({ fetchedCount, totalEntries }) {
+            progressRenderer(
+                normalizedLabel,
+                fetchedCount,
+                totalEntries,
+                width
+            );
+        },
+        cleanup() {
+            if (cleanedUp) {
+                return;
+            }
+
+            cleanedUp = true;
+            disposeProgressBars();
+        }
+    };
+}
+
+function createConsoleReporter({ formatPath }) {
+    const normalizePath =
+        typeof formatPath === "function" ? formatPath : identity;
+
+    return {
+        report({ path }) {
+            const displayPath = normalizePath(path);
+            console.log(displayPath ? `✓ ${displayPath}` : "✓");
+        },
+        cleanup: NOOP
+    };
+}
+
 export function createManualDownloadReporter({
     label,
     verbose = {},
@@ -119,48 +160,12 @@ export function createManualDownloadReporter({
     const { downloads = false, progressBar = false } = verbose ?? {};
 
     if (!downloads) {
-        const noop = () => {};
-        return { report: noop, cleanup: noop };
+        return { report: NOOP, cleanup: NOOP };
     }
 
-    if (progressBar) {
-        const normalizedLabel = normalizeDownloadLabel(label);
-        const width = progressBarWidth ?? 0;
-        const progressRenderer =
-            typeof render === "function" ? render : renderProgressBar;
-        let cleanedUp = false;
-
-        const report = ({ fetchedCount, totalEntries }) => {
-            progressRenderer(
-                normalizedLabel,
-                fetchedCount,
-                totalEntries,
-                width
-            );
-        };
-
-        const cleanup = () => {
-            if (cleanedUp) {
-                return;
-            }
-
-            cleanedUp = true;
-            disposeProgressBars();
-        };
-
-        return { report, cleanup };
-    }
-
-    const normalizePath =
-        typeof formatPath === "function" ? formatPath : identity;
-    const report = ({ path }) => {
-        const displayPath = normalizePath(path);
-        console.log(displayPath ? `✓ ${displayPath}` : "✓");
-    };
-
-    const cleanup = () => {};
-
-    return { report, cleanup };
+    return progressBar
+        ? createProgressBarReporter({ label, progressBarWidth, render })
+        : createConsoleReporter({ formatPath });
 }
 
 /**
