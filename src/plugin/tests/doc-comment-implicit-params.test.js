@@ -222,7 +222,7 @@ function preserveDocs(argument0) {
 }
 `;
 
-test("collectImplicitArgumentDocNames retains descriptive docs when alias is shorter", async () => {
+test("collectImplicitArgumentDocNames preserves descriptive doc names", async () => {
     const formatted = await prettier.format(DESCRIPTIVE_DOC_SOURCE, {
         parser: "gml-parse",
         plugins: [pluginPath]
