@@ -28,7 +28,7 @@ var op8 = true xor false;
 var op9 = (10 div 6);
 var op10 = 10 != 6;
 
-n = max(0.0, point_distance(0.0, 1.0, 0.0, 100.0));
+n = max(0, point_distance(0, 1, 0, 100));
 
 if (a == getValue()) {
 	// TODO

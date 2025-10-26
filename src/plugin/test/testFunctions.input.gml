@@ -253,19 +253,19 @@ function vertex_buffer_write_triangular_prism(vbuff, colour = c_white, alpha = 1
     var hx = 0.5, hy = 0.5, h = 1.0;
 
     // Base corners (Z = 0)
-    var L0 = [-hx, -hy, 0]; // x-, y-
+    var L0 = [-hx, -hy, 0.0]; // x-, y-
     var L1 = [-hx, +hy, 0]; // x-, y+
-    var R0 = [+hx, -hy, 0]; // x+, y-
+    var R0 = [+hx, -hy, 0.]; // x+, y-
     var R1 = [+hx, +hy, 0]; // x+, y+
 
     // Apex line (Y=0, Z=1)
-    var LA = [-hx, 0, h];
+    var LA = [-hx, .0, h];
     var RA = [+hx, 0, h];
 
     // Reusable UVs
-    static uv00 = [0,0];
+    static uv00 = [0,.0];
 	static uv10 = [1,0];
-	static uv11 = [1,1];
+	static uv11 = [1.,1];
 	static uv01 = [0,1];
 
     // Base quad (Z=0): L0-R0-R1,  L0-R1-L1  (outside normal points to Z-; ok for debug)
