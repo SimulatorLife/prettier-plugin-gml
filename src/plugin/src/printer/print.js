@@ -6549,6 +6549,63 @@ function shouldOmitSyntheticParens(path) {
                     return true;
                 }
 
+                if (COMPARISON_OPERATORS.has(parent.operator)) {
+                    let comparisonAncestor = null;
+                    for (let depth = 1; ; depth += 1) {
+                        const ancestor = callPathMethod(path, "getParentNode", {
+                            args: [depth],
+                            defaultValue: null
+                        });
+
+                        if (!ancestor) {
+                            break;
+                        }
+
+                        if (ancestor.type === "ParenthesizedExpression") {
+                            continue;
+                        }
+
+                        comparisonAncestor = ancestor;
+                        break;
+                    }
+
+                    const comparisonLivesInLogicalChain =
+                        comparisonAncestor?.type === "BinaryExpression" &&
+                        (comparisonAncestor.operator === "&&" ||
+                            comparisonAncestor.operator === "and" ||
+                            comparisonAncestor.operator === "||" ||
+                            comparisonAncestor.operator === "or");
+
+                    if (!comparisonLivesInLogicalChain) {
+                        return false;
+                    }
+
+                    const sanitizedMacroNames = getSanitizedMacroNames(path);
+
+                    if (
+                        sanitizedMacroNames &&
+                        (expressionReferencesSanitizedMacro(
+                            parent,
+                            sanitizedMacroNames
+                        ) ||
+                            expressionReferencesSanitizedMacro(
+                                expression,
+                                sanitizedMacroNames
+                            ))
+                    ) {
+                        return false;
+                    }
+
+                    if (
+                        !isWithinNumericCallArgument(path) &&
+                        binaryExpressionHasUnaryMultiplicand(expression)
+                    ) {
+                        return false;
+                    }
+
+                    return true;
+                }
+
                 if (expression.operator === "*") {
                     return false;
                 }
@@ -6626,6 +6683,39 @@ function isControlFlowLogicalTest(path) {
 
         return false;
     }
+}
+
+function binaryExpressionHasUnaryMultiplicand(node) {
+    if (!node || node.type !== "BinaryExpression" || node.operator !== "*") {
+        return false;
+    }
+
+    return (
+        expressionHasLeadingUnaryMinus(node.left) ||
+        expressionHasLeadingUnaryMinus(node.right)
+    );
+}
+
+function expressionHasLeadingUnaryMinus(node) {
+    if (!node) {
+        return false;
+    }
+
+    if (node.type === "ParenthesizedExpression") {
+        return expressionHasLeadingUnaryMinus(node.expression);
+    }
+
+    if (node.type === "UnaryExpression") {
+        if (node.operator === "-") {
+            return true;
+        }
+
+        if (node.operator === "+") {
+            return expressionHasLeadingUnaryMinus(node.argument);
+        }
+    }
+
+    return false;
 }
 
 function shouldWrapTernaryExpression(path) {
