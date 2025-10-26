@@ -14,6 +14,7 @@ import {
     getNonEmptyTrimmedString,
     incrementMapValue,
     isNonEmptyString,
+    normalizeEnumeratedOption,
     normalizeStringList,
     resolveModuleDefaultExport,
     parseJsonObjectWithContext,
@@ -56,6 +57,53 @@ export const MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR =
     "GML_MEMORY_FORMAT_MAX_ITERATIONS";
 export const DEFAULT_MAX_FORMAT_ITERATIONS = 25;
 export const MEMORY_REPORT_DIRECTORY_ENV_VAR = "GML_MEMORY_REPORT_DIR";
+
+export const MemorySuiteName = Object.freeze({
+    NORMALIZE_STRING_LIST: "normalize-string-list",
+    PARSER_AST: "parser-ast",
+    PLUGIN_FORMAT: "plugin-format"
+});
+
+const MEMORY_SUITE_NAMES = new Set(Object.values(MemorySuiteName));
+
+const MEMORY_SUITE_NAME_LIST = Object.freeze(
+    [...MEMORY_SUITE_NAMES].sort().join(", ")
+);
+
+export function formatMemorySuiteNameList() {
+    return MEMORY_SUITE_NAME_LIST;
+}
+
+export function normalizeMemorySuiteName(value, { errorConstructor } = {}) {
+    const normalized = normalizeEnumeratedOption(
+        value,
+        null,
+        MEMORY_SUITE_NAMES,
+        {
+            coerce(input) {
+                if (typeof input !== "string") {
+                    throw new TypeError(
+                        `Memory suite name must be provided as a string (received type '${typeof input}').`
+                    );
+                }
+
+                return input.trim().toLowerCase();
+            }
+        }
+    );
+
+    if (normalized) {
+        return normalized;
+    }
+
+    const ErrorConstructor =
+        typeof errorConstructor === "function" ? errorConstructor : Error;
+    const received = JSON.stringify(value);
+
+    throw new ErrorConstructor(
+        `Memory suite must be one of: ${formatMemorySuiteNameList()}. Received: ${received}.`
+    );
+}
 
 function normalizeMemoryReportDirectory(value, fallback) {
     return getNonEmptyTrimmedString(value) ?? fallback;
@@ -512,7 +560,11 @@ applyMemoryReportDirectoryEnvOverride();
 const AVAILABLE_SUITES = new Map();
 
 function collectSuite(value, previous) {
-    return appendToCollection(value, previous);
+    const normalized = normalizeMemorySuiteName(value, {
+        errorConstructor: InvalidArgumentError
+    });
+
+    return appendToCollection(normalized, previous);
 }
 
 export function createMemoryCommand({ env = process.env } = {}) {
@@ -617,7 +669,10 @@ async function runNormalizeStringListSuite({ iterations }) {
     return buildSuiteResult({ measurement });
 }
 
-AVAILABLE_SUITES.set("normalize-string-list", runNormalizeStringListSuite);
+AVAILABLE_SUITES.set(
+    MemorySuiteName.NORMALIZE_STRING_LIST,
+    runNormalizeStringListSuite
+);
 
 async function runParserAstSuite({ iterations }) {
     const tracker = createMemoryTracker({ requirePreciseGc: true });
@@ -672,7 +727,7 @@ async function runParserAstSuite({ iterations }) {
     return buildSuiteResult({ measurement });
 }
 
-AVAILABLE_SUITES.set("parser-ast", runParserAstSuite);
+AVAILABLE_SUITES.set(MemorySuiteName.PARSER_AST, runParserAstSuite);
 
 async function runPluginFormatSuite({ iterations }) {
     const tracker = createMemoryTracker({ requirePreciseGc: true });
@@ -766,7 +821,7 @@ async function runPluginFormatSuite({ iterations }) {
     return result;
 }
 
-AVAILABLE_SUITES.set("plugin-format", runPluginFormatSuite);
+AVAILABLE_SUITES.set(MemorySuiteName.PLUGIN_FORMAT, runPluginFormatSuite);
 
 function formatSuiteError(error) {
     const name = error?.name ?? error?.constructor?.name ?? "Error";
