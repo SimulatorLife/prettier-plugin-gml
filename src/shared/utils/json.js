@@ -92,10 +92,6 @@ function extractErrorDetails(error) {
     return normalized.length > 0 ? normalized : "Unknown error";
 }
 
-function isObject(value) {
-    return value !== null && typeof value === "object";
-}
-
 /**
  * Describe the payload when JSON serialization fails so error messages stay
  * readable without relying on nested ternaries inside the guard clause.
@@ -197,12 +193,17 @@ export function parseJsonObjectWithContext(text, options = {}) {
             ? createAssertOptions(payload)
             : undefined;
 
-    const optionSources = [assertOptions, dynamicOptions].filter(isObject);
+    let mergedOptions;
 
-    const mergedOptions =
-        optionSources.length > 0
-            ? Object.assign({}, ...optionSources)
-            : undefined;
+    if (assertOptions && typeof assertOptions === "object") {
+        mergedOptions = { ...assertOptions };
+    }
+
+    if (dynamicOptions && typeof dynamicOptions === "object") {
+        mergedOptions = mergedOptions
+            ? Object.assign(mergedOptions, dynamicOptions)
+            : { ...dynamicOptions };
+    }
 
     return assertPlainObject(payload, mergedOptions);
 }
