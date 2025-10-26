@@ -11,7 +11,8 @@ import {
     registerIdentifierCaseRenameLookupProvider,
     resetIdentifierCasePlanServiceProvider,
     resolveIdentifierCasePlanPreparationService,
-    resolveIdentifierCasePlanSnapshotService,
+    resolveIdentifierCasePlanSnapshotApplyService,
+    resolveIdentifierCasePlanSnapshotCaptureService,
     resolveIdentifierCaseRenameLookupService
 } from "../src/identifier-case/plan-service.js";
 
@@ -22,7 +23,9 @@ test(
         resetIdentifierCasePlanServiceProvider();
         const preparation = resolveIdentifierCasePlanPreparationService();
         const renameLookup = resolveIdentifierCaseRenameLookupService();
-        const snapshot = resolveIdentifierCasePlanSnapshotService();
+        const snapshotCapture =
+            resolveIdentifierCasePlanSnapshotCaptureService();
+        const snapshotApply = resolveIdentifierCasePlanSnapshotApplyService();
 
         assert.ok(
             Object.isFrozen(preparation),
@@ -45,16 +48,23 @@ test(
         );
 
         assert.ok(
-            Object.isFrozen(snapshot),
-            "snapshot service should be frozen"
+            Object.isFrozen(snapshotCapture),
+            "snapshot capture service should be frozen"
         );
         assert.deepStrictEqual(
-            Object.keys(snapshot),
-            [
-                "captureIdentifierCasePlanSnapshot",
-                "applyIdentifierCasePlanSnapshot"
-            ],
-            "snapshot service should only expose capture and apply helpers"
+            Object.keys(snapshotCapture),
+            ["captureIdentifierCasePlanSnapshot"],
+            "snapshot capture service should only expose capture helper"
+        );
+
+        assert.ok(
+            Object.isFrozen(snapshotApply),
+            "snapshot apply service should be frozen"
+        );
+        assert.deepStrictEqual(
+            Object.keys(snapshotApply),
+            ["applyIdentifierCasePlanSnapshot"],
+            "snapshot apply service should only expose apply helper"
         );
 
         resetIdentifierCasePlanServiceProvider();
@@ -70,7 +80,10 @@ test(
         const defaultPreparation =
             resolveIdentifierCasePlanPreparationService();
         const defaultRenameLookup = resolveIdentifierCaseRenameLookupService();
-        const defaultSnapshot = resolveIdentifierCasePlanSnapshotService();
+        const defaultSnapshotCapture =
+            resolveIdentifierCasePlanSnapshotCaptureService();
+        const defaultSnapshotApply =
+            resolveIdentifierCasePlanSnapshotApplyService();
 
         registerIdentifierCasePlanPreparationProvider(() => ({
             async prepareIdentifierCasePlan(options) {
@@ -92,13 +105,13 @@ test(
         registerIdentifierCasePlanSnapshotProvider(() => ({
             captureIdentifierCasePlanSnapshot(options) {
                 calls.push({ type: "capture", options });
-                return defaultSnapshot.captureIdentifierCasePlanSnapshot(
+                return defaultSnapshotCapture.captureIdentifierCasePlanSnapshot(
                     options
                 );
             },
             applyIdentifierCasePlanSnapshot(snapshot, options) {
                 calls.push({ type: "apply", snapshot, options });
-                defaultSnapshot.applyIdentifierCasePlanSnapshot(
+                defaultSnapshotApply.applyIdentifierCasePlanSnapshot(
                     snapshot,
                     options
                 );
