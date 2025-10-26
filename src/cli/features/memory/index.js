@@ -15,6 +15,7 @@ import {
     isNonEmptyString,
     normalizeEnumeratedOption,
     normalizeStringList,
+    loadGmlParser,
     resolveModuleDefaultExport,
     parseJsonObjectWithContext,
     splitLines
@@ -684,9 +685,7 @@ async function runParserAstSuite({ iterations }) {
         PARSER_SAMPLE_RELATIVE_PATH
     );
 
-    const { default: GMLParser } = await import(
-        "../../../parser/gml-parser.js"
-    );
+    const GMLParser = await loadGmlParser();
 
     const measurement = await tracker.measure(() => {
         let lastAst = null;

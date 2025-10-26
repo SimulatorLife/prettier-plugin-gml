@@ -77,3 +77,5 @@ export {
     collectAncestorDirectories,
     collectUniqueAncestorDirectories
 } from "./ancestor-directories.js";
+
+export { loadGmlParser } from "./gml-parser.js";
