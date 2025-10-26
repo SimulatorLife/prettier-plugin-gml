@@ -2247,7 +2247,8 @@ function countTrailingBlankLines(text, startIndex) {
         if (characterCode === 13) {
             // \r
             newlineCount += 1;
-            index += index + 1 < length && text.charCodeAt(index + 1) === 10 ? 2 : 1;
+            index +=
+                index + 1 < length && text.charCodeAt(index + 1) === 10 ? 2 : 1;
             continue;
         }
 
