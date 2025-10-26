@@ -137,6 +137,46 @@ test("flattens standalone multiplication groups added together", async () => {
     );
 });
 
+test("flattens forced synthetic multiplication groups outside numeric calls", async () => {
+    const source = [
+        "function spring(a, b, dst, force) {",
+        "    if (argument_count > 4) {",
+        "        push_out = argument[4];",
+        "    } else {",
+        "        push_out = true;",
+        "    }",
+        "    var distance = xoff * xoff + yoff * yoff;",
+        "    return distance;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    const expectedLines = [
+        "/// @function spring",
+        "/// @param a",
+        "/// @param b",
+        "/// @param dst",
+        "/// @param force",
+        "/// @param [push_out=true]",
+        "function spring(a, b, dst, force, push_out = true) {",
+        "    var distance = xoff * xoff + yoff * yoff;",
+        "    return distance;",
+        "}",
+        ""
+    ].join("\n");
+
+    assert.strictEqual(
+        formatted.trim(),
+        expectedLines.trim(),
+        "Expected multiplication groups to flatten when numeric paren flattening is explicitly enabled."
+    );
+});
+
 test("preserves chains of sqr calls without additional parentheses", async () => {
     const source = ["var ll = sqr(dx) + sqr(dy) + sqr(dz);", ""].join("\n");
 
