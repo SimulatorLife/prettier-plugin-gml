@@ -1,6 +1,18 @@
 import { toArrayFromIterable } from "./array.js";
 import { escapeRegExp } from "./regexp.js";
 
+/**
+ * Determine whether {@link value} is a string containing at least one
+ * character.
+ *
+ * Most helpers in this module normalize string inputs before performing their
+ * primary work. Documenting the base predicate keeps its contract aligned with
+ * the richer trimming variants below and clarifies that blank strings are
+ * intentionally rejected.
+ *
+ * @param {unknown} value Candidate value to evaluate.
+ * @returns {value is string} `true` when {@link value} is a non-empty string.
+ */
 export function isNonEmptyString(value) {
     return typeof value === "string" && value.length > 0;
 }
@@ -41,6 +53,16 @@ export function getNonEmptyTrimmedString(value) {
     return trimmed;
 }
 
+/**
+ * Return {@link value} when it is a populated string, otherwise yield `null`.
+ *
+ * This mirrors the trimmed variant above without altering surrounding
+ * whitespace, making the distinction between trimmed and raw string checks
+ * explicit for future readers.
+ *
+ * @param {unknown} value Candidate value to normalize.
+ * @returns {string | null} Original string when populated; otherwise `null`.
+ */
 export function getNonEmptyString(value) {
     return isNonEmptyString(value) ? value : null;
 }
