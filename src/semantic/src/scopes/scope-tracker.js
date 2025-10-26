@@ -107,10 +107,10 @@ export default class ScopeTracker {
     }
 
     buildClassifications(role, isDeclaration) {
-        const tags = new Set();
-
-        tags.add("identifier");
-        tags.add(isDeclaration ? "declaration" : "reference");
+        const tags = new Set([
+            "identifier",
+            isDeclaration ? "declaration" : "reference"
+        ]);
 
         const roleKind = role?.kind;
         if (typeof roleKind === "string") {

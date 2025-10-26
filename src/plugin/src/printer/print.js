@@ -1387,8 +1387,7 @@ export function print(path, options, print) {
             );
         }
         case "CatchClause": {
-            const parts = [];
-            parts.push(" catch ");
+            const parts = [" catch "];
             if (node.param) {
                 parts.push(["(", print("param"), ")"]);
             }
@@ -1398,8 +1397,7 @@ export function print(path, options, print) {
             return concat(parts);
         }
         case "Finalizer": {
-            const parts = [];
-            parts.push(" finally ");
+            const parts = [" finally "];
             if (node.body) {
                 parts.push(printInBlock(path, options, print, "body"));
             }
@@ -1475,8 +1473,7 @@ function getFeatherCommentCallText(node) {
 }
 
 function buildTemplateStringParts(atoms, path, print) {
-    const parts = [];
-    parts.push('$"');
+    const parts = ['$"'];
 
     const printedAtoms = path.map(print, "atoms");
 
@@ -2247,7 +2244,8 @@ function countTrailingBlankLines(text, startIndex) {
         if (characterCode === 13) {
             // \r
             newlineCount += 1;
-            index += index + 1 < length && text.charCodeAt(index + 1) === 10 ? 2 : 1;
+            index +=
+                index + 1 < length && text.charCodeAt(index + 1) === 10 ? 2 : 1;
             continue;
         }
 
