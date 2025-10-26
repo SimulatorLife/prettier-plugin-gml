@@ -224,6 +224,31 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
+    it("merges repeated --extensions flags", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const firstFile = path.join(tempDirectory, "alpha.txt");
+            const secondFile = path.join(tempDirectory, "beta.scr");
+            await fs.writeFile(firstFile, "var    a=1;\n", "utf8");
+            await fs.writeFile(secondFile, "var    b=2;\n", "utf8");
+
+            await execFileAsync("node", [
+                wrapperPath,
+                "--extensions=.txt",
+                "--extensions=.scr",
+                tempDirectory
+            ]);
+
+            const formattedFirst = await fs.readFile(firstFile, "utf8");
+            const formattedSecond = await fs.readFile(secondFile, "utf8");
+            assert.strictEqual(formattedFirst, "var a = 1;\n");
+            assert.strictEqual(formattedSecond, "var b = 2;\n");
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
     it("applies Prettier configuration from the target project", async () => {
         const tempDirectory = await createTemporaryDirectory();
 

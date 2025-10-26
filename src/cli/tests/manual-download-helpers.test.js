@@ -103,7 +103,7 @@ describe("manual download helpers", () => {
         const restoreLog = mock.method(console, "log", () => {});
 
         try {
-            const report = createManualDownloadReporter({
+            const { report, cleanup } = createManualDownloadReporter({
                 label: "Downloading manual pages",
                 verbose: { downloads: true, progressBar: true },
                 progressBarWidth: 24,
@@ -126,7 +126,7 @@ describe("manual download helpers", () => {
                 24
             ]);
             assert.equal(restoreLog.mock.callCount(), 0);
-            report.cleanup();
+            cleanup();
         } finally {
             restoreLog.mock.restore();
         }
@@ -139,7 +139,7 @@ describe("manual download helpers", () => {
         });
 
         try {
-            const report = createManualDownloadReporter({
+            const { report, cleanup } = createManualDownloadReporter({
                 label: "Downloading manual files",
                 verbose: { downloads: true, progressBar: false },
                 render: () => {
@@ -154,7 +154,7 @@ describe("manual download helpers", () => {
             });
 
             assert.deepEqual(logCalls, ["✓ Manual/file.htm"]);
-            report.cleanup();
+            cleanup();
         } finally {
             restoreLog.mock.restore();
         }
@@ -166,7 +166,7 @@ describe("manual download helpers", () => {
         });
 
         try {
-            const report = createManualDownloadReporter({
+            const { report, cleanup } = createManualDownloadReporter({
                 label: "Downloading manual files",
                 verbose: { downloads: false, progressBar: true },
                 render: () => {
@@ -181,7 +181,7 @@ describe("manual download helpers", () => {
             });
 
             assert.equal(restoreLog.mock.callCount(), 0);
-            report.cleanup();
+            cleanup();
         } finally {
             restoreLog.mock.restore();
         }
@@ -199,7 +199,7 @@ describe("manual download helpers", () => {
             write: () => {}
         };
 
-        const report = createManualDownloadReporter({
+        const { report, cleanup } = createManualDownloadReporter({
             label: "Downloading manual files",
             verbose: { downloads: true, progressBar: true },
             progressBarWidth: 12,
@@ -224,8 +224,8 @@ describe("manual download helpers", () => {
             totalEntries: 2
         });
 
-        report.cleanup();
-        report.cleanup();
+        cleanup();
+        cleanup();
 
         assert.equal(stopMock.mock.callCount(), 1);
     });
@@ -250,7 +250,7 @@ describe("manual download helpers", () => {
             write: () => {}
         };
 
-        const report = createManualDownloadReporter({
+        const { report, cleanup } = createManualDownloadReporter({
             label: "Downloading manual files",
             verbose: { downloads: true, progressBar: true },
             progressBarWidth: 24,
@@ -283,13 +283,13 @@ describe("manual download helpers", () => {
                         fetchedCount,
                         totalEntries
                     }),
-                onProgressCleanup: report.cleanup
+                onProgressCleanup: cleanup
             }),
             /network failure/
         );
 
         assert.equal(stopMock.mock.callCount(), 1);
-        report.cleanup();
+        cleanup();
     });
 
     it("announces manual download activity using the shared helper", () => {

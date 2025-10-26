@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import {
+    getOrCreateMapEntry,
     isNonEmptyString,
     trimStringEntries,
     isObjectLike,
@@ -241,9 +242,12 @@ export function createAssetRenameExecutor({
                 ) {
                     continue;
                 }
-                const entries = groupedReferences.get(mutation.filePath) ?? [];
+                const entries = getOrCreateMapEntry(
+                    groupedReferences,
+                    mutation.filePath,
+                    () => []
+                );
                 entries.push(mutation);
-                groupedReferences.set(mutation.filePath, entries);
             }
 
             for (const [filePath, mutations] of groupedReferences.entries()) {

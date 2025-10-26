@@ -7,11 +7,20 @@
  * @param {T} value
  * @returns {T}
  */
-const NOOP = () => {};
-
 export function identity(value) {
     return value;
 }
+
+// Shared noop fallback reused by resolveFunction when callers omit overrides.
+// The export must remain a stable singleton so downstream helpers can probe
+// for "did the caller customize this hook?" by comparing references rather
+// than threading extra flags around. The manual CLI features, for example,
+// stash cleanup callbacks on the noop placeholder and later check whether the
+// same instance came back from resolveFunction before executing teardown logic.
+// Replacing this with per-call closures would break that reference equality
+// contract and cause the deferred cleanups documented in
+// docs/live-reloading-concept.md#manual-mode-cleanup-handoffs to stop firing.
+const NOOP = () => {};
 
 /**
  * Return the provided {@link candidate} when it is callable, otherwise fall

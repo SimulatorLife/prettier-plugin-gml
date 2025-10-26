@@ -29,7 +29,7 @@ function parseStringOption(
     return coerce(parsed, { received: `'${rawValue}'` });
 }
 
-function createTypeErrorMessage(typeErrorMessage, type) {
+export function createTypeErrorMessage(typeErrorMessage, type) {
     if (typeof typeErrorMessage === "function") {
         return typeErrorMessage(type);
     }

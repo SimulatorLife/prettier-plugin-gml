@@ -122,6 +122,78 @@ test("flattens numeric multiplication groups outside call arguments", async () =
     );
 });
 
+test("flattens standalone multiplication groups added together", async () => {
+    const source = [
+        "function dot(ax, ay, bx, by) {",
+        "    return ax * bx + ay * by;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    const expectedLines = [
+        "/// @function dot",
+        "/// @param ax",
+        "/// @param ay",
+        "/// @param bx",
+        "/// @param by",
+        "function dot(ax, ay, bx, by) {",
+        "    return ax * bx + ay * by;",
+        "}",
+        ""
+    ].join("\n");
+
+    assert.strictEqual(
+        formatted.trim(),
+        expectedLines.trim(),
+        "Expected additive chains of multiplication groups outside numeric calls to omit redundant synthetic parentheses."
+    );
+});
+
+test("flattens forced synthetic multiplication groups outside numeric calls", async () => {
+    const source = [
+        "function spring(a, b, dst, force) {",
+        "    if (argument_count > 4) {",
+        "        push_out = argument[4];",
+        "    } else {",
+        "        push_out = true;",
+        "    }",
+        "    var distance = xoff * xoff + yoff * yoff;",
+        "    return distance;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    const expectedLines = [
+        "/// @function spring",
+        "/// @param a",
+        "/// @param b",
+        "/// @param dst",
+        "/// @param force",
+        "/// @param [push_out=true]",
+        "function spring(a, b, dst, force, push_out = true) {",
+        "    var distance = xoff * xoff + yoff * yoff;",
+        "    return distance;",
+        "}",
+        ""
+    ].join("\n");
+
+    assert.strictEqual(
+        formatted.trim(),
+        expectedLines.trim(),
+        "Expected multiplication groups to flatten when numeric paren flattening is explicitly enabled."
+    );
+});
+
 test("preserves chains of sqr calls without additional parentheses", async () => {
     const source = ["var ll = sqr(dx) + sqr(dy) + sqr(dz);", ""].join("\n");
 
@@ -188,5 +260,39 @@ test("retains synthetic multiplication parentheses within comparisons", async ()
         formatted.trim(),
         expectedLines,
         "Expected multiplication grouping parentheses to be preserved when comparing values."
+    );
+});
+
+test("retains synthetic multiplication grouping when subtracting values", async () => {
+    const source = [
+        "function adjust(xnet, ynet, xx, yy, w, i) {",
+        "    return draw_line_width(xnet, ynet, xx, yy, 2 * w - (i * 4));",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    const expectedLines = [
+        "/// @function adjust",
+        "/// @param xnet",
+        "/// @param ynet",
+        "/// @param xx",
+        "/// @param yy",
+        "/// @param w",
+        "/// @param i",
+        "function adjust(xnet, ynet, xx, yy, w, i) {",
+        "    return draw_line_width(xnet, ynet, xx, yy, (2 * w) - (i * 4));",
+        "}",
+        ""
+    ].join("\n");
+
+    assert.strictEqual(
+        formatted.trim(),
+        expectedLines.trim(),
+        "Expected subtraction chains to preserve multiplication grouping parentheses."
     );
 });

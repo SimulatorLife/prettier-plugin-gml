@@ -22,12 +22,15 @@ import {
     appendToCollection,
     assertArray,
     coercePositiveInteger,
+    ensureDir,
     isFiniteNumber,
     getIdentifierText,
     resolveIntegerOption,
     toNormalizedInteger,
     stringifyJsonForFile,
-    resolveModuleDefaultExport
+    resolveModuleDefaultExport,
+    createCliRunSkippedError,
+    isCliRunSkipped
 } from "../shared/dependencies.js";
 import {
     PerformanceSuiteName,
@@ -35,8 +38,7 @@ import {
     normalizePerformanceSuiteName
 } from "./suite-options.js";
 
-const shouldSkipPerformanceDependencies =
-    process.env.PRETTIER_PLUGIN_GML_SKIP_CLI_RUN === "1";
+const shouldSkipPerformanceDependencies = isCliRunSkipped();
 
 const AVAILABLE_SUITES = new Map();
 
@@ -54,6 +56,8 @@ const DEFAULT_FIXTURE_DIRECTORIES = Object.freeze([
 ]);
 const DATASET_CACHE_KEY = "gml-fixtures";
 const SUPPORTS_WEAK_REF = typeof WeakRef === "function";
+const SKIP_PERFORMANCE_RESOLUTION_MESSAGE =
+    "Clear the environment variable to enable CLI performance suites.";
 
 function resolveCachedDataset(cache) {
     if (!cache || typeof cache.get !== "function") {
@@ -365,10 +369,9 @@ function createSkipResult(reason) {
 }
 
 function createSkippedPerformanceDependencyError(actionDescription) {
-    return new Error(
-        `Cannot ${actionDescription} while PRETTIER_PLUGIN_GML_SKIP_CLI_RUN=1. ` +
-            "Clear the environment variable to enable CLI performance suites."
-    );
+    return createCliRunSkippedError(actionDescription, {
+        resolution: SKIP_PERFORMANCE_RESOLUTION_MESSAGE
+    });
 }
 
 let gmlParserPromise = null;
@@ -698,7 +701,7 @@ async function writeReport(report, options) {
     }
 
     const directory = path.dirname(targetFile);
-    await fs.mkdir(directory, { recursive: true });
+    await ensureDir(directory);
 
     const spacing = options.pretty ? 2 : 0;
     const payload = stringifyJsonForFile(report, { space: spacing });

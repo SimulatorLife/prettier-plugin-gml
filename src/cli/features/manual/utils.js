@@ -5,6 +5,7 @@ import {
     assertNonEmptyString,
     createAbortGuard,
     identity,
+    noop,
     isFsErrorCode,
     isNonEmptyArray,
     isNonEmptyTrimmedString,
@@ -20,12 +21,12 @@ import {
     renderProgressBar,
     withProgressBarCleanup
 } from "../command-dependencies.js";
+import { CliUsageError } from "../command-dependencies.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const REPO_SEGMENT_PATTERN = /^[A-Za-z0-9_.-]+$/;
 const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
-
 export const MANUAL_REPO_REQUIREMENT_SOURCE = Object.freeze({
     CLI: "cli",
     ENV: "env"
@@ -73,6 +74,29 @@ function normalizeDownloadLabel(label) {
     return isNonEmptyTrimmedString(label) ? label : "Downloading manual files";
 }
 
+/**
+ * Ensure the provided manual ref includes a resolved commit SHA before
+ * continuing. Commands historically repeated this guard inline, so the helper
+ * centralizes the validation and error formatting for all manual workflows.
+ *
+ * @template T extends { ref?: string | null | undefined; sha?: string | null | undefined }
+ * @param {T | null | undefined} manualRef Manual reference resolved by GitHub.
+ * @param {{ usage?: string | null }} [options]
+ * @returns {T & { sha: string }}
+ * @throws {CliUsageError}
+ */
+export function ensureManualRefHasSha(manualRef, { usage } = {}) {
+    if (manualRef?.sha) {
+        return manualRef;
+    }
+
+    const refLabel = manualRef?.ref ?? "<unknown>";
+    throw new CliUsageError(
+        `Unable to resolve manual commit SHA for ref '${refLabel}'.`,
+        { usage }
+    );
+}
+
 export function announceManualDownloadStart(
     totalEntries,
     { verbose, description = "manual file" } = {}
@@ -109,6 +133,46 @@ export function announceManualDownloadStart(
  *   totalEntries: number
  * }) => void}
  */
+function createProgressBarReporter({ label, progressBarWidth, render }) {
+    const normalizedLabel = normalizeDownloadLabel(label);
+    const width = progressBarWidth ?? 0;
+    const progressRenderer =
+        typeof render === "function" ? render : renderProgressBar;
+    let cleanedUp = false;
+
+    return {
+        report({ fetchedCount, totalEntries }) {
+            progressRenderer(
+                normalizedLabel,
+                fetchedCount,
+                totalEntries,
+                width
+            );
+        },
+        cleanup() {
+            if (cleanedUp) {
+                return;
+            }
+
+            cleanedUp = true;
+            disposeProgressBars();
+        }
+    };
+}
+
+function createConsoleReporter({ formatPath }) {
+    const normalizePath =
+        typeof formatPath === "function" ? formatPath : identity;
+
+    return {
+        report({ path }) {
+            const displayPath = normalizePath(path);
+            console.log(displayPath ? `✓ ${displayPath}` : "✓");
+        },
+        cleanup: noop
+    };
+}
+
 export function createManualDownloadReporter({
     label,
     verbose = {},
@@ -119,49 +183,12 @@ export function createManualDownloadReporter({
     const { downloads = false, progressBar = false } = verbose ?? {};
 
     if (!downloads) {
-        const noop = () => {};
-        noop.cleanup = () => {};
-        return noop;
+        return { report: noop, cleanup: noop };
     }
 
-    if (progressBar) {
-        const normalizedLabel = normalizeDownloadLabel(label);
-        const width = progressBarWidth ?? 0;
-        const progressRenderer =
-            typeof render === "function" ? render : renderProgressBar;
-        let cleanedUp = false;
-
-        const reporter = ({ fetchedCount, totalEntries }) => {
-            progressRenderer(
-                normalizedLabel,
-                fetchedCount,
-                totalEntries,
-                width
-            );
-        };
-
-        reporter.cleanup = () => {
-            if (cleanedUp) {
-                return;
-            }
-
-            cleanedUp = true;
-            disposeProgressBars();
-        };
-
-        return reporter;
-    }
-
-    const normalizePath =
-        typeof formatPath === "function" ? formatPath : identity;
-    const reporter = ({ path }) => {
-        const displayPath = normalizePath(path);
-        console.log(displayPath ? `✓ ${displayPath}` : "✓");
-    };
-
-    reporter.cleanup = () => {};
-
-    return reporter;
+    return progressBar
+        ? createProgressBarReporter({ label, progressBarWidth, render })
+        : createConsoleReporter({ formatPath });
 }
 
 /**
@@ -238,21 +265,22 @@ export async function downloadManualEntriesWithProgress({
     progress: { label, verbose, progressBarWidth, formatPath, render } = {}
 }) {
     return withProgressBarCleanup(async () => {
-        const reportProgress = createManualDownloadReporter({
-            label,
-            verbose,
-            progressBarWidth,
-            formatPath,
-            render
-        });
+        const { report: reportProgress, cleanup } =
+            createManualDownloadReporter({
+                label,
+                verbose,
+                progressBarWidth,
+                formatPath,
+                render
+            });
 
         return downloadManualFileEntries({
             entries,
             manualRefSha,
             fetchManualFile,
             requestOptions,
-            onProgress: (update) => reportProgress(update),
-            onProgressCleanup: reportProgress.cleanup
+            onProgress: reportProgress,
+            onProgressCleanup: cleanup
         });
     });
 }
