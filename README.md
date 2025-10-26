@@ -167,8 +167,9 @@ for (var i = 0; i < queue_count; i += 1) {
   during gameplay. Use it alongside the architecture audits when evaluating
   runtime tooling work.
 - Formatter extension hooks &mdash;
-  [Object-wrap resolver](docs/object-wrap-option-resolver-hook.md) and
-  [line-comment resolver](docs/line-comment-options-resolver-hook.md) seams that
+  [Object-wrap resolver](docs/object-wrap-option-resolver-hook.md),
+  [line-comment resolver](docs/line-comment-options-resolver-hook.md), and
+  [core option overrides resolver](docs/core-option-overrides-hook.md) seams that
   let integrators run controlled experiments without permanently widening the
   public option surface. Combine them with the
   [project index source extension hook](docs/project-index-source-extensions-hook.md)
