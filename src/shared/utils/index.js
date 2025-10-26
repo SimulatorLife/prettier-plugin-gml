@@ -4,7 +4,6 @@ export * from "./capability-probes.js";
 export * from "./enumerated-options.js";
 export * from "./environment.js";
 export * from "./error.js";
-export * from "./fs.js";
 export * from "./function.js";
 export * from "./identifier-metadata.js";
 export * from "./json.js";

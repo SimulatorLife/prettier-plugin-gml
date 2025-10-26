@@ -1,6 +1,6 @@
 import nodeFs from "node:fs/promises";
 
-import { isErrorWithCode } from "./error.js";
+import { isErrorWithCode } from "../utils/error.js";
 
 /**
  * Ensure that a directory exists, creating it when absent.
