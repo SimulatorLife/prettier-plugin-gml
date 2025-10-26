@@ -166,9 +166,11 @@ for (var i = 0; i < queue_count; i += 1) {
   the HTML5 runtime fork and watcher pipeline that powers in-place code reloads
   during gameplay. Use it alongside the architecture audits when evaluating
   runtime tooling work.
-- [Formatter extension hooks](docs/object-wrap-option-resolver-hook.md) &mdash;
-  Override struct wrapping heuristics or extend identifier-case discovery in
-  controlled experiments. Combine it with the
+- Formatter extension hooks &mdash;
+  [Object-wrap resolver](docs/object-wrap-option-resolver-hook.md) and
+  [line-comment resolver](docs/line-comment-options-resolver-hook.md) seams that
+  let integrators run controlled experiments without permanently widening the
+  public option surface. Combine them with the
   [project index source extension hook](docs/project-index-source-extensions-hook.md)
   when bespoke suffixes (for example, `.npc.gml`) need to participate in rename
   plans.
@@ -295,7 +297,7 @@ nvm alias default node
    ```bash
    npm run format:gml
    npm run format:gml -- --check
-  npm run format:gml -- --path . --extensions=.gml --extensions=.yy
+   npm run format:gml -- --path . --extensions=.gml --extensions=.yy
    npx prettier --plugin=prettier-plugin-gamemaker --check "**/*.gml"
    node ./node_modules/root/src/cli/cli.js --help
    ```
@@ -317,34 +319,35 @@ nvm alias default node
    `format`, so `npm run cli` formats the current working directory by default:
 
    ```bash
-  npm run cli -- format "/absolute/path/to/MyGame" --extensions=.gml --extensions=.yy
+   npm run cli -- format "/absolute/path/to/MyGame" --extensions=.gml --extensions=.yy
    ```
 
-   The wrapper honours both repositories’ `.prettierrc` and `.prettierignore`
-   files, prints a skipped-file summary with concrete examples of unsupported
-  files, lets you cap the ignored-directory sample list surfaced in summaries
-  with `--ignored-directory-sample-limit` (alias
-  `--ignored-directory-samples`) or the
-  `PRETTIER_PLUGIN_GML_SKIPPED_DIRECTORY_SAMPLE_LIMIT` environment variable,
-  trims verbose ignored-file skip logs with
-  `--ignored-file-sample-limit` or
-  `PRETTIER_PLUGIN_GML_IGNORED_FILE_SAMPLE_LIMIT`, and trims
-  unsupported-extension examples with
-  `--unsupported-extension-sample-limit` or
-  `PRETTIER_PLUGIN_GML_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT`, explains when no
-  files match the configured extensions, supports dry-run
-   enforcement via `--check` (exits with code 1 when differences remain),
-   accepts
-   `--on-parse-error=skip|abort|revert` (or
-   `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR`), surfaces Prettier’s logging knob via
-   `--log-level=debug|info|warn|error|silent` (or
-   `PRETTIER_PLUGIN_GML_LOG_LEVEL`), and can pick up a default extension list
-  from `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS`. Leave `--extensions` unset to
-  format only `.gml` files, or override it when you also want to process `.yy`
-  metadata. Repeat the flag to append more extension groups alongside the
-  comma-separated form. Explore additional helpers with `npm run cli -- --help`,
+   The wrapper:
+
+   - honours both repositories’ `.prettierrc` and `.prettierignore` files so
+     local overrides apply alongside project-specific ignore rules.
+   - prints skipped-file summaries with concrete examples of ignored,
+     unsupported, and symlinked paths, plus guidance when no files match the
+     configured extensions.
+   - lets you cap skip examples with
+     `--ignored-directory-sample-limit`/`--ignored-directory-samples`,
+     `--ignored-file-sample-limit`, and
+     `--unsupported-extension-sample-limit` or the matching
+     `PRETTIER_PLUGIN_GML_*_SAMPLE_LIMIT` environment variables.
+   - supports dry-run enforcement via `--check`, per-run parser recovery via
+     `--on-parse-error=skip|abort|revert`, and log-level overrides through
+     `--log-level` or their `PRETTIER_PLUGIN_GML_*` counterparts.
+   - respects additional extension lists from repeated `--extensions` flags or
+     `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS`. Leave the flag unset to target
+     `.gml` only.
+   - accepts either a positional path or the explicit `--path` option when you
+     need to format outside the current working directory.
+
+   Explore additional helpers with `npm run cli -- --help`,
    `npm run cli -- format --help`, or the dedicated
-   [CLI reference](#cli-wrapper-environment-knobs).
+   [CLI reference](#cli-wrapper-environment-knobs). Repeat `--extensions` to
+   append more groups alongside the comma-separated form, or add `--extensions=.yy`
+   when you also want to process metadata files.
 
 <details>
 <summary><strong>Optional: global install</strong></summary>
@@ -508,6 +511,10 @@ without editing project scripts:
   Adds repository-relative or absolute plugin entry point paths for the wrapper
   to consider before falling back to its built-in candidates. Useful when CI
   jobs build the plugin into a temporary directory.
+- `PRETTIER_PLUGIN_GML_SKIP_CLI_RUN` &mdash; Set to `1` when bundlers or test
+  harnesses import the CLI module but should not automatically execute a
+  command. The wrapper still registers commands so manual runs work once the
+  flag is cleared.
 - `PRETTIER_PLUGIN_GML_PRETTIER_MODULE` &mdash; Overrides the module specifier used
   to resolve Prettier. Handy when the formatter runs inside a monorepo with a
   custom Prettier build or when you pin a nightly via a local alias.
