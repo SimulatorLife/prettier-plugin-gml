@@ -3041,6 +3041,48 @@ function collectSyntheticDocCommentLines(node, options) {
     return { existingDocLines, remainingComments };
 }
 
+function extractLeadingNonDocCommentLines(comments, options) {
+    if (!Array.isArray(comments) || comments.length === 0) {
+        return {
+            leadingLines: [],
+            remainingComments: Array.isArray(comments) ? comments : []
+        };
+    }
+
+    const lineCommentOptions = resolveLineCommentOptions(options);
+    const leadingLines = [];
+    const remainingComments = [];
+    let scanningLeadingComments = true;
+
+    for (const comment of comments) {
+        if (
+            scanningLeadingComments &&
+            comment &&
+            comment.type === "CommentLine"
+        ) {
+            const formatted = formatLineComment(comment, lineCommentOptions);
+            const trimmed =
+                typeof formatted === "string" ? formatted.trim() : "";
+
+            if (trimmed.length === 0) {
+                comment.printed = true;
+                continue;
+            }
+
+            if (trimmed.startsWith("//") && !trimmed.startsWith("///")) {
+                comment.printed = true;
+                leadingLines.push(formatted);
+                continue;
+            }
+        }
+
+        scanningLeadingComments = false;
+        remainingComments.push(comment);
+    }
+
+    return { leadingLines, remainingComments };
+}
+
 function buildSyntheticDocComment(
     functionNode,
     existingDocLines,
@@ -3065,12 +3107,26 @@ function buildSyntheticDocComment(
               )
           );
 
-    if (syntheticLines.length === 0) {
+    const leadingCommentLines = Array.isArray(overrides?.leadingCommentLines)
+        ? overrides.leadingCommentLines
+              .map((line) => (typeof line === "string" ? line : null))
+              .filter((line) => line && line.trim().length > 0)
+        : [];
+
+    if (syntheticLines.length === 0 && leadingCommentLines.length === 0) {
         return null;
     }
 
+    const docLines =
+        leadingCommentLines.length === 0
+            ? syntheticLines
+            : [
+                  ...leadingCommentLines,
+                  ...(syntheticLines.length > 0 ? ["", ...syntheticLines] : [])
+              ];
+
     return {
-        doc: concat([hardline, join(hardline, syntheticLines)]),
+        doc: concat([hardline, join(hardline, docLines)]),
         hasExistingDocLines
     };
 }
@@ -3134,9 +3190,13 @@ function getSyntheticDocCommentForStaticVariable(node, options) {
 
     const { existingDocLines, remainingComments } =
         collectSyntheticDocCommentLines(node, options);
+    const {
+        leadingLines: leadingCommentLines,
+        remainingComments: updatedComments
+    } = extractLeadingNonDocCommentLines(remainingComments, options);
 
-    if (existingDocLines.length > 0) {
-        node.comments = remainingComments;
+    if (existingDocLines.length > 0 || leadingCommentLines.length > 0) {
+        node.comments = updatedComments;
     }
 
     if (hasFunctionDoc && existingDocLines.length === 0) {
@@ -3148,6 +3208,10 @@ function getSyntheticDocCommentForStaticVariable(node, options) {
     const syntheticOverrides = { nameOverride: name };
     if (node._overridesStaticFunction === true) {
         syntheticOverrides.includeOverrideTag = true;
+    }
+
+    if (leadingCommentLines.length > 0) {
+        syntheticOverrides.leadingCommentLines = leadingCommentLines;
     }
 
     return buildSyntheticDocComment(
@@ -3202,9 +3266,13 @@ function getSyntheticDocCommentForFunctionAssignment(node, options) {
 
     const { existingDocLines, remainingComments } =
         collectSyntheticDocCommentLines(commentTarget, options);
+    const {
+        leadingLines: leadingCommentLines,
+        remainingComments: updatedComments
+    } = extractLeadingNonDocCommentLines(remainingComments, options);
 
-    if (existingDocLines.length > 0) {
-        commentTarget.comments = remainingComments;
+    if (existingDocLines.length > 0 || leadingCommentLines.length > 0) {
+        commentTarget.comments = updatedComments;
     }
 
     if (hasFunctionDoc && existingDocLines.length === 0) {
@@ -3212,6 +3280,10 @@ function getSyntheticDocCommentForFunctionAssignment(node, options) {
     }
 
     const syntheticOverrides = { nameOverride: assignment.left.name };
+
+    if (leadingCommentLines.length > 0) {
+        syntheticOverrides.leadingCommentLines = leadingCommentLines;
+    }
 
     return buildSyntheticDocComment(
         functionNode,
@@ -3454,9 +3526,31 @@ function mergeSyntheticDocComments(
     options,
     overrides = {}
 ) {
-    const normalizedExistingLines = reorderDescriptionLinesAfterFunction(
+    let normalizedExistingLines = reorderDescriptionLinesAfterFunction(
         toMutableArray(existingDocLines)
     );
+
+    let removedExistingReturnDuplicates = false;
+    const existingReturnLines = new Set();
+    normalizedExistingLines = normalizedExistingLines.filter((line) => {
+        if (typeof line !== "string") {
+            return true;
+        }
+
+        const trimmed = toTrimmedString(line);
+        if (!/^\/\/\/\s*@returns\b/i.test(trimmed)) {
+            return true;
+        }
+
+        const key = trimmed.toLowerCase();
+        if (existingReturnLines.has(key)) {
+            removedExistingReturnDuplicates = true;
+            return false;
+        }
+
+        existingReturnLines.add(key);
+        return true;
+    });
 
     const syntheticLines = reorderDescriptionLinesAfterFunction(
         computeSyntheticFunctionDocLines(
@@ -3554,7 +3648,7 @@ function mergeSyntheticDocComments(
     };
 
     let mergedLines = [...normalizedExistingLines];
-    let removedAnyLine = false;
+    let removedAnyLine = removedExistingReturnDuplicates;
 
     if (functionLines.length > 0) {
         const existingFunctionIndices = mergedLines
@@ -3754,22 +3848,87 @@ function mergeSyntheticDocComments(
     ];
 
     if (returnsLines.length > 0) {
-        let appendIndex = result.length;
+        const dedupedReturns = [];
+        const seenReturns = new Set();
 
-        while (
-            appendIndex > 0 &&
-            typeof result[appendIndex - 1] === "string" &&
-            result[appendIndex - 1].trim() === ""
-        ) {
-            appendIndex -= 1;
+        for (const line of returnsLines) {
+            if (typeof line !== "string") {
+                dedupedReturns.push(line);
+                continue;
+            }
+
+            const trimmed = toTrimmedString(line);
+            if (trimmed.length === 0) {
+                continue;
+            }
+
+            const key = trimmed.toLowerCase();
+            if (seenReturns.has(key)) {
+                continue;
+            }
+
+            seenReturns.add(key);
+            dedupedReturns.push(line);
         }
 
-        result = [
-            ...result.slice(0, appendIndex),
-            ...returnsLines,
-            ...result.slice(appendIndex)
-        ];
+        if (dedupedReturns.length > 0) {
+            const filteredResult = [];
+            let removedExistingReturns = false;
+
+            for (const line of result) {
+                if (
+                    typeof line === "string" &&
+                    /^\/\/\/\s*@returns\b/i.test(toTrimmedString(line))
+                ) {
+                    removedExistingReturns = true;
+                    continue;
+                }
+
+                filteredResult.push(line);
+            }
+
+            let appendIndex = filteredResult.length;
+
+            while (
+                appendIndex > 0 &&
+                typeof filteredResult[appendIndex - 1] === "string" &&
+                filteredResult[appendIndex - 1].trim() === ""
+            ) {
+                appendIndex -= 1;
+            }
+
+            result = [
+                ...filteredResult.slice(0, appendIndex),
+                ...dedupedReturns,
+                ...filteredResult.slice(appendIndex)
+            ];
+
+            if (removedExistingReturns) {
+                removedAnyLine = true;
+            }
+        }
     }
+
+    const uniqueReturnLines = new Set();
+    result = result.filter((line) => {
+        if (typeof line !== "string") {
+            return true;
+        }
+
+        const trimmed = toTrimmedString(line);
+        if (!/^\/\/\/\s*@returns\b/i.test(trimmed)) {
+            return true;
+        }
+
+        const key = trimmed.toLowerCase();
+        if (uniqueReturnLines.has(key)) {
+            removedAnyLine = true;
+            return false;
+        }
+
+        uniqueReturnLines.add(key);
+        return true;
+    });
 
     const paramDocsByCanonical = new Map();
 
