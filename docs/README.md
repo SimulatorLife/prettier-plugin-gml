@@ -51,6 +51,10 @@ sheet, then return here when you need deeper context.
 - [Object-wrap option resolver hook](object-wrap-option-resolver-hook.md) —
   Register temporary overrides for struct wrapping heuristics while keeping the
   default resolver easy to restore.
+- [Line-comment options resolver hook](line-comment-options-resolver-hook.md)
+  — Adjust the boilerplate stripping and commented-code heuristics without
+  forking the formatter. Normalization guards keep overrides safe even when
+  hosts provide partial data.
 - [Project index source extension hook](project-index-source-extensions-hook.md)
   — Extend the recognised GML suffix list so the identifier-case bootstrap and
   formatter refactors include generated or experimental file extensions.
