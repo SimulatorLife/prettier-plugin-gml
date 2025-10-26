@@ -160,7 +160,7 @@ function logical_example(foo , bar, baz) {
 /// @returns {real} The nearest power of 2
 function scr_nearest_power_of_2(value) {
     // Ensure the value is not zero, as log2(0) is undefined
-    if (value == 0) { return 0; }
+    if (value = 0) { return 0; }
 
     // Find the nearest power of 2 by rounding the logarithm base 2 of the absolute value
     // Use sign to handle both positive and negative values
