@@ -187,6 +187,13 @@ const BINARY_OPERATOR_INFO = new Map([
     ["??", { precedence: 4, associativity: "right" }]
 ]);
 
+const LOGICAL_OPERATOR_ALIASES = new Map([
+    ["and", "and"],
+    ["&&", "and"],
+    ["or", "or"],
+    ["||", "or"]
+]);
+
 const COMPARISON_OPERATORS = new Set(["<", "<=", ">", ">=", "==", "!=", "<>"]);
 const DOC_COMMENT_OUTPUT_FLAG = "_gmlHasDocCommentOutput";
 
@@ -6562,6 +6569,18 @@ function shouldOmitSyntheticParens(path) {
                 }
             }
         }
+
+        if (canFlattenEquivalentLogicalOperators(parent.operator, expression)) {
+            return true;
+        }
+
+        if (
+            childInfo != undefined &&
+            childInfo.precedence > parentInfo.precedence &&
+            shouldFlattenComparisonUnderLogical(parent.operator, expression)
+        ) {
+            return true;
+        }
     }
 
     if (parent.operator !== "+") {
@@ -6769,6 +6788,76 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
     }
 
     return false;
+}
+
+function canFlattenEquivalentLogicalOperators(parentOperator, expression) {
+    const normalizedParent = normalizeLogicalOperator(parentOperator);
+    const normalizedChild = normalizeLogicalOperator(expression?.operator);
+
+    if (!normalizedParent || !normalizedChild) {
+        return false;
+    }
+
+    if (normalizedParent !== normalizedChild) {
+        return false;
+    }
+
+    return !binaryExpressionHasComments(expression);
+}
+
+function shouldFlattenComparisonUnderLogical(parentOperator, expression) {
+    if (!expression || expression.type !== "BinaryExpression") {
+        return false;
+    }
+
+    const normalizedParent = normalizeLogicalOperator(parentOperator);
+    if (!normalizedParent) {
+        return false;
+    }
+
+    if (!isComparisonOperator(expression.operator)) {
+        return false;
+    }
+
+    return !binaryExpressionHasComments(expression);
+}
+
+function normalizeLogicalOperator(operator) {
+    if (typeof operator !== "string") {
+        return null;
+    }
+
+    const normalized = operator.toLowerCase();
+    return (
+        LOGICAL_OPERATOR_ALIASES.get(normalized) ??
+        LOGICAL_OPERATOR_ALIASES.get(operator) ??
+        null
+    );
+}
+
+function isComparisonOperator(operator) {
+    if (typeof operator !== "string") {
+        return false;
+    }
+
+    const normalized = operator.toLowerCase();
+    return COMPARISON_OPERATORS.has(normalized);
+}
+
+function binaryExpressionHasComments(node) {
+    if (!node || node.type !== "BinaryExpression") {
+        return false;
+    }
+
+    return (
+        hasCommentSafe(node) ||
+        hasCommentSafe(node.left) ||
+        hasCommentSafe(node.right)
+    );
+}
+
+function hasCommentSafe(node) {
+    return node ? hasComment(node) : false;
 }
 
 function isSyntheticParenFlatteningEnabled(path) {
