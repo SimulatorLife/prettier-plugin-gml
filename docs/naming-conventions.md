@@ -1,6 +1,6 @@
 # Identifier Case & Naming Convention Guide
 
-This consolidated guide explains how the Prettier GML plugin normalises GameMaker
+This consolidated guide explains how the Prettier GML plugin normalizes GameMaker
 identifiers, the roadmap for the opt-in renaming feature, and the operational
 playbook for rolling the feature out safely. Pair it with the curated fixture
 set in [`examples/naming-convention/`](./examples/naming-convention/) when you
@@ -9,11 +9,11 @@ need concrete before/after samples.
 ## 1. Core identifier-case system
 
 The plugin helpers in `src/plugin/src/identifier-case/identifier-case-utils.js` break every identifier into
-a stable structure before applying a new case style. The normalisation pipeline
+a stable structure before applying a new case style. The normalization pipeline
 behaves as follows:
 
 1. **Prefix detection** – Known prefixes are removed first and restored after
-   conversion. Recognised values include `global.`, `other.`, `self.`, `local.`,
+   conversion. Recognized values include `global.`, `other.`, `self.`, `local.`,
    `with.`, `noone.`, `argument`, `argument_local`, `argument_relative`, and
    array-style accessors such as `argument[2]`. When a prefix ends in `.`, the
    dot stays with the prefix. Custom tooling can register extra prefixes by
