@@ -3224,7 +3224,7 @@ function collectSyntheticDocCommentLines(node, options) {
 }
 
 function extractLeadingNonDocCommentLines(comments, options) {
-    if (!Array.isArray(comments) || comments.length === 0) {
+    if (!isNonEmptyArray(comments)) {
         return {
             leadingLines: [],
             remainingComments: Array.isArray(comments) ? comments : []
