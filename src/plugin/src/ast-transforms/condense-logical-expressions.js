@@ -7,6 +7,7 @@ import {
 } from "../comments/index.js";
 import {
     asArray,
+    cloneAstNode,
     cloneLocation,
     getBodyStatements,
     getOrCreateMapEntry,
@@ -2268,14 +2269,6 @@ function createBooleanLiteralAst(value) {
         start: undefined,
         end: undefined
     };
-}
-
-function cloneAstNode(node) {
-    if (!node) {
-        return null;
-    }
-
-    return structuredClone(node);
 }
 
 function createBooleanConstant(value) {

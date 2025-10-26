@@ -6,6 +6,7 @@ import {
     getNodeEndLine,
     getNodeStartLine,
     cloneLocation,
+    cloneAstNode,
     assignClonedLocation,
     getArrayProperty,
     getBodyStatements,
@@ -36,7 +37,8 @@ import {
     escapeRegExp,
     hasIterableItems,
     isMapLike,
-    isSetLike
+    isSetLike,
+    getSingleVariableDeclarator as sharedGetSingleVariableDeclarator
 } from "../shared/index.js";
 import {
     collectCommentNodes,
@@ -5101,7 +5103,7 @@ function rewritePostfixStatement(node, parent, property, diagnostic) {
         return null;
     }
 
-    const initializer = cloneNode(argument);
+    const initializer = cloneAstNode(argument);
     const declarationIdentifier = createIdentifier(temporaryName, argument);
 
     if (!initializer || !declarationIdentifier) {
@@ -7678,7 +7680,7 @@ function createVertexEndCallFromBegin(template) {
     };
 
     if (isNonEmptyArray(template.arguments)) {
-        const clonedArgument = cloneNode(template.arguments[0]);
+        const clonedArgument = cloneAstNode(template.arguments[0]);
 
         if (clonedArgument) {
             callExpression.arguments.push(clonedArgument);
@@ -11913,7 +11915,7 @@ function createVertexBeginCall({
         template.additionalArguments.length > 0
     ) {
         for (const argumentTemplate of template.additionalArguments) {
-            const clonedArgument = cloneNode(argumentTemplate);
+            const clonedArgument = cloneAstNode(argumentTemplate);
 
             if (clonedArgument) {
                 callExpression.arguments.push(clonedArgument);
@@ -12075,7 +12077,7 @@ function handleLocalVariableDeclarationPatterns({
         return null;
     }
 
-    const declarator = getSingleVariableDeclarator(node);
+    const declarator = sharedGetSingleVariableDeclarator(node);
 
     if (!declarator) {
         return null;
@@ -12175,28 +12177,6 @@ function handleLocalVariableDeclarationPatterns({
     return null;
 }
 
-function getSingleVariableDeclarator(node) {
-    if (!node || node.type !== "VariableDeclaration") {
-        return null;
-    }
-
-    const declarations = Array.isArray(node.declarations)
-        ? node.declarations
-        : [];
-
-    if (declarations.length !== 1) {
-        return null;
-    }
-
-    const [declarator] = declarations;
-
-    if (!declarator || declarator.type !== "VariableDeclarator") {
-        return null;
-    }
-
-    return declarator;
-}
-
 function getDeclaratorName(declarator) {
     const identifier = declarator?.id;
 
@@ -12243,7 +12223,7 @@ function convertPrecedingAssignmentToVariableDeclaration({
         return null;
     }
 
-    const declarator = getSingleVariableDeclarator(declarationNode);
+    const declarator = sharedGetSingleVariableDeclarator(declarationNode);
 
     if (!declarator || !declarator.init) {
         return null;
@@ -12558,7 +12538,7 @@ function hoistVariableDeclarationOutOfBlock({
         return null;
     }
 
-    const declarator = getSingleVariableDeclarator(declarationNode);
+    const declarator = sharedGetSingleVariableDeclarator(declarationNode);
 
     if (!declarator || !declarator.init) {
         return null;
@@ -17538,14 +17518,6 @@ function getIdentifierName(node) {
     }
 
     return null;
-}
-
-function cloneNode(node) {
-    if (node === null || typeof node !== "object") {
-        return node;
-    }
-
-    return structuredClone(node);
 }
 
 function createIdentifier(name, template) {
