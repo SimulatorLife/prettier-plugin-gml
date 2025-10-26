@@ -34,7 +34,7 @@ import {
     resolveSuiteOutputFormatOrThrow,
     wrapInvalidArgumentResolver
 } from "../command-dependencies.js";
-import { writeJsonArtifact } from "../../shared/fs-artifacts.js";
+import { writeJsonArtifact } from "../fs-artifacts.js";
 
 export const DEFAULT_ITERATIONS = 500_000;
 export const MEMORY_ITERATIONS_ENV_VAR = "GML_MEMORY_ITERATIONS";

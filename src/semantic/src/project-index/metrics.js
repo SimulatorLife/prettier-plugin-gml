@@ -1,4 +1,4 @@
-import { createMetricsTracker, noop } from "../../../shared/index.js";
+import { createMetricsTracker, noop } from "../dependencies.js";
 
 const PROJECT_INDEX_METRICS_CATEGORY = "project-index";
 const REQUIRED_METRIC_GROUPS = Object.freeze({

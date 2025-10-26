@@ -1,7 +1,7 @@
 import {
     createCliRunSkippedError,
     isCliRunSkipped
-} from "../../shared/dependencies.js";
+} from "../shared/dependencies.js";
 
 const shouldSkipDefaultPluginServices = isCliRunSkipped();
 const SKIP_PLUGIN_SERVICES_RESOLUTION_MESSAGE =

@@ -1,6 +1,6 @@
 export { applyStandardCommandOptions } from "../core/command-standard-options.js";
 
-export { createCliErrorDetails } from "../core/errors.js";
+export { CliUsageError, createCliErrorDetails } from "../core/errors.js";
 
 export {
     coercePositiveInteger,

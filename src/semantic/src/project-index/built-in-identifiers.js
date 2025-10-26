@@ -3,7 +3,7 @@ import {
     normalizeIdentifierMetadataEntries,
     areNumbersApproximatelyEqual,
     isPlainObject
-} from "../../../shared/index.js";
+} from "../dependencies.js";
 import { GML_IDENTIFIER_METADATA_PATH } from "../resources/bundled-resources.js";
 
 import { defaultFsFacade } from "./fs-facade.js";

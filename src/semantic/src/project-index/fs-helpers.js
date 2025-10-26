@@ -2,7 +2,7 @@ import {
     createAbortGuard,
     isFsErrorCode,
     toArrayFromIterable
-} from "../../../shared/index.js";
+} from "../dependencies.js";
 
 /**
  * Enumerate the entries in {@link directoryPath} while respecting the abort

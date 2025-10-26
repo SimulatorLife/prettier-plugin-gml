@@ -21,7 +21,7 @@ import {
     renderProgressBar,
     withProgressBarCleanup
 } from "../command-dependencies.js";
-import { CliUsageError } from "../../core/errors.js";
+import { CliUsageError } from "../command-dependencies.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
