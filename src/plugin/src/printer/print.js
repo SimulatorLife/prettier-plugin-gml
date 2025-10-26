@@ -7302,6 +7302,14 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
         return false;
     }
 
+    if (
+        bodyNode.type === "ReturnStatement" &&
+        bodyNode.argument !== undefined &&
+        bodyNode.argument !== null
+    ) {
+        return false;
+    }
+
     const parentNode = path.getParentNode();
     if (!parentNode || parentNode.type === "Program") {
         return false;
