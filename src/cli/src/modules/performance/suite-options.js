@@ -1,4 +1,4 @@
-import { createEnumeratedOptionHelpers } from "../shared/dependencies.js";
+import { createEnumeratedOptionHelpers } from "../../shared/dependencies.js";
 
 const PerformanceSuiteName = Object.freeze({
     PARSER: "parser",

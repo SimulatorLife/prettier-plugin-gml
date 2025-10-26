@@ -1,7 +1,4 @@
-import {
-    createCliRunSkippedError,
-    isCliRunSkipped
-} from "../shared/dependencies.js";
+import { createCliRunSkippedError, isCliRunSkipped } from "../dependencies.js";
 
 const shouldSkipDefaultPluginServices = isCliRunSkipped();
 const SKIP_PLUGIN_SERVICES_RESOLUTION_MESSAGE =

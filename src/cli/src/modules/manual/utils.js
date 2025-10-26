@@ -12,7 +12,7 @@ import {
     parseJsonWithContext,
     resolveFunction,
     toTrimmedString
-} from "../shared/dependencies.js";
+} from "../../shared/dependencies.js";
 import {
     CliUsageError,
     disposeProgressBars,

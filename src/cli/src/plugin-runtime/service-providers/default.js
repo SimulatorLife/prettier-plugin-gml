@@ -1,4 +1,4 @@
-import { assertFunction } from "../shared/dependencies.js";
+import { assertFunction } from "../dependencies.js";
 import { defaultCliPluginServiceDependencies } from "./default-service-dependencies.js";
 
 /**

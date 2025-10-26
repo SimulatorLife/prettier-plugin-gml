@@ -3,7 +3,7 @@ import {
     defaultCliIdentifierCasePlanPreparationService,
     defaultCliIdentifierCaseCacheService
 } from "./service-providers/default.js";
-import { assertFunction } from "../shared/dependencies.js";
+import { assertFunction } from "./dependencies.js";
 
 /**
  * @typedef {(projectRoot: string, manifest?: unknown, options?: object) => Promise<object>} CliProjectIndexBuilder

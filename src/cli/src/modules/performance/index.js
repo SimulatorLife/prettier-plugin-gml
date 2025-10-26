@@ -35,7 +35,7 @@ import {
     resolveModuleDefaultExport,
     createCliRunSkippedError,
     isCliRunSkipped
-} from "../shared/dependencies.js";
+} from "../../shared/dependencies.js";
 import {
     PerformanceSuiteName,
     isPerformanceThroughputSuite,

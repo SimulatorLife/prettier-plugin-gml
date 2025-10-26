@@ -17,3 +17,8 @@
 - Relocate the four runtime option modules from `src/cli/src/shared/` to `src/cli/src/runtime-options/` and update all importers to match the new structure.
 - Introduce `createSampleLimitToolkit` to de-duplicate the configuration scaffolding for sample limits and apply the helper inside both modules.
 - Leave additional helpers (e.g., `progress-bar`, `ignore-path-registry`) under `shared/` for now; follow-up audits can migrate them once the new boundary proves useful.
+
+## Additional cleanup — 2025-10-26
+
+- The redundant `src/cli/src/plugin-runtime/shared/` folder has been removed so the plugin runtime now consumes the same dependency barrel that the rest of the CLI uses.
+- The transitional `src/cli/src/modules/shared*/` shims were deleted; CLI modules now import helpers directly from `src/cli/src/shared/` to avoid maintaining parallel surfaces.
