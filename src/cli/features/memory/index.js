@@ -9,7 +9,6 @@ import { Command, InvalidArgumentError } from "commander";
 import {
     appendToCollection,
     createEnvConfiguredValue,
-    createEnvConfiguredValueWithFallback,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
     incrementMapValue,
@@ -31,7 +30,6 @@ import {
     emitSuiteResults as emitSuiteResultsJson,
     ensureSuitesAreKnown,
     importPluginModule,
-    resolveIntegerOption,
     resolveRequestedSuites,
     resolveSuiteOutputFormatOrThrow,
     wrapInvalidArgumentResolver
@@ -140,27 +138,62 @@ function applyMemoryReportDirectoryEnvOverride(env) {
     return memoryReportDirectoryConfig.applyEnvOverride(env);
 }
 
-const parserIterationLimitConfig = createEnvConfiguredValueWithFallback({
+const createIterationErrorMessage = (received) =>
+    `Iteration count must be a positive integer (received ${received}).`;
+
+const createIterationTypeErrorMessage = (type) =>
+    `Iteration count must be provided as a number (received type '${type}').`;
+
+function createMemoryIterationToolkit({
+    defaultValue,
+    envVar,
+    defaultValueOption
+} = {}) {
+    return createIntegerOptionToolkit({
+        defaultValue,
+        envVar,
+        baseCoerce: coercePositiveInteger,
+        createErrorMessage: createIterationErrorMessage,
+        typeErrorMessage: createIterationTypeErrorMessage,
+        defaultValueOption
+    });
+}
+
+const parserIterationLimitToolkit = createMemoryIterationToolkit({
     defaultValue: DEFAULT_MAX_PARSER_ITERATIONS,
-    envVar: MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR,
-    resolve: (value, { fallback }) =>
-        resolveIntegerOption(value, {
-            defaultValue: fallback,
-            coerce: coerceMemoryIterations,
-            typeErrorMessage: createIterationTypeErrorMessage
-        })
+    envVar: MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR
 });
 
-const formatIterationLimitConfig = createEnvConfiguredValueWithFallback({
+const {
+    getDefault: getMaxParserIterations,
+    setDefault: setMaxParserIterations
+} = parserIterationLimitToolkit;
+
+function applyParserMaxIterationsEnvOverride(env) {
+    try {
+        return parserIterationLimitToolkit.applyEnvOverride(env);
+    } catch {
+        return parserIterationLimitToolkit.getDefault();
+    }
+}
+
+const formatIterationLimitToolkit = createMemoryIterationToolkit({
     defaultValue: DEFAULT_MAX_FORMAT_ITERATIONS,
-    envVar: MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR,
-    resolve: (value, { fallback }) =>
-        resolveIntegerOption(value, {
-            defaultValue: fallback,
-            coerce: coerceMemoryIterations,
-            typeErrorMessage: createIterationTypeErrorMessage
-        })
+    envVar: MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR
 });
+
+const {
+    getDefault: getMaxFormatIterations,
+    setDefault: setMaxFormatIterations
+} = formatIterationLimitToolkit;
+
+function applyFormatMaxIterationsEnvOverride(env) {
+    try {
+        return formatIterationLimitToolkit.applyEnvOverride(env);
+    } catch {
+        return formatIterationLimitToolkit.getDefault();
+    }
+}
 
 const sampleCache = new Map();
 const objectPrototypeToString = Object.prototype.toString;
@@ -478,44 +511,16 @@ function summarizeAst(root) {
     };
 }
 
-const createIterationErrorMessage = (received) =>
-    `Iteration count must be a positive integer (received ${received}).`;
-
-const createIterationTypeErrorMessage = (type) =>
-    `Iteration count must be provided as a number (received type '${type}').`;
-
 const {
-    coerce: coerceMemoryIterations,
     getDefault: getDefaultMemoryIterations,
     setDefault: setDefaultMemoryIterations,
     resolve: resolveMemoryIterations,
     applyEnvOverride: applyMemoryIterationsEnvOverride
-} = createIntegerOptionToolkit({
+} = createMemoryIterationToolkit({
     defaultValue: DEFAULT_ITERATIONS,
     envVar: MEMORY_ITERATIONS_ENV_VAR,
-    baseCoerce: coercePositiveInteger,
-    createErrorMessage: createIterationErrorMessage,
-    typeErrorMessage: createIterationTypeErrorMessage,
     defaultValueOption: "defaultIterations"
 });
-
-const {
-    get: getMaxFormatIterations,
-    set: setMaxFormatIterations,
-    applyEnvOverride: applyFormatMaxIterationsEnvOverride
-} = formatIterationLimitConfig;
-
-function getMaxParserIterations() {
-    return parserIterationLimitConfig.get();
-}
-
-function setMaxParserIterations(value) {
-    return parserIterationLimitConfig.set(value);
-}
-
-function applyParserMaxIterationsEnvOverride(env) {
-    return parserIterationLimitConfig.applyEnvOverride(env);
-}
 
 export {
     getDefaultMemoryIterations,
