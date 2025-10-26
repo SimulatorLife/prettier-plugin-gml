@@ -1,26 +1,12 @@
-import process from "node:process";
-
-import { toTrimmedString } from "../dependencies.js";
+import { resolveEnvironmentMap, toTrimmedString } from "../dependencies.js";
 
 export const SKIP_CLI_RUN_ENV_VAR = "PRETTIER_PLUGIN_GML_SKIP_CLI_RUN";
 const SKIP_ENABLED_VALUE = "1";
 const DEFAULT_RESOLUTION_MESSAGE =
     "Clear the environment variable to continue.";
 
-function resolveEnvironment(env) {
-    if (env && typeof env === "object") {
-        return env;
-    }
-
-    if (typeof process?.env === "object" && process.env !== null) {
-        return process.env;
-    }
-
-    return null;
-}
-
 export function isCliRunSkipped(env) {
-    const sourceEnv = resolveEnvironment(env);
+    const sourceEnv = resolveEnvironmentMap(env);
     if (!sourceEnv) {
         return false;
     }

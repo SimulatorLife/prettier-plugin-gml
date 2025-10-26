@@ -9,7 +9,8 @@ import {
     createEnvConfiguredValueWithFallback,
     createAbortGuard,
     getNonEmptyTrimmedString,
-    isFsErrorCode
+    isFsErrorCode,
+    resolveEnvironmentMap
 } from "../dependencies.js";
 import { isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
@@ -99,8 +100,9 @@ function setDefaultProjectIndexCacheMaxSize(size) {
     return projectIndexCacheSizeConfig.set(size);
 }
 
-function applyProjectIndexCacheEnvOverride(env = process?.env) {
-    projectIndexCacheSizeConfig.applyEnvOverride(env);
+function applyProjectIndexCacheEnvOverride(env) {
+    const sourceEnv = resolveEnvironmentMap(env);
+    projectIndexCacheSizeConfig.applyEnvOverride(sourceEnv ?? undefined);
 }
 
 applyProjectIndexCacheEnvOverride();

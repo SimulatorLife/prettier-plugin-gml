@@ -1,4 +1,7 @@
-import { coerceNonNegativeInteger } from "../shared/dependencies.js";
+import {
+    coerceNonNegativeInteger,
+    resolveEnvironmentMap
+} from "../shared/dependencies.js";
 import { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
 
 export const DEFAULT_VM_EVAL_TIMEOUT_MS = 5000;
@@ -25,9 +28,11 @@ const {
     defaultValueOption: "defaultTimeout"
 });
 
-function applyVmEvalTimeoutEnvOverride(env = process?.env) {
+function applyVmEvalTimeoutEnvOverride(env) {
+    const sourceEnv = resolveEnvironmentMap(env);
+
     try {
-        return applyVmEvalTimeoutEnvOverrideInternal(env);
+        return applyVmEvalTimeoutEnvOverrideInternal(sourceEnv ?? undefined);
     } catch {
         return getDefaultVmEvalTimeoutMs();
     }
