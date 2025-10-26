@@ -116,3 +116,12 @@ data.label = "ok";
 data[$ "value"] = 123;
 return data;
 }
+
+/// @function InputButtonKeyboard
+/// @param {real} button
+/// @description Input for a keyboard key
+function InputButtonKeyboard(button) : AbstractInputButton(button, eInputType.keyboard) constructor {
+
+    /* Keyboard input handling goes here */
+
+}

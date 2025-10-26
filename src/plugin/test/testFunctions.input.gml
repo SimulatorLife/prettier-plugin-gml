@@ -245,3 +245,44 @@ get_debug_text = function() {
 	txt += arm_r.get_debug_text();
 	return txt;
 }
+
+/// @function vertex_buffer_write_triangular_prism
+/// @description Write a unit triangular prism into an existing vbuff.
+/// Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5], base plane at Z=0, apex line at (Y=0,Z=1).
+function vertex_buffer_write_triangular_prism(vbuff, colour = c_white, alpha = 1, trans_mat) {
+    var hx = 0.5, hy = 0.5, h = 1.0;
+
+    // Base corners (Z = 0)
+    var L0 = [-hx, -hy, 0]; // x-, y-
+    var L1 = [-hx, +hy, 0]; // x-, y+
+    var R0 = [+hx, -hy, 0]; // x+, y-
+    var R1 = [+hx, +hy, 0]; // x+, y+
+
+    // Apex line (Y=0, Z=1)
+    var LA = [-hx, 0, h];
+    var RA = [+hx, 0, h];
+
+    // Reusable UVs
+    static uv00 = [0,0];
+	static uv10 = [1,0];
+	static uv11 = [1,1];
+	static uv01 = [0,1];
+
+    // Base quad (Z=0): L0-R0-R1,  L0-R1-L1  (outside normal points to Z-; ok for debug)
+    vertex_buffer_write_triangle(vbuff, L0, R0, R1, uv00, uv10, uv11, colour, alpha, trans_mat);
+    vertex_buffer_write_triangle(vbuff, L0, R1, L1, uv00, uv11, uv01, colour, alpha, trans_mat);
+
+    // Left sloped face (y=-hy -> apex): quad L0-R0-RA-LA  => (L0,R0,RA) + (L0,RA,LA)
+    vertex_buffer_write_triangle(vbuff, L0, R0, RA, uv00, uv10, uv11, colour, alpha, trans_mat);
+    vertex_buffer_write_triangle(vbuff, L0, RA, LA, uv00, uv11, uv01, colour, alpha, trans_mat);
+
+    // Right sloped face (y=+hy -> apex): quad R1-L1-LA-RA  => (R1,L1,LA) + (R1,LA,RA)
+    vertex_buffer_write_triangle(vbuff, R1, L1, LA, uv00, uv10, uv11, colour, alpha, trans_mat);
+    vertex_buffer_write_triangle(vbuff, R1, LA, RA, uv00, uv11, uv01, colour, alpha, trans_mat);
+
+    // End caps (triangles in X)
+    // X = -hx cap: L0, L1, LA
+    vertex_buffer_write_triangle(vbuff, L0, L1, LA, uv00, uv10, uv11, colour, alpha, trans_mat);
+    // X = +hx cap: R1, R0, RA
+    vertex_buffer_write_triangle(vbuff, R1, R0, RA, uv00, uv10, uv11, colour, alpha, trans_mat);
+}

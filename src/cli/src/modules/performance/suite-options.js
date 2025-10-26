@@ -24,8 +24,6 @@ const performanceSuiteHelpers = createEnumeratedOptionHelpers(
     }
 );
 
-const PERFORMANCE_SUITE_NAMES = performanceSuiteHelpers.valueSet;
-
 const PERFORMANCE_THROUGHPUT_SUITES = new Set([
     PerformanceSuiteName.PARSER,
     PerformanceSuiteName.FORMATTER

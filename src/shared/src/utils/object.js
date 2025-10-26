@@ -227,24 +227,26 @@ export function hasOwn(object, key) {
  * @returns {TValue} Existing or newly created entry.
  */
 export function getOrCreateMapEntry(store, key, initializer) {
-    const { get, set, has } = store ?? {};
-
-    if (typeof get !== "function" || typeof set !== "function") {
+    if (
+        !store ||
+        typeof store.get !== "function" ||
+        typeof store.set !== "function"
+    ) {
         throw new TypeError("store must provide get and set functions");
     }
 
-    if (typeof has !== "function") {
+    if (typeof store.has !== "function") {
         throw new TypeError("store must provide a has function");
     }
 
     assertFunction(initializer, "initializer");
 
-    if (has.call(store, key)) {
-        return get.call(store, key);
+    if (store.has(key)) {
+        return store.get(key);
     }
 
     const value = initializer(key);
-    set.call(store, key, value);
+    store.set(key, value);
     return value;
 }
 

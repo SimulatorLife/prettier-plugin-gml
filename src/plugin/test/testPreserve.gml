@@ -122,3 +122,64 @@ global.lighting.draw(
         }
     }
 );
+
+// Set foot movement speed according to character rotation and movement speeds (this is so the legs don't end up trailing when the character is moving too fast)
+// try { // TODO this sometimes throws NaN error, try catch is band-aid
+// 	// foot_spd = min(0.5 * sqrt(sqr(x - xprevious) + sqr(y - yprevious)) + abs(last_crab_dir) * 0.1 + 0.2, 1);
+// } catch(ex) {
+// 	show_debug_message("Caught exception while trying to update crab foot speed: " + string(ex));
+// }
+
+// Make body wobble up and down
+z_wobble = ((sin(current_time * 0.004) + 1) * 2) + 2; // value between 0 and 2, this is subtracted from crabs height
+
+/// @function AbstractSkyboxParent
+/// @param {Asset.GMSprite} [sprite=noone]
+/// @param {real} [subimg=0]
+/// @param {real} [octahedron_scale=1] - The scale of the skybox octahedron
+/// @param {real} [octmap_size=1024] - The size of the octmap
+/// @description This group contains functions for creating a skybox using an octahedron vertex buffer
+function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, octmap_size = 1024) : ZModelBuffer(sprite, subimg, undefined, c_white, 1, pr_trianglelist) constructor {
+
+    self.octahedron_scale = octahedron_scale;
+    self.octmap_size      = octmap_size;
+    self.octmap_texel     = 1 / octmap_size;
+    self.skyformat        = -1;
+	self.cullmode         = cull_clockwise;
+
+    /// @override
+	/// @function draw
+	/// @param {bool} [reset_matrix=true] - Reset the world matrix after drawing?
+	/// @description Draw the zmodel
+	/// @returns {undefined}
+	static draw = function(reset_matrix = true) {
+
+        // Get the current shader
+        var prev_shader = shader_current();
+
+        // Set up GPU state
+        gpu_push_state();
+        gpu_set_texfilter(false);
+        gpu_set_texrepeat(true);
+        gpu_set_ztestenable(true);
+        gpu_set_zwriteenable(false);
+        gpu_set_tex_mip_enable(false);
+        gpu_set_tex_mip_filter(tf_point);
+        gpu_set_cullmode(cullmode);
+        gpu_set_blendmode_ext(bm_one, bm_zero);
+
+        // Apply world matrix and submit the vertex buffer
+        matrix_set(matrix_world, self.matrix);
+        submit();
+
+        // Reset shader, GPU state, and matrix
+        gpu_pop_state();
+        if (prev_shader != -1) {
+            shader_set(prev_shader);
+        } else if (shader_current() != -1) {
+            shader_reset();
+        }
+        if (reset_matrix) { scr_matrix_reset(); }
+    }
+
+}
