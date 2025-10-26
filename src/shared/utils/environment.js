@@ -194,12 +194,14 @@ export function createEnvConfiguredValueWithFallback({
                     fallback
                 });
 
-                return resolved === null || resolved === undefined
-                    ? fallback
-                    : resolved;
+                if (resolved != null) {
+                    return resolved;
+                }
             } catch {
-                return fallback;
+                // Fall back below when resolution throws.
             }
+
+            return fallback;
         }
     });
 }
