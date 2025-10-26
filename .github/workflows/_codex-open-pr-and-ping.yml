@@ -144,7 +144,7 @@ jobs:
             const branch = process.env.BRANCH_NAME;
 
             const preInstruction = "Begin by surveying the entire codebase before narrowing to this task.";
-            const postInstruction = "Ensure changes are self-contained, tested, and documented as needed, with no reduction in test coverage. Ensure the diff is minimal, readable, and well-commented; never sacrifice clarity for cleverness. There is no time constraint or specific allotted time for this task; prioritize quality and correctness over speed and take as much time as needed. You may **NOT** respond with "no issues found", "didn't find any major issues", or similar—if no obvious implementation exists, choose the most plausible area and apply a singular, safe, minimal improvement.";
+            const postInstruction = "Ensure changes are self-contained, tested, and documented as needed, with no reduction in test coverage. Ensure the diff is minimal, readable, and well-commented; never sacrifice clarity for cleverness. There is no time constraint or specific allotted time for this task; prioritize quality and correctness over speed and take as much time as needed. You may **NOT** respond with \"no issues found\", \"didn't find any major issues\", or similar—if no obvious implementation exists, choose the most plausible area and apply a singular, safe, minimal improvement.";
             const body = [
               `@codex ${preInstruction} ${process.env.PROMPT} ${postInstruction}`,
               "",
