@@ -3,6 +3,7 @@ import { builders } from "prettier/doc";
 import {
     getLineBreakCount,
     isCommentNode,
+    isDocCommentLine,
     isObjectLike,
     splitLines
 } from "./comment-boundary.js";
@@ -75,6 +76,7 @@ function handleHoistedDeclarationLeadingComment(comment) {
 
 const OWN_LINE_COMMENT_HANDLERS = [
     handleHoistedDeclarationLeadingComment,
+    handleCommentSeparatedFromPrecedingNode,
     handleCommentInEmptyBody,
     handleCommentInEmptyParens,
     handleOnlyComments
@@ -90,12 +92,14 @@ const COMMON_COMMENT_HANDLERS = [
 const END_OF_LINE_COMMENT_HANDLERS = [
     handleDetachedOwnLineComment,
     ...COMMON_COMMENT_HANDLERS,
+    handleSeparatedEndOfLineComment,
     handleMacroComments
 ];
 
 const REMAINING_COMMENT_HANDLERS = [
     handleDetachedOwnLineComment,
     ...COMMON_COMMENT_HANDLERS,
+    handleSeparatedRemainingComment,
     handleCommentInEmptyLiteral,
     handleMacroComments
 ];
@@ -346,6 +350,79 @@ function handleCommentInEmptyBody(
     comment /*, text, options, ast, isLastComment */
 ) {
     return attachDanglingCommentToEmptyNode(comment, EMPTY_BODY_TARGETS);
+}
+
+function handleCommentSeparatedFromPrecedingNode(comment) {
+    return reattachSeparatedComment(comment);
+}
+
+function handleSeparatedEndOfLineComment(comment) {
+    return reattachSeparatedComment(comment);
+}
+
+function handleSeparatedRemainingComment(comment) {
+    return reattachSeparatedComment(comment);
+}
+
+function reattachSeparatedComment(comment) {
+    const precedingNode = comment?.precedingNode;
+    const followingNode = comment?.followingNode;
+
+    if (!precedingNode || !followingNode) {
+        return false;
+    }
+
+    if (isDocCommentLine(comment)) {
+        return false;
+    }
+
+    const commentLine = comment?.start?.line;
+    const precedingEndLine = getNodeEndLine(precedingNode);
+    const followingStartLine = followingNode?.start?.line;
+
+    if (
+        !Number.isFinite(commentLine) ||
+        !Number.isFinite(precedingEndLine) ||
+        !Number.isFinite(followingStartLine)
+    ) {
+        return false;
+    }
+
+    if (commentLine < precedingEndLine + 2) {
+        return false;
+    }
+
+    if (commentLine >= followingStartLine - 1) {
+        return false;
+    }
+
+    comment.leading = true;
+    comment.trailing = false;
+    comment.precedingNode = null;
+    delete comment.placement;
+
+    addLeadingComment(followingNode, comment);
+
+    followingNode._gmlForceLeadingBlankLine = true;
+    followingNode._gmlDisableEnumTrailingCommentPadding = true;
+    precedingNode._gmlForceFollowingEmptyLine = true;
+    precedingNode._gmlDisableEnumAlignment = true;
+
+    return true;
+}
+
+function getNodeEndLine(node) {
+    const { end } = node ?? {};
+
+    if (typeof end?.line === "number") {
+        return end.line;
+    }
+
+    if (typeof end === "number") {
+        return end;
+    }
+
+    return;
 }
 
 function handleDetachedOwnLineComment(comment /*, text, options, ast */) {
