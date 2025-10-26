@@ -163,7 +163,22 @@ export function isArrayIndex(container, index) {
  * @returns {Array<T> | ReadonlyArray<T>}
  */
 export function uniqueArray(values, { freeze = false } = {}) {
-    const uniqueValues = [...new Set(toArrayFromIterable(values))];
+    if (values == null) {
+        const empty = [];
+        return freeze ? Object.freeze(empty) : empty;
+    }
+
+    const iterable =
+        Array.isArray(values) || typeof values[Symbol.iterator] === "function"
+            ? values
+            : null;
+
+    if (!iterable) {
+        const empty = [];
+        return freeze ? Object.freeze(empty) : empty;
+    }
+
+    const uniqueValues = Array.from(new Set(iterable));
     return freeze ? Object.freeze(uniqueValues) : uniqueValues;
 }
 

@@ -280,9 +280,12 @@ const TYPE_PRIORITY = new Map([
 
 function mergeEntry(map, identifier, data) {
     const current = map.get(identifier);
+    const sourceList = data.sources ?? [];
+    const tagList = data.tags ?? [];
+
     if (!current) {
-        const sources = toMutableArray(data.sources);
-        const tags = toMutableArray(data.tags);
+        const sources = toMutableArray(sourceList);
+        const tags = toMutableArray(tagList);
 
         map.set(identifier, {
             type: data.type ?? "unknown",
@@ -294,10 +297,10 @@ function mergeEntry(map, identifier, data) {
         return;
     }
 
-    for (const source of data.sources ?? []) {
+    for (const source of sourceList) {
         current.sources.add(source);
     }
-    for (const tag of data.tags ?? []) {
+    for (const tag of tagList) {
         current.tags.add(tag);
     }
     if (data.manualPath && !current.manualPath) {

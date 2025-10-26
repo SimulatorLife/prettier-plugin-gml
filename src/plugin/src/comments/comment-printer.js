@@ -161,10 +161,9 @@ function printComment(commentPath, options) {
 
     applyTrailingCommentPadding(comment);
     if (comment?._structPropertyTrailing) {
-        if (comment._structPropertyHandled) {
-            return "";
-        }
         comment._structPropertyHandled = true;
+        comment.printed = true;
+        return "";
     }
     comment.printed = true;
 

@@ -188,24 +188,22 @@ export function parseJsonObjectWithContext(text, options = {}) {
         reviver
     });
 
-    const dynamicOptions =
-        typeof createAssertOptions === "function"
-            ? createAssertOptions(payload)
-            : undefined;
+    const optionBags = [];
 
-    const staticOptions =
-        assertOptions && typeof assertOptions === "object"
-            ? assertOptions
-            : undefined;
-    const runtimeOptions =
-        dynamicOptions && typeof dynamicOptions === "object"
-            ? dynamicOptions
-            : undefined;
+    if (assertOptions && typeof assertOptions === "object") {
+        optionBags.push(assertOptions);
+    }
+
+    if (typeof createAssertOptions === "function") {
+        const dynamicOptions = createAssertOptions(payload);
+
+        if (dynamicOptions && typeof dynamicOptions === "object") {
+            optionBags.push(dynamicOptions);
+        }
+    }
 
     const mergedOptions =
-        staticOptions || runtimeOptions
-            ? Object.assign({}, staticOptions ?? {}, runtimeOptions ?? {})
-            : undefined;
+        optionBags.length > 0 ? Object.assign({}, ...optionBags) : undefined;
 
     return assertPlainObject(payload, mergedOptions);
 }
