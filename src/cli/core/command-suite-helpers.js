@@ -120,8 +120,18 @@ async function executeSuiteRunner({
     }
 }
 
+function assertSuiteRunnerLookup(availableSuites) {
+    if (!availableSuites || typeof availableSuites.get !== "function") {
+        throw new TypeError(
+            "availableSuites must provide a get function returning suite runners"
+        );
+    }
+}
+
 /**
- * Execute the provided suite runners and collect their results.
+ * Execute the provided suite runners and capture their results in insertion
+ * order. The helper isolates the low-level iteration so orchestrators can stay
+ * focused on validation and delegation.
  *
  * @param {{
  *     suiteNames: Array<string>,
@@ -131,22 +141,12 @@ async function executeSuiteRunner({
  * }} parameters
  * @returns {Promise<Record<string, unknown>>}
  */
-export async function collectSuiteResults({
+async function collectRegisteredSuiteResults({
     suiteNames,
     availableSuites,
     runnerOptions,
     onError
 }) {
-    if (!availableSuites || typeof availableSuites.get !== "function") {
-        throw new TypeError(
-            "availableSuites must provide a get function returning suite runners"
-        );
-    }
-
-    if (!isNonEmptyArray(suiteNames)) {
-        return {};
-    }
-
     const results = {};
 
     for (const suiteName of suiteNames) {
@@ -166,6 +166,37 @@ export async function collectSuiteResults({
     }
 
     return results;
+}
+
+/**
+ * Execute the provided suite runners and collect their results.
+ *
+ * @param {{
+ *     suiteNames: Array<string>,
+ *     availableSuites: Map<string, unknown>,
+ *     runnerOptions?: unknown,
+ *     onError?: (error: unknown, context: { suiteName: string }) => unknown
+ * }} parameters
+ * @returns {Promise<Record<string, unknown>>}
+ */
+export async function collectSuiteResults({
+    suiteNames,
+    availableSuites,
+    runnerOptions,
+    onError
+}) {
+    assertSuiteRunnerLookup(availableSuites);
+
+    if (!isNonEmptyArray(suiteNames)) {
+        return {};
+    }
+
+    return collectRegisteredSuiteResults({
+        suiteNames,
+        availableSuites,
+        runnerOptions,
+        onError
+    });
 }
 
 export function createSuiteResultsPayload(results, { generatedAt } = {}) {
