@@ -2219,6 +2219,58 @@ function getNextNonWhitespaceCharacter(text, startIndex) {
     return null;
 }
 
+function countTrailingBlankLines(text, startIndex) {
+    if (typeof text !== "string") {
+        return 0;
+    }
+
+    const { length } = text;
+    let index = startIndex;
+    let newlineCount = 0;
+
+    while (index < length) {
+        const characterCode = text.charCodeAt(index);
+
+        if (characterCode === 59) {
+            // ;
+            index += 1;
+            continue;
+        }
+
+        if (characterCode === 10) {
+            // \n
+            newlineCount += 1;
+            index += 1;
+            continue;
+        }
+
+        if (characterCode === 13) {
+            // \r
+            newlineCount += 1;
+            index += index + 1 < length && text.charCodeAt(index + 1) === 10 ? 2 : 1;
+            continue;
+        }
+
+        if (
+            characterCode === 9 || // \t
+            characterCode === 11 || // vertical tab
+            characterCode === 12 || // form feed
+            characterCode === 32 // space
+        ) {
+            index += 1;
+            continue;
+        }
+
+        break;
+    }
+
+    if (newlineCount === 0) {
+        return 0;
+    }
+
+    return Math.max(0, newlineCount - 1);
+}
+
 function printStatements(path, options, print, childrenAttribute) {
     let previousNodeHadNewlineAddedAfter = false; // tracks newline added after the previous node
 
@@ -2543,9 +2595,16 @@ function printStatements(path, options, print, childrenAttribute) {
                     typeof options.originalText === "string"
                         ? options.originalText
                         : null;
-                const hasExplicitTrailingBlankLine =
-                    originalText !== null &&
-                    isNextLineEmpty(originalText, trailingProbeIndex);
+                const trailingBlankLineCount =
+                    originalText === null
+                        ? 0
+                        : countTrailingBlankLines(
+                              originalText,
+                              trailingProbeIndex
+                          );
+                const hasExplicitTrailingBlankLine = trailingBlankLineCount > 0;
+                const shouldCollapseExcessBlankLines =
+                    trailingBlankLineCount > 1;
 
                 if (enforceTrailingPadding) {
                     // Large statements such as nested function declarations and
@@ -2560,10 +2619,14 @@ function printStatements(path, options, print, childrenAttribute) {
                             : hasExplicitTrailingBlankLine;
                 } else if (
                     shouldPreserveConstructorStaticPadding &&
-                    hasExplicitTrailingBlankLine
+                    hasExplicitTrailingBlankLine &&
+                    !shouldCollapseExcessBlankLines
                 ) {
                     shouldPreserveTrailingBlankLine = true;
-                } else if (hasExplicitTrailingBlankLine && originalText) {
+                } else if (
+                    hasExplicitTrailingBlankLine &&
+                    originalText !== null
+                ) {
                     const textLength = originalText.length;
                     let scanIndex = trailingProbeIndex;
                     let nextCharacter = null;
@@ -2594,9 +2657,11 @@ function printStatements(path, options, print, childrenAttribute) {
                         break;
                     }
 
-                    shouldPreserveTrailingBlankLine = nextCharacter
-                        ? nextCharacter !== "}"
-                        : false;
+                    const shouldPreserve =
+                        nextCharacter === null ? false : nextCharacter !== "}";
+
+                    shouldPreserveTrailingBlankLine =
+                        shouldCollapseExcessBlankLines ? false : shouldPreserve;
                 }
             }
 
@@ -5192,16 +5257,39 @@ function computeSyntheticFunctionDocLines(
             node &&
             !paramMetadataByCanonical.has(canonicalParamName)
         ) {
-            let suppressedCanonicals =
-                suppressedImplicitDocCanonicalByNode.get(node);
-            if (!suppressedCanonicals) {
-                suppressedCanonicals = new Set();
-                suppressedImplicitDocCanonicalByNode.set(
-                    node,
-                    suppressedCanonicals
-                );
+            const canonicalOrdinalMatchesDeclaredParam = Array.isArray(
+                node?.params
+            )
+                ? node.params.some((candidate, candidateIndex) => {
+                      if (candidateIndex === paramIndex) {
+                          return false;
+                      }
+
+                      const candidateInfo = getParameterDocInfo(
+                          candidate,
+                          node,
+                          options
+                      );
+                      const candidateCanonical = candidateInfo?.name
+                          ? getCanonicalParamNameFromText(candidateInfo.name)
+                          : null;
+
+                      return candidateCanonical === canonicalOrdinal;
+                  })
+                : false;
+
+            if (!canonicalOrdinalMatchesDeclaredParam) {
+                let suppressedCanonicals =
+                    suppressedImplicitDocCanonicalByNode.get(node);
+                if (!suppressedCanonicals) {
+                    suppressedCanonicals = new Set();
+                    suppressedImplicitDocCanonicalByNode.set(
+                        node,
+                        suppressedCanonicals
+                    );
+                }
+                suppressedCanonicals.add(canonicalOrdinal);
             }
-            suppressedCanonicals.add(canonicalOrdinal);
         }
         const ordinalDocName =
             hasCompleteOrdinalDocs &&

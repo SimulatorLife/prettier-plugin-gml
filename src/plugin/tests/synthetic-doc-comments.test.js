@@ -140,6 +140,40 @@ test("adds synthetic docs for named constructor assignments", async () => {
     );
 });
 
+test("synthetic constructor docs include trailing parameters", async () => {
+    const source = [
+        "function child(_foo, _value) constructor {",
+        "    value = _value;",
+        "}",
+        "",
+        "function grandchild(_foo, _value, _bar) : child(_foo, _value) constructor {",
+        "    bar = _bar;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.trim().split("\n");
+    const docIndex = lines.indexOf("/// @function grandchild");
+
+    assert.notStrictEqual(
+        docIndex,
+        -1,
+        "Expected the formatted output to include a synthetic doc comment for the constructor."
+    );
+
+    assert.deepStrictEqual(
+        lines.slice(docIndex, docIndex + 4),
+        [
+            "/// @function grandchild",
+            "/// @param foo",
+            "/// @param value",
+            "/// @param bar"
+        ],
+        "Synthetic constructor docs should include entries for trailing parameters."
+    );
+});
+
 test("updates existing @function tags to reflect static function names", async () => {
     const source = [
         "function Demo() constructor {",
