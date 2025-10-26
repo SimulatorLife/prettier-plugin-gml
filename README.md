@@ -449,10 +449,11 @@ for the full suite of contributor commands.
   > `./node_modules/root/src/plugin/src/gml.js` when the repository is vendored
   > directly into `node_modules/root/`.
 
-- Use the wrapper helper (accepts the same flags as `npm run format:gml --`):
+- Use the wrapper helper (accepts the same flags as `npm run format:gml --`).
+  Pass the project or file you want to format explicitly:
 
   ```bash
-  node ./node_modules/root/src/cli/cli.js --extensions=.gml,.yy
+  node ./node_modules/root/src/cli/cli.js format path/to/project --extensions=.gml,.yy
   ```
 
 - Preview formatting changes without writing them back:

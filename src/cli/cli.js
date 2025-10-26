@@ -1462,7 +1462,11 @@ function logNoMatchingFiles({
           })
         : formattedTarget;
     const guidance = targetIsDirectory
-        ? "Adjust --extensions or update your .prettierignore files if this is unexpected."
+        ? [
+              "Provide a directory or file containing GameMaker Language sources",
+              "(for example: prettier-plugin-gml format path/to/project) or adjust",
+              "--extensions / update your .prettierignore files if this is unexpected."
+          ].join(" ")
         : "Pass --extensions to include this file or adjust your .prettierignore files if this is unexpected.";
     const ignoredFilesSkipped = skippedFileSummary.ignored > 0;
     const ignoredMessageSuffix =
