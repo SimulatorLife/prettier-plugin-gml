@@ -73,7 +73,8 @@ export {
     stringifyJsonForFile
 } from "../dependencies.js";
 
-export { ensureDir, isFsErrorCode } from "../dependencies.js";
+export { ensureDir } from "./ensure-dir.js";
+export { isFsErrorCode } from "../dependencies.js";
 
 export {
     SKIP_CLI_RUN_ENV_VAR,
