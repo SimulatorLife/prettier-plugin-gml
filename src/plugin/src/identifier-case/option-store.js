@@ -24,22 +24,17 @@ function trimOptionStoreMap(maxEntries = DEFAULT_MAX_OPTION_STORE_ENTRIES) {
     }
 
     const limit = Math.floor(maxEntries);
-    if (limit <= 0) {
+    if (limit <= 0 || optionStoreMap.size <= limit) {
         return;
     }
 
-    let excessEntries = optionStoreMap.size - limit;
-    if (excessEntries <= 0) {
-        return;
-    }
-
-    for (const key of optionStoreMap.keys()) {
-        if (excessEntries <= 0) {
+    while (optionStoreMap.size > limit) {
+        const { value, done } = optionStoreMap.keys().next();
+        if (done) {
             break;
         }
 
-        optionStoreMap.delete(key);
-        excessEntries -= 1;
+        optionStoreMap.delete(value);
     }
 }
 
