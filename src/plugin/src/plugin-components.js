@@ -1,4 +1,8 @@
-import { isAbortError, resolveAbortSignalFromOptions } from "./shared/index.js";
+import {
+    assertFunction,
+    isAbortError,
+    resolveAbortSignalFromOptions
+} from "./shared/index.js";
 import { createDefaultGmlPluginComponents } from "./component-providers/default-plugin-components.js";
 import { normalizeGmlPluginComponents } from "./component-providers/plugin-component-normalizer.js";
 
@@ -36,14 +40,13 @@ export function resolveGmlPluginComponents() {
 }
 
 export function setGmlPluginComponentProvider(provider) {
-    if (typeof provider !== "function") {
-        throw new TypeError(
+    const normalizedProvider = assertFunction(provider, "provider", {
+        errorMessage:
             "GML plugin component providers must be functions that return component maps"
-        );
-    }
+    });
 
-    currentProvider = provider;
-    return assignComponents(provider());
+    currentProvider = normalizedProvider;
+    return assignComponents(normalizedProvider());
 }
 
 export function restoreDefaultGmlPluginComponents() {
@@ -65,9 +68,9 @@ const OBSERVER_ABORT_MESSAGE =
     "GML plugin component observer registration was aborted.";
 
 export function addGmlPluginComponentObserver(observer, options = {}) {
-    if (typeof observer !== "function") {
-        throw new TypeError("GML plugin component observers must be functions");
-    }
+    const normalizedObserver = assertFunction(observer, "observer", {
+        errorMessage: "GML plugin component observers must be functions"
+    });
 
     let signal = null;
     try {
@@ -82,7 +85,7 @@ export function addGmlPluginComponentObserver(observer, options = {}) {
         throw error;
     }
 
-    componentObservers.add(observer);
+    componentObservers.add(normalizedObserver);
 
     let aborted = false;
     const unsubscribe = () => {
@@ -91,7 +94,7 @@ export function addGmlPluginComponentObserver(observer, options = {}) {
         }
 
         aborted = true;
-        componentObservers.delete(observer);
+        componentObservers.delete(normalizedObserver);
         if (signal) {
             signal.removeEventListener("abort", abortHandler);
         }
