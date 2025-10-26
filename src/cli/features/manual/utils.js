@@ -5,6 +5,7 @@ import {
     assertNonEmptyString,
     createAbortGuard,
     identity,
+    noop,
     isFsErrorCode,
     isNonEmptyArray,
     isNonEmptyTrimmedString,
@@ -25,8 +26,6 @@ const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
 const REPO_SEGMENT_PATTERN = /^[A-Za-z0-9_.-]+$/;
 const MANUAL_CACHE_ROOT_ENV_VAR = "GML_MANUAL_CACHE_ROOT";
-const NOOP = () => {};
-
 export const MANUAL_REPO_REQUIREMENT_SOURCE = Object.freeze({
     CLI: "cli",
     ENV: "env"
@@ -146,7 +145,7 @@ function createConsoleReporter({ formatPath }) {
             const displayPath = normalizePath(path);
             console.log(displayPath ? `✓ ${displayPath}` : "✓");
         },
-        cleanup: NOOP
+        cleanup: noop
     };
 }
 
@@ -160,7 +159,7 @@ export function createManualDownloadReporter({
     const { downloads = false, progressBar = false } = verbose ?? {};
 
     if (!downloads) {
-        return { report: NOOP, cleanup: NOOP };
+        return { report: noop, cleanup: noop };
     }
 
     return progressBar

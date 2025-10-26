@@ -1,4 +1,4 @@
-import { createMetricsTracker } from "../../../shared/index.js";
+import { createMetricsTracker, noop } from "../../../shared/index.js";
 
 const PROJECT_INDEX_METRICS_CATEGORY = "project-index";
 const REQUIRED_METRIC_GROUPS = Object.freeze({
@@ -38,8 +38,6 @@ function createMetricsSnapshot(extra = {}) {
         ...extra
     };
 }
-
-const noop = () => {};
 
 // The project-index builder, rename planner, and CLI performance harness all
 // assume that a metrics tracker exposes timing helpers returning cleanup
