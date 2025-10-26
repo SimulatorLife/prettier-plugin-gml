@@ -3,7 +3,7 @@
 These fixtures illustrate how tricky identifiers normalize across the supported
 case styles. Each example shows the original source alongside camel, Pascal,
 snake lower, and snake upper conversions. Prefixes and structural delimiters are
-retained so implementers can validate tokenizer behaviour.
+retained so implementers can validate tokenizer behavior.
 
 | Original identifier | camel | pascal | snake-lower | snake-upper |
 | --- | --- | --- | --- | --- |
