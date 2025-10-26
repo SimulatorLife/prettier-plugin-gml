@@ -203,7 +203,7 @@ function applyTrailingCommentPadding({
     hasTrailingComma,
     shouldAlignInitializers
 }) {
-    if (shouldAlignInitializers) {
+    if (!shouldAlignInitializers) {
         return;
     }
 

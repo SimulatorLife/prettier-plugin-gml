@@ -2263,6 +2263,7 @@ function printStatements(path, options, print, childrenAttribute) {
 
             if (
                 isTopLevel &&
+                nodeStartIndex > 0 &&
                 !isPreviousLineEmpty(options.originalText, nodeStartIndex) &&
                 !hasLeadingComment
             ) {
