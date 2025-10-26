@@ -32,16 +32,16 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError, Option } from "commander";
 
 import {
+    createListSplitPattern,
     getErrorMessage,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
-    isNonEmptyArray,
     isErrorLike,
     isErrorWithCode,
+    isNonEmptyArray,
     isPathInside,
     mergeUniqueValues,
     normalizeEnumeratedOption,
-    createListSplitPattern,
     normalizeStringList,
     toArray,
     toNormalizedLowerCaseSet,
