@@ -13,15 +13,15 @@ import {
     resolveFunction,
     toTrimmedString
 } from "../shared/dependencies.js";
-import { formatDuration } from "../command-dependencies.js";
-import { formatBytes } from "../command-dependencies.js";
-import { writeManualFile } from "./file-helpers.js";
 import {
+    CliUsageError,
     disposeProgressBars,
+    formatBytes,
+    formatDuration,
     renderProgressBar,
     withProgressBarCleanup
 } from "../command-dependencies.js";
-import { CliUsageError } from "../command-dependencies.js";
+import { writeManualFile } from "./file-helpers.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
