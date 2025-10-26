@@ -3312,12 +3312,16 @@ function reorderDescriptionLinesAfterFunction(docLines) {
     }
 
     const descriptionIndices = [];
+    let earliestDescriptionIndex = Infinity;
     for (const [index, line] of normalizedDocLines.entries()) {
         if (
             typeof line === "string" &&
             /^\/\/\/\s*@description\b/i.test(line.trim())
         ) {
             descriptionIndices.push(index);
+            if (index < earliestDescriptionIndex) {
+                earliestDescriptionIndex = index;
+            }
         }
     }
 
@@ -3335,10 +3339,14 @@ function reorderDescriptionLinesAfterFunction(docLines) {
         return normalizedDocLines;
     }
 
-    const earliestDescriptionIndex = Math.min(...descriptionIndices);
     if (earliestDescriptionIndex > functionIndex) {
         return normalizedDocLines;
     }
+
+    // Membership checks run repeatedly when stripping or re-inserting
+    // description lines. Hoist the indices into a Set so the hot filters avoid
+    // rescanning the array for each element.
+    const descriptionIndexSet = new Set(descriptionIndices);
 
     const descriptionLines = descriptionIndices
         .map((index) => normalizedDocLines[index])
@@ -3352,12 +3360,12 @@ function reorderDescriptionLinesAfterFunction(docLines) {
 
     if (descriptionLines.length === 0) {
         return normalizedDocLines.filter(
-            (_, index) => !descriptionIndices.includes(index)
+            (_, index) => !descriptionIndexSet.has(index)
         );
     }
 
     const remainingLines = normalizedDocLines.filter(
-        (_, index) => !descriptionIndices.includes(index)
+        (_, index) => !descriptionIndexSet.has(index)
     );
 
     let lastFunctionIndex = -1;
