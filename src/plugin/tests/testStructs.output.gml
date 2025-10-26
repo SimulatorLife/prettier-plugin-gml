@@ -119,3 +119,16 @@ function assign_then_extend() {
     data = {label: "ok", value: 123};
     return data;
 }
+
+/// @function InputButtonKeyboard
+/// @param {real} button
+/// @description Input for a keyboard key
+function InputButtonKeyboard(button) : AbstractInputButton(button, eInputType.keyboard) constructor {
+
+    /* Keyboard input handling goes here */
+
+}
+
+var kbInput = new InputButtonKeyboard();
+kbInput.cleanup();
+delete kbInput;

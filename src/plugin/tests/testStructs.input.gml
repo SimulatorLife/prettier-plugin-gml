@@ -125,3 +125,5 @@ function InputButtonKeyboard(button) : AbstractInputButton(button, eInputType.ke
     /* Keyboard input handling goes here */
 
 }
+var kbInput = new InputButtonKeyboard(); kbInput.cleanup()
+delete kbInput
