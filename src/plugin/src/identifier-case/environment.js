@@ -128,4 +128,19 @@ export function teardownIdentifierCaseEnvironment(options) {
     deleteIdentifierCaseOption(options, "__identifierCaseProjectIndex");
     deleteIdentifierCaseOption(options, "__identifierCasePlanSnapshot");
     deleteIdentifierCaseOption(options, "__identifierCaseRenameMap");
+    deleteIdentifierCaseOption(options, "__identifierCaseRenamePlan");
+    deleteIdentifierCaseOption(options, "__identifierCaseConflicts");
+    deleteIdentifierCaseOption(options, "__identifierCaseMetrics");
+    deleteIdentifierCaseOption(options, "__identifierCaseMetricsReport");
+    deleteIdentifierCaseOption(options, "__identifierCaseAssetRenames");
+    deleteIdentifierCaseOption(options, "__identifierCaseAssetRenameResult");
+    deleteIdentifierCaseOption(options, "__identifierCaseAssetRenamesApplied");
+    deleteIdentifierCaseOption(
+        options,
+        "__identifierCasePlanGeneratedInternally"
+    );
+    deleteIdentifierCaseOption(
+        options,
+        "__identifierCaseProjectIndexBootstrap"
+    );
 }
