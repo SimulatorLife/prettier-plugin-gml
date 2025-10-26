@@ -3465,6 +3465,49 @@ function hasCommentImmediatelyBefore(text, index) {
     );
 }
 
+const RETURN_DOC_TAG_PATTERN = /^\/\/\/\s*@returns\b/i;
+
+function dedupeReturnDocLines(lines, { includeNonReturnLine } = {}) {
+    const shouldIncludeNonReturn =
+        typeof includeNonReturnLine === "function"
+            ? includeNonReturnLine
+            : () => true;
+
+    const deduped = [];
+    const seenReturnLines = new Set();
+    let removedAnyReturnLine = false;
+
+    for (const line of lines) {
+        if (typeof line !== "string") {
+            deduped.push(line);
+            continue;
+        }
+
+        const trimmed = toTrimmedString(line);
+        if (!RETURN_DOC_TAG_PATTERN.test(trimmed)) {
+            if (shouldIncludeNonReturn(line, trimmed)) {
+                deduped.push(line);
+            }
+            continue;
+        }
+
+        if (trimmed.length === 0) {
+            continue;
+        }
+
+        const key = trimmed.toLowerCase();
+        if (seenReturnLines.has(key)) {
+            removedAnyReturnLine = true;
+            continue;
+        }
+
+        seenReturnLines.add(key);
+        deduped.push(line);
+    }
+
+    return { lines: deduped, removed: removedAnyReturnLine };
+}
+
 function reorderDescriptionLinesAfterFunction(docLines) {
     const normalizedDocLines = toMutableArray(docLines);
 
@@ -3594,26 +3637,10 @@ function mergeSyntheticDocComments(
     );
 
     let removedExistingReturnDuplicates = false;
-    const existingReturnLines = new Set();
-    normalizedExistingLines = normalizedExistingLines.filter((line) => {
-        if (typeof line !== "string") {
-            return true;
-        }
-
-        const trimmed = toTrimmedString(line);
-        if (!/^\/\/\/\s*@returns\b/i.test(trimmed)) {
-            return true;
-        }
-
-        const key = trimmed.toLowerCase();
-        if (existingReturnLines.has(key)) {
-            removedExistingReturnDuplicates = true;
-            return false;
-        }
-
-        existingReturnLines.add(key);
-        return true;
-    });
+    ({
+        lines: normalizedExistingLines,
+        removed: removedExistingReturnDuplicates
+    } = dedupeReturnDocLines(normalizedExistingLines));
 
     const syntheticLines = reorderDescriptionLinesAfterFunction(
         computeSyntheticFunctionDocLines(
@@ -3911,28 +3938,9 @@ function mergeSyntheticDocComments(
     ];
 
     if (returnsLines.length > 0) {
-        const dedupedReturns = [];
-        const seenReturns = new Set();
-
-        for (const line of returnsLines) {
-            if (typeof line !== "string") {
-                dedupedReturns.push(line);
-                continue;
-            }
-
-            const trimmed = toTrimmedString(line);
-            if (trimmed.length === 0) {
-                continue;
-            }
-
-            const key = trimmed.toLowerCase();
-            if (seenReturns.has(key)) {
-                continue;
-            }
-
-            seenReturns.add(key);
-            dedupedReturns.push(line);
-        }
+        const { lines: dedupedReturns } = dedupeReturnDocLines(returnsLines, {
+            includeNonReturnLine: (line, trimmed) => trimmed.length > 0
+        });
 
         if (dedupedReturns.length > 0) {
             const filteredResult = [];
@@ -3972,26 +3980,11 @@ function mergeSyntheticDocComments(
         }
     }
 
-    const uniqueReturnLines = new Set();
-    result = result.filter((line) => {
-        if (typeof line !== "string") {
-            return true;
-        }
-
-        const trimmed = toTrimmedString(line);
-        if (!/^\/\/\/\s*@returns\b/i.test(trimmed)) {
-            return true;
-        }
-
-        const key = trimmed.toLowerCase();
-        if (uniqueReturnLines.has(key)) {
-            removedAnyLine = true;
-            return false;
-        }
-
-        uniqueReturnLines.add(key);
-        return true;
-    });
+    const dedupedResult = dedupeReturnDocLines(result);
+    result = dedupedResult.lines;
+    if (dedupedResult.removed) {
+        removedAnyLine = true;
+    }
 
     const paramDocsByCanonical = new Map();
 
