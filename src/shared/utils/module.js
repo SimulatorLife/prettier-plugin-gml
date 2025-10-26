@@ -1,15 +1,12 @@
-import {
-    assertNonEmptyString,
-    getErrorMessage,
-    isErrorWithCode
-} from "./module-support.js";
+import { getErrorMessage, isErrorWithCode } from "./error.js";
+import { assertNonEmptyString } from "./string.js";
 
 /**
  * Normalize dynamically imported modules to their default export when
- * available. Centralizes the optional chaining scattered across CLI entry
- * points so CJS and ESM interop semantics stay aligned. Callers receive the
- * original namespace object when the module lacks a default export or when the
- * export is intentionally null/undefined.
+ * available. This helper previously lived in the CLI layer even though the
+ * logic is environment agnostic. Moving it into the shared utilities keeps the
+ * Node-specific CLI helpers lightweight while making the normalizer available
+ * to any consumer that needs to smooth over ESM/CJS namespace differences.
  *
  * @template TModule
  * @param {TModule} module Namespace object returned from a dynamic import.
@@ -36,7 +33,8 @@ export function resolveModuleDefaultExport(module) {
 /**
  * Determine whether an error corresponds to a missing module dependency for
  * {@link moduleId}. Centralizes the defensive guard shared by dynamic import
- * call sites so fallback behaviour stays consistent across the CLI.
+ * call sites so fallback behaviour stays consistent wherever the helper is
+ * used.
  *
  * @param {unknown} error Value thrown from a dynamic import.
  * @param {string} moduleId Module identifier expected in the error message.
