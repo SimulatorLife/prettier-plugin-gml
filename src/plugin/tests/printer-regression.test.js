@@ -69,3 +69,28 @@ test("prints all call arguments in order", async () => {
         ].join("\n")
     );
 });
+
+test("breaks calls with single call arguments across multiple lines", async () => {
+    const source = [
+        "function demo() {",
+        "    return buffer_from_vertex_buffer(vertex_buffer_create_triangular_prism(undefined, undefined, false));",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source);
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function demo",
+            "function demo() {",
+            "    return buffer_from_vertex_buffer(",
+            "        vertex_buffer_create_triangular_prism(undefined, undefined, false)",
+            "    );",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
