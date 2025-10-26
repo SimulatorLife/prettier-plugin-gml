@@ -14,6 +14,7 @@ export {
     createEnvConfiguredValue,
     createEnvConfiguredValueWithFallback,
     describeValueForMessage,
+    describeValueWithQuotes,
     getErrorCode,
     getErrorMessage,
     getErrorMessageOrFallback,

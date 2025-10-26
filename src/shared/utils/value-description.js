@@ -147,3 +147,68 @@ export function describeValueForMessage(value, options = {}) {
 
     return resolveDescription(handler, value, { type });
 }
+
+const DEFAULT_QUOTED_DESCRIPTION = (input, context = {}) => {
+    try {
+        return `'${String(input)}'`;
+    } catch {
+        const type = context.type ?? typeof input;
+        return `'${type}'`;
+    }
+};
+
+/**
+ * Describe values while wrapping most runtime inputs in single quotes. The
+ * helper builds on {@link describeValueForMessage} so callers can emit
+ * consistent "Received" fragments when validating enumerated options or other
+ * user-provided values. Type-specific descriptions may be overridden and the
+ * quoting strategy is configurable to accommodate bespoke formatting.
+ *
+ * @param {unknown} value Runtime value to describe.
+ * @param {object} [options]
+ * @param {(value: unknown, context: { type: string }) => string} [options.quote]
+ *        Custom quoting function applied to most value kinds.
+ * @param {string} [options.undefinedDescription="undefined"]
+ *        Description used when {@link value} is `undefined`.
+ * @param {string} [options.nullDescription="'null'"] Description used when
+ *        {@link value} is `null`.
+ * @param {string | ((value: unknown, context: { type: string }) => string)}
+ *        [options.fallbackDescription] Description used for unhandled types.
+ * @param {Partial<ReturnType<typeof normalizeDescriptionOptions>>} [options.overrides]
+ *        Optional overrides for the generated description handlers.
+ * @returns {string} Human-readable, quoted description for {@link value}.
+ */
+export function describeValueWithQuotes(
+    value,
+    {
+        quote,
+        undefinedDescription = "undefined",
+        nullDescription = "'null'",
+        fallbackDescription,
+        overrides = {}
+    } = {}
+) {
+    const quoteValue =
+        typeof quote === "function" ? quote : DEFAULT_QUOTED_DESCRIPTION;
+
+    const baseHandlers = {
+        undefinedDescription,
+        nullDescription,
+        arrayDescription: quoteValue,
+        stringDescription: quoteValue,
+        numberDescription: quoteValue,
+        bigintDescription: quoteValue,
+        booleanDescription: quoteValue,
+        functionDescription: quoteValue,
+        symbolDescription: quoteValue,
+        objectDescription: quoteValue,
+        fallbackDescription:
+            fallbackDescription ??
+            ((input, context) => quoteValue(input, context))
+    };
+
+    return describeValueForMessage(value, {
+        ...baseHandlers,
+        ...overrides
+    });
+}

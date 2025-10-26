@@ -1,4 +1,7 @@
-import { normalizeEnumeratedOption } from "../shared/index.js";
+import {
+    describeValueWithQuotes,
+    normalizeEnumeratedOption
+} from "../shared/index.js";
 
 const LogicalOperatorsStyle = Object.freeze({
     KEYWORDS: "keywords",
@@ -33,8 +36,12 @@ export function normalizeLogicalOperatorsStyle(rawStyle) {
         {
             coerce(value) {
                 if (typeof value !== "string") {
+                    const received = describeValueWithQuotes(value, {
+                        nullDescription: "null"
+                    });
+
                     throw new TypeError(
-                        `logicalOperatorsStyle must be provided as a string. Received: ${typeof value}.`
+                        `logicalOperatorsStyle must be provided as a string. Received: ${received}.`
                     );
                 }
 
@@ -44,8 +51,12 @@ export function normalizeLogicalOperatorsStyle(rawStyle) {
     );
 
     if (normalized === null) {
+        const received = describeValueWithQuotes(rawStyle, {
+            nullDescription: "null"
+        });
+
         throw new RangeError(
-            `logicalOperatorsStyle must be one of: ${VALID_STYLES_MESSAGE}. Received: ${JSON.stringify(rawStyle)}.`
+            `logicalOperatorsStyle must be one of: ${VALID_STYLES_MESSAGE}. Received: ${received}.`
         );
     }
 

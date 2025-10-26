@@ -1,4 +1,7 @@
-import { normalizeEnumeratedOption } from "../shared/dependencies.js";
+import {
+    describeValueWithQuotes,
+    normalizeEnumeratedOption
+} from "../shared/dependencies.js";
 
 const PerformanceSuiteName = Object.freeze({
     PARSER: "parser",
@@ -45,7 +48,9 @@ function normalizePerformanceSuiteName(value, { errorConstructor } = {}) {
 
     const ErrorConstructor =
         typeof errorConstructor === "function" ? errorConstructor : Error;
-    const received = JSON.stringify(value);
+    const received = describeValueWithQuotes(value, {
+        nullDescription: "null"
+    });
 
     throw new ErrorConstructor(
         `Benchmark suite must be one of: ${formatPerformanceSuiteList()}. Received: ${received}.`
