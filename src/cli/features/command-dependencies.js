@@ -33,7 +33,7 @@ export {
     createVerboseDurationLogger,
     formatDuration,
     timeSync
-} from "../shared/time-utils.js";
+} from "../dependencies.js";
 
 export {
     DEFAULT_PROGRESS_BAR_WIDTH,
