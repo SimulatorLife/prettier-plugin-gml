@@ -660,7 +660,7 @@ function shouldFormatFile(filePath) {
 const options = {
     parser: "gml-parse",
     plugins: [PLUGIN_PATH],
-    loglevel: DEFAULT_PRETTIER_LOG_LEVEL,
+    logLevel: DEFAULT_PRETTIER_LOG_LEVEL,
     ignorePath: IGNORE_PATH,
     noErrorOnUnmatchedPattern: true
 };
@@ -672,7 +672,7 @@ function configurePrettierOptions({ logLevel } = {}) {
             DEFAULT_PRETTIER_LOG_LEVEL,
             VALID_PRETTIER_LOG_LEVELS
         ) ?? DEFAULT_PRETTIER_LOG_LEVEL;
-    options.loglevel = normalized;
+    options.logLevel = normalized;
 }
 
 const skippedFileSummary = {
@@ -1789,7 +1789,9 @@ function normalizeCommandLineArguments(argv) {
 
 export const __test__ = Object.freeze({
     resetFormattingSessionForTests: resetFormattingSession,
-    normalizeCommandLineArguments
+    normalizeCommandLineArguments,
+    configurePrettierOptionsForTests: configurePrettierOptions,
+    getPrettierOptionsForTests: () => options
 });
 
 const formatCommand = createFormatCommand({ name: "format" });
