@@ -456,27 +456,6 @@ function normalizeManualRepository(value) {
     return `${owner}/${repo}`;
 }
 
-function buildManualRepositoryEndpoints(manualRepo = DEFAULT_MANUAL_REPO) {
-    const isDefaultCandidate =
-        manualRepo === undefined || manualRepo === null || manualRepo === "";
-
-    const repoToUse = isDefaultCandidate
-        ? DEFAULT_MANUAL_REPO
-        : toTrimmedString(manualRepo);
-
-    const normalized = normalizeManualRepository(repoToUse);
-    if (!normalized) {
-        const received = isDefaultCandidate ? DEFAULT_MANUAL_REPO : manualRepo;
-        throw new Error(`Invalid manual repository provided: ${received}`);
-    }
-
-    return {
-        manualRepo: normalized,
-        apiRoot: `https://api.github.com/repos/${normalized}`,
-        rawRoot: `https://raw.githubusercontent.com/${normalized}`
-    };
-}
-
 function resolveManualRepoValue(
     rawValue,
     { source = MANUAL_REPO_REQUIREMENT_SOURCE.CLI } = {}
@@ -490,6 +469,24 @@ function resolveManualRepoValue(
     const received = describeManualRepoInput(rawValue);
 
     throw new TypeError(`${requirement} (received ${received}).`);
+}
+
+const DEFAULT_MANUAL_REPO_NORMALIZED =
+    resolveManualRepoValue(DEFAULT_MANUAL_REPO);
+
+function buildManualRepositoryEndpoints(manualRepo = DEFAULT_MANUAL_REPO) {
+    const useDefault =
+        manualRepo === undefined || manualRepo === null || manualRepo === "";
+
+    const normalized = useDefault
+        ? DEFAULT_MANUAL_REPO_NORMALIZED
+        : resolveManualRepoValue(manualRepo);
+
+    return {
+        manualRepo: normalized,
+        apiRoot: `https://api.github.com/repos/${normalized}`,
+        rawRoot: `https://raw.githubusercontent.com/${normalized}`
+    };
 }
 
 /**

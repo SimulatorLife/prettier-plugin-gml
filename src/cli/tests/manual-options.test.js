@@ -74,7 +74,7 @@ describe("manual option helpers", () => {
         it("throws when provided repository metadata is invalid", () => {
             assert.throws(
                 () => buildManualRepositoryEndpoints("TwoScoopStudio"),
-                /Invalid manual repository provided: TwoScoopStudio/
+                /Manual repository must be provided in 'owner\/name' format \(received 'TwoScoopStudio'\)\./
             );
         });
     });
