@@ -12,8 +12,9 @@ import {
 import { getIdentifierCaseStyleMetadata } from "../identifier-case/identifier-case-utils.js";
 import { getDefaultProjectIndexCacheMaxSize } from "gamemaker-language-semantic/project-index/cache.js";
 import { getDefaultProjectIndexGmlConcurrency } from "gamemaker-language-semantic/project-index/concurrency.js";
+import { DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES } from "../identifier-case/option-store-defaults.js";
 
-export const DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES = 128;
+export { DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES } from "../identifier-case/option-store-defaults.js";
 
 const IDENTIFIER_CASE_DESCRIPTION =
     "Sets the preferred casing style to apply when renaming identifiers.";

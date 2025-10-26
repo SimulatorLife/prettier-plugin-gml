@@ -6,7 +6,10 @@ import {
     getIdentifierCaseOptionStore,
     clearIdentifierCaseOptionStore,
     MAX_IDENTIFIER_CASE_OPTION_STORE_ENTRIES,
-    deleteIdentifierCaseOption
+    deleteIdentifierCaseOption,
+    getDefaultIdentifierCaseOptionStoreMaxEntries,
+    setDefaultIdentifierCaseOptionStoreMaxEntries,
+    IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_BASELINE
 } from "../src/identifier-case/option-store.js";
 
 function buildOptions(fileIndex, overrides = {}) {
@@ -15,6 +18,12 @@ function buildOptions(fileIndex, overrides = {}) {
         ...overrides
     };
 }
+
+test.afterEach(() => {
+    setDefaultIdentifierCaseOptionStoreMaxEntries(
+        IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_BASELINE
+    );
+});
 
 test("option store evicts oldest entries when the limit is exceeded", () => {
     clearIdentifierCaseOptionStore(null);
@@ -51,6 +60,51 @@ test("option store evicts oldest entries when the limit is exceeded", () => {
     }
 
     clearIdentifierCaseOptionStore(null);
+});
+
+test("global option store limit can be tuned programmatically", () => {
+    clearIdentifierCaseOptionStore(null);
+
+    const originalDefault = getDefaultIdentifierCaseOptionStoreMaxEntries();
+    const customMaxEntries = 12;
+
+    try {
+        setDefaultIdentifierCaseOptionStoreMaxEntries(customMaxEntries);
+        assert.equal(
+            getDefaultIdentifierCaseOptionStoreMaxEntries(),
+            customMaxEntries,
+            "expected custom max entries to be applied"
+        );
+
+        const totalEntries = customMaxEntries + 4;
+
+        for (let index = 0; index < totalEntries; index += 1) {
+            const options = buildOptions(index);
+            setIdentifierCaseOption(options, "__identifierCaseRenamePlan", {
+                id: index
+            });
+        }
+
+        const evictedCount = totalEntries - customMaxEntries;
+
+        for (let index = 0; index < evictedCount; index += 1) {
+            const store = getIdentifierCaseOptionStore(
+                buildOptions(index).filepath
+            );
+            assert.equal(store, null, `expected index ${index} to be evicted`);
+        }
+
+        for (let index = evictedCount; index < totalEntries; index += 1) {
+            const store = getIdentifierCaseOptionStore(
+                buildOptions(index).filepath
+            );
+            assert.ok(store, `expected store for index ${index} to remain`);
+            assert.equal(store.__identifierCaseRenamePlan.id, index);
+        }
+    } finally {
+        setDefaultIdentifierCaseOptionStoreMaxEntries(originalDefault);
+        clearIdentifierCaseOptionStore(null);
+    }
 });
 
 test("option store honours the configured max entries", () => {
