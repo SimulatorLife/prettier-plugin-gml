@@ -105,6 +105,43 @@ test("flattens numeric multiplication groups inside addition chains", async () =
     );
 });
 
+test("flattens chained multiplication operands", async () => {
+    const source = [
+        "function sample(a, b) {",
+        "    var m1, r1;",
+        "    m1 = 1 / (b.mass + a.mass);",
+        "    r1 = (b.mass * m1) / 2;",
+        "    return r1;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath],
+        applyFeatherFixes: true
+    });
+
+    const expectedLines = [
+        "/// @function sample",
+        "/// @param a",
+        "/// @param b",
+        "function sample(a, b) {",
+        "    var m1, r1;",
+        "    m1 = 1 / (b.mass + a.mass);",
+        "    r1 = b.mass * m1 * 0.5;",
+        "    return r1;",
+        "}",
+        ""
+    ].join("\n");
+
+    assert.strictEqual(
+        formatted.trim(),
+        expectedLines.trim(),
+        "Expected chained multiplication to omit redundant synthetic grouping parentheses after division rewrites."
+    );
+});
+
 test("flattens standalone multiplication groups added together", async () => {
     const source = [
         "function dot(ax, ay, bx, by) {",
@@ -243,6 +280,35 @@ test("flattens synthetic addition within sqrt calls", async () => {
         formatted.trim(),
         expectedLines,
         "Expected sqrt() addition chains to omit redundant synthetic parentheses."
+    );
+});
+
+test("flattens squared comparison operands within logical expressions", async () => {
+    const source = [
+        "var actual_dist = xoff * xoff + yoff * yoff;",
+        "if ((actual_dist < dst * dst and push_out) or (actual_dist > dst * dst and pull_in)) {",
+        "    return actual_dist;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    const expectedLines = [
+        "var actual_dist = xoff * xoff + yoff * yoff;",
+        "if ((actual_dist < dst * dst and push_out) or (actual_dist > dst * dst and pull_in)) {",
+        "    return actual_dist;",
+        "}",
+        ""
+    ].join("\n");
+
+    assert.strictEqual(
+        formatted,
+        expectedLines,
+        "Expected squared distance comparisons inside logical expressions to omit redundant multiplication grouping."
     );
 });
 
