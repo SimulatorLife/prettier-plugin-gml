@@ -10,11 +10,11 @@ export {
     pushUnique,
     toArray,
     toArrayFromIterable
-} from "../../shared/utils/array.js";
+} from "../../shared/src/utils/array.js";
 export {
     areNumbersApproximatelyEqual,
     isFiniteNumber
-} from "../../shared/utils/number.js";
+} from "../../shared/src/utils/number.js";
 export {
     assertFunction,
     getOrCreateMapEntry,
@@ -22,42 +22,45 @@ export {
     isObjectLike,
     isPlainObject,
     withDefinedValue
-} from "../../shared/utils/object.js";
+} from "../../shared/src/utils/object.js";
 export {
     assignClonedLocation,
     cloneLocation
-} from "../../shared/ast/locations.js";
+} from "../../shared/src/ast/locations.js";
 export {
     buildFileLocationKey,
     buildLocationKey
-} from "../../shared/ast/location-keys.js";
-export { getCallExpressionIdentifier } from "../../shared/ast/node-helpers.js";
-export { createAbortGuard, throwIfAborted } from "../../shared/utils/abort.js";
+} from "../../shared/src/ast/location-keys.js";
+export { getCallExpressionIdentifier } from "../../shared/src/ast/node-helpers.js";
+export {
+    createAbortGuard,
+    throwIfAborted
+} from "../../shared/src/utils/abort.js";
 export {
     createEnvConfiguredValueWithFallback,
     resolveEnvironmentMap
-} from "../../shared/utils/environment.js";
-export { createMetricsTracker } from "../../shared/reporting/metrics.js";
-export { noop } from "../../shared/utils/function.js";
+} from "../../shared/src/utils/environment.js";
+export { createMetricsTracker } from "../../shared/src/reporting/metrics.js";
+export { noop } from "../../shared/src/utils/function.js";
 export {
     getNonEmptyString,
     getNonEmptyTrimmedString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
     toTrimmedString
-} from "../../shared/utils/string.js";
+} from "../../shared/src/utils/string.js";
 export {
     isJsonParseError,
     parseJsonWithContext
-} from "../../shared/utils/json.js";
-export { splitLines } from "../../shared/utils/line-breaks.js";
-export { isFsErrorCode } from "../../shared/fs/index.js";
+} from "../../shared/src/utils/json.js";
+export { splitLines } from "../../shared/src/utils/line-breaks.js";
+export { isFsErrorCode } from "../../shared/src/fs/index.js";
 export {
     resolveContainedRelativePath,
     toPosixPath,
     walkAncestorDirectories
-} from "../../shared/fs/path.js";
-export { normalizeIdentifierMetadataEntries } from "../../shared/identifier-metadata/index.js";
+} from "../../shared/src/fs/path.js";
+export { normalizeIdentifierMetadataEntries } from "../../shared/src/identifier-metadata/index.js";
 
 /**
  * @typedef {object} GameMakerAstLocation

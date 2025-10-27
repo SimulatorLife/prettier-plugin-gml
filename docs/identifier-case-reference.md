@@ -66,5 +66,5 @@ and all references are rewritten consistently.
   histories are needed for debugging.
 
 Refer to the updated integration tests under
-`src/plugin/tests/identifier-case-top-level.integration.test.js` for end-to-end
+`src/plugin/test/identifier-case-top-level.integration.test.js` for end-to-end
 coverage of each scope in both dry-run and write modes.

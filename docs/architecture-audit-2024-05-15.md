@@ -4,8 +4,8 @@
 
 - The `src/shared` directory still exposes a wide collection of thin re-export
   shims such as `array-utils.js`, `ast-node-helpers.js`, and `string-utils.js`.
-  Each shim delegates to an implementation in either `src/shared/utils/` or
-  `src/shared/ast/`. The duplication keeps legacy import paths alive but forces
+  Each shim delegates to an implementation in either `src/shared/src/utils/` or
+  `src/shared/src/ast/`. The duplication keeps legacy import paths alive but forces
   new code to pick between multiple entry points for the same helpers.
 - Call sites across the parser, plugin, and CLI layers mix the shimmed paths
   (`../shared/array-utils.js`) with the grouped modules (`../shared/utils/…`).
@@ -13,14 +13,14 @@
   eventual removal of the shims risky because every import must be located by
   hand.
 - The intended architecture, documented in `docs/shared-module-layout.md`, is
-  for feature code to import from barrel files (`src/shared/ast/` and
-  `src/shared/utils/`) while the compatibility shims fade into the background.
+  for feature code to import from barrel files (`src/shared/src/ast/` and
+  `src/shared/src/utils/`) while the compatibility shims fade into the background.
   The project has not yet made the pivot, so contributors still experience the
   pre-refactor sprawl.
 
 ## Target layout
 
-- Introduce top-level barrels, `src/shared/ast.js` and `src/shared/utils.js`,
+- Introduce top-level barrels, `src/shared/src/ast.js` and `src/shared/src/utils.js`,
   that re-export the curated helper sets. These files provide a concise and
   discoverable entry point without removing the existing compatibility shims.
 - Update a first wave of call sites (the CLI utilities and parser helpers) to

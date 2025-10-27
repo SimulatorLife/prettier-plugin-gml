@@ -45,7 +45,7 @@ npm run lint
 npm run format:check
 ```
 
-Fixtures under `src/plugin/tests/` and `src/parser/tests/input/` are golden—do
+Fixtures under `src/plugin/test/` and `src/parser/test/input/` are golden—do
 not edit them unless you are intentionally changing formatter or parser output.
 
 ## 4. Sanity-check the formatter

@@ -65,7 +65,7 @@ real projects. The collected metrics surfaced three practical improvements:
    it easy to spot tuning opportunities for ignore/preserve lists when the
    numbers spike.
 
-The `performance` CLI command (`node ./src/cli/cli.js performance --suite
+The `performance` CLI command (`node ./src/cli/src/cli.js performance --suite
 identifier-pipeline`) runs the project index twice (to observe cache reuse) and
 optionally executes the rename planner for a specific file, printing the
 captured metrics as structured JSON. Use `--stdout` when piping the report into
