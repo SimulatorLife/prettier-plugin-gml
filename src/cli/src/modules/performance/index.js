@@ -2,7 +2,6 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
 
 import { Command, InvalidArgumentError, Option } from "commander";
 
@@ -25,17 +24,14 @@ import {
     coercePositiveInteger,
     ensureDir,
     isFiniteNumber,
-    isPathInside,
     getErrorMessageOrFallback,
     getIdentifierText,
     resolveIntegerOption,
-    toArray,
     toNormalizedInteger,
     stringifyJsonForFile,
     resolveModuleDefaultExport,
     createCliRunSkippedError,
-    isCliRunSkipped,
-    uniqueArray
+    isCliRunSkipped
 } from "../../shared/dependencies.js";
 import {
     PerformanceSuiteName,
@@ -44,108 +40,24 @@ import {
     normalizePerformanceSuiteName
 } from "./suite-options.js";
 import { formatMetricValue } from "./metric-formatters.js";
+import {
+    REPO_ROOT,
+    createPathFilter,
+    normalizeFixtureRoots
+} from "./fixture-roots.js";
+export { normalizeFixtureRoots } from "./fixture-roots.js";
 
 const shouldSkipPerformanceDependencies = isCliRunSkipped();
 
 const AVAILABLE_SUITES = new Map();
 
-const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
-const CLI_SRC_DIRECTORY = path.resolve(MODULE_DIRECTORY, "..", "..");
-const CLI_PACKAGE_DIRECTORY = path.resolve(CLI_SRC_DIRECTORY, "..");
-const WORKSPACE_SOURCE_DIRECTORY = path.resolve(CLI_PACKAGE_DIRECTORY, "..");
-const REPO_ROOT = path.resolve(WORKSPACE_SOURCE_DIRECTORY, "..");
 const TEST_RESULTS_DIRECTORY = path.resolve(REPO_ROOT, "reports");
 const DEFAULT_REPORT_FILE = path.join(
     TEST_RESULTS_DIRECTORY,
     "performance-report.json"
 );
-const DEFAULT_FIXTURE_DIRECTORIES = Object.freeze([
-    path.resolve(REPO_ROOT, "src", "parser", "test", "input"),
-    path.resolve(REPO_ROOT, "src", "plugin", "test")
-]);
 const DATASET_CACHE_KEY = "gml-fixtures";
 const SUPPORTS_WEAK_REF = typeof WeakRef === "function";
-
-function normalizeWorkflowPathList(paths) {
-    const candidates = [];
-
-    for (const entry of toArray(paths)) {
-        if (typeof entry !== "string") {
-            continue;
-        }
-
-        const trimmed = entry.trim();
-        if (trimmed.length === 0) {
-            continue;
-        }
-
-        candidates.push(path.resolve(trimmed));
-    }
-
-    return uniqueArray(candidates);
-}
-
-function createPathFilter(filters = {}) {
-    if (
-        filters &&
-        typeof filters.allowsDirectory === "function" &&
-        typeof filters.allowsPath === "function"
-    ) {
-        return filters;
-    }
-
-    const allowList = normalizeWorkflowPathList(filters.allowPaths);
-    const denyList = normalizeWorkflowPathList(filters.denyPaths);
-    const hasAllow = allowList.length > 0;
-
-    const allowsPath = (candidate) => {
-        if (typeof candidate !== "string") {
-            return false;
-        }
-
-        const normalized = path.resolve(candidate);
-
-        if (denyList.some((deny) => isPathInside(normalized, deny))) {
-            return false;
-        }
-
-        if (!hasAllow) {
-            return true;
-        }
-
-        return allowList.some((allow) => isPathInside(normalized, allow));
-    };
-
-    const allowsDirectory = (candidate) => {
-        if (typeof candidate !== "string") {
-            return false;
-        }
-
-        const normalized = path.resolve(candidate);
-
-        if (denyList.some((deny) => isPathInside(normalized, deny))) {
-            return false;
-        }
-
-        if (!hasAllow) {
-            return true;
-        }
-
-        return allowList.some(
-            (allow) =>
-                isPathInside(normalized, allow) ||
-                isPathInside(allow, normalized)
-        );
-    };
-
-    return {
-        allowList,
-        denyList,
-        hasAllow,
-        allowsPath,
-        allowsDirectory
-    };
-}
 const SKIP_PERFORMANCE_RESOLUTION_MESSAGE =
     "Clear the environment variable to enable CLI performance suites.";
 
@@ -217,42 +129,6 @@ function formatErrorDetails(error, { fallbackMessage } = {}) {
     return createCliErrorDetails(error, {
         fallbackMessage: fallbackMessage ?? "Unknown error"
     });
-}
-
-export function normalizeFixtureRoots(
-    additionalRoots = [],
-    filterOptions = {}
-) {
-    const pathFilter = createPathFilter(filterOptions);
-    const candidates = [
-        ...DEFAULT_FIXTURE_DIRECTORIES,
-        ...(Array.isArray(additionalRoots)
-            ? additionalRoots
-            : toArray(additionalRoots))
-    ];
-
-    const resolved = [];
-    const seen = new Set();
-
-    for (const candidate of candidates) {
-        if (typeof candidate !== "string" || candidate.length === 0) {
-            continue;
-        }
-
-        const normalized = path.resolve(candidate);
-        if (seen.has(normalized)) {
-            continue;
-        }
-
-        if (!pathFilter.allowsDirectory(normalized)) {
-            continue;
-        }
-
-        seen.add(normalized);
-        resolved.push(normalized);
-    }
-
-    return resolved;
 }
 
 async function traverseForFixtures(directory, visitor, pathFilter) {
