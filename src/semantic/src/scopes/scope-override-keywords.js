@@ -1,4 +1,10 @@
-const ScopeOverrideKeyword = Object.freeze({
+/**
+ * Enumerated scope override keywords supported by the semantic scope tracker.
+ *
+ * The values are frozen to avoid accidental mutations when the constants are
+ * re-exported through the public API surface.
+ */
+export const ScopeOverrideKeyword = Object.freeze({
     GLOBAL: "global"
 });
 
@@ -11,5 +17,3 @@ export function isScopeOverrideKeyword(value) {
 export function formatKnownScopeOverrideKeywords() {
     return [...SCOPE_OVERRIDE_KEYWORD_SET].join(", ");
 }
-
-export { ScopeOverrideKeyword };
