@@ -5389,25 +5389,59 @@ function computeSyntheticFunctionDocLines(
             parameterSourceText.includes("=");
         let shouldMarkOptional =
             Boolean(paramInfo.optional) || hasOptionalDocName;
+        const hasSiblingExplicitDefault = Array.isArray(node?.params)
+            ? node.params.some((candidate, candidateIndex) => {
+                  if (candidateIndex === paramIndex || !candidate) {
+                      return false;
+                  }
+
+                  if (candidate.type !== "DefaultParameter") {
+                      return false;
+                  }
+
+                  return !isUndefinedLiteral(candidate.right);
+              })
+            : false;
+        const hasPriorExplicitDefault = Array.isArray(node?.params)
+            ? node.params.slice(0, paramIndex).some((candidate) => {
+                  if (!candidate || candidate.type !== "DefaultParameter") {
+                      return false;
+                  }
+
+                  return !isUndefinedLiteral(candidate.right);
+              })
+            : false;
+        const shouldApplyOptionalSuppression =
+            hasExistingMetadata || !hasSiblingExplicitDefault;
         if (
-            shouldMarkOptional &&
-            defaultIsUndefined &&
-            shouldOmitUndefinedDefault &&
-            paramInfo?.explicitUndefinedDefault === true &&
+            !shouldMarkOptional &&
             !hasExistingMetadata &&
-            !optionalOverrideFlag &&
-            !hasOptionalDocName
+            hasSiblingExplicitDefault &&
+            hasPriorExplicitDefault &&
+            param?.type !== "DefaultParameter"
         ) {
-            shouldMarkOptional = false;
+            shouldMarkOptional = true;
         }
-        if (
-            shouldMarkOptional &&
-            shouldOmitUndefinedDefault &&
-            paramInfo.optional &&
-            defaultCameFromSource &&
-            !hasOptionalDocName
-        ) {
-            shouldMarkOptional = false;
+        if (shouldApplyOptionalSuppression) {
+            if (
+                shouldMarkOptional &&
+                defaultIsUndefined &&
+                shouldOmitUndefinedDefault &&
+                paramInfo?.explicitUndefinedDefault === true &&
+                !optionalOverrideFlag &&
+                !hasOptionalDocName
+            ) {
+                shouldMarkOptional = false;
+            }
+            if (
+                shouldMarkOptional &&
+                shouldOmitUndefinedDefault &&
+                paramInfo.optional &&
+                defaultCameFromSource &&
+                !hasOptionalDocName
+            ) {
+                shouldMarkOptional = false;
+            }
         }
         if (shouldMarkOptional && defaultIsUndefined) {
             preservedUndefinedDefaultParameters.add(param);

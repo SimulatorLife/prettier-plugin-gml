@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
@@ -75,9 +76,9 @@ test("omits optional syntax for synthesized docs with undefined defaults", async
         "    var themeCandidate = config.theme_override ?? fallback.theme_override;",
         "    var finalTheme = themeCandidate ?? global.theme_defaults;",
         "    if ((config ?? fallback) == undefined) {",
-        "        return \"guest\";",
+        '        return "guest";',
         "    }",
-        "    return (config.profile ?? fallback.profile) ?? \"guest\";",
+        '    return (config.profile ?? fallback.profile) ?? "guest";',
         "}",
         ""
     ].join("\n");
@@ -88,8 +89,8 @@ test("omits optional syntax for synthesized docs with undefined defaults", async
     });
 
     const lines = formatted.split("\n");
-    const fallbackDocLine = lines.find((line) =>
-        line.startsWith("/// @param") && line.includes("fallback")
+    const fallbackDocLine = lines.find(
+        (line) => line.startsWith("/// @param") && line.includes("fallback")
     );
     assert.equal(
         fallbackDocLine,
@@ -120,5 +121,34 @@ test("retains optional syntax when constructors keep explicit undefined defaults
     assert.ok(
         formatted.includes("/// @param [color]"),
         "Expected synthesized constructor docs to keep optional syntax when undefined defaults remain in the signature"
+    );
+});
+
+test("synthesized docs mark retained undefined defaults as optional", async () => {
+    const fixturePath = path.resolve(__dirname, "testFunctions.input.gml");
+    const optionsPath = path.resolve(__dirname, "testFunctions.options.json");
+    const [source, rawOptions] = await Promise.all([
+        fs.readFile(fixturePath, "utf8"),
+        fs.readFile(optionsPath, "utf8")
+    ]);
+
+    const options = JSON.parse(rawOptions);
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath],
+        ...options
+    });
+
+    const paramLine = formatted
+        .split("\n")
+        .find(
+            (line) =>
+                line.startsWith("/// @param") && line.includes("trans_mat")
+        );
+
+    assert.equal(
+        paramLine,
+        "/// @param [trans_mat]",
+        "Expected synthesized docs to keep optional syntax when undefined defaults remain in the signature"
     );
 });
