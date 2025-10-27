@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, it } from "node:test";
+import { afterEach, describe, it, mock } from "node:test";
 
 import {
     createManualGitHubClientBundle,
@@ -42,15 +42,9 @@ function createManualClientBundle({
     };
 }
 
-describe("manual GitHub client validation", () => {
-    let originalFetch;
-
-    beforeEach(() => {
-        originalFetch = globalThis.fetch;
-    });
-
+describe("manual GitHub client validation", { concurrency: false }, () => {
     afterEach(() => {
-        globalThis.fetch = originalFetch;
+        mock.restoreAll();
     });
 
     it("fetches manual files while caching results to disk", async () => {
@@ -71,12 +65,12 @@ describe("manual GitHub client validation", () => {
             }
         ];
 
-        globalThis.fetch = async (url) => {
+        mock.method(globalThis, "fetch", async (url) => {
             const next = responses.shift();
             assert.ok(next, "Unexpected fetch call");
             assert.equal(url, next.url);
             return next.response;
-        };
+        });
 
         const cachePath = path.join(cacheRoot, "sha", "path", "to", "file");
 
@@ -115,7 +109,7 @@ describe("manual GitHub client validation", () => {
         const controller = new AbortController();
         let abortHandlerRegistered = false;
 
-        globalThis.fetch = async (url, options = {}) => {
+        mock.method(globalThis, "fetch", async (url, options = {}) => {
             const { signal } = options;
             assert.equal(url, `${RAW_ROOT}/sha/path/to/file`);
             assert.ok(
@@ -137,7 +131,7 @@ describe("manual GitHub client validation", () => {
                 // Keep the promise pending until the abort handler runs so the
                 // test does not rely on real timers or event loop jitter.
             });
-        };
+        });
 
         try {
             const pending = client.fileFetcher.fetchManualFile(
@@ -174,12 +168,12 @@ describe("manual GitHub client validation", () => {
             }
         ];
 
-        globalThis.fetch = async (url) => {
+        mock.method(globalThis, "fetch", async (url) => {
             const next = responses.shift();
             assert.ok(next, "Unexpected fetch call");
             assert.equal(url, next.url);
             return next.response;
-        };
+        });
 
         await assert.rejects(
             () =>
@@ -209,12 +203,12 @@ describe("manual GitHub client validation", () => {
             }
         ];
 
-        globalThis.fetch = async (url) => {
+        mock.method(globalThis, "fetch", async (url) => {
             const next = responses.shift();
             assert.ok(next, "Unexpected fetch call");
             assert.equal(url, next.url);
             return next.response;
-        };
+        });
 
         await assert.rejects(
             () =>
@@ -248,12 +242,12 @@ describe("manual GitHub client validation", () => {
             }
         ];
 
-        globalThis.fetch = async (url) => {
+        mock.method(globalThis, "fetch", async (url) => {
             const next = responses.shift();
             assert.ok(next, "Unexpected fetch call");
             assert.equal(url, next.url);
             return next.response;
-        };
+        });
 
         const result = await refResolver.resolveManualRef(undefined, {
             verbose: createManualVerboseState({
@@ -285,12 +279,12 @@ describe("manual GitHub client validation", () => {
             }
         ];
 
-        globalThis.fetch = async (url) => {
+        mock.method(globalThis, "fetch", async (url) => {
             const next = responses.shift();
             assert.ok(next, "Unexpected fetch call");
             assert.equal(url, next.url);
             return next.response;
-        };
+        });
 
         const result = await refResolver.resolveManualRef(undefined, {
             apiRoot: API_ROOT
@@ -316,12 +310,12 @@ describe("manual GitHub client validation", () => {
             }
         ];
 
-        globalThis.fetch = async (url) => {
+        mock.method(globalThis, "fetch", async (url) => {
             const next = responses.shift();
             assert.ok(next, "Unexpected fetch call");
             assert.equal(url, next.url);
             return next.response;
-        };
+        });
 
         const result = await client.commitResolver.resolveCommitFromRef(
             "feature",
