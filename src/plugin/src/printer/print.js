@@ -1328,7 +1328,16 @@ export function print(path, options, print) {
 
             if (!value.startsWith('"')) {
                 if (value.startsWith(".")) {
-                    value = "0" + value; // Fix decimals without a leading 0.
+                    // Normalize shorthand decimals like `.5` to `0.5` so the printer
+                    // mirrors GameMaker's own serialization rules
+                    // (https://manual.gamemaker.io/monthly/en/#t=GameMaker_Language%2FGML_Overview%2FNumbers.htm).
+                    // Without the guard the formatter would emit the bare `.5`, but the
+                    // next save inside GameMaker (or any tooling that round-trips through
+                    // its compiler) reintroduces the leading zero. That churn breaks the
+                    // idempotence guarantees exercised by
+                    // `src/plugin/test/fix-missing-decimal-zeroes-option.test.js` and
+                    // causes needless diffs in format-on-save flows.
+                    value = "0" + value;
                 }
 
                 const decimalMatch = value.match(/^([-+]?\d+)\.(\d*)$/);
@@ -1338,7 +1347,14 @@ export function print(path, options, print) {
                         fractionalPart.length === 0 ||
                         /^0+$/.test(fractionalPart)
                     ) {
-                        value = integerPart; // Trim trailing decimal points or all-zero fractions.
+                        // Collapse literals such as `1.` and `1.000` to `1` to keep the
+                        // formatter stable with GameMaker's canonical output (see the
+                        // numbers reference linked above). Leaving the dangling decimal
+                        // segment would come back as a pure integer the moment the project
+                        // is re-saved in the IDE, invalidating the doc snapshots and
+                        // numeric literal regression tests that assert we emit the same
+                        // text on every pass.
+                        value = integerPart;
                     }
                 }
             }
