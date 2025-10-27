@@ -4,6 +4,7 @@ import test from "node:test";
 import {
     collectCommentNodes,
     getCommentArray,
+    getCommentValue,
     hasComment,
     isBlockComment,
     isCommentNode,
@@ -53,6 +54,18 @@ test("getCommentArray normalizes comment collections", () => {
     assert.deepEqual(getCommentArray(nodeWithoutComments), []);
     assert.deepEqual(getCommentArray(nodeWithInvalidComments), []);
     assert.deepEqual(getCommentArray(null), []);
+});
+
+test("getCommentValue normalizes raw and node inputs", () => {
+    assert.equal(getCommentValue(" // comment "), " // comment ");
+    assert.equal(getCommentValue(" // comment ", { trim: true }), "// comment");
+
+    const commentNode = { type: "CommentLine", value: "  with spacing  " };
+    assert.equal(getCommentValue(commentNode), "  with spacing  ");
+    assert.equal(getCommentValue(commentNode, { trim: true }), "with spacing");
+
+    assert.equal(getCommentValue(null), "");
+    assert.equal(getCommentValue({ type: "CommentLine" }), "");
 });
 
 test("collectCommentNodes finds nested comment nodes", () => {

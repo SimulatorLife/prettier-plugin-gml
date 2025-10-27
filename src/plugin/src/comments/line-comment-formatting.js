@@ -5,8 +5,8 @@ import {
     normalizeLineCommentOptions
 } from "../options/line-comment-options.js";
 import { isObjectLike } from "./comment-boundary.js";
-import { getCommentValue } from "./comment-utils.js";
 import {
+    getCommentValue,
     trimStringEntries,
     toTrimmedString,
     isRegExpLike
