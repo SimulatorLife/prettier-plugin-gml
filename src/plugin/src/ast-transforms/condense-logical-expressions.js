@@ -198,10 +198,13 @@ function removeDuplicateCondensedFunctions(context) {
         if (!signature) {
             continue;
         }
-        if (!signatureToFunctions.has(signature)) {
-            signatureToFunctions.set(signature, []);
-        }
-        signatureToFunctions.get(signature).push(fn);
+
+        const functionsForSignature = getOrCreateMapEntry(
+            signatureToFunctions,
+            signature,
+            () => []
+        );
+        functionsForSignature.push(fn);
     }
 
     if (signatureToFunctions.size === 0) {
