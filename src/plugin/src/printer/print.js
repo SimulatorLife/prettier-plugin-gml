@@ -133,6 +133,32 @@ function resolvePrinterSourceMetadata(options) {
     return { originalText, locStart, locEnd };
 }
 
+function resolveNodeIndexRangeWithSource(node, sourceMetadata = {}) {
+    const { locStart, locEnd } = sourceMetadata;
+    const { start, end } = getNodeRangeIndices(node);
+
+    const fallbackStart = typeof start === "number" ? start : 0;
+    let fallbackEnd = fallbackStart;
+
+    if (typeof end === "number") {
+        const inclusiveEnd = end - 1;
+        fallbackEnd =
+            Math.max(inclusiveEnd, fallbackStart);
+    }
+
+    const resolvedStart =
+        typeof locStart === "function" ? locStart(node) : null;
+    const startIndex =
+        typeof resolvedStart === "number" ? resolvedStart : fallbackStart;
+
+    const resolvedEnd = typeof locEnd === "function" ? locEnd(node) : null;
+    const computedEnd =
+        typeof resolvedEnd === "number" ? resolvedEnd - 1 : fallbackEnd;
+    const endIndex = Math.max(computedEnd, startIndex);
+
+    return { startIndex, endIndex };
+}
+
 function macroTextHasExplicitTrailingBlankLine(text) {
     if (typeof text !== "string") {
         return false;
@@ -255,20 +281,15 @@ export function print(path, options, print) {
             });
 
             if (parentNode?.type === "ConstructorDeclaration") {
-                const { originalText, locStart } =
-                    resolvePrinterSourceMetadata(options);
+                const sourceMetadata = resolvePrinterSourceMetadata(options);
+                const { originalText } = sourceMetadata;
                 if (originalText !== null) {
                     const firstStatement = node.body[0];
-                    const startProp = firstStatement?.start;
-                    const fallbackStart =
-                        typeof startProp === "number"
-                            ? startProp
-                            : typeof startProp?.index === "number"
-                              ? startProp.index
-                              : 0;
-                    const firstStatementStartIndex = locStart
-                        ? locStart(firstStatement)
-                        : fallbackStart;
+                    const { startIndex: firstStatementStartIndex } =
+                        resolveNodeIndexRangeWithSource(
+                            firstStatement,
+                            sourceMetadata
+                        );
 
                     if (
                         isPreviousLineEmpty(
@@ -489,15 +510,10 @@ export function print(path, options, print) {
         case "ConstructorDeclaration": {
             const parts = [];
 
-            const { originalText, locStart } =
-                resolvePrinterSourceMetadata(options);
-            const fallbackStart =
-                typeof node?.start === "number"
-                    ? node.start
-                    : typeof node?.start?.index === "number"
-                      ? node.start.index
-                      : 0;
-            const nodeStartIndex = locStart ? locStart(node) : fallbackStart;
+            const sourceMetadata = resolvePrinterSourceMetadata(options);
+            const { originalText } = sourceMetadata;
+            const { startIndex: nodeStartIndex } =
+                resolveNodeIndexRangeWithSource(node, sourceMetadata);
 
             let docCommentDocs = [];
             const lineCommentOptions = resolveLineCommentOptions(options);
@@ -2371,10 +2387,10 @@ function printStatements(path, options, print, childrenAttribute) {
     }
 
     // Cache frequently used option lookups to avoid re-evaluating them in the tight map loop.
-    const locStart =
-        typeof options.locStart === "function" ? options.locStart : null;
-    const locEnd = typeof options.locEnd === "function" ? options.locEnd : null;
-    const originalTextCache = options.originalText;
+    const sourceMetadata = resolvePrinterSourceMetadata(options);
+    const { locStart, locEnd } = sourceMetadata;
+    const originalTextCache =
+        sourceMetadata.originalText ?? options?.originalText ?? null;
 
     return path.map((childPath, index) => {
         const parts = [];
@@ -2387,22 +2403,8 @@ function printStatements(path, options, print, childrenAttribute) {
         }
 
         let semi = optionalSemicolon(node.type);
-        const startProp = node?.start;
-        const endProp = node?.end;
-        const fallbackStart =
-            typeof startProp === "number"
-                ? startProp
-                : typeof startProp?.index === "number"
-                  ? startProp.index
-                  : 0;
-        const fallbackEnd =
-            typeof endProp === "number"
-                ? endProp
-                : typeof endProp?.index === "number"
-                  ? endProp.index
-                  : fallbackStart;
-        const nodeStartIndex = locStart ? locStart(node) : fallbackStart;
-        const nodeEndIndex = locEnd ? locEnd(node) - 1 : fallbackEnd;
+        const { startIndex: nodeStartIndex, endIndex: nodeEndIndex } =
+            resolveNodeIndexRangeWithSource(node, sourceMetadata);
 
         const currentNodeRequiresNewline =
             shouldAddNewlinesAroundStatement(node, options) && isTopLevel;
