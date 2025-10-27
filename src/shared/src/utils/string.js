@@ -205,28 +205,24 @@ export function createListSplitPattern(
     separators,
     { includeWhitespace = false } = {}
 ) {
+    const candidates =
+        typeof separators === "string"
+            ? [separators]
+            : toArrayFromIterable(separators);
+    const seen = new Set();
     const characterClassParts = [];
-    const seenSeparators = new Set();
 
-    const addSeparator = (candidate) => {
+    for (const candidate of candidates) {
         if (typeof candidate !== "string" || candidate.length === 0) {
-            return;
+            continue;
         }
 
-        if (seenSeparators.has(candidate)) {
-            return;
+        if (seen.has(candidate)) {
+            continue;
         }
 
-        seenSeparators.add(candidate);
+        seen.add(candidate);
         characterClassParts.push(escapeRegExp(candidate));
-    };
-
-    if (typeof separators === "string") {
-        addSeparator(separators);
-    } else {
-        for (const candidate of toArrayFromIterable(separators)) {
-            addSeparator(candidate);
-        }
     }
 
     if (includeWhitespace) {
