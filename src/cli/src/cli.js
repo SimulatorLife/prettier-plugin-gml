@@ -884,20 +884,20 @@ async function handleFormattingError(error, filePath) {
     const header = `Failed to format ${filePath}`;
     logCliErrorWithHeader(error, header);
 
-    if (parseErrorAction !== ParseErrorAction.REVERT) {
-        if (parseErrorAction === ParseErrorAction.ABORT) {
-            abortRequested = true;
+    if (parseErrorAction === ParseErrorAction.REVERT) {
+        if (revertTriggered) {
+            return;
         }
+
+        revertTriggered = true;
+        abortRequested = true;
+        await revertFormattedFiles();
         return;
     }
 
-    if (revertTriggered) {
-        return;
+    if (parseErrorAction === ParseErrorAction.ABORT) {
+        abortRequested = true;
     }
-
-    revertTriggered = true;
-    abortRequested = true;
-    await revertFormattedFiles();
 }
 
 async function detectNegatedIgnoreRules(ignoreFilePath) {
