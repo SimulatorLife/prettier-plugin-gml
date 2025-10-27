@@ -31,17 +31,17 @@ export function isPlainObject(value, { allowNullPrototype = true } = {}) {
  * @returns {TFunction} The validated function reference.
  */
 export function assertFunction(value, name, { errorMessage } = {}) {
+    if (typeof value === "function") {
+        return /** @type {TFunction} */ (value);
+    }
+
     const message =
         errorMessage ??
         (typeof name === "string" && name.length > 0
             ? `${name} must be a function.`
             : "Value must be a function.");
 
-    if (typeof value !== "function") {
-        throw new TypeError(message);
-    }
-
-    return /** @type {TFunction} */ (value);
+    throw new TypeError(message);
 }
 
 /**
