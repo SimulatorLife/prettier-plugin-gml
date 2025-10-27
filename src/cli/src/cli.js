@@ -177,6 +177,34 @@ function createSampleLimitOption({
         .default(defaultLimit, String(defaultLimit));
 }
 
+function createConfiguredSampleLimitOption({
+    flag,
+    description,
+    getDefaultLimit,
+    resolveLimit
+}) {
+    const defaultLimit = getDefaultLimit();
+    const parseLimit = (value) =>
+        resolveLimit(value, {
+            defaultLimit
+        });
+    const descriptionText =
+        typeof description === "function"
+            ? description(defaultLimit)
+            : description;
+
+    return {
+        option: createSampleLimitOption({
+            flag,
+            description: descriptionText,
+            defaultLimit,
+            parseLimit
+        }),
+        parseLimit,
+        defaultLimit
+    };
+}
+
 function formatPathForDisplay(targetPath) {
     const resolvedTarget = path.resolve(targetPath);
     const resolvedCwd = INITIAL_WORKING_DIRECTORY;
@@ -347,22 +375,20 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         })
         .default(undefined, formatExtensionListForDisplay(DEFAULT_EXTENSIONS));
 
-    const defaultSkippedDirectorySampleLimit =
-        getDefaultSkippedDirectorySampleLimit();
-    const parseSkippedDirectoryLimit = (value) =>
-        resolveSkippedDirectorySampleLimit(value, {
-            defaultLimit: defaultSkippedDirectorySampleLimit
-        });
-    const skippedDirectorySampleLimitOption = createSampleLimitOption({
+    const {
+        option: skippedDirectorySampleLimitOption,
+        parseLimit: parseSkippedDirectoryLimit,
+        defaultLimit: defaultSkippedDirectorySampleLimit
+    } = createConfiguredSampleLimitOption({
         flag: "--ignored-directory-sample-limit <count>",
-        description: [
+        description: (defaultLimit) => [
             "Maximum number of ignored directories to include in skip summaries.",
-            `Defaults to ${defaultSkippedDirectorySampleLimit}.`,
+            `Defaults to ${defaultLimit}.`,
             "Alias: --ignored-directory-samples.",
             `Respects ${SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR} when set. Provide 0 to suppress the sample list.`
         ],
-        defaultLimit: defaultSkippedDirectorySampleLimit,
-        parseLimit: parseSkippedDirectoryLimit
+        getDefaultLimit: getDefaultSkippedDirectorySampleLimit,
+        resolveLimit: resolveSkippedDirectorySampleLimit
     });
     const skippedDirectorySamplesAliasOption = new Option(
         "--ignored-directory-samples <count>",
@@ -371,37 +397,34 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         .argParser(wrapInvalidArgumentResolver(parseSkippedDirectoryLimit))
         .hideHelp();
 
-    const defaultIgnoredFileSampleLimit = getDefaultIgnoredFileSampleLimit();
-    const parseIgnoredFileLimit = (value) =>
-        resolveIgnoredFileSampleLimit(value, {
-            defaultLimit: defaultIgnoredFileSampleLimit
-        });
-    const ignoredFileSampleLimitOption = createSampleLimitOption({
+    const {
+        option: ignoredFileSampleLimitOption,
+        parseLimit: parseIgnoredFileLimit,
+        defaultLimit: defaultIgnoredFileSampleLimit
+    } = createConfiguredSampleLimitOption({
         flag: "--ignored-file-sample-limit <count>",
-        description: [
+        description: (defaultLimit) => [
             "Maximum number of ignored files to include in skip logs.",
-            `Defaults to ${defaultIgnoredFileSampleLimit}.`,
+            `Defaults to ${defaultLimit}.`,
             `Respects ${IGNORED_FILE_SAMPLE_LIMIT_ENV_VAR} when set. Provide 0 to suppress the sample list.`
         ],
-        defaultLimit: defaultIgnoredFileSampleLimit,
-        parseLimit: parseIgnoredFileLimit
+        getDefaultLimit: getDefaultIgnoredFileSampleLimit,
+        resolveLimit: resolveIgnoredFileSampleLimit
     });
 
-    const defaultUnsupportedExtensionSampleLimit =
-        getDefaultUnsupportedExtensionSampleLimit();
-    const parseUnsupportedExtensionLimit = (value) =>
-        resolveUnsupportedExtensionSampleLimit(value, {
-            defaultLimit: defaultUnsupportedExtensionSampleLimit
-        });
-    const unsupportedExtensionSampleLimitOption = createSampleLimitOption({
+    const {
+        option: unsupportedExtensionSampleLimitOption,
+        parseLimit: parseUnsupportedExtensionLimit,
+        defaultLimit: defaultUnsupportedExtensionSampleLimit
+    } = createConfiguredSampleLimitOption({
         flag: "--unsupported-extension-sample-limit <count>",
-        description: [
+        description: (defaultLimit) => [
             "Maximum number of unsupported files to include in skip summaries.",
-            `Defaults to ${defaultUnsupportedExtensionSampleLimit}.`,
+            `Defaults to ${defaultLimit}.`,
             `Respects ${UNSUPPORTED_EXTENSION_SAMPLE_LIMIT_ENV_VAR} when set. Provide 0 to suppress the sample list.`
         ],
-        defaultLimit: defaultUnsupportedExtensionSampleLimit,
-        parseLimit: parseUnsupportedExtensionLimit
+        getDefaultLimit: getDefaultUnsupportedExtensionSampleLimit,
+        resolveLimit: resolveUnsupportedExtensionSampleLimit
     });
 
     return applyStandardCommandOptions(
