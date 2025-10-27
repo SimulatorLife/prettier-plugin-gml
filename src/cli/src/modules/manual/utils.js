@@ -182,6 +182,17 @@ export function createManualDownloadReporter({
     const { downloads = false, progressBar = false } = verbose ?? {};
 
     if (!downloads) {
+        // Manual download flows always destructure the reporter surface and
+        // execute `cleanup()` inside `finally` blocks so progress bars unwind
+        // deterministically (see `downloadManualEntriesWithProgress` and the
+        // CLI workflow outlined in docs/feather-data-plan.md). Returning shared
+        // noop callbacks preserves that handshake when verbose download output
+        // is disabled: callers can continue to invoke both methods without
+        // guard clauses, and the cleanup contract remains symmetric with the
+        // progress-bar variant. Swapping this out for `null` or allocating fresh
+        // closures would leak conditional logic into every consumer and risks
+        // leaving `withProgressBarCleanup`'s teardown paths unbalanced if a
+        // future refactor forgets to special-case the "no logging" branch.
         return { report: noop, cleanup: noop };
     }
 
