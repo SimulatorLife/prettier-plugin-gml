@@ -5,7 +5,6 @@ import test from "node:test";
 
 import {
     createManualEnvironmentContext,
-    createManualAccessContexts,
     createManualFileAccessContext,
     createManualReferenceAccessContext,
     resolveManualGitHubRequestService,
@@ -19,40 +18,6 @@ import {
     buildManualRepositoryEndpoints,
     resolveManualCacheRoot
 } from "../src/modules/manual/utils.js";
-
-test("createManualAccessContexts centralizes manual access defaults", () => {
-    const commandUrl = pathToFileURL(
-        path.resolve("src/cli/src/commands/generate-gml-identifiers.js")
-    ).href;
-
-    const {
-        environment,
-        fileAccess: { fetchManualFile },
-        referenceAccess: { resolveManualRef }
-    } = createManualAccessContexts({
-        importMetaUrl: commandUrl,
-        userAgent: "manual-context-test",
-        outputFileName: "example.json"
-    });
-
-    const expectedRepoRoot = path.resolve("src/cli/src/commands", "..", "..");
-    assert.equal(environment.repoRoot, expectedRepoRoot);
-    assert.equal(
-        environment.defaultCacheRoot,
-        resolveManualCacheRoot({ repoRoot: expectedRepoRoot })
-    );
-    assert.equal(
-        environment.defaultOutputPath,
-        path.join(expectedRepoRoot, "resources", "example.json")
-    );
-    assert.equal(
-        environment.defaultManualRawRoot,
-        buildManualRepositoryEndpoints().rawRoot
-    );
-    assert.ok(Object.isFrozen(environment));
-    assert.equal(typeof fetchManualFile, "function");
-    assert.equal(typeof resolveManualRef, "function");
-});
 
 test("manual access helpers expose focused contexts", () => {
     const commandUrl = pathToFileURL(
@@ -70,6 +35,42 @@ test("manual access helpers expose focused contexts", () => {
     });
 
     assert.deepStrictEqual(fileAccess.environment, referenceAccess.environment);
+    assert.equal(typeof fileAccess.fetchManualFile, "function");
+    assert.equal(typeof referenceAccess.resolveManualRef, "function");
+});
+
+test("manual file and reference contexts share environment defaults", () => {
+    const commandUrl = pathToFileURL(
+        path.resolve("src/cli/src/commands/generate-gml-identifiers.js")
+    ).href;
+
+    const fileAccess = createManualFileAccessContext({
+        importMetaUrl: commandUrl,
+        userAgent: "manual-context-test",
+        outputFileName: "example.json"
+    });
+
+    const referenceAccess = createManualReferenceAccessContext({
+        importMetaUrl: commandUrl,
+        userAgent: "manual-context-test"
+    });
+
+    const expectedRepoRoot = path.resolve("src/cli/src/commands", "..", "..");
+
+    assert.equal(fileAccess.environment.repoRoot, expectedRepoRoot);
+    assert.equal(
+        fileAccess.environment.defaultCacheRoot,
+        resolveManualCacheRoot({ repoRoot: expectedRepoRoot })
+    );
+    assert.equal(
+        fileAccess.environment.defaultOutputPath,
+        path.join(expectedRepoRoot, "resources", "example.json")
+    );
+    assert.equal(
+        fileAccess.environment.defaultManualRawRoot,
+        buildManualRepositoryEndpoints().rawRoot
+    );
+    assert.ok(Object.isFrozen(fileAccess.environment));
     assert.equal(typeof fileAccess.fetchManualFile, "function");
     assert.equal(typeof referenceAccess.resolveManualRef, "function");
 });

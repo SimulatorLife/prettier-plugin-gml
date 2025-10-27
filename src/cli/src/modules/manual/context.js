@@ -98,13 +98,6 @@ function resolveOutputPath(repoRoot, fileName) {
  * the focused access contexts keeps the shared environment available while
  * letting call sites opt into the narrow collaborator they require.
  */
-/**
- * @typedef {object} ManualAccessContexts
- * @property {ManualCommandEnvironment} environment
- * @property {ManualFileAccess} fileAccess
- * @property {ManualReferenceAccess} referenceAccess
- */
-
 function buildManualCommandContext({
     importMetaUrl,
     userAgent,
@@ -230,24 +223,6 @@ export function createManualFileAccessContext(options = {}) {
  */
 export function createManualReferenceAccessContext(options = {}) {
     return mapManualReferenceAccessContext(buildManualCommandContext(options));
-}
-
-/**
- * Resolve both manual file and reference collaborators while reusing the
- * underlying GitHub wiring and shared environment metadata.
- *
- * @param {Parameters<typeof buildManualCommandContext>[0]} options
- * @returns {ManualAccessContexts}
- */
-export function createManualAccessContexts(options = {}) {
-    const context = buildManualCommandContext(options);
-    const fileAccess = mapManualFileAccessContext(context);
-    const referenceAccess = mapManualReferenceAccessContext(context);
-    return Object.freeze({
-        environment: context.environment,
-        fileAccess,
-        referenceAccess
-    });
 }
 
 /**

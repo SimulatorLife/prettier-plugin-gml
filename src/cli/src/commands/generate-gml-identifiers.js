@@ -37,7 +37,10 @@ import {
     resolveManualCommandOptions
 } from "../modules/manual/command-options.js";
 import { wrapInvalidArgumentResolver } from "../core/command-parsing.js";
-import { createManualAccessContexts } from "../modules/manual/context.js";
+import {
+    createManualFileAccessContext,
+    createManualReferenceAccessContext
+} from "../modules/manual/context.js";
 import {
     decodeManualKeywordsPayload,
     decodeManualTagsPayload
@@ -49,12 +52,16 @@ const {
         defaultCacheRoot: DEFAULT_CACHE_ROOT,
         defaultOutputPath: OUTPUT_DEFAULT
     },
-    fileAccess: { fetchManualFile },
-    referenceAccess: { resolveManualRef }
-} = createManualAccessContexts({
+    fetchManualFile
+} = createManualFileAccessContext({
     importMetaUrl: import.meta.url,
     userAgent: "prettier-plugin-gml identifier generator",
     outputFileName: "gml-identifiers.json"
+});
+
+const { resolveManualRef } = createManualReferenceAccessContext({
+    importMetaUrl: import.meta.url,
+    userAgent: "prettier-plugin-gml identifier generator"
 });
 
 export function createGenerateIdentifiersCommand({ env = process.env } = {}) {
