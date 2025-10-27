@@ -76,6 +76,24 @@ export function prepareDocCommentEnvironment(ast) {
     return manager;
 }
 
+function createBoundDocCommentServiceResolver(cache, methodName) {
+    return function resolveBoundDocCommentService(ast) {
+        return resolveDocCommentService(ast, cache, (manager) => {
+            const method = manager?.[methodName];
+
+            if (typeof method !== "function") {
+                const fallback = NOOP_DOC_COMMENT_MANAGER[methodName];
+
+                return typeof fallback === "function"
+                    ? { [methodName]: fallback }
+                    : {};
+            }
+
+            return { [methodName]: method.bind(manager) };
+        });
+    };
+}
+
 /**
  * @typedef {object} DocCommentTraversalService
  * @property {(callback: (node: object, comments: Array<object>) => void) => void} forEach
@@ -105,55 +123,35 @@ export function prepareDocCommentEnvironment(ast) {
  * }>) => void} applyUpdates
  */
 
-export function resolveDocCommentTraversalService(ast) {
-    return resolveDocCommentService(
-        ast,
+export const resolveDocCommentTraversalService =
+    createBoundDocCommentServiceResolver(
         DOC_COMMENT_TRAVERSAL_SERVICES,
-        (manager) => ({
-            forEach: manager.forEach.bind(manager)
-        })
+        "forEach"
     );
-}
 
-export function resolveDocCommentCollectionService(ast) {
-    return resolveDocCommentService(
-        ast,
+export const resolveDocCommentCollectionService =
+    createBoundDocCommentServiceResolver(
         DOC_COMMENT_COLLECTION_SERVICES,
-        (manager) => ({
-            getComments: manager.getComments.bind(manager)
-        })
+        "getComments"
     );
-}
 
-export function resolveDocCommentPresenceService(ast) {
-    return resolveDocCommentService(
-        ast,
+export const resolveDocCommentPresenceService =
+    createBoundDocCommentServiceResolver(
         DOC_COMMENT_PRESENCE_SERVICES,
-        (manager) => ({
-            hasDocComment: manager.hasDocComment.bind(manager)
-        })
+        "hasDocComment"
     );
-}
 
-export function resolveDocCommentDescriptionService(ast) {
-    return resolveDocCommentService(
-        ast,
+export const resolveDocCommentDescriptionService =
+    createBoundDocCommentServiceResolver(
         DOC_COMMENT_DESCRIPTION_SERVICES,
-        (manager) => ({
-            extractDescription: manager.extractDescription.bind(manager)
-        })
+        "extractDescription"
     );
-}
 
-export function resolveDocCommentUpdateService(ast) {
-    return resolveDocCommentService(
-        ast,
+export const resolveDocCommentUpdateService =
+    createBoundDocCommentServiceResolver(
         DOC_COMMENT_UPDATE_SERVICES,
-        (manager) => ({
-            applyUpdates: manager.applyUpdates.bind(manager)
-        })
+        "applyUpdates"
     );
-}
 
 function createDocCommentManager(ast) {
     normalizeDocCommentWhitespace(ast);
