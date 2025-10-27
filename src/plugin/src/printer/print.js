@@ -1302,11 +1302,21 @@ export function print(path, options, print) {
         case "Literal": {
             let value = node.value;
 
-            if (value.startsWith(".") && !value.startsWith('"')) {
-                value = "0" + value; // Fix decimals without a leading 0.
-            }
-            if (value.endsWith(".") && !value.endsWith('"')) {
-                value = value + "0"; // Fix decimals without a trailing 0.
+            if (!value.startsWith('"')) {
+                if (value.startsWith(".")) {
+                    value = "0" + value; // Fix decimals without a leading 0.
+                }
+
+                const decimalMatch = value.match(/^([-+]?\d+)\.(\d*)$/);
+                if (decimalMatch) {
+                    const [, integerPart, fractionalPart] = decimalMatch;
+                    if (
+                        fractionalPart.length === 0 ||
+                        /^0+$/.test(fractionalPart)
+                    ) {
+                        value = integerPart; // Trim trailing decimal points or all-zero fractions.
+                    }
+                }
             }
             return concat(value);
         }
