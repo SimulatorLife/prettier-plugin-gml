@@ -59,18 +59,30 @@ export function createEnumeratedOptionHelpers(
             typeof errorConstructor === "function" ? errorConstructor : Error;
         const received = describeValue(value);
 
-        let message;
         if (typeof createErrorMessage === "function") {
-            message = createErrorMessage(value, { list: listLabel, received });
-        } else if (createErrorMessage != null) {
-            message = String(createErrorMessage);
-        } else if (typeof formatErrorMessage === "function") {
-            message = formatErrorMessage({ list: listLabel, value, received });
-        } else {
-            message = `Value must be one of: ${listLabel}. Received: ${received}.`;
+            const message = createErrorMessage(value, {
+                list: listLabel,
+                received
+            });
+            throw new ErrorConstructor(message);
         }
 
-        throw new ErrorConstructor(message);
+        if (createErrorMessage != null) {
+            throw new ErrorConstructor(String(createErrorMessage));
+        }
+
+        if (typeof formatErrorMessage === "function") {
+            const message = formatErrorMessage({
+                list: listLabel,
+                value,
+                received
+            });
+            throw new ErrorConstructor(message);
+        }
+
+        throw new ErrorConstructor(
+            `Value must be one of: ${listLabel}. Received: ${received}.`
+        );
     }
 
     return Object.freeze({
