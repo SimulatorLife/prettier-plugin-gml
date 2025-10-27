@@ -185,6 +185,7 @@ async function parse(text, options) {
         }
 
         preprocessFunctionArgumentDefaults(ast);
+        collapseRedundantMissingCallArguments(ast);
         enforceVariableBlockSpacing(ast);
         annotateStaticFunctionOverrides(ast);
 
@@ -960,6 +961,44 @@ function readNonTriviaCharacterBefore(sourceText, index) {
     }
 
     return null;
+}
+
+function collapseRedundantMissingCallArguments(ast) {
+    if (!ast || typeof ast !== "object") {
+        return;
+    }
+
+    const visited = new WeakSet();
+
+    function visit(node) {
+        if (!node || typeof node !== "object" || visited.has(node)) {
+            return;
+        }
+
+        visited.add(node);
+
+        if (
+            node.type === "CallExpression" &&
+            Array.isArray(node.arguments) &&
+            node.arguments.length > 1
+        ) {
+            const args = toMutableArray(node.arguments);
+            const hasNonMissingArgument = args.some(
+                (argument) => argument?.type !== "MissingOptionalArgument"
+            );
+
+            if (!hasNonMissingArgument) {
+                const [firstMissingArgument] = args;
+                node.arguments = firstMissingArgument
+                    ? [firstMissingArgument]
+                    : [];
+            }
+        }
+
+        visitChildNodes(node, visit);
+    }
+
+    visit(ast);
 }
 
 function markCallsMissingArgumentSeparators(ast, originalText) {
