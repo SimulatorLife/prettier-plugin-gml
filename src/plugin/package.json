@@ -16,6 +16,7 @@
     "prettier:plugin": "node ../cli/src/cli.js $npm_config_path"
   },
   "dependencies": {
+    "@prettier-plugin-gml/shared": "file:../shared",
     "gamemaker-language-parser": "file:../parser",
     "gamemaker-language-semantic": "file:../semantic"
   },

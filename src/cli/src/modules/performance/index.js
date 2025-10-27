@@ -32,7 +32,7 @@ import {
     resolveModuleDefaultExport,
     createCliRunSkippedError,
     isCliRunSkipped
-} from "../../shared/dependencies.js";
+} from "../dependencies.js";
 import {
     PerformanceSuiteName,
     formatPerformanceSuiteList,

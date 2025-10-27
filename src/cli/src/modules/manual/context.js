@@ -10,7 +10,7 @@ import {
     assertFunction,
     assertNonEmptyString,
     isNonEmptyString
-} from "../../shared/dependencies.js";
+} from "../dependencies.js";
 
 /** @typedef {import("./utils.js").ManualGitHubRequestDispatcher} ManualGitHubRequestDispatcher */
 /** @typedef {import("./utils.js").ManualGitHubCommitResolver} ManualGitHubCommitResolver */

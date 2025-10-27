@@ -5,7 +5,7 @@ import {
     isPathInside,
     toArray,
     uniqueArray
-} from "../../shared/dependencies.js";
+} from "../dependencies.js";
 
 const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const CLI_SRC_DIRECTORY = path.resolve(MODULE_DIRECTORY, "..", "..");

@@ -46,7 +46,7 @@ import {
     toNormalizedLowerCaseSet,
     uniqueArray,
     withObjectLike
-} from "../../shared/src/index.js";
+} from "@prettier-plugin-gml/shared";
 import { collectAncestorDirectories } from "./shared/ancestor-directories.js";
 import {
     hasIgnoreRuleNegations,

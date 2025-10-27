@@ -11,7 +11,7 @@ import {
     isNonEmptyTrimmedString,
     parseJsonWithContext,
     toTrimmedString
-} from "../../shared/dependencies.js";
+} from "../dependencies.js";
 import {
     CliUsageError,
     disposeProgressBars,

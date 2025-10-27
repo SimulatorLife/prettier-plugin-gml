@@ -5,6 +5,7 @@
   "type": "module",
   "dependencies": {
     "antlr4": "^4.13.2",
+    "@prettier-plugin-gml/shared": "file:../shared",
     "gamemaker-language-semantic": "file:../semantic"
   },
   "engines": {
