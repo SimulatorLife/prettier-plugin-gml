@@ -52,11 +52,9 @@ export function collectUniqueAncestorDirectories(
  * ignored, mirroring the truthiness guard in {@link collectUniqueAncestorDirectories}.
  *
  * @param {...(string | undefined | null)} startingDirectories Path(s) whose
- *                                                             ancestor chains
- *                                                             should be
- *                                                             collected.
- * @returns {Array<string>} Flat list of absolute directories, ordered from
- *                          each start path toward the root.
+ *        ancestor chains should be collected.
+ * @returns {Array<string>} Flat list of absolute directories, ordered from each
+ *        start path toward the root.
  */
 export function collectAncestorDirectories(...startingDirectories) {
     return collectUniqueAncestorDirectories(startingDirectories);
