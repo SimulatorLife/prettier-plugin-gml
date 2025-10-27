@@ -12,6 +12,9 @@ const SIMPLE_VALUE_TYPES = new Set(["number", "boolean", "bigint"]);
 
 const CLI_USAGE_ERROR_BRAND = Symbol.for("prettier-plugin-gml/cli-usage-error");
 
+const objectPrototypeToString = Object.prototype.toString;
+const OBJECT_TAG_PATTERN = /^\[object ([^\]]+)\]$/;
+
 function brandCliUsageError(error) {
     if (!error || typeof error !== "object") {
         return;
@@ -214,14 +217,37 @@ function normalizeStackLines(stack) {
     return lines.some((line) => line.length > 0) ? lines : null;
 }
 
+function resolveNameFromTag(value) {
+    if (!value || (typeof value !== "object" && typeof value !== "function")) {
+        return null;
+    }
+
+    const tag = objectPrototypeToString.call(value);
+    const match = OBJECT_TAG_PATTERN.exec(tag);
+    if (!match) {
+        return null;
+    }
+
+    const [, tagName] = match;
+    if (!tagName || tagName === "Object") {
+        return null;
+    }
+
+    return tagName;
+}
+
 function resolveErrorName(error) {
     const explicitName = toTrimmedString(error?.name);
     if (explicitName) {
         return explicitName;
     }
 
-    const constructorName = toTrimmedString(error?.constructor?.name);
-    return constructorName || "Error";
+    const tagName = resolveNameFromTag(error);
+    if (tagName) {
+        return tagName;
+    }
+
+    return "Error";
 }
 
 export function createCliErrorDetails(

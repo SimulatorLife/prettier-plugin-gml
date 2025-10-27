@@ -142,8 +142,7 @@ function resolveNodeIndexRangeWithSource(node, sourceMetadata = {}) {
 
     if (typeof end === "number") {
         const inclusiveEnd = end - 1;
-        fallbackEnd =
-            Math.max(inclusiveEnd, fallbackStart);
+        fallbackEnd = Math.max(inclusiveEnd, fallbackStart);
     }
 
     const resolvedStart =
@@ -2485,6 +2484,25 @@ function printStatements(path, options, print, childrenAttribute) {
             isInsideConstructorFunction(childPath);
 
         if (shouldDropConstructorMethodSemicolon) {
+            semi = "";
+        }
+
+        const assignmentExpressionForSemicolonCheck =
+            node.type === "AssignmentExpression"
+                ? node
+                : node.type === "ExpressionStatement" &&
+                    node.expression?.type === "AssignmentExpression"
+                  ? node.expression
+                  : null;
+
+        const shouldOmitFunctionAssignmentSemicolon =
+            semi === ";" &&
+            !hasTerminatingSemicolon &&
+            assignmentExpressionForSemicolonCheck?.operator === "=" &&
+            assignmentExpressionForSemicolonCheck?.right?.type ===
+                "FunctionDeclaration";
+
+        if (shouldOmitFunctionAssignmentSemicolon) {
             semi = "";
         }
 

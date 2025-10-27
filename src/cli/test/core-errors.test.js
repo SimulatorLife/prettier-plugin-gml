@@ -86,4 +86,15 @@ describe("cli error details", () => {
         assert.equal(details.code, undefined);
         assert.equal(details.stack, undefined);
     });
+
+    it("derives the error name from the @@toStringTag when missing", () => {
+        const tagError = {
+            message: "boom",
+            [Symbol.toStringTag]: "DOMException"
+        };
+
+        const details = createCliErrorDetails(tagError);
+
+        assert.equal(details.name, "DOMException");
+    });
 });
