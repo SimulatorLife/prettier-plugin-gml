@@ -459,6 +459,49 @@ describe("GameMaker parser fixtures", () => {
         );
     });
 
+    it("creates placeholders for leading omitted call arguments", () => {
+        const source = "global.camera.punch(,, _num_hearts);\n";
+        const ast = parseFixture(source, {
+            options: { simplifyLocations: false }
+        });
+
+        const [callExpression] = collectNodesByType(ast, "CallExpression");
+
+        assert.ok(
+            callExpression && Array.isArray(callExpression.arguments),
+            "Expected to find a call expression with arguments."
+        );
+
+        assert.strictEqual(
+            callExpression.arguments.length,
+            3,
+            "Call expressions with leading omitted arguments should retain placeholders."
+        );
+
+        assert.strictEqual(
+            callExpression.arguments[0]?.type,
+            "MissingOptionalArgument",
+            "Leading comma should synthesize a missing argument placeholder."
+        );
+
+        assert.strictEqual(
+            callExpression.arguments[1]?.type,
+            "MissingOptionalArgument",
+            "Consecutive commas should synthesize a second missing argument placeholder."
+        );
+
+        const thirdArgument = callExpression.arguments[2];
+        assert.ok(
+            thirdArgument && thirdArgument.type === "Identifier",
+            "Expected the final argument to remain an identifier."
+        );
+        assert.strictEqual(
+            thirdArgument.name,
+            "_num_hearts",
+            "Identifier argument should keep its original name."
+        );
+    });
+
     it("parses template strings with escape sequences", () => {
         const source = 'var message = $"Line 1\\nLine 2";\n';
         const ast = parseFixture(source);
