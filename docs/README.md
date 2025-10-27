@@ -45,6 +45,10 @@ sheet, then return here when you need deeper context.
 - [Contributor onboarding checklist](contributor-onboarding.md) — Environment
   setup, validation commands, and supporting documentation for new
   contributors.
+- [ANTLR regeneration guide](antlr-regeneration.md) — Canonical steps for
+  rebuilding the generated parser artifacts with the vendored toolchain plus
+  pointers to the extension hooks that keep custom behaviour outside the
+  generated directory.
 
 ## Extension hooks & overrides
 
