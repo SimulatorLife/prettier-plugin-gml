@@ -96,6 +96,7 @@ const FEATHER_COMMENT_TEXT_SYMBOL = Symbol.for(
 );
 
 const preservedUndefinedDefaultParameters = new WeakSet();
+const synthesizedUndefinedDefaultParameters = new WeakSet();
 const ARGUMENT_IDENTIFIER_PATTERN = /^argument(\d+)$/;
 const FUNCTION_LIKE_NODE_TYPES = new Set([
     "FunctionDeclaration",
@@ -1431,6 +1432,11 @@ export function print(path, options, print) {
             const docs = [prefix, identifierName];
             if (extraPadding > 0) {
                 docs.push(" ".repeat(extraPadding));
+            }
+
+            if (shouldSynthesizeUndefinedDefaultForIdentifier(path, node)) {
+                docs.push(" = undefined");
+                return concat(docs);
             }
 
             return concat(docs);
@@ -5109,6 +5115,24 @@ function findEnclosingFunctionDeclaration(path) {
     return null;
 }
 
+function shouldSynthesizeUndefinedDefaultForIdentifier(path, node) {
+    if (!node || !synthesizedUndefinedDefaultParameters.has(node)) {
+        return false;
+    }
+
+    if (!path || typeof path.getParentNode !== "function") {
+        return false;
+    }
+
+    const parent = path.getParentNode();
+    if (!parent || parent.type !== "FunctionDeclaration") {
+        return false;
+    }
+
+    const params = getFunctionParams(parent);
+    return params.includes(node);
+}
+
 function normalizePreferredParameterName(name) {
     if (typeof name !== "string" || name.length === 0) {
         return null;
@@ -5523,6 +5547,13 @@ function computeSyntheticFunctionDocLines(
             ) {
                 shouldMarkOptional = false;
             }
+        }
+        if (
+            shouldMarkOptional &&
+            param?.type === "Identifier" &&
+            !synthesizedUndefinedDefaultParameters.has(param)
+        ) {
+            synthesizedUndefinedDefaultParameters.add(param);
         }
         if (shouldMarkOptional && defaultIsUndefined) {
             preservedUndefinedDefaultParameters.add(param);
