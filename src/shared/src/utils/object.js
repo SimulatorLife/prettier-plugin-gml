@@ -174,8 +174,8 @@ export function coalesceOption(
     const normalizedKeys = Array.isArray(keys)
         ? keys
         : keys == null
-          ? []
-          : [keys];
+            ? []
+            : [keys];
 
     for (const key of normalizedKeys) {
         const value = object[key];
