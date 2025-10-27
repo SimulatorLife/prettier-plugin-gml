@@ -4451,7 +4451,7 @@ function mergeSyntheticDocComments(
         options?.printWidth,
         120
     );
-    const wrapWidth = Math.min(normalizedPrintWidth, 100);
+    const wrapWidth = Math.max(normalizedPrintWidth, 16);
 
     const wrapSegments = (text, firstAvailable, continuationAvailable) => {
         if (firstAvailable <= 0) {
@@ -4580,8 +4580,12 @@ function mergeSyntheticDocComments(
                 continue;
             }
 
-            const available = Math.max(wrapWidth - prefix.length, 16);
-            const continuationAvailable = Math.max(Math.min(available, 62), 16);
+            const maxDescriptionWidth = Math.max(Math.min(wrapWidth, 100), 16);
+            const available = Math.max(maxDescriptionWidth - prefix.length, 16);
+            const continuationAvailable = Math.max(
+                wrapWidth - continuationPrefix.length,
+                16
+            );
             const segments = wrapSegments(
                 descriptionText,
                 available,
