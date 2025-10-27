@@ -1,5 +1,6 @@
 {
   "name": "prettier-plugin-gamemaker",
+  "version": "0.0.0",
   "type": "module",
   "exports": {
     ".": "./src/gml.js",
