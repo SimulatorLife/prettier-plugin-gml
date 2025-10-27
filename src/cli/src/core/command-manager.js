@@ -1,4 +1,5 @@
 import { CliUsageError, handleCliError } from "./errors.js";
+import { DEFAULT_HELP_AFTER_ERROR } from "./command-standard-options.js";
 import { isCommanderErrorLike } from "./commander-error-utils.js";
 import { resolveCommandUsage } from "../shared/dependencies.js";
 
@@ -194,7 +195,21 @@ class CliCommandManager {
         const usage = resolveCommandUsage(resolvedCommand, {
             fallback: () => this._program.helpInformation()
         });
-        const usageError = new CliUsageError(error.message.trim(), { usage });
+        const usageSections = [];
+        if (DEFAULT_HELP_AFTER_ERROR) {
+            usageSections.push(DEFAULT_HELP_AFTER_ERROR);
+        }
+        if (usage) {
+            if (usageSections.length > 0) {
+                usageSections.push("");
+            }
+            usageSections.push(usage);
+        }
+        const normalizedUsage =
+            usageSections.length > 0 ? usageSections.join("\n") : usage;
+        const usageError = new CliUsageError(error.message.trim(), {
+            usage: normalizedUsage
+        });
         this._handleCommandError(usageError, resolvedCommand ?? this._program);
         return true;
     }
