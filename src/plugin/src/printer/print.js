@@ -913,6 +913,10 @@ export function print(path, options, print) {
         case "UnaryExpression":
         case "IncDecStatement":
         case "IncDecExpression": {
+            if (node.prefix && node.operator === "+") {
+                return print("argument");
+            }
+
             return node.prefix
                 ? concat([node.operator, print("argument")])
                 : concat([print("argument"), node.operator]);
