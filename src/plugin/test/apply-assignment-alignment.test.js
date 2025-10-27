@@ -52,6 +52,19 @@ function createArgumentAliasDeclaration(name, argumentName) {
     };
 }
 
+function createSelfAssignment(propertyName) {
+    return {
+        type: "AssignmentExpression",
+        operator: "=",
+        left: {
+            type: "MemberDotExpression",
+            object: { type: "Identifier", name: "self" },
+            property: { type: "Identifier", name: propertyName }
+        },
+        right: { type: "Literal", value: 0 }
+    };
+}
+
 describe("applyAssignmentAlignment", () => {
     it("iterates safely when the active group is mutated during traversal", () => {
         const statements = [];
@@ -170,6 +183,29 @@ describe("applyAssignmentAlignment", () => {
             statements.map((node) => node._alignAssignmentPadding),
             [0, 0, "longIdentifier".length - "third".length],
             "Assignments separated by comments should not align with following groups."
+        );
+    });
+
+    it("aligns assignments targeting self member properties", () => {
+        const statements = [
+            createSelfAssignment("short"),
+            createSelfAssignment("longProperty"),
+            createSelfAssignment("mid")
+        ];
+
+        applyAssignmentAlignment(statements, {
+            alignAssignmentsMinGroupSize: 2
+        });
+
+        const longestLength = "self.longProperty".length;
+        assert.deepStrictEqual(
+            statements.map((node) => node._alignAssignmentPadding),
+            [
+                longestLength - "self.short".length,
+                0,
+                longestLength - "self.mid".length
+            ],
+            "Self member assignments should align using their fully-qualified identifier length."
         );
     });
 
