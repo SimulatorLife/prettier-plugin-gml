@@ -3515,8 +3515,9 @@ function collectAllIdentifierNames(root) {
     const names = new Set();
 
     walkAstNodes(root, (node) => {
-        if (node.type === "Identifier" && typeof node.name === "string") {
-            names.add(node.name);
+        const identifierDetails = getIdentifierDetails(node);
+        if (identifierDetails) {
+            names.add(identifierDetails.name);
         }
     });
 
@@ -3621,15 +3622,12 @@ function unwrapLiteralFromExpression(node) {
 }
 
 function isFileAttributeIdentifier(node) {
-    if (!node || node.type !== "Identifier") {
+    const identifierDetails = getIdentifierDetails(node);
+    if (!identifierDetails) {
         return false;
     }
 
-    if (typeof node.name !== "string") {
-        return false;
-    }
-
-    return FILE_ATTRIBUTE_IDENTIFIER_PATTERN.test(node.name);
+    return FILE_ATTRIBUTE_IDENTIFIER_PATTERN.test(identifierDetails.name);
 }
 
 function convertRoomNavigationArithmetic({ ast, diagnostic, sourceText }) {
@@ -4642,17 +4640,12 @@ function createArgumentIndexMapping(indices) {
 }
 
 function getArgumentIdentifierIndex(node) {
-    if (!node || node.type !== "Identifier") {
+    const identifierDetails = getIdentifierDetails(node);
+    if (!identifierDetails) {
         return null;
     }
 
-    const name = node.name;
-
-    if (typeof name !== "string") {
-        return null;
-    }
-
-    const match = ARGUMENT_IDENTIFIER_PATTERN.exec(name);
+    const match = ARGUMENT_IDENTIFIER_PATTERN.exec(identifierDetails.name);
 
     if (!match) {
         return null;
@@ -4805,14 +4798,12 @@ function replaceDeprecatedIdentifier(
     ownerKey,
     diagnostic
 ) {
-    if (!node || node.type !== "Identifier") {
+    const identifierDetails = getIdentifierDetails(node);
+    if (!identifierDetails) {
         return null;
     }
 
-    const normalizedName =
-        typeof node.name === "string"
-            ? toNormalizedLowerCaseString(node.name)
-            : null;
+    const normalizedName = toNormalizedLowerCaseString(identifierDetails.name);
 
     if (!normalizedName || normalizedName.length === 0) {
         return null;
@@ -15541,15 +15532,16 @@ function annotateInstanceCreateCall(node, diagnostic) {
 }
 
 function isInstanceCreateIdentifier(node) {
-    if (!node || node.type !== "Identifier") {
+    const identifierDetails = getIdentifierDetails(node);
+    if (!identifierDetails) {
         return false;
     }
 
-    if (INSTANCE_CREATE_FUNCTION_NAMES.has(node.name)) {
+    if (INSTANCE_CREATE_FUNCTION_NAMES.has(identifierDetails.name)) {
         return true;
     }
 
-    return node.name?.startsWith?.("instance_create_") ?? false;
+    return identifierDetails.name.startsWith("instance_create_");
 }
 
 function findStructArgument(args) {
@@ -15953,16 +15945,17 @@ function createIdentifierFromTemplate(name, template) {
 }
 
 function cloneIdentifier(node) {
-    if (!node || node.type !== "Identifier") {
+    const identifierDetails = getIdentifierDetails(node);
+    if (!identifierDetails) {
         return null;
     }
 
     const cloned = {
         type: "Identifier",
-        name: node.name
+        name: identifierDetails.name
     };
 
-    assignClonedLocation(cloned, node);
+    assignClonedLocation(cloned, identifierDetails.identifier);
 
     return cloned;
 }
@@ -16002,11 +15995,8 @@ function extractIdentifierNameFromLiteral(value) {
 }
 
 function isIdentifierWithName(node, name) {
-    if (!node || node.type !== "Identifier") {
-        return false;
-    }
-
-    return node.name === name;
+    const identifierDetails = getIdentifierDetails(node);
+    return identifierDetails?.name === name;
 }
 
 function isIdentifier(node) {
@@ -17483,8 +17473,9 @@ function collectIdentifierNames(node, registry) {
         return;
     }
 
-    if (node.type === "Identifier" && typeof node.name === "string") {
-        registry.add(node.name);
+    const identifierDetails = getIdentifierDetails(node);
+    if (identifierDetails) {
+        registry.add(identifierDetails.name);
     }
 
     for (const value of Object.values(node)) {
@@ -17494,16 +17485,27 @@ function collectIdentifierNames(node, registry) {
     }
 }
 
-function getIdentifierName(node) {
-    if (!node) {
+function getIdentifierDetails(node) {
+    if (!node || typeof node !== "object") {
         return null;
     }
 
-    if (node.type === "Identifier" && typeof node.name === "string") {
-        return node.name;
+    if (node.type !== "Identifier") {
+        return null;
     }
 
-    return null;
+    const { name } = node;
+    if (typeof name !== "string") {
+        return null;
+    }
+
+    return { identifier: node, name };
+}
+
+function getIdentifierName(node) {
+    const details = getIdentifierDetails(node);
+
+    return details ? details.name : null;
 }
 
 function createIdentifier(name, template) {
