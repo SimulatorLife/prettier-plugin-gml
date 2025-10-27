@@ -18,6 +18,7 @@ import {
     isProgramOrBlockStatement,
     isVarVariableDeclaration,
     isNode,
+    forEachNodeChild,
     visitChildNodes,
     unwrapParenthesizedExpression,
     getNonEmptyString,
@@ -54,20 +55,6 @@ import {
     getFeatherMetadata
 } from "../resources/feather-metadata.js";
 import { loadReservedIdentifierNames } from "gamemaker-language-semantic/resources/reserved-identifiers.js";
-
-function forEachNodeChild(node, callback) {
-    if (!node || typeof node !== "object") {
-        return;
-    }
-
-    for (const [key, value] of Object.entries(node)) {
-        if (!value || typeof value !== "object") {
-            continue;
-        }
-
-        callback(value, key);
-    }
-}
 
 function walkAstNodes(root, visitor) {
     const visit = (node, parent, key) => {

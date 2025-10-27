@@ -11,6 +11,7 @@ import {
     getBodyStatements,
     toMutableArray,
     isObjectLike,
+    forEachNodeChild,
     getNodeEndIndex,
     getNodeStartIndex,
     assignClonedLocation
@@ -115,15 +116,13 @@ function traverse(node, visitor, seen = new Set()) {
 
     visitor(node);
 
-    for (const [key, value] of Object.entries(node)) {
+    forEachNodeChild(node, (value, key) => {
         if (key === "parent") {
-            continue;
+            return;
         }
 
-        if (isObjectLike(value)) {
-            traverse(value, visitor, seen);
-        }
-    }
+        traverse(value, visitor, seen);
+    });
 }
 
 /**

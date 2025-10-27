@@ -1,4 +1,5 @@
 import { asArray, isNonEmptyArray } from "../utils/array.js";
+import { isObjectLike } from "../utils/object.js";
 import { isNonEmptyString } from "../utils/string.js";
 
 // Shared AST helper utilities focused on querying common node shapes.
@@ -54,6 +55,27 @@ function cloneAstNode(node) {
     }
 
     return structuredClone(node);
+}
+
+/**
+ * Iterate over the object-valued children of an AST node.
+ *
+ * @param {unknown} node Potential AST node to inspect.
+ * @param {(child: object, key: string) => void} callback Invoked for each
+ *        enumerable own property whose value is object-like.
+ */
+function forEachNodeChild(node, callback) {
+    if (!isObjectLike(node)) {
+        return;
+    }
+
+    for (const [key, value] of Object.entries(node)) {
+        if (!isObjectLike(value)) {
+            continue;
+        }
+
+        callback(value, key);
+    }
 }
 
 /**
@@ -540,6 +562,7 @@ export {
     getCallExpressionIdentifier,
     getCallExpressionIdentifierName,
     isCallExpressionIdentifierMatch,
+    forEachNodeChild,
     getArrayProperty,
     hasArrayPropertyEntries,
     getBodyStatements,

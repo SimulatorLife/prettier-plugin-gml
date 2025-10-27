@@ -11,7 +11,8 @@ import {
     isLineComment,
     asArray,
     isNonEmptyArray,
-    stripStringQuotes
+    stripStringQuotes,
+    forEachNodeChild
 } from "../shared/index.js";
 
 const FALLBACK_COMMENT_TOOLS = Object.freeze({
@@ -70,17 +71,17 @@ function visit(node, tracker, commentTools) {
         visit(node.body, tracker, commentTools);
     }
 
-    for (const [key, value] of Object.entries(node)) {
+    forEachNodeChild(node, (value, key) => {
         if (
             key === "body" ||
             key === "start" ||
             key === "end" ||
             key === "comments"
         ) {
-            continue;
+            return;
         }
         visit(value, tracker, commentTools);
-    }
+    });
 }
 
 function consolidateBlock(statements, tracker, commentTools) {

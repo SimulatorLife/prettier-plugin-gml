@@ -54,7 +54,8 @@ import {
     isCallExpressionIdentifierMatch,
     isBooleanLiteral,
     isUndefinedLiteral,
-    enqueueObjectChildValues
+    enqueueObjectChildValues,
+    forEachNodeChild
 } from "../shared/index.js";
 import { maybeReportIdentifierCaseDryRun } from "gamemaker-language-semantic/identifier-case/identifier-case-report.js";
 import {
@@ -5560,16 +5561,13 @@ function gatherImplicitArgumentReferences(functionNode) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        forEachNodeChild(node, (value, key) => {
             if (skipAliasInitializer && key === "init") {
-                continue;
-            }
-            if (!value || typeof value !== "object") {
-                continue;
+                return;
             }
 
             visit(value, node, key);
-        }
+        });
     };
 
     visit(functionNode.body, functionNode, "body");
