@@ -4562,7 +4562,15 @@ function mergeSyntheticDocComments(
                         return docLine.slice(prefix.length).trim();
                     }
 
-                    return docLine.slice(continuationPrefix.length).trim();
+                    if (docLine.startsWith(continuationPrefix)) {
+                        return docLine.slice(continuationPrefix.length).trim();
+                    }
+
+                    if (docLine.startsWith("///")) {
+                        return docLine.slice(3).trim();
+                    }
+
+                    return docLine.trim();
                 })
                 .filter((segment) => segment.length > 0)
                 .join(" ");
