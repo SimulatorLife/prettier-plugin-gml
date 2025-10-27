@@ -53,7 +53,7 @@ import {
     getFeatherDiagnostics,
     getFeatherMetadata
 } from "../resources/feather-metadata.js";
-import { loadReservedIdentifierNames } from "../resources/reserved-identifiers.js";
+import { loadReservedIdentifierNames } from "gamemaker-language-semantic/resources/reserved-identifiers.js";
 
 function forEachNodeChild(node, callback) {
     if (!node || typeof node !== "object") {

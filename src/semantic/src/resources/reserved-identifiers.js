@@ -6,7 +6,7 @@ import {
 import {
     GML_IDENTIFIER_METADATA_PATH,
     loadBundledIdentifierMetadata
-} from "gamemaker-language-semantic/resources/bundled-resources.js";
+} from "./bundled-resources.js";
 
 const DEFAULT_EXCLUDED_TYPES = new Set(["literal", "keyword"]);
 const DEFAULT_IDENTIFIER_METADATA_PATH = GML_IDENTIFIER_METADATA_PATH;

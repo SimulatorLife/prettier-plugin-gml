@@ -55,12 +55,12 @@ import {
     isUndefinedLiteral,
     enqueueObjectChildValues
 } from "../shared/index.js";
-import { maybeReportIdentifierCaseDryRun } from "../identifier-case/identifier-case-report.js";
+import { maybeReportIdentifierCaseDryRun } from "gamemaker-language-semantic/identifier-case/identifier-case-report.js";
 import {
     getIdentifierCaseRenameForNode,
     applyIdentifierCasePlanSnapshot
-} from "../identifier-case/plan-service.js";
-import { teardownIdentifierCaseEnvironment } from "../identifier-case/environment.js";
+} from "gamemaker-language-semantic/identifier-case/plan-service.js";
+import { teardownIdentifierCaseEnvironment } from "gamemaker-language-semantic/identifier-case/environment.js";
 import {
     LogicalOperatorsStyle,
     normalizeLogicalOperatorsStyle

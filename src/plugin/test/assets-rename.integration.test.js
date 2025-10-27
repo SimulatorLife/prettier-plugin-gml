@@ -4,11 +4,11 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { buildProjectIndex } from "../src/project-index.js";
+import { buildProjectIndex } from "gamemaker-language-semantic/project-index/index.js";
 import {
     planAssetRenames,
     applyAssetRenames
-} from "../src/identifier-case/asset-renames.js";
+} from "gamemaker-language-semantic/identifier-case/asset-renames.js";
 import { fromPosixPath } from "../src/shared/index.js";
 
 describe("asset rename utilities", () => {

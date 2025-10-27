@@ -17,7 +17,7 @@ import {
     createProjectIndexDescriptor,
     findProjectRoot,
     getProjectIndexParserOverride
-} from "gamemaker-language-semantic/project-index/index.js";
+} from "../project-index/index.js";
 
 const PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME =
     "__identifierCaseProjectIndexCacheMaxBytes";
