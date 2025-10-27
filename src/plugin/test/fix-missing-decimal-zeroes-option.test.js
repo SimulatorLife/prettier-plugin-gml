@@ -19,6 +19,7 @@ const SOURCE_LINES = [
     "function coefficients() {",
     "    var a = .5;",
     "    var b = 5.;",
+    "    var c = 0.;",
     "    return a + b;",
     "}",
     ""
@@ -37,6 +38,7 @@ test("pads bare decimal literals by default", async () => {
             "function coefficients() {",
             "    var a = 0.5;",
             "    var b = 5;",
+            "    var c = 0;",
             "    return a + b;",
             "}",
             ""
