@@ -5,7 +5,7 @@
     "root_path": "."
   },
   "scripts": {
-    "test": "node --test tests/*.test.js"
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "prettier-plugin-gamemaker": "file:../plugin",

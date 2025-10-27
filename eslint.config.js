@@ -240,7 +240,7 @@ export default [
     },
     /* Tests: relax a few noisy limits */
     {
-        files: ["**/tests/**", "*.test.*js", "*.spec.js"],
+        files: ["**/test/**", "*.test.*js", "*.spec.js"],
         rules: {
             quotes: ["off"],
             "max-lines-per-function": "off",

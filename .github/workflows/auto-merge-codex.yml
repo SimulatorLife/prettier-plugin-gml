@@ -104,3 +104,24 @@ jobs:
               merge_method: 'merge'
             });
             core.info('Merged PR #' + pull_number + '.');
+
+            // Delete head branch if safe
+            try {
+              const headRef = pr.head?.ref;
+              const headRepoFull = pr.head?.repo?.full_name?.toLowerCase() || '';
+              const thisFull = `${owner}/${repo}`.toLowerCase();
+              if (!headRef || headRepoFull !== thisFull) {
+                core.info(`Not deleting branch: different repo or missing ref (head=${headRepoFull}, this=${thisFull}, ref=${headRef}).`);
+              } else {
+                const { data: rinfo } = await github.rest.repos.get({ owner, repo });
+                const defaultBranch = rinfo.default_branch;
+                if (headRef === defaultBranch) {
+                  core.info(`Not deleting branch: ${headRef} is the default branch.`);
+                } else {
+                  await github.rest.git.deleteRef({ owner, repo, ref: `heads/${headRef}` });
+                  core.notice(`Deleted branch ${headRef} after merge.`);
+                }
+              }
+            } catch (e) {
+              core.warning(`Unable to delete head branch: ${e.message}`);
+            }
