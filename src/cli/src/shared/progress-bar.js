@@ -62,85 +62,6 @@ function shouldRenderProgressBar(stdout, width) {
     return Boolean(stdout?.isTTY) && width > 0;
 }
 
-function normalizeProgressMetrics(current, total) {
-    const normalizedTotal = total > 0 ? total : 1;
-    const normalizedCurrent = Math.min(current, normalizedTotal);
-
-    return { normalizedTotal, normalizedCurrent };
-}
-
-function getTrackedProgressBar(label) {
-    return activeProgressBars.get(label) ?? null;
-}
-
-function resolveProgressStream(stdout) {
-    if (stdout && typeof stdout.write === "function") {
-        return stdout;
-    }
-
-    return;
-}
-
-function updateTrackedProgressBar(bar, { normalizedTotal, normalizedCurrent }) {
-    bar.setTotal(normalizedTotal);
-    bar.update(normalizedCurrent);
-}
-
-function startProgressBar({
-    label,
-    width,
-    createBar,
-    normalizedTotal,
-    normalizedCurrent,
-    stream
-}) {
-    const bar = createBar(label, width, { stream });
-    activeProgressBars.set(label, bar);
-    bar.start(normalizedTotal, normalizedCurrent);
-    return bar;
-}
-
-function ensureProgressBar({
-    label,
-    width,
-    createBar,
-    stdout,
-    normalizedTotal,
-    normalizedCurrent
-}) {
-    const existing = getTrackedProgressBar(label);
-    if (existing) {
-        updateTrackedProgressBar(existing, {
-            normalizedTotal,
-            normalizedCurrent
-        });
-        return existing;
-    }
-
-    return startProgressBar({
-        label,
-        width,
-        createBar,
-        normalizedTotal,
-        normalizedCurrent,
-        stream: resolveProgressStream(stdout)
-    });
-}
-
-function finalizeProgressBarIfComplete({
-    bar,
-    label,
-    normalizedTotal,
-    normalizedCurrent
-}) {
-    if (normalizedCurrent < normalizedTotal) {
-        return;
-    }
-
-    bar.stop();
-    activeProgressBars.delete(label);
-}
-
 function renderProgressBar(label, current, total, width, options = {}) {
     const { stdout = process.stdout, createBar = createDefaultProgressBar } =
         options;
@@ -149,20 +70,26 @@ function renderProgressBar(label, current, total, width, options = {}) {
         return;
     }
 
-    const metrics = normalizeProgressMetrics(current, total);
-    const bar = ensureProgressBar({
-        label,
-        width,
-        createBar,
-        stdout,
-        ...metrics
-    });
+    const normalizedTotal = total > 0 ? total : 1;
+    const normalizedCurrent = Math.min(current, normalizedTotal);
 
-    finalizeProgressBarIfComplete({
-        bar,
-        label,
-        ...metrics
-    });
+    let bar = activeProgressBars.get(label);
+
+    if (bar) {
+        bar.setTotal(normalizedTotal);
+        bar.update(normalizedCurrent);
+    } else {
+        const stream =
+            stdout && typeof stdout.write === "function" ? stdout : undefined;
+        bar = createBar(label, width, { stream });
+        activeProgressBars.set(label, bar);
+        bar.start(normalizedTotal, normalizedCurrent);
+    }
+
+    if (normalizedCurrent >= normalizedTotal) {
+        bar.stop();
+        activeProgressBars.delete(label);
+    }
 }
 
 async function withProgressBarCleanup(callback) {
