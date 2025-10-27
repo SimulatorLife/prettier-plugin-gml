@@ -45,7 +45,6 @@ export {
     parseJsonObjectWithContext,
     parseJsonWithContext,
     resolveContainedRelativePath,
-    resolveFunction,
     resolveIntegerOption,
     resolveEnvironmentMap,
     resolveModuleDefaultExport,
