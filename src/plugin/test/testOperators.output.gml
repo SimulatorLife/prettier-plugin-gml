@@ -74,5 +74,13 @@ camDirZ = (-camMat[2] * c) + (camMat[10] * s);
 /// @function halve
 /// @param value
 function halve(value) {
-    return value / /* keep important comment */ 2;
+    return value * /* keep important comment */ 0.5;
 }
+
+pos = (is_undefined(pos) ? -1 : 0);
+
+if (enemyPos.x - x <= 0) {
+    state = "idle";
+}
+
+myState ??= "unknown";
