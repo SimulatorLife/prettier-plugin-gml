@@ -38,6 +38,10 @@ function sanitizeBootstrapResult(bootstrap) {
     const { cache } = bootstrap;
     nullifyProjectIndex(cache);
     nullifyProjectIndex(cache?.payload);
+
+    if (cache && Object.hasOwn(cache, "payload")) {
+        cache.payload = null;
+    }
 }
 
 function registerBootstrapCleanup(bootstrapResult) {
