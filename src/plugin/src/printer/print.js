@@ -5381,10 +5381,13 @@ function computeSyntheticFunctionDocLines(
                 effectiveImplicitName) ||
             (ordinalDocName && ordinalDocName.length > 0 && ordinalDocName) ||
             paramInfo.name;
+        const parameterSourceText = getSourceTextForNode(param, options);
+        const defaultCameFromSource =
+            defaultIsUndefined &&
+            typeof parameterSourceText === "string" &&
+            parameterSourceText.includes("=");
         let shouldMarkOptional =
-            Boolean(paramInfo.optional) ||
-            (param?.type === "DefaultParameter" &&
-                isOptionalParamDocName(existingDocName));
+            Boolean(paramInfo.optional) || hasOptionalDocName;
         if (
             shouldMarkOptional &&
             defaultIsUndefined &&
@@ -5392,6 +5395,15 @@ function computeSyntheticFunctionDocLines(
             paramInfo?.explicitUndefinedDefault === true &&
             !hasExistingMetadata &&
             !optionalOverrideFlag &&
+            !hasOptionalDocName
+        ) {
+            shouldMarkOptional = false;
+        }
+        if (
+            shouldMarkOptional &&
+            shouldOmitUndefinedDefault &&
+            paramInfo.optional &&
+            defaultCameFromSource &&
             !hasOptionalDocName
         ) {
             shouldMarkOptional = false;
