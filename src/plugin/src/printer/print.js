@@ -2403,10 +2403,25 @@ function printStatements(path, options, print, childrenAttribute) {
             }
         }
 
+        const isFirstStatementInBlock =
+            index === 0 && childPath.parent?.type !== "Program";
+
         const syntheticDocRecord = syntheticDocByNode.get(node);
         const syntheticDocComment = syntheticDocRecord
             ? syntheticDocRecord.doc
             : null;
+        let insertedLeadingBlankLine = false;
+
+        if (
+            isFirstStatementInBlock &&
+            !syntheticDocComment &&
+            typeof options.originalText === "string" &&
+            isPreviousLineEmpty(options.originalText, nodeStartIndex)
+        ) {
+            parts.push(hardline);
+            insertedLeadingBlankLine = true;
+        }
+
         if (syntheticDocComment) {
             parts.push(syntheticDocComment, hardline);
         }
@@ -2441,9 +2456,6 @@ function printStatements(path, options, print, childrenAttribute) {
                 );
             });
 
-        const isFirstStatementInBlock =
-            index === 0 && childPath.parent?.type !== "Program";
-
         const suppressFollowingEmptyLine =
             node?._featherSuppressFollowingEmptyLine === true ||
             node?._gmlSuppressFollowingEmptyLine === true;
@@ -2451,7 +2463,8 @@ function printStatements(path, options, print, childrenAttribute) {
         if (
             isFirstStatementInBlock &&
             isStaticDeclaration &&
-            !syntheticDocComment
+            !syntheticDocComment &&
+            !insertedLeadingBlankLine
         ) {
             parts.push(hardline);
         }
