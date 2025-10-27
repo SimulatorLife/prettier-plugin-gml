@@ -639,43 +639,67 @@ function summariseDiagnosticBlocks(blocks) {
     };
 }
 
-function parseDiagnostics(html) {
-    const document = parseDocument(html);
-    const diagnostics = [];
-
-    for (const element of document.querySelectorAll("h3")) {
-        const headingText = getNormalizedTextContent(element, { trim: true });
-        if (!headingText) {
-            continue;
-        }
-
-        const match = headingText.match(/^(GM\d{3,})\s*-\s*(.+)$/);
-        if (!match) {
-            continue;
-        }
-
-        const [, id, title] = match;
-        const blocks = collectBlocksAfter(element, {
-            stopTags: ["h3", "h2"]
-        });
-
-        const { descriptionParts, correctionParts, badExample, goodExample } =
-            summariseDiagnosticBlocks(blocks);
-
-        const description = joinSections(descriptionParts);
-        const correction = joinSections(correctionParts);
-
-        diagnostics.push({
-            id,
-            title: getNonEmptyTrimmedString(title) ?? title.trim(),
-            description,
-            badExample,
-            goodExample,
-            correction
-        });
+/**
+ * Build structured diagnostic metadata from a manual heading element.
+ *
+ * @param {Element | null | undefined} element
+ * @returns {{
+ *     id: string;
+ *     title: string;
+ *     description: string | null;
+ *     badExample: string | null;
+ *     goodExample: string | null;
+ *     correction: string | null;
+ * } | null}
+ */
+function createDiagnosticMetadataFromHeading(element) {
+    const headingText = getNormalizedTextContent(element, { trim: true });
+    if (!headingText) {
+        return null;
     }
 
+    const match = headingText.match(/^(GM\d{3,})\s*-\s*(.+)$/);
+    if (!match) {
+        return null;
+    }
+
+    const [, id, title] = match;
+    const blocks = collectBlocksAfter(element, {
+        stopTags: ["h3", "h2"]
+    });
+
+    const { descriptionParts, correctionParts, badExample, goodExample } =
+        summariseDiagnosticBlocks(blocks);
+
+    return {
+        id,
+        title: getNonEmptyTrimmedString(title) ?? title.trim(),
+        description: joinSections(descriptionParts),
+        badExample,
+        goodExample,
+        correction: joinSections(correctionParts)
+    };
+}
+
+/**
+ * Collect diagnostic metadata entries from a list of heading nodes.
+ *
+ * @param {Iterable<Element>} headingElements
+ */
+function collectDiagnosticsFromHeadings(headingElements) {
+    const diagnostics = [];
+    for (const heading of headingElements ?? []) {
+        const metadata = createDiagnosticMetadataFromHeading(heading);
+        if (metadata) {
+            diagnostics.push(metadata);
+        }
+    }
     return diagnostics;
+}
+
+function parseDiagnostics(html) {
+    const document = parseDocument(html);
+    return collectDiagnosticsFromHeadings(document.querySelectorAll("h3"));
 }
 
 function parseNamingRules(html) {
