@@ -3601,23 +3601,47 @@ function reorderDescriptionLinesAfterFunction(docLines) {
         return normalizedDocLines;
     }
 
-    const descriptionIndices = [];
+    const descriptionBlocks = [];
     let earliestDescriptionIndex = Infinity;
-    for (const [index, line] of normalizedDocLines.entries()) {
+    for (let index = 0; index < normalizedDocLines.length; index += 1) {
+        const line = normalizedDocLines[index];
         if (
-            typeof line === "string" &&
-            /^\/\/\/\s*@description\b/i.test(line.trim())
+            typeof line !== "string" ||
+            !/^\/\/\/\s*@description\b/i.test(line.trim())
         ) {
-            descriptionIndices.push(index);
-            if (index < earliestDescriptionIndex) {
-                earliestDescriptionIndex = index;
+            continue;
+        }
+
+        const blockIndices = [index];
+        let lookahead = index + 1;
+        while (lookahead < normalizedDocLines.length) {
+            const nextLine = normalizedDocLines[lookahead];
+            if (
+                typeof nextLine === "string" &&
+                nextLine.startsWith("///") &&
+                !parseDocCommentMetadata(nextLine)
+            ) {
+                blockIndices.push(lookahead);
+                lookahead += 1;
+                continue;
             }
+            break;
+        }
+
+        descriptionBlocks.push(blockIndices);
+        if (index < earliestDescriptionIndex) {
+            earliestDescriptionIndex = index;
+        }
+        if (lookahead > index + 1) {
+            index = lookahead - 1;
         }
     }
 
-    if (descriptionIndices.length === 0) {
+    if (descriptionBlocks.length === 0) {
         return normalizedDocLines;
     }
+
+    const descriptionStartIndices = descriptionBlocks.map((block) => block[0]);
 
     const functionIndex = normalizedDocLines.findIndex(
         (line) =>
@@ -3635,7 +3659,7 @@ function reorderDescriptionLinesAfterFunction(docLines) {
             typeof line === "string" &&
             /^\/\/\/\s*@returns\b/i.test(line.trim())
     );
-    const allDescriptionsPrecedeReturns = descriptionIndices.every(
+    const allDescriptionsPrecedeReturns = descriptionStartIndices.every(
         (index) =>
             index > functionIndex &&
             (firstReturnsIndex === -1 || index < firstReturnsIndex)
@@ -3651,17 +3675,32 @@ function reorderDescriptionLinesAfterFunction(docLines) {
     // Membership checks run repeatedly when stripping or re-inserting
     // description lines. Hoist the indices into a Set so the hot filters avoid
     // rescanning the array for each element.
+    const descriptionIndices = descriptionBlocks.flat();
     const descriptionIndexSet = new Set(descriptionIndices);
 
-    const descriptionLines = descriptionIndices
-        .map((index) => normalizedDocLines[index])
-        .filter((line) => {
-            const metadata = parseDocCommentMetadata(line);
-            const descriptionText =
-                typeof metadata?.name === "string" ? metadata.name.trim() : "";
+    const descriptionLines = [];
+    for (const block of descriptionBlocks) {
+        for (const blockIndex of block) {
+            const docLine = normalizedDocLines[blockIndex];
+            if (typeof docLine !== "string") {
+                continue;
+            }
 
-            return descriptionText.length > 0;
-        });
+            if (/^\/\/\/\s*@description\b/i.test(docLine.trim())) {
+                const metadata = parseDocCommentMetadata(docLine);
+                const descriptionText =
+                    typeof metadata?.name === "string"
+                        ? metadata.name.trim()
+                        : "";
+
+                if (descriptionText.length === 0) {
+                    continue;
+                }
+            }
+
+            descriptionLines.push(docLine);
+        }
+    }
 
     if (descriptionLines.length === 0) {
         return normalizedDocLines.filter(
@@ -4594,7 +4633,36 @@ function mergeSyntheticDocComments(
             }
 
             if (blockLines.length > 1 && segments.length > blockLines.length) {
-                wrappedDocs.push(...blockLines);
+                const paddedBlockLines = blockLines.map(
+                    (docLine, blockIndex) => {
+                        if (blockIndex === 0 || typeof docLine !== "string") {
+                            return docLine;
+                        }
+
+                        if (
+                            !docLine.startsWith("///") ||
+                            parseDocCommentMetadata(docLine)
+                        ) {
+                            return docLine;
+                        }
+
+                        if (docLine.startsWith(continuationPrefix)) {
+                            return docLine;
+                        }
+
+                        const trimmedContinuation = docLine
+                            .slice(3)
+                            .replace(/^\s+/, "");
+
+                        if (trimmedContinuation.length === 0) {
+                            return docLine;
+                        }
+
+                        return `${continuationPrefix}${trimmedContinuation}`;
+                    }
+                );
+
+                wrappedDocs.push(...paddedBlockLines);
                 continue;
             }
 
