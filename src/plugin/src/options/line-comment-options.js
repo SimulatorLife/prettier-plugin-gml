@@ -40,19 +40,33 @@ function normalizeArrayOption(
         return defaultValue;
     }
 
-    const normalized = candidate
-        .filter((value) => filter(value))
-        .map((value) => map(value));
+    const normalized = [];
 
-    if (
-        normalized.length === 0 ||
-        (normalized.length === defaultValue.length &&
-            normalized.every((value, index) => value === defaultValue[index]))
-    ) {
+    for (const value of candidate) {
+        if (!filter(value)) {
+            continue;
+        }
+
+        normalized.push(map(value));
+    }
+
+    if (normalized.length === 0) {
         return defaultValue;
     }
 
-    return Object.freeze([...normalized]);
+    const freezeNormalized = () => Object.freeze(normalized);
+
+    if (normalized.length === defaultValue.length) {
+        for (const [index, element] of normalized.entries()) {
+            if (element !== defaultValue[index]) {
+                return freezeNormalized();
+            }
+        }
+
+        return defaultValue;
+    }
+
+    return freezeNormalized();
 }
 
 function normalizeBoilerplateFragments(fragments) {
