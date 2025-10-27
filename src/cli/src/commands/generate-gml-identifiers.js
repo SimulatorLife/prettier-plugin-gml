@@ -6,6 +6,7 @@ import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import {
     createVerboseDurationLogger,
     getErrorMessageOrFallback,
+    getObjectTagName,
     normalizeIdentifierMetadataEntries,
     timeSync,
     toMutableArray,
@@ -363,6 +364,14 @@ function describeManualIdentifierArrayValue(value) {
     }
 
     if (type === "object") {
+        const tagName = getObjectTagName(value);
+        if (tagName) {
+            const firstChar = tagName.at(0);
+            const article =
+                firstChar && "aeiouAEIOU".includes(firstChar) ? "an" : "a";
+            return `${article} ${tagName} object`;
+        }
+
         return "an object";
     }
 

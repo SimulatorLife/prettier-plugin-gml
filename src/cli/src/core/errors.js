@@ -2,6 +2,7 @@ import {
     toTrimmedString,
     getErrorCode,
     getErrorMessage,
+    getObjectTagName,
     isAggregateErrorLike,
     isErrorLike
 } from "../shared/dependencies.js";
@@ -11,9 +12,6 @@ const DEFAULT_INDENT = "  ";
 const SIMPLE_VALUE_TYPES = new Set(["number", "boolean", "bigint"]);
 
 const CLI_USAGE_ERROR_BRAND = Symbol.for("prettier-plugin-gml/cli-usage-error");
-
-const objectPrototypeToString = Object.prototype.toString;
-const OBJECT_TAG_PATTERN = /^\[object ([^\]]+)\]$/;
 
 function brandCliUsageError(error) {
     if (!error || typeof error !== "object") {
@@ -218,22 +216,8 @@ function normalizeStackLines(stack) {
 }
 
 function resolveNameFromTag(value) {
-    if (!value || (typeof value !== "object" && typeof value !== "function")) {
-        return null;
-    }
-
-    const tag = objectPrototypeToString.call(value);
-    const match = OBJECT_TAG_PATTERN.exec(tag);
-    if (!match) {
-        return null;
-    }
-
-    const [, tagName] = match;
-    if (!tagName || tagName === "Object") {
-        return null;
-    }
-
-    return tagName;
+    const tagName = getObjectTagName(value);
+    return tagName ?? null;
 }
 
 function resolveErrorName(error) {

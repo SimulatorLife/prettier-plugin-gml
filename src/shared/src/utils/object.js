@@ -58,6 +58,51 @@ export function isObjectLike(value) {
     return typeof value === "object" && value !== null;
 }
 
+const objectPrototypeToString = Object.prototype.toString;
+const OBJECT_TAG_PATTERN = /^\[object ([^\]]+)\]$/;
+
+/**
+ * Resolve the built-in `Object.prototype.toString` tag name for {@link value}.
+ *
+ * Normalizes the repeated guard logic used across CLI modules when formatting
+ * diagnostic messages so they can consistently describe host-provided
+ * structures (for example `Map`, `Set`, or typed arrays) without rewriting the
+ * pattern matching at each call site. Plain objects default to `null` to mirror
+ * the historical behaviour of the existing error formatters.
+ *
+ * @param {unknown} value Candidate value to inspect.
+ * @param {{ includePlainObject?: boolean }} [options]
+ * @param {boolean} [options.includePlainObject=false]
+ * @returns {string | null} Tag name when resolved, otherwise `null`.
+ */
+export function getObjectTagName(value, { includePlainObject = false } = {}) {
+    if (value === null) {
+        return null;
+    }
+
+    const type = typeof value;
+    if (type !== "object" && type !== "function") {
+        return null;
+    }
+
+    const tag = objectPrototypeToString.call(value);
+    const match = OBJECT_TAG_PATTERN.exec(tag);
+    if (!match) {
+        return null;
+    }
+
+    const [, tagName] = match;
+    if (!tagName) {
+        return null;
+    }
+
+    if (!includePlainObject && tagName === "Object") {
+        return null;
+    }
+
+    return tagName;
+}
+
 /**
  * Validate that {@link value} is a plain object, throwing a descriptive
  * `TypeError` otherwise. Returns the original value to keep call sites terse
