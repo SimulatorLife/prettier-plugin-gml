@@ -2,7 +2,7 @@ import {
     assignClonedLocation,
     isObjectLike,
     toArray
-} from "../../../shared/index.js";
+} from "../dependencies.js";
 import {
     ScopeOverrideKeyword,
     formatKnownScopeOverrideKeywords,
@@ -107,10 +107,10 @@ export default class ScopeTracker {
     }
 
     buildClassifications(role, isDeclaration) {
-        const tags = new Set();
-
-        tags.add("identifier");
-        tags.add(isDeclaration ? "declaration" : "reference");
+        const tags = new Set([
+            "identifier",
+            isDeclaration ? "declaration" : "reference"
+        ]);
 
         const roleKind = role?.kind;
         if (typeof roleKind === "string") {
@@ -161,7 +161,7 @@ export default class ScopeTracker {
      * grammar branches without bespoke checks.
      *
      * @param {string | null | undefined} name Identifier being declared.
-     * @param {import("../../../shared/ast/index.js").GameMakerAstNode | null | undefined} node
+     * @param {import("../dependencies.js").GameMakerAstNode | null | undefined} node
      *        AST node representing the declaration site. The node is mutated to
      *        include scope and classification metadata when provided.
      * @param {{ scopeOverride?: unknown, tags?: Iterable<string>, kind?: string }}

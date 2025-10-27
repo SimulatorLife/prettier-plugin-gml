@@ -1,3 +1,5 @@
+import { assertFunction, isRegExpLike } from "../shared/index.js";
+
 const LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES = 5;
 const LINE_COMMENT_BANNER_STANDARD_LENGTH = 60;
 
@@ -38,23 +40,14 @@ function normalizeArrayOption(
         return defaultValue;
     }
 
-    const normalized = [];
-
-    for (const value of candidate) {
-        if (!filter(value)) {
-            continue;
-        }
-
-        normalized.push(map(value));
-    }
-
-    if (normalized.length === 0) {
-        return defaultValue;
-    }
+    const normalized = candidate
+        .filter((value) => filter(value))
+        .map((value) => map(value));
 
     if (
-        normalized.length === defaultValue.length &&
-        normalized.every((value, index) => value === defaultValue[index])
+        normalized.length === 0 ||
+        (normalized.length === defaultValue.length &&
+            normalized.every((value, index) => value === defaultValue[index]))
     ) {
         return defaultValue;
     }
@@ -73,7 +66,7 @@ function normalizeBoilerplateFragments(fragments) {
 function normalizeCodeDetectionPatterns(patterns) {
     return normalizeArrayOption(patterns, {
         defaultValue: DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns,
-        filter: (value) => value instanceof RegExp
+        filter: (value) => isRegExpLike(value)
     });
 }
 
@@ -122,13 +115,10 @@ function resolveLineCommentOptions(options = {}) {
  * without exposing additional end-user configuration.
  */
 function setLineCommentOptionsResolver(resolver) {
-    if (typeof resolver !== "function") {
-        throw new TypeError(
+    lineCommentOptionsResolver = assertFunction(resolver, "resolver", {
+        errorMessage:
             "Line comment option resolvers must be functions that return option objects"
-        );
-    }
-
-    lineCommentOptionsResolver = resolver;
+    });
     return resolveLineCommentOptions();
 }
 

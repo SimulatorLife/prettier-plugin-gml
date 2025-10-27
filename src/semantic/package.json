@@ -10,10 +10,13 @@
     "./project-index": "./src/project-index/index.js",
     "./project-index/*": "./src/project-index/*",
     "./project-index.js": "./src/project-index.js",
+    "./identifier-case": "./src/identifier-case/index.js",
+    "./identifier-case/*": "./src/identifier-case/*",
+    "./identifier-case.js": "./src/identifier-case.js",
     "./resources/*": "./src/resources/*"
   },
   "scripts": {
-    "test": "node --test tests/*.test.js"
+    "test": "node --test test/*.test.js"
   },
   "engines": {
     "node": ">=25.0.0"

@@ -1,0 +1,37 @@
+name: Codex 92 – Single Responsibility Guardrail
+
+on:
+  schedule:
+    - cron: "0 5 * * 1" # every Monday at 05:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Single Responsibility Sweep"
+      pr_body: |
+        Codex, please audit the codebase for oversized functions whose names
+        combine multiple verbs. Suggest helper extractions that reinforce the
+        single-responsibility principle so that follow-up changes only need to
+        touch one focused unit.
+
+        Share a short before/after summary in the PR description and note any
+        areas that still require human follow-up.
+      prompt: >
+        Run a repository-wide guardrail pass to enforce the single-responsibility
+        principle. Identify one function whose body is extremely long
+        (not including comments and blank lines) and whose name clearly strings 
+        together multiple verb stems.
+        Explain why the current implementation violates SRP, then propose and
+        implement/reuse helper extraction(s) so that each resulting function owns a
+        single change-triggering responsibility. Keep public APIs stable,
+        preserve tests, and update documentation if behaviour shifts. If no
+        candidate qualifies, document the audit findings and outline a follow-up
+        plan instead of forcing changes.

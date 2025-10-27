@@ -45,7 +45,7 @@ npm run lint
 npm run format:check
 ```
 
-Fixtures under `src/plugin/tests/` and `src/parser/tests/input/` are golden—do
+Fixtures under `src/plugin/test/` and `src/parser/test/input/` are golden—do
 not edit them unless you are intentionally changing formatter or parser output.
 
 ## 4. Sanity-check the formatter
@@ -62,6 +62,13 @@ npm run cli -- --help
 The first command confirms which plugin entry point the wrapper resolves and
 lists accepted flags. Pair it with the [CLI wrapper reference](../README.md#cli-wrapper-environment-knobs)
 when scripting automation.
+
+When you're ready to try the wrapper against a project, provide the target
+directory explicitly so the command has GameMaker sources to process:
+
+```bash
+npm run format:gml -- path/to/project
+```
 
 ## 5. Explore supporting documentation
 

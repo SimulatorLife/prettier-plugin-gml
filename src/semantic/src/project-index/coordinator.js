@@ -1,6 +1,17 @@
 import path from "node:path";
 
-import { throwIfAborted } from "../../../shared/index.js";
+import {
+    assertFunction,
+    throwIfAborted,
+    toTrimmedString
+} from "../dependencies.js";
+
+function assertCoordinatorFunction(value, name) {
+    const normalizedName = toTrimmedString(name) || "dependency";
+    const errorMessage = `Project index coordinators require a ${normalizedName} function.`;
+
+    return assertFunction(value, normalizedName, { errorMessage });
+}
 
 function normalizeEnsureReadyDescriptor(descriptor) {
     const projectRoot = descriptor?.projectRoot;
@@ -124,30 +135,26 @@ export function createProjectIndexCoordinator({
     cacheMaxSizeBytes: rawCacheMaxSizeBytes,
     getDefaultCacheMaxSize
 } = {}) {
-    if (typeof loadCache !== "function") {
-        throw new TypeError(
-            "Project index coordinators require a loadCache function."
-        );
-    }
-    if (typeof saveCache !== "function") {
-        throw new TypeError(
-            "Project index coordinators require a saveCache function."
-        );
-    }
-    if (typeof buildIndex !== "function") {
-        throw new TypeError(
-            "Project index coordinators require a buildIndex function."
-        );
-    }
-    if (typeof getDefaultCacheMaxSize !== "function") {
-        throw new TypeError(
-            "Project index coordinators require a getDefaultCacheMaxSize function."
-        );
-    }
+    const normalizedLoadCache = assertCoordinatorFunction(
+        loadCache,
+        "loadCache"
+    );
+    const normalizedSaveCache = assertCoordinatorFunction(
+        saveCache,
+        "saveCache"
+    );
+    const normalizedBuildIndex = assertCoordinatorFunction(
+        buildIndex,
+        "buildIndex"
+    );
+    const normalizedGetDefaultCacheMaxSize = assertCoordinatorFunction(
+        getDefaultCacheMaxSize,
+        "getDefaultCacheMaxSize"
+    );
 
     const cacheMaxSizeBytes =
         rawCacheMaxSizeBytes === undefined
-            ? getDefaultCacheMaxSize()
+            ? normalizedGetDefaultCacheMaxSize()
             : rawCacheMaxSizeBytes;
 
     const inFlight = new Map();
@@ -180,9 +187,9 @@ export function createProjectIndexCoordinator({
                 resolvedRoot: context.resolvedRoot,
                 signal: context.signal,
                 fsFacade,
-                loadCache,
-                saveCache,
-                buildIndex,
+                loadCache: normalizedLoadCache,
+                saveCache: normalizedSaveCache,
+                buildIndex: normalizedBuildIndex,
                 cacheMaxSizeBytes,
                 disposedMessage: DISPOSED_MESSAGE
             })

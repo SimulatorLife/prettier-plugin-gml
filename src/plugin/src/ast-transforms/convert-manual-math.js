@@ -4,9 +4,11 @@ import {
 } from "../comments/index.js";
 import {
     assignClonedLocation,
+    cloneAstNode,
     getNodeEndIndex,
     getNodeStartIndex,
-    getCallExpressionArguments
+    getCallExpressionArguments,
+    toMutableArray
 } from "../shared/index.js";
 
 const DEFAULT_HELPERS = Object.freeze({
@@ -174,7 +176,10 @@ function attemptConvertSquare(node, helpers, context) {
         return false;
     }
 
-    if (!areNodesEquivalent(left, right)) {
+    if (
+        !areNodesEquivalent(left, right) &&
+        !areNodesApproximatelyEquivalent(left, right)
+    ) {
         return false;
     }
 
@@ -182,7 +187,7 @@ function attemptConvertSquare(node, helpers, context) {
         return false;
     }
 
-    mutateToCallExpression(node, "sqr", [cloneNode(left)], node);
+    mutateToCallExpression(node, "sqr", [cloneAstNode(left)], node);
     return true;
 }
 
@@ -216,7 +221,7 @@ function attemptConvertRepeatedPower(node, helpers) {
     mutateToCallExpression(
         node,
         "power",
-        [cloneNode(base), exponentLiteral],
+        [cloneAstNode(base), exponentLiteral],
         node
     );
     return true;
@@ -280,7 +285,7 @@ function attemptConvertMean(node, helpers) {
     mutateToCallExpression(
         node,
         "mean",
-        [cloneNode(leftTerm), cloneNode(rightTerm)],
+        [cloneAstNode(leftTerm), cloneAstNode(rightTerm)],
         node
     );
     return true;
@@ -309,7 +314,7 @@ function attemptConvertLog2(node, helpers) {
         return false;
     }
 
-    mutateToCallExpression(node, "log2", [cloneNode(numeratorArg)], node);
+    mutateToCallExpression(node, "log2", [cloneAstNode(numeratorArg)], node);
     return true;
 }
 
@@ -348,7 +353,7 @@ function attemptConvertLengthDir(node, helpers) {
             mutateToCallExpression(
                 node,
                 "lengthdir_x",
-                [cloneNode(lengthNode), cloneNode(trigInfo.argument)],
+                [cloneAstNode(lengthNode), cloneAstNode(trigInfo.argument)],
                 node
             );
             return true;
@@ -362,7 +367,7 @@ function attemptConvertLengthDir(node, helpers) {
             mutateToCallExpression(
                 node,
                 "lengthdir_y",
-                [cloneNode(lengthNode), cloneNode(trigInfo.argument)],
+                [cloneAstNode(lengthNode), cloneAstNode(trigInfo.argument)],
                 node
             );
             return true;
@@ -401,8 +406,8 @@ function attemptConvertDotProducts(node, helpers) {
             return false;
         }
 
-        leftVector.push(cloneNode(left));
-        rightVector.push(cloneNode(right));
+        leftVector.push(cloneAstNode(left));
+        rightVector.push(cloneAstNode(right));
     }
 
     const functionName = terms.length === 2 ? "dot_product" : "dot_product_3d";
@@ -453,10 +458,10 @@ function attemptConvertPointDistanceCall(node, helpers) {
 
     const args = [];
     for (const difference of match) {
-        args.push(cloneNode(difference.subtrahend));
+        args.push(cloneAstNode(difference.subtrahend));
     }
     for (const difference of match) {
-        args.push(cloneNode(difference.minuend));
+        args.push(cloneAstNode(difference.minuend));
     }
 
     const functionName =
@@ -486,7 +491,7 @@ function attemptConvertPowerToSqrt(node, helpers) {
         return false;
     }
 
-    mutateToCallExpression(node, "sqrt", [cloneNode(args[0])], node);
+    mutateToCallExpression(node, "sqrt", [cloneAstNode(args[0])], node);
     return true;
 }
 
@@ -512,7 +517,7 @@ function attemptConvertPowerToExp(node, helpers) {
         return false;
     }
 
-    mutateToCallExpression(node, "exp", [cloneNode(exponent)], node);
+    mutateToCallExpression(node, "exp", [cloneAstNode(exponent)], node);
     return true;
 }
 
@@ -545,10 +550,10 @@ function attemptConvertPointDirection(node, helpers) {
         node,
         "point_direction",
         [
-            cloneNode(dxDiff.subtrahend),
-            cloneNode(dyDiff.subtrahend),
-            cloneNode(dxDiff.minuend),
-            cloneNode(dyDiff.minuend)
+            cloneAstNode(dxDiff.subtrahend),
+            cloneAstNode(dyDiff.subtrahend),
+            cloneAstNode(dxDiff.minuend),
+            cloneAstNode(dyDiff.minuend)
         ],
         node
     );
@@ -578,7 +583,7 @@ function attemptConvertTrigDegreeArguments(node, helpers) {
     }
 
     node.arguments = [
-        createCallExpressionNode("degtorad", [cloneNode(angle)], argument)
+        createCallExpressionNode("degtorad", [cloneAstNode(angle)], argument)
     ];
 
     return true;
@@ -603,7 +608,12 @@ function matchSquaredDifferences(expression, helpers) {
         const left = unwrapExpression(product.left);
         const right = unwrapExpression(product.right);
 
-        if (!left || !right || !areNodesEquivalent(left, right)) {
+        if (
+            !left ||
+            !right ||
+            (!areNodesEquivalent(left, right) &&
+                !areNodesApproximatelyEquivalent(left, right))
+        ) {
             return null;
         }
 
@@ -829,6 +839,15 @@ function computeNumericTolerance(expected, providedTolerance) {
     return Number.EPSILON * magnitude * 4;
 }
 
+function areLiteralNumbersApproximatelyEqual(left, right) {
+    const tolerance = Math.max(
+        computeNumericTolerance(left),
+        computeNumericTolerance(right)
+    );
+
+    return Math.abs(left - right) <= tolerance;
+}
+
 function isLiteralNumber(node, expected, tolerance) {
     const value = parseNumericLiteral(node);
     if (value === undefined || value === null) {
@@ -890,6 +909,57 @@ function isPiIdentifier(node) {
         typeof expression.name === "string" &&
         expression.name.toLowerCase() === "pi"
     );
+}
+
+function areNodesApproximatelyEquivalent(a, b) {
+    if (areNodesEquivalent(a, b)) {
+        return true;
+    }
+
+    const left = unwrapExpression(a);
+    const right = unwrapExpression(b);
+
+    if (!left || !right || left.type !== right.type) {
+        return false;
+    }
+
+    switch (left.type) {
+        case IDENTIFIER: {
+            return left.name === right.name;
+        }
+        case LITERAL: {
+            const leftNumber = parseNumericLiteral(left);
+            const rightNumber = parseNumericLiteral(right);
+
+            if (
+                typeof leftNumber === "number" &&
+                typeof rightNumber === "number"
+            ) {
+                return areLiteralNumbersApproximatelyEqual(
+                    leftNumber,
+                    rightNumber
+                );
+            }
+
+            return false;
+        }
+        case BINARY_EXPRESSION: {
+            return (
+                left.operator === right.operator &&
+                areNodesApproximatelyEquivalent(left.left, right.left) &&
+                areNodesApproximatelyEquivalent(left.right, right.right)
+            );
+        }
+        case UNARY_EXPRESSION: {
+            return (
+                left.operator === right.operator &&
+                areNodesApproximatelyEquivalent(left.argument, right.argument)
+            );
+        }
+        default: {
+            return false;
+        }
+    }
 }
 
 function areNodesEquivalent(a, b) {
@@ -1066,7 +1136,7 @@ function createCallExpressionNode(name, args, template) {
     const call = {
         type: CALL_EXPRESSION,
         object: identifier,
-        arguments: Array.isArray(args) ? args : []
+        arguments: toMutableArray(args)
     };
 
     assignClonedLocation(call, template);
@@ -1098,10 +1168,6 @@ function createNumericLiteral(value, template) {
     assignClonedLocation(literal, template);
 
     return literal;
-}
-
-function cloneNode(node) {
-    return node ? structuredClone(node) : null;
 }
 
 function hasInlineCommentBetween(left, right, context) {

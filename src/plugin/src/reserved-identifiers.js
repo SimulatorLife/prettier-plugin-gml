@@ -1,1 +1,1 @@
-export * from "./resources/reserved-identifiers.js";
+export * from "gamemaker-language-semantic/resources/reserved-identifiers.js";

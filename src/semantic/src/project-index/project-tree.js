@@ -1,10 +1,6 @@
 import path from "node:path";
 
-import {
-    isFsErrorCode,
-    listDirectory,
-    toPosixPath
-} from "../../../shared/index.js";
+import { isFsErrorCode, toPosixPath } from "../dependencies.js";
 
 import { createProjectIndexAbortGuard } from "./abort-guard.js";
 import {
@@ -12,6 +8,7 @@ import {
     resolveProjectFileCategory,
     ProjectFileCategory
 } from "./project-file-categories.js";
+import { listDirectory } from "./fs-helpers.js";
 
 function createProjectTreeCollector(metrics = null) {
     const yyFiles = [];

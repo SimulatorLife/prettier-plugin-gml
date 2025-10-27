@@ -11,7 +11,7 @@
     "node": ">=25.0.0"
   },
   "scripts": {
-    "test": "node --test tests/parser.test.js",
-    "antlr": "antlr -Dlanguage=JavaScript -visitor -o src/generated GameMakerLanguageLexer.g4 && antlr -Dlanguage=JavaScript -visitor -o src/generated GameMakerLanguageParser.g4"
+    "test": "node --test test/parser.test.js",
+    "antlr": "java -Xmx500M -jar ../../resources/antlr/antlr4-4.13.2-complete.jar -Dlanguage=JavaScript -visitor -o generated/ GameMakerLanguageLexer.g4 && java -Xmx500M -jar ../../resources/antlr/antlr4-4.13.2-complete.jar -Dlanguage=JavaScript -visitor -o generated/ GameMakerLanguageParser.g4"
   }
 }

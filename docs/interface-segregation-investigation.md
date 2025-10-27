@@ -4,7 +4,7 @@ The repository does not define any TypeScript or JavaScript interfaces with broa
 (such as `*Service`, `*Manager`, or `*Controller`) that expose large contracts. To confirm this, I
 surveyed the codebase using the following searches:
 
-- `rg "interface" src --stats` — returned only a comment in `src/cli/cli.js`, no actual interface definitions.
+- `rg "interface" src --stats` — returned only a comment in `src/cli/src/cli.js`, no actual interface definitions.
 - `rg "@typedef" src -n` — surfaced the handful of small JSDoc object typedefs (`CommentLineNode`, `CommentBlockNode`, `FeatherDiagnostic`, and a couple of helper structs), each of which only contains a few focused properties.
 - `rg "Service" src`, `rg "Manager" src`, and `rg "Controller" src` — produced no matches outside of fixture strings.
 - `find src -name "*.ts"` — confirmed there are no in-repo TypeScript sources beyond vendored dependencies under `node_modules`.
@@ -24,7 +24,7 @@ To re-validate the earlier conclusion, I reran a broader set of surveys:
   showed each serves a single concern (for example, `defaultIdentifierCaseFsFacade` simply forwards
   to Node's fs module without accumulating unrelated behavior).
 - Reviewed coordinator/facade modules in `src/plugin/src/project-index/` and
-  `src/plugin/src/identifier-case/` to ensure they expose narrow responsibilities (for example,
+  `src/semantic/src/identifier-case/` to ensure they expose narrow responsibilities (for example,
   `createProjectIndexCoordinator` only brokers cache readiness and disposal).
 
 No new interface or type definition surfaced that violates the Interface Segregation Principle, so
@@ -45,7 +45,7 @@ no code changes were required.
 ## Follow-up audit (2025-02-20)
 
 - Located the `IdentifierCasePlanServices` bundle in
-  `src/plugin/src/identifier-case/plan-service.js`. The wide "service" facade
+  `src/semantic/src/identifier-case/plan-service.js`. The wide "service" facade
   forced providers to manufacture preparation, rename lookup, and snapshot
   collaborators together even when a consumer only required one capability.
 - Removed the bundle contract in favour of the existing
@@ -140,7 +140,7 @@ no code changes were required.
 
 ## Follow-up audit (2025-04-16)
 
-- Identified `createMetricsTracker` in `src/shared/reporting/metrics.js` as a
+- Identified `createMetricsTracker` in `src/shared/src/reporting/metrics.js` as a
   wide surface that combined timing helpers, counter incrementers, cache
   recorders, and reporting utilities behind one "tracker" object. Callers that
   only needed to bump counters or capture a snapshot still depended on all of
@@ -177,3 +177,40 @@ no code changes were required.
   the wide manager surface.
 - Updated the unit tests to assert against the segregated services, ensuring
   each interface exposes only the behaviour it owns.
+
+## Follow-up audit (2025-11-19)
+
+- Re-audited the CLI plugin default services and found the
+  `CliIdentifierCaseServices` bundle lingering in
+  `src/cli/plugin/service-providers/default.js`. The bundle coupled the
+  preparation and cache collaborators into a single "services" interface,
+  forcing callers that only needed one helper to depend on both behaviours.
+- Removed the aggregated contract and now return only the focused preparation
+  and cache services. Updated the accompanying unit tests to assert against the
+  specialised collaborators and verify the bundle property no longer exists.
+
+## Follow-up audit (2025-12-03)
+
+- Surveyed the manual command helpers and found the
+  `ManualCommandFileService`/`ManualCommandRefResolutionService` facades in
+  `src/cli/features/manual/context.js`. Each wrapped a single GitHub helper but
+  still forced consumers of the manual access context to depend on nested
+  service objects before they could reach the `fetchManualFile` or
+  `resolveManualRef` collaborators they actually needed.
+- Removed the indirection by updating the manual access helpers to expose the
+  direct functions alongside the environment metadata. CLI commands now import
+  the focused helpers (`fetchManualFile`, `resolveManualRef`) without going
+  through the broad service wrappers, and the unit tests assert the narrowed
+  surface.
+
+## Follow-up audit (2025-12-10)
+
+- Revisited the manual access utilities and found the exported
+  `ManualAccessBundle` still coupled file fetching and reference resolution
+  behind one umbrella. CLI commands destructured both collaborators even when a
+  change only needed one of them.
+- Replaced the bundle with `ManualAccessContexts`, which surfaces the shared
+  environment plus the focused `ManualFileAccess` and `ManualReferenceAccess`
+  views. Updated the manual CLI commands and unit tests to depend on the
+  specific context they require so each call site opts into only the manual
+  helper it consumes.

@@ -1,0 +1,38 @@
+name: Codex 85 – Interface Segregation
+
+on:
+  schedule:
+    - cron: "15 */4 * * *" # every 4 hours at :15
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Interface Segregation Sweep"
+      pr_body: |
+        Seed PR for Codex to inspect oversized interface or type contracts whose
+        names hint at overly broad responsibilities (for example, `*Service` or
+        `*Manager`).
+      prompt: >
+        Audit the repository for TypeScript or JavaScript interface/type
+        definitions that accumulate many members (properties or methods) and use
+        broad, catch-all names such as "Service", "Manager", or "Controller".
+        Identify one such definition whose size or naming suggests it violates
+        the Interface Segregation Principle. Explain why the contract is too
+        wide, then split it into smaller, role-focused interfaces or types. Each
+        replacement contract should model a cohesive responsibility with only
+        the members required by its consumers.
+
+        After defining the new contracts, update the existing implementations
+        and call sites so they depend on the appropriate specialized interface.
+        Prioritise minimal, well-scoped changes: keep renames atomic, avoid
+        incidental refactors, and ensure tests continue to pass. If no suitable
+        candidate is found, document the investigation in the commit message and
+        outline what evidence you gathered.

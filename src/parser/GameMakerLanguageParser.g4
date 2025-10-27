@@ -181,6 +181,7 @@ expressionOrFunction
 
 expression
     : OpenParen expression CloseParen # ParenthesizedExpression
+    | <assoc=right> Plus expression # UnaryPlusExpression
     | <assoc=right> Minus expression # UnaryMinusExpression
     | <assoc=right> BitNot expression # BitNotExpression
     | <assoc=right> Not expression # NotExpression
@@ -321,7 +322,7 @@ functionDeclaration
     ;
 
 constructorClause
-    : (Colon Identifier parameterList)? Constructor
+    : (Colon Identifier arguments)? Constructor
     ;
 
 parameterList

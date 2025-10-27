@@ -1,6 +1,6 @@
 # Identifier Case & Naming Convention Guide
 
-This consolidated guide explains how the Prettier GML plugin normalises GameMaker
+This consolidated guide explains how the Prettier GML plugin normalizes GameMaker
 identifiers, the roadmap for the opt-in renaming feature, and the operational
 playbook for rolling the feature out safely. Pair it with the curated fixture
 set in [`examples/naming-convention/`](./examples/naming-convention/) when you
@@ -8,12 +8,12 @@ need concrete before/after samples.
 
 ## 1. Core identifier-case system
 
-The plugin helpers in `src/plugin/src/identifier-case/identifier-case-utils.js` break every identifier into
-a stable structure before applying a new case style. The normalisation pipeline
+The semantic helpers in `src/semantic/src/identifier-case/identifier-case-utils.js` break every identifier into
+a stable structure before applying a new case style. The normalization pipeline
 behaves as follows:
 
 1. **Prefix detection** – Known prefixes are removed first and restored after
-   conversion. Recognised values include `global.`, `other.`, `self.`, `local.`,
+   conversion. Recognized values include `global.`, `other.`, `self.`, `local.`,
    `with.`, `noone.`, `argument`, `argument_local`, `argument_relative`, and
    array-style accessors such as `argument[2]`. When a prefix ends in `.`, the
    dot stays with the prefix. Custom tooling can register extra prefixes by
@@ -162,7 +162,7 @@ of GameMaker keywords, constants, variables, and enums.
 - **Goals** – Stay aligned with the current GameMaker release without manually
   curating lists, keep the formatter fast, and prefer first-party sources.
 - **Sources** – The harvesting command at
-  [`src/cli/commands/generate-gml-identifiers.js`](../src/cli/commands/generate-gml-identifiers.js)
+  [`src/cli/src/commands/generate-gml-identifiers.js`](../src/cli/src/commands/generate-gml-identifiers.js)
   downloads assets from the YoYo Games manual repository: `ZeusDocs_keywords.json`
   (identifier → topic map), `ZeusDocs_tags.json` (topic metadata), and
   `Manual/contents/assets/scripts/gml.js` (keyword/constant arrays). Manual tags
@@ -177,8 +177,9 @@ of GameMaker keywords, constants, variables, and enums.
   `npm run build:gml-identifiers` to refresh the snapshot and use the provided
   CLI flags (`--ref`, `--force-refresh`, `--cache-root`) or environment variables
   (`GML_MANUAL_REF`, `GML_MANUAL_CACHE_ROOT`, `GML_PROGRESS_BAR_WIDTH`,
-  `GML_IDENTIFIER_VM_TIMEOUT_MS`, `GML_PROJECT_INDEX_CONCURRENCY`) to control
-  regeneration and the identifier-case project index bootstrap defaults.
+  `GML_VM_EVAL_TIMEOUT_MS`, `GML_IDENTIFIER_VM_TIMEOUT_MS`,
+  `GML_PROJECT_INDEX_CONCURRENCY`) to control regeneration and the
+  identifier-case project index bootstrap defaults.
 - **Operational notes** – Respect GitHub rate limits via caching and tokens, and
   host cached artefacts for offline or air-gapped environments. Monitor YoYo
   Games repositories for new data sources or metadata that can enrich the

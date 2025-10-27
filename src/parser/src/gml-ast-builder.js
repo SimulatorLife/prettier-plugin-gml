@@ -1,4 +1,4 @@
-import GameMakerLanguageParserVisitor from "./generated/GameMakerLanguageParserVisitor.js";
+import GameMakerLanguageParserVisitor from "./extensions/game-maker-language-parser-visitor.js";
 import { getLineBreakCount, getNonEmptyTrimmedString } from "./shared/index.js";
 import ScopeTracker from "gamemaker-language-semantic/scopes/scope-tracker.js";
 import { ScopeOverrideKeyword } from "gamemaker-language-semantic/scopes/scope-override-keywords.js";
@@ -868,6 +868,16 @@ export default class GameMakerASTBuilder {
         });
     }
 
+    // Visit a parse tree produced by GameMakerLanguageParser#UnaryPlusExpression.
+    visitUnaryPlusExpression(ctx) {
+        return this.astNode(ctx, {
+            type: "UnaryExpression",
+            operator: "+",
+            prefix: true,
+            argument: this.visit(ctx.expression())
+        });
+    }
+
     // Visit a parse tree produced by GameMakerLanguageParser#UnaryMinusExpression.
     visitUnaryMinusExpression(ctx) {
         return this.astNode(ctx, {
@@ -1095,7 +1105,22 @@ export default class GameMakerASTBuilder {
         let argList = [];
         let argumentListCtx = ctx.argumentList();
         if (argumentListCtx) {
+            const children = argumentListCtx.children;
+            const hasLeadingComma =
+                Array.isArray(children) &&
+                children.length > 0 &&
+                typeof children[0]?.getText === "function" &&
+                children[0].getText() === ",";
+
             this.collectArguments(argumentListCtx, argList);
+
+            if (hasLeadingComma) {
+                argList.unshift(
+                    this.astNode(argumentListCtx, {
+                        type: "MissingOptionalArgument"
+                    })
+                );
+            }
         }
         // check if trailingComma exists
         if (ctx.trailingComma()) {
@@ -1301,16 +1326,19 @@ export default class GameMakerASTBuilder {
             id = ctx.Identifier().getText();
         }
 
-        let paramListCtx = ctx.parameterList();
-        if (paramListCtx != undefined) {
-            params = this.visit(paramListCtx);
-            hasTrailingComma = this.hasTrailingComma(
-                paramListCtx.Comma(),
-                paramListCtx.parameterArgument()
-            );
+        const argsCtx = ctx.arguments?.();
+        if (argsCtx != undefined) {
+            params = this.visit(argsCtx);
+            hasTrailingComma = Boolean(argsCtx.trailingComma());
+
+            if (hasTrailingComma && params.length > 0) {
+                const lastParam = params.at(-1);
+                if (lastParam?.type === "MissingOptionalArgument") {
+                    params = params.slice(0, -1);
+                }
+            }
         }
 
-        // Check if neither identifier nor parameterList is present
         if (!id && params.length === 0) {
             return null;
         }
@@ -1458,14 +1486,26 @@ export default class GameMakerASTBuilder {
                 }
             }
         }
-        if (initializer == null && ctx.IntegerLiteral()) {
-            initializer = ctx.IntegerLiteral().getText();
+        if (initializer == null && typeof ctx.IntegerLiteral === "function") {
+            const literal = ctx.IntegerLiteral();
+            if (literal) {
+                initializer = literal.getText();
+            }
         }
-        if (initializer == null && ctx.HexIntegerLiteral()) {
-            initializer = ctx.HexIntegerLiteral().getText();
+        if (
+            initializer == null &&
+            typeof ctx.HexIntegerLiteral === "function"
+        ) {
+            const literal = ctx.HexIntegerLiteral();
+            if (literal) {
+                initializer = literal.getText();
+            }
         }
-        if (initializer == null && ctx.BinaryLiteral()) {
-            initializer = ctx.BinaryLiteral().getText();
+        if (initializer == null && typeof ctx.BinaryLiteral === "function") {
+            const literal = ctx.BinaryLiteral();
+            if (literal) {
+                initializer = literal.getText();
+            }
         }
         return this.astNode(ctx, {
             type: "EnumMember",
