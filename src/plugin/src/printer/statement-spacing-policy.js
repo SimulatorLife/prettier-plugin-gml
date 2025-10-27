@@ -8,7 +8,7 @@ import { getBooleanLiteralValue } from "../shared/index.js";
  * Encapsulates spacing heuristics so callers can reason about blank-line
  * insertion without embedding policy logic in the printer's rendering paths.
  */
-class StatementSpacingPolicy {
+export class StatementSpacingPolicy {
     isMacroLikeStatement(node) {
         const nodeType = node?.type;
         if (!nodeType) {
@@ -123,5 +123,3 @@ class StatementSpacingPolicy {
         return consequentBoolean !== fallbackBoolean;
     }
 }
-
-export { StatementSpacingPolicy };
