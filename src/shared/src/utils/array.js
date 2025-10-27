@@ -194,17 +194,33 @@ export function pushUnique(array, value, { isEqual } = {}) {
         throw new TypeError("pushUnique requires an array to append to.");
     }
 
-    const hasMatch =
-        typeof isEqual === "function"
-            ? array.some((entry) => isEqual(entry, value))
-            : array.includes(value);
+    const length = array.length;
 
-    if (!hasMatch) {
+    if (typeof isEqual === "function") {
+        for (let index = 0; index < length; index += 1) {
+            if (isEqual(array[index], value)) {
+                return false;
+            }
+        }
+
         array.push(value);
         return true;
     }
 
-    return false;
+    const valueIsNaN = value !== value;
+    for (let index = 0; index < length; index += 1) {
+        const entry = array[index];
+        if (entry === value) {
+            return false;
+        }
+
+        if (valueIsNaN && entry !== entry) {
+            return false;
+        }
+    }
+
+    array.push(value);
+    return true;
 }
 
 /**
