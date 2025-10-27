@@ -751,7 +751,7 @@ npm run build:antlr
 ```bash
 npm run example:plugin      # Format a fixture with the development build
 npm run format:check        # Audit repository formatting without writes
-npm --prefix src/plugin run prettier:plugin -- --path=tests/test14.input.gml
+npm --prefix src/plugin run prettier:plugin -- --path=test/test14.input.gml
 npm run cli -- --help       # Explore CLI utilities without switching directories
 npm run cli -- performance  # Run the benchmarking helpers registered with the CLI
 npm run memory -- --suite normalize-string-list --pretty      # Measure normalizeStringList memory usage

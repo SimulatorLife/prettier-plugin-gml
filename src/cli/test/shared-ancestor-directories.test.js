@@ -10,7 +10,7 @@ import {
 test("collectUniqueAncestorDirectories deduplicates ancestors across inputs", () => {
     const base = path.join(process.cwd(), "tmp", "cli-path-utils", "unique");
     const first = path.join(base, "project", "src");
-    const second = path.join(base, "project", "tests");
+    const second = path.join(base, "project", "test");
 
     const result = collectUniqueAncestorDirectories([first, second]);
 
