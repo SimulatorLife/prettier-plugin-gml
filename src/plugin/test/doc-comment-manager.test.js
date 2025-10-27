@@ -74,3 +74,51 @@ test("doc comment services reuse cached views and tolerate missing AST", () => {
     assert.strictEqual(noopDescriptions.extractDescription({}), null);
     assert.doesNotThrow(() => noopUpdates.applyUpdates(new Map()));
 });
+
+test("doc comment collection tolerates sibling mutation during traversal", () => {
+    const docComment = {
+        type: "CommentLine",
+        value: "/ @description mutated",
+        start: { index: 25 }
+    };
+
+    const body = [];
+
+    const secondFunction = {
+        type: "FunctionDeclaration",
+        start: { index: 30 },
+        end: { index: 32 },
+        body: []
+    };
+
+    const firstFunction = {
+        type: "FunctionDeclaration",
+        start: { index: 10 },
+        end: { index: 12 },
+        body: []
+    };
+
+    Object.defineProperty(firstFunction, "mutateDuringTraversal", {
+        enumerable: true,
+        get() {
+            const removalIndex = body.indexOf(secondFunction);
+            if (removalIndex !== -1) {
+                body.splice(removalIndex, 1);
+            }
+            return null;
+        }
+    });
+
+    body.push(firstFunction, secondFunction);
+
+    const ast = {
+        type: "Program",
+        body,
+        comments: [docComment]
+    };
+
+    const { getComments } = resolveDocCommentCollectionService(ast);
+
+    assert.deepStrictEqual(getComments(firstFunction), []);
+    assert.deepStrictEqual(getComments(secondFunction), [docComment]);
+});

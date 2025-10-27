@@ -278,7 +278,12 @@ function collectFunctionNodes(ast) {
             const value = node[key];
 
             if (Array.isArray(value)) {
-                for (const child of value) {
+                // Collect children from a shallow snapshot so visitors that
+                // splice the original array (for example transforms pruning
+                // siblings during traversal) do not cause us to skip entries.
+                const snapshot = value.slice();
+
+                for (const child of snapshot) {
                     traverse(child);
                 }
             } else if (isNode(value)) {
