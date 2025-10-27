@@ -1,4 +1,3 @@
-import { toArrayFromIterable } from "./array.js";
 import { escapeRegExp } from "./regexp.js";
 
 /**
@@ -205,14 +204,23 @@ export function createListSplitPattern(
     separators,
     { includeWhitespace = false } = {}
 ) {
-    const candidates =
-        typeof separators === "string"
-            ? [separators]
-            : toArrayFromIterable(separators);
     const seen = new Set();
     const characterClassParts = [];
 
-    for (const candidate of candidates) {
+    const candidateIterable =
+        typeof separators === "string"
+            ? [separators]
+            : separators != null &&
+                typeof separators[Symbol.iterator] === "function"
+              ? separators
+              : [];
+
+    // Iterating the original iterable keeps this hot path allocation-free when
+    // callers pass arrays or Sets. Previous logic cloned iterables via
+    // `toArrayFromIterable`, which showed up in micro-benchmarks that hammer
+    // CLI option normalization where this helper is invoked repeatedly.
+
+    for (const candidate of candidateIterable) {
         if (typeof candidate !== "string" || candidate.length === 0) {
             continue;
         }
