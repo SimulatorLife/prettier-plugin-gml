@@ -10,7 +10,6 @@ import {
     isNonEmptyArray,
     isNonEmptyTrimmedString,
     parseJsonWithContext,
-    resolveFunction,
     toTrimmedString
 } from "../../shared/dependencies.js";
 import {
@@ -219,16 +218,16 @@ export async function downloadManualFileEntries({
     onProgress,
     onProgressCleanup
 }) {
-    const normalizedEntries = Array.from(entries);
+    const orderedEntries = Array.from(entries);
     const payloads = {};
-    const totalEntries = normalizedEntries.length;
+    const totalEntries = orderedEntries.length;
+    const reportProgress = typeof onProgress === "function" ? onProgress : null;
+    const cleanup =
+        typeof onProgressCleanup === "function" ? onProgressCleanup : null;
     let fetchedCount = 0;
-    const cleanup = resolveFunction(onProgressCleanup, null, {
-        allowFallbackNonFunction: true
-    });
 
     try {
-        for (const [key, filePath] of normalizedEntries) {
+        for (const [key, filePath] of orderedEntries) {
             payloads[key] = await fetchManualFile(
                 manualRefSha,
                 filePath,
@@ -236,12 +235,15 @@ export async function downloadManualFileEntries({
             );
 
             fetchedCount += 1;
-            onProgress?.({
-                key,
-                path: filePath,
-                fetchedCount,
-                totalEntries
-            });
+
+            if (reportProgress) {
+                reportProgress({
+                    key,
+                    path: filePath,
+                    fetchedCount,
+                    totalEntries
+                });
+            }
         }
     } finally {
         if (cleanup) {
