@@ -682,7 +682,18 @@ export function print(path, options, print) {
                           "params",
                           "(",
                           ")",
-                          options
+                          options,
+                          {
+                              // Constructor parent clauses participate in the
+                              // surrounding function signature. Breaking the
+                              // argument list across multiple lines changes
+                              // the shape of the signature and regresses
+                              // existing fixtures that rely on the entire
+                              // clause remaining inline.
+                              leadingNewline: false,
+                              trailingNewline: false,
+                              forceInline: true
+                          }
                       )
                     : printEmptyParens(path, print, options);
             return concat([" : ", print("id"), params, " constructor"]);
