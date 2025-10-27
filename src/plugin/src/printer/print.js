@@ -7,7 +7,8 @@ import {
     isPreviousLineEmpty,
     shouldAddNewlinesAroundStatement,
     hasComment,
-    getNormalizedDefineReplacementDirective
+    getNormalizedDefineReplacementDirective,
+    isFunctionLikeDeclaration
 } from "./util.js";
 import {
     buildCachedSizeVariableName,
@@ -2763,11 +2764,9 @@ function printStatements(path, options, print, childrenAttribute) {
                     hasAttachedDocComment &&
                     blockParent?.type === "BlockStatement"
                 ) {
-                    const isFunctionLikeDeclaration =
-                        node?.type === "FunctionDeclaration" ||
-                        node?.type === "ConstructorDeclaration";
+                    const isFunctionLike = isFunctionLikeDeclaration(node);
 
-                    if (isFunctionLikeDeclaration) {
+                    if (isFunctionLike) {
                         shouldPreserveTrailingBlankLine = true;
                     }
                 }
@@ -4830,24 +4829,12 @@ function findEnclosingFunctionNode(path) {
             break;
         }
 
-        if (isFunctionLikeNode(parent)) {
+        if (isFunctionLikeDeclaration(parent)) {
             return parent;
         }
     }
 
     return null;
-}
-
-function isFunctionLikeNode(node) {
-    if (!node || typeof node !== "object") {
-        return false;
-    }
-
-    return (
-        node.type === "FunctionDeclaration" ||
-        node.type === "FunctionExpression" ||
-        node.type === "ConstructorDeclaration"
-    );
 }
 
 function findFunctionParameterContext(path) {

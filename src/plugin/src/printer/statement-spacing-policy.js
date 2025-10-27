@@ -1,4 +1,7 @@
-import { getNormalizedDefineReplacementDirective } from "./util.js";
+import {
+    getNormalizedDefineReplacementDirective,
+    isFunctionLikeDeclaration
+} from "./util.js";
 import { getBooleanLiteralValue } from "../shared/index.js";
 
 /**
@@ -102,15 +105,6 @@ class StatementSpacingPolicy {
 
         return consequentBoolean !== fallbackBoolean;
     }
-}
-
-function isFunctionLikeDeclaration(node) {
-    const nodeType = node?.type;
-    return (
-        nodeType === "FunctionDeclaration" ||
-        nodeType === "ConstructorDeclaration" ||
-        nodeType === "FunctionExpression"
-    );
 }
 
 export { StatementSpacingPolicy };
