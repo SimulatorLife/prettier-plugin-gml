@@ -12,7 +12,6 @@ import {
     uniqueArray
 } from "../dependencies.js";
 import {
-    REPO_ROOT,
     resolveFromRepoRoot
 } from "../shared/workspace-paths.js";
 

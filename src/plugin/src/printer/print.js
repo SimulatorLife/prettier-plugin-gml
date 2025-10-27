@@ -5715,7 +5715,7 @@ function gatherImplicitArgumentReferences(functionNode) {
         const directIndex = getArgumentIndexFromNode(node);
         if (directIndex !== null) {
             referencedIndices.add(directIndex);
-            if (!(skipAliasInitializer && property === "init")) {
+            if (!skipAliasInitializer || property !== "init") {
                 directReferenceIndices.add(directIndex);
             }
         }

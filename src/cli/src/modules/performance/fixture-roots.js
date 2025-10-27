@@ -7,7 +7,7 @@ import {
 } from "../dependencies.js";
 import { REPO_ROOT } from "../../shared/workspace-paths.js";
 
-export { REPO_ROOT };
+
 
 export const DEFAULT_FIXTURE_DIRECTORIES = Object.freeze([
     path.resolve(REPO_ROOT, "src", "parser", "test", "input"),
@@ -130,3 +130,4 @@ export function normalizeFixtureRoots(
 
     return resolved;
 }
+export {REPO_ROOT} from "../../shared/workspace-paths.js";

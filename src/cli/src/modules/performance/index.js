@@ -45,6 +45,7 @@ import {
     createPathFilter,
     normalizeFixtureRoots
 } from "./fixture-roots.js";
+
 export { normalizeFixtureRoots } from "./fixture-roots.js";
 
 const shouldSkipPerformanceDependencies = isCliRunSkipped();

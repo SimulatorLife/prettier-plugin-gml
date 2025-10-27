@@ -889,11 +889,9 @@ function readCallSeparatorTrivia(text, startIndex) {
 
                 while (
                     index < length &&
-                    !(
-                        text[index] === "*" &&
-                        index + 1 < length &&
-                        text[index + 1] === "/"
-                    )
+                    (text[index] !== "*" ||
+                        index + 1 >= length ||
+                        text[index + 1] !== "/")
                 ) {
                     index += 1;
                 }

@@ -11,6 +11,8 @@ import pluginRegexp from "eslint-plugin-regexp";
 import pluginNoSecrets from "eslint-plugin-no-secrets";
 import pluginEslintComments from "eslint-plugin-eslint-comments";
 import pluginUnusedImports from "eslint-plugin-unused-imports";
+import deMorgan from 'eslint-plugin-de-morgan'
+
 
 /* Config */
 import eslintConfigPrettier from "eslint-config-prettier";
@@ -36,6 +38,9 @@ export default [
 
     /* Base ESLint recommended */
     js.configs.recommended,
+
+    /* ESLint plugin: de-morgan recommended rules. */
+    deMorgan.configs.recommended,
 
     /* ESLint plugin: unicorn recommended rules.
      * This brings in { plugins: { unicorn: … }, rules: { unicorn/* … } } */
