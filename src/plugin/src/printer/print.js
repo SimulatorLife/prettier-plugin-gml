@@ -2878,13 +2878,14 @@ export function applyAssignmentAlignment(
     childrenAttribute = null
 ) {
     const minGroupSize = getAssignmentAlignmentMinimum(options);
-    /** @type {Array<{ node: any, nameLength: number }>} */
+    /** @type {Array<{ node: any, nameLength: number, isSelfMember: boolean }>} */
     const currentGroup = [];
     // Tracking the longest identifier as we build the group avoids mapping over
     // the nodes and spreading into Math.max during every flush. This helper
     // runs in tight printer loops, so staying allocation-free keeps it cheap.
     let currentGroupMaxLength = 0;
     let currentGroupHasAlias = false;
+    let currentGroupSelfMemberCount = 0;
 
     const { originalText, locStart, locEnd } =
         resolvePrinterSourceMetadata(options);
@@ -2906,6 +2907,7 @@ export function applyAssignmentAlignment(
         currentGroup.length = 0;
         currentGroupMaxLength = 0;
         currentGroupHasAlias = false;
+        currentGroupSelfMemberCount = 0;
     };
 
     const flushGroup = () => {
@@ -2917,7 +2919,13 @@ export function applyAssignmentAlignment(
         const groupEntries = [...currentGroup];
         const meetsAlignmentThreshold =
             minGroupSize > 0 && groupEntries.length >= minGroupSize;
-        const canAlign = meetsAlignmentThreshold && currentGroupHasAlias;
+        const hasSelfMembers = currentGroupSelfMemberCount > 0;
+        const hasMixedSelfMembers =
+            hasSelfMembers && currentGroupSelfMemberCount < groupEntries.length;
+        const canAlign =
+            meetsAlignmentThreshold &&
+            currentGroupHasAlias &&
+            !hasMixedSelfMembers;
 
         if (!canAlign) {
             for (const { node } of groupEntries) {
@@ -2960,15 +2968,20 @@ export function applyAssignmentAlignment(
                 previousEntry = null;
             }
 
+            const isSelfMember = entry.isSelfMemberAssignment === true;
             currentGroup.push({
                 node: entry.paddingTarget,
-                nameLength: entry.nameLength
+                nameLength: entry.nameLength,
+                isSelfMember
             });
             if (entry.nameLength > currentGroupMaxLength) {
                 currentGroupMaxLength = entry.nameLength;
             }
             if (entry.enablesAlignment) {
                 currentGroupHasAlias = true;
+            }
+            if (isSelfMember) {
+                currentGroupSelfMemberCount += 1;
             }
 
             previousEntry = entry;
@@ -3018,6 +3031,17 @@ function getSimpleAssignmentLikeEntry(
     functionNode,
     options
 ) {
+    const selfMemberLength = getSelfPropertyAssignmentLength(statement);
+    if (typeof selfMemberLength === "number") {
+        return {
+            locationNode: statement,
+            paddingTarget: statement,
+            nameLength: selfMemberLength,
+            enablesAlignment: true,
+            isSelfMemberAssignment: true
+        };
+    }
+
     if (isSimpleAssignment(statement)) {
         const identifier = statement.left;
         if (!identifier || typeof identifier.name !== "string") {
@@ -3109,6 +3133,61 @@ function getFunctionParameterNameSetFromPath(path) {
     }
 
     return names.size > 0 ? names : null;
+}
+
+function getSelfPropertyAssignmentLength(statement) {
+    if (
+        !statement ||
+        statement.type !== "AssignmentExpression" ||
+        statement.operator !== "="
+    ) {
+        return null;
+    }
+
+    return getSelfPropertyExpressionLength(statement.left);
+}
+
+function getSelfPropertyExpressionLength(expression) {
+    if (!expression || expression.type !== "MemberDotExpression") {
+        return null;
+    }
+
+    let length = 0;
+    let current = expression;
+
+    while (current && current.type === "MemberDotExpression") {
+        const { property, object } = current;
+        if (
+            !property ||
+            property.type !== "Identifier" ||
+            typeof property.name !== "string"
+        ) {
+            return null;
+        }
+
+        length += property.name.length + 1; // include the separating dot
+
+        if (!object) {
+            return null;
+        }
+
+        if (object.type === "Identifier") {
+            if (object.name !== "self") {
+                return null;
+            }
+
+            length += object.name.length;
+            return length;
+        }
+
+        if (object.type !== "MemberDotExpression") {
+            return null;
+        }
+
+        current = object;
+    }
+
+    return null;
 }
 
 function getAssignmentAlignmentMinimum(options) {
