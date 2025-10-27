@@ -16,7 +16,7 @@
 
 - Relocate the four runtime option modules from `src/cli/src/shared/` to `src/cli/src/runtime-options/` and update all importers to match the new structure.
 - Introduce `createSampleLimitToolkit` to de-duplicate the configuration scaffolding for sample limits and apply the helper inside both modules.
-- Leave additional helpers (e.g., `progress-bar`, `ignore-path-registry`) under `shared/` for now; follow-up audits can migrate them once the new boundary proves useful.
+- Leave additional helpers (e.g., `ignore-path-registry`) under `shared/` for now; follow-up audits can migrate them once the new boundary proves useful. The `progress-bar` helper later graduated into the `runtime-options/` boundary alongside the rest of the CLI's configurable surfaces.
 
 ## Additional cleanup — 2025-10-26
 

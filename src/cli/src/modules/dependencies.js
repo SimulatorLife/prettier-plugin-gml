@@ -50,4 +50,4 @@ export {
     setDefaultProgressBarWidth,
     withProgressBarCleanup,
     resetProgressBarRegistryForTesting
-} from "../shared/progress-bar.js";
+} from "../runtime-options/progress-bar.js";

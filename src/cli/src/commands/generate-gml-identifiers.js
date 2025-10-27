@@ -21,7 +21,7 @@ import {
     downloadManualEntriesWithProgress,
     ensureManualRefHasSha
 } from "../modules/manual/utils.js";
-import { disposeProgressBars } from "../shared/progress-bar.js";
+import { disposeProgressBars } from "../runtime-options/progress-bar.js";
 import {
     resolveVmEvalTimeout,
     getDefaultVmEvalTimeoutMs
