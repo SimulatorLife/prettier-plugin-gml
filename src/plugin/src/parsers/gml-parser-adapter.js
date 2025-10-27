@@ -18,6 +18,7 @@ import { enforceVariableBlockSpacing } from "../ast-transforms/enforce-variable-
 import { convertStringConcatenations } from "../ast-transforms/convert-string-concatenations.js";
 import { condenseLogicalExpressions } from "../ast-transforms/condense-logical-expressions.js";
 import { convertManualMathExpressions } from "../ast-transforms/convert-manual-math.js";
+import { convertUndefinedGuardAssignments } from "../ast-transforms/convert-undefined-guard-assignments.js";
 import {
     getNodeStartIndex,
     getNodeEndIndex,
@@ -184,6 +185,7 @@ async function parse(text, options) {
             });
         }
 
+        convertUndefinedGuardAssignments(ast);
         preprocessFunctionArgumentDefaults(ast);
         collapseRedundantMissingCallArguments(ast);
         enforceVariableBlockSpacing(ast);

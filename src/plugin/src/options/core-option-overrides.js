@@ -91,7 +91,10 @@ function normalizeCoreOptionOverrides(overrides) {
         normalized[key] = value;
     }
 
-    if (!changed && Object.keys(normalized).length === CORE_OVERRIDE_KEYS.length) {
+    if (
+        !changed &&
+        Object.keys(normalized).length === CORE_OVERRIDE_KEYS.length
+    ) {
         return DEFAULT_CORE_OPTION_OVERRIDES;
     }
 

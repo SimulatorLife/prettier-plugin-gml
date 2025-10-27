@@ -69,3 +69,10 @@ test("prints all call arguments in order", async () => {
         ].join("\n")
     );
 });
+
+
+test("preserves unary plus conversions", async () => {
+    const formatted = await format('var value = +"5";\n');
+
+    assert.strictEqual(formatted, 'var value = +"5";\n');
+});
