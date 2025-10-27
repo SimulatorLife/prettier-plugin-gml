@@ -1,18 +1,14 @@
-import { createInitializedSampleLimitToolkit } from "./sample-limit-toolkit.js";
-
-export const DEFAULT_IGNORED_FILE_SAMPLE_LIMIT = 5;
-export const IGNORED_FILE_SAMPLE_LIMIT_ENV_VAR =
-    "PRETTIER_PLUGIN_GML_IGNORED_FILE_SAMPLE_LIMIT";
-
-const ignoredFileToolkit = createInitializedSampleLimitToolkit({
-    defaultValue: DEFAULT_IGNORED_FILE_SAMPLE_LIMIT,
-    envVar: IGNORED_FILE_SAMPLE_LIMIT_ENV_VAR,
-    subjectLabel: "Ignored file"
-});
+import { createSampleLimitRuntimeOption } from "./sample-limit-toolkit.js";
 
 export const {
+    defaultValue: DEFAULT_IGNORED_FILE_SAMPLE_LIMIT,
+    envVar: IGNORED_FILE_SAMPLE_LIMIT_ENV_VAR,
     getDefault: getDefaultIgnoredFileSampleLimit,
     setDefault: setDefaultIgnoredFileSampleLimit,
     resolve: resolveIgnoredFileSampleLimit,
     applyEnvOverride: applyIgnoredFileSampleLimitEnvOverride
-} = ignoredFileToolkit;
+} = createSampleLimitRuntimeOption({
+    defaultValue: 5,
+    envVar: "PRETTIER_PLUGIN_GML_IGNORED_FILE_SAMPLE_LIMIT",
+    subjectLabel: "Ignored file"
+});

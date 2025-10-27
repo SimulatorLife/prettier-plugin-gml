@@ -69,3 +69,34 @@ export function createInitializedSampleLimitToolkit(parameters, { env } = {}) {
 
     return initializedToolkit;
 }
+
+/**
+ * Bundle the common sample limit runtime option exports so the individual
+ * modules do not have to repeat the "declare constants, create toolkit, export
+ * members" ceremony. The helper keeps the subject-specific defaults close to
+ * the call sites while ensuring each module exposes a consistent API surface.
+ *
+ * @param {Parameters<typeof createSampleLimitToolkit>[0]} parameters
+ * @param {{ env?: NodeJS.ProcessEnv | null | undefined }} [options]
+ * @returns {{
+ *   defaultValue: number | undefined,
+ *   envVar: string | undefined,
+ *   getDefault: ReturnType<typeof createSampleLimitToolkit>["getDefault"],
+ *   setDefault: ReturnType<typeof createSampleLimitToolkit>["setDefault"],
+ *   resolve: ReturnType<typeof createSampleLimitToolkit>["resolve"],
+ *   applyEnvOverride: ReturnType<typeof createSampleLimitToolkit>["applyEnvOverride"]
+ * }}
+ */
+export function createSampleLimitRuntimeOption(parameters = {}, { env } = {}) {
+    const { defaultValue, envVar } = parameters;
+    const toolkit = createInitializedSampleLimitToolkit(parameters, { env });
+
+    return Object.freeze({
+        defaultValue,
+        envVar,
+        getDefault: toolkit.getDefault,
+        setDefault: toolkit.setDefault,
+        resolve: toolkit.resolve,
+        applyEnvOverride: toolkit.applyEnvOverride
+    });
+}
