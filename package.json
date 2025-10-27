@@ -6,7 +6,8 @@
     "src/cli",
     "src/plugin",
     "src/parser",
-    "src/semantic"
+    "src/semantic",
+    "src/shared"
   ],
   "config": {
     "root_path": ".",

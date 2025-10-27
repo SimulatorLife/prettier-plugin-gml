@@ -1,4 +1,4 @@
-import { isFiniteNumber } from "../../shared/dependencies.js";
+import { isFiniteNumber } from "../dependencies.js";
 
 /**
  * Format numeric benchmark metrics while tolerating missing data. Non-finite

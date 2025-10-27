@@ -8,6 +8,7 @@
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
+    "@prettier-plugin-gml/shared": "file:../shared",
     "prettier-plugin-gamemaker": "file:../plugin",
     "cli-progress": "^3.12.0",
     "commander": "^14.0.2",

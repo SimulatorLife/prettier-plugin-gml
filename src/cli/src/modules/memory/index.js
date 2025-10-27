@@ -20,7 +20,7 @@ import {
     resolveModuleDefaultExport,
     parseJsonObjectWithContext,
     splitLines
-} from "../../shared/dependencies.js";
+} from "../dependencies.js";
 import {
     SuiteOutputFormat,
     applyEnvOptionOverrides,
