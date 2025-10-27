@@ -6,6 +6,7 @@ import {
     hasComment as sharedHasComment,
     isObjectLike,
     isUndefinedLiteral as sharedIsUndefinedLiteral,
+    resolveHelperOverride,
     toMutableArray,
     unwrapParenthesizedExpression
 } from "../shared/index.js";
@@ -42,22 +43,26 @@ export function convertUndefinedGuardAssignments(
     }
 
     const normalizedHelpers = {
-        hasComment:
-            typeof helpers.hasComment === "function"
-                ? helpers.hasComment
-                : DEFAULT_HELPERS.hasComment,
-        getIdentifierText:
-            typeof helpers.getIdentifierText === "function"
-                ? helpers.getIdentifierText
-                : DEFAULT_HELPERS.getIdentifierText,
-        isUndefinedLiteral:
-            typeof helpers.isUndefinedLiteral === "function"
-                ? helpers.isUndefinedLiteral
-                : DEFAULT_HELPERS.isUndefinedLiteral,
-        cloneAstNode:
-            typeof helpers.cloneAstNode === "function"
-                ? helpers.cloneAstNode
-                : DEFAULT_HELPERS.cloneAstNode
+        hasComment: resolveHelperOverride(
+            helpers,
+            "hasComment",
+            DEFAULT_HELPERS.hasComment
+        ),
+        getIdentifierText: resolveHelperOverride(
+            helpers,
+            "getIdentifierText",
+            DEFAULT_HELPERS.getIdentifierText
+        ),
+        isUndefinedLiteral: resolveHelperOverride(
+            helpers,
+            "isUndefinedLiteral",
+            DEFAULT_HELPERS.isUndefinedLiteral
+        ),
+        cloneAstNode: resolveHelperOverride(
+            helpers,
+            "cloneAstNode",
+            DEFAULT_HELPERS.cloneAstNode
+        )
     };
 
     visit(ast, null, null);

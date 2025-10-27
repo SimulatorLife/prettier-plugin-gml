@@ -14,7 +14,8 @@ import {
     forEachNodeChild,
     getNodeEndIndex,
     getNodeStartIndex,
-    assignClonedLocation
+    assignClonedLocation,
+    resolveHelperOverride
 } from "../shared/index.js";
 
 const DEFAULT_HELPERS = {
@@ -59,18 +60,21 @@ export function preprocessFunctionArgumentDefaults(
     }
 
     const normalizedHelpers = {
-        getIdentifierText:
-            typeof helpers.getIdentifierText === "function"
-                ? helpers.getIdentifierText
-                : DEFAULT_HELPERS.getIdentifierText,
-        isUndefinedLiteral:
-            typeof helpers.isUndefinedLiteral === "function"
-                ? helpers.isUndefinedLiteral
-                : DEFAULT_HELPERS.isUndefinedLiteral,
-        getSingleVariableDeclarator:
-            typeof helpers.getSingleVariableDeclarator === "function"
-                ? helpers.getSingleVariableDeclarator
-                : DEFAULT_HELPERS.getSingleVariableDeclarator,
+        getIdentifierText: resolveHelperOverride(
+            helpers,
+            "getIdentifierText",
+            DEFAULT_HELPERS.getIdentifierText
+        ),
+        isUndefinedLiteral: resolveHelperOverride(
+            helpers,
+            "isUndefinedLiteral",
+            DEFAULT_HELPERS.isUndefinedLiteral
+        ),
+        getSingleVariableDeclarator: resolveHelperOverride(
+            helpers,
+            "getSingleVariableDeclarator",
+            DEFAULT_HELPERS.getSingleVariableDeclarator
+        ),
         hasComment: getHasCommentHelper(helpers)
     };
 
