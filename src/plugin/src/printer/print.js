@@ -4522,6 +4522,30 @@ function mergeSyntheticDocComments(
             }
         }
 
+        if (segments.length >= 2) {
+            const lastSegment = segments[segments.length - 1];
+            const penultimateIndex = segments.length - 2;
+            const penultimateSegment = segments[penultimateIndex];
+            const maxShortSegmentLength = Math.max(
+                Math.min(Math.floor(continuationAvailable * 0.4), 24),
+                16
+            );
+
+            if (typeof lastSegment === "string" && typeof penultimateSegment === "string") {
+                const mergedLength =
+                    penultimateSegment.length + 1 + lastSegment.length;
+
+                if (
+                    lastSegment.length <= maxShortSegmentLength &&
+                    mergedLength <= continuationAvailable + maxShortSegmentLength
+                ) {
+                    segments[penultimateIndex] =
+                        penultimateSegment + ` ${lastSegment}`;
+                    segments.pop();
+                }
+            }
+        }
+
         return segments;
     };
 

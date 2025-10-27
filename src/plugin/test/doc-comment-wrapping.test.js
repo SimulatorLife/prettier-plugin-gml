@@ -178,3 +178,29 @@ test("preserves doc comment continuation labels without indentation", async () =
         "Expected doc comment continuation to retain the 'Local space:' label."
     );
 });
+
+test("keeps short trailing description text on a single continuation line", async () => {
+    const source = [
+        "/// @function demo",
+        "/// @param foo",
+        "/// @param [bar=baz]",
+        "/// @description Write a unit triangular prism into an existing vbuff.",
+        "///              Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5], base plane at Z=0, apex line at (Y=0,Z=1).",
+        "function demo(foo, bar) {}"
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    assert.match(
+        formatted,
+        /base plane at Z=0, apex line at \(Y=0,Z=1\)\./,
+        "Expected the apex description to remain on the same continuation line"
+    );
+    assert.ok(
+        !formatted.includes("base plane at Z=0,\n///              apex"),
+        "Expected the doc comment wrapper not to split the trailing description"
+    );
+});
