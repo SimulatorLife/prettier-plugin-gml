@@ -643,7 +643,12 @@ export function print(path, options, print) {
                 const {
                     inlineDoc: inlineParamDoc,
                     multilineDoc: multilineParamDoc
-                } = buildFunctionParameterDocs(path, print, options);
+                } = buildFunctionParameterDocs(path, print, options, {
+                    forceInline: shouldForceInlineFunctionParameters(
+                        path,
+                        options
+                    )
+                });
 
                 parts.push(
                     conditionalGroup([inlineParamDoc, multilineParamDoc])
@@ -1826,18 +1831,8 @@ function buildCallArgumentsDocs(
     return { inlineDoc, multilineDoc };
 }
 
-function buildFunctionParameterDocs(path, print, options) {
-    const multilineDoc = printCommaSeparatedList(
-        path,
-        print,
-        "params",
-        "(",
-        ")",
-        options,
-        {
-            allowTrailingDelimiter: false
-        }
-    );
+function buildFunctionParameterDocs(path, print, options, overrides = {}) {
+    const forceInline = overrides.forceInline === true;
 
     const inlineDoc = printCommaSeparatedList(
         path,
@@ -1855,7 +1850,55 @@ function buildFunctionParameterDocs(path, print, options) {
         }
     );
 
+    const multilineDoc = forceInline
+        ? inlineDoc
+        : printCommaSeparatedList(path, print, "params", "(", ")", options, {
+              allowTrailingDelimiter: false
+          });
+
     return { inlineDoc, multilineDoc };
+}
+
+function shouldForceInlineFunctionParameters(path, options) {
+    const node = path.getValue();
+
+    if (!node || node.type !== "ConstructorDeclaration") {
+        return false;
+    }
+
+    const parentNode = node.parent;
+    if (!parentNode || parentNode.type !== "ConstructorParentClause") {
+        return false;
+    }
+
+    if (!Array.isArray(node.params) || node.params.length === 0) {
+        return false;
+    }
+
+    if (node.params.some((param) => hasComment(param))) {
+        return false;
+    }
+
+    const { originalText } = resolvePrinterSourceMetadata(options);
+    if (typeof originalText !== "string" || originalText.length === 0) {
+        return false;
+    }
+
+    const firstParam = node.params[0];
+    const lastParam = node.params[node.params.length - 1];
+    const startIndex = getNodeStartIndex(firstParam);
+    const endIndex = getNodeEndIndex(lastParam);
+
+    if (typeof startIndex !== "number" || typeof endIndex !== "number") {
+        return false;
+    }
+
+    if (startIndex >= endIndex) {
+        return false;
+    }
+
+    const parameterSource = originalText.slice(startIndex, endIndex);
+    return !/[\r\n]/.test(parameterSource);
 }
 
 function maybePrintInlineDefaultParameterFunctionBody(path, print) {
