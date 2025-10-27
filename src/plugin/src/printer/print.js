@@ -5364,25 +5364,42 @@ function computeSyntheticFunctionDocLines(
             }
         }
 
+        const optionalOverrideFlag = paramInfo?.optionalOverride === true;
+        const defaultIsUndefined =
+            param?.type === "DefaultParameter" &&
+            isUndefinedLiteral(param.right);
+        const shouldOmitUndefinedDefault =
+            defaultIsUndefined &&
+            shouldOmitUndefinedDefaultForFunctionNode(node);
+        const hasExistingMetadata = Boolean(existingMetadata);
+        const hasOptionalDocName =
+            param?.type === "DefaultParameter" &&
+            isOptionalParamDocName(existingDocName);
         const baseDocName =
             (effectiveImplicitName &&
                 effectiveImplicitName.length > 0 &&
                 effectiveImplicitName) ||
             (ordinalDocName && ordinalDocName.length > 0 && ordinalDocName) ||
             paramInfo.name;
-        const shouldMarkOptional =
-            paramInfo.optional ||
+        let shouldMarkOptional =
+            Boolean(paramInfo.optional) ||
             (param?.type === "DefaultParameter" &&
                 isOptionalParamDocName(existingDocName));
         if (
             shouldMarkOptional &&
-            param?.type === "DefaultParameter" &&
-            isUndefinedLiteral(param.right)
+            defaultIsUndefined &&
+            shouldOmitUndefinedDefault &&
+            paramInfo?.explicitUndefinedDefault === true &&
+            !hasExistingMetadata &&
+            !optionalOverrideFlag &&
+            !hasOptionalDocName
         ) {
+            shouldMarkOptional = false;
+        }
+        if (shouldMarkOptional && defaultIsUndefined) {
             preservedUndefinedDefaultParameters.add(param);
         }
-        const docName =
-            (shouldMarkOptional && `[${baseDocName}]`) || baseDocName;
+        const docName = shouldMarkOptional ? `[${baseDocName}]` : baseDocName;
 
         const normalizedExistingType = normalizeParamDocType(
             existingMetadata?.type
@@ -6069,7 +6086,14 @@ function getParameterDocInfo(paramNode, functionNode, options) {
 
     if (paramNode.type === "Identifier") {
         const name = getNormalizedParameterName(paramNode);
-        return name ? { name, optional: false } : null;
+        return name
+            ? {
+                  name,
+                  optional: false,
+                  optionalOverride: false,
+                  explicitUndefinedDefault: false
+              }
+            : null;
     }
 
     if (paramNode.type === "DefaultParameter") {
@@ -6097,6 +6121,15 @@ function getParameterDocInfo(paramNode, functionNode, options) {
         const docName = defaultText ? `${name}=${defaultText}` : name;
 
         const optionalOverride = paramNode?._featherOptionalParameter === true;
+        const searchName = getNormalizedParameterName(
+            paramNode.left ?? paramNode
+        );
+        const explicitUndefinedDefaultFromSource =
+            defaultIsUndefined &&
+            typeof searchName === "string" &&
+            searchName.length > 0 &&
+            typeof options?.originalText === "string" &&
+            options.originalText.includes(`${searchName} = undefined`);
         const optional = defaultIsUndefined
             ? optionalOverride ||
               !signatureOmitsUndefinedDefault ||
@@ -6105,7 +6138,9 @@ function getParameterDocInfo(paramNode, functionNode, options) {
 
         return {
             name: docName,
-            optional
+            optional,
+            optionalOverride,
+            explicitUndefinedDefault: explicitUndefinedDefaultFromSource
         };
     }
 
@@ -6114,7 +6149,14 @@ function getParameterDocInfo(paramNode, functionNode, options) {
     }
 
     const fallbackName = getNormalizedParameterName(paramNode);
-    return fallbackName ? { name: fallbackName, optional: false } : null;
+    return fallbackName
+        ? {
+              name: fallbackName,
+              optional: false,
+              optionalOverride: false,
+              explicitUndefinedDefault: false
+          }
+        : null;
 }
 
 function shouldOmitDefaultValueForParameter(path) {
