@@ -83,55 +83,77 @@ const OBSERVER_ABORT_MESSAGE =
  *        Optional bag supporting abort-driven unsubscription.
  * @returns {() => void} Function that unsubscribes the observer when invoked.
  */
-export function addGmlPluginComponentObserver(observer, options = {}) {
-    const normalizedObserver = assertFunction(observer, "observer", {
-        errorMessage: "GML plugin component observers must be functions"
-    });
+const NOOP_UNSUBSCRIBE = () => {};
 
-    let signal = null;
+function resolveObserverSignal(options) {
     try {
-        signal = resolveAbortSignalFromOptions(options, {
-            fallbackMessage: OBSERVER_ABORT_MESSAGE
-        });
+        return {
+            abortedEarly: false,
+            signal: resolveAbortSignalFromOptions(options, {
+                fallbackMessage: OBSERVER_ABORT_MESSAGE
+            })
+        };
     } catch (error) {
         if (isAbortError(error)) {
-            // Observer registration may race with an already-aborted signal when
-            // manual CLI flows tear down and rehydrate components during the
-            // live-reload handshake (documented in
-            // docs/live-reloading-concept.md#manual-mode-cleanup-handoffs).
-            // Returning a stable noop unsubscriber lets callers treat "subscribe
-            // after cancellation" as an idempotent cleanup step; propagating the
-            // abort error or returning `null` would explode the finally blocks
-            // that unconditionally invoke the handler and leak component
-            // overrides mid-refresh.
-            return () => {};
+            return { abortedEarly: true, signal: null };
         }
 
         throw error;
     }
+}
 
-    componentObservers.add(normalizedObserver);
+function registerComponentObserver(observer) {
+    componentObservers.add(observer);
+}
 
+function createObserverSubscription(observer, signal) {
     let aborted = false;
+    let abortHandler = null;
+
     const unsubscribe = () => {
         if (aborted) {
             return;
         }
 
         aborted = true;
-        componentObservers.delete(normalizedObserver);
-        if (signal) {
+        componentObservers.delete(observer);
+
+        if (signal && abortHandler) {
             signal.removeEventListener("abort", abortHandler);
         }
     };
 
-    const abortHandler = () => {
-        unsubscribe();
-    };
-
     if (signal) {
+        abortHandler = () => {
+            unsubscribe();
+        };
+
         signal.addEventListener("abort", abortHandler, { once: true });
     }
 
     return unsubscribe;
+}
+
+export function addGmlPluginComponentObserver(observer, options = {}) {
+    const normalizedObserver = assertFunction(observer, "observer", {
+        errorMessage: "GML plugin component observers must be functions"
+    });
+
+    const { abortedEarly, signal } = resolveObserverSignal(options);
+
+    if (abortedEarly) {
+        // Observer registration may race with an already-aborted signal when
+        // manual CLI flows tear down and rehydrate components during the
+        // live-reload handshake (documented in
+        // docs/live-reloading-concept.md#manual-mode-cleanup-handoffs).
+        // Returning a stable noop unsubscriber lets callers treat "subscribe
+        // after cancellation" as an idempotent cleanup step; propagating the
+        // abort error or returning `null` would explode the finally blocks
+        // that unconditionally invoke the handler and leak component
+        // overrides mid-refresh.
+        return NOOP_UNSUBSCRIBE;
+    }
+
+    registerComponentObserver(normalizedObserver);
+    return createObserverSubscription(normalizedObserver, signal);
 }
