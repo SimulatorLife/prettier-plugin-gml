@@ -1,0 +1,33 @@
+name: Codex 83 – Dependency Inversion Patrol (DIP)
+
+on:
+  schedule:
+    - cron: "15 1,13 * * *" # twice daily at 01:15, 13:15 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Dependency Inversion Guardrails"
+      pr_body: |
+        Seed PR for Codex to eliminate dependency-inversion violations where high-level modules
+        reach for concrete adapters or construct their own dependencies.
+      prompt: >
+        Audit the high-level orchestration layers first: src/plugin/src/gml.js, the CLI entry
+        point in src/cli/prettier-wrapper.js, and related glue modules that compose parser,
+        printer, comment, or identifier-case subsystems. Search these files for the `new`
+        keyword and for imports that pull concrete adapters from directories such as
+        src/plugin/src/parsers/, src/plugin/src/printer/, or other low-level adapters. When you
+        find a high-level module instantiating or importing a concrete implementation directly,
+        treat it as a dependency inversion violation. Recommend (and implement when feasible)
+        the right abstraction boundary by introducing interfaces, a provider registry, or
+        constructor injection so the high-level code depends on abstractions instead of concrete
+        adapters. Keep the refactor narrow and behaviour-preserving, update tests and docs as
+        needed, and leave notes in the PR when follow-up work is required.

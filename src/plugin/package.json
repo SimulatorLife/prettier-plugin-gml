@@ -10,13 +10,14 @@
     "root_path": "."
   },
   "scripts": {
-    "test": "node --test tests/*.test.js",
+    "test": "node --test test/*.test.js",
     "prettier:plugin:raw": "npx prettier $npm_config_path --plugin=$npm_package_config_root_path/src/gml.js --ignore-path=$npm_package_config_root_path/../cli/.prettierignore --ignore-unknown --log-level=warn --no-error-on-unmatched-pattern",
-    "example": "npm run prettier:plugin:raw --path=tests/test14.input.gml",
-    "prettier:plugin": "node ../cli/cli.js $npm_config_path"
+    "example": "npm run prettier:plugin:raw --path=test/test14.input.gml",
+    "prettier:plugin": "node ../cli/src/cli.js $npm_config_path"
   },
   "dependencies": {
-    "gamemaker-language-parser": "file:../parser"
+    "gamemaker-language-parser": "file:../parser",
+    "gamemaker-language-semantic": "file:../semantic"
   },
   "engines": {
     "node": ">=25.0.0"

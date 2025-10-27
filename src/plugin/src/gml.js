@@ -6,46 +6,47 @@
  */
 
 import { resolveGmlPluginComponents } from "./plugin-components.js";
+import { resolveCoreOptionOverrides } from "./options/core-option-overrides.js";
 
 function selectPluginComponents() {
     return resolveGmlPluginComponents();
 }
 
 function createReadOnlyView(selector, description) {
-    const target = Object.create(null);
     const readOnlyError = new TypeError(
         `${description} cannot be modified once resolved.`
     );
 
-    function selectSource() {
+    const ensureSource = () => {
         const source = selector();
-        if (!source || typeof source !== "object") {
-            throw new TypeError(`${description} must resolve to an object.`);
+        if (source && typeof source === "object") {
+            return source;
         }
-        return source;
-    }
 
-    return new Proxy(target, {
+        throw new TypeError(`${description} must resolve to an object.`);
+    };
+
+    const guardMutation = () => {
+        throw readOnlyError;
+    };
+
+    return new Proxy(Object.create(null), {
         get(_target, property, receiver) {
             if (property === Symbol.toStringTag) {
                 return "Object";
             }
 
-            const source = selectSource();
-            return Reflect.get(source, property, receiver);
+            return Reflect.get(ensureSource(), property, receiver);
         },
         has(_target, property) {
-            const source = selectSource();
-            return Reflect.has(source, property);
+            return Reflect.has(ensureSource(), property);
         },
         ownKeys() {
-            const source = selectSource();
-            return Reflect.ownKeys(source);
+            return Reflect.ownKeys(ensureSource());
         },
         getOwnPropertyDescriptor(_target, property) {
-            const source = selectSource();
             const descriptor = Reflect.getOwnPropertyDescriptor(
-                source,
+                ensureSource(),
                 property
             );
 
@@ -53,12 +54,14 @@ function createReadOnlyView(selector, description) {
                 return;
             }
 
+            const enumerable =
+                descriptor.enumerable === undefined
+                    ? true
+                    : descriptor.enumerable;
+
             return {
                 configurable: true,
-                enumerable:
-                    descriptor.enumerable === undefined
-                        ? true
-                        : descriptor.enumerable,
+                enumerable,
                 value: descriptor.value,
                 writable: false
             };
@@ -66,15 +69,9 @@ function createReadOnlyView(selector, description) {
         getPrototypeOf() {
             return Object.prototype;
         },
-        set() {
-            throw readOnlyError;
-        },
-        defineProperty() {
-            throw readOnlyError;
-        },
-        deleteProperty() {
-            throw readOnlyError;
-        }
+        set: guardMutation,
+        defineProperty: guardMutation,
+        deleteProperty: guardMutation
     });
 }
 
@@ -102,25 +99,6 @@ export const languages = [
     }
 ];
 
-// Hard overrides for GML regardless of incoming config. These knobs either map
-// to syntax that GameMaker never emits (for example JSX attributes) or would
-// let callers re-enable formatting modes the printers deliberately avoid. The
-// fixtures showcased in README.md#formatter-at-a-glance and the
-// docs/examples/* snapshots all assume "no trailing commas" plus
-// "always-parenthesised arrow parameters", so letting user configs flip those
-// bits would desynchronize the documented contract from the code we ship. We
-// therefore clamp the values here to advertise a single canonical style and to
-// prevent project-level `.prettierrc` files from surfacing ineffective or
-// misleading toggles.
-const CORE_OPTION_OVERRIDES = {
-    trailingComma: "none",
-    arrowParens: "always",
-    singleAttributePerLine: false,
-    jsxSingleQuote: false,
-    proseWrap: "preserve",
-    htmlWhitespaceSensitivity: "css"
-};
-
 const BASE_PRETTIER_DEFAULTS = {
     tabWidth: 4,
     semi: true,
@@ -147,12 +125,14 @@ function computeOptionDefaults() {
 }
 
 function createDefaultOptionsSnapshot() {
+    const coreOptionOverrides = resolveCoreOptionOverrides();
+
     return {
         // Merge order:
         // GML Prettier defaults -> option defaults -> fixed overrides
         ...BASE_PRETTIER_DEFAULTS,
         ...computeOptionDefaults(),
-        ...CORE_OPTION_OVERRIDES
+        ...coreOptionOverrides
     };
 }
 

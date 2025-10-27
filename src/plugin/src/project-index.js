@@ -1,3 +1,8 @@
-export { buildProjectIndex } from "./project-index/index.js";
-export { getProjectIndexParserOverride } from "./project-index/index.js";
-export { defaultFsFacade } from "./project-index/index.js";
+export {
+    buildProjectIndex,
+    getProjectIndexParserOverride,
+    getProjectIndexSourceExtensions,
+    resetProjectIndexSourceExtensions,
+    setProjectIndexSourceExtensions,
+    defaultFsFacade
+} from "gamemaker-language-semantic/project-index/index.js";

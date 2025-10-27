@@ -1,17 +1,21 @@
 import {
     hasComment as sharedHasComment,
     normalizeHasCommentHelpers,
-    resolveDocCommentInspectionService,
+    resolveDocCommentPresenceService,
+    resolveDocCommentDescriptionService,
     resolveDocCommentUpdateService
 } from "../comments/index.js";
-import { cloneLocation } from "../../../shared/ast-locations.js";
-import { isNonEmptyArray } from "../../../shared/array-utils.js";
-import { getBodyStatements, isNode } from "../../../shared/ast-node-helpers.js";
 import {
+    asArray,
+    cloneAstNode,
+    cloneLocation,
+    getBodyStatements,
+    getOrCreateMapEntry,
+    isNode,
+    isNonEmptyArray,
     isNonEmptyString,
     toNormalizedLowerCaseString
-} from "../../../shared/string-utils.js";
-import { getOrCreateMapEntry } from "../../../shared/object-utils.js";
+} from "../shared/index.js";
 
 const BOOLEAN_NODE_TYPES = Object.freeze({
     CONST: "CONST",
@@ -48,14 +52,16 @@ export function condenseLogicalExpressions(ast, helpers) {
         return ast;
     }
 
-    const docCommentManager = resolveDocCommentInspectionService(ast);
+    const docCommentPresence = resolveDocCommentPresenceService(ast);
+    const docCommentDescriptions = resolveDocCommentDescriptionService(ast);
     const docCommentUpdateService = resolveDocCommentUpdateService(ast);
     const normalizedHelpers = normalizeHasCommentHelpers(helpers);
     const context = {
         ast,
         helpers: normalizedHelpers,
         docUpdates: new Map(),
-        docCommentManager,
+        docCommentPresence,
+        docCommentDescriptions,
         docCommentUpdateService,
         expressionSignatures: new Map()
     };
@@ -186,7 +192,7 @@ function removeDuplicateCondensedFunctions(context) {
         return null;
     }
 
-    const docCommentManager = context.docCommentManager;
+    const docCommentPresence = context.docCommentPresence;
     const signatureToFunctions = new Map();
     for (const [fn, signature] of context.expressionSignatures.entries()) {
         if (!signature) {
@@ -226,7 +232,7 @@ function removeDuplicateCondensedFunctions(context) {
             const update = context.docUpdates.get(fn);
             const hasDocComment =
                 update?.hasDocComment ||
-                (docCommentManager?.hasDocComment(fn) ?? false);
+                (docCommentPresence?.hasDocComment(fn) ?? false);
             if (hasDocComment && !keeper) {
                 keeper = fn;
             }
@@ -241,7 +247,7 @@ function removeDuplicateCondensedFunctions(context) {
                 const update = context.docUpdates.get(fn);
                 const hasDocComment =
                     update?.hasDocComment ||
-                    (docCommentManager?.hasDocComment(fn) ?? false);
+                    (docCommentPresence?.hasDocComment(fn) ?? false);
                 if (!hasDocComment) {
                     toRemove.add(fn);
                 }
@@ -581,9 +587,10 @@ function tryCondenseIfStatement(
         activeTransformationContext
     ) {
         const docString = renderExpressionForDocComment(argumentAst);
-        const docCommentManager = activeTransformationContext.docCommentManager;
-        const description = docCommentManager
-            ? docCommentManager.extractDescription(parentNode)
+        const descriptionService =
+            activeTransformationContext.docCommentDescriptions;
+        const description = descriptionService
+            ? descriptionService.extractDescription(parentNode)
             : null;
 
         if (docString) {
@@ -609,7 +616,7 @@ function extractReturnExpression(node, helpers) {
     }
 
     if (node.type === "BlockStatement") {
-        const body = Array.isArray(node.body) ? node.body : [];
+        const body = asArray(node.body);
         if (body.length === 0) {
             return null;
         }
@@ -736,15 +743,11 @@ function createBooleanContext() {
 
 function registerVariable(node, context) {
     const key = getAstNodeKey(node);
-    if (!context.variableMap.has(key)) {
-        const index = context.variables.length;
-        const record = { index, node };
-        context.variableMap.set(key, record);
+    return getOrCreateMapEntry(context.variableMap, key, () => {
+        const record = { index: context.variables.length, node };
         context.variables.push(record);
         return record;
-    }
-
-    return context.variableMap.get(key);
+    });
 }
 
 function toBooleanExpression(node, context) {
@@ -2266,14 +2269,6 @@ function createBooleanLiteralAst(value) {
         start: undefined,
         end: undefined
     };
-}
-
-function cloneAstNode(node) {
-    if (!node) {
-        return null;
-    }
-
-    return structuredClone(node);
 }
 
 function createBooleanConstant(value) {

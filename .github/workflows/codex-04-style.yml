@@ -25,4 +25,4 @@ jobs:
         settings where possible/applicable. Avoid touching control flow or behavioural 
         logic; those tweaks live in a separate workflow. Always ship at least one 
         tangible correction, keep the diff small and reviewable, and ensure 
-        linters/tests still pass after the tidy-up.
+        linters and tests still pass after the tidy-up.

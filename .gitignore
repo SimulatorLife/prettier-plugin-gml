@@ -1,8 +1,9 @@
 .antlr/
 *.cpuprofile
+tmp/
 
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -23,7 +24,7 @@ pids
 lib-cov
 
 # Coverage directory used by tools like istanbul
-coverage
+coverage/
 *.lcov
 
 # nyc test coverage
@@ -45,7 +46,7 @@ build/Release
 node_modules/
 jspm_packages/
 .husky/_/
-test-results/
+reports/
 
 # Manual cache artefacts
 src/cli/commands/cache/

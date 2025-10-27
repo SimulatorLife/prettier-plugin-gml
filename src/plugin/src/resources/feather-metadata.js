@@ -2,7 +2,7 @@
  * Lightweight helpers for accessing the bundled Feather metadata artefact.
  *
  * The formatter queries individual diagnostics to understand the intent
- * behind specific auto-fixes. Centralising metadata access keeps downstream
+ * behind specific auto-fixes. Centralizing metadata access keeps downstream
  * modules from worrying about relative path resolution or cache management.
  */
 
@@ -16,12 +16,8 @@
  * @property {Array<FeatherDiagnostic>} [diagnostics]
  */
 
-import { createRequire } from "node:module";
-
-import { asArray } from "../../../shared/array-utils.js";
-import { toTrimmedString } from "../../../shared/string-utils.js";
-
-const require = createRequire(import.meta.url);
+import { asArray, toTrimmedString } from "../shared/index.js";
+import { loadBundledFeatherMetadata } from "gamemaker-language-semantic/resources/bundled-resources.js";
 
 /** @type {FeatherMetadata | null} */
 let cachedMetadata = null;
@@ -32,7 +28,7 @@ function loadFeatherMetadata() {
     }
 
     /** @type {FeatherMetadata} */
-    const metadata = require("../../../../resources/feather-metadata.json");
+    const metadata = loadBundledFeatherMetadata();
     cachedMetadata = metadata;
     return metadata;
 }

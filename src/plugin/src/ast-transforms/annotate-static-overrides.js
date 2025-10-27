@@ -1,5 +1,8 @@
-import { isNonEmptyArray } from "../../../shared/array-utils.js";
-import { getNonEmptyString } from "../../../shared/string-utils.js";
+import {
+    isNonEmptyArray,
+    getBodyStatements,
+    getNonEmptyString
+} from "../shared/index.js";
 
 function isStaticFunctionDeclaration(statement) {
     if (!statement || statement.type !== "VariableDeclaration") {
@@ -40,13 +43,13 @@ function extractStaticFunctionName(statement) {
 }
 
 function collectConstructorInfos(ast) {
-    if (!ast || typeof ast !== "object" || !Array.isArray(ast.body)) {
+    if (!ast || typeof ast !== "object") {
         return new Map();
     }
 
     const constructors = new Map();
 
-    for (const node of ast.body) {
+    for (const node of getBodyStatements(ast)) {
         if (!node || node.type !== "ConstructorDeclaration") {
             continue;
         }
@@ -61,22 +64,19 @@ function collectConstructorInfos(ast) {
                 ? getNonEmptyString(node.parent.id)
                 : null;
 
-        const bodyStatements = node.body?.body;
         const staticFunctions = new Map();
 
-        if (Array.isArray(bodyStatements)) {
-            for (const statement of bodyStatements) {
-                if (!isStaticFunctionDeclaration(statement)) {
-                    continue;
-                }
-
-                const staticName = extractStaticFunctionName(statement);
-                if (!staticName || staticFunctions.has(staticName)) {
-                    continue;
-                }
-
-                staticFunctions.set(staticName, statement);
+        for (const statement of getBodyStatements(node.body)) {
+            if (!isStaticFunctionDeclaration(statement)) {
+                continue;
             }
+
+            const staticName = extractStaticFunctionName(statement);
+            if (!staticName || staticFunctions.has(staticName)) {
+                continue;
+            }
+
+            staticFunctions.set(staticName, statement);
         }
 
         constructors.set(name, {

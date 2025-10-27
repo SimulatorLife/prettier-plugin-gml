@@ -7,10 +7,14 @@ import {
     getIdentifierText as sharedGetIdentifierText,
     isUndefinedLiteral as sharedIsUndefinedLiteral,
     getSingleMemberIndexPropertyEntry as sharedGetSingleMemberIndexPropertyEntry,
-    unwrapParenthesizedExpression
-} from "../../../shared/ast-node-helpers.js";
-import { toMutableArray } from "../../../shared/array-utils.js";
-import { isObjectLike } from "../../../shared/object-utils.js";
+    unwrapParenthesizedExpression,
+    getBodyStatements,
+    toMutableArray,
+    isObjectLike,
+    getNodeEndIndex,
+    getNodeStartIndex,
+    assignClonedLocation
+} from "../shared/index.js";
 
 const DEFAULT_HELPERS = {
     getIdentifierText: sharedGetIdentifierText,
@@ -158,16 +162,109 @@ function preprocessFunctionDeclaration(node, helpers) {
     node._hasProcessedArgumentCountDefaults = true;
 
     const body = node.body;
-    if (
-        !body ||
-        body.type !== "BlockStatement" ||
-        !Array.isArray(body.body) ||
-        body.body.length === 0
-    ) {
+    if (!body || body.type !== "BlockStatement") {
         return;
     }
 
-    const statements = body.body;
+    const statements = getBodyStatements(body);
+    if (statements.length === 0) {
+        return;
+    }
+
+    const statementsToRemove = new Set();
+    let appliedChanges = false;
+
+    const condenseMatches = [];
+
+    for (let index = 0; index < statements.length - 1; index += 1) {
+        const varStatement = statements[index];
+        const ifStatement = statements[index + 1];
+        const condenseMatch = matchArgumentCountFallbackVarThenIf(
+            varStatement,
+            ifStatement,
+            helpers
+        );
+
+        if (!condenseMatch) {
+            continue;
+        }
+
+        condenseMatches.push(condenseMatch);
+    }
+
+    for (const condense of condenseMatches) {
+        const {
+            declarator,
+            guardExpression,
+            argumentExpression,
+            fallbackExpression,
+            ifStatement,
+            sourceStatement
+        } = condense;
+
+        declarator.init = {
+            type: "TernaryExpression",
+            test: guardExpression,
+            consequent: argumentExpression,
+            alternate: fallbackExpression
+        };
+
+        sourceStatement._skipArgumentCountDefault = true;
+        statementsToRemove.add(ifStatement);
+        extendStatementEndLocation(sourceStatement, ifStatement);
+        appliedChanges = true;
+        body._gmlForceInitialBlankLine = true;
+    }
+
+    /**
+     * Extends the location metadata for the variable declaration so the printer
+     * can continue detecting author-authored blank lines that followed the
+     * removed fallback statement.
+     *
+     * @param {unknown} targetDeclaration Variable declaration that now contains
+     *   the condensed fallback logic.
+     * @param {unknown} removedStatement The statement that previously carried
+     *   the fallback assignment.
+     */
+    function extendStatementEndLocation(targetDeclaration, removedStatement) {
+        if (!targetDeclaration || !removedStatement) {
+            return;
+        }
+
+        const removalEnd = getNodeEndIndex(removedStatement);
+        if (removalEnd == null) {
+            return;
+        }
+
+        const declarationEnd = getNodeEndIndex(targetDeclaration);
+        if (declarationEnd != null && declarationEnd >= removalEnd) {
+            return;
+        }
+
+        assignClonedLocation(targetDeclaration, {
+            end: removedStatement.end
+        });
+
+        const removedRangeEnd = Array.isArray(removedStatement.range)
+            ? removedStatement.range[1]
+            : null;
+
+        if (typeof removedRangeEnd === "number") {
+            if (Array.isArray(targetDeclaration.range)) {
+                const [startRange] = targetDeclaration.range;
+                targetDeclaration.range = [startRange, removedRangeEnd];
+            } else {
+                const declarationStart = getNodeStartIndex(targetDeclaration);
+                if (typeof declarationStart === "number") {
+                    targetDeclaration.range = [
+                        declarationStart,
+                        removedRangeEnd
+                    ];
+                }
+            }
+        }
+    }
+
     const matches = [];
 
     for (const [statementIndex, statement] of statements.entries()) {
@@ -183,7 +280,7 @@ function preprocessFunctionDeclaration(node, helpers) {
         });
     }
 
-    if (matches.length === 0) {
+    if (matches.length === 0 && !appliedChanges) {
         return;
     }
 
@@ -214,9 +311,6 @@ function preprocessFunctionDeclaration(node, helpers) {
 
         paramInfoByName.set(name, { index, identifier });
     }
-
-    const statementsToRemove = new Set();
-    let appliedChanges = false;
 
     const ensureParameterInfoForMatch = (match) => {
         if (!match) {
@@ -401,6 +495,71 @@ function matchArgumentCountFallbackStatement(statement, helpers) {
     return null;
 }
 
+function matchArgumentCountFallbackVarThenIf(
+    varStatement,
+    ifStatement,
+    helpers
+) {
+    if (!varStatement || !ifStatement) {
+        return null;
+    }
+
+    const declarator = getSimpleVarDeclarator(varStatement, helpers);
+    if (!declarator || !declarator.init) {
+        return null;
+    }
+
+    if (!ifStatement || ifStatement.type !== "IfStatement") {
+        return null;
+    }
+
+    if (helpers.hasComment(ifStatement)) {
+        return null;
+    }
+
+    if (ifStatement.alternate) {
+        return null;
+    }
+
+    const guard = parseArgumentCountGuard(ifStatement.test);
+    if (!guard) {
+        return null;
+    }
+
+    const assignment = extractAssignmentFromStatement(
+        ifStatement.consequent,
+        helpers
+    );
+
+    if (!assignment) {
+        return null;
+    }
+
+    if (
+        !isArgumentArrayAccess(assignment.right, guard.argumentIndex) ||
+        !assignment.left ||
+        assignment.left.type !== "Identifier"
+    ) {
+        return null;
+    }
+
+    const assignmentTarget = helpers.getIdentifierText(assignment.left);
+    const declaratorName = helpers.getIdentifierText(declarator.id);
+
+    if (!assignmentTarget || assignmentTarget !== declaratorName) {
+        return null;
+    }
+
+    return {
+        declarator,
+        guardExpression: unwrapParenthesizedExpression(ifStatement.test),
+        argumentExpression: assignment.right,
+        fallbackExpression: declarator.init,
+        ifStatement,
+        sourceStatement: varStatement
+    };
+}
+
 /**
  * Extracts the sole declarator from `var` declarations that match the simple
  * fallback patterns handled by this transform. Callers can optionally require
@@ -449,6 +608,10 @@ function getSimpleVarDeclarator(
  * @returns {ArgumentCountFallbackMatch | null}
  */
 function matchArgumentCountFallbackFromVariableDeclaration(node, helpers) {
+    if (node && node._skipArgumentCountDefault) {
+        return null;
+    }
+
     const declarator = getSimpleVarDeclarator(node, helpers);
     if (!declarator) {
         return null;
@@ -648,10 +811,11 @@ function extractAssignmentFromStatement(statement, helpers) {
     }
 
     if (statement.type === "BlockStatement") {
-        if (!Array.isArray(statement.body) || statement.body.length !== 1) {
+        const blockStatements = getBodyStatements(statement);
+        if (blockStatements.length !== 1) {
             return null;
         }
-        return extractAssignmentFromStatement(statement.body[0], helpers);
+        return extractAssignmentFromStatement(blockStatements[0], helpers);
     }
 
     if (statement.type !== "ExpressionStatement") {

@@ -1,16 +1,18 @@
 import {
     getNodeStartIndex,
     getNodeEndIndex,
-    cloneLocation
-} from "../../../shared/ast-locations.js";
-import {
+    getNodeStartLine,
+    getNodeEndLine,
+    cloneLocation,
     getSingleVariableDeclarator,
     isNode,
-    getSingleMemberIndexPropertyEntry
-} from "../../../shared/ast-node-helpers.js";
-import { getCommentArray, isLineComment } from "../../../shared/comments.js";
-import { isNonEmptyArray } from "../../../shared/array-utils.js";
-import { stripStringQuotes } from "../../../shared/string-utils.js";
+    getSingleMemberIndexPropertyEntry,
+    getCommentArray,
+    isLineComment,
+    asArray,
+    isNonEmptyArray,
+    stripStringQuotes
+} from "../shared/index.js";
 
 const FALLBACK_COMMENT_TOOLS = Object.freeze({
     addTrailingComment() {}
@@ -185,21 +187,36 @@ function collectPropertyAssignments({
         );
 
         if (attachableComments.length > 0) {
-            const existingComments = getCommentArray(property);
-            property.comments = Array.isArray(existingComments)
-                ? [...existingComments]
-                : [];
+            let trailingComments = Array.isArray(
+                property._structTrailingComments
+            )
+                ? property._structTrailingComments
+                : null;
+            if (!trailingComments) {
+                trailingComments = [];
+                Object.defineProperty(property, "_structTrailingComments", {
+                    value: trailingComments,
+                    writable: true,
+                    configurable: true,
+                    enumerable: false
+                });
+            }
             for (const comment of attachableComments) {
                 comment.enclosingNode = property;
                 comment.precedingNode = property;
                 comment.followingNode = property;
                 comment.leading = false;
-                comment.trailing = true;
+                comment.trailing = false;
                 comment.placement = "endOfLine";
+                if (comment.leadingChar === ";") {
+                    comment.leadingChar = ",";
+                }
                 comment._structPropertyTrailing = true;
                 comment._structPropertyHandled = false;
-                property.comments.push(comment);
+                comment._removedByConsolidation = true;
+                trailingComments.push(comment);
             }
+            property._hasTrailingInlineComment = true;
             const lastComment = attachableComments.at(-1);
             const commentEnd = getNodeEndIndex(lastComment);
             lastEnd = commentEnd == undefined ? end : commentEnd;
@@ -505,15 +522,18 @@ function allowTrailingCommentsBetween({
     const commentTarget = precedingProperty
         ? (precedingProperty.value ?? precedingProperty)
         : null;
-    const attachTrailingComment = commentTools.addTrailingComment;
-
     for (const { comment } of commentEntries) {
         if (comment.leadingChar === ";") {
             comment.leadingChar = ",";
         }
 
         if (commentTarget) {
-            attachTrailingComment(commentTarget, comment);
+            // Preserve historical metadata so the comment remains discoverable
+            // without registering it with Prettier's default trailing comment
+            // machinery. The printer renders these comments directly to avoid
+            // introducing additional line breaks while consolidating struct
+            // assignments.
+            comment.enclosingNode = commentTarget;
         }
     }
 
@@ -539,21 +559,6 @@ function getPreferredLocation(primary, fallback) {
     }
     if (isNode(fallback)) {
         return fallback;
-    }
-    return null;
-}
-
-function getNodeEndLine(node) {
-    if (!isNode(node)) {
-        return null;
-    }
-    const end = node.end;
-    if (isNode(end) && typeof end.line === "number") {
-        return end.line;
-    }
-    const start = node.start;
-    if (isNode(start) && typeof start.line === "number") {
-        return start.line;
     }
     return null;
 }
@@ -596,18 +601,6 @@ function isIdentifierSafe(name) {
     return typeof name === "string" && IDENTIFIER_SAFE_PATTERN.test(name);
 }
 
-function getNodeStartLine(node) {
-    if (!isNode(node)) {
-        return null;
-    }
-
-    if (node.start && typeof node.start.line === "number") {
-        return node.start.line;
-    }
-
-    return null;
-}
-
 class CommentTracker {
     constructor(ownerOrComments) {
         const sourceComments = (() => {
@@ -627,7 +620,7 @@ class CommentTracker {
             }
 
             const { comments } = ownerOrComments;
-            return Array.isArray(comments) ? comments : [];
+            return asArray(comments);
         })();
         this.comments = sourceComments;
         this.entries = sourceComments

@@ -1,0 +1,26 @@
+name: Codex 91 – Abstraction Layer Stewardship (SLA)
+
+on:
+  schedule:
+    - cron: "0 */4 * * *" # every 4 hours
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Abstraction Layer Stewardship"
+      pr_body: "Seed PR for Codex to keep orchestration code and low-level mechanics in separate layers."
+      prompt: >
+        Audit the codebase for a function that orchestrates high-level behaviour (controllers,
+        command handlers, or other entry points) yet still mutates raw arrays, indexes into
+        collections, or performs other primitive bookkeeping inline. Extract that low-level work
+        into focused helpers so the orchestrator reads as a sequence of delegation steps at a single
+        abstraction layer. Preserve behaviour, keep the diff tight, and ensure any new helper
+        contracts are documented or tested as appropriate.

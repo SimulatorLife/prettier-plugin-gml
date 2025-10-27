@@ -10,7 +10,8 @@ import GMLParser, {
 import { consolidateStructAssignments } from "../ast-transforms/consolidate-struct-assignments.js";
 import {
     applyFeatherFixes,
-    preprocessSourceForFeatherFixes
+    preprocessSourceForFeatherFixes,
+    applyRemovedIndexAdjustments
 } from "../ast-transforms/apply-feather-fixes.js";
 import { preprocessFunctionArgumentDefaults } from "../ast-transforms/preprocess-function-argument-defaults.js";
 import { enforceVariableBlockSpacing } from "../ast-transforms/enforce-variable-block-spacing.js";
@@ -19,15 +20,16 @@ import { condenseLogicalExpressions } from "../ast-transforms/condense-logical-e
 import { convertManualMathExpressions } from "../ast-transforms/convert-manual-math.js";
 import {
     getNodeStartIndex,
-    getNodeEndIndex
-} from "../../../shared/ast-locations.js";
-import { toMutableArray } from "../../../shared/array-utils.js";
+    getNodeEndIndex,
+    toMutableArray,
+    visitChildNodes
+} from "../shared/index.js";
 import { annotateStaticFunctionOverrides } from "../ast-transforms/annotate-static-overrides.js";
 import {
     prepareIdentifierCaseEnvironment,
     attachIdentifierCasePlanSnapshot,
     teardownIdentifierCaseEnvironment
-} from "../identifier-case/environment.js";
+} from "gamemaker-language-semantic/identifier-case/environment.js";
 import { prepareDocCommentEnvironment } from "../comments/index.js";
 
 const { addTrailingComment } = util;
@@ -35,6 +37,7 @@ const { addTrailingComment } = util;
 async function parse(text, options) {
     let parseSource = text;
     let preprocessedFixMetadata = null;
+    let enumIndexAdjustments = null;
     let environmentPrepared = false;
 
     if (options && typeof options === "object") {
@@ -58,6 +61,7 @@ async function parse(text, options) {
             }
 
             preprocessedFixMetadata = preprocessResult?.metadata ?? null;
+            enumIndexAdjustments = preprocessResult?.indexAdjustments ?? null;
         }
 
         const sanitizedResult = sanitizeConditionalAssignments(parseSource);
@@ -128,7 +132,10 @@ async function parse(text, options) {
             applyFeatherFixes(ast, {
                 sourceText: parseSource,
                 preprocessedFixMetadata,
-                options
+                options: {
+                    ...options,
+                    removeStandaloneVertexEnd: true
+                }
             });
         }
 
@@ -148,6 +155,16 @@ async function parse(text, options) {
                 applySanitizedIndexAdjustments(
                     preprocessedFixMetadata,
                     indexAdjustments
+                );
+            }
+        }
+
+        if (enumIndexAdjustments && enumIndexAdjustments.length > 0) {
+            applyRemovedIndexAdjustments(ast, enumIndexAdjustments);
+            if (preprocessedFixMetadata) {
+                applyRemovedIndexAdjustments(
+                    preprocessedFixMetadata,
+                    enumIndexAdjustments
                 );
             }
         }
@@ -962,18 +979,7 @@ function markCallsMissingArgumentSeparators(ast, originalText) {
         }
         visitedNodes.add(node);
 
-        if (Array.isArray(node)) {
-            for (const entry of node) {
-                visit(entry);
-            }
-            return;
-        }
-
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
+        visitChildNodes(node, visit);
 
         if (shouldPreserveCallWithMissingSeparators(node, originalText)) {
             Object.defineProperty(node, "preserveOriginalCallText", {

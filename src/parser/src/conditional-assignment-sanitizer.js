@@ -1,9 +1,12 @@
 import {
     hasOwn,
     isNonEmptyArray,
+    isNonEmptyString,
     isNonEmptyTrimmedString,
-    isWordChar
-} from "./shared/utils.js";
+    isWordChar,
+    identity,
+    enqueueObjectChildValues
+} from "./shared/index.js";
 
 const ASSIGNMENT_GUARD_CHARACTERS = new Set([
     "*",
@@ -20,8 +23,6 @@ const ASSIGNMENT_GUARD_CHARACTERS = new Set([
     "=",
     ":"
 ]);
-
-const identity = (value) => value;
 
 /**
  * Create a function that remaps parser indices back to the original source
@@ -123,7 +124,7 @@ function adjustLocationProperty(node, propertyName, mapIndex) {
  *     to map parser indices to the original string.
  */
 export function sanitizeConditionalAssignments(sourceText) {
-    if (typeof sourceText !== "string" || sourceText.length === 0) {
+    if (!isNonEmptyString(sourceText)) {
         return {
             sourceText,
             indexAdjustments: null
@@ -345,9 +346,7 @@ export function applySanitizedIndexAdjustments(target, insertPositions) {
         seen.add(current);
 
         if (Array.isArray(current)) {
-            for (const item of current) {
-                stack.push(item);
-            }
+            enqueueObjectChildValues(stack, current);
             continue;
         }
 
@@ -355,11 +354,7 @@ export function applySanitizedIndexAdjustments(target, insertPositions) {
         adjustLocationProperty(current, "end", mapIndex);
 
         for (const value of Object.values(current)) {
-            if (!value || typeof value !== "object") {
-                continue;
-            }
-
-            stack.push(value);
+            enqueueObjectChildValues(stack, value);
         }
     }
 }

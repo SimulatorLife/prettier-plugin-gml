@@ -10,6 +10,7 @@ import pluginPromise from "eslint-plugin-promise";
 import pluginRegexp from "eslint-plugin-regexp";
 import pluginNoSecrets from "eslint-plugin-no-secrets";
 import pluginEslintComments from "eslint-plugin-eslint-comments";
+import pluginUnusedImports from "eslint-plugin-unused-imports";
 
 /* Config */
 import eslintConfigPrettier from "eslint-config-prettier";
@@ -24,7 +25,7 @@ export default [
             "resources/*",
             "src/vendor/*.js",
             "generated/*",
-            "src/parser/src/generated/**/*",
+            "src/parser/generated/**/*",
             "*.gml",
             ".DS_Store",
             "LICENSE",
@@ -59,7 +60,8 @@ export default [
             import: pluginImport,
             regexp: pluginRegexp,
             "no-secrets": pluginNoSecrets,
-            "eslint-comments": pluginEslintComments
+            "eslint-comments": pluginEslintComments,
+            "unused-imports": pluginUnusedImports
         },
 
         /* Helpful for import/plugin-import */
@@ -73,7 +75,17 @@ export default [
             indent: ["error", 4, { SwitchCase: 1 }],
             quotes: ["warn", "double", { avoidEscape: true }],
             semi: ["error", "always"],
-            "no-unused-vars": ["warn"],
+            "no-unused-vars": "off",
+            "unused-imports/no-unused-imports": "error",
+            "unused-imports/no-unused-vars": [
+                "warn",
+                {
+                    vars: "all",
+                    varsIgnorePattern: "^_",
+                    args: "after-used",
+                    argsIgnorePattern: "^_"
+                }
+            ],
             "no-console": ["off"],
             "comma-dangle": ["off", "never"],
             "no-prototype-builtins": ["warn"],
@@ -228,7 +240,7 @@ export default [
     },
     /* Tests: relax a few noisy limits */
     {
-        files: ["**/tests/**", "*.test.*js", "*.spec.js"],
+        files: ["**/test/**", "*.test.*js", "*.spec.js"],
         rules: {
             quotes: ["off"],
             "max-lines-per-function": "off",

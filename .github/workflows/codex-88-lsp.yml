@@ -1,0 +1,38 @@
+name: Codex 88 – Polymorphic Collaborators
+
+on:
+  schedule:
+    - cron: "5 4 * * *" # daily at 04:05 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: LSP Polymorphism Guardrails"
+      pr_body: |
+        Seed PR for Codex to remove brittle collaborator type checks and reinforce
+        Liskov Substitution Principle expectations.
+
+        ### Acceptable substitution checks
+        - Probe for required capabilities by verifying the presence of a method or
+          property before use (e.g., `typeof transport.send === "function"`).
+        - Feature-detect optional behaviour (flags, version markers) instead of
+          comparing constructor names or prototypes.
+        - Guard result shape by routing collaborators through a shared adapter or
+          contract test that normalizes outputs.
+      prompt: >
+        Search for explicit type discrimination against collaborators that are meant
+        to be polymorphic—such as `instanceof` checks, constructor name comparisons,
+        or hard-coded property assertions prior to dispatch. Replace those checks with
+        contract-driven solutions: introduce adapters, interface shims, or capability
+        probes that normalize collaborator inputs/outputs so any substitute behaves
+        consistently. Update call sites to depend on the shared contract, add light
+        tests or documentation as needed, and describe how the refactor improves
+        substitution safety.

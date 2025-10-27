@@ -8,9 +8,9 @@ import { isObjectLike } from "./comment-boundary.js";
 import { getCommentValue } from "./comment-utils.js";
 import {
     trimStringEntries,
-    toTrimmedString
-} from "../../../shared/string-utils.js";
-import { isRegExpLike } from "../../../shared/utils/capability-probes.js";
+    toTrimmedString,
+    isRegExpLike
+} from "../shared/index.js";
 
 const JSDOC_REPLACEMENTS = {
     "@func": "@function",
@@ -227,16 +227,50 @@ function formatLineComment(
 }
 
 function applyInlinePadding(comment, formattedText) {
-    if (!isObjectLike(comment)) {
+    const paddingWidth = getInlinePaddingWidth(comment);
+
+    if (paddingWidth <= 0) {
         return formattedText;
+    }
+
+    return " ".repeat(paddingWidth) + formattedText;
+}
+
+function getInlinePaddingWidth(comment) {
+    if (!isObjectLike(comment)) {
+        return 0;
     }
 
     const { inlinePadding } = comment;
     if (typeof inlinePadding === "number" && inlinePadding > 0) {
-        return " ".repeat(inlinePadding) + formattedText;
+        return inlinePadding;
     }
 
-    return formattedText;
+    return getBottomTrailingInlinePadding(comment);
+}
+
+function getBottomTrailingInlinePadding(comment) {
+    if (comment?.isBottomComment !== true) {
+        return 0;
+    }
+
+    const isTrailingComment =
+        comment.trailing === true || comment.placement === "endOfLine";
+    if (!isTrailingComment) {
+        return 0;
+    }
+
+    if (comment.leadingChar !== ";") {
+        return 0;
+    }
+
+    const leadingWhitespace =
+        typeof comment.leadingWS === "string" ? comment.leadingWS : "";
+    if (leadingWhitespace.length >= 2) {
+        return 0;
+    }
+
+    return 1;
 }
 
 function extractContinuationIndentation(comment) {
@@ -395,6 +429,50 @@ function normalizeGameMakerType(typeText) {
 
     const outputSegments = [];
 
+    const isDotSeparatedTypeSpecifierPrefix = (prefixIndex) => {
+        let sawDot = false;
+
+        for (
+            let index = prefixIndex + 1;
+            index < segments.length;
+            index += 1
+        ) {
+            const candidate = segments[index];
+            if (!candidate) {
+                continue;
+            }
+
+            if (candidate.type === "separator") {
+                const rawValue = candidate.value ?? "";
+
+                if (rawValue.length === 0) {
+                    continue;
+                }
+
+                const trimmed = rawValue.trim();
+
+                if (trimmed.length === 0) {
+                    continue;
+                }
+
+                if (trimmed.startsWith(".")) {
+                    sawDot = true;
+                    continue;
+                }
+
+                return false;
+            }
+
+            if (candidate.type === "identifier") {
+                return sawDot;
+            }
+
+            return false;
+        }
+
+        return false;
+    };
+
     for (let index = 0; index < segments.length; index += 1) {
         const segment = segments[index];
         if (!segment) {
@@ -402,7 +480,19 @@ function normalizeGameMakerType(typeText) {
         }
 
         if (segment.type === "identifier") {
-            outputSegments.push(segment.value);
+            let normalizedValue = segment.value;
+
+            if (typeof normalizedValue === "string") {
+                const canonicalPrefix = TYPE_SPECIFIER_CANONICAL_NAMES.get(
+                    normalizedValue.toLowerCase()
+                );
+
+                if (canonicalPrefix && isDotSeparatedTypeSpecifierPrefix(index)) {
+                    normalizedValue = canonicalPrefix;
+                }
+            }
+
+            outputSegments.push(normalizedValue);
             continue;
         }
 

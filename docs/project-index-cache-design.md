@@ -54,7 +54,8 @@ real projects. The collected metrics surfaced three practical improvements:
    hit. The tracker exposes hit/miss/stale counters so we can detect unexpected
    churn during benchmarking.
 2. **I/O batching with bounded concurrency** – scanning and parsing GML files
-   now honours a configurable concurrency limit (defaulting to four workers).
+   now honours a configurable concurrency limit (defaulting to four workers and
+   clamped between one and sixteen).
    The metrics include the active concurrency to make it obvious when the
    system is CPU- or I/O-bound. Processing happens in batches so slow network
    storage no longer serialises the entire pipeline.
@@ -64,10 +65,12 @@ real projects. The collected metrics surfaced three practical improvements:
    it easy to spot tuning opportunities for ignore/preserve lists when the
    numbers spike.
 
-The `performance` CLI command (`node ./src/cli/cli.js performance --suite
+The `performance` CLI command (`node ./src/cli/src/cli.js performance --suite
 identifier-pipeline`) runs the project index twice (to observe cache reuse) and
 optionally executes the rename planner for a specific file, printing the
-captured metrics as structured JSON. This gives us an ad-hoc regression harness
+captured metrics as structured JSON. Use `--stdout` when piping the report into
+tools like `jq`; the CLI now keeps that stream clean by redirecting the
+"report written" summary to stderr. This gives us an ad-hoc regression harness
 for spotting regressions before they make it into CI.
 
 ## Cache persistence schema
@@ -95,7 +98,8 @@ inputs (`manifest-mtime-mismatch`, `formatter-version-mismatch`, etc.).
 atomic rename and refuses to persist entries that exceed the configured size
 limit (8 MiB by default) to avoid unbounded disk growth. Callers can tune the
 limit with the `gmlIdentifierCaseProjectIndexCacheMaxBytes` Prettier option;
-setting it to `0` disables the cap when larger caches are required.
+setting the option (or `GML_PROJECT_INDEX_CACHE_MAX_SIZE`) to `0` disables the
+cap when larger caches are required.
 
 ## Coordination and locking
 

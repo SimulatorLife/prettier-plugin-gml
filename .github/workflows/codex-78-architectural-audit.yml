@@ -1,0 +1,42 @@
+name: Codex 78 – Architectural Audit
+
+on:
+  schedule:
+    - cron: "40 3 * * *" # daily at 03:40 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Architectural Audit"
+      pr_body: |
+        Seed PR asking Codex to audit repository architecture, document findings, and
+        land a focused first-step refactor that keeps the codebase cohesive.
+      prompt: >
+        Perform a daily architectural audit of the repository. Focus on spotting
+        duplicated top-level concepts (such as scattered CLI entry points), overly
+        deep directory trees, and single-function micro-modules that would be clearer
+        when merged with related code. Propose and land one cohesive refactor that
+        moves the structure closer to the target layout while keeping APIs stable.
+
+        Requirements:
+          • Start with a design rationale that summarizes current pain points and the
+            intended target architecture.
+          • Outline a migration/fallback plan in the PR description before carrying out
+            sweeping file moves. Keep the changed file count manageable (under 40) and
+            defer additional moves to follow-up issues if necessary.
+          • Update imports, exports, documentation, and references so the project builds
+            cleanly after the restructure. Never touch golden fixtures or workflow
+            configuration.
+          • Run the full test and lint suite before finishing. Include the results in the
+            PR body.
+
+        If no safe improvements are available, open an issue summarizing the audit
+        findings instead of forcing code churn.

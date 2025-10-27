@@ -2,9 +2,12 @@ import {
     hasComment as sharedHasComment,
     normalizeHasCommentHelpers
 } from "../comments/index.js";
-import { unwrapParenthesizedExpression } from "../../../shared/ast-node-helpers.js";
-import { stripStringQuotes } from "../../../shared/string-utils.js";
-import { isObjectLike } from "../../../shared/object-utils.js";
+import {
+    asArray,
+    isObjectLike,
+    stripStringQuotes,
+    unwrapParenthesizedExpression
+} from "../shared/index.js";
 
 const DEFAULT_HELPERS = Object.freeze({
     hasComment: sharedHasComment
@@ -170,6 +173,18 @@ function collectConcatenationParts(node, helpers, output) {
     return true;
 }
 
+/**
+ * Convert the collected concatenation {@link parts} into template string
+ * atoms. The builder keeps adjacent text atoms coalesced and aborts when it
+ * encounters an unexpected node so the caller can fall back to the original
+ * binary expression without mutating the AST.
+ *
+ * @param {Array<unknown>} parts Ordered nodes collected from the concatenation
+ *        chain.
+ * @returns {Array<object> | null} Template atoms ready to attach to the AST, or
+ *          `null` when the inputs cannot be safely represented as a template
+ *          string.
+ */
 function buildTemplateAtoms(parts) {
     const atoms = [];
     let pendingText = "";
@@ -212,7 +227,7 @@ function buildTemplateAtoms(parts) {
         }
 
         if (core.type === TEMPLATE_STRING_EXPRESSION) {
-            const nestedAtoms = Array.isArray(core.atoms) ? core.atoms : [];
+            const nestedAtoms = asArray(core.atoms);
             if (nestedAtoms.length === 0) {
                 return null;
             }

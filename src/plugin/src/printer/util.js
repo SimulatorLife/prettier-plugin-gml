@@ -1,5 +1,5 @@
 import { util } from "prettier";
-import { toTrimmedString } from "../../../shared/string-utils.js";
+import { toTrimmedString } from "../shared/index.js";
 
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
 
@@ -8,6 +8,7 @@ const { isNextLineEmpty, isPreviousLineEmpty } = util;
 const NODE_TYPES_REQUIRING_SEMICOLON = new Set([
     "CallExpression",
     "AssignmentExpression",
+    "ExpressionStatement",
     "GlobalVarStatement",
     "ReturnStatement",
     "BreakStatement",

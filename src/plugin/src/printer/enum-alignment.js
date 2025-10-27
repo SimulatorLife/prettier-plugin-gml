@@ -1,8 +1,23 @@
-import { isNonEmptyArray } from "../../../shared/array-utils.js";
-import { getCommentArray } from "../../../shared/comments.js";
+import { isNonEmptyArray, getCommentArray } from "../shared/index.js";
 
 const ENUM_INITIALIZER_OPERATOR_WIDTH = " = ".length;
 
+/**
+ * Mutate an enum declaration so subsequent printer passes know how much spacing
+ * is required to align member names, initializers, and trailing comments.
+ *
+ * Each member receives bookkeeping properties (for example,
+ * `_enumNameAlignmentPadding`) that store the padding width needed to align the
+ * columnar layout. When no alignment work is required the function exits early
+ * to avoid allocating metadata in hot printer paths.
+ *
+ * @param {{
+ *     members?: Array<unknown> | null | undefined;
+ *     hasTrailingComma?: boolean;
+ } | null | undefined} enumNode Enum AST node to augment.
+ * @param {(node: unknown) => string | null | undefined} [getNodeName]
+ *        Optional resolver used to extract a stable member name.
+ */
 export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
     if (!enumNode || typeof enumNode !== "object") {
         return;
@@ -15,12 +30,11 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
 
     const resolveName =
         typeof getNodeName === "function" ? getNodeName : undefined;
-    const { memberStats, maxInitializerNameLength } = collectEnumMemberStats(
-        members,
-        resolveName
-    );
+    const { memberStats, maxInitializerNameLength, allMembersHaveInitializer } =
+        collectEnumMemberStats(members, resolveName);
 
-    const shouldAlignInitializers = maxInitializerNameLength > 0;
+    const shouldAlignInitializers =
+        allMembersHaveInitializer && maxInitializerNameLength > 0;
 
     const maxMemberWidth = applyEnumMemberAlignment({
         memberStats,
@@ -36,10 +50,19 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
     applyTrailingCommentPadding({
         memberStats,
         maxMemberWidth,
-        hasTrailingComma
+        hasTrailingComma,
+        shouldAlignInitializers
     });
 }
 
+/**
+ * Retrieve the alignment padding previously attached by
+ * {@link prepareEnumMembersForPrinting}. Callers default to zero so the printer
+ * can treat members without metadata as already aligned.
+ *
+ * @param {unknown} member Enum member node carrying optional alignment state.
+ * @returns {number} Non-negative padding width in spaces.
+ */
 export function getEnumNameAlignmentPadding(member) {
     if (!member) {
         return 0;
@@ -50,7 +73,7 @@ export function getEnumNameAlignmentPadding(member) {
 }
 
 function getEnumInitializerWidth(initializer) {
-    if (initializer == undefined) {
+    if (initializer === undefined || initializer === null) {
         return 0;
     }
 
@@ -112,6 +135,7 @@ function collectEnumMemberStats(members, resolveName) {
     const memberCount = members.length;
     const memberStats = new Array(memberCount);
     let maxInitializerNameLength = 0;
+    let allMembersHaveInitializer = true;
 
     // Avoid `Array#map` here so the hot enum printing path does not allocate a
     // new callback for each member. The manual loop keeps the same data shape
@@ -126,6 +150,8 @@ function collectEnumMemberStats(members, resolveName) {
 
         if (hasInitializer && nameLength > maxInitializerNameLength) {
             maxInitializerNameLength = nameLength;
+        } else if (!hasInitializer) {
+            allMembersHaveInitializer = false;
         }
 
         memberStats[index] = {
@@ -137,7 +163,7 @@ function collectEnumMemberStats(members, resolveName) {
         };
     }
 
-    return { memberStats, maxInitializerNameLength };
+    return { memberStats, maxInitializerNameLength, allMembersHaveInitializer };
 }
 
 function applyEnumMemberAlignment({
@@ -174,8 +200,13 @@ function applyEnumMemberAlignment({
 function applyTrailingCommentPadding({
     memberStats,
     maxMemberWidth,
-    hasTrailingComma
+    hasTrailingComma,
+    shouldAlignInitializers
 }) {
+    if (shouldAlignInitializers) {
+        return;
+    }
+
     const lastIndex = memberStats.length - 1;
 
     // Manual index iteration avoids allocating iterator tuples from
