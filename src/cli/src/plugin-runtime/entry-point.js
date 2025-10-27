@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
 
 import {
     createListSplitPattern,
@@ -11,12 +11,10 @@ import {
     toArray,
     uniqueArray
 } from "../dependencies.js";
-
-const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
-const CLI_SRC_DIRECTORY = path.resolve(MODULE_DIRECTORY, "..");
-const CLI_PACKAGE_DIRECTORY = path.resolve(CLI_SRC_DIRECTORY, "..");
-const WORKSPACE_SOURCE_DIRECTORY = path.resolve(CLI_PACKAGE_DIRECTORY, "..");
-const REPO_ROOT = path.resolve(WORKSPACE_SOURCE_DIRECTORY, "..");
+import {
+    REPO_ROOT,
+    resolveFromRepoRoot
+} from "../shared/workspace-paths.js";
 
 // Default plugin entry points shipped within the workspace. Additional
 // candidates can be provided via environment variables or call-site overrides.
@@ -86,7 +84,7 @@ function resolveCandidatePath(candidate) {
     }
 
     if (Array.isArray(candidate)) {
-        return path.resolve(REPO_ROOT, ...candidate);
+        return resolveFromRepoRoot(...candidate);
     }
 
     if (typeof candidate === "string") {
@@ -101,7 +99,7 @@ function resolveCandidatePath(candidate) {
             return expanded;
         }
 
-        return path.resolve(REPO_ROOT, expanded);
+        return resolveFromRepoRoot(expanded);
     }
 
     return null;

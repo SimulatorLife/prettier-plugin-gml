@@ -1,17 +1,13 @@
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import {
     isPathInside,
     toArray,
     uniqueArray
 } from "../dependencies.js";
+import { REPO_ROOT } from "../../shared/workspace-paths.js";
 
-const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
-const CLI_SRC_DIRECTORY = path.resolve(MODULE_DIRECTORY, "..", "..");
-const CLI_PACKAGE_DIRECTORY = path.resolve(CLI_SRC_DIRECTORY, "..");
-const WORKSPACE_SOURCE_DIRECTORY = path.resolve(CLI_PACKAGE_DIRECTORY, "..");
-export const REPO_ROOT = path.resolve(WORKSPACE_SOURCE_DIRECTORY, "..");
+export { REPO_ROOT };
 
 export const DEFAULT_FIXTURE_DIRECTORIES = Object.freeze([
     path.resolve(REPO_ROOT, "src", "parser", "test", "input"),
