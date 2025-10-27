@@ -4,7 +4,7 @@ The repository does not define any TypeScript or JavaScript interfaces with broa
 (such as `*Service`, `*Manager`, or `*Controller`) that expose large contracts. To confirm this, I
 surveyed the codebase using the following searches:
 
-- `rg "interface" src --stats` — returned only a comment in `src/cli/cli.js`, no actual interface definitions.
+- `rg "interface" src --stats` — returned only a comment in `src/cli/src/cli.js`, no actual interface definitions.
 - `rg "@typedef" src -n` — surfaced the handful of small JSDoc object typedefs (`CommentLineNode`, `CommentBlockNode`, `FeatherDiagnostic`, and a couple of helper structs), each of which only contains a few focused properties.
 - `rg "Service" src`, `rg "Manager" src`, and `rg "Controller" src` — produced no matches outside of fixture strings.
 - `find src -name "*.ts"` — confirmed there are no in-repo TypeScript sources beyond vendored dependencies under `node_modules`.
@@ -140,7 +140,7 @@ no code changes were required.
 
 ## Follow-up audit (2025-04-16)
 
-- Identified `createMetricsTracker` in `src/shared/reporting/metrics.js` as a
+- Identified `createMetricsTracker` in `src/shared/src/reporting/metrics.js` as a
   wide surface that combined timing helpers, counter incrementers, cache
   recorders, and reporting utilities behind one "tracker" object. Callers that
   only needed to bump counters or capture a snapshot still depended on all of

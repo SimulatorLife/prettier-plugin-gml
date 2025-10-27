@@ -13,25 +13,25 @@
 
 ## Target layout and first-step refactor
 
-- Introduce two high-level groupings under `src/shared/`:
-  - `src/shared/ast/` collects AST-facing helpers such as the location helpers
+- Introduce two high-level groupings under `src/shared/src/`:
+  - `src/shared/src/ast/` collects AST-facing helpers such as the location helpers
     and comment discovery utilities. They now share an `index.js` barrel so
     modules that work with AST metadata can import from one place.
-  - `src/shared/utils/` consolidates general-purpose utilities (array, string,
+  - `src/shared/src/utils/` consolidates general-purpose utilities (array, string,
     number, path, JSON, RegExp, etc.) with an accompanying barrel export.
   - Domain-specific helpers that carry formatter metadata now live in
-    dedicated directories (for example `src/shared/identifier-metadata/`).
+    dedicated directories (for example `src/shared/src/identifier-metadata/`).
     This keeps the generic utility barrel focused on cross-cutting helpers
     while still surfacing the specialized modules through the existing
     top-level shims.
-- The original file names at `src/shared/*-utils.js` (and the AST helper entry
+- The original file names at `src/shared/src/*-utils.js` (and the AST helper entry
   points) remain as thin re-export shims. This keeps every existing import path
   working while the codebase transitions toward the new structure.
 - The re-exported barrels make it straightforward to adopt the grouped layout on
   a file-by-file basis. Future patches can update imports to point at
-  `src/shared/ast` or `src/shared/utils` without juggling individual module
+  `src/shared/src/ast` or `src/shared/src/utils` without juggling individual module
   names. The `2024-05-15` audit introduced top-level convenience barrels
-  (`src/shared/ast.js` and `src/shared/utils.js`) so consumers no longer need to
+  (`src/shared/src/ast.js` and `src/shared/src/utils.js`) so consumers no longer need to
   navigate the transitional shim files while still preserving the legacy entry
   points.
 
@@ -40,7 +40,7 @@
 - Update high-traffic modules (printers, parser adapters, CLI tooling) to import
   from the new barrel modules. Once the majority of call sites use the grouped
   paths we can consider removing the transitional re-export shims.
-- Revisit the remaining files in `src/shared/` (for example the transitional
+- Revisit the remaining files in `src/shared/src/` (for example the transitional
   `ast-locations` shim) to decide whether they belong in the `ast` folder or
   merit their own category now that the line break helpers live under
-  `src/shared/utils/line-breaks.js`.
+  `src/shared/src/utils/line-breaks.js`.

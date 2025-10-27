@@ -15246,7 +15246,7 @@ function suppressDuplicateVertexFormatComments(ast, commentTargets, node) {
         return;
     }
 
-    if (!Array.isArray(commentTargets) || commentTargets.length === 0) {
+    if (!isNonEmptyArray(commentTargets)) {
         return;
     }
 
@@ -15401,7 +15401,7 @@ function createCallExpressionCommentText(node) {
 
     const args = getCallExpressionArguments(node);
 
-    if (!Array.isArray(args) || args.length === 0) {
+    if (!isNonEmptyArray(args)) {
         return `${calleeName}()`;
     }
 

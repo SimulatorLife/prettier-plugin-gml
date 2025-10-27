@@ -1302,11 +1302,21 @@ export function print(path, options, print) {
         case "Literal": {
             let value = node.value;
 
-            if (value.startsWith(".") && !value.startsWith('"')) {
-                value = "0" + value; // Fix decimals without a leading 0.
-            }
-            if (value.endsWith(".") && !value.endsWith('"')) {
-                value = value + "0"; // Fix decimals without a trailing 0.
+            if (!value.startsWith('"')) {
+                if (value.startsWith(".")) {
+                    value = "0" + value; // Fix decimals without a leading 0.
+                }
+
+                const decimalMatch = value.match(/^([-+]?\d+)\.(\d*)$/);
+                if (decimalMatch) {
+                    const [, integerPart, fractionalPart] = decimalMatch;
+                    if (
+                        fractionalPart.length === 0 ||
+                        /^0+$/.test(fractionalPart)
+                    ) {
+                        value = integerPart; // Trim trailing decimal points or all-zero fractions.
+                    }
+                }
             }
             return concat(value);
         }
@@ -1854,7 +1864,7 @@ function printCommaSeparatedList(
 // was easy to miss one of those responsibilities and regress either the
 // formatter's brace guarantees or the doc comment synthesis covered by the
 // synthetic doc comment integration tests
-// (`src/plugin/tests/synthetic-doc-comments.test.js`).
+// (`src/plugin/test/synthetic-doc-comments.test.js`).
 function printInBlock(path, options, print, expressionKey) {
     const node = path.getValue()[expressionKey];
     return node.type === "BlockStatement"
@@ -3331,7 +3341,7 @@ function collectSyntheticDocCommentLines(node, options) {
 }
 
 function extractLeadingNonDocCommentLines(comments, options) {
-    if (!Array.isArray(comments) || comments.length === 0) {
+    if (!isNonEmptyArray(comments)) {
         return {
             leadingLines: [],
             remainingComments: Array.isArray(comments) ? comments : []

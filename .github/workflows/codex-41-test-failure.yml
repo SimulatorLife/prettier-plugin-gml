@@ -59,7 +59,7 @@ jobs:
         formatting rules, choose one regression to address—implement the necessary
         production fix or feature for that specific case, leave the rest untouched,
         and document any remaining gaps. Never modify the existing golden files in
-        src/plugin/tests/*.gml.
+        src/plugin/test/*.gml.
         If your fix targets only part of a failing test—meaning the broader test
         will still fail afterward—add a new, focused test (unit or integration)
         that explicitly demonstrates the corrected behavior. Even if the original

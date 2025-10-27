@@ -24,4 +24,4 @@ jobs:
         equivalents, adjust imports/usages accordingly, and document notable version
         jumps in the commit message. Skip tooling/config changes—those live in the
         configuration workflow. Keep the diff tight, avoid introducing new heavy
-        dependencies, and ensure builds/tests still succeed after the cleanup.
+        dependencies, and ensure builds and tests still succeed after the cleanup.

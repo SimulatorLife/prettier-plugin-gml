@@ -162,7 +162,7 @@ of GameMaker keywords, constants, variables, and enums.
 - **Goals** – Stay aligned with the current GameMaker release without manually
   curating lists, keep the formatter fast, and prefer first-party sources.
 - **Sources** – The harvesting command at
-  [`src/cli/commands/generate-gml-identifiers.js`](../src/cli/commands/generate-gml-identifiers.js)
+  [`src/cli/src/commands/generate-gml-identifiers.js`](../src/cli/src/commands/generate-gml-identifiers.js)
   downloads assets from the YoYo Games manual repository: `ZeusDocs_keywords.json`
   (identifier → topic map), `ZeusDocs_tags.json` (topic metadata), and
   `Manual/contents/assets/scripts/gml.js` (keyword/constant arrays). Manual tags
