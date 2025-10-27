@@ -107,6 +107,12 @@ import {
     resolveUnsupportedExtensionSampleLimit,
     UNSUPPORTED_EXTENSION_SAMPLE_LIMIT_ENV_VAR
 } from "./runtime-options/unsupported-extension-sample-limit.js";
+import {
+    PrettierLogLevel,
+    PRETTIER_LOG_LEVEL_CHOICE_MESSAGE,
+    parsePrettierLogLevel,
+    resolvePrettierLogLevel
+} from "./core/prettier-log-level.js";
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolvePluginEntryPoint();
@@ -129,14 +135,6 @@ const ParseErrorAction = Object.freeze({
 });
 
 const VALID_PARSE_ERROR_ACTIONS = new Set(Object.values(ParseErrorAction));
-const VALID_PRETTIER_LOG_LEVELS = new Set([
-    "debug",
-    "info",
-    "warn",
-    "error",
-    "silent"
-]);
-
 function formatValidChoiceList(values) {
     return [...values].sort().join(", ");
 }
@@ -144,10 +142,6 @@ function formatValidChoiceList(values) {
 const VALID_PARSE_ERROR_ACTION_CHOICES = formatValidChoiceList(
     VALID_PARSE_ERROR_ACTIONS
 );
-const VALID_PRETTIER_LOG_LEVEL_CHOICES = formatValidChoiceList(
-    VALID_PRETTIER_LOG_LEVELS
-);
-
 const FORMAT_COMMAND_CLI_EXAMPLE =
     "npx prettier-plugin-gml format path/to/project";
 const FORMAT_COMMAND_WORKSPACE_EXAMPLE =
@@ -318,12 +312,10 @@ const DEFAULT_PARSE_ERROR_ACTION =
         VALID_PARSE_ERROR_ACTIONS
     ) ?? ParseErrorAction.SKIP;
 
-const DEFAULT_PRETTIER_LOG_LEVEL =
-    normalizeEnumeratedOption(
-        process.env.PRETTIER_PLUGIN_GML_LOG_LEVEL,
-        "warn",
-        VALID_PRETTIER_LOG_LEVELS
-    ) ?? "warn";
+const DEFAULT_PRETTIER_LOG_LEVEL = resolvePrettierLogLevel(
+    process.env.PRETTIER_PLUGIN_GML_LOG_LEVEL,
+    PrettierLogLevel.WARN
+);
 
 const program = applyStandardCommandOptions(new Command())
     .name("prettier-plugin-gml")
@@ -458,21 +450,15 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         .option(
             "--log-level <level>",
             [
-                "Prettier log level to use (debug, info, warn, error, or silent).",
+                `Prettier log level to use (${PRETTIER_LOG_LEVEL_CHOICE_MESSAGE}).`,
                 "Respects PRETTIER_PLUGIN_GML_LOG_LEVEL when set."
             ].join(" "),
             (value) => {
-                const normalized = normalizeEnumeratedOption(
-                    value,
-                    DEFAULT_PRETTIER_LOG_LEVEL,
-                    VALID_PRETTIER_LOG_LEVELS
-                );
-                if (!normalized) {
-                    throw new InvalidArgumentError(
-                        `Must be one of: ${VALID_PRETTIER_LOG_LEVEL_CHOICES}`
-                    );
+                try {
+                    return parsePrettierLogLevel(value);
+                } catch (error) {
+                    throw new InvalidArgumentError(error.message);
                 }
-                return normalized;
             },
             DEFAULT_PRETTIER_LOG_LEVEL
         )
@@ -557,13 +543,10 @@ const options = {
 };
 
 function configurePrettierOptions({ logLevel } = {}) {
-    const normalized =
-        normalizeEnumeratedOption(
-            logLevel,
-            DEFAULT_PRETTIER_LOG_LEVEL,
-            VALID_PRETTIER_LOG_LEVELS
-        ) ?? DEFAULT_PRETTIER_LOG_LEVEL;
-    options.logLevel = normalized;
+    options.logLevel = resolvePrettierLogLevel(
+        logLevel,
+        DEFAULT_PRETTIER_LOG_LEVEL
+    );
 }
 
 const skippedFileSummary = {
