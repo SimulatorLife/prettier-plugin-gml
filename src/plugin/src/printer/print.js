@@ -39,6 +39,7 @@ import {
     isNonEmptyString,
     isNonEmptyTrimmedString,
     toTrimmedString,
+    asArray,
     isNonEmptyArray,
     getNodeType,
     toMutableArray,
@@ -749,9 +750,7 @@ export function print(path, options, print) {
         }
         case "VariableDeclaration": {
             const functionNode = findEnclosingFunctionNode(path);
-            const declarators = Array.isArray(node.declarations)
-                ? node.declarations
-                : [];
+            const declarators = asArray(node.declarations);
             const keptDeclarators = declarators.filter(
                 (declarator) =>
                     !shouldOmitParameterAlias(declarator, functionNode, options)
@@ -2132,7 +2131,7 @@ function buildCallbackArgumentsWithSimplePrefix(
     simplePrefixLength
 ) {
     const node = path.getValue();
-    const args = Array.isArray(node?.arguments) ? node.arguments : [];
+    const args = asArray(node?.arguments);
     const parts = [];
     const trailingArguments = args.slice(simplePrefixLength);
     const isCallbackArgument = (argument) => {
@@ -2189,9 +2188,7 @@ function shouldForceBreakStructArgument(argument) {
         return true;
     }
 
-    const properties = Array.isArray(argument.properties)
-        ? argument.properties
-        : [];
+    const properties = asArray(argument.properties);
 
     if (properties.length === 0) {
         return false;
@@ -2212,10 +2209,8 @@ function shouldForceBreakStructArgument(argument) {
 function buildStructPropertyCommentSuffix(path, options) {
     const node =
         path && typeof path.getValue === "function" ? path.getValue() : null;
-    const comments = Array.isArray(node?._structTrailingComments)
-        ? node._structTrailingComments
-        : null;
-    if (!comments || comments.length === 0) {
+    const comments = asArray(node?._structTrailingComments);
+    if (comments.length === 0) {
         return "";
     }
 
@@ -2250,9 +2245,7 @@ function getStructAlignmentInfo(structNode, options) {
         return null;
     }
 
-    const properties = Array.isArray(structNode.properties)
-        ? structNode.properties
-        : [];
+    const properties = asArray(structNode.properties);
 
     let maxNameLength = 0;
 
@@ -3175,7 +3168,7 @@ function collectSyntheticDocCommentLines(node, options) {
     if (!isNonEmptyArray(rawComments)) {
         return {
             existingDocLines: [],
-            remainingComments: Array.isArray(rawComments) ? rawComments : []
+            remainingComments: asArray(rawComments)
         };
     }
 
@@ -3209,7 +3202,7 @@ function extractLeadingNonDocCommentLines(comments, options) {
     if (!isNonEmptyArray(comments)) {
         return {
             leadingLines: [],
-            remainingComments: Array.isArray(comments) ? comments : []
+            remainingComments: asArray(comments)
         };
     }
 
@@ -7591,10 +7584,8 @@ function areNumericExpressionsEquivalent(left, right) {
                 return false;
             }
 
-            const leftProps = Array.isArray(left.property) ? left.property : [];
-            const rightProps = Array.isArray(right.property)
-                ? right.property
-                : [];
+            const leftProps = asArray(left.property);
+            const rightProps = asArray(right.property);
 
             if (leftProps.length !== rightProps.length) {
                 return false;
