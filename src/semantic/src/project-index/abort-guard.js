@@ -12,11 +12,8 @@ export function createProjectIndexAbortGuard(
     const resolvedFallback =
         fallbackMessage ?? message ?? PROJECT_INDEX_BUILD_ABORT_MESSAGE;
 
-    const guardConfig = { fallbackMessage: resolvedFallback };
-
-    if (key != null) {
-        guardConfig.key = key;
-    }
-
-    return createAbortGuard(options, guardConfig);
+    return createAbortGuard(options, {
+        fallbackMessage: resolvedFallback,
+        ...(key != null ? { key } : {})
+    });
 }
