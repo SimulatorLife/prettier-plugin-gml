@@ -39,4 +39,4 @@ export {
     resolveDocCommentDescriptionService,
     resolveDocCommentUpdateService
 } from "./doc-comment-manager.js";
-export { getCommentValue } from "./comment-utils.js";
+export { getCommentValue } from "../shared/index.js";
