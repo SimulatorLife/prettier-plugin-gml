@@ -34,7 +34,8 @@ import {
     stringifyJsonForFile,
     resolveModuleDefaultExport,
     createCliRunSkippedError,
-    isCliRunSkipped
+    isCliRunSkipped,
+    uniqueArray
 } from "../../shared/dependencies.js";
 import {
     PerformanceSuiteName,
@@ -64,7 +65,7 @@ const DATASET_CACHE_KEY = "gml-fixtures";
 const SUPPORTS_WEAK_REF = typeof WeakRef === "function";
 
 function normalizeWorkflowPathList(paths) {
-    const normalized = new Set();
+    const candidates = [];
 
     for (const entry of toArray(paths)) {
         if (typeof entry !== "string") {
@@ -76,10 +77,10 @@ function normalizeWorkflowPathList(paths) {
             continue;
         }
 
-        normalized.add(path.resolve(trimmed));
+        candidates.push(path.resolve(trimmed));
     }
 
-    return [...normalized];
+    return uniqueArray(candidates);
 }
 
 function createPathFilter(filters = {}) {
