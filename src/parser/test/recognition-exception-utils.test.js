@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { isRecognitionExceptionLike } from "../src/utils/recognition-exception.js";
+import antlr4 from "antlr4";
+import {
+    isRecognitionExceptionLike,
+    installRecognitionExceptionLikeGuard
+} from "../src/utils/recognition-exception.js";
 
 test("isRecognitionExceptionLike rejects non-error values", () => {
     assert.strictEqual(isRecognitionExceptionLike(null), false);
@@ -62,4 +66,29 @@ test("isRecognitionExceptionLike requires contextual hints", () => {
 
     const candidate = new MissingContextError("missing");
     assert.strictEqual(isRecognitionExceptionLike(candidate), false);
+});
+
+test("installRecognitionExceptionLikeGuard augments instanceof checks", () => {
+    class RecognitionAdapter extends Error {
+        constructor() {
+            super("adapter failure");
+            this.ctx = {};
+            this.expectedTokens = {};
+            this.offendingToken = {};
+        }
+    }
+
+    const candidate = new RecognitionAdapter();
+
+    assert.strictEqual(
+        candidate instanceof antlr4.error.RecognitionException,
+        false
+    );
+
+    installRecognitionExceptionLikeGuard();
+
+    assert.strictEqual(
+        candidate instanceof antlr4.error.RecognitionException,
+        true
+    );
 });
