@@ -27,18 +27,10 @@ export class StatementSpacingPolicy {
     }
 
     shouldSuppressEmptyLineBetween(previousNode, nextNode) {
-        if (!previousNode || !nextNode) {
-            return false;
-        }
-
-        if (
+        return (
             this.isMacroLikeStatement(previousNode) &&
             this.isMacroLikeStatement(nextNode)
-        ) {
-            return true;
-        }
-
-        return false;
+        );
     }
 
     shouldForceTrailingBlankLineForNestedFunction(
