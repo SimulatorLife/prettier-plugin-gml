@@ -40,21 +40,14 @@ function normalizeArrayOption(
         return defaultValue;
     }
 
-    const normalized = [];
-
-    for (const value of candidate) {
-        if (filter(value)) {
-            normalized.push(map(value));
-        }
-    }
-
-    if (normalized.length === 0) {
-        return defaultValue;
-    }
+    const normalized = candidate
+        .filter((value) => filter(value))
+        .map((value) => map(value));
 
     if (
-        normalized.length === defaultValue.length &&
-        normalized.every((value, index) => value === defaultValue[index])
+        normalized.length === 0 ||
+        (normalized.length === defaultValue.length &&
+            normalized.every((value, index) => value === defaultValue[index]))
     ) {
         return defaultValue;
     }
