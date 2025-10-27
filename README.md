@@ -149,6 +149,10 @@ for (var i = 0; i < queue_count; i += 1) {
 - [Semantic subsystem reference](src/semantic/README.md) &mdash; Details how the
   scope trackers and project-index coordinator now live in the dedicated
   `gamemaker-language-semantic` workspace package.
+- [ANTLR regeneration guide](docs/antlr-regeneration.md) &mdash; Walkthrough for
+  rebuilding the generated parser sources with the vendored toolchain and
+  understanding where custom extensions live now that the grammar delegates to
+  extracted helpers.
 - [Identifier casing handbook](docs/naming-conventions.md) &mdash; End-to-end
   coverage of the rename pipeline paired with the
   [scope reference](docs/identifier-case-reference.md),
