@@ -1098,20 +1098,38 @@ async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
     return false;
 }
 
-async function resolveProjectIgnorePaths(directory) {
+/**
+ * Resolve the directory bounds that should be inspected for ignore files.
+ *
+ * @param {string} directory
+ */
+function resolveIgnoreSearchBounds(directory) {
     const resolvedDirectory = path.resolve(directory);
     const resolvedWorkingDirectory = path.resolve(process.cwd());
-    const directoriesToInspect = collectAncestorDirectories(
-        resolvedDirectory,
-        isPathInside(resolvedWorkingDirectory, resolvedDirectory)
-            ? resolvedWorkingDirectory
-            : null
-    );
+    const searchRoot = isPathInside(resolvedWorkingDirectory, resolvedDirectory)
+        ? resolvedWorkingDirectory
+        : null;
 
-    const candidatePaths = directoriesToInspect.map((candidateDirectory) =>
+    return { resolvedDirectory, searchRoot };
+}
+
+/**
+ * Create the list of ignore file candidates from directories.
+ *
+ * @param {readonly string[]} directories
+ */
+function collectIgnoreCandidatePaths(directories) {
+    return directories.map((candidateDirectory) =>
         path.join(candidateDirectory, ".prettierignore")
     );
+}
 
+/**
+ * Filter the provided paths down to the ignore files that exist.
+ *
+ * @param {readonly string[]} candidatePaths
+ */
+async function collectExistingIgnoreFiles(candidatePaths) {
     const discovered = await Promise.all(
         candidatePaths.map(async (ignoreCandidate) => {
             try {
@@ -1125,6 +1143,17 @@ async function resolveProjectIgnorePaths(directory) {
     );
 
     return discovered.filter(Boolean);
+}
+
+async function resolveProjectIgnorePaths(directory) {
+    const { resolvedDirectory, searchRoot } =
+        resolveIgnoreSearchBounds(directory);
+    const directoriesToInspect = collectAncestorDirectories(
+        resolvedDirectory,
+        searchRoot
+    );
+    const candidatePaths = collectIgnoreCandidatePaths(directoriesToInspect);
+    return collectExistingIgnoreFiles(candidatePaths);
 }
 
 /**
