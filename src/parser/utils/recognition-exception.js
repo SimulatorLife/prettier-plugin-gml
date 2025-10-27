@@ -1,1 +1,4 @@
-export { isRecognitionExceptionLike } from "../src/utils/recognition-exception.js";
+export {
+    isRecognitionExceptionLike,
+    installRecognitionExceptionLikeGuard
+} from "../src/utils/recognition-exception.js";

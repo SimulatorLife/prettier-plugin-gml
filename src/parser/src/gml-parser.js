@@ -12,6 +12,9 @@ import {
     isErrorLike,
     getLineBreakCount
 } from "./shared/index.js";
+import { installRecognitionExceptionLikeGuard } from "./utils/recognition-exception.js";
+
+installRecognitionExceptionLikeGuard();
 
 function normalizeSimpleEscapeCase(text) {
     if (typeof text !== "string" || text.length === 0) {
