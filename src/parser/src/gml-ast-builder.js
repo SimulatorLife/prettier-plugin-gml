@@ -1105,7 +1105,22 @@ export default class GameMakerASTBuilder {
         let argList = [];
         let argumentListCtx = ctx.argumentList();
         if (argumentListCtx) {
+            const children = argumentListCtx.children;
+            const hasLeadingComma =
+                Array.isArray(children) &&
+                children.length > 0 &&
+                typeof children[0]?.getText === "function" &&
+                children[0].getText() === ",";
+
             this.collectArguments(argumentListCtx, argList);
+
+            if (hasLeadingComma) {
+                argList.unshift(
+                    this.astNode(argumentListCtx, {
+                        type: "MissingOptionalArgument"
+                    })
+                );
+            }
         }
         // check if trailingComma exists
         if (ctx.trailingComma()) {
@@ -1317,7 +1332,7 @@ export default class GameMakerASTBuilder {
             hasTrailingComma = Boolean(argsCtx.trailingComma());
 
             if (hasTrailingComma && params.length > 0) {
-                const lastParam = params[params.length - 1];
+                const lastParam = params.at(-1);
                 if (lastParam?.type === "MissingOptionalArgument") {
                     params = params.slice(0, -1);
                 }
