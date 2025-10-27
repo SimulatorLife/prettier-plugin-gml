@@ -14,7 +14,8 @@ import {
     isNode,
     isNonEmptyArray,
     isNonEmptyString,
-    toNormalizedLowerCaseString
+    toNormalizedLowerCaseString,
+    forEachNodeChild
 } from "../shared/index.js";
 
 const BOOLEAN_NODE_TYPES = Object.freeze({
@@ -421,19 +422,19 @@ function visit(node, helpers, parent) {
         visit(node.body, helpers, node);
     }
 
-    for (const [key, value] of Object.entries(node)) {
+    forEachNodeChild(node, (value, key) => {
         if (
             key === "body" ||
             key === "start" ||
             key === "end" ||
             key === "comments"
         ) {
-            continue;
+            return;
         }
         if (isNode(value) || Array.isArray(value)) {
             visit(value, helpers, node);
         }
-    }
+    });
 }
 
 function condenseWithinStatements(
