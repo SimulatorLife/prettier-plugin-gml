@@ -847,10 +847,7 @@ async function revertFormattedFiles() {
             await writeFile(filePath, originalContents);
             console.warn(`Reverted ${filePath}`);
         } catch (revertError) {
-            const message = getErrorMessage(revertError);
-            console.error(
-                `Failed to revert ${filePath}: ${message || "Unknown error"}`
-            );
+            logCliErrorWithHeader(revertError, `Failed to revert ${filePath}`);
         } finally {
             // Always release the snapshot so the shared revert bookkeeping can
             // decide whether the temporary directory is still needed. Skipping
@@ -866,20 +863,26 @@ async function revertFormattedFiles() {
     }
 }
 
+function logCliErrorWithHeader(error, header) {
+    const formattedError = formatCliError(error);
+
+    if (!formattedError) {
+        console.error(header);
+        return;
+    }
+
+    const indented = formattedError
+        .split("\n")
+        .map((line) => `  ${line}`)
+        .join("\n");
+
+    console.error(`${header}\n${indented}`);
+}
+
 async function handleFormattingError(error, filePath) {
     encounteredFormattingError = true;
-    const formattedError = formatCliError(error);
     const header = `Failed to format ${filePath}`;
-
-    if (formattedError) {
-        const indented = formattedError
-            .split("\n")
-            .map((line) => `  ${line}`)
-            .join("\n");
-        console.error(`${header}\n${indented}`);
-    } else {
-        console.error(header);
-    }
+    logCliErrorWithHeader(error, header);
 
     if (parseErrorAction !== ParseErrorAction.REVERT) {
         if (parseErrorAction === ParseErrorAction.ABORT) {
