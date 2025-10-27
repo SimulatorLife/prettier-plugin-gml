@@ -795,7 +795,7 @@ export function print(path, options, print) {
         case "BinaryExpression": {
             let left = print("left");
             let operator = node.operator;
-            let right = print("right");
+            let right;
             const logicalOperatorsStyle = resolveLogicalOperatorsStyle(options);
 
             const leftIsUndefined = isUndefinedLiteral(node.left);
@@ -827,13 +827,22 @@ export function print(path, options, print) {
                 node?.right?.type === "Literal" &&
                 node.right.value === "2" &&
                 !hasComment(node) &&
-                !hasComment(node.left) &&
-                !hasComment(node.right);
+                !hasComment(node.left);
 
             if (canConvertDivisionToHalf) {
                 operator = "*";
-                right = "0.5";
+
+                const literal = node.right;
+                const originalValue = literal.value;
+
+                literal.value = "0.5";
+                try {
+                    right = print("right");
+                } finally {
+                    literal.value = originalValue;
+                }
             } else {
+                right = print("right");
                 const styledOperator = applyLogicalOperatorsStyle(
                     operator,
                     logicalOperatorsStyle
