@@ -414,8 +414,9 @@ function extractDescriptionContent(value) {
 }
 
 function buildUpdatedDescription(existing, expression) {
+    const originalDescription = existing ?? "";
     if (!expression) {
-        return existing ?? "";
+        return originalDescription;
     }
 
     const normalizedExpression = expression.trim();
@@ -426,9 +427,10 @@ function buildUpdatedDescription(existing, expression) {
 
     const trimmed = existing.trim();
     const lowered = trimmed.toLowerCase();
+    const keepOriginal = () => originalDescription;
 
     if (lowered.includes("original multi-branch")) {
-        return existing ?? "";
+        return keepOriginal();
     }
 
     if (lowered.includes("original") || lowered.includes("multi-clause")) {
@@ -437,19 +439,17 @@ function buildUpdatedDescription(existing, expression) {
 
     if (lowered.includes("simplified")) {
         const colonIndex = trimmed.indexOf(":");
-        if (colonIndex !== -1) {
-            const prefix = trimmed.slice(0, colonIndex + 1);
-            return `${prefix} ${normalizedExpression}`;
-        }
-        return `Simplified: ${normalizedExpression}`;
+        return colonIndex === -1
+            ? `Simplified: ${normalizedExpression}`
+            : `${trimmed.slice(0, colonIndex + 1)} ${normalizedExpression}`;
     }
 
     if (lowered.includes("guard extraction")) {
-        return existing ?? "";
+        return keepOriginal();
     }
 
-    if (trimmed.includes("==")) {
-        const equalityIndex = trimmed.indexOf("==");
+    const equalityIndex = trimmed.indexOf("==");
+    if (equalityIndex !== -1) {
         const prefix = trimmed.slice(0, equalityIndex + 2).trimEnd();
         return `${prefix} ${normalizedExpression}`;
     }
@@ -459,11 +459,10 @@ function buildUpdatedDescription(existing, expression) {
         /\bif\b/.test(lowered) || /\belse\b/.test(lowered);
 
     if (mentionsReturn && mentionsBranching) {
-        return existing ?? "";
+        return keepOriginal();
     }
 
     const withoutPeriod = trimmed.replace(/\.?\s*$/, "");
-    const needsSemicolon = mentionsReturn;
-    const separator = needsSemicolon ? "; ==" : " ==";
+    const separator = mentionsReturn ? "; ==" : " ==";
     return `${withoutPeriod}${separator} ${normalizedExpression}`;
 }
