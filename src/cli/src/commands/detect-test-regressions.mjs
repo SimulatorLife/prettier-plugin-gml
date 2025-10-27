@@ -280,6 +280,24 @@ function normalizeSuiteName(name) {
     return toTrimmedString(name);
 }
 
+function getNormalizedTestNodeString(testNode, key) {
+    if (!testNode) {
+        return "";
+    }
+
+    const value = testNode[key];
+    if (value == null) {
+        return "";
+    }
+
+    if (typeof value === "string") {
+        const trimmed = value.trim();
+        return trimmed;
+    }
+
+    return toTrimmedString(value);
+}
+
 function pushNormalizedSuiteSegments(target, segments) {
     const targetSegments = assertArray(target, {
         name: "target",
@@ -302,11 +320,11 @@ function pushNormalizedSuiteSegments(target, segments) {
 function buildTestKey(testNode, suitePath) {
     const parts = [];
     pushNormalizedSuiteSegments(parts, suitePath);
-    const className = toTrimmedString(testNode.classname);
+    const className = getNormalizedTestNodeString(testNode, "classname");
     if (className && (parts.length === 0 || parts.at(-1) !== className)) {
         parts.push(className);
     }
-    const testName = toTrimmedString(testNode.name);
+    const testName = getNormalizedTestNodeString(testNode, "name");
     parts.push(testName || "(unnamed test)");
     return parts.join(" :: ");
 }
@@ -314,11 +332,11 @@ function buildTestKey(testNode, suitePath) {
 function describeTestCase(testNode, suitePath) {
     const parts = [];
     pushNormalizedSuiteSegments(parts, suitePath);
-    const testName = toTrimmedString(testNode.name);
+    const testName = getNormalizedTestNodeString(testNode, "name");
     if (testName) {
         parts.push(testName);
     }
-    const file = toTrimmedString(testNode.file);
+    const file = getNormalizedTestNodeString(testNode, "file");
     if (file) {
         return `${parts.join(" :: ")} [${file}]`;
     }
