@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { appendToCollection } from "../src/core/collection-utils.js";
+import { appendToCollection } from "../src/shared/dependencies.js";
 
 test("appendToCollection initializes arrays when accumulator is undefined", () => {
     const result = appendToCollection("alpha");
