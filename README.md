@@ -719,13 +719,10 @@ append `-- --watch` to any `npm run test --workspace …` command for watch mode
 
 #### Checkstyle lint reports
 
-`npm run lint:report` uses the standalone
-[`eslint-formatter-checkstyle`](https://www.npmjs.com/package/eslint-formatter-checkstyle)
-package to emit the XML file that the GitHub automerge workflow parses when it
-builds its warning/error summary table. Keep the dependency in `devDependencies`
-so the CI job continues producing checkstyle output; removing it leaves the
-formatter unavailable at runtime and collapses the summary into the "No lint
-(checkstyle) data found" fallback state.
+`npm run lint:report` relies on ESLint's built-in `checkstyle` formatter to
+produce the XML file parsed by the GitHub automerge workflow. The formatter is
+available out of the box, so the script works in local development environments
+and CI without any extra packages.
 
 Fixtures under `src/plugin/test` and `src/parser/test/input` are golden. Update them only when deliberately changing formatter output or parser behaviour.
 
