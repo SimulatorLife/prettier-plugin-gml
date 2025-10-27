@@ -12,7 +12,9 @@ import {
  * mutation operations. That wide surface forced transforms that only needed
  * read-only inspection to depend on update capabilities as well. Introducing
  * narrow inspection and update views lets collaborators wire only the
- * behaviours they actually require.
+ * behaviours they actually require. The legacy lookup surface also conflated
+ * retrieving full comment collections with simple presence checks, so this
+ * module exposes discrete collection and presence services.
  */
 
 const DOC_COMMENT_TARGET_TYPES = new Set([
@@ -27,7 +29,8 @@ const DOC_COMMENT_TARGET_TYPES = new Set([
 
 const DOC_COMMENT_MANAGERS = new WeakMap();
 const DOC_COMMENT_TRAVERSAL_SERVICES = new WeakMap();
-const DOC_COMMENT_LOOKUP_SERVICES = new WeakMap();
+const DOC_COMMENT_COLLECTION_SERVICES = new WeakMap();
+const DOC_COMMENT_PRESENCE_SERVICES = new WeakMap();
 const DOC_COMMENT_DESCRIPTION_SERVICES = new WeakMap();
 const DOC_COMMENT_UPDATE_SERVICES = new WeakMap();
 
@@ -79,8 +82,12 @@ export function prepareDocCommentEnvironment(ast) {
  */
 
 /**
- * @typedef {object} DocCommentLookupService
+ * @typedef {object} DocCommentCollectionService
  * @property {(functionNode: object) => Array<object>} getComments
+ */
+
+/**
+ * @typedef {object} DocCommentPresenceService
  * @property {(functionNode: object) => boolean} hasDocComment
  */
 
@@ -108,12 +115,21 @@ export function resolveDocCommentTraversalService(ast) {
     );
 }
 
-export function resolveDocCommentLookupService(ast) {
+export function resolveDocCommentCollectionService(ast) {
     return resolveDocCommentService(
         ast,
-        DOC_COMMENT_LOOKUP_SERVICES,
+        DOC_COMMENT_COLLECTION_SERVICES,
         (manager) => ({
-            getComments: manager.getComments.bind(manager),
+            getComments: manager.getComments.bind(manager)
+        })
+    );
+}
+
+export function resolveDocCommentPresenceService(ast) {
+    return resolveDocCommentService(
+        ast,
+        DOC_COMMENT_PRESENCE_SERVICES,
+        (manager) => ({
             hasDocComment: manager.hasDocComment.bind(manager)
         })
     );
