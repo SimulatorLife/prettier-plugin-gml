@@ -65,13 +65,13 @@ real projects. The collected metrics surfaced three practical improvements:
    it easy to spot tuning opportunities for ignore/preserve lists when the
    numbers spike.
 
-The `performance` CLI command (`node ./src/cli/src/cli.js performance --suite
-identifier-pipeline`) runs the project index twice (to observe cache reuse) and
-optionally executes the rename planner for a specific file, printing the
-captured metrics as structured JSON. Use `--stdout` when piping the report into
-tools like `jq`; the CLI now keeps that stream clean by redirecting the
-"report written" summary to stderr. This gives us an ad-hoc regression harness
-for spotting regressions before they make it into CI.
+The `performance` CLI command (for example,
+`node ./src/cli/src/cli.js performance --suite identifier-text`) runs the
+selected benchmark suites and prints the captured metrics as structured JSON.
+Use `--stdout` when piping the report into tools like `jq`; the CLI now keeps
+that stream clean by redirecting the "report written" summary to stderr. This
+gives us an ad-hoc regression harness for spotting regressions before they make
+it into CI.
 
 ## Cache persistence schema
 

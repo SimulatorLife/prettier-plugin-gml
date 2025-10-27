@@ -39,6 +39,7 @@ import {
 } from "../../shared/dependencies.js";
 import {
     PerformanceSuiteName,
+    formatPerformanceSuiteList,
     isPerformanceThroughputSuite,
     normalizePerformanceSuiteName
 } from "./suite-options.js";
@@ -738,6 +739,16 @@ export function createPerformanceCommand() {
         .argParser((value) => path.resolve(value))
         .default(DEFAULT_REPORT_FILE, defaultReportFileDescription);
 
+    const suiteListDescription = formatPerformanceSuiteList();
+    const suiteOptionDescription = [
+        "Benchmark suite to run (can be provided multiple times).",
+        `Available suites: ${suiteListDescription}.`,
+        "Defaults to all suites when omitted."
+    ].join(" ");
+    const suiteOption = new Option("-s, --suite <name>", suiteOptionDescription)
+        .argParser(collectPerformanceSuite)
+        .default([], "all available suites");
+
     return applyStandardCommandOptions(
         new Command()
             .name("performance")
@@ -746,12 +757,7 @@ export function createPerformanceCommand() {
                 "Run parser and formatter performance benchmarks for the CLI."
             )
     )
-        .option(
-            "-s, --suite <name>",
-            "Benchmark suite to run (can be provided multiple times).",
-            collectPerformanceSuite,
-            []
-        )
+        .addOption(suiteOption)
         .option(
             "-i, --iterations <count>",
             "Repeat each suite this many times (default: 1).",
