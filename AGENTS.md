@@ -5,7 +5,8 @@
 - Do **NOT** modify the `eslint.config.js` or `.prettierrc` files unless explicitly instructed to do so. When instructed to update these files, ensure that the changes are limited to the specific instructions or guidelines provided, without altering other sections.
 - Do **NOT** modify the `AGENTS.md` file unless explicitly instructed to do so. When updating this file, ensure that the changes are limited to the specific instructions or guidelines provided, without altering other sections.
 - When updating or extending the codebase, do not add legacy-support or backwards-compatibility shims. Avoid reintroducing old CLI command formats, deprecated script arguments, outdated plugin options, transitional wrappers, redundant aliases, or any parallel paths meant to preserve previous behavior. Favor clean, forward-looking implementations that document breaking changes succinctly instead of maintaining compatibility code.
-- Do **NOT** add standalone Node scripts outside of `src/cli/commands/`. Expose new tooling through the CLI so helpers remain discoverable and consistent.
+- Do **NOT** add standalone Node scripts outside of `src/cli/src/commands/`. Expose new tooling through the CLI so helpers remain discoverable and consistent.
+- Do not edit the generated files in `src/parser/generated`; any and all changes will be overwritten when the file are re-generated. The generated code is tightly coupled to ANTLR’s runtime. Even a small edit could break assumptions about rule indices, token streams, or the visitor/listener APIs. These files have had manual edits already, and that custom code needs to be exracted out and refactored such that we subclass the generated code.
 - Never add eslint-disable comments to the codebase. If lint errors arise, fix them properly.
 - The plugin/formatter should be opinionated and enforce a single opinionated strategy (for indentation, spacing, blank lines, etc.) – avoid adding overly-configurable options that give users too many choices or lead to inconsistent formatting.
 
@@ -20,7 +21,7 @@ To ensure smooth collaboration and maintain a healthy commit history, follow thi
 2. **Gather Context**
    - Inspect conflicting files with `git status` and `git diff --merge` or `git diff --staged` to see both sides of the changes.
    - Consult project documentation, commit messages, or related pull requests to understand the intent behind conflicting edits.
-   - If the conflict stems from generated or dependency files, verify whether they should be regenerated rather than manually edited.
+   - If the conflict stems from generated or dependency files, they should be regenerated rather than manually edited.
 
 3. **Develop a Resolution Strategy**
    - Decide whether to favor one side, integrate both changes, or refactor to accommodate new requirements.

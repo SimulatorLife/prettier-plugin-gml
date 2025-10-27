@@ -25,7 +25,7 @@ export default [
             "resources/*",
             "src/vendor/*.js",
             "generated/*",
-            "src/parser/src/generated/**/*",
+            "src/parser/generated/**/*",
             "*.gml",
             ".DS_Store",
             "LICENSE",

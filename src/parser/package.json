@@ -12,6 +12,6 @@
   },
   "scripts": {
     "test": "node --test test/parser.test.js",
-    "antlr": "antlr -Dlanguage=JavaScript -visitor -o src/generated GameMakerLanguageLexer.g4 && antlr -Dlanguage=JavaScript -visitor -o src/generated GameMakerLanguageParser.g4"
+    "antlr": "antlr -Dlanguage=JavaScript -visitor -o generated/ GameMakerLanguageLexer.g4 && antlr -Dlanguage=JavaScript -visitor -o generated/ GameMakerLanguageParser.g4"
   }
 }

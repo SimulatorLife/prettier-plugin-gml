@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import GameMakerLanguageParserListener, {
     LISTENER_METHOD_NAMES
-} from "../src/generated/GameMakerLanguageParserListener.js";
+} from "../generated/GameMakerLanguageParserListener.js";
 
 test("listener methods default to no-op behaviour", () => {
     const listener = new GameMakerLanguageParserListener();
