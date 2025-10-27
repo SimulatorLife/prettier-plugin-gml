@@ -1,7 +1,8 @@
 import {
-    toNormalizedLowerCaseSet,
+    isObjectLike,
     normalizeIdentifierMetadataEntries,
-    isObjectLike
+    noop,
+    toNormalizedLowerCaseSet
 } from "../shared/index.js";
 import {
     GML_IDENTIFIER_METADATA_PATH,
@@ -51,11 +52,11 @@ function setReservedIdentifierMetadataLoader(loader) {
         // Advanced integrations wrap `setReservedIdentifierMetadataLoader` in
         // try/finally blocks (documented in
         // docs/reserved-identifier-metadata-hook.md) so their staged metadata
-        // only applies during a scoped experiment. Returning a stubbed
-        // unregister callback keeps those flows balanced; throwing or returning
-        // `null` would explode the finally handler and leave the override logic
-        // in an indeterminate state.
-        return () => {};
+        // only applies during a scoped experiment. Returning the shared `noop`
+        // keeps those flows balanced and mirrors other cleanup hooks across the
+        // codebase; throwing or returning `null` would explode the finally
+        // handler and leave the override logic in an indeterminate state.
+        return noop;
     }
 
     const previousLoader = metadataLoader;
