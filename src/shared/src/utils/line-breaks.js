@@ -4,11 +4,17 @@ import { isNonEmptyString } from "./string.js";
 // This module centralizes line break handling so parser and printer code
 // can share a single implementation instead of duplicating logic.
 
-const CARRIAGE_RETURN = "\r".codePointAt(0);
-const LINE_FEED = "\n".codePointAt(0);
-const LINE_SEPARATOR = "\u2028".codePointAt(0);
-const PARAGRAPH_SEPARATOR = "\u2029".codePointAt(0);
-const NEXT_LINE = "\u0085".codePointAt(0);
+const LINE_BREAK_PATTERN = /\r\n|[\n\r\u2028\u2029\u0085]/gu;
+const LINE_BREAK_SPLIT_PATTERN = /\r\n|[\n\r\u2028\u2029\u0085]/u;
+
+function* iterateLineBreaks(text) {
+    LINE_BREAK_PATTERN.lastIndex = 0;
+
+    let match;
+    while ((match = LINE_BREAK_PATTERN.exec(text))) {
+        yield match;
+    }
+}
 
 /**
  * Describe each recognized line break sequence within {@link text}.
@@ -23,40 +29,11 @@ export function getLineBreakSpans(text) {
 
     const spans = [];
 
-    for (let index = 0; index < text.length; ) {
-        const length = getLineBreakLength(text, index);
-        if (length === 0) {
-            index += 1;
-            continue;
-        }
-
-        spans.push({ index, length });
-        index += length;
+    for (const match of iterateLineBreaks(text)) {
+        spans.push({ index: match.index, length: match[0].length });
     }
 
     return spans;
-}
-
-function getLineBreakLength(text, index) {
-    const code = text.codePointAt(index);
-    if (!Number.isFinite(code)) {
-        return 0;
-    }
-
-    if (code === CARRIAGE_RETURN) {
-        return text.codePointAt(index + 1) === LINE_FEED ? 2 : 1;
-    }
-
-    if (
-        code === LINE_FEED ||
-        code === LINE_SEPARATOR ||
-        code === PARAGRAPH_SEPARATOR ||
-        code === NEXT_LINE
-    ) {
-        return 1;
-    }
-
-    return 0;
 }
 
 /**
@@ -71,33 +48,9 @@ export function getLineBreakCount(text) {
     }
 
     let count = 0;
-    let index = 0;
 
-    while (index < text.length) {
-        const code = text.charCodeAt(index);
-
-        if (code === CARRIAGE_RETURN) {
-            count += 1;
-
-            if (text.charCodeAt(index + 1) === LINE_FEED) {
-                index += 2;
-                continue;
-            }
-
-            index += 1;
-            continue;
-        }
-
-        if (
-            code === LINE_FEED ||
-            code === LINE_SEPARATOR ||
-            code === PARAGRAPH_SEPARATOR ||
-            code === NEXT_LINE
-        ) {
-            count += 1;
-        }
-
-        index += 1;
+    for (const _match of iterateLineBreaks(text)) {
+        count += 1;
     }
 
     return count;
@@ -122,19 +75,9 @@ export function splitLines(text) {
         return [];
     }
 
-    const spans = getLineBreakSpans(text);
-    if (spans.length === 0) {
-        return [text];
+    if (text.length === 0) {
+        return [""];
     }
 
-    const lines = [];
-    let start = 0;
-
-    for (const span of spans) {
-        lines.push(text.slice(start, span.index));
-        start = span.index + span.length;
-    }
-
-    lines.push(text.slice(start));
-    return lines;
+    return text.split(LINE_BREAK_SPLIT_PATTERN);
 }
