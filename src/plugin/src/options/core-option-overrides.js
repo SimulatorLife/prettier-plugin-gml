@@ -98,6 +98,21 @@ function normalizeCoreOptionOverrides(overrides) {
     return Object.freeze(Object.fromEntries(normalizedEntries));
 }
 
+/**
+ * Resolve the effective Prettier core option overrides for the current run.
+ *
+ * When a custom {@link coreOptionOverridesResolver} has been registered the
+ * helper invokes it with the provided {@link options} bag and then normalizes
+ * the result back to the canonical override object. Missing resolvers fall
+ * through to {@link DEFAULT_CORE_OPTION_OVERRIDES}, ensuring call sites always
+ * receive a frozen map with the expected keys even when hosts opt out of any
+ * customization.
+ *
+ * @param {Record<string, unknown>} [options] Context forwarded to the active
+ *        override resolver.
+ * @returns {typeof DEFAULT_CORE_OPTION_OVERRIDES} Frozen override map that is
+ *          safe to reuse across print invocations.
+ */
 function resolveCoreOptionOverrides(options = {}) {
     if (!coreOptionOverridesResolver) {
         return DEFAULT_CORE_OPTION_OVERRIDES;
