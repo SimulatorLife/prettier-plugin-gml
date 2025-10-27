@@ -21,6 +21,10 @@ const NORMALIZATION_CASES = [
         expected: "/// @param {Asset.GMObject} value"
     },
     {
+        input: "/// @param {Asset.GMSprite} value",
+        expected: "/// @param {Asset.GMSprite} value"
+    },
+    {
         input: "/// @param {Constant Color} value",
         expected: "/// @param {constant.Color} value"
     },
