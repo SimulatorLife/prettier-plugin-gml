@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { bootstrapProjectIndex } from "../src/identifier-case/project-index-bootstrap.js";
+import { bootstrapProjectIndex } from "gamemaker-language-semantic/identifier-case/project-index-bootstrap.js";
 
 async function withTempDir(run) {
     const tempRoot = await mkdtemp(path.join(os.tmpdir(), "gml-bootstrap-"));

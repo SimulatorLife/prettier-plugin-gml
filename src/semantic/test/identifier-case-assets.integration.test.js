@@ -16,7 +16,7 @@ import { prepareIdentifierCasePlan } from "../src/identifier-case/plan-service.j
 import { fromPosixPath } from "../src/shared/index.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
+const pluginPath = path.resolve(currentDirectory, "../../plugin/src/gml.js");
 
 async function createTempProjectWorkspace(prefix) {
     const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), prefix));

@@ -14,7 +14,7 @@ import {
 import { maybeReportIdentifierCaseDryRun } from "../src/identifier-case/identifier-case-report.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
+const pluginPath = path.resolve(currentDirectory, "../../plugin/src/gml.js");
 
 function createSampleRenamePlan() {
     return {
