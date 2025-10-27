@@ -115,10 +115,11 @@ const {
     identifierCasePlanCacheService: defaultCliIdentifierCaseCacheService
 } = createDefaultCliPluginServices();
 
-export { defaultProjectIndexBuilder };
-export { defaultIdentifierCasePlanPreparer };
-export { defaultIdentifierCaseCacheClearer };
-
-export { defaultCliProjectIndexService };
-export { defaultCliIdentifierCasePlanPreparationService };
-export { defaultCliIdentifierCaseCacheService };
+export {
+    defaultProjectIndexBuilder,
+    defaultIdentifierCasePlanPreparer,
+    defaultIdentifierCaseCacheClearer,
+    defaultCliProjectIndexService,
+    defaultCliIdentifierCasePlanPreparationService,
+    defaultCliIdentifierCaseCacheService
+};
