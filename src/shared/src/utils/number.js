@@ -41,6 +41,32 @@ export function toNormalizedInteger(value) {
  * @returns {boolean} `true` when both inputs are finite and fall within the
  *          dynamic tolerance window.
  */
+const DEFAULT_APPROXIMATE_EQUALITY_SCALE_MULTIPLIER = 4;
+
+let approximateEqualityScaleMultiplier =
+    DEFAULT_APPROXIMATE_EQUALITY_SCALE_MULTIPLIER;
+
+export function getApproximateEqualityScaleMultiplier() {
+    return approximateEqualityScaleMultiplier;
+}
+
+export function setApproximateEqualityScaleMultiplier(multiplier) {
+    if (!isFiniteNumber(multiplier) || multiplier <= 0) {
+        throw new TypeError(
+            `Approximate equality scale multiplier must be a positive finite number (received ${multiplier}).`
+        );
+    }
+
+    approximateEqualityScaleMultiplier = multiplier;
+    return approximateEqualityScaleMultiplier;
+}
+
+export function resetApproximateEqualityScaleMultiplier() {
+    approximateEqualityScaleMultiplier =
+        DEFAULT_APPROXIMATE_EQUALITY_SCALE_MULTIPLIER;
+    return approximateEqualityScaleMultiplier;
+}
+
 export function areNumbersApproximatelyEqual(a, b) {
     if (a === b) {
         return true;
@@ -51,6 +77,7 @@ export function areNumbersApproximatelyEqual(a, b) {
     }
 
     const scale = Math.max(1, Math.abs(a), Math.abs(b));
-    const tolerance = Number.EPSILON * scale * 4;
+    const tolerance =
+        Number.EPSILON * scale * approximateEqualityScaleMultiplier;
     return Math.abs(a - b) <= tolerance;
 }
