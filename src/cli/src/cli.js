@@ -35,7 +35,6 @@ import {
     createListSplitPattern,
     getErrorMessage,
     getErrorMessageOrFallback,
-    getNonEmptyTrimmedString,
     isErrorLike,
     isErrorWithCode,
     isNonEmptyArray,
@@ -74,6 +73,7 @@ import {
 import { createCliCommandManager } from "./core/command-manager.js";
 import { resolveCliVersion } from "./core/version.js";
 import { wrapInvalidArgumentResolver } from "./core/command-parsing.js";
+import { collectFormatCommandOptions } from "./core/format-command-options.js";
 import {
     createPerformanceCommand,
     runPerformanceCommand
@@ -484,138 +484,6 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
                 ""
             ].join("\n")
         );
-}
-
-/**
- * Normalize CLI target path input into a trimmed value plus a flag indicating
- * whether the user explicitly supplied a path argument.
- *
- * @param {unknown} rawInput
- * @returns {{ targetPathInput: unknown, targetPathProvided: boolean }}
- */
-function normalizeTargetPathInput(rawInput) {
-    if (typeof rawInput === "string") {
-        const trimmed = getNonEmptyTrimmedString(rawInput);
-        return {
-            targetPathInput: trimmed ?? null,
-            targetPathProvided: true
-        };
-    }
-
-    const normalized = rawInput ?? null;
-    return {
-        targetPathInput: normalized,
-        targetPathProvided: normalized !== null
-    };
-}
-
-/**
- * Extract the first positional argument provided to a Commander command.
- *
- * @param {import("commander").Command} command
- * @returns {unknown}
- */
-function extractPositionalTarget(command) {
-    const args = command?.args;
-    if (!isNonEmptyArray(args)) {
-        return null;
-    }
-
-    return args[0];
-}
-
-/**
- * Determine the raw target path input supplied via positional or option values.
- *
- * @param {import("commander").Command} command
- * @param {Record<string, unknown>} options
- * @returns {unknown}
- */
-function resolveTargetPathCandidate(command, options) {
-    return options.path ?? extractPositionalTarget(command) ?? null;
-}
-
-/**
- * Normalize CLI target path inputs into the structured representation used by
- * the formatting workflow.
- *
- * @param {import("commander").Command} command
- * @param {Record<string, unknown>} options
- */
-function resolveTargetPathInputs(command, options) {
-    return normalizeTargetPathInput(
-        resolveTargetPathCandidate(command, options)
-    );
-}
-
-/**
- * Normalize the configured extensions into the array form expected by the
- * formatter.
- *
- * @param {Record<string, unknown>} options
- * @returns {readonly string[]}
- */
-function resolveFormatCommandExtensions(options) {
-    const rawExtensions = options.extensions ?? DEFAULT_EXTENSIONS;
-    return Array.isArray(rawExtensions)
-        ? rawExtensions
-        : [...(rawExtensions ?? DEFAULT_EXTENSIONS)];
-}
-
-/**
- * Gather the sample limit overrides supplied to the format command.
- *
- * @param {Record<string, unknown>} options
- */
-function resolveFormatCommandSampleLimits(options) {
-    return {
-        skippedDirectorySampleLimit:
-            options.ignoredDirectorySampleLimit ??
-            options.ignoredDirectorySamples,
-        ignoredFileSampleLimit: options.ignoredFileSampleLimit,
-        unsupportedExtensionSampleLimit: options.unsupportedExtensionSampleLimit
-    };
-}
-
-/**
- * Resolve Prettier configuration flags supplied by the format command.
- *
- * @param {Record<string, unknown>} options
- */
-function resolvePrettierConfiguration(options) {
-    return {
-        prettierLogLevel: options.logLevel ?? DEFAULT_PRETTIER_LOG_LEVEL,
-        onParseError: options.onParseError ?? DEFAULT_PARSE_ERROR_ACTION,
-        checkMode: Boolean(options.check)
-    };
-}
-
-function collectFormatCommandOptions(command) {
-    const options = command.opts();
-    const { targetPathInput, targetPathProvided } = resolveTargetPathInputs(
-        command,
-        options
-    );
-    const {
-        skippedDirectorySampleLimit,
-        ignoredFileSampleLimit,
-        unsupportedExtensionSampleLimit
-    } = resolveFormatCommandSampleLimits(options);
-    const { prettierLogLevel, onParseError, checkMode } =
-        resolvePrettierConfiguration(options);
-
-    return {
-        targetPathInput,
-        targetPathProvided,
-        extensions: resolveFormatCommandExtensions(options),
-        prettierLogLevel,
-        onParseError,
-        checkMode,
-        skippedDirectorySampleLimit,
-        ignoredFileSampleLimit,
-        unsupportedExtensionSampleLimit,
-        usage: command.helpInformation()
-    };
 }
 
 let targetExtensions = DEFAULT_EXTENSIONS;
@@ -1551,7 +1419,11 @@ async function runFormattingWorkflow({
 }
 
 async function executeFormatCommand(command) {
-    const commandOptions = collectFormatCommandOptions(command);
+    const commandOptions = collectFormatCommandOptions(command, {
+        defaultExtensions: DEFAULT_EXTENSIONS,
+        defaultParseErrorAction: DEFAULT_PARSE_ERROR_ACTION,
+        defaultPrettierLogLevel: DEFAULT_PRETTIER_LOG_LEVEL
+    });
     const {
         usage,
         targetPathInput,
