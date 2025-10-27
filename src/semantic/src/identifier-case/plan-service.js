@@ -37,12 +37,6 @@ import {
  */
 
 /**
- * @typedef {object} IdentifierCasePlanSnapshotCollaborators
- * @property {IdentifierCasePlanSnapshotCaptureService["captureIdentifierCasePlanSnapshot"]} captureIdentifierCasePlanSnapshot
- * @property {IdentifierCasePlanSnapshotApplyService["applyIdentifierCasePlanSnapshot"]} applyIdentifierCasePlanSnapshot
- */
-
-/**
  * @typedef {() => IdentifierCasePlanPreparationService} IdentifierCasePlanPreparationProvider
  */
 
@@ -51,7 +45,11 @@ import {
  */
 
 /**
- * @typedef {() => IdentifierCasePlanSnapshotCollaborators} IdentifierCasePlanSnapshotProvider
+ * @typedef {() => IdentifierCasePlanSnapshotCaptureService} IdentifierCasePlanSnapshotCaptureProvider
+ */
+
+/**
+ * @typedef {() => IdentifierCasePlanSnapshotApplyService} IdentifierCasePlanSnapshotApplyProvider
  */
 
 const defaultPreparationService = Object.freeze({
@@ -62,8 +60,11 @@ const defaultRenameLookupService = Object.freeze({
     getIdentifierCaseRenameForNode: defaultGetIdentifierCaseRenameForNode
 });
 
-const defaultSnapshotService = Object.freeze({
-    captureIdentifierCasePlanSnapshot: defaultCaptureIdentifierCasePlanSnapshot,
+const defaultSnapshotCaptureService = Object.freeze({
+    captureIdentifierCasePlanSnapshot: defaultCaptureIdentifierCasePlanSnapshot
+});
+
+const defaultSnapshotApplyService = Object.freeze({
     applyIdentifierCasePlanSnapshot: defaultApplyIdentifierCasePlanSnapshot
 });
 
@@ -160,25 +161,6 @@ function normalizeIdentifierCaseRenameLookupService(service) {
     });
 }
 
-function normalizeIdentifierCasePlanSnapshotCollaborators(service) {
-    return normalizeIdentifierCaseServiceFunctions(service, {
-        serviceErrorMessage:
-            "Identifier case plan snapshot collaborators must be provided as an object",
-        functionDescriptors: [
-            {
-                property: "captureIdentifierCasePlanSnapshot",
-                errorMessage:
-                    "Identifier case plan snapshot collaborators must provide a captureIdentifierCasePlanSnapshot function"
-            },
-            {
-                property: "applyIdentifierCasePlanSnapshot",
-                errorMessage:
-                    "Identifier case plan snapshot collaborators must provide an applyIdentifierCasePlanSnapshot function"
-            }
-        ]
-    });
-}
-
 const preparationRegistry = createIdentifierCaseServiceRegistry({
     defaultService: defaultPreparationService,
     normalize: normalizeIdentifierCasePlanPreparationService,
@@ -197,43 +179,45 @@ const renameLookupRegistry = createIdentifierCaseServiceRegistry({
         "No identifier case rename lookup provider has been registered"
 });
 
-const snapshotRegistry = createIdentifierCaseServiceRegistry({
-    defaultService: defaultSnapshotService,
-    normalize: normalizeIdentifierCasePlanSnapshotCollaborators,
+const snapshotCaptureRegistry = createIdentifierCaseServiceRegistry({
+    defaultService: defaultSnapshotCaptureService,
+    normalize: (service) =>
+        normalizeIdentifierCaseServiceFunctions(service, {
+            serviceErrorMessage:
+                "Identifier case plan snapshot capture service must be provided as an object",
+            functionDescriptors: [
+                {
+                    property: "captureIdentifierCasePlanSnapshot",
+                    errorMessage:
+                        "Identifier case plan snapshot capture service must provide a captureIdentifierCasePlanSnapshot function"
+                }
+            ]
+        }),
     providerTypeErrorMessage:
-        "Identifier case plan snapshot provider must be a function",
+        "Identifier case plan snapshot capture provider must be a function",
     missingProviderMessage:
-        "No identifier case plan snapshot provider has been registered"
+        "No identifier case plan snapshot capture provider has been registered"
 });
 
-const SNAPSHOT_CAPTURE_SERVICES = new WeakMap();
-const SNAPSHOT_APPLY_SERVICES = new WeakMap();
-
-function mapSnapshotCaptureService(collaborators) {
-    let captureService = SNAPSHOT_CAPTURE_SERVICES.get(collaborators);
-    if (!captureService) {
-        captureService = Object.freeze({
-            captureIdentifierCasePlanSnapshot:
-                collaborators.captureIdentifierCasePlanSnapshot
-        });
-        SNAPSHOT_CAPTURE_SERVICES.set(collaborators, captureService);
-    }
-
-    return captureService;
-}
-
-function mapSnapshotApplyService(collaborators) {
-    let applyService = SNAPSHOT_APPLY_SERVICES.get(collaborators);
-    if (!applyService) {
-        applyService = Object.freeze({
-            applyIdentifierCasePlanSnapshot:
-                collaborators.applyIdentifierCasePlanSnapshot
-        });
-        SNAPSHOT_APPLY_SERVICES.set(collaborators, applyService);
-    }
-
-    return applyService;
-}
+const snapshotApplyRegistry = createIdentifierCaseServiceRegistry({
+    defaultService: defaultSnapshotApplyService,
+    normalize: (service) =>
+        normalizeIdentifierCaseServiceFunctions(service, {
+            serviceErrorMessage:
+                "Identifier case plan snapshot apply service must be provided as an object",
+            functionDescriptors: [
+                {
+                    property: "applyIdentifierCasePlanSnapshot",
+                    errorMessage:
+                        "Identifier case plan snapshot apply service must provide an applyIdentifierCasePlanSnapshot function"
+                }
+            ]
+        }),
+    providerTypeErrorMessage:
+        "Identifier case plan snapshot apply provider must be a function",
+    missingProviderMessage:
+        "No identifier case plan snapshot apply provider has been registered"
+});
 
 /**
  * Inject a custom preparation provider so embedders can override how the
@@ -264,11 +248,23 @@ export function registerIdentifierCaseRenameLookupProvider(provider) {
  * identifier-case state between formatter runs. Used primarily by long-lived
  * processes that cache rename plans across files.
  *
- * @param {IdentifierCasePlanSnapshotProvider} provider Function producing the
- *        snapshot collaborators implementation.
+ * @param {IdentifierCasePlanSnapshotCaptureProvider} provider Factory
+ *        returning the snapshot capture service implementation.
  */
-export function registerIdentifierCasePlanSnapshotProvider(provider) {
-    snapshotRegistry.register(provider);
+export function registerIdentifierCasePlanSnapshotCaptureProvider(provider) {
+    snapshotCaptureRegistry.register(provider);
+}
+
+/**
+ * Register snapshot rehydration hooks so hosts can restore identifier-case
+ * state between formatter runs. Used primarily by long-lived processes that
+ * hydrate rename plans from disk.
+ *
+ * @param {IdentifierCasePlanSnapshotApplyProvider} provider Factory returning
+ *        the snapshot apply service implementation.
+ */
+export function registerIdentifierCasePlanSnapshotApplyProvider(provider) {
+    snapshotApplyRegistry.register(provider);
 }
 
 /**
@@ -278,7 +274,8 @@ export function registerIdentifierCasePlanSnapshotProvider(provider) {
 export function resetIdentifierCasePlanServiceProvider() {
     preparationRegistry.reset();
     renameLookupRegistry.reset();
-    snapshotRegistry.reset();
+    snapshotCaptureRegistry.reset();
+    snapshotApplyRegistry.reset();
 }
 
 /**
@@ -304,30 +301,12 @@ export function resolveIdentifierCaseRenameLookupService() {
  *
  * @returns {IdentifierCasePlanSnapshotCollaborators}
  */
-function resolveIdentifierCasePlanSnapshotCollaborators() {
-    return snapshotRegistry.resolve();
-}
-
-/**
- * Resolve the snapshot capture service exposing only the capture helper.
- *
- * @returns {IdentifierCasePlanSnapshotCaptureService}
- */
 export function resolveIdentifierCasePlanSnapshotCaptureService() {
-    return mapSnapshotCaptureService(
-        resolveIdentifierCasePlanSnapshotCollaborators()
-    );
+    return snapshotCaptureRegistry.resolve();
 }
 
-/**
- * Resolve the snapshot apply service exposing only the rehydration helper.
- *
- * @returns {IdentifierCasePlanSnapshotApplyService}
- */
 export function resolveIdentifierCasePlanSnapshotApplyService() {
-    return mapSnapshotApplyService(
-        resolveIdentifierCasePlanSnapshotCollaborators()
-    );
+    return snapshotApplyRegistry.resolve();
 }
 
 /**
