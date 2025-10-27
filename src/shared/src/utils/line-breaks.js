@@ -70,7 +70,37 @@ export function getLineBreakCount(text) {
         return 0;
     }
 
-    return getLineBreakSpans(text).length;
+    let count = 0;
+    let index = 0;
+
+    while (index < text.length) {
+        const code = text.charCodeAt(index);
+
+        if (code === CARRIAGE_RETURN) {
+            count += 1;
+
+            if (text.charCodeAt(index + 1) === LINE_FEED) {
+                index += 2;
+                continue;
+            }
+
+            index += 1;
+            continue;
+        }
+
+        if (
+            code === LINE_FEED ||
+            code === LINE_SEPARATOR ||
+            code === PARAGRAPH_SEPARATOR ||
+            code === NEXT_LINE
+        ) {
+            count += 1;
+        }
+
+        index += 1;
+    }
+
+    return count;
 }
 
 /**
