@@ -9,7 +9,7 @@ import {
 } from "../src/project-index/concurrency.js";
 import { defaultFsFacade } from "../src/project-index/fs-facade.js";
 import { defaultFsFacade as reexportedFsFacade } from "../src/project-index/index.js";
-import { defaultFsFacade as topLevelFsFacade } from "../src/project-index.js";
+import { defaultFsFacade as topLevelFsFacade } from "../src/index.js";
 
 test("default fs facade is shared across exports", () => {
     assert.strictEqual(defaultFsFacade, reexportedFsFacade);
