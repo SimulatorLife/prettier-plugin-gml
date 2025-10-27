@@ -22,6 +22,7 @@ export {
     getIdentifierText,
     getNonEmptyTrimmedString,
     getOrCreateMapEntry,
+    getObjectTagName,
     hasOwn,
     identity,
     incrementMapValue,

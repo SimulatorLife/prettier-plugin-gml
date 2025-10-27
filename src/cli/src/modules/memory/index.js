@@ -12,6 +12,7 @@ import {
     createEnumeratedOptionHelpers,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
+    getObjectTagName,
     incrementMapValue,
     isNonEmptyString,
     normalizeStringList,
@@ -185,8 +186,6 @@ function applyFormatMaxIterationsEnvOverride(env) {
 }
 
 const sampleCache = new Map();
-const objectPrototypeToString = Object.prototype.toString;
-const OBJECT_TAG_PATTERN = /^\[object (\w+)\]$/;
 const STARTS_WITH_VOWEL_PATTERN = /^[aeiou]/i;
 
 function formatWithIndefiniteArticle(label) {
@@ -231,10 +230,8 @@ function describeFormatterOptionsValue(value) {
         return formatWithIndefiniteArticle(type);
     }
 
-    const [, tagLabel] =
-        OBJECT_TAG_PATTERN.exec(objectPrototypeToString.call(value)) ?? [];
-
-    if (tagLabel && tagLabel !== "Object") {
+    const tagLabel = getObjectTagName(value);
+    if (tagLabel) {
         return `${formatWithIndefiniteArticle(tagLabel)} object`;
     }
 
