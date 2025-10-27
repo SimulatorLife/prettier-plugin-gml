@@ -355,7 +355,7 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
     const extensionsOption = new Option(
         "--extensions <list>",
         [
-            "Comma-separated list of file extensions to format.",
+            "Comma- or path-delimiter-separated list of file extensions to format (e.g., .gml,.yy or .gml;.yy on Windows).",
             `Defaults to ${formatExtensionListForDisplay(DEFAULT_EXTENSIONS)}.`,
             "Respects PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS when set."
         ].join(" ")
