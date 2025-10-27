@@ -70,6 +70,11 @@ test("prints all call arguments in order", async () => {
     );
 });
 
+test("omits redundant unary plus before identifiers", async () => {
+    const formatted = await format("var value = +count;\n");
+
+    assert.strictEqual(formatted, "var value = count;\n");
+});
 
 test("preserves unary plus conversions", async () => {
     const formatted = await format('var value = +"5";\n');

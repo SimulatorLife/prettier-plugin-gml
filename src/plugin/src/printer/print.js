@@ -914,9 +914,18 @@ export function print(path, options, print) {
         case "UnaryExpression":
         case "IncDecStatement":
         case "IncDecExpression": {
-            return node.prefix
-                ? concat([node.operator, print("argument")])
-                : concat([print("argument"), node.operator]);
+            if (node.prefix) {
+                if (
+                    node.operator === "+" &&
+                    shouldOmitUnaryPlus(node.argument)
+                ) {
+                    return print("argument");
+                }
+
+                return concat([node.operator, print("argument")]);
+            }
+
+            return concat([print("argument"), node.operator]);
         }
         case "CallExpression": {
             if (node?.[FEATHER_COMMENT_OUT_SYMBOL]) {
@@ -7773,6 +7782,31 @@ function isNumericCallExpression(node) {
     }
 
     return NUMERIC_CALL_IDENTIFIERS.has(calleeName.toLowerCase());
+}
+
+function shouldOmitUnaryPlus(argument) {
+    const candidate = unwrapUnaryPlusCandidate(argument);
+
+    if (!candidate || typeof candidate !== "object") {
+        return false;
+    }
+
+    return candidate.type === "Identifier";
+}
+
+function unwrapUnaryPlusCandidate(node) {
+    let current = node;
+
+    while (
+        current &&
+        typeof current === "object" &&
+        current.type === "ParenthesizedExpression" &&
+        current.expression
+    ) {
+        current = current.expression;
+    }
+
+    return current;
 }
 
 function isNumericComputationNode(node) {
