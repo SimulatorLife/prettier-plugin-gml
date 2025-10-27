@@ -7,7 +7,8 @@ import {
     getIdentifierCaseRenameForNode,
     prepareIdentifierCasePlan,
     registerIdentifierCasePlanPreparationProvider,
-    registerIdentifierCasePlanSnapshotProvider,
+    registerIdentifierCasePlanSnapshotApplyProvider,
+    registerIdentifierCasePlanSnapshotCaptureProvider,
     registerIdentifierCaseRenameLookupProvider,
     resetIdentifierCasePlanServiceProvider,
     resolveIdentifierCasePlanPreparationService,
@@ -102,13 +103,16 @@ test(
             }
         }));
 
-        registerIdentifierCasePlanSnapshotProvider(() => ({
+        registerIdentifierCasePlanSnapshotCaptureProvider(() => ({
             captureIdentifierCasePlanSnapshot(options) {
                 calls.push({ type: "capture", options });
                 return defaultSnapshotCapture.captureIdentifierCasePlanSnapshot(
                     options
                 );
-            },
+            }
+        }));
+
+        registerIdentifierCasePlanSnapshotApplyProvider(() => ({
             applyIdentifierCasePlanSnapshot(snapshot, options) {
                 calls.push({ type: "apply", snapshot, options });
                 defaultSnapshotApply.applyIdentifierCasePlanSnapshot(
