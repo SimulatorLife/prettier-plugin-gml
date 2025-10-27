@@ -10693,8 +10693,6 @@ function ensureAlphaTestEnableResetAfterCall(
         markStatementToSuppressLeadingEmptyLine(candidate);
     }
 
-    markStatementToSuppressFollowingEmptyLine(node);
-
     const previousSibling =
         siblings[insertionIndex - 1] ?? siblings[property] ?? node;
     const nextSibling = siblings[insertionIndex] ?? null;

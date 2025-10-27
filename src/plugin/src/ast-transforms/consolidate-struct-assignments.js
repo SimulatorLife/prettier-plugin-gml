@@ -112,7 +112,8 @@ function consolidateBlock(statements, tracker, commentTools) {
             identifierName,
             previousEnd: structEndIndex,
             tracker,
-            commentTools
+            commentTools,
+            initializerStatement: statements[index]
         });
 
         if (!collected) {
@@ -132,7 +133,8 @@ function collectPropertyAssignments({
     identifierName,
     previousEnd,
     tracker,
-    commentTools
+    commentTools,
+    initializerStatement
 }) {
     const properties = [];
     let cursor = startIndex;
@@ -217,6 +219,23 @@ function collectPropertyAssignments({
                 trailingComments.push(comment);
             }
             property._hasTrailingInlineComment = true;
+            if (initializerStatement) {
+                initializerStatement._gmlSuppressFollowingEmptyLine = true;
+            }
+
+            if (commentTools === FALLBACK_COMMENT_TOOLS) {
+                const existingComments = Array.isArray(property.comments)
+                    ? property.comments
+                    : [];
+                const combinedComments =
+                    existingComments.concat(attachableComments);
+
+                Object.defineProperty(property, "comments", {
+                    value: combinedComments,
+                    configurable: true,
+                    writable: true
+                });
+            }
             const lastComment = attachableComments.at(-1);
             const commentEnd = getNodeEndIndex(lastComment);
             lastEnd = commentEnd == undefined ? end : commentEnd;
