@@ -114,7 +114,22 @@ function stripTrailingLineTerminators(value) {
         return value;
     }
 
-    return value.replace(/(?:\r?\n)+$/, "");
+    let end = value.length;
+
+    // Avoid allocating a regular expression-backed string when trimming
+    // newline groups from macro bodies. The printer calls this helper while
+    // assembling docs for every Feather macro, so slicing manually keeps the
+    // hot path allocation-free when the text already lacks trailing line
+    // terminators.
+    while (end > 0 && value.charCodeAt(end - 1) === 0x0a) {
+        end -= 1;
+
+        if (end > 0 && value.charCodeAt(end - 1) === 0x0d) {
+            end -= 1;
+        }
+    }
+
+    return end === value.length ? value : value.slice(0, end);
 }
 
 function resolvePrinterSourceMetadata(options) {

@@ -28,7 +28,9 @@ export default class GameMakerLanguageParserVisitor extends GameMakerLanguagePar
         super();
         const delegate = options?.visitChildrenDelegate;
         this.#visitChildrenDelegate =
-            typeof delegate === "function" ? delegate : DEFAULT_VISIT_CHILDREN_DELEGATE;
+            typeof delegate === "function"
+                ? delegate
+                : DEFAULT_VISIT_CHILDREN_DELEGATE;
     }
 
     _visitUsingDelegate(methodName, ctx) {
@@ -41,11 +43,15 @@ export default class GameMakerLanguageParserVisitor extends GameMakerLanguagePar
 }
 
 for (const methodName of VISIT_METHOD_NAMES) {
-    Object.defineProperty(GameMakerLanguageParserVisitor.prototype, methodName, {
-        value(ctx) {
-            return this._visitUsingDelegate(methodName, ctx);
-        },
-        writable: true,
-        configurable: true
-    });
+    Object.defineProperty(
+        GameMakerLanguageParserVisitor.prototype,
+        methodName,
+        {
+            value(ctx) {
+                return this._visitUsingDelegate(methodName, ctx);
+            },
+            writable: true,
+            configurable: true
+        }
+    );
 }
