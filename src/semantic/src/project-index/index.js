@@ -6,6 +6,7 @@ import {
     buildLocationKey,
     cloneLocation,
     getCallExpressionIdentifier,
+    getLineBreakSpans,
     getOrCreateMapEntry,
     hasOwn,
     isFsErrorCode,
@@ -276,8 +277,6 @@ function buildIdentifierId(scope, value) {
     return `${scope}:${value}`;
 }
 
-const LINE_BREAK_PATTERN = /\r\n?|\n|\u2028|\u2029/g;
-
 function computeLineOffsets(source) {
     const offsets = [0];
 
@@ -285,9 +284,8 @@ function computeLineOffsets(source) {
         return offsets;
     }
 
-    for (const match of source.matchAll(LINE_BREAK_PATTERN)) {
-        const startIndex = match.index ?? 0;
-        offsets.push(startIndex + match[0].length);
+    for (const { index, length } of getLineBreakSpans(source)) {
+        offsets.push(index + length);
     }
 
     return offsets;

@@ -53,7 +53,10 @@ export {
     isJsonParseError,
     parseJsonWithContext
 } from "../../shared/src/utils/json.js";
-export { splitLines } from "../../shared/src/utils/line-breaks.js";
+export {
+    getLineBreakSpans,
+    splitLines
+} from "../../shared/src/utils/line-breaks.js";
 export { isFsErrorCode } from "../../shared/src/fs/index.js";
 export {
     resolveContainedRelativePath,
