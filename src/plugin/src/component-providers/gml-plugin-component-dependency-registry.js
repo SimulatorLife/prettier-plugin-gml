@@ -37,34 +37,59 @@ function normalizeDependencyMap(candidate) {
         LogicalOperatorsStyle
     } = dependencies;
 
-    assertPlainObject(gmlParserAdapter, {
-        name: "gmlParserAdapter",
-        errorMessage:
-            "GML plugin component dependencies must include a gmlParserAdapter object."
-    });
-    assertFunction(print, "print", {
-        errorMessage:
+    const requiredObjects = [
+        [
+            gmlParserAdapter,
+            {
+                name: "gmlParserAdapter",
+                errorMessage:
+                    "GML plugin component dependencies must include a gmlParserAdapter object."
+            }
+        ],
+        [
+            handleComments,
+            {
+                name: "handleComments",
+                errorMessage:
+                    "GML plugin component dependencies must include handleComments helpers."
+            }
+        ],
+        [
+            identifierCaseOptions,
+            {
+                name: "identifierCaseOptions",
+                errorMessage:
+                    "GML plugin component dependencies must include identifierCaseOptions."
+            }
+        ],
+        [
+            LogicalOperatorsStyle,
+            {
+                name: "LogicalOperatorsStyle",
+                errorMessage:
+                    "GML plugin component dependencies must include LogicalOperatorsStyle definitions."
+            }
+        ]
+    ];
+
+    for (const [value, options] of requiredObjects) {
+        assertPlainObject(value, options);
+    }
+
+    for (const [fn, name, errorMessage] of [
+        [
+            print,
+            "print",
             "GML plugin component dependencies must include a print function."
-    });
-    assertPlainObject(handleComments, {
-        name: "handleComments",
-        errorMessage:
-            "GML plugin component dependencies must include handleComments helpers."
-    });
-    assertFunction(printComment, "printComment", {
-        errorMessage:
+        ],
+        [
+            printComment,
+            "printComment",
             "GML plugin component dependencies must include a printComment function."
-    });
-    assertPlainObject(identifierCaseOptions, {
-        name: "identifierCaseOptions",
-        errorMessage:
-            "GML plugin component dependencies must include identifierCaseOptions."
-    });
-    assertPlainObject(LogicalOperatorsStyle, {
-        name: "LogicalOperatorsStyle",
-        errorMessage:
-            "GML plugin component dependencies must include LogicalOperatorsStyle definitions."
-    });
+        ]
+    ]) {
+        assertFunction(fn, name, { errorMessage });
+    }
 
     return Object.freeze({
         gmlParserAdapter,
