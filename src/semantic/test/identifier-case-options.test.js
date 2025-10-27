@@ -11,7 +11,7 @@ import {
     getIdentifierCaseScopeOptionName,
     IDENTIFIER_CASE_IGNORE_OPTION_NAME,
     IDENTIFIER_CASE_PRESERVE_OPTION_NAME
-} from "../src/options/identifier-case.js";
+} from "../src/identifier-case/options.js";
 
 describe("gml identifier case option normalization", () => {
     it("defaults to disabled renaming when options are omitted", () => {

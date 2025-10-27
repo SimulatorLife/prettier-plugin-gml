@@ -9,12 +9,12 @@ import {
     createListSplitPattern,
     normalizeStringList
 } from "../shared/index.js";
-import { getIdentifierCaseStyleMetadata } from "../identifier-case/identifier-case-utils.js";
-import { getDefaultProjectIndexCacheMaxSize } from "gamemaker-language-semantic/project-index/cache.js";
-import { getDefaultProjectIndexGmlConcurrency } from "gamemaker-language-semantic/project-index/concurrency.js";
-import { DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES } from "../identifier-case/option-store-defaults.js";
+import { getIdentifierCaseStyleMetadata } from "./identifier-case-utils.js";
+import { getDefaultProjectIndexCacheMaxSize } from "../project-index/cache.js";
+import { getDefaultProjectIndexGmlConcurrency } from "../project-index/concurrency.js";
+import { DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES } from "./option-store-defaults.js";
 
-export { DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES } from "../identifier-case/option-store-defaults.js";
+export { DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES } from "./option-store-defaults.js";
 
 const IDENTIFIER_CASE_DESCRIPTION =
     "Sets the preferred casing style to apply when renaming identifiers.";

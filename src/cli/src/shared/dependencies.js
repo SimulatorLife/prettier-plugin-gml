@@ -14,6 +14,7 @@ export {
     createVerboseDurationLogger,
     escapeRegExp,
     ensureMap,
+    ensureDir,
     formatDuration,
     getErrorCode,
     getErrorMessage,
@@ -64,8 +65,6 @@ export {
 export { resolveCommandUsage } from "../core/command-usage.js";
 
 export { appendToCollection } from "../core/collection-utils.js";
-
-export { ensureDir } from "./ensure-dir.js";
 
 export {
     createCliRunSkippedError,

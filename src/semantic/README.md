@@ -13,6 +13,10 @@ primary pillars:
   `src/semantic/src/project-index/`. The plugin consumes these helpers to gather
   declaration metadata for rename plans, and future live-reload services will
   build on the same entry points.
+- **Identifier-case pipeline** – rename planning, scope detection, and
+  environment management migrated from `src/plugin/src/identifier-case/` to
+  `src/semantic/src/identifier-case/` so the Prettier plugin can focus solely on
+  formatting concerns.
 
 ## Identifier Case Bootstrap Controls
 

@@ -29,7 +29,7 @@ import {
     prepareIdentifierCaseEnvironment,
     attachIdentifierCasePlanSnapshot,
     teardownIdentifierCaseEnvironment
-} from "../identifier-case/environment.js";
+} from "gamemaker-language-semantic/identifier-case/environment.js";
 import { prepareDocCommentEnvironment } from "../comments/index.js";
 
 const { addTrailingComment } = util;

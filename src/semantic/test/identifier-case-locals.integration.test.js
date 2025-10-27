@@ -16,7 +16,7 @@ import { prepareIdentifierCasePlan } from "../src/identifier-case/plan-service.j
 import { maybeReportIdentifierCaseDryRun } from "../src/identifier-case/identifier-case-report.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
+const pluginPath = path.resolve(currentDirectory, "../../plugin/src/gml.js");
 const fixturesDirectory = path.join(
     currentDirectory,
     "identifier-case-fixtures"

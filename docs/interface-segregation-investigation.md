@@ -24,7 +24,7 @@ To re-validate the earlier conclusion, I reran a broader set of surveys:
   showed each serves a single concern (for example, `defaultIdentifierCaseFsFacade` simply forwards
   to Node's fs module without accumulating unrelated behavior).
 - Reviewed coordinator/facade modules in `src/plugin/src/project-index/` and
-  `src/plugin/src/identifier-case/` to ensure they expose narrow responsibilities (for example,
+  `src/semantic/src/identifier-case/` to ensure they expose narrow responsibilities (for example,
   `createProjectIndexCoordinator` only brokers cache readiness and disposal).
 
 No new interface or type definition surfaced that violates the Interface Segregation Principle, so
@@ -45,7 +45,7 @@ no code changes were required.
 ## Follow-up audit (2025-02-20)
 
 - Located the `IdentifierCasePlanServices` bundle in
-  `src/plugin/src/identifier-case/plan-service.js`. The wide "service" facade
+  `src/semantic/src/identifier-case/plan-service.js`. The wide "service" facade
   forced providers to manufacture preparation, rename lookup, and snapshot
   collaborators together even when a consumer only required one capability.
 - Removed the bundle contract in favour of the existing
