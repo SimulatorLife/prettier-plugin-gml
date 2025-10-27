@@ -5368,19 +5368,28 @@ function computeSyntheticFunctionDocLines(
                 effectiveImplicitName) ||
             (ordinalDocName && ordinalDocName.length > 0 && ordinalDocName) ||
             paramInfo.name;
-        const shouldMarkOptional =
-            paramInfo.optional ||
-            (param?.type === "DefaultParameter" &&
-                isOptionalParamDocName(existingDocName));
+        const parameterSourceText = getSourceTextForNode(param, options);
+        const defaultCameFromSource =
+            param?.type === "DefaultParameter" &&
+            isUndefinedLiteral(param.right) &&
+            typeof parameterSourceText === "string" &&
+            parameterSourceText.includes("=");
+        const hasExplicitOptionalDoc =
+            param?.type === "DefaultParameter" &&
+            isOptionalParamDocName(existingDocName);
+        const shouldMarkOptional = paramInfo.optional || hasExplicitOptionalDoc;
+        const effectiveMarkOptional =
+            (paramInfo.optional && !defaultCameFromSource) ||
+            hasExplicitOptionalDoc;
         if (
-            shouldMarkOptional &&
+            effectiveMarkOptional &&
             param?.type === "DefaultParameter" &&
             isUndefinedLiteral(param.right)
         ) {
             preservedUndefinedDefaultParameters.add(param);
         }
         const docName =
-            (shouldMarkOptional && `[${baseDocName}]`) || baseDocName;
+            (effectiveMarkOptional && `[${baseDocName}]`) || baseDocName;
 
         const normalizedExistingType = normalizeParamDocType(
             existingMetadata?.type
