@@ -34,7 +34,8 @@ export {
 export {
     prepareDocCommentEnvironment,
     resolveDocCommentTraversalService,
-    resolveDocCommentLookupService,
+    resolveDocCommentCollectionService,
+    resolveDocCommentPresenceService,
     resolveDocCommentDescriptionService,
     resolveDocCommentUpdateService
 } from "./doc-comment-manager.js";
