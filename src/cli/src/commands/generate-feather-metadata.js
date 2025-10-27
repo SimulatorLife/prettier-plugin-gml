@@ -13,7 +13,7 @@ import {
     toNormalizedLowerCaseSet
 } from "../shared/dependencies.js";
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
-import { disposeProgressBars } from "../shared/progress-bar.js";
+import { disposeProgressBars } from "../runtime-options/progress-bar.js";
 import { writeManualJsonArtifact } from "../modules/manual/file-helpers.js";
 import {
     MANUAL_CACHE_ROOT_ENV_VAR,
