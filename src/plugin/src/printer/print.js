@@ -6096,7 +6096,9 @@ function getParameterDocInfo(paramNode, functionNode, options) {
 
         const optionalOverride = paramNode?._featherOptionalParameter === true;
         const optional = defaultIsUndefined
-            ? optionalOverride || !signatureOmitsUndefinedDefault
+            ? optionalOverride ||
+              !signatureOmitsUndefinedDefault ||
+              shouldOmitUndefinedDefaultForFunctionNode(functionNode)
             : true;
 
         return {
