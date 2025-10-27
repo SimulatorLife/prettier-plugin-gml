@@ -430,8 +430,7 @@ export function preprocessSourceForFeatherFixes(sourceText) {
 
     const hasMetadata = Object.keys(metadata).length > 0;
     const sourceChanged = enumSanitizedSourceText !== sourceText;
-    const hasIndexAdjustments =
-        Array.isArray(enumIndexAdjustments) && enumIndexAdjustments.length > 0;
+    const hasIndexAdjustments = isNonEmptyArray(enumIndexAdjustments);
 
     if (!hasMetadata && !sourceChanged) {
         return {

@@ -14,6 +14,7 @@ import {
 } from "../src/identifier-case/identifier-case-context.js";
 import { prepareIdentifierCasePlan } from "../src/identifier-case/plan-service.js";
 import { maybeReportIdentifierCaseDryRun } from "../src/identifier-case/identifier-case-report.js";
+import { isNonEmptyArray } from "../src/shared/index.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const pluginPath = path.resolve(currentDirectory, "../../plugin/src/gml.js");
@@ -135,7 +136,7 @@ describe("identifier case local renaming", { concurrency: false }, () => {
             assert.match(summaryText, /counter_value -> counterValue/);
 
             const codes = new Set();
-            if (Array.isArray(diagnostics) && diagnostics.length > 0) {
+            if (isNonEmptyArray(diagnostics)) {
                 const summaryDiagnostic = diagnostics.find(
                     (entry) => entry?.code === "gml-identifier-case-summary"
                 );
