@@ -1,1 +1,4 @@
-export { writeFileArtifact, writeJsonArtifact } from "../modules/fs-artifacts.js";
+export {
+    writeFileArtifact,
+    writeJsonArtifact
+} from "../modules/fs-artifacts.js";
