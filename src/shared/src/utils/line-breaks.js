@@ -4,7 +4,60 @@ import { isNonEmptyString } from "./string.js";
 // This module centralizes line break handling so parser and printer code
 // can share a single implementation instead of duplicating logic.
 
-const LINE_SPLIT_PATTERN = /\r\n|\n|\r|\u2028|\u2029|\u0085/;
+const CARRIAGE_RETURN = "\r".codePointAt(0);
+const LINE_FEED = "\n".codePointAt(0);
+const LINE_SEPARATOR = "\u2028".codePointAt(0);
+const PARAGRAPH_SEPARATOR = "\u2029".codePointAt(0);
+const NEXT_LINE = "\u0085".codePointAt(0);
+
+/**
+ * Describe each recognized line break sequence within {@link text}.
+ *
+ * @param {unknown} text Candidate string to scan for newline sequences.
+ * @returns {Array<{ index: number, length: number }>} Ordered break spans.
+ */
+export function getLineBreakSpans(text) {
+    if (typeof text !== "string" || text.length === 0) {
+        return [];
+    }
+
+    const spans = [];
+
+    for (let index = 0; index < text.length; ) {
+        const length = getLineBreakLength(text, index);
+        if (length === 0) {
+            index += 1;
+            continue;
+        }
+
+        spans.push({ index, length });
+        index += length;
+    }
+
+    return spans;
+}
+
+function getLineBreakLength(text, index) {
+    const code = text.codePointAt(index);
+    if (!Number.isFinite(code)) {
+        return 0;
+    }
+
+    if (code === CARRIAGE_RETURN) {
+        return text.codePointAt(index + 1) === LINE_FEED ? 2 : 1;
+    }
+
+    if (
+        code === LINE_FEED ||
+        code === LINE_SEPARATOR ||
+        code === PARAGRAPH_SEPARATOR ||
+        code === NEXT_LINE
+    ) {
+        return 1;
+    }
+
+    return 0;
+}
 
 /**
  * Count the number of line break characters in a string.
@@ -17,10 +70,7 @@ export function getLineBreakCount(text) {
         return 0;
     }
 
-    // `String#split` returns one more entry than the number of separators, so
-    // subtracting one yields the count of break sequences that match the shared
-    // pattern used by {@link splitLines}.
-    return text.split(LINE_SPLIT_PATTERN).length - 1;
+    return getLineBreakSpans(text).length;
 }
 
 /**
@@ -42,5 +92,19 @@ export function splitLines(text) {
         return [];
     }
 
-    return text.split(LINE_SPLIT_PATTERN);
+    const spans = getLineBreakSpans(text);
+    if (spans.length === 0) {
+        return [text];
+    }
+
+    const lines = [];
+    let start = 0;
+
+    for (const span of spans) {
+        lines.push(text.slice(start, span.index));
+        start = span.index + span.length;
+    }
+
+    lines.push(text.slice(start));
+    return lines;
 }
