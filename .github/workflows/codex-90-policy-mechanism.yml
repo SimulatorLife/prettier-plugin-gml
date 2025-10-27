@@ -1,0 +1,35 @@
+name: Codex 90 – Policy Mechanism Separation
+on:
+  schedule:
+    - cron: "20 1 * * 1" # weekly on Mondays at 01:20 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Separate policy evaluators from mechanisms"
+      pr_body: |
+        ## Summary
+        * Identify formatter modules where policy heuristics are intertwined with operational logic.
+        * Extract policy evaluators or strategy objects so that formatting actions can delegate to them.
+
+        ## Testing
+        * npm test
+      prompt: >
+        Inspect modules where policy decisions (flags, thresholds, cache sizing, heuristic lookups, or other
+        conditional rules) are implemented in the same place that performs operational side effects. Look for
+        code that both decides "what" should happen and immediately carries out the "how", leaving no seam to
+        exercise the policy independently.
+
+        For one of these hotspots, design and implement a refactor that extracts the policy computation into a
+        dedicated evaluator, ruleset, or strategy object. Adjust the mechanism code to depend on the extracted
+        policy rather than recomputing heuristics inline. Ensure the new abstraction keeps existing behaviour
+        intact, adds focused unit coverage where practical, and documents the separation so future contributors
+        keep policy and mechanisms decoupled.

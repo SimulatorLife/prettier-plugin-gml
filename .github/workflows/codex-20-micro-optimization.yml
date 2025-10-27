@@ -19,9 +19,7 @@ jobs:
       prompt: >
         Identify and optimize one specific micro-hot path (a tight loop, inner
         render/update step, or small utility on a critical code path) and deliver at
-        least one measurable, behavior-preserving micro-optimization. You may not
-        respond with “no issues found”—if no obvious optimization exists, choose the
-        most plausible hotspot and apply a singular, safe, minimal improvement. Keep the
+        least one measurable, behavior-preserving micro-optimization. Keep the
         blast radius tiny: no architectural rewrites, no API/interface changes, no new
         dependencies. Prefer straightforward optimizations such as reducing allocations,
         tightening iteration, avoiding repeated lookups inside loops, hoisting
@@ -30,5 +28,4 @@ jobs:
         operations, collapsing nested conditionals into guard clauses, or
         short-circuiting common cases. In your commit message, include a small
         before/after measurement (micro-benchmark, timing probe, or deterministic
-        counter) to show impact. Ensure the diff is small, readable, and well-commented;
-        never sacrifice clarity for cleverness.
+        counter) to show impact.

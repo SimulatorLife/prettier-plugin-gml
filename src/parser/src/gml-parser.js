@@ -1,15 +1,20 @@
 import antlr4, { PredictionMode } from "antlr4";
 
-import GameMakerLanguageLexer from "./generated/GameMakerLanguageLexer.js";
-import GameMakerLanguageParser from "./generated/GameMakerLanguageParser.js";
+import GameMakerLanguageLexer from "../generated/GameMakerLanguageLexer.js";
+import GameMakerLanguageParser from "../generated/GameMakerLanguageParser.js";
 import GameMakerASTBuilder from "./gml-ast-builder.js";
 import GameMakerParseErrorListener, {
     GameMakerLexerErrorListener
 } from "./gml-syntax-error.js";
-import { enqueueObjectChildValues } from "./shared/ast.js";
-import { isObjectLike } from "./shared/object-utils.js";
-import { isErrorLike } from "./shared/utils/capability-probes.js";
-import { getLineBreakCount } from "./shared/utils/line-breaks.js";
+import {
+    enqueueObjectChildValues,
+    isObjectLike,
+    isErrorLike,
+    getLineBreakCount
+} from "./shared/index.js";
+import { installRecognitionExceptionLikeGuard } from "./utils/recognition-exception.js";
+
+installRecognitionExceptionLikeGuard();
 
 function normalizeSimpleEscapeCase(text) {
     if (typeof text !== "string" || text.length === 0) {
@@ -422,4 +427,4 @@ export default class GMLParser {
     }
 }
 
-export { getLineBreakCount } from "./shared/utils/line-breaks.js";
+export { getLineBreakCount } from "./shared/index.js";

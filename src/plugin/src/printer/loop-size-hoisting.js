@@ -5,12 +5,10 @@
 import {
     getIdentifierText,
     getCallExpressionArguments,
-    getCallExpressionIdentifierName
-} from "../shared/ast-node-helpers.js";
-import {
+    getCallExpressionIdentifierName,
     normalizeStringList,
     toNormalizedLowerCaseString
-} from "../shared/string-utils.js";
+} from "../shared/index.js";
 
 const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
     ["array_length", "len"],
@@ -243,6 +241,15 @@ function buildCachedSizeVariableName(baseName, suffix) {
 
     if (baseName.endsWith(`_${normalizedSuffix}`)) {
         return baseName;
+    }
+
+    if (
+        normalizedSuffix === "len" &&
+        baseName.length > normalizedSuffix.length &&
+        baseName.endsWith("s") &&
+        !baseName.endsWith("ss")
+    ) {
+        return normalizedSuffix;
     }
 
     return `${baseName}_${normalizedSuffix}`;

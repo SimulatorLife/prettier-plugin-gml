@@ -6,6 +6,7 @@
  */
 
 import { resolveGmlPluginComponents } from "./plugin-components.js";
+import { resolveCoreOptionOverrides } from "./options/core-option-overrides.js";
 
 function selectPluginComponents() {
     return resolveGmlPluginComponents();
@@ -98,25 +99,6 @@ export const languages = [
     }
 ];
 
-// Hard overrides for GML regardless of incoming config. These knobs either map
-// to syntax that GameMaker never emits (for example JSX attributes) or would
-// let callers re-enable formatting modes the printers deliberately avoid. The
-// fixtures showcased in README.md#formatter-at-a-glance and the
-// docs/examples/* snapshots all assume "no trailing commas" plus
-// "always-parenthesised arrow parameters", so letting user configs flip those
-// bits would desynchronize the documented contract from the code we ship. We
-// therefore clamp the values here to advertise a single canonical style and to
-// prevent project-level `.prettierrc` files from surfacing ineffective or
-// misleading toggles.
-const CORE_OPTION_OVERRIDES = {
-    trailingComma: "none",
-    arrowParens: "always",
-    singleAttributePerLine: false,
-    jsxSingleQuote: false,
-    proseWrap: "preserve",
-    htmlWhitespaceSensitivity: "css"
-};
-
 const BASE_PRETTIER_DEFAULTS = {
     tabWidth: 4,
     semi: true,
@@ -143,12 +125,14 @@ function computeOptionDefaults() {
 }
 
 function createDefaultOptionsSnapshot() {
+    const coreOptionOverrides = resolveCoreOptionOverrides();
+
     return {
         // Merge order:
         // GML Prettier defaults -> option defaults -> fixed overrides
         ...BASE_PRETTIER_DEFAULTS,
         ...computeOptionDefaults(),
-        ...CORE_OPTION_OVERRIDES
+        ...coreOptionOverrides
     };
 }
 

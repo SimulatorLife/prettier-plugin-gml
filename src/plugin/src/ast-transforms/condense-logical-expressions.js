@@ -1,18 +1,21 @@
 import {
     hasComment as sharedHasComment,
     normalizeHasCommentHelpers,
-    resolveDocCommentLookupService,
+    resolveDocCommentPresenceService,
     resolveDocCommentDescriptionService,
     resolveDocCommentUpdateService
 } from "../comments/index.js";
-import { cloneLocation } from "../shared/ast-locations.js";
-import { asArray, isNonEmptyArray } from "../shared/array-utils.js";
-import { getBodyStatements, isNode } from "../shared/ast-node-helpers.js";
 import {
+    asArray,
+    cloneAstNode,
+    cloneLocation,
+    getBodyStatements,
+    getOrCreateMapEntry,
+    isNode,
+    isNonEmptyArray,
     isNonEmptyString,
     toNormalizedLowerCaseString
-} from "../shared/string-utils.js";
-import { getOrCreateMapEntry } from "../shared/object-utils.js";
+} from "../shared/index.js";
 
 const BOOLEAN_NODE_TYPES = Object.freeze({
     CONST: "CONST",
@@ -49,7 +52,7 @@ export function condenseLogicalExpressions(ast, helpers) {
         return ast;
     }
 
-    const docCommentLookup = resolveDocCommentLookupService(ast);
+    const docCommentPresence = resolveDocCommentPresenceService(ast);
     const docCommentDescriptions = resolveDocCommentDescriptionService(ast);
     const docCommentUpdateService = resolveDocCommentUpdateService(ast);
     const normalizedHelpers = normalizeHasCommentHelpers(helpers);
@@ -57,7 +60,7 @@ export function condenseLogicalExpressions(ast, helpers) {
         ast,
         helpers: normalizedHelpers,
         docUpdates: new Map(),
-        docCommentLookup,
+        docCommentPresence,
         docCommentDescriptions,
         docCommentUpdateService,
         expressionSignatures: new Map()
@@ -189,7 +192,7 @@ function removeDuplicateCondensedFunctions(context) {
         return null;
     }
 
-    const docCommentLookup = context.docCommentLookup;
+    const docCommentPresence = context.docCommentPresence;
     const signatureToFunctions = new Map();
     for (const [fn, signature] of context.expressionSignatures.entries()) {
         if (!signature) {
@@ -229,7 +232,7 @@ function removeDuplicateCondensedFunctions(context) {
             const update = context.docUpdates.get(fn);
             const hasDocComment =
                 update?.hasDocComment ||
-                (docCommentLookup?.hasDocComment(fn) ?? false);
+                (docCommentPresence?.hasDocComment(fn) ?? false);
             if (hasDocComment && !keeper) {
                 keeper = fn;
             }
@@ -244,7 +247,7 @@ function removeDuplicateCondensedFunctions(context) {
                 const update = context.docUpdates.get(fn);
                 const hasDocComment =
                     update?.hasDocComment ||
-                    (docCommentLookup?.hasDocComment(fn) ?? false);
+                    (docCommentPresence?.hasDocComment(fn) ?? false);
                 if (!hasDocComment) {
                     toRemove.add(fn);
                 }
@@ -2266,14 +2269,6 @@ function createBooleanLiteralAst(value) {
         start: undefined,
         end: undefined
     };
-}
-
-function cloneAstNode(node) {
-    if (!node) {
-        return null;
-    }
-
-    return structuredClone(node);
 }
 
 function createBooleanConstant(value) {

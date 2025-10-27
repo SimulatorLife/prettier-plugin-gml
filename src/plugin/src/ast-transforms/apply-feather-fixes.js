@@ -6,9 +6,8 @@ import {
     getNodeEndLine,
     getNodeStartLine,
     cloneLocation,
-    assignClonedLocation
-} from "../shared/ast-locations.js";
-import {
+    cloneAstNode,
+    assignClonedLocation,
     getArrayProperty,
     getBodyStatements,
     getCallExpressionArguments,
@@ -20,35 +19,28 @@ import {
     isVarVariableDeclaration,
     isNode,
     visitChildNodes,
-    unwrapParenthesizedExpression
-} from "../shared/ast-node-helpers.js";
-import {
+    unwrapParenthesizedExpression,
     getNonEmptyString,
+    getNonEmptyTrimmedString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
     stripStringQuotes,
     toNormalizedLowerCaseString,
-    toTrimmedString
-} from "../shared/string-utils.js";
-import { loadReservedIdentifierNames } from "../resources/reserved-identifiers.js";
-import { isFiniteNumber } from "../shared/number-utils.js";
-import {
+    toTrimmedString,
+    isFiniteNumber,
     asArray,
     isArrayIndex,
-    isNonEmptyArray
-} from "../shared/array-utils.js";
-import { ensureSet } from "../shared/utils/capability-probes.js";
-import {
+    isNonEmptyArray,
+    ensureSet,
     getOrCreateMapEntry,
     hasOwn,
-    isObjectLike
-} from "../shared/object-utils.js";
-import { escapeRegExp } from "../shared/regexp.js";
-import {
+    isObjectLike,
+    escapeRegExp,
     hasIterableItems,
     isMapLike,
-    isSetLike
-} from "../shared/utils/capability-probes.js";
+    isSetLike,
+    getSingleVariableDeclarator as sharedGetSingleVariableDeclarator
+} from "../shared/index.js";
 import {
     collectCommentNodes,
     getCommentArray,
@@ -61,6 +53,7 @@ import {
     getFeatherDiagnostics,
     getFeatherMetadata
 } from "../resources/feather-metadata.js";
+import { loadReservedIdentifierNames } from "gamemaker-language-semantic/resources/reserved-identifiers.js";
 
 function forEachNodeChild(node, callback) {
     if (!node || typeof node !== "object") {
@@ -5111,7 +5104,7 @@ function rewritePostfixStatement(node, parent, property, diagnostic) {
         return null;
     }
 
-    const initializer = cloneNode(argument);
+    const initializer = cloneAstNode(argument);
     const declarationIdentifier = createIdentifier(temporaryName, argument);
 
     if (!initializer || !declarationIdentifier) {
@@ -7688,7 +7681,7 @@ function createVertexEndCallFromBegin(template) {
     };
 
     if (isNonEmptyArray(template.arguments)) {
-        const clonedArgument = cloneNode(template.arguments[0]);
+        const clonedArgument = cloneAstNode(template.arguments[0]);
 
         if (clonedArgument) {
             callExpression.arguments.push(clonedArgument);
@@ -7927,13 +7920,9 @@ function buildEventMarkerIndex(ast) {
 }
 
 function extractEventNameFromComment(value) {
-    if (typeof value !== "string") {
-        return null;
-    }
+    const trimmed = getNonEmptyTrimmedString(value);
 
-    const trimmed = value.trim();
-
-    if (!trimmed.startsWith("/")) {
+    if (!trimmed || !trimmed.startsWith("/")) {
         return null;
     }
 
@@ -8773,9 +8762,9 @@ function convertAllAssignment(node, parent, property, diagnostic) {
         type: "ExpressionStatement",
         expression: normalizedAssignment,
         start: cloneLocation(node.start),
-        end: cloneLocation(node.end)
+        end: cloneLocation(node.end),
+        _featherSuppressFollowingEmptyLine: true
     };
-    assignmentStatement._featherSuppressFollowingEmptyLine = true;
 
     const blockStatement = {
         type: "BlockStatement",
@@ -11923,7 +11912,7 @@ function createVertexBeginCall({
         template.additionalArguments.length > 0
     ) {
         for (const argumentTemplate of template.additionalArguments) {
-            const clonedArgument = cloneNode(argumentTemplate);
+            const clonedArgument = cloneAstNode(argumentTemplate);
 
             if (clonedArgument) {
                 callExpression.arguments.push(clonedArgument);
@@ -12085,7 +12074,7 @@ function handleLocalVariableDeclarationPatterns({
         return null;
     }
 
-    const declarator = getSingleVariableDeclarator(node);
+    const declarator = sharedGetSingleVariableDeclarator(node);
 
     if (!declarator) {
         return null;
@@ -12185,28 +12174,6 @@ function handleLocalVariableDeclarationPatterns({
     return null;
 }
 
-function getSingleVariableDeclarator(node) {
-    if (!node || node.type !== "VariableDeclaration") {
-        return null;
-    }
-
-    const declarations = Array.isArray(node.declarations)
-        ? node.declarations
-        : [];
-
-    if (declarations.length !== 1) {
-        return null;
-    }
-
-    const [declarator] = declarations;
-
-    if (!declarator || declarator.type !== "VariableDeclarator") {
-        return null;
-    }
-
-    return declarator;
-}
-
 function getDeclaratorName(declarator) {
     const identifier = declarator?.id;
 
@@ -12253,7 +12220,7 @@ function convertPrecedingAssignmentToVariableDeclaration({
         return null;
     }
 
-    const declarator = getSingleVariableDeclarator(declarationNode);
+    const declarator = sharedGetSingleVariableDeclarator(declarationNode);
 
     if (!declarator || !declarator.init) {
         return null;
@@ -12568,7 +12535,7 @@ function hoistVariableDeclarationOutOfBlock({
         return null;
     }
 
-    const declarator = getSingleVariableDeclarator(declarationNode);
+    const declarator = sharedGetSingleVariableDeclarator(declarationNode);
 
     if (!declarator || !declarator.init) {
         return null;
@@ -15281,7 +15248,7 @@ function suppressDuplicateVertexFormatComments(ast, commentTargets, node) {
         return;
     }
 
-    if (!Array.isArray(commentTargets) || commentTargets.length === 0) {
+    if (!isNonEmptyArray(commentTargets)) {
         return;
     }
 
@@ -15436,7 +15403,7 @@ function createCallExpressionCommentText(node) {
 
     const args = getCallExpressionArguments(node);
 
-    if (!Array.isArray(args) || args.length === 0) {
+    if (!isNonEmptyArray(args)) {
         return `${calleeName}()`;
     }
 
@@ -17162,7 +17129,7 @@ function fixSpecifierSpacing(typeText, specifierBaseTypes) {
         return typeText;
     }
 
-    const regex = new RegExp(`\\b(${patternSource})\\b`, "gi");
+    const regex = new RegExp(String.raw`\b(${patternSource})\b`, "gi");
     let result = "";
     let lastIndex = 0;
     let match;
@@ -17420,7 +17387,9 @@ function hasDelimiterOutsideNesting(text, delimiters) {
         return false;
     }
 
-    const delimiterSet = new Set(delimiters ?? []);
+    const delimiterSet = hasIterableItems(delimiters)
+        ? new Set(delimiters)
+        : new Set();
     let depthSquare = 0;
     let depthAngle = 0;
     let depthParen = 0;
@@ -17548,14 +17517,6 @@ function getIdentifierName(node) {
     }
 
     return null;
-}
-
-function cloneNode(node) {
-    if (node === null || typeof node !== "object") {
-        return node;
-    }
-
-    return structuredClone(node);
 }
 
 function createIdentifier(name, template) {

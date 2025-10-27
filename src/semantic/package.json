@@ -1,0 +1,24 @@
+{
+  "name": "gamemaker-language-semantic",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./scopes": "./src/scopes/index.js",
+    "./scopes/*": "./src/scopes/*",
+    "./project-index": "./src/project-index/index.js",
+    "./project-index/*": "./src/project-index/*",
+    "./project-index.js": "./src/project-index.js",
+    "./identifier-case": "./src/identifier-case/index.js",
+    "./identifier-case/*": "./src/identifier-case/*",
+    "./identifier-case.js": "./src/identifier-case.js",
+    "./resources/*": "./src/resources/*"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=25.0.0"
+  }
+}

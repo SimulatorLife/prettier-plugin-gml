@@ -1,5 +1,4 @@
-import { hasFunction, isErrorLike } from "../shared/utils/capability-probes.js";
-import { isObjectLike } from "../shared/object-utils.js";
+import { hasFunction, isErrorLike, isObjectLike } from "../shared/index.js";
 
 function hasOffendingTokenProbe(value) {
     if (value?.offendingToken !== undefined) {
@@ -65,3 +64,5 @@ export function isRecognitionExceptionLike(value) {
 
     return true;
 }
+
+export { installRecognitionExceptionLikeGuard } from "../extensions/recognition-exception-patch.js";

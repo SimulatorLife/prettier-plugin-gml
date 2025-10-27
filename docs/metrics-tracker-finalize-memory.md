@@ -8,7 +8,7 @@ This note captures the `node --expose-gc` experiment used to confirm that cleari
 The measurement runs the following inline script against the current checkout:
 
 ```bash
-node --expose-gc --input-type=module -e "import { createMetricsTracker } from './src/shared/reporting/metrics.js';
+node --expose-gc --input-type=module -e "import { createMetricsTracker } from './src/shared/src/reporting/metrics.js';
 function run() {
   if (typeof global.gc !== 'function') {
     throw new Error('GC not available');
@@ -16,18 +16,18 @@ function run() {
   global.gc();
   let tracker = createMetricsTracker({ category: 'measure', cacheKeys: ['hits','misses','stale','evictions'] });
   for (let i = 0; i < 10000; i += 1) {
-    tracker.incrementCounter('counter-' + (i % 8), i % 3);
+    tracker.counters.increment('counter-' + (i % 8), i % 3);
   }
   for (let i = 0; i < 5000; i += 1) {
-    tracker.recordCacheHit('cache-' + (i % 4));
-    tracker.recordCacheMiss('cache-' + (i % 4));
+    tracker.caches.recordHit('cache-' + (i % 4));
+    tracker.caches.recordMiss('cache-' + (i % 4));
   }
   for (let i = 0; i < 2000; i += 1) {
-    tracker.recordCacheMetric('cache-' + (i % 4), 'evictions', 2);
+    tracker.caches.recordMetric('cache-' + (i % 4), 'evictions', 2);
   }
-  tracker.setMetadata('blob', 'x'.repeat(1_000_000));
+  tracker.reporting.setMetadata('blob', 'x'.repeat(1_000_000));
   const beforeFinalize = process.memoryUsage();
-  let report = tracker.finalize();
+  let report = tracker.reporting.finalize();
   const afterFinalize = process.memoryUsage();
   global.gc();
   const afterGcWithReport = process.memoryUsage();

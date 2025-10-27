@@ -25,7 +25,7 @@ export default [
             "resources/*",
             "src/vendor/*.js",
             "generated/*",
-            "src/parser/src/generated/**/*",
+            "src/parser/generated/**/*",
             "*.gml",
             ".DS_Store",
             "LICENSE",
@@ -240,7 +240,7 @@ export default [
     },
     /* Tests: relax a few noisy limits */
     {
-        files: ["**/tests/**", "*.test.*js", "*.spec.js"],
+        files: ["**/test/**", "*.test.*js", "*.spec.js"],
         rules: {
             quotes: ["off"],
             "max-lines-per-function": "off",

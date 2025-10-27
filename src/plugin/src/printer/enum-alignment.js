@@ -1,8 +1,23 @@
-import { isNonEmptyArray } from "../shared/array-utils.js";
-import { getCommentArray } from "../shared/comments.js";
+import { isNonEmptyArray, getCommentArray } from "../shared/index.js";
 
 const ENUM_INITIALIZER_OPERATOR_WIDTH = " = ".length;
 
+/**
+ * Mutate an enum declaration so subsequent printer passes know how much spacing
+ * is required to align member names, initializers, and trailing comments.
+ *
+ * Each member receives bookkeeping properties (for example,
+ * `_enumNameAlignmentPadding`) that store the padding width needed to align the
+ * columnar layout. When no alignment work is required the function exits early
+ * to avoid allocating metadata in hot printer paths.
+ *
+ * @param {{
+ *     members?: Array<unknown> | null | undefined;
+ *     hasTrailingComma?: boolean;
+ } | null | undefined} enumNode Enum AST node to augment.
+ * @param {(node: unknown) => string | null | undefined} [getNodeName]
+ *        Optional resolver used to extract a stable member name.
+ */
 export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
     if (!enumNode || typeof enumNode !== "object") {
         return;
@@ -40,6 +55,14 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
     });
 }
 
+/**
+ * Retrieve the alignment padding previously attached by
+ * {@link prepareEnumMembersForPrinting}. Callers default to zero so the printer
+ * can treat members without metadata as already aligned.
+ *
+ * @param {unknown} member Enum member node carrying optional alignment state.
+ * @returns {number} Non-negative padding width in spaces.
+ */
 export function getEnumNameAlignmentPadding(member) {
     if (!member) {
         return 0;
@@ -50,7 +73,7 @@ export function getEnumNameAlignmentPadding(member) {
 }
 
 function getEnumInitializerWidth(initializer) {
-    if (initializer == undefined) {
+    if (initializer === undefined || initializer === null) {
         return 0;
     }
 

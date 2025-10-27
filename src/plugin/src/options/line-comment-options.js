@@ -1,3 +1,5 @@
+import { assertFunction, isRegExpLike } from "../shared/index.js";
+
 const LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES = 5;
 const LINE_COMMENT_BANNER_STANDARD_LENGTH = 60;
 
@@ -30,62 +32,42 @@ const DEFAULT_LINE_COMMENT_OPTIONS = Object.freeze({
 
 let lineCommentOptionsResolver = null;
 
-function normalizeBoilerplateFragments(fragments) {
-    if (!Array.isArray(fragments)) {
-        return DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments;
+function normalizeArrayOption(
+    candidate,
+    { defaultValue, filter, map = (value) => value }
+) {
+    if (!Array.isArray(candidate)) {
+        return defaultValue;
     }
 
-    const normalizedFragments = fragments
-        .filter(
-            (fragment) => typeof fragment === "string" && fragment.length > 0
-        )
-        .map(String);
-
-    if (normalizedFragments.length === 0) {
-        return DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments;
-    }
+    const normalized = candidate
+        .filter((value) => filter(value))
+        .map((value) => map(value));
 
     if (
-        normalizedFragments.length ===
-            DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments.length &&
-        normalizedFragments.every(
-            (fragment, index) =>
-                fragment ===
-                DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments[index]
-        )
+        normalized.length === 0 ||
+        (normalized.length === defaultValue.length &&
+            normalized.every((value, index) => value === defaultValue[index]))
     ) {
-        return DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments;
+        return defaultValue;
     }
 
-    return Object.freeze([...normalizedFragments]);
+    return Object.freeze([...normalized]);
+}
+
+function normalizeBoilerplateFragments(fragments) {
+    return normalizeArrayOption(fragments, {
+        defaultValue: DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments,
+        filter: (value) => typeof value === "string" && value.length > 0,
+        map: String
+    });
 }
 
 function normalizeCodeDetectionPatterns(patterns) {
-    if (!Array.isArray(patterns)) {
-        return DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns;
-    }
-
-    const normalizedPatterns = patterns.filter(
-        (pattern) => pattern instanceof RegExp
-    );
-
-    if (normalizedPatterns.length === 0) {
-        return DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns;
-    }
-
-    if (
-        normalizedPatterns.length ===
-            DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns.length &&
-        normalizedPatterns.every(
-            (pattern, index) =>
-                pattern ===
-                DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns[index]
-        )
-    ) {
-        return DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns;
-    }
-
-    return Object.freeze([...normalizedPatterns]);
+    return normalizeArrayOption(patterns, {
+        defaultValue: DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns,
+        filter: (value) => isRegExpLike(value)
+    });
 }
 
 function normalizeLineCommentOptions(options) {
@@ -133,13 +115,10 @@ function resolveLineCommentOptions(options = {}) {
  * without exposing additional end-user configuration.
  */
 function setLineCommentOptionsResolver(resolver) {
-    if (typeof resolver !== "function") {
-        throw new TypeError(
+    lineCommentOptionsResolver = assertFunction(resolver, "resolver", {
+        errorMessage:
             "Line comment option resolvers must be functions that return option objects"
-        );
-    }
-
-    lineCommentOptionsResolver = resolver;
+    });
     return resolveLineCommentOptions();
 }
 

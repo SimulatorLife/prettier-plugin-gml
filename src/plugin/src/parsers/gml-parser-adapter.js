@@ -18,15 +18,18 @@ import { enforceVariableBlockSpacing } from "../ast-transforms/enforce-variable-
 import { convertStringConcatenations } from "../ast-transforms/convert-string-concatenations.js";
 import { condenseLogicalExpressions } from "../ast-transforms/condense-logical-expressions.js";
 import { convertManualMathExpressions } from "../ast-transforms/convert-manual-math.js";
-import { getNodeStartIndex, getNodeEndIndex } from "../shared/ast-locations.js";
-import { toMutableArray } from "../shared/array-utils.js";
-import { visitChildNodes } from "../shared/ast/node-helpers.js";
+import {
+    getNodeStartIndex,
+    getNodeEndIndex,
+    toMutableArray,
+    visitChildNodes
+} from "../shared/index.js";
 import { annotateStaticFunctionOverrides } from "../ast-transforms/annotate-static-overrides.js";
 import {
     prepareIdentifierCaseEnvironment,
     attachIdentifierCasePlanSnapshot,
     teardownIdentifierCaseEnvironment
-} from "../identifier-case/environment.js";
+} from "gamemaker-language-semantic/identifier-case/environment.js";
 import { prepareDocCommentEnvironment } from "../comments/index.js";
 
 const { addTrailingComment } = util;

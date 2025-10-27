@@ -1,0 +1,30 @@
+name: Codex 89 – POLA Behaviour Audit
+on:
+  schedule:
+    - cron: "24 1,13 * * *" # twice daily at 01:24 and 13:24 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: POLA Behaviour Audit"
+      pr_body: >
+        Seed PR for Codex to reconcile option documentation and inline comments
+        with the behaviours the formatter actually ships.
+      prompt: >
+        Hunt for places where our documentation, option descriptions, or inline
+        comments promise one behaviour but the implementation does something
+        subtly different (for example "0 disables" while the code coerces the
+        value to `null`). Choose one concrete contradiction that would surprise
+        a player or contributor, then either bring the implementation back in
+        line with the documented contract or tighten the docs so the behaviour
+        is explicit. When tweaking text, keep the tone consistent with nearby
+        guidance and call out the change in the PR body so reviewers can weigh
+        whether future code should follow the clarified rule.

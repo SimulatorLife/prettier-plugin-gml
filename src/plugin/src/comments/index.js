@@ -32,10 +32,10 @@ export {
     normalizeHasCommentHelpers
 } from "./has-comment-helpers.js";
 export {
-    getDocCommentManager,
     prepareDocCommentEnvironment,
     resolveDocCommentTraversalService,
-    resolveDocCommentLookupService,
+    resolveDocCommentCollectionService,
+    resolveDocCommentPresenceService,
     resolveDocCommentDescriptionService,
     resolveDocCommentUpdateService
 } from "./doc-comment-manager.js";

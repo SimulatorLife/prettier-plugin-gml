@@ -5,13 +5,15 @@
   "workspaces": [
     "src/cli",
     "src/plugin",
-    "src/parser"
+    "src/parser",
+    "src/semantic"
   ],
   "config": {
     "root_path": ".",
     "plugin_path": "src/plugin",
     "parser_path": "src/parser",
-    "cli_path": "src/cli"
+    "cli_path": "src/cli",
+    "semantic_path": "src/semantic"
   },
   "type": "module",
   "repository": {
@@ -36,7 +38,7 @@
   },
   "scripts": {
     "clean": "rm -rf node_modules src/parser/node_modules src/parser/.antlr src/plugin/node_modules .eslintcache reports",
-    "clean:generated": "rm -rf src/parser/src/generated",
+    "clean:generated": "rm -rf src/parser/generated",
     "lint": "eslint . --cache --stats",
     "lint:quiet": "eslint . --cache --quiet",
     "lint:fix": "eslint . --cache --fix",
@@ -47,26 +49,28 @@
     "test": "node --test",
     "test:report": "rm -f reports/tests.xml && mkdir -p reports && node --test --test-reporter=junit --test-reporter-destination=./reports/tests.xml",
     "test:coverage": "bash -lc 'rm -f reports/lcov.info && mkdir -p reports && ./node_modules/.bin/c8 --reporter=lcovonly --report-dir=reports node --test; status=$?; rm -rf .nyc_output reports/tmp reports/lcov-report; exit $status'",
-    "test:shared": "node --test src/shared/tests/*.test.js",
-    "test:shared:report": "node --test --test-reporter=junit --test-reporter-destination=./reports/shared.xml src/shared/tests/*.test.js",
-    "test:parser": "node --test src/parser/tests/*.test.js",
-    "test:parser:report": "node --test --test-reporter=junit --test-reporter-destination=./reports/parser.xml src/parser/tests/*.test.js",
-    "test:plugin": "node --test src/plugin/tests/*.test.js",
-    "test:plugin:report": "node --test --test-reporter=junit --test-reporter-destination=./reports/plugin.xml src/plugin/tests/*.test.js",
-    "test:cli": "node --test src/cli/tests/*.test.js",
-    "test:cli:report": "node --test --test-reporter=junit --test-reporter-destination=./reports/cli.xml src/cli/tests/*.test.js",
-    "format:gml": "node ./src/cli/cli.js",
+    "test:shared": "node --test src/shared/test/*.test.js",
+    "test:shared:report": "node --test --test-reporter=junit --test-reporter-destination=./reports/shared.xml src/shared/test/*.test.js",
+    "test:parser": "node --test src/parser/test/*.test.js",
+    "test:parser:report": "node --test --test-reporter=junit --test-reporter-destination=./reports/parser.xml src/parser/test/*.test.js",
+    "test:semantic": "node --test src/semantic/test/*.test.js",
+    "test:semantic:report": "node --test --test-reporter=junit --test-reporter-destination=./reports/semantic.xml src/semantic/test/*.test.js",
+    "test:plugin": "node --test src/plugin/test/*.test.js",
+    "test:plugin:report": "node --test --test-reporter=junit --test-reporter-destination=./reports/plugin.xml src/plugin/test/*.test.js",
+    "test:cli": "node --test src/cli/test/*.test.js",
+    "test:cli:report": "node --test --test-reporter=junit --test-reporter-destination=./reports/cli.xml src/cli/test/*.test.js",
+    "format:gml": "node ./src/cli/src/cli.js",
     "format": "npm exec -- prettier --ignore-path ./.prettierignore --write \"{src/**/*.js,src/**/*.mjs,*.{js,cjs,mjs}}\"",
     "format:check": "npm exec -- prettier --ignore-path ./.prettierignore --check \"{src/**/*.js,src/**/*.mjs,*.{js,cjs,mjs}}\"",
     "prettier": "npm run format:gml --",
     "build": "npm run build:antlr && npm run build:gml-identifiers && npm run build:feather-metadata",
     "build:antlr": "cd src/parser && npm run antlr",
-    "build:gml-identifiers": "node ./src/cli/commands/generate-gml-identifiers.js",
-    "build:feather-metadata": "node ./src/cli/commands/generate-feather-metadata.js",
-    "memory": "node --expose-gc ./src/cli/commands/memory.mjs",
+    "build:gml-identifiers": "node ./src/cli/src/commands/generate-gml-identifiers.js",
+    "build:feather-metadata": "node ./src/cli/src/commands/generate-feather-metadata.js",
+    "memory": "node --expose-gc ./src/cli/src/commands/memory.mjs",
     "example:plugin": "cd src/plugin && npm run example",
     "prepare": "husky",
-    "cli": "node ./src/cli/cli.js"
+    "cli": "node ./src/cli/src/cli.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.38.0",
@@ -81,7 +85,7 @@
     "eslint-plugin-regexp": "^2.10.0",
     "eslint-plugin-security": "^3.0.1",
     "eslint-plugin-sonarjs": "^3.0.5",
-    "eslint-plugin-unicorn": "^61.0.2",
+    "eslint-plugin-unicorn": "^62.0.0",
     "eslint-plugin-unused-imports": "^4.3.0",
     "globals": "^16.4.0",
     "husky": "^9.1.7",

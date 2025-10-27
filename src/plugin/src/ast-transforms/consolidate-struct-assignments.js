@@ -3,16 +3,16 @@ import {
     getNodeEndIndex,
     getNodeStartLine,
     getNodeEndLine,
-    cloneLocation
-} from "../shared/ast-locations.js";
-import {
+    cloneLocation,
     getSingleVariableDeclarator,
     isNode,
-    getSingleMemberIndexPropertyEntry
-} from "../shared/ast-node-helpers.js";
-import { getCommentArray, isLineComment } from "../shared/comments.js";
-import { asArray, isNonEmptyArray } from "../shared/array-utils.js";
-import { stripStringQuotes } from "../shared/string-utils.js";
+    getSingleMemberIndexPropertyEntry,
+    getCommentArray,
+    isLineComment,
+    asArray,
+    isNonEmptyArray,
+    stripStringQuotes
+} from "../shared/index.js";
 
 const FALLBACK_COMMENT_TOOLS = Object.freeze({
     addTrailingComment() {}
@@ -187,21 +187,36 @@ function collectPropertyAssignments({
         );
 
         if (attachableComments.length > 0) {
-            const existingComments = getCommentArray(property);
-            property.comments = Array.isArray(existingComments)
-                ? [...existingComments]
-                : [];
+            let trailingComments = Array.isArray(
+                property._structTrailingComments
+            )
+                ? property._structTrailingComments
+                : null;
+            if (!trailingComments) {
+                trailingComments = [];
+                Object.defineProperty(property, "_structTrailingComments", {
+                    value: trailingComments,
+                    writable: true,
+                    configurable: true,
+                    enumerable: false
+                });
+            }
             for (const comment of attachableComments) {
                 comment.enclosingNode = property;
                 comment.precedingNode = property;
                 comment.followingNode = property;
                 comment.leading = false;
-                comment.trailing = true;
+                comment.trailing = false;
                 comment.placement = "endOfLine";
+                if (comment.leadingChar === ";") {
+                    comment.leadingChar = ",";
+                }
                 comment._structPropertyTrailing = true;
                 comment._structPropertyHandled = false;
-                property.comments.push(comment);
+                comment._removedByConsolidation = true;
+                trailingComments.push(comment);
             }
+            property._hasTrailingInlineComment = true;
             const lastComment = attachableComments.at(-1);
             const commentEnd = getNodeEndIndex(lastComment);
             lastEnd = commentEnd == undefined ? end : commentEnd;
@@ -507,15 +522,18 @@ function allowTrailingCommentsBetween({
     const commentTarget = precedingProperty
         ? (precedingProperty.value ?? precedingProperty)
         : null;
-    const attachTrailingComment = commentTools.addTrailingComment;
-
     for (const { comment } of commentEntries) {
         if (comment.leadingChar === ";") {
             comment.leadingChar = ",";
         }
 
         if (commentTarget) {
-            attachTrailingComment(commentTarget, comment);
+            // Preserve historical metadata so the comment remains discoverable
+            // without registering it with Prettier's default trailing comment
+            // machinery. The printer renders these comments directly to avoid
+            // introducing additional line breaks while consolidating struct
+            // assignments.
+            comment.enclosingNode = commentTarget;
         }
     }
 

@@ -40,11 +40,25 @@ sheet, then return here when you need deeper context.
   lookup for environment variables and wrapper behaviour when scripting
   formatter runs in CI or editor tooling.
 
+## Contributor workflow
+
+- [Contributor onboarding checklist](contributor-onboarding.md) — Environment
+  setup, validation commands, and supporting documentation for new
+  contributors.
+
 ## Extension hooks & overrides
 
 - [Object-wrap option resolver hook](object-wrap-option-resolver-hook.md) —
   Register temporary overrides for struct wrapping heuristics while keeping the
   default resolver easy to restore.
+- [Line-comment options resolver hook](line-comment-options-resolver-hook.md)
+  — Adjust the boilerplate stripping and commented-code heuristics without
+  forking the formatter. Normalization guards keep overrides safe even when
+  hosts provide partial data.
+- [Core option overrides hook](core-option-overrides-hook.md) — Swap or remove
+  the hard-coded Prettier clamps (such as `trailingComma: "none"`) when a host
+  needs different defaults, all while keeping the formatter opinionated by
+  default.
 - [Project index source extension hook](project-index-source-extensions-hook.md)
   — Extend the recognised GML suffix list so the identifier-case bootstrap and
   formatter refactors include generated or experimental file extensions.

@@ -1,7 +1,5 @@
 .antlr/
 *.cpuprofile
-*.interp
-*.tokens
 
 # Logs
 logs
