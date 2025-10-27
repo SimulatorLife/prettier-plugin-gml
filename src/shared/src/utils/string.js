@@ -132,10 +132,30 @@ export function isWordChar(character) {
     );
 }
 
+/**
+ * Convert {@link value} into a trimmed string, returning an empty string when
+ * a non-string input is supplied. Callers often forward raw option values or
+ * AST fragments whose types are not guaranteed, so normalizing here keeps the
+ * guard centralized and allocation-free when the value is already a string.
+ *
+ * @param {unknown} value Value to normalize.
+ * @returns {string} Trimmed string when {@link value} is a string; otherwise
+ *                   the empty string.
+ */
 export function toTrimmedString(value) {
     return typeof value === "string" ? value.trim() : "";
 }
 
+/**
+ * Return the first argument that yields a non-empty trimmed string. Mirrors
+ * the fallback semantics used throughout the plugin when resolving optional
+ * identifiers, documentation strings, or override lists where multiple
+ * potential sources may be provided.
+ *
+ * @param {...unknown} values Candidate values to evaluate in order.
+ * @returns {string} The first populated trimmed string; otherwise the empty
+ *                   string when all inputs are blank or missing.
+ */
 export function coalesceTrimmedString(...values) {
     for (const value of values) {
         if (value == null) {
@@ -151,6 +171,16 @@ export function coalesceTrimmedString(...values) {
     return "";
 }
 
+/**
+ * Normalize {@link value} into a lower-cased, trimmed string so lookups can be
+ * performed without repeatedly guarding against `null`, numbers, or padded
+ * input.
+ *
+ * @param {unknown} value Value to normalize.
+ * @returns {string} Lower-cased string representation with surrounding
+ *                   whitespace removed. Returns `""` when {@link value} is
+ *                   `null` or `undefined`.
+ */
 export function toNormalizedLowerCaseString(value) {
     if (value == null) {
         return "";
