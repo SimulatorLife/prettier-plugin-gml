@@ -1,13 +1,39 @@
 import { assertFunction, assertPlainObject } from "../shared/index.js";
 import { createDefaultGmlPluginComponentDependencies } from "./default-plugin-component-dependencies.js";
 
+const REQUIRED_OBJECT_DEPENDENCIES = Object.freeze([
+    [
+        "gmlParserAdapter",
+        "GML plugin component dependencies must include a gmlParserAdapter object."
+    ],
+    [
+        "handleComments",
+        "GML plugin component dependencies must include handleComments helpers."
+    ],
+    [
+        "identifierCaseOptions",
+        "GML plugin component dependencies must include identifierCaseOptions."
+    ],
+    [
+        "LogicalOperatorsStyle",
+        "GML plugin component dependencies must include LogicalOperatorsStyle definitions."
+    ]
+]);
+
+const REQUIRED_FUNCTION_DEPENDENCIES = Object.freeze([
+    [
+        "print",
+        "GML plugin component dependencies must include a print function."
+    ],
+    [
+        "printComment",
+        "GML plugin component dependencies must include a printComment function."
+    ]
+]);
+
 const REQUIRED_DEPENDENCY_NAMES = Object.freeze([
-    "gmlParserAdapter",
-    "print",
-    "handleComments",
-    "printComment",
-    "identifierCaseOptions",
-    "LogicalOperatorsStyle"
+    ...REQUIRED_OBJECT_DEPENDENCIES.map(([name]) => name),
+    ...REQUIRED_FUNCTION_DEPENDENCIES.map(([name]) => name)
 ]);
 
 function assertHasDependency(dependencies, name) {
@@ -28,6 +54,14 @@ function normalizeDependencyMap(candidate) {
         assertHasDependency(dependencies, dependencyName);
     }
 
+    for (const [name, errorMessage] of REQUIRED_OBJECT_DEPENDENCIES) {
+        assertPlainObject(dependencies[name], { name, errorMessage });
+    }
+
+    for (const [name, errorMessage] of REQUIRED_FUNCTION_DEPENDENCIES) {
+        assertFunction(dependencies[name], name, { errorMessage });
+    }
+
     const {
         gmlParserAdapter,
         print,
@@ -36,60 +70,6 @@ function normalizeDependencyMap(candidate) {
         identifierCaseOptions,
         LogicalOperatorsStyle
     } = dependencies;
-
-    const requiredObjects = [
-        [
-            gmlParserAdapter,
-            {
-                name: "gmlParserAdapter",
-                errorMessage:
-                    "GML plugin component dependencies must include a gmlParserAdapter object."
-            }
-        ],
-        [
-            handleComments,
-            {
-                name: "handleComments",
-                errorMessage:
-                    "GML plugin component dependencies must include handleComments helpers."
-            }
-        ],
-        [
-            identifierCaseOptions,
-            {
-                name: "identifierCaseOptions",
-                errorMessage:
-                    "GML plugin component dependencies must include identifierCaseOptions."
-            }
-        ],
-        [
-            LogicalOperatorsStyle,
-            {
-                name: "LogicalOperatorsStyle",
-                errorMessage:
-                    "GML plugin component dependencies must include LogicalOperatorsStyle definitions."
-            }
-        ]
-    ];
-
-    for (const [value, options] of requiredObjects) {
-        assertPlainObject(value, options);
-    }
-
-    for (const [fn, name, errorMessage] of [
-        [
-            print,
-            "print",
-            "GML plugin component dependencies must include a print function."
-        ],
-        [
-            printComment,
-            "printComment",
-            "GML plugin component dependencies must include a printComment function."
-        ]
-    ]) {
-        assertFunction(fn, name, { errorMessage });
-    }
 
     return Object.freeze({
         gmlParserAdapter,
