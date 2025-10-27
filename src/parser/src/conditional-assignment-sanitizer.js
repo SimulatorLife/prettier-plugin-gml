@@ -353,8 +353,12 @@ export function applySanitizedIndexAdjustments(target, insertPositions) {
         adjustLocationProperty(current, "start", mapIndex);
         adjustLocationProperty(current, "end", mapIndex);
 
-        for (const value of Object.values(current)) {
-            enqueueObjectChildValues(stack, value);
+        for (const key in current) {
+            if (!Object.hasOwn(current, key)) {
+                continue;
+            }
+
+            enqueueObjectChildValues(stack, current[key]);
         }
     }
 }
