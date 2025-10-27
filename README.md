@@ -347,7 +347,7 @@ nvm alias default node
    Explore additional helpers with `npm run cli -- --help`,
    `npm run cli -- format --help`, or the dedicated
    [CLI reference](#cli-wrapper-environment-knobs). Repeat `--extensions` to
-   append more groups alongside the comma-separated form, or add `--extensions=.yy`
+   append more groups alongside the comma- or path-delimiter-separated form, or add `--extensions=.yy`
    when you also want to process metadata files.
 
 <details>
