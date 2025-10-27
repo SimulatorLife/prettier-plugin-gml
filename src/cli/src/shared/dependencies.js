@@ -64,7 +64,7 @@ export {
 
 export { resolveCommandUsage } from "../core/command-usage.js";
 
-export { appendToCollection } from "../core/collection-utils.js";
+export { appendToCollection } from "../dependencies.js";
 
 export {
     createCliRunSkippedError,

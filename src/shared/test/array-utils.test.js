@@ -7,6 +7,7 @@ import test from "node:test";
 // `npm test src/shared/test/array-utils.test.js`.
 
 import {
+    appendToCollection,
     asArray,
     isNonEmptyArray,
     pushUnique,
@@ -112,4 +113,22 @@ test("pushUnique can use a custom equality comparator", () => {
 
 test("pushUnique throws when provided a non-array target", () => {
     assert.throws(() => pushUnique(null, "value"), /requires an array/i);
+});
+
+test("appendToCollection initializes arrays when accumulator is undefined", () => {
+    const result = appendToCollection("alpha");
+    assert.deepEqual(result, ["alpha"]);
+});
+
+test("appendToCollection appends to existing arrays", () => {
+    const accumulator = ["alpha"];
+    const result = appendToCollection("beta", accumulator);
+
+    assert.strictEqual(result, accumulator);
+    assert.deepEqual(accumulator, ["alpha", "beta"]);
+});
+
+test("appendToCollection normalizes scalar accumulators", () => {
+    const result = appendToCollection("gamma", "beta");
+    assert.deepEqual(result, ["beta", "gamma"]);
 });

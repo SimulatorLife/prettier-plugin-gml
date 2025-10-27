@@ -4,8 +4,6 @@ export { applyStandardCommandOptions } from "../core/command-standard-options.js
 
 export { resolveCommandUsage } from "../core/command-usage.js";
 
-export { appendToCollection } from "../core/collection-utils.js";
-
 export { CliUsageError, createCliErrorDetails } from "../core/errors.js";
 
 export {
