@@ -4593,6 +4593,11 @@ function mergeSyntheticDocComments(
                 continue;
             }
 
+            if (blockLines.length > 1 && segments.length > blockLines.length) {
+                wrappedDocs.push(...blockLines);
+                continue;
+            }
+
             wrappedDocs.push(`${prefix}${segments[0]}`);
             for (
                 let segmentIndex = 1;
