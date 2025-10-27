@@ -18,6 +18,7 @@ import {
     getEnumNameAlignmentPadding,
     prepareEnumMembersForPrinting
 } from "./enum-alignment.js";
+import { StatementSpacingPolicy } from "./statement-spacing-policy.js";
 import {
     printDanglingComments,
     printDanglingCommentsAsGroup,
@@ -51,7 +52,6 @@ import {
     getSingleVariableDeclarator,
     isCallExpressionIdentifierMatch,
     isBooleanLiteral,
-    getBooleanLiteralValue,
     isUndefinedLiteral,
     enqueueObjectChildValues
 } from "../shared/index.js";
@@ -2230,36 +2230,6 @@ function getStructPropertyNameLength(property, options) {
     return typeof source === "string" ? source.length : 0;
 }
 
-// variation of printElements that handles semicolons and line breaks in a program or block
-function isMacroLikeStatement(node) {
-    const nodeType = getNodeType(node);
-    if (!nodeType) {
-        return false;
-    }
-
-    if (nodeType === "MacroDeclaration") {
-        return true;
-    }
-
-    if (nodeType === "DefineStatement") {
-        return getNormalizedDefineReplacementDirective(node) === "#macro";
-    }
-
-    return false;
-}
-
-function shouldSuppressEmptyLineBetween(previousNode, nextNode) {
-    if (!previousNode || !nextNode) {
-        return false;
-    }
-
-    if (isMacroLikeStatement(previousNode) && isMacroLikeStatement(nextNode)) {
-        return true;
-    }
-
-    return false;
-}
-
 function getNextNonWhitespaceCharacter(text, startIndex) {
     if (typeof text !== "string") {
         return null;
@@ -2350,6 +2320,7 @@ function printStatements(path, options, print, childrenAttribute) {
     const parentNode = path.getValue();
     const containerNode =
         typeof path.getParentNode === "function" ? path.getParentNode() : null;
+    const spacingPolicy = new StatementSpacingPolicy();
     const statements =
         parentNode && Array.isArray(parentNode[childrenAttribute])
             ? parentNode[childrenAttribute]
@@ -2538,14 +2509,13 @@ function printStatements(path, options, print, childrenAttribute) {
         // Check if a newline should be added AFTER the statement
         if (!isLastStatement(childPath)) {
             const nextNode = statements ? statements[index + 1] : null;
-            const shouldSuppressExtraEmptyLine = shouldSuppressEmptyLineBetween(
-                node,
-                nextNode
-            );
-            const nextNodeIsMacro = isMacroLikeStatement(nextNode);
+            const shouldSuppressExtraEmptyLine =
+                spacingPolicy.shouldSuppressEmptyLineBetween(node, nextNode);
+            const nextNodeIsMacro =
+                spacingPolicy.isMacroLikeStatement(nextNode);
             const shouldSkipStandardHardline =
                 shouldSuppressExtraEmptyLine &&
-                isMacroLikeStatement(node) &&
+                spacingPolicy.isMacroLikeStatement(node) &&
                 !nextNodeIsMacro;
 
             if (!shouldSkipStandardHardline) {
@@ -2579,7 +2549,7 @@ function printStatements(path, options, print, childrenAttribute) {
                 isSanitizedMacro &&
                 macroTextHasExplicitTrailingBlankLine(node._featherMacroText);
 
-            const isMacroLikeNode = isMacroLikeStatement(node);
+            const isMacroLikeNode = spacingPolicy.isMacroLikeStatement(node);
             const isDefineMacroReplacement =
                 getNormalizedDefineReplacementDirective(node) === "#macro";
             const shouldForceMacroPadding =
@@ -2591,7 +2561,10 @@ function printStatements(path, options, print, childrenAttribute) {
                 !sanitizedMacroHasExplicitBlankLine;
             const shouldForceEarlyReturnPadding =
                 !suppressFollowingEmptyLine &&
-                shouldForceBlankLineBetweenReturnPaths(node, nextNode);
+                spacingPolicy.shouldForceBlankLineBetweenReturnPaths(
+                    node,
+                    nextNode
+                );
 
             if (shouldForceMacroPadding) {
                 parts.push(hardline);
@@ -2743,7 +2716,7 @@ function printStatements(path, options, print, childrenAttribute) {
                 !suppressFollowingEmptyLine
             ) {
                 if (
-                    shouldForceTrailingBlankLineForNestedFunction(
+                    spacingPolicy.shouldForceTrailingBlankLineForNestedFunction(
                         node,
                         parentNode,
                         containerNode
@@ -2893,82 +2866,6 @@ export function applyAssignmentAlignment(
     }
 
     flushGroup();
-}
-
-function shouldForceTrailingBlankLineForNestedFunction(
-    node,
-    blockNode,
-    containerNode
-) {
-    if (!isFunctionLikeDeclaration(node)) {
-        return false;
-    }
-
-    if (!blockNode || blockNode.type !== "BlockStatement") {
-        return false;
-    }
-
-    return isFunctionLikeDeclaration(containerNode);
-}
-
-function isFunctionLikeDeclaration(node) {
-    const nodeType = node?.type;
-    return (
-        nodeType === "FunctionDeclaration" ||
-        nodeType === "ConstructorDeclaration" ||
-        nodeType === "FunctionExpression"
-    );
-}
-
-function shouldForceBlankLineBetweenReturnPaths(currentNode, nextNode) {
-    if (!currentNode || currentNode.type !== "IfStatement") {
-        return false;
-    }
-
-    if (!nextNode || nextNode.type !== "ReturnStatement") {
-        return false;
-    }
-
-    if (currentNode.alternate) {
-        return false;
-    }
-
-    const consequent = currentNode.consequent;
-    if (!consequent || consequent.type !== "BlockStatement") {
-        return false;
-    }
-
-    const body = Array.isArray(consequent.body) ? consequent.body : [];
-    let lastReturn = null;
-
-    for (let index = body.length - 1; index >= 0; index -= 1) {
-        const statement = body[index];
-        if (!statement) {
-            continue;
-        }
-
-        if (statement.type === "ReturnStatement") {
-            lastReturn = statement;
-            break;
-        }
-
-        // Encountering any other statement means the block does not end with an
-        // early return, so no extra padding is necessary.
-        return false;
-    }
-
-    if (!lastReturn) {
-        return false;
-    }
-
-    const consequentBoolean = getBooleanLiteralValue(lastReturn.argument);
-    const fallbackBoolean = getBooleanLiteralValue(nextNode.argument);
-
-    if (consequentBoolean === null || fallbackBoolean === null) {
-        return false;
-    }
-
-    return consequentBoolean !== fallbackBoolean;
 }
 
 function isPathInsideFunctionBody(path, childrenAttribute) {
