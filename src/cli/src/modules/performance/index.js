@@ -43,6 +43,7 @@ import {
     isPerformanceThroughputSuite,
     normalizePerformanceSuiteName
 } from "./suite-options.js";
+import { formatMetricValue } from "./metric-formatters.js";
 
 const shouldSkipPerformanceDependencies = isCliRunSkipped();
 
@@ -843,22 +844,6 @@ function formatReportFilePath(targetFile) {
     return absolutePath;
 }
 
-function formatThroughput(value, unit) {
-    if (!isFiniteNumber(value)) {
-        return "n/a";
-    }
-
-    return `${value.toFixed(3)} ${unit}`;
-}
-
-function formatDuration(value) {
-    if (!isFiniteNumber(value)) {
-        return "n/a";
-    }
-
-    return `${value.toFixed(3)} ms`;
-}
-
 function createHumanReadableReportHeader(report) {
     return [
         "Performance benchmark results:",
@@ -887,10 +872,17 @@ function createHumanReadableSuiteLines({ suite, payload }) {
             `  - files: ${payload?.dataset?.files ?? 0}`
         );
         lines.push(
-            `  - total duration: ${formatDuration(payload?.totalDurationMs)}`
+            `  - total duration: ${formatMetricValue(payload?.totalDurationMs, {
+                unit: "ms"
+            })}`
         );
         lines.push(
-            `  - average duration: ${formatDuration(payload?.averageDurationMs)}`
+            `  - average duration: ${formatMetricValue(
+                payload?.averageDurationMs,
+                {
+                    unit: "ms"
+                }
+            )}`
         );
         lines.push(
             `  - dataset size: ${formatByteSize(datasetBytes, {
@@ -900,15 +892,15 @@ function createHumanReadableSuiteLines({ suite, payload }) {
             })}`
         );
         lines.push(
-            `  - throughput (files/ms): ${formatThroughput(
+            `  - throughput (files/ms): ${formatMetricValue(
                 payload?.throughput?.filesPerMs,
-                "files/ms"
+                { unit: "files/ms" }
             )}`
         );
         lines.push(
-            `  - throughput (bytes/ms): ${formatThroughput(
+            `  - throughput (bytes/ms): ${formatMetricValue(
                 payload?.throughput?.bytesPerMs,
-                "bytes/ms"
+                { unit: "bytes/ms" }
             )}`
         );
         return lines;
