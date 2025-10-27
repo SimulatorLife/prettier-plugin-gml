@@ -1,5 +1,6 @@
 export {
     assertNonEmptyString,
     getErrorMessage,
-    isErrorWithCode
+    isErrorWithCode,
+    isObjectOrFunction
 } from "./dependencies.js";
