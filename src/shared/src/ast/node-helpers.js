@@ -414,6 +414,17 @@ function isNode(value) {
  * @param {unknown} node Candidate AST fragment to inspect.
  * @param {(child: unknown) => void} callback Invoked for each descendant value.
  */
+const visitChildNodesValuePool = [];
+
+function borrowVisitChildNodesValueBuffer() {
+    return visitChildNodesValuePool.pop() ?? [];
+}
+
+function releaseVisitChildNodesValueBuffer(buffer) {
+    buffer.length = 0;
+    visitChildNodesValuePool.push(buffer);
+}
+
 function visitChildNodes(node, callback) {
     if (node === undefined || node === null) {
         return;
@@ -438,14 +449,35 @@ function visitChildNodes(node, callback) {
         return;
     }
 
-    for (const value of Object.values(node)) {
-        if (
-            value !== undefined &&
-            value !== null &&
-            typeof value === "object"
-        ) {
-            callback(value);
+    // `Object.values` allocates a fresh array for every call which showed up in
+    // tight printer loops. Snapshot the enumerable own values into a reusable
+    // buffer so mutations performed by callbacks do not affect iteration order
+    // while avoiding per-invocation allocations once the pool is warm.
+    const values = borrowVisitChildNodesValueBuffer();
+    let length = 0;
+
+    try {
+        for (const key in node) {
+            if (!Object.hasOwn(node, key)) {
+                continue;
+            }
+
+            const value = node[key];
+            if (
+                value !== undefined &&
+                value !== null &&
+                typeof value === "object"
+            ) {
+                values[length] = value;
+                length += 1;
+            }
         }
+
+        for (let index = 0; index < length; index += 1) {
+            callback(values[index]);
+        }
+    } finally {
+        releaseVisitChildNodesValueBuffer(values);
     }
 }
 
