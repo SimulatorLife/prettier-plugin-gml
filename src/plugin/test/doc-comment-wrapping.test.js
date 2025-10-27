@@ -165,17 +165,71 @@ test("preserves doc comment continuation labels without indentation", async () =
     );
 
     const continuationLines = [];
-    for (
-        let index = descriptionIndex + 1;
-        index < lines.length && lines[index].startsWith("///");
-        index += 1
-    ) {
-        continuationLines.push(lines[index]);
+    for (let index = descriptionIndex + 1; index < lines.length; index += 1) {
+        const line = lines[index];
+        if (!line.startsWith("///")) {
+            break;
+        }
+
+        if (line.startsWith("/// @")) {
+            continue;
+        }
+
+        continuationLines.push(line);
     }
 
     assert.ok(
         continuationLines.some((line) => line.includes("Local space: ")),
         "Expected doc comment continuation to retain the 'Local space:' label."
+    );
+});
+
+test("does not expand preformatted doc comment continuations", async () => {
+    const source = [
+        "/// @description Write a unit triangular prism into an existing vbuff.",
+        "///              Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5], base plane at Z=0, apex line at (Y=0,Z=1).",
+        "function describe_triangular_prism() {}",
+        ""
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    const lines = formatted.trim().split("\n");
+    const descriptionIndex = lines.findIndex((line) =>
+        line.startsWith("/// @description")
+    );
+
+    assert.ok(
+        descriptionIndex !== -1,
+        "Expected formatter to emit a @description doc comment line."
+    );
+
+    const continuationLines = [];
+    for (let index = descriptionIndex + 1; index < lines.length; index += 1) {
+        const line = lines[index];
+        if (!line.startsWith("///")) {
+            break;
+        }
+
+        if (line.startsWith("/// @")) {
+            continue;
+        }
+
+        continuationLines.push(line);
+    }
+
+    assert.strictEqual(
+        continuationLines.length,
+        1,
+        "Expected formatter to preserve the manually wrapped continuation block."
+    );
+
+    assert.strictEqual(
+        continuationLines[0],
+        "///              Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5], base plane at Z=0, apex line at (Y=0,Z=1)."
     );
 });
 

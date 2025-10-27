@@ -60,7 +60,7 @@ import {
     handleCliError
 } from "./core/errors.js";
 import { applyStandardCommandOptions } from "./core/command-standard-options.js";
-import { resolvePluginEntryPoint } from "./plugin-runtime/entry-point.js";
+import { resolveCliPluginEntryPoint } from "./plugin-runtime/entry-point-resolver.js";
 import {
     hasRegisteredIgnorePath,
     registerIgnorePath,
@@ -109,7 +109,7 @@ import {
 } from "./runtime-options/unsupported-extension-sample-limit.js";
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
-const PLUGIN_PATH = resolvePluginEntryPoint();
+const PLUGIN_PATH = resolveCliPluginEntryPoint();
 const IGNORE_PATH = path.resolve(WRAPPER_DIRECTORY, ".prettierignore");
 const INITIAL_WORKING_DIRECTORY = path.resolve(process.cwd());
 

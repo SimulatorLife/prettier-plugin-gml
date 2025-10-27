@@ -31,6 +31,12 @@ export {
     resolvePluginEntryPoint
 } from "../plugin-runtime/entry-point.js";
 
+export {
+    resolveCliPluginEntryPoint,
+    setCliPluginEntryPointResolver,
+    resetCliPluginEntryPointResolver
+} from "../plugin-runtime/entry-point-resolver.js";
+
 export { formatByteSize, formatBytes } from "../runtime-options/byte-format.js";
 
 export {

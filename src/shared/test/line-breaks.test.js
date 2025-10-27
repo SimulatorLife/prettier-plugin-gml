@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { getLineBreakCount, splitLines } from "../src/utils/line-breaks.js";
+import {
+    getLineBreakCount,
+    getLineBreakSpans,
+    splitLines
+} from "../src/utils/line-breaks.js";
 
 describe("line-breaks", () => {
     describe("splitLines", () => {
@@ -40,6 +44,20 @@ describe("line-breaks", () => {
         it("counts the number of recognized break characters", () => {
             const text = "line1\r\nline2\nline3\rline4\u2028line5\u2029line6";
             assert.strictEqual(getLineBreakCount(text), 5);
+        });
+    });
+
+    describe("getLineBreakSpans", () => {
+        it("locates each line break sequence", () => {
+            const text = "alpha\r\nbeta\n\r\u2028gamma\u2029delta\u0085";
+            assert.deepStrictEqual(getLineBreakSpans(text), [
+                { index: 5, length: 2 },
+                { index: 11, length: 1 },
+                { index: 12, length: 1 },
+                { index: 13, length: 1 },
+                { index: 19, length: 1 },
+                { index: 25, length: 1 }
+            ]);
         });
     });
 });

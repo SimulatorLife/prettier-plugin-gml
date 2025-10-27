@@ -214,3 +214,14 @@ no code changes were required.
   views. Updated the manual CLI commands and unit tests to depend on the
   specific context they require so each call site opts into only the manual
   helper it consumes.
+
+## Follow-up audit (2025-12-17)
+
+- Audited `IdentifierCasePlanSnapshotCollaborators` in
+  `src/semantic/src/identifier-case/plan-service.js`. The provider forced hosts
+  to manufacture both snapshot capture and apply helpers together, so callers
+  that only needed one collaborator still depended on the other.
+- Split the contract into discrete capture and apply service providers. Updated
+  the identifier-case service registry and unit tests to register the focused
+  collaborators independently so each call site pulls in only the snapshot role
+  it exercises.

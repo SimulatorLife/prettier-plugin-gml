@@ -14,7 +14,7 @@ import {
     emitSuiteResults,
     ensureSuitesAreKnown,
     formatByteSize,
-    resolvePluginEntryPoint,
+    resolveCliPluginEntryPoint,
     resolveRequestedSuites,
     resolveSuiteOutputFormatOrThrow,
     wrapInvalidArgumentResolver
@@ -651,7 +651,7 @@ export async function runFormatterBenchmark(options = {}) {
             const prettierInstance =
                 benchmarkOptions.prettier ?? (await resolvePrettier());
             const pluginPath =
-                benchmarkOptions.pluginPath ?? resolvePluginEntryPoint();
+                benchmarkOptions.pluginPath ?? resolveCliPluginEntryPoint();
 
             return createDefaultFormatter({
                 prettier: prettierInstance,

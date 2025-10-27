@@ -4523,7 +4523,7 @@ function mergeSyntheticDocComments(
         }
 
         if (segments.length >= 2) {
-            const lastSegment = segments[segments.length - 1];
+            const lastSegment = segments.at(-1);
             const penultimateIndex = segments.length - 2;
             const penultimateSegment = segments[penultimateIndex];
             const maxShortSegmentLength = Math.max(
@@ -4531,13 +4531,17 @@ function mergeSyntheticDocComments(
                 16
             );
 
-            if (typeof lastSegment === "string" && typeof penultimateSegment === "string") {
+            if (
+                typeof lastSegment === "string" &&
+                typeof penultimateSegment === "string"
+            ) {
                 const mergedLength =
                     penultimateSegment.length + 1 + lastSegment.length;
 
                 if (
                     lastSegment.length <= maxShortSegmentLength &&
-                    mergedLength <= continuationAvailable + maxShortSegmentLength
+                    mergedLength <=
+                        continuationAvailable + maxShortSegmentLength
                 ) {
                     segments[penultimateIndex] =
                         penultimateSegment + ` ${lastSegment}`;
@@ -4613,6 +4617,11 @@ function mergeSyntheticDocComments(
             );
 
             if (segments.length === 0) {
+                wrappedDocs.push(...blockLines);
+                continue;
+            }
+
+            if (blockLines.length > 1 && segments.length > blockLines.length) {
                 wrappedDocs.push(...blockLines);
                 continue;
             }

@@ -45,16 +45,7 @@ function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
     const { name: normalizedName, resourceType: normalizedResourceType } =
         normalizeResourceDocumentMetadata(resourceData);
     const record = getOrCreateMapEntry(resourcesMap, resourcePath, () => {
-        const lowerPath = resourcePath.toLowerCase();
-        let defaultName = path.posix.basename(resourcePath);
-        if (lowerPath.endsWith(".yy")) {
-            defaultName = path.posix.basename(resourcePath, ".yy");
-        } else if (isProjectManifestPath(resourcePath)) {
-            defaultName = path.posix.basename(
-                resourcePath,
-                PROJECT_MANIFEST_EXTENSION
-            );
-        }
+        const defaultName = deriveDefaultResourceName(resourcePath);
 
         return {
             path: resourcePath,
@@ -77,6 +68,20 @@ function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
     }
 
     return record;
+}
+
+function deriveDefaultResourceName(resourcePath) {
+    const baseName = path.posix.basename(resourcePath);
+    const lowerPath = resourcePath.toLowerCase();
+    if (lowerPath.endsWith(".yy")) {
+        return path.posix.basename(resourcePath, ".yy");
+    }
+
+    if (isProjectManifestPath(resourcePath)) {
+        return path.posix.basename(resourcePath, PROJECT_MANIFEST_EXTENSION);
+    }
+
+    return baseName;
 }
 
 function createScriptScopeDescriptor(resourceRecord, gmlRelativePath) {

@@ -4,8 +4,11 @@ import { Command } from "commander";
 
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import {
+    createVerboseDurationLogger,
     getErrorMessageOrFallback,
+    getObjectTagName,
     normalizeIdentifierMetadataEntries,
+    timeSync,
     toMutableArray,
     toNormalizedLowerCaseSet,
     toPosixPath
@@ -18,10 +21,6 @@ import {
     downloadManualEntriesWithProgress,
     ensureManualRefHasSha
 } from "../modules/manual/utils.js";
-import {
-    timeSync,
-    createVerboseDurationLogger
-} from "../shared/dependencies.js";
 import { disposeProgressBars } from "../shared/progress-bar.js";
 import {
     resolveVmEvalTimeout,
@@ -365,6 +364,14 @@ function describeManualIdentifierArrayValue(value) {
     }
 
     if (type === "object") {
+        const tagName = getObjectTagName(value);
+        if (tagName) {
+            const firstChar = tagName.at(0);
+            const article =
+                firstChar && "aeiouAEIOU".includes(firstChar) ? "an" : "a";
+            return `${article} ${tagName} object`;
+        }
+
         return "an object";
     }
 
