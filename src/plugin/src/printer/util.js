@@ -75,6 +75,29 @@ const NODE_TYPES_WITH_SURROUNDING_NEWLINES = new Set([
     "EndRegionStatement"
 ]);
 
+// Function-like declarations appear throughout the printer when deciding how
+// aggressively to pad nested constructs. Consolidate the shared guard so
+// spacing rules and traversal helpers continue to agree on which nodes count
+// as functions without repeating the defensive shape checks.
+const FUNCTION_LIKE_DECLARATION_TYPES = new Set([
+    "FunctionDeclaration",
+    "ConstructorDeclaration",
+    "FunctionExpression"
+]);
+
+function isFunctionLikeDeclaration(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    const type = node.type;
+    if (typeof type !== "string") {
+        return false;
+    }
+
+    return FUNCTION_LIKE_DECLARATION_TYPES.has(type);
+}
+
 /**
  * Normalizes the `replacementDirective` field on define statements so the
  * printer can reason about region-like directives with case-insensitive
@@ -144,6 +167,7 @@ export {
     getNormalizedDefineReplacementDirective,
     isNextLineEmpty,
     isPreviousLineEmpty,
-    shouldAddNewlinesAroundStatement
+    shouldAddNewlinesAroundStatement,
+    isFunctionLikeDeclaration
 };
 export { hasComment } from "../comments/index.js";
