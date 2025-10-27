@@ -125,27 +125,11 @@ export function isWordChar(character) {
         return true;
     }
 
-    if (code < CHAR_CODE_DIGIT_START) {
-        return false;
-    }
-
-    if (code <= CHAR_CODE_DIGIT_END) {
-        return true;
-    }
-
-    if (code < CHAR_CODE_UPPER_START) {
-        return false;
-    }
-
-    if (code <= CHAR_CODE_UPPER_END) {
-        return true;
-    }
-
-    if (code < CHAR_CODE_LOWER_START) {
-        return false;
-    }
-
-    return code <= CHAR_CODE_LOWER_END;
+    return (
+        (code >= CHAR_CODE_DIGIT_START && code <= CHAR_CODE_DIGIT_END) ||
+        (code >= CHAR_CODE_UPPER_START && code <= CHAR_CODE_UPPER_END) ||
+        (code >= CHAR_CODE_LOWER_START && code <= CHAR_CODE_LOWER_END)
+    );
 }
 
 export function toTrimmedString(value) {

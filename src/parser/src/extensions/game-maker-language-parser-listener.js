@@ -71,11 +71,15 @@ export default class GameMakerLanguageParserListener extends GameMakerLanguagePa
 }
 
 for (const methodName of LISTENER_METHOD_NAMES) {
-    Object.defineProperty(GameMakerLanguageParserListener.prototype, methodName, {
-        value(ctx) {
-            return this._dispatch(methodName, ctx);
-        },
-        writable: true,
-        configurable: true
-    });
+    Object.defineProperty(
+        GameMakerLanguageParserListener.prototype,
+        methodName,
+        {
+            value(ctx) {
+                return this._dispatch(methodName, ctx);
+            },
+            writable: true,
+            configurable: true
+        }
+    );
 }

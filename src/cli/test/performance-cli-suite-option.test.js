@@ -50,10 +50,15 @@ describe("performance CLI suite option", () => {
         assert.match(
             help,
             new RegExp(
-                `Available suites:\\s*${suiteList
+                String.raw`Available suites:\s*${suiteList
                     .split(", ")
-                    .map((entry) => entry.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&"))
-                    .join("\\s*,\\s*")}`
+                    .map((entry) =>
+                        entry.replaceAll(
+                            /[-/\\^$*+?.()|[\]{}]/g,
+                            String.raw`\$&`
+                        )
+                    )
+                    .join(String.raw`\s*,\s*`)}`
             ),
             "Expected performance help to list available suites"
         );

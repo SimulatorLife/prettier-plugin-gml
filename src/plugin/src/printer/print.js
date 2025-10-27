@@ -7,7 +7,8 @@ import {
     isPreviousLineEmpty,
     shouldAddNewlinesAroundStatement,
     hasComment,
-    getNormalizedDefineReplacementDirective
+    getNormalizedDefineReplacementDirective,
+    isFunctionLikeDeclaration
 } from "./util.js";
 import {
     buildCachedSizeVariableName,
@@ -113,7 +114,22 @@ function stripTrailingLineTerminators(value) {
         return value;
     }
 
-    return value.replace(/(?:\r?\n)+$/, "");
+    let end = value.length;
+
+    // Avoid allocating a regular expression-backed string when trimming
+    // newline groups from macro bodies. The printer calls this helper while
+    // assembling docs for every Feather macro, so slicing manually keeps the
+    // hot path allocation-free when the text already lacks trailing line
+    // terminators.
+    while (end > 0 && value.charCodeAt(end - 1) === 0x0a) {
+        end -= 1;
+
+        if (end > 0 && value.charCodeAt(end - 1) === 0x0d) {
+            end -= 1;
+        }
+    }
+
+    return end === value.length ? value : value.slice(0, end);
 }
 
 function resolvePrinterSourceMetadata(options) {
@@ -2763,11 +2779,9 @@ function printStatements(path, options, print, childrenAttribute) {
                     hasAttachedDocComment &&
                     blockParent?.type === "BlockStatement"
                 ) {
-                    const isFunctionLikeDeclaration =
-                        node?.type === "FunctionDeclaration" ||
-                        node?.type === "ConstructorDeclaration";
+                    const isFunctionLike = isFunctionLikeDeclaration(node);
 
-                    if (isFunctionLikeDeclaration) {
+                    if (isFunctionLike) {
                         shouldPreserveTrailingBlankLine = true;
                     }
                 }
@@ -4830,24 +4844,12 @@ function findEnclosingFunctionNode(path) {
             break;
         }
 
-        if (isFunctionLikeNode(parent)) {
+        if (isFunctionLikeDeclaration(parent)) {
             return parent;
         }
     }
 
     return null;
-}
-
-function isFunctionLikeNode(node) {
-    if (!node || typeof node !== "object") {
-        return false;
-    }
-
-    return (
-        node.type === "FunctionDeclaration" ||
-        node.type === "FunctionExpression" ||
-        node.type === "ConstructorDeclaration"
-    );
 }
 
 function findFunctionParameterContext(path) {
@@ -5362,6 +5364,17 @@ function computeSyntheticFunctionDocLines(
             }
         }
 
+        const optionalOverrideFlag = paramInfo?.optionalOverride === true;
+        const defaultIsUndefined =
+            param?.type === "DefaultParameter" &&
+            isUndefinedLiteral(param.right);
+        const shouldOmitUndefinedDefault =
+            defaultIsUndefined &&
+            shouldOmitUndefinedDefaultForFunctionNode(node);
+        const hasExistingMetadata = Boolean(existingMetadata);
+        const hasOptionalDocName =
+            param?.type === "DefaultParameter" &&
+            isOptionalParamDocName(existingDocName);
         const baseDocName =
             (effectiveImplicitName &&
                 effectiveImplicitName.length > 0 &&
@@ -5370,26 +5383,35 @@ function computeSyntheticFunctionDocLines(
             paramInfo.name;
         const parameterSourceText = getSourceTextForNode(param, options);
         const defaultCameFromSource =
-            param?.type === "DefaultParameter" &&
-            isUndefinedLiteral(param.right) &&
+            defaultIsUndefined &&
             typeof parameterSourceText === "string" &&
             parameterSourceText.includes("=");
-        const hasExplicitOptionalDoc =
-            param?.type === "DefaultParameter" &&
-            isOptionalParamDocName(existingDocName);
-        const shouldMarkOptional = paramInfo.optional || hasExplicitOptionalDoc;
-        const effectiveMarkOptional =
-            (paramInfo.optional && !defaultCameFromSource) ||
-            hasExplicitOptionalDoc;
+        let shouldMarkOptional =
+            Boolean(paramInfo.optional) || hasOptionalDocName;
         if (
-            effectiveMarkOptional &&
-            param?.type === "DefaultParameter" &&
-            isUndefinedLiteral(param.right)
+            shouldMarkOptional &&
+            defaultIsUndefined &&
+            shouldOmitUndefinedDefault &&
+            paramInfo?.explicitUndefinedDefault === true &&
+            !hasExistingMetadata &&
+            !optionalOverrideFlag &&
+            !hasOptionalDocName
         ) {
+            shouldMarkOptional = false;
+        }
+        if (
+            shouldMarkOptional &&
+            shouldOmitUndefinedDefault &&
+            paramInfo.optional &&
+            defaultCameFromSource &&
+            !hasOptionalDocName
+        ) {
+            shouldMarkOptional = false;
+        }
+        if (shouldMarkOptional && defaultIsUndefined) {
             preservedUndefinedDefaultParameters.add(param);
         }
-        const docName =
-            (effectiveMarkOptional && `[${baseDocName}]`) || baseDocName;
+        const docName = shouldMarkOptional ? `[${baseDocName}]` : baseDocName;
 
         const normalizedExistingType = normalizeParamDocType(
             existingMetadata?.type
@@ -6076,7 +6098,14 @@ function getParameterDocInfo(paramNode, functionNode, options) {
 
     if (paramNode.type === "Identifier") {
         const name = getNormalizedParameterName(paramNode);
-        return name ? { name, optional: false } : null;
+        return name
+            ? {
+                  name,
+                  optional: false,
+                  optionalOverride: false,
+                  explicitUndefinedDefault: false
+              }
+            : null;
     }
 
     if (paramNode.type === "DefaultParameter") {
@@ -6104,6 +6133,15 @@ function getParameterDocInfo(paramNode, functionNode, options) {
         const docName = defaultText ? `${name}=${defaultText}` : name;
 
         const optionalOverride = paramNode?._featherOptionalParameter === true;
+        const searchName = getNormalizedParameterName(
+            paramNode.left ?? paramNode
+        );
+        const explicitUndefinedDefaultFromSource =
+            defaultIsUndefined &&
+            typeof searchName === "string" &&
+            searchName.length > 0 &&
+            typeof options?.originalText === "string" &&
+            options.originalText.includes(`${searchName} = undefined`);
         const optional = defaultIsUndefined
             ? optionalOverride ||
               !signatureOmitsUndefinedDefault ||
@@ -6112,7 +6150,9 @@ function getParameterDocInfo(paramNode, functionNode, options) {
 
         return {
             name: docName,
-            optional
+            optional,
+            optionalOverride,
+            explicitUndefinedDefault: explicitUndefinedDefaultFromSource
         };
     }
 
@@ -6121,7 +6161,14 @@ function getParameterDocInfo(paramNode, functionNode, options) {
     }
 
     const fallbackName = getNormalizedParameterName(paramNode);
-    return fallbackName ? { name: fallbackName, optional: false } : null;
+    return fallbackName
+        ? {
+              name: fallbackName,
+              optional: false,
+              optionalOverride: false,
+              explicitUndefinedDefault: false
+          }
+        : null;
 }
 
 function shouldOmitDefaultValueForParameter(path) {

@@ -39,6 +39,23 @@ function createCustomComponents() {
     };
 }
 
+function createAbortDuringRegistrationSignal() {
+    const listeners = new Set();
+    const signal = {
+        aborted: false,
+        reason: new Error("abort during registration"),
+        addEventListener(_type, listener) {
+            listeners.add(listener);
+            signal.aborted = true;
+        },
+        removeEventListener(_type, listener) {
+            listeners.delete(listener);
+        }
+    };
+
+    return signal;
+}
+
 test("GML plugin component registry", { concurrency: false }, async (t) => {
     await t.test("exposes validated defaults", () => {
         const resolved = resolveGmlPluginComponents();
@@ -301,6 +318,35 @@ test("GML plugin component registry", { concurrency: false }, async (t) => {
                     reset,
                     gmlPluginComponents,
                     "reset should still restore the default bundle"
+                );
+            } finally {
+                unsubscribe();
+                restoreDefaultGmlPluginComponents();
+            }
+        }
+    );
+
+    await t.test(
+        "observers do not leak when signals abort during registration",
+        () => {
+            const notifications = [];
+            const signal = createAbortDuringRegistrationSignal();
+
+            const unsubscribe = addGmlPluginComponentObserver(
+                (components) => {
+                    notifications.push(components);
+                },
+                { signal }
+            );
+
+            try {
+                const customComponents = createCustomComponents();
+                setGmlPluginComponentProvider(() => customComponents);
+
+                assert.deepEqual(
+                    notifications,
+                    [],
+                    "observers should unsubscribe immediately when the signal aborts mid-registration"
                 );
             } finally {
                 unsubscribe();

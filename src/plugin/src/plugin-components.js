@@ -129,6 +129,15 @@ function createObserverSubscription(observer, signal) {
         };
 
         signal.addEventListener("abort", abortHandler, { once: true });
+
+        if (signal.aborted) {
+            // Ensure observers do not leak when the signal is aborted between
+            // registration and listener attachment. AbortSignal dispatches
+            // "abort" synchronously, so late listeners are never notified.
+            // Guarding here guarantees cleanup even when the event already
+            // fired.
+            unsubscribe();
+        }
     }
 
     return unsubscribe;

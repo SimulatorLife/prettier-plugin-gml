@@ -32,40 +32,74 @@ function ensureTokenMetadata(token, { fallbackCandidates = [], stream } = {}) {
     }
 
     if (typeof token.tokenIndex !== "number") {
-        if (typeof fallback?.tokenIndex === "number") {
-            token.tokenIndex = fallback.tokenIndex;
-        } else if (typeof token.index === "number") {
-            token.tokenIndex = token.index;
-        } else if (typeof token.startIndex === "number") {
-            token.tokenIndex = token.startIndex;
-        } else if (stream && typeof stream.index === "number") {
-            token.tokenIndex = stream.index;
-        } else {
-            token.tokenIndex = INVALID_INDEX_FALLBACK;
+        switch ("number") {
+            case typeof fallback?.tokenIndex: {
+                token.tokenIndex = fallback.tokenIndex;
+
+                break;
+            }
+            case typeof token.index: {
+                token.tokenIndex = token.index;
+
+                break;
+            }
+            case typeof token.startIndex: {
+                token.tokenIndex = token.startIndex;
+
+                break;
+            }
+            default: {
+                token.tokenIndex =
+                    stream && typeof stream.index === "number"
+                        ? stream.index
+                        : INVALID_INDEX_FALLBACK;
+            }
         }
     }
 
     if (typeof token.line !== "number") {
-        if (typeof fallback?.line === "number") {
-            token.line = fallback.line;
-        } else if (typeof fallback?.start?.line === "number") {
-            token.line = fallback.start.line;
-        } else if (typeof token.start?.line === "number") {
-            token.line = token.start.line;
-        } else {
-            token.line = INVALID_INDEX_FALLBACK;
+        switch ("number") {
+            case typeof fallback?.line: {
+                token.line = fallback.line;
+
+                break;
+            }
+            case typeof fallback?.start?.line: {
+                token.line = fallback.start.line;
+
+                break;
+            }
+            case typeof token.start?.line: {
+                token.line = token.start.line;
+
+                break;
+            }
+            default: {
+                token.line = INVALID_INDEX_FALLBACK;
+            }
         }
     }
 
     if (typeof token.column !== "number") {
-        if (typeof fallback?.column === "number") {
-            token.column = fallback.column;
-        } else if (typeof fallback?.start?.column === "number") {
-            token.column = fallback.start.column;
-        } else if (typeof token.start?.column === "number") {
-            token.column = token.start.column;
-        } else {
-            token.column = INVALID_INDEX_FALLBACK;
+        switch ("number") {
+            case typeof fallback?.column: {
+                token.column = fallback.column;
+
+                break;
+            }
+            case typeof fallback?.start?.column: {
+                token.column = fallback.start.column;
+
+                break;
+            }
+            case typeof token.start?.column: {
+                token.column = token.start.column;
+
+                break;
+            }
+            default: {
+                token.column = INVALID_INDEX_FALLBACK;
+            }
         }
     }
 
@@ -78,12 +112,11 @@ function ensureOffendingToken(recognizer, exception) {
     }
 
     const stream = getTokenStream(recognizer);
-    const context = exception.ctx ?? exception.context ?? recognizer?._ctx ?? null;
+    const context =
+        exception.ctx ?? exception.context ?? recognizer?._ctx ?? null;
 
     let offendingToken =
-        exception.offendingToken ??
-        exception.offendingSymbol ??
-        null;
+        exception.offendingToken ?? exception.offendingSymbol ?? null;
 
     if (!offendingToken && typeof exception.getOffendingToken === "function") {
         offendingToken = exception.getOffendingToken();
@@ -97,10 +130,7 @@ function ensureOffendingToken(recognizer, exception) {
         offendingToken = context.start;
     }
 
-    if (
-        !offendingToken &&
-        typeof recognizer?.getCurrentToken === "function"
-    ) {
+    if (!offendingToken && typeof recognizer?.getCurrentToken === "function") {
         offendingToken = recognizer.getCurrentToken();
     }
 
@@ -138,7 +168,8 @@ function ensureStartToken(recognizer, exception) {
     }
 
     const stream = getTokenStream(recognizer);
-    const context = exception.ctx ?? exception.context ?? recognizer?._ctx ?? null;
+    const context =
+        exception.ctx ?? exception.context ?? recognizer?._ctx ?? null;
 
     let startToken =
         exception.startToken ??
@@ -147,10 +178,7 @@ function ensureStartToken(recognizer, exception) {
         context?.stop ??
         null;
 
-    if (
-        !startToken &&
-        typeof recognizer?.getCurrentToken === "function"
-    ) {
+    if (!startToken && typeof recognizer?.getCurrentToken === "function") {
         startToken = recognizer.getCurrentToken();
     }
 
@@ -203,10 +231,11 @@ export function installRecognitionExceptionLikeGuard() {
     Object.defineProperty(recognitionException, Symbol.hasInstance, {
         configurable: true,
         value(candidate) {
-            if (typeof originalHasInstance === "function") {
-                if (originalHasInstance.call(this, candidate)) {
-                    return true;
-                }
+            if (
+                typeof originalHasInstance === "function" &&
+                originalHasInstance.call(this, candidate)
+            ) {
+                return true;
             }
 
             return isRecognitionExceptionLike(candidate);

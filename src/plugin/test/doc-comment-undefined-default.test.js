@@ -67,3 +67,58 @@ test("preserves optional annotations when parameters are explicitly documented a
         "Expected explicitly optional parameters to retain their undefined default"
     );
 });
+
+test("omits optional syntax for synthesized docs with undefined defaults", async () => {
+    const source = [
+        "function choose_profile(settings, fallback = undefined) {",
+        "    var config = settings ?? global.default_settings;",
+        "    var themeCandidate = config.theme_override ?? fallback.theme_override;",
+        "    var finalTheme = themeCandidate ?? global.theme_defaults;",
+        "    if ((config ?? fallback) == undefined) {",
+        "        return \"guest\";",
+        "    }",
+        "    return (config.profile ?? fallback.profile) ?? \"guest\";",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    const lines = formatted.split("\n");
+    const fallbackDocLine = lines.find((line) =>
+        line.startsWith("/// @param") && line.includes("fallback")
+    );
+    assert.equal(
+        fallbackDocLine,
+        "/// @param fallback",
+        "Expected synthesized doc comments to document undefined defaults as required parameters"
+    );
+    assert.ok(
+        lines.includes("function choose_profile(settings, fallback) {"),
+        "Expected redundant undefined defaults to be omitted from function signatures"
+    );
+});
+
+test("retains optional syntax when constructors keep explicit undefined defaults", async () => {
+    const source = [
+        "/// @function Shape",
+        "function Shape(color = undefined) constructor {",
+        "    self.color = color;",
+        "}",
+        "",
+        ""
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    assert.ok(
+        formatted.includes("/// @param [color]"),
+        "Expected synthesized constructor docs to keep optional syntax when undefined defaults remain in the signature"
+    );
+});

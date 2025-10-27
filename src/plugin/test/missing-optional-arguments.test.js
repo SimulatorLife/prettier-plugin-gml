@@ -49,3 +49,9 @@ test("plugin no longer exposes removed options", async () => {
         );
     }
 });
+
+test("collapses redundant missing optional arguments when no values are provided", async () => {
+    const formatted = await format(["my_func4(,);", ""].join("\n"));
+
+    assert.strictEqual(formatted, "my_func4(undefined);\n");
+});
