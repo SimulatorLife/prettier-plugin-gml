@@ -4,7 +4,11 @@ import { isObjectLike, toArray } from "../shared/index.js";
  * The previous IdentifierMetadataManager bundled scope management, role tracking,
  * and global identifier bookkeeping behind a single "manager" contract. That
  * made consumers depend on capabilities they did not always need, so this module
- * exposes smaller, purpose-driven collaborators instead.
+ * exposes smaller, purpose-driven collaborators instead. Earlier iterations
+ * continued that pattern with a catch-all `IdentifierScopeCoordinatorInterface`
+ * that coupled enablement checks, scope session orchestration, and role
+ * application. Those responsibilities now flow through narrower interfaces so
+ * collaborators can depend only on the behaviour they require.
  */
 
 function isIdentifierNode(node) {
@@ -56,12 +60,25 @@ export class IdentifierRoleTracker {
 }
 
 /**
- * @typedef {object} IdentifierScopeCoordinatorInterface
+ * @typedef {object} IdentifierScopeAvailability
  * @property {() => boolean} isEnabled
+ */
+
+/**
+ * @typedef {object} IdentifierScopeSession
  * @property {(kind: unknown, callback: () => any) => any} withScope
+ */
+
+/**
+ * @typedef {object} IdentifierRoleApplication
  * @property {(name: string | null | undefined, node: unknown) => void} applyCurrentRoleToIdentifier
  */
 
+/**
+ * @implements {IdentifierScopeAvailability}
+ * @implements {IdentifierScopeSession}
+ * @implements {IdentifierRoleApplication}
+ */
 export class IdentifierScopeCoordinator {
     constructor({ scopeTracker, roleTracker } = {}) {
         this.scopeTracker = scopeTracker;

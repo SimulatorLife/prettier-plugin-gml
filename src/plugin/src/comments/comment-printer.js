@@ -241,7 +241,10 @@ function applySingleLeadingSpacePadding(comment, options) {
         return;
     }
 
-    comment.inlinePadding = typeof comment.inlinePadding === "number" ? Math.max(comment.inlinePadding, 1) : 1;
+    comment.inlinePadding =
+        typeof comment.inlinePadding === "number"
+            ? Math.max(comment.inlinePadding, 1)
+            : 1;
 }
 
 function getCommentStartIndex(comment) {
@@ -509,13 +512,11 @@ function findBraceOwnerForComment(ast, comment) {
             commentIndex >= startIndex &&
             commentIndex <= endIndex &&
             commentLine === startLine &&
-            node.type === "SwitchStatement"
-         && (
-                !match ||
-                getLocationMetadata(match.start).index <= startIndex
-            )) {
-                match = node;
-            }
+            node.type === "SwitchStatement" &&
+            (!match || getLocationMetadata(match.start).index <= startIndex)
+        ) {
+            match = node;
+        }
 
         for (const value of Object.values(node)) {
             if (!value || typeof value !== "object") {

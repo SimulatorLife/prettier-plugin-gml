@@ -109,14 +109,14 @@ const BINARY_OPERATORS = {
  */
 
 /**
- * @param {IdentifierScopeCoordinator} scopeCoordinator
+ * @param {import("./identifier-metadata/index.js").IdentifierScopeAvailability &
+ * import("./identifier-metadata/index.js").IdentifierScopeSession} scopeAccess
  * @returns {IdentifierScopeTools}
  */
-function createIdentifierScopeTools(scopeCoordinator) {
+function createIdentifierScopeTools(scopeAccess) {
     return {
-        isEnabled: () => scopeCoordinator.isEnabled(),
-        withScope: (kind, callback) =>
-            scopeCoordinator.withScope(kind, callback)
+        isEnabled: () => scopeAccess.isEnabled(),
+        withScope: (kind, callback) => scopeAccess.withScope(kind, callback)
     };
 }
 
@@ -133,13 +133,13 @@ function createIdentifierRoleTools(roleTracker) {
 }
 
 /**
- * @param {IdentifierScopeCoordinator} scopeCoordinator
+ * @param {import("./identifier-metadata/index.js").IdentifierRoleApplication} roleApplication
  * @returns {IdentifierClassifierTools}
  */
-function createIdentifierClassifierTools(scopeCoordinator) {
+function createIdentifierClassifierTools(roleApplication) {
     return {
         applyRoleToIdentifier: (name, node) =>
-            scopeCoordinator.applyCurrentRoleToIdentifier(name, node)
+            roleApplication.applyCurrentRoleToIdentifier(name, node)
     };
 }
 
