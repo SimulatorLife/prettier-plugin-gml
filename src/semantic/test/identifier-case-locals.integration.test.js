@@ -85,9 +85,9 @@ describe("identifier case local renaming", { concurrency: false }, () => {
             };
             setIdentifierCaseDryRunContext({
                 filepath: gmlPath,
-                projectIndex,
-                dryRun: true,
-                logger
+                plan: { dryRun: true },
+                project: { projectIndex },
+                reporting: { logger }
             });
             const diagnostics = [];
 
@@ -197,8 +197,8 @@ describe("identifier case local renaming", { concurrency: false }, () => {
             clearIdentifierCaseDryRunContexts();
             setIdentifierCaseDryRunContext({
                 filepath: gmlPath,
-                projectIndex,
-                dryRun: false
+                plan: { dryRun: false },
+                project: { projectIndex }
             });
             const diagnostics = [];
             const formatOptions = {
@@ -263,8 +263,8 @@ describe("identifier case local renaming", { concurrency: false }, () => {
             clearIdentifierCaseDryRunContexts();
             setIdentifierCaseDryRunContext({
                 filepath: gmlPath,
-                projectIndex,
-                dryRun: true
+                plan: { dryRun: true },
+                project: { projectIndex }
             });
 
             const dryRunOptions = {
@@ -288,8 +288,8 @@ describe("identifier case local renaming", { concurrency: false }, () => {
             clearIdentifierCaseDryRunContexts();
             setIdentifierCaseDryRunContext({
                 filepath: gmlPath,
-                projectIndex,
-                dryRun: false
+                plan: { dryRun: false },
+                project: { projectIndex }
             });
 
             const writeOptions = {

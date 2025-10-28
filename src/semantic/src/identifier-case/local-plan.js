@@ -696,20 +696,20 @@ export async function prepareIdentifierCasePlan(options) {
     const context = peekIdentifierCaseDryRunContext(options.filepath ?? null);
     if (
         options.__identifierCaseDryRun === undefined &&
-        context &&
-        typeof context.dryRun === "boolean"
+        context?.plan &&
+        typeof context.plan.dryRun === "boolean"
     ) {
         setIdentifierCaseOption(
             options,
             "__identifierCaseDryRun",
-            context.dryRun
+            context.plan.dryRun
         );
     }
     applyBootstrappedIdentifierCaseProjectIndex(options);
 
     let projectIndex = resolveIdentifierCaseProjectIndex(
         options,
-        context?.projectIndex ?? null
+        context?.project?.projectIndex ?? null
     );
 
     const logger = options.logger ?? null;
@@ -755,7 +755,7 @@ export async function prepareIdentifierCasePlan(options) {
     if (!projectIndex && requiresProjectIndex) {
         projectIndex = await ensureIdentifierCaseProjectIndex(
             options,
-            context?.projectIndex ?? null
+            context?.project?.projectIndex ?? null
         );
     }
 

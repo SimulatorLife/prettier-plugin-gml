@@ -150,8 +150,8 @@ describe("identifier case top-level renaming", () => {
             for (const script of scripts) {
                 setIdentifierCaseDryRunContext({
                     filepath: script.path,
-                    projectIndex,
-                    dryRun: true
+                    plan: { dryRun: true },
+                    project: { projectIndex }
                 });
 
                 const diagnostics = [];
@@ -192,8 +192,8 @@ describe("identifier case top-level renaming", () => {
             if (event) {
                 setIdentifierCaseDryRunContext({
                     filepath: event.path,
-                    projectIndex,
-                    dryRun: true
+                    plan: { dryRun: true },
+                    project: { projectIndex }
                 });
 
                 const diagnostics = [];
@@ -268,8 +268,8 @@ describe("identifier case top-level renaming", () => {
             for (const script of scripts) {
                 setIdentifierCaseDryRunContext({
                     filepath: script.path,
-                    projectIndex,
-                    dryRun: false
+                    plan: { dryRun: false },
+                    project: { projectIndex }
                 });
 
                 const diagnostics = [];
@@ -318,8 +318,8 @@ describe("identifier case top-level renaming", () => {
             if (event) {
                 setIdentifierCaseDryRunContext({
                     filepath: event.path,
-                    projectIndex,
-                    dryRun: false
+                    plan: { dryRun: false },
+                    project: { projectIndex }
                 });
 
                 const diagnostics = [];
@@ -363,8 +363,8 @@ describe("identifier case top-level renaming", () => {
             clearIdentifierCaseOptionStore(null);
             setIdentifierCaseDryRunContext({
                 filepath: script.path,
-                projectIndex,
-                dryRun: true
+                plan: { dryRun: true },
+                project: { projectIndex }
             });
 
             const diagnostics = [];

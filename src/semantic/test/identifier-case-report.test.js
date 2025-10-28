@@ -97,12 +97,8 @@ async function formatWithReporter({
 }) {
     setIdentifierCaseDryRunContext({
         filepath,
-        renamePlan,
-        conflicts,
-        dryRun,
-        logFilePath: logPath,
-        logger,
-        diagnostics
+        plan: { renamePlan, conflicts, dryRun },
+        reporting: { logFilePath: logPath, logger, diagnostics }
     });
 
     return prettier.format(source, {

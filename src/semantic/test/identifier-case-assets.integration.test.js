@@ -240,8 +240,8 @@ describe("asset rename execution", () => {
             clearIdentifierCaseDryRunContexts();
             setIdentifierCaseDryRunContext({
                 filepath: scriptPath,
-                projectIndex,
-                dryRun: false
+                plan: { dryRun: false },
+                project: { projectIndex }
             });
 
             const diagnostics = [];

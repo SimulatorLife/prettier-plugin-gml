@@ -225,3 +225,15 @@ no code changes were required.
   the identifier-case service registry and unit tests to register the focused
   collaborators independently so each call site pulls in only the snapshot role
   it exercises.
+
+## Follow-up audit (2026-02-04)
+
+- Revisited the identifier-case dry-run helpers and found
+  `setIdentifierCaseDryRunContext` in
+  `src/semantic/src/identifier-case/identifier-case-context.js` still stored
+  rename plan details, reporting utilities, and project index handles on a
+  single umbrella context object.
+- Split the contract into dedicated `plan`, `reporting`, and `project`
+  sub-contexts so callers depend only on the slice they require. Updated the
+  context consumers (`identifier-case-report.js`, `local-plan.js`) and semantic
+  tests to read from the focused views instead of the wide catch-all surface.

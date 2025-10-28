@@ -590,17 +590,22 @@ function resolveInlineReportContext(options, renamePlan) {
     const fsFacade = getIdentifierCaseOption(options, "Fs", { fallback: null });
 
     return {
-        renamePlan,
-        conflicts,
-        dryRun,
-        logFilePath,
-        logger: options.logger ?? null,
-        diagnostics: toDiagnosticsArray(options.diagnostics),
-        fsFacade,
-        now: pickFunction(
-            options.__identifierCaseNow,
-            options.identifierCaseNow
-        )
+        plan: {
+            renamePlan,
+            conflicts,
+            dryRun
+        },
+        reporting: {
+            logFilePath,
+            logger: options.logger ?? null,
+            diagnostics: toDiagnosticsArray(options.diagnostics),
+            fsFacade,
+            now: pickFunction(
+                options.__identifierCaseNow,
+                options.identifierCaseNow
+            )
+        },
+        project: { projectIndex: null }
     };
 }
 
@@ -643,18 +648,19 @@ function finalizeIdentifierCaseReport(options, result) {
     return result ?? null;
 }
 
-function resolveReportIo(options, context) {
-    const logger = context.logger ?? options.logger ?? console;
+function resolveReportIo(options, reportingContext) {
+    const logger = reportingContext?.logger ?? options.logger ?? console;
     const diagnostics =
-        context.diagnostics ?? toDiagnosticsArray(options.diagnostics);
+        reportingContext?.diagnostics ??
+        toDiagnosticsArray(options.diagnostics);
     const logFilePath =
-        context.logFilePath ??
+        reportingContext?.logFilePath ??
         getIdentifierCaseOption(options, "ReportLogPath", { fallback: null });
     const fsFacade =
-        context.fsFacade ??
+        reportingContext?.fsFacade ??
         getIdentifierCaseOption(options, "Fs", { fallback: defaultFsFacade });
     const now =
-        context.now ??
+        reportingContext?.now ??
         pickFunction(options.__identifierCaseNow, options.identifierCaseNow) ??
         defaultNow;
 
@@ -668,17 +674,22 @@ export function maybeReportIdentifierCaseDryRun(options) {
 
     const context = resolveReportContext(options);
 
-    if (!context) {
+    const planContext = context?.plan;
+
+    if (!planContext) {
         return null;
     }
 
-    const { renamePlan } = context;
+    const { renamePlan } = planContext;
 
     if (!renamePlan) {
         return finalizeIdentifierCaseReport(options);
     }
 
-    const { conflicts = [], dryRun: contextDryRun } = context;
+    const conflicts = Array.isArray(planContext.conflicts)
+        ? planContext.conflicts
+        : [];
+    const contextDryRun = planContext.dryRun;
 
     const shouldDryRun = resolveDryRunFlag(options, contextDryRun);
 
@@ -693,7 +704,7 @@ export function maybeReportIdentifierCaseDryRun(options) {
         return finalizeIdentifierCaseReport(options, result);
     }
 
-    const reportIo = resolveReportIo(options, context);
+    const reportIo = resolveReportIo(options, context?.reporting ?? null);
 
     const result = reportIdentifierCasePlan({
         renamePlan,
