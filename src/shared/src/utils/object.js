@@ -78,18 +78,22 @@ export function resolveHelperOverride(helpers, key, fallback) {
             : "helper override"
     );
 
-    if (helpers && (typeof helpers === "function" || isObjectLike(helpers))) {
-        const candidate =
-            /** @type {Record<string | number | symbol, unknown>} */ (helpers)[
-                key
-            ];
+    const hasHelperOverrides =
+        helpers && (typeof helpers === "function" || isObjectLike(helpers));
 
-        if (typeof candidate === "function") {
-            return /** @type {THelper} */ (candidate);
-        }
+    if (!hasHelperOverrides) {
+        return normalizedFallback;
     }
 
-    return normalizedFallback;
+    const candidate = /** @type {Record<string | number | symbol, unknown>} */ (
+        helpers
+    )[key];
+
+    if (typeof candidate !== "function") {
+        return normalizedFallback;
+    }
+
+    return /** @type {THelper} */ (candidate);
 }
 
 const objectPrototypeToString = Object.prototype.toString;
