@@ -240,3 +240,17 @@ no code changes were required.
   implementation, semantic metrics helpers, and their unit tests to rely on the
   specialised interfaces so call sites opt into only the reporting behaviour
   they exercise.
+
+## Follow-up audit (2026-03-05)
+
+- Audited the manual GitHub helpers and found `createManualGitHubClientBundle`
+  in `src/cli/src/modules/manual/utils.js`. The bundle reintroduced a catch-all
+  surface that coupled the request dispatcher, commit resolver, ref resolver,
+  and file client behind one umbrella "bundle" contract.
+- Inlined the wiring so each collaborator is created through the specialised
+  helpers (`createManualGitHubRequestDispatcher`,
+  `createManualGitHubCommitResolver`, `createManualGitHubRefResolver`, and
+  `createManualGitHubFileClient`) without exporting another combined interface.
+- Updated `buildManualCommandContext` and the manual GitHub client tests to
+  depend on the focused collaborators directly, keeping consumers aligned with
+  the Interface Segregation Principle.
