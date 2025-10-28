@@ -6,7 +6,6 @@ import {
     renderProgressBar,
     resetProgressBarRegistryForTesting
 } from "../src/runtime-options/progress-bar.js";
-import { SingleBar } from "cli-progress";
 
 function createMockStdout() {
     return {
@@ -32,26 +31,25 @@ describe("manual CLI helpers", () => {
         resetProgressBarRegistryForTesting();
     });
 
-    it("creates default progress bars when no factory override is provided", () => {
+    it("renders progress output with the default progress bar", () => {
         const stdout = createMockStdout();
+        const writes = [];
+        stdout.write = (chunk) => {
+            writes.push(chunk);
+        };
 
-        const startMock = mock.method(SingleBar.prototype, "start", () => {});
-        const updateMock = mock.method(SingleBar.prototype, "update", () => {});
-        const setTotalMock = mock.method(
-            SingleBar.prototype,
-            "setTotal",
-            () => {}
-        );
-        const stopMock = mock.method(SingleBar.prototype, "stop", () => {});
+        renderProgressBar("Task", 0, 3, 5, { stdout });
+        renderProgressBar("Task", 1, 3, 5, { stdout });
+        renderProgressBar("Task", 3, 3, 5, { stdout });
 
-        renderProgressBar("Task", 0, 3, 10, { stdout });
-        renderProgressBar("Task", 1, 3, 10, { stdout });
-        renderProgressBar("Task", 3, 3, 10, { stdout });
+        const sanitized = writes
+            .join("")
+            .replaceAll(/\u001B\[[0-9;?]*[A-Za-z]/g, "")
+            .replaceAll('\r', "\n");
 
-        assert.equal(startMock.mock.callCount(), 1);
-        assert.equal(setTotalMock.mock.callCount(), 2);
-        assert.equal(updateMock.mock.callCount(), 2);
-        assert.equal(stopMock.mock.callCount(), 1);
+        assert.match(sanitized, /Task \[[^\]]*\] 0\/3/);
+        assert.match(sanitized, /Task \[[^\]]*\] 1\/3/);
+        assert.match(sanitized, /Task \[[^\]]*\] 3\/3/);
     });
 
     it("disposes active progress bars", () => {
