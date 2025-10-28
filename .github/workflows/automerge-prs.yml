@@ -532,12 +532,13 @@ jobs:
             const lintDataAvailable = lint[targetForMerge] !== null && lint[targetForMerge] !== undefined;
             
             const statusFlag = (process.env.REGRESSION_STATUS || '').toLowerCase();
-            let allGreenFlag = (process.env.REGRESSION_ALL_GREEN || '').toLowerCase() === 'true';
+            const regressionAllGreen = (process.env.REGRESSION_ALL_GREEN || '').toLowerCase() === 'true';
             
-            // Override all_green if lint data is missing
-            if (allGreenFlag && !lintDataAvailable) {
+            // Determine final all_green status: must have no regressions AND lint data available
+            const allGreenFlag = regressionAllGreen && lintDataAvailable;
+            
+            if (regressionAllGreen && !lintDataAvailable) {
               core.warning(`Lint data is missing for ${targetForMerge} — blocking auto-merge.`);
-              allGreenFlag = false;
             }
 
             let statusLine;
