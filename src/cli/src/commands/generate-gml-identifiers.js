@@ -457,16 +457,8 @@ const MANUAL_IDENTIFIER_ARRAYS = Object.freeze([
 const MANUAL_KEYWORD_SOURCE = "manual:ZeusDocs_keywords.json";
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9_$.]+$/;
 
-/**
- * Parse the manual identifier arrays embedded in gml.js and merge their
- * contents into a single identifier metadata map.
- *
- * Centralizing the parsing and collection steps keeps the main command flow
- * focused on orchestration while preserving the original timeSync reporting.
- */
-function buildManualIdentifierMap({ gmlSource, vmEvalTimeoutMs, verbose }) {
-    const identifierMap = new Map();
-    const parsedArrays = MANUAL_IDENTIFIER_ARRAYS.map((descriptor) => ({
+function parseManualIdentifierArrays({ gmlSource, vmEvalTimeoutMs, verbose }) {
+    return MANUAL_IDENTIFIER_ARRAYS.map((descriptor) => ({
         descriptor,
         values: timeSync(
             descriptor.parseLabel,
@@ -477,7 +469,19 @@ function buildManualIdentifierMap({ gmlSource, vmEvalTimeoutMs, verbose }) {
             { verbose }
         )
     }));
+}
 
+/**
+ * Merge parsed manual identifier arrays into the aggregate metadata map.
+ *
+ * Keeping the collection logic isolated ensures the orchestrator only sequences
+ * high-level steps instead of performing Set/Map bookkeeping inline.
+ */
+function collectParsedManualIdentifierArrays({
+    identifierMap,
+    parsedArrays,
+    verbose
+}) {
     for (const { descriptor, values } of parsedArrays) {
         timeSync(
             descriptor.collectLabel,
@@ -491,6 +495,28 @@ function buildManualIdentifierMap({ gmlSource, vmEvalTimeoutMs, verbose }) {
             { verbose }
         );
     }
+}
+
+/**
+ * Parse the manual identifier arrays embedded in gml.js and merge their
+ * contents into a single identifier metadata map.
+ *
+ * Centralizing the parsing and collection steps keeps the main command flow
+ * focused on orchestration while preserving the original timeSync reporting.
+ */
+function buildManualIdentifierMap({ gmlSource, vmEvalTimeoutMs, verbose }) {
+    const identifierMap = new Map();
+    const parsedArrays = parseManualIdentifierArrays({
+        gmlSource,
+        vmEvalTimeoutMs,
+        verbose
+    });
+
+    collectParsedManualIdentifierArrays({
+        identifierMap,
+        parsedArrays,
+        verbose
+    });
 
     return identifierMap;
 }
