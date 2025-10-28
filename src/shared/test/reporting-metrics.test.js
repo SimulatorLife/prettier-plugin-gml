@@ -5,17 +5,20 @@ import { createMetricsTracker } from "../src/reporting/index.js";
 
 test("snapshot exposes accumulated metrics as plain objects", () => {
     const tracker = createMetricsTracker({ category: "demo" });
+    const { recording, reporting } = tracker;
+    const { timers, counters, caches, metadata } = recording;
+    const { summary } = reporting;
 
-    const stopTiming = tracker.timers.startTimer("parse");
+    const stopTiming = timers.startTimer("parse");
     stopTiming();
-    tracker.counters.increment("files");
-    tracker.caches.recordHit("project-index");
-    tracker.caches.recordMiss("project-index");
-    tracker.caches.recordStale("project-index");
-    tracker.caches.recordHit("project-index");
-    tracker.metadata.setMetadata("mode", "test");
+    counters.increment("files");
+    caches.recordHit("project-index");
+    caches.recordMiss("project-index");
+    caches.recordStale("project-index");
+    caches.recordHit("project-index");
+    metadata.setMetadata("mode", "test");
 
-    const report = tracker.summary.snapshot({
+    const report = summary.snapshot({
         counters: { extra: 2 },
         caches: { extraCache: { hits: 5 } },
         metadata: { note: "ok" }
@@ -36,9 +39,10 @@ test("snapshot exposes accumulated metrics as plain objects", () => {
 
 test("cache summaries include untouched counters", () => {
     const tracker = createMetricsTracker();
-    tracker.caches.recordHit("default");
+    const { recording, reporting } = tracker;
+    recording.caches.recordHit("default");
 
-    const report = tracker.summary.snapshot();
+    const report = reporting.summary.snapshot();
     assert.deepEqual(report.caches.default, {
         hits: 1,
         misses: 0,
@@ -58,9 +62,10 @@ test("finalize logs once when auto logging is enabled", () => {
         }
     });
 
-    tracker.counters.increment("items", 3);
-    const report = tracker.summary.finalize({ counters: { extra: 1 } });
-    const second = tracker.summary.finalize({ counters: { extra: 999 } });
+    const { recording, reporting } = tracker;
+    recording.counters.increment("items", 3);
+    const report = reporting.summary.finalize({ counters: { extra: 1 } });
+    const second = reporting.summary.finalize({ counters: { extra: 999 } });
 
     assert.deepEqual(report.counters, { items: 3, extra: 1 });
     assert.equal(events.length, 1);
@@ -76,11 +81,12 @@ test("cache keys are configurable and support custom metrics", () => {
         category: "custom"
     });
 
-    tracker.caches.recordHit("store");
-    tracker.caches.recordMetric("store", "evictions", 2);
-    tracker.caches.recordMetric("store", "misses", 3);
+    const { recording, reporting } = tracker;
+    recording.caches.recordHit("store");
+    recording.caches.recordMetric("store", "evictions", 2);
+    recording.caches.recordMetric("store", "misses", 3);
 
-    const report = tracker.summary.snapshot();
+    const report = reporting.summary.snapshot();
     assert.deepEqual(report.caches.store, {
         hits: 1,
         evictions: 2,
@@ -90,11 +96,12 @@ test("cache keys are configurable and support custom metrics", () => {
 
 test("cache key normalization accepts delimited strings", () => {
     const tracker = createMetricsTracker({ cacheKeys: " hits , misses " });
+    const { recording, reporting } = tracker;
 
-    tracker.caches.recordHit("store");
-    tracker.caches.recordMetric("store", "misses", 2);
+    recording.caches.recordHit("store");
+    recording.caches.recordMetric("store", "misses", 2);
 
-    const report = tracker.summary.snapshot();
+    const report = reporting.summary.snapshot();
     assert.deepEqual(report.caches.store, {
         hits: 1,
         misses: 2
@@ -106,10 +113,11 @@ test("cache key normalization trims duplicates from iterable input", () => {
         cacheKeys: new Set([" hits ", "", "misses", "hits"])
     });
 
-    tracker.caches.recordHit("store");
-    tracker.caches.recordMetric("store", "misses", 2);
+    const { recording, reporting } = tracker;
+    recording.caches.recordHit("store");
+    recording.caches.recordMetric("store", "misses", 2);
 
-    const report = tracker.summary.snapshot();
+    const report = reporting.summary.snapshot();
     assert.deepEqual(report.caches.store, {
         hits: 1,
         misses: 2
@@ -118,9 +126,10 @@ test("cache key normalization trims duplicates from iterable input", () => {
 
 test("cache key normalization falls back to defaults when empty", () => {
     const tracker = createMetricsTracker({ cacheKeys: [null, undefined] });
-    tracker.caches.recordHit("store");
+    const { recording, reporting } = tracker;
+    recording.caches.recordHit("store");
 
-    const report = tracker.summary.snapshot();
+    const report = reporting.summary.snapshot();
     assert.deepEqual(report.caches.store, {
         hits: 1,
         misses: 0,
@@ -130,14 +139,15 @@ test("cache key normalization falls back to defaults when empty", () => {
 
 test("snapshot returns fresh copies of accumulated metrics", () => {
     const tracker = createMetricsTracker({ category: "clone" });
-    tracker.counters.increment("runs");
-    tracker.caches.recordHit("cache");
+    const { recording, reporting } = tracker;
+    recording.counters.increment("runs");
+    recording.caches.recordHit("cache");
 
-    const first = tracker.summary.snapshot();
+    const first = reporting.summary.snapshot();
     first.counters.runs = 99;
     first.caches.cache.hits = 42;
 
-    const second = tracker.summary.snapshot();
+    const second = reporting.summary.snapshot();
     assert.deepEqual(second.counters, { runs: 1 });
     assert.deepEqual(second.caches.cache, { hits: 1, misses: 0, stale: 0 });
 });

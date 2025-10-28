@@ -713,12 +713,18 @@ export async function prepareIdentifierCasePlan(options) {
     );
 
     const logger = options.logger ?? null;
-    const metrics = createMetricsTracker({
+    const metricsContracts = createMetricsTracker({
         category: "identifier-case-plan",
         logger,
         autoLog: options.logIdentifierCaseMetrics === true
     });
-    setIdentifierCaseOption(options, "__identifierCaseMetrics", metrics);
+    const metrics = metricsContracts.recording;
+    const metricsReporting = metricsContracts.reporting;
+    setIdentifierCaseOption(
+        options,
+        "__identifierCaseMetrics",
+        metricsContracts
+    );
     const stopTotal = metrics.timers.startTimer("preparePlan");
     // Scripts, macros, globals, structs, and instance assignments are tracked via
     // `projectIndex.identifiers`. The scope-specific toggles fan out through the
@@ -784,7 +790,9 @@ export async function prepareIdentifierCasePlan(options) {
 
     const finalizeMetrics = (extraMetadata = {}) => {
         stopTotal();
-        const report = metrics.summary.finalize({ metadata: extraMetadata });
+        const report = metricsReporting.summary.finalize({
+            metadata: extraMetadata
+        });
         setIdentifierCaseOption(
             options,
             "__identifierCaseMetricsReport",
