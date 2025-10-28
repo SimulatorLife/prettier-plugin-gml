@@ -439,6 +439,23 @@ const FORBIDDEN_CALLEE_IDENTIFIERS = new Set([
 
 const FORBIDDEN_PRECEDING_IDENTIFIERS = new Set(["function", "constructor"]);
 
+/**
+ * Attempt to match a function call that begins at the provided index.
+ *
+ * The scanner expects {@link startIndex} to point at the first character of an
+ * identifier-like token. It walks forward to confirm the token is a valid
+ * callee, skipping over chained property accesses (for example `obj.method`) or
+ * `with`-style dereferences. Calls preceded by forbidden keywords such as
+ * `function` or `constructor` are ignored so the sanitizer never rewrites
+ * declaration headers. When successful the helper returns the offset of the
+ * opening parenthesis so higher-level code can inspect the call body without
+ * repeating the same trivia skipping logic.
+ *
+ * @param {string} sourceText Raw source text being inspected.
+ * @param {number} startIndex Index that should point to the start of the callee.
+ * @returns {{ openParenIndex: number } | null} Location of the opening
+ *          parenthesis when a call is detected; otherwise `null`.
+ */
 function matchFunctionCall(sourceText, startIndex) {
     if (!isIdentifierBoundary(sourceText, startIndex - 1)) {
         return null;
