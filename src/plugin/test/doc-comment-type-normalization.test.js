@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { normalizeDocCommentTypeAnnotations } from "../src/comments/index.js";
+import {
+    normalizeDocCommentTypeAnnotations,
+    restoreDefaultDocCommentTypeNormalizationResolver,
+    setDocCommentTypeNormalizationResolver
+} from "../src/comments/index.js";
 
 const NORMALIZATION_CASES = [
     {
@@ -50,4 +54,47 @@ test("normalizes GameMaker doc comment type annotations", () => {
             `Expected ${input} to normalize to ${expected}`
         );
     }
+});
+
+test("doc comment type normalization resolver extends the defaults", () => {
+    const guidInput = "/// @returns {Guid} value";
+    assert.equal(
+        normalizeDocCommentTypeAnnotations(guidInput),
+        "/// @returns {Guid} value"
+    );
+
+    try {
+        setDocCommentTypeNormalizationResolver(() => ({
+            synonyms: [
+                ["guid", "string"],
+                ["vec3", "vector3"]
+            ],
+            canonicalSpecifierNames: [["resource", "Resource"]],
+            specifierPrefixes: ["resource"]
+        }));
+
+        assert.equal(
+            normalizeDocCommentTypeAnnotations(guidInput),
+            "/// @returns {string} value"
+        );
+
+        assert.equal(
+            normalizeDocCommentTypeAnnotations(
+                "/// @param {Resource Sprite} player"
+            ),
+            "/// @param {Resource.Sprite} player"
+        );
+
+        assert.equal(
+            normalizeDocCommentTypeAnnotations("/// @param {Vec3} direction"),
+            "/// @param {vector3} direction"
+        );
+    } finally {
+        restoreDefaultDocCommentTypeNormalizationResolver();
+    }
+
+    assert.equal(
+        normalizeDocCommentTypeAnnotations(guidInput),
+        "/// @returns {Guid} value"
+    );
 });

@@ -16,10 +16,14 @@ export {
     setLineCommentOptionsResolver
 } from "../options/line-comment-options.js";
 export {
+    DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION,
     applyInlinePadding,
     formatLineComment,
     getLineCommentRawText,
-    normalizeDocCommentTypeAnnotations
+    normalizeDocCommentTypeAnnotations,
+    resolveDocCommentTypeNormalization,
+    restoreDefaultDocCommentTypeNormalizationResolver,
+    setDocCommentTypeNormalizationResolver
 } from "./line-comment-formatting.js";
 export {
     handleComments,
