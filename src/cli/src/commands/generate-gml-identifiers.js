@@ -16,9 +16,8 @@ import {
 import { writeManualJsonArtifact } from "../modules/manual/file-helpers.js";
 import {
     DEFAULT_MANUAL_REPO,
-    announceManualDownloadStart,
     buildManualRepositoryEndpoints,
-    downloadManualEntriesWithProgress,
+    downloadManualEntryPayloads,
     ensureManualRefHasSha
 } from "../modules/manual/utils.js";
 import { disposeProgressBars } from "../runtime-options/progress-bar.js";
@@ -729,46 +728,6 @@ function createManualAssetDescriptors() {
 }
 
 /**
- * Render download progress updates using the configured verbosity options.
- * The helper centralizes console/progress-bar branching so callers can simply
- * forward status snapshots.
- */
-async function fetchManualAssets(
-    manualRefSha,
-    manualAssets,
-    {
-        forceRefresh,
-        verbose,
-        cacheRoot,
-        rawRoot,
-        progressBarWidth,
-        fetchManualFile: overrideFetchManualFile
-    }
-) {
-    const effectiveFetchManualFile =
-        typeof overrideFetchManualFile === "function"
-            ? overrideFetchManualFile
-            : fetchManualFile;
-
-    return downloadManualEntriesWithProgress({
-        entries: manualAssets.map((asset) => [asset.key, asset.path]),
-        manualRefSha,
-        fetchManualFile: effectiveFetchManualFile,
-        requestOptions: {
-            forceRefresh,
-            verbose,
-            cacheRoot,
-            rawRoot
-        },
-        progress: {
-            label: DOWNLOAD_PROGRESS_LABEL,
-            verbose,
-            progressBarWidth
-        }
-    });
-}
-
-/**
  * Resolve and fetch the manual assets required to build identifier metadata.
  * The helper keeps the command runner focused on orchestration by hiding the
  * asset descriptor bookkeeping and download progress wiring.
@@ -794,18 +753,23 @@ async function fetchIdentifierManualPayloads({
     progressBarWidth
 }) {
     const manualAssets = createManualAssetDescriptors();
-    announceManualDownloadStart(manualAssets.length, {
-        verbose,
-        description: "manual asset"
-    });
+    const entries = manualAssets.map((asset) => [asset.key, asset.path]);
+    const effectiveFetchManualFile =
+        typeof fetchManualFileFn === "function"
+            ? fetchManualFileFn
+            : fetchManualFile;
 
-    return fetchManualAssets(manualRef.sha, manualAssets, {
+    return downloadManualEntryPayloads({
+        entries,
+        manualRefSha: manualRef.sha,
+        fetchManualFile: effectiveFetchManualFile,
         forceRefresh,
         verbose,
         cacheRoot,
         rawRoot,
         progressBarWidth,
-        fetchManualFile: fetchManualFileFn
+        description: "manual asset",
+        progressLabel: DOWNLOAD_PROGRESS_LABEL
     });
 }
 
