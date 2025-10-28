@@ -3,6 +3,32 @@ import { getErrorMessageOrFallback } from "./error.js";
 import { assertPlainObject } from "./object.js";
 import { isNonEmptyString, toTrimmedString } from "./string.js";
 
+const JSON_PARSE_ERROR_CAPABILITY = Symbol.for(
+    "prettier-plugin-gml.json-parse-error"
+);
+
+function hasJsonParseErrorContract(value) {
+    if (!isErrorLike(value)) {
+        return false;
+    }
+
+    if (!isErrorLike(value.cause)) {
+        return false;
+    }
+
+    const description = toTrimmedString(value.description);
+    if (description.length === 0) {
+        return false;
+    }
+
+    const { source } = value;
+    if (source != null && typeof source !== "string") {
+        return false;
+    }
+
+    return true;
+}
+
 function toError(value) {
     if (isErrorLike(value)) {
         return value;
@@ -33,37 +59,36 @@ export class JsonParseError extends SyntaxError {
         if (description !== undefined) {
             this.description = description;
         }
+
+        Object.defineProperty(this, JSON_PARSE_ERROR_CAPABILITY, {
+            value: true,
+            enumerable: false,
+            configurable: true
+        });
     }
 }
 
 /**
  * Check whether a thrown value matches the {@link JsonParseError} contract.
  *
- * The guard intentionally mirrors the properties populated by
- * {@link parseJsonWithContext}, allowing callers to branch on the enriched
- * metadata without trusting arbitrary userland errors. It tolerates a missing
- * `source` (which is optional) but otherwise requires the canonical
- * `JsonParseError` naming, a string description, and an error-like `cause` so
- * diagnostic pipelines remain predictable.
+ * The guard honours the symbol capability applied by {@link JsonParseError}
+ * instances so downstream collaborators can opt-in by branding their own
+ * facades with {@link Symbol.for "prettier-plugin-gml.json-parse-error"}.
+ * When the capability is absent, the function falls back to structural checks
+ * that mirror the properties populated by {@link parseJsonWithContext},
+ * allowing callers to branch on enriched metadata without relying on
+ * constructor names.
  *
  * @param {unknown} value Candidate error object to interrogate.
  * @returns {value is JsonParseError} `true` when the value exposes the
  *     expected shape for {@link JsonParseError}.
  */
 export function isJsonParseError(value) {
-    if (!isErrorLike(value)) {
-        return false;
+    if (value?.[JSON_PARSE_ERROR_CAPABILITY]) {
+        return true;
     }
 
-    const { name, description, source, cause } = value;
-    const hasValidSource = source == null || typeof source === "string";
-
-    return (
-        name === "JsonParseError" &&
-        typeof description === "string" &&
-        hasValidSource &&
-        isErrorLike(cause)
-    );
+    return hasJsonParseErrorContract(value);
 }
 
 function normalizeDescription(description) {
