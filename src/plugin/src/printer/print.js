@@ -4451,7 +4451,7 @@ function mergeSyntheticDocComments(
         options?.printWidth,
         120
     );
-    const wrapWidth = Math.max(normalizedPrintWidth, 16);
+    const wrapWidth = Math.min(normalizedPrintWidth, 100);
 
     const wrapSegments = (text, firstAvailable, continuationAvailable) => {
         if (firstAvailable <= 0) {
@@ -4556,6 +4556,40 @@ function mergeSyntheticDocComments(
             const prefix = prefixMatch[1];
             const continuationPrefix =
                 "/// " + " ".repeat(Math.max(prefix.length - 4, 0));
+            const hasManualContinuation = blockLines.some(
+                (docLine, blockIndex) =>
+                    blockIndex > 0 &&
+                    typeof docLine === "string" &&
+                    docLine.startsWith("///") &&
+                    !parseDocCommentMetadata(docLine)
+            );
+            const padManualContinuationLines = () =>
+                blockLines.map((docLine, blockIndex) => {
+                    if (blockIndex === 0 || typeof docLine !== "string") {
+                        return docLine;
+                    }
+
+                    if (
+                        !docLine.startsWith("///") ||
+                        parseDocCommentMetadata(docLine)
+                    ) {
+                        return docLine;
+                    }
+
+                    if (docLine.startsWith(continuationPrefix)) {
+                        return docLine;
+                    }
+
+                    const trimmedContinuation = docLine
+                        .slice(3)
+                        .replace(/^\s+/, "");
+
+                    if (trimmedContinuation.length === 0) {
+                        return docLine;
+                    }
+
+                    return `${continuationPrefix}${trimmedContinuation}`;
+                });
             const descriptionText = blockLines
                 .map((docLine, blockIndex) => {
                     if (blockIndex === 0) {
@@ -4580,12 +4614,13 @@ function mergeSyntheticDocComments(
                 continue;
             }
 
-            const maxDescriptionWidth = Math.max(Math.min(wrapWidth, 100), 16);
-            const available = Math.max(maxDescriptionWidth - prefix.length, 16);
-            const continuationAvailable = Math.max(
-                wrapWidth - continuationPrefix.length,
-                16
-            );
+            if (hasManualContinuation) {
+                wrappedDocs.push(...padManualContinuationLines());
+                continue;
+            }
+
+            const available = Math.max(wrapWidth - prefix.length, 16);
+            const continuationAvailable = Math.max(Math.min(available, 62), 16);
             const segments = wrapSegments(
                 descriptionText,
                 available,
@@ -4594,6 +4629,11 @@ function mergeSyntheticDocComments(
 
             if (segments.length === 0) {
                 wrappedDocs.push(...blockLines);
+                continue;
+            }
+
+            if (blockLines.length > 1 && segments.length > blockLines.length) {
+                wrappedDocs.push(...padManualContinuationLines());
                 continue;
             }
 

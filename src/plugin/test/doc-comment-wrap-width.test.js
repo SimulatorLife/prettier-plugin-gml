@@ -21,7 +21,7 @@ function createSource() {
     ].join("\n");
 }
 
-test("doc comment descriptions respect the configured print width", async () => {
+test("doc comment descriptions preserve manual continuation lines when they fit", async () => {
     const formatted = await prettier.format(createSource(), {
         parser: "gml-parse",
         plugins: [pluginPath],
@@ -30,11 +30,11 @@ test("doc comment descriptions respect the configured print width", async () => 
 
     assert.ok(
         formatted.includes(`///              ${SAMPLE_DESCRIPTION}`),
-        "Expected the description to remain on a single line when it fits within printWidth."
+        "Expected the formatter to keep the existing continuation line intact."
     );
 
     assert.ok(
         !formatted.includes("///              apex line at"),
-        "Expected the formatter not to synthesize a wrapped continuation line."
+        "Expected the formatter not to synthesize an extra wrapped line."
     );
 });
