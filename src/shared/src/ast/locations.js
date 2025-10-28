@@ -1,4 +1,4 @@
-import { isObjectLike, withObjectLike } from "../utils/object.js";
+import { hasOwn, isObjectLike, withObjectLike } from "../utils/object.js";
 
 // Shared helpers for working with AST node location metadata.
 // These utilities centralize the logic for reading start/end positions
@@ -122,14 +122,14 @@ function assignClonedLocation(target, template) {
                     let shouldAssign = false;
                     const clonedLocations = {};
 
-                    if (Object.hasOwn(templateNode, "start")) {
+                    if (hasOwn(templateNode, "start")) {
                         clonedLocations.start = cloneLocation(
                             templateNode.start
                         );
                         shouldAssign = true;
                     }
 
-                    if (Object.hasOwn(templateNode, "end")) {
+                    if (hasOwn(templateNode, "end")) {
                         clonedLocations.end = cloneLocation(templateNode.end);
                         shouldAssign = true;
                     }

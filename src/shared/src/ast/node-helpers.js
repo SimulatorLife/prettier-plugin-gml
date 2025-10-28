@@ -1,5 +1,5 @@
 import { asArray, isNonEmptyArray } from "../utils/array.js";
-import { isObjectLike } from "../utils/object.js";
+import { hasOwn, isObjectLike } from "../utils/object.js";
 import { isNonEmptyString } from "../utils/string.js";
 
 // Shared AST helper utilities focused on querying common node shapes.
@@ -480,7 +480,7 @@ function visitChildNodes(node, callback) {
 
     try {
         for (const key in node) {
-            if (!Object.hasOwn(node, key)) {
+            if (!hasOwn(node, key)) {
                 continue;
             }
 

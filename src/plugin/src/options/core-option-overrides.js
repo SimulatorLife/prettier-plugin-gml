@@ -1,4 +1,4 @@
-import { assertFunction } from "../shared/index.js";
+import { assertFunction, hasOwn } from "../shared/index.js";
 
 // Hard overrides for GML regardless of incoming config. These knobs either map
 // to syntax that GameMaker never emits (for example JSX attributes) or would let
@@ -65,7 +65,7 @@ function normalizeCoreOptionOverrides(overrides) {
     for (const key of CORE_OVERRIDE_KEYS) {
         const defaultValue = DEFAULT_CORE_OPTION_OVERRIDES[key];
 
-        if (!Object.hasOwn(overrides, key)) {
+        if (!hasOwn(overrides, key)) {
             normalized[key] = defaultValue;
             continue;
         }
