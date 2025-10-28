@@ -770,7 +770,7 @@ export async function prepareIdentifierCasePlan(options) {
     };
 
     for (const [key, value] of Object.entries(styleMetadataEntries)) {
-        metrics.reporting.setMetadata(key, value);
+        metrics.metadata.setMetadata(key, value);
     }
 
     const preservedIdentifiers = normalizedOptions.preservedIdentifiers;
@@ -784,7 +784,7 @@ export async function prepareIdentifierCasePlan(options) {
 
     const finalizeMetrics = (extraMetadata = {}) => {
         stopTotal();
-        const report = metrics.reporting.finalize({ metadata: extraMetadata });
+        const report = metrics.summary.finalize({ metadata: extraMetadata });
         setIdentifierCaseOption(
             options,
             "__identifierCaseMetricsReport",

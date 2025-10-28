@@ -75,7 +75,7 @@ class TestMetricsTracker {
             recordStale() {},
             recordMetric() {}
         };
-        this.reporting = {
+        this.summary = {
             snapshot: (extra = {}) => ({
                 category: this.category,
                 totalTimeMs: 0,
@@ -96,9 +96,13 @@ class TestMetricsTracker {
                     metadata: { provided: true },
                     ...extra
                 };
-            },
-            setMetadata() {},
+            }
+        };
+        this.logger = {
             logSummary() {}
+        };
+        this.metadata = {
+            setMetadata() {}
         };
     }
     category = "custom-metrics";
@@ -161,7 +165,7 @@ test("createMetricsTracker trims and deduplicates configured cache keys", () => 
 
     tracker.caches.recordMetric("demo", "custom", 0);
 
-    assert.deepEqual(tracker.reporting.snapshot().caches.demo, {
+    assert.deepEqual(tracker.summary.snapshot().caches.demo, {
         hits: 0,
         Misses: 0,
         custom: 0,
@@ -174,7 +178,7 @@ test("createMetricsTracker falls back to default cache keys when normalization i
 
     tracker.caches.recordMetric("demo", "custom", 0);
 
-    assert.deepEqual(tracker.reporting.snapshot().caches.demo, {
+    assert.deepEqual(tracker.summary.snapshot().caches.demo, {
         hits: 0,
         misses: 0,
         stale: 0,
@@ -187,7 +191,7 @@ test("createMetricsTracker falls back to default cache keys when option is inval
 
     tracker.caches.recordMetric("demo", "custom", 0);
 
-    assert.deepEqual(tracker.reporting.snapshot().caches.demo, {
+    assert.deepEqual(tracker.summary.snapshot().caches.demo, {
         hits: 0,
         misses: 0,
         stale: 0,

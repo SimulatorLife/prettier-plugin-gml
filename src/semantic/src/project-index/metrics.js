@@ -5,7 +5,9 @@ const REQUIRED_METRIC_GROUPS = Object.freeze({
     timers: ["startTimer", "timeAsync", "timeSync"],
     counters: ["increment"],
     caches: ["recordHit", "recordMiss", "recordStale", "recordMetric"],
-    reporting: ["snapshot", "finalize", "setMetadata", "logSummary"]
+    summary: ["snapshot", "finalize"],
+    logger: ["logSummary"],
+    metadata: ["setMetadata"]
 });
 
 function hasMetricGroup(candidate, groupName, methodNames) {
@@ -68,11 +70,15 @@ const NOOP_METRIC_GROUPS = Object.freeze({
         recordStale: noop,
         recordMetric: noop
     }),
-    reporting: Object.freeze({
+    summary: Object.freeze({
         snapshot: createMetricsSnapshot,
-        finalize: createMetricsSnapshot,
-        setMetadata: noop,
+        finalize: createMetricsSnapshot
+    }),
+    logger: Object.freeze({
         logSummary: noop
+    }),
+    metadata: Object.freeze({
+        setMetadata: noop
     })
 });
 
@@ -106,5 +112,5 @@ export function finalizeProjectIndexMetrics(metrics) {
         return null;
     }
 
-    return metrics.reporting.finalize();
+    return metrics.summary.finalize();
 }
