@@ -74,6 +74,18 @@ describe("isAbortError", () => {
         assert.strictEqual(isAbortError(error), true);
     });
 
+    if (typeof DOMException === "function") {
+        it("recognizes native AbortError instances", () => {
+            const error = new DOMException("Aborted", "AbortError");
+            assert.strictEqual(isAbortError(error), true);
+        });
+    }
+
+    it("recognizes abort errors identified by string codes", () => {
+        const error = { code: "ABORT_ERR" };
+        assert.strictEqual(isAbortError(error), true);
+    });
+
     it("returns false for non-abort errors", () => {
         assert.strictEqual(isAbortError(new Error("boom")), false);
         assert.strictEqual(isAbortError(null), false);
