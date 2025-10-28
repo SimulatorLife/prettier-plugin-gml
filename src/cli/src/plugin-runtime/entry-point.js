@@ -102,18 +102,37 @@ function resolveCandidatePath(candidate) {
     return null;
 }
 
-function resolveCandidatePaths({ env, candidates } = {}) {
-    const orderedCandidates = [
+/**
+ * Collect candidate inputs from call-site overrides, environment variables,
+ * and workspace defaults. Returning a dedicated list keeps
+ * {@link resolveCandidatePaths} focused on sequencing rather than array
+ * assembly details.
+ */
+function collectCandidateInputs({ env, candidates } = {}) {
+    return [
         ...toArray(candidates),
         ...getEnvironmentCandidates(env),
         ...DEFAULT_CANDIDATE_PLUGIN_PATHS
     ];
+}
 
-    const resolvedCandidates = orderedCandidates
+/**
+ * Normalize the mixed candidate inputs into a deduplicated list of resolved
+ * file-system paths. Centralizing the map/filter bookkeeping keeps the
+ * orchestrator logic in {@link resolveCandidatePaths} at a consistent
+ * abstraction level.
+ */
+function normalizeCandidatePaths(candidateInputs) {
+    const resolvedCandidates = candidateInputs
         .map((candidate) => resolveCandidatePath(candidate))
         .filter(Boolean);
 
     return uniqueArray(resolvedCandidates);
+}
+
+function resolveCandidatePaths(options = {}) {
+    const candidateInputs = collectCandidateInputs(options);
+    return normalizeCandidatePaths(candidateInputs);
 }
 
 function findFirstExistingPath(candidates) {
