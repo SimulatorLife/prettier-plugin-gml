@@ -66,7 +66,7 @@ export {
 export {
     isMissingModuleDependency,
     resolveModuleDefaultExport
-} from "@prettier-plugin-gml/shared/utils/module.js";
+} from "./shared/module.js";
 
 export {
     createVerboseDurationLogger,
