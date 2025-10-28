@@ -2,11 +2,14 @@ import { getNonEmptyString, splitLines } from "../dependencies.js";
 import { resolveProjectDisplayPath } from "./path-normalization.js";
 
 /**
- * Format parser-originated syntax errors into the structured messages surfaced
- * by the project-index tooling. Co-locating the formatter with the rest of the
- * project-index helpers keeps the plugin reporting layer focused on the metrics
- * utilities while still allowing consumers (like the CLI) to import the
- * specialised behaviour directly from the project-index module tree.
+ * Normalize thrown values into an error-like object the formatter can mutate
+ * safely. Preserves existing properties for structured error objects while
+ * coercing primitive messages into the `{ message }` shape consumed by the
+ * rest of the helpers.
+ *
+ * @param {unknown} error Thrown value originating from the parser.
+ * @returns {Record<string, unknown> & { message?: string }} Error-like record
+ *          that can be enriched with formatted context.
  */
 function normalizeSyntaxErrorLike(error) {
     if (
@@ -20,6 +23,20 @@ function normalizeSyntaxErrorLike(error) {
     return { message: normalizedMessage ?? "" };
 }
 
+/**
+ * Format a parser-originated syntax error into the structured message emitted
+ * by the project-index reporting helpers. Enriches the original error with
+ * location metadata, formatted excerpts, and a canonical `message` while
+ * preserving the original text for downstream consumers.
+ *
+ * @param {unknown} error Value thrown by the parser.
+ * @param {string | null | undefined} sourceText Source code that triggered the
+ *        syntax error.
+ * @param {{ filePath?: string | null, projectRoot?: string | null }} [context]
+ *        Optional metadata describing where the source originated.
+ * @returns {Record<string, unknown>} Normalized error decorated with display
+ *          metadata and canonical messaging.
+ */
 export function formatProjectIndexSyntaxError(error, sourceText, context) {
     const normalizedError = normalizeSyntaxErrorLike(error);
 
