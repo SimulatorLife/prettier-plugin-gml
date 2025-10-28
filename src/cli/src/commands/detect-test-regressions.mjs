@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import {
     assertArray,
+    ensureMap,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
     hasOwn,
@@ -16,7 +17,6 @@ import {
     toTrimmedString
 } from "../shared/dependencies.js";
 import { CliUsageError, handleCliError } from "../core/errors.js";
-import { ensureMap } from "../shared/dependencies.js";
 
 let parser;
 
