@@ -478,6 +478,31 @@ function isNode(value) {
     return value !== undefined && value !== null && typeof value === "object";
 }
 
+const FUNCTION_LIKE_NODE_TYPES = Object.freeze([
+    "FunctionDeclaration",
+    "FunctionExpression",
+    "LambdaExpression",
+    "ConstructorDeclaration",
+    "MethodDeclaration",
+    "StructFunctionDeclaration",
+    "StructDeclaration"
+]);
+
+const FUNCTION_LIKE_NODE_TYPE_SET = new Set(FUNCTION_LIKE_NODE_TYPES);
+
+function isFunctionLikeNode(node) {
+    if (!isNode(node)) {
+        return false;
+    }
+
+    const { type } = node;
+    if (typeof type !== "string") {
+        return false;
+    }
+
+    return FUNCTION_LIKE_NODE_TYPE_SET.has(type);
+}
+
 /**
  * Iterate over child nodes nested within {@link node}, invoking
  * {@link callback} for each descendant that should be inspected.
@@ -629,6 +654,7 @@ export {
     isUndefinedSentinel,
     getNodeType,
     isNode,
+    isFunctionLikeNode,
     visitChildNodes,
     enqueueObjectChildValues,
     unwrapParenthesizedExpression,

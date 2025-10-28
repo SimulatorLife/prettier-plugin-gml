@@ -42,7 +42,8 @@ import {
     isMapLike,
     isSetLike,
     getSingleVariableDeclarator as sharedGetSingleVariableDeclarator,
-    createIdentifierNode
+    createIdentifierNode,
+    isFunctionLikeNode
 } from "../shared/index.js";
 import {
     collectCommentNodes,
@@ -251,15 +252,6 @@ const GM1041_CALL_ARGUMENT_TARGETS = new Map([
     ["instance_create_layer", [3]],
     ["instance_create_layer_depth", [4]],
     ["layer_instance_create", [3]]
-]);
-const FUNCTION_LIKE_TYPES = new Set([
-    "FunctionDeclaration",
-    "FunctionExpression",
-    "LambdaExpression",
-    "ConstructorDeclaration",
-    "MethodDeclaration",
-    "StructFunctionDeclaration",
-    "StructDeclaration"
 ]);
 const IDENTIFIER_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const FEATHER_TYPE_SYSTEM_INFO = buildFeatherTypeSystemInfo();
@@ -15848,18 +15840,6 @@ function createAssignmentFromDeclarator(declarator, declarationNode) {
     copyCommentMetadata(declarator, assignment);
 
     return assignment;
-}
-
-function isFunctionLikeNode(node) {
-    if (!node || typeof node !== "object") {
-        return false;
-    }
-
-    if (typeof node.type !== "string") {
-        return false;
-    }
-
-    return FUNCTION_LIKE_TYPES.has(node.type);
 }
 
 function getFunctionParameterNames(node) {

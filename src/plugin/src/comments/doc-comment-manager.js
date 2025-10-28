@@ -4,6 +4,7 @@ import {
     isNode,
     isNonEmptyArray,
     isNonEmptyTrimmedString,
+    isFunctionLikeNode,
     toMutableArray
 } from "../shared/index.js";
 
@@ -16,16 +17,6 @@ import {
  * retrieving full comment collections with simple presence checks, so this
  * module exposes discrete collection and presence services.
  */
-
-const DOC_COMMENT_TARGET_TYPES = new Set([
-    "FunctionDeclaration",
-    "FunctionExpression",
-    "LambdaExpression",
-    "ConstructorDeclaration",
-    "MethodDeclaration",
-    "StructFunctionDeclaration",
-    "StructDeclaration"
-]);
 
 const DOC_COMMENT_MANAGERS = new WeakMap();
 const DOC_COMMENT_TRAVERSAL_SERVICES = new WeakMap();
@@ -264,7 +255,7 @@ function collectFunctionNodes(ast) {
             return;
         }
 
-        if (DOC_COMMENT_TARGET_TYPES.has(node.type)) {
+        if (isFunctionLikeNode(node)) {
             functions.push(node);
         }
 
