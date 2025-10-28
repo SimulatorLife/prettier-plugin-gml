@@ -34,7 +34,6 @@ import {
     createCommanderInvalidArgumentError,
     createCommanderOption,
     createListSplitPattern,
-    getErrorMessage,
     getErrorMessageOrFallback,
     isErrorLike,
     isErrorWithCode,
@@ -1248,7 +1247,7 @@ async function resolveFormattingOptions(filePath) {
             editorconfig: true
         });
     } catch (error) {
-        const message = getErrorMessage(error, { fallback: "Unknown error" });
+        const message = getErrorMessageOrFallback(error);
         console.warn(
             `Unable to resolve Prettier config for ${filePath}: ${message}`
         );
