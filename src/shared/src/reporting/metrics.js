@@ -64,10 +64,27 @@ const SUMMARY_SECTIONS = Object.freeze([
  */
 
 /**
- * @typedef {object} MetricsReportingTools
+ * Earlier iterations exposed a single `MetricsReportingTools` surface that
+ * coupled snapshotting, finalization, summary logging, and metadata writes.
+ * That wide contract forced callers that only needed one reporting behaviour
+ * to depend on the entire bundle. The specialised contracts below keep those
+ * responsibilities separate so consumers can import only the collaborator they
+ * require.
+ */
+
+/**
+ * @typedef {object} MetricsSummaryReporter
  * @property {(extra?: object) => MetricsSnapshot} snapshot
  * @property {(extra?: object) => MetricsSnapshot} finalize
+ */
+
+/**
+ * @typedef {object} MetricsSummaryLogger
  * @property {(message?: string, extra?: object) => void} logSummary
+ */
+
+/**
+ * @typedef {object} MetricsMetadataWriter
  * @property {(key: string, value: unknown) => void} setMetadata
  */
 
@@ -77,7 +94,9 @@ const SUMMARY_SECTIONS = Object.freeze([
  * @property {MetricsTimingTools} timers
  * @property {MetricsCounterTools} counters
  * @property {MetricsCacheTools} caches
- * @property {MetricsReportingTools} reporting
+ * @property {MetricsSummaryReporter} summary
+ * @property {MetricsSummaryLogger} logger
+ * @property {MetricsMetadataWriter} metadata
  */
 
 function toCandidateCacheKeys(keys) {
@@ -359,10 +378,16 @@ export function createMetricsTracker({
         }
     });
 
-    const reportingTools = Object.freeze({
+    const summaryTools = Object.freeze({
         snapshot,
-        finalize,
-        logSummary,
+        finalize
+    });
+
+    const loggerTools = Object.freeze({
+        logSummary
+    });
+
+    const metadataTools = Object.freeze({
         setMetadata
     });
 
@@ -371,6 +396,8 @@ export function createMetricsTracker({
         timers: timingTools,
         counters: counterTools,
         caches: cacheTools,
-        reporting: reportingTools
+        summary: summaryTools,
+        logger: loggerTools,
+        metadata: metadataTools
     };
 }

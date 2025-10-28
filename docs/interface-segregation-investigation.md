@@ -225,3 +225,18 @@ no code changes were required.
   the identifier-case service registry and unit tests to register the focused
   collaborators independently so each call site pulls in only the snapshot role
   it exercises.
+
+## Follow-up audit (2026-02-26)
+
+- Surveyed the shared metrics utilities and spotted the
+  `MetricsReportingTools` facade in
+  `src/shared/src/reporting/metrics.js`. The contract bundled summary
+  snapshotting, auto logging, and metadata updates into one surface, forcing
+  trackers that only needed to record metadata (or log summaries) to depend on
+  the entire reporting API.
+- Split the facade into focused collaborators: `MetricsSummaryReporter` for
+  snapshot/finalize, `MetricsSummaryLogger` for `logSummary`, and
+  `MetricsMetadataWriter` for metadata updates. Updated the tracker
+  implementation, semantic metrics helpers, and their unit tests to rely on the
+  specialised interfaces so call sites opt into only the reporting behaviour
+  they exercise.

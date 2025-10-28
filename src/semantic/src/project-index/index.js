@@ -1955,8 +1955,8 @@ async function discoverProjectFilesForIndex({
     );
     ensureNotAborted();
 
-    metrics.reporting.setMetadata("yyFileCount", projectFiles.yyFiles.length);
-    metrics.reporting.setMetadata("gmlFileCount", projectFiles.gmlFiles.length);
+    metrics.metadata.setMetadata("yyFileCount", projectFiles.yyFiles.length);
+    metrics.metadata.setMetadata("gmlFileCount", projectFiles.gmlFiles.length);
 
     return projectFiles;
 }
@@ -1994,7 +1994,7 @@ function configureGmlProcessing({ options, metrics }) {
     const gmlConcurrency = clampConcurrency(
         concurrencySettings.gml ?? concurrencySettings.gmlParsing
     );
-    metrics.reporting.setMetadata("gmlParseConcurrency", gmlConcurrency);
+    metrics.metadata.setMetadata("gmlParseConcurrency", gmlConcurrency);
 
     const parseProjectSource = resolveProjectIndexParser(options);
 
