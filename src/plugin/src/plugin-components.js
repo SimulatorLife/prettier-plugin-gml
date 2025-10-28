@@ -67,6 +67,10 @@ export function getGmlPluginComponentProvider() {
 const OBSERVER_ABORT_MESSAGE =
     "GML plugin component observer registration was aborted.";
 
+// Stable noop handler reused across aborted or cancelled subscription flows so
+// call sites always receive a callable unsubscriber.
+const NOOP_UNSUBSCRIBE = () => {};
+
 /**
  * Subscribe to notifications whenever the plugin component map changes.
  *
@@ -83,8 +87,6 @@ const OBSERVER_ABORT_MESSAGE =
  *        Optional bag supporting abort-driven unsubscription.
  * @returns {() => void} Function that unsubscribes the observer when invoked.
  */
-const NOOP_UNSUBSCRIBE = () => {};
-
 function resolveObserverSignal(options) {
     try {
         return {
