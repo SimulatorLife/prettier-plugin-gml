@@ -14,7 +14,8 @@ import {
     forEachNodeChild,
     getNodeEndIndex,
     getNodeStartIndex,
-    assignClonedLocation
+    assignClonedLocation,
+    resolveHelperOverride
 } from "../shared/index.js";
 
 const DEFAULT_HELPERS = {
@@ -59,18 +60,21 @@ export function preprocessFunctionArgumentDefaults(
     }
 
     const normalizedHelpers = {
-        getIdentifierText:
-            typeof helpers.getIdentifierText === "function"
-                ? helpers.getIdentifierText
-                : DEFAULT_HELPERS.getIdentifierText,
-        isUndefinedLiteral:
-            typeof helpers.isUndefinedLiteral === "function"
-                ? helpers.isUndefinedLiteral
-                : DEFAULT_HELPERS.isUndefinedLiteral,
-        getSingleVariableDeclarator:
-            typeof helpers.getSingleVariableDeclarator === "function"
-                ? helpers.getSingleVariableDeclarator
-                : DEFAULT_HELPERS.getSingleVariableDeclarator,
+        getIdentifierText: resolveHelperOverride(
+            helpers,
+            "getIdentifierText",
+            DEFAULT_HELPERS.getIdentifierText
+        ),
+        isUndefinedLiteral: resolveHelperOverride(
+            helpers,
+            "isUndefinedLiteral",
+            DEFAULT_HELPERS.isUndefinedLiteral
+        ),
+        getSingleVariableDeclarator: resolveHelperOverride(
+            helpers,
+            "getSingleVariableDeclarator",
+            DEFAULT_HELPERS.getSingleVariableDeclarator
+        ),
         hasComment: getHasCommentHelper(helpers)
     };
 
@@ -165,13 +169,22 @@ function preprocessFunctionDeclaration(node, helpers) {
         return;
     }
 
-    const statements = getBodyStatements(body);
-    if (statements.length === 0) {
-        return;
+    const params = toMutableArray(node.params);
+    if (!Array.isArray(node.params)) {
+        node.params = params;
     }
 
+    const statements = getBodyStatements(body);
     const statementsToRemove = new Set();
     let appliedChanges = false;
+
+    if (ensureTrailingOptionalParametersHaveUndefinedDefaults(params)) {
+        appliedChanges = true;
+    }
+
+    if (statements.length === 0 && !appliedChanges) {
+        return;
+    }
 
     const condenseMatches = [];
 
@@ -264,6 +277,21 @@ function preprocessFunctionDeclaration(node, helpers) {
         }
     }
 
+    const paramInfoByName = new Map();
+    for (const [index, param] of params.entries()) {
+        const identifier = getIdentifierFromParameter(param, helpers);
+        if (!identifier) {
+            continue;
+        }
+
+        const name = getIdentifierText(identifier);
+        if (!name) {
+            continue;
+        }
+
+        paramInfoByName.set(name, { index, identifier });
+    }
+
     const matches = [];
 
     for (const [statementIndex, statement] of statements.entries()) {
@@ -279,6 +307,10 @@ function preprocessFunctionDeclaration(node, helpers) {
         });
     }
 
+    if (ensureTrailingOptionalParametersHaveUndefinedDefaults(params)) {
+        appliedChanges = true;
+    }
+
     if (matches.length === 0 && !appliedChanges) {
         return;
     }
@@ -290,26 +322,6 @@ function preprocessFunctionDeclaration(node, helpers) {
 
         return a.statementIndex - b.statementIndex;
     });
-
-    const params = toMutableArray(node.params);
-    if (!Array.isArray(node.params)) {
-        node.params = params;
-    }
-
-    const paramInfoByName = new Map();
-    for (const [index, param] of params.entries()) {
-        const identifier = getIdentifierFromParameter(param, helpers);
-        if (!identifier) {
-            continue;
-        }
-
-        const name = getIdentifierText(identifier);
-        if (!name) {
-            continue;
-        }
-
-        paramInfoByName.set(name, { index, identifier });
-    }
 
     const ensureParameterInfoForMatch = (match) => {
         if (!match) {
@@ -423,6 +435,81 @@ function preprocessFunctionDeclaration(node, helpers) {
 
     node._flattenSyntheticNumericParens = true;
     body.body = filteredStatements;
+}
+
+function ensureTrailingOptionalParametersHaveUndefinedDefaults(parameters) {
+    if (!Array.isArray(parameters) || parameters.length === 0) {
+        return false;
+    }
+
+    let encounteredOptional = false;
+    let changed = false;
+
+    for (let index = 0; index < parameters.length; index += 1) {
+        const parameter = parameters[index];
+
+        if (!parameter) {
+            continue;
+        }
+
+        if (parameter.type === "DefaultParameter") {
+            encounteredOptional = true;
+            continue;
+        }
+
+        if (!encounteredOptional) {
+            continue;
+        }
+
+        if (parameter.type === "Identifier") {
+            const converted = createUndefinedDefaultParameter(parameter);
+            if (!converted) {
+                continue;
+            }
+
+            parameters[index] = converted;
+            encounteredOptional = true;
+            changed = true;
+            continue;
+        }
+
+        if (
+            parameter.type === "ConstructorParentClause" &&
+            Array.isArray(parameter.params) &&
+            parameter.params.length > 0
+        ) {
+            const nestedParams = toMutableArray(parameter.params);
+            if (!Array.isArray(parameter.params)) {
+                parameter.params = nestedParams;
+            }
+
+            if (
+                ensureTrailingOptionalParametersHaveUndefinedDefaults(
+                    nestedParams
+                )
+            ) {
+                changed = true;
+            }
+        }
+    }
+
+    return changed;
+}
+
+function createUndefinedDefaultParameter(parameter) {
+    if (!parameter || parameter.type !== "Identifier") {
+        return null;
+    }
+
+    return {
+        type: "DefaultParameter",
+        left: parameter,
+        right: {
+            type: "Identifier",
+            name: "undefined"
+        },
+        _featherOptionalParameter: true
+    };
 }
 
 /**

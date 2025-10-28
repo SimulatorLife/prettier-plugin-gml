@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-import { isFiniteNumber } from "../../../shared/src/index.js";
+import { isFiniteNumber } from "@prettier-plugin-gml/shared";
 import { coercePositiveInteger } from "../shared/dependencies.js";
 import { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
 

@@ -31,11 +31,7 @@ export {
     resolvePluginEntryPoint
 } from "../plugin-runtime/entry-point.js";
 
-export {
-    resolveCliPluginEntryPoint,
-    setCliPluginEntryPointResolver,
-    resetCliPluginEntryPointResolver
-} from "../plugin-runtime/entry-point-resolver.js";
+export { resolveCliPluginEntryPoint } from "../plugin-runtime/entry-point-resolver.js";
 
 export { formatByteSize, formatBytes } from "../runtime-options/byte-format.js";
 
@@ -50,4 +46,4 @@ export {
     setDefaultProgressBarWidth,
     withProgressBarCleanup,
     resetProgressBarRegistryForTesting
-} from "../shared/progress-bar.js";
+} from "../runtime-options/progress-bar.js";

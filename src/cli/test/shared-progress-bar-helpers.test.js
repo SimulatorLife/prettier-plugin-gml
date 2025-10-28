@@ -5,7 +5,7 @@ import {
     disposeProgressBars,
     renderProgressBar,
     resetProgressBarRegistryForTesting
-} from "../src/shared/progress-bar.js";
+} from "../src/runtime-options/progress-bar.js";
 import { SingleBar } from "cli-progress";
 
 function createMockStdout() {

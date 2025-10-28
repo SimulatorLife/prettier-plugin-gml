@@ -23,7 +23,7 @@ import {
     DEFAULT_PROGRESS_BAR_WIDTH,
     resolveProgressBarWidth,
     getDefaultProgressBarWidth
-} from "../src/shared/progress-bar.js";
+} from "../src/runtime-options/progress-bar.js";
 import { resolveVmEvalTimeout } from "../src/runtime-options/vm-eval-timeout.js";
 import {
     applySharedManualCommandOptions,

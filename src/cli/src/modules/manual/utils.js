@@ -11,7 +11,7 @@ import {
     isNonEmptyTrimmedString,
     parseJsonWithContext,
     toTrimmedString
-} from "../../shared/dependencies.js";
+} from "../dependencies.js";
 import {
     CliUsageError,
     disposeProgressBars,
@@ -182,6 +182,17 @@ export function createManualDownloadReporter({
     const { downloads = false, progressBar = false } = verbose ?? {};
 
     if (!downloads) {
+        // Manual download flows always destructure the reporter surface and
+        // execute `cleanup()` inside `finally` blocks so progress bars unwind
+        // deterministically (see `downloadManualEntriesWithProgress` and the
+        // CLI workflow outlined in docs/feather-data-plan.md). Returning shared
+        // noop callbacks preserves that handshake when verbose download output
+        // is disabled: callers can continue to invoke both methods without
+        // guard clauses, and the cleanup contract remains symmetric with the
+        // progress-bar variant. Swapping this out for `null` or allocating fresh
+        // closures would leak conditional logic into every consumer and risks
+        // leaving `withProgressBarCleanup`'s teardown paths unbalanced if a
+        // future refactor forgets to special-case the "no logging" branch.
         return { report: noop, cleanup: noop };
     }
 
@@ -221,9 +232,9 @@ export async function downloadManualFileEntries({
     const orderedEntries = Array.from(entries);
     const payloads = {};
     const totalEntries = orderedEntries.length;
-    const reportProgress = typeof onProgress === "function" ? onProgress : null;
+    const reportProgress = typeof onProgress === "function" ? onProgress : noop;
     const cleanup =
-        typeof onProgressCleanup === "function" ? onProgressCleanup : null;
+        typeof onProgressCleanup === "function" ? onProgressCleanup : noop;
     let fetchedCount = 0;
 
     try {
@@ -236,23 +247,19 @@ export async function downloadManualFileEntries({
 
             fetchedCount += 1;
 
-            if (reportProgress) {
-                reportProgress({
-                    key,
-                    path: filePath,
-                    fetchedCount,
-                    totalEntries
-                });
-            }
+            reportProgress({
+                key,
+                path: filePath,
+                fetchedCount,
+                totalEntries
+            });
         }
     } finally {
-        if (cleanup) {
-            try {
-                cleanup();
-            } catch {
-                // Ignore cleanup failures so manual downloads still bubble the
-                // original error.
-            }
+        try {
+            cleanup();
+        } catch {
+            // Ignore cleanup failures so manual downloads still bubble the
+            // original error.
         }
     }
 
@@ -354,7 +361,7 @@ function createManualVerboseState({
     isTerminal = false,
     overrides
 } = {}) {
-    const baseState = {
+    const state = {
         resolveRef: !quiet,
         downloads: !quiet,
         parsing: !quiet,
@@ -362,14 +369,16 @@ function createManualVerboseState({
     };
 
     if (!overrides || typeof overrides !== "object") {
-        return baseState;
+        return state;
     }
 
-    const normalizedOverrides = Object.fromEntries(
-        Object.entries(overrides).filter(([, value]) => value !== undefined)
-    );
+    for (const [key, value] of Object.entries(overrides)) {
+        if (value !== undefined) {
+            state[key] = value;
+        }
+    }
 
-    return { ...baseState, ...normalizedOverrides };
+    return state;
 }
 
 function validateManualCommitPayload(payload, { ref }) {

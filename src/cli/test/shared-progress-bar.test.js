@@ -8,7 +8,7 @@ import {
     getDefaultProgressBarWidth,
     resolveProgressBarWidth,
     setDefaultProgressBarWidth
-} from "../src/shared/progress-bar.js";
+} from "../src/runtime-options/progress-bar.js";
 
 describe("progress bar utilities", () => {
     afterEach(() => {

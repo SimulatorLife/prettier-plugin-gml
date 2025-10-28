@@ -58,6 +58,40 @@ export function isObjectLike(value) {
     return typeof value === "object" && value !== null;
 }
 
+/**
+ * Resolve a helper override from an optional helper bag while preserving the
+ * original fallback behaviour. Consolidates the repeated guard pattern used
+ * across transforms that support caller-provided helpers so each site no
+ * longer hand-rolls `typeof` checks for every property.
+ *
+ * @template {Function} THelper
+ * @param {unknown} helpers Candidate helper bag supplied by the caller.
+ * @param {string | number | symbol} key Property name housing the override.
+ * @param {THelper} fallback Default helper used when no override is supplied.
+ * @returns {THelper}
+ */
+export function resolveHelperOverride(helpers, key, fallback) {
+    const normalizedFallback = assertFunction(
+        fallback,
+        typeof key === "string" && key.length > 0
+            ? `${key.toString()} helper`
+            : "helper override"
+    );
+
+    if (helpers && (typeof helpers === "function" || isObjectLike(helpers))) {
+        const candidate =
+            /** @type {Record<string | number | symbol, unknown>} */ (helpers)[
+                key
+            ];
+
+        if (typeof candidate === "function") {
+            return /** @type {THelper} */ (candidate);
+        }
+    }
+
+    return normalizedFallback;
+}
+
 const objectPrototypeToString = Object.prototype.toString;
 const OBJECT_TAG_PATTERN = /^\[object ([^\]]+)\]$/;
 

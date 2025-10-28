@@ -149,6 +149,10 @@ for (var i = 0; i < queue_count; i += 1) {
 - [Semantic subsystem reference](src/semantic/README.md) &mdash; Details how the
   scope trackers and project-index coordinator now live in the dedicated
   `gamemaker-language-semantic` workspace package.
+- [ANTLR regeneration guide](docs/antlr-regeneration.md) &mdash; Walkthrough for
+  rebuilding the generated parser sources with the vendored toolchain and
+  understanding where custom extensions live now that the grammar delegates to
+  extracted helpers.
 - [Identifier casing handbook](docs/naming-conventions.md) &mdash; End-to-end
   coverage of the rename pipeline paired with the
   [scope reference](docs/identifier-case-reference.md),
@@ -338,6 +342,8 @@ nvm alias default node
    - supports dry-run enforcement via `--check`, per-run parser recovery via
      `--on-parse-error=skip|abort|revert`, and log-level overrides through
      `--log-level` or their `PRETTIER_PLUGIN_GML_*` counterparts.
+   - summarizes parser failures at the end of a run so you know to inspect the
+     reported files and adjust the `--on-parse-error` strategy when needed.
    - respects additional extension lists from repeated `--extensions` flags or
      `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS`. Leave the flag unset to target
      `.gml` only.

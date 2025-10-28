@@ -472,36 +472,24 @@ function listXmlFiles(resolvedPath) {
     return fs.readdirSync(resolvedPath).filter((file) => file.endsWith(".xml"));
 }
 
-function createDirectoryScanAggregate() {
-    return { cases: [], notes: [] };
-}
-
-/**
- * Normalize the aggregation of notes and cases from a single XML file scan so
- * callers can stay focused on orchestration instead of array bookkeeping.
- */
-function appendFileScanResults(aggregate, { cases = [], notes = [] }) {
-    if (cases.length > 0) {
-        aggregate.cases.push(...cases);
-    }
-    if (notes.length > 0) {
-        aggregate.notes.push(...notes);
-    }
-}
-
-function collectDirectoryFileResults(directory, file) {
-    const displayPath = path.join(directory.display, file);
-    const filePath = path.join(directory.resolved, file);
-
-    return collectTestCasesFromXmlFile(filePath, displayPath);
-}
-
 function collectDirectoryTestCases(directory, xmlFiles) {
-    const aggregate = createDirectoryScanAggregate();
+    const aggregate = { cases: [], notes: [] };
 
     for (const file of xmlFiles) {
-        const fileResults = collectDirectoryFileResults(directory, file);
-        appendFileScanResults(aggregate, fileResults);
+        const displayPath = path.join(directory.display, file);
+        const filePath = path.join(directory.resolved, file);
+        const { cases = [], notes = [] } = collectTestCasesFromXmlFile(
+            filePath,
+            displayPath
+        );
+
+        if (cases.length > 0) {
+            aggregate.cases.push(...cases);
+        }
+
+        if (notes.length > 0) {
+            aggregate.notes.push(...notes);
+        }
     }
 
     return aggregate;

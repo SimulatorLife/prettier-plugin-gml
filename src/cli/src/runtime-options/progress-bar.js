@@ -1,6 +1,6 @@
 import { SingleBar, Presets } from "cli-progress";
 
-import { coercePositiveInteger } from "./dependencies.js";
+import { coercePositiveInteger } from "../shared/dependencies.js";
 import { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;

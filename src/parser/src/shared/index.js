@@ -1,1 +1,1 @@
-export * from "../../../shared/src/index.js";
+export * from "@prettier-plugin-gml/shared";

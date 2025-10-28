@@ -1,12 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import {
-    applyStandardCommandOptions,
-    DEFAULT_HELP_AFTER_ERROR,
-    DEFAULT_HELP_DESCRIPTION,
-    DEFAULT_HELP_FLAG
-} from "../src/core/command-standard-options.js";
+import { applyStandardCommandOptions } from "../src/core/command-standard-options.js";
 
 class FakeCommand {
     constructor() {
@@ -32,6 +27,11 @@ class FakeCommand {
         this.calls.push(["showHelpAfterError", message]);
         return this;
     }
+
+    configureOutput(configuration) {
+        this.calls.push(["configureOutput", configuration]);
+        return this;
+    }
 }
 
 describe("applyStandardCommandOptions", () => {
@@ -40,12 +40,21 @@ describe("applyStandardCommandOptions", () => {
         const configured = applyStandardCommandOptions(command);
 
         assert.equal(configured, command);
-        assert.deepEqual(configured.calls, [
-            ["exitOverride"],
-            ["allowExcessArguments", false],
-            ["helpOption", DEFAULT_HELP_FLAG, DEFAULT_HELP_DESCRIPTION],
-            ["showHelpAfterError", DEFAULT_HELP_AFTER_ERROR]
-        ]);
+        assert.deepEqual(
+            configured.calls.map(([name]) => name),
+            [
+                "exitOverride",
+                "allowExcessArguments",
+                "helpOption",
+                "showHelpAfterError",
+                "configureOutput"
+            ]
+        );
+
+        const [, options] = configured.calls[4];
+        assert.equal(typeof options.writeErr, "function");
+        assert.equal(typeof options.outputError, "function");
+        assert.strictEqual(options.writeErr, options.outputError);
     });
 
     it("throws when invoked without a valid command", () => {

@@ -184,6 +184,31 @@ test("preserves doc comment continuation labels without indentation", async () =
     );
 });
 
+test("pads retained @description continuation lines when they lack indentation", async () => {
+    const source = [
+        "/// @description Write a unit triangular prism into an existing vbuff.",
+        "/// Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5], base plane at Z=0, apex line at (Y=0,Z=1).",
+        "function describe_triangular_prism() {}",
+        ""
+    ].join("\n");
+
+    const formatted = await prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath]
+    });
+
+    const lines = formatted.trim().split("\n");
+    const continuationLine = lines.find((line) =>
+        line.includes("Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5]")
+    );
+
+    assert.strictEqual(
+        continuationLine,
+        "///              Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5], base plane at Z=0, apex line at (Y=0,Z=1).",
+        "Expected formatter to pad retained @description continuation lines."
+    );
+});
+
 test("does not expand preformatted doc comment continuations", async () => {
     const source = [
         "/// @description Write a unit triangular prism into an existing vbuff.",

@@ -1,23 +1,11 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { fileURLToPath } from "node:url";
 
-import { normalizeFixtureRoots } from "../src/modules/performance/index.js";
-
-const MODULE_DIRECTORY = path.dirname(
-    fileURLToPath(
-        new URL("../src/modules/performance/index.js", import.meta.url)
-    )
-);
-const CLI_SRC_DIRECTORY = path.resolve(MODULE_DIRECTORY, "..");
-const CLI_PACKAGE_DIRECTORY = path.resolve(CLI_SRC_DIRECTORY, "..");
-const WORKSPACE_SOURCE_DIRECTORY = path.resolve(CLI_PACKAGE_DIRECTORY, "..");
-const REPO_ROOT = path.resolve(WORKSPACE_SOURCE_DIRECTORY, "..", "..");
-const DEFAULT_FIXTURE_DIRECTORIES = [
-    path.resolve(REPO_ROOT, "src", "parser", "test", "input"),
-    path.resolve(REPO_ROOT, "src", "plugin", "test")
-];
+import {
+    DEFAULT_FIXTURE_DIRECTORIES,
+    normalizeFixtureRoots
+} from "../src/modules/performance/fixture-roots.js";
 
 describe("normalizeFixtureRoots", () => {
     it("includes default fixture directories by default", () => {

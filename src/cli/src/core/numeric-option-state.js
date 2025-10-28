@@ -26,12 +26,14 @@ export function createIntegerOptionCoercer({
 } = {}) {
     assertFunction(baseCoerce, "baseCoerce");
 
-    return (value, context = {}) => {
-        const options = { ...context };
+    return (value, context) => {
+        const shouldInjectMessage =
+            createErrorMessage &&
+            (context == null || context.createErrorMessage === undefined);
 
-        if (options.createErrorMessage === undefined && createErrorMessage) {
-            options.createErrorMessage = createErrorMessage;
-        }
+        const options = shouldInjectMessage
+            ? { ...context, createErrorMessage }
+            : (context ?? {});
 
         return baseCoerce(value, options);
     };

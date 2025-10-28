@@ -1,8 +1,70 @@
 import antlr4 from "antlr4";
 
-import { isRecognitionExceptionLike } from "../utils/recognition-exception.js";
+import { hasFunction, isErrorLike, isObjectLike } from "../shared/index.js";
 
 const INVALID_INDEX_FALLBACK = -1;
+function hasOffendingTokenProbe(value) {
+    if (value?.offendingToken !== undefined) {
+        return true;
+    }
+
+    if (value?.offendingSymbol !== undefined) {
+        return true;
+    }
+
+    return hasFunction(value, "getOffendingToken");
+}
+
+function hasExpectedTokensProbe(value) {
+    if (value?.expectedTokens !== undefined) {
+        return true;
+    }
+
+    return hasFunction(value, "getExpectedTokens");
+}
+
+function hasContextProbe(value) {
+    const context = value?.ctx ?? value?.context ?? null;
+    if (isObjectLike(context)) {
+        return true;
+    }
+
+    if (isObjectLike(value?.input)) {
+        return true;
+    }
+
+    return typeof value?.offendingState === "number";
+}
+
+export function isRecognitionExceptionLike(value) {
+    if (!isErrorLike(value)) {
+        return false;
+    }
+
+    if (!hasExpectedTokensProbe(value)) {
+        return false;
+    }
+
+    if (!hasOffendingTokenProbe(value)) {
+        return false;
+    }
+
+    if (!hasContextProbe(value)) {
+        return false;
+    }
+
+    return true;
+}
+
+function firstNumber(...values) {
+    for (const value of values) {
+        if (typeof value === "number") {
+            return value;
+        }
+    }
+
+    return;
+}
 
 function getTokenStream(recognizer) {
     if (recognizer && typeof recognizer.getTokenStream === "function") {
@@ -32,75 +94,35 @@ function ensureTokenMetadata(token, { fallbackCandidates = [], stream } = {}) {
     }
 
     if (typeof token.tokenIndex !== "number") {
-        switch ("number") {
-            case typeof fallback?.tokenIndex: {
-                token.tokenIndex = fallback.tokenIndex;
+        const fallbackIndex = firstNumber(
+            fallback?.tokenIndex,
+            token.index,
+            token.startIndex
+        );
 
-                break;
-            }
-            case typeof token.index: {
-                token.tokenIndex = token.index;
-
-                break;
-            }
-            case typeof token.startIndex: {
-                token.tokenIndex = token.startIndex;
-
-                break;
-            }
-            default: {
-                token.tokenIndex =
-                    stream && typeof stream.index === "number"
-                        ? stream.index
-                        : INVALID_INDEX_FALLBACK;
-            }
-        }
+        token.tokenIndex =
+            fallbackIndex ??
+            (typeof stream?.index === "number"
+                ? stream.index
+                : INVALID_INDEX_FALLBACK);
     }
 
     if (typeof token.line !== "number") {
-        switch ("number") {
-            case typeof fallback?.line: {
-                token.line = fallback.line;
-
-                break;
-            }
-            case typeof fallback?.start?.line: {
-                token.line = fallback.start.line;
-
-                break;
-            }
-            case typeof token.start?.line: {
-                token.line = token.start.line;
-
-                break;
-            }
-            default: {
-                token.line = INVALID_INDEX_FALLBACK;
-            }
-        }
+        token.line =
+            firstNumber(
+                fallback?.line,
+                fallback?.start?.line,
+                token.start?.line
+            ) ?? INVALID_INDEX_FALLBACK;
     }
 
     if (typeof token.column !== "number") {
-        switch ("number") {
-            case typeof fallback?.column: {
-                token.column = fallback.column;
-
-                break;
-            }
-            case typeof fallback?.start?.column: {
-                token.column = fallback.start.column;
-
-                break;
-            }
-            case typeof token.start?.column: {
-                token.column = token.start.column;
-
-                break;
-            }
-            default: {
-                token.column = INVALID_INDEX_FALLBACK;
-            }
-        }
+        token.column =
+            firstNumber(
+                fallback?.column,
+                fallback?.start?.column,
+                token.start?.column
+            ) ?? INVALID_INDEX_FALLBACK;
     }
 
     return token;

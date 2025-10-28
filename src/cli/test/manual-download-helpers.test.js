@@ -7,7 +7,7 @@ import {
     downloadManualEntriesWithProgress,
     downloadManualFileEntries
 } from "../src/modules/manual/utils.js";
-import * as progressBarModule from "../src/shared/progress-bar.js";
+import * as progressBarModule from "../src/runtime-options/progress-bar.js";
 
 const { renderProgressBar, resetProgressBarRegistryForTesting } =
     progressBarModule;

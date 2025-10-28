@@ -46,6 +46,20 @@ export function applyEnvironmentOverride({
     applyValue(rawValue);
 }
 
+/**
+ * Normalize a candidate environment map into a plain object reference.
+ *
+ * The helper mirrors the defensive guards used by the other environment
+ * utilities so callers can accept optional overrides without sprinkling
+ * `process.env` checks or trusting non-object values. When a usable map is not
+ * supplied it falls back to {@link process.env} when available, otherwise
+ * returns `null` so consumers can gracefully skip environment-driven logic.
+ *
+ * @param {NodeJS.ProcessEnv | null | undefined | unknown} candidate Potential
+ *        environment source provided by the caller.
+ * @returns {NodeJS.ProcessEnv | null} Normalized environment map or `null`
+ *          when neither the candidate nor {@link process.env} is usable.
+ */
 export function resolveEnvironmentMap(candidate) {
     if (isObjectLike(candidate)) {
         return candidate;

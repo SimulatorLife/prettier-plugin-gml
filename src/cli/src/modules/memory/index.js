@@ -16,11 +16,12 @@ import {
     incrementMapValue,
     isNonEmptyString,
     normalizeStringList,
+    toNormalizedLowerCaseString,
     loadGmlParser,
     resolveModuleDefaultExport,
     parseJsonObjectWithContext,
     splitLines
-} from "../../shared/dependencies.js";
+} from "../dependencies.js";
 import {
     SuiteOutputFormat,
     applyEnvOptionOverrides,
@@ -40,6 +41,10 @@ import { writeJsonArtifact } from "../fs-artifacts.js";
 
 export const DEFAULT_ITERATIONS = 500_000;
 export const MEMORY_ITERATIONS_ENV_VAR = "GML_MEMORY_ITERATIONS";
+
+export const DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT = 5;
+export const MEMORY_AST_COMMON_NODE_LIMIT_ENV_VAR =
+    "GML_MEMORY_AST_COMMON_NODE_LIMIT";
 
 export const DEFAULT_MEMORY_REPORT_DIR = "reports";
 const DEFAULT_MEMORY_REPORT_FILENAME = "memory.json";
@@ -77,7 +82,7 @@ const memorySuiteHelpers = createEnumeratedOptionHelpers(
                 );
             }
 
-            return input.trim().toLowerCase();
+            return toNormalizedLowerCaseString(input);
         },
         formatErrorMessage({ list, received }) {
             return `Memory suite must be one of: ${list}. Received: ${received}.`;
@@ -134,6 +139,12 @@ const createIterationErrorMessage = (received) =>
 const createIterationTypeErrorMessage = (type) =>
     `Iteration count must be provided as a number (received type '${type}').`;
 
+const createAstCommonNodeLimitErrorMessage = (received) =>
+    `AST common node type limit must be a positive integer (received ${received}).`;
+
+const createAstCommonNodeLimitTypeErrorMessage = (type) =>
+    `AST common node type limit must be provided as a number (received type '${type}').`;
+
 function createMemoryIterationToolkit({
     defaultValue,
     envVar,
@@ -184,6 +195,20 @@ function applyFormatMaxIterationsEnvOverride(env) {
         return formatIterationLimitToolkit.getDefault();
     }
 }
+
+const astCommonNodeLimitToolkit = createIntegerOptionToolkit({
+    defaultValue: DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT,
+    envVar: MEMORY_AST_COMMON_NODE_LIMIT_ENV_VAR,
+    baseCoerce: coercePositiveInteger,
+    createErrorMessage: createAstCommonNodeLimitErrorMessage,
+    typeErrorMessage: createAstCommonNodeLimitTypeErrorMessage
+});
+
+const {
+    getDefault: getAstCommonNodeTypeLimit,
+    setDefault: setAstCommonNodeTypeLimit,
+    applyEnvOverride: applyAstCommonNodeTypeLimitEnvOverride
+} = astCommonNodeLimitToolkit;
 
 const sampleCache = new Map();
 const STARTS_WITH_VOWEL_PATTERN = /^[aeiou]/i;
@@ -410,6 +435,22 @@ function countLines(text) {
     return splitLines(text).length;
 }
 
+function collectCommonNodeTypes(typeCounts) {
+    const configuredLimit = getAstCommonNodeTypeLimit();
+    const limit = Number.isFinite(configuredLimit)
+        ? configuredLimit
+        : DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT;
+
+    if (limit <= 0) {
+        return [];
+    }
+
+    return [...typeCounts.entries()]
+        .sort((left, right) => right[1] - left[1])
+        .slice(0, limit)
+        .map(([type, count]) => ({ type, count }));
+}
+
 function summarizeAst(root) {
     if (!root || typeof root !== "object") {
         return {
@@ -475,10 +516,7 @@ function summarizeAst(root) {
         ? root.comments.length
         : 0;
 
-    const commonNodeTypes = [...typeCounts.entries()]
-        .sort((left, right) => right[1] - left[1])
-        .slice(0, 5)
-        .map(([type, count]) => ({ type, count }));
+    const commonNodeTypes = collectCommonNodeTypes(typeCounts);
 
     return {
         nodeCount,
@@ -510,6 +548,9 @@ export {
     getMaxFormatIterations,
     setMaxFormatIterations,
     applyFormatMaxIterationsEnvOverride,
+    getAstCommonNodeTypeLimit,
+    setAstCommonNodeTypeLimit,
+    applyAstCommonNodeTypeLimitEnvOverride,
     getDefaultMemoryReportDirectory,
     setDefaultMemoryReportDirectory,
     applyMemoryReportDirectoryEnvOverride
@@ -539,6 +580,7 @@ applyMemoryIterationsEnvOverride();
 applyParserMaxIterationsEnvOverride();
 applyFormatMaxIterationsEnvOverride();
 applyMemoryReportDirectoryEnvOverride();
+applyAstCommonNodeTypeLimitEnvOverride();
 
 const AVAILABLE_SUITES = new Map();
 
@@ -915,3 +957,7 @@ export async function runMemoryCli({
 
     return 0;
 }
+
+export const __test__ = Object.freeze({
+    collectCommonNodeTypes
+});

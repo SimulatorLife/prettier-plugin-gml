@@ -15,6 +15,9 @@
     "./identifier-case.js": "./src/identifier-case.js",
     "./resources/*": "./src/resources/*"
   },
+  "dependencies": {
+    "@prettier-plugin-gml/shared": "file:../shared"
+  },
   "scripts": {
     "test": "node --test test/*.test.js"
   },

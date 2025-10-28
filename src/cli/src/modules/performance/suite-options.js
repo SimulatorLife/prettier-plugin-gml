@@ -1,4 +1,7 @@
-import { createEnumeratedOptionHelpers } from "../../shared/dependencies.js";
+import {
+    createEnumeratedOptionHelpers,
+    toNormalizedLowerCaseString
+} from "../dependencies.js";
 
 const PerformanceSuiteName = Object.freeze({
     PARSER: "parser",
@@ -16,7 +19,7 @@ const performanceSuiteHelpers = createEnumeratedOptionHelpers(
                 );
             }
 
-            return input.trim().toLowerCase();
+            return toNormalizedLowerCaseString(input);
         },
         formatErrorMessage({ list, received }) {
             return `Benchmark suite must be one of: ${list}. Received: ${received}.`;

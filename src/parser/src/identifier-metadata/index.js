@@ -1,4 +1,4 @@
-import { isObjectLike } from "../shared/index.js";
+import { isObjectLike, toArray } from "../shared/index.js";
 
 /**
  * The previous IdentifierMetadataManager bundled scope management, role tracking,
@@ -48,9 +48,7 @@ export class IdentifierRoleTracker {
         const cloned = { ...role };
 
         if (role.tags != undefined) {
-            cloned.tags = Array.isArray(role.tags)
-                ? [...role.tags]
-                : [role.tags];
+            cloned.tags = [...toArray(role.tags)];
         }
 
         return cloned;
