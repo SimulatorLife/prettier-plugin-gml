@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { StatementSpacingPolicy } from "../src/printer/statement-spacing-policy.js";
+import {
+    isMacroLikeStatement,
+    shouldForceBlankLineBetweenReturnPaths,
+    shouldForceTrailingBlankLineForNestedFunction,
+    shouldSuppressEmptyLineBetween
+} from "../src/printer/statement-spacing-policy.js";
 
-describe("StatementSpacingPolicy", () => {
+describe("statement spacing policy", () => {
     it("detects macro-like statements", () => {
-        const policy = new StatementSpacingPolicy();
         const macroDeclaration = { type: "MacroDeclaration" };
         const defineMacro = {
             type: "DefineStatement",
@@ -13,35 +17,31 @@ describe("StatementSpacingPolicy", () => {
         };
         const unrelated = { type: "ReturnStatement" };
 
-        assert.equal(policy.isMacroLikeStatement(macroDeclaration), true);
-        assert.equal(policy.isMacroLikeStatement(defineMacro), true);
-        assert.equal(policy.isMacroLikeStatement(unrelated), false);
+        assert.equal(isMacroLikeStatement(macroDeclaration), true);
+        assert.equal(isMacroLikeStatement(defineMacro), true);
+        assert.equal(isMacroLikeStatement(unrelated), false);
         assert.equal(
-            policy.shouldSuppressEmptyLineBetween(macroDeclaration, null),
+            shouldSuppressEmptyLineBetween(macroDeclaration, null),
             false
         );
         assert.equal(
-            policy.shouldSuppressEmptyLineBetween(
-                macroDeclaration,
-                defineMacro
-            ),
+            shouldSuppressEmptyLineBetween(macroDeclaration, defineMacro),
             true
         );
         assert.equal(
-            policy.shouldSuppressEmptyLineBetween(macroDeclaration, unrelated),
+            shouldSuppressEmptyLineBetween(macroDeclaration, unrelated),
             false
         );
     });
 
     it("requires nested functions to keep trailing padding", () => {
-        const policy = new StatementSpacingPolicy();
         const nestedFunction = { type: "FunctionDeclaration" };
         const block = { type: "BlockStatement" };
         const container = { type: "FunctionExpression" };
         const unrelatedContainer = { type: "StructDeclaration" };
 
         assert.equal(
-            policy.shouldForceTrailingBlankLineForNestedFunction(
+            shouldForceTrailingBlankLineForNestedFunction(
                 nestedFunction,
                 block,
                 container
@@ -49,7 +49,7 @@ describe("StatementSpacingPolicy", () => {
             true
         );
         assert.equal(
-            policy.shouldForceTrailingBlankLineForNestedFunction(
+            shouldForceTrailingBlankLineForNestedFunction(
                 nestedFunction,
                 block,
                 unrelatedContainer
@@ -59,7 +59,6 @@ describe("StatementSpacingPolicy", () => {
     });
 
     it("enforces padding between divergent return paths", () => {
-        const policy = new StatementSpacingPolicy();
         const guardedReturn = {
             type: "IfStatement",
             alternate: null,
@@ -83,14 +82,14 @@ describe("StatementSpacingPolicy", () => {
         };
 
         assert.equal(
-            policy.shouldForceBlankLineBetweenReturnPaths(
+            shouldForceBlankLineBetweenReturnPaths(
                 guardedReturn,
                 fallbackReturn
             ),
             true
         );
         assert.equal(
-            policy.shouldForceBlankLineBetweenReturnPaths(
+            shouldForceBlankLineBetweenReturnPaths(
                 guardedReturn,
                 matchingFallback
             ),

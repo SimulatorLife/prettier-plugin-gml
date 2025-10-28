@@ -19,7 +19,12 @@ import {
     getEnumNameAlignmentPadding,
     prepareEnumMembersForPrinting
 } from "./enum-alignment.js";
-import { StatementSpacingPolicy } from "./statement-spacing-policy.js";
+import {
+    isMacroLikeStatement,
+    shouldForceBlankLineBetweenReturnPaths,
+    shouldForceTrailingBlankLineForNestedFunction,
+    shouldSuppressEmptyLineBetween
+} from "./statement-spacing-policy.js";
 import {
     printDanglingComments,
     printDanglingCommentsAsGroup,
@@ -2428,7 +2433,6 @@ function printStatements(path, options, print, childrenAttribute) {
     const parentNode = path.getValue();
     const containerNode =
         typeof path.getParentNode === "function" ? path.getParentNode() : null;
-    const spacingPolicy = new StatementSpacingPolicy();
     const statements =
         parentNode && Array.isArray(parentNode[childrenAttribute])
             ? parentNode[childrenAttribute]
@@ -2622,13 +2626,14 @@ function printStatements(path, options, print, childrenAttribute) {
         // Check if a newline should be added AFTER the statement
         if (!isLastStatement(childPath)) {
             const nextNode = statements ? statements[index + 1] : null;
-            const shouldSuppressExtraEmptyLine =
-                spacingPolicy.shouldSuppressEmptyLineBetween(node, nextNode);
-            const nextNodeIsMacro =
-                spacingPolicy.isMacroLikeStatement(nextNode);
+            const shouldSuppressExtraEmptyLine = shouldSuppressEmptyLineBetween(
+                node,
+                nextNode
+            );
+            const nextNodeIsMacro = isMacroLikeStatement(nextNode);
             const shouldSkipStandardHardline =
                 shouldSuppressExtraEmptyLine &&
-                spacingPolicy.isMacroLikeStatement(node) &&
+                isMacroLikeStatement(node) &&
                 !nextNodeIsMacro;
 
             if (!shouldSkipStandardHardline) {
@@ -2662,7 +2667,7 @@ function printStatements(path, options, print, childrenAttribute) {
                 isSanitizedMacro &&
                 macroTextHasExplicitTrailingBlankLine(node._featherMacroText);
 
-            const isMacroLikeNode = spacingPolicy.isMacroLikeStatement(node);
+            const isMacroLikeNode = isMacroLikeStatement(node);
             const isDefineMacroReplacement =
                 getNormalizedDefineReplacementDirective(node) === "#macro";
             const shouldForceMacroPadding =
@@ -2674,10 +2679,7 @@ function printStatements(path, options, print, childrenAttribute) {
                 !sanitizedMacroHasExplicitBlankLine;
             const shouldForceEarlyReturnPadding =
                 !suppressFollowingEmptyLine &&
-                spacingPolicy.shouldForceBlankLineBetweenReturnPaths(
-                    node,
-                    nextNode
-                );
+                shouldForceBlankLineBetweenReturnPaths(node, nextNode);
 
             if (shouldForceMacroPadding) {
                 parts.push(hardline);
@@ -2829,7 +2831,7 @@ function printStatements(path, options, print, childrenAttribute) {
                 !suppressFollowingEmptyLine
             ) {
                 if (
-                    spacingPolicy.shouldForceTrailingBlankLineForNestedFunction(
+                    shouldForceTrailingBlankLineForNestedFunction(
                         node,
                         parentNode,
                         containerNode
