@@ -160,6 +160,7 @@ function printComment(commentPath, options) {
     }
 
     applyTrailingCommentPadding(comment);
+    applySingleLeadingSpacePadding(comment, options);
     if (comment?._structPropertyTrailing) {
         comment._structPropertyHandled = true;
         comment.printed = true;
@@ -210,6 +211,50 @@ function printComment(commentPath, options) {
             throw new Error(`Not a comment: ${JSON.stringify(comment)}`);
         }
     }
+}
+
+function applySingleLeadingSpacePadding(comment, options) {
+    if (!isObjectLike(comment) || !options) {
+        return;
+    }
+
+    const originalText = options.originalText;
+    if (typeof originalText !== "string") {
+        return;
+    }
+
+    const startIndex = getCommentStartIndex(comment);
+    if (!Number.isInteger(startIndex) || startIndex <= 0) {
+        return;
+    }
+
+    const precedingChar = originalText[startIndex - 1];
+    if (precedingChar !== " ") {
+        return;
+    }
+
+    const beforePrecedingIndex = startIndex - 2;
+    const beforePrecedingChar =
+        beforePrecedingIndex >= 0 ? originalText[beforePrecedingIndex] : "\n";
+
+    if (beforePrecedingChar !== "\n" && beforePrecedingChar !== "\r") {
+        return;
+    }
+
+    comment.inlinePadding = typeof comment.inlinePadding === "number" ? Math.max(comment.inlinePadding, 1) : 1;
+}
+
+function getCommentStartIndex(comment) {
+    const start = comment?.start;
+    if (typeof start === "number") {
+        return start;
+    }
+
+    if (start && typeof start.index === "number") {
+        return start.index;
+    }
+
+    return null;
 }
 
 /**
@@ -390,11 +435,24 @@ function handleMacroComments(comment) {
 }
 
 function handleCommentAttachedToOpenBrace(
-    comment /*, text, options, ast, isLastComment */
+    comment,
+    _text,
+    _options,
+    ast /*, isLastComment */
 ) {
-    const enclosingNode = comment.enclosingNode;
+    let enclosingNode = comment.enclosingNode;
 
-    if (!isBlockStatement(enclosingNode)) {
+    if (!enclosingNode && comment?.leadingChar === "{") {
+        enclosingNode = findBraceOwnerForComment(ast, comment);
+        if (enclosingNode) {
+            comment.enclosingNode = enclosingNode;
+        }
+    }
+
+    if (
+        !isBlockStatement(enclosingNode) &&
+        enclosingNode?.type !== "SwitchStatement"
+    ) {
         return false;
     }
 
@@ -409,6 +467,99 @@ function handleCommentAttachedToOpenBrace(
 
 function isBlockStatement(node) {
     return node?.type === "BlockStatement";
+}
+
+function findBraceOwnerForComment(ast, comment) {
+    if (!ast || !comment) {
+        return null;
+    }
+
+    const { index: commentIndex, line: commentLine } = getLocationMetadata(
+        comment.start
+    );
+
+    if (!Number.isFinite(commentIndex) || !Number.isFinite(commentLine)) {
+        return null;
+    }
+
+    let match = null;
+    const stack = [ast];
+    const seen = new Set();
+
+    while (stack.length > 0) {
+        const node = stack.pop();
+        if (!node || typeof node !== "object" || seen.has(node)) {
+            continue;
+        }
+
+        seen.add(node);
+
+        if (!node.type) {
+            continue;
+        }
+
+        const { index: startIndex, line: startLine } = getLocationMetadata(
+            node.start
+        );
+        const { index: endIndex } = getLocationMetadata(node.end);
+
+        if (
+            Number.isFinite(startIndex) &&
+            Number.isFinite(endIndex) &&
+            commentIndex >= startIndex &&
+            commentIndex <= endIndex &&
+            commentLine === startLine &&
+            node.type === "SwitchStatement"
+         && (
+                !match ||
+                getLocationMetadata(match.start).index <= startIndex
+            )) {
+                match = node;
+            }
+
+        for (const value of Object.values(node)) {
+            if (!value || typeof value !== "object") {
+                continue;
+            }
+
+            if (Array.isArray(value)) {
+                for (const entry of value) {
+                    if (entry && typeof entry === "object" && entry.type) {
+                        stack.push(entry);
+                    }
+                }
+                continue;
+            }
+
+            if (
+                value &&
+                typeof value === "object" &&
+                value.type &&
+                value.type !== "CommentBlock" &&
+                value.type !== "CommentLine"
+            ) {
+                stack.push(value);
+            }
+        }
+    }
+
+    return match;
+}
+
+function getLocationMetadata(position) {
+    if (position == null) {
+        return { index: Number.NaN, line: Number.NaN };
+    }
+
+    if (typeof position === "number") {
+        return { index: position, line: Number.NaN };
+    }
+
+    const index =
+        typeof position.index === "number" ? position.index : Number.NaN;
+    const line = typeof position.line === "number" ? position.line : Number.NaN;
+
+    return { index, line };
 }
 
 /**

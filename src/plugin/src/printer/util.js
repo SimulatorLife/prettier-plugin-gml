@@ -16,7 +16,8 @@ const NODE_TYPES_REQUIRING_SEMICOLON = new Set([
     "ExitStatement",
     "ThrowStatement",
     "IncDecStatement",
-    "VariableDeclaration"
+    "VariableDeclaration",
+    "DeleteStatement"
 ]);
 
 function nodeTypeNeedsSemicolon(type) {

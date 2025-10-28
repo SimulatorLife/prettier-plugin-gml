@@ -379,7 +379,8 @@ export default class GameMakerASTBuilder {
             "defineStatement",
             "regionStatement",
             "deleteStatement",
-            "literalStatement"
+            "literalStatement",
+            "identifierStatement"
         ]);
     }
 
