@@ -64,5 +64,3 @@ export function isRecognitionExceptionLike(value) {
 
     return true;
 }
-
-export { installRecognitionExceptionLikeGuard } from "../extensions/recognition-exception-patch.js";

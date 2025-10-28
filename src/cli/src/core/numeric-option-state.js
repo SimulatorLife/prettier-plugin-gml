@@ -33,7 +33,7 @@ export function createIntegerOptionCoercer({
 
         const options = shouldInjectMessage
             ? { ...context, createErrorMessage }
-            : context ?? {};
+            : (context ?? {});
 
         return baseCoerce(value, options);
     };

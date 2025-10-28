@@ -1885,7 +1885,7 @@ function shouldForceInlineFunctionParameters(path, options) {
     }
 
     const firstParam = node.params[0];
-    const lastParam = node.params[node.params.length - 1];
+    const lastParam = node.params.at(-1);
     const startIndex = getNodeStartIndex(firstParam);
     const endIndex = getNodeEndIndex(lastParam);
 

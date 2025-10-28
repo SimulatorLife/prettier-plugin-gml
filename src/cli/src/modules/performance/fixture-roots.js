@@ -1,13 +1,7 @@
 import path from "node:path";
 
-import {
-    isPathInside,
-    toArray,
-    uniqueArray
-} from "../dependencies.js";
+import { isPathInside, toArray, uniqueArray } from "../dependencies.js";
 import { REPO_ROOT } from "../../shared/workspace-paths.js";
-
-
 
 export const DEFAULT_FIXTURE_DIRECTORIES = Object.freeze([
     path.resolve(REPO_ROOT, "src", "parser", "test", "input"),
@@ -130,4 +124,4 @@ export function normalizeFixtureRoots(
 
     return resolved;
 }
-export {REPO_ROOT} from "../../shared/workspace-paths.js";
+export { REPO_ROOT } from "../../shared/workspace-paths.js";

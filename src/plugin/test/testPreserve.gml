@@ -180,6 +180,24 @@ function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, 
             shader_reset();
         }
         if (reset_matrix) { scr_matrix_reset(); }
-    }
+    };
+
+    /// @hide
+    /// @function land_buffer_get_land_type
+    /// @param {Id.Buffer} land_buffer
+    /// @returns {enum} land_type
+    var land_buffer_get_land_type = function(lbuff) {
+        var lt = buffer_read(lbuff, buffer_u8);
+        switch (lt) { // make sure we get a valid land type
+            case eLandType.grass:
+            case eLandType.sand:
+            case eLandType.sea:
+            case eLandType.shallows:
+                break;
+            default:
+                throw "ERROR Island.load_island_data: Invalid land type found";
+        }
+        return lt;
+    };
 
 }

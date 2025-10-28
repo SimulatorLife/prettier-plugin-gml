@@ -485,7 +485,7 @@ function createNamingRuleSection(listItem) {
 
     if (title && normalizedDescription) {
         const prefixPattern = new RegExp(
-            `^${escapeRegExp(title)}\\s*:?\\s*`,
+            String.raw`^${escapeRegExp(title)}\s*:?\s*`,
             "i"
         );
         normalizedDescription = normalizedDescription
