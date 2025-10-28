@@ -20,9 +20,9 @@ sheet, then return here when you need deeper context.
 - [Legacy identifier-case plan](legacy-identifier-case-plan.md) — Preserves the
   step-by-step rollout checklist, scope coverage tables, and cache management
   guidance from the previous semantic implementation.
-- [Locals-first identifier-case config example](examples/identifier-case/locals-first.prettierrc.mjs)
+- [Locals-first identifier-case configuration](legacy-identifier-case-plan.md#locals-first-configuration-script)
   — Scripted configuration that warms the project-index cache and captures
-  dry-run reports for review.
+  dry-run reports for review alongside a sample JSON payload.
 - [Quick start](../README.md#quick-start) — Installation flows for npm
   consumers and nightly testers, plus wrapper scripts you can copy into your
   GameMaker project.
@@ -56,9 +56,6 @@ sheet, then return here when you need deeper context.
   the hard-coded Prettier clamps (such as `trailingComma: "none"`) when a host
   needs different defaults, all while keeping the formatter opinionated by
   default.
-- [Project index source extension hook](project-index-source-extensions-hook.md)
-  — Extend the recognised GML suffix list so the identifier-case bootstrap and
-  formatter refactors include generated or experimental file extensions.
 
 ## Architecture & planning
 
@@ -85,8 +82,9 @@ sheet, then return here when you need deeper context.
 - [Project Index Cache Design](project-index-cache-design.md) — Captures the
   shipped cache shape plus the instrumentation used to keep bootstrap behaviour
   predictable.
-- [Project Index next steps](project-index-next-steps.md) — Tracks remaining
-  follow-up work now that cache persistence and discovery ship in the plugin.
+- [Legacy identifier-case plan — Archived project-index roadmap](legacy-identifier-case-plan.md#archived-project-index-roadmap)
+  — Tracks the historical follow-up work that shipped alongside cache
+  persistence and discovery in the plugin.
 
 ## Metadata tooling
 

@@ -1338,9 +1338,10 @@ function buildFeatherFixImplementations(diagnostics) {
                     // `event_inherited()` is orphaned, but without project-scope
                     // metadata the fixer cannot distinguish a legitimate override
                     // from a missing parent event. Integrating with the scoping
-                    // pipeline outlined in `docs/project-index-next-steps.md` will
-                    // let us re-evaluate inherited events during formatting and avoid
-                    // deleting valid calls when Feather diagnostics are unavailable.
+                    // pipeline outlined in `docs/legacy-identifier-case-plan.md#archived-project-index-roadmap`
+                    // will let us re-evaluate inherited events during formatting and
+                    // avoid deleting valid calls when Feather diagnostics are
+                    // unavailable.
                     ast,
                     diagnostic
                 });

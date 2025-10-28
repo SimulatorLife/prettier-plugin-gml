@@ -160,10 +160,9 @@ for (var i = 0; i < queue_count; i += 1) {
   now spans the [live reloading concept](docs/live-reloading-concept.md) and the
   [semantic scope plan](docs/semantic-scope-plan.md).
 - [Operational runbooks](docs/project-index-cache-design.md) &mdash; Design notes,
-  cache architecture, and the rolling [project index roadmap](docs/project-index-next-steps.md)
+  cache architecture, and the archived [project index roadmap](docs/legacy-identifier-case-plan.md#archived-project-index-roadmap)
   alongside the [Feather data plan](docs/feather-data-plan.md). Pair them with
   the [reserved identifier metadata hook overview](docs/reserved-identifier-metadata-hook.md)
-  and the [project index source extension hook](docs/project-index-source-extensions-hook.md)
   when staging bespoke metadata sources, generated code directories, or
   regeneration scripts.
 - [Live reloading concept](docs/live-reloading-concept.md) &mdash; Concept brief for
@@ -178,10 +177,9 @@ for (var i = 0; i < queue_count; i += 1) {
   [line-comment resolver](docs/line-comment-options-resolver-hook.md), and
   [core option overrides resolver](docs/core-option-overrides-hook.md) seams that
   let integrators run controlled experiments without permanently widening the
-  public option surface. Combine them with the
-  [project index source extension hook](docs/project-index-source-extensions-hook.md)
-  when bespoke suffixes (for example, `.npc.gml`) need to participate in rename
-  plans.
+  public option surface. Combine them with targeted
+  `setProjectIndexSourceExtensions` overrides when bespoke suffixes (for
+  example, `.npc.gml`) need to participate in rename plans.
 - [Memory experiments](docs/metrics-tracker-finalize-memory.md) &mdash; Captures the
   `node --expose-gc` script and before/after measurements that validate the
   metrics tracker clean-up path.
@@ -675,15 +673,16 @@ Additional automation hooks such as `identifierCaseProjectIndex`,
 `identifierCaseDryRun`, and `identifierCaseReportLogPath` remain captured in the
 [legacy identifier-case plan](docs/legacy-identifier-case-plan.md). Projects that
 checkpoint GML under bespoke suffixes can extend the recognised source list with
-`setProjectIndexSourceExtensions`; the
-[project index source extension hook](docs/project-index-source-extensions-hook.md)
-covers the helper trio and intended use cases.
+`setProjectIndexSourceExtensions`; refer to the helper's inline JSDoc for
+supported workflows.
 
 ---
 
 ## Identifier case rollout
 
-1. **Enable identifier casing** in your Prettier configuration. Start with a locals-first plan similar to [`docs/examples/identifier-case/locals-first.prettierrc.mjs`](docs/examples/identifier-case/locals-first.prettierrc.mjs) so other scopes stay in observation mode.
+1. **Enable identifier casing** in your Prettier configuration. Start with the
+   [locals-first configuration](docs/legacy-identifier-case-plan.md#locals-first-configuration-script)
+   so other scopes stay in observation mode.
 2. **Warm the project index cache** (see the [semantic subsystem](src/semantic/README.md) for discovery and cache controls) by running the formatter once with your target project path. The bootstrap automatically creates `.prettier-plugin-gml/project-index-cache.json` the first time a rename-enabled scope executes. Use the example configuration above when you want to script a manual snapshot or commit a deterministic JSON index for CI.
 3. **Dry-run renames** with locals-first safety nets before writing changes to disk. Keep `identifierCaseDryRun` enabled and capture logs via `identifierCaseReportLogPath` until you are comfortable with the rename summaries.
 4. **Promote renames** to write mode once you are satisfied with the preview and have backups ready.
