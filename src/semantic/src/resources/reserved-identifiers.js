@@ -41,7 +41,7 @@ function loadIdentifierMetadata() {
  *          invoked. The handler intentionally degrades to a no-op when another
  *          caller swapped the loader before cleanup runs. Identifier casing
  *          integrations layer overrides during try/finally flows described in
- *          `docs/naming-conventions.md#objective-and-constraints`; blindly
+ *          `docs/legacy-identifier-case-plan.md#legacy-architecture-snapshot`; blindly
  *          reinstating `previousLoader` would roll back those newer overrides
  *          and leave the formatter reading stale metadata mid-run.
  */

@@ -25,7 +25,7 @@ export const PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR =
 // teams can size disk allowances ahead of enabling the project index.
 // `docs/project-index-cache-design.md` explains how exceeding that limit risks
 // unbounded cache growth on large projects, while
-// `docs/identifier-case-rollout.md#configuration-switches` calls out the
+// `docs/legacy-identifier-case-plan.md#bootstrap-configuration-and-caching` calls out the
 // `gmlIdentifierCaseProjectIndexCacheMaxBytes` override for installations that
 // consciously trade space for determinism. Keep this baseline in sync with the
 // published guidance so operational runbooks stay trustworthy.

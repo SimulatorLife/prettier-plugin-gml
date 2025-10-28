@@ -9,24 +9,17 @@ sheet, then return here when you need deeper context.
 
 ## Reference guides
 
-- [Identifier Case & Naming Convention Guide](naming-conventions.md) — One-stop
-  overview of the identifier normalisation pipeline, configuration roadmap,
-  rollout workflow, and operational safeguards for `gmlIdentifierCase`.
-- [Examples: Tricky identifier casing](examples/naming-convention/tricky-identifiers.md)
-  — Real-world snippets that demonstrate how rename heuristics classify edge
-  cases and apply overrides.
+- [Legacy identifier-case plan](legacy-identifier-case-plan.md) — Archived
+  summary of the previous identifier casing and renaming pipeline, including
+  tricky identifier examples and the legacy rollout workflow.
 - [Sample `.prettierignore`](examples/example.prettierignore) — Baseline ignore
   file tuned for common GameMaker metadata folders.
 
 ## Usage & rollout
 
-- [Identifier-case rollout playbook](identifier-case-rollout.md) — Step-by-step
-  instructions for enabling automatic renames, understanding the
-  auto-discovery bootstrap, and keeping cache hygiene under control across
-  local machines and CI.
-- [Identifier-case scope reference](identifier-case-reference.md) — Deep dive
-  into how each rename scope is planned, validated, and surfaced in reports so
-  you can audit dry-run output or diagnose skipped renames.
+- [Legacy identifier-case plan](legacy-identifier-case-plan.md) — Preserves the
+  step-by-step rollout checklist, scope coverage tables, and cache management
+  guidance from the previous semantic implementation.
 - [Locals-first identifier-case config example](examples/identifier-case/locals-first.prettierrc.mjs)
   — Scripted configuration that warms the project-index cache and captures
   dry-run reports for review.
@@ -103,9 +96,9 @@ sheet, then return here when you need deeper context.
   identifier dataset while keeping the default loader in place.
 - [Architecture overview](../README.md#architecture-overview) — High-level map
   of the workspace packages, where generated assets live, and which scripts
-  refresh them. Pair it with the reserved identifier coverage in the
-  [Identifier Case & Naming Convention Guide](naming-conventions.md#5-reserved-identifier-dataset)
-  when updating the scrapers or running metadata rebuilds through the CLI.
+  refresh them. Pair it with the reserved identifier coverage captured in the
+  [legacy identifier-case plan](legacy-identifier-case-plan.md) when updating the
+  scrapers or running metadata rebuilds through the CLI.
 
 ## Performance & diagnostics
 
