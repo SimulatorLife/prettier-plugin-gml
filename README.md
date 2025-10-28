@@ -153,12 +153,10 @@ for (var i = 0; i < queue_count; i += 1) {
   rebuilding the generated parser sources with the vendored toolchain and
   understanding where custom extensions live now that the grammar delegates to
   extracted helpers.
-- [Identifier casing handbook](docs/naming-conventions.md) &mdash; End-to-end
-  coverage of the rename pipeline paired with the
-  [scope reference](docs/identifier-case-reference.md),
-  [rollout playbook](docs/identifier-case-rollout.md), and
-  [tricky examples](docs/examples/naming-convention/tricky-identifiers.md) so
-  you can dry-run `gmlIdentifierCase` safely before enabling writes.
+- [Legacy identifier-case plan](docs/legacy-identifier-case-plan.md) &mdash; Archived
+  summary of the previous rename pipeline, scope coverage, rollout workflow, and
+  tricky identifier examples. Use it for historical context; the current roadmap
+  lives in the [live reloading concept](docs/live-reloading-concept.md).
 - [Operational runbooks](docs/project-index-cache-design.md) &mdash; Design notes,
   cache architecture, and the rolling [project index roadmap](docs/project-index-next-steps.md)
   alongside the [Feather data plan](docs/feather-data-plan.md). Pair them with
@@ -402,9 +400,10 @@ node ./node_modules/root/src/cli/src/cli.js --help
 npm run cli -- --help
 ```
 
-Consult the [identifier-case rollout playbook](docs/identifier-case-rollout.md)
-when you plan to enable automated renames and need to audit bootstrap
-behaviour, cache hygiene, or dry-run reports.
+Consult the archived [legacy identifier-case plan](docs/legacy-identifier-case-plan.md)
+when you need historical context for automated renames, bootstrap behaviour,
+cache hygiene, or dry-run reports. The active scope roadmap now resides in the
+[live reloading concept](docs/live-reloading-concept.md).
 
 ### Contributor onboarding
 
@@ -658,10 +657,10 @@ the [semantic subsystem](src/semantic/README.md) alongside the new scope-trackin
 entry points.
 
 Additional automation hooks such as `identifierCaseProjectIndex`,
-`identifierCaseDryRun`, and `identifierCaseReportLogPath` are documented in the
-[Identifier case rollout playbook](docs/identifier-case-rollout.md). Projects
-that checkpoint GML under bespoke suffixes can extend the recognised source
-list with `setProjectIndexSourceExtensions`; the
+`identifierCaseDryRun`, and `identifierCaseReportLogPath` remain captured in the
+[legacy identifier-case plan](docs/legacy-identifier-case-plan.md). Projects that
+checkpoint GML under bespoke suffixes can extend the recognised source list with
+`setProjectIndexSourceExtensions`; the
 [project index source extension hook](docs/project-index-source-extensions-hook.md)
 covers the helper trio and intended use cases.
 
@@ -673,7 +672,9 @@ covers the helper trio and intended use cases.
 2. **Warm the project index cache** (see the [semantic subsystem](src/semantic/README.md) for discovery and cache controls) by running the formatter once with your target project path. The bootstrap automatically creates `.prettier-plugin-gml/project-index-cache.json` the first time a rename-enabled scope executes. Use the example configuration above when you want to script a manual snapshot or commit a deterministic JSON index for CI.
 3. **Dry-run renames** with locals-first safety nets before writing changes to disk. Keep `identifierCaseDryRun` enabled and capture logs via `identifierCaseReportLogPath` until you are comfortable with the rename summaries.
 4. **Promote renames** to write mode once you are satisfied with the preview and have backups ready.
-5. **Follow the migration checklist** in `docs/identifier-case-rollout.md` to confirm that assets, macros, and globals were acknowledged.
+5. **Follow the migration checklist** preserved in
+   `docs/legacy-identifier-case-plan.md` to confirm that assets, macros, and
+   globals were acknowledged.
 
 ---
 
