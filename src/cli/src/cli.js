@@ -675,6 +675,7 @@ function recordSkippedDirectory(directory) {
 let baseProjectIgnorePaths = [];
 const baseProjectIgnorePathSet = new Set();
 let encounteredFormattingError = false;
+let formattingErrorCount = 0;
 const NEGATED_IGNORE_RULE_PATTERN = /^\s*!.*\S/m;
 let parseErrorAction = DEFAULT_PARSE_ERROR_ACTION;
 let abortRequested = false;
@@ -810,6 +811,7 @@ async function resetFormattingSession(onParseError) {
     resetSkippedFileSummary();
     resetSkippedDirectorySummary();
     encounteredFormattingError = false;
+    formattingErrorCount = 0;
     resetRegisteredIgnorePaths();
     resetIgnoreRuleNegations();
     encounteredFormattableFile = false;
@@ -917,6 +919,7 @@ function logCliErrorWithHeader(error, header) {
 
 async function handleFormattingError(error, filePath) {
     encounteredFormattingError = true;
+    formattingErrorCount += 1;
     const header = `Failed to format ${filePath}`;
     logCliErrorWithHeader(error, header);
 
@@ -1448,6 +1451,7 @@ function finalizeFormattingRun({
         process.exitCode = 1;
     }
     if (encounteredFormattingError) {
+        logFormattingErrorSummary();
         process.exitCode = 1;
     }
 }
@@ -1614,6 +1618,21 @@ function logCheckModeSummary() {
     const label = pendingFormatCount === 1 ? "file requires" : "files require";
     console.log(
         `${pendingFormatCount} ${label} formatting. Re-run without --check to write changes.`
+    );
+}
+
+function logFormattingErrorSummary() {
+    if (formattingErrorCount === 0) {
+        return;
+    }
+
+    const failureLabel = formattingErrorCount === 1 ? "file" : "files";
+    console.error(
+        [
+            `Formatting failed for ${formattingErrorCount} ${failureLabel}.`,
+            "Review the errors above for details.",
+            "Adjust --on-parse-error (skip, abort, or revert) if you need to change how failures are handled."
+        ].join(" ")
     );
 }
 

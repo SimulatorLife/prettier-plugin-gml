@@ -1075,6 +1075,17 @@ describe("Prettier wrapper CLI", () => {
                     /Syntax Error/.test(error.stderr),
                     "Expected stderr to include the formatting error message"
                 );
+                assert.match(
+                    error.stderr,
+                    /Formatting failed for 1 file\./,
+                    "Expected stderr to summarize the number of failed files"
+                );
+                assert.ok(
+                    error.stderr.includes(
+                        "Adjust --on-parse-error (skip, abort, or revert) if you need to change how failures are handled."
+                    ),
+                    "Expected stderr to explain how to adjust parse error handling"
+                );
             }
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
