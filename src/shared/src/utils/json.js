@@ -213,23 +213,22 @@ export function parseJsonObjectWithContext(text, options = {}) {
         reviver
     });
 
-    const dynamicOptions =
-        typeof createAssertOptions === "function"
-            ? createAssertOptions(payload)
-            : undefined;
+    const mergedOptionsSources = [];
 
-    const baseOptions =
-        assertOptions && typeof assertOptions === "object"
-            ? assertOptions
-            : undefined;
-    const overrideOptions =
-        dynamicOptions && typeof dynamicOptions === "object"
-            ? dynamicOptions
-            : undefined;
+    if (assertOptions && typeof assertOptions === "object") {
+        mergedOptionsSources.push(assertOptions);
+    }
+
+    if (typeof createAssertOptions === "function") {
+        const dynamicOptions = createAssertOptions(payload);
+        if (dynamicOptions && typeof dynamicOptions === "object") {
+            mergedOptionsSources.push(dynamicOptions);
+        }
+    }
 
     const mergedOptions =
-        baseOptions || overrideOptions
-            ? Object.assign({}, baseOptions, overrideOptions)
+        mergedOptionsSources.length > 0
+            ? Object.assign({}, ...mergedOptionsSources)
             : undefined;
 
     return assertPlainObject(payload, mergedOptions);
