@@ -3,7 +3,7 @@ import {
     prepareIdentifierCasePlan,
     captureIdentifierCasePlanSnapshot
 } from "./plan-service.js";
-import { isObjectLike, withObjectLike } from "../shared/index.js";
+import { isObjectLike, noop, withObjectLike } from "../shared/index.js";
 import {
     setIdentifierCaseOption,
     deleteIdentifierCaseOption
@@ -32,7 +32,7 @@ function sanitizeBootstrapResult(bootstrap) {
     }
 
     if (typeof bootstrap.dispose === "function") {
-        bootstrap.dispose = () => {};
+        bootstrap.dispose = noop;
     }
 
     const { cache } = bootstrap;

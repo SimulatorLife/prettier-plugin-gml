@@ -8,6 +8,7 @@ import {
     assertFunction,
     coalesceOption,
     isObjectLike,
+    noop,
     withDefinedValue
 } from "../shared/index.js";
 import {
@@ -90,7 +91,7 @@ function createSkipResult(reason) {
         projectIndex: null,
         source: null,
         cache: null,
-        dispose() {}
+        dispose: noop
     };
 }
 
@@ -98,7 +99,7 @@ function createFailureResult({
     reason,
     projectRoot,
     coordinator = null,
-    dispose = () => {},
+    dispose = noop,
     error = null
 }) {
     const result = {

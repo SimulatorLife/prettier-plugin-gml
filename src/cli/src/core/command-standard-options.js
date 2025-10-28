@@ -1,7 +1,8 @@
+import { noop } from "@prettier-plugin-gml/shared/utils/function.js";
+
 const DEFAULT_HELP_FLAG = "-h, --help";
 const DEFAULT_HELP_DESCRIPTION = "Show this help message.";
 const DEFAULT_HELP_AFTER_ERROR = "(add --help for usage information)";
-const NOOP = () => {};
 
 /**
  * Enable the shared help/exit behaviour that every CLI command consumes.
@@ -30,8 +31,8 @@ export function applyStandardCommandOptions(command) {
     command.showHelpAfterError(DEFAULT_HELP_AFTER_ERROR);
     if (typeof command.configureOutput === "function") {
         command.configureOutput({
-            writeErr: NOOP,
-            outputError: NOOP
+            writeErr: noop,
+            outputError: noop
         });
     }
 

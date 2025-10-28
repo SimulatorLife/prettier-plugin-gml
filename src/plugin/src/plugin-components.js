@@ -1,6 +1,7 @@
 import {
     assertFunction,
     isAbortError,
+    noop,
     resolveAbortSignalFromOptions
 } from "./shared/index.js";
 import { createDefaultGmlPluginComponents } from "./component-providers/default-plugin-components.js";
@@ -78,7 +79,7 @@ const OBSERVER_ABORT_MESSAGE =
 // the export to `null`, throwing, or returning ad-hoc closures would break that
 // cleanup contract and leave previously-installed component overrides active
 // after cancellation.
-const NOOP_UNSUBSCRIBE = () => {};
+const NOOP_UNSUBSCRIBE = noop;
 
 /**
  * Subscribe to notifications whenever the plugin component map changes.
