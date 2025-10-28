@@ -92,4 +92,36 @@ describe("manual CLI helpers", () => {
         renderProgressBar("Task", 3, 4, 10, { stdout, createBar });
         assert.equal(createdBars.size, 2);
     });
+
+    it("stops active progress bars when rendering becomes unavailable", () => {
+        const stdout = createMockStdout();
+        const stopMock = mock.fn();
+        const createBar = mock.fn(() => ({
+            setTotal: () => {},
+            update: () => {},
+            start: () => {},
+            stop: (...args) => {
+                stopMock(...args);
+            }
+        }));
+
+        renderProgressBar("Task", 0, 5, 10, { stdout, createBar });
+        renderProgressBar("Task", 1, 5, 10, { stdout, createBar });
+
+        const nonInteractiveStdout = { ...stdout, isTTY: false };
+        renderProgressBar("Task", 2, 5, 10, {
+            stdout: nonInteractiveStdout,
+            createBar
+        });
+
+        assert.equal(stopMock.mock.callCount(), 1);
+
+        const stopCountAfterDisable = stopMock.mock.callCount();
+
+        renderProgressBar("Task", 0, 5, 10, { stdout, createBar });
+        renderProgressBar("Task", 5, 5, 10, { stdout, createBar });
+
+        assert.equal(createBar.mock.callCount(), 2);
+        assert.equal(stopMock.mock.callCount(), stopCountAfterDisable + 1);
+    });
 });

@@ -67,6 +67,17 @@ function renderProgressBar(label, current, total, width, options = {}) {
         options;
 
     if (!shouldRenderProgressBar(stdout, width)) {
+        const existingBar = activeProgressBars.get(label);
+        if (existingBar) {
+            try {
+                existingBar.stop();
+            } catch {
+                // Ignore cleanup failures so callers can continue unwinding
+                // their own teardown logic without masking the original
+                // failure that disabled progress rendering mid-run.
+            }
+            activeProgressBars.delete(label);
+        }
         return;
     }
 
