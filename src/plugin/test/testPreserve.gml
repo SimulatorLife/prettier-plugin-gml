@@ -125,9 +125,9 @@ global.lighting.draw(
 
 // Set foot movement speed according to character rotation and movement speeds (this is so the legs don't end up trailing when the character is moving too fast)
 // try { // TODO this sometimes throws NaN error, try catch is band-aid
-// 	// foot_spd = min(0.5 * sqrt(sqr(x - xprevious) + sqr(y - yprevious)) + abs(last_crab_dir) * 0.1 + 0.2, 1);
+//     // foot_spd = min(0.5 * sqrt(sqr(x - xprevious) + sqr(y - yprevious)) + abs(last_crab_dir) * 0.1 + 0.2, 1);
 // } catch(ex) {
-// 	show_debug_message("Caught exception while trying to update crab foot speed: " + string(ex));
+//     show_debug_message("Caught exception while trying to update crab foot speed: " + string(ex));
 // }
 
 // Make body wobble up and down
@@ -145,14 +145,14 @@ function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, 
     self.octmap_size      = octmap_size;
     self.octmap_texel     = 1 / octmap_size;
     self.skyformat        = -1;
-	self.cullmode         = cull_clockwise;
+    self.cullmode         = cull_clockwise;
 
     /// @override
-	/// @function draw
-	/// @param {bool} [reset_matrix=true] - Reset the world matrix after drawing?
-	/// @description Draw the zmodel
-	/// @returns {undefined}
-	static draw = function(reset_matrix = true) {
+    /// @function draw
+    /// @param {bool} [reset_matrix=true] - Reset the world matrix after drawing?
+    /// @description Draw the zmodel
+    /// @returns {undefined}
+    static draw = function(reset_matrix = true) {
 
         // Get the current shader
         var prev_shader = shader_current();
@@ -201,3 +201,23 @@ function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, 
     };
 
 }
+
+// ------------------------------------------------------------------------
+// Debug-only macro guard for *use_fast_sampling* edits
+// ------------------------------------------------------------------------
+#macro FAST_SAMPLE_GUARD \
+    if (use_fast_sampling) {                                                   \
+        show_debug_message($"Error in instance: Can't edit fast-sampling instance!");\
+        return true;                                                       \
+    }
+
+/// @function lerp_sample
+/// @param inst_a
+/// @param inst_b
+/// @param {real} amount
+/// @description Linear blend of *inst_a* ↔ *inst_b* into *this* instance
+/// @returns {undefined}
+var lerp_sample = function(inst_a, inst_b, amount) {
+    FAST_SAMPLE_GUARD
+    sample_lerp(inst_a.sample, inst_b.sample, amount, sample);
+};

@@ -245,3 +245,13 @@ function InputButtonKeyboard(button) : AbstractInputButton(button, eInputType.ke
     /* Keyboard input handling goes here */
 
 }
+
+
+// ------------------------------------------------------------------------
+// Debug-only macro guard for *use_fast_sampling* edits
+// ------------------------------------------------------------------------
+#macro FAST_SAMPLE_GUARD \
+	if (use_fast_sampling) {                                                   \
+		show_debug_message($"Error in instance: Can't edit fast-sampling instance!");\
+		return true;                                                       \
+	}
