@@ -3,6 +3,13 @@
   "version": "0.0.1",
   "main": "gml-parser.js",
   "type": "module",
+  "exports": {
+    ".": "./gml-parser.js",
+    "./gml-parser.js": "./gml-parser.js",
+    "./generated/*": "./generated/*",
+    "./src/*": "./src/*",
+    "./utils/recognition-exception.js": "./src/utils/recognition-exception.js"
+  },
   "dependencies": {
     "antlr4": "^4.13.2",
     "@prettier-plugin-gml/shared": "file:../shared",
