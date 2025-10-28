@@ -1,6 +1,7 @@
 import { asArray, isNonEmptyArray } from "../utils/array.js";
 import { hasOwn, isObjectLike } from "../utils/object.js";
 import { isNonEmptyString } from "../utils/string.js";
+import { assignClonedLocation } from "./locations.js";
 
 // Shared AST helper utilities focused on querying common node shapes.
 // Centralizes frequently repeated guards so printer and transform modules
@@ -191,6 +192,35 @@ function getIdentifierText(node) {
 
     const resolver = identifierResolvers[type] ?? resolveNodeName;
     return resolver(node);
+}
+
+/**
+ * Synthesize an identifier node while cloning the source location metadata.
+ *
+ * Callers frequently construct replacement identifier expressions during
+ * printer rewrites or AST transforms. The helper centralizes the defensive
+ * string guard and location cloning so individual call sites can focus on the
+ * structural mutation instead of repeating the boilerplate checks.
+ *
+ * @param {unknown} name Potential identifier name to assign to the node.
+ * @param {unknown} template Node whose location metadata should be copied.
+ * @returns {{ type: "Identifier", name: string } | null} Identifier node with
+ *          cloned locations when {@link name} is a non-empty string; otherwise
+ *          `null` to signal that construction failed.
+ */
+function createIdentifierNode(name, template) {
+    if (!isNonEmptyString(name)) {
+        return null;
+    }
+
+    const identifier = {
+        type: "Identifier",
+        name
+    };
+
+    assignClonedLocation(identifier, template);
+
+    return identifier;
 }
 
 /**
@@ -603,5 +633,6 @@ export {
     enqueueObjectChildValues,
     unwrapParenthesizedExpression,
     isVariableDeclarationOfKind,
-    isVarVariableDeclaration
+    isVarVariableDeclaration,
+    createIdentifierNode
 };

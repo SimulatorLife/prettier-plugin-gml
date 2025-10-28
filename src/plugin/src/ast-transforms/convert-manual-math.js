@@ -8,7 +8,8 @@ import {
     getNodeEndIndex,
     getNodeStartIndex,
     getCallExpressionArguments,
-    toMutableArray
+    toMutableArray,
+    createIdentifierNode
 } from "../shared/index.js";
 
 const DEFAULT_HELPERS = Object.freeze({
@@ -1128,7 +1129,7 @@ function mutateToCallExpression(target, name, args, template) {
 }
 
 function createCallExpressionNode(name, args, template) {
-    const identifier = createIdentifier(name, template);
+    const identifier = createIdentifierNode(name, template);
     if (!identifier) {
         return null;
     }
@@ -1142,21 +1143,6 @@ function createCallExpressionNode(name, args, template) {
     assignClonedLocation(call, template);
 
     return call;
-}
-
-function createIdentifier(name, template) {
-    if (typeof name !== "string" || name.length === 0) {
-        return null;
-    }
-
-    const identifier = {
-        type: IDENTIFIER,
-        name
-    };
-
-    assignClonedLocation(identifier, template);
-
-    return identifier;
 }
 
 function createNumericLiteral(value, template) {
