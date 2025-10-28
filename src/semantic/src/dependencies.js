@@ -5,6 +5,7 @@
  * actually relied on.
  */
 export {
+    assertArray,
     asArray,
     isNonEmptyArray,
     pushUnique,
