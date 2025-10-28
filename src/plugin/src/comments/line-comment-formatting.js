@@ -333,20 +333,9 @@ function normalizeOptionalParamToken(token) {
         return trimmed;
     }
 
-    let stripped = trimmed;
-    let hadSentinel = false;
+    const stripped = trimmed.replaceAll(/^\*+|\*+$/g, "");
 
-    while (stripped.startsWith("*")) {
-        stripped = stripped.slice(1);
-        hadSentinel = true;
-    }
-
-    while (stripped.endsWith("*")) {
-        stripped = stripped.slice(0, -1);
-        hadSentinel = true;
-    }
-
-    if (!hadSentinel) {
+    if (stripped === trimmed) {
         return trimmed;
     }
 
