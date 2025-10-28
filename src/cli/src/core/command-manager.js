@@ -195,18 +195,9 @@ class CliCommandManager {
         const usage = resolveCommandUsage(resolvedCommand, {
             fallback: () => this._program.helpInformation()
         });
-        const usageSections = [];
-        if (DEFAULT_HELP_AFTER_ERROR) {
-            usageSections.push(DEFAULT_HELP_AFTER_ERROR);
-        }
-        if (usage) {
-            if (usageSections.length > 0) {
-                usageSections.push("");
-            }
-            usageSections.push(usage);
-        }
+        const usageSections = [DEFAULT_HELP_AFTER_ERROR, usage].filter(Boolean);
         const normalizedUsage =
-            usageSections.length > 0 ? usageSections.join("\n") : usage;
+            usageSections.length === 0 ? usage : usageSections.join("\n\n");
         const usageError = new CliUsageError(error.message.trim(), {
             usage: normalizedUsage
         });
