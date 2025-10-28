@@ -1,43 +1,4 @@
-import {
-    getNonEmptyTrimmedString,
-    isNonEmptyArray
-} from "../shared/dependencies.js";
-
-function normalizeTargetPathInput(rawInput) {
-    if (typeof rawInput === "string") {
-        const trimmed = getNonEmptyTrimmedString(rawInput);
-        return {
-            targetPathInput: trimmed ?? null,
-            targetPathProvided: true
-        };
-    }
-
-    const normalized = rawInput ?? null;
-    return {
-        targetPathInput: normalized,
-        targetPathProvided: normalized !== null
-    };
-}
-
-function extractPositionalTarget(command) {
-    const args = command?.args;
-    if (!isNonEmptyArray(args)) {
-        return null;
-    }
-
-    return args[0];
-}
-
-function resolveTargetPathCandidate(command, options) {
-    const source = options ?? {};
-    return source.path ?? extractPositionalTarget(command) ?? null;
-}
-
-function resolveTargetPathInputs(command, options) {
-    return normalizeTargetPathInput(
-        resolveTargetPathCandidate(command, options)
-    );
-}
+import { getNonEmptyTrimmedString } from "../shared/dependencies.js";
 
 function resolveFormatCommandExtensions(options, defaultExtensions) {
     const source = options ?? {};
@@ -87,10 +48,21 @@ export function collectFormatCommandOptions(
     } = {}
 ) {
     const options = command?.opts?.() ?? {};
-    const { targetPathInput, targetPathProvided } = resolveTargetPathInputs(
-        command,
-        options
-    );
+    const args = Array.isArray(command?.args) ? command.args : [];
+    const positionalTarget = args.length > 0 ? args[0] : null;
+    const rawTarget = options.path ?? positionalTarget ?? null;
+
+    let targetPathInput = null;
+    let targetPathProvided = false;
+
+    if (typeof rawTarget === "string") {
+        targetPathInput = getNonEmptyTrimmedString(rawTarget) ?? null;
+        targetPathProvided = true;
+    } else if (rawTarget != null) {
+        targetPathInput = rawTarget;
+        targetPathProvided = true;
+    }
+
     const {
         skippedDirectorySampleLimit,
         ignoredFileSampleLimit,
@@ -120,5 +92,3 @@ export function collectFormatCommandOptions(
         usage
     };
 }
-
-export { normalizeTargetPathInput, resolveTargetPathInputs };
