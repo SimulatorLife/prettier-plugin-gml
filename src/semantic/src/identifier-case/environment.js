@@ -14,10 +14,18 @@ const IDENTIFIER_CASE_LOGGER_NAMESPACE = "identifier-case";
 
 const managedBootstraps = new WeakSet();
 
-function nullifyProjectIndex(target) {
-    if (isObjectLike(target) && Object.hasOwn(target, "projectIndex")) {
-        target.projectIndex = null;
+function clearOwnProperty(target, propertyName, { value = null } = {}) {
+    if (!isObjectLike(target)) {
+        return;
     }
+
+    if (!Object.hasOwn(target, propertyName)) {
+        return;
+    }
+
+    const nextValue =
+        typeof value === "function" ? value(target[propertyName]) : value;
+    target[propertyName] = nextValue;
 }
 
 function sanitizeBootstrapResult(bootstrap) {
@@ -25,23 +33,17 @@ function sanitizeBootstrapResult(bootstrap) {
         return;
     }
 
-    nullifyProjectIndex(bootstrap);
-
-    if (Object.hasOwn(bootstrap, "coordinator")) {
-        bootstrap.coordinator = null;
-    }
+    clearOwnProperty(bootstrap, "projectIndex");
+    clearOwnProperty(bootstrap, "coordinator");
 
     if (typeof bootstrap.dispose === "function") {
         bootstrap.dispose = noop;
     }
 
     const { cache } = bootstrap;
-    nullifyProjectIndex(cache);
-    nullifyProjectIndex(cache?.payload);
-
-    if (cache && Object.hasOwn(cache, "payload")) {
-        cache.payload = null;
-    }
+    clearOwnProperty(cache, "projectIndex");
+    clearOwnProperty(cache?.payload, "projectIndex");
+    clearOwnProperty(cache, "payload");
 }
 
 function registerBootstrapCleanup(bootstrapResult) {
