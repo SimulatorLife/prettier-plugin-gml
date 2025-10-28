@@ -1,8 +1,8 @@
 import GameMakerLanguageParserListenerBase from "../../generated/GameMakerLanguageParserListener.js";
 import { VISIT_METHOD_NAMES } from "./game-maker-language-parser-visitor.js";
+import { noop } from "../shared/index.js";
 
-const NOOP = () => {};
-const DEFAULT_LISTENER_DELEGATE = ({ fallback = NOOP }) => fallback();
+const DEFAULT_LISTENER_DELEGATE = ({ fallback = noop }) => fallback();
 
 function deriveListenerMethodNames() {
     const listenerNames = [];
@@ -65,7 +65,7 @@ export default class GameMakerLanguageParserListener extends GameMakerLanguagePa
             methodName,
             phase,
             ctx,
-            fallback: NOOP
+            fallback: noop
         });
     }
 }
