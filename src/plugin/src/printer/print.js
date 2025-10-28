@@ -55,7 +55,7 @@ import {
     getSingleVariableDeclarator,
     isCallExpressionIdentifierMatch,
     isBooleanLiteral,
-    isUndefinedLiteral,
+    isUndefinedSentinel,
     enqueueObjectChildValues,
     forEachNodeChild
 } from "../shared/index.js";
@@ -844,8 +844,8 @@ export function print(path, options, print) {
             let right;
             const logicalOperatorsStyle = resolveLogicalOperatorsStyle(options);
 
-            const leftIsUndefined = isUndefinedLiteral(node.left);
-            const rightIsUndefined = isUndefinedLiteral(node.right);
+            const leftIsUndefined = isUndefinedSentinel(node.left);
+            const rightIsUndefined = isUndefinedSentinel(node.right);
 
             if (
                 (operator === "==" || operator === "!=") &&
@@ -5606,7 +5606,7 @@ function computeSyntheticFunctionDocLines(
         const optionalOverrideFlag = paramInfo?.optionalOverride === true;
         const defaultIsUndefined =
             param?.type === "DefaultParameter" &&
-            isUndefinedLiteral(param.right);
+            isUndefinedSentinel(param.right);
         const shouldOmitUndefinedDefault =
             defaultIsUndefined &&
             shouldOmitUndefinedDefaultForFunctionNode(node);
@@ -5637,7 +5637,7 @@ function computeSyntheticFunctionDocLines(
                       return false;
                   }
 
-                  return !isUndefinedLiteral(candidate.right);
+                  return !isUndefinedSentinel(candidate.right);
               })
             : false;
         const hasPriorExplicitDefault = Array.isArray(node?.params)
@@ -5646,7 +5646,7 @@ function computeSyntheticFunctionDocLines(
                       return false;
                   }
 
-                  return !isUndefinedLiteral(candidate.right);
+                  return !isUndefinedSentinel(candidate.right);
               })
             : false;
         const shouldApplyOptionalSuppression =
@@ -6016,7 +6016,7 @@ function functionReturnsNonUndefinedValue(functionNode) {
                     continue;
                 }
 
-                if (!isUndefinedLiteral(argument)) {
+                if (!isUndefinedSentinel(argument)) {
                     return true;
                 }
 
@@ -6391,7 +6391,7 @@ function getParameterDocInfo(paramNode, functionNode, options) {
             return null;
         }
 
-        const defaultIsUndefined = isUndefinedLiteral(paramNode.right);
+        const defaultIsUndefined = isUndefinedSentinel(paramNode.right);
         const signatureOmitsUndefinedDefault =
             defaultIsUndefined &&
             shouldOmitUndefinedDefaultForFunctionNode(functionNode);
@@ -6456,7 +6456,7 @@ function shouldOmitDefaultValueForParameter(path) {
 
     if (
         preservedUndefinedDefaultParameters.has(node) ||
-        !isUndefinedLiteral(node.right) ||
+        !isUndefinedSentinel(node.right) ||
         typeof path.getParentNode !== "function"
     ) {
         return false;

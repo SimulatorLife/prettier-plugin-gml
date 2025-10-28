@@ -5,7 +5,7 @@ import {
     getIdentifierText as sharedGetIdentifierText,
     hasComment as sharedHasComment,
     isObjectLike,
-    isUndefinedLiteral as sharedIsUndefinedLiteral,
+    isUndefinedSentinel as sharedIsUndefinedSentinel,
     resolveHelperOverride,
     toMutableArray,
     unwrapParenthesizedExpression
@@ -14,7 +14,7 @@ import {
 const DEFAULT_HELPERS = Object.freeze({
     hasComment: sharedHasComment,
     getIdentifierText: sharedGetIdentifierText,
-    isUndefinedLiteral: sharedIsUndefinedLiteral,
+    isUndefinedLiteral: sharedIsUndefinedSentinel,
     cloneAstNode
 });
 

@@ -15,6 +15,7 @@ import {
     getCallExpressionIdentifierName,
     isCallExpressionIdentifierMatch,
     isBooleanLiteral,
+    isUndefinedSentinel,
     isProgramOrBlockStatement,
     isVarVariableDeclaration,
     isNode,
@@ -8988,31 +8989,15 @@ function extractUndefinedComparisonIdentifier(expression) {
 
     const { left, right } = expression;
 
-    if (isIdentifier(left) && isUndefinedLiteral(right)) {
+    if (isIdentifier(left) && isUndefinedSentinel(right)) {
         return { node: left, name: left.name };
     }
 
-    if (isIdentifier(right) && isUndefinedLiteral(left)) {
+    if (isIdentifier(right) && isUndefinedSentinel(left)) {
         return { node: right, name: right.name };
     }
 
     return null;
-}
-
-function isUndefinedLiteral(node) {
-    if (!node) {
-        return false;
-    }
-
-    if (node.type === "Literal") {
-        return node.value === "undefined" || node.value === undefined;
-    }
-
-    if (isIdentifier(node)) {
-        return node.name === "undefined";
-    }
-
-    return false;
 }
 
 function extractConsequentAssignment(consequent) {
