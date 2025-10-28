@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+// Node deprecates the legacy assert.equal helper; keep these tests on the
+// strict variants to mirror runtime behaviour in production code.
+
 import {
     createAbortError,
     createAbortGuard,
@@ -10,8 +13,11 @@ import {
 
 describe("createAbortError", () => {
     it("returns null for non-aborted signals", () => {
-        assert.equal(createAbortError(null, "fallback"), null);
-        assert.equal(createAbortError({ aborted: false }, "fallback"), null);
+        assert.strictEqual(createAbortError(null, "fallback"), null);
+        assert.strictEqual(
+            createAbortError({ aborted: false }, "fallback"),
+            null
+        );
     });
 
     it("returns the original error reason when provided", () => {
@@ -35,21 +41,21 @@ describe("createAbortError", () => {
         const signal = { aborted: true, reason };
         const error = createAbortError(signal, "fallback message");
         assert.strictEqual(error, reason);
-        assert.equal(error.name, "AbortError");
-        assert.equal(error.message, "fallback message");
+        assert.strictEqual(error.name, "AbortError");
+        assert.strictEqual(error.message, "fallback message");
     });
 
     it("wraps non-error reasons using the fallback message", () => {
         const signal = { aborted: true, reason: "boom" };
         const error = createAbortError(signal, "fallback");
         assert.ok(error instanceof Error);
-        assert.equal(error.message, "boom");
+        assert.strictEqual(error.message, "boom");
     });
 
     it("uses the fallback message when no reason is provided", () => {
         const signal = { aborted: true, reason: undefined };
         const error = createAbortError(signal, "custom abort message");
-        assert.equal(error.message, "custom abort message");
+        assert.strictEqual(error.message, "custom abort message");
     });
 });
 
@@ -57,7 +63,7 @@ describe("isAbortError", () => {
     it("identifies errors produced by createAbortError", () => {
         const signal = { aborted: true, reason: "stop" };
         const error = createAbortError(signal, "fallback");
-        assert.equal(isAbortError(error), true);
+        assert.strictEqual(isAbortError(error), true);
     });
 
     it("brands reused abort reasons", () => {
@@ -65,12 +71,12 @@ describe("isAbortError", () => {
         const signal = { aborted: true, reason };
         const error = createAbortError(signal, "fallback");
         assert.strictEqual(error, reason);
-        assert.equal(isAbortError(error), true);
+        assert.strictEqual(isAbortError(error), true);
     });
 
     it("returns false for non-abort errors", () => {
-        assert.equal(isAbortError(new Error("boom")), false);
-        assert.equal(isAbortError(null), false);
+        assert.strictEqual(isAbortError(new Error("boom")), false);
+        assert.strictEqual(isAbortError(null), false);
     });
 });
 
@@ -93,13 +99,13 @@ describe("createAbortGuard", () => {
     it("normalizes the signal from an options bag", () => {
         const signal = { aborted: false };
         const guard = createAbortGuard({ signal });
-        assert.equal(guard.signal, signal);
+        assert.strictEqual(guard.signal, signal);
         assert.doesNotThrow(() => guard.ensureNotAborted());
     });
 
     it("returns null when no signal is provided", () => {
         const guard = createAbortGuard({}, {});
-        assert.equal(guard.signal, null);
+        assert.strictEqual(guard.signal, null);
         assert.doesNotThrow(() => guard.ensureNotAborted());
     });
 
