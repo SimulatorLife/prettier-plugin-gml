@@ -45,27 +45,11 @@ function normalizeArrayOption(
     }
 
     const normalized = [];
-    const hasComparableDefault = Array.isArray(defaultValue);
-    let matchesDefault = hasComparableDefault;
-    let normalizedIndex = 0;
 
     for (const value of candidate) {
-        if (!filter(value)) {
-            continue;
+        if (filter(value)) {
+            normalized.push(map(value));
         }
-
-        const mapped = map(value);
-        normalized.push(mapped);
-
-        if (
-            matchesDefault &&
-            (normalizedIndex >= defaultValue.length ||
-                mapped !== defaultValue[normalizedIndex])
-        ) {
-            matchesDefault = false;
-        }
-
-        normalizedIndex += 1;
     }
 
     if (normalized.length === 0) {
@@ -73,9 +57,9 @@ function normalizeArrayOption(
     }
 
     if (
-        hasComparableDefault &&
-        matchesDefault &&
-        normalized.length === defaultValue.length
+        Array.isArray(defaultValue) &&
+        normalized.length === defaultValue.length &&
+        normalized.every((entry, index) => entry === defaultValue[index])
     ) {
         return defaultValue;
     }
