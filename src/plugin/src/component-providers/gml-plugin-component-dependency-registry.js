@@ -1,4 +1,4 @@
-import { assertFunction, assertPlainObject } from "../shared/index.js";
+import { assertFunction, assertPlainObject, hasOwn } from "../shared/index.js";
 import { createDefaultGmlPluginComponentDependencies } from "./default-plugin-component-dependencies.js";
 
 const REQUIRED_OBJECT_DEPENDENCIES = Object.freeze([
@@ -37,7 +37,7 @@ const REQUIRED_DEPENDENCY_NAMES = Object.freeze([
 ]);
 
 function assertHasDependency(dependencies, name) {
-    if (!Object.hasOwn(dependencies, name)) {
+    if (!hasOwn(dependencies, name)) {
         throw new TypeError(
             `GML plugin component dependencies must include ${name}.`
         );
