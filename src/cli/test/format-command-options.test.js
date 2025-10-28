@@ -55,3 +55,54 @@ test("collectFormatCommandOptions normalizes string extension lists", () => {
 
     assert.deepStrictEqual(result.extensions, [".yy"]);
 });
+
+test("collectFormatCommandOptions derives target path from --path option", () => {
+    const command = {
+        args: ["ignored"],
+        opts() {
+            return { path: " ./project  " };
+        },
+        helpInformation() {
+            return "usage";
+        }
+    };
+
+    const result = collectFormatCommandOptions(command, DEFAULTS);
+
+    assert.strictEqual(result.targetPathInput, "./project");
+    assert.strictEqual(result.targetPathProvided, true);
+});
+
+test("collectFormatCommandOptions treats blank --path as provided but empty", () => {
+    const command = {
+        args: ["ignored"],
+        opts() {
+            return { path: "   " };
+        },
+        helpInformation() {
+            return "usage";
+        }
+    };
+
+    const result = collectFormatCommandOptions(command, DEFAULTS);
+
+    assert.strictEqual(result.targetPathInput, null);
+    assert.strictEqual(result.targetPathProvided, true);
+});
+
+test("collectFormatCommandOptions falls back to positional target", () => {
+    const command = {
+        args: [" ./script.gml  "],
+        opts() {
+            return {};
+        },
+        helpInformation() {
+            return "usage";
+        }
+    };
+
+    const result = collectFormatCommandOptions(command, DEFAULTS);
+
+    assert.strictEqual(result.targetPathInput, "./script.gml");
+    assert.strictEqual(result.targetPathProvided, true);
+});
