@@ -45,7 +45,7 @@ describe("manual CLI helpers", () => {
         const sanitized = writes
             .join("")
             .replaceAll(/\u001B\[[0-9;?]*[A-Za-z]/g, "")
-            .replaceAll('\r', "\n");
+            .replaceAll("\r", "\n");
 
         assert.match(sanitized, /Task \[[^\]]*\] 0\/3/);
         assert.match(sanitized, /Task \[[^\]]*\] 1\/3/);

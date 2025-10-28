@@ -102,7 +102,8 @@ function buildManualCommandContext({
     importMetaUrl,
     userAgent,
     outputFileName,
-    repoRootSegments = ["..", ".."]
+    repoRootSegments = ["..", ".."],
+    workflowPathFilter
 } = {}) {
     const normalizedUrl = assertFileUrl(importMetaUrl);
     const filename = fileURLToPath(normalizedUrl);
@@ -119,7 +120,8 @@ function buildManualCommandContext({
     } = createManualGitHubClientBundle({
         userAgent: assertUserAgent(userAgent),
         defaultCacheRoot,
-        defaultRawRoot: defaultManualRawRoot
+        defaultRawRoot: defaultManualRawRoot,
+        workflowPathFilter
     });
 
     const environment = Object.freeze({
