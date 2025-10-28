@@ -1,7 +1,7 @@
 # Doc comment type normalization hook
 
 ## Pre-change analysis
-- **Current behavior:** `normalizeDocCommentTypeAnnotations` relies on hard-coded
+- **Current behaviour:** `normalizeDocCommentTypeAnnotations` relies on hard-coded
   maps that normalize common GameMaker type names and resource prefixes. Host
   integrations that want to recognize additional synonyms (for example, custom
   typedefs exported by tools) or promote new resource prefixes must fork the
@@ -11,11 +11,11 @@
   resource prefixes, or canonicalize new prefixes while keeping the existing
   heuristics intact. Guardrails ensure inputs are trimmed, lowercased, and
   merged with the opinionated defaults so accidental omissions never strip the
-  built-in behavior.
+  built-in behaviour.
 - **Default preservation:** When no resolver is registered the formatter keeps
   using the frozen defaults. Any malformed resolver output is ignored on a
   per-entry basis, and a `restore…` helper returns immediately to today's
-  behavior, so the default formatting is unchanged out of the box.
+  behaviour, so the default formatting is unchanged out of the box.
 
 ## Overview
 `setDocCommentTypeNormalizationResolver` installs a function that returns a

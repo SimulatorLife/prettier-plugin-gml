@@ -1,7 +1,7 @@
 # Core option overrides hook
 
 ## Pre-change analysis
-- **Current behavior:** The plugin entry point in `src/plugin/src/gml.js` freezes a `CORE_OPTION_OVERRIDES` map that forces a handful of Prettier core options (for example `trailingComma: "none"` and `arrowParens: "always"`). Hosts that want to keep most defaults but relax or remove one of these clamps must fork the module because the overrides are not configurable.
+- **Current behaviour:** The plugin entry point in `src/plugin/src/gml.js` freezes a `CORE_OPTION_OVERRIDES` map that forces a handful of Prettier core options (for example `trailingComma: "none"` and `arrowParens: "always"`). Hosts that want to keep most defaults but relax or remove one of these clamps must fork the module because the overrides are not configurable.
 - **Proposed seam:** Introduce a resolver hook that produces the override map on demand. The hook keeps the existing defaults, validates incoming values against the supported Prettier choices, and allows hosts to either swap a value or drop an override entirely by returning `null`/`undefined` for that key.
 - **Default preservation:** Without a registered resolver we continue returning the frozen default override object, so `gml.js` merges the exact same map and all published behaviour stays opinionated by default.
 
