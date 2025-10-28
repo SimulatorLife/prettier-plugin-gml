@@ -1,6 +1,6 @@
 import antlr4 from "antlr4";
 
-import { isRecognitionExceptionLike } from "../utils/recognition-exception.js";
+import { isRecognitionExceptionLike } from "../utils/recognition-exception-like.js";
 
 const INVALID_INDEX_FALLBACK = -1;
 
