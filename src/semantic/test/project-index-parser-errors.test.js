@@ -84,3 +84,17 @@ test("display path stays absolute when file lies outside the project root", () =
 
     assert.strictEqual(formatted.filePath, "/external/project/file.gml");
 });
+
+test("formatProjectIndexSyntaxError tolerates missing error objects", () => {
+    const formatted = formatProjectIndexSyntaxError(null, "", {
+        filePath: "objects/example/Step_0.gml",
+        projectRoot: "/project/root"
+    });
+
+    assert.ok(formatted);
+    assert.strictEqual(
+        formatted.message,
+        "Syntax Error (objects/example/Step_0.gml): "
+    );
+    assert.strictEqual(formatted.originalMessage, "");
+});

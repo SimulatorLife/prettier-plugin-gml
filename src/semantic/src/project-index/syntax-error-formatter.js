@@ -8,13 +8,27 @@ import { resolveProjectDisplayPath } from "./path-normalization.js";
  * utilities while still allowing consumers (like the CLI) to import the
  * specialised behaviour directly from the project-index module tree.
  */
+function normalizeSyntaxErrorLike(error) {
+    if (
+        error !== null &&
+        (typeof error === "object" || typeof error === "function")
+    ) {
+        return error;
+    }
+
+    const normalizedMessage = getNonEmptyString(error);
+    return { message: normalizedMessage ?? "" };
+}
+
 export function formatProjectIndexSyntaxError(error, sourceText, context) {
+    const normalizedError = normalizeSyntaxErrorLike(error);
+
     const { filePath, projectRoot } = context ?? {};
-    const lineNumber = getFiniteNumber(error.line);
-    const columnNumber = getFiniteNumber(error.column);
+    const lineNumber = getFiniteNumber(normalizedError.line);
+    const columnNumber = getFiniteNumber(normalizedError.column);
     const displayPath = resolveProjectDisplayPath(filePath, projectRoot);
 
-    const baseDescription = extractBaseDescription(error.message);
+    const baseDescription = extractBaseDescription(normalizedError.message);
     const locationSuffix = buildLocationSuffix(
         displayPath,
         lineNumber,
@@ -22,23 +36,23 @@ export function formatProjectIndexSyntaxError(error, sourceText, context) {
     );
     const excerpt = formatSourceExcerpt(sourceText, lineNumber, columnNumber);
 
-    const originalMessage = error.message;
+    const originalMessage = getNonEmptyString(normalizedError.message) ?? "";
     const formattedMessage =
         `Syntax Error${locationSuffix}: ${baseDescription}` +
         (excerpt ? `\n\n${excerpt}` : "");
 
-    error.message = formattedMessage;
-    error.originalMessage = originalMessage;
+    normalizedError.message = formattedMessage;
+    normalizedError.originalMessage = originalMessage;
 
     if (displayPath) {
-        error.filePath = displayPath;
+        normalizedError.filePath = displayPath;
     }
 
     if (excerpt) {
-        error.sourceExcerpt = excerpt;
+        normalizedError.sourceExcerpt = excerpt;
     }
 
-    return error;
+    return normalizedError;
 }
 
 function getFiniteNumber(value) {
