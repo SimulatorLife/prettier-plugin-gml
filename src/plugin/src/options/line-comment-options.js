@@ -36,6 +36,14 @@ const DEFAULT_LINE_COMMENT_OPTIONS = Object.freeze({
 
 let lineCommentOptionsResolver = null;
 
+function arraysMatchDefault(normalized, defaultValue) {
+    return (
+        Array.isArray(defaultValue) &&
+        normalized.length === defaultValue.length &&
+        normalized.every((entry, index) => entry === defaultValue[index])
+    );
+}
+
 function normalizeArrayOption(
     candidate,
     { defaultValue, filter, map = (value) => value }
@@ -44,22 +52,11 @@ function normalizeArrayOption(
         return defaultValue;
     }
 
-    const normalized = [];
-
-    for (const value of candidate) {
-        if (filter(value)) {
-            normalized.push(map(value));
-        }
-    }
-
-    if (normalized.length === 0) {
-        return defaultValue;
-    }
+    const normalized = candidate.filter(filter).map(map);
 
     if (
-        Array.isArray(defaultValue) &&
-        normalized.length === defaultValue.length &&
-        normalized.every((entry, index) => entry === defaultValue[index])
+        normalized.length === 0 ||
+        arraysMatchDefault(normalized, defaultValue)
     ) {
         return defaultValue;
     }
