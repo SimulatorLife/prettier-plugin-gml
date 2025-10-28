@@ -63,6 +63,7 @@ import {
     isBooleanLiteral,
     isUndefinedSentinel,
     enqueueObjectChildValues,
+    isFunctionLikeNode,
     forEachNodeChild
 } from "../shared/index.js";
 import { maybeReportIdentifierCaseDryRun } from "gamemaker-language-semantic/identifier-case/identifier-case-report.js";
@@ -106,15 +107,6 @@ const FEATHER_COMMENT_TEXT_SYMBOL = Symbol.for(
 const preservedUndefinedDefaultParameters = new WeakSet();
 const synthesizedUndefinedDefaultParameters = new WeakSet();
 const ARGUMENT_IDENTIFIER_PATTERN = /^argument(\d+)$/;
-const FUNCTION_LIKE_NODE_TYPES = new Set([
-    "FunctionDeclaration",
-    "FunctionExpression",
-    "LambdaExpression",
-    "ConstructorDeclaration",
-    "MethodDeclaration",
-    "StructFunctionDeclaration",
-    "StructDeclaration"
-]);
 const suppressedImplicitDocCanonicalByNode = new WeakMap();
 const preferredParamDocNamesByNode = new WeakMap();
 const forcedStructArgumentBreaks = new WeakMap();
@@ -8667,7 +8659,7 @@ function findEnclosingFunctionForPath(path) {
             break;
         }
 
-        if (FUNCTION_LIKE_NODE_TYPES.has(parent.type)) {
+        if (isFunctionLikeNode(parent)) {
             return parent;
         }
     }
