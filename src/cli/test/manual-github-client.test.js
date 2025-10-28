@@ -12,9 +12,15 @@ import {
 const API_ROOT = "https://api.github.com/repos/example/manual";
 const RAW_ROOT = "https://raw.github.com/example/manual";
 
-function makeResponse({ body, ok = true, statusText = "OK" }) {
+function makeResponse({
+    body,
+    ok = true,
+    status = ok ? 200 : 500,
+    statusText = "OK"
+}) {
     return {
         ok,
+        status,
         statusText,
         async text() {
             return body;
@@ -152,6 +158,75 @@ describe("manual GitHub client validation", { concurrency: false }, () => {
         } finally {
             await fs.rm(cacheRoot, { recursive: true, force: true });
         }
+    });
+
+    it("wraps GitHub HTTP failures with structured request errors", async () => {
+        const client = createManualClientBundle({
+            userAgent: "test-agent",
+            defaultCacheRoot: "/tmp/manual-cache",
+            defaultRawRoot: RAW_ROOT
+        });
+
+        const failingUrl = `${API_ROOT}/commits/main`;
+        mock.method(globalThis, "fetch", async (url) => {
+            assert.equal(url, failingUrl);
+            return makeResponse({
+                ok: false,
+                status: 404,
+                statusText: "Not Found",
+                body: "missing"
+            });
+        });
+
+        await assert.rejects(
+            () =>
+                client.requestDispatcher.execute(failingUrl, {
+                    acceptJson: true
+                }),
+            (error) => {
+                assert.equal(error instanceof Error, true);
+                assert.equal(error.name, "ManualGitHubRequestError");
+                assert.equal(
+                    error.message,
+                    `Request failed for ${failingUrl} (404 Not Found): missing`
+                );
+                assert.equal(error.status, 404);
+                assert.equal(error.statusText, "Not Found");
+                assert.equal(error.responseBody, "missing");
+                assert.equal(error.url, failingUrl);
+                return true;
+            }
+        );
+    });
+
+    it("wraps network failures with manual request errors", async () => {
+        const client = createManualClientBundle({
+            userAgent: "test-agent",
+            defaultCacheRoot: "/tmp/manual-cache",
+            defaultRawRoot: RAW_ROOT
+        });
+
+        const failingUrl = `${RAW_ROOT}/sha/path/to/file`;
+        mock.method(globalThis, "fetch", async (url) => {
+            assert.equal(url, failingUrl);
+            throw new Error("boom");
+        });
+
+        await assert.rejects(
+            () => client.requestDispatcher.execute(failingUrl),
+            (error) => {
+                assert.equal(error instanceof Error, true);
+                assert.equal(error.name, "ManualGitHubRequestError");
+                assert.equal(
+                    error.message,
+                    `Request failed for ${failingUrl}: boom`
+                );
+                assert.equal(error.cause?.message, "boom");
+                assert.equal(error.status, undefined);
+                assert.equal(error.responseBody, undefined);
+                return true;
+            }
+        );
     });
 
     it("rejects manual commit payloads without a SHA", async () => {
