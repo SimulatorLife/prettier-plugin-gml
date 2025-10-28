@@ -1,4 +1,4 @@
-import { getNonEmptyTrimmedString } from "../dependencies.js";
+import { assertArray, getNonEmptyTrimmedString } from "../dependencies.js";
 import { isProjectManifestPath } from "./constants.js";
 
 const DEFAULT_PROJECT_SOURCE_EXTENSIONS = Object.freeze([".gml"]);
@@ -48,15 +48,14 @@ export function resetProjectIndexSourceExtensions() {
  *          normalized additions.
  */
 function normalizeProjectSourceExtensions(extensions) {
-    if (!Array.isArray(extensions)) {
-        throw new TypeError(
+    const normalizedExtensions = assertArray(extensions, {
+        errorMessage:
             "Project source extensions must be provided as an array of strings."
-        );
-    }
+    });
 
     const normalized = new Set(DEFAULT_PROJECT_SOURCE_EXTENSIONS);
 
-    for (const extension of extensions) {
+    for (const extension of normalizedExtensions) {
         if (typeof extension !== "string") {
             throw new TypeError(
                 "Project source extensions must be strings (for example '.gml')."
