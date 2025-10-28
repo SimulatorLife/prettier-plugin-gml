@@ -229,7 +229,7 @@ export function parseJsonObjectWithContext(text, options = {}) {
 
     const mergedOptions =
         baseOptions || overrideOptions
-            ? { ...(baseOptions ?? {}), ...(overrideOptions ?? {}) }
+            ? Object.assign({}, baseOptions, overrideOptions)
             : undefined;
 
     return assertPlainObject(payload, mergedOptions);
