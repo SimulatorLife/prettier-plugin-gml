@@ -4,6 +4,16 @@ import { isRecognitionExceptionLike } from "../utils/recognition-exception.js";
 
 const INVALID_INDEX_FALLBACK = -1;
 
+function firstNumber(...values) {
+    for (const value of values) {
+        if (typeof value === "number") {
+            return value;
+        }
+    }
+
+    return undefined;
+}
+
 function getTokenStream(recognizer) {
     if (recognizer && typeof recognizer.getTokenStream === "function") {
         return recognizer.getTokenStream();
@@ -32,75 +42,35 @@ function ensureTokenMetadata(token, { fallbackCandidates = [], stream } = {}) {
     }
 
     if (typeof token.tokenIndex !== "number") {
-        switch ("number") {
-            case typeof fallback?.tokenIndex: {
-                token.tokenIndex = fallback.tokenIndex;
+        const fallbackIndex = firstNumber(
+            fallback?.tokenIndex,
+            token.index,
+            token.startIndex
+        );
 
-                break;
-            }
-            case typeof token.index: {
-                token.tokenIndex = token.index;
-
-                break;
-            }
-            case typeof token.startIndex: {
-                token.tokenIndex = token.startIndex;
-
-                break;
-            }
-            default: {
-                token.tokenIndex =
-                    stream && typeof stream.index === "number"
-                        ? stream.index
-                        : INVALID_INDEX_FALLBACK;
-            }
-        }
+        token.tokenIndex =
+            fallbackIndex ??
+            (typeof stream?.index === "number"
+                ? stream.index
+                : INVALID_INDEX_FALLBACK);
     }
 
     if (typeof token.line !== "number") {
-        switch ("number") {
-            case typeof fallback?.line: {
-                token.line = fallback.line;
-
-                break;
-            }
-            case typeof fallback?.start?.line: {
-                token.line = fallback.start.line;
-
-                break;
-            }
-            case typeof token.start?.line: {
-                token.line = token.start.line;
-
-                break;
-            }
-            default: {
-                token.line = INVALID_INDEX_FALLBACK;
-            }
-        }
+        token.line =
+            firstNumber(
+                fallback?.line,
+                fallback?.start?.line,
+                token.start?.line
+            ) ?? INVALID_INDEX_FALLBACK;
     }
 
     if (typeof token.column !== "number") {
-        switch ("number") {
-            case typeof fallback?.column: {
-                token.column = fallback.column;
-
-                break;
-            }
-            case typeof fallback?.start?.column: {
-                token.column = fallback.start.column;
-
-                break;
-            }
-            case typeof token.start?.column: {
-                token.column = token.start.column;
-
-                break;
-            }
-            default: {
-                token.column = INVALID_INDEX_FALLBACK;
-            }
-        }
+        token.column =
+            firstNumber(
+                fallback?.column,
+                fallback?.start?.column,
+                token.start?.column
+            ) ?? INVALID_INDEX_FALLBACK;
     }
 
     return token;
