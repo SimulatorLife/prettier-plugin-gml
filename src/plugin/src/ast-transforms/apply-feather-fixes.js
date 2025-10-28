@@ -55,7 +55,7 @@ import {
     getFeatherDiagnosticById,
     getFeatherDiagnostics,
     getFeatherMetadata
-} from "../resources/feather-metadata.js";
+} from "gamemaker-language-semantic/resources/feather-metadata.js";
 import { loadReservedIdentifierNames } from "gamemaker-language-semantic/resources/reserved-identifiers.js";
 
 function walkAstNodes(root, visitor) {
