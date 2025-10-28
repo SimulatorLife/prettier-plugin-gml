@@ -1,4 +1,8 @@
 import { assertFunction, hasOwn } from "../shared/index.js";
+import {
+    TRAILING_COMMA,
+    assertTrailingCommaValue
+} from "./trailing-comma-option.js";
 
 // Hard overrides for GML regardless of incoming config. These knobs either map
 // to syntax that GameMaker never emits (for example JSX attributes) or would let
@@ -11,7 +15,7 @@ import { assertFunction, hasOwn } from "../shared/index.js";
 // specific entries.
 
 const DEFAULT_CORE_OPTION_OVERRIDES = Object.freeze({
-    trailingComma: "none",
+    trailingComma: TRAILING_COMMA.NONE,
     arrowParens: "always",
     singleAttributePerLine: false,
     jsxSingleQuote: false,
@@ -19,7 +23,6 @@ const DEFAULT_CORE_OPTION_OVERRIDES = Object.freeze({
     htmlWhitespaceSensitivity: "css"
 });
 
-const TRAILING_COMMA_VALUES = new Set(["none", "es5", "all"]);
 const ARROW_PARENS_VALUES = new Set(["always", "avoid"]);
 const PROSE_WRAP_VALUES = new Set(["always", "never", "preserve"]);
 const HTML_WHITESPACE_SENSITIVITY_VALUES = new Set(["css", "strict", "ignore"]);
@@ -38,8 +41,16 @@ function normalizeChoice(value, allowedValues) {
     return allowedValues.has(value) ? value : undefined;
 }
 
+function normalizeTrailingCommaOverride(value) {
+    if (typeof value !== "string") {
+        return;
+    }
+
+    return assertTrailingCommaValue(value);
+}
+
 const CORE_OVERRIDE_NORMALIZERS = {
-    trailingComma: (value) => normalizeChoice(value, TRAILING_COMMA_VALUES),
+    trailingComma: (value) => normalizeTrailingCommaOverride(value),
     arrowParens: (value) => normalizeChoice(value, ARROW_PARENS_VALUES),
     singleAttributePerLine: (value) => normalizeBoolean(value),
     jsxSingleQuote: (value) => normalizeBoolean(value),

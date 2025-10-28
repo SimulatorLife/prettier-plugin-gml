@@ -7,6 +7,7 @@ import {
     restoreDefaultCoreOptionOverridesResolver,
     setCoreOptionOverridesResolver
 } from "../src/options/core-option-overrides.js";
+import { TRAILING_COMMA } from "../src/options/trailing-comma-option.js";
 
 describe("resolveCoreOptionOverrides", () => {
     it("returns the default override map when no resolver is registered", () => {
@@ -26,16 +27,33 @@ describe("resolveCoreOptionOverrides", () => {
     it("allows hosts to replace opinionated values via the resolver hook", () => {
         try {
             setCoreOptionOverridesResolver(() => ({
-                trailingComma: "es5",
+                trailingComma: TRAILING_COMMA.ES5,
                 htmlWhitespaceSensitivity: "ignore"
             }));
 
             const overrides = resolveCoreOptionOverrides();
 
-            assert.equal(overrides.trailingComma, "es5");
+            assert.equal(overrides.trailingComma, TRAILING_COMMA.ES5);
             assert.equal(overrides.htmlWhitespaceSensitivity, "ignore");
             assert.equal(overrides.arrowParens, "always");
             assert.equal(overrides.jsxSingleQuote, false);
+        } finally {
+            restoreDefaultCoreOptionOverridesResolver();
+        }
+    });
+
+    it("throws when the resolver returns an invalid trailing comma override", () => {
+        try {
+            assert.throws(
+                () =>
+                    setCoreOptionOverridesResolver(() => ({
+                        trailingComma: "ALWAYS"
+                    })),
+                {
+                    name: "TypeError",
+                    message: /Trailing comma override must be one of/
+                }
+            );
         } finally {
             restoreDefaultCoreOptionOverridesResolver();
         }
