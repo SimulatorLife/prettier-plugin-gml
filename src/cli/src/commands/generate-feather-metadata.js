@@ -19,9 +19,8 @@ import {
     MANUAL_CACHE_ROOT_ENV_VAR,
     DEFAULT_MANUAL_REPO,
     MANUAL_REPO_ENV_VAR,
-    announceManualDownloadStart,
     buildManualRepositoryEndpoints,
-    downloadManualEntriesWithProgress,
+    downloadManualEntryPayloads,
     ensureManualRefHasSha
 } from "../modules/manual/utils.js";
 import {
@@ -1109,28 +1108,18 @@ async function fetchFeatherManualPayloads({
     progressBarWidth
 }) {
     const manualEntries = Object.entries(FEATHER_PAGES);
-    const totalManualPages = manualEntries.length;
 
-    announceManualDownloadStart(totalManualPages, {
-        verbose,
-        description: "manual page"
-    });
-
-    return downloadManualEntriesWithProgress({
+    return downloadManualEntryPayloads({
         entries: manualEntries,
         manualRefSha: manualRef.sha,
         fetchManualFile: fetchManualFileFn,
-        requestOptions: {
-            forceRefresh,
-            verbose,
-            cacheRoot,
-            rawRoot
-        },
-        progress: {
-            label: "Downloading manual pages",
-            verbose,
-            progressBarWidth
-        }
+        forceRefresh,
+        verbose,
+        cacheRoot,
+        rawRoot,
+        progressBarWidth,
+        description: "manual page",
+        progressLabel: "Downloading manual pages"
     });
 }
 

@@ -413,6 +413,56 @@ export async function downloadManualEntriesWithProgress({
 }
 
 /**
+ * Download a batch of manual entries while emitting the standard announcement
+ * and progress reporting output shared across CLI commands. Centralizing the
+ * ceremony keeps callers focused on their domain-specific orchestration
+ * instead of reimplementing download bookkeeping for each artefact.
+ */
+export async function downloadManualEntryPayloads({
+    entries,
+    manualRefSha,
+    fetchManualFile,
+    forceRefresh,
+    verbose,
+    cacheRoot,
+    rawRoot,
+    progressBarWidth,
+    description = "manual file",
+    progressLabel = "Downloading manual entries",
+    formatPath,
+    render,
+    logger
+} = {}) {
+    const orderedEntries = Array.from(entries ?? []);
+
+    announceManualDownloadStart(orderedEntries.length, {
+        verbose,
+        description,
+        logger
+    });
+
+    return downloadManualEntriesWithProgress({
+        entries: orderedEntries,
+        manualRefSha,
+        fetchManualFile,
+        requestOptions: {
+            forceRefresh,
+            verbose,
+            cacheRoot,
+            rawRoot
+        },
+        progress: {
+            label: progressLabel,
+            verbose,
+            progressBarWidth,
+            formatPath,
+            render,
+            logger
+        }
+    });
+}
+
+/**
  * @typedef {object} ManualGitHubRequestOptions
  * @property {Record<string, string>} [headers]
  * @property {boolean} [acceptJson]
