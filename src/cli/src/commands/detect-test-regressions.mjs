@@ -5,7 +5,6 @@ import { fileURLToPath } from "node:url";
 
 import {
     assertArray,
-    getErrorMessage,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
     hasOwn,
@@ -95,9 +94,7 @@ function createFallbackXmlParser() {
             try {
                 return parseXmlDocument(xml);
             } catch (innerError) {
-                const message = getErrorMessage(innerError, {
-                    fallback: "Unknown error"
-                });
+                const message = getErrorMessageOrFallback(innerError);
                 throw new Error(`Fallback XML parser failed: ${message}`);
             }
         }
