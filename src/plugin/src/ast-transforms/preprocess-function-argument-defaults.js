@@ -262,20 +262,22 @@ function preprocessFunctionDeclaration(node, helpers) {
             ? removedStatement.range[1]
             : null;
 
-        if (typeof removedRangeEnd === "number") {
-            if (Array.isArray(targetDeclaration.range)) {
-                const [startRange] = targetDeclaration.range;
-                targetDeclaration.range = [startRange, removedRangeEnd];
-            } else {
-                const declarationStart = getNodeStartIndex(targetDeclaration);
-                if (typeof declarationStart === "number") {
-                    targetDeclaration.range = [
-                        declarationStart,
-                        removedRangeEnd
-                    ];
-                }
-            }
+        if (typeof removedRangeEnd !== "number") {
+            return;
         }
+
+        if (Array.isArray(targetDeclaration.range)) {
+            const [startRange] = targetDeclaration.range;
+            targetDeclaration.range = [startRange, removedRangeEnd];
+            return;
+        }
+
+        const declarationStart = getNodeStartIndex(targetDeclaration);
+        if (typeof declarationStart !== "number") {
+            return;
+        }
+
+        targetDeclaration.range = [declarationStart, removedRangeEnd];
     }
 
     const paramInfoByName = new Map();
