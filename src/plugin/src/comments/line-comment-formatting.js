@@ -6,6 +6,7 @@ import {
 } from "../options/line-comment-options.js";
 import { isObjectLike } from "./comment-boundary.js";
 import {
+    assertFunction,
     getCommentValue,
     getNonEmptyTrimmedString,
     trimStringEntries,
@@ -41,51 +42,199 @@ const JSDOC_REPLACEMENT_RULES = Object.entries(JSDOC_REPLACEMENTS).map(
     })
 );
 
-const GAME_MAKER_TYPE_NORMALIZATIONS = new Map(
-    Object.entries({
-        void: "undefined",
-        undefined: "undefined",
-        real: "real",
-        bool: "bool",
-        boolean: "boolean",
-        string: "string",
-        array: "array",
-        struct: "struct",
-        enum: "enum",
-        pointer: "pointer",
-        method: "method",
-        asset: "asset",
-        constant: "constant",
-        any: "any",
-        var: "var",
-        int64: "int64",
-        int32: "int32",
-        int16: "int16",
-        int8: "int8",
-        uint64: "uint64",
-        uint32: "uint32",
-        uint16: "uint16",
-        uint8: "uint8"
-    })
-);
+const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION = Object.freeze({
+    synonyms: Object.freeze([
+        ["void", "undefined"],
+        ["undefined", "undefined"],
+        ["real", "real"],
+        ["bool", "bool"],
+        ["boolean", "boolean"],
+        ["string", "string"],
+        ["array", "array"],
+        ["struct", "struct"],
+        ["enum", "enum"],
+        ["pointer", "pointer"],
+        ["method", "method"],
+        ["asset", "asset"],
+        ["constant", "constant"],
+        ["any", "any"],
+        ["var", "var"],
+        ["int64", "int64"],
+        ["int32", "int32"],
+        ["int16", "int16"],
+        ["int8", "int8"],
+        ["uint64", "uint64"],
+        ["uint32", "uint32"],
+        ["uint16", "uint16"],
+        ["uint8", "uint8"]
+    ]),
+    specifierPrefixes: Object.freeze([
+        "asset",
+        "constant",
+        "enum",
+        "id",
+        "struct"
+    ]),
+    canonicalSpecifierNames: Object.freeze([
+        ["asset", "Asset"],
+        ["constant", "constant"],
+        ["enum", "Enum"],
+        ["id", "Id"],
+        ["struct", "Struct"]
+    ])
+});
 
-const TYPE_SPECIFIER_PREFIXES = new Set([
-    "asset",
-    "constant",
-    "enum",
-    "id",
-    "struct"
-]);
+let docCommentTypeNormalizationResolver = null;
+let activeDocCommentTypeNormalization = createDocCommentTypeNormalization();
 
-const TYPE_SPECIFIER_CANONICAL_NAMES = new Map(
-    Object.entries({
-        asset: "Asset",
-        constant: "constant",
-        enum: "Enum",
-        id: "Id",
-        struct: "Struct"
-    })
-);
+function createDocCommentTypeNormalization(candidate) {
+    const synonyms = new Map();
+    for (const [key, value] of DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.synonyms) {
+        synonyms.set(key.toLowerCase(), value);
+    }
+
+    const canonicalSpecifierNames = new Map();
+    for (const [key, value] of DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.canonicalSpecifierNames) {
+        canonicalSpecifierNames.set(key.toLowerCase(), value);
+    }
+
+    const specifierPrefixes = new Set(
+        DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.specifierPrefixes.map((value) =>
+            value.toLowerCase()
+        )
+    );
+
+    if (candidate && typeof candidate === "object") {
+        mergeNormalizationEntries(synonyms, candidate.synonyms);
+        mergeNormalizationEntries(canonicalSpecifierNames, candidate.canonicalSpecifierNames);
+        mergeSpecifierPrefixes(specifierPrefixes, candidate.specifierPrefixes);
+    }
+
+    return Object.freeze({
+        lookupTypeIdentifier(identifier) {
+            const normalized = getNonEmptyTrimmedString(identifier);
+            if (!normalized) {
+                return null;
+            }
+            return synonyms.get(normalized.toLowerCase()) ?? null;
+        },
+        getCanonicalSpecifierName(identifier) {
+            const normalized = getNonEmptyTrimmedString(identifier);
+            if (!normalized) {
+                return null;
+            }
+            return canonicalSpecifierNames.get(normalized.toLowerCase()) ?? null;
+        },
+        hasSpecifierPrefix(identifier) {
+            const normalized = getNonEmptyTrimmedString(identifier);
+            if (!normalized) {
+                return false;
+            }
+            return specifierPrefixes.has(normalized.toLowerCase());
+        }
+    });
+}
+
+function mergeNormalizationEntries(target, entries) {
+    if (!entries) {
+        return;
+    }
+
+    const iterable = getEntryIterable(entries);
+    for (const [rawKey, rawValue] of iterable) {
+        const key = getNonEmptyTrimmedString(rawKey);
+        const value = getNonEmptyTrimmedString(rawValue);
+        if (!key || !value) {
+            continue;
+        }
+        target.set(key.toLowerCase(), value);
+    }
+}
+
+function mergeSpecifierPrefixes(target, candidates) {
+    if (!candidates) {
+        return;
+    }
+
+    for (const candidate of toIterable(candidates)) {
+        const normalized = getNonEmptyTrimmedString(candidate);
+        if (!normalized) {
+            continue;
+        }
+        target.add(normalized.toLowerCase());
+    }
+}
+
+function* getEntryIterable(value) {
+    if (!value) {
+        return;
+    }
+
+    if (value instanceof Map) {
+        yield* value.entries();
+        return;
+    }
+
+    if (Array.isArray(value)) {
+        for (const entry of value) {
+            if (Array.isArray(entry) && entry.length >= 2) {
+                yield [entry[0], entry[1]];
+            }
+        }
+        return;
+    }
+
+    if (typeof value === "object") {
+        yield* Object.entries(value);
+    }
+}
+
+function* toIterable(value) {
+    if (value === undefined || value === null) {
+        return;
+    }
+
+    if (typeof value === "string") {
+        yield value;
+        return;
+    }
+
+    if (typeof value[Symbol.iterator] === "function") {
+        yield* value;
+        return;
+    }
+
+    if (typeof value === "object") {
+        yield* Object.values(value);
+    }
+}
+
+function resolveDocCommentTypeNormalization(options = {}) {
+    if (!docCommentTypeNormalizationResolver) {
+        return activeDocCommentTypeNormalization;
+    }
+
+    const resolved = docCommentTypeNormalizationResolver({
+        defaults: DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION,
+        options
+    });
+    activeDocCommentTypeNormalization = createDocCommentTypeNormalization(resolved);
+    return activeDocCommentTypeNormalization;
+}
+
+function setDocCommentTypeNormalizationResolver(resolver) {
+    docCommentTypeNormalizationResolver = assertFunction(resolver, "resolver", {
+        errorMessage:
+            "Doc comment type normalization resolvers must be functions that return a normalization descriptor"
+    });
+    return resolveDocCommentTypeNormalization();
+}
+
+function restoreDefaultDocCommentTypeNormalizationResolver() {
+    docCommentTypeNormalizationResolver = null;
+    activeDocCommentTypeNormalization = createDocCommentTypeNormalization();
+    return activeDocCommentTypeNormalization;
+}
 
 const FUNCTION_LIKE_DOC_TAG_PATTERN = /@(func(?:tion)?|method)\b/i;
 
@@ -404,6 +553,7 @@ function normalizeGameMakerType(typeText) {
         return typeText;
     }
 
+    const docCommentTypeNormalization = resolveDocCommentTypeNormalization();
     const segments = [];
     const tokenPattern = /([A-Za-z_][A-Za-z0-9_]*)|([^A-Za-z_]+)/g;
     let match;
@@ -411,12 +561,12 @@ function normalizeGameMakerType(typeText) {
     while ((match = tokenPattern.exec(typeText)) !== null) {
         if (match[1]) {
             const identifier = match[1];
-            const normalizedIdentifier = GAME_MAKER_TYPE_NORMALIZATIONS.get(
-                identifier.toLowerCase()
-            );
+            const normalizedIdentifier =
+                docCommentTypeNormalization.lookupTypeIdentifier(identifier) ??
+                identifier;
             segments.push({
                 type: "identifier",
-                value: normalizedIdentifier ?? identifier
+                value: normalizedIdentifier
             });
             continue;
         }
@@ -493,9 +643,10 @@ function normalizeGameMakerType(typeText) {
             let normalizedValue = segment.value;
 
             if (typeof normalizedValue === "string") {
-                const canonicalPrefix = TYPE_SPECIFIER_CANONICAL_NAMES.get(
-                    normalizedValue.toLowerCase()
-                );
+                const canonicalPrefix =
+                    docCommentTypeNormalization.getCanonicalSpecifierName(
+                        normalizedValue
+                    );
 
                 if (canonicalPrefix && isDotSeparatedTypeSpecifierPrefix(index)) {
                     normalizedValue = canonicalPrefix;
@@ -535,10 +686,13 @@ function normalizeGameMakerType(typeText) {
                 continue;
             }
 
-            const previousKey = previousIdentifier.toLowerCase();
-            if (TYPE_SPECIFIER_PREFIXES.has(previousKey)) {
+            if (
+                docCommentTypeNormalization.hasSpecifierPrefix(previousIdentifier)
+            ) {
                 const canonicalPrefix =
-                    TYPE_SPECIFIER_CANONICAL_NAMES.get(previousKey);
+                    docCommentTypeNormalization.getCanonicalSpecifierName(
+                        previousIdentifier
+                    );
                 if (canonicalPrefix && outputSegments.length > 0) {
                     outputSegments[outputSegments.length - 1] = canonicalPrefix;
                 }
@@ -603,8 +757,12 @@ function splitCommentIntoSentences(text) {
 }
 
 export {
+    DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION,
     applyInlinePadding,
     formatLineComment,
     getLineCommentRawText,
-    normalizeDocCommentTypeAnnotations
+    normalizeDocCommentTypeAnnotations,
+    resolveDocCommentTypeNormalization,
+    restoreDefaultDocCommentTypeNormalizationResolver,
+    setDocCommentTypeNormalizationResolver
 };
