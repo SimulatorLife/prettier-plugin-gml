@@ -2,18 +2,14 @@ import {
     bootstrapProjectIndex,
     applyBootstrappedProjectIndex
 } from "./project-index-bootstrap.js";
-import { isObjectLike } from "../shared/index.js";
+import { coalesceOption } from "../shared/index.js";
 import { setIdentifierCaseOption } from "./option-store.js";
 
 function getExistingProjectIndex(options) {
-    if (!isObjectLike(options)) {
-        return null;
-    }
-
-    return (
-        options.__identifierCaseProjectIndex ??
-        options.identifierCaseProjectIndex ??
-        null
+    return coalesceOption(
+        options,
+        ["__identifierCaseProjectIndex", "identifierCaseProjectIndex"],
+        { fallback: null }
     );
 }
 
