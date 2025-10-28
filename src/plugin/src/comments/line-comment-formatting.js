@@ -140,6 +140,25 @@ function formatLineComment(
         }
     }
 
+    const hasPrecedingLineBreak =
+        isObjectLike(comment) &&
+        typeof comment.leadingWS === "string" &&
+        /\r|\n/.test(comment.leadingWS);
+
+    const hasInlineLeadingChar =
+        isObjectLike(comment) &&
+        typeof comment.leadingChar === "string" &&
+        comment.leadingChar.length > 0 &&
+        !/\r|\n/.test(comment.leadingChar);
+
+    const isInlineComment =
+        isObjectLike(comment) &&
+        comment.isTopComment !== true &&
+        (typeof comment.inlinePadding === "number" ||
+            comment.trailing === true ||
+            comment.placement === "endOfLine" ||
+            (!hasPrecedingLineBreak && hasInlineLeadingChar));
+
     const slashesMatch = original.match(/^\s*(\/{2,})(.*)$/);
     if (
         slashesMatch &&
@@ -149,9 +168,20 @@ function formatLineComment(
     }
 
     if (
+        isInlineComment &&
+        trimmedOriginal.startsWith("///") &&
+        !trimmedOriginal.includes("@")
+    ) {
+        const remainder = trimmedOriginal.slice(3).trimStart();
+        const formatted = remainder.length > 0 ? `// ${remainder}` : "//";
+        return applyInlinePadding(comment, formatted);
+    }
+
+    if (
         trimmedOriginal.startsWith("///") &&
         !trimmedOriginal.includes("@") &&
-        leadingSlashCount >= LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES
+        leadingSlashCount >= LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES &&
+        !isInlineComment
     ) {
         return applyInlinePadding(comment, trimmedOriginal);
     }
@@ -160,7 +190,8 @@ function formatLineComment(
     if (
         docContinuationMatch &&
         trimmedOriginal.startsWith("///") &&
-        !trimmedOriginal.includes("@")
+        !trimmedOriginal.includes("@") &&
+        !isInlineComment
     ) {
         return applyInlinePadding(comment, trimmedOriginal);
     }
@@ -186,11 +217,6 @@ function formatLineComment(
         return applyInlinePadding(comment, formattedCommentLine);
     }
 
-    const isInlineComment =
-        isObjectLike(comment) &&
-        (typeof comment.inlinePadding === "number" ||
-            comment.trailing === true ||
-            comment.placement === "endOfLine");
     const sentences = isInlineComment
         ? [trimmedValue]
         : splitCommentIntoSentences(trimmedValue);

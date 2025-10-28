@@ -210,6 +210,123 @@ function callPathMethod(path, methodName, { args, defaultValue } = {}) {
     return method.apply(path, normalizedArgs);
 }
 
+function isBlockWithinConstructor(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return false;
+    }
+
+    for (let depth = 0; depth < 100; depth += 1) {
+        const ancestor = callPathMethod(path, "getParentNode", {
+            args: [depth],
+            defaultValue: null
+        });
+
+        if (!ancestor) {
+            break;
+        }
+
+        if (ancestor.type === "ConstructorDeclaration") {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function hasBlankLineBeforeLeadingComment(
+    blockNode,
+    sourceMetadata,
+    originalText,
+    firstStatementStartIndex
+) {
+    if (
+        !blockNode ||
+        typeof originalText !== "string" ||
+        typeof firstStatementStartIndex !== "number"
+    ) {
+        return false;
+    }
+
+    const { startIndex: blockStartIndex } = resolveNodeIndexRangeWithSource(
+        blockNode,
+        sourceMetadata
+    );
+
+    if (
+        typeof blockStartIndex !== "number" ||
+        blockStartIndex >= firstStatementStartIndex
+    ) {
+        return false;
+    }
+
+    const openBraceIndex = originalText.indexOf("{", blockStartIndex);
+    if (openBraceIndex === -1 || openBraceIndex >= firstStatementStartIndex) {
+        return false;
+    }
+
+    const interiorSlice = originalText.slice(
+        openBraceIndex + 1,
+        firstStatementStartIndex
+    );
+
+    if (interiorSlice.length === 0) {
+        return false;
+    }
+
+    const commentMatch = interiorSlice.match(/\/\/|\/\*/);
+    if (!commentMatch || typeof commentMatch.index !== "number") {
+        return false;
+    }
+
+    const textBeforeComment = interiorSlice.slice(0, commentMatch.index);
+    if (textBeforeComment.trim().length > 0) {
+        return false;
+    }
+
+    return /\r?\n[^\S\r\n]*\r?\n[^\S\r\n]*$/.test(textBeforeComment);
+}
+
+function hasBlankLineBetweenLastCommentAndClosingBrace(
+    blockNode,
+    sourceMetadata,
+    originalText
+) {
+    if (!blockNode || typeof originalText !== "string") {
+        return false;
+    }
+
+    const comments = getCommentArray(blockNode).filter(isCommentNode);
+    if (comments.length === 0) {
+        return false;
+    }
+
+    const lastComment = comments.at(-1);
+    const commentEndIndex = getNodeEndIndex(lastComment);
+    const { endIndex: blockEndIndex } = resolveNodeIndexRangeWithSource(
+        blockNode,
+        sourceMetadata
+    );
+
+    if (
+        typeof commentEndIndex !== "number" ||
+        typeof blockEndIndex !== "number"
+    ) {
+        return false;
+    }
+
+    const closingBraceIndex = blockEndIndex;
+    if (commentEndIndex >= closingBraceIndex) {
+        return false;
+    }
+
+    const betweenText = originalText.slice(commentEndIndex, closingBraceIndex);
+    if (betweenText.trim().length > 0) {
+        return false;
+    }
+
+    return /\r?\n[^\S\r\n]*\r?\n/.test(betweenText);
+}
+
 const BINARY_OPERATOR_INFO = new Map([
     ["*", { precedence: 13, associativity: "left" }],
     ["/", { precedence: 13, associativity: "left" }],
@@ -297,29 +414,31 @@ export function print(path, options, print) {
                 leadingDocs = [hardline, hardline];
             }
 
-            const parentNode = callPathMethod(path, "getParentNode", {
-                defaultValue: null
-            });
+            const sourceMetadata = resolvePrinterSourceMetadata(options);
+            const { originalText } = sourceMetadata;
+            if (originalText !== null) {
+                const firstStatement = node.body[0];
+                const { startIndex: firstStatementStartIndex } =
+                    resolveNodeIndexRangeWithSource(
+                        firstStatement,
+                        sourceMetadata
+                    );
 
-            if (parentNode?.type === "ConstructorDeclaration") {
-                const sourceMetadata = resolvePrinterSourceMetadata(options);
-                const { originalText } = sourceMetadata;
-                if (originalText !== null) {
-                    const firstStatement = node.body[0];
-                    const { startIndex: firstStatementStartIndex } =
-                        resolveNodeIndexRangeWithSource(
-                            firstStatement,
-                            sourceMetadata
-                        );
+                const preserveForConstructor =
+                    typeof firstStatementStartIndex === "number" &&
+                    isBlockWithinConstructor(path) &&
+                    isPreviousLineEmpty(originalText, firstStatementStartIndex);
 
-                    if (
-                        isPreviousLineEmpty(
-                            originalText,
-                            firstStatementStartIndex
-                        )
-                    ) {
-                        leadingDocs.push(lineSuffixBoundary, hardline);
-                    }
+                const preserveForLeadingComment =
+                    hasBlankLineBeforeLeadingComment(
+                        node,
+                        sourceMetadata,
+                        originalText,
+                        firstStatementStartIndex
+                    );
+
+                if (preserveForConstructor || preserveForLeadingComment) {
+                    leadingDocs.push(lineSuffixBoundary, hardline);
                 }
             }
 
@@ -353,16 +472,40 @@ export function print(path, options, print) {
                 "discriminant"
             );
             parts.push(["switch (", buildClauseGroup(discriminantDoc), ") "]);
+
+            const braceIntro = [
+                "{",
+                printDanglingComments(
+                    path,
+                    options,
+                    (comment) => comment.attachToBrace
+                )
+            ];
+
             if (node.cases.length === 0) {
-                parts.push(printEmptyBlock(path, options, print));
+                parts.push(
+                    concat([
+                        ...braceIntro,
+                        printDanglingCommentsAsGroup(
+                            path,
+                            options,
+                            (comment) => !comment.attachToBrace
+                        ),
+                        hardline,
+                        "}"
+                    ])
+                );
             } else {
-                parts.push([
-                    "{",
-                    indent([path.map(print, "cases")]),
-                    hardline,
-                    "}"
-                ]);
+                parts.push(
+                    concat([
+                        ...braceIntro,
+                        indent([path.map(print, "cases")]),
+                        hardline,
+                        "}"
+                    ])
+                );
             }
+
             return concat(parts);
         }
         case "SwitchCase": {
@@ -1285,6 +1428,9 @@ export function print(path, options, print) {
             return node.argument
                 ? concat(["throw ", print("argument")])
                 : "throw";
+        }
+        case "IdentifierStatement": {
+            return print("name");
         }
         case "MacroDeclaration": {
             const macroText =
@@ -8129,7 +8275,9 @@ function buildClauseGroup(doc) {
 
 const INLINEABLE_SINGLE_STATEMENT_TYPES = new Set([
     "ReturnStatement",
-    "ExitStatement"
+    "ExitStatement",
+    "ExpressionStatement",
+    "CallExpression"
 ]);
 
 function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
@@ -8150,7 +8298,44 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
         return false;
     }
 
-    if (!INLINEABLE_SINGLE_STATEMENT_TYPES.has(bodyNode?.type)) {
+    let inlineCandidate = bodyNode ?? null;
+
+    if (inlineCandidate?.type === "BlockStatement") {
+        if (
+            !Array.isArray(inlineCandidate.body) ||
+            inlineCandidate.body.length !== 1
+        ) {
+            return false;
+        }
+
+        const [onlyStatement] = inlineCandidate.body;
+        if (!INLINEABLE_SINGLE_STATEMENT_TYPES.has(onlyStatement?.type)) {
+            return false;
+        }
+
+        if (hasComment(onlyStatement)) {
+            return false;
+        }
+
+        const blockStartLine = inlineCandidate.start?.line;
+        const blockEndLine = inlineCandidate.end?.line;
+        if (
+            blockStartLine == null ||
+            blockEndLine == null ||
+            blockStartLine !== blockEndLine
+        ) {
+            return false;
+        }
+
+        const blockSource = getSourceTextForNode(inlineCandidate, options);
+        if (typeof blockSource !== "string" || !blockSource.includes(";")) {
+            return false;
+        }
+
+        inlineCandidate = onlyStatement;
+    }
+
+    if (!INLINEABLE_SINGLE_STATEMENT_TYPES.has(inlineCandidate?.type)) {
         return false;
     }
 
@@ -8159,9 +8344,9 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
     }
 
     if (
-        bodyNode.type === "ReturnStatement" &&
-        bodyNode.argument !== undefined &&
-        bodyNode.argument !== null
+        inlineCandidate?.type === "ReturnStatement" &&
+        inlineCandidate.argument !== undefined &&
+        inlineCandidate.argument !== null
     ) {
         return false;
     }
@@ -8566,6 +8751,20 @@ function printEmptyBlock(path, options, print) {
     const hasPrintableComments = comments.some(isCommentNode);
 
     if (hasPrintableComments) {
+        const sourceMetadata = resolvePrinterSourceMetadata(options);
+        const shouldAddTrailingBlankLine =
+            sourceMetadata.originalText !== null &&
+            hasBlankLineBetweenLastCommentAndClosingBrace(
+                node,
+                sourceMetadata,
+                sourceMetadata.originalText
+            );
+
+        const trailingDocs = [hardline, "}"];
+        if (shouldAddTrailingBlankLine) {
+            trailingDocs.unshift(lineSuffixBoundary, hardline);
+        }
+
         // an empty block with comments
         return [
             "{",
@@ -8579,8 +8778,7 @@ function printEmptyBlock(path, options, print) {
                 options,
                 (comment) => !comment.attachToBrace
             ),
-            hardline,
-            "}"
+            ...trailingDocs
         ];
     } else {
         return "{}";

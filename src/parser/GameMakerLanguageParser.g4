@@ -35,6 +35,7 @@ statement
     | functionDeclaration
     | deleteStatement
     | literalStatement
+    | identifierStatement
     ) eos?
     ;
 
