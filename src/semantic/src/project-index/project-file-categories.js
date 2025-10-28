@@ -1,3 +1,4 @@
+import { getNonEmptyTrimmedString } from "../dependencies.js";
 import { isProjectManifestPath } from "./constants.js";
 
 const DEFAULT_PROJECT_SOURCE_EXTENSIONS = Object.freeze([".gml"]);
@@ -62,8 +63,8 @@ function normalizeProjectSourceExtensions(extensions) {
             );
         }
 
-        const trimmed = extension.trim();
-        if (trimmed.length === 0) {
+        const trimmed = getNonEmptyTrimmedString(extension);
+        if (!trimmed) {
             throw new TypeError(
                 "Project source extensions cannot be empty strings."
             );

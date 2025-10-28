@@ -1,6 +1,11 @@
 import path from "node:path";
 
-import { isPathInside, toArray, uniqueArray } from "../dependencies.js";
+import {
+    getNonEmptyTrimmedString,
+    isPathInside,
+    toArray,
+    uniqueArray
+} from "../dependencies.js";
 import { REPO_ROOT } from "../../shared/workspace-paths.js";
 
 export const DEFAULT_FIXTURE_DIRECTORIES = Object.freeze([
@@ -12,16 +17,12 @@ function normalizeWorkflowPathList(paths) {
     const candidates = [];
 
     for (const entry of toArray(paths)) {
-        if (typeof entry !== "string") {
+        const normalized = getNonEmptyTrimmedString(entry);
+        if (!normalized) {
             continue;
         }
 
-        const trimmed = entry.trim();
-        if (trimmed.length === 0) {
-            continue;
-        }
-
-        candidates.push(path.resolve(trimmed));
+        candidates.push(path.resolve(normalized));
     }
 
     return uniqueArray(candidates);

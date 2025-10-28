@@ -7,6 +7,7 @@ import {
 import { isObjectLike } from "./comment-boundary.js";
 import {
     getCommentValue,
+    getNonEmptyTrimmedString,
     trimStringEntries,
     toTrimmedString,
     isRegExpLike
@@ -458,15 +459,9 @@ function normalizeGameMakerType(typeText) {
             }
 
             if (candidate.type === "separator") {
-                const rawValue = candidate.value ?? "";
+                const trimmed = getNonEmptyTrimmedString(candidate.value);
 
-                if (rawValue.length === 0) {
-                    continue;
-                }
-
-                const trimmed = rawValue.trim();
-
-                if (trimmed.length === 0) {
+                if (!trimmed) {
                     continue;
                 }
 
