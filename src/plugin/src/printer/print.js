@@ -3398,7 +3398,7 @@ function buildSyntheticDocComment(
     const leadingCommentLines = Array.isArray(overrides?.leadingCommentLines)
         ? overrides.leadingCommentLines
               .map((line) => (typeof line === "string" ? line : null))
-              .filter((line) => line && line.trim().length > 0)
+              .filter((line) => isNonEmptyTrimmedString(line))
         : [];
 
     if (syntheticLines.length === 0 && leadingCommentLines.length === 0) {
@@ -5560,7 +5560,7 @@ function computeSyntheticFunctionDocLines(
                 const ordinalLength = canonicalOrdinal.length;
                 const implicitLength =
                     (canonicalImplicit && canonicalImplicit.length > 0) ||
-                    effectiveImplicitName.trim().length > 0;
+                    isNonEmptyTrimmedString(effectiveImplicitName);
 
                 if (ordinalLength > implicitLength) {
                     effectiveImplicitName = null;
