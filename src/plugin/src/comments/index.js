@@ -1,30 +1,30 @@
 export {
     collectCommentNodes,
-    hasComment,
     getCommentArray,
-    isCommentNode,
+    hasComment,
     isBlockComment,
+    isCommentNode,
     isDocCommentLine,
     isLineComment
 } from "./comment-boundary.js";
 export {
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     DEFAULT_LINE_COMMENT_OPTIONS,
-    restoreDefaultLineCommentOptionsResolver,
-    resolveLineCommentOptions,
     normalizeLineCommentOptions,
+    resolveLineCommentOptions,
+    restoreDefaultLineCommentOptionsResolver,
     setLineCommentOptionsResolver
 } from "../options/line-comment-options.js";
 export {
     applyInlinePadding,
-    getLineCommentRawText,
     formatLineComment,
+    getLineCommentRawText,
     normalizeDocCommentTypeAnnotations
 } from "./line-comment-formatting.js";
 export {
     handleComments,
-    printDanglingComments,
     printComment,
+    printDanglingComments,
     printDanglingCommentsAsGroup
 } from "./comment-printer.js";
 export {
@@ -33,10 +33,10 @@ export {
 } from "./has-comment-helpers.js";
 export {
     prepareDocCommentEnvironment,
-    resolveDocCommentTraversalService,
     resolveDocCommentCollectionService,
-    resolveDocCommentPresenceService,
     resolveDocCommentDescriptionService,
+    resolveDocCommentPresenceService,
+    resolveDocCommentTraversalService,
     resolveDocCommentUpdateService
 } from "./doc-comment-manager.js";
 export { getCommentValue } from "../shared/index.js";
