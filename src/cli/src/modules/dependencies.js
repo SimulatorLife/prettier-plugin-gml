@@ -26,13 +26,8 @@ export {
     resolveSuiteOutputFormatOrThrow
 } from "../core/command-suite-helpers.js";
 
-export {
-    importPluginModule,
-    resolvePluginEntryPoint
-} from "../plugin-runtime/entry-point.js";
-
-export { resolveCliPluginEntryPoint } from "../plugin-runtime/entry-point-resolver.js";
-
+// Plugin runtime helpers live in ./plugin-runtime-dependencies.js to keep this
+// bundle focused on shared CLI utilities.
 export { formatByteSize, formatBytes } from "../runtime-options/byte-format.js";
 
 export {
