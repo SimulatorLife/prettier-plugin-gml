@@ -47,34 +47,11 @@ export function createSampleLimitToolkit({
 }
 
 /**
- * Convenience wrapper that applies the environment override during
- * initialization so modules no longer need to duplicate the
- * "create, destructure, and immediately invoke" ceremony. The helper also
- * retains the `applyEnvOverride` method so callers can opt into custom
- * environment maps while defaulting to the initially provided `env`.
- *
- * @param {Parameters<typeof createSampleLimitToolkit>[0]} parameters
- * @param {{ env?: NodeJS.ProcessEnv | null | undefined }} [options]
- * @returns {ReturnType<typeof createSampleLimitToolkit>}
- */
-export function createInitializedSampleLimitToolkit(parameters, { env } = {}) {
-    const toolkit = createSampleLimitToolkit(parameters);
-    const applyEnvOverride = (overrideEnv = env) =>
-        toolkit.applyEnvOverride(overrideEnv);
-    applyEnvOverride();
-    const initializedToolkit = {
-        ...toolkit,
-        applyEnvOverride
-    };
-
-    return initializedToolkit;
-}
-
-/**
  * Bundle the common sample limit runtime option exports so the individual
  * modules do not have to repeat the "declare constants, create toolkit, export
- * members" ceremony. The helper keeps the subject-specific defaults close to
- * the call sites while ensuring each module exposes a consistent API surface.
+ * members" ceremony. The helper applies the environment override during
+ * initialization and returns an `applyEnvOverride` function that reuses the
+ * initially provided environment map when invoked without arguments.
  *
  * @param {Parameters<typeof createSampleLimitToolkit>[0]} parameters
  * @param {{ env?: NodeJS.ProcessEnv | null | undefined }} [options]
@@ -89,7 +66,11 @@ export function createInitializedSampleLimitToolkit(parameters, { env } = {}) {
  */
 export function createSampleLimitRuntimeOption(parameters = {}, { env } = {}) {
     const { defaultValue, envVar } = parameters;
-    const toolkit = createInitializedSampleLimitToolkit(parameters, { env });
+    const toolkit = createSampleLimitToolkit(parameters);
+    const applyEnvOverride = (overrideEnv) =>
+        toolkit.applyEnvOverride(overrideEnv ?? env);
+
+    applyEnvOverride();
 
     return Object.freeze({
         defaultValue,
@@ -97,6 +78,6 @@ export function createSampleLimitRuntimeOption(parameters = {}, { env } = {}) {
         getDefault: toolkit.getDefault,
         setDefault: toolkit.setDefault,
         resolve: toolkit.resolve,
-        applyEnvOverride: toolkit.applyEnvOverride
+        applyEnvOverride
     });
 }
