@@ -218,13 +218,18 @@ export function parseJsonObjectWithContext(text, options = {}) {
             ? createAssertOptions(payload)
             : undefined;
 
-    const optionOverrides = [assertOptions, dynamicOptions].filter(
-        (candidate) => candidate && typeof candidate === "object"
-    );
+    const baseOptions =
+        assertOptions && typeof assertOptions === "object"
+            ? assertOptions
+            : undefined;
+    const overrideOptions =
+        dynamicOptions && typeof dynamicOptions === "object"
+            ? dynamicOptions
+            : undefined;
 
     const mergedOptions =
-        optionOverrides.length > 0
-            ? Object.assign({}, ...optionOverrides)
+        baseOptions || overrideOptions
+            ? { ...(baseOptions ?? {}), ...(overrideOptions ?? {}) }
             : undefined;
 
     return assertPlainObject(payload, mergedOptions);
