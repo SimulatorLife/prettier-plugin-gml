@@ -137,10 +137,11 @@ for (var i = 0; i < queue_count; i += 1) {
 - [Contributor onboarding checklist](docs/contributor-onboarding.md) &mdash; Step-by-
   step environment setup, validation commands, and a tour of the core
   workspace scripts for new teammates.
-- [Architecture audits](docs/architecture-audit-2025-10-23.md) &mdash; Latest
-  repository health check (October 23, 2025) with links back to the
-  [previous day's audit](docs/architecture-audit-2025-10-22.md), the
-  [May 2024 audit](docs/architecture-audit-2024-05-15.md), and the
+- [Architecture audit log](docs/architecture-audit-log.md) &mdash; Consolidated
+  repository health checks with dated entries. The scheduled
+  `codex-78-architectural-audit` workflow appends its results here instead of
+  opening per-day files. Review the October 23, 2025 audit and prior
+  follow-ups, plus the
   [shared module layout refresh](docs/shared-module-layout.md) for historical
   context around the `src/shared/src/` consolidation. Pair it with the
   [interface segregation investigation](docs/interface-segregation-investigation.md)
