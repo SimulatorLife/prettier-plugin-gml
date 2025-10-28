@@ -173,6 +173,22 @@ function resolveNodeIndexRangeWithSource(node, sourceMetadata = {}) {
     return { startIndex, endIndex };
 }
 
+function sliceOriginalText(originalText, startIndex, endIndex) {
+    if (typeof originalText !== "string" || originalText.length === 0) {
+        return null;
+    }
+
+    if (typeof startIndex !== "number" || typeof endIndex !== "number") {
+        return null;
+    }
+
+    if (endIndex <= startIndex) {
+        return null;
+    }
+
+    return originalText.slice(startIndex, endIndex);
+}
+
 function macroTextHasExplicitTrailingBlankLine(text) {
     if (typeof text !== "string") {
         return false;
@@ -257,12 +273,13 @@ function hasBlankLineBeforeLeadingComment(
         return false;
     }
 
-    const interiorSlice = originalText.slice(
+    const interiorSlice = sliceOriginalText(
+        originalText,
         openBraceIndex + 1,
         firstStatementStartIndex
     );
 
-    if (interiorSlice.length === 0) {
+    if (!interiorSlice) {
         return false;
     }
 
@@ -312,7 +329,16 @@ function hasBlankLineBetweenLastCommentAndClosingBrace(
         return false;
     }
 
-    const betweenText = originalText.slice(commentEndIndex, closingBraceIndex);
+    const betweenText = sliceOriginalText(
+        originalText,
+        commentEndIndex,
+        closingBraceIndex
+    );
+
+    if (betweenText === null) {
+        return false;
+    }
+
     if (betweenText.trim().length > 0) {
         return false;
     }
@@ -2022,24 +2048,22 @@ function shouldForceInlineFunctionParameters(path, options) {
     }
 
     const { originalText } = resolvePrinterSourceMetadata(options);
-    if (typeof originalText !== "string" || originalText.length === 0) {
-        return false;
-    }
 
     const firstParam = node.params[0];
     const lastParam = node.params.at(-1);
     const startIndex = getNodeStartIndex(firstParam);
     const endIndex = getNodeEndIndex(lastParam);
 
-    if (typeof startIndex !== "number" || typeof endIndex !== "number") {
+    const parameterSource = sliceOriginalText(
+        originalText,
+        startIndex,
+        endIndex
+    );
+
+    if (parameterSource === null) {
         return false;
     }
 
-    if (startIndex >= endIndex) {
-        return false;
-    }
-
-    const parameterSource = originalText.slice(startIndex, endIndex);
     return !/[\r\n]/.test(parameterSource);
 }
 
@@ -6360,20 +6384,16 @@ function structLiteralHasLeadingLineBreak(node, options) {
     }
 
     const { originalText } = resolvePrinterSourceMetadata(options);
-    if (originalText === null) {
-        return false;
-    }
 
     if (!isNonEmptyArray(node.properties)) {
         return false;
     }
 
     const { start, end } = getNodeRangeIndices(node);
-    if (start == null || end == null || end <= start) {
+    const source = sliceOriginalText(originalText, start, end);
+    if (source === null) {
         return false;
     }
-
-    const source = originalText.slice(start, end);
     const openBraceIndex = source.indexOf("{");
     if (openBraceIndex === -1) {
         return false;
@@ -6462,23 +6482,13 @@ function getStructPropertyPrefix(node, options) {
     }
 
     const { originalText } = resolvePrinterSourceMetadata(options);
-    if (originalText === null) {
-        return null;
-    }
 
     const propertyStart = getNodeStartIndex(node);
     const valueStart = getNodeStartIndex(node?.value);
 
-    if (
-        typeof propertyStart !== "number" ||
-        typeof valueStart !== "number" ||
-        valueStart <= propertyStart
-    ) {
-        return null;
-    }
+    const prefix = sliceOriginalText(originalText, propertyStart, valueStart);
 
-    const prefix = originalText.slice(propertyStart, valueStart);
-    if (prefix.length === 0 || !prefix.includes(":")) {
+    if (!prefix || !prefix.includes(":")) {
         return null;
     }
 
