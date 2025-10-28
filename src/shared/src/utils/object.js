@@ -1,3 +1,5 @@
+import { isNonEmptyString } from "./string.js";
+
 /**
  * Determine whether a value is a plain object (non-null object without an
  * Array instance). Some callers additionally require objects with prototypes
@@ -37,7 +39,7 @@ export function assertFunction(value, name, { errorMessage } = {}) {
 
     const message =
         errorMessage ??
-        (typeof name === "string" && name.length > 0
+        (isNonEmptyString(name)
             ? `${name} must be a function.`
             : "Value must be a function.");
 
@@ -73,9 +75,7 @@ export function isObjectLike(value) {
 export function resolveHelperOverride(helpers, key, fallback) {
     const normalizedFallback = assertFunction(
         fallback,
-        typeof key === "string" && key.length > 0
-            ? `${key.toString()} helper`
-            : "helper override"
+        isNonEmptyString(key) ? `${key.toString()} helper` : "helper override"
     );
 
     const hasHelperOverrides =

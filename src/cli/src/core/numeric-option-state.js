@@ -3,7 +3,8 @@ import {
     createEnvConfiguredValue,
     resolveIntegerOption,
     hasOwn,
-    identity
+    identity,
+    isNonEmptyString
 } from "../shared/dependencies.js";
 
 /**
@@ -140,10 +141,9 @@ export function createIntegerOptionResolver(
 ) {
     assertFunction(resolve, "resolve");
 
-    const alias =
-        typeof defaultValueOption === "string" && defaultValueOption.length > 0
-            ? defaultValueOption
-            : null;
+    const alias = isNonEmptyString(defaultValueOption)
+        ? defaultValueOption
+        : null;
 
     return (rawValue, options = {}) => {
         const normalizedOptions =
