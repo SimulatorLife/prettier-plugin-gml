@@ -1,5 +1,6 @@
 export {
     assertNonEmptyString,
     getErrorMessage,
-    isErrorWithCode
+    isErrorWithCode,
+    isObjectOrFunction
 } from "@prettier-plugin-gml/shared";

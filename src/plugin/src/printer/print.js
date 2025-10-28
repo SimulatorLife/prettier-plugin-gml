@@ -38,6 +38,7 @@ import {
     getNonEmptyTrimmedString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
+    isObjectOrFunction,
     toTrimmedString,
     asArray,
     isNonEmptyArray,
@@ -136,10 +137,7 @@ function stripTrailingLineTerminators(value) {
 }
 
 function resolvePrinterSourceMetadata(options) {
-    if (
-        !options ||
-        (typeof options !== "object" && typeof options !== "function")
-    ) {
+    if (!isObjectOrFunction(options)) {
         return { originalText: null, locStart: null, locEnd: null };
     }
 

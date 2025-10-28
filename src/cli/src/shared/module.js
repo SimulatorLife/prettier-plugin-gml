@@ -1,7 +1,8 @@
 import {
     assertNonEmptyString,
     getErrorMessage,
-    isErrorWithCode
+    isErrorWithCode,
+    isObjectOrFunction
 } from "./module-support.js";
 
 /**
@@ -21,7 +22,7 @@ export function resolveModuleDefaultExport(module) {
         return module;
     }
 
-    if (typeof module !== "object" && typeof module !== "function") {
+    if (!isObjectOrFunction(module)) {
         return module;
     }
 

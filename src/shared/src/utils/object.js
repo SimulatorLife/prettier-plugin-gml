@@ -96,6 +96,30 @@ const objectPrototypeToString = Object.prototype.toString;
 const OBJECT_TAG_PATTERN = /^\[object ([^\]]+)\]$/;
 
 /**
+ * Determine whether the provided value is an object or function reference.
+ *
+ * Several modules accept host-provided options or dependency containers that
+ * may be implemented as objects or callable factories. Centralizing the guard
+ * keeps their defensive checks aligned while ensuring `null` and primitives
+ * are rejected consistently.
+ *
+ * @param {unknown} value Candidate value to inspect.
+ * @returns {boolean} `true` when {@link value} can be treated as an object or function.
+ */
+export function isObjectOrFunction(value) {
+    if (value == null) {
+        return false;
+    }
+
+    const type = typeof value;
+    if (type === "object") {
+        return true;
+    }
+
+    return type === "function";
+}
+
+/**
  * Resolve the built-in `Object.prototype.toString` tag name for {@link value}.
  *
  * Normalizes the repeated guard logic used across CLI modules when formatting

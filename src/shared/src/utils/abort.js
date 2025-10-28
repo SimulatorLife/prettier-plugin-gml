@@ -1,4 +1,5 @@
 import { getNonEmptyString } from "./string.js";
+import { isObjectOrFunction } from "./object.js";
 
 const abortErrorBrand = new WeakSet();
 
@@ -191,10 +192,7 @@ export function resolveAbortSignalFromOptions(
     options,
     { key = "signal", fallbackMessage } = {}
 ) {
-    if (
-        options == null ||
-        (typeof options !== "object" && typeof options !== "function")
-    ) {
+    if (!isObjectOrFunction(options)) {
         return null;
     }
 
