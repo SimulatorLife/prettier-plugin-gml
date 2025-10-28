@@ -5,7 +5,7 @@ import {
 import {
     getSingleVariableDeclarator as sharedGetSingleVariableDeclarator,
     getIdentifierText as sharedGetIdentifierText,
-    isUndefinedLiteral as sharedIsUndefinedLiteral,
+    isUndefinedSentinel as sharedIsUndefinedSentinel,
     getSingleMemberIndexPropertyEntry as sharedGetSingleMemberIndexPropertyEntry,
     unwrapParenthesizedExpression,
     getBodyStatements,
@@ -20,7 +20,7 @@ import {
 
 const DEFAULT_HELPERS = {
     getIdentifierText: sharedGetIdentifierText,
-    isUndefinedLiteral: sharedIsUndefinedLiteral,
+    isUndefinedLiteral: sharedIsUndefinedSentinel,
     getSingleVariableDeclarator: sharedGetSingleVariableDeclarator,
     hasComment: sharedHasComment
 };

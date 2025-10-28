@@ -397,6 +397,30 @@ function isUndefinedLiteral(node) {
     return getLiteralStringValue(node) === "undefined";
 }
 
+function isUndefinedSentinel(node) {
+    if (isUndefinedLiteral(node)) {
+        return true;
+    }
+
+    if (!isNode(node)) {
+        return false;
+    }
+
+    if (node.type === "Literal") {
+        return node.value === undefined;
+    }
+
+    if (node.type === "Identifier") {
+        const { name } = node;
+        return typeof name === "string" && name.toLowerCase() === "undefined";
+    }
+
+    const identifierText = getIdentifierText(node);
+    return typeof identifierText === "string"
+        ? identifierText.toLowerCase() === "undefined"
+        : false;
+}
+
 /**
  * Retrieve the `type` string from an AST node when present.
  *
@@ -572,6 +596,7 @@ export {
     getBooleanLiteralValue,
     isBooleanLiteral,
     isUndefinedLiteral,
+    isUndefinedSentinel,
     getNodeType,
     isNode,
     visitChildNodes,
