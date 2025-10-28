@@ -47,6 +47,7 @@ export {
     getNonEmptyTrimmedString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
+    isWordChar,
     toTrimmedString
 } from "@prettier-plugin-gml/shared/utils/string.js";
 export {

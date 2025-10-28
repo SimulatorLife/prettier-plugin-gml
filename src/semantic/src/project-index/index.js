@@ -12,6 +12,7 @@ import {
     isFsErrorCode,
     isNonEmptyArray,
     isObjectLike,
+    isWordChar,
     pushUnique
 } from "../dependencies.js";
 import { defaultFsFacade } from "./fs-facade.js";
@@ -323,11 +324,7 @@ function buildLocationFromIndex(index, lineOffsets) {
 }
 
 function isIdentifierBoundary(character) {
-    if (!character) {
-        return true;
-    }
-
-    return !/[0-9A-Za-z_]/.test(character);
+    return !isWordChar(character);
 }
 
 function findIdentifierLocation({
