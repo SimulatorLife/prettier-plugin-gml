@@ -15,27 +15,20 @@ export function hasFunction(value, property) {
 }
 
 function getIteratorMethod(iterable) {
-    if (!iterable) {
-        return null;
-    }
-
     const method =
-        iterable[Symbol.iterator] ??
-        iterable.entries ??
-        iterable.values ??
+        iterable?.[Symbol.iterator] ??
+        iterable?.entries ??
+        iterable?.values ??
         null;
 
     return typeof method === "function" ? method : null;
 }
 
 function getIterator(iterable) {
-    const method = getIteratorMethod(iterable);
-    if (!method) {
-        return null;
-    }
-
-    const iterator = method.call(iterable);
-    return typeof iterator?.[Symbol.iterator] === "function" ? iterator : null;
+    const iterator = getIteratorMethod(iterable)?.call(iterable) ?? null;
+    return iterator && typeof iterator[Symbol.iterator] === "function"
+        ? iterator
+        : null;
 }
 
 function hasIterator(iterable) {
@@ -49,13 +42,9 @@ function getFiniteSize(candidate) {
 }
 
 function getLengthHint(iterable) {
-    const size = getFiniteSize(iterable?.size);
-    if (size !== null) {
-        return size;
-    }
-
-    const length = getFiniteSize(iterable?.length);
-    return length === null ? null : length;
+    return (
+        getFiniteSize(iterable?.size) ?? getFiniteSize(iterable?.length) ?? null
+    );
 }
 
 export function isErrorLike(value) {
@@ -80,39 +69,30 @@ export function isAggregateErrorLike(value) {
 }
 
 export function isRegExpLike(value) {
-    if (!isObjectLike(value)) {
-        return false;
-    }
-
-    return hasFunction(value, "test") && hasFunction(value, "exec");
+    return (
+        isObjectLike(value) &&
+        hasFunction(value, "test") &&
+        hasFunction(value, "exec")
+    );
 }
 
 export function isMapLike(value) {
-    if (!isObjectLike(value)) {
-        return false;
-    }
-
-    if (!hasFunction(value, "get") || !hasFunction(value, "set")) {
-        return false;
-    }
-
-    if (!hasFunction(value, "has")) {
-        return false;
-    }
-
-    return hasIterator(value);
+    return (
+        isObjectLike(value) &&
+        hasFunction(value, "get") &&
+        hasFunction(value, "set") &&
+        hasFunction(value, "has") &&
+        hasIterator(value)
+    );
 }
 
 export function isSetLike(value) {
-    if (!isObjectLike(value)) {
-        return false;
-    }
-
-    if (!hasFunction(value, "has") || !hasFunction(value, "add")) {
-        return false;
-    }
-
-    return hasIterator(value);
+    return (
+        isObjectLike(value) &&
+        hasFunction(value, "has") &&
+        hasFunction(value, "add") &&
+        hasIterator(value)
+    );
 }
 
 /**
@@ -211,11 +191,7 @@ function resolveMapEntries(candidate) {
         return getIteratorEntries(candidate);
     }
 
-    if (isObjectLike(candidate)) {
-        return Object.entries(candidate);
-    }
-
-    return [];
+    return isObjectLike(candidate) ? Object.entries(candidate) : [];
 }
 
 export function ensureSet(candidate) {
