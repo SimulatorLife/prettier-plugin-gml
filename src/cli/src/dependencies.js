@@ -82,4 +82,4 @@ export {
     createVerboseDurationLogger,
     formatDuration,
     timeSync
-} from "@prettier-plugin-gml/shared/utils/time.js";
+} from "@prettier-plugin-gml/shared/reporting/time.js";
