@@ -1,6 +1,9 @@
-import { getErrorMessage, isErrorWithCode } from "./error.js";
-import { isObjectOrFunction } from "./object.js";
-import { assertNonEmptyString } from "./string.js";
+import {
+    getErrorMessage,
+    isErrorWithCode
+} from "@prettier-plugin-gml/shared/utils/error.js";
+import { isObjectOrFunction } from "@prettier-plugin-gml/shared/utils/object.js";
+import { assertNonEmptyString } from "@prettier-plugin-gml/shared/utils/string.js";
 
 /**
  * Normalize dynamically imported modules to their default export when
