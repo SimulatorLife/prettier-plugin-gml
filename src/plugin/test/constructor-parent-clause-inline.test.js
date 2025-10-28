@@ -45,9 +45,7 @@ test("preserves inline constructor parameters when parent clause is present", as
     const formatted = await format(source);
     const signatureLine = formatted
         .split("\n")
-        .find((line) =>
-            line.startsWith("function AbstractSkyboxParent")
-        );
+        .find((line) => line.startsWith("function AbstractSkyboxParent"));
 
     assert.strictEqual(
         signatureLine,

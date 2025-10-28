@@ -11,7 +11,7 @@ function firstNumber(...values) {
         }
     }
 
-    return undefined;
+    return;
 }
 
 function getTokenStream(recognizer) {

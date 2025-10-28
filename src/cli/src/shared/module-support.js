@@ -2,4 +2,4 @@ export {
     assertNonEmptyString,
     getErrorMessage,
     isErrorWithCode
-} from "./dependencies.js";
+} from "@prettier-plugin-gml/shared";

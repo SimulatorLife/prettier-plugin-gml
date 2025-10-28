@@ -12,7 +12,7 @@ import {
     isErrorLike,
     getLineBreakCount
 } from "./shared/index.js";
-import { installRecognitionExceptionLikeGuard } from "./utils/recognition-exception.js";
+import { installRecognitionExceptionLikeGuard } from "./extensions/recognition-exception-patch.js";
 
 installRecognitionExceptionLikeGuard();
 

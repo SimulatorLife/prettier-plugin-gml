@@ -11,8 +11,7 @@ import pluginRegexp from "eslint-plugin-regexp";
 import pluginNoSecrets from "eslint-plugin-no-secrets";
 import pluginEslintComments from "eslint-plugin-eslint-comments";
 import pluginUnusedImports from "eslint-plugin-unused-imports";
-import deMorgan from 'eslint-plugin-de-morgan'
-
+import deMorgan from "eslint-plugin-de-morgan";
 
 /* Config */
 import eslintConfigPrettier from "eslint-config-prettier";

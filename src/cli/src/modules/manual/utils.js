@@ -232,8 +232,7 @@ export async function downloadManualFileEntries({
     const orderedEntries = Array.from(entries);
     const payloads = {};
     const totalEntries = orderedEntries.length;
-    const reportProgress =
-        typeof onProgress === "function" ? onProgress : noop;
+    const reportProgress = typeof onProgress === "function" ? onProgress : noop;
     const cleanup =
         typeof onProgressCleanup === "function" ? onProgressCleanup : noop;
     let fetchedCount = 0;

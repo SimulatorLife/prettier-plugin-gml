@@ -11,9 +11,7 @@ import {
     toArray,
     uniqueArray
 } from "../dependencies.js";
-import {
-    resolveFromRepoRoot
-} from "../shared/workspace-paths.js";
+import { resolveFromRepoRoot } from "../shared/workspace-paths.js";
 
 // Default plugin entry points shipped within the workspace. Additional
 // candidates can be provided via environment variables or call-site overrides.
