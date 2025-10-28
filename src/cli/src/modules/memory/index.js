@@ -609,13 +609,13 @@ export function createMemoryCommand({ env = process.env } = {}) {
         )
         .option(
             "-i, --iterations <count>",
-            `Iteration count for suites that support it (default: ${defaultIterations}).`,
+            "Iteration count for suites that support it.",
             wrapInvalidArgumentResolver(resolveMemoryIterations),
             defaultIterations
         )
         .option(
             "--format <format>",
-            "Output format: json (default) or human.",
+            "Output format: json or human.",
             (value) =>
                 resolveSuiteOutputFormatOrThrow(value, {
                     errorConstructor:

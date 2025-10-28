@@ -92,7 +92,7 @@ export function createGenerateIdentifiersCommand({ env = process.env } = {}) {
             vmEvalTimeout(cmd) {
                 cmd.option(
                     "--vm-eval-timeout-ms <ms>",
-                    `Maximum time in milliseconds to evaluate manual identifier arrays (default: ${defaultVmTimeout}). Set to 0 to disable the timeout.`,
+                    "Maximum time in milliseconds to evaluate manual identifier arrays. Set to 0 to disable the timeout.",
                     wrapInvalidArgumentResolver(resolveVmEvalTimeout),
                     defaultVmTimeout
                 );

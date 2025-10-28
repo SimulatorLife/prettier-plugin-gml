@@ -123,29 +123,26 @@ export function applySharedManualCommandOptions(
 
     const outputOption = resolveManualOptionBaseConfig(outputPath, {
         flag: "-o, --output <path>",
-        describe: (value) => `Output JSON path (default: ${value}).`,
+        describe: () => "Output JSON path.",
         name: "outputPath"
     });
 
     const cacheOption = resolveManualOptionBaseConfig(cacheRoot, {
         flag: "--cache-root <path>",
-        describe: (value) =>
-            `Directory to store cached manual artefacts (default: ${value}).`,
+        describe: () => "Directory to store cached manual artefacts.",
         name: "cacheRoot"
     });
 
     const progressOption = resolveManualOptionBaseConfig(progressBarWidth, {
         flag: "--progress-bar-width <columns>",
-        describe: (value) =>
-            `Width of progress bars rendered in the terminal (default: ${value}).`,
+        describe: () => "Width of progress bars rendered in the terminal.",
         name: "progressBarWidth",
         fallbackDefault: () => getDefaultProgressBarWidth()
     });
 
     const manualRepoOption = resolveManualOptionBaseConfig(manualRepo, {
         flag: "--manual-repo <owner/name>",
-        describe: (value) =>
-            `GitHub repository hosting the manual (default: ${value}).`,
+        describe: () => "GitHub repository hosting the manual.",
         name: "manualRepo",
         fallbackDefault: () => DEFAULT_MANUAL_REPO
     });

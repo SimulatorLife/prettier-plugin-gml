@@ -610,10 +610,7 @@ export function createPerformanceCommand() {
         formatReportFilePath(DEFAULT_REPORT_FILE);
     const reportFileOption = createCommanderOption(
         "--report-file <path>",
-        [
-            "File path for the JSON performance report.",
-            `Defaults to ${defaultReportFileDescription}.`
-        ].join(" ")
+        "File path for the JSON performance report."
     )
         .argParser((value) => path.resolve(value))
         .default(DEFAULT_REPORT_FILE, defaultReportFileDescription);
@@ -642,7 +639,7 @@ export function createPerformanceCommand() {
         .addOption(suiteOption)
         .option(
             "-i, --iterations <count>",
-            "Repeat each suite this many times (default: 1).",
+            "Repeat each suite this many times.",
             wrapInvalidArgumentResolver((value) =>
                 resolveIterationCount(value)
             ),
@@ -662,7 +659,7 @@ export function createPerformanceCommand() {
         .option("--stdout", "Emit the performance report to stdout.")
         .option(
             "--format <format>",
-            "Console output format when --stdout is used: json (default) or human.",
+            "Console output format when --stdout is used: json or human.",
             (value) =>
                 resolveSuiteOutputFormatOrThrow(value, {
                     errorConstructor:
