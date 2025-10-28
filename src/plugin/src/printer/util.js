@@ -21,6 +21,16 @@ const NODE_TYPES_REQUIRING_SEMICOLON = new Set([
     "DeleteStatement"
 ]);
 
+/**
+ * Guard helper for {@link optionalSemicolon} to keep the membership logic
+ * centralized. The printer ends up consulting this list in several hot paths,
+ * so caching the lookup in a `Set` keeps call sites tidy without introducing
+ * repeated allocations.
+ *
+ * @param {string | undefined} type Node `type` value to evaluate.
+ * @returns {boolean} `true` when the node type must be terminated with a
+ *                    semicolon.
+ */
 function nodeTypeNeedsSemicolon(type) {
     return NODE_TYPES_REQUIRING_SEMICOLON.has(type);
 }
@@ -49,6 +59,16 @@ function isLastStatement(path) {
     return lastIndex >= 0 && body[lastIndex] === node;
 }
 
+/**
+ * Walk up the AST path and return the parent's `body` array when present. The
+ * printer cares primarily about statement order, so failing closed (`null`)
+ * keeps consumers from accidentally iterating non-array structures.
+ *
+ * @param {import("prettier").AstPath} path Current AST path within the
+ *        printer traversal.
+ * @returns {Array<unknown> | null} Parent body array or `null` when the parent
+ *          does not expose a list-like `body` property.
+ */
 function getParentNodeListProperty(path) {
     const parent = path.getParentNode();
     if (!parent) {
@@ -57,11 +77,28 @@ function getParentNodeListProperty(path) {
     return getNodeListProperty(parent);
 }
 
+/**
+ * Normalizes the `body` property lookup used throughout the printer so callers
+ * can treat list-bearing nodes uniformly. Returning `null` for non-arrays keeps
+ * the guard symmetric with {@link getParentNodeListProperty}.
+ *
+ * @param {unknown} node Candidate AST node to inspect.
+ * @returns {Array<unknown> | null} `body` array when present, otherwise `null`.
+ */
 function getNodeListProperty(node) {
     const body = node.body;
     return Array.isArray(body) ? body : null;
 }
 
+/**
+ * Convenience wrapper that returns the semicolon literal only when the printer
+ * recognizes the node type as statement-terminating. Returning an empty string
+ * avoids conditional logic at each call site and keeps the control flow easy to
+ * scan within template literal builders.
+ *
+ * @param {string | undefined} nodeType AST node `type` to evaluate.
+ * @returns {"" | ";"} Semicolon string when required, otherwise an empty string.
+ */
 function optionalSemicolon(nodeType) {
     return nodeTypeNeedsSemicolon(nodeType) ? ";" : "";
 }
@@ -87,6 +124,14 @@ const FUNCTION_LIKE_DECLARATION_TYPES = new Set([
     "FunctionExpression"
 ]);
 
+/**
+ * Detects nodes that behave like functions for spacing and traversal purposes.
+ * The printer needs to align its heuristics with comment attachment and region
+ * padding rules, so centralizing the guard prevents drift between modules.
+ *
+ * @param {unknown} node Candidate AST node to inspect.
+ * @returns {boolean} `true` when the node is a function-like declaration.
+ */
 function isFunctionLikeDeclaration(node) {
     if (!node || typeof node !== "object") {
         return false;
