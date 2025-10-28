@@ -10,7 +10,8 @@ import {
     isObjectLike,
     getOrCreateMapEntry,
     getIterableSize,
-    createMetricsTracker
+    createMetricsTracker,
+    coalesceOption
 } from "../shared/index.js";
 import {
     normalizeIdentifierCaseOptions,
@@ -127,8 +128,7 @@ function applyAssetRenamesIfEligible({
     }
 
     const fsFacade =
-        options.__identifierCaseFs ??
-        options.identifierCaseFs ??
+        coalesceOption(options, ["__identifierCaseFs", "identifierCaseFs"]) ??
         getDefaultIdentifierCaseFsFacade();
     const logger = options.logger ?? null;
     const result = applyAssetRenames({
