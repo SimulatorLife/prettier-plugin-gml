@@ -3,4 +3,4 @@ export {
     getErrorMessage,
     isErrorWithCode,
     isObjectOrFunction
-} from "@prettier-plugin-gml/shared";
+} from "../dependencies.js";
