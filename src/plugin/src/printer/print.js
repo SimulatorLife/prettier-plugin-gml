@@ -35,6 +35,7 @@ import {
     normalizeDocCommentTypeAnnotations
 } from "../comments/line-comment-formatting.js";
 import { resolveLineCommentOptions } from "../options/line-comment-options.js";
+import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
 import {
     getCommentArray,
     isCommentNode,
@@ -1901,7 +1902,7 @@ function isNumericLiteralBoundaryCharacter(character) {
 }
 
 function shouldAllowTrailingComma(options) {
-    return options?.trailingComma === "all";
+    return options?.trailingComma === TRAILING_COMMA.ALL;
 }
 
 function buildCallArgumentsDocs(
