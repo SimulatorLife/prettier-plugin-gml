@@ -1,9 +1,6 @@
-import {
-    assertNonEmptyString,
-    getErrorMessage,
-    isErrorWithCode,
-    isObjectOrFunction
-} from "./module-support.js";
+import { getErrorMessage, isErrorWithCode } from "./error.js";
+import { isObjectOrFunction } from "./object.js";
+import { assertNonEmptyString } from "./string.js";
 
 /**
  * Normalize dynamically imported modules to their default export when
