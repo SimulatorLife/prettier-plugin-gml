@@ -114,11 +114,11 @@ export function getErrorMessage(error, { fallback } = {}) {
 export function getErrorMessageOrFallback(error, { fallback } = {}) {
     const message = getErrorMessage(error, { fallback: "" });
 
-    if (typeof message === "string" && message.length > 0) {
+    if (isNonEmptyString(message)) {
         return message;
     }
 
-    if (typeof fallback === "string" && fallback.length > 0) {
+    if (isNonEmptyString(fallback)) {
         return fallback;
     }
 

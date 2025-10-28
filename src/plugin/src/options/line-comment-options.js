@@ -1,4 +1,8 @@
-import { assertFunction, isRegExpLike } from "../shared/index.js";
+import {
+    assertFunction,
+    isNonEmptyString,
+    isRegExpLike
+} from "../shared/index.js";
 
 const LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES = 5;
 const LINE_COMMENT_BANNER_STANDARD_LENGTH = 60;
@@ -82,7 +86,7 @@ function normalizeArrayOption(
 function normalizeBoilerplateFragments(fragments) {
     return normalizeArrayOption(fragments, {
         defaultValue: DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments,
-        filter: (value) => typeof value === "string" && value.length > 0,
+        filter: isNonEmptyString,
         map: String
     });
 }
