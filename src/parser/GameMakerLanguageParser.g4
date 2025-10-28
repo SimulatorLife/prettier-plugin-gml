@@ -176,7 +176,7 @@ expressionSequence
     ;
 
 expressionOrFunction
-    : expression 
+    : expression
     | functionDeclaration
     ;
 
@@ -225,8 +225,8 @@ postIncDecExpression
     ;
 
 incDecStatement
-    : postIncDecExpression 
-    | preIncDecExpression 
+    : postIncDecExpression
+    | preIncDecExpression
     ;
 
 accessor
