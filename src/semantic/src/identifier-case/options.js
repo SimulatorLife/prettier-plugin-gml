@@ -258,6 +258,28 @@ function resolveScopeSettings(options, baseStyle) {
     return { scopeSettings, scopeStyles };
 }
 
+/**
+ * Normalize the user-provided identifier case options into the canonical
+ * structure consumed by the semantic pass and project index integration.
+ *
+ * Accepts the raw Prettier option bag (which may omit any property) and
+ * resolves it to the effective base style, per-scope overrides, and the
+ * derived ignore/preserve lists. When the assets scope is enabled it also
+ * enforces the acknowledgement flag so callers cannot accidentally trigger
+ * renames without opting-in to the behavioural change.
+ *
+ * @param {Record<string, unknown>} [options]
+ *        Partial prettier option bag keyed by `gmlIdentifierCase*` names.
+ * @returns {{
+ *     baseStyle: string,
+ *     scopeSettings: Record<string, string>,
+ *     scopeStyles: Record<string, string>,
+ *     ignorePatterns: Array<string>,
+ *     preservedIdentifiers: Array<string>,
+ *     assetRenamesAcknowledged: boolean
+ * }} Canonical representation consumed by identifier case services.
+ * @throws {Error} When asset renames are enabled without acknowledgement.
+ */
 export function normalizeIdentifierCaseOptions(options = {}) {
     const baseStyle = normalizeIdentifierCaseStyleOption(
         options?.[IDENTIFIER_CASE_BASE_OPTION_NAME],
