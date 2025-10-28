@@ -3,12 +3,12 @@ import path from "node:path";
 import { performance } from "node:perf_hooks";
 import process from "node:process";
 
-import { Command, InvalidArgumentError, Option } from "commander";
-
 import {
     SuiteOutputFormat,
     applyStandardCommandOptions,
     collectSuiteResults,
+    createCommanderCommand,
+    createCommanderOption,
     createCliErrorDetails,
     emitSuiteResults,
     ensureSuitesAreKnown,
@@ -16,7 +16,8 @@ import {
     resolveCliPluginEntryPoint,
     resolveRequestedSuites,
     resolveSuiteOutputFormatOrThrow,
-    wrapInvalidArgumentResolver
+    wrapInvalidArgumentResolver,
+    getCommanderInvalidArgumentErrorConstructor
 } from "../dependencies.js";
 import {
     appendToCollection,
@@ -120,7 +121,7 @@ function collectValue(value, previous) {
 
 function collectPerformanceSuite(value, previous) {
     const normalized = normalizePerformanceSuiteName(value, {
-        errorConstructor: InvalidArgumentError
+        errorConstructor: getCommanderInvalidArgumentErrorConstructor()
     });
 
     return appendToCollection(normalized, previous);
@@ -607,7 +608,7 @@ AVAILABLE_SUITES.set(PerformanceSuiteName.IDENTIFIER_TEXT, () =>
 export function createPerformanceCommand() {
     const defaultReportFileDescription =
         formatReportFilePath(DEFAULT_REPORT_FILE);
-    const reportFileOption = new Option(
+    const reportFileOption = createCommanderOption(
         "--report-file <path>",
         [
             "File path for the JSON performance report.",
@@ -623,12 +624,15 @@ export function createPerformanceCommand() {
         `Available suites: ${suiteListDescription}.`,
         "Defaults to all suites when omitted."
     ].join(" ");
-    const suiteOption = new Option("-s, --suite <name>", suiteOptionDescription)
+    const suiteOption = createCommanderOption(
+        "-s, --suite <name>",
+        suiteOptionDescription
+    )
         .argParser(collectPerformanceSuite)
         .default([], "all available suites");
 
     return applyStandardCommandOptions(
-        new Command()
+        createCommanderCommand()
             .name("performance")
             .usage("[options]")
             .description(
@@ -661,7 +665,8 @@ export function createPerformanceCommand() {
             "Console output format when --stdout is used: json (default) or human.",
             (value) =>
                 resolveSuiteOutputFormatOrThrow(value, {
-                    errorConstructor: InvalidArgumentError
+                    errorConstructor:
+                        getCommanderInvalidArgumentErrorConstructor()
                 }),
             SuiteOutputFormat.JSON
         )

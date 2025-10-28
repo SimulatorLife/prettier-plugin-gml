@@ -1,8 +1,10 @@
-import { InvalidArgumentError } from "commander";
-
 import { CliUsageError } from "./errors.js";
 import { isCommanderErrorLike } from "./commander-error-utils.js";
-import { assertFunction, getErrorMessage } from "../shared/dependencies.js";
+import {
+    assertFunction,
+    getCommanderInvalidArgumentErrorConstructor,
+    getErrorMessage
+} from "../shared/dependencies.js";
 
 function isCommanderError(error) {
     return (
@@ -33,16 +35,18 @@ export {
 export function wrapInvalidArgumentResolver(
     resolver,
     {
-        errorConstructor = InvalidArgumentError,
+        errorConstructor = getCommanderInvalidArgumentErrorConstructor(),
         fallbackMessage = "Invalid option value."
     } = {}
 ) {
     assertFunction(resolver, "resolver");
 
+    const defaultErrorConstructor =
+        getCommanderInvalidArgumentErrorConstructor();
     const ErrorConstructor =
         typeof errorConstructor === "function"
             ? errorConstructor
-            : InvalidArgumentError;
+            : defaultErrorConstructor;
 
     return (...args) => {
         try {

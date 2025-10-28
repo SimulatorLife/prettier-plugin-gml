@@ -64,6 +64,18 @@ export {
 } from "@prettier-plugin-gml/shared";
 
 export {
+    createCommanderCommand,
+    createCommanderInvalidArgumentError,
+    createCommanderOption,
+    getCommanderCommandConstructor,
+    getCommanderInvalidArgumentErrorConstructor,
+    getCommanderOptionConstructor,
+    resetCommanderApi,
+    resolveCommanderApi,
+    setCommanderApi
+} from "./core/commander-registry.js";
+
+export {
     isMissingModuleDependency,
     resolveModuleDefaultExport
 } from "./shared/module.js";

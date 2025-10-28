@@ -4,8 +4,6 @@ import { readFile } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 
-import { Command, InvalidArgumentError } from "commander";
-
 import {
     appendToCollection,
     createEnvConfiguredValue,
@@ -20,7 +18,9 @@ import {
     loadGmlParser,
     resolveModuleDefaultExport,
     parseJsonObjectWithContext,
-    splitLines
+    splitLines,
+    createCommanderCommand,
+    getCommanderInvalidArgumentErrorConstructor
 } from "../dependencies.js";
 import {
     SuiteOutputFormat,
@@ -586,7 +586,7 @@ const AVAILABLE_SUITES = new Map();
 
 function collectSuite(value, previous) {
     const normalized = normalizeMemorySuiteName(value, {
-        errorConstructor: InvalidArgumentError
+        errorConstructor: getCommanderInvalidArgumentErrorConstructor()
     });
 
     return appendToCollection(normalized, previous);
@@ -596,7 +596,7 @@ export function createMemoryCommand({ env = process.env } = {}) {
     const defaultIterations = getDefaultMemoryIterations();
 
     const command = applyStandardCommandOptions(
-        new Command()
+        createCommanderCommand()
             .name("memory")
             .usage("[options]")
             .description("Run memory usage diagnostics for CLI utilities.")
@@ -618,7 +618,8 @@ export function createMemoryCommand({ env = process.env } = {}) {
             "Output format: json (default) or human.",
             (value) =>
                 resolveSuiteOutputFormatOrThrow(value, {
-                    errorConstructor: InvalidArgumentError
+                    errorConstructor:
+                        getCommanderInvalidArgumentErrorConstructor()
                 }),
             SuiteOutputFormat.JSON
         )
