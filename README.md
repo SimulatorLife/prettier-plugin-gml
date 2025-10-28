@@ -327,6 +327,9 @@ nvm alias default node
    npm run cli -- format "/absolute/path/to/MyGame" --extensions=.gml --extensions=.yy
    ```
 
+   Use `--path "/absolute/path/to/MyGame"` when the target might be mistaken for
+   a command name or begins with a hyphen.
+
    The wrapper:
 
    - honours both repositories’ `.prettierrc` and `.prettierignore` files so
@@ -377,16 +380,21 @@ Run these commands after dependency updates or when onboarding a teammate. Add
 _Installed from npm_
 
 ```bash
-npx prettier --plugin=prettier-plugin-gamemaker --support-info | grep gml-parse
+npx prettier --plugin=prettier-plugin-gamemaker --support-info
 npx prettier --plugin=prettier-plugin-gamemaker --check "**/*.gml"
 ```
 
 _Installed from Git_
 
 ```bash
-npx prettier --plugin=./node_modules/root/src/plugin/src/gml.js --support-info | grep gml-parse
+npx prettier --plugin=./node_modules/root/src/plugin/src/gml.js --support-info
 npx prettier --plugin=./node_modules/root/src/plugin/src/gml.js --check "**/*.gml"
 ```
+
+The `--support-info` output should list `gml-parse` under "Parsers" when the
+plugin resolves correctly. Append `| grep gml-parse` on macOS or Linux, or use
+`| Select-String gml-parse` in PowerShell, to filter the output if you prefer a
+single-line confirmation.
 
 ```bash
 npm run format:gml -- --extensions=.gml --extensions=.yy
