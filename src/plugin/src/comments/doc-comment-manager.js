@@ -415,7 +415,8 @@ function extractDescriptionContent(value) {
 
 function buildUpdatedDescription(existing, expression) {
     const originalDescription = existing ?? "";
-    if (!expression) {
+
+    if (!isNonEmptyTrimmedString(expression)) {
         return originalDescription;
     }
 
@@ -427,25 +428,21 @@ function buildUpdatedDescription(existing, expression) {
 
     const trimmed = existing.trim();
     const lowered = trimmed.toLowerCase();
-    const keepOriginal = () => originalDescription;
+    const includes = (needle) => lowered.includes(needle);
 
-    if (lowered.includes("original multi-branch")) {
-        return keepOriginal();
+    if (includes("original multi-branch") || includes("guard extraction")) {
+        return originalDescription;
     }
 
-    if (lowered.includes("original") || lowered.includes("multi-clause")) {
+    if (includes("original") || includes("multi-clause")) {
         return `Simplified: ${normalizedExpression}`;
     }
 
-    if (lowered.includes("simplified")) {
+    if (includes("simplified")) {
         const colonIndex = trimmed.indexOf(":");
         return colonIndex === -1
             ? `Simplified: ${normalizedExpression}`
             : `${trimmed.slice(0, colonIndex + 1)} ${normalizedExpression}`;
-    }
-
-    if (lowered.includes("guard extraction")) {
-        return keepOriginal();
     }
 
     const equalityIndex = trimmed.indexOf("==");
@@ -455,11 +452,10 @@ function buildUpdatedDescription(existing, expression) {
     }
 
     const mentionsReturn = /\breturn\b/.test(lowered);
-    const mentionsBranching =
-        /\bif\b/.test(lowered) || /\belse\b/.test(lowered);
+    const mentionsBranching = /\b(?:if|else)\b/.test(lowered);
 
     if (mentionsReturn && mentionsBranching) {
-        return keepOriginal();
+        return originalDescription;
     }
 
     const withoutPeriod = trimmed.replace(/\.?\s*$/, "");
