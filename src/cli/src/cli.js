@@ -47,9 +47,9 @@ import {
     toArray,
     toNormalizedLowerCaseSet,
     uniqueArray,
+    walkAncestorDirectories,
     withObjectLike
 } from "./dependencies.js";
-import { collectAncestorDirectories } from "./shared/ancestor-directories.js";
 import {
     hasIgnoreRuleNegations,
     markIgnoreRuleNegationsDetected,
@@ -1036,12 +1036,18 @@ async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
  */
 function resolveIgnoreSearchBounds(directory) {
     const resolvedDirectory = path.resolve(directory);
-    const resolvedWorkingDirectory = path.resolve(process.cwd());
-    const searchRoot = isPathInside(resolvedWorkingDirectory, resolvedDirectory)
-        ? resolvedWorkingDirectory
-        : null;
+    const resolvedWorkingDirectory = INITIAL_WORKING_DIRECTORY;
+    const shouldLimitToWorkingDirectory = isPathInside(
+        resolvedDirectory,
+        resolvedWorkingDirectory
+    );
 
-    return { resolvedDirectory, searchRoot };
+    return {
+        resolvedDirectory,
+        searchRoot: shouldLimitToWorkingDirectory
+            ? resolvedWorkingDirectory
+            : null
+    };
 }
 
 /**
@@ -1053,6 +1059,22 @@ function collectIgnoreCandidatePaths(directories) {
     return directories.map((candidateDirectory) =>
         path.join(candidateDirectory, ".prettierignore")
     );
+}
+
+function collectIgnoreSearchDirectories(directory, searchRoot) {
+    const resolvedDirectory = path.resolve(directory);
+    const resolvedSearchRoot = searchRoot ? path.resolve(searchRoot) : null;
+
+    const directories = [];
+    for (const candidate of walkAncestorDirectories(resolvedDirectory)) {
+        directories.push(candidate);
+
+        if (resolvedSearchRoot && candidate === resolvedSearchRoot) {
+            break;
+        }
+    }
+
+    return directories;
 }
 
 /**
@@ -1079,7 +1101,7 @@ async function collectExistingIgnoreFiles(candidatePaths) {
 async function resolveProjectIgnorePaths(directory) {
     const { resolvedDirectory, searchRoot } =
         resolveIgnoreSearchBounds(directory);
-    const directoriesToInspect = collectAncestorDirectories(
+    const directoriesToInspect = collectIgnoreSearchDirectories(
         resolvedDirectory,
         searchRoot
     );
