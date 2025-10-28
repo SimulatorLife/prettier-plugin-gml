@@ -98,6 +98,14 @@ jobs:
         run: npm run lint:report
         continue-on-error: true
 
+      - name: Verify lint report was generated
+        run: |
+          if [ ! -f reports/eslint-checkstyle.xml ]; then
+            echo "::error::Lint report was not generated. Check if eslint-formatter-checkstyle is installed."
+            exit 1
+          fi
+          echo "::notice::Lint report generated successfully at reports/eslint-checkstyle.xml"
+
       - name: Upload JUnit artifacts (${{ matrix.target }})
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
@@ -113,7 +121,7 @@ jobs:
     needs: tests
     runs-on: ubuntu-latest
     outputs:
-      all_green: ${{ steps.regress.outputs.all_green }}
+      all_green: ${{ steps.summarize.outputs.all_green }}
     env:
       GH_USER_TOKEN: ${{ secrets.GH_USER_TOKEN }}
     steps:
@@ -162,6 +170,7 @@ jobs:
           exit 0
 
       - name: Summarize and comment
+        id: summarize
         uses: actions/github-script@v7
         env:
           REGRESSION_ALL_GREEN: ${{ steps.regress.outputs.all_green }}
@@ -518,11 +527,24 @@ jobs:
               ...notes.map(n => `> ⚠️ ${n}`)
             ].join('\n');
 
+            // Validate lint data availability for the target that will be merged
+            const targetForMerge = testResults.merge?.usedDir ? 'merge' : 'head';
+            const lintDataAvailable = lint[targetForMerge] !== null && lint[targetForMerge] !== undefined;
+            
             const statusFlag = (process.env.REGRESSION_STATUS || '').toLowerCase();
-            const allGreenFlag = (process.env.REGRESSION_ALL_GREEN || '').toLowerCase() === 'true';
+            const regressionAllGreen = (process.env.REGRESSION_ALL_GREEN || '').toLowerCase() === 'true';
+            
+            // Determine final all_green status: must have no regressions AND lint data available
+            const allGreenFlag = regressionAllGreen && lintDataAvailable;
+            
+            if (regressionAllGreen && !lintDataAvailable) {
+              core.warning(`Lint data is missing for ${targetForMerge} — blocking auto-merge.`);
+            }
 
             let statusLine;
-            if (statusFlag === 'clean' || allGreenFlag) {
+            if (!lintDataAvailable) {
+              statusLine = '❌ Lint data is missing — auto-merge is blocked. The lint report generation may have failed.';
+            } else if (statusFlag === 'clean' || allGreenFlag) {
               statusLine = '✅ No test regressions detected — this PR will be auto-merged.';
             } else if (statusFlag === 'regressions') {
               let causeDetails = '';
@@ -573,6 +595,9 @@ jobs:
             } else {
               await github.rest.issues.createComment({ owner, repo, issue_number: number, body });
             }
+            
+            // Set output for auto-merge gate
+            core.setOutput('all_green', allGreenFlag ? 'true' : 'false');
 
       - name: Request Codex help for regressions
         if: ${{ github.event_name == 'pull_request' && steps.regress.outputs.status == 'regressions' && env.GH_USER_TOKEN != '' }}
