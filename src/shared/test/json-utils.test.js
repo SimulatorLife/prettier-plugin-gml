@@ -48,6 +48,29 @@ describe("parseJsonWithContext", () => {
         );
     });
 
+    it("detects structural JsonParseError facades without relying on names", () => {
+        const facade = {
+            message: "Failed to parse resource document from demo.json: nope",
+            description: "resource document",
+            source: "demo.json",
+            cause: new Error("nope"),
+            name: "CustomJsonError"
+        };
+
+        assert.equal(isJsonParseError(facade), true);
+    });
+
+    it("honours explicit JsonParseError capability branding", () => {
+        const brand = Symbol.for("prettier-plugin-gml.json-parse-error");
+        const facade = {
+            message: "boom",
+            cause: new Error("boom"),
+            [brand]: true
+        };
+
+        assert.equal(isJsonParseError(facade), true);
+    });
+
     it("normalizes whitespace-only descriptions and error messages", () => {
         let error;
         try {
