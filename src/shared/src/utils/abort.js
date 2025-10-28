@@ -100,12 +100,43 @@ export function createAbortError(
  * @returns {boolean} `true` when the value is a branded abort error; otherwise
  *          `false`.
  */
+const ABORT_ERROR_NAME = "aborterror";
+const ABORT_ERROR_STRING_CODE = "ABORT_ERR";
+const DOM_EXCEPTION_ABORT_ERR_CODE =
+    typeof DOMException === "function" &&
+    typeof DOMException.ABORT_ERR === "number"
+        ? DOMException.ABORT_ERR
+        : null;
+
 export function isAbortError(value) {
     if (value == null) {
         return false;
     }
 
     if (abortErrorBrand.has(value)) {
+        return true;
+    }
+
+    if (!isObjectOrFunction(value)) {
+        return false;
+    }
+
+    const name = getNonEmptyString(value.name);
+    if (name?.toLowerCase() === ABORT_ERROR_NAME) {
+        return true;
+    }
+
+    const code = value.code;
+
+    if (typeof code === "string") {
+        return code.toUpperCase() === ABORT_ERROR_STRING_CODE;
+    }
+
+    if (
+        typeof code === "number" &&
+        DOM_EXCEPTION_ABORT_ERR_CODE !== null &&
+        code === DOM_EXCEPTION_ABORT_ERR_CODE
+    ) {
         return true;
     }
 
