@@ -10,7 +10,8 @@ import {
     isNonEmptyArray,
     isNonEmptyTrimmedString,
     parseJsonWithContext,
-    toTrimmedString
+    toTrimmedString,
+    getErrorMessageOrFallback
 } from "../dependencies.js";
 import {
     CliUsageError,
@@ -48,6 +49,77 @@ const MANUAL_REPO_REQUIREMENTS = Object.freeze({
 const MANUAL_REPO_REQUIREMENT_SOURCE_LIST = Object.values(
     MANUAL_REPO_REQUIREMENT_SOURCE
 ).join(", ");
+
+class ManualGitHubRequestError extends Error {
+    constructor(
+        message,
+        { url, status, statusText, responseBody, cause } = {}
+    ) {
+        super(message);
+        this.name = "ManualGitHubRequestError";
+        if (url) {
+            this.url = url;
+        }
+        if (typeof status === "number") {
+            this.status = status;
+        }
+        if (statusText) {
+            this.statusText = statusText;
+        }
+        if (responseBody !== undefined) {
+            this.responseBody = responseBody;
+        }
+        if (cause !== undefined) {
+            this.cause = cause;
+        }
+    }
+}
+
+function createManualGitHubRequestError({ url, response, bodyText, cause }) {
+    const status =
+        typeof response?.status === "number" ? response.status : null;
+    const statusText = toTrimmedString(response?.statusText);
+
+    let responseBody;
+    if (bodyText !== undefined) {
+        responseBody = typeof bodyText === "string" ? bodyText.trim() : "";
+    }
+
+    const statusParts = [];
+    if (status !== null) {
+        statusParts.push(String(status));
+    }
+    if (statusText) {
+        statusParts.push(statusText);
+    }
+
+    let message = `Request failed for ${url}`;
+    if (statusParts.length > 0) {
+        message += ` (${statusParts.join(" ")})`;
+    }
+
+    const detail = (() => {
+        if (typeof responseBody === "string" && responseBody.length > 0) {
+            return responseBody;
+        }
+        if (cause !== undefined) {
+            return getErrorMessageOrFallback(cause);
+        }
+        return "";
+    })();
+
+    if (detail) {
+        message += `: ${detail}`;
+    }
+
+    return new ManualGitHubRequestError(message, {
+        url,
+        status: status ?? undefined,
+        statusText: statusText || undefined,
+        responseBody,
+        cause
+    });
+}
 
 function getManualRepoRequirement(source) {
     const requirement = MANUAL_REPO_REQUIREMENTS[source];
@@ -551,19 +623,38 @@ function createManualGitHubRequestDispatcher({ userAgent } = {}) {
             ...(acceptJson ? { Accept: "application/vnd.github+json" } : {})
         };
 
-        const response = await fetch(url, {
-            headers: finalHeaders,
-            redirect: "follow",
-            signal
-        });
+        try {
+            const response = await fetch(url, {
+                headers: finalHeaders,
+                redirect: "follow",
+                signal
+            });
 
-        const bodyText = await response.text();
-        if (!response.ok) {
-            const errorMessage = bodyText || response.statusText;
-            throw new Error(`Request failed for ${url}: ${errorMessage}`);
+            const bodyText = await response.text();
+            if (!response.ok) {
+                throw createManualGitHubRequestError({
+                    url,
+                    response,
+                    bodyText
+                });
+            }
+
+            return bodyText;
+        } catch (error) {
+            if (
+                signal?.aborted === true &&
+                (error === signal.reason ||
+                    (!signal.reason && error?.name === "AbortError"))
+            ) {
+                throw error;
+            }
+
+            if (error instanceof ManualGitHubRequestError) {
+                throw error;
+            }
+
+            throw createManualGitHubRequestError({ url, cause: error });
         }
-
-        return bodyText;
     }
 
     return Object.freeze({ execute });
@@ -822,6 +913,7 @@ export {
     DEFAULT_MANUAL_REPO,
     MANUAL_CACHE_ROOT_ENV_VAR,
     MANUAL_REPO_ENV_VAR,
+    ManualGitHubRequestError,
     createManualVerboseState,
     buildManualRepositoryEndpoints,
     normalizeManualRepository,
