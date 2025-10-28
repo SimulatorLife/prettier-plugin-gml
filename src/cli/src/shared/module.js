@@ -18,20 +18,15 @@ import { assertNonEmptyString } from "@prettier-plugin-gml/shared/utils/string.j
  *          original module reference.
  */
 export function resolveModuleDefaultExport(module) {
-    if (module == null) {
+    if (module == null || !isObjectOrFunction(module)) {
         return module;
     }
 
-    if (!isObjectOrFunction(module)) {
-        return module;
-    }
+    const { default: defaultExport } = /** @type {{ default?: unknown }} */ (
+        module
+    );
 
-    const defaultExport = /** @type {{ default?: unknown }} */ (module).default;
-    if (defaultExport === undefined || defaultExport === null) {
-        return module;
-    }
-
-    return defaultExport;
+    return defaultExport ?? module;
 }
 
 /**
