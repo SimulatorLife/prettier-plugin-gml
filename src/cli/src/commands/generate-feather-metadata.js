@@ -1135,10 +1135,9 @@ async function fetchFeatherManualPayloads({
 }
 
 /**
- * Download each requested manual page while reporting progress.
- * The helper returns a map from feather page keys to their HTML payloads,
- * mirroring the structure previously built inline inside
- * fetchFeatherManualPayloads.
+ * Parse the downloaded manual payloads into normalized section metadata.
+ * Keeping the transformation logic isolated lets the command orchestrator
+ * delegate high-level steps without juggling raw payload bookkeeping.
  */
 
 function parseFeatherManualPayloads(htmlPayloads, { verbose }) {
@@ -1171,6 +1170,40 @@ function parseFeatherManualPayloads(htmlPayloads, { verbose }) {
 }
 
 /**
+ * Download and parse the manual pages required to build the Feather metadata
+ * artefact. Returning the final payload keeps the command runner free from
+ * low-level payload maps and section assembly concerns.
+ */
+async function buildFeatherMetadataPayload({
+    manualRef,
+    manualRepo,
+    fetchManualFile: fetchManualFileFn,
+    forceRefresh,
+    verbose,
+    cacheRoot,
+    rawRoot,
+    progressBarWidth
+}) {
+    const htmlPayloads = await fetchFeatherManualPayloads({
+        manualRef,
+        fetchManualFile: fetchManualFileFn,
+        forceRefresh,
+        verbose,
+        cacheRoot,
+        rawRoot,
+        progressBarWidth
+    });
+
+    const sections = parseFeatherManualPayloads(htmlPayloads, { verbose });
+
+    return createFeatherManualMetadataPayload({
+        manualRef,
+        manualRepo,
+        sections
+    });
+}
+
+/**
  * Execute the Feather metadata generation workflow.
  *
  * @param {{ command?: import("commander").Command }} [context]
@@ -1200,21 +1233,15 @@ export async function runGenerateFeatherMetadata({ command } = {}) {
         const manualRef = ensureManualRefHasSha(unresolvedManualRef, { usage });
         console.log(`Using manual ref '${manualRef.ref}' (${manualRef.sha}).`);
 
-        const htmlPayloads = await fetchFeatherManualPayloads({
+        const payload = await buildFeatherMetadataPayload({
             manualRef,
+            manualRepo,
             fetchManualFile,
             forceRefresh,
             verbose,
             cacheRoot,
             rawRoot,
             progressBarWidth
-        });
-
-        const sections = parseFeatherManualPayloads(htmlPayloads, { verbose });
-        const payload = createFeatherManualMetadataPayload({
-            manualRef,
-            manualRepo,
-            sections
         });
 
         await writeManualJsonArtifact({
