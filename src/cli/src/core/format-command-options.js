@@ -48,6 +48,10 @@ function resolveFormatCommandExtensions(options, defaultExtensions) {
         return rawExtensions;
     }
 
+    if (typeof rawExtensions === "string") {
+        return [rawExtensions];
+    }
+
     return [...(rawExtensions ?? fallback)];
 }
 

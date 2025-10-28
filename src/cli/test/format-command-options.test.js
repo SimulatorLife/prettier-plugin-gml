@@ -39,3 +39,19 @@ test("collectFormatCommandOptions tolerates commands without option state", () =
     assert.strictEqual(result.unsupportedExtensionSampleLimit, undefined);
     assert.strictEqual(result.usage, "usage");
 });
+
+test("collectFormatCommandOptions normalizes string extension lists", () => {
+    const command = {
+        args: [],
+        opts() {
+            return { extensions: ".yy" };
+        },
+        helpInformation() {
+            return "usage";
+        }
+    };
+
+    const result = collectFormatCommandOptions(command, DEFAULTS);
+
+    assert.deepStrictEqual(result.extensions, [".yy"]);
+});
