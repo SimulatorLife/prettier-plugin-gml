@@ -158,11 +158,11 @@ export function toTrimmedString(value) {
  */
 export function coalesceTrimmedString(...values) {
     for (const value of values) {
-        if (value == null) {
+        if (typeof value !== "string") {
             continue;
         }
 
-        const trimmed = toTrimmedString(value);
+        const trimmed = value.trim();
         if (trimmed.length > 0) {
             return trimmed;
         }
