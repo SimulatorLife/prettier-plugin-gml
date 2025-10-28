@@ -4,7 +4,7 @@ import test from "node:test";
 import {
     isMissingModuleDependency,
     resolveModuleDefaultExport
-} from "../src/shared/module.js";
+} from "../src/dependencies.js";
 
 test("resolveModuleDefaultExport returns the default export when present", () => {
     const namespace = { default: () => "value" };

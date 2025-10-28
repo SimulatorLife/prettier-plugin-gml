@@ -1,5 +1,5 @@
 const ESCAPE_REGEXP_PATTERN = /[.*+?^${}()|[\]\\]/g;
-const ESCAPE_REGEXP_REPLACEMENT = "\\$&";
+const ESCAPE_REGEXP_REPLACEMENT = String.raw`\$&`;
 
 /**
  * Escape characters that carry special meaning in regular expressions so the
