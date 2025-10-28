@@ -41,7 +41,8 @@ import {
     hasIterableItems,
     isMapLike,
     isSetLike,
-    getSingleVariableDeclarator as sharedGetSingleVariableDeclarator
+    getSingleVariableDeclarator as sharedGetSingleVariableDeclarator,
+    createIdentifierNode
 } from "../shared/index.js";
 import {
     collectCommentNodes,
@@ -15918,14 +15919,7 @@ function cloneLiteral(node) {
 }
 
 function createIdentifierFromTemplate(name, template) {
-    const identifier = {
-        type: "Identifier",
-        name
-    };
-
-    assignClonedLocation(identifier, template);
-
-    return identifier;
+    return createIdentifierNode(name, template);
 }
 
 function cloneIdentifier(node) {
@@ -17493,18 +17487,7 @@ function getIdentifierName(node) {
 }
 
 function createIdentifier(name, template) {
-    if (!name) {
-        return null;
-    }
-
-    const identifier = {
-        type: "Identifier",
-        name
-    };
-
-    assignClonedLocation(identifier, template);
-
-    return identifier;
+    return createIdentifierNode(name, template);
 }
 
 function isSpriteGetTextureCall(node) {
