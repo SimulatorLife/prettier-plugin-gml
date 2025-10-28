@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { formatDuration, timeSync } from "../src/shared/dependencies.js";
+import { formatDuration, timeSync } from "../src/utils/time.js";
 
 function createCollectingLogger() {
     const calls = [];

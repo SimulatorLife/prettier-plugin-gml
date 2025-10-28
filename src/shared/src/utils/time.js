@@ -56,7 +56,8 @@ export function createVerboseDurationLogger({
 
 /**
  * Run a synchronous callback while emitting verbose timing messages that match
- * the CLI's progress logging conventions.
+ * the shared progress logging conventions used by the CLI and long-running
+ * semantic tooling.
  *
  * @template T
  * @param {string} label Human-readable description of the work being timed.
@@ -66,7 +67,7 @@ export function createVerboseDurationLogger({
  *   now?: () => number,
  *   logger?: { log?: (message: string) => void }
  * }} [options]
- *   Optional CLI verbose flags, clock override, and logger replacement.
+ *   Optional verbose flags, clock override, and logger replacement.
  * @returns {T} Whatever the callback returns.
  */
 export function timeSync(
