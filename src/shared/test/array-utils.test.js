@@ -9,6 +9,7 @@ import test from "node:test";
 import {
     appendToCollection,
     asArray,
+    compactArray,
     isNonEmptyArray,
     pushUnique,
     toArray,
@@ -78,6 +79,26 @@ test("uniqueArray supports iterables and optional freezing", () => {
 
     assert.deepEqual(result, ["one", "two"]);
     assert.ok(Object.isFrozen(result));
+});
+
+test("compactArray removes falsy entries while preserving order", () => {
+    assert.deepEqual(compactArray([0, "", "alpha", false, "beta", null]), [
+        "alpha",
+        "beta"
+    ]);
+});
+
+test("compactArray tolerates iterables and optional freezing", () => {
+    const iterable = new Set(["first", "", "second"]);
+    const result = compactArray(iterable, { freeze: true });
+
+    assert.deepEqual(result, ["first", "second"]);
+    assert.ok(Object.isFrozen(result));
+});
+
+test("compactArray normalizes nullish inputs to empty arrays", () => {
+    assert.deepEqual(compactArray(null), []);
+    assert.deepEqual(compactArray(undefined), []);
 });
 
 test("pushUnique appends values that are not present", () => {

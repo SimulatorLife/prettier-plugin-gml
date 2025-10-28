@@ -1,4 +1,5 @@
 import {
+    compactArray,
     toTrimmedString,
     getErrorCode,
     getErrorMessage,
@@ -81,10 +82,9 @@ function formatAggregateErrors(error, seen) {
         return null;
     }
 
-    const formatted = error.errors
-        .map((entry) => formatErrorValue(entry, seen))
-        .filter(Boolean)
-        .map((text) => indentBlock(`- ${text.replaceAll("\n", "\n  ")}`));
+    const formatted = compactArray(
+        error.errors.map((entry) => formatErrorValue(entry, seen))
+    ).map((text) => indentBlock(`- ${text.replaceAll("\n", "\n  ")}`));
 
     if (formatted.length === 0) {
         return null;

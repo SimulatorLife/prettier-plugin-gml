@@ -2,6 +2,7 @@ export {
     appendToCollection,
     applyEnvironmentOverride,
     asArray,
+    compactArray,
     assertArray,
     assertFunction,
     assertNonEmptyString,

@@ -5,6 +5,7 @@ export {
     assertFunction,
     assertNonEmptyString,
     assertPlainObject,
+    compactArray,
     coerceNonNegativeInteger,
     coercePositiveInteger,
     createAbortGuard,

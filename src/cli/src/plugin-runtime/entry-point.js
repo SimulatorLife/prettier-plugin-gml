@@ -5,6 +5,7 @@ import process from "node:process";
 import { pathToFileURL } from "node:url";
 
 import {
+    compactArray,
     createListSplitPattern,
     getNonEmptyTrimmedString,
     normalizeStringList,
@@ -22,7 +23,7 @@ const DEFAULT_CANDIDATE_PLUGIN_PATHS = Object.freeze([
 ]);
 
 const LIST_SPLIT_PATTERN = createListSplitPattern(
-    [",", path.delimiter].filter(Boolean)
+    compactArray([",", path.delimiter])
 );
 
 function expandLeadingTilde(candidate) {
@@ -123,9 +124,9 @@ function collectCandidateInputs({ env, candidates } = {}) {
  * abstraction level.
  */
 function normalizeCandidatePaths(candidateInputs) {
-    const resolvedCandidates = candidateInputs
-        .map((candidate) => resolveCandidatePath(candidate))
-        .filter(Boolean);
+    const resolvedCandidates = compactArray(
+        candidateInputs.map((candidate) => resolveCandidatePath(candidate))
+    );
 
     return uniqueArray(resolvedCandidates);
 }
