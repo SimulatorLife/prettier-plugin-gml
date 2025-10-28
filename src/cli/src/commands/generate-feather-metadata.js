@@ -3,6 +3,7 @@ import { parseHTML } from "linkedom";
 import { Command } from "commander";
 
 import {
+    compactArray,
     createVerboseDurationLogger,
     escapeRegExp,
     getNonEmptyTrimmedString,
@@ -275,13 +276,13 @@ function splitCellLines(element) {
     const clone = element.cloneNode(true);
     replaceBreaksWithNewlines(clone);
 
-    return (
+    const lines =
         clone.textContent
             ?.replaceAll("\u00A0", " ")
             .split("\n")
-            .map((line) => line.replaceAll(/\s+/g, " ").trim())
-            .filter(Boolean) ?? []
-    );
+            .map((line) => line.replaceAll(/\s+/g, " ").trim()) ?? [];
+
+    return compactArray(lines);
 }
 
 function extractTable(table) {
@@ -391,7 +392,7 @@ function createBlock(node) {
         const items = getDirectChildren(element, "li").map((item) =>
             extractText(item, { preserveLineBreaks: false })
         );
-        block.items = items.filter(Boolean);
+        block.items = compactArray(items);
         if (block.items.length === 0 && !text) {
             return null;
         }
@@ -481,13 +482,13 @@ function collectNamingRuleSectionOptions(listItem) {
         return [];
     }
 
-    return getDirectChildren(nestedList, "li")
-        .map((option) =>
-            normalizeMultilineText(
-                extractText(option, { preserveLineBreaks: false })
-            )
+    const options = getDirectChildren(nestedList, "li").map((option) =>
+        normalizeMultilineText(
+            extractText(option, { preserveLineBreaks: false })
         )
-        .filter(Boolean);
+    );
+
+    return compactArray(options);
 }
 
 function createNamingRuleSection(listItem) {
@@ -525,15 +526,13 @@ function updateNamingListMetadataFromStrongElement(strongEl, metadata) {
     }
 
     if (strongText === "Naming Style") {
-        metadata.namingStyleOptions = Array.from(
-            listItem.querySelectorAll("ul li")
-        )
-            .map((styleEl) =>
+        const styles = Array.from(listItem.querySelectorAll("ul li")).map(
+            (styleEl) =>
                 extractSanitizedText(styleEl, {
                     preserveLineBreaks: false
                 })
-            )
-            .filter(Boolean);
+        );
+        metadata.namingStyleOptions = compactArray(styles);
     } else if (strongText === "Identifier Blocklist") {
         metadata.identifierBlocklist = extractSanitizedText(listItem, {
             preserveLineBreaks: true
@@ -633,9 +632,9 @@ function joinSections(parts) {
         return null;
     }
 
-    const normalizedParts = parts
-        .map((part) => getNonEmptyTrimmedString(part))
-        .filter(Boolean);
+    const normalizedParts = compactArray(
+        parts.map((part) => getNonEmptyTrimmedString(part))
+    );
 
     if (!isNonEmptyArray(normalizedParts)) {
         return null;
@@ -943,14 +942,15 @@ function parseTypeValidationTable(table) {
     }
 
     const headerCells = getDirectChildren(headerRow, "th, td");
-    const columns = headerCells
-        .slice(1)
-        .map((cell) =>
-            getNonEmptyTrimmedString(
-                extractText(cell, { preserveLineBreaks: false })
+    const columns = compactArray(
+        headerCells
+            .slice(1)
+            .map((cell) =>
+                getNonEmptyTrimmedString(
+                    extractText(cell, { preserveLineBreaks: false })
+                )
             )
-        )
-        .filter(Boolean);
+    );
 
     const rows = [];
     const dataRows = Array.from(table.querySelectorAll("tr")).slice(1);
@@ -1013,9 +1013,11 @@ function parseTypeSystem(html) {
     const baseTypeTable = tables[0] ?? null;
     const baseTypes = baseTypeTable ? parseBaseTypeTable(baseTypeTable) : [];
 
-    const noteBlocks = Array.from(document.querySelectorAll("p.note"))
-        .map((element) => createBlock(element))
-        .filter(Boolean);
+    const noteBlocks = compactArray(
+        Array.from(document.querySelectorAll("p.note")).map((element) =>
+            createBlock(element)
+        )
+    );
     const notes = normalizeMultilineTextCollection(
         noteBlocks.map((block) => block.text)
     );
