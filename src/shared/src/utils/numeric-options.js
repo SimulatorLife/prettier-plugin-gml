@@ -21,11 +21,7 @@ function parseStringOption(
         return defaultValue;
     }
 
-    const parsed =
-        parseString.length >= 2
-            ? parseString(trimmed, DECIMAL_RADIX)
-            : parseString(trimmed);
-
+    const parsed = parseString(trimmed, DECIMAL_RADIX);
     return coerce(parsed, { received: `'${rawValue}'` });
 }
 
