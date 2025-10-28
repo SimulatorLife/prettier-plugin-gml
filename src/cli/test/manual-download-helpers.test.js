@@ -65,126 +65,124 @@ describe("manual download helpers", () => {
 
     it("downloads manual entries with the shared progress helper", async () => {
         const logCalls = [];
-        const restoreLog = mock.method(console, "log", (...args) => {
-            logCalls.push(args.join(" "));
+        const logger = {
+            log: (...args) => {
+                logCalls.push(args.join(" "));
+            }
+        };
+
+        const payloads = await downloadManualEntriesWithProgress({
+            entries: [
+                ["keywords", "Manual/keywords.json"],
+                ["tags", "Manual/tags.json"]
+            ],
+            manualRefSha: "abc123",
+            fetchManualFile: async (sha, filePath) => `${sha}:${filePath}`,
+            requestOptions: { forceRefresh: true },
+            progress: {
+                label: "Downloading manual assets",
+                verbose: { downloads: true, progressBar: false },
+                formatPath: (path) => path.toUpperCase(),
+                logger
+            }
         });
 
-        try {
-            const payloads = await downloadManualEntriesWithProgress({
-                entries: [
-                    ["keywords", "Manual/keywords.json"],
-                    ["tags", "Manual/tags.json"]
-                ],
-                manualRefSha: "abc123",
-                fetchManualFile: async (sha, filePath) => `${sha}:${filePath}`,
-                requestOptions: { forceRefresh: true },
-                progress: {
-                    label: "Downloading manual assets",
-                    verbose: { downloads: true, progressBar: false },
-                    formatPath: (path) => path.toUpperCase()
-                }
-            });
-
-            assert.deepEqual(payloads, {
-                keywords: "abc123:Manual/keywords.json",
-                tags: "abc123:Manual/tags.json"
-            });
-            assert.deepEqual(logCalls, [
-                "✓ MANUAL/KEYWORDS.JSON",
-                "✓ MANUAL/TAGS.JSON"
-            ]);
-        } finally {
-            restoreLog.mock.restore();
-        }
+        assert.deepEqual(payloads, {
+            keywords: "abc123:Manual/keywords.json",
+            tags: "abc123:Manual/tags.json"
+        });
+        assert.deepEqual(logCalls, [
+            "✓ MANUAL/KEYWORDS.JSON",
+            "✓ MANUAL/TAGS.JSON"
+        ]);
     });
 
     it("renders progress bars when verbose progress output is enabled", () => {
         const renderCalls = [];
-        const restoreLog = mock.method(console, "log", () => {});
+        const logger = {
+            log: () => {
+                throw new Error(
+                    "console.log should not be called when rendering progress bars"
+                );
+            }
+        };
 
-        try {
-            const { report, cleanup } = createManualDownloadReporter({
-                label: "Downloading manual pages",
-                verbose: { downloads: true, progressBar: true },
-                progressBarWidth: 24,
-                render: (...args) => {
-                    renderCalls.push(args);
-                }
-            });
+        const { report, cleanup } = createManualDownloadReporter({
+            label: "Downloading manual pages",
+            verbose: { downloads: true, progressBar: true },
+            progressBarWidth: 24,
+            render: (...args) => {
+                renderCalls.push(args);
+            },
+            logger
+        });
 
-            report({
-                path: "Manual/file.htm",
-                fetchedCount: 1,
-                totalEntries: 4
-            });
+        report({
+            path: "Manual/file.htm",
+            fetchedCount: 1,
+            totalEntries: 4
+        });
 
-            assert.equal(renderCalls.length, 1);
-            assert.deepEqual(renderCalls[0], [
-                "Downloading manual pages",
-                1,
-                4,
-                24
-            ]);
-            assert.equal(restoreLog.mock.callCount(), 0);
-            cleanup();
-        } finally {
-            restoreLog.mock.restore();
-        }
+        assert.equal(renderCalls.length, 1);
+        assert.deepEqual(renderCalls[0], [
+            "Downloading manual pages",
+            1,
+            4,
+            24
+        ]);
+        cleanup();
     });
 
     it("logs individual paths when progress bars are disabled", () => {
         const logCalls = [];
-        const restoreLog = mock.method(console, "log", (...args) => {
-            logCalls.push(args.join(" "));
+        const logger = {
+            log: (...args) => {
+                logCalls.push(args.join(" "));
+            }
+        };
+
+        const { report, cleanup } = createManualDownloadReporter({
+            label: "Downloading manual files",
+            verbose: { downloads: true, progressBar: false },
+            render: () => {
+                throw new Error("render should not be called");
+            },
+            logger
         });
 
-        try {
-            const { report, cleanup } = createManualDownloadReporter({
-                label: "Downloading manual files",
-                verbose: { downloads: true, progressBar: false },
-                render: () => {
-                    throw new Error("render should not be called");
-                }
-            });
+        report({
+            path: "Manual/file.htm",
+            fetchedCount: 2,
+            totalEntries: 5
+        });
 
-            report({
-                path: "Manual/file.htm",
-                fetchedCount: 2,
-                totalEntries: 5
-            });
-
-            assert.deepEqual(logCalls, ["✓ Manual/file.htm"]);
-            cleanup();
-        } finally {
-            restoreLog.mock.restore();
-        }
+        assert.deepEqual(logCalls, ["✓ Manual/file.htm"]);
+        cleanup();
     });
 
     it("ignores progress updates when download logging is disabled", () => {
-        const restoreLog = mock.method(console, "log", () => {
-            throw new Error("console.log should not be called");
+        const logger = {
+            log: () => {
+                throw new Error("console.log should not be called");
+            }
+        };
+
+        const { report, cleanup } = createManualDownloadReporter({
+            label: "Downloading manual files",
+            verbose: { downloads: false, progressBar: true },
+            render: () => {
+                throw new Error("render should not be called");
+            },
+            logger
         });
 
-        try {
-            const { report, cleanup } = createManualDownloadReporter({
-                label: "Downloading manual files",
-                verbose: { downloads: false, progressBar: true },
-                render: () => {
-                    throw new Error("render should not be called");
-                }
-            });
+        report({
+            path: "Manual/file.htm",
+            fetchedCount: 1,
+            totalEntries: 1
+        });
 
-            report({
-                path: "Manual/file.htm",
-                fetchedCount: 1,
-                totalEntries: 1
-            });
-
-            assert.equal(restoreLog.mock.callCount(), 0);
-            cleanup();
-        } finally {
-            restoreLog.mock.restore();
-        }
+        cleanup();
     });
 
     it("only runs progress cleanup once", () => {
@@ -294,30 +292,31 @@ describe("manual download helpers", () => {
 
     it("announces manual download activity using the shared helper", () => {
         const logCalls = [];
-        const restoreLog = mock.method(console, "log", (...args) => {
-            logCalls.push(args.join(" "));
+        const logger = {
+            log: (...args) => {
+                logCalls.push(args.join(" "));
+            }
+        };
+
+        announceManualDownloadStart(1, {
+            verbose: { downloads: true },
+            description: "manual asset",
+            logger
+        });
+        announceManualDownloadStart(3, {
+            verbose: { downloads: true },
+            description: "manual page",
+            logger
+        });
+        announceManualDownloadStart(2, {
+            verbose: { downloads: false },
+            description: "manual file",
+            logger
         });
 
-        try {
-            announceManualDownloadStart(1, {
-                verbose: { downloads: true },
-                description: "manual asset"
-            });
-            announceManualDownloadStart(3, {
-                verbose: { downloads: true },
-                description: "manual page"
-            });
-            announceManualDownloadStart(2, {
-                verbose: { downloads: false },
-                description: "manual file"
-            });
-
-            assert.deepEqual(logCalls, [
-                "Fetching 1 manual asset…",
-                "Fetching 3 manual pages…"
-            ]);
-        } finally {
-            restoreLog.mock.restore();
-        }
+        assert.deepEqual(logCalls, [
+            "Fetching 1 manual asset…",
+            "Fetching 3 manual pages…"
+        ]);
     });
 });
