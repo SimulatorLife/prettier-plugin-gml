@@ -16,6 +16,7 @@ import {
     incrementMapValue,
     isNonEmptyString,
     normalizeStringList,
+    toNormalizedLowerCaseString,
     loadGmlParser,
     resolveModuleDefaultExport,
     parseJsonObjectWithContext,
@@ -81,7 +82,7 @@ const memorySuiteHelpers = createEnumeratedOptionHelpers(
                 );
             }
 
-            return input.trim().toLowerCase();
+            return toNormalizedLowerCaseString(input);
         },
         formatErrorMessage({ list, received }) {
             return `Memory suite must be one of: ${list}. Received: ${received}.`;
