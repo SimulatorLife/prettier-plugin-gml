@@ -1,6 +1,6 @@
 import {
-    createEnvConfiguredValueWithFallback,
-    resolveEnvironmentMap
+    applyConfiguredValueEnvOverride,
+    createEnvConfiguredValueWithFallback
 } from "../shared/index.js";
 
 const IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_ENV_VAR =
@@ -73,9 +73,9 @@ function setDefaultIdentifierCaseOptionStoreMaxEntries(maxEntries) {
 }
 
 function applyIdentifierCaseOptionStoreEnvOverride(env) {
-    const sourceEnv = resolveEnvironmentMap(env);
-    identifierCaseOptionStoreMaxEntriesConfig.applyEnvOverride(
-        sourceEnv ?? undefined
+    applyConfiguredValueEnvOverride(
+        identifierCaseOptionStoreMaxEntriesConfig,
+        env
     );
 }
 

@@ -1,6 +1,6 @@
 import {
-    createEnvConfiguredValueWithFallback,
-    resolveEnvironmentMap
+    applyConfiguredValueEnvOverride,
+    createEnvConfiguredValueWithFallback
 } from "../dependencies.js";
 
 const PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR = "GML_PROJECT_INDEX_CONCURRENCY";
@@ -91,13 +91,11 @@ function setDefaultProjectIndexGmlConcurrencyLimit(limit) {
 }
 
 function applyProjectIndexConcurrencyEnvOverride(env) {
-    const sourceEnv = resolveEnvironmentMap(env);
-    projectIndexConcurrencyConfig.applyEnvOverride(sourceEnv ?? undefined);
+    applyConfiguredValueEnvOverride(projectIndexConcurrencyConfig, env);
 }
 
 function applyProjectIndexConcurrencyLimitEnvOverride(env) {
-    const sourceEnv = resolveEnvironmentMap(env);
-    projectIndexConcurrencyLimitConfig.applyEnvOverride(sourceEnv ?? undefined);
+    applyConfiguredValueEnvOverride(projectIndexConcurrencyLimitConfig, env);
 }
 
 applyProjectIndexConcurrencyLimitEnvOverride();
