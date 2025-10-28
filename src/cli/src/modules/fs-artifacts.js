@@ -29,13 +29,35 @@ export async function writeFileArtifact({
     contents,
     encoding = "utf8",
     onAfterWrite,
-    writeFile = writeFileAsync
+    writeFile = writeFileAsync,
+    pathFilter
 }) {
     if (!isNonEmptyString(outputPath)) {
         throw new TypeError("outputPath must be provided to writeManualFile.");
     }
 
-    await ensureDir(path.dirname(outputPath));
+    const directory = path.dirname(outputPath);
+
+    if (pathFilter) {
+        const { allowsPath, allowsDirectory } = pathFilter;
+
+        if (typeof allowsPath === "function" && !allowsPath(outputPath)) {
+            throw new Error(
+                `Refusing to write artefact outside permitted paths: ${outputPath}`
+            );
+        }
+
+        if (
+            typeof allowsDirectory === "function" &&
+            !allowsDirectory(directory)
+        ) {
+            throw new Error(
+                `Refusing to create artefact directory outside permitted paths: ${directory}`
+            );
+        }
+    }
+
+    await ensureDir(directory);
     await writeFile(outputPath, contents, encoding);
 
     if (typeof onAfterWrite === "function") {
@@ -68,7 +90,8 @@ export async function writeJsonArtifact({
     includeTrailingNewline = true,
     onAfterWrite,
     encoding = "utf8",
-    writeFile
+    writeFile,
+    pathFilter
 }) {
     const contents = stringifyJsonForFile(payload, {
         replacer,
@@ -81,6 +104,7 @@ export async function writeJsonArtifact({
         contents,
         encoding,
         onAfterWrite,
-        writeFile
+        writeFile,
+        pathFilter
     });
 }

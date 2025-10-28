@@ -22,6 +22,7 @@ import {
     withProgressBarCleanup
 } from "../dependencies.js";
 import { writeManualFile } from "./file-helpers.js";
+import { ensureWorkflowPathsAllowed } from "../../shared/workflow/path-filter.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
@@ -818,14 +819,19 @@ async function tryReadManualFileCache({
  * @param {{
  *   requestDispatcher: ManualGitHubRequestDispatcher,
  *   defaultCacheRoot?: string,
- *   defaultRawRoot: string
+ *   defaultRawRoot: string,
+ *   workflowPathFilter?: {
+ *       allowsPath?: (candidate: string) => boolean,
+ *       allowsDirectory?: (candidate: string) => boolean
+ *   }
  * }} options
  * @returns {ManualGitHubFileClient}
  */
 function createManualGitHubFileClient({
     requestDispatcher,
     defaultCacheRoot,
-    defaultRawRoot
+    defaultRawRoot,
+    workflowPathFilter
 }) {
     const request = resolveManualRequestExecutor(
         requestDispatcher,
@@ -850,6 +856,14 @@ function createManualGitHubFileClient({
         );
         const shouldLogDetails = verbose.downloads && !verbose.progressBar;
         const cachePath = path.join(cacheRoot, sha, filePath);
+
+        ensureWorkflowPathsAllowed(workflowPathFilter, [
+            {
+                type: "directory",
+                target: cacheRoot,
+                label: "Manual cache root"
+            }
+        ]);
 
         const cached = forceRefresh
             ? null
@@ -879,6 +893,7 @@ function createManualGitHubFileClient({
             outputPath: cachePath,
             contents: content,
             encoding: "utf8",
+            pathFilter: workflowPathFilter,
             onAfterWrite: () => {
                 if (signal?.aborted || !shouldLogDetails) {
                     return;
@@ -909,7 +924,11 @@ function createManualGitHubFileClient({
  * @param {{
  *   userAgent: string,
  *   defaultCacheRoot?: string,
- *   defaultRawRoot: string
+ *   defaultRawRoot: string,
+ *   workflowPathFilter?: {
+ *       allowsPath?: (candidate: string) => boolean,
+ *       allowsDirectory?: (candidate: string) => boolean
+ *   }
  * }} options
  * @returns {{
  *   requestDispatcher: ManualGitHubRequestDispatcher,
@@ -921,7 +940,8 @@ function createManualGitHubFileClient({
 function createManualGitHubClientBundle({
     userAgent,
     defaultCacheRoot,
-    defaultRawRoot
+    defaultRawRoot,
+    workflowPathFilter
 }) {
     const requestDispatcher = createManualGitHubRequestDispatcher({
         userAgent
@@ -936,7 +956,8 @@ function createManualGitHubClientBundle({
     const fileClient = createManualGitHubFileClient({
         requestDispatcher,
         defaultCacheRoot,
-        defaultRawRoot
+        defaultRawRoot,
+        workflowPathFilter
     });
 
     return Object.freeze({

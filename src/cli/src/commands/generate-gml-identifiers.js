@@ -36,6 +36,7 @@ import {
 } from "../modules/manual/command-options.js";
 import { wrapInvalidArgumentResolver } from "../core/command-parsing.js";
 import {
+    createManualEnvironmentContext,
     createManualFileAccessContext,
     createManualReferenceAccessContext
 } from "../modules/manual/context.js";
@@ -43,24 +44,37 @@ import {
     decodeManualKeywordsPayload,
     decodeManualTagsPayload
 } from "../modules/manual/payload-validation.js";
+import {
+    createWorkflowPathFilter,
+    ensureWorkflowPathsAllowed
+} from "../shared/workflow/path-filter.js";
+
+const MANUAL_CONTEXT_OPTIONS = Object.freeze({
+    importMetaUrl: import.meta.url,
+    userAgent: "prettier-plugin-gml identifier generator",
+    outputFileName: "gml-identifiers.json"
+});
 
 const {
     environment: {
         repoRoot: REPO_ROOT,
         defaultCacheRoot: DEFAULT_CACHE_ROOT,
         defaultOutputPath: OUTPUT_DEFAULT
-    },
-    fetchManualFile
-} = createManualFileAccessContext({
-    importMetaUrl: import.meta.url,
-    userAgent: "prettier-plugin-gml identifier generator",
-    outputFileName: "gml-identifiers.json"
-});
+    }
+} = createManualEnvironmentContext(MANUAL_CONTEXT_OPTIONS);
 
-const { resolveManualRef } = createManualReferenceAccessContext({
-    importMetaUrl: import.meta.url,
-    userAgent: "prettier-plugin-gml identifier generator"
-});
+const { resolveManualRef } = createManualReferenceAccessContext(
+    MANUAL_CONTEXT_OPTIONS
+);
+
+function resolveManualFileFetcher({ workflowPathFilter } = {}) {
+    const { fetchManualFile } = createManualFileAccessContext({
+        ...MANUAL_CONTEXT_OPTIONS,
+        workflowPathFilter
+    });
+
+    return fetchManualFile;
+}
 
 export function createGenerateIdentifiersCommand({ env = process.env } = {}) {
     const command = applyStandardCommandOptions(
@@ -688,10 +702,16 @@ function createIdentifierArtifactPayload({
     };
 }
 
-async function writeIdentifierArtifact({ outputPath, payload, entryCount }) {
+async function writeIdentifierArtifact({
+    outputPath,
+    payload,
+    entryCount,
+    pathFilter
+}) {
     await writeManualJsonArtifact({
         outputPath,
         payload,
+        pathFilter,
         onAfterWrite: () => {
             console.log(`Wrote ${entryCount} identifiers to ${outputPath}`);
         }
@@ -773,7 +793,21 @@ async function fetchIdentifierManualPayloads({
     });
 }
 
-export async function runGenerateGmlIdentifiers({ command } = {}) {
+/**
+ * Execute the manual identifier generation workflow.
+ *
+ * @param {{
+ *   command?: import("commander").Command,
+ *   workflow?: {
+ *       allowPaths?: Iterable<unknown>,
+ *       denyPaths?: Iterable<unknown>,
+ *       allowsPath?: (candidate: string) => boolean,
+ *       allowsDirectory?: (candidate: string) => boolean
+ *   }
+ * }} [context]
+ * @returns {Promise<number>}
+ */
+export async function runGenerateGmlIdentifiers({ command, workflow } = {}) {
     try {
         assertSupportedNodeVersion();
 
@@ -788,6 +822,25 @@ export async function runGenerateGmlIdentifiers({ command } = {}) {
             manualRepo,
             usage
         } = resolveGenerateIdentifierOptions(command);
+
+        const workflowPathFilter = createWorkflowPathFilter(workflow);
+
+        ensureWorkflowPathsAllowed(workflowPathFilter, [
+            {
+                type: "directory",
+                target: cacheRoot,
+                label: "Manual cache root"
+            },
+            {
+                type: "path",
+                target: outputPath,
+                label: "Manual output path"
+            }
+        ]);
+
+        const fetchManualFile = resolveManualFileFetcher({
+            workflowPathFilter
+        });
 
         const { apiRoot, rawRoot } = buildManualRepositoryEndpoints(manualRepo);
         const logCompletion = createVerboseDurationLogger({ verbose });
@@ -839,7 +892,8 @@ export async function runGenerateGmlIdentifiers({ command } = {}) {
         await writeIdentifierArtifact({
             outputPath,
             payload,
-            entryCount
+            entryCount,
+            pathFilter: workflowPathFilter
         });
         logCompletion();
         return 0;

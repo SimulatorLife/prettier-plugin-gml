@@ -34,9 +34,14 @@ import {
     resolveManualCommandOptions
 } from "../modules/manual/command-options.js";
 import {
+    createManualEnvironmentContext,
     createManualFileAccessContext,
     createManualReferenceAccessContext
 } from "../modules/manual/context.js";
+import {
+    createWorkflowPathFilter,
+    ensureWorkflowPathsAllowed
+} from "../shared/workflow/path-filter.js";
 
 /** @typedef {ReturnType<typeof resolveManualCommandOptions>} ManualCommandOptions */
 
@@ -65,23 +70,32 @@ function formatEnvironmentVariableHelp(entries) {
     });
 }
 
-const {
-    environment: {
-        repoRoot: REPO_ROOT,
-        defaultCacheRoot: DEFAULT_CACHE_ROOT,
-        defaultOutputPath: OUTPUT_DEFAULT
-    },
-    fetchManualFile
-} = createManualFileAccessContext({
+const MANUAL_CONTEXT_OPTIONS = Object.freeze({
     importMetaUrl: import.meta.url,
     userAgent: "prettier-plugin-gml feather metadata generator",
     outputFileName: "feather-metadata.json"
 });
 
-const { resolveManualRef } = createManualReferenceAccessContext({
-    importMetaUrl: import.meta.url,
-    userAgent: "prettier-plugin-gml feather metadata generator"
-});
+const {
+    environment: {
+        repoRoot: REPO_ROOT,
+        defaultCacheRoot: DEFAULT_CACHE_ROOT,
+        defaultOutputPath: OUTPUT_DEFAULT
+    }
+} = createManualEnvironmentContext(MANUAL_CONTEXT_OPTIONS);
+
+const { resolveManualRef } = createManualReferenceAccessContext(
+    MANUAL_CONTEXT_OPTIONS
+);
+
+function resolveManualFileFetcher({ workflowPathFilter } = {}) {
+    const { fetchManualFile } = createManualFileAccessContext({
+        ...MANUAL_CONTEXT_OPTIONS,
+        workflowPathFilter
+    });
+
+    return fetchManualFile;
+}
 
 const FEATHER_PAGES = {
     diagnostics:
@@ -1195,10 +1209,18 @@ async function buildFeatherMetadataPayload({
 /**
  * Execute the Feather metadata generation workflow.
  *
- * @param {{ command?: import("commander").Command }} [context]
+ * @param {{
+ *   command?: import("commander").Command,
+ *   workflow?: {
+ *       allowPaths?: Iterable<unknown>,
+ *       denyPaths?: Iterable<unknown>,
+ *       allowsPath?: (candidate: string) => boolean,
+ *       allowsDirectory?: (candidate: string) => boolean
+ *   }
+ * }} [context]
  * @returns {Promise<number>}
  */
-export async function runGenerateFeatherMetadata({ command } = {}) {
+export async function runGenerateFeatherMetadata({ command, workflow } = {}) {
     try {
         assertSupportedNodeVersion();
 
@@ -1212,6 +1234,25 @@ export async function runGenerateFeatherMetadata({ command } = {}) {
             manualRepo,
             usage
         } = resolveFeatherMetadataOptions(command);
+
+        const workflowPathFilter = createWorkflowPathFilter(workflow);
+
+        ensureWorkflowPathsAllowed(workflowPathFilter, [
+            {
+                type: "directory",
+                target: cacheRoot,
+                label: "Manual cache root"
+            },
+            {
+                type: "path",
+                target: outputPath,
+                label: "Manual output path"
+            }
+        ]);
+
+        const fetchManualFile = resolveManualFileFetcher({
+            workflowPathFilter
+        });
 
         const { apiRoot, rawRoot } = buildManualRepositoryEndpoints(manualRepo);
         const logCompletion = createVerboseDurationLogger({ verbose });
@@ -1236,6 +1277,7 @@ export async function runGenerateFeatherMetadata({ command } = {}) {
         await writeManualJsonArtifact({
             outputPath,
             payload,
+            pathFilter: workflowPathFilter,
             onAfterWrite: () => {
                 console.log(`Wrote Feather metadata to ${outputPath}`);
             }

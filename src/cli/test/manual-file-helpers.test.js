@@ -8,6 +8,7 @@ import {
     writeManualFile,
     writeManualJsonArtifact
 } from "../src/modules/manual/file-helpers.js";
+import { createWorkflowPathFilter } from "../src/shared/workflow/path-filter.js";
 
 function createTempDirFactory() {
     let counter = 0;
@@ -61,5 +62,21 @@ describe("manual file helpers", () => {
             contents,
             encoding: "utf8"
         });
+    });
+
+    it("rejects writes outside workflow allow paths", async () => {
+        const targetPath = path.join(tempDir, "restricted", "manual.txt");
+        const filter = createWorkflowPathFilter({
+            denyPaths: [path.join(tempDir, "restricted")]
+        });
+
+        await assert.rejects(
+            writeManualFile({
+                outputPath: targetPath,
+                contents: "payload",
+                pathFilter: filter
+            }),
+            /Refusing to write artefact outside permitted paths/i
+        );
     });
 });
