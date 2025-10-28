@@ -10,7 +10,7 @@ import {
     createAbortGuard,
     getNonEmptyTrimmedString,
     isFsErrorCode,
-    resolveEnvironmentMap
+    applyConfiguredValueEnvOverride
 } from "../dependencies.js";
 import { isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
@@ -101,8 +101,7 @@ function setDefaultProjectIndexCacheMaxSize(size) {
 }
 
 function applyProjectIndexCacheEnvOverride(env) {
-    const sourceEnv = resolveEnvironmentMap(env);
-    projectIndexCacheSizeConfig.applyEnvOverride(sourceEnv ?? undefined);
+    applyConfiguredValueEnvOverride(projectIndexCacheSizeConfig, env);
 }
 
 applyProjectIndexCacheEnvOverride();

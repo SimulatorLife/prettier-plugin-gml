@@ -37,6 +37,7 @@ export {
     throwIfAborted
 } from "@prettier-plugin-gml/shared/utils/abort.js";
 export {
+    applyConfiguredValueEnvOverride,
     createEnvConfiguredValueWithFallback,
     resolveEnvironmentMap
 } from "@prettier-plugin-gml/shared/utils/environment.js";

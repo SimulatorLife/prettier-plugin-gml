@@ -73,6 +73,37 @@ export function resolveEnvironmentMap(candidate) {
 }
 
 /**
+ * Apply an environment override after normalizing the provided environment map.
+ *
+ * Shared configuration modules often accept optional `env` overrides so tests
+ * can simulate distinct process environments. Centralizing the
+ * `resolveEnvironmentMap`/nullish fallback pattern keeps each module focused on
+ * its domain logic while ensuring we consistently guard against non-object
+ * inputs.
+ *
+ * @template {{ applyEnvOverride: (env?: NodeJS.ProcessEnv | undefined) => any }} TConfig
+ * @param {TConfig | null | undefined} config Configured value wrapper exposing
+ *        an `applyEnvOverride` method.
+ * @param {NodeJS.ProcessEnv | null | undefined | unknown} env Candidate
+ *        environment override supplied by the caller.
+ * @returns {ReturnType<TConfig["applyEnvOverride"]>} Result of invoking
+ *          `config.applyEnvOverride` with the normalized environment map.
+ */
+export function applyConfiguredValueEnvOverride(config, env) {
+    const applyOverride = assertFunction(
+        config?.applyEnvOverride,
+        "config.applyEnvOverride"
+    );
+
+    const sourceEnv = resolveEnvironmentMap(env);
+    if (!sourceEnv) {
+        return applyOverride.call(config);
+    }
+
+    return applyOverride.call(config, sourceEnv);
+}
+
+/**
  * Create a stateful value that can be configured imperatively and via
  * environment overrides.
  *
