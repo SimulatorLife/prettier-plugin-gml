@@ -67,8 +67,17 @@ export function getGmlPluginComponentProvider() {
 const OBSERVER_ABORT_MESSAGE =
     "GML plugin component observer registration was aborted.";
 
-// Stable noop handler reused across aborted or cancelled subscription flows so
-// call sites always receive a callable unsubscriber.
+// Provide a singleton no-op unsubscriber for flows that cancel observer
+// registration before the listener is attached. Manual CLI refresh cycles wire
+// `addGmlPluginComponentObserver` into try/finally blocks documented in
+// docs/live-reloading-concept.md#manual-mode-cleanup-handoffs; those finally
+// clauses always invoke the returned handler, even when an AbortSignal fired
+// mid-registration. Keeping this fallback as a shared reference lets the CLI
+// keep calling `unsubscribe()` without guards and avoids allocating a fresh
+// closure every time manual mode churns through another aborted setup. Swapping
+// the export to `null`, throwing, or returning ad-hoc closures would break that
+// cleanup contract and leave previously-installed component overrides active
+// after cancellation.
 const NOOP_UNSUBSCRIBE = () => {};
 
 /**
