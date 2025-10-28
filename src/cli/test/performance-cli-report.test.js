@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { after, describe, it, mock } from "node:test";
@@ -136,5 +136,84 @@ describe("performance CLI report output", () => {
 
         const payload = writes.join("");
         assert.doesNotThrow(() => JSON.parse(payload));
+    });
+
+    it("surfaces suite failures in the stderr summary", async () => {
+        const tempRoot = await mkdtemp(
+            path.join(os.tmpdir(), "performance-cli-failure-")
+        );
+        disposals.push(tempRoot);
+
+        const fixtureRoot = path.join(tempRoot, "fixtures");
+        await mkdir(fixtureRoot);
+
+        const invalidFixture = path.join(fixtureRoot, "broken.gml");
+        await writeFile(
+            invalidFixture,
+            "function broken() {\n    var value = ;\n}\n",
+            "utf8"
+        );
+
+        const reportFile = path.join(tempRoot, "report.json");
+
+        const command = {
+            opts: () => ({
+                suite: [PerformanceSuiteName.PARSER],
+                iterations: 1,
+                fixtureRoot: [fixtureRoot],
+                reportFile,
+                skipReport: false,
+                stdout: false,
+                format: "json",
+                pretty: false
+            }),
+            helpInformation: () => "usage"
+        };
+
+        const logMessages = [];
+        const errorMessages = [];
+
+        const restoreLog = mock.method(console, "log", (...args) => {
+            logMessages.push(args.join(" "));
+        });
+        const restoreError = mock.method(console, "error", (...args) => {
+            errorMessages.push(args.join(" "));
+        });
+
+        try {
+            const exitCode = await runPerformanceCommand({
+                command,
+                workflow: { allowPaths: [fixtureRoot] }
+            });
+            assert.equal(exitCode, 0);
+        } finally {
+            restoreLog.mock.restore();
+            restoreError.mock.restore();
+        }
+
+        const rawReport = await readFile(reportFile, "utf8");
+        const parsedReport = JSON.parse(rawReport);
+        const failureMessage =
+            parsedReport?.suites?.parser?.error?.message ?? "";
+
+        const relativePath = path.relative(process.cwd(), reportFile);
+        const expectedPath =
+            relativePath &&
+            !relativePath.startsWith("..") &&
+            !path.isAbsolute(relativePath)
+                ? relativePath
+                : path.resolve(reportFile);
+
+        assert.deepEqual(logMessages, [
+            `Performance report written to ${expectedPath}.`
+        ]);
+
+        assert.deepEqual(errorMessages, [
+            [
+                "Performance suite failure detected:",
+                `- parser: ${failureMessage}`,
+                `Inspect ${expectedPath} for full details or re-run with --stdout human to print a readable summary.`
+            ].join("\n")
+        ]);
     });
 });

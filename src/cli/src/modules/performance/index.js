@@ -869,6 +869,77 @@ function logReportDestination(reportResult, { stdout }) {
     log(`Performance report written to ${displayPath}.`);
 }
 
+function collectSuiteFailureSummaries(results) {
+    if (!results || typeof results !== "object") {
+        return [];
+    }
+
+    const failures = [];
+
+    for (const [suite, payload] of Object.entries(results)) {
+        if (!payload || typeof payload !== "object" || !payload.error) {
+            continue;
+        }
+
+        failures.push({
+            suite,
+            message: getErrorMessageOrFallback(payload.error, "Unknown error")
+        });
+    }
+
+    return failures;
+}
+
+function formatFailureFollowUp({ stdout, format, displayPath }) {
+    if (stdout) {
+        if (format === SuiteOutputFormat.HUMAN) {
+            const base = "Review the human-readable report above for details.";
+            return displayPath
+                ? `${base} The JSON report was also written to ${displayPath}.`
+                : base;
+        }
+
+        if (displayPath) {
+            return `Review the streamed report above or inspect ${displayPath} for full details. Re-run with --format human to print a readable summary.`;
+        }
+
+        return "Review the streamed report above or re-run with --format human to print a readable summary.";
+    }
+
+    if (displayPath) {
+        return `Inspect ${displayPath} for full details or re-run with --stdout human to print a readable summary.`;
+    }
+
+    return "Re-run with --stdout human to print a readable summary.";
+}
+
+function logSuiteFailureSummary(suiteResults, options, reportResult) {
+    const failures = collectSuiteFailureSummaries(suiteResults);
+    if (failures.length === 0) {
+        return;
+    }
+
+    const heading =
+        failures.length === 1
+            ? "Performance suite failure detected:"
+            : "Performance suite failures detected:";
+    const failureLines = failures.map(
+        ({ suite, message }) => `- ${suite}: ${message}`
+    );
+
+    const displayPath = reportResult?.path
+        ? formatReportFilePath(reportResult.path)
+        : "";
+    const followUp = formatFailureFollowUp({
+        stdout: Boolean(options.stdout),
+        format: options.format,
+        displayPath
+    });
+
+    const message = [heading, ...failureLines, followUp].join("\n");
+    console.error(message);
+}
+
 function emitReportIfRequested(report, options) {
     if (!options.stdout) {
         return;
@@ -894,6 +965,7 @@ export async function runPerformanceCommand({ command, workflow } = {}) {
 
     logReportDestination(reportResult, options);
     emitReportIfRequested(report, options);
+    logSuiteFailureSummary(suiteResults, options, reportResult);
 
     return 0;
 }

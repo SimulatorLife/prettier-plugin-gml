@@ -69,9 +69,10 @@ The `performance` CLI command (for example,
 `node ./src/cli/src/cli.js performance --suite identifier-text`) runs the
 selected benchmark suites and prints the captured metrics as structured JSON.
 Use `--stdout` when piping the report into tools like `jq`; the CLI now keeps
-that stream clean by redirecting the "report written" summary to stderr. This
-gives us an ad-hoc regression harness for spotting regressions before they make
-it into CI.
+that stream clean by redirecting the "report written" summary to stderr. The
+command also emits a short stderr summary when any benchmark suite fails so the
+failure is visible even without inspecting the JSON. This gives us an ad-hoc
+regression harness for spotting regressions before they make it into CI.
 
 ## Cache persistence schema
 
