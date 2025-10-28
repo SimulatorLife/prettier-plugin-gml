@@ -2041,8 +2041,13 @@ async function processProjectGmlFilesForIndex({
     ensureNotAborted();
 }
 
-function finalizeProjectIndexResult({ metrics, options, projectIndex }) {
-    const metricsReport = finalizeProjectIndexMetrics(metrics);
+function finalizeProjectIndexResult({
+    metrics,
+    metricsReporting,
+    options,
+    projectIndex
+}) {
+    const metricsReport = finalizeProjectIndexMetrics(metricsReporting);
     if (metricsReport) {
         projectIndex.metrics = metricsReport;
         options?.onMetrics?.(metricsReport, projectIndex);
@@ -2062,11 +2067,13 @@ export async function buildProjectIndex(
 
     const resolvedRoot = path.resolve(projectRoot);
     const logger = options?.logger ?? null;
-    const metrics = createProjectIndexMetrics({
+    const metricsContracts = createProjectIndexMetrics({
         metrics: options?.metrics,
         logger,
         logMetrics: options?.logMetrics
     });
+    const metrics = metricsContracts.recording;
+    const metricsReporting = metricsContracts.reporting;
 
     const stopTotal = metrics.timers.startTimer("total");
 
@@ -2141,6 +2148,7 @@ export async function buildProjectIndex(
 
     return finalizeProjectIndexResult({
         metrics,
+        metricsReporting,
         options,
         projectIndex
     });

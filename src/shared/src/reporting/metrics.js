@@ -89,14 +89,24 @@ const SUMMARY_SECTIONS = Object.freeze([
  */
 
 /**
- * @typedef {object} MetricsTracker
+ * @typedef {object} MetricsRecordingSuite
  * @property {string} category
  * @property {MetricsTimingTools} timers
  * @property {MetricsCounterTools} counters
  * @property {MetricsCacheTools} caches
+ * @property {MetricsMetadataWriter} metadata
+ */
+
+/**
+ * @typedef {object} MetricsReportingSuite
  * @property {MetricsSummaryReporter} summary
  * @property {MetricsSummaryLogger} logger
- * @property {MetricsMetadataWriter} metadata
+ */
+
+/**
+ * @typedef {object} MetricsContracts
+ * @property {MetricsRecordingSuite} recording
+ * @property {MetricsReportingSuite} reporting
  */
 
 function toCandidateCacheKeys(keys) {
@@ -269,7 +279,7 @@ function createFinalizer({
  *   autoLog?: boolean,
  *   cacheKeys?: Iterable<string> | ArrayLike<string>
  * }} [options]
- * @returns {MetricsTracker}
+ * @returns {MetricsContracts}
  */
 export function createMetricsTracker({
     category = "metrics",
@@ -389,13 +399,21 @@ export function createMetricsTracker({
         setMetadata
     });
 
-    return {
+    const recording = Object.freeze({
         category,
         timers: timingTools,
         counters: counterTools,
         caches: cacheTools,
-        summary: summaryTools,
-        logger: loggerTools,
         metadata: metadataTools
-    };
+    });
+
+    const reporting = Object.freeze({
+        summary: summaryTools,
+        logger: loggerTools
+    });
+
+    return Object.freeze({
+        recording,
+        reporting
+    });
 }

@@ -1,13 +1,16 @@
 import { createMetricsTracker, noop } from "../dependencies.js";
 
 const PROJECT_INDEX_METRICS_CATEGORY = "project-index";
-const REQUIRED_METRIC_GROUPS = Object.freeze({
+const REQUIRED_RECORDING_GROUPS = Object.freeze({
     timers: ["startTimer", "timeAsync", "timeSync"],
     counters: ["increment"],
     caches: ["recordHit", "recordMiss", "recordStale", "recordMetric"],
-    summary: ["snapshot", "finalize"],
-    logger: ["logSummary"],
     metadata: ["setMetadata"]
+});
+
+const REQUIRED_REPORTING_GROUPS = Object.freeze({
+    summary: ["snapshot", "finalize"],
+    logger: ["logSummary"]
 });
 
 function hasMetricGroup(candidate, groupName, methodNames) {
@@ -19,13 +22,37 @@ function hasMetricGroup(candidate, groupName, methodNames) {
     );
 }
 
-function isMetricsTracker(candidate) {
+function isMetricsRecordingSuite(candidate) {
     return (
         candidate &&
         typeof candidate === "object" &&
-        Object.entries(REQUIRED_METRIC_GROUPS).every(([groupName, methods]) =>
-            hasMetricGroup(candidate, groupName, methods)
+        typeof candidate.category === "string" &&
+        Object.entries(REQUIRED_RECORDING_GROUPS).every(
+            ([groupName, methods]) =>
+                hasMetricGroup(candidate, groupName, methods)
         )
+    );
+}
+
+function isMetricsReportingSuite(candidate) {
+    return (
+        candidate &&
+        typeof candidate === "object" &&
+        Object.entries(REQUIRED_REPORTING_GROUPS).every(
+            ([groupName, methods]) =>
+                hasMetricGroup(candidate, groupName, methods)
+        )
+    );
+}
+
+function isMetricsContracts(candidate) {
+    if (!candidate || typeof candidate !== "object") {
+        return false;
+    }
+
+    return (
+        isMetricsRecordingSuite(candidate.recording) &&
+        isMetricsReportingSuite(candidate.reporting)
     );
 }
 
@@ -55,7 +82,7 @@ function createMetricsSnapshot(extra = {}) {
 // summary. Keeping these fallbacks wired like the real implementation protects
 // both the CLI (which logs metrics after each run) and long-lived integrations
 // that rely on the tracker contract remaining stable even when misconfigured.
-const NOOP_METRIC_GROUPS = Object.freeze({
+const NOOP_METRIC_RECORDING_GROUPS = Object.freeze({
     timers: Object.freeze({
         startTimer: () => () => {},
         timeAsync: async (_label, callback) => await callback(),
@@ -69,30 +96,38 @@ const NOOP_METRIC_GROUPS = Object.freeze({
         recordMiss: noop,
         recordStale: noop,
         recordMetric: noop
-    }),
+    })
+});
+
+const NOOP_METRIC_REPORTING_GROUPS = Object.freeze({
     summary: Object.freeze({
         snapshot: createMetricsSnapshot,
         finalize: createMetricsSnapshot
     }),
     logger: Object.freeze({
         logSummary: noop
-    }),
-    metadata: Object.freeze({
-        setMetadata: noop
     })
 });
 
 function createNoopProjectIndexMetrics() {
-    return {
-        category: PROJECT_INDEX_METRICS_CATEGORY,
-        ...NOOP_METRIC_GROUPS
-    };
+    return Object.freeze({
+        recording: Object.freeze({
+            category: PROJECT_INDEX_METRICS_CATEGORY,
+            ...NOOP_METRIC_RECORDING_GROUPS,
+            metadata: Object.freeze({
+                setMetadata: noop
+            })
+        }),
+        reporting: Object.freeze({
+            ...NOOP_METRIC_REPORTING_GROUPS
+        })
+    });
 }
 
 export function createProjectIndexMetrics(options = {}) {
     const { metrics, logger = null, logMetrics = false } = options;
 
-    if (isMetricsTracker(metrics)) {
+    if (isMetricsContracts(metrics)) {
         return metrics;
     }
 
@@ -107,10 +142,10 @@ export function createProjectIndexMetrics(options = {}) {
     });
 }
 
-export function finalizeProjectIndexMetrics(metrics) {
-    if (!isMetricsTracker(metrics)) {
+export function finalizeProjectIndexMetrics(reporting) {
+    if (!isMetricsReportingSuite(reporting)) {
         return null;
     }
 
-    return metrics.summary.finalize();
+    return reporting.summary.finalize();
 }

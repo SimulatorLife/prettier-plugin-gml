@@ -58,36 +58,35 @@ class TestMetricsTracker {
     finalizeCalls = 0;
 
     constructor() {
-        this.timers = {
-            startTimer: () => {
-                this.startTimerCalls += 1;
-                return () => {};
-            },
-            timeAsync: async (_label, callback) => await callback(),
-            timeSync: (_label, callback) => callback()
+        const startTimer = () => {
+            this.startTimerCalls += 1;
+            return () => {};
         };
-        this.counters = {
-            increment() {}
-        };
-        this.caches = {
-            recordHit() {},
-            recordMiss() {},
-            recordStale() {},
-            recordMetric() {}
-        };
-        this.summary = {
-            snapshot: (extra = {}) => ({
-                category: this.category,
-                totalTimeMs: 0,
-                timings: {},
-                counters: {},
-                caches: {},
-                metadata: { provided: true },
-                ...extra
+
+        this.recording = Object.freeze({
+            category: this.category,
+            timers: Object.freeze({
+                startTimer,
+                timeAsync: async (_label, callback) => await callback(),
+                timeSync: (_label, callback) => callback()
             }),
-            finalize: (extra = {}) => {
-                this.finalizeCalls += 1;
-                return {
+            counters: Object.freeze({
+                increment() {}
+            }),
+            caches: Object.freeze({
+                recordHit() {},
+                recordMiss() {},
+                recordStale() {},
+                recordMetric() {}
+            }),
+            metadata: Object.freeze({
+                setMetadata() {}
+            })
+        });
+
+        this.reporting = Object.freeze({
+            summary: Object.freeze({
+                snapshot: (extra = {}) => ({
                     category: this.category,
                     totalTimeMs: 0,
                     timings: {},
@@ -95,15 +94,24 @@ class TestMetricsTracker {
                     caches: {},
                     metadata: { provided: true },
                     ...extra
-                };
-            }
-        };
-        this.logger = {
-            logSummary() {}
-        };
-        this.metadata = {
-            setMetadata() {}
-        };
+                }),
+                finalize: (extra = {}) => {
+                    this.finalizeCalls += 1;
+                    return {
+                        category: this.category,
+                        totalTimeMs: 0,
+                        timings: {},
+                        counters: {},
+                        caches: {},
+                        metadata: { provided: true },
+                        ...extra
+                    };
+                }
+            }),
+            logger: Object.freeze({
+                logSummary() {}
+            })
+        });
     }
     category = "custom-metrics";
 }
@@ -163,9 +171,9 @@ test("createMetricsTracker trims and deduplicates configured cache keys", () => 
         ])
     });
 
-    tracker.caches.recordMetric("demo", "custom", 0);
+    tracker.recording.caches.recordMetric("demo", "custom", 0);
 
-    assert.deepEqual(tracker.summary.snapshot().caches.demo, {
+    assert.deepEqual(tracker.reporting.summary.snapshot().caches.demo, {
         hits: 0,
         Misses: 0,
         custom: 0,
@@ -176,9 +184,9 @@ test("createMetricsTracker trims and deduplicates configured cache keys", () => 
 test("createMetricsTracker falls back to default cache keys when normalization is empty", () => {
     const tracker = createMetricsTracker({ cacheKeys: [null, "   "] });
 
-    tracker.caches.recordMetric("demo", "custom", 0);
+    tracker.recording.caches.recordMetric("demo", "custom", 0);
 
-    assert.deepEqual(tracker.summary.snapshot().caches.demo, {
+    assert.deepEqual(tracker.reporting.summary.snapshot().caches.demo, {
         hits: 0,
         misses: 0,
         stale: 0,
@@ -189,9 +197,9 @@ test("createMetricsTracker falls back to default cache keys when normalization i
 test("createMetricsTracker falls back to default cache keys when option is invalid", () => {
     const tracker = createMetricsTracker({ cacheKeys: 42 });
 
-    tracker.caches.recordMetric("demo", "custom", 0);
+    tracker.recording.caches.recordMetric("demo", "custom", 0);
 
-    assert.deepEqual(tracker.summary.snapshot().caches.demo, {
+    assert.deepEqual(tracker.reporting.summary.snapshot().caches.demo, {
         hits: 0,
         misses: 0,
         stale: 0,
