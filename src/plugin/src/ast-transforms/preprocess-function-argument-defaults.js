@@ -10,6 +10,7 @@ import {
     unwrapParenthesizedExpression,
     getBodyStatements,
     toMutableArray,
+    isNonEmptyArray,
     isObjectLike,
     forEachNodeChild,
     getNodeEndIndex,
@@ -438,7 +439,7 @@ function preprocessFunctionDeclaration(node, helpers) {
 }
 
 function ensureTrailingOptionalParametersHaveUndefinedDefaults(parameters) {
-    if (!Array.isArray(parameters) || parameters.length === 0) {
+    if (!isNonEmptyArray(parameters)) {
         return false;
     }
 
@@ -475,8 +476,7 @@ function ensureTrailingOptionalParametersHaveUndefinedDefaults(parameters) {
 
         if (
             parameter.type === "ConstructorParentClause" &&
-            Array.isArray(parameter.params) &&
-            parameter.params.length > 0
+            isNonEmptyArray(parameter.params)
         ) {
             const nestedParams = toMutableArray(parameter.params);
             if (!Array.isArray(parameter.params)) {
