@@ -71,33 +71,17 @@ function shouldForceBlankLineBetweenReturnPaths(currentNode, nextNode) {
         return false;
     }
 
-    const consequent = currentNode.consequent;
-    if (!consequent || consequent.type !== "BlockStatement") {
+    const blockBody = currentNode.consequent?.body;
+    if (!Array.isArray(blockBody)) {
         return false;
     }
 
-    const body = Array.isArray(consequent.body) ? consequent.body : [];
-    let lastReturn = null;
-
-    for (let index = body.length - 1; index >= 0; index -= 1) {
-        const statement = body[index];
-        if (!statement) {
-            continue;
-        }
-
-        if (statement.type === "ReturnStatement") {
-            lastReturn = statement;
-            break;
-        }
-
+    const lastStatement = blockBody.findLast(Boolean);
+    if (!lastStatement || lastStatement.type !== "ReturnStatement") {
         return false;
     }
 
-    if (!lastReturn) {
-        return false;
-    }
-
-    const consequentBoolean = getBooleanLiteralValue(lastReturn.argument);
+    const consequentBoolean = getBooleanLiteralValue(lastStatement.argument);
     const fallbackBoolean = getBooleanLiteralValue(nextNode.argument);
 
     if (consequentBoolean === null || fallbackBoolean === null) {
