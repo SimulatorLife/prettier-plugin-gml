@@ -462,6 +462,108 @@ function normalizeListItems(items) {
     return normalizeMultilineTextCollection(items);
 }
 
+function collectNamingRuleSectionOptions(listItem) {
+    const nestedList = listItem.querySelector("ul");
+    if (!nestedList) {
+        return [];
+    }
+
+    return getDirectChildren(nestedList, "li")
+        .map((option) =>
+            normalizeMultilineText(
+                extractText(option, { preserveLineBreaks: false })
+            )
+        )
+        .filter(Boolean);
+}
+
+function createNamingRuleSection(listItem) {
+    const strongChildren = getDirectChildren(listItem, "strong");
+    const title = getNormalizedTextContent(strongChildren[0], { trim: true });
+    const description = extractText(listItem, { preserveLineBreaks: true });
+    let normalizedDescription = normalizeMultilineText(description);
+
+    if (title && normalizedDescription) {
+        const prefixPattern = new RegExp(
+            `^${escapeRegExp(title)}\\s*:?\\s*`,
+            "i"
+        );
+        normalizedDescription = normalizedDescription
+            .replace(prefixPattern, "")
+            .trim();
+    }
+
+    return {
+        title,
+        description: normalizedDescription,
+        options: collectNamingRuleSectionOptions(listItem)
+    };
+}
+
+function updateNamingListMetadataFromStrongElement(strongEl, metadata) {
+    const strongText = getNormalizedTextContent(strongEl, { trim: true });
+    if (!strongText) {
+        return;
+    }
+
+    const listItem = strongEl.closest("li");
+    if (!listItem) {
+        return;
+    }
+
+    if (strongText === "Naming Style") {
+        metadata.namingStyleOptions = Array.from(
+            listItem.querySelectorAll("ul li")
+        )
+            .map((styleEl) =>
+                extractSanitizedText(styleEl, {
+                    preserveLineBreaks: false
+                })
+            )
+            .filter(Boolean);
+    } else if (strongText === "Identifier Blocklist") {
+        metadata.identifierBlocklist = extractSanitizedText(listItem, {
+            preserveLineBreaks: true
+        });
+    } else if (strongText.endsWith("Naming Rule")) {
+        metadata.identifierRuleSummary = extractSanitizedText(listItem, {
+            preserveLineBreaks: true
+        });
+    } else if (strongText === "Prefix") {
+        metadata.supportsPrefix = true;
+    } else if (strongText === "Suffix") {
+        metadata.supportsSuffix = true;
+    } else if (strongText.toLowerCase().includes("preserve")) {
+        metadata.supportsPreserveUnderscores = true;
+    }
+}
+
+function collectNamingListMetadata(mainList) {
+    const metadata = {
+        namingStyleOptions: [],
+        identifierBlocklist: null,
+        identifierRuleSummary: null,
+        supportsPrefix: false,
+        supportsSuffix: false,
+        supportsPreserveUnderscores: false,
+        ruleSections: []
+    };
+
+    if (!mainList) {
+        return metadata;
+    }
+
+    for (const strongEl of mainList.querySelectorAll("li > strong")) {
+        updateNamingListMetadataFromStrongElement(strongEl, metadata);
+    }
+
+    metadata.ruleSections = getDirectChildren(mainList, "li").map((item) =>
+        createNamingRuleSection(item)
+    );
+
+    return metadata;
+}
+
 const BLOCK_NORMALIZERS = {
     code(content, block) {
         if (block.text) {
@@ -737,95 +839,15 @@ function parseNamingRules(html) {
         sibling = sibling.nextElementSibling;
     }
 
-    let namingStyleOptions = [];
-    let identifierBlocklist = null;
-    let identifierRuleSummary = null;
-    let supportsPrefix = false;
-    let supportsSuffix = false;
-    let supportsPreserveUnderscores = false;
-    const ruleSections = [];
-
-    if (mainList) {
-        for (const strongEl of mainList.querySelectorAll("li > strong")) {
-            const strongText = getNormalizedTextContent(strongEl, {
-                trim: true
-            });
-            if (!strongText) {
-                continue;
-            }
-
-            const listItem = strongEl.closest("li");
-            if (!listItem) {
-                continue;
-            }
-
-            if (strongText === "Naming Style") {
-                namingStyleOptions = Array.from(
-                    listItem.querySelectorAll("ul li")
-                )
-                    .map((styleEl) =>
-                        extractSanitizedText(styleEl, {
-                            preserveLineBreaks: false
-                        })
-                    )
-                    .filter(Boolean);
-            } else if (strongText === "Identifier Blocklist") {
-                identifierBlocklist = extractSanitizedText(listItem, {
-                    preserveLineBreaks: true
-                });
-            } else if (strongText.endsWith("Naming Rule")) {
-                identifierRuleSummary = extractSanitizedText(listItem, {
-                    preserveLineBreaks: true
-                });
-            } else if (strongText === "Prefix") {
-                supportsPrefix = true;
-            } else if (strongText === "Suffix") {
-                supportsSuffix = true;
-            } else if (strongText.toLowerCase().includes("preserve")) {
-                supportsPreserveUnderscores = true;
-            }
-        }
-
-        for (const item of getDirectChildren(mainList, "li")) {
-            const strongChildren = getDirectChildren(item, "strong");
-            const title = getNormalizedTextContent(strongChildren[0], {
-                trim: true
-            });
-            const description = extractText(item, {
-                preserveLineBreaks: true
-            });
-            let normalizedDescription = normalizeMultilineText(description);
-            if (title && normalizedDescription) {
-                const prefixPattern = new RegExp(
-                    `^${escapeRegExp(title)}\s*:?\s*`,
-                    "i"
-                );
-                normalizedDescription = normalizedDescription.replace(
-                    prefixPattern,
-                    ""
-                );
-                normalizedDescription = normalizedDescription.trim();
-            }
-
-            const nestedList = item.querySelector("ul");
-            let options = [];
-            if (nestedList) {
-                options = getDirectChildren(nestedList, "li")
-                    .map((option) =>
-                        normalizeMultilineText(
-                            extractText(option, { preserveLineBreaks: false })
-                        )
-                    )
-                    .filter(Boolean);
-            }
-
-            ruleSections.push({
-                title,
-                description: normalizedDescription,
-                options
-            });
-        }
-    }
+    const {
+        namingStyleOptions,
+        identifierBlocklist,
+        identifierRuleSummary,
+        supportsPrefix,
+        supportsSuffix,
+        supportsPreserveUnderscores,
+        ruleSections
+    } = collectNamingListMetadata(mainList);
 
     return {
         overview,
