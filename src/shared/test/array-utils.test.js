@@ -98,7 +98,7 @@ test("compactArray tolerates iterables and optional freezing", () => {
 
 test("compactArray normalizes nullish inputs to empty arrays", () => {
     assert.deepEqual(compactArray(null), []);
-    assert.deepEqual(compactArray(undefined), []);
+    assert.deepEqual(compactArray(), []);
 });
 
 test("pushUnique appends values that are not present", () => {
