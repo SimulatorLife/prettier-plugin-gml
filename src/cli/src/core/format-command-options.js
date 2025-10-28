@@ -20,8 +20,8 @@ function resolveFormatCommandSampleLimits(options) {
     const source = options ?? {};
     return {
         skippedDirectorySampleLimit:
-            source.ignoredDirectorySampleLimit ??
-            source.ignoredDirectorySamples,
+            source.ignoredDirectorySamples ??
+            source.ignoredDirectorySampleLimit,
         ignoredFileSampleLimit: source.ignoredFileSampleLimit,
         unsupportedExtensionSampleLimit: source.unsupportedExtensionSampleLimit
     };

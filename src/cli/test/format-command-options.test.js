@@ -106,3 +106,22 @@ test("collectFormatCommandOptions falls back to positional target", () => {
     assert.strictEqual(result.targetPathInput, "./script.gml");
     assert.strictEqual(result.targetPathProvided, true);
 });
+
+test("collectFormatCommandOptions honours ignored directory samples alias", () => {
+    const command = {
+        args: [],
+        opts() {
+            return {
+                ignoredDirectorySampleLimit: 5,
+                ignoredDirectorySamples: 2
+            };
+        },
+        helpInformation() {
+            return "usage";
+        }
+    };
+
+    const result = collectFormatCommandOptions(command, DEFAULTS);
+
+    assert.strictEqual(result.skippedDirectorySampleLimit, 2);
+});
