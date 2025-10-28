@@ -754,7 +754,7 @@ function createManualAssetDescriptors() {
  *
  * @param {{
  *   manualRef: { sha: string },
- *   fetchManualFile: typeof fetchManualFile,
+ *   fetchManualFile?: ReturnType<typeof resolveManualFileFetcher>,
  *   forceRefresh: boolean,
  *   verbose: Record<string, boolean>,
  *   cacheRoot: string,
@@ -765,7 +765,7 @@ function createManualAssetDescriptors() {
  */
 async function fetchIdentifierManualPayloads({
     manualRef,
-    fetchManualFile: fetchManualFileFn,
+    fetchManualFile: fetchManualFileFn = resolveManualFileFetcher(),
     forceRefresh,
     verbose,
     cacheRoot,
@@ -774,15 +774,11 @@ async function fetchIdentifierManualPayloads({
 }) {
     const manualAssets = createManualAssetDescriptors();
     const entries = manualAssets.map((asset) => [asset.key, asset.path]);
-    const effectiveFetchManualFile =
-        typeof fetchManualFileFn === "function"
-            ? fetchManualFileFn
-            : fetchManualFile;
 
     return downloadManualEntryPayloads({
         entries,
         manualRefSha: manualRef.sha,
-        fetchManualFile: effectiveFetchManualFile,
+        fetchManualFile: fetchManualFileFn,
         forceRefresh,
         verbose,
         cacheRoot,
