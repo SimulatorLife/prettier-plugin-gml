@@ -36,6 +36,7 @@ import {
 } from "../comments/line-comment-formatting.js";
 import { resolveLineCommentOptions } from "../options/line-comment-options.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
+import { DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH } from "./doc-comment-wrap-width.js";
 import {
     getCommentArray,
     isCommentNode,
@@ -4794,7 +4795,10 @@ function mergeSyntheticDocComments(
         options?.printWidth,
         120
     );
-    const wrapWidth = Math.min(normalizedPrintWidth, 100);
+    const wrapWidth = Math.min(
+        normalizedPrintWidth,
+        DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH
+    );
 
     const wrapSegments = (text, firstAvailable, continuationAvailable) => {
         if (firstAvailable <= 0) {
