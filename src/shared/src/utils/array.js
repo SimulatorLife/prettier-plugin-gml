@@ -173,6 +173,30 @@ export function uniqueArray(values, { freeze = false } = {}) {
 }
 
 /**
+ * Remove falsy entries from {@link values} while preserving order. Mirrors the
+ * common `array.filter(Boolean)` pattern used across the CLI but centralizes it
+ * so future call sites do not need to reimplement the guard. Non-iterable
+ * inputs fall back to an empty array to keep the helper resilient to optional
+ * candidates.
+ *
+ * @template T
+ * @param {Iterable<T> | Array<T> | null | undefined} values
+ * @param {{ freeze?: boolean }} [options]
+ * @param {boolean} [options.freeze=false]
+ * @returns {Array<T> | ReadonlyArray<T>}
+ */
+export function compactArray(values, { freeze = false } = {}) {
+    const result = [];
+    for (const value of toArrayFromIterable(values)) {
+        if (value) {
+            result.push(value);
+        }
+    }
+
+    return freeze ? Object.freeze(result) : result;
+}
+
+/**
  * Append {@link value} to {@link array} when it is not already present.
  *
  * Centralizes the inclusion guard used throughout the project index and

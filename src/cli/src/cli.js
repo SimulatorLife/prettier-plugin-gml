@@ -34,6 +34,7 @@ import {
     createCommanderInvalidArgumentError,
     createCommanderOption,
     createListSplitPattern,
+    compactArray,
     getErrorMessageOrFallback,
     isErrorLike,
     isErrorWithCode,
@@ -114,7 +115,7 @@ const INITIAL_WORKING_DIRECTORY = path.resolve(process.cwd());
 const FALLBACK_EXTENSIONS = Object.freeze([".gml"]);
 
 const EXTENSION_LIST_SPLIT_PATTERN = createListSplitPattern(
-    [",", path.delimiter].filter(Boolean),
+    compactArray([",", path.delimiter]),
     {
         includeWhitespace: true
     }
@@ -306,16 +307,13 @@ function normalizeExtensions(
     rawExtensions,
     fallbackExtensions = FALLBACK_EXTENSIONS
 ) {
-    const normalized = Array.from(
-        new Set(
-            normalizeStringList(rawExtensions, {
-                splitPattern: EXTENSION_LIST_SPLIT_PATTERN,
-                allowInvalidType: true
-            })
-                .map(coerceExtensionValue)
-                .filter(Boolean)
-        )
-    );
+    const coercedValues = normalizeStringList(rawExtensions, {
+        splitPattern: EXTENSION_LIST_SPLIT_PATTERN,
+        allowInvalidType: true
+    }).map(coerceExtensionValue);
+
+    const filteredValues = compactArray(coercedValues);
+    const normalized = Array.from(new Set(filteredValues));
 
     return normalized.length > 0 ? normalized : fallbackExtensions;
 }
@@ -383,7 +381,7 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
 
             const priorValues = Array.isArray(previous)
                 ? previous
-                : [previous].filter(Boolean);
+                : compactArray([previous]);
 
             return mergeUniqueValues(priorValues, normalized);
         })
@@ -976,11 +974,11 @@ async function registerIgnorePaths(ignoreFiles) {
 }
 
 function getIgnorePathOptions(additionalIgnorePaths = []) {
-    const ignoreCandidates = [
+    const ignoreCandidates = compactArray([
         IGNORE_PATH,
         ...baseProjectIgnorePaths,
         ...additionalIgnorePaths
-    ].filter(Boolean);
+    ]);
     if (ignoreCandidates.length === 0) {
         return null;
     }
@@ -1095,7 +1093,7 @@ async function collectExistingIgnoreFiles(candidatePaths) {
         })
     );
 
-    return discovered.filter(Boolean);
+    return compactArray(discovered);
 }
 
 async function resolveProjectIgnorePaths(directory) {
