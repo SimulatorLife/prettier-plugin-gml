@@ -1,4 +1,5 @@
 const ESCAPE_REGEXP_PATTERN = /[.*+?^${}()|[\]\\]/g;
+const ESCAPE_REGEXP_REPLACEMENT = "\\$&";
 
 /**
  * Escape characters that carry special meaning in regular expressions so the
@@ -14,5 +15,11 @@ export function escapeRegExp(text) {
         return "";
     }
 
-    return text.replaceAll(ESCAPE_REGEXP_PATTERN, String.raw`\$&`);
+    if (!ESCAPE_REGEXP_PATTERN.test(text)) {
+        ESCAPE_REGEXP_PATTERN.lastIndex = 0;
+        return text;
+    }
+
+    ESCAPE_REGEXP_PATTERN.lastIndex = 0;
+    return text.replace(ESCAPE_REGEXP_PATTERN, ESCAPE_REGEXP_REPLACEMENT);
 }
