@@ -1,8 +1,60 @@
 import antlr4 from "antlr4";
 
-import { isRecognitionExceptionLike } from "../utils/recognition-exception-like.js";
+import { hasFunction, isErrorLike, isObjectLike } from "../shared/index.js";
 
 const INVALID_INDEX_FALLBACK = -1;
+function hasOffendingTokenProbe(value) {
+    if (value?.offendingToken !== undefined) {
+        return true;
+    }
+
+    if (value?.offendingSymbol !== undefined) {
+        return true;
+    }
+
+    return hasFunction(value, "getOffendingToken");
+}
+
+function hasExpectedTokensProbe(value) {
+    if (value?.expectedTokens !== undefined) {
+        return true;
+    }
+
+    return hasFunction(value, "getExpectedTokens");
+}
+
+function hasContextProbe(value) {
+    const context = value?.ctx ?? value?.context ?? null;
+    if (isObjectLike(context)) {
+        return true;
+    }
+
+    if (isObjectLike(value?.input)) {
+        return true;
+    }
+
+    return typeof value?.offendingState === "number";
+}
+
+export function isRecognitionExceptionLike(value) {
+    if (!isErrorLike(value)) {
+        return false;
+    }
+
+    if (!hasExpectedTokensProbe(value)) {
+        return false;
+    }
+
+    if (!hasOffendingTokenProbe(value)) {
+        return false;
+    }
+
+    if (!hasContextProbe(value)) {
+        return false;
+    }
+
+    return true;
+}
 
 function firstNumber(...values) {
     for (const value of values) {
