@@ -1665,6 +1665,80 @@ function logFormattingErrorSummary() {
  * }} summary
  * @returns {string[]}
  */
+function formatSampleSuffix(formattedSamples, totalCount) {
+    if (formattedSamples.length === 0) {
+        return "";
+    }
+
+    const sampleList = formattedSamples.join(", ");
+    const ellipsis = totalCount > formattedSamples.length ? ", ..." : "";
+    return ` (e.g., ${sampleList}${ellipsis})`;
+}
+
+function formatIgnoredFileSample(sample) {
+    if (!sample || typeof sample !== "object") {
+        return null;
+    }
+
+    const { filePath, sourceDescription } = sample;
+    if (typeof filePath !== "string" || filePath.length === 0) {
+        return null;
+    }
+
+    const formattedPath = formatPathForDisplay(filePath);
+
+    if (!sourceDescription || sourceDescription === "ignored") {
+        return formattedPath;
+    }
+
+    return `${formattedPath} (${sourceDescription})`;
+}
+
+function formatIgnoredDetail({ ignored, ignoredSamples }) {
+    if (ignored <= 0) {
+        return null;
+    }
+
+    const formattedSamples = (ignoredSamples ?? [])
+        .map((sample) => formatIgnoredFileSample(sample))
+        .filter(Boolean);
+    const suffix = formatSampleSuffix(formattedSamples, ignored);
+
+    return `ignored by .prettierignore (${ignored})${suffix}`;
+}
+
+function formatUnsupportedExtensionSample(sample) {
+    if (typeof sample !== "string" || sample.length === 0) {
+        return null;
+    }
+
+    return formatPathForDisplay(sample);
+}
+
+function formatUnsupportedExtensionDetail({
+    unsupportedExtension,
+    unsupportedExtensionSamples
+}) {
+    if (unsupportedExtension <= 0) {
+        return null;
+    }
+
+    const formattedSamples = (unsupportedExtensionSamples ?? [])
+        .map((sample) => formatUnsupportedExtensionSample(sample))
+        .filter(Boolean);
+    const suffix = formatSampleSuffix(formattedSamples, unsupportedExtension);
+
+    return `unsupported extensions (${unsupportedExtension})${suffix}`;
+}
+
+function formatSymbolicLinkDetail(symbolicLink) {
+    if (symbolicLink <= 0) {
+        return null;
+    }
+
+    return `symbolic links (${symbolicLink})`;
+}
+
 function buildSkippedFileDetailEntries({
     ignored,
     ignoredSamples,
@@ -1674,48 +1748,25 @@ function buildSkippedFileDetailEntries({
 }) {
     const detailEntries = [];
 
-    if (ignored > 0) {
-        const formattedSamples = ignoredSamples.map((sample) => {
-            const formattedPath = formatPathForDisplay(sample.filePath);
-            if (
-                !sample.sourceDescription ||
-                sample.sourceDescription === "ignored"
-            ) {
-                return formattedPath;
-            }
-            return `${formattedPath} (${sample.sourceDescription})`;
-        });
-
-        let suffix = "";
-
-        if (formattedSamples.length > 0) {
-            const sampleList = formattedSamples.join(", ");
-            const ellipsis = ignored > formattedSamples.length ? ", ..." : "";
-            suffix = ` (e.g., ${sampleList}${ellipsis})`;
-        }
-
-        detailEntries.push(`ignored by .prettierignore (${ignored})${suffix}`);
+    const ignoredDetail = formatIgnoredDetail({
+        ignored,
+        ignoredSamples
+    });
+    if (ignoredDetail) {
+        detailEntries.push(ignoredDetail);
     }
 
-    if (unsupportedExtension > 0) {
-        const formattedSamples = unsupportedExtensionSamples.map((sample) =>
-            formatPathForDisplay(sample)
-        );
-        let suffix = "";
-
-        if (formattedSamples.length > 0) {
-            const sampleList = formattedSamples.join(", ");
-            const ellipsis =
-                unsupportedExtension > formattedSamples.length ? ", ..." : "";
-            suffix = ` (e.g., ${sampleList}${ellipsis})`;
-        }
-        detailEntries.push(
-            `unsupported extensions (${unsupportedExtension})${suffix}`
-        );
+    const unsupportedExtensionDetail = formatUnsupportedExtensionDetail({
+        unsupportedExtension,
+        unsupportedExtensionSamples
+    });
+    if (unsupportedExtensionDetail) {
+        detailEntries.push(unsupportedExtensionDetail);
     }
 
-    if (symbolicLink > 0) {
-        detailEntries.push(`symbolic links (${symbolicLink})`);
+    const symbolicLinkDetail = formatSymbolicLinkDetail(symbolicLink);
+    if (symbolicLinkDetail) {
+        detailEntries.push(symbolicLinkDetail);
     }
 
     return detailEntries;
