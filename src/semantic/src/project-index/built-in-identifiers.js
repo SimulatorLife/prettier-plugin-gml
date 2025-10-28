@@ -51,6 +51,18 @@ function parseBuiltInIdentifierNames(rawContents) {
     return extractBuiltInIdentifierNames(payload);
 }
 
+function areMtimesEquivalent(cachedMtime, currentMtime) {
+    if (cachedMtime === currentMtime) {
+        return true;
+    }
+
+    if (typeof cachedMtime !== "number" || typeof currentMtime !== "number") {
+        return false;
+    }
+
+    return areNumbersApproximatelyEqual(cachedMtime, currentMtime);
+}
+
 export async function loadBuiltInIdentifiers(
     fsFacade = defaultFsFacade,
     metrics = null,
@@ -71,18 +83,15 @@ export async function loadBuiltInIdentifiers(
     const cached = cachedBuiltInIdentifiers;
     const cachedMtime = cached?.metadata?.mtimeMs ?? null;
 
-    if (!cached) {
-        metrics?.caches?.recordMiss("builtInIdentifiers");
-    } else if (
-        cachedMtime === currentMtime ||
-        (typeof cachedMtime === "number" &&
-            typeof currentMtime === "number" &&
-            areNumbersApproximatelyEqual(cachedMtime, currentMtime))
-    ) {
+    if (cached && areMtimesEquivalent(cachedMtime, currentMtime)) {
         metrics?.caches?.recordHit("builtInIdentifiers");
         return cached;
-    } else {
+    }
+
+    if (cached) {
         metrics?.caches?.recordStale("builtInIdentifiers");
+    } else {
+        metrics?.caches?.recordMiss("builtInIdentifiers");
     }
 
     let names = new Set();
