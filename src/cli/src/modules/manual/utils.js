@@ -304,76 +304,45 @@ export function createManualDownloadReporter({
  * }} options
  * @returns {Promise<Record<string, string>>}
  */
-/**
- * Normalize manual download state so higher-level orchestrators can focus on
- * sequencing instead of bookkeeping. The helper materializes the ordered entry
- * list, guards optional callbacks, and allocates the payload accumulator in one
- * place.
- */
-function createManualDownloadSession({
-    entries,
-    onProgress,
-    onProgressCleanup
-}) {
-    const orderedEntries = Array.from(entries);
-
-    return {
-        orderedEntries,
-        payloads: {},
-        totalEntries: orderedEntries.length,
-        reportProgress: typeof onProgress === "function" ? onProgress : noop,
-        cleanup:
-            typeof onProgressCleanup === "function" ? onProgressCleanup : noop
-    };
-}
-
-/**
- * Populate the manual download session with entry payloads while forwarding
- * progress updates through the normalized reporter.
- */
-async function populateManualDownloadPayloads(
-    session,
-    { manualRefSha, fetchManualFile, requestOptions }
-) {
+export async function downloadManualFileEntries(options) {
+    const orderedEntries = Array.from(options.entries);
+    const payloads = {};
+    const totalEntries = orderedEntries.length;
+    const reportProgress =
+        typeof options.onProgress === "function" ? options.onProgress : noop;
+    const cleanup =
+        typeof options.onProgressCleanup === "function"
+            ? options.onProgressCleanup
+            : noop;
     let fetchedCount = 0;
 
-    for (const [key, filePath] of session.orderedEntries) {
-        session.payloads[key] = await fetchManualFile(
-            manualRefSha,
-            filePath,
-            requestOptions
-        );
-
-        fetchedCount += 1;
-
-        session.reportProgress({
-            key,
-            path: filePath,
-            fetchedCount,
-            totalEntries: session.totalEntries
-        });
-    }
-}
-
-function finalizeManualDownloadSession(session) {
     try {
-        session.cleanup();
-    } catch {
-        // Ignore cleanup failures so manual downloads still bubble the
-        // original error.
-    }
-}
+        for (const [key, filePath] of orderedEntries) {
+            payloads[key] = await options.fetchManualFile(
+                options.manualRefSha,
+                filePath,
+                options.requestOptions
+            );
 
-export async function downloadManualFileEntries(options) {
-    const session = createManualDownloadSession(options);
+            fetchedCount += 1;
 
-    try {
-        await populateManualDownloadPayloads(session, options);
+            reportProgress({
+                key,
+                path: filePath,
+                fetchedCount,
+                totalEntries
+            });
+        }
     } finally {
-        finalizeManualDownloadSession(session);
+        try {
+            cleanup();
+        } catch {
+            // Ignore cleanup failures so manual downloads still bubble the
+            // original error.
+        }
     }
 
-    return session.payloads;
+    return payloads;
 }
 
 export async function downloadManualEntriesWithProgress({
