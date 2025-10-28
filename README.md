@@ -548,6 +548,16 @@ without editing project scripts:
   `node ./node_modules/root/src/cli/src/cli.js --version`. Handy when mirroring
   release tags or packaging nightly builds.
 
+### Formatter environment knobs
+
+The formatter honours a small set of environment variables for teams that need
+to tune formatting behaviour without patching the plugin:
+
+- `PRETTIER_PLUGIN_GML_DOC_COMMENT_MAX_WRAP_WIDTH` &mdash; Caps the width used when
+  wrapping GameMaker doc comments. Increase the value to preserve wider manual
+  descriptions or set it to `Infinity` to fall back to Prettier's configured
+  `printWidth`.
+
 ### Visual Studio Code
 
 1. Install the [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) extension.
