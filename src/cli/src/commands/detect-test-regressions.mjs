@@ -634,124 +634,63 @@ function createResultAggregates() {
     };
 }
 
-/**
- * Builds the shared state used while scanning candidate result directories.
- * @param {string[]|string} candidateDirs
- * @param {string} workspaceRoot
- */
-function buildReadContext(candidateDirs, workspaceRoot) {
-    return {
-        directories: normalizeResultDirectories(candidateDirs, workspaceRoot),
-        notes: [],
-        aggregates: createResultAggregates(),
-        missingDirs: [],
-        emptyDirs: []
-    };
-}
-
-function appendScanNotes(context, scan) {
-    if (scan.notes.length === 0) {
-        return;
-    }
-    context.notes.push(...scan.notes);
-}
-
-function handleMissingOrEmptyDirectory(context, directory, status) {
-    const bucket =
-        status === "missing" ? context.missingDirs : context.emptyDirs;
-    bucket.push(directory.display);
-}
-
-function buildSuccessfulReadResult(context, directory) {
-    return {
-        ...context.aggregates,
-        usedDir: directory.resolved,
-        displayDir: directory.display,
-        notes: context.notes
-    };
-}
-
-function applyScanOutcome(context, directory, scan) {
-    if (scan.status === "missing" || scan.status === "empty") {
-        handleMissingOrEmptyDirectory(context, directory, scan.status);
-        return null;
-    }
-
-    recordTestCases(context.aggregates, scan.cases);
-    return buildSuccessfulReadResult(context, directory);
-}
-
-function pushAvailabilityNote(notes, entries, { single, multiple }) {
-    const count = entries.length;
-
-    if (count === 0) {
-        return;
-    }
-
-    if (count === 1) {
-        notes.push(single(entries[0]));
-        return;
-    }
-
-    notes.push(multiple(entries));
-}
-
-function appendAvailabilityNotes(context) {
-    const { missingDirs, emptyDirs, notes } = context;
-
-    pushAvailabilityNote(notes, missingDirs, {
-        single: (dir) => `No directory found at ${dir}.`,
-        multiple: (dirs) => `No directory found at any of: ${dirs.join(", ")}.`
-    });
-
-    pushAvailabilityNote(notes, emptyDirs, {
-        single: (dir) => `No JUnit XML files found in ${dir}.`,
-        multiple: (dirs) => `No JUnit XML files found in: ${dirs.join(", ")}.`
-    });
-}
-
-function buildUnavailableResult(context) {
-    return {
-        ...context.aggregates,
-        usedDir: null,
-        displayDir: "",
-        notes: context.notes
-    };
-}
-
-/**
- * Iterate over the normalized directories and return the first successful read.
- * Keeps the orchestration in {@link readTestResults} focused on high-level flow
- * while this helper owns the bookkeeping involved in scanning each directory.
- *
- * @param {ReturnType<typeof buildReadContext>} context
- * @returns {ReturnType<typeof buildSuccessfulReadResult>|null}
- */
-function resolveFirstSuccessfulDirectory(context) {
-    for (const directory of context.directories) {
-        const scan = scanResultDirectory(directory);
-        appendScanNotes(context, scan);
-        const result = applyScanOutcome(context, directory, scan);
-        if (result) {
-            return result;
-        }
-    }
-
-    return null;
-}
-
 function readTestResults(candidateDirs, { workspace } = {}) {
     const workspaceRoot =
         workspace || process.env.GITHUB_WORKSPACE || process.cwd();
-    const context = buildReadContext(candidateDirs, workspaceRoot);
+    const directories = normalizeResultDirectories(
+        candidateDirs,
+        workspaceRoot
+    );
+    const aggregates = createResultAggregates();
+    const notes = [];
+    const missingDirs = [];
+    const emptyDirs = [];
 
-    const successfulDirectory = resolveFirstSuccessfulDirectory(context);
-    if (successfulDirectory) {
-        return successfulDirectory;
+    for (const directory of directories) {
+        const scan = scanResultDirectory(directory);
+
+        if (scan.notes.length > 0) {
+            notes.push(...scan.notes);
+        }
+
+        if (scan.status === "missing") {
+            missingDirs.push(directory.display);
+            continue;
+        }
+
+        if (scan.status === "empty") {
+            emptyDirs.push(directory.display);
+            continue;
+        }
+
+        recordTestCases(aggregates, scan.cases);
+
+        return {
+            ...aggregates,
+            usedDir: directory.resolved,
+            displayDir: directory.display,
+            notes
+        };
     }
 
-    appendAvailabilityNotes(context);
-    return buildUnavailableResult(context);
+    if (missingDirs.length === 1) {
+        notes.push(`No directory found at ${missingDirs[0]}.`);
+    } else if (missingDirs.length > 1) {
+        notes.push(`No directory found at any of: ${missingDirs.join(", ")}.`);
+    }
+
+    if (emptyDirs.length === 1) {
+        notes.push(`No JUnit XML files found in ${emptyDirs[0]}.`);
+    } else if (emptyDirs.length > 1) {
+        notes.push(`No JUnit XML files found in: ${emptyDirs.join(", ")}.`);
+    }
+
+    return {
+        ...aggregates,
+        usedDir: null,
+        displayDir: "",
+        notes
+    };
 }
 
 function shouldSkipRegressionDetection(baseStats, targetStats) {
