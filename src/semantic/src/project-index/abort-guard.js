@@ -14,6 +14,6 @@ export function createProjectIndexAbortGuard(
 
     return createAbortGuard(options, {
         fallbackMessage: resolvedFallback,
-        ...(key != null ? { key } : {})
+        ...(key == null ? {} : { key })
     });
 }

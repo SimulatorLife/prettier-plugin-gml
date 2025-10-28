@@ -1,9 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import {
-    applyStandardCommandOptions
-} from "../src/core/command-standard-options.js";
+import { applyStandardCommandOptions } from "../src/core/command-standard-options.js";
 
 class FakeCommand {
     constructor() {
