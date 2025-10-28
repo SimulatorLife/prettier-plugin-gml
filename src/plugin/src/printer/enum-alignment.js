@@ -109,13 +109,13 @@ function collectTrailingEnumComments(member) {
     const comments = getCommentArray(member);
     const { length } = comments;
     if (length === 0) {
-        return [];
+        return null;
     }
 
     // Manual iteration avoids creating a new callback per invocation while the
     // printer walks enum members, which keeps the micro-hot path allocation
     // free.
-    const trailingComments = [];
+    let trailingComments = null;
 
     for (let index = 0; index < length; index += 1) {
         const comment = comments[index];
@@ -124,6 +124,9 @@ function collectTrailingEnumComments(member) {
         }
 
         if (comment.trailing === true || comment.placement === "endOfLine") {
+            if (!trailingComments) {
+                trailingComments = [];
+            }
             trailingComments.push(comment);
         }
     }
@@ -214,11 +217,11 @@ function applyTrailingCommentPadding({
     for (let index = 0; index <= lastIndex; index += 1) {
         const entry = memberStats[index];
         const trailingComments = entry.trailingComments;
-        const trailingCount = trailingComments.length;
-
-        if (trailingCount === 0) {
+        if (!Array.isArray(trailingComments) || trailingComments.length === 0) {
             continue;
         }
+
+        const trailingCount = trailingComments.length;
 
         const basePadding = maxMemberWidth - entry.memberWidth;
         if (basePadding <= 0) {
