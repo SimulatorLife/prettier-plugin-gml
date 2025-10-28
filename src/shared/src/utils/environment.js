@@ -119,34 +119,23 @@ export function createEnvConfiguredValue({
 
     let currentValue = defaultValue;
 
-    function set(value) {
+    const set = (value) => {
         currentValue = normalize(value, {
             defaultValue,
             previousValue: currentValue
         });
 
         return currentValue;
-    }
+    };
 
-    function get() {
-        return currentValue;
-    }
+    const get = () => currentValue;
 
-    function applyEnvOverride(env) {
-        if (!envVar) {
-            return currentValue;
-        }
-
-        applyOverride({
-            env,
-            envVar,
-            applyValue: (rawValue) => {
-                set(rawValue);
-            }
-        });
-
-        return currentValue;
-    }
+    const applyEnvOverride = envVar
+        ? (env) => {
+              applyOverride({ env, envVar, applyValue: set });
+              return currentValue;
+          }
+        : () => currentValue;
 
     return { get, set, applyEnvOverride };
 }
