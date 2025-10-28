@@ -6,7 +6,7 @@ import {
     prepareIdentifierCaseEnvironment,
     teardownIdentifierCaseEnvironment
 } from "../src/identifier-case/environment.js";
-import { gmlParserAdapter } from "../../plugin/src/parsers/gml-parser-adapter.js";
+import { gmlParserAdapter } from "prettier-plugin-gamemaker/parsers";
 import { clearIdentifierCaseOptionStore } from "../src/identifier-case/option-store.js";
 
 function createBootstrap(dispose) {
