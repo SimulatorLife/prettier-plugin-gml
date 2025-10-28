@@ -4903,6 +4903,40 @@ function mergeSyntheticDocComments(
             const prefix = prefixMatch[1];
             const continuationPrefix =
                 "/// " + " ".repeat(Math.max(prefix.length - 4, 0));
+            const hasManualContinuation = blockLines.some(
+                (docLine, blockIndex) =>
+                    blockIndex > 0 &&
+                    typeof docLine === "string" &&
+                    docLine.startsWith("///") &&
+                    !parseDocCommentMetadata(docLine)
+            );
+            const padManualContinuationLines = () =>
+                blockLines.map((docLine, blockIndex) => {
+                    if (blockIndex === 0 || typeof docLine !== "string") {
+                        return docLine;
+                    }
+
+                    if (
+                        !docLine.startsWith("///") ||
+                        parseDocCommentMetadata(docLine)
+                    ) {
+                        return docLine;
+                    }
+
+                    if (docLine.startsWith(continuationPrefix)) {
+                        return docLine;
+                    }
+
+                    const trimmedContinuation = docLine
+                        .slice(3)
+                        .replace(/^\s+/, "");
+
+                    if (trimmedContinuation.length === 0) {
+                        return docLine;
+                    }
+
+                    return `${continuationPrefix}${trimmedContinuation}`;
+                });
             const descriptionText = blockLines
                 .map((docLine, blockIndex) => {
                     if (blockIndex === 0) {
@@ -4927,6 +4961,11 @@ function mergeSyntheticDocComments(
                 continue;
             }
 
+            if (hasManualContinuation) {
+                wrappedDocs.push(...padManualContinuationLines());
+                continue;
+            }
+
             const available = Math.max(wrapWidth - prefix.length, 16);
             const continuationAvailable = Math.max(Math.min(available, 62), 16);
             const segments = wrapSegments(
@@ -4941,36 +4980,7 @@ function mergeSyntheticDocComments(
             }
 
             if (blockLines.length > 1 && segments.length > blockLines.length) {
-                const paddedBlockLines = blockLines.map(
-                    (docLine, blockIndex) => {
-                        if (blockIndex === 0 || typeof docLine !== "string") {
-                            return docLine;
-                        }
-
-                        if (
-                            !docLine.startsWith("///") ||
-                            parseDocCommentMetadata(docLine)
-                        ) {
-                            return docLine;
-                        }
-
-                        if (docLine.startsWith(continuationPrefix)) {
-                            return docLine;
-                        }
-
-                        const trimmedContinuation = docLine
-                            .slice(3)
-                            .replace(/^\s+/, "");
-
-                        if (trimmedContinuation.length === 0) {
-                            return docLine;
-                        }
-
-                        return `${continuationPrefix}${trimmedContinuation}`;
-                    }
-                );
-
-                wrappedDocs.push(...paddedBlockLines);
+                wrappedDocs.push(...padManualContinuationLines());
                 continue;
             }
 
