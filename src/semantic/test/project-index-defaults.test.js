@@ -3,9 +3,13 @@ import test from "node:test";
 
 import {
     getDefaultProjectIndexGmlConcurrency,
+    getDefaultProjectIndexGmlConcurrencyLimit,
     setDefaultProjectIndexGmlConcurrency,
+    setDefaultProjectIndexGmlConcurrencyLimit,
     PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
-    PROJECT_INDEX_GML_CONCURRENCY_BASELINE
+    PROJECT_INDEX_GML_CONCURRENCY_BASELINE,
+    PROJECT_INDEX_GML_MAX_CONCURRENCY_ENV_VAR,
+    PROJECT_INDEX_GML_MAX_CONCURRENCY_BASELINE
 } from "../src/project-index/concurrency.js";
 import { defaultFsFacade } from "../src/project-index/fs-facade.js";
 import { defaultFsFacade as reexportedFsFacade } from "../src/project-index/index.js";
@@ -30,33 +34,61 @@ test("default fs facade is shared across exports", () => {
 
 test("project index concurrency default can be tuned programmatically", () => {
     const originalDefault = getDefaultProjectIndexGmlConcurrency();
+    const originalLimit = getDefaultProjectIndexGmlConcurrencyLimit();
+    const baselineLimit = setDefaultProjectIndexGmlConcurrencyLimit(
+        PROJECT_INDEX_GML_MAX_CONCURRENCY_BASELINE
+    );
     const baseline = setDefaultProjectIndexGmlConcurrency(
         PROJECT_INDEX_GML_CONCURRENCY_BASELINE
     );
 
     try {
         assert.equal(baseline, PROJECT_INDEX_GML_CONCURRENCY_BASELINE);
+        assert.equal(baselineLimit, PROJECT_INDEX_GML_MAX_CONCURRENCY_BASELINE);
 
         const configured = setDefaultProjectIndexGmlConcurrency("6");
         assert.equal(configured, 6);
         assert.equal(getDefaultProjectIndexGmlConcurrency(), 6);
 
+        const tightenedLimit = setDefaultProjectIndexGmlConcurrencyLimit(8);
+        assert.equal(tightenedLimit, 8);
+        assert.equal(getDefaultProjectIndexGmlConcurrencyLimit(), 8);
+
         const capped = setDefaultProjectIndexGmlConcurrency(128);
-        assert.equal(capped, 16);
+        assert.equal(capped, 8);
 
         const floored = setDefaultProjectIndexGmlConcurrency(0);
         assert.equal(floored, 1);
+
+        const flooredLimit = setDefaultProjectIndexGmlConcurrencyLimit(0);
+        assert.equal(flooredLimit, 1);
+        assert.equal(getDefaultProjectIndexGmlConcurrencyLimit(), 1);
+
+        const invalidWithTightLimit =
+            setDefaultProjectIndexGmlConcurrency("not-a-number");
+        assert.equal(invalidWithTightLimit, 1);
+        assert.equal(getDefaultProjectIndexGmlConcurrency(), 1);
+
+        const restoredLimit = setDefaultProjectIndexGmlConcurrencyLimit(
+            PROJECT_INDEX_GML_MAX_CONCURRENCY_BASELINE
+        );
+        assert.equal(restoredLimit, PROJECT_INDEX_GML_MAX_CONCURRENCY_BASELINE);
 
         const reset = setDefaultProjectIndexGmlConcurrency("not-a-number");
         assert.equal(reset, baseline);
         assert.equal(getDefaultProjectIndexGmlConcurrency(), baseline);
     } finally {
+        setDefaultProjectIndexGmlConcurrencyLimit(originalLimit);
         setDefaultProjectIndexGmlConcurrency(originalDefault);
     }
 });
 
 test("invalid environment overrides fall back to the baseline", () => {
     const originalDefault = getDefaultProjectIndexGmlConcurrency();
+    const originalLimit = getDefaultProjectIndexGmlConcurrencyLimit();
+    setDefaultProjectIndexGmlConcurrencyLimit(
+        PROJECT_INDEX_GML_MAX_CONCURRENCY_BASELINE
+    );
 
     try {
         // Simulate the environment override hook by calling the setter directly
@@ -76,6 +108,7 @@ test("invalid environment overrides fall back to the baseline", () => {
             PROJECT_INDEX_GML_CONCURRENCY_BASELINE
         );
     } finally {
+        setDefaultProjectIndexGmlConcurrencyLimit(originalLimit);
         setDefaultProjectIndexGmlConcurrency(originalDefault);
     }
 });
@@ -85,5 +118,9 @@ test("project index concurrency env var name is stable", () => {
     assert.equal(
         PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
         "GML_PROJECT_INDEX_CONCURRENCY"
+    );
+    assert.equal(
+        PROJECT_INDEX_GML_MAX_CONCURRENCY_ENV_VAR,
+        "GML_PROJECT_INDEX_MAX_CONCURRENCY"
     );
 });
