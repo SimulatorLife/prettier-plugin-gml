@@ -229,16 +229,16 @@ function createFinalizer({
     timings,
     counters,
     caches,
-    metadata,
-    state
+    metadata
 }) {
     const hasDebug = typeof logger?.debug === "function";
+    let hasLoggedSummary = false;
 
     return (extra = {}) => {
         const report = snapshot(extra);
-        if (autoLog && hasDebug && !state.hasLoggedSummary) {
+        if (autoLog && hasDebug && !hasLoggedSummary) {
             logger.debug(`[${category}] summary`, report);
-            state.hasLoggedSummary = true;
+            hasLoggedSummary = true;
         }
 
         timings.clear();
@@ -283,7 +283,6 @@ export function createMetricsTracker({
     const caches = new Map();
     const metadata = Object.create(null);
     const cacheKeys = normalizeCacheKeys(cacheKeyOption);
-    const state = { hasLoggedSummary: false };
 
     const incrementTiming = createMapIncrementer(timings);
     const incrementCounterBy = createMapIncrementer(counters);
@@ -304,8 +303,7 @@ export function createMetricsTracker({
         timings,
         counters,
         caches,
-        metadata,
-        state
+        metadata
     });
 
     function recordTiming(label, durationMs) {
