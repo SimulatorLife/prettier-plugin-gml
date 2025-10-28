@@ -62,22 +62,35 @@ function shouldRenderProgressBar(stdout, width) {
     return Boolean(stdout?.isTTY) && width > 0;
 }
 
+function stopAndRemoveProgressBar(label, { suppressErrors = false } = {}) {
+    const bar = activeProgressBars.get(label);
+
+    if (!bar) {
+        return;
+    }
+
+    if (suppressErrors) {
+        try {
+            bar.stop();
+        } catch {
+            // Ignore cleanup failures so callers can continue unwinding their
+            // own teardown logic without masking the original failure that
+            // disabled progress rendering mid-run.
+        }
+        activeProgressBars.delete(label);
+        return;
+    }
+
+    bar.stop();
+    activeProgressBars.delete(label);
+}
+
 function renderProgressBar(label, current, total, width, options = {}) {
     const { stdout = process.stdout, createBar = createDefaultProgressBar } =
         options;
 
     if (!shouldRenderProgressBar(stdout, width)) {
-        const existingBar = activeProgressBars.get(label);
-        if (existingBar) {
-            try {
-                existingBar.stop();
-            } catch {
-                // Ignore cleanup failures so callers can continue unwinding
-                // their own teardown logic without masking the original
-                // failure that disabled progress rendering mid-run.
-            }
-            activeProgressBars.delete(label);
-        }
+        stopAndRemoveProgressBar(label, { suppressErrors: true });
         return;
     }
 
@@ -98,8 +111,7 @@ function renderProgressBar(label, current, total, width, options = {}) {
     }
 
     if (normalizedCurrent >= normalizedTotal) {
-        bar.stop();
-        activeProgressBars.delete(label);
+        stopAndRemoveProgressBar(label);
     }
 }
 
