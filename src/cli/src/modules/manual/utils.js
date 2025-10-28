@@ -80,35 +80,31 @@ function createManualGitHubRequestError({ url, response, bodyText, cause }) {
     const status =
         typeof response?.status === "number" ? response.status : null;
     const statusText = toTrimmedString(response?.statusText);
-
     let responseBody;
-    if (bodyText !== undefined) {
-        responseBody = typeof bodyText === "string" ? bodyText.trim() : "";
+    if (bodyText === undefined) {
+        responseBody = undefined;
+    } else if (typeof bodyText === "string") {
+        responseBody = bodyText.trim();
+    } else {
+        responseBody = "";
     }
 
-    const statusParts = [];
-    if (status !== null) {
-        statusParts.push(String(status));
-    }
-    if (statusText) {
-        statusParts.push(statusText);
+    const statusLabel = [status, statusText]
+        .filter((value) => value !== null && value !== "")
+        .map(String)
+        .join(" ");
+
+    let detail = "";
+    if (typeof responseBody === "string" && responseBody.length > 0) {
+        detail = responseBody;
+    } else if (cause !== undefined) {
+        detail = getErrorMessageOrFallback(cause);
     }
 
     let message = `Request failed for ${url}`;
-    if (statusParts.length > 0) {
-        message += ` (${statusParts.join(" ")})`;
+    if (statusLabel) {
+        message += ` (${statusLabel})`;
     }
-
-    const detail = (() => {
-        if (typeof responseBody === "string" && responseBody.length > 0) {
-            return responseBody;
-        }
-        if (cause !== undefined) {
-            return getErrorMessageOrFallback(cause);
-        }
-        return "";
-    })();
-
     if (detail) {
         message += `: ${detail}`;
     }
