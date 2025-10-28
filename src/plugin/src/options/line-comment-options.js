@@ -40,21 +40,38 @@ function normalizeArrayOption(
         return defaultValue;
     }
 
-    const normalized = candidate.reduce((result, value) => {
-        if (filter(value)) {
-            result.push(map(value));
+    const normalized = [];
+    const hasComparableDefault = Array.isArray(defaultValue);
+    let matchesDefault = hasComparableDefault;
+    let normalizedIndex = 0;
+
+    for (const value of candidate) {
+        if (!filter(value)) {
+            continue;
         }
 
-        return result;
-    }, []);
+        const mapped = map(value);
+        normalized.push(mapped);
+
+        if (
+            matchesDefault &&
+            (normalizedIndex >= defaultValue.length ||
+                mapped !== defaultValue[normalizedIndex])
+        ) {
+            matchesDefault = false;
+        }
+
+        normalizedIndex += 1;
+    }
 
     if (normalized.length === 0) {
         return defaultValue;
     }
 
     if (
-        normalized.length === defaultValue.length &&
-        normalized.every((element, index) => element === defaultValue[index])
+        hasComparableDefault &&
+        matchesDefault &&
+        normalized.length === defaultValue.length
     ) {
         return defaultValue;
     }
