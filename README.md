@@ -436,6 +436,13 @@ plugin entry. Regeneration helpers such as `npm run build:gml-identifiers` and
 upstream GameMaker releases change. See the [Development](#development) section
 for the full suite of contributor commands.
 
+Each workspace keeps its implementation under a `src/` directory and colocates
+tests in a sibling `test/` directory. Generated assets stay sequestered under
+`generated/` (for example the ANTLR output in `src/parser/generated/`). When a
+package needs to publish transitional entry points, expose them via the
+package's exports map rather than introducing new top-level directories so the
+layout stays consistent.
+
 > **Note:** All developer-facing utilities live under `src/cli/src/commands/`.
 > When adding new helpers, expose them through the CLI instead of creating
 > stand-alone scripts so contributors have a single, discoverable entry point.
