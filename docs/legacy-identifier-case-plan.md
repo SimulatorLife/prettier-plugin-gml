@@ -9,9 +9,9 @@
 > [semantic scope plan](./semantic-scope-plan.md).
 
 This archive consolidates the identifier-case handbook, scope reference,
-rollout playbook, and example set that previously lived across multiple files.
-Use it when auditing legacy behaviour, interpreting past reports, or migrating
-notes into the newer semantic pipeline.
+rollout playbook, roadmap, and example set that previously lived across
+multiple files. Use it when auditing legacy behaviour, interpreting past
+reports, or migrating notes into the newer semantic pipeline.
 
 ## Legacy architecture snapshot
 
@@ -118,9 +118,9 @@ a rebuild on the next run. Dry-run metrics reported cache hits versus rebuilds t
 support deterministic CI assertions.
 
 Manual snapshots remained supported for audits: call
-`buildProjectIndex(projectRoot)` (or reuse the scripted example in
-`docs/examples/identifier-case/locals-first.prettierrc.mjs`), persist the JSON,
-and provide it via `identifierCaseProjectIndex` to replay the exact plan.
+`buildProjectIndex(projectRoot)` (or reuse the scripted example in the
+[locals-first configuration](#locals-first-configuration-script)), persist the
+JSON, and provide it via `identifierCaseProjectIndex` to replay the exact plan.
 
 ## Rollout workflow and safeguards
 
@@ -170,9 +170,6 @@ remained unchanged across conversions.
 
 ## Related legacy assets
 
-- `docs/examples/identifier-case/locals-first.prettierrc.mjs` — Scripted
-  configuration for warming the project-index cache and capturing dry-run
-  reports.
 - `resources/gml-identifiers.json` — Snapshot of reserved identifiers harvested
   from the GameMaker manuals to avoid collisions during automated renames.
 
@@ -180,3 +177,217 @@ For current scope behaviour, consult the "Scope-aware semantic pipeline" section
 in `docs/live-reloading-concept.md`, the
 [`docs/semantic-scope-plan.md`](./semantic-scope-plan.md) companion, and the
 semantic package README.
+
+## Archived project-index roadmap
+
+> **Status: Historical reference.** The follow-up plan below has been
+> superseded by newer semantic pipeline work, but it remains available for
+> teams that need to replay the original project-index rollout.
+
+### 1. Project-index cache persistence & coordination — ✅ shipped
+
+**Current state**
+
+- `loadProjectIndexCache`, `saveProjectIndexCache`, and
+  `createProjectIndexCoordinator` now back the bootstrap end to end, writing
+  caches to `.prettier-plugin-gml/project-index-cache.json` and guarding
+  concurrent builds inside a process.
+- Cache payloads store manifest/source mtimes, formatter versions, and metrics,
+  letting the plugin trace cache hits, misses, and rebuild costs during dry
+  runs.
+
+**Follow-up opportunities**
+
+- Introduce cross-process coordination (lock files or advisory file handles) so
+  multiple Node.js workers reuse caches safely on CI agents that fork Prettier.
+- Ship a `scripts/inspect-project-index-cache.mjs` helper that prints cache
+  metadata (schema version, mtimes, miss reasons) to simplify support tickets.
+- Document troubleshooting guidance in the README for cache write failures and
+  permission issues surfaced by the coordinator.
+
+### 2. Auto-discovery bootstrap inside the plugin — ✅ shipped
+
+**Current state**
+
+- `bootstrapProjectIndex` resolves the GameMaker project root from
+  `options.filepath`, honours `gmlIdentifierCaseProjectRoot`, and stores the
+  bootstrap result on the Prettier options object for downstream consumers.
+- The helper wires the cache coordinator, attaches version metadata, and exposes
+  opt-outs via `gmlIdentifierCaseDiscoverProject` and manual index overrides.
+
+**Follow-up opportunities**
+
+- Expand documentation for editor integrations (VS Code, JetBrains) so users can
+  confirm bootstrap results from format-on-save workflows.
+- Surface a debug log toggle that prints root detection, cache paths, and miss
+  reasons without requiring custom loggers.
+- Consider exposing the bootstrap result through the wrapper CLI so automated
+  scripts can assert discovery success.
+
+### 3. Wire non-local scopes into the rename planner — 🚧 in progress
+
+**Goal**
+
+Enable scope toggles such as `gmlIdentifierCaseFunctions`,
+`gmlIdentifierCaseStructs`, and `gmlIdentifierCaseGlobals` to participate in the
+rename planner alongside locals and assets.
+
+**Checkpoints**
+
+1. Audit `projectIndex.identifiers` to confirm every scope exposes declaration
+   metadata, reference spans, and collision hints needed for safe renames.
+2. Extend `prepareIdentifierCasePlan` to evaluate the per-scope styles and emit
+   rename operations with the same conflict detection used for locals.
+3. Update dry-run reports so non-local scopes produce actionable summaries and
+   existing metrics capture the new rename activity.
+4. Cover the new paths with integration fixtures while keeping the golden output
+   untouched.
+
+### 4. Release readiness and observability — 🚧 queued
+
+**Goal**
+
+Harden the shipped bootstrap for production releases and make it easy to audit
+identifier-case rollouts.
+
+**Actions**
+
+- Capture cache hit/miss telemetry during extended playtests and document the
+  findings to guide concurrency tuning.
+- Refresh the README and rollout guides once additional scopes ship so new teams
+  can follow a single quick-start path.
+- Schedule a regression sweep combining formatter smoke tests, rename dry runs,
+  and asset-aware scenarios before tagging the feature-complete release.
+
+## Locals-first configuration script
+
+The following script bootstraps a locals-first rollout, captures the project
+index for reuse, and records dry-run reports. Update the `projectRoot` if your
+configuration lives outside the GameMaker manifest directory.
+
+```mjs
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { buildProjectIndex } from "./node_modules/root/src/plugin/src/project-index/index.js";
+
+const configFilePath = fileURLToPath(import.meta.url);
+const projectRoot = path.dirname(configFilePath);
+const reportsDir = path.join(projectRoot, ".gml-reports");
+const indexPath = path.join(reportsDir, "project-index.json");
+const logPath = path.join(reportsDir, "identifier-case-dry-run.json");
+
+await mkdir(reportsDir, { recursive: true });
+
+let projectIndex;
+try {
+    const cachedIndex = await readFile(indexPath, "utf8");
+    projectIndex = JSON.parse(cachedIndex);
+} catch {
+    projectIndex = await buildProjectIndex(projectRoot);
+    await writeFile(
+        indexPath,
+        `${JSON.stringify(projectIndex, null, 2)}\n`,
+        "utf8"
+    );
+}
+
+export default {
+    plugins: ["./node_modules/root/src/plugin/src/gml.js"],
+    overrides: [
+        {
+            files: "*.gml",
+            options: {
+                parser: "gml-parse"
+            }
+        }
+    ],
+    // Enable locals-first renaming while keeping other scopes in observation mode.
+    gmlIdentifierCase: "camel",
+    gmlIdentifierCaseLocals: "camel",
+    gmlIdentifierCaseFunctions: "inherit",
+    gmlIdentifierCaseStructs: "inherit",
+    gmlIdentifierCaseInstance: "inherit",
+    gmlIdentifierCaseGlobals: "inherit",
+    gmlIdentifierCaseAssets: "off",
+    gmlIdentifierCaseMacros: "inherit",
+    identifierCaseProjectIndex: projectIndex,
+    identifierCaseDryRun: true,
+    identifierCaseReportLogPath: logPath
+};
+```
+
+## Sample dry-run report
+
+Dry runs captured JSON payloads that validated rename coverage, conflicts, and
+preservation rules before enabling write mode. The structure below illustrates a
+minimal locals-first run.
+
+```json
+{
+  "version": 1,
+  "generatedAt": "2024-03-07T12:34:56.789Z",
+  "summary": {
+    "renameCount": 1,
+    "impactedFileCount": 1,
+    "totalReferenceCount": 3,
+    "conflictCount": 2,
+    "severityCounts": {
+      "warning": 1,
+      "info": 1
+    }
+  },
+  "renames": [
+    {
+      "id": "local:demo-script:counter_value",
+      "kind": "identifier",
+      "scope": {
+        "id": "script:demo",
+        "displayName": "demo (Script)"
+      },
+      "from": {
+        "name": "counter_value"
+      },
+      "to": {
+        "name": "counterValue"
+      },
+      "referenceCount": 3,
+      "references": [
+        {
+          "filePath": "scripts/demo/demo.gml",
+          "occurrences": 3
+        }
+      ]
+    }
+  ],
+  "conflicts": [
+    {
+      "code": "collision",
+      "message": "Renaming 'collision_counter' to 'collisionCounter' collides with 'collisionCounter'.",
+      "severity": "warning",
+      "scope": {
+        "id": "script:demo",
+        "displayName": "demo (Script)"
+      },
+      "identifier": "collision_counter",
+      "suggestions": [],
+      "details": null
+    },
+    {
+      "code": "preserve",
+      "message": "Identifier 'preserve_me' is preserved by configuration.",
+      "severity": "info",
+      "scope": {
+        "id": "script:demo",
+        "displayName": "demo (Script)"
+      },
+      "identifier": "preserve_me",
+      "suggestions": [
+        "Remove the name from gmlIdentifierCasePreserve to allow renaming."
+      ],
+      "details": null
+    }
+  ]
+}
+```
