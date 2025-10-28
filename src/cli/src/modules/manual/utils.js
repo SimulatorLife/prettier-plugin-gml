@@ -168,9 +168,17 @@ export function ensureManualRefHasSha(manualRef, { usage } = {}) {
     );
 }
 
+function selectLogger(logger) {
+    if (logger && typeof logger.log === "function") {
+        return logger;
+    }
+
+    return console;
+}
+
 export function announceManualDownloadStart(
     totalEntries,
-    { verbose, description = "manual file" } = {}
+    { verbose, description = "manual file", logger } = {}
 ) {
     if (!verbose?.downloads) {
         return;
@@ -181,7 +189,7 @@ export function announceManualDownloadStart(
         : "manual file";
     const pluralSuffix = totalEntries === 1 ? "" : "s";
 
-    console.log(
+    selectLogger(logger).log(
         `Fetching ${totalEntries} ${normalizedDescription}${pluralSuffix}…`
     );
 }
@@ -196,7 +204,8 @@ export function announceManualDownloadStart(
  *   verbose?: { downloads?: boolean, progressBar?: boolean },
  *   progressBarWidth?: number,
  *   formatPath?: (path: string) => string,
- *   render?: typeof renderProgressBar
+ *   render?: typeof renderProgressBar,
+ *   logger?: Pick<Console, "log">
  * }} options
  * @returns {(update: {
  *   path: string,
@@ -231,14 +240,15 @@ function createProgressBarReporter({ label, progressBarWidth, render }) {
     };
 }
 
-function createConsoleReporter({ formatPath }) {
+function createConsoleReporter({ formatPath, logger }) {
     const normalizePath =
         typeof formatPath === "function" ? formatPath : identity;
+    const targetLogger = selectLogger(logger);
 
     return {
         report({ path }) {
             const displayPath = normalizePath(path);
-            console.log(displayPath ? `✓ ${displayPath}` : "✓");
+            targetLogger.log(displayPath ? `✓ ${displayPath}` : "✓");
         },
         cleanup: noop
     };
@@ -249,7 +259,8 @@ export function createManualDownloadReporter({
     verbose = {},
     progressBarWidth,
     formatPath = (path) => path,
-    render = renderProgressBar
+    render = renderProgressBar,
+    logger
 } = {}) {
     const { downloads = false, progressBar = false } = verbose ?? {};
 
@@ -270,7 +281,7 @@ export function createManualDownloadReporter({
 
     return progressBar
         ? createProgressBarReporter({ label, progressBarWidth, render })
-        : createConsoleReporter({ formatPath });
+        : createConsoleReporter({ formatPath, logger });
 }
 
 /**
@@ -370,7 +381,14 @@ export async function downloadManualEntriesWithProgress({
     manualRefSha,
     fetchManualFile,
     requestOptions,
-    progress: { label, verbose, progressBarWidth, formatPath, render } = {}
+    progress: {
+        label,
+        verbose,
+        progressBarWidth,
+        formatPath,
+        render,
+        logger
+    } = {}
 }) {
     return withProgressBarCleanup(async () => {
         const { report: reportProgress, cleanup } =
@@ -379,7 +397,8 @@ export async function downloadManualEntriesWithProgress({
                 verbose,
                 progressBarWidth,
                 formatPath,
-                render
+                render,
+                logger
             });
 
         return downloadManualFileEntries({
