@@ -32,11 +32,11 @@ import {
     createSuiteResultsPayload,
     emitSuiteResults as emitSuiteResultsJson,
     ensureSuitesAreKnown,
-    importPluginModule,
     resolveRequestedSuites,
     resolveSuiteOutputFormatOrThrow,
     wrapInvalidArgumentResolver
 } from "../dependencies.js";
+import { importPluginModule } from "../plugin-runtime-dependencies.js";
 import { writeJsonArtifact } from "../fs-artifacts.js";
 
 export const DEFAULT_ITERATIONS = 500_000;

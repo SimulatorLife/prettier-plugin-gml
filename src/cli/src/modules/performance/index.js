@@ -13,12 +13,12 @@ import {
     emitSuiteResults,
     ensureSuitesAreKnown,
     formatByteSize,
-    resolveCliPluginEntryPoint,
     resolveRequestedSuites,
     resolveSuiteOutputFormatOrThrow,
     wrapInvalidArgumentResolver,
     getCommanderInvalidArgumentErrorConstructor
 } from "../dependencies.js";
+import { resolveCliPluginEntryPoint } from "../plugin-runtime-dependencies.js";
 import {
     appendToCollection,
     assertArray,
