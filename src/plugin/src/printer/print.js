@@ -301,25 +301,36 @@ export function print(path, options, print) {
                 defaultValue: null
             });
 
-            if (parentNode?.type === "ConstructorDeclaration") {
+            let hasExplicitLeadingBlankLine = false;
+            const isFunctionBodyBlock =
+                parentNode?.body === node &&
+                (parentNode.type === "FunctionDeclaration" ||
+                    parentNode.type === "FunctionExpression" ||
+                    parentNode.type === "ConstructorDeclaration");
+
+            if (isFunctionBodyBlock) {
                 const sourceMetadata = resolvePrinterSourceMetadata(options);
                 const { originalText } = sourceMetadata;
+
                 if (originalText !== null) {
-                    const firstStatement = node.body[0];
                     const { startIndex: firstStatementStartIndex } =
                         resolveNodeIndexRangeWithSource(
-                            firstStatement,
+                            node.body[0],
                             sourceMetadata
                         );
 
-                    if (
-                        isPreviousLineEmpty(
-                            originalText,
-                            firstStatementStartIndex
-                        )
-                    ) {
-                        leadingDocs.push(lineSuffixBoundary, hardline);
-                    }
+                    hasExplicitLeadingBlankLine = isPreviousLineEmpty(
+                        originalText,
+                        firstStatementStartIndex
+                    );
+                }
+            }
+
+            if (hasExplicitLeadingBlankLine) {
+                if (parentNode?.type === "ConstructorDeclaration") {
+                    leadingDocs.push(lineSuffixBoundary, hardline);
+                } else {
+                    leadingDocs.push(hardline);
                 }
             }
 
