@@ -4,38 +4,37 @@ import {
     getNonEmptyString
 } from "../shared/index.js";
 
-function isStaticFunctionDeclaration(statement) {
+function getStaticFunctionDeclarator(statement) {
     if (!statement || statement.type !== "VariableDeclaration") {
-        return false;
+        return null;
     }
 
     if (statement.kind !== "static") {
-        return false;
+        return null;
     }
 
     if (!isNonEmptyArray(statement.declarations)) {
-        return false;
+        return null;
     }
 
     const [declarator] = statement.declarations;
     if (!declarator || declarator.id?.type !== "Identifier") {
-        return false;
+        return null;
     }
 
-    return declarator.init?.type === "FunctionDeclaration";
+    return declarator;
+}
+
+function isStaticFunctionDeclaration(statement) {
+    const declarator = getStaticFunctionDeclarator(statement);
+
+    return declarator?.init?.type === "FunctionDeclaration";
 }
 
 function extractStaticFunctionName(statement) {
-    if (!statement || statement.type !== "VariableDeclaration") {
-        return null;
-    }
+    const declarator = getStaticFunctionDeclarator(statement);
 
-    if (!isNonEmptyArray(statement.declarations)) {
-        return null;
-    }
-
-    const [declarator] = statement.declarations;
-    if (!declarator || declarator.id?.type !== "Identifier") {
+    if (!declarator) {
         return null;
     }
 
@@ -67,11 +66,12 @@ function collectConstructorInfos(ast) {
         const staticFunctions = new Map();
 
         for (const statement of getBodyStatements(node.body)) {
-            if (!isStaticFunctionDeclaration(statement)) {
+            const declarator = getStaticFunctionDeclarator(statement);
+            if (declarator?.init?.type !== "FunctionDeclaration") {
                 continue;
             }
 
-            const staticName = extractStaticFunctionName(statement);
+            const staticName = getNonEmptyString(declarator.id.name);
             if (!staticName || staticFunctions.has(staticName)) {
                 continue;
             }
