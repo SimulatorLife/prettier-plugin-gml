@@ -195,13 +195,55 @@ function macroTextHasExplicitTrailingBlankLine(text) {
         return false;
     }
 
-    const trailingWhitespace = text.match(/[\t \r\n]+$/);
-    if (!trailingWhitespace) {
-        return false;
+    let newlineCount = 0;
+    let index = text.length - 1;
+
+    // The regex-based implementation previously allocated two RegExp instances
+    // and two match result arrays on every invocation. Feather macros route
+    // through this helper while printing trailing whitespace, so scanning the
+    // string manually avoids those allocations while preserving the original
+    // semantics (two newline sequences after any trailing spaces/tabs).
+    while (index >= 0) {
+        const code = text.charCodeAt(index);
+
+        // Skip trailing spaces and tabs without affecting the newline count.
+        if (code === 0x20 || code === 0x09) {
+            index -= 1;
+            continue;
+        }
+
+        if (code === 0x0a) {
+            newlineCount += 1;
+            index -= 1;
+
+            // Skip the carriage return in CRLF sequences so they count as a
+            // single newline boundary.
+            if (index >= 0 && text.charCodeAt(index) === 0x0d) {
+                index -= 1;
+            }
+
+            if (newlineCount >= 2) {
+                return true;
+            }
+
+            continue;
+        }
+
+        if (code === 0x0d) {
+            newlineCount += 1;
+            index -= 1;
+
+            if (newlineCount >= 2) {
+                return true;
+            }
+
+            continue;
+        }
+
+        break;
     }
 
-    const newlineMatches = trailingWhitespace[0].match(/\r?\n/g);
-    return (newlineMatches?.length ?? 0) >= 2;
+    return false;
 }
 
 function callPathMethod(path, methodName, { args, defaultValue } = {}) {
