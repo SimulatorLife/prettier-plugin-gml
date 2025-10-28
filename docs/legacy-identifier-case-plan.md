@@ -3,9 +3,10 @@
 > **Status: Archived reference.** The strategy described below reflects the previous
 > identifier-case semantic module and rename rollout plan. It is no longer being
 > expanded, but it remains available to help interpret the historical
-> implementation. The active scope roadmap now lives in the
+> implementation. The active scope roadmap now spans the
 > [live reloading concept](./live-reloading-concept.md) under "Scope-aware
-> semantic pipeline".
+> semantic pipeline" and the dedicated
+> [semantic scope plan](./semantic-scope-plan.md).
 
 This archive consolidates the identifier-case handbook, scope reference,
 rollout playbook, and example set that previously lived across multiple files.
@@ -176,4 +177,6 @@ remained unchanged across conversions.
   from the GameMaker manuals to avoid collisions during automated renames.
 
 For current scope behaviour, consult the "Scope-aware semantic pipeline" section
-in `docs/live-reloading-concept.md` and the semantic package README.
+in `docs/live-reloading-concept.md`, the
+[`docs/semantic-scope-plan.md`](./semantic-scope-plan.md) companion, and the
+semantic package README.

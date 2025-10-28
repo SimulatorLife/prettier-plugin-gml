@@ -157,7 +157,8 @@ for (var i = 0; i < queue_count; i += 1) {
 - [Legacy identifier-case plan](docs/legacy-identifier-case-plan.md) &mdash; Archived
   summary of the previous rename pipeline, scope coverage, rollout workflow, and
   tricky identifier examples. Use it for historical context; the current roadmap
-  lives in the [live reloading concept](docs/live-reloading-concept.md).
+  now spans the [live reloading concept](docs/live-reloading-concept.md) and the
+  [semantic scope plan](docs/semantic-scope-plan.md).
 - [Operational runbooks](docs/project-index-cache-design.md) &mdash; Design notes,
   cache architecture, and the rolling [project index roadmap](docs/project-index-next-steps.md)
   alongside the [Feather data plan](docs/feather-data-plan.md). Pair them with
@@ -169,6 +170,9 @@ for (var i = 0; i < queue_count; i += 1) {
   the HTML5 runtime fork and watcher pipeline that powers in-place code reloads
   during gameplay. Use it alongside the architecture audits when evaluating
   runtime tooling work.
+- [Semantic scope plan](docs/semantic-scope-plan.md) &mdash; Roadmap for the
+  ANTLR-based transpiler, semantic analysis, and dependency tracking that feed
+  the live reloading pipeline.
 - Formatter extension hooks &mdash;
   [Object-wrap resolver](docs/object-wrap-option-resolver-hook.md),
   [line-comment resolver](docs/line-comment-options-resolver-hook.md), and
