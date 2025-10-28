@@ -23,8 +23,10 @@ jobs:
         Perform a daily architectural audit of the repository. Focus on spotting
         duplicated top-level concepts (such as scattered CLI entry points), overly
         deep directory trees, and single-function micro-modules that would be clearer
-        when merged with related code. Propose and land one cohesive refactor that
-        moves the structure closer to the target layout while keeping APIs stable.
+        when merged with related code. Document the findings by appending a new
+        dated section to `docs/architecture-audit-log.md`. Propose and land one cohesive
+        refactor that moves the structure closer to the target layout while keeping APIs
+        stable.
 
         Requirements:
           • Start with a design rationale that summarizes current pain points and the

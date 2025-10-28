@@ -69,12 +69,10 @@ sheet, then return here when you need deeper context.
 
 ## Architecture & planning
 
-- [Architecture audits (October 2025)](architecture-audit-2025-10-23.md) — Daily
-  architecture snapshots that track the shared-module consolidation. Start with
-  the [October 23 update](architecture-audit-2025-10-23.md) for the current
-  layout, then revisit the
-  [October 22 follow-up](architecture-audit-2025-10-22.md) and the
-  [May 2024 audit](architecture-audit-2024-05-15.md) to see how the workspace
+- [Architecture audit log](architecture-audit-log.md) — Daily architecture
+  snapshots collected in a single document. Start with the
+  [October 23, 2025 entry](architecture-audit-log.md#2025-10-23--architecture-audit)
+  for the current layout, then review earlier sections to see how the workspace
   evolved.
 - [Shared module layout refresh](shared-module-layout.md) — Summary of the
   repository-wide audit that reorganised the `src/shared` helpers into
