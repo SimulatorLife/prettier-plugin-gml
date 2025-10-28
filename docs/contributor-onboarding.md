@@ -59,9 +59,11 @@ npm run format:gml -- --check
 npm run cli -- --help
 ```
 
-The first command confirms which plugin entry point the wrapper resolves and
-lists accepted flags. Pair it with the [CLI wrapper reference](../README.md#cli-wrapper-environment-knobs)
-when scripting automation.
+The `format:gml` workspace script now pins the `format` subcommand so the help
+output spotlights formatter-specific flags. Pair it with the
+[CLI wrapper reference](../README.md#cli-wrapper-environment-knobs) when
+scripting automation, and fall back to `npm run cli -- --help` for the global
+command inventory.
 
 When you're ready to try the wrapper against a project, provide the target
 directory explicitly so the command has GameMaker sources to process:

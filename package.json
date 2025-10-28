@@ -60,7 +60,7 @@
     "test:plugin:report": "node --test --test-reporter=junit --test-reporter-destination=./reports/plugin.xml src/plugin/test/*.test.js",
     "test:cli": "node --test src/cli/test/*.test.js",
     "test:cli:report": "node --test --test-reporter=junit --test-reporter-destination=./reports/cli.xml src/cli/test/*.test.js",
-    "format:gml": "node ./src/cli/src/cli.js",
+    "format:gml": "node ./src/cli/src/cli.js format",
     "format": "npm exec -- prettier --ignore-path ./.prettierignore --write \"{src/**/*.js,src/**/*.mjs,*.{js,cjs,mjs}}\"",
     "format:check": "npm exec -- prettier --ignore-path ./.prettierignore --check \"{src/**/*.js,src/**/*.mjs,*.{js,cjs,mjs}}\"",
     "prettier": "npm run format:gml --",
