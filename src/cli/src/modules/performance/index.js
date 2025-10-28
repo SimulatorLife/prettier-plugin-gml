@@ -24,11 +24,13 @@ import {
     coercePositiveInteger,
     ensureDir,
     isFiniteNumber,
+    isObjectLike,
     getErrorMessageOrFallback,
     getIdentifierText,
     resolveIntegerOption,
     toNormalizedInteger,
     stringifyJsonForFile,
+    withObjectLike,
     resolveModuleDefaultExport,
     createCliRunSkippedError,
     isCliRunSkipped
@@ -870,24 +872,28 @@ function logReportDestination(reportResult, { stdout }) {
 }
 
 function collectSuiteFailureSummaries(results) {
-    if (!results || typeof results !== "object") {
-        return [];
-    }
+    return withObjectLike(
+        results,
+        (object) => {
+            const failures = [];
 
-    const failures = [];
+            for (const [suite, payload] of Object.entries(object)) {
+                if (!isObjectLike(payload) || !payload.error) {
+                    continue;
+                }
 
-    for (const [suite, payload] of Object.entries(results)) {
-        if (!payload || typeof payload !== "object" || !payload.error) {
-            continue;
-        }
+                failures.push({
+                    suite,
+                    message: getErrorMessageOrFallback(payload.error, {
+                        fallback: "Unknown error"
+                    })
+                });
+            }
 
-        failures.push({
-            suite,
-            message: getErrorMessageOrFallback(payload.error, "Unknown error")
-        });
-    }
-
-    return failures;
+            return failures;
+        },
+        []
+    );
 }
 
 function formatFailureFollowUp({ stdout, format, displayPath }) {

@@ -59,7 +59,8 @@ export {
     toNormalizedLowerCaseString,
     toPosixPath,
     toTrimmedString,
-    uniqueArray
+    uniqueArray,
+    withObjectLike
 } from "../dependencies.js";
 
 export { resolveCommandUsage } from "../core/command-usage.js";
