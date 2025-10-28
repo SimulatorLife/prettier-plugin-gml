@@ -65,10 +65,7 @@ export {
     createCommanderOption,
     getCommanderCommandConstructor,
     getCommanderInvalidArgumentErrorConstructor,
-    getCommanderOptionConstructor,
-    resetCommanderApi,
-    resolveCommanderApi,
-    setCommanderApi
+    getCommanderOptionConstructor
 } from "../dependencies.js";
 
 export { resolveCommandUsage } from "../core/command-usage.js";

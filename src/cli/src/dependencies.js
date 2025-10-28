@@ -69,10 +69,7 @@ export {
     createCommanderOption,
     getCommanderCommandConstructor,
     getCommanderInvalidArgumentErrorConstructor,
-    getCommanderOptionConstructor,
-    resetCommanderApi,
-    resolveCommanderApi,
-    setCommanderApi
+    getCommanderOptionConstructor
 } from "./core/commander-registry.js";
 
 export {
