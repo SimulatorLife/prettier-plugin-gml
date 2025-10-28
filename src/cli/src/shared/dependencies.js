@@ -59,7 +59,16 @@ export {
     toNormalizedLowerCaseString,
     toPosixPath,
     toTrimmedString,
-    uniqueArray
+    uniqueArray,
+    createCommanderCommand,
+    createCommanderInvalidArgumentError,
+    createCommanderOption,
+    getCommanderCommandConstructor,
+    getCommanderInvalidArgumentErrorConstructor,
+    getCommanderOptionConstructor,
+    resetCommanderApi,
+    resolveCommanderApi,
+    setCommanderApi
 } from "../dependencies.js";
 
 export { resolveCommandUsage } from "../core/command-usage.js";
