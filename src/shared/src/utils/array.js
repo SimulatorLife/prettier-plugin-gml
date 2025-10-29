@@ -181,13 +181,7 @@ export function uniqueArray(values, { freeze = false } = {}) {
  * @returns {Array<T> | ReadonlyArray<T>}
  */
 export function compactArray(values, { freeze = false } = {}) {
-    const result = [];
-    for (const value of toArrayFromIterable(values)) {
-        if (value) {
-            result.push(value);
-        }
-    }
-
+    const result = toArrayFromIterable(values).filter(Boolean);
     return freeze ? Object.freeze(result) : result;
 }
 
