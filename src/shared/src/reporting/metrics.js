@@ -64,18 +64,21 @@ const SUMMARY_SECTIONS = Object.freeze([
  */
 
 /**
- * Earlier iterations exposed a single `MetricsReportingTools` surface that
- * coupled snapshotting, finalization, summary logging, and metadata writes.
- * That wide contract forced callers that only needed one reporting behaviour
- * to depend on the entire bundle. The specialised contracts below keep those
- * responsibilities separate so consumers can import only the collaborator they
- * require.
+ * Earlier iterations exposed a single `MetricsSummaryReporter` surface that
+ * coupled summary lifecycle helpers with cache inspection. That wide contract
+ * forced callers that only needed the high-level snapshot tools to depend on
+ * the cache reporters (and vice versa). Splitting the collaborators lets
+ * dependents import only the behaviour they exercise.
  */
 
 /**
- * @typedef {object} MetricsSummaryReporter
+ * @typedef {object} MetricsSummaryLifecycle
  * @property {(extra?: object) => MetricsSnapshot} snapshot
  * @property {(extra?: object) => MetricsSnapshot} finalize
+ */
+
+/**
+ * @typedef {object} MetricsCacheReporter
  * @property {(extra?: object) => Record<string, Record<string, number>>} cachesSnapshot
  * @property {(
  *   cacheName: string,
@@ -104,7 +107,8 @@ const SUMMARY_SECTIONS = Object.freeze([
 
 /**
  * @typedef {object} MetricsReportingSuite
- * @property {MetricsSummaryReporter} summary
+ * @property {MetricsSummaryLifecycle} summary
+ * @property {MetricsCacheReporter} caches
  * @property {MetricsSummaryLogger} logger
  */
 
@@ -114,28 +118,20 @@ const SUMMARY_SECTIONS = Object.freeze([
  * @property {MetricsReportingSuite} reporting
  */
 
-function toCandidateCacheKeys(keys) {
-    if (typeof keys === "string" || Array.isArray(keys)) {
-        return keys;
-    }
-
-    if (typeof keys?.[Symbol.iterator] === "function") {
-        return toArrayFromIterable(keys);
-    }
-
-    return DEFAULT_CACHE_KEYS;
-}
-
 function normalizeCacheKeys(keys) {
-    const normalized = normalizeStringList(toCandidateCacheKeys(keys), {
+    const candidate =
+        typeof keys === "string"
+            ? keys
+            : Array.isArray(keys)
+              ? keys
+              : typeof keys?.[Symbol.iterator] === "function"
+                ? toArrayFromIterable(keys)
+                : DEFAULT_CACHE_KEYS;
+
+    const normalized = normalizeStringList(candidate, {
         allowInvalidType: true
     });
-
-    if (normalized.length > 0) {
-        return normalized;
-    }
-
-    return [...DEFAULT_CACHE_KEYS];
+    return normalized.length > 0 ? normalized : [...DEFAULT_CACHE_KEYS];
 }
 
 function normalizeIncrementAmount(amount, fallback = 1) {
@@ -403,9 +399,12 @@ export function createMetricsTracker({
         return caches[normalized];
     }
 
-    const summaryTools = Object.freeze({
+    const summaryLifecycle = Object.freeze({
         snapshot,
-        finalize,
+        finalize
+    });
+
+    const cacheReporter = Object.freeze({
         cachesSnapshot,
         cacheSnapshot
     });
@@ -427,7 +426,8 @@ export function createMetricsTracker({
     });
 
     const reporting = Object.freeze({
-        summary: summaryTools,
+        summary: summaryLifecycle,
+        caches: cacheReporter,
         logger: loggerTools
     });
 

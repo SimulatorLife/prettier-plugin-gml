@@ -8,6 +8,7 @@ import {
     isObjectLike,
     createEnvConfiguredValueWithFallback,
     createAbortGuard,
+    describeValueForError,
     getNonEmptyTrimmedString,
     isFsErrorCode,
     applyConfiguredValueEnvOverride
@@ -88,28 +89,12 @@ const PROJECT_INDEX_CACHE_STATUS_LIST = [...PROJECT_INDEX_CACHE_STATUS_VALUES]
     .map((status) => `'${status}'`)
     .join(", ");
 
-function formatReceivedStatus(value) {
-    if (value === null) {
-        return "null";
-    }
-
-    if (value === undefined) {
-        return "undefined";
-    }
-
-    if (typeof value === "string") {
-        return JSON.stringify(value);
-    }
-
-    return String(value);
-}
-
 export function assertProjectIndexCacheStatus(value) {
     if (PROJECT_INDEX_CACHE_STATUS_VALUES.has(value)) {
         return value;
     }
 
-    const received = formatReceivedStatus(value);
+    const received = describeValueForError(value, { stringifyUnknown: false });
     throw new TypeError(
         `Project index cache status must be one of: ${PROJECT_INDEX_CACHE_STATUS_LIST}. Received: ${received}.`
     );

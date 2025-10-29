@@ -1,9 +1,8 @@
-import { normalizeEnumeratedOption } from "../dependencies.js";
-
-function defaultDescribeValue(value) {
-    const serialized = JSON.stringify(value);
-    return serialized === undefined ? String(value) : serialized;
-}
+import {
+    describeValueForError,
+    normalizeEnumeratedOption,
+    toNormalizedLowerCaseString
+} from "../dependencies.js";
 
 /**
  * Create helper functions that normalize and validate enumerated CLI options
@@ -24,7 +23,7 @@ function defaultDescribeValue(value) {
  */
 export function createEnumeratedOptionHelpers(
     values,
-    { coerce, describeValue = defaultDescribeValue, formatErrorMessage } = {}
+    { coerce, describeValue = describeValueForError, formatErrorMessage } = {}
 ) {
     const entries = Array.from(values ?? []);
     const validValues = new Set(entries);
@@ -90,5 +89,40 @@ export function createEnumeratedOptionHelpers(
         formatList,
         normalize,
         requireValue
+    });
+}
+
+function normalizeValueLabel(valueLabel) {
+    if (typeof valueLabel === "string") {
+        const trimmed = valueLabel.trim();
+        if (trimmed.length > 0) {
+            return trimmed;
+        }
+    }
+
+    return "Value";
+}
+
+function createStringEnumerationCoercer(valueLabel) {
+    const label = normalizeValueLabel(valueLabel);
+
+    return (value) => {
+        if (typeof value !== "string") {
+            throw new TypeError(
+                `${label} must be provided as a string (received type '${typeof value}').`
+            );
+        }
+
+        return toNormalizedLowerCaseString(value);
+    };
+}
+
+export function createStringEnumeratedOptionHelpers(
+    values,
+    { valueLabel, ...options } = {}
+) {
+    return createEnumeratedOptionHelpers(values, {
+        ...options,
+        coerce: createStringEnumerationCoercer(valueLabel)
     });
 }

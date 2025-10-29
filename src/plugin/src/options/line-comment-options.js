@@ -1,8 +1,5 @@
-import {
-    isNonEmptyString,
-    isRegExpLike,
-    createResolverController
-} from "../shared/index.js";
+import { isNonEmptyString, isRegExpLike } from "../shared/index.js";
+import { createResolverController } from "../shared/resolver-controller.js";
 
 const LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES = 5;
 const LINE_COMMENT_BANNER_STANDARD_LENGTH = 60;

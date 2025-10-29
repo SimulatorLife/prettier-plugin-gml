@@ -7,6 +7,10 @@ import { Worker } from "node:worker_threads";
 // observing temporary dependency overrides.
 import "../src/gml.js";
 
+// Other plugin suites still override the dependency registry in-process, so keep
+// the serial execution guard in place until they can be isolated as well.
+process.env.NODE_TEST_NO_PARALLEL = "1";
+
 const workerModuleUrl = new URL(
     "plugin-component-dependencies.worker.js",
     import.meta.url

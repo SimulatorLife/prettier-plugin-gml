@@ -13,7 +13,7 @@ import {
 } from "@prettier-plugin-gml/shared/utils/string.js";
 import { hasOwn } from "@prettier-plugin-gml/shared/utils/object.js";
 import { isRegExpLike } from "@prettier-plugin-gml/shared/utils/capability-probes.js";
-import { createResolverController } from "@prettier-plugin-gml/shared/utils/resolver-controller.js";
+import { createResolverController } from "../shared/resolver-controller.js";
 import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
 
 function normalizeEntryPair(entry) {

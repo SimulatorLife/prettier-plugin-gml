@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-    createDefaultGmlPluginComponentDependencies,
-    defaultGmlPluginComponentDependencies
-} from "../src/component-providers/default-plugin-component-dependencies.js";
+import { defaultGmlPluginComponentDependencies } from "../src/component-providers/default-plugin-component-dependencies.js";
 import { gmlParserAdapter } from "../src/parsers/gml-parser-adapter.js";
 import { print } from "../src/printer/print.js";
 import {
@@ -24,16 +21,11 @@ const REQUIRED_KEYS = [
 ];
 
 test("default dependency bundle exposes canonical components", () => {
-    const resolved = createDefaultGmlPluginComponentDependencies();
+    const resolved = defaultGmlPluginComponentDependencies;
 
     assert.ok(
         Object.isFrozen(resolved),
         "default dependency bundle should be frozen"
-    );
-    assert.strictEqual(
-        resolved,
-        defaultGmlPluginComponentDependencies,
-        "factory should return the cached default dependency bundle"
     );
 
     assert.strictEqual(resolved.gmlParserAdapter, gmlParserAdapter);
@@ -51,13 +43,13 @@ test("default dependency bundle exposes canonical components", () => {
     }
 });
 
-test("default dependency bundle is memoized", () => {
-    const first = createDefaultGmlPluginComponentDependencies();
-    const second = createDefaultGmlPluginComponentDependencies();
+test("default dependency bundle maintains a stable reference", () => {
+    const first = defaultGmlPluginComponentDependencies;
+    const second = defaultGmlPluginComponentDependencies;
 
     assert.strictEqual(
         first,
         second,
-        "default dependency factory should reuse the frozen bundle"
+        "default dependency bundle should be a shared singleton"
     );
 });

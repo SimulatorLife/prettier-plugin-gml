@@ -1,5 +1,5 @@
 import { assertFunction, assertPlainObject, hasOwn } from "../shared/index.js";
-import { createDefaultGmlPluginComponentDependencies } from "./default-plugin-component-dependencies.js";
+import { defaultGmlPluginComponentDependencies } from "./default-plugin-component-dependencies.js";
 
 const REQUIRED_OBJECT_DEPENDENCIES = Object.freeze([
     [
@@ -82,7 +82,7 @@ function normalizeDependencyMap(candidate) {
 }
 
 const DEFAULT_DEPENDENCIES = normalizeDependencyMap(
-    createDefaultGmlPluginComponentDependencies()
+    defaultGmlPluginComponentDependencies
 );
 
 let currentProvider = () => DEFAULT_DEPENDENCIES;

@@ -1,5 +1,5 @@
 import { assertFunction } from "../dependencies.js";
-import { defaultCliPluginServiceDependencies } from "./default-service-dependencies.js";
+import { resolveCliPluginServiceDependencies } from "./cli-plugin-service-dependency-registry.js";
 
 /**
  * The legacy `identifierCasePlanService` facade coupled plan preparation with
@@ -36,21 +36,22 @@ function assertDescriptorValue(value, description) {
 }
 
 export function createDefaultCliPluginServices(descriptorOverrides) {
-    if (descriptorOverrides == null) {
-        descriptorOverrides = {};
-    } else if (typeof descriptorOverrides !== "object") {
+    if (
+        descriptorOverrides != null &&
+        typeof descriptorOverrides !== "object"
+    ) {
         throw new TypeError(
             "CLI plugin service descriptors must be provided as objects."
         );
     }
 
-    const descriptors = descriptorOverrides;
+    const descriptors = descriptorOverrides ?? {};
 
     const {
         projectIndexBuilder: baseProjectIndexBuilder,
         identifierCasePlanPreparer: baseIdentifierCasePlanPreparer,
         identifierCaseCacheClearer: baseIdentifierCaseCacheClearer
-    } = defaultCliPluginServiceDependencies;
+    } = resolveCliPluginServiceDependencies();
 
     const projectIndexBuilder =
         descriptors.projectIndexBuilder ?? baseProjectIndexBuilder;

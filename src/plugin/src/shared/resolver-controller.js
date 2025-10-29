@@ -1,4 +1,8 @@
-import { assertFunction } from "./object.js";
+import { assertFunction } from "@prettier-plugin-gml/shared/utils/object.js";
+
+// Option resolver plumbing now lives alongside the plugin so shared bundles stay
+// focused on cross-environment primitives. The implementation remains unchanged
+// aside from importing its assertions from the shared object helpers.
 
 /**
  * Create a controller for managing optional resolver hooks that customize how
@@ -41,6 +45,11 @@ export function createResolverController({
     /** @type {TResult} */
     let currentValue = defaultFactory();
 
+    function resetToDefault() {
+        currentValue = defaultFactory();
+        return currentValue;
+    }
+
     /**
      * Resolve the current value, applying the resolver when present and
      * normalizing the result through the configured hook.
@@ -50,8 +59,7 @@ export function createResolverController({
      */
     function resolve(options = /** @type {TOptions} */ ({})) {
         if (!resolver) {
-            currentValue = defaultFactory();
-            return currentValue;
+            return resetToDefault();
         }
 
         const rawResult = invoke(resolver, options, currentValue);
@@ -80,8 +88,7 @@ export function createResolverController({
      */
     function restore() {
         resolver = null;
-        currentValue = defaultFactory();
-        return currentValue;
+        return resetToDefault();
     }
 
     return {
