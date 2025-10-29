@@ -1,19 +1,26 @@
 import { getNonEmptyTrimmedString } from "../shared/dependencies.js";
 
 function resolveFormatCommandExtensions(options, defaultExtensions) {
-    const source = options ?? {};
     const fallback = Array.isArray(defaultExtensions) ? defaultExtensions : [];
-    const rawExtensions = source.extensions ?? fallback;
+    const raw = options?.extensions;
 
-    if (Array.isArray(rawExtensions)) {
-        return rawExtensions;
+    if (Array.isArray(raw)) {
+        return raw;
     }
 
-    if (typeof rawExtensions === "string") {
-        return [rawExtensions];
+    if (typeof raw === "string") {
+        return [raw];
     }
 
-    return [...(rawExtensions ?? fallback)];
+    if (raw == null) {
+        return fallback;
+    }
+
+    if (typeof raw[Symbol.iterator] === "function") {
+        return [...raw];
+    }
+
+    return fallback;
 }
 
 function resolveFormatCommandSampleLimits(options) {
