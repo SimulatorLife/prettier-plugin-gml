@@ -54,13 +54,6 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - name: Checkout base for lint comparison
-        if: steps.eligibility.outputs.eligible == 'true'
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          path: base
-
       - name: Setup Node.js
         if: steps.eligibility.outputs.eligible == 'true'
         uses: actions/setup-node@v4
@@ -79,6 +72,13 @@ jobs:
         if: steps.eligibility.outputs.eligible == 'true'
         run: npm run lint:report
         continue-on-error: true
+
+      - name: Checkout base for lint comparison
+        if: steps.eligibility.outputs.eligible == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
 
       - name: Install dependencies (base)
         if: steps.eligibility.outputs.eligible == 'true'
@@ -143,29 +143,12 @@ jobs:
           NODE
 
       - name: Attempt auto-merge
+        if: steps.eligibility.outputs.eligible == 'true'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const pr = context.payload.pull_request;
-            const prefixes = ['codex/', 'copilot/'];
-
-            function hasAllowedPrefix(ref) {
-              for (const prefix of prefixes) {
-                if (ref.startsWith(prefix)) {
-                  return true;
-                }
-              }
-              return false;
-            }
-
-            if (!hasAllowedPrefix(pr.head.ref) || !hasAllowedPrefix(pr.base.ref)) {
-              core.info(
-                'Skipping PR with head ' + pr.head.ref + ' and base ' + pr.base.ref
-              );
-              return;
-            }
-
             const repoContext = context.repo;
             const owner = repoContext.owner;
             const repo = repoContext.repo;
