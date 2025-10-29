@@ -200,10 +200,11 @@ export function capitalize(value) {
 /**
  * Create a regular expression that splits string lists on the provided
  * separators. Filters out non-string and empty separator values while
- * preserving declaration order so callers can describe platform-specific
- * delimiters without re-implementing deduplication at each site. Optionally
- * includes `\s` in the character class to trim incidental whitespace when
- * splitting human-authored option strings.
+ * preserving declaration order among equally sized entries so callers can
+ * describe platform-specific delimiters without re-implementing deduplication
+ * at each site. Longer separators are matched before shorter ones to avoid
+ * partial matches splitting multi-character tokens. Optionally includes `\s`
+ * to trim incidental whitespace when splitting human-authored option strings.
  *
  * @param {Iterable<unknown> | string | null | undefined} separators Raw
  *        separator candidates. Strings are treated as a single separator rather
@@ -219,7 +220,8 @@ export function createListSplitPattern(
     { includeWhitespace = false } = {}
 ) {
     const seen = new Set();
-    const characterClassParts = [];
+    /** @type {Array<{ pattern: string, length: number, order: number }>} */
+    const patternEntries = [];
 
     const candidateIterable =
         typeof separators === "string"
@@ -234,6 +236,7 @@ export function createListSplitPattern(
     // `toArrayFromIterable`, which showed up in micro-benchmarks that hammer
     // CLI option normalization where this helper is invoked repeatedly.
 
+    let order = 0;
     for (const candidate of candidateIterable) {
         if (typeof candidate !== "string" || candidate.length === 0) {
             continue;
@@ -244,20 +247,42 @@ export function createListSplitPattern(
         }
 
         seen.add(candidate);
-        characterClassParts.push(escapeRegExp(candidate));
+        patternEntries.push({
+            pattern: escapeRegExp(candidate),
+            length: candidate.length,
+            order
+        });
+        order += 1;
     }
 
     if (includeWhitespace) {
-        characterClassParts.push(String.raw`\s`);
+        patternEntries.push({
+            pattern: String.raw`\s`,
+            length: 1,
+            order
+        });
+        order += 1;
     }
 
-    if (characterClassParts.length === 0) {
+    if (patternEntries.length === 0) {
         throw new TypeError(
             "createListSplitPattern requires at least one separator or includeWhitespace=true."
         );
     }
 
-    return new RegExp(`[${characterClassParts.join("")}]+`);
+    patternEntries.sort((a, b) => {
+        if (a.length === b.length) {
+            return a.order - b.order;
+        }
+
+        return b.length - a.length;
+    });
+
+    const patternSource = patternEntries
+        .map((entry) => entry.pattern)
+        .join("|");
+
+    return new RegExp(`(?:${patternSource})+`);
 }
 
 const DEFAULT_STRING_LIST_SPLIT_PATTERN = createListSplitPattern(["\n", ","]);
