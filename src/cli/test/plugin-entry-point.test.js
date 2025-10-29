@@ -47,6 +47,13 @@ describe("resolvePluginEntryPoint", () => {
         assert.equal(resolved, pluginPath);
     });
 
+    it("treats null options bags as absent overrides", () => {
+        const expected = resolvePluginEntryPoint();
+        const resolved = resolvePluginEntryPoint(null);
+
+        assert.equal(resolved, expected);
+    });
+
     it("checks each environment entry before falling back to defaults", () => {
         const pluginPath = createTemporaryPluginFile();
         const nonexistent = path.join(path.dirname(pluginPath), "missing.mjs");
