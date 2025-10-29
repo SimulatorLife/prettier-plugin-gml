@@ -10,9 +10,9 @@ import {
     getNonEmptyTrimmedString,
     trimStringEntries,
     toTrimmedString,
-    isRegExpLike
+    isRegExpLike,
+    createResolverController
 } from "../shared/index.js";
-import { createResolverController } from "../shared/resolver-controller.js";
 
 const JSDOC_REPLACEMENTS = {
     "@func": "@function",

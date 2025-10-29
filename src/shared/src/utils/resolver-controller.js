@@ -1,4 +1,4 @@
-import { assertFunction } from "./index.js";
+import { assertFunction } from "./object.js";
 
 /**
  * Create a controller for managing optional resolver hooks that customize how
@@ -13,8 +13,16 @@ import { assertFunction } from "./index.js";
  *     name?: string,
  *     errorMessage?: string,
  *     defaultFactory: () => TResult,
- *     invoke?: (resolver: (...args: Array<unknown>) => unknown, options: TOptions, currentValue: TResult) => unknown,
- *     normalize?: (result: unknown, options: TOptions, currentValue: TResult) => TResult
+ *     invoke?: (
+ *         resolver: (...args: Array<unknown>) => unknown,
+ *         options: TOptions,
+ *         currentValue: TResult
+ *     ) => unknown,
+ *     normalize?: (
+ *         result: unknown,
+ *         options: TOptions,
+ *         currentValue: TResult
+ *     ) => TResult
  * }} config
  */
 export function createResolverController({
