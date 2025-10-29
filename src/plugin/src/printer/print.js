@@ -3237,14 +3237,16 @@ function getSimpleAssignmentLikeEntry(
     functionNode,
     options
 ) {
-    const selfMemberLength = getSelfPropertyAssignmentLength(statement);
-    if (typeof selfMemberLength === "number") {
+    const memberLength = getMemberAssignmentLength(statement);
+    if (typeof memberLength === "number") {
         return {
             locationNode: statement,
             paddingTarget: statement,
-            nameLength: selfMemberLength,
+            nameLength: memberLength,
             enablesAlignment: true,
-            isSelfMemberAssignment: true
+            isSelfMemberAssignment:
+                statement.left?.object?.type === "Identifier" &&
+                statement.left.object.name === "self"
         };
     }
 
@@ -3341,7 +3343,7 @@ function getFunctionParameterNameSetFromPath(path) {
     return names.size > 0 ? names : null;
 }
 
-function getSelfPropertyAssignmentLength(statement) {
+function getMemberAssignmentLength(statement) {
     if (
         !statement ||
         statement.type !== "AssignmentExpression" ||
@@ -3350,10 +3352,10 @@ function getSelfPropertyAssignmentLength(statement) {
         return null;
     }
 
-    return getSelfPropertyExpressionLength(statement.left);
+    return getMemberExpressionLength(statement.left);
 }
 
-function getSelfPropertyExpressionLength(expression) {
+function getMemberExpressionLength(expression) {
     if (!expression || expression.type !== "MemberDotExpression") {
         return null;
     }
@@ -3378,10 +3380,6 @@ function getSelfPropertyExpressionLength(expression) {
         }
 
         if (object.type === "Identifier") {
-            if (object.name !== "self") {
-                return null;
-            }
-
             length += object.name.length;
             return length;
         }

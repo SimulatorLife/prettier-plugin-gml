@@ -1,8 +1,5 @@
-import {
-    assertFunction,
-    isNonEmptyString,
-    isRegExpLike
-} from "../shared/index.js";
+import { isNonEmptyString, isRegExpLike } from "../shared/index.js";
+import { createResolverController } from "../shared/resolver-controller.js";
 
 const LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES = 5;
 const LINE_COMMENT_BANNER_STANDARD_LENGTH = 60;
@@ -34,7 +31,14 @@ const DEFAULT_LINE_COMMENT_OPTIONS = Object.freeze({
     codeDetectionPatterns: DEFAULT_COMMENTED_OUT_CODE_PATTERNS
 });
 
-let lineCommentOptionsResolver = null;
+const lineCommentOptionsController = createResolverController({
+    defaultFactory: () => DEFAULT_LINE_COMMENT_OPTIONS,
+    normalize(result) {
+        return normalizeLineCommentOptions(result);
+    },
+    errorMessage:
+        "Line comment option resolvers must be functions that return option objects"
+});
 
 function arraysMatchDefault(normalized, defaultValue) {
     return (
@@ -111,11 +115,7 @@ function normalizeLineCommentOptions(options) {
 }
 
 function resolveLineCommentOptions(options = {}) {
-    if (!lineCommentOptionsResolver) {
-        return DEFAULT_LINE_COMMENT_OPTIONS;
-    }
-
-    return normalizeLineCommentOptions(lineCommentOptionsResolver(options));
+    return lineCommentOptionsController.resolve(options);
 }
 
 /**
@@ -124,11 +124,7 @@ function resolveLineCommentOptions(options = {}) {
  * without exposing additional end-user configuration.
  */
 function setLineCommentOptionsResolver(resolver) {
-    lineCommentOptionsResolver = assertFunction(resolver, "resolver", {
-        errorMessage:
-            "Line comment option resolvers must be functions that return option objects"
-    });
-    return resolveLineCommentOptions();
+    return lineCommentOptionsController.set(resolver);
 }
 
 /**
@@ -136,8 +132,7 @@ function setLineCommentOptionsResolver(resolver) {
  * customizations and return to the opinionated defaults.
  */
 function restoreDefaultLineCommentOptionsResolver() {
-    lineCommentOptionsResolver = null;
-    return DEFAULT_LINE_COMMENT_OPTIONS;
+    return lineCommentOptionsController.restore();
 }
 
 export {

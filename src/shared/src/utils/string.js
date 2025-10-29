@@ -172,6 +172,17 @@ export function coalesceTrimmedString(...values) {
 }
 
 /**
+ * Literal double-quote character shared by quote normalization helpers.
+ * @type {string}
+ */
+const DOUBLE_QUOTE_CHARACTER = '"';
+/**
+ * Literal single-quote character shared by quote normalization helpers.
+ * @type {string}
+ */
+const SINGLE_QUOTE_CHARACTER = "'";
+
+/**
  * Normalize {@link value} into a lower-cased, trimmed string so lookups can be
  * performed without repeatedly guarding against `null`, numbers, or padded
  * input.
@@ -347,17 +358,6 @@ export function stripStringQuotes(value) {
     // negative argument is supplied.
     return value.slice(1, length - 1);
 }
-
-/**
- * Literal double-quote character shared by quote normalization helpers.
- * @type {string}
- */
-const DOUBLE_QUOTE_CHARACTER = '"';
-/**
- * Literal single-quote character shared by quote normalization helpers.
- * @type {string}
- */
-const SINGLE_QUOTE_CHARACTER = "'";
 
 /**
  * Normalize a string-or-string-array option into a deduplicated list of
