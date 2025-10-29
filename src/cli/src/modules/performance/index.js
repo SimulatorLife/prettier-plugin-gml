@@ -47,9 +47,9 @@ import {
     REPO_ROOT,
     createPathFilter,
     normalizeFixtureRoots
-} from "./fixture-roots.js";
+} from "../../shared/workflow/fixture-roots.js";
 
-export { normalizeFixtureRoots } from "./fixture-roots.js";
+export { normalizeFixtureRoots } from "../../shared/workflow/fixture-roots.js";
 
 const shouldSkipPerformanceDependencies = isCliRunSkipped();
 
