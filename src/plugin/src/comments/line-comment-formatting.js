@@ -177,13 +177,44 @@ function mergeSpecifierPrefixes(target, candidates) {
     }
 }
 
+function tryGetEntriesIterator(candidate) {
+    if (
+        !candidate ||
+        Array.isArray(candidate) ||
+        (typeof candidate !== "object" && typeof candidate !== "function")
+    ) {
+        return null;
+    }
+
+    const { entries } = candidate;
+    if (typeof entries !== "function") {
+        return null;
+    }
+
+    try {
+        const iterator = entries.call(candidate);
+        if (iterator && typeof iterator[Symbol.iterator] === "function") {
+            return iterator;
+        }
+    } catch {
+        return null;
+    }
+
+    return null;
+}
+
 function* getEntryIterable(value) {
     if (!value) {
         return;
     }
 
-    if (value instanceof Map) {
-        yield* value.entries();
+    const entriesIterator = tryGetEntriesIterator(value);
+    if (entriesIterator) {
+        for (const entry of entriesIterator) {
+            if (Array.isArray(entry) && entry.length >= 2) {
+                yield [entry[0], entry[1]];
+            }
+        }
         return;
     }
 

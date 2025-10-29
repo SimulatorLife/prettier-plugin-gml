@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
     normalizeDocCommentTypeAnnotations,
+    resolveDocCommentTypeNormalization,
     restoreDefaultDocCommentTypeNormalizationResolver,
     setDocCommentTypeNormalizationResolver
 } from "../src/comments/index.js";
@@ -97,4 +98,45 @@ test("doc comment type normalization resolver extends the defaults", () => {
         normalizeDocCommentTypeAnnotations(guidInput),
         "/// @returns {Guid} value"
     );
+});
+
+test("doc comment normalization accepts entry-capable collaborators", () => {
+    const synonymsEntries = {
+        entries() {
+            const values = [["Custom", "custom-normalized"]];
+            return values[Symbol.iterator]();
+        }
+    };
+    const canonicalEntries = {
+        entries() {
+            const values = [["Custom", "CustomCanonical"]];
+            return values[Symbol.iterator]();
+        }
+    };
+    const prefixIterable = {
+        *[Symbol.iterator]() {
+            yield "Custom";
+        }
+    };
+
+    try {
+        setDocCommentTypeNormalizationResolver(() => ({
+            synonyms: synonymsEntries,
+            canonicalSpecifierNames: canonicalEntries,
+            specifierPrefixes: prefixIterable
+        }));
+
+        const normalization = resolveDocCommentTypeNormalization();
+        assert.equal(
+            normalization.lookupTypeIdentifier("Custom"),
+            "custom-normalized"
+        );
+        assert.equal(
+            normalization.getCanonicalSpecifierName("Custom"),
+            "CustomCanonical"
+        );
+        assert.equal(normalization.hasSpecifierPrefix("Custom"), true);
+    } finally {
+        restoreDefaultDocCommentTypeNormalizationResolver();
+    }
 });

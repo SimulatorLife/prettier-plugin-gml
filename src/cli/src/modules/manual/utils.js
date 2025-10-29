@@ -11,7 +11,8 @@ import {
     isNonEmptyTrimmedString,
     parseJsonWithContext,
     toTrimmedString,
-    getErrorMessageOrFallback
+    getErrorMessageOrFallback,
+    isErrorLike
 } from "../dependencies.js";
 import {
     CliUsageError,
@@ -51,6 +52,45 @@ const MANUAL_REPO_REQUIREMENT_SOURCE_LIST = Object.values(
     MANUAL_REPO_REQUIREMENT_SOURCE
 ).join(", ");
 
+const MANUAL_GITHUB_REQUEST_ERROR_CAPABILITY = Symbol.for(
+    "prettier-plugin-gml.manual-github-request-error"
+);
+
+function hasManualGitHubRequestErrorContract(value) {
+    if (!isErrorLike(value)) {
+        return false;
+    }
+
+    if (value.name !== "ManualGitHubRequestError") {
+        return false;
+    }
+
+    if (value.url !== undefined && typeof value.url !== "string") {
+        return false;
+    }
+
+    if (value.status !== undefined && typeof value.status !== "number") {
+        return false;
+    }
+
+    if (
+        value.statusText !== undefined &&
+        typeof value.statusText !== "string"
+    ) {
+        return false;
+    }
+
+    return true;
+}
+
+function isManualGitHubRequestError(value) {
+    if (value?.[MANUAL_GITHUB_REQUEST_ERROR_CAPABILITY]) {
+        return true;
+    }
+
+    return hasManualGitHubRequestErrorContract(value);
+}
+
 class ManualGitHubRequestError extends Error {
     constructor(
         message,
@@ -73,6 +113,12 @@ class ManualGitHubRequestError extends Error {
         if (cause !== undefined) {
             this.cause = cause;
         }
+
+        Object.defineProperty(this, MANUAL_GITHUB_REQUEST_ERROR_CAPABILITY, {
+            value: true,
+            enumerable: false,
+            configurable: true
+        });
     }
 }
 
@@ -684,7 +730,7 @@ function createManualGitHubRequestDispatcher({ userAgent } = {}) {
                 throw error;
             }
 
-            if (error instanceof ManualGitHubRequestError) {
+            if (isManualGitHubRequestError(error)) {
                 throw error;
             }
 
@@ -917,6 +963,7 @@ export {
     MANUAL_CACHE_ROOT_ENV_VAR,
     MANUAL_REPO_ENV_VAR,
     ManualGitHubRequestError,
+    isManualGitHubRequestError,
     createManualVerboseState,
     buildManualRepositoryEndpoints,
     normalizeManualRepository,
