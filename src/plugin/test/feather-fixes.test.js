@@ -13,7 +13,7 @@ import { getNodeEndIndex, getNodeStartIndex } from "../src/shared/index.js";
 import {
     getFeatherMetadata,
     getFeatherDiagnosticById
-} from "gamemaker-language-semantic/resources/feather-metadata.js";
+} from "@prettier-plugin-gml/shared/resources/feather-metadata.js";
 import {
     applyFeatherFixes,
     getFeatherDiagnosticFixers,
@@ -3721,6 +3721,48 @@ describe("applyFeatherFixes transform", () => {
             assert.notStrictEqual(entry.range, null);
             assert.strictEqual(entry.automatic, true);
         }
+    });
+
+    it("normalizes zero denominators flagged by GM1015 even when the statement list mutates", () => {
+        const source = ["total /= 0;", "other /= 0;"].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        const [firstAssignment, secondAssignment] = ast.body ?? [];
+
+        assert.ok(firstAssignment);
+        assert.ok(secondAssignment);
+        assert.strictEqual(firstAssignment.type, "AssignmentExpression");
+        assert.strictEqual(secondAssignment.type, "AssignmentExpression");
+
+        let storedRight = firstAssignment.right;
+
+        Object.defineProperty(firstAssignment, "right", {
+            configurable: true,
+            enumerable: true,
+            get() {
+                return storedRight;
+            },
+            set(value) {
+                storedRight = value;
+                const siblings = ast.body ?? [];
+                const removalIndex = siblings.indexOf(secondAssignment);
+
+                if (removalIndex !== -1) {
+                    siblings.splice(removalIndex, 1);
+                }
+            }
+        });
+
+        applyFeatherFixes(ast, { sourceText: source });
+
+        assert.strictEqual(firstAssignment.right?.type, "Literal");
+        assert.strictEqual(firstAssignment.right?.value, "1");
+        assert.strictEqual(secondAssignment.right?.type, "Literal");
+        assert.strictEqual(secondAssignment.right?.value, "1");
     });
 
     it("removes stray boolean literal statements flagged by GM1016 and records metadata", () => {

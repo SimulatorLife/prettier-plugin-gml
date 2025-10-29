@@ -9,7 +9,7 @@ import {
     normalizeStringList,
     toNormalizedLowerCaseString,
     hasOwn,
-    withObjectLike
+    isObjectLike
 } from "../shared/index.js";
 
 const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
@@ -27,50 +27,44 @@ const LOOP_SIZE_SUFFIX_CACHE = Symbol.for(
 const SIZE_SUFFIX_CACHE = new WeakMap();
 
 function readCachedSuffixes(options) {
-    return withObjectLike(
-        options,
-        (object) => {
-            if (hasOwn(object, LOOP_SIZE_SUFFIX_CACHE)) {
-                return object[LOOP_SIZE_SUFFIX_CACHE];
-            }
+    if (!isObjectLike(options)) {
+        return null;
+    }
 
-            if (SIZE_SUFFIX_CACHE.has(object)) {
-                return SIZE_SUFFIX_CACHE.get(object);
-            }
+    if (hasOwn(options, LOOP_SIZE_SUFFIX_CACHE)) {
+        return options[LOOP_SIZE_SUFFIX_CACHE];
+    }
 
-            return null;
-        },
-        null
-    );
+    return SIZE_SUFFIX_CACHE.get(options) ?? null;
 }
 
 function cacheSuffixes(options, suffixes) {
-    withObjectLike(options, (object) => {
-        if (Object.isExtensible(object)) {
-            try {
-                Object.defineProperty(object, LOOP_SIZE_SUFFIX_CACHE, {
-                    configurable: false,
-                    enumerable: false,
-                    writable: false,
-                    value: suffixes
-                });
-            } catch {
-                // Non-extensible option bags (for example frozen objects or exotic
-                // proxies) should still memoize results via the fallback WeakMap.
-            }
-        }
+    if (!isObjectLike(options)) {
+        return;
+    }
 
-        SIZE_SUFFIX_CACHE.set(object, suffixes);
-    });
+    if (Object.isExtensible(options)) {
+        try {
+            Object.defineProperty(options, LOOP_SIZE_SUFFIX_CACHE, {
+                configurable: false,
+                enumerable: false,
+                writable: false,
+                value: suffixes
+            });
+        } catch {
+            // Non-extensible option bags (for example frozen objects or exotic
+            // proxies) should still memoize results via the fallback WeakMap.
+        }
+    }
+
+    SIZE_SUFFIX_CACHE.set(options, suffixes);
 }
 
 function createSizeSuffixMap(options) {
-    const overrides = parseSizeRetrievalFunctionSuffixOverrides(
-        withObjectLike(
-            options,
-            (object) => object.loopLengthHoistFunctionSuffixes
-        )
-    );
+    const rawOverrides = isObjectLike(options)
+        ? options.loopLengthHoistFunctionSuffixes
+        : undefined;
+    const overrides = parseSizeRetrievalFunctionSuffixOverrides(rawOverrides);
 
     const merged = new Map(DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES);
     for (const [functionName, suffix] of overrides) {

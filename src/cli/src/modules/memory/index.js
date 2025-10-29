@@ -15,7 +15,6 @@ import {
     isNonEmptyString,
     normalizeStringList,
     toNormalizedLowerCaseString,
-    loadGmlParser,
     resolveModuleDefaultExport,
     parseJsonObjectWithContext,
     splitLines,
@@ -36,6 +35,7 @@ import {
     resolveSuiteOutputFormatOrThrow,
     wrapInvalidArgumentResolver
 } from "../dependencies.js";
+import { loadGmlParser } from "./gml-parser.js";
 import { importPluginModule } from "../plugin-runtime-dependencies.js";
 import { writeJsonArtifact } from "../fs-artifacts.js";
 
@@ -170,11 +170,34 @@ const {
     setDefault: setMaxParserIterations
 } = parserIterationLimitToolkit;
 
+function logInvalidIterationEnvOverride({ envVar, error, fallback }) {
+    const reason = getErrorMessageOrFallback(
+        error,
+        `Invalid value provided for ${envVar}.`
+    ).trim();
+    const suffix = reason.endsWith(".") ? "" : ".";
+    const fallbackDetails =
+        fallback === undefined
+            ? "Falling back to the previous value."
+            : `Falling back to ${fallback}.`;
+
+    console.warn(
+        `${envVar} override ignored: ${reason}${suffix} ${fallbackDetails}`
+    );
+}
+
 function applyParserMaxIterationsEnvOverride(env) {
+    const fallback = parserIterationLimitToolkit.getDefault();
+
     try {
         return parserIterationLimitToolkit.applyEnvOverride(env);
-    } catch {
-        return parserIterationLimitToolkit.getDefault();
+    } catch (error) {
+        logInvalidIterationEnvOverride({
+            envVar: MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR,
+            error,
+            fallback
+        });
+        return fallback;
     }
 }
 
@@ -189,10 +212,17 @@ const {
 } = formatIterationLimitToolkit;
 
 function applyFormatMaxIterationsEnvOverride(env) {
+    const fallback = formatIterationLimitToolkit.getDefault();
+
     try {
         return formatIterationLimitToolkit.applyEnvOverride(env);
-    } catch {
-        return formatIterationLimitToolkit.getDefault();
+    } catch (error) {
+        logInvalidIterationEnvOverride({
+            envVar: MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR,
+            error,
+            fallback
+        });
+        return fallback;
     }
 }
 
@@ -207,7 +237,8 @@ const astCommonNodeLimitToolkit = createIntegerOptionToolkit({
 const {
     getDefault: getAstCommonNodeTypeLimit,
     setDefault: setAstCommonNodeTypeLimit,
-    applyEnvOverride: applyAstCommonNodeTypeLimitEnvOverride
+    applyEnvOverride: applyAstCommonNodeTypeLimitEnvOverride,
+    resolve: resolveAstCommonNodeTypeLimit
 } = astCommonNodeLimitToolkit;
 
 const sampleCache = new Map();
@@ -551,6 +582,7 @@ export {
     getAstCommonNodeTypeLimit,
     setAstCommonNodeTypeLimit,
     applyAstCommonNodeTypeLimitEnvOverride,
+    resolveAstCommonNodeTypeLimit,
     getDefaultMemoryReportDirectory,
     setDefaultMemoryReportDirectory,
     applyMemoryReportDirectoryEnvOverride
@@ -571,6 +603,11 @@ export function applyMemoryEnvOptionOverrides({ command, env } = {}) {
                 envVar: MEMORY_ITERATIONS_ENV_VAR,
                 optionName: "iterations",
                 resolveValue: resolveMemoryIterations
+            },
+            {
+                envVar: MEMORY_AST_COMMON_NODE_LIMIT_ENV_VAR,
+                optionName: "commonNodeLimit",
+                resolveValue: resolveAstCommonNodeTypeLimit
             }
         ]
     });
@@ -594,6 +631,7 @@ function collectSuite(value, previous) {
 
 export function createMemoryCommand({ env = process.env } = {}) {
     const defaultIterations = getDefaultMemoryIterations();
+    const defaultCommonNodeLimit = getAstCommonNodeTypeLimit();
 
     const command = applyStandardCommandOptions(
         createCommanderCommand()
@@ -614,6 +652,12 @@ export function createMemoryCommand({ env = process.env } = {}) {
             defaultIterations
         )
         .option(
+            "--common-node-limit <count>",
+            "Maximum number of AST node types to include in summaries.",
+            wrapInvalidArgumentResolver(resolveAstCommonNodeTypeLimit),
+            defaultCommonNodeLimit
+        )
+        .option(
             "--format <format>",
             "Output format: json or human.",
             (value) =>
@@ -631,7 +675,8 @@ export function createMemoryCommand({ env = process.env } = {}) {
 
 function collectSuiteOptions(options) {
     return {
-        iterations: options.iterations
+        iterations: options.iterations,
+        commonNodeLimit: options.commonNodeLimit
     };
 }
 
@@ -891,6 +936,10 @@ function printHumanReadable(results) {
 export async function runMemoryCommand({ command, onResults } = {}) {
     const options = command?.opts?.() ?? {};
 
+    if (Number.isFinite(options.commonNodeLimit)) {
+        setAstCommonNodeTypeLimit(options.commonNodeLimit);
+    }
+
     const requestedSuites = resolveRequestedSuites(options, AVAILABLE_SUITES);
     ensureSuitesAreKnown(requestedSuites, AVAILABLE_SUITES, command);
 
@@ -921,6 +970,38 @@ export async function runMemoryCommand({ command, onResults } = {}) {
     return 0;
 }
 
+/**
+ * Resolve the absolute file path where the memory CLI should write its JSON
+ * report. Keeps the path arithmetic separate from the high-level orchestration
+ * in {@link runMemoryCli} so that entry point focuses on coordinating steps.
+ */
+function resolveMemoryReportPath({ cwd, reportDir, reportFileName }) {
+    const effectiveReportDir = resolveMemoryReportDirectory(reportDir);
+    const resolvedReportDir = path.resolve(cwd, effectiveReportDir);
+    const resolvedReportName = reportFileName ?? DEFAULT_MEMORY_REPORT_FILENAME;
+
+    return path.join(resolvedReportDir, resolvedReportName);
+}
+
+/**
+ * Create the callback responsible for persisting CLI results to disk. This
+ * isolates the conditional writeFile selection, ensuring {@link runMemoryCli}
+ * reads as a sequence of delegated operations.
+ */
+function createMemoryReportWriter({ reportPath, customWriteFile }) {
+    const writeFile =
+        typeof customWriteFile === "function" ? customWriteFile : undefined;
+
+    return async function writeMemoryReport({ payload }) {
+        await writeJsonArtifact({
+            outputPath: reportPath,
+            payload,
+            space: 2,
+            writeFile
+        });
+    };
+}
+
 export async function runMemoryCli({
     argv = process.argv.slice(2),
     env = process.env,
@@ -935,25 +1016,18 @@ export async function runMemoryCli({
 
     applyMemoryReportDirectoryEnvOverride(env);
 
-    const effectiveReportDir = resolveMemoryReportDirectory(reportDir);
-    const resolvedReportDir = path.resolve(cwd, effectiveReportDir);
-    const resolvedReportName = reportFileName ?? DEFAULT_MEMORY_REPORT_FILENAME;
-    const reportPath = path.join(resolvedReportDir, resolvedReportName);
+    const reportPath = resolveMemoryReportPath({
+        cwd,
+        reportDir,
+        reportFileName
+    });
+    const writeReport = createMemoryReportWriter({
+        reportPath,
+        customWriteFile
+    });
     await runMemoryCommand({
         command,
-        onResults: async ({ payload }) => {
-            const writeFile =
-                typeof customWriteFile === "function"
-                    ? customWriteFile
-                    : undefined;
-
-            await writeJsonArtifact({
-                outputPath: reportPath,
-                payload,
-                space: 2,
-                writeFile
-            });
-        }
+        onResults: writeReport
     });
 
     return 0;

@@ -17,7 +17,10 @@ import { preprocessFunctionArgumentDefaults } from "../ast-transforms/preprocess
 import { enforceVariableBlockSpacing } from "../ast-transforms/enforce-variable-block-spacing.js";
 import { convertStringConcatenations } from "../ast-transforms/convert-string-concatenations.js";
 import { condenseLogicalExpressions } from "../ast-transforms/condense-logical-expressions.js";
-import { convertManualMathExpressions } from "../ast-transforms/convert-manual-math.js";
+import {
+    convertManualMathExpressions,
+    condenseScalarMultipliers
+} from "../ast-transforms/convert-manual-math.js";
 import { simplifyNumericProductExpressions } from "../ast-transforms/simplify-numeric-product.js";
 import { convertUndefinedGuardAssignments } from "../ast-transforms/convert-undefined-guard-assignments.js";
 import {
@@ -186,6 +189,11 @@ async function parse(text, options) {
         if (options?.condenseLogicalExpressions) {
             condenseLogicalExpressions(ast);
         }
+
+        condenseScalarMultipliers(ast, undefined, {
+            sourceText: parseSource,
+            originalText: options?.originalText
+        });
 
         if (options?.convertManualMathToBuiltins) {
             convertManualMathExpressions(ast, undefined, {

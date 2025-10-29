@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
     normalizeDocCommentTypeAnnotations,
+    resolveDocCommentTypeNormalization,
     restoreDefaultDocCommentTypeNormalizationResolver,
     setDocCommentTypeNormalizationResolver
 } from "../src/comments/index.js";
@@ -97,4 +98,78 @@ test("doc comment type normalization resolver extends the defaults", () => {
         normalizeDocCommentTypeAnnotations(guidInput),
         "/// @returns {Guid} value"
     );
+});
+
+test("doc comment normalization accepts entry-capable collaborators", () => {
+    const synonymsEntries = {
+        entries() {
+            const values = [["Custom", "custom-normalized"]];
+            return values[Symbol.iterator]();
+        }
+    };
+    const canonicalEntries = {
+        entries() {
+            const values = [["Custom", "CustomCanonical"]];
+            return values[Symbol.iterator]();
+        }
+    };
+    const prefixIterable = {
+        *[Symbol.iterator]() {
+            yield "Custom";
+        }
+    };
+
+    try {
+        setDocCommentTypeNormalizationResolver(() => ({
+            synonyms: synonymsEntries,
+            canonicalSpecifierNames: canonicalEntries,
+            specifierPrefixes: prefixIterable
+        }));
+
+        const normalization = resolveDocCommentTypeNormalization();
+        assert.equal(
+            normalization.lookupTypeIdentifier("Custom"),
+            "custom-normalized"
+        );
+        assert.equal(
+            normalization.getCanonicalSpecifierName("Custom"),
+            "CustomCanonical"
+        );
+        assert.equal(normalization.hasSpecifierPrefix("Custom"), true);
+    } finally {
+        restoreDefaultDocCommentTypeNormalizationResolver();
+    }
+});
+
+test("doc comment normalization ignores invalid entry shapes", () => {
+    const synonymsEntries = {
+        entries() {
+            return (function* () {
+                yield "not-a-pair";
+                yield { key: "Keyed", value: "value-normalized" };
+                yield { 0: "Indexed", 1: "indexed-normalized" };
+                yield { key: "MissingValue" };
+            })();
+        }
+    };
+
+    try {
+        setDocCommentTypeNormalizationResolver(() => ({
+            synonyms: synonymsEntries
+        }));
+
+        const normalization = resolveDocCommentTypeNormalization();
+        assert.equal(
+            normalization.lookupTypeIdentifier("Keyed"),
+            "value-normalized"
+        );
+        assert.equal(
+            normalization.lookupTypeIdentifier("Indexed"),
+            "indexed-normalized"
+        );
+        assert.equal(normalization.lookupTypeIdentifier("MissingValue"), null);
+        assert.equal(normalization.lookupTypeIdentifier("not-a-pair"), null);
+    } finally {
+        restoreDefaultDocCommentTypeNormalizationResolver();
+    }
 });

@@ -56,7 +56,7 @@ import {
     getFeatherDiagnosticById,
     getFeatherDiagnostics,
     getFeatherMetadata
-} from "gamemaker-language-semantic/resources/feather-metadata.js";
+} from "@prettier-plugin-gml/shared/resources/feather-metadata.js";
 import { loadReservedIdentifierNames } from "gamemaker-language-semantic/resources/reserved-identifiers.js";
 
 function walkAstNodes(root, visitor) {
@@ -3922,7 +3922,9 @@ function preventDivisionOrModuloByZero({ ast, diagnostic }) {
         }
 
         if (Array.isArray(node)) {
-            for (const item of node) {
+            const items = node.slice();
+
+            for (const item of items) {
                 visit(item);
             }
             return;

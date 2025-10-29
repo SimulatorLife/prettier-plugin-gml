@@ -1,4 +1,4 @@
-import GameMakerLanguageParserListenerBase from "../../generated/GameMakerLanguageParserListener.js";
+import { GameMakerLanguageParserListenerBase } from "../generated-bindings.js";
 import { VISIT_METHOD_NAMES } from "./game-maker-language-parser-visitor.js";
 import { noop } from "../shared/index.js";
 

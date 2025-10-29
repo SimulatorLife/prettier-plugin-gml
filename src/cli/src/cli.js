@@ -36,6 +36,7 @@ import {
     createListSplitPattern,
     compactArray,
     getErrorMessageOrFallback,
+    getObjectTagName,
     isErrorLike,
     isErrorWithCode,
     isMissingModuleDependency,
@@ -63,7 +64,7 @@ import {
     handleCliError
 } from "./core/errors.js";
 import { applyStandardCommandOptions } from "./core/command-standard-options.js";
-import { resolveCliPluginEntryPoint } from "./plugin-runtime/entry-point-resolver.js";
+import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "./plugin-runtime/entry-point.js";
 import {
     hasRegisteredIgnorePath,
     registerIgnorePath,
@@ -390,7 +391,7 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
     const {
         option: skippedDirectorySampleLimitOption,
         parseLimit: parseSkippedDirectoryLimit,
-        defaultLimit: defaultSkippedDirectorySampleLimit
+        defaultLimit: _defaultSkippedDirectorySampleLimit
     } = createConfiguredSampleLimitOption({
         flag: "--ignored-directory-sample-limit <count>",
         description: (defaultLimit) => [
@@ -411,8 +412,8 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
 
     const {
         option: ignoredFileSampleLimitOption,
-        parseLimit: parseIgnoredFileLimit,
-        defaultLimit: defaultIgnoredFileSampleLimit
+        parseLimit: _parseIgnoredFileLimit,
+        defaultLimit: _defaultIgnoredFileSampleLimit
     } = createConfiguredSampleLimitOption({
         flag: "--ignored-file-sample-limit <count>",
         description: (defaultLimit) => [
@@ -426,8 +427,8 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
 
     const {
         option: unsupportedExtensionSampleLimitOption,
-        parseLimit: parseUnsupportedExtensionLimit,
-        defaultLimit: defaultUnsupportedExtensionSampleLimit
+        parseLimit: _parseUnsupportedExtensionLimit,
+        defaultLimit: _defaultUnsupportedExtensionSampleLimit
     } = createConfiguredSampleLimitOption({
         flag: "--unsupported-extension-sample-limit <count>",
         description: (defaultLimit) => [
@@ -1326,17 +1327,71 @@ async function processFile(filePath, activeIgnorePaths = []) {
  *
  * @param {{ targetPathProvided: boolean, targetPathInput: unknown, usage: string }} params
  */
+function describeTargetPathInput(value) {
+    if (value === null) {
+        return "null";
+    }
+
+    if (value === undefined) {
+        return "undefined";
+    }
+
+    if (typeof value === "string") {
+        return value.length === 0 ? "an empty string" : `string '${value}'`;
+    }
+
+    if (typeof value === "number" || typeof value === "bigint") {
+        return `${typeof value} ${String(value)}`;
+    }
+
+    if (typeof value === "boolean") {
+        return `boolean ${value}`;
+    }
+
+    if (typeof value === "symbol") {
+        return "a symbol";
+    }
+
+    if (typeof value === "function") {
+        return value.name ? `function ${value.name}` : "a function";
+    }
+
+    const tagName = getObjectTagName(value);
+    if (tagName === "Array") {
+        return "an array";
+    }
+
+    if (tagName === "Object" || !tagName) {
+        return "a plain object";
+    }
+
+    const article = /^[aeiou]/i.test(tagName) ? "an" : "a";
+    return `${article} ${tagName} object`;
+}
+
 function validateTargetPathInput({
     targetPathProvided,
     targetPathInput,
     usage
 }) {
-    if (targetPathProvided && !targetPathInput) {
+    if (!targetPathProvided) {
+        return;
+    }
+
+    if (targetPathInput == null || targetPathInput === "") {
         throw new CliUsageError(
             [
                 "Target path cannot be empty. Pass a directory or file to format (relative or absolute) or omit --path to format the current working directory.",
                 "If the path conflicts with a command name, invoke the format subcommand explicitly (prettier-plugin-gml format <path>)."
             ].join(" "),
+            { usage }
+        );
+    }
+
+    if (typeof targetPathInput !== "string") {
+        const description = describeTargetPathInput(targetPathInput);
+        throw new CliUsageError(
+            `Target path must be provided as a string. Received ${description}.`,
             { usage }
         );
     }
@@ -1349,7 +1404,12 @@ function validateTargetPathInput({
  * @returns {string}
  */
 function resolveTargetPathFromInput(targetPathInput) {
-    return path.resolve(process.cwd(), targetPathInput ?? ".");
+    const normalized =
+        typeof targetPathInput === "string" && targetPathInput.length > 0
+            ? targetPathInput
+            : ".";
+
+    return path.resolve(process.cwd(), normalized);
 }
 
 /**
@@ -1842,7 +1902,9 @@ export const __test__ = Object.freeze({
     resetFormattingSessionForTests: resetFormattingSession,
     normalizeCommandLineArguments,
     configurePrettierOptionsForTests: configurePrettierOptions,
-    getPrettierOptionsForTests: () => options
+    getPrettierOptionsForTests: () => options,
+    validateTargetPathInputForTests: validateTargetPathInput,
+    resolveTargetPathFromInputForTests: resolveTargetPathFromInput
 });
 
 const formatCommand = createFormatCommand({ name: "format" });

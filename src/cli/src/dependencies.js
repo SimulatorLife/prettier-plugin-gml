@@ -13,7 +13,6 @@ export {
     createEnvConfiguredValue,
     createEnvConfiguredValueWithFallback,
     createListSplitPattern,
-    ensureDir,
     ensureMap,
     escapeRegExp,
     getErrorCode,
@@ -77,6 +76,8 @@ export {
     isMissingModuleDependency,
     resolveModuleDefaultExport
 } from "./shared/module.js";
+
+export { ensureDir } from "./shared/ensure-dir.js";
 
 export {
     createVerboseDurationLogger,

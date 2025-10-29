@@ -11,8 +11,30 @@ import {
     trimStringEntries,
     toTrimmedString
 } from "@prettier-plugin-gml/shared/utils/string.js";
+import { hasOwn } from "@prettier-plugin-gml/shared/utils/object.js";
 import { isRegExpLike } from "@prettier-plugin-gml/shared/utils/capability-probes.js";
 import { createResolverController } from "@prettier-plugin-gml/shared/utils/resolver-controller.js";
+import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
+
+function normalizeEntryPair(entry) {
+    if (Array.isArray(entry)) {
+        return entry.length >= 2 ? [entry[0], entry[1]] : null;
+    }
+
+    if (!entry || typeof entry !== "object") {
+        return null;
+    }
+
+    if (hasOwn(entry, 0) && hasOwn(entry, 1)) {
+        return [entry[0], entry[1]];
+    }
+
+    if (hasOwn(entry, "key") && hasOwn(entry, "value")) {
+        return [entry.key, entry.value];
+    }
+
+    return null;
+}
 
 const JSDOC_REPLACEMENTS = {
     "@func": "@function",
@@ -177,20 +199,53 @@ function mergeSpecifierPrefixes(target, candidates) {
     }
 }
 
+function tryGetEntriesIterator(candidate) {
+    if (
+        !candidate ||
+        Array.isArray(candidate) ||
+        (typeof candidate !== "object" && typeof candidate !== "function")
+    ) {
+        return null;
+    }
+
+    const { entries } = candidate;
+    if (typeof entries !== "function") {
+        return null;
+    }
+
+    try {
+        const iterator = entries.call(candidate);
+        if (iterator && typeof iterator[Symbol.iterator] === "function") {
+            return iterator;
+        }
+    } catch {
+        return null;
+    }
+
+    return null;
+}
+
 function* getEntryIterable(value) {
     if (!value) {
         return;
     }
 
-    if (value instanceof Map) {
-        yield* value.entries();
+    const entriesIterator = tryGetEntriesIterator(value);
+    if (entriesIterator) {
+        for (const entry of entriesIterator) {
+            const pair = normalizeEntryPair(entry);
+            if (pair) {
+                yield pair;
+            }
+        }
         return;
     }
 
     if (Array.isArray(value)) {
         for (const entry of value) {
-            if (Array.isArray(entry) && entry.length >= 2) {
-                yield [entry[0], entry[1]];
+            const pair = normalizeEntryPair(entry);
+            if (pair) {
+                yield pair;
             }
         }
         return;
@@ -322,6 +377,23 @@ function formatLineComment(
         const remainder = trimmedOriginal.slice(3).trimStart();
         const formatted = remainder.length > 0 ? `// ${remainder}` : "//";
         return applyInlinePadding(comment, formatted);
+    }
+
+    if (trimmedOriginal.startsWith("///") && !trimmedOriginal.includes("@")) {
+        const remainder = trimmedOriginal.slice(3).trimStart();
+
+        if (comment?.isBottomComment === true && /^\d/.test(remainder)) {
+            const formatted = remainder.length > 0 ? `// ${remainder}` : "//";
+            return applyInlinePadding(comment, formatted);
+        }
+
+        if (
+            !isInlineComment &&
+            /^\d+\s*[).:-]/.test(remainder)
+        ) {
+            const formatted = `// ${remainder}`;
+            return applyInlinePadding(comment, formatted);
+        }
     }
 
     if (
@@ -509,32 +581,6 @@ function normalizeFeatherOptionalParamSyntax(text) {
         (match, prefix, token) =>
             `${prefix}${normalizeOptionalParamToken(token)}`
     );
-}
-
-function normalizeOptionalParamToken(token) {
-    if (typeof token !== "string") {
-        return token;
-    }
-
-    const trimmed = token.trim();
-
-    if (/^\[[^\]]+\]$/.test(trimmed)) {
-        return trimmed;
-    }
-
-    const stripped = trimmed.replaceAll(/^\*+|\*+$/g, "");
-
-    if (stripped === trimmed) {
-        return trimmed;
-    }
-
-    const normalized = stripped.trim();
-
-    if (normalized.length === 0) {
-        return stripped.replaceAll("*", "");
-    }
-
-    return `[${normalized}]`;
 }
 
 function stripTrailingFunctionParameters(text) {

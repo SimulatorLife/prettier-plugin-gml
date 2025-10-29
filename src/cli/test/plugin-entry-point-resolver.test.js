@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { resolvePluginEntryPoint } from "../src/plugin-runtime/entry-point.js";
-import { resolveCliPluginEntryPoint } from "../src/plugin-runtime/entry-point-resolver.js";
+import {
+    resolvePluginEntryPoint,
+    resolvePluginEntryPoint as resolveCliPluginEntryPoint
+} from "../src/plugin-runtime/entry-point.js";
 
 describe("resolveCliPluginEntryPoint", () => {
     it("delegates to the default plugin entry resolver", () => {

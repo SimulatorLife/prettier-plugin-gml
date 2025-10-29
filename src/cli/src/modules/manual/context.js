@@ -49,26 +49,6 @@ function resolveOutputPath(repoRoot, fileName) {
  */
 
 /**
- * @typedef {object} ManualCommandRequestService
- * @property {ManualGitHubRequestExecutor} executeManualRequest
- */
-
-/**
- * @typedef {object} ManualCommandFileService
- * @property {ManualGitHubFileClient["fetchManualFile"]} fetchManualFile
- */
-
-/**
- * @typedef {object} ManualCommandRefResolutionService
- * @property {ManualGitHubRefResolver["resolveManualRef"]} resolveManualRef
- */
-
-/**
- * @typedef {object} ManualCommandCommitResolutionService
- * @property {ManualGitHubCommitResolver["resolveCommitFromRef"]} resolveCommitFromRef
- */
-
-/**
  * Manual commands historically shared a single `ManualCommandContext` object
  * that bundled environment discovery, GitHub dispatchers, file fetching, and
  * reference resolution behind one umbrella. That wide contract made commands
@@ -85,13 +65,13 @@ function resolveOutputPath(repoRoot, fileName) {
 /**
  * @typedef {object} ManualFileAccess
  * @property {ManualCommandEnvironment} environment
- * @property {ManualCommandFileService["fetchManualFile"]} fetchManualFile
+ * @property {ManualGitHubFileClient["fetchManualFile"]} fetchManualFile
  */
 
 /**
  * @typedef {object} ManualReferenceAccess
  * @property {ManualCommandEnvironment} environment
- * @property {ManualCommandRefResolutionService["resolveManualRef"]} resolveManualRef
+ * @property {ManualGitHubRefResolver["resolveManualRef"]} resolveManualRef
  */
 
 /**
@@ -130,12 +110,14 @@ function buildManualCommandContext({
         requestDispatcher: manualRequests,
         commitResolver: manualCommitResolver
     });
-    const manualFileFetcher = createManualGitHubFileClient({
-        requestDispatcher: manualRequests,
-        defaultCacheRoot,
-        defaultRawRoot: defaultManualRawRoot,
-        workflowPathFilter
-    });
+    const manualFileFetcher = Object.freeze(
+        createManualGitHubFileClient({
+            requestDispatcher: manualRequests,
+            defaultCacheRoot,
+            defaultRawRoot: defaultManualRawRoot,
+            workflowPathFilter
+        })
+    );
 
     const environment = Object.freeze({
         repoRoot,
@@ -144,48 +126,26 @@ function buildManualCommandContext({
         defaultOutputPath: resolveOutputPath(repoRoot, outputFileName)
     });
 
-    const manualRequestExecutor = manualRequests.execute;
-
-    const requests = Object.freeze({
-        executeManualRequest: manualRequestExecutor
-    });
-
-    const files = Object.freeze({
-        fetchManualFile: manualFileFetcher.fetchManualFile
-    });
-
-    const refs = Object.freeze({
-        resolveManualRef: manualRefResolver.resolveManualRef
-    });
-
-    const commits = Object.freeze({
-        resolveCommitFromRef: manualCommitResolver.resolveCommitFromRef
-    });
-
     return Object.freeze({
         environment,
-        request: manualRequestExecutor,
+        request: manualRequests.execute,
         commitResolver: manualCommitResolver,
         refResolver: manualRefResolver,
-        fileClient: manualFileFetcher,
-        requests,
-        files,
-        refs,
-        commits
+        fileClient: manualFileFetcher
     });
 }
 
-function mapManualFileAccessContext({ environment, files }) {
+function mapManualFileAccessContext({ environment, fileClient }) {
     return Object.freeze({
         environment,
-        fetchManualFile: files.fetchManualFile
+        fetchManualFile: fileClient.fetchManualFile
     });
 }
 
-function mapManualReferenceAccessContext({ environment, refs }) {
+function mapManualReferenceAccessContext({ environment, refResolver }) {
     return Object.freeze({
         environment,
-        resolveManualRef: refs.resolveManualRef
+        resolveManualRef: refResolver.resolveManualRef
     });
 }
 
@@ -261,34 +221,14 @@ export function createManualReferenceAccessContext(options = {}) {
 }
 
 /**
- * Resolve the frozen manual GitHub request service used to execute raw API calls.
- *
- * @param {Parameters<typeof buildManualCommandContext>[0]} options
- * @returns {ManualCommandRequestService}
- */
-export function resolveManualGitHubRequestService(options = {}) {
-    return resolveManualContextProperty(options, "requests");
-}
-
-/**
- * Resolve the manual GitHub request executor function for callers that need the
- * bare dispatcher rather than the service facade.
+ * Resolve the manual GitHub request executor function so callers can depend on
+ * the narrow dispatcher contract instead of the former service wrapper.
  *
  * @param {Parameters<typeof buildManualCommandContext>[0]} options
  * @returns {ManualGitHubRequestExecutor}
  */
 export function resolveManualGitHubRequestExecutor(options = {}) {
     return resolveManualContextProperty(options, "request");
-}
-
-/**
- * Resolve the frozen manual GitHub commit resolution service.
- *
- * @param {Parameters<typeof buildManualCommandContext>[0]} options
- * @returns {ManualCommandCommitResolutionService}
- */
-export function resolveManualGitHubCommitService(options = {}) {
-    return resolveManualContextProperty(options, "commits");
 }
 
 /**

@@ -76,6 +76,11 @@ const SUMMARY_SECTIONS = Object.freeze([
  * @typedef {object} MetricsSummaryReporter
  * @property {(extra?: object) => MetricsSnapshot} snapshot
  * @property {(extra?: object) => MetricsSnapshot} finalize
+ * @property {(extra?: object) => Record<string, Record<string, number>>} cachesSnapshot
+ * @property {(
+ *   cacheName: string,
+ *   extra?: object
+ * ) => Record<string, number> | undefined} cacheSnapshot
  */
 
 /**
@@ -386,9 +391,23 @@ export function createMetricsTracker({
         }
     });
 
+    const cachesSnapshot = (extra) => snapshot(extra).caches;
+
+    function cacheSnapshot(cacheName, extra) {
+        if (cacheName === undefined) {
+            return cachesSnapshot(extra);
+        }
+
+        const caches = cachesSnapshot(extra);
+        const normalized = normalizeLabel(cacheName);
+        return caches[normalized];
+    }
+
     const summaryTools = Object.freeze({
         snapshot,
-        finalize
+        finalize,
+        cachesSnapshot,
+        cacheSnapshot
     });
 
     const loggerTools = Object.freeze({

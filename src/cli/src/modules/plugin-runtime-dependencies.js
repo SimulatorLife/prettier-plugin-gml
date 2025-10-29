@@ -11,4 +11,4 @@ export {
     resolvePluginEntryPoint
 } from "../plugin-runtime/entry-point.js";
 
-export { resolveCliPluginEntryPoint } from "../plugin-runtime/entry-point-resolver.js";
+export { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "../plugin-runtime/entry-point.js";

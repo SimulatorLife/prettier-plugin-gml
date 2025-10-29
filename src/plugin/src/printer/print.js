@@ -34,6 +34,7 @@ import {
     formatLineComment,
     normalizeDocCommentTypeAnnotations
 } from "../comments/line-comment-formatting.js";
+import { normalizeOptionalParamToken } from "../comments/optional-param-normalization.js";
 import { resolveLineCommentOptions } from "../options/line-comment-options.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
 import { DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH } from "./doc-comment-wrap-width.js";
@@ -1797,10 +1798,11 @@ function getFeatherCommentCallText(node) {
 
 function buildTemplateStringParts(atoms, path, print) {
     const parts = ['$"'];
+    const length = atoms.length;
 
-    const printedAtoms = path.map(print, "atoms");
+    for (let index = 0; index < length; index += 1) {
+        const atom = atoms[index];
 
-    for (const [index, atom] of atoms.entries()) {
         if (
             atom?.type === "TemplateStringText" &&
             typeof atom.value === "string"
@@ -1809,7 +1811,12 @@ function buildTemplateStringParts(atoms, path, print) {
             continue;
         }
 
-        parts.push("{", printedAtoms[index], "}");
+        // Lazily print non-text atoms on demand so pure-text templates avoid
+        // allocating the `printedAtoms` array. This helper runs inside the
+        // printer's expression loop, so skipping the extra array and iterator
+        // bookkeeping removes two allocations for mixed templates while keeping
+        // the doc emission identical.
+        parts.push("{", path.call(print, "atoms", index), "}");
     }
 
     parts.push('"');
@@ -6292,7 +6299,7 @@ function parseDocCommentMetadata(line) {
             name = paramMatch ? paramMatch[1] : null;
         }
         if (typeof name === "string") {
-            name = normalizeOptionalParamNameToken(name);
+            name = normalizeOptionalParamToken(name);
         }
 
         return {
@@ -6303,43 +6310,6 @@ function parseDocCommentMetadata(line) {
     }
 
     return { tag, name: remainder };
-}
-
-function normalizeOptionalParamNameToken(name) {
-    if (typeof name !== "string") {
-        return name;
-    }
-
-    const trimmed = name.trim();
-
-    if (/^\[[^\]]+\]$/.test(trimmed)) {
-        return trimmed;
-    }
-
-    let stripped = trimmed;
-    let hadSentinel = false;
-
-    while (stripped.startsWith("*")) {
-        stripped = stripped.slice(1);
-        hadSentinel = true;
-    }
-
-    while (stripped.endsWith("*")) {
-        stripped = stripped.slice(0, -1);
-        hadSentinel = true;
-    }
-
-    if (!hadSentinel) {
-        return trimmed;
-    }
-
-    const normalized = stripped.trim();
-
-    if (normalized.length === 0) {
-        return stripped.replaceAll("*", "");
-    }
-
-    return `[${normalized}]`;
 }
 
 function getSourceTextForNode(node, options) {
@@ -7305,7 +7275,7 @@ function normalizeDocMetadataName(name) {
         return name;
     }
 
-    const optionalNormalized = normalizeOptionalParamNameToken(name);
+    const optionalNormalized = normalizeOptionalParamToken(name);
     if (typeof optionalNormalized === "string") {
         if (/^\[[^\]]+\]$/.test(optionalNormalized)) {
             return optionalNormalized;

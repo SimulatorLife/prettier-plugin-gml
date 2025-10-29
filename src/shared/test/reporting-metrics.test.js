@@ -42,8 +42,21 @@ test("cache summaries include untouched counters", () => {
     const { recording, reporting } = tracker;
     recording.caches.recordHit("default");
 
-    const report = reporting.summary.snapshot();
-    assert.deepEqual(report.caches.default, {
+    const stats = reporting.summary.cacheSnapshot("default");
+    assert.deepEqual(stats, {
+        hits: 1,
+        misses: 0,
+        stale: 0
+    });
+});
+
+test("cacheSnapshot falls back to full cache summary when name omitted", () => {
+    const tracker = createMetricsTracker();
+    const { recording, reporting } = tracker;
+    recording.caches.recordHit("named");
+
+    const caches = reporting.summary.cacheSnapshot();
+    assert.deepEqual(caches.named, {
         hits: 1,
         misses: 0,
         stale: 0

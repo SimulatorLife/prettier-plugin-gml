@@ -45,3 +45,27 @@ test("memory command rejects unknown suite names", () => {
         }
     );
 });
+
+test("memory command accepts the common node limit option", () => {
+    const command = createMemoryCommand({ env: {} });
+
+    command.parse(["--common-node-limit", "7"], USER_PARSE_OPTIONS);
+
+    assert.equal(command.opts().commonNodeLimit, 7);
+});
+
+test("memory command rejects invalid common node limits", () => {
+    const command = createMemoryCommand({ env: {} });
+
+    assert.throws(
+        () => command.parse(["--common-node-limit", "0"], USER_PARSE_OPTIONS),
+        (error) => {
+            assert.equal(error?.code, "commander.invalidArgument");
+            assert.match(
+                error.message,
+                /common node type limit must be a positive integer/i
+            );
+            return true;
+        }
+    );
+});

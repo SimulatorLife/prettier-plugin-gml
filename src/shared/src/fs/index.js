@@ -1,6 +1,5 @@
 import { isErrorWithCode } from "../utils/error.js";
 
-export * from "./ensure-dir.js";
 export * from "./path.js";
 
 /**

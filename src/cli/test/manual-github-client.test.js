@@ -241,6 +241,36 @@ describe("manual GitHub client validation", { concurrency: false }, () => {
         );
     });
 
+    it("rethrows request failures that satisfy the manual error contract", async () => {
+        const dispatcher = createManualGitHubRequestDispatcher({
+            userAgent: "test-agent"
+        });
+
+        const failingUrl = `${RAW_ROOT}/sha/path/to/file`;
+        const brandedError = new Error("capability failure");
+        Object.defineProperty(
+            brandedError,
+            Symbol.for("prettier-plugin-gml.manual-github-request-error"),
+            {
+                value: true,
+                configurable: true
+            }
+        );
+
+        mock.method(globalThis, "fetch", async (url) => {
+            assert.equal(url, failingUrl);
+            throw brandedError;
+        });
+
+        await assert.rejects(
+            () => dispatcher.execute(failingUrl),
+            (error) => {
+                assert.equal(error, brandedError);
+                return true;
+            }
+        );
+    });
+
     it("rejects manual commit payloads without a SHA", async () => {
         const { refResolver } = createManualClientBundle({
             userAgent: "test-agent",

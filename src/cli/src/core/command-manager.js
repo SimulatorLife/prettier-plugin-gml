@@ -44,6 +44,11 @@ function resolveContextCommandFromActionArgs(actionArgs, fallbackCommand) {
     return isCommanderCommandInstance(candidate) ? candidate : fallbackCommand;
 }
 
+function composeUsageHelpMessage({ defaultHelpText, usage }) {
+    const sections = [defaultHelpText, usage].filter(Boolean);
+    return sections.length === 0 ? usage : sections.join("\n\n");
+}
+
 class CliCommandManager {
     /**
      * @param {{
@@ -62,6 +67,7 @@ class CliCommandManager {
         this._entries = new Set();
         this._commandEntryLookup = new WeakMap();
         this._defaultCommandEntry = null;
+        this._activeCommand = null;
         this._defaultErrorHandler =
             typeof onUnhandledError === "function"
                 ? onUnhandledError
@@ -73,6 +79,16 @@ class CliCommandManager {
 
         this._registerEntry(program, {
             handleError: this._defaultErrorHandler
+        });
+
+        this._program.hook("preSubcommand", (thisCommand, actionCommand) => {
+            if (actionCommand) {
+                this._activeCommand = actionCommand;
+            }
+        });
+
+        this._program.hook("postAction", () => {
+            this._activeCommand = null;
         });
     }
 
@@ -112,6 +128,7 @@ class CliCommandManager {
      */
     async run(argv) {
         try {
+            this._activeCommand = null;
             await this._program.parseAsync(argv, { from: "user" });
         } catch (error) {
             if (this._handleCommanderError(error)) {
@@ -159,12 +176,16 @@ class CliCommandManager {
                 actionArgs,
                 defaultCommand
             );
+            const previousActiveCommand = this._activeCommand;
+            this._activeCommand = contextCommand;
 
             try {
                 const result = await entry.run({ command: contextCommand });
                 this._applyCommandResult(result);
             } catch (error) {
                 this._handleCommandError(error, contextCommand);
+            } finally {
+                this._activeCommand = previousActiveCommand ?? null;
             }
         };
     }
@@ -187,20 +208,14 @@ class CliCommandManager {
             return true;
         }
 
-        const commandFromError = error.command ?? this._program;
+        const commandFromError =
+            error.command ?? this._activeCommand ?? this._program;
         const resolvedCommand =
-            commandFromError === this._program && this._defaultCommandEntry
-                ? this._defaultCommandEntry.command
-                : commandFromError;
-        const usage = resolveCommandUsage(resolvedCommand, {
-            fallback: () => this._program.helpInformation()
-        });
-        const usageSections = [DEFAULT_HELP_AFTER_ERROR, usage].filter(Boolean);
-        const normalizedUsage =
-            usageSections.length === 0 ? usage : usageSections.join("\n\n");
-        const usageError = new CliUsageError(error.message.trim(), {
-            usage: normalizedUsage
-        });
+            this._resolveCommandFromCommanderError(commandFromError);
+        const usageError = this._createUsageErrorFromCommanderError(
+            error,
+            resolvedCommand
+        );
         this._handleCommandError(usageError, resolvedCommand ?? this._program);
         return true;
     }
@@ -209,6 +224,31 @@ class CliCommandManager {
         const entry = this._commandEntryLookup.get(command);
         const handler = entry?.handleError ?? this._defaultErrorHandler;
         handler(error, { command });
+    }
+
+    _resolveCommandFromCommanderError(commandFromError) {
+        if (
+            commandFromError === this._program &&
+            this._defaultCommandEntry?.command
+        ) {
+            return this._defaultCommandEntry.command;
+        }
+
+        return commandFromError ?? this._program;
+    }
+
+    _createUsageErrorFromCommanderError(error, resolvedCommand) {
+        const usage = resolveCommandUsage(resolvedCommand, {
+            fallback: () => this._program.helpInformation()
+        });
+        const normalizedUsage = composeUsageHelpMessage({
+            defaultHelpText: DEFAULT_HELP_AFTER_ERROR,
+            usage
+        });
+
+        return new CliUsageError(error.message.trim(), {
+            usage: normalizedUsage
+        });
     }
 }
 

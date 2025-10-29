@@ -24,8 +24,9 @@ sheet, then return here when you need deeper context.
   — Scripted configuration that warms the project-index cache and captures
   dry-run reports for review alongside a sample JSON payload.
 - [Quick start](../README.md#quick-start) — Installation flows for npm
-  consumers and nightly testers, plus wrapper scripts you can copy into your
-  GameMaker project.
+  consumers and nightly testers, including side-by-side snippets for the
+  published package versus the Git workspace drop, plus wrapper scripts you can
+  copy into your GameMaker project.
 - [Configuration reference](../README.md#configuration-reference) — Baseline
   Prettier options for `.gml` files, plus the identifier-case defaults surfaced
   by the plugin.

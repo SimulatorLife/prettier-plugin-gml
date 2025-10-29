@@ -11,7 +11,8 @@ import {
     isNonEmptyTrimmedString,
     parseJsonWithContext,
     toTrimmedString,
-    getErrorMessageOrFallback
+    getErrorMessageOrFallback,
+    isErrorLike
 } from "../dependencies.js";
 import {
     CliUsageError,
@@ -51,6 +52,45 @@ const MANUAL_REPO_REQUIREMENT_SOURCE_LIST = Object.values(
     MANUAL_REPO_REQUIREMENT_SOURCE
 ).join(", ");
 
+const MANUAL_GITHUB_REQUEST_ERROR_CAPABILITY = Symbol.for(
+    "prettier-plugin-gml.manual-github-request-error"
+);
+
+function hasManualGitHubRequestErrorContract(value) {
+    if (!isErrorLike(value)) {
+        return false;
+    }
+
+    if (value.name !== "ManualGitHubRequestError") {
+        return false;
+    }
+
+    if (value.url !== undefined && typeof value.url !== "string") {
+        return false;
+    }
+
+    if (value.status !== undefined && typeof value.status !== "number") {
+        return false;
+    }
+
+    if (
+        value.statusText !== undefined &&
+        typeof value.statusText !== "string"
+    ) {
+        return false;
+    }
+
+    return true;
+}
+
+function isManualGitHubRequestError(value) {
+    if (value?.[MANUAL_GITHUB_REQUEST_ERROR_CAPABILITY]) {
+        return true;
+    }
+
+    return hasManualGitHubRequestErrorContract(value);
+}
+
 class ManualGitHubRequestError extends Error {
     constructor(
         message,
@@ -73,46 +113,44 @@ class ManualGitHubRequestError extends Error {
         if (cause !== undefined) {
             this.cause = cause;
         }
+
+        Object.defineProperty(this, MANUAL_GITHUB_REQUEST_ERROR_CAPABILITY, {
+            value: true,
+            enumerable: false,
+            configurable: true
+        });
     }
 }
 
 function createManualGitHubRequestError({ url, response, bodyText, cause }) {
     const status =
-        typeof response?.status === "number" ? response.status : null;
-    const statusText = toTrimmedString(response?.statusText);
-    let responseBody;
-    if (bodyText === undefined) {
-        responseBody = undefined;
-    } else if (typeof bodyText === "string") {
-        responseBody = bodyText.trim();
-    } else {
-        responseBody = "";
-    }
+        typeof response?.status === "number" ? response.status : undefined;
+    const statusText = toTrimmedString(response?.statusText) || undefined;
+    const responseBody =
+        bodyText === undefined
+            ? undefined
+            : typeof bodyText === "string"
+              ? bodyText.trim()
+              : "";
 
+    const detail =
+        typeof responseBody === "string" && responseBody.length > 0
+            ? responseBody
+            : cause === undefined
+              ? ""
+              : getErrorMessageOrFallback(cause);
     const statusLabel = [status, statusText]
-        .filter((value) => value !== null && value !== "")
+        .filter((value) => value !== undefined && value !== "")
         .map(String)
         .join(" ");
-
-    let detail = "";
-    if (typeof responseBody === "string" && responseBody.length > 0) {
-        detail = responseBody;
-    } else if (cause !== undefined) {
-        detail = getErrorMessageOrFallback(cause);
-    }
-
-    let message = `Request failed for ${url}`;
-    if (statusLabel) {
-        message += ` (${statusLabel})`;
-    }
-    if (detail) {
-        message += `: ${detail}`;
-    }
+    const message = `Request failed for ${url}${
+        statusLabel ? ` (${statusLabel})` : ""
+    }${detail ? `: ${detail}` : ""}`;
 
     return new ManualGitHubRequestError(message, {
         url,
-        status: status ?? undefined,
-        statusText: statusText || undefined,
+        status,
+        statusText,
         responseBody,
         cause
     });
@@ -684,7 +722,7 @@ function createManualGitHubRequestDispatcher({ userAgent } = {}) {
                 throw error;
             }
 
-            if (error instanceof ManualGitHubRequestError) {
+            if (isManualGitHubRequestError(error)) {
                 throw error;
             }
 
@@ -917,6 +955,7 @@ export {
     MANUAL_CACHE_ROOT_ENV_VAR,
     MANUAL_REPO_ENV_VAR,
     ManualGitHubRequestError,
+    isManualGitHubRequestError,
     createManualVerboseState,
     buildManualRepositoryEndpoints,
     normalizeManualRepository,
