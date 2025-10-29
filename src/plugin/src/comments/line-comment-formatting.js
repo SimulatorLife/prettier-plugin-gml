@@ -11,15 +11,10 @@ import {
     trimStringEntries,
     toTrimmedString
 } from "@prettier-plugin-gml/shared/utils/string.js";
+import { hasOwn } from "@prettier-plugin-gml/shared/utils/object.js";
 import { isRegExpLike } from "@prettier-plugin-gml/shared/utils/capability-probes.js";
 import { createResolverController } from "@prettier-plugin-gml/shared/utils/resolver-controller.js";
 import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
-
-const objectPrototypeHasOwnProperty = Object.prototype.hasOwnProperty;
-
-function hasOwn(object, property) {
-    return objectPrototypeHasOwnProperty.call(object, property);
-}
 
 function normalizeEntryPair(entry) {
     if (Array.isArray(entry)) {
