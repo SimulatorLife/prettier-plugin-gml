@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import process from "node:process";
 
 import { getNonEmptyTrimmedString } from "../shared/dependencies.js";
 
