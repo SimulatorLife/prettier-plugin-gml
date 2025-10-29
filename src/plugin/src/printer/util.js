@@ -1,5 +1,5 @@
 import { util } from "prettier";
-import { toTrimmedString } from "../shared/index.js";
+import { getNodeType, toTrimmedString } from "../shared/index.js";
 
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
 
@@ -181,16 +181,8 @@ const FUNCTION_LIKE_DECLARATION_TYPES = new Set([
  * @returns {boolean} `true` when the node is a function-like declaration.
  */
 function isFunctionLikeDeclaration(node) {
-    if (!node || typeof node !== "object") {
-        return false;
-    }
-
-    const type = node.type;
-    if (typeof type !== "string") {
-        return false;
-    }
-
-    return FUNCTION_LIKE_DECLARATION_TYPES.has(type);
+    const type = getNodeType(node);
+    return type !== null && FUNCTION_LIKE_DECLARATION_TYPES.has(type);
 }
 
 /**
