@@ -1413,14 +1413,42 @@ function attemptCondenseScalarProduct(node, helpers, context) {
         return false;
     }
 
-    const tolerance = computeNumericTolerance(1);
+    const zeroTolerance = computeNumericTolerance(0);
+    const coefficientIsPositiveIdentity =
+        Math.abs(coefficient - 1) <= unitTolerance;
+    const coefficientIsNegativeIdentity =
+        Math.abs(coefficient + 1) <= unitTolerance;
+
     if (
-        Math.abs(coefficient) <= computeNumericTolerance(0) ||
-        Math.abs(coefficient - 1) <= tolerance ||
-        Math.abs(coefficient + 1) <= tolerance
+        (coefficientIsPositiveIdentity || coefficientIsNegativeIdentity) &&
+        nonNumericTerms.length > 0
     ) {
+        const condensedOperand = cloneMultiplicativeTerms(
+            nonNumericTerms,
+            node
+        );
+        if (!condensedOperand) {
+            return false;
+        }
+
+        const replacement = coefficientIsNegativeIdentity
+            ? createUnaryNegationNode(condensedOperand, node)
+            : condensedOperand;
+
+        if (!replacement || !replaceNodeWith(node, replacement)) {
+            return false;
+        }
+
+        unwrapEnclosingParentheses(node, helpers, context);
+
+        return true;
+    }
+
+    if (Math.abs(coefficient) <= zeroTolerance) {
         return false;
     }
+
+    const tolerance = computeNumericTolerance(1);
 
     if (meaningfulNumericFactorCount < 2) {
         const coefficientMagnitude = Math.abs(coefficient);
@@ -2517,6 +2545,23 @@ function createMultiplicationNode(left, right, template) {
         operator: "*",
         left,
         right
+    };
+
+    assignClonedLocation(expression, template);
+
+    return expression;
+}
+
+function createUnaryNegationNode(argument, template) {
+    if (!argument) {
+        return null;
+    }
+
+    const expression = {
+        type: UNARY_EXPRESSION,
+        operator: "-",
+        prefix: true,
+        argument
     };
 
     assignClonedLocation(expression, template);

@@ -530,6 +530,32 @@ test("simplifies reciprocal products with unit numerators", async () => {
     );
 });
 
+test("cancels numeric identity factors introduced by scalar condensation", async () => {
+    const source = [
+        "function simplify_scalars(m) {",
+        "    return (m / 5) * (10 * 0.5);",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function simplify_scalars",
+            "/// @param m",
+            "function simplify_scalars(m) {",
+            "    return m;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
 test("preserves simple division when no scalar condensation is needed", async () => {
     const source = [
         "function keep_division(room_width, room_height) {",
