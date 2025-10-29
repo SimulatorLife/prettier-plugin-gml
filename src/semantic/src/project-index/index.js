@@ -99,6 +99,8 @@ export {
     setDefaultProjectIndexCacheMaxSize,
     applyProjectIndexCacheEnvOverride,
     ProjectIndexCacheMissReason,
+    ProjectIndexCacheStatus,
+    assertProjectIndexCacheStatus,
     loadProjectIndexCache,
     saveProjectIndexCache,
     deriveCacheKey

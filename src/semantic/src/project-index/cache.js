@@ -73,15 +73,63 @@ export const ProjectIndexCacheMissReason = Object.freeze({
     SOURCE_MTIME_MISMATCH: "source-mtime-mismatch"
 });
 
-function createCacheMiss(cacheFilePath, type, details) {
+export const ProjectIndexCacheStatus = Object.freeze({
+    MISS: "miss",
+    HIT: "hit",
+    SKIPPED: "skipped",
+    WRITTEN: "written"
+});
+
+const PROJECT_INDEX_CACHE_STATUS_VALUES = new Set(
+    Object.values(ProjectIndexCacheStatus)
+);
+
+const PROJECT_INDEX_CACHE_STATUS_LIST = [...PROJECT_INDEX_CACHE_STATUS_VALUES]
+    .map((status) => `'${status}'`)
+    .join(", ");
+
+function formatReceivedStatus(value) {
+    if (value === null) {
+        return "null";
+    }
+
+    if (value === undefined) {
+        return "undefined";
+    }
+
+    if (typeof value === "string") {
+        return JSON.stringify(value);
+    }
+
+    return String(value);
+}
+
+export function assertProjectIndexCacheStatus(value) {
+    if (PROJECT_INDEX_CACHE_STATUS_VALUES.has(value)) {
+        return value;
+    }
+
+    const received = formatReceivedStatus(value);
+    throw new TypeError(
+        `Project index cache status must be one of: ${PROJECT_INDEX_CACHE_STATUS_LIST}. Received: ${received}.`
+    );
+}
+
+function createCacheResult(status, details) {
     return {
-        status: "miss",
+        status: assertProjectIndexCacheStatus(status),
+        ...details
+    };
+}
+
+function createCacheMiss(cacheFilePath, type, details) {
+    return createCacheResult(ProjectIndexCacheStatus.MISS, {
         cacheFilePath,
         reason: {
             type,
             ...details
         }
-    };
+    });
 }
 
 function hasEntries(record) {
@@ -350,12 +398,11 @@ export async function loadProjectIndexCache(
         projectIndex.metrics = parsed.metricsSummary;
     }
 
-    return {
-        status: "hit",
+    return createCacheResult(ProjectIndexCacheStatus.HIT, {
         cacheFilePath,
         payload: parsed,
         projectIndex
-    };
+    });
 }
 
 export async function saveProjectIndexCache(
@@ -420,12 +467,11 @@ export async function saveProjectIndexCache(
 
     const effectiveMaxSize = normalizeMaxSizeBytes(maxSizeBytes);
     if (effectiveMaxSize !== null && byteLength > effectiveMaxSize) {
-        return {
-            status: "skipped",
+        return createCacheResult(ProjectIndexCacheStatus.SKIPPED, {
             cacheFilePath,
             reason: "payload-too-large",
             size: byteLength
-        };
+        });
     }
 
     const uniqueSuffix = randomUUID();
@@ -451,11 +497,10 @@ export async function saveProjectIndexCache(
         throw error;
     }
 
-    return {
-        status: "written",
+    return createCacheResult(ProjectIndexCacheStatus.WRITTEN, {
         cacheFilePath,
         size: byteLength
-    };
+    });
 }
 
 export async function deriveCacheKey(

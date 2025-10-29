@@ -5,6 +5,7 @@ import {
     throwIfAborted,
     toTrimmedString
 } from "../dependencies.js";
+import { ProjectIndexCacheStatus } from "./cache.js";
 
 function assertCoordinatorFunction(value, name) {
     const normalizedName = toTrimmedString(name) || "dependency";
@@ -78,7 +79,7 @@ async function executeEnsureReadyOperation({
     );
     throwIfAborted(signal, disposedMessage);
 
-    if (loadResult.status === "hit") {
+    if (loadResult.status === ProjectIndexCacheStatus.HIT) {
         throwIfAborted(signal, disposedMessage);
         return {
             source: "cache",
