@@ -6,6 +6,7 @@ import {
     isNonEmptyString,
     stringifyJsonForFile
 } from "./dependencies.js";
+import { ensureWorkflowPathsAllowed } from "./workflow/path-filter.js";
 
 /**
  * Write text contents to disk while guaranteeing the parent directory exists
@@ -38,24 +39,18 @@ export async function writeFileArtifact({
 
     const directory = path.dirname(outputPath);
 
-    if (pathFilter) {
-        const { allowsPath, allowsDirectory } = pathFilter;
-
-        if (typeof allowsPath === "function" && !allowsPath(outputPath)) {
-            throw new Error(
-                `Refusing to write artefact outside permitted paths: ${outputPath}`
-            );
+    ensureWorkflowPathsAllowed(pathFilter, [
+        {
+            type: "path",
+            target: outputPath,
+            label: "Artefact output path"
+        },
+        {
+            type: "directory",
+            target: directory,
+            label: "Artefact directory"
         }
-
-        if (
-            typeof allowsDirectory === "function" &&
-            !allowsDirectory(directory)
-        ) {
-            throw new Error(
-                `Refusing to create artefact directory outside permitted paths: ${directory}`
-            );
-        }
-    }
+    ]);
 
     await ensureDir(directory);
     await writeFile(outputPath, contents, encoding);
