@@ -1,36 +1,30 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { Command, InvalidArgumentError, Option } from "commander";
-
 import {
-    createCommanderCommand,
-    createCommanderInvalidArgumentError,
-    createCommanderOption,
-    getCommanderCommandConstructor,
-    getCommanderInvalidArgumentErrorConstructor,
-    getCommanderOptionConstructor
-} from "../src/core/commander-registry.js";
+    Command as NativeCommand,
+    InvalidArgumentError as NativeInvalidArgumentError,
+    Option as NativeOption
+} from "commander";
 
-describe("commander helpers", () => {
-    it("creates native Commander instances", () => {
-        const command = createCommanderCommand("example");
-        const option = createCommanderOption("--flag");
-        const error = createCommanderInvalidArgumentError("bad value");
+import { Command, InvalidArgumentError, Option } from "../src/dependencies.js";
 
-        assert.ok(command instanceof Command);
-        assert.strictEqual(command.name(), "example");
-        assert.ok(option instanceof Option);
-        assert.strictEqual(option.flags, "--flag");
-        assert.ok(error instanceof InvalidArgumentError);
-        assert.strictEqual(error.message, "bad value");
+describe("commander dependencies", () => {
+    it("re-exports the native Commander constructors", () => {
+        assert.strictEqual(Command, NativeCommand);
+        assert.strictEqual(Option, NativeOption);
+        assert.strictEqual(InvalidArgumentError, NativeInvalidArgumentError);
     });
 
-    it("exposes the Commander constructors directly", () => {
-        assert.strictEqual(getCommanderCommandConstructor(), Command);
-        assert.strictEqual(getCommanderOptionConstructor(), Option);
-        assert.strictEqual(
-            getCommanderInvalidArgumentErrorConstructor(),
-            InvalidArgumentError
-        );
+    it("constructs Commander instances via the shared exports", () => {
+        const command = new Command("example");
+        const option = new Option("--flag");
+        const error = new InvalidArgumentError("bad value");
+
+        assert.ok(command instanceof NativeCommand);
+        assert.strictEqual(command.name(), "example");
+        assert.ok(option instanceof NativeOption);
+        assert.strictEqual(option.flags, "--flag");
+        assert.ok(error instanceof NativeInvalidArgumentError);
+        assert.strictEqual(error.message, "bad value");
     });
 });

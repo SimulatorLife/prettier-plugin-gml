@@ -2,7 +2,7 @@ import { CliUsageError } from "./errors.js";
 import { isCommanderErrorLike } from "./commander-error-utils.js";
 import {
     assertFunction,
-    getCommanderInvalidArgumentErrorConstructor,
+    InvalidArgumentError,
     getErrorMessage
 } from "../shared/dependencies.js";
 
@@ -38,10 +38,10 @@ export function wrapInvalidArgumentResolver(resolver, options = {}) {
     const { errorConstructor, fallbackMessage = "Invalid option value." } =
         options;
 
-    const InvalidArgumentError =
+    const InvalidArgumentErrorConstructor =
         typeof errorConstructor === "function"
             ? errorConstructor
-            : getCommanderInvalidArgumentErrorConstructor();
+            : InvalidArgumentError;
 
     return (...args) => {
         try {
@@ -50,7 +50,9 @@ export function wrapInvalidArgumentResolver(resolver, options = {}) {
             const message =
                 getErrorMessage(error, { fallback: fallbackMessage }) ||
                 fallbackMessage;
-            const invalidArgumentError = new InvalidArgumentError(message);
+            const invalidArgumentError = new InvalidArgumentErrorConstructor(
+                message
+            );
 
             if (error && typeof error === "object") {
                 invalidArgumentError.cause = error;

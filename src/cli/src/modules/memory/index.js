@@ -6,20 +6,20 @@ import { fileURLToPath } from "node:url";
 
 import {
     appendToCollection,
+    Command,
     createEnvConfiguredValue,
     createEnumeratedOptionHelpers,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
     getObjectTagName,
     incrementMapValue,
+    InvalidArgumentError,
     isNonEmptyString,
     normalizeStringList,
     toNormalizedLowerCaseString,
     resolveModuleDefaultExport,
     parseJsonObjectWithContext,
-    splitLines,
-    createCommanderCommand,
-    getCommanderInvalidArgumentErrorConstructor
+    splitLines
 } from "../dependencies.js";
 import {
     SuiteOutputFormat,
@@ -623,7 +623,7 @@ const AVAILABLE_SUITES = new Map();
 
 function collectSuite(value, previous) {
     const normalized = normalizeMemorySuiteName(value, {
-        errorConstructor: getCommanderInvalidArgumentErrorConstructor()
+        errorConstructor: InvalidArgumentError
     });
 
     return appendToCollection(normalized, previous);
@@ -634,7 +634,7 @@ export function createMemoryCommand({ env = process.env } = {}) {
     const defaultCommonNodeLimit = getAstCommonNodeTypeLimit();
 
     const command = applyStandardCommandOptions(
-        createCommanderCommand()
+        new Command()
             .name("memory")
             .usage("[options]")
             .description("Run memory usage diagnostics for CLI utilities.")
@@ -662,8 +662,7 @@ export function createMemoryCommand({ env = process.env } = {}) {
             "Output format: json or human.",
             (value) =>
                 resolveSuiteOutputFormatOrThrow(value, {
-                    errorConstructor:
-                        getCommanderInvalidArgumentErrorConstructor()
+                    errorConstructor: InvalidArgumentError
                 }),
             SuiteOutputFormat.JSON
         )

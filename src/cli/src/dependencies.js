@@ -63,14 +63,7 @@ export {
     withObjectLike
 } from "@prettier-plugin-gml/shared";
 
-export {
-    createCommanderCommand,
-    createCommanderInvalidArgumentError,
-    createCommanderOption,
-    getCommanderCommandConstructor,
-    getCommanderInvalidArgumentErrorConstructor,
-    getCommanderOptionConstructor
-} from "./core/commander-registry.js";
+export { Command, InvalidArgumentError, Option } from "commander";
 
 export {
     isMissingModuleDependency,

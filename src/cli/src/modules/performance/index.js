@@ -7,8 +7,8 @@ import {
     SuiteOutputFormat,
     applyStandardCommandOptions,
     collectSuiteResults,
-    createCommanderCommand,
-    createCommanderOption,
+    Command,
+    Option,
     createCliErrorDetails,
     emitSuiteResults,
     ensureSuitesAreKnown,
@@ -16,7 +16,7 @@ import {
     resolveRequestedSuites,
     resolveSuiteOutputFormatOrThrow,
     wrapInvalidArgumentResolver,
-    getCommanderInvalidArgumentErrorConstructor
+    InvalidArgumentError
 } from "../dependencies.js";
 import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "../plugin-runtime-dependencies.js";
 import {
@@ -121,7 +121,7 @@ function collectValue(value, previous) {
 
 function collectPerformanceSuite(value, previous) {
     const normalized = normalizePerformanceSuiteName(value, {
-        errorConstructor: getCommanderInvalidArgumentErrorConstructor()
+        errorConstructor: InvalidArgumentError
     });
 
     return appendToCollection(normalized, previous);
@@ -608,7 +608,7 @@ AVAILABLE_SUITES.set(PerformanceSuiteName.IDENTIFIER_TEXT, () =>
 export function createPerformanceCommand() {
     const defaultReportFileDescription =
         formatReportFilePath(DEFAULT_REPORT_FILE);
-    const reportFileOption = createCommanderOption(
+    const reportFileOption = new Option(
         "--report-file <path>",
         "File path for the JSON performance report."
     )
@@ -621,15 +621,12 @@ export function createPerformanceCommand() {
         `Available suites: ${suiteListDescription}.`,
         "Defaults to all suites when omitted."
     ].join(" ");
-    const suiteOption = createCommanderOption(
-        "-s, --suite <name>",
-        suiteOptionDescription
-    )
+    const suiteOption = new Option("-s, --suite <name>", suiteOptionDescription)
         .argParser(collectPerformanceSuite)
         .default([], "all available suites");
 
     return applyStandardCommandOptions(
-        createCommanderCommand()
+        new Command()
             .name("performance")
             .usage("[options]")
             .description(
@@ -662,8 +659,7 @@ export function createPerformanceCommand() {
             "Console output format when --stdout is used: json or human.",
             (value) =>
                 resolveSuiteOutputFormatOrThrow(value, {
-                    errorConstructor:
-                        getCommanderInvalidArgumentErrorConstructor()
+                    errorConstructor: InvalidArgumentError
                 }),
             SuiteOutputFormat.JSON
         )

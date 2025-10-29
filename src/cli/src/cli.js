@@ -30,9 +30,9 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import {
-    createCommanderCommand,
-    createCommanderInvalidArgumentError,
-    createCommanderOption,
+    Command,
+    InvalidArgumentError,
+    Option,
     createListSplitPattern,
     compactArray,
     getErrorMessageOrFallback,
@@ -172,7 +172,7 @@ function createSampleLimitOption({
         ? description.join(" ")
         : description;
 
-    return createCommanderOption(flag, descriptionText)
+    return new Option(flag, descriptionText)
         .argParser(wrapInvalidArgumentResolver(parseLimit))
         .default(defaultLimit, String(defaultLimit));
 }
@@ -338,7 +338,7 @@ const DEFAULT_PRETTIER_LOG_LEVEL =
         VALID_PRETTIER_LOG_LEVELS
     ) ?? "warn";
 
-const program = applyStandardCommandOptions(createCommanderCommand())
+const program = applyStandardCommandOptions(new Command())
     .name("prettier-plugin-gml")
     .usage("[command] [options]")
     .description(
@@ -365,7 +365,7 @@ const { registry: cliCommandRegistry, runner: cliCommandRunner } =
     });
 
 function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
-    const extensionsOption = createCommanderOption(
+    const extensionsOption = new Option(
         "--extensions <list>",
         [
             "Comma- or path-delimiter-separated list of file extensions to format (e.g., .gml,.yy or .gml;.yy on Windows).",
@@ -403,7 +403,7 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         getDefaultLimit: getDefaultSkippedDirectorySampleLimit,
         resolveLimit: resolveSkippedDirectorySampleLimit
     });
-    const skippedDirectorySamplesAliasOption = createCommanderOption(
+    const skippedDirectorySamplesAliasOption = new Option(
         "--ignored-directory-samples <count>",
         "Alias for --ignored-directory-sample-limit <count>."
     )
@@ -441,7 +441,7 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
     });
 
     return applyStandardCommandOptions(
-        createCommanderCommand()
+        new Command()
             .name(name)
             .usage("[options] [path]")
             .description(
@@ -481,7 +481,7 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
                     VALID_PRETTIER_LOG_LEVELS
                 );
                 if (!normalized) {
-                    throw createCommanderInvalidArgumentError(
+                    throw new InvalidArgumentError(
                         `Must be one of: ${VALID_PRETTIER_LOG_LEVEL_CHOICES}`
                     );
                 }
@@ -502,7 +502,7 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
                     VALID_PARSE_ERROR_ACTIONS
                 );
                 if (!normalized) {
-                    throw createCommanderInvalidArgumentError(
+                    throw new InvalidArgumentError(
                         `Must be one of: ${VALID_PARSE_ERROR_ACTION_CHOICES}`
                     );
                 }
