@@ -111,10 +111,6 @@ export function restoreDefaultGmlPluginComponentDependencies() {
     return activeDependencies;
 }
 
-export function resetGmlPluginComponentDependencyProvider() {
-    return restoreDefaultGmlPluginComponentDependencies();
-}
-
 export function getGmlPluginComponentDependencyProvider() {
     return currentProvider;
 }

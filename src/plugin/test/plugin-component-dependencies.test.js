@@ -11,7 +11,6 @@ import {
     gmlPluginComponentDependencies,
     getGmlPluginComponentDependencyProvider,
     resolveGmlPluginComponentDependencies,
-    resetGmlPluginComponentDependencyProvider,
     restoreDefaultGmlPluginComponentDependencies,
     setGmlPluginComponentDependencyProvider
 } from "../src/component-providers/gml-plugin-component-dependency-registry.js";
@@ -160,7 +159,14 @@ test(
                     "custom comment handlers should be included in the normalized bundle"
                 );
             } finally {
-                restoreDefaultGmlPluginComponentDependencies();
+                const restoreResult =
+                    restoreDefaultGmlPluginComponentDependencies();
+
+                assert.strictEqual(
+                    restoreResult,
+                    gmlPluginComponentDependencies,
+                    "restoring defaults should return the canonical dependency bundle"
+                );
             }
         });
 
@@ -226,7 +232,14 @@ test(
                         remaining: 0
                     });
                 } finally {
-                    restoreDefaultGmlPluginComponentDependencies();
+                    const restoreResult =
+                        restoreDefaultGmlPluginComponentDependencies();
+
+                    assert.strictEqual(
+                        restoreResult,
+                        gmlPluginComponentDependencies,
+                        "restoring defaults should return the canonical dependency bundle"
+                    );
                 }
 
                 const restored = resolveGmlPluginComponentDependencies();
@@ -237,18 +250,5 @@ test(
                 );
             }
         );
-
-        await t.test("reset helper restores defaults", () => {
-            const bundle = createCustomDependencyBundle();
-
-            setGmlPluginComponentDependencyProvider(() => bundle.dependencies);
-            const resetResult = resetGmlPluginComponentDependencyProvider();
-
-            assert.strictEqual(
-                resetResult,
-                gmlPluginComponentDependencies,
-                "reset helper should restore the default dependency bundle"
-            );
-        });
     }
 );
