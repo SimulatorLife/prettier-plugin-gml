@@ -156,7 +156,7 @@ export function createDefaultGmlPluginComponents() {
                 category: "gml",
                 default: false,
                 description:
-                    "Convert return statements like 'return !condition;' into ternaries to preserve unary negation semantics while condensing output."
+                    "Reserved toggle for future unary boolean return condensation. Exposed for compatibility but currently has no effect."
             },
             condenseReturnStatements: {
                 since: "0.0.0",
@@ -164,7 +164,7 @@ export function createDefaultGmlPluginComponents() {
                 category: "gml",
                 default: false,
                 description:
-                    "Combine complementary 'if' branches that return literal booleans into a single return statement with the simplified expression."
+                    "Reserved toggle for future boolean return condensation logic. Present in the option schema yet intentionally inert today."
             }
 
             // Legacy whitespace toggles (preserveLineBreaks, maintainArrayIndentation,
