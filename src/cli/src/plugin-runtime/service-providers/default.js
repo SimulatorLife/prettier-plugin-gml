@@ -1,5 +1,5 @@
 import { assertFunction } from "../dependencies.js";
-import { defaultCliPluginServiceDependencies } from "./default-service-dependencies.js";
+import { resolveCliPluginServiceDependencies } from "./cli-plugin-service-dependency-registry.js";
 
 /**
  * The legacy `identifierCasePlanService` facade coupled plan preparation with
@@ -50,7 +50,7 @@ export function createDefaultCliPluginServices(descriptorOverrides) {
         projectIndexBuilder: baseProjectIndexBuilder,
         identifierCasePlanPreparer: baseIdentifierCasePlanPreparer,
         identifierCaseCacheClearer: baseIdentifierCaseCacheClearer
-    } = defaultCliPluginServiceDependencies;
+    } = resolveCliPluginServiceDependencies();
 
     const projectIndexBuilder =
         descriptors.projectIndexBuilder ?? baseProjectIndexBuilder;
