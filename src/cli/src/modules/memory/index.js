@@ -15,7 +15,6 @@ import {
     isNonEmptyString,
     normalizeStringList,
     toNormalizedLowerCaseString,
-    loadGmlParser,
     resolveModuleDefaultExport,
     parseJsonObjectWithContext,
     splitLines,
@@ -36,6 +35,7 @@ import {
     resolveSuiteOutputFormatOrThrow,
     wrapInvalidArgumentResolver
 } from "../dependencies.js";
+import { loadGmlParser } from "./gml-parser.js";
 import { importPluginModule } from "../plugin-runtime-dependencies.js";
 import { writeJsonArtifact } from "../fs-artifacts.js";
 
