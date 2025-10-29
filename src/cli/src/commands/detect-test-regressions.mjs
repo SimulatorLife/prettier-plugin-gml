@@ -131,146 +131,205 @@ function parseAttributes(source) {
     return attributes;
 }
 
+// The fallback XML parser uses an explicit state bag so the orchestration logic
+// can delegate low-level mutations to focused helpers.
+function createXmlParserState(xml) {
+    return {
+        xml,
+        index: 0,
+        root: {},
+        stack: []
+    };
+}
+
+function currentParent({ root, stack }) {
+    return stack.length > 0 ? stack.at(-1).value : root;
+}
+
+function appendText(state, text, { preserveWhitespace = false } = {}) {
+    if (state.stack.length === 0) {
+        return;
+    }
+    const target = state.stack.at(-1).value;
+    const normalized = preserveWhitespace
+        ? text
+        : text.replaceAll(/\s+/g, " ").trim();
+    if (!normalized) {
+        return;
+    }
+    const decoded = decodeEntities(normalized);
+    if (hasOwn(target, "#text")) {
+        target["#text"] = preserveWhitespace
+            ? target["#text"] + decoded
+            : `${target["#text"]} ${decoded}`.trim();
+    } else {
+        target["#text"] = decoded;
+    }
+}
+
+function advanceToNextTag(state, nextTag) {
+    if (nextTag > state.index) {
+        appendText(state, state.xml.slice(state.index, nextTag));
+    }
+    state.index = nextTag;
+}
+
+function tryConsumeComment(state) {
+    if (!state.xml.startsWith("<!--", state.index)) {
+        return false;
+    }
+    const endComment = state.xml.indexOf("-->", state.index + 4);
+    if (endComment === -1) {
+        throw new Error("Unterminated XML comment.");
+    }
+    state.index = endComment + 3;
+    return true;
+}
+
+function tryConsumeCdata(state) {
+    if (!state.xml.startsWith("<![CDATA[", state.index)) {
+        return false;
+    }
+    const endCdata = state.xml.indexOf("]]>", state.index + 9);
+    if (endCdata === -1) {
+        throw new Error("Unterminated CDATA section.");
+    }
+    appendText(state, state.xml.slice(state.index + 9, endCdata), {
+        preserveWhitespace: true
+    });
+    state.index = endCdata + 3;
+    return true;
+}
+
+function tryConsumeProcessingInstruction(state) {
+    if (!state.xml.startsWith("<?", state.index)) {
+        return false;
+    }
+    const endInstruction = state.xml.indexOf("?>", state.index + 2);
+    if (endInstruction === -1) {
+        throw new Error("Unterminated processing instruction.");
+    }
+    state.index = endInstruction + 2;
+    return true;
+}
+
+function tryConsumeDoctype(state) {
+    if (!state.xml.startsWith("<!DOCTYPE", state.index)) {
+        return false;
+    }
+    const endDoctype = state.xml.indexOf(">", state.index + 9);
+    if (endDoctype === -1) {
+        throw new Error("Unterminated DOCTYPE declaration.");
+    }
+    state.index = endDoctype + 1;
+    return true;
+}
+
+function readTagContent(state) {
+    const closingBracket = state.xml.indexOf(">", state.index + 1);
+    if (closingBracket === -1) {
+        throw new Error("Unterminated XML tag.");
+    }
+    const rawContent = state.xml.slice(state.index + 1, closingBracket);
+    state.index = closingBracket + 1;
+    return rawContent;
+}
+
+function tryHandleClosingTag(state, trimmed) {
+    if (!trimmed.startsWith("/")) {
+        return false;
+    }
+    if (state.stack.length === 0) {
+        return true;
+    }
+    const closingName = trimmed.slice(1).trim();
+    const last = state.stack.pop();
+    if (closingName && last && last.name && closingName !== last.name) {
+        throw new Error(
+            `Mismatched closing tag: expected </${last.name}>, received </${closingName}>.`
+        );
+    }
+    return true;
+}
+
+function handleOpeningTag(state, trimmed) {
+    const selfClosing = /\/\s*$/.test(trimmed);
+    const content = selfClosing
+        ? trimmed.replace(/\/\s*$/, "").trim()
+        : trimmed;
+    if (!content) {
+        return;
+    }
+    const nameMatch = content.match(/^[\w:.-]+/);
+    if (!nameMatch) {
+        throw new Error(`Unable to parse XML tag: <${content}>.`);
+    }
+    const tagName = nameMatch[0];
+    const attributeSource = content.slice(tagName.length).trim();
+    const attributes = parseAttributes(attributeSource);
+    const nodeValue =
+        Object.keys(attributes).length > 0 ? { ...attributes } : {};
+    const parent = currentParent(state);
+    attachChildNode(parent, tagName, nodeValue);
+
+    if (!selfClosing) {
+        state.stack.push({ name: tagName, value: nodeValue });
+    }
+}
+
+function ensureStackBalanced(state) {
+    if (state.stack.length > 0) {
+        throw new Error(`Unclosed XML tag: <${state.stack.at(-1).name}>.`);
+    }
+}
+
 function parseXmlDocument(xml) {
     if (typeof xml !== "string") {
         throw new TypeError("XML content must be a string.");
     }
 
-    const root = {};
-    const stack = [];
-    let index = 0;
+    const state = createXmlParserState(xml);
 
-    function currentParent() {
-        return stack.length > 0 ? stack.at(-1).value : root;
-    }
-
-    function appendText(text, { preserveWhitespace = false } = {}) {
-        if (stack.length === 0) {
-            return;
-        }
-        const target = stack.at(-1).value;
-        const normalized = preserveWhitespace
-            ? text
-            : text.replaceAll(/\s+/g, " ").trim();
-        if (!normalized) {
-            return;
-        }
-        const decoded = decodeEntities(normalized);
-        if (hasOwn(target, "#text")) {
-            target["#text"] = preserveWhitespace
-                ? target["#text"] + decoded
-                : `${target["#text"]} ${decoded}`.trim();
-        } else {
-            target["#text"] = decoded;
-        }
-    }
-
-    while (index < xml.length) {
-        const nextTag = xml.indexOf("<", index);
+    while (state.index < state.xml.length) {
+        const nextTag = state.xml.indexOf("<", state.index);
         if (nextTag === -1) {
-            appendText(xml.slice(index));
+            appendText(state, state.xml.slice(state.index));
             break;
         }
 
-        if (nextTag > index) {
-            appendText(xml.slice(index, nextTag));
-        }
+        advanceToNextTag(state, nextTag);
 
-        if (xml.startsWith("<!--", nextTag)) {
-            const endComment = xml.indexOf("-->", nextTag + 4);
-            if (endComment === -1) {
-                throw new Error("Unterminated XML comment.");
-            }
-            index = endComment + 3;
+        if (tryConsumeComment(state)) {
             continue;
         }
 
-        if (xml.startsWith("<![CDATA[", nextTag)) {
-            const endCdata = xml.indexOf("]]>", nextTag + 9);
-            if (endCdata === -1) {
-                throw new Error("Unterminated CDATA section.");
-            }
-            appendText(xml.slice(nextTag + 9, endCdata), {
-                preserveWhitespace: true
-            });
-            index = endCdata + 3;
+        if (tryConsumeCdata(state)) {
             continue;
         }
 
-        if (xml.startsWith("<?", nextTag)) {
-            const endInstruction = xml.indexOf("?>", nextTag + 2);
-            if (endInstruction === -1) {
-                throw new Error("Unterminated processing instruction.");
-            }
-            index = endInstruction + 2;
+        if (tryConsumeProcessingInstruction(state)) {
             continue;
         }
 
-        if (xml.startsWith("<!DOCTYPE", nextTag)) {
-            const endDoctype = xml.indexOf(">", nextTag + 9);
-            if (endDoctype === -1) {
-                throw new Error("Unterminated DOCTYPE declaration.");
-            }
-            index = endDoctype + 1;
+        if (tryConsumeDoctype(state)) {
             continue;
         }
 
-        const closingBracket = xml.indexOf(">", nextTag + 1);
-        if (closingBracket === -1) {
-            throw new Error("Unterminated XML tag.");
-        }
-
-        const rawContent = xml.slice(nextTag + 1, closingBracket);
-        index = closingBracket + 1;
+        const rawContent = readTagContent(state);
         const trimmed = getNonEmptyTrimmedString(rawContent);
         if (!trimmed) {
             continue;
         }
 
-        if (trimmed.startsWith("/")) {
-            if (stack.length === 0) {
-                continue;
-            }
-            const closingName = trimmed.slice(1).trim();
-            const last = stack.pop();
-            if (closingName && last && last.name && closingName !== last.name) {
-                throw new Error(
-                    `Mismatched closing tag: expected </${last.name}>, received </${closingName}>.`
-                );
-            }
+        if (tryHandleClosingTag(state, trimmed)) {
             continue;
         }
 
-        const selfClosing = /\/\s*$/.test(trimmed);
-        const content = selfClosing
-            ? trimmed.replace(/\/\s*$/, "").trim()
-            : trimmed;
-        if (!content) {
-            continue;
-        }
-
-        const nameMatch = content.match(/^([\w:.-]+)/);
-        if (!nameMatch) {
-            throw new Error(`Unable to parse XML tag: <${content}>.`);
-        }
-        const tagName = nameMatch[1];
-        const attributeSource = content.slice(tagName.length).trim();
-        const attributes = parseAttributes(attributeSource);
-        const nodeValue =
-            Object.keys(attributes).length > 0 ? { ...attributes } : {};
-        const parent = currentParent();
-        attachChildNode(parent, tagName, nodeValue);
-
-        if (!selfClosing) {
-            stack.push({ name: tagName, value: nodeValue });
-        }
+        handleOpeningTag(state, trimmed);
     }
 
-    if (stack.length > 0) {
-        throw new Error(`Unclosed XML tag: <${stack.at(-1).name}>.`);
-    }
-
-    return root;
+    ensureStackBalanced(state);
+    return state.root;
 }
 
 function normalizeSuiteName(name) {
