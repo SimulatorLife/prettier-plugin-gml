@@ -379,6 +379,23 @@ function formatLineComment(
         return applyInlinePadding(comment, formatted);
     }
 
+    if (trimmedOriginal.startsWith("///") && !trimmedOriginal.includes("@")) {
+        const remainder = trimmedOriginal.slice(3).trimStart();
+
+        if (comment?.isBottomComment === true && /^\d/.test(remainder)) {
+            const formatted = remainder.length > 0 ? `// ${remainder}` : "//";
+            return applyInlinePadding(comment, formatted);
+        }
+
+        if (
+            !isInlineComment &&
+            /^\d+\s*[).:-]/.test(remainder)
+        ) {
+            const formatted = `// ${remainder}`;
+            return applyInlinePadding(comment, formatted);
+        }
+    }
+
     if (
         trimmedOriginal.startsWith("///") &&
         !trimmedOriginal.includes("@") &&

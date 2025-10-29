@@ -55,6 +55,22 @@ export function convertManualMathExpressions(
     return ast;
 }
 
+export function condenseScalarMultipliers(
+    ast,
+    helpers = DEFAULT_HELPERS,
+    context = null
+) {
+    if (!ast || typeof ast !== "object") {
+        return ast;
+    }
+
+    const normalizedHelpers = normalizeHasCommentHelpers(helpers);
+
+    traverseForScalarCondense(ast, normalizedHelpers, new Set(), context);
+
+    return ast;
+}
+
 function traverse(node, helpers, seen, context) {
     if (!node || typeof node !== "object") {
         return;
@@ -78,6 +94,21 @@ function traverse(node, helpers, seen, context) {
         changed = false;
 
         if (node.type === BINARY_EXPRESSION) {
+            if (attemptConvertDegreesToRadians(node, helpers, context)) {
+                changed = true;
+                continue;
+            }
+
+            if (attemptCondenseScalarProduct(node, helpers, context)) {
+                changed = true;
+                continue;
+            }
+
+            if (attemptCollectDistributedScalars(node, helpers, context)) {
+                changed = true;
+                continue;
+            }
+
             if (attemptConvertRepeatedPower(node, helpers)) {
                 changed = true;
                 continue;
@@ -144,6 +175,265 @@ function traverse(node, helpers, seen, context) {
 
         traverse(value, helpers, seen, context);
     }
+}
+
+function traverseForScalarCondense(node, helpers, seen, context) {
+    if (!node || typeof node !== "object") {
+        return;
+    }
+
+    if (seen.has(node)) {
+        return;
+    }
+
+    seen.add(node);
+
+    if (Array.isArray(node)) {
+        for (const element of node) {
+            traverseForScalarCondense(element, helpers, seen, context);
+        }
+        return;
+    }
+
+    if (node.type === BINARY_EXPRESSION) {
+        if (attemptConvertDegreesToRadians(node, helpers, context)) {
+            return;
+        }
+
+        attemptCondenseScalarProduct(node, helpers, context);
+        attemptCollectDistributedScalars(node, helpers, context);
+    }
+
+    for (const [key, value] of Object.entries(node)) {
+        if (key === "parent" || !value || typeof value !== "object") {
+            continue;
+        }
+
+        traverseForScalarCondense(value, helpers, seen, context);
+    }
+}
+
+function attemptCondenseScalarProduct(node, helpers, context) {
+    if (!node) {
+        return false;
+    }
+
+    if (!isBinaryOperator(node, "*") && !isBinaryOperator(node, "/")) {
+        return false;
+    }
+
+    const chain = {
+        numerators: [],
+        denominators: []
+    };
+
+    if (!collectMultiplicativeChain(node, helpers, chain, false, context)) {
+        return false;
+    }
+
+    if (chain.denominators.length === 0) {
+        return false;
+    }
+
+    let nonNumericTerm = null;
+    let coefficient = 1;
+    let hasNumericContribution = false;
+    let meaningfulNumericFactorCount = 0;
+    const unitTolerance = computeNumericTolerance(1);
+
+    for (const term of chain.numerators) {
+        if (
+            helpers.hasComment(term.expression) ||
+            (term.raw && helpers.hasComment(term.raw))
+        ) {
+            return false;
+        }
+
+        const numericValue = parseNumericFactor(term.expression);
+        if (numericValue === null) {
+            if (nonNumericTerm !== null) {
+                return false;
+            }
+
+            nonNumericTerm = term;
+            continue;
+        }
+
+        hasNumericContribution = true;
+        coefficient *= numericValue;
+
+        if (
+            Math.abs(numericValue - 1) > unitTolerance &&
+            Math.abs(numericValue + 1) > unitTolerance
+        ) {
+            meaningfulNumericFactorCount += 1;
+        }
+    }
+
+    if (nonNumericTerm === null) {
+        return false;
+    }
+
+    for (const term of chain.denominators) {
+        if (
+            helpers.hasComment(term.expression) ||
+            (term.raw && helpers.hasComment(term.raw))
+        ) {
+            return false;
+        }
+
+        const numericValue = parseNumericFactor(term.expression);
+        if (numericValue === null || numericValue === 0) {
+            return false;
+        }
+
+        hasNumericContribution = true;
+        coefficient /= numericValue;
+
+        if (
+            Math.abs(numericValue - 1) > unitTolerance &&
+            Math.abs(numericValue + 1) > unitTolerance
+        ) {
+            meaningfulNumericFactorCount += 1;
+        }
+    }
+
+    if (!hasNumericContribution) {
+        return false;
+    }
+
+    if (!Number.isFinite(coefficient)) {
+        return false;
+    }
+
+    const tolerance = computeNumericTolerance(1);
+    if (
+        Math.abs(coefficient) <= computeNumericTolerance(0) ||
+        Math.abs(coefficient - 1) <= tolerance ||
+        Math.abs(coefficient + 1) <= tolerance
+    ) {
+        return false;
+    }
+
+    if (meaningfulNumericFactorCount < 2) {
+        const coefficientMagnitude = Math.abs(coefficient);
+        if (coefficientMagnitude <= 1 + unitTolerance) {
+            return false;
+        }
+    }
+
+    const normalizedCoefficient = normalizeNumericCoefficient(coefficient);
+    if (normalizedCoefficient === null) {
+        return false;
+    }
+
+    const clonedOperand = cloneAstNode(nonNumericTerm.raw);
+    const literal = createNumericLiteral(normalizedCoefficient, node);
+
+    if (!clonedOperand || !literal) {
+        return false;
+    }
+
+    node.operator = "*";
+    node.left = clonedOperand;
+    node.right = literal;
+
+    return true;
+}
+
+function attemptCollectDistributedScalars(node, helpers, context) {
+    if (!isBinaryOperator(node, "+") || helpers.hasComment(node)) {
+        return false;
+    }
+
+    if (context && hasInlineCommentBetween(node.left, node.right, context)) {
+        return false;
+    }
+
+    const terms = [];
+    collectAdditionTerms(node, terms);
+
+    if (terms.length !== 2) {
+        return false;
+    }
+
+    const scalarTerms = [];
+    for (const term of terms) {
+        const details = extractScalarAdditionTerm(term, helpers, context);
+        if (
+            !details ||
+            !details.base ||
+            !details.rawBase ||
+            details.hasExplicitCoefficient !== true
+        ) {
+            return false;
+        }
+
+        scalarTerms.push(details);
+    }
+
+    if (!areNodesEquivalent(scalarTerms[0].base, scalarTerms[1].base)) {
+        return false;
+    }
+
+    if (!isSafeOperand(scalarTerms[0].base)) {
+        return false;
+    }
+
+    const coefficient = scalarTerms[0].coefficient + scalarTerms[1].coefficient;
+
+    if (!Number.isFinite(coefficient)) {
+        return false;
+    }
+
+    const normalizedCoefficient = normalizeNumericCoefficient(coefficient);
+    if (normalizedCoefficient === null) {
+        return false;
+    }
+
+    const numericValue = Number(normalizedCoefficient);
+    if (Number.isFinite(numericValue)) {
+        const zeroTolerance = computeNumericTolerance(0);
+        const unitTolerance = computeNumericTolerance(1);
+
+        if (
+            Math.abs(numericValue) <= zeroTolerance ||
+            Math.abs(numericValue - 1) <= unitTolerance ||
+            Math.abs(numericValue + 1) <= unitTolerance
+        ) {
+            return false;
+        }
+    }
+
+    const baseClone = cloneAstNode(scalarTerms[0].rawBase);
+    const literal = createNumericLiteral(normalizedCoefficient, node);
+
+    if (!baseClone || !literal) {
+        return false;
+    }
+
+    node.operator = "*";
+    node.left = baseClone;
+    node.right = literal;
+
+    return true;
+}
+
+function attemptConvertDegreesToRadians(node, helpers, context) {
+    if (
+        (!isBinaryOperator(node, "*") && !isBinaryOperator(node, "/")) ||
+        hasCommentsInDegreesToRadiansPattern(node, helpers, context, true)
+    ) {
+        return false;
+    }
+
+    const angle = matchDegreesToRadians(node);
+    if (!angle) {
+        return false;
+    }
+
+    mutateToCallExpression(node, "degtorad", [cloneAstNode(angle)], node);
+    return true;
 }
 
 function attemptConvertSquare(node, helpers, context) {
@@ -665,6 +955,167 @@ function collectAdditionTerms(node, output) {
     output.push(expression);
 }
 
+function extractScalarAdditionTerm(expression, helpers, context) {
+    if (!expression || helpers.hasComment(expression)) {
+        return null;
+    }
+
+    if (expression.type === BINARY_EXPRESSION && expression.operator === "*") {
+        const rawLeft = expression.left;
+        const rawRight = expression.right;
+
+        if (!rawLeft || !rawRight) {
+            return null;
+        }
+
+        if (
+            helpers.hasComment(rawLeft) ||
+            helpers.hasComment(rawRight) ||
+            (context && hasInlineCommentBetween(rawLeft, rawRight, context))
+        ) {
+            return null;
+        }
+
+        const left = unwrapExpression(rawLeft);
+        const right = unwrapExpression(rawRight);
+
+        if (!left || !right) {
+            return null;
+        }
+
+        if (helpers.hasComment(left) || helpers.hasComment(right)) {
+            return null;
+        }
+
+        const leftValue = parseNumericFactor(left);
+        const rightValue = parseNumericFactor(right);
+
+        if (leftValue !== null && rightValue !== null) {
+            return null;
+        }
+
+        if (leftValue !== null) {
+            return {
+                coefficient: leftValue,
+                base: right,
+                rawBase: rawRight,
+                hasExplicitCoefficient: true
+            };
+        }
+
+        if (rightValue !== null) {
+            return {
+                coefficient: rightValue,
+                base: left,
+                rawBase: rawLeft,
+                hasExplicitCoefficient: true
+            };
+        }
+
+        return null;
+    }
+
+    const literalValue = parseNumericFactor(expression);
+    if (literalValue !== null) {
+        return {
+            coefficient: literalValue,
+            base: null,
+            rawBase: null,
+            hasExplicitCoefficient: false
+        };
+    }
+
+    return {
+        coefficient: 1,
+        base: expression,
+        rawBase: expression,
+        hasExplicitCoefficient: false
+    };
+}
+
+function collectMultiplicativeChain(
+    node,
+    helpers,
+    output,
+    includeInDenominator,
+    context
+) {
+    const expression = unwrapExpression(node);
+    if (!expression) {
+        return false;
+    }
+
+    if (expression.type === BINARY_EXPRESSION) {
+        const operator = expression.operator;
+
+        if (operator === "*" || operator === "/") {
+            if (
+                context &&
+                hasInlineCommentBetween(
+                    expression.left,
+                    expression.right,
+                    context
+                )
+            ) {
+                return false;
+            }
+
+            if (operator === "/") {
+                const rightExpression = unwrapExpression(expression.right);
+                if (!rightExpression) {
+                    return false;
+                }
+
+                if (parseNumericFactor(rightExpression) === null) {
+                    const collection = includeInDenominator
+                        ? output.denominators
+                        : output.numerators;
+
+                    collection.push({ raw: node, expression });
+                    return true;
+                }
+            }
+
+            if (
+                !collectMultiplicativeChain(
+                    expression.left,
+                    helpers,
+                    output,
+                    includeInDenominator,
+                    context
+                )
+            ) {
+                return false;
+            }
+
+            if (operator === "/") {
+                return collectMultiplicativeChain(
+                    expression.right,
+                    helpers,
+                    output,
+                    !includeInDenominator,
+                    context
+                );
+            }
+
+            return collectMultiplicativeChain(
+                expression.right,
+                helpers,
+                output,
+                includeInDenominator,
+                context
+            );
+        }
+    }
+
+    const collection = includeInDenominator
+        ? output.denominators
+        : output.numerators;
+
+    collection.push({ raw: node, expression });
+    return true;
+}
+
 function collectProductOperands(node, output, helpers) {
     const expression = unwrapExpression(node);
     if (!expression) {
@@ -822,6 +1273,51 @@ function matchDegreesToRadians(node) {
     return null;
 }
 
+function hasCommentsInDegreesToRadiansPattern(
+    node,
+    helpers,
+    context,
+    skipSelfCheck = false
+) {
+    const expression = unwrapExpression(node);
+    if (!expression || expression.type !== BINARY_EXPRESSION) {
+        return false;
+    }
+
+    const operator =
+        typeof expression.operator === "string"
+            ? expression.operator.toLowerCase()
+            : null;
+
+    if (operator !== "*" && operator !== "/") {
+        return false;
+    }
+
+    const rawLeft = expression.left;
+    const rawRight = expression.right;
+
+    if (!rawLeft || !rawRight) {
+        return true;
+    }
+
+    if (
+        (!skipSelfCheck && helpers.hasComment(expression)) ||
+        helpers.hasComment(rawLeft) ||
+        helpers.hasComment(rawRight)
+    ) {
+        return true;
+    }
+
+    if (context && hasInlineCommentBetween(rawLeft, rawRight, context)) {
+        return true;
+    }
+
+    return (
+        hasCommentsInDegreesToRadiansPattern(rawLeft, helpers, context) ||
+        hasCommentsInDegreesToRadiansPattern(rawRight, helpers, context)
+    );
+}
+
 function isBinaryOperator(node, operator) {
     return (
         node &&
@@ -838,6 +1334,23 @@ function computeNumericTolerance(expected, providedTolerance) {
 
     const magnitude = Math.max(1, Math.abs(expected));
     return Number.EPSILON * magnitude * 4;
+}
+
+function normalizeNumericCoefficient(value) {
+    if (!Number.isFinite(value)) {
+        return null;
+    }
+
+    const rounded = Number(value.toPrecision(12));
+    if (!Number.isFinite(rounded)) {
+        return null;
+    }
+
+    if (Object.is(rounded, -0)) {
+        return "0";
+    }
+
+    return rounded.toString();
 }
 
 function areLiteralNumbersApproximatelyEqual(left, right) {
@@ -900,6 +1413,59 @@ function parseNumericLiteral(node) {
     }
 
     return null;
+}
+
+function parseNumericFactor(node) {
+    const expression = unwrapExpression(node);
+    if (!expression) {
+        return null;
+    }
+
+    if (expression.type === BINARY_EXPRESSION) {
+        const operator =
+            typeof expression.operator === "string"
+                ? expression.operator.toLowerCase()
+                : null;
+
+        if (operator === "*" || operator === "/") {
+            const leftValue = parseNumericFactor(expression.left);
+            const rightValue = parseNumericFactor(expression.right);
+
+            if (leftValue === null || rightValue === null) {
+                return null;
+            }
+
+            if (operator === "*") {
+                return leftValue * rightValue;
+            }
+
+            if (Math.abs(rightValue) <= computeNumericTolerance(0)) {
+                return null;
+            }
+
+            return leftValue / rightValue;
+        }
+    }
+
+    if (expression.type === UNARY_EXPRESSION) {
+        const value = parseNumericFactor(expression.argument);
+        if (value === null) {
+            return null;
+        }
+
+        if (expression.operator === "-") {
+            return -value;
+        }
+
+        if (expression.operator === "+") {
+            return value;
+        }
+
+        return null;
+    }
+
+    const literalValue = parseNumericLiteral(expression);
+    return literalValue ?? null;
 }
 
 function isPiIdentifier(node) {
