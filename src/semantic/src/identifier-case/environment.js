@@ -37,6 +37,17 @@ function sanitizeBootstrapResult(bootstrap) {
     clearOwnProperty(bootstrap, "coordinator");
 
     if (typeof bootstrap.dispose === "function") {
+        // The sanitized bootstrap stays attached to the Prettier options bag so
+        // downstream diagnostics can report whether the index came from a cache
+        // hit or a rebuild (see
+        // docs/legacy-identifier-case-plan.md#bootstrap-configuration-and-caching).
+        // Callers that probe this metadata still invoke `dispose()` inside
+        // their own finally blocks—mirroring the rollout guidance in that doc—so
+        // replacing the method with a noop keeps the teardown idempotent after
+        // we have already released the underlying file watchers and caches.
+        // Deleting the method or leaving the original callback in place would
+        // cause those consumers to either crash (missing method) or double-free
+        // resources that were never designed to be re-disposed.
         bootstrap.dispose = noop;
     }
 
