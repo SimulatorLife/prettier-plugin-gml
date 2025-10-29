@@ -5,7 +5,10 @@ import path from "node:path";
 import { afterEach, describe, it, mock } from "node:test";
 
 import {
-    createManualGitHubClientBundle,
+    createManualGitHubCommitResolver,
+    createManualGitHubFileClient,
+    createManualGitHubRefResolver,
+    createManualGitHubRequestDispatcher,
     createManualVerboseState
 } from "../src/modules/manual/utils.js";
 
@@ -33,12 +36,21 @@ function createManualClientBundle({
     defaultCacheRoot,
     defaultRawRoot
 }) {
-    const { requestDispatcher, commitResolver, refResolver, fileClient } =
-        createManualGitHubClientBundle({
-            userAgent,
-            defaultCacheRoot,
-            defaultRawRoot
-        });
+    const requestDispatcher = createManualGitHubRequestDispatcher({
+        userAgent
+    });
+    const commitResolver = createManualGitHubCommitResolver({
+        requestDispatcher
+    });
+    const refResolver = createManualGitHubRefResolver({
+        requestDispatcher,
+        commitResolver
+    });
+    const fileClient = createManualGitHubFileClient({
+        requestDispatcher,
+        defaultCacheRoot,
+        defaultRawRoot
+    });
 
     return {
         requestDispatcher,

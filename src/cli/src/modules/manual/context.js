@@ -3,7 +3,10 @@ import { fileURLToPath } from "node:url";
 
 import {
     buildManualRepositoryEndpoints,
-    createManualGitHubClientBundle,
+    createManualGitHubCommitResolver,
+    createManualGitHubFileClient,
+    createManualGitHubRefResolver,
+    createManualGitHubRequestDispatcher,
     resolveManualCacheRoot
 } from "./utils.js";
 import {
@@ -112,13 +115,23 @@ function buildManualCommandContext({
     const defaultCacheRoot = resolveManualCacheRoot({ repoRoot });
     const { rawRoot: defaultManualRawRoot } = buildManualRepositoryEndpoints();
 
-    const {
+    const normalizedUserAgent = assertUserAgent(userAgent);
+
+    // Manual GitHub helpers are wired independently so call sites can depend on
+    // the specific collaborator they require without pulling in the full
+    // request/commit/ref/file bundle.
+    const manualRequests = createManualGitHubRequestDispatcher({
+        userAgent: normalizedUserAgent
+    });
+    const manualCommitResolver = createManualGitHubCommitResolver({
+        requestDispatcher: manualRequests
+    });
+    const manualRefResolver = createManualGitHubRefResolver({
         requestDispatcher: manualRequests,
-        commitResolver: manualCommitResolver,
-        refResolver: manualRefResolver,
-        fileClient: manualFileFetcher
-    } = createManualGitHubClientBundle({
-        userAgent: assertUserAgent(userAgent),
+        commitResolver: manualCommitResolver
+    });
+    const manualFileFetcher = createManualGitHubFileClient({
+        requestDispatcher: manualRequests,
         defaultCacheRoot,
         defaultRawRoot: defaultManualRawRoot,
         workflowPathFilter
