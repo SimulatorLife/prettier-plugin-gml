@@ -76,7 +76,7 @@ describe("manual file helpers", () => {
                 contents: "payload",
                 pathFilter: filter
             }),
-            /Refusing to write artefact outside permitted paths/i
+            /Artefact output path '[^']+' is not permitted by workflow path filters\./
         );
     });
 });
