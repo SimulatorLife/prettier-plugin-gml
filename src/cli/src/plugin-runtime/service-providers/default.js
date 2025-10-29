@@ -36,15 +36,16 @@ function assertDescriptorValue(value, description) {
 }
 
 export function createDefaultCliPluginServices(descriptorOverrides) {
-    if (descriptorOverrides == null) {
-        descriptorOverrides = {};
-    } else if (typeof descriptorOverrides !== "object") {
+    if (
+        descriptorOverrides != null &&
+        typeof descriptorOverrides !== "object"
+    ) {
         throw new TypeError(
             "CLI plugin service descriptors must be provided as objects."
         );
     }
 
-    const descriptors = descriptorOverrides;
+    const descriptors = descriptorOverrides ?? {};
 
     const {
         projectIndexBuilder: baseProjectIndexBuilder,
