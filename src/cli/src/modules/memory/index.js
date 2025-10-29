@@ -37,7 +37,7 @@ import {
 } from "../dependencies.js";
 import { loadGmlParser } from "./gml-parser.js";
 import { importPluginModule } from "../plugin-runtime-dependencies.js";
-import { writeJsonArtifact } from "../fs-artifacts.js";
+import { writeJsonArtifact } from "../../shared/fs-artifacts.js";
 
 export const DEFAULT_ITERATIONS = 500_000;
 export const MEMORY_ITERATIONS_ENV_VAR = "GML_MEMORY_ITERATIONS";

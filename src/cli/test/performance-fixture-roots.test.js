@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 import {
     DEFAULT_FIXTURE_DIRECTORIES,
     normalizeFixtureRoots
-} from "../src/modules/performance/fixture-roots.js";
+} from "../src/shared/workflow/fixture-roots.js";
 
 describe("normalizeFixtureRoots", () => {
     it("includes default fixture directories by default", () => {
