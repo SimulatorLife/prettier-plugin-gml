@@ -19,6 +19,7 @@ import { convertStringConcatenations } from "../ast-transforms/convert-string-co
 import { condenseLogicalExpressions } from "../ast-transforms/condense-logical-expressions.js";
 import { convertManualMathExpressions } from "../ast-transforms/convert-manual-math.js";
 import { convertUndefinedGuardAssignments } from "../ast-transforms/convert-undefined-guard-assignments.js";
+import { simplifyMultiplicativeConstants } from "../ast-transforms/simplify-multiplicative-constants.js";
 import {
     getNodeStartIndex,
     getNodeEndIndex,
@@ -194,6 +195,7 @@ async function parse(text, options) {
         }
 
         convertUndefinedGuardAssignments(ast);
+        simplifyMultiplicativeConstants(ast);
         preprocessFunctionArgumentDefaults(ast);
         collapseRedundantMissingCallArguments(ast);
         enforceVariableBlockSpacing(ast);
