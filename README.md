@@ -611,7 +611,7 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 
 #### Core formatter behaviour
 
-Optional arguments without explicit defaults always render as `undefined` in formatted output.
+Optional parameters that rely on implicit `undefined` defaults are normalized: redundant `= undefined` sentinels are stripped from regular function declarations, while constructors and explicitly optional parameters keep the sentinel intact.
 
 Template strings that never interpolate expressions automatically collapse back to regular quoted strings, stripping the `$` prefix so placeholder-free text stays concise.
 

@@ -133,16 +133,18 @@ function createManualGitHubRequestError({ url, response, bodyText, cause }) {
               ? bodyText.trim()
               : "";
 
+    const statusLabel = [status, statusText]
+        .filter((value) => value !== undefined && value !== "")
+        .map(String)
+        .join(" ");
+
     const detail =
         typeof responseBody === "string" && responseBody.length > 0
             ? responseBody
             : cause === undefined
               ? ""
               : getErrorMessageOrFallback(cause);
-    const statusLabel = [status, statusText]
-        .filter((value) => value !== undefined && value !== "")
-        .map(String)
-        .join(" ");
+
     const message = `Request failed for ${url}${
         statusLabel ? ` (${statusLabel})` : ""
     }${detail ? `: ${detail}` : ""}`;

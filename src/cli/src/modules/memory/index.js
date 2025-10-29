@@ -9,9 +9,9 @@ import {
     Command,
     createEnvConfiguredValue,
     createEnumeratedOptionHelpers,
+    describeValueWithArticle,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
-    getObjectTagName,
     incrementMapValue,
     InvalidArgumentError,
     isNonEmptyString,
@@ -242,11 +242,6 @@ const {
 } = astCommonNodeLimitToolkit;
 
 const sampleCache = new Map();
-const STARTS_WITH_VOWEL_PATTERN = /^[aeiou]/i;
-
-function formatWithIndefiniteArticle(label) {
-    return `${STARTS_WITH_VOWEL_PATTERN.test(label) ? "an" : "a"} ${label}`;
-}
 
 function resolveProjectPath(relativePath) {
     return path.resolve(PROJECT_ROOT, relativePath);
@@ -269,29 +264,7 @@ async function loadSampleText(label, relativePath) {
 }
 
 function describeFormatterOptionsValue(value) {
-    if (value === null) {
-        return "null";
-    }
-
-    if (Array.isArray(value)) {
-        return "an array";
-    }
-
-    if (value === undefined) {
-        return "undefined";
-    }
-
-    const type = typeof value;
-    if (type !== "object") {
-        return formatWithIndefiniteArticle(type);
-    }
-
-    const tagLabel = getObjectTagName(value);
-    if (tagLabel) {
-        return `${formatWithIndefiniteArticle(tagLabel)} object`;
-    }
-
-    return "an object";
+    return describeValueWithArticle(value);
 }
 
 function buildFormatterOptionsTypeErrorMessage(source, value) {

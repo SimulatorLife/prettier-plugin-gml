@@ -1,7 +1,11 @@
-import { getNonEmptyTrimmedString } from "../shared/dependencies.js";
+import {
+    asArray,
+    getNonEmptyTrimmedString,
+    toArrayFromIterable
+} from "../shared/dependencies.js";
 
 function resolveFormatCommandExtensions(options, defaultExtensions) {
-    const fallback = Array.isArray(defaultExtensions) ? defaultExtensions : [];
+    const fallback = asArray(defaultExtensions);
     const raw = options?.extensions;
 
     if (Array.isArray(raw)) {
@@ -17,7 +21,7 @@ function resolveFormatCommandExtensions(options, defaultExtensions) {
     }
 
     if (typeof raw[Symbol.iterator] === "function") {
-        return [...raw];
+        return toArrayFromIterable(raw);
     }
 
     return fallback;

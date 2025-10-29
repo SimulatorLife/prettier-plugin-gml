@@ -235,7 +235,7 @@ function attemptCondenseScalarProduct(node, helpers, context) {
         return false;
     }
 
-    let nonNumericTerm = null;
+    const nonNumericTerms = [];
     let coefficient = 1;
     let hasNumericContribution = false;
     let meaningfulNumericFactorCount = 0;
@@ -251,11 +251,7 @@ function attemptCondenseScalarProduct(node, helpers, context) {
 
         const numericValue = parseNumericFactor(term.expression);
         if (numericValue === null) {
-            if (nonNumericTerm !== null) {
-                return false;
-            }
-
-            nonNumericTerm = term;
+            nonNumericTerms.push(term);
             continue;
         }
 
@@ -270,7 +266,7 @@ function attemptCondenseScalarProduct(node, helpers, context) {
         }
     }
 
-    if (nonNumericTerm === null) {
+    if (nonNumericTerms.length === 0) {
         return false;
     }
 
@@ -327,7 +323,7 @@ function attemptCondenseScalarProduct(node, helpers, context) {
         return false;
     }
 
-    const clonedOperand = cloneAstNode(nonNumericTerm.raw);
+    const clonedOperand = cloneMultiplicativeTerms(nonNumericTerms, node);
     const literal = createNumericLiteral(normalizedCoefficient, node);
 
     if (!clonedOperand || !literal) {
@@ -1040,6 +1036,8 @@ function collectMultiplicativeChain(
     includeInDenominator,
     context
 ) {
+    collapseUnitMinusHalfFactor(node, helpers, context);
+
     const expression = unwrapExpression(node);
     if (!expression) {
         return false;
@@ -1113,6 +1111,115 @@ function collectMultiplicativeChain(
         : output.numerators;
 
     collection.push({ raw: node, expression });
+    return true;
+}
+
+function cloneMultiplicativeTerms(terms, template) {
+    if (!Array.isArray(terms) || terms.length === 0) {
+        return null;
+    }
+
+    const first = terms[0];
+    const baseClone = cloneAstNode(first?.raw ?? first?.expression);
+    if (!baseClone) {
+        return null;
+    }
+
+    let result = baseClone;
+
+    for (let index = 1; index < terms.length; index += 1) {
+        const current = terms[index];
+        const operand = cloneAstNode(current?.raw ?? current?.expression);
+
+        if (!operand) {
+            return null;
+        }
+
+        const product = createMultiplicationNode(result, operand, template);
+        if (!product) {
+            return null;
+        }
+
+        result = product;
+    }
+
+    return result;
+}
+
+function createMultiplicationNode(left, right, template) {
+    if (!left || !right) {
+        return null;
+    }
+
+    const expression = {
+        type: BINARY_EXPRESSION,
+        operator: "*",
+        left,
+        right
+    };
+
+    assignClonedLocation(expression, template);
+
+    return expression;
+}
+
+function collapseUnitMinusHalfFactor(node, helpers, context) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (node.type !== PARENTHESIZED_EXPRESSION || helpers.hasComment(node)) {
+        return false;
+    }
+
+    const difference = unwrapExpression(node.expression);
+
+    if (!difference || difference.type !== BINARY_EXPRESSION) {
+        return false;
+    }
+
+    if (difference.operator !== "-") {
+        return false;
+    }
+
+    if (helpers.hasComment(difference)) {
+        return false;
+    }
+
+    const rawLeft = difference.left;
+    const rawRight = difference.right;
+
+    if (!rawLeft || !rawRight) {
+        return false;
+    }
+
+    if (helpers.hasComment(rawLeft) || helpers.hasComment(rawRight)) {
+        return false;
+    }
+
+    if (context && hasInlineCommentBetween(rawLeft, rawRight, context)) {
+        return false;
+    }
+
+    const leftValue = parseNumericFactor(rawLeft);
+    const rightValue = parseNumericFactor(rawRight);
+
+    if (leftValue === null || rightValue === null) {
+        return false;
+    }
+
+    const unitTolerance = computeNumericTolerance(1);
+    const halfTolerance = computeNumericTolerance(0.5);
+
+    if (Math.abs(leftValue - 1) > unitTolerance) {
+        return false;
+    }
+
+    if (Math.abs(rightValue - 0.5) > halfTolerance) {
+        return false;
+    }
+
+    mutateToNumericLiteral(node, 0.5, node);
     return true;
 }
 
@@ -1687,11 +1794,17 @@ function mutateToCallExpression(target, name, args, template) {
         return;
     }
 
-    for (const key of Object.keys(target)) {
-        delete target[key];
+    replaceNode(target, call);
+}
+
+function mutateToNumericLiteral(target, value, template) {
+    const literal = createNumericLiteral(value, template);
+
+    if (!literal) {
+        return;
     }
 
-    Object.assign(target, call);
+    replaceNode(target, literal);
 }
 
 function createCallExpressionNode(name, args, template) {
@@ -1720,6 +1833,18 @@ function createNumericLiteral(value, template) {
     assignClonedLocation(literal, template);
 
     return literal;
+}
+
+function replaceNode(target, replacement) {
+    if (!target || typeof target !== "object" || !replacement) {
+        return;
+    }
+
+    for (const key of Object.keys(target)) {
+        delete target[key];
+    }
+
+    Object.assign(target, replacement);
 }
 
 function hasInlineCommentBetween(left, right, context) {
