@@ -420,6 +420,33 @@ test("cancels reciprocal ratio pairs before scalar condensation", async () => {
     );
 });
 
+test("simplifies reciprocal products with unit numerators", async () => {
+    const source = [
+        "function cancel_unit_reciprocal(value_a, value_b) {",
+        "    return value_a * (1 / value_b) * value_b;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function cancel_unit_reciprocal",
+            "/// @param value_a",
+            "/// @param value_b",
+            "function cancel_unit_reciprocal(value_a, value_b) {",
+            "    return value_a;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
 test("preserves simple division when no scalar condensation is needed", async () => {
     const source = [
         "function keep_division(room_width, room_height) {",
