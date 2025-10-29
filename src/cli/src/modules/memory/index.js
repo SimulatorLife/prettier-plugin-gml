@@ -970,6 +970,38 @@ export async function runMemoryCommand({ command, onResults } = {}) {
     return 0;
 }
 
+/**
+ * Resolve the absolute file path where the memory CLI should write its JSON
+ * report. Keeps the path arithmetic separate from the high-level orchestration
+ * in {@link runMemoryCli} so that entry point focuses on coordinating steps.
+ */
+function resolveMemoryReportPath({ cwd, reportDir, reportFileName }) {
+    const effectiveReportDir = resolveMemoryReportDirectory(reportDir);
+    const resolvedReportDir = path.resolve(cwd, effectiveReportDir);
+    const resolvedReportName = reportFileName ?? DEFAULT_MEMORY_REPORT_FILENAME;
+
+    return path.join(resolvedReportDir, resolvedReportName);
+}
+
+/**
+ * Create the callback responsible for persisting CLI results to disk. This
+ * isolates the conditional writeFile selection, ensuring {@link runMemoryCli}
+ * reads as a sequence of delegated operations.
+ */
+function createMemoryReportWriter({ reportPath, customWriteFile }) {
+    const writeFile =
+        typeof customWriteFile === "function" ? customWriteFile : undefined;
+
+    return async function writeMemoryReport({ payload }) {
+        await writeJsonArtifact({
+            outputPath: reportPath,
+            payload,
+            space: 2,
+            writeFile
+        });
+    };
+}
+
 export async function runMemoryCli({
     argv = process.argv.slice(2),
     env = process.env,
@@ -984,25 +1016,18 @@ export async function runMemoryCli({
 
     applyMemoryReportDirectoryEnvOverride(env);
 
-    const effectiveReportDir = resolveMemoryReportDirectory(reportDir);
-    const resolvedReportDir = path.resolve(cwd, effectiveReportDir);
-    const resolvedReportName = reportFileName ?? DEFAULT_MEMORY_REPORT_FILENAME;
-    const reportPath = path.join(resolvedReportDir, resolvedReportName);
+    const reportPath = resolveMemoryReportPath({
+        cwd,
+        reportDir,
+        reportFileName
+    });
+    const writeReport = createMemoryReportWriter({
+        reportPath,
+        customWriteFile
+    });
     await runMemoryCommand({
         command,
-        onResults: async ({ payload }) => {
-            const writeFile =
-                typeof customWriteFile === "function"
-                    ? customWriteFile
-                    : undefined;
-
-            await writeJsonArtifact({
-                outputPath: reportPath,
-                payload,
-                space: 2,
-                writeFile
-            });
-        }
+        onResults: writeReport
     });
 
     return 0;
