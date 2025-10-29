@@ -41,10 +41,26 @@ describe("memory format iteration limit configuration", () => {
     it("ignores invalid environment overrides", () => {
         setMaxFormatIterations(DEFAULT_MAX_FORMAT_ITERATIONS);
 
-        applyFormatMaxIterationsEnvOverride({
-            [MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR]: "-5"
-        });
+        const originalWarn = console.warn;
+        const warnings = [];
+        console.warn = (...args) => {
+            warnings.push(args.join(" "));
+        };
+
+        try {
+            applyFormatMaxIterationsEnvOverride({
+                [MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR]: "-5"
+            });
+        } finally {
+            console.warn = originalWarn;
+        }
 
         assert.equal(getMaxFormatIterations(), DEFAULT_MAX_FORMAT_ITERATIONS);
+        assert.equal(warnings.length, 1);
+        assert.match(
+            warnings[0],
+            new RegExp(`${MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR}`)
+        );
+        assert.match(warnings[0], /falling back/i);
     });
 });

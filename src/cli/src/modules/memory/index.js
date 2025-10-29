@@ -170,11 +170,34 @@ const {
     setDefault: setMaxParserIterations
 } = parserIterationLimitToolkit;
 
+function logInvalidIterationEnvOverride({ envVar, error, fallback }) {
+    const reason = getErrorMessageOrFallback(
+        error,
+        `Invalid value provided for ${envVar}.`
+    ).trim();
+    const suffix = reason.endsWith(".") ? "" : ".";
+    const fallbackDetails =
+        fallback === undefined
+            ? "Falling back to the previous value."
+            : `Falling back to ${fallback}.`;
+
+    console.warn(
+        `${envVar} override ignored: ${reason}${suffix} ${fallbackDetails}`
+    );
+}
+
 function applyParserMaxIterationsEnvOverride(env) {
+    const fallback = parserIterationLimitToolkit.getDefault();
+
     try {
         return parserIterationLimitToolkit.applyEnvOverride(env);
-    } catch {
-        return parserIterationLimitToolkit.getDefault();
+    } catch (error) {
+        logInvalidIterationEnvOverride({
+            envVar: MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR,
+            error,
+            fallback
+        });
+        return fallback;
     }
 }
 
@@ -189,10 +212,17 @@ const {
 } = formatIterationLimitToolkit;
 
 function applyFormatMaxIterationsEnvOverride(env) {
+    const fallback = formatIterationLimitToolkit.getDefault();
+
     try {
         return formatIterationLimitToolkit.applyEnvOverride(env);
-    } catch {
-        return formatIterationLimitToolkit.getDefault();
+    } catch (error) {
+        logInvalidIterationEnvOverride({
+            envVar: MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR,
+            error,
+            fallback
+        });
+        return fallback;
     }
 }
 
