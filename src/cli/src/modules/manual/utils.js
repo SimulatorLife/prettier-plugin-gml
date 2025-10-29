@@ -473,8 +473,7 @@ export async function downloadManualEntryPayloads({
  */
 
 /**
- * @typedef {object} ManualGitHubRequestDispatcher
- * @property {(url: string, options?: ManualGitHubRequestOptions) => Promise<string>} execute
+ * @typedef {(url: string, options?: ManualGitHubRequestOptions) => Promise<string>} ManualGitHubRequestExecutor
  */
 
 /**
@@ -671,11 +670,13 @@ function buildManualRepositoryEndpoints(manualRepo = DEFAULT_MANUAL_REPO) {
 }
 
 /**
- * Provide specialized GitHub helpers for manual fetching without forcing
- * consumers to depend on unrelated operations.
+ * Provide a specialized GitHub request executor for manual fetching without
+ * forcing consumers to depend on an intermediate "dispatcher" wrapper. The
+ * helper now returns the exact function collaborators invoke, keeping manual
+ * tooling focused on the behaviour it actually exercises.
  *
  * @param {{ userAgent: string }} options
- * @returns {ManualGitHubRequestDispatcher}
+ * @returns {ManualGitHubRequestExecutor}
  */
 function createManualGitHubRequestDispatcher({ userAgent } = {}) {
     const normalizedUserAgent = assertNonEmptyString(userAgent, {
@@ -689,7 +690,10 @@ function createManualGitHubRequestDispatcher({ userAgent } = {}) {
         ...(token ? { Authorization: `Bearer ${token}` } : {})
     };
 
-    async function execute(url, { headers, acceptJson, signal } = {}) {
+    return async function manualGitHubRequest(
+        url,
+        { headers, acceptJson, signal } = {}
+    ) {
         const finalHeaders = {
             ...baseHeaders,
             ...headers,
@@ -728,35 +732,32 @@ function createManualGitHubRequestDispatcher({ userAgent } = {}) {
 
             throw createManualGitHubRequestError({ url, cause: error });
         }
-    }
-
-    return Object.freeze({ execute });
+    };
 }
 
-function resolveManualRequestExecutor(requestDispatcher, callerName) {
-    const execute = requestDispatcher?.execute;
-    if (typeof execute !== "function") {
+function resolveManualRequestExecutor(requestExecutor, callerName) {
+    if (typeof requestExecutor !== "function") {
         throw new TypeError(
-            `${callerName} requires a request dispatcher with an execute function.`
+            `${callerName} requires a manual request executor function.`
         );
     }
 
-    return execute;
+    return requestExecutor;
 }
 
 /**
- * @param {{ requestDispatcher: ManualGitHubRequestDispatcher }} options
+ * @param {{ request: ManualGitHubRequestExecutor }} options
  * @returns {ManualGitHubCommitResolver}
  */
-function createManualGitHubCommitResolver({ requestDispatcher }) {
-    const request = resolveManualRequestExecutor(
-        requestDispatcher,
+function createManualGitHubCommitResolver({ request }) {
+    const manualRequest = resolveManualRequestExecutor(
+        request,
         "ManualGitHubCommitResolver"
     );
 
     async function resolveCommitFromRef(ref, { apiRoot }) {
         const url = `${apiRoot}/commits/${encodeURIComponent(ref)}`;
-        const body = await request(url, { acceptJson: true });
+        const body = await manualRequest(url, { acceptJson: true });
         const payload = parseJsonWithContext(body, {
             description: "manual commit response",
             source: url
@@ -771,21 +772,21 @@ function createManualGitHubCommitResolver({ requestDispatcher }) {
 
 /**
  * @param {{
- *   requestDispatcher: ManualGitHubRequestDispatcher,
+ *   request: ManualGitHubRequestExecutor,
  *   commitResolver?: ManualGitHubCommitResolver
  * }} options
  * @returns {ManualGitHubRefResolver}
  */
-function createManualGitHubRefResolver({ requestDispatcher, commitResolver }) {
-    const request = resolveManualRequestExecutor(
-        requestDispatcher,
+function createManualGitHubRefResolver({ request, commitResolver }) {
+    const manualRequest = resolveManualRequestExecutor(
+        request,
         "ManualGitHubRefResolver"
     );
 
     const commitResolution =
         typeof commitResolver?.resolveCommitFromRef === "function"
             ? commitResolver
-            : createManualGitHubCommitResolver({ requestDispatcher });
+            : createManualGitHubCommitResolver({ request });
     const resolveCommitFromRef = commitResolution.resolveCommitFromRef;
 
     async function resolveManualRef(ref, { verbose, apiRoot } = {}) {
@@ -802,7 +803,7 @@ function createManualGitHubRefResolver({ requestDispatcher, commitResolver }) {
         }
 
         const latestTagUrl = `${apiRoot}/tags?per_page=1`;
-        const body = await request(latestTagUrl, { acceptJson: true });
+        const body = await manualRequest(latestTagUrl, { acceptJson: true });
         const tags = parseJsonWithContext(body, {
             description: "manual tags response",
             source: latestTagUrl
@@ -851,7 +852,7 @@ async function tryReadManualFileCache({
 
 /**
  * @param {{
- *   requestDispatcher: ManualGitHubRequestDispatcher,
+ *   request: ManualGitHubRequestExecutor,
  *   defaultCacheRoot?: string,
  *   defaultRawRoot: string,
  *   workflowPathFilter?: {
@@ -862,13 +863,13 @@ async function tryReadManualFileCache({
  * @returns {ManualGitHubFileClient}
  */
 function createManualGitHubFileClient({
-    requestDispatcher,
+    request,
     defaultCacheRoot,
     defaultRawRoot,
     workflowPathFilter
 }) {
-    const request = resolveManualRequestExecutor(
-        requestDispatcher,
+    const manualRequest = resolveManualRequestExecutor(
+        request,
         "ManualGitHubFileClient"
     );
 
@@ -920,7 +921,7 @@ function createManualGitHubFileClient({
 
         const url = `${rawRoot}/${sha}/${filePath}`;
         const requestOptions = signal ? { signal } : {};
-        const content = await request(url, requestOptions);
+        const content = await manualRequest(url, requestOptions);
         ensureNotAborted();
 
         await writeManualFile({

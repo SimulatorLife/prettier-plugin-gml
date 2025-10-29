@@ -36,24 +36,24 @@ function createManualClientBundle({
     defaultCacheRoot,
     defaultRawRoot
 }) {
-    const requestDispatcher = createManualGitHubRequestDispatcher({
+    const request = createManualGitHubRequestDispatcher({
         userAgent
     });
     const commitResolver = createManualGitHubCommitResolver({
-        requestDispatcher
+        request
     });
     const refResolver = createManualGitHubRefResolver({
-        requestDispatcher,
+        request,
         commitResolver
     });
     const fileClient = createManualGitHubFileClient({
-        requestDispatcher,
+        request,
         defaultCacheRoot,
         defaultRawRoot
     });
 
     return {
-        requestDispatcher,
+        request,
         commitResolver,
         refResolver,
         fileFetcher: fileClient
@@ -192,7 +192,7 @@ describe("manual GitHub client validation", { concurrency: false }, () => {
 
         await assert.rejects(
             () =>
-                client.requestDispatcher.execute(failingUrl, {
+                client.request(failingUrl, {
                     acceptJson: true
                 }),
             (error) => {
@@ -225,7 +225,7 @@ describe("manual GitHub client validation", { concurrency: false }, () => {
         });
 
         await assert.rejects(
-            () => client.requestDispatcher.execute(failingUrl),
+            () => client.request(failingUrl),
             (error) => {
                 assert.equal(error instanceof Error, true);
                 assert.equal(error.name, "ManualGitHubRequestError");
@@ -242,7 +242,7 @@ describe("manual GitHub client validation", { concurrency: false }, () => {
     });
 
     it("rethrows request failures that satisfy the manual error contract", async () => {
-        const dispatcher = createManualGitHubRequestDispatcher({
+        const requestExecutor = createManualGitHubRequestDispatcher({
             userAgent: "test-agent"
         });
 
@@ -263,7 +263,7 @@ describe("manual GitHub client validation", { concurrency: false }, () => {
         });
 
         await assert.rejects(
-            () => dispatcher.execute(failingUrl),
+            () => requestExecutor(failingUrl),
             (error) => {
                 assert.equal(error, brandedError);
                 return true;
