@@ -914,7 +914,7 @@ function formatFailureFollowUp({ stdout, format, displayPath }) {
 function logSuiteFailureSummary(suiteResults, options, reportResult) {
     const failures = collectSuiteFailureSummaries(suiteResults);
     if (failures.length === 0) {
-        return;
+        return false;
     }
 
     const heading =
@@ -936,6 +936,8 @@ function logSuiteFailureSummary(suiteResults, options, reportResult) {
 
     const message = [heading, ...failureLines, followUp].join("\n");
     console.error(message);
+
+    return true;
 }
 
 function emitReportIfRequested(report, options) {
@@ -963,7 +965,11 @@ export async function runPerformanceCommand({ command, workflow } = {}) {
 
     logReportDestination(reportResult, options);
     emitReportIfRequested(report, options);
-    logSuiteFailureSummary(suiteResults, options, reportResult);
+    const hasSuiteFailures = logSuiteFailureSummary(
+        suiteResults,
+        options,
+        reportResult
+    );
 
-    return 0;
+    return hasSuiteFailures ? 1 : 0;
 }

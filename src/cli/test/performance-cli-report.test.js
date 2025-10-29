@@ -185,7 +185,7 @@ describe("performance CLI report output", () => {
                 command,
                 workflow: { allowPaths: [fixtureRoot] }
             });
-            assert.equal(exitCode, 0);
+            assert.equal(exitCode, 1);
         } finally {
             restoreLog.mock.restore();
             restoreError.mock.restore();
