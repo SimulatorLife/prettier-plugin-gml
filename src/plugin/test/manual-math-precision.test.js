@@ -146,6 +146,92 @@ test("condenses chained scalar multipliers into a single coefficient", async () 
     );
 });
 
+test("condenses subtraction-based scalar multipliers", async () => {
+    const source = [
+        "function convert_subtracted_scalar(len) {",
+        "    return len * (1 - 0.5);",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function convert_subtracted_scalar",
+            "/// @param len",
+            "function convert_subtracted_scalar(len) {",
+            "    return len * 0.5;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("removes additive identity scalars with trailing comments", async () => {
+    const source = [
+        "function strip_additive_identity(value) {",
+        "    return value + 0; // original",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function strip_additive_identity",
+            "/// @param value",
+            "function strip_additive_identity(value) {",
+            "    return value;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("preserves blank line after removing simplified alias", async () => {
+    const source = [
+        "function preserve_spacing(x, y) {",
+        "    var s11 = y + 0;  // original",
+        "    var s11_simplified = y;  // simplified",
+        "",
+        "    // 12) Double then quarter",
+        "    return x * 2 / 4;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function preserve_spacing",
+            "/// @param x",
+            "/// @param y",
+            "function preserve_spacing(x, y) {",
+            "    var s11 = y;",
+            "",
+            "    // 12) Double then quarter",
+            "    return x * 0.5;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
 test("condenses chained multipliers with composite operands", async () => {
     const source = [
         "function convert_frames(acc, dt) {",
@@ -273,6 +359,34 @@ test("condenses nested ratios that mix scalar and non-scalar factors", async () 
             "/// @param max_hp",
             "function convert_percentage(hp, max_hp) {",
             "    return (hp / max_hp) * 10;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("cancels reciprocal ratio pairs before scalar condensation", async () => {
+    const source = [
+        "function cancel_reciprocal(a, b, c) {",
+        "    return a * (b / c) * (c / b);",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function cancel_reciprocal",
+            "/// @param a",
+            "/// @param b",
+            "/// @param c",
+            "function cancel_reciprocal(a, b, c) {",
+            "    return a;",
             "}",
             ""
         ].join("\n")
