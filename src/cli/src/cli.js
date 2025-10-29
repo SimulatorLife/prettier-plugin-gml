@@ -390,7 +390,7 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
     const {
         option: skippedDirectorySampleLimitOption,
         parseLimit: parseSkippedDirectoryLimit,
-        defaultLimit: defaultSkippedDirectorySampleLimit
+        defaultLimit: _defaultSkippedDirectorySampleLimit
     } = createConfiguredSampleLimitOption({
         flag: "--ignored-directory-sample-limit <count>",
         description: (defaultLimit) => [
@@ -411,8 +411,8 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
 
     const {
         option: ignoredFileSampleLimitOption,
-        parseLimit: parseIgnoredFileLimit,
-        defaultLimit: defaultIgnoredFileSampleLimit
+        parseLimit: _parseIgnoredFileLimit,
+        defaultLimit: _defaultIgnoredFileSampleLimit
     } = createConfiguredSampleLimitOption({
         flag: "--ignored-file-sample-limit <count>",
         description: (defaultLimit) => [
@@ -426,8 +426,8 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
 
     const {
         option: unsupportedExtensionSampleLimitOption,
-        parseLimit: parseUnsupportedExtensionLimit,
-        defaultLimit: defaultUnsupportedExtensionSampleLimit
+        parseLimit: _parseUnsupportedExtensionLimit,
+        defaultLimit: _defaultUnsupportedExtensionSampleLimit
     } = createConfiguredSampleLimitOption({
         flag: "--unsupported-extension-sample-limit <count>",
         description: (defaultLimit) => [
