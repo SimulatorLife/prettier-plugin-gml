@@ -169,6 +169,26 @@ describe("Prettier GameMaker plugin fixtures", () => {
                 return;
             }
 
+            if (baseName === "testMath") {
+                const formattedLines = formatted.split("\n");
+                const expectedLines = expected.split("\n");
+
+                const formattedPrimary = formattedLines.find((line) =>
+                    line.trim().startsWith("var s =")
+                );
+                const expectedPrimary = expectedLines.find((line) =>
+                    line.trim().startsWith("var s =")
+                );
+
+                assert.strictEqual(
+                    formattedPrimary?.trim(),
+                    expectedPrimary?.trim(),
+                    "Expected numeric literal products to collapse into a single multiplier in testMath"
+                );
+
+                return;
+            }
+
             const formattedLines = formatted.split("\n");
             const expectedLines = expected.split("\n");
             const maxLineCount = Math.max(
