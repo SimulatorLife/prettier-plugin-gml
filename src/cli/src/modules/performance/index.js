@@ -18,7 +18,7 @@ import {
     wrapInvalidArgumentResolver,
     getCommanderInvalidArgumentErrorConstructor
 } from "../dependencies.js";
-import { resolveCliPluginEntryPoint } from "../plugin-runtime-dependencies.js";
+import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "../plugin-runtime-dependencies.js";
 import {
     appendToCollection,
     assertArray,

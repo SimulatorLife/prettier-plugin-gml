@@ -63,7 +63,7 @@ import {
     handleCliError
 } from "./core/errors.js";
 import { applyStandardCommandOptions } from "./core/command-standard-options.js";
-import { resolveCliPluginEntryPoint } from "./plugin-runtime/entry-point-resolver.js";
+import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "./plugin-runtime/entry-point.js";
 import {
     hasRegisteredIgnorePath,
     registerIgnorePath,
