@@ -5,8 +5,8 @@ import { Command } from "commander";
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import {
     createVerboseDurationLogger,
+    describeValueWithArticle,
     getErrorMessageOrFallback,
-    getObjectTagName,
     normalizeIdentifierMetadataEntries,
     timeSync,
     toMutableArray,
@@ -342,53 +342,9 @@ function normalizeIdentifier(name) {
 }
 
 function describeManualIdentifierArrayValue(value) {
-    if (value === null) {
-        return "null";
-    }
-
-    if (value === undefined) {
-        return "undefined";
-    }
-
-    if (Array.isArray(value)) {
-        return "an array";
-    }
-
-    const type = typeof value;
-
-    if (type === "string") {
-        return value.length === 0 ? "an empty string" : "a string";
-    }
-
-    if (type === "boolean") {
-        return "a boolean";
-    }
-
-    if (type === "number" || type === "bigint") {
-        return `a ${type}`;
-    }
-
-    if (type === "function") {
-        return "a function";
-    }
-
-    if (type === "symbol") {
-        return "a symbol";
-    }
-
-    if (type === "object") {
-        const tagName = getObjectTagName(value);
-        if (tagName) {
-            const firstChar = tagName.at(0);
-            const article =
-                firstChar && "aeiouAEIOU".includes(firstChar) ? "an" : "a";
-            return `${article} ${tagName} object`;
-        }
-
-        return "an object";
-    }
-
-    return `a ${type}`;
+    return describeValueWithArticle(value, {
+        emptyStringLabel: "an empty string"
+    });
 }
 
 function formatManualIdentifierArrayLabel({ identifier, source }) {

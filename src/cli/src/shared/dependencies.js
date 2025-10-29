@@ -14,6 +14,7 @@ export {
     createEnvConfiguredValueWithFallback,
     createListSplitPattern,
     createVerboseDurationLogger,
+    describeValueWithArticle,
     ensureDir,
     ensureMap,
     escapeRegExp,
