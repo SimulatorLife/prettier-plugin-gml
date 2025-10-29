@@ -2826,11 +2826,19 @@ function printStatements(path, options, print, childrenAttribute) {
         // rewriting author comments or dropping the semicolon entirely—a
         // regression we previously hit when normalising legacy `#define`
         // assignments.
+        const manualMathRatio = getManualMathRatio(node);
+
         if (docHasTrailingComment(printed)) {
             printed.splice(-1, 0, semi);
             parts.push(printed);
+            if (manualMathRatio) {
+                parts.push(" ", manualMathRatio);
+            }
         } else {
             parts.push(printed, semi);
+            if (manualMathRatio) {
+                parts.push(" ", manualMathRatio);
+            }
         }
 
         // Reset flag for next iteration
@@ -7304,6 +7312,53 @@ function docHasTrailingComment(doc) {
         }
     }
     return false;
+}
+
+function getManualMathRatio(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    const direct = node._gmlManualMathRatio;
+    if (typeof direct === "string" && direct.length > 0) {
+        return direct;
+    }
+
+    switch (node.type) {
+        case "VariableDeclaration": {
+            const declarations = Array.isArray(node.declarations)
+                ? node.declarations
+                : [];
+
+            for (const declarator of declarations) {
+                const ratio = getManualMathRatio(declarator);
+                if (ratio) {
+                    return ratio;
+                }
+            }
+            break;
+        }
+        case "VariableDeclarator": {
+            return getManualMathRatio(node.init);
+        }
+        case "ExpressionStatement": {
+            return getManualMathRatio(node.expression);
+        }
+        case "BinaryExpression": {
+            return getManualMathRatio(node.right);
+        }
+        case "Literal": {
+            if (typeof node._gmlManualMathRatio === "string") {
+                return node._gmlManualMathRatio;
+            }
+            break;
+        }
+        default: {
+            break;
+        }
+    }
+
+    return null;
 }
 
 function printWithoutExtraParens(path, print, ...keys) {
