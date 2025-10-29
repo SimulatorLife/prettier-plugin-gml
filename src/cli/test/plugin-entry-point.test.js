@@ -70,6 +70,20 @@ describe("resolvePluginEntryPoint", () => {
         assert.strictEqual(resolved, pluginPath);
     });
 
+    it("skips directory overrides when resolving the entry point", () => {
+        const defaultEntryPoint = resolvePluginEntryPoint({ env: {} });
+        const directoryOverride = fs.mkdtempSync(
+            path.join(os.tmpdir(), "prettier-plugin-gml-entry-dir-")
+        );
+        temporaryDirectories.add(directoryOverride);
+
+        const resolved = resolvePluginEntryPoint({
+            env: { PRETTIER_PLUGIN_GML_PLUGIN_PATH: directoryOverride }
+        });
+
+        assert.strictEqual(resolved, defaultEntryPoint);
+    });
+
     it("expands leading tildes in environment overrides", () => {
         const homeDirectory = os.homedir();
         if (!homeDirectory) {
