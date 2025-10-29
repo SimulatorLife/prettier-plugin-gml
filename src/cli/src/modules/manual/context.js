@@ -15,11 +15,10 @@ import {
     isNonEmptyString
 } from "../dependencies.js";
 
-/** @typedef {import("./utils.js").ManualGitHubRequestDispatcher} ManualGitHubRequestDispatcher */
+/** @typedef {import("./utils.js").ManualGitHubRequestExecutor} ManualGitHubRequestExecutor */
 /** @typedef {import("./utils.js").ManualGitHubCommitResolver} ManualGitHubCommitResolver */
 /** @typedef {import("./utils.js").ManualGitHubRefResolver} ManualGitHubRefResolver */
 /** @typedef {import("./utils.js").ManualGitHubFileClient} ManualGitHubFileClient */
-/** @typedef {ManualGitHubRequestDispatcher["execute"]} ManualGitHubRequestExecutor */
 
 function assertFileUrl(value) {
     return assertNonEmptyString(value, {
@@ -100,19 +99,19 @@ function buildManualCommandContext({
     // Manual GitHub helpers are wired independently so call sites can depend on
     // the specific collaborator they require without pulling in the full
     // request/commit/ref/file bundle.
-    const manualRequests = createManualGitHubRequestDispatcher({
+    const manualRequestExecutor = createManualGitHubRequestDispatcher({
         userAgent: normalizedUserAgent
     });
     const manualCommitResolver = createManualGitHubCommitResolver({
-        requestDispatcher: manualRequests
+        request: manualRequestExecutor
     });
     const manualRefResolver = createManualGitHubRefResolver({
-        requestDispatcher: manualRequests,
+        request: manualRequestExecutor,
         commitResolver: manualCommitResolver
     });
     const manualFileFetcher = Object.freeze(
         createManualGitHubFileClient({
-            requestDispatcher: manualRequests,
+            request: manualRequestExecutor,
             defaultCacheRoot,
             defaultRawRoot: defaultManualRawRoot,
             workflowPathFilter
@@ -128,7 +127,7 @@ function buildManualCommandContext({
 
     return Object.freeze({
         environment,
-        request: manualRequests.execute,
+        request: manualRequestExecutor,
         commitResolver: manualCommitResolver,
         refResolver: manualRefResolver,
         fileClient: manualFileFetcher
