@@ -240,3 +240,20 @@ no code changes were required.
   implementation, semantic metrics helpers, and their unit tests to rely on the
   specialised interfaces so call sites opt into only the reporting behaviour
   they exercise.
+
+## Follow-up audit (2026-05-07)
+
+- Revisited the manual GitHub helpers in
+  `src/cli/src/modules/manual/context.js` and noticed the exported
+  `resolveManualGitHubRequestService` and `resolveManualGitHubCommitService`
+  helpers still returned "service" objects that wrapped a single function. Even
+  though each facade only exposed one behaviour, downstream modules still had
+  to depend on the broad `*Service` contracts before they could reach the
+  underlying request or commit helpers.
+- Removed the redundant service typedefs and now expose the manual GitHub
+  collaborators through the focused resolvers already used elsewhere
+  (`resolveManualGitHubRequestExecutor`, `resolveManualGitHubCommitResolver`,
+  `resolveManualGitHubRefResolver`, and `resolveManualGitHubFileClient`).
+  Updated the manual context factory to stop constructing the intermediate
+  service bundles and adjusted the unit test to assert against the specialised
+  helpers so each call site depends solely on the collaborator it invokes.

@@ -7,9 +7,7 @@ import {
     createManualEnvironmentContext,
     createManualFileAccessContext,
     createManualReferenceAccessContext,
-    resolveManualGitHubRequestService,
     resolveManualGitHubRequestExecutor,
-    resolveManualGitHubCommitService,
     resolveManualGitHubCommitResolver,
     resolveManualGitHubRefResolver,
     resolveManualGitHubFileClient
@@ -85,24 +83,18 @@ test("manual GitHub helpers expose narrow collaborators", () => {
         userAgent: "manual-context-test"
     };
 
-    const requestService = resolveManualGitHubRequestService(options);
-    assert.ok(Object.isFrozen(requestService));
-    assert.equal(typeof requestService.executeManualRequest, "function");
-
     const requestExecutor = resolveManualGitHubRequestExecutor(options);
     assert.equal(typeof requestExecutor, "function");
 
-    const commitService = resolveManualGitHubCommitService(options);
-    assert.ok(Object.isFrozen(commitService));
-    assert.equal(typeof commitService.resolveCommitFromRef, "function");
-
     const commitResolver = resolveManualGitHubCommitResolver(options);
+    assert.ok(Object.isFrozen(commitResolver));
     assert.equal(typeof commitResolver.resolveCommitFromRef, "function");
 
     const refResolver = resolveManualGitHubRefResolver(options);
     assert.equal(typeof refResolver.resolveManualRef, "function");
 
     const fileClient = resolveManualGitHubFileClient(options);
+    assert.ok(Object.isFrozen(fileClient));
     assert.equal(typeof fileClient.fetchManualFile, "function");
 });
 
