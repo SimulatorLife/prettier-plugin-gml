@@ -2,7 +2,6 @@ import path from "node:path";
 import process from "node:process";
 import { readFile } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
-import { fileURLToPath } from "node:url";
 
 import {
     appendToCollection,
@@ -38,6 +37,10 @@ import {
 import { loadGmlParser } from "./gml-parser.js";
 import { importPluginModule } from "../plugin-runtime-dependencies.js";
 import { writeJsonArtifact } from "../../shared/fs-artifacts.js";
+import {
+    REPO_ROOT,
+    resolveFromRepoRoot
+} from "../../shared/workspace-paths.js";
 
 export const DEFAULT_ITERATIONS = 500_000;
 export const MEMORY_ITERATIONS_ENV_VAR = "GML_MEMORY_ITERATIONS";
@@ -48,11 +51,7 @@ export const MEMORY_AST_COMMON_NODE_LIMIT_ENV_VAR =
 
 export const DEFAULT_MEMORY_REPORT_DIR = "reports";
 const DEFAULT_MEMORY_REPORT_FILENAME = "memory.json";
-const CLI_MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
-const CLI_SRC_DIRECTORY = path.resolve(CLI_MODULE_DIR, "..", "..");
-const CLI_PACKAGE_DIRECTORY = path.resolve(CLI_SRC_DIRECTORY, "..");
-const WORKSPACE_SOURCE_DIRECTORY = path.resolve(CLI_PACKAGE_DIRECTORY, "..");
-const PROJECT_ROOT = path.resolve(WORKSPACE_SOURCE_DIRECTORY, "..");
+const PROJECT_ROOT = REPO_ROOT;
 
 const PARSER_SAMPLE_RELATIVE_PATH = "src/parser/test/input/SnowState.gml";
 const FORMAT_SAMPLE_RELATIVE_PATH = "src/plugin/test/testFormatting.input.gml";
@@ -263,7 +262,7 @@ const {
 const sampleCache = new Map();
 
 function resolveProjectPath(relativePath) {
-    return path.resolve(PROJECT_ROOT, relativePath);
+    return resolveFromRepoRoot(relativePath);
 }
 async function loadPrettierStandalone() {
     const module = await import("prettier/standalone.mjs");

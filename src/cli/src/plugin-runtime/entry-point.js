@@ -144,9 +144,18 @@ function resolveCandidatePaths(options = {}) {
     return normalizeCandidatePaths(candidateInputs);
 }
 
+function candidateExistsAsFile(candidate) {
+    try {
+        const stats = fs.statSync(candidate);
+        return stats.isFile();
+    } catch {
+        return false;
+    }
+}
+
 function findFirstExistingPath(candidates) {
     for (const candidate of candidates) {
-        if (fs.existsSync(candidate)) {
+        if (candidateExistsAsFile(candidate)) {
             return candidate;
         }
     }
