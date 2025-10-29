@@ -13,7 +13,7 @@ import { getNodeEndIndex, getNodeStartIndex } from "../src/shared/index.js";
 import {
     getFeatherMetadata,
     getFeatherDiagnosticById
-} from "gamemaker-language-semantic/resources/feather-metadata.js";
+} from "@prettier-plugin-gml/shared/resources/feather-metadata.js";
 import {
     applyFeatherFixes,
     getFeatherDiagnosticFixers,
