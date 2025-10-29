@@ -111,6 +111,11 @@ function traverse(node, helpers, seen, context) {
                 continue;
             }
 
+            if (attemptReplaceMultiplicationWithZero(node, helpers, context)) {
+                changed = true;
+                continue;
+            }
+
             if (attemptRemoveAdditiveIdentity(node, helpers, context)) {
                 changed = true;
                 continue;
@@ -337,6 +342,42 @@ function attemptRemoveMultiplicativeIdentity(node, helpers, context) {
     return removeMultiplicativeIdentityOperand(node, "right", "left", helpers);
 }
 
+function attemptReplaceMultiplicationWithZero(node, helpers, context) {
+    if (!isBinaryOperator(node, "*")) {
+        return false;
+    }
+
+    if (context && hasInlineCommentBetween(node.left, node.right, context)) {
+        return false;
+    }
+
+    if (
+        replaceMultiplicationWithZeroOperand(
+            node,
+            "left",
+            "right",
+            helpers,
+            context
+        )
+    ) {
+        return true;
+    }
+
+    if (
+        replaceMultiplicationWithZeroOperand(
+            node,
+            "right",
+            "left",
+            helpers,
+            context
+        )
+    ) {
+        return true;
+    }
+
+    return false;
+}
+
 function removeMultiplicativeIdentityOperand(node, key, otherKey, helpers) {
     const operand = node[key];
     const other = node[otherKey];
@@ -369,6 +410,90 @@ function removeMultiplicativeIdentityOperand(node, key, otherKey, helpers) {
     }
 
     return true;
+}
+
+function replaceMultiplicationWithZeroOperand(
+    node,
+    key,
+    otherKey,
+    helpers,
+    context
+) {
+    const operand = node[key];
+    const other = node[otherKey];
+
+    if (!operand || !other) {
+        return false;
+    }
+
+    if (helpers.hasComment(operand) || helpers.hasComment(other)) {
+        return false;
+    }
+
+    const expression = unwrapExpression(operand);
+    if (!expression) {
+        return false;
+    }
+
+    const value = parseNumericLiteral(expression);
+    if (value === null) {
+        return false;
+    }
+
+    if (Math.abs(value) > computeNumericTolerance(0)) {
+        return false;
+    }
+
+    const parentLine = node?.end?.line;
+    const zeroLiteral = createNumericLiteral(0, expression);
+
+    if (!zeroLiteral) {
+        return false;
+    }
+
+    replaceNode(node, zeroLiteral);
+    suppressTrailingLineComment(node, parentLine, context, "original");
+    removeSimplifiedAliasDeclaration(context, node);
+
+    return true;
+}
+
+function isMultiplicationAnnihilatedByZero(node, helpers, context) {
+    if (!isBinaryOperator(node, "*")) {
+        return false;
+    }
+
+    const { left, right } = node;
+
+    if (!left || !right) {
+        return false;
+    }
+
+    if (helpers.hasComment(node) || helpers.hasComment(left)) {
+        return false;
+    }
+
+    if (helpers.hasComment(right)) {
+        return false;
+    }
+
+    if (context && hasInlineCommentBetween(left, right, context)) {
+        return false;
+    }
+
+    return (
+        isNumericZeroLiteral(unwrapExpression(left)) ||
+        isNumericZeroLiteral(unwrapExpression(right))
+    );
+}
+
+function isNumericZeroLiteral(node) {
+    const literalValue = parseNumericLiteral(node);
+    if (literalValue === null) {
+        return false;
+    }
+
+    return Math.abs(literalValue) <= computeNumericTolerance(0);
 }
 
 function attemptRemoveAdditiveIdentity(node, helpers, context) {
@@ -412,7 +537,15 @@ function removeAdditiveIdentityOperand(node, key, otherKey, helpers, context) {
         return false;
     }
 
-    const value = parseNumericLiteral(expression);
+    let value = parseNumericLiteral(expression);
+
+    if (
+        value === null &&
+        isMultiplicationAnnihilatedByZero(expression, helpers, context)
+    ) {
+        value = 0;
+    }
+
     if (value === null) {
         return false;
     }

@@ -198,6 +198,33 @@ test("removes additive identity scalars with trailing comments", async () => {
     );
 });
 
+test("removes multiplicative zero factors inside additive chains", async () => {
+    const source = [
+        "function collapse_zero_factor(any_val, offset) {",
+        "    return any_val * 0 + offset;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function collapse_zero_factor",
+            "/// @param any_val",
+            "/// @param offset",
+            "function collapse_zero_factor(any_val, offset) {",
+            "    return offset;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
 test("preserves blank line after removing simplified alias", async () => {
     const source = [
         "function preserve_spacing(x, y) {",
