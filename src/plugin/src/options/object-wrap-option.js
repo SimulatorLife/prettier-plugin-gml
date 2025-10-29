@@ -12,6 +12,8 @@ const ObjectWrapOption = Object.freeze({
 /** @type {ReadonlySet<string>} */
 const OBJECT_WRAP_VALUES = new Set(Object.values(ObjectWrapOption));
 
+const NOOP_DISPOSE = () => {};
+
 /**
  * Normalize ad-hoc resolvers to the default behaviour when they return an
  * unexpected value.
@@ -51,8 +53,7 @@ function resolveObjectWrapOption(options) {
     }
 
     try {
-        const resolved = objectWrapOptionResolver(options);
-        return normalizeObjectWrapOption(resolved);
+        return normalizeObjectWrapOption(objectWrapOptionResolver(options));
     } catch {
         return defaultResolveObjectWrapOption(options);
     }
@@ -68,11 +69,10 @@ function resolveObjectWrapOption(options) {
 function setObjectWrapOptionResolver(resolver) {
     if (typeof resolver !== "function") {
         resetObjectWrapOptionResolver();
-        return () => {};
+        return NOOP_DISPOSE;
     }
 
     const previousResolver = objectWrapOptionResolver;
-
     objectWrapOptionResolver = resolver;
 
     return () => {
