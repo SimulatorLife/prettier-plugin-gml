@@ -118,28 +118,18 @@ const SUMMARY_SECTIONS = Object.freeze([
  * @property {MetricsReportingSuite} reporting
  */
 
-function toCandidateCacheKeys(keys) {
-    if (typeof keys === "string" || Array.isArray(keys)) {
-        return keys;
-    }
-
-    if (typeof keys?.[Symbol.iterator] === "function") {
-        return toArrayFromIterable(keys);
-    }
-
-    return DEFAULT_CACHE_KEYS;
-}
-
 function normalizeCacheKeys(keys) {
-    const normalized = normalizeStringList(toCandidateCacheKeys(keys), {
-        allowInvalidType: true
-    });
+    const candidate =
+        typeof keys === "string"
+            ? keys
+            : Array.isArray(keys)
+            ? keys
+            : typeof keys?.[Symbol.iterator] === "function"
+            ? toArrayFromIterable(keys)
+            : DEFAULT_CACHE_KEYS;
 
-    if (normalized.length > 0) {
-        return normalized;
-    }
-
-    return [...DEFAULT_CACHE_KEYS];
+    const normalized = normalizeStringList(candidate, { allowInvalidType: true });
+    return normalized.length > 0 ? normalized : [...DEFAULT_CACHE_KEYS];
 }
 
 function normalizeIncrementAmount(amount, fallback = 1) {
