@@ -14,6 +14,32 @@ import {
 import { isRegExpLike } from "@prettier-plugin-gml/shared/utils/capability-probes.js";
 import { createResolverController } from "@prettier-plugin-gml/shared/utils/resolver-controller.js";
 
+const objectPrototypeHasOwnProperty = Object.prototype.hasOwnProperty;
+
+function hasOwn(object, property) {
+    return objectPrototypeHasOwnProperty.call(object, property);
+}
+
+function normalizeEntryPair(entry) {
+    if (Array.isArray(entry)) {
+        return entry.length >= 2 ? [entry[0], entry[1]] : null;
+    }
+
+    if (!entry || typeof entry !== "object") {
+        return null;
+    }
+
+    if (hasOwn(entry, 0) && hasOwn(entry, 1)) {
+        return [entry[0], entry[1]];
+    }
+
+    if (hasOwn(entry, "key") && hasOwn(entry, "value")) {
+        return [entry.key, entry.value];
+    }
+
+    return null;
+}
+
 const JSDOC_REPLACEMENTS = {
     "@func": "@function",
     "@method": "@function",
@@ -211,8 +237,9 @@ function* getEntryIterable(value) {
     const entriesIterator = tryGetEntriesIterator(value);
     if (entriesIterator) {
         for (const entry of entriesIterator) {
-            if (Array.isArray(entry) && entry.length >= 2) {
-                yield [entry[0], entry[1]];
+            const pair = normalizeEntryPair(entry);
+            if (pair) {
+                yield pair;
             }
         }
         return;
@@ -220,8 +247,9 @@ function* getEntryIterable(value) {
 
     if (Array.isArray(value)) {
         for (const entry of value) {
-            if (Array.isArray(entry) && entry.length >= 2) {
-                yield [entry[0], entry[1]];
+            const pair = normalizeEntryPair(entry);
+            if (pair) {
+                yield pair;
             }
         }
         return;

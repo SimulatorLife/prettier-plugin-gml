@@ -140,3 +140,36 @@ test("doc comment normalization accepts entry-capable collaborators", () => {
         restoreDefaultDocCommentTypeNormalizationResolver();
     }
 });
+
+test("doc comment normalization ignores invalid entry shapes", () => {
+    const synonymsEntries = {
+        entries() {
+            return (function* () {
+                yield "not-a-pair";
+                yield { key: "Keyed", value: "value-normalized" };
+                yield { 0: "Indexed", 1: "indexed-normalized" };
+                yield { key: "MissingValue" };
+            })();
+        }
+    };
+
+    try {
+        setDocCommentTypeNormalizationResolver(() => ({
+            synonyms: synonymsEntries
+        }));
+
+        const normalization = resolveDocCommentTypeNormalization();
+        assert.equal(
+            normalization.lookupTypeIdentifier("Keyed"),
+            "value-normalized"
+        );
+        assert.equal(
+            normalization.lookupTypeIdentifier("Indexed"),
+            "indexed-normalized"
+        );
+        assert.equal(normalization.lookupTypeIdentifier("MissingValue"), null);
+        assert.equal(normalization.lookupTypeIdentifier("not-a-pair"), null);
+    } finally {
+        restoreDefaultDocCommentTypeNormalizationResolver();
+    }
+});
