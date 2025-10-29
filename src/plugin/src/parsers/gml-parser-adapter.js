@@ -35,6 +35,23 @@ import { prepareDocCommentEnvironment } from "../comments/index.js";
 
 const { addTrailingComment } = util;
 
+function applyIndexAdjustmentsIfPresent(
+    target,
+    adjustments,
+    applyAdjustments,
+    metadata
+) {
+    if (!Array.isArray(adjustments) || adjustments.length === 0) {
+        return;
+    }
+
+    applyAdjustments(target, adjustments);
+
+    if (metadata != null) {
+        applyAdjustments(metadata, adjustments);
+    }
+}
+
 async function parse(text, options) {
     let parseSource = text;
     let preprocessedFixMetadata = null;
@@ -140,35 +157,26 @@ async function parse(text, options) {
             });
         }
 
-        if (callIndexAdjustments && callIndexAdjustments.length > 0) {
-            applySanitizedIndexAdjustments(ast, callIndexAdjustments);
-            if (preprocessedFixMetadata) {
-                applySanitizedIndexAdjustments(
-                    preprocessedFixMetadata,
-                    callIndexAdjustments
-                );
-            }
-        }
+        applyIndexAdjustmentsIfPresent(
+            ast,
+            callIndexAdjustments,
+            applySanitizedIndexAdjustments,
+            preprocessedFixMetadata
+        );
 
-        if (indexAdjustments && indexAdjustments.length > 0) {
-            applySanitizedIndexAdjustments(ast, indexAdjustments);
-            if (preprocessedFixMetadata) {
-                applySanitizedIndexAdjustments(
-                    preprocessedFixMetadata,
-                    indexAdjustments
-                );
-            }
-        }
+        applyIndexAdjustmentsIfPresent(
+            ast,
+            indexAdjustments,
+            applySanitizedIndexAdjustments,
+            preprocessedFixMetadata
+        );
 
-        if (enumIndexAdjustments && enumIndexAdjustments.length > 0) {
-            applyRemovedIndexAdjustments(ast, enumIndexAdjustments);
-            if (preprocessedFixMetadata) {
-                applyRemovedIndexAdjustments(
-                    preprocessedFixMetadata,
-                    enumIndexAdjustments
-                );
-            }
-        }
+        applyIndexAdjustmentsIfPresent(
+            ast,
+            enumIndexAdjustments,
+            applyRemovedIndexAdjustments,
+            preprocessedFixMetadata
+        );
 
         if (options?.useStringInterpolation) {
             convertStringConcatenations(ast);
