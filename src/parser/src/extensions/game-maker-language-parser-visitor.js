@@ -1,4 +1,4 @@
-import GameMakerLanguageParserVisitorBase from "../../generated/GameMakerLanguageParserVisitor.js";
+import { GameMakerLanguageParserVisitorBase } from "../generated-bindings.js";
 
 const DEFAULT_VISIT_CHILDREN_DELEGATE = ({ fallback }) => fallback();
 
