@@ -34,7 +34,9 @@ export async function writeFileArtifact({
     pathFilter
 }) {
     if (!isNonEmptyString(outputPath)) {
-        throw new TypeError("outputPath must be provided to writeManualFile.");
+        throw new TypeError(
+            "outputPath must be provided to writeFileArtifact."
+        );
     }
 
     const directory = path.dirname(outputPath);
