@@ -125,6 +125,70 @@ export function isObjectOrFunction(value) {
 }
 
 /**
+ * Ensure {@link value} exposes callable properties matching the provided
+ * method names. Centralizes the defensive guard used across map-like helpers
+ * so modules can validate host-provided collections without rewriting the same
+ * `typeof` checks or error messaging.
+ *
+ * @template {Record<PropertyKey, unknown>} TObject
+ * @param {TObject | unknown} value Candidate object supplying the methods.
+ * @param {Array<PropertyKey> | PropertyKey} methodNames Method names expected
+ *        on {@link value}. Pass either a single property key or an array of
+ *        keys to validate multiple methods at once.
+ * @param {{ name?: string; errorMessage?: string }} [options]
+ * @returns {TObject}
+ */
+export function assertFunctionProperties(
+    value,
+    methodNames,
+    { name = "value", errorMessage } = {}
+) {
+    const requiredMethods = Array.isArray(methodNames)
+        ? methodNames
+        : methodNames == null
+          ? []
+          : [methodNames];
+
+    if (requiredMethods.length === 0) {
+        return /** @type {TObject} */ (value);
+    }
+
+    const target = /** @type {Record<PropertyKey, unknown> | undefined} */ (
+        isObjectOrFunction(value) ? value : undefined
+    );
+
+    const missingMethods = [];
+
+    for (const methodName of requiredMethods) {
+        if (typeof target?.[methodName] !== "function") {
+            missingMethods.push(String(methodName));
+        }
+    }
+
+    if (missingMethods.length > 0) {
+        if (errorMessage) {
+            throw new TypeError(errorMessage);
+        }
+
+        let formattedList;
+        if (missingMethods.length === 1) {
+            [formattedList] = missingMethods;
+        } else if (missingMethods.length === 2) {
+            formattedList = `${missingMethods[0]} and ${missingMethods[1]}`;
+        } else {
+            const leading = missingMethods.slice(0, -1).join(", ");
+            const last = missingMethods.at(-1);
+            formattedList = `${leading}, and ${last}`;
+        }
+
+        const suffix = missingMethods.length > 1 ? "functions" : "function";
+        throw new TypeError(`${name} must provide ${formattedList} ${suffix}`);
+    }
+
+    return /** @type {TObject} */ (value);
+}
+
+/**
  * Resolve the built-in `Object.prototype.toString` tag name for {@link value}.
  *
  * Normalizes the repeated guard logic used across CLI modules when formatting
@@ -335,26 +399,24 @@ export function hasOwn(object, key) {
  * @returns {TValue} Existing or newly created entry.
  */
 export function getOrCreateMapEntry(store, key, initializer) {
-    if (
-        !store ||
-        typeof store.get !== "function" ||
-        typeof store.set !== "function"
-    ) {
-        throw new TypeError("store must provide get and set functions");
-    }
+    const mapStore = assertFunctionProperties(store, ["get", "set"], {
+        name: "store",
+        errorMessage: "store must provide get and set functions"
+    });
 
-    if (typeof store.has !== "function") {
-        throw new TypeError("store must provide a has function");
-    }
+    assertFunctionProperties(mapStore, ["has"], {
+        name: "store",
+        errorMessage: "store must provide a has function"
+    });
 
     assertFunction(initializer, "initializer");
 
-    if (store.has(key)) {
-        return store.get(key);
+    if (mapStore.has(key)) {
+        return mapStore.get(key);
     }
 
     const value = initializer(key);
-    store.set(key, value);
+    mapStore.set(key, value);
     return value;
 }
 
@@ -383,19 +445,16 @@ export function incrementMapValue(
     amount = 1,
     { fallback = 0 } = {}
 ) {
-    if (
-        !store ||
-        typeof store.get !== "function" ||
-        typeof store.set !== "function"
-    ) {
-        throw new TypeError("store must provide get and set functions");
-    }
+    const mapStore = assertFunctionProperties(store, ["get", "set"], {
+        name: "store",
+        errorMessage: "store must provide get and set functions"
+    });
 
     const delta = toFiniteNumber(amount) ?? 0;
     const base =
-        toFiniteNumber(store.get(key)) ?? toFiniteNumber(fallback) ?? 0;
+        toFiniteNumber(mapStore.get(key)) ?? toFiniteNumber(fallback) ?? 0;
 
     const next = base + delta;
-    store.set(key, next);
+    mapStore.set(key, next);
     return next;
 }
