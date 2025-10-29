@@ -313,7 +313,7 @@ function normalizeExtensions(
     }).map(coerceExtensionValue);
 
     const filteredValues = compactArray(coercedValues);
-    const normalized = Array.from(new Set(filteredValues));
+    const normalized = uniqueArray(filteredValues);
 
     return normalized.length > 0 ? normalized : fallbackExtensions;
 }
