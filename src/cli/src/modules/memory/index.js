@@ -37,7 +37,7 @@ import {
 } from "../dependencies.js";
 import { importPluginModule } from "../plugin-runtime-dependencies.js";
 import { writeJsonArtifact } from "../fs-artifacts.js";
-import { REPO_ROOT, resolveFromRepoRoot } from "../shared/index.js";
+import { REPO_ROOT, resolveFromRepoRoot } from "../../shared/index.js";
 
 export const DEFAULT_ITERATIONS = 500_000;
 export const MEMORY_ITERATIONS_ENV_VAR = "GML_MEMORY_ITERATIONS";
