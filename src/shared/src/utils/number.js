@@ -49,10 +49,23 @@ const DEFAULT_APPROXIMATE_EQUALITY_SCALE_MULTIPLIER = 4;
 let approximateEqualityScaleMultiplier =
     DEFAULT_APPROXIMATE_EQUALITY_SCALE_MULTIPLIER;
 
+/**
+ * Retrieve the current multiplier applied to {@link Number.EPSILON} when
+ * computing the approximate equality tolerance.
+ *
+ * @returns {number} Positive finite multiplier used to widen the comparison.
+ */
 export function getApproximateEqualityScaleMultiplier() {
     return approximateEqualityScaleMultiplier;
 }
 
+/**
+ * Override the multiplier applied to {@link Number.EPSILON} during approximate
+ * equality comparisons.
+ *
+ * @param {number} multiplier Positive finite multiplier.
+ * @returns {number} The normalized multiplier now in effect.
+ */
 export function setApproximateEqualityScaleMultiplier(multiplier) {
     if (!isFiniteNumber(multiplier) || multiplier <= 0) {
         throw new TypeError(
@@ -64,6 +77,12 @@ export function setApproximateEqualityScaleMultiplier(multiplier) {
     return approximateEqualityScaleMultiplier;
 }
 
+/**
+ * Restore the default multiplier applied to {@link Number.EPSILON} when
+ * performing approximate equality checks.
+ *
+ * @returns {number} Reset multiplier value.
+ */
 export function resetApproximateEqualityScaleMultiplier() {
     approximateEqualityScaleMultiplier =
         DEFAULT_APPROXIMATE_EQUALITY_SCALE_MULTIPLIER;
