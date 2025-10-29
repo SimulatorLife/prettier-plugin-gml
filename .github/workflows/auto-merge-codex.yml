@@ -60,9 +60,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: 'npm'
-          cache-dependency-path: |
-            package-lock.json
-            base/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies (PR head)
         if: steps.eligibility.outputs.eligible == 'true'
