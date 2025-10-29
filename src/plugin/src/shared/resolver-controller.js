@@ -1,4 +1,8 @@
-import { assertFunction } from "./object.js";
+import { assertFunction } from "@prettier-plugin-gml/shared/utils/object.js";
+
+// Option resolver plumbing now lives alongside the plugin so shared bundles stay
+// focused on cross-environment primitives. The implementation remains unchanged
+// aside from importing its assertions from the shared object helpers.
 
 /**
  * Create a controller for managing optional resolver hooks that customize how
