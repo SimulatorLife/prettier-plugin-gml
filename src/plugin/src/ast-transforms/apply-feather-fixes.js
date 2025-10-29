@@ -3922,7 +3922,9 @@ function preventDivisionOrModuloByZero({ ast, diagnostic }) {
         }
 
         if (Array.isArray(node)) {
-            for (const item of node) {
+            const items = node.slice();
+
+            for (const item of items) {
                 visit(item);
             }
             return;
