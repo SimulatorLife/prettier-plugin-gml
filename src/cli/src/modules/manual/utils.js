@@ -124,41 +124,39 @@ class ManualGitHubRequestError extends Error {
 
 function createManualGitHubRequestError({ url, response, bodyText, cause }) {
     const status =
-        typeof response?.status === "number" ? response.status : null;
-    const statusText = toTrimmedString(response?.statusText);
-    let responseBody;
-    if (bodyText === undefined) {
-        responseBody = undefined;
-    } else if (typeof bodyText === "string") {
-        responseBody = bodyText.trim();
-    } else {
-        responseBody = "";
-    }
+        typeof response?.status === "number" ? response.status : undefined;
+    const statusText = toTrimmedString(response?.statusText) || undefined;
+    const responseBody =
+        bodyText === undefined
+            ? undefined
+            : typeof bodyText === "string"
+              ? bodyText.trim()
+              : "";
 
     const statusLabel = [status, statusText]
-        .filter((value) => value !== null && value !== "")
+        .filter((value) => value !== undefined && value !== "")
         .map(String)
         .join(" ");
 
-    let detail = "";
-    if (typeof responseBody === "string" && responseBody.length > 0) {
-        detail = responseBody;
-    } else if (cause !== undefined) {
-        detail = getErrorMessageOrFallback(cause);
-    }
+    const detail =
+        typeof responseBody === "string" && responseBody.length > 0
+            ? responseBody
+            : cause !== undefined
+              ? getErrorMessageOrFallback(cause)
+              : "";
 
-    let message = `Request failed for ${url}`;
-    if (statusLabel) {
-        message += ` (${statusLabel})`;
-    }
-    if (detail) {
-        message += `: ${detail}`;
-    }
+    const baseMessage = [
+        `Request failed for ${url}`,
+        statusLabel && `(${statusLabel})`
+    ]
+        .filter(Boolean)
+        .join(" ");
+    const message = detail ? `${baseMessage}: ${detail}` : baseMessage;
 
     return new ManualGitHubRequestError(message, {
         url,
-        status: status ?? undefined,
-        statusText: statusText || undefined,
+        status,
+        statusText,
         responseBody,
         cause
     });
