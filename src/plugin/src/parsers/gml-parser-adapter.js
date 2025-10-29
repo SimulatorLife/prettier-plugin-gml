@@ -18,6 +18,7 @@ import { enforceVariableBlockSpacing } from "../ast-transforms/enforce-variable-
 import { convertStringConcatenations } from "../ast-transforms/convert-string-concatenations.js";
 import { condenseLogicalExpressions } from "../ast-transforms/condense-logical-expressions.js";
 import { convertManualMathExpressions } from "../ast-transforms/convert-manual-math.js";
+import { simplifyNumericProductExpressions } from "../ast-transforms/simplify-numeric-product.js";
 import { convertUndefinedGuardAssignments } from "../ast-transforms/convert-undefined-guard-assignments.js";
 import {
     getNodeStartIndex,
@@ -192,6 +193,8 @@ async function parse(text, options) {
                 originalText: options?.originalText
             });
         }
+
+        simplifyNumericProductExpressions(ast);
 
         convertUndefinedGuardAssignments(ast);
         preprocessFunctionArgumentDefaults(ast);
