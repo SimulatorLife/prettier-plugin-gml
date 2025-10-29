@@ -60,6 +60,15 @@ test("createListSplitPattern deduplicates separators and preserves order", () =>
     ]);
 });
 
+test("createListSplitPattern supports multi-character separators", () => {
+    const pattern = createListSplitPattern(["::", "ab"]);
+    assert.deepStrictEqual("one::twoabthree".split(pattern), [
+        "one",
+        "two",
+        "three"
+    ]);
+});
+
 test("createListSplitPattern optionally includes whitespace separators", () => {
     const pattern = createListSplitPattern([","], { includeWhitespace: true });
     assert.deepStrictEqual("one, two  three".split(pattern), [

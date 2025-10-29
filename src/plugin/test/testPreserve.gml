@@ -221,3 +221,5 @@ var lerp_sample = function(inst_a, inst_b, amount) {
     FAST_SAMPLE_GUARD
     sample_lerp(inst_a.sample, inst_b.sample, amount, sample);
 };
+
+sprite_top = z + sprite_height; // find the z top of the bomb
