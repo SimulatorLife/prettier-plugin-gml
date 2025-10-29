@@ -117,19 +117,34 @@ export function isWordChar(character) {
     }
 
     const code = character.charCodeAt(0);
-    if (!Number.isFinite(code)) {
-        return false;
-    }
-
+    // `String#charCodeAt` always yields a finite number for non-empty strings,
+    // letting the range checks below run without paying for extra guards in
+    // this hot path.
     if (code === CHAR_CODE_UNDERSCORE) {
         return true;
     }
 
-    return (
-        (code >= CHAR_CODE_DIGIT_START && code <= CHAR_CODE_DIGIT_END) ||
-        (code >= CHAR_CODE_UPPER_START && code <= CHAR_CODE_UPPER_END) ||
-        (code >= CHAR_CODE_LOWER_START && code <= CHAR_CODE_LOWER_END)
-    );
+    if (code < CHAR_CODE_DIGIT_START) {
+        return false;
+    }
+
+    if (code <= CHAR_CODE_DIGIT_END) {
+        return true;
+    }
+
+    if (code < CHAR_CODE_UPPER_START) {
+        return false;
+    }
+
+    if (code <= CHAR_CODE_UPPER_END) {
+        return true;
+    }
+
+    if (code < CHAR_CODE_LOWER_START) {
+        return false;
+    }
+
+    return code <= CHAR_CODE_LOWER_END;
 }
 
 /**
