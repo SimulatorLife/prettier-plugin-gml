@@ -71,6 +71,8 @@ function simplifyMultiplicativeChain(node, helpers) {
     let hasNumeric = false;
     const baseOperands = [];
 
+    const numericSources = [];
+
     for (const term of terms) {
         const { node: operand, divide } = term;
 
@@ -93,6 +95,8 @@ function simplifyMultiplicativeChain(node, helpers) {
 
             continue;
         }
+
+        numericSources.push(operand);
 
         if (divide) {
             if (numericValue === 0) {
@@ -120,7 +124,8 @@ function simplifyMultiplicativeChain(node, helpers) {
     const replacement = buildReplacement(
         baseOperands,
         normalizedCoefficient,
-        node
+        node,
+        numericSources
     );
 
     if (!replacement) {
@@ -171,9 +176,13 @@ function collectMultiplicativeTerms(node, helpers, output) {
     return collectMultiplicativeTerms(right, helpers, output);
 }
 
-function buildReplacement(baseOperands, coefficient, template) {
+function buildReplacement(baseOperands, coefficient, template, numericSources) {
+    const literalTemplate = Array.isArray(numericSources)
+        ? (numericSources.at(-1) ?? template)
+        : template;
+
     if (baseOperands.length === 0) {
-        return createNumericLiteral(coefficient, template);
+        return createNumericLiteral(coefficient, literalTemplate);
     }
 
     const [baseOperand] = baseOperands;
@@ -191,7 +200,19 @@ function buildReplacement(baseOperands, coefficient, template) {
         return createUnaryExpression("-", baseClone, template);
     }
 
-    const literal = createNumericLiteral(coefficient, template);
+    const literal = createNumericLiteral(coefficient, literalTemplate);
+
+    if (
+        literal &&
+        literalTemplate &&
+        typeof literalTemplate === "object" &&
+        Array.isArray(literalTemplate.comments) &&
+        literalTemplate.comments.length > 0
+    ) {
+        literal.comments = literalTemplate.comments.map((comment) =>
+            cloneAstNode(comment)
+        );
+    }
     if (!literal) {
         return null;
     }
