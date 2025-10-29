@@ -93,7 +93,17 @@ function traverse(node, helpers, seen, context) {
     while (changed) {
         changed = false;
 
+        if (node.type === PARENTHESIZED_EXPRESSION && attemptUnwrapLiteralParentheses(node, helpers)) {
+                changed = true;
+                continue;
+            }
+
         if (node.type === BINARY_EXPRESSION) {
+            if (attemptFoldConstantBinary(node, helpers, context)) {
+                changed = true;
+                continue;
+            }
+
             if (attemptConvertDegreesToRadians(node, helpers, context)) {
                 changed = true;
                 continue;
@@ -175,6 +185,119 @@ function traverse(node, helpers, seen, context) {
 
         traverse(value, helpers, seen, context);
     }
+
+    if (node.type === PARENTHESIZED_EXPRESSION) {
+        attemptUnwrapLiteralParentheses(node, helpers);
+    }
+}
+
+function attemptFoldConstantBinary(node, helpers, context) {
+    if (!node || node.type !== BINARY_EXPRESSION) {
+        return false;
+    }
+
+    const operator =
+        typeof node.operator === "string" ? node.operator.toLowerCase() : null;
+
+    if (operator !== "+" && operator !== "-") {
+        return false;
+    }
+
+    const rawLeft = node.left;
+    const rawRight = node.right;
+
+    if (!rawLeft || !rawRight) {
+        return false;
+    }
+
+    if (
+        helpers.hasComment(node) ||
+        helpers.hasComment(rawLeft) ||
+        helpers.hasComment(rawRight)
+    ) {
+        return false;
+    }
+
+    if (context && hasInlineCommentBetween(rawLeft, rawRight, context)) {
+        return false;
+    }
+
+    const left = unwrapExpression(rawLeft);
+    const right = unwrapExpression(rawRight);
+
+    if (!left || !right) {
+        return false;
+    }
+
+    if (helpers.hasComment(left) || helpers.hasComment(right)) {
+        return false;
+    }
+
+    const leftValue = parseNumericLiteral(left);
+    const rightValue = parseNumericLiteral(right);
+
+    if (typeof leftValue !== "number" || typeof rightValue !== "number") {
+        return false;
+    }
+
+    const result =
+        operator === "+" ? leftValue + rightValue : leftValue - rightValue;
+
+    if (!Number.isFinite(result)) {
+        return false;
+    }
+
+    const literal = createNumericLiteral(result, node);
+    if (!literal) {
+        return false;
+    }
+
+    for (const key of Object.keys(node)) {
+        if (key === "parent") {
+            continue;
+        }
+
+        delete node[key];
+    }
+
+    Object.assign(node, literal);
+    return true;
+}
+
+function attemptUnwrapLiteralParentheses(node, helpers) {
+    if (!node || node.type !== PARENTHESIZED_EXPRESSION) {
+        return false;
+    }
+
+    if (helpers.hasComment(node)) {
+        return false;
+    }
+
+    const rawExpression = node.expression;
+    if (!rawExpression || helpers.hasComment(rawExpression)) {
+        return false;
+    }
+
+    const expression = unwrapExpression(rawExpression);
+    if (!expression || expression.type !== LITERAL) {
+        return false;
+    }
+
+    const literalClone = cloneAstNode(expression);
+    if (!literalClone) {
+        return false;
+    }
+
+    for (const key of Object.keys(node)) {
+        if (key === "parent") {
+            continue;
+        }
+
+        delete node[key];
+    }
+
+    Object.assign(node, literalClone);
+    return true;
 }
 
 function traverseForScalarCondense(node, helpers, seen, context) {

@@ -199,6 +199,32 @@ test("condenses division by reciprocal scalar multipliers", async () => {
     );
 });
 
+test("condenses subtraction-based half coefficients", async () => {
+    const source = [
+        "function convert_half(len) {",
+        "    return len * (1 - 0.5);",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function convert_half",
+            "/// @param len",
+            "function convert_half(len) {",
+            "    return len * 0.5;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
 test("condenses nested ratios that mix scalar and non-scalar factors", async () => {
     const source = [
         "function convert_percentage(hp, max_hp) {",
