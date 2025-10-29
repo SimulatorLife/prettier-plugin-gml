@@ -483,12 +483,13 @@ function cleanupMultiplicativeIdentityParentheses(
         typeof node.expression === "object" &&
         node.expression.__fromMultiplicativeIdentity === true &&
         isIdentityReplacementSafeExpression(node.expression, helpers) &&
-        !shouldPreserveIdentityParenthesesForAncestor(parent)
-     && replaceNodeWith(node, node.expression)) {
-            node.__fromMultiplicativeIdentity = true;
-            cleanupMultiplicativeIdentityParentheses(node, helpers, parent);
-            return;
-        }
+        !shouldPreserveIdentityParenthesesForAncestor(parent) &&
+        replaceNodeWith(node, node.expression)
+    ) {
+        node.__fromMultiplicativeIdentity = true;
+        cleanupMultiplicativeIdentityParentheses(node, helpers, parent);
+        return;
+    }
 
     for (const value of Object.values(node)) {
         if (!value || typeof value !== "object") {
@@ -508,9 +509,12 @@ function cleanupMultiplicativeIdentityParentheses(
         }
     }
 
-    if (node.type === BINARY_EXPRESSION && !attemptCondenseScalarProduct(node, helpers, null)) {
-            attemptCondenseSimpleScalarProduct(node, helpers);
-        }
+    if (
+        node.type === BINARY_EXPRESSION &&
+        !attemptCondenseScalarProduct(node, helpers, null)
+    ) {
+        attemptCondenseSimpleScalarProduct(node, helpers);
+    }
 }
 
 function shouldPreserveIdentityParenthesesForAncestor(ancestor) {
@@ -1408,11 +1412,13 @@ function attemptCollectDistributedScalars(node, helpers, context) {
     const terms = [];
     collectAdditionTerms(node, terms);
 
-    if (terms.length !== 2) {
+    if (terms.length < 2) {
         return false;
     }
 
-    const scalarTerms = [];
+    let baseDetails = null;
+    let coefficient = 0;
+
     for (const term of terms) {
         const details = extractScalarAdditionTerm(term, helpers, context);
         if (
@@ -1424,21 +1430,54 @@ function attemptCollectDistributedScalars(node, helpers, context) {
             return false;
         }
 
-        scalarTerms.push(details);
+        if (!baseDetails) {
+            if (!isSafeOperand(details.base)) {
+                return false;
+            }
+
+            baseDetails = details;
+        } else if (!areNodesEquivalent(baseDetails.base, details.base)) {
+            return false;
+        }
+
+        coefficient += details.coefficient;
     }
 
-    if (!areNodesEquivalent(scalarTerms[0].base, scalarTerms[1].base)) {
+    if (!baseDetails || !Number.isFinite(coefficient)) {
         return false;
     }
 
-    if (!isSafeOperand(scalarTerms[0].base)) {
-        return false;
+    const zeroTolerance = computeNumericTolerance(0);
+    const unitTolerance = computeNumericTolerance(1);
+
+    if (Math.abs(coefficient) <= zeroTolerance) {
+        mutateToNumericLiteral(node, 0, node);
+        return true;
     }
 
-    const coefficient = scalarTerms[0].coefficient + scalarTerms[1].coefficient;
+    if (Math.abs(coefficient - 1) <= unitTolerance) {
+        const baseClone = cloneAstNode(baseDetails.rawBase);
+        if (!baseClone) {
+            return false;
+        }
 
-    if (!Number.isFinite(coefficient)) {
-        return false;
+        replaceNodeWith(node, baseClone);
+        return true;
+    }
+
+    if (Math.abs(coefficient + 1) <= unitTolerance) {
+        const baseClone = cloneAstNode(baseDetails.rawBase);
+        if (!baseClone) {
+            return false;
+        }
+
+        const negated = createNegatedExpression(baseClone, node);
+        if (!negated) {
+            return false;
+        }
+
+        replaceNode(node, negated);
+        return true;
     }
 
     const normalizedCoefficient = normalizeNumericCoefficient(coefficient);
@@ -1446,21 +1485,7 @@ function attemptCollectDistributedScalars(node, helpers, context) {
         return false;
     }
 
-    const numericValue = Number(normalizedCoefficient);
-    if (Number.isFinite(numericValue)) {
-        const zeroTolerance = computeNumericTolerance(0);
-        const unitTolerance = computeNumericTolerance(1);
-
-        if (
-            Math.abs(numericValue) <= zeroTolerance ||
-            Math.abs(numericValue - 1) <= unitTolerance ||
-            Math.abs(numericValue + 1) <= unitTolerance
-        ) {
-            return false;
-        }
-    }
-
-    const baseClone = cloneAstNode(scalarTerms[0].rawBase);
+    const baseClone = cloneAstNode(baseDetails.rawBase);
     const literal = createNumericLiteral(normalizedCoefficient, node);
 
     if (!baseClone || !literal) {
@@ -2998,6 +3023,23 @@ function mutateToNumericLiteral(target, value, template) {
     }
 
     replaceNode(target, literal);
+}
+
+function createNegatedExpression(argument, template) {
+    if (!argument || typeof argument !== "object") {
+        return null;
+    }
+
+    const unary = {
+        type: UNARY_EXPRESSION,
+        operator: "-",
+        prefix: true,
+        argument
+    };
+
+    assignClonedLocation(unary, template);
+
+    return unary;
 }
 
 function createCallExpressionNode(name, args, template) {

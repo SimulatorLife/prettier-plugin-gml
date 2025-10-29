@@ -312,6 +312,32 @@ test("collects shared scalar factors across addition", async () => {
     );
 });
 
+test("reduces shared scalar additions that sum to one", async () => {
+    const source = [
+        "function normalize_amount(amount) {",
+        "    return amount * 0.4 + amount * 0.1 + amount * 0.5;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function normalize_amount",
+            "/// @param amount",
+            "function normalize_amount(amount) {",
+            "    return amount;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
 test("condenses division by reciprocal scalar multipliers", async () => {
     const source = [
         "function convert_reciprocal(x, x0) {",
