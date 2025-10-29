@@ -14,7 +14,8 @@ export {
 } from "@prettier-plugin-gml/shared/utils/array.js";
 export {
     areNumbersApproximatelyEqual,
-    isFiniteNumber
+    isFiniteNumber,
+    toFiniteNumber
 } from "@prettier-plugin-gml/shared/utils/number.js";
 export {
     assertFunction,

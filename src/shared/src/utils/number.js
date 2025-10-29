@@ -9,6 +9,24 @@ export function isFiniteNumber(value) {
 }
 
 /**
+ * Convert a candidate value into a finite number. Mirrors the explicit
+ * `Number()` coercion followed by `Number.isFinite` checks that appear across
+ * the semantic and shared helpers so call sites can centralize their numeric
+ * guards without reimplementing the same fallback logic.
+ *
+ * @param {unknown} value Potential numeric value.
+ * @returns {number | null} Finite number when coercion succeeds; otherwise `null`.
+ */
+export function toFiniteNumber(value) {
+    if (isFiniteNumber(value)) {
+        return value;
+    }
+
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : null;
+}
+
+/**
  * Truncate the provided numeric value to an integer when it is a finite
  * number. Non-number and non-finite inputs yield `null` so callers can easily
  * detect invalid values without sprinkling duplicate guards.

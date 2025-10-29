@@ -4,7 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import {
     parseJsonWithContext,
     areNumbersApproximatelyEqual,
-    isFiniteNumber,
+    toFiniteNumber,
     isObjectLike,
     createEnvConfiguredValueWithFallback,
     createAbortGuard,
@@ -47,9 +47,9 @@ const projectIndexCacheSizeConfig = createEnvConfiguredValueWithFallback({
         const trimmed = getNonEmptyTrimmedString(value);
 
         if (trimmed !== null) {
-            const numeric = Number(trimmed);
+            const numeric = toFiniteNumber(trimmed);
 
-            if (Number.isFinite(numeric) && numeric === 0) {
+            if (numeric === 0) {
                 return 0;
             }
         }
@@ -122,8 +122,8 @@ function normalizeMaxSizeBytes(maxSizeBytes) {
         return null;
     }
 
-    const numericLimit = Number(maxSizeBytes);
-    if (!Number.isFinite(numericLimit) || numericLimit <= 0) {
+    const numericLimit = toFiniteNumber(maxSizeBytes);
+    if (numericLimit === null || numericLimit <= 0) {
         return null;
     }
 
@@ -138,9 +138,9 @@ function cloneMtimeMap(source) {
     const normalized = {};
 
     for (const [key, value] of Object.entries(source)) {
-        const numericValue = Number(value);
+        const numericValue = toFiniteNumber(value);
 
-        if (isFiniteNumber(numericValue)) {
+        if (numericValue !== null) {
             normalized[key] = numericValue;
         }
     }
