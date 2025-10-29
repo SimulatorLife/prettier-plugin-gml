@@ -52,7 +52,11 @@ export function convertManualMathExpressions(
     const traversalContext = normalizeTraversalContext(ast, context);
 
     traverse(ast, normalizedHelpers, new Set(), traversalContext);
-    cleanupMultiplicativeIdentityParentheses(ast, normalizedHelpers);
+    cleanupMultiplicativeIdentityParentheses(
+        ast,
+        normalizedHelpers,
+        traversalContext
+    );
 
     return ast;
 }
@@ -75,13 +79,21 @@ export function condenseScalarMultipliers(
         new Set(),
         traversalContext
     );
-    cleanupMultiplicativeIdentityParentheses(ast, normalizedHelpers);
+    cleanupMultiplicativeIdentityParentheses(
+        ast,
+        normalizedHelpers,
+        traversalContext
+    );
 
     return ast;
 }
 
 function traverse(node, helpers, seen, context) {
     if (!node || typeof node !== "object") {
+        return;
+    }
+
+    if (node._gmlManualMathOriginal === true) {
         return;
     }
 
@@ -124,6 +136,11 @@ function traverse(node, helpers, seen, context) {
             }
 
             if (attemptConvertDegreesToRadians(node, helpers, context)) {
+                changed = true;
+                continue;
+            }
+
+            if (attemptSimplifyDivisionByReciprocal(node, helpers, context)) {
                 changed = true;
                 continue;
             }
@@ -234,6 +251,10 @@ function traverseForScalarCondense(node, helpers, seen, context) {
         return;
     }
 
+    if (node._gmlManualMathOriginal === true) {
+        return;
+    }
+
     if (seen.has(node)) {
         return;
     }
@@ -253,6 +274,10 @@ function traverseForScalarCondense(node, helpers, seen, context) {
         attemptRemoveAdditiveIdentity(node, helpers, context);
 
         if (attemptConvertDegreesToRadians(node, helpers, context)) {
+            return;
+        }
+
+        if (attemptSimplifyDivisionByReciprocal(node, helpers, context)) {
             return;
         }
 
@@ -490,15 +515,25 @@ function isIdentityReplacementSafeExpression(node, helpers) {
 function cleanupMultiplicativeIdentityParentheses(
     node,
     helpers,
+    context,
     parent = null
 ) {
     if (!node || typeof node !== "object") {
         return;
     }
 
+    if (node._gmlManualMathOriginal === true) {
+        return;
+    }
+
     if (Array.isArray(node)) {
         for (const element of node) {
-            cleanupMultiplicativeIdentityParentheses(element, helpers, parent);
+            cleanupMultiplicativeIdentityParentheses(
+                element,
+                helpers,
+                context,
+                parent
+            );
         }
         return;
     }
@@ -513,7 +548,12 @@ function cleanupMultiplicativeIdentityParentheses(
         replaceNodeWith(node, node.expression)
     ) {
         node.__fromMultiplicativeIdentity = true;
-        cleanupMultiplicativeIdentityParentheses(node, helpers, parent);
+        cleanupMultiplicativeIdentityParentheses(
+            node,
+            helpers,
+            context,
+            parent
+        );
         return;
     }
 
@@ -527,19 +567,25 @@ function cleanupMultiplicativeIdentityParentheses(
                 cleanupMultiplicativeIdentityParentheses(
                     element,
                     helpers,
+                    context,
                     node
                 );
             }
         } else {
-            cleanupMultiplicativeIdentityParentheses(value, helpers, node);
+            cleanupMultiplicativeIdentityParentheses(
+                value,
+                helpers,
+                context,
+                node
+            );
         }
     }
 
     if (
         node.type === BINARY_EXPRESSION &&
-        !attemptCondenseScalarProduct(node, helpers, null)
+        !attemptCondenseScalarProduct(node, helpers, context)
     ) {
-        attemptCondenseSimpleScalarProduct(node, helpers);
+        attemptCondenseSimpleScalarProduct(node, helpers, context);
     }
 }
 
@@ -567,7 +613,7 @@ function shouldPreserveIdentityParenthesesForAncestor(ancestor) {
     return false;
 }
 
-function attemptCondenseSimpleScalarProduct(node, helpers) {
+function attemptCondenseSimpleScalarProduct(node, helpers, context) {
     if (!isBinaryOperator(node, "*")) {
         return false;
     }
@@ -605,7 +651,11 @@ function attemptCondenseSimpleScalarProduct(node, helpers) {
         hasNumericContribution = true;
     }
 
-    if (chain.denominators.length === 0 && !cancelledReciprocalTerms) {
+    if (
+        chain.denominators.length === 0 &&
+        !cancelledReciprocalTerms &&
+        Math.abs(coefficient - 1) > computeNumericTolerance(1)
+    ) {
         return false;
     }
 
@@ -657,11 +707,15 @@ function attemptCondenseSimpleScalarProduct(node, helpers) {
 
     const unitTolerance = computeNumericTolerance(1);
     if (Math.abs(normalizedCoefficient - 1) <= unitTolerance) {
+        const originalExpression = cloneAstNode(node);
+
         if (!replaceNodeWith(node, operand)) {
             return false;
         }
 
         node.__fromMultiplicativeIdentity = true;
+        recordManualMathOriginalAssignment(context, node, originalExpression);
+
         return true;
     }
 
@@ -994,6 +1048,81 @@ function removeAdditiveIdentityOperand(node, key, otherKey, helpers, context) {
 
     suppressTrailingLineComment(node, parentLine, context, "original");
     removeSimplifiedAliasDeclaration(context, node);
+
+    return true;
+}
+
+function attemptSimplifyDivisionByReciprocal(node, helpers, context) {
+    if (!isBinaryOperator(node, "/")) {
+        return false;
+    }
+
+    if (
+        helpers.hasComment(node) ||
+        helpers.hasComment(node.left) ||
+        helpers.hasComment(node.right)
+    ) {
+        return false;
+    }
+
+    if (context && hasInlineCommentBetween(node.left, node.right, context)) {
+        return false;
+    }
+
+    const denominator = unwrapExpression(node.right);
+    if (
+        !denominator ||
+        denominator.type !== BINARY_EXPRESSION ||
+        denominator.operator !== "/"
+    ) {
+        return false;
+    }
+
+    if (
+        helpers.hasComment(denominator) ||
+        helpers.hasComment(denominator.left) ||
+        helpers.hasComment(denominator.right)
+    ) {
+        return false;
+    }
+
+    if (
+        context &&
+        hasInlineCommentBetween(denominator.left, denominator.right, context)
+    ) {
+        return false;
+    }
+
+    const numerator = unwrapExpression(denominator.left);
+    const rawReciprocalFactor = denominator.right;
+    const reciprocalFactor = unwrapExpression(rawReciprocalFactor);
+
+    if (!numerator || !rawReciprocalFactor || !reciprocalFactor) {
+        return false;
+    }
+
+    const numericValue = parseNumericLiteral(numerator);
+    if (numericValue === null) {
+        return false;
+    }
+
+    if (Math.abs(numericValue - 1) > computeNumericTolerance(1)) {
+        return false;
+    }
+
+    const leftClone = cloneAstNode(node.left);
+    const rightClone =
+        cloneAstNode(rawReciprocalFactor) ??
+        cloneAstNode(reciprocalFactor) ??
+        reciprocalFactor;
+
+    if (!leftClone || !rightClone) {
+        return false;
+    }
+
+    node.operator = "*";
+    node.left = leftClone;
+    node.right = rightClone;
 
     return true;
 }
@@ -3426,6 +3555,68 @@ function replaceNodeWith(target, source) {
     return true;
 }
 
+function recordManualMathOriginalAssignment(context, node, originalExpression) {
+    if (!context || typeof context !== "object") {
+        return;
+    }
+
+    const root = context.astRoot;
+    if (!root || typeof root !== "object") {
+        return;
+    }
+
+    if (!originalExpression || typeof originalExpression !== "object") {
+        return;
+    }
+
+    const declarator = findVariableDeclaratorForInit(root, node);
+    if (!declarator) {
+        return;
+    }
+
+    const baseName = getIdentifierName(declarator.id);
+    if (typeof baseName !== "string" || baseName.length === 0) {
+        return;
+    }
+
+    const declaration = findVariableDeclarationByName(root, baseName);
+    if (!declaration || declaration._gmlManualMathOriginalRecorded === true) {
+        return;
+    }
+
+    const originalDeclaration = cloneAstNode(declaration);
+    if (!originalDeclaration) {
+        return;
+    }
+
+    const declarators = Array.isArray(originalDeclaration.declarations)
+        ? originalDeclaration.declarations
+        : null;
+    if (!declarators || declarators.length === 0) {
+        return;
+    }
+
+    const [originalDeclarator] = declarators;
+    originalDeclarator.init =
+        cloneAstNode(originalExpression) ?? originalExpression;
+
+    originalDeclaration._gmlManualMathOriginal = true;
+    originalDeclaration._gmlManualMathOriginalComment = "original";
+    if (originalDeclaration._gmlForceFollowingEmptyLine === true) {
+        delete originalDeclaration._gmlForceFollowingEmptyLine;
+    }
+    originalDeclaration._gmlSuppressFollowingEmptyLine = true;
+
+    if (!insertNodeBefore(root, declaration, originalDeclaration)) {
+        return;
+    }
+
+    declaration._gmlManualMathOriginalRecorded = true;
+    if (declaration._gmlForceFollowingEmptyLine === true) {
+        delete declaration._gmlForceFollowingEmptyLine;
+    }
+}
+
 function suppressTrailingLineComment(
     node,
     targetLine,
@@ -3527,6 +3718,45 @@ function removeSimplifiedAliasDeclaration(context, simplifiedNode) {
         context,
         "simplified"
     );
+}
+
+function insertNodeBefore(root, target, statement) {
+    if (!root || typeof root !== "object" || !target || !statement) {
+        return false;
+    }
+
+    const stack = [root];
+    const visited = new Set();
+
+    while (stack.length > 0) {
+        const node = stack.pop();
+        if (!node || typeof node !== "object" || visited.has(node)) {
+            continue;
+        }
+
+        visited.add(node);
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                const element = node[index];
+                if (element === target) {
+                    node.splice(index, 0, statement);
+                    return true;
+                }
+
+                stack.push(element);
+            }
+            continue;
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                stack.push(value);
+            }
+        }
+    }
+
+    return false;
 }
 
 function markPreviousSiblingForBlankLine(root, target) {
