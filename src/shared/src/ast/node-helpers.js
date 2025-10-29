@@ -70,7 +70,17 @@ function forEachNodeChild(node, callback) {
         return;
     }
 
-    for (const [key, value] of Object.entries(node)) {
+    // `Object.entries` allocates a fresh array on every call, which showed up
+    // in micro-benchmarks that hammer transforms iterating across every node.
+    // A guarded `for…in` loop avoids the array allocation while preserving the
+    // existing semantics: only enumerable own properties whose values are
+    // object-like are forwarded to the callback.
+    for (const key in node) {
+        if (!hasOwn(node, key)) {
+            continue;
+        }
+
+        const value = node[key];
         if (!isObjectLike(value)) {
             continue;
         }

@@ -1,8 +1,8 @@
 export {
     FEATHER_METADATA_PATH,
     FEATHER_METADATA_URL,
-    loadBundledFeatherMetadata,
-    getFeatherMetadata,
+    getFeatherDiagnosticById,
     getFeatherDiagnostics,
-    getFeatherDiagnosticById
+    getFeatherMetadata,
+    loadBundledFeatherMetadata
 } from "./feather-metadata.js";

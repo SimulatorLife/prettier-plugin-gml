@@ -1,5 +1,4 @@
 export {
-    appendToCollection,
     applyEnvironmentOverride,
     asArray,
     assertArray,
@@ -13,6 +12,8 @@ export {
     createEnvConfiguredValue,
     createEnvConfiguredValueWithFallback,
     createListSplitPattern,
+    describeValueForError,
+    describeValueWithArticle,
     ensureMap,
     escapeRegExp,
     getErrorCode,
@@ -50,6 +51,7 @@ export {
     resolveIntegerOption,
     splitLines,
     stringifyJsonForFile,
+    formatWithIndefiniteArticle,
     toArray,
     toArrayFromIterable,
     toMutableArray,
@@ -76,4 +78,6 @@ export {
     createVerboseDurationLogger,
     formatDuration,
     timeSync
-} from "@prettier-plugin-gml/shared/reporting/time.js";
+} from "./shared/reporting/time.js";
+
+export { appendToCollection } from "./shared/collection.js";
