@@ -98,11 +98,12 @@ function buildLocationSuffix(displayPath, lineNumber, columnNumber) {
     }
 
     if (lineNumber != undefined) {
-        if (columnNumber == undefined) {
-            parts.push(`line ${lineNumber}`);
-        } else {
-            parts.push(`line ${lineNumber}, column ${columnNumber}`);
-        }
+        const location =
+            columnNumber == undefined
+                ? `line ${lineNumber}`
+                : `line ${lineNumber}, column ${columnNumber}`;
+
+        parts.push(location);
     }
 
     if (parts.length === 0) {
