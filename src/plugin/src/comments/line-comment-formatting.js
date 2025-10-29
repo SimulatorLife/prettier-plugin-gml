@@ -6,13 +6,13 @@ import {
 } from "../options/line-comment-options.js";
 import { isObjectLike } from "./comment-boundary.js";
 import {
-    assertFunction,
     getCommentValue,
     getNonEmptyTrimmedString,
     trimStringEntries,
     toTrimmedString,
     isRegExpLike
 } from "../shared/index.js";
+import { createResolverController } from "../shared/resolver-controller.js";
 
 const JSDOC_REPLACEMENTS = {
     "@func": "@function",
@@ -84,8 +84,20 @@ const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION = Object.freeze({
     ])
 });
 
-let docCommentTypeNormalizationResolver = null;
-let activeDocCommentTypeNormalization = createDocCommentTypeNormalization();
+const docCommentTypeNormalizationController = createResolverController({
+    defaultFactory: () => createDocCommentTypeNormalization(),
+    invoke(resolver, options) {
+        return resolver({
+            defaults: DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION,
+            options
+        });
+    },
+    normalize(result) {
+        return createDocCommentTypeNormalization(result);
+    },
+    errorMessage:
+        "Doc comment type normalization resolvers must be functions that return a normalization descriptor"
+});
 
 function createDocCommentTypeNormalization(candidate) {
     const synonyms = new Map();
@@ -210,30 +222,15 @@ function* toIterable(value) {
 }
 
 function resolveDocCommentTypeNormalization(options = {}) {
-    if (!docCommentTypeNormalizationResolver) {
-        return activeDocCommentTypeNormalization;
-    }
-
-    const resolved = docCommentTypeNormalizationResolver({
-        defaults: DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION,
-        options
-    });
-    activeDocCommentTypeNormalization = createDocCommentTypeNormalization(resolved);
-    return activeDocCommentTypeNormalization;
+    return docCommentTypeNormalizationController.resolve(options);
 }
 
 function setDocCommentTypeNormalizationResolver(resolver) {
-    docCommentTypeNormalizationResolver = assertFunction(resolver, "resolver", {
-        errorMessage:
-            "Doc comment type normalization resolvers must be functions that return a normalization descriptor"
-    });
-    return resolveDocCommentTypeNormalization();
+    return docCommentTypeNormalizationController.set(resolver);
 }
 
 function restoreDefaultDocCommentTypeNormalizationResolver() {
-    docCommentTypeNormalizationResolver = null;
-    activeDocCommentTypeNormalization = createDocCommentTypeNormalization();
-    return activeDocCommentTypeNormalization;
+    return docCommentTypeNormalizationController.restore();
 }
 
 const FUNCTION_LIKE_DOC_TAG_PATTERN = /@(func(?:tion)?|method)\b/i;
@@ -409,7 +406,23 @@ function applyInlinePadding(comment, formattedText) {
         return formattedText;
     }
 
-    return " ".repeat(paddingWidth) + formattedText;
+    const shouldTrimTrailingPadding =
+        comment?.trailing === true || comment?.placement === "endOfLine";
+    const derivesFromFallback =
+        typeof comment?.inlinePadding !== "number" || comment.inlinePadding <= 0;
+    const shouldReduceFallbackPadding =
+        shouldTrimTrailingPadding &&
+        derivesFromFallback &&
+        comment?.placement !== "endOfLine";
+    const effectiveWidth = shouldReduceFallbackPadding
+        ? Math.max(paddingWidth - 1, 0)
+        : paddingWidth;
+
+    if (effectiveWidth <= 0) {
+        return formattedText;
+    }
+
+    return " ".repeat(effectiveWidth) + formattedText;
 }
 
 function getInlinePaddingWidth(comment) {
