@@ -1,15 +1,21 @@
 /**
+ * String literals recognised by the object wrap option helpers.
+ *
+ * @typedef {"preserve" | "collapse"} ObjectWrapOptionValue
+ */
+
+/**
  * Canonical object wrap behaviours supported by the formatter.
  *
  * @readonly
- * @enum {"preserve" | "collapse"}
+ * @enum {ObjectWrapOptionValue}
  */
 const ObjectWrapOption = Object.freeze({
     PRESERVE: "preserve",
     COLLAPSE: "collapse"
 });
 
-/** @type {ReadonlySet<string>} */
+/** @type {ReadonlySet<ObjectWrapOptionValue>} */
 const OBJECT_WRAP_VALUES = new Set(Object.values(ObjectWrapOption));
 
 const NOOP_DISPOSE = () => {};
@@ -18,8 +24,8 @@ const NOOP_DISPOSE = () => {};
  * Normalize ad-hoc resolvers to the default behaviour when they return an
  * unexpected value.
  *
- * @param {string | null | undefined} value
- * @returns {string}
+ * @param {ObjectWrapOptionValue | null | undefined} value
+ * @returns {ObjectWrapOptionValue}
  */
 function normalizeObjectWrapOption(value) {
     return OBJECT_WRAP_VALUES.has(value) ? value : ObjectWrapOption.PRESERVE;
@@ -29,7 +35,7 @@ function normalizeObjectWrapOption(value) {
  * Resolve the default wrap preference directly from the formatter options.
  *
  * @param {unknown} options
- * @returns {string}
+ * @returns {ObjectWrapOptionValue}
  */
 function defaultResolveObjectWrapOption(options) {
     return options?.objectWrap === ObjectWrapOption.COLLAPSE
@@ -37,7 +43,7 @@ function defaultResolveObjectWrapOption(options) {
         : ObjectWrapOption.PRESERVE;
 }
 
-/** @type {((options: unknown) => string) | null} */
+/** @type {((options: unknown) => ObjectWrapOptionValue) | null} */
 let objectWrapOptionResolver = null;
 
 /**
@@ -45,7 +51,7 @@ let objectWrapOptionResolver = null;
  * resolver first.
  *
  * @param {unknown} options
- * @returns {string}
+ * @returns {ObjectWrapOptionValue}
  */
 function resolveObjectWrapOption(options) {
     if (typeof objectWrapOptionResolver !== "function") {
@@ -63,7 +69,7 @@ function resolveObjectWrapOption(options) {
  * Register a resolver used to override how object wrap preferences are
  * derived. Returns a disposer that restores the previous resolver.
  *
- * @param {unknown} resolver
+ * @param {((options: unknown) => ObjectWrapOptionValue) | null | undefined} resolver
  * @returns {() => void}
  */
 function setObjectWrapOptionResolver(resolver) {
