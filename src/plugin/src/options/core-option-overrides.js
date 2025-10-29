@@ -1,4 +1,5 @@
-import { assertFunction, hasOwn } from "../shared/index.js";
+import { hasOwn } from "../shared/index.js";
+import { createResolverController } from "../shared/resolver-controller.js";
 import {
     TRAILING_COMMA,
     assertTrailingCommaValue
@@ -27,7 +28,16 @@ const ARROW_PARENS_VALUES = new Set(["always", "avoid"]);
 const PROSE_WRAP_VALUES = new Set(["always", "never", "preserve"]);
 const HTML_WHITESPACE_SENSITIVITY_VALUES = new Set(["css", "strict", "ignore"]);
 
-let coreOptionOverridesResolver = null;
+const coreOptionOverridesController = createResolverController({
+    defaultFactory: () => DEFAULT_CORE_OPTION_OVERRIDES,
+    normalize(result) {
+        return normalizeCoreOptionOverrides(
+            result ?? DEFAULT_CORE_OPTION_OVERRIDES
+        );
+    },
+    errorMessage:
+        "Core option override resolvers must be functions that return override objects"
+});
 
 function normalizeBoolean(value) {
     return typeof value === "boolean" ? value : undefined;
@@ -128,26 +138,15 @@ function normalizeCoreOptionOverrides(overrides) {
  *          safe to reuse across print invocations.
  */
 function resolveCoreOptionOverrides(options = {}) {
-    if (!coreOptionOverridesResolver) {
-        return DEFAULT_CORE_OPTION_OVERRIDES;
-    }
-
-    return normalizeCoreOptionOverrides(
-        coreOptionOverridesResolver(options) ?? DEFAULT_CORE_OPTION_OVERRIDES
-    );
+    return coreOptionOverridesController.resolve(options);
 }
 
 function setCoreOptionOverridesResolver(resolver) {
-    coreOptionOverridesResolver = assertFunction(resolver, "resolver", {
-        errorMessage:
-            "Core option override resolvers must be functions that return override objects"
-    });
-    return resolveCoreOptionOverrides();
+    return coreOptionOverridesController.set(resolver);
 }
 
 function restoreDefaultCoreOptionOverridesResolver() {
-    coreOptionOverridesResolver = null;
-    return DEFAULT_CORE_OPTION_OVERRIDES;
+    return coreOptionOverridesController.restore();
 }
 
 export {
