@@ -5,14 +5,14 @@ import {
     normalizeLineCommentOptions
 } from "../options/line-comment-options.js";
 import { isObjectLike } from "./comment-boundary.js";
+import { getCommentValue } from "@prettier-plugin-gml/shared/ast/comments.js";
 import {
-    getCommentValue,
     getNonEmptyTrimmedString,
     trimStringEntries,
-    toTrimmedString,
-    isRegExpLike,
-    createResolverController
-} from "../shared/index.js";
+    toTrimmedString
+} from "@prettier-plugin-gml/shared/utils/string.js";
+import { isRegExpLike } from "@prettier-plugin-gml/shared/utils/capability-probes.js";
+import { createResolverController } from "@prettier-plugin-gml/shared/utils/resolver-controller.js";
 
 const JSDOC_REPLACEMENTS = {
     "@func": "@function",
