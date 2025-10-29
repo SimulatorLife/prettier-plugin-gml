@@ -146,6 +146,33 @@ test("condenses chained scalar multipliers into a single coefficient", async () 
     );
 });
 
+test("condenses chained multipliers with composite operands", async () => {
+    const source = [
+        "function convert_frames(acc, dt) {",
+        "    return acc * dt / 1000 * 60;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function convert_frames",
+            "/// @param acc",
+            "/// @param dt",
+            "function convert_frames(acc, dt) {",
+            "    return acc * dt * 0.06;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
 test("collects shared scalar factors across addition", async () => {
     const source = [
         "function collect_constants(value) {",
