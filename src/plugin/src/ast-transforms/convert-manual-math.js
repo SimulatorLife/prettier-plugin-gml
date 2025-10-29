@@ -235,7 +235,7 @@ function attemptCondenseScalarProduct(node, helpers, context) {
         return false;
     }
 
-    let nonNumericTerm = null;
+    const nonNumericTerms = [];
     let coefficient = 1;
     let hasNumericContribution = false;
     let meaningfulNumericFactorCount = 0;
@@ -251,11 +251,7 @@ function attemptCondenseScalarProduct(node, helpers, context) {
 
         const numericValue = parseNumericFactor(term.expression);
         if (numericValue === null) {
-            if (nonNumericTerm !== null) {
-                return false;
-            }
-
-            nonNumericTerm = term;
+            nonNumericTerms.push(term);
             continue;
         }
 
@@ -270,7 +266,7 @@ function attemptCondenseScalarProduct(node, helpers, context) {
         }
     }
 
-    if (nonNumericTerm === null) {
+    if (nonNumericTerms.length === 0) {
         return false;
     }
 
@@ -327,7 +323,7 @@ function attemptCondenseScalarProduct(node, helpers, context) {
         return false;
     }
 
-    const clonedOperand = cloneAstNode(nonNumericTerm.raw);
+    const clonedOperand = cloneMultiplicativeTerms(nonNumericTerms, node);
     const literal = createNumericLiteral(normalizedCoefficient, node);
 
     if (!clonedOperand || !literal) {
@@ -1116,6 +1112,55 @@ function collectMultiplicativeChain(
 
     collection.push({ raw: node, expression });
     return true;
+}
+
+function cloneMultiplicativeTerms(terms, template) {
+    if (!Array.isArray(terms) || terms.length === 0) {
+        return null;
+    }
+
+    const first = terms[0];
+    const baseClone = cloneAstNode(first?.raw ?? first?.expression);
+    if (!baseClone) {
+        return null;
+    }
+
+    let result = baseClone;
+
+    for (let index = 1; index < terms.length; index += 1) {
+        const current = terms[index];
+        const operand = cloneAstNode(current?.raw ?? current?.expression);
+
+        if (!operand) {
+            return null;
+        }
+
+        const product = createMultiplicationNode(result, operand, template);
+        if (!product) {
+            return null;
+        }
+
+        result = product;
+    }
+
+    return result;
+}
+
+function createMultiplicationNode(left, right, template) {
+    if (!left || !right) {
+        return null;
+    }
+
+    const expression = {
+        type: BINARY_EXPRESSION,
+        operator: "*",
+        left,
+        right
+    };
+
+    assignClonedLocation(expression, template);
+
+    return expression;
 }
 
 function collapseUnitMinusHalfFactor(node, helpers, context) {
