@@ -32,32 +32,25 @@ export {
  * }} [options]
  * @returns {(value: unknown, ...rest: Array<unknown>) => unknown}
  */
-export function wrapInvalidArgumentResolver(
-    resolver,
-    {
-        errorConstructor = getCommanderInvalidArgumentErrorConstructor(),
-        fallbackMessage = "Invalid option value."
-    } = {}
-) {
+export function wrapInvalidArgumentResolver(resolver, options = {}) {
     assertFunction(resolver, "resolver");
 
-    const defaultErrorConstructor =
-        getCommanderInvalidArgumentErrorConstructor();
-    const ErrorConstructor =
+    const { errorConstructor, fallbackMessage = "Invalid option value." } =
+        options;
+
+    const InvalidArgumentError =
         typeof errorConstructor === "function"
             ? errorConstructor
-            : defaultErrorConstructor;
+            : getCommanderInvalidArgumentErrorConstructor();
 
     return (...args) => {
         try {
             return resolver(...args);
         } catch (error) {
-            const message = getErrorMessage(error, {
-                fallback: fallbackMessage
-            });
-            const invalidArgumentError = new ErrorConstructor(
-                message && message.length > 0 ? message : fallbackMessage
-            );
+            const message =
+                getErrorMessage(error, { fallback: fallbackMessage }) ||
+                fallbackMessage;
+            const invalidArgumentError = new InvalidArgumentError(message);
 
             if (error && typeof error === "object") {
                 invalidArgumentError.cause = error;
