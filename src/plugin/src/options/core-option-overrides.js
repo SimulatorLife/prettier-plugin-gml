@@ -1,4 +1,4 @@
-import { hasOwn, createResolverController } from "../shared/index.js";
+import { createResolverController, hasOwn } from "../shared/index.js";
 import {
     TRAILING_COMMA,
     assertTrailingCommaValue

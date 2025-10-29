@@ -1,7 +1,7 @@
 import {
+    createResolverController,
     isNonEmptyString,
-    isRegExpLike,
-    createResolverController
+    isRegExpLike
 } from "../shared/index.js";
 
 const LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES = 5;
