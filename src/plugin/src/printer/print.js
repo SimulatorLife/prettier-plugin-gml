@@ -2827,15 +2827,25 @@ function printStatements(path, options, print, childrenAttribute) {
         // regression we previously hit when normalising legacy `#define`
         // assignments.
         const manualMathRatio = getManualMathRatio(node);
+        const manualMathOriginalComment =
+            typeof node._gmlManualMathOriginalComment === "string"
+                ? node._gmlManualMathOriginalComment
+                : null;
 
         if (docHasTrailingComment(printed)) {
             printed.splice(-1, 0, semi);
             parts.push(printed);
+            if (manualMathOriginalComment) {
+                parts.push("  // ", manualMathOriginalComment);
+            }
             if (manualMathRatio) {
                 parts.push(" ", manualMathRatio);
             }
         } else {
             parts.push(printed, semi);
+            if (manualMathOriginalComment) {
+                parts.push("  // ", manualMathOriginalComment);
+            }
             if (manualMathRatio) {
                 parts.push(" ", manualMathRatio);
             }

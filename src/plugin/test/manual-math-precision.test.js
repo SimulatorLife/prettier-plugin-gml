@@ -146,6 +146,33 @@ test("condenses chained scalar multipliers into a single coefficient", async () 
     );
 });
 
+test("simplifies division by a reciprocal denominator", async () => {
+    const source = [
+        "function convert_reciprocal(value, denom) {",
+        "    return value / (1 / denom);",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function convert_reciprocal",
+            "/// @param value",
+            "/// @param denom",
+            "function convert_reciprocal(value, denom) {",
+            "    return value * denom;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
 test("condenses subtraction-based scalar multipliers", async () => {
     const source = [
         "function convert_subtracted_scalar(len) {",
