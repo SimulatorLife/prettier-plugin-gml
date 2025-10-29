@@ -200,6 +200,35 @@ test("simplifies negative reciprocal multiplication", async () => {
     );
 });
 
+test("cancels reciprocal factors paired with their denominator", async () => {
+    const source = [
+        "function cancel_reciprocal(value_a, value_b) {",
+        "    var result = value_a * (1 / value_b) * value_b;",
+        "    return result;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function cancel_reciprocal",
+            "/// @param value_a",
+            "/// @param value_b",
+            "function cancel_reciprocal(value_a, value_b) {",
+            "    var result = value_a;",
+            "    return result;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
 test("removes additive identity scalars with trailing comments", async () => {
     const source = [
         "function strip_additive_identity(value) {",

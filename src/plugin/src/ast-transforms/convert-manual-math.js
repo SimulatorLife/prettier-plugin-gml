@@ -738,11 +738,13 @@ function attemptCancelReciprocalRatios(node, helpers, context) {
         ratioTerms.push({ index, numerator, denominator });
     }
 
-    if (ratioTerms.length < 2) {
+    if (ratioTerms.length === 0) {
         return false;
     }
 
     const indicesToRemove = new Set();
+    const replacementsByIndex = new Map();
+    const ratioIndices = new Set(ratioTerms.map(({ index }) => index));
 
     for (let outer = 0; outer < ratioTerms.length; outer += 1) {
         if (indicesToRemove.has(ratioTerms[outer].index)) {
@@ -768,7 +770,62 @@ function attemptCancelReciprocalRatios(node, helpers, context) {
         }
     }
 
-    if (indicesToRemove.size === 0) {
+    for (const ratioTerm of ratioTerms) {
+        if (indicesToRemove.has(ratioTerm.index)) {
+            continue;
+        }
+
+        const numerator = ratioTerm.numerator;
+        const denominator = ratioTerm.denominator;
+
+        if (!numerator || !denominator) {
+            continue;
+        }
+
+        for (const [index, term] of chain.numerators.entries()) {
+            if (index === ratioTerm.index) {
+                continue;
+            }
+
+            if (indicesToRemove.has(index)) {
+                continue;
+            }
+
+            if (ratioIndices.has(index)) {
+                continue;
+            }
+
+            if (
+                helpers.hasComment(term.raw) ||
+                helpers.hasComment(term.expression)
+            ) {
+                continue;
+            }
+
+            const candidate = unwrapExpression(term.expression);
+            if (!candidate) {
+                continue;
+            }
+
+            if (!areNodesEquivalent(candidate, denominator)) {
+                continue;
+            }
+
+            const numericValue = parseNumericFactor(numerator);
+            const isMultiplicativeIdentity =
+                numericValue !== null &&
+                Math.abs(numericValue - 1) <= computeNumericTolerance(1);
+
+            if (!isMultiplicativeIdentity) {
+                replacementsByIndex.set(ratioTerm.index, [numerator]);
+            }
+            indicesToRemove.add(ratioTerm.index);
+            indicesToRemove.add(index);
+            break;
+        }
+    }
+
+    if (indicesToRemove.size === 0 && replacementsByIndex.size === 0) {
         return false;
     }
 
@@ -776,6 +833,18 @@ function attemptCancelReciprocalRatios(node, helpers, context) {
 
     for (const [index, term] of chain.numerators.entries()) {
         if (indicesToRemove.has(index)) {
+            const replacements = replacementsByIndex.get(index);
+            if (replacements) {
+                for (const replacement of replacements) {
+                    const clone = cloneAstNode(replacement);
+                    if (!clone) {
+                        return false;
+                    }
+
+                    remainingTerms.push(clone);
+                }
+            }
+
             continue;
         }
 
