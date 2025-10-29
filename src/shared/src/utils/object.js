@@ -98,6 +98,10 @@ export function resolveHelperOverride(helpers, key, fallback) {
 }
 
 const objectPrototypeToString = Object.prototype.toString;
+const MISSING_METHOD_LIST_FORMATTER = new Intl.ListFormat("en", {
+    style: "long",
+    type: "conjunction"
+});
 const OBJECT_TAG_PATTERN = /^\[object ([^\]]+)\]$/;
 const STARTS_WITH_VOWEL_PATTERN = /^[aeiou]/i;
 
@@ -285,17 +289,8 @@ export function assertFunctionProperties(
             throw new TypeError(errorMessage);
         }
 
-        let formattedList;
-        if (missingMethods.length === 1) {
-            [formattedList] = missingMethods;
-        } else if (missingMethods.length === 2) {
-            formattedList = `${missingMethods[0]} and ${missingMethods[1]}`;
-        } else {
-            const leading = missingMethods.slice(0, -1).join(", ");
-            const last = missingMethods.at(-1);
-            formattedList = `${leading}, and ${last}`;
-        }
-
+        const formattedList =
+            MISSING_METHOD_LIST_FORMATTER.format(missingMethods);
         const suffix = missingMethods.length > 1 ? "functions" : "function";
         throw new TypeError(`${name} must provide ${formattedList} ${suffix}`);
     }
