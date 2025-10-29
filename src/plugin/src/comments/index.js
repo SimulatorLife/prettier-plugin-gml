@@ -43,4 +43,4 @@ export {
     resolveDocCommentTraversalService,
     resolveDocCommentUpdateService
 } from "./doc-comment-manager.js";
-export { getCommentValue } from "../shared/index.js";
+export { getCommentValue } from "@prettier-plugin-gml/shared/ast/comments.js";
