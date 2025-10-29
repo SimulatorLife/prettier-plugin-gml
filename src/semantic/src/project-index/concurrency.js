@@ -1,6 +1,7 @@
 import {
     applyConfiguredValueEnvOverride,
-    createEnvConfiguredValueWithFallback
+    createEnvConfiguredValueWithFallback,
+    toFiniteNumber
 } from "../dependencies.js";
 
 const PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR = "GML_PROJECT_INDEX_CONCURRENCY";
@@ -128,8 +129,8 @@ function normalizeConcurrencyValue(
         return onInvalid;
     }
 
-    const numeric = Number(normalized);
-    if (!Number.isFinite(numeric)) {
+    const numeric = toFiniteNumber(normalized);
+    if (numeric === null) {
         return onInvalid;
     }
 

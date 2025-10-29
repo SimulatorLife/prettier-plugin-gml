@@ -1,3 +1,4 @@
+import { toFiniteNumber } from "./number.js";
 import { isNonEmptyString } from "./string.js";
 
 /**
@@ -397,9 +398,4 @@ export function incrementMapValue(
     const next = base + delta;
     store.set(key, next);
     return next;
-}
-
-function toFiniteNumber(value) {
-    const number = Number(value);
-    return Number.isFinite(number) ? number : null;
 }

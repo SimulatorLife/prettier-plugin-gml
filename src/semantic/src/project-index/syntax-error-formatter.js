@@ -1,4 +1,8 @@
-import { getNonEmptyString, splitLines } from "../dependencies.js";
+import {
+    getNonEmptyString,
+    splitLines,
+    toFiniteNumber
+} from "../dependencies.js";
 import { resolveProjectDisplayPath } from "./path-normalization.js";
 
 /**
@@ -41,8 +45,8 @@ export function formatProjectIndexSyntaxError(error, sourceText, context) {
     const normalizedError = normalizeSyntaxErrorLike(error);
 
     const { filePath, projectRoot } = context ?? {};
-    const lineNumber = getFiniteNumber(normalizedError.line);
-    const columnNumber = getFiniteNumber(normalizedError.column);
+    const lineNumber = toFiniteNumber(normalizedError.line);
+    const columnNumber = toFiniteNumber(normalizedError.column);
     const displayPath = resolveProjectDisplayPath(filePath, projectRoot);
 
     const baseDescription = extractBaseDescription(normalizedError.message);
@@ -70,11 +74,6 @@ export function formatProjectIndexSyntaxError(error, sourceText, context) {
     }
 
     return normalizedError;
-}
-
-function getFiniteNumber(value) {
-    const numeric = Number(value);
-    return Number.isFinite(numeric) ? numeric : null;
 }
 
 function extractBaseDescription(message) {
