@@ -123,12 +123,14 @@ function normalizeCacheKeys(keys) {
         typeof keys === "string"
             ? keys
             : Array.isArray(keys)
-            ? keys
-            : typeof keys?.[Symbol.iterator] === "function"
-            ? toArrayFromIterable(keys)
-            : DEFAULT_CACHE_KEYS;
+              ? keys
+              : typeof keys?.[Symbol.iterator] === "function"
+                ? toArrayFromIterable(keys)
+                : DEFAULT_CACHE_KEYS;
 
-    const normalized = normalizeStringList(candidate, { allowInvalidType: true });
+    const normalized = normalizeStringList(candidate, {
+        allowInvalidType: true
+    });
     return normalized.length > 0 ? normalized : [...DEFAULT_CACHE_KEYS];
 }
 
