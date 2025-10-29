@@ -106,12 +106,61 @@ function optionalSemicolon(nodeType) {
 // re-allocating arrays on every call (see PR #110 micro-benchmark in commit
 // message).
 // These top-level statements are surrounded by empty lines by default.
-const NODE_TYPES_WITH_SURROUNDING_NEWLINES = new Set([
+const DEFAULT_NODE_TYPES_WITH_SURROUNDING_NEWLINES = Object.freeze([
     "FunctionDeclaration",
     "ConstructorDeclaration",
     "RegionStatement",
     "EndRegionStatement"
 ]);
+
+const nodeTypesWithSurroundingNewlines = new Set();
+
+/**
+ * Allow internal consumers to register additional statement node type names
+ * that should be padded with surrounding blank lines. The hook keeps the
+ * formatter opinionated by seeding the registry with
+ * {@link DEFAULT_NODE_TYPES_WITH_SURROUNDING_NEWLINES} and only accepting
+ * string inputs, so external Prettier users keep the existing behavior unless
+ * the plugin opts into more spacing internally. Invalid values (including
+ * `null`, `undefined`, or whitespace-only strings) are ignored to keep the hot
+ * path predictable.
+ *
+ * @param {...string | Array<string>} nodeTypes Additional node type names to
+ *        register.
+ */
+function registerSurroundingNewlineNodeTypes(...nodeTypes) {
+    for (const entry of nodeTypes) {
+        if (Array.isArray(entry)) {
+            registerSurroundingNewlineNodeTypes(...entry);
+            continue;
+        }
+
+        if (typeof entry !== "string") {
+            continue;
+        }
+
+        const normalized = entry.trim();
+        if (!normalized) {
+            continue;
+        }
+
+        nodeTypesWithSurroundingNewlines.add(normalized);
+    }
+}
+
+/**
+ * Reset the newline padding registry back to the defaults. This keeps tests
+ * and experiments isolated while preserving the plugin's baseline formatting
+ * when no extensions are registered.
+ */
+function resetSurroundingNewlineNodeTypes() {
+    nodeTypesWithSurroundingNewlines.clear();
+    for (const type of DEFAULT_NODE_TYPES_WITH_SURROUNDING_NEWLINES) {
+        nodeTypesWithSurroundingNewlines.add(type);
+    }
+}
+
+resetSurroundingNewlineNodeTypes();
 
 // Function-like declarations appear throughout the printer when deciding how
 // aggressively to pad nested constructs. Consolidate the shared guard so
@@ -179,7 +228,7 @@ function defineReplacementRequiresNewlines(node) {
  * Determines whether a statement should be surrounded by blank lines in the
  * generated doc tree.
  *
- * Statements listed in {@link NODE_TYPES_WITH_SURROUNDING_NEWLINES} always
+ * Statements listed in {@link DEFAULT_NODE_TYPES_WITH_SURROUNDING_NEWLINES}
  * receive padding to keep large constructs readable. The `#region` and
  * `#endregion` define replacements behave like their dedicated statement
  * counterparts, so they are treated the same even though they originate from a
@@ -200,7 +249,7 @@ function shouldAddNewlinesAroundStatement(node) {
     // once when the module is evaluated. This helper runs inside the printer's
     // statement loops, so trading `Array.includes` for a simple Set membership
     // check keeps the hot path allocation-free and branch-predictable.
-    if (NODE_TYPES_WITH_SURROUNDING_NEWLINES.has(nodeType)) {
+    if (nodeTypesWithSurroundingNewlines.has(nodeType)) {
         return true;
     }
 
@@ -214,6 +263,8 @@ export {
     isNextLineEmpty,
     isPreviousLineEmpty,
     shouldAddNewlinesAroundStatement,
+    registerSurroundingNewlineNodeTypes,
+    resetSurroundingNewlineNodeTypes,
     isFunctionLikeDeclaration
 };
 export { hasComment } from "../comments/index.js";
