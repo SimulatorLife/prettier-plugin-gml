@@ -110,6 +110,66 @@ const CHAR_CODE_UPPER_END = 90; // Z
 const CHAR_CODE_LOWER_START = 97; // a
 const CHAR_CODE_LOWER_END = 122; // z
 const CHAR_CODE_UNDERSCORE = 95; // _
+const OBJECT_TO_STRING = Object.prototype.toString;
+
+/**
+ * Describe an arbitrary {@link value} for use in error messages.
+ *
+ * Centralizes the defensive guards sprinkled across option validators and
+ * error helpers so callers can surface readable diagnostics without repeating
+ * null/undefined checks or worrying about serialization failures. Strings are
+ * quoted for clarity, numeric primitives preserve their native formatting, and
+ * complex structures fall back to JSON serialization when permitted.
+ *
+ * @param {unknown} value Candidate value to format for display.
+ * @param {{ stringifyUnknown?: boolean }} [options]
+ * @param {boolean} [options.stringifyUnknown=true] When `false`, skip JSON
+ *        serialization for non-primitive values and defer directly to
+ *        `String(value)`.
+ * @returns {string} Human-readable description of {@link value}.
+ */
+export function describeValueForError(value, { stringifyUnknown = true } = {}) {
+    if (value === null) {
+        return "null";
+    }
+
+    if (value === undefined) {
+        return "undefined";
+    }
+
+    const type = typeof value;
+
+    if (type === "string") {
+        return JSON.stringify(value);
+    }
+
+    if (type === "number" || type === "bigint" || type === "boolean") {
+        return String(value);
+    }
+
+    if (!stringifyUnknown) {
+        try {
+            return String(value);
+        } catch {
+            return OBJECT_TO_STRING.call(value);
+        }
+    }
+
+    try {
+        const serialized = JSON.stringify(value);
+        if (serialized !== undefined) {
+            return serialized;
+        }
+    } catch {
+        // Fall back to string coercion below when JSON serialization fails.
+    }
+
+    try {
+        return String(value);
+    } catch {
+        return OBJECT_TO_STRING.call(value);
+    }
+}
 
 export function isWordChar(character) {
     if (typeof character !== "string" || character.length === 0) {

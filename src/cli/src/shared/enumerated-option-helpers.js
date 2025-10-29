@@ -1,9 +1,7 @@
-import { normalizeEnumeratedOption } from "../dependencies.js";
-
-function defaultDescribeValue(value) {
-    const serialized = JSON.stringify(value);
-    return serialized === undefined ? String(value) : serialized;
-}
+import {
+    describeValueForError,
+    normalizeEnumeratedOption
+} from "../dependencies.js";
 
 /**
  * Create helper functions that normalize and validate enumerated CLI options
@@ -24,7 +22,7 @@ function defaultDescribeValue(value) {
  */
 export function createEnumeratedOptionHelpers(
     values,
-    { coerce, describeValue = defaultDescribeValue, formatErrorMessage } = {}
+    { coerce, describeValue = describeValueForError, formatErrorMessage } = {}
 ) {
     const entries = Array.from(values ?? []);
     const validValues = new Set(entries);

@@ -17,7 +17,8 @@ import {
     capitalize,
     getNonEmptyString,
     stripStringQuotes,
-    createListSplitPattern
+    createListSplitPattern,
+    describeValueForError
 } from "../src/utils/string.js";
 
 test("toTrimmedString returns trimmed strings", () => {
@@ -156,6 +157,30 @@ test("assertNonEmptyString throws when value is not a non-empty string", () => {
     assert.throws(() => assertNonEmptyString("   ", { trim: true }), TypeError);
     assert.throws(() => assertNonEmptyString(null), TypeError);
     assert.throws(() => assertNonEmptyString(42), TypeError);
+});
+
+test("describeValueForError formats primitives and structured values", () => {
+    assert.strictEqual(describeValueForError(null), "null");
+    assert.strictEqual(describeValueForError(), "undefined");
+    assert.strictEqual(describeValueForError("value"), '"value"');
+    assert.strictEqual(describeValueForError(123), "123");
+    assert.strictEqual(describeValueForError(123n), "123");
+    assert.strictEqual(describeValueForError(false), "false");
+    assert.strictEqual(
+        describeValueForError({ key: "value" }),
+        '{"key":"value"}'
+    );
+
+    const circular = {};
+    circular.self = circular;
+    assert.strictEqual(describeValueForError(circular), "[object Object]");
+});
+
+test("describeValueForError can skip JSON serialization for complex values", () => {
+    assert.strictEqual(
+        describeValueForError({ example: true }, { stringifyUnknown: false }),
+        "[object Object]"
+    );
 });
 
 test("stripStringQuotes removes matching single and double quotes", () => {
