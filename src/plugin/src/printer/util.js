@@ -14,7 +14,6 @@ const NODE_TYPES_REQUIRING_SEMICOLON = new Set([
     "BreakStatement",
     "ContinueStatement",
     "ExitStatement",
-    "DeleteStatement",
     "ThrowStatement",
     "IncDecStatement",
     "VariableDeclaration",
