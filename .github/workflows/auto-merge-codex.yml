@@ -108,9 +108,8 @@ jobs:
             const contents = fs.readFileSync(reportPath, 'utf8');
             let errors = 0;
             let warnings = 0;
-            const pattern = /<error\b[^>]*severity="([^"]*)"/gi;
-            let match;
-            while ((match = pattern.exec(contents))) {
+            const pattern = /<error\b[^>]*severity="([^"]*)"/i;
+            for (const match of contents.matchAll(pattern)) {
               const severity = (match[1] || '').toLowerCase();
               if (severity === 'error') {
                 errors += 1;
