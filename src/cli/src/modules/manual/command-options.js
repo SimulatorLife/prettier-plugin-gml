@@ -157,30 +157,28 @@ export function applySharedManualCommandOptions(
         }
     }
 
-    const registerBuiltInHandler = (key, handler) => {
+    const addHandler = (key, handler) => {
         if (typeof handler === "function") {
             handlers.set(key, handler);
         }
     };
 
-    registerBuiltInHandler(
+    addHandler(
         "outputPath",
         outputOption && (() => configurePathOption(command, outputOption))
     );
 
     if (forceRefreshDescription !== false) {
-        registerBuiltInHandler("forceRefresh", () =>
+        addHandler("forceRefresh", () =>
             command.option("--force-refresh", forceRefreshDescription)
         );
     }
 
     if (quietDescription !== false) {
-        registerBuiltInHandler("quiet", () =>
-            command.option("--quiet", quietDescription)
-        );
+        addHandler("quiet", () => command.option("--quiet", quietDescription));
     }
 
-    registerBuiltInHandler(
+    addHandler(
         "progressBarWidth",
         progressOption &&
             (() =>
@@ -192,7 +190,7 @@ export function applySharedManualCommandOptions(
                 }))
     );
 
-    registerBuiltInHandler(
+    addHandler(
         "manualRepo",
         manualRepoOption &&
             (() =>
@@ -204,20 +202,25 @@ export function applySharedManualCommandOptions(
                 }))
     );
 
-    registerBuiltInHandler(
+    addHandler(
         "cacheRoot",
         cacheOption && (() => configurePathOption(command, cacheOption))
     );
 
-    const preferredOrder = asArray(optionOrder);
-    const ordering = new Set([
-        ...preferredOrder,
-        ...DEFAULT_OPTION_ORDER,
-        ...handlers.keys()
-    ]);
+    const orderedKeys = [...asArray(optionOrder), ...DEFAULT_OPTION_ORDER];
 
-    for (const key of ordering) {
-        handlers.get(key)?.();
+    for (const key of orderedKeys) {
+        const handler = handlers.get(key);
+        if (!handler) {
+            continue;
+        }
+
+        handler();
+        handlers.delete(key);
+    }
+
+    for (const handler of handlers.values()) {
+        handler();
     }
 
     return command;
