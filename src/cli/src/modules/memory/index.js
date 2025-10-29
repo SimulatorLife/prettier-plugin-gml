@@ -7,7 +7,7 @@ import {
     appendToCollection,
     Command,
     createEnvConfiguredValue,
-    createEnumeratedOptionHelpers,
+    createStringEnumeratedOptionHelpers,
     describeValueWithArticle,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
@@ -15,7 +15,6 @@ import {
     InvalidArgumentError,
     isNonEmptyString,
     normalizeStringList,
-    toNormalizedLowerCaseString,
     resolveModuleDefaultExport,
     parseJsonObjectWithContext,
     splitLines
@@ -71,18 +70,10 @@ export const MemorySuiteName = Object.freeze({
     PLUGIN_FORMAT: "plugin-format"
 });
 
-const memorySuiteHelpers = createEnumeratedOptionHelpers(
+const memorySuiteHelpers = createStringEnumeratedOptionHelpers(
     Object.values(MemorySuiteName),
     {
-        coerce(input) {
-            if (typeof input !== "string") {
-                throw new TypeError(
-                    `Memory suite name must be provided as a string (received type '${typeof input}').`
-                );
-            }
-
-            return toNormalizedLowerCaseString(input);
-        },
+        valueLabel: "Memory suite name",
         formatErrorMessage({ list, received }) {
             return `Memory suite must be one of: ${list}. Received: ${received}.`;
         }

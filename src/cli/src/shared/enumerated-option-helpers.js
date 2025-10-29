@@ -1,6 +1,7 @@
 import {
     describeValueForError,
-    normalizeEnumeratedOption
+    normalizeEnumeratedOption,
+    toNormalizedLowerCaseString
 } from "../dependencies.js";
 
 /**
@@ -88,5 +89,40 @@ export function createEnumeratedOptionHelpers(
         formatList,
         normalize,
         requireValue
+    });
+}
+
+function normalizeValueLabel(valueLabel) {
+    if (typeof valueLabel === "string") {
+        const trimmed = valueLabel.trim();
+        if (trimmed.length > 0) {
+            return trimmed;
+        }
+    }
+
+    return "Value";
+}
+
+function createStringEnumerationCoercer(valueLabel) {
+    const label = normalizeValueLabel(valueLabel);
+
+    return (value) => {
+        if (typeof value !== "string") {
+            throw new TypeError(
+                `${label} must be provided as a string (received type '${typeof value}').`
+            );
+        }
+
+        return toNormalizedLowerCaseString(value);
+    };
+}
+
+export function createStringEnumeratedOptionHelpers(
+    values,
+    { valueLabel, ...options } = {}
+) {
+    return createEnumeratedOptionHelpers(values, {
+        ...options,
+        coerce: createStringEnumerationCoercer(valueLabel)
     });
 }
