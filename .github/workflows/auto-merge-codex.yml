@@ -19,6 +19,129 @@ jobs:
       github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
+      - name: Determine auto-merge eligibility
+        id: eligibility
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr) {
+              core.setOutput('eligible', 'false');
+              core.info('No pull request payload; skipping lint gate.');
+              return;
+            }
+
+            const prefixes = ['codex/', 'copilot/'];
+            const hasAllowedPrefix = (ref) =>
+              typeof ref === 'string' && prefixes.some((prefix) => ref.startsWith(prefix));
+
+            const eligible =
+              hasAllowedPrefix(pr.head?.ref || '') && hasAllowedPrefix(pr.base?.ref || '');
+
+            core.setOutput('eligible', eligible ? 'true' : 'false');
+
+            if (!eligible) {
+              core.info(
+                `Skipping lint gate for head ${pr.head?.ref || '<unknown>'} and base ${
+                  pr.base?.ref || '<unknown>'
+                }`
+              );
+            }
+
+      - name: Checkout PR head for lint gate
+        if: steps.eligibility.outputs.eligible == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Checkout base for lint comparison
+        if: steps.eligibility.outputs.eligible == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+
+      - name: Setup Node.js
+        if: steps.eligibility.outputs.eligible == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            base/package-lock.json
+
+      - name: Install dependencies (PR head)
+        if: steps.eligibility.outputs.eligible == 'true'
+        run: npm ci
+
+      - name: Generate lint report (PR head)
+        if: steps.eligibility.outputs.eligible == 'true'
+        run: npm run lint:report
+        continue-on-error: true
+
+      - name: Install dependencies (base)
+        if: steps.eligibility.outputs.eligible == 'true'
+        run: npm ci
+        working-directory: base
+
+      - name: Generate lint report (base)
+        if: steps.eligibility.outputs.eligible == 'true'
+        run: npm run lint:report
+        working-directory: base
+        continue-on-error: true
+
+      - name: Check for newly introduced lint errors
+        if: steps.eligibility.outputs.eligible == 'true'
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+
+          function readLintReport(root, label) {
+            const reportPath = path.join(root, 'reports', 'eslint-checkstyle.xml');
+            if (!fs.existsSync(reportPath)) {
+              console.error(`Lint report not found for ${label} at ${reportPath}`);
+              return null;
+            }
+
+            const contents = fs.readFileSync(reportPath, 'utf8');
+            let errors = 0;
+            let warnings = 0;
+            const pattern = /<error\b[^>]*severity="([^"]*)"/gi;
+            let match;
+            while ((match = pattern.exec(contents))) {
+              const severity = (match[1] || '').toLowerCase();
+              if (severity === 'error') {
+                errors += 1;
+              } else if (severity === 'warning') {
+                warnings += 1;
+              }
+            }
+
+            return { errors, warnings, reportPath };
+          }
+
+          const base = readLintReport('base', 'base');
+          const head = readLintReport('.', 'PR');
+
+          if (!base || !head) {
+            console.error('Unable to compare lint results — blocking auto-merge.');
+            process.exit(1);
+          }
+
+          console.log(`Base lint errors: ${base.errors} (warnings: ${base.warnings})`);
+          console.log(`PR lint errors: ${head.errors} (warnings: ${head.warnings})`);
+
+          if (head.errors > base.errors) {
+            const delta = head.errors - base.errors;
+            console.error(`PR introduces ${delta} new lint error${delta === 1 ? '' : 's'}.`);
+            process.exit(1);
+          }
+
+          console.log('No newly introduced lint errors detected.');
+          NODE
+
       - name: Attempt auto-merge
         uses: actions/github-script@v7
         with:
