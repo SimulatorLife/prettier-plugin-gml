@@ -1798,10 +1798,11 @@ function getFeatherCommentCallText(node) {
 
 function buildTemplateStringParts(atoms, path, print) {
     const parts = ['$"'];
+    const length = atoms.length;
 
-    const printedAtoms = path.map(print, "atoms");
+    for (let index = 0; index < length; index += 1) {
+        const atom = atoms[index];
 
-    for (const [index, atom] of atoms.entries()) {
         if (
             atom?.type === "TemplateStringText" &&
             typeof atom.value === "string"
@@ -1810,7 +1811,12 @@ function buildTemplateStringParts(atoms, path, print) {
             continue;
         }
 
-        parts.push("{", printedAtoms[index], "}");
+        // Lazily print non-text atoms on demand so pure-text templates avoid
+        // allocating the `printedAtoms` array. This helper runs inside the
+        // printer's expression loop, so skipping the extra array and iterator
+        // bookkeeping removes two allocations for mixed templates while keeping
+        // the doc emission identical.
+        parts.push("{", path.call(print, "atoms", index), "}");
     }
 
     parts.push('"');
