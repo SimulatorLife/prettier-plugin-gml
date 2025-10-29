@@ -180,13 +180,17 @@ function normalizeMultilineText(text) {
         const line = rawLine.trim();
         const hasContent = line.length > 0;
 
-        if (hasContent) {
-            normalizedLines.push(line);
-        } else if (previousHadContent) {
-            normalizedLines.push("");
+        if (!hasContent) {
+            if (previousHadContent) {
+                normalizedLines.push("");
+            }
+
+            previousHadContent = false;
+            continue;
         }
 
-        previousHadContent = hasContent;
+        normalizedLines.push(line);
+        previousHadContent = true;
     }
 
     return normalizedLines.join("\n").trim();
