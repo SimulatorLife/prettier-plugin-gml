@@ -67,6 +67,7 @@ class CliCommandManager {
         this._entries = new Set();
         this._commandEntryLookup = new WeakMap();
         this._defaultCommandEntry = null;
+        this._activeCommand = null;
         this._defaultErrorHandler =
             typeof onUnhandledError === "function"
                 ? onUnhandledError
@@ -78,6 +79,16 @@ class CliCommandManager {
 
         this._registerEntry(program, {
             handleError: this._defaultErrorHandler
+        });
+
+        this._program.hook("preSubcommand", (thisCommand, actionCommand) => {
+            if (actionCommand) {
+                this._activeCommand = actionCommand;
+            }
+        });
+
+        this._program.hook("postAction", () => {
+            this._activeCommand = null;
         });
     }
 
@@ -117,6 +128,7 @@ class CliCommandManager {
      */
     async run(argv) {
         try {
+            this._activeCommand = null;
             await this._program.parseAsync(argv, { from: "user" });
         } catch (error) {
             if (this._handleCommanderError(error)) {
@@ -164,12 +176,16 @@ class CliCommandManager {
                 actionArgs,
                 defaultCommand
             );
+            const previousActiveCommand = this._activeCommand;
+            this._activeCommand = contextCommand;
 
             try {
                 const result = await entry.run({ command: contextCommand });
                 this._applyCommandResult(result);
             } catch (error) {
                 this._handleCommandError(error, contextCommand);
+            } finally {
+                this._activeCommand = previousActiveCommand ?? null;
             }
         };
     }
@@ -192,7 +208,8 @@ class CliCommandManager {
             return true;
         }
 
-        const commandFromError = error.command ?? this._program;
+        const commandFromError =
+            error.command ?? this._activeCommand ?? this._program;
         const resolvedCommand =
             this._resolveCommandFromCommanderError(commandFromError);
         const usageError = this._createUsageErrorFromCommanderError(
