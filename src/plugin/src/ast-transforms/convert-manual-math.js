@@ -651,9 +651,13 @@ function attemptCondenseSimpleScalarProduct(node, helpers, context) {
         hasNumericContribution = true;
     }
 
-    if (chain.denominators.length === 0 && !cancelledReciprocalTerms && Math.abs(coefficient - 1) > computeNumericTolerance(1)) {
-            return false;
-        }
+    if (
+        chain.denominators.length === 0 &&
+        !cancelledReciprocalTerms &&
+        Math.abs(coefficient - 1) > computeNumericTolerance(1)
+    ) {
+        return false;
+    }
 
     if (nonNumericTerms.length === 0) {
         return false;
@@ -1090,9 +1094,10 @@ function attemptSimplifyDivisionByReciprocal(node, helpers, context) {
     }
 
     const numerator = unwrapExpression(denominator.left);
-    const reciprocalFactor = unwrapExpression(denominator.right);
+    const rawReciprocalFactor = denominator.right;
+    const reciprocalFactor = unwrapExpression(rawReciprocalFactor);
 
-    if (!numerator || !reciprocalFactor) {
+    if (!numerator || !rawReciprocalFactor || !reciprocalFactor) {
         return false;
     }
 
@@ -1106,7 +1111,10 @@ function attemptSimplifyDivisionByReciprocal(node, helpers, context) {
     }
 
     const leftClone = cloneAstNode(node.left);
-    const rightClone = cloneAstNode(reciprocalFactor);
+    const rightClone =
+        cloneAstNode(rawReciprocalFactor) ??
+        cloneAstNode(reciprocalFactor) ??
+        reciprocalFactor;
 
     if (!leftClone || !rightClone) {
         return false;
