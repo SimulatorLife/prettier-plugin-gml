@@ -17,7 +17,10 @@ import { preprocessFunctionArgumentDefaults } from "../ast-transforms/preprocess
 import { enforceVariableBlockSpacing } from "../ast-transforms/enforce-variable-block-spacing.js";
 import { convertStringConcatenations } from "../ast-transforms/convert-string-concatenations.js";
 import { condenseLogicalExpressions } from "../ast-transforms/condense-logical-expressions.js";
-import { convertManualMathExpressions } from "../ast-transforms/convert-manual-math.js";
+import {
+    convertManualMathExpressions,
+    condenseScalarMultipliers
+} from "../ast-transforms/convert-manual-math.js";
 import { convertUndefinedGuardAssignments } from "../ast-transforms/convert-undefined-guard-assignments.js";
 import {
     getNodeStartIndex,
@@ -186,6 +189,11 @@ async function parse(text, options) {
             condenseLogicalExpressions(ast);
         }
 
+        condenseScalarMultipliers(ast, undefined, {
+            sourceText: parseSource,
+            originalText: options?.originalText
+        });
+
         if (options?.convertManualMathToBuiltins) {
             convertManualMathExpressions(ast, undefined, {
                 sourceText: parseSource,
@@ -225,6 +233,25 @@ export const gmlParserAdapter = {
     locEnd
 };
 
+/**
+ * Inject comma separators between consecutive numeric literal arguments when
+ * the original source omitted them. GameMaker's runtime tolerates calls such
+ * as `foo(1 2)` by implicitly inserting the separator, but the parser expects a
+ * literal comma. This pre-processing step mirrors the runtime behaviour so the
+ * downstream AST builder can succeed while still tracking which character
+ * offsets were synthesized.
+ *
+ * When no edits are required (or the input is not a string) the original
+ * `sourceText` is returned alongside a `null` adjustment list. Otherwise the
+ * sanitized text and the insertion indices are returned so callers can realign
+ * node locations via {@link applySanitizedIndexAdjustments}.
+ *
+ * @param {unknown} sourceText Raw source text that may need synthetic commas.
+ * @returns {{
+ *   sourceText: unknown,
+ *   indexAdjustments: Array<number> | null
+ * }} Sanitized source text and the offsets of any inserted commas.
+ */
 function sanitizeMissingArgumentSeparators(sourceText) {
     if (typeof sourceText !== "string" || sourceText.length === 0) {
         return {

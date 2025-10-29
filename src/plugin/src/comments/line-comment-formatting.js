@@ -11,15 +11,10 @@ import {
     trimStringEntries,
     toTrimmedString
 } from "@prettier-plugin-gml/shared/utils/string.js";
+import { hasOwn } from "@prettier-plugin-gml/shared/utils/object.js";
 import { isRegExpLike } from "@prettier-plugin-gml/shared/utils/capability-probes.js";
 import { createResolverController } from "@prettier-plugin-gml/shared/utils/resolver-controller.js";
 import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
-
-const objectPrototypeHasOwnProperty = Object.prototype.hasOwnProperty;
-
-function hasOwn(object, property) {
-    return objectPrototypeHasOwnProperty.call(object, property);
-}
 
 function normalizeEntryPair(entry) {
     if (Array.isArray(entry)) {
@@ -382,6 +377,23 @@ function formatLineComment(
         const remainder = trimmedOriginal.slice(3).trimStart();
         const formatted = remainder.length > 0 ? `// ${remainder}` : "//";
         return applyInlinePadding(comment, formatted);
+    }
+
+    if (trimmedOriginal.startsWith("///") && !trimmedOriginal.includes("@")) {
+        const remainder = trimmedOriginal.slice(3).trimStart();
+
+        if (comment?.isBottomComment === true && /^\d/.test(remainder)) {
+            const formatted = remainder.length > 0 ? `// ${remainder}` : "//";
+            return applyInlinePadding(comment, formatted);
+        }
+
+        if (
+            !isInlineComment &&
+            /^\d+\s*[).:-]/.test(remainder)
+        ) {
+            const formatted = `// ${remainder}`;
+            return applyInlinePadding(comment, formatted);
+        }
     }
 
     if (

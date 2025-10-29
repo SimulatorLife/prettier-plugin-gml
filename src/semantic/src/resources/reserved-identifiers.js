@@ -14,22 +14,21 @@ const DEFAULT_IDENTIFIER_METADATA_PATH = GML_IDENTIFIER_METADATA_PATH;
 
 let metadataLoader = defaultLoadIdentifierMetadata;
 
-function defaultLoadIdentifierMetadata() {
+function safelyLoadIdentifierMetadata(loader) {
     try {
-        const metadata = loadBundledIdentifierMetadata();
+        const metadata = loader();
         return isObjectLike(metadata) ? metadata : null;
     } catch {
         return null;
     }
 }
 
+function defaultLoadIdentifierMetadata() {
+    return safelyLoadIdentifierMetadata(loadBundledIdentifierMetadata);
+}
+
 function loadIdentifierMetadata() {
-    try {
-        const metadata = metadataLoader();
-        return isObjectLike(metadata) ? metadata : null;
-    } catch {
-        return null;
-    }
+    return safelyLoadIdentifierMetadata(metadataLoader);
 }
 
 /**
@@ -60,7 +59,7 @@ function setReservedIdentifierMetadataLoader(loader) {
     }
 
     const previousLoader = metadataLoader;
-    const wrappedLoader = () => loader();
+    const wrappedLoader = () => safelyLoadIdentifierMetadata(loader);
 
     metadataLoader = wrappedLoader;
 
