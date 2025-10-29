@@ -163,38 +163,34 @@ export function isArrayIndex(container, index) {
  * @returns {Array<T> | ReadonlyArray<T>}
  */
 export function uniqueArray(values, { freeze = false } = {}) {
+    const finalize = (array) => (freeze ? Object.freeze(array) : array);
+
     if (values == null) {
-        const empty = [];
-        return freeze ? Object.freeze(empty) : empty;
+        return finalize([]);
+    }
+
+    const iterable =
+        Array.isArray(values) || typeof values[Symbol.iterator] === "function"
+            ? values
+            : null;
+
+    if (!iterable) {
+        return finalize([]);
     }
 
     const uniqueValues = [];
     const seen = new Set();
 
-    if (Array.isArray(values)) {
-        for (const value of values) {
-            if (seen.has(value)) {
-                continue;
-            }
-
-            seen.add(value);
-            uniqueValues.push(value);
+    for (const value of iterable) {
+        if (seen.has(value)) {
+            continue;
         }
-    } else if (typeof values[Symbol.iterator] === "function") {
-        for (const value of values) {
-            if (seen.has(value)) {
-                continue;
-            }
 
-            seen.add(value);
-            uniqueValues.push(value);
-        }
-    } else {
-        const empty = [];
-        return freeze ? Object.freeze(empty) : empty;
+        seen.add(value);
+        uniqueValues.push(value);
     }
 
-    return freeze ? Object.freeze(uniqueValues) : uniqueValues;
+    return finalize(uniqueValues);
 }
 
 /**
