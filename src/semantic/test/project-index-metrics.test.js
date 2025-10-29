@@ -108,6 +108,10 @@ class TestMetricsTracker {
                     };
                 }
             }),
+            caches: Object.freeze({
+                cachesSnapshot: () => ({}),
+                cacheSnapshot: () => ({})
+            }),
             logger: Object.freeze({
                 logSummary() {}
             })
@@ -173,7 +177,7 @@ test("createMetricsTracker trims and deduplicates configured cache keys", () => 
 
     tracker.recording.caches.recordMetric("demo", "custom", 0);
 
-    assert.deepEqual(tracker.reporting.summary.cacheSnapshot("demo"), {
+    assert.deepEqual(tracker.reporting.caches.cacheSnapshot("demo"), {
         hits: 0,
         Misses: 0,
         custom: 0,
@@ -186,7 +190,7 @@ test("createMetricsTracker falls back to default cache keys when normalization i
 
     tracker.recording.caches.recordMetric("demo", "custom", 0);
 
-    assert.deepEqual(tracker.reporting.summary.cacheSnapshot("demo"), {
+    assert.deepEqual(tracker.reporting.caches.cacheSnapshot("demo"), {
         hits: 0,
         misses: 0,
         stale: 0,
@@ -199,7 +203,7 @@ test("createMetricsTracker falls back to default cache keys when option is inval
 
     tracker.recording.caches.recordMetric("demo", "custom", 0);
 
-    assert.deepEqual(tracker.reporting.summary.cacheSnapshot("demo"), {
+    assert.deepEqual(tracker.reporting.caches.cacheSnapshot("demo"), {
         hits: 0,
         misses: 0,
         stale: 0,
