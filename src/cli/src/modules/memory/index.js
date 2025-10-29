@@ -207,7 +207,8 @@ const astCommonNodeLimitToolkit = createIntegerOptionToolkit({
 const {
     getDefault: getAstCommonNodeTypeLimit,
     setDefault: setAstCommonNodeTypeLimit,
-    applyEnvOverride: applyAstCommonNodeTypeLimitEnvOverride
+    applyEnvOverride: applyAstCommonNodeTypeLimitEnvOverride,
+    resolve: resolveAstCommonNodeTypeLimit
 } = astCommonNodeLimitToolkit;
 
 const sampleCache = new Map();
@@ -551,6 +552,7 @@ export {
     getAstCommonNodeTypeLimit,
     setAstCommonNodeTypeLimit,
     applyAstCommonNodeTypeLimitEnvOverride,
+    resolveAstCommonNodeTypeLimit,
     getDefaultMemoryReportDirectory,
     setDefaultMemoryReportDirectory,
     applyMemoryReportDirectoryEnvOverride
@@ -571,6 +573,11 @@ export function applyMemoryEnvOptionOverrides({ command, env } = {}) {
                 envVar: MEMORY_ITERATIONS_ENV_VAR,
                 optionName: "iterations",
                 resolveValue: resolveMemoryIterations
+            },
+            {
+                envVar: MEMORY_AST_COMMON_NODE_LIMIT_ENV_VAR,
+                optionName: "commonNodeLimit",
+                resolveValue: resolveAstCommonNodeTypeLimit
             }
         ]
     });
@@ -594,6 +601,7 @@ function collectSuite(value, previous) {
 
 export function createMemoryCommand({ env = process.env } = {}) {
     const defaultIterations = getDefaultMemoryIterations();
+    const defaultCommonNodeLimit = getAstCommonNodeTypeLimit();
 
     const command = applyStandardCommandOptions(
         createCommanderCommand()
@@ -614,6 +622,12 @@ export function createMemoryCommand({ env = process.env } = {}) {
             defaultIterations
         )
         .option(
+            "--common-node-limit <count>",
+            "Maximum number of AST node types to include in summaries.",
+            wrapInvalidArgumentResolver(resolveAstCommonNodeTypeLimit),
+            defaultCommonNodeLimit
+        )
+        .option(
             "--format <format>",
             "Output format: json or human.",
             (value) =>
@@ -631,7 +645,8 @@ export function createMemoryCommand({ env = process.env } = {}) {
 
 function collectSuiteOptions(options) {
     return {
-        iterations: options.iterations
+        iterations: options.iterations,
+        commonNodeLimit: options.commonNodeLimit
     };
 }
 
@@ -890,6 +905,10 @@ function printHumanReadable(results) {
 
 export async function runMemoryCommand({ command, onResults } = {}) {
     const options = command?.opts?.() ?? {};
+
+    if (Number.isFinite(options.commonNodeLimit)) {
+        setAstCommonNodeTypeLimit(options.commonNodeLimit);
+    }
 
     const requestedSuites = resolveRequestedSuites(options, AVAILABLE_SUITES);
     ensureSuitesAreKnown(requestedSuites, AVAILABLE_SUITES, command);
