@@ -58,6 +58,7 @@ export {
     stringifyJsonForFile,
     timeSync,
     toArray,
+    toArrayFromIterable,
     toMutableArray,
     toNormalizedInteger,
     toNormalizedLowerCaseSet,
