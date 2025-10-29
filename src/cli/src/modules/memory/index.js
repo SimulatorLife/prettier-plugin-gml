@@ -186,19 +186,45 @@ function logInvalidIterationEnvOverride({ envVar, error, fallback }) {
     );
 }
 
-function applyParserMaxIterationsEnvOverride(env) {
-    const fallback = parserIterationLimitToolkit.getDefault();
+/**
+ * Apply an environment override for a memory iteration toolkit while logging
+ * failures.
+ *
+ * Both parser and format iteration limits follow the same "try the override,
+ * fall back to the previous default, and emit a warning" flow. Centralising
+ * the guard keeps the logging consistent and avoids subtle divergences if the
+ * override plumbing changes again.
+ *
+ * @param {{
+ *   getDefault: () => number | undefined;
+ *   applyEnvOverride: (env?: NodeJS.ProcessEnv | null | undefined) =>
+ *       number | undefined;
+ * }} toolkit Numeric option toolkit being updated.
+ * @param {string} envVar Environment variable powering the override.
+ * @param {NodeJS.ProcessEnv | null | undefined} env Environment map to read.
+ * @returns {number | undefined}
+ */
+function applyIterationToolkitEnvOverride(toolkit, envVar, env) {
+    const fallback = toolkit.getDefault();
 
     try {
-        return parserIterationLimitToolkit.applyEnvOverride(env);
+        return toolkit.applyEnvOverride(env);
     } catch (error) {
         logInvalidIterationEnvOverride({
-            envVar: MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR,
+            envVar,
             error,
             fallback
         });
         return fallback;
     }
+}
+
+function applyParserMaxIterationsEnvOverride(env) {
+    return applyIterationToolkitEnvOverride(
+        parserIterationLimitToolkit,
+        MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR,
+        env
+    );
 }
 
 const formatIterationLimitToolkit = createMemoryIterationToolkit({
@@ -212,18 +238,11 @@ const {
 } = formatIterationLimitToolkit;
 
 function applyFormatMaxIterationsEnvOverride(env) {
-    const fallback = formatIterationLimitToolkit.getDefault();
-
-    try {
-        return formatIterationLimitToolkit.applyEnvOverride(env);
-    } catch (error) {
-        logInvalidIterationEnvOverride({
-            envVar: MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR,
-            error,
-            fallback
-        });
-        return fallback;
-    }
+    return applyIterationToolkitEnvOverride(
+        formatIterationLimitToolkit,
+        MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR,
+        env
+    );
 }
 
 const astCommonNodeLimitToolkit = createIntegerOptionToolkit({
