@@ -1,5 +1,9 @@
 import { util } from "prettier";
-import { getNodeType, toTrimmedString } from "../shared/index.js";
+import {
+    getNodeType,
+    getNonEmptyTrimmedString,
+    toTrimmedString
+} from "../shared/index.js";
 
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
 
@@ -135,11 +139,7 @@ function registerSurroundingNewlineNodeTypes(...nodeTypes) {
             continue;
         }
 
-        if (typeof entry !== "string") {
-            continue;
-        }
-
-        const normalized = entry.trim();
+        const normalized = getNonEmptyTrimmedString(entry);
         if (!normalized) {
             continue;
         }
