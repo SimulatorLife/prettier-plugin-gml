@@ -26,6 +26,13 @@ const LIST_SPLIT_PATTERN = createListSplitPattern(
     compactArray([",", path.delimiter])
 );
 
+// Normalize caller-provided options so destructuring guards against
+// `null`/primitive inputs instead of throwing TypeError when accessing
+// properties on non-object values.
+function normalizeOptionsBag(options) {
+    return options && typeof options === "object" ? options : {};
+}
+
 function expandLeadingTilde(candidate) {
     if (typeof candidate !== "string" || candidate[0] !== "~") {
         return candidate;
@@ -109,7 +116,8 @@ function resolveCandidatePath(candidate) {
  * {@link resolveCandidatePaths} focused on sequencing rather than array
  * assembly details.
  */
-function collectCandidateInputs({ env, candidates } = {}) {
+function collectCandidateInputs(options = {}) {
+    const { env, candidates } = normalizeOptionsBag(options);
     return [
         ...toArray(candidates),
         ...getEnvironmentCandidates(env),
@@ -153,7 +161,8 @@ function createMissingEntryPointError(resolvedCandidates) {
     );
 }
 
-export function resolvePluginEntryPoint({ env, candidates } = {}) {
+export function resolvePluginEntryPoint(options = {}) {
+    const { env, candidates } = normalizeOptionsBag(options);
     const resolvedCandidates = resolveCandidatePaths({
         env: env ?? process.env,
         candidates
