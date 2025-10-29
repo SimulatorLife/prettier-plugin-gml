@@ -8,7 +8,7 @@ import { IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME } from "./options.
 import { getDefaultIdentifierCaseOptionStoreMaxEntries } from "./option-store-defaults.js";
 
 const optionStoreMap = new Map();
-const STORE_BLACKLIST = new Set([
+const STORE_BLOCKLIST = new Set([
     "__identifierCaseProjectIndex",
     "__identifierCaseRenameMap",
     "__identifierCasePlanSnapshot"
@@ -115,7 +115,7 @@ function updateStore(options, key, value) {
         return;
     }
 
-    if (STORE_BLACKLIST.has(key)) {
+    if (STORE_BLOCKLIST.has(key)) {
         return;
     }
 
