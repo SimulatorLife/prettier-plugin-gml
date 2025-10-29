@@ -33,9 +33,7 @@ const DEFAULT_LINE_COMMENT_OPTIONS = Object.freeze({
 
 const lineCommentOptionsController = createResolverController({
     defaultFactory: () => DEFAULT_LINE_COMMENT_OPTIONS,
-    normalize(result) {
-        return normalizeLineCommentOptions(result);
-    },
+    normalize: normalizeLineCommentOptions,
     errorMessage:
         "Line comment option resolvers must be functions that return option objects"
 });
@@ -79,7 +77,7 @@ function normalizeBoilerplateFragments(fragments) {
 function normalizeCodeDetectionPatterns(patterns) {
     return normalizeArrayOption(patterns, {
         defaultValue: DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns,
-        filter: (value) => isRegExpLike(value)
+        filter: isRegExpLike
     });
 }
 
