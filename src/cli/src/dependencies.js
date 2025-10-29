@@ -13,6 +13,7 @@ export {
     createEnvConfiguredValue,
     createEnvConfiguredValueWithFallback,
     createListSplitPattern,
+    describeValueForError,
     ensureMap,
     escapeRegExp,
     getErrorCode,
