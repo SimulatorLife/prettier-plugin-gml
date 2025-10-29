@@ -22,9 +22,11 @@ import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "../plugin
 import {
     appendToCollection,
     assertArray,
+    assertPlainObject,
     coercePositiveInteger,
     ensureDir,
     isFiniteNumber,
+    isObjectLike,
     getErrorMessageOrFallback,
     getIdentifierText,
     resolveIntegerOption,
@@ -276,13 +278,12 @@ function createFixtureRecord({ absolutePath, source, size, relativePath }) {
 }
 
 function normalizeCustomDatasetEntry(entry, index) {
-    if (!entry || typeof entry !== "object") {
-        throw new TypeError(
+    const normalizedEntry = assertPlainObject(entry, {
+        errorMessage:
             "Each dataset entry must be an object with a source string."
-        );
-    }
+    });
 
-    const source = entry.source;
+    const source = normalizedEntry.source;
     if (typeof source !== "string") {
         throw new TypeError(
             "Dataset entries must include a string `source` property."
@@ -290,10 +291,12 @@ function normalizeCustomDatasetEntry(entry, index) {
     }
 
     const providedPath =
-        typeof entry.path === "string" ? entry.path : `<fixture-${index}>`;
+        typeof normalizedEntry.path === "string"
+            ? normalizedEntry.path
+            : `<fixture-${index}>`;
     const resolvedRelativePath =
-        typeof entry.relativePath === "string"
-            ? entry.relativePath
+        typeof normalizedEntry.relativePath === "string"
+            ? normalizedEntry.relativePath
             : providedPath.startsWith("<")
               ? providedPath
               : path.relative(REPO_ROOT, providedPath);
@@ -301,7 +304,7 @@ function normalizeCustomDatasetEntry(entry, index) {
     return createFixtureRecord({
         absolutePath: providedPath,
         source,
-        size: entry.size,
+        size: normalizedEntry.size,
         relativePath: resolvedRelativePath
     });
 }
@@ -868,14 +871,14 @@ function logReportDestination(reportResult, { stdout }) {
 }
 
 function collectSuiteFailureSummaries(results) {
-    if (!results || typeof results !== "object") {
+    if (!isObjectLike(results)) {
         return [];
     }
 
     const failures = [];
 
     for (const [suite, payload] of Object.entries(results)) {
-        if (!payload || typeof payload !== "object" || !payload.error) {
+        if (!isObjectLike(payload) || !payload.error) {
             continue;
         }
 
