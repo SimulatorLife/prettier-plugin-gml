@@ -13,6 +13,7 @@ import {
 } from "@prettier-plugin-gml/shared/utils/string.js";
 import { isRegExpLike } from "@prettier-plugin-gml/shared/utils/capability-probes.js";
 import { createResolverController } from "@prettier-plugin-gml/shared/utils/resolver-controller.js";
+import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
 
 const objectPrototypeHasOwnProperty = Object.prototype.hasOwnProperty;
 
@@ -568,32 +569,6 @@ function normalizeFeatherOptionalParamSyntax(text) {
         (match, prefix, token) =>
             `${prefix}${normalizeOptionalParamToken(token)}`
     );
-}
-
-function normalizeOptionalParamToken(token) {
-    if (typeof token !== "string") {
-        return token;
-    }
-
-    const trimmed = token.trim();
-
-    if (/^\[[^\]]+\]$/.test(trimmed)) {
-        return trimmed;
-    }
-
-    const stripped = trimmed.replaceAll(/^\*+|\*+$/g, "");
-
-    if (stripped === trimmed) {
-        return trimmed;
-    }
-
-    const normalized = stripped.trim();
-
-    if (normalized.length === 0) {
-        return stripped.replaceAll("*", "");
-    }
-
-    return `[${normalized}]`;
 }
 
 function stripTrailingFunctionParameters(text) {
