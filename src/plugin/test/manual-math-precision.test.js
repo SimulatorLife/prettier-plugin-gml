@@ -369,6 +369,32 @@ test("collects shared scalar factors across addition", async () => {
     );
 });
 
+test("reduces shared scalar additions that sum to one", async () => {
+    const source = [
+        "function normalize_amount(amount) {",
+        "    return amount * 0.4 + amount * 0.1 + amount * 0.5;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function normalize_amount",
+            "/// @param amount",
+            "function normalize_amount(amount) {",
+            "    return amount;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
 test("condenses division by reciprocal scalar multipliers", async () => {
     const source = [
         "function convert_reciprocal(x, x0) {",
@@ -471,6 +497,33 @@ test("cancels reciprocal ratio pairs before scalar condensation", async () => {
             "/// @param c",
             "function cancel_reciprocal(a, b, c) {",
             "    return a;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("simplifies reciprocal products with unit numerators", async () => {
+    const source = [
+        "function cancel_unit_reciprocal(value_a, value_b) {",
+        "    return value_a * (1 / value_b) * value_b;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function cancel_unit_reciprocal",
+            "/// @param value_a",
+            "/// @param value_b",
+            "function cancel_unit_reciprocal(value_a, value_b) {",
+            "    return value_a;",
             "}",
             ""
         ].join("\n")

@@ -52,6 +52,7 @@ export function convertManualMathExpressions(
     const traversalContext = normalizeTraversalContext(ast, context);
 
     traverse(ast, normalizedHelpers, new Set(), traversalContext);
+    cleanupMultiplicativeIdentityParentheses(ast, normalizedHelpers);
 
     return ast;
 }
@@ -74,6 +75,7 @@ export function condenseScalarMultipliers(
         new Set(),
         traversalContext
     );
+    cleanupMultiplicativeIdentityParentheses(ast, normalizedHelpers);
 
     return ast;
 }
@@ -434,9 +436,332 @@ function removeMultiplicativeIdentityOperand(
         return false;
     }
 
+    node.__fromMultiplicativeIdentity = true;
+    unwrapIdentityReplacementResult(node, helpers);
     unwrapEnclosingParentheses(node, helpers, context);
 
     return true;
+}
+
+function unwrapIdentityReplacementResult(node, helpers) {
+    while (
+        node &&
+        node.type === PARENTHESIZED_EXPRESSION &&
+        node.expression &&
+        isIdentityReplacementSafeExpression(node.expression, helpers)
+    ) {
+        if (!replaceNodeWith(node, node.expression)) {
+            break;
+        }
+
+        node.__fromMultiplicativeIdentity = true;
+    }
+}
+
+function isIdentityReplacementSafeExpression(node, helpers) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (helpers.hasComment(node)) {
+        return false;
+    }
+
+    switch (node.type) {
+        case IDENTIFIER:
+        case LITERAL:
+        case CALL_EXPRESSION:
+        case MEMBER_DOT_EXPRESSION:
+        case MEMBER_INDEX_EXPRESSION: {
+            return true;
+        }
+        case PARENTHESIZED_EXPRESSION: {
+            return isIdentityReplacementSafeExpression(
+                node.expression,
+                helpers
+            );
+        }
+        default: {
+            return false;
+        }
+    }
+}
+
+function cleanupMultiplicativeIdentityParentheses(
+    node,
+    helpers,
+    parent = null
+) {
+    if (!node || typeof node !== "object") {
+        return;
+    }
+
+    if (Array.isArray(node)) {
+        for (const element of node) {
+            cleanupMultiplicativeIdentityParentheses(element, helpers, parent);
+        }
+        return;
+    }
+
+    if (
+        node.type === PARENTHESIZED_EXPRESSION &&
+        node.expression &&
+        typeof node.expression === "object" &&
+        node.expression.__fromMultiplicativeIdentity === true &&
+        isIdentityReplacementSafeExpression(node.expression, helpers) &&
+        !shouldPreserveIdentityParenthesesForAncestor(parent) &&
+        replaceNodeWith(node, node.expression)
+    ) {
+        node.__fromMultiplicativeIdentity = true;
+        cleanupMultiplicativeIdentityParentheses(node, helpers, parent);
+        return;
+    }
+
+    for (const value of Object.values(node)) {
+        if (!value || typeof value !== "object") {
+            continue;
+        }
+
+        if (Array.isArray(value)) {
+            for (const element of value) {
+                cleanupMultiplicativeIdentityParentheses(
+                    element,
+                    helpers,
+                    node
+                );
+            }
+        } else {
+            cleanupMultiplicativeIdentityParentheses(value, helpers, node);
+        }
+    }
+
+    if (
+        node.type === BINARY_EXPRESSION &&
+        !attemptCondenseScalarProduct(node, helpers, null)
+    ) {
+        attemptCondenseSimpleScalarProduct(node, helpers);
+    }
+}
+
+function shouldPreserveIdentityParenthesesForAncestor(ancestor) {
+    if (!ancestor || typeof ancestor !== "object") {
+        return false;
+    }
+
+    if (ancestor.type === BINARY_EXPRESSION) {
+        const operator = String(ancestor.operator ?? "").toLowerCase();
+
+        if (operator === "mod" || operator === "%") {
+            return true;
+        }
+    }
+
+    if (ancestor.type === UNARY_EXPRESSION) {
+        const operator = ancestor.operator;
+
+        if (operator === "!" || operator === "not") {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function attemptCondenseSimpleScalarProduct(node, helpers) {
+    if (!isBinaryOperator(node, "*")) {
+        return false;
+    }
+
+    const chain = { numerators: [], denominators: [] };
+    if (!collectMultiplicativeChain(node, helpers, chain, false, null)) {
+        return false;
+    }
+
+    const nonNumericTerms = [];
+    let coefficient = 1;
+    let hasNumericContribution = false;
+
+    for (const term of chain.numerators) {
+        if (helpers.hasComment(term.expression)) {
+            return false;
+        }
+
+        const numericValue = parseNumericFactor(term.expression);
+        if (numericValue === null) {
+            nonNumericTerms.push(term);
+            continue;
+        }
+
+        coefficient *= numericValue;
+        hasNumericContribution = true;
+    }
+
+    const cancelledReciprocalTerms = cancelSimpleReciprocalNumeratorPairs(
+        nonNumericTerms,
+        helpers
+    );
+
+    if (cancelledReciprocalTerms) {
+        hasNumericContribution = true;
+    }
+
+    if (chain.denominators.length === 0 && !cancelledReciprocalTerms) {
+        return false;
+    }
+
+    if (nonNumericTerms.length === 0) {
+        return false;
+    }
+
+    for (const term of chain.denominators) {
+        if (helpers.hasComment(term.expression)) {
+            return false;
+        }
+
+        const numericValue = parseNumericFactor(term.expression);
+        if (numericValue === null || numericValue === 0) {
+            if (numericValue === null) {
+                const matchIndex = nonNumericTerms.findIndex((candidate) =>
+                    areSimpleExpressionsEquivalent(
+                        candidate.expression,
+                        term.expression
+                    )
+                );
+
+                if (matchIndex !== -1) {
+                    nonNumericTerms.splice(matchIndex, 1);
+                    continue;
+                }
+            }
+
+            return false;
+        }
+
+        coefficient /= numericValue;
+        hasNumericContribution = true;
+    }
+
+    if (!hasNumericContribution || !Number.isFinite(coefficient)) {
+        return false;
+    }
+
+    const normalizedCoefficient = normalizeNumericCoefficient(coefficient);
+    if (normalizedCoefficient === null) {
+        return false;
+    }
+
+    const operand = cloneMultiplicativeTerms(nonNumericTerms, node);
+    if (!operand) {
+        return false;
+    }
+
+    const unitTolerance = computeNumericTolerance(1);
+    if (Math.abs(normalizedCoefficient - 1) <= unitTolerance) {
+        if (!replaceNodeWith(node, operand)) {
+            return false;
+        }
+
+        node.__fromMultiplicativeIdentity = true;
+        return true;
+    }
+
+    const literal = createNumericLiteral(normalizedCoefficient, node);
+    if (!literal) {
+        return false;
+    }
+
+    node.operator = "*";
+    node.left = operand;
+    node.right = literal;
+    node.__fromMultiplicativeIdentity = true;
+
+    return true;
+}
+
+function cancelSimpleReciprocalNumeratorPairs(terms, helpers) {
+    if (!Array.isArray(terms) || terms.length < 2) {
+        return false;
+    }
+
+    const consumed = new Set();
+    const tolerance = computeNumericTolerance(1);
+    let cancelled = false;
+
+    for (let index = 0; index < terms.length; index += 1) {
+        if (consumed.has(index)) {
+            continue;
+        }
+
+        const term = terms[index];
+        const expression = unwrapExpression(term.expression);
+        if (!expression || expression.type !== BINARY_EXPRESSION) {
+            continue;
+        }
+
+        const operator =
+            typeof expression.operator === "string"
+                ? expression.operator.toLowerCase()
+                : null;
+
+        if (operator !== "/") {
+            continue;
+        }
+
+        const numeratorValue = parseNumericFactor(expression.left);
+        if (
+            numeratorValue === null ||
+            Math.abs(numeratorValue - 1) > tolerance
+        ) {
+            continue;
+        }
+
+        const matchIndex = terms.findIndex((candidate, candidateIndex) => {
+            if (
+                candidateIndex === index ||
+                consumed.has(candidateIndex) ||
+                helpers.hasComment(candidate.expression)
+            ) {
+                return false;
+            }
+
+            return areSimpleExpressionsEquivalent(
+                candidate.expression,
+                expression.right
+            );
+        });
+
+        if (matchIndex === -1) {
+            continue;
+        }
+
+        consumed.add(index);
+        consumed.add(matchIndex);
+        cancelled = true;
+    }
+
+    if (!cancelled) {
+        return false;
+    }
+
+    const remaining = [];
+    for (const [index, term] of terms.entries()) {
+        if (consumed.has(index)) {
+            continue;
+        }
+
+        remaining.push(term);
+    }
+
+    terms.length = 0;
+    for (const term of remaining) {
+        terms.push(term);
+    }
+
+    return true;
+}
+
+function areSimpleExpressionsEquivalent(left, right) {
+    return areNodesApproximatelyEquivalent(left, right);
 }
 
 function unwrapEnclosingParentheses(node, helpers, context) {
@@ -1392,11 +1717,13 @@ function attemptCollectDistributedScalars(node, helpers, context) {
     const terms = [];
     collectAdditionTerms(node, terms);
 
-    if (terms.length !== 2) {
+    if (terms.length < 2) {
         return false;
     }
 
-    const scalarTerms = [];
+    let baseDetails = null;
+    let coefficient = 0;
+
     for (const term of terms) {
         const details = extractScalarAdditionTerm(term, helpers, context);
         if (
@@ -1408,21 +1735,54 @@ function attemptCollectDistributedScalars(node, helpers, context) {
             return false;
         }
 
-        scalarTerms.push(details);
+        if (!baseDetails) {
+            if (!isSafeOperand(details.base)) {
+                return false;
+            }
+
+            baseDetails = details;
+        } else if (!areNodesEquivalent(baseDetails.base, details.base)) {
+            return false;
+        }
+
+        coefficient += details.coefficient;
     }
 
-    if (!areNodesEquivalent(scalarTerms[0].base, scalarTerms[1].base)) {
+    if (!baseDetails || !Number.isFinite(coefficient)) {
         return false;
     }
 
-    if (!isSafeOperand(scalarTerms[0].base)) {
-        return false;
+    const zeroTolerance = computeNumericTolerance(0);
+    const unitTolerance = computeNumericTolerance(1);
+
+    if (Math.abs(coefficient) <= zeroTolerance) {
+        mutateToNumericLiteral(node, 0, node);
+        return true;
     }
 
-    const coefficient = scalarTerms[0].coefficient + scalarTerms[1].coefficient;
+    if (Math.abs(coefficient - 1) <= unitTolerance) {
+        const baseClone = cloneAstNode(baseDetails.rawBase);
+        if (!baseClone) {
+            return false;
+        }
 
-    if (!Number.isFinite(coefficient)) {
-        return false;
+        replaceNodeWith(node, baseClone);
+        return true;
+    }
+
+    if (Math.abs(coefficient + 1) <= unitTolerance) {
+        const baseClone = cloneAstNode(baseDetails.rawBase);
+        if (!baseClone) {
+            return false;
+        }
+
+        const negated = createNegatedExpression(baseClone, node);
+        if (!negated) {
+            return false;
+        }
+
+        replaceNode(node, negated);
+        return true;
     }
 
     const normalizedCoefficient = normalizeNumericCoefficient(coefficient);
@@ -1430,21 +1790,7 @@ function attemptCollectDistributedScalars(node, helpers, context) {
         return false;
     }
 
-    const numericValue = Number(normalizedCoefficient);
-    if (Number.isFinite(numericValue)) {
-        const zeroTolerance = computeNumericTolerance(0);
-        const unitTolerance = computeNumericTolerance(1);
-
-        if (
-            Math.abs(numericValue) <= zeroTolerance ||
-            Math.abs(numericValue - 1) <= unitTolerance ||
-            Math.abs(numericValue + 1) <= unitTolerance
-        ) {
-            return false;
-        }
-    }
-
-    const baseClone = cloneAstNode(scalarTerms[0].rawBase);
+    const baseClone = cloneAstNode(baseDetails.rawBase);
     const literal = createNumericLiteral(normalizedCoefficient, node);
 
     if (!baseClone || !literal) {
@@ -3008,6 +3354,23 @@ function mutateToNumericLiteral(target, value, template) {
     }
 
     replaceNode(target, literal);
+}
+
+function createNegatedExpression(argument, template) {
+    if (!argument || typeof argument !== "object") {
+        return null;
+    }
+
+    const unary = {
+        type: UNARY_EXPRESSION,
+        operator: "-",
+        prefix: true,
+        argument
+    };
+
+    assignClonedLocation(unary, template);
+
+    return unary;
 }
 
 function createCallExpressionNode(name, args, template) {
