@@ -119,3 +119,179 @@ test("converts distance formula with floating point noise", async () => {
         ].join("\n")
     );
 });
+
+test("condenses chained scalar multipliers into a single coefficient", async () => {
+    const source = [
+        "function convert_scalar(size) {",
+        "    return 1.3 * size * 0.12 / 1.5;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function convert_scalar",
+            "/// @param size",
+            "function convert_scalar(size) {",
+            "    return size * 0.104;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("collects shared scalar factors across addition", async () => {
+    const source = [
+        "function collect_constants(value) {",
+        "    return value * 0.3 + value * 0.2;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function collect_constants",
+            "/// @param value",
+            "function collect_constants(value) {",
+            "    return value * 0.5;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("condenses division by reciprocal scalar multipliers", async () => {
+    const source = [
+        "function convert_reciprocal(x, x0) {",
+        "    return (x - x0) / (1 / 60);",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function convert_reciprocal",
+            "/// @param x",
+            "/// @param x0",
+            "function convert_reciprocal(x, x0) {",
+            "    return (x - x0) * 60;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("condenses nested ratios that mix scalar and non-scalar factors", async () => {
+    const source = [
+        "function convert_percentage(hp, max_hp) {",
+        "    return ((hp / max_hp) * 100) / 10;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function convert_percentage",
+            "/// @param hp",
+            "/// @param max_hp",
+            "function convert_percentage(hp, max_hp) {",
+            "    return (hp / max_hp) * 10;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("preserves simple division when no scalar condensation is needed", async () => {
+    const source = [
+        "function keep_division(room_width, room_height) {",
+        "    return room_width / 4 + room_height / 4;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function keep_division",
+            "/// @param room_width",
+            "/// @param room_height",
+            "function keep_division(room_width, room_height) {",
+            "    return (room_width / 4) + (room_height / 4);",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("converts multiplicative degree ratios into degtorad", async () => {
+    const source = [
+        "function convert_degrees(angle) {",
+        "    return angle * pi / 180;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function convert_degrees",
+            "/// @param angle",
+            "function convert_degrees(angle) {",
+            "    return degtorad(angle);",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("downgrades numbered triple-slash headings to standard comments", async () => {
+    const source = [
+        "/// 4) Distributive constant collection",
+        "var s4 = value;",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source);
+
+    assert.strictEqual(
+        formatted,
+        ["// 4) Distributive constant collection", "var s4 = value;", ""].join(
+            "\n"
+        )
+    );
+});
