@@ -65,15 +65,7 @@ class TerminalProgressBar {
             return 0;
         }
 
-        if (value < 0) {
-            return 0;
-        }
-
-        if (value > this.total) {
-            return this.total;
-        }
-
-        return value;
+        return Math.min(Math.max(0, value), this.total);
     }
 
     #render() {
