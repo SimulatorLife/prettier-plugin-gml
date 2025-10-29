@@ -1,7 +1,4 @@
-import {
-    createEnumeratedOptionHelpers,
-    toNormalizedLowerCaseString
-} from "../dependencies.js";
+import { createStringEnumeratedOptionHelpers } from "../dependencies.js";
 
 const PerformanceSuiteName = Object.freeze({
     PARSER: "parser",
@@ -9,18 +6,10 @@ const PerformanceSuiteName = Object.freeze({
     IDENTIFIER_TEXT: "identifier-text"
 });
 
-const performanceSuiteHelpers = createEnumeratedOptionHelpers(
+const performanceSuiteHelpers = createStringEnumeratedOptionHelpers(
     Object.values(PerformanceSuiteName),
     {
-        coerce(input) {
-            if (typeof input !== "string") {
-                throw new TypeError(
-                    `Benchmark suite name must be provided as a string (received type '${typeof input}').`
-                );
-            }
-
-            return toNormalizedLowerCaseString(input);
-        },
+        valueLabel: "Benchmark suite name",
         formatErrorMessage({ list, received }) {
             return `Benchmark suite must be one of: ${list}. Received: ${received}.`;
         }

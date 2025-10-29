@@ -83,4 +83,7 @@ export {
     collectUniqueAncestorDirectories
 } from "./ancestor-directories.js";
 
-export { createEnumeratedOptionHelpers } from "./enumerated-option-helpers.js";
+export {
+    createEnumeratedOptionHelpers,
+    createStringEnumeratedOptionHelpers
+} from "./enumerated-option-helpers.js";
