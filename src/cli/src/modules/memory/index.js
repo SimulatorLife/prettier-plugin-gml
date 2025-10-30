@@ -386,14 +386,18 @@ function computeMemoryDelta(current, baseline) {
         return null;
     }
 
-    const delta = {};
-    for (const [key, beforeValue] of Object.entries(baseline)) {
-        const afterValue = current[key];
-        if (typeof beforeValue === "number" && typeof afterValue === "number") {
-            delta[key] = afterValue - beforeValue;
+    const entries = Object.entries(baseline).flatMap(([key, beforeValue]) => {
+        if (typeof beforeValue !== "number") {
+            return [];
         }
-    }
-    return delta;
+
+        const afterValue = current[key];
+        return typeof afterValue === "number"
+            ? [[key, afterValue - beforeValue]]
+            : [];
+    });
+
+    return Object.fromEntries(entries);
 }
 
 function normalizeDelta(delta, iterations) {
@@ -401,13 +405,11 @@ function normalizeDelta(delta, iterations) {
         return null;
     }
 
-    const normalized = {};
-    for (const [key, value] of Object.entries(delta)) {
-        if (typeof value === "number") {
-            normalized[key] = value / iterations;
-        }
-    }
-    return normalized;
+    const entries = Object.entries(delta).flatMap(([key, value]) =>
+        typeof value === "number" ? [[key, value / iterations]] : []
+    );
+
+    return Object.fromEntries(entries);
 }
 
 function createMemoryTracker({ requirePreciseGc = false } = {}) {
