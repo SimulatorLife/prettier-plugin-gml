@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import test from "node:test";
 
 import { resolveCliVersion } from "../src/core/version.js";
+
+const require = createRequire(import.meta.url);
+const { version: cliPackageVersion } = require("../package.json");
 
 test("resolveCliVersion prefers the PRETTIER_PLUGIN_GML_VERSION override", () => {
     const originalEnv = process.env.PRETTIER_PLUGIN_GML_VERSION;
@@ -12,6 +16,30 @@ test("resolveCliVersion prefers the PRETTIER_PLUGIN_GML_VERSION override", () =>
         process.env.npm_package_version = "ignored";
 
         assert.equal(resolveCliVersion(), "1.2.3");
+    } finally {
+        if (originalEnv === undefined) {
+            delete process.env.PRETTIER_PLUGIN_GML_VERSION;
+        } else {
+            process.env.PRETTIER_PLUGIN_GML_VERSION = originalEnv;
+        }
+
+        if (originalNpmVersion === undefined) {
+            delete process.env.npm_package_version;
+        } else {
+            process.env.npm_package_version = originalNpmVersion;
+        }
+    }
+});
+
+test("resolveCliVersion falls back to the CLI package version when metadata is available", () => {
+    const originalEnv = process.env.PRETTIER_PLUGIN_GML_VERSION;
+    const originalNpmVersion = process.env.npm_package_version;
+
+    try {
+        delete process.env.PRETTIER_PLUGIN_GML_VERSION;
+        delete process.env.npm_package_version;
+
+        assert.equal(resolveCliVersion(), cliPackageVersion);
     } finally {
         if (originalEnv === undefined) {
             delete process.env.PRETTIER_PLUGIN_GML_VERSION;
