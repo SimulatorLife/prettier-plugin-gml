@@ -23,6 +23,8 @@ function string_height_scribble(_string) {
     return scribble(_string).starting_format(_font, c_white).get_height();
 }
 
+// This is an unrelated comment
+
 // / Tests to see if a font has the given character
 // /
 // / Returns: Boolean, indicating whether the given character is found in the font

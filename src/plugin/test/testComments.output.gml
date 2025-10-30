@@ -21,6 +21,8 @@ function string_height_scribble(_string) {
     return scribble(_string).starting_format(_font, c_white).get_height();
 }
 
+// This is an unrelated comment
+
 /// @function scribble_font_has_character
 /// @param fontName - The target font, as a string
 /// @param character - Character to test for, as a string
