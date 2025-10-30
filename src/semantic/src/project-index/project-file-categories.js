@@ -1,5 +1,8 @@
 import { assertArray, getNonEmptyTrimmedString } from "../dependencies.js";
-import { isProjectManifestPath } from "./constants.js";
+import {
+    isProjectManifestPath,
+    isProjectResourceMetadataPath
+} from "./constants.js";
 
 const DEFAULT_PROJECT_SOURCE_EXTENSIONS = Object.freeze([".gml"]);
 let projectSourceExtensions = DEFAULT_PROJECT_SOURCE_EXTENSIONS;
@@ -119,10 +122,13 @@ export function normalizeProjectFileCategory(value) {
  *          path does not fall into a known bucket.
  */
 export function resolveProjectFileCategory(relativePosix) {
-    const lowerPath = relativePosix.toLowerCase();
-    if (lowerPath.endsWith(".yy") || isProjectManifestPath(relativePosix)) {
+    if (
+        isProjectResourceMetadataPath(relativePosix) ||
+        isProjectManifestPath(relativePosix)
+    ) {
         return ProjectFileCategory.RESOURCE_METADATA;
     }
+    const lowerPath = relativePosix.toLowerCase();
     const sourceExtensions = getProjectIndexSourceExtensions();
     if (sourceExtensions.some((extension) => lowerPath.endsWith(extension))) {
         return ProjectFileCategory.SOURCE;
