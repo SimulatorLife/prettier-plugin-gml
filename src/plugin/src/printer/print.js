@@ -4121,6 +4121,80 @@ function reorderDescriptionLinesAfterFunction(docLines) {
     ];
 }
 
+function normalizeLeadingDocCommentDescription(docLines) {
+    if (!Array.isArray(docLines) || docLines.length === 0) {
+        return docLines;
+    }
+
+    const hasSuppressLeadingBlank = docLines._suppressLeadingBlank === true;
+    const normalizedLines = [];
+
+    let firstTaggedLineIndex = docLines.length;
+    for (const [index, docLine] of docLines.entries()) {
+        if (parseDocCommentMetadata(docLine)) {
+            firstTaggedLineIndex = index;
+            break;
+        }
+    }
+
+    let descriptionLineIndex = -1;
+    for (let index = 0; index < firstTaggedLineIndex; index += 1) {
+        const line = docLines[index];
+        if (typeof line !== "string") {
+            continue;
+        }
+
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("///")) {
+            continue;
+        }
+
+        const content = trimmed.slice(3).trim();
+        if (content.length === 0) {
+            continue;
+        }
+
+        descriptionLineIndex = index;
+        break;
+    }
+
+    if (descriptionLineIndex === -1) {
+        return docLines;
+    }
+
+    const originalDescriptionLine = docLines[descriptionLineIndex];
+    const descriptionText =
+        typeof originalDescriptionLine === "string"
+            ? originalDescriptionLine.trim().slice(3).trim()
+            : "";
+    const descriptionLine = `/// @description ${descriptionText}`;
+
+    for (const [index, candidate] of docLines.entries()) {
+        if (index < descriptionLineIndex && typeof candidate === "string") {
+                const trimmed = candidate.trim();
+                if (
+                    trimmed.startsWith("///") &&
+                    trimmed.slice(3).trim().length === 0
+                ) {
+                    continue;
+                }
+            }
+
+        if (index === descriptionLineIndex) {
+            normalizedLines.push(descriptionLine);
+            continue;
+        }
+
+        normalizedLines.push(candidate);
+    }
+
+    if (hasSuppressLeadingBlank) {
+        normalizedLines._suppressLeadingBlank = true;
+    }
+
+    return normalizedLines;
+}
+
 function mergeSyntheticDocComments(
     node,
     existingDocLines,
@@ -4129,6 +4203,10 @@ function mergeSyntheticDocComments(
 ) {
     let normalizedExistingLines = reorderDescriptionLinesAfterFunction(
         toMutableArray(existingDocLines)
+    );
+
+    normalizedExistingLines = normalizeLeadingDocCommentDescription(
+        normalizedExistingLines
     );
 
     let removedExistingReturnDuplicates = false;
