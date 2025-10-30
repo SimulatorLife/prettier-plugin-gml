@@ -2752,7 +2752,8 @@ function printStatements(path, options, print, childrenAttribute) {
         if (
             isFirstStatementInBlock &&
             isStaticDeclaration &&
-            !syntheticDocComment
+            !syntheticDocComment &&
+            isPreviousLineEmpty(originalTextCache, nodeStartIndex)
         ) {
             parts.push(hardline);
         }
@@ -4130,6 +4131,7 @@ function promoteLeadingDocCommentTextToDescription(docLines) {
     }
 
     const segments = [];
+    const promotedReturns = [];
     let leadingCount = 0;
 
     while (leadingCount < normalizedLines.length) {
@@ -4224,9 +4226,49 @@ function promoteLeadingDocCommentTextToDescription(docLines) {
             continue;
         }
 
+        const returnsMatch = trimmedSuffix.match(/^Returns?:\s*(.*)$/i);
+        if (returnsMatch) {
+            const [, rawReturnsText = ""] = returnsMatch;
+            let typeText = null;
+            let descriptionText = rawReturnsText.trim();
+
+            if (descriptionText.length > 0) {
+                const typeMatch = descriptionText.match(/^(.*?)(?:\s*,\s*|\s+-\s+)(.*)$/);
+                if (typeMatch) {
+                    typeText = typeMatch[1]?.trim() ?? null;
+                    descriptionText = typeMatch[2]?.trim() ?? "";
+                }
+            }
+
+            let returnsLine = `${normalizedBasePrefix} @returns`;
+            if (typeText && typeText.length > 0) {
+                let normalizedType = typeText.trim();
+                if (normalizedType.length > 0) {
+                    const lowerType = normalizedType.toLowerCase();
+                    if (lowerType === "boolean") {
+                        normalizedType = "bool";
+                    }
+                }
+
+                if (normalizedType.length > 0) {
+                    returnsLine += ` {${normalizedType}}`;
+                }
+            }
+            if (descriptionText.length > 0) {
+                const capitalizedDescription = descriptionText.replace(
+                    /^([a-z])/,
+                    (match) => match.toUpperCase()
+                );
+                returnsLine += ` ${capitalizedDescription}`;
+            }
+
+            promotedReturns.push(
+                normalizeDocCommentTypeAnnotations(returnsLine)
+            );
+            continue;
+        }
+
         if (trimmedSuffix.length === 0) {
-            const blankLine = suffix.length > 0 ? `${prefix}${suffix}` : prefix;
-            promotedLines.push(blankLine);
             continue;
         }
 
@@ -4240,7 +4282,7 @@ function promoteLeadingDocCommentTextToDescription(docLines) {
     }
 
     const remainder = normalizedLines.slice(leadingCount);
-    const result = [...promotedLines, ...remainder];
+    const result = [...promotedLines, ...remainder, ...promotedReturns];
 
     const hasContinuationSegments = segments.some(
         ({ suffix }, index) =>
@@ -4428,11 +4470,16 @@ function mergeSyntheticDocComments(
 
             const shouldSeparateDocTag = precedingDocTag === "deprecated";
 
+            const isBareDocLine = isDocCommentLine && !isDocTagLine;
+            const hasBareDocContent =
+                isBareDocLine &&
+                trimmedPreceding.replace(/^\/\/\/\s*/, "").length > 0;
+
             const needsSeparatorBeforeFunction =
                 trimmedPreceding !== "" &&
                 typeof precedingLine === "string" &&
                 !isFunctionLine(precedingLine) &&
-                (!isDocCommentLine || !isDocTagLine || shouldSeparateDocTag);
+                (!isDocCommentLine || shouldSeparateDocTag || hasBareDocContent);
 
             if (needsSeparatorBeforeFunction) {
                 mergedLines = [
@@ -5308,7 +5355,12 @@ function getCanonicalParamNameFromText(name) {
     }
 
     const normalized = normalizeDocMetadataName(trimmed.trim());
-    return normalized && normalized.length > 0 ? normalized : null;
+    if (!normalized || normalized.length === 0) {
+        return null;
+    }
+
+    const canonical = normalized.replace(/[\s_]+/g, "").toLowerCase();
+    return canonical.length > 0 ? canonical : null;
 }
 
 function getPreferredFunctionParameterName(path, node, options) {
@@ -6030,6 +6082,15 @@ function computeSyntheticFunctionDocLines(
             defaultIsUndefined &&
             shouldOmitUndefinedDefaultForFunctionNode(node);
         const hasExistingMetadata = Boolean(existingMetadata);
+        if (hasExistingMetadata) {
+            if (typeof existingDocName === "string" && existingDocName.length > 0) {
+                documentedParamNames.add(existingDocName);
+            }
+            if (implicitDocEntry?.name) {
+                documentedParamNames.add(implicitDocEntry.name);
+            }
+            continue;
+        }
         const hasOptionalDocName =
             param?.type === "DefaultParameter" &&
             isOptionalParamDocName(existingDocName);
