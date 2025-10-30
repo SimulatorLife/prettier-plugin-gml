@@ -4380,6 +4380,7 @@ function mergeSyntheticDocComments(
 
     // Cache canonical names so we only parse each doc comment line at most once.
     const paramCanonicalNameCache = new Map();
+    const existingParamDocNamesByCanonical = new Map();
     const getParamCanonicalName = (line, metadata) => {
         if (typeof line !== "string") {
             return null;
@@ -4511,6 +4512,13 @@ function mergeSyntheticDocComments(
         const canonical = getParamCanonicalName(line);
         if (canonical) {
             paramLineIndices.set(canonical, index);
+            const metadata = parseDocCommentMetadata(line);
+            if (
+                metadata?.tag === "param" &&
+                typeof metadata.name === "string"
+            ) {
+                existingParamDocNamesByCanonical.set(canonical, metadata.name);
+            }
         }
     }
 
@@ -5280,7 +5288,7 @@ function mergeSyntheticDocComments(
         return descriptionText.length > 0;
     });
 
-    const sanitizedResult = filteredResult.filter((line) => {
+    let sanitizedResult = filteredResult.filter((line) => {
         if (typeof line !== "string") {
             return true;
         }
@@ -5301,7 +5309,88 @@ function mergeSyntheticDocComments(
         sanitizedResult.shift();
     }
 
-    if (result._suppressLeadingBlank) {
+    const suppressLeadingBlank = result._suppressLeadingBlank === true;
+    if (suppressLeadingBlank) {
+        sanitizedResult._suppressLeadingBlank = true;
+    }
+
+    if (existingParamDocNamesByCanonical.size > 0) {
+        const suppressAliasLeadingBlank =
+            sanitizedResult._suppressLeadingBlank === true;
+
+        sanitizedResult = sanitizedResult.map((line) => {
+            if (typeof line !== "string") {
+                return line;
+            }
+
+            if (!/^\/\/\/\s*@param\b/i.test(line.trim())) {
+                return line;
+            }
+
+            const canonical = getParamCanonicalName(line);
+            if (!canonical) {
+                return line;
+            }
+
+            const preferredName =
+                existingParamDocNamesByCanonical.get(canonical);
+            if (!preferredName || preferredName.length === 0) {
+                return line;
+            }
+
+            return updateParamLineWithDocName(line, preferredName);
+        });
+
+        if (suppressAliasLeadingBlank) {
+            sanitizedResult._suppressLeadingBlank = true;
+        }
+    }
+
+    const suppressReturnsLeadingBlank =
+        sanitizedResult._suppressLeadingBlank === true;
+    sanitizedResult = sanitizedResult.map((line) => {
+        if (typeof line !== "string") {
+            return line;
+        }
+
+        const returnsMatch = line.match(/^(\s*\/\/\/)(?:\s*)Returns:\s*(.+)$/i);
+        if (!returnsMatch) {
+            return line;
+        }
+
+        const [, prefix, remainder] = returnsMatch;
+        const rawText = remainder.trim();
+        if (rawText.length === 0) {
+            return `${prefix} @returns`;
+        }
+
+        let type = null;
+        let descriptionText = rawText;
+        const boolMatch = rawText.match(/^(Boolean)(?:\s*(?:,\s*)?)?(.*)$/i);
+        if (boolMatch) {
+            type = "bool";
+            descriptionText = boolMatch[2] ?? "";
+        }
+
+        const normalizedDescription = descriptionText.trim();
+        const capitalizedDescription =
+            normalizedDescription.length > 0
+                ? normalizedDescription[0].toUpperCase() +
+                  normalizedDescription.slice(1)
+                : "";
+
+        const parts = [`${prefix} @returns`];
+        if (type) {
+            parts.push(`{${type}}`);
+        }
+        if (capitalizedDescription.length > 0) {
+            parts.push(capitalizedDescription);
+        }
+
+        return parts.join(" ");
+    });
+
+    if (suppressReturnsLeadingBlank) {
         sanitizedResult._suppressLeadingBlank = true;
     }
 
@@ -5351,7 +5440,14 @@ function getCanonicalParamNameFromText(name) {
     }
 
     const normalized = normalizeDocMetadataName(trimmed.trim());
-    return normalized && normalized.length > 0 ? normalized : null;
+
+    if (typeof normalized !== "string" || normalized.length === 0) {
+        return null;
+    }
+
+    const canonical = normalized.replaceAll(/[_\s]+/g, "").toLowerCase();
+
+    return canonical.length > 0 ? canonical : normalized;
 }
 
 function getPreferredFunctionParameterName(path, node, options) {
