@@ -283,3 +283,21 @@ no code changes were required.
   project-index metrics guards, and associated unit tests to rely on the
   specialised interfaces so consumers opt into only the reporting collaborator
   they require.
+
+## Follow-up audit (2027-01-21)
+
+- Audited the CLI plugin defaults again and found the exported
+  `CliPluginServiceImplementations` contract in
+  `src/cli/src/plugin-runtime/service-providers/default.js`. The bundle
+  regrouped the project index, identifier case plan, and cache collaborators
+  behind one "implementations" surface, so modules that only needed a single
+  capability still depended on all three.
+- Replaced the aggregate bundle with dedicated factories for each role:
+  `createCliProjectIndexImplementation`,
+  `createCliIdentifierCasePlanImplementation`, and
+  `createCliIdentifierCaseCacheImplementation`. Added matching service
+  factories so call sites can request just the facade they require without
+  pulling in the neighbouring responsibilities.
+- Updated the CLI service registry and unit tests to invoke the specialised
+  factories, ensuring each collaborator now depends solely on the project index
+  builder, identifier case plan preparer, or cache clearer it consumes.

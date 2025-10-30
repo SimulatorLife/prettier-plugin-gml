@@ -2,8 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-    createDefaultCliPluginServiceFacades,
-    createDefaultCliPluginServiceImplementations,
+    createCliProjectIndexImplementation,
+    createCliIdentifierCasePlanImplementation,
+    createCliIdentifierCaseCacheImplementation,
+    createCliProjectIndexService,
+    createCliIdentifierCasePlanPreparationService,
+    createCliIdentifierCaseCacheService,
     defaultCliIdentifierCasePlanPreparationService,
     defaultCliIdentifierCaseCacheService,
     defaultCliProjectIndexService,
@@ -12,87 +16,104 @@ import {
     defaultProjectIndexBuilder
 } from "../src/plugin-runtime/service-providers/default.js";
 
-test("CLI plugin service facades expose validated defaults", () => {
-    const services = createDefaultCliPluginServiceFacades();
+test("CLI plugin service factories expose validated defaults", () => {
+    const projectIndexImplementation = createCliProjectIndexImplementation();
+    const identifierCasePlanImplementation =
+        createCliIdentifierCasePlanImplementation();
+    const identifierCaseCacheImplementation =
+        createCliIdentifierCaseCacheImplementation();
 
-    const projectIndexService = defaultCliProjectIndexService;
+    const projectIndexService = createCliProjectIndexService();
+    const identifierCasePlanPreparationService =
+        createCliIdentifierCasePlanPreparationService();
+    const identifierCaseCacheService = createCliIdentifierCaseCacheService();
+
+    assert.ok(
+        Object.isFrozen(projectIndexImplementation),
+        "project index implementation should be frozen"
+    );
     assert.ok(
         Object.isFrozen(projectIndexService),
         "project index service should be frozen"
     );
     assert.strictEqual(
-        projectIndexService.buildProjectIndex,
+        projectIndexImplementation.buildProjectIndex,
         defaultProjectIndexBuilder,
-        "project index service should expose the default builder"
+        "project index implementation should expose the default builder"
     );
-    const identifierCasePlanPreparationService =
-        defaultCliIdentifierCasePlanPreparationService;
+    assert.strictEqual(
+        projectIndexService.buildProjectIndex,
+        projectIndexImplementation.buildProjectIndex,
+        "project index service should mirror the implementation builder"
+    );
+    assert.notStrictEqual(
+        projectIndexService,
+        projectIndexImplementation,
+        "project index service should be a distinct facade"
+    );
+
+    assert.ok(
+        Object.isFrozen(identifierCasePlanImplementation),
+        "identifier case plan implementation should be frozen"
+    );
     assert.ok(
         Object.isFrozen(identifierCasePlanPreparationService),
         "identifier case plan preparation service should be frozen"
     );
     assert.strictEqual(
-        identifierCasePlanPreparationService.prepareIdentifierCasePlan,
+        identifierCasePlanImplementation.prepareIdentifierCasePlan,
         defaultIdentifierCasePlanPreparer,
-        "preparation service should expose the default preparer"
+        "preparation implementation should expose the default preparer"
     );
     assert.strictEqual(
-        services.identifierCasePlanPreparationService.prepareIdentifierCasePlan,
         identifierCasePlanPreparationService.prepareIdentifierCasePlan,
-        "service factory should expose the preparation function"
+        identifierCasePlanImplementation.prepareIdentifierCasePlan,
+        "preparation service should mirror the implementation"
     );
-    assert.ok(
-        Object.isFrozen(services.identifierCasePlanPreparationService),
-        "service factory should expose a frozen preparation service"
+    assert.notStrictEqual(
+        identifierCasePlanPreparationService,
+        identifierCasePlanImplementation,
+        "preparation service should be a distinct facade"
     );
 
-    const identifierCasePlanCacheService = defaultCliIdentifierCaseCacheService;
     assert.ok(
-        Object.isFrozen(identifierCasePlanCacheService),
-        "identifier case plan cache service should be frozen"
+        Object.isFrozen(identifierCaseCacheImplementation),
+        "identifier case cache implementation should be frozen"
+    );
+    assert.ok(
+        Object.isFrozen(identifierCaseCacheService),
+        "identifier case cache service should be frozen"
     );
     assert.strictEqual(
-        identifierCasePlanCacheService.clearIdentifierCaseCaches,
+        identifierCaseCacheImplementation.clearIdentifierCaseCaches,
         defaultIdentifierCaseCacheClearer,
-        "cache service should expose the default cache clearer"
+        "cache implementation should expose the default clearer"
     );
     assert.strictEqual(
-        services.identifierCasePlanCacheService.clearIdentifierCaseCaches,
-        identifierCasePlanCacheService.clearIdentifierCaseCaches,
-        "service factory should expose the cache function"
+        identifierCaseCacheService.clearIdentifierCaseCaches,
+        identifierCaseCacheImplementation.clearIdentifierCaseCaches,
+        "cache service should mirror the implementation"
     );
-    assert.ok(
-        Object.isFrozen(services.identifierCasePlanCacheService),
-        "service factory should expose a frozen cache service"
+    assert.notStrictEqual(
+        identifierCaseCacheService,
+        identifierCaseCacheImplementation,
+        "cache service should be a distinct facade"
     );
 
-    assert.ok(
-        Object.prototype.hasOwnProperty.call(
-            services,
-            "identifierCasePlanService"
-        ) === false,
-        "facade factory should not expose the combined plan service"
-    );
-    assert.ok(
-        Object.prototype.hasOwnProperty.call(
-            services,
-            "identifierCaseServices"
-        ) === false,
-        "facade factory should not expose an identifier case services bundle"
-    );
     assert.strictEqual(
-        projectIndexService.buildProjectIndex,
+        defaultCliProjectIndexService.buildProjectIndex,
         defaultProjectIndexBuilder,
-        "project index service should expose the default builder"
-    );
-    assert.ok(
-        Object.isFrozen(services.projectIndexService),
-        "service factory should expose a frozen project index service"
+        "default project index service should expose the default builder"
     );
     assert.strictEqual(
-        services.projectIndexService.buildProjectIndex,
-        projectIndexService.buildProjectIndex,
-        "service factory should expose the project index builder"
+        defaultCliIdentifierCasePlanPreparationService.prepareIdentifierCasePlan,
+        defaultIdentifierCasePlanPreparer,
+        "default preparation service should expose the default preparer"
+    );
+    assert.strictEqual(
+        defaultCliIdentifierCaseCacheService.clearIdentifierCaseCaches,
+        defaultIdentifierCaseCacheClearer,
+        "default cache service should expose the default clearer"
     );
 });
 
@@ -126,113 +147,130 @@ test("default plugin service contracts can be customized with overrides", () => 
     const projectIndexBuilder = async () => ({ metrics: { custom: true } });
     const identifierCasePlanPreparer = async (options) => ({ options });
     const identifierCaseCacheClearer = () => {};
-
-    const implementations = createDefaultCliPluginServiceImplementations({
+    const overrides = {
         projectIndexBuilder,
         identifierCasePlanPreparer,
         identifierCaseCacheClearer
-    });
+    };
 
-    const services = createDefaultCliPluginServiceFacades({
-        projectIndexBuilder,
-        identifierCasePlanPreparer,
-        identifierCaseCacheClearer
-    });
+    const projectIndexImplementation =
+        createCliProjectIndexImplementation(overrides);
+    const identifierCasePlanImplementation =
+        createCliIdentifierCasePlanImplementation(overrides);
+    const identifierCaseCacheImplementation =
+        createCliIdentifierCaseCacheImplementation(overrides);
+
+    const projectIndexService = createCliProjectIndexService(overrides);
+    const identifierCasePlanService =
+        createCliIdentifierCasePlanPreparationService(overrides);
+    const identifierCaseCacheService =
+        createCliIdentifierCaseCacheService(overrides);
 
     assert.strictEqual(
-        implementations.projectIndex.buildProjectIndex,
+        projectIndexImplementation.buildProjectIndex,
         projectIndexBuilder,
         "override project index builder should be used"
     );
     assert.strictEqual(
-        implementations.identifierCasePlan.prepareIdentifierCasePlan,
+        identifierCasePlanImplementation.prepareIdentifierCasePlan,
         identifierCasePlanPreparer,
         "override identifier case plan preparer should be used"
     );
     assert.strictEqual(
-        implementations.identifierCaseCache.clearIdentifierCaseCaches,
+        identifierCaseCacheImplementation.clearIdentifierCaseCaches,
         identifierCaseCacheClearer,
         "override identifier case cache clearer should be used"
     );
 
     assert.ok(
-        Object.isFrozen(services.projectIndexService),
+        Object.isFrozen(projectIndexService),
         "project index service should remain frozen"
     );
     assert.strictEqual(
-        services.projectIndexService.buildProjectIndex,
+        projectIndexService.buildProjectIndex,
         projectIndexBuilder,
         "project index service should wrap override builder"
     );
     assert.strictEqual(
-        services.identifierCasePlanPreparationService.prepareIdentifierCasePlan,
+        identifierCasePlanService.prepareIdentifierCasePlan,
         identifierCasePlanPreparer,
         "preparation service should wrap override preparer"
     );
     assert.strictEqual(
-        services.identifierCasePlanCacheService.clearIdentifierCaseCaches,
+        identifierCaseCacheService.clearIdentifierCaseCaches,
         identifierCaseCacheClearer,
         "cache service should wrap override clearer"
-    );
-    assert.ok(
-        Object.prototype.hasOwnProperty.call(
-            services,
-            "identifierCaseServices"
-        ) === false,
-        "service factory overrides should not add an identifier case bundle"
     );
 });
 
 test("plugin service descriptor overrides fall back to defaults", () => {
     const identifierCasePlanPreparer = async () => {};
+    const overrides = { identifierCasePlanPreparer };
 
-    const implementations = createDefaultCliPluginServiceImplementations({
-        identifierCasePlanPreparer
-    });
-    const services = createDefaultCliPluginServiceFacades({
-        identifierCasePlanPreparer
-    });
+    const projectIndexImplementation =
+        createCliProjectIndexImplementation(overrides);
+    const identifierCasePlanImplementation =
+        createCliIdentifierCasePlanImplementation(overrides);
+    const identifierCaseCacheImplementation =
+        createCliIdentifierCaseCacheImplementation(overrides);
+
+    const projectIndexService = createCliProjectIndexService(overrides);
+    const identifierCasePlanService =
+        createCliIdentifierCasePlanPreparationService(overrides);
+    const identifierCaseCacheService =
+        createCliIdentifierCaseCacheService(overrides);
 
     assert.strictEqual(
-        implementations.projectIndex.buildProjectIndex,
+        projectIndexImplementation.buildProjectIndex,
         defaultProjectIndexBuilder,
         "project index builder should fall back to the default"
     );
     assert.strictEqual(
-        implementations.identifierCasePlan.prepareIdentifierCasePlan,
+        identifierCasePlanImplementation.prepareIdentifierCasePlan,
         identifierCasePlanPreparer,
         "overridden identifier case plan preparer should be used"
     );
     assert.strictEqual(
-        implementations.identifierCaseCache.clearIdentifierCaseCaches,
+        identifierCaseCacheImplementation.clearIdentifierCaseCaches,
         defaultIdentifierCaseCacheClearer,
         "identifier case cache clearer should fall back to the default"
     );
 
     assert.strictEqual(
-        services.projectIndexService.buildProjectIndex,
+        projectIndexService.buildProjectIndex,
         defaultProjectIndexBuilder,
         "project index service should expose the default builder"
     );
     assert.strictEqual(
-        services.identifierCasePlanPreparationService.prepareIdentifierCasePlan,
+        identifierCasePlanService.prepareIdentifierCasePlan,
         identifierCasePlanPreparer,
         "identifier case plan preparation service should expose the override"
     );
     assert.strictEqual(
-        services.identifierCasePlanCacheService.clearIdentifierCaseCaches,
+        identifierCaseCacheService.clearIdentifierCaseCaches,
         defaultIdentifierCaseCacheClearer,
         "identifier case cache service should expose the default clearer"
     );
 });
 
 test("invalid plugin service descriptor sources are rejected", () => {
-    assert.throws(() => createDefaultCliPluginServiceImplementations(42), {
+    assert.throws(() => createCliProjectIndexImplementation(42), {
         name: "TypeError",
         message: /descriptors must be provided as objects/
     });
-    assert.throws(() => createDefaultCliPluginServiceFacades(() => ({})), {
+    assert.throws(() => createCliProjectIndexService(() => ({})), {
         name: "TypeError",
         message: /descriptors must be provided as objects/
     });
+    assert.throws(() => createCliIdentifierCasePlanImplementation(42), {
+        name: "TypeError",
+        message: /descriptors must be provided as objects/
+    });
+    assert.throws(
+        () => createCliIdentifierCasePlanPreparationService(() => ({})),
+        {
+            name: "TypeError",
+            message: /descriptors must be provided as objects/
+        }
+    );
 });
