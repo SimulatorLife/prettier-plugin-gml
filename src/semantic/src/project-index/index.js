@@ -86,7 +86,13 @@ export {
 
 export {
     PROJECT_MANIFEST_EXTENSION,
-    isProjectManifestPath
+    isProjectManifestPath,
+    PROJECT_RESOURCE_METADATA_DEFAULTS,
+    getProjectResourceMetadataExtensions,
+    resetProjectResourceMetadataExtensions,
+    setProjectResourceMetadataExtensions,
+    isProjectResourceMetadataPath,
+    matchProjectResourceMetadataExtension
 } from "./constants.js";
 export {
     PROJECT_INDEX_CACHE_SCHEMA_VERSION,
