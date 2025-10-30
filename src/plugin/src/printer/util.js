@@ -1,8 +1,7 @@
 import { util } from "prettier";
 import {
     getNodeType,
-    getNonEmptyTrimmedString,
-    toTrimmedString
+    getNonEmptyTrimmedString
 } from "../shared/index.js";
 
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
@@ -199,8 +198,25 @@ function getNormalizedDefineReplacementDirective(node) {
         return null;
     }
 
-    const directive = toTrimmedString(node.replacementDirective);
-    return directive ? directive.toLowerCase() : null;
+    const rawDirective = node.replacementDirective;
+    if (typeof rawDirective !== "string") {
+        return null;
+    }
+
+    const trimmedDirective = rawDirective.trim();
+    if (trimmedDirective.length === 0) {
+        return null;
+    }
+
+    if (
+        trimmedDirective === "#region" ||
+        trimmedDirective === "#endregion" ||
+        trimmedDirective === "#macro"
+    ) {
+        return trimmedDirective;
+    }
+
+    return trimmedDirective.toLowerCase();
 }
 
 /**
