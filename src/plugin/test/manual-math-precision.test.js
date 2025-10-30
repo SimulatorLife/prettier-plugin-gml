@@ -146,6 +146,70 @@ test("condenses chained scalar multipliers into a single coefficient", async () 
     );
 });
 
+test("promotes lengthdir half-difference assignments into the declaration", async () => {
+    const source = [
+        "function promote_lengthdir(size, angle) {",
+        "    var s = 1.3 * size * 0.12 / 1.5;",
+        "    s = s - s / 2 - lengthdir_x(s / 2, angle);",
+        "    return s;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function promote_lengthdir",
+            "/// @param size",
+            "/// @param angle",
+            "function promote_lengthdir(size, angle) {",
+            "    var s = size * 0.052 * (1 - lengthdir_x(1, angle));",
+            "    return s;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("preserves blank line before comments when promoting lengthdir assignments", async () => {
+    const source = [
+        "function promote_lengthdir_with_comment(size, angle) {",
+        "    var s = 1.3 * size * 0.12 / 1.5;",
+        "    s = s - s / 2 - lengthdir_x(s / 2, angle);",
+        "",
+        "    // manual adjustment",
+        "    return s;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function promote_lengthdir_with_comment",
+            "/// @param size",
+            "/// @param angle",
+            "function promote_lengthdir_with_comment(size, angle) {",
+            "    var s = size * 0.052 * (1 - lengthdir_x(1, angle));",
+            "",
+            "    // manual adjustment",
+            "    return s;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
 test("simplifies division by a reciprocal denominator", async () => {
     const source = [
         "function convert_reciprocal(value, denom) {",
