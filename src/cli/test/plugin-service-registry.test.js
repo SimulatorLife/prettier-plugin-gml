@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-    createDefaultCliPluginServices,
+    createDefaultCliPluginServiceFacades,
+    createDefaultCliPluginServiceImplementations,
     defaultCliIdentifierCasePlanPreparationService,
     defaultCliIdentifierCaseCacheService,
     defaultCliProjectIndexService,
@@ -11,8 +12,8 @@ import {
     defaultProjectIndexBuilder
 } from "../src/plugin-runtime/service-providers/default.js";
 
-test("CLI plugin services expose validated defaults", () => {
-    const services = createDefaultCliPluginServices();
+test("CLI plugin service facades expose validated defaults", () => {
+    const services = createDefaultCliPluginServiceFacades();
 
     const projectIndexService = defaultCliProjectIndexService;
     assert.ok(
@@ -70,14 +71,14 @@ test("CLI plugin services expose validated defaults", () => {
             services,
             "identifierCasePlanService"
         ) === false,
-        "root registry should no longer expose the combined plan service"
+        "facade factory should not expose the combined plan service"
     );
     assert.ok(
         Object.prototype.hasOwnProperty.call(
             services,
             "identifierCaseServices"
         ) === false,
-        "service factory should not expose an identifier case services bundle"
+        "facade factory should not expose an identifier case services bundle"
     );
     assert.strictEqual(
         projectIndexService.buildProjectIndex,
@@ -121,29 +122,35 @@ test("CLI plugin services cannot be mutated", () => {
     );
 });
 
-test("default plugin services can be customized with overrides", () => {
+test("default plugin service contracts can be customized with overrides", () => {
     const projectIndexBuilder = async () => ({ metrics: { custom: true } });
     const identifierCasePlanPreparer = async (options) => ({ options });
     const identifierCaseCacheClearer = () => {};
 
-    const services = createDefaultCliPluginServices({
+    const implementations = createDefaultCliPluginServiceImplementations({
+        projectIndexBuilder,
+        identifierCasePlanPreparer,
+        identifierCaseCacheClearer
+    });
+
+    const services = createDefaultCliPluginServiceFacades({
         projectIndexBuilder,
         identifierCasePlanPreparer,
         identifierCaseCacheClearer
     });
 
     assert.strictEqual(
-        services.projectIndexBuilder,
+        implementations.projectIndexBuilder,
         projectIndexBuilder,
         "override project index builder should be used"
     );
     assert.strictEqual(
-        services.identifierCasePlanPreparer,
+        implementations.identifierCasePlanPreparer,
         identifierCasePlanPreparer,
         "override identifier case plan preparer should be used"
     );
     assert.strictEqual(
-        services.identifierCaseCacheClearer,
+        implementations.identifierCaseCacheClearer,
         identifierCaseCacheClearer,
         "override identifier case cache clearer should be used"
     );
@@ -177,11 +184,11 @@ test("default plugin services can be customized with overrides", () => {
 });
 
 test("invalid plugin service descriptor sources are rejected", () => {
-    assert.throws(() => createDefaultCliPluginServices(42), {
+    assert.throws(() => createDefaultCliPluginServiceImplementations(42), {
         name: "TypeError",
         message: /descriptors must be provided as objects/
     });
-    assert.throws(() => createDefaultCliPluginServices(() => ({})), {
+    assert.throws(() => createDefaultCliPluginServiceFacades(() => ({})), {
         name: "TypeError",
         message: /descriptors must be provided as objects/
     });
