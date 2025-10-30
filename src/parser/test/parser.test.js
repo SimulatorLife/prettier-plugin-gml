@@ -181,8 +181,7 @@ const expectedFailures = new Set([
     "cursed_gml.gml",
     "equals.gml",
     "expressions.gml",
-    "loungeware.gml",
-    "snap_deep_copy.gml"
+    "loungeware.gml"
 ]);
 const successfulFixture = fixtureNames.find(
     (fixtureName) => !expectedFailures.has(fixtureName)
@@ -237,6 +236,16 @@ describe("GameMaker parser fixtures", () => {
 
         assert.ok(stringLiteral, "Expected to find a string literal");
         assert.strictEqual(stringLiteral.value, String.raw`"\N sounds"`);
+    });
+
+    it("parses string literals containing escaped backslashes before uppercase identifiers", () => {
+        const source = [
+            "function example() {",
+            String.raw`    show_debug_message("Cannot use arguments\\n\\Action");`,
+            "}"
+        ].join("\n");
+
+        assert.doesNotThrow(() => parseFixture(source));
     });
 
     it("omits location metadata when disabled", async () => {
