@@ -529,26 +529,45 @@ function listXmlFiles(resolvedPath) {
 }
 
 function collectDirectoryTestCases(directory, xmlFiles) {
-    const aggregate = { cases: [], notes: [] };
+    const aggregate = createTestCaseAggregate();
 
     for (const file of xmlFiles) {
         const displayPath = path.join(directory.display, file);
         const filePath = path.join(directory.resolved, file);
-        const { cases = [], notes = [] } = collectTestCasesFromXmlFile(
-            filePath,
-            displayPath
-        );
+        const additions = collectTestCasesFromXmlFile(filePath, displayPath);
 
-        if (cases.length > 0) {
-            aggregate.cases.push(...cases);
-        }
-
-        if (notes.length > 0) {
-            aggregate.notes.push(...notes);
-        }
+        mergeTestCaseAggregate(aggregate, additions);
     }
 
     return aggregate;
+}
+
+function createTestCaseAggregate() {
+    return { cases: [], notes: [] };
+}
+
+/**
+ * Merge the parsed test case results into the accumulating aggregate.
+ *
+ * Isolating the array mutations here ensures the directory collector only
+ * sequences work instead of pushing elements directly.
+ */
+function mergeTestCaseAggregate(target, additions) {
+    if (!additions) {
+        return target;
+    }
+
+    const { cases = [], notes = [] } = additions;
+
+    if (cases.length > 0) {
+        target.cases.push(...cases);
+    }
+
+    if (notes.length > 0) {
+        target.notes.push(...notes);
+    }
+
+    return target;
 }
 
 function collectTestCasesFromXmlFile(filePath, displayPath) {
