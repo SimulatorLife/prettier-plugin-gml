@@ -57,7 +57,6 @@ export function convertManualMathExpressions(
         normalizedHelpers,
         traversalContext
     );
-    simplifyLengthDirHalfAssignments(ast, normalizedHelpers, traversalContext);
 
     return ast;
 }
@@ -85,6 +84,7 @@ export function condenseScalarMultipliers(
         normalizedHelpers,
         traversalContext
     );
+    simplifyLengthDirHalfAssignments(ast, normalizedHelpers, traversalContext);
 
     return ast;
 }
@@ -986,7 +986,12 @@ function attemptSimplifyLengthDirHalfAssignment(node, helpers, context) {
 
     declarator.init = finalInitializer;
 
+    const paddedSibling = markPreviousSiblingForBlankLine(root, node);
+
     if (!removeNodeFromAst(root, node)) {
+        if (paddedSibling && typeof paddedSibling === "object") {
+            delete paddedSibling._gmlForceFollowingEmptyLine;
+        }
         return false;
     }
 
