@@ -44,50 +44,7 @@ export function toNormalizedInteger(value) {
     return Object.is(normalized, -0) ? 0 : normalized;
 }
 
-const DEFAULT_APPROXIMATE_EQUALITY_SCALE_MULTIPLIER = 4;
-
-let approximateEqualityScaleMultiplier =
-    DEFAULT_APPROXIMATE_EQUALITY_SCALE_MULTIPLIER;
-
-/**
- * Retrieve the current multiplier applied to {@link Number.EPSILON} when
- * computing the approximate equality tolerance.
- *
- * @returns {number} Positive finite multiplier used to widen the comparison.
- */
-export function getApproximateEqualityScaleMultiplier() {
-    return approximateEqualityScaleMultiplier;
-}
-
-/**
- * Override the multiplier applied to {@link Number.EPSILON} during approximate
- * equality comparisons.
- *
- * @param {number} multiplier Positive finite multiplier.
- * @returns {number} The normalized multiplier now in effect.
- */
-export function setApproximateEqualityScaleMultiplier(multiplier) {
-    if (!isFiniteNumber(multiplier) || multiplier <= 0) {
-        throw new TypeError(
-            `Approximate equality scale multiplier must be a positive finite number (received ${multiplier}).`
-        );
-    }
-
-    approximateEqualityScaleMultiplier = multiplier;
-    return approximateEqualityScaleMultiplier;
-}
-
-/**
- * Restore the default multiplier applied to {@link Number.EPSILON} when
- * performing approximate equality checks.
- *
- * @returns {number} Reset multiplier value.
- */
-export function resetApproximateEqualityScaleMultiplier() {
-    approximateEqualityScaleMultiplier =
-        DEFAULT_APPROXIMATE_EQUALITY_SCALE_MULTIPLIER;
-    return approximateEqualityScaleMultiplier;
-}
+const APPROXIMATE_EQUALITY_SCALE_MULTIPLIER = 4;
 
 /**
  * Compare two numbers using a tolerance scaled to their magnitude so values
@@ -115,6 +72,6 @@ export function areNumbersApproximatelyEqual(a, b) {
 
     const scale = Math.max(1, Math.abs(a), Math.abs(b));
     const tolerance =
-        Number.EPSILON * scale * approximateEqualityScaleMultiplier;
+        Number.EPSILON * scale * APPROXIMATE_EQUALITY_SCALE_MULTIPLIER;
     return Math.abs(a - b) <= tolerance;
 }
