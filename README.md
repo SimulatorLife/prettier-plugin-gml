@@ -325,7 +325,19 @@ nvm alias default node
    npm ci
    ```
 
-2. Format any GameMaker project without adding dependencies to that project. The
+2. Run the aggregated validation once to confirm your local install matches CI
+   before pointing the formatter at a project:
+
+   ```bash
+   npm run check
+   ```
+
+   The command runs the formatter smoke test, CI-mode lint, and the full Node.js
+   test suite so new workstations start from a known-good baseline. Consult the
+   [contributor onboarding checklist](docs/contributor-onboarding.md) for the
+   individual suite commands when you need targeted reruns.
+
+3. Format any GameMaker project without adding dependencies to that project. The
    repository exposes a dedicated `format:gml` script that targets the CLI's
    `format` command and defaults to the current working directory when no
    arguments are provided. Pass the project path explicitly when formatting
