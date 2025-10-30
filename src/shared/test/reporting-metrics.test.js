@@ -37,6 +37,19 @@ test("snapshot exposes accumulated metrics as plain objects", () => {
     assert.deepEqual(report.metadata, { mode: "test", note: "ok" });
 });
 
+test("snapshot ignores non-object extras", () => {
+    const tracker = createMetricsTracker({ category: "noop" });
+    const { recording, reporting } = tracker;
+    recording.counters.increment("runs");
+
+    const base = reporting.summary.snapshot();
+    const withNull = reporting.summary.snapshot(null);
+    const withString = reporting.summary.snapshot("invalid");
+
+    assert.deepEqual(withNull, base);
+    assert.deepEqual(withString, base);
+});
+
 test("cache summaries include untouched counters", () => {
     const tracker = createMetricsTracker();
     const { recording, reporting } = tracker;
