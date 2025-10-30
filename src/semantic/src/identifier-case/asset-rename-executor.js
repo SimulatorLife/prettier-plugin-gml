@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import {
+    assertPlainObject,
     fromPosixPath,
     getErrorMessageOrFallback,
     getOrCreateMapEntry,
@@ -58,10 +59,13 @@ function readJsonFile(fsFacade, absolutePath, cache) {
 
     const raw = fsFacade.readFileSync(absolutePath, "utf8");
     const parsed = parseJsonWithContext(raw, { source: absolutePath });
+    const resourceJson = assertPlainObject(parsed, {
+        errorMessage: `Resource JSON at ${absolutePath} must be a plain object.`
+    });
     if (cache) {
-        cache.set(absolutePath, parsed);
+        cache.set(absolutePath, resourceJson);
     }
-    return parsed;
+    return resourceJson;
 }
 
 function getObjectAtPath(json, propertyPath) {

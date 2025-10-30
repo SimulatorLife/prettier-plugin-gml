@@ -15,18 +15,12 @@ import {
  * @returns {Array<string>}
  */
 export function normalizeWorkflowPathList(paths) {
-    const candidates = [];
-
-    for (const entry of toArray(paths)) {
-        const normalized = getNonEmptyTrimmedString(entry);
-        if (!normalized) {
-            continue;
-        }
-
-        candidates.push(path.resolve(normalized));
-    }
-
-    return uniqueArray(candidates);
+    return uniqueArray(
+        toArray(paths)
+            .map(getNonEmptyTrimmedString)
+            .filter(Boolean)
+            .map((candidate) => path.resolve(candidate))
+    );
 }
 
 /**
@@ -42,7 +36,6 @@ export function normalizeWorkflowPathList(paths) {
  * @returns {{
  *   allowList: Array<string>,
  *   denyList: Array<string>,
- *   hasAllow: boolean,
  *   allowsPath: (candidate: string) => boolean,
  *   allowsDirectory: (candidate: string) => boolean
  * }}
@@ -59,43 +52,35 @@ export function createWorkflowPathFilter(filters = {}) {
 
     const allowList = normalizeWorkflowPathList(filters?.allowPaths);
     const denyList = normalizeWorkflowPathList(filters?.denyPaths);
-    const hasAllow = allowList.length > 0;
-
-    const normalizeCandidate = (candidate) =>
-        typeof candidate === "string" ? path.resolve(candidate) : null;
-
-    const isAllowed = (candidate, matcher) => {
-        const normalized = normalizeCandidate(candidate);
-        if (!normalized) {
+    const allows = (candidate, { treatAsDirectory = false } = {}) => {
+        if (typeof candidate !== "string") {
             return false;
         }
+
+        const normalized = path.resolve(candidate);
 
         if (denyList.some((deny) => isPathInside(normalized, deny))) {
             return false;
         }
 
-        return (
-            !hasAllow || allowList.some((allow) => matcher(allow, normalized))
+        if (allowList.length === 0) {
+            return true;
+        }
+
+        return allowList.some(
+            (allow) =>
+                isPathInside(normalized, allow) ||
+                (treatAsDirectory && isPathInside(allow, normalized))
         );
     };
 
-    const allowsPath = (candidate) =>
-        isAllowed(candidate, (allow, normalized) =>
-            isPathInside(normalized, allow)
-        );
-
+    const allowsPath = (candidate) => allows(candidate);
     const allowsDirectory = (candidate) =>
-        isAllowed(
-            candidate,
-            (allow, normalized) =>
-                isPathInside(normalized, allow) ||
-                isPathInside(allow, normalized)
-        );
+        allows(candidate, { treatAsDirectory: true });
 
     return {
         allowList,
         denyList,
-        hasAllow,
         allowsPath,
         allowsDirectory
     };

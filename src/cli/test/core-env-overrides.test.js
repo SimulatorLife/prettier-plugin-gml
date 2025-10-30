@@ -41,6 +41,27 @@ describe("applyEnvOptionOverride", () => {
         });
     });
 
+    it("ignores overrides when the command cannot accept option values", () => {
+        assert.doesNotThrow(() =>
+            applyEnvOptionOverride({
+                command: null,
+                env: { TEST_VALUE: "value" },
+                envVar: "TEST_VALUE",
+                optionName: "testOption"
+            })
+        );
+
+        const command = {};
+        assert.doesNotThrow(() =>
+            applyEnvOptionOverride({
+                command,
+                env: { TEST_VALUE: "value" },
+                envVar: "TEST_VALUE",
+                optionName: "testOption"
+            })
+        );
+    });
+
     it("wraps resolver failures in a CliUsageError and preserves usage", () => {
         const command = {
             setOptionValueWithSource() {
