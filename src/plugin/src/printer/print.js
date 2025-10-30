@@ -1,6 +1,7 @@
 import { builders, utils } from "prettier/doc";
 
 import {
+    DefineReplacementDirective,
     isLastStatement,
     optionalSemicolon,
     isNextLineEmpty,
@@ -1543,9 +1544,8 @@ export function print(path, options, print) {
         }
         case "DefineStatement": {
             const directive =
-                typeof node.replacementDirective === "string"
-                    ? node.replacementDirective
-                    : "#macro";
+                getNormalizedDefineReplacementDirective(node) ??
+                DefineReplacementDirective.MACRO;
             const suffixDoc =
                 typeof node.replacementSuffix === "string"
                     ? node.replacementSuffix
@@ -2900,7 +2900,8 @@ function printStatements(path, options, print, childrenAttribute) {
 
             const isMacroLikeNode = isMacroLikeStatement(node);
             const isDefineMacroReplacement =
-                getNormalizedDefineReplacementDirective(node) === "#macro";
+                getNormalizedDefineReplacementDirective(node) ===
+                DefineReplacementDirective.MACRO;
             const shouldForceMacroPadding =
                 isMacroLikeNode &&
                 !isDefineMacroReplacement &&
