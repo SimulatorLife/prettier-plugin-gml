@@ -119,19 +119,23 @@ const SUMMARY_SECTIONS = Object.freeze([
  */
 
 function normalizeCacheKeys(keys) {
-    const candidate =
-        typeof keys === "string"
-            ? keys
-            : Array.isArray(keys)
-              ? keys
-              : typeof keys?.[Symbol.iterator] === "function"
-                ? toArrayFromIterable(keys)
-                : DEFAULT_CACHE_KEYS;
+    const finalize = (candidate) => {
+        const normalized = normalizeStringList(candidate, {
+            allowInvalidType: true
+        });
 
-    const normalized = normalizeStringList(candidate, {
-        allowInvalidType: true
-    });
-    return normalized.length > 0 ? normalized : [...DEFAULT_CACHE_KEYS];
+        return normalized.length > 0 ? normalized : [...DEFAULT_CACHE_KEYS];
+    };
+
+    if (typeof keys === "string" || Array.isArray(keys)) {
+        return finalize(keys);
+    }
+
+    if (keys && typeof keys[Symbol.iterator] === "function") {
+        return finalize(toArrayFromIterable(keys));
+    }
+
+    return finalize(DEFAULT_CACHE_KEYS);
 }
 
 function normalizeIncrementAmount(amount, fallback = 1) {
