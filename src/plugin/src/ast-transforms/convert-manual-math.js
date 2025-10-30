@@ -16,14 +16,17 @@ const DEFAULT_HELPERS = Object.freeze({
     hasComment: sharedHasComment
 });
 
+const ASSIGNMENT_EXPRESSION = "AssignmentExpression";
 const BINARY_EXPRESSION = "BinaryExpression";
 const CALL_EXPRESSION = "CallExpression";
+const EXPRESSION_STATEMENT = "ExpressionStatement";
 const IDENTIFIER = "Identifier";
 const LITERAL = "Literal";
 const MEMBER_DOT_EXPRESSION = "MemberDotExpression";
 const MEMBER_INDEX_EXPRESSION = "MemberIndexExpression";
 const PARENTHESIZED_EXPRESSION = "ParenthesizedExpression";
 const UNARY_EXPRESSION = "UnaryExpression";
+const VARIABLE_DECLARATION = "VariableDeclaration";
 
 /**
  * Convert bespoke math expressions into their builtin GML equivalents.
@@ -52,6 +55,7 @@ export function convertManualMathExpressions(
     const traversalContext = normalizeTraversalContext(ast, context);
 
     traverse(ast, normalizedHelpers, new Set(), traversalContext);
+    combineLengthdirScalarAssignments(ast, normalizedHelpers);
     cleanupMultiplicativeIdentityParentheses(
         ast,
         normalizedHelpers,
@@ -481,6 +485,388 @@ function unwrapIdentityReplacementResult(node, helpers) {
 
         node.__fromMultiplicativeIdentity = true;
     }
+}
+
+function combineLengthdirScalarAssignments(ast, helpers) {
+    if (!ast || typeof ast !== "object") {
+        return;
+    }
+
+    const body = Array.isArray(ast.body) ? ast.body : null;
+    if (!body) {
+        for (const value of Object.values(ast)) {
+            if (!value || typeof value !== "object") {
+                continue;
+            }
+
+            combineLengthdirScalarAssignments(value, helpers);
+        }
+        return;
+    }
+
+    for (let index = 0; index < body.length - 1; index += 1) {
+        const declaration = body[index];
+        const next = body[index + 1];
+
+        if (
+            !declaration ||
+            declaration.type !== VARIABLE_DECLARATION ||
+            !Array.isArray(declaration.declarations) ||
+            declaration.declarations.length !== 1 ||
+            helpers.hasComment(declaration)
+        ) {
+            continue;
+        }
+
+        const [declarator] = declaration.declarations;
+        if (
+            !declarator ||
+            helpers.hasComment(declarator) ||
+            !declarator.init ||
+            helpers.hasComment(declarator.init)
+        ) {
+            continue;
+        }
+
+        if (!next) {
+            continue;
+        }
+
+        const assignment =
+            next.type === EXPRESSION_STATEMENT ? next.expression : next;
+        if (
+            !assignment ||
+            assignment.type !== ASSIGNMENT_EXPRESSION ||
+            assignment.operator !== "=" ||
+            helpers.hasComment(next) ||
+            helpers.hasComment(assignment)
+        ) {
+            continue;
+        }
+
+        const baseName = getIdentifierName(declarator.id);
+        if (!baseName || getIdentifierName(assignment.left) !== baseName) {
+            continue;
+        }
+
+        const match = matchLengthdirReassignment(
+            assignment.right,
+            baseName,
+            helpers
+        );
+
+        if (!match) {
+            continue;
+        }
+
+        const initClone = cloneAstNode(declarator.init);
+        if (!initClone) {
+            continue;
+        }
+
+        let baseTimesFactor = initClone;
+
+        if (!scaleNumericLiteralCoefficient(baseTimesFactor, match.factor)) {
+            const normalizedFactor = normalizeNumericCoefficient(match.factor);
+            if (normalizedFactor === null) {
+                continue;
+            }
+
+            const factorLiteral = createNumericLiteral(
+                normalizedFactor,
+                match.factorNode
+            );
+            if (!factorLiteral) {
+                continue;
+            }
+
+            baseTimesFactor = createBinaryExpressionNode(
+                "*",
+                baseTimesFactor,
+                factorLiteral,
+                assignment.right
+            );
+        }
+
+        const callOneLiteral = createNumericLiteral("1", assignment.right);
+        const differenceOneLiteral = createNumericLiteral(
+            "1",
+            assignment.right
+        );
+        if (!callOneLiteral || !differenceOneLiteral) {
+            continue;
+        }
+
+        const lengthdirCall = createCallExpressionNode(
+            match.functionName,
+            [callOneLiteral, cloneAstNode(match.angle)],
+            match.callExpression
+        );
+        if (!lengthdirCall) {
+            continue;
+        }
+
+        const difference = createBinaryExpressionNode(
+            "-",
+            differenceOneLiteral,
+            lengthdirCall,
+            assignment.right
+        );
+
+        const parenthesizedDifference = createParenthesizedExpressionNode(
+            difference,
+            assignment.right
+        );
+        if (!parenthesizedDifference) {
+            continue;
+        }
+
+        const finalExpression = createBinaryExpressionNode(
+            "*",
+            baseTimesFactor,
+            parenthesizedDifference,
+            assignment.right
+        );
+
+        condenseScalarMultipliers(finalExpression, helpers);
+
+        declarator.init = finalExpression;
+        body.splice(index + 1, 1);
+        index -= 1;
+    }
+
+    for (const element of body) {
+        if (!element || typeof element !== "object") {
+            continue;
+        }
+
+        combineLengthdirScalarAssignments(element, helpers);
+    }
+}
+
+function matchLengthdirReassignment(expression, identifierName, helpers) {
+    const root = unwrapExpression(expression);
+    if (!root || root.type !== BINARY_EXPRESSION || root.operator !== "-") {
+        return null;
+    }
+
+    const callExpression = unwrapExpression(root.right);
+    if (!callExpression || callExpression.type !== CALL_EXPRESSION) {
+        return null;
+    }
+
+    if (helpers.hasComment(callExpression)) {
+        return null;
+    }
+
+    const functionName = getIdentifierName(callExpression.object);
+    if (functionName !== "lengthdir_x") {
+        return null;
+    }
+
+    const args = Array.isArray(callExpression.arguments)
+        ? callExpression.arguments
+        : [];
+
+    if (args.length !== 2) {
+        return null;
+    }
+
+    const magnitudeInfo = matchIdentifierTimesFactor(
+        args[0],
+        identifierName,
+        helpers
+    );
+    if (!magnitudeInfo) {
+        return null;
+    }
+
+    const left = unwrapExpression(root.left);
+    const difference = unwrapExpression(left);
+    if (
+        !difference ||
+        difference.type !== BINARY_EXPRESSION ||
+        difference.operator !== "-"
+    ) {
+        return null;
+    }
+
+    if (!isIdentifierNamed(difference.left, identifierName)) {
+        return null;
+    }
+
+    const subtractInfo = matchIdentifierTimesFactor(
+        difference.right,
+        identifierName,
+        helpers
+    );
+
+    if (!subtractInfo) {
+        return null;
+    }
+
+    const tolerance = computeNumericTolerance(0);
+    if (Math.abs(magnitudeInfo.factor - subtractInfo.factor) > tolerance) {
+        return null;
+    }
+
+    return {
+        factor: magnitudeInfo.factor,
+        factorNode: subtractInfo.literalNode ?? magnitudeInfo.literalNode,
+        angle: args[1],
+        functionName,
+        callExpression
+    };
+}
+
+function matchIdentifierTimesFactor(expression, identifierName, helpers) {
+    const unwrapped = unwrapExpression(expression);
+    if (!unwrapped || helpers.hasComment(unwrapped)) {
+        return null;
+    }
+
+    if (unwrapped.type !== BINARY_EXPRESSION) {
+        return null;
+    }
+
+    const operator =
+        typeof unwrapped.operator === "string"
+            ? unwrapped.operator.toLowerCase()
+            : null;
+
+    let factorNode = null;
+    let factorValue = null;
+
+    if (operator === "*") {
+        if (isIdentifierNamed(unwrapped.left, identifierName)) {
+            factorNode = unwrapped.right;
+        } else if (isIdentifierNamed(unwrapped.right, identifierName)) {
+            factorNode = unwrapped.left;
+        } else {
+            return null;
+        }
+
+        factorValue = parseNumericFactor(factorNode);
+    } else if (operator === "/") {
+        if (!isIdentifierNamed(unwrapped.left, identifierName)) {
+            return null;
+        }
+
+        const divisorValue = parseNumericFactor(unwrapped.right);
+        if (divisorValue === null) {
+            return null;
+        }
+
+        if (Math.abs(divisorValue) <= computeNumericTolerance(0)) {
+            return null;
+        }
+
+        factorNode = unwrapped.right;
+        factorValue = 1 / divisorValue;
+    } else {
+        return null;
+    }
+
+    if (factorValue === null) {
+        return null;
+    }
+
+    const literalNode = unwrapExpression(factorNode) ?? factorNode;
+
+    return {
+        factor: factorValue,
+        literalNode
+    };
+}
+
+function createBinaryExpressionNode(operator, left, right, template) {
+    const expression = {
+        type: BINARY_EXPRESSION,
+        operator,
+        left,
+        right
+    };
+
+    assignClonedLocation(expression, template);
+
+    return expression;
+}
+
+function createParenthesizedExpressionNode(expression, template) {
+    if (!expression || typeof expression !== "object") {
+        return null;
+    }
+
+    const node = {
+        type: PARENTHESIZED_EXPRESSION,
+        expression
+    };
+
+    assignClonedLocation(node, template);
+
+    return node;
+}
+
+function scaleNumericLiteralCoefficient(node, factor) {
+    if (!Number.isFinite(factor)) {
+        return false;
+    }
+
+    const literal = findFirstNumericLiteral(node);
+    if (!literal) {
+        return false;
+    }
+
+    const literalValue = parseNumericLiteral(literal);
+    if (literalValue === null) {
+        return false;
+    }
+
+    const scaledValue = literalValue * factor;
+    const normalizedValue = normalizeNumericCoefficient(scaledValue);
+    if (normalizedValue === null) {
+        return false;
+    }
+
+    literal.value = normalizedValue;
+    return true;
+}
+
+function findFirstNumericLiteral(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    if (node.type === LITERAL) {
+        return parseNumericLiteral(node) === null ? null : node;
+    }
+
+    for (const value of Object.values(node)) {
+        if (!value || typeof value !== "object") {
+            continue;
+        }
+
+        if (Array.isArray(value)) {
+            for (const element of value) {
+                const result = findFirstNumericLiteral(element);
+                if (result) {
+                    return result;
+                }
+            }
+        } else {
+            const result = findFirstNumericLiteral(value);
+            if (result) {
+                return result;
+            }
+        }
+    }
+
+    return null;
+}
+
+function isIdentifierNamed(node, name) {
+    const identifierName = getIdentifierName(node);
+    return typeof identifierName === "string" && identifierName === name;
 }
 
 function isIdentityReplacementSafeExpression(node, helpers) {
