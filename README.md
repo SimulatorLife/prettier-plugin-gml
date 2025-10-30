@@ -813,6 +813,8 @@ npm run memory -- --suite normalize-string-list --pretty      # Measure normaliz
 npm run report              # Generate unit test report, checkstyle report (using the eslint-formatter-checkstyle formatter), and code coverage report.
 ```
 
+Omit `--suite` to run every available memory suite; use `npm run memory -- --help` to review the full list of benchmarks.
+
 Tune the memory suites with environment variables when scripting CI runs:
 `GML_MEMORY_ITERATIONS` adjusts the default iteration count, while
 `GML_MEMORY_PARSER_MAX_ITERATIONS` and `GML_MEMORY_FORMAT_MAX_ITERATIONS`

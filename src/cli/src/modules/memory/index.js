@@ -15,6 +15,7 @@ import {
     InvalidArgumentError,
     isNonEmptyString,
     normalizeStringList,
+    Option,
     resolveModuleDefaultExport,
     parseJsonObjectWithContext,
     splitLines
@@ -687,6 +688,15 @@ function collectSuite(value, previous) {
 export function createMemoryCommand({ env = process.env } = {}) {
     const defaultIterations = getDefaultMemoryIterations();
     const defaultCommonNodeLimit = getAstCommonNodeTypeLimit();
+    const suiteListDescription = formatMemorySuiteNameList();
+    const suiteOptionDescription = [
+        "Memory suite to run (can be provided multiple times).",
+        `Available suites: ${suiteListDescription}.`,
+        "Defaults to all suites when omitted."
+    ].join(" ");
+    const suiteOption = new Option("-s, --suite <name>", suiteOptionDescription)
+        .argParser(collectSuite)
+        .default([], "all available suites");
 
     const command = applyStandardCommandOptions(
         new Command()
@@ -694,12 +704,7 @@ export function createMemoryCommand({ env = process.env } = {}) {
             .usage("[options]")
             .description("Run memory usage diagnostics for CLI utilities.")
     )
-        .option(
-            "-s, --suite <name>",
-            "Memory suite to run (can be provided multiple times).",
-            collectSuite,
-            []
-        )
+        .addOption(suiteOption)
         .option(
             "-i, --iterations <count>",
             "Iteration count for suites that support it.",
