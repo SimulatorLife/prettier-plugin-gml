@@ -70,13 +70,11 @@ export function createWorkflowPathFilter(filters = {}) {
             return true;
         }
 
-        return allowList.some((allow) => {
-            if (isPathInside(normalized, allow)) {
-                return true;
-            }
-
-            return treatAsDirectory && isPathInside(allow, normalized);
-        });
+        return allowList.some(
+            (allow) =>
+                isPathInside(normalized, allow) ||
+                (treatAsDirectory && isPathInside(allow, normalized))
+        );
     };
 
     const allowsPath = (candidate) => allows(candidate);
