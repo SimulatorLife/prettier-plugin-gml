@@ -8,6 +8,7 @@
  */
 export {
     asArray,
+    compactArray,
     isNonEmptyArray,
     toArray,
     toArrayFromIterable
