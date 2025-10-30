@@ -1,6 +1,7 @@
 import {
     applyConfiguredValueEnvOverride,
-    createEnvConfiguredValueWithFallback
+    createEnvConfiguredValueWithFallback,
+    toFiniteNumber
 } from "./dependencies.js";
 
 const IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_ENV_VAR =
@@ -28,8 +29,8 @@ function normalizeMaxEntries(value, { fallback }) {
             return Infinity;
         }
 
-        const numeric = Number(trimmed);
-        if (!Number.isFinite(numeric)) {
+        const numeric = toFiniteNumber(trimmed);
+        if (numeric === null) {
             return fallback;
         }
 
@@ -37,11 +38,12 @@ function normalizeMaxEntries(value, { fallback }) {
     }
 
     if (typeof value === "number") {
-        if (!Number.isFinite(value)) {
+        const numeric = toFiniteNumber(value);
+        if (numeric === null) {
             return fallback;
         }
 
-        return normalizeFiniteMaxEntries(value);
+        return normalizeFiniteMaxEntries(numeric);
     }
 
     return fallback;

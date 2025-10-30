@@ -1,6 +1,7 @@
 import {
     applyConfiguredValueEnvOverride,
-    createEnvConfiguredValueWithFallback
+    createEnvConfiguredValueWithFallback,
+    toFiniteNumber
 } from "../shared/index.js";
 
 const DOC_COMMENT_MAX_WRAP_WIDTH_ENV_VAR =
@@ -45,8 +46,8 @@ function normalizeWrapWidth(value, { fallback }) {
         return Infinity;
     }
 
-    const numeric = Number(normalized);
-    if (!Number.isFinite(numeric)) {
+    const numeric = toFiniteNumber(normalized);
+    if (numeric === null) {
         return fallback;
     }
 

@@ -10,6 +10,7 @@ import {
     isNonEmptyArray,
     isNonEmptyTrimmedString,
     parseJsonWithContext,
+    toFiniteNumber,
     toTrimmedString,
     getErrorMessageOrFallback,
     isErrorLike
@@ -74,8 +75,8 @@ function readOptionalFiniteNumber(value) {
         return { value: undefined };
     }
 
-    const numeric = Number(value);
-    return Number.isFinite(numeric) ? { value: numeric } : null;
+    const numeric = toFiniteNumber(value);
+    return numeric === null ? null : { value: numeric };
 }
 
 function readOptionalString(value) {

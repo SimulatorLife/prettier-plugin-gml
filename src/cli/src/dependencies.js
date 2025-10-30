@@ -55,6 +55,7 @@ export {
     toArray,
     toArrayFromIterable,
     toMutableArray,
+    toFiniteNumber,
     toNormalizedInteger,
     toNormalizedLowerCaseSet,
     toNormalizedLowerCaseString,
@@ -81,3 +82,5 @@ export {
 } from "./shared/reporting/time.js";
 
 export { appendToCollection } from "./shared/collection.js";
+
+export { createEnumeratedOptionHelpers } from "./shared/enumerated-option-helpers.js";

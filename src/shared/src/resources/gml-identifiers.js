@@ -18,7 +18,7 @@ export const GML_IDENTIFIER_METADATA_PATH = resolveBundledResourcePath(
 /**
  * Load the bundled identifier metadata JSON artefact.
  *
- * Centralising path resolution keeps consumers from depending on the
+ * Centralizing path resolution keeps consumers from depending on the
  * repository layout and enables callers to treat the metadata as an injected
  * dependency rather than reaching into package internals.
  *

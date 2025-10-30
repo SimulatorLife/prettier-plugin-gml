@@ -28,53 +28,33 @@ function normalizeResourceMetadataExtension(candidate) {
     return prefixed.toLowerCase();
 }
 
-function entriesMatchDefault(normalized) {
-    return (
-        normalized.length === DEFAULT_RESOURCE_METADATA_EXTENSIONS.length &&
-        normalized.every(
-            (value, index) =>
-                value === DEFAULT_RESOURCE_METADATA_EXTENSIONS[index]
-        )
-    );
-}
-
-function isIterable(candidate) {
-    return (
+function normalizeResourceMetadataExtensions(candidate) {
+    const isIterableCandidate =
         candidate != null &&
         typeof candidate !== "string" &&
-        typeof candidate[Symbol.iterator] === "function"
-    );
-}
+        typeof candidate[Symbol.iterator] === "function";
 
-function normalizeResourceMetadataExtensions(candidate) {
-    let values;
+    const values =
+        typeof candidate === "string"
+            ? [candidate]
+            : isIterableCandidate
+              ? Array.from(candidate)
+              : [];
 
-    if (typeof candidate === "string") {
-        values = [candidate];
-    } else if (isIterable(candidate)) {
-        values = Array.from(candidate);
-    } else {
-        values = [];
-    }
-
-    const normalized = [...DEFAULT_RESOURCE_METADATA_EXTENSIONS];
-    const seen = new Set(normalized);
+    const normalized = new Set(DEFAULT_RESOURCE_METADATA_EXTENSIONS);
 
     for (const entry of values) {
         const extension = normalizeResourceMetadataExtension(entry);
-        if (!extension || seen.has(extension)) {
-            continue;
+        if (extension) {
+            normalized.add(extension);
         }
-
-        normalized.push(extension);
-        seen.add(extension);
     }
 
-    if (normalized.length === DEFAULT_RESOURCE_METADATA_EXTENSIONS.length) {
+    if (normalized.size === DEFAULT_RESOURCE_METADATA_EXTENSIONS.length) {
         return DEFAULT_RESOURCE_METADATA_EXTENSIONS;
     }
 
-    return Object.freeze(normalized);
+    return Object.freeze(Array.from(normalized));
 }
 
 /**

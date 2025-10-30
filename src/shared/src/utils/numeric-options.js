@@ -117,7 +117,7 @@ export function coercePositiveIntegerOption(
         return normalized;
     }
 
-    if (zeroReplacement !== undefined) {
+    if (normalized === 0 && zeroReplacement !== undefined) {
         return zeroReplacement;
     }
 
