@@ -4217,9 +4217,9 @@ function normalizeDocCommentNarrativeLines(lines) {
         normalized.push(`/// @description ${paragraphs[0]}`);
 
         if (paragraphs.length > 1) {
-            const prefixMatch = normalized.at(-1).match(
-                /^(\/\/\/\s*@description\s+)/i
-            );
+            const prefixMatch = normalized
+                .at(-1)
+                .match(/^(\/\/\/\s*@description\s+)/i);
             const descriptionPrefix = prefixMatch?.[1] ?? "/// @description ";
             const continuationPrefix =
                 "/// " + " ".repeat(Math.max(descriptionPrefix.length - 4, 0));
@@ -4623,7 +4623,10 @@ function mergeSyntheticDocComments(
                         ? existingMetadata.name.trim()
                         : "";
 
-                if (existingName.length === 0) {
+                if (
+                    existingName.length === 0 ||
+                    shouldReplaceParamDocName(existingName, metadata.name)
+                ) {
                     const updatedLine = updateParamLineWithDocName(
                         existingLine,
                         metadata.name
@@ -5945,6 +5948,39 @@ function updateParamLineWithDocName(line, newDocName) {
     return `${prefix}${updatedRemainder}`;
 }
 
+function shouldReplaceParamDocName(existingName, newName) {
+    if (typeof existingName !== "string" || typeof newName !== "string") {
+        return false;
+    }
+
+    const trimmedExisting = existingName.trim();
+    const trimmedNew = newName.trim();
+
+    if (trimmedExisting === trimmedNew) {
+        return false;
+    }
+
+    const existingCanonical = getCanonicalParamNameFromText(trimmedExisting);
+    const newCanonical = getCanonicalParamNameFromText(trimmedNew);
+
+    if (!existingCanonical || !newCanonical) {
+        return false;
+    }
+
+    if (existingCanonical !== newCanonical) {
+        return false;
+    }
+
+    const existingHasDefault = trimmedExisting.includes("=");
+    const newHasDefault = trimmedNew.includes("=");
+
+    if (newHasDefault && !existingHasDefault) {
+        return true;
+    }
+
+    return false;
+}
+
 function computeSyntheticFunctionDocLines(
     node,
     existingDocLines,
@@ -6759,6 +6795,76 @@ function getSourceTextForNode(node, options) {
     return originalText.slice(startIndex, endIndex).trim();
 }
 
+function resolveDefaultParameterDocText(defaultNode, options) {
+    if (!defaultNode) {
+        return null;
+    }
+
+    const sourceText = getSourceTextForNode(defaultNode, options);
+    const normalized = getNonEmptyTrimmedString(sourceText);
+
+    if (normalized) {
+        return normalized;
+    }
+
+    return resolveStaticExpressionDocText(defaultNode);
+}
+
+function resolveStaticExpressionDocText(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    switch (node.type) {
+        case "Literal": {
+            const rawValue = getNonEmptyTrimmedString(node.raw);
+            if (rawValue) {
+                return rawValue;
+            }
+
+            if (typeof node.value === "string") {
+                return JSON.stringify(node.value);
+            }
+
+            if (
+                typeof node.value === "number" ||
+                typeof node.value === "boolean"
+            ) {
+                return String(node.value);
+            }
+
+            if (node.value === null) {
+                return "null";
+            }
+
+            return null;
+        }
+        case "Identifier": {
+            return getNonEmptyTrimmedString(node.name);
+        }
+        case "UnaryExpression": {
+            const operator = getNonEmptyTrimmedString(node.operator);
+            if (!operator) {
+                return null;
+            }
+
+            const argumentText = resolveStaticExpressionDocText(node.argument);
+
+            return argumentText ? `${operator}${argumentText}` : null;
+        }
+        case "ParenthesizedExpression": {
+            const expressionText = resolveStaticExpressionDocText(
+                node.expression
+            );
+
+            return expressionText ? `(${expressionText})` : null;
+        }
+        default: {
+            return null;
+        }
+    }
+}
+
 function shouldPreserveCompactUpdateAssignmentSpacing(path, options) {
     if (
         !path ||
@@ -6986,7 +7092,7 @@ function getParameterDocInfo(paramNode, functionNode, options) {
             (!signatureOmitsUndefinedDefault && !isConstructorLike);
 
         const defaultText = shouldIncludeDefaultText
-            ? getSourceTextForNode(paramNode.right, options)
+            ? resolveDefaultParameterDocText(paramNode.right, options)
             : null;
 
         const docName = defaultText ? `${name}=${defaultText}` : name;
