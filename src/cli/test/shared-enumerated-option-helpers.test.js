@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { createEnumeratedOptionHelpers } from "../src/shared/dependencies.js";
+import {
+    createEnumeratedOptionHelpers,
+    createStringEnumeratedOptionHelpers
+} from "../src/shared/dependencies.js";
 
 describe("createEnumeratedOptionHelpers", () => {
     it("formats the sorted list of enumerated values", () => {
@@ -62,6 +65,22 @@ describe("createEnumeratedOptionHelpers", () => {
                 }),
             (error) =>
                 error instanceof Error && error.message === "unsupported: yaml"
+        );
+    });
+
+    it("normalizes string inputs while enforcing type guards", () => {
+        const helpers = createStringEnumeratedOptionHelpers(["json"], {
+            valueLabel: "Output format",
+            formatErrorMessage: ({ list }) => `Format must be one of: ${list}.`
+        });
+
+        assert.equal(helpers.requireValue(" JSON \n"), "json");
+        assert.throws(
+            () => helpers.requireValue(42),
+            (error) =>
+                error instanceof TypeError &&
+                error.message ===
+                    "Output format must be provided as a string (received type 'number')."
         );
     });
 });

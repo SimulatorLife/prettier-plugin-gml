@@ -257,3 +257,29 @@ no code changes were required.
   Updated the manual context factory to stop constructing the intermediate
   service bundles and adjusted the unit test to assert against the specialised
   helpers so each call site depends solely on the collaborator it invokes.
+
+## Follow-up audit (2026-08-14)
+
+- Audited the remaining manual GitHub wiring and spotted the
+  `ManualGitHubRequestDispatcher` typedef in
+  `src/cli/src/modules/manual/utils.js`. The dispatcher still wrapped the raw
+  HTTP executor behind an object with an `execute` method, so commit, ref, and
+  file helpers had to depend on the wider service surface just to call the
+  underlying function.
+- Replaced the dispatcher service with a focused
+  `ManualGitHubRequestExecutor` function type. Updated the manual utilities,
+  context factory, and unit tests to accept the plain executor function so each
+  collaborator depends only on the HTTP behaviour it actually invokes.
+
+## Follow-up audit (2026-12-11)
+
+- Revisited the shared metrics helpers and found the
+  `MetricsSummaryReporter` contract in `src/shared/src/reporting/metrics.js`
+  still bundled summary lifecycle helpers with cache inspection. Callers that
+  only needed to snapshot or finalize metrics were forced to depend on the
+  cache reporters.
+- Split the surface into `MetricsSummaryLifecycle` for snapshot/finalize and
+  `MetricsCacheReporter` for cache summaries. Updated the tracker factory,
+  project-index metrics guards, and associated unit tests to rely on the
+  specialised interfaces so consumers opt into only the reporting collaborator
+  they require.

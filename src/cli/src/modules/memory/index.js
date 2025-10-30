@@ -2,24 +2,22 @@ import path from "node:path";
 import process from "node:process";
 import { readFile } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
-import { fileURLToPath } from "node:url";
 
 import {
     appendToCollection,
+    Command,
     createEnvConfiguredValue,
-    createEnumeratedOptionHelpers,
+    createStringEnumeratedOptionHelpers,
+    describeValueWithArticle,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
-    getObjectTagName,
     incrementMapValue,
+    InvalidArgumentError,
     isNonEmptyString,
     normalizeStringList,
-    toNormalizedLowerCaseString,
     resolveModuleDefaultExport,
     parseJsonObjectWithContext,
-    splitLines,
-    createCommanderCommand,
-    getCommanderInvalidArgumentErrorConstructor
+    splitLines
 } from "../dependencies.js";
 import {
     SuiteOutputFormat,
@@ -37,7 +35,11 @@ import {
 } from "../dependencies.js";
 import { loadGmlParser } from "./gml-parser.js";
 import { importPluginModule } from "../plugin-runtime-dependencies.js";
-import { writeJsonArtifact } from "../fs-artifacts.js";
+import { writeJsonArtifact } from "../../shared/fs-artifacts.js";
+import {
+    REPO_ROOT,
+    resolveFromRepoRoot
+} from "../../shared/workspace-paths.js";
 
 export const DEFAULT_ITERATIONS = 500_000;
 export const MEMORY_ITERATIONS_ENV_VAR = "GML_MEMORY_ITERATIONS";
@@ -48,11 +50,7 @@ export const MEMORY_AST_COMMON_NODE_LIMIT_ENV_VAR =
 
 export const DEFAULT_MEMORY_REPORT_DIR = "reports";
 const DEFAULT_MEMORY_REPORT_FILENAME = "memory.json";
-const CLI_MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
-const CLI_SRC_DIRECTORY = path.resolve(CLI_MODULE_DIR, "..", "..");
-const CLI_PACKAGE_DIRECTORY = path.resolve(CLI_SRC_DIRECTORY, "..");
-const WORKSPACE_SOURCE_DIRECTORY = path.resolve(CLI_PACKAGE_DIRECTORY, "..");
-const PROJECT_ROOT = path.resolve(WORKSPACE_SOURCE_DIRECTORY, "..");
+const PROJECT_ROOT = REPO_ROOT;
 
 const PARSER_SAMPLE_RELATIVE_PATH = "src/parser/test/input/SnowState.gml";
 const FORMAT_SAMPLE_RELATIVE_PATH = "src/plugin/test/testFormatting.input.gml";
@@ -72,28 +70,43 @@ export const MemorySuiteName = Object.freeze({
     PLUGIN_FORMAT: "plugin-format"
 });
 
-const memorySuiteHelpers = createEnumeratedOptionHelpers(
+const memorySuiteHelpers = createStringEnumeratedOptionHelpers(
     Object.values(MemorySuiteName),
     {
-        coerce(input) {
-            if (typeof input !== "string") {
-                throw new TypeError(
-                    `Memory suite name must be provided as a string (received type '${typeof input}').`
-                );
-            }
-
-            return toNormalizedLowerCaseString(input);
-        },
+        valueLabel: "Memory suite name",
         formatErrorMessage({ list, received }) {
             return `Memory suite must be one of: ${list}. Received: ${received}.`;
         }
     }
 );
 
+/**
+ * Format the supported memory suite identifiers into a human-readable list.
+ *
+ * The CLI surfaces this string in validation errors so operators can quickly
+ * scan the accepted values without hunting through source files or docs.
+ *
+ * @returns {string} Comma-delimited list of valid suite identifiers.
+ */
 export function formatMemorySuiteNameList() {
     return memorySuiteHelpers.formatList();
 }
 
+/**
+ * Normalize an arbitrary {@link value} into a known memory suite identifier.
+ *
+ * Wrapping `memorySuiteHelpers.requireValue` clarifies that the CLI accepts
+ * string input (such as `--suite parser-ast`) and throws a targeted error when
+ * the name falls outside the curated list. Callers may optionally provide a
+ * custom {@link errorConstructor} to shape the thrown error type while reusing
+ * the shared message formatting.
+ *
+ * @param {unknown} value Candidate memory suite name provided by the user.
+ * @param {{ errorConstructor?: new (...args: Array<any>) => Error }} [options]
+ *        Optional override for the error constructor used on failure.
+ * @returns {string} Normalized suite name drawn from {@link MemorySuiteName}.
+ * @throws {Error} When {@link value} is not a recognized suite identifier.
+ */
 export function normalizeMemorySuiteName(value, { errorConstructor } = {}) {
     return memorySuiteHelpers.requireValue(value, { errorConstructor });
 }
@@ -186,19 +199,45 @@ function logInvalidIterationEnvOverride({ envVar, error, fallback }) {
     );
 }
 
-function applyParserMaxIterationsEnvOverride(env) {
-    const fallback = parserIterationLimitToolkit.getDefault();
+/**
+ * Apply an environment override for a memory iteration toolkit while logging
+ * failures.
+ *
+ * Both parser and format iteration limits follow the same "try the override,
+ * fall back to the previous default, and emit a warning" flow. Centralising
+ * the guard keeps the logging consistent and avoids subtle divergences if the
+ * override plumbing changes again.
+ *
+ * @param {{
+ *   getDefault: () => number | undefined;
+ *   applyEnvOverride: (env?: NodeJS.ProcessEnv | null | undefined) =>
+ *       number | undefined;
+ * }} toolkit Numeric option toolkit being updated.
+ * @param {string} envVar Environment variable powering the override.
+ * @param {NodeJS.ProcessEnv | null | undefined} env Environment map to read.
+ * @returns {number | undefined}
+ */
+function applyIterationToolkitEnvOverride(toolkit, envVar, env) {
+    const fallback = toolkit.getDefault();
 
     try {
-        return parserIterationLimitToolkit.applyEnvOverride(env);
+        return toolkit.applyEnvOverride(env);
     } catch (error) {
         logInvalidIterationEnvOverride({
-            envVar: MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR,
+            envVar,
             error,
             fallback
         });
         return fallback;
     }
+}
+
+function applyParserMaxIterationsEnvOverride(env) {
+    return applyIterationToolkitEnvOverride(
+        parserIterationLimitToolkit,
+        MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR,
+        env
+    );
 }
 
 const formatIterationLimitToolkit = createMemoryIterationToolkit({
@@ -212,18 +251,11 @@ const {
 } = formatIterationLimitToolkit;
 
 function applyFormatMaxIterationsEnvOverride(env) {
-    const fallback = formatIterationLimitToolkit.getDefault();
-
-    try {
-        return formatIterationLimitToolkit.applyEnvOverride(env);
-    } catch (error) {
-        logInvalidIterationEnvOverride({
-            envVar: MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR,
-            error,
-            fallback
-        });
-        return fallback;
-    }
+    return applyIterationToolkitEnvOverride(
+        formatIterationLimitToolkit,
+        MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR,
+        env
+    );
 }
 
 const astCommonNodeLimitToolkit = createIntegerOptionToolkit({
@@ -242,14 +274,56 @@ const {
 } = astCommonNodeLimitToolkit;
 
 const sampleCache = new Map();
-const STARTS_WITH_VOWEL_PATTERN = /^[aeiou]/i;
+const SAMPLE_CACHE_MAX_ENTRIES = 4;
 
-function formatWithIndefiniteArticle(label) {
-    return `${STARTS_WITH_VOWEL_PATTERN.test(label) ? "an" : "a"} ${label}`;
+function clearSampleCache() {
+    sampleCache.clear();
+}
+
+function getSampleCacheRecord(label) {
+    const cached = sampleCache.get(label) ?? null;
+    if (cached === null) {
+        return null;
+    }
+
+    // Refresh the insertion order so frequently accessed samples stay warm in
+    // the cache even when new fixtures are introduced.
+    sampleCache.delete(label);
+    sampleCache.set(label, cached);
+    return cached;
+}
+
+function trimSampleCache(limit = SAMPLE_CACHE_MAX_ENTRIES) {
+    if (!Number.isFinite(limit)) {
+        return;
+    }
+
+    if (limit <= 0) {
+        sampleCache.clear();
+        return;
+    }
+
+    while (sampleCache.size > limit) {
+        const { value: oldestLabel, done } = sampleCache.keys().next();
+        if (done) {
+            break;
+        }
+
+        sampleCache.delete(oldestLabel);
+    }
+}
+
+function rememberSampleRecord(label, record) {
+    sampleCache.set(label, record);
+    trimSampleCache();
+}
+
+function getSampleCacheLabels() {
+    return [...sampleCache.keys()];
 }
 
 function resolveProjectPath(relativePath) {
-    return path.resolve(PROJECT_ROOT, relativePath);
+    return resolveFromRepoRoot(relativePath);
 }
 async function loadPrettierStandalone() {
     const module = await import("prettier/standalone.mjs");
@@ -257,41 +331,20 @@ async function loadPrettierStandalone() {
 }
 
 async function loadSampleText(label, relativePath) {
-    if (sampleCache.has(label)) {
-        return sampleCache.get(label);
+    const cached = getSampleCacheRecord(label);
+    if (cached) {
+        return cached;
     }
 
     const absolutePath = resolveProjectPath(relativePath);
     const contents = await readFile(absolutePath, "utf8");
     const record = { contents, path: absolutePath };
-    sampleCache.set(label, record);
+    rememberSampleRecord(label, record);
     return record;
 }
 
 function describeFormatterOptionsValue(value) {
-    if (value === null) {
-        return "null";
-    }
-
-    if (Array.isArray(value)) {
-        return "an array";
-    }
-
-    if (value === undefined) {
-        return "undefined";
-    }
-
-    const type = typeof value;
-    if (type !== "object") {
-        return formatWithIndefiniteArticle(type);
-    }
-
-    const tagLabel = getObjectTagName(value);
-    if (tagLabel) {
-        return `${formatWithIndefiniteArticle(tagLabel)} object`;
-    }
-
-    return "an object";
+    return describeValueWithArticle(value);
 }
 
 function buildFormatterOptionsTypeErrorMessage(source, value) {
@@ -623,7 +676,7 @@ const AVAILABLE_SUITES = new Map();
 
 function collectSuite(value, previous) {
     const normalized = normalizeMemorySuiteName(value, {
-        errorConstructor: getCommanderInvalidArgumentErrorConstructor()
+        errorConstructor: InvalidArgumentError
     });
 
     return appendToCollection(normalized, previous);
@@ -634,7 +687,7 @@ export function createMemoryCommand({ env = process.env } = {}) {
     const defaultCommonNodeLimit = getAstCommonNodeTypeLimit();
 
     const command = applyStandardCommandOptions(
-        createCommanderCommand()
+        new Command()
             .name("memory")
             .usage("[options]")
             .description("Run memory usage diagnostics for CLI utilities.")
@@ -662,8 +715,7 @@ export function createMemoryCommand({ env = process.env } = {}) {
             "Output format: json or human.",
             (value) =>
                 resolveSuiteOutputFormatOrThrow(value, {
-                    errorConstructor:
-                        getCommanderInvalidArgumentErrorConstructor()
+                    errorConstructor: InvalidArgumentError
                 }),
             SuiteOutputFormat.JSON
         )
@@ -1034,5 +1086,9 @@ export async function runMemoryCli({
 }
 
 export const __test__ = Object.freeze({
-    collectCommonNodeTypes
+    collectCommonNodeTypes,
+    SAMPLE_CACHE_MAX_ENTRIES,
+    loadSampleTextForTests: loadSampleText,
+    clearSampleCacheForTests: clearSampleCache,
+    getSampleCacheLabelsForTests: getSampleCacheLabels
 });

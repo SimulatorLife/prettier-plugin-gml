@@ -3,6 +3,9 @@
  * string. Values under one second remain in milliseconds while longer durations
  * are rounded to a single decimal place in seconds.
  *
+ * CLI workflows log these durations when verbose parsing output is enabled, so
+ * the helper stays co-located with the rest of the CLI reporting primitives.
+ *
  * @param {number} startTime Timestamp captured before the work began.
  * @param {() => number} [now] Function that returns the current timestamp.
  * @returns {string} Formatted duration label for logs and status messages.
@@ -19,7 +22,7 @@ export function formatDuration(startTime, now = Date.now) {
 /**
  * Create a logger that reports how long an operation took when verbose parsing
  * output is enabled. Callers can provide either a static string or a factory to
- * customize the final message while reusing the module's duration formatting.
+ * customize the final message while reusing the CLI's duration formatting.
  *
  * @param {{
  *   verbose?: { parsing?: boolean },
@@ -56,8 +59,9 @@ export function createVerboseDurationLogger({
 
 /**
  * Run a synchronous callback while emitting verbose timing messages that match
- * the shared progress logging conventions used by the CLI and long-running
- * semantic tooling.
+ * the CLI's progress logging conventions. The helper mirrors the previous
+ * shared implementation but now lives alongside the consumers that actually
+ * depend on it.
  *
  * @template T
  * @param {string} label Human-readable description of the work being timed.

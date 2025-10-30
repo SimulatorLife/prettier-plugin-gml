@@ -1,6 +1,7 @@
 import {
     capitalize,
     normalizeStringList,
+    toArrayFromIterable,
     trimStringEntries
 } from "../shared/index.js";
 
@@ -269,11 +270,11 @@ function normalizeReservedPrefixOverrides(overrides) {
         return [];
     }
 
-    const iterable =
-        overrides && typeof overrides[Symbol.iterator] === "function"
-            ? overrides
-            : [];
-    const entries = normalizeStringList([...iterable]);
+    if (overrides == null || typeof overrides[Symbol.iterator] !== "function") {
+        return [];
+    }
+
+    const entries = normalizeStringList(toArrayFromIterable(overrides));
 
     return entries.sort((a, b) => {
         const lengthDifference = b.length - a.length;

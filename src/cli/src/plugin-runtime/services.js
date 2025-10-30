@@ -1,4 +1,5 @@
 import {
+    createDefaultCliPluginServices,
     defaultCliProjectIndexService,
     defaultCliIdentifierCasePlanPreparationService,
     defaultCliIdentifierCaseCacheService
@@ -54,9 +55,9 @@ export function registerCliIdentifierCaseCacheClearer(clearer) {
 }
 
 export function resetRegisteredCliPluginServices() {
-    projectIndexBuilder = defaultCliProjectIndexService.buildProjectIndex;
-    identifierCasePlanPreparer =
-        defaultCliIdentifierCasePlanPreparationService.prepareIdentifierCasePlan;
-    identifierCaseCacheClearer =
-        defaultCliIdentifierCaseCacheService.clearIdentifierCaseCaches;
+    const services = createDefaultCliPluginServices();
+
+    projectIndexBuilder = services.projectIndexBuilder;
+    identifierCasePlanPreparer = services.identifierCasePlanPreparer;
+    identifierCaseCacheClearer = services.identifierCaseCacheClearer;
 }

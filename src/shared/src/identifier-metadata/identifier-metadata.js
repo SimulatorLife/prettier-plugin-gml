@@ -20,19 +20,13 @@ export function normalizeIdentifierMetadataEntries(metadata) {
         return [];
     }
 
-    const entries = [];
-
-    for (const [rawName, descriptor] of Object.entries(identifiers)) {
+    return Object.entries(identifiers).flatMap(([rawName, descriptor]) => {
         const normalized = normalizeIdentifierMetadataEntry(
             rawName,
             descriptor
         );
-        if (normalized) {
-            entries.push(normalized);
-        }
-    }
-
-    return entries;
+        return normalized ? [normalized] : [];
+    });
 }
 
 /**
