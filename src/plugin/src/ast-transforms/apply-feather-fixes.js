@@ -8839,7 +8839,7 @@ function convertNullishCoalesceOpportunities({ ast, diagnostic }) {
 }
 
 function convertNullishIfStatement(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
 
@@ -9720,7 +9720,7 @@ function ensureFileFindFirstBeforeCloseCall(
     property,
     diagnostic
 ) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
 
@@ -10680,7 +10680,7 @@ function ensureAlphaTestEnableResetAfterCall(
 }
 
 function ensureHalignResetAfterCall(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
 
@@ -10755,7 +10755,7 @@ function ensureHalignResetAfterCall(node, parent, property, diagnostic) {
 }
 
 function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
 

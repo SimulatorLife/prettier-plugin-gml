@@ -17,6 +17,26 @@ class Scope {
     }
 }
 
+function resolveStringScopeOverride(tracker, scopeOverride, currentScope) {
+    if (isScopeOverrideKeyword(scopeOverride)) {
+        return scopeOverride === ScopeOverrideKeyword.GLOBAL
+            ? (tracker.rootScope ?? currentScope)
+            : currentScope;
+    }
+
+    const found = tracker.scopeStack.find(
+        (scope) => scope.id === scopeOverride
+    );
+    if (found) {
+        return found;
+    }
+
+    const keywords = formatKnownScopeOverrideKeywords();
+    throw new RangeError(
+        `Unknown scope override string '${scopeOverride}'. Expected one of: ${keywords}, or a known scope identifier.`
+    );
+}
+
 export default class ScopeTracker {
     constructor({ enabled = false } = {}) {
         this.enabled = Boolean(enabled);
@@ -83,27 +103,15 @@ export default class ScopeTracker {
             return scopeOverride;
         }
 
-        if (typeof scopeOverride !== "string") {
-            return currentScope;
+        if (typeof scopeOverride === "string") {
+            return resolveStringScopeOverride(
+                this,
+                scopeOverride,
+                currentScope
+            );
         }
 
-        if (isScopeOverrideKeyword(scopeOverride)) {
-            return scopeOverride === ScopeOverrideKeyword.GLOBAL
-                ? (this.rootScope ?? currentScope)
-                : currentScope;
-        }
-
-        const found = this.scopeStack.find(
-            (scope) => scope.id === scopeOverride
-        );
-        if (found) {
-            return found;
-        }
-
-        const keywords = formatKnownScopeOverrideKeywords();
-        throw new RangeError(
-            `Unknown scope override string '${scopeOverride}'. Expected one of: ${keywords}, or a known scope identifier.`
-        );
+        return currentScope;
     }
 
     buildClassifications(role, isDeclaration) {

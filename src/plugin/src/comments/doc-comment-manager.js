@@ -319,65 +319,107 @@ function applyDocCommentUpdates(commentGroups, docUpdates) {
     }
 
     for (const [fn, update] of docUpdates.entries()) {
-        if (!update || !isNonEmptyTrimmedString(update.expression)) {
+        if (!isDocCommentUpdateEligible(update)) {
             continue;
         }
 
-        if (update.hasDocComment) {
+        const comments = resolveDocCommentCollection(commentGroups, fn);
+        if (!comments) {
             continue;
         }
 
-        const comments = commentGroups.get(fn);
-        if (!comments || comments.length === 0) {
-            continue;
-        }
-
-        const descriptionComment = comments.find(
-            (comment) =>
-                typeof comment?.value === "string" &&
-                /@description\b/i.test(comment.value)
-        );
-
+        const descriptionComment = findDescriptionComment(comments);
         if (!descriptionComment) {
             continue;
         }
 
-        let updatedDescription = buildUpdatedDescription(
-            update.description,
-            update.expression
-        );
-
-        if (!isNonEmptyTrimmedString(updatedDescription)) {
-            continue;
-        }
-
-        const originalDescription =
-            typeof update.description === "string"
-                ? update.description.trim()
-                : "";
-
-        if (
-            originalDescription.endsWith(".") &&
-            !/[.!?]$/.test(updatedDescription)
-        ) {
-            updatedDescription = `${updatedDescription}.`;
-        }
-
-        const existingDescription = extractDescriptionContent(
-            descriptionComment.value
-        );
-
-        if (existingDescription === updatedDescription) {
-            continue;
-        }
-
-        const prefixMatch = descriptionComment.value.match(
-            /^(\s*\/\s*@description\s*)/i
-        );
-        const prefix = prefixMatch ? prefixMatch[1] : "/ @description ";
-
-        descriptionComment.value = `${prefix}${updatedDescription}`;
+        applyDescriptionCommentUpdate(descriptionComment, update);
     }
+}
+
+/**
+ * Determine whether a queued doc comment update warrants any further
+ * processing. The traversal stage records update candidates for every function
+ * it sees—even the ones that already expose author-written `@description`
+ * blocks or lack synthesizable return expressions. The orchestration phase that
+ * consumes this map assumes each entry represents a real mutation and applies
+ * them blindly so the manager can stay declarative. Screening out these noop
+ * shapes here prevents the writer from repeatedly touching already-satisfied
+ * comments with empty scaffolding, which would otherwise thrash the formatter
+ * diff on every run and risk overwriting author intent with placeholder text.
+ */
+function isDocCommentUpdateEligible(update) {
+    return (
+        !!update &&
+        !update.hasDocComment &&
+        isNonEmptyTrimmedString(update.expression)
+    );
+}
+
+/**
+ * Resolve the doc comment collection for a given function, returning null when
+ * no comments exist so callers can short-circuit without additional guards.
+ */
+function resolveDocCommentCollection(commentGroups, fn) {
+    const comments = commentGroups.get(fn);
+    if (!comments || comments.length === 0) {
+        return null;
+    }
+
+    return comments;
+}
+
+/**
+ * Locate the @description block within a doc comment collection.
+ */
+function findDescriptionComment(comments) {
+    return (
+        comments.find(
+            (comment) =>
+                typeof comment?.value === "string" &&
+                /@description\b/i.test(comment.value)
+        ) ?? null
+    );
+}
+
+/**
+ * Apply the normalized description update to the backing comment node while
+ * preserving existing prefixes and punctuation conventions.
+ */
+function applyDescriptionCommentUpdate(descriptionComment, update) {
+    let updatedDescription = buildUpdatedDescription(
+        update.description,
+        update.expression
+    );
+
+    if (!isNonEmptyTrimmedString(updatedDescription)) {
+        return;
+    }
+
+    const originalDescription =
+        typeof update.description === "string" ? update.description.trim() : "";
+
+    if (
+        originalDescription.endsWith(".") &&
+        !/[.!?]$/.test(updatedDescription)
+    ) {
+        updatedDescription = `${updatedDescription}.`;
+    }
+
+    const existingDescription = extractDescriptionContent(
+        descriptionComment.value
+    );
+
+    if (existingDescription === updatedDescription) {
+        return;
+    }
+
+    const prefixMatch = descriptionComment.value.match(
+        /^(\s*\/\s*@description\s*)/i
+    );
+    const prefix = prefixMatch ? prefixMatch[1] : "/ @description ";
+
+    descriptionComment.value = `${prefix}${updatedDescription}`;
 }
 
 function extractFunctionDescription(commentGroups, functionNode) {

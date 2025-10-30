@@ -204,7 +204,7 @@ async function parse(text, options) {
         convertUndefinedGuardAssignments(ast);
         preprocessFunctionArgumentDefaults(ast);
         collapseRedundantMissingCallArguments(ast);
-        enforceVariableBlockSpacing(ast);
+        enforceVariableBlockSpacing(ast, options);
         annotateStaticFunctionOverrides(ast);
 
         markCallsMissingArgumentSeparators(ast, options?.originalText ?? text);

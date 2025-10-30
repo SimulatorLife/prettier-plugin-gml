@@ -210,6 +210,12 @@ export default class GameMakerLanguageParserVisitor extends antlr4.tree.ParseTre
 	}
 
 
+	// Visit a parse tree produced by GameMakerLanguageParser#ParenthesizedLValue.
+	visitParenthesizedLValue(ctx) {
+	  return this.visitChildren(ctx);
+	}
+
+
 	// Visit a parse tree produced by GameMakerLanguageParser#lValueExpression.
 	visitLValueExpression(ctx) {
 	  return this.visitChildren(ctx);

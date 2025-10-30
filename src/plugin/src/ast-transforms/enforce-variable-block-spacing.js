@@ -1,17 +1,19 @@
 import { getNodeType, isNonEmptyArray } from "../shared/index.js";
+import { resolveVariableBlockSpacingMinDeclarations } from "../options/variable-block-spacing-options.js";
 
-const MIN_DECLARATION_RUN_LENGTH = 4;
-
-export function enforceVariableBlockSpacing(ast) {
+export function enforceVariableBlockSpacing(ast, options) {
     if (!ast || typeof ast !== "object") {
         return;
     }
 
     const visitedNodes = new WeakSet();
-    visitNode(ast, visitedNodes);
+    const minDeclarationRunLength =
+        resolveVariableBlockSpacingMinDeclarations(options);
+
+    visitNode(ast, visitedNodes, minDeclarationRunLength);
 }
 
-function visitNode(node, visitedNodes) {
+function visitNode(node, visitedNodes, minDeclarationRunLength) {
     if (!node || typeof node !== "object") {
         return;
     }
@@ -24,23 +26,23 @@ function visitNode(node, visitedNodes) {
 
     if (Array.isArray(node)) {
         for (const entry of node) {
-            visitNode(entry, visitedNodes);
+            visitNode(entry, visitedNodes, minDeclarationRunLength);
         }
         return;
     }
 
     if (node.type === "BlockStatement" && isNonEmptyArray(node.body)) {
-        enforceSpacingInBlock(node.body);
+        enforceSpacingInBlock(node.body, minDeclarationRunLength);
     }
 
     for (const value of Object.values(node)) {
         if (value && typeof value === "object") {
-            visitNode(value, visitedNodes);
+            visitNode(value, visitedNodes, minDeclarationRunLength);
         }
     }
 }
 
-function enforceSpacingInBlock(statements) {
+function enforceSpacingInBlock(statements, minDeclarationRunLength) {
     let runLength = 0;
 
     for (let index = 0; index < statements.length; index += 1) {
@@ -52,7 +54,7 @@ function enforceSpacingInBlock(statements) {
         }
 
         if (
-            runLength >= MIN_DECLARATION_RUN_LENGTH &&
+            runLength >= minDeclarationRunLength &&
             shouldForceBlankLineAfter(statement)
         ) {
             const lastDeclaration = statements[index - 1];

@@ -17,8 +17,6 @@ import {
 import { identifierCaseOptions } from "gamemaker-language-semantic/identifier-case/options.js";
 import { LogicalOperatorsStyle } from "../src/options/logical-operators-style.js";
 
-process.env.NODE_TEST_NO_PARALLEL = "1";
-
 function createCustomImplementationBundle() {
     const customParser = {
         ...gmlParserAdapter,

@@ -2,7 +2,7 @@ import {
     bootstrapProjectIndex,
     applyBootstrappedProjectIndex
 } from "./project-index-bootstrap.js";
-import { coalesceOption } from "../shared/index.js";
+import { coalesceOption } from "./dependencies.js";
 import { setIdentifierCaseOption } from "./option-store.js";
 
 function getExistingProjectIndex(options) {

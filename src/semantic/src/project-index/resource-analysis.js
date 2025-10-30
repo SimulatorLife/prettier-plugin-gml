@@ -14,7 +14,8 @@ import {
 } from "../dependencies.js";
 import {
     PROJECT_MANIFEST_EXTENSION,
-    isProjectManifestPath
+    isProjectManifestPath,
+    matchProjectResourceMetadataExtension
 } from "./constants.js";
 import { normalizeProjectResourcePath } from "./path-normalization.js";
 
@@ -72,9 +73,11 @@ function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
 
 function deriveDefaultResourceName(resourcePath) {
     const baseName = path.posix.basename(resourcePath);
-    const lowerPath = resourcePath.toLowerCase();
-    if (lowerPath.endsWith(".yy")) {
-        return path.posix.basename(resourcePath, ".yy");
+    const matchedExtension =
+        matchProjectResourceMetadataExtension(resourcePath);
+    if (matchedExtension) {
+        const trimmed = resourcePath.slice(0, -matchedExtension.length);
+        return path.posix.basename(trimmed);
     }
 
     if (isProjectManifestPath(resourcePath)) {

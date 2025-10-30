@@ -31,38 +31,26 @@ function coerceExtensionValue(value) {
     return cleaned.startsWith(".") ? cleaned : `.${cleaned}`;
 }
 
-function flattenExtensionCandidates(rawExtensions) {
-    const initialCandidates = Array.isArray(rawExtensions)
-        ? rawExtensions
-        : normalizeStringList(rawExtensions, {
-              splitPattern: EXTENSION_LIST_SPLIT_PATTERN,
-              allowInvalidType: true
-          });
-
-    const flattened = [];
-
-    for (const candidate of initialCandidates) {
-        if (typeof candidate !== "string") {
-            continue;
-        }
-
-        const segments = normalizeStringList(candidate, {
-            splitPattern: EXTENSION_LIST_SPLIT_PATTERN,
-            allowInvalidType: true
-        });
-
-        if (segments.length === 0) {
-            continue;
-        }
-
-        flattened.push(...segments);
+function collectExtensionCandidates(rawExtensions) {
+    if (Array.isArray(rawExtensions)) {
+        return rawExtensions
+            .filter((candidate) => typeof candidate === "string")
+            .flatMap((candidate) =>
+                normalizeStringList(candidate, {
+                    splitPattern: EXTENSION_LIST_SPLIT_PATTERN,
+                    allowInvalidType: true
+                })
+            );
     }
 
-    return flattened;
+    return normalizeStringList(rawExtensions, {
+        splitPattern: EXTENSION_LIST_SPLIT_PATTERN,
+        allowInvalidType: true
+    });
 }
 
 export function normalizeExtensions(rawExtensions, fallbackExtensions = []) {
-    const candidates = flattenExtensionCandidates(rawExtensions);
+    const candidates = collectExtensionCandidates(rawExtensions);
     const coercedValues = candidates.map(coerceExtensionValue);
     const filteredValues = compactArray(coercedValues);
     const normalized = uniqueArray(filteredValues);

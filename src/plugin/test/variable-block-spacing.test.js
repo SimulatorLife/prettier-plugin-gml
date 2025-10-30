@@ -8,10 +8,11 @@ import prettier from "prettier";
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
 
-async function formatWithPlugin(source) {
+async function formatWithPlugin(source, options = {}) {
     return prettier.format(source, {
         parser: "gml-parse",
-        plugins: [pluginPath]
+        plugins: [pluginPath],
+        ...options
     });
 }
 
@@ -36,6 +37,32 @@ test("inserts a blank line between large variable blocks and following loops", a
         lines[7],
         "",
         "Expected a blank line to separate the variable declarations from the loop body."
+    );
+});
+
+test("respects custom minimum declaration run length", async () => {
+    const source = [
+        "function demo() {",
+        "    var alpha = 1;",
+        "    var beta = 2;",
+        "    var gamma = 3;",
+        "    var delta = 4;",
+        "    for (var index = 0; index < 10; index += 1) {",
+        "        alpha += index;",
+        "    }",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source, {
+        variableBlockSpacingMinDeclarations: 6
+    });
+    const lines = formatted.trim().split("\n");
+
+    assert.notEqual(
+        lines[7],
+        "",
+        "Expected custom thresholds above the declaration count to skip inserting a blank line."
     );
 });
 

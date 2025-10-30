@@ -57,10 +57,6 @@ export function restoreDefaultGmlPluginComponents() {
     return activeGmlPluginComponents;
 }
 
-export function resetGmlPluginComponentProvider() {
-    return restoreDefaultGmlPluginComponents();
-}
-
 export function getGmlPluginComponentProvider() {
     return currentProvider;
 }

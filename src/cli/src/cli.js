@@ -34,6 +34,7 @@ import {
     InvalidArgumentError,
     Option,
     compactArray,
+    createEnumeratedOptionHelpers,
     getErrorMessageOrFallback,
     getObjectTagName,
     isErrorLike,
@@ -42,7 +43,6 @@ import {
     isNonEmptyArray,
     isPathInside,
     mergeUniqueValues,
-    normalizeEnumeratedOption,
     resolveModuleDefaultExport,
     toArray,
     toNormalizedLowerCaseSet,
@@ -129,15 +129,17 @@ const VALID_PRETTIER_LOG_LEVELS = new Set([
     "silent"
 ]);
 
-function formatValidChoiceList(values) {
-    return [...values].sort().join(", ");
-}
-
-const VALID_PARSE_ERROR_ACTION_CHOICES = formatValidChoiceList(
-    VALID_PARSE_ERROR_ACTIONS
+const parseErrorActionOption = createEnumeratedOptionHelpers(
+    VALID_PARSE_ERROR_ACTIONS,
+    {
+        formatErrorMessage: ({ list }) => `Must be one of: ${list}`
+    }
 );
-const VALID_PRETTIER_LOG_LEVEL_CHOICES = formatValidChoiceList(
-    VALID_PRETTIER_LOG_LEVELS
+const logLevelOption = createEnumeratedOptionHelpers(
+    VALID_PRETTIER_LOG_LEVELS,
+    {
+        formatErrorMessage: ({ list }) => `Must be one of: ${list}`
+    }
 );
 
 const FORMAT_COMMAND_CLI_EXAMPLE =
@@ -283,18 +285,15 @@ const DEFAULT_EXTENSIONS = normalizeExtensions(
 );
 
 const DEFAULT_PARSE_ERROR_ACTION =
-    normalizeEnumeratedOption(
+    parseErrorActionOption.normalize(
         process.env.PRETTIER_PLUGIN_GML_ON_PARSE_ERROR,
-        ParseErrorAction.SKIP,
-        VALID_PARSE_ERROR_ACTIONS
+        { fallback: ParseErrorAction.SKIP }
     ) ?? ParseErrorAction.SKIP;
 
 const DEFAULT_PRETTIER_LOG_LEVEL =
-    normalizeEnumeratedOption(
-        process.env.PRETTIER_PLUGIN_GML_LOG_LEVEL,
-        "warn",
-        VALID_PRETTIER_LOG_LEVELS
-    ) ?? "warn";
+    logLevelOption.normalize(process.env.PRETTIER_PLUGIN_GML_LOG_LEVEL, {
+        fallback: "warn"
+    }) ?? "warn";
 
 const program = applyStandardCommandOptions(new Command())
     .name("prettier-plugin-gml")
@@ -432,19 +431,11 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
                 "Prettier log level to use (debug, info, warn, error, or silent).",
                 "Respects PRETTIER_PLUGIN_GML_LOG_LEVEL when set."
             ].join(" "),
-            (value) => {
-                const normalized = normalizeEnumeratedOption(
-                    value,
-                    DEFAULT_PRETTIER_LOG_LEVEL,
-                    VALID_PRETTIER_LOG_LEVELS
-                );
-                if (!normalized) {
-                    throw new InvalidArgumentError(
-                        `Must be one of: ${VALID_PRETTIER_LOG_LEVEL_CHOICES}`
-                    );
-                }
-                return normalized;
-            },
+            (value) =>
+                logLevelOption.requireValue(value, {
+                    fallback: DEFAULT_PRETTIER_LOG_LEVEL,
+                    errorConstructor: InvalidArgumentError
+                }),
             DEFAULT_PRETTIER_LOG_LEVEL
         )
         .option(
@@ -453,19 +444,11 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
                 "How to handle parser failures: revert, skip, or abort.",
                 "Respects PRETTIER_PLUGIN_GML_ON_PARSE_ERROR when set."
             ].join(" "),
-            (value) => {
-                const normalized = normalizeEnumeratedOption(
-                    value,
-                    DEFAULT_PARSE_ERROR_ACTION,
-                    VALID_PARSE_ERROR_ACTIONS
-                );
-                if (!normalized) {
-                    throw new InvalidArgumentError(
-                        `Must be one of: ${VALID_PARSE_ERROR_ACTION_CHOICES}`
-                    );
-                }
-                return normalized;
-            },
+            (value) =>
+                parseErrorActionOption.requireValue(value, {
+                    fallback: DEFAULT_PARSE_ERROR_ACTION,
+                    errorConstructor: InvalidArgumentError
+                }),
             DEFAULT_PARSE_ERROR_ACTION
         )
         .addHelpText("after", () =>
@@ -529,11 +512,9 @@ const options = {
 
 function configurePrettierOptions({ logLevel } = {}) {
     const normalized =
-        normalizeEnumeratedOption(
-            logLevel,
-            DEFAULT_PRETTIER_LOG_LEVEL,
-            VALID_PRETTIER_LOG_LEVELS
-        ) ?? DEFAULT_PRETTIER_LOG_LEVEL;
+        logLevelOption.normalize(logLevel, {
+            fallback: DEFAULT_PRETTIER_LOG_LEVEL
+        }) ?? DEFAULT_PRETTIER_LOG_LEVEL;
     options.logLevel = normalized;
 }
 
@@ -1396,7 +1377,13 @@ async function prepareFormattingRun({
     configureSkippedDirectorySampleLimit(skippedDirectorySampleLimit);
     configureIgnoredFileSampleLimit(ignoredFileSampleLimit);
     configureUnsupportedExtensionSampleLimit(unsupportedExtensionSampleLimit);
-    await resetFormattingSession(onParseError);
+    const normalizedParseErrorAction = parseErrorActionOption.requireValue(
+        onParseError,
+        {
+            fallback: DEFAULT_PARSE_ERROR_ACTION
+        }
+    );
+    await resetFormattingSession(normalizedParseErrorAction);
     configureCheckMode(checkMode);
 }
 
