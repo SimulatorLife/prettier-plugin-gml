@@ -63,6 +63,14 @@ export function applyEnvOptionOverride({
     source = DEFAULT_SOURCE,
     getUsage
 }) {
+    if (!command || typeof command.setOptionValueWithSource !== "function") {
+        // Ignore overrides when the target command is missing or lacks the
+        // Commander API for setting option values. Downstream callers already
+        // guard most entry points, but tolerating unexpected inputs keeps the
+        // helper resilient in shared utilities and tests.
+        return;
+    }
+
     const rawValue = env?.[envVar];
     if (rawValue === undefined) {
         return;
