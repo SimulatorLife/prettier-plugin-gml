@@ -44,11 +44,11 @@ import { formatMetricValue } from "./metric-formatters.js";
 import {
     REPO_ROOT,
     createPathFilter,
-    normalizeFixtureRoots
-} from "../../shared/workflow/fixture-roots.js";
-import { writeJsonArtifact } from "../../shared/fs-artifacts.js";
+    normalizeFixtureRoots,
+    writeJsonArtifact
+} from "../dependencies.js";
 
-export { normalizeFixtureRoots } from "../../shared/workflow/fixture-roots.js";
+export { normalizeFixtureRoots } from "../dependencies.js";
 
 const shouldSkipPerformanceDependencies = isCliRunSkipped();
 

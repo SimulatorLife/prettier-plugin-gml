@@ -1,15 +1,34 @@
-import { identifierCaseOptions } from "gamemaker-language-semantic/identifier-case/options.js";
+import { resolveGmlPluginComponentImplementations } from "./gml-plugin-component-implementation-registry.js";
 
-import { handleComments, printComment } from "../comments/comment-printer.js";
-import { LogicalOperatorsStyle } from "../options/logical-operators-style.js";
-import { gmlParserAdapter } from "../parsers/gml-parser-adapter.js";
-import { print } from "../printer/print.js";
+function selectDefaultImplementations() {
+    return resolveGmlPluginComponentImplementations();
+}
 
-export const defaultGmlPluginComponentDependencies = Object.freeze({
-    gmlParserAdapter,
-    print,
-    handleComments,
-    printComment,
-    identifierCaseOptions,
-    LogicalOperatorsStyle
-});
+function createDependencyBundle(source) {
+    const {
+        gmlParserAdapter,
+        print,
+        handleComments,
+        printComment,
+        identifierCaseOptions,
+        LogicalOperatorsStyle
+    } = source;
+
+    return Object.freeze({
+        gmlParserAdapter,
+        print,
+        handleComments,
+        printComment,
+        identifierCaseOptions,
+        LogicalOperatorsStyle
+    });
+}
+
+export function createDefaultGmlPluginComponentDependencies() {
+    return createDependencyBundle(selectDefaultImplementations());
+}
+
+export const defaultGmlPluginComponentDependencies =
+    createDefaultGmlPluginComponentDependencies();
+
+export { createDependencyBundle };

@@ -283,44 +283,76 @@ function splitCellLines(element) {
     return compactArray(lines);
 }
 
+function createTableExtractionState() {
+    return { headers: [], rows: [] };
+}
+
+function getRowCells(row) {
+    return getDirectChildren(row, "th, td");
+}
+
+function extractCellValue(cell) {
+    const lines = splitCellLines(cell);
+    if (lines.length === 0) {
+        return null;
+    }
+
+    return lines.join("\n");
+}
+
+function buildRowValues(cellElements) {
+    return cellElements.map(extractCellValue);
+}
+
+function rowHasContent(values) {
+    return values.some((value) => getNonEmptyTrimmedString(value));
+}
+
+function hasHeaderCells(cellElements) {
+    return cellElements.some((cell) => getTagName(cell) === "th");
+}
+
+function isHeaderRow(rowIndex, cellElements) {
+    return rowIndex === 0 && hasHeaderCells(cellElements);
+}
+
+function appendHeaderValues(headers, values) {
+    headers.push(...normalizeMultilineTextCollection(values));
+}
+
+function appendBodyRow(rows, values) {
+    rows.push(
+        normalizeMultilineTextCollection(values, {
+            preserveEmptyEntries: true
+        })
+    );
+}
+
+function processTableRow(state, row, rowIndex) {
+    const cellElements = getRowCells(row);
+    const values = buildRowValues(cellElements);
+
+    if (!rowHasContent(values)) {
+        return;
+    }
+
+    if (isHeaderRow(rowIndex, cellElements)) {
+        appendHeaderValues(state.headers, values);
+        return;
+    }
+
+    appendBodyRow(state.rows, values);
+}
+
 function extractTable(table) {
-    const headers = [];
-    const rows = [];
+    const tableState = createTableExtractionState();
     const rowElements = Array.from(table.querySelectorAll("tr"));
 
     rowElements.forEach((row, rowIndex) => {
-        const cellElements = getDirectChildren(row, "th, td");
-        const values = cellElements.map((cell) => {
-            const lines = splitCellLines(cell);
-            if (lines.length === 0) {
-                return null;
-            }
-            return lines.join("\n");
-        });
-
-        const hasContent = values.some((value) =>
-            getNonEmptyTrimmedString(value)
-        );
-        if (!hasContent) {
-            return;
-        }
-
-        const hasHeaderCells = cellElements.some(
-            (cell) => getTagName(cell) === "th"
-        );
-        if (rowIndex === 0 && hasHeaderCells) {
-            headers.push(...normalizeMultilineTextCollection(values));
-            return;
-        }
-
-        rows.push(
-            normalizeMultilineTextCollection(values, {
-                preserveEmptyEntries: true
-            })
-        );
+        processTableRow(tableState, row, rowIndex);
     });
 
-    return { headers, rows };
+    return tableState;
 }
 
 function createBlock(node) {
