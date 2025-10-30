@@ -226,9 +226,12 @@ export function parseJsonObjectWithContext(text, options = {}) {
             ? resolvedDynamic
             : undefined;
 
+    const baseOptions = normalizedBase ?? {};
+    const dynamicOptions = normalizedDynamic ?? {};
+
     const mergedOptions =
         normalizedBase || normalizedDynamic
-            ? { ...normalizedBase, ...normalizedDynamic }
+            ? { ...baseOptions, ...dynamicOptions }
             : undefined;
 
     return assertPlainObject(payload, mergedOptions);
