@@ -6,7 +6,7 @@ import {
     isNonEmptyString,
     stringifyJsonForFile
 } from "./dependencies.js";
-import { ensureWorkflowPathsAllowed } from "./workflow/path-filter.js";
+import { ensureWorkflowPathsAllowed } from "./fs/path-filter.js";
 
 /**
  * Write text contents to disk while guaranteeing the parent directory exists
