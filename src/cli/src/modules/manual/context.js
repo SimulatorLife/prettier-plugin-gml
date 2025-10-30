@@ -210,6 +210,33 @@ export function createManualFileAccessContext(options = {}) {
 }
 
 /**
+ * Resolve the manual file fetcher function using the shared command context.
+ *
+ * Commands frequently reach for {@link createManualFileAccessContext} solely
+ * to pluck the `fetchManualFile` reference, leading to duplicated destructure
+ * boilerplate. This helper centralizes that pattern while preserving the
+ * existing defaulting behaviour for the optional fetch options bag.
+ *
+ * @param {Parameters<typeof createManualFileAccessContext>[0]} options
+ * @returns {ManualGitHubFileClient["fetchManualFile"]}
+ */
+export function resolveManualFileFetcher(options = {}) {
+    const fileAccess = createManualFileAccessContext(options);
+    const fetchManualFile = assertFunction(
+        fileAccess.fetchManualFile,
+        "manual file fetcher"
+    );
+
+    return (sha, filePath, fetchOptions) => {
+        if (fetchOptions === undefined) {
+            return fetchManualFile(sha, filePath);
+        }
+
+        return fetchManualFile(sha, filePath, fetchOptions);
+    };
+}
+
+/**
  * Resolve manual reference helpers along with the shared environment metadata.
  *
  * @param {Parameters<typeof buildManualCommandContext>[0]} options

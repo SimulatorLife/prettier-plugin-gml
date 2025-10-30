@@ -37,8 +37,8 @@ import {
 import { wrapInvalidArgumentResolver } from "../core/command-parsing.js";
 import {
     createManualEnvironmentContext,
-    createManualFileAccessContext,
-    createManualReferenceAccessContext
+    createManualReferenceAccessContext,
+    resolveManualFileFetcher
 } from "../modules/manual/context.js";
 import {
     decodeManualKeywordsPayload,
@@ -66,15 +66,6 @@ const {
 const { resolveManualRef } = createManualReferenceAccessContext(
     MANUAL_CONTEXT_OPTIONS
 );
-
-function resolveManualFileFetcher({ workflowPathFilter } = {}) {
-    const { fetchManualFile } = createManualFileAccessContext({
-        ...MANUAL_CONTEXT_OPTIONS,
-        workflowPathFilter
-    });
-
-    return fetchManualFile;
-}
 
 export function createGenerateIdentifiersCommand({ env = process.env } = {}) {
     const command = applyStandardCommandOptions(
@@ -759,7 +750,9 @@ function createManualAssetDescriptors() {
  */
 async function fetchIdentifierManualPayloads({
     manualRef,
-    fetchManualFile: fetchManualFileFn = resolveManualFileFetcher(),
+    fetchManualFile: fetchManualFileFn = resolveManualFileFetcher(
+        MANUAL_CONTEXT_OPTIONS
+    ),
     forceRefresh,
     verbose,
     cacheRoot,
@@ -829,6 +822,7 @@ export async function runGenerateGmlIdentifiers({ command, workflow } = {}) {
         ]);
 
         const fetchManualFile = resolveManualFileFetcher({
+            ...MANUAL_CONTEXT_OPTIONS,
             workflowPathFilter
         });
 
