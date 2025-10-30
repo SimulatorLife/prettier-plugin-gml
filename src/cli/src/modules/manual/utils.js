@@ -56,42 +56,34 @@ const MANUAL_GITHUB_REQUEST_ERROR_CAPABILITY = Symbol.for(
     "prettier-plugin-gml.manual-github-request-error"
 );
 
-function normalizeOptionalTrimmedString(value) {
+function readOptionalTrimmedString(value) {
     if (value == null) {
-        return { ok: true, value: undefined };
+        return { value: undefined };
     }
 
     if (typeof value !== "string") {
-        return { ok: false };
+        return null;
     }
 
     const trimmed = value.trim();
-    return { ok: true, value: trimmed === "" ? undefined : trimmed };
+    return { value: trimmed === "" ? undefined : trimmed };
 }
 
-function normalizeOptionalFiniteNumber(value) {
+function readOptionalFiniteNumber(value) {
     if (value == null) {
-        return { ok: true, value: undefined };
+        return { value: undefined };
     }
 
     const numeric = Number(value);
-    if (!Number.isFinite(numeric)) {
-        return { ok: false };
-    }
-
-    return { ok: true, value: numeric };
+    return Number.isFinite(numeric) ? { value: numeric } : null;
 }
 
-function normalizeOptionalString(value) {
+function readOptionalString(value) {
     if (value == null) {
-        return { ok: true, value: undefined };
+        return { value: undefined };
     }
 
-    if (typeof value !== "string") {
-        return { ok: false };
-    }
-
-    return { ok: true, value };
+    return typeof value === "string" ? { value } : null;
 }
 
 function getManualGitHubRequestErrorContract(value) {
@@ -99,41 +91,45 @@ function getManualGitHubRequestErrorContract(value) {
         return null;
     }
 
-    const urlResult = normalizeOptionalTrimmedString(value.url);
-    if (!urlResult.ok) {
+    const urlResult = readOptionalTrimmedString(value.url);
+    if (!urlResult) {
         return null;
     }
 
-    const statusResult = normalizeOptionalFiniteNumber(value.status);
-    if (!statusResult.ok) {
+    const statusResult = readOptionalFiniteNumber(value.status);
+    if (!statusResult) {
         return null;
     }
 
-    const statusTextResult = normalizeOptionalTrimmedString(value.statusText);
-    if (!statusTextResult.ok) {
+    const statusTextResult = readOptionalTrimmedString(value.statusText);
+    if (!statusTextResult) {
         return null;
     }
 
-    const responseBodyResult = normalizeOptionalString(value.responseBody);
-    if (!responseBodyResult.ok) {
+    const responseBodyResult = readOptionalString(value.responseBody);
+    if (!responseBodyResult) {
         return null;
     }
+
+    const { value: url } = urlResult;
+    const { value: status } = statusResult;
+    const { value: statusText } = statusTextResult;
+    const { value: responseBody } = responseBodyResult;
 
     if (
-        urlResult.value === undefined &&
-        statusResult.value === undefined &&
-        statusTextResult.value === undefined &&
-        responseBodyResult.value === undefined
+        ![url, status, statusText, responseBody].some(
+            (entry) => entry !== undefined
+        )
     ) {
         return null;
     }
 
     const contract = {
         message: getErrorMessageOrFallback(value),
-        url: urlResult.value,
-        status: statusResult.value,
-        statusText: statusTextResult.value,
-        responseBody: responseBodyResult.value
+        url,
+        status,
+        statusText,
+        responseBody
     };
 
     if (value.cause !== undefined) {
