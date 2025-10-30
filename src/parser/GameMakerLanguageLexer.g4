@@ -15,7 +15,7 @@ channels { ERROR }
     }
 }
 
-MultiLineComment:               '/*' .*? '*/'             -> channel(HIDDEN);
+MultiLineComment:               '/*' .*? ('*/' | EOF)     -> channel(HIDDEN);
 SingleLineComment:              '//' ~[\r\n\u2028\u2029]* -> channel(HIDDEN);
 
 OpenBracket: '[';
@@ -194,6 +194,7 @@ fragment IdentifierPart
 fragment StringCharacter
     : ~["\\\r\n]
     | '\\' SingleEscapeCharacter
+    | '\\' ~[\r\n]
     ;
 
 fragment HexLiteralPrefix
@@ -230,4 +231,5 @@ TemplateStringStartExpression: '{' -> pushMode(DEFAULT_MODE);
 TemplateStringText
     : (~('{' | '\\' | '"' | [\r\n\u2028\u2029]))+
     | '\\' SingleEscapeCharacter
+    | '\\' ~[\r\n\u2028\u2029]
     ;
