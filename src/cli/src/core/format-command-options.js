@@ -3,25 +3,26 @@ import {
     getNonEmptyTrimmedString,
     toArrayFromIterable
 } from "../shared/dependencies.js";
+import { normalizeExtensions } from "./extension-normalizer.js";
 
 function resolveFormatCommandExtensions(options, defaultExtensions) {
     const fallback = asArray(defaultExtensions);
     const raw = options?.extensions;
 
-    if (Array.isArray(raw)) {
-        return raw;
-    }
-
-    if (typeof raw === "string") {
-        return [raw];
-    }
-
     if (raw == null) {
         return fallback;
     }
 
+    if (Array.isArray(raw)) {
+        return normalizeExtensions(raw, fallback);
+    }
+
+    if (typeof raw === "string") {
+        return normalizeExtensions(raw, fallback);
+    }
+
     if (typeof raw[Symbol.iterator] === "function") {
-        return toArrayFromIterable(raw);
+        return normalizeExtensions(toArrayFromIterable(raw), fallback);
     }
 
     return fallback;

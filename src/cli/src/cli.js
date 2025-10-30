@@ -33,7 +33,6 @@ import {
     Command,
     InvalidArgumentError,
     Option,
-    createListSplitPattern,
     compactArray,
     getErrorMessageOrFallback,
     getObjectTagName,
@@ -44,7 +43,6 @@ import {
     isPathInside,
     mergeUniqueValues,
     normalizeEnumeratedOption,
-    normalizeStringList,
     resolveModuleDefaultExport,
     toArray,
     toNormalizedLowerCaseSet,
@@ -107,6 +105,7 @@ import {
     resolveUnsupportedExtensionSampleLimit,
     UNSUPPORTED_EXTENSION_SAMPLE_LIMIT_ENV_VAR
 } from "./runtime-options/unsupported-extension-sample-limit.js";
+import { normalizeExtensions } from "./core/extension-normalizer.js";
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolveCliPluginEntryPoint();
@@ -114,13 +113,6 @@ const IGNORE_PATH = path.resolve(WRAPPER_DIRECTORY, ".prettierignore");
 const INITIAL_WORKING_DIRECTORY = path.resolve(process.cwd());
 
 const FALLBACK_EXTENSIONS = Object.freeze([".gml"]);
-
-const EXTENSION_LIST_SPLIT_PATTERN = createListSplitPattern(
-    compactArray([",", path.delimiter]),
-    {
-        includeWhitespace: true
-    }
-);
 
 const ParseErrorAction = Object.freeze({
     REVERT: "revert",
@@ -283,40 +275,6 @@ async function resolvePrettier() {
     }
 
     return prettierModulePromise;
-}
-
-function coerceExtensionValue(value) {
-    if (typeof value !== "string") {
-        return null;
-    }
-
-    const cleaned = value
-        .toLowerCase()
-        // Drop any directory/glob prefixes (e.g. **/*.gml or src/**/*.yy).
-        .replace(/.*[\\/]/, "")
-        // Trim leading wildcard tokens like * or ? that commonly appear in glob patterns.
-        .replace(/^[*?]+/, "");
-
-    if (!cleaned) {
-        return null;
-    }
-
-    return cleaned.startsWith(".") ? cleaned : `.${cleaned}`;
-}
-
-function normalizeExtensions(
-    rawExtensions,
-    fallbackExtensions = FALLBACK_EXTENSIONS
-) {
-    const coercedValues = normalizeStringList(rawExtensions, {
-        splitPattern: EXTENSION_LIST_SPLIT_PATTERN,
-        allowInvalidType: true
-    }).map(coerceExtensionValue);
-
-    const filteredValues = compactArray(coercedValues);
-    const normalized = uniqueArray(filteredValues);
-
-    return normalized.length > 0 ? normalized : fallbackExtensions;
 }
 
 const DEFAULT_EXTENSIONS = normalizeExtensions(

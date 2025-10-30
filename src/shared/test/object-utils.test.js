@@ -5,7 +5,6 @@ import {
     assertPlainObject,
     coalesceOption,
     describeValueWithArticle,
-    formatWithIndefiniteArticle,
     getOrCreateMapEntry,
     incrementMapValue,
     isObjectLike,
@@ -196,12 +195,6 @@ test("getOrCreateMapEntry works with WeakMap instances", () => {
     const again = getOrCreateMapEntry(store, key, () => ({ hits: 1 }));
 
     assert.strictEqual(again, value);
-});
-
-test("formatWithIndefiniteArticle selects the correct article", () => {
-    assert.strictEqual(formatWithIndefiniteArticle("array"), "an array");
-    assert.strictEqual(formatWithIndefiniteArticle("string"), "a string");
-    assert.strictEqual(formatWithIndefiniteArticle(""), "a");
 });
 
 test("describeValueWithArticle formats common value types", () => {

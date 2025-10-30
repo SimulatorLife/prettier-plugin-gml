@@ -111,6 +111,20 @@ const CHAR_CODE_LOWER_START = 97; // a
 const CHAR_CODE_LOWER_END = 122; // z
 const CHAR_CODE_UNDERSCORE = 95; // _
 const OBJECT_TO_STRING = Object.prototype.toString;
+const STARTS_WITH_VOWEL_PATTERN = /^[aeiou]/i;
+
+function normalizeIndefiniteArticle(label) {
+    if (typeof label !== "string") {
+        return null;
+    }
+
+    const normalized = label.trim();
+    if (normalized.length === 0) {
+        return null;
+    }
+
+    return `${STARTS_WITH_VOWEL_PATTERN.test(normalized) ? "an" : "a"} ${normalized}`;
+}
 
 /**
  * Describe an arbitrary {@link value} for use in error messages.
@@ -169,6 +183,26 @@ export function describeValueForError(value, { stringifyUnknown = true } = {}) {
     } catch {
         return OBJECT_TO_STRING.call(value);
     }
+}
+
+/**
+ * Prefix {@link label} with an appropriate indefinite article ("a" or "an").
+ *
+ * Keeps the grammar used by human-readable error messages consistent across the
+ * CLI by centralizing the vowel detection heuristics. Callers receive the
+ * normalized label even when it includes surrounding whitespace so existing
+ * messages remain unchanged.
+ *
+ * @param {string} label Descriptive label to format.
+ * @returns {string} {@link label} prefixed with "a" or "an" as appropriate.
+ */
+export function formatWithIndefiniteArticle(label) {
+    const formatted = normalizeIndefiniteArticle(label);
+    if (formatted) {
+        return formatted;
+    }
+
+    return "a";
 }
 
 export function isWordChar(character) {
