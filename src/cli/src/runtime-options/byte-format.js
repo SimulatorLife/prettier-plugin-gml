@@ -1,4 +1,5 @@
 import { Buffer } from "node:buffer";
+
 import { isFiniteNumber } from "../dependencies.js";
 import { coercePositiveInteger } from "../shared/dependencies.js";
 import { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
