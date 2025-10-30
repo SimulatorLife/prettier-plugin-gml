@@ -1,8 +1,13 @@
-import { isNonEmptyString, isRegExpLike } from "../shared/index.js";
+import {
+    coercePositiveIntegerOption,
+    isNonEmptyString,
+    isRegExpLike
+} from "../shared/index.js";
 import { createResolverController } from "../shared/resolver-controller.js";
 
 const LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES = 5;
-const LINE_COMMENT_BANNER_STANDARD_LENGTH = 60;
+const DEFAULT_LINE_COMMENT_BANNER_LENGTH = 60;
+const LINE_COMMENT_BANNER_LENGTH_OPTION = "lineCommentBannerLength";
 
 const DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS = Object.freeze([
     // YoYo Games injects this banner while exporting assets; stripping it keeps
@@ -119,6 +124,45 @@ function resolveLineCommentOptions(options = {}) {
     return lineCommentOptionsResolution.resolve(options);
 }
 
+function resolveLineCommentBannerLength(options) {
+    if (!options || typeof options !== "object") {
+        return DEFAULT_LINE_COMMENT_BANNER_LENGTH;
+    }
+
+    const rawValue = options[LINE_COMMENT_BANNER_LENGTH_OPTION];
+
+    if (typeof rawValue === "string") {
+        const trimmed = rawValue.trim();
+        if (trimmed === "") {
+            return DEFAULT_LINE_COMMENT_BANNER_LENGTH;
+        }
+
+        const parsed = Number(trimmed);
+        if (!Number.isFinite(parsed)) {
+            return DEFAULT_LINE_COMMENT_BANNER_LENGTH;
+        }
+
+        return finalizeBannerLengthCandidate(parsed);
+    }
+
+    return finalizeBannerLengthCandidate(rawValue);
+}
+
+function finalizeBannerLengthCandidate(candidate) {
+    if (candidate === 0) {
+        return 0;
+    }
+
+    if (typeof candidate === "number" && candidate < 0) {
+        return DEFAULT_LINE_COMMENT_BANNER_LENGTH;
+    }
+
+    return coercePositiveIntegerOption(
+        candidate,
+        DEFAULT_LINE_COMMENT_BANNER_LENGTH
+    );
+}
+
 /**
  * Registers a custom resolver for the line comment heuristics. Intended for
  * host integrations that need to extend the boilerplate detection rules
@@ -137,11 +181,13 @@ function restoreDefaultLineCommentOptionsResolver() {
 }
 
 export {
+    DEFAULT_LINE_COMMENT_BANNER_LENGTH,
     DEFAULT_LINE_COMMENT_OPTIONS,
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,
-    LINE_COMMENT_BANNER_STANDARD_LENGTH,
+    LINE_COMMENT_BANNER_LENGTH_OPTION,
     normalizeLineCommentOptions,
+    resolveLineCommentBannerLength,
     resolveLineCommentOptions,
     restoreDefaultLineCommentOptionsResolver,
     setLineCommentOptionsResolver

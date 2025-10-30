@@ -47,7 +47,7 @@ import {
 import {
     createWorkflowPathFilter,
     ensureWorkflowPathsAllowed
-} from "../shared/workflow/path-filter.js";
+} from "../shared/fs/path-filter.js";
 
 const MANUAL_CONTEXT_OPTIONS = Object.freeze({
     importMetaUrl: import.meta.url,
@@ -658,6 +658,44 @@ function createIdentifierArtifactPayload({
     };
 }
 
+/**
+ * Transform the raw manual payloads into the final identifier artefact payload
+ * while keeping {@link runGenerateGmlIdentifiers} free from map mutations and
+ * tag bookkeeping.
+ */
+function buildIdentifierArtifact({
+    payloads,
+    manualRef,
+    manualRepo,
+    vmEvalTimeoutMs,
+    verbose
+}) {
+    const identifierMap = buildIdentifierMapFromManualPayloads({
+        payloads,
+        vmEvalTimeoutMs,
+        verbose
+    });
+
+    const { manualKeywords, manualTags } = decodeManualKeywordAndTagPayloads({
+        payloads,
+        verbose
+    });
+
+    classifyManualIdentifierMetadata({
+        identifierMap,
+        manualKeywords,
+        manualTags,
+        verbose
+    });
+
+    return createIdentifierArtifactPayload({
+        identifierMap,
+        manualRef,
+        manualRepo,
+        verbose
+    });
+}
+
 async function writeIdentifierArtifact({
     outputPath,
     payload,
@@ -815,29 +853,11 @@ export async function runGenerateGmlIdentifiers({ command, workflow } = {}) {
             progressBarWidth
         });
 
-        const identifierMap = buildIdentifierMapFromManualPayloads({
+        const { payload, entryCount } = buildIdentifierArtifact({
             payloads: fetchedPayloads,
-            vmEvalTimeoutMs,
-            verbose
-        });
-
-        const { manualKeywords, manualTags } =
-            decodeManualKeywordAndTagPayloads({
-                payloads: fetchedPayloads,
-                verbose
-            });
-
-        classifyManualIdentifierMetadata({
-            identifierMap,
-            manualKeywords,
-            manualTags,
-            verbose
-        });
-
-        const { payload, entryCount } = createIdentifierArtifactPayload({
-            identifierMap,
             manualRef,
             manualRepo,
+            vmEvalTimeoutMs,
             verbose
         });
 

@@ -1,16 +1,16 @@
 import path from "node:path";
 
 import {
-    normalizeNumericOption,
+    assertFunction,
+    coalesceOption,
     coerceNonNegativeInteger,
     coercePositiveInteger,
     isNonEmptyTrimmedString,
-    assertFunction,
-    coalesceOption,
     isObjectLike,
     noop,
+    normalizeNumericOption,
     withDefinedValue
-} from "../shared/index.js";
+} from "./dependencies.js";
 import {
     clampConcurrency,
     createProjectIndexBuildOptions,

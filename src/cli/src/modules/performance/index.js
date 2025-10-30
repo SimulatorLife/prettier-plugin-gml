@@ -24,14 +24,12 @@ import {
     assertArray,
     assertPlainObject,
     coercePositiveInteger,
-    ensureDir,
     isFiniteNumber,
     isObjectLike,
     getErrorMessageOrFallback,
     getIdentifierText,
     resolveIntegerOption,
     toNormalizedInteger,
-    stringifyJsonForFile,
     resolveModuleDefaultExport,
     createCliRunSkippedError,
     isCliRunSkipped
@@ -48,6 +46,7 @@ import {
     createPathFilter,
     normalizeFixtureRoots
 } from "../../shared/workflow/fixture-roots.js";
+import { writeJsonArtifact } from "../../shared/fs-artifacts.js";
 
 export { normalizeFixtureRoots } from "../../shared/workflow/fixture-roots.js";
 
@@ -683,7 +682,7 @@ function createSuiteExecutionOptions(options, { workflow } = {}) {
     };
 }
 
-async function writeReport(report, options) {
+async function writeReport(report, options, { pathFilter } = {}) {
     if (options.skipReport) {
         return { skipped: true };
     }
@@ -693,12 +692,13 @@ async function writeReport(report, options) {
         return { skipped: true };
     }
 
-    const directory = path.dirname(targetFile);
-    await ensureDir(directory);
-
     const spacing = options.pretty ? 2 : 0;
-    const payload = stringifyJsonForFile(report, { space: spacing });
-    await fs.writeFile(targetFile, payload, "utf8");
+    await writeJsonArtifact({
+        outputPath: targetFile,
+        payload: report,
+        space: spacing,
+        pathFilter
+    });
 
     return { skipped: false, path: targetFile };
 }
@@ -982,7 +982,9 @@ export async function runPerformanceCommand({ command, workflow } = {}) {
     });
 
     const report = createPerformanceReportPayload(suiteResults);
-    const reportResult = await writeReport(report, options);
+    const reportResult = await writeReport(report, options, {
+        pathFilter: runnerOptions.pathFilter
+    });
 
     logReportDestination(reportResult, options);
     emitReportIfRequested(report, options);

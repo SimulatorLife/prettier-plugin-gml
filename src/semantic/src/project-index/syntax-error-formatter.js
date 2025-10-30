@@ -1,5 +1,6 @@
 import {
     getNonEmptyString,
+    isFiniteNumber,
     splitLines,
     toFiniteNumber
 } from "../dependencies.js";
@@ -184,11 +185,11 @@ function expandTabsForDisplay(lineText, columnNumber, tabSize = 4) {
 }
 
 function clampColumnIndex(length, columnNumber) {
-    if (!Number.isFinite(columnNumber) || columnNumber < 0) {
+    if (!isFiniteNumber(columnNumber) || columnNumber < 0) {
         return 0;
     }
 
-    if (!Number.isFinite(length) || length <= 0) {
+    if (!isFiniteNumber(length) || length <= 0) {
         return 0;
     }
 

@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 import {
     createWorkflowPathFilter,
     ensureWorkflowPathsAllowed
-} from "../src/shared/workflow/path-filter.js";
+} from "../src/shared/fs/path-filter.js";
 
 describe("workflow path filter helpers", () => {
     it("allows paths that satisfy the workflow filters", () => {
@@ -31,6 +31,16 @@ describe("workflow path filter helpers", () => {
                 }
             ]);
         });
+    });
+
+    it("allows any path when no allow list is provided", () => {
+        const workspace = path.resolve("/tmp", "workflow-path-filter", "open");
+        const filter = createWorkflowPathFilter();
+
+        assert.equal(filter.allowList.length, 0);
+        assert.equal(filter.denyList.length, 0);
+        assert.ok(filter.allowsDirectory(workspace));
+        assert.ok(filter.allowsPath(path.join(workspace, "file.json")));
     });
 
     it("rejects directories outside the workflow filters", () => {

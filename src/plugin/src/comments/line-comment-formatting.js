@@ -350,6 +350,8 @@ function formatLineComment(
     const trimmedOriginal = original.trim();
     const rawValue = getCommentValue(comment);
     const trimmedValue = getCommentValue(comment, { trim: true });
+    const startsWithTripleSlash = trimmedOriginal.startsWith("///");
+    const isPlainTripleSlash = startsWithTripleSlash && !trimmedOriginal.includes("@");
 
     const leadingSlashMatch = trimmedOriginal.match(/^\/+/);
     const leadingSlashCount = leadingSlashMatch
@@ -389,17 +391,13 @@ function formatLineComment(
         return applyInlinePadding(comment, original.trim());
     }
 
-    if (
-        isInlineComment &&
-        trimmedOriginal.startsWith("///") &&
-        !trimmedOriginal.includes("@")
-    ) {
+    if (isInlineComment && isPlainTripleSlash) {
         const remainder = trimmedOriginal.slice(3).trimStart();
         const formatted = remainder.length > 0 ? `// ${remainder}` : "//";
         return applyInlinePadding(comment, formatted);
     }
 
-    if (trimmedOriginal.startsWith("///") && !trimmedOriginal.includes("@")) {
+    if (isPlainTripleSlash) {
         const remainder = trimmedOriginal.slice(3).trimStart();
 
         if (comment?.isBottomComment === true && /^\d/.test(remainder)) {
@@ -417,8 +415,7 @@ function formatLineComment(
     }
 
     if (
-        trimmedOriginal.startsWith("///") &&
-        !trimmedOriginal.includes("@") &&
+        isPlainTripleSlash &&
         leadingSlashCount >= LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES &&
         !isInlineComment
     ) {
@@ -426,12 +423,7 @@ function formatLineComment(
     }
 
     const docContinuationMatch = trimmedValue.match(/^\/\s*(\S.*)$/);
-    if (
-        docContinuationMatch &&
-        trimmedOriginal.startsWith("///") &&
-        !trimmedOriginal.includes("@") &&
-        !isInlineComment
-    ) {
+    if (docContinuationMatch && isPlainTripleSlash && !isInlineComment) {
         return applyInlinePadding(comment, trimmedOriginal);
     }
 

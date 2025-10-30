@@ -145,7 +145,6 @@ test("condenses chained scalar multipliers into a single coefficient", async () 
         ].join("\n")
     );
 });
-
 test("promotes lengthdir half-difference assignments into the declaration", async () => {
     const source = [
         "function promote_lengthdir(size, angle) {",
@@ -168,6 +167,36 @@ test("promotes lengthdir half-difference assignments into the declaration", asyn
             "/// @param size",
             "/// @param angle",
             "function promote_lengthdir(size, angle) {",
+            "    var s = size * 0.052 * (1 - lengthdir_x(1, angle));",
+            "    return s;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("combines sequential lengthdir scalar assignments", async () => {
+    const source = [
+        "function combine_lengthdir(size, angle) {",
+        "    var s = 1.3 * size * 0.12 / 1.5;",
+        "    s = s - s / 2 - lengthdir_x(s / 2, angle);",
+        "    return s;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function combine_lengthdir",
+            "/// @param size",
+            "/// @param angle",
+            "function combine_lengthdir(size, angle) {",
             "    var s = size * 0.052 * (1 - lengthdir_x(1, angle));",
             "    return s;",
             "}",

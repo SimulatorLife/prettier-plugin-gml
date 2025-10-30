@@ -219,8 +219,12 @@ export function applySharedManualCommandOptions(
         handlers.delete(key);
     }
 
-    for (const handler of handlers.values()) {
-        handler();
+    if (handlers.size > 0) {
+        const remainingHandlers = [...handlers.values()];
+        handlers.clear();
+        for (const handler of remainingHandlers) {
+            handler();
+        }
     }
 
     return command;
