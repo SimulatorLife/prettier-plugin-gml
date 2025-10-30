@@ -1,8 +1,5 @@
 import { util } from "prettier";
-import {
-    getNodeType,
-    getNonEmptyTrimmedString
-} from "../shared/index.js";
+import { getNodeType, getNonEmptyTrimmedString } from "../shared/index.js";
 
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
 
