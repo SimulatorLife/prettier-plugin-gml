@@ -106,7 +106,10 @@ const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION = Object.freeze({
     ])
 });
 
-const docCommentTypeNormalizationController = createResolverController({
+const {
+    resolution: docCommentTypeNormalizationResolution,
+    registry: docCommentTypeNormalizationRegistry
+} = createResolverController({
     defaultFactory: () => createDocCommentTypeNormalization(),
     invoke(resolver, options) {
         return resolver({
@@ -294,15 +297,15 @@ function* toIterable(value) {
 }
 
 function resolveDocCommentTypeNormalization(options = {}) {
-    return docCommentTypeNormalizationController.resolve(options);
+    return docCommentTypeNormalizationResolution.resolve(options);
 }
 
 function setDocCommentTypeNormalizationResolver(resolver) {
-    return docCommentTypeNormalizationController.set(resolver);
+    return docCommentTypeNormalizationRegistry.set(resolver);
 }
 
 function restoreDefaultDocCommentTypeNormalizationResolver() {
-    return docCommentTypeNormalizationController.restore();
+    return docCommentTypeNormalizationRegistry.restore();
 }
 
 const FUNCTION_LIKE_DOC_TAG_PATTERN = /@(func(?:tion)?|method)\b/i;
