@@ -140,17 +140,17 @@ test("default plugin service contracts can be customized with overrides", () => 
     });
 
     assert.strictEqual(
-        implementations.projectIndexBuilder,
+        implementations.projectIndex.buildProjectIndex,
         projectIndexBuilder,
         "override project index builder should be used"
     );
     assert.strictEqual(
-        implementations.identifierCasePlanPreparer,
+        implementations.identifierCasePlan.prepareIdentifierCasePlan,
         identifierCasePlanPreparer,
         "override identifier case plan preparer should be used"
     );
     assert.strictEqual(
-        implementations.identifierCaseCacheClearer,
+        implementations.identifierCaseCache.clearIdentifierCaseCaches,
         identifierCaseCacheClearer,
         "override identifier case cache clearer should be used"
     );
@@ -194,17 +194,17 @@ test("plugin service descriptor overrides fall back to defaults", () => {
     });
 
     assert.strictEqual(
-        implementations.projectIndexBuilder,
+        implementations.projectIndex.buildProjectIndex,
         defaultProjectIndexBuilder,
         "project index builder should fall back to the default"
     );
     assert.strictEqual(
-        implementations.identifierCasePlanPreparer,
+        implementations.identifierCasePlan.prepareIdentifierCasePlan,
         identifierCasePlanPreparer,
         "overridden identifier case plan preparer should be used"
     );
     assert.strictEqual(
-        implementations.identifierCaseCacheClearer,
+        implementations.identifierCaseCache.clearIdentifierCaseCaches,
         defaultIdentifierCaseCacheClearer,
         "identifier case cache clearer should fall back to the default"
     );
