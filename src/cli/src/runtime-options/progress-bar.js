@@ -118,7 +118,7 @@ class TerminalProgressBar {
 const createWidthErrorMessage = (received) =>
     `Progress bar width must be a positive integer (received ${received}).`;
 
-const createTypeErrorMessage = (type) =>
+const createWidthTypeErrorMessage = (type) =>
     `Progress bar width must be provided as a number (received type '${type}').`;
 
 const {
@@ -131,7 +131,7 @@ const {
     envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
     baseCoerce: coercePositiveInteger,
     createErrorMessage: createWidthErrorMessage,
-    typeErrorMessage: createTypeErrorMessage,
+    typeErrorMessage: createWidthTypeErrorMessage,
     defaultValueOption: "defaultWidth"
 });
 

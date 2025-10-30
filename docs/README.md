@@ -46,9 +46,6 @@ sheet, then return here when you need deeper context.
 
 ## Extension hooks & overrides
 
-- [Object-wrap option resolver hook](object-wrap-option-resolver-hook.md) —
-  Register temporary overrides for struct wrapping heuristics while keeping the
-  default resolver easy to restore.
 - [Line-comment options resolver hook](line-comment-options-resolver-hook.md)
   — Adjust the boilerplate stripping and commented-code heuristics without
   forking the formatter. Normalization guards keep overrides safe even when
