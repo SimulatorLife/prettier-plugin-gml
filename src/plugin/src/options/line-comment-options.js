@@ -131,7 +131,6 @@ function resolveLineCommentBannerLength(options) {
 
     const rawValue = options[LINE_COMMENT_BANNER_LENGTH_OPTION];
 
-    let candidate = rawValue;
     if (typeof rawValue === "string") {
         const trimmed = rawValue.trim();
         if (trimmed === "") {
@@ -143,9 +142,13 @@ function resolveLineCommentBannerLength(options) {
             return DEFAULT_LINE_COMMENT_BANNER_LENGTH;
         }
 
-        candidate = parsed;
+        return finalizeBannerLengthCandidate(parsed);
     }
 
+    return finalizeBannerLengthCandidate(rawValue);
+}
+
+function finalizeBannerLengthCandidate(candidate) {
     if (candidate === 0) {
         return 0;
     }
