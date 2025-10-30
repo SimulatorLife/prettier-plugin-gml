@@ -80,10 +80,33 @@ const memorySuiteHelpers = createStringEnumeratedOptionHelpers(
     }
 );
 
+/**
+ * Format the supported memory suite identifiers into a human-readable list.
+ *
+ * The CLI surfaces this string in validation errors so operators can quickly
+ * scan the accepted values without hunting through source files or docs.
+ *
+ * @returns {string} Comma-delimited list of valid suite identifiers.
+ */
 export function formatMemorySuiteNameList() {
     return memorySuiteHelpers.formatList();
 }
 
+/**
+ * Normalize an arbitrary {@link value} into a known memory suite identifier.
+ *
+ * Wrapping `memorySuiteHelpers.requireValue` clarifies that the CLI accepts
+ * string input (such as `--suite parser-ast`) and throws a targeted error when
+ * the name falls outside the curated list. Callers may optionally provide a
+ * custom {@link errorConstructor} to shape the thrown error type while reusing
+ * the shared message formatting.
+ *
+ * @param {unknown} value Candidate memory suite name provided by the user.
+ * @param {{ errorConstructor?: new (...args: Array<any>) => Error }} [options]
+ *        Optional override for the error constructor used on failure.
+ * @returns {string} Normalized suite name drawn from {@link MemorySuiteName}.
+ * @throws {Error} When {@link value} is not a recognized suite identifier.
+ */
 export function normalizeMemorySuiteName(value, { errorConstructor } = {}) {
     return memorySuiteHelpers.requireValue(value, { errorConstructor });
 }
