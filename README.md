@@ -674,6 +674,20 @@ Advanced integrations can temporarily override the struct wrapping heuristic via
 | `gmlIdentifierCaseAcknowledgeAssetRenames` | `false` | Required confirmation before asset renames update `.yy` metadata and on-disk file names. |
 | `gmlIdentifierCaseOptionStoreMaxEntries` | `128` | Caps the identifier-case option store size; set to `0` to keep all historical entries without eviction. |
 
+#### Project discovery & cache controls
+
+The semantic subsystem coordinates project detection and cache persistence when
+identifier casing is enabled. Use these options in tandem with the
+[`src/semantic/README.md`](src/semantic/README.md) reference to keep CI and
+monorepos predictable:
+
+| Option | Default | Summary |
+| --- | --- | --- |
+| `gmlIdentifierCaseDiscoverProject` | `true` | Auto-detect the nearest `.yyp` manifest when bootstrapping the project index. Disable when callers manage discovery manually. |
+| `gmlIdentifierCaseProjectRoot` | `""` | Pin project discovery to an explicit directory. Helpful when formatting files outside the GameMaker project tree or when CI runs from ephemeral workspaces. |
+| `gmlIdentifierCaseProjectIndexCacheMaxBytes` | `8 MiB` | Cap the on-disk cache size written to `.prettier-plugin-gml/project-index-cache.json`. Increase alongside `GML_PROJECT_INDEX_CACHE_MAX_SIZE` when coordinating cache pruning yourself. |
+| `gmlIdentifierCaseProjectIndexConcurrency` | `4` | Control how many files the bootstrap parses in parallel. Combine with `GML_PROJECT_INDEX_CONCURRENCY` and `GML_PROJECT_INDEX_MAX_CONCURRENCY` to tune CI throughput without starving local machines. |
+
 Project index discovery, cache tuning, and concurrency controls now live under
 the [semantic subsystem](src/semantic/README.md) alongside the new scope-tracking
 entry points.
