@@ -127,4 +127,22 @@ describe("asset rename executor JSON helpers", () => {
         assert.match(error.message, /\/tmp\/broken\.yy/);
         assert.ok(error.cause instanceof SyntaxError);
     });
+
+    it("rejects resource payloads that are not plain objects", () => {
+        const fsFacade = {
+            readFileSync() {
+                return "[]";
+            }
+        };
+
+        assert.throws(
+            () => {
+                readJsonFile(fsFacade, "/tmp/list.yy", new Map());
+            },
+            {
+                name: "TypeError",
+                message: "Resource JSON at /tmp/list.yy must be a plain object."
+            }
+        );
+    });
 });
