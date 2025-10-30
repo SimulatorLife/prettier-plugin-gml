@@ -38,6 +38,7 @@ import {
     getObjectTagName,
     isErrorLike,
     isErrorWithCode,
+    isFsErrorCode,
     isMissingModuleDependency,
     isNonEmptyArray,
     isPathInside,
@@ -149,6 +150,8 @@ const FORMAT_COMMAND_CHECK_EXAMPLE =
 
 const PRETTIER_MODULE_ID =
     process.env.PRETTIER_PLUGIN_GML_PRETTIER_MODULE ?? "prettier";
+
+let readSnapshotFile = readFile;
 
 function formatExtensionListForDisplay(extensions) {
     return extensions.map((extension) => `"${extension}"`).join(", ");
@@ -746,10 +749,32 @@ async function readSnapshotContents(snapshot) {
     }
 
     try {
-        return await readFile(snapshotPath, "utf8");
-    } catch {
-        return null;
+        return await readSnapshotFile(snapshotPath, "utf8");
+    } catch (error) {
+        if (isFsErrorCode(error, "ENOENT")) {
+            return null;
+        }
+
+        const locationDetails =
+            typeof snapshotPath === "string" && snapshotPath.length > 0
+                ? ` from ${snapshotPath}`
+                : "";
+        const failure = new Error(
+            `Failed to read revert snapshot${locationDetails}.`
+        );
+        if (error !== undefined) {
+            failure.cause = error;
+        }
+        throw failure;
     }
+}
+
+function setReadSnapshotFileForTests(reader) {
+    const previousReader = readSnapshotFile;
+    readSnapshotFile = typeof reader === "function" ? reader : readFile;
+    return () => {
+        readSnapshotFile = previousReader;
+    };
 }
 
 /**
@@ -835,7 +860,14 @@ async function revertFormattedFiles() {
         try {
             const originalContents = await readSnapshotContents(snapshot);
             if (originalContents == null) {
-                throw new Error("Revert snapshot is unavailable");
+                const missingLocation =
+                    typeof snapshot?.snapshotPath === "string" &&
+                    snapshot.snapshotPath.length > 0
+                        ? ` at ${snapshot.snapshotPath}`
+                        : "";
+                throw new Error(
+                    `Revert snapshot is unavailable${missingLocation}: snapshot file no longer exists.`
+                );
             }
             await writeFile(filePath, originalContents);
             console.warn(`Reverted ${filePath}`);
@@ -1862,7 +1894,9 @@ export const __test__ = Object.freeze({
     configurePrettierOptionsForTests: configurePrettierOptions,
     getPrettierOptionsForTests: () => options,
     validateTargetPathInputForTests: validateTargetPathInput,
-    resolveTargetPathFromInputForTests: resolveTargetPathFromInput
+    resolveTargetPathFromInputForTests: resolveTargetPathFromInput,
+    readSnapshotContentsForTests: readSnapshotContents,
+    setReadSnapshotFileForTests
 });
 
 const formatCommand = createFormatCommand({ name: "format" });
