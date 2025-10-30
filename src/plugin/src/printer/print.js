@@ -4404,11 +4404,21 @@ function mergeSyntheticDocComments(
             const isDocTagLine =
                 isDocCommentLine && /^\/\/\/\s*@/i.test(trimmedPreceding);
 
+            let precedingDocTag = null;
+            if (isDocCommentLine && isDocTagLine) {
+                const metadata = parseDocCommentMetadata(precedingLine);
+                if (metadata && typeof metadata.tag === "string") {
+                    precedingDocTag = metadata.tag.toLowerCase();
+                }
+            }
+
+            const shouldSeparateDocTag = precedingDocTag === "deprecated";
+
             const needsSeparatorBeforeFunction =
                 trimmedPreceding !== "" &&
                 typeof precedingLine === "string" &&
                 !isFunctionLine(precedingLine) &&
-                (!isDocCommentLine || !isDocTagLine);
+                (!isDocCommentLine || !isDocTagLine || shouldSeparateDocTag);
 
             if (needsSeparatorBeforeFunction) {
                 mergedLines = [
