@@ -36,7 +36,6 @@ export function normalizeWorkflowPathList(paths) {
  * @returns {{
  *   allowList: Array<string>,
  *   denyList: Array<string>,
- *   hasAllow: boolean,
  *   allowsPath: (candidate: string) => boolean,
  *   allowsDirectory: (candidate: string) => boolean
  * }}
@@ -53,8 +52,6 @@ export function createWorkflowPathFilter(filters = {}) {
 
     const allowList = normalizeWorkflowPathList(filters?.allowPaths);
     const denyList = normalizeWorkflowPathList(filters?.denyPaths);
-    const hasAllow = allowList.length > 0;
-
     const allows = (candidate, { treatAsDirectory = false } = {}) => {
         if (typeof candidate !== "string") {
             return false;
@@ -66,7 +63,7 @@ export function createWorkflowPathFilter(filters = {}) {
             return false;
         }
 
-        if (!hasAllow) {
+        if (allowList.length === 0) {
             return true;
         }
 
@@ -84,7 +81,6 @@ export function createWorkflowPathFilter(filters = {}) {
     return {
         allowList,
         denyList,
-        hasAllow,
         allowsPath,
         allowsDirectory
     };
