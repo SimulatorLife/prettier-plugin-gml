@@ -34,7 +34,10 @@ export {
     withDefinedValue,
     withObjectLike
 } from "@prettier-plugin-gml/shared/utils/object.js";
-export { isFiniteNumber } from "@prettier-plugin-gml/shared/utils/number.js";
+export {
+    isFiniteNumber,
+    toFiniteNumber
+} from "@prettier-plugin-gml/shared/utils/number.js";
 export {
     coerceNonNegativeInteger,
     coercePositiveInteger,
