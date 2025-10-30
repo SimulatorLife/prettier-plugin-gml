@@ -90,7 +90,24 @@ export function coercePositiveIntegerOption(
     defaultValue,
     { zeroReplacement } = {}
 ) {
-    const normalized = toNormalizedInteger(value);
+    let candidate = value;
+
+    if (typeof candidate === "string") {
+        const trimmed = candidate.trim();
+
+        if (trimmed === "") {
+            return defaultValue;
+        }
+
+        const parsed = Number(trimmed);
+        if (!Number.isFinite(parsed)) {
+            return defaultValue;
+        }
+
+        candidate = parsed;
+    }
+
+    const normalized = toNormalizedInteger(candidate);
 
     if (normalized === null) {
         return defaultValue;
@@ -100,7 +117,7 @@ export function coercePositiveIntegerOption(
         return normalized;
     }
 
-    if (zeroReplacement !== undefined) {
+    if (normalized === 0 && zeroReplacement !== undefined) {
         return zeroReplacement;
     }
 
