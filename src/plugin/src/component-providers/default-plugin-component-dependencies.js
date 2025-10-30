@@ -30,3 +30,5 @@ export function createDefaultGmlPluginComponentDependencies() {
 
 export const defaultGmlPluginComponentDependencies =
     createDefaultGmlPluginComponentDependencies();
+
+export { createDependencyBundle };
