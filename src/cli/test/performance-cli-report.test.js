@@ -183,7 +183,7 @@ describe("performance CLI report output", () => {
         try {
             const exitCode = await runPerformanceCommand({
                 command,
-                workflow: { allowPaths: [fixtureRoot] }
+                workflow: { allowPaths: [fixtureRoot, tempRoot] }
             });
             assert.equal(exitCode, 1);
         } finally {
@@ -215,5 +215,37 @@ describe("performance CLI report output", () => {
                 `Inspect ${expectedPath} for full details or re-run with --stdout human to print a readable summary.`
             ].join("\n")
         ]);
+    });
+
+    it("rejects report writes outside permitted workflow paths", async () => {
+        const tempRoot = await mkdtemp(
+            path.join(os.tmpdir(), "performance-cli-reject-")
+        );
+        disposals.push(tempRoot);
+
+        const reportFile = path.join(tempRoot, "report.json");
+
+        const command = {
+            opts: () => ({
+                suite: [PerformanceSuiteName.IDENTIFIER_TEXT],
+                iterations: 1,
+                fixtureRoot: [],
+                reportFile,
+                skipReport: false,
+                stdout: false,
+                format: "json",
+                pretty: false
+            }),
+            helpInformation: () => "usage"
+        };
+
+        await assert.rejects(
+            () =>
+                runPerformanceCommand({
+                    command,
+                    workflow: { denyPaths: [tempRoot] }
+                }),
+            /Artefact output path '.*' is not permitted by workflow path filters\./
+        );
     });
 });

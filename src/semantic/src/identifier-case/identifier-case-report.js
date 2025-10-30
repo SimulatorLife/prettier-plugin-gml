@@ -10,15 +10,16 @@ import path from "node:path";
 
 import { setIdentifierCaseOption } from "./option-store.js";
 import {
-    coalesceTrimmedString,
-    coalesceOption,
-    incrementMapValue,
-    isObjectLike,
-    withObjectLike,
     asArray,
+    compactArray,
+    coalesceOption,
+    coalesceTrimmedString,
+    incrementMapValue,
     isNonEmptyArray,
-    toArray
-} from "../shared/index.js";
+    isObjectLike,
+    toArray,
+    withObjectLike
+} from "./dependencies.js";
 import { warnWithReason } from "./logger.js";
 
 import { consumeIdentifierCaseDryRunContext } from "./identifier-case-context.js";
@@ -139,9 +140,9 @@ function normalizeOperation(rawOperation) {
                 operation.target
             );
 
-            const referenceCandidates = toArray(operation.references)
-                .map(normalizeReference)
-                .filter(Boolean);
+            const referenceCandidates = compactArray(
+                toArray(operation.references).map(normalizeReference)
+            );
             const references = [...referenceCandidates].sort((a, b) =>
                 a.filePath.localeCompare(b.filePath)
             );
@@ -185,9 +186,11 @@ function normalizeConflict(rawConflict) {
                 ? severityCandidate.toLowerCase()
                 : "error";
 
-            const suggestions = toArray(conflict.suggestions ?? conflict.hints)
-                .map((entry) => coalesceTrimmedString(entry))
-                .filter(Boolean);
+            const suggestions = compactArray(
+                toArray(conflict.suggestions ?? conflict.hints).map((entry) =>
+                    coalesceTrimmedString(entry)
+                )
+            );
 
             return {
                 code:
@@ -275,11 +278,11 @@ export function summarizeIdentifierCasePlan({
     conflicts = []
 } = {}) {
     const normalizedOperations = sortOperations(
-        extractOperations(renamePlan).map(normalizeOperation).filter(Boolean)
+        compactArray(extractOperations(renamePlan).map(normalizeOperation))
     );
 
     const normalizedConflicts = sortConflicts(
-        toArray(conflicts).map(normalizeConflict).filter(Boolean)
+        compactArray(toArray(conflicts).map(normalizeConflict))
     );
 
     const renameSummaries = normalizedOperations.map(buildRenameSummary);

@@ -2,11 +2,11 @@ import path from "node:path";
 
 import { formatIdentifierCase } from "./identifier-case-utils.js";
 import {
-    isNonEmptyString,
-    toNormalizedLowerCaseString,
+    getOrCreateMapEntry,
     isNonEmptyArray,
-    getOrCreateMapEntry
-} from "../shared/index.js";
+    isNonEmptyString,
+    toNormalizedLowerCaseString
+} from "./dependencies.js";
 import { loadReservedIdentifierNames } from "../resources/reserved-identifiers.js";
 import {
     COLLISION_CONFLICT_CODE,

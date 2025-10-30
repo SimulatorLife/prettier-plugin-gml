@@ -1,4 +1,4 @@
-import { getErrorMessage } from "../shared/index.js";
+import { getErrorMessage } from "./dependencies.js";
 
 const DEFAULT_WARNING_FALLBACK = "Unknown error";
 

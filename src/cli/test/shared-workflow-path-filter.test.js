@@ -33,6 +33,16 @@ describe("workflow path filter helpers", () => {
         });
     });
 
+    it("allows any path when no allow list is provided", () => {
+        const workspace = path.resolve("/tmp", "workflow-path-filter", "open");
+        const filter = createWorkflowPathFilter();
+
+        assert.equal(filter.allowList.length, 0);
+        assert.equal(filter.denyList.length, 0);
+        assert.ok(filter.allowsDirectory(workspace));
+        assert.ok(filter.allowsPath(path.join(workspace, "file.json")));
+    });
+
     it("rejects directories outside the workflow filters", () => {
         const root = path.resolve("/tmp", "workflow-path-filter", "root");
         const allowed = path.join(root, "allowed");

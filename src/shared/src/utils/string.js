@@ -340,68 +340,56 @@ export function createListSplitPattern(
     separators,
     { includeWhitespace = false } = {}
 ) {
-    const seen = new Set();
     /** @type {Array<{ pattern: string, length: number, order: number }>} */
-    const patternEntries = [];
+    const entries = [];
+    const seenPatterns = new Set();
 
-    const candidateIterable =
-        typeof separators === "string"
-            ? [separators]
-            : separators != null &&
-                typeof separators[Symbol.iterator] === "function"
-              ? separators
-              : [];
-
-    // Iterating the original iterable keeps this hot path allocation-free when
-    // callers pass arrays or Sets. Previous logic cloned iterables via
-    // `toArrayFromIterable`, which showed up in micro-benchmarks that hammer
-    // CLI option normalization where this helper is invoked repeatedly.
-
-    let order = 0;
-    for (const candidate of candidateIterable) {
-        if (typeof candidate !== "string" || candidate.length === 0) {
-            continue;
+    const register = (pattern, length) => {
+        if (seenPatterns.has(pattern)) {
+            return;
         }
 
-        if (seen.has(candidate)) {
-            continue;
+        seenPatterns.add(pattern);
+        entries.push({ pattern, length, order: entries.length });
+    };
+
+    const registerSeparator = (value) => {
+        if (typeof value !== "string" || value.length === 0) {
+            return;
         }
 
-        seen.add(candidate);
-        patternEntries.push({
-            pattern: escapeRegExp(candidate),
-            length: candidate.length,
-            order
-        });
-        order += 1;
+        register(escapeRegExp(value), value.length);
+    };
+
+    // Iterate the provided iterable directly so callers that pass arrays or
+    // Sets avoid unnecessary cloning on this hot path.
+    if (typeof separators === "string") {
+        registerSeparator(separators);
+    } else if (separators != null) {
+        const iterator = separators[Symbol.iterator];
+        if (typeof iterator === "function") {
+            for (const candidate of separators) {
+                registerSeparator(candidate);
+            }
+        }
     }
 
     if (includeWhitespace) {
-        patternEntries.push({
-            pattern: String.raw`\s`,
-            length: 1,
-            order
-        });
-        order += 1;
+        register(String.raw`\s`, 1);
     }
 
-    if (patternEntries.length === 0) {
+    if (entries.length === 0) {
         throw new TypeError(
             "createListSplitPattern requires at least one separator or includeWhitespace=true."
         );
     }
 
-    patternEntries.sort((a, b) => {
-        if (a.length === b.length) {
-            return a.order - b.order;
-        }
-
-        return b.length - a.length;
+    entries.sort((a, b) => {
+        const lengthDifference = b.length - a.length;
+        return lengthDifference === 0 ? a.order - b.order : lengthDifference;
     });
 
-    const patternSource = patternEntries
-        .map((entry) => entry.pattern)
-        .join("|");
+    const patternSource = entries.map((entry) => entry.pattern).join("|");
 
     return new RegExp(`(?:${patternSource})+`);
 }

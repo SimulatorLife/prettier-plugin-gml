@@ -56,31 +56,152 @@ const MANUAL_GITHUB_REQUEST_ERROR_CAPABILITY = Symbol.for(
     "prettier-plugin-gml.manual-github-request-error"
 );
 
-function hasManualGitHubRequestErrorContract(value) {
+function normalizeOptionalTrimmedString(value) {
+    if (value == null) {
+        return { ok: true, value: undefined };
+    }
+
+    if (typeof value !== "string") {
+        return { ok: false };
+    }
+
+    const trimmed = value.trim();
+    return { ok: true, value: trimmed === "" ? undefined : trimmed };
+}
+
+function normalizeOptionalFiniteNumber(value) {
+    if (value == null) {
+        return { ok: true, value: undefined };
+    }
+
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+        return { ok: false };
+    }
+
+    return { ok: true, value: numeric };
+}
+
+function normalizeOptionalString(value) {
+    if (value == null) {
+        return { ok: true, value: undefined };
+    }
+
+    if (typeof value !== "string") {
+        return { ok: false };
+    }
+
+    return { ok: true, value };
+}
+
+function getManualGitHubRequestErrorContract(value) {
     if (!isErrorLike(value)) {
-        return false;
+        return null;
     }
 
-    if (value.name !== "ManualGitHubRequestError") {
-        return false;
+    const urlResult = normalizeOptionalTrimmedString(value.url);
+    if (!urlResult.ok) {
+        return null;
     }
 
-    if (value.url !== undefined && typeof value.url !== "string") {
-        return false;
+    const statusResult = normalizeOptionalFiniteNumber(value.status);
+    if (!statusResult.ok) {
+        return null;
     }
 
-    if (value.status !== undefined && typeof value.status !== "number") {
-        return false;
+    const statusTextResult = normalizeOptionalTrimmedString(value.statusText);
+    if (!statusTextResult.ok) {
+        return null;
+    }
+
+    const responseBodyResult = normalizeOptionalString(value.responseBody);
+    if (!responseBodyResult.ok) {
+        return null;
     }
 
     if (
-        value.statusText !== undefined &&
-        typeof value.statusText !== "string"
+        urlResult.value === undefined &&
+        statusResult.value === undefined &&
+        statusTextResult.value === undefined &&
+        responseBodyResult.value === undefined
     ) {
+        return null;
+    }
+
+    const contract = {
+        message: getErrorMessageOrFallback(value),
+        url: urlResult.value,
+        status: statusResult.value,
+        statusText: statusTextResult.value,
+        responseBody: responseBodyResult.value
+    };
+
+    if (value.cause !== undefined) {
+        contract.cause = value.cause;
+    }
+
+    return contract;
+}
+
+function tryInstallManualGitHubRequestErrorCapability(value, contract) {
+    if (!value || (typeof value !== "object" && typeof value !== "function")) {
         return false;
     }
 
+    try {
+        Object.defineProperty(value, MANUAL_GITHUB_REQUEST_ERROR_CAPABILITY, {
+            value: true,
+            enumerable: false,
+            configurable: true
+        });
+    } catch {
+        return false;
+    }
+
+    if (contract.url !== undefined) {
+        value.url = contract.url;
+    }
+
+    if (contract.status !== undefined) {
+        value.status = contract.status;
+    }
+
+    if (contract.statusText !== undefined) {
+        value.statusText = contract.statusText;
+    }
+
+    if (contract.responseBody !== undefined) {
+        value.responseBody = contract.responseBody;
+    }
+
+    if (contract.cause !== undefined && value.cause === undefined) {
+        value.cause = contract.cause;
+    }
+
     return true;
+}
+
+function normalizeManualGitHubRequestError(value) {
+    if (value?.[MANUAL_GITHUB_REQUEST_ERROR_CAPABILITY]) {
+        return value;
+    }
+
+    const contract = getManualGitHubRequestErrorContract(value);
+    if (!contract) {
+        return null;
+    }
+
+    if (tryInstallManualGitHubRequestErrorCapability(value, contract)) {
+        return value;
+    }
+
+    const { message, cause, ...details } = contract;
+    const normalizedCause = cause === undefined ? value : cause;
+
+    return new ManualGitHubRequestError(message, {
+        ...details,
+        cause: normalizedCause
+    });
 }
 
 function isManualGitHubRequestError(value) {
@@ -88,7 +209,7 @@ function isManualGitHubRequestError(value) {
         return true;
     }
 
-    return hasManualGitHubRequestErrorContract(value);
+    return getManualGitHubRequestErrorContract(value) !== null;
 }
 
 class ManualGitHubRequestError extends Error {
@@ -728,8 +849,9 @@ function createManualGitHubRequestDispatcher({ userAgent } = {}) {
                 throw error;
             }
 
-            if (isManualGitHubRequestError(error)) {
-                throw error;
+            const manualError = normalizeManualGitHubRequestError(error);
+            if (manualError) {
+                throw manualError;
             }
 
             throw createManualGitHubRequestError({ url, cause: error });

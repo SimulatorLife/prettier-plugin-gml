@@ -339,7 +339,14 @@ function applyDocCommentUpdates(commentGroups, docUpdates) {
 
 /**
  * Determine whether a queued doc comment update warrants any further
- * processing. Filters out noop updates so the orchestrator can remain declarative.
+ * processing. The traversal stage records update candidates for every function
+ * it sees—even the ones that already expose author-written `@description`
+ * blocks or lack synthesizable return expressions. The orchestration phase that
+ * consumes this map assumes each entry represents a real mutation and applies
+ * them blindly so the manager can stay declarative. Screening out these noop
+ * shapes here prevents the writer from repeatedly touching already-satisfied
+ * comments with empty scaffolding, which would otherwise thrash the formatter
+ * diff on every run and risk overwriting author intent with placeholder text.
  */
 function isDocCommentUpdateEligible(update) {
     return (
