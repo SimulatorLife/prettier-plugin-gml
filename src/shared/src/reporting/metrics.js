@@ -154,6 +154,19 @@ function toPlainObject(map) {
     return Object.fromEntries(map);
 }
 
+function sumMapValues(map) {
+    let total = 0;
+
+    for (const value of map.values()) {
+        const numeric = Number(value);
+        if (Number.isFinite(numeric)) {
+            total += numeric;
+        }
+    }
+
+    return total;
+}
+
 function createMapIncrementer(store) {
     return (label, amount = 1) => {
         const normalized = normalizeLabel(label);
@@ -263,7 +276,6 @@ export function createMetricsTracker({
     autoLog = false,
     cacheKeys: cacheKeyOption
 } = {}) {
-    const startTime = nowMs();
     const timings = new Map();
     const counters = new Map();
     const caches = new Map();
@@ -275,7 +287,7 @@ export function createMetricsTracker({
     const snapshot = (extra = {}) => {
         const summary = {
             category,
-            totalTimeMs: nowMs() - startTime,
+            totalTimeMs: sumMapValues(timings),
             timings: toPlainObject(timings),
             counters: toPlainObject(counters),
             caches: Object.fromEntries(
