@@ -60,7 +60,7 @@ function convert_trig(angleDeg, ratioY, ratioX) {
 }
 
 // Test that we can simplify expressions
-var s = size * 0.104;
+var s = size * 0.052 * (1 - lengthdir_x(1, swim_rot));
 
 // 1) Cancelable ratio inside a product
 var s1 = speed * 0.5;

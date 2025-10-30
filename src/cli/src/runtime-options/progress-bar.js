@@ -1,4 +1,7 @@
-import { coercePositiveInteger } from "../shared/dependencies.js";
+import {
+    coercePositiveInteger,
+    isFiniteNumber
+} from "../shared/dependencies.js";
 import { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
@@ -58,19 +61,11 @@ class TerminalProgressBar {
     }
 
     #normalizeCurrent(value) {
-        if (!Number.isFinite(value)) {
+        if (!isFiniteNumber(value)) {
             return 0;
         }
 
-        if (value < 0) {
-            return 0;
-        }
-
-        if (value > this.total) {
-            return this.total;
-        }
-
-        return value;
+        return Math.min(Math.max(0, value), this.total);
     }
 
     #render() {
@@ -142,10 +137,6 @@ const {
 
 applyProgressBarWidthEnvOverride();
 
-function createDefaultProgressBar(label, width, options = {}) {
-    return new TerminalProgressBar(label, width, options);
-}
-
 function disposeProgressBars() {
     for (const [, bar] of activeProgressBars) {
         try {
@@ -189,8 +180,7 @@ function stopAndRemoveProgressBar(label, { suppressErrors = false } = {}) {
 }
 
 function renderProgressBar(label, current, total, width, options = {}) {
-    const { stdout = process.stdout, createBar = createDefaultProgressBar } =
-        options;
+    const { stdout = process.stdout, createBar } = options;
 
     if (!shouldRenderProgressBar(stdout, width)) {
         stopAndRemoveProgressBar(label, { suppressErrors: true });
@@ -208,7 +198,15 @@ function renderProgressBar(label, current, total, width, options = {}) {
     } else {
         const stream =
             stdout && typeof stdout.write === "function" ? stdout : undefined;
-        bar = createBar(label, width, { stream });
+
+        if (createBar === undefined) {
+            bar = new TerminalProgressBar(label, width, { stream });
+        } else if (typeof createBar === "function") {
+            bar = createBar(label, width, { stream });
+        } else {
+            throw new TypeError("createBar must be a function when provided.");
+        }
+
         activeProgressBars.set(label, bar);
         bar.start(normalizedTotal, normalizedCurrent);
     }

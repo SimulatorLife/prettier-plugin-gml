@@ -56,6 +56,22 @@ test("collectFormatCommandOptions normalizes string extension lists", () => {
     assert.deepStrictEqual(result.extensions, [".yy"]);
 });
 
+test("collectFormatCommandOptions splits delimited extension strings", () => {
+    const command = {
+        args: [],
+        opts() {
+            return { extensions: ".gml,.yy" };
+        },
+        helpInformation() {
+            return "usage";
+        }
+    };
+
+    const result = collectFormatCommandOptions(command, DEFAULTS);
+
+    assert.deepStrictEqual(result.extensions, [".gml", ".yy"]);
+});
+
 test("collectFormatCommandOptions derives target path from --path option", () => {
     const command = {
         args: ["ignored"],

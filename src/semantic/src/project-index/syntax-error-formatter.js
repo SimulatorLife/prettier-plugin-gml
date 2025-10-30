@@ -97,7 +97,7 @@ function buildLocationSuffix(displayPath, lineNumber, columnNumber) {
         parts.push(displayPath);
     }
 
-    if (lineNumber != undefined) {
+    if (lineNumber !== undefined && lineNumber !== null) {
         const location =
             columnNumber == undefined
                 ? `line ${lineNumber}`

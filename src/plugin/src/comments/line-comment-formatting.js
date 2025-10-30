@@ -13,7 +13,7 @@ import {
 } from "@prettier-plugin-gml/shared/utils/string.js";
 import { hasOwn } from "@prettier-plugin-gml/shared/utils/object.js";
 import { isRegExpLike } from "@prettier-plugin-gml/shared/utils/capability-probes.js";
-import { createResolverController } from "@prettier-plugin-gml/shared/utils/resolver-controller.js";
+import { createResolverController } from "../shared/resolver-controller.js";
 import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
 
 function normalizeEntryPair(entry) {
@@ -106,7 +106,10 @@ const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION = Object.freeze({
     ])
 });
 
-const docCommentTypeNormalizationController = createResolverController({
+const {
+    resolution: docCommentTypeNormalizationResolution,
+    registry: docCommentTypeNormalizationRegistry
+} = createResolverController({
     defaultFactory: () => createDocCommentTypeNormalization(),
     invoke(resolver, options) {
         return resolver({
@@ -120,6 +123,20 @@ const docCommentTypeNormalizationController = createResolverController({
     errorMessage:
         "Doc comment type normalization resolvers must be functions that return a normalization descriptor"
 });
+
+function normalizeDocCommentLookupKey(identifier) {
+    const trimmed = getNonEmptyTrimmedString(identifier);
+    if (!trimmed) {
+        return null;
+    }
+
+    const normalized = trimmed.toLowerCase();
+    if (normalized.length === 0) {
+        return null;
+    }
+
+    return normalized;
+}
 
 function createDocCommentTypeNormalization(candidate) {
     const synonyms = new Map();
@@ -140,31 +157,34 @@ function createDocCommentTypeNormalization(candidate) {
 
     if (candidate && typeof candidate === "object") {
         mergeNormalizationEntries(synonyms, candidate.synonyms);
-        mergeNormalizationEntries(canonicalSpecifierNames, candidate.canonicalSpecifierNames);
+        mergeNormalizationEntries(
+            canonicalSpecifierNames,
+            candidate.canonicalSpecifierNames
+        );
         mergeSpecifierPrefixes(specifierPrefixes, candidate.specifierPrefixes);
     }
 
     return Object.freeze({
         lookupTypeIdentifier(identifier) {
-            const normalized = getNonEmptyTrimmedString(identifier);
+            const normalized = normalizeDocCommentLookupKey(identifier);
             if (!normalized) {
                 return null;
             }
-            return synonyms.get(normalized.toLowerCase()) ?? null;
+            return synonyms.get(normalized) ?? null;
         },
         getCanonicalSpecifierName(identifier) {
-            const normalized = getNonEmptyTrimmedString(identifier);
+            const normalized = normalizeDocCommentLookupKey(identifier);
             if (!normalized) {
                 return null;
             }
-            return canonicalSpecifierNames.get(normalized.toLowerCase()) ?? null;
+            return canonicalSpecifierNames.get(normalized) ?? null;
         },
         hasSpecifierPrefix(identifier) {
-            const normalized = getNonEmptyTrimmedString(identifier);
+            const normalized = normalizeDocCommentLookupKey(identifier);
             if (!normalized) {
                 return false;
             }
-            return specifierPrefixes.has(normalized.toLowerCase());
+            return specifierPrefixes.has(normalized);
         }
     });
 }
@@ -176,12 +196,12 @@ function mergeNormalizationEntries(target, entries) {
 
     const iterable = getEntryIterable(entries);
     for (const [rawKey, rawValue] of iterable) {
-        const key = getNonEmptyTrimmedString(rawKey);
+        const key = normalizeDocCommentLookupKey(rawKey);
         const value = getNonEmptyTrimmedString(rawValue);
         if (!key || !value) {
             continue;
         }
-        target.set(key.toLowerCase(), value);
+        target.set(key, value);
     }
 }
 
@@ -191,11 +211,11 @@ function mergeSpecifierPrefixes(target, candidates) {
     }
 
     for (const candidate of toIterable(candidates)) {
-        const normalized = getNonEmptyTrimmedString(candidate);
+        const normalized = normalizeDocCommentLookupKey(candidate);
         if (!normalized) {
             continue;
         }
-        target.add(normalized.toLowerCase());
+        target.add(normalized);
     }
 }
 
@@ -277,15 +297,15 @@ function* toIterable(value) {
 }
 
 function resolveDocCommentTypeNormalization(options = {}) {
-    return docCommentTypeNormalizationController.resolve(options);
+    return docCommentTypeNormalizationResolution.resolve(options);
 }
 
 function setDocCommentTypeNormalizationResolver(resolver) {
-    return docCommentTypeNormalizationController.set(resolver);
+    return docCommentTypeNormalizationRegistry.set(resolver);
 }
 
 function restoreDefaultDocCommentTypeNormalizationResolver() {
-    return docCommentTypeNormalizationController.restore();
+    return docCommentTypeNormalizationRegistry.restore();
 }
 
 const FUNCTION_LIKE_DOC_TAG_PATTERN = /@(func(?:tion)?|method)\b/i;

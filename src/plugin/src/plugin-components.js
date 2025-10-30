@@ -126,19 +126,16 @@ export function addGmlPluginComponentObserver(observer, options = {}) {
 
     componentObservers.add(normalizedObserver);
 
-    let unsubscribed = false;
-    let abortHandler = null;
+    let abortHandler;
 
     const unsubscribe = () => {
-        if (unsubscribed) {
+        if (!componentObservers.delete(normalizedObserver)) {
             return;
         }
 
-        unsubscribed = true;
-        componentObservers.delete(normalizedObserver);
-
-        if (signal && abortHandler) {
+        if (abortHandler) {
             signal.removeEventListener("abort", abortHandler);
+            abortHandler = null;
         }
     };
 

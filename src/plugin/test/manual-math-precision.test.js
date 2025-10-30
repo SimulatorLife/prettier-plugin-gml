@@ -146,6 +146,258 @@ test("condenses chained scalar multipliers into a single coefficient", async () 
     );
 });
 
+test("simplifies division by a reciprocal denominator", async () => {
+    const source = [
+        "function convert_reciprocal(value, denom) {",
+        "    return value / (1 / denom);",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function convert_reciprocal",
+            "/// @param value",
+            "/// @param denom",
+            "function convert_reciprocal(value, denom) {",
+            "    return value * denom;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("preserves grouping when simplifying reciprocal denominators with composite factors", async () => {
+    const source = [
+        "function convert_grouped(value, a, b) {",
+        "    return value / (1 / (a + b));",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function convert_grouped",
+            "/// @param value",
+            "/// @param a",
+            "/// @param b",
+            "function convert_grouped(value, a, b) {",
+            "    return value * (a + b);",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("condenses subtraction-based scalar multipliers", async () => {
+    const source = [
+        "function convert_subtracted_scalar(len) {",
+        "    return len * (1 - 0.5);",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function convert_subtracted_scalar",
+            "/// @param len",
+            "function convert_subtracted_scalar(len) {",
+            "    return len * 0.5;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("simplifies negative reciprocal multiplication", async () => {
+    const source = [
+        "function convert_negative(dx) {",
+        "    var result = (dx / -2) * -1;",
+        "    return result;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function convert_negative",
+            "/// @param dx",
+            "function convert_negative(dx) {",
+            "    var result = dx * 0.5;",
+            "    return result;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("cancels reciprocal factors paired with their denominator", async () => {
+    const source = [
+        "function cancel_reciprocal(value_a, value_b) {",
+        "    var result = value_a * (1 / value_b) * value_b;",
+        "    return result;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function cancel_reciprocal",
+            "/// @param value_a",
+            "/// @param value_b",
+            "function cancel_reciprocal(value_a, value_b) {",
+            "    var result = value_a;",
+            "    return result;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("removes additive identity scalars with trailing comments", async () => {
+    const source = [
+        "function strip_additive_identity(value) {",
+        "    return value + 0; // original",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function strip_additive_identity",
+            "/// @param value",
+            "function strip_additive_identity(value) {",
+            "    return value;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("removes multiplicative zero factors inside additive chains", async () => {
+    const source = [
+        "function collapse_zero_factor(any_val, offset) {",
+        "    return any_val * 0 + offset;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function collapse_zero_factor",
+            "/// @param any_val",
+            "/// @param offset",
+            "function collapse_zero_factor(any_val, offset) {",
+            "    return offset;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("preserves blank line after removing simplified alias", async () => {
+    const source = [
+        "function preserve_spacing(x, y) {",
+        "    var s11 = y + 0;  // original",
+        "    var s11_simplified = y;  // simplified",
+        "",
+        "    // 12) Double then quarter",
+        "    return x * 2 / 4;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function preserve_spacing",
+            "/// @param x",
+            "/// @param y",
+            "function preserve_spacing(x, y) {",
+            "    var s11 = y;",
+            "",
+            "    // 12) Double then quarter",
+            "    return x * 0.5;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("condenses chained multipliers with composite operands", async () => {
+    const source = [
+        "function convert_frames(acc, dt) {",
+        "    return acc * dt / 1000 * 60;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function convert_frames",
+            "/// @param acc",
+            "/// @param dt",
+            "function convert_frames(acc, dt) {",
+            "    return acc * dt * 0.06;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
 test("collects shared scalar factors across addition", async () => {
     const source = [
         "function collect_constants(value) {",
@@ -166,6 +418,32 @@ test("collects shared scalar factors across addition", async () => {
             "/// @param value",
             "function collect_constants(value) {",
             "    return value * 0.5;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("reduces shared scalar additions that sum to one", async () => {
+    const source = [
+        "function normalize_amount(amount) {",
+        "    return amount * 0.4 + amount * 0.1 + amount * 0.5;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function normalize_amount",
+            "/// @param amount",
+            "function normalize_amount(amount) {",
+            "    return amount;",
             "}",
             ""
         ].join("\n")
@@ -199,6 +477,32 @@ test("condenses division by reciprocal scalar multipliers", async () => {
     );
 });
 
+test("condenses subtraction-only scalar factors", async () => {
+    const source = [
+        "function convert_subtraction(len) {",
+        "    return len * (1 - 0.5);",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function convert_subtraction",
+            "/// @param len",
+            "function convert_subtraction(len) {",
+            "    return len * 0.5;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
 test("condenses nested ratios that mix scalar and non-scalar factors", async () => {
     const source = [
         "function convert_percentage(hp, max_hp) {",
@@ -220,6 +524,87 @@ test("condenses nested ratios that mix scalar and non-scalar factors", async () 
             "/// @param max_hp",
             "function convert_percentage(hp, max_hp) {",
             "    return (hp / max_hp) * 10;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("cancels reciprocal ratio pairs before scalar condensation", async () => {
+    const source = [
+        "function cancel_reciprocal(a, b, c) {",
+        "    return a * (b / c) * (c / b);",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function cancel_reciprocal",
+            "/// @param a",
+            "/// @param b",
+            "/// @param c",
+            "function cancel_reciprocal(a, b, c) {",
+            "    return a;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("simplifies reciprocal products with unit numerators", async () => {
+    const source = [
+        "function cancel_unit_reciprocal(value_a, value_b) {",
+        "    return value_a * (1 / value_b) * value_b;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function cancel_unit_reciprocal",
+            "/// @param value_a",
+            "/// @param value_b",
+            "function cancel_unit_reciprocal(value_a, value_b) {",
+            "    return value_a;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("cancels numeric identity factors introduced by scalar condensation", async () => {
+    const source = [
+        "function simplify_scalars(m) {",
+        "    return (m / 5) * (10 * 0.5);",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function simplify_scalars",
+            "/// @param m",
+            "function simplify_scalars(m) {",
+            "    return m;",
             "}",
             ""
         ].join("\n")

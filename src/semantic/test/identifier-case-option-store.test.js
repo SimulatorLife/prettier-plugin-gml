@@ -194,7 +194,7 @@ test("deleteIdentifierCaseOption removes values from options and store", () => {
     clearIdentifierCaseOptionStore(null);
 });
 
-test("option store skips blacklisted keys", () => {
+test("option store skips blocklisted keys", () => {
     clearIdentifierCaseOptionStore(null);
 
     const options = buildOptions(0);

@@ -163,8 +163,34 @@ export function isArrayIndex(container, index) {
  * @returns {Array<T> | ReadonlyArray<T>}
  */
 export function uniqueArray(values, { freeze = false } = {}) {
-    const uniqueValues = Array.from(new Set(toArrayFromIterable(values)));
-    return freeze ? Object.freeze(uniqueValues) : uniqueValues;
+    const finalize = (array) => (freeze ? Object.freeze(array) : array);
+
+    if (values == null) {
+        return finalize([]);
+    }
+
+    const iterable =
+        Array.isArray(values) || typeof values[Symbol.iterator] === "function"
+            ? values
+            : null;
+
+    if (!iterable) {
+        return finalize([]);
+    }
+
+    const uniqueValues = [];
+    const seen = new Set();
+
+    for (const value of iterable) {
+        if (seen.has(value)) {
+            continue;
+        }
+
+        seen.add(value);
+        uniqueValues.push(value);
+    }
+
+    return finalize(uniqueValues);
 }
 
 /**
@@ -181,13 +207,7 @@ export function uniqueArray(values, { freeze = false } = {}) {
  * @returns {Array<T> | ReadonlyArray<T>}
  */
 export function compactArray(values, { freeze = false } = {}) {
-    const result = [];
-    for (const value of toArrayFromIterable(values)) {
-        if (value) {
-            result.push(value);
-        }
-    }
-
+    const result = toArrayFromIterable(values).filter(Boolean);
     return freeze ? Object.freeze(result) : result;
 }
 
@@ -240,32 +260,6 @@ export function pushUnique(array, value, { isEqual } = {}) {
 
     array.push(value);
     return true;
-}
-
-/**
- * Normalize the accumulator used by CLI option collectors so commands can
- * accept either a scalar flag (for example `--tag alpha`) or repeated
- * invocations (`--tag alpha --tag beta`). The helper mirrors Commander’s
- * accumulation semantics and is reused by multiple modules that surface
- * collection-style options.
- *
- * @template T
- * @param {T} value Value to append to the collection.
- * @param {Array<T> | T | undefined} collection Current accumulator provided by
- *        Commander (or similar collectors).
- * @returns {Array<T>} Array containing both prior entries and {@link value}.
- */
-export function appendToCollection(value, collection) {
-    if (collection === undefined) {
-        return [value];
-    }
-
-    if (Array.isArray(collection)) {
-        collection.push(value);
-        return collection;
-    }
-
-    return [collection, value];
 }
 
 /**
