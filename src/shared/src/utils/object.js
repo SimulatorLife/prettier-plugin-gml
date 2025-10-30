@@ -1,5 +1,5 @@
 import { toFiniteNumber } from "./number.js";
-import { isNonEmptyString } from "./string.js";
+import { formatWithIndefiniteArticle, isNonEmptyString } from "./string.js";
 
 /**
  * Determine whether a value is a plain object (non-null object without an
@@ -98,7 +98,92 @@ export function resolveHelperOverride(helpers, key, fallback) {
 }
 
 const objectPrototypeToString = Object.prototype.toString;
+const MISSING_METHOD_LIST_FORMATTER = new Intl.ListFormat("en", {
+    style: "long",
+    type: "conjunction"
+});
 const OBJECT_TAG_PATTERN = /^\[object ([^\]]+)\]$/;
+
+/**
+ * Describe {@link value} using terminology appropriate for error messages.
+ *
+ * This helper mirrors the branching previously duplicated across CLI modules
+ * when reporting unexpected configuration payloads. Consolidating the logic
+ * ensures objects, primitives, and special sentinels (like `null` or blank
+ * strings) yield consistent phrasing.
+ *
+ * @param {unknown} value Value being described.
+ * @param {{
+ *   emptyStringLabel?: string | null,
+ *   arrayLabel?: string,
+ *   objectLabel?: string,
+ *   formatTaggedObjectLabel?: (tagName: string) => string
+ * }} [options]
+ * @returns {string} Human-readable description of {@link value}.
+ */
+export function describeValueWithArticle(
+    value,
+    {
+        emptyStringLabel = null,
+        arrayLabel = "an array",
+        objectLabel = "an object",
+        formatTaggedObjectLabel = (tagName) =>
+            `${formatWithIndefiniteArticle(tagName)} object`
+    } = {}
+) {
+    if (value === null) {
+        return "null";
+    }
+
+    if (value === undefined) {
+        return "undefined";
+    }
+
+    if (Array.isArray(value)) {
+        return arrayLabel;
+    }
+
+    const type = typeof value;
+
+    if (type === "string") {
+        if (value.length === 0 && emptyStringLabel) {
+            return emptyStringLabel;
+        }
+
+        return formatWithIndefiniteArticle("string");
+    }
+
+    if (type === "boolean") {
+        return formatWithIndefiniteArticle("boolean");
+    }
+
+    if (type === "number") {
+        return formatWithIndefiniteArticle("number");
+    }
+
+    if (type === "bigint") {
+        return formatWithIndefiniteArticle("bigint");
+    }
+
+    if (type === "function") {
+        return formatWithIndefiniteArticle("function");
+    }
+
+    if (type === "symbol") {
+        return formatWithIndefiniteArticle("symbol");
+    }
+
+    if (type === "object") {
+        const tagName = getObjectTagName(value);
+        if (tagName) {
+            return formatTaggedObjectLabel(tagName);
+        }
+
+        return objectLabel;
+    }
+
+    return formatWithIndefiniteArticle(type);
+}
 
 /**
  * Determine whether the provided value is an object or function reference.
@@ -122,6 +207,61 @@ export function isObjectOrFunction(value) {
     }
 
     return type === "function";
+}
+
+/**
+ * Ensure {@link value} exposes callable properties matching the provided
+ * method names. Centralizes the defensive guard used across map-like helpers
+ * so modules can validate host-provided collections without rewriting the same
+ * `typeof` checks or error messaging.
+ *
+ * @template {Record<PropertyKey, unknown>} TObject
+ * @param {TObject | unknown} value Candidate object supplying the methods.
+ * @param {Array<PropertyKey> | PropertyKey} methodNames Method names expected
+ *        on {@link value}. Pass either a single property key or an array of
+ *        keys to validate multiple methods at once.
+ * @param {{ name?: string; errorMessage?: string }} [options]
+ * @returns {TObject}
+ */
+export function assertFunctionProperties(
+    value,
+    methodNames,
+    { name = "value", errorMessage } = {}
+) {
+    const requiredMethods = Array.isArray(methodNames)
+        ? methodNames
+        : methodNames == null
+          ? []
+          : [methodNames];
+
+    if (requiredMethods.length === 0) {
+        return /** @type {TObject} */ (value);
+    }
+
+    const target = /** @type {Record<PropertyKey, unknown> | undefined} */ (
+        isObjectOrFunction(value) ? value : undefined
+    );
+
+    const missingMethods = [];
+
+    for (const methodName of requiredMethods) {
+        if (typeof target?.[methodName] !== "function") {
+            missingMethods.push(String(methodName));
+        }
+    }
+
+    if (missingMethods.length > 0) {
+        if (errorMessage) {
+            throw new TypeError(errorMessage);
+        }
+
+        const formattedList =
+            MISSING_METHOD_LIST_FORMATTER.format(missingMethods);
+        const suffix = missingMethods.length > 1 ? "functions" : "function";
+        throw new TypeError(`${name} must provide ${formattedList} ${suffix}`);
+    }
+
+    return /** @type {TObject} */ (value);
 }
 
 /**
@@ -335,26 +475,24 @@ export function hasOwn(object, key) {
  * @returns {TValue} Existing or newly created entry.
  */
 export function getOrCreateMapEntry(store, key, initializer) {
-    if (
-        !store ||
-        typeof store.get !== "function" ||
-        typeof store.set !== "function"
-    ) {
-        throw new TypeError("store must provide get and set functions");
-    }
+    const mapStore = assertFunctionProperties(store, ["get", "set"], {
+        name: "store",
+        errorMessage: "store must provide get and set functions"
+    });
 
-    if (typeof store.has !== "function") {
-        throw new TypeError("store must provide a has function");
-    }
+    assertFunctionProperties(mapStore, ["has"], {
+        name: "store",
+        errorMessage: "store must provide a has function"
+    });
 
     assertFunction(initializer, "initializer");
 
-    if (store.has(key)) {
-        return store.get(key);
+    if (mapStore.has(key)) {
+        return mapStore.get(key);
     }
 
     const value = initializer(key);
-    store.set(key, value);
+    mapStore.set(key, value);
     return value;
 }
 
@@ -383,19 +521,16 @@ export function incrementMapValue(
     amount = 1,
     { fallback = 0 } = {}
 ) {
-    if (
-        !store ||
-        typeof store.get !== "function" ||
-        typeof store.set !== "function"
-    ) {
-        throw new TypeError("store must provide get and set functions");
-    }
+    const mapStore = assertFunctionProperties(store, ["get", "set"], {
+        name: "store",
+        errorMessage: "store must provide get and set functions"
+    });
 
     const delta = toFiniteNumber(amount) ?? 0;
     const base =
-        toFiniteNumber(store.get(key)) ?? toFiniteNumber(fallback) ?? 0;
+        toFiniteNumber(mapStore.get(key)) ?? toFiniteNumber(fallback) ?? 0;
 
     const next = base + delta;
-    store.set(key, next);
+    mapStore.set(key, next);
     return next;
 }

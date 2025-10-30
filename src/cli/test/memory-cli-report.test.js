@@ -5,10 +5,12 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+    DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT,
     DEFAULT_MEMORY_REPORT_DIR,
     MEMORY_REPORT_DIRECTORY_ENV_VAR,
     runMemoryCli,
     setDefaultMemoryReportDirectory,
+    setAstCommonNodeTypeLimit,
     MemorySuiteName
 } from "../src/modules/memory/index.js";
 
@@ -120,4 +122,43 @@ test("memory CLI resolves report directory from the environment", async (t) => {
 
     assert.equal(typeof reportRaw, "string");
     assert.ok(reportRaw.length > 0);
+});
+
+test("memory CLI respects the common node limit option", async (t) => {
+    const workspace = await mkdtemp(
+        path.join(os.tmpdir(), "memory-cli-report-limit-")
+    );
+    const reportDir = path.join(workspace, "reports-limit");
+
+    t.after(() => {
+        setDefaultMemoryReportDirectory(DEFAULT_MEMORY_REPORT_DIR);
+        setAstCommonNodeTypeLimit(DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT);
+    });
+
+    setDefaultMemoryReportDirectory(DEFAULT_MEMORY_REPORT_DIR);
+    setAstCommonNodeTypeLimit(DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT);
+
+    const exitCode = await runMemoryCli({
+        argv: [
+            "--suite",
+            MemorySuiteName.PARSER_AST,
+            "--iterations",
+            "1",
+            "--common-node-limit",
+            "1"
+        ],
+        env: {},
+        cwd: workspace,
+        reportDir
+    });
+
+    assert.equal(exitCode, 0);
+
+    const reportPath = path.join(reportDir, "memory.json");
+    const reportRaw = await readFile(reportPath, "utf8");
+    const payload = JSON.parse(reportRaw);
+
+    const parserSuite = payload.suites[MemorySuiteName.PARSER_AST];
+    assert.ok(Array.isArray(parserSuite.ast.commonNodeTypes));
+    assert.ok(parserSuite.ast.commonNodeTypes.length <= 1);
 });

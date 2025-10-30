@@ -11,11 +11,10 @@ import {
     gmlPluginComponentDependencies,
     getGmlPluginComponentDependencyProvider,
     resolveGmlPluginComponentDependencies,
-    resetGmlPluginComponentDependencyProvider,
     restoreDefaultGmlPluginComponentDependencies,
     setGmlPluginComponentDependencyProvider
 } from "../src/component-providers/gml-plugin-component-dependency-registry.js";
-import { createDefaultGmlPluginComponentDependencies } from "../src/component-providers/default-plugin-component-dependencies.js";
+import { defaultGmlPluginComponentDependencies } from "../src/component-providers/default-plugin-component-dependencies.js";
 import { createDefaultGmlPluginComponents } from "../src/component-providers/default-plugin-components.js";
 
 // The dependency registry manipulates global state, so disable parallel test
@@ -23,7 +22,7 @@ import { createDefaultGmlPluginComponents } from "../src/component-providers/def
 process.env.NODE_TEST_NO_PARALLEL = "1";
 
 function createCustomDependencyBundle() {
-    const defaults = createDefaultGmlPluginComponentDependencies();
+    const defaults = defaultGmlPluginComponentDependencies;
 
     const parseCalls = [];
     const printCalls = [];
@@ -160,7 +159,14 @@ test(
                     "custom comment handlers should be included in the normalized bundle"
                 );
             } finally {
-                restoreDefaultGmlPluginComponentDependencies();
+                const restoreResult =
+                    restoreDefaultGmlPluginComponentDependencies();
+
+                assert.strictEqual(
+                    restoreResult,
+                    gmlPluginComponentDependencies,
+                    "restoring defaults should return the canonical dependency bundle"
+                );
             }
         });
 
@@ -226,7 +232,14 @@ test(
                         remaining: 0
                     });
                 } finally {
-                    restoreDefaultGmlPluginComponentDependencies();
+                    const restoreResult =
+                        restoreDefaultGmlPluginComponentDependencies();
+
+                    assert.strictEqual(
+                        restoreResult,
+                        gmlPluginComponentDependencies,
+                        "restoring defaults should return the canonical dependency bundle"
+                    );
                 }
 
                 const restored = resolveGmlPluginComponentDependencies();
@@ -237,18 +250,5 @@ test(
                 );
             }
         );
-
-        await t.test("reset helper restores defaults", () => {
-            const bundle = createCustomDependencyBundle();
-
-            setGmlPluginComponentDependencyProvider(() => bundle.dependencies);
-            const resetResult = resetGmlPluginComponentDependencyProvider();
-
-            assert.strictEqual(
-                resetResult,
-                gmlPluginComponentDependencies,
-                "reset helper should restore the default dependency bundle"
-            );
-        });
     }
 );

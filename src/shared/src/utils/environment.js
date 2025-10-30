@@ -187,9 +187,9 @@ export function createEnvConfiguredValue({
  *        of {@link createEnvConfiguredValue} and simply returns the in-memory
  *        value.
  * @param {(raw: unknown, context: {
- *   defaultValue: TValue;
- *   previousValue: TValue;
- *   fallback: TValue;
+ *     defaultValue: TValue;
+ *     previousValue: TValue;
+ *     fallback: TValue;
  * }) => TValue | null | undefined} parameters.resolve Function that normalizes
  *        the raw value. Returning `null` or `undefined` triggers the fallback.
  * @param {(context: { defaultValue: TValue; previousValue: TValue }) => TValue}
@@ -197,9 +197,9 @@ export function createEnvConfiguredValue({
  *        fallback value. Defaults to using the previous value when available,
  *        otherwise the configured default.
  * @returns {{
- *   get(): TValue;
- *   set(value: unknown): TValue;
- *   applyEnvOverride(env?: NodeJS.ProcessEnv | null | undefined): TValue;
+ *     get(): TValue;
+ *     set(value: unknown): TValue;
+ *     applyEnvOverride(env?: NodeJS.ProcessEnv | null | undefined): TValue;
  * }}
  */
 export function createEnvConfiguredValueWithFallback({

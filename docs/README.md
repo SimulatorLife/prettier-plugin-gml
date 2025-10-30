@@ -24,8 +24,9 @@ sheet, then return here when you need deeper context.
   — Scripted configuration that warms the project-index cache and captures
   dry-run reports for review alongside a sample JSON payload.
 - [Quick start](../README.md#quick-start) — Installation flows for npm
-  consumers and nightly testers, plus wrapper scripts you can copy into your
-  GameMaker project.
+  consumers and nightly testers, including side-by-side snippets for the
+  published package versus the Git workspace drop, plus wrapper scripts you can
+  copy into your GameMaker project.
 - [Configuration reference](../README.md#configuration-reference) — Baseline
   Prettier options for `.gml` files, plus the identifier-case defaults surfaced
   by the plugin.
@@ -52,6 +53,14 @@ sheet, then return here when you need deeper context.
   — Adjust the boilerplate stripping and commented-code heuristics without
   forking the formatter. Normalization guards keep overrides safe even when
   hosts provide partial data.
+- [Doc comment type normalization hook](doc-comment-type-normalization-hook.md)
+  — Extend the doc-comment type synonym tables or resource prefixes without
+  patching the formatter’s defaults. Resolver helpers expose guardrails and a
+  restore helper when experiments end.
+- [Statement newline padding extension](statement-newline-padding-extension.md)
+  — Register additional AST node types that should inherit blank-line padding
+  around statements while keeping the opinionated defaults intact for other
+  consumers.
 - [Core option overrides hook](core-option-overrides-hook.md) — Swap or remove
   the hard-coded Prettier clamps (such as `trailingComma: "none"`) when a host
   needs different defaults, all while keeping the formatter opinionated by

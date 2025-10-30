@@ -4,6 +4,7 @@ import {
 } from "../comments/index.js";
 import {
     asArray,
+    getNodeType,
     isObjectLike,
     stripStringQuotes,
     unwrapParenthesizedExpression
@@ -292,11 +293,9 @@ function hasConcatenationAncestor(stack) {
 }
 
 function isSafeInterpolatedExpression(node) {
-    if (!node || typeof node !== "object") {
-        return false;
-    }
+    const nodeType = getNodeType(node);
 
-    switch (node.type) {
+    switch (nodeType) {
         case "Identifier":
         case "MemberDotExpression":
         case "MemberIndexExpression":

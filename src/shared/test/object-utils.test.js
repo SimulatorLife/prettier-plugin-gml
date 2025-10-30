@@ -4,6 +4,7 @@ import test from "node:test";
 import {
     assertPlainObject,
     coalesceOption,
+    describeValueWithArticle,
     getOrCreateMapEntry,
     incrementMapValue,
     isObjectLike,
@@ -194,6 +195,22 @@ test("getOrCreateMapEntry works with WeakMap instances", () => {
     const again = getOrCreateMapEntry(store, key, () => ({ hits: 1 }));
 
     assert.strictEqual(again, value);
+});
+
+test("describeValueWithArticle formats common value types", () => {
+    assert.strictEqual(describeValueWithArticle(null), "null");
+    assert.strictEqual(describeValueWithArticle(), "undefined");
+    assert.strictEqual(describeValueWithArticle([]), "an array");
+    assert.strictEqual(describeValueWithArticle("value"), "a string");
+    assert.strictEqual(describeValueWithArticle(Symbol("s")), "a symbol");
+    assert.strictEqual(describeValueWithArticle(new Map()), "a Map object");
+});
+
+test("describeValueWithArticle accepts custom empty string labels", () => {
+    assert.strictEqual(
+        describeValueWithArticle("", { emptyStringLabel: "an empty string" }),
+        "an empty string"
+    );
 });
 
 test("incrementMapValue initializes missing entries with fallback", () => {

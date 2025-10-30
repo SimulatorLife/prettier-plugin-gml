@@ -8,14 +8,16 @@ export {
     compactArray,
     coerceNonNegativeInteger,
     coercePositiveInteger,
+    Command,
     createAbortGuard,
     createEnvConfiguredValue,
     createEnvConfiguredValueWithFallback,
     createListSplitPattern,
     createVerboseDurationLogger,
-    escapeRegExp,
-    ensureMap,
+    describeValueWithArticle,
     ensureDir,
+    ensureMap,
+    escapeRegExp,
     formatDuration,
     getErrorCode,
     getErrorMessage,
@@ -27,6 +29,7 @@ export {
     hasOwn,
     identity,
     incrementMapValue,
+    InvalidArgumentError,
     isAggregateErrorLike,
     isErrorLike,
     isErrorWithCode,
@@ -44,6 +47,7 @@ export {
     normalizeEnumeratedOption,
     normalizeIdentifierMetadataEntries,
     normalizeStringList,
+    Option,
     parseJsonObjectWithContext,
     parseJsonWithContext,
     resolveContainedRelativePath,
@@ -54,19 +58,14 @@ export {
     stringifyJsonForFile,
     timeSync,
     toArray,
+    toArrayFromIterable,
     toMutableArray,
     toNormalizedInteger,
     toNormalizedLowerCaseSet,
     toNormalizedLowerCaseString,
     toPosixPath,
     toTrimmedString,
-    uniqueArray,
-    createCommanderCommand,
-    createCommanderInvalidArgumentError,
-    createCommanderOption,
-    getCommanderCommandConstructor,
-    getCommanderInvalidArgumentErrorConstructor,
-    getCommanderOptionConstructor
+    uniqueArray
 } from "../dependencies.js";
 
 export { resolveCommandUsage } from "../core/command-usage.js";
@@ -84,6 +83,7 @@ export {
     collectUniqueAncestorDirectories
 } from "./ancestor-directories.js";
 
-export { createEnumeratedOptionHelpers } from "./enumerated-option-helpers.js";
-
-export { loadGmlParser } from "./gml-parser.js";
+export {
+    createEnumeratedOptionHelpers,
+    createStringEnumeratedOptionHelpers
+} from "./enumerated-option-helpers.js";

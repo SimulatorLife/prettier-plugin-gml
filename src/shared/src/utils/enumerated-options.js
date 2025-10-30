@@ -1,3 +1,4 @@
+import { assertFunctionProperties } from "./object.js";
 import { isNonEmptyString, toNormalizedLowerCaseString } from "./string.js";
 
 /**
@@ -27,9 +28,10 @@ export function normalizeEnumeratedOption(
     validValues,
     { coerce = toNormalizedLowerCaseString } = {}
 ) {
-    if (!validValues || typeof validValues.has !== "function") {
-        throw new TypeError("validValues must provide a has function");
-    }
+    assertFunctionProperties(validValues, ["has"], {
+        name: "validValues",
+        errorMessage: "validValues must provide a has function"
+    });
 
     if (value === undefined || value === null) {
         return fallbackValue;

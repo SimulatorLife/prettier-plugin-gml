@@ -146,15 +146,15 @@ export function createIntegerOptionResolver(
         : null;
 
     return (rawValue, options = {}) => {
-        if (options == null || typeof options !== "object") {
-            return resolve(rawValue, {});
+        const normalizedOptions =
+            options && typeof options === "object" ? { ...options } : {};
+
+        if (alias && hasOwn(normalizedOptions, alias)) {
+            const aliasDefault = normalizedOptions[alias];
+            delete normalizedOptions[alias];
+            normalizedOptions.defaultValue = aliasDefault;
         }
 
-        if (!alias || !hasOwn(options, alias)) {
-            return resolve(rawValue, { ...options });
-        }
-
-        const { [alias]: aliasDefault, ...rest } = options;
-        return resolve(rawValue, { ...rest, defaultValue: aliasDefault });
+        return resolve(rawValue, normalizedOptions);
     };
 }

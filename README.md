@@ -174,7 +174,9 @@ for (var i = 0; i < queue_count; i += 1) {
   the live reloading pipeline.
 - Formatter extension hooks &mdash;
   [Object-wrap resolver](docs/object-wrap-option-resolver-hook.md),
-  [line-comment resolver](docs/line-comment-options-resolver-hook.md), and
+  [line-comment resolver](docs/line-comment-options-resolver-hook.md),
+  [doc comment type normalization hook](docs/doc-comment-type-normalization-hook.md),
+  [statement newline padding extension](docs/statement-newline-padding-extension.md), and
   [core option overrides resolver](docs/core-option-overrides-hook.md) seams that
   let integrators run controlled experiments without permanently widening the
   public option surface. Combine them with targeted
@@ -216,36 +218,17 @@ nvm alias default node
 ### 2. Install in a GameMaker project
 
 1. Change into the directory that contains your `.yyp` file.
-2. Pick the distribution that matches your workflow:
+2. Pick the distribution that matches your workflow and configure Prettier to
+   resolve the plugin consistently:
 
-   #### Option A — Published npm release
+   #### Option A — Published npm release (plugin only)
 
    ```bash
    npm install --save-dev prettier@^3 antlr4@^4.13.2 prettier-plugin-gamemaker@latest
    ```
 
-   The npm package ships only the Prettier plugin. Pair it with the
-   [local clone helpers](#3-use-a-local-clone) when you want the CLI wrapper or
-   metadata generators.
-
-   #### Option B — GitHub workspace / nightly build
-
-   ```bash
-   npm install --save-dev "prettier@^3" "antlr4@^4.13.2" \
-       github:SimulatorLife/prettier-plugin-gml#main
-   ```
-
-   Quote dependency specs in shells such as `zsh` so `^` is not treated as a
-   glob, and pin a tag or commit (`#vX.Y.Z`, `#<sha>`) when you need reproducible
-   CI builds. The Git dependency includes the CLI wrapper under
-   `node_modules/root/src/cli/src/cli.js`.
-
-   > Resolve `EBADENGINE` errors by upgrading Node.js to a supported release.
-
-3. Configure Prettier so editor integrations and CLI runs resolve the plugin the
-   same way.
-
-   _Installed from npm_
+   Add the plugin to your Prettier configuration so editor integrations and
+   `npx prettier` share the same parser wiring:
 
    ```json
    {
@@ -261,7 +244,32 @@ nvm alias default node
    }
    ```
 
-   _Installed from Git_
+   Create a convenience script when you want a single command to format a
+   project with the published package:
+
+   ```jsonc
+   {
+     "scripts": {
+       "format:gml": "prettier --plugin=prettier-plugin-gamemaker --write \"**/*.gml\""
+     }
+   }
+   ```
+
+   Run the script with `npm run format:gml -- --check` when you prefer dry-run
+   enforcement.
+
+   #### Option B — GitHub workspace / nightly build (includes CLI)
+
+   ```bash
+   npm install --save-dev "prettier@^3" "antlr4@^4.13.2" \
+       github:SimulatorLife/prettier-plugin-gml#main
+   ```
+
+   Quote dependency specs in shells such as `zsh` so `^` is not treated as a
+   glob. Pin a tag or commit (`#vX.Y.Z`, `#<sha>`) when you need reproducible CI
+   builds. The Git dependency ships the same packages as the workspace, so the
+   formatter entry point lives at `node_modules/root/src/plugin/src/gml.js` and
+   the CLI wrapper at `node_modules/root/src/cli/src/cli.js`.
 
    ```jsonc
    {
@@ -271,41 +279,40 @@ nvm alias default node
    }
    ```
 
-4. Standardise the commands your team runs:
+   Wire up a wrapper script so every teammate launches the bundled CLI the same
+   way:
 
-   - **Git installs** &mdash; Add a wrapper script so every teammate resolves the
-     formatter the same way.
-
-     ```jsonc
-     {
-       "scripts": {
-         "format:gml": "node ./node_modules/root/src/cli/src/cli.js"
-       }
+   ```jsonc
+   {
+     "scripts": {
+       "format:gml": "node ./node_modules/root/src/cli/src/cli.js"
      }
-     ```
+   }
+   ```
 
-     Pass arguments with `npm run format:gml -- <flags>` so wrapper improvements
-     propagate automatically. See
-     [CLI wrapper environment knobs](#cli-wrapper-environment-knobs) for
-     overrides such as `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` when CI builds the
-     plugin into a temporary directory.
+   Pass arguments with `npm run format:gml -- <flags>` so wrapper improvements
+   propagate automatically. See
+   [CLI wrapper environment knobs](#cli-wrapper-environment-knobs) for
+   overrides such as `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` when CI builds the
+   plugin into a temporary directory.
 
-   - **npm installs** &mdash; Call Prettier directly:
+   > Resolve `EBADENGINE` errors by upgrading Node.js to a supported release.
 
-     ```bash
-     npx prettier --plugin=prettier-plugin-gamemaker --write "**/*.gml"
-     ```
-
-5. Run the formatter. The wrapper defaults to the current working directory when
+3. Run the formatter. The wrapper defaults to the current working directory when
    no path is provided. Pass `--help` to confirm which plugin entry was
    resolved and which extensions will run.
 
    ```bash
+   # Using the wrapper script you defined above
    npm run format:gml
    npm run format:gml -- --check
    npm run format:gml -- --path . --extensions=.gml --extensions=.yy
-   npx prettier --plugin=prettier-plugin-gamemaker --check "**/*.gml"
+
+   # Direct access to the bundled CLI (Git installs)
    node ./node_modules/root/src/cli/src/cli.js --help
+
+   # Direct access to Prettier (npm installs)
+   npx prettier --plugin=prettier-plugin-gamemaker --check "**/*.gml"
    ```
 
 ### 3. Use a local clone
@@ -320,16 +327,18 @@ nvm alias default node
    ```
 
 2. Format any GameMaker project without adding dependencies to that project. The
-   CLI exposes a `format` command that accepts an explicit path and optional
-   extensions. Invoking the wrapper without a subcommand automatically runs
-   `format`, so `npm run cli` formats the current working directory by default:
+   repository exposes a dedicated `format:gml` script that targets the CLI's
+   `format` command and defaults to the current working directory when no
+   arguments are provided. Pass the project path explicitly when formatting
+   elsewhere:
 
    ```bash
-   npm run cli -- format "/absolute/path/to/MyGame" --extensions=.gml --extensions=.yy
+   npm run format:gml -- --path "/absolute/path/to/MyGame" --extensions=.gml --extensions=.yy
    ```
 
-   Use `--path "/absolute/path/to/MyGame"` when the target might be mistaken for
-   a command name or begins with a hyphen.
+   Provide `--path` when the target might be mistaken for a command name or
+   begins with a hyphen. Running `npm run format:gml` without extra arguments
+   formats the repository itself.
 
    The wrapper:
 
@@ -354,8 +363,8 @@ nvm alias default node
    - accepts either a positional path or the explicit `--path` option when you
      need to format outside the current working directory.
 
-   Explore additional helpers with `npm run cli -- --help`,
-   `npm run cli -- format --help`, or the dedicated
+   Explore additional helpers with `npm run format:gml -- --help`,
+   `npm run cli -- --help`, or the dedicated
    [CLI reference](#cli-wrapper-environment-knobs). Repeat `--extensions` to
    append more groups alongside the comma- or path-delimiter-separated form, or add `--extensions=.yy`
    when you also want to process metadata files.
@@ -606,7 +615,7 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 
 #### Core formatter behaviour
 
-Optional arguments without explicit defaults always render as `undefined` in formatted output.
+Optional parameters that rely on implicit `undefined` defaults are normalized: redundant `= undefined` sentinels are stripped from regular function declarations, while constructors and explicitly optional parameters keep the sentinel intact.
 
 Template strings that never interpolate expressions automatically collapse back to regular quoted strings, stripping the `$` prefix so placeholder-free text stays concise.
 

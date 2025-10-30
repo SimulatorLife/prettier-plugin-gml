@@ -46,6 +46,7 @@ export {
 export { createMetricsTracker } from "@prettier-plugin-gml/shared/reporting/metrics.js";
 export { noop } from "@prettier-plugin-gml/shared/utils/function.js";
 export {
+    describeValueForError,
     getNonEmptyString,
     getNonEmptyTrimmedString,
     isNonEmptyString,

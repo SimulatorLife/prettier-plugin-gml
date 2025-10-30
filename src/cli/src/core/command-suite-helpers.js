@@ -4,7 +4,7 @@ import { CliUsageError, createCliErrorDetails } from "./errors.js";
 // Pull shared helpers from the barrel so new call sites avoid the legacy
 // `array-utils` shim slated for removal.
 import {
-    createEnumeratedOptionHelpers,
+    createStringEnumeratedOptionHelpers,
     isNonEmptyArray,
     resolveCommandUsage,
     toMutableArray,
@@ -16,9 +16,10 @@ export const SuiteOutputFormat = Object.freeze({
     HUMAN: "human"
 });
 
-const suiteOutputFormatHelpers = createEnumeratedOptionHelpers(
+const suiteOutputFormatHelpers = createStringEnumeratedOptionHelpers(
     Object.values(SuiteOutputFormat),
     {
+        valueLabel: "Suite output format",
         formatErrorMessage: ({ list }) => `Format must be one of: ${list}.`
     }
 );

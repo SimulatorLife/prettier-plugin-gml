@@ -8,7 +8,7 @@ import { IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME } from "./options.
 import { getDefaultIdentifierCaseOptionStoreMaxEntries } from "./option-store-defaults.js";
 
 const optionStoreMap = new Map();
-const STORE_BLACKLIST = new Set([
+const STORE_BLOCKLIST = new Set([
     "__identifierCaseProjectIndex",
     "__identifierCaseRenameMap",
     "__identifierCasePlanSnapshot"
@@ -36,6 +36,19 @@ function trimOptionStoreMap(
     }
 }
 
+/**
+ * Resolve the maximum number of cached option-store entries that should be
+ * retained for the provided options bag. The identifier-case tooling allows an
+ * explicit `Infinity` override so long-running editors can opt out of cache
+ * eviction, but otherwise normalizes any user-supplied value to a non-negative
+ * integer so the trimming logic never sees `NaN`, negative values, or
+ * fractional counts.
+ *
+ * @param {unknown} options A consumer-supplied options object that may embed
+ * the option-store max-entries override.
+ * @returns {number} The normalized entry limit, defaulting to the shared
+ * baseline when the caller omits or misconfigures the override.
+ */
 function resolveMaxOptionStoreEntries(options) {
     if (!isObjectLike(options)) {
         return getDefaultIdentifierCaseOptionStoreMaxEntries();
@@ -102,7 +115,7 @@ function updateStore(options, key, value) {
         return;
     }
 
-    if (STORE_BLACKLIST.has(key)) {
+    if (STORE_BLOCKLIST.has(key)) {
         return;
     }
 

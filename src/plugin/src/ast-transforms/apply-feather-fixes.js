@@ -56,7 +56,7 @@ import {
     getFeatherDiagnosticById,
     getFeatherDiagnostics,
     getFeatherMetadata
-} from "gamemaker-language-semantic/resources/feather-metadata.js";
+} from "@prettier-plugin-gml/shared/resources/feather-metadata.js";
 import { loadReservedIdentifierNames } from "gamemaker-language-semantic/resources/reserved-identifiers.js";
 
 function walkAstNodes(root, visitor) {
@@ -154,7 +154,7 @@ const FILE_FIND_BLOCK_CALL_TARGETS = new Set(["file_find_next"]);
 const FILE_FIND_CLOSE_FUNCTION_NAME = "file_find_close";
 const READ_ONLY_BUILT_IN_VARIABLES = new Set(["working_directory"]);
 const FILE_ATTRIBUTE_IDENTIFIER_PATTERN = /^fa_[A-Za-z0-9_]+$/;
-const STRING_LENGTH_CALL_BLACKLIST = new Set([
+const STRING_LENGTH_CALL_BLOCKLIST = new Set([
     "string_byte_at",
     "string_byte_length",
     "string_height",
@@ -2447,7 +2447,7 @@ function isStringReturningExpression(node) {
             return true;
         }
 
-        if (STRING_LENGTH_CALL_BLACKLIST.has(calleeName)) {
+        if (STRING_LENGTH_CALL_BLOCKLIST.has(calleeName)) {
             return false;
         }
 

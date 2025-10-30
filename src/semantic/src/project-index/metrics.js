@@ -10,6 +10,7 @@ const REQUIRED_RECORDING_GROUPS = Object.freeze({
 
 const REQUIRED_REPORTING_GROUPS = Object.freeze({
     summary: ["snapshot", "finalize"],
+    caches: ["cachesSnapshot", "cacheSnapshot"],
     logger: ["logSummary"]
 });
 
@@ -103,6 +104,10 @@ const NOOP_METRIC_REPORTING_GROUPS = Object.freeze({
     summary: Object.freeze({
         snapshot: createMetricsSnapshot,
         finalize: createMetricsSnapshot
+    }),
+    caches: Object.freeze({
+        cachesSnapshot: () => ({}),
+        cacheSnapshot: () => {}
     }),
     logger: Object.freeze({
         logSummary: noop

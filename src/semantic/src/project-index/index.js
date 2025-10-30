@@ -99,6 +99,8 @@ export {
     setDefaultProjectIndexCacheMaxSize,
     applyProjectIndexCacheEnvOverride,
     ProjectIndexCacheMissReason,
+    ProjectIndexCacheStatus,
+    assertProjectIndexCacheStatus,
     loadProjectIndexCache,
     saveProjectIndexCache,
     deriveCacheKey
@@ -207,6 +209,33 @@ function recordIdentifierCollectionRole(
     } else if (validatedRole === IdentifierRole.REFERENCE) {
         entry.references?.push?.(clone);
     }
+}
+
+function ensureIdentifierEntryWithRole({
+    collection,
+    key,
+    identifierId,
+    initializer,
+    metadata,
+    identifierRecord,
+    filePath,
+    role
+}) {
+    const entry = ensureIdentifierCollectionEntry({
+        collection,
+        key,
+        identifierId,
+        initializer
+    });
+
+    if (!entry) {
+        return null;
+    }
+
+    assignIdentifierEntryMetadata(entry, metadata);
+    recordIdentifierCollectionRole(entry, identifierRecord, filePath, role);
+
+    return entry;
 }
 
 function assignIdentifierEntryMetadata(entry, metadata) {
@@ -751,23 +780,18 @@ function registerMacroOccurrence({
 
     const identifierId = buildIdentifierId("macro", identifierRecord.name);
 
-    const entry = ensureIdentifierCollectionEntry({
+    ensureIdentifierEntryWithRole({
         collection: identifierCollections.macros,
         key: identifierRecord.name,
         identifierId,
         initializer: () => ({
             name: identifierRecord.name
-        })
-    });
-
-    assignIdentifierEntryMetadata(entry, { identifierId });
-
-    recordIdentifierCollectionRole(
-        entry,
+        }),
+        metadata: { identifierId },
         identifierRecord,
         filePath,
-        validatedRole
-    );
+        role: validatedRole
+    });
 }
 
 function registerEnumOccurrence({
@@ -791,7 +815,10 @@ function registerEnumOccurrence({
 
     const enumInfo = enumLookup?.enumDeclarations?.get(enumKey) ?? null;
     const identifierId = buildIdentifierId("enum", enumKey);
-    const entry = ensureIdentifierCollectionEntry({
+    const enumName = enumInfo
+        ? (enumInfo.name ?? identifierRecord?.name ?? null)
+        : null;
+    ensureIdentifierEntryWithRole({
         collection: identifierCollections.enums,
         key: enumKey,
         identifierId,
@@ -799,23 +826,15 @@ function registerEnumOccurrence({
             key: enumKey,
             name: enumInfo?.name ?? identifierRecord?.name ?? null,
             filePath: enumInfo?.filePath ?? filePath ?? null
-        })
-    });
-
-    const enumName = enumInfo
-        ? (enumInfo.name ?? identifierRecord?.name ?? null)
-        : null;
-    assignIdentifierEntryMetadata(entry, {
-        identifierId,
-        name: enumName
-    });
-
-    recordIdentifierCollectionRole(
-        entry,
+        }),
+        metadata: {
+            identifierId,
+            name: enumName
+        },
         identifierRecord,
         filePath,
-        validatedRole
-    );
+        role: validatedRole
+    });
 }
 
 function registerEnumMemberOccurrence({
@@ -841,7 +860,10 @@ function registerEnumMemberOccurrence({
     const enumKey = memberInfo?.enumKey ?? null;
     const identifierId = buildIdentifierId("enum-member", memberKey);
 
-    const entry = ensureIdentifierCollectionEntry({
+    const enumName = memberInfo?.enumKey
+        ? (enumLookup?.enumDeclarations?.get(memberInfo.enumKey)?.name ?? null)
+        : null;
+    ensureIdentifierEntryWithRole({
         collection: identifierCollections.enumMembers,
         key: memberKey,
         identifierId,
@@ -854,23 +876,15 @@ function registerEnumMemberOccurrence({
                       ?.name ?? null)
                 : null,
             filePath: memberInfo?.filePath ?? filePath ?? null
-        })
-    });
-
-    const enumName = memberInfo?.enumKey
-        ? (enumLookup?.enumDeclarations?.get(memberInfo.enumKey)?.name ?? null)
-        : null;
-    assignIdentifierEntryMetadata(entry, {
-        identifierId,
-        enumName
-    });
-
-    recordIdentifierCollectionRole(
-        entry,
+        }),
+        metadata: {
+            identifierId,
+            enumName
+        },
         identifierRecord,
         filePath,
-        validatedRole
-    );
+        role: validatedRole
+    });
 }
 
 function registerGlobalOccurrence({
@@ -887,23 +901,18 @@ function registerGlobalOccurrence({
 
     const identifierId = buildIdentifierId("global", identifierRecord.name);
 
-    const entry = ensureIdentifierCollectionEntry({
+    ensureIdentifierEntryWithRole({
         collection: identifierCollections.globalVariables,
         key: identifierRecord.name,
         identifierId,
         initializer: () => ({
             name: identifierRecord.name
-        })
-    });
-
-    assignIdentifierEntryMetadata(entry, { identifierId });
-
-    recordIdentifierCollectionRole(
-        entry,
+        }),
+        metadata: { identifierId },
         identifierRecord,
         filePath,
-        validatedRole
-    );
+        role: validatedRole
+    });
 }
 
 function registerInstanceOccurrence({
@@ -921,7 +930,7 @@ function registerInstanceOccurrence({
 
     const key = `${scopeDescriptor?.id ?? "instance"}:${identifierRecord.name}`;
     const identifierId = buildIdentifierId("instance", key);
-    const entry = ensureIdentifierCollectionEntry({
+    ensureIdentifierEntryWithRole({
         collection: identifierCollections.instanceVariables,
         key,
         identifierId,
@@ -930,21 +939,16 @@ function registerInstanceOccurrence({
             name: identifierRecord.name,
             scopeId: scopeDescriptor?.id ?? null,
             scopeKind: scopeDescriptor?.kind ?? null
-        })
-    });
-
-    assignIdentifierEntryMetadata(entry, {
-        identifierId,
-        scopeId: scopeDescriptor?.id ?? null,
-        scopeKind: scopeDescriptor?.kind ?? null
-    });
-
-    recordIdentifierCollectionRole(
-        entry,
+        }),
+        metadata: {
+            identifierId,
+            scopeId: scopeDescriptor?.id ?? null,
+            scopeKind: scopeDescriptor?.kind ?? null
+        },
         identifierRecord,
         filePath,
-        validatedRole
-    );
+        role: validatedRole
+    });
 }
 
 function shouldTreatAsInstance({ identifierRecord, role, scopeDescriptor }) {
