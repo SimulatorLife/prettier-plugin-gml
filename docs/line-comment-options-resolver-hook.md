@@ -1,4 +1,4 @@
-# Line Comment Options Resolver Hook
+# Line comment options resolver hook
 
 ## Pre-change analysis
 - **Current behaviour:** `resolveLineCommentOptions` always returns the frozen `DEFAULT_LINE_COMMENT_OPTIONS` object that encodes the formatter's heuristics for stripping boilerplate banners and treating commented-out code specially. The resolver ignores both the Prettier option bag and any ad-hoc overrides, so downstream tooling cannot adjust those heuristics without forking the formatter.
