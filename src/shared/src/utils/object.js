@@ -1,5 +1,5 @@
 import { toFiniteNumber } from "./number.js";
-import { isNonEmptyString } from "./string.js";
+import { formatWithIndefiniteArticle, isNonEmptyString } from "./string.js";
 
 /**
  * Determine whether a value is a plain object (non-null object without an
@@ -103,40 +103,6 @@ const MISSING_METHOD_LIST_FORMATTER = new Intl.ListFormat("en", {
     type: "conjunction"
 });
 const OBJECT_TAG_PATTERN = /^\[object ([^\]]+)\]$/;
-const STARTS_WITH_VOWEL_PATTERN = /^[aeiou]/i;
-
-function normalizeIndefiniteArticle(label) {
-    if (typeof label !== "string") {
-        return null;
-    }
-
-    const normalized = label.trim();
-    if (normalized.length === 0) {
-        return null;
-    }
-
-    return `${STARTS_WITH_VOWEL_PATTERN.test(normalized) ? "an" : "a"} ${normalized}`;
-}
-
-/**
- * Prefix {@link label} with an appropriate indefinite article ("a" or "an").
- *
- * Keeps the grammar used by human-readable error messages consistent across the
- * CLI by centralizing the vowel detection heuristics. Callers receive the
- * normalized label even when it includes surrounding whitespace so existing
- * messages remain unchanged.
- *
- * @param {string} label Descriptive label to format.
- * @returns {string} {@link label} prefixed with "a" or "an" as appropriate.
- */
-export function formatWithIndefiniteArticle(label) {
-    const formatted = normalizeIndefiniteArticle(label);
-    if (formatted) {
-        return formatted;
-    }
-
-    return "a";
-}
 
 /**
  * Describe {@link value} using terminology appropriate for error messages.

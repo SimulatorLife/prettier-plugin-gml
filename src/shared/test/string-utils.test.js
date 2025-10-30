@@ -18,7 +18,8 @@ import {
     getNonEmptyString,
     stripStringQuotes,
     createListSplitPattern,
-    describeValueForError
+    describeValueForError,
+    formatWithIndefiniteArticle
 } from "../src/utils/string.js";
 
 test("toTrimmedString returns trimmed strings", () => {
@@ -174,6 +175,12 @@ test("describeValueForError formats primitives and structured values", () => {
     const circular = {};
     circular.self = circular;
     assert.strictEqual(describeValueForError(circular), "[object Object]");
+});
+
+test("formatWithIndefiniteArticle selects the correct article", () => {
+    assert.strictEqual(formatWithIndefiniteArticle("array"), "an array");
+    assert.strictEqual(formatWithIndefiniteArticle("string"), "a string");
+    assert.strictEqual(formatWithIndefiniteArticle(""), "a");
 });
 
 test("describeValueForError can skip JSON serialization for complex values", () => {
