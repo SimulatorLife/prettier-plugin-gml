@@ -47,7 +47,7 @@ import {
 import {
     createWorkflowPathFilter,
     ensureWorkflowPathsAllowed
-} from "../shared/fs/path-filter.js";
+} from "../shared/workflow/path-filter.js";
 
 const MANUAL_CONTEXT_OPTIONS = Object.freeze({
     importMetaUrl: import.meta.url,
