@@ -32,7 +32,8 @@ import {
 } from "../comments/comment-printer.js";
 import {
     formatLineComment,
-    normalizeDocCommentTypeAnnotations
+    normalizeDocCommentTypeAnnotations,
+    resolveDocCommentTypeNormalization
 } from "../comments/line-comment-formatting.js";
 import { normalizeOptionalParamToken } from "../comments/optional-param-normalization.js";
 import { resolveLineCommentOptions } from "../options/line-comment-options.js";
@@ -4405,6 +4406,12 @@ function mergeSyntheticDocComments(
         }
     }
 
+    const adoptionResult = adoptLeadingDocCommentText(mergedLines);
+    if (adoptionResult.changed) {
+        mergedLines = adoptionResult.lines;
+        removedAnyLine = true;
+    }
+
     const lastFunctionIndex = mergedLines.findLastIndex(isFunctionLine);
     let insertionIndex = lastFunctionIndex === -1 ? 0 : lastFunctionIndex + 1;
 
@@ -4958,6 +4965,26 @@ function mergeSyntheticDocComments(
             }
 
             index = lookahead - 1;
+
+            const hasEmphasisContinuation = blockLines
+                .slice(1)
+                .some((docLine) => {
+                    if (typeof docLine !== "string") {
+                        return false;
+                    }
+
+                    if (!docLine.trimStart().startsWith("///")) {
+                        return false;
+                    }
+
+                    const continuationText = docLine.slice(3).trimStart();
+                    return continuationText.startsWith("**");
+                });
+
+            if (hasEmphasisContinuation) {
+                wrappedDocs.push(...blockLines);
+                continue;
+            }
 
             const prefixMatch = line.match(/^(\/\/\/\s*@description\s+)/i);
             if (!prefixMatch) {
@@ -5544,6 +5571,228 @@ function updateParamLineWithDocName(line, newDocName) {
 
     const updatedRemainder = remainder.replace(/^[^\s]+/, newDocName);
     return `${prefix}${updatedRemainder}`;
+}
+
+function adoptLeadingDocCommentText(docLines) {
+    const normalizedDocLines = toMutableArray(docLines);
+
+    if (normalizedDocLines.length === 0) {
+        return { lines: normalizedDocLines, changed: false };
+    }
+
+    const firstMetadataIndex = normalizedDocLines.findIndex((line) => {
+        if (typeof line !== "string") {
+            return false;
+        }
+
+        return parseDocCommentMetadata(line) !== null;
+    });
+
+    if (firstMetadataIndex <= 0) {
+        return { lines: normalizedDocLines, changed: false };
+    }
+
+    const leadingLines = normalizedDocLines.slice(0, firstMetadataIndex);
+
+    if (
+        leadingLines.length === 0 ||
+        !leadingLines.every((line) => {
+            if (typeof line !== "string") {
+                return false;
+            }
+
+            const trimmed = line.trim();
+            return trimmed.length === 0 || trimmed.startsWith("///");
+        })
+    ) {
+        return { lines: normalizedDocLines, changed: false };
+    }
+
+    const existingDescriptionLine = normalizedDocLines.find(
+        (line) =>
+            typeof line === "string" &&
+            /^\/\/\/\s*@description\b/i.test(line.trim())
+    );
+    const hasExistingReturns = normalizedDocLines.some((line) => {
+        if (typeof line !== "string") {
+            return false;
+        }
+
+        const metadata = parseDocCommentMetadata(line);
+        return metadata?.tag === "returns";
+    });
+
+    const descriptionSegments = [];
+    const returnSegments = [];
+
+    for (const line of leadingLines) {
+        if (typeof line !== "string") {
+            return { lines: normalizedDocLines, changed: false };
+        }
+
+        const trimmed = line.trim();
+        if (trimmed.length === 0) {
+            continue;
+        }
+
+        if (!trimmed.startsWith("///")) {
+            return { lines: normalizedDocLines, changed: false };
+        }
+
+        const docText = trimmed.slice(3).trim();
+        if (docText.length === 0) {
+            continue;
+        }
+
+        const returnsMatch = docText.match(/^returns?\s*:\s*(.+)$/i);
+        if (returnsMatch) {
+            const remainder = returnsMatch[1]?.trim();
+            if (remainder && remainder.length > 0) {
+                returnSegments.push(remainder);
+            }
+            continue;
+        }
+
+        descriptionSegments.push(docText);
+    }
+
+    const leadingReplacementLines = [];
+    const trailingReturns = [];
+    if (!existingDescriptionLine && descriptionSegments.length > 0) {
+        const normalizedSegments = descriptionSegments
+            .map((segment) => segment.trim())
+            .filter((segment) => segment.length > 0);
+
+        if (normalizedSegments.length > 0) {
+            const [firstSegment, ...continuations] = normalizedSegments;
+            leadingReplacementLines.push(`/// @description ${firstSegment}`);
+
+            for (const continuation of continuations) {
+                leadingReplacementLines.push(
+                    `///              ${continuation}`
+                );
+            }
+        }
+    }
+
+    if (!hasExistingReturns && returnSegments.length > 0) {
+        const normalization = resolveDocCommentTypeNormalization();
+
+        for (const segment of returnSegments) {
+            const { type, description } = parseLegacyReturnSegment(
+                segment,
+                normalization
+            );
+
+            let returnsLine = "/// @returns";
+            if (type) {
+                returnsLine += ` {${type}}`;
+            }
+
+            if (description && description.length > 0) {
+                returnsLine += ` ${description}`;
+            }
+
+            trailingReturns.push(
+                normalizeDocCommentTypeAnnotations(returnsLine)
+            );
+        }
+    }
+
+    if (leadingReplacementLines.length === 0 && trailingReturns.length === 0) {
+        return { lines: normalizedDocLines, changed: false };
+    }
+
+    const updatedLines = [
+        ...leadingReplacementLines,
+        ...normalizedDocLines.slice(firstMetadataIndex),
+        ...trailingReturns
+    ];
+
+    return { lines: updatedLines, changed: true };
+}
+
+function parseLegacyReturnSegment(segment, normalization) {
+    if (typeof segment !== "string") {
+        return { type: null, description: "" };
+    }
+
+    let remainder = segment.trim();
+    if (remainder.length === 0) {
+        return { type: null, description: "" };
+    }
+
+    let type = null;
+    let description = remainder;
+
+    const punctuatedMatch = remainder.match(
+        /^([A-Za-z_][A-Za-z0-9_\s]*?)[,;:\-–—]\s*(.+)$/
+    );
+    if (punctuatedMatch) {
+        const candidateType = punctuatedMatch[1]?.trim();
+        const remainderDescription = punctuatedMatch[2]?.trim();
+
+        const normalizedType = normalizeDocCommentReturnType(
+            candidateType,
+            normalization
+        );
+
+        if (normalizedType) {
+            type = normalizedType;
+            description = remainderDescription ?? "";
+        }
+    }
+
+    if (!type) {
+        const firstWordMatch = remainder.match(
+            /^([A-Za-z_][A-Za-z0-9_]*)(?:\s+)(.+)$/
+        );
+
+        if (firstWordMatch) {
+            const candidateType = firstWordMatch[1]?.trim();
+            const normalizedType = normalizeDocCommentReturnType(
+                candidateType,
+                normalization
+            );
+
+            if (normalizedType) {
+                type = normalizedType;
+                description = firstWordMatch[2]?.trim() ?? "";
+            }
+        }
+    }
+
+    if (description && description.length > 0) {
+        const [firstChar, ...rest] = description;
+        description = `${firstChar.toUpperCase()}${rest.join("")}`;
+    }
+
+    return { type, description };
+}
+
+function normalizeDocCommentReturnType(type, normalization) {
+    if (!type || typeof type !== "string") {
+        return null;
+    }
+
+    const trimmed = type.trim();
+    if (trimmed.length === 0) {
+        return null;
+    }
+
+    const lookup = normalization.lookupTypeIdentifier(trimmed);
+    const candidate = (lookup ?? trimmed).trim();
+
+    if (candidate.length === 0) {
+        return null;
+    }
+
+    const lowered = candidate.toLowerCase();
+    if (lowered === "boolean") {
+        return "bool";
+    }
+
+    return candidate;
 }
 
 function computeSyntheticFunctionDocLines(
