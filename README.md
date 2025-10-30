@@ -173,7 +173,6 @@ for (var i = 0; i < queue_count; i += 1) {
   ANTLR-based transpiler, semantic analysis, and dependency tracking that feed
   the live reloading pipeline.
 - Formatter extension hooks &mdash;
-  [Object-wrap resolver](docs/object-wrap-option-resolver-hook.md),
   [line-comment resolver](docs/line-comment-options-resolver-hook.md),
   [doc comment type normalization hook](docs/doc-comment-type-normalization-hook.md),
   [statement newline padding extension](docs/statement-newline-padding-extension.md), and
@@ -660,8 +659,6 @@ var enemy = {name: "Slime", hp: 5};
 Bare decimal literals are always padded with leading and trailing zeroes to improve readability.
 
 Banner line comments are automatically detected when they contain five or more consecutive `/` characters. Once identified, the formatter rewrites the banner prefix to 60 slashes so mixed-width comment markers settle on a single, readable standard.
-
-Advanced integrations can temporarily override the struct wrapping heuristic via `setObjectWrapOptionResolver`; the [object-wrap option resolver hook](docs/object-wrap-option-resolver-hook.md) explains how to register an override and reset back to the default resolver after experiments complete.
 
 #### Identifier-case rollout
 
