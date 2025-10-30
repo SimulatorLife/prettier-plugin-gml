@@ -21,7 +21,8 @@ import { ensureWorkflowPathsAllowed } from "./fs/path-filter.js";
  *     contents: string,
  *     encoding: BufferEncoding
  *   }) => void,
- *   writeFile?: typeof writeFileAsync
+ *   writeFile?: typeof writeFileAsync,
+ *   pathFilter?: Parameters<typeof ensureWorkflowPathsAllowed>[0]
  * }} options
  * @returns {Promise<void>}
  */
@@ -34,7 +35,9 @@ export async function writeFileArtifact({
     pathFilter
 }) {
     if (!isNonEmptyString(outputPath)) {
-        throw new TypeError("outputPath must be provided to writeManualFile.");
+        throw new TypeError(
+            "outputPath must be provided to writeFileArtifact."
+        );
     }
 
     const directory = path.dirname(outputPath);
@@ -73,7 +76,8 @@ export async function writeFileArtifact({
  *   includeTrailingNewline?: boolean,
  *   onAfterWrite?: Parameters<typeof writeFileArtifact>[0]["onAfterWrite"],
  *   encoding?: BufferEncoding,
- *   writeFile?: typeof writeFileAsync
+ *   writeFile?: typeof writeFileAsync,
+ *   pathFilter?: Parameters<typeof ensureWorkflowPathsAllowed>[0]
  * }} options
  * @returns {Promise<void>}
  */
