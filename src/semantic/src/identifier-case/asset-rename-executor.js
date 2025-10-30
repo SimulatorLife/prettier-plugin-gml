@@ -1,16 +1,16 @@
 import path from "node:path";
 
 import {
+    fromPosixPath,
+    getErrorMessageOrFallback,
     getOrCreateMapEntry,
+    isFsErrorCode,
     isNonEmptyString,
-    trimStringEntries,
     isObjectLike,
     parseJsonWithContext,
     stringifyJsonForFile,
-    fromPosixPath,
-    isFsErrorCode,
-    getErrorMessageOrFallback
-} from "../shared/index.js";
+    trimStringEntries
+} from "./dependencies.js";
 import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
 import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
 

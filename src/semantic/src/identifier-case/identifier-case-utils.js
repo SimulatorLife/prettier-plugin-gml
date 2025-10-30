@@ -3,7 +3,7 @@ import {
     normalizeStringList,
     toArrayFromIterable,
     trimStringEntries
-} from "../shared/index.js";
+} from "./dependencies.js";
 
 const RESERVED_PREFIX_PATTERN =
     /^(?<prefix>(?:global|other|self|local|with|noone)\.|argument(?:_(?:local|relative))?(?:\[\d+\]|\d+)?\.?)/;

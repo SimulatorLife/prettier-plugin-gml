@@ -1,11 +1,11 @@
 import { constants as fsConstants } from "node:fs";
 
 import {
-    isNonEmptyArray,
     escapeRegExp,
-    isNonEmptyString,
-    incrementMapValue
-} from "../shared/index.js";
+    incrementMapValue,
+    isNonEmptyArray,
+    isNonEmptyString
+} from "./dependencies.js";
 
 export const COLLISION_CONFLICT_CODE = "collision";
 export const PRESERVE_CONFLICT_CODE = "preserve";
