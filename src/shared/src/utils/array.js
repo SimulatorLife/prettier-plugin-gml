@@ -169,28 +169,12 @@ export function uniqueArray(values, { freeze = false } = {}) {
         return finalize([]);
     }
 
-    const iterable =
-        Array.isArray(values) || typeof values[Symbol.iterator] === "function"
-            ? values
-            : null;
-
-    if (!iterable) {
+    const hasIterator = typeof values?.[Symbol.iterator] === "function";
+    if (!hasIterator) {
         return finalize([]);
     }
 
-    const uniqueValues = [];
-    const seen = new Set();
-
-    for (const value of iterable) {
-        if (seen.has(value)) {
-            continue;
-        }
-
-        seen.add(value);
-        uniqueValues.push(value);
-    }
-
-    return finalize(uniqueValues);
+    return finalize(Array.from(new Set(values)));
 }
 
 /**
