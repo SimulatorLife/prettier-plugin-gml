@@ -1544,9 +1544,8 @@ export function print(path, options, print) {
         }
         case "DefineStatement": {
             const directive =
-                typeof node.replacementDirective === "string"
-                    ? node.replacementDirective
-                    : "#macro";
+                getNormalizedDefineReplacementDirective(node) ??
+                DefineReplacementDirective.MACRO;
             const suffixDoc =
                 typeof node.replacementSuffix === "string"
                     ? node.replacementSuffix
