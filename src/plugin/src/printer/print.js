@@ -473,6 +473,8 @@ export function print(path, options, print) {
             }
 
             let leadingDocs = [hardline];
+            const suppressDocLeadingBlank =
+                node._gmlSuppressDocLeadingBlank === true;
 
             if (node._gmlForceInitialBlankLine) {
                 leadingDocs = [hardline, hardline];
@@ -501,9 +503,18 @@ export function print(path, options, print) {
                         firstStatementStartIndex
                     );
 
-                if (preserveForConstructor || preserveForLeadingComment) {
+                if (
+                    (preserveForConstructor || preserveForLeadingComment) &&
+                    !suppressDocLeadingBlank
+                ) {
                     leadingDocs.push(lineSuffixBoundary, hardline);
                 }
+            }
+
+            const bodyDoc = printStatements(path, options, print, "body");
+
+            if (suppressDocLeadingBlank) {
+                delete node._gmlSuppressDocLeadingBlank;
             }
 
             return concat([
@@ -513,10 +524,7 @@ export function print(path, options, print) {
                     options,
                     (comment) => comment.attachToBrace
                 ),
-                indent([
-                    ...leadingDocs,
-                    printStatements(path, options, print, "body")
-                ]),
+                indent([...leadingDocs, bodyDoc]),
                 hardline,
                 "}"
             ]);
@@ -2749,10 +2757,15 @@ function printStatements(path, options, print, childrenAttribute) {
             node?._featherSuppressFollowingEmptyLine === true ||
             node?._gmlSuppressFollowingEmptyLine === true;
 
+        const parentSuppressesDocLeadingBlank =
+            isFirstStatementInBlock &&
+            childPath.parent?._gmlSuppressDocLeadingBlank === true;
+
         if (
             isFirstStatementInBlock &&
             isStaticDeclaration &&
-            !syntheticDocComment
+            !syntheticDocComment &&
+            !parentSuppressesDocLeadingBlank
         ) {
             parts.push(hardline);
         }
@@ -4226,7 +4239,8 @@ function promoteLeadingDocCommentTextToDescription(docLines) {
 
         if (trimmedSuffix.length === 0) {
             if (index < firstContentIndex) {
-                const blankLine = suffix.length > 0 ? `${prefix}${suffix}` : prefix;
+                const blankLine =
+                    suffix.length > 0 ? `${prefix}${suffix}` : prefix;
                 promotedLines.push(blankLine);
             }
             continue;
@@ -5266,11 +5280,38 @@ function mergeSyntheticDocComments(
         return descriptionText.length > 0;
     });
 
-    if (result._suppressLeadingBlank) {
-        filteredResult._suppressLeadingBlank = true;
+    const sanitizedResult = filteredResult.filter((line) => {
+        if (typeof line !== "string") {
+            return true;
+        }
+
+        return line.trim() !== "///";
+    });
+
+    while (sanitizedResult.length > 0) {
+        const candidate = sanitizedResult[0];
+        if (typeof candidate !== "string") {
+            break;
+        }
+
+        if (candidate.trim().length > 0) {
+            break;
+        }
+
+        sanitizedResult.shift();
     }
 
-    return filteredResult;
+    if (result._suppressLeadingBlank) {
+        sanitizedResult._suppressLeadingBlank = true;
+    }
+
+    const removedBlankDocLines =
+        sanitizedResult.length !== filteredResult.length;
+    if (removedBlankDocLines && node?.body?.type === "BlockStatement") {
+        node.body._gmlSuppressDocLeadingBlank = true;
+    }
+
+    return sanitizedResult;
 }
 
 function getCanonicalParamNameFromText(name) {
