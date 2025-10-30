@@ -4209,6 +4209,8 @@ function promoteLeadingDocCommentTextToDescription(docLines) {
         }
 
         if (trimmedSuffix.length === 0) {
+            const blankLine = suffix.length > 0 ? `${prefix}${suffix}` : prefix;
+            promotedLines.push(blankLine);
             continue;
         }
 
@@ -4394,12 +4396,19 @@ function mergeSyntheticDocComments(
                 firstParamIndex === -1 ? mergedLines.length : firstParamIndex;
             const precedingLine =
                 insertionIndex > 0 ? mergedLines[insertionIndex - 1] : null;
+            const trimmedPreceding =
+                typeof precedingLine === "string" ? precedingLine.trim() : "";
+            const isDocCommentLine =
+                typeof trimmedPreceding === "string" &&
+                /^\/\/\//.test(trimmedPreceding);
+            const isDocTagLine =
+                isDocCommentLine && /^\/\/\/\s*@/i.test(trimmedPreceding);
 
             const needsSeparatorBeforeFunction =
+                trimmedPreceding !== "" &&
                 typeof precedingLine === "string" &&
-                precedingLine.trim() !== "" &&
                 !isFunctionLine(precedingLine) &&
-                !/^\/\/\//.test(precedingLine.trim());
+                (!isDocCommentLine || !isDocTagLine);
 
             if (needsSeparatorBeforeFunction) {
                 mergedLines = [

@@ -62,9 +62,50 @@ test("promotes leading doc comment text to description metadata", async () => {
         "Expected the first description line to match the leading doc text."
     );
 
+    const continuationIndex = lines.findIndex(
+        (line, index) =>
+            index > descriptionIndex &&
+            line.includes("Additional context lines")
+    );
+    assert.ok(
+        continuationIndex > descriptionIndex,
+        "Expected continuation lines to remain after the description block."
+    );
     assert.equal(
-        lines[descriptionIndex + 1],
+        lines[continuationIndex],
         "///              Additional context lines",
         "Expected subsequent doc comment text to remain as continuation lines."
+    );
+});
+
+test("keeps a blank separator before synthetic doc tags when leading text lacks metadata", async () => {
+    const source = [
+        "/// Describes function usage",
+        "/// Additional summary",
+        "function demo() {",
+        "    return 42;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.split("\n");
+
+    const summaryIndex = lines.findIndex((line) =>
+        line.includes("Additional summary")
+    );
+    assert.ok(summaryIndex !== -1, "Expected summary text to remain present.");
+    assert.equal(
+        lines[summaryIndex + 1],
+        "",
+        "Expected a blank line between the summary text and synthetic metadata."
+    );
+
+    const functionIndex = lines.findIndex((line) =>
+        line.includes("@function demo")
+    );
+    assert.ok(
+        functionIndex > summaryIndex,
+        "Expected synthetic metadata to follow the summary block."
     );
 });
