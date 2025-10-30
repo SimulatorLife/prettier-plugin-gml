@@ -10,15 +10,15 @@ import path from "node:path";
 
 import { setIdentifierCaseOption } from "./option-store.js";
 import {
-    coalesceTrimmedString,
-    coalesceOption,
-    incrementMapValue,
-    isObjectLike,
-    withObjectLike,
     asArray,
+    coalesceOption,
+    coalesceTrimmedString,
+    incrementMapValue,
     isNonEmptyArray,
-    toArray
-} from "../shared/index.js";
+    isObjectLike,
+    toArray,
+    withObjectLike
+} from "./dependencies.js";
 import { warnWithReason } from "./logger.js";
 
 import { consumeIdentifierCaseDryRunContext } from "./identifier-case-context.js";

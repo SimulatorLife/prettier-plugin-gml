@@ -1,9 +1,9 @@
 import {
-    isNonEmptyString,
     getOrCreateMapEntry,
-    isObjectLike,
-    isFiniteNumber
-} from "../shared/index.js";
+    isFiniteNumber,
+    isNonEmptyString,
+    isObjectLike
+} from "./dependencies.js";
 import { IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME } from "./options.js";
 import { getDefaultIdentifierCaseOptionStoreMaxEntries } from "./option-store-defaults.js";
 

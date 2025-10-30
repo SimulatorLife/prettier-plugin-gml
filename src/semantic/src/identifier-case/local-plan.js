@@ -3,16 +3,16 @@ import { peekIdentifierCaseDryRunContext } from "./identifier-case-context.js";
 import { buildRenameKey } from "./plan-state.js";
 import {
     asArray,
+    coalesceOption,
+    createMetricsTracker,
+    getIterableSize,
+    getNonEmptyString,
+    getOrCreateMapEntry,
     isNonEmptyArray,
     isNonEmptyString,
-    getNonEmptyString,
-    toNormalizedLowerCaseString,
     isObjectLike,
-    getOrCreateMapEntry,
-    getIterableSize,
-    createMetricsTracker,
-    coalesceOption
-} from "../shared/index.js";
+    toNormalizedLowerCaseString
+} from "./dependencies.js";
 import {
     normalizeIdentifierCaseOptions,
     IdentifierCaseStyle
