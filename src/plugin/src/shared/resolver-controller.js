@@ -5,11 +5,35 @@ import { assertFunction } from "@prettier-plugin-gml/shared/utils/object.js";
 // aside from importing its assertions from the shared object helpers.
 
 /**
+ * @template TOptions
+ * @template TResult
+ * @typedef {object} ResolverResolution
+ * @property {(options?: TOptions) => TResult} resolve
+ */
+
+/**
+ * @template TOptions
+ * @template TResult
+ * @typedef {object} ResolverRegistry
+ * @property {(candidate: unknown) => TResult} set
+ * @property {() => TResult} restore
+ */
+
+/**
+ * @template TOptions
+ * @template TResult
+ * @typedef {object} ResolverControls
+ * @property {ResolverResolution<TOptions, TResult>} resolution
+ * @property {ResolverRegistry<TOptions, TResult>} registry
+ */
+
+/**
  * Create a controller for managing optional resolver hooks that customize how
  * option maps or normalization behaviour are derived. The controller tracks the
- * active resolver, provides a canonical resolve function, and exposes helpers to
- * register or restore the resolver while keeping the surrounding modules
- * focused on their domain-specific logic.
+ * active resolver but now exposes narrow resolution and registry views so
+ * collaborators depend only on the helpers they consume. The resolution view
+ * focuses on producing the current value, while the registry view owns
+ * registration and reset concerns.
  *
  * @template TOptions
  * @template TResult
@@ -28,6 +52,7 @@ import { assertFunction } from "@prettier-plugin-gml/shared/utils/object.js";
  *         currentValue: TResult
  *     ) => TResult
  * }} config
+ * @returns {ResolverControls<TOptions, TResult>}
  */
 export function createResolverController({
     name = "resolver",
@@ -91,9 +116,8 @@ export function createResolverController({
         return resetToDefault();
     }
 
-    return {
-        resolve,
-        set,
-        restore
-    };
+    const resolution = Object.freeze({ resolve });
+    const registry = Object.freeze({ set, restore });
+
+    return Object.freeze({ resolution, registry });
 }
