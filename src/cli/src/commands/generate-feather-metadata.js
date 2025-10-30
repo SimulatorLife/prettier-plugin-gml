@@ -173,21 +173,19 @@ function normalizeMultilineText(text) {
         return null;
     }
 
-    const normalizedLines = [];
-    let previousHadContent = false;
-
-    for (const rawLine of text.split("\n")) {
+    const normalizedLines = text.split("\n").reduce((lines, rawLine) => {
         const line = rawLine.trim();
-        const hasContent = line.length > 0;
 
-        if (hasContent) {
-            normalizedLines.push(line);
-        } else if (previousHadContent) {
-            normalizedLines.push("");
+        if (line.length === 0) {
+            if (lines.length > 0 && lines.at(-1) !== "") {
+                lines.push("");
+            }
+        } else {
+            lines.push(line);
         }
 
-        previousHadContent = hasContent;
-    }
+        return lines;
+    }, /** @type {Array<string>} */ ([]));
 
     return normalizedLines.join("\n").trim();
 }

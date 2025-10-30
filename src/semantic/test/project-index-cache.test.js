@@ -9,6 +9,8 @@ import {
     saveProjectIndexCache,
     createProjectIndexCoordinator,
     ProjectIndexCacheMissReason,
+    ProjectIndexCacheStatus,
+    assertProjectIndexCacheStatus,
     PROJECT_INDEX_CACHE_DIRECTORY,
     PROJECT_INDEX_CACHE_FILENAME,
     PROJECT_INDEX_CACHE_SCHEMA_VERSION,
@@ -39,6 +41,25 @@ function createDeferred() {
     return { promise, resolve };
 }
 
+test("assertProjectIndexCacheStatus validates status strings", () => {
+    assert.equal(
+        assertProjectIndexCacheStatus(ProjectIndexCacheStatus.HIT),
+        ProjectIndexCacheStatus.HIT
+    );
+
+    assert.throws(
+        () => assertProjectIndexCacheStatus("invalid-status"),
+        (error) => {
+            assert.equal(error instanceof TypeError, true);
+            assert.match(
+                error.message,
+                /Project index cache status must be one of:/
+            );
+            return true;
+        }
+    );
+});
+
 async function withTempDir(run) {
     const tempRoot = await mkdtemp(path.join(os.tmpdir(), "gml-cache-"));
     try {
@@ -64,7 +85,7 @@ test("saveProjectIndexCache writes payload and loadProjectIndexCache returns hit
             projectIndex
         });
 
-        assert.equal(saveResult.status, "written");
+        assert.equal(saveResult.status, ProjectIndexCacheStatus.WRITTEN);
 
         const loadResult = await loadProjectIndexCache({
             projectRoot,
@@ -74,7 +95,7 @@ test("saveProjectIndexCache writes payload and loadProjectIndexCache returns hit
             sourceMtimes
         });
 
-        assert.equal(loadResult.status, "hit");
+        assert.equal(loadResult.status, ProjectIndexCacheStatus.HIT);
         assert.deepEqual(loadResult.projectIndex.metrics, metrics);
     });
 });
@@ -103,7 +124,7 @@ test("saveProjectIndexCache normalizes mtime maps to finite numbers", async () =
             projectIndex: createProjectIndex(projectRoot)
         });
 
-        assert.equal(saveResult.status, "written");
+        assert.equal(saveResult.status, ProjectIndexCacheStatus.WRITTEN);
 
         const loadResult = await loadProjectIndexCache({
             projectRoot,
@@ -111,7 +132,7 @@ test("saveProjectIndexCache normalizes mtime maps to finite numbers", async () =
             pluginVersion: "0.1.0"
         });
 
-        assert.equal(loadResult.status, "hit");
+        assert.equal(loadResult.status, ProjectIndexCacheStatus.HIT);
         assert.deepEqual(loadResult.payload.manifestMtimes, {
             "project.yyp": 101,
             "project-alt.yyp": 0
@@ -136,7 +157,7 @@ test("saveProjectIndexCache respects maxSizeBytes overrides", async () => {
             maxSizeBytes: 1
         });
 
-        assert.equal(saveResult.status, "skipped");
+        assert.equal(saveResult.status, ProjectIndexCacheStatus.SKIPPED);
         assert.equal(saveResult.reason, "payload-too-large");
         assert.ok(saveResult.size > 1);
     });
@@ -156,7 +177,7 @@ test("saveProjectIndexCache allows unlimited size when maxSizeBytes is 0", async
             maxSizeBytes: 0
         });
 
-        assert.equal(saveResult.status, "written");
+        assert.equal(saveResult.status, ProjectIndexCacheStatus.WRITTEN);
 
         const loadResult = await loadProjectIndexCache({
             projectRoot,
@@ -164,7 +185,7 @@ test("saveProjectIndexCache allows unlimited size when maxSizeBytes is 0", async
             pluginVersion: "0.1.0"
         });
 
-        assert.equal(loadResult.status, "hit");
+        assert.equal(loadResult.status, ProjectIndexCacheStatus.HIT);
         assert.deepEqual(loadResult.projectIndex, projectIndex);
     });
 });
@@ -191,7 +212,7 @@ test("loadProjectIndexCache reports version mismatches", async () => {
             sourceMtimes
         });
 
-        assert.equal(formatterMiss.status, "miss");
+        assert.equal(formatterMiss.status, ProjectIndexCacheStatus.MISS);
         assert.equal(
             formatterMiss.reason.type,
             ProjectIndexCacheMissReason.FORMATTER_VERSION_MISMATCH
@@ -205,7 +226,7 @@ test("loadProjectIndexCache reports version mismatches", async () => {
             sourceMtimes
         });
 
-        assert.equal(pluginMiss.status, "miss");
+        assert.equal(pluginMiss.status, ProjectIndexCacheStatus.MISS);
         assert.equal(
             pluginMiss.reason.type,
             ProjectIndexCacheMissReason.PLUGIN_VERSION_MISMATCH
@@ -232,7 +253,7 @@ test("loadProjectIndexCache reports mtime invalidations", async () => {
             sourceMtimes: { "scripts/main.gml": 200 }
         });
 
-        assert.equal(manifestMiss.status, "miss");
+        assert.equal(manifestMiss.status, ProjectIndexCacheStatus.MISS);
         assert.equal(
             manifestMiss.reason.type,
             ProjectIndexCacheMissReason.MANIFEST_MTIME_MISMATCH
@@ -246,7 +267,7 @@ test("loadProjectIndexCache reports mtime invalidations", async () => {
             sourceMtimes: { "scripts/main.gml": 250 }
         });
 
-        assert.equal(sourceMiss.status, "miss");
+        assert.equal(sourceMiss.status, ProjectIndexCacheStatus.MISS);
         assert.equal(
             sourceMiss.reason.type,
             ProjectIndexCacheMissReason.SOURCE_MTIME_MISMATCH
@@ -286,7 +307,7 @@ test("loadProjectIndexCache tolerates sub-millisecond mtime noise", async () => 
             }
         });
 
-        assert.equal(loadResult.status, "hit");
+        assert.equal(loadResult.status, ProjectIndexCacheStatus.HIT);
     });
 });
 
@@ -321,7 +342,7 @@ test("loadProjectIndexCache treats differently ordered mtime maps as equal", asy
             }
         });
 
-        assert.equal(loadResult.status, "hit");
+        assert.equal(loadResult.status, ProjectIndexCacheStatus.HIT);
     });
 });
 
@@ -341,7 +362,7 @@ test("loadProjectIndexCache handles corrupted cache payloads", async () => {
             sourceMtimes: { "scripts/main.gml": 200 }
         });
 
-        assert.equal(result.status, "miss");
+        assert.equal(result.status, ProjectIndexCacheStatus.MISS);
         assert.equal(
             result.reason.type,
             ProjectIndexCacheMissReason.INVALID_JSON
@@ -373,7 +394,7 @@ test("createProjectIndexCoordinator serialises builds for the same project", asy
             const payload = storedPayloads.get(key);
             if (!payload) {
                 return {
-                    status: "miss",
+                    status: ProjectIndexCacheStatus.MISS,
                     cacheFilePath,
                     reason: { type: ProjectIndexCacheMissReason.NOT_FOUND }
                 };
@@ -387,7 +408,7 @@ test("createProjectIndexCoordinator serialises builds for the same project", asy
             }
 
             return {
-                status: "hit",
+                status: ProjectIndexCacheStatus.HIT,
                 cacheFilePath,
                 payload,
                 projectIndex
@@ -405,7 +426,11 @@ test("createProjectIndexCoordinator serialises builds for the same project", asy
                 metricsSummary: descriptor.projectIndex.metrics ?? null,
                 projectIndex: { ...descriptor.projectIndex }
             });
-            return { status: "written", cacheFilePath, size: 10 };
+            return {
+                status: ProjectIndexCacheStatus.WRITTEN,
+                cacheFilePath,
+                size: 10
+            };
         },
         buildIndex: async (root) => {
             buildCount += 1;
@@ -438,7 +463,10 @@ test("createProjectIndexCoordinator serialises builds for the same project", asy
         assert.equal(buildCount, 1);
         assert.equal(first.source, "build");
         assert.strictEqual(first.projectIndex, second.projectIndex);
-        assert.equal(first.cache.saveResult.status, "written");
+        assert.equal(
+            first.cache.saveResult.status,
+            ProjectIndexCacheStatus.WRITTEN
+        );
 
         const cacheHit = await coordinator.ensureReady(descriptor);
         assert.equal(cacheHit.source, "cache");
@@ -457,13 +485,17 @@ test("createProjectIndexCoordinator aborts in-flight builds on dispose", async (
 
     const coordinator = createProjectIndexCoordinator({
         loadCache: async () => ({
-            status: "miss",
+            status: ProjectIndexCacheStatus.MISS,
             cacheFilePath,
             reason: { type: ProjectIndexCacheMissReason.NOT_FOUND }
         }),
         saveCache: async () => {
             saveCalls += 1;
-            return { status: "written", cacheFilePath, size: 1 };
+            return {
+                status: ProjectIndexCacheStatus.WRITTEN,
+                cacheFilePath,
+                size: 1
+            };
         },
         buildIndex: async (root, fsFacade, options = {}) => {
             buildStarted.resolve(options.signal ?? null);
@@ -514,14 +546,14 @@ test("createProjectIndexCoordinator forwards configured cacheMaxSizeBytes", asyn
     const coordinator = createProjectIndexCoordinator({
         cacheMaxSizeBytes: 42,
         loadCache: async () => ({
-            status: "miss",
+            status: ProjectIndexCacheStatus.MISS,
             cacheFilePath: "virtual-cache.json",
             reason: { type: ProjectIndexCacheMissReason.NOT_FOUND }
         }),
         saveCache: async (descriptor) => {
             savedDescriptors.push(descriptor);
             return {
-                status: "written",
+                status: ProjectIndexCacheStatus.WRITTEN,
                 cacheFilePath: descriptor.cacheFilePath ?? "virtual-cache.json",
                 size: 0
             };
@@ -541,14 +573,14 @@ test("createProjectIndexCoordinator allows descriptor maxSizeBytes overrides", a
     const coordinator = createProjectIndexCoordinator({
         cacheMaxSizeBytes: 42,
         loadCache: async () => ({
-            status: "miss",
+            status: ProjectIndexCacheStatus.MISS,
             cacheFilePath: "virtual-cache.json",
             reason: { type: ProjectIndexCacheMissReason.NOT_FOUND }
         }),
         saveCache: async (descriptor) => {
             savedDescriptors.push(descriptor);
             return {
-                status: "written",
+                status: ProjectIndexCacheStatus.WRITTEN,
                 cacheFilePath: descriptor.cacheFilePath ?? "virtual-cache.json",
                 size: 0
             };
@@ -642,14 +674,14 @@ test.describe(
                 const savedDescriptors = [];
                 coordinator = createProjectIndexCoordinator({
                     loadCache: async () => ({
-                        status: "miss",
+                        status: ProjectIndexCacheStatus.MISS,
                         cacheFilePath: "virtual-cache.json",
                         reason: { type: ProjectIndexCacheMissReason.NOT_FOUND }
                     }),
                     saveCache: async (descriptor) => {
                         savedDescriptors.push(descriptor);
                         return {
-                            status: "written",
+                            status: ProjectIndexCacheStatus.WRITTEN,
                             cacheFilePath:
                                 descriptor.cacheFilePath ??
                                 "virtual-cache.json",

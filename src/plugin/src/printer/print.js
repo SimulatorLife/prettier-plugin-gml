@@ -1798,10 +1798,11 @@ function getFeatherCommentCallText(node) {
 
 function buildTemplateStringParts(atoms, path, print) {
     const parts = ['$"'];
+    const length = atoms.length;
 
-    const printedAtoms = path.map(print, "atoms");
+    for (let index = 0; index < length; index += 1) {
+        const atom = atoms[index];
 
-    for (const [index, atom] of atoms.entries()) {
         if (
             atom?.type === "TemplateStringText" &&
             typeof atom.value === "string"
@@ -1810,7 +1811,12 @@ function buildTemplateStringParts(atoms, path, print) {
             continue;
         }
 
-        parts.push("{", printedAtoms[index], "}");
+        // Lazily print non-text atoms on demand so pure-text templates avoid
+        // allocating the `printedAtoms` array. This helper runs inside the
+        // printer's expression loop, so skipping the extra array and iterator
+        // bookkeeping removes two allocations for mixed templates while keeping
+        // the doc emission identical.
+        parts.push("{", path.call(print, "atoms", index), "}");
     }
 
     parts.push('"');
@@ -2820,11 +2826,29 @@ function printStatements(path, options, print, childrenAttribute) {
         // rewriting author comments or dropping the semicolon entirely—a
         // regression we previously hit when normalising legacy `#define`
         // assignments.
+        const manualMathRatio = getManualMathRatio(node);
+        const manualMathOriginalComment =
+            typeof node._gmlManualMathOriginalComment === "string"
+                ? node._gmlManualMathOriginalComment
+                : null;
+
         if (docHasTrailingComment(printed)) {
             printed.splice(-1, 0, semi);
             parts.push(printed);
+            if (manualMathOriginalComment) {
+                parts.push("  // ", manualMathOriginalComment);
+            }
+            if (manualMathRatio) {
+                parts.push(" ", manualMathRatio);
+            }
         } else {
             parts.push(printed, semi);
+            if (manualMathOriginalComment) {
+                parts.push("  // ", manualMathOriginalComment);
+            }
+            if (manualMathRatio) {
+                parts.push(" ", manualMathRatio);
+            }
         }
 
         // Reset flag for next iteration
@@ -7298,6 +7322,53 @@ function docHasTrailingComment(doc) {
         }
     }
     return false;
+}
+
+function getManualMathRatio(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    const direct = node._gmlManualMathRatio;
+    if (typeof direct === "string" && direct.length > 0) {
+        return direct;
+    }
+
+    switch (node.type) {
+        case "VariableDeclaration": {
+            const declarations = Array.isArray(node.declarations)
+                ? node.declarations
+                : [];
+
+            for (const declarator of declarations) {
+                const ratio = getManualMathRatio(declarator);
+                if (ratio) {
+                    return ratio;
+                }
+            }
+            break;
+        }
+        case "VariableDeclarator": {
+            return getManualMathRatio(node.init);
+        }
+        case "ExpressionStatement": {
+            return getManualMathRatio(node.expression);
+        }
+        case "BinaryExpression": {
+            return getManualMathRatio(node.right);
+        }
+        case "Literal": {
+            if (typeof node._gmlManualMathRatio === "string") {
+                return node._gmlManualMathRatio;
+            }
+            break;
+        }
+        default: {
+            break;
+        }
+    }
+
+    return null;
 }
 
 function printWithoutExtraParens(path, print, ...keys) {

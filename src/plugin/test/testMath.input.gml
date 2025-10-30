@@ -44,6 +44,7 @@ return [sin_radians,cos_radians,tan_radians,asin_degrees,atan_degrees,atan2_degr
 
 // Test that we can simplify expressions
 var s = 1.3 * size * 0.12 / 1.5;
+s = s - s / 2 - lengthdir_x(s / 2, swim_rot);
 
 // 1) Cancelable ratio inside a product
 var s1 = speed * (60 / 120);

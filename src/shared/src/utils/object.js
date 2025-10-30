@@ -1,5 +1,5 @@
 import { toFiniteNumber } from "./number.js";
-import { isNonEmptyString } from "./string.js";
+import { formatWithIndefiniteArticle, isNonEmptyString } from "./string.js";
 
 /**
  * Determine whether a value is a plain object (non-null object without an
@@ -98,7 +98,92 @@ export function resolveHelperOverride(helpers, key, fallback) {
 }
 
 const objectPrototypeToString = Object.prototype.toString;
+const MISSING_METHOD_LIST_FORMATTER = new Intl.ListFormat("en", {
+    style: "long",
+    type: "conjunction"
+});
 const OBJECT_TAG_PATTERN = /^\[object ([^\]]+)\]$/;
+
+/**
+ * Describe {@link value} using terminology appropriate for error messages.
+ *
+ * This helper mirrors the branching previously duplicated across CLI modules
+ * when reporting unexpected configuration payloads. Consolidating the logic
+ * ensures objects, primitives, and special sentinels (like `null` or blank
+ * strings) yield consistent phrasing.
+ *
+ * @param {unknown} value Value being described.
+ * @param {{
+ *   emptyStringLabel?: string | null,
+ *   arrayLabel?: string,
+ *   objectLabel?: string,
+ *   formatTaggedObjectLabel?: (tagName: string) => string
+ * }} [options]
+ * @returns {string} Human-readable description of {@link value}.
+ */
+export function describeValueWithArticle(
+    value,
+    {
+        emptyStringLabel = null,
+        arrayLabel = "an array",
+        objectLabel = "an object",
+        formatTaggedObjectLabel = (tagName) =>
+            `${formatWithIndefiniteArticle(tagName)} object`
+    } = {}
+) {
+    if (value === null) {
+        return "null";
+    }
+
+    if (value === undefined) {
+        return "undefined";
+    }
+
+    if (Array.isArray(value)) {
+        return arrayLabel;
+    }
+
+    const type = typeof value;
+
+    if (type === "string") {
+        if (value.length === 0 && emptyStringLabel) {
+            return emptyStringLabel;
+        }
+
+        return formatWithIndefiniteArticle("string");
+    }
+
+    if (type === "boolean") {
+        return formatWithIndefiniteArticle("boolean");
+    }
+
+    if (type === "number") {
+        return formatWithIndefiniteArticle("number");
+    }
+
+    if (type === "bigint") {
+        return formatWithIndefiniteArticle("bigint");
+    }
+
+    if (type === "function") {
+        return formatWithIndefiniteArticle("function");
+    }
+
+    if (type === "symbol") {
+        return formatWithIndefiniteArticle("symbol");
+    }
+
+    if (type === "object") {
+        const tagName = getObjectTagName(value);
+        if (tagName) {
+            return formatTaggedObjectLabel(tagName);
+        }
+
+        return objectLabel;
+    }
+
+    return formatWithIndefiniteArticle(type);
+}
 
 /**
  * Determine whether the provided value is an object or function reference.
@@ -170,17 +255,8 @@ export function assertFunctionProperties(
             throw new TypeError(errorMessage);
         }
 
-        let formattedList;
-        if (missingMethods.length === 1) {
-            [formattedList] = missingMethods;
-        } else if (missingMethods.length === 2) {
-            formattedList = `${missingMethods[0]} and ${missingMethods[1]}`;
-        } else {
-            const leading = missingMethods.slice(0, -1).join(", ");
-            const last = missingMethods.at(-1);
-            formattedList = `${leading}, and ${last}`;
-        }
-
+        const formattedList =
+            MISSING_METHOD_LIST_FORMATTER.format(missingMethods);
         const suffix = missingMethods.length > 1 ? "functions" : "function";
         throw new TypeError(`${name} must provide ${formattedList} ${suffix}`);
     }

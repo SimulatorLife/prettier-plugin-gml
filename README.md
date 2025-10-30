@@ -174,7 +174,9 @@ for (var i = 0; i < queue_count; i += 1) {
   the live reloading pipeline.
 - Formatter extension hooks &mdash;
   [Object-wrap resolver](docs/object-wrap-option-resolver-hook.md),
-  [line-comment resolver](docs/line-comment-options-resolver-hook.md), and
+  [line-comment resolver](docs/line-comment-options-resolver-hook.md),
+  [doc comment type normalization hook](docs/doc-comment-type-normalization-hook.md),
+  [statement newline padding extension](docs/statement-newline-padding-extension.md), and
   [core option overrides resolver](docs/core-option-overrides-hook.md) seams that
   let integrators run controlled experiments without permanently widening the
   public option surface. Combine them with targeted
@@ -325,16 +327,18 @@ nvm alias default node
    ```
 
 2. Format any GameMaker project without adding dependencies to that project. The
-   CLI exposes a `format` command that accepts an explicit path and optional
-   extensions. Invoking the wrapper without a subcommand automatically runs
-   `format`, so `npm run cli` formats the current working directory by default:
+   repository exposes a dedicated `format:gml` script that targets the CLI's
+   `format` command and defaults to the current working directory when no
+   arguments are provided. Pass the project path explicitly when formatting
+   elsewhere:
 
    ```bash
-   npm run cli -- format "/absolute/path/to/MyGame" --extensions=.gml --extensions=.yy
+   npm run format:gml -- --path "/absolute/path/to/MyGame" --extensions=.gml --extensions=.yy
    ```
 
-   Use `--path "/absolute/path/to/MyGame"` when the target might be mistaken for
-   a command name or begins with a hyphen.
+   Provide `--path` when the target might be mistaken for a command name or
+   begins with a hyphen. Running `npm run format:gml` without extra arguments
+   formats the repository itself.
 
    The wrapper:
 
@@ -359,8 +363,8 @@ nvm alias default node
    - accepts either a positional path or the explicit `--path` option when you
      need to format outside the current working directory.
 
-   Explore additional helpers with `npm run cli -- --help`,
-   `npm run cli -- format --help`, or the dedicated
+   Explore additional helpers with `npm run format:gml -- --help`,
+   `npm run cli -- --help`, or the dedicated
    [CLI reference](#cli-wrapper-environment-knobs). Repeat `--extensions` to
    append more groups alongside the comma- or path-delimiter-separated form, or add `--extensions=.yy`
    when you also want to process metadata files.
@@ -611,7 +615,7 @@ Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configur
 
 #### Core formatter behaviour
 
-Optional arguments without explicit defaults always render as `undefined` in formatted output.
+Optional parameters that rely on implicit `undefined` defaults are normalized: redundant `= undefined` sentinels are stripped from regular function declarations, while constructors and explicitly optional parameters keep the sentinel intact.
 
 Template strings that never interpolate expressions automatically collapse back to regular quoted strings, stripping the `$` prefix so placeholder-free text stays concise.
 

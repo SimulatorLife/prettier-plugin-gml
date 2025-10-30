@@ -6,7 +6,7 @@ import { createMetricsTracker } from "../src/reporting/index.js";
 function getCacheKeys(contracts, cacheName = "example") {
     const { recording, reporting } = contracts;
     recording.caches.recordHit(cacheName);
-    return Object.keys(reporting.summary.cacheSnapshot(cacheName) ?? {});
+    return Object.keys(reporting.caches.cacheSnapshot(cacheName) ?? {});
 }
 
 test("createMetricsTracker uses default cache keys when none provided", () => {

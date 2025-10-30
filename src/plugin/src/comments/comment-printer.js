@@ -367,26 +367,42 @@ function printDanglingCommentsAsGroup(path, options, filter) {
         return "";
     }
 
+    return buildDanglingCommentGroupParts(entries);
+}
+
+/**
+ * Assemble the doc parts representing a dangling comment group while keeping
+ * the orchestration logic in {@link printDanglingCommentsAsGroup} focused on
+ * collaborator sequencing instead of manual array bookkeeping.
+ */
+function buildDanglingCommentGroupParts(entries) {
     const parts = [];
     const finalIndex = entries.length - 1;
 
-    for (const [index, { comment, printed }] of entries.entries()) {
-        if (index === 0) {
-            parts.push(whitespaceToDoc(comment.leadingWS));
-        }
-
-        parts.push([printed]);
-
-        if (index !== finalIndex) {
-            let wsDoc = whitespaceToDoc(comment.trailingWS);
-            if (wsDoc === "") {
-                wsDoc = " ";
-            }
-            parts.push(wsDoc);
-        }
+    for (const [index, entry] of entries.entries()) {
+        appendDanglingCommentGroupEntry(parts, entry, index, finalIndex);
     }
 
     return parts;
+}
+
+function appendDanglingCommentGroupEntry(parts, entry, index, finalIndex) {
+    const { comment, printed } = entry;
+
+    if (index === 0) {
+        parts.push(whitespaceToDoc(comment.leadingWS));
+    }
+
+    parts.push([printed]);
+
+    if (index !== finalIndex) {
+        parts.push(resolveDanglingCommentSeparator(comment));
+    }
+}
+
+function resolveDanglingCommentSeparator(comment) {
+    const separator = whitespaceToDoc(comment.trailingWS);
+    return separator === "" ? " " : separator;
 }
 
 function handleCommentInEmptyBody(

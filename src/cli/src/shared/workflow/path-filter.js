@@ -61,45 +61,36 @@ export function createWorkflowPathFilter(filters = {}) {
     const denyList = normalizeWorkflowPathList(filters?.denyPaths);
     const hasAllow = allowList.length > 0;
 
-    const allowsPath = (candidate) => {
-        if (typeof candidate !== "string") {
+    const normalizeCandidate = (candidate) =>
+        typeof candidate === "string" ? path.resolve(candidate) : null;
+
+    const isAllowed = (candidate, matcher) => {
+        const normalized = normalizeCandidate(candidate);
+        if (!normalized) {
             return false;
         }
-
-        const normalized = path.resolve(candidate);
 
         if (denyList.some((deny) => isPathInside(normalized, deny))) {
             return false;
         }
 
-        if (!hasAllow) {
-            return true;
-        }
-
-        return allowList.some((allow) => isPathInside(normalized, allow));
+        return (
+            !hasAllow || allowList.some((allow) => matcher(allow, normalized))
+        );
     };
 
-    const allowsDirectory = (candidate) => {
-        if (typeof candidate !== "string") {
-            return false;
-        }
+    const allowsPath = (candidate) =>
+        isAllowed(candidate, (allow, normalized) =>
+            isPathInside(normalized, allow)
+        );
 
-        const normalized = path.resolve(candidate);
-
-        if (denyList.some((deny) => isPathInside(normalized, deny))) {
-            return false;
-        }
-
-        if (!hasAllow) {
-            return true;
-        }
-
-        return allowList.some(
-            (allow) =>
+    const allowsDirectory = (candidate) =>
+        isAllowed(
+            candidate,
+            (allow, normalized) =>
                 isPathInside(normalized, allow) ||
                 isPathInside(allow, normalized)
         );
-    };
 
     return {
         allowList,

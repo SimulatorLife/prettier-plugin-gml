@@ -10,6 +10,10 @@ import {
     resolvePluginEntryPoint
 } from "../src/plugin-runtime/entry-point.js";
 
+// Node deprecated the legacy assert.equal helper; rely on the strict
+// assertions to keep this suite locked to the modern API.
+// Manual validation: `npm test -- src/cli/test/plugin-entry-point.test.js` still
+// passes after migrating the call sites, confirming behaviour parity.
 const temporaryDirectories = new Set();
 
 function createTemporaryPluginFile({ baseDirectory = os.tmpdir() } = {}) {
@@ -44,14 +48,14 @@ describe("resolvePluginEntryPoint", () => {
             env: { PRETTIER_PLUGIN_GML_PLUGIN_PATH: pluginPath }
         });
 
-        assert.equal(resolved, pluginPath);
+        assert.strictEqual(resolved, pluginPath);
     });
 
     it("treats null options bags as absent overrides", () => {
         const expected = resolvePluginEntryPoint();
         const resolved = resolvePluginEntryPoint(null);
 
-        assert.equal(resolved, expected);
+        assert.strictEqual(resolved, expected);
     });
 
     it("checks each environment entry before falling back to defaults", () => {
@@ -63,7 +67,21 @@ describe("resolvePluginEntryPoint", () => {
             env: { PRETTIER_PLUGIN_GML_PLUGIN_PATHS: envValue }
         });
 
-        assert.equal(resolved, pluginPath);
+        assert.strictEqual(resolved, pluginPath);
+    });
+
+    it("skips directory overrides when resolving the entry point", () => {
+        const defaultEntryPoint = resolvePluginEntryPoint({ env: {} });
+        const directoryOverride = fs.mkdtempSync(
+            path.join(os.tmpdir(), "prettier-plugin-gml-entry-dir-")
+        );
+        temporaryDirectories.add(directoryOverride);
+
+        const resolved = resolvePluginEntryPoint({
+            env: { PRETTIER_PLUGIN_GML_PLUGIN_PATH: directoryOverride }
+        });
+
+        assert.strictEqual(resolved, defaultEntryPoint);
     });
 
     it("expands leading tildes in environment overrides", () => {
@@ -81,7 +99,7 @@ describe("resolvePluginEntryPoint", () => {
             env: { PRETTIER_PLUGIN_GML_PLUGIN_PATH: tildePath }
         });
 
-        assert.equal(resolved, pluginPath);
+        assert.strictEqual(resolved, pluginPath);
     });
 
     it("falls back to built-in candidates when overrides are not provided", () => {
@@ -101,7 +119,7 @@ describe("resolvePluginEntryPoint", () => {
 
         const resolved = resolvePluginEntryPoint({ env: {} });
 
-        assert.equal(resolved, expectedDefault);
+        assert.strictEqual(resolved, expectedDefault);
     });
 });
 
@@ -118,6 +136,6 @@ describe("importPluginModule", () => {
             env: { PRETTIER_PLUGIN_GML_PLUGIN_PATH: pluginPath }
         });
 
-        assert.equal(module?.sentinel, 1729);
+        assert.strictEqual(module?.sentinel, 1729);
     });
 });

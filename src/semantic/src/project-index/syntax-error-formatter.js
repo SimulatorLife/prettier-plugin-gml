@@ -97,7 +97,7 @@ function buildLocationSuffix(displayPath, lineNumber, columnNumber) {
         parts.push(displayPath);
     }
 
-    if (lineNumber != undefined) {
+    if (lineNumber !== undefined && lineNumber !== null) {
         const location =
             columnNumber == undefined
                 ? `line ${lineNumber}`
@@ -138,7 +138,7 @@ function formatSourceExcerpt(sourceText, lineNumber, columnNumber) {
     );
     const contentLine = `${gutter}${lineText}`;
 
-    if (columnNumber == undefined || columnNumber < 0) {
+    if (columnNumber == null || columnNumber < 0) {
         return contentLine;
     }
 

@@ -7,8 +7,8 @@ import {
     SuiteOutputFormat,
     applyStandardCommandOptions,
     collectSuiteResults,
-    createCommanderCommand,
-    createCommanderOption,
+    Command,
+    Option,
     createCliErrorDetails,
     emitSuiteResults,
     ensureSuitesAreKnown,
@@ -16,15 +16,17 @@ import {
     resolveRequestedSuites,
     resolveSuiteOutputFormatOrThrow,
     wrapInvalidArgumentResolver,
-    getCommanderInvalidArgumentErrorConstructor
+    InvalidArgumentError
 } from "../dependencies.js";
 import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "../plugin-runtime-dependencies.js";
 import {
     appendToCollection,
     assertArray,
+    assertPlainObject,
     coercePositiveInteger,
     ensureDir,
     isFiniteNumber,
+    isObjectLike,
     getErrorMessageOrFallback,
     getIdentifierText,
     resolveIntegerOption,
@@ -45,9 +47,9 @@ import {
     REPO_ROOT,
     createPathFilter,
     normalizeFixtureRoots
-} from "./fixture-roots.js";
+} from "../../shared/workflow/fixture-roots.js";
 
-export { normalizeFixtureRoots } from "./fixture-roots.js";
+export { normalizeFixtureRoots } from "../../shared/workflow/fixture-roots.js";
 
 const shouldSkipPerformanceDependencies = isCliRunSkipped();
 
@@ -121,7 +123,7 @@ function collectValue(value, previous) {
 
 function collectPerformanceSuite(value, previous) {
     const normalized = normalizePerformanceSuiteName(value, {
-        errorConstructor: getCommanderInvalidArgumentErrorConstructor()
+        errorConstructor: InvalidArgumentError
     });
 
     return appendToCollection(normalized, previous);
@@ -276,13 +278,12 @@ function createFixtureRecord({ absolutePath, source, size, relativePath }) {
 }
 
 function normalizeCustomDatasetEntry(entry, index) {
-    if (!entry || typeof entry !== "object") {
-        throw new TypeError(
+    const normalizedEntry = assertPlainObject(entry, {
+        errorMessage:
             "Each dataset entry must be an object with a source string."
-        );
-    }
+    });
 
-    const source = entry.source;
+    const source = normalizedEntry.source;
     if (typeof source !== "string") {
         throw new TypeError(
             "Dataset entries must include a string `source` property."
@@ -290,10 +291,12 @@ function normalizeCustomDatasetEntry(entry, index) {
     }
 
     const providedPath =
-        typeof entry.path === "string" ? entry.path : `<fixture-${index}>`;
+        typeof normalizedEntry.path === "string"
+            ? normalizedEntry.path
+            : `<fixture-${index}>`;
     const resolvedRelativePath =
-        typeof entry.relativePath === "string"
-            ? entry.relativePath
+        typeof normalizedEntry.relativePath === "string"
+            ? normalizedEntry.relativePath
             : providedPath.startsWith("<")
               ? providedPath
               : path.relative(REPO_ROOT, providedPath);
@@ -301,7 +304,7 @@ function normalizeCustomDatasetEntry(entry, index) {
     return createFixtureRecord({
         absolutePath: providedPath,
         source,
-        size: entry.size,
+        size: normalizedEntry.size,
         relativePath: resolvedRelativePath
     });
 }
@@ -608,7 +611,7 @@ AVAILABLE_SUITES.set(PerformanceSuiteName.IDENTIFIER_TEXT, () =>
 export function createPerformanceCommand() {
     const defaultReportFileDescription =
         formatReportFilePath(DEFAULT_REPORT_FILE);
-    const reportFileOption = createCommanderOption(
+    const reportFileOption = new Option(
         "--report-file <path>",
         "File path for the JSON performance report."
     )
@@ -621,15 +624,12 @@ export function createPerformanceCommand() {
         `Available suites: ${suiteListDescription}.`,
         "Defaults to all suites when omitted."
     ].join(" ");
-    const suiteOption = createCommanderOption(
-        "-s, --suite <name>",
-        suiteOptionDescription
-    )
+    const suiteOption = new Option("-s, --suite <name>", suiteOptionDescription)
         .argParser(collectPerformanceSuite)
         .default([], "all available suites");
 
     return applyStandardCommandOptions(
-        createCommanderCommand()
+        new Command()
             .name("performance")
             .usage("[options]")
             .description(
@@ -662,8 +662,7 @@ export function createPerformanceCommand() {
             "Console output format when --stdout is used: json or human.",
             (value) =>
                 resolveSuiteOutputFormatOrThrow(value, {
-                    errorConstructor:
-                        getCommanderInvalidArgumentErrorConstructor()
+                    errorConstructor: InvalidArgumentError
                 }),
             SuiteOutputFormat.JSON
         )
@@ -871,25 +870,43 @@ function logReportDestination(reportResult, { stdout }) {
     log(`Performance report written to ${displayPath}.`);
 }
 
+/**
+ * Convert a suite result entry into a structured failure summary when an error
+ * payload is present.
+ */
+function createSuiteFailureSummary([suite, payload]) {
+    if (!isObjectLike(payload) || !payload.error) {
+        return null;
+    }
+
+    return {
+        suite,
+        message: getErrorMessageOrFallback(payload.error, "Unknown error")
+    };
+}
+
+/**
+ * Derive failure summaries from raw suite result entries while hiding the
+ * bookkeeping around collecting defined summaries.
+ */
+function createSuiteFailureSummariesFromEntries(entries) {
+    return entries.reduce((summaries, entry) => {
+        const summary = createSuiteFailureSummary(entry);
+        if (summary) {
+            summaries.push(summary);
+        }
+
+        return summaries;
+    }, []);
+}
+
 function collectSuiteFailureSummaries(results) {
-    if (!results || typeof results !== "object") {
+    if (!isObjectLike(results)) {
         return [];
     }
 
-    const failures = [];
-
-    for (const [suite, payload] of Object.entries(results)) {
-        if (!payload || typeof payload !== "object" || !payload.error) {
-            continue;
-        }
-
-        failures.push({
-            suite,
-            message: getErrorMessageOrFallback(payload.error, "Unknown error")
-        });
-    }
-
-    return failures;
+    const entries = Object.entries(results);
+    return createSuiteFailureSummariesFromEntries(entries);
 }
 
 function formatFailureFollowUp({ stdout, format, displayPath }) {
@@ -918,7 +935,7 @@ function formatFailureFollowUp({ stdout, format, displayPath }) {
 function logSuiteFailureSummary(suiteResults, options, reportResult) {
     const failures = collectSuiteFailureSummaries(suiteResults);
     if (failures.length === 0) {
-        return;
+        return false;
     }
 
     const heading =
@@ -940,6 +957,8 @@ function logSuiteFailureSummary(suiteResults, options, reportResult) {
 
     const message = [heading, ...failureLines, followUp].join("\n");
     console.error(message);
+
+    return true;
 }
 
 function emitReportIfRequested(report, options) {
@@ -967,7 +986,11 @@ export async function runPerformanceCommand({ command, workflow } = {}) {
 
     logReportDestination(reportResult, options);
     emitReportIfRequested(report, options);
-    logSuiteFailureSummary(suiteResults, options, reportResult);
+    const hasSuiteFailures = logSuiteFailureSummary(
+        suiteResults,
+        options,
+        reportResult
+    );
 
-    return 0;
+    return hasSuiteFailures ? 1 : 0;
 }

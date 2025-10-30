@@ -1,4 +1,4 @@
-import { isNonEmptyArray } from "../shared/index.js";
+import { getNodeType, isNonEmptyArray } from "../shared/index.js";
 
 const MIN_DECLARATION_RUN_LENGTH = 4;
 
@@ -71,21 +71,14 @@ function enforceSpacingInBlock(statements) {
 }
 
 function isVarDeclaration(node) {
-    if (!node || typeof node !== "object") {
+    if (getNodeType(node) !== "VariableDeclaration") {
         return false;
     }
 
-    if (node.type !== "VariableDeclaration") {
-        return false;
-    }
-
-    return node.kind === "var" || node.kind === "let";
+    const { kind } = node;
+    return kind === "var" || kind === "let";
 }
 
 function shouldForceBlankLineAfter(nextNode) {
-    if (!nextNode || typeof nextNode !== "object") {
-        return false;
-    }
-
-    return nextNode.type === "ForStatement";
+    return getNodeType(nextNode) === "ForStatement";
 }

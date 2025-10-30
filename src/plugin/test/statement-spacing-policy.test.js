@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { afterEach, describe, it } from "node:test";
 
 import {
     isMacroLikeStatement,
@@ -7,8 +7,17 @@ import {
     shouldForceTrailingBlankLineForNestedFunction,
     shouldSuppressEmptyLineBetween
 } from "../src/printer/statement-spacing-policy.js";
+import {
+    registerSurroundingNewlineNodeTypes,
+    resetSurroundingNewlineNodeTypes,
+    shouldAddNewlinesAroundStatement
+} from "../src/printer/util.js";
 
 describe("statement spacing policy", () => {
+    afterEach(() => {
+        resetSurroundingNewlineNodeTypes();
+    });
+
     it("detects macro-like statements", () => {
         const macroDeclaration = { type: "MacroDeclaration" };
         const defineMacro = {
@@ -95,5 +104,30 @@ describe("statement spacing policy", () => {
             ),
             false
         );
+    });
+
+    it("keeps default newline padding behavior", () => {
+        assert.equal(
+            shouldAddNewlinesAroundStatement({ type: "FunctionDeclaration" }),
+            true
+        );
+        assert.equal(
+            shouldAddNewlinesAroundStatement({ type: "RegionStatement" }),
+            true
+        );
+        assert.equal(
+            shouldAddNewlinesAroundStatement({ type: "ReturnStatement" }),
+            false
+        );
+    });
+
+    it("allows internal consumers to register extra padded statement types", () => {
+        const experimentalNode = { type: "ExperimentalStatement" };
+
+        assert.equal(shouldAddNewlinesAroundStatement(experimentalNode), false);
+
+        registerSurroundingNewlineNodeTypes("ExperimentalStatement");
+
+        assert.equal(shouldAddNewlinesAroundStatement(experimentalNode), true);
     });
 });
