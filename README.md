@@ -629,6 +629,8 @@ Template strings that never interpolate expressions automatically collapse back 
 | `condenseLogicalExpressions` | `false` | Merges adjacent logical expressions that use the same operator. |
 | `preserveGlobalVarStatements` | `true` | Keeps `globalvar` declarations while still prefixing later assignments with `global.`. |
 | `alignAssignmentsMinGroupSize` | `3` | Aligns simple assignment operators across consecutive lines once the group size threshold is met. |
+| `variableBlockSpacingMinDeclarations` | `4` | Inserts a blank line after runs of local declarations once the specified length is met; set to `0` to disable the spacing entirely. |
+| `lineCommentBannerLength` | `60` | Sets the normalized width for banner line comments; set to `0` to keep the original slash run. |
 | `maxParamsPerLine` | `0` | Forces argument wrapping after the specified count (set to `0` to remove the numeric limit; nested callbacks may still wrap for readability). |
 | `applyFeatherFixes` | `false` | Applies opt-in fixes backed by GameMaker Feather metadata (e.g. drop trailing semicolons from `#macro`). |
 | `useStringInterpolation` | `false` | Upgrades eligible string concatenations to template strings (`$"Hello {name}"`). |
@@ -659,7 +661,7 @@ var enemy = {name: "Slime", hp: 5};
 
 Bare decimal literals are always padded with leading and trailing zeroes to improve readability.
 
-Banner line comments are automatically detected when they contain five or more consecutive `/` characters. Once identified, the formatter rewrites the banner prefix to 60 slashes so mixed-width comment markers settle on a single, readable standard.
+Banner line comments are automatically detected when they contain five or more consecutive `/` characters. Once identified, the formatter rewrites the banner prefix to the `lineCommentBannerLength` setting (60 by default) so mixed-width comment markers settle on a single, readable standard; set the option to `0` to leave banner widths untouched.
 
 Advanced integrations can temporarily override the struct wrapping heuristic via `setObjectWrapOptionResolver`; the [object-wrap option resolver hook](docs/object-wrap-option-resolver-hook.md) explains how to register an override and reset back to the default resolver after experiments complete.
 
