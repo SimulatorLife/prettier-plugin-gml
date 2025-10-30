@@ -66,4 +66,21 @@ describe("line comment formatting", () => {
 
         assert.strictEqual(formatted, "/// @param {real} [func_fx_callback]");
     });
+
+    it("omits doc comment scaffolding lines without content", () => {
+        const comment = {
+            type: "CommentLine",
+            value: " /",
+            raw: "// /",
+            leadingText: "// /",
+            leadingWS: "\n"
+        };
+
+        const formatted = formatLineComment(
+            comment,
+            DEFAULT_LINE_COMMENT_OPTIONS
+        );
+
+        assert.strictEqual(formatted, "");
+    });
 });

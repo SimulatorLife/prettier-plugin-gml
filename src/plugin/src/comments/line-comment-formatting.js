@@ -430,6 +430,12 @@ function formatLineComment(
     const docLikeMatch = trimmedValue.match(/^\/\s*(.*)$/);
     if (docLikeMatch) {
         const remainder = docLikeMatch[1] ?? "";
+        const normalizedRemainder = remainder.trim();
+
+        if (normalizedRemainder.length === 0) {
+            return "";
+        }
+
         if (!remainder.startsWith("/")) {
             const shouldInsertSpace =
                 remainder.length > 0 && /\w/.test(remainder);
