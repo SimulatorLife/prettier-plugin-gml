@@ -1,6 +1,7 @@
 import {
     coercePositiveIntegerOption,
     isNonEmptyString,
+    isObjectLike,
     isRegExpLike
 } from "../shared/index.js";
 import { createResolverController } from "../shared/resolver-controller.js";
@@ -94,7 +95,7 @@ function normalizeLineCommentOptions(options) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
 
-    if (!options || typeof options !== "object") {
+    if (!isObjectLike(options)) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
 
@@ -125,41 +126,14 @@ function resolveLineCommentOptions(options = {}) {
 }
 
 function resolveLineCommentBannerLength(options) {
-    if (!options || typeof options !== "object") {
-        return DEFAULT_LINE_COMMENT_BANNER_LENGTH;
-    }
-
-    const rawValue = options[LINE_COMMENT_BANNER_LENGTH_OPTION];
-
-    if (typeof rawValue === "string") {
-        const trimmed = rawValue.trim();
-        if (trimmed === "") {
-            return DEFAULT_LINE_COMMENT_BANNER_LENGTH;
-        }
-
-        const parsed = Number(trimmed);
-        if (!Number.isFinite(parsed)) {
-            return DEFAULT_LINE_COMMENT_BANNER_LENGTH;
-        }
-
-        return finalizeBannerLengthCandidate(parsed);
-    }
-
-    return finalizeBannerLengthCandidate(rawValue);
-}
-
-function finalizeBannerLengthCandidate(candidate) {
-    if (candidate === 0) {
-        return 0;
-    }
-
-    if (typeof candidate === "number" && candidate < 0) {
+    if (!isObjectLike(options)) {
         return DEFAULT_LINE_COMMENT_BANNER_LENGTH;
     }
 
     return coercePositiveIntegerOption(
-        candidate,
-        DEFAULT_LINE_COMMENT_BANNER_LENGTH
+        options[LINE_COMMENT_BANNER_LENGTH_OPTION],
+        DEFAULT_LINE_COMMENT_BANNER_LENGTH,
+        { zeroReplacement: 0 }
     );
 }
 

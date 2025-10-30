@@ -1,4 +1,4 @@
-import { coercePositiveIntegerOption } from "../shared/index.js";
+import { coercePositiveIntegerOption, isObjectLike } from "../shared/index.js";
 
 const DEFAULT_MIN_DECLARATION_RUN_LENGTH = 4;
 const VARIABLE_BLOCK_SPACING_DISABLED_VALUE = Number.POSITIVE_INFINITY;
@@ -6,7 +6,7 @@ const VARIABLE_BLOCK_SPACING_MIN_DECLARATIONS_OPTION =
     "variableBlockSpacingMinDeclarations";
 
 function resolveVariableBlockSpacingMinDeclarations(options) {
-    if (!options || typeof options !== "object") {
+    if (!isObjectLike(options)) {
         return DEFAULT_MIN_DECLARATION_RUN_LENGTH;
     }
 
