@@ -183,6 +183,49 @@ test("default plugin service contracts can be customized with overrides", () => 
     );
 });
 
+test("plugin service descriptor overrides fall back to defaults", () => {
+    const identifierCasePlanPreparer = async () => {};
+
+    const implementations = createDefaultCliPluginServiceImplementations({
+        identifierCasePlanPreparer
+    });
+    const services = createDefaultCliPluginServiceFacades({
+        identifierCasePlanPreparer
+    });
+
+    assert.strictEqual(
+        implementations.projectIndexBuilder,
+        defaultProjectIndexBuilder,
+        "project index builder should fall back to the default"
+    );
+    assert.strictEqual(
+        implementations.identifierCasePlanPreparer,
+        identifierCasePlanPreparer,
+        "overridden identifier case plan preparer should be used"
+    );
+    assert.strictEqual(
+        implementations.identifierCaseCacheClearer,
+        defaultIdentifierCaseCacheClearer,
+        "identifier case cache clearer should fall back to the default"
+    );
+
+    assert.strictEqual(
+        services.projectIndexService.buildProjectIndex,
+        defaultProjectIndexBuilder,
+        "project index service should expose the default builder"
+    );
+    assert.strictEqual(
+        services.identifierCasePlanPreparationService.prepareIdentifierCasePlan,
+        identifierCasePlanPreparer,
+        "identifier case plan preparation service should expose the override"
+    );
+    assert.strictEqual(
+        services.identifierCasePlanCacheService.clearIdentifierCaseCaches,
+        defaultIdentifierCaseCacheClearer,
+        "identifier case cache service should expose the default clearer"
+    );
+});
+
 test("invalid plugin service descriptor sources are rejected", () => {
     assert.throws(() => createDefaultCliPluginServiceImplementations(42), {
         name: "TypeError",

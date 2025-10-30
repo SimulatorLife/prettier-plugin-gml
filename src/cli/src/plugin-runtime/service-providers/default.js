@@ -54,7 +54,9 @@ function assertDescriptorValue(value, description) {
     });
 }
 
-function resolveCliPluginServiceImplementations(descriptorOverrides) {
+export function createDefaultCliPluginServiceImplementations(
+    descriptorOverrides
+) {
     if (
         descriptorOverrides != null &&
         typeof descriptorOverrides !== "object"
@@ -98,50 +100,31 @@ function resolveCliPluginServiceImplementations(descriptorOverrides) {
     };
 }
 
-function createCliPluginServiceFacadesFromImplementations({
-    projectIndexBuilder,
-    identifierCasePlanPreparer,
-    identifierCaseCacheClearer
-}) {
-    const projectIndexService = Object.freeze({
-        buildProjectIndex: projectIndexBuilder
-    });
-
-    const identifierCasePlanPreparationService = Object.freeze(
-        /** @type {CliIdentifierCasePlanPreparationService} */ ({
-            prepareIdentifierCasePlan: identifierCasePlanPreparer
-        })
-    );
-
-    const identifierCasePlanCacheService = Object.freeze(
-        /** @type {CliIdentifierCasePlanCacheService} */ ({
-            clearIdentifierCaseCaches: identifierCaseCacheClearer
-        })
-    );
+export function createDefaultCliPluginServiceFacades(descriptorOverrides) {
+    const {
+        projectIndexBuilder,
+        identifierCasePlanPreparer,
+        identifierCaseCacheClearer
+    } = createDefaultCliPluginServiceImplementations(descriptorOverrides);
 
     return {
-        projectIndexService,
-        identifierCasePlanPreparationService,
-        identifierCasePlanCacheService
+        projectIndexService: Object.freeze({
+            buildProjectIndex: projectIndexBuilder
+        }),
+        identifierCasePlanPreparationService: Object.freeze(
+            /** @type {CliIdentifierCasePlanPreparationService} */ ({
+                prepareIdentifierCasePlan: identifierCasePlanPreparer
+            })
+        ),
+        identifierCasePlanCacheService: Object.freeze(
+            /** @type {CliIdentifierCaseCacheService} */ ({
+                clearIdentifierCaseCaches: identifierCaseCacheClearer
+            })
+        )
     };
 }
 
-export function createDefaultCliPluginServiceImplementations(
-    descriptorOverrides
-) {
-    return resolveCliPluginServiceImplementations(descriptorOverrides);
-}
-
-export function createDefaultCliPluginServiceFacades(descriptorOverrides) {
-    const implementations =
-        resolveCliPluginServiceImplementations(descriptorOverrides);
-    return createCliPluginServiceFacadesFromImplementations(implementations);
-}
-
-const defaultImplementations = resolveCliPluginServiceImplementations();
-const defaultFacades = createCliPluginServiceFacadesFromImplementations(
-    defaultImplementations
-);
+const defaultImplementations = createDefaultCliPluginServiceImplementations();
 
 const {
     projectIndexBuilder: defaultProjectIndexBuilder,
@@ -149,12 +132,21 @@ const {
     identifierCaseCacheClearer: defaultIdentifierCaseCacheClearer
 } = defaultImplementations;
 
-const {
-    projectIndexService: defaultCliProjectIndexService,
-    identifierCasePlanPreparationService:
-        defaultCliIdentifierCasePlanPreparationService,
-    identifierCasePlanCacheService: defaultCliIdentifierCaseCacheService
-} = defaultFacades;
+const defaultCliProjectIndexService = Object.freeze({
+    buildProjectIndex: defaultProjectIndexBuilder
+});
+
+const defaultCliIdentifierCasePlanPreparationService = Object.freeze(
+    /** @type {CliIdentifierCasePlanPreparationService} */ ({
+        prepareIdentifierCasePlan: defaultIdentifierCasePlanPreparer
+    })
+);
+
+const defaultCliIdentifierCaseCacheService = Object.freeze(
+    /** @type {CliIdentifierCaseCacheService} */ ({
+        clearIdentifierCaseCaches: defaultIdentifierCaseCacheClearer
+    })
+);
 
 export {
     defaultProjectIndexBuilder,
