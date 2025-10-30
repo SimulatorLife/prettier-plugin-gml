@@ -2744,6 +2744,8 @@ function printStatements(path, options, print, childrenAttribute) {
 
         const isFirstStatementInBlock =
             index === 0 && childPath.parent?.type !== "Program";
+        const suppressInitialStaticPadding =
+            node?._gmlSuppressInitialStaticPadding === true;
 
         const suppressFollowingEmptyLine =
             node?._featherSuppressFollowingEmptyLine === true ||
@@ -2752,7 +2754,8 @@ function printStatements(path, options, print, childrenAttribute) {
         if (
             isFirstStatementInBlock &&
             isStaticDeclaration &&
-            !syntheticDocComment
+            !syntheticDocComment &&
+            !suppressInitialStaticPadding
         ) {
             parts.push(hardline);
         }
@@ -4225,8 +4228,6 @@ function promoteLeadingDocCommentTextToDescription(docLines) {
         }
 
         if (trimmedSuffix.length === 0) {
-            const blankLine = suffix.length > 0 ? `${prefix}${suffix}` : prefix;
-            promotedLines.push(blankLine);
             continue;
         }
 
@@ -4258,6 +4259,133 @@ function promoteLeadingDocCommentTextToDescription(docLines) {
     return result;
 }
 
+const LEGACY_RETURN_TYPE_NORMALIZATION = new Map([
+    ["boolean", "bool"],
+    ["bool", "bool"]
+]);
+
+function normalizeLegacyReturnDocType(typeText) {
+    const trimmedType = getNonEmptyTrimmedString(typeText);
+    if (!trimmedType) {
+        return null;
+    }
+
+    const lookupKey = trimmedType.toLowerCase();
+    if (LEGACY_RETURN_TYPE_NORMALIZATION.has(lookupKey)) {
+        return LEGACY_RETURN_TYPE_NORMALIZATION.get(lookupKey);
+    }
+
+    return trimmedType;
+}
+
+function normalizeLegacyReturnsDocLines(docLines) {
+    const normalizedLines = toMutableArray(docLines);
+
+    if (normalizedLines.length === 0) {
+        return normalizedLines;
+    }
+
+    let convertedAnyLine = false;
+    const preservedLines = [];
+    const convertedReturnLines = [];
+
+    for (const line of normalizedLines) {
+        if (typeof line !== "string") {
+            preservedLines.push(line);
+            continue;
+        }
+
+        if (parseDocCommentMetadata(line)) {
+            preservedLines.push(line);
+            continue;
+        }
+
+        const match = line.match(/^(\s*\/\/\/)(.*)$/);
+        if (!match) {
+            preservedLines.push(line);
+            continue;
+        }
+
+        const [, prefix = "///", rawSuffix = ""] = match;
+        const trimmedSuffix = rawSuffix.replace(/^\s+/, "");
+        if (!/^Returns?/i.test(trimmedSuffix)) {
+            preservedLines.push(line);
+            continue;
+        }
+
+        let remainder = trimmedSuffix.replace(/^Returns?/i, "");
+        remainder = remainder.replace(/^[\s:=-]+/, "");
+
+        const remainderText = getNonEmptyTrimmedString(remainder) ?? "";
+        if (remainderText.length === 0) {
+            preservedLines.push(line);
+            continue;
+        }
+
+        let description = remainderText;
+        let docType = null;
+
+        const typeMatch = remainderText.match(
+            /^([A-Za-z_][A-Za-z0-9_.\[\]()<>]*)(.*)$/
+        );
+        if (typeMatch) {
+            const [, rawType = "", rawRest = ""] = typeMatch;
+            const normalizedType = normalizeLegacyReturnDocType(rawType);
+            const restHasDelimiter = /^[\s]*[,\-:]/.test(rawRest);
+            const restTrimmed = rawRest.replace(/^[\s,:-]+/, "");
+            const restText = getNonEmptyTrimmedString(restTrimmed);
+
+            if (normalizedType || restHasDelimiter || !restTrimmed.length) {
+                docType = normalizedType ?? rawType.trim();
+                description = restText ?? "";
+            }
+        }
+
+        if (!docType && description.length === 0) {
+            preservedLines.push(line);
+            continue;
+        }
+
+        let normalizedDescription = description;
+        if (normalizedDescription.length > 0) {
+            normalizedDescription = normalizedDescription.replace(
+                /^[a-z]/,
+                (char) => char.toUpperCase()
+            );
+        }
+
+        let convertedLine = `${prefix} @returns`;
+        if (docType) {
+            convertedLine += ` {${docType}}`;
+        }
+        if (normalizedDescription.length > 0) {
+            convertedLine += ` ${normalizedDescription}`;
+        }
+
+        convertedAnyLine = true;
+
+        const normalizedLine = docType
+            ? normalizeDocCommentTypeAnnotations(convertedLine)
+            : convertedLine;
+        convertedReturnLines.push(normalizedLine);
+    }
+
+    if (!convertedAnyLine) {
+        return docLines;
+    }
+
+    const combinedLines = [...preservedLines, ...convertedReturnLines];
+
+    if (docLines?._suppressLeadingBlank === true) {
+        combinedLines._suppressLeadingBlank = true;
+    }
+    if (docLines?._preserveDescriptionBreaks === true) {
+        combinedLines._preserveDescriptionBreaks = true;
+    }
+
+    return combinedLines;
+}
+
 function mergeSyntheticDocComments(
     node,
     existingDocLines,
@@ -4267,6 +4395,9 @@ function mergeSyntheticDocComments(
     let normalizedExistingLines = toMutableArray(existingDocLines);
 
     normalizedExistingLines = promoteLeadingDocCommentTextToDescription(
+        normalizedExistingLines
+    );
+    normalizedExistingLines = normalizeLegacyReturnsDocLines(
         normalizedExistingLines
     );
     let preserveDescriptionBreaks =
@@ -4357,6 +4488,21 @@ function mergeSyntheticDocComments(
         typeof syntheticFunctionMetadata?.name === "string"
             ? syntheticFunctionMetadata.name.trim()
             : null;
+    const firstStatement =
+        node?.body?.type === "BlockStatement" &&
+        Array.isArray(node.body.body) &&
+        node.body.body.length > 0
+            ? node.body.body[0]
+            : null;
+    if (
+        functionLines.length > 0 &&
+        firstStatement &&
+        firstStatement.type === "VariableDeclaration" &&
+        firstStatement.kind === "static" &&
+        firstStatement._gmlSuppressInitialStaticPadding !== true
+    ) {
+        firstStatement._gmlSuppressInitialStaticPadding = true;
+    }
     let otherLines = syntheticLines.filter((line) => !isFunctionLine(line));
     const overrideLines = otherLines.filter(isOverrideLine);
     otherLines = otherLines.filter((line) => !isOverrideLine(line));
@@ -4408,8 +4554,25 @@ function mergeSyntheticDocComments(
 
             const insertionIndex =
                 firstParamIndex === -1 ? mergedLines.length : firstParamIndex;
-            const precedingLine =
-                insertionIndex > 0 ? mergedLines[insertionIndex - 1] : null;
+            let precedingIndex = insertionIndex - 1;
+            let precedingLine = null;
+            while (precedingIndex >= 0) {
+                const candidate = mergedLines[precedingIndex];
+                if (typeof candidate !== "string") {
+                    precedingIndex -= 1;
+                    continue;
+                }
+
+                const trimmedCandidate = candidate.trim();
+                if (trimmedCandidate.length === 0 || trimmedCandidate === "///") {
+                    precedingIndex -= 1;
+                    continue;
+                }
+
+                precedingLine = candidate;
+                break;
+            }
+
             const trimmedPreceding =
                 typeof precedingLine === "string" ? precedingLine.trim() : "";
             const isDocCommentLine =
@@ -4428,13 +4591,40 @@ function mergeSyntheticDocComments(
 
             const shouldSeparateDocTag = precedingDocTag === "deprecated";
 
-            const needsSeparatorBeforeFunction =
+            let shouldInsertSeparator =
                 trimmedPreceding !== "" &&
                 typeof precedingLine === "string" &&
                 !isFunctionLine(precedingLine) &&
                 (!isDocCommentLine || !isDocTagLine || shouldSeparateDocTag);
 
-            if (needsSeparatorBeforeFunction) {
+            if (shouldInsertSeparator && isDocCommentLine && !isDocTagLine) {
+                for (
+                    let candidateIndex = precedingIndex;
+                    candidateIndex >= 0;
+                    candidateIndex -= 1
+                ) {
+                    const candidate = mergedLines[candidateIndex];
+                    if (typeof candidate !== "string") {
+                        break;
+                    }
+
+                    const trimmedCandidate = candidate.trim();
+                    if (!/^\/\/\//.test(trimmedCandidate)) {
+                        break;
+                    }
+
+                    if (/^\/\/\/\s*@description\b/i.test(trimmedCandidate)) {
+                        shouldInsertSeparator = false;
+                        break;
+                    }
+
+                    if (/^\/\/\/\s*@/i.test(trimmedCandidate)) {
+                        break;
+                    }
+                }
+            }
+
+            if (shouldInsertSeparator) {
                 mergedLines = [
                     ...mergedLines.slice(0, insertionIndex),
                     "",
@@ -4442,7 +4632,7 @@ function mergeSyntheticDocComments(
                 ];
             }
 
-            const insertAt = needsSeparatorBeforeFunction
+            const insertAt = shouldInsertSeparator
                 ? insertionIndex + 1
                 : insertionIndex;
 
@@ -5308,7 +5498,12 @@ function getCanonicalParamNameFromText(name) {
     }
 
     const normalized = normalizeDocMetadataName(trimmed.trim());
-    return normalized && normalized.length > 0 ? normalized : null;
+    if (typeof normalized !== "string" || normalized.length === 0) {
+        return null;
+    }
+
+    const canonical = normalized.replace(/[\s_]+/g, "").toLowerCase();
+    return canonical.length > 0 ? canonical : null;
 }
 
 function getPreferredFunctionParameterName(path, node, options) {
@@ -5751,6 +5946,20 @@ function computeSyntheticFunctionDocLines(
     const hasReturnsTag = metadata.some((meta) => meta.tag === "returns");
     const hasOverrideTag = metadata.some((meta) => meta.tag === "override");
     const documentedParamNames = new Set();
+    const documentedParamCanonicalNames = new Set();
+    const normalizeLooseCanonicalName = (value) => {
+        if (typeof value !== "string") {
+            return null;
+        }
+
+        const normalized = normalizeDocMetadataName(value).trim();
+        if (normalized.length === 0) {
+            return null;
+        }
+
+        const relaxed = normalized.replace(/[\s_]+/g, "").toLowerCase();
+        return relaxed.length > 0 ? relaxed : null;
+    };
     const paramMetadataByCanonical = new Map();
     const overrideName = overrides?.nameOverride;
     const functionName = overrideName ?? getNodeName(node);
@@ -5779,6 +5988,11 @@ function computeSyntheticFunctionDocLines(
         }
 
         documentedParamNames.add(rawName);
+
+        const canonicalDocName = normalizeLooseCanonicalName(rawName);
+        if (canonicalDocName) {
+            documentedParamCanonicalNames.add(canonicalDocName);
+        }
 
         const canonical = getCanonicalParamNameFromText(rawName);
         if (canonical && !paramMetadataByCanonical.has(canonical)) {
@@ -5832,6 +6046,10 @@ function computeSyntheticFunctionDocLines(
             }
 
             documentedParamNames.add(docName);
+            const implicitCanonical = normalizeLooseCanonicalName(docName);
+            if (implicitCanonical) {
+                documentedParamCanonicalNames.add(implicitCanonical);
+            }
             lines.push(`/// @param ${docName}`);
         }
 
@@ -6120,15 +6338,55 @@ function computeSyntheticFunctionDocLines(
         );
         const docType = normalizedExistingType ?? normalizedOrdinalType;
 
+        if (existingMetadata) {
+            if (implicitDocEntry?.name) {
+                documentedParamNames.add(implicitDocEntry.name);
+                const implicitCanonical = normalizeLooseCanonicalName(
+                    implicitDocEntry.name
+                );
+                if (implicitCanonical) {
+                    documentedParamCanonicalNames.add(implicitCanonical);
+                }
+            }
+            continue;
+        }
+        const docCanonical = normalizeLooseCanonicalName(docName);
+        if (docCanonical && documentedParamCanonicalNames.has(docCanonical)) {
+            if (implicitDocEntry?.name) {
+                documentedParamNames.add(implicitDocEntry.name);
+                const implicitCanonical = normalizeLooseCanonicalName(
+                    implicitDocEntry.name
+                );
+                if (implicitCanonical) {
+                    documentedParamCanonicalNames.add(implicitCanonical);
+                }
+            }
+            continue;
+        }
         if (documentedParamNames.has(docName)) {
             if (implicitDocEntry?.name) {
                 documentedParamNames.add(implicitDocEntry.name);
+                const implicitCanonical = normalizeLooseCanonicalName(
+                    implicitDocEntry.name
+                );
+                if (implicitCanonical) {
+                    documentedParamCanonicalNames.add(implicitCanonical);
+                }
             }
             continue;
         }
         documentedParamNames.add(docName);
+        if (docCanonical) {
+            documentedParamCanonicalNames.add(docCanonical);
+        }
         if (implicitDocEntry?.name) {
             documentedParamNames.add(implicitDocEntry.name);
+            const implicitCanonical = normalizeLooseCanonicalName(
+                implicitDocEntry.name
+            );
+            if (implicitCanonical) {
+                documentedParamCanonicalNames.add(implicitCanonical);
+            }
         }
 
         const typePrefix = docType ? `{${docType}} ` : "";
