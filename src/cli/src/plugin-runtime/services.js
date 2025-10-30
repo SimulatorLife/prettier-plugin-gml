@@ -57,7 +57,9 @@ export function registerCliIdentifierCaseCacheClearer(clearer) {
 export function resetRegisteredCliPluginServices() {
     const services = createDefaultCliPluginServiceImplementations();
 
-    projectIndexBuilder = services.projectIndexBuilder;
-    identifierCasePlanPreparer = services.identifierCasePlanPreparer;
-    identifierCaseCacheClearer = services.identifierCaseCacheClearer;
+    projectIndexBuilder = services.projectIndex.buildProjectIndex;
+    identifierCasePlanPreparer =
+        services.identifierCasePlan.prepareIdentifierCasePlan;
+    identifierCaseCacheClearer =
+        services.identifierCaseCache.clearIdentifierCaseCaches;
 }

@@ -25,8 +25,18 @@ import { resolveCliPluginServiceDependencies } from "./cli-plugin-service-depend
  */
 
 /**
+ * @typedef {object} CliProjectIndexImplementation
+ * @property {CliProjectIndexBuilder} buildProjectIndex
+ */
+
+/**
  * @typedef {object} CliIdentifierCasePlanPreparationService
  * @property {(options: object) => Promise<void>} prepareIdentifierCasePlan
+ */
+
+/**
+ * @typedef {object} CliIdentifierCasePlanImplementation
+ * @property {CliIdentifierCasePlanPreparationService["prepareIdentifierCasePlan"]} prepareIdentifierCasePlan
  */
 
 /**
@@ -35,10 +45,15 @@ import { resolveCliPluginServiceDependencies } from "./cli-plugin-service-depend
  */
 
 /**
+ * @typedef {object} CliIdentifierCaseCacheImplementation
+ * @property {CliIdentifierCasePlanCacheService["clearIdentifierCaseCaches"]} clearIdentifierCaseCaches
+ */
+
+/**
  * @typedef {object} CliPluginServiceImplementations
- * @property {CliProjectIndexBuilder} projectIndexBuilder
- * @property {CliIdentifierCasePlanPreparationService["prepareIdentifierCasePlan"]} identifierCasePlanPreparer
- * @property {CliIdentifierCasePlanCacheService["clearIdentifierCaseCaches"]} identifierCaseCacheClearer
+ * @property {CliProjectIndexImplementation} projectIndex
+ * @property {CliIdentifierCasePlanImplementation} identifierCasePlan
+ * @property {CliIdentifierCaseCacheImplementation} identifierCaseCache
  */
 
 /**
@@ -93,59 +108,73 @@ export function createDefaultCliPluginServiceImplementations(
         "clearIdentifierCaseCaches"
     );
 
-    return {
-        projectIndexBuilder,
-        identifierCasePlanPreparer,
-        identifierCaseCacheClearer
-    };
+    const projectIndexImplementation = Object.freeze({
+        buildProjectIndex: projectIndexBuilder
+    });
+    const identifierCasePlanImplementation = Object.freeze({
+        prepareIdentifierCasePlan: identifierCasePlanPreparer
+    });
+    const identifierCaseCacheImplementation = Object.freeze({
+        clearIdentifierCaseCaches: identifierCaseCacheClearer
+    });
+
+    return Object.freeze({
+        projectIndex: projectIndexImplementation,
+        identifierCasePlan: identifierCasePlanImplementation,
+        identifierCaseCache: identifierCaseCacheImplementation
+    });
 }
 
 export function createDefaultCliPluginServiceFacades(descriptorOverrides) {
-    const {
-        projectIndexBuilder,
-        identifierCasePlanPreparer,
-        identifierCaseCacheClearer
-    } = createDefaultCliPluginServiceImplementations(descriptorOverrides);
+    const { projectIndex, identifierCasePlan, identifierCaseCache } =
+        createDefaultCliPluginServiceImplementations(descriptorOverrides);
 
-    return {
-        projectIndexService: Object.freeze({
-            buildProjectIndex: projectIndexBuilder
-        }),
+    return Object.freeze({
+        projectIndexService: Object.freeze(projectIndex),
         identifierCasePlanPreparationService: Object.freeze(
-            /** @type {CliIdentifierCasePlanPreparationService} */ ({
-                prepareIdentifierCasePlan: identifierCasePlanPreparer
-            })
+            /** @type {CliIdentifierCasePlanPreparationService} */ (
+                identifierCasePlan
+            )
         ),
         identifierCasePlanCacheService: Object.freeze(
-            /** @type {CliIdentifierCaseCacheService} */ ({
-                clearIdentifierCaseCaches: identifierCaseCacheClearer
-            })
+            /** @type {CliIdentifierCasePlanCacheService} */ (
+                identifierCaseCache
+            )
         )
-    };
+    });
 }
 
 const defaultImplementations = createDefaultCliPluginServiceImplementations();
 
 const {
-    projectIndexBuilder: defaultProjectIndexBuilder,
-    identifierCasePlanPreparer: defaultIdentifierCasePlanPreparer,
-    identifierCaseCacheClearer: defaultIdentifierCaseCacheClearer
+    projectIndex: defaultProjectIndexImplementation,
+    identifierCasePlan: defaultIdentifierCasePlanImplementation,
+    identifierCaseCache: defaultIdentifierCaseCacheImplementation
 } = defaultImplementations;
 
-const defaultCliProjectIndexService = Object.freeze({
-    buildProjectIndex: defaultProjectIndexBuilder
-});
+const defaultProjectIndexBuilder =
+    defaultProjectIndexImplementation.buildProjectIndex;
+const defaultIdentifierCasePlanPreparer =
+    defaultIdentifierCasePlanImplementation.prepareIdentifierCasePlan;
+const defaultIdentifierCaseCacheClearer =
+    defaultIdentifierCaseCacheImplementation.clearIdentifierCaseCaches;
 
-const defaultCliIdentifierCasePlanPreparationService = Object.freeze(
-    /** @type {CliIdentifierCasePlanPreparationService} */ ({
-        prepareIdentifierCasePlan: defaultIdentifierCasePlanPreparer
+const defaultCliProjectIndexService = Object.freeze(
+    /** @type {CliProjectIndexService} */ ({
+        buildProjectIndex: defaultProjectIndexBuilder
     })
 );
 
+const defaultCliIdentifierCasePlanPreparationService = Object.freeze(
+    /** @type {CliIdentifierCasePlanPreparationService} */ (
+        defaultIdentifierCasePlanImplementation
+    )
+);
+
 const defaultCliIdentifierCaseCacheService = Object.freeze(
-    /** @type {CliIdentifierCaseCacheService} */ ({
-        clearIdentifierCaseCaches: defaultIdentifierCaseCacheClearer
-    })
+    /** @type {CliIdentifierCasePlanCacheService} */ (
+        defaultIdentifierCaseCacheImplementation
+    )
 );
 
 export {
