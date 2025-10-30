@@ -263,7 +263,6 @@ export function createMetricsTracker({
     autoLog = false,
     cacheKeys: cacheKeyOption
 } = {}) {
-    const startTime = nowMs();
     const timings = new Map();
     const counters = new Map();
     const caches = new Map();
@@ -273,17 +272,21 @@ export function createMetricsTracker({
     const incrementTiming = createMapIncrementer(timings);
     const incrementCounterBy = createMapIncrementer(counters);
     const snapshot = (extra = {}) => {
+        const timingsSnapshot = toPlainObject(timings);
+        const countersSnapshot = toPlainObject(counters);
+        const cachesSnapshot = Object.fromEntries(
+            Array.from(caches, ([name, stats]) => [name, toPlainObject(stats)])
+        );
+        const totalTimeMs = Object.values(timingsSnapshot).reduce(
+            (total, value) => total + value,
+            0
+        );
         const summary = {
             category,
-            totalTimeMs: nowMs() - startTime,
-            timings: toPlainObject(timings),
-            counters: toPlainObject(counters),
-            caches: Object.fromEntries(
-                Array.from(caches, ([name, stats]) => [
-                    name,
-                    toPlainObject(stats)
-                ])
-            ),
+            totalTimeMs,
+            timings: timingsSnapshot,
+            counters: countersSnapshot,
+            caches: cachesSnapshot,
             metadata: { ...metadata }
         };
 
