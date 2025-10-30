@@ -66,3 +66,29 @@ test("keeps leading line comments before synthetic doc comments", async () => {
         "Expected the leading line comment to remain before the synthesized doc comment"
     );
 });
+
+test("retains existing parameter doc names when merging synthetic metadata", async () => {
+    const source = [
+        "// / Tests to see if a font has the given character",
+        "// /",
+        "/// @param fontName   The target font, as a string",
+        "/// @param character  Character to test for, as a string",
+        "function scribble_font_has_character(_font_name, _character) {",
+        "    return true;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+
+    assert.ok(
+        formatted.includes(
+            "/// @param fontName - The target font, as a string"
+        ),
+        "Expected to preserve the documented fontName parameter metadata"
+    );
+    assert.ok(
+        !formatted.includes("/// @param font_name"),
+        "Unexpected synthetic parameter doc overwriting existing metadata"
+    );
+});
