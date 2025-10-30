@@ -4139,17 +4139,27 @@ function promoteLeadingDocCommentTextToDescription(docLines) {
         }
 
         const trimmed = line.trim();
-        if (!trimmed.startsWith("///")) {
+        const isDocLikeSummary =
+            trimmed.startsWith("///") || /^\/\/\s*\//.test(trimmed);
+        if (!isDocLikeSummary) {
             break;
         }
 
-        if (/^\/\/\/\s*@/i.test(trimmed)) {
+        const isTaggedLine =
+            /^\/\/\/\s*@/i.test(trimmed) || /^\/\/\s*\/\s*@/i.test(trimmed);
+        if (isTaggedLine) {
             break;
         }
 
-        const match = line.match(/^(\s*\/\/\/)(.*)$/);
+        let match = line.match(/^(\s*\/\/\/)(.*)$/);
         if (!match) {
-            break;
+            const docLikeMatch = line.match(/^(\s*)\/\/\s*\/(.*)$/);
+            if (!docLikeMatch) {
+                break;
+            }
+
+            const [, indent = "", suffix = ""] = docLikeMatch;
+            match = [line, `${indent}///`, suffix];
         }
 
         const [, prefix = "///", suffix = ""] = match;
@@ -4170,7 +4180,12 @@ function promoteLeadingDocCommentTextToDescription(docLines) {
     }
 
     const nextLine = normalizedLines[leadingCount];
-    if (typeof nextLine !== "string" || !/^\/\/\/\s*@/i.test(nextLine.trim())) {
+    const nextLineTrimmed = typeof nextLine === "string" ? nextLine.trim() : "";
+    if (
+        typeof nextLine !== "string" ||
+        (!/^\/\/\/\s*@/i.test(nextLineTrimmed) &&
+            !/^\/\/\s*\/\s*@/i.test(nextLineTrimmed))
+    ) {
         return normalizedLines;
     }
 
@@ -4254,7 +4269,6 @@ function mergeSyntheticDocComments(
     normalizedExistingLines = promoteLeadingDocCommentTextToDescription(
         normalizedExistingLines
     );
-
     let preserveDescriptionBreaks =
         normalizedExistingLines?._preserveDescriptionBreaks === true;
 
@@ -4265,7 +4279,6 @@ function mergeSyntheticDocComments(
     if (preserveDescriptionBreaks) {
         normalizedExistingLines._preserveDescriptionBreaks = true;
     }
-
     let removedExistingReturnDuplicates = false;
     ({
         lines: normalizedExistingLines,

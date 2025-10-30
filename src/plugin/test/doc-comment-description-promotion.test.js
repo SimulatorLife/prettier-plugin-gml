@@ -109,3 +109,50 @@ test("keeps a blank separator before synthetic doc tags when leading text lacks 
         "Expected synthetic metadata to follow the summary block."
     );
 });
+
+test("normalizes doc-like comment prefixes before promoting description metadata", async () => {
+    const source = [
+        "// / Leading summary",
+        "// / Additional note",
+        "/// @param value - the input",
+        "function demo(value) {",
+        "    return value;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+    const lines = formatted.split("\n");
+
+    const descriptionIndex = lines.findIndex((line) =>
+        line.includes("@description")
+    );
+    assert.ok(
+        descriptionIndex !== -1,
+        "Expected doc-like prefixes to promote into @description metadata."
+    );
+    assert.equal(
+        lines[descriptionIndex],
+        "/// @description Leading summary",
+        "Expected leading doc-like comment text to normalize into @description metadata."
+    );
+
+    const continuationIndex = lines.findIndex(
+        (line, index) =>
+            index > descriptionIndex && line.includes("Additional note")
+    );
+    assert.ok(
+        continuationIndex > descriptionIndex,
+        "Expected additional doc-like comment text to be treated as a continuation line."
+    );
+    assert.equal(
+        lines[continuationIndex],
+        "///              Additional note",
+        "Expected continuation lines to align with @description metadata indentation."
+    );
+
+    assert.ok(
+        !lines.some((line) => line.includes("// /")),
+        "Expected doc-like comment prefixes to normalize to triple slashes."
+    );
+});
