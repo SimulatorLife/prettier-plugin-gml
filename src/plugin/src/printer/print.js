@@ -4225,8 +4225,10 @@ function promoteLeadingDocCommentTextToDescription(docLines) {
         }
 
         if (trimmedSuffix.length === 0) {
-            const blankLine = suffix.length > 0 ? `${prefix}${suffix}` : prefix;
-            promotedLines.push(blankLine);
+            if (index < firstContentIndex) {
+                const blankLine = suffix.length > 0 ? `${prefix}${suffix}` : prefix;
+                promotedLines.push(blankLine);
+            }
             continue;
         }
 
