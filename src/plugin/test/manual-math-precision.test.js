@@ -173,6 +173,36 @@ test("simplifies division by a reciprocal denominator", async () => {
     );
 });
 
+test("folds lengthdir half assignments into initializer", async () => {
+    const source = [
+        "function convert_length(size, angle) {",
+        "    var s = 1.3 * size * 0.12 / 1.5;",
+        "    s = s - s / 2 - lengthdir_x(s / 2, angle);",
+        "    return s;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function convert_length",
+            "/// @param size",
+            "/// @param angle",
+            "function convert_length(size, angle) {",
+            "    var s = size * 0.052 * (1 - lengthdir_x(1, angle));",
+            "    return s;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
 test("preserves grouping when simplifying reciprocal denominators with composite factors", async () => {
     const source = [
         "function convert_grouped(value, a, b) {",

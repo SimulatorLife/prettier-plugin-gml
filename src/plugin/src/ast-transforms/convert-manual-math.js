@@ -57,6 +57,7 @@ export function convertManualMathExpressions(
         normalizedHelpers,
         traversalContext
     );
+    simplifyLengthDirHalfAssignments(ast, normalizedHelpers, traversalContext);
 
     return ast;
 }
@@ -589,6 +590,49 @@ function cleanupMultiplicativeIdentityParentheses(
     }
 }
 
+function simplifyLengthDirHalfAssignments(ast, helpers, context) {
+    if (!ast || typeof ast !== "object") {
+        return;
+    }
+
+    const stack = [ast];
+    const visited = new Set();
+
+    while (stack.length > 0) {
+        const node = stack.pop();
+        if (!node || typeof node !== "object" || visited.has(node)) {
+            continue;
+        }
+
+        visited.add(node);
+
+        if (node._gmlManualMathOriginal === true) {
+            continue;
+        }
+
+        if (Array.isArray(node)) {
+            for (const element of node) {
+                stack.push(element);
+            }
+            continue;
+        }
+
+        if (
+            node.type === "AssignmentExpression" &&
+            node.operator === "=" &&
+            attemptSimplifyLengthDirHalfAssignment(node, helpers, context)
+        ) {
+            continue;
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                stack.push(value);
+            }
+        }
+    }
+}
+
 function shouldPreserveIdentityParenthesesForAncestor(ancestor) {
     if (!ancestor || typeof ancestor !== "object") {
         return false;
@@ -730,6 +774,372 @@ function attemptCondenseSimpleScalarProduct(node, helpers, context) {
     node.__fromMultiplicativeIdentity = true;
 
     return true;
+}
+
+function attemptSimplifyLengthDirHalfAssignment(node, helpers, context) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (!helpers || typeof helpers.hasComment !== "function") {
+        return false;
+    }
+
+    if (helpers.hasComment(node)) {
+        return false;
+    }
+
+    const identifierName = getIdentifierName(node.left);
+    if (typeof identifierName !== "string" || identifierName.length === 0) {
+        return false;
+    }
+
+    const assignment = unwrapExpression(node.right);
+    if (!assignment || assignment.type !== BINARY_EXPRESSION) {
+        return false;
+    }
+
+    const operator =
+        typeof assignment.operator === "string"
+            ? assignment.operator.toLowerCase()
+            : null;
+    if (operator !== "-") {
+        return false;
+    }
+
+    if (helpers.hasComment(assignment)) {
+        return false;
+    }
+
+    if (
+        context &&
+        hasInlineCommentBetween(assignment.left, assignment.right, context)
+    ) {
+        return false;
+    }
+
+    const rawLengthDirCall = unwrapExpression(assignment.right);
+    if (
+        !rawLengthDirCall ||
+        rawLengthDirCall.type !== CALL_EXPRESSION ||
+        helpers.hasComment(rawLengthDirCall)
+    ) {
+        return false;
+    }
+
+    const lengthDirName = getIdentifierName(rawLengthDirCall.object);
+    if (lengthDirName !== "lengthdir_x" && lengthDirName !== "lengthdir_y") {
+        return false;
+    }
+
+    const callArguments = getCallExpressionArguments(rawLengthDirCall);
+    if (!Array.isArray(callArguments) || callArguments.length !== 2) {
+        return false;
+    }
+
+    const [rawHalfLength, rawAngle] = callArguments;
+    if (!rawHalfLength || !rawAngle) {
+        return false;
+    }
+
+    if (helpers.hasComment(rawHalfLength) || helpers.hasComment(rawAngle)) {
+        return false;
+    }
+
+    if (context && hasInlineCommentBetween(rawHalfLength, rawAngle, context)) {
+        return false;
+    }
+
+    const difference = unwrapExpression(assignment.left);
+    if (!difference || difference.type !== BINARY_EXPRESSION) {
+        return false;
+    }
+
+    const differenceOperator =
+        typeof difference.operator === "string"
+            ? difference.operator.toLowerCase()
+            : null;
+    if (differenceOperator !== "-") {
+        return false;
+    }
+
+    if (helpers.hasComment(difference)) {
+        return false;
+    }
+
+    if (
+        context &&
+        hasInlineCommentBetween(difference.left, difference.right, context)
+    ) {
+        return false;
+    }
+
+    if (getIdentifierName(difference.left) !== identifierName) {
+        return false;
+    }
+
+    if (
+        !isHalfOfIdentifier(
+            difference.right,
+            identifierName,
+            helpers,
+            context
+        ) ||
+        !isHalfOfIdentifier(rawHalfLength, identifierName, helpers, context)
+    ) {
+        return false;
+    }
+
+    const differenceHalf = unwrapExpression(difference.right);
+    const callHalf = unwrapExpression(rawHalfLength);
+
+    if (
+        !differenceHalf ||
+        !callHalf ||
+        !areNodesApproximatelyEquivalent(differenceHalf, callHalf)
+    ) {
+        return false;
+    }
+
+    const root = context?.astRoot;
+    if (!root || typeof root !== "object") {
+        return false;
+    }
+
+    const declaration = findVariableDeclarationByName(root, identifierName);
+    if (!declaration) {
+        return false;
+    }
+
+    if (
+        !Array.isArray(declaration.declarations) ||
+        declaration.declarations.length !== 1
+    ) {
+        return false;
+    }
+
+    const [declarator] = declaration.declarations;
+    const initializer = declarator?.init;
+    if (!initializer || helpers.hasComment(initializer)) {
+        return false;
+    }
+
+    const halvedInitializer = createHalvedInitializer(initializer, helpers);
+    if (!halvedInitializer) {
+        return false;
+    }
+
+    const normalizedAngle = cloneAstNode(rawAngle);
+    if (!normalizedAngle) {
+        return false;
+    }
+
+    const unitLiteral = createNumericLiteral(1, rawHalfLength);
+    if (!unitLiteral) {
+        return false;
+    }
+
+    const normalizedLengthDirCall = createCallExpressionNode(
+        lengthDirName,
+        [unitLiteral, normalizedAngle],
+        rawLengthDirCall
+    );
+    if (!normalizedLengthDirCall) {
+        return false;
+    }
+
+    const oneLiteral = createNumericLiteral(
+        1,
+        difference.left ?? rawLengthDirCall
+    );
+    if (!oneLiteral) {
+        return false;
+    }
+
+    const oneMinusLengthDir = createBinaryExpressionNode(
+        oneLiteral,
+        "-",
+        normalizedLengthDirCall,
+        assignment
+    );
+    if (!oneMinusLengthDir) {
+        return false;
+    }
+
+    const wrappedOneMinus = createParenthesizedExpressionNode(
+        oneMinusLengthDir,
+        assignment
+    );
+    if (!wrappedOneMinus) {
+        return false;
+    }
+
+    const finalInitializer = createBinaryExpressionNode(
+        halvedInitializer,
+        "*",
+        wrappedOneMinus,
+        initializer
+    );
+    if (!finalInitializer) {
+        return false;
+    }
+
+    declarator.init = finalInitializer;
+
+    if (!removeNodeFromAst(root, node)) {
+        return false;
+    }
+
+    return true;
+}
+
+function createHalvedInitializer(initializer, helpers) {
+    if (!initializer || typeof initializer !== "object") {
+        return null;
+    }
+
+    const clone = cloneAstNode(initializer);
+    if (!clone) {
+        return null;
+    }
+
+    const operands = [];
+    if (collectProductOperands(clone, operands, helpers)) {
+        for (const operand of operands) {
+            const literalValue = parseNumericLiteral(operand);
+            if (literalValue === null) {
+                continue;
+            }
+
+            const scaled = normalizeNumericCoefficient(literalValue * 0.5);
+            if (scaled === null) {
+                return null;
+            }
+
+            operand.value = scaled;
+            return clone;
+        }
+    }
+
+    const directLiteral = parseNumericLiteral(clone);
+    if (directLiteral !== null) {
+        const scaled = normalizeNumericCoefficient(directLiteral * 0.5);
+        if (scaled === null) {
+            return null;
+        }
+
+        clone.value = scaled;
+        return clone;
+    }
+
+    const halfLiteralValue = normalizeNumericCoefficient(0.5) ?? "0.5";
+    const halfLiteral = createNumericLiteral(halfLiteralValue, initializer);
+    if (!halfLiteral) {
+        return null;
+    }
+
+    return createBinaryExpressionNode(clone, "*", halfLiteral, initializer);
+}
+
+function isHalfOfIdentifier(node, identifierName, helpers, context) {
+    const expression = unwrapExpression(node);
+    if (!expression) {
+        return false;
+    }
+
+    if (helpers.hasComment(node) || helpers.hasComment(expression)) {
+        return false;
+    }
+
+    if (expression.type !== BINARY_EXPRESSION) {
+        return false;
+    }
+
+    const operator =
+        typeof expression.operator === "string"
+            ? expression.operator.toLowerCase()
+            : null;
+
+    if (operator === "/") {
+        if (
+            getIdentifierName(expression.left) !== identifierName ||
+            !isHalfDenominator(expression.right)
+        ) {
+            return false;
+        }
+
+        if (
+            context &&
+            hasInlineCommentBetween(expression.left, expression.right, context)
+        ) {
+            return false;
+        }
+
+        return true;
+    }
+
+    if (operator === "*") {
+        const leftName = getIdentifierName(expression.left);
+        const rightName = getIdentifierName(expression.right);
+
+        if (
+            leftName === identifierName &&
+            isHalfNumericFactor(expression.right)
+        ) {
+            if (
+                context &&
+                hasInlineCommentBetween(
+                    expression.left,
+                    expression.right,
+                    context
+                )
+            ) {
+                return false;
+            }
+
+            return true;
+        }
+
+        if (
+            rightName === identifierName &&
+            isHalfNumericFactor(expression.left)
+        ) {
+            if (
+                context &&
+                hasInlineCommentBetween(
+                    expression.left,
+                    expression.right,
+                    context
+                )
+            ) {
+                return false;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    return false;
+}
+
+function isHalfDenominator(node) {
+    const value = parseNumericFactor(node);
+    if (value === null) {
+        return false;
+    }
+
+    return Math.abs(value - 2) <= computeNumericTolerance(2);
+}
+
+function isHalfNumericFactor(node) {
+    const value = parseNumericFactor(node);
+    if (value === null) {
+        return false;
+    }
+
+    return Math.abs(value - 0.5) <= computeNumericTolerance(0.5);
 }
 
 function cancelSimpleReciprocalNumeratorPairs(terms, helpers) {
@@ -3500,6 +3910,38 @@ function createNegatedExpression(argument, template) {
     assignClonedLocation(unary, template);
 
     return unary;
+}
+
+function createBinaryExpressionNode(left, operator, right, template) {
+    if (!left || !right || typeof operator !== "string") {
+        return null;
+    }
+
+    const expression = {
+        type: BINARY_EXPRESSION,
+        operator,
+        left,
+        right
+    };
+
+    assignClonedLocation(expression, template);
+
+    return expression;
+}
+
+function createParenthesizedExpressionNode(expression, template) {
+    if (!expression || typeof expression !== "object") {
+        return null;
+    }
+
+    const wrapped = {
+        type: PARENTHESIZED_EXPRESSION,
+        expression
+    };
+
+    assignClonedLocation(wrapped, template);
+
+    return wrapped;
 }
 
 function createCallExpressionNode(name, args, template) {
