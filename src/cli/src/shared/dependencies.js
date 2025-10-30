@@ -60,6 +60,7 @@ export {
     toArray,
     toArrayFromIterable,
     toMutableArray,
+    toFiniteNumber,
     toNormalizedInteger,
     toNormalizedLowerCaseSet,
     toNormalizedLowerCaseString,

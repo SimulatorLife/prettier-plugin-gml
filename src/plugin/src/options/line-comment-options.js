@@ -1,7 +1,8 @@
 import {
     coercePositiveIntegerOption,
     isNonEmptyString,
-    isRegExpLike
+    isRegExpLike,
+    toFiniteNumber
 } from "../shared/index.js";
 import { createResolverController } from "../shared/resolver-controller.js";
 
@@ -137,8 +138,8 @@ function resolveLineCommentBannerLength(options) {
             return DEFAULT_LINE_COMMENT_BANNER_LENGTH;
         }
 
-        const parsed = Number(trimmed);
-        if (!Number.isFinite(parsed)) {
+        const parsed = toFiniteNumber(trimmed);
+        if (parsed === null) {
             return DEFAULT_LINE_COMMENT_BANNER_LENGTH;
         }
 
