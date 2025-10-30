@@ -57,7 +57,7 @@ function loadFeatherMetadata() {
  * Retrieve the shared Feather metadata payload bundled with the semantic
  * package.
  *
- * @returns {FeatherMetadata}
+ * @returns {FeatherMetadata} Bundled Feather metadata payload.
  */
 export function getFeatherMetadata() {
     return loadFeatherMetadata();
@@ -66,7 +66,7 @@ export function getFeatherMetadata() {
 /**
  * Return the list of Feather diagnostics declared in the bundled metadata.
  *
- * @returns {Array<FeatherDiagnostic>}
+ * @returns {Array<FeatherDiagnostic>} Array of diagnostics declared in the bundled metadata.
  */
 export function getFeatherDiagnostics() {
     const metadata = loadFeatherMetadata();
@@ -77,7 +77,7 @@ export function getFeatherDiagnostics() {
  * Look up a single Feather diagnostic by its identifier.
  *
  * @param {string | null | undefined} id Diagnostic identifier to find.
- * @returns {FeatherDiagnostic | null}
+ * @returns {FeatherDiagnostic | null} Matching diagnostic when found; otherwise `null`.
  */
 export function getFeatherDiagnosticById(id) {
     const normalizedId = toTrimmedString(id);
