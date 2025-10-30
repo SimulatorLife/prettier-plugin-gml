@@ -870,25 +870,43 @@ function logReportDestination(reportResult, { stdout }) {
     log(`Performance report written to ${displayPath}.`);
 }
 
+/**
+ * Convert a suite result entry into a structured failure summary when an error
+ * payload is present.
+ */
+function createSuiteFailureSummary([suite, payload]) {
+    if (!isObjectLike(payload) || !payload.error) {
+        return null;
+    }
+
+    return {
+        suite,
+        message: getErrorMessageOrFallback(payload.error, "Unknown error")
+    };
+}
+
+/**
+ * Derive failure summaries from raw suite result entries while hiding the
+ * bookkeeping around collecting defined summaries.
+ */
+function createSuiteFailureSummariesFromEntries(entries) {
+    return entries.reduce((summaries, entry) => {
+        const summary = createSuiteFailureSummary(entry);
+        if (summary) {
+            summaries.push(summary);
+        }
+
+        return summaries;
+    }, []);
+}
+
 function collectSuiteFailureSummaries(results) {
     if (!isObjectLike(results)) {
         return [];
     }
 
-    const failures = [];
-
-    for (const [suite, payload] of Object.entries(results)) {
-        if (!isObjectLike(payload) || !payload.error) {
-            continue;
-        }
-
-        failures.push({
-            suite,
-            message: getErrorMessageOrFallback(payload.error, "Unknown error")
-        });
-    }
-
-    return failures;
+    const entries = Object.entries(results);
+    return createSuiteFailureSummariesFromEntries(entries);
 }
 
 function formatFailureFollowUp({ stdout, format, displayPath }) {
