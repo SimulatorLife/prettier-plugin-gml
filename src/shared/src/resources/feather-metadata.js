@@ -1,17 +1,21 @@
 import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
 
 import { asArray } from "../utils/array.js";
 import { toTrimmedString } from "../utils/string.js";
+import {
+    resolveBundledResourcePath,
+    resolveBundledResourceUrl
+} from "./resource-locator.js";
 
 const require = createRequire(import.meta.url);
 
-export const FEATHER_METADATA_URL = new URL(
-    "../../../../resources/feather-metadata.json",
-    import.meta.url
+export const FEATHER_METADATA_URL = resolveBundledResourceUrl(
+    "feather-metadata.json"
 );
 
-export const FEATHER_METADATA_PATH = fileURLToPath(FEATHER_METADATA_URL);
+export const FEATHER_METADATA_PATH = resolveBundledResourcePath(
+    "feather-metadata.json"
+);
 
 export function loadBundledFeatherMetadata() {
     return require(FEATHER_METADATA_PATH);
