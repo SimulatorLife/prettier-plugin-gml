@@ -1,5 +1,8 @@
 import { assertFunction, assertPlainObject, hasOwn } from "../shared/index.js";
-import { defaultGmlPluginComponentDependencies } from "./default-plugin-component-dependencies.js";
+import {
+    createDependencyBundle,
+    defaultGmlPluginComponentDependencies
+} from "./default-plugin-component-dependencies.js";
 
 const REQUIRED_OBJECT_DEPENDENCIES = Object.freeze([
     [
@@ -62,23 +65,7 @@ function normalizeDependencyMap(candidate) {
         assertFunction(dependencies[name], name, { errorMessage });
     }
 
-    const {
-        gmlParserAdapter,
-        print,
-        handleComments,
-        printComment,
-        identifierCaseOptions,
-        LogicalOperatorsStyle
-    } = dependencies;
-
-    return Object.freeze({
-        gmlParserAdapter,
-        print,
-        handleComments,
-        printComment,
-        identifierCaseOptions,
-        LogicalOperatorsStyle
-    });
+    return createDependencyBundle(dependencies);
 }
 
 const DEFAULT_DEPENDENCIES = normalizeDependencyMap(
