@@ -205,7 +205,7 @@ function logInvalidIterationEnvOverride({ envVar, error, fallback }) {
  * failures.
  *
  * Both parser and format iteration limits follow the same "try the override,
- * fall back to the previous default, and emit a warning" flow. Centralising
+ * fall back to the previous default, and emit a warning" flow. Centralizing
  * the guard keeps the logging consistent and avoids subtle divergences if the
  * override plumbing changes again.
  *

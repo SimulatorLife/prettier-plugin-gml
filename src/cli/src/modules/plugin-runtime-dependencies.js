@@ -3,7 +3,7 @@
 // Historically modules imported these utilities via ../dependencies.js, which
 // also re-exported every shared CLI helper. That wide surface meant that even
 // commands that only needed standard utilities still pulled in the plugin
-// runtime wiring. Centralising the plugin runtime accessors here keeps the core
+// runtime wiring. Centralizing the plugin runtime accessors here keeps the core
 // dependency bundle lean and makes the runtime boundary explicit for consumers
 // that actually need it.
 export {
