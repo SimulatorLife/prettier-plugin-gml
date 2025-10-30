@@ -4,6 +4,11 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+// Keep these assertions on the `node:assert/strict` helpers to avoid Node.js'
+// deprecated legacy equality APIs. Manual validation: run
+// `node --test src/cli/test/memory-cli-report.test.js` to confirm behaviour
+// parity with the previous implementation.
+
 import {
     DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT,
     DEFAULT_MEMORY_REPORT_DIR,
@@ -31,35 +36,38 @@ test("memory CLI writes suite results to a JSON report", async (t) => {
         reportDir
     });
 
-    assert.equal(exitCode, 0);
+    assert.strictEqual(exitCode, 0);
 
     const reportPath = path.join(reportDir, "memory.json");
     const reportRaw = await readFile(reportPath, "utf8");
     const payload = JSON.parse(reportRaw);
 
-    assert.equal(typeof payload.environment, "object");
-    assert.equal(typeof payload.environment.nodeVersion, "string");
+    assert.strictEqual(typeof payload.environment, "object");
+    assert.strictEqual(typeof payload.environment.nodeVersion, "string");
     assert.ok(payload.environment.nodeVersion.length > 0);
-    assert.equal(typeof payload.generatedAt, "string");
+    assert.strictEqual(typeof payload.generatedAt, "string");
     assert.ok(payload.generatedAt.length > 0);
-    assert.equal(typeof payload.suites, "object");
+    assert.strictEqual(typeof payload.suites, "object");
 
     const normalizeSuite =
         payload.suites[MemorySuiteName.NORMALIZE_STRING_LIST];
     assert.ok(normalizeSuite && typeof normalizeSuite === "object");
-    assert.equal(normalizeSuite.iterations, 1);
-    assert.equal(typeof normalizeSuite.description, "string");
+    assert.strictEqual(normalizeSuite.iterations, 1);
+    assert.strictEqual(typeof normalizeSuite.description, "string");
     assert.ok(!("error" in normalizeSuite));
-    assert.equal(typeof normalizeSuite.totalLength, "number");
-    assert.equal(typeof normalizeSuite.heapUsedBefore, "number");
-    assert.equal(typeof normalizeSuite.heapUsedAfter, "number");
+    assert.strictEqual(typeof normalizeSuite.totalLength, "number");
+    assert.strictEqual(typeof normalizeSuite.heapUsedBefore, "number");
+    assert.strictEqual(typeof normalizeSuite.heapUsedAfter, "number");
     assert.ok(
         normalizeSuite.memory && typeof normalizeSuite.memory === "object"
     );
-    assert.equal(normalizeSuite.memory.unit, "bytes");
-    assert.equal(typeof normalizeSuite.memory.before.heapUsed, "number");
-    assert.equal(typeof normalizeSuite.memory.delta.heapUsed, "number");
-    assert.equal(typeof normalizeSuite.memory.deltaPerIteration, "object");
+    assert.strictEqual(normalizeSuite.memory.unit, "bytes");
+    assert.strictEqual(typeof normalizeSuite.memory.before.heapUsed, "number");
+    assert.strictEqual(typeof normalizeSuite.memory.delta.heapUsed, "number");
+    assert.strictEqual(
+        typeof normalizeSuite.memory.deltaPerIteration,
+        "object"
+    );
     if (normalizeSuite.heapUsedAfterGc == null) {
         assert.ok(Array.isArray(normalizeSuite.warnings));
         assert.ok(
@@ -68,34 +76,34 @@ test("memory CLI writes suite results to a JSON report", async (t) => {
             )
         );
     } else {
-        assert.equal(typeof normalizeSuite.heapUsedAfterGc, "number");
+        assert.strictEqual(typeof normalizeSuite.heapUsedAfterGc, "number");
     }
 
     const parserSuite = payload.suites[MemorySuiteName.PARSER_AST];
     assert.ok(parserSuite && typeof parserSuite === "object");
-    assert.equal(parserSuite.iterations, 1);
-    assert.equal(typeof parserSuite.description, "string");
+    assert.strictEqual(parserSuite.iterations, 1);
+    assert.strictEqual(typeof parserSuite.description, "string");
     assert.ok(parserSuite.description.toLowerCase().includes("parse"));
-    assert.equal(typeof parserSuite.sample.path, "string");
+    assert.strictEqual(typeof parserSuite.sample.path, "string");
     assert.ok(parserSuite.sample.path.endsWith("SnowState.gml"));
-    assert.equal(typeof parserSuite.ast.nodeCount, "number");
+    assert.strictEqual(typeof parserSuite.ast.nodeCount, "number");
     assert.ok(Array.isArray(parserSuite.ast.commonNodeTypes));
     assert.ok(parserSuite.memory && typeof parserSuite.memory === "object");
-    assert.equal(typeof parserSuite.memory.delta.heapUsed, "number");
+    assert.strictEqual(typeof parserSuite.memory.delta.heapUsed, "number");
 
     const formatterSuite = payload.suites[MemorySuiteName.PLUGIN_FORMAT];
     assert.ok(formatterSuite && typeof formatterSuite === "object");
-    assert.equal(formatterSuite.iterations, 1);
-    assert.equal(typeof formatterSuite.description, "string");
+    assert.strictEqual(formatterSuite.iterations, 1);
+    assert.strictEqual(typeof formatterSuite.description, "string");
     assert.ok(formatterSuite.description.toLowerCase().includes("format"));
-    assert.equal(typeof formatterSuite.sample.path, "string");
+    assert.strictEqual(typeof formatterSuite.sample.path, "string");
     assert.ok(formatterSuite.sample.path.endsWith("testFormatting.input.gml"));
-    assert.equal(typeof formatterSuite.output.bytes, "number");
-    assert.equal(typeof formatterSuite.options.printWidth, "number");
+    assert.strictEqual(typeof formatterSuite.output.bytes, "number");
+    assert.strictEqual(typeof formatterSuite.options.printWidth, "number");
     assert.ok(
         formatterSuite.memory && typeof formatterSuite.memory === "object"
     );
-    assert.equal(typeof formatterSuite.memory.delta.heapUsed, "number");
+    assert.strictEqual(typeof formatterSuite.memory.delta.heapUsed, "number");
 });
 
 test("memory CLI resolves report directory from the environment", async (t) => {
@@ -115,12 +123,12 @@ test("memory CLI resolves report directory from the environment", async (t) => {
         cwd: workspace
     });
 
-    assert.equal(exitCode, 0);
+    assert.strictEqual(exitCode, 0);
 
     const reportPath = path.join(workspace, "env-reports", "memory.json");
     const reportRaw = await readFile(reportPath, "utf8");
 
-    assert.equal(typeof reportRaw, "string");
+    assert.strictEqual(typeof reportRaw, "string");
     assert.ok(reportRaw.length > 0);
 });
 
@@ -152,7 +160,7 @@ test("memory CLI respects the common node limit option", async (t) => {
         reportDir
     });
 
-    assert.equal(exitCode, 0);
+    assert.strictEqual(exitCode, 0);
 
     const reportPath = path.join(reportDir, "memory.json");
     const reportRaw = await readFile(reportPath, "utf8");
