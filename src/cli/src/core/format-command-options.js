@@ -1,8 +1,4 @@
-import {
-    asArray,
-    getNonEmptyTrimmedString,
-    toArrayFromIterable
-} from "../shared/dependencies.js";
+import { asArray, getNonEmptyTrimmedString } from "../shared/dependencies.js";
 import { normalizeExtensions } from "./extension-normalizer.js";
 
 function resolveFormatCommandExtensions(options, defaultExtensions) {
@@ -13,19 +9,7 @@ function resolveFormatCommandExtensions(options, defaultExtensions) {
         return fallback;
     }
 
-    if (Array.isArray(raw)) {
-        return normalizeExtensions(raw, fallback);
-    }
-
-    if (typeof raw === "string") {
-        return normalizeExtensions(raw, fallback);
-    }
-
-    if (typeof raw[Symbol.iterator] === "function") {
-        return normalizeExtensions(toArrayFromIterable(raw), fallback);
-    }
-
-    return fallback;
+    return normalizeExtensions(raw, fallback);
 }
 
 function resolveFormatCommandSampleLimits(options) {

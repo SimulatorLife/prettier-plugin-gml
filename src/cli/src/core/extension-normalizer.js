@@ -4,6 +4,7 @@ import {
     compactArray,
     createListSplitPattern,
     normalizeStringList,
+    toArrayFromIterable,
     uniqueArray
 } from "../shared/dependencies.js";
 
@@ -41,6 +42,22 @@ function collectExtensionCandidates(rawExtensions) {
                     allowInvalidType: true
                 })
             );
+    }
+
+    if (typeof rawExtensions === "string") {
+        return normalizeStringList(rawExtensions, {
+            splitPattern: EXTENSION_LIST_SPLIT_PATTERN,
+            allowInvalidType: true
+        });
+    }
+
+    if (rawExtensions && typeof rawExtensions[Symbol.iterator] === "function") {
+        const iterableValues = toArrayFromIterable(rawExtensions);
+        if (iterableValues.length > 0) {
+            return collectExtensionCandidates(iterableValues);
+        }
+
+        return [];
     }
 
     return normalizeStringList(rawExtensions, {
