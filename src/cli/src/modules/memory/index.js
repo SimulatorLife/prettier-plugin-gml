@@ -251,6 +251,53 @@ const {
 } = astCommonNodeLimitToolkit;
 
 const sampleCache = new Map();
+const SAMPLE_CACHE_MAX_ENTRIES = 4;
+
+function clearSampleCache() {
+    sampleCache.clear();
+}
+
+function getSampleCacheRecord(label) {
+    const cached = sampleCache.get(label) ?? null;
+    if (cached === null) {
+        return null;
+    }
+
+    // Refresh the insertion order so frequently accessed samples stay warm in
+    // the cache even when new fixtures are introduced.
+    sampleCache.delete(label);
+    sampleCache.set(label, cached);
+    return cached;
+}
+
+function trimSampleCache(limit = SAMPLE_CACHE_MAX_ENTRIES) {
+    if (!Number.isFinite(limit)) {
+        return;
+    }
+
+    if (limit <= 0) {
+        sampleCache.clear();
+        return;
+    }
+
+    while (sampleCache.size > limit) {
+        const { value: oldestLabel, done } = sampleCache.keys().next();
+        if (done) {
+            break;
+        }
+
+        sampleCache.delete(oldestLabel);
+    }
+}
+
+function rememberSampleRecord(label, record) {
+    sampleCache.set(label, record);
+    trimSampleCache();
+}
+
+function getSampleCacheLabels() {
+    return [...sampleCache.keys()];
+}
 
 function resolveProjectPath(relativePath) {
     return resolveFromRepoRoot(relativePath);
@@ -261,14 +308,15 @@ async function loadPrettierStandalone() {
 }
 
 async function loadSampleText(label, relativePath) {
-    if (sampleCache.has(label)) {
-        return sampleCache.get(label);
+    const cached = getSampleCacheRecord(label);
+    if (cached) {
+        return cached;
     }
 
     const absolutePath = resolveProjectPath(relativePath);
     const contents = await readFile(absolutePath, "utf8");
     const record = { contents, path: absolutePath };
-    sampleCache.set(label, record);
+    rememberSampleRecord(label, record);
     return record;
 }
 
@@ -1015,5 +1063,9 @@ export async function runMemoryCli({
 }
 
 export const __test__ = Object.freeze({
-    collectCommonNodeTypes
+    collectCommonNodeTypes,
+    SAMPLE_CACHE_MAX_ENTRIES,
+    loadSampleTextForTests: loadSampleText,
+    clearSampleCacheForTests: clearSampleCache,
+    getSampleCacheLabelsForTests: getSampleCacheLabels
 });
