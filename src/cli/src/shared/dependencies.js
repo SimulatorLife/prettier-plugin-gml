@@ -1,4 +1,5 @@
 export {
+    appendToCollection,
     applyEnvironmentOverride,
     asArray,
     assertArray,
@@ -70,8 +71,6 @@ export {
 } from "../dependencies.js";
 
 export { resolveCommandUsage } from "../core/command-usage.js";
-
-export { appendToCollection } from "../dependencies.js";
 
 export {
     createCliRunSkippedError,
