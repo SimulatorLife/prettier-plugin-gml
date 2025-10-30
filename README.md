@@ -810,7 +810,7 @@ npm --prefix src/plugin run prettier:plugin -- --path=test/test14.input.gml
 npm run cli -- --help       # Explore CLI utilities without switching directories
 npm run cli -- performance  # Run the benchmarking helpers registered with the CLI
 npm run memory -- --suite normalize-string-list --pretty      # Measure normalizeStringList memory usage
-npm run report              # Generate unit test report, checkstyle report (using the eslint-formatter-checkstyle formatter), and code coverage report.
+npm run report              # Generate unit test report, checkstyle report, and code coverage report.
 ```
 
 Omit `--suite` to run every available memory suite; use `npm run memory -- --help` to review the full list of benchmarks.
