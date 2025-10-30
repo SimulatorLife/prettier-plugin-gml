@@ -154,6 +154,7 @@ newExpression
 lValueStartExpression
     : identifier # IdentifierLValue
     | newExpression # NewLValue
+    | OpenParen lValueExpression CloseParen # ParenthesizedLValue
     ;
 
 lValueExpression
@@ -181,7 +182,8 @@ expressionOrFunction
     ;
 
 expression
-    : OpenParen expression CloseParen # ParenthesizedExpression
+    : callStatement # CallExpression
+    | OpenParen expression CloseParen # ParenthesizedExpression
     | <assoc=right> Plus expression # UnaryPlusExpression
     | <assoc=right> Minus expression # UnaryMinusExpression
     | <assoc=right> BitNot expression # BitNotExpression
@@ -200,7 +202,6 @@ expression
     | expression Xor expression # BinaryExpression
     | ( preIncDecExpression | postIncDecExpression ) # IncDecExpression
     | lValueExpression # VariableExpression
-    | callStatement # CallExpression
     | <assoc=right> expression QuestionMark expression Colon expression # TernaryExpression
     | functionDeclaration # FunctionExpression
     | literal # LiteralExpression
@@ -315,7 +316,11 @@ propertyAssignment
     ;
 
 propertyIdentifier
-    : Identifier | softKeyword | propertySoftKeyword
+    : Identifier
+    | softKeyword
+    | propertySoftKeyword
+    | StringLiteral
+    | VerbatimStringLiteral
     ;
 
 functionDeclaration

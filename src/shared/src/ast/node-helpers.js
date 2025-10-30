@@ -369,7 +369,15 @@ function hasArrayPropertyEntries(node, propertyName) {
 }
 
 function getBodyStatements(node) {
-    return getArrayProperty(node, "body");
+    if (!isNode(node)) {
+        return [];
+    }
+
+    // `getArrayProperty` performs a defensive string guard on the property name
+    // before delegating to `asArray`. The printer calls `getBodyStatements`
+    // for nearly every statement it visits, so we can skip the redundant
+    // property validation and go straight to the normalized array lookup.
+    return asArray(node.body);
 }
 
 function hasBodyStatements(node) {

@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-    resetGmlPluginComponentProvider,
     restoreDefaultGmlPluginComponents,
     setGmlPluginComponentProvider
 } from "../src/plugin-components.js";
@@ -78,7 +77,7 @@ test(
                 "default options should refresh when overrides apply"
             );
         } finally {
-            resetGmlPluginComponentProvider();
+            restoreDefaultGmlPluginComponents();
         }
 
         assert.deepStrictEqual(

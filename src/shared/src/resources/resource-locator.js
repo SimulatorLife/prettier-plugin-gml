@@ -8,8 +8,8 @@ const RESOURCES_BASE_URL = new URL("../../../../resources/", import.meta.url);
  * Centralising the resolution protects call sites from relying on directory
  * depth or package layout, making it easier to relocate resource assets.
  *
- * @param {string} resourceName
- * @returns {URL}
+ * @param {string} resourceName Name of the resource file to resolve.
+ * @returns {URL} Absolute file URL referencing the bundled artefact.
  */
 export function resolveBundledResourceUrl(resourceName) {
     if (typeof resourceName !== "string" || resourceName.length === 0) {
@@ -22,8 +22,8 @@ export function resolveBundledResourceUrl(resourceName) {
 /**
  * Resolve a filesystem path for a bundled resource artefact.
  *
- * @param {string} resourceName
- * @returns {string}
+ * @param {string} resourceName Name of the resource file to resolve.
+ * @returns {string} Local filesystem path for the bundled artefact.
  */
 export function resolveBundledResourcePath(resourceName) {
     return fileURLToPath(resolveBundledResourceUrl(resourceName));

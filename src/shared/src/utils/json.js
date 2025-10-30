@@ -117,16 +117,6 @@ function extractErrorDetails(error) {
     return normalized.length > 0 ? normalized : "Unknown error";
 }
 
-function normalizeAssertOptionsCandidate(candidate) {
-    return candidate && typeof candidate === "object" ? candidate : undefined;
-}
-
-function mergeAssertOptions(baseOptions, dynamicOptions) {
-    return baseOptions || dynamicOptions
-        ? Object.assign({}, baseOptions ?? {}, dynamicOptions ?? {})
-        : undefined;
-}
-
 /**
  * Describe the payload when JSON serialization fails so error messages stay
  * readable without relying on nested ternaries inside the guard clause.
@@ -223,16 +213,28 @@ export function parseJsonObjectWithContext(text, options = {}) {
         reviver
     });
 
-    const baseOptions = normalizeAssertOptionsCandidate(assertOptions);
-    const dynamicOptions =
+    const normalizedBase =
+        assertOptions && typeof assertOptions === "object"
+            ? assertOptions
+            : undefined;
+    const resolvedDynamic =
         typeof createAssertOptions === "function"
-            ? normalizeAssertOptionsCandidate(createAssertOptions(payload))
+            ? createAssertOptions(payload)
+            : undefined;
+    const normalizedDynamic =
+        resolvedDynamic && typeof resolvedDynamic === "object"
+            ? resolvedDynamic
             : undefined;
 
-    return assertPlainObject(
-        payload,
-        mergeAssertOptions(baseOptions, dynamicOptions)
-    );
+    const baseOptions = normalizedBase ?? {};
+    const dynamicOptions = normalizedDynamic ?? {};
+
+    const mergedOptions =
+        normalizedBase || normalizedDynamic
+            ? { ...baseOptions, ...dynamicOptions }
+            : undefined;
+
+    return assertPlainObject(payload, mergedOptions);
 }
 
 /**

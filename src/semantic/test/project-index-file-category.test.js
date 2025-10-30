@@ -7,11 +7,16 @@ import {
     resolveProjectFileCategory,
     getProjectIndexSourceExtensions,
     resetProjectIndexSourceExtensions,
-    setProjectIndexSourceExtensions
+    setProjectIndexSourceExtensions,
+    getProjectResourceMetadataExtensions,
+    resetProjectResourceMetadataExtensions,
+    setProjectResourceMetadataExtensions,
+    matchProjectResourceMetadataExtension
 } from "../src/project-index/index.js";
 
 test.afterEach(() => {
     resetProjectIndexSourceExtensions();
+    resetProjectResourceMetadataExtensions();
 });
 
 test("normalizeProjectFileCategory accepts known categories", () => {
@@ -96,5 +101,35 @@ test("setProjectIndexSourceExtensions rejects invalid input", () => {
     assert.throws(
         () => setProjectIndexSourceExtensions([42]),
         /must be strings/
+    );
+});
+
+test("resource metadata extensions expose the default list", () => {
+    const defaults = getProjectResourceMetadataExtensions();
+    assert.deepEqual(defaults, [".yy"]);
+    assert.throws(() => {
+        defaults.push(".yyz");
+    }, TypeError);
+});
+
+test("resource metadata extension overrides extend detection", () => {
+    setProjectResourceMetadataExtensions([".meta"]);
+    assert.deepEqual(getProjectResourceMetadataExtensions(), [".yy", ".meta"]);
+    assert.equal(
+        resolveProjectFileCategory("objects/player/player.meta"),
+        ProjectFileCategory.RESOURCE_METADATA
+    );
+    assert.equal(
+        resolveProjectFileCategory("objects/player/player.yy"),
+        ProjectFileCategory.RESOURCE_METADATA
+    );
+});
+
+test("resource metadata extension overrides normalise input", () => {
+    setProjectResourceMetadataExtensions([" .YYZ", "", null, ".yyz"]);
+    assert.deepEqual(getProjectResourceMetadataExtensions(), [".yy", ".yyz"]);
+    assert.equal(
+        matchProjectResourceMetadataExtension("objects/player/player.YYZ"),
+        ".yyz"
     );
 });

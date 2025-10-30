@@ -22,7 +22,7 @@ export const GML_IDENTIFIER_METADATA_PATH = resolveBundledResourcePath(
  * repository layout and enables callers to treat the metadata as an injected
  * dependency rather than reaching into package internals.
  *
- * @returns {unknown}
+ * @returns {unknown} Raw identifier metadata payload bundled with the package.
  */
 export function loadBundledIdentifierMetadata() {
     return require(GML_IDENTIFIER_METADATA_PATH);
@@ -34,7 +34,7 @@ let cachedIdentifierMetadata = null;
 /**
  * Retrieve the cached identifier metadata payload.
  *
- * @returns {unknown}
+ * @returns {unknown} Cached identifier metadata payload.
  */
 export function getIdentifierMetadata() {
     if (cachedIdentifierMetadata === null) {

@@ -115,6 +115,22 @@ const DEFAULT_NODE_TYPES_WITH_SURROUNDING_NEWLINES = Object.freeze([
 
 const nodeTypesWithSurroundingNewlines = new Set();
 
+const DefineReplacementDirective = Object.freeze({
+    REGION: "#region",
+    END_REGION: "#endregion",
+    MACRO: "#macro"
+});
+
+const DEFINE_REPLACEMENT_DIRECTIVE_VALUES = new Set(
+    Object.values(DefineReplacementDirective)
+);
+
+const DEFINE_REPLACEMENT_DIRECTIVE_LIST = [
+    ...DEFINE_REPLACEMENT_DIRECTIVE_VALUES
+]
+    .map((value) => `'${value}'`)
+    .join(", ");
+
 /**
  * Allow internal consumers to register additional statement node type names
  * that should be padded with surrounding blank lines. The hook keeps the
@@ -190,12 +206,20 @@ function isFunctionLikeDeclaration(node) {
  * @returns {string | null} Lower-cased directive text when present, otherwise
  *                          `null`.
  */
-function getNormalizedDefineReplacementDirective(node) {
-    if (!node || node.type !== "DefineStatement") {
-        return null;
-    }
-
-    const rawDirective = node.replacementDirective;
+/**
+ * Normalize a raw define replacement directive into one of the supported
+ * directive tokens.
+ *
+ * The printer relies on these values to decide when macro-like defines should
+ * participate in region padding. Centralizing the canonicalization here keeps
+ * the comparisons consistent while rejecting unexpected strings up-front.
+ *
+ * @param {unknown} rawDirective Directive string sourced from the AST.
+ * @returns {DefineReplacementDirective | null}
+ * @throws {RangeError} When `rawDirective` is a string that does not map to a
+ *         known directive token.
+ */
+function normalizeDefineReplacementDirectiveValue(rawDirective) {
     if (typeof rawDirective !== "string") {
         return null;
     }
@@ -205,15 +229,31 @@ function getNormalizedDefineReplacementDirective(node) {
         return null;
     }
 
-    if (
-        trimmedDirective === "#region" ||
-        trimmedDirective === "#endregion" ||
-        trimmedDirective === "#macro"
-    ) {
-        return trimmedDirective;
+    const normalizedDirective = trimmedDirective.toLowerCase();
+
+    if (!DEFINE_REPLACEMENT_DIRECTIVE_VALUES.has(normalizedDirective)) {
+        throw new RangeError(
+            `Define replacement directive must be one of: ${DEFINE_REPLACEMENT_DIRECTIVE_LIST}. Received: ${JSON.stringify(trimmedDirective)}.`
+        );
     }
 
-    return trimmedDirective.toLowerCase();
+    return normalizedDirective;
+}
+
+/**
+ * Normalizes the `replacementDirective` field on define statements so the
+ * printer can reason about region-like directives with case-insensitive
+ * comparisons.
+ *
+ * @param {unknown} node Candidate AST node to inspect.
+ * @returns {DefineReplacementDirective | null}
+ */
+function getNormalizedDefineReplacementDirective(node) {
+    if (!node || node.type !== "DefineStatement") {
+        return null;
+    }
+
+    return normalizeDefineReplacementDirectiveValue(node.replacementDirective);
 }
 
 /**
@@ -226,7 +266,10 @@ function getNormalizedDefineReplacementDirective(node) {
 function defineReplacementRequiresNewlines(node) {
     const directive = getNormalizedDefineReplacementDirective(node);
 
-    return directive === "#region" || directive === "#endregion";
+    return (
+        directive === DefineReplacementDirective.REGION ||
+        directive === DefineReplacementDirective.END_REGION
+    );
 }
 
 /**
@@ -262,6 +305,7 @@ function shouldAddNewlinesAroundStatement(node) {
 }
 
 export {
+    DefineReplacementDirective,
     isLastStatement,
     optionalSemicolon,
     getNormalizedDefineReplacementDirective,

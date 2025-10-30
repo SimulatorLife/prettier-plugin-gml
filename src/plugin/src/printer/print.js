@@ -1,6 +1,7 @@
 import { builders, utils } from "prettier/doc";
 
 import {
+    DefineReplacementDirective,
     isLastStatement,
     optionalSemicolon,
     isNextLineEmpty,
@@ -1560,9 +1561,8 @@ export function print(path, options, print) {
         }
         case "DefineStatement": {
             const directive =
-                typeof node.replacementDirective === "string"
-                    ? node.replacementDirective
-                    : "#macro";
+                getNormalizedDefineReplacementDirective(node) ??
+                DefineReplacementDirective.MACRO;
             const suffixDoc =
                 typeof node.replacementSuffix === "string"
                     ? node.replacementSuffix
@@ -2921,7 +2921,8 @@ function printStatements(path, options, print, childrenAttribute) {
 
             const isMacroLikeNode = isMacroLikeStatement(node);
             const isDefineMacroReplacement =
-                getNormalizedDefineReplacementDirective(node) === "#macro";
+                getNormalizedDefineReplacementDirective(node) ===
+                DefineReplacementDirective.MACRO;
             const shouldForceMacroPadding =
                 isMacroLikeNode &&
                 !isDefineMacroReplacement &&
@@ -4530,23 +4531,52 @@ function mergeSyntheticDocComments(
             mergedLines.splice(firstIndex, 1, ...functionLines);
             removedAnyLine = true;
         } else {
-            const firstContentIndex = mergedLines.findIndex((line) => {
-                if (typeof line !== "string") {
-                    return false;
-                }
-
-                return line.trim() !== "";
-            });
+            const firstParamIndex = mergedLines.findIndex(isParamLine);
 
             const insertionIndex =
-                firstContentIndex === -1
-                    ? mergedLines.length
-                    : firstContentIndex;
+                firstParamIndex === -1 ? mergedLines.length : firstParamIndex;
+            const precedingLine =
+                insertionIndex > 0 ? mergedLines[insertionIndex - 1] : null;
+            const trimmedPreceding =
+                typeof precedingLine === "string" ? precedingLine.trim() : "";
+            const isDocCommentLine =
+                typeof trimmedPreceding === "string" &&
+                /^\/\/\//.test(trimmedPreceding);
+            const isDocTagLine =
+                isDocCommentLine && /^\/\/\/\s*@/i.test(trimmedPreceding);
+
+            let precedingDocTag = null;
+            if (isDocCommentLine && isDocTagLine) {
+                const metadata = parseDocCommentMetadata(precedingLine);
+                if (metadata && typeof metadata.tag === "string") {
+                    precedingDocTag = metadata.tag.toLowerCase();
+                }
+            }
+
+            const shouldSeparateDocTag = precedingDocTag === "deprecated";
+
+            const needsSeparatorBeforeFunction =
+                trimmedPreceding !== "" &&
+                typeof precedingLine === "string" &&
+                !isFunctionLine(precedingLine) &&
+                (!isDocCommentLine || !isDocTagLine || shouldSeparateDocTag);
+
+            if (needsSeparatorBeforeFunction) {
+                mergedLines = [
+                    ...mergedLines.slice(0, insertionIndex),
+                    "",
+                    ...mergedLines.slice(insertionIndex)
+                ];
+            }
+
+            const insertAt = needsSeparatorBeforeFunction
+                ? insertionIndex + 1
+                : insertionIndex;
 
             mergedLines = [
-                ...mergedLines.slice(0, insertionIndex),
+                ...mergedLines.slice(0, insertAt),
                 ...functionLines,
-                ...mergedLines.slice(insertionIndex)
+                ...mergedLines.slice(insertAt)
             ];
             removedAnyLine = true;
         }

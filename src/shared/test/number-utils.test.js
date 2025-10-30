@@ -1,12 +1,9 @@
 import assert from "node:assert/strict";
-import { afterEach, describe, it } from "node:test";
+import { describe, it } from "node:test";
 
 import {
     areNumbersApproximatelyEqual,
-    getApproximateEqualityScaleMultiplier,
     isFiniteNumber,
-    resetApproximateEqualityScaleMultiplier,
-    setApproximateEqualityScaleMultiplier,
     toNormalizedInteger
 } from "../src/utils/number.js";
 
@@ -46,42 +43,27 @@ describe("number-utils", () => {
     });
 
     describe("areNumbersApproximatelyEqual", () => {
-        afterEach(() => {
-            resetApproximateEqualityScaleMultiplier();
-        });
-
-        it("compares numbers using the default tolerance multiplier", () => {
-            const delta = Number.EPSILON * 2;
-            const baseline = getApproximateEqualityScaleMultiplier();
+        it("treats values within the tolerance window as equal", () => {
+            const delta = Number.EPSILON * 3;
 
             assert.equal(areNumbersApproximatelyEqual(1, 1 + delta), true);
-            assert.equal(getApproximateEqualityScaleMultiplier(), baseline);
+            assert.equal(areNumbersApproximatelyEqual(0, delta), true);
         });
 
-        it("allows tightening the tolerance multiplier", () => {
-            const delta = Number.EPSILON * 2;
-
-            setApproximateEqualityScaleMultiplier(1);
+        it("treats values outside the tolerance window as different", () => {
+            const delta = Number.EPSILON * 6;
 
             assert.equal(areNumbersApproximatelyEqual(1, 1 + delta), false);
-            assert.equal(getApproximateEqualityScaleMultiplier(), 1);
+            assert.equal(areNumbersApproximatelyEqual(0, delta), false);
         });
 
-        it("allows widening the tolerance multiplier", () => {
-            const delta = Number.EPSILON * 5;
-
-            const updated = setApproximateEqualityScaleMultiplier(8);
-
-            assert.equal(areNumbersApproximatelyEqual(1, 1 + delta), true);
-            assert.equal(getApproximateEqualityScaleMultiplier(), updated);
-        });
-
-        it("rejects invalid multiplier values", () => {
-            for (const invalid of [0, -1, Number.NaN, Infinity, -Infinity]) {
-                assert.throws(() => {
-                    setApproximateEqualityScaleMultiplier(invalid);
-                }, /positive finite number/);
-            }
+        it("never matches non-finite numbers", () => {
+            assert.equal(areNumbersApproximatelyEqual(Number.NaN, 1), false);
+            assert.equal(areNumbersApproximatelyEqual(1, Infinity), false);
+            assert.equal(
+                areNumbersApproximatelyEqual(-Infinity, Infinity),
+                false
+            );
         });
     });
 });

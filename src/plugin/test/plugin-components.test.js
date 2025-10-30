@@ -5,7 +5,6 @@ import {
     addGmlPluginComponentObserver,
     gmlPluginComponents,
     resolveGmlPluginComponents,
-    resetGmlPluginComponentProvider,
     restoreDefaultGmlPluginComponents,
     setGmlPluginComponentProvider
 } from "../src/plugin-components.js";
@@ -262,7 +261,7 @@ test("GML plugin component registry", { concurrency: false }, async (t) => {
             notifications.length = 0;
             unsubscribe();
 
-            const reset = resetGmlPluginComponentProvider();
+            const reset = restoreDefaultGmlPluginComponents();
 
             assert.strictEqual(
                 notifications.length,
@@ -307,7 +306,7 @@ test("GML plugin component registry", { concurrency: false }, async (t) => {
                 notifications.length = 0;
                 controller.abort();
 
-                const reset = resetGmlPluginComponentProvider();
+                const reset = restoreDefaultGmlPluginComponents();
 
                 assert.strictEqual(
                     notifications.length,
