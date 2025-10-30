@@ -8,9 +8,9 @@ const require = createRequire(import.meta.url);
 const FALLBACK_CLI_VERSION_LABEL = "development build";
 
 const PACKAGE_VERSION_CANDIDATES = Object.freeze([
-    "../package.json",
-    "../../../package.json",
-    "../../plugin/package.json"
+    "../../package.json",
+    "../../../../package.json",
+    "../../../plugin/package.json"
 ]);
 
 function normalizeVersionValue(value) {
