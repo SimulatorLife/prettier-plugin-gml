@@ -58,6 +58,14 @@ describe("manual CLI helpers", () => {
         assert.match(sanitized, /Task \[[^\]]*\] 3\/3/);
     });
 
+    it("throws when createBar is not a function", () => {
+        const stdout = createMockStdout();
+
+        assert.throws(() => {
+            renderProgressBar("Task", 0, 1, 5, { stdout, createBar: 42 });
+        }, /createBar must be a function/);
+    });
+
     it("disposes active progress bars", () => {
         const createdBars = new Set();
         const stopCounts = new Map();
