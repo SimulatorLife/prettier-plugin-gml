@@ -1,15 +1,18 @@
 import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
+
+import {
+    resolveBundledResourcePath,
+    resolveBundledResourceUrl
+} from "./resource-locator.js";
 
 const require = createRequire(import.meta.url);
 
-export const GML_IDENTIFIER_METADATA_URL = new URL(
-    "../../../../resources/gml-identifiers.json",
-    import.meta.url
+export const GML_IDENTIFIER_METADATA_URL = resolveBundledResourceUrl(
+    "gml-identifiers.json"
 );
 
-export const GML_IDENTIFIER_METADATA_PATH = fileURLToPath(
-    GML_IDENTIFIER_METADATA_URL
+export const GML_IDENTIFIER_METADATA_PATH = resolveBundledResourcePath(
+    "gml-identifiers.json"
 );
 
 /**
