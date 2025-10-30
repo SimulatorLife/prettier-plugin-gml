@@ -194,38 +194,6 @@ function mergeSummarySections(summary, extra) {
     }
 }
 
-function createSnapshotFactory({
-    category,
-    startTime,
-    timings,
-    counters,
-    caches,
-    metadata
-}) {
-    return (extra = {}) => {
-        const summary = {
-            category,
-            totalTimeMs: nowMs() - startTime,
-            timings: toPlainObject(timings),
-            counters: toPlainObject(counters),
-            caches: Object.fromEntries(
-                Array.from(caches, ([name, stats]) => [
-                    name,
-                    toPlainObject(stats)
-                ])
-            ),
-            metadata: { ...metadata }
-        };
-
-        if (!extra || typeof extra !== "object") {
-            return summary;
-        }
-
-        mergeSummarySections(summary, extra);
-        return summary;
-    };
-}
-
 function createSummaryLogger({ logger, category, snapshot }) {
     if (!logger || typeof logger.debug !== "function") {
         return () => {};
@@ -301,14 +269,28 @@ export function createMetricsTracker({
 
     const incrementTiming = createMapIncrementer(timings);
     const incrementCounterBy = createMapIncrementer(counters);
-    const snapshot = createSnapshotFactory({
-        category,
-        startTime,
-        timings,
-        counters,
-        caches,
-        metadata
-    });
+    const snapshot = (extra = {}) => {
+        const summary = {
+            category,
+            totalTimeMs: nowMs() - startTime,
+            timings: toPlainObject(timings),
+            counters: toPlainObject(counters),
+            caches: Object.fromEntries(
+                Array.from(caches, ([name, stats]) => [
+                    name,
+                    toPlainObject(stats)
+                ])
+            ),
+            metadata: { ...metadata }
+        };
+
+        if (!extra || typeof extra !== "object") {
+            return summary;
+        }
+
+        mergeSummarySections(summary, extra);
+        return summary;
+    };
     const logSummary = createSummaryLogger({ logger, category, snapshot });
     const finalize = createFinalizer({
         autoLog,
