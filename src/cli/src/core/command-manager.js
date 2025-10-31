@@ -1,6 +1,11 @@
 import { CliUsageError, handleCliError } from "./errors.js";
 import { DEFAULT_HELP_AFTER_ERROR } from "./command-standard-options.js";
 import { isCommanderErrorLike } from "./commander-error-utils.js";
+import {
+    createCommanderCommandContract,
+    createCommanderProgramContract,
+    isCommanderCommandLike
+} from "./commander-contract.js";
 import { resolveCommandUsage } from "../shared/dependencies.js";
 
 /**
@@ -31,17 +36,9 @@ import { resolveCommandUsage } from "../shared/dependencies.js";
  * @property {(argv: Array<string>) => Promise<void>} run
  */
 
-function isCommanderCommandInstance(value) {
-    return (
-        value &&
-        typeof value === "object" &&
-        typeof value.helpInformation === "function"
-    );
-}
-
 function resolveContextCommandFromActionArgs(actionArgs, fallbackCommand) {
     const candidate = actionArgs.at(-1);
-    return isCommanderCommandInstance(candidate) ? candidate : fallbackCommand;
+    return isCommanderCommandLike(candidate) ? candidate : fallbackCommand;
 }
 
 function composeUsageHelpMessage({ defaultHelpText, usage }) {
@@ -57,13 +54,10 @@ class CliCommandManager {
      * }} options
      */
     constructor({ program, onUnhandledError } = {}) {
-        if (!program || typeof program.parseAsync !== "function") {
-            throw new TypeError(
-                "CliCommandManager requires a Commander program instance."
-            );
-        }
+        const programContract = createCommanderProgramContract(program);
 
-        this._program = program;
+        this._program = programContract.raw;
+        this._programContract = programContract;
         this._entries = new Set();
         this._commandEntryLookup = new WeakMap();
         this._defaultCommandEntry = null;
@@ -77,17 +71,17 @@ class CliCommandManager {
                           exitCode: 1
                       });
 
-        this._registerEntry(program, {
+        this._registerEntry(this._program, {
             handleError: this._defaultErrorHandler
         });
 
-        this._program.hook("preSubcommand", (thisCommand, actionCommand) => {
+        this._programContract.hook("preSubcommand", (thisCommand, actionCommand) => {
             if (actionCommand) {
                 this._activeCommand = actionCommand;
             }
         });
 
-        this._program.hook("postAction", () => {
+        this._programContract.hook("postAction", () => {
             this._activeCommand = null;
         });
     }
@@ -103,7 +97,7 @@ class CliCommandManager {
             handleError: onError,
             isDefault: true
         });
-        this._program.addCommand(command, { isDefault: true });
+        this._programContract.addCommand(entry.command, { isDefault: true });
         return entry;
     }
 
@@ -117,7 +111,7 @@ class CliCommandManager {
             run,
             handleError: onError
         });
-        this._program.addCommand(command);
+        this._programContract.addCommand(entry.command);
         return entry;
     }
 
@@ -129,7 +123,7 @@ class CliCommandManager {
     async run(argv) {
         try {
             this._activeCommand = null;
-            await this._program.parseAsync(argv, { from: "user" });
+            await this._programContract.parse(argv, { from: "user" });
         } catch (error) {
             if (this._handleCommanderError(error)) {
                 return;
@@ -139,17 +133,17 @@ class CliCommandManager {
     }
 
     _registerEntry(command, { run, handleError, isDefault = false } = {}) {
-        if (!command || typeof command.name !== "function") {
-            throw new TypeError(
-                "registerCommand expects a Commander Command instance."
-            );
-        }
+        const commandContract = createCommanderCommandContract(command, {
+            name: "Commander command",
+            requireAction: Boolean(run)
+        });
+        const normalizedCommand = commandContract.raw;
         if (run && typeof run !== "function") {
             throw new TypeError("Command run handlers must be functions.");
         }
 
         const entry = {
-            command,
+            command: normalizedCommand,
             run: run ?? null,
             handleError:
                 typeof handleError === "function"
@@ -158,13 +152,15 @@ class CliCommandManager {
         };
 
         this._entries.add(entry);
-        this._commandEntryLookup.set(command, entry);
+        this._commandEntryLookup.set(normalizedCommand, entry);
         if (isDefault) {
             this._defaultCommandEntry = entry;
         }
 
         if (entry.run) {
-            command.action(this._createCommandAction(entry, command));
+            commandContract.action(
+                this._createCommandAction(entry, normalizedCommand)
+            );
         }
 
         return entry;
@@ -239,7 +235,7 @@ class CliCommandManager {
 
     _createUsageErrorFromCommanderError(error, resolvedCommand) {
         const usage = resolveCommandUsage(resolvedCommand, {
-            fallback: () => this._program.helpInformation()
+            fallback: () => this._programContract.getUsage() ?? ""
         });
         const normalizedUsage = composeUsageHelpMessage({
             defaultHelpText: DEFAULT_HELP_AFTER_ERROR,

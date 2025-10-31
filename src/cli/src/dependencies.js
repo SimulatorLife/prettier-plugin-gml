@@ -3,6 +3,7 @@ export {
     asArray,
     assertArray,
     assertFunction,
+    assertFunctionProperties,
     assertNonEmptyString,
     assertPlainObject,
     coerceNonNegativeInteger,
