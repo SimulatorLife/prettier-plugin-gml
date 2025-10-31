@@ -23,7 +23,7 @@ import {
     withProgressBarCleanup
 } from "../dependencies.js";
 import { writeManualFile } from "./file-helpers.js";
-import { ensureWorkflowPathsAllowed } from "../../shared/workflow/path-filter.js";
+import { ensureWorkflowPathsAllowed } from "../../workflow/path-filter.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";

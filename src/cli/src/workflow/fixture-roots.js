@@ -1,7 +1,7 @@
 import path from "node:path";
 
-import { toArray } from "../dependencies.js";
-import { REPO_ROOT } from "../workspace-paths.js";
+import { toArray } from "../shared/dependencies.js";
+import { REPO_ROOT } from "../shared/workspace-paths.js";
 import { createWorkflowPathFilter } from "./path-filter.js";
 
 export const DEFAULT_FIXTURE_DIRECTORIES = Object.freeze([
@@ -48,4 +48,4 @@ export function normalizeFixtureRoots(
 
     return resolved;
 }
-export { REPO_ROOT } from "../workspace-paths.js";
+export { REPO_ROOT } from "../shared/workspace-paths.js";

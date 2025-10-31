@@ -42,7 +42,7 @@ import {
 import {
     createWorkflowPathFilter,
     ensureWorkflowPathsAllowed
-} from "../shared/workflow/path-filter.js";
+} from "../workflow/path-filter.js";
 
 /** @typedef {ReturnType<typeof resolveManualCommandOptions>} ManualCommandOptions */
 
