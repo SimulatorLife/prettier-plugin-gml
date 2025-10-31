@@ -93,6 +93,17 @@ describe("gml identifier case option normalization", () => {
         );
     });
 
+    it("rejects unknown asset identifier case style values", () => {
+        assert.throws(
+            () =>
+                normalizeIdentifierCaseOptions({
+                    [IDENTIFIER_CASE_ACKNOWLEDGE_ASSETS_OPTION_NAME]: true,
+                    [getIdentifierCaseScopeOptionName("assets")]: "kebab"
+                }),
+            /invalid identifier case style/i
+        );
+    });
+
     it("allows asset renames when explicitly acknowledged", () => {
         const normalized = normalizeIdentifierCaseOptions({
             [IDENTIFIER_CASE_BASE_OPTION_NAME]: "snake-lower",
