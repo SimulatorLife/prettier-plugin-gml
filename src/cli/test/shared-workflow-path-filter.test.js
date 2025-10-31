@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 import {
     createWorkflowPathFilter,
     ensureWorkflowPathsAllowed
-} from "../src/shared/workflow/path-filter.js";
+} from "../src/workflow/path-filter.js";
 
 describe("workflow path filter helpers", () => {
     it("allows paths that satisfy the workflow filters", () => {
