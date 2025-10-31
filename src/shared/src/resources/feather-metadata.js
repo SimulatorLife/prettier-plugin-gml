@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 
 import { asArray } from "../utils/array.js";
+import { assertPlainObject } from "../utils/object.js";
 import { toTrimmedString } from "../utils/string.js";
 import {
     resolveBundledResourcePath,
@@ -19,6 +20,52 @@ export const FEATHER_METADATA_PATH = resolveBundledResourcePath(
 
 export function loadBundledFeatherMetadata() {
     return require(FEATHER_METADATA_PATH);
+}
+
+function normalizeFeatherDiagnostic(diagnostic, index) {
+    const normalizedDiagnostic = assertPlainObject(diagnostic, {
+        name: `Feather metadata diagnostics[${index}]`
+    });
+
+    const normalizedId = toTrimmedString(normalizedDiagnostic.id);
+    if (normalizedId.length === 0) {
+        throw new TypeError(
+            `Feather metadata diagnostics[${index}] must declare a non-empty id.`
+        );
+    }
+
+    if (normalizedDiagnostic.id === normalizedId) {
+        return normalizedDiagnostic;
+    }
+
+    return { ...normalizedDiagnostic, id: normalizedId };
+}
+
+function normalizeFeatherDiagnostics(diagnostics) {
+    if (diagnostics == null) {
+        return [];
+    }
+
+    if (!Array.isArray(diagnostics)) {
+        throw new TypeError(
+            "Feather metadata diagnostics must be provided as an array."
+        );
+    }
+
+    return diagnostics.map((diagnostic, index) =>
+        normalizeFeatherDiagnostic(diagnostic, index)
+    );
+}
+
+function normalizeFeatherMetadata(payload) {
+    const metadata = assertPlainObject(payload, {
+        name: "Feather metadata"
+    });
+
+    return {
+        ...metadata,
+        diagnostics: normalizeFeatherDiagnostics(metadata.diagnostics)
+    };
 }
 
 /**
@@ -49,8 +96,9 @@ function loadFeatherMetadata() {
 
     /** @type {FeatherMetadata} */
     const metadata = loadBundledFeatherMetadata();
-    cachedMetadata = metadata;
-    return metadata;
+    const normalizedMetadata = normalizeFeatherMetadata(metadata);
+    cachedMetadata = normalizedMetadata;
+    return normalizedMetadata;
 }
 
 /**
@@ -93,3 +141,5 @@ export function getFeatherDiagnosticById(id) {
         ) ?? null
     );
 }
+
+export const __normalizeFeatherMetadataForTests = normalizeFeatherMetadata;
