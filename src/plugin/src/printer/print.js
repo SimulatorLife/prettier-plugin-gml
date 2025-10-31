@@ -114,6 +114,23 @@ const suppressedImplicitDocCanonicalByNode = new WeakMap();
 const preferredParamDocNamesByNode = new WeakMap();
 const forcedStructArgumentBreaks = new WeakMap();
 
+const DOC_COMMENT_RETURN_TYPE_ALIASES = new Map([
+    ["boolean", "bool"],
+    ["bool", "bool"],
+    ["integer", "int"],
+    ["int", "int"],
+    ["number", "real"],
+    ["real", "real"],
+    ["float", "real"],
+    ["double", "real"],
+    ["string", "string"],
+    ["array", "array"],
+    ["struct", "struct"],
+    ["void", "void"]
+]);
+
+const DOC_DESCRIPTION_PARAGRAPH_BREAK_SENTINEL = "[[DOC_BREAK]]";
+
 function stripTrailingLineTerminators(value) {
     if (typeof value !== "string") {
         return value;
@@ -2747,6 +2764,9 @@ function printStatements(path, options, print, childrenAttribute) {
         const isFirstStatementInBlock =
             index === 0 && childPath.parent?.type !== "Program";
 
+        const containerHasDocComment =
+            containerNode?.[DOC_COMMENT_OUTPUT_FLAG] === true;
+
         const suppressFollowingEmptyLine =
             node?._featherSuppressFollowingEmptyLine === true ||
             node?._gmlSuppressFollowingEmptyLine === true;
@@ -2754,7 +2774,8 @@ function printStatements(path, options, print, childrenAttribute) {
         if (
             isFirstStatementInBlock &&
             isStaticDeclaration &&
-            !syntheticDocComment
+            !syntheticDocComment &&
+            !containerHasDocComment
         ) {
             parts.push(hardline);
         }
@@ -4124,140 +4145,244 @@ function reorderDescriptionLinesAfterFunction(docLines) {
     ];
 }
 
-function promoteLeadingDocCommentTextToDescription(docLines) {
-    const normalizedLines = toMutableArray(docLines);
-
-    if (normalizedLines.length === 0) {
-        return normalizedLines;
+function normalizeDocCommentNarrativeLines(lines) {
+    if (!Array.isArray(lines) || lines.length === 0) {
+        return Array.isArray(lines) ? [...lines] : lines;
     }
 
-    const segments = [];
-    let leadingCount = 0;
+    const normalized = [];
+    let descriptionSegments = [];
 
-    while (leadingCount < normalizedLines.length) {
-        const line = normalizedLines[leadingCount];
+    const flushDescriptionSegments = () => {
+        if (descriptionSegments.length === 0) {
+            return;
+        }
+
+        const paragraphs = [];
+        let paragraph = [];
+
+        for (const segment of descriptionSegments) {
+            if (segment === null) {
+                if (paragraph.length > 0) {
+                    paragraphs.push(paragraph.join(" "));
+                    paragraph = [];
+                }
+                continue;
+            }
+
+            const trimmedSegment = segment.trim();
+            if (trimmedSegment.length === 0) {
+                continue;
+            }
+
+            paragraph.push(trimmedSegment);
+        }
+
+        if (paragraph.length > 0) {
+            paragraphs.push(paragraph.join(" "));
+        }
+
+        descriptionSegments = [];
+
+        if (paragraphs.length === 0) {
+            return;
+        }
+
+        const appendContinuationParagraphs = (targetPrefix) => {
+            const continuationPrefix =
+                "/// " + " ".repeat(Math.max(targetPrefix.length - 4, 0));
+
+            for (const paragraphText of paragraphs) {
+                const continuationText =
+                    paragraphText.length > 0
+                        ? `${DOC_DESCRIPTION_PARAGRAPH_BREAK_SENTINEL} ${paragraphText}`
+                        : DOC_DESCRIPTION_PARAGRAPH_BREAK_SENTINEL;
+                normalized.push(
+                    `${continuationPrefix}${continuationText}`.trimEnd()
+                );
+            }
+        };
+
+        const lastNormalizedLine = normalized.at(-1);
+        if (
+            typeof lastNormalizedLine === "string" &&
+            /^\/\/\/\s*@description\b/i.test(lastNormalizedLine.trim())
+        ) {
+            const prefixMatch = lastNormalizedLine.match(
+                /^(\/\/\/\s*@description\s+)/i
+            );
+            const descriptionPrefix = prefixMatch?.[1] ?? "/// @description ";
+
+            appendContinuationParagraphs(descriptionPrefix);
+            return;
+        }
+
+        normalized.push(`/// @description ${paragraphs[0]}`);
+
+        if (paragraphs.length > 1) {
+            const prefixMatch = normalized
+                .at(-1)
+                .match(/^(\/\/\/\s*@description\s+)/i);
+            const descriptionPrefix = prefixMatch?.[1] ?? "/// @description ";
+            const continuationPrefix =
+                "/// " + " ".repeat(Math.max(descriptionPrefix.length - 4, 0));
+
+            for (let index = 1; index < paragraphs.length; index += 1) {
+                const paragraphText = paragraphs[index];
+                const continuationText =
+                    paragraphText.length > 0
+                        ? `${DOC_DESCRIPTION_PARAGRAPH_BREAK_SENTINEL} ${paragraphText}`
+                        : DOC_DESCRIPTION_PARAGRAPH_BREAK_SENTINEL;
+                normalized.push(
+                    `${continuationPrefix}${continuationText}`.trimEnd()
+                );
+            }
+        }
+    };
+
+    const pushLine = (line) => {
+        flushDescriptionSegments();
+        normalized.push(line);
+    };
+
+    for (const line of lines) {
         if (typeof line !== "string") {
-            break;
+            pushLine(line);
+            continue;
         }
 
         const trimmed = line.trim();
-        const isDocLikeSummary =
-            trimmed.startsWith("///") || /^\/\/\s*\//.test(trimmed);
-        if (!isDocLikeSummary) {
-            break;
+        if (!trimmed.startsWith("///")) {
+            pushLine(line);
+            continue;
         }
 
-        const isTaggedLine =
-            /^\/\/\/\s*@/i.test(trimmed) || /^\/\/\s*\/\s*@/i.test(trimmed);
-        if (isTaggedLine) {
-            break;
+        const metadata = parseDocCommentMetadata(line);
+        if (metadata) {
+            pushLine(line);
+            continue;
         }
 
-        let match = line.match(/^(\s*\/\/\/)(.*)$/);
-        if (!match) {
-            const docLikeMatch = line.match(/^(\s*)\/\/\s*\/(.*)$/);
-            if (!docLikeMatch) {
-                break;
+        const rawBodyWithSpacing = trimmed.slice(3);
+        const rawBody = rawBodyWithSpacing.trim();
+        if (rawBody.length === 0) {
+            if (descriptionSegments.length > 0) {
+                descriptionSegments.push(null);
             }
-
-            const [, indent = "", suffix = ""] = docLikeMatch;
-            match = [line, `${indent}///`, suffix];
-        }
-
-        const [, prefix = "///", suffix = ""] = match;
-        segments.push({ prefix, suffix });
-        leadingCount += 1;
-    }
-
-    if (segments.length === 0) {
-        return normalizedLines;
-    }
-
-    const firstContentIndex = segments.findIndex(
-        ({ suffix }) => suffix.trim().length > 0
-    );
-
-    if (firstContentIndex === -1) {
-        return normalizedLines;
-    }
-
-    const nextLine = normalizedLines[leadingCount];
-    const nextLineTrimmed = typeof nextLine === "string" ? nextLine.trim() : "";
-    if (
-        typeof nextLine !== "string" ||
-        (!/^\/\/\/\s*@/i.test(nextLineTrimmed) &&
-            !/^\/\/\s*\/\s*@/i.test(nextLineTrimmed))
-    ) {
-        return normalizedLines;
-    }
-
-    const promotedLines = [];
-    const firstSegment = segments[firstContentIndex];
-    const indent = firstSegment.prefix.slice(
-        0,
-        Math.max(firstSegment.prefix.length - 3, 0)
-    );
-    const normalizedBasePrefix = `${indent}///`;
-    const descriptionLinePrefix = `${normalizedBasePrefix} @description `;
-    const continuationPadding = Math.max(
-        descriptionLinePrefix.length - (indent.length + 4),
-        0
-    );
-    const continuationPrefix = `${indent}/// ${" ".repeat(continuationPadding)}`;
-
-    for (const [index, { prefix, suffix }] of segments.entries()) {
-        const trimmedSuffix = suffix.trim();
-        const hasLeadingWhitespace = suffix.length === 0 || /^\s/.test(suffix);
-
-        if (index < firstContentIndex) {
-            const normalizedSuffix = hasLeadingWhitespace
-                ? suffix
-                : ` ${suffix}`;
-            promotedLines.push(`${prefix}${normalizedSuffix}`);
             continue;
         }
 
-        if (index === firstContentIndex) {
-            promotedLines.push(
-                trimmedSuffix.length > 0
-                    ? `${prefix} @description ${trimmedSuffix}`
-                    : `${prefix} @description`
-            );
+        const returnsLine = normalizePlainReturnsDocLine(rawBody);
+        if (returnsLine) {
+            pushLine(returnsLine);
             continue;
         }
 
-        if (trimmedSuffix.length === 0) {
-            const blankLine = suffix.length > 0 ? `${prefix}${suffix}` : prefix;
-            promotedLines.push(blankLine);
+        const trimmedBody = rawBody.trim();
+        const hasManualIndentation = /\s/.test(rawBodyWithSpacing[0] ?? "");
+        if (hasManualIndentation) {
+            const lastNormalizedLine = normalized.at(-1);
+            if (
+                typeof lastNormalizedLine === "string" &&
+                /^\/\/\/\s*@description\b/i.test(lastNormalizedLine.trim())
+            ) {
+                pushLine(line);
+                continue;
+            }
+        }
+
+        const canStartDescription =
+            descriptionSegments.length > 0 ||
+            /^[A-Za-z0-9]/.test(trimmedBody) ||
+            /^\*{1,2}[A-Za-z0-9]/.test(trimmedBody);
+
+        if (!canStartDescription) {
+            pushLine(line);
             continue;
         }
 
-        const continuationText = trimmedSuffix;
-        const resolvedContinuation =
-            continuationPrefix.length > 0
-                ? `${continuationPrefix}${continuationText}`
-                : `${prefix} ${continuationText}`;
-
-        promotedLines.push(resolvedContinuation);
+        descriptionSegments.push(trimmedBody);
     }
 
-    const remainder = normalizedLines.slice(leadingCount);
-    const result = [...promotedLines, ...remainder];
+    flushDescriptionSegments();
 
-    const hasContinuationSegments = segments.some(
-        ({ suffix }, index) =>
-            index > firstContentIndex && suffix.trim().length > 0
-    );
-
-    if (hasContinuationSegments) {
-        result._preserveDescriptionBreaks = true;
+    if (lines._suppressLeadingBlank) {
+        normalized._suppressLeadingBlank = true;
     }
 
-    if (normalizedLines._suppressLeadingBlank) {
-        result._suppressLeadingBlank = true;
+    return normalized;
+}
+
+function normalizePlainReturnsDocLine(body) {
+    if (typeof body !== "string") {
+        return null;
     }
 
-    return result;
+    const match = body.match(/^returns?\s*:\s*(.*)$/i);
+    if (!match) {
+        return null;
+    }
+
+    let remainder = match[1]?.trim() ?? "";
+    let typeAnnotation = "";
+    let descriptionText = remainder;
+
+    if (remainder.length > 0) {
+        const typeMatch = remainder.match(/^([A-Za-z][A-Za-z0-9_]*)\b(.*)$/);
+        if (typeMatch) {
+            const [, rawType, trailing = ""] = typeMatch;
+            if (trailing.length === 0 || /^[\s,.:;-]/.test(trailing)) {
+                const normalizedTypeName = normalizeDocMetadataName(rawType);
+                const alias = DOC_COMMENT_RETURN_TYPE_ALIASES.get(
+                    normalizedTypeName?.toLowerCase() ?? ""
+                );
+                if (alias) {
+                    typeAnnotation = `{${alias}} `;
+                } else if (normalizedTypeName) {
+                    typeAnnotation = `{${normalizedTypeName}} `;
+                }
+                descriptionText = trailing;
+            }
+        }
+    }
+
+    descriptionText = (descriptionText ?? "").replace(/^[\s,.:;-]+/, "");
+    descriptionText = capitalizeDocCommentSentence(descriptionText);
+
+    if (typeAnnotation.length === 0 && descriptionText.length === 0) {
+        return "/// @returns";
+    }
+
+    const normalizedLine =
+        `/// @returns ${typeAnnotation}${descriptionText}`.trimEnd();
+    return normalizedLine;
+}
+
+function capitalizeDocCommentSentence(value) {
+    if (typeof value !== "string") {
+        return "";
+    }
+
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+        return "";
+    }
+
+    for (let index = 0; index < trimmed.length; index += 1) {
+        const char = trimmed[index];
+        if (/[A-Za-z]/.test(char)) {
+            if (char === char.toLowerCase()) {
+                return (
+                    trimmed.slice(0, index) +
+                    char.toUpperCase() +
+                    trimmed.slice(index + 1)
+                );
+            }
+            break;
+        }
+    }
+
+    return trimmed;
 }
 
 function mergeSyntheticDocComments(
@@ -4266,30 +4391,19 @@ function mergeSyntheticDocComments(
     options,
     overrides = {}
 ) {
-    let normalizedExistingLines = toMutableArray(existingDocLines);
-
-    normalizedExistingLines = promoteLeadingDocCommentTextToDescription(
-        normalizedExistingLines
+    let normalizedExistingLines = normalizeDocCommentNarrativeLines(
+        toMutableArray(existingDocLines)
     );
-    let preserveDescriptionBreaks =
-        normalizedExistingLines?._preserveDescriptionBreaks === true;
 
     normalizedExistingLines = reorderDescriptionLinesAfterFunction(
         normalizedExistingLines
     );
 
-    if (preserveDescriptionBreaks) {
-        normalizedExistingLines._preserveDescriptionBreaks = true;
-    }
     let removedExistingReturnDuplicates = false;
     ({
         lines: normalizedExistingLines,
         removed: removedExistingReturnDuplicates
     } = dedupeReturnDocLines(normalizedExistingLines));
-
-    if (preserveDescriptionBreaks) {
-        normalizedExistingLines._preserveDescriptionBreaks = true;
-    }
 
     const syntheticLines = reorderDescriptionLinesAfterFunction(
         computeSyntheticFunctionDocLines(
@@ -4387,6 +4501,19 @@ function mergeSyntheticDocComments(
     };
 
     let mergedLines = [...normalizedExistingLines];
+
+    const existingParamCanonicalSet = new Set();
+    for (const line of normalizedExistingLines) {
+        if (!isParamLine(line)) {
+            continue;
+        }
+
+        const canonical = getParamCanonicalName(line);
+        if (canonical) {
+            existingParamCanonicalSet.add(canonical);
+        }
+    }
+
     let removedAnyLine = removedExistingReturnDuplicates;
 
     if (functionLines.length > 0) {
@@ -4500,6 +4627,14 @@ function mergeSyntheticDocComments(
         }
     }
 
+    const existingParamAliasKeys = new Set();
+    for (const canonical of paramLineIndices.keys()) {
+        const aliasKey = getParamAliasComparisonKey(canonical);
+        if (aliasKey) {
+            existingParamAliasKeys.add(aliasKey);
+        }
+    }
+
     if (otherLines.length > 0) {
         const normalizedOtherLines = [];
 
@@ -4514,16 +4649,39 @@ function mergeSyntheticDocComments(
             ) {
                 const lineIndex = paramLineIndices.get(canonical);
                 const existingLine = mergedLines[lineIndex];
+                const existingMetadata = parseDocCommentMetadata(existingLine);
+                const existingName =
+                    typeof existingMetadata?.name === "string"
+                        ? existingMetadata.name.trim()
+                        : "";
 
-                const updatedLine = updateParamLineWithDocName(
-                    existingLine,
-                    metadata.name
-                );
-                if (updatedLine !== existingLine) {
-                    mergedLines[lineIndex] = updatedLine;
-                    removedAnyLine = true;
+                if (
+                    existingName.length === 0 ||
+                    shouldReplaceParamDocName(existingName, metadata.name)
+                ) {
+                    const updatedLine = updateParamLineWithDocName(
+                        existingLine,
+                        metadata.name
+                    );
+                    if (updatedLine !== existingLine) {
+                        mergedLines[lineIndex] = updatedLine;
+                        removedAnyLine = true;
+                    }
                 }
                 continue;
+            }
+
+            const aliasCanonical = metadata?.name
+                ? getCanonicalParamNameFromText(metadata.name)
+                : canonical;
+            const aliasKey = getParamAliasComparisonKey(aliasCanonical);
+
+            if (aliasKey && existingParamAliasKeys.has(aliasKey)) {
+                continue;
+            }
+
+            if (aliasKey) {
+                existingParamAliasKeys.add(aliasKey);
             }
 
             normalizedOtherLines.push(line);
@@ -4653,6 +4811,27 @@ function mergeSyntheticDocComments(
         removedAnyLine = true;
     }
 
+    if (result.length > 0) {
+        const reorderedWithoutReturns = [];
+        const trailingReturnLines = [];
+
+        for (const line of result) {
+            if (
+                typeof line === "string" &&
+                RETURN_DOC_TAG_PATTERN.test(line.trim())
+            ) {
+                trailingReturnLines.push(line);
+                continue;
+            }
+
+            reorderedWithoutReturns.push(line);
+        }
+
+        if (trailingReturnLines.length > 0) {
+            result = [...reorderedWithoutReturns, ...trailingReturnLines];
+        }
+    }
+
     const paramDocsByCanonical = new Map();
 
     for (const line of result) {
@@ -4674,6 +4853,10 @@ function mergeSyntheticDocComments(
 
     if (suppressedCanonicals && suppressedCanonicals.size > 0) {
         for (const canonical of suppressedCanonicals) {
+            if (existingParamCanonicalSet.has(canonical)) {
+                continue;
+            }
+
             paramDocsByCanonical.delete(canonical);
         }
     }
@@ -4713,6 +4896,25 @@ function mergeSyntheticDocComments(
             if (canonical && paramDocsByCanonical.has(canonical)) {
                 orderedParamDocs.push(paramDocsByCanonical.get(canonical));
                 paramDocsByCanonical.delete(canonical);
+                continue;
+            }
+
+            if (canonical) {
+                const aliasKey = getParamAliasComparisonKey(canonical);
+                if (aliasKey) {
+                    for (const [
+                        docCanonical,
+                        docLine
+                    ] of paramDocsByCanonical.entries()) {
+                        const docAliasKey =
+                            getParamAliasComparisonKey(docCanonical);
+                        if (docAliasKey && docAliasKey === aliasKey) {
+                            orderedParamDocs.push(docLine);
+                            paramDocsByCanonical.delete(docCanonical);
+                            break;
+                        }
+                    }
+                }
             }
         }
     }
@@ -4798,6 +5000,28 @@ function mergeSyntheticDocComments(
                 if (paramCanonical && docsByCanonical.has(paramCanonical)) {
                     reordered.push(docsByCanonical.get(paramCanonical));
                     docsByCanonical.delete(paramCanonical);
+                    continue;
+                }
+
+                if (paramCanonical) {
+                    const paramAliasKey =
+                        getParamAliasComparisonKey(paramCanonical);
+
+                    if (paramAliasKey) {
+                        for (const [
+                            docCanonical,
+                            docLine
+                        ] of docsByCanonical.entries()) {
+                            const docAliasKey =
+                                getParamAliasComparisonKey(docCanonical);
+
+                            if (docAliasKey && docAliasKey === paramAliasKey) {
+                                reordered.push(docLine);
+                                docsByCanonical.delete(docCanonical);
+                                break;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -4915,7 +5139,15 @@ function mergeSyntheticDocComments(
             }
 
             const canonical = getParamCanonicalName(line);
-            return !canonical || !suppressedCanonicals.has(canonical);
+            if (!canonical) {
+                return true;
+            }
+
+            if (existingParamCanonicalSet.has(canonical)) {
+                return true;
+            }
+
+            return !suppressedCanonicals.has(canonical);
         });
     }
 
@@ -5027,224 +5259,231 @@ function mergeSyntheticDocComments(
         return normalizeDocCommentTypeAnnotations(updatedLine);
     });
 
-    if (preserveDescriptionBreaks) {
-        result = reorderedDocs;
-    } else {
-        const wrappedDocs = [];
-        const normalizedPrintWidth = coercePositiveIntegerOption(
-            options?.printWidth,
-            120
-        );
-        const wrapWidth = Math.min(
-            normalizedPrintWidth,
-            DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH
-        );
+    const wrappedDocs = [];
+    const normalizedPrintWidth = coercePositiveIntegerOption(
+        options?.printWidth,
+        120
+    );
+    const wrapWidth = Math.min(
+        normalizedPrintWidth,
+        DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH
+    );
 
-        const wrapSegments = (text, firstAvailable, continuationAvailable) => {
-            if (firstAvailable <= 0) {
-                return [text];
-            }
+    const wrapSegments = (text, firstAvailable, continuationAvailable) => {
+        if (firstAvailable <= 0) {
+            return [text];
+        }
 
-            const words = text.split(/\s+/).filter((word) => word.length > 0);
-            if (words.length === 0) {
-                return [];
-            }
+        const words = text.split(/\s+/).filter((word) => word.length > 0);
+        if (words.length === 0) {
+            return [];
+        }
 
-            const segments = [];
-            let current = words[0];
-            let currentAvailable = firstAvailable;
+        const segments = [];
+        let current = "";
+        let currentAvailable = firstAvailable;
 
-            for (let index = 1; index < words.length; index += 1) {
-                const word = words[index];
-
-                const endsSentence = /[.!?]["')\]]?$/.test(current);
-                const startsSentence = /^[A-Z]/.test(word);
-                if (
-                    endsSentence &&
-                    startsSentence &&
-                    currentAvailable >= 60 &&
-                    current.length >=
-                        Math.max(Math.floor(currentAvailable * 0.6), 24)
-                ) {
-                    segments.push(current);
-                    current = word;
-                    currentAvailable = continuationAvailable;
-                    continue;
-                }
-
-                if (current.length + 1 + word.length > currentAvailable) {
-                    segments.push(current);
-                    current = word;
-                    currentAvailable = continuationAvailable;
-                } else {
-                    current += ` ${word}`;
-                }
+        const commitCurrent = () => {
+            if (current.length === 0) {
+                return;
             }
 
             segments.push(current);
-
-            const lastIndex = segments.length - 1;
-            if (lastIndex >= 2) {
-                // `Array#at` handles negative indices but introduces an extra bounds
-                // check on every call. This helper runs for every doc comment we
-                // wrap, so prefer direct index math to keep the hot path lean.
-                const lastSegment = segments[lastIndex];
-                const isSingleWord =
-                    typeof lastSegment === "string" && !/\s/.test(lastSegment);
-
-                if (isSingleWord) {
-                    const maxSingleWordLength = Math.max(
-                        Math.min(continuationAvailable / 2, 16),
-                        8
-                    );
-
-                    if (lastSegment.length <= maxSingleWordLength) {
-                        const penultimateIndex = lastIndex - 1;
-                        const mergedSegment =
-                            segments[penultimateIndex] + ` ${lastSegment}`;
-
-                        segments[penultimateIndex] = mergedSegment;
-                        segments.pop();
-                    }
-                }
-            }
-
-            return segments;
+            current = "";
+            currentAvailable = continuationAvailable;
         };
 
-        for (let index = 0; index < reorderedDocs.length; index += 1) {
-            const line = reorderedDocs[index];
-            if (isDescriptionLine(line)) {
-                const blockLines = [line];
-                let lookahead = index + 1;
-
-                while (lookahead < reorderedDocs.length) {
-                    const nextLine = reorderedDocs[lookahead];
-                    if (
-                        typeof nextLine === "string" &&
-                        nextLine.startsWith("///") &&
-                        !parseDocCommentMetadata(nextLine)
-                    ) {
-                        blockLines.push(nextLine);
-                        lookahead += 1;
-                        continue;
-                    }
-                    break;
-                }
-
-                index = lookahead - 1;
-
-                const prefixMatch = line.match(/^(\/\/\/\s*@description\s+)/i);
-                if (!prefixMatch) {
-                    wrappedDocs.push(...blockLines);
-                    continue;
-                }
-
-                const prefix = prefixMatch[1];
-                const continuationPrefix =
-                    "/// " + " ".repeat(Math.max(prefix.length - 4, 0));
-                const descriptionText = blockLines
-                    .map((docLine, blockIndex) => {
-                        if (blockIndex === 0) {
-                            return docLine.slice(prefix.length).trim();
-                        }
-
-                        if (docLine.startsWith(continuationPrefix)) {
-                            return docLine
-                                .slice(continuationPrefix.length)
-                                .trim();
-                        }
-
-                        if (docLine.startsWith("///")) {
-                            return docLine.slice(3).trim();
-                        }
-
-                        return docLine.trim();
-                    })
-                    .filter((segment) => segment.length > 0)
-                    .join(" ");
-
-                if (descriptionText.length === 0) {
-                    wrappedDocs.push(...blockLines);
-                    continue;
-                }
-
-                const available = Math.max(wrapWidth - prefix.length, 16);
-                const continuationAvailable = Math.max(
-                    Math.min(available, 62),
-                    16
-                );
-                const segments = wrapSegments(
-                    descriptionText,
-                    available,
-                    continuationAvailable
-                );
-
+        for (const word of words) {
+            if (word === DOC_DESCRIPTION_PARAGRAPH_BREAK_SENTINEL) {
+                commitCurrent();
                 if (segments.length === 0) {
-                    wrappedDocs.push(...blockLines);
-                    continue;
-                }
-
-                if (
-                    blockLines.length > 1 &&
-                    segments.length > blockLines.length
-                ) {
-                    const paddedBlockLines = blockLines.map(
-                        (docLine, blockIndex) => {
-                            if (
-                                blockIndex === 0 ||
-                                typeof docLine !== "string"
-                            ) {
-                                return docLine;
-                            }
-
-                            if (
-                                !docLine.startsWith("///") ||
-                                parseDocCommentMetadata(docLine)
-                            ) {
-                                return docLine;
-                            }
-
-                            if (docLine.startsWith(continuationPrefix)) {
-                                return docLine;
-                            }
-
-                            const trimmedContinuation = docLine
-                                .slice(3)
-                                .replace(/^\s+/, "");
-
-                            if (trimmedContinuation.length === 0) {
-                                return docLine;
-                            }
-
-                            return `${continuationPrefix}${trimmedContinuation}`;
-                        }
-                    );
-
-                    wrappedDocs.push(...paddedBlockLines);
-                    continue;
-                }
-
-                wrappedDocs.push(`${prefix}${segments[0]}`);
-                for (
-                    let segmentIndex = 1;
-                    segmentIndex < segments.length;
-                    segmentIndex += 1
-                ) {
-                    wrappedDocs.push(
-                        `${continuationPrefix}${segments[segmentIndex]}`
-                    );
+                    currentAvailable = firstAvailable;
                 }
                 continue;
             }
 
-            wrappedDocs.push(line);
+            if (current.length === 0) {
+                current = word;
+                continue;
+            }
+
+            const endsSentence = /[.!?]["')\]]?$/.test(current);
+            const startsSentence = /^[A-Z]/.test(word);
+            if (
+                endsSentence &&
+                startsSentence &&
+                currentAvailable >= 60 &&
+                current.length >=
+                    Math.max(Math.floor(currentAvailable * 0.6), 24)
+            ) {
+                commitCurrent();
+                current = word;
+                continue;
+            }
+
+            if (current.length + 1 + word.length > currentAvailable) {
+                commitCurrent();
+                current = word;
+                continue;
+            }
+
+            current += ` ${word}`;
         }
 
-        reorderedDocs = wrappedDocs;
+        if (current.length > 0) {
+            commitCurrent();
+        }
 
-        result = reorderedDocs;
+        const lastIndex = segments.length - 1;
+        if (lastIndex >= 2) {
+            // `Array#at` handles negative indices but introduces an extra bounds
+            // check on every call. This helper runs for every doc comment we
+            // wrap, so prefer direct index math to keep the hot path lean.
+            const lastSegment = segments[lastIndex];
+            const isSingleWord =
+                typeof lastSegment === "string" && !/\s/.test(lastSegment);
+
+            if (isSingleWord) {
+                const maxSingleWordLength = Math.max(
+                    Math.min(continuationAvailable / 2, 16),
+                    8
+                );
+
+                if (lastSegment.length <= maxSingleWordLength) {
+                    const penultimateIndex = lastIndex - 1;
+                    const mergedSegment =
+                        segments[penultimateIndex] + ` ${lastSegment}`;
+
+                    segments[penultimateIndex] = mergedSegment;
+                    segments.pop();
+                }
+            }
+        }
+
+        return segments;
+    };
+
+    for (let index = 0; index < reorderedDocs.length; index += 1) {
+        const line = reorderedDocs[index];
+        if (isDescriptionLine(line)) {
+            const blockLines = [line];
+            let lookahead = index + 1;
+
+            while (lookahead < reorderedDocs.length) {
+                const nextLine = reorderedDocs[lookahead];
+                if (
+                    typeof nextLine === "string" &&
+                    nextLine.startsWith("///") &&
+                    !parseDocCommentMetadata(nextLine)
+                ) {
+                    blockLines.push(nextLine);
+                    lookahead += 1;
+                    continue;
+                }
+                break;
+            }
+
+            index = lookahead - 1;
+
+            const prefixMatch = line.match(/^(\/\/\/\s*@description\s+)/i);
+            if (!prefixMatch) {
+                wrappedDocs.push(...blockLines);
+                continue;
+            }
+
+            const prefix = prefixMatch[1];
+            const continuationPrefix =
+                "/// " + " ".repeat(Math.max(prefix.length - 4, 0));
+            const descriptionText = blockLines
+                .map((docLine, blockIndex) => {
+                    if (blockIndex === 0) {
+                        return docLine.slice(prefix.length).trim();
+                    }
+
+                    if (docLine.startsWith(continuationPrefix)) {
+                        return docLine.slice(continuationPrefix.length).trim();
+                    }
+
+                    if (docLine.startsWith("///")) {
+                        return docLine.slice(3).trim();
+                    }
+
+                    return docLine.trim();
+                })
+                .filter((segment) => segment.length > 0)
+                .join(" ");
+
+            if (descriptionText.length === 0) {
+                wrappedDocs.push(...blockLines);
+                continue;
+            }
+
+            const available = Math.max(wrapWidth - prefix.length, 16);
+            const continuationAvailable = Math.max(Math.min(available, 62), 16);
+            const segments = wrapSegments(
+                descriptionText,
+                available,
+                continuationAvailable
+            );
+
+            if (segments.length === 0) {
+                wrappedDocs.push(...blockLines);
+                continue;
+            }
+
+            if (blockLines.length > 1 && segments.length > blockLines.length) {
+                const paddedBlockLines = blockLines.map(
+                    (docLine, blockIndex) => {
+                        if (blockIndex === 0 || typeof docLine !== "string") {
+                            return docLine;
+                        }
+
+                        if (
+                            !docLine.startsWith("///") ||
+                            parseDocCommentMetadata(docLine)
+                        ) {
+                            return docLine;
+                        }
+
+                        if (docLine.startsWith(continuationPrefix)) {
+                            return docLine;
+                        }
+
+                        const trimmedContinuation = docLine
+                            .slice(3)
+                            .replace(/^\s+/, "");
+
+                        if (trimmedContinuation.length === 0) {
+                            return docLine;
+                        }
+
+                        return `${continuationPrefix}${trimmedContinuation}`;
+                    }
+                );
+
+                wrappedDocs.push(...paddedBlockLines);
+                continue;
+            }
+
+            wrappedDocs.push(`${prefix}${segments[0]}`);
+            for (
+                let segmentIndex = 1;
+                segmentIndex < segments.length;
+                segmentIndex += 1
+            ) {
+                wrappedDocs.push(
+                    `${continuationPrefix}${segments[segmentIndex]}`
+                );
+            }
+            continue;
+        }
+
+        wrappedDocs.push(line);
     }
+
+    reorderedDocs = wrappedDocs;
+
+    result = reorderedDocs;
 
     if (removedAnyLine || otherLines.length > 0) {
         result._suppressLeadingBlank = true;
@@ -5311,6 +5550,14 @@ function getCanonicalParamNameFromText(name) {
 
     const normalized = normalizeDocMetadataName(trimmed.trim());
     return normalized && normalized.length > 0 ? normalized : null;
+}
+
+function getParamAliasComparisonKey(canonicalName) {
+    if (typeof canonicalName !== "string" || canonicalName.length === 0) {
+        return null;
+    }
+
+    return canonicalName.replaceAll(/[_\s]+/g, "").toLowerCase();
 }
 
 function getPreferredFunctionParameterName(path, node, options) {
@@ -5731,6 +5978,39 @@ function updateParamLineWithDocName(line, newDocName) {
 
     const updatedRemainder = remainder.replace(/^[^\s]+/, newDocName);
     return `${prefix}${updatedRemainder}`;
+}
+
+function shouldReplaceParamDocName(existingName, newName) {
+    if (typeof existingName !== "string" || typeof newName !== "string") {
+        return false;
+    }
+
+    const trimmedExisting = existingName.trim();
+    const trimmedNew = newName.trim();
+
+    if (trimmedExisting === trimmedNew) {
+        return false;
+    }
+
+    const existingCanonical = getCanonicalParamNameFromText(trimmedExisting);
+    const newCanonical = getCanonicalParamNameFromText(trimmedNew);
+
+    if (!existingCanonical || !newCanonical) {
+        return false;
+    }
+
+    if (existingCanonical !== newCanonical) {
+        return false;
+    }
+
+    const existingHasDefault = trimmedExisting.includes("=");
+    const newHasDefault = trimmedNew.includes("=");
+
+    if (newHasDefault && !existingHasDefault) {
+        return true;
+    }
+
+    return false;
 }
 
 function computeSyntheticFunctionDocLines(
@@ -6547,6 +6827,76 @@ function getSourceTextForNode(node, options) {
     return originalText.slice(startIndex, endIndex).trim();
 }
 
+function resolveDefaultParameterDocText(defaultNode, options) {
+    if (!defaultNode) {
+        return null;
+    }
+
+    const sourceText = getSourceTextForNode(defaultNode, options);
+    const normalized = getNonEmptyTrimmedString(sourceText);
+
+    if (normalized) {
+        return normalized;
+    }
+
+    return resolveStaticExpressionDocText(defaultNode);
+}
+
+function resolveStaticExpressionDocText(node) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    switch (node.type) {
+        case "Literal": {
+            const rawValue = getNonEmptyTrimmedString(node.raw);
+            if (rawValue) {
+                return rawValue;
+            }
+
+            if (typeof node.value === "string") {
+                return JSON.stringify(node.value);
+            }
+
+            if (
+                typeof node.value === "number" ||
+                typeof node.value === "boolean"
+            ) {
+                return String(node.value);
+            }
+
+            if (node.value === null) {
+                return "null";
+            }
+
+            return null;
+        }
+        case "Identifier": {
+            return getNonEmptyTrimmedString(node.name);
+        }
+        case "UnaryExpression": {
+            const operator = getNonEmptyTrimmedString(node.operator);
+            if (!operator) {
+                return null;
+            }
+
+            const argumentText = resolveStaticExpressionDocText(node.argument);
+
+            return argumentText ? `${operator}${argumentText}` : null;
+        }
+        case "ParenthesizedExpression": {
+            const expressionText = resolveStaticExpressionDocText(
+                node.expression
+            );
+
+            return expressionText ? `(${expressionText})` : null;
+        }
+        default: {
+            return null;
+        }
+    }
+}
+
 function shouldPreserveCompactUpdateAssignmentSpacing(path, options) {
     if (
         !path ||
@@ -6774,7 +7124,7 @@ function getParameterDocInfo(paramNode, functionNode, options) {
             (!signatureOmitsUndefinedDefault && !isConstructorLike);
 
         const defaultText = shouldIncludeDefaultText
-            ? getSourceTextForNode(paramNode.right, options)
+            ? resolveDefaultParameterDocText(paramNode.right, options)
             : null;
 
         const docName = defaultText ? `${name}=${defaultText}` : name;
