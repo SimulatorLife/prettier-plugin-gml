@@ -13,7 +13,7 @@ import {
     removeLocationMetadata,
     simplifyLocationMetadata
 } from "./ast/location-manipulation.js";
-import { installRecognitionExceptionLikeGuard } from "./extensions/recognition-exception-patch.js";
+import { installRecognitionExceptionLikeGuard } from "./runtime/recognition-exception-patch.js";
 import convertToESTree from "./utils/estree-converter.js";
 
 installRecognitionExceptionLikeGuard();

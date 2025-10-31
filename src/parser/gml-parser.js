@@ -9,8 +9,8 @@ export { convertToESTree } from "./src/utils/estree-converter.js";
 export {
     default as GameMakerLanguageParserVisitor,
     VISIT_METHOD_NAMES
-} from "./src/extensions/game-maker-language-parser-visitor.js";
+} from "./src/runtime/game-maker-language-parser-visitor.js";
 export {
     default as GameMakerLanguageParserListener,
     LISTENER_METHOD_NAMES
-} from "./src/extensions/game-maker-language-parser-listener.js";
+} from "./src/runtime/game-maker-language-parser-listener.js";

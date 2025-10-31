@@ -1,4 +1,4 @@
-import GameMakerLanguageParserVisitor from "./extensions/game-maker-language-parser-visitor.js";
+import GameMakerLanguageParserVisitor from "./runtime/game-maker-language-parser-visitor.js";
 import { getLineBreakCount, getNonEmptyTrimmedString } from "./shared/index.js";
 import BinaryExpressionDelegate from "./binary-expression-delegate.js";
 import {
