@@ -23,7 +23,7 @@ import {
     withProgressBarCleanup
 } from "../dependencies.js";
 import { writeManualFile } from "./file-helpers.js";
-import { ensureWorkflowPathsAllowed } from "../../workflow/path-filter.js";
+import { ensureManualWorkflowPathsAllowed } from "./workflow-access.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
@@ -1012,7 +1012,7 @@ function createManualGitHubFileClient({
         const shouldLogDetails = verbose.downloads && !verbose.progressBar;
         const cachePath = path.join(cacheRoot, sha, filePath);
 
-        ensureWorkflowPathsAllowed(workflowPathFilter, [
+        ensureManualWorkflowPathsAllowed(workflowPathFilter, [
             {
                 type: "directory",
                 target: cacheRoot,
