@@ -8,6 +8,7 @@ export {
     assertArray,
     asArray,
     isNonEmptyArray,
+    mergeUniqueValues,
     pushUnique,
     toArray,
     toArrayFromIterable
