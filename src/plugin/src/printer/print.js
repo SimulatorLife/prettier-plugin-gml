@@ -849,8 +849,7 @@ export function print(path, options, print) {
                 functionNameDoc
             ]);
 
-            const hasParameters =
-                Array.isArray(node.params) && node.params.length > 0;
+            const hasParameters = isNonEmptyArray(node.params);
 
             if (hasParameters) {
                 const {
@@ -891,8 +890,7 @@ export function print(path, options, print) {
             return concat(parts);
         }
         case "ConstructorParentClause": {
-            const hasParameters =
-                Array.isArray(node.params) && node.params.length > 0;
+            const hasParameters = isNonEmptyArray(node.params);
             const params = hasParameters
                 ? printCommaSeparatedList(
                       path,
@@ -2092,7 +2090,7 @@ function shouldForceInlineFunctionParameters(path, options) {
         return false;
     }
 
-    if (!Array.isArray(node.params) || node.params.length === 0) {
+    if (!isNonEmptyArray(node.params)) {
         return false;
     }
 
