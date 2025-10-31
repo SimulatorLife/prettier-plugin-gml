@@ -240,10 +240,7 @@ export default class GMLParser {
         asJSON: false
     });
 
-    static parse(
-        text,
-        options
-    ) {
+    static parse(text, options) {
         return new this(text, options).parse();
     }
 
