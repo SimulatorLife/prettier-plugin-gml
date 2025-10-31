@@ -85,9 +85,9 @@ sheet, then return here when you need deeper context.
 - [Semantic scope plan](semantic-scope-plan.md) — Detailed roadmap for the
   ANTLR transpiler, semantic analyzer, IR storage, and SCIP tooling that power
   dependency-aware reloads and editor integrations.
-- [Project Index Cache Design](project-index-cache-design.md) — Captures the
-  shipped cache shape plus the instrumentation used to keep bootstrap behaviour
-  predictable.
+- [Project index cache design](legacy-identifier-case-plan.md#project-index-cache-design) —
+  Captures the shipped cache shape plus the instrumentation used to keep
+  bootstrap behaviour predictable.
 - [Legacy identifier-case plan — Archived project-index roadmap](legacy-identifier-case-plan.md#archived-project-index-roadmap)
   — Tracks the historical follow-up work that shipped alongside cache
   persistence and discovery in the plugin.
