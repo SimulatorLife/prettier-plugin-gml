@@ -27,6 +27,15 @@ describe("path-utils", () => {
             assert.strictEqual(relative, path.join("src", "index.gml"));
         });
 
+        it("allows child segments that begin with double dots", () => {
+            const dottedChild = path.join(projectRoot, "..filename");
+            const relative = resolveContainedRelativePath(
+                dottedChild,
+                projectRoot
+            );
+            assert.strictEqual(relative, "..filename");
+        });
+
         it("returns an empty string when both paths are identical", () => {
             const relative = resolveContainedRelativePath(
                 projectRoot,
@@ -95,6 +104,12 @@ describe("path-utils", () => {
         it("returns true when child resides under parent", () => {
             const root = path.join(process.cwd(), "tmp", "shared-path-utils");
             const child = path.join(root, "src", "index.gml");
+            assert.strictEqual(isPathInside(child, root), true);
+        });
+
+        it("returns true for child names that begin with double dots", () => {
+            const root = path.join(process.cwd(), "tmp", "shared-path-utils");
+            const child = path.join(root, "..filename");
             assert.strictEqual(isPathInside(child, root), true);
         });
 
