@@ -306,6 +306,24 @@ describe("GameMaker parser fixtures", () => {
         );
     });
 
+    it("applies default parser options when none are provided", () => {
+        const parser = new GMLParser("");
+
+        assert.equal(parser.options.getComments, true);
+        assert.equal(parser.options.getLocations, true);
+        assert.equal(parser.options.astFormat, "gml");
+    });
+
+    it("merges parser options without mutating the overrides", () => {
+        const overrides = { getComments: false };
+        const parser = new GMLParser("", overrides);
+
+        assert.equal(parser.options.getComments, false);
+        assert.equal(parser.options.getLocations, true);
+        assert.deepStrictEqual(overrides, { getComments: false });
+        assert.equal(GMLParser.optionDefaults.getComments, true);
+    });
+
     it("counts CRLF sequences as a single line break", () => {
         assert.strictEqual(
             getLineBreakCount("\r\n"),

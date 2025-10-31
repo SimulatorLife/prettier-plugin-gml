@@ -209,16 +209,23 @@ function createHiddenNodeProcessor({ comments, whitespaces, lexerTokens }) {
     };
 }
 
+function mergeParserOptions(baseOptions, overrides) {
+    const overrideObject = isObjectLike(overrides) ? overrides : {};
+    return Object.assign({}, baseOptions, overrideObject);
+}
+
 export default class GMLParser {
-    constructor(text, options) {
+    constructor(text, options = {}) {
         this.originalText = text;
         this.text = normalizeSimpleEscapeCase(text);
         this.whitespaces = [];
         this.comments = [];
-        this.options = Object.assign({}, GMLParser.optionDefaults, options);
+        const defaults =
+            this.constructor?.optionDefaults ?? GMLParser.optionDefaults;
+        this.options = mergeParserOptions(defaults, options);
     }
 
-    static optionDefaults = {
+    static optionDefaults = Object.freeze({
         getComments: true,
         getLocations: true,
         simplifyLocations: true,
@@ -231,19 +238,11 @@ export default class GMLParser {
         // object. This is primarily useful when paired with the ESTree output
         // to feed other tooling or persist snapshots.
         asJSON: false
-    };
+    });
 
     static parse(
         text,
-        options = {
-            getComments: true,
-            getLocations: true,
-            simplifyLocations: true,
-            getIdentifierMetadata: false,
-            createScopeTracker: null,
-            astFormat: "gml",
-            asJSON: false
-        }
+        options
     ) {
         return new this(text, options).parse();
     }
