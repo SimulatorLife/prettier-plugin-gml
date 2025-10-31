@@ -781,6 +781,15 @@ export function print(path, options, print) {
                     docCommentDocs,
                     options
                 );
+                if (Array.isArray(docCommentDocs)) {
+                    while (
+                        docCommentDocs.length > 0 &&
+                        typeof docCommentDocs[0] === "string" &&
+                        docCommentDocs[0].trim() === ""
+                    ) {
+                        docCommentDocs.shift();
+                    }
+                }
                 // Nested functions (those in BlockStatement parents) should have
                 // a leading blank line before their synthetic doc comments
                 const parentNode = path.getParentNode();
@@ -2756,7 +2765,28 @@ function printStatements(path, options, print, childrenAttribute) {
             isStaticDeclaration &&
             !syntheticDocComment
         ) {
-            parts.push(hardline);
+            const hasExplicitBlankLineBeforeStatic =
+                typeof originalTextCache === "string" &&
+                typeof nodeStartIndex === "number" &&
+                isPreviousLineEmpty(originalTextCache, nodeStartIndex);
+            const blockAncestor =
+                typeof childPath.getParentNode === "function"
+                    ? childPath.getParentNode()
+                    : (childPath.parent ?? null);
+            const constructorAncestor =
+                typeof childPath.getParentNode === "function"
+                    ? childPath.getParentNode(1)
+                    : (blockAncestor?.parent ?? null);
+            const shouldForceConstructorPadding =
+                blockAncestor?.type === "BlockStatement" &&
+                constructorAncestor?.type === "ConstructorDeclaration";
+
+            if (
+                hasExplicitBlankLineBeforeStatic ||
+                shouldForceConstructorPadding
+            ) {
+                parts.push(hardline);
+            }
         }
 
         if (semi === ";") {
@@ -4227,8 +4257,14 @@ function promoteLeadingDocCommentTextToDescription(docLines) {
         }
 
         if (trimmedSuffix.length === 0) {
-            const blankLine = suffix.length > 0 ? `${prefix}${suffix}` : prefix;
-            promotedLines.push(blankLine);
+            // Legacy doc comment blocks frequently include placeholder "// /"
+            // separators that should not survive once the text is promoted to a
+            // structured description. Emitting an empty doc comment line here
+            // introduces stray `///` entries ahead of the actual metadata,
+            // creating the blank line regressions surfaced in testComments.
+            // Skip those placeholder segments so the promoted description stays
+            // contiguous while still respecting continuation padding when real
+            // text follows.
             continue;
         }
 
