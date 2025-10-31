@@ -404,6 +404,15 @@ function createConsoleReporter({ formatPath, logger }) {
             const displayPath = normalizePath(path);
             targetLogger.log(displayPath ? `✓ ${displayPath}` : "✓");
         },
+        // Manual download commands always destructure the returned reporter into
+        // `{ report, cleanup }` and wire both callbacks into `try/finally` flows
+        // outlined in docs/feather-data-plan.md#progress-bar-handshake. The
+        // console variant never reserves progress-bar state, but keeping the
+        // cleanup handler as a shared no-op preserves that contract so the
+        // finally blocks stay balanced even when verbose logging is disabled or
+        // redirected. Replacing it with `null` or allocating ad-hoc closures
+        // would force every caller to special-case the simple path and risk
+        // leaking manual overrides during future refactors.
         cleanup: noop
     };
 }
