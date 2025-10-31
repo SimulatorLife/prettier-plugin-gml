@@ -2750,11 +2750,17 @@ function printStatements(path, options, print, childrenAttribute) {
             node?._featherSuppressFollowingEmptyLine === true ||
             node?._gmlSuppressFollowingEmptyLine === true;
 
-        if (
+        const textForStaticPadding =
+            originalTextCache ?? options?.originalText ?? null;
+        const shouldPreserveInitialStaticPadding =
             isFirstStatementInBlock &&
             isStaticDeclaration &&
-            !syntheticDocComment
-        ) {
+            !syntheticDocComment &&
+            typeof nodeStartIndex === "number" &&
+            typeof textForStaticPadding === "string" &&
+            isPreviousLineEmpty(textForStaticPadding, nodeStartIndex);
+
+        if (shouldPreserveInitialStaticPadding) {
             parts.push(hardline);
         }
 
@@ -4226,8 +4232,14 @@ function promoteLeadingDocCommentTextToDescription(docLines) {
         }
 
         if (trimmedSuffix.length === 0) {
-            const blankLine = suffix.length > 0 ? `${prefix}${suffix}` : prefix;
-            promotedLines.push(blankLine);
+            // Skip synthetic blank doc comment lines when promoting description
+            // segments. The legacy line comment stubs often include placeholder
+            // "// /" entries that expand to bare `///` lines. These were
+            // historically elided so description blocks remain compact, but the
+            // updated promotion logic preserved them, leading to extra blank
+            // doc comment lines. Dropping them here restores the previous
+            // behaviour without affecting intentional blank lines that precede
+            // the promoted description content.
             continue;
         }
 
@@ -4259,6 +4271,88 @@ function promoteLeadingDocCommentTextToDescription(docLines) {
     return result;
 }
 
+function normalizeLegacyReturnsDocLines(docLines) {
+    const normalizedLines = toMutableArray(docLines);
+
+    if (normalizedLines.length === 0) {
+        return normalizedLines;
+    }
+
+    let mutated = false;
+    const convertedReturns = [];
+
+    for (let index = 0; index < normalizedLines.length; index += 1) {
+        const line = normalizedLines[index];
+        if (typeof line !== "string") {
+            continue;
+        }
+
+        const match = line.match(/^(\s*\/\/\/)(.*)$/);
+        if (!match) {
+            continue;
+        }
+
+        const [, prefix = "///", suffix = ""] = match;
+        const trimmedSuffix = suffix.trim();
+        const legacyMatch = trimmedSuffix.match(/^Returns:\s*(.*)$/i);
+        if (!legacyMatch) {
+            continue;
+        }
+
+        const remainder = legacyMatch[1] ?? "";
+        let typeText = "";
+        let descriptionText = "";
+
+        if (remainder.length > 0) {
+            const commaIndex = remainder.indexOf(",");
+            if (commaIndex === -1) {
+                const parts = remainder.trim().split(/\s+/, 2);
+                if (
+                    parts.length === 2 &&
+                    /^[A-Za-z0-9_]+$/.test(parts[0]) &&
+                    parts[1].length > 0
+                ) {
+                    typeText = parts[0];
+                    descriptionText = parts[1].trim();
+                } else {
+                    descriptionText = remainder.trim();
+                }
+            } else {
+                typeText = remainder.slice(0, commaIndex).trim();
+                descriptionText = remainder.slice(commaIndex + 1).trim();
+            }
+        }
+
+        if (descriptionText.length > 0) {
+            descriptionText =
+                descriptionText.charAt(0).toUpperCase() +
+                descriptionText.slice(1);
+        }
+
+        const typeSection = typeText.length > 0 ? ` {${typeText}}` : "";
+        const descriptionSection =
+            descriptionText.length > 0 ? ` ${descriptionText}` : "";
+
+        convertedReturns.push(
+            `${prefix} @returns${typeSection}${descriptionSection}`
+        );
+        normalizedLines[index] = null;
+        mutated = true;
+    }
+
+    if (convertedReturns.length > 0) {
+        const filtered = normalizedLines.filter((line) => line !== null);
+        normalizedLines.length = 0;
+        normalizedLines.push(...filtered, ...convertedReturns);
+    }
+
+    if (mutated && docLines?._preserveDescriptionBreaks === true) {
+        normalizedLines._preserveDescriptionBreaks = true;
+    }
+
+    return normalizedLines;
+}
+
 function mergeSyntheticDocComments(
     node,
     existingDocLines,
@@ -4268,6 +4362,9 @@ function mergeSyntheticDocComments(
     let normalizedExistingLines = toMutableArray(existingDocLines);
 
     normalizedExistingLines = promoteLeadingDocCommentTextToDescription(
+        normalizedExistingLines
+    );
+    normalizedExistingLines = normalizeLegacyReturnsDocLines(
         normalizedExistingLines
     );
     let preserveDescriptionBreaks =
@@ -4433,7 +4530,9 @@ function mergeSyntheticDocComments(
                 trimmedPreceding !== "" &&
                 typeof precedingLine === "string" &&
                 !isFunctionLine(precedingLine) &&
-                (!isDocCommentLine || !isDocTagLine || shouldSeparateDocTag);
+                (isDocCommentLine
+                    ? isDocTagLine && shouldSeparateDocTag
+                    : true);
 
             if (needsSeparatorBeforeFunction) {
                 mergedLines = [
@@ -4513,10 +4612,25 @@ function mergeSyntheticDocComments(
             ) {
                 const lineIndex = paramLineIndices.get(canonical);
                 const existingLine = mergedLines[lineIndex];
+                const existingMetadata = parseDocCommentMetadata(existingLine);
+                const existingName =
+                    typeof existingMetadata?.name === "string"
+                        ? existingMetadata.name
+                        : null;
+                const metadataCanonical =
+                    getCanonicalParamNameFromText(metadata.name) ?? null;
+                const existingCanonical =
+                    existingName && getCanonicalParamNameFromText(existingName);
+                const preferredName =
+                    existingName &&
+                    metadataCanonical &&
+                    existingCanonical === metadataCanonical
+                        ? existingName
+                        : metadata.name;
 
                 const updatedLine = updateParamLineWithDocName(
                     existingLine,
-                    metadata.name
+                    preferredName
                 );
                 if (updatedLine !== existingLine) {
                     mergedLines[lineIndex] = updatedLine;
@@ -4918,7 +5032,13 @@ function mergeSyntheticDocComments(
         });
     }
 
+    const isReturnLine = (line) => docTagMatches(line, /^\/\/\/\s*@returns\b/i);
+
     reorderedDocs = reorderedDocs.map((line) => {
+        if (isReturnLine(line)) {
+            return normalizeDocCommentTypeAnnotations(line);
+        }
+
         if (!isParamLine(line)) {
             return line;
         }
@@ -5309,7 +5429,17 @@ function getCanonicalParamNameFromText(name) {
     }
 
     const normalized = normalizeDocMetadataName(trimmed.trim());
-    return normalized && normalized.length > 0 ? normalized : null;
+    if (!normalized || normalized.length === 0) {
+        return null;
+    }
+
+    const canonical = normalized.replaceAll(/[^A-Za-z0-9]+/g, "").toLowerCase();
+    if (canonical.length > 0) {
+        return canonical;
+    }
+
+    const fallback = normalized.trim().toLowerCase();
+    return fallback.length > 0 ? fallback : null;
 }
 
 function getPreferredFunctionParameterName(path, node, options) {

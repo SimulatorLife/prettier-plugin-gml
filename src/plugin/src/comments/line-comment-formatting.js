@@ -70,7 +70,7 @@ const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION = Object.freeze({
         ["undefined", "undefined"],
         ["real", "real"],
         ["bool", "bool"],
-        ["boolean", "boolean"],
+        ["boolean", "bool"],
         ["string", "string"],
         ["array", "array"],
         ["struct", "struct"],
