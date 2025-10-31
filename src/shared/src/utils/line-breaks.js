@@ -61,12 +61,12 @@ export function getLineBreakCount(text) {
     // micro-benchmark included in the commit message while preserving the
     // original CRLF collapsing semantics.
     for (let index = 0; index < length; index += 1) {
-        const code = text.charCodeAt(index);
+        const code = text.codePointAt(index);
 
         if (code === CHAR_CODE_CARRIAGE_RETURN) {
             if (
                 index + 1 < length &&
-                text.charCodeAt(index + 1) === CHAR_CODE_LINE_FEED
+                text.codePointAt(index + 1) === CHAR_CODE_LINE_FEED
             ) {
                 index += 1;
             }
