@@ -163,20 +163,25 @@ function stopAndRemoveProgressBar(label, { suppressErrors = false } = {}) {
         return;
     }
 
-    if (suppressErrors) {
-        try {
-            bar.stop();
-        } catch {
-            // Ignore cleanup failures so callers can continue unwinding their
-            // own teardown logic without masking the original failure that
-            // disabled progress rendering mid-run.
-        }
+    const removeBar = () => {
         activeProgressBars.delete(label);
+    };
+
+    if (!suppressErrors) {
+        bar.stop();
+        removeBar();
         return;
     }
 
-    bar.stop();
-    activeProgressBars.delete(label);
+    try {
+        bar.stop();
+    } catch {
+        // Ignore cleanup failures so callers can continue unwinding their own
+        // teardown logic without masking the original failure that disabled
+        // progress rendering mid-run.
+    }
+
+    removeBar();
 }
 
 function renderProgressBar(label, current, total, width, options = {}) {
