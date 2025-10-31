@@ -32,7 +32,7 @@ function createStubProgram() {
                 nonDefault?.command ?? this.defaultCommand ?? null;
             const action = targetCommand?._actionHandler;
             if (!action) {
-                return undefined;
+                return;
             }
 
             hooks.get("preSubcommand")?.(this, targetCommand);
