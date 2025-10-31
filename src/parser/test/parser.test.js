@@ -314,6 +314,68 @@ describe("GameMaker parser fixtures", () => {
         );
     });
 
+    it("outputs ESTree-formatted nodes when requested", () => {
+        const source = [
+            "// heading",
+            "function demo() {",
+            "    return 1;",
+            "}",
+            ""
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            astFormat: "estree",
+            getComments: true
+        });
+
+        assert.ok(ast, "Expected ESTree parse to return an AST.");
+        assert.strictEqual(ast.type, "Program");
+        assert.ok(Array.isArray(ast.body));
+        assert.ok(ast.loc, "ESTree AST should expose location metadata.");
+        assert.ok(
+            Array.isArray(ast.range),
+            "Range metadata should be present."
+        );
+        const [declaration] = ast.body;
+        assert.ok(declaration, "Expected at least one declaration.");
+        assert.ok(
+            typeof declaration.start === "number" &&
+                typeof declaration.end === "number",
+            "Declaration nodes should expose numeric start and end positions."
+        );
+        assert.ok(
+            Array.isArray(ast.comments),
+            "Comments should be preserved in the ESTree output."
+        );
+        const [comment] = ast.comments;
+        assert.strictEqual(
+            comment?.type,
+            "Line",
+            "Line comments should map to ESTree."
+        );
+    });
+
+    it("serializes ESTree ASTs as JSON when requested", () => {
+        const source = "function demo() {}";
+        const jsonAst = GMLParser.parse(source, {
+            astFormat: "estree",
+            asJSON: true
+        });
+
+        assert.strictEqual(
+            typeof jsonAst,
+            "string",
+            "ESTree JSON output should be a string."
+        );
+
+        const parsed = JSON.parse(jsonAst);
+        assert.strictEqual(parsed.type, "Program");
+        assert.ok(
+            parsed.loc,
+            "Serialized AST should retain location metadata."
+        );
+    });
+
     it("builds identifier locations from available token offsets", () => {
         const builder = new GameMakerASTBuilder();
         const location = builder.createIdentifierLocation({

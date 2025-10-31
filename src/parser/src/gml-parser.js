@@ -13,6 +13,7 @@ import {
     getLineBreakCount
 } from "./shared/index.js";
 import { installRecognitionExceptionLikeGuard } from "./extensions/recognition-exception-patch.js";
+import convertToESTree from "./utils/estree-converter.js";
 
 installRecognitionExceptionLikeGuard();
 
@@ -222,7 +223,14 @@ export default class GMLParser {
         getLocations: true,
         simplifyLocations: true,
         getIdentifierMetadata: false,
-        createScopeTracker: null
+        createScopeTracker: null,
+        // Controls the structure of the returned AST. Use "estree" to receive
+        // nodes that align with the ESTree specification used by JS tooling.
+        astFormat: "gml",
+        // When true the parser returns a JSON string rather than a mutable AST
+        // object. This is primarily useful when paired with the ESTree output
+        // to feed other tooling or persist snapshots.
+        asJSON: false
     };
 
     static parse(
@@ -232,7 +240,9 @@ export default class GMLParser {
             getLocations: true,
             simplifyLocations: true,
             getIdentifierMetadata: false,
-            createScopeTracker: null
+            createScopeTracker: null,
+            astFormat: "gml",
+            asJSON: false
         }
     ) {
         return new this(text, options).parse();
@@ -281,14 +291,31 @@ export default class GMLParser {
             astTree.comments = this.comments;
         }
 
+        const shouldConvertToESTree =
+            typeof this.options.astFormat === "string" &&
+            this.options.astFormat.toLowerCase() === "estree";
+
         if (!this.options.getLocations) {
             this.removeLocationInfo(astTree);
-        } else if (this.options.simplifyLocations) {
+        } else if (!shouldConvertToESTree && this.options.simplifyLocations) {
             this.simplifyLocationInfo(astTree);
         }
 
         if (this.originalText !== this.text) {
             this.restoreOriginalLiteralText(astTree);
+        }
+
+        if (shouldConvertToESTree) {
+            astTree = convertToESTree(astTree, {
+                includeLocations: this.options.getLocations,
+                includeRange:
+                    this.options.getLocations && this.options.simplifyLocations,
+                includeComments: this.options.getComments
+            });
+        }
+
+        if (this.options.asJSON) {
+            return JSON.stringify(astTree);
         }
 
         return astTree;

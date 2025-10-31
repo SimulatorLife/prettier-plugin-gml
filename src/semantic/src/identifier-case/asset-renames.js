@@ -17,6 +17,10 @@ import {
     summarizeReferenceFileOccurrences
 } from "./common.js";
 import { createAssetRenameExecutor } from "./asset-rename-executor.js";
+import {
+    IdentifierCaseStyle,
+    normalizeIdentifierCaseAssetStyle
+} from "./options.js";
 
 const RESERVED_IDENTIFIER_NAMES = loadReservedIdentifierNames();
 
@@ -505,7 +509,13 @@ export function planAssetRenames({
     ignoreMatchers = [],
     metrics = null
 } = {}) {
-    if (!projectIndex || !projectIndex.resources || assetStyle === "off") {
+    const normalizedAssetStyle = normalizeIdentifierCaseAssetStyle(assetStyle);
+
+    if (
+        !projectIndex ||
+        !projectIndex.resources ||
+        normalizedAssetStyle === IdentifierCaseStyle.OFF
+    ) {
         return { operations: [], conflicts: [], renames: [] };
     }
 
@@ -515,7 +525,7 @@ export function planAssetRenames({
 
     const { operations, conflicts, renames } = planRenamesForResources({
         resources: projectIndex.resources,
-        assetStyle,
+        assetStyle: normalizedAssetStyle,
         preservedSet,
         ignoreMatchers,
         referencesByTargetPath,
