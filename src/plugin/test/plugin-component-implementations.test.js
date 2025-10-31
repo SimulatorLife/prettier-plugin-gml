@@ -8,12 +8,9 @@ import {
     restoreDefaultGmlPluginComponentImplementations,
     setGmlPluginComponentImplementationProvider
 } from "../src/component-providers/gml-plugin-component-implementation-registry.js";
-import { gmlParserAdapter } from "../src/parsers/gml-parser-adapter.js";
-import { print } from "../src/printer/print.js";
-import {
-    handleComments,
-    printComment
-} from "../src/comments/comment-printer.js";
+import { gmlParserAdapter } from "../src/parsers/index.js";
+import { print } from "../src/printer/index.js";
+import { handleComments, printComment } from "../src/comments/public-api.js";
 import { identifierCaseOptions } from "gamemaker-language-semantic/identifier-case/options.js";
 import { LogicalOperatorsStyle } from "../src/options/logical-operators-style.js";
 
