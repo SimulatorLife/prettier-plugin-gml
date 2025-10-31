@@ -849,7 +849,10 @@ export function print(path, options, print) {
                 functionNameDoc
             ]);
 
-            if (node.params.length > 0) {
+            const hasParameters =
+                Array.isArray(node.params) && node.params.length > 0;
+
+            if (hasParameters) {
                 const {
                     inlineDoc: inlineParamDoc,
                     multilineDoc: multilineParamDoc
@@ -888,29 +891,29 @@ export function print(path, options, print) {
             return concat(parts);
         }
         case "ConstructorParentClause": {
-            let params;
-            params =
-                node.params.length > 0
-                    ? printCommaSeparatedList(
-                          path,
-                          print,
-                          "params",
-                          "(",
-                          ")",
-                          options,
-                          {
-                              // Constructor parent clauses participate in the
-                              // surrounding function signature. Breaking the
-                              // argument list across multiple lines changes
-                              // the shape of the signature and regresses
-                              // existing fixtures that rely on the entire
-                              // clause remaining inline.
-                              leadingNewline: false,
-                              trailingNewline: false,
-                              forceInline: true
-                          }
-                      )
-                    : printEmptyParens(path, print, options);
+            const hasParameters =
+                Array.isArray(node.params) && node.params.length > 0;
+            const params = hasParameters
+                ? printCommaSeparatedList(
+                      path,
+                      print,
+                      "params",
+                      "(",
+                      ")",
+                      options,
+                      {
+                          // Constructor parent clauses participate in the
+                          // surrounding function signature. Breaking the
+                          // argument list across multiple lines changes
+                          // the shape of the signature and regresses
+                          // existing fixtures that rely on the entire
+                          // clause remaining inline.
+                          leadingNewline: false,
+                          trailingNewline: false,
+                          forceInline: true
+                      }
+                  )
+                : printEmptyParens(path, print, options);
             return concat([" : ", print("id"), params, " constructor"]);
         }
         case "DefaultParameter": {
