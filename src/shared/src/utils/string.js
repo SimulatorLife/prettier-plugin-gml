@@ -1,4 +1,3 @@
-import { uniqueArray } from "./array.js";
 import { escapeRegExp } from "./regexp.js";
 
 /**
@@ -538,7 +537,8 @@ export function normalizeStringList(
 }
 
 function collectUniqueTrimmedStrings(entries) {
-    const trimmedEntries = [];
+    const uniqueEntries = [];
+    const seen = new Set();
 
     for (const entry of entries) {
         if (typeof entry !== "string") {
@@ -546,14 +546,15 @@ function collectUniqueTrimmedStrings(entries) {
         }
 
         const trimmed = entry.trim();
-        if (!trimmed) {
+        if (!trimmed || seen.has(trimmed)) {
             continue;
         }
 
-        trimmedEntries.push(trimmed);
+        seen.add(trimmed);
+        uniqueEntries.push(trimmed);
     }
 
-    return uniqueArray(trimmedEntries);
+    return uniqueEntries;
 }
 
 /**
