@@ -143,7 +143,7 @@ async function traverseForFixtures(directory, visitor, pathFilter) {
     try {
         entries = await fs.readdir(directory, { withFileTypes: true });
     } catch (error) {
-        if (error && error.code === "ENOENT") {
+        if (isFsErrorCode(error, "ENOENT")) {
             return;
         }
         throw error;

@@ -13,6 +13,7 @@ import {
     getNonEmptyTrimmedString,
     incrementMapValue,
     InvalidArgumentError,
+    isFsErrorCode,
     isNonEmptyString,
     normalizeStringList,
     Option,
@@ -888,7 +889,7 @@ async function runPluginFormatSuite({ iterations }) {
             source: optionsAbsolutePath
         });
     } catch (error) {
-        if (error && error.code === "ENOENT") {
+        if (isFsErrorCode(error, "ENOENT")) {
             notes.push(
                 "Formatter options fixture not found; using plugin defaults."
             );
