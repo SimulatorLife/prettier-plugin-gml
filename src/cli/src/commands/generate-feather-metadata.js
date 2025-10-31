@@ -1,4 +1,7 @@
 import { parseHTML } from "linkedom";
+import path from "node:path";
+import process from "node:process";
+import { fileURLToPath } from "node:url";
 
 import { Command } from "commander";
 
@@ -30,6 +33,8 @@ import {
     applyManualEnvOptionOverrides
 } from "../modules/manual/environment.js";
 import { applyStandardCommandOptions } from "../core/command-standard-options.js";
+import { createCliCommandManager } from "../core/command-manager.js";
+import { handleCliError } from "../core/errors.js";
 import {
     applySharedManualCommandOptions,
     resolveManualCommandOptions
@@ -1319,4 +1324,26 @@ export async function runGenerateFeatherMetadata({ command, workflow } = {}) {
     } finally {
         disposeProgressBars();
     }
+}
+
+const isMainModule = process.argv[1]
+    ? path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+    : false;
+
+if (isMainModule) {
+    const program = new Command().name("generate-feather-metadata");
+    const { registry, runner } = createCliCommandManager({ program });
+    const handleError = (error) =>
+        handleCliError(error, {
+            prefix: "Failed to generate Feather metadata.",
+            exitCode: typeof error?.exitCode === "number" ? error.exitCode : 1
+        });
+
+    registry.registerDefaultCommand({
+        command: createFeatherMetadataCommand({ env: process.env }),
+        run: ({ command }) => runGenerateFeatherMetadata({ command }),
+        onError: handleError
+    });
+
+    runner.run(process.argv.slice(2)).catch(handleError);
 }
