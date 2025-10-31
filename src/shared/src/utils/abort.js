@@ -1,5 +1,5 @@
-import { getNonEmptyString } from "./string.js";
 import { isObjectOrFunction } from "./object.js";
+import { getNonEmptyString } from "./string.js";
 
 const abortErrorBrand = new WeakSet();
 
