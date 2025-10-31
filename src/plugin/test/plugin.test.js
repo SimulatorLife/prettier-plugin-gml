@@ -716,4 +716,28 @@ describe("Prettier GameMaker plugin fixtures", () => {
 
         assert.strictEqual(formatted, baseline);
     });
+
+    it("does not insert a blank line before the first static declaration in a block", async () => {
+        const source = [
+            "function example() {",
+            "    static counter = 0;",
+            "    return counter;",
+            "}",
+            ""
+        ].join("\n");
+
+        const formatted = await formatWithPlugin(source);
+        const lines = formatted.split("\n");
+        const functionIndex = lines.indexOf("function example() {");
+
+        assert.ok(
+            functionIndex !== -1,
+            "Expected the formatted output to contain the function declaration."
+        );
+        assert.strictEqual(
+            lines[functionIndex + 1],
+            "    static counter = 0;",
+            "Expected the static declaration to appear immediately after the opening brace."
+        );
+    });
 });
