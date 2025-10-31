@@ -38,6 +38,10 @@ function coerceExtensionValue(value) {
         return null;
     }
 
+    if (cleaned.includes("*") || cleaned.includes("?")) {
+        return null;
+    }
+
     return cleaned.startsWith(".") ? cleaned : `.${cleaned}`;
 }
 

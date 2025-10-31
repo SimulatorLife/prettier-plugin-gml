@@ -72,6 +72,22 @@ test("collectFormatCommandOptions splits delimited extension strings", () => {
     assert.deepStrictEqual(result.extensions, [".gml", ".yy"]);
 });
 
+test("collectFormatCommandOptions ignores wildcard-only extension patterns", () => {
+    const command = {
+        args: [],
+        opts() {
+            return { extensions: "*.*" };
+        },
+        helpInformation() {
+            return "usage";
+        }
+    };
+
+    const result = collectFormatCommandOptions(command, DEFAULTS);
+
+    assert.strictEqual(result.extensions, DEFAULTS.defaultExtensions);
+});
+
 test("collectFormatCommandOptions accepts iterable extension collections", () => {
     const extensions = new Set([".yy", ".gml", ".yy"]);
     const command = {
