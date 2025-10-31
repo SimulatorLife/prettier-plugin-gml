@@ -50,10 +50,16 @@ export function collectFormatCommandOptions(
 
     let targetPathInput = null;
     let targetPathProvided = false;
+    let rawTargetPathInput;
 
     if (typeof rawTarget === "string") {
-        targetPathInput = getNonEmptyTrimmedString(rawTarget) ?? null;
+        const trimmedTarget = getNonEmptyTrimmedString(rawTarget);
+        targetPathInput = trimmedTarget ?? null;
         targetPathProvided = true;
+
+        if (trimmedTarget !== null && trimmedTarget !== rawTarget) {
+            rawTargetPathInput = rawTarget;
+        }
     } else if (rawTarget != null) {
         targetPathInput = rawTarget;
         targetPathProvided = true;
@@ -82,6 +88,7 @@ export function collectFormatCommandOptions(
         prettierLogLevel,
         onParseError,
         checkMode,
+        rawTargetPathInput,
         skippedDirectorySampleLimit,
         ignoredFileSampleLimit,
         unsupportedExtensionSampleLimit,

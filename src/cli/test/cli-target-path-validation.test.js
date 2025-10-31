@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import fs from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
 
@@ -54,4 +56,25 @@ test("target path helpers normalize valid inputs", () => {
 
     const defaultTarget = resolveTargetPathFromInputForTests(null);
     assert.strictEqual(defaultTarget, path.resolve(process.cwd(), "."));
+});
+
+test("resolveTargetPathFromInput falls back to the raw value when sanitized path is missing", async () => {
+    const uniqueSuffix = randomUUID();
+    const rawName = ` ${uniqueSuffix}-target`;
+    const sanitizedName = `${uniqueSuffix}-target`;
+    const rawPath = path.resolve(process.cwd(), rawName);
+    const sanitizedPath = path.resolve(process.cwd(), sanitizedName);
+
+    await fs.rm(rawPath, { recursive: true, force: true });
+    await fs.rm(sanitizedPath, { recursive: true, force: true });
+    await fs.mkdir(rawPath, { recursive: true });
+
+    try {
+        const resolved = resolveTargetPathFromInputForTests(sanitizedName, {
+            rawTargetPathInput: rawName
+        });
+        assert.strictEqual(resolved, rawPath);
+    } finally {
+        await fs.rm(rawPath, { recursive: true, force: true });
+    }
 });

@@ -15,6 +15,7 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 import {
     lstat,
     mkdtemp,
@@ -1340,15 +1341,47 @@ function validateTargetPathInput({
  * Resolve the file system path that should be formatted.
  *
  * @param {unknown} targetPathInput
+ * @param {string} [options.rawTargetPathInput]
  * @returns {string}
  */
-function resolveTargetPathFromInput(targetPathInput) {
-    const normalized =
-        typeof targetPathInput === "string" && targetPathInput.length > 0
-            ? targetPathInput
-            : ".";
+function resolveTargetPathFromInput(
+    targetPathInput,
+    { rawTargetPathInput } = {}
+) {
+    const hasExplicitTarget =
+        typeof targetPathInput === "string" && targetPathInput.length > 0;
+    const normalizedTarget = hasExplicitTarget ? targetPathInput : ".";
+    const resolvedNormalizedTarget = path.resolve(
+        process.cwd(),
+        normalizedTarget
+    );
 
-    return path.resolve(process.cwd(), normalized);
+    if (hasExplicitTarget && typeof rawTargetPathInput === "string") {
+        const resolvedRawTarget = path.resolve(
+            process.cwd(),
+            rawTargetPathInput
+        );
+
+        if (resolvedRawTarget !== resolvedNormalizedTarget) {
+            if (safeExistsSync(resolvedNormalizedTarget)) {
+                return resolvedNormalizedTarget;
+            }
+
+            if (safeExistsSync(resolvedRawTarget)) {
+                return resolvedRawTarget;
+            }
+        }
+    }
+
+    return resolvedNormalizedTarget;
+}
+
+function safeExistsSync(candidatePath) {
+    try {
+        return existsSync(candidatePath);
+    } catch {
+        return false;
+    }
 }
 
 /**
@@ -1517,6 +1550,7 @@ async function executeFormatCommand(command) {
         usage,
         targetPathInput,
         targetPathProvided,
+        rawTargetPathInput,
         skippedDirectorySampleLimit,
         ignoredFileSampleLimit,
         unsupportedExtensionSampleLimit
@@ -1524,7 +1558,9 @@ async function executeFormatCommand(command) {
 
     validateTargetPathInput(commandOptions);
 
-    const targetPath = resolveTargetPathFromInput(targetPathInput);
+    const targetPath = resolveTargetPathFromInput(targetPathInput, {
+        rawTargetPathInput
+    });
     await prepareFormattingRun({
         configuredExtensions: commandOptions.extensions,
         prettierLogLevel: commandOptions.prettierLogLevel,
