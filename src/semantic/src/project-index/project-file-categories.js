@@ -1,4 +1,4 @@
-import { assertArray, getNonEmptyTrimmedString } from "../dependencies.js";
+import { assertArray, normalizeExtensionSuffix } from "../dependencies.js";
 import {
     isProjectManifestPath,
     isProjectResourceMetadataPath
@@ -65,15 +65,14 @@ function normalizeProjectSourceExtensions(extensions) {
             );
         }
 
-        const trimmed = getNonEmptyTrimmedString(extension);
-        if (!trimmed) {
+        const normalizedExtension = normalizeExtensionSuffix(extension);
+        if (!normalizedExtension) {
             throw new TypeError(
                 "Project source extensions cannot be empty strings."
             );
         }
 
-        const candidate = trimmed.startsWith(".") ? trimmed : `.${trimmed}`;
-        normalized.add(candidate.toLowerCase());
+        normalized.add(normalizedExtension);
     }
 
     return Object.freeze([...normalized]);
