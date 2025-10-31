@@ -223,6 +223,7 @@ export default class GMLParser {
         getLocations: true,
         simplifyLocations: true,
         getIdentifierMetadata: false,
+        createScopeTracker: null,
         // Controls the structure of the returned AST. Use "estree" to receive
         // nodes that align with the ESTree specification used by JS tooling.
         astFormat: "gml",
@@ -238,7 +239,10 @@ export default class GMLParser {
             getComments: true,
             getLocations: true,
             simplifyLocations: true,
-            getIdentifierMetadata: false
+            getIdentifierMetadata: false,
+            createScopeTracker: null,
+            astFormat: "gml",
+            asJSON: false
         }
     ) {
         return new this(text, options).parse();
