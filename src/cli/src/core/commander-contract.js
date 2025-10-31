@@ -55,12 +55,13 @@ function describeProgramForError(program) {
 }
 
 export function createCommanderProgramContract(program) {
-    const normalizedProgram = assertFunctionProperties(program, [
-        "addCommand",
-        "hook"
-    ], {
-        name: "Commander program"
-    });
+    const normalizedProgram = assertFunctionProperties(
+        program,
+        ["addCommand", "hook"],
+        {
+            name: "Commander program"
+        }
+    );
 
     const parse = createProgramParseDelegate(normalizedProgram);
     if (!parse) {

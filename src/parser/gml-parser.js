@@ -5,6 +5,7 @@ export {
     applySanitizedIndexAdjustments
 } from "./src/conditional-assignment-sanitizer.js";
 export { isSyntaxErrorWithLocation } from "./src/utils/syntax-error-guards.js";
+export { convertToESTree } from "./src/utils/estree-converter.js";
 export {
     default as GameMakerLanguageParserVisitor,
     VISIT_METHOD_NAMES

@@ -226,7 +226,7 @@ export function parseJsonObjectWithContext(text, options = {}) {
 
     const mergedOptions =
         baseOptions || dynamicOptions
-            ? { ...(baseOptions ?? {}), ...(dynamicOptions ?? {}) }
+            ? { ...baseOptions, ...dynamicOptions }
             : undefined;
 
     return assertPlainObject(payload, mergedOptions);
