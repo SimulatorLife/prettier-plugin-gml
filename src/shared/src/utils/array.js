@@ -163,18 +163,12 @@ export function isArrayIndex(container, index) {
  * @returns {Array<T> | ReadonlyArray<T>}
  */
 export function uniqueArray(values, { freeze = false } = {}) {
-    const finalize = (array) => (freeze ? Object.freeze(array) : array);
+    const uniqueValues =
+        values != null && typeof values?.[Symbol.iterator] === "function"
+            ? Array.from(new Set(values))
+            : [];
 
-    if (values == null) {
-        return finalize([]);
-    }
-
-    const hasIterator = typeof values?.[Symbol.iterator] === "function";
-    if (!hasIterator) {
-        return finalize([]);
-    }
-
-    return finalize(Array.from(new Set(values)));
+    return freeze ? Object.freeze(uniqueValues) : uniqueValues;
 }
 
 /**
