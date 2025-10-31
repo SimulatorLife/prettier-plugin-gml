@@ -7,11 +7,15 @@ import GameMakerParseErrorListener, {
     GameMakerLexerErrorListener
 } from "./gml-syntax-error.js";
 import {
-    enqueueObjectChildValues,
     isObjectLike,
     isErrorLike,
     getLineBreakCount
 } from "./shared/index.js";
+import { walkObjectGraph } from "./ast/object-graph.js";
+import {
+    removeLocationMetadata,
+    simplifyLocationMetadata
+} from "./ast/location-manipulation.js";
 import { installRecognitionExceptionLikeGuard } from "./extensions/recognition-exception-patch.js";
 import convertToESTree from "./utils/estree-converter.js";
 
@@ -344,21 +348,31 @@ export default class GMLParser {
             return;
         }
 
-        const stack = [root];
+        walkObjectGraph(root, {
+            enterObject: (node) => {
+                const startIndex =
+                    typeof node.start === "number"
+                        ? node.start
+                        : node.start?.index;
+                const endIndex =
+                    typeof node.end === "number" ? node.end : node.end?.index;
 
-        while (stack.length > 0) {
-            const node = stack.pop();
-            if (!node || typeof node !== "object") {
-                continue;
-            }
+                if (node.type === "Literal" && isQuotedString(node.value)) {
+                    if (
+                        Number.isInteger(startIndex) &&
+                        Number.isInteger(endIndex) &&
+                        endIndex >= startIndex
+                    ) {
+                        node.value = this.originalText.slice(
+                            startIndex,
+                            endIndex + 1
+                        );
+                    }
+                    return;
+                }
 
-            const startIndex =
-                typeof node.start === "number" ? node.start : node.start?.index;
-            const endIndex =
-                typeof node.end === "number" ? node.end : node.end?.index;
-
-            if (node.type === "Literal" && isQuotedString(node.value)) {
                 if (
+                    node.type === "TemplateStringText" &&
                     Number.isInteger(startIndex) &&
                     Number.isInteger(endIndex) &&
                     endIndex >= startIndex
@@ -368,19 +382,8 @@ export default class GMLParser {
                         endIndex + 1
                     );
                 }
-            } else if (
-                node.type === "TemplateStringText" &&
-                Number.isInteger(startIndex) &&
-                Number.isInteger(endIndex) &&
-                endIndex >= startIndex
-            ) {
-                node.value = this.originalText.slice(startIndex, endIndex + 1);
             }
-
-            for (const value of Object.values(node)) {
-                enqueueObjectChildValues(stack, value);
-            }
-        }
+        });
     }
 
     // Populates the comments array and whitespaces array.
@@ -411,44 +414,11 @@ export default class GMLParser {
     }
 
     removeLocationInfo(obj) {
-        if (!isObjectLike(obj)) {
-            return;
-        }
-
-        for (const prop of Object.keys(obj)) {
-            if (prop === "start" || prop === "end") {
-                delete obj[prop];
-                continue;
-            }
-
-            const value = obj[prop];
-            if (isObjectLike(value)) {
-                this.removeLocationInfo(value);
-            }
-        }
+        removeLocationMetadata(obj);
     }
 
     simplifyLocationInfo(obj) {
-        if (!isObjectLike(obj)) {
-            return;
-        }
-
-        for (const prop of Object.keys(obj)) {
-            if (prop === "start") {
-                obj.start = obj.start.index;
-                continue;
-            }
-
-            if (prop === "end") {
-                obj.end = obj.end.index;
-                continue;
-            }
-
-            const value = obj[prop];
-            if (isObjectLike(value)) {
-                this.simplifyLocationInfo(value);
-            }
-        }
+        simplifyLocationMetadata(obj);
     }
 }
 
