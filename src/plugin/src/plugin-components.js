@@ -122,28 +122,21 @@ export function addGmlPluginComponentObserver(observer, options = {}) {
 
     componentObservers.add(normalizedObserver);
 
-    let abortHandler;
+    if (!signal) {
+        return () => {
+            componentObservers.delete(normalizedObserver);
+        };
+    }
 
     const unsubscribe = () => {
         if (!componentObservers.delete(normalizedObserver)) {
             return;
         }
 
-        if (abortHandler) {
-            signal.removeEventListener("abort", abortHandler);
-            abortHandler = null;
-        }
+        signal.removeEventListener("abort", unsubscribe);
     };
 
-    if (!signal) {
-        return unsubscribe;
-    }
-
-    abortHandler = () => {
-        unsubscribe();
-    };
-
-    signal.addEventListener("abort", abortHandler, { once: true });
+    signal.addEventListener("abort", unsubscribe, { once: true });
 
     if (signal.aborted) {
         // Ensure observers do not leak when the signal is aborted between
