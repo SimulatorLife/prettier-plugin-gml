@@ -41,9 +41,21 @@ describe("progress bar utilities", () => {
         assert.strictEqual(normalizedFromFloat, 16);
     });
 
-    it("rejects non-positive widths", () => {
-        assert.throws(() => resolveProgressBarWidth(0), /positive integer/i);
-        assert.throws(() => resolveProgressBarWidth(-5), /positive integer/i);
+    it("allows disabling the progress bar via a zero width", () => {
+        assert.strictEqual(resolveProgressBarWidth(0), 0);
+        assert.doesNotThrow(() =>
+            applyProgressBarWidthEnvOverride({
+                [PROGRESS_BAR_WIDTH_ENV_VAR]: "0"
+            })
+        );
+        assert.strictEqual(getDefaultProgressBarWidth(), 0);
+    });
+
+    it("rejects negative widths", () => {
+        assert.throws(
+            () => resolveProgressBarWidth(-5),
+            /non-negative integer/i
+        );
     });
 
     it("allows configuring the default width programmatically", () => {
