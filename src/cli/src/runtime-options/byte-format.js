@@ -1,7 +1,10 @@
 import { Buffer } from "node:buffer";
 import { isFiniteNumber } from "../dependencies.js";
 import { coercePositiveInteger } from "../shared/dependencies.js";
-import { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
+import {
+    createIntegerOptionToolkit,
+    applyIntegerOptionToolkitEnvOverride
+} from "../core/integer-option-toolkit.js";
 
 const BYTE_UNITS = Object.freeze(["B", "KB", "MB", "GB", "TB", "PB"]);
 const DEFAULT_BYTE_FORMAT_RADIX = 1024;
@@ -13,12 +16,7 @@ const createRadixErrorMessage = (received) =>
 const createRadixTypeErrorMessage = (type) =>
     `Byte format radix must be provided as a number (received type '${type}').`;
 
-const {
-    getDefault: getDefaultByteFormatRadix,
-    setDefault: setDefaultByteFormatRadix,
-    resolve: resolveByteFormatRadix,
-    applyEnvOverride: applyByteFormatRadixEnvOverride
-} = createIntegerOptionToolkit({
+const byteFormatToolkit = createIntegerOptionToolkit({
     defaultValue: DEFAULT_BYTE_FORMAT_RADIX,
     envVar: BYTE_FORMAT_RADIX_ENV_VAR,
     baseCoerce: coercePositiveInteger,
@@ -27,7 +25,14 @@ const {
     defaultValueOption: "defaultRadix"
 });
 
-applyByteFormatRadixEnvOverride();
+const {
+    getDefault: getDefaultByteFormatRadix,
+    setDefault: setDefaultByteFormatRadix,
+    resolve: resolveByteFormatRadix,
+    applyEnvOverride: applyByteFormatRadixEnvOverride
+} = byteFormatToolkit;
+
+applyIntegerOptionToolkitEnvOverride(byteFormatToolkit);
 
 function normalizeByteCount(value) {
     const numericValue = typeof value === "bigint" ? Number(value) : value;

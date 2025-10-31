@@ -92,3 +92,27 @@ test("retains existing parameter doc names when merging synthetic metadata", asy
         "Unexpected synthetic parameter doc overwriting existing metadata"
     );
 });
+
+test("converts legacy Returns description lines into returns metadata", async () => {
+    const source = [
+        "/// @function has_feature",
+        "///              Returns: Boolean, indicating whether conversion occurs",
+        "function has_feature() {",
+        "    return true;",
+        "}",
+        "",
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+
+    assert.ok(
+        formatted.includes(
+            "/// @returns {bool} Indicating whether conversion occurs"
+        ),
+        "Expected legacy Returns description lines to be converted into @returns metadata"
+    );
+    assert.ok(
+        !formatted.includes("Returns: Boolean"),
+        "Expected the legacy Returns description line to be removed after conversion"
+    );
+});

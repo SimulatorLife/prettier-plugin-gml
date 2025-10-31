@@ -159,7 +159,7 @@ for (var i = 0; i < queue_count; i += 1) {
   tricky identifier examples. Use it for historical context; the current roadmap
   now spans the [live reloading concept](docs/live-reloading-concept.md) and the
   [semantic scope plan](docs/semantic-scope-plan.md).
-- [Operational runbooks](docs/project-index-cache-design.md) &mdash; Design notes,
+- [Operational runbooks](docs/legacy-identifier-case-plan.md#project-index-cache-design) &mdash; Design notes,
   cache architecture, and the archived [project index roadmap](docs/legacy-identifier-case-plan.md#archived-project-index-roadmap)
   alongside the [Feather data plan](docs/feather-data-plan.md). Pair them with
   the [reserved identifier metadata hook overview](docs/reserved-identifier-metadata-hook.md)
@@ -325,7 +325,19 @@ nvm alias default node
    npm ci
    ```
 
-2. Format any GameMaker project without adding dependencies to that project. The
+2. Run the aggregated validation once to confirm your local install matches CI
+   before pointing the formatter at a project:
+
+   ```bash
+   npm run check
+   ```
+
+   The command runs the formatter smoke test, CI-mode lint, and the full Node.js
+   test suite so new workstations start from a known-good baseline. Consult the
+   [contributor onboarding checklist](docs/contributor-onboarding.md) for the
+   individual suite commands when you need targeted reruns.
+
+3. Format any GameMaker project without adding dependencies to that project. The
    repository exposes a dedicated `format:gml` script that targets the CLI's
    `format` command and defaults to the current working directory when no
    arguments are provided. Pass the project path explicitly when formatting

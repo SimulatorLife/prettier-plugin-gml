@@ -80,7 +80,17 @@ function shouldForceBlankLineBetweenReturnPaths(currentNode, nextNode) {
         return false;
     }
 
-    const lastStatement = blockBody.findLast(Boolean);
+    // Iterate manually instead of using `Array#findLast` so the printer avoids
+    // invoking a callback for every statement while scanning hot blocks.
+    let lastStatement = null;
+    for (let index = blockBody.length - 1; index >= 0; index -= 1) {
+        const candidate = blockBody[index];
+        if (candidate) {
+            lastStatement = candidate;
+            break;
+        }
+    }
+
     if (!lastStatement || lastStatement.type !== "ReturnStatement") {
         return false;
     }

@@ -182,6 +182,13 @@ function traverse(node, helpers, seen, context) {
                 continue;
             }
 
+            if (
+                attemptSimplifyLengthdirHalfDifference(node, helpers, context)
+            ) {
+                changed = true;
+                continue;
+            }
+
             if (attemptConvertRepeatedPower(node, helpers)) {
                 changed = true;
                 continue;
@@ -2855,6 +2862,153 @@ function collectAdditionTerms(node, output) {
     output.push(expression);
 }
 
+function matchScaledOperand(node, helpers, context) {
+    const expression = unwrapExpression(node);
+    if (!expression) {
+        return null;
+    }
+
+    if (helpers.hasComment(expression)) {
+        return null;
+    }
+
+    if (expression.type === UNARY_EXPRESSION) {
+        if (expression.operator === "-" || expression.operator === "+") {
+            const inner = matchScaledOperand(
+                expression.argument,
+                helpers,
+                context
+            );
+
+            if (!inner) {
+                return null;
+            }
+
+            const coefficient =
+                expression.operator === "-"
+                    ? -inner.coefficient
+                    : inner.coefficient;
+
+            return {
+                coefficient,
+                base: inner.base,
+                rawBase: inner.rawBase
+            };
+        }
+
+        return null;
+    }
+
+    if (expression.type === BINARY_EXPRESSION) {
+        const rawLeft = expression.left;
+        const rawRight = expression.right;
+
+        if (!rawLeft || !rawRight) {
+            return null;
+        }
+
+        if (
+            helpers.hasComment(rawLeft) ||
+            helpers.hasComment(rawRight) ||
+            (context && hasInlineCommentBetween(rawLeft, rawRight, context))
+        ) {
+            return null;
+        }
+
+        const leftValue = parseNumericFactor(rawLeft);
+        const rightValue = parseNumericFactor(rawRight);
+
+        if (expression.operator === "*") {
+            const rightBase = unwrapExpression(rawRight);
+            if (leftValue !== null && rightValue === null && rightBase) {
+                return {
+                    coefficient: leftValue,
+                    base: rightBase,
+                    rawBase: rawRight
+                };
+            }
+
+            const leftBase = unwrapExpression(rawLeft);
+            if (rightValue !== null && leftValue === null && leftBase) {
+                return {
+                    coefficient: rightValue,
+                    base: leftBase,
+                    rawBase: rawLeft
+                };
+            }
+
+            return null;
+        }
+
+        if (expression.operator === "/") {
+            if (rightValue === null) {
+                return null;
+            }
+
+            if (Math.abs(rightValue) <= computeNumericTolerance(0)) {
+                return null;
+            }
+
+            const numerator = unwrapExpression(rawLeft);
+            if (!numerator) {
+                return null;
+            }
+
+            return {
+                coefficient: 1 / rightValue,
+                base: numerator,
+                rawBase: rawLeft
+            };
+        }
+    }
+
+    return null;
+}
+
+function matchLengthdirScaledOperand(node, helpers, context) {
+    const expression = unwrapExpression(node);
+    if (!expression || expression.type !== CALL_EXPRESSION) {
+        return null;
+    }
+
+    const calleeName = getIdentifierName(expression.object);
+    if (calleeName !== "lengthdir_x" && calleeName !== "lengthdir_y") {
+        return null;
+    }
+
+    const args = getCallExpressionArguments(expression);
+    if (args.length !== 2) {
+        return null;
+    }
+
+    const [rawLength, rawAngle] = args;
+
+    if (!rawLength || !rawAngle) {
+        return null;
+    }
+
+    if (
+        helpers.hasComment(rawLength) ||
+        helpers.hasComment(rawAngle) ||
+        (context && hasInlineCommentBetween(rawLength, rawAngle, context))
+    ) {
+        return null;
+    }
+
+    const scaledInfo = matchScaledOperand(rawLength, helpers, context);
+    if (!scaledInfo || !scaledInfo.base) {
+        return null;
+    }
+
+    return {
+        calleeName,
+        coefficient: scaledInfo.coefficient,
+        base: scaledInfo.base,
+        rawLength,
+        angle: rawAngle
+    };
+}
+
 function extractScalarAdditionTerm(expression, helpers, context) {
     if (!expression || helpers.hasComment(expression)) {
         return null;
@@ -2931,6 +3085,328 @@ function extractScalarAdditionTerm(expression, helpers, context) {
         rawBase: expression,
         hasExplicitCoefficient: false
     };
+}
+
+function attemptSimplifyLengthdirHalfDifference(node, helpers, context) {
+    if (!isBinaryOperator(node, "-") || helpers.hasComment(node)) {
+        return false;
+    }
+
+    const rawLeft = node.left;
+    const rawRight = node.right;
+
+    if (!rawLeft || !rawRight) {
+        return false;
+    }
+
+    if (
+        helpers.hasComment(rawLeft) ||
+        helpers.hasComment(rawRight) ||
+        (context && hasInlineCommentBetween(rawLeft, rawRight, context))
+    ) {
+        return false;
+    }
+
+    const leftExpression = unwrapExpression(rawLeft);
+    const rightExpression = unwrapExpression(rawRight);
+
+    if (!leftExpression || !rightExpression) {
+        return false;
+    }
+
+    if (
+        helpers.hasComment(leftExpression) ||
+        helpers.hasComment(rightExpression)
+    ) {
+        return false;
+    }
+
+    if (
+        !isBinaryOperator(leftExpression, "-") ||
+        helpers.hasComment(leftExpression) ||
+        (context &&
+            hasInlineCommentBetween(
+                leftExpression.left,
+                leftExpression.right,
+                context
+            ))
+    ) {
+        return false;
+    }
+
+    const minuend = unwrapExpression(leftExpression.left);
+    const identifierName = getIdentifierName(minuend);
+    const scaledOperandInfo = matchScaledOperand(
+        leftExpression.right,
+        helpers,
+        context
+    );
+
+    if (!minuend || !scaledOperandInfo || !scaledOperandInfo.base) {
+        return false;
+    }
+
+    if (!isSafeOperand(minuend)) {
+        return false;
+    }
+
+    const lengthDirInfo = matchLengthdirScaledOperand(
+        rightExpression,
+        helpers,
+        context
+    );
+
+    if (!lengthDirInfo || !lengthDirInfo.base) {
+        return false;
+    }
+
+    if (
+        !areNodesEquivalent(minuend, scaledOperandInfo.base) ||
+        !areNodesEquivalent(minuend, lengthDirInfo.base)
+    ) {
+        return false;
+    }
+
+    const scaledCoefficient = scaledOperandInfo.coefficient;
+    const lengthCoefficient = lengthDirInfo.coefficient;
+
+    if (
+        scaledCoefficient === null ||
+        lengthCoefficient === null ||
+        !Number.isFinite(scaledCoefficient) ||
+        !Number.isFinite(lengthCoefficient)
+    ) {
+        return false;
+    }
+
+    const halfTolerance = computeNumericTolerance(0.5);
+
+    if (
+        Math.abs(scaledCoefficient - 0.5) > halfTolerance ||
+        Math.abs(lengthCoefficient - 0.5) > halfTolerance
+    ) {
+        return false;
+    }
+
+    const baseClone = cloneAstNode(leftExpression.left);
+    if (!baseClone) {
+        return false;
+    }
+
+    const normalizedCoefficient =
+        normalizeNumericCoefficient(scaledCoefficient);
+    if (normalizedCoefficient === null) {
+        return false;
+    }
+
+    const coefficientLiteral = createNumericLiteral(
+        normalizedCoefficient,
+        leftExpression.right
+    );
+
+    if (!coefficientLiteral) {
+        return false;
+    }
+
+    const oneLiteral = createNumericLiteral(1, node);
+    if (!oneLiteral) {
+        return false;
+    }
+
+    const angleClone = cloneAstNode(lengthDirInfo.angle);
+    if (!angleClone) {
+        return false;
+    }
+
+    const normalizedLengthArg = createNumericLiteral(
+        1,
+        lengthDirInfo.rawLength
+    );
+    if (!normalizedLengthArg) {
+        return false;
+    }
+
+    const normalizedLengthCall = createCallExpressionNode(
+        lengthDirInfo.calleeName,
+        [normalizedLengthArg, angleClone],
+        rightExpression
+    );
+
+    if (!normalizedLengthCall) {
+        return false;
+    }
+
+    const difference = {
+        type: BINARY_EXPRESSION,
+        operator: "-",
+        left: oneLiteral,
+        right: normalizedLengthCall
+    };
+
+    assignClonedLocation(difference, node);
+
+    const groupedDifference = {
+        type: PARENTHESIZED_EXPRESSION,
+        expression: difference
+    };
+
+    assignClonedLocation(groupedDifference, node);
+
+    const baseTimesCoefficient = createMultiplicationNode(
+        baseClone,
+        coefficientLiteral,
+        node
+    );
+
+    if (!baseTimesCoefficient) {
+        return false;
+    }
+
+    const finalProduct = createMultiplicationNode(
+        baseTimesCoefficient,
+        groupedDifference,
+        node
+    );
+
+    if (!finalProduct) {
+        return false;
+    }
+
+    replaceNode(node, finalProduct);
+
+    promoteLengthdirHalfDifference(
+        context,
+        helpers,
+        node,
+        identifierName,
+        normalizedCoefficient,
+        groupedDifference
+    );
+    return true;
+}
+
+function promoteLengthdirHalfDifference(
+    context,
+    helpers,
+    expressionNode,
+    identifierName,
+    normalizedCoefficient,
+    groupedDifference
+) {
+    if (
+        !context ||
+        typeof context !== "object" ||
+        !expressionNode ||
+        typeof normalizedCoefficient !== "string"
+    ) {
+        return;
+    }
+
+    if (typeof identifierName !== "string" || identifierName.length === 0) {
+        return;
+    }
+
+    const root = context.astRoot;
+    if (!root || typeof root !== "object") {
+        return;
+    }
+
+    const assignment = findAssignmentExpressionForRight(root, expressionNode);
+    if (!assignment) {
+        return;
+    }
+
+    if (getIdentifierName(assignment.left) !== identifierName) {
+        return;
+    }
+
+    const declaration = findVariableDeclarationByName(root, identifierName);
+    const declarator = Array.isArray(declaration?.declarations)
+        ? declaration.declarations[0]
+        : null;
+
+    if (!declarator || !declarator.init) {
+        return;
+    }
+
+    const baseClone = cloneAstNode(declarator.init);
+    if (!baseClone) {
+        return;
+    }
+
+    const differenceClone = cloneAstNode(groupedDifference);
+    if (!differenceClone) {
+        return;
+    }
+
+    let leftProduct = null;
+    const baseInfo = matchScaledOperand(declarator.init, helpers, context);
+
+    if (baseInfo && baseInfo.coefficient !== null && baseInfo.rawBase) {
+        const combinedValue =
+            baseInfo.coefficient * Number(normalizedCoefficient);
+
+        if (Number.isFinite(combinedValue)) {
+            const combinedLiteralText =
+                normalizeNumericCoefficient(combinedValue);
+
+            if (combinedLiteralText !== null) {
+                const baseNodeClone = cloneAstNode(baseInfo.rawBase);
+                const literalClone = createNumericLiteral(
+                    combinedLiteralText,
+                    baseInfo.rawBase
+                );
+
+                if (baseNodeClone && literalClone) {
+                    leftProduct = createMultiplicationNode(
+                        baseNodeClone,
+                        literalClone,
+                        declarator.init
+                    );
+                }
+            }
+        }
+    }
+
+    if (!leftProduct) {
+        const coefficientLiteral = createNumericLiteral(
+            normalizedCoefficient,
+            declarator.init
+        );
+
+        if (!coefficientLiteral) {
+            return;
+        }
+
+        leftProduct = createMultiplicationNode(
+            baseClone,
+            coefficientLiteral,
+            declarator.init
+        );
+
+        if (!leftProduct) {
+            return;
+        }
+    }
+
+    const newInit = createMultiplicationNode(
+        leftProduct,
+        differenceClone,
+        declarator.init
+    );
+
+    if (!newInit) {
+        return;
+    }
+
+    replaceNode(declarator.init, newInit);
+
+    attemptCondenseScalarProduct(newInit, helpers, context);
+    attemptCondenseNumericChainWithMultipleBases(newInit, helpers, context);
+    attemptCollectDistributedScalars(newInit, helpers, context);
+
+    markPreviousSiblingForBlankLine(root, assignment, context);
+    removeNodeFromAst(root, assignment);
 }
 
 function collectMultiplicativeChain(
@@ -4089,7 +4565,11 @@ function removeSimplifiedAliasDeclaration(context, simplifiedNode) {
         return;
     }
 
-    const paddedNode = markPreviousSiblingForBlankLine(root, aliasDeclaration);
+    const paddedNode = markPreviousSiblingForBlankLine(
+        root,
+        aliasDeclaration,
+        context
+    );
 
     if (!removeNodeFromAst(root, aliasDeclaration)) {
         if (paddedNode && typeof paddedNode === "object") {
@@ -4145,7 +4625,111 @@ function insertNodeBefore(root, target, statement) {
     return false;
 }
 
-function markPreviousSiblingForBlankLine(root, target) {
+function markPreviousSiblingForBlankLine(root, target, context) {
+    if (!root || typeof root !== "object" || !target) {
+        return null;
+    }
+
+    const stack = [root];
+    const visited = new Set();
+    const sourceText = getSourceTextFromContext(context);
+
+    while (stack.length > 0) {
+        const node = stack.pop();
+        if (!node || typeof node !== "object" || visited.has(node)) {
+            continue;
+        }
+
+        visited.add(node);
+
+        if (Array.isArray(node)) {
+            for (let index = 0; index < node.length; index += 1) {
+                const element = node[index];
+
+                if (element === target) {
+                    const previous = node[index - 1];
+                    const next = node[index + 1];
+
+                    if (
+                        previous &&
+                        typeof previous === "object" &&
+                        shouldPreserveRemovedBlankLine(target, next, sourceText)
+                    ) {
+                        previous._gmlForceFollowingEmptyLine = true;
+                        return previous;
+                    }
+
+                    return null;
+                }
+
+                stack.push(element);
+            }
+            continue;
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                stack.push(value);
+            }
+        }
+    }
+
+    return null;
+}
+
+function shouldPreserveRemovedBlankLine(removedNode, nextNode, sourceText) {
+    if (!nextNode || typeof nextNode !== "object") {
+        return false;
+    }
+
+    if (typeof sourceText !== "string" || sourceText.length === 0) {
+        return false;
+    }
+
+    const removedEnd = getNodeEndIndex(removedNode);
+    const nextStart = getNodeStartIndex(nextNode);
+
+    if (
+        removedEnd == undefined ||
+        nextStart == undefined ||
+        nextStart <= removedEnd ||
+        nextStart > sourceText.length
+    ) {
+        return false;
+    }
+
+    const between = sourceText.slice(removedEnd, nextStart);
+
+    if (between.length === 0) {
+        return false;
+    }
+
+    const normalizedBetween = between
+        .replaceAll("\r", "")
+        .replaceAll(/[ \t\f\v]/g, "");
+
+    return normalizedBetween.includes("\n\n");
+}
+
+function getSourceTextFromContext(context) {
+    if (!context || typeof context !== "object") {
+        return null;
+    }
+
+    const { originalText, sourceText } = context;
+
+    if (typeof originalText === "string" && originalText.length > 0) {
+        return originalText;
+    }
+
+    if (typeof sourceText === "string" && sourceText.length > 0) {
+        return sourceText;
+    }
+
+    return null;
+}
+
+function findAssignmentExpressionForRight(root, target) {
     if (!root || typeof root !== "object" || !target) {
         return null;
     }
@@ -4162,21 +4746,14 @@ function markPreviousSiblingForBlankLine(root, target) {
         visited.add(node);
 
         if (Array.isArray(node)) {
-            for (let index = 0; index < node.length; index += 1) {
-                const element = node[index];
-
-                if (element === target) {
-                    const previous = node[index - 1];
-                    if (previous && typeof previous === "object") {
-                        previous._gmlForceFollowingEmptyLine = true;
-                        return previous;
-                    }
-                    return null;
-                }
-
+            for (const element of node) {
                 stack.push(element);
             }
             continue;
+        }
+
+        if (node.type === "AssignmentExpression" && node.right === target) {
+            return node;
         }
 
         for (const value of Object.values(node)) {

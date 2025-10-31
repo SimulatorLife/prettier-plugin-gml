@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import GameMakerLanguageParserVisitor, {
     VISIT_METHOD_NAMES
-} from "../src/extensions/game-maker-language-parser-visitor.js";
+} from "../src/runtime/game-maker-language-parser-visitor.js";
 import { GameMakerLanguageParserVisitorBase } from "../src/generated-bindings.js";
 
 test("default visitor delegates to visitChildren", () => {

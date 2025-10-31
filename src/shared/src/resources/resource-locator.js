@@ -5,7 +5,7 @@ const RESOURCES_BASE_URL = new URL("../../../../resources/", import.meta.url);
 /**
  * Resolve a URL pointing at a bundled resource artefact.
  *
- * Centralising the resolution protects call sites from relying on directory
+ * Centralizing the resolution protects call sites from relying on directory
  * depth or package layout, making it easier to relocate resource assets.
  *
  * @param {string} resourceName Name of the resource file to resolve.

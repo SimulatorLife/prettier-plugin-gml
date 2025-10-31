@@ -6,7 +6,7 @@ import {
     isPathInside,
     toArray,
     uniqueArray
-} from "../../shared/dependencies.js";
+} from "../shared/dependencies.js";
 
 /**
  * Normalize workflow path lists into absolute, deduplicated entries.

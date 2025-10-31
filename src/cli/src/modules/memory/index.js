@@ -13,6 +13,7 @@ import {
     getNonEmptyTrimmedString,
     incrementMapValue,
     InvalidArgumentError,
+    isFsErrorCode,
     isNonEmptyString,
     normalizeStringList,
     Option,
@@ -24,6 +25,7 @@ import {
     SuiteOutputFormat,
     applyEnvOptionOverrides,
     applyStandardCommandOptions,
+    applyIntegerOptionToolkitEnvOverride,
     coercePositiveInteger,
     collectSuiteResults,
     createIntegerOptionToolkit,
@@ -36,11 +38,11 @@ import {
 } from "../dependencies.js";
 import { loadGmlParser } from "./gml-parser.js";
 import { importPluginModule } from "../plugin-runtime-dependencies.js";
-import { writeJsonArtifact } from "../../shared/fs-artifacts.js";
 import {
     REPO_ROOT,
-    resolveFromRepoRoot
-} from "../../shared/workspace-paths.js";
+    resolveFromRepoRoot,
+    writeJsonArtifact
+} from "../dependencies.js";
 
 export const DEFAULT_ITERATIONS = 500_000;
 export const MEMORY_ITERATIONS_ENV_VAR = "GML_MEMORY_ITERATIONS";
@@ -205,7 +207,7 @@ function logInvalidIterationEnvOverride({ envVar, error, fallback }) {
  * failures.
  *
  * Both parser and format iteration limits follow the same "try the override,
- * fall back to the previous default, and emit a warning" flow. Centralising
+ * fall back to the previous default, and emit a warning" flow. Centralizing
  * the guard keeps the logging consistent and avoids subtle divergences if the
  * override plumbing changes again.
  *
@@ -219,18 +221,17 @@ function logInvalidIterationEnvOverride({ envVar, error, fallback }) {
  * @returns {number | undefined}
  */
 function applyIterationToolkitEnvOverride(toolkit, envVar, env) {
-    const fallback = toolkit.getDefault();
-
-    try {
-        return toolkit.applyEnvOverride(env);
-    } catch (error) {
-        logInvalidIterationEnvOverride({
-            envVar,
-            error,
-            fallback
-        });
-        return fallback;
-    }
+    return applyIntegerOptionToolkitEnvOverride(toolkit, {
+        env,
+        onError: (error, { fallback }) => {
+            logInvalidIterationEnvOverride({
+                envVar,
+                error,
+                fallback
+            });
+            return fallback;
+        }
+    });
 }
 
 function applyParserMaxIterationsEnvOverride(env) {
@@ -614,16 +615,18 @@ function summarizeAst(root) {
     };
 }
 
+const memoryIterationsToolkit = createMemoryIterationToolkit({
+    defaultValue: DEFAULT_ITERATIONS,
+    envVar: MEMORY_ITERATIONS_ENV_VAR,
+    defaultValueOption: "defaultIterations"
+});
+
 const {
     getDefault: getDefaultMemoryIterations,
     setDefault: setDefaultMemoryIterations,
     resolve: resolveMemoryIterations,
     applyEnvOverride: applyMemoryIterationsEnvOverride
-} = createMemoryIterationToolkit({
-    defaultValue: DEFAULT_ITERATIONS,
-    envVar: MEMORY_ITERATIONS_ENV_VAR,
-    defaultValueOption: "defaultIterations"
-});
+} = memoryIterationsToolkit;
 
 export {
     getDefaultMemoryIterations,
@@ -888,7 +891,7 @@ async function runPluginFormatSuite({ iterations }) {
             source: optionsAbsolutePath
         });
     } catch (error) {
-        if (error && error.code === "ENOENT") {
+        if (isFsErrorCode(error, "ENOENT")) {
             notes.push(
                 "Formatter options fixture not found; using plugin defaults."
             );
