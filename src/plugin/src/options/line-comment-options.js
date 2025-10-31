@@ -1,4 +1,5 @@
 import {
+    coalesceOption,
     coercePositiveIntegerOption,
     isNonEmptyString,
     isObjectLike,
@@ -126,12 +127,10 @@ function resolveLineCommentOptions(options = {}) {
 }
 
 function resolveLineCommentBannerLength(options) {
-    if (!isObjectLike(options)) {
-        return DEFAULT_LINE_COMMENT_BANNER_LENGTH;
-    }
+    const override = coalesceOption(options, LINE_COMMENT_BANNER_LENGTH_OPTION);
 
     return coercePositiveIntegerOption(
-        options[LINE_COMMENT_BANNER_LENGTH_OPTION],
+        override,
         DEFAULT_LINE_COMMENT_BANNER_LENGTH,
         { zeroReplacement: 0 }
     );
