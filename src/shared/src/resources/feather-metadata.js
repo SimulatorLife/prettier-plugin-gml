@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 
-import { asArray } from "../utils/array.js";
+import { asArray, assertArray } from "../utils/array.js";
 import { assertPlainObject } from "../utils/object.js";
 import { toTrimmedString } from "../utils/string.js";
 import {
@@ -42,17 +42,13 @@ function normalizeFeatherDiagnostic(diagnostic, index) {
 }
 
 function normalizeFeatherDiagnostics(diagnostics) {
-    if (diagnostics == null) {
-        return [];
-    }
-
-    if (!Array.isArray(diagnostics)) {
-        throw new TypeError(
+    const normalizedDiagnostics = assertArray(diagnostics, {
+        allowNull: true,
+        errorMessage:
             "Feather metadata diagnostics must be provided as an array."
-        );
-    }
+    });
 
-    return diagnostics.map((diagnostic, index) =>
+    return normalizedDiagnostics.map((diagnostic, index) =>
         normalizeFeatherDiagnostic(diagnostic, index)
     );
 }
