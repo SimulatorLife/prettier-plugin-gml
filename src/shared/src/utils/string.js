@@ -54,6 +54,30 @@ export function getNonEmptyTrimmedString(value) {
 }
 
 /**
+ * Normalize a file extension by trimming whitespace, ensuring a leading dot,
+ * and lowercasing the result. Invalid inputs (including bare dots or
+ * non-string values) are collapsed to `null` so callers can surface consistent
+ * error messages without repeating guard logic.
+ *
+ * @param {unknown} value Candidate extension string.
+ * @returns {string | null} Lower-cased extension beginning with a dot when
+ *          valid; otherwise `null`.
+ */
+export function normalizeExtensionSuffix(value) {
+    const trimmed = getNonEmptyTrimmedString(value);
+    if (!trimmed) {
+        return null;
+    }
+
+    const prefixed = trimmed.startsWith(".") ? trimmed : `.${trimmed}`;
+    if (prefixed === ".") {
+        return null;
+    }
+
+    return prefixed.toLowerCase();
+}
+
+/**
  * Return {@link value} when it is a populated string, otherwise yield `null`.
  *
  * This mirrors the trimmed variant above without altering surrounding

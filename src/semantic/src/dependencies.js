@@ -52,6 +52,7 @@ export {
     getNonEmptyTrimmedString,
     isNonEmptyString,
     isNonEmptyTrimmedString,
+    normalizeExtensionSuffix,
     isWordChar,
     toNormalizedLowerCaseSet,
     toTrimmedString
