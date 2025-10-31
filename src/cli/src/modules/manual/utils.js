@@ -10,7 +10,6 @@ import {
     isNonEmptyArray,
     isNonEmptyTrimmedString,
     parseJsonWithContext,
-    toFiniteNumber,
     toTrimmedString,
     getErrorMessageOrFallback,
     isErrorLike
@@ -23,8 +22,8 @@ import {
     renderProgressBar,
     withProgressBarCleanup
 } from "../dependencies.js";
-import { ensureWorkflowPathsAllowed } from "../dependencies.js";
 import { writeManualFile } from "./file-helpers.js";
+import { ensureWorkflowPathsAllowed } from "../../shared/workflow/path-filter.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
@@ -75,8 +74,8 @@ function readOptionalFiniteNumber(value) {
         return { value: undefined };
     }
 
-    const numeric = toFiniteNumber(value);
-    return numeric === null ? null : { value: numeric };
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? { value: numeric } : null;
 }
 
 function readOptionalString(value) {

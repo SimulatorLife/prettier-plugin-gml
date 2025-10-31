@@ -43,7 +43,7 @@ export {
     resetProgressBarRegistryForTesting
 } from "../runtime-options/progress-bar.js";
 
-export { ensureWorkflowPathsAllowed } from "../shared/fs/path-filter.js";
+export { ensureWorkflowPathsAllowed } from "../shared/workflow/path-filter.js";
 
 export { REPO_ROOT, resolveFromRepoRoot } from "../shared/workspace-paths.js";
 
