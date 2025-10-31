@@ -1,4 +1,4 @@
 export {
     isRecognitionExceptionLike,
     installRecognitionExceptionLikeGuard
-} from "../extensions/recognition-exception-patch.js";
+} from "../runtime/recognition-exception-patch.js";
