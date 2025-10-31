@@ -1,12 +1,10 @@
 import { selectPluginComponentContractEntries } from "./plugin-component-contract.js";
-import { resolveGmlPluginComponentImplementations } from "./gml-plugin-component-implementation-registry.js";
-
-function selectDefaultImplementations() {
-    return resolveGmlPluginComponentImplementations();
-}
+import { defaultGmlPluginComponentImplementations } from "./default-plugin-component-implementations.js";
 
 export function createDefaultGmlPluginComponentDependencies() {
-    return selectPluginComponentContractEntries(selectDefaultImplementations());
+    return selectPluginComponentContractEntries(
+        defaultGmlPluginComponentImplementations
+    );
 }
 
 export const defaultGmlPluginComponentDependencies =
