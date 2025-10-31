@@ -367,7 +367,7 @@ export function createListSplitPattern(
     const entries = [];
     const seenPatterns = new Set();
 
-    const register = (pattern, length) => {
+    const addEntry = (pattern, length) => {
         if (seenPatterns.has(pattern)) {
             return;
         }
@@ -376,29 +376,27 @@ export function createListSplitPattern(
         entries.push({ pattern, length, order: entries.length });
     };
 
-    const registerSeparator = (value) => {
+    const addSeparator = (value) => {
         if (typeof value !== "string" || value.length === 0) {
             return;
         }
 
-        register(escapeRegExp(value), value.length);
+        addEntry(escapeRegExp(value), value.length);
     };
 
-    // Iterate the provided iterable directly so callers that pass arrays or
-    // Sets avoid unnecessary cloning on this hot path.
     if (typeof separators === "string") {
-        registerSeparator(separators);
-    } else if (separators != null) {
-        const iterator = separators[Symbol.iterator];
-        if (typeof iterator === "function") {
-            for (const candidate of separators) {
-                registerSeparator(candidate);
-            }
+        addSeparator(separators);
+    } else if (
+        separators != null &&
+        typeof separators[Symbol.iterator] === "function"
+    ) {
+        for (const candidate of separators) {
+            addSeparator(candidate);
         }
     }
 
     if (includeWhitespace) {
-        register(String.raw`\s`, 1);
+        addEntry(String.raw`\s`, 1);
     }
 
     if (entries.length === 0) {
