@@ -12,8 +12,7 @@
   },
   "dependencies": {
     "antlr4": "^4.13.2",
-    "@prettier-plugin-gml/shared": "file:../shared",
-    "gamemaker-language-semantic": "file:../semantic"
+    "@prettier-plugin-gml/shared": "file:../shared"
   },
   "engines": {
     "node": ">=25.0.0"

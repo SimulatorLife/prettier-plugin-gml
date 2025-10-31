@@ -8,6 +8,7 @@ export {
     assertArray,
     asArray,
     isNonEmptyArray,
+    mergeUniqueValues,
     pushUnique,
     toArray,
     toArrayFromIterable
@@ -52,6 +53,7 @@ export {
     isNonEmptyString,
     isNonEmptyTrimmedString,
     isWordChar,
+    toNormalizedLowerCaseSet,
     toTrimmedString
 } from "@prettier-plugin-gml/shared/utils/string.js";
 export {

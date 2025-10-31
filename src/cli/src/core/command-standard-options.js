@@ -30,6 +30,17 @@ export function applyStandardCommandOptions(command) {
     command.helpOption(DEFAULT_HELP_FLAG, DEFAULT_HELP_DESCRIPTION);
     command.showHelpAfterError(DEFAULT_HELP_AFTER_ERROR);
     if (typeof command.configureOutput === "function") {
+        // The CLI funnels usage and execution failures through
+        // `CliCommandManager`'s `handleCliError` integration so diagnostics are
+        // formatted exactly once with the formatter's structured renderer (see
+        // `src/cli/src/core/errors.js`). Commander would otherwise emit its own
+        // error preface before our handler runs, leading to duplicated stderr
+        // output and mismatched help text whenever `exitOverride()` surfaces a
+        // usage problem. Returning shared noop callbacks keeps Commander quiet
+        // while preserving the "always call the provided writers" contract its
+        // internals expect; swapping these for conditionals or letting the
+        // defaults leak would regress the single-source-of-truth messaging the
+        // CLI design calls out in README.md#cli-wrapper-environment-knobs.
         command.configureOutput({
             writeErr: noop,
             outputError: noop

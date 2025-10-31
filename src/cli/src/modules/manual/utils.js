@@ -23,7 +23,7 @@ import {
     withProgressBarCleanup
 } from "../dependencies.js";
 import { writeManualFile } from "./file-helpers.js";
-import { ensureWorkflowPathsAllowed } from "../../shared/fs/path-filter.js";
+import { ensureManualWorkflowPathsAllowed } from "./workflow-access.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
@@ -56,34 +56,38 @@ const MANUAL_GITHUB_REQUEST_ERROR_CAPABILITY = Symbol.for(
     "prettier-plugin-gml.manual-github-request-error"
 );
 
+const OPTIONAL_INVALID_RESULT = Symbol(
+    "prettier-plugin-gml.manual.optional-invalid"
+);
+
 function readOptionalTrimmedString(value) {
     if (value == null) {
-        return { value: undefined };
+        return undefined;
     }
 
     if (typeof value !== "string") {
-        return null;
+        return OPTIONAL_INVALID_RESULT;
     }
 
     const trimmed = value.trim();
-    return { value: trimmed === "" ? undefined : trimmed };
+    return trimmed === "" ? undefined : trimmed;
 }
 
 function readOptionalFiniteNumber(value) {
     if (value == null) {
-        return { value: undefined };
+        return undefined;
     }
 
     const numeric = Number(value);
-    return Number.isFinite(numeric) ? { value: numeric } : null;
+    return Number.isFinite(numeric) ? numeric : OPTIONAL_INVALID_RESULT;
 }
 
 function readOptionalString(value) {
     if (value == null) {
-        return { value: undefined };
+        return undefined;
     }
 
-    return typeof value === "string" ? { value } : null;
+    return typeof value === "string" ? value : OPTIONAL_INVALID_RESULT;
 }
 
 function getManualGitHubRequestErrorContract(value) {
@@ -91,34 +95,29 @@ function getManualGitHubRequestErrorContract(value) {
         return null;
     }
 
-    const urlResult = readOptionalTrimmedString(value.url);
-    if (!urlResult) {
+    const url = readOptionalTrimmedString(value.url);
+    if (url === OPTIONAL_INVALID_RESULT) {
         return null;
     }
 
-    const statusResult = readOptionalFiniteNumber(value.status);
-    if (!statusResult) {
+    const status = readOptionalFiniteNumber(value.status);
+    if (status === OPTIONAL_INVALID_RESULT) {
         return null;
     }
 
-    const statusTextResult = readOptionalTrimmedString(value.statusText);
-    if (!statusTextResult) {
+    const statusText = readOptionalTrimmedString(value.statusText);
+    if (statusText === OPTIONAL_INVALID_RESULT) {
         return null;
     }
 
-    const responseBodyResult = readOptionalString(value.responseBody);
-    if (!responseBodyResult) {
+    const responseBody = readOptionalString(value.responseBody);
+    if (responseBody === OPTIONAL_INVALID_RESULT) {
         return null;
     }
-
-    const { value: url } = urlResult;
-    const { value: status } = statusResult;
-    const { value: statusText } = statusTextResult;
-    const { value: responseBody } = responseBodyResult;
 
     if (
-        ![url, status, statusText, responseBody].some(
-            (entry) => entry !== undefined
+        [url, status, statusText, responseBody].every(
+            (entry) => entry === undefined
         )
     ) {
         return null;
@@ -404,6 +403,15 @@ function createConsoleReporter({ formatPath, logger }) {
             const displayPath = normalizePath(path);
             targetLogger.log(displayPath ? `✓ ${displayPath}` : "✓");
         },
+        // Manual download commands always destructure the returned reporter into
+        // `{ report, cleanup }` and wire both callbacks into `try/finally` flows
+        // outlined in docs/feather-data-plan.md#progress-bar-handshake. The
+        // console variant never reserves progress-bar state, but keeping the
+        // cleanup handler as a shared no-op preserves that contract so the
+        // finally blocks stay balanced even when verbose logging is disabled or
+        // redirected. Replacing it with `null` or allocating ad-hoc closures
+        // would force every caller to special-case the simple path and risk
+        // leaking manual overrides during future refactors.
         cleanup: noop
     };
 }
@@ -1012,7 +1020,7 @@ function createManualGitHubFileClient({
         const shouldLogDetails = verbose.downloads && !verbose.progressBar;
         const cachePath = path.join(cacheRoot, sha, filePath);
 
-        ensureWorkflowPathsAllowed(workflowPathFilter, [
+        ensureManualWorkflowPathsAllowed(workflowPathFilter, [
             {
                 type: "directory",
                 target: cacheRoot,

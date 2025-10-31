@@ -1,3 +1,5 @@
+import { getCommanderUsage } from "./commander-contract.js";
+
 /**
  * Resolve the usage/help text for a Commander command while gracefully
  * tolerating `null`ish values and callers without a `helpInformation` method.
@@ -10,9 +12,9 @@
  * @returns {string | null | undefined} Normalized usage string when available.
  */
 export function resolveCommandUsage(command, { fallback } = {}) {
-    if (command && typeof command.helpInformation === "function") {
-        const usage = command.helpInformation();
-        return typeof usage === "string" ? usage : String(usage);
+    const usage = getCommanderUsage(command);
+    if (usage != null) {
+        return usage;
     }
 
     if (typeof fallback === "function") {

@@ -2,8 +2,7 @@ name: Codex 24 – Overengineered Block Cleanup
 
 on:
   schedule:
-    # hourly cadence
-    - cron: "0 * * * *"
+    - cron: "0 */3 * * *"  # every 3 hours
   workflow_dispatch:
 
 permissions:

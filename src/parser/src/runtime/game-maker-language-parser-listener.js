@@ -1,26 +1,24 @@
 import { GameMakerLanguageParserListenerBase } from "../generated-bindings.js";
 import { VISIT_METHOD_NAMES } from "./game-maker-language-parser-visitor.js";
+import {
+    definePrototypeMethods,
+    deriveListenerMethodNames,
+    toDelegate
+} from "./parse-tree-helpers.js";
 import { noop } from "../shared/index.js";
 
 const DEFAULT_LISTENER_DELEGATE = ({ fallback = noop }) => fallback();
 
-function deriveListenerMethodNames() {
-    const listenerNames = [];
-    for (const visitName of VISIT_METHOD_NAMES) {
-        const suffix = visitName.slice("visit".length);
-        listenerNames.push(`enter${suffix}`, `exit${suffix}`);
-    }
-    return listenerNames;
-}
-
-export const LISTENER_METHOD_NAMES = Object.freeze(deriveListenerMethodNames());
+export const LISTENER_METHOD_NAMES = Object.freeze(
+    deriveListenerMethodNames(VISIT_METHOD_NAMES)
+);
 
 function createListenerDelegate(options = {}) {
     const { listenerDelegate, listenerHandlers } = options;
-    const baseDelegate =
-        typeof listenerDelegate === "function"
-            ? listenerDelegate
-            : DEFAULT_LISTENER_DELEGATE;
+    const baseDelegate = toDelegate(
+        listenerDelegate,
+        DEFAULT_LISTENER_DELEGATE
+    );
 
     if (!listenerHandlers || typeof listenerHandlers !== "object") {
         return baseDelegate;
@@ -70,16 +68,11 @@ export default class GameMakerLanguageParserListener extends GameMakerLanguagePa
     }
 }
 
-for (const methodName of LISTENER_METHOD_NAMES) {
-    Object.defineProperty(
-        GameMakerLanguageParserListener.prototype,
-        methodName,
-        {
-            value(ctx) {
-                return this._dispatch(methodName, ctx);
-            },
-            writable: true,
-            configurable: true
+definePrototypeMethods(
+    GameMakerLanguageParserListener.prototype,
+    LISTENER_METHOD_NAMES,
+    (methodName) =>
+        function (ctx) {
+            return this._dispatch(methodName, ctx);
         }
-    );
-}
+);

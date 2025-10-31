@@ -1,8 +1,4 @@
-import {
-    asArray,
-    getNonEmptyTrimmedString,
-    toArrayFromIterable
-} from "../shared/dependencies.js";
+import { asArray, getNonEmptyTrimmedString } from "../shared/dependencies.js";
 import { normalizeExtensions } from "./extension-normalizer.js";
 
 function resolveFormatCommandExtensions(options, defaultExtensions) {
@@ -13,19 +9,7 @@ function resolveFormatCommandExtensions(options, defaultExtensions) {
         return fallback;
     }
 
-    if (Array.isArray(raw)) {
-        return normalizeExtensions(raw, fallback);
-    }
-
-    if (typeof raw === "string") {
-        return normalizeExtensions(raw, fallback);
-    }
-
-    if (typeof raw[Symbol.iterator] === "function") {
-        return normalizeExtensions(toArrayFromIterable(raw), fallback);
-    }
-
-    return fallback;
+    return normalizeExtensions(raw, fallback);
 }
 
 function resolveFormatCommandSampleLimits(options) {
@@ -66,10 +50,16 @@ export function collectFormatCommandOptions(
 
     let targetPathInput = null;
     let targetPathProvided = false;
+    let rawTargetPathInput;
 
     if (typeof rawTarget === "string") {
-        targetPathInput = getNonEmptyTrimmedString(rawTarget) ?? null;
+        const trimmedTarget = getNonEmptyTrimmedString(rawTarget);
+        targetPathInput = trimmedTarget ?? null;
         targetPathProvided = true;
+
+        if (trimmedTarget !== null && trimmedTarget !== rawTarget) {
+            rawTargetPathInput = rawTarget;
+        }
     } else if (rawTarget != null) {
         targetPathInput = rawTarget;
         targetPathProvided = true;
@@ -98,6 +88,7 @@ export function collectFormatCommandOptions(
         prettierLogLevel,
         onParseError,
         checkMode,
+        rawTargetPathInput,
         skippedDirectorySampleLimit,
         ignoredFileSampleLimit,
         unsupportedExtensionSampleLimit,

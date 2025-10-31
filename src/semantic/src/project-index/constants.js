@@ -1,4 +1,7 @@
-import { getNonEmptyTrimmedString } from "../dependencies.js";
+import {
+    getNonEmptyTrimmedString,
+    mergeUniqueValues
+} from "../dependencies.js";
 
 export const PROJECT_MANIFEST_EXTENSION = ".yyp";
 
@@ -28,47 +31,17 @@ function normalizeResourceMetadataExtension(candidate) {
     return prefixed.toLowerCase();
 }
 
-function entriesMatchDefault(normalized) {
-    return (
-        normalized.length === DEFAULT_RESOURCE_METADATA_EXTENSIONS.length &&
-        normalized.every(
-            (value, index) =>
-                value === DEFAULT_RESOURCE_METADATA_EXTENSIONS[index]
-        )
-    );
-}
-
-function isIterable(candidate) {
-    return (
-        candidate != null &&
-        typeof candidate !== "string" &&
-        typeof candidate[Symbol.iterator] === "function"
-    );
-}
-
 function normalizeResourceMetadataExtensions(candidate) {
-    let values;
+    const entries = typeof candidate === "string" ? [candidate] : candidate;
 
-    if (typeof candidate === "string") {
-        values = [candidate];
-    } else if (isIterable(candidate)) {
-        values = Array.from(candidate);
-    } else {
-        values = [];
-    }
-
-    const normalized = [...DEFAULT_RESOURCE_METADATA_EXTENSIONS];
-    const seen = new Set(normalized);
-
-    for (const entry of values) {
-        const extension = normalizeResourceMetadataExtension(entry);
-        if (!extension || seen.has(extension)) {
-            continue;
+    const normalized = mergeUniqueValues(
+        DEFAULT_RESOURCE_METADATA_EXTENSIONS,
+        entries,
+        {
+            coerce: normalizeResourceMetadataExtension,
+            freeze: false
         }
-
-        normalized.push(extension);
-        seen.add(extension);
-    }
+    );
 
     if (normalized.length === DEFAULT_RESOURCE_METADATA_EXTENSIONS.length) {
         return DEFAULT_RESOURCE_METADATA_EXTENSIONS;

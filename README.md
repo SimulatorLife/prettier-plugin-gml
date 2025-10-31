@@ -134,6 +134,9 @@ for (var i = 0; i < queue_count; i += 1) {
   notes, rollout guides, and metadata playbooks that live alongside the
   formatter source. Each entry includes a short synopsis so you can scan for the
   right level of detail.
+- [Sample `.prettierignore`](docs/examples/example.prettierignore) &mdash; Copy-
+  ready ignore rules tuned for common GameMaker metadata folders when you are
+  bootstrapping a project.
 - [Contributor onboarding checklist](docs/contributor-onboarding.md) &mdash; Step-by-
   step environment setup, validation commands, and a tour of the core
   workspace scripts for new teammates.
@@ -159,10 +162,13 @@ for (var i = 0; i < queue_count; i += 1) {
   tricky identifier examples. Use it for historical context; the current roadmap
   now spans the [live reloading concept](docs/live-reloading-concept.md) and the
   [semantic scope plan](docs/semantic-scope-plan.md).
-- [Operational runbooks](docs/project-index-cache-design.md) &mdash; Design notes,
-  cache architecture, and the archived [project index roadmap](docs/legacy-identifier-case-plan.md#archived-project-index-roadmap)
-  alongside the [Feather data plan](docs/feather-data-plan.md). Pair them with
-  the [reserved identifier metadata hook overview](docs/reserved-identifier-metadata-hook.md)
+- [Project index cache design](docs/legacy-identifier-case-plan.md#project-index-cache-design) &mdash; Design
+  notes and cache architecture guidance preserved alongside the archived
+  [project index roadmap](docs/legacy-identifier-case-plan.md#archived-project-index-roadmap).
+- [Feather data plan](docs/feather-data-plan.md) &mdash; Scraper workflow for
+  keeping the generated metadata in `resources/` current, plus validation steps
+  for reviewing diffs before publishing updates. Pair it with the
+  [reserved identifier metadata hook overview](docs/reserved-identifier-metadata-hook.md)
   when staging bespoke metadata sources, generated code directories, or
   regeneration scripts.
 - [Live reloading concept](docs/live-reloading-concept.md) &mdash; Concept brief for
@@ -325,19 +331,31 @@ nvm alias default node
    npm ci
    ```
 
-2. Format any GameMaker project without adding dependencies to that project. The
-   repository exposes a dedicated `format:gml` script that targets the CLI's
-   `format` command and defaults to the current working directory when no
-   arguments are provided. Pass the project path explicitly when formatting
-   elsewhere:
+2. Run the aggregated validation once to confirm your local install matches CI
+   before pointing the formatter at a project:
 
    ```bash
-   npm run format:gml -- --path "/absolute/path/to/MyGame" --extensions=.gml --extensions=.yy
+   npm run check
    ```
 
-   Provide `--path` when the target might be mistaken for a command name or
-   begins with a hyphen. Running `npm run format:gml` without extra arguments
-   formats the repository itself.
+   The command runs the formatter smoke test, CI-mode lint, and the full Node.js
+   test suite so new workstations start from a known-good baseline. Consult the
+   [contributor onboarding checklist](docs/contributor-onboarding.md) for the
+   individual suite commands when you need targeted reruns.
+
+3. Format any GameMaker project without adding dependencies to that project. The
+   repository exposes a dedicated `format:gml` script that targets the CLI's
+   `format` command and defaults to the current working directory when no
+   arguments are provided. Provide the target path explicitly when formatting
+   elsewhere so the command formats the intended project:
+
+   ```bash
+   npm run format:gml -- /absolute/path/to/MyGame --extensions=.gml --extensions=.yy
+   ```
+
+   The wrapper also accepts an explicit `--path` flag when the target might be
+   mistaken for a command name or begins with a hyphen. Running
+   `npm run format:gml` without extra arguments formats the repository itself.
 
    The wrapper:
 
