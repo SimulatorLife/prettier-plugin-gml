@@ -15,7 +15,8 @@ import {
 } from "./dependencies.js";
 import {
     normalizeIdentifierCaseOptions,
-    IdentifierCaseStyle
+    IdentifierCaseStyle,
+    normalizeIdentifierCaseAssetStyle
 } from "./options.js";
 import { resolveProjectRelativeFilePath } from "../project-index/path-normalization.js";
 import {
@@ -734,7 +735,9 @@ export async function prepareIdentifierCasePlan(options) {
     const normalizedOptions = normalizeIdentifierCaseOptions(options);
     const localStyle =
         normalizedOptions.scopeStyles?.locals ?? IdentifierCaseStyle.OFF;
-    const assetStyle = normalizedOptions.scopeStyles?.assets ?? "off";
+    const assetStyle = normalizeIdentifierCaseAssetStyle(
+        normalizedOptions.scopeStyles?.assets
+    );
     const functionStyle = normalizedOptions.scopeStyles?.functions ?? "off";
     const structStyle = normalizedOptions.scopeStyles?.structs ?? "off";
     const macroStyle = normalizedOptions.scopeStyles?.macros ?? "off";
@@ -742,7 +745,7 @@ export async function prepareIdentifierCasePlan(options) {
     const globalStyle = normalizedOptions.scopeStyles?.globals ?? "off";
 
     const shouldPlanLocals = localStyle !== IdentifierCaseStyle.OFF;
-    const shouldPlanAssets = assetStyle !== "off";
+    const shouldPlanAssets = assetStyle !== IdentifierCaseStyle.OFF;
     const shouldPlanFunctions = functionStyle !== "off";
     const shouldPlanStructs = structStyle !== "off";
     const shouldPlanMacros = macroStyle !== "off";
@@ -807,7 +810,7 @@ export async function prepareIdentifierCasePlan(options) {
     const assetRenames = [];
     let assetConflicts = [];
 
-    if (projectIndex && assetStyle !== "off") {
+    if (projectIndex && assetStyle !== IdentifierCaseStyle.OFF) {
         metrics.counters.increment("assets.projectsWithIndex");
         const assetPlan = metrics.timers.timeSync("assets.plan", () =>
             planAssetRenames({

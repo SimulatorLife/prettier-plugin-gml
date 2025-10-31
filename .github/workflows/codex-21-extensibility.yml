@@ -1,7 +1,7 @@
 name: Codex 21 – Extensibility Hooks
 on:
   schedule:
-    - cron: "15 11 * * *" # once daily at 11:15
+    - cron: "15 11 */5 * *" # once every 5 days at 11:15
   workflow_dispatch:
 
 permissions:

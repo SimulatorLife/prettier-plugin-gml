@@ -1,7 +1,7 @@
 name: Codex 70 – Null/Undefined Guardrails
 on:
   schedule:
-    - cron: "12 3 * * *"  # once a day at 03:12
+    - cron: "12 3 */2 * *"  # every 2 days at 03:12
   workflow_dispatch:
 
 permissions:

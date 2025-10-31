@@ -2,7 +2,7 @@ name: Codex 79 – Cohesion Refactor
 
 on:
   schedule:
-    - cron: "25 */5 * * *" # every 5 hours at minute 25
+    - cron: "25 */8 * * *" # every 8 hours at minute 25
   workflow_dispatch:
 
 permissions:

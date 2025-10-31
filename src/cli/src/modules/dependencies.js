@@ -14,7 +14,10 @@ export {
 
 export { applyEnvOptionOverrides } from "../core/env-overrides.js";
 
-export { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
+export {
+    createIntegerOptionToolkit,
+    applyIntegerOptionToolkitEnvOverride
+} from "../core/integer-option-toolkit.js";
 
 export {
     SuiteOutputFormat,
@@ -42,3 +45,18 @@ export {
     withProgressBarCleanup,
     resetProgressBarRegistryForTesting
 } from "../runtime-options/progress-bar.js";
+
+export { ensureWorkflowPathsAllowed } from "../workflow/path-filter.js";
+
+export { REPO_ROOT, resolveFromRepoRoot } from "../shared/workspace-paths.js";
+
+export {
+    DEFAULT_FIXTURE_DIRECTORIES,
+    createPathFilter,
+    normalizeFixtureRoots
+} from "../workflow/fixture-roots.js";
+
+export {
+    writeFileArtifact,
+    writeJsonArtifact
+} from "../shared/fs-artifacts.js";

@@ -118,26 +118,34 @@ const SUMMARY_SECTIONS = Object.freeze([
  * @property {MetricsReportingSuite} reporting
  */
 
-function normalizeCacheKeys(keys) {
-    const fallback = [...DEFAULT_CACHE_KEYS];
-
+function collectCacheKeyCandidates(keys) {
     if (keys == null) {
-        return fallback;
+        return null;
     }
-
-    let candidate;
 
     if (typeof keys === "string" || Array.isArray(keys)) {
-        candidate = keys;
-    } else if (typeof keys[Symbol.iterator] === "function") {
-        candidate = toArrayFromIterable(keys);
-    } else {
+        return keys;
+    }
+
+    if (typeof keys?.[Symbol.iterator] === "function") {
+        return toArrayFromIterable(keys);
+    }
+
+    return null;
+}
+
+function normalizeCacheKeys(keys) {
+    const fallback = [...DEFAULT_CACHE_KEYS];
+    const candidates = collectCacheKeyCandidates(keys);
+
+    if (!candidates) {
         return fallback;
     }
 
-    const normalized = normalizeStringList(candidate, {
+    const normalized = normalizeStringList(candidates, {
         allowInvalidType: true
     });
+
     return normalized.length > 0 ? normalized : fallback;
 }
 

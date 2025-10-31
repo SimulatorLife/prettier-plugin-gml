@@ -7,6 +7,63 @@ import { createCliCommandManager } from "../src/core/command-manager.js";
 import { CliUsageError } from "../src/core/errors.js";
 import { applyStandardCommandOptions } from "../src/core/command-standard-options.js";
 
+function createStubProgram() {
+    const hooks = new Map();
+    const registeredCommands = [];
+    return {
+        parseCalls: [],
+        addCommand(command, options = {}) {
+            registeredCommands.push({ command, options });
+            if (options.isDefault) {
+                this.defaultCommand = command;
+            }
+            return this;
+        },
+        hook(name, handler) {
+            hooks.set(name, handler);
+            return this;
+        },
+        parse(argv, options) {
+            this.parseCalls.push({ argv, options });
+            const nonDefault = registeredCommands.find(
+                (entry) => entry.options?.isDefault !== true
+            );
+            const targetCommand =
+                nonDefault?.command ?? this.defaultCommand ?? null;
+            const action = targetCommand?._actionHandler;
+            if (!action) {
+                return;
+            }
+
+            hooks.get("preSubcommand")?.(this, targetCommand);
+            return Promise.resolve()
+                .then(() => action(argv.slice(1), targetCommand))
+                .finally(() => {
+                    hooks.get("postAction")?.();
+                });
+        },
+        helpInformation() {
+            return "stub program usage";
+        }
+    };
+}
+
+function createStubCommand(name) {
+    return {
+        _actionHandler: null,
+        action(handler) {
+            this._actionHandler = handler;
+            return this;
+        },
+        helpInformation() {
+            return `${name} usage`;
+        },
+        name() {
+            return name;
+        }
+    };
+}
+
 test("default command usage is reported for option parsing errors", async () => {
     const program = applyStandardCommandOptions(new Command());
     const unhandledErrors = [];
@@ -77,4 +134,27 @@ test("subcommand usage is reported when Commander omits command reference", asyn
     assert.ok(error.message.includes("performance"));
     assert.ok(error.usage?.includes("performance"));
     assert.ok(error.usage?.includes("--stdout"));
+});
+
+test("command manager adapts programs that only expose parse()", async () => {
+    const program = createStubProgram();
+    const { registry, runner } = createCliCommandManager({ program });
+
+    const executed = [];
+    const command = createStubCommand("adapter");
+
+    registry.registerCommand({
+        command,
+        run: () => {
+            executed.push("run");
+            return 0;
+        }
+    });
+
+    await runner.run(["adapter", "--flag"]);
+
+    assert.deepStrictEqual(program.parseCalls, [
+        { argv: ["adapter", "--flag"], options: { from: "user" } }
+    ]);
+    assert.deepStrictEqual(executed, ["run"]);
 });

@@ -8,6 +8,7 @@ import { describe, it } from "node:test";
 import GMLParser from "../gml-parser.js";
 import GameMakerASTBuilder from "../src/gml-ast-builder.js";
 import { getLineBreakCount, getNodeStartIndex } from "../src/shared/index.js";
+import ScopeTracker from "../../semantic/src/scopes/scope-tracker.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixturesDirectory = path.join(currentDirectory, "input");
@@ -170,7 +171,9 @@ function groupIdentifiersByName(identifiers) {
 function parseWithMetadata(source) {
     return GMLParser.parse(source, {
         getIdentifierMetadata: true,
-        simplifyLocations: false
+        simplifyLocations: false,
+        createScopeTracker: ({ enabled }) =>
+            enabled ? new ScopeTracker({ enabled }) : null
     });
 }
 
@@ -303,11 +306,91 @@ describe("GameMaker parser fixtures", () => {
         );
     });
 
+    it("applies default parser options when none are provided", () => {
+        const parser = new GMLParser("");
+
+        assert.equal(parser.options.getComments, true);
+        assert.equal(parser.options.getLocations, true);
+        assert.equal(parser.options.astFormat, "gml");
+    });
+
+    it("merges parser options without mutating the overrides", () => {
+        const overrides = { getComments: false };
+        const parser = new GMLParser("", overrides);
+
+        assert.equal(parser.options.getComments, false);
+        assert.equal(parser.options.getLocations, true);
+        assert.deepStrictEqual(overrides, { getComments: false });
+        assert.equal(GMLParser.optionDefaults.getComments, true);
+    });
+
     it("counts CRLF sequences as a single line break", () => {
         assert.strictEqual(
             getLineBreakCount("\r\n"),
             1,
             "Expected CRLF sequences to count as a single line break."
+        );
+    });
+
+    it("outputs ESTree-formatted nodes when requested", () => {
+        const source = [
+            "// heading",
+            "function demo() {",
+            "    return 1;",
+            "}",
+            ""
+        ].join("\n");
+
+        const ast = GMLParser.parse(source, {
+            astFormat: "estree",
+            getComments: true
+        });
+
+        assert.ok(ast, "Expected ESTree parse to return an AST.");
+        assert.strictEqual(ast.type, "Program");
+        assert.ok(Array.isArray(ast.body));
+        assert.ok(ast.loc, "ESTree AST should expose location metadata.");
+        assert.ok(
+            Array.isArray(ast.range),
+            "Range metadata should be present."
+        );
+        const [declaration] = ast.body;
+        assert.ok(declaration, "Expected at least one declaration.");
+        assert.ok(
+            typeof declaration.start === "number" &&
+                typeof declaration.end === "number",
+            "Declaration nodes should expose numeric start and end positions."
+        );
+        assert.ok(
+            Array.isArray(ast.comments),
+            "Comments should be preserved in the ESTree output."
+        );
+        const [comment] = ast.comments;
+        assert.strictEqual(
+            comment?.type,
+            "Line",
+            "Line comments should map to ESTree."
+        );
+    });
+
+    it("serializes ESTree ASTs as JSON when requested", () => {
+        const source = "function demo() {}";
+        const jsonAst = GMLParser.parse(source, {
+            astFormat: "estree",
+            asJSON: true
+        });
+
+        assert.strictEqual(
+            typeof jsonAst,
+            "string",
+            "ESTree JSON output should be a string."
+        );
+
+        const parsed = JSON.parse(jsonAst);
+        assert.strictEqual(parsed.type, "Program");
+        assert.ok(
+            parsed.loc,
+            "Serialized AST should retain location metadata."
         );
     });
 
