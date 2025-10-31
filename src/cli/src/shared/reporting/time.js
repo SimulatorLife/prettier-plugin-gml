@@ -10,13 +10,24 @@
  * @param {() => number} [now] Function that returns the current timestamp.
  * @returns {string} Formatted duration label for logs and status messages.
  */
+const MILLISECOND_PER_SECOND = 1000;
+const SUB_SECOND_THRESHOLD_TOLERANCE_MS = 1e-6;
+
 export function formatDuration(startTime, now = Date.now) {
     const deltaMs = now() - startTime;
-    if (deltaMs < 1000) {
+    // High-resolution timers such as `performance.now()` can report values just
+    // shy of the one-second boundary (for example, 999.9999999997) even when a
+    // full second has elapsed. Treat anything within a tiny epsilon of the
+    // threshold as a second so we do not log noisy millisecond strings.
+    const isEffectivelySubSecond =
+        deltaMs < MILLISECOND_PER_SECOND &&
+        deltaMs < MILLISECOND_PER_SECOND - SUB_SECOND_THRESHOLD_TOLERANCE_MS;
+
+    if (isEffectivelySubSecond) {
         return `${deltaMs}ms`;
     }
 
-    return `${(deltaMs / 1000).toFixed(1)}s`;
+    return `${(deltaMs / MILLISECOND_PER_SECOND).toFixed(1)}s`;
 }
 
 /**
