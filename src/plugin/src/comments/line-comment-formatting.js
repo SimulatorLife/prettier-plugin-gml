@@ -166,27 +166,43 @@ function createDocCommentTypeNormalization(candidate) {
 
     return Object.freeze({
         lookupTypeIdentifier(identifier) {
-            const normalized = normalizeDocCommentLookupKey(identifier);
-            if (!normalized) {
-                return null;
-            }
-            return synonyms.get(normalized) ?? null;
+            return withNormalizedDocCommentLookup(
+                identifier,
+                (normalized) => synonyms.get(normalized) ?? null,
+                null
+            );
         },
         getCanonicalSpecifierName(identifier) {
-            const normalized = normalizeDocCommentLookupKey(identifier);
-            if (!normalized) {
-                return null;
-            }
-            return canonicalSpecifierNames.get(normalized) ?? null;
+            return withNormalizedDocCommentLookup(
+                identifier,
+                (normalized) => canonicalSpecifierNames.get(normalized) ?? null,
+                null
+            );
         },
         hasSpecifierPrefix(identifier) {
-            const normalized = normalizeDocCommentLookupKey(identifier);
-            if (!normalized) {
-                return false;
-            }
-            return specifierPrefixes.has(normalized);
+            return withNormalizedDocCommentLookup(
+                identifier,
+                (normalized) => specifierPrefixes.has(normalized),
+                false
+            );
         }
     });
+}
+
+function withNormalizedDocCommentLookup(identifier, handler, fallbackValue) {
+    if (typeof handler !== "function") {
+        throw new TypeError(
+            "Doc comment lookup handler must be provided as a function."
+        );
+    }
+
+    const normalized = normalizeDocCommentLookupKey(identifier);
+    if (!normalized) {
+        return fallbackValue;
+    }
+
+    const result = handler(normalized);
+    return result;
 }
 
 function mergeNormalizationEntries(target, entries) {
