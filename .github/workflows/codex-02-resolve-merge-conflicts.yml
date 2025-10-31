@@ -2,7 +2,7 @@ name: Codex 02 – Resolve Merge Conflicts
 
 on:
   schedule:
-    - cron: "10 * * * *"
+    - cron: "10 */2 * * *" # Every 2 hours at 10 minutes past
   workflow_dispatch:
     inputs:
       target_pr_number:

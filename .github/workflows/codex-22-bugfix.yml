@@ -1,7 +1,7 @@
 name: Codex 22 – Bug Fix
 on:
   schedule:
-    - cron: "0 */3 * * *" # every 3 hours
+    - cron: "0 */4 * * *" # every 4 hours
   workflow_dispatch:
 
 permissions:
