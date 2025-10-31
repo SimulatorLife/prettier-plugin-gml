@@ -3,6 +3,7 @@ import {
     createIntegerOptionState,
     createIntegerOptionResolver
 } from "./numeric-option-state.js";
+import { resolveEnvironmentMap } from "../shared/dependencies.js";
 
 /**
  * Compose a CLI integer option from the shared numeric option primitives.
@@ -76,4 +77,61 @@ export function createIntegerOptionToolkit({
         applyEnvOverride: state.applyEnvOverride,
         resolve
     };
+}
+
+/**
+ * Apply the environment override for an integer option toolkit while handling
+ * optional environment maps and error hooks consistently.
+ *
+ * Several CLI modules previously repeated the same "normalize the environment,
+ * call `applyEnvOverride`, catch failures, and fall back to the prior default"
+ * ceremony. Centralizing that behaviour keeps the guards aligned whenever we
+ * introduce new numeric options and ensures callers can opt into fallback
+ * logging without cloning boilerplate.
+ *
+ * @param {{
+ *   applyEnvOverride: (env?: NodeJS.ProcessEnv | null | undefined) => any,
+ *   getDefault?: () => any
+ * }} toolkit Toolkit returned from {@link createIntegerOptionToolkit} or a
+ *        compatible wrapper exposing the same surface area.
+ * @param {{
+ *   env?: NodeJS.ProcessEnv | null | undefined,
+ *   onError?: (error: unknown, context: { fallback: any }) => any
+ * }} [options]
+ * @returns {any} Result of invoking `applyEnvOverride` or the fallback supplied
+ *          by {@link options.onError}.
+ */
+export function applyIntegerOptionToolkitEnvOverride(
+    toolkit,
+    { env, onError } = {}
+) {
+    if (!toolkit || typeof toolkit.applyEnvOverride !== "function") {
+        throw new TypeError(
+            "toolkit must expose an applyEnvOverride function to apply environment overrides."
+        );
+    }
+
+    const sourceEnv = resolveEnvironmentMap(env);
+    const invokeOverride = () => {
+        if (sourceEnv == null) {
+            return toolkit.applyEnvOverride();
+        }
+
+        return toolkit.applyEnvOverride(sourceEnv);
+    };
+
+    if (typeof onError !== "function") {
+        return invokeOverride();
+    }
+
+    const fallback =
+        typeof toolkit.getDefault === "function"
+            ? toolkit.getDefault()
+            : undefined;
+
+    try {
+        return invokeOverride();
+    } catch (error) {
+        return onError(error, { fallback });
+    }
 }

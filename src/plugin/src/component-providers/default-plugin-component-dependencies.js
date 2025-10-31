@@ -1,34 +1,11 @@
-import { resolveGmlPluginComponentImplementations } from "./gml-plugin-component-implementation-registry.js";
-
-function selectDefaultImplementations() {
-    return resolveGmlPluginComponentImplementations();
-}
-
-function createDependencyBundle(source) {
-    const {
-        gmlParserAdapter,
-        print,
-        handleComments,
-        printComment,
-        identifierCaseOptions,
-        LogicalOperatorsStyle
-    } = source;
-
-    return Object.freeze({
-        gmlParserAdapter,
-        print,
-        handleComments,
-        printComment,
-        identifierCaseOptions,
-        LogicalOperatorsStyle
-    });
-}
+import { selectPluginComponentContractEntries } from "./plugin-component-contract.js";
+import { defaultGmlPluginComponentImplementations } from "./default-plugin-component-implementations.js";
 
 export function createDefaultGmlPluginComponentDependencies() {
-    return createDependencyBundle(selectDefaultImplementations());
+    return selectPluginComponentContractEntries(
+        defaultGmlPluginComponentImplementations
+    );
 }
 
 export const defaultGmlPluginComponentDependencies =
     createDefaultGmlPluginComponentDependencies();
-
-export { createDependencyBundle };

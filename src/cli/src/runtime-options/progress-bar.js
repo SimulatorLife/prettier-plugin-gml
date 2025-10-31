@@ -2,7 +2,10 @@ import {
     coercePositiveInteger,
     isFiniteNumber
 } from "../shared/dependencies.js";
-import { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
+import {
+    createIntegerOptionToolkit,
+    applyIntegerOptionToolkitEnvOverride
+} from "../core/integer-option-toolkit.js";
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
@@ -121,12 +124,7 @@ const createWidthErrorMessage = (received) =>
 const createWidthTypeErrorMessage = (type) =>
     `Progress bar width must be provided as a number (received type '${type}').`;
 
-const {
-    getDefault: getDefaultProgressBarWidth,
-    setDefault: setDefaultProgressBarWidth,
-    resolve: resolveProgressBarWidth,
-    applyEnvOverride: applyProgressBarWidthEnvOverride
-} = createIntegerOptionToolkit({
+const progressBarWidthToolkit = createIntegerOptionToolkit({
     defaultValue: DEFAULT_PROGRESS_BAR_WIDTH,
     envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
     baseCoerce: coercePositiveInteger,
@@ -135,7 +133,14 @@ const {
     defaultValueOption: "defaultWidth"
 });
 
-applyProgressBarWidthEnvOverride();
+const {
+    getDefault: getDefaultProgressBarWidth,
+    setDefault: setDefaultProgressBarWidth,
+    resolve: resolveProgressBarWidth,
+    applyEnvOverride: applyProgressBarWidthEnvOverride
+} = progressBarWidthToolkit;
+
+applyIntegerOptionToolkitEnvOverride(progressBarWidthToolkit);
 
 function disposeProgressBars() {
     for (const [, bar] of activeProgressBars) {
@@ -163,20 +168,25 @@ function stopAndRemoveProgressBar(label, { suppressErrors = false } = {}) {
         return;
     }
 
-    if (suppressErrors) {
-        try {
-            bar.stop();
-        } catch {
-            // Ignore cleanup failures so callers can continue unwinding their
-            // own teardown logic without masking the original failure that
-            // disabled progress rendering mid-run.
-        }
+    const removeBar = () => {
         activeProgressBars.delete(label);
+    };
+
+    if (!suppressErrors) {
+        bar.stop();
+        removeBar();
         return;
     }
 
-    bar.stop();
-    activeProgressBars.delete(label);
+    try {
+        bar.stop();
+    } catch {
+        // Ignore cleanup failures so callers can continue unwinding their own
+        // teardown logic without masking the original failure that disabled
+        // progress rendering mid-run.
+    }
+
+    removeBar();
 }
 
 function renderProgressBar(label, current, total, width, options = {}) {

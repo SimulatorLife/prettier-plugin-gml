@@ -4705,7 +4705,7 @@ function shouldPreserveRemovedBlankLine(removedNode, nextNode, sourceText) {
     }
 
     const normalizedBetween = between
-        .replaceAll('\r', "")
+        .replaceAll("\r", "")
         .replaceAll(/[ \t\f\v]/g, "");
 
     return normalizedBetween.includes("\n\n");

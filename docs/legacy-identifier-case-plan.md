@@ -122,6 +122,121 @@ Manual snapshots remained supported for audits: call
 [locals-first configuration](#locals-first-configuration-script)), persist the
 JSON, and provide it via `identifierCaseProjectIndex` to replay the exact plan.
 
+## Project index cache design
+
+This historical overview captures how the legacy formatter coordinated cache
+lookups, invalidation, and persistence while preparing identifier-case rename
+plans.
+
+### Locating the GameMaker project root
+
+The cache keyed entries by the GameMaker project that owned the formatted file.
+Prettier exposed the current file path via `options.filepath`, so the lookup
+treated it as the discovery starting point:
+
+1. Normalise the path with `path.resolve` to collapse relative segments and
+   provide a stable anchor across invocations.
+2. Walk up the directory tree from `dirname(options.filepath)` until either a
+   `.yyp` manifest appeared or the filesystem root was reached.
+3. Treat the first directory that contained a `.yyp` file as the project root.
+   GameMaker places exactly one manifest in the root, so the nearest manifest
+   matched the user's expectation even when nested project folders existed.
+4. Bail out (return `null`) if no manifest was discovered. This covered
+   formatting loose scripts or running Prettier on subsets of files that did not
+   belong to a full project checkout.
+
+The lookup used `fs.promises.readdir` by default but accepted an injected file
+system facade so tests and callers with virtual file systems could reuse the
+logic.
+
+### Cache key shape and modification times
+
+Cache entries were invalidated whenever project metadata that influenced the
+formatter changed. The key therefore included the following components:
+
+- The formatter build identifier (for example a version string passed in by the
+  caller).
+- The canonical project root path detected by the heuristic above.
+- A stable digest that captured the modification times (`mtimeMs`) for the
+  `.yyp` manifest and the formatted source file.
+
+To keep the implementation deterministic the manifest names were sorted and all
+numeric values stringified before mixing them into a SHA-256 digest. Any time
+either file changed on disk its `mtimeMs` shifted, producing a new hash and
+therefore a new cache entry. This kept cache coordination simple while still
+allowing the system to reuse work across parallel Prettier runs when nothing
+relevant changed.
+
+### Metrics-driven tuning and operational heuristics
+
+Instrumentation in the project index builder and rename planner surfaced timing,
+identifier counts, and cache behaviour in real projects. The collected metrics
+revealed three practical improvements:
+
+1. **Built-in identifier cache invalidation** – the loader recorded the
+   `mtimeMs` of `resources/gml-identifiers.json`. If the file changed between
+   runs the cache was treated as stale and reloaded; otherwise it counted a cache
+   hit. The tracker exposed hit/miss/stale counters so unexpected churn during
+   benchmarking was obvious.
+2. **I/O batching with bounded concurrency** – scanning and parsing GML files
+   honoured a configurable concurrency limit (defaulting to four workers and
+   clamped between one and sixteen). The metrics included the active concurrency
+   so it was obvious when the system was CPU- or I/O-bound. Processing happened
+   in batches so slow network storage no longer serialised the entire pipeline.
+3. **Rename planner accounting** – the identifier-case pipeline recorded how
+   many declarations, references, and rename operations were examined versus
+   accepted. Conflict counters (configuration, collisions, reserved words) made
+   tuning opportunities for ignore/preserve lists visible when the numbers
+   spiked.
+
+The `performance` CLI command (for example,
+`node ./src/cli/src/cli.js performance --suite identifier-text`) ran the selected
+benchmark suites and printed the captured metrics as structured JSON. Passing
+`--stdout` kept the JSON stream clean for tooling like `jq` by redirecting the
+"report written" summary to stderr. The command also emitted a short stderr
+summary when any benchmark suite failed so the failure remained visible even
+without inspecting the JSON, and it exited with a non-zero status so automation
+could react immediately. This provided an ad-hoc regression harness for spotting
+problems before they made it into CI.
+
+### Cache persistence schema
+
+The persisted cache lived inside `.prettier-plugin-gml/project-index-cache.json`
+at the project root. Each payload was versioned (`schemaVersion`) so future
+changes could coexist with older formatter releases. The remaining metadata
+captured everything needed to validate a cache hit without rebuilding the index:
+
+- `projectRoot` – canonical absolute path for the project that produced the
+  cache file.
+- `formatterVersion` / `pluginVersion` – surfaced compatibility mismatches
+  between the host Prettier binary and the plugin bundle.
+- `manifestMtimes` / `sourceMtimes` – normalised maps of `mtimeMs` readings for
+  `.yyp` manifests and the formatted source file(s).
+- `metricsSummary` – condensed snapshot of the metrics captured during the
+  build, re-attached to the in-memory project index when a cache hit occurred.
+- `projectIndex` – the actual index data structure with the metrics removed (the
+  metrics were stored separately as noted above).
+
+`loadProjectIndexCache` validated this schema and returned typed miss reasons so
+callers could distinguish corruption (`invalid-json` / `invalid-schema`) from
+stale inputs (`manifest-mtime-mismatch`, `formatter-version-mismatch`, etc.).
+`saveProjectIndexCache` wrote the payload via a temporary file followed by an
+atomic rename and refused to persist entries that exceeded the configured size
+limit (8 MiB by default) to avoid unbounded disk growth. Callers could tune the
+limit with the `gmlIdentifierCaseProjectIndexCacheMaxBytes` Prettier option;
+setting the option (or `GML_PROJECT_INDEX_CACHE_MAX_SIZE`) to `0` disabled the
+cap when larger caches were required.
+
+### Coordination and locking
+
+`createProjectIndexCoordinator` guarded concurrent builds for the same
+`projectRoot`. Calls to `ensureReady(projectRoot, …)` shared in-flight work via an
+in-process mutex so only one formatter worker rebuilt the index while others
+awaited the result. When the build completed, the coordinator persisted the cache
+before unblocking queued calls. A `dispose()` hook cleared in-memory state so
+long-lived processes (tests, language servers) could release resources
+explicitly between runs.
+
 ## Rollout workflow and safeguards
 
 A locals-first rollout kept the legacy feature safe for teams adopting renames:

@@ -13,6 +13,7 @@ import {
     getNonEmptyTrimmedString,
     incrementMapValue,
     InvalidArgumentError,
+    isFsErrorCode,
     isNonEmptyString,
     normalizeStringList,
     Option,
@@ -24,6 +25,7 @@ import {
     SuiteOutputFormat,
     applyEnvOptionOverrides,
     applyStandardCommandOptions,
+    applyIntegerOptionToolkitEnvOverride,
     coercePositiveInteger,
     collectSuiteResults,
     createIntegerOptionToolkit,
@@ -219,18 +221,17 @@ function logInvalidIterationEnvOverride({ envVar, error, fallback }) {
  * @returns {number | undefined}
  */
 function applyIterationToolkitEnvOverride(toolkit, envVar, env) {
-    const fallback = toolkit.getDefault();
-
-    try {
-        return toolkit.applyEnvOverride(env);
-    } catch (error) {
-        logInvalidIterationEnvOverride({
-            envVar,
-            error,
-            fallback
-        });
-        return fallback;
-    }
+    return applyIntegerOptionToolkitEnvOverride(toolkit, {
+        env,
+        onError: (error, { fallback }) => {
+            logInvalidIterationEnvOverride({
+                envVar,
+                error,
+                fallback
+            });
+            return fallback;
+        }
+    });
 }
 
 function applyParserMaxIterationsEnvOverride(env) {
@@ -614,16 +615,18 @@ function summarizeAst(root) {
     };
 }
 
+const memoryIterationsToolkit = createMemoryIterationToolkit({
+    defaultValue: DEFAULT_ITERATIONS,
+    envVar: MEMORY_ITERATIONS_ENV_VAR,
+    defaultValueOption: "defaultIterations"
+});
+
 const {
     getDefault: getDefaultMemoryIterations,
     setDefault: setDefaultMemoryIterations,
     resolve: resolveMemoryIterations,
     applyEnvOverride: applyMemoryIterationsEnvOverride
-} = createMemoryIterationToolkit({
-    defaultValue: DEFAULT_ITERATIONS,
-    envVar: MEMORY_ITERATIONS_ENV_VAR,
-    defaultValueOption: "defaultIterations"
-});
+} = memoryIterationsToolkit;
 
 export {
     getDefaultMemoryIterations,
@@ -888,7 +891,7 @@ async function runPluginFormatSuite({ iterations }) {
             source: optionsAbsolutePath
         });
     } catch (error) {
-        if (error && error.code === "ENOENT") {
+        if (isFsErrorCode(error, "ENOENT")) {
             notes.push(
                 "Formatter options fixture not found; using plugin defaults."
             );

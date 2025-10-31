@@ -1,7 +1,5 @@
-import GameMakerLanguageParserVisitor from "./extensions/game-maker-language-parser-visitor.js";
+import GameMakerLanguageParserVisitor from "./runtime/game-maker-language-parser-visitor.js";
 import { getLineBreakCount, getNonEmptyTrimmedString } from "./shared/index.js";
-import ScopeTracker from "gamemaker-language-semantic/scopes/scope-tracker.js";
-import { ScopeOverrideKeyword } from "gamemaker-language-semantic/scopes/scope-override-keywords.js";
 import BinaryExpressionDelegate from "./binary-expression-delegate.js";
 import {
     IdentifierRoleTracker,
@@ -70,6 +68,8 @@ const BINARY_OPERATORS = {
     "|=": { prec: 1, assoc: "right", type: "assign" },
     "??=": { prec: 1, assoc: "right", type: "assign" } // Nullish coalescing assignment
 };
+
+const GLOBAL_SCOPE_OVERRIDE_KEYWORD = "global";
 
 /**
  * Identifier metadata helpers previously leaked behind a single catch-all
@@ -164,6 +164,41 @@ function createIdentifierLocationTools() {
 }
 
 /**
+ * @param {{
+ *     createScopeTracker?: (context: { enabled: boolean }) => unknown,
+ *     getIdentifierMetadata?: boolean
+ * }} [options]
+ */
+function createScopeTrackerFromOptions(options = {}) {
+    const { createScopeTracker, getIdentifierMetadata } = options;
+    if (typeof createScopeTracker !== "function") {
+        return null;
+    }
+
+    const tracker = createScopeTracker({
+        enabled: Boolean(getIdentifierMetadata)
+    });
+
+    if (tracker == null) {
+        return null;
+    }
+
+    if (
+        typeof tracker.isEnabled !== "function" ||
+        typeof tracker.enterScope !== "function" ||
+        typeof tracker.exitScope !== "function" ||
+        typeof tracker.declare !== "function" ||
+        typeof tracker.reference !== "function"
+    ) {
+        throw new TypeError(
+            "createScopeTracker must return an object implementing the scope tracker interface."
+        );
+    }
+
+    return tracker;
+}
+
+/**
  * Create a parser visitor instance whose generated `visit*` methods proxy to
  * the {@link host}'s implementations. The helper walks the prototype chain so
  * mixins and subclasses can expose custom visit handlers without manually
@@ -211,9 +246,7 @@ export default class GameMakerASTBuilder {
         this.whitespaces = whitespaces || [];
         this.operatorStack = [];
 
-        const scopeTracker = new ScopeTracker({
-            enabled: Boolean(this.options?.getIdentifierMetadata)
-        });
+        const scopeTracker = createScopeTrackerFromOptions(this.options);
         const roleTracker = new IdentifierRoleTracker();
         const scopeCoordinator = new IdentifierScopeCoordinator({
             scopeTracker,
@@ -722,7 +755,7 @@ export default class GameMakerASTBuilder {
                         type: "declaration",
                         kind: "variable",
                         tags: ["global"],
-                        scopeOverride: ScopeOverrideKeyword.GLOBAL
+                        scopeOverride: GLOBAL_SCOPE_OVERRIDE_KEYWORD
                     },
                     () => this.visit(identifierCtx)
                 );
@@ -1525,7 +1558,7 @@ export default class GameMakerASTBuilder {
                 type: "declaration",
                 kind: "macro",
                 tags: ["global"],
-                scopeOverride: ScopeOverrideKeyword.GLOBAL
+                scopeOverride: GLOBAL_SCOPE_OVERRIDE_KEYWORD
             },
             () => this.visit(ctx.identifier())
         );

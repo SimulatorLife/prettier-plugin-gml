@@ -1,12 +1,11 @@
 import {
-    hasOwn,
     isNonEmptyArray,
     isNonEmptyString,
     isNonEmptyTrimmedString,
     isWordChar,
-    identity,
-    enqueueObjectChildValues
+    identity
 } from "./shared/index.js";
+import { remapLocationMetadata } from "./ast/location-manipulation.js";
 
 const ASSIGNMENT_GUARD_CHARACTERS = new Set([
     "*",
@@ -73,41 +72,6 @@ function createIndexMapper(insertPositions) {
 
 function isQuoteCharacter(character) {
     return character === '"' || character === "'" || character === "`";
-}
-
-/**
- * Mutate an AST node's location metadata so it continues to point at the
- * correct source region after sanitization inserts additional characters.
- *
- * The parser may encode positions either as plain numbers or as objects with an
- * `index` field; both shapes are supported.
- *
- * @param {object} node AST node that may carry parser position metadata.
- * @param {string} propertyName Name of the property that should be remapped.
- * @param {(index: number) => number} mapIndex Function returned by
- *     {@link createIndexMapper} that translates parser indices.
- */
-function adjustLocationProperty(node, propertyName, mapIndex) {
-    if (!hasOwn(node, propertyName)) {
-        return;
-    }
-
-    const location = node[propertyName];
-
-    if (typeof location === "number") {
-        node[propertyName] = mapIndex(location);
-        return;
-    }
-
-    if (
-        !location ||
-        typeof location !== "object" ||
-        typeof location.index !== "number"
-    ) {
-        return;
-    }
-
-    location.index = mapIndex(location.index);
 }
 
 /**
@@ -328,37 +292,6 @@ export function sanitizeConditionalAssignments(sourceText) {
  * @returns {void}
  */
 export function applySanitizedIndexAdjustments(target, insertPositions) {
-    if (!target || typeof target !== "object") {
-        return;
-    }
-
     const mapIndex = createIndexMapper(insertPositions);
-    const stack = [target];
-    const seen = new WeakSet();
-
-    while (stack.length > 0) {
-        const current = stack.pop();
-
-        if (!current || typeof current !== "object" || seen.has(current)) {
-            continue;
-        }
-
-        seen.add(current);
-
-        if (Array.isArray(current)) {
-            enqueueObjectChildValues(stack, current);
-            continue;
-        }
-
-        adjustLocationProperty(current, "start", mapIndex);
-        adjustLocationProperty(current, "end", mapIndex);
-
-        for (const key in current) {
-            if (!Object.hasOwn(current, key)) {
-                continue;
-            }
-
-            enqueueObjectChildValues(stack, current[key]);
-        }
-    }
+    remapLocationMetadata(target, mapIndex);
 }

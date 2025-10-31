@@ -30,7 +30,7 @@ describe("progress bar cleanup", () => {
         resetProgressBarRegistryForTesting();
     });
 
-    it("disposes active progress bars when callbacks fail", async () => {
+    it("disposes active progress bars when callbacks fail", async (t) => {
         const stdout = createMockStdout();
         const stopMock = mock.fn();
         const createBar = mock.fn(() => ({
@@ -44,7 +44,9 @@ describe("progress bar cleanup", () => {
 
         await assert.rejects(
             withProgressBarCleanup(async () => {
-                renderProgressBar("Task", 0, 2, 10, {
+                const label = `${t.name} progress bar`;
+
+                renderProgressBar(label, 0, 2, 10, {
                     stdout,
                     createBar
                 });

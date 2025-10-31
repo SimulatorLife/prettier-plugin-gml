@@ -8,6 +8,60 @@ this file with the latest date and keep the prior entries intact for context.
 > audit runs must append their findings here. Include a `## YYYY-MM-DD — …`
 > heading so each entry remains easy to cross-reference.
 
+## 2025-10-27 — Architecture Audit
+
+### Design rationale
+
+- The CLI's `src/cli/src/shared/` package still bundled workflow-specific
+  orchestration helpers (`path-filter` and `fixture-roots`) alongside
+  environment-agnostic primitives. Engineers investigating shared utilities had
+  to wade through workflow concepts that only apply to content generation
+  commands, which diluted the curated shared surface.
+- The target CLI architecture uses dedicated top-level boundaries for cohesive
+  subsystems (for example `runtime-options/`). Keeping workflow policy modules in
+  `shared/` blurred that separation and made it unclear that only CLI entry
+  points should depend on them.
+- Auditing the directory structure highlighted that no other packages consumed
+  the workflow helpers through the old path, making the relocation a safe,
+  high-impact simplification.
+
+### Target architecture
+
+- Introduce a `src/cli/src/workflow/` boundary that encapsulates workflow path
+  filtering and fixture root normalization concerns.
+- Preserve the curated shared utility surface by ensuring the new boundary pulls
+  dependencies from `shared/` while no longer living inside it.
+- Provide an explicit `workflow/index.js` barrel so future imports have a clear
+  canonical entry point.
+
+### First-step refactor
+
+- Move `path-filter.js` and `fixture-roots.js` from
+  `src/cli/src/shared/workflow/` to the new `src/cli/src/workflow/` boundary and
+  update all imports across commands, modules, shared utilities, and tests.
+- Add `src/cli/src/workflow/index.js` to surface the relocated helpers through a
+  stable barrel.
+- Update the workflow-focused tests to assert against the new import paths.
+
+### Migration and fallback plan
+
+- The public APIs exposed by `modules/dependencies.js` remain unchanged; callers
+  still import `ensureWorkflowPathsAllowed` and related helpers through the same
+  curated surface. Rolling back simply requires moving the files back under
+  `shared/workflow/` and adjusting the import paths if unforeseen regressions
+  appear.
+- Because the helpers are used exclusively inside the CLI workspace, no other
+  packages observe the directory move. The existing CLI test suites continue to
+  validate behaviour after the relocation.
+
+### Before vs. after
+
+- **Before:** Workflow helpers lived at `src/cli/src/shared/workflow/path-filter.js`
+  and `src/cli/src/shared/workflow/fixture-roots.js`.
+- **After:** Workflow helpers live under the dedicated
+  `src/cli/src/workflow/` boundary (`path-filter.js`, `fixture-roots.js`, and the
+  new `index.js` barrel).
+
 ## 2025-10-23 — Architecture Audit
 
 ### Current layout pain points

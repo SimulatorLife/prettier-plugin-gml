@@ -3,6 +3,7 @@ import path from "node:path";
 import {
     compactArray,
     createListSplitPattern,
+    normalizeExtensionSuffix,
     normalizeStringList,
     toArrayFromIterable,
     uniqueArray
@@ -14,6 +15,15 @@ const EXTENSION_LIST_SPLIT_PATTERN = createListSplitPattern(
         includeWhitespace: true
     }
 );
+
+const NORMALIZE_EXTENSION_LIST_OPTIONS = Object.freeze({
+    splitPattern: EXTENSION_LIST_SPLIT_PATTERN,
+    allowInvalidType: true
+});
+
+function normalizeExtensionFragments(value) {
+    return normalizeStringList(value, NORMALIZE_EXTENSION_LIST_OPTIONS);
+}
 
 function coerceExtensionValue(value) {
     if (typeof value !== "string") {
@@ -29,41 +39,27 @@ function coerceExtensionValue(value) {
         return null;
     }
 
-    return cleaned.startsWith(".") ? cleaned : `.${cleaned}`;
+    return normalizeExtensionSuffix(cleaned);
 }
 
 function collectExtensionCandidates(rawExtensions) {
-    if (Array.isArray(rawExtensions)) {
-        return rawExtensions
-            .filter((candidate) => typeof candidate === "string")
-            .flatMap((candidate) =>
-                normalizeStringList(candidate, {
-                    splitPattern: EXTENSION_LIST_SPLIT_PATTERN,
-                    allowInvalidType: true
-                })
-            );
+    if (typeof rawExtensions === "string") {
+        return normalizeExtensionFragments(rawExtensions);
     }
 
-    if (typeof rawExtensions === "string") {
-        return normalizeStringList(rawExtensions, {
-            splitPattern: EXTENSION_LIST_SPLIT_PATTERN,
-            allowInvalidType: true
-        });
+    if (Array.isArray(rawExtensions)) {
+        return rawExtensions.flatMap((candidate) =>
+            typeof candidate === "string"
+                ? normalizeExtensionFragments(candidate)
+                : []
+        );
     }
 
     if (rawExtensions && typeof rawExtensions[Symbol.iterator] === "function") {
-        const iterableValues = toArrayFromIterable(rawExtensions);
-        if (iterableValues.length > 0) {
-            return collectExtensionCandidates(iterableValues);
-        }
-
-        return [];
+        return collectExtensionCandidates(toArrayFromIterable(rawExtensions));
     }
 
-    return normalizeStringList(rawExtensions, {
-        splitPattern: EXTENSION_LIST_SPLIT_PATTERN,
-        allowInvalidType: true
-    });
+    return normalizeExtensionFragments(rawExtensions);
 }
 
 export function normalizeExtensions(rawExtensions, fallbackExtensions = []) {

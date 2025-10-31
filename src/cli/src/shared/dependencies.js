@@ -46,6 +46,7 @@ export {
     JsonParseError,
     noop,
     normalizeEnumeratedOption,
+    normalizeExtensionSuffix,
     normalizeIdentifierMetadataEntries,
     normalizeStringList,
     Option,

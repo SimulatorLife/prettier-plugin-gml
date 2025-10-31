@@ -1,4 +1,7 @@
-import { getNonEmptyTrimmedString } from "../dependencies.js";
+import {
+    mergeUniqueValues,
+    normalizeExtensionSuffix
+} from "../dependencies.js";
 
 export const PROJECT_MANIFEST_EXTENSION = ".yyp";
 
@@ -15,46 +18,26 @@ const DEFAULT_RESOURCE_METADATA_EXTENSIONS = Object.freeze([".yy"]);
 let projectResourceMetadataExtensions = DEFAULT_RESOURCE_METADATA_EXTENSIONS;
 
 function normalizeResourceMetadataExtension(candidate) {
-    const trimmed = getNonEmptyTrimmedString(candidate);
-    if (!trimmed) {
-        return null;
-    }
-
-    const prefixed = trimmed.startsWith(".") ? trimmed : `.${trimmed}`;
-    if (prefixed === ".") {
-        return null;
-    }
-
-    return prefixed.toLowerCase();
+    return normalizeExtensionSuffix(candidate);
 }
 
 function normalizeResourceMetadataExtensions(candidate) {
-    const isIterableCandidate =
-        candidate != null &&
-        typeof candidate !== "string" &&
-        typeof candidate[Symbol.iterator] === "function";
+    const entries = typeof candidate === "string" ? [candidate] : candidate;
 
-    const values =
-        typeof candidate === "string"
-            ? [candidate]
-            : isIterableCandidate
-              ? Array.from(candidate)
-              : [];
-
-    const normalized = new Set(DEFAULT_RESOURCE_METADATA_EXTENSIONS);
-
-    for (const entry of values) {
-        const extension = normalizeResourceMetadataExtension(entry);
-        if (extension) {
-            normalized.add(extension);
+    const normalized = mergeUniqueValues(
+        DEFAULT_RESOURCE_METADATA_EXTENSIONS,
+        entries,
+        {
+            coerce: normalizeResourceMetadataExtension,
+            freeze: false
         }
-    }
+    );
 
-    if (normalized.size === DEFAULT_RESOURCE_METADATA_EXTENSIONS.length) {
+    if (normalized.length === DEFAULT_RESOURCE_METADATA_EXTENSIONS.length) {
         return DEFAULT_RESOURCE_METADATA_EXTENSIONS;
     }
 
-    return Object.freeze(Array.from(normalized));
+    return Object.freeze(normalized);
 }
 
 /**

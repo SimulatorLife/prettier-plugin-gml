@@ -68,6 +68,53 @@ const defaultSnapshotApplyService = Object.freeze({
     applyIdentifierCasePlanSnapshot: defaultApplyIdentifierCasePlanSnapshot
 });
 
+const IDENTIFIER_CASE_SERVICE_DEFINITIONS = Object.freeze({
+    preparation: Object.freeze({
+        serviceErrorMessage:
+            "Identifier case plan preparation service must be provided as an object",
+        functionDescriptors: Object.freeze([
+            Object.freeze({
+                property: "prepareIdentifierCasePlan",
+                errorMessage:
+                    "Identifier case plan preparation service must provide a prepareIdentifierCasePlan function"
+            })
+        ])
+    }),
+    renameLookup: Object.freeze({
+        serviceErrorMessage:
+            "Identifier case rename lookup service must be provided as an object",
+        functionDescriptors: Object.freeze([
+            Object.freeze({
+                property: "getIdentifierCaseRenameForNode",
+                errorMessage:
+                    "Identifier case rename lookup service must provide a getIdentifierCaseRenameForNode function"
+            })
+        ])
+    }),
+    snapshotCapture: Object.freeze({
+        serviceErrorMessage:
+            "Identifier case plan snapshot capture service must be provided as an object",
+        functionDescriptors: Object.freeze([
+            Object.freeze({
+                property: "captureIdentifierCasePlanSnapshot",
+                errorMessage:
+                    "Identifier case plan snapshot capture service must provide a captureIdentifierCasePlanSnapshot function"
+            })
+        ])
+    }),
+    snapshotApply: Object.freeze({
+        serviceErrorMessage:
+            "Identifier case plan snapshot apply service must be provided as an object",
+        functionDescriptors: Object.freeze([
+            Object.freeze({
+                property: "applyIdentifierCasePlanSnapshot",
+                errorMessage:
+                    "Identifier case plan snapshot apply service must provide an applyIdentifierCasePlanSnapshot function"
+            })
+        ])
+    })
+});
+
 function createIdentifierCaseServiceRegistry({
     defaultService,
     normalize,
@@ -133,32 +180,24 @@ function normalizeIdentifierCaseServiceFunctions(
     );
 }
 
+function normalizeIdentifierCaseService(service, definitionKey) {
+    const definition = IDENTIFIER_CASE_SERVICE_DEFINITIONS[definitionKey];
+
+    if (!definition) {
+        throw new RangeError(
+            `Unknown identifier case service definition: ${String(definitionKey)}`
+        );
+    }
+
+    return normalizeIdentifierCaseServiceFunctions(service, definition);
+}
+
 function normalizeIdentifierCasePlanPreparationService(service) {
-    return normalizeIdentifierCaseServiceFunctions(service, {
-        serviceErrorMessage:
-            "Identifier case plan preparation service must be provided as an object",
-        functionDescriptors: [
-            {
-                property: "prepareIdentifierCasePlan",
-                errorMessage:
-                    "Identifier case plan preparation service must provide a prepareIdentifierCasePlan function"
-            }
-        ]
-    });
+    return normalizeIdentifierCaseService(service, "preparation");
 }
 
 function normalizeIdentifierCaseRenameLookupService(service) {
-    return normalizeIdentifierCaseServiceFunctions(service, {
-        serviceErrorMessage:
-            "Identifier case rename lookup service must be provided as an object",
-        functionDescriptors: [
-            {
-                property: "getIdentifierCaseRenameForNode",
-                errorMessage:
-                    "Identifier case rename lookup service must provide a getIdentifierCaseRenameForNode function"
-            }
-        ]
-    });
+    return normalizeIdentifierCaseService(service, "renameLookup");
 }
 
 const preparationRegistry = createIdentifierCaseServiceRegistry({
@@ -182,17 +221,7 @@ const renameLookupRegistry = createIdentifierCaseServiceRegistry({
 const snapshotCaptureRegistry = createIdentifierCaseServiceRegistry({
     defaultService: defaultSnapshotCaptureService,
     normalize: (service) =>
-        normalizeIdentifierCaseServiceFunctions(service, {
-            serviceErrorMessage:
-                "Identifier case plan snapshot capture service must be provided as an object",
-            functionDescriptors: [
-                {
-                    property: "captureIdentifierCasePlanSnapshot",
-                    errorMessage:
-                        "Identifier case plan snapshot capture service must provide a captureIdentifierCasePlanSnapshot function"
-                }
-            ]
-        }),
+        normalizeIdentifierCaseService(service, "snapshotCapture"),
     providerTypeErrorMessage:
         "Identifier case plan snapshot capture provider must be a function",
     missingProviderMessage:
@@ -202,17 +231,7 @@ const snapshotCaptureRegistry = createIdentifierCaseServiceRegistry({
 const snapshotApplyRegistry = createIdentifierCaseServiceRegistry({
     defaultService: defaultSnapshotApplyService,
     normalize: (service) =>
-        normalizeIdentifierCaseServiceFunctions(service, {
-            serviceErrorMessage:
-                "Identifier case plan snapshot apply service must be provided as an object",
-            functionDescriptors: [
-                {
-                    property: "applyIdentifierCasePlanSnapshot",
-                    errorMessage:
-                        "Identifier case plan snapshot apply service must provide an applyIdentifierCasePlanSnapshot function"
-                }
-            ]
-        }),
+        normalizeIdentifierCaseService(service, "snapshotApply"),
     providerTypeErrorMessage:
         "Identifier case plan snapshot apply provider must be a function",
     missingProviderMessage:

@@ -34,13 +34,13 @@ it is distinct from the tool JAR that produces the generated sources.
 
 Custom parser behavior now lives outside the generated directory:
 
-* `src/parser/src/extensions/game-maker-language-parser-visitor.js` exposes the
+* `src/parser/src/runtime/game-maker-language-parser-visitor.js` exposes the
   delegate-driven visitor wrapper. It subclasses the generated visitor to keep
   the public API intact (`VISIT_METHOD_NAMES`, delegate hook, etc.).
-* `src/parser/src/extensions/game-maker-language-parser-listener.js` mirrors the
+* `src/parser/src/runtime/game-maker-language-parser-listener.js` mirrors the
   listener delegation model. It composes optional per-rule handlers while
   preserving the generated listener contract via inheritance.
-* `src/parser/src/extensions/recognition-exception-patch.js` installs a
+* `src/parser/src/runtime/recognition-exception-patch.js` installs a
   structural `instanceof` guard so that recognition errors created by bundled
   runtimes still satisfy `re instanceof antlr4.error.RecognitionException`.
   `src/parser/src/gml-parser.js` installs the guard during module initialization.
@@ -55,8 +55,8 @@ method name enumerations.
 so that any object matching `isRecognitionExceptionLike()` is treated as a
 `RecognitionException`. This ensures the generated parser’s catch blocks follow
 ANTLR’s normal recovery flow even when the runtime is bundled or proxied. The
-helper lives in `src/parser/src/utils/recognition-exception.js` and is invoked
-by `src/parser/src/gml-parser.js` before parsing begins.
+helper lives in `src/parser/src/runtime/recognition-exception-patch.js` and is
+invoked by `src/parser/src/gml-parser.js` before parsing begins.
 
 ## Grammar Adjustments
 

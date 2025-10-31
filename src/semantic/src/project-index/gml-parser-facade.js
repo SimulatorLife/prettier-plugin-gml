@@ -1,6 +1,7 @@
 import GMLParser, {
     isSyntaxErrorWithLocation
 } from "gamemaker-language-parser";
+import { ScopeTracker } from "../scopes/index.js";
 import { formatProjectIndexSyntaxError } from "./syntax-error-formatter.js";
 
 function parseProjectIndexSource(sourceText, context = {}) {
@@ -9,7 +10,9 @@ function parseProjectIndexSource(sourceText, context = {}) {
             getComments: false,
             getLocations: true,
             simplifyLocations: false,
-            getIdentifierMetadata: true
+            getIdentifierMetadata: true,
+            createScopeTracker: ({ enabled }) =>
+                enabled ? new ScopeTracker({ enabled }) : null
         });
     } catch (error) {
         if (isSyntaxErrorWithLocation(error)) {
