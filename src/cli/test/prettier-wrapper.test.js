@@ -1143,6 +1143,11 @@ describe("Prettier wrapper CLI", () => {
                     /Verify the path exists relative to the current working directory/i,
                     "Expected stderr to explain how to resolve missing paths"
                 );
+                assert.match(
+                    error.stderr,
+                    /Run "prettier-plugin-gml --help" to review available commands and usage examples\./i,
+                    "Expected stderr to suggest reviewing the CLI command list"
+                );
                 assert.ok(
                     /Usage: prettier-plugin-gml/.test(error.stderr),
                     "Expected stderr to include the CLI usage information"
