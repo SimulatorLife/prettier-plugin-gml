@@ -736,6 +736,7 @@ supported workflows.
 
 - Formatter fails to load the plugin → confirm the explicit `plugins` entry in your Prettier configuration.
 - Wrapper reports "Unable to locate the Prettier plugin entry point" → point the CLI at additional build locations with `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` or update the script’s `node_modules/root/...` path to match your installation layout.
+- CLI reports `Unable to access <path>` after you typed a subcommand name → the formatter runs by default when no subcommand is specified. Re-run the command with `prettier-plugin-gml --help` to review the available commands or provide a valid file/directory path.
 - `npm install` reports `EBADENGINE` → upgrade Node.js to 25.0.0+.
 - Wrapper skips files unexpectedly → inspect the skipped-file summary and adjust `.prettierignore` or `--extensions` accordingly.
 - Parser errors → rerun with `--on-parse-error=revert` to preserve original files, then report the issue with the offending snippet.

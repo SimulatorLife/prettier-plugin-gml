@@ -1067,10 +1067,16 @@ async function resolveTargetStats(target, { usage } = {}) {
         const formattedTarget = formatPathForDisplay(target);
         const guidance = (() => {
             if (isErrorWithCode(error, "ENOENT")) {
-                return [
+                const guidanceParts = [
                     "Verify the path exists relative to the current working directory",
                     `(${INITIAL_WORKING_DIRECTORY}) or provide an absolute path.`
-                ].join(" ");
+                ];
+
+                guidanceParts.push(
+                    'Run "prettier-plugin-gml --help" to review available commands and usage examples.'
+                );
+
+                return guidanceParts.join(" ");
             }
 
             if (isErrorWithCode(error, "EACCES")) {
