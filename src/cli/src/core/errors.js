@@ -142,12 +142,12 @@ function formatErrorObject(error, seen) {
         !isCliUsageError(error) && typeof error.stack === "string"
             ? error.stack
             : null;
-    const sections = [
+    const sections = compactArray([
         formatErrorHeader(error),
         extractStackBody(stack),
         formatErrorCause(error.cause, seen),
         formatAggregateErrors(error, seen)
-    ].filter(Boolean);
+    ]);
 
     if (sections.length === 0 && stack) {
         return stack;

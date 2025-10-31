@@ -14,7 +14,8 @@ import {
     timeSync,
     toMutableArray,
     toNormalizedLowerCaseSet,
-    toPosixPath
+    toPosixPath,
+    compactArray
 } from "../shared/dependencies.js";
 import { writeManualJsonArtifact } from "../modules/manual/file-helpers.js";
 import {
@@ -523,10 +524,7 @@ function resolveManualTagsForPath(manualTags, normalizedPath) {
         return [];
     }
 
-    return entry
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter(Boolean);
+    return compactArray(entry.split(",").map((tag) => tag.trim()));
 }
 
 function isManualEntryDeprecated(normalizedPath, tags) {

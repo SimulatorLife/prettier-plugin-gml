@@ -7,7 +7,8 @@ import {
     PROGRESS_BAR_WIDTH_ENV_VAR,
     resolveProgressBarWidth,
     applyEnvOptionOverrides,
-    resolveCommandUsage
+    resolveCommandUsage,
+    compactArray
 } from "../dependencies.js";
 
 export const MANUAL_REF_ENV_VAR = "GML_MANUAL_REF";
@@ -19,7 +20,7 @@ export function applyManualEnvOptionOverrides({
     additionalOverrides
 } = {}) {
     const normalizedAdditional = Array.isArray(additionalOverrides)
-        ? additionalOverrides.filter(Boolean)
+        ? compactArray(additionalOverrides)
         : [];
 
     const overrides = [

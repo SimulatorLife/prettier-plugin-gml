@@ -6,7 +6,7 @@ import {
     createCommanderProgramContract,
     isCommanderCommandLike
 } from "./commander-contract.js";
-import { resolveCommandUsage } from "../shared/dependencies.js";
+import { compactArray, resolveCommandUsage } from "../shared/dependencies.js";
 
 /**
  * The earlier CLI command "manager" mixed registration APIs with the runner
@@ -42,7 +42,7 @@ function resolveContextCommandFromActionArgs(actionArgs, fallbackCommand) {
 }
 
 function composeUsageHelpMessage({ defaultHelpText, usage }) {
-    const sections = [defaultHelpText, usage].filter(Boolean);
+    const sections = compactArray([defaultHelpText, usage]);
     return sections.length === 0 ? usage : sections.join("\n\n");
 }
 

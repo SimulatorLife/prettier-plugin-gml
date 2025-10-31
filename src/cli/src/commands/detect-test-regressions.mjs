@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import {
     assertArray,
+    compactArray,
     ensureMap,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
@@ -523,17 +524,15 @@ function collectTestCases(root) {
 }
 
 function normalizeResultDirectories(candidateDirs, workspaceRoot) {
-    return toArray(candidateDirs)
-        .filter(Boolean)
-        .map((candidate) => {
-            const resolved = path.isAbsolute(candidate)
-                ? candidate
-                : path.join(workspaceRoot, candidate);
-            return {
-                resolved,
-                display: path.relative(workspaceRoot, resolved) || resolved
-            };
-        });
+    return compactArray(toArray(candidateDirs)).map((candidate) => {
+        const resolved = path.isAbsolute(candidate)
+            ? candidate
+            : path.join(workspaceRoot, candidate);
+        return {
+            resolved,
+            display: path.relative(workspaceRoot, resolved) || resolved
+        };
+    });
 }
 
 function scanResultDirectory(directory) {
