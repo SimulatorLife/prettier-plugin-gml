@@ -93,6 +93,41 @@ function assertSuiteRunnerLookup(availableSuites) {
 }
 
 /**
+ * Execute an individual suite runner and normalize the resulting entry.
+ *
+ * Offloading this bookkeeping keeps {@link collectSuiteResults} focused on
+ * sequencing suites at a single abstraction layer instead of juggling raw
+ * result mutations and error handling inline.
+ *
+ * @param {{
+ *   suiteName: string,
+ *   availableSuites: Map<string, unknown>,
+ *   runnerOptions: unknown,
+ *   handleSuiteError: (error: unknown, context: { suiteName: string }) => unknown
+ * }} context
+ * @returns {Promise<[string, unknown] | null>}
+ */
+async function executeSuiteRunner({
+    suiteName,
+    availableSuites,
+    runnerOptions,
+    handleSuiteError
+}) {
+    const runner = availableSuites.get(suiteName);
+    if (typeof runner !== "function") {
+        return null;
+    }
+
+    try {
+        const result = await runner(runnerOptions);
+        return [suiteName, result];
+    } catch (error) {
+        const fallback = handleSuiteError(error, { suiteName });
+        return [suiteName, fallback];
+    }
+}
+
+/**
  * Execute the provided suite runners and collect their results, applying an
  * optional error mapper when a runner throws.
  *
@@ -116,26 +151,25 @@ export async function collectSuiteResults({
         return {};
     }
 
-    const results = {};
+    const entries = [];
     const defaultOnError = (error) => ({ error: createCliErrorDetails(error) });
     const handleSuiteError =
         typeof onError === "function" ? onError : defaultOnError;
 
     for (const suiteName of suiteNames) {
-        const runner = availableSuites.get(suiteName);
-        if (typeof runner !== "function") {
-            continue;
-        }
+        const entry = await executeSuiteRunner({
+            suiteName,
+            availableSuites,
+            runnerOptions,
+            handleSuiteError
+        });
 
-        try {
-            results[suiteName] = await runner(runnerOptions);
-        } catch (error) {
-            const fallback = handleSuiteError(error, { suiteName });
-            results[suiteName] = fallback;
+        if (entry) {
+            entries.push(entry);
         }
     }
 
-    return results;
+    return Object.fromEntries(entries);
 }
 
 export function createSuiteResultsPayload(results, { generatedAt } = {}) {
