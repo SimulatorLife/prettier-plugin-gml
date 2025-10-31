@@ -221,7 +221,8 @@ export default class GMLParser {
         getComments: true,
         getLocations: true,
         simplifyLocations: true,
-        getIdentifierMetadata: false
+        getIdentifierMetadata: false,
+        createScopeTracker: null
     };
 
     static parse(
@@ -230,7 +231,8 @@ export default class GMLParser {
             getComments: true,
             getLocations: true,
             simplifyLocations: true,
-            getIdentifierMetadata: false
+            getIdentifierMetadata: false,
+            createScopeTracker: null
         }
     ) {
         return new this(text, options).parse();

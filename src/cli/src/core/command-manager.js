@@ -75,11 +75,14 @@ class CliCommandManager {
             handleError: this._defaultErrorHandler
         });
 
-        this._programContract.hook("preSubcommand", (thisCommand, actionCommand) => {
-            if (actionCommand) {
-                this._activeCommand = actionCommand;
+        this._programContract.hook(
+            "preSubcommand",
+            (thisCommand, actionCommand) => {
+                if (actionCommand) {
+                    this._activeCommand = actionCommand;
+                }
             }
-        });
+        );
 
         this._programContract.hook("postAction", () => {
             this._activeCommand = null;

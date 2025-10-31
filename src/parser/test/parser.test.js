@@ -8,6 +8,7 @@ import { describe, it } from "node:test";
 import GMLParser from "../gml-parser.js";
 import GameMakerASTBuilder from "../src/gml-ast-builder.js";
 import { getLineBreakCount, getNodeStartIndex } from "../src/shared/index.js";
+import ScopeTracker from "../../semantic/src/scopes/scope-tracker.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixturesDirectory = path.join(currentDirectory, "input");
@@ -170,7 +171,9 @@ function groupIdentifiersByName(identifiers) {
 function parseWithMetadata(source) {
     return GMLParser.parse(source, {
         getIdentifierMetadata: true,
-        simplifyLocations: false
+        simplifyLocations: false,
+        createScopeTracker: ({ enabled }) =>
+            enabled ? new ScopeTracker({ enabled }) : null
     });
 }
 
