@@ -8,6 +8,7 @@ import {
     getCallExpressionIdentifierName,
     normalizeStringList,
     toNormalizedLowerCaseString,
+    coalesceOption,
     hasOwn,
     isObjectLike
 } from "../shared/index.js";
@@ -61,9 +62,10 @@ function cacheSuffixes(options, suffixes) {
 }
 
 function createSizeSuffixMap(options) {
-    const rawOverrides = isObjectLike(options)
-        ? options.loopLengthHoistFunctionSuffixes
-        : undefined;
+    const rawOverrides = coalesceOption(
+        options,
+        "loopLengthHoistFunctionSuffixes"
+    );
     const overrides = parseSizeRetrievalFunctionSuffixOverrides(rawOverrides);
 
     const merged = new Map(DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES);
