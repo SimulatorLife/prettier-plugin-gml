@@ -1,4 +1,4 @@
-import { assertFunction } from "../shared/index.js";
+import { assertProviderFunction } from "../shared/index.js";
 import { createPluginComponentContractNormalizer } from "./plugin-component-contract.js";
 import { defaultGmlPluginComponentDependencies } from "./default-plugin-component-dependencies.js";
 
@@ -19,9 +19,9 @@ export function resolveGmlPluginComponentDependencies() {
 }
 
 export function setGmlPluginComponentDependencyProvider(provider) {
-    const normalizedProvider = assertFunction(provider, "provider", {
-        errorMessage:
-            "GML plugin component dependency providers must be functions that return dependency maps."
+    const normalizedProvider = assertProviderFunction(provider, {
+        context: "GML plugin component dependency providers",
+        expectation: "return dependency maps"
     });
 
     currentProvider = normalizedProvider;

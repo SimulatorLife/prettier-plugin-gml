@@ -1,4 +1,8 @@
-import { assertFunction, assertPlainObject } from "../dependencies.js";
+import {
+    assertFunction,
+    assertPlainObject,
+    assertProviderFunction
+} from "../dependencies.js";
 import { defaultCliPluginServiceDependencies } from "./default-service-dependencies.js";
 
 const REQUIRED_SERVICE_DEPENDENCIES = Object.freeze([
@@ -62,9 +66,9 @@ export function getCliPluginServiceDependencyProvider() {
 }
 
 export async function setCliPluginServiceDependencyProvider(provider) {
-    const normalizedProvider = assertFunction(provider, "provider", {
-        errorMessage:
-            "CLI plugin service dependency providers must be functions that return dependency maps."
+    const normalizedProvider = assertProviderFunction(provider, {
+        context: "CLI plugin service dependency providers",
+        expectation: "return dependency maps"
     });
 
     const dependencies = await resolveDependencyResult(normalizedProvider());

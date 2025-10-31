@@ -1,4 +1,4 @@
-import { assertFunction } from "../shared/index.js";
+import { assertProviderFunction } from "../shared/index.js";
 import { createPluginComponentContractNormalizer } from "./plugin-component-contract.js";
 import { defaultGmlPluginComponentImplementations } from "./default-plugin-component-implementations.js";
 
@@ -19,9 +19,9 @@ export function resolveGmlPluginComponentImplementations() {
 }
 
 export function setGmlPluginComponentImplementationProvider(provider) {
-    const normalizedProvider = assertFunction(provider, "provider", {
-        errorMessage:
-            "GML plugin component implementation providers must be functions that return implementation maps."
+    const normalizedProvider = assertProviderFunction(provider, {
+        context: "GML plugin component implementation providers",
+        expectation: "return implementation maps"
     });
 
     currentProvider = normalizedProvider;

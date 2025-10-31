@@ -1,5 +1,6 @@
 import {
     assertFunction,
+    assertProviderFunction,
     isAbortError,
     noop,
     resolveAbortSignalFromOptions
@@ -41,9 +42,10 @@ export function resolveGmlPluginComponents() {
 }
 
 export function setGmlPluginComponentProvider(provider) {
-    const normalizedProvider = assertFunction(provider, "provider", {
-        errorMessage:
-            "GML plugin component providers must be functions that return component maps"
+    const normalizedProvider = assertProviderFunction(provider, {
+        context: "GML plugin component providers",
+        expectation: "return component maps",
+        includePeriod: false
     });
 
     currentProvider = normalizedProvider;

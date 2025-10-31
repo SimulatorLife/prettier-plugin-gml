@@ -4,6 +4,7 @@ export {
     assertArray,
     assertFunction,
     assertFunctionProperties,
+    assertProviderFunction,
     assertNonEmptyString,
     assertPlainObject,
     coerceNonNegativeInteger,

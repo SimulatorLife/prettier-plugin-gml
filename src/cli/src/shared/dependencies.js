@@ -4,6 +4,7 @@ export {
     asArray,
     assertArray,
     assertFunction,
+    assertProviderFunction,
     assertNonEmptyString,
     assertPlainObject,
     compactArray,
