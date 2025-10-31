@@ -179,22 +179,24 @@ function normalizeMultilineText(text) {
     }
 
     const normalizedLines = [];
-    let previousWasBlank = true;
+    let pendingBlank = false;
 
     for (const rawLine of text.split("\n")) {
         const line = rawLine.trim();
 
         if (line.length === 0) {
-            if (!previousWasBlank && normalizedLines.length > 0) {
-                normalizedLines.push("");
-                previousWasBlank = true;
+            if (normalizedLines.length > 0) {
+                pendingBlank = true;
             }
-
             continue;
         }
 
+        if (pendingBlank) {
+            normalizedLines.push("");
+            pendingBlank = false;
+        }
+
         normalizedLines.push(line);
-        previousWasBlank = false;
     }
 
     return normalizedLines.join("\n").trim();
