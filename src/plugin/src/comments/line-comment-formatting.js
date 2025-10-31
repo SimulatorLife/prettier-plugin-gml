@@ -166,27 +166,43 @@ function createDocCommentTypeNormalization(candidate) {
 
     return Object.freeze({
         lookupTypeIdentifier(identifier) {
-            const normalized = normalizeDocCommentLookupKey(identifier);
-            if (!normalized) {
-                return null;
-            }
-            return synonyms.get(normalized) ?? null;
+            return withNormalizedDocCommentLookup(
+                identifier,
+                (normalized) => synonyms.get(normalized) ?? null,
+                null
+            );
         },
         getCanonicalSpecifierName(identifier) {
-            const normalized = normalizeDocCommentLookupKey(identifier);
-            if (!normalized) {
-                return null;
-            }
-            return canonicalSpecifierNames.get(normalized) ?? null;
+            return withNormalizedDocCommentLookup(
+                identifier,
+                (normalized) => canonicalSpecifierNames.get(normalized) ?? null,
+                null
+            );
         },
         hasSpecifierPrefix(identifier) {
-            const normalized = normalizeDocCommentLookupKey(identifier);
-            if (!normalized) {
-                return false;
-            }
-            return specifierPrefixes.has(normalized);
+            return withNormalizedDocCommentLookup(
+                identifier,
+                (normalized) => specifierPrefixes.has(normalized),
+                false
+            );
         }
     });
+}
+
+function withNormalizedDocCommentLookup(identifier, handler, fallbackValue) {
+    if (typeof handler !== "function") {
+        throw new TypeError(
+            "Doc comment lookup handler must be provided as a function."
+        );
+    }
+
+    const normalized = normalizeDocCommentLookupKey(identifier);
+    if (!normalized) {
+        return fallbackValue;
+    }
+
+    const result = handler(normalized);
+    return result;
 }
 
 function mergeNormalizationEntries(target, entries) {
@@ -350,6 +366,8 @@ function formatLineComment(
     const trimmedOriginal = original.trim();
     const rawValue = getCommentValue(comment);
     const trimmedValue = getCommentValue(comment, { trim: true });
+    const startsWithTripleSlash = trimmedOriginal.startsWith("///");
+    const isPlainTripleSlash = startsWithTripleSlash && !trimmedOriginal.includes("@");
 
     const leadingSlashMatch = trimmedOriginal.match(/^\/+/);
     const leadingSlashCount = leadingSlashMatch
@@ -389,17 +407,13 @@ function formatLineComment(
         return applyInlinePadding(comment, original.trim());
     }
 
-    if (
-        isInlineComment &&
-        trimmedOriginal.startsWith("///") &&
-        !trimmedOriginal.includes("@")
-    ) {
+    if (isInlineComment && isPlainTripleSlash) {
         const remainder = trimmedOriginal.slice(3).trimStart();
         const formatted = remainder.length > 0 ? `// ${remainder}` : "//";
         return applyInlinePadding(comment, formatted);
     }
 
-    if (trimmedOriginal.startsWith("///") && !trimmedOriginal.includes("@")) {
+    if (isPlainTripleSlash) {
         const remainder = trimmedOriginal.slice(3).trimStart();
 
         if (comment?.isBottomComment === true && /^\d/.test(remainder)) {
@@ -417,8 +431,7 @@ function formatLineComment(
     }
 
     if (
-        trimmedOriginal.startsWith("///") &&
-        !trimmedOriginal.includes("@") &&
+        isPlainTripleSlash &&
         leadingSlashCount >= LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES &&
         !isInlineComment
     ) {
@@ -426,12 +439,7 @@ function formatLineComment(
     }
 
     const docContinuationMatch = trimmedValue.match(/^\/\s*(\S.*)$/);
-    if (
-        docContinuationMatch &&
-        trimmedOriginal.startsWith("///") &&
-        !trimmedOriginal.includes("@") &&
-        !isInlineComment
-    ) {
+    if (docContinuationMatch && isPlainTripleSlash && !isInlineComment) {
         return applyInlinePadding(comment, trimmedOriginal);
     }
 

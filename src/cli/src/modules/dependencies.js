@@ -42,3 +42,18 @@ export {
     withProgressBarCleanup,
     resetProgressBarRegistryForTesting
 } from "../runtime-options/progress-bar.js";
+
+export { ensureWorkflowPathsAllowed } from "../workflow/path-filter.js";
+
+export { REPO_ROOT, resolveFromRepoRoot } from "../shared/workspace-paths.js";
+
+export {
+    DEFAULT_FIXTURE_DIRECTORIES,
+    createPathFilter,
+    normalizeFixtureRoots
+} from "../workflow/fixture-roots.js";
+
+export {
+    writeFileArtifact,
+    writeJsonArtifact
+} from "../shared/fs-artifacts.js";

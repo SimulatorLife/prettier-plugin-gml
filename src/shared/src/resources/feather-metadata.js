@@ -1,20 +1,71 @@
 import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
 
 import { asArray } from "../utils/array.js";
+import { assertPlainObject } from "../utils/object.js";
 import { toTrimmedString } from "../utils/string.js";
+import {
+    resolveBundledResourcePath,
+    resolveBundledResourceUrl
+} from "./resource-locator.js";
 
 const require = createRequire(import.meta.url);
 
-export const FEATHER_METADATA_URL = new URL(
-    "../../../../resources/feather-metadata.json",
-    import.meta.url
+export const FEATHER_METADATA_URL = resolveBundledResourceUrl(
+    "feather-metadata.json"
 );
 
-export const FEATHER_METADATA_PATH = fileURLToPath(FEATHER_METADATA_URL);
+export const FEATHER_METADATA_PATH = resolveBundledResourcePath(
+    "feather-metadata.json"
+);
 
 export function loadBundledFeatherMetadata() {
     return require(FEATHER_METADATA_PATH);
+}
+
+function normalizeFeatherDiagnostic(diagnostic, index) {
+    const normalizedDiagnostic = assertPlainObject(diagnostic, {
+        name: `Feather metadata diagnostics[${index}]`
+    });
+
+    const normalizedId = toTrimmedString(normalizedDiagnostic.id);
+    if (normalizedId.length === 0) {
+        throw new TypeError(
+            `Feather metadata diagnostics[${index}] must declare a non-empty id.`
+        );
+    }
+
+    if (normalizedDiagnostic.id === normalizedId) {
+        return normalizedDiagnostic;
+    }
+
+    return { ...normalizedDiagnostic, id: normalizedId };
+}
+
+function normalizeFeatherDiagnostics(diagnostics) {
+    if (diagnostics == null) {
+        return [];
+    }
+
+    if (!Array.isArray(diagnostics)) {
+        throw new TypeError(
+            "Feather metadata diagnostics must be provided as an array."
+        );
+    }
+
+    return diagnostics.map((diagnostic, index) =>
+        normalizeFeatherDiagnostic(diagnostic, index)
+    );
+}
+
+function normalizeFeatherMetadata(payload) {
+    const metadata = assertPlainObject(payload, {
+        name: "Feather metadata"
+    });
+
+    return {
+        ...metadata,
+        diagnostics: normalizeFeatherDiagnostics(metadata.diagnostics)
+    };
 }
 
 /**
@@ -45,15 +96,16 @@ function loadFeatherMetadata() {
 
     /** @type {FeatherMetadata} */
     const metadata = loadBundledFeatherMetadata();
-    cachedMetadata = metadata;
-    return metadata;
+    const normalizedMetadata = normalizeFeatherMetadata(metadata);
+    cachedMetadata = normalizedMetadata;
+    return normalizedMetadata;
 }
 
 /**
  * Retrieve the shared Feather metadata payload bundled with the semantic
  * package.
  *
- * @returns {FeatherMetadata}
+ * @returns {FeatherMetadata} Bundled Feather metadata payload.
  */
 export function getFeatherMetadata() {
     return loadFeatherMetadata();
@@ -62,7 +114,7 @@ export function getFeatherMetadata() {
 /**
  * Return the list of Feather diagnostics declared in the bundled metadata.
  *
- * @returns {Array<FeatherDiagnostic>}
+ * @returns {Array<FeatherDiagnostic>} Array of diagnostics declared in the bundled metadata.
  */
 export function getFeatherDiagnostics() {
     const metadata = loadFeatherMetadata();
@@ -73,7 +125,7 @@ export function getFeatherDiagnostics() {
  * Look up a single Feather diagnostic by its identifier.
  *
  * @param {string | null | undefined} id Diagnostic identifier to find.
- * @returns {FeatherDiagnostic | null}
+ * @returns {FeatherDiagnostic | null} Matching diagnostic when found; otherwise `null`.
  */
 export function getFeatherDiagnosticById(id) {
     const normalizedId = toTrimmedString(id);
@@ -89,3 +141,5 @@ export function getFeatherDiagnosticById(id) {
         ) ?? null
     );
 }
+
+export const __normalizeFeatherMetadataForTests = normalizeFeatherMetadata;

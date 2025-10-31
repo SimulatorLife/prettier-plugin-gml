@@ -118,24 +118,35 @@ const SUMMARY_SECTIONS = Object.freeze([
  * @property {MetricsReportingSuite} reporting
  */
 
-function normalizeCacheKeys(keys) {
-    const finalize = (candidate) => {
-        const normalized = normalizeStringList(candidate, {
-            allowInvalidType: true
-        });
-
-        return normalized.length > 0 ? normalized : [...DEFAULT_CACHE_KEYS];
-    };
+function collectCacheKeyCandidates(keys) {
+    if (keys == null) {
+        return null;
+    }
 
     if (typeof keys === "string" || Array.isArray(keys)) {
-        return finalize(keys);
+        return keys;
     }
 
-    if (keys && typeof keys[Symbol.iterator] === "function") {
-        return finalize(toArrayFromIterable(keys));
+    if (typeof keys?.[Symbol.iterator] === "function") {
+        return toArrayFromIterable(keys);
     }
 
-    return finalize(DEFAULT_CACHE_KEYS);
+    return null;
+}
+
+function normalizeCacheKeys(keys) {
+    const fallback = [...DEFAULT_CACHE_KEYS];
+    const candidates = collectCacheKeyCandidates(keys);
+
+    if (!candidates) {
+        return fallback;
+    }
+
+    const normalized = normalizeStringList(candidates, {
+        allowInvalidType: true
+    });
+
+    return normalized.length > 0 ? normalized : fallback;
 }
 
 function normalizeIncrementAmount(amount, fallback = 1) {
@@ -260,7 +271,6 @@ export function createMetricsTracker({
     autoLog = false,
     cacheKeys: cacheKeyOption
 } = {}) {
-    const startTime = nowMs();
     const timings = new Map();
     const counters = new Map();
     const caches = new Map();
@@ -270,17 +280,21 @@ export function createMetricsTracker({
     const incrementTiming = createMapIncrementer(timings);
     const incrementCounterBy = createMapIncrementer(counters);
     const snapshot = (extra = {}) => {
+        const timingsSnapshot = toPlainObject(timings);
+        const countersSnapshot = toPlainObject(counters);
+        const cachesSnapshot = Object.fromEntries(
+            Array.from(caches, ([name, stats]) => [name, toPlainObject(stats)])
+        );
+        const totalTimeMs = Object.values(timingsSnapshot).reduce(
+            (total, value) => total + value,
+            0
+        );
         const summary = {
             category,
-            totalTimeMs: nowMs() - startTime,
-            timings: toPlainObject(timings),
-            counters: toPlainObject(counters),
-            caches: Object.fromEntries(
-                Array.from(caches, ([name, stats]) => [
-                    name,
-                    toPlainObject(stats)
-                ])
-            ),
+            totalTimeMs,
+            timings: timingsSnapshot,
+            counters: countersSnapshot,
+            caches: cachesSnapshot,
             metadata: { ...metadata }
         };
 

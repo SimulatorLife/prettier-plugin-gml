@@ -1,6 +1,7 @@
 import { builders, utils } from "prettier/doc";
 
 import {
+    DefineReplacementDirective,
     isLastStatement,
     optionalSemicolon,
     isNextLineEmpty,
@@ -268,11 +269,12 @@ function isBlockWithinConstructor(path) {
         return false;
     }
 
+    // Hoist the `getParentNode` lookup so the tight loop can call it directly
+    // without paying for the generic helper's array normalization overhead on
+    // every iteration.
+    const getParentNode = path.getParentNode;
     for (let depth = 0; depth < 100; depth += 1) {
-        const ancestor = callPathMethod(path, "getParentNode", {
-            args: [depth],
-            defaultValue: null
-        });
+        const ancestor = getParentNode.call(path, depth);
 
         if (!ancestor) {
             break;
@@ -848,7 +850,9 @@ export function print(path, options, print) {
                 functionNameDoc
             ]);
 
-            if (node.params.length > 0) {
+            const hasParameters = isNonEmptyArray(node.params);
+
+            if (hasParameters) {
                 const {
                     inlineDoc: inlineParamDoc,
                     multilineDoc: multilineParamDoc
@@ -887,29 +891,28 @@ export function print(path, options, print) {
             return concat(parts);
         }
         case "ConstructorParentClause": {
-            let params;
-            params =
-                node.params.length > 0
-                    ? printCommaSeparatedList(
-                          path,
-                          print,
-                          "params",
-                          "(",
-                          ")",
-                          options,
-                          {
-                              // Constructor parent clauses participate in the
-                              // surrounding function signature. Breaking the
-                              // argument list across multiple lines changes
-                              // the shape of the signature and regresses
-                              // existing fixtures that rely on the entire
-                              // clause remaining inline.
-                              leadingNewline: false,
-                              trailingNewline: false,
-                              forceInline: true
-                          }
-                      )
-                    : printEmptyParens(path, print, options);
+            const hasParameters = isNonEmptyArray(node.params);
+            const params = hasParameters
+                ? printCommaSeparatedList(
+                      path,
+                      print,
+                      "params",
+                      "(",
+                      ")",
+                      options,
+                      {
+                          // Constructor parent clauses participate in the
+                          // surrounding function signature. Breaking the
+                          // argument list across multiple lines changes
+                          // the shape of the signature and regresses
+                          // existing fixtures that rely on the entire
+                          // clause remaining inline.
+                          leadingNewline: false,
+                          trailingNewline: false,
+                          forceInline: true
+                      }
+                  )
+                : printEmptyParens(path, print, options);
             return concat([" : ", print("id"), params, " constructor"]);
         }
         case "DefaultParameter": {
@@ -1543,9 +1546,8 @@ export function print(path, options, print) {
         }
         case "DefineStatement": {
             const directive =
-                typeof node.replacementDirective === "string"
-                    ? node.replacementDirective
-                    : "#macro";
+                getNormalizedDefineReplacementDirective(node) ??
+                DefineReplacementDirective.MACRO;
             const suffixDoc =
                 typeof node.replacementSuffix === "string"
                     ? node.replacementSuffix
@@ -2089,7 +2091,7 @@ function shouldForceInlineFunctionParameters(path, options) {
         return false;
     }
 
-    if (!Array.isArray(node.params) || node.params.length === 0) {
+    if (!isNonEmptyArray(node.params)) {
         return false;
     }
 
@@ -2900,7 +2902,8 @@ function printStatements(path, options, print, childrenAttribute) {
 
             const isMacroLikeNode = isMacroLikeStatement(node);
             const isDefineMacroReplacement =
-                getNormalizedDefineReplacementDirective(node) === "#macro";
+                getNormalizedDefineReplacementDirective(node) ===
+                DefineReplacementDirective.MACRO;
             const shouldForceMacroPadding =
                 isMacroLikeNode &&
                 !isDefineMacroReplacement &&
@@ -4121,21 +4124,172 @@ function reorderDescriptionLinesAfterFunction(docLines) {
     ];
 }
 
+function promoteLeadingDocCommentTextToDescription(docLines) {
+    const normalizedLines = toMutableArray(docLines);
+
+    if (normalizedLines.length === 0) {
+        return normalizedLines;
+    }
+
+    const segments = [];
+    let leadingCount = 0;
+
+    while (leadingCount < normalizedLines.length) {
+        const line = normalizedLines[leadingCount];
+        if (typeof line !== "string") {
+            break;
+        }
+
+        const trimmed = line.trim();
+        const isDocLikeSummary =
+            trimmed.startsWith("///") || /^\/\/\s*\//.test(trimmed);
+        if (!isDocLikeSummary) {
+            break;
+        }
+
+        const isTaggedLine =
+            /^\/\/\/\s*@/i.test(trimmed) || /^\/\/\s*\/\s*@/i.test(trimmed);
+        if (isTaggedLine) {
+            break;
+        }
+
+        let match = line.match(/^(\s*\/\/\/)(.*)$/);
+        if (!match) {
+            const docLikeMatch = line.match(/^(\s*)\/\/\s*\/(.*)$/);
+            if (!docLikeMatch) {
+                break;
+            }
+
+            const [, indent = "", suffix = ""] = docLikeMatch;
+            match = [line, `${indent}///`, suffix];
+        }
+
+        const [, prefix = "///", suffix = ""] = match;
+        segments.push({ prefix, suffix });
+        leadingCount += 1;
+    }
+
+    if (segments.length === 0) {
+        return normalizedLines;
+    }
+
+    const firstContentIndex = segments.findIndex(
+        ({ suffix }) => suffix.trim().length > 0
+    );
+
+    if (firstContentIndex === -1) {
+        return normalizedLines;
+    }
+
+    const nextLine = normalizedLines[leadingCount];
+    const nextLineTrimmed = typeof nextLine === "string" ? nextLine.trim() : "";
+    if (
+        typeof nextLine !== "string" ||
+        (!/^\/\/\/\s*@/i.test(nextLineTrimmed) &&
+            !/^\/\/\s*\/\s*@/i.test(nextLineTrimmed))
+    ) {
+        return normalizedLines;
+    }
+
+    const promotedLines = [];
+    const firstSegment = segments[firstContentIndex];
+    const indent = firstSegment.prefix.slice(
+        0,
+        Math.max(firstSegment.prefix.length - 3, 0)
+    );
+    const normalizedBasePrefix = `${indent}///`;
+    const descriptionLinePrefix = `${normalizedBasePrefix} @description `;
+    const continuationPadding = Math.max(
+        descriptionLinePrefix.length - (indent.length + 4),
+        0
+    );
+    const continuationPrefix = `${indent}/// ${" ".repeat(continuationPadding)}`;
+
+    for (const [index, { prefix, suffix }] of segments.entries()) {
+        const trimmedSuffix = suffix.trim();
+        const hasLeadingWhitespace = suffix.length === 0 || /^\s/.test(suffix);
+
+        if (index < firstContentIndex) {
+            const normalizedSuffix = hasLeadingWhitespace
+                ? suffix
+                : ` ${suffix}`;
+            promotedLines.push(`${prefix}${normalizedSuffix}`);
+            continue;
+        }
+
+        if (index === firstContentIndex) {
+            promotedLines.push(
+                trimmedSuffix.length > 0
+                    ? `${prefix} @description ${trimmedSuffix}`
+                    : `${prefix} @description`
+            );
+            continue;
+        }
+
+        if (trimmedSuffix.length === 0) {
+            const blankLine = suffix.length > 0 ? `${prefix}${suffix}` : prefix;
+            promotedLines.push(blankLine);
+            continue;
+        }
+
+        const continuationText = trimmedSuffix;
+        const resolvedContinuation =
+            continuationPrefix.length > 0
+                ? `${continuationPrefix}${continuationText}`
+                : `${prefix} ${continuationText}`;
+
+        promotedLines.push(resolvedContinuation);
+    }
+
+    const remainder = normalizedLines.slice(leadingCount);
+    const result = [...promotedLines, ...remainder];
+
+    const hasContinuationSegments = segments.some(
+        ({ suffix }, index) =>
+            index > firstContentIndex && suffix.trim().length > 0
+    );
+
+    if (hasContinuationSegments) {
+        result._preserveDescriptionBreaks = true;
+    }
+
+    if (normalizedLines._suppressLeadingBlank) {
+        result._suppressLeadingBlank = true;
+    }
+
+    return result;
+}
+
 function mergeSyntheticDocComments(
     node,
     existingDocLines,
     options,
     overrides = {}
 ) {
-    let normalizedExistingLines = reorderDescriptionLinesAfterFunction(
-        toMutableArray(existingDocLines)
+    let normalizedExistingLines = toMutableArray(existingDocLines);
+
+    normalizedExistingLines = promoteLeadingDocCommentTextToDescription(
+        normalizedExistingLines
+    );
+    let preserveDescriptionBreaks =
+        normalizedExistingLines?._preserveDescriptionBreaks === true;
+
+    normalizedExistingLines = reorderDescriptionLinesAfterFunction(
+        normalizedExistingLines
     );
 
+    if (preserveDescriptionBreaks) {
+        normalizedExistingLines._preserveDescriptionBreaks = true;
+    }
     let removedExistingReturnDuplicates = false;
     ({
         lines: normalizedExistingLines,
         removed: removedExistingReturnDuplicates
     } = dedupeReturnDocLines(normalizedExistingLines));
+
+    if (preserveDescriptionBreaks) {
+        normalizedExistingLines._preserveDescriptionBreaks = true;
+    }
 
     const syntheticLines = reorderDescriptionLinesAfterFunction(
         computeSyntheticFunctionDocLines(
@@ -4258,11 +4412,29 @@ function mergeSyntheticDocComments(
                 firstParamIndex === -1 ? mergedLines.length : firstParamIndex;
             const precedingLine =
                 insertionIndex > 0 ? mergedLines[insertionIndex - 1] : null;
+            const trimmedPreceding =
+                typeof precedingLine === "string" ? precedingLine.trim() : "";
+            const isDocCommentLine =
+                typeof trimmedPreceding === "string" &&
+                /^\/\/\//.test(trimmedPreceding);
+            const isDocTagLine =
+                isDocCommentLine && /^\/\/\/\s*@/i.test(trimmedPreceding);
+
+            let precedingDocTag = null;
+            if (isDocCommentLine && isDocTagLine) {
+                const metadata = parseDocCommentMetadata(precedingLine);
+                if (metadata && typeof metadata.tag === "string") {
+                    precedingDocTag = metadata.tag.toLowerCase();
+                }
+            }
+
+            const shouldSeparateDocTag = precedingDocTag === "deprecated";
 
             const needsSeparatorBeforeFunction =
+                trimmedPreceding !== "" &&
                 typeof precedingLine === "string" &&
-                precedingLine.trim() !== "" &&
-                !isFunctionLine(precedingLine);
+                !isFunctionLine(precedingLine) &&
+                (!isDocCommentLine || !isDocTagLine || shouldSeparateDocTag);
 
             if (needsSeparatorBeforeFunction) {
                 mergedLines = [
@@ -4855,209 +5027,224 @@ function mergeSyntheticDocComments(
         return normalizeDocCommentTypeAnnotations(updatedLine);
     });
 
-    const wrappedDocs = [];
-    const normalizedPrintWidth = coercePositiveIntegerOption(
-        options?.printWidth,
-        120
-    );
-    const wrapWidth = Math.min(
-        normalizedPrintWidth,
-        DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH
-    );
+    if (preserveDescriptionBreaks) {
+        result = reorderedDocs;
+    } else {
+        const wrappedDocs = [];
+        const normalizedPrintWidth = coercePositiveIntegerOption(
+            options?.printWidth,
+            120
+        );
+        const wrapWidth = Math.min(
+            normalizedPrintWidth,
+            DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH
+        );
 
-    const wrapSegments = (text, firstAvailable, continuationAvailable) => {
-        if (firstAvailable <= 0) {
-            return [text];
-        }
-
-        const words = text.split(/\s+/).filter((word) => word.length > 0);
-        if (words.length === 0) {
-            return [];
-        }
-
-        const segments = [];
-        let current = words[0];
-        let currentAvailable = firstAvailable;
-
-        for (let index = 1; index < words.length; index += 1) {
-            const word = words[index];
-
-            const endsSentence = /[.!?]["')\]]?$/.test(current);
-            const startsSentence = /^[A-Z]/.test(word);
-            if (
-                endsSentence &&
-                startsSentence &&
-                currentAvailable >= 60 &&
-                current.length >=
-                    Math.max(Math.floor(currentAvailable * 0.6), 24)
-            ) {
-                segments.push(current);
-                current = word;
-                currentAvailable = continuationAvailable;
-                continue;
+        const wrapSegments = (text, firstAvailable, continuationAvailable) => {
+            if (firstAvailable <= 0) {
+                return [text];
             }
 
-            if (current.length + 1 + word.length > currentAvailable) {
-                segments.push(current);
-                current = word;
-                currentAvailable = continuationAvailable;
-            } else {
-                current += ` ${word}`;
+            const words = text.split(/\s+/).filter((word) => word.length > 0);
+            if (words.length === 0) {
+                return [];
             }
-        }
 
-        segments.push(current);
+            const segments = [];
+            let current = words[0];
+            let currentAvailable = firstAvailable;
 
-        const lastIndex = segments.length - 1;
-        if (lastIndex >= 2) {
-            // `Array#at` handles negative indices but introduces an extra bounds
-            // check on every call. This helper runs for every doc comment we
-            // wrap, so prefer direct index math to keep the hot path lean.
-            const lastSegment = segments[lastIndex];
-            const isSingleWord =
-                typeof lastSegment === "string" && !/\s/.test(lastSegment);
+            for (let index = 1; index < words.length; index += 1) {
+                const word = words[index];
 
-            if (isSingleWord) {
-                const maxSingleWordLength = Math.max(
-                    Math.min(continuationAvailable / 2, 16),
-                    8
-                );
-
-                if (lastSegment.length <= maxSingleWordLength) {
-                    const penultimateIndex = lastIndex - 1;
-                    const mergedSegment =
-                        segments[penultimateIndex] + ` ${lastSegment}`;
-
-                    segments[penultimateIndex] = mergedSegment;
-                    segments.pop();
-                }
-            }
-        }
-
-        return segments;
-    };
-
-    for (let index = 0; index < reorderedDocs.length; index += 1) {
-        const line = reorderedDocs[index];
-        if (isDescriptionLine(line)) {
-            const blockLines = [line];
-            let lookahead = index + 1;
-
-            while (lookahead < reorderedDocs.length) {
-                const nextLine = reorderedDocs[lookahead];
+                const endsSentence = /[.!?]["')\]]?$/.test(current);
+                const startsSentence = /^[A-Z]/.test(word);
                 if (
-                    typeof nextLine === "string" &&
-                    nextLine.startsWith("///") &&
-                    !parseDocCommentMetadata(nextLine)
+                    endsSentence &&
+                    startsSentence &&
+                    currentAvailable >= 60 &&
+                    current.length >=
+                        Math.max(Math.floor(currentAvailable * 0.6), 24)
                 ) {
-                    blockLines.push(nextLine);
-                    lookahead += 1;
+                    segments.push(current);
+                    current = word;
+                    currentAvailable = continuationAvailable;
                     continue;
                 }
-                break;
+
+                if (current.length + 1 + word.length > currentAvailable) {
+                    segments.push(current);
+                    current = word;
+                    currentAvailable = continuationAvailable;
+                } else {
+                    current += ` ${word}`;
+                }
             }
 
-            index = lookahead - 1;
+            segments.push(current);
 
-            const prefixMatch = line.match(/^(\/\/\/\s*@description\s+)/i);
-            if (!prefixMatch) {
-                wrappedDocs.push(...blockLines);
-                continue;
-            }
+            const lastIndex = segments.length - 1;
+            if (lastIndex >= 2) {
+                // `Array#at` handles negative indices but introduces an extra bounds
+                // check on every call. This helper runs for every doc comment we
+                // wrap, so prefer direct index math to keep the hot path lean.
+                const lastSegment = segments[lastIndex];
+                const isSingleWord =
+                    typeof lastSegment === "string" && !/\s/.test(lastSegment);
 
-            const prefix = prefixMatch[1];
-            const continuationPrefix =
-                "/// " + " ".repeat(Math.max(prefix.length - 4, 0));
-            const descriptionText = blockLines
-                .map((docLine, blockIndex) => {
-                    if (blockIndex === 0) {
-                        return docLine.slice(prefix.length).trim();
+                if (isSingleWord) {
+                    const maxSingleWordLength = Math.max(
+                        Math.min(continuationAvailable / 2, 16),
+                        8
+                    );
+
+                    if (lastSegment.length <= maxSingleWordLength) {
+                        const penultimateIndex = lastIndex - 1;
+                        const mergedSegment =
+                            segments[penultimateIndex] + ` ${lastSegment}`;
+
+                        segments[penultimateIndex] = mergedSegment;
+                        segments.pop();
                     }
-
-                    if (docLine.startsWith(continuationPrefix)) {
-                        return docLine.slice(continuationPrefix.length).trim();
-                    }
-
-                    if (docLine.startsWith("///")) {
-                        return docLine.slice(3).trim();
-                    }
-
-                    return docLine.trim();
-                })
-                .filter((segment) => segment.length > 0)
-                .join(" ");
-
-            if (descriptionText.length === 0) {
-                wrappedDocs.push(...blockLines);
-                continue;
+                }
             }
 
-            const available = Math.max(wrapWidth - prefix.length, 16);
-            const continuationAvailable = Math.max(Math.min(available, 62), 16);
-            const segments = wrapSegments(
-                descriptionText,
-                available,
-                continuationAvailable
-            );
+            return segments;
+        };
 
-            if (segments.length === 0) {
-                wrappedDocs.push(...blockLines);
-                continue;
-            }
+        for (let index = 0; index < reorderedDocs.length; index += 1) {
+            const line = reorderedDocs[index];
+            if (isDescriptionLine(line)) {
+                const blockLines = [line];
+                let lookahead = index + 1;
 
-            if (blockLines.length > 1 && segments.length > blockLines.length) {
-                const paddedBlockLines = blockLines.map(
-                    (docLine, blockIndex) => {
-                        if (blockIndex === 0 || typeof docLine !== "string") {
-                            return docLine;
-                        }
+                while (lookahead < reorderedDocs.length) {
+                    const nextLine = reorderedDocs[lookahead];
+                    if (
+                        typeof nextLine === "string" &&
+                        nextLine.startsWith("///") &&
+                        !parseDocCommentMetadata(nextLine)
+                    ) {
+                        blockLines.push(nextLine);
+                        lookahead += 1;
+                        continue;
+                    }
+                    break;
+                }
 
-                        if (
-                            !docLine.startsWith("///") ||
-                            parseDocCommentMetadata(docLine)
-                        ) {
-                            return docLine;
+                index = lookahead - 1;
+
+                const prefixMatch = line.match(/^(\/\/\/\s*@description\s+)/i);
+                if (!prefixMatch) {
+                    wrappedDocs.push(...blockLines);
+                    continue;
+                }
+
+                const prefix = prefixMatch[1];
+                const continuationPrefix =
+                    "/// " + " ".repeat(Math.max(prefix.length - 4, 0));
+                const descriptionText = blockLines
+                    .map((docLine, blockIndex) => {
+                        if (blockIndex === 0) {
+                            return docLine.slice(prefix.length).trim();
                         }
 
                         if (docLine.startsWith(continuationPrefix)) {
-                            return docLine;
+                            return docLine
+                                .slice(continuationPrefix.length)
+                                .trim();
                         }
 
-                        const trimmedContinuation = docLine
-                            .slice(3)
-                            .replace(/^\s+/, "");
-
-                        if (trimmedContinuation.length === 0) {
-                            return docLine;
+                        if (docLine.startsWith("///")) {
+                            return docLine.slice(3).trim();
                         }
 
-                        return `${continuationPrefix}${trimmedContinuation}`;
-                    }
+                        return docLine.trim();
+                    })
+                    .filter((segment) => segment.length > 0)
+                    .join(" ");
+
+                if (descriptionText.length === 0) {
+                    wrappedDocs.push(...blockLines);
+                    continue;
+                }
+
+                const available = Math.max(wrapWidth - prefix.length, 16);
+                const continuationAvailable = Math.max(
+                    Math.min(available, 62),
+                    16
+                );
+                const segments = wrapSegments(
+                    descriptionText,
+                    available,
+                    continuationAvailable
                 );
 
-                wrappedDocs.push(...paddedBlockLines);
+                if (segments.length === 0) {
+                    wrappedDocs.push(...blockLines);
+                    continue;
+                }
+
+                if (
+                    blockLines.length > 1 &&
+                    segments.length > blockLines.length
+                ) {
+                    const paddedBlockLines = blockLines.map(
+                        (docLine, blockIndex) => {
+                            if (
+                                blockIndex === 0 ||
+                                typeof docLine !== "string"
+                            ) {
+                                return docLine;
+                            }
+
+                            if (
+                                !docLine.startsWith("///") ||
+                                parseDocCommentMetadata(docLine)
+                            ) {
+                                return docLine;
+                            }
+
+                            if (docLine.startsWith(continuationPrefix)) {
+                                return docLine;
+                            }
+
+                            const trimmedContinuation = docLine
+                                .slice(3)
+                                .replace(/^\s+/, "");
+
+                            if (trimmedContinuation.length === 0) {
+                                return docLine;
+                            }
+
+                            return `${continuationPrefix}${trimmedContinuation}`;
+                        }
+                    );
+
+                    wrappedDocs.push(...paddedBlockLines);
+                    continue;
+                }
+
+                wrappedDocs.push(`${prefix}${segments[0]}`);
+                for (
+                    let segmentIndex = 1;
+                    segmentIndex < segments.length;
+                    segmentIndex += 1
+                ) {
+                    wrappedDocs.push(
+                        `${continuationPrefix}${segments[segmentIndex]}`
+                    );
+                }
                 continue;
             }
 
-            wrappedDocs.push(`${prefix}${segments[0]}`);
-            for (
-                let segmentIndex = 1;
-                segmentIndex < segments.length;
-                segmentIndex += 1
-            ) {
-                wrappedDocs.push(
-                    `${continuationPrefix}${segments[segmentIndex]}`
-                );
-            }
-            continue;
+            wrappedDocs.push(line);
         }
 
-        wrappedDocs.push(line);
+        reorderedDocs = wrappedDocs;
+
+        result = reorderedDocs;
     }
-
-    reorderedDocs = wrappedDocs;
-
-    result = reorderedDocs;
 
     if (removedAnyLine || otherLines.length > 0) {
         result._suppressLeadingBlank = true;

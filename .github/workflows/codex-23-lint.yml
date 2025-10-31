@@ -1,7 +1,7 @@
 name: Codex 23 – Lint Fixes
 on:
   schedule:
-    - cron: "20 */3 * * *"  # every 3 hours at 20 minutes past the hour (UTC)
+    - cron: "20 */5 * * *"  # every 5 hours at 20 minutes past the hour (UTC)
   workflow_dispatch:
 
 permissions:

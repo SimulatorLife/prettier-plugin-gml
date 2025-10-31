@@ -24,6 +24,11 @@ describe("time-utils", () => {
             const now = () => 1500;
             assert.equal(formatDuration(0, now), "1.5s");
         });
+
+        it("rounds noisy millisecond values near one second up to seconds", () => {
+            const almostOneSecond = () => 999.999_999_999_7;
+            assert.equal(formatDuration(0, almostOneSecond), "1.0s");
+        });
     });
 
     it("logs progress when verbose parsing is enabled", () => {

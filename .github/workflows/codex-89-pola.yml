@@ -1,7 +1,7 @@
 name: Codex 89 – POLA Behaviour Audit
 on:
   schedule:
-    - cron: "24 1,13 * * *" # twice daily at 01:24 and 13:24 UTC
+    - cron: "24 13 * * *" # once daily at 13:24 UTC
   workflow_dispatch:
 
 permissions:

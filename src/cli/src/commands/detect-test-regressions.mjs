@@ -414,9 +414,69 @@ function computeStatus(testNode) {
     return "passed";
 }
 
+function createTestTraversalQueue(root) {
+    return [{ node: root, suitePath: [] }];
+}
+
+/**
+ * Push all {@link nodes} onto the traversal queue with a shared suite path.
+ *
+ * Centralising the mutation keeps the orchestrator focused on sequencing.
+ */
+function enqueueTraversalNodes(queue, nodes, suitePath) {
+    for (const child of nodes) {
+        queue.push({ node: child, suitePath });
+    }
+    return queue;
+}
+
+function enqueueObjectLikeChildren(queue, node, suitePath) {
+    for (const [key, value] of Object.entries(node)) {
+        if (key === "testcase" || key === "testsuite") {
+            continue;
+        }
+
+        if (!isObjectLike(value)) {
+            continue;
+        }
+
+        queue.push({ node: value, suitePath });
+    }
+    return queue;
+}
+
+function resolveNextSuitePath(node, suitePath, { hasTestcase, hasTestsuite }) {
+    const normalizedSuiteName = normalizeSuiteName(node?.name);
+    const shouldExtendSuitePath =
+        normalizedSuiteName && (hasTestcase || hasTestsuite);
+
+    if (!shouldExtendSuitePath) {
+        return suitePath;
+    }
+
+    return pushNormalizedSuiteSegments([...suitePath], normalizedSuiteName);
+}
+
+/**
+ * Record a single testcase result in the aggregate list.
+ */
+function recordSuiteTestCase(cases, node, suitePath) {
+    const key = buildTestKey(node, suitePath);
+    const displayName = describeTestCase(node, suitePath) || key;
+
+    cases.push({
+        node,
+        suitePath,
+        key,
+        status: computeStatus(node),
+        displayName
+    });
+    return cases;
+}
+
 function collectTestCases(root) {
     const cases = [];
-    const queue = [{ node: root, suitePath: [] }];
+    const queue = createTestTraversalQueue(root);
 
     while (queue.length > 0) {
         const { node, suitePath } = queue.pop();
@@ -425,9 +485,7 @@ function collectTestCases(root) {
         }
 
         if (Array.isArray(node)) {
-            for (const child of node) {
-                queue.push({ node: child, suitePath });
-            }
+            enqueueTraversalNodes(queue, node, suitePath);
             continue;
         }
 
@@ -437,49 +495,28 @@ function collectTestCases(root) {
 
         const hasTestcase = hasOwn(node, "testcase");
         const hasTestsuite = hasOwn(node, "testsuite");
-        const normalizedSuiteName = normalizeSuiteName(node.name);
-        const shouldExtendSuitePath =
-            normalizedSuiteName && (hasTestcase || hasTestsuite);
-        const nextSuitePath = shouldExtendSuitePath
-            ? pushNormalizedSuiteSegments([...suitePath], normalizedSuiteName)
-            : suitePath;
+        const nextSuitePath = resolveNextSuitePath(node, suitePath, {
+            hasTestcase,
+            hasTestsuite
+        });
 
         if (looksLikeTestCase(node)) {
-            const key = buildTestKey(node, suitePath);
-            const displayName = describeTestCase(node, suitePath) || key;
-
-            cases.push({
-                node,
-                suitePath,
-                key,
-                status: computeStatus(node),
-                displayName
-            });
+            recordSuiteTestCase(cases, node, suitePath);
         }
 
         if (hasTestcase) {
-            for (const child of toArray(node.testcase)) {
-                queue.push({ node: child, suitePath: nextSuitePath });
-            }
+            enqueueTraversalNodes(queue, toArray(node.testcase), nextSuitePath);
         }
 
         if (hasTestsuite) {
-            for (const child of toArray(node.testsuite)) {
-                queue.push({ node: child, suitePath: nextSuitePath });
-            }
+            enqueueTraversalNodes(
+                queue,
+                toArray(node.testsuite),
+                nextSuitePath
+            );
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (key === "testcase" || key === "testsuite") {
-                continue;
-            }
-
-            if (!isObjectLike(value)) {
-                continue;
-            }
-
-            queue.push({ node: value, suitePath: nextSuitePath });
-        }
+        enqueueObjectLikeChildren(queue, node, nextSuitePath);
     }
 
     return cases;
@@ -529,26 +566,45 @@ function listXmlFiles(resolvedPath) {
 }
 
 function collectDirectoryTestCases(directory, xmlFiles) {
-    const aggregate = { cases: [], notes: [] };
+    const aggregate = createTestCaseAggregate();
 
     for (const file of xmlFiles) {
         const displayPath = path.join(directory.display, file);
         const filePath = path.join(directory.resolved, file);
-        const { cases = [], notes = [] } = collectTestCasesFromXmlFile(
-            filePath,
-            displayPath
-        );
+        const additions = collectTestCasesFromXmlFile(filePath, displayPath);
 
-        if (cases.length > 0) {
-            aggregate.cases.push(...cases);
-        }
-
-        if (notes.length > 0) {
-            aggregate.notes.push(...notes);
-        }
+        mergeTestCaseAggregate(aggregate, additions);
     }
 
     return aggregate;
+}
+
+function createTestCaseAggregate() {
+    return { cases: [], notes: [] };
+}
+
+/**
+ * Merge the parsed test case results into the accumulating aggregate.
+ *
+ * Isolating the array mutations here ensures the directory collector only
+ * sequences work instead of pushing elements directly.
+ */
+function mergeTestCaseAggregate(target, additions) {
+    if (!additions) {
+        return target;
+    }
+
+    const { cases = [], notes = [] } = additions;
+
+    if (cases.length > 0) {
+        target.cases.push(...cases);
+    }
+
+    if (notes.length > 0) {
+        target.notes.push(...notes);
+    }
+
+    return target;
 }
 
 function collectTestCasesFromXmlFile(filePath, displayPath) {

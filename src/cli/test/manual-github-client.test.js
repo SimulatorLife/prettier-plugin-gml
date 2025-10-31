@@ -271,6 +271,75 @@ describe("manual GitHub client validation", { concurrency: false }, () => {
         );
     });
 
+    it("promotes structural manual request errors to the shared contract", async () => {
+        const requestExecutor = createManualGitHubRequestDispatcher({
+            userAgent: "test-agent"
+        });
+
+        const failingUrl = `${RAW_ROOT}/sha/path/to/file`;
+        const adapterError = new Error("upstream failure");
+        adapterError.name = "UpstreamAdapterError";
+        adapterError.url = `  ${failingUrl}  `;
+        adapterError.status = "502";
+        adapterError.statusText = "Bad Gateway";
+        adapterError.responseBody = "bad upstream";
+
+        mock.method(globalThis, "fetch", async (url) => {
+            assert.equal(url, failingUrl);
+            throw adapterError;
+        });
+
+        await assert.rejects(
+            () => requestExecutor(failingUrl),
+            (error) => {
+                assert.equal(error, adapterError);
+                assert.equal(error.status, 502);
+                assert.equal(error.statusText, "Bad Gateway");
+                assert.equal(error.url, failingUrl);
+                assert.equal(
+                    Boolean(
+                        error[
+                            Symbol.for(
+                                "prettier-plugin-gml.manual-github-request-error"
+                            )
+                        ]
+                    ),
+                    true
+                );
+                return true;
+            }
+        );
+    });
+
+    it("falls back to wrapping manual errors when metadata is malformed", async () => {
+        const requestExecutor = createManualGitHubRequestDispatcher({
+            userAgent: "test-agent"
+        });
+
+        const failingUrl = `${RAW_ROOT}/sha/path/to/file`;
+        const adapterError = new Error("bad metadata");
+        adapterError.url = 42;
+        adapterError.status = "not-a-number";
+        adapterError.statusText = 123;
+        adapterError.responseBody = { why: "not text" };
+
+        mock.method(globalThis, "fetch", async (url) => {
+            assert.equal(url, failingUrl);
+            throw adapterError;
+        });
+
+        await assert.rejects(
+            () => requestExecutor(failingUrl),
+            (error) => {
+                assert.notEqual(error, adapterError);
+                assert.equal(error.name, "ManualGitHubRequestError");
+                assert.equal(error.url, failingUrl);
+                assert.equal(error.cause, adapterError);
+                return true;
+            }
+        );
+    });
+
     it("rejects manual commit payloads without a SHA", async () => {
         const { refResolver } = createManualClientBundle({
             userAgent: "test-agent",

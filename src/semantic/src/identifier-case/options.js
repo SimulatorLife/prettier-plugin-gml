@@ -8,7 +8,7 @@ import {
     capitalize,
     createListSplitPattern,
     normalizeStringList
-} from "../shared/index.js";
+} from "./dependencies.js";
 import { getIdentifierCaseStyleMetadata } from "./identifier-case-utils.js";
 import { getDefaultProjectIndexCacheMaxSize } from "../project-index/cache.js";
 import { getDefaultProjectIndexGmlConcurrency } from "../project-index/concurrency.js";
@@ -37,7 +37,7 @@ const IDENTIFIER_CASE_LIST_SPLIT_PATTERN = createListSplitPattern(["\n", ","]);
 
 export const IDENTIFIER_CASE_INHERIT_VALUE = "inherit";
 
-function isIdentifierCaseStyle(style) {
+export function isIdentifierCaseStyle(style) {
     return IDENTIFIER_CASE_STYLE_SET.has(style);
 }
 
@@ -49,10 +49,12 @@ function createUnknownIdentifierCaseStyleError(style, optionName) {
     );
 }
 
-function assertIdentifierCaseStyle(style, optionName) {
+export function assertIdentifierCaseStyle(style, optionName) {
     if (!isIdentifierCaseStyle(style)) {
         throw createUnknownIdentifierCaseStyleError(style, optionName);
     }
+
+    return style;
 }
 
 function normalizeIdentifierCaseStyleOption(
@@ -97,6 +99,17 @@ export const IDENTIFIER_CASE_PROJECT_INDEX_CONCURRENCY_OPTION_NAME =
 const IDENTIFIER_CASE_SCOPE_OPTION_PREFIX = "gmlIdentifierCase";
 
 const BASE_IDENTIFIER_CASE_SINCE = "0.0.0";
+
+const ASSET_SCOPE_NAME = "assets";
+const ASSET_SCOPE_OPTION_NAME = getScopeOptionName(ASSET_SCOPE_NAME);
+
+export function normalizeIdentifierCaseAssetStyle(style) {
+    if (style == null) {
+        return IdentifierCaseStyle.OFF;
+    }
+
+    return assertIdentifierCaseStyle(style, ASSET_SCOPE_OPTION_NAME);
+}
 
 function createChoice(value, description) {
     return { value, description };
@@ -307,9 +320,11 @@ export function normalizeIdentifierCaseOptions(options = {}) {
         options?.[IDENTIFIER_CASE_ACKNOWLEDGE_ASSETS_OPTION_NAME]
     );
 
-    const effectiveAssetStyle = scopeStyles.assets;
-    const assetRenamesEnabled =
-        effectiveAssetStyle && effectiveAssetStyle !== "off";
+    const effectiveAssetStyle = normalizeIdentifierCaseAssetStyle(
+        scopeStyles.assets
+    );
+    scopeStyles.assets = effectiveAssetStyle;
+    const assetRenamesEnabled = effectiveAssetStyle !== IdentifierCaseStyle.OFF;
 
     if (assetRenamesEnabled && !assetRenamesAcknowledged) {
         throw new Error(

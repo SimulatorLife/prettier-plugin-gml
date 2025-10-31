@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import process from "node:process";
 import test from "node:test";
 
@@ -35,8 +36,15 @@ test("applyEnvironmentOverride skips missing variables", () => {
     assert.equal(called, false);
 });
 
+function uniqueEnvVar(prefix) {
+    // Date.now() only has millisecond precision, so concurrent tests could pick
+    // the same suffix and race when mutating process.env. Random UUIDs avoid
+    // collisions without relying on timing.
+    return `${prefix}_${randomUUID()}`;
+}
+
 test("applyEnvironmentOverride falls back to process.env when env is omitted", () => {
-    const variable = `TEST_ENV_${Date.now()}`;
+    const variable = uniqueEnvVar("TEST_ENV");
     const original = process.env[variable];
     process.env[variable] = "inherited";
 
@@ -81,7 +89,7 @@ test("createEnvConfiguredValue normalizes updates", () => {
 
 test("createEnvConfiguredValue applies environment overrides", () => {
     let applied = null;
-    const variable = `CONFIG_ENV_${Date.now()}`;
+    const variable = uniqueEnvVar("CONFIG_ENV");
     const config = createEnvConfiguredValue({
         defaultValue: 1,
         envVar: variable,

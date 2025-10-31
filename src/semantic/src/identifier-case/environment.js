@@ -3,7 +3,7 @@ import {
     prepareIdentifierCasePlan,
     captureIdentifierCasePlanSnapshot
 } from "./plan-service.js";
-import { isObjectLike, noop, withObjectLike } from "../shared/index.js";
+import { isObjectLike, noop, withObjectLike } from "./dependencies.js";
 import {
     setIdentifierCaseOption,
     deleteIdentifierCaseOption

@@ -118,7 +118,7 @@ class TerminalProgressBar {
 const createWidthErrorMessage = (received) =>
     `Progress bar width must be a positive integer (received ${received}).`;
 
-const createTypeErrorMessage = (type) =>
+const createWidthTypeErrorMessage = (type) =>
     `Progress bar width must be provided as a number (received type '${type}').`;
 
 const {
@@ -131,7 +131,7 @@ const {
     envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
     baseCoerce: coercePositiveInteger,
     createErrorMessage: createWidthErrorMessage,
-    typeErrorMessage: createTypeErrorMessage,
+    typeErrorMessage: createWidthTypeErrorMessage,
     defaultValueOption: "defaultWidth"
 });
 
@@ -163,20 +163,25 @@ function stopAndRemoveProgressBar(label, { suppressErrors = false } = {}) {
         return;
     }
 
-    if (suppressErrors) {
-        try {
-            bar.stop();
-        } catch {
-            // Ignore cleanup failures so callers can continue unwinding their
-            // own teardown logic without masking the original failure that
-            // disabled progress rendering mid-run.
-        }
+    const removeBar = () => {
         activeProgressBars.delete(label);
+    };
+
+    if (!suppressErrors) {
+        bar.stop();
+        removeBar();
         return;
     }
 
-    bar.stop();
-    activeProgressBars.delete(label);
+    try {
+        bar.stop();
+    } catch {
+        // Ignore cleanup failures so callers can continue unwinding their own
+        // teardown logic without masking the original failure that disabled
+        // progress rendering mid-run.
+    }
+
+    removeBar();
 }
 
 function renderProgressBar(label, current, total, width, options = {}) {
@@ -198,15 +203,22 @@ function renderProgressBar(label, current, total, width, options = {}) {
     } else {
         const stream =
             stdout && typeof stdout.write === "function" ? stdout : undefined;
+        const isFactoryProvided = typeof createBar === "function";
 
-        if (createBar === undefined) {
-            bar = new TerminalProgressBar(label, width, { stream });
-        } else if (typeof createBar === "function") {
-            bar = createBar(label, width, { stream });
-        } else {
+        if (createBar !== undefined && !isFactoryProvided) {
             throw new TypeError("createBar must be a function when provided.");
         }
 
+        const barFactory = isFactoryProvided
+            ? createBar
+            : (factoryLabel, factoryWidth, factoryOptions) =>
+                  new TerminalProgressBar(
+                      factoryLabel,
+                      factoryWidth,
+                      factoryOptions
+                  );
+
+        bar = barFactory(label, width, { stream });
         activeProgressBars.set(label, bar);
         bar.start(normalizedTotal, normalizedCurrent);
     }

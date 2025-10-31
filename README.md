@@ -173,7 +173,6 @@ for (var i = 0; i < queue_count; i += 1) {
   ANTLR-based transpiler, semantic analysis, and dependency tracking that feed
   the live reloading pipeline.
 - Formatter extension hooks &mdash;
-  [Object-wrap resolver](docs/object-wrap-option-resolver-hook.md),
   [line-comment resolver](docs/line-comment-options-resolver-hook.md),
   [doc comment type normalization hook](docs/doc-comment-type-normalization-hook.md),
   [statement newline padding extension](docs/statement-newline-padding-extension.md), and
@@ -326,7 +325,19 @@ nvm alias default node
    npm ci
    ```
 
-2. Format any GameMaker project without adding dependencies to that project. The
+2. Run the aggregated validation once to confirm your local install matches CI
+   before pointing the formatter at a project:
+
+   ```bash
+   npm run check
+   ```
+
+   The command runs the formatter smoke test, CI-mode lint, and the full Node.js
+   test suite so new workstations start from a known-good baseline. Consult the
+   [contributor onboarding checklist](docs/contributor-onboarding.md) for the
+   individual suite commands when you need targeted reruns.
+
+3. Format any GameMaker project without adding dependencies to that project. The
    repository exposes a dedicated `format:gml` script that targets the CLI's
    `format` command and defaults to the current working directory when no
    arguments are provided. Pass the project path explicitly when formatting
@@ -629,6 +640,8 @@ Template strings that never interpolate expressions automatically collapse back 
 | `condenseLogicalExpressions` | `false` | Merges adjacent logical expressions that use the same operator. |
 | `preserveGlobalVarStatements` | `true` | Keeps `globalvar` declarations while still prefixing later assignments with `global.`. |
 | `alignAssignmentsMinGroupSize` | `3` | Aligns simple assignment operators across consecutive lines once the group size threshold is met. |
+| `variableBlockSpacingMinDeclarations` | `4` | Inserts a blank line after runs of local declarations once the specified length is met; set to `0` to disable the spacing entirely. |
+| `lineCommentBannerLength` | `60` | Sets the normalized width for banner line comments; set to `0` to keep the original slash run. |
 | `maxParamsPerLine` | `0` | Forces argument wrapping after the specified count (set to `0` to remove the numeric limit; nested callbacks may still wrap for readability). |
 | `applyFeatherFixes` | `false` | Applies opt-in fixes backed by GameMaker Feather metadata (e.g. drop trailing semicolons from `#macro`). |
 | `useStringInterpolation` | `false` | Upgrades eligible string concatenations to template strings (`$"Hello {name}"`). |
@@ -659,9 +672,7 @@ var enemy = {name: "Slime", hp: 5};
 
 Bare decimal literals are always padded with leading and trailing zeroes to improve readability.
 
-Banner line comments are automatically detected when they contain five or more consecutive `/` characters. Once identified, the formatter rewrites the banner prefix to 60 slashes so mixed-width comment markers settle on a single, readable standard.
-
-Advanced integrations can temporarily override the struct wrapping heuristic via `setObjectWrapOptionResolver`; the [object-wrap option resolver hook](docs/object-wrap-option-resolver-hook.md) explains how to register an override and reset back to the default resolver after experiments complete.
+Banner line comments are automatically detected when they contain five or more consecutive `/` characters. Once identified, the formatter rewrites the banner prefix to the `lineCommentBannerLength` setting (60 by default) so mixed-width comment markers settle on a single, readable standard; set the option to `0` to leave banner widths untouched.
 
 #### Identifier-case rollout
 
@@ -673,6 +684,20 @@ Advanced integrations can temporarily override the struct wrapping heuristic via
 | `gmlIdentifierCasePreserve` | `""` | Locks specific identifiers to their original spelling even when a new style is enabled. |
 | `gmlIdentifierCaseAcknowledgeAssetRenames` | `false` | Required confirmation before asset renames update `.yy` metadata and on-disk file names. |
 | `gmlIdentifierCaseOptionStoreMaxEntries` | `128` | Caps the identifier-case option store size; set to `0` to keep all historical entries without eviction. |
+
+#### Project discovery & cache controls
+
+The semantic subsystem coordinates project detection and cache persistence when
+identifier casing is enabled. Use these options in tandem with the
+[`src/semantic/README.md`](src/semantic/README.md) reference to keep CI and
+monorepos predictable:
+
+| Option | Default | Summary |
+| --- | --- | --- |
+| `gmlIdentifierCaseDiscoverProject` | `true` | Auto-detect the nearest `.yyp` manifest when bootstrapping the project index. Disable when callers manage discovery manually. |
+| `gmlIdentifierCaseProjectRoot` | `""` | Pin project discovery to an explicit directory. Helpful when formatting files outside the GameMaker project tree or when CI runs from ephemeral workspaces. |
+| `gmlIdentifierCaseProjectIndexCacheMaxBytes` | `8 MiB` | Cap the on-disk cache size written to `.prettier-plugin-gml/project-index-cache.json`. Increase alongside `GML_PROJECT_INDEX_CACHE_MAX_SIZE` when coordinating cache pruning yourself. |
+| `gmlIdentifierCaseProjectIndexConcurrency` | `4` | Control how many files the bootstrap parses in parallel. Combine with `GML_PROJECT_INDEX_CONCURRENCY` and `GML_PROJECT_INDEX_MAX_CONCURRENCY` to tune CI throughput without starving local machines. |
 
 Project index discovery, cache tuning, and concurrency controls now live under
 the [semantic subsystem](src/semantic/README.md) alongside the new scope-tracking
@@ -799,6 +824,8 @@ npm run cli -- performance  # Run the benchmarking helpers registered with the C
 npm run memory -- --suite normalize-string-list --pretty      # Measure normalizeStringList memory usage
 npm run report              # Generate unit test report, checkstyle report (using the eslint-formatter-checkstyle formatter), and code coverage report.
 ```
+
+Omit `--suite` to run every available memory suite; use `npm run memory -- --help` to review the full list of benchmarks.
 
 Tune the memory suites with environment variables when scripting CI runs:
 `GML_MEMORY_ITERATIONS` adjusts the default iteration count, while

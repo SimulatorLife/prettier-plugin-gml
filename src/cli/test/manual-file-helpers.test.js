@@ -8,7 +8,7 @@ import {
     writeManualFile,
     writeManualJsonArtifact
 } from "../src/modules/manual/file-helpers.js";
-import { createWorkflowPathFilter } from "../src/shared/fs/path-filter.js";
+import { createWorkflowPathFilter } from "../src/workflow/path-filter.js";
 
 function createTempDirFactory() {
     let counter = 0;

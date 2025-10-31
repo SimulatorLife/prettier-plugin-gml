@@ -1,7 +1,7 @@
 name: Codex 20 – Targeted Micro-Optimization
 on:
   schedule:
-    - cron: "50 */3 * * *" # every three hours at 50 minutes past the hour UTC
+    - cron: "50 */5 * * *" # every five hours at 50 minutes past the hour UTC
   workflow_dispatch:
 
 permissions:

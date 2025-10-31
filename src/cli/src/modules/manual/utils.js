@@ -23,7 +23,7 @@ import {
     withProgressBarCleanup
 } from "../dependencies.js";
 import { writeManualFile } from "./file-helpers.js";
-import { ensureWorkflowPathsAllowed } from "../../shared/fs/path-filter.js";
+import { ensureManualWorkflowPathsAllowed } from "./workflow-access.js";
 
 const MANUAL_REPO_ENV_VAR = "GML_MANUAL_REPO";
 const DEFAULT_MANUAL_REPO = "YoYoGames/GameMaker-Manual";
@@ -56,31 +56,164 @@ const MANUAL_GITHUB_REQUEST_ERROR_CAPABILITY = Symbol.for(
     "prettier-plugin-gml.manual-github-request-error"
 );
 
-function hasManualGitHubRequestErrorContract(value) {
+const OPTIONAL_INVALID_RESULT = Symbol(
+    "prettier-plugin-gml.manual.optional-invalid"
+);
+
+function readOptionalValue(value, normalize) {
+    if (value == null) {
+        return { value: undefined };
+    }
+
+    const normalized = normalize(value);
+
+    if (normalized === OPTIONAL_INVALID_RESULT) {
+        return null;
+    }
+
+    return { value: normalized };
+}
+
+function readOptionalTrimmedString(value) {
+    return readOptionalValue(value, (candidate) => {
+        if (typeof candidate !== "string") {
+            return OPTIONAL_INVALID_RESULT;
+        }
+
+        const trimmed = candidate.trim();
+        return trimmed === "" ? undefined : trimmed;
+    });
+}
+
+function readOptionalFiniteNumber(value) {
+    return readOptionalValue(value, (candidate) => {
+        const numeric = Number(candidate);
+        if (!Number.isFinite(numeric)) {
+            return OPTIONAL_INVALID_RESULT;
+        }
+
+        return numeric;
+    });
+}
+
+function readOptionalString(value) {
+    return readOptionalValue(value, (candidate) =>
+        typeof candidate === "string" ? candidate : OPTIONAL_INVALID_RESULT
+    );
+}
+
+function getManualGitHubRequestErrorContract(value) {
     if (!isErrorLike(value)) {
-        return false;
+        return null;
     }
 
-    if (value.name !== "ManualGitHubRequestError") {
-        return false;
+    const urlResult = readOptionalTrimmedString(value.url);
+    if (!urlResult) {
+        return null;
     }
 
-    if (value.url !== undefined && typeof value.url !== "string") {
-        return false;
+    const statusResult = readOptionalFiniteNumber(value.status);
+    if (!statusResult) {
+        return null;
     }
 
-    if (value.status !== undefined && typeof value.status !== "number") {
-        return false;
+    const statusTextResult = readOptionalTrimmedString(value.statusText);
+    if (!statusTextResult) {
+        return null;
     }
+
+    const responseBodyResult = readOptionalString(value.responseBody);
+    if (!responseBodyResult) {
+        return null;
+    }
+
+    const { value: url } = urlResult;
+    const { value: status } = statusResult;
+    const { value: statusText } = statusTextResult;
+    const { value: responseBody } = responseBodyResult;
 
     if (
-        value.statusText !== undefined &&
-        typeof value.statusText !== "string"
+        ![url, status, statusText, responseBody].some(
+            (entry) => entry !== undefined
+        )
     ) {
+        return null;
+    }
+
+    const contract = {
+        message: getErrorMessageOrFallback(value),
+        url,
+        status,
+        statusText,
+        responseBody
+    };
+
+    if (value.cause !== undefined) {
+        contract.cause = value.cause;
+    }
+
+    return contract;
+}
+
+function tryInstallManualGitHubRequestErrorCapability(value, contract) {
+    if (!value || (typeof value !== "object" && typeof value !== "function")) {
         return false;
+    }
+
+    try {
+        Object.defineProperty(value, MANUAL_GITHUB_REQUEST_ERROR_CAPABILITY, {
+            value: true,
+            enumerable: false,
+            configurable: true
+        });
+    } catch {
+        return false;
+    }
+
+    if (contract.url !== undefined) {
+        value.url = contract.url;
+    }
+
+    if (contract.status !== undefined) {
+        value.status = contract.status;
+    }
+
+    if (contract.statusText !== undefined) {
+        value.statusText = contract.statusText;
+    }
+
+    if (contract.responseBody !== undefined) {
+        value.responseBody = contract.responseBody;
+    }
+
+    if (contract.cause !== undefined && value.cause === undefined) {
+        value.cause = contract.cause;
     }
 
     return true;
+}
+
+function normalizeManualGitHubRequestError(value) {
+    if (value?.[MANUAL_GITHUB_REQUEST_ERROR_CAPABILITY]) {
+        return value;
+    }
+
+    const contract = getManualGitHubRequestErrorContract(value);
+    if (!contract) {
+        return null;
+    }
+
+    if (tryInstallManualGitHubRequestErrorCapability(value, contract)) {
+        return value;
+    }
+
+    const { message, cause, ...details } = contract;
+    const normalizedCause = cause === undefined ? value : cause;
+
+    return new ManualGitHubRequestError(message, {
+        ...details,
+        cause: normalizedCause
+    });
 }
 
 function isManualGitHubRequestError(value) {
@@ -88,7 +221,7 @@ function isManualGitHubRequestError(value) {
         return true;
     }
 
-    return hasManualGitHubRequestErrorContract(value);
+    return getManualGitHubRequestErrorContract(value) !== null;
 }
 
 class ManualGitHubRequestError extends Error {
@@ -287,6 +420,15 @@ function createConsoleReporter({ formatPath, logger }) {
             const displayPath = normalizePath(path);
             targetLogger.log(displayPath ? `✓ ${displayPath}` : "✓");
         },
+        // Manual download commands always destructure the returned reporter into
+        // `{ report, cleanup }` and wire both callbacks into `try/finally` flows
+        // outlined in docs/feather-data-plan.md#progress-bar-handshake. The
+        // console variant never reserves progress-bar state, but keeping the
+        // cleanup handler as a shared no-op preserves that contract so the
+        // finally blocks stay balanced even when verbose logging is disabled or
+        // redirected. Replacing it with `null` or allocating ad-hoc closures
+        // would force every caller to special-case the simple path and risk
+        // leaking manual overrides during future refactors.
         cleanup: noop
     };
 }
@@ -728,8 +870,9 @@ function createManualGitHubRequestDispatcher({ userAgent } = {}) {
                 throw error;
             }
 
-            if (isManualGitHubRequestError(error)) {
-                throw error;
+            const manualError = normalizeManualGitHubRequestError(error);
+            if (manualError) {
+                throw manualError;
             }
 
             throw createManualGitHubRequestError({ url, cause: error });
@@ -894,7 +1037,7 @@ function createManualGitHubFileClient({
         const shouldLogDetails = verbose.downloads && !verbose.progressBar;
         const cachePath = path.join(cacheRoot, sha, filePath);
 
-        ensureWorkflowPathsAllowed(workflowPathFilter, [
+        ensureManualWorkflowPathsAllowed(workflowPathFilter, [
             {
                 type: "directory",
                 target: cacheRoot,

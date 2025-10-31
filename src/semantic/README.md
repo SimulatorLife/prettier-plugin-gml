@@ -37,3 +37,23 @@ analysis. The bootstrap generates `.prettier-plugin-gml/project-index-cache.json
 the first time a rename-enabled scope executes; pin `gmlIdentifierCaseProjectRoot`
 in CI builds to avoid repeated discovery work.
 
+## Resource Metadata Extension Hook
+
+**Pre-change analysis.** The project index previously treated only `.yy`
+resource documents as metadata, so integrations experimenting with alternate
+GameMaker exports (for example, bespoke build pipelines that emit `.meta`
+descriptors) had to fork the scanner whenever they wanted those files to be
+indexed. The formatter’s defaults remain correct for the vast majority of
+users, so the new seam keeps the behavior opinionated while allowing internal
+callers to extend it on demand.
+
+Use `setProjectResourceMetadataExtensions()` from the semantic project-index
+package to register additional metadata suffixes. The helper normalizes and
+deduplicates the list, seeds it with the default `.yy` entry, and is intended
+for host integrations, tests, or future live tooling—not end-user
+configuration. `resetProjectResourceMetadataExtensions()` restores the
+defaults, and `getProjectResourceMetadataExtensions()` exposes the frozen list
+for diagnostics. Production consumers should treat the defaults as canonical
+until downstream formats stabilize; the hook exists to unblock experimentation
+without diluting the formatter’s standard behavior.
+

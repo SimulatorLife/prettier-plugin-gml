@@ -13,3 +13,7 @@ export {
     GML_IDENTIFIER_METADATA_URL,
     loadBundledIdentifierMetadata
 } from "./gml-identifiers.js";
+export {
+    resolveBundledResourcePath,
+    resolveBundledResourceUrl
+} from "./resource-locator.js";

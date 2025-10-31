@@ -4,6 +4,7 @@ import {
     compactArray,
     createListSplitPattern,
     normalizeStringList,
+    toArrayFromIterable,
     uniqueArray
 } from "../shared/dependencies.js";
 
@@ -13,6 +14,15 @@ const EXTENSION_LIST_SPLIT_PATTERN = createListSplitPattern(
         includeWhitespace: true
     }
 );
+
+const NORMALIZE_EXTENSION_LIST_OPTIONS = Object.freeze({
+    splitPattern: EXTENSION_LIST_SPLIT_PATTERN,
+    allowInvalidType: true
+});
+
+function normalizeExtensionFragments(value) {
+    return normalizeStringList(value, NORMALIZE_EXTENSION_LIST_OPTIONS);
+}
 
 function coerceExtensionValue(value) {
     if (typeof value !== "string") {
@@ -31,38 +41,28 @@ function coerceExtensionValue(value) {
     return cleaned.startsWith(".") ? cleaned : `.${cleaned}`;
 }
 
-function flattenExtensionCandidates(rawExtensions) {
-    const initialCandidates = Array.isArray(rawExtensions)
-        ? rawExtensions
-        : normalizeStringList(rawExtensions, {
-              splitPattern: EXTENSION_LIST_SPLIT_PATTERN,
-              allowInvalidType: true
-          });
-
-    const flattened = [];
-
-    for (const candidate of initialCandidates) {
-        if (typeof candidate !== "string") {
-            continue;
-        }
-
-        const segments = normalizeStringList(candidate, {
-            splitPattern: EXTENSION_LIST_SPLIT_PATTERN,
-            allowInvalidType: true
-        });
-
-        if (segments.length === 0) {
-            continue;
-        }
-
-        flattened.push(...segments);
+function collectExtensionCandidates(rawExtensions) {
+    if (typeof rawExtensions === "string") {
+        return normalizeExtensionFragments(rawExtensions);
     }
 
-    return flattened;
+    if (Array.isArray(rawExtensions)) {
+        return rawExtensions.flatMap((candidate) =>
+            typeof candidate === "string"
+                ? normalizeExtensionFragments(candidate)
+                : []
+        );
+    }
+
+    if (rawExtensions && typeof rawExtensions[Symbol.iterator] === "function") {
+        return collectExtensionCandidates(toArrayFromIterable(rawExtensions));
+    }
+
+    return normalizeExtensionFragments(rawExtensions);
 }
 
 export function normalizeExtensions(rawExtensions, fallbackExtensions = []) {
-    const candidates = flattenExtensionCandidates(rawExtensions);
+    const candidates = collectExtensionCandidates(rawExtensions);
     const coercedValues = candidates.map(coerceExtensionValue);
     const filteredValues = compactArray(coercedValues);
     const normalized = uniqueArray(filteredValues);

@@ -54,6 +54,33 @@ test("syntax error excerpts expand tabs before pointing at the column", () => {
     );
 });
 
+test("syntax error excerpts clamp oversized column values", () => {
+    const error = {
+        message: "Syntax Error: unexpected token",
+        line: 1,
+        column: 999
+    };
+
+    const formatted = formatProjectIndexSyntaxError(error, "var value = 1;");
+
+    assert.strictEqual(
+        formatted.sourceExcerpt,
+        "1 | var value = 1;\n  |               ^"
+    );
+});
+
+test("syntax error excerpts omit indicators for non-finite columns", () => {
+    const error = {
+        message: "Syntax Error: unexpected token",
+        line: 1,
+        column: Number.NaN
+    };
+
+    const formatted = formatProjectIndexSyntaxError(error, "var value = 1;");
+
+    assert.strictEqual(formatted.sourceExcerpt, "1 | var value = 1;");
+});
+
 test("display path remains absolute when file matches the project root", () => {
     const error = {
         message: "Syntax Error: unexpected token",

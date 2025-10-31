@@ -117,14 +117,8 @@ function extractErrorDetails(error) {
     return normalized.length > 0 ? normalized : "Unknown error";
 }
 
-function normalizeAssertOptionsCandidate(candidate) {
+function toObjectOrUndefined(candidate) {
     return candidate && typeof candidate === "object" ? candidate : undefined;
-}
-
-function mergeAssertOptions(baseOptions, dynamicOptions) {
-    return baseOptions || dynamicOptions
-        ? Object.assign({}, baseOptions ?? {}, dynamicOptions ?? {})
-        : undefined;
 }
 
 /**
@@ -223,16 +217,19 @@ export function parseJsonObjectWithContext(text, options = {}) {
         reviver
     });
 
-    const baseOptions = normalizeAssertOptionsCandidate(assertOptions);
-    const dynamicOptions =
+    const baseOptions = toObjectOrUndefined(assertOptions);
+    const dynamicOptions = toObjectOrUndefined(
         typeof createAssertOptions === "function"
-            ? normalizeAssertOptionsCandidate(createAssertOptions(payload))
+            ? createAssertOptions(payload)
+            : undefined
+    );
+
+    const mergedOptions =
+        baseOptions || dynamicOptions
+            ? { ...baseOptions, ...dynamicOptions }
             : undefined;
 
-    return assertPlainObject(
-        payload,
-        mergeAssertOptions(baseOptions, dynamicOptions)
-    );
+    return assertPlainObject(payload, mergedOptions);
 }
 
 /**

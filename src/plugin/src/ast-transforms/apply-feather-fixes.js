@@ -8839,7 +8839,7 @@ function convertNullishCoalesceOpportunities({ ast, diagnostic }) {
 }
 
 function convertNullishIfStatement(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
 
@@ -9503,12 +9503,11 @@ function ensureBlendEnableResetAfterCall(node, parent, property, diagnostic) {
         !hasOriginalBlankLineBetween(previousSibling, nextSibling);
 
     if (needsSeparator) {
-        siblings.splice(
+        insertionIndex = insertSeparatorStatementBeforeIndex(
+            siblings,
             insertionIndex,
-            0,
-            createEmptyStatementLike(previousSibling)
+            previousSibling
         );
-        insertionIndex += 1;
     }
 
     markStatementToSuppressFollowingEmptyLine(node);
@@ -9720,7 +9719,7 @@ function ensureFileFindFirstBeforeCloseCall(
     property,
     diagnostic
 ) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
 
@@ -10665,12 +10664,11 @@ function ensureAlphaTestEnableResetAfterCall(
         !hasOriginalBlankLineBetween(previousSibling, nextSibling);
 
     if (shouldInsertSeparator) {
-        siblings.splice(
+        insertionIndex = insertSeparatorStatementBeforeIndex(
+            siblings,
             insertionIndex,
-            0,
-            createEmptyStatementLike(previousSibling)
+            previousSibling
         );
-        insertionIndex += 1;
     }
 
     siblings.splice(insertionIndex, 0, resetCall);
@@ -10680,7 +10678,7 @@ function ensureAlphaTestEnableResetAfterCall(
 }
 
 function ensureHalignResetAfterCall(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
 
@@ -10755,7 +10753,7 @@ function ensureHalignResetAfterCall(node, parent, property, diagnostic) {
 }
 
 function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
-    if (!Array.isArray(parent) || typeof property !== "number") {
+    if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }
 
@@ -10815,12 +10813,11 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
         !isAlphaTestDisableCall(nextSibling);
 
     if (shouldInsertSeparator) {
-        siblings.splice(
+        insertionIndex = insertSeparatorStatementBeforeIndex(
+            siblings,
             insertionIndex,
-            0,
-            createEmptyStatementLike(previousSibling)
+            previousSibling
         );
-        insertionIndex += 1;
     }
 
     siblings.splice(insertionIndex, 0, resetCall);
@@ -12903,12 +12900,11 @@ function ensureColourWriteEnableResetAfterCall(
         !hasOriginalSeparator;
 
     if (shouldInsertSeparator) {
-        siblings.splice(
+        insertionIndex = insertSeparatorStatementBeforeIndex(
+            siblings,
             insertionIndex,
-            0,
-            createEmptyStatementLike(previousSibling)
+            previousSibling
         );
-        insertionIndex += 1;
     }
 
     markStatementToSuppressLeadingEmptyLine(resetCall);
@@ -13589,12 +13585,11 @@ function ensureTextureRepeatResetAfterCall(node, parent, property, diagnostic) {
         !hasOriginalBlankLineBetween(previousSibling, nextSibling);
 
     if (needsSeparator) {
-        siblings.splice(
+        insertionIndex = insertSeparatorStatementBeforeIndex(
+            siblings,
             insertionIndex,
-            0,
-            createEmptyStatementLike(previousSibling)
+            previousSibling
         );
-        insertionIndex += 1;
     }
 
     siblings.splice(insertionIndex, 0, resetCall);
@@ -13677,6 +13672,22 @@ function createEmptyStatementLike(template) {
     assignClonedLocation(empty, template);
 
     return empty;
+}
+
+function insertSeparatorStatementBeforeIndex(
+    siblings,
+    insertionIndex,
+    referenceNode
+) {
+    const normalizedIndex =
+        typeof insertionIndex === "number" ? insertionIndex : 0;
+    const separator = createEmptyStatementLike(referenceNode);
+    const targetArray = siblings;
+    const nextIndex = normalizedIndex + 1;
+
+    targetArray.splice(normalizedIndex, 0, separator);
+
+    return nextIndex;
 }
 
 function hasOriginalBlankLineBetween(beforeNode, afterNode) {

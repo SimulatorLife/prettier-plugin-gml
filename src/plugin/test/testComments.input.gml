@@ -7,3 +7,30 @@
 
 // Make body wobble up and down
 z_wobble = ((sin(current_time * 0.004) + 1) * 2) + 2;  // value between 0 and 2, this is subtracted from crabs height
+
+// / Emulation of string_height(), but using Scribble for calculating the width
+// /
+// / **Please do not use this function in conjunction with string_copy()**
+// /
+/// @param string    The string to draw
+
+function string_height_scribble(_string) {
+    static _scribble_state = __scribble_get_state();
+
+    var _font = draw_get_font();
+    _font = !font_exists(_font) ? _scribble_state.__default_font : font_get_name(_font);
+
+    return scribble(_string).starting_format(_font, c_white).get_height();
+}
+
+// This is an unrelated comment
+
+// / Tests to see if a font has the given character
+// /
+// / Returns: Boolean, indicating whether the given character is found in the font
+/// @param fontName   The target font, as a string
+/// @param character  Character to test for, as a string
+
+function scribble_font_has_character(_font_name, _character) {
+    return ds_map_exists(__scribble_get_font_data(_font_name).__glyphs_map, ord(_character));
+}

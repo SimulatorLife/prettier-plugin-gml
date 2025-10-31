@@ -1,8 +1,14 @@
-import { isNonEmptyString, isRegExpLike } from "../shared/index.js";
+import {
+    coercePositiveIntegerOption,
+    isNonEmptyString,
+    isObjectLike,
+    isRegExpLike
+} from "../shared/index.js";
 import { createResolverController } from "../shared/resolver-controller.js";
 
 const LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES = 5;
-const LINE_COMMENT_BANNER_STANDARD_LENGTH = 60;
+const DEFAULT_LINE_COMMENT_BANNER_LENGTH = 60;
+const LINE_COMMENT_BANNER_LENGTH_OPTION = "lineCommentBannerLength";
 
 const DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS = Object.freeze([
     // YoYo Games injects this banner while exporting assets; stripping it keeps
@@ -89,7 +95,7 @@ function normalizeLineCommentOptions(options) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
 
-    if (!options || typeof options !== "object") {
+    if (!isObjectLike(options)) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
 
@@ -119,6 +125,18 @@ function resolveLineCommentOptions(options = {}) {
     return lineCommentOptionsResolution.resolve(options);
 }
 
+function resolveLineCommentBannerLength(options) {
+    if (!isObjectLike(options)) {
+        return DEFAULT_LINE_COMMENT_BANNER_LENGTH;
+    }
+
+    return coercePositiveIntegerOption(
+        options[LINE_COMMENT_BANNER_LENGTH_OPTION],
+        DEFAULT_LINE_COMMENT_BANNER_LENGTH,
+        { zeroReplacement: 0 }
+    );
+}
+
 /**
  * Registers a custom resolver for the line comment heuristics. Intended for
  * host integrations that need to extend the boilerplate detection rules
@@ -137,11 +155,13 @@ function restoreDefaultLineCommentOptionsResolver() {
 }
 
 export {
+    DEFAULT_LINE_COMMENT_BANNER_LENGTH,
     DEFAULT_LINE_COMMENT_OPTIONS,
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,
-    LINE_COMMENT_BANNER_STANDARD_LENGTH,
+    LINE_COMMENT_BANNER_LENGTH_OPTION,
     normalizeLineCommentOptions,
+    resolveLineCommentBannerLength,
     resolveLineCommentOptions,
     restoreDefaultLineCommentOptionsResolver,
     setLineCommentOptionsResolver

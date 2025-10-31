@@ -15,6 +15,7 @@ import {
     InvalidArgumentError,
     isNonEmptyString,
     normalizeStringList,
+    Option,
     resolveModuleDefaultExport,
     parseJsonObjectWithContext,
     splitLines
@@ -35,11 +36,11 @@ import {
 } from "../dependencies.js";
 import { loadGmlParser } from "./gml-parser.js";
 import { importPluginModule } from "../plugin-runtime-dependencies.js";
-import { writeJsonArtifact } from "../../shared/fs-artifacts.js";
 import {
     REPO_ROOT,
-    resolveFromRepoRoot
-} from "../../shared/workspace-paths.js";
+    resolveFromRepoRoot,
+    writeJsonArtifact
+} from "../dependencies.js";
 
 export const DEFAULT_ITERATIONS = 500_000;
 export const MEMORY_ITERATIONS_ENV_VAR = "GML_MEMORY_ITERATIONS";
@@ -204,7 +205,7 @@ function logInvalidIterationEnvOverride({ envVar, error, fallback }) {
  * failures.
  *
  * Both parser and format iteration limits follow the same "try the override,
- * fall back to the previous default, and emit a warning" flow. Centralising
+ * fall back to the previous default, and emit a warning" flow. Centralizing
  * the guard keeps the logging consistent and avoids subtle divergences if the
  * override plumbing changes again.
  *
@@ -386,14 +387,18 @@ function computeMemoryDelta(current, baseline) {
         return null;
     }
 
-    const delta = {};
-    for (const [key, beforeValue] of Object.entries(baseline)) {
-        const afterValue = current[key];
-        if (typeof beforeValue === "number" && typeof afterValue === "number") {
-            delta[key] = afterValue - beforeValue;
+    const entries = Object.entries(baseline).flatMap(([key, beforeValue]) => {
+        if (typeof beforeValue !== "number") {
+            return [];
         }
-    }
-    return delta;
+
+        const afterValue = current[key];
+        return typeof afterValue === "number"
+            ? [[key, afterValue - beforeValue]]
+            : [];
+    });
+
+    return Object.fromEntries(entries);
 }
 
 function normalizeDelta(delta, iterations) {
@@ -401,13 +406,11 @@ function normalizeDelta(delta, iterations) {
         return null;
     }
 
-    const normalized = {};
-    for (const [key, value] of Object.entries(delta)) {
-        if (typeof value === "number") {
-            normalized[key] = value / iterations;
-        }
-    }
-    return normalized;
+    const entries = Object.entries(delta).flatMap(([key, value]) =>
+        typeof value === "number" ? [[key, value / iterations]] : []
+    );
+
+    return Object.fromEntries(entries);
 }
 
 function createMemoryTracker({ requirePreciseGc = false } = {}) {
@@ -685,6 +688,15 @@ function collectSuite(value, previous) {
 export function createMemoryCommand({ env = process.env } = {}) {
     const defaultIterations = getDefaultMemoryIterations();
     const defaultCommonNodeLimit = getAstCommonNodeTypeLimit();
+    const suiteListDescription = formatMemorySuiteNameList();
+    const suiteOptionDescription = [
+        "Memory suite to run (can be provided multiple times).",
+        `Available suites: ${suiteListDescription}.`,
+        "Defaults to all suites when omitted."
+    ].join(" ");
+    const suiteOption = new Option("-s, --suite <name>", suiteOptionDescription)
+        .argParser(collectSuite)
+        .default([], "all available suites");
 
     const command = applyStandardCommandOptions(
         new Command()
@@ -692,12 +704,7 @@ export function createMemoryCommand({ env = process.env } = {}) {
             .usage("[options]")
             .description("Run memory usage diagnostics for CLI utilities.")
     )
-        .option(
-            "-s, --suite <name>",
-            "Memory suite to run (can be provided multiple times).",
-            collectSuite,
-            []
-        )
+        .addOption(suiteOption)
         .option(
             "-i, --iterations <count>",
             "Iteration count for suites that support it.",

@@ -1,4 +1,5 @@
 import {
+    DefineReplacementDirective,
     getNormalizedDefineReplacementDirective,
     isFunctionLikeDeclaration
 } from "./util.js";
@@ -15,7 +16,10 @@ function isMacroLikeStatement(node) {
     }
 
     if (nodeType === "DefineStatement") {
-        return getNormalizedDefineReplacementDirective(node) === "#macro";
+        return (
+            getNormalizedDefineReplacementDirective(node) ===
+            DefineReplacementDirective.MACRO
+        );
     }
 
     return false;

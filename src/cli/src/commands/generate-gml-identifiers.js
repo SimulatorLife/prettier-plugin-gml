@@ -1,4 +1,7 @@
 import vm from "node:vm";
+import path from "node:path";
+import process from "node:process";
+import { fileURLToPath } from "node:url";
 
 import { Command } from "commander";
 
@@ -30,6 +33,8 @@ import {
     IDENTIFIER_VM_TIMEOUT_ENV_VAR
 } from "../modules/manual/environment.js";
 import { applyStandardCommandOptions } from "../core/command-standard-options.js";
+import { createCliCommandManager } from "../core/command-manager.js";
+import { handleCliError } from "../core/errors.js";
 import {
     applySharedManualCommandOptions,
     resolveManualCommandOptions
@@ -47,7 +52,7 @@ import {
 import {
     createWorkflowPathFilter,
     ensureWorkflowPathsAllowed
-} from "../shared/fs/path-filter.js";
+} from "../workflow/path-filter.js";
 
 const MANUAL_CONTEXT_OPTIONS = Object.freeze({
     importMetaUrl: import.meta.url,
@@ -658,6 +663,44 @@ function createIdentifierArtifactPayload({
     };
 }
 
+/**
+ * Transform the raw manual payloads into the final identifier artefact payload
+ * while keeping {@link runGenerateGmlIdentifiers} free from map mutations and
+ * tag bookkeeping.
+ */
+function buildIdentifierArtifact({
+    payloads,
+    manualRef,
+    manualRepo,
+    vmEvalTimeoutMs,
+    verbose
+}) {
+    const identifierMap = buildIdentifierMapFromManualPayloads({
+        payloads,
+        vmEvalTimeoutMs,
+        verbose
+    });
+
+    const { manualKeywords, manualTags } = decodeManualKeywordAndTagPayloads({
+        payloads,
+        verbose
+    });
+
+    classifyManualIdentifierMetadata({
+        identifierMap,
+        manualKeywords,
+        manualTags,
+        verbose
+    });
+
+    return createIdentifierArtifactPayload({
+        identifierMap,
+        manualRef,
+        manualRepo,
+        verbose
+    });
+}
+
 async function writeIdentifierArtifact({
     outputPath,
     payload,
@@ -815,29 +858,11 @@ export async function runGenerateGmlIdentifiers({ command, workflow } = {}) {
             progressBarWidth
         });
 
-        const identifierMap = buildIdentifierMapFromManualPayloads({
+        const { payload, entryCount } = buildIdentifierArtifact({
             payloads: fetchedPayloads,
-            vmEvalTimeoutMs,
-            verbose
-        });
-
-        const { manualKeywords, manualTags } =
-            decodeManualKeywordAndTagPayloads({
-                payloads: fetchedPayloads,
-                verbose
-            });
-
-        classifyManualIdentifierMetadata({
-            identifierMap,
-            manualKeywords,
-            manualTags,
-            verbose
-        });
-
-        const { payload, entryCount } = createIdentifierArtifactPayload({
-            identifierMap,
             manualRef,
             manualRepo,
+            vmEvalTimeoutMs,
             verbose
         });
 
@@ -859,3 +884,25 @@ export const __test__ = Object.freeze({
     collectManualArrayIdentifiers,
     assertManualIdentifierArray
 });
+
+const isMainModule = process.argv[1]
+    ? path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+    : false;
+
+if (isMainModule) {
+    const program = new Command().name("generate-gml-identifiers");
+    const { registry, runner } = createCliCommandManager({ program });
+    const handleError = (error) =>
+        handleCliError(error, {
+            prefix: "Failed to generate GML identifiers.",
+            exitCode: typeof error?.exitCode === "number" ? error.exitCode : 1
+        });
+
+    registry.registerDefaultCommand({
+        command: createGenerateIdentifiersCommand({ env: process.env }),
+        run: ({ command }) => runGenerateGmlIdentifiers({ command }),
+        onError: handleError
+    });
+
+    runner.run(process.argv.slice(2)).catch(handleError);
+}

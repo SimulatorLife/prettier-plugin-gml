@@ -7,7 +7,12 @@ import { resolveCliPluginServiceDependencies } from "./cli-plugin-service-depend
  * collaborators that only needed to warm caches or only needed to clear them
  * to depend on both behaviours. The typedefs below capture the narrower
  * preparation and cache responsibilities so consumers can opt into the precise
- * collaborator they require.
+ * collaborator they require. The shared factory previously returned both the
+ * raw implementation functions and the service facades together, which still
+ * coerced consumers that only needed the functions to depend on the facade
+ * objects (and vice versa). The split contracts separate the implementations
+ * from the facades so callers can import the exact collaborator family they
+ * require.
  */
 
 /**
@@ -20,13 +25,42 @@ import { resolveCliPluginServiceDependencies } from "./cli-plugin-service-depend
  */
 
 /**
+ * @typedef {object} CliProjectIndexImplementation
+ * @property {CliProjectIndexBuilder} buildProjectIndex
+ */
+
+/**
  * @typedef {object} CliIdentifierCasePlanPreparationService
  * @property {(options: object) => Promise<void>} prepareIdentifierCasePlan
  */
 
 /**
+ * @typedef {object} CliIdentifierCasePlanImplementation
+ * @property {CliIdentifierCasePlanPreparationService["prepareIdentifierCasePlan"]} prepareIdentifierCasePlan
+ */
+
+/**
  * @typedef {object} CliIdentifierCasePlanCacheService
  * @property {() => void} clearIdentifierCaseCaches
+ */
+
+/**
+ * @typedef {object} CliIdentifierCaseCacheImplementation
+ * @property {CliIdentifierCasePlanCacheService["clearIdentifierCaseCaches"]} clearIdentifierCaseCaches
+ */
+
+/**
+ * @typedef {object} CliPluginServiceImplementations
+ * @property {CliProjectIndexImplementation} projectIndex
+ * @property {CliIdentifierCasePlanImplementation} identifierCasePlan
+ * @property {CliIdentifierCaseCacheImplementation} identifierCaseCache
+ */
+
+/**
+ * @typedef {object} CliPluginServiceFacades
+ * @property {CliProjectIndexService} projectIndexService
+ * @property {CliIdentifierCasePlanPreparationService} identifierCasePlanPreparationService
+ * @property {CliIdentifierCasePlanCacheService} identifierCasePlanCacheService
  */
 
 function assertDescriptorValue(value, description) {
@@ -35,7 +69,9 @@ function assertDescriptorValue(value, description) {
     });
 }
 
-export function createDefaultCliPluginServices(descriptorOverrides) {
+export function createDefaultCliPluginServiceImplementations(
+    descriptorOverrides
+) {
     if (
         descriptorOverrides != null &&
         typeof descriptorOverrides !== "object"
@@ -72,49 +108,43 @@ export function createDefaultCliPluginServices(descriptorOverrides) {
         "clearIdentifierCaseCaches"
     );
 
-    const projectIndexService = Object.freeze({
+    const projectIndexImplementation = Object.freeze({
         buildProjectIndex: projectIndexBuilder
     });
+    const identifierCasePlanImplementation = Object.freeze({
+        prepareIdentifierCasePlan: identifierCasePlanPreparer
+    });
+    const identifierCaseCacheImplementation = Object.freeze({
+        clearIdentifierCaseCaches: identifierCaseCacheClearer
+    });
 
-    const identifierCasePlanPreparationService = Object.freeze(
-        /** @type {CliIdentifierCasePlanPreparationService} */ ({
-            prepareIdentifierCasePlan: identifierCasePlanPreparer
-        })
-    );
-
-    const identifierCasePlanCacheService = Object.freeze(
-        /** @type {CliIdentifierCasePlanCacheService} */ ({
-            clearIdentifierCaseCaches: identifierCaseCacheClearer
-        })
-    );
-
-    /**
-     * Earlier iterations exposed a `CliIdentifierCaseServices` bundle that
-     * coupled the preparation and cache collaborators behind one "services"
-     * contract. That umbrella forced consumers that only needed one helper to
-     * depend on both. We now return only the focused services so call sites can
-     * opt into the precise collaborator they require.
-     */
-
-    return {
-        projectIndexBuilder,
-        identifierCasePlanPreparer,
-        identifierCaseCacheClearer,
-        projectIndexService,
-        identifierCasePlanPreparationService,
-        identifierCasePlanCacheService
-    };
+    return Object.freeze({
+        projectIndex: projectIndexImplementation,
+        identifierCasePlan: identifierCasePlanImplementation,
+        identifierCaseCache: identifierCaseCacheImplementation
+    });
 }
 
-const {
-    projectIndexBuilder: defaultProjectIndexBuilder,
-    identifierCasePlanPreparer: defaultIdentifierCasePlanPreparer,
-    identifierCaseCacheClearer: defaultIdentifierCaseCacheClearer,
-    projectIndexService: defaultCliProjectIndexService,
-    identifierCasePlanPreparationService:
-        defaultCliIdentifierCasePlanPreparationService,
-    identifierCasePlanCacheService: defaultCliIdentifierCaseCacheService
-} = createDefaultCliPluginServices();
+const defaultImplementations = createDefaultCliPluginServiceImplementations();
+
+const defaultCliProjectIndexService = /** @type {CliProjectIndexService} */ (
+    defaultImplementations.projectIndex
+);
+const defaultCliIdentifierCasePlanPreparationService =
+    /** @type {CliIdentifierCasePlanPreparationService} */ (
+        defaultImplementations.identifierCasePlan
+    );
+const defaultCliIdentifierCaseCacheService =
+    /** @type {CliIdentifierCasePlanCacheService} */ (
+        defaultImplementations.identifierCaseCache
+    );
+
+const defaultProjectIndexBuilder =
+    defaultCliProjectIndexService.buildProjectIndex;
+const defaultIdentifierCasePlanPreparer =
+    defaultCliIdentifierCasePlanPreparationService.prepareIdentifierCasePlan;
+const defaultIdentifierCaseCacheClearer =
+    defaultCliIdentifierCaseCacheService.clearIdentifierCaseCaches;
 
 export {
     defaultProjectIndexBuilder,

@@ -53,6 +53,16 @@ test("coercePositiveIntegerOption respects zero replacement", () => {
     );
 });
 
+test("coercePositiveIntegerOption normalizes numeric strings", () => {
+    assert.strictEqual(coercePositiveIntegerOption("12", 5), 12);
+    assert.strictEqual(coercePositiveIntegerOption(" 9 ", 1), 9);
+    assert.strictEqual(
+        coercePositiveIntegerOption("0", 7, { zeroReplacement: 0 }),
+        0
+    );
+    assert.strictEqual(coercePositiveIntegerOption("", 6), 6);
+});
+
 test("resolveIntegerOption normalizes string inputs", () => {
     const result = resolveIntegerOption(" 42 ", {
         defaultValue: 0,
