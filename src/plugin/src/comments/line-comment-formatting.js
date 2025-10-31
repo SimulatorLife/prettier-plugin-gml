@@ -500,32 +500,16 @@ function formatLineComment(
 }
 
 function applyInlinePadding(comment, formattedText) {
-    const paddingWidth = getInlinePaddingWidth(comment);
+    const paddingWidth = resolveInlinePaddingWidth(comment);
 
     if (paddingWidth <= 0) {
         return formattedText;
     }
 
-    const shouldTrimTrailingPadding =
-        comment?.trailing === true || comment?.placement === "endOfLine";
-    const derivesFromFallback =
-        typeof comment?.inlinePadding !== "number" || comment.inlinePadding <= 0;
-    const shouldReduceFallbackPadding =
-        shouldTrimTrailingPadding &&
-        derivesFromFallback &&
-        comment?.placement !== "endOfLine";
-    const effectiveWidth = shouldReduceFallbackPadding
-        ? Math.max(paddingWidth - 1, 0)
-        : paddingWidth;
-
-    if (effectiveWidth <= 0) {
-        return formattedText;
-    }
-
-    return " ".repeat(effectiveWidth) + formattedText;
+    return " ".repeat(paddingWidth) + formattedText;
 }
 
-function getInlinePaddingWidth(comment) {
+function resolveInlinePaddingWidth(comment) {
     if (!isObjectLike(comment)) {
         return 0;
     }
@@ -535,21 +519,11 @@ function getInlinePaddingWidth(comment) {
         return inlinePadding;
     }
 
-    return getBottomTrailingInlinePadding(comment);
-}
-
-function getBottomTrailingInlinePadding(comment) {
-    if (comment?.isBottomComment !== true) {
-        return 0;
-    }
-
-    const isTrailingComment =
-        comment.trailing === true || comment.placement === "endOfLine";
-    if (!isTrailingComment) {
-        return 0;
-    }
-
-    if (comment.leadingChar !== ";") {
+    if (
+        comment?.isBottomComment !== true ||
+        (comment.trailing !== true && comment.placement !== "endOfLine") ||
+        comment.leadingChar !== ";"
+    ) {
         return 0;
     }
 
@@ -559,7 +533,7 @@ function getBottomTrailingInlinePadding(comment) {
         return 0;
     }
 
-    return 1;
+    return comment.placement === "endOfLine" ? 1 : 0;
 }
 
 function extractContinuationIndentation(comment) {
