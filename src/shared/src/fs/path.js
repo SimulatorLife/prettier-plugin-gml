@@ -4,6 +4,10 @@ import { isNonEmptyString } from "../utils/string.js";
 
 const WINDOWS_SEPARATOR_PATTERN = /\\+/g;
 const POSIX_SEPARATOR_PATTERN = /\/+/g;
+// Match `..` path segments while tolerating either separator so we can detect
+// when `path.relative` escapes the provided parent without rejecting file names
+// that legitimately begin with `..`.
+const PARENT_SEGMENT_PATTERN = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
 
 /**
  * Replace any Windows-style backslashes with forward slashes so downstream
@@ -69,7 +73,7 @@ export function resolveContainedRelativePath(childPath, parentPath) {
         return "";
     }
 
-    if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    if (PARENT_SEGMENT_PATTERN.test(relative) || path.isAbsolute(relative)) {
         return null;
     }
 
