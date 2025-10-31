@@ -56,34 +56,43 @@ const MANUAL_GITHUB_REQUEST_ERROR_CAPABILITY = Symbol.for(
     "prettier-plugin-gml.manual-github-request-error"
 );
 
-function readOptionalTrimmedString(value) {
+const OPTIONAL_READ_INVALID = Symbol("manual optional read invalid");
+
+function readOptionalValue(value, coerce) {
     if (value == null) {
         return { value: undefined };
     }
 
-    if (typeof value !== "string") {
+    const normalized = coerce(value);
+    if (normalized === OPTIONAL_READ_INVALID) {
         return null;
     }
 
-    const trimmed = value.trim();
-    return { value: trimmed === "" ? undefined : trimmed };
+    return { value: normalized };
+}
+
+function readOptionalTrimmedString(value) {
+    return readOptionalValue(value, (candidate) => {
+        if (typeof candidate !== "string") {
+            return OPTIONAL_READ_INVALID;
+        }
+
+        const trimmed = candidate.trim();
+        return trimmed === "" ? undefined : trimmed;
+    });
 }
 
 function readOptionalFiniteNumber(value) {
-    if (value == null) {
-        return { value: undefined };
-    }
-
-    const numeric = Number(value);
-    return Number.isFinite(numeric) ? { value: numeric } : null;
+    return readOptionalValue(value, (candidate) => {
+        const numeric = Number(candidate);
+        return Number.isFinite(numeric) ? numeric : OPTIONAL_READ_INVALID;
+    });
 }
 
 function readOptionalString(value) {
-    if (value == null) {
-        return { value: undefined };
-    }
-
-    return typeof value === "string" ? { value } : null;
+    return readOptionalValue(value, (candidate) =>
+        typeof candidate === "string" ? candidate : OPTIONAL_READ_INVALID
+    );
 }
 
 function getManualGitHubRequestErrorContract(value) {
