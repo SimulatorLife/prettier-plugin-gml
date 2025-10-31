@@ -104,6 +104,7 @@ test("collectFormatCommandOptions derives target path from --path option", () =>
 
     assert.strictEqual(result.targetPathInput, "./project");
     assert.strictEqual(result.targetPathProvided, true);
+    assert.strictEqual(result.rawTargetPathInput, " ./project  ");
 });
 
 test("collectFormatCommandOptions treats blank --path as provided but empty", () => {
