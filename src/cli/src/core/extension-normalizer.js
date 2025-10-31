@@ -3,6 +3,7 @@ import path from "node:path";
 import {
     compactArray,
     createListSplitPattern,
+    normalizeExtensionSuffix,
     normalizeStringList,
     toArrayFromIterable,
     uniqueArray
@@ -38,7 +39,7 @@ function coerceExtensionValue(value) {
         return null;
     }
 
-    return cleaned.startsWith(".") ? cleaned : `.${cleaned}`;
+    return normalizeExtensionSuffix(cleaned);
 }
 
 function collectExtensionCandidates(rawExtensions) {

@@ -43,6 +43,7 @@ export {
     mergeUniqueValues,
     noop,
     normalizeEnumeratedOption,
+    normalizeExtensionSuffix,
     normalizeIdentifierMetadataEntries,
     normalizeStringList,
     parseJsonObjectWithContext,

@@ -19,7 +19,8 @@ import {
     stripStringQuotes,
     createListSplitPattern,
     describeValueForError,
-    formatWithIndefiniteArticle
+    formatWithIndefiniteArticle,
+    normalizeExtensionSuffix
 } from "../src/utils/string.js";
 
 test("toTrimmedString returns trimmed strings", () => {
@@ -40,6 +41,18 @@ test("coalesceTrimmedString returns the first non-empty trimmed candidate", () =
     assert.strictEqual(coalesceTrimmedString("  first  ", "second"), "first");
     assert.strictEqual(coalesceTrimmedString(), "");
     assert.strictEqual(coalesceTrimmedString(null, "   "), "");
+});
+
+test("normalizeExtensionSuffix lowercases and prefixes dot-separated values", () => {
+    assert.strictEqual(normalizeExtensionSuffix(" gml"), ".gml");
+    assert.strictEqual(normalizeExtensionSuffix("YY"), ".yy");
+    assert.strictEqual(normalizeExtensionSuffix(".Md"), ".md");
+});
+
+test("normalizeExtensionSuffix returns null for invalid inputs", () => {
+    assert.strictEqual(normalizeExtensionSuffix("   "), null);
+    assert.strictEqual(normalizeExtensionSuffix("."), null);
+    assert.strictEqual(normalizeExtensionSuffix(42), null);
 });
 
 test("normalizeStringList preserves entire strings when splitting is disabled", () => {

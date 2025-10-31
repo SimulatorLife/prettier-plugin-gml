@@ -1,6 +1,6 @@
 import {
-    getNonEmptyTrimmedString,
-    mergeUniqueValues
+    mergeUniqueValues,
+    normalizeExtensionSuffix
 } from "../dependencies.js";
 
 export const PROJECT_MANIFEST_EXTENSION = ".yyp";
@@ -18,17 +18,7 @@ const DEFAULT_RESOURCE_METADATA_EXTENSIONS = Object.freeze([".yy"]);
 let projectResourceMetadataExtensions = DEFAULT_RESOURCE_METADATA_EXTENSIONS;
 
 function normalizeResourceMetadataExtension(candidate) {
-    const trimmed = getNonEmptyTrimmedString(candidate);
-    if (!trimmed) {
-        return null;
-    }
-
-    const prefixed = trimmed.startsWith(".") ? trimmed : `.${trimmed}`;
-    if (prefixed === ".") {
-        return null;
-    }
-
-    return prefixed.toLowerCase();
+    return normalizeExtensionSuffix(candidate);
 }
 
 function normalizeResourceMetadataExtensions(candidate) {
