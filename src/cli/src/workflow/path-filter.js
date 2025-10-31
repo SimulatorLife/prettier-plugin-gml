@@ -5,7 +5,8 @@ import {
     isNonEmptyString,
     isPathInside,
     toArray,
-    uniqueArray
+    uniqueArray,
+    compactArray
 } from "../shared/dependencies.js";
 
 /**
@@ -15,12 +16,8 @@ import {
  * @returns {Array<string>}
  */
 export function normalizeWorkflowPathList(paths) {
-    return uniqueArray(
-        toArray(paths)
-            .map(getNonEmptyTrimmedString)
-            .filter(Boolean)
-            .map((candidate) => path.resolve(candidate))
-    );
+    const trimmed = compactArray(toArray(paths).map(getNonEmptyTrimmedString));
+    return uniqueArray(trimmed.map((candidate) => path.resolve(candidate)));
 }
 
 /**

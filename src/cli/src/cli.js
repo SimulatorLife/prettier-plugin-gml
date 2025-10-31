@@ -1746,9 +1746,9 @@ function formatIgnoredDetail({ ignored, ignoredSamples }) {
         return null;
     }
 
-    const formattedSamples = (ignoredSamples ?? [])
-        .map((sample) => formatIgnoredFileSample(sample))
-        .filter(Boolean);
+    const formattedSamples = compactArray(
+        (ignoredSamples ?? []).map((sample) => formatIgnoredFileSample(sample))
+    );
     const suffix = formatSampleSuffix(formattedSamples, ignored);
 
     return `ignored by .prettierignore (${ignored})${suffix}`;
@@ -1770,9 +1770,11 @@ function formatUnsupportedExtensionDetail({
         return null;
     }
 
-    const formattedSamples = (unsupportedExtensionSamples ?? [])
-        .map((sample) => formatUnsupportedExtensionSample(sample))
-        .filter(Boolean);
+    const formattedSamples = compactArray(
+        (unsupportedExtensionSamples ?? []).map((sample) =>
+            formatUnsupportedExtensionSample(sample)
+        )
+    );
     const suffix = formatSampleSuffix(formattedSamples, unsupportedExtension);
 
     return `unsupported extensions (${unsupportedExtension})${suffix}`;
