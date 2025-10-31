@@ -66,3 +66,51 @@ test("keeps leading line comments before synthetic doc comments", async () => {
         "Expected the leading line comment to remain before the synthesized doc comment"
     );
 });
+
+test("retains documented parameter aliases when canonical names differ", async () => {
+    const source = [
+        "/// @param fontName   The target font, as a string",
+        "/// @param character  Character to test for, as a string",
+        "function scribble_font_has_character(_font_name, _character) {",
+        "    return _character;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+
+    assert.ok(
+        formatted.includes(
+            "/// @param fontName - The target font, as a string"
+        ),
+        "Expected the formatter to preserve the documented alias for the parameter"
+    );
+    assert.ok(
+        !formatted.includes("/// @param font_name"),
+        "Expected the formatter not to replace the alias with the parameter identifier"
+    );
+});
+
+test("converts legacy Returns description lines into returns metadata", async () => {
+    const source = [
+        "/// @function has_feature",
+        "///              Returns: Boolean, indicating whether conversion occurs",
+        "function has_feature() {",
+        "    return true;",
+        "}",
+        "",
+    ].join("\n");
+
+    const formatted = await formatWithPlugin(source);
+
+    assert.ok(
+        formatted.includes(
+            "/// @returns {bool} Indicating whether conversion occurs"
+        ),
+        "Expected legacy Returns description lines to be converted into @returns metadata"
+    );
+    assert.ok(
+        !formatted.includes("Returns: Boolean"),
+        "Expected the legacy Returns description line to be removed after conversion"
+    );
+});
