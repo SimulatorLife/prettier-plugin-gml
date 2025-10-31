@@ -159,8 +159,8 @@ for (var i = 0; i < queue_count; i += 1) {
   tricky identifier examples. Use it for historical context; the current roadmap
   now spans the [live reloading concept](docs/live-reloading-concept.md) and the
   [semantic scope plan](docs/semantic-scope-plan.md).
-- [Operational runbooks](docs/project-index-cache-design.md) &mdash; Design notes,
-  cache architecture, and the archived [project index roadmap](docs/legacy-identifier-case-plan.md#archived-project-index-roadmap)
+- [Operational runbooks](docs/legacy-identifier-case-plan.md#project-index-cache-design) &mdash;
+  Design notes, cache architecture, and the archived [project index roadmap](docs/legacy-identifier-case-plan.md#archived-project-index-roadmap)
   alongside the [Feather data plan](docs/feather-data-plan.md). Pair them with
   the [reserved identifier metadata hook overview](docs/reserved-identifier-metadata-hook.md)
   when staging bespoke metadata sources, generated code directories, or
