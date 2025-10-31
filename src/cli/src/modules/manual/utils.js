@@ -60,46 +60,34 @@ const OPTIONAL_INVALID_RESULT = Symbol(
     "prettier-plugin-gml.manual.optional-invalid"
 );
 
-function readOptionalValue(value, normalize) {
-    if (value == null) {
-        return { value: undefined };
-    }
-
-    const normalized = normalize(value);
-
-    if (normalized === OPTIONAL_INVALID_RESULT) {
-        return null;
-    }
-
-    return { value: normalized };
-}
-
 function readOptionalTrimmedString(value) {
-    return readOptionalValue(value, (candidate) => {
-        if (typeof candidate !== "string") {
-            return OPTIONAL_INVALID_RESULT;
-        }
+    if (value == null) {
+        return undefined;
+    }
 
-        const trimmed = candidate.trim();
-        return trimmed === "" ? undefined : trimmed;
-    });
+    if (typeof value !== "string") {
+        return OPTIONAL_INVALID_RESULT;
+    }
+
+    const trimmed = value.trim();
+    return trimmed === "" ? undefined : trimmed;
 }
 
 function readOptionalFiniteNumber(value) {
-    return readOptionalValue(value, (candidate) => {
-        const numeric = Number(candidate);
-        if (!Number.isFinite(numeric)) {
-            return OPTIONAL_INVALID_RESULT;
-        }
+    if (value == null) {
+        return undefined;
+    }
 
-        return numeric;
-    });
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : OPTIONAL_INVALID_RESULT;
 }
 
 function readOptionalString(value) {
-    return readOptionalValue(value, (candidate) =>
-        typeof candidate === "string" ? candidate : OPTIONAL_INVALID_RESULT
-    );
+    if (value == null) {
+        return undefined;
+    }
+
+    return typeof value === "string" ? value : OPTIONAL_INVALID_RESULT;
 }
 
 function getManualGitHubRequestErrorContract(value) {
@@ -107,34 +95,29 @@ function getManualGitHubRequestErrorContract(value) {
         return null;
     }
 
-    const urlResult = readOptionalTrimmedString(value.url);
-    if (!urlResult) {
+    const url = readOptionalTrimmedString(value.url);
+    if (url === OPTIONAL_INVALID_RESULT) {
         return null;
     }
 
-    const statusResult = readOptionalFiniteNumber(value.status);
-    if (!statusResult) {
+    const status = readOptionalFiniteNumber(value.status);
+    if (status === OPTIONAL_INVALID_RESULT) {
         return null;
     }
 
-    const statusTextResult = readOptionalTrimmedString(value.statusText);
-    if (!statusTextResult) {
+    const statusText = readOptionalTrimmedString(value.statusText);
+    if (statusText === OPTIONAL_INVALID_RESULT) {
         return null;
     }
 
-    const responseBodyResult = readOptionalString(value.responseBody);
-    if (!responseBodyResult) {
+    const responseBody = readOptionalString(value.responseBody);
+    if (responseBody === OPTIONAL_INVALID_RESULT) {
         return null;
     }
-
-    const { value: url } = urlResult;
-    const { value: status } = statusResult;
-    const { value: statusText } = statusTextResult;
-    const { value: responseBody } = responseBodyResult;
 
     if (
-        ![url, status, statusText, responseBody].some(
-            (entry) => entry !== undefined
+        [url, status, statusText, responseBody].every(
+            (entry) => entry === undefined
         )
     ) {
         return null;
