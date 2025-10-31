@@ -269,11 +269,12 @@ function isBlockWithinConstructor(path) {
         return false;
     }
 
+    // Hoist the `getParentNode` lookup so the tight loop can call it directly
+    // without paying for the generic helper's array normalization overhead on
+    // every iteration.
+    const getParentNode = path.getParentNode;
     for (let depth = 0; depth < 100; depth += 1) {
-        const ancestor = callPathMethod(path, "getParentNode", {
-            args: [depth],
-            defaultValue: null
-        });
+        const ancestor = getParentNode.call(path, depth);
 
         if (!ancestor) {
             break;
