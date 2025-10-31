@@ -52,6 +52,7 @@ export {
     isNonEmptyString,
     isNonEmptyTrimmedString,
     isWordChar,
+    toNormalizedLowerCaseSet,
     toTrimmedString
 } from "@prettier-plugin-gml/shared/utils/string.js";
 export {
