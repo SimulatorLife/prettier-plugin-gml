@@ -1363,12 +1363,12 @@ function resolveTargetPathFromInput(
         );
 
         if (resolvedRawTarget !== resolvedNormalizedTarget) {
-            if (safeExistsSync(resolvedNormalizedTarget)) {
-                return resolvedNormalizedTarget;
-            }
-
             if (safeExistsSync(resolvedRawTarget)) {
                 return resolvedRawTarget;
+            }
+
+            if (safeExistsSync(resolvedNormalizedTarget)) {
+                return resolvedNormalizedTarget;
             }
         }
     }

@@ -78,3 +78,26 @@ test("resolveTargetPathFromInput falls back to the raw value when sanitized path
         await fs.rm(rawPath, { recursive: true, force: true });
     }
 });
+
+test("resolveTargetPathFromInput prefers the raw value when both paths exist", async () => {
+    const uniqueSuffix = randomUUID();
+    const rawName = ` ${uniqueSuffix}-target`;
+    const sanitizedName = `${uniqueSuffix}-target`;
+    const rawPath = path.resolve(process.cwd(), rawName);
+    const sanitizedPath = path.resolve(process.cwd(), sanitizedName);
+
+    await fs.rm(rawPath, { recursive: true, force: true });
+    await fs.rm(sanitizedPath, { recursive: true, force: true });
+    await fs.mkdir(rawPath, { recursive: true });
+    await fs.mkdir(sanitizedPath, { recursive: true });
+
+    try {
+        const resolved = resolveTargetPathFromInputForTests(sanitizedName, {
+            rawTargetPathInput: rawName
+        });
+        assert.strictEqual(resolved, rawPath);
+    } finally {
+        await fs.rm(rawPath, { recursive: true, force: true });
+        await fs.rm(sanitizedPath, { recursive: true, force: true });
+    }
+});
