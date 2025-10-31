@@ -4,36 +4,38 @@ import { performance } from "node:perf_hooks";
 import process from "node:process";
 
 import {
-    SuiteOutputFormat,
-    applyStandardCommandOptions,
-    collectSuiteResults,
-    Command,
-    Option,
-    createCliErrorDetails,
-    emitSuiteResults,
-    ensureSuitesAreKnown,
-    formatByteSize,
-    resolveRequestedSuites,
-    resolveSuiteOutputFormatOrThrow,
-    wrapInvalidArgumentResolver,
-    InvalidArgumentError
-} from "../dependencies.js";
-import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "../plugin-runtime-dependencies.js";
-import {
     appendToCollection,
+    applyStandardCommandOptions,
     assertArray,
     assertPlainObject,
     coercePositiveInteger,
-    isFiniteNumber,
-    isObjectLike,
+    collectSuiteResults,
+    Command,
+    createCliErrorDetails,
+    createCliRunSkippedError,
+    createPathFilter,
+    emitSuiteResults,
+    ensureSuitesAreKnown,
+    formatByteSize,
     getErrorMessageOrFallback,
     getIdentifierText,
+    InvalidArgumentError,
+    isCliRunSkipped,
+    isFiniteNumber,
+    isObjectLike,
+    normalizeFixtureRoots,
+    Option,
+    REPO_ROOT,
     resolveIntegerOption,
-    toNormalizedInteger,
     resolveModuleDefaultExport,
-    createCliRunSkippedError,
-    isCliRunSkipped
+    resolveRequestedSuites,
+    resolveSuiteOutputFormatOrThrow,
+    SuiteOutputFormat,
+    toNormalizedInteger,
+    wrapInvalidArgumentResolver,
+    writeJsonArtifact
 } from "../dependencies.js";
+import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "../plugin-runtime-dependencies.js";
 import {
     PerformanceSuiteName,
     formatPerformanceSuiteList,
@@ -41,12 +43,6 @@ import {
     normalizePerformanceSuiteName
 } from "./suite-options.js";
 import { formatMetricValue } from "./metric-formatters.js";
-import {
-    REPO_ROOT,
-    createPathFilter,
-    normalizeFixtureRoots,
-    writeJsonArtifact
-} from "../dependencies.js";
 
 export { normalizeFixtureRoots } from "../dependencies.js";
 
