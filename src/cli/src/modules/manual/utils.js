@@ -56,38 +56,50 @@ const MANUAL_GITHUB_REQUEST_ERROR_CAPABILITY = Symbol.for(
     "prettier-plugin-gml.manual-github-request-error"
 );
 
-function readOptionalTrimmedString(value) {
+const OPTIONAL_INVALID_RESULT = Symbol(
+    "prettier-plugin-gml.manual.optional-invalid"
+);
+
+function readOptionalValue(value, normalize) {
     if (value == null) {
         return { value: undefined };
     }
 
-    if (typeof value !== "string") {
+    const normalized = normalize(value);
+
+    if (normalized === OPTIONAL_INVALID_RESULT) {
         return null;
     }
 
-    const trimmed = value.trim();
-    return { value: trimmed === "" ? undefined : trimmed };
+    return { value: normalized };
+}
+
+function readOptionalTrimmedString(value) {
+    return readOptionalValue(value, (candidate) => {
+        if (typeof candidate !== "string") {
+            return OPTIONAL_INVALID_RESULT;
+        }
+
+        const trimmed = candidate.trim();
+        return trimmed === "" ? undefined : trimmed;
+    });
 }
 
 function readOptionalFiniteNumber(value) {
-    if (value == null) {
-        return { value: undefined };
-    }
+    return readOptionalValue(value, (candidate) => {
+        const numeric = Number(candidate);
+        if (!Number.isFinite(numeric)) {
+            return OPTIONAL_INVALID_RESULT;
+        }
 
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) {
-        return null;
-    }
-
-    return { value: numeric };
+        return numeric;
+    });
 }
 
 function readOptionalString(value) {
-    if (value == null) {
-        return { value: undefined };
-    }
-
-    return typeof value === "string" ? { value } : null;
+    return readOptionalValue(value, (candidate) =>
+        typeof candidate === "string" ? candidate : OPTIONAL_INVALID_RESULT
+    );
 }
 
 function getManualGitHubRequestErrorContract(value) {
