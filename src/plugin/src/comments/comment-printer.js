@@ -20,6 +20,8 @@ import {
 const { addDanglingComment, addLeadingComment } = util;
 const { join, hardline } = builders;
 
+const MIN_SLASHES_FOR_SYMMETRIC_BANNER = 2;
+
 const EMPTY_BODY_TARGETS = [{ type: "BlockStatement", property: "body" }];
 
 const EMPTY_PARENS_TARGETS = [
@@ -216,7 +218,7 @@ function printComment(commentPath, options) {
                 const availableForSlashes =
                     bannerLength - textWithSpaces.length;
 
-                if (availableForSlashes >= 2) {
+                if (availableForSlashes >= MIN_SLASHES_FOR_SYMMETRIC_BANNER) {
                     // Distribute slashes evenly on both sides
                     const leftSlashes = Math.floor(availableForSlashes / 2);
                     const rightSlashes = availableForSlashes - leftSlashes;

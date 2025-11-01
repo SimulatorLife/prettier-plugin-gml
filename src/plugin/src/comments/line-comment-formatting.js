@@ -335,6 +335,8 @@ const FUNCTION_SIGNATURE_PATTERN =
 // per-call RegExp construction keeps the hot path allocation-free.
 const DOC_COMMENT_TYPE_PATTERN = /\{([^}]+)\}/g;
 const DOC_TAG_LINE_PREFIX_PATTERN = /^\/+(\s*)@/;
+const JSDOC_TAG_PATTERN = /^@\w+/;
+
 
 function getLineCommentRawText(comment) {
     if (!isObjectLike(comment)) {
@@ -466,7 +468,7 @@ function formatLineComment(
     }
 
     // Handle JSDoc tags that start directly with @ (e.g., "// @description" -> "/// @description")
-    if (/^@\w+/.test(trimmedValue)) {
+    if (JSDOC_TAG_PATTERN.test(trimmedValue)) {
         const formattedCommentLine = `/// ${trimmedValue}`;
         const withReplacements = applyJsDocReplacements(formattedCommentLine);
         return applyInlinePadding(comment, withReplacements);
