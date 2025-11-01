@@ -549,14 +549,21 @@ import path from "node:path";
 
 const wss = new WebSocketServer({ port: 17890 });
 const clients = new Set();
-wss.on("connection", ws => { clients.add(ws); ws.on("close", () => clients.delete(ws)); });
+wss.on("connection", (ws) => {
+    clients.add(ws);
+    ws.on("close", () => clients.delete(ws));
+});
 
 function broadcast(obj) {
-  const msg = JSON.stringify(obj);
-  for (const ws of clients) { try { ws.send(msg); } catch {} }
+    const msg = JSON.stringify(obj);
+    for (const ws of clients) {
+        try {
+            ws.send(msg);
+        } catch {}
+    }
 }
 
-const projectRoot = path.resolve(process.cwd(), "game");     // adjust
+const projectRoot = path.resolve(process.cwd(), "game"); // adjust
 const scriptsDir = path.join(projectRoot, "scripts");
 
 chokidar.watch(scriptsDir, { ignoreInitial: true })
@@ -564,32 +571,35 @@ chokidar.watch(scriptsDir, { ignoreInitial: true })
 .on("change", onChange);
 
 async function onChange(file) {
-  if (!file.endsWith(".gml")) return;
-  const src = await fs.readFile(file, "utf8");
+    if (!file.endsWith(".gml")) {
+        return;
+    }
 
-  // TODO: feed src to your ANTLR pipeline to produce JS body
-  // For bootstrapping, we wrap raw GML in a call to original dispatcher:
-  const id = file_to_script_id(file);  // implement to match your export
-  const js_body = `
-    // Call through to original implementation if present (bootstrap)
-    // Replace this with emitted JS from your transpiler later.
-    return window.__hot_call_script_original
-      ? window.__hot_call_script_original(${JSON.stringify(id)}, self, other, args)
-      : undefined;
-  `;
+    const src = await fs.readFile(file, "utf8");
 
-  broadcast({
-    kind: "script",
-    id: `script:${id}`,
-    path: path.relative(projectRoot, file),
-    js_body
-  });
-  console.log("Patch sent:", file);
+    // TODO: feed src to your ANTLR pipeline to produce JS body
+    // For bootstrapping, we wrap raw GML in a call to original dispatcher:
+    const id = fileToScriptId(file); // implement to match your export
+    const jsBody = `
+        // Call through to original implementation if present (bootstrap)
+        // Replace this with emitted JS from your transpiler later.
+        return window.__hot_call_script_original
+            ? window.__hot_call_script_original(${JSON.stringify(id)}, self, other, args)
+            : undefined;
+    `;
+
+    broadcast({
+        kind: "script",
+        id: `script:${id}`,
+        path: path.relative(projectRoot, file),
+        js_body: jsBody
+    });
+    console.log("Patch sent:", file);
 }
 
-function file_to_script_id(f) {
-  // Map filename -> script id scheme your game uses. For now, use basename.
-  return path.basename(f, ".gml");
+function fileToScriptId(f) {
+    // Map filename -> script id scheme your game uses. For now, use basename.
+    return path.basename(f, ".gml");
 }
 
 console.log("Dev WS listening on ws://127.0.0.1:17890");
