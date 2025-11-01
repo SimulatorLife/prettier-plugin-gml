@@ -8,6 +8,16 @@ import {
 
 const DEFAULT_SOURCE = "env";
 
+/**
+ * Normalize a usage helper into a string Commander can surface when reporting
+ * environment override failures. Accepts lazily-evaluated callbacks so callers
+ * can defer expensive usage generation until diagnostics are actually needed.
+ *
+ * @param {(() => string) | string | null | undefined} getUsage Usage provider
+ *        supplied by the caller.
+ * @returns {string | null} Materialized usage text, or `null` when none was
+ *          supplied.
+ */
 function resolveUsage(getUsage) {
     if (typeof getUsage === "function") {
         return getUsage();
@@ -16,6 +26,22 @@ function resolveUsage(getUsage) {
     return getUsage ?? null;
 }
 
+/**
+ * Convert arbitrary resolver errors into a {@link CliUsageError} with an
+ * optional usage hint. The helper centralizes the message fallback and cause
+ * wiring so individual overrides can focus on validating values without
+ * repeating defensive plumbing.
+ *
+ * @param {object} parameters
+ * @param {unknown} parameters.error Failure thrown by the override resolver.
+ * @param {string | undefined} parameters.envVar Environment variable backing
+ *        the override. Used to build the default error message when the cause
+ *        does not supply one.
+ * @param {(() => string) | string | null | undefined} parameters.getUsage
+ *        Lazy usage provider forwarded to {@link CliUsageError}.
+ * @returns {CliUsageError} Configured usage error with the original cause
+ *          attached when available.
+ */
 function createOverrideError({ error, envVar, getUsage }) {
     const usage = resolveUsage(getUsage);
     const fallbackMessage = envVar
