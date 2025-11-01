@@ -98,7 +98,7 @@ test("converts legacy Returns description lines into returns metadata", async ()
         "function has_feature() {",
         "    return true;",
         "}",
-        "",
+        ""
     ].join("\n");
 
     const formatted = await formatWithPlugin(source);

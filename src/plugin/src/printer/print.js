@@ -4270,7 +4270,7 @@ function convertLegacyReturnsDescriptionLinesToMetadata(docLines) {
             converted += ` ${descriptionText}`;
         }
 
-        converted = normalizeDocCommentTypeAnnotations(converted).replace(
+        converted = normalizeDocCommentTypeAnnotations(converted).replaceAll(
             /\{boolean\}/gi,
             "{bool}"
         );
@@ -7714,11 +7714,15 @@ function docParamNamesLooselyEqual(left, right) {
             return null;
         }
 
-        if (trimmed.startsWith("[") && trimmed.endsWith("]") && trimmed.length > 2) {
+        if (
+            trimmed.startsWith("[") &&
+            trimmed.endsWith("]") &&
+            trimmed.length > 2
+        ) {
             trimmed = trimmed.slice(1, -1).trim();
         }
 
-        const comparable = trimmed.replace(/[_\s]+/g, "").toLowerCase();
+        const comparable = trimmed.replaceAll(/[_\s]+/g, "").toLowerCase();
         return comparable.length > 0 ? comparable : null;
     };
 

@@ -62,7 +62,7 @@ const OPTIONAL_INVALID_RESULT = Symbol(
 
 function readOptionalTrimmedString(value) {
     if (value == null) {
-        return undefined;
+        return;
     }
 
     if (typeof value !== "string") {
@@ -75,7 +75,7 @@ function readOptionalTrimmedString(value) {
 
 function readOptionalFiniteNumber(value) {
     if (value == null) {
-        return undefined;
+        return;
     }
 
     const numeric = Number(value);
@@ -84,7 +84,7 @@ function readOptionalFiniteNumber(value) {
 
 function readOptionalString(value) {
     if (value == null) {
-        return undefined;
+        return;
     }
 
     return typeof value === "string" ? value : OPTIONAL_INVALID_RESULT;

@@ -21,6 +21,7 @@ import {
     getIdentifierText,
     InvalidArgumentError,
     isCliRunSkipped,
+    isFsErrorCode,
     isFiniteNumber,
     isObjectLike,
     normalizeFixtureRoots,

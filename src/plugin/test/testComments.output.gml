@@ -1,8 +1,8 @@
 // Set foot movement speed according to character rotation and movement speeds (this is so the legs don't end up trailing when the character is moving too fast)
 // try { // TODO this sometimes throws NaN error, try catch is band-aid
-// 	// foot_spd = min(0.5 * sqrt(sqr(x - xprevious) + sqr(y - yprevious)) + abs(last_crab_dir) * 0.1 + 0.2, 1);
+//     // foot_spd = min(0.5 * sqrt(sqr(x - xprevious) + sqr(y - yprevious)) + abs(last_crab_dir) * 0.1 + 0.2, 1);
 // } catch(ex) {
-// 	show_debug_message("Caught exception while trying to update crab foot speed: " + string(ex));
+//     show_debug_message("Caught exception while trying to update crab foot speed: " + string(ex));
 // }
 
 // Make body wobble up and down
@@ -30,4 +30,17 @@ function string_height_scribble(_string) {
 /// @returns {bool} Indicating whether the given character is found in the font
 function scribble_font_has_character(_font_name, _character) {
     return ds_map_exists(__scribble_get_font_data(_font_name).__glyphs_map, ord(_character));
+}
+
+/////////////////////////////////////////////////////////
+//-------------------Move camera-----------------------//
+/////////////////////////////////////////////////////////
+camUpdateTimer += timeStep;
+if (camUpdateTimer >= 1 or fps < 70) { // Only update the mouse movement every 1/60th second
+    var mousedx = window_mouse_get_x() - window_get_width() * 0.5;
+    var mousedy = window_mouse_get_y() - window_get_height() * 0.5;
+    window_mouse_set(window_get_width() * 0.5, window_get_height() * 0.5);
+    camUpdateTimer = 0;
+    camYaw += mousedx * 0.1;
+    camPitch = clamp(camPitch - mousedy * 0.1, -80, -2);
 }

@@ -1069,12 +1069,9 @@ async function resolveTargetStats(target, { usage } = {}) {
             if (isErrorWithCode(error, "ENOENT")) {
                 const guidanceParts = [
                     "Verify the path exists relative to the current working directory",
-                    `(${INITIAL_WORKING_DIRECTORY}) or provide an absolute path.`
-                ];
-
-                guidanceParts.push(
+                    `(${INITIAL_WORKING_DIRECTORY}) or provide an absolute path.`,
                     'Run "prettier-plugin-gml --help" to review available commands and usage examples.'
-                );
+                ];
 
                 return guidanceParts.join(" ");
             }
