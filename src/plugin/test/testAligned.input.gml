@@ -18,3 +18,11 @@ precalculated_2 = 0;
 precalculated_0.y = 1 + (sin(time) * sin(0.5 * time) * (1.5 + (sin(0.05 * time) * 0.5)) * 0.5);
 precalculated_1.z = sin(time);
 precalculated_1.w = time * 0.2;
+global.modSphere     = vbuff_load_obj("AnimEditor/Geosphere.obj");
+global.modCube       = vbuff_load_obj("AnimEditor/Cube.obj");
+global.modUnitarrows = vbuff_load_obj("AnimEditor/UnitDimensionArrows.obj");
+global.modArrow      = vbuff_load_obj("AnimEditor/RotateXArrow.obj");
+modArrow2     = vbuff_load_obj("AnimEditor/RotateYArrow.obj");
+modArrow3     = vbuff_load_obj("AnimEditor/RotateZArrow.obj");
+global.modWall       = mod_create_wall();
+
