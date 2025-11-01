@@ -60,7 +60,7 @@ function Shape(color = undefined) constructor {
     };
 
     /// @function setSolid
-    /// @param solid
+    /// @param {bool} solid - Whether the shape is solid or not
     /// @returns {undefined}
     static setSolid = function(solid) {
         if (solid) {

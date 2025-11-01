@@ -46,6 +46,7 @@ function Shape(color = undefined) constructor {
 		ds_list_destroy(shapeList);
 		}
 
+    /// @argument <boolean> solid Whether the shape is solid or not
 	static setSolid = function(solid) {
 		if solid {
 			group |= cmGroupSolid // Flag as solid
