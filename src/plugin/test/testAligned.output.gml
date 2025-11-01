@@ -24,3 +24,18 @@ global.modArrow      = vbuff_load_obj("AnimEditor/RotateXArrow.obj");
 modArrow2            = vbuff_load_obj("AnimEditor/RotateYArrow.obj");
 modArrow3            = vbuff_load_obj("AnimEditor/RotateZArrow.obj");
 global.modWall       = mod_create_wall();
+
+if (edtSMFSel >= 0) {
+    model           = edtSMFArray[edtSMFSel];
+    var mBuff       = model.mBuff;
+    var vBuff       = model.vBuff;
+    var vis         = model.vis;
+    var texPack     = model.texPack;
+    var wire        = model.Wire;
+    var selList     = model.SelModelList;
+    var selNode     = model.SelNode;
+    var animArray   = model.animations;
+    var selAnim     = model.SelAnim;
+    var selKeyframe = model.SelKeyframe;
+    var rig         = model.rig;
+}
