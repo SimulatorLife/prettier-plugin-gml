@@ -83,6 +83,7 @@ const OWN_LINE_COMMENT_HANDLERS = [
 const COMMON_COMMENT_HANDLERS = [
     handleHoistedDeclarationLeadingComment,
     handleOnlyComments,
+    handleClauseBlockIntroComment,
     handleCommentAttachedToOpenBrace,
     handleCommentInEmptyParens
 ];
@@ -483,6 +484,70 @@ function handleCommentAttachedToOpenBrace(
     return true;
 }
 
+function handleClauseBlockIntroComment(
+    comment,
+    _text,
+    _options,
+    _ast /*, isLastComment */
+) {
+    const { enclosingNode, precedingNode, followingNode } = comment;
+    if (!enclosingNode || !followingNode) {
+        return false;
+    }
+
+    const clauseConfig = resolveClauseCommentConfig(enclosingNode);
+    if (!clauseConfig) {
+        return false;
+    }
+
+    const clauseNode = enclosingNode[clauseConfig.clauseKey];
+    const bodyNode = enclosingNode[clauseConfig.bodyKey];
+    if (bodyNode !== followingNode) {
+        return false;
+    }
+
+    if (clauseNode !== precedingNode) {
+        return false;
+    }
+
+    if (clauseNode?.type !== "ParenthesizedExpression") {
+        return false;
+    }
+
+    if (!isCommentOnNodeEndLine(comment, clauseNode)) {
+        return false;
+    }
+
+    if (bodyNode?.type === "BlockStatement") {
+        comment.attachToBrace = true;
+        addDanglingComment(bodyNode, comment);
+    } else {
+        comment.attachToClauseBody = true;
+        addDanglingComment(enclosingNode, comment);
+    }
+
+    comment.leading = false;
+    comment.trailing = false;
+    delete comment.placement;
+    return true;
+}
+
+function resolveClauseCommentConfig(node) {
+    switch (node?.type) {
+        case "IfStatement": {
+            return { clauseKey: "test", bodyKey: "consequent" };
+        }
+        case "WhileStatement":
+        case "RepeatStatement":
+        case "WithStatement": {
+            return { clauseKey: "test", bodyKey: "body" };
+        }
+        default: {
+            return null;
+        }
+    }
+}
+
 function isBlockStatement(node) {
     return node?.type === "BlockStatement";
 }
@@ -601,6 +666,22 @@ function isCommentOnNodeStartLine(comment, node) {
     }
 
     return commentLine === nodeStartLine;
+}
+
+function isCommentOnNodeEndLine(comment, node) {
+    const commentLine = comment.start?.line;
+    const nodeEndLine = node?.end?.line;
+
+    const isCommentLineMissing =
+        commentLine === undefined || commentLine === null;
+    const isNodeEndLineMissing =
+        nodeEndLine === undefined || nodeEndLine === null;
+
+    if (isCommentLineMissing || isNodeEndLineMissing) {
+        return false;
+    }
+
+    return commentLine === nodeEndLine;
 }
 
 function handleCommentInEmptyParens(

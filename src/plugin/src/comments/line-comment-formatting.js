@@ -501,13 +501,17 @@ function formatLineComment(
 }
 
 function applyInlinePadding(comment, formattedText) {
+    const normalizedText = formattedText.includes("\t")
+        ? formattedText.replaceAll('\t', "    ")
+        : formattedText;
+
     const paddingWidth = resolveInlinePaddingWidth(comment);
 
     if (paddingWidth <= 0) {
-        return formattedText;
+        return normalizedText;
     }
 
-    return " ".repeat(paddingWidth) + formattedText;
+    return " ".repeat(paddingWidth) + normalizedText;
 }
 
 function resolveInlinePaddingWidth(comment) {
