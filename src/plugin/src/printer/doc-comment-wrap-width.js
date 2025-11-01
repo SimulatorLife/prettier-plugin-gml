@@ -65,14 +65,49 @@ const docCommentMaxWrapWidthConfig = createEnvConfiguredValueWithFallback({
     resolve: (value, context) => normalizeWrapWidth(value, context)
 });
 
+/**
+ * Read the current doc-comment wrap width after applying any configured
+ * overrides.
+ *
+ * Exposes the resolved value so printer modules can query a single source of
+ * truth without reimplementing the environment/normalization pipeline. The
+ * result mirrors Prettier's expectation that option accessors either return a
+ * finite positive integer or `Infinity` to disable wrapping altogether.
+ *
+ * @returns {number} Normalized wrap width, possibly `Infinity` when wrapping is
+ *          disabled.
+ */
 function getDefaultDocCommentMaxWrapWidth() {
     return docCommentMaxWrapWidthConfig.get();
 }
 
+/**
+ * Update the baseline doc-comment wrap width used for new formatter runs.
+ *
+ * Callers can forward loosely-typed input (for example CLI strings or mocked
+ * environment values) and rely on the shared normalization logic to clamp
+ * negative numbers, coerce numeric strings, and honour the explicit
+ * "infinity" opt-out. The return value reflects the stored configuration after
+ * normalization so tests can assert the effective wrap behaviour.
+ *
+ * @param {unknown} width Candidate wrap width to persist.
+ * @returns {number} Resolved wrap width stored by the configuration helper.
+ */
 function setDefaultDocCommentMaxWrapWidth(width) {
     return docCommentMaxWrapWidthConfig.set(width);
 }
 
+/**
+ * Re-run environment override resolution for the doc-comment wrap width.
+ *
+ * Allows callers—primarily tests—to provide an explicit environment map and
+ * verify that the configuration reacts to overrides without mutating global
+ * state. When omitted, the helper falls back to {@link process.env} so runtime
+ * usage continues to observe real environment variables.
+ *
+ * @param {NodeJS.ProcessEnv | null | undefined} [env] Optional environment map
+ *        to source overrides from.
+ */
 function applyDocCommentMaxWrapWidthEnvOverride(env) {
     applyConfiguredValueEnvOverride(docCommentMaxWrapWidthConfig, env);
 }
