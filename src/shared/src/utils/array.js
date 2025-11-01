@@ -194,9 +194,10 @@ export function compactArray(values, { freeze = false } = {}) {
  *
  * Centralizes the inclusion guard used throughout the project index and
  * resource analysis modules so callers can focus on their domain logic while
- * keeping duplicate prevention consistent. The helper mirrors the semantics of
- * `Array#includes`, including `NaN` handling, and returns a boolean so hot
- * paths can detect when a new entry was appended.
+ * keeping duplicate prevention consistent. The helper now delegates to
+ * `Array#includes`, preserving SameValueZero semantics (including `NaN`
+ * handling) without reimplementing the iteration logic, and returns a boolean
+ * so hot paths can detect when a new entry was appended.
  *
  * @template T
  * @param {Array<T>} array Array that should receive {@link value} when absent.
@@ -211,11 +212,9 @@ export function pushUnique(array, value, { isEqual } = {}) {
         throw new TypeError("pushUnique requires an array to append to.");
     }
 
-    const length = array.length;
-
     if (typeof isEqual === "function") {
-        for (let index = 0; index < length; index += 1) {
-            if (isEqual(array[index], value)) {
+        for (const entry of array) {
+            if (isEqual(entry, value)) {
                 return false;
             }
         }
@@ -224,16 +223,8 @@ export function pushUnique(array, value, { isEqual } = {}) {
         return true;
     }
 
-    const valueIsNaN = value !== value;
-    for (let index = 0; index < length; index += 1) {
-        const entry = array[index];
-        if (entry === value) {
-            return false;
-        }
-
-        if (valueIsNaN && entry !== entry) {
-            return false;
-        }
+    if (array.includes(value)) {
+        return false;
     }
 
     array.push(value);
