@@ -1,4 +1,7 @@
-import { ensureWorkflowPathsAllowed } from "../../workflow/path-filter.js";
+import {
+    ensureWorkflowPathsAllowed,
+    ensureManualWorkflowArtifactsAllowed as ensureWorkflowArtifactsAllowed
+} from "../../workflow/path-filter.js";
 
 /**
  * Manual module facade for workflow path validation.
@@ -14,6 +17,10 @@ import { ensureWorkflowPathsAllowed } from "../../workflow/path-filter.js";
  */
 export function ensureManualWorkflowPathsAllowed(filter, entries) {
     ensureWorkflowPathsAllowed(filter, entries);
+}
+
+export function ensureManualWorkflowArtifactsAllowed(filter, options) {
+    ensureWorkflowArtifactsAllowed(filter, options);
 }
 
 export { ensureWorkflowPathsAllowed as default } from "../../workflow/path-filter.js";

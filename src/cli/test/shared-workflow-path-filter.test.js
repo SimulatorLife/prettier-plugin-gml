@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 
 import {
     createWorkflowPathFilter,
-    ensureWorkflowPathsAllowed
+    ensureManualWorkflowArtifactsAllowed
 } from "../src/workflow/path-filter.js";
 
 describe("workflow path filter helpers", () => {
@@ -18,18 +18,10 @@ describe("workflow path filter helpers", () => {
         const filter = createWorkflowPathFilter({ allowPaths: [workspace] });
 
         assert.doesNotThrow(() => {
-            ensureWorkflowPathsAllowed(filter, [
-                {
-                    type: "directory",
-                    target: workspace,
-                    label: "Manual cache root"
-                },
-                {
-                    type: "path",
-                    target: outputPath,
-                    label: "Manual output path"
-                }
-            ]);
+            ensureManualWorkflowArtifactsAllowed(filter, {
+                cacheRoot: workspace,
+                outputPath
+            });
         });
     });
 
@@ -54,13 +46,9 @@ describe("workflow path filter helpers", () => {
 
         assert.throws(
             () => {
-                ensureWorkflowPathsAllowed(filter, [
-                    {
-                        type: "directory",
-                        target: denied,
-                        label: "Manual cache root"
-                    }
-                ]);
+                ensureManualWorkflowArtifactsAllowed(filter, {
+                    cacheRoot: denied
+                });
             },
             (error) =>
                 error instanceof Error &&
@@ -85,18 +73,9 @@ describe("workflow path filter helpers", () => {
 
         assert.throws(
             () => {
-                ensureWorkflowPathsAllowed(filter, [
-                    {
-                        type: "path",
-                        target: path.join(restricted, "manual.json"),
-                        label: "Manual output path"
-                    },
-                    {
-                        type: "path",
-                        target: outputPath,
-                        label: "Manual output path"
-                    }
-                ]);
+                ensureManualWorkflowArtifactsAllowed(filter, {
+                    outputPath: path.join(restricted, "manual.json")
+                });
             },
             (error) =>
                 error instanceof Error &&
