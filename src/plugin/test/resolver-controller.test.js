@@ -21,6 +21,24 @@ describe("createResolverController", () => {
         assert.equal(defaultCalls, 3);
     });
 
+    it("reuses the cached default when configured", () => {
+        let defaultCalls = 0;
+        const { resolution } = createResolverController({
+            reuseDefaultValue: true,
+            defaultFactory() {
+                defaultCalls += 1;
+                return { marker: defaultCalls };
+            }
+        });
+
+        const first = resolution.resolve();
+        const second = resolution.resolve();
+
+        assert.deepEqual(first, { marker: 1 });
+        assert.strictEqual(first, second);
+        assert.equal(defaultCalls, 1);
+    });
+
     it("passes the previous value through the resolver pipeline", () => {
         const seen = [];
         const { resolution, registry } = createResolverController({

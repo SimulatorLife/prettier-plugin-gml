@@ -111,6 +111,7 @@ const {
     registry: docCommentTypeNormalizationRegistry
 } = createResolverController({
     defaultFactory: () => createDocCommentTypeNormalization(),
+    reuseDefaultValue: true,
     invoke(resolver, options) {
         return resolver({
             defaults: DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION,

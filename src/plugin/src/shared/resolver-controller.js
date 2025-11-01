@@ -50,7 +50,8 @@ import { assertFunction } from "@prettier-plugin-gml/shared/utils/object.js";
  *         result: unknown,
  *         options: TOptions,
  *         currentValue: TResult
- *     ) => TResult
+ *     ) => TResult,
+ *     reuseDefaultValue?: boolean
  * }} config
  * @returns {ResolverControls<TOptions, TResult>}
  */
@@ -59,7 +60,8 @@ export function createResolverController({
     errorMessage,
     defaultFactory,
     invoke = (resolver, options) => resolver(options),
-    normalize = (result) => /** @type {TResult} */ (result)
+    normalize = (result) => /** @type {TResult} */ (result),
+    reuseDefaultValue = false
 }) {
     if (typeof defaultFactory !== "function") {
         throw new TypeError("defaultFactory must be a function.");
@@ -84,7 +86,11 @@ export function createResolverController({
      */
     function resolve(options = /** @type {TOptions} */ ({})) {
         if (!resolver) {
-            return resetToDefault();
+            if (!reuseDefaultValue) {
+                return resetToDefault();
+            }
+
+            return currentValue;
         }
 
         const rawResult = invoke(resolver, options, currentValue);
