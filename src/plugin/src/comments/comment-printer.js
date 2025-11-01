@@ -200,11 +200,36 @@ function printComment(commentPath, options) {
                 return formatLineComment(comment, lineCommentOptions);
             }
 
-            const normalizedSlashRun =
-                bannerLength <= 0 ? slashRun : "".padStart(bannerLength, "/");
-            const normalizedBanner =
-                `${normalizedSlashRun}${remainder}`.trimEnd();
+            // If bannerLength is 0 or negative, preserve the original format
+            if (bannerLength <= 0) {
+                const normalizedBanner = `${slashRun}${remainder}`.trimEnd();
+                return applyInlinePadding(comment, normalizedBanner);
+            }
 
+            // Extract the text content from the banner (removing leading/trailing slashes and whitespace)
+            const textContent = remainderTrimmed.replace(/\/+$/, "").trim();
+
+            // Create symmetric banner with text centered
+            if (textContent.length > 0) {
+                // Calculate available space for slashes (total length - text - 2 spaces for padding)
+                const textWithSpaces = ` ${textContent} `;
+                const availableForSlashes =
+                    bannerLength - textWithSpaces.length;
+
+                if (availableForSlashes >= 2) {
+                    // Distribute slashes evenly on both sides
+                    const leftSlashes = Math.floor(availableForSlashes / 2);
+                    const rightSlashes = availableForSlashes - leftSlashes;
+                    const normalizedBanner =
+                        "/".repeat(leftSlashes) +
+                        textWithSpaces +
+                        "/".repeat(rightSlashes);
+                    return applyInlinePadding(comment, normalizedBanner);
+                }
+            }
+
+            // Fallback: just use slashes to fill the banner length (no text fits)
+            const normalizedBanner = "".padStart(bannerLength, "/");
             return applyInlinePadding(comment, normalizedBanner);
         }
         default: {
