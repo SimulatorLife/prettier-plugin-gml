@@ -465,6 +465,13 @@ function formatLineComment(
         return applyInlinePadding(comment, formattedCommentLine);
     }
 
+    // Handle JSDoc tags that start directly with @ (e.g., "// @description" -> "/// @description")
+    if (/^@\w+/.test(trimmedValue)) {
+        const formattedCommentLine = `/// ${trimmedValue}`;
+        const withReplacements = applyJsDocReplacements(formattedCommentLine);
+        return applyInlinePadding(comment, withReplacements);
+    }
+
     const sentences = isInlineComment
         ? [trimmedValue]
         : splitCommentIntoSentences(trimmedValue);
