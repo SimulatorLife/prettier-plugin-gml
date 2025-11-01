@@ -384,15 +384,20 @@ export function createListSplitPattern(
         addEntry(escapeRegExp(value), value.length);
     };
 
-    if (typeof separators === "string") {
-        addSeparator(separators);
-    } else if (
-        separators != null &&
-        typeof separators[Symbol.iterator] === "function"
-    ) {
-        for (const candidate of separators) {
-            addSeparator(candidate);
+    const resolveSeparatorValues = (input) => {
+        if (typeof input === "string") {
+            return [input];
         }
+
+        if (input == null || typeof input[Symbol.iterator] !== "function") {
+            return [];
+        }
+
+        return input;
+    };
+
+    for (const candidate of resolveSeparatorValues(separators)) {
+        addSeparator(candidate);
     }
 
     if (includeWhitespace) {
