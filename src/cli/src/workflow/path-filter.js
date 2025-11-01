@@ -140,3 +140,51 @@ export function ensureWorkflowPathsAllowed(pathFilter, entries = []) {
         }
     }
 }
+
+/**
+ * Ensure the canonical manual cache and output paths are permitted by the
+ * provided workflow filter. Callers can omit either path to reuse the shared
+ * label/validation logic while guarding only the entries they care about.
+ *
+ * @param {ReturnType<typeof createWorkflowPathFilter> | undefined | null} pathFilter
+ * @param {{
+ *   cacheRoot?: string | null,
+ *   outputPath?: string | null,
+ *   cacheLabel?: string,
+ *   outputLabel?: string
+ * }} [options]
+ * @returns {void}
+ */
+export function ensureManualWorkflowArtifactsAllowed(
+    pathFilter,
+    {
+        cacheRoot,
+        outputPath,
+        cacheLabel = "Manual cache root",
+        outputLabel = "Manual output path"
+    } = {}
+) {
+    const entries = [];
+
+    if (isNonEmptyString(cacheRoot)) {
+        entries.push({
+            type: "directory",
+            target: cacheRoot,
+            label: cacheLabel
+        });
+    }
+
+    if (isNonEmptyString(outputPath)) {
+        entries.push({
+            type: "path",
+            target: outputPath,
+            label: outputLabel
+        });
+    }
+
+    if (entries.length === 0) {
+        return;
+    }
+
+    ensureWorkflowPathsAllowed(pathFilter, entries);
+}
