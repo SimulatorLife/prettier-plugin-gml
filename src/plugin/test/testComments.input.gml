@@ -34,17 +34,3 @@ function string_height_scribble(_string) {
 function scribble_font_has_character(_font_name, _character) {
     return ds_map_exists(__scribble_get_font_data(_font_name).__glyphs_map, ord(_character));
 }
-
-/////////////////////////////////////////////////////////
-//-------------------Move camera-----------------------//
-/////////////////////////////////////////////////////////
-camUpdateTimer += timeStep;
-if (camUpdateTimer >= 1 || fps < 70) //Only update the mouse movement every 1/60th second
-{
-	var mousedx = window_mouse_get_x() - window_get_width() / 2;
-	var mousedy = window_mouse_get_y() - window_get_height() / 2;
-	window_mouse_set(window_get_width() / 2, window_get_height() / 2);
-	camUpdateTimer = 0;
-	camYaw += mousedx * .1;
-	camPitch = clamp(camPitch - mousedy * .1, -80, -2);
-}
