@@ -7,6 +7,7 @@ import {
     createManualEnvironmentContext,
     createManualFileAccessContext,
     createManualReferenceAccessContext,
+    resolveManualFileFetcher,
     resolveManualGitHubRequestExecutor,
     resolveManualGitHubCommitResolver,
     resolveManualGitHubRefResolver,
@@ -35,6 +36,19 @@ test("manual access helpers expose focused contexts", () => {
     assert.deepStrictEqual(fileAccess.environment, referenceAccess.environment);
     assert.equal(typeof fileAccess.fetchManualFile, "function");
     assert.equal(typeof referenceAccess.resolveManualRef, "function");
+});
+
+test("resolveManualFileFetcher exposes the manual download helper", () => {
+    const commandUrl = pathToFileURL(
+        path.resolve("src/cli/src/commands/generate-feather-metadata.js")
+    ).href;
+
+    const fetchManualFile = resolveManualFileFetcher({
+        importMetaUrl: commandUrl,
+        userAgent: "manual-context-test"
+    });
+
+    assert.equal(typeof fetchManualFile, "function");
 });
 
 test("manual file and reference contexts share environment defaults", () => {

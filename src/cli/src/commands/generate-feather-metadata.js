@@ -41,8 +41,8 @@ import {
 } from "../modules/manual/command-options.js";
 import {
     createManualEnvironmentContext,
-    createManualFileAccessContext,
-    createManualReferenceAccessContext
+    createManualReferenceAccessContext,
+    resolveManualFileFetcher
 } from "../modules/manual/context.js";
 import {
     createWorkflowPathFilter,
@@ -93,15 +93,6 @@ const {
 const { resolveManualRef } = createManualReferenceAccessContext(
     MANUAL_CONTEXT_OPTIONS
 );
-
-function resolveManualFileFetcher({ workflowPathFilter } = {}) {
-    const { fetchManualFile } = createManualFileAccessContext({
-        ...MANUAL_CONTEXT_OPTIONS,
-        workflowPathFilter
-    });
-
-    return fetchManualFile;
-}
 
 const FEATHER_PAGES = {
     diagnostics:
@@ -1295,6 +1286,7 @@ export async function runGenerateFeatherMetadata({ command, workflow } = {}) {
         ]);
 
         const fetchManualFile = resolveManualFileFetcher({
+            ...MANUAL_CONTEXT_OPTIONS,
             workflowPathFilter
         });
 

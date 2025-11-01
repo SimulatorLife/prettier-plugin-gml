@@ -210,6 +210,19 @@ export function createManualFileAccessContext(options = {}) {
 }
 
 /**
+ * Resolve the manual file fetcher function directly so callers that only need
+ * the download helper avoid manually unpacking the file access context.
+ *
+ * @param {Parameters<typeof buildManualCommandContext>[0]} options
+ * @returns {ManualGitHubFileClient["fetchManualFile"]}
+ */
+export function resolveManualFileFetcher(options = {}) {
+    const { fetchManualFile } = createManualFileAccessContext(options);
+
+    return fetchManualFile;
+}
+
+/**
  * Resolve manual reference helpers along with the shared environment metadata.
  *
  * @param {Parameters<typeof buildManualCommandContext>[0]} options
