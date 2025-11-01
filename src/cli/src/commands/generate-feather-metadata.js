@@ -44,10 +44,8 @@ import {
     createManualReferenceAccessContext,
     resolveManualFileFetcher
 } from "../modules/manual/context.js";
-import {
-    createWorkflowPathFilter,
-    ensureWorkflowPathsAllowed
-} from "../workflow/path-filter.js";
+import { createWorkflowPathFilter } from "../workflow/path-filter.js";
+import { ensureManualWorkflowEnvironmentAllowed } from "../modules/manual/workflow-access.js";
 
 /** @typedef {ReturnType<typeof resolveManualCommandOptions>} ManualCommandOptions */
 
@@ -1272,18 +1270,10 @@ export async function runGenerateFeatherMetadata({ command, workflow } = {}) {
 
         const workflowPathFilter = createWorkflowPathFilter(workflow);
 
-        ensureWorkflowPathsAllowed(workflowPathFilter, [
-            {
-                type: "directory",
-                target: cacheRoot,
-                label: "Manual cache root"
-            },
-            {
-                type: "path",
-                target: outputPath,
-                label: "Manual output path"
-            }
-        ]);
+        ensureManualWorkflowEnvironmentAllowed(workflowPathFilter, {
+            cacheRoot,
+            outputPath
+        });
 
         const fetchManualFile = resolveManualFileFetcher({
             ...MANUAL_CONTEXT_OPTIONS,

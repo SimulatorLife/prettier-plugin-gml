@@ -50,10 +50,8 @@ import {
     decodeManualKeywordsPayload,
     decodeManualTagsPayload
 } from "../modules/manual/payload-validation.js";
-import {
-    createWorkflowPathFilter,
-    ensureWorkflowPathsAllowed
-} from "../workflow/path-filter.js";
+import { createWorkflowPathFilter } from "../workflow/path-filter.js";
+import { ensureManualWorkflowEnvironmentAllowed } from "../modules/manual/workflow-access.js";
 
 const MANUAL_CONTEXT_OPTIONS = Object.freeze({
     importMetaUrl: import.meta.url,
@@ -811,18 +809,10 @@ export async function runGenerateGmlIdentifiers({ command, workflow } = {}) {
 
         const workflowPathFilter = createWorkflowPathFilter(workflow);
 
-        ensureWorkflowPathsAllowed(workflowPathFilter, [
-            {
-                type: "directory",
-                target: cacheRoot,
-                label: "Manual cache root"
-            },
-            {
-                type: "path",
-                target: outputPath,
-                label: "Manual output path"
-            }
-        ]);
+        ensureManualWorkflowEnvironmentAllowed(workflowPathFilter, {
+            cacheRoot,
+            outputPath
+        });
 
         const fetchManualFile = resolveManualFileFetcher({
             ...MANUAL_CONTEXT_OPTIONS,

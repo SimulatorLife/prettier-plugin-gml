@@ -6,6 +6,7 @@ import {
     createWorkflowPathFilter,
     ensureWorkflowPathsAllowed
 } from "../src/workflow/path-filter.js";
+import { ensureManualWorkflowEnvironmentAllowed } from "../src/modules/manual/workflow-access.js";
 
 describe("workflow path filter helpers", () => {
     it("allows paths that satisfy the workflow filters", () => {
@@ -102,6 +103,47 @@ describe("workflow path filter helpers", () => {
                 error instanceof Error &&
                 /Manual output path/.test(error.message) &&
                 error.message.includes(restricted)
+        );
+    });
+
+    it("ensures manual workflow environment paths are permitted", () => {
+        const workspace = path.resolve(
+            "/tmp",
+            "workflow-path-filter",
+            "environment"
+        );
+        const outputPath = path.join(workspace, "artefacts", "manual.json");
+        const filter = createWorkflowPathFilter({ allowPaths: [workspace] });
+
+        assert.doesNotThrow(() =>
+            ensureManualWorkflowEnvironmentAllowed(filter, {
+                cacheRoot: workspace,
+                outputPath
+            })
+        );
+    });
+
+    it("propagates disallowed manual workflow entries", () => {
+        const workspace = path.resolve(
+            "/tmp",
+            "workflow-path-filter",
+            "environment"
+        );
+        const forbiddenCache = path.join(workspace, "forbidden");
+        const filter = createWorkflowPathFilter({
+            allowPaths: [workspace],
+            denyPaths: [forbiddenCache]
+        });
+
+        assert.throws(
+            () =>
+                ensureManualWorkflowEnvironmentAllowed(filter, {
+                    cacheRoot: forbiddenCache
+                }),
+            (error) =>
+                error instanceof Error &&
+                /Manual cache root/.test(error.message) &&
+                error.message.includes(forbiddenCache)
         );
     });
 });
