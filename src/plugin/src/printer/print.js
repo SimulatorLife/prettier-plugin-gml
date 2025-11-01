@@ -2220,19 +2220,34 @@ function printCommaSeparatedList(
 // synthetic doc comment integration tests
 // (`src/plugin/test/synthetic-doc-comments.test.js`).
 function printInBlock(path, options, print, expressionKey) {
-    const node = path.getValue()[expressionKey];
-    return node.type === "BlockStatement"
-        ? [print(expressionKey), optionalSemicolon(node.type)]
-        : [
-              "{",
-              indent([
-                  hardline,
-                  print(expressionKey),
-                  optionalSemicolon(node.type)
-              ]),
-              hardline,
-              "}"
-          ];
+    const parentNode = path.getValue();
+    const node = parentNode[expressionKey];
+
+    if (node.type === "BlockStatement") {
+        return [print(expressionKey), optionalSemicolon(node.type)];
+    }
+
+    const inlineCommentDocs = printDanglingCommentsAsGroup(
+        path,
+        options,
+        (comment) => comment.attachToClauseBody === true
+    );
+
+    const hasInlineComments = inlineCommentDocs && inlineCommentDocs !== "";
+    const introParts = ["{"];
+
+    if (hasInlineComments) {
+        introParts.push(...inlineCommentDocs);
+    } else {
+        introParts.push(" ");
+    }
+
+    return [
+        ...introParts,
+        indent([hardline, print(expressionKey), optionalSemicolon(node.type)]),
+        hardline,
+        "}"
+    ];
 }
 
 function shouldPrintBlockAlternateAsElseIf(node) {
