@@ -81,14 +81,17 @@ jobs:
 
           git fetch origin "$BASE_BRANCH"
 
-          git checkout -B "$AI_BOOTSTRAP_BRANCH" "origin/$BASE_BRANCH"
-          git push --force-with-lease --set-upstream origin "$AI_BOOTSTRAP_BRANCH"
-
           git checkout -B "$EMPTY_SHADOW_BRANCH" "origin/$BASE_BRANCH"
           git rm -rf . || true
           git clean -fdx
           git commit -m "temporary empty snapshot for full-repo review"
           git push --force-with-lease --set-upstream origin "$EMPTY_SHADOW_BRANCH"
+
+          git checkout -B "$AI_BOOTSTRAP_BRANCH" "$EMPTY_SHADOW_BRANCH"
+          git checkout "origin/$BASE_BRANCH" -- .
+          git add -A
+          git commit -m "bootstrap full repository snapshot"
+          git push --force-with-lease --set-upstream origin "$AI_BOOTSTRAP_BRANCH"
 
           git checkout "$AI_BOOTSTRAP_BRANCH"
         env:
@@ -152,7 +155,9 @@ jobs:
             lines.push("");
             lines.push(`Work against the dedicated branch **${workBranch}**, which was branched from **${headBranch}**. Keep **${headBranch}** read-only so this review PR always reflects the full repository snapshot.`);
             lines.push("");
-            lines.push(`Leave the empty baseline branch **${reviewBase}** untouched; it only exists so this PR diff shows every file. When you are ready to integrate real changes, open a separate PR from **${workBranch}** into **${mainBranch}**.`);
+            lines.push(`Leave the empty baseline branch **${reviewBase}** untouched; it only exists so this PR diff shows every file.`);
+            lines.push("");
+            lines.push(`When you are ready to integrate real changes, rebase **${workBranch}** onto the latest **${mainBranch}** and open a separate PR targeting **${mainBranch}**.`);
             lines.push("");
             lines.push(`Once done, ensure all changes are pushed to remote branch **${workBranch}** and keep all commits confined to that branch. As the final step (even after running 'make_pr'), run the following exact command(s) to guarantee your changes are pushed:`);
             lines.push("");
