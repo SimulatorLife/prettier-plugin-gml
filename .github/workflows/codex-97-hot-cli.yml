@@ -15,7 +15,7 @@ jobs:
     with:
       component: "CLI orchestration (src/cli)"
       extra_context: >
-        Focus the CLI work on the hot reload pipeline—watch mode coordination, transpiler,
+        Focus on developing the CLI for the hot reload pipeline—watch mode coordination, transpiler,
         semantic refreshes, refactor triggers, and runtime wrapper patch streaming. Prefer
         small, end-to-end improvements with strong tests and documentation updates where the
         commands evolve.
