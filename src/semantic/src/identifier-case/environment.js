@@ -1,0 +1,148 @@
+import { bootstrapIdentifierCaseProjectIndex } from "./project-index-gateway.js";
+import {
+    prepareIdentifierCasePlan,
+    captureIdentifierCasePlanSnapshot
+} from "./plan-service.js";
+import { isObjectLike, noop, withObjectLike } from "./dependencies.js";
+import {
+    setIdentifierCaseOption,
+    deleteIdentifierCaseOption
+} from "./option-store.js";
+import { warnWithReason } from "./logger.js";
+
+const IDENTIFIER_CASE_LOGGER_NAMESPACE = "identifier-case";
+
+const managedBootstraps = new WeakSet();
+
+function clearOwnProperty(target, propertyName, { value = null } = {}) {
+    if (!isObjectLike(target)) {
+        return;
+    }
+
+    if (!Object.hasOwn(target, propertyName)) {
+        return;
+    }
+
+    const nextValue =
+        typeof value === "function" ? value(target[propertyName]) : value;
+    target[propertyName] = nextValue;
+}
+
+function sanitizeBootstrapResult(bootstrap) {
+    if (!isObjectLike(bootstrap)) {
+        return;
+    }
+
+    clearOwnProperty(bootstrap, "projectIndex");
+    clearOwnProperty(bootstrap, "coordinator");
+
+    if (typeof bootstrap.dispose === "function") {
+        // The sanitized bootstrap stays attached to the Prettier options bag so
+        // downstream diagnostics can report whether the index came from a cache
+        // hit or a rebuild (see
+        // docs/legacy-identifier-case-plan.md#bootstrap-configuration-and-caching).
+        // Callers that probe this metadata still invoke `dispose()` inside
+        // their own finally blocks—mirroring the rollout guidance in that doc—so
+        // replacing the method with a noop keeps the teardown idempotent after
+        // we have already released the underlying file watchers and caches.
+        // Deleting the method or leaving the original callback in place would
+        // cause those consumers to either crash (missing method) or double-free
+        // resources that were never designed to be re-disposed.
+        bootstrap.dispose = noop;
+    }
+
+    const { cache } = bootstrap;
+    clearOwnProperty(cache, "projectIndex");
+    clearOwnProperty(cache?.payload, "projectIndex");
+    clearOwnProperty(cache, "payload");
+}
+
+function registerBootstrapCleanup(bootstrapResult) {
+    if (typeof bootstrapResult?.dispose !== "function") {
+        return null;
+    }
+
+    managedBootstraps.add(bootstrapResult);
+    return bootstrapResult;
+}
+
+function disposeBootstrap(bootstrapResult, logger = null) {
+    if (!bootstrapResult || typeof bootstrapResult.dispose !== "function") {
+        return;
+    }
+
+    if (!managedBootstraps.has(bootstrapResult)) {
+        return;
+    }
+
+    managedBootstraps.delete(bootstrapResult);
+
+    try {
+        bootstrapResult.dispose();
+    } catch (error) {
+        warnWithReason(
+            logger,
+            IDENTIFIER_CASE_LOGGER_NAMESPACE,
+            "Failed to dispose identifier case resources",
+            error
+        );
+    }
+}
+
+export async function prepareIdentifierCaseEnvironment(options) {
+    return withObjectLike(options, async (object) => {
+        const bootstrapResult =
+            await bootstrapIdentifierCaseProjectIndex(object);
+        registerBootstrapCleanup(bootstrapResult);
+
+        if (bootstrapResult?.status === "failed") {
+            if (object.__identifierCaseProjectIndexFailureLogged !== true) {
+                const logger = object?.logger ?? null;
+                warnWithReason(
+                    logger,
+                    IDENTIFIER_CASE_LOGGER_NAMESPACE,
+                    "Project index bootstrap failed. Identifier case renames will be skipped",
+                    bootstrapResult.error,
+                    bootstrapResult.reason
+                );
+                setIdentifierCaseOption(
+                    object,
+                    "__identifierCaseProjectIndexFailureLogged",
+                    true
+                );
+            }
+            return;
+        }
+
+        try {
+            await prepareIdentifierCasePlan(object);
+        } catch (error) {
+            disposeBootstrap(bootstrapResult, object?.logger ?? null);
+            throw error;
+        }
+    });
+}
+
+export function attachIdentifierCasePlanSnapshot(ast, options) {
+    withObjectLike(ast, (objectAst) => {
+        const snapshot = captureIdentifierCasePlanSnapshot(options);
+        if (!snapshot) {
+            return;
+        }
+
+        Object.defineProperty(objectAst, "__identifierCasePlanSnapshot", {
+            value: snapshot,
+            enumerable: false,
+            configurable: true
+        });
+    });
+}
+
+export function teardownIdentifierCaseEnvironment(options) {
+    const bootstrap = options?.__identifierCaseProjectIndexBootstrap ?? null;
+    disposeBootstrap(bootstrap, options?.logger ?? null);
+    sanitizeBootstrapResult(bootstrap);
+    deleteIdentifierCaseOption(options, "__identifierCaseProjectIndex");
+    deleteIdentifierCaseOption(options, "__identifierCasePlanSnapshot");
+    deleteIdentifierCaseOption(options, "__identifierCaseRenameMap");
+}
