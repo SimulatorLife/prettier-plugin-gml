@@ -1,0 +1,28 @@
+name: Codex 72 – Resource Leak Patrol
+on:
+  schedule:
+    - cron: "33 6 * * *"  # once a day at 06:33
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Codex: Resource Leak Patrol"
+      pr_body: >
+        Seed PR for Codex to plug a concrete resource leak, ensuring file
+        handles, timers, or network connections are closed promptly.
+      prompt: >
+        Identify one hot path where resources (file descriptors, sockets,
+        timers, observers) are created but not reliably disposed. Introduce the
+        minimal fix — finally blocks, AbortController, teardown helpers — that
+        guarantees cleanup even on error, and add an automated test or
+        diagnostic that reproduces the leak without the change. Keep the scope
+        tight: fix one leak thoroughly and document any follow-up considerations
+        if broader work remains.

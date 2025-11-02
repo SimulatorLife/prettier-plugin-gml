@@ -1,0 +1,21 @@
+{
+  "name": "gamemaker-language-refactor",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "dependencies": {
+    "@prettier-plugin-gml/shared": "file:../shared",
+    "gamemaker-language-parser": "file:../parser",
+    "gamemaker-language-semantic": "file:../semantic",
+    "prettier-plugin-gamemaker": "file:../plugin"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=25.0.0"
+  }
+}
