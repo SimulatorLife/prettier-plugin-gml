@@ -1,5 +1,5 @@
 import {
-    coercePositiveInteger,
+    coerceNonNegativeInteger,
     isFiniteNumber
 } from "../shared/dependencies.js";
 import {
@@ -119,7 +119,7 @@ class TerminalProgressBar {
 }
 
 const createWidthErrorMessage = (received) =>
-    `Progress bar width must be a positive integer (received ${received}).`;
+    `Progress bar width must be a non-negative integer (received ${received}).`;
 
 const createWidthTypeErrorMessage = (type) =>
     `Progress bar width must be provided as a number (received type '${type}').`;
@@ -127,7 +127,7 @@ const createWidthTypeErrorMessage = (type) =>
 const progressBarWidthToolkit = createIntegerOptionToolkit({
     defaultValue: DEFAULT_PROGRESS_BAR_WIDTH,
     envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
-    baseCoerce: coercePositiveInteger,
+    baseCoerce: coerceNonNegativeInteger,
     createErrorMessage: createWidthErrorMessage,
     typeErrorMessage: createWidthTypeErrorMessage,
     defaultValueOption: "defaultWidth"
