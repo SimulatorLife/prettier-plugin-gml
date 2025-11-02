@@ -100,16 +100,77 @@ jobs:
           AUTHOR_NAME: ${{ inputs.author_name }}
           AUTHOR_EMAIL: ${{ inputs.author_email }}
 
+      - name: Capture review head SHA
+        id: review_head
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse HEAD)
+          echo "REVIEW_HEAD_SHA=$sha" >> "$GITHUB_ENV"
+          echo "head_sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare Codex instructions
+        id: instructions
+        uses: actions/github-script@v7
+        env:
+          PROMPT: ${{ inputs.prompt }}
+          PR_BODY: ${{ inputs.pr_body }}
+          REVIEW_FULL_BRANCH: ${{ env.REVIEW_FULL_BRANCH }}
+          REVIEW_BASE_BRANCH: ${{ env.REVIEW_BASE_BRANCH }}
+          BASE_BRANCH: ${{ inputs.base_branch }}
+          REVIEW_HEAD_SHA: ${{ env.REVIEW_HEAD_SHA }}
+        with:
+          github-token: ${{ secrets.GH_USER_TOKEN }}
+          script: |
+            const preInstruction = "Begin by surveying the entire codebase before narrowing to this task.";
+            const postInstruction = "Ensure changes are self-contained, tested, and documented as needed, with no reduction in test coverage. Ensure the diff is minimal, readable, and well-commented; never sacrifice clarity for cleverness. There is no time constraint or specific allotted time for this task; prioritize quality and correctness over speed and take as much time as needed. You may **NOT** respond with \"no issues found\", \"didn't find any major issues\", or similar—if no obvious implementation exists, choose the most plausible area and apply a singular, safe, minimal improvement.";
+
+            const lines = [];
+            const intro = (process.env.PR_BODY || "").trim();
+            if (intro) {
+              lines.push(intro);
+              lines.push("");
+            }
+
+            const headBranch = process.env.REVIEW_FULL_BRANCH;
+            const baseBranch = process.env.BASE_BRANCH;
+            const baselineBranch = process.env.REVIEW_BASE_BRANCH;
+            const headSha = (process.env.REVIEW_HEAD_SHA || "").trim();
+            lines.push(`@codex ${preInstruction} ${process.env.PROMPT} ${postInstruction}`);
+            lines.push("");
+            lines.push(`Once done, ensure all changes are pushed to remote branch **${headBranch}** (targets base **${baseBranch}**) and keep all commits confined to that branch. Leave the baseline branch **${baselineBranch}** untouched. As the final step (even after running 'make_pr'), run the following exact command(s) to guarantee your changes are pushed:`);
+            lines.push("");
+            lines.push("```bash");
+            lines.push(`git config user.name  "codex-bot"`);
+            lines.push(`git config user.email "codex@example.com"`);
+            lines.push(`git -c credential.helper= \\`);
+            lines.push(`    -c 'credential.helper=store --file .git/codex-cred' \\`);
+            lines.push(`    push "https://henrylkirk@github.com/${context.repo.owner}/${context.repo.repo}.git" "HEAD:${headBranch}"`);
+            lines.push("```");
+            lines.push("Here is some additional context for your task:");
+            lines.push("```yaml");
+            lines.push("codex_task:");
+            lines.push(`  branch: "${headBranch}"`);
+            lines.push(`  base: "${baseBranch}"`);
+            lines.push(`  baseline: "${baselineBranch}"`);
+            if (headSha) {
+              lines.push(`  head_sha: "${headSha}"`);
+            }
+            lines.push("```");
+
+            const body = lines.join("\n");
+            core.setOutput("body", body);
+            core.exportVariable("CODEX_BODY", body);
+
       - name: Open PR (authored by your user)
         id: pr
         uses: actions/github-script@v7
         env:
           PR_TITLE: ${{ inputs.pr_title }}
-          PR_BODY: ${{ inputs.pr_body }}
-          PROMPT: ${{ inputs.prompt }}
           BASE_BRANCH: ${{ inputs.base_branch }}
           REVIEW_FULL_BRANCH: ${{ env.REVIEW_FULL_BRANCH }}
           REVIEW_BASE_BRANCH: ${{ env.REVIEW_BASE_BRANCH }}
+          CODEX_BODY: ${{ steps.instructions.outputs.body }}
         with:
           github-token: ${{ secrets.GH_USER_TOKEN }}
           script: |
@@ -119,7 +180,7 @@ jobs:
               title: process.env.PR_TITLE,
               head:  process.env.REVIEW_FULL_BRANCH,
               base:  process.env.BASE_BRANCH,
-              body:  process.env.PR_BODY || undefined,
+              body:  process.env.CODEX_BODY || undefined,
               maintainer_can_modify: true,
             });
             const number = String(pr.number);
@@ -157,77 +218,3 @@ jobs:
             } catch (e) {
               core.info('Label add skipped: ' + e.message);
             }
-
-      - name: Prepare Codex instructions
-        id: instructions
-        uses: actions/github-script@v7
-        env:
-          PROMPT: ${{ inputs.prompt }}
-          PR_BODY: ${{ inputs.pr_body }}
-          REVIEW_FULL_BRANCH: ${{ env.REVIEW_FULL_BRANCH }}
-          REVIEW_BASE_BRANCH: ${{ env.REVIEW_BASE_BRANCH }}
-          BASE_BRANCH: ${{ inputs.base_branch }}
-        with:
-          github-token: ${{ secrets.GH_USER_TOKEN }}
-          script: |
-            const preInstruction = "Begin by surveying the entire codebase before narrowing to this task.";
-            const postInstruction = "Ensure changes are self-contained, tested, and documented as needed, with no reduction in test coverage. Ensure the diff is minimal, readable, and well-commented; never sacrifice clarity for cleverness. There is no time constraint or specific allotted time for this task; prioritize quality and correctness over speed and take as much time as needed. You may **NOT** respond with \"no issues found\", \"didn't find any major issues\", or similar—if no obvious implementation exists, choose the most plausible area and apply a singular, safe, minimal improvement.";
-
-            const lines = [];
-            const intro = (process.env.PR_BODY || "").trim();
-            if (intro) {
-              lines.push(intro);
-              lines.push("");
-            }
-
-            const prNumber = process.env.PR_NUMBER;
-            const headSha = process.env.PR_HEAD_SHA;
-            const headBranch = process.env.REVIEW_FULL_BRANCH;
-            const baseBranch = process.env.BASE_BRANCH;
-            const baselineBranch = process.env.REVIEW_BASE_BRANCH;
-            lines.push(`@codex ${preInstruction} ${process.env.PROMPT} ${postInstruction}`);
-            lines.push("");
-            lines.push(`Once done, ensure all changes are pushed to remote branch **${headBranch}** (targets base **${baseBranch}**) and keep all commits tied to PR #${prNumber}; do not open new branches or PRs. Leave the baseline branch **${baselineBranch}** untouched. As the final step (even after running 'make_pr'), run the following exact command(s) to guarantee your changes are pushed:`);
-            lines.push("");
-            lines.push("```bash");
-            lines.push(`git config user.name  "codex-bot"`);
-            lines.push(`git config user.email "codex@example.com"`);
-            lines.push(`git -c credential.helper= \\`);
-            lines.push(`    -c 'credential.helper=store --file .git/codex-cred' \\`);
-            lines.push(`    push "https://henrylkirk@github.com/${context.repo.owner}/${context.repo.repo}.git" "HEAD:${headBranch}"`);
-            lines.push("```");
-            lines.push("Here is some additional context for your task:");
-            lines.push("```yaml");
-            lines.push("codex_task:");
-            lines.push(`  branch: "${headBranch}"`);
-            lines.push(`  pr_number: ${prNumber}`);
-            lines.push(`  base: "${baseBranch}"`);
-            lines.push(`  baseline: "${baselineBranch}"`);
-            lines.push(`  head_sha: "${headSha}"`);
-            lines.push("```");
-
-            const body = lines.join("\n");
-            core.setOutput("body", body);
-            core.exportVariable("CODEX_BODY", body);
-
-      - name: Write Codex instructions to file
-        shell: bash
-        run: |
-          node - <<'NODE'
-            const fs = require('fs');
-            fs.writeFileSync('codex-body.txt', process.env.CODEX_BODY ?? '', 'utf8');
-          NODE
-
-      # - name: Sync PR description with Codex instructions
-      #   shell: bash
-      #   run: gh pr edit "$PR_NUMBER" --body-file codex-body.txt
-      #   env:
-      #     GH_TOKEN: ${{ secrets.GH_USER_TOKEN }}
-      #     PR_NUMBER: ${{ env.PR_NUMBER }}
-
-      # - name: Comment to trigger Codex (as your user)
-      #   shell: bash
-      #   run: gh pr comment "$PR_NUMBER" --body-file codex-body.txt
-      #   env:
-      #     GH_TOKEN: ${{ secrets.GH_USER_TOKEN }}
-      #     PR_NUMBER: ${{ env.PR_NUMBER }}
