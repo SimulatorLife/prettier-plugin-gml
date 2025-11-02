@@ -58,7 +58,9 @@ import {
 const MANUAL_CONTEXT_OPTIONS = Object.freeze({
     importMetaUrl: import.meta.url,
     userAgent: "prettier-plugin-gml identifier generator",
-    outputFileName: "gml-identifiers.json"
+    outputFileName: "gml-identifiers.json",
+    repoRootSegments: ["..", "..", "..", ".."],
+    cacheRootSegments: ["src", "cli", "cache", "manual"]
 });
 
 const {

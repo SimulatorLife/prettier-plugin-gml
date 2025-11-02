@@ -56,24 +56,35 @@ test("manual file and reference contexts share environment defaults", () => {
         path.resolve("src/cli/src/commands/generate-gml-identifiers.js")
     ).href;
 
+    const repoRootSegments = ["..", "..", "..", ".."];
+    const cacheRootSegments = ["src", "cli", "cache", "manual"];
+
     const fileAccess = createManualFileAccessContext({
         importMetaUrl: commandUrl,
         userAgent: "manual-context-test",
-        outputFileName: "example.json"
+        outputFileName: "example.json",
+        repoRootSegments,
+        cacheRootSegments
     });
 
     const referenceAccess = createManualReferenceAccessContext({
         importMetaUrl: commandUrl,
-        userAgent: "manual-context-test"
+        userAgent: "manual-context-test",
+        repoRootSegments,
+        cacheRootSegments
     });
 
-    const expectedRepoRoot = path.resolve("src/cli/src/commands", "..", "..");
+    const expectedRepoRoot = path.resolve(
+        "src/cli/src/commands",
+        ...repoRootSegments
+    );
+    const expectedCacheRoot = resolveManualCacheRoot({
+        repoRoot: expectedRepoRoot,
+        relativeFallback: cacheRootSegments
+    });
 
     assert.equal(fileAccess.environment.repoRoot, expectedRepoRoot);
-    assert.equal(
-        fileAccess.environment.defaultCacheRoot,
-        resolveManualCacheRoot({ repoRoot: expectedRepoRoot })
-    );
+    assert.equal(fileAccess.environment.defaultCacheRoot, expectedCacheRoot);
     assert.equal(
         fileAccess.environment.defaultOutputPath,
         path.join(expectedRepoRoot, "resources", "example.json")
@@ -117,15 +128,20 @@ test("createManualEnvironmentContext isolates repository metadata", () => {
         path.resolve("src/cli/src/commands/generate-feather-metadata.js")
     ).href;
 
+    const repoRootSegments = ["..", "..", "..", ".."];
+    const cacheRootSegments = ["src", "cli", "scripts", "cache", "manual"];
+
     const context = createManualEnvironmentContext({
         importMetaUrl: commandUrl,
-        userAgent: "manual-context-test"
+        userAgent: "manual-context-test",
+        repoRootSegments,
+        cacheRootSegments
     });
 
     assert.ok(Object.isFrozen(context.environment));
     assert.equal(
         context.environment.repoRoot,
-        path.resolve("src/cli/src/commands", "..", "..")
+        path.resolve("src/cli/src/commands", ...repoRootSegments)
     );
 });
 

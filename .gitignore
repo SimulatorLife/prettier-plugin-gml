@@ -49,7 +49,7 @@ jspm_packages/
 reports/
 
 # Manual cache artefacts
-src/cli/commands/cache/
+src/cli/cache/
 
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/

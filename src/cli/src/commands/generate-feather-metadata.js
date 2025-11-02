@@ -79,7 +79,9 @@ function formatEnvironmentVariableHelp(entries) {
 const MANUAL_CONTEXT_OPTIONS = Object.freeze({
     importMetaUrl: import.meta.url,
     userAgent: "prettier-plugin-gml feather metadata generator",
-    outputFileName: "feather-metadata.json"
+    outputFileName: "feather-metadata.json",
+    repoRootSegments: ["..", "..", "..", ".."],
+    cacheRootSegments: ["src", "cli", "cache", "manual"]
 });
 
 const {
