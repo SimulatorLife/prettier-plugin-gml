@@ -476,6 +476,8 @@ export function print(path, options, print) {
             }
 
             let leadingDocs = [hardline];
+            const suppressDocLeadingBlank =
+                node._gmlSuppressDocLeadingBlank === true;
 
             if (node._gmlForceInitialBlankLine) {
                 leadingDocs = [hardline, hardline];
@@ -504,9 +506,18 @@ export function print(path, options, print) {
                         firstStatementStartIndex
                     );
 
-                if (preserveForConstructor || preserveForLeadingComment) {
+                if (
+                    (preserveForConstructor || preserveForLeadingComment) &&
+                    !suppressDocLeadingBlank
+                ) {
                     leadingDocs.push(lineSuffixBoundary, hardline);
                 }
+            }
+
+            const bodyDoc = printStatements(path, options, print, "body");
+
+            if (suppressDocLeadingBlank) {
+                delete node._gmlSuppressDocLeadingBlank;
             }
 
             return concat([
@@ -516,10 +527,7 @@ export function print(path, options, print) {
                     options,
                     (comment) => comment.attachToBrace
                 ),
-                indent([
-                    ...leadingDocs,
-                    printStatements(path, options, print, "body")
-                ]),
+                indent([...leadingDocs, bodyDoc]),
                 hardline,
                 "}"
             ]);
@@ -2777,10 +2785,15 @@ function printStatements(path, options, print, childrenAttribute) {
             node?._featherSuppressFollowingEmptyLine === true ||
             node?._gmlSuppressFollowingEmptyLine === true;
 
+        const parentSuppressesDocLeadingBlank =
+            isFirstStatementInBlock &&
+            childPath.parent?._gmlSuppressDocLeadingBlank === true;
+
         if (
             isFirstStatementInBlock &&
             isStaticDeclaration &&
-            !syntheticDocComment
+            !syntheticDocComment &&
+            !parentSuppressesDocLeadingBlank
         ) {
             const hasExplicitBlankLineBeforeStatic =
                 typeof originalTextCache === "string" &&
@@ -4576,6 +4589,7 @@ function mergeSyntheticDocComments(
 
     // Cache canonical names so we only parse each doc comment line at most once.
     const paramCanonicalNameCache = new Map();
+    const existingParamDocNamesByCanonical = new Map();
     const getParamCanonicalName = (line, metadata) => {
         if (typeof line !== "string") {
             return null;
@@ -4707,6 +4721,13 @@ function mergeSyntheticDocComments(
         const canonical = getParamCanonicalName(line);
         if (canonical) {
             paramLineIndices.set(canonical, index);
+            const metadata = parseDocCommentMetadata(line);
+            if (
+                metadata?.tag === "param" &&
+                typeof metadata.name === "string"
+            ) {
+                existingParamDocNamesByCanonical.set(canonical, metadata.name);
+            }
         }
     }
 
@@ -5476,11 +5497,218 @@ function mergeSyntheticDocComments(
         return descriptionText.length > 0;
     });
 
-    if (result._suppressLeadingBlank) {
-        filteredResult._suppressLeadingBlank = true;
+    const shouldPreserveDescriptionBreaks =
+        result?._preserveDescriptionBreaks === true ||
+        filteredResult._preserveDescriptionBreaks === true;
+
+    const isRemovableDocEntry = (line) =>
+        typeof line === "string" &&
+        (line.trim().length === 0 || line.trim() === "///");
+
+    let firstContentIndex = 0;
+    while (
+        firstContentIndex < filteredResult.length &&
+        isRemovableDocEntry(filteredResult[firstContentIndex])
+    ) {
+        firstContentIndex += 1;
     }
 
-    return convertLegacyReturnsDescriptionLinesToMetadata(filteredResult);
+    let lastContentIndex = filteredResult.length - 1;
+    while (
+        lastContentIndex >= firstContentIndex &&
+        isRemovableDocEntry(filteredResult[lastContentIndex])
+    ) {
+        lastContentIndex -= 1;
+    }
+
+    let sanitizedResult = filteredResult.filter((line) => {
+        if (typeof line !== "string") {
+            return true;
+        }
+
+        return line.trim() !== "///";
+    });
+
+    let leadingBlankRemovalCount = 0;
+    while (sanitizedResult.length > 0) {
+        const candidate = sanitizedResult[0];
+        if (typeof candidate !== "string") {
+            break;
+        }
+
+        if (candidate.trim().length > 0) {
+            break;
+        }
+
+        sanitizedResult.shift();
+        leadingBlankRemovalCount += 1;
+    }
+
+    const interiorDocSeparators = [];
+    let placeholderCounter = 0;
+
+    for (let index = 0; index < filteredResult.length; index += 1) {
+        const line = filteredResult[index];
+        if (typeof line !== "string" || line.trim() !== "///") {
+            continue;
+        }
+
+        if (index > firstContentIndex && index < lastContentIndex) {
+            const removedBefore = placeholderCounter + leadingBlankRemovalCount;
+            const insertionIndex = Math.max(0, index - removedBefore);
+            interiorDocSeparators.push({ insertionIndex, line });
+        }
+
+        placeholderCounter += 1;
+    }
+
+    if (shouldPreserveDescriptionBreaks) {
+        sanitizedResult._preserveDescriptionBreaks = true;
+    }
+
+    const suppressLeadingBlank = result._suppressLeadingBlank === true;
+    if (suppressLeadingBlank) {
+        sanitizedResult._suppressLeadingBlank = true;
+    }
+
+    let suppressAliasLeadingBlank = false;
+    if (existingParamDocNamesByCanonical.size > 0) {
+        suppressAliasLeadingBlank =
+            sanitizedResult._suppressLeadingBlank === true;
+
+        sanitizedResult = sanitizedResult.map((line) => {
+            if (typeof line !== "string") {
+                return line;
+            }
+
+            if (!/^\/\/\/\s*@param\b/i.test(line.trim())) {
+                return line;
+            }
+
+            const canonical = getParamCanonicalName(line);
+            if (!canonical) {
+                return line;
+            }
+
+            const preferredName =
+                existingParamDocNamesByCanonical.get(canonical);
+            if (!preferredName || preferredName.length === 0) {
+                return line;
+            }
+
+            return updateParamLineWithDocName(line, preferredName);
+        });
+
+        if (shouldPreserveDescriptionBreaks) {
+            sanitizedResult._preserveDescriptionBreaks = true;
+        }
+
+        if (suppressAliasLeadingBlank) {
+            sanitizedResult._suppressLeadingBlank = true;
+        }
+    }
+
+    let suppressReturnsLeadingBlank =
+        sanitizedResult._suppressLeadingBlank === true;
+    sanitizedResult = sanitizedResult.map((line) => {
+        if (typeof line !== "string") {
+            return line;
+        }
+
+        const returnsMatch = line.match(/^(\s*\/\/\/)(?:\s*)Returns:\s*(.+)$/i);
+        if (!returnsMatch) {
+            return line;
+        }
+
+        const [, prefix, remainder] = returnsMatch;
+        const rawText = remainder.trim();
+        if (rawText.length === 0) {
+            return `${prefix} @returns`;
+        }
+
+        let type = null;
+        let descriptionText = rawText;
+        const boolMatch = rawText.match(/^(Boolean)(?:\s*(?:,\s*)?)?(.*)$/i);
+        if (boolMatch) {
+            type = "bool";
+            descriptionText = boolMatch[2] ?? "";
+        }
+
+        const normalizedDescription = descriptionText.trim();
+        const capitalizedDescription =
+            normalizedDescription.length > 0
+                ? normalizedDescription[0].toUpperCase() +
+                  normalizedDescription.slice(1)
+                : "";
+
+        const parts = [`${prefix} @returns`];
+        if (type) {
+            parts.push(`{${type}}`);
+        }
+        if (capitalizedDescription.length > 0) {
+            parts.push(capitalizedDescription);
+        }
+
+        return parts.join(" ");
+    });
+
+    if (shouldPreserveDescriptionBreaks) {
+        sanitizedResult._preserveDescriptionBreaks = true;
+    }
+
+    if (suppressReturnsLeadingBlank) {
+        sanitizedResult._suppressLeadingBlank = true;
+    }
+
+    if (interiorDocSeparators.length > 0) {
+        const finalPreserveDescriptionBreaks =
+            sanitizedResult._preserveDescriptionBreaks === true;
+        const finalSuppressLeadingBlank =
+            sanitizedResult._suppressLeadingBlank === true;
+
+        const normalized = [];
+        let sourceIndex = 0;
+
+        for (const { insertionIndex, line } of interiorDocSeparators) {
+            while (
+                sourceIndex < insertionIndex &&
+                sourceIndex < sanitizedResult.length
+            ) {
+                normalized.push(sanitizedResult[sourceIndex]);
+                sourceIndex += 1;
+            }
+
+            normalized.push(line);
+        }
+
+        while (sourceIndex < sanitizedResult.length) {
+            normalized.push(sanitizedResult[sourceIndex]);
+            sourceIndex += 1;
+        }
+
+        sanitizedResult = normalized;
+
+        if (shouldPreserveDescriptionBreaks || finalPreserveDescriptionBreaks) {
+            sanitizedResult._preserveDescriptionBreaks = true;
+        }
+
+        if (
+            finalSuppressLeadingBlank ||
+            suppressLeadingBlank ||
+            suppressAliasLeadingBlank ||
+            suppressReturnsLeadingBlank
+        ) {
+            sanitizedResult._suppressLeadingBlank = true;
+        }
+    }
+
+    const removedBlankDocLines =
+        sanitizedResult.length !== filteredResult.length;
+    if (removedBlankDocLines && node?.body?.type === "BlockStatement") {
+        node.body._gmlSuppressDocLeadingBlank = true;
+    }
+
+    return convertLegacyReturnsDescriptionLinesToMetadata(sanitizedResult);
 }
 
 function getCanonicalParamNameFromText(name) {
@@ -5520,7 +5748,14 @@ function getCanonicalParamNameFromText(name) {
     }
 
     const normalized = normalizeDocMetadataName(trimmed.trim());
-    return normalized && normalized.length > 0 ? normalized : null;
+
+    if (typeof normalized !== "string" || normalized.length === 0) {
+        return null;
+    }
+
+    const canonical = normalized.replaceAll(/[_\s]+/g, "").toLowerCase();
+
+    return canonical.length > 0 ? canonical : normalized;
 }
 
 function getPreferredFunctionParameterName(path, node, options) {
