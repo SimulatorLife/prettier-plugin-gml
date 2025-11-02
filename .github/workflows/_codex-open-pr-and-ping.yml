@@ -160,7 +160,7 @@ jobs:
             lines.push(`git config user.name  "codex-bot"`);
             lines.push(`git config user.email "codex@example.com"`);
             lines.push(`git -c credential.helper= \\`);
-            lines.push(`    -c 'credential.helper=store --file .git/codex-cred' \`);
+            lines.push(`    -c 'credential.helper=store --file .git/codex-cred' \\`);
             lines.push(`    push "https://henrylkirk@github.com/${context.repo.owner}/${context.repo.repo}.git" "HEAD:${workBranch}"`);
             lines.push("```");
             lines.push("Here is some additional context for your task:");
