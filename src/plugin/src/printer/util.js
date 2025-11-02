@@ -110,7 +110,8 @@ const DEFAULT_NODE_TYPES_WITH_SURROUNDING_NEWLINES = Object.freeze([
     "FunctionDeclaration",
     "ConstructorDeclaration",
     "RegionStatement",
-    "EndRegionStatement"
+    "EndRegionStatement",
+    "EnumDeclaration"
 ]);
 
 const nodeTypesWithSurroundingNewlines = new Set();
