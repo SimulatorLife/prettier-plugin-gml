@@ -4725,6 +4725,23 @@ function mergeSyntheticDocComments(
                 const lineIndex = paramLineIndices.get(canonical);
                 const existingLine = mergedLines[lineIndex];
 
+                const existingMetadata = parseDocCommentMetadata(existingLine);
+                const existingName = existingMetadata?.name;
+                const existingCanonical = existingName
+                    ? getCanonicalParamNameFromText(existingName)
+                    : null;
+                const metadataCanonical = getCanonicalParamNameFromText(
+                    metadata.name
+                );
+
+                if (
+                    existingCanonical &&
+                    metadataCanonical &&
+                    existingCanonical === metadataCanonical
+                ) {
+                    continue;
+                }
+
                 const updatedLine = updateParamLineWithDocName(
                     existingLine,
                     metadata.name
@@ -5520,7 +5537,12 @@ function getCanonicalParamNameFromText(name) {
     }
 
     const normalized = normalizeDocMetadataName(trimmed.trim());
-    return normalized && normalized.length > 0 ? normalized : null;
+    if (!normalized || normalized.length === 0) {
+        return null;
+    }
+
+    const canonical = normalized.replaceAll('_', "").toLowerCase();
+    return canonical.length > 0 ? canonical : normalized;
 }
 
 function getPreferredFunctionParameterName(path, node, options) {

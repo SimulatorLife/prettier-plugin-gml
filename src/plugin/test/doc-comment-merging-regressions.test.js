@@ -67,12 +67,14 @@ test("keeps leading line comments before synthetic doc comments", async () => {
     );
 });
 
-test("retains documented parameter aliases when canonical names differ", async () => {
+test("retains existing parameter doc names when merging synthetic metadata", async () => {
     const source = [
+        "// / Tests to see if a font has the given character",
+        "// /",
         "/// @param fontName   The target font, as a string",
         "/// @param character  Character to test for, as a string",
         "function scribble_font_has_character(_font_name, _character) {",
-        "    return _character;",
+        "    return true;",
         "}",
         ""
     ].join("\n");
@@ -83,11 +85,11 @@ test("retains documented parameter aliases when canonical names differ", async (
         formatted.includes(
             "/// @param fontName - The target font, as a string"
         ),
-        "Expected the formatter to preserve the documented alias for the parameter"
+        "Expected to preserve the documented fontName parameter metadata"
     );
     assert.ok(
         !formatted.includes("/// @param font_name"),
-        "Expected the formatter not to replace the alias with the parameter identifier"
+        "Unexpected synthetic parameter doc overwriting existing metadata"
     );
 });
 
