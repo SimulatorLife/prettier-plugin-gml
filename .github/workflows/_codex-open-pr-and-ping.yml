@@ -118,7 +118,7 @@ jobs:
               repo:  context.repo.repo,
               title: process.env.PR_TITLE,
               head:  process.env.REVIEW_FULL_BRANCH,
-              base:  process.env.REVIEW_BASE_BRANCH,
+              base:  process.env.BASE_BRANCH,
               body:  process.env.PR_BODY || undefined,
               maintainer_can_modify: true,
             });
@@ -166,7 +166,7 @@ jobs:
           PR_BODY: ${{ inputs.pr_body }}
           REVIEW_FULL_BRANCH: ${{ env.REVIEW_FULL_BRANCH }}
           REVIEW_BASE_BRANCH: ${{ env.REVIEW_BASE_BRANCH }}
-          SOURCE_BASE_BRANCH: ${{ inputs.base_branch }}
+          BASE_BRANCH: ${{ inputs.base_branch }}
         with:
           github-token: ${{ secrets.GH_USER_TOKEN }}
           script: |
@@ -182,24 +182,27 @@ jobs:
 
             const prNumber = process.env.PR_NUMBER;
             const headSha = process.env.PR_HEAD_SHA;
+            const headBranch = process.env.REVIEW_FULL_BRANCH;
+            const baseBranch = process.env.BASE_BRANCH;
+            const baselineBranch = process.env.REVIEW_BASE_BRANCH;
             lines.push(`@codex ${preInstruction} ${process.env.PROMPT} ${postInstruction}`);
             lines.push("");
-            lines.push(`Once done, ensure all changes are pushed to remote branch **${process.env.REVIEW_FULL_BRANCH}** on base **${process.env.REVIEW_BASE_BRANCH}** and keep all commits tied to PR #${prNumber}; do not open new branches or PRs. As the final step (even after running 'make_pr'), run the following exact command(s) to guarantee your changes are pushed:`);
+            lines.push(`Once done, ensure all changes are pushed to remote branch **${headBranch}** (targets base **${baseBranch}**) and keep all commits tied to PR #${prNumber}; do not open new branches or PRs. Leave the baseline branch **${baselineBranch}** untouched. As the final step (even after running 'make_pr'), run the following exact command(s) to guarantee your changes are pushed:`);
             lines.push("");
             lines.push("```bash");
             lines.push(`git config user.name  "codex-bot"`);
             lines.push(`git config user.email "codex@example.com"`);
             lines.push(`git -c credential.helper= \\`);
             lines.push(`    -c 'credential.helper=store --file .git/codex-cred' \\`);
-            lines.push(`    push "https://henrylkirk@github.com/${context.repo.owner}/${context.repo.repo}.git" "HEAD:${process.env.REVIEW_FULL_BRANCH}"`);
+            lines.push(`    push "https://henrylkirk@github.com/${context.repo.owner}/${context.repo.repo}.git" "HEAD:${headBranch}"`);
             lines.push("```");
             lines.push("Here is some additional context for your task:");
             lines.push("```yaml");
             lines.push("codex_task:");
-            lines.push(`  branch: "${process.env.REVIEW_FULL_BRANCH}"`);
+            lines.push(`  branch: "${headBranch}"`);
             lines.push(`  pr_number: ${prNumber}`);
-            lines.push(`  base: "${process.env.REVIEW_BASE_BRANCH}"`);
-            lines.push(`  source_base: "${process.env.SOURCE_BASE_BRANCH}"`);
+            lines.push(`  base: "${baseBranch}"`);
+            lines.push(`  baseline: "${baselineBranch}"`);
             lines.push(`  head_sha: "${headSha}"`);
             lines.push("```");
 
