@@ -2710,6 +2710,11 @@ function printStatements(path, options, print, childrenAttribute) {
             return [];
         }
 
+        if (node?._gmlForceLeadingBlankLine) {
+            parts.push(hardline);
+            node._gmlForceLeadingBlankLine = false;
+        }
+
         let semi = optionalSemicolon(node.type);
         const { startIndex: nodeStartIndex, endIndex: nodeEndIndex } =
             resolveNodeIndexRangeWithSource(node, sourceMetadata);
@@ -2935,6 +2940,9 @@ function printStatements(path, options, print, childrenAttribute) {
                 node?._featherForceFollowingEmptyLine === true ||
                 node?._gmlForceFollowingEmptyLine === true;
 
+            const nextRequestsLeadingBlankLine =
+                nextNode?._gmlForceLeadingBlankLine === true;
+
             const nextLineEmpty =
                 suppressFollowingEmptyLine || suppressLeadingEmptyLine
                     ? false
@@ -2962,7 +2970,11 @@ function printStatements(path, options, print, childrenAttribute) {
                 !suppressFollowingEmptyLine &&
                 shouldForceBlankLineBetweenReturnPaths(node, nextNode);
 
-            if (shouldForceMacroPadding) {
+            if (nextRequestsLeadingBlankLine) {
+                parts.push(hardline);
+                nextNode._gmlForceLeadingBlankLine = false;
+                previousNodeHadNewlineAddedAfter = true;
+            } else if (shouldForceMacroPadding) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
             } else if (
