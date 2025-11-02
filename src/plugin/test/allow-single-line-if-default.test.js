@@ -1,0 +1,83 @@
+import assert from "node:assert/strict";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { test } from "node:test";
+import prettier from "prettier";
+
+const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
+const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
+
+async function format(source, options = {}) {
+    return prettier.format(source, {
+        parser: "gml-parse",
+        plugins: [pluginPath],
+        ...options
+    });
+}
+
+test("expands single-line if statements by default", async () => {
+    const source = "if (global.debug) { exit; }";
+
+    const formatted = await format(source);
+
+    assert.strictEqual(
+        formatted,
+        ["if (global.debug) {", "    exit;", "}", ""].join("\n")
+    );
+});
+
+test("preserves compact return guards inside functions when disabled", async () => {
+    const source = [
+        "function guard_example() {",
+        "    if (global.debug) return;",
+        "    return 1;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        allowSingleLineIfStatements: false
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function guard_example",
+            "function guard_example() {",
+            "    if (global.debug) { return; }",
+            "    return 1;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("expands guarded returns with values when single-line is disabled", async () => {
+    const source = [
+        "function guard_with_value() {",
+        "    if (should_stop()) return false;",
+        "    return true;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        allowSingleLineIfStatements: false
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function guard_with_value",
+            "function guard_with_value() {",
+            "    if (should_stop()) {",
+            "        return false;",
+            "    }",
+            "    return true;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});

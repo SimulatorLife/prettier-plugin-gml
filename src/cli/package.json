@@ -1,0 +1,26 @@
+{
+  "name": "prettier-plugin-gml-cli",
+  "version": "0.0.0",
+  "type": "module",
+  "config": {
+    "root_path": "."
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@prettier-plugin-gml/shared": "file:../shared",
+    "commander": "^14.0.2",
+    "linkedom": "^0.18.12",
+    "prettier-plugin-gamemaker": "file:../plugin"
+  },
+  "optionalDependencies": {
+    "fast-xml-parser": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=25.0.0"
+  },
+  "peerDependencies": {
+    "prettier": "^3.0.0"
+  }
+}

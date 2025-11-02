@@ -1,0 +1,24 @@
+{
+  "name": "gamemaker-language-parser",
+  "version": "0.0.1",
+  "main": "gml-parser.js",
+  "type": "module",
+  "exports": {
+    ".": "./gml-parser.js",
+    "./gml-parser.js": "./gml-parser.js",
+    "./generated/*": "./generated/*",
+    "./src/*": "./src/*",
+    "./utils/recognition-exception.js": "./src/utils/recognition-exception.js"
+  },
+  "dependencies": {
+    "antlr4": "^4.13.2",
+    "@prettier-plugin-gml/shared": "file:../shared"
+  },
+  "engines": {
+    "node": ">=25.0.0"
+  },
+  "scripts": {
+    "test": "node --test test/parser.test.js",
+    "antlr": "java -Xmx500M -jar ../../resources/antlr/antlr4-4.13.2-complete.jar -Dlanguage=JavaScript -visitor -o generated/ GameMakerLanguageLexer.g4 && java -Xmx500M -jar ../../resources/antlr/antlr4-4.13.2-complete.jar -Dlanguage=JavaScript -visitor -o generated/ GameMakerLanguageParser.g4"
+  }
+}
