@@ -22,6 +22,7 @@ import {
     condenseScalarMultipliers
 } from "../ast-transforms/convert-manual-math.js";
 import { convertUndefinedGuardAssignments } from "../ast-transforms/convert-undefined-guard-assignments.js";
+import { simplifyNumericMultiplicativeChains } from "../ast-transforms/simplify-multiplicative-chains.js";
 import {
     getNodeStartIndex,
     getNodeEndIndex,
@@ -202,6 +203,10 @@ async function parse(text, options) {
         }
 
         convertUndefinedGuardAssignments(ast);
+        simplifyNumericMultiplicativeChains(ast, {
+            sourceText: parseSource,
+            originalText: options?.originalText
+        });
         preprocessFunctionArgumentDefaults(ast);
         collapseRedundantMissingCallArguments(ast);
         enforceVariableBlockSpacing(ast, options);
