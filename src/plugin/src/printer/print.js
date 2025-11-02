@@ -41,6 +41,7 @@ import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
 import { DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH } from "./doc-comment-wrap-width.js";
 import {
     getCommentArray,
+    capitalize,
     isCommentNode,
     coercePositiveIntegerOption,
     getNonEmptyString,
@@ -792,6 +793,12 @@ export function print(path, options, print) {
                         docCommentDocs.shift();
                     }
                 }
+                if (docCommentDocs) {
+                    docCommentDocs._suppressLeadingBlank = true;
+                    if (docCommentDocs._suppressLeadingBlank === true) {
+                        needsLeadingBlankLine = false;
+                    }
+                }
                 // Nested functions (those in BlockStatement parents) should have
                 // a leading blank line before their synthetic doc comments
                 const parentNode = path.getParentNode();
@@ -821,11 +828,14 @@ export function print(path, options, print) {
                     typeof nodeStartIndex === "number" &&
                     isPreviousLineEmpty(originalText, nodeStartIndex);
 
-                if (
-                    !suppressLeadingBlank &&
-                    (needsLeadingBlankLine ||
-                        (hasLeadingNonDocComment && !hasExistingBlankLine))
-                ) {
+                const shouldForceLeadingBlank =
+                    (needsLeadingBlankLine && !hasExistingBlankLine) ||
+                    (hasLeadingNonDocComment && !hasExistingBlankLine);
+
+                const shouldSuppressLeadingBlank =
+                    suppressLeadingBlank && !shouldForceLeadingBlank;
+
+                if (!shouldSuppressLeadingBlank && shouldForceLeadingBlank) {
                     parts.push(hardline);
                 }
                 parts.push(join(hardline, docCommentDocs), hardline);
@@ -4468,6 +4478,85 @@ function promoteLeadingDocCommentTextToDescription(docLines) {
     return result;
 }
 
+function convertLegacyReturnsDocLines(docLines) {
+    const normalizedLines = toMutableArray(docLines);
+
+    if (normalizedLines.length === 0) {
+        return normalizedLines;
+    }
+
+    let convertedAny = false;
+    const convertedLines = normalizedLines.map((line) => {
+        if (typeof line !== "string") {
+            return line;
+        }
+
+        const prefixMatch = line.match(/^(\s*\/\/\/)(.*)$/);
+        if (!prefixMatch) {
+            return line;
+        }
+
+        const [, prefix, remainder = ""] = prefixMatch;
+        const trimmedRemainder = remainder.trim();
+        const returnsMatch = trimmedRemainder.match(/^Returns?\s*:\s*(.*)$/i);
+        if (!returnsMatch) {
+            return line;
+        }
+
+        const remainderText = returnsMatch[1]?.trim() ?? "";
+        let typeText = "";
+        let descriptionText = "";
+
+        if (remainderText.length > 0) {
+            const commaIndex = remainderText.indexOf(",");
+            if (commaIndex === -1) {
+                const whitespaceIndex = remainderText.search(/\s/);
+                if (whitespaceIndex === -1) {
+                    typeText = remainderText;
+                } else {
+                    typeText = remainderText.slice(0, whitespaceIndex).trim();
+                    descriptionText = remainderText
+                        .slice(whitespaceIndex + 1)
+                        .trim();
+                }
+            } else {
+                typeText = remainderText.slice(0, commaIndex).trim();
+                descriptionText = remainderText.slice(commaIndex + 1).trim();
+            }
+        }
+
+        if (/^boolean$/i.test(typeText)) {
+            typeText = "bool";
+        }
+
+        let returnsLine = `${prefix.trimEnd()} @returns`;
+        if (typeText.length > 0) {
+            returnsLine += ` {${typeText}}`;
+        }
+
+        if (descriptionText.length > 0) {
+            returnsLine += ` ${capitalize(descriptionText)}`;
+        }
+
+        convertedAny = true;
+        return normalizeDocCommentTypeAnnotations(returnsLine);
+    });
+
+    if (!convertedAny) {
+        return normalizedLines;
+    }
+
+    if (docLines?._suppressLeadingBlank) {
+        convertedLines._suppressLeadingBlank = true;
+    }
+    if (docLines?._preserveDescriptionBreaks) {
+        convertedLines._preserveDescriptionBreaks =
+            docLines._preserveDescriptionBreaks;
+    }
+
+    return convertedLines;
+}
+
 function mergeSyntheticDocComments(
     node,
     existingDocLines,
@@ -4485,6 +4574,9 @@ function mergeSyntheticDocComments(
     normalizedExistingLines = reorderDescriptionLinesAfterFunction(
         normalizedExistingLines
     );
+    normalizedExistingLines = convertLegacyReturnsDocLines(
+        normalizedExistingLines
+    );
 
     if (preserveDescriptionBreaks) {
         normalizedExistingLines._preserveDescriptionBreaks = true;
@@ -4499,12 +4591,14 @@ function mergeSyntheticDocComments(
         normalizedExistingLines._preserveDescriptionBreaks = true;
     }
 
-    const syntheticLines = reorderDescriptionLinesAfterFunction(
-        computeSyntheticFunctionDocLines(
-            node,
-            existingDocLines,
-            options,
-            overrides
+    const syntheticLines = convertLegacyReturnsDocLines(
+        reorderDescriptionLinesAfterFunction(
+            computeSyntheticFunctionDocLines(
+                node,
+                existingDocLines,
+                options,
+                overrides
+            )
         )
     );
 
@@ -4558,6 +4652,8 @@ function mergeSyntheticDocComments(
 
     const isDescriptionLine = (line) =>
         docTagMatches(line, /^\/\/\/\s*@description\b/i);
+    const isReturnsLine = (line) =>
+        docTagMatches(line, /^\/\/\/\s*@returns\b/i);
 
     const functionLines = syntheticLines.filter(isFunctionLine);
     const syntheticFunctionMetadata = functionLines
@@ -4598,6 +4694,13 @@ function mergeSyntheticDocComments(
 
     let mergedLines = [...normalizedExistingLines];
     let removedAnyLine = removedExistingReturnDuplicates;
+
+    if (mergedLines.some(isReturnsLine)) {
+        const existingReturns = mergedLines.filter(isReturnsLine);
+        mergedLines = mergedLines.filter((line) => !isReturnsLine(line));
+        returnsLines = [...existingReturns, ...returnsLines];
+        removedAnyLine = true;
+    }
 
     if (functionLines.length > 0) {
         const existingFunctionIndices = mergedLines
@@ -6091,7 +6194,11 @@ function computeSyntheticFunctionDocLines(
                 paramMetadataByCanonical.has(canonicalParamName) &&
                 paramMetadataByCanonical.get(canonicalParamName)) ||
             null;
-        const existingDocName = existingMetadata?.name;
+        const existingDocName =
+            typeof existingMetadata?.name === "string" &&
+            existingMetadata.name.length > 0
+                ? existingMetadata.name
+                : null;
         const hasCompleteOrdinalDocs =
             Array.isArray(node.params) &&
             orderedParamMetadata.length === node.params.length;
@@ -6252,6 +6359,9 @@ function computeSyntheticFunctionDocLines(
             param?.type === "DefaultParameter" &&
             isOptionalParamDocName(existingDocName);
         const baseDocName =
+            (existingDocName &&
+                existingDocName.length > 0 &&
+                existingDocName) ||
             (effectiveImplicitName &&
                 effectiveImplicitName.length > 0 &&
                 effectiveImplicitName) ||
