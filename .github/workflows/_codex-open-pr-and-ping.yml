@@ -112,9 +112,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git switch -B "$WORK_BRANCH" "$AI_BOOTSTRAP_BRANCH"
+          git checkout -B "$WORK_BRANCH" "$AI_BOOTSTRAP_BRANCH"
           git push -u origin "$WORK_BRANCH"
-          git switch "$AI_BOOTSTRAP_BRANCH"
+          git checkout "$AI_BOOTSTRAP_BRANCH"
         env:
           WORK_BRANCH: ${{ env.WORK_BRANCH }}
           AI_BOOTSTRAP_BRANCH: ${{ env.AI_BOOTSTRAP_BRANCH }}
