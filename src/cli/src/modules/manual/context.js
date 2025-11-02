@@ -85,13 +85,17 @@ function buildManualCommandContext({
     userAgent,
     outputFileName,
     repoRootSegments = ["..", ".."],
+    cacheRootSegments = ["scripts", "cache", "manual"],
     workflowPathFilter
 } = {}) {
     const normalizedUrl = assertFileUrl(importMetaUrl);
     const filename = fileURLToPath(normalizedUrl);
     const dirname = path.dirname(filename);
     const repoRoot = path.resolve(dirname, ...repoRootSegments);
-    const defaultCacheRoot = resolveManualCacheRoot({ repoRoot });
+    const defaultCacheRoot = resolveManualCacheRoot({
+        repoRoot,
+        relativeFallback: cacheRootSegments
+    });
     const { rawRoot: defaultManualRawRoot } = buildManualRepositoryEndpoints();
 
     const normalizedUserAgent = assertUserAgent(userAgent);

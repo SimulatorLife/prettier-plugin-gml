@@ -143,8 +143,7 @@ for (var i = 0; i < queue_count; i += 1) {
 - [Architecture audit log](docs/architecture-audit-log.md) &mdash; Consolidated
   repository health checks with dated entries. The scheduled
   `codex-78-architectural-audit` workflow appends its results here instead of
-  opening per-day files. Review the October 23, 2025 audit and prior
-  follow-ups, plus the
+  opening per-day files. Review the
   [shared module layout refresh](docs/shared-module-layout.md) for historical
   context around the `src/shared/src/` consolidation. Pair it with the
   [interface segregation investigation](docs/interface-segregation-investigation.md)
@@ -153,6 +152,14 @@ for (var i = 0; i < queue_count; i += 1) {
 - [Semantic subsystem reference](src/semantic/README.md) &mdash; Details how the
   scope trackers and project-index coordinator now live in the dedicated
   `gamemaker-language-semantic` workspace package.
+- [Transpiler module outline](src/transpiler/README.md) &mdash; Stubbed entry point for
+  the GML → JavaScript emitter that will feed the live reload pipeline as it
+  matures.
+- [Runtime wrapper plan](src/runtime-wrapper/README.md) &mdash; Notes on the browser
+  hooks that accept transpiler patches and swap them into the running HTML5
+  export.
+- [Refactor engine scaffold](src/refactor/README.md) &mdash; Interim guidance for the
+  semantic-safe rename engine that will orchestrate WorkspaceEdits.
 - [ANTLR regeneration guide](docs/antlr-regeneration.md) &mdash; Walkthrough for
   rebuilding the generated parser sources with the vendored toolchain and
   understanding where custom extensions live now that the grammar delegates to
@@ -162,15 +169,12 @@ for (var i = 0; i < queue_count; i += 1) {
   tricky identifier examples. Use it for historical context; the current roadmap
   now spans the [live reloading concept](docs/live-reloading-concept.md) and the
   [semantic scope plan](docs/semantic-scope-plan.md).
-- [Project index cache design](docs/legacy-identifier-case-plan.md#project-index-cache-design) &mdash; Design
-  notes and cache architecture guidance preserved alongside the archived
+- [Project index cache design](docs/legacy-identifier-case-plan.md#project-index-cache-design) &mdash; design
+  notes and cache architecture guidance for the legacy project index functionality (replaced by the new [semantic scope plan](docs/semantic-scope-plan.md)) preserved alongside the archived
   [project index roadmap](docs/legacy-identifier-case-plan.md#archived-project-index-roadmap).
 - [Feather data plan](docs/feather-data-plan.md) &mdash; Scraper workflow for
   keeping the generated metadata in `resources/` current, plus validation steps
-  for reviewing diffs before publishing updates. Pair it with the
-  [reserved identifier metadata hook overview](docs/reserved-identifier-metadata-hook.md)
-  when staging bespoke metadata sources, generated code directories, or
-  regeneration scripts.
+  for reviewing diffs before publishing updates.
 - [Live reloading concept](docs/live-reloading-concept.md) &mdash; Concept brief for
   the HTML5 runtime fork and watcher pipeline that powers in-place code reloads
   during gameplay. Use it alongside the architecture audits when evaluating
@@ -700,10 +704,10 @@ monorepos predictable:
 
 | Option | Default | Summary |
 | --- | --- | --- |
-| `gmlIdentifierCaseDiscoverProject` | `true` | Auto-detect the nearest `.yyp` manifest when bootstrapping the project index. Disable when callers manage discovery manually. |
-| `gmlIdentifierCaseProjectRoot` | `""` | Pin project discovery to an explicit directory. Helpful when formatting files outside the GameMaker project tree or when CI runs from ephemeral workspaces. |
-| `gmlIdentifierCaseProjectIndexCacheMaxBytes` | `8 MiB` | Cap the on-disk cache size written to `.prettier-plugin-gml/project-index-cache.json`. Increase alongside `GML_PROJECT_INDEX_CACHE_MAX_SIZE` when coordinating cache pruning yourself. |
-| `gmlIdentifierCaseProjectIndexConcurrency` | `4` | Control how many files the bootstrap parses in parallel. Combine with `GML_PROJECT_INDEX_CONCURRENCY` and `GML_PROJECT_INDEX_MAX_CONCURRENCY` to tune CI throughput without starving local machines. |
+| `gmlIdentifierCaseDiscoverProject` | `true` | Auto-detect the nearest `.yyp` manifest when bootstrapping the project index. Disable when callers manage discovery manually. TODO: deprecate this in foavour of new scoping/semantic plan. |
+| `gmlIdentifierCaseProjectRoot` | `""` | Pin project discovery to an explicit directory. Helpful when formatting files outside the GameMaker project tree or when CI runs from ephemeral workspaces. TODO: deprecate this option in favour of new scoping/semantic plan in [docs/semantic-scope-plan.md](docs/semantic-scope-plan.md). |
+| `gmlIdentifierCaseProjectIndexCacheMaxBytes` | `8 MiB` | Cap the on-disk cache size written to `.prettier-plugin-gml/project-index-cache.json`. Increase alongside `GML_PROJECT_INDEX_CACHE_MAX_SIZE` when coordinating cache pruning yourself. **TODO**: deprecate this option in favour of new scoping/semantic plan in [docs/semantic-scope-plan.md](docs/semantic-scope-plan.md). |
+| `gmlIdentifierCaseProjectIndexConcurrency` | `4` | Control how many files the bootstrap parses in parallel. Combine with `GML_PROJECT_INDEX_CONCURRENCY` and `GML_PROJECT_INDEX_MAX_CONCURRENCY` to tune CI throughput without starving local machines. **TODO**: deprecate this option in favour of new scoping/semantic plan in [docs/semantic-scope-plan.md](docs/semantic-scope-plan.md). |
 
 Project index discovery, cache tuning, and concurrency controls now live under
 the [semantic subsystem](src/semantic/README.md) alongside the new scope-tracking
@@ -718,19 +722,6 @@ supported workflows.
 
 ---
 
-## Identifier case rollout
-
-1. **Enable identifier casing** in your Prettier configuration. Start with the
-   [locals-first configuration](docs/legacy-identifier-case-plan.md#locals-first-configuration-script)
-   so other scopes stay in observation mode.
-2. **Warm the project index cache** (see the [semantic subsystem](src/semantic/README.md) for discovery and cache controls) by running the formatter once with your target project path. The bootstrap automatically creates `.prettier-plugin-gml/project-index-cache.json` the first time a rename-enabled scope executes. Use the example configuration above when you want to script a manual snapshot or commit a deterministic JSON index for CI.
-3. **Dry-run renames** with locals-first safety nets before writing changes to disk. Keep `identifierCaseDryRun` enabled and capture logs via `identifierCaseReportLogPath` until you are comfortable with the rename summaries.
-4. **Promote renames** to write mode once you are satisfied with the preview and have backups ready.
-5. **Follow the migration checklist** preserved in
-   `docs/legacy-identifier-case-plan.md` to confirm that assets, macros, and
-   globals were acknowledged.
-
----
 
 ## Troubleshooting
 

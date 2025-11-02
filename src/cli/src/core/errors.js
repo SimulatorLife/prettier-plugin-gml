@@ -296,10 +296,11 @@ function buildCliErrorLines({ prefix, formattedError, usage }) {
 }
 
 export function handleCliError(error, { exitCode = 1, prefix } = {}) {
+    const normalizedPrefix = isCliUsageError(error) ? undefined : prefix;
     const formatted = formatCliError(error);
     const usage = resolveCliErrorUsage(error);
     const lines = buildCliErrorLines({
-        prefix,
+        prefix: normalizedPrefix,
         formattedError: formatted,
         usage
     });

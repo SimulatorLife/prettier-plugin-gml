@@ -228,11 +228,12 @@ export function assertFunctionProperties(
     methodNames,
     { name = "value", errorMessage } = {}
 ) {
-    const requiredMethods = Array.isArray(methodNames)
-        ? methodNames
-        : methodNames == null
-          ? []
-          : [methodNames];
+    const requiredMethods =
+        methodNames == null
+            ? []
+            : Array.isArray(methodNames)
+              ? methodNames
+              : [methodNames];
 
     if (requiredMethods.length === 0) {
         return /** @type {TObject} */ (value);
@@ -242,26 +243,21 @@ export function assertFunctionProperties(
         isObjectOrFunction(value) ? value : undefined
     );
 
-    const missingMethods = [];
+    const missingMethods = requiredMethods
+        .filter((methodName) => typeof target?.[methodName] !== "function")
+        .map(String);
 
-    for (const methodName of requiredMethods) {
-        if (typeof target?.[methodName] !== "function") {
-            missingMethods.push(String(methodName));
-        }
+    if (missingMethods.length === 0) {
+        return /** @type {TObject} */ (value);
     }
 
-    if (missingMethods.length > 0) {
-        if (errorMessage) {
-            throw new TypeError(errorMessage);
-        }
-
-        const formattedList =
-            MISSING_METHOD_LIST_FORMATTER.format(missingMethods);
-        const suffix = missingMethods.length > 1 ? "functions" : "function";
-        throw new TypeError(`${name} must provide ${formattedList} ${suffix}`);
+    if (errorMessage) {
+        throw new TypeError(errorMessage);
     }
 
-    return /** @type {TObject} */ (value);
+    const formattedList = MISSING_METHOD_LIST_FORMATTER.format(missingMethods);
+    const suffix = missingMethods.length > 1 ? "functions" : "function";
+    throw new TypeError(`${name} must provide ${formattedList} ${suffix}`);
 }
 
 /**

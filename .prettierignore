@@ -5,7 +5,7 @@ src/plugin/node_modules/
 src/cli/node_modules/
 src/parser/.antlr/
 src/parser/generated/
-src/cli/commands/cache/
+src/cli/cache/
 dist/
 build/
 coverage/

@@ -533,7 +533,13 @@ function isFunctionLikeNode(node) {
  * @param {unknown} node Candidate AST fragment to inspect.
  * @param {(child: unknown) => void} callback Invoked for each descendant value.
  */
+// Limit the reusable buffer pool so traversing exceptionally deep or broad
+// trees does not retain every intermediate array indefinitely. The pool only
+// needs to cover typical recursion depths to amortize allocations, so a small
+// cap keeps steady-state memory usage predictable while preserving reuse in
+// hot paths.
 const visitChildNodesValuePool = [];
+const VISIT_CHILD_NODES_VALUE_POOL_MAX_SIZE = 32;
 
 function borrowVisitChildNodesValueBuffer() {
     return visitChildNodesValuePool.pop() ?? [];
@@ -541,7 +547,11 @@ function borrowVisitChildNodesValueBuffer() {
 
 function releaseVisitChildNodesValueBuffer(buffer) {
     buffer.length = 0;
-    visitChildNodesValuePool.push(buffer);
+    if (
+        visitChildNodesValuePool.length < VISIT_CHILD_NODES_VALUE_POOL_MAX_SIZE
+    ) {
+        visitChildNodesValuePool.push(buffer);
+    }
 }
 
 function visitChildNodes(node, callback) {

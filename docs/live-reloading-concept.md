@@ -1,9 +1,17 @@
 # GameMaker Live Runtime Upgrade Plan
 ### (Based on the Open-Source HTML5 Runtime)
 
+----
+
 ## Overview
 This document outlines the design and milestone plan for a new **live-reloading development runner** for GameMaker, inspired by **GMLive** but built on top of the **open-sourced HTML5 runtime**.
 The goal is to allow **true hot-loading** of GML code, assets, and shaders **without restarting the game or losing runtime state**.
+
+> **Implementation note**
+> The dev server scaffolding now resides in `src/transpiler/`, while the browser
+> wrapper lives in `src/runtime-wrapper/`. Both packages currently expose
+> placeholder entry points that match the architecture described here so the CLI
+> can begin integrating against stable module boundaries.
 
 ---
 
@@ -21,6 +29,257 @@ The system is composed of two parts:
    - Uses the ANTLR4 parser to transpile changed code into JavaScript or emit patch stubs.
    - Sends real-time patches to the runner over WebSocket.
    - Optionally runs headless smoke tests (via Puppeteer/Playwright).
+
+---
+
+## Components
+
+### parser/
+**What it does:**  
+Turns raw GML source text into a structured form.
+
+**Inputs:**  
+- `.gml` source code, object/event code, etc.
+- Your ANTLR-generated lexer/parser.
+
+**Outputs:**  
+- An AST for that file (clean node types like FunctionDecl, VarDecl, CallExpr, etc.).  
+- Source span data for each identifier/expression (start/end offsets, line/col) so you can later rewrite text safely.
+
+**Used by:**  
+- `semantic` (to understand what identifiers mean).  
+- `refactor` (to know exactly where to edit in source).  
+- `plugin` (formatter printing code consistently).  
+- `cli` (which calls `parser` as part of its watch cycle on file change).
+
+---
+
+### semantic/
+**What it does:**  
+Understands what the AST means — builds scopes, resolves names, tracks symbol relationships, and maintains the global dependency graph.
+
+We split `semantic` conceptually into two halves:
+
+#### `semantic` file-level analysis
+**Inputs:**  
+- AST (+ spans) from `parser`.
+
+**Outputs (per file):**  
+- Scope/binding info: which identifiers are locals, which refer to `self`, `other`, `global`, which refer to a script, etc.  
+- Annotated AST where identifiers “know” what they resolve to.  
+- A per-file SCIP-like doc (list of occurrences with DEF or REF roles, each labeled with a canonical symbol ID like `gml/script/scr_enemy_ai` or `gml/event/obj_enemy#Step`).
+
+This is per-file and deterministic.
+
+#### `semantic` project-wide graph
+**Inputs:**  
+- The per-file occurrence data from all files.
+
+**Outputs:**  
+- A live, incremental project graph / symbol graph:
+  - `symbol -> defs[]` (where it's defined),
+  - `symbol -> refs[]` (where it's used),
+  - quick queries like `dependentsOf(symbol)` (who calls this script / would be affected if it changes),
+  - `defsInFile(path)` (which symbols this file defines).
+
+This is the cross-file “who depends on what” index.
+
+**Used by:**  
+- `transpiler`, indirectly (via CLI) to know which symbols need to be re-generated after a change.  
+- `refactor`, to gather all DEF and REF sites for renaming.  
+- `cli`, to figure out which runtime patches to send after a file changes.
+
+This `semantic` package is basically the “brain”: it knows meaning within a file and relationships across files.
+
+---
+
+### transpiler/
+**What it does:**  
+Turns a single GML script/event (with semantic info) into a live-reloadable JS function body and wraps it in a patch.
+
+**Inputs:**  
+- Annotated AST for a script or event from `semantic` (so names are already resolved: `hp` is `self.hp`, etc.).  
+- Rules for lowering GML constructs (e.g. `with (...)`) and handling runtime concepts like `self`, `other`, `global`.
+
+**Outputs:**  
+- A JS function body string that can safely run in the HTML5 runner.  
+- A patch object like:
+  ```js
+  {
+    kind: "script",               // or "event"
+    id: "gml/script/scr_enemy_ai",
+    js_body: "function (self, other, args) { ... }"
+  }
+  ```
+
+**Used by:**  
+- `cli` (the dev server), which asks `transpiler` to build patches for any scripts/events that are dirty or downstream-dependent when code changes.  
+- `runtime-wrapper`, which actually installs those patches into the running game.
+
+Important: `transpiler` runs in Node, offline from the game. `runtime-wrapper` runs in the browser/game. They are deliberately separate. The only “wire format” between them is the patch object.
+
+---
+
+### runtime-wrapper/
+**What it does:**  
+Runs inside the game (browser/HTML5 runner/dev iframe). Receives live patches and hot-swaps them into the already running game without restarting.
+
+**Inputs:**  
+- Patch objects sent from `cli` → WebSocket → runtime-wrapper.
+
+**Outputs / behavior:**  
+- Maintains `__hot.scripts[...]` and `__hot.events[...]` in memory.  
+- Overrides the runner's script call / event dispatch so the game uses the patched JS bodies instead of the old ones.  
+- Keeps current world state alive (instances, rooms, globals stay loaded).
+
+**Used by:**  
+- Game, at runtime (it is literally in the running game frame).  
+- `cli`'s dev server to stream updates.
+
+This is what gives you real hot reload.
+
+---
+
+### refactor/
+**What it does:**  
+Performs safe, project-wide code transformations like renaming a variable/script/event without breaking scope or meaning.
+
+**Inputs:**  
+- `semantic` file-level info: to understand scope, bindings, and what each identifier refers to.  
+- `semantic` project graph: to find all DEF and REF occurrences of a given symbol across all files.  
+- `parser`: so it knows exactly where in each file the identifier text lives (ranges from AST spans).  
+- Potentially `plugin`: to run formatting after edits.
+
+**Outputs:**  
+- A `WorkspaceEdit`: a set of concrete text edits across one or many files (replace `hp` with `health` at ranges X/Y/Z).  
+- Optionally a "qualified usage" edit: e.g. if a rename would cause shadowing, inject `self.` or `global.` into certain access sites to preserve behavior.  
+- A validation step:
+  - apply the edits in memory,
+  - re-run `parser` and `semantic` for just the changed files,
+  - confirm no identifier now accidentally resolves to the wrong thing.
+
+**Used by:**  
+- `cli` to expose commands like `cli rename --symbol gml/var/obj_enemy::hp --to health`.  
+- you (or future AI assist) to do “intelligent edits” safely instead of dumb find/replace.
+
+This is what turns the `semantic` and `parser` data into an actual editing tool.
+
+---
+
+### plugin/
+**What it does:**  
+Formats code and optionally applies lightweight fixes. Basically your Prettier plugin / code printer for GML.
+
+**Inputs:**  
+- AST (and spans) from `parser`.  
+- Optionally semantic hints from `semantic` so formatting decisions can depend on meaning (like “this is a global, always print with `global.`” if you want a style rule like that).
+
+**Outputs:**  
+- Final text string for each .gml file with consistent whitespace, semicolons, naming style, etc.
+
+**Used by:**  
+- `cli format` command.  
+- `refactor`, after generating WorkspaceEdits for a rename.  
+- Potentially: CI sanity formatting.
+
+---
+
+### cli/
+**What it does (this is the glue):**  
+Runs the dev workflow, coordinates all the above, and exposes commands.
+
+It really has two big modes:
+
+#### 1. Watch / hot-reload mode
+This is what runs during live development.
+
+Flow:
+1. File changes on disk.
+2. `cli` calls `parser` on that one file to get a fresh AST + spans.
+3. `cli` calls `semantic` (file-level) on that AST to get:
+   - updated scope/binding info,
+   - updated SCIP occurrences for that file.
+4. `cli` calls `semantic` (project graph) to upsert that file’s new occurrences into the global graph.
+   - Now `semantic` can answer: “Which symbols just changed?” and “What other scripts/events depend on them?”
+5. For each affected symbol, `cli` asks `transpiler` to generate a new JS body + patch.
+6. `cli` sends those patch objects via WebSocket to the browser `runtime-wrapper`.
+7. The game replaces the old code with the new one, live.
+
+So: `cli` is the orchestrator for hot reload.
+
+#### 2. Refactor / maintenance commands
+`cli` also exposes commands like:
+- `cli rename SYMBOL --to NEWNAME`
+  - It uses `semantic` project graph to find all DEF/REF sites of that symbol.
+  - It uses `refactor` to plan safe WorkspaceEdits (including collision checks, shadowing fixes).
+  - It applies edits in memory, re-runs `parser` + `semantic` for the changed files to validate.
+  - It writes the new text to disk.
+  - It runs `plugin` to format those files.
+  - Then (optionally) it triggers the same hot-reload pipeline as above so the live game updates with the new symbol body.
+
+- `cli format FILES`
+  - Uses `parser` + `plugin`.
+
+- `cli graph SYMBOL`
+  - Asks `semantic` project graph who depends on that symbol (nice debug / visualization hook).
+
+In other words:  
+**`cli` is both your dev server AND your command surface.**  
+It is the thing that glues parsing, semantic analysis, project graph, transpilation, runtime patch streaming, refactoring, and formatting into a usable workflow.
+
+---
+
+### Putting it all together in one “mental pipeline”
+
+#### During normal dev / hot reload
+1. Source file changes.
+2. `parser` turns that file into AST (+ spans).
+3. `semantic` (file-level) annotates that AST with scope/binding + generates per-file symbol occurrences.
+4. `semantic` (project-wide graph) updates its global view of all defs/refs and tells us what symbols are now dirty and what depends on them.
+5. `cli` asks `transpiler` to generate JS patches for those dirty symbols.
+6. `cli` streams those patches to the `runtime-wrapper`.
+7. `runtime-wrapper` swaps the new code into the running game. State is preserved. You see the change instantly.
+
+#### During a refactor (like safe rename)
+1. You run `cli rename gml/var/obj_enemy::hp --to health`.
+2. `cli` asks `semantic` project graph for all DEF+REF occurrences of that symbol in the entire project.
+3. `cli` calls `refactor` to plan edits across files:
+   - rewrite the identifier text in each spot,
+   - avoid shadowing/capture,
+   - qualify with `self.` / `global.` where needed.
+4. `refactor` simulates those edits in memory, reparses with `parser`, and re-runs `semantic` to ensure bindings still point to the same underlying symbol (only the name changed).
+5. If valid, `cli` writes the actual edits to disk and runs `plugin` to reformat.
+6. As files changed, `cli` also triggers the same hot-reload flow above to regenerate JS and update the running game via `transpiler` + `runtime-wrapper`.
+
+So renames aren't just text ops — they're semantically safe, automatically applied, auto-formatted, and hot-reloaded.
+
+### TL;DR Component summary
+
+- `parser/`  
+  Turns GML text → AST + source spans.
+
+- `semantic/`  
+  Adds meaning to AST (scopes, bindings, identifier resolution).  
+  Builds and maintains a project-wide symbol graph (defs/refs/dependents).
+
+- `transpiler/`  
+  Turns an annotated AST node (script/event) → JS function body and patch payload.
+
+- `runtime-wrapper/`  
+  Lives in the running game. Accepts patches and swaps in new behavior live, without losing game state.
+
+- `refactor/`  
+  Uses `parser` + `semantic` to plan safe multi-file edits (like renames), validates them, and hands them back.
+
+- `plugin/`  
+  Formats and normalizes code after edits or on demand.
+
+- `cli/`  
+  The orchestrator:
+  - In dev: watches files, rebuilds semantics, updates the global project graph, calls the transpiler, and streams patches to the runtime-wrapper for instant hot reload.
+  - On commands: runs refactors, applies edits, reformats code, and triggers hot reload after structural changes.
+
+This gives a tight, end-to-end development loop: edit → instant in-game update → safe refactors that are aware of real GML semantics → consistent formatting → repeat.
 
 ---
 

@@ -35,7 +35,7 @@ describe("cli error formatting", () => {
         assert.equal(output, "Missing project path");
     });
 
-    it("logs usage guidance without stack traces", () => {
+    it("logs usage guidance without redundant prefixes", () => {
         const error = new CliUsageError("Missing project path", {
             usage: "Usage: prettier-wrapper [options] <path>"
         });
@@ -56,8 +56,33 @@ describe("cli error formatting", () => {
         }
 
         assert.deepEqual(logged, [
-            "Failed.\nMissing project path\n\nUsage: prettier-wrapper [options] <path>"
+            "Missing project path\n\nUsage: prettier-wrapper [options] <path>"
         ]);
+        assert.deepEqual(exitCodes, [1]);
+    });
+
+    it("includes prefixes for non-usage errors", () => {
+        const error = new Error("Something exploded");
+        const logged = [];
+        const exitCodes = [];
+        const restoreConsole = mock.method(console, "error", (...args) => {
+            logged.push(args.join(" "));
+        });
+        const restoreExit = mock.method(process, "exit", (code) => {
+            exitCodes.push(code);
+        });
+
+        try {
+            handleCliError(error, { prefix: "Failed." });
+        } finally {
+            restoreConsole.mock.restore();
+            restoreExit.mock.restore();
+        }
+
+        assert.equal(exitCodes.length, 1);
+        assert.equal(exitCodes[0], 1);
+        assert.equal(logged.length, 1);
+        assert.ok(logged[0].startsWith("Failed.\nError: Something exploded"));
         assert.deepEqual(exitCodes, [1]);
     });
 });

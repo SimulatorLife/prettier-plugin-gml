@@ -7,14 +7,20 @@
     "src/plugin",
     "src/parser",
     "src/semantic",
-    "src/shared"
+    "src/shared",
+    "src/transpiler",
+    "src/runtime-wrapper",
+    "src/refactor"
   ],
   "config": {
     "root_path": ".",
     "plugin_path": "src/plugin",
-    "parser_path": "src/parser",
-    "cli_path": "src/cli",
-    "semantic_path": "src/semantic"
+  "parser_path": "src/parser",
+  "cli_path": "src/cli",
+  "semantic_path": "src/semantic",
+  "transpiler_path": "src/transpiler",
+  "runtime_wrapper_path": "src/runtime-wrapper",
+  "refactor_path": "src/refactor"
   },
   "type": "module",
   "repository": {
