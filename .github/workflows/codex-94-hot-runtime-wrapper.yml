@@ -1,6 +1,8 @@
 name: Codex 94 – Runtime Wrapper Upgrades
 
 on:
+  schedule:
+    - cron: "30 */5 * * *"
   workflow_dispatch: {}
 
 permissions:

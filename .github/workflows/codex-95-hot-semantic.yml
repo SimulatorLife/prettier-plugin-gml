@@ -1,6 +1,8 @@
 name: Codex 95 – Semantic Scope Improvements
 
 on:
+  schedule:
+    - cron: "15 */6 * * *"
   workflow_dispatch: {}
 
 permissions:

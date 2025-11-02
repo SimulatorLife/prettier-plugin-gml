@@ -1,6 +1,8 @@
 name: Codex 96 – Transpiler Development
 
 on:
+  schedule:
+    - cron: "45 */6 * * *"
   workflow_dispatch: {}
 
 permissions:
@@ -15,6 +17,6 @@ jobs:
     with:
       component: "transpiler (src/transpiler)"
       extra_context: >
-        Implement incremental pieces of the GML → JavaScript emitter pipeline—AST visitors,
+        Implement incremental pieces of the GML → JavaScript emitter/transpiler pipeline—AST visitors,
         lowering helpers, or patch serialization—while keeping semantics aligned with the
         runtime wrapper expectations. Introduce tests that lock in emitted code behavior.
