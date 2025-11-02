@@ -152,6 +152,14 @@ for (var i = 0; i < queue_count; i += 1) {
 - [Semantic subsystem reference](src/semantic/README.md) &mdash; Details how the
   scope trackers and project-index coordinator now live in the dedicated
   `gamemaker-language-semantic` workspace package.
+- [Transpiler module outline](src/transpiler/README.md) &mdash; Stubbed entry point for
+  the GML → JavaScript emitter that will feed the live reload pipeline as it
+  matures.
+- [Runtime wrapper plan](src/runtime-wrapper/README.md) &mdash; Notes on the browser
+  hooks that accept transpiler patches and swap them into the running HTML5
+  export.
+- [Refactor engine scaffold](src/refactor/README.md) &mdash; Interim guidance for the
+  semantic-safe rename engine that will orchestrate WorkspaceEdits.
 - [ANTLR regeneration guide](docs/antlr-regeneration.md) &mdash; Walkthrough for
   rebuilding the generated parser sources with the vendored toolchain and
   understanding where custom extensions live now that the grammar delegates to

@@ -1,0 +1,21 @@
+name: Codex 94 – Runtime Wrapper Upgrades
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_codex-hot-feature-base.yml
+    secrets: inherit
+    with:
+      component: "runtime wrapper (src/runtime-wrapper)"
+      extra_context: >
+        Drive incremental improvements to the browser-side hot reload wrapper: WebSocket patch
+        handling, registry lifecycle management, instrumentation, or integration tests that
+        exercise patch application. Keep changes decoupled from the transpiler while ensuring
+        the hooks line up with the live reloading concept document.
