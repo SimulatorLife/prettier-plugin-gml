@@ -48,8 +48,9 @@ jobs:
       branch: ${{ steps.job_outputs.outputs.branch }}
     env:
       BASE_BRANCH: ${{ inputs.base_branch }}
-      REVIEW_BASE_BRANCH: ${{ format('{0}/review-base-{1}-{2}', inputs.branch_prefix, github.run_id, github.run_attempt) }}
-      REVIEW_FULL_BRANCH: ${{ format('{0}/review-full-{1}-{2}', inputs.branch_prefix, github.run_id, github.run_attempt) }}
+      AI_BOOTSTRAP_BRANCH: ai-bootstrap
+      EMPTY_SHADOW_BRANCH: ${{ format('empty-{0}-shadow', inputs.base_branch) }}
+      WORK_BRANCH: ${{ format('{0}/work-{1}-{2}', inputs.branch_prefix, github.run_id, github.run_attempt) }}
 
     steps:
       - name: Validate GH_USER_TOKEN
@@ -79,24 +80,22 @@ jobs:
           if [ -n "${AUTHOR_EMAIL}" ]; then git config user.email "${AUTHOR_EMAIL}"; fi
 
           git fetch origin "$BASE_BRANCH"
-          git checkout "$BASE_BRANCH"
 
-          git checkout --orphan "$REVIEW_BASE_BRANCH"
+          git checkout -B "$AI_BOOTSTRAP_BRANCH" "origin/$BASE_BRANCH"
+          git push --force-with-lease --set-upstream origin "$AI_BOOTSTRAP_BRANCH"
+
+          git checkout -B "$EMPTY_SHADOW_BRANCH" "origin/$BASE_BRANCH"
           git rm -rf . || true
           git clean -fdx
+          git commit -m "temporary empty snapshot for full-repo review"
+          git push --force-with-lease --set-upstream origin "$EMPTY_SHADOW_BRANCH"
 
-          git commit --allow-empty -m "review baseline (empty tree)"
-          git push -u origin "$REVIEW_BASE_BRANCH"
-
-          git switch -c "$REVIEW_FULL_BRANCH"
-          git checkout "origin/$BASE_BRANCH" -- .
-          git add -A
-          git commit -m "review snapshot from $BASE_BRANCH"
-          git push -u origin "$REVIEW_FULL_BRANCH"
+          git checkout "$AI_BOOTSTRAP_BRANCH"
         env:
           BASE_BRANCH: ${{ inputs.base_branch }}
-          REVIEW_BASE_BRANCH: ${{ env.REVIEW_BASE_BRANCH }}
-          REVIEW_FULL_BRANCH: ${{ env.REVIEW_FULL_BRANCH }}
+          AI_BOOTSTRAP_BRANCH: ${{ env.AI_BOOTSTRAP_BRANCH }}
+          EMPTY_SHADOW_BRANCH: ${{ env.EMPTY_SHADOW_BRANCH }}
+          WORK_BRANCH: ${{ env.WORK_BRANCH }}
           AUTHOR_NAME: ${{ inputs.author_name }}
           AUTHOR_EMAIL: ${{ inputs.author_email }}
 
@@ -109,16 +108,28 @@ jobs:
           echo "REVIEW_HEAD_SHA=$sha" >> "$GITHUB_ENV"
           echo "head_sha=$sha" >> "$GITHUB_OUTPUT"
 
+      - name: Create agent work branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git switch -B "$WORK_BRANCH" "$AI_BOOTSTRAP_BRANCH"
+          git push -u origin "$WORK_BRANCH"
+          git switch "$AI_BOOTSTRAP_BRANCH"
+        env:
+          WORK_BRANCH: ${{ env.WORK_BRANCH }}
+          AI_BOOTSTRAP_BRANCH: ${{ env.AI_BOOTSTRAP_BRANCH }}
+
       - name: Prepare Codex instructions
         id: instructions
         uses: actions/github-script@v7
         env:
           PROMPT: ${{ inputs.prompt }}
           PR_BODY: ${{ inputs.pr_body }}
-          REVIEW_FULL_BRANCH: ${{ env.REVIEW_FULL_BRANCH }}
-          REVIEW_BASE_BRANCH: ${{ env.REVIEW_BASE_BRANCH }}
+          AI_BOOTSTRAP_BRANCH: ${{ env.AI_BOOTSTRAP_BRANCH }}
+          EMPTY_SHADOW_BRANCH: ${{ env.EMPTY_SHADOW_BRANCH }}
           BASE_BRANCH: ${{ inputs.base_branch }}
           REVIEW_HEAD_SHA: ${{ env.REVIEW_HEAD_SHA }}
+          WORK_BRANCH: ${{ env.WORK_BRANCH }}
         with:
           github-token: ${{ secrets.GH_USER_TOKEN }}
           script: |
@@ -132,27 +143,33 @@ jobs:
               lines.push("");
             }
 
-            const headBranch = process.env.REVIEW_FULL_BRANCH;
-            const baseBranch = process.env.BASE_BRANCH;
-            const baselineBranch = process.env.REVIEW_BASE_BRANCH;
+            const headBranch = process.env.AI_BOOTSTRAP_BRANCH;
+            const workBranch = process.env.WORK_BRANCH;
+            const reviewBase = process.env.EMPTY_SHADOW_BRANCH;
+            const mainBranch = process.env.BASE_BRANCH;
             const headSha = (process.env.REVIEW_HEAD_SHA || "").trim();
             lines.push(`@codex ${preInstruction} ${process.env.PROMPT} ${postInstruction}`);
             lines.push("");
-            lines.push(`Once done, ensure all changes are pushed to remote branch **${headBranch}** (targets base **${baseBranch}**) and keep all commits confined to that branch. Leave the baseline branch **${baselineBranch}** untouched. As the final step (even after running 'make_pr'), run the following exact command(s) to guarantee your changes are pushed:`);
+            lines.push(`Work against the dedicated branch **${workBranch}**, which was branched from **${headBranch}**. Keep **${headBranch}** read-only so this review PR always reflects the full repository snapshot.`);
+            lines.push("");
+            lines.push(`Leave the empty baseline branch **${reviewBase}** untouched; it only exists so this PR diff shows every file. When you are ready to integrate real changes, open a separate PR from **${workBranch}** into **${mainBranch}**.`);
+            lines.push("");
+            lines.push(`Once done, ensure all changes are pushed to remote branch **${workBranch}** and keep all commits confined to that branch. As the final step (even after running 'make_pr'), run the following exact command(s) to guarantee your changes are pushed:`);
             lines.push("");
             lines.push("```bash");
             lines.push(`git config user.name  "codex-bot"`);
             lines.push(`git config user.email "codex@example.com"`);
             lines.push(`git -c credential.helper= \\`);
-            lines.push(`    -c 'credential.helper=store --file .git/codex-cred' \\`);
-            lines.push(`    push "https://henrylkirk@github.com/${context.repo.owner}/${context.repo.repo}.git" "HEAD:${headBranch}"`);
+            lines.push(`    -c 'credential.helper=store --file .git/codex-cred' \`);
+            lines.push(`    push "https://henrylkirk@github.com/${context.repo.owner}/${context.repo.repo}.git" "HEAD:${workBranch}"`);
             lines.push("```");
             lines.push("Here is some additional context for your task:");
             lines.push("```yaml");
             lines.push("codex_task:");
-            lines.push(`  branch: "${headBranch}"`);
-            lines.push(`  base: "${baseBranch}"`);
-            lines.push(`  baseline: "${baselineBranch}"`);
+            lines.push(`  review_head: "${headBranch}"`);
+            lines.push(`  work_branch: "${workBranch}"`);
+            lines.push(`  review_base: "${reviewBase}"`);
+            lines.push(`  merge_target: "${mainBranch}"`);
             if (headSha) {
               lines.push(`  head_sha: "${headSha}"`);
             }
@@ -168,9 +185,9 @@ jobs:
         env:
           PR_TITLE: ${{ inputs.pr_title }}
           BASE_BRANCH: ${{ inputs.base_branch }}
-          REVIEW_FULL_BRANCH: ${{ env.REVIEW_FULL_BRANCH }}
-          REVIEW_BASE_BRANCH: ${{ env.REVIEW_BASE_BRANCH }}
-          CODEX_BODY: ${{ steps.instructions.outputs.body }}
+          AI_BOOTSTRAP_BRANCH: ${{ env.AI_BOOTSTRAP_BRANCH }}
+          EMPTY_SHADOW_BRANCH: ${{ env.EMPTY_SHADOW_BRANCH }}
+          WORK_BRANCH: ${{ env.WORK_BRANCH }}
         with:
           github-token: ${{ secrets.GH_USER_TOKEN }}
           script: |
@@ -178,8 +195,8 @@ jobs:
               owner: context.repo.owner,
               repo:  context.repo.repo,
               title: process.env.PR_TITLE,
-              head:  process.env.REVIEW_FULL_BRANCH,
-              base:  process.env.BASE_BRANCH,
+              head:  process.env.AI_BOOTSTRAP_BRANCH,
+              base:  process.env.EMPTY_SHADOW_BRANCH,
               body:  process.env.CODEX_BODY || undefined,
               maintainer_can_modify: true,
             });
@@ -187,7 +204,7 @@ jobs:
             const headSha = pr.head.sha;
             core.setOutput('number', number);
             core.setOutput('head_sha', headSha);
-            core.setOutput('branch', process.env.REVIEW_FULL_BRANCH);
+            core.setOutput('branch', process.env.WORK_BRANCH);
             core.exportVariable('PR_NUMBER', number);
             core.exportVariable('PR_HEAD_SHA', headSha);
 
@@ -198,7 +215,7 @@ jobs:
           {
             echo "pr_number=${PR_NUMBER}";
             echo "head_sha=${PR_HEAD_SHA}";
-            echo "branch=${REVIEW_FULL_BRANCH}";
+            echo "branch=${WORK_BRANCH}";
           } >> "$GITHUB_OUTPUT"
 
       - name: (Optional) Label the PR (as your user)
