@@ -1,5 +1,5 @@
 # Agent Instructions
-- If checking a diff for a PR and it shows as empty, then treat the entire codebase as the context for the task.
+- If checking a diff for a PR and/or PR-commit and it shows as empty, then treat the entire codebase as the context for the task.
 - The existing plugin test input and output fixtures (src/plugin/test/*.gml) and the parser input fixtures (src/parser/test/input/*.gml) in this project are considered golden files and **MUST NEVER BE MODIFIED**. They capture parsing behavior and the desired formatting for GML and must be preserved byte-for-byte. NEVER update or change these files, certainly not to "fix" a test failure.
 - You may add new tests or adjust the way tests are executed, but do not change or replace the current input/output text fixtures.
 - Do **NOT** modify the Github Actions workflows in `.github/workflows` unless explicitly instructed to do so. When updating these files, ensure the changes are limited to the specific instructions or guidelines provided, without altering other sections.
