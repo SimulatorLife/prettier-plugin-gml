@@ -86,11 +86,7 @@ export function createResolverController({
      */
     function resolve(options = /** @type {TOptions} */ ({})) {
         if (!resolver) {
-            if (!reuseDefaultValue) {
-                return resetToDefault();
-            }
-
-            return currentValue;
+            return reuseDefaultValue ? currentValue : resetToDefault();
         }
 
         const rawResult = invoke(resolver, options, currentValue);
