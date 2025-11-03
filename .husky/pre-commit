@@ -1,5 +1,10 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 # husky pre-commit hook to format and lint code before committing.
+
+if [ -z "${BASH_VERSION:-}" ]; then
+	# Husky launches hooks with sh; re-exec under bash so nvm/formatter logic runs consistently.
+	exec bash "$0" "$@"
+fi
 
 set -euo pipefail
 
