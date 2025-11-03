@@ -1,7 +1,8 @@
 import {
     assignClonedLocation,
     isObjectLike,
-    toArray
+    toArray,
+    toMutableArray
 } from "../dependencies.js";
 import {
     ScopeOverrideKeyword,
@@ -18,10 +19,6 @@ class Scope {
     }
 }
 
-function toClassificationsArray(classifications) {
-    return Array.isArray(classifications) ? [...classifications] : [];
-}
-
 function createOccurrence(kind, metadata, source, declarationMetadata) {
     const declaration = declarationMetadata
         ? assignClonedLocation(
@@ -35,9 +32,9 @@ function createOccurrence(kind, metadata, source, declarationMetadata) {
             kind,
             name: metadata?.name ?? null,
             scopeId: metadata?.scopeId ?? null,
-            classifications: toClassificationsArray(
-                metadata?.classifications ?? []
-            ),
+            classifications: toMutableArray(metadata?.classifications, {
+                clone: true
+            }),
             declaration
         },
         source ?? {}
@@ -57,9 +54,9 @@ function cloneOccurrence(occurrence) {
             kind: occurrence.kind,
             name: occurrence.name,
             scopeId: occurrence.scopeId,
-            classifications: toClassificationsArray(
-                occurrence.classifications ?? []
-            ),
+            classifications: toMutableArray(occurrence.classifications, {
+                clone: true
+            }),
             declaration
         },
         occurrence
