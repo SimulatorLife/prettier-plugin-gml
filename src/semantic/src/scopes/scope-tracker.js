@@ -14,7 +14,69 @@ class Scope {
         this.id = id;
         this.kind = kind;
         this.declarations = new Map();
+        this.occurrences = new Map();
     }
+}
+
+function toClassificationsArray(classifications) {
+    return Array.isArray(classifications) ? [...classifications] : [];
+}
+
+function createOccurrence(kind, metadata, source, declarationMetadata) {
+    const declaration = declarationMetadata
+        ? assignClonedLocation(
+              { scopeId: declarationMetadata.scopeId ?? null },
+              declarationMetadata
+          )
+        : null;
+
+    return assignClonedLocation(
+        {
+            kind,
+            name: metadata?.name ?? null,
+            scopeId: metadata?.scopeId ?? null,
+            classifications: toClassificationsArray(
+                metadata?.classifications ?? []
+            ),
+            declaration
+        },
+        source ?? {}
+    );
+}
+
+function cloneOccurrence(occurrence) {
+    const declaration = occurrence.declaration
+        ? assignClonedLocation(
+              { scopeId: occurrence.declaration.scopeId ?? null },
+              occurrence.declaration
+          )
+        : null;
+
+    return assignClonedLocation(
+        {
+            kind: occurrence.kind,
+            name: occurrence.name,
+            scopeId: occurrence.scopeId,
+            classifications: toClassificationsArray(
+                occurrence.classifications ?? []
+            ),
+            declaration
+        },
+        occurrence
+    );
+}
+
+function ensureIdentifierOccurrences(scope, name) {
+    let entry = scope.occurrences.get(name);
+    if (!entry) {
+        entry = {
+            declarations: [],
+            references: []
+        };
+        scope.occurrences.set(name, entry);
+    }
+
+    return entry;
 }
 
 function resolveStringScopeOverride(tracker, scopeOverride, currentScope) {
@@ -43,6 +105,7 @@ export default class ScopeTracker {
         this.scopeCounter = 0;
         this.scopeStack = [];
         this.rootScope = null;
+        this.scopesById = new Map();
     }
 
     isEnabled() {
@@ -59,6 +122,7 @@ export default class ScopeTracker {
             kind ?? "unknown"
         );
         this.scopeStack.push(scope);
+        this.scopesById.set(scope.id, scope);
         if (!this.rootScope) {
             this.rootScope = scope;
         }
@@ -142,6 +206,20 @@ export default class ScopeTracker {
         scope.declarations.set(name, metadata);
     }
 
+    recordScopeOccurrence(scope, name, occurrence) {
+        if (!this.enabled || !scope || !name || !occurrence) {
+            return;
+        }
+
+        const entry = ensureIdentifierOccurrences(scope, name);
+
+        if (occurrence.kind === "reference") {
+            entry.references.push(occurrence);
+        } else {
+            entry.declarations.push(occurrence);
+        }
+    }
+
     lookup(name) {
         if (!this.enabled || !name) {
             return null;
@@ -197,6 +275,14 @@ export default class ScopeTracker {
         node.scopeId = scopeId;
         node.declaration = assignClonedLocation({ scopeId }, metadata);
         node.classifications = classifications;
+
+        const occurrence = createOccurrence(
+            "declaration",
+            metadata,
+            metadata,
+            metadata
+        );
+        this.recordScopeOccurrence(scope, name, occurrence);
     }
 
     reference(name, node, role = {}) {
@@ -231,5 +317,63 @@ export default class ScopeTracker {
                   declaration
               )
             : null;
+
+        const occurrenceMetadata = {
+            name,
+            scopeId,
+            classifications
+        };
+
+        const occurrence = createOccurrence(
+            "reference",
+            occurrenceMetadata,
+            node,
+            declaration ?? null
+        );
+        this.recordScopeOccurrence(scope, name, occurrence);
+    }
+
+    exportOccurrences({ includeReferences = true } = {}) {
+        if (!this.enabled) {
+            return [];
+        }
+
+        const includeRefs = Boolean(includeReferences);
+        const results = [];
+
+        for (const scope of this.scopesById.values()) {
+            const identifiers = [];
+
+            for (const [name, entry] of scope.occurrences) {
+                const declarations = entry.declarations.map((occurrence) =>
+                    cloneOccurrence(occurrence)
+                );
+                const references = includeRefs
+                    ? entry.references.map((occurrence) =>
+                          cloneOccurrence(occurrence)
+                      )
+                    : [];
+
+                if (declarations.length === 0 && references.length === 0) {
+                    continue;
+                }
+
+                identifiers.push({
+                    name,
+                    declarations,
+                    references
+                });
+            }
+
+            if (identifiers.length > 0) {
+                results.push({
+                    scopeId: scope.id,
+                    scopeKind: scope.kind,
+                    identifiers
+                });
+            }
+        }
+
+        return results;
     }
 }
