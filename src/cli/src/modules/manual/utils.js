@@ -56,17 +56,13 @@ const MANUAL_GITHUB_REQUEST_ERROR_CAPABILITY = Symbol.for(
     "prettier-plugin-gml.manual-github-request-error"
 );
 
-const OPTIONAL_INVALID_RESULT = Symbol(
-    "prettier-plugin-gml.manual.optional-invalid"
-);
-
 function readOptionalTrimmedString(value) {
     if (value == null) {
         return;
     }
 
     if (typeof value !== "string") {
-        return OPTIONAL_INVALID_RESULT;
+        return null;
     }
 
     const trimmed = value.trim();
@@ -79,7 +75,7 @@ function readOptionalFiniteNumber(value) {
     }
 
     const numeric = Number(value);
-    return Number.isFinite(numeric) ? numeric : OPTIONAL_INVALID_RESULT;
+    return Number.isFinite(numeric) ? numeric : null;
 }
 
 function readOptionalString(value) {
@@ -87,7 +83,7 @@ function readOptionalString(value) {
         return;
     }
 
-    return typeof value === "string" ? value : OPTIONAL_INVALID_RESULT;
+    return typeof value === "string" ? value : null;
 }
 
 function getManualGitHubRequestErrorContract(value) {
@@ -96,40 +92,40 @@ function getManualGitHubRequestErrorContract(value) {
     }
 
     const url = readOptionalTrimmedString(value.url);
-    if (url === OPTIONAL_INVALID_RESULT) {
+    if (url === null) {
         return null;
     }
 
     const status = readOptionalFiniteNumber(value.status);
-    if (status === OPTIONAL_INVALID_RESULT) {
+    if (status === null) {
         return null;
     }
 
     const statusText = readOptionalTrimmedString(value.statusText);
-    if (statusText === OPTIONAL_INVALID_RESULT) {
+    if (statusText === null) {
         return null;
     }
 
     const responseBody = readOptionalString(value.responseBody);
-    if (responseBody === OPTIONAL_INVALID_RESULT) {
+    if (responseBody === null) {
         return null;
     }
 
-    if (
-        [url, status, statusText, responseBody].every(
-            (entry) => entry === undefined
-        )
-    ) {
+    const details = { url, status, statusText, responseBody };
+
+    if (Object.values(details).every((entry) => entry === undefined)) {
         return null;
     }
 
     const contract = {
-        message: getErrorMessageOrFallback(value),
-        url,
-        status,
-        statusText,
-        responseBody
+        message: getErrorMessageOrFallback(value)
     };
+
+    for (const [key, entry] of Object.entries(details)) {
+        if (entry !== undefined) {
+            contract[key] = entry;
+        }
+    }
 
     if (value.cause !== undefined) {
         contract.cause = value.cause;
