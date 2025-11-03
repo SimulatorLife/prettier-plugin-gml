@@ -51,7 +51,7 @@ ANTLR4 provides syntactic structure but no meaning. A semantic layer annotates t
 
 A typical pipeline therefore comprises:
 
-1. Parse the source with ANTLR4 to obtain a concrete syntax tree.
+1. Parse the source with ANTLR4 to obtain a abstract syntax tree (AST).
 2. Walk the tree to populate symbol tables, infer scopes, and annotate nodes.
 3. Emit JavaScript using the enriched tree.
 
@@ -1045,9 +1045,9 @@ Sharing the SCIP index and semantic analyzer across refactoring and formatting e
 
 ### Architecture Overview
 - **Canonical index:** `.scip` file in memory (`ScipMemoryIndex`) plus the semantic analyzer’s scope model.
-- **Bidirectional maps:** symbol → occurrences, `docPath` → CST/token stream, and occurrence ↔ CST node locators.
+- **Bidirectional maps:** symbol → occurrences, `docPath` → AST/token stream, and occurrence ↔ AST node locators.
 - **Refactor engine:** consumes scopes and occurrences to produce conflict-free workspace edits.
-- **Formatter integration:** the Prettier plugin reads CST nodes with semantic hints to preserve qualifiers and trivia.
+- **Formatter integration:** the Prettier plugin reads AST nodes with semantic hints (a decorated AST or semantic graph) to preserve qualifiers and trivia.
 - **Validation loop:** apply edits in memory, reparse, recompute semantics, verify resolution, format, persist, and hot-reload.
 
 Semantic data flowing back into parser/formatter steps includes symbol identities (`gml/script/...`, `gml/var/...`), occurrence ranges, and binding classifications (local, self, global, script). The formatter looks up these hints while emitting tokens.
@@ -1059,7 +1059,7 @@ Inputs:
 - `newName`: desired name.
 - `index`: `ScipMemoryIndex`.
 - `sem`: semantic oracle providing scope resolution.
-- `cstProvider(docPath)`: returns the parsed CST with node locators.
+- `syntaxTreeProvider(docPath)`: returns the parsed AST/AST with node locators.
 
 Steps:
 
@@ -1097,7 +1097,7 @@ async function planRename(
   newName: string,
   scip: ScipMemoryIndex,
   sem: SemanticOracle,
-  cstProvider: (path: string) => Promise<CST>
+  syntaxTreeProvider: (path: string) => Promise<AST>
 ): Promise<WorkspaceEdit> {
   const defs = scip.defsOf(targetSymbol);   // implement: list of Occ
   if (defs.length !== 1) throw new Error("Ambiguous rename target; need exactly one DEF.");
@@ -1106,7 +1106,7 @@ async function planRename(
   const byFile = new Map<string, TextEdit[]>();
 
   for (const site of sites) {
-    const cst = await cstProvider(site.docPath);
+    const cst = await syntaxTreeProvider(site.docPath);
     const node = cst.locate(site.range);  // your node locator returning token node
     if (!node || node.kind !== "Identifier") continue;
 
@@ -1198,7 +1198,7 @@ Semantic hints let the formatter decide when to emit qualifiers (`self.`, `globa
 - **Generated IDs:** if resource IDs depend on names, add migration hooks to update metadata alongside code edits.
 
 ### Refactor Checklist
-1. Provide occurrence ↔ CST node locators.
+1. Provide occurrence ↔ AST node locators.
 2. Implement conflict detection for locals and instance fields.
 3. Auto-qualify uses when locals would shadow renamed fields.
 4. Validate by reparsing and verifying definition/reference stability.

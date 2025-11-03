@@ -1,22 +1,6 @@
-# Semantic Subsystem
+# Semantic Analyzer Subsystem
 
-The `src/semantic/` package consolidates scope-aware infrastructure that was
-previously scattered across the parser and plugin packages. It exposes two
-primary pillars:
-
-- **Scope tools** – the `ScopeTracker` and supporting keyword helpers now live
-  under `src/semantic/src/scopes/`. The parser continues to import the tracker
-  when annotating AST nodes, while downstream consumers can share the same
-  definitions without depending on parser internals.
-- **Project index** – the project graph, cache coordinator, and filesystem
-  facades moved from the Prettier plugin into
-  `src/semantic/src/project-index/`. The plugin consumes these helpers to gather
-  declaration metadata for rename plans, and future live-reload services will
-  build on the same entry points.
-- **Identifier-case pipeline** – rename planning, scope detection, and
-  environment management migrated from `src/plugin/src/identifier-case/` to
-  `src/semantic/src/identifier-case/` so the Prettier plugin can focus solely on
-  formatting concerns.
+This `src/semantic` subsystem is a semantic layer that annotates parse tree(s) to add *meaning* to the parsed GML code so the emitter/transpiler can make correct decisions. See the plan for this component/feature in [../../docs/semantic-scope-plan.md](../../docs/semantic-scope-plan.md).
 
 ## Identifier Case Bootstrap Controls
 
@@ -38,6 +22,7 @@ the first time a rename-enabled scope executes; pin `gmlIdentifierCaseProjectRoo
 in CI builds to avoid repeated discovery work.
 
 ## Resource Metadata Extension Hook
+> TODO: Remove this option/extension – handling custom resource metadata is out of scope. Keep this implementation 'opinionated'.
 
 **Pre-change analysis.** The project index previously treated only `.yy`
 resource documents as metadata, so integrations experimenting with alternate
@@ -57,3 +42,7 @@ for diagnostics. Production consumers should treat the defaults as canonical
 until downstream formats stabilize; the hook exists to unblock experimentation
 without diluting the formatter’s standard behavior.
 
+
+## TODO
+- Align the structure of `semantic` with the plan outlined in
+  [../../docs/semantic-scope-plan.md](../../docs/semantic-scope-plan.md).
