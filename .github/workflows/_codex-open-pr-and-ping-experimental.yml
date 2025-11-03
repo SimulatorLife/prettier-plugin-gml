@@ -158,7 +158,7 @@ jobs:
             const reviewBase = process.env.EMPTY_SHADOW_BRANCH;
             const mainBranch = process.env.BASE_BRANCH;
             const headSha = (process.env.REVIEW_HEAD_SHA || "").trim();
-            lines.push(`@codex ${preInstruction} ${process.env.PROMPT} ${postInstruction}`);
+            lines.push(`@codex review ${preInstruction} ${process.env.PROMPT} ${postInstruction}`);
             lines.push("");
             lines.push(`The review PR targets **${reviewHead}**, a read-only snapshot copied from **${snapshotBranch}** so reviewers see the entire codebase.`);
             lines.push("");
