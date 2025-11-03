@@ -106,7 +106,7 @@ export function createDefaultGmlPluginComponents() {
                 since: "0.0.0",
                 type: "int",
                 category: "gml",
-                default: 3,
+                default: 2,
                 range: { start: 0, end: Infinity },
                 description:
                     "Minimum number of consecutive simple assignments required before the formatter aligns their '=' operators. Set to 0 to disable alignment entirely."
