@@ -44,13 +44,11 @@ jobs:
   open_and_ping:
     runs-on: ubuntu-latest
     outputs:
-      pr_number: ${{ steps.job_outputs.outputs.pr_number }}
-      branch: ${{ steps.job_outputs.outputs.branch }}
+      pr_number: ${{ steps.pr.outputs.number }}
+      branch: ${{ env.BRANCH_NAME }}
     env:
       BASE_BRANCH: ${{ inputs.base_branch }}
-      AI_BOOTSTRAP_BRANCH: ai-bootstrap
-      EMPTY_SHADOW_BRANCH: ${{ format('empty-{0}-shadow', inputs.base_branch) }}
-      WORK_BRANCH: ${{ format('{0}/work-{1}-{2}', inputs.branch_prefix, github.run_id, github.run_attempt) }}
+      BRANCH_NAME: ${{ inputs.branch_prefix }}/task-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
       - name: Validate GH_USER_TOKEN
@@ -72,127 +70,32 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GH_USER_TOKEN }}
 
-      - name: Create review branches from clean baseline
+      - name: Create empty commit on new branch (from latest base)
         run: |
-          set -euo pipefail
-
+          # Prefer user-provided identity; otherwise leave Git defaults (will still push with your PAT)
           if [ -n "${AUTHOR_NAME}" ]; then git config user.name  "${AUTHOR_NAME}"; fi
           if [ -n "${AUTHOR_EMAIL}" ]; then git config user.email "${AUTHOR_EMAIL}"; fi
 
           git fetch origin "$BASE_BRANCH"
+          git switch -c "$BRANCH_NAME" "origin/$BASE_BRANCH"
 
-          git checkout -B "$EMPTY_SHADOW_BRANCH" "origin/$BASE_BRANCH"
-          git rm -rf . || true
-          git clean -fdx
-          git commit -m "temporary empty snapshot for full-repo review"
-          git push --force-with-lease --set-upstream origin "$EMPTY_SHADOW_BRANCH"
-
-          git checkout -B "$AI_BOOTSTRAP_BRANCH" "$EMPTY_SHADOW_BRANCH"
-          git checkout "origin/$BASE_BRANCH" -- .
-          git add -A
-          git commit -m "bootstrap full repository snapshot"
-          git push --force-with-lease --set-upstream origin "$AI_BOOTSTRAP_BRANCH"
-
-          git checkout "$AI_BOOTSTRAP_BRANCH"
+          git commit --allow-empty -m "${{ inputs.pr_title }}"
+          git push -u origin "$BRANCH_NAME"
         env:
           BASE_BRANCH: ${{ inputs.base_branch }}
-          AI_BOOTSTRAP_BRANCH: ${{ env.AI_BOOTSTRAP_BRANCH }}
-          EMPTY_SHADOW_BRANCH: ${{ env.EMPTY_SHADOW_BRANCH }}
-          WORK_BRANCH: ${{ env.WORK_BRANCH }}
+          BRANCH_NAME: ${{ env.BRANCH_NAME }}
           AUTHOR_NAME: ${{ inputs.author_name }}
           AUTHOR_EMAIL: ${{ inputs.author_email }}
-
-      - name: Capture review head SHA
-        id: review_head
-        shell: bash
-        run: |
-          set -euo pipefail
-          sha=$(git rev-parse HEAD)
-          echo "REVIEW_HEAD_SHA=$sha" >> "$GITHUB_ENV"
-          echo "head_sha=$sha" >> "$GITHUB_OUTPUT"
-
-      - name: Create agent work branch
-        shell: bash
-        run: |
-          set -euo pipefail
-          git checkout -B "$WORK_BRANCH" "$AI_BOOTSTRAP_BRANCH"
-          git push -u origin "$WORK_BRANCH"
-          git checkout "$AI_BOOTSTRAP_BRANCH"
-        env:
-          WORK_BRANCH: ${{ env.WORK_BRANCH }}
-          AI_BOOTSTRAP_BRANCH: ${{ env.AI_BOOTSTRAP_BRANCH }}
-
-      - name: Prepare Codex instructions
-        id: instructions
-        uses: actions/github-script@v7
-        env:
-          PROMPT: ${{ inputs.prompt }}
-          PR_BODY: ${{ inputs.pr_body }}
-          AI_BOOTSTRAP_BRANCH: ${{ env.AI_BOOTSTRAP_BRANCH }}
-          EMPTY_SHADOW_BRANCH: ${{ env.EMPTY_SHADOW_BRANCH }}
-          BASE_BRANCH: ${{ inputs.base_branch }}
-          REVIEW_HEAD_SHA: ${{ env.REVIEW_HEAD_SHA }}
-          WORK_BRANCH: ${{ env.WORK_BRANCH }}
-        with:
-          github-token: ${{ secrets.GH_USER_TOKEN }}
-          script: |
-            const preInstruction = "Begin by surveying the entire codebase before narrowing to this task.";
-            const postInstruction = "Ensure changes are self-contained, tested, and documented as needed, with no reduction in test coverage. Ensure the diff is minimal, readable, and well-commented; never sacrifice clarity for cleverness. There is no time constraint or specific allotted time for this task; prioritize quality and correctness over speed and take as much time as needed. You may **NOT** respond with \"no issues found\", \"didn't find any major issues\", or similar—if no obvious implementation exists, choose the most plausible area and apply a singular, safe, minimal improvement. Make absolutely certain that you make a code commit before ending your work session.";
-
-            const lines = [];
-            const intro = (process.env.PR_BODY || "").trim();
-            if (intro) {
-              lines.push(intro);
-              lines.push("");
-            }
-
-            const headBranch = process.env.AI_BOOTSTRAP_BRANCH;
-            const workBranch = process.env.WORK_BRANCH;
-            const reviewBase = process.env.EMPTY_SHADOW_BRANCH;
-            const mainBranch = process.env.BASE_BRANCH;
-            const headSha = (process.env.REVIEW_HEAD_SHA || "").trim();
-            lines.push(`@codex ${preInstruction} ${process.env.PROMPT} ${postInstruction}`);
-            lines.push("");
-            lines.push(`Work against the dedicated branch **${workBranch}**, which was branched from **${headBranch}**. Keep **${headBranch}** read-only so this review PR always reflects the full repository snapshot.`);
-            lines.push("");
-            lines.push(`Leave the empty baseline branch **${reviewBase}** untouched; it only exists so this PR diff shows every file.`);
-            lines.push("");
-            lines.push(`When you are ready to integrate real changes, rebase **${workBranch}** onto the latest **${mainBranch}** and open a separate PR targeting **${mainBranch}**.`);
-            lines.push("");
-            lines.push(`Once done, ensure all changes are pushed to remote branch **${workBranch}** and keep all commits confined to that branch. As the final step (even after running 'make_pr'), run the following exact command(s) to guarantee your changes are pushed:`);
-            lines.push("");
-            lines.push("```bash");
-            lines.push(`git config user.name  "codex-bot"`);
-            lines.push(`git config user.email "codex@example.com"`);
-            lines.push(`git -c credential.helper= \\`);
-            lines.push(`    -c 'credential.helper=store --file .git/codex-cred' \\`);
-            lines.push(`    push "https://henrylkirk@github.com/${context.repo.owner}/${context.repo.repo}.git" "HEAD:${workBranch}"`);
-            lines.push("```");
-            lines.push("Here is some additional context for your task:");
-            lines.push("```yaml");
-            lines.push("codex_task:");
-            lines.push(`  review_head: "${headBranch}"`);
-            lines.push(`  work_branch: "${workBranch}"`);
-            lines.push(`  review_base: "${reviewBase}"`);
-            lines.push(`  merge_target: "${mainBranch}"`);
-            if (headSha) {
-              lines.push(`  head_sha: "${headSha}"`);
-            }
-            lines.push("```");
-
-            const body = lines.join("\n");
-            core.setOutput("body", body);
-            core.exportVariable("CODEX_BODY", body);
 
       - name: Open PR (authored by your user)
         id: pr
         uses: actions/github-script@v7
         env:
           PR_TITLE: ${{ inputs.pr_title }}
+          PR_BODY: ${{ inputs.pr_body }}
+          PROMPT: ${{ inputs.prompt }}
           BASE_BRANCH: ${{ inputs.base_branch }}
-          AI_BOOTSTRAP_BRANCH: ${{ env.AI_BOOTSTRAP_BRANCH }}
-          EMPTY_SHADOW_BRANCH: ${{ env.EMPTY_SHADOW_BRANCH }}
-          WORK_BRANCH: ${{ env.WORK_BRANCH }}
+          BRANCH_NAME: ${{ env.BRANCH_NAME }}
         with:
           github-token: ${{ secrets.GH_USER_TOKEN }}
           script: |
@@ -200,33 +103,16 @@ jobs:
               owner: context.repo.owner,
               repo:  context.repo.repo,
               title: process.env.PR_TITLE,
-              head:  process.env.AI_BOOTSTRAP_BRANCH,
-              base:  process.env.EMPTY_SHADOW_BRANCH,
-              body:  process.env.CODEX_BODY || undefined,
+              head:  process.env.BRANCH_NAME,
+              base:  process.env.BASE_BRANCH,
+              body:  process.env.PR_BODY || undefined,
               maintainer_can_modify: true,
             });
-            const number = String(pr.number);
-            const headSha = pr.head.sha;
-            core.setOutput('number', number);
-            core.setOutput('head_sha', headSha);
-            core.setOutput('branch', process.env.WORK_BRANCH);
-            core.exportVariable('PR_NUMBER', number);
-            core.exportVariable('PR_HEAD_SHA', headSha);
-
-      - name: Share PR metadata
-        id: job_outputs
-        shell: bash
-        run: |
-          {
-            echo "pr_number=${PR_NUMBER}";
-            echo "head_sha=${PR_HEAD_SHA}";
-            echo "branch=${WORK_BRANCH}";
-          } >> "$GITHUB_OUTPUT"
+            core.setOutput('number', String(pr.number));
+            core.setOutput('head_sha', pr.head.sha);
 
       - name: (Optional) Label the PR (as your user)
         uses: actions/github-script@v7
-        env:
-          PR_NUMBER: ${{ env.PR_NUMBER }}
         with:
           github-token: ${{ secrets.GH_USER_TOKEN }}
           script: |
@@ -234,9 +120,56 @@ jobs:
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: Number(process.env.PR_NUMBER),
+                issue_number: Number('${{ steps.pr.outputs.number }}'),
                 labels: ['codex'],
               });
             } catch (e) {
               core.info('Label add skipped: ' + e.message);
             }
+
+      - name: Comment to trigger Codex (as your user)
+        uses: actions/github-script@v7
+        env:
+          BASE_BRANCH: ${{ inputs.base_branch }}
+          PROMPT: ${{ inputs.prompt }}
+          BRANCH_NAME: ${{ env.BRANCH_NAME }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+        with:
+          github-token: ${{ secrets.GH_USER_TOKEN }}
+          script: |
+            const prNumber = Number(process.env.PR_NUMBER);
+            const owner  = context.repo.owner;
+            const repo   = context.repo.repo;
+            const branch = process.env.BRANCH_NAME;
+
+            const preInstruction = "Begin by surveying the entire codebase before narrowing to this task.";
+            const postInstruction = "Ensure changes are self-contained, tested, and documented as needed, with no reduction in test coverage. Ensure the diff is minimal, readable, and well-commented; never sacrifice clarity for cleverness. There is no time constraint or specific allotted time for this task; prioritize quality and correctness over speed and take as much time as needed. You may **NOT** respond with \"no issues found\", \"didn't find any major issues\", or similar—if no obvious implementation exists, choose the most plausible area and apply a singular, safe, minimal improvement.";
+            const body = [
+              `@codex ${preInstruction} ${process.env.PROMPT} ${postInstruction}`,
+              "",
+              `Once done, ensure all changes are pushed to remote branch **${branch}** on base **${process.env.BASE_BRANCH}** and keep all commits tied to PR #${prNumber}; do not open new branches or PRs. As the final step (even after running 'make_pr'), run the following exact command(s) to guarantee your changes are pushed:`,
+              "",
+              "```bash",
+              `git config user.name  "codex-bot"`,
+              `git config user.email "codex@example.com"`,
+              `git -c credential.helper= \\`,
+              `    -c 'credential.helper=store --file .git/codex-cred' \\`,
+              `    push "https://henrylkirk@github.com/${owner}/${repo}.git" "HEAD:${branch}"`,
+              "```",
+              "Here is some additional context for your task:",
+              "```yaml",
+              "codex_task:",
+              `  branch: "${branch}"`,
+              `  pr_number: ${prNumber}`,
+              `  base: "${process.env.BASE_BRANCH}"`,
+              `  head_sha: "${process.env.HEAD_SHA}"`,
+              "```"
+            ].join("\n");
+
+            await github.rest.issues.createComment({ 
+              owner, 
+              repo, 
+              issue_number: prNumber, 
+              body 
+            });
