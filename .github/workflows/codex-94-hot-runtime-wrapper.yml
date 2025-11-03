@@ -2,7 +2,7 @@ name: Codex 94 – Runtime Wrapper Upgrades
 
 on:
   schedule:
-  - cron: "30 */5 * * *" # Every 5 hours at minute 30 (offset)
+  - cron: "5 1/5 * * *" # Every 5 hours starting at 01:05 UTC (offset ~60 mins)
   workflow_dispatch: {}
 
 permissions:

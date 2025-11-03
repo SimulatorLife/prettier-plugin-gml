@@ -2,7 +2,7 @@ name: Codex 96 – Transpiler Development
 
 on:
   schedule:
-  - cron: "53 */5 * * *" # Every 5 hours at minute 53 (offset)
+  - cron: "5 3/5 * * *" # Every 5 hours starting at 03:05 UTC (offset ~3 hours)
   workflow_dispatch: {}
 
 permissions:
