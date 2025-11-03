@@ -1,0 +1,4 @@
+{
+    "optimizeLoopLengthHoisting": false,
+    "loopLengthHoistFunctionSuffixes": "ds_queue_size=count"
+}

@@ -1,0 +1,1 @@
+{ "lineCommentBannerLength": 40 }
