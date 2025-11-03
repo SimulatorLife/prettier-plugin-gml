@@ -626,7 +626,7 @@ jobs:
             const lines = [
               marker,
               '',
-              `@codex The auto-merge workflow detected test regressions on this PR while comparing \`${pr.head.ref}\` against \`${pr.base.ref}\`. Please review the failing suites, identify the root cause, and provide the fixes or guidance needed so this change can be merged.`,
+              `@codex The auto-merge workflow detected test regressions on this PR while comparing \`${pr.head.ref}\` against \`${pr.base.ref}\`. Please review the failing suites, identify the root cause, and provide the fixes so this change can be merged.`,
               '',
               'Suggested next steps:',
               '1. Review the "Node.js regression test summary" comment and the uploaded junit-* artifacts for detailed failure reports.',
