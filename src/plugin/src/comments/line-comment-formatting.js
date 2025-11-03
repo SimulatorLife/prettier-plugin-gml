@@ -457,10 +457,14 @@ function formatLineComment(
         }
     }
 
-    const match = trimmedValue.match(DOC_TAG_LINE_PREFIX_PATTERN);
-    if (match) {
+    const docTagSource = DOC_TAG_LINE_PREFIX_PATTERN.test(trimmedValue)
+        ? trimmedValue
+        : DOC_TAG_LINE_PREFIX_PATTERN.test(trimmedOriginal)
+          ? trimmedOriginal
+          : null;
+    if (docTagSource) {
         let formattedCommentLine =
-            "///" + trimmedValue.replace(DOC_TAG_LINE_PREFIX_PATTERN, " @");
+            "///" + docTagSource.replace(DOC_TAG_LINE_PREFIX_PATTERN, " @");
         formattedCommentLine = applyJsDocReplacements(formattedCommentLine);
         return applyInlinePadding(comment, formattedCommentLine);
     }
