@@ -1,24 +1,17 @@
-#!/usr/bin/env sh
-set -e
+#!/usr/bin/env bash
+# husky pre-commit hook to format and lint code before committing.
 
-# Load nvm if present
-export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
-if [ -s "$NVM_DIR/nvm.sh" ]; then
-  # shellcheck source=/dev/null
-  . "$NVM_DIR/nvm.sh"
-else
-  echo "⚠️  nvm not found at $NVM_DIR. Using system Node ($(node -v 2>/dev/null || echo none))."
-fi
+set -euo pipefail
 
-# Use version from .nvmrc if nvm is available
-if command -v nvm >/dev/null 2>&1; then
-  if [ -f ".nvmrc" ]; then
-    nvm use --silent >/dev/null 2>&1 || nvm install >/dev/null
-  else
-    echo "ℹ️  No .nvmrc found; using current Node ($(node -v))."
-  fi
-fi
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
 
+# Ensure the correct Node version is active before running format/lint tasks.
+# shellcheck disable=SC1091
+. "$repo_root/scripts/ensure-node-version.sh"
+ensure_node_version
+
+# Display current Node and npm versions
 echo "Node: $(node -v)"
 echo "npm:  $(npm -v)"
 

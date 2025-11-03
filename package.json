@@ -44,6 +44,7 @@
     "node": ">=25.0.0"
   },
   "scripts": {
+    "preinstall": "bash scripts/ensure-node-version.sh",
     "clean": "rm -rf node_modules src/parser/node_modules src/parser/.antlr src/plugin/node_modules .eslintcache reports",
     "clean:generated": "rm -rf src/parser/generated",
     "lint": "eslint . --cache --stats",
