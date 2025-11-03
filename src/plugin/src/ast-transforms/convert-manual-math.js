@@ -85,6 +85,12 @@ export function condenseScalarMultipliers(
         traversalContext
     );
 
+    combineLengthdirDampingAssignments(
+        ast,
+        normalizedHelpers,
+        traversalContext
+    );
+
     return ast;
 }
 
@@ -363,6 +369,488 @@ function simplifyOneMinusOperand(node, key, helpers, context) {
     }
 
     node[key] = literal;
+    return true;
+}
+
+function combineLengthdirDampingAssignments(ast, helpers, context) {
+    if (!ast || typeof ast !== "object") {
+        return;
+    }
+
+    const stack = [ast];
+    const visited = new Set();
+
+    while (stack.length > 0) {
+        const current = stack.pop();
+        if (!current || typeof current !== "object") {
+            continue;
+        }
+
+        if (visited.has(current)) {
+            continue;
+        }
+
+        visited.add(current);
+
+        if (Array.isArray(current)) {
+            for (let index = 0; index < current.length - 1; index += 1) {
+                if (
+                    attemptCombineLengthdirSequence(
+                        current,
+                        index,
+                        helpers,
+                        context
+                    )
+                ) {
+                    index -= 1;
+                }
+            }
+
+            for (const element of current) {
+                stack.push(element);
+            }
+            continue;
+        }
+
+        for (const value of Object.values(current)) {
+            if (value && typeof value === "object") {
+                stack.push(value);
+            }
+        }
+    }
+}
+
+function attemptCombineLengthdirSequence(body, index, helpers, context) {
+    const declaration = body[index];
+    const nextNode = body[index + 1];
+
+    if (
+        !declaration ||
+        declaration.type !== "VariableDeclaration" ||
+        !nextNode
+    ) {
+        return false;
+    }
+
+    const declarators = Array.isArray(declaration.declarations)
+        ? declaration.declarations
+        : null;
+
+    if (!declarators || declarators.length !== 1) {
+        return false;
+    }
+
+    const [declarator] = declarators;
+    const baseName = getIdentifierName(declarator?.id);
+
+    if (
+        typeof baseName !== "string" ||
+        baseName.length === 0 ||
+        !declarator.init ||
+        helpers.hasComment(declarator.init)
+    ) {
+        return false;
+    }
+
+    let assignment = nextNode;
+    if (nextNode.type === "ExpressionStatement") {
+        assignment = nextNode.expression;
+    }
+
+    if (
+        !assignment ||
+        assignment.type !== "AssignmentExpression" ||
+        assignment.operator !== "=" ||
+        helpers.hasComment(assignment)
+    ) {
+        return false;
+    }
+
+    if (getIdentifierName(assignment.left) !== baseName) {
+        return false;
+    }
+
+    const difference = unwrapExpression(assignment.right);
+    if (
+        !difference ||
+        difference.type !== BINARY_EXPRESSION ||
+        difference.operator !== "-" ||
+        helpers.hasComment(difference)
+    ) {
+        return false;
+    }
+
+    const leftDifference = unwrapExpression(difference.left);
+    if (
+        !leftDifference ||
+        leftDifference.type !== BINARY_EXPRESSION ||
+        leftDifference.operator !== "-" ||
+        helpers.hasComment(leftDifference)
+    ) {
+        return false;
+    }
+
+    if (
+        context &&
+        hasInlineCommentBetween(
+            leftDifference.left,
+            leftDifference.right,
+            context
+        )
+    ) {
+        return false;
+    }
+
+    const minuend = unwrapExpression(leftDifference.left);
+    const subtrahend = unwrapExpression(leftDifference.right);
+
+    if (
+        !minuend ||
+        getIdentifierName(minuend) !== baseName ||
+        !subtrahend ||
+        helpers.hasComment(subtrahend)
+    ) {
+        return false;
+    }
+
+    const scaling = extractLengthdirScaling(subtrahend, baseName, helpers);
+    if (!scaling) {
+        return false;
+    }
+
+    const callTerm = unwrapExpression(difference.right);
+    if (
+        !callTerm ||
+        callTerm.type !== CALL_EXPRESSION ||
+        helpers.hasComment(callTerm)
+    ) {
+        return false;
+    }
+
+    if (getIdentifierName(callTerm.object) !== "lengthdir_x") {
+        return false;
+    }
+
+    const args = getCallExpressionArguments(callTerm);
+    if (!Array.isArray(args) || args.length !== 2) {
+        return false;
+    }
+
+    const [lengthArg, angleArg] = args;
+    if (
+        helpers.hasComment(lengthArg) ||
+        helpers.hasComment(angleArg) ||
+        (context &&
+            hasInlineCommentBetween(callTerm.object, lengthArg, context))
+    ) {
+        return false;
+    }
+
+    const lengthArgExpression = unwrapExpression(lengthArg);
+    if (!areNodesEquivalent(lengthArgExpression, subtrahend)) {
+        return false;
+    }
+
+    const scaledBase = buildScaledBaseProduct(
+        declarator.init,
+        scaling.value,
+        helpers
+    );
+    const angleClone = cloneAstNode(angleArg);
+
+    if (!scaledBase || !angleClone) {
+        return false;
+    }
+
+    const unitForCall = createNumericLiteral(1, lengthArg);
+    const unitForDifference = createNumericLiteral(1, difference);
+
+    if (!unitForCall || !unitForDifference) {
+        return false;
+    }
+
+    const lengthCall = createCallExpressionNode(
+        "lengthdir_x",
+        [unitForCall, angleClone],
+        callTerm
+    );
+
+    if (!lengthCall) {
+        return false;
+    }
+
+    const differenceNode = {
+        type: BINARY_EXPRESSION,
+        operator: "-",
+        left: unitForDifference,
+        right: lengthCall
+    };
+    assignClonedLocation(differenceNode, difference);
+
+    const parenthesizedDifference = {
+        type: PARENTHESIZED_EXPRESSION,
+        expression: differenceNode
+    };
+    assignClonedLocation(parenthesizedDifference, difference);
+
+    const finalProduct = createMultiplicationNode(
+        scaledBase,
+        parenthesizedDifference,
+        assignment
+    );
+
+    if (!finalProduct) {
+        return false;
+    }
+
+    const followingNode = body[index + 2];
+
+    declarator.init = finalProduct;
+
+    if (
+        shouldPreserveFollowingEmptyLineAfterRemoval(
+            nextNode,
+            followingNode,
+            context
+        )
+    ) {
+        declaration._gmlForceFollowingEmptyLine = true;
+    }
+
+    body.splice(index + 1, 1);
+    return true;
+}
+
+function shouldPreserveFollowingEmptyLineAfterRemoval(
+    removedNode,
+    nextNode,
+    context
+) {
+    if (!removedNode || typeof removedNode !== "object") {
+        return false;
+    }
+
+    if (removedNode._gmlForceFollowingEmptyLine === true) {
+        return true;
+    }
+
+    if (!context || typeof context !== "object") {
+        return false;
+    }
+
+    const sourceText = context.originalText ?? context.sourceText;
+    if (typeof sourceText !== "string" || sourceText.length === 0) {
+        return false;
+    }
+
+    if (!nextNode || typeof nextNode !== "object") {
+        return false;
+    }
+
+    const removalEnd = getNodeEndIndex(removedNode);
+    const nextStart = getNodeStartIndex(nextNode);
+
+    if (!Number.isFinite(removalEnd) || !Number.isFinite(nextStart)) {
+        return false;
+    }
+
+    if (removalEnd >= nextStart || nextStart > sourceText.length) {
+        return false;
+    }
+
+    const between = sourceText.slice(removalEnd, nextStart);
+    if (between.length === 0) {
+        return false;
+    }
+
+    return /\r?\n\s*\n/.test(between);
+}
+
+function extractLengthdirScaling(node, baseName, helpers) {
+    const expression = unwrapExpression(node);
+    if (!expression || helpers.hasComment(expression)) {
+        return null;
+    }
+
+    if (expression.type !== BINARY_EXPRESSION) {
+        return null;
+    }
+
+    const operator = expression.operator;
+
+    if (operator === "/") {
+        const numerator = unwrapExpression(expression.left);
+        const denominator = unwrapExpression(expression.right);
+
+        if (
+            !numerator ||
+            !denominator ||
+            helpers.hasComment(numerator) ||
+            helpers.hasComment(denominator)
+        ) {
+            return null;
+        }
+
+        if (getIdentifierName(numerator) !== baseName) {
+            return null;
+        }
+
+        const divisor = parseNumericLiteral(denominator);
+        if (divisor === null || !Number.isFinite(divisor)) {
+            return null;
+        }
+
+        const tolerance = computeNumericTolerance(0);
+        if (Math.abs(divisor) <= tolerance) {
+            return null;
+        }
+
+        return { value: 1 / divisor, template: denominator };
+    }
+
+    if (operator === "*") {
+        const left = unwrapExpression(expression.left);
+        const right = unwrapExpression(expression.right);
+
+        if (!left || !right) {
+            return null;
+        }
+
+        if (helpers.hasComment(left) || helpers.hasComment(right)) {
+            return null;
+        }
+
+        const leftName = getIdentifierName(left);
+        const rightName = getIdentifierName(right);
+
+        if (leftName === baseName) {
+            const factor = parseNumericLiteral(right);
+            if (factor === null || !Number.isFinite(factor)) {
+                return null;
+            }
+            return { value: factor, template: right };
+        }
+
+        if (rightName === baseName) {
+            const factor = parseNumericLiteral(left);
+            if (factor === null || !Number.isFinite(factor)) {
+                return null;
+            }
+            return { value: factor, template: left };
+        }
+
+        return null;
+    }
+
+    return null;
+}
+
+function buildScaledBaseProduct(baseExpression, scaleValue, helpers) {
+    const expression = unwrapExpression(baseExpression);
+    if (!expression) {
+        return null;
+    }
+
+    const factors = [];
+    if (!collectMultiplicationFactors(expression, factors, helpers)) {
+        const baseClone = cloneAstNode(expression);
+        const normalized = normalizeNumericCoefficient(scaleValue);
+        if (baseClone && normalized !== null) {
+            const literal = createNumericLiteral(normalized, baseExpression);
+            if (!literal) {
+                return null;
+            }
+            return createMultiplicationNode(baseClone, literal, baseExpression);
+        }
+        return null;
+    }
+
+    let coefficient = scaleValue;
+    const remainder = [];
+
+    for (const factor of factors) {
+        const numeric = parseNumericFactor(factor);
+        if (numeric === null) {
+            remainder.push(factor);
+            continue;
+        }
+
+        coefficient *= numeric;
+    }
+
+    if (!Number.isFinite(coefficient)) {
+        return null;
+    }
+
+    const normalizedCoefficient = normalizeNumericCoefficient(coefficient);
+    if (normalizedCoefficient === null) {
+        return null;
+    }
+
+    const coefficientLiteral = createNumericLiteral(
+        normalizedCoefficient,
+        baseExpression
+    );
+    if (!coefficientLiteral) {
+        return null;
+    }
+
+    let productOperand = null;
+
+    for (const factor of remainder) {
+        const cloned = cloneAstNode(factor);
+        if (!cloned) {
+            return null;
+        }
+
+        if (!productOperand) {
+            productOperand = cloned;
+            continue;
+        }
+
+        const multiplied = createMultiplicationNode(
+            productOperand,
+            cloned,
+            baseExpression
+        );
+        if (!multiplied) {
+            return null;
+        }
+
+        productOperand = multiplied;
+    }
+
+    if (!productOperand) {
+        return coefficientLiteral;
+    }
+
+    const scaledProduct = createMultiplicationNode(
+        productOperand,
+        coefficientLiteral,
+        baseExpression
+    );
+
+    return scaledProduct;
+}
+
+function collectMultiplicationFactors(node, output, helpers) {
+    const expression = unwrapExpression(node);
+    if (!expression) {
+        return false;
+    }
+
+    if (helpers.hasComment(expression)) {
+        return false;
+    }
+
+    if (expression.type === BINARY_EXPRESSION && expression.operator === "*") {
+        return (
+            collectMultiplicationFactors(expression.left, output, helpers) &&
+            collectMultiplicationFactors(expression.right, output, helpers)
+        );
+    }
+
+    output.push(expression);
     return true;
 }
 

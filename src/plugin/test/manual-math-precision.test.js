@@ -146,6 +146,38 @@ test("condenses chained scalar multipliers into a single coefficient", async () 
     );
 });
 
+test("merges lengthdir damping assignment without dropping blank lines", async () => {
+    const source = [
+        "function combine_damping(length, angle) {",
+        "    var damping = 1.3 * length * 0.12 / 1.5;",
+        "    damping = damping - damping / 2 - lengthdir_x(damping / 2, angle);",
+        "",
+        "    // After condense comment",
+        "    return damping;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source);
+
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function combine_damping",
+            "/// @param length",
+            "/// @param angle",
+            "function combine_damping(length, angle) {",
+            "    var damping = length * 0.052 * (1 - lengthdir_x(1, angle));",
+            "",
+            "    // After condense comment",
+            "    return damping;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
 test("simplifies division by a reciprocal denominator", async () => {
     const source = [
         "function convert_reciprocal(value, denom) {",
