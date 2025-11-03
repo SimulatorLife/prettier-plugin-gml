@@ -200,10 +200,67 @@ function printComment(commentPath, options) {
                 return formatLineComment(comment, lineCommentOptions);
             }
 
-            const normalizedSlashRun =
-                bannerLength <= 0 ? slashRun : "".padStart(bannerLength, "/");
-            const normalizedBanner =
-                `${normalizedSlashRun}${remainder}`.trimEnd();
+            if (bannerLength <= 0) {
+                return applyInlinePadding(comment, rawText.trimEnd());
+            }
+
+            const trimmedRemainder = remainder.trim();
+
+            if (trimmedRemainder.length === 0) {
+                return applyInlinePadding(
+                    comment,
+                    "".padStart(bannerLength, "/")
+                );
+            }
+
+            let bannerContent = trimmedRemainder;
+            const trailingSlashMatch = bannerContent.match(/(\/{2,})$/);
+
+            if (
+                trailingSlashMatch &&
+                trailingSlashMatch[1].length >=
+                    LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES
+            ) {
+                bannerContent = bannerContent
+                    .slice(0, -trailingSlashMatch[1].length)
+                    .trimEnd();
+            }
+
+            if (bannerContent.length === 0) {
+                return applyInlinePadding(
+                    comment,
+                    "".padStart(bannerLength, "/")
+                );
+            }
+
+            const spacingWidth = bannerContent.length + 2;
+
+            if (spacingWidth >= bannerLength) {
+                return formatLineComment(comment, lineCommentOptions);
+            }
+
+            const availableSlashWidth = bannerLength - spacingWidth;
+
+            if (
+                availableSlashWidth <
+                LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES * 2
+            ) {
+                return formatLineComment(comment, lineCommentOptions);
+            }
+
+            const leadingSlashWidth = Math.floor(availableSlashWidth / 2);
+            const trailingSlashWidth = availableSlashWidth - leadingSlashWidth;
+
+            if (
+                leadingSlashWidth < LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES ||
+                trailingSlashWidth < LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES
+            ) {
+                return formatLineComment(comment, lineCommentOptions);
+            }
+
+            const leadingBanner = "".padStart(leadingSlashWidth, "/");
+            const trailingBanner = "".padStart(trailingSlashWidth, "/");
+            const normalizedBanner = `${leadingBanner} ${bannerContent} ${trailingBanner}`;
 
             return applyInlinePadding(comment, normalizedBanner);
         }
