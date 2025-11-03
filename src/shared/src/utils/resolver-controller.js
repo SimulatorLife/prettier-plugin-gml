@@ -1,8 +1,10 @@
-import { assertFunction } from "@prettier-plugin-gml/shared/utils/object.js";
+import { assertFunction } from "./object.js";
 
-// Option resolver plumbing now lives alongside the plugin so shared bundles stay
-// focused on cross-environment primitives. The implementation remains unchanged
-// aside from importing its assertions from the shared object helpers.
+// Option resolver plumbing now lives in the shared utility bundle so formatter
+// packages (plugin, CLI integrations, semantic tooling) can reuse the
+// controller without depending on plugin internals. The implementation mirrors
+// the previous module, only the import path changed to stay within the shared
+// surface.
 
 /**
  * @template TOptions
