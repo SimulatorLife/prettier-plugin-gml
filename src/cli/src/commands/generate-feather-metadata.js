@@ -360,58 +360,80 @@ function extractTable(table) {
     return tableState;
 }
 
+function createClassListChecker(element) {
+    const classList = element?.classList;
+
+    if (!classList || typeof classList.contains !== "function") {
+        return () => false;
+    }
+
+    return (className) => classList.contains(className);
+}
+
+function shouldSkipManualBlock(hasClass) {
+    return hasClass("footer") || hasClass("seealso");
+}
+
+function resolveBlockType(tagName, hasClass) {
+    if (tagName === "p") {
+        if (hasClass("code")) {
+            return "code";
+        }
+
+        if (hasClass("note") || hasClass("warning")) {
+            return "note";
+        }
+
+        return "paragraph";
+    }
+
+    if (tagName === "h4" || tagName === "h5") {
+        return "heading";
+    }
+
+    if (tagName === "ul" || tagName === "ol") {
+        return "list";
+    }
+
+    if (tagName === "table") {
+        return "table";
+    }
+
+    if (tagName === "div" && hasClass("codeblock")) {
+        return "code";
+    }
+
+    return "html";
+}
+
+function getHeadingLevel(tagName) {
+    return tagName === "h4" || tagName === "h5"
+        ? Number(tagName.slice(1))
+        : null;
+}
+
+function extractListItems(element) {
+    const items = getDirectChildren(element, "li").map((item) =>
+        extractText(item, { preserveLineBreaks: false })
+    );
+
+    return compactArray(items);
+}
+
 function createBlock(node) {
     if (!isElement(node)) {
         return null;
     }
 
     const element = node;
-    const classList = element.classList ?? { contains: () => false };
-    if (classList.contains("footer") || classList.contains("seealso")) {
+    const hasClass = createClassListChecker(element);
+
+    if (shouldSkipManualBlock(hasClass)) {
         return null;
     }
 
     const tagName = getTagName(element);
-    let type = "html";
-    switch (tagName) {
-        case "p": {
-            if (classList.contains("code")) {
-                type = "code";
-            } else if (
-                classList.contains("note") ||
-                classList.contains("warning")
-            ) {
-                type = "note";
-            } else {
-                type = "paragraph";
-            }
-
-            break;
-        }
-        case "h4":
-        case "h5": {
-            type = "heading";
-
-            break;
-        }
-        case "ul":
-        case "ol": {
-            type = "list";
-
-            break;
-        }
-        case "table": {
-            type = "table";
-
-            break;
-        }
-        default: {
-            if (tagName === "div" && classList.contains("codeblock")) {
-                type = "code";
-            }
-        }
-    }
-
+    const type = resolveBlockType(tagName, hasClass);
     const preserveLineBreaks = type === "code" || type === "list";
     const text = extractText(element, { preserveLineBreaks });
 
@@ -420,21 +442,26 @@ function createBlock(node) {
     }
 
     const block = { type, text };
-    if (tagName === "h4" || tagName === "h5") {
-        block.level = Number(tagName.slice(1));
+    const headingLevel = getHeadingLevel(tagName);
+
+    if (headingLevel !== null) {
+        block.level = headingLevel;
     }
+
     if (type === "list") {
-        const items = getDirectChildren(element, "li").map((item) =>
-            extractText(item, { preserveLineBreaks: false })
-        );
-        block.items = compactArray(items);
-        if (block.items.length === 0 && !text) {
+        const items = extractListItems(element);
+
+        if (items.length === 0 && !text) {
             return null;
         }
+
+        block.items = items;
     }
+
     if (type === "table") {
         block.table = extractTable(element);
     }
+
     return block;
 }
 
