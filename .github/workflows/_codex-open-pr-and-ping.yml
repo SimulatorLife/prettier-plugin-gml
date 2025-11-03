@@ -153,6 +153,7 @@ jobs:
               "```bash",
               `git config user.name  "codex-bot"`,
               `git config user.email "codex@example.com"`,
+              `git push -u origin "HEAD:${branch}"`,
               `git -c credential.helper= \\`,
               `    -c 'credential.helper=store --file .git/codex-cred' \\`,
               `    push "https://henrylkirk@github.com/${owner}/${repo}.git" "HEAD:${branch}"`,
