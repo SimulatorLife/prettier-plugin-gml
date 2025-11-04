@@ -1,11 +1,10 @@
 import vm from "node:vm";
-import path from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
 
 import { Command } from "commander";
 
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
+import { isMainModule } from "../shared/module.js";
 import {
     createVerboseDurationLogger,
     describeValueWithArticle,
@@ -871,11 +870,7 @@ export const __test__ = Object.freeze({
     assertManualIdentifierArray
 });
 
-const isMainModule = process.argv[1]
-    ? path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
-    : false;
-
-if (isMainModule) {
+if (isMainModule(import.meta.url)) {
     const program = new Command().name("generate-gml-identifiers");
     const { registry, runner } = createCliCommandManager({ program });
     const handleError = (error) =>

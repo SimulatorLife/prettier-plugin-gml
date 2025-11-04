@@ -1,3 +1,6 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 import {
     getErrorMessage,
     isErrorWithCode
@@ -59,4 +62,18 @@ export function isMissingModuleDependency(error, moduleId) {
     ];
 
     return quotedIdentifiers.some((identifier) => message.includes(identifier));
+}
+
+/**
+ * Check whether the current module is being run directly as the main module.
+ * Centralizes the ESM main module detection pattern used across CLI commands,
+ * eliminating duplication of the process.argv[1] and fileURLToPath logic.
+ *
+ * @param {string} importMetaUrl The import.meta.url of the module to check.
+ * @returns {boolean} `true` when the module is being executed directly.
+ */
+export function isMainModule(importMetaUrl) {
+    return process.argv[1]
+        ? path.resolve(process.argv[1]) === fileURLToPath(importMetaUrl)
+        : false;
 }

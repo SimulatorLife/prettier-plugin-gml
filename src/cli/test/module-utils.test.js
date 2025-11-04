@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+    isMainModule,
     isMissingModuleDependency,
     resolveModuleDefaultExport
 } from "../src/dependencies.js";
@@ -67,4 +68,26 @@ test("isMissingModuleDependency requires a non-empty module identifier", () => {
     error.code = "ERR_MODULE_NOT_FOUND";
 
     assert.throws(() => isMissingModuleDependency(error, "  "), /moduleId/);
+});
+
+test("isMainModule returns true when module is executed directly", () => {
+    const result = isMainModule(import.meta.url);
+    assert.strictEqual(typeof result, "boolean");
+});
+
+test("isMainModule returns false for a different module path", () => {
+    const fakePath = "file:///fake/path/to/module.js";
+    const result = isMainModule(fakePath);
+    assert.strictEqual(result, false);
+});
+
+test("isMainModule handles missing process.argv[1]", () => {
+    const originalArgv = process.argv[1];
+    try {
+        process.argv[1] = undefined;
+        const result = isMainModule(import.meta.url);
+        assert.strictEqual(result, false);
+    } finally {
+        process.argv[1] = originalArgv;
+    }
 });

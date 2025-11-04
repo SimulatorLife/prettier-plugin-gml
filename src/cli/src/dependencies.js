@@ -72,6 +72,7 @@ export {
 export { Command, InvalidArgumentError, Option } from "commander";
 
 export {
+    isMainModule,
     isMissingModuleDependency,
     resolveModuleDefaultExport
 } from "./shared/module.js";

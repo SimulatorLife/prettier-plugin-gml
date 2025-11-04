@@ -1,7 +1,5 @@
 import { parseHTML } from "linkedom";
-import path from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
 
 import { Command } from "commander";
 
@@ -17,6 +15,7 @@ import {
     toNormalizedLowerCaseSet
 } from "../shared/dependencies.js";
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
+import { isMainModule } from "../shared/module.js";
 import { disposeProgressBars } from "../runtime-options/progress-bar.js";
 import { writeManualJsonArtifact } from "../modules/manual/file-helpers.js";
 import {
@@ -1346,11 +1345,7 @@ export async function runGenerateFeatherMetadata({ command, workflow } = {}) {
     }
 }
 
-const isMainModule = process.argv[1]
-    ? path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
-    : false;
-
-if (isMainModule) {
+if (isMainModule(import.meta.url)) {
     const program = new Command().name("generate-feather-metadata");
     const { registry, runner } = createCliCommandManager({ program });
     const handleError = (error) =>
