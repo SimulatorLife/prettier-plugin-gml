@@ -1,4 +1,4 @@
-// Minimal placeholder for the HTML5 runtime hot wrapper.
+// WIP HTML5 runtime hot wrapper
 
 function validatePatch(patch) {
     if (!patch || typeof patch !== "object") {
