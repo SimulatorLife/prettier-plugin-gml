@@ -200,10 +200,53 @@ function printComment(commentPath, options) {
                 return formatLineComment(comment, lineCommentOptions);
             }
 
-            const normalizedSlashRun =
-                bannerLength <= 0 ? slashRun : "".padStart(bannerLength, "/");
-            const normalizedBanner =
-                `${normalizedSlashRun}${remainder}`.trimEnd();
+            if (bannerLength <= 0) {
+                const normalizedBanner = `${slashRun}${remainder}`.trimEnd();
+                return applyInlinePadding(comment, normalizedBanner);
+            }
+
+            const hasTrailingSlashes = /\/\/\s*$/.test(rawText);
+            const textContent = remainder.trim();
+            const contentWithoutTrailing = hasTrailingSlashes
+                ? textContent.replace(/\/{2,}\s*$/, "").trim()
+                : textContent;
+
+            const minSlashesPerSide = LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES;
+            const minBalancedLength =
+                minSlashesPerSide +
+                1 +
+                contentWithoutTrailing.length +
+                1 +
+                minSlashesPerSide;
+
+            const shouldBalance = minBalancedLength <= bannerLength;
+
+            if (shouldBalance) {
+                const totalLength = bannerLength;
+                const contentWithSpaces = contentWithoutTrailing
+                    ? ` ${contentWithoutTrailing} `
+                    : "";
+                const contentLength = contentWithSpaces.length;
+                const remainingSlashes = Math.max(
+                    0,
+                    totalLength - contentLength
+                );
+                const leadingSlashes = Math.floor(remainingSlashes / 2);
+                const trailingSlashes = remainingSlashes - leadingSlashes;
+
+                const normalizedBanner =
+                    "".padStart(leadingSlashes, "/") +
+                    contentWithSpaces +
+                    "".padStart(trailingSlashes, "/");
+
+                return applyInlinePadding(comment, normalizedBanner);
+            }
+
+            const normalizedSlashRun = "".padStart(bannerLength, "/");
+            const contentWithSpace = contentWithoutTrailing
+                ? ` ${contentWithoutTrailing}`
+                : "";
+            const normalizedBanner = normalizedSlashRun + contentWithSpace;
 
             return applyInlinePadding(comment, normalizedBanner);
         }
