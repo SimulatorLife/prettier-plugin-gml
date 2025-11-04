@@ -15,12 +15,12 @@
   "config": {
     "root_path": ".",
     "plugin_path": "src/plugin",
-  "parser_path": "src/parser",
-  "cli_path": "src/cli",
-  "semantic_path": "src/semantic",
-  "transpiler_path": "src/transpiler",
-  "runtime_wrapper_path": "src/runtime-wrapper",
-  "refactor_path": "src/refactor"
+    "parser_path": "src/parser",
+    "cli_path": "src/cli",
+    "semantic_path": "src/semantic",
+    "transpiler_path": "src/transpiler",
+    "runtime_wrapper_path": "src/runtime-wrapper",
+    "refactor_path": "src/refactor"
   },
   "type": "module",
   "repository": {
@@ -53,7 +53,7 @@
     "lint:report": "eslint . --format checkstyle --output-file reports/eslint-checkstyle.xml",
     "report": "npm run lint:report && npm run test:report && npm run test:coverage && npm run memory",
     "check": "npm run format:check && npm run lint:ci && npm test",
-    "test": "node --test",
+    "test": "timeout -t 2m -- node --test --test-timeout=10000",
     "test:report": "rm -f reports/tests.xml && mkdir -p reports && node --test --test-reporter=junit --test-reporter-destination=./reports/tests.xml",
     "test:coverage": "bash -lc 'rm -f reports/lcov.info && mkdir -p reports && ./node_modules/.bin/c8 --reporter=lcovonly --report-dir=reports node --test; status=$?; rm -rf .nyc_output reports/tmp reports/lcov-report; exit $status'",
     "test:shared": "node --test src/shared/test/*.test.js",
@@ -97,6 +97,7 @@
     "eslint-plugin-unused-imports": "^4.3.0",
     "globals": "^16.4.0",
     "husky": "^9.1.7",
-    "prettier": "^3.6.2"
+    "prettier": "^3.6.2",
+    "timeout-cli": "^0.3.2"
   }
 }
