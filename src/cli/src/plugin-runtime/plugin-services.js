@@ -6,17 +6,9 @@
  * initialized and cached on first use.
  */
 
-import { createCliRunSkippedError, isCliRunSkipped } from "./dependencies.js";
+import { isCliRunSkipped } from "./dependencies.js";
 
 const shouldSkipDefaultPluginServices = isCliRunSkipped();
-const SKIP_PLUGIN_SERVICES_RESOLUTION_MESSAGE =
-    "Clear the environment variable to restore CLI plugin services.";
-
-function createSkippedServiceError(actionDescription) {
-    return createCliRunSkippedError(actionDescription, {
-        resolution: SKIP_PLUGIN_SERVICES_RESOLUTION_MESSAGE
-    });
-}
 
 let cachedIdentifierCaseCacheClearer = null;
 
