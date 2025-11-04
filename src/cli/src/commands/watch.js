@@ -193,23 +193,18 @@ export async function runWatchCommand(targetPath, options) {
     );
 
     // Handle termination with proper cleanup of event listeners
-    const createSignalHandler = () => {
-        return () => {
-            if (verbose) {
-                console.log("\nStopping watcher...");
-            }
-            watcher.close();
-            process.removeListener("SIGINT", sigintHandler);
-            process.removeListener("SIGTERM", sigtermHandler);
-            process.exit(0);
-        };
+    const signalHandler = () => {
+        if (verbose) {
+            console.log("\nStopping watcher...");
+        }
+        watcher.close();
+        process.removeListener("SIGINT", signalHandler);
+        process.removeListener("SIGTERM", signalHandler);
+        process.exit(0);
     };
 
-    const sigintHandler = createSignalHandler();
-    const sigtermHandler = createSignalHandler();
-
-    process.on("SIGINT", sigintHandler);
-    process.on("SIGTERM", sigtermHandler);
+    process.on("SIGINT", signalHandler);
+    process.on("SIGTERM", signalHandler);
 
     // Keep the process alive
     return new Promise(() => {
