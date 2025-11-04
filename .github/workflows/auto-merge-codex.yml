@@ -152,9 +152,7 @@ jobs:
               core.info(
                 'PR #' + pull_number + ' is not mergeable (state: ' + current.mergeable_state + ').'
               );
-              return;
             }
-
             await github.rest.pulls.merge({
               owner,
               repo,
