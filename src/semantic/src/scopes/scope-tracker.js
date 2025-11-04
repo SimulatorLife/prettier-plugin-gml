@@ -524,4 +524,35 @@ export default class ScopeTracker {
 
         return chain;
     }
+
+    /**
+     * Get all declarations defined directly in a specific scope. This returns
+     * only declarations in the specified scope, not from parent scopes. Useful
+     * for hot reload coordination to identify what symbols are defined in a
+     * particular file or scope unit.
+     *
+     * @param {string} scopeId The scope identifier to query.
+     * @returns {Array<{name: string, metadata: object}>} Array of declarations
+     *          with their names and full metadata.
+     */
+    getScopeDefinitions(scopeId) {
+        if (!this.enabled || !scopeId) {
+            return [];
+        }
+
+        const scope = this.scopesById.get(scopeId);
+        if (!scope) {
+            return [];
+        }
+
+        const definitions = [];
+        for (const [name, metadata] of scope.declarations) {
+            definitions.push({
+                name,
+                metadata: { ...metadata }
+            });
+        }
+
+        return definitions;
+    }
 }

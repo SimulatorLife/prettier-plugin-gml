@@ -474,3 +474,70 @@ test("getScopeChain works after exiting scopes", () => {
         { id: rootScope.id, kind: "program" }
     ]);
 });
+
+test("getScopeDefinitions returns declarations defined in specific scope", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    const outerScope = tracker.enterScope("function");
+
+    tracker.declare("outerVar", {
+        start: { line: 1, index: 0 },
+        end: { line: 1, index: 8 }
+    });
+
+    const innerScope = tracker.enterScope("block");
+
+    tracker.declare("innerVar", {
+        start: { line: 3, index: 0 },
+        end: { line: 3, index: 8 }
+    });
+
+    tracker.declare("anotherInner", {
+        start: { line: 4, index: 0 },
+        end: { line: 4, index: 12 }
+    });
+
+    const outerDefs = tracker.getScopeDefinitions(outerScope.id);
+    const innerDefs = tracker.getScopeDefinitions(innerScope.id);
+
+    assert.strictEqual(outerDefs.length, 1);
+    assert.strictEqual(outerDefs[0].name, "outerVar");
+    assert.strictEqual(outerDefs[0].metadata.scopeId, outerScope.id);
+
+    assert.strictEqual(innerDefs.length, 2);
+    const innerNames = innerDefs.map((d) => d.name).sort();
+    assert.deepStrictEqual(innerNames, ["anotherInner", "innerVar"]);
+});
+
+test("getScopeDefinitions returns empty array for non-existent scope", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    tracker.enterScope("program");
+
+    const result = tracker.getScopeDefinitions("nonexistent-scope");
+
+    assert.deepStrictEqual(result, []);
+});
+
+test("getScopeDefinitions returns empty array when disabled", () => {
+    const tracker = new ScopeTracker({ enabled: false });
+
+    const result = tracker.getScopeDefinitions("any-scope");
+
+    assert.deepStrictEqual(result, []);
+});
+
+test("getScopeDefinitions returns cloned metadata", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    const scope = tracker.enterScope("function");
+
+    tracker.declare("testVar", {
+        start: { line: 1, index: 0 },
+        end: { line: 1, index: 7 }
+    });
+
+    const defs1 = tracker.getScopeDefinitions(scope.id);
+    defs1[0].metadata.mutated = true;
+
+    const defs2 = tracker.getScopeDefinitions(scope.id);
+
+    assert.strictEqual(defs2[0].metadata.mutated, undefined);
+});
