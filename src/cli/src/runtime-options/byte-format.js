@@ -1,30 +1,25 @@
 import { Buffer } from "node:buffer";
 import { isFiniteNumber } from "../dependencies.js";
-import {
-    coercePositiveInteger,
-    createNumericTypeErrorFormatter
-} from "../shared/dependencies.js";
+import { coercePositiveInteger } from "../shared/dependencies.js";
 import {
     createIntegerOptionToolkit,
-    applyIntegerOptionToolkitEnvOverride
+    applyIntegerOptionToolkitEnvOverride,
+    createStandardIntegerOptionMessages
 } from "../core/integer-option-toolkit.js";
 
 const BYTE_UNITS = Object.freeze(["B", "KB", "MB", "GB", "TB", "PB"]);
 const DEFAULT_BYTE_FORMAT_RADIX = 1024;
 const BYTE_FORMAT_RADIX_ENV_VAR = "PRETTIER_PLUGIN_GML_BYTE_FORMAT_RADIX";
 
-const createRadixErrorMessage = (received) =>
-    `Byte format radix must be a positive integer (received ${received}).`;
-
-const createRadixTypeErrorMessage =
-    createNumericTypeErrorFormatter("Byte format radix");
+const { createErrorMessage, typeErrorMessage } =
+    createStandardIntegerOptionMessages("Byte format radix");
 
 const byteFormatToolkit = createIntegerOptionToolkit({
     defaultValue: DEFAULT_BYTE_FORMAT_RADIX,
     envVar: BYTE_FORMAT_RADIX_ENV_VAR,
     baseCoerce: coercePositiveInteger,
-    createErrorMessage: createRadixErrorMessage,
-    typeErrorMessage: createRadixTypeErrorMessage,
+    createErrorMessage,
+    typeErrorMessage,
     defaultValueOption: "defaultRadix"
 });
 

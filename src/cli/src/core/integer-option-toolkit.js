@@ -3,7 +3,47 @@ import {
     createIntegerOptionState,
     createIntegerOptionResolver
 } from "./numeric-option-state.js";
-import { resolveEnvironmentMap } from "../shared/dependencies.js";
+import {
+    resolveEnvironmentMap,
+    createNumericTypeErrorFormatter
+} from "../shared/dependencies.js";
+
+/**
+ * Generate standard error message functions for integer option validation.
+ * Reduces duplication across CLI modules that create numeric options with
+ * similar error messaging patterns.
+ *
+ * @param {string} label Human-readable option name (e.g., "Progress bar width",
+ *        "VM evaluation timeout").
+ * @param {object} [options]
+ * @param {"positive" | "non-negative"} [options.validationType="positive"]
+ *        Constraint type: "positive" requires values >= 1, "non-negative"
+ *        requires values >= 0.
+ * @param {string} [options.additionalHelp] Optional guidance appended to the
+ *        range error (e.g., "Provide 0 to disable the timeout.").
+ * @returns {{
+ *   createErrorMessage: (received: unknown) => string,
+ *   typeErrorMessage: (type: string) => string
+ * }}
+ */
+export function createStandardIntegerOptionMessages(
+    label,
+    { validationType = "positive", additionalHelp } = {}
+) {
+    const constraint =
+        validationType === "non-negative"
+            ? "a non-negative integer"
+            : "a positive integer";
+
+    const createErrorMessage = (received) => {
+        const base = `${label} must be ${constraint} (received ${received}).`;
+        return additionalHelp ? `${base} ${additionalHelp}` : base;
+    };
+
+    const typeErrorMessage = createNumericTypeErrorFormatter(label);
+
+    return { createErrorMessage, typeErrorMessage };
+}
 
 /**
  * Compose a CLI integer option from the shared numeric option primitives.

@@ -29,7 +29,7 @@ import {
     coercePositiveInteger,
     collectSuiteResults,
     createIntegerOptionToolkit,
-    createNumericTypeErrorFormatter,
+    createStandardIntegerOptionMessages,
     createSuiteResultsPayload,
     emitSuiteResults as emitSuiteResultsJson,
     ensureSuitesAreKnown,
@@ -150,17 +150,15 @@ function applyMemoryReportDirectoryEnvOverride(env) {
     return memoryReportDirectoryConfig.applyEnvOverride(env);
 }
 
-const createIterationErrorMessage = (received) =>
-    `Iteration count must be a positive integer (received ${received}).`;
+const {
+    createErrorMessage: createIterationErrorMessage,
+    typeErrorMessage: createIterationTypeErrorMessage
+} = createStandardIntegerOptionMessages("Iteration count");
 
-const createIterationTypeErrorMessage =
-    createNumericTypeErrorFormatter("Iteration count");
-
-const createAstCommonNodeLimitErrorMessage = (received) =>
-    `AST common node type limit must be a positive integer (received ${received}).`;
-
-const createAstCommonNodeLimitTypeErrorMessage =
-    createNumericTypeErrorFormatter("AST common node type limit");
+const {
+    createErrorMessage: createAstCommonNodeLimitErrorMessage,
+    typeErrorMessage: createAstCommonNodeLimitTypeErrorMessage
+} = createStandardIntegerOptionMessages("AST common node type limit");
 
 function createMemoryIterationToolkit({
     defaultValue,

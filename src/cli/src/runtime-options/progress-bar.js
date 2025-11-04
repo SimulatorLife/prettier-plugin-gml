@@ -1,11 +1,11 @@
 import {
     coercePositiveInteger,
-    createNumericTypeErrorFormatter,
     isFiniteNumber
 } from "../shared/dependencies.js";
 import {
     createIntegerOptionToolkit,
-    applyIntegerOptionToolkitEnvOverride
+    applyIntegerOptionToolkitEnvOverride,
+    createStandardIntegerOptionMessages
 } from "../core/integer-option-toolkit.js";
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
@@ -119,18 +119,15 @@ class TerminalProgressBar {
     }
 }
 
-const createWidthErrorMessage = (received) =>
-    `Progress bar width must be a positive integer (received ${received}).`;
-
-const createWidthTypeErrorMessage =
-    createNumericTypeErrorFormatter("Progress bar width");
+const { createErrorMessage, typeErrorMessage } =
+    createStandardIntegerOptionMessages("Progress bar width");
 
 const progressBarWidthToolkit = createIntegerOptionToolkit({
     defaultValue: DEFAULT_PROGRESS_BAR_WIDTH,
     envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
     baseCoerce: coercePositiveInteger,
-    createErrorMessage: createWidthErrorMessage,
-    typeErrorMessage: createWidthTypeErrorMessage,
+    createErrorMessage,
+    typeErrorMessage,
     defaultValueOption: "defaultWidth"
 });
 

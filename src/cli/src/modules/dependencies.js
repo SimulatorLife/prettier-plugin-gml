@@ -16,7 +16,8 @@ export { applyEnvOptionOverrides } from "../core/env-overrides.js";
 
 export {
     createIntegerOptionToolkit,
-    applyIntegerOptionToolkitEnvOverride
+    applyIntegerOptionToolkitEnvOverride,
+    createStandardIntegerOptionMessages
 } from "../core/integer-option-toolkit.js";
 
 export {
