@@ -1,4 +1,7 @@
-import { coerceNonNegativeInteger } from "../shared/dependencies.js";
+import {
+    coerceNonNegativeInteger,
+    createNumericTypeErrorFormatter
+} from "../shared/dependencies.js";
 import {
     createIntegerOptionToolkit,
     applyIntegerOptionToolkitEnvOverride
@@ -10,8 +13,9 @@ export const VM_EVAL_TIMEOUT_ENV_VAR = "GML_VM_EVAL_TIMEOUT_MS";
 const createTimeoutErrorMessage = (received) =>
     `VM evaluation timeout must be a non-negative integer (received ${received}). Provide 0 to disable the timeout.`;
 
-const createTimeoutTypeErrorMessage = (type) =>
-    `VM evaluation timeout must be provided as a number (received type '${type}'). Provide 0 to disable the timeout.`;
+const createTimeoutTypeErrorMessage = createNumericTypeErrorFormatter(
+    "VM evaluation timeout"
+);
 
 const vmEvalTimeoutToolkit = createIntegerOptionToolkit({
     defaultValue: DEFAULT_VM_EVAL_TIMEOUT_MS,

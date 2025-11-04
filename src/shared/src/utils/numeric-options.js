@@ -240,3 +240,19 @@ export function normalizeNumericOption(
         isString
     });
 }
+
+/**
+ * Create a type error message formatter for numeric options. Centralizes the
+ * pattern used across CLI modules where option validators need to report when
+ * a non-numeric type is provided. The returned function accepts the type name
+ * and yields a descriptive error message.
+ *
+ * @param {string} label Human-readable option name (e.g., "Progress bar width",
+ *        "VM evaluation timeout").
+ * @returns {(type: string) => string} Formatter that accepts a type name and
+ *          returns the error message.
+ */
+export function createNumericTypeErrorFormatter(label) {
+    return (type) =>
+        `${label} must be provided as a number (received type '${type}').`;
+}
