@@ -1,7 +1,7 @@
 name: Codex 36 – Docstrings & Comments
 on:
   schedule:
-    - cron: "30 0,6,18 * * *" # three times daily
+    - cron: "30 0,18 * * *" # two times daily
   workflow_dispatch:
 
 permissions:

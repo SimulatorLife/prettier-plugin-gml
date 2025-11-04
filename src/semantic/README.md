@@ -1,22 +1,77 @@
-# Semantic Subsystem
+# Semantic Analyzer Subsystem
 
-The `src/semantic/` package consolidates scope-aware infrastructure that was
-previously scattered across the parser and plugin packages. It exposes two
-primary pillars:
+This `src/semantic` subsystem is a semantic layer that annotates parse tree(s) to add *meaning* to the parsed GML code so the emitter/transpiler can make correct decisions. See the plan for this component/feature in [../../docs/semantic-scope-plan.md](../../docs/semantic-scope-plan.md).
 
-- **Scope tools** – the `ScopeTracker` and supporting keyword helpers now live
-  under `src/semantic/src/scopes/`. The parser continues to import the tracker
-  when annotating AST nodes, while downstream consumers can share the same
-  definitions without depending on parser internals.
-- **Project index** – the project graph, cache coordinator, and filesystem
-  facades moved from the Prettier plugin into
-  `src/semantic/src/project-index/`. The plugin consumes these helpers to gather
-  declaration metadata for rename plans, and future live-reload services will
-  build on the same entry points.
-- **Identifier-case pipeline** – rename planning, scope detection, and
-  environment management migrated from `src/plugin/src/identifier-case/` to
-  `src/semantic/src/identifier-case/` so the Prettier plugin can focus solely on
-  formatting concerns.
+## Symbol Resolution Queries
+
+The `ScopeTracker` provides query methods that enable hot reload coordination and dependency tracking:
+
+### `getSymbolOccurrences(name)`
+
+Find all occurrences (declarations and references) of a specific symbol across all scopes. Returns an array of occurrence records with scope context.
+
+```javascript
+const tracker = new ScopeTracker({ enabled: true });
+// ... track declarations and references ...
+const occurrences = tracker.getSymbolOccurrences("myVariable");
+// Returns: [
+//   { scopeId: "scope-0", scopeKind: "function", kind: "declaration", occurrence: {...} },
+//   { scopeId: "scope-1", scopeKind: "block", kind: "reference", occurrence: {...} }
+// ]
+```
+
+**Use case:** Identify what needs to be recompiled when a symbol changes, supporting faster invalidation in hot reload pipelines.
+
+### `getScopeSymbols(scopeId)`
+
+Get all unique identifier names declared or referenced in a specific scope. Returns an array of symbol names.
+
+```javascript
+const symbols = tracker.getScopeSymbols("scope-0");
+// Returns: ["param1", "param2", "localVar"]
+```
+
+**Use case:** Track dependencies and enable selective recompilation by understanding which symbols are used in each scope.
+
+### `resolveIdentifier(name, scopeId)`
+
+Resolve an identifier to its declaration metadata by walking up the scope chain. Implements proper lexical scoping rules with shadowing support.
+
+```javascript
+const declaration = tracker.resolveIdentifier("myVar", "scope-1");
+// Returns: { name: "myVar", scopeId: "scope-0", classifications: [...], start: {...}, end: {...} }
+```
+
+**Use case:** Accurate binding resolution for transpilation, enabling correct code generation that respects lexical scope boundaries.
+
+### `getScopeChain(scopeId)`
+
+Get the parent scope chain for a given scope, walking from the specified scope up to the root. Returns an array of scope descriptors from nearest to root.
+
+```javascript
+const chain = tracker.getScopeChain("scope-2");
+// Returns: [
+//   { id: "scope-2", kind: "block" },
+//   { id: "scope-1", kind: "function" },
+//   { id: "scope-0", kind: "program" }
+// ]
+```
+
+**Use case:** Efficient dependency tracking and faster invalidation in hot reload pipelines by traversing lexical scope hierarchies without walking the full scope stack.
+
+### `getScopeDefinitions(scopeId)`
+
+Get all declarations defined directly in a specific scope (not including parent scopes). Returns an array of declaration records with names and metadata.
+
+```javascript
+const definitions = tracker.getScopeDefinitions("scope-1");
+// Returns: [
+//   { name: "localVar", metadata: { scopeId: "scope-1", classifications: [...], start: {...}, end: {...} } },
+//   { name: "param", metadata: { scopeId: "scope-1", classifications: [...], start: {...}, end: {...} } }
+// ]
+```
+
+**Use case:** Identify what symbols are defined in a particular file or scope unit for hot reload coordination. When a file changes, query its scope's definitions to determine which symbols need to be recompiled and which dependent files need to be invalidated.
 
 ## Identifier Case Bootstrap Controls
 
@@ -38,6 +93,7 @@ the first time a rename-enabled scope executes; pin `gmlIdentifierCaseProjectRoo
 in CI builds to avoid repeated discovery work.
 
 ## Resource Metadata Extension Hook
+> TODO: Remove this option/extension – handling custom resource metadata is out of scope. Keep this implementation 'opinionated'.
 
 **Pre-change analysis.** The project index previously treated only `.yy`
 resource documents as metadata, so integrations experimenting with alternate
@@ -57,3 +113,7 @@ for diagnostics. Production consumers should treat the defaults as canonical
 until downstream formats stabilize; the hook exists to unblock experimentation
 without diluting the formatter’s standard behavior.
 
+
+## TODO
+- Align the structure of `semantic` with the plan outlined in
+  [../../docs/semantic-scope-plan.md](../../docs/semantic-scope-plan.md).

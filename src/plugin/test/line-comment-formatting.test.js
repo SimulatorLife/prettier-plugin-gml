@@ -66,4 +66,21 @@ describe("line comment formatting", () => {
 
         assert.strictEqual(formatted, "/// @param {real} [func_fx_callback]");
     });
+
+    it("promotes doc comment tags when raw text lacks the slash prefix", () => {
+        const comment = {
+            type: "CommentLine",
+            value: " @description Example banner",
+            raw: "// @description Example banner",
+            leadingText: "// @description Example banner",
+            leadingWS: "\n"
+        };
+
+        const formatted = formatLineComment(
+            comment,
+            DEFAULT_LINE_COMMENT_OPTIONS
+        );
+
+        assert.strictEqual(formatted, "/// @description Example banner");
+    });
 });

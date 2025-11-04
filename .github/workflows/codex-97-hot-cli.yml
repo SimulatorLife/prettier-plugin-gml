@@ -2,7 +2,7 @@ name: Codex 97 – CLI Hot Reload Integration
 
 on:
   schedule:
-    - cron: "0 2,8,14,20 * * *"
+  - cron: "5 4/5 * * *" # Every 5 hours starting at 04:05 UTC (offset ~4 hours)
   workflow_dispatch: {}
 
 permissions:

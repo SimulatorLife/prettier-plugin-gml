@@ -5486,7 +5486,12 @@ function getStatementListBounds(node, sourceText) {
 
             break;
         }
-        // No default
+        // Omit a default case because this switch only adjusts the start/end
+        // boundaries for specific node types (Program, BlockStatement,
+        // SwitchCase). All other AST nodes retain their original indices from
+        // getNodeStartIndex/getNodeEndIndex, which are initialized above the
+        // switch. Adding a redundant default branch would obscure the
+        // intentional pass-through for the majority of statement containers.
     }
 
     return {
@@ -16972,7 +16977,13 @@ function splitTypeAndRemainder(text) {
 
                 break;
             }
-            // No default
+            // Omit a default case because the switch only tracks opening and
+            // closing delimiters ([, ], <, >, (, )) to maintain nesting depth
+            // for the whitespace check below. All other characters (letters,
+            // digits, punctuation) are irrelevant to depth tracking and fall
+            // through to the subsequent logic that accumulates them into the
+            // type or remainder. Adding an empty default branch would clutter
+            // the control flow without changing the behavior.
         }
 
         if (
@@ -17047,7 +17058,13 @@ function balanceTypeAnnotationDelimiters(typeText) {
 
                 break;
             }
-            // No default
+            // Omit a default case because this switch only processes bracket
+            // delimiters ([, <, (, ], >, )) to track and balance them via the
+            // stack. All other characters (type names, whitespace, punctuation)
+            // do not affect delimiter matching and are implicitly passed over by
+            // the loop. Adding a default branch would serve no purpose and
+            // obscure the fact that the function deliberately ignores non-bracket
+            // characters while scanning.
         }
     }
 
@@ -17197,7 +17214,14 @@ function readSpecifierToken(text) {
 
                 break;
             }
-            // No default
+            // Omit a default case because this switch exclusively manages depth
+            // counters for nested delimiters ([, ], <, >, (, )). The function
+            // extracts a complete specifier token (e.g., "Array<Struct.Type>")
+            // by continuing the loop until it encounters a delimiter or
+            // whitespace at depth zero. All other characters (alphanumerics, dots,
+            // underscores) are appended to the token without affecting depth
+            // tracking, so a default branch would add noise without altering the
+            // parsing logic.
         }
 
         token += char;
@@ -17305,7 +17329,13 @@ function splitTypeSegments(text) {
 
                 break;
             }
-            // No default
+            // Omit a default case because the switch only updates depth counters
+            // for nested delimiters ([, ], <, >, (, )) while splitting a union
+            // or intersection type string into individual segments. The function
+            // checks for separators (commas, pipes, whitespace) at depth zero to
+            // determine segment boundaries. All other characters are accumulated
+            // into the current segment without requiring special handling, so a
+            // default branch would be redundant.
         }
 
         if (
@@ -17375,7 +17405,13 @@ function hasDelimiterOutsideNesting(text, delimiters) {
 
                 break;
             }
-            // No default
+            // Omit a default case because this switch is solely responsible for
+            // tracking the nesting depth of delimiters ([, ], <, >, (, )) as the
+            // function scans the text looking for a character from the delimiter
+            // set at depth zero. All other characters (alphanumerics, punctuation,
+            // operators) do not affect depth and are implicitly ignored. Adding a
+            // default branch would be superfluous and distract from the
+            // delimiter-matching logic that follows the switch.
         }
 
         if (

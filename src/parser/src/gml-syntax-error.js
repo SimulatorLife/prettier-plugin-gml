@@ -26,7 +26,167 @@ export class GameMakerSyntaxError extends Error {
     }
 }
 
+class SyntaxErrorFormatter {
+    resolveOffendingSymbolText(offendingSymbol) {
+        if (!offendingSymbol) {
+            return null;
+        }
+
+        if (isNonEmptyString(offendingSymbol?.text)) {
+            return offendingSymbol.text;
+        }
+
+        if (isNonEmptyString(offendingSymbol)) {
+            return offendingSymbol;
+        }
+
+        if (typeof offendingSymbol === "number") {
+            const codePoint = offendingSymbol;
+            if (Number.isFinite(codePoint)) {
+                return String.fromCodePoint(codePoint);
+            }
+        }
+
+        return null;
+    }
+
+    extractOffendingTextFromLexerMessage(message) {
+        if (!isNonEmptyString(message)) {
+            return null;
+        }
+
+        const match = message.match(/token recognition error at:\s*(.+)$/i);
+        if (!match) {
+            return null;
+        }
+
+        const rawText = match[1].trim();
+
+        if (rawText.length === 0) {
+            return null;
+        }
+
+        if (
+            rawText.startsWith("'") &&
+            rawText.endsWith("'") &&
+            rawText.length >= 2
+        ) {
+            return this.unescapeLexerToken(rawText.slice(1, -1));
+        }
+
+        return rawText;
+    }
+
+    unescapeLexerToken(text) {
+        if (!isNonEmptyString(text)) {
+            return text;
+        }
+
+        return text.replaceAll(/\\([\\'])/g, "$1");
+    }
+
+    formatWrongSymbol(offendingText) {
+        if (offendingText === "<EOF>") {
+            return "end of file";
+        }
+
+        if (isNonEmptyString(offendingText)) {
+            return `symbol '${offendingText}'`;
+        }
+
+        return "unknown symbol";
+    }
+
+    formatRuleName(ruleName) {
+        return ruleName
+            .replaceAll(/([A-Z]+)*([A-Z][a-z])/g, "$1 $2")
+            .toLowerCase();
+    }
+}
+
+class ParserContextAnalyzer {
+    resolveOpenBlockStartToken(parser) {
+        const currentContext = parser?._ctx;
+        if (!currentContext) {
+            return null;
+        }
+
+        const parentContext = currentContext.parentCtx;
+        if (!parentContext || typeof parentContext.openBlock !== "function") {
+            return null;
+        }
+
+        const openBlockContext = parentContext.openBlock();
+        return openBlockContext?.start ?? null;
+    }
+
+    getSpecificErrorMessage({
+        parser,
+        stack,
+        currentRule,
+        line,
+        column,
+        wrongSymbol
+    }) {
+        switch (currentRule) {
+            case "closeBlock": {
+                if (stack[1] !== "block") {
+                    return null;
+                }
+                const openBraceToken = this.resolveOpenBlockStartToken(parser);
+                if (!openBraceToken) {
+                    return null;
+                }
+                return (
+                    `Syntax Error (line ${openBraceToken.line}, column ${openBraceToken.column}): ` +
+                    "missing associated closing brace for this block"
+                );
+            }
+            case "lValueExpression": {
+                if (stack[1] !== "incDecStatement") {
+                    return null;
+                }
+                return (
+                    `Syntax Error (line ${line}, column ${column}): ` +
+                    "++, -- can only be used on a variable-addressing expression"
+                );
+            }
+            case "expression": {
+                return (
+                    `Syntax Error (line ${line}, column ${column}): ` +
+                    `unexpected ${wrongSymbol} in expression`
+                );
+            }
+            case "statement":
+            case "program": {
+                return (
+                    `Syntax Error (line ${line}, column ${column}): ` +
+                    `unexpected ${wrongSymbol}`
+                );
+            }
+            case "parameterList": {
+                return (
+                    `Syntax Error (line ${line}, column ${column}): ` +
+                    `unexpected ${wrongSymbol} in function parameters, expected an identifier`
+                );
+            }
+            default: {
+                return null;
+            }
+        }
+    }
+}
+
 export default class GameMakerParseErrorListener extends ErrorListener {
+    constructor({
+        formatter = new SyntaxErrorFormatter(),
+        contextAnalyzer = new ParserContextAnalyzer()
+    } = {}) {
+        super();
+        this.formatter = formatter;
+        this.contextAnalyzer = contextAnalyzer;
+    }
+
     // TODO: Broaden the diagnostic surface so syntax errors surface the same
     // hints that GameMaker Studio does. Today we lean on ANTLR's generic
     // messages, which are technically correct but omit recovery advice such as
@@ -38,8 +198,9 @@ export default class GameMakerParseErrorListener extends ErrorListener {
     // unhelpful "syntax error" toasts.
     syntaxError(recognizer, offendingSymbol, line, column, _message, _error) {
         const parser = recognizer;
-        const offendingText = resolveOffendingSymbolText(offendingSymbol);
-        const wrongSymbol = formatWrongSymbol(offendingText);
+        const offendingText =
+            this.formatter.resolveOffendingSymbolText(offendingSymbol);
+        const wrongSymbol = this.formatter.formatWrongSymbol(offendingText);
 
         const stack = parser.getRuleInvocationStack();
         const currentRule = stack[0];
@@ -54,7 +215,7 @@ export default class GameMakerParseErrorListener extends ErrorListener {
                 offendingText
             });
 
-        const specificMessage = getSpecificSyntaxErrorMessage({
+        const specificMessage = this.contextAnalyzer.getSpecificErrorMessage({
             parser,
             stack,
             currentRule,
@@ -67,9 +228,7 @@ export default class GameMakerParseErrorListener extends ErrorListener {
             throw createError(specificMessage);
         }
 
-        const currentRuleFormatted = currentRule
-            .replaceAll(/([A-Z]+)*([A-Z][a-z])/g, "$1 $2")
-            .toLowerCase();
+        const currentRuleFormatted = this.formatter.formatRuleName(currentRule);
 
         throw createError(
             `Syntax Error (line ${line}, column ${column}): ` +
@@ -80,11 +239,16 @@ export default class GameMakerParseErrorListener extends ErrorListener {
 }
 
 export class GameMakerLexerErrorListener extends ErrorListener {
+    constructor({ formatter = new SyntaxErrorFormatter() } = {}) {
+        super();
+        this.formatter = formatter;
+    }
+
     syntaxError(lexer, offendingSymbol, line, column, message, _error) {
         const offendingText =
-            resolveOffendingSymbolText(offendingSymbol) ??
-            extractOffendingTextFromLexerMessage(message);
-        const wrongSymbol = formatWrongSymbol(offendingText);
+            this.formatter.resolveOffendingSymbolText(offendingSymbol) ??
+            this.formatter.extractOffendingTextFromLexerMessage(message);
+        const wrongSymbol = this.formatter.formatWrongSymbol(offendingText);
 
         throw new GameMakerSyntaxError({
             message:
@@ -96,152 +260,4 @@ export class GameMakerLexerErrorListener extends ErrorListener {
             offendingText
         });
     }
-}
-
-function resolveOffendingSymbolText(offendingSymbol) {
-    if (!offendingSymbol) {
-        return null;
-    }
-
-    if (isNonEmptyString(offendingSymbol?.text)) {
-        return offendingSymbol.text;
-    }
-
-    if (isNonEmptyString(offendingSymbol)) {
-        return offendingSymbol;
-    }
-
-    if (typeof offendingSymbol === "number") {
-        const codePoint = offendingSymbol;
-        if (Number.isFinite(codePoint)) {
-            return String.fromCodePoint(codePoint);
-        }
-    }
-
-    return null;
-}
-
-function extractOffendingTextFromLexerMessage(message) {
-    if (!isNonEmptyString(message)) {
-        return null;
-    }
-
-    const match = message.match(/token recognition error at:\s*(.+)$/i);
-    if (!match) {
-        return null;
-    }
-
-    const rawText = match[1].trim();
-
-    if (rawText.length === 0) {
-        return null;
-    }
-
-    if (
-        rawText.startsWith("'") &&
-        rawText.endsWith("'") &&
-        rawText.length >= 2
-    ) {
-        return unescapeLexerToken(rawText.slice(1, -1));
-    }
-
-    return rawText;
-}
-
-function unescapeLexerToken(text) {
-    if (!isNonEmptyString(text)) {
-        return text;
-    }
-
-    return text.replaceAll(/\\([\\'])/g, "$1");
-}
-
-function formatWrongSymbol(offendingText) {
-    if (offendingText === "<EOF>") {
-        return "end of file";
-    }
-
-    if (isNonEmptyString(offendingText)) {
-        return `symbol '${offendingText}'`;
-    }
-
-    return "unknown symbol";
-}
-
-function getSpecificSyntaxErrorMessage({
-    parser,
-    stack,
-    currentRule,
-    line,
-    column,
-    wrongSymbol
-}) {
-    switch (currentRule) {
-        case "closeBlock": {
-            if (stack[1] !== "block") {
-                return null;
-            }
-            const openBraceToken = resolveOpenBlockStartToken(parser);
-            if (!openBraceToken) {
-                return null;
-            }
-            return (
-                `Syntax Error (line ${openBraceToken.line}, column ${openBraceToken.column}): ` +
-                "missing associated closing brace for this block"
-            );
-        }
-        case "lValueExpression": {
-            if (stack[1] !== "incDecStatement") {
-                return null;
-            }
-            return (
-                `Syntax Error (line ${line}, column ${column}): ` +
-                "++, -- can only be used on a variable-addressing expression"
-            );
-        }
-        case "expression": {
-            return (
-                `Syntax Error (line ${line}, column ${column}): ` +
-                `unexpected ${wrongSymbol} in expression`
-            );
-        }
-        case "statement":
-        case "program": {
-            return (
-                `Syntax Error (line ${line}, column ${column}): ` +
-                `unexpected ${wrongSymbol}`
-            );
-        }
-        case "parameterList": {
-            return (
-                `Syntax Error (line ${line}, column ${column}): ` +
-                `unexpected ${wrongSymbol} in function parameters, expected an identifier`
-            );
-        }
-        default: {
-            return null;
-        }
-    }
-}
-
-/**
- * Safely resolve the start token for the open block that encloses the parser's
- * current context.
- *
- * @param {object} parser
- * @returns {object | null}
- */
-function resolveOpenBlockStartToken(parser) {
-    const currentContext = parser?._ctx;
-    if (!currentContext) {
-        return null;
-    }
-
-    const parentContext = currentContext.parentCtx;
-    if (!parentContext || typeof parentContext.openBlock !== "function") {
-        return null;
-    }
-
-    const openBlockContext = parentContext.openBlock();
-    return openBlockContext?.start ?? null;
 }

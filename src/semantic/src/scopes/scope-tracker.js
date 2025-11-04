@@ -1,7 +1,8 @@
 import {
     assignClonedLocation,
     isObjectLike,
-    toArray
+    toArray,
+    toMutableArray
 } from "../dependencies.js";
 import {
     ScopeOverrideKeyword,
@@ -10,11 +11,70 @@ import {
 } from "./scope-override-keywords.js";
 
 class Scope {
-    constructor(id, kind) {
+    constructor(id, kind, parent = null) {
         this.id = id;
         this.kind = kind;
+        this.parent = parent;
         this.declarations = new Map();
+        this.occurrences = new Map();
     }
+}
+
+function createOccurrence(kind, metadata, source, declarationMetadata) {
+    const declaration = declarationMetadata
+        ? assignClonedLocation(
+              { scopeId: declarationMetadata.scopeId ?? null },
+              declarationMetadata
+          )
+        : null;
+
+    return assignClonedLocation(
+        {
+            kind,
+            name: metadata?.name ?? null,
+            scopeId: metadata?.scopeId ?? null,
+            classifications: toMutableArray(metadata?.classifications, {
+                clone: true
+            }),
+            declaration
+        },
+        source ?? {}
+    );
+}
+
+function cloneOccurrence(occurrence) {
+    const declaration = occurrence.declaration
+        ? assignClonedLocation(
+              { scopeId: occurrence.declaration.scopeId ?? null },
+              occurrence.declaration
+          )
+        : null;
+
+    return assignClonedLocation(
+        {
+            kind: occurrence.kind,
+            name: occurrence.name,
+            scopeId: occurrence.scopeId,
+            classifications: toMutableArray(occurrence.classifications, {
+                clone: true
+            }),
+            declaration
+        },
+        occurrence
+    );
+}
+
+function ensureIdentifierOccurrences(scope, name) {
+    let entry = scope.occurrences.get(name);
+    if (!entry) {
+        entry = {
+            declarations: [],
+            references: []
+        };
+        scope.occurrences.set(name, entry);
+    }
+
+    return entry;
 }
 
 function resolveStringScopeOverride(tracker, scopeOverride, currentScope) {
@@ -43,6 +103,7 @@ export default class ScopeTracker {
         this.scopeCounter = 0;
         this.scopeStack = [];
         this.rootScope = null;
+        this.scopesById = new Map();
     }
 
     isEnabled() {
@@ -54,11 +115,14 @@ export default class ScopeTracker {
             return null;
         }
 
+        const parent = this.scopeStack.at(-1) ?? null;
         const scope = new Scope(
             `scope-${this.scopeCounter++}`,
-            kind ?? "unknown"
+            kind ?? "unknown",
+            parent
         );
         this.scopeStack.push(scope);
+        this.scopesById.set(scope.id, scope);
         if (!this.rootScope) {
             this.rootScope = scope;
         }
@@ -142,6 +206,20 @@ export default class ScopeTracker {
         scope.declarations.set(name, metadata);
     }
 
+    recordScopeOccurrence(scope, name, occurrence) {
+        if (!this.enabled || !scope || !name || !occurrence) {
+            return;
+        }
+
+        const entry = ensureIdentifierOccurrences(scope, name);
+
+        if (occurrence.kind === "reference") {
+            entry.references.push(occurrence);
+        } else {
+            entry.declarations.push(occurrence);
+        }
+    }
+
     lookup(name) {
         if (!this.enabled || !name) {
             return null;
@@ -197,6 +275,14 @@ export default class ScopeTracker {
         node.scopeId = scopeId;
         node.declaration = assignClonedLocation({ scopeId }, metadata);
         node.classifications = classifications;
+
+        const occurrence = createOccurrence(
+            "declaration",
+            metadata,
+            metadata,
+            metadata
+        );
+        this.recordScopeOccurrence(scope, name, occurrence);
     }
 
     reference(name, node, role = {}) {
@@ -231,5 +317,242 @@ export default class ScopeTracker {
                   declaration
               )
             : null;
+
+        const occurrenceMetadata = {
+            name,
+            scopeId,
+            classifications
+        };
+
+        const occurrence = createOccurrence(
+            "reference",
+            occurrenceMetadata,
+            node,
+            declaration ?? null
+        );
+        this.recordScopeOccurrence(scope, name, occurrence);
+    }
+
+    exportOccurrences({ includeReferences = true } = {}) {
+        if (!this.enabled) {
+            return [];
+        }
+
+        const includeRefs = Boolean(includeReferences);
+        const results = [];
+
+        for (const scope of this.scopesById.values()) {
+            const identifiers = [];
+
+            for (const [name, entry] of scope.occurrences) {
+                const declarations = entry.declarations.map((occurrence) =>
+                    cloneOccurrence(occurrence)
+                );
+                const references = includeRefs
+                    ? entry.references.map((occurrence) =>
+                          cloneOccurrence(occurrence)
+                      )
+                    : [];
+
+                if (declarations.length === 0 && references.length === 0) {
+                    continue;
+                }
+
+                identifiers.push({
+                    name,
+                    declarations,
+                    references
+                });
+            }
+
+            if (identifiers.length > 0) {
+                results.push({
+                    scopeId: scope.id,
+                    scopeKind: scope.kind,
+                    identifiers
+                });
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * Find all occurrences (declarations and references) of a specific symbol
+     * across all scopes. This supports hot reload coordination by identifying
+     * what needs to be recompiled when a symbol changes.
+     *
+     * @param {string} name The identifier name to search for.
+     * @returns {Array<{scopeId: string, scopeKind: string, kind: string, occurrence: object}>}
+     *          Array of occurrence records with scope context.
+     */
+    getSymbolOccurrences(name) {
+        if (!this.enabled || !name) {
+            return [];
+        }
+
+        const results = [];
+
+        for (const scope of this.scopesById.values()) {
+            const entry = scope.occurrences.get(name);
+            if (!entry) {
+                continue;
+            }
+
+            for (const declaration of entry.declarations) {
+                results.push({
+                    scopeId: scope.id,
+                    scopeKind: scope.kind,
+                    kind: "declaration",
+                    occurrence: cloneOccurrence(declaration)
+                });
+            }
+
+            for (const reference of entry.references) {
+                results.push({
+                    scopeId: scope.id,
+                    scopeKind: scope.kind,
+                    kind: "reference",
+                    occurrence: cloneOccurrence(reference)
+                });
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * Get all symbols (unique identifier names) declared or referenced in a
+     * specific scope. This helps track dependencies and supports selective
+     * recompilation strategies.
+     *
+     * @param {string} scopeId The scope identifier to query.
+     * @returns {Array<string>} Array of unique identifier names in the scope.
+     */
+    getScopeSymbols(scopeId) {
+        if (!this.enabled || !scopeId) {
+            return [];
+        }
+
+        const scope = this.scopesById.get(scopeId);
+        if (!scope) {
+            return [];
+        }
+
+        return [...scope.occurrences.keys()];
+    }
+
+    /**
+     * Resolve an identifier name to its declaration metadata by walking up the
+     * scope chain from a specified scope. This implements proper lexical scoping
+     * rules and supports accurate binding resolution for transpilation.
+     *
+     * @param {string} name The identifier name to resolve.
+     * @param {string} [scopeId] The scope to start resolution from. If omitted,
+     *        uses the current scope.
+     * @returns {object | null} The declaration metadata if found, or null.
+     */
+    resolveIdentifier(name, scopeId) {
+        if (!this.enabled || !name) {
+            return null;
+        }
+
+        let startScope;
+        if (scopeId) {
+            startScope = this.scopesById.get(scopeId);
+            if (!startScope) {
+                return null;
+            }
+        } else {
+            startScope = this.currentScope();
+        }
+
+        if (!startScope) {
+            return null;
+        }
+
+        const scopeIndices = new Map();
+        this.scopeStack.forEach((scope, index) => {
+            scopeIndices.set(scope.id, index);
+        });
+
+        const startIndex = scopeIndices.get(startScope.id);
+        if (startIndex === undefined) {
+            const declaration = startScope.declarations.get(name);
+            return declaration ? { ...declaration } : null;
+        }
+
+        for (let i = startIndex; i >= 0; i -= 1) {
+            const scope = this.scopeStack[i];
+            const declaration = scope.declarations.get(name);
+            if (declaration) {
+                return { ...declaration };
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get the parent scope chain for a given scope, walking from the specified
+     * scope up to the root. This enables efficient dependency tracking and
+     * supports faster invalidation in hot reload pipelines.
+     *
+     * @param {string} scopeId The scope identifier to start from.
+     * @returns {Array<{id: string, kind: string}>} Array of parent scopes from
+     *          nearest to root, or empty array if scope not found or disabled.
+     */
+    getScopeChain(scopeId) {
+        if (!this.enabled || !scopeId) {
+            return [];
+        }
+
+        const scope = this.scopesById.get(scopeId);
+        if (!scope) {
+            return [];
+        }
+
+        const chain = [];
+        let current = scope;
+        while (current) {
+            chain.push({
+                id: current.id,
+                kind: current.kind
+            });
+            current = current.parent;
+        }
+
+        return chain;
+    }
+
+    /**
+     * Get all declarations defined directly in a specific scope. This returns
+     * only declarations in the specified scope, not from parent scopes. Useful
+     * for hot reload coordination to identify what symbols are defined in a
+     * particular file or scope unit.
+     *
+     * @param {string} scopeId The scope identifier to query.
+     * @returns {Array<{name: string, metadata: object}>} Array of declarations
+     *          with their names and full metadata.
+     */
+    getScopeDefinitions(scopeId) {
+        if (!this.enabled || !scopeId) {
+            return [];
+        }
+
+        const scope = this.scopesById.get(scopeId);
+        if (!scope) {
+            return [];
+        }
+
+        const definitions = [];
+        for (const [name, metadata] of scope.declarations) {
+            definitions.push({
+                name,
+                metadata: { ...metadata }
+            });
+        }
+
+        return definitions;
     }
 }

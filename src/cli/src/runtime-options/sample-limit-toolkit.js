@@ -1,4 +1,7 @@
-import { coerceNonNegativeInteger } from "../shared/dependencies.js";
+import {
+    coerceNonNegativeInteger,
+    createNumericTypeErrorFormatter
+} from "../shared/dependencies.js";
 import { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
 
 /**
@@ -33,8 +36,9 @@ export function createSampleLimitToolkit({
     const createSampleLimitErrorMessage = (received) =>
         `${normalizedLabel} sample limit must be a non-negative integer (received ${received}). Provide 0 to suppress the sample list.`;
 
-    const createSampleLimitTypeErrorMessage = (type) =>
-        `${normalizedLabel} sample limit must be provided as a number (received type '${type}').`;
+    const createSampleLimitTypeErrorMessage = createNumericTypeErrorFormatter(
+        `${normalizedLabel} sample limit`
+    );
 
     return createIntegerOptionToolkit({
         defaultValue,
