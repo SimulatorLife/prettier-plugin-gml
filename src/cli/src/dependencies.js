@@ -86,4 +86,4 @@ export {
 
 export { appendToCollection } from "./shared/collection.js";
 
-export { createEnumeratedOptionHelpers } from "./shared/enumerated-option-helpers.js";
+export { createEnumeratedOptionHelpers } from "./core/enumerated-option-helpers.js";

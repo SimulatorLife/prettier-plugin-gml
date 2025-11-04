@@ -88,4 +88,4 @@ export {
 export {
     createEnumeratedOptionHelpers,
     createStringEnumeratedOptionHelpers
-} from "./enumerated-option-helpers.js";
+} from "../core/enumerated-option-helpers.js";
