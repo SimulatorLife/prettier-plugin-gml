@@ -39,6 +39,7 @@ import { normalizeOptionalParamToken } from "../comments/optional-param-normaliz
 import { resolveLineCommentOptions } from "../options/line-comment-options.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
 import { DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH } from "./doc-comment-wrap-width.js";
+import { resolveDocCommentMinSentenceBreakSpace } from "../options/doc-comment-sentence-break-options.js";
 import {
     getCommentArray,
     isCommentNode,
@@ -5285,6 +5286,8 @@ function mergeSyntheticDocComments(
             normalizedPrintWidth,
             DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH
         );
+        const minSentenceBreakSpace =
+            resolveDocCommentMinSentenceBreakSpace(options);
 
         const wrapSegments = (text, firstAvailable, continuationAvailable) => {
             if (firstAvailable <= 0) {
@@ -5308,7 +5311,7 @@ function mergeSyntheticDocComments(
                 if (
                     endsSentence &&
                     startsSentence &&
-                    currentAvailable >= 60 &&
+                    currentAvailable >= minSentenceBreakSpace &&
                     current.length >=
                         Math.max(Math.floor(currentAvailable * 0.6), 24)
                 ) {
