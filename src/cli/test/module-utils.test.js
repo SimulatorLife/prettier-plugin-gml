@@ -82,12 +82,15 @@ test("isMainModule returns false for a different module path", () => {
 });
 
 test("isMainModule handles missing process.argv[1]", () => {
-    const originalArgv = process.argv[1];
+    const originalArgv1 = process.argv[1];
+    const hasArgv1 = Object.hasOwn(process.argv, "1");
     try {
-        process.argv[1] = undefined;
+        delete process.argv[1];
         const result = isMainModule(import.meta.url);
         assert.strictEqual(result, false);
     } finally {
-        process.argv[1] = originalArgv;
+        if (hasArgv1) {
+            process.argv[1] = originalArgv1;
+        }
     }
 });
