@@ -7,12 +7,61 @@ on:
       - reopened
       - synchronize
       - ready_for_review
+      - review_requested
 
 permissions:
   contents: write
   pull-requests: write
 
 jobs:
+  publish-codex-pr:
+    if: github.event.action == 'review_requested'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish codex/copilot draft when review is requested
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr) {
+              core.info('No pull request payload; skipping publish logic.');
+              return;
+            }
+
+            if (!pr.draft) {
+              core.info(`PR #${pr.number} is already ready for review.`);
+              return;
+            }
+
+            const prefixes = ['codex/', 'copilot/'];
+            const hasAllowedPrefix = (ref) =>
+              typeof ref === 'string' && prefixes.some((prefix) => ref.startsWith(prefix));
+
+            const headRef = pr.head?.ref || '';
+            const baseRef = pr.base?.ref || '';
+            if (!hasAllowedPrefix(headRef) || !hasAllowedPrefix(baseRef)) {
+              core.info(
+                `Skipping publish for head ${headRef || '<unknown>'} and base ${baseRef || '<unknown>'}; prefixes do not match.`
+              );
+              return;
+            }
+
+            const { requested_reviewer: reviewer, requested_team: team } = context.payload;
+            if (!reviewer && !team) {
+              core.info('No reviewer or team attached to this request; skipping publish.');
+              return;
+            }
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            await github.request('POST /repos/{owner}/{repo}/pulls/{pull_number}/ready-for-review', {
+              owner,
+              repo,
+              pull_number: pr.number
+            });
+            core.notice(`Marked PR #${pr.number} as ready for review after reviewer assignment.`);
+
   auto-merge:
     if: >-
       github.event.action != 'closed' &&
