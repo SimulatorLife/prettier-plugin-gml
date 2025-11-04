@@ -1,16 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import {
-    createIntegerOptionCoercer,
-    createIntegerOptionState
-} from "../src/core/numeric-option-state.js";
+import { createIntegerOptionToolkit } from "../src/core/integer-option-toolkit.js";
 
-describe("createIntegerOptionCoercer", () => {
+describe("createIntegerOptionToolkit", () => {
     it("applies the fallback error message when one is not provided", () => {
         const receivedMessages = [];
 
-        const coerce = createIntegerOptionCoercer({
+        const toolkit = createIntegerOptionToolkit({
+            defaultValue: 0,
             baseCoerce(value, { createErrorMessage }) {
                 receivedMessages.push(createErrorMessage("value"));
                 return value * 2;
@@ -18,66 +16,65 @@ describe("createIntegerOptionCoercer", () => {
             createErrorMessage: (received) => `default:${received}`
         });
 
-        assert.equal(coerce(4), 8);
+        assert.equal(toolkit.coerce(4), 8);
         assert.deepEqual(receivedMessages, ["default:value"]);
     });
 
     it("preserves caller-provided error messages", () => {
-        const coerce = createIntegerOptionCoercer({
+        const toolkit = createIntegerOptionToolkit({
+            defaultValue: 0,
             baseCoerce(value, { createErrorMessage }) {
                 return createErrorMessage(value);
             },
             createErrorMessage: () => "unused"
         });
 
-        const result = coerce(10, {
+        const result = toolkit.coerce(10, {
             createErrorMessage: (received) => `caller:${received}`
         });
 
         assert.equal(result, "caller:10");
     });
-});
 
-describe("createIntegerOptionState", () => {
     it("tracks the default value and normalizes overrides", () => {
-        const state = createIntegerOptionState({
+        const toolkit = createIntegerOptionToolkit({
             defaultValue: 5,
-            coerce(value) {
+            baseCoerce(value) {
                 return Math.trunc(value);
             }
         });
 
-        assert.equal(state.getDefault(), 5);
-        assert.equal(state.resolve(), 5);
-        assert.equal(state.resolve("42"), 42);
+        assert.equal(toolkit.getDefault(), 5);
+        assert.equal(toolkit.resolve(), 5);
+        assert.equal(toolkit.resolve("42"), 42);
 
-        state.setDefault("7");
+        toolkit.setDefault("7");
 
-        assert.equal(state.getDefault(), 7);
-        assert.equal(state.resolve(), 7);
-        assert.equal(state.resolve("   "), 7);
+        assert.equal(toolkit.getDefault(), 7);
+        assert.equal(toolkit.resolve(), 7);
+        assert.equal(toolkit.resolve("   "), 7);
     });
 
     it("applies environment overrides when configured", () => {
-        const state = createIntegerOptionState({
+        const toolkit = createIntegerOptionToolkit({
             defaultValue: 3,
             envVar: "TEST_ITERATIONS",
-            coerce(value) {
+            baseCoerce(value) {
                 return value;
             }
         });
 
-        assert.equal(state.applyEnvOverride({ TEST_ITERATIONS: "11" }), 11);
-        assert.equal(state.getDefault(), 11);
+        assert.equal(toolkit.applyEnvOverride({ TEST_ITERATIONS: "11" }), 11);
+        assert.equal(toolkit.getDefault(), 11);
 
-        assert.equal(state.applyEnvOverride({}), 11);
-        assert.equal(state.getDefault(), 11);
+        assert.equal(toolkit.applyEnvOverride({}), 11);
+        assert.equal(toolkit.getDefault(), 11);
     });
 
     it("honours blankStringReturnsDefault=false", () => {
-        const state = createIntegerOptionState({
+        const toolkit = createIntegerOptionToolkit({
             defaultValue: 9,
-            coerce(value, { received }) {
+            baseCoerce(value, { received }) {
                 if (Number.isNaN(value)) {
                     return received;
                 }
@@ -86,28 +83,28 @@ describe("createIntegerOptionState", () => {
             blankStringReturnsDefault: false
         });
 
-        assert.equal(state.resolve("   "), "'   '");
+        assert.equal(toolkit.resolve("   "), "'   '");
     });
 
     it("forwards custom type error messages", () => {
-        const state = createIntegerOptionState({
+        const toolkit = createIntegerOptionToolkit({
             defaultValue: 4,
-            coerce(value) {
+            baseCoerce(value) {
                 return value;
             },
             typeErrorMessage: (type) => `bad:${type}`
         });
 
-        assert.throws(() => state.setDefault(Symbol.for("nope")), {
+        assert.throws(() => toolkit.setDefault(Symbol.for("nope")), {
             name: "TypeError",
             message: "bad:symbol"
         });
     });
 
     it("applies finalize hooks to stored and resolved values", () => {
-        const state = createIntegerOptionState({
+        const toolkit = createIntegerOptionToolkit({
             defaultValue: 2,
-            coerce(value) {
+            baseCoerce(value) {
                 return value;
             },
             finalizeSet(value) {
@@ -118,13 +115,27 @@ describe("createIntegerOptionState", () => {
             }
         });
 
-        assert.equal(state.getDefault(), 2);
-        assert.equal(state.resolve(), 3);
+        assert.equal(toolkit.getDefault(), 2);
+        assert.equal(toolkit.resolve(), 3);
 
-        state.setDefault(5);
+        toolkit.setDefault(5);
 
-        assert.equal(state.getDefault(), 10);
-        assert.equal(state.resolve(), 11);
-        assert.equal(state.resolve(7), 8);
+        assert.equal(toolkit.getDefault(), 10);
+        assert.equal(toolkit.resolve(), 11);
+        assert.equal(toolkit.resolve(7), 8);
+    });
+
+    it("supports defaultValueOption alias", () => {
+        const toolkit = createIntegerOptionToolkit({
+            defaultValue: 10,
+            baseCoerce(value) {
+                return Math.trunc(value);
+            },
+            defaultValueOption: "defaultWidth"
+        });
+
+        assert.equal(toolkit.resolve(20), 20);
+        assert.equal(toolkit.resolve(undefined, { defaultWidth: 30 }), 30);
+        assert.equal(toolkit.resolve(25, { defaultWidth: 30 }), 25);
     });
 });

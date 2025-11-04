@@ -1,15 +1,17 @@
 import {
-    createIntegerOptionCoercer,
-    createIntegerOptionState,
-    createIntegerOptionResolver
-} from "./numeric-option-state.js";
-import { resolveEnvironmentMap } from "../shared/dependencies.js";
+    assertFunction,
+    createEnvConfiguredValue,
+    resolveIntegerOption,
+    resolveEnvironmentMap,
+    hasOwn,
+    identity,
+    isNonEmptyString
+} from "../shared/dependencies.js";
 
 /**
- * Compose a CLI integer option from the shared numeric option primitives.
- * Centralizes the common boilerplate used by modules that expose numeric
- * configuration flags with optional environment overrides so each module can
- * focus on domain-specific messaging.
+ * Create a CLI integer option with environment override support.
+ * Provides stateful management of an integer option value with validation,
+ * environment variable overrides, and flexible resolution.
  *
  * @param {object} parameters
  * @param {number} parameters.defaultValue Baseline value before overrides.
@@ -21,17 +23,15 @@ import { resolveEnvironmentMap } from "../shared/dependencies.js";
  *        Error message or factory forwarded to the coercer when callers do not
  *        supply one.
  * @param {string | ((type: string) => string)} [parameters.typeErrorMessage]
- *        Error message forwarded to {@link createIntegerOptionState} for type
- *        validation failures.
- * @param {boolean} [parameters.blankStringReturnsDefault]
+ *        Error message for type validation failures.
+ * @param {boolean} [parameters.blankStringReturnsDefault=true]
  *        Whether blank strings should fall back to the default value.
  * @param {(value: number | undefined) => number | undefined} [parameters.finalizeSet]
  *        Mutator applied when storing configured defaults.
  * @param {(value: number | undefined) => number | null | undefined} [parameters.finalizeResolved]
  *        Mutator applied to resolved values before they are returned.
  * @param {string} [parameters.defaultValueOption]
- *        Alias forwarded to the resolver so callers can expose descriptive
- *        option names while continuing to delegate to the shared state.
+ *        Alias that maps to the `defaultValue` option in resolve calls.
  * @returns {{
  *   coerce: (value: number, context?: object) => number,
  *   getDefault: () => number | undefined,
@@ -46,54 +46,90 @@ export function createIntegerOptionToolkit({
     baseCoerce,
     createErrorMessage,
     typeErrorMessage,
-    blankStringReturnsDefault,
-    finalizeSet,
-    finalizeResolved,
+    blankStringReturnsDefault = true,
+    finalizeSet = identity,
+    finalizeResolved = identity,
     defaultValueOption
 } = {}) {
-    const coerce = createIntegerOptionCoercer({
-        baseCoerce,
-        createErrorMessage
-    });
+    assertFunction(baseCoerce, "baseCoerce");
 
-    const state = createIntegerOptionState({
+    // Coerce function with default error message injection
+    const coerce = (value, context) => {
+        const shouldInjectMessage =
+            createErrorMessage &&
+            (context == null || context.createErrorMessage === undefined);
+
+        const options = shouldInjectMessage
+            ? { ...context, createErrorMessage }
+            : (context ?? {});
+
+        return baseCoerce(value, options);
+    };
+
+    // Stateful configuration using environment-aware wrapper
+    const config = createEnvConfiguredValue({
         defaultValue,
         envVar,
-        coerce,
-        typeErrorMessage,
-        blankStringReturnsDefault,
-        finalizeSet,
-        finalizeResolved
+        normalize: (value, { defaultValue: baseline, previousValue }) => {
+            const fallback = baseline ?? previousValue;
+            const normalized = resolveIntegerOption(value, {
+                defaultValue: fallback,
+                coerce,
+                typeErrorMessage,
+                blankStringReturnsDefault
+            });
+            return finalizeSet(normalized);
+        }
     });
 
-    const resolve = createIntegerOptionResolver(state.resolve, {
-        defaultValueOption
-    });
+    const getDefault = () => config.get();
+    const setDefault = (value) => config.set(value);
+    const applyEnvOverride = (env) => config.applyEnvOverride(env);
+
+    // Resolver with optional alias support
+    const alias = isNonEmptyString(defaultValueOption)
+        ? defaultValueOption
+        : null;
+
+    const resolve = (rawValue, options = {}) => {
+        const normalizedOptions =
+            options && typeof options === "object" ? { ...options } : {};
+
+        if (alias && hasOwn(normalizedOptions, alias)) {
+            const aliasDefault = normalizedOptions[alias];
+            delete normalizedOptions[alias];
+            normalizedOptions.defaultValue = aliasDefault;
+        }
+
+        const fallback =
+            normalizedOptions.defaultValue === undefined
+                ? getDefault()
+                : normalizedOptions.defaultValue;
+        const normalized = resolveIntegerOption(rawValue, {
+            defaultValue: fallback,
+            coerce,
+            typeErrorMessage,
+            blankStringReturnsDefault
+        });
+        return finalizeResolved(normalized);
+    };
 
     return {
         coerce,
-        getDefault: state.getDefault,
-        setDefault: state.setDefault,
-        applyEnvOverride: state.applyEnvOverride,
+        getDefault,
+        setDefault,
+        applyEnvOverride,
         resolve
     };
 }
 
 /**
- * Apply the environment override for an integer option toolkit while handling
- * optional environment maps and error hooks consistently.
- *
- * Several CLI modules previously repeated the same "normalize the environment,
- * call `applyEnvOverride`, catch failures, and fall back to the prior default"
- * ceremony. Centralizing that behaviour keeps the guards aligned whenever we
- * introduce new numeric options and ensures callers can opt into fallback
- * logging without cloning boilerplate.
+ * Apply the environment override for an integer option toolkit with error handling.
  *
  * @param {{
  *   applyEnvOverride: (env?: NodeJS.ProcessEnv | null | undefined) => any,
  *   getDefault?: () => any
- * }} toolkit Toolkit returned from {@link createIntegerOptionToolkit} or a
- *        compatible wrapper exposing the same surface area.
+ * }} toolkit Toolkit returned from {@link createIntegerOptionToolkit}.
  * @param {{
  *   env?: NodeJS.ProcessEnv | null | undefined,
  *   onError?: (error: unknown, context: { fallback: any }) => any
@@ -107,21 +143,14 @@ export function applyIntegerOptionToolkitEnvOverride(
 ) {
     if (!toolkit || typeof toolkit.applyEnvOverride !== "function") {
         throw new TypeError(
-            "toolkit must expose an applyEnvOverride function to apply environment overrides."
+            "toolkit must expose an applyEnvOverride function."
         );
     }
 
     const sourceEnv = resolveEnvironmentMap(env);
-    const invokeOverride = () => {
-        if (sourceEnv == null) {
-            return toolkit.applyEnvOverride();
-        }
-
-        return toolkit.applyEnvOverride(sourceEnv);
-    };
 
     if (typeof onError !== "function") {
-        return invokeOverride();
+        return toolkit.applyEnvOverride(sourceEnv);
     }
 
     const fallback =
@@ -130,7 +159,7 @@ export function applyIntegerOptionToolkitEnvOverride(
             : undefined;
 
     try {
-        return invokeOverride();
+        return toolkit.applyEnvOverride(sourceEnv);
     } catch (error) {
         return onError(error, { fallback });
     }
