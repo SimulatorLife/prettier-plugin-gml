@@ -17,7 +17,11 @@ import {
     toArray,
     toTrimmedString
 } from "../shared/dependencies.js";
-import { CliUsageError, handleCliError } from "../core/errors.js";
+import {
+    CliUsageError,
+    extractErrorExitCode,
+    handleCliError
+} from "../core/errors.js";
 
 let parser;
 
@@ -1063,7 +1067,7 @@ if (isMainModule) {
     } catch (error) {
         handleCliError(error, {
             prefix: "Failed to detect test regressions.",
-            exitCode: typeof error?.exitCode === "number" ? error.exitCode : 1
+            exitCode: extractErrorExitCode(error)
         });
     }
 }

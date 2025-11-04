@@ -295,6 +295,10 @@ function buildCliErrorLines({ prefix, formattedError, usage }) {
     return lines;
 }
 
+export function extractErrorExitCode(error, defaultCode = 1) {
+    return typeof error?.exitCode === "number" ? error.exitCode : defaultCode;
+}
+
 export function handleCliError(error, { exitCode = 1, prefix } = {}) {
     const normalizedPrefix = isCliUsageError(error) ? undefined : prefix;
     const formatted = formatCliError(error);

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { runMemoryCli } from "../modules/memory/index.js";
-import { handleCliError } from "../core/errors.js";
+import { extractErrorExitCode, handleCliError } from "../core/errors.js";
 
 try {
     const exitCode = await runMemoryCli();
@@ -10,6 +10,6 @@ try {
 } catch (error) {
     handleCliError(error, {
         prefix: "Failed to run memory diagnostics.",
-        exitCode: typeof error?.exitCode === "number" ? error.exitCode : 1
+        exitCode: extractErrorExitCode(error)
     });
 }

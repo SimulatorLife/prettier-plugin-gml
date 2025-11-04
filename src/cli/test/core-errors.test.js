@@ -3,6 +3,7 @@ import { describe, it, mock } from "node:test";
 
 import {
     CliUsageError,
+    extractErrorExitCode,
     formatCliError,
     handleCliError,
     markAsCliUsageError,
@@ -121,5 +122,71 @@ describe("cli error details", () => {
         const details = createCliErrorDetails(tagError);
 
         assert.equal(details.name, "DOMException");
+    });
+});
+
+describe("extractErrorExitCode", () => {
+    it("returns the exit code from an error object when it is a number", () => {
+        const error = new Error("test error");
+        error.exitCode = 42;
+
+        const result = extractErrorExitCode(error);
+
+        assert.equal(result, 42);
+    });
+
+    it("returns the default code when error has no exitCode property", () => {
+        const error = new Error("test error");
+
+        const result = extractErrorExitCode(error);
+
+        assert.equal(result, 1);
+    });
+
+    it("returns the default code when error is null", () => {
+        const result = extractErrorExitCode(null);
+
+        assert.equal(result, 1);
+    });
+
+    it("returns the default code when error is undefined", () => {
+        const result = extractErrorExitCode(undefined);
+
+        assert.equal(result, 1);
+    });
+
+    it("returns the default code when exitCode is not a number", () => {
+        const error = new Error("test error");
+        error.exitCode = "not a number";
+
+        const result = extractErrorExitCode(error);
+
+        assert.equal(result, 1);
+    });
+
+    it("returns the default code when exitCode is null", () => {
+        const error = new Error("test error");
+        error.exitCode = null;
+
+        const result = extractErrorExitCode(error);
+
+        assert.equal(result, 1);
+    });
+
+    it("uses the custom default code when provided", () => {
+        const error = new Error("test error");
+
+        const result = extractErrorExitCode(error, 99);
+
+        assert.equal(result, 99);
+    });
+
+    it("handles exit code of 0 correctly", () => {
+        const error = new Error("test error");
+        error.exitCode = 0;
+
+        const result = extractErrorExitCode(error);
+
+        assert.equal(result, 0);
     });
 });

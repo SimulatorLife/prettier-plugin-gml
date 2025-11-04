@@ -35,7 +35,7 @@ import {
 } from "../modules/manual/environment.js";
 import { applyStandardCommandOptions } from "../core/command-standard-options.js";
 import { createCliCommandManager } from "../core/command-manager.js";
-import { handleCliError } from "../core/errors.js";
+import { extractErrorExitCode, handleCliError } from "../core/errors.js";
 import {
     applySharedManualCommandOptions,
     resolveManualCommandOptions
@@ -881,7 +881,7 @@ if (isMainModule) {
     const handleError = (error) =>
         handleCliError(error, {
             prefix: "Failed to generate GML identifiers.",
-            exitCode: typeof error?.exitCode === "number" ? error.exitCode : 1
+            exitCode: extractErrorExitCode(error)
         });
 
     registry.registerDefaultCommand({
