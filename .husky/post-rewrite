@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Chain to global hooks if they exist, but don't fail the commit if they don't
+if [ -x "$HOME/.githooks/post-rewrite" ]; then
+  GIT_HOOK_CHAIN=${GIT_HOOK_CHAIN:-0} GIT_HOOK_CHAIN=$((GIT_HOOK_CHAIN+1)) "$HOME/.githooks/post-rewrite" "$@" || true
+fi
