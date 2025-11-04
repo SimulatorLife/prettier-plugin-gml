@@ -468,7 +468,6 @@ export default class ScopeTracker {
             return null;
         }
 
-        const scopeChain = [];
         const scopeIndices = new Map();
         this.scopeStack.forEach((scope, index) => {
             scopeIndices.set(scope.id, index);
@@ -477,13 +476,10 @@ export default class ScopeTracker {
         const startIndex = scopeIndices.get(startScope.id);
         if (startIndex === undefined) {
             const declaration = startScope.declarations.get(name);
-            if (declaration) {
-                return { ...declaration };
-            }
-            return null;
+            return declaration ? { ...declaration } : null;
         }
 
-        for (let i = startIndex; i >= 0; i--) {
+        for (let i = startIndex; i >= 0; i -= 1) {
             const scope = this.scopeStack[i];
             const declaration = scope.declarations.get(name);
             if (declaration) {
