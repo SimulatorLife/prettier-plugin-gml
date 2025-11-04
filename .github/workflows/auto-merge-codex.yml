@@ -60,13 +60,18 @@ jobs:
               return;
             }
 
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            await github.request('POST /repos/{owner}/{repo}/pulls/{pull_number}/ready-for-review', {
-              owner,
-              repo,
-              pull_number: pr.number
-            });
+            await github.graphql(
+              `mutation($pullRequestId: ID!) {
+                markPullRequestReadyForReview(input: { pullRequestId: $pullRequestId }) {
+                  pullRequest {
+                    number
+                  }
+                }
+              }`,
+              {
+                pullRequestId: pr.node_id
+              }
+            );
             core.notice(`Marked PR #${pr.number} as ready for review after reviewer assignment.`);
 
   auto-merge:
