@@ -167,3 +167,5 @@ export function createRuntimeWrapper({ registry, onPatchApplied } = {}) {
         undo
     };
 }
+
+export { createWebSocketClient } from "./websocket-client.js";
