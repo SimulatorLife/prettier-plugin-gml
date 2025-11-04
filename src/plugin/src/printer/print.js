@@ -2603,7 +2603,13 @@ function getNextNonWhitespaceCharacter(text, startIndex) {
             case 12: // form feed
             case 13: // \r
             case 32: {
-                // space
+                // ASCII space character (0x20). Grouped with the other standard
+                // whitespace codes above so the loop transparently skips all
+                // formatting characters when hunting for the next token.
+                // Removing this case would cause the function to incorrectly
+                // return a space as the "next non-whitespace character,"
+                // breaking semicolon cleanup and other formatting logic that
+                // depends on peeking past whitespace boundaries.
                 continue;
             }
             default: {
@@ -2717,7 +2723,16 @@ function printStatements(path, options, print, childrenAttribute) {
         const currentNodeRequiresNewline =
             shouldAddNewlinesAroundStatement(node, options) && isTopLevel;
 
-        // Check if a newline should be added BEFORE the statement
+        // Determine if a blank line should precede this statement to visually
+        // separate distinct logical blocks (function declarations, enum
+        // definitions, macro groups, etc.) at the top level. The formatter
+        // coordinates with the "AFTER" check below to avoid emitting redundant
+        // blank lines when statements are already spaced in the source. If the
+        // previous statement already added trailing whitespace
+        // (previousNodeHadNewlineAddedAfter), or if a leading comment anchors
+        // this node, the guard skips the hardline so the final output does not
+        // introduce jarring double-spacing that violates the project's visual
+        // rhythm described in docs/statement-spacing-policy.md.
         if (currentNodeRequiresNewline && !previousNodeHadNewlineAddedAfter) {
             const hasLeadingComment = isTopLevel
                 ? hasCommentImmediatelyBefore(originalTextCache, nodeStartIndex)
@@ -2900,10 +2915,31 @@ function printStatements(path, options, print, childrenAttribute) {
             }
         }
 
-        // Reset flag for next iteration
+        // Clear the state flag that signals whether the previous statement in
+        // the loop emitted trailing whitespace. This reset ensures each
+        // statement begins evaluation with a clean slate: if the current node
+        // determines it needs a leading blank line (via the "BEFORE" check
+        // above), that decision will not be incorrectly suppressed by stale
+        // state from an earlier iteration. The flag is then conditionally set
+        // to `true` in the "AFTER" logic below whenever this statement
+        // contributes a trailing hardline, allowing the next iteration to
+        // coordinate spacing without doubling up blank lines.
         previousNodeHadNewlineAddedAfter = false;
 
-        // Check if a newline should be added AFTER the statement
+        // Evaluate whether this statement should emit trailing whitespace to
+        // visually isolate it from the next statement. The logic branches on
+        // several scenarios: macros may require padding to separate them from
+        // non-macro neighbors, return statements often benefit from a blank
+        // line when followed by unrelated code paths, and Feather-generated or
+        // user-annotated nodes can explicitly request or suppress spacing via
+        // internal flags. The formatter examines the source text to detect
+        // existing blank lines (avoiding duplicate spacing) and consults the
+        // statement-spacing policy to decide when preserving or injecting
+        // whitespace improves readability without bloating the output. Setting
+        // `previousNodeHadNewlineAddedAfter` to `true` when a hardline is
+        // appended signals the next iteration's "BEFORE" check to skip
+        // redundant leading blank lines, maintaining the coordinated rhythm
+        // between adjacent statements.
         if (!isLastStatement(childPath)) {
             const nextNode = statements ? statements[index + 1] : null;
             const shouldSuppressExtraEmptyLine = shouldSuppressEmptyLineBetween(
