@@ -59,6 +59,20 @@ const chain = tracker.getScopeChain("scope-2");
 
 **Use case:** Efficient dependency tracking and faster invalidation in hot reload pipelines by traversing lexical scope hierarchies without walking the full scope stack.
 
+### `getScopeDefinitions(scopeId)`
+
+Get all declarations defined directly in a specific scope (not including parent scopes). Returns an array of declaration records with names and metadata.
+
+```javascript
+const definitions = tracker.getScopeDefinitions("scope-1");
+// Returns: [
+//   { name: "localVar", metadata: { scopeId: "scope-1", classifications: [...], start: {...}, end: {...} } },
+//   { name: "param", metadata: { scopeId: "scope-1", classifications: [...], start: {...}, end: {...} } }
+// ]
+```
+
+**Use case:** Identify what symbols are defined in a particular file or scope unit for hot reload coordination. When a file changes, query its scope's definitions to determine which symbols need to be recompiled and which dependent files need to be invalidated.
+
 ## Identifier Case Bootstrap Controls
 
 Formatter options that tune project discovery and cache behaviour now live in
