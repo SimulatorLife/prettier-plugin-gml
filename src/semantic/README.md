@@ -2,6 +2,48 @@
 
 This `src/semantic` subsystem is a semantic layer that annotates parse tree(s) to add *meaning* to the parsed GML code so the emitter/transpiler can make correct decisions. See the plan for this component/feature in [../../docs/semantic-scope-plan.md](../../docs/semantic-scope-plan.md).
 
+## Symbol Resolution Queries
+
+The `ScopeTracker` provides query methods that enable hot reload coordination and dependency tracking:
+
+### `getSymbolOccurrences(name)`
+
+Find all occurrences (declarations and references) of a specific symbol across all scopes. Returns an array of occurrence records with scope context.
+
+```javascript
+const tracker = new ScopeTracker({ enabled: true });
+// ... track declarations and references ...
+const occurrences = tracker.getSymbolOccurrences("myVariable");
+// Returns: [
+//   { scopeId: "scope-0", scopeKind: "function", kind: "declaration", occurrence: {...} },
+//   { scopeId: "scope-1", scopeKind: "block", kind: "reference", occurrence: {...} }
+// ]
+```
+
+**Use case:** Identify what needs to be recompiled when a symbol changes, supporting faster invalidation in hot reload pipelines.
+
+### `getScopeSymbols(scopeId)`
+
+Get all unique identifier names declared or referenced in a specific scope. Returns an array of symbol names.
+
+```javascript
+const symbols = tracker.getScopeSymbols("scope-0");
+// Returns: ["param1", "param2", "localVar"]
+```
+
+**Use case:** Track dependencies and enable selective recompilation by understanding which symbols are used in each scope.
+
+### `resolveIdentifier(name, scopeId)`
+
+Resolve an identifier to its declaration metadata by walking up the scope chain. Implements proper lexical scoping rules with shadowing support.
+
+```javascript
+const declaration = tracker.resolveIdentifier("myVar", "scope-1");
+// Returns: { name: "myVar", scopeId: "scope-0", classifications: [...], start: {...}, end: {...} }
+```
+
+**Use case:** Accurate binding resolution for transpilation, enabling correct code generation that respects lexical scope boundaries.
+
 ## Identifier Case Bootstrap Controls
 
 Formatter options that tune project discovery and cache behaviour now live in
