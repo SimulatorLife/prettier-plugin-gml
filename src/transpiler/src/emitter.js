@@ -243,6 +243,46 @@ export function emitJavaScript(ast) {
         return `{\n${body}\n}`;
     }
     
+    // Handle control flow nodes
+    if (ast.type === "IfStatement") {
+        const test = emitJavaScript(ast.test);
+        const consequent = emitJavaScript(ast.consequent);
+        
+        if (ast.alternate) {
+            const alternate = emitJavaScript(ast.alternate);
+            return `if ${test} ${consequent} else ${alternate}`;
+        }
+        return `if ${test} ${consequent}`;
+    }
+    
+    if (ast.type === "ParenthesizedExpression") {
+        const expr = emitJavaScript(ast.expression);
+        return `(${expr})`;
+    }
+    
+    // Handle return statement
+    if (ast.type === "ReturnStatement") {
+        if (ast.argument) {
+            return `return ${emitJavaScript(ast.argument)};`;
+        }
+        return "return;";
+    }
+    
+    // Handle function declaration
+    if (ast.type === "FunctionDeclaration") {
+        const name = ast.id;
+        const params = ast.params.map(p => emitJavaScript(p)).join(", ");
+        const body = emitJavaScript(ast.body);
+        return `function ${name}(${params}) ${body}`;
+    }
+    
+    // Handle function call
+    if (ast.type === "CallExpression") {
+        const callee = emitJavaScript(ast.callee);
+        const args = ast.arguments.map(arg => emitJavaScript(arg)).join(", ");
+        return `${callee}(${args})`;
+    }
+    
     // Default: return empty string for unsupported nodes
     return "";
 }

@@ -126,3 +126,53 @@ test("emitJavaScript returns empty string for unsupported node types", () => {
     const result = emitJavaScript(ast);
     assert.equal(result, "");
 });
+
+test("emitJavaScript handles if statement", () => {
+    const source = "if (x > 5) { y = 10; }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("if"), "Should include if keyword");
+    assert.ok(result.includes("x"), "Should include test condition");
+    assert.ok(result.includes("y"), "Should include consequent body");
+});
+
+test("emitJavaScript handles if-else statement", () => {
+    const source = "if (x > 5) { y = 10; } else { y = 20; }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("if"), "Should include if keyword");
+    assert.ok(result.includes("else"), "Should include else keyword");
+});
+
+test("emitJavaScript handles function declaration", () => {
+    const source = "function foo(a, b) { return a + b; }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("function"), "Should include function keyword");
+    assert.ok(result.includes("foo"), "Should include function name");
+    assert.ok(result.includes("a"), "Should include first parameter");
+    assert.ok(result.includes("b"), "Should include second parameter");
+    assert.ok(result.includes("return"), "Should include return statement");
+});
+
+test("emitJavaScript handles return statement with value", () => {
+    const source = "function foo() { return 42; }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("return"), "Should include return keyword");
+    assert.ok(result.includes("42"), "Should include return value");
+});
+
+test("emitJavaScript handles function call", () => {
+    const source = "foo(1, 2)";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("foo"), "Should include function name");
+    assert.ok(result.includes("1"), "Should include first argument");
+    assert.ok(result.includes("2"), "Should include second argument");
+});
