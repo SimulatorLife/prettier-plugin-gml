@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import {
     resolveBundledResourcePath,
     resolveBundledResourceUrl
-} from "./resource-locator.js";
+} from "@prettier-plugin-gml/shared/resources/resource-locator.js";
 
 const require = createRequire(import.meta.url);
 

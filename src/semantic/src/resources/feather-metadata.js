@@ -1,12 +1,12 @@
 import { createRequire } from "node:module";
 
-import { asArray, assertArray } from "../utils/array.js";
-import { assertPlainObject } from "../utils/object.js";
-import { toTrimmedString } from "../utils/string.js";
+import { asArray, assertArray } from "../dependencies.js";
+import { assertPlainObject } from "@prettier-plugin-gml/shared/utils/object.js";
+import { toTrimmedString } from "../dependencies.js";
 import {
     resolveBundledResourcePath,
     resolveBundledResourceUrl
-} from "./resource-locator.js";
+} from "@prettier-plugin-gml/shared/resources/resource-locator.js";
 
 const require = createRequire(import.meta.url);
 
