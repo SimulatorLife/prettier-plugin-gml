@@ -1,6 +1,6 @@
 # Semantic Analyzer Subsystem
 
-This `src/semantic` subsystem is a semantic layer that annotates parse tree(s) to add *meaning* to the parsed GML code so the emitter/transpiler can make correct decisions. See the plan for this component/feature in [../../docs/semantic-scope-plan.md](../../docs/semantic-scope-plan.md).
+This `src/semantic` subsystem is a semantic layer that annotates parse tree(s) to add _meaning_ to the parsed GML code so the emitter/transpiler can make correct decisions. See the plan for this component/feature in [../../docs/semantic-scope-plan.md](../../docs/semantic-scope-plan.md).
 
 ## Symbol Resolution Queries
 
@@ -73,18 +73,44 @@ const definitions = tracker.getScopeDefinitions("scope-1");
 
 **Use case:** Identify what symbols are defined in a particular file or scope unit for hot reload coordination. When a file changes, query its scope's definitions to determine which symbols need to be recompiled and which dependent files need to be invalidated.
 
+### `getScopeDepth(scopeId)`
+
+Get the nesting depth of a specific scope. The root scope has depth 0, its direct children have depth 1, and so on.
+
+```javascript
+const depth = tracker.getScopeDepth("scope-2");
+// Returns: 2 (e.g., program -> function -> block)
+```
+
+**Use case:** Efficient scope hierarchy queries for hot reload coordination. Quickly determine how deeply nested a scope is without traversing the parent chain.
+
+### `getDescendantScopes(scopeId)`
+
+Get all descendant scopes of a given scope. This returns all scopes nested within the specified scope at any depth, ordered by depth (shallowest first).
+
+```javascript
+const descendants = tracker.getDescendantScopes("scope-0");
+// Returns: [
+//   { id: "scope-1", kind: "function", depth: 1 },
+//   { id: "scope-2", kind: "block", depth: 2 },
+//   { id: "scope-3", kind: "block", depth: 2 }
+// ]
+```
+
+**Use case:** Identify all scopes that should be invalidated when a parent scope changes. Essential for hot reload coordination to ensure complete recompilation of affected scope subtrees.
+
 ## Identifier Case Bootstrap Controls
 
 Formatter options that tune project discovery and cache behaviour now live in
 the semantic layer. They continue to be part of the plugin’s public surface,
 but their canonical documentation sits here alongside the implementation.
 
-| Option | Default | Summary |
-| --- | --- | --- |
-| `gmlIdentifierCaseDiscoverProject` | `true` | Controls whether the formatter auto-discovers the nearest `.yyp` manifest to bootstrap the project index. |
-| `gmlIdentifierCaseProjectRoot` | `""` | Pins project discovery to a specific directory when auto-detection is undesirable (e.g. CI or monorepos). |
-| `gmlIdentifierCaseProjectIndexCacheMaxBytes` | `8 MiB` | Upper bound for the persisted project-index cache. Set the option or `GML_PROJECT_INDEX_CACHE_MAX_SIZE` to `0` to disable the size guard when coordinating cache writes manually. |
-| `gmlIdentifierCaseProjectIndexConcurrency` | `4` (overridable via `GML_PROJECT_INDEX_CONCURRENCY`, clamped between `1` and the configured max; defaults to `16` via `GML_PROJECT_INDEX_MAX_CONCURRENCY`) | Caps how many GameMaker source files are parsed in parallel while building the identifier-case project index. |
+| Option                                       | Default                                                                                                                                                     | Summary                                                                                                                                                                           |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gmlIdentifierCaseDiscoverProject`           | `true`                                                                                                                                                      | Controls whether the formatter auto-discovers the nearest `.yyp` manifest to bootstrap the project index.                                                                         |
+| `gmlIdentifierCaseProjectRoot`               | `""`                                                                                                                                                        | Pins project discovery to a specific directory when auto-detection is undesirable (e.g. CI or monorepos).                                                                         |
+| `gmlIdentifierCaseProjectIndexCacheMaxBytes` | `8 MiB`                                                                                                                                                     | Upper bound for the persisted project-index cache. Set the option or `GML_PROJECT_INDEX_CACHE_MAX_SIZE` to `0` to disable the size guard when coordinating cache writes manually. |
+| `gmlIdentifierCaseProjectIndexConcurrency`   | `4` (overridable via `GML_PROJECT_INDEX_CONCURRENCY`, clamped between `1` and the configured max; defaults to `16` via `GML_PROJECT_INDEX_MAX_CONCURRENCY`) | Caps how many GameMaker source files are parsed in parallel while building the identifier-case project index.                                                                     |
 
 When rolling out rename scopes, continue to warm the project index cache
 before enabling write mode so the semantic layer can reuse cached dependency
@@ -93,6 +119,7 @@ the first time a rename-enabled scope executes; pin `gmlIdentifierCaseProjectRoo
 in CI builds to avoid repeated discovery work.
 
 ## Resource Metadata Extension Hook
+
 > TODO: Remove this option/extension – handling custom resource metadata is out of scope. Keep this implementation 'opinionated'.
 
 **Pre-change analysis.** The project index previously treated only `.yy`
@@ -113,7 +140,7 @@ for diagnostics. Production consumers should treat the defaults as canonical
 until downstream formats stabilize; the hook exists to unblock experimentation
 without diluting the formatter’s standard behavior.
 
-
 ## TODO
+
 - Align the structure of `semantic` with the plan outlined in
   [../../docs/semantic-scope-plan.md](../../docs/semantic-scope-plan.md).

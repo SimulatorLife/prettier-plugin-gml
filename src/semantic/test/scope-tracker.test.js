@@ -541,3 +541,160 @@ test("getScopeDefinitions returns cloned metadata", () => {
 
     assert.strictEqual(defs2[0].metadata.mutated, undefined);
 });
+
+test("getScopeDepth returns 0 for root scope", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    const rootScope = tracker.enterScope("program");
+
+    const depth = tracker.getScopeDepth(rootScope.id);
+
+    assert.strictEqual(depth, 0);
+});
+
+test("getScopeDepth returns correct depth for nested scopes", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    const rootScope = tracker.enterScope("program");
+    const functionScope = tracker.enterScope("function");
+    const blockScope = tracker.enterScope("block");
+    const innerBlockScope = tracker.enterScope("block");
+
+    assert.strictEqual(tracker.getScopeDepth(rootScope.id), 0);
+    assert.strictEqual(tracker.getScopeDepth(functionScope.id), 1);
+    assert.strictEqual(tracker.getScopeDepth(blockScope.id), 2);
+    assert.strictEqual(tracker.getScopeDepth(innerBlockScope.id), 3);
+});
+
+test("getScopeDepth returns null for non-existent scope", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    tracker.enterScope("program");
+
+    const depth = tracker.getScopeDepth("nonexistent-scope");
+
+    assert.strictEqual(depth, null);
+});
+
+test("getScopeDepth returns null when disabled", () => {
+    const tracker = new ScopeTracker({ enabled: false });
+
+    const depth = tracker.getScopeDepth("any-scope");
+
+    assert.strictEqual(depth, null);
+});
+
+test("getScopeDepth works after exiting scopes", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    const rootScope = tracker.enterScope("program");
+    const functionScope = tracker.enterScope("function");
+    tracker.exitScope();
+
+    const rootDepth = tracker.getScopeDepth(rootScope.id);
+    const functionDepth = tracker.getScopeDepth(functionScope.id);
+
+    assert.strictEqual(rootDepth, 0);
+    assert.strictEqual(functionDepth, 1);
+});
+
+test("getDescendantScopes returns all nested scopes", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    const rootScope = tracker.enterScope("program");
+    const functionScope = tracker.enterScope("function");
+    const blockScope1 = tracker.enterScope("block");
+    tracker.exitScope();
+    const blockScope2 = tracker.enterScope("block");
+    const innerBlockScope = tracker.enterScope("block");
+
+    const descendants = tracker.getDescendantScopes(rootScope.id);
+
+    assert.strictEqual(descendants.length, 4);
+    assert.deepStrictEqual(
+        descendants.map((d) => d.id),
+        [functionScope.id, blockScope1.id, blockScope2.id, innerBlockScope.id]
+    );
+});
+
+test("getDescendantScopes returns scopes ordered by depth", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    const rootScope = tracker.enterScope("program");
+    const functionScope = tracker.enterScope("function");
+    const blockScope = tracker.enterScope("block");
+    const innerBlockScope = tracker.enterScope("block");
+
+    const descendants = tracker.getDescendantScopes(rootScope.id);
+
+    assert.strictEqual(descendants.length, 3);
+    assert.strictEqual(descendants[0].depth, 1);
+    assert.strictEqual(descendants[1].depth, 2);
+    assert.strictEqual(descendants[2].depth, 3);
+    assert.deepStrictEqual(
+        descendants.map((d) => d.id),
+        [functionScope.id, blockScope.id, innerBlockScope.id]
+    );
+});
+
+test("getDescendantScopes returns empty array for leaf scope", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    tracker.enterScope("program");
+    const leafScope = tracker.enterScope("block");
+
+    const descendants = tracker.getDescendantScopes(leafScope.id);
+
+    assert.deepStrictEqual(descendants, []);
+});
+
+test("getDescendantScopes returns only direct subtree", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    const rootScope = tracker.enterScope("program");
+    const branchA = tracker.enterScope("function");
+    const branchAChild = tracker.enterScope("block");
+    tracker.exitScope();
+    tracker.exitScope();
+    const branchB = tracker.enterScope("function");
+    const branchBChild = tracker.enterScope("block");
+
+    const descendantsA = tracker.getDescendantScopes(branchA.id);
+    const descendantsB = tracker.getDescendantScopes(branchB.id);
+
+    assert.strictEqual(descendantsA.length, 1);
+    assert.strictEqual(descendantsA[0].id, branchAChild.id);
+
+    assert.strictEqual(descendantsB.length, 1);
+    assert.strictEqual(descendantsB[0].id, branchBChild.id);
+});
+
+test("getDescendantScopes returns empty array for non-existent scope", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    tracker.enterScope("program");
+
+    const descendants = tracker.getDescendantScopes("nonexistent-scope");
+
+    assert.deepStrictEqual(descendants, []);
+});
+
+test("getDescendantScopes returns empty array when disabled", () => {
+    const tracker = new ScopeTracker({ enabled: false });
+
+    const descendants = tracker.getDescendantScopes("any-scope");
+
+    assert.deepStrictEqual(descendants, []);
+});
+
+test("getDescendantScopes includes scope kind and depth", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    const rootScope = tracker.enterScope("program");
+    const functionScope = tracker.enterScope("function");
+    const blockScope = tracker.enterScope("block");
+
+    const descendants = tracker.getDescendantScopes(rootScope.id);
+
+    assert.strictEqual(descendants.length, 2);
+    assert.deepStrictEqual(descendants[0], {
+        id: functionScope.id,
+        kind: "function",
+        depth: 1
+    });
+    assert.deepStrictEqual(descendants[1], {
+        id: blockScope.id,
+        kind: "block",
+        depth: 2
+    });
+});

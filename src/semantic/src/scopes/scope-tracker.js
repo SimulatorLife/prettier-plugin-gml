@@ -15,6 +15,7 @@ class Scope {
         this.id = id;
         this.kind = kind;
         this.parent = parent;
+        this.depth = parent ? parent.depth + 1 : 0;
         this.declarations = new Map();
         this.occurrences = new Map();
     }
@@ -554,5 +555,70 @@ export default class ScopeTracker {
         }
 
         return definitions;
+    }
+
+    /**
+     * Get the nesting depth of a specific scope. The root scope has depth 0,
+     * its direct children have depth 1, and so on. This supports efficient
+     * scope hierarchy queries for hot reload coordination.
+     *
+     * @param {string} scopeId The scope identifier to query.
+     * @returns {number | null} The depth of the scope, or null if not found or disabled.
+     */
+    getScopeDepth(scopeId) {
+        if (!this.enabled || !scopeId) {
+            return null;
+        }
+
+        const scope = this.scopesById.get(scopeId);
+        if (!scope) {
+            return null;
+        }
+
+        return scope.depth;
+    }
+
+    /**
+     * Get all descendant scopes of a given scope. This returns all scopes that
+     * are nested within the specified scope at any depth. Useful for hot reload
+     * coordination to identify all scopes that should be invalidated when a
+     * parent scope changes.
+     *
+     * @param {string} scopeId The scope identifier to query descendants for.
+     * @returns {Array<{id: string, kind: string, depth: number}>} Array of
+     *          descendant scope descriptors, ordered by depth (shallowest first).
+     */
+    getDescendantScopes(scopeId) {
+        if (!this.enabled || !scopeId) {
+            return [];
+        }
+
+        const parentScope = this.scopesById.get(scopeId);
+        if (!parentScope) {
+            return [];
+        }
+
+        const descendants = [];
+        for (const scope of this.scopesById.values()) {
+            if (scope.id === scopeId) {
+                continue;
+            }
+
+            let current = scope.parent;
+            while (current) {
+                if (current.id === scopeId) {
+                    descendants.push({
+                        id: scope.id,
+                        kind: scope.kind,
+                        depth: scope.depth
+                    });
+                    break;
+                }
+                current = current.parent;
+            }
+        }
+
+        descendants.sort((a, b) => a.depth - b.depth);
+        return descendants;
     }
 }
