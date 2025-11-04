@@ -1,13 +1,7 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"  # optional but recommended
 set -eu
-
-# Chain to global hooks if they exist, but don't fail the commit if they don't
 if [ -x "$HOME/.githooks/post-rewrite" ]; then
   echo "Chaining to global post-rewrite hook"
   chain="${GIT_HOOK_CHAIN:-0}"
   chain=$((chain + 1))
   GIT_HOOK_CHAIN="$chain" "$HOME/.githooks/post-rewrite" "$@" || true
 fi
-
-exit 0
