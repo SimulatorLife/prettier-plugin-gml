@@ -226,6 +226,46 @@ export function emitJavaScript(ast) {
         return emitJavaScript(ast.expression) + ";";
     }
     
+    // Handle function call expressions
+    if (ast.type === "CallExpression") {
+        const callee = emitJavaScript(ast.object || ast.callee);
+        const args = (ast.arguments || []).map(emitJavaScript).join(", ");
+        return `${callee}(${args})`;
+    }
+    
+    // Handle array literals
+    if (ast.type === "ArrayExpression") {
+        const elements = (ast.elements || []).map(emitJavaScript).join(", ");
+        return `[${elements}]`;
+    }
+    
+    // Handle struct/object literals
+    if (ast.type === "StructExpression") {
+        const properties = (ast.properties || []).map(prop => {
+            const key = prop.name || (prop.key ? emitJavaScript(prop.key) : "");
+            const value = emitJavaScript(prop.value);
+            return `${key}: ${value}`;
+        }).join(", ");
+        return `{ ${properties} }`;
+    }
+    
+    // Handle member access (dot notation)
+    if (ast.type === "MemberDotExpression") {
+        const object = emitJavaScript(ast.object);
+        const property = ast.property.name || emitJavaScript(ast.property);
+        return `${object}.${property}`;
+    }
+    
+    // Handle member access (bracket notation / array indexing)
+    if (ast.type === "MemberIndexExpression") {
+        const object = emitJavaScript(ast.object);
+        // property is an array in the AST, but for single index it's just one element
+        const indices = Array.isArray(ast.property) 
+            ? ast.property.map(emitJavaScript).join("][")
+            : emitJavaScript(ast.property);
+        return `${object}[${indices}]`;
+    }
+    
     // Handle program/block nodes
     if (ast.type === "Program" && ast.body) {
         return ast.body.map(stmt => {
