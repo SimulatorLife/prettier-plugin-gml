@@ -11,11 +11,6 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-# Ensure the correct Node version is active before running format/lint tasks.
-# shellcheck disable=SC1091
-. "$repo_root/scripts/ensure-node-version.sh"
-ensure_node_version
-
 # Display current Node and npm versions
 echo "Node: $(node -v)"
 echo "npm:  $(npm -v)"
