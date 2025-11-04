@@ -11,9 +11,10 @@ import {
 } from "./scope-override-keywords.js";
 
 class Scope {
-    constructor(id, kind) {
+    constructor(id, kind, parent = null) {
         this.id = id;
         this.kind = kind;
+        this.parent = parent;
         this.declarations = new Map();
         this.occurrences = new Map();
     }
@@ -114,9 +115,11 @@ export default class ScopeTracker {
             return null;
         }
 
+        const parent = this.scopeStack.at(-1) ?? null;
         const scope = new Scope(
             `scope-${this.scopeCounter++}`,
-            kind ?? "unknown"
+            kind ?? "unknown",
+            parent
         );
         this.scopeStack.push(scope);
         this.scopesById.set(scope.id, scope);
@@ -488,5 +491,37 @@ export default class ScopeTracker {
         }
 
         return null;
+    }
+
+    /**
+     * Get the parent scope chain for a given scope, walking from the specified
+     * scope up to the root. This enables efficient dependency tracking and
+     * supports faster invalidation in hot reload pipelines.
+     *
+     * @param {string} scopeId The scope identifier to start from.
+     * @returns {Array<{id: string, kind: string}>} Array of parent scopes from
+     *          nearest to root, or empty array if scope not found or disabled.
+     */
+    getScopeChain(scopeId) {
+        if (!this.enabled || !scopeId) {
+            return [];
+        }
+
+        const scope = this.scopesById.get(scopeId);
+        if (!scope) {
+            return [];
+        }
+
+        const chain = [];
+        let current = scope;
+        while (current) {
+            chain.push({
+                id: current.id,
+                kind: current.kind
+            });
+            current = current.parent;
+        }
+
+        return chain;
     }
 }
