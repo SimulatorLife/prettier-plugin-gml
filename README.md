@@ -455,7 +455,7 @@ points while sharing utilities via the `src/shared/src/` module.
 | --- | --- | --- |
 | `prettier-plugin-gamemaker` | `src/plugin/` | Prettier plugin entry point (`src/gml.js`), printers, option handlers, CLI surface helpers, and regression fixtures. |
 | `gamemaker-language-parser` | `src/parser/` | ANTLR grammar sources, generated parser output, and the parser test suite. |
-| `prettier-plugin-gml-cli` | `src/cli/` | Command-line interface (`cli.js`) for metadata generation, formatting wrapper commands, integration tests, and performance tooling. |
+| `prettier-plugin-gml-cli` | `src/cli/` | Command-line interface (`cli.js`) for metadata generation, formatting wrapper commands, file watching for hot-reload pipeline, integration tests, and performance tooling. |
 | `gamemaker-language-semantic` | `src/semantic/` | Scope trackers, project-index orchestration, rename bootstrap controls, and the semantic test suite. |
 | Shared modules | `src/shared/src/` | Helper modules shared by the plugin, CLI, parser, and semantic packages (AST utilities, identifier casing primitives, string helpers). |
 | Metadata snapshots | `resources/` | Generated datasets consumed by the formatter (identifier inventories, Feather metadata). |
