@@ -416,3 +416,61 @@ test("resolveIdentifier returns null when disabled", () => {
 
     assert.strictEqual(result, null);
 });
+
+test("getScopeChain returns chain from scope to root", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    const rootScope = tracker.enterScope("program");
+    const functionScope = tracker.enterScope("function");
+    const blockScope = tracker.enterScope("block");
+
+    const chain = tracker.getScopeChain(blockScope.id);
+
+    assert.deepStrictEqual(chain, [
+        { id: blockScope.id, kind: "block" },
+        { id: functionScope.id, kind: "function" },
+        { id: rootScope.id, kind: "program" }
+    ]);
+});
+
+test("getScopeChain returns single entry for root scope", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    const rootScope = tracker.enterScope("program");
+
+    const chain = tracker.getScopeChain(rootScope.id);
+
+    assert.deepStrictEqual(chain, [{ id: rootScope.id, kind: "program" }]);
+});
+
+test("getScopeChain returns empty array for non-existent scope", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    tracker.enterScope("program");
+
+    const result = tracker.getScopeChain("nonexistent-scope");
+
+    assert.deepStrictEqual(result, []);
+});
+
+test("getScopeChain returns empty array when disabled", () => {
+    const tracker = new ScopeTracker({ enabled: false });
+
+    const result = tracker.getScopeChain("any-scope");
+
+    assert.deepStrictEqual(result, []);
+});
+
+test("getScopeChain works after exiting scopes", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    const rootScope = tracker.enterScope("program");
+    const functionScope = tracker.enterScope("function");
+    const blockScope = tracker.enterScope("block");
+    tracker.exitScope();
+    tracker.exitScope();
+
+    const chain = tracker.getScopeChain(blockScope.id);
+
+    assert.deepStrictEqual(chain, [
+        { id: blockScope.id, kind: "block" },
+        { id: functionScope.id, kind: "function" },
+        { id: rootScope.id, kind: "program" }
+    ]);
+});
