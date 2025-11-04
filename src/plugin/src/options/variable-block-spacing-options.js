@@ -4,8 +4,10 @@ import {
 } from "../shared/index.js";
 
 const DEFAULT_MIN_DECLARATION_RUN_LENGTH = 4;
-// Represent "disabled" with `Infinity` so callers can compare against a single
-// sentinel while still treating the resolved value as numeric configuration.
+// When users set variableBlockSpacingMinDeclarations to 0 (meaning "disabled"),
+// coercePositiveIntegerOption promotes that 0 to Infinity via zeroReplacement.
+// This sentinel lets callers use a single numeric comparison (runLength >= threshold)
+// rather than branching on a separate "disabled" flag.
 const VARIABLE_BLOCK_SPACING_DISABLED_VALUE = Number.POSITIVE_INFINITY;
 const VARIABLE_BLOCK_SPACING_MIN_DECLARATIONS_OPTION =
     "variableBlockSpacingMinDeclarations";
