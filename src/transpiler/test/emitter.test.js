@@ -16,7 +16,10 @@ test("GmlEmitter handles string literals in AST", () => {
     const parser = new GMLParser(source);
     const ast = parser.parse();
     const result = emitJavaScript(ast);
-    assert.ok(result.includes("hello world"), "Should include the string content");
+    assert.ok(
+        result.includes("hello world"),
+        "Should include the string content"
+    );
 });
 
 test("GmlEmitter handles boolean literals in AST", () => {
@@ -102,7 +105,7 @@ test("GmlEmitter emit method adds code with indentation", () => {
     const emitter = new GmlEmitter();
     emitter.emit("test();");
     assert.equal(emitter.output[0], "test();");
-    
+
     emitter.indentLevel = 1;
     emitter.emit("indented();");
     assert.equal(emitter.output[1], "    indented();");

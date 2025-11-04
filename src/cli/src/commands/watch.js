@@ -223,39 +223,57 @@ export async function runWatchCommand(targetPath, options) {
  */
 async function handleFileChange(filePath, eventType, { verbose = false } = {}) {
     if (eventType === "rename") {
-        // File was created, deleted, or renamed
-        try {
-            await stat(filePath);
-            if (verbose) {
-                console.log(`  ↳ File exists (created or renamed)`);
-            }
-        } catch {
-            if (verbose) {
-                console.log(`  ↳ File removed (deleted or renamed away)`);
-            }
-            return;
-        }
+        await handleRenameEvent(filePath, verbose);
+        return;
     }
 
-    // For 'change' events, we can attempt to read the file
     if (eventType === "change") {
-        try {
-            const content = await readFile(filePath, "utf8");
-            const lines = content.split("\n").length;
+        await handleChangeEvent(filePath, verbose);
+    }
+}
 
-            if (verbose) {
-                console.log(`  ↳ Read ${lines} lines`);
-            }
+/**
+ * Handles file rename events (creation, deletion, or rename).
+ *
+ * @param {string} filePath - Full path to the file
+ * @param {boolean} verbose - Enable verbose logging
+ */
+async function handleRenameEvent(filePath, verbose) {
+    try {
+        await stat(filePath);
+        if (verbose) {
+            console.log(`  ↳ File exists (created or renamed)`);
+        }
+    } catch {
+        if (verbose) {
+            console.log(`  ↳ File removed (deleted or renamed away)`);
+        }
+    }
+}
 
-            // Future integration points:
-            // 1. Parse the file using the ANTLR parser (src/parser)
-            // 2. Run semantic analysis (src/semantic)
-            // 3. Generate transpiler patches (src/transpiler)
-            // 4. Stream patches to runtime wrapper (src/runtime-wrapper)
-        } catch (error) {
-            if (verbose) {
-                console.log(`  ↳ Error reading file: ${error.message}`);
-            }
+/**
+ * Handles file content change events.
+ *
+ * @param {string} filePath - Full path to the file
+ * @param {boolean} verbose - Enable verbose logging
+ */
+async function handleChangeEvent(filePath, verbose) {
+    try {
+        const content = await readFile(filePath, "utf8");
+        const lines = content.split("\n").length;
+
+        if (verbose) {
+            console.log(`  ↳ Read ${lines} lines`);
+        }
+
+        // Future integration points:
+        // 1. Parse the file using the ANTLR parser (src/parser)
+        // 2. Run semantic analysis (src/semantic)
+        // 3. Generate transpiler patches (src/transpiler)
+        // 4. Stream patches to runtime wrapper (src/runtime-wrapper)
+    } catch (error) {
+        if (verbose) {
+            console.log(`  ↳ Error reading file: ${error.message}`);
         }
     }
 }
