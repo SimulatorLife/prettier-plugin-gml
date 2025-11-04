@@ -1950,7 +1950,8 @@ cliCommandRegistry.registerCommand({
 
 cliCommandRegistry.registerCommand({
     command: createWatchCommand(),
-    run: ({ command }) => runWatchCommand(command.args[0], command.opts()),
+    run: ({ command }) =>
+        runWatchCommand(command.args[0] ?? process.cwd(), command.opts()),
     onError: (error) =>
         handleCliError(error, {
             prefix: "Failed to start watch mode.",
