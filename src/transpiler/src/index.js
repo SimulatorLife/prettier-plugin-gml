@@ -1,5 +1,6 @@
 import GMLParser from "gamemaker-language-parser";
 import { emitJavaScript } from "./emitter.js";
+import { getErrorMessage } from "@prettier-plugin-gml/shared/utils/error.js";
 
 /**
  * GML → JavaScript transpiler.
@@ -31,10 +32,10 @@ export class GmlTranspiler {
             // Parse the GML source code
             const parser = new GMLParser(sourceText);
             const ast = parser.parse();
-            
+
             // Generate JavaScript from the AST
             const jsBody = emitJavaScript(ast);
-            
+
             // Return a patch object compatible with the runtime wrapper
             return {
                 kind: "script",
@@ -44,8 +45,14 @@ export class GmlTranspiler {
                 version: Date.now()
             };
         } catch (error) {
+            const message = getErrorMessage(error, {
+                fallback: "Unknown transpilation error"
+            });
             throw new Error(
-                `Failed to transpile script ${symbolId}: ${error.message}`
+                `Failed to transpile script ${symbolId}: ${message}`,
+                {
+                    cause: error
+                }
             );
         }
     }
@@ -56,9 +63,18 @@ export class GmlTranspiler {
      * @returns {string} Generated JavaScript code
      */
     transpileExpression(sourceText) {
-        const parser = new GMLParser(sourceText);
-        const ast = parser.parse();
-        return emitJavaScript(ast);
+        try {
+            const parser = new GMLParser(sourceText);
+            const ast = parser.parse();
+            return emitJavaScript(ast);
+        } catch (error) {
+            const message = getErrorMessage(error, {
+                fallback: "Unknown transpilation error"
+            });
+            throw new Error(`Failed to transpile expression: ${message}`, {
+                cause: error
+            });
+        }
     }
 }
 
