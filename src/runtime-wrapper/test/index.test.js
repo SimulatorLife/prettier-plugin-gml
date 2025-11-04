@@ -224,3 +224,234 @@ test("undo restores previous version of patched script", () => {
     assert.strictEqual(fn3(null, null, []), 1);
     assert.strictEqual(fn3, fn1);
 });
+
+test("getDiagnostics returns current state metrics", () => {
+    const wrapper = createRuntimeWrapper();
+
+    const initialDiag = wrapper.getDiagnostics();
+    assert.strictEqual(initialDiag.version, 0);
+    assert.strictEqual(initialDiag.registeredScripts, 0);
+    assert.strictEqual(initialDiag.registeredEvents, 0);
+    assert.strictEqual(initialDiag.totalPatchesApplied, 0);
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:a",
+        js_body: "return 1;"
+    });
+
+    wrapper.applyPatch({
+        kind: "event",
+        id: "obj_test#Step",
+        js_body: "return 2;"
+    });
+
+    const diag = wrapper.getDiagnostics();
+    assert.strictEqual(diag.version, 2);
+    assert.strictEqual(diag.registeredScripts, 1);
+    assert.strictEqual(diag.registeredEvents, 1);
+    assert.strictEqual(diag.totalPatchesApplied, 2);
+    assert.strictEqual(diag.successfulPatches, 2);
+    assert.strictEqual(diag.failedPatches, 0);
+});
+
+test("getDiagnostics tracks failed patches", () => {
+    const wrapper = createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:good",
+        js_body: "return 1;"
+    });
+
+    try {
+        wrapper.applyPatch({
+            kind: "script",
+            id: "script:bad"
+        });
+    } catch {
+        // Expected to fail, patch history should track the failure
+    }
+
+    const diag = wrapper.getDiagnostics();
+    assert.strictEqual(diag.totalPatchesApplied, 2);
+    assert.strictEqual(diag.successfulPatches, 1);
+    assert.strictEqual(diag.failedPatches, 1);
+});
+
+test("getPatchHistory returns patch application history", () => {
+    const wrapper = createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:a",
+        js_body: "return 1;"
+    });
+
+    wrapper.applyPatch({
+        kind: "event",
+        id: "obj_test#Create",
+        js_body: "return 2;"
+    });
+
+    const history = wrapper.getPatchHistory();
+    assert.strictEqual(history.length, 2);
+    assert.strictEqual(history[0].patch.kind, "script");
+    assert.strictEqual(history[0].patch.id, "script:a");
+    assert.strictEqual(history[0].success, true);
+    assert.strictEqual(history[1].patch.kind, "event");
+    assert.strictEqual(history[1].patch.id, "obj_test#Create");
+    assert.strictEqual(history[1].success, true);
+});
+
+test("getPatchHistory includes timestamps", () => {
+    const wrapper = createRuntimeWrapper();
+    const before = Date.now();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test",
+        js_body: "return 1;"
+    });
+
+    const after = Date.now();
+    const history = wrapper.getPatchHistory();
+
+    assert.strictEqual(history.length, 1);
+    assert.ok(history[0].timestamp >= before);
+    assert.ok(history[0].timestamp <= after);
+});
+
+test("getPatchHistory can be filtered by kind", () => {
+    const wrapper = createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:a",
+        js_body: "return 1;"
+    });
+
+    wrapper.applyPatch({
+        kind: "event",
+        id: "obj_test#Step",
+        js_body: "return 2;"
+    });
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:b",
+        js_body: "return 3;"
+    });
+
+    const scriptHistory = wrapper.getPatchHistory({ kind: "script" });
+    assert.strictEqual(scriptHistory.length, 2);
+    assert.ok(scriptHistory.every((h) => h.patch.kind === "script"));
+
+    const eventHistory = wrapper.getPatchHistory({ kind: "event" });
+    assert.strictEqual(eventHistory.length, 1);
+    assert.strictEqual(eventHistory[0].patch.kind, "event");
+});
+
+test("getPatchHistory can be limited", () => {
+    const wrapper = createRuntimeWrapper();
+
+    for (let i = 0; i < 5; i++) {
+        wrapper.applyPatch({
+            kind: "script",
+            id: `script:test${i}`,
+            js_body: `return ${i};`
+        });
+    }
+
+    const limited = wrapper.getPatchHistory({ limit: 2 });
+    assert.strictEqual(limited.length, 2);
+    assert.strictEqual(limited[0].patch.id, "script:test3");
+    assert.strictEqual(limited[1].patch.id, "script:test4");
+});
+
+test("getPatchHistory can filter successful patches only", () => {
+    const wrapper = createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:good",
+        js_body: "return 1;"
+    });
+
+    try {
+        wrapper.applyPatch({
+            kind: "script",
+            id: "script:bad"
+        });
+    } catch {
+        // Expected to fail, testing successOnly filter
+    }
+
+    const allHistory = wrapper.getPatchHistory();
+    assert.strictEqual(allHistory.length, 2);
+
+    const successOnly = wrapper.getPatchHistory({ successOnly: true });
+    assert.strictEqual(successOnly.length, 1);
+    assert.strictEqual(successOnly[0].patch.id, "script:good");
+});
+
+test("getPatchHistory records error messages for failed patches", () => {
+    const wrapper = createRuntimeWrapper();
+
+    try {
+        wrapper.applyPatch({
+            kind: "script",
+            id: "script:bad"
+        });
+    } catch {
+        // Expected to fail, testing error message recording
+    }
+
+    const history = wrapper.getPatchHistory();
+    assert.strictEqual(history.length, 1);
+    assert.strictEqual(history[0].success, false);
+    assert.ok(history[0].error);
+    assert.ok(history[0].error.includes("js_body"));
+});
+
+test("getRegisteredIds returns script IDs", () => {
+    const wrapper = createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:a",
+        js_body: "return 1;"
+    });
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:b",
+        js_body: "return 2;"
+    });
+
+    const ids = wrapper.getRegisteredIds("script");
+    assert.strictEqual(ids.length, 2);
+    assert.ok(ids.includes("script:a"));
+    assert.ok(ids.includes("script:b"));
+});
+
+test("getRegisteredIds returns event IDs", () => {
+    const wrapper = createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "event",
+        id: "obj_player#Step",
+        js_body: "return 1;"
+    });
+
+    const ids = wrapper.getRegisteredIds("event");
+    assert.strictEqual(ids.length, 1);
+    assert.strictEqual(ids[0], "obj_player#Step");
+});
+
+test("getRegisteredIds returns empty array for unknown kind", () => {
+    const wrapper = createRuntimeWrapper();
+    const ids = wrapper.getRegisteredIds("unknown");
+    assert.ok(Array.isArray(ids));
+    assert.strictEqual(ids.length, 0);
+});

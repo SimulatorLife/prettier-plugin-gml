@@ -95,6 +95,7 @@ function restoreSnapshot(registry, snapshot) {
     return registry;
 }
 
+// eslint-disable-next-line max-lines-per-function -- Main wrapper function encapsulates cohesive hot-reload state and diagnostic helpers
 export function createRuntimeWrapper({ registry, onPatchApplied } = {}) {
     const state = {
         registry: registry ?? {
@@ -103,7 +104,8 @@ export function createRuntimeWrapper({ registry, onPatchApplied } = {}) {
             events: Object.create(null),
             closures: Object.create(null)
         },
-        undoStack: []
+        undoStack: [],
+        patchHistory: []
     };
 
     function applyPatch(patch) {
@@ -133,12 +135,33 @@ export function createRuntimeWrapper({ registry, onPatchApplied } = {}) {
             };
             state.undoStack.push(snapshot);
 
+            state.patchHistory.push({
+                patch: {
+                    kind: patch.kind,
+                    id: patch.id
+                },
+                version: state.registry.version,
+                timestamp: Date.now(),
+                success: true
+            });
+
             if (onPatchApplied) {
                 onPatchApplied(patch, state.registry.version);
             }
 
             return { success: true, version: state.registry.version };
         } catch (error) {
+            state.patchHistory.push({
+                patch: {
+                    kind: patch.kind,
+                    id: patch.id
+                },
+                version: state.registry.version,
+                timestamp: Date.now(),
+                success: false,
+                error: error.message
+            });
+
             throw new Error(
                 `Failed to apply patch ${patch.id}: ${error.message}`
             );
@@ -161,9 +184,67 @@ export function createRuntimeWrapper({ registry, onPatchApplied } = {}) {
         return { success: true, version: state.registry.version };
     }
 
+    function getDiagnostics() {
+        const scriptCount = Object.keys(state.registry.scripts).length;
+        const eventCount = Object.keys(state.registry.events).length;
+        const closureCount = Object.keys(state.registry.closures).length;
+        const totalPatches = state.patchHistory.length;
+        const successfulPatches = state.patchHistory.filter(
+            (h) => h.success
+        ).length;
+        const failedPatches = totalPatches - successfulPatches;
+
+        return {
+            version: state.registry.version,
+            registeredScripts: scriptCount,
+            registeredEvents: eventCount,
+            registeredClosures: closureCount,
+            totalPatchesApplied: totalPatches,
+            successfulPatches,
+            failedPatches,
+            undoStackDepth: state.undoStack.length
+        };
+    }
+
+    function getPatchHistory(options = {}) {
+        const { limit, kind, successOnly } = options;
+
+        let history = [...state.patchHistory];
+
+        if (kind) {
+            history = history.filter((h) => h.patch.kind === kind);
+        }
+
+        if (successOnly) {
+            history = history.filter((h) => h.success);
+        }
+
+        if (limit && limit > 0) {
+            history = history.slice(-limit);
+        }
+
+        return history;
+    }
+
+    function getRegisteredIds(kind) {
+        if (kind === "script") {
+            return Object.keys(state.registry.scripts);
+        }
+        if (kind === "event") {
+            return Object.keys(state.registry.events);
+        }
+        if (kind === "closure") {
+            return Object.keys(state.registry.closures);
+        }
+        return [];
+    }
+
     return {
         state,
         applyPatch,
-        undo
+        undo,
+        getDiagnostics,
+        getPatchHistory,
+        getRegisteredIds
     };
 }
