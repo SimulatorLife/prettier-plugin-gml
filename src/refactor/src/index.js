@@ -153,10 +153,10 @@ export class RefactorEngine {
 
     /**
      * Prepare integration data for hot reload after a refactor.
-     * @param {WorkspaceEdit} workspace - Applied edits
+     * @param {WorkspaceEdit} _workspace - Applied edits
      * @returns {Promise<Array<{symbolId: string, action: string}>>}
      */
-    async prepareHotReloadUpdates(workspace) {
+    async prepareHotReloadUpdates(_workspace) {
         const updates = [];
 
         // Future work: Analyze changed files to determine which symbols need recompilation
