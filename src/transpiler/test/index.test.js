@@ -21,7 +21,7 @@ test("transpileScript returns a patch object for simple code", async () => {
         sourceText: "42",
         symbolId: "gml/script/test"
     });
-    
+
     assert.equal(result.kind, "script");
     assert.equal(result.id, "gml/script/test");
     assert.ok(result.js_body);
@@ -35,7 +35,7 @@ test("transpileScript includes source text in result", async () => {
         sourceText,
         symbolId: "gml/script/test"
     });
-    
+
     assert.equal(result.sourceText, sourceText);
 });
 
@@ -47,13 +47,13 @@ test("transpileExpression generates JavaScript for simple expressions", () => {
 
 test("transpileScript handles parsing errors gracefully", async () => {
     const transpiler = new GmlTranspiler();
-    
+
     await assert.rejects(
-        () => transpiler.transpileScript({
-            sourceText: "invalid syntax %%%%",
-            symbolId: "gml/script/test"
-        }),
+        () =>
+            transpiler.transpileScript({
+                sourceText: "invalid syntax %%%%",
+                symbolId: "gml/script/test"
+            }),
         { message: /Failed to transpile script/ }
     );
 });
-
