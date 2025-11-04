@@ -15,7 +15,13 @@ permissions:
 
 jobs:
   publish-codex-pr:
-    if: github.event.action == 'review_requested'
+    if: >-
+      github.event.action == 'review_requested' ||
+      github.event.action == 'rerequested' ||
+      github.event.action == 'labeled' ||
+      github.event.action == 'synchronize' ||
+      github.event.action == 'ready_for_review' ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Publish codex/copilot draft when review is requested
@@ -54,9 +60,17 @@ jobs:
               return;
             }
 
-            const { requested_reviewer: reviewer, requested_team: team } = context.payload;
-            if (!reviewer && !team) {
-              core.info('No reviewer or team attached to this request; skipping publish.');
+            const reviewerCount = Array.isArray(pr.requested_reviewers) ? pr.requested_reviewers.length : 0;
+            const teamCount = Array.isArray(pr.requested_teams) ? pr.requested_teams.length : 0;
+            const totalRequestedReviewers = reviewerCount + teamCount;
+
+            if (totalRequestedReviewers === 0) {
+              core.info('No reviewer or team currently requested; skipping publish.');
+              return;
+            }
+
+            if (!Number.isFinite(pr.changed_files) || pr.changed_files <= 0) {
+              core.info(`No changed files detected (${pr.changed_files}); skipping publish.`);
               return;
             }
 
