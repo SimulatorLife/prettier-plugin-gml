@@ -44,6 +44,21 @@ const declaration = tracker.resolveIdentifier("myVar", "scope-1");
 
 **Use case:** Accurate binding resolution for transpilation, enabling correct code generation that respects lexical scope boundaries.
 
+### `getScopeChain(scopeId)`
+
+Get the parent scope chain for a given scope, walking from the specified scope up to the root. Returns an array of scope descriptors from nearest to root.
+
+```javascript
+const chain = tracker.getScopeChain("scope-2");
+// Returns: [
+//   { id: "scope-2", kind: "block" },
+//   { id: "scope-1", kind: "function" },
+//   { id: "scope-0", kind: "program" }
+// ]
+```
+
+**Use case:** Efficient dependency tracking and faster invalidation in hot reload pipelines by traversing lexical scope hierarchies without walking the full scope stack.
+
 ## Identifier Case Bootstrap Controls
 
 Formatter options that tune project discovery and cache behaviour now live in
