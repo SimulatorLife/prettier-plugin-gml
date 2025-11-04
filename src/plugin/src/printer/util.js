@@ -90,6 +90,20 @@ function getNodeListProperty(node) {
 }
 
 /**
+ * Validate that an AST path supports parent node navigation. Multiple functions
+ * across the printer guard against missing or invalid path objects before
+ * attempting to traverse the ancestor chain. Centralizing this check eliminates
+ * repeated validation logic and keeps the guard condition consistent.
+ *
+ * @param {unknown} path Potential AST path to validate.
+ * @returns {boolean} `true` when the path exists and exposes a callable
+ *          `getParentNode` method; `false` otherwise.
+ */
+function hasParentNodeAccess(path) {
+    return Boolean(path && typeof path.getParentNode === "function");
+}
+
+/**
  * Convenience wrapper that returns the semicolon literal only when the printer
  * recognizes the node type as statement-terminating. Returning an empty string
  * avoids conditional logic at each call site and keeps the control flow easy to
@@ -306,6 +320,7 @@ function shouldAddNewlinesAroundStatement(node) {
 
 export {
     DefineReplacementDirective,
+    hasParentNodeAccess,
     isLastStatement,
     optionalSemicolon,
     getNormalizedDefineReplacementDirective,

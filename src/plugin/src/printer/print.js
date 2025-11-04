@@ -2,6 +2,7 @@ import { builders, utils } from "prettier/doc";
 
 import {
     DefineReplacementDirective,
+    hasParentNodeAccess,
     isLastStatement,
     optionalSemicolon,
     isNextLineEmpty,
@@ -267,7 +268,7 @@ function callPathMethod(path, methodName, { args, defaultValue } = {}) {
 }
 
 function isBlockWithinConstructor(path) {
-    if (!path || typeof path.getParentNode !== "function") {
+    if (!hasParentNodeAccess(path)) {
         return false;
     }
 
@@ -3425,7 +3426,7 @@ function getSimpleAssignmentLikeEntry(
 }
 
 function getFunctionParameterNameSetFromPath(path) {
-    if (!path || typeof path.getParentNode !== "function") {
+    if (!hasParentNodeAccess(path)) {
         return null;
     }
 
@@ -5721,7 +5722,7 @@ function resolvePreferredParameterSource(
 }
 
 function findEnclosingFunctionNode(path) {
-    if (!path || typeof path.getParentNode !== "function") {
+    if (!hasParentNodeAccess(path)) {
         return null;
     }
 
@@ -5741,7 +5742,7 @@ function findEnclosingFunctionNode(path) {
 }
 
 function findFunctionParameterContext(path) {
-    if (!path || typeof path.getParentNode !== "function") {
+    if (!hasParentNodeAccess(path)) {
         return null;
     }
 
@@ -5861,7 +5862,7 @@ function getIdentifierFromParameterNode(param) {
 }
 
 function isInsideConstructorFunction(path) {
-    if (!path || typeof path.getParentNode !== "function") {
+    if (!hasParentNodeAccess(path)) {
         return false;
     }
 
@@ -5896,7 +5897,7 @@ function isInsideConstructorFunction(path) {
 }
 
 function findEnclosingFunctionDeclaration(path) {
-    if (!path || typeof path.getParentNode !== "function") {
+    if (!hasParentNodeAccess(path)) {
         return null;
     }
 
@@ -5920,7 +5921,7 @@ function shouldSynthesizeUndefinedDefaultForIdentifier(path, node) {
         return false;
     }
 
-    if (!path || typeof path.getParentNode !== "function") {
+    if (!hasParentNodeAccess(path)) {
         return false;
     }
 
@@ -8075,7 +8076,7 @@ function shouldOmitSyntheticParens(path) {
 }
 
 function isControlFlowLogicalTest(path) {
-    if (!path || typeof path.getParentNode !== "function") {
+    if (!hasParentNodeAccess(path)) {
         return false;
     }
 
@@ -8120,7 +8121,7 @@ function isControlFlowLogicalTest(path) {
 }
 
 function isComparisonWithinLogicalChain(path) {
-    if (!path || typeof path.getParentNode !== "function") {
+    if (!hasParentNodeAccess(path)) {
         return false;
     }
 
@@ -9218,7 +9219,7 @@ function resolveArgumentAliasInitializerDoc(path) {
 }
 
 function findEnclosingFunctionForPath(path) {
-    if (!path || typeof path.getParentNode !== "function") {
+    if (!hasParentNodeAccess(path)) {
         return null;
     }
 
@@ -9440,7 +9441,7 @@ function hasLineBreak(text) {
 }
 
 function isInLValueChain(path) {
-    if (!path || typeof path.getParentNode !== "function") {
+    if (!hasParentNodeAccess(path)) {
         return false;
     }
 
