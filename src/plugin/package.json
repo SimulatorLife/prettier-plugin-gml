@@ -4,8 +4,6 @@
   "type": "module",
   "exports": {
     ".": "./src/gml.js",
-    "./project-index": "./src/project-index.js",
-    "./identifier-case": "./src/identifier-case.js",
     "./parsers": "./src/parsers/index.js"
   },
   "config": {

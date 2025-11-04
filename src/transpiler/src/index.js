@@ -31,10 +31,10 @@ export class GmlTranspiler {
             // Parse the GML source code
             const parser = new GMLParser(sourceText);
             const ast = parser.parse();
-            
+
             // Generate JavaScript from the AST
             const jsBody = emitJavaScript(ast);
-            
+
             // Return a patch object compatible with the runtime wrapper
             return {
                 kind: "script",
