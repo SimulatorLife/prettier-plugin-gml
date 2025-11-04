@@ -193,7 +193,7 @@ export async function runWatchCommand(targetPath, options) {
     );
 
     // Handle termination with proper cleanup of event listeners
-    const createSignalHandler = (signalName) => {
+    const createSignalHandler = () => {
         return () => {
             if (verbose) {
                 console.log("\nStopping watcher...");
@@ -205,8 +205,8 @@ export async function runWatchCommand(targetPath, options) {
         };
     };
 
-    const sigintHandler = createSignalHandler("SIGINT");
-    const sigtermHandler = createSignalHandler("SIGTERM");
+    const sigintHandler = createSignalHandler();
+    const sigtermHandler = createSignalHandler();
 
     process.on("SIGINT", sigintHandler);
     process.on("SIGTERM", sigtermHandler);
