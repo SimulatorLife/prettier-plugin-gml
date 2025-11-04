@@ -17,6 +17,7 @@ import path from "node:path";
 import process from "node:process";
 
 import { Command, Option } from "commander";
+import GMLParser from "../../../parser/src/gml-parser.js";
 
 /**
  * Creates the watch command for monitoring GML source files.
@@ -66,6 +67,12 @@ export function createWatchCommand() {
         .addOption(
             new Option("--verbose", "Enable verbose logging").default(false)
         )
+        .addOption(
+            new Option(
+                "--parse",
+                "Parse changed files and report syntax errors"
+            ).default(false)
+        )
         .action(runWatchCommand);
 
     return command;
@@ -103,13 +110,15 @@ async function validateTargetPath(targetPath) {
  * @param {boolean} polling - Whether polling mode is enabled
  * @param {number} pollingInterval - Polling interval in ms
  * @param {boolean} verbose - Whether verbose logging is enabled
+ * @param {boolean} parse - Whether to parse changed files
  */
 function logWatchStartup(
     targetPath,
     extensions,
     polling,
     pollingInterval,
-    verbose
+    verbose,
+    parse
 ) {
     if (verbose) {
         console.log(`Watching: ${targetPath}`);
@@ -118,9 +127,13 @@ function logWatchStartup(
         if (polling) {
             console.log(`Polling interval: ${pollingInterval}ms`);
         }
+        console.log(`Parse on change: ${parse ? "enabled" : "disabled"}`);
         console.log("\nWaiting for file changes... (Press Ctrl+C to stop)\n");
     } else {
         console.log(`Watching ${targetPath} for changes...`);
+        if (parse) {
+            console.log("Parser validation enabled");
+        }
     }
 }
 
@@ -133,13 +146,15 @@ function logWatchStartup(
  * @param {boolean} options.polling - Use polling instead of native watching
  * @param {number} options.pollingInterval - Polling interval in milliseconds
  * @param {boolean} options.verbose - Enable verbose logging
+ * @param {boolean} options.parse - Parse changed files and report syntax errors
  */
 export async function runWatchCommand(targetPath, options) {
     const {
         extensions = [".gml"],
         polling = false,
         pollingInterval = 1000,
-        verbose = false
+        verbose = false,
+        parse = false
     } = options;
 
     const normalizedPath = await validateTargetPath(targetPath);
@@ -153,7 +168,8 @@ export async function runWatchCommand(targetPath, options) {
         extensionSet,
         polling,
         pollingInterval,
-        verbose
+        verbose,
+        parse
     );
 
     const watchOptions = {
@@ -181,7 +197,7 @@ export async function runWatchCommand(targetPath, options) {
 
             // Future: Trigger transpiler, semantic analysis, and patch streaming
             // For now, we just detect and report changes
-            handleFileChange(fullPath, eventType, { verbose }).catch(
+            handleFileChange(fullPath, eventType, { verbose, parse }).catch(
                 (error) => {
                     console.error(
                         `Error processing ${filename}:`,
@@ -220,8 +236,13 @@ export async function runWatchCommand(targetPath, options) {
  * @param {string} eventType - Type of file system event ('change' or 'rename')
  * @param {object} options - Processing options
  * @param {boolean} options.verbose - Enable verbose logging
+ * @param {boolean} options.parse - Parse the file and report syntax errors
  */
-async function handleFileChange(filePath, eventType, { verbose = false } = {}) {
+async function handleFileChange(
+    filePath,
+    eventType,
+    { verbose = false, parse = false } = {}
+) {
     if (eventType === "rename") {
         // File was created, deleted, or renamed
         try {
@@ -247,8 +268,12 @@ async function handleFileChange(filePath, eventType, { verbose = false } = {}) {
                 console.log(`  ↳ Read ${lines} lines`);
             }
 
+            // Integration point 1: Parse the file using the ANTLR parser (src/parser)
+            if (parse) {
+                await parseFile(filePath, content, { verbose });
+            }
+
             // Future integration points:
-            // 1. Parse the file using the ANTLR parser (src/parser)
             // 2. Run semantic analysis (src/semantic)
             // 3. Generate transpiler patches (src/transpiler)
             // 4. Stream patches to runtime wrapper (src/runtime-wrapper)
@@ -256,6 +281,43 @@ async function handleFileChange(filePath, eventType, { verbose = false } = {}) {
             if (verbose) {
                 console.log(`  ↳ Error reading file: ${error.message}`);
             }
+        }
+    }
+}
+
+/**
+ * Parses a GML file and reports any syntax errors.
+ *
+ * This is the first integration point with the hot-reload pipeline,
+ * establishing the foundation for semantic analysis and transpilation.
+ *
+ * @param {string} filePath - Path to the file being parsed
+ * @param {string} content - File content to parse
+ * @param {object} options - Parsing options
+ * @param {boolean} options.verbose - Enable verbose logging
+ */
+async function parseFile(filePath, content, { verbose = false } = {}) {
+    try {
+        const parser = new GMLParser(content, {
+            getComments: false,
+            getLocations: false,
+            simplifyLocations: false
+        });
+
+        const _ast = parser.parse();
+
+        if (verbose) {
+            console.log(`  ↳ ✓ Parse successful`);
+        } else {
+            console.log(`  ✓ Parse OK`);
+        }
+    } catch (error) {
+        console.error(`  ✗ Parse error in ${path.basename(filePath)}:`);
+        if (error.message) {
+            console.error(`    ${error.message}`);
+        }
+        if (verbose && error.stack) {
+            console.error(`    Stack: ${error.stack}`);
         }
     }
 }
