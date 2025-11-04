@@ -9,6 +9,16 @@
  * Current implementation focuses on file system watching and change detection.
  * Future iterations will integrate with the transpiler, semantic analyzer, and runtime
  * wrapper to enable true hot-reloading without game restarts.
+ *
+ * ## Resource Management
+ *
+ * The watch command properly manages system resources to prevent leaks:
+ * - File system watcher is closed on termination
+ * - Signal handlers (SIGINT, SIGTERM) are removed when the watcher stops
+ * - Event listeners are cleaned up even when the command exits abnormally
+ *
+ * This ensures that multiple invocations of the watch command (e.g., during testing
+ * or development) do not accumulate event listeners on the process object.
  */
 
 import { watch } from "node:fs";
