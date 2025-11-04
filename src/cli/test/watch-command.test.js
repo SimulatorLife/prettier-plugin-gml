@@ -126,4 +126,86 @@ describe("watch command integration", () => {
             throw error;
         }
     });
+
+    it("should properly clean up signal handlers to prevent resource leaks", async () => {
+        const testDir = path.join(
+            "/tmp",
+            `watch-leak-test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+        );
+
+        await mkdir(testDir, { recursive: true });
+
+        try {
+            const { runWatchCommand } = await import(
+                "../src/commands/watch.js"
+            );
+
+            // Count initial signal listeners
+            const initialSigintCount = process.listenerCount("SIGINT");
+            const initialSigtermCount = process.listenerCount("SIGTERM");
+
+            // Start the watch command
+            runWatchCommand(testDir, {
+                extensions: [".gml"],
+                polling: false,
+                pollingInterval: 1000,
+                verbose: false
+            });
+
+            // Give it time to set up
+            await sleep(100);
+
+            // Verify listeners were added
+            const duringWatchSigintCount = process.listenerCount("SIGINT");
+            const duringWatchSigtermCount = process.listenerCount("SIGTERM");
+            assert.ok(
+                duringWatchSigintCount > initialSigintCount,
+                "SIGINT listener should be added"
+            );
+            assert.ok(
+                duringWatchSigtermCount > initialSigtermCount,
+                "SIGTERM listener should be added"
+            );
+
+            // Simulate SIGINT to trigger cleanup
+            const originalExit = process.exit;
+            let exitCalled = false;
+            process.exit = () => {
+                exitCalled = true;
+                // Don't actually exit
+            };
+
+            try {
+                // Emit SIGINT to trigger cleanup
+                process.emit("SIGINT");
+
+                // Give cleanup time to execute
+                await sleep(50);
+
+                // Verify listeners were properly removed
+                const afterCleanupSigintCount = process.listenerCount("SIGINT");
+                const afterCleanupSigtermCount =
+                    process.listenerCount("SIGTERM");
+
+                assert.ok(exitCalled, "process.exit should have been called");
+                assert.ok(
+                    afterCleanupSigintCount <= initialSigintCount,
+                    `SIGINT listener should be removed to prevent leak (before: ${initialSigintCount}, during: ${duringWatchSigintCount}, after: ${afterCleanupSigintCount})`
+                );
+                assert.ok(
+                    afterCleanupSigtermCount <= initialSigtermCount,
+                    `SIGTERM listener should be removed to prevent leak (before: ${initialSigtermCount}, during: ${duringWatchSigtermCount}, after: ${afterCleanupSigtermCount})`
+                );
+            } finally {
+                process.exit = originalExit;
+            }
+
+            await rm(testDir, { recursive: true, force: true });
+        } catch (error) {
+            await rm(testDir, { recursive: true, force: true }).catch(() => {
+                // Ignore cleanup errors
+            });
+            throw error;
+        }
+    });
 });

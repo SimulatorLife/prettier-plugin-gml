@@ -192,17 +192,24 @@ export async function runWatchCommand(targetPath, options) {
         }
     );
 
-    // Handle termination
-    const cleanup = () => {
-        if (verbose) {
-            console.log("\nStopping watcher...");
-        }
-        watcher.close();
-        process.exit(0);
+    // Handle termination with proper cleanup of event listeners
+    const createSignalHandler = (signalName) => {
+        return () => {
+            if (verbose) {
+                console.log("\nStopping watcher...");
+            }
+            watcher.close();
+            process.removeListener("SIGINT", sigintHandler);
+            process.removeListener("SIGTERM", sigtermHandler);
+            process.exit(0);
+        };
     };
 
-    process.on("SIGINT", cleanup);
-    process.on("SIGTERM", cleanup);
+    const sigintHandler = createSignalHandler("SIGINT");
+    const sigtermHandler = createSignalHandler("SIGTERM");
+
+    process.on("SIGINT", sigintHandler);
+    process.on("SIGTERM", sigtermHandler);
 
     // Keep the process alive
     return new Promise(() => {
