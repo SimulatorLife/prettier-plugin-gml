@@ -164,27 +164,19 @@ export function ensureManualWorkflowArtifactsAllowed(
         outputLabel = "Manual output path"
     } = {}
 ) {
-    const entries = [];
-
-    if (isNonEmptyString(cacheRoot)) {
-        entries.push({
-            type: "directory",
-            target: cacheRoot,
-            label: cacheLabel
-        });
-    }
-
-    if (isNonEmptyString(outputPath)) {
-        entries.push({
-            type: "path",
-            target: outputPath,
-            label: outputLabel
-        });
-    }
-
-    if (entries.length === 0) {
-        return;
-    }
-
-    ensureWorkflowPathsAllowed(pathFilter, entries);
+    ensureWorkflowPathsAllowed(
+        pathFilter,
+        [
+            isNonEmptyString(cacheRoot) && {
+                type: "directory",
+                target: cacheRoot,
+                label: cacheLabel
+            },
+            isNonEmptyString(outputPath) && {
+                type: "path",
+                target: outputPath,
+                label: outputLabel
+            }
+        ].filter(Boolean)
+    );
 }
