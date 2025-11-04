@@ -488,7 +488,7 @@ function getNodeType(node) {
 }
 
 function isNode(value) {
-    return value !== undefined && value !== null && typeof value === "object";
+    return value != null && typeof value === "object";
 }
 
 const FUNCTION_LIKE_NODE_TYPES = Object.freeze([
