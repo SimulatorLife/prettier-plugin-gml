@@ -172,3 +172,68 @@ test("prepareHotReloadUpdates returns empty array for now", async () => {
     assert.ok(Array.isArray(updates));
     assert.equal(updates.length, 0);
 });
+
+test("collectSymbolOccurrences validates symbolName parameter", async () => {
+    const engine = new RefactorEngine({ semantic: {} });
+    await assert.rejects(() => engine.collectSymbolOccurrences(null), {
+        name: "TypeError",
+        message: /symbolName must be a non-empty string/
+    });
+});
+
+test("collectSymbolOccurrences validates symbolName type", async () => {
+    const engine = new RefactorEngine({ semantic: {} });
+    await assert.rejects(() => engine.collectSymbolOccurrences(123), {
+        name: "TypeError",
+        message: /symbolName must be a non-empty string/
+    });
+});
+
+test("collectSymbolOccurrences requires semantic analyzer", async () => {
+    const engine = new RefactorEngine();
+    await assert.rejects(() => engine.collectSymbolOccurrences("foo"), {
+        message: /RefactorEngine requires a semantic analyzer/
+    });
+});
+
+test("collectSymbolOccurrences returns empty array when method not available", async () => {
+    const mockSemantic = {}; // No getSymbolOccurrences method
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const result = await engine.collectSymbolOccurrences("foo");
+    assert.ok(Array.isArray(result));
+    assert.equal(result.length, 0);
+});
+
+test("collectSymbolOccurrences calls semantic.getSymbolOccurrences", async () => {
+    const mockOccurrences = [
+        {
+            scopeId: "scope1",
+            scopeKind: "script",
+            kind: "declaration",
+            occurrence: { name: "hp", line: 1, column: 5 }
+        },
+        {
+            scopeId: "scope2",
+            scopeKind: "event",
+            kind: "reference",
+            occurrence: { name: "hp", line: 10, column: 8 }
+        }
+    ];
+
+    const mockSemantic = {
+        getSymbolOccurrences: (name) => {
+            assert.equal(name, "hp");
+            return mockOccurrences;
+        }
+    };
+
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const result = await engine.collectSymbolOccurrences("hp");
+
+    assert.ok(Array.isArray(result));
+    assert.equal(result.length, 2);
+    assert.equal(result[0].kind, "declaration");
+    assert.equal(result[1].kind, "reference");
+    assert.equal(result[0].occurrence.name, "hp");
+    assert.equal(result[1].occurrence.name, "hp");
+});

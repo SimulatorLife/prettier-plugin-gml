@@ -76,6 +76,34 @@ export class RefactorEngine {
     }
 
     /**
+     * Collect all occurrences (declarations and references) of a symbol from the semantic analyzer.
+     * This is a key integration point between the refactor engine and semantic analysis.
+     * @param {string} symbolName - The identifier name to search for
+     * @returns {Promise<Array<{scopeId: string, scopeKind: string, kind: string, occurrence: object}>>}
+     */
+    async collectSymbolOccurrences(symbolName) {
+        if (!symbolName || typeof symbolName !== "string") {
+            throw new TypeError(
+                `symbolName must be a non-empty string, got ${typeof symbolName}`
+            );
+        }
+
+        if (!this.semantic) {
+            throw new Error(
+                "RefactorEngine requires a semantic analyzer to collect occurrences"
+            );
+        }
+
+        // Check if semantic analyzer provides occurrence collection
+        if (typeof this.semantic.getSymbolOccurrences === "function") {
+            return this.semantic.getSymbolOccurrences(symbolName);
+        }
+
+        // Fallback: return empty array if method not available
+        return [];
+    }
+
+    /**
      * Plan a rename refactoring for a symbol.
      * @param {Object} request - Rename request
      * @param {string} request.symbolId - Symbol to rename (e.g., "gml/script/scr_foo")
