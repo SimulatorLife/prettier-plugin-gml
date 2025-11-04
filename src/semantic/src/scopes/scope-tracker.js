@@ -373,4 +373,120 @@ export default class ScopeTracker {
 
         return results;
     }
+
+    /**
+     * Find all occurrences (declarations and references) of a specific symbol
+     * across all scopes. This supports hot reload coordination by identifying
+     * what needs to be recompiled when a symbol changes.
+     *
+     * @param {string} name The identifier name to search for.
+     * @returns {Array<{scopeId: string, scopeKind: string, kind: string, occurrence: object}>}
+     *          Array of occurrence records with scope context.
+     */
+    getSymbolOccurrences(name) {
+        if (!this.enabled || !name) {
+            return [];
+        }
+
+        const results = [];
+
+        for (const scope of this.scopesById.values()) {
+            const entry = scope.occurrences.get(name);
+            if (!entry) {
+                continue;
+            }
+
+            for (const declaration of entry.declarations) {
+                results.push({
+                    scopeId: scope.id,
+                    scopeKind: scope.kind,
+                    kind: "declaration",
+                    occurrence: cloneOccurrence(declaration)
+                });
+            }
+
+            for (const reference of entry.references) {
+                results.push({
+                    scopeId: scope.id,
+                    scopeKind: scope.kind,
+                    kind: "reference",
+                    occurrence: cloneOccurrence(reference)
+                });
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * Get all symbols (unique identifier names) declared or referenced in a
+     * specific scope. This helps track dependencies and supports selective
+     * recompilation strategies.
+     *
+     * @param {string} scopeId The scope identifier to query.
+     * @returns {Array<string>} Array of unique identifier names in the scope.
+     */
+    getScopeSymbols(scopeId) {
+        if (!this.enabled || !scopeId) {
+            return [];
+        }
+
+        const scope = this.scopesById.get(scopeId);
+        if (!scope) {
+            return [];
+        }
+
+        return [...scope.occurrences.keys()];
+    }
+
+    /**
+     * Resolve an identifier name to its declaration metadata by walking up the
+     * scope chain from a specified scope. This implements proper lexical scoping
+     * rules and supports accurate binding resolution for transpilation.
+     *
+     * @param {string} name The identifier name to resolve.
+     * @param {string} [scopeId] The scope to start resolution from. If omitted,
+     *        uses the current scope.
+     * @returns {object | null} The declaration metadata if found, or null.
+     */
+    resolveIdentifier(name, scopeId) {
+        if (!this.enabled || !name) {
+            return null;
+        }
+
+        let startScope;
+        if (scopeId) {
+            startScope = this.scopesById.get(scopeId);
+            if (!startScope) {
+                return null;
+            }
+        } else {
+            startScope = this.currentScope();
+        }
+
+        if (!startScope) {
+            return null;
+        }
+
+        const scopeIndices = new Map();
+        this.scopeStack.forEach((scope, index) => {
+            scopeIndices.set(scope.id, index);
+        });
+
+        const startIndex = scopeIndices.get(startScope.id);
+        if (startIndex === undefined) {
+            const declaration = startScope.declarations.get(name);
+            return declaration ? { ...declaration } : null;
+        }
+
+        for (let i = startIndex; i >= 0; i -= 1) {
+            const scope = this.scopeStack[i];
+            const declaration = scope.declarations.get(name);
+            if (declaration) {
+                return { ...declaration };
+            }
+        }
+
+        return null;
+    }
 }
