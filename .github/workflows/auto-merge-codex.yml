@@ -169,3 +169,15 @@ jobs:
             } catch (e) {
               core.warning(`Unable to delete head branch: ${e.message}`);
             }
+
+  auto-approve:
+    if: >-
+      github.event.pull_request.user.login == 'henrylkirk' ||
+      github.event.pull_request.user.login == 'github-copilot' ||
+      github.event.pull_request.user.login == 'github-copilot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Auto-approve trusted author PR
+        uses: hmarr/auto-approve-action@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
