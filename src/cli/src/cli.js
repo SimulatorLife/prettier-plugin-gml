@@ -92,7 +92,7 @@ import {
     runGenerateFeatherMetadata
 } from "./commands/generate-feather-metadata.js";
 import { createWatchCommand, runWatchCommand } from "./commands/watch.js";
-import { resolveCliIdentifierCaseCacheClearer } from "./plugin-runtime/services.js";
+import { getIdentifierCaseCacheClearer } from "./plugin-runtime/plugin-services.js";
 import { isCliRunSkipped } from "./shared/dependencies.js";
 import {
     getDefaultSkippedDirectorySampleLimit,
@@ -626,8 +626,8 @@ let revertSnapshotDirectory = null;
 let revertSnapshotFileCount = 0;
 let encounteredFormattableFile = false;
 
-function clearIdentifierCaseCaches() {
-    const clearCaches = resolveCliIdentifierCaseCacheClearer();
+async function clearIdentifierCaseCaches() {
+    const clearCaches = await getIdentifierCaseCacheClearer();
     clearCaches();
 }
 
@@ -747,7 +747,7 @@ async function resetFormattingSession(onParseError) {
     abortRequested = false;
     revertTriggered = false;
     await discardFormattedFileOriginalContents();
-    clearIdentifierCaseCaches();
+    await clearIdentifierCaseCaches();
     resetSkippedFileSummary();
     resetSkippedDirectorySummary();
     encounteredFormattingError = false;
@@ -1585,7 +1585,7 @@ async function executeFormatCommand(command) {
         });
     } finally {
         await discardFormattedFileOriginalContents();
-        clearIdentifierCaseCaches();
+        await clearIdentifierCaseCaches();
     }
 }
 
