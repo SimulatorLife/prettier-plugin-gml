@@ -98,6 +98,30 @@ describe("CommentTracker", () => {
             [20]
         );
     });
+
+    it("correctly takes multiple consecutive matching comments without skipping", async () => {
+        const { CommentTracker } = await loadCommentTracker();
+
+        const comments = [
+            { start: { index: 10 }, type: "match" },
+            { start: { index: 20 }, type: "match" },
+            { start: { index: 30 }, type: "skip" },
+            { start: { index: 40 }, type: "match" },
+            { start: { index: 50 }, type: "match" }
+        ];
+
+        const tracker = new CommentTracker(comments);
+        const predicate = (comment) => comment.type === "match";
+        const taken = tracker.takeBetween(5, 100, predicate);
+
+        assert.equal(taken.length, 4);
+        assert.deepEqual(
+            taken.map((c) => c.start.index),
+            [10, 20, 40, 50]
+        );
+        assert.equal(tracker.entries.length, 1);
+        assert.equal(tracker.entries[0].comment.start.index, 30);
+    });
 });
 
 describe("consolidateStructAssignments", () => {
