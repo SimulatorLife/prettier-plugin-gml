@@ -126,3 +126,127 @@ test("emitJavaScript returns empty string for unsupported node types", () => {
     const result = emitJavaScript(ast);
     assert.equal(result, "");
 });
+
+test("GmlEmitter handles function calls with no arguments", () => {
+    const source = "show_message()";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("show_message()"), "Should include the function call");
+});
+
+test("GmlEmitter handles function calls with single argument", () => {
+    const source = 'show_debug_message("hello")';
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("show_debug_message"), "Should include function name");
+    assert.ok(result.includes("hello"), "Should include argument");
+});
+
+test("GmlEmitter handles function calls with multiple arguments", () => {
+    const source = "draw_text(x, y, str)";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("draw_text"), "Should include function name");
+    assert.ok(result.includes("x"), "Should include first argument");
+    assert.ok(result.includes("y"), "Should include second argument");
+    assert.ok(result.includes("str"), "Should include third argument");
+});
+
+test("GmlEmitter handles nested function calls", () => {
+    const source = "draw_text(x, y, string(health))";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("draw_text"), "Should include outer function");
+    assert.ok(result.includes("string"), "Should include inner function");
+    assert.ok(result.includes("health"), "Should include argument to inner function");
+});
+
+test("GmlEmitter handles array literals", () => {
+    const source = "[1, 2, 3]";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("["), "Should include opening bracket");
+    assert.ok(result.includes("]"), "Should include closing bracket");
+    assert.ok(result.includes("1"), "Should include first element");
+    assert.ok(result.includes("2"), "Should include second element");
+    assert.ok(result.includes("3"), "Should include third element");
+});
+
+test("GmlEmitter handles empty array literals", () => {
+    const source = "[]";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("[]"), "Should include empty array");
+});
+
+test("GmlEmitter handles nested arrays", () => {
+    const source = "[[1, 2], [3, 4]]";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("["), "Should include brackets");
+    assert.ok(result.includes("1"), "Should include nested elements");
+});
+
+test("GmlEmitter handles struct literals", () => {
+    const source = "{ x: 10, y: 20 }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("{"), "Should include opening brace");
+    assert.ok(result.includes("}"), "Should include closing brace");
+    assert.ok(result.includes("x"), "Should include first key");
+    assert.ok(result.includes("10"), "Should include first value");
+    assert.ok(result.includes("y"), "Should include second key");
+    assert.ok(result.includes("20"), "Should include second value");
+});
+
+test("GmlEmitter handles empty struct literals", () => {
+    const source = "x = {}";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("{}") || result.includes("{ }"), "Should include empty struct");
+});
+
+test("GmlEmitter handles member dot access", () => {
+    const source = "x = obj.speed";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("obj.speed"), "Should include dot notation");
+});
+
+test("GmlEmitter handles chained member access", () => {
+    const source = "x = obj.player.health";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("obj"), "Should include root object");
+    assert.ok(result.includes("player"), "Should include intermediate property");
+    assert.ok(result.includes("health"), "Should include final property");
+});
+
+test("GmlEmitter handles array indexing", () => {
+    const source = "x = arr[0]";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("arr[0]"), "Should include array indexing");
+});
+
+test("GmlEmitter handles 2D array indexing", () => {
+    const source = "x = grid[i, j]";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("grid"), "Should include array name");
+    assert.ok(result.includes("i"), "Should include first index");
+    assert.ok(result.includes("j"), "Should include second index");
+});
