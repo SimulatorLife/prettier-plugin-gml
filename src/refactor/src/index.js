@@ -433,6 +433,80 @@ export class RefactorEngine {
     }
 
     /**
+     * Plan multiple rename operations that should be applied together.
+     * This is useful for refactoring related symbols atomically.
+     * @param {Array<{symbolId: string, newName: string}>} renames - Array of rename operations
+     * @returns {Promise<WorkspaceEdit>} Combined workspace edit for all renames
+     */
+    async planBatchRename(renames) {
+        if (!Array.isArray(renames)) {
+            throw new TypeError("planBatchRename requires an array of renames");
+        }
+
+        if (renames.length === 0) {
+            throw new Error("planBatchRename requires at least one rename");
+        }
+
+        // Validate all rename requests first
+        for (const rename of renames) {
+            if (!rename.symbolId || !rename.newName) {
+                throw new TypeError(
+                    "Each rename requires symbolId and newName"
+                );
+            }
+
+            if (typeof rename.symbolId !== "string") {
+                throw new TypeError(
+                    `symbolId must be a string, got ${typeof rename.symbolId}`
+                );
+            }
+
+            if (typeof rename.newName !== "string") {
+                throw new TypeError(
+                    `newName must be a string, got ${typeof rename.newName}`
+                );
+            }
+        }
+
+        // Check for duplicate new names that would conflict
+        const newNames = new Set();
+        for (const rename of renames) {
+            const symbolName = rename.symbolId.split("/").pop();
+            if (newNames.has(rename.newName)) {
+                throw new Error(
+                    `Cannot rename multiple symbols to '${rename.newName}'`
+                );
+            }
+            newNames.add(rename.newName);
+        }
+
+        // Plan each rename individually
+        const workspaces = [];
+        for (const rename of renames) {
+            const workspace = await this.planRename(rename);
+            workspaces.push(workspace);
+        }
+
+        // Merge all workspace edits
+        const merged = new WorkspaceEdit();
+        for (const workspace of workspaces) {
+            for (const edit of workspace.edits) {
+                merged.addEdit(edit.path, edit.start, edit.end, edit.newText);
+            }
+        }
+
+        // Validate the merged result for overlapping edits
+        const validation = await this.validateRename(merged);
+        if (!validation.valid) {
+            throw new Error(
+                `Batch rename validation failed: ${validation.errors.join("; ")}`
+            );
+        }
+
+        return merged;
+    }
+
+    /**
      * Execute a rename refactoring with optional hot reload integration.
      * This is a high-level method that combines planning, validation, application, and hot reload preparation.
      * @param {Object} request - Rename request
@@ -458,6 +532,46 @@ export class RefactorEngine {
 
         // Plan the rename
         const workspace = await this.planRename({ symbolId, newName });
+
+        // Apply the edits
+        const applied = await this.applyWorkspaceEdit(workspace, {
+            readFile,
+            writeFile,
+            dryRun: false
+        });
+
+        // Prepare hot reload updates if requested
+        let hotReloadUpdates = [];
+        if (prepareHotReload) {
+            hotReloadUpdates = await this.prepareHotReloadUpdates(workspace);
+        }
+
+        return { workspace, applied, hotReloadUpdates };
+    }
+
+    /**
+     * Execute multiple renames atomically with optional hot reload integration.
+     * @param {Object} request - Batch rename request
+     * @param {Array<{symbolId: string, newName: string}>} request.renames - Rename operations
+     * @param {Function} request.readFile - Function to read file content
+     * @param {Function} request.writeFile - Function to write file content
+     * @param {boolean} request.prepareHotReload - Whether to prepare hot reload updates
+     * @returns {Promise<{workspace: WorkspaceEdit, applied: Map<string, string>, hotReloadUpdates: Array}>}
+     */
+    async executeBatchRename(request) {
+        const {
+            renames,
+            readFile,
+            writeFile,
+            prepareHotReload = false
+        } = request ?? {};
+
+        if (!renames) {
+            throw new TypeError("executeBatchRename requires renames array");
+        }
+
+        // Plan the batch rename
+        const workspace = await this.planBatchRename(renames);
 
         // Apply the edits
         const applied = await this.applyWorkspaceEdit(workspace, {
@@ -551,6 +665,128 @@ export class RefactorEngine {
         }
 
         return updates;
+    }
+
+    /**
+     * Analyze the impact of a planned rename without applying it.
+     * Provides detailed information about what will be changed.
+     * @param {Object} request - Analysis request
+     * @param {string} request.symbolId - Symbol to analyze
+     * @param {string} request.newName - Proposed new name
+     * @returns {Promise<{valid: boolean, summary: Object, conflicts: Array, warnings: Array}>}
+     */
+    async analyzeRenameImpact(request) {
+        const { symbolId, newName } = request ?? {};
+
+        if (!symbolId || !newName) {
+            throw new TypeError(
+                "analyzeRenameImpact requires symbolId and newName"
+            );
+        }
+
+        const summary = {
+            symbolId,
+            oldName: symbolId.split("/").pop(),
+            newName,
+            affectedFiles: new Set(),
+            totalOccurrences: 0,
+            definitionCount: 0,
+            referenceCount: 0,
+            hotReloadRequired: false,
+            dependentSymbols: new Set()
+        };
+
+        const conflicts = [];
+        const warnings = [];
+
+        try {
+            // Validate symbol exists
+            const exists = await this.validateSymbolExists(symbolId);
+            if (!exists) {
+                conflicts.push({
+                    type: "missing_symbol",
+                    message: `Symbol '${symbolId}' not found in semantic index`,
+                    severity: "error"
+                });
+                return { valid: false, summary, conflicts, warnings };
+            }
+
+            // Gather occurrences
+            const occurrences = await this.gatherSymbolOccurrences(
+                summary.oldName
+            );
+            summary.totalOccurrences = occurrences.length;
+
+            // Track affected files
+            for (const occ of occurrences) {
+                summary.affectedFiles.add(occ.path);
+                // Count definitions vs references
+                if (occ.kind === "definition") {
+                    summary.definitionCount++;
+                } else {
+                    summary.referenceCount++;
+                }
+            }
+
+            // Check for conflicts
+            const detectedConflicts = await this.detectRenameConflicts(
+                summary.oldName,
+                newName,
+                occurrences
+            );
+            conflicts.push(...detectedConflicts);
+
+            // Check if hot reload will be needed
+            if (summary.totalOccurrences > 0) {
+                summary.hotReloadRequired = true;
+
+                // Identify dependent symbols
+                if (
+                    this.semantic &&
+                    typeof this.semantic.getDependents === "function"
+                ) {
+                    const dependents =
+                        await this.semantic.getDependents([symbolId]);
+                    for (const dep of dependents) {
+                        summary.dependentSymbols.add(dep.symbolId);
+                    }
+                }
+            }
+
+            // Generate warnings for large-scale renames
+            if (summary.totalOccurrences > 50) {
+                warnings.push({
+                    type: "large_rename",
+                    message: `This rename will affect ${summary.totalOccurrences} occurrences across ${summary.affectedFiles.size} files`,
+                    severity: "warning"
+                });
+            }
+
+            if (summary.dependentSymbols.size > 10) {
+                warnings.push({
+                    type: "many_dependents",
+                    message: `${summary.dependentSymbols.size} other symbols depend on this symbol`,
+                    severity: "info"
+                });
+            }
+        } catch (error) {
+            conflicts.push({
+                type: "analysis_error",
+                message: `Failed to analyze impact: ${error.message}`,
+                severity: "error"
+            });
+        }
+
+        // Convert sets to arrays for JSON serialization
+        summary.affectedFiles = Array.from(summary.affectedFiles);
+        summary.dependentSymbols = Array.from(summary.dependentSymbols);
+
+        return {
+            valid: conflicts.length === 0,
+            summary,
+            conflicts,
+            warnings
+        };
     }
 
     /**
