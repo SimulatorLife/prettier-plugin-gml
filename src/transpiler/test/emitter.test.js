@@ -407,3 +407,318 @@ test("emitJavaScript handles while loop with continue", () => {
     assert.ok(result.includes("while"), "Should include while keyword");
     assert.ok(result.includes("continue"), "Should include continue");
 });
+
+// Repeat statement tests
+test("emitJavaScript handles repeat statements", () => {
+    const source = "repeat (5) { x += 1; }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("for"), "Should convert to for loop");
+    assert.ok(
+        result.includes("__repeat_count"),
+        "Should use __repeat_count variable"
+    );
+    assert.ok(result.includes("5"), "Should include repeat count");
+    assert.ok(result.includes("x += 1"), "Should include body");
+});
+
+test("emitJavaScript handles repeat with variable count", () => {
+    const source = "repeat (n) { total += 1; }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("for"), "Should convert to for loop");
+    assert.ok(result.includes("n"), "Should include variable count");
+    assert.ok(result.includes("total += 1"), "Should include body");
+});
+
+test("emitJavaScript handles repeat with expression count", () => {
+    const source = "repeat (x + y) { z += 1; }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("for"), "Should convert to for loop");
+    assert.ok(
+        result.includes("x") && result.includes("y"),
+        "Should include expression"
+    );
+});
+
+test("emitJavaScript handles repeat without braces", () => {
+    const source = "repeat (3) x += 1";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("for"), "Should convert to for loop");
+    assert.ok(
+        result.includes("{") && result.includes("}"),
+        "Should add braces"
+    );
+});
+
+test("emitJavaScript handles nested repeat statements", () => {
+    const source = "repeat (x) { repeat (y) { z += 1; } }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("for"), "Should include for loops");
+    assert.ok(result.includes("x"), "Should include outer count");
+    assert.ok(result.includes("y"), "Should include inner count");
+});
+
+test("emitJavaScript handles repeat with break", () => {
+    const source = "repeat (10) { if (x > 5) break; x += 1; }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("for"), "Should convert to for loop");
+    assert.ok(result.includes("break"), "Should include break");
+});
+
+test("emitJavaScript handles repeat with continue", () => {
+    const source = "repeat (10) { if (x % 2 == 0) continue; x += 1; }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("for"), "Should convert to for loop");
+    assert.ok(result.includes("continue"), "Should include continue");
+});
+
+// Array and struct literal tests
+test("emitJavaScript handles empty array literals", () => {
+    const source = "x = []";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("[]"), "Should emit empty array literal");
+});
+
+test("emitJavaScript handles array literals with elements", () => {
+    const source = "x = [1, 2, 3]";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("[1, 2, 3]"), "Should emit array literal");
+});
+
+test("emitJavaScript handles array literals with expressions", () => {
+    const source = "x = [a + b, c * d, 5]";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(
+        result.includes("[") && result.includes("]"),
+        "Should emit array literal"
+    );
+    assert.ok(result.includes("a"), "Should include expression");
+});
+
+test("emitJavaScript handles nested array literals", () => {
+    const source = "x = [[1, 2], [3, 4]]";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(
+        result.includes("[[") && result.includes("]]"),
+        "Should emit nested arrays"
+    );
+});
+
+test("emitJavaScript handles empty struct literals", () => {
+    const source = "x = {}";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("{}"), "Should emit empty struct literal");
+});
+
+test("emitJavaScript handles struct literals with properties", () => {
+    const source = "x = {a: 1, b: 2}";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("a: 1"), "Should include first property");
+    assert.ok(result.includes("b: 2"), "Should include second property");
+});
+
+test("emitJavaScript handles struct literals with string keys", () => {
+    const source = 'x = {name: "player", hp: 100}';
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("name:"), "Should include name property");
+    assert.ok(result.includes("hp:"), "Should include hp property");
+});
+
+test("emitJavaScript handles struct literals with expression values", () => {
+    const source = "x = {total: a + b, half: n / 2}";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("total:"), "Should include total property");
+    assert.ok(result.includes("half:"), "Should include half property");
+});
+
+test("emitJavaScript handles nested struct literals", () => {
+    const source = "x = {outer: {inner: 42}}";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(
+        result.includes("outer:") && result.includes("inner:"),
+        "Should emit nested structs"
+    );
+});
+
+test("emitJavaScript handles structs with array properties", () => {
+    const source = "x = {items: [1, 2, 3], name: val}";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("items:"), "Should include items property");
+    assert.ok(result.includes("[1, 2, 3]"), "Should include array literal");
+});
+
+test("emitJavaScript handles arrays with struct elements", () => {
+    const source = "x = [{a: 1}, {b: 2}]";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("a: 1"), "Should include first struct");
+    assert.ok(result.includes("b: 2"), "Should include second struct");
+});
+
+// Ternary expression tests
+test("emitJavaScript handles simple ternary expressions", () => {
+    const source = "x = a > b ? a : b";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("?"), "Should include ? operator");
+    assert.ok(result.includes(":"), "Should include : operator");
+    assert.ok(result.includes("a > b"), "Should include test condition");
+});
+
+test("emitJavaScript handles ternary with parenthesized test", () => {
+    const source = "x = (a > b) ? a : b";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("?"), "Should include ternary operator");
+    assert.ok(result.includes("a"), "Should include consequent");
+    assert.ok(result.includes("b"), "Should include alternate");
+});
+
+test("emitJavaScript handles nested ternary expressions", () => {
+    const source = "x = a > b ? (c > d ? c : d) : b";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("?"), "Should include ternary operators");
+});
+
+test("emitJavaScript handles ternary with complex expressions", () => {
+    const source = "result = (x + y) > 10 ? x * 2 : y / 2";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("?"), "Should include ternary operator");
+    assert.ok(result.includes("x + y"), "Should include test expression");
+    assert.ok(result.includes("x * 2"), "Should include consequent");
+    assert.ok(result.includes("y / 2"), "Should include alternate");
+});
+
+test("emitJavaScript handles ternary with function calls", () => {
+    const source = "x = check() ? getValue() : getDefault()";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("check()"), "Should include test function");
+    assert.ok(
+        result.includes("getValue()"),
+        "Should include consequent function"
+    );
+    assert.ok(
+        result.includes("getDefault()"),
+        "Should include alternate function"
+    );
+});
+
+// Error handling tests
+test("emitJavaScript handles throw statements with string", () => {
+    const source = 'throw "Error message"';
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("throw"), "Should include throw keyword");
+    assert.ok(result.includes("Error message"), "Should include error message");
+});
+
+test("emitJavaScript handles throw statements with expression", () => {
+    const source = "throw new_error(code)";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("throw"), "Should include throw keyword");
+    assert.ok(result.includes("new_error"), "Should include expression");
+});
+
+test("emitJavaScript handles try-catch statements", () => {
+    const source = "try { risky(); } catch (e) { handle(e); }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("try"), "Should include try keyword");
+    assert.ok(result.includes("catch"), "Should include catch keyword");
+    assert.ok(result.includes("risky()"), "Should include try block");
+    assert.ok(result.includes("handle"), "Should include catch block");
+});
+
+test("emitJavaScript handles try-catch without parameter", () => {
+    const source = "try { code(); } catch { recover(); }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("try"), "Should include try keyword");
+    assert.ok(result.includes("catch"), "Should include catch keyword");
+    assert.ok(
+        result.includes("err") || result.includes("("),
+        "Should provide default parameter"
+    );
+});
+
+test("emitJavaScript handles try-finally statements", () => {
+    const source = "try { code(); } finally { cleanup(); }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("try"), "Should include try keyword");
+    assert.ok(result.includes("finally"), "Should include finally keyword");
+    assert.ok(result.includes("cleanup()"), "Should include finally block");
+});
+
+test("emitJavaScript handles try-catch-finally statements", () => {
+    const source =
+        "try { risky(); } catch (e) { handle(e); } finally { cleanup(); }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("try"), "Should include try keyword");
+    assert.ok(result.includes("catch"), "Should include catch keyword");
+    assert.ok(result.includes("finally"), "Should include finally keyword");
+    assert.ok(result.includes("risky()"), "Should include try block");
+    assert.ok(result.includes("handle"), "Should include catch block");
+    assert.ok(result.includes("cleanup()"), "Should include finally block");
+});
+
+test("emitJavaScript handles nested try-catch blocks", () => {
+    const source =
+        "try { try { inner(); } catch (e) { log(e); } } catch (e) { outer(e); }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("try"), "Should include try keywords");
+    assert.ok(result.includes("inner()"), "Should include inner try block");
+    assert.ok(result.includes("outer"), "Should include outer catch block");
+});
