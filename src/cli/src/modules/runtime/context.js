@@ -27,7 +27,7 @@ function buildRuntimeCommandContext({
     userAgent,
     runtimeRepo,
     repoRootSegments = ["..", ".."],
-    cacheRootSegments = ["scripts", "cache", "runtime"],
+    cacheRootSegments = ["src", "cli", "cache", "runtime"],
     workflowPathFilter
 } = {}) {
     const normalizedUrl = assertFileUrl(importMetaUrl);

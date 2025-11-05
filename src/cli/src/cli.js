@@ -93,6 +93,10 @@ import {
     createFeatherMetadataCommand,
     runGenerateFeatherMetadata
 } from "./commands/generate-feather-metadata.js";
+import {
+    createFetchRuntimeCommand,
+    runFetchRuntimeCommand
+} from "./commands/fetch-runtime.js";
 import { createWatchCommand, runWatchCommand } from "./commands/watch.js";
 import { resolveCliIdentifierCaseCacheClearer } from "./plugin-runtime/services.js";
 import { isCliRunSkipped } from "./shared/dependencies.js";
@@ -1953,6 +1957,16 @@ cliCommandRegistry.registerCommand({
     onError: (error) =>
         handleCliError(error, {
             prefix: "Failed to generate Feather metadata.",
+            exitCode: 1
+        })
+});
+
+cliCommandRegistry.registerCommand({
+    command: createFetchRuntimeCommand(),
+    run: ({ command }) => runFetchRuntimeCommand(command.opts()),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Failed to fetch HTML5 runtime.",
             exitCode: 1
         })
 });

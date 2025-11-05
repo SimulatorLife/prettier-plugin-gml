@@ -1,9 +1,7 @@
 import path from "node:path";
 
 import { toTrimmedString } from "../dependencies.js";
-import {
-    normalizeManualRepository
-} from "../manual/utils.js";
+import { normalizeManualRepository } from "../manual/utils.js";
 
 const normalizeRuntimeRepository = normalizeManualRepository;
 
@@ -83,7 +81,7 @@ export function buildRuntimeRepositoryEndpoints(
 export function resolveRuntimeCacheRoot({
     repoRoot,
     env = process.env,
-    relativeFallback = ["scripts", "cache", "runtime"]
+    relativeFallback = ["src", "cli", "cache", "runtime"]
 } = {}) {
     if (!repoRoot) {
         throw new TypeError(

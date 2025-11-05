@@ -19,12 +19,12 @@ import process from "node:process";
 import { Command, Option } from "commander";
 
 import { ensureRuntimeArchiveHydrated } from "../modules/runtime/archive.js";
+import { createRuntimeCommandContextOptions } from "../modules/runtime/config.js";
+import { startRuntimeStaticServer } from "../modules/runtime/server.js";
 
-const RUNTIME_CONTEXT_OPTIONS = Object.freeze({
+const RUNTIME_CONTEXT_OPTIONS = createRuntimeCommandContextOptions({
     importMetaUrl: import.meta.url,
-    userAgent: "prettier-plugin-gml watch runtime hydrator",
-    repoRootSegments: ["..", "..", "..", ".."],
-    cacheRootSegments: ["src", "cli", "cache", "runtime"]
+    userAgent: "prettier-plugin-gml watch runtime hydrator"
 });
 
 function interpretTruthy(value) {
@@ -192,7 +192,8 @@ export async function runWatchCommand(targetPath, options) {
         runtimeCache,
         forceRuntimeRefresh = false,
         hydrateRuntime,
-        runtimeHydrator = ensureRuntimeArchiveHydrated
+        runtimeHydrator = ensureRuntimeArchiveHydrated,
+        runtimeServerStarter = startRuntimeStaticServer
     } = options;
 
     const normalizedPath = await validateTargetPath(targetPath);
@@ -210,6 +211,7 @@ export async function runWatchCommand(targetPath, options) {
             : Boolean(hydrateRuntime);
 
     let runtimeHydration = null;
+    let runtimeServerController = null;
 
     if (shouldHydrateRuntime) {
         runtimeHydration = await runtimeHydrator({
@@ -254,14 +256,43 @@ export async function runWatchCommand(targetPath, options) {
               root: runtimeHydration.runtimeRoot,
               repo: runtimeHydration.runtimeRepo,
               ref: runtimeHydration.runtimeRef,
+              manifestPath: runtimeHydration.manifestPath ?? null,
+              manifest: runtimeHydration.manifest ?? null,
+              server: null,
               noticeLogged: Boolean(verbose)
           }
         : {
               root: null,
               repo: runtimeRepo ?? null,
               ref: null,
+              manifestPath: null,
+              manifest: null,
+              server: null,
               noticeLogged: Boolean(verbose)
           };
+
+    if (runtimeHydration?.manifestPath && verbose) {
+        console.log(
+            `Runtime manifest recorded at ${runtimeHydration.manifestPath}`
+        );
+    }
+
+    if (runtimeContext.root) {
+        runtimeServerController = await runtimeServerStarter({
+            runtimeRoot: runtimeContext.root,
+            verbose
+        });
+
+        runtimeContext.server = {
+            host: runtimeServerController.host,
+            port: runtimeServerController.port,
+            url: runtimeServerController.url
+        };
+
+        console.log(
+            `Runtime static server ready at ${runtimeServerController.url}`
+        );
+    }
 
     logWatchStartup(
         normalizedPath,
@@ -281,7 +312,7 @@ export async function runWatchCommand(targetPath, options) {
     return new Promise((resolve) => {
         let removeAbortListener = () => {};
 
-        const cleanup = (exitCode = 0) => {
+        const cleanup = async (exitCode = 0) => {
             if (resolved) {
                 return;
             }
@@ -295,9 +326,19 @@ export async function runWatchCommand(targetPath, options) {
                 watcher.close();
             }
 
-            process.off("SIGINT", handleSigint);
-            process.off("SIGTERM", handleSigterm);
+            process.off("SIGINT", handleErrorSignal);
+            process.off("SIGTERM", handleErrorSignal);
             removeAbortListener();
+
+            if (runtimeServerController) {
+                try {
+                    await runtimeServerController.stop();
+                } catch (error) {
+                    console.error(
+                        `Failed to stop runtime static server: ${error.message}`
+                    );
+                }
+            }
 
             if (abortSignal) {
                 resolve();
@@ -308,11 +349,15 @@ export async function runWatchCommand(targetPath, options) {
             process.exit(exitCode);
         };
 
-        const handleSigint = () => cleanup(0);
-        const handleSigterm = () => cleanup(0);
+        const handleErrorSignal = () => {
+            cleanup(0).catch((error) => {
+                console.error(`Error during watch cleanup: ${error.message}`);
+                process.exit(1);
+            });
+        };
 
-        process.on("SIGINT", handleSigint);
-        process.on("SIGTERM", handleSigterm);
+        process.on("SIGINT", handleErrorSignal);
+        process.on("SIGTERM", handleErrorSignal);
 
         if (abortSignal) {
             if (abortSignal.aborted) {
@@ -321,7 +366,11 @@ export async function runWatchCommand(targetPath, options) {
             }
 
             const abortHandler = () => {
-                cleanup(0);
+                cleanup(0).catch((error) => {
+                    console.error(
+                        `Error during watch cleanup: ${error.message}`
+                    );
+                });
             };
 
             abortSignal.addEventListener("abort", abortHandler, {

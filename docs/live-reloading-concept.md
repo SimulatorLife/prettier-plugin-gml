@@ -229,9 +229,9 @@ It is the thing that glues parsing, semantic analysis, project graph, transpilat
 
 #### YoYo HTML5 runtime acquisition
 - **Pinned source of truth:** The CLI treats the open-source HTML5 runner repository as a remote artefact, similar to how the manual commands consume `YoYoGames/GameMaker-Manual`. A new `runtime` helper reuses the `manual` module patterns (`buildManualRepositoryEndpoints`, `createManualGitHubFileClient`, cache guards) to resolve a repository + ref, fetch the archive, and unpack only the runtime payload required by the dev server and browser wrapper.
-- **Deterministic caching:** Runtime downloads land in a sibling cache root (e.g. `scripts/cache/runtime/<sha>`), mirroring the manual downloader’s layout but scoped to the runtime artefacts.
+- **Deterministic caching:** Runtime downloads land in a sibling cache root (e.g. `src/cli/cache/runtime/<sha>`), mirroring the manual downloader’s layout but scoped to the runtime artefacts.
 - **Version negotiation:** Hot-reload commands accept `--runtime-ref` with defaults defined in project metadata (likely the `resources/feather-metadata.json` channel). On first use, the CLI resolves the ref to a commit SHA, records the pairing inside the cache manifest, and surfaces a friendly message when the local cache is stale. `--force-refresh` invalidates the cached archive, matching the manual download ergonomics. TODO: Remove `--runtime-ref`; always use project metadata.
-- **Archive handling:** After fetching the GitHub archive, the CLI prunes the leading repository folder, extracts the runtime payload into `scripts/cache/runtime/<sha>/runtime`, and records the hydrated location so the dev server can mount it without re-downloading.
+- **Archive handling:** After fetching the GitHub archive, the CLI prunes the leading repository folder, extracts the runtime payload into `src/cli/cache/runtime/<sha>/runtime`, and records the hydrated location so the dev server can mount it without re-downloading.
 - **Downstream wiring:** The dev server refuses to boot until the runtime cache is hydrated. During startup it calls the shared fetcher, waits for completion, then mounts the extracted runner into `runtime-wrapper/`’s static server pipeline.
 
 ---
@@ -589,6 +589,13 @@ The wrapper can establish a WebSocket connection to receive patches, apply them 
 
 ## Recommended Starting Approach
 Adopt the **bootstrap wrapper** model first. It introduces minimal overhead, operates in the same JavaScript realm as the runner, and avoids cross-frame messaging or Service Worker cache management. The wrapper runs immediately after the upstream runtime, discovers dispatchers, and injects hot indirection. With the runtime pinned as a dependency, updates involve replacing the upstream bundle and re-running hook checks.
+
+## Migrate to use Tree-sitter?
+Given the project's goals (hot-reload, efficient dev loop, semantic/refactor tooling for GML), Tree-sitter has several advantages:
+- Fast reparsing: Because you plan to re-parse on file change, incremental parsing means smaller latency from file edit → AST available.
+- Error-tolerance: Tree-sitter is built to produce useful trees even if the source is partially incorrect (syntax errors). That helps in a dev environment where you edit code live. 
+- Multiple back-ends: You can compile to native or WASM, which fits your idea of using Rust/WASM for high performance.
+- Queryability: Having a well-structured tree means you can implement features like semantic queries, refactors, and code navigation more easily.
 
 ## Appendix A – JavaScript Wrapper Starter
 The following files form a drop-in, no-fork development wrapper that layers hot reload capabilities on top of an unmodified HTML5 export.

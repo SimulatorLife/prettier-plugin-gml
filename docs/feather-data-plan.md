@@ -7,7 +7,7 @@
 
 ## Current implementation
 - [`src/cli/src/commands/generate-feather-metadata.js`](../src/cli/src/commands/generate-feather-metadata.js) implements the scraper and defaults to writing `resources/feather-metadata.json`, keeping the generated dataset beside the identifier snapshot for easy consumption. All tooling now lives under the CLI—do not add stand-alone scripts when expanding the pipeline.
-- Manual content fetched for a specific ref is cached under `scripts/cache/manual/<sha>/…` by default, so repeated runs avoid redundant network calls while iterating on the parser. The cache directory can be overridden via `--cache-root` or the `GML_MANUAL_CACHE_ROOT` environment variable when local storage needs to live elsewhere. TODO: Remove the cache root override; always use the standard location.
+- Manual content fetched for a specific ref is cached under `src/cli/cache/manual/<sha>/…` by default, so repeated runs avoid redundant network calls while iterating on the parser. The cache directory can be overridden via `--cache-root` or the `GML_MANUAL_CACHE_ROOT` environment variable when local storage needs to live elsewhere. TODO: Remove the cache root override; always use the standard location.
 - The CLI accepts the same ergonomics as the identifier generator: `--ref/-r` picks the manual revision, `--output/-o` controls the destination path, `--force-refresh` re-downloads upstream files, `--progress-bar-width` resizes the terminal progress indicator, `--manual-repo` targets a different GitHub repository, the `--cache-root` flag relocates cached artefacts, and `--help/-h` prints the usage summary. TODO: Remove `--manual-repo`; always use the standard/latest available version of the repository.
 - Set `GML_MANUAL_REF` to steer CI or local scripts toward a known GameMaker release without passing extra flags each time, `GML_PROGRESS_BAR_WIDTH` to change the default progress bar width globally, `GML_MANUAL_REPO` to point at a forked manual repository, `GML_MANUAL_CACHE_ROOT` to move the manual cache without editing the scripts, `GML_PROJECT_INDEX_CONCURRENCY` to raise or lower the default identifier-case project index concurrency within the configured worker cap (defaults to `16`; override via `GML_PROJECT_INDEX_MAX_CONCURRENCY`), and `GML_VM_EVAL_TIMEOUT_MS` (or the command-scoped `GML_IDENTIFIER_VM_TIMEOUT_MS`) to relax or tighten the VM evaluation timeout shared with the identifier harvester.
 
@@ -23,7 +23,7 @@
 
 ## Extraction pipeline outline
 1. **Version selection & caching**
-- Follow the identifier command's pattern: accept an explicit manual ref (flag + `GML_MANUAL_REF` env) or fall back to the latest release tag, resolve to a commit SHA, and reuse the manual cache tree (`scripts/cache/manual/<sha>/…`) so repeated runs are offline-friendly.
+- Follow the identifier command's pattern: accept an explicit manual ref (flag + `GML_MANUAL_REF` env) or fall back to the latest release tag, resolve to a commit SHA, and reuse the manual cache tree (`src/cli/cache/manual/<sha>/…`) so repeated runs are offline-friendly.
 2. **Data acquisition**
 - Fetch the Feather HTML topics listed above via `fetchManualFile`, storing the raw HTML alongside the existing cached artefacts to avoid re-downloading when only parsing logic changes.【6f027d†L1-L10】
    - Keep the fetch list configurable so we can add/remove topics without touching code (e.g. JSON manifest describing each page and the section(s) to extract).
@@ -41,7 +41,7 @@
   - Write smoke tests that parse the generated JSON and assert that key sentinel rules (e.g. GM2017 naming rule) are present, flagging upstream changes early.
 
 ## Regeneration helper
-- Run `npm run build:feather-metadata` to download the latest Feather topics into `resources/feather-metadata.json` using the cached manual snapshot under `scripts/cache/`.
+- Run `npm run build:feather-metadata` to download the latest Feather topics into `resources/feather-metadata.json` using the cached manual snapshot under `src/cli/cache/`.
 - Pass `--ref <branch|tag|commit>` to target a specific manual revision, or `--force-refresh` to bypass the cache when fetching upstream files.
 - See the [README regeneration guide](../README.md#regenerate-metadata-snapshots) for a condensed workflow and related tooling entry points.
 

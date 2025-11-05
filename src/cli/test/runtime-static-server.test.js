@@ -1,0 +1,115 @@
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import net from "node:net";
+
+import { startRuntimeStaticServer } from "../src/modules/runtime/server.js";
+
+describe("runtime static server", () => {
+    it("serves files from the runtime root", async () => {
+        const tempDir = await mkdtemp(
+            path.join(os.tmpdir(), "gml-runtime-server-")
+        );
+        const indexPath = path.join(tempDir, "index.html");
+        await writeFile(indexPath, "<html><body>ok</body></html>");
+
+        let server;
+        try {
+            server = await startRuntimeStaticServer({
+                runtimeRoot: tempDir,
+                host: "127.0.0.1",
+                port: 0,
+                verbose: false
+            });
+
+            const response = await fetch(server.url);
+            assert.equal(response.status, 200);
+            const text = await response.text();
+            assert.equal(text, "<html><body>ok</body></html>");
+        } finally {
+            if (server) {
+                await server.stop();
+            }
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("responds with 404 for missing files", async () => {
+        const tempDir = await mkdtemp(
+            path.join(os.tmpdir(), "gml-runtime-server-404-")
+        );
+        const indexPath = path.join(tempDir, "index.html");
+        await writeFile(indexPath, "<html></html>");
+
+        let server;
+        try {
+            server = await startRuntimeStaticServer({
+                runtimeRoot: tempDir,
+                host: "127.0.0.1",
+                port: 0,
+                verbose: false
+            });
+
+            const response = await fetch(`${server.url}missing.txt`);
+            assert.equal(response.status, 404);
+        } finally {
+            if (server) {
+                await server.stop();
+            }
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("prevents directory traversal attempts", async () => {
+        const tempDir = await mkdtemp(
+            path.join(os.tmpdir(), "gml-runtime-server-403-")
+        );
+        const indexPath = path.join(tempDir, "index.html");
+        await writeFile(indexPath, "<html></html>");
+
+        let server;
+        try {
+            server = await startRuntimeStaticServer({
+                runtimeRoot: tempDir,
+                host: "127.0.0.1",
+                port: 0,
+                verbose: false
+            });
+
+            const statusCode = await new Promise((resolve, reject) => {
+                let buffer = "";
+                const socket = net.createConnection(
+                    {
+                        host: server.host,
+                        port: server.port
+                    },
+                    () => {
+                        socket.write(
+                            `GET /%2e%2e/%2e%2e/secret HTTP/1.1\r\nHost: ${server.host}:${server.port}\r\nConnection: close\r\n\r\n`
+                        );
+                    }
+                );
+
+                socket.on("data", (chunk) => {
+                    buffer += chunk.toString("utf8");
+                });
+
+                socket.on("end", () => {
+                    const match = buffer.match(/^HTTP\/1\.1\s+(\d{3})/);
+                    resolve(match ? Number(match[1]) : 0);
+                });
+
+                socket.on("error", reject);
+            });
+
+            assert.equal(statusCode, 403);
+        } finally {
+            if (server) {
+                await server.stop();
+            }
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+});

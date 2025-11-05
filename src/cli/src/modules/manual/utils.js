@@ -724,7 +724,7 @@ function normalizeManualTagEntry(entry) {
 function resolveManualCacheRoot({
     repoRoot,
     env = process.env,
-    relativeFallback = ["scripts", "cache", "manual"]
+    relativeFallback = ["src", "cli", "cache", "manual"]
 } = {}) {
     if (!repoRoot) {
         throw new TypeError(

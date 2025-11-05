@@ -47,11 +47,8 @@ jspm_packages/
 .husky/_/
 reports/
 
-# Manual cache artefacts
+# CLI cache artefacts
 src/cli/cache/
-
-# Runtime cache artefacts
-scripts/cache/
 
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/

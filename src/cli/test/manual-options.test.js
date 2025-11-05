@@ -133,7 +133,7 @@ describe("manual option helpers", () => {
 
             assert.equal(
                 resolveManualCacheRoot({ repoRoot, env }),
-                path.join(repoRoot, "scripts", "cache", "manual")
+                path.join(repoRoot, "src", "cli", "cache", "manual")
             );
         });
     });

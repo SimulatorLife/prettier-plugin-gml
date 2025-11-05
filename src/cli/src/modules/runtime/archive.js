@@ -16,7 +16,8 @@ import {
 } from "../dependencies.js";
 
 const RUNTIME_REF_ENV_VAR = "GML_RUNTIME_REF";
-const DEFAULT_RUNTIME_REF = "main";
+const DEFAULT_RUNTIME_REF = "develop";
+const RUNTIME_MANIFEST_FILE_NAME = "manifest.json";
 
 function resolveRuntimeRefValue(rawValue) {
     const trimmed = toTrimmedString(rawValue);
@@ -336,11 +337,30 @@ export async function ensureRuntimeArchiveHydrated({
         console.log(`Runtime files already extracted at ${runtimeRoot}`);
     }
 
+    const manifestPath = path.join(archiveRoot, RUNTIME_MANIFEST_FILE_NAME);
+    const manifestRecord = Object.freeze({
+        version: 1,
+        repository: resolvedRepo,
+        requestedRef: runtimeRef ?? null,
+        resolvedRef: resolvedRef.ref ?? null,
+        sha: resolvedRef.sha,
+        runtimeRoot,
+        archivePath,
+        hydratedAt: new Date().toISOString()
+    });
+
+    await fs.writeFile(
+        manifestPath,
+        `${JSON.stringify(manifestRecord, null, 2)}\n`
+    );
+
     return {
         archivePath,
         runtimeRepo: resolvedRepo,
         runtimeRef: resolvedRef,
         runtimeRoot,
+        manifestPath,
+        manifest: manifestRecord,
         hydrated: true,
         downloaded,
         extracted
