@@ -66,17 +66,21 @@ export class RefactorEngine {
             return null;
         }
 
-        // Check if semantic analyzer provides position-based lookup
+        // Attempt to use the semantic analyzer's position-based lookup if available.
+        // This is the preferred method because it understands scope, binding, and
+        // type information, allowing it to distinguish between identically-named
+        // symbols in different contexts (e.g., local variables vs. global functions).
         if (typeof this.semantic.getSymbolAtPosition === "function") {
             return this.semantic.getSymbolAtPosition(filePath, offset);
         }
 
-        // Fallback: use parser if available
+        // Fallback to parser-only AST traversal when the semantic analyzer doesn't
+        // provide position-based lookup. This is less accurate because it can't
+        // resolve bindings, but it still lets us find the syntactic node at the
+        // given offset for basic rename operations.
         if (this.parser && typeof this.parser.parse === "function") {
             try {
                 const ast = await this.parser.parse(filePath);
-                // Walk AST to find node at offset
-                // This is a simplified implementation
                 return this.findNodeAtOffset(ast, offset);
             } catch {
                 return null;
@@ -95,9 +99,14 @@ export class RefactorEngine {
             return null;
         }
 
-        // Check if this node contains the offset
+        // Determine whether this node's source range encompasses the given offset.
+        // We use closed-interval semantics (<=) so that offsets at the exact start
+        // or end positions match the node, which is crucial for cursor-based
+        // refactorings where the user clicks on the first or last character.
         if (node.start <= offset && offset <= node.end) {
-            // Check children first (depth-first)
+            // Recurse into child nodes first (depth-first traversal) to find the
+            // most specific node at the offset. This ensures we return the innermost
+            // identifier or expression rather than a containing block statement.
             if (node.children) {
                 for (const child of node.children) {
                     const found = this.findNodeAtOffset(child, offset);
@@ -107,7 +116,9 @@ export class RefactorEngine {
                 }
             }
 
-            // Return this node if it's an identifier
+            // If no child matches, return this node if it's an identifier. We filter
+            // by type to avoid returning structural nodes like statements or blocks
+            // that happen to contain the offset but aren't meaningful rename targets.
             if (node.type === "identifier" && node.name) {
                 return {
                     symbolId: `gml/identifier/${node.name}`,
@@ -132,12 +143,17 @@ export class RefactorEngine {
             );
         }
 
-        // Check if semantic analyzer provides symbol lookup
+        // Query the semantic analyzer's symbol table to determine whether the given
+        // symbolId exists. This check prevents rename operations from targeting
+        // non-existent symbols, which would otherwise silently succeed but produce
+        // no edits, confusing users who expect feedback when they mistype a name.
         if (typeof this.semantic.hasSymbol === "function") {
             return this.semantic.hasSymbol(symbolId);
         }
 
-        // Fallback: assume valid if semantic is present but doesn't provide validation
+        // If the semantic analyzer doesn't expose a validation method, assume the
+        // symbol exists. This fallback permits refactorings to proceed in
+        // environments where the semantic layer is minimal or still initializing.
         return true;
     }
 
@@ -151,12 +167,17 @@ export class RefactorEngine {
             return [];
         }
 
-        // Check if semantic analyzer provides occurrence lookup
+        // Request all occurrences (definitions and references) of the symbol from
+        // the semantic analyzer. This includes local variables, function parameters,
+        // global functions, and any other binding sites. The semantic layer tracks
+        // both the location (path, offset) and the kind (definition vs. reference)
+        // of each occurrence, which later phases use to construct text edits.
         if (typeof this.semantic.getSymbolOccurrences === "function") {
             return this.semantic.getSymbolOccurrences(symbolName);
         }
 
-        // Fallback: return empty array if not available
+        // If occurrence tracking isn't available, return an empty array so the
+        // rename operation can proceed without edits, avoiding a hard error.
         return [];
     }
 
@@ -170,10 +191,15 @@ export class RefactorEngine {
     async detectRenameConflicts(oldName, newName, occurrences) {
         const conflicts = [];
 
-        // Check if new name would shadow existing symbols
+        // Test whether renaming would introduce shadowing conflicts where the new
+        // name collides with an existing symbol in the same scope. For example,
+        // renaming a local variable `x` to `y` when `y` is already defined in that
+        // scope would hide the original `y`, breaking references to it.
         if (this.semantic && typeof this.semantic.lookup === "function") {
             for (const occurrence of occurrences) {
-                // Check if newName already exists in the same scope
+                // Perform a scope-aware lookup for the new name at each occurrence
+                // site. If we find an existing binding that isn't the symbol we're
+                // renaming, record a conflict so the user can resolve it manually.
                 const existing = await this.semantic.lookup(
                     newName,
                     occurrence.scopeId
@@ -188,7 +214,10 @@ export class RefactorEngine {
             }
         }
 
-        // Check for reserved keywords or built-in identifiers
+        // Reject renames that would overwrite GML reserved keywords (like `if`,
+        // `function`) or built-in identifiers (like `self`, `global`). Allowing
+        // such renames would cause syntax errors or silently bind user symbols to
+        // language constructs, breaking both the parser and runtime semantics.
         const reservedKeywords = new Set([
             "if",
             "else",
@@ -236,7 +265,9 @@ export class RefactorEngine {
     async planRename(request) {
         const { symbolId, newName } = request ?? {};
 
-        // Validate inputs
+        // Ensure both symbolId and newName are provided and have the correct types.
+        // Early validation prevents downstream failures and gives clear error messages
+        // when callers pass incorrect arguments (e.g., undefined or numeric values).
         if (!symbolId || !newName) {
             throw new TypeError("planRename requires symbolId and newName");
         }
@@ -253,7 +284,9 @@ export class RefactorEngine {
             );
         }
 
-        // Validate symbol exists
+        // Confirm the symbol exists in the semantic index before proceeding. This
+        // prevents wasted work gathering occurrences for non-existent symbols and
+        // provides a clear error message when the user mistypes a symbol name.
         const exists = await this.validateSymbolExists(symbolId);
         if (!exists) {
             throw new Error(
