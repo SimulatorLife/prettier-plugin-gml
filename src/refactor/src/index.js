@@ -832,8 +832,9 @@ export class RefactorEngine {
                     this.semantic &&
                     typeof this.semantic.getDependents === "function"
                 ) {
-                    const dependents =
-                        await this.semantic.getDependents([symbolId]);
+                    const dependents = await this.semantic.getDependents([
+                        symbolId
+                    ]);
                     for (const dep of dependents) {
                         summary.dependentSymbols.add(dep.symbolId);
                     }

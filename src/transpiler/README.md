@@ -57,6 +57,7 @@ const jsCode = emitJavaScript(ast);
 - ✅ Property access (obj.prop, nested.property.access)
 - ✅ Function calls (func(), func(arg1, arg2))
 - ✅ Variable declarations (var x = 10, y = 20)
+- ✅ Function declarations (function myFunc(a, b) { ... })
 - ✅ Control flow statements:
   - ✅ if/else statements (including else-if chains)
   - ✅ for loops
@@ -82,7 +83,6 @@ const jsCode = emitJavaScript(ast);
 
 ### Planned Features
 
-- [ ] Function declarations
 - [ ] `with` statement lowering
 - [ ] Scope-aware identifier resolution (self, other, global)
 - [ ] Script call indirection through runtime wrapper
