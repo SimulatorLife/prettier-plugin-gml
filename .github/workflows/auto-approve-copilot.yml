@@ -33,13 +33,23 @@ jobs:
               return;
             }
 
-            await github.request('POST /repos/{owner}/{repo}/actions/runs/{run_id}/approve', {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              run_id: run.id,
-            });
+            const { owner, repo } = context.repo;
 
-            core.notice(`Auto-approved workflow run ${run.id} for "${run.name}" triggered by ${run.actor?.login}.`);
+            try {
+              await github.request('POST /repos/{owner}/{repo}/actions/runs/{run_id}/approve', {
+                owner,
+                repo,
+                run_id: run.id,
+              });
+              core.notice(`Auto-approved workflow run ${run.id} for "${run.name}" triggered by ${run.actor?.login}.`);
+            } catch (error) {
+              const message = error?.response?.data?.message || error?.message || '';
+              if (error?.status === 403 && message.includes('not waiting for approval')) {
+                core.info(`Workflow run ${run.id} is not awaiting approval; skipping.`);
+                return;
+              }
+              throw error;
+            }
 
   approve:
     # Allow both fork and same-repo PRs; guard by branch prefix only
