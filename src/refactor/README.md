@@ -142,6 +142,44 @@ const patches = await engine.generateTranspilerPatches(hotReloadUpdates, readFil
 // - filePath: source file path
 ```
 
+#### Advanced: Dependency Cascade Computation
+
+Compute the full transitive closure of dependencies for hot reload operations:
+
+```javascript
+// Compute which symbols need reloading and in what order
+const cascade = await engine.computeHotReloadCascade([
+    "gml/script/scr_changed1",
+    "gml/script/scr_changed2"
+]);
+
+// cascade.cascade: Array of all symbols that need reloading with metadata
+// [
+//   { symbolId: "gml/script/scr_changed1", distance: 0, reason: "direct change" },
+//   { symbolId: "gml/script/scr_dependent", distance: 1, reason: "depends on scr_changed1" },
+//   { symbolId: "gml/script/scr_transitive", distance: 2, reason: "depends on scr_dependent" }
+// ]
+
+// cascade.order: Symbols ordered for safe hot reload application (dependencies first)
+// ["gml/script/scr_changed1", "gml/script/scr_dependent", "gml/script/scr_transitive"]
+
+// cascade.circular: Array of detected circular dependency chains
+// [["gml/script/scr_a", "gml/script/scr_b", "gml/script/scr_a"]]
+
+// cascade.metadata: Summary information
+// {
+//   totalSymbols: 3,
+//   maxDistance: 2,
+//   hasCircular: false
+// }
+```
+
+This is particularly useful for:
+- Ensuring all dependent code is reloaded when a base symbol changes
+- Detecting circular dependencies that could cause hot reload failures
+- Ordering hot reload operations to prevent temporary inconsistencies
+- Providing detailed diagnostics about why each symbol needs reloading
+
 ## Directory layout
 - `src/` – core refactoring primitives and orchestrators.
 - `test/` – Node tests that validate refactor strategies against fixture projects.
@@ -173,6 +211,7 @@ new RefactorEngine({ parser, semantic, formatter })
 - `async validateSymbolExists(symbolId)` - Check if symbol exists
 - `async gatherSymbolOccurrences(symbolName)` - Get all occurrences of a symbol
 - `async detectRenameConflicts(oldName, newName, occurrences)` - Check for naming conflicts
+- `async computeHotReloadCascade(changedSymbolIds)` - Compute transitive dependency closure for hot reload
 
 ### WorkspaceEdit
 
@@ -185,5 +224,6 @@ Container for text edits across multiple files.
 
 ## Status
 The refactor engine now includes comprehensive rename planning, batch operations, impact analysis,
-and hot reload validation. It integrates with the semantic analyzer to provide safe, scope-aware
-refactoring operations.
+hot reload validation, and advanced dependency cascade computation. It integrates with the semantic
+analyzer to provide safe, scope-aware refactoring operations with full transitive dependency tracking
+for hot reload scenarios.
