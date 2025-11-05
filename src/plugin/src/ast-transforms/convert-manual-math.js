@@ -1062,7 +1062,10 @@ function attemptCondenseSimpleScalarProduct(node, helpers, context) {
         }
 
         const numericValue = parseNumericFactor(term.expression);
-        if (numericValue === null || numericValue === 0) {
+        if (
+            numericValue === null ||
+            Math.abs(numericValue) <= computeNumericTolerance(0)
+        ) {
             if (numericValue === null) {
                 const matchIndex = nonNumericTerms.findIndex((candidate) =>
                     areSimpleExpressionsEquivalent(
@@ -1909,7 +1912,10 @@ function attemptCondenseScalarProduct(node, helpers, context) {
         }
 
         const numericValue = parseNumericFactor(term.expression);
-        if (numericValue === null || numericValue === 0) {
+        if (
+            numericValue === null ||
+            Math.abs(numericValue) <= computeNumericTolerance(0)
+        ) {
             return false;
         }
 
@@ -2035,7 +2041,7 @@ function computeScalarRatioMetadata(
     let numerator = numeratorProduct;
     let denominator = denominatorProduct;
 
-    if (denominator === 0) {
+    if (Math.abs(denominator) <= computeNumericTolerance(0)) {
         return null;
     }
 
@@ -2171,7 +2177,10 @@ function attemptCondenseNumericChainWithMultipleBases(node, helpers, context) {
         }
 
         const numericValue = parseNumericFactor(term.expression);
-        if (numericValue === null || numericValue === 0) {
+        if (
+            numericValue === null ||
+            Math.abs(numericValue) <= computeNumericTolerance(0)
+        ) {
             return false;
         }
 
