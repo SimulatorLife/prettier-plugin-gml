@@ -597,6 +597,9 @@ Given the project's goals (hot-reload, efficient dev loop, semantic/refactor too
 - Multiple back-ends: You can compile to native or WASM, which fits your idea of using Rust/WASM for high performance.
 - Queryability: Having a well-structured tree means you can implement features like semantic queries, refactors, and code navigation more easily.
 
+## Replace Bespoke Fetchers for YoyoGames Repos?
+We could replace all the custom repository-fetching logic with simple `package.json` dependencies like `"gamemaker-html5": "github:YoYoGames/GameMaker-HTML5#develop"` and `"gamemaker-manual": "github:YoYoGames/GameMaker-Manual#develop"`. This would let npm/yarn/pnpm handle caching, version resolution, and updates automatically. The CLI could then read the runtime and manual files directly from `node_modules/gamemaker-html5/` and `node_modules/gamemaker-manual/`.
+
 ## Appendix A – JavaScript Wrapper Starter
 The following files form a drop-in, no-fork development wrapper that layers hot reload capabilities on top of an unmodified HTML5 export.
 
