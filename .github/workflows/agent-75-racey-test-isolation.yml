@@ -18,8 +18,8 @@ jobs:
         timing assumptions.
       prompt: >
         Identify a test known to be flaky (shared globals, timing reliance,
-        leaking timers) and refactor it for determinism. Apply fixes such as
-        per-test fixtures, better teardown, explicit waits, or fake timers, and
+        leaking timers, real network calls) and refactor it for determinism. Apply fixes such as
+        per-test fixtures, mocked-APIs, better teardown, explicit waits, or fake timers, and
         include evidence (failing reproduction or reasoning) that the old test
         flaked. Keep the scope tight by focusing on one flaky scenario and
         ensuring the suite now runs reliably.

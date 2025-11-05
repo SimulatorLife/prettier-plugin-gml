@@ -101,7 +101,8 @@ describe("watch command integration", () => {
                 polling: false,
                 pollingInterval: 1000,
                 verbose: false,
-                abortSignal: abortController.signal
+                abortSignal: abortController.signal,
+                hydrateRuntime: false
             });
 
             // Give it a moment to start

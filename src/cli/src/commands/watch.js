@@ -27,6 +27,19 @@ const RUNTIME_CONTEXT_OPTIONS = Object.freeze({
     cacheRootSegments: ["src", "cli", "cache", "runtime"]
 });
 
+function interpretTruthy(value) {
+    if (typeof value !== "string") {
+        return false;
+    }
+
+    const normalized = value.trim().toLowerCase();
+    if (normalized.length === 0) {
+        return false;
+    }
+
+    return normalized === "1" || normalized === "true" || normalized === "yes";
+}
+
 /**
  * Creates the watch command for monitoring GML source files.
  *
@@ -177,7 +190,9 @@ export async function runWatchCommand(targetPath, options) {
         runtimeRef,
         runtimeRepo,
         runtimeCache,
-        forceRuntimeRefresh = false
+        forceRuntimeRefresh = false,
+        hydrateRuntime,
+        runtimeHydrator = ensureRuntimeArchiveHydrated
     } = options;
 
     const normalizedPath = await validateTargetPath(targetPath);
@@ -186,22 +201,67 @@ export async function runWatchCommand(targetPath, options) {
         extensions.map((ext) => (ext.startsWith(".") ? ext : `.${ext}`))
     );
 
-    const runtimeHydration = await ensureRuntimeArchiveHydrated({
-        runtimeRef,
-        runtimeRepo,
-        cacheRoot: runtimeCache,
-        userAgent: RUNTIME_CONTEXT_OPTIONS.userAgent,
-        forceRefresh: forceRuntimeRefresh,
-        verbose: verbose ? { all: true } : undefined,
-        contextOptions: RUNTIME_CONTEXT_OPTIONS
-    });
+    const skipRuntimeHydrationEnv = interpretTruthy(
+        process.env.GML_RUNTIME_SKIP_DOWNLOAD
+    );
+    const shouldHydrateRuntime =
+        hydrateRuntime === undefined
+            ? !skipRuntimeHydrationEnv
+            : Boolean(hydrateRuntime);
 
-    if (verbose) {
-        const status = runtimeHydration.downloaded ? "downloaded" : "cached";
+    let runtimeHydration = null;
+
+    if (shouldHydrateRuntime) {
+        runtimeHydration = await runtimeHydrator({
+            runtimeRef,
+            runtimeRepo,
+            cacheRoot: runtimeCache,
+            userAgent: RUNTIME_CONTEXT_OPTIONS.userAgent,
+            forceRefresh: forceRuntimeRefresh,
+            verbose: verbose ? { all: true } : undefined,
+            contextOptions: RUNTIME_CONTEXT_OPTIONS
+        });
+
+        if (verbose) {
+            const archiveStatus = runtimeHydration.downloaded
+                ? "downloaded"
+                : "cached";
+            console.log(
+                `Runtime archive ${archiveStatus} at ${runtimeHydration.archivePath}`
+            );
+
+            if (runtimeHydration.runtimeRoot) {
+                const extractStatus = runtimeHydration.extracted
+                    ? "extracted"
+                    : "ready";
+                const runtimeRefLabel = runtimeHydration.runtimeRef?.ref
+                    ? `${runtimeHydration.runtimeRef.ref}@${runtimeHydration.runtimeRef.sha}`
+                    : runtimeHydration.runtimeRef?.sha;
+
+                console.log(
+                    `Runtime files ${extractStatus} under ${runtimeHydration.runtimeRoot}${runtimeRefLabel ? ` (${runtimeRefLabel})` : ""}`
+                );
+            }
+        }
+    } else if (verbose) {
         console.log(
-            `Runtime archive ${status} at ${runtimeHydration.archivePath}`
+            "Skipping runtime hydration (GML_RUNTIME_SKIP_DOWNLOAD set)"
         );
     }
+
+    const runtimeContext = runtimeHydration
+        ? {
+              root: runtimeHydration.runtimeRoot,
+              repo: runtimeHydration.runtimeRepo,
+              ref: runtimeHydration.runtimeRef,
+              noticeLogged: Boolean(verbose)
+          }
+        : {
+              root: null,
+              repo: runtimeRepo ?? null,
+              ref: null,
+              noticeLogged: Boolean(verbose)
+          };
 
     logWatchStartup(
         normalizedPath,
@@ -296,14 +356,15 @@ export async function runWatchCommand(targetPath, options) {
 
                 // Future: Trigger transpiler, semantic analysis, and patch streaming
                 // For now, we just detect and report changes
-                handleFileChange(fullPath, eventType, { verbose }).catch(
-                    (error) => {
-                        console.error(
-                            `Error processing ${filename}:`,
-                            error.message
-                        );
-                    }
-                );
+                handleFileChange(fullPath, eventType, {
+                    verbose,
+                    runtimeContext
+                }).catch((error) => {
+                    console.error(
+                        `Error processing ${filename}:`,
+                        error.message
+                    );
+                });
             }
         );
     });
@@ -320,7 +381,16 @@ export async function runWatchCommand(targetPath, options) {
  * @param {object} options - Processing options
  * @param {boolean} options.verbose - Enable verbose logging
  */
-async function handleFileChange(filePath, eventType, { verbose = false } = {}) {
+async function handleFileChange(
+    filePath,
+    eventType,
+    { verbose = false, runtimeContext } = {}
+) {
+    if (verbose && runtimeContext?.root && !runtimeContext.noticeLogged) {
+        console.log(`Runtime target: ${runtimeContext.root}`);
+        runtimeContext.noticeLogged = true;
+    }
+
     if (eventType === "rename") {
         // File was created, deleted, or renamed
         try {

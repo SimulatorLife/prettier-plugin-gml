@@ -229,9 +229,9 @@ It is the thing that glues parsing, semantic analysis, project graph, transpilat
 
 #### YoYo HTML5 runtime acquisition
 - **Pinned source of truth:** The CLI treats the open-source HTML5 runner repository as a remote artefact, similar to how the manual commands consume `YoYoGames/GameMaker-Manual`. A new `runtime` helper reuses the `manual` module patterns (`buildManualRepositoryEndpoints`, `createManualGitHubFileClient`, cache guards) to resolve a repository + ref, fetch the archive, and unpack only the runtime payload required by the dev server and browser wrapper.
-- **Deterministic caching:** Runtime downloads land in a sibling cache root (e.g. `src/cli/cache/runtime`).
+- **Deterministic caching:** Runtime downloads land in a sibling cache root (e.g. `scripts/cache/runtime/<sha>`), mirroring the manual downloader’s layout but scoped to the runtime artefacts.
 - **Version negotiation:** Hot-reload commands accept `--runtime-ref` with defaults defined in project metadata (likely the `resources/feather-metadata.json` channel). On first use, the CLI resolves the ref to a commit SHA, records the pairing inside the cache manifest, and surfaces a friendly message when the local cache is stale. `--force-refresh` invalidates the cached archive, matching the manual download ergonomics. TODO: Remove `--runtime-ref`; always use project metadata.
-- **Archive handling:** After fetching the GitHub archive (zip or tarball), the CLI extracts only the runtime directories (engine JS, asset tables, template HTML). We intentionally expose a focused `fetchRuntimeFiles` helper that mirrors `resolveManualFileFetcher`, returning a narrow API rather than a monolith.
+- **Archive handling:** After fetching the GitHub archive, the CLI prunes the leading repository folder, extracts the runtime payload into `scripts/cache/runtime/<sha>/runtime`, and records the hydrated location so the dev server can mount it without re-downloading.
 - **Downstream wiring:** The dev server refuses to boot until the runtime cache is hydrated. During startup it calls the shared fetcher, waits for completion, then mounts the extracted runner into `runtime-wrapper/`’s static server pipeline.
 
 ---

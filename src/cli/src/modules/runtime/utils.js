@@ -2,12 +2,10 @@ import path from "node:path";
 
 import { toTrimmedString } from "../dependencies.js";
 import {
-    
-    
-    
-    
-    normalizeManualRepository as normalizeRuntimeRepository
+    normalizeManualRepository
 } from "../manual/utils.js";
+
+const normalizeRuntimeRepository = normalizeManualRepository;
 
 export const RUNTIME_REPO_ENV_VAR = "GML_RUNTIME_REPO";
 export const RUNTIME_CACHE_ROOT_ENV_VAR = "GML_RUNTIME_CACHE_ROOT";
@@ -100,6 +98,10 @@ export function resolveRuntimeCacheRoot({
 
     return path.join(repoRoot, ...relativeFallback);
 }
-
-
-export {createManualGitHubCommitResolver as createRuntimeGitHubCommitResolver, createManualGitHubFileClient as createRuntimeGitHubFileClient, createManualGitHubRefResolver as createRuntimeGitHubRefResolver, createManualGitHubRequestDispatcher as createRuntimeGitHubRequestDispatcher, normalizeManualRepository as normalizeRuntimeRepository} from "../manual/utils.js";
+export {
+    createManualGitHubCommitResolver as createRuntimeGitHubCommitResolver,
+    createManualGitHubFileClient as createRuntimeGitHubFileClient,
+    createManualGitHubRefResolver as createRuntimeGitHubRefResolver,
+    createManualGitHubRequestDispatcher as createRuntimeGitHubRequestDispatcher,
+    normalizeManualRepository as normalizeRuntimeRepository
+} from "../manual/utils.js";

@@ -9,7 +9,8 @@
  * - Performance benchmarking utilities.
  * - Memory usage benchmarking utilities.
  * - Regression testing utilities.
- * - Generating/retrieving GML identifiers and Feather metadata.
+ * - Generating/retrieving GML identifiers and Feather metadata (via the GameMaker manual).
+ * - Retrieving runtime artifacts from the GameMaker HTML5 runtime repository.
  *
  * This CLI is primarily intended for use in development and CI environments.
  * For formatting GML files, it is recommended to use the Prettier CLI or
