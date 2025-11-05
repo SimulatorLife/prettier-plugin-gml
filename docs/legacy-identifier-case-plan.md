@@ -383,12 +383,11 @@ configuration lives outside the GameMaker manifest directory.
 ```mjs
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { buildProjectIndex } from "./node_modules/root/src/plugin/src/project-index/index.js";
 
-const configFilePath = fileURLToPath(import.meta.url);
-const projectRoot = path.dirname(configFilePath);
+const configFilePath = import.meta.filename;
+const projectRoot = import.meta.dirname;
 const reportsDir = path.join(projectRoot, ".gml-reports");
 const indexPath = path.join(reportsDir, "project-index.json");
 const logPath = path.join(reportsDir, "identifier-case-dry-run.json");

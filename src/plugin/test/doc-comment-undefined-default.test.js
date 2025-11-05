@@ -1,12 +1,10 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import prettier from "prettier";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = import.meta.dirname;
 const pluginPath = path.resolve(__dirname, "../src/gml.js");
 
 test("treats undefined defaults as required when the signature omits the default", async () => {
