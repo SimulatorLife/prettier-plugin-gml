@@ -42,10 +42,11 @@ export function createIntegerOptionToolkit({
     assertFunction(baseCoerce, "baseCoerce");
 
     const coerce = (value, context = {}) => {
-        if (createErrorMessage && !context.createErrorMessage) {
-            context = { ...context, createErrorMessage };
-        }
-        return baseCoerce(value, context);
+        const opts =
+            createErrorMessage && !context.createErrorMessage
+                ? { ...context, createErrorMessage }
+                : context;
+        return baseCoerce(value, opts);
     };
 
     const state = createEnvConfiguredValue({
