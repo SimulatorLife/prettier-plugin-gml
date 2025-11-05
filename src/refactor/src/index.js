@@ -686,9 +686,12 @@ export class RefactorEngine {
                 );
             }
 
-            // Check if edits affect critical constructs
+            // Examine each edit to detect whether it introduces language constructs
+            // that GameMaker's runtime can't hot-reload safely. Global variables,
+            // macros, and enums affect compile-time state or global scope, so
+            // modifying them typically requires restarting the game to ensure the
+            // runtime re-initializes these declarations with updated values.
             for (const edit of edits) {
-                // Warn about edits that might break runtime state
                 if (edit.newText.includes("globalvar")) {
                     warnings.push(
                         `Edit in ${filePath} introduces 'globalvar' - may require full reload`
@@ -708,7 +711,11 @@ export class RefactorEngine {
                 }
             }
 
-            // Check for very large edits that might indicate structural changes
+            // Measure the total size of the replacement text across all edits to
+            // identify large-scale changes. Edits that introduce thousands of
+            // characters likely represent substantial rewrites (e.g., refactoring an
+            // entire function body), which may confuse GameMaker's hot-reload engine
+            // and benefit from a full restart to ensure clean initialization.
             const totalCharsChanged = edits.reduce(
                 (sum, e) => sum + e.newText.length,
                 0
@@ -864,10 +871,12 @@ export class RefactorEngine {
             );
             summary.totalOccurrences = occurrences.length;
 
-            // Track affected files
+            // Record which files will be modified by this rename so the user can
+            // review the scope before applying changes. We also categorize each
+            // occurrence as either a definition (where the symbol is declared) or a
+            // reference (where it's used), giving insight into the symbol's role.
             for (const occ of occurrences) {
                 summary.affectedFiles.add(occ.path);
-                // Count definitions vs references
                 if (occ.kind === "definition") {
                     summary.definitionCount++;
                 } else {
@@ -875,7 +884,10 @@ export class RefactorEngine {
                 }
             }
 
-            // Check for conflicts
+            // Test for potential rename conflicts (shadowing, reserved keywords) that
+            // would break the code if applied. We collect all conflicts across all
+            // renames in the batch so the user can see the complete picture before
+            // deciding whether to proceed or adjust the new names.
             const detectedConflicts = await this.detectRenameConflicts(
                 summary.oldName,
                 newName,
@@ -883,11 +895,13 @@ export class RefactorEngine {
             );
             conflicts.push(...detectedConflicts);
 
-            // Check if hot reload will be needed
+            // Determine whether the GameMaker runtime can hot-reload these changes
+            // without a full restart. If occurrences exist, we assume hot reload is
+            // needed and query the semantic analyzer to identify dependent symbols
+            // that also need reloading to maintain consistency.
             if (summary.totalOccurrences > 0) {
                 summary.hotReloadRequired = true;
 
-                // Identify dependent symbols
                 if (
                     this.semantic &&
                     typeof this.semantic.getDependents === "function"
@@ -901,7 +915,10 @@ export class RefactorEngine {
                 }
             }
 
-            // Generate warnings for large-scale renames
+            // Alert the user when a rename affects many occurrences or has widespread
+            // dependencies. Large-scale renames increase the risk of unintended
+            // side effects (e.g., renaming a common utility function breaks dozens of
+            // call sites), so these warnings encourage the user to review the scope.
             if (summary.totalOccurrences > 50) {
                 warnings.push({
                     type: "large_rename",
@@ -960,16 +977,19 @@ export class RefactorEngine {
         const patches = [];
 
         for (const update of hotReloadUpdates) {
-            // Only generate patches for recompile actions
+            // Filter to recompile actions since only script recompilations produce
+            // runtime patches that can be hot-reloaded. Asset renames and other
+            // non-code changes don't require transpilation or runtime updates.
             if (update.action !== "recompile") {
                 continue;
             }
 
             try {
-                // Read the updated file content
                 const sourceText = await readFile(update.filePath);
 
-                // Generate transpiler patch if transpiler is available
+                // Transpile the updated script into a hot-reload patch if a transpiler
+                // is available. The patch contains executable JavaScript code that the
+                // GameMaker runtime can inject without restarting the game.
                 if (
                     this.formatter &&
                     typeof this.formatter.transpileScript === "function"
@@ -985,7 +1005,10 @@ export class RefactorEngine {
                         filePath: update.filePath
                     });
                 } else {
-                    // Create a basic patch structure without transpilation
+                    // Fall back to a basic patch structure containing only the source
+                    // text when transpilation isn't available. This still allows the
+                    // caller to process the updated files, though it won't be directly
+                    // executable by GameMaker's runtime without manual intervention.
                     patches.push({
                         symbolId: update.symbolId,
                         patch: {

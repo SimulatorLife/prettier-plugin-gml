@@ -790,7 +790,10 @@ async function recordFormattedFileOriginalContents(filePath, contents) {
         snapshot.snapshotPath = snapshotPath;
         revertSnapshotFileCount += 1;
     } catch {
-        // Fallback to storing the contents in memory if writing to disk fails.
+        // Store the snapshot contents in memory when the temporary directory is
+        // unavailable or write access fails. This fallback ensures revert operations
+        // can still proceed even if disk I/O fails, though it consumes more memory
+        // and won't survive process crashes.
         snapshot.inlineContents = contents;
     }
 
