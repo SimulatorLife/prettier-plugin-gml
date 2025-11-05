@@ -46,22 +46,26 @@ then return here for deeper context.
 
 ## Extension hooks & overrides
 
-- [Line-comment options resolver hook](line-comment-options-resolver-hook.md)
+The plugin exposes several extension hooks that let integrators run controlled
+experiments without permanently widening the public option surface. Comprehensive
+documentation for these hooks is pending; consult the source files for
+implementation details:
+
+- **Line-comment options resolver** (`src/plugin/src/options/line-comment-options.js`)
   — Adjust the boilerplate stripping and commented-code heuristics without
-  forking the formatter. Normalization guards keep overrides safe even when
-  hosts provide partial data.
-- [Doc comment type normalization hook](doc-comment-type-normalization-hook.md)
+  forking the formatter. Normalization guards keep overrides safe even when hosts
+  provide partial data.
+- **Doc comment type normalization** (`src/plugin/src/comments/`)
   — Extend the doc-comment type synonym tables or resource prefixes without
-  patching the formatter’s defaults. Resolver helpers expose guardrails and a
+  patching the formatter's defaults. Resolver helpers expose guardrails and a
   restore helper when experiments end.
-- [Statement newline padding extension](statement-newline-padding-extension.md)
-  — Register additional AST node types that should inherit blank-line padding
-  around statements while keeping the opinionated defaults intact for other
-  consumers.
-- [Core option overrides hook](core-option-overrides-hook.md) — Swap or remove
-  the hard-coded Prettier clamps (such as `trailingComma: "none"`) when a host
-  needs different defaults, all while keeping the formatter opinionated by
-  default.
+- **Statement newline padding extension** — Register additional AST node
+  types that should inherit blank-line padding around statements while keeping
+  the opinionated defaults intact for other consumers.
+- **Core option overrides** (`src/plugin/src/options/core-option-overrides.js`)
+  — Swap or remove the hard-coded Prettier clamps (such as
+  `trailingComma: "none"`) when a host needs different defaults, all while
+  keeping the formatter opinionated by default.
 
 ## Architecture & planning
 

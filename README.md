@@ -183,14 +183,14 @@ for (var i = 0; i < queue_count; i += 1) {
 - [Semantic scope plan](docs/semantic-scope-plan.md) &mdash; Roadmap for the
   ANTLR-based transpiler, semantic analysis, and dependency tracking that will
   feed the live reloading pipeline.
-- Formatter extension hooks &mdash;
-  [line-comment resolver](docs/line-comment-options-resolver-hook.md),
-  [doc comment type normalization hook](docs/doc-comment-type-normalization-hook.md),
-  [statement newline padding extension](docs/statement-newline-padding-extension.md),
-  and [core option overrides resolver](docs/core-option-overrides-hook.md) seams
-  that let integrators run controlled experiments without permanently widening
-  the public option surface. Use `setProjectIndexSourceExtensions` when bespoke
-  suffixes (for example, `.npc.gml`) need to participate in rename plans.
+- Formatter extension hooks &mdash; The plugin exposes extension hooks for
+  line-comment options, doc comment type normalization, statement newline
+  padding, and core option overrides that let integrators run controlled
+  experiments without permanently widening the public option surface. Use
+  `setProjectIndexSourceExtensions` when bespoke suffixes (for example,
+  `.npc.gml`) need to participate in rename plans. Documentation for these hooks
+  is pending; refer to the source files in `src/plugin/src/options/` and
+  `src/plugin/src/comments/` for implementation details.
 - [Memory experiments](docs/metrics-tracker-finalize-memory.md) &mdash; Captures the
   `node --expose-gc` script and before/after measurements that validate the
   metrics tracker clean-up path. Run with `npm run memory` to execute the
