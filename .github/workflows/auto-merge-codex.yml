@@ -1,13 +1,17 @@
 name: Auto merge codex/copilot branches
 
 on:
-  pull_request_target:
+  workflow_run:
+    workflows:
+      - Auto-approve Copilot workflow runs
     types:
-      - opened
-      - reopened
-      - synchronize
-      - ready_for_review
-      - review_requested
+      - completed
+  workflow_dispatch:
+    inputs:
+      pull_number:
+        description: "Pull request number to attempt auto-merge"
+        required: true
+        type: number
 
 permissions:
   contents: write
@@ -19,22 +23,63 @@ jobs:
     steps:
       - name: Attempt auto-merge
         uses: actions/github-script@v7
+        env:
+          DISPATCH_PULL_NUMBER: ${{ inputs.pull_number || '' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const pr = context.payload.pull_request;
-            if (!pr) {
-              core.info('No pull request in payload; skipping auto-merge.');
-              return;
-            }
-
             const repoContext = context.repo;
             const owner = repoContext.owner;
             const repo = repoContext.repo;
-            const pull_number = pr.number;
+            const eventName = context.eventName;
 
-            if (context.payload.action === 'closed') {
-              core.info('Pull request event is for a closed PR; skipping auto-merge.');
+            let pull_number = null;
+
+            if (eventName === 'workflow_dispatch') {
+              const dispatched = process.env.DISPATCH_PULL_NUMBER;
+              if (dispatched) {
+                pull_number = Number(dispatched);
+              }
+            } else if (eventName === 'workflow_run') {
+              const run = context.payload.workflow_run;
+              if (!run) {
+                core.info('No workflow_run payload; skipping auto-merge.');
+                return;
+              }
+
+              if (run.conclusion && run.conclusion !== 'success') {
+                core.info(`Upstream workflow concluded with status ${run.conclusion}; skipping auto-merge.`);
+                return;
+              }
+
+              if (run.event !== 'pull_request_target') {
+                core.info(`Upstream workflow run event ${run.event} is not pull_request_target; skipping.`);
+                return;
+              }
+
+              const prInfo = Array.isArray(run.pull_requests) ? run.pull_requests[0] : null;
+              if (!prInfo?.number) {
+                core.info('No pull request associated with workflow_run; skipping auto-merge.');
+                return;
+              }
+
+              pull_number = prInfo.number;
+            }
+
+            if (!pull_number) {
+              core.info('Unable to determine pull request number; skipping auto-merge.');
+              return;
+            }
+
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
+
+            if (pr.state !== 'open') {
+              core.info(`PR #${pull_number} is ${pr.state}; skipping auto-merge.`);
+              return;
+            }
+
+            if (pr.draft) {
+              core.info(`PR #${pull_number} is still a draft; skipping auto-merge.`);
               return;
             }
 
