@@ -12,8 +12,9 @@ jobs:
   approve:
     if: >-
       ${{
-        github.event.workflow_run.actor.login == 'github-copilot[bot]'
-        || github.event.workflow_run.triggering_actor.login == 'github-copilot[bot]'
+        github.event.workflow_run.event == 'workflow_dispatch'
+        && github.event.workflow_run.path
+        && startsWith(github.event.workflow_run.path, '.github/workflows/agent-')
       }}
     runs-on: ubuntu-latest
     steps:
