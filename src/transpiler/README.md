@@ -53,17 +53,20 @@ const jsCode = emitJavaScript(ast);
 - ✅ Strict equality conversion (== → ===, != → !==)
 - ✅ Assignment expressions
 - ✅ Basic statements
+- ✅ Array indexing (arr[0], matrix[i][j])
+- ✅ Property access (obj.prop, nested.property.access)
+- ✅ Function calls (func(), func(arg1, arg2))
 
 ### Planned Features
 
-- [ ] Function declarations and calls
+- [ ] Function declarations
 - [ ] Control flow (if/else, while, for, repeat, do-until)
 - [ ] `with` statement lowering
 - [ ] Scope-aware identifier resolution (self, other, global)
 - [ ] Script call indirection through runtime wrapper
 - [ ] Built-in function mapping
 - [ ] Struct and array literals
-- [ ] Member access and array indexing
+- [ ] Advanced expression forms (ternary, compound assignments)
 
 ## Operator Mapping
 
