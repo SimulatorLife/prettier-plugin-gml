@@ -28,7 +28,7 @@ jobs:
         env:
           DISPATCH_PULL_NUMBER: ${{ github.event.inputs.pull_number || '' }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GH_USER_TOKEN }} # Use a user token so events aren't supressed
           script: |
             const repoContext = context.repo;
             const owner = repoContext.owner;
