@@ -38,18 +38,19 @@ export async function createDefaultCliPluginServiceDependencies() {
     }
 
     const { buildProjectIndex } = await import(
-        "prettier-plugin-gamemaker/project-index"
+        "gamemaker-language-semantic/project-index/index.js"
     );
-    const identifierCaseModule = await import(
-        "prettier-plugin-gamemaker/identifier-case"
+    const { prepareIdentifierCasePlan } = await import(
+        "gamemaker-language-semantic/identifier-case/plan-service.js"
+    );
+    const { clearIdentifierCaseOptionStore } = await import(
+        "gamemaker-language-semantic/identifier-case/option-store.js"
+    );
+    const { clearIdentifierCaseDryRunContexts } = await import(
+        "gamemaker-language-semantic/identifier-case/identifier-case-context.js"
     );
 
     function createIdentifierCaseCacheClearer() {
-        const {
-            clearIdentifierCaseOptionStore,
-            clearIdentifierCaseDryRunContexts
-        } = identifierCaseModule;
-
         return function clearIdentifierCaseCaches() {
             clearIdentifierCaseOptionStore(null);
             clearIdentifierCaseDryRunContexts();
@@ -58,8 +59,7 @@ export async function createDefaultCliPluginServiceDependencies() {
 
     return {
         projectIndexBuilder: buildProjectIndex,
-        identifierCasePlanPreparer:
-            identifierCaseModule.prepareIdentifierCasePlan,
+        identifierCasePlanPreparer: prepareIdentifierCasePlan,
         identifierCaseCacheClearer: createIdentifierCaseCacheClearer()
     };
 }
