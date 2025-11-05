@@ -1,0 +1,200 @@
+{
+  "workflows": [
+    {
+      "file": ".github/workflows/codex-02-resolve-merge-conflicts.yml",
+      "weight": 0.5
+    },
+    {
+      "file": ".github/workflows/codex-03-dry.yml",
+      "weight": 0.5
+    },
+    {
+      "file": ".github/workflows/codex-04-style.yml",
+      "weight": 0.142857
+    },
+    {
+      "file": ".github/workflows/codex-06-decouple.yml",
+      "weight": 0.083333
+    },
+    {
+      "file": ".github/workflows/codex-09-dependencies.yml",
+      "weight": 0.006944
+    },
+    {
+      "file": ".github/workflows/codex-10-documentation.yml",
+      "weight": 0.013889
+    },
+    {
+      "file": ".github/workflows/codex-15-parameters.yml",
+      "weight": 0.041667
+    },
+    {
+      "file": ".github/workflows/codex-16-dead-code.yml",
+      "weight": 0.020833
+    },
+    {
+      "file": ".github/workflows/codex-17-error-handling.yml",
+      "weight": 0.020833
+    },
+    {
+      "file": ".github/workflows/codex-18-clarity.yml",
+      "weight": 0.111111
+    },
+    {
+      "file": ".github/workflows/codex-20-micro-optimization.yml",
+      "weight": 0.166667
+    },
+    {
+      "file": ".github/workflows/codex-21-extensibility.yml",
+      "weight": 0.008333
+    },
+    {
+      "file": ".github/workflows/codex-22-bugfix.yml",
+      "weight": 0.125
+    },
+    {
+      "file": ".github/workflows/codex-23-lint.yml",
+      "weight": 0.2
+    },
+    {
+      "file": ".github/workflows/codex-24-simplify.yml",
+      "weight": 0.25
+    },
+    {
+      "file": ".github/workflows/codex-30-organization.yml",
+      "weight": 0.166667
+    },
+    {
+      "file": ".github/workflows/codex-36-docstrings.yml",
+      "weight": 0.083333
+    },
+    {
+      "file": ".github/workflows/codex-37-helper-substitution.yml",
+      "weight": 0.083333
+    },
+    {
+      "file": ".github/workflows/codex-38-logic-deduplicate.yml",
+      "weight": 0.166667
+    },
+    {
+      "file": ".github/workflows/codex-40-memory-footprint.yml",
+      "weight": 0.041667
+    },
+    {
+      "file": ".github/workflows/codex-41-test-failure.yml",
+      "weight": 0.25
+    },
+    {
+      "file": ".github/workflows/codex-70-null-undefined-guardrails.yml",
+      "weight": 0.020833
+    },
+    {
+      "file": ".github/workflows/codex-71-loop-mutability-hazards.yml",
+      "weight": 0.020833
+    },
+    {
+      "file": ".github/workflows/codex-72-resource-leak-patrol.yml",
+      "weight": 0.041667
+    },
+    {
+      "file": ".github/workflows/codex-73-stringly-typed-flags.yml",
+      "weight": 0.020833
+    },
+    {
+      "file": ".github/workflows/codex-74-floating-point-equality.yml",
+      "weight": 0.020833
+    },
+    {
+      "file": ".github/workflows/codex-75-racey-test-isolation.yml",
+      "weight": 0.041667
+    },
+    {
+      "file": ".github/workflows/codex-76-legacy-api-usage.yml",
+      "weight": 0.041667
+    },
+    {
+      "file": ".github/workflows/codex-77-usability.yml",
+      "weight": 0.111111
+    },
+    {
+      "file": ".github/workflows/codex-78-architectural-audit.yml",
+      "weight": 0.041667
+    },
+    {
+      "file": ".github/workflows/codex-79-cohesion-refactor.yml",
+      "weight": 0.125
+    },
+    {
+      "file": ".github/workflows/codex-80-composition.yml",
+      "weight": 0.041667
+    },
+    {
+      "file": ".github/workflows/codex-81-defensive.yml",
+      "weight": 0.013889
+    },
+    {
+      "file": ".github/workflows/codex-82-demeter.yml",
+      "weight": 0.010417
+    },
+    {
+      "file": ".github/workflows/codex-83-dip.yml",
+      "weight": 0.020833
+    },
+    {
+      "file": ".github/workflows/codex-84-document-intent.yml",
+      "weight": 0.041667
+    },
+    {
+      "file": ".github/workflows/codex-85-isp.yml",
+      "weight": 0.076923
+    },
+    {
+      "file": ".github/workflows/codex-86-kiss-sweeper.yml",
+      "weight": 0.142857
+    },
+    {
+      "file": ".github/workflows/codex-87-coupling.yml",
+      "weight": 0.083333
+    },
+    {
+      "file": ".github/workflows/codex-88-lsp.yml",
+      "weight": 0.020833
+    },
+    {
+      "file": ".github/workflows/codex-89-pola.yml",
+      "weight": 0.041667
+    },
+    {
+      "file": ".github/workflows/codex-90-policy-mechanism.yml",
+      "weight": 0.005952
+    },
+    {
+      "file": ".github/workflows/codex-91-sla.yml",
+      "weight": 0.125
+    },
+    {
+      "file": ".github/workflows/codex-92-srp.yml",
+      "weight": 0.005952
+    },
+    {
+      "file": ".github/workflows/codex-93-hot-refactor.yml",
+      "weight": 0.2
+    },
+    {
+      "file": ".github/workflows/codex-94-hot-runtime-wrapper.yml",
+      "weight": 0.2
+    },
+    {
+      "file": ".github/workflows/codex-95-hot-semantic.yml",
+      "weight": 0.2
+    },
+    {
+      "file": ".github/workflows/codex-96-hot-transpiler.yml",
+      "weight": 0.2
+    },
+    {
+      "file": ".github/workflows/codex-97-hot-cli.yml",
+      "weight": 0.2
+    }
+  ]
+}

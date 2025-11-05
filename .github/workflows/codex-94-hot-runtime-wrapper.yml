@@ -1,7 +1,8 @@
 name: Codex 94 – Runtime Wrapper Upgrades
 
 on:
-  schedule:
+  repository_dispatch:
+    types: [run_scheduled]
   - cron: "5 1/5 * * *" # Every 5 hours starting at 01:05 UTC (offset ~60 mins)
   workflow_dispatch: {}
 
@@ -12,6 +13,7 @@ permissions:
 
 jobs:
   run:
+    if: ${{ (github.event_name == 'workflow_dispatch' || (github.event_name == 'repository_dispatch' && github.event.action == 'run_scheduled' && github.event.client_payload.workflow_file == '.github/workflows/codex-94-hot-runtime-wrapper.yml')) }}
     uses: ./.github/workflows/_codex-hot-feature-base.yml
     secrets: inherit
     with:

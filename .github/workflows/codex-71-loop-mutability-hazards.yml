@@ -1,6 +1,7 @@
 name: Codex 71 – Loop Mutability Hazards
 on:
-  schedule:
+  repository_dispatch:
+    types: [run_scheduled]
   - cron: "27 4 4-31/2 * *"  # every 2 days at 04:27 (days 4,6,...)
   workflow_dispatch:
 
@@ -11,6 +12,7 @@ permissions:
 
 jobs:
   run:
+    if: ${{ (github.event_name == 'workflow_dispatch' || (github.event_name == 'repository_dispatch' && github.event.action == 'run_scheduled' && github.event.client_payload.workflow_file == '.github/workflows/codex-71-loop-mutability-hazards.yml')) }}
     uses: ./.github/workflows/_codex-open-pr-and-ping.yml
     secrets: inherit
     with:

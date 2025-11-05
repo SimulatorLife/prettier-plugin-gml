@@ -1,7 +1,7 @@
 name: Codex 75 – Racey Test Isolation
 on:
-  schedule:
-    - cron: "57 12 * * *"  # once a day at 12:57
+  repository_dispatch:
+    types: [run_scheduled]
   workflow_dispatch:
 
 permissions:
@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   run:
+    if: ${{ (github.event_name == 'workflow_dispatch' || (github.event_name == 'repository_dispatch' && github.event.action == 'run_scheduled' && github.event.client_payload.workflow_file == '.github/workflows/codex-75-racey-test-isolation.yml')) }}
     uses: ./.github/workflows/_codex-open-pr-and-ping.yml
     secrets: inherit
     with:

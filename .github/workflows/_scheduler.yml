@@ -1,0 +1,207 @@
+name: scheduler
+
+on:
+  schedule:
+    - cron: "*/5 * * * *" # Every 5 minutes
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  plan-and-dispatch:
+    runs-on: ubuntu-latest
+    env:
+      SCHEDULER_RUN_COUNT: '0'
+      SCHEDULER_CHOSEN_JSON: '[]'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Load workflow configuration
+        id: cfg
+        run: |
+          if [ ! -f .github/workflows/weights.json ]; then
+            echo "Configuration file .github/workflows/weights.json is missing" >&2
+            exit 1
+          fi
+          echo "cfg=$(jq -c . .github/workflows/weights.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Compute dispatch plan
+        id: plan
+        uses: actions/github-script@v7
+        env:
+          CFG_JSON: ${{ steps.cfg.outputs.cfg }}
+        with:
+          script: |
+            const crypto = require('crypto');
+            const core = require('@actions/core');
+
+            const cfgRaw = process.env.CFG_JSON;
+            const cfg = cfgRaw ? JSON.parse(cfgRaw) : {};
+            const workflows = Array.isArray(cfg.workflows) ? cfg.workflows : [];
+            const now = Date.now();
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            async function getRepoVariable(name) {
+              try {
+                const { data } = await github.rest.actions.getRepoVariable({ owner, repo, name });
+                return data?.value ?? null;
+              } catch (error) {
+                if (error.status === 404) {
+                  return null;
+                }
+                core.warning(`Failed to read repository variable "${name}": ${error.message}`);
+                return null;
+              }
+            }
+
+            const [quotaEnv, minIntervalMinutesEnv, tickMinutesEnv] = await Promise.all([
+              getRepoVariable('QUOTA_PER_HOUR'),
+              getRepoVariable('SCHEDULER_MIN_INTERVAL_MINUTES'),
+              getRepoVariable('SCHEDULER_TICK_MINUTES'),
+            ]);
+
+            const quota = Number.isFinite(Number(quotaEnv)) && Number(quotaEnv) >= 0 ? Number(quotaEnv) : 12;
+            const minIntervalMinutes = Number.isFinite(Number(minIntervalMinutesEnv)) && Number(minIntervalMinutesEnv) > 0
+              ? Number(minIntervalMinutesEnv)
+              : 1;
+            const tickMinutes = Number.isFinite(Number(tickMinutesEnv)) && Number(tickMinutesEnv) > 0
+              ? Number(tickMinutesEnv)
+              : 5;
+
+            const tickMs = tickMinutes * 60 * 1000;
+            const perTickBudget = quota * (tickMinutes / 60);
+            const windowKey = Math.floor(now / tickMs);
+            const minIntervalMs = minIntervalMinutes * 60 * 1000;
+
+            core.exportVariable('SCHEDULER_CHOSEN_JSON', '[]');
+            core.exportVariable('SCHEDULER_RUN_COUNT', '0');
+
+            if (!Number.isFinite(perTickBudget) || perTickBudget <= 0) {
+              core.info(`Per-tick budget (${perTickBudget}) is not positive; skipping dispatch.`);
+              core.setOutput('chosen_json', '[]');
+              core.setOutput('run_count', '0');
+              return;
+            }
+
+            const eligible = [];
+
+            for (const workflow of workflows) {
+              if (!workflow || typeof workflow.file !== 'string') {
+                continue;
+              }
+
+              const weightValue = Number(workflow.weight);
+              if (!Number.isFinite(weightValue) || weightValue <= 0) {
+                core.warning(`Skipping workflow ${workflow.file} due to invalid weight.`);
+                continue;
+              }
+
+              let lastRunTs = null;
+              try {
+                const { data } = await github.rest.actions.listWorkflowRuns({
+                  owner,
+                  repo,
+                  workflow_id: workflow.file,
+                  per_page: 1
+                });
+                const run = data.workflow_runs?.[0];
+                if (run) {
+                  const ts = run.run_started_at || run.created_at || run.updated_at;
+                  if (ts) {
+                    const parsed = Date.parse(ts);
+                    if (Number.isFinite(parsed)) {
+                      lastRunTs = parsed;
+                    }
+                  }
+                }
+              } catch (error) {
+                core.warning(`Failed to query runs for ${workflow.file}: ${error.message}`);
+              }
+
+              if (lastRunTs && now - lastRunTs < minIntervalMs) {
+                continue;
+              }
+
+              eligible.push({
+                file: workflow.file,
+                weight: weightValue,
+                topic: workflow.topic ?? null
+              });
+            }
+
+            if (eligible.length === 0) {
+              core.info('No workflows eligible this tick.');
+              core.setOutput('chosen_json', '[]');
+              core.setOutput('run_count', '0');
+              core.exportVariable('SCHEDULER_CHOSEN_JSON', '[]');
+              core.exportVariable('SCHEDULER_RUN_COUNT', '0');
+              return;
+            }
+
+            const totalWeight = eligible.reduce((sum, item) => sum + item.weight, 0);
+            if (!Number.isFinite(totalWeight) || totalWeight <= 0) {
+              core.info('Aggregate weight of eligible workflows is zero; nothing to schedule.');
+              core.setOutput('chosen_json', '[]');
+              core.setOutput('run_count', '0');
+              core.exportVariable('SCHEDULER_CHOSEN_JSON', '[]');
+              core.exportVariable('SCHEDULER_RUN_COUNT', '0');
+              return;
+            }
+
+            const desiredPerTickTotal = totalWeight * (tickMinutes / 60);
+            const effectiveBudget = Math.min(perTickBudget, desiredPerTickTotal);
+            if (!Number.isFinite(effectiveBudget) || effectiveBudget <= 0) {
+              core.info('Effective per-tick budget is not positive after normalisation; skipping dispatch.');
+              core.setOutput('chosen_json', '[]');
+              core.setOutput('run_count', '0');
+              core.exportVariable('SCHEDULER_CHOSEN_JSON', '[]');
+              core.exportVariable('SCHEDULER_RUN_COUNT', '0');
+              return;
+            }
+
+            const chosen = [];
+            for (const workflow of eligible) {
+              const probability = Math.min(1, (workflow.weight / totalWeight) * effectiveBudget);
+              const hash = crypto.createHash('sha256')
+                .update(`${workflow.file}:${windowKey}`)
+                .digest('hex');
+              const rand = parseInt(hash.substring(0, 8), 16) / 0xFFFFFFFF;
+              if (rand < probability) {
+                chosen.push({ file: workflow.file, topic: workflow.topic });
+              }
+            }
+
+            core.info(`Eligible workflows: ${eligible.length}`);
+            core.info(`Selected workflows: ${chosen.length}`);
+            core.setOutput('chosen_json', JSON.stringify(chosen));
+            core.setOutput('run_count', String(chosen.length));
+            core.exportVariable('SCHEDULER_CHOSEN_JSON', JSON.stringify(chosen));
+            core.exportVariable('SCHEDULER_RUN_COUNT', String(chosen.length));
+
+      - name: Dispatch workflows
+        if: ${{ env.SCHEDULER_RUN_COUNT != '' && env.SCHEDULER_RUN_COUNT != '0' }}
+        uses: actions/github-script@v7
+        env:
+          CHOSEN_JSON: ${{ env.SCHEDULER_CHOSEN_JSON || '[]' }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const chosen = JSON.parse(process.env.CHOSEN_JSON || '[]');
+            for (const workflow of chosen) {
+              await github.rest.repos.createDispatchEvent({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                event_type: 'run_scheduled',
+                client_payload: {
+                  workflow_file: workflow.file,
+                  topic: workflow.topic,
+                },
+              });
+              core.info(`Dispatched ${workflow.file}`);
+            }
+

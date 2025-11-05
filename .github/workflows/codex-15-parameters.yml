@@ -1,7 +1,7 @@
 name: Codex 15 – Parameter Flexibility
 on:
-  schedule:
-    - cron: "20 8 * * *" # once daily at 08:20 UTC
+  repository_dispatch:
+    types: [run_scheduled]
   workflow_dispatch:
 
 permissions:
@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   run:
+    if: ${{ (github.event_name == 'workflow_dispatch' || (github.event_name == 'repository_dispatch' && github.event.action == 'run_scheduled' && github.event.client_payload.workflow_file == '.github/workflows/codex-15-parameters.yml')) }}
     uses: ./.github/workflows/_codex-open-pr-and-ping.yml
     secrets: inherit
     with:
