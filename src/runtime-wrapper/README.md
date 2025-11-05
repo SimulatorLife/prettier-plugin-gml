@@ -26,6 +26,7 @@ Creates a new runtime wrapper instance with hot-reload capabilities.
 
 - `registry` (optional): Initial registry state with `scripts`, `events`, and `closures`.
 - `onPatchApplied` (optional): Callback invoked after each successful patch application.
+- `validateBeforeApply` (optional): When `true`, validates patches in a shadow registry before applying to the real registry. Default is `false`.
 
 **Returns:** An object with the following methods:
 
@@ -37,7 +38,31 @@ Applies a patch to the runtime registry. The patch object must have:
 - `id`: Unique identifier for the patch
 - `js_body`: JavaScript function body as a string
 
+When `validateBeforeApply` is enabled, patches are validated in a shadow registry first. Invalid patches are rejected before touching the real registry.
+
 Returns `{ success: true, version: <number> }` on success.
+
+#### `trySafeApply(patch, onValidate)`
+
+Applies a patch with automatic rollback on failure. This method:
+
+1. Validates the patch in a shadow registry to catch syntax errors
+2. Optionally runs a custom validation callback
+3. Applies the patch to the real registry
+4. Automatically rolls back if any step fails
+
+**Parameters:**
+
+- `patch`: Patch object (same format as `applyPatch`)
+- `onValidate` (optional): Custom validation function that receives the patch and returns `true`/`false` or throws an error
+
+**Returns:**
+
+- On success: `{ success: true, version: <number>, rolledBack: false }`
+- On shadow validation failure: `{ success: false, error: <string>, message: <string> }`
+- On rollback: `{ success: false, error: <string>, message: <string>, rolledBack: true }`
+
+Rollback operations are recorded in the patch history with `action: "rollback"`.
 
 #### `undo()`
 
@@ -47,13 +72,14 @@ Returns `{ success: true, version: <number> }` on success, or `{ success: false,
 
 #### `getPatchHistory()`
 
-Returns an array of all patch operations (apply and undo) with metadata:
+Returns an array of all patch operations (apply, undo, and rollback) with metadata:
 
 - `patch.kind`: Type of patch (`"script"` or `"event"`)
 - `patch.id`: Patch identifier
 - `version`: Registry version after the operation
 - `timestamp`: Time when the operation occurred
-- `action`: Either `"apply"` or `"undo"`
+- `action`: Either `"apply"`, `"undo"`, or `"rollback"`
+- `error` (rollback only): Error message that caused the rollback
 
 #### `getRegistrySnapshot()`
 
@@ -77,6 +103,63 @@ Returns aggregate statistics about patch operations:
 - `scriptPatches`: Number of script-related operations
 - `eventPatches`: Number of event-related operations
 - `uniqueIds`: Number of unique patch IDs
+
+## Error Recovery and Safe Patch Application
+
+The runtime wrapper provides two mechanisms for safe patch application:
+
+### Shadow Registry Validation
+
+When creating a wrapper with `validateBeforeApply: true`, all patches are validated in an isolated shadow registry before being applied to the real registry. This catches syntax errors and malformed patches without affecting the running application:
+
+```javascript
+const wrapper = createRuntimeWrapper({ validateBeforeApply: true });
+
+// Invalid patches are rejected before touching the registry
+wrapper.applyPatch({
+    kind: "script",
+    id: "script:bad",
+    js_body: "return {{ invalid syntax"
+}); // Throws: Patch validation failed
+```
+
+### Automatic Rollback with `trySafeApply`
+
+For production use, `trySafeApply` provides comprehensive error recovery:
+
+```javascript
+const wrapper = createRuntimeWrapper();
+
+// Shadow validation + custom validation + automatic rollback
+const result = wrapper.trySafeApply(
+    {
+        kind: "script",
+        id: "script:risky",
+        js_body: "return args[0] * 2;"
+    },
+    (patch) => {
+        // Custom validation logic
+        return patch.id.startsWith("script:");
+    }
+);
+
+if (!result.success) {
+    console.error("Patch failed:", result.message);
+    if (result.rolledBack) {
+        console.log("Registry was automatically restored");
+    }
+}
+```
+
+The `trySafeApply` method:
+
+1. Validates patches in a shadow registry to catch syntax errors
+2. Runs optional custom validation logic
+3. Applies the patch if all validations pass
+4. Automatically rolls back on any failure, preserving registry state
+5. Records rollback operations in patch history for diagnostics
+
+This aligns with the live reloading concept's error handling strategy of applying patches in a shadow registry first and rolling back automatically on runtime errors.
 
 #### `getVersion()`
 

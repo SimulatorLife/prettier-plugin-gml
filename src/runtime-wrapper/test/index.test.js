@@ -396,3 +396,228 @@ test("getPatchStats tracks unique patch IDs correctly", () => {
     assert.strictEqual(stats.totalPatches, 2);
     assert.strictEqual(stats.uniqueIds, 1);
 });
+
+test("trySafeApply validates patch in shadow registry", () => {
+    const wrapper = createRuntimeWrapper();
+    assert.strictEqual(typeof wrapper.trySafeApply, "function");
+
+    const patch = {
+        kind: "script",
+        id: "script:test",
+        js_body: "return args[0] * 2;"
+    };
+
+    const result = wrapper.trySafeApply(patch);
+    assert.ok(result.success);
+    assert.strictEqual(result.version, 1);
+    assert.strictEqual(result.rolledBack, false);
+});
+
+test("trySafeApply rejects invalid patch in shadow validation", () => {
+    const wrapper = createRuntimeWrapper();
+
+    const patch = {
+        kind: "script",
+        id: "script:test",
+        js_body: ""
+    };
+
+    const result = wrapper.trySafeApply(patch);
+    assert.strictEqual(result.success, false);
+    assert.ok(result.error);
+    assert.ok(result.message.includes("Shadow validation failed"));
+});
+
+test("trySafeApply applies valid patch to actual registry", () => {
+    const wrapper = createRuntimeWrapper();
+
+    const patch = {
+        kind: "script",
+        id: "script:multiply",
+        js_body: "return args[0] * args[1];"
+    };
+
+    const result = wrapper.trySafeApply(patch);
+    assert.ok(result.success);
+
+    const fn = wrapper.getScript("script:multiply");
+    assert.strictEqual(fn(null, null, [3, 4]), 12);
+});
+
+test("trySafeApply supports custom validation callback", () => {
+    const wrapper = createRuntimeWrapper();
+
+    const patch = {
+        kind: "script",
+        id: "script:test",
+        js_body: "return 1;"
+    };
+
+    const onValidate = (p) => {
+        return p.id !== "script:forbidden";
+    };
+
+    const result = wrapper.trySafeApply(patch, onValidate);
+    assert.ok(result.success);
+});
+
+test("trySafeApply rejects patch when custom validation fails", () => {
+    const wrapper = createRuntimeWrapper();
+
+    const patch = {
+        kind: "script",
+        id: "script:forbidden",
+        js_body: "return 1;"
+    };
+
+    const onValidate = (p) => {
+        return p.id !== "script:forbidden";
+    };
+
+    const result = wrapper.trySafeApply(patch, onValidate);
+    assert.strictEqual(result.success, false);
+    assert.ok(result.message.includes("Custom validation"));
+    assert.ok(!wrapper.hasScript("script:forbidden"));
+});
+
+test("trySafeApply handles custom validation errors", () => {
+    const wrapper = createRuntimeWrapper();
+
+    const patch = {
+        kind: "script",
+        id: "script:test",
+        js_body: "return 1;"
+    };
+
+    const onValidate = () => {
+        throw new Error("Validation error");
+    };
+
+    const result = wrapper.trySafeApply(patch, onValidate);
+    assert.strictEqual(result.success, false);
+    assert.ok(result.message.includes("Custom validation failed"));
+    assert.strictEqual(result.error, "Validation error");
+});
+
+test("trySafeApply catches syntax errors in shadow validation", () => {
+    const wrapper = createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:existing",
+        js_body: "return 1;"
+    });
+
+    const initialVersion = wrapper.getVersion();
+
+    const badPatch = {
+        kind: "script",
+        id: "script:bad",
+        js_body: "return {{{{{ invalid syntax"
+    };
+
+    const result = wrapper.trySafeApply(badPatch);
+    assert.strictEqual(result.success, false);
+    assert.ok(result.error);
+    assert.ok(result.message.includes("Shadow validation failed"));
+    assert.ok(!wrapper.hasScript("script:bad"));
+    assert.ok(wrapper.hasScript("script:existing"));
+    assert.strictEqual(wrapper.getVersion(), initialVersion);
+});
+
+test("trySafeApply does not record shadow validation failures in history", () => {
+    const wrapper = createRuntimeWrapper();
+
+    const badPatch = {
+        kind: "script",
+        id: "script:bad",
+        js_body: "return }}} invalid"
+    };
+
+    wrapper.trySafeApply(badPatch);
+
+    const history = wrapper.getPatchHistory();
+    assert.strictEqual(history.length, 0);
+});
+
+test("validateBeforeApply option enables shadow validation", () => {
+    const wrapper = createRuntimeWrapper({ validateBeforeApply: true });
+
+    const patch = {
+        kind: "script",
+        id: "script:test",
+        js_body: "return args[0] + 1;"
+    };
+
+    const result = wrapper.applyPatch(patch);
+    assert.ok(result.success);
+    assert.ok(wrapper.hasScript("script:test"));
+});
+
+test("validateBeforeApply rejects invalid patches", () => {
+    const wrapper = createRuntimeWrapper({ validateBeforeApply: true });
+
+    const patch = {
+        kind: "script",
+        id: "script:test",
+        js_body: ""
+    };
+
+    assert.throws(() => wrapper.applyPatch(patch), {
+        message: /Patch validation failed/
+    });
+});
+
+test("trySafeApply maintains registry state after rollback", () => {
+    const wrapper = createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:a",
+        js_body: "return 1;"
+    });
+
+    wrapper.applyPatch({
+        kind: "event",
+        id: "obj_test#Create",
+        js_body: "this.x = 0;"
+    });
+
+    const beforeSnapshot = wrapper.getRegistrySnapshot();
+
+    const badPatch = {
+        kind: "script",
+        id: "script:bad",
+        js_body: "return syntax error;"
+    };
+
+    wrapper.trySafeApply(badPatch);
+
+    const afterSnapshot = wrapper.getRegistrySnapshot();
+
+    assert.strictEqual(afterSnapshot.scriptCount, beforeSnapshot.scriptCount);
+    assert.strictEqual(afterSnapshot.eventCount, beforeSnapshot.eventCount);
+    assert.strictEqual(afterSnapshot.version, beforeSnapshot.version);
+});
+
+test("trySafeApply catches event syntax errors in shadow validation", () => {
+    const wrapper = createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "event",
+        id: "obj_player#Step",
+        js_body: "this.x += 1;"
+    });
+
+    const badEventPatch = {
+        kind: "event",
+        id: "obj_enemy#Step",
+        js_body: "return {{ invalid"
+    };
+
+    const result = wrapper.trySafeApply(badEventPatch);
+    assert.strictEqual(result.success, false);
+    assert.ok(result.message.includes("Shadow validation failed"));
+    assert.ok(!wrapper.hasEvent("obj_enemy#Step"));
+    assert.ok(wrapper.hasEvent("obj_player#Step"));
+});
