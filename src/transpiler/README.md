@@ -73,6 +73,7 @@ const jsCode = emitJavaScript(ast);
 - ✅ Nested control flow structures
 - ✅ Array literals ([1, 2, 3])
 - ✅ Struct literals ({a: 1, b: 2}) mapped to JavaScript object literals
+- ✅ Ternary expressions (a ? b : c)
 
 ### Planned Features
 
@@ -81,7 +82,7 @@ const jsCode = emitJavaScript(ast);
 - [ ] Scope-aware identifier resolution (self, other, global)
 - [ ] Script call indirection through runtime wrapper
 - [ ] Built-in function mapping
-- [ ] Advanced expression forms (ternary, compound assignments)
+- [ ] Compound assignment operators (already parsed, may need runtime handling)
 - [ ] Try-catch-finally error handling
 
 ## Operator Mapping

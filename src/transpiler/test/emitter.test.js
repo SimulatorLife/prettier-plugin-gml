@@ -588,3 +588,59 @@ test("emitJavaScript handles arrays with struct elements", () => {
     assert.ok(result.includes("a: 1"), "Should include first struct");
     assert.ok(result.includes("b: 2"), "Should include second struct");
 });
+
+// Ternary expression tests
+test("emitJavaScript handles simple ternary expressions", () => {
+    const source = "x = a > b ? a : b";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("?"), "Should include ? operator");
+    assert.ok(result.includes(":"), "Should include : operator");
+    assert.ok(result.includes("a > b"), "Should include test condition");
+});
+
+test("emitJavaScript handles ternary with parenthesized test", () => {
+    const source = "x = (a > b) ? a : b";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("?"), "Should include ternary operator");
+    assert.ok(result.includes("a"), "Should include consequent");
+    assert.ok(result.includes("b"), "Should include alternate");
+});
+
+test("emitJavaScript handles nested ternary expressions", () => {
+    const source = "x = a > b ? (c > d ? c : d) : b";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("?"), "Should include ternary operators");
+});
+
+test("emitJavaScript handles ternary with complex expressions", () => {
+    const source = "result = (x + y) > 10 ? x * 2 : y / 2";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("?"), "Should include ternary operator");
+    assert.ok(result.includes("x + y"), "Should include test expression");
+    assert.ok(result.includes("x * 2"), "Should include consequent");
+    assert.ok(result.includes("y / 2"), "Should include alternate");
+});
+
+test("emitJavaScript handles ternary with function calls", () => {
+    const source = "x = check() ? getValue() : getDefault()";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("check()"), "Should include test function");
+    assert.ok(
+        result.includes("getValue()"),
+        "Should include consequent function"
+    );
+    assert.ok(
+        result.includes("getDefault()"),
+        "Should include alternate function"
+    );
+});

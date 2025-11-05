@@ -529,6 +529,17 @@ export function emitJavaScript(ast) {
         return `(${emitJavaScript(ast.expression)})`;
     }
 
+    // Handle ternary expressions (conditional expressions)
+    if (ast.type === "TernaryExpression") {
+        const test =
+            ast.test.type === "ParenthesizedExpression"
+                ? emitJavaScript(ast.test.expression)
+                : emitJavaScript(ast.test);
+        const consequent = emitJavaScript(ast.consequent);
+        const alternate = emitJavaScript(ast.alternate);
+        return `(${test} ? ${consequent} : ${alternate})`;
+    }
+
     // Handle array literals
     if (ast.type === "ArrayExpression") {
         if (!ast.elements || ast.elements.length === 0) {
