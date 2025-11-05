@@ -326,7 +326,11 @@ export default class GameMakerASTBuilder {
         return null;
     }
 
-    // Add context metadata to the node.
+    // Attach source location metadata (start/end line and offset) to each AST node
+    // so downstream tools (formatter, linter, error reporter) can map nodes back to
+    // their original source positions. We compute the end location by accounting for
+    // line breaks within the token's text, which is crucial for multi-line string
+    // literals or block comments that span multiple lines.
     astNode(ctx, object) {
         object.start = { line: ctx.start.line, index: ctx.start.start };
         object.end = ctx.stop

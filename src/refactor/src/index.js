@@ -66,17 +66,21 @@ export class RefactorEngine {
             return null;
         }
 
-        // Check if semantic analyzer provides position-based lookup
+        // Attempt to use the semantic analyzer's position-based lookup if available.
+        // This is the preferred method because it understands scope, binding, and
+        // type information, allowing it to distinguish between identically-named
+        // symbols in different contexts (e.g., local variables vs. global functions).
         if (typeof this.semantic.getSymbolAtPosition === "function") {
             return this.semantic.getSymbolAtPosition(filePath, offset);
         }
 
-        // Fallback: use parser if available
+        // Fallback to parser-only AST traversal when the semantic analyzer doesn't
+        // provide position-based lookup. This is less accurate because it can't
+        // resolve bindings, but it still lets us find the syntactic node at the
+        // given offset for basic rename operations.
         if (this.parser && typeof this.parser.parse === "function") {
             try {
                 const ast = await this.parser.parse(filePath);
-                // Walk AST to find node at offset
-                // This is a simplified implementation
                 return this.findNodeAtOffset(ast, offset);
             } catch {
                 return null;
@@ -95,9 +99,14 @@ export class RefactorEngine {
             return null;
         }
 
-        // Check if this node contains the offset
+        // Determine whether this node's source range encompasses the given offset.
+        // We use closed-interval semantics (<=) so that offsets at the exact start
+        // or end positions match the node, which is crucial for cursor-based
+        // refactorings where the user clicks on the first or last character.
         if (node.start <= offset && offset <= node.end) {
-            // Check children first (depth-first)
+            // Recurse into child nodes first (depth-first traversal) to find the
+            // most specific node at the offset. This ensures we return the innermost
+            // identifier or expression rather than a containing block statement.
             if (node.children) {
                 for (const child of node.children) {
                     const found = this.findNodeAtOffset(child, offset);
@@ -107,7 +116,9 @@ export class RefactorEngine {
                 }
             }
 
-            // Return this node if it's an identifier
+            // If no child matches, return this node if it's an identifier. We filter
+            // by type to avoid returning structural nodes like statements or blocks
+            // that happen to contain the offset but aren't meaningful rename targets.
             if (node.type === "identifier" && node.name) {
                 return {
                     symbolId: `gml/identifier/${node.name}`,
@@ -132,12 +143,17 @@ export class RefactorEngine {
             );
         }
 
-        // Check if semantic analyzer provides symbol lookup
+        // Query the semantic analyzer's symbol table to determine whether the given
+        // symbolId exists. This check prevents rename operations from targeting
+        // non-existent symbols, which would otherwise silently succeed but produce
+        // no edits, confusing users who expect feedback when they mistype a name.
         if (typeof this.semantic.hasSymbol === "function") {
             return this.semantic.hasSymbol(symbolId);
         }
 
-        // Fallback: assume valid if semantic is present but doesn't provide validation
+        // If the semantic analyzer doesn't expose a validation method, assume the
+        // symbol exists. This fallback permits refactorings to proceed in
+        // environments where the semantic layer is minimal or still initializing.
         return true;
     }
 
@@ -151,12 +167,17 @@ export class RefactorEngine {
             return [];
         }
 
-        // Check if semantic analyzer provides occurrence lookup
+        // Request all occurrences (definitions and references) of the symbol from
+        // the semantic analyzer. This includes local variables, function parameters,
+        // global functions, and any other binding sites. The semantic layer tracks
+        // both the location (path, offset) and the kind (definition vs. reference)
+        // of each occurrence, which later phases use to construct text edits.
         if (typeof this.semantic.getSymbolOccurrences === "function") {
             return this.semantic.getSymbolOccurrences(symbolName);
         }
 
-        // Fallback: return empty array if not available
+        // If occurrence tracking isn't available, return an empty array so the
+        // rename operation can proceed without edits, avoiding a hard error.
         return [];
     }
 
@@ -170,10 +191,15 @@ export class RefactorEngine {
     async detectRenameConflicts(oldName, newName, occurrences) {
         const conflicts = [];
 
-        // Check if new name would shadow existing symbols
+        // Test whether renaming would introduce shadowing conflicts where the new
+        // name collides with an existing symbol in the same scope. For example,
+        // renaming a local variable `x` to `y` when `y` is already defined in that
+        // scope would hide the original `y`, breaking references to it.
         if (this.semantic && typeof this.semantic.lookup === "function") {
             for (const occurrence of occurrences) {
-                // Check if newName already exists in the same scope
+                // Perform a scope-aware lookup for the new name at each occurrence
+                // site. If we find an existing binding that isn't the symbol we're
+                // renaming, record a conflict so the user can resolve it manually.
                 const existing = await this.semantic.lookup(
                     newName,
                     occurrence.scopeId
@@ -188,7 +214,10 @@ export class RefactorEngine {
             }
         }
 
-        // Check for reserved keywords or built-in identifiers
+        // Reject renames that would overwrite GML reserved keywords (like `if`,
+        // `function`) or built-in identifiers (like `self`, `global`). Allowing
+        // such renames would cause syntax errors or silently bind user symbols to
+        // language constructs, breaking both the parser and runtime semantics.
         const reservedKeywords = new Set([
             "if",
             "else",
@@ -236,7 +265,9 @@ export class RefactorEngine {
     async planRename(request) {
         const { symbolId, newName } = request ?? {};
 
-        // Validate inputs
+        // Ensure both symbolId and newName are provided and have the correct types.
+        // Early validation prevents downstream failures and gives clear error messages
+        // when callers pass incorrect arguments (e.g., undefined or numeric values).
         if (!symbolId || !newName) {
             throw new TypeError("planRename requires symbolId and newName");
         }
@@ -253,7 +284,9 @@ export class RefactorEngine {
             );
         }
 
-        // Validate symbol exists
+        // Confirm the symbol exists in the semantic index before proceeding. This
+        // prevents wasted work gathering occurrences for non-existent symbols and
+        // provides a clear error message when the user mistypes a symbol name.
         const exists = await this.validateSymbolExists(symbolId);
         if (!exists) {
             throw new Error(
@@ -262,13 +295,19 @@ export class RefactorEngine {
             );
         }
 
-        // Extract symbol name from ID (e.g., "gml/script/scr_foo" -> "scr_foo")
+        // Extract the symbol's base name from its fully-qualified ID by taking the
+        // last path component. For example, "gml/script/scr_foo" becomes "scr_foo",
+        // which we use to search for all occurrences in the codebase.
         const symbolName = symbolId.split("/").pop();
 
-        // Gather all occurrences of this symbol
+        // Collect all occurrences (definitions and references) of the symbol across
+        // the workspace. This includes every location where the symbol appears, so
+        // the rename operation can update all references simultaneously.
         const occurrences = await this.gatherSymbolOccurrences(symbolName);
 
-        // Check for conflicts
+        // Detect potential conflicts (shadowing, reserved keywords, etc.) before
+        // applying edits. If conflicts exist, we abort the rename to prevent
+        // introducing scope errors or breaking existing code.
         const conflicts = await this.detectRenameConflicts(
             symbolName,
             newName,
@@ -282,10 +321,10 @@ export class RefactorEngine {
             );
         }
 
-        // Create workspace edit for the rename
+        // Build a workspace edit containing text edits for every occurrence. Each
+        // edit replaces the old symbol name with the new name at its source location.
         const workspace = new WorkspaceEdit();
 
-        // Generate edits for all safe rename sites
         for (const occurrence of occurrences) {
             workspace.addEdit(
                 occurrence.path,
@@ -318,18 +357,21 @@ export class RefactorEngine {
             return { valid: false, errors, warnings };
         }
 
-        // Group edits by file for validation
+        // Organize edits by file path so we can validate that edits within the same
+        // file don't overlap or conflict. Overlapping edits would produce ambiguous
+        // results (which edit wins?) and likely indicate a logic error in the rename.
         const grouped = workspace.groupByFile();
 
-        // Validate each file's edits don't overlap
+        // Examine each file's edit list for overlapping ranges. Since edits are
+        // sorted in descending order by start position, we can detect overlaps by
+        // checking whether the next edit's end position exceeds the current edit's
+        // start position. Overlaps indicate that two edits target overlapping or
+        // adjacent text spans, which would corrupt the output if applied naively.
         for (const [filePath, edits] of grouped.entries()) {
             for (let i = 0; i < edits.length - 1; i++) {
                 const current = edits[i];
                 const next = edits[i + 1];
 
-                // Check for overlapping ranges (edits are sorted descending by start)
-                // current.start >= next.start (since descending)
-                // Overlap occurs if next.end > current.start
                 if (next.end > current.start) {
                     errors.push(
                         `Overlapping edits detected in ${filePath} at positions ${current.start}-${next.end}`
@@ -337,7 +379,9 @@ export class RefactorEngine {
                 }
             }
 
-            // Warn if file has many edits (potential large-scale rename)
+            // Warn when a single file receives an unusually large number of edits,
+            // which could indicate that the rename is broader than intended (e.g.,
+            // renaming a common identifier like "i" across an entire project).
             if (edits.length > 50) {
                 warnings.push(
                     `Large number of edits (${edits.length}) planned for ${filePath}. ` +
@@ -395,7 +439,9 @@ export class RefactorEngine {
             );
         }
 
-        // Validate edits before applying
+        // Verify the workspace edit is structurally sound and free of conflicts
+        // before modifying any files. This prevents partial application of invalid
+        // edits that could leave the codebase in an inconsistent state.
         const validation = await this.validateRename(workspace);
         if (!validation.valid) {
             throw new Error(
@@ -403,16 +449,21 @@ export class RefactorEngine {
             );
         }
 
-        // Group edits by file
+        // Organize edits by file so we can process each file independently. This
+        // allows us to load, edit, and save one file at a time, reducing memory
+        // usage and enabling incremental progress reporting.
         const grouped = workspace.groupByFile();
         const results = new Map();
 
-        // Apply edits to each file
+        // Process each file by loading its current content, applying all edits for
+        // that file, and optionally writing the modified content back to disk.
         for (const [filePath, edits] of grouped.entries()) {
-            // Read current file content
             const originalContent = await readFile(filePath);
 
-            // Apply edits in reverse order (high to low offset) to maintain positions
+            // Apply edits from high to low offset (reverse order) so that earlier
+            // edits don't invalidate the offsets of later edits. When edits are
+            // sorted descending, modifying the end of the file first keeps positions
+            // at the beginning stable, eliminating the need to recalculate offsets.
             let newContent = originalContent;
             for (const edit of edits) {
                 newContent =
@@ -423,7 +474,8 @@ export class RefactorEngine {
 
             results.set(filePath, newContent);
 
-            // Write file if not in dry-run mode
+            // Write the modified content to disk unless we're in dry-run mode, which
+            // lets callers preview changes before committing them.
             if (!dryRun) {
                 await writeFile(filePath, newContent);
             }
@@ -468,7 +520,11 @@ export class RefactorEngine {
             }
         }
 
-        // Check for duplicate new names that would conflict
+        // Ensure no two renames target the same new name, which would cause
+        // multiple symbols to collide after the refactoring. For example, renaming
+        // both `foo` and `bar` to `baz` would leave only one symbol named `baz`,
+        // breaking references to the other. We detect this early to avoid
+        // generating a corrupted workspace edit.
         const newNames = new Set();
         for (const rename of renames) {
             const symbolName = rename.symbolId.split("/").pop();
@@ -480,14 +536,18 @@ export class RefactorEngine {
             newNames.add(rename.newName);
         }
 
-        // Plan each rename individually
+        // Plan each rename independently, collecting the resulting workspace edits.
+        // We defer merging until all renames are validated so that a single invalid
+        // rename doesn't invalidate the entire batch.
         const workspaces = [];
         for (const rename of renames) {
             const workspace = await this.planRename(rename);
             workspaces.push(workspace);
         }
 
-        // Merge all workspace edits
+        // Combine all workspace edits into a single merged edit that can be applied
+        // atomically. This ensures either all renames succeed together or none are
+        // applied, maintaining consistency.
         const merged = new WorkspaceEdit();
         for (const workspace of workspaces) {
             for (const edit of workspace.edits) {
@@ -626,9 +686,12 @@ export class RefactorEngine {
                 );
             }
 
-            // Check if edits affect critical constructs
+            // Examine each edit to detect whether it introduces language constructs
+            // that GameMaker's runtime can't hot-reload safely. Global variables,
+            // macros, and enums affect compile-time state or global scope, so
+            // modifying them typically requires restarting the game to ensure the
+            // runtime re-initializes these declarations with updated values.
             for (const edit of edits) {
-                // Warn about edits that might break runtime state
                 if (edit.newText.includes("globalvar")) {
                     warnings.push(
                         `Edit in ${filePath} introduces 'globalvar' - may require full reload`
@@ -648,7 +711,11 @@ export class RefactorEngine {
                 }
             }
 
-            // Check for very large edits that might indicate structural changes
+            // Measure the total size of the replacement text across all edits to
+            // identify large-scale changes. Edits that introduce thousands of
+            // characters likely represent substantial rewrites (e.g., refactoring an
+            // entire function body), which may confuse GameMaker's hot-reload engine
+            // and benefit from a full restart to ensure clean initialization.
             const totalCharsChanged = edits.reduce(
                 (sum, e) => sum + e.newText.length,
                 0
@@ -804,10 +871,12 @@ export class RefactorEngine {
             );
             summary.totalOccurrences = occurrences.length;
 
-            // Track affected files
+            // Record which files will be modified by this rename so the user can
+            // review the scope before applying changes. We also categorize each
+            // occurrence as either a definition (where the symbol is declared) or a
+            // reference (where it's used), giving insight into the symbol's role.
             for (const occ of occurrences) {
                 summary.affectedFiles.add(occ.path);
-                // Count definitions vs references
                 if (occ.kind === "definition") {
                     summary.definitionCount++;
                 } else {
@@ -815,7 +884,10 @@ export class RefactorEngine {
                 }
             }
 
-            // Check for conflicts
+            // Test for potential rename conflicts (shadowing, reserved keywords) that
+            // would break the code if applied. We collect all conflicts across all
+            // renames in the batch so the user can see the complete picture before
+            // deciding whether to proceed or adjust the new names.
             const detectedConflicts = await this.detectRenameConflicts(
                 summary.oldName,
                 newName,
@@ -823,11 +895,13 @@ export class RefactorEngine {
             );
             conflicts.push(...detectedConflicts);
 
-            // Check if hot reload will be needed
+            // Determine whether the GameMaker runtime can hot-reload these changes
+            // without a full restart. If occurrences exist, we assume hot reload is
+            // needed and query the semantic analyzer to identify dependent symbols
+            // that also need reloading to maintain consistency.
             if (summary.totalOccurrences > 0) {
                 summary.hotReloadRequired = true;
 
-                // Identify dependent symbols
                 if (
                     this.semantic &&
                     typeof this.semantic.getDependents === "function"
@@ -841,7 +915,10 @@ export class RefactorEngine {
                 }
             }
 
-            // Generate warnings for large-scale renames
+            // Alert the user when a rename affects many occurrences or has widespread
+            // dependencies. Large-scale renames increase the risk of unintended
+            // side effects (e.g., renaming a common utility function breaks dozens of
+            // call sites), so these warnings encourage the user to review the scope.
             if (summary.totalOccurrences > 50) {
                 warnings.push({
                     type: "large_rename",
@@ -900,16 +977,19 @@ export class RefactorEngine {
         const patches = [];
 
         for (const update of hotReloadUpdates) {
-            // Only generate patches for recompile actions
+            // Filter to recompile actions since only script recompilations produce
+            // runtime patches that can be hot-reloaded. Asset renames and other
+            // non-code changes don't require transpilation or runtime updates.
             if (update.action !== "recompile") {
                 continue;
             }
 
             try {
-                // Read the updated file content
                 const sourceText = await readFile(update.filePath);
 
-                // Generate transpiler patch if transpiler is available
+                // Transpile the updated script into a hot-reload patch if a transpiler
+                // is available. The patch contains executable JavaScript code that the
+                // GameMaker runtime can inject without restarting the game.
                 if (
                     this.formatter &&
                     typeof this.formatter.transpileScript === "function"
@@ -925,7 +1005,10 @@ export class RefactorEngine {
                         filePath: update.filePath
                     });
                 } else {
-                    // Create a basic patch structure without transpilation
+                    // Fall back to a basic patch structure containing only the source
+                    // text when transpilation isn't available. This still allows the
+                    // caller to process the updated files, though it won't be directly
+                    // executable by GameMaker's runtime without manual intervention.
                     patches.push({
                         symbolId: update.symbolId,
                         patch: {

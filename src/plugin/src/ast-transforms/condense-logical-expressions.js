@@ -528,7 +528,10 @@ function tryCondenseIfStatement(
     }
 
     if (!alternateExpression) {
-        // Only condense when both branches produce a value.
+        // Decline to condense if the alternate branch is missing or doesn't produce
+        // a boolean value. Ternary expressions require both consequent and alternate
+        // operands, so we can't safely transform `if (x) return true;` into a
+        // ternary without risking undefined behavior in the else case.
         return false;
     }
 

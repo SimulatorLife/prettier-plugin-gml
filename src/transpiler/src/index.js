@@ -28,14 +28,21 @@ export class GmlTranspiler {
         }
 
         try {
-            // Parse the GML source code
+            // Parse the GML source code into an abstract syntax tree (AST) using the
+            // GML parser. This AST captures the script's structure in a format that
+            // the JavaScript emitter can traverse and transform.
             const parser = new GMLParser(sourceText);
             const ast = parser.parse();
 
-            // Generate JavaScript from the AST
+            // Generate JavaScript code from the AST by walking the tree and emitting
+            // equivalent JavaScript constructs. The emitter handles GML-specific
+            // operators, control flow, and syntax that differ from JavaScript.
             const jsBody = emitJavaScript(ast);
 
-            // Return a patch object compatible with the runtime wrapper
+            // Return a hot-reload patch object containing the transpiled JavaScript
+            // body, the original GML source (for debugging), and a version timestamp.
+            // The runtime wrapper expects this shape when applying live updates to
+            // running scripts without restarting the GameMaker runtime.
             return {
                 kind: "script",
                 id: symbolId,
