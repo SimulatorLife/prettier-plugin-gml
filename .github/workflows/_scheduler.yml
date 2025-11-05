@@ -36,7 +36,6 @@ jobs:
         with:
           script: |
             const crypto = require('crypto');
-            const core = require('@actions/core');
 
             const cfgRaw = process.env.CFG_JSON;
             const cfg = cfgRaw ? JSON.parse(cfgRaw) : {};
@@ -123,8 +122,6 @@ jobs:
         with:
           github-token: ${{ github.token }}
           script: |
-            const core = require('@actions/core');
-
             const chosen = JSON.parse(process.env.CHOSEN_JSON || '[]');
             if (!Array.isArray(chosen) || chosen.length === 0) {
               core.info('No workflows selected for dispatch.');
