@@ -1,0 +1,33 @@
+name: Auto-approve Copilot workflow runs
+
+on:
+  workflow_run:
+    types:
+      - requested
+
+permissions:
+  actions: write
+
+jobs:
+  approve:
+    if: ${{ github.event.workflow_run.actor.login == 'github-copilot[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Approve pending run
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_USER_TOKEN }}
+          script: |
+            const { workflow_run: run } = context.payload;
+            if (!run?.id) {
+              core.info('No workflow_run.id; nothing to approve.');
+              return;
+            }
+
+            await github.request('POST /repos/{owner}/{repo}/actions/runs/{run_id}/approve', {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: run.id,
+            });
+
+            core.notice(`Auto-approved run ${run.id} for workflow "${run.name}" triggered by ${run.actor?.login}.`);
