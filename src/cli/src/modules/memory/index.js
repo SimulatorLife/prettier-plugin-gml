@@ -121,11 +121,8 @@ function normalizeMemoryReportDirectory(value, fallback) {
 const memoryReportDirectoryConfig = createEnvConfiguredValue({
     defaultValue: DEFAULT_MEMORY_REPORT_DIR,
     envVar: MEMORY_REPORT_DIRECTORY_ENV_VAR,
-    normalize: (value, { defaultValue: baseline, previousValue }) =>
-        normalizeMemoryReportDirectory(
-            value,
-            previousValue ?? baseline ?? DEFAULT_MEMORY_REPORT_DIR
-        )
+    normalize: (value, fallback) =>
+        normalizeMemoryReportDirectory(value, fallback)
 });
 
 function getDefaultMemoryReportDirectory() {

@@ -52,14 +52,13 @@ export function createIntegerOptionToolkit({
     const state = createEnvConfiguredValue({
         defaultValue,
         envVar,
-        normalize: (value, { defaultValue: baseline, previousValue }) => {
-            return resolveIntegerOption(value, {
-                defaultValue: baseline ?? previousValue,
+        normalize: (value, fallback) =>
+            resolveIntegerOption(value, {
+                defaultValue: fallback,
                 coerce,
                 typeErrorMessage,
                 blankStringReturnsDefault
-            });
-        }
+            })
     });
 
     function resolve(rawValue, options = {}) {

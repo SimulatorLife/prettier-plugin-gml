@@ -71,20 +71,21 @@ test("applyEnvironmentOverride falls back to process.env when env is omitted", (
 test("createEnvConfiguredValue normalizes updates", () => {
     const config = createEnvConfiguredValue({
         defaultValue: 5,
-        normalize: (value, { defaultValue }) => {
+        normalize: (value, fallback) => {
             if (value === undefined) {
-                return defaultValue;
+                return fallback;
             }
 
             const numeric = Number(value);
-            return Number.isFinite(numeric) ? numeric : defaultValue;
+            return Number.isFinite(numeric) ? numeric : fallback;
         }
     });
 
     assert.equal(config.get(), 5);
     assert.equal(config.set("8"), 8);
     assert.equal(config.get(), 8);
-    assert.equal(config.set(undefined), 5);
+    // Fallback is now currentValue ?? defaultValue, so set(undefined) returns current (8)
+    assert.equal(config.set(undefined), 8);
 });
 
 test("createEnvConfiguredValue applies environment overrides", () => {
@@ -93,14 +94,14 @@ test("createEnvConfiguredValue applies environment overrides", () => {
     const config = createEnvConfiguredValue({
         defaultValue: 1,
         envVar: variable,
-        normalize: (value, { defaultValue }) => {
+        normalize: (value, fallback) => {
             if (value === undefined) {
-                return defaultValue;
+                return fallback;
             }
 
             const numeric = Number(value);
             if (!Number.isFinite(numeric)) {
-                return defaultValue;
+                return fallback;
             }
 
             applied = value;
