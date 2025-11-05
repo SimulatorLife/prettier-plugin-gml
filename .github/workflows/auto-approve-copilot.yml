@@ -60,14 +60,12 @@ jobs:
             const { owner, repo } = context.repo;
             const pull_number = prInfo.number;
 
-            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
-            if (pr.state !== 'open') {
-              core.info(`PR #${pull_number} is ${pr.state}; skipping approval.`);
-              return;
-            }
+            const prefixes = ['codex/', 'copilot/'];
+            const hasAllowedPrefix = (ref) => typeof ref === 'string' && prefixes.some((prefix) => ref.startsWith(prefix));
 
-            if (pr.draft) {
-              core.info(`PR #${pull_number} is still a draft; skipping approval.`);
+            const { data: initialPr } = await github.rest.pulls.get({ owner, repo, pull_number });
+            if (initialPr.state !== 'open') {
+              core.info(`PR #${pull_number} is ${initialPr.state}; skipping approval.`);
               return;
             }
 
@@ -75,6 +73,43 @@ jobs:
             const reviewerLogin = authUser?.login;
             if (!reviewerLogin) {
               core.warning('Unable to resolve authenticated user for review approval.');
+              return;
+            }
+
+            let pr = initialPr;
+
+            try {
+              const repoFull = `${owner}/${repo}`.toLowerCase();
+              const headRepoFull = pr.head?.repo?.full_name?.toLowerCase() || '';
+              const baseRepoFull = pr.base?.repo?.full_name?.toLowerCase() || '';
+              const reviewerCount = Array.isArray(pr.requested_reviewers) ? pr.requested_reviewers.length : 0;
+              const teamCount = Array.isArray(pr.requested_teams) ? pr.requested_teams.length : 0;
+              const totalRequestedReviewers = reviewerCount + teamCount;
+
+              const hasChangedFiles = Number.isFinite(pr.changed_files) && pr.changed_files > 0;
+              const eligiblePrefixes = hasAllowedPrefix(pr.head?.ref) && hasAllowedPrefix(pr.base?.ref);
+              const sameRepo = headRepoFull === repoFull && baseRepoFull === repoFull;
+
+              if (pr.draft && totalRequestedReviewers > 0 && hasChangedFiles && eligiblePrefixes && sameRepo) {
+                await github.graphql(
+                  `mutation($pullRequestId: ID!) {
+                    markPullRequestReadyForReview(input: { pullRequestId: $pullRequestId }) {
+                      pullRequest { number }
+                    }
+                  }`,
+                  { pullRequestId: pr.node_id }
+                );
+                core.notice(`Marked PR #${pull_number} ready for review after reviewer assignment.`);
+
+                const refreshed = await github.rest.pulls.get({ owner, repo, pull_number });
+                pr = refreshed.data;
+              }
+            } catch (error) {
+              core.warning(`Unable to publish PR #${pull_number}: ${error.message}`);
+            }
+
+            if (pr.draft) {
+              core.info(`PR #${pull_number} remains a draft; skipping approval.`);
               return;
             }
 
