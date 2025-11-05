@@ -337,7 +337,7 @@ function hasBlankLineBeforeLeadingComment(
     }
 
     const textBeforeComment = interiorSlice.slice(0, commentMatch.index);
-    if (textBeforeComment.trim().length > 0) {
+    if (isNonEmptyTrimmedString(textBeforeComment)) {
         return false;
     }
 
@@ -387,7 +387,7 @@ function hasBlankLineBetweenLastCommentAndClosingBrace(
         return false;
     }
 
-    if (betweenText.trim().length > 0) {
+    if (isNonEmptyTrimmedString(betweenText)) {
         return false;
     }
 
@@ -4411,8 +4411,8 @@ function promoteLeadingDocCommentTextToDescription(docLines) {
         return normalizedLines;
     }
 
-    const firstContentIndex = segments.findIndex(
-        ({ suffix }) => suffix.trim().length > 0
+    const firstContentIndex = segments.findIndex(({ suffix }) =>
+        isNonEmptyTrimmedString(suffix)
     );
 
     if (firstContentIndex === -1) {
@@ -4490,7 +4490,7 @@ function promoteLeadingDocCommentTextToDescription(docLines) {
 
     const hasContinuationSegments = segments.some(
         ({ suffix }, index) =>
-            index > firstContentIndex && suffix.trim().length > 0
+            index > firstContentIndex && isNonEmptyTrimmedString(suffix)
     );
 
     if (hasContinuationSegments) {

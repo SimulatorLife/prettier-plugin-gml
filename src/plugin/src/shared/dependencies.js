@@ -47,6 +47,7 @@ export {
 
 export {
     asArray,
+    compactArray,
     isArrayIndex,
     isNonEmptyArray,
     toMutableArray
