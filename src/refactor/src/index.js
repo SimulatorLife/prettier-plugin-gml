@@ -995,12 +995,20 @@ export class RefactorEngine {
 
         // Initialize changed symbols at distance 0
         for (const symbolId of changedSymbolIds) {
-            cascade.set(symbolId, { symbolId, distance: 0, reason: "direct change" });
+            cascade.set(symbolId, {
+                symbolId,
+                distance: 0,
+                reason: "direct change"
+            });
             visited.add(symbolId);
         }
 
         // Helper to explore dependencies recursively
-        const exploreDependents = async (symbolId, currentDistance, parentReason) => {
+        const exploreDependents = async (
+            symbolId,
+            currentDistance,
+            parentReason
+        ) => {
             // Check if we're already exploring this symbol (cycle detection)
             if (visiting.has(symbolId)) {
                 // Found a cycle - trace it back
@@ -1013,12 +1021,17 @@ export class RefactorEngine {
 
             try {
                 // Query semantic analyzer for symbols that depend on this one
-                if (this.semantic && typeof this.semantic.getDependents === "function") {
-                    const dependents = await this.semantic.getDependents([symbolId]);
+                if (
+                    this.semantic &&
+                    typeof this.semantic.getDependents === "function"
+                ) {
+                    const dependents = await this.semantic.getDependents([
+                        symbolId
+                    ]);
 
                     for (const dep of dependents) {
                         const depId = dep.symbolId;
-                        
+
                         // Track the dependency edge for topological sort
                         if (!dependencyGraph.has(symbolId)) {
                             dependencyGraph.set(symbolId, []);
@@ -1029,7 +1042,7 @@ export class RefactorEngine {
                         if (!visited.has(depId)) {
                             const newDistance = currentDistance + 1;
                             const reason = `depends on ${symbolId.split("/").pop()} (${parentReason})`;
-                            
+
                             cascade.set(depId, {
                                 symbolId: depId,
                                 distance: newDistance,
@@ -1038,7 +1051,11 @@ export class RefactorEngine {
                             visited.add(depId);
 
                             // Recursively explore this dependent's dependents
-                            const result = await exploreDependents(depId, newDistance, reason);
+                            const result = await exploreDependents(
+                                depId,
+                                newDistance,
+                                reason
+                            );
                             if (result && result.cycleDetected) {
                                 circular.push(result.cycle);
                             }
@@ -1059,14 +1076,14 @@ export class RefactorEngine {
 
         // Convert cascade to array and compute topological order
         const cascadeArray = Array.from(cascade.values());
-        
+
         // Topological sort using Kahn's algorithm
         // Build in-degree map
         const inDegree = new Map();
         for (const item of cascadeArray) {
             inDegree.set(item.symbolId, 0);
         }
-        
+
         for (const [from, toList] of dependencyGraph.entries()) {
             for (const to of toList) {
                 if (inDegree.has(to)) {
@@ -1103,7 +1120,7 @@ export class RefactorEngine {
 
         // If order doesn't include all symbols, we have cycles
         const hasUnorderedSymbols = order.length < cascadeArray.length;
-        
+
         // Add any remaining symbols (those in cycles) to the end of the order
         for (const item of cascadeArray) {
             if (!order.includes(item.symbolId)) {
@@ -1112,7 +1129,10 @@ export class RefactorEngine {
         }
 
         // Compute metadata
-        const maxDistance = cascadeArray.reduce((max, item) => Math.max(max, item.distance), 0);
+        const maxDistance = cascadeArray.reduce(
+            (max, item) => Math.max(max, item.distance),
+            0
+        );
 
         return {
             cascade: cascadeArray,
