@@ -29,6 +29,10 @@ on:
         required: false
         type: string
         default: "henry@the-kirks.com"         # e.g., "you@example.com" or "username@users.noreply.github.com"
+      agent:
+        required: false
+        type: string
+        default: "copilot"  # Copilot or Codex
     outputs:
       pr_number:
         value: ${{ jobs.open_and_ping.outputs.pr_number }}
@@ -44,11 +48,12 @@ jobs:
   open_and_ping:
     runs-on: ubuntu-latest
     outputs:
-      pr_number: ${{ steps.pr.outputs.number }}
+      pr_number: ${{ fromJSON(steps.pr.outputs.result).number }}
       branch: ${{ env.BRANCH_NAME }}
     env:
       BASE_BRANCH: ${{ inputs.base_branch }}
       BRANCH_NAME: ${{ inputs.branch_prefix }}/task-${{ github.run_id }}-${{ github.run_attempt }}
+      AGENT: ${{ inputs.agent || 'copilot' }}
 
     steps:
       - name: Validate GH_USER_TOKEN
@@ -87,6 +92,17 @@ jobs:
           AUTHOR_NAME: ${{ inputs.author_name }}
           AUTHOR_EMAIL: ${{ inputs.author_email }}
 
+      - name: Validate agent selection
+        run: |
+          set -euo pipefail
+          agent_lower=${AGENT,,}
+          if [ "$agent_lower" != "codex" ] && [ "$agent_lower" != "copilot" ]; then
+            echo "Unsupported agent value: $AGENT" >&2
+            exit 1
+          fi
+        env:
+          AGENT: ${{ env.AGENT }}
+
       - name: Open PR (authored by your user)
         id: pr
         uses: actions/github-script@v7
@@ -108,33 +124,40 @@ jobs:
               body:  process.env.PR_BODY || undefined,
               maintainer_can_modify: true,
             });
-            core.setOutput('number', String(pr.number));
-            core.setOutput('head_sha', pr.head.sha);
+            return {
+              number: pr.number,
+              head_sha: pr.head.sha,
+            };
 
       - name: (Optional) Label the PR (as your user)
         uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ fromJSON(steps.pr.outputs.result).number }}
+          AGENT: ${{ env.AGENT }}
         with:
           github-token: ${{ secrets.GH_USER_TOKEN }}
           script: |
             try {
+              const agent = (process.env.AGENT || 'copilot').toLowerCase();
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: Number('${{ steps.pr.outputs.number }}'),
-                labels: ['codex'],
+                issue_number: Number(process.env.ISSUE_NUMBER),
+                labels: [agent],
               });
             } catch (e) {
               core.info('Label add skipped: ' + e.message);
             }
 
-      - name: Comment to trigger Codex (as your user)
+      - name: Comment to trigger AI agent (as your user)
         uses: actions/github-script@v7
         env:
           BASE_BRANCH: ${{ inputs.base_branch }}
           PROMPT: ${{ inputs.prompt }}
           BRANCH_NAME: ${{ env.BRANCH_NAME }}
-          PR_NUMBER: ${{ steps.pr.outputs.number }}
-          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          PR_NUMBER: ${{ fromJSON(steps.pr.outputs.result).number }}
+          HEAD_SHA: ${{ fromJSON(steps.pr.outputs.result).head_sha }}
+          AGENT: ${{ env.AGENT }}
         with:
           github-token: ${{ secrets.GH_USER_TOKEN }}
           script: |
@@ -142,24 +165,35 @@ jobs:
             const owner  = context.repo.owner;
             const repo   = context.repo.repo;
             const branch = process.env.BRANCH_NAME;
+            const agent = (process.env.AGENT || 'copilot').toLowerCase();
+            const mention = agent === 'codex' ? '@codex' : '@copilot';
 
             const preInstruction = "Begin by surveying the entire codebase before narrowing to this task.";
             const postInstruction = "Ensure changes are self-contained, tested, and documented as needed, with no reduction in test coverage. Ensure the diff is minimal, readable, and well-commented; never sacrifice clarity for cleverness. There is no time constraint or specific allotted time for this task; prioritize quality and correctness over speed and take as much time as needed. You may **NOT** respond with \"no issues found\", \"didn't find any major issues\", or similar—if no obvious implementation exists, choose the most plausible area and apply a singular, safe, minimal improvement.";
-            const body = [
-              `@copilot ${preInstruction} ${process.env.PROMPT} ${postInstruction}`,
-              "",
-              `Once done, ensure all changes are pushed to remote branch **${branch}** on base **${process.env.BASE_BRANCH}** and keep all commits tied to PR #${prNumber}; do not open new branches or PRs. As the final step (even after running 'make_pr'), run the following exact command(s) to guarantee your changes are pushed:`,
-              "",
-              "```bash",
-              `git config user.name  "bot"`,
-              `git config user.email "bot@example.com"`,
-              `git remote set-url origin "git@github.com:${owner}/${repo}.git" || git remote add origin "git@github.com:${owner}/${repo}.git"`,
-              `git remote set-url origin "ssh://git@ssh.github.com:443/${owner}/${repo}.git"`,
-              `git push -u origin "HEAD:${branch}"`,
-              `git -c credential.helper= \\`,
-              `    -c 'credential.helper=store --file .git/codex-cred' \\`,
-              `    push "https://henrylkirk@github.com/${owner}/${repo}.git" "HEAD:${branch}"`,
-              "```",
+            const lines = [
+              `${mention} ${preInstruction} ${process.env.PROMPT} ${postInstruction}`,
+              ""
+            ];
+
+            if (agent === 'codex') {
+              lines.push(
+                `Once done, ensure all changes are pushed to remote branch **${branch}** on base **${process.env.BASE_BRANCH}** and keep all commits tied to PR #${prNumber}; do not open new branches or PRs. As the final step (even after running 'make_pr'), run the following exact command(s) to guarantee your changes are pushed:`,
+                "",
+                "```bash",
+                `git config user.name  "bot"`,
+                `git config user.email "bot@example.com"`,
+                `git remote set-url origin "git@github.com:${owner}/${repo}.git" || git remote add origin "git@github.com:${owner}/${repo}.git"`,
+                `git remote set-url origin "ssh://git@ssh.github.com:443/${owner}/${repo}.git"`,
+                `git push -u origin "HEAD:${branch}"`,
+                `git -c credential.helper= \\`,
+                `    -c 'credential.helper=store --file .git/codex-cred' \\`,
+                `    push "https://henrylkirk@github.com/${owner}/${repo}.git" "HEAD:${branch}"`,
+                "```",
+                ""
+              );
+            }
+
+            lines.push(
               "Here is some additional context for your task:",
               "```yaml",
               "task_context:",
@@ -168,7 +202,9 @@ jobs:
               `  base: "${process.env.BASE_BRANCH}"`,
               `  head_sha: "${process.env.HEAD_SHA}"`,
               "```"
-            ].join("\n");
+            );
+
+            const body = lines.join("\n");
 
             await github.rest.issues.createComment({ 
               owner, 
