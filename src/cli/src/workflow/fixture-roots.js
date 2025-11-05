@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { toArray } from "../shared/dependencies.js";
+import { toArray, pushUnique } from "../shared/dependencies.js";
 import { REPO_ROOT } from "../shared/workspace-paths.js";
 import { createWorkflowPathFilter } from "./path-filter.js";
 
@@ -26,7 +26,6 @@ export function normalizeFixtureRoots(
     ];
 
     const resolved = [];
-    const seen = new Set();
 
     for (const candidate of candidates) {
         if (typeof candidate !== "string" || candidate.length === 0) {
@@ -34,16 +33,12 @@ export function normalizeFixtureRoots(
         }
 
         const normalized = path.resolve(candidate);
-        if (seen.has(normalized)) {
-            continue;
-        }
 
         if (!pathFilter.allowsDirectory(normalized)) {
             continue;
         }
 
-        seen.add(normalized);
-        resolved.push(normalized);
+        pushUnique(resolved, normalized);
     }
 
     return resolved;

@@ -50,6 +50,7 @@ export {
     normalizeStringList,
     parseJsonObjectWithContext,
     parseJsonWithContext,
+    pushUnique,
     resolveContainedRelativePath,
     resolveEnvironmentMap,
     resolveIntegerOption,
