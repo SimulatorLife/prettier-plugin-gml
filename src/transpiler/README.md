@@ -71,6 +71,8 @@ const jsCode = emitJavaScript(ast);
 - ✅ Parenthesized expressions
 - ✅ Block statements
 - ✅ Nested control flow structures
+- ✅ Array literals ([1, 2, 3])
+- ✅ Struct literals ({a: 1, b: 2}) mapped to JavaScript object literals
 
 ### Planned Features
 
@@ -79,7 +81,6 @@ const jsCode = emitJavaScript(ast);
 - [ ] Scope-aware identifier resolution (self, other, global)
 - [ ] Script call indirection through runtime wrapper
 - [ ] Built-in function mapping
-- [ ] Struct and array literals
 - [ ] Advanced expression forms (ternary, compound assignments)
 - [ ] Try-catch-finally error handling
 

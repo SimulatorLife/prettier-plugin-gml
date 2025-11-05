@@ -484,3 +484,107 @@ test("emitJavaScript handles repeat with continue", () => {
     assert.ok(result.includes("for"), "Should convert to for loop");
     assert.ok(result.includes("continue"), "Should include continue");
 });
+
+// Array and struct literal tests
+test("emitJavaScript handles empty array literals", () => {
+    const source = "x = []";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("[]"), "Should emit empty array literal");
+});
+
+test("emitJavaScript handles array literals with elements", () => {
+    const source = "x = [1, 2, 3]";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("[1, 2, 3]"), "Should emit array literal");
+});
+
+test("emitJavaScript handles array literals with expressions", () => {
+    const source = "x = [a + b, c * d, 5]";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(
+        result.includes("[") && result.includes("]"),
+        "Should emit array literal"
+    );
+    assert.ok(result.includes("a"), "Should include expression");
+});
+
+test("emitJavaScript handles nested array literals", () => {
+    const source = "x = [[1, 2], [3, 4]]";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(
+        result.includes("[[") && result.includes("]]"),
+        "Should emit nested arrays"
+    );
+});
+
+test("emitJavaScript handles empty struct literals", () => {
+    const source = "x = {}";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("{}"), "Should emit empty struct literal");
+});
+
+test("emitJavaScript handles struct literals with properties", () => {
+    const source = "x = {a: 1, b: 2}";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("a: 1"), "Should include first property");
+    assert.ok(result.includes("b: 2"), "Should include second property");
+});
+
+test("emitJavaScript handles struct literals with string keys", () => {
+    const source = 'x = {name: "player", hp: 100}';
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("name:"), "Should include name property");
+    assert.ok(result.includes("hp:"), "Should include hp property");
+});
+
+test("emitJavaScript handles struct literals with expression values", () => {
+    const source = "x = {total: a + b, half: n / 2}";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("total:"), "Should include total property");
+    assert.ok(result.includes("half:"), "Should include half property");
+});
+
+test("emitJavaScript handles nested struct literals", () => {
+    const source = "x = {outer: {inner: 42}}";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(
+        result.includes("outer:") && result.includes("inner:"),
+        "Should emit nested structs"
+    );
+});
+
+test("emitJavaScript handles structs with array properties", () => {
+    const source = "x = {items: [1, 2, 3], name: val}";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("items:"), "Should include items property");
+    assert.ok(result.includes("[1, 2, 3]"), "Should include array literal");
+});
+
+test("emitJavaScript handles arrays with struct elements", () => {
+    const source = "x = [{a: 1}, {b: 2}]";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("a: 1"), "Should include first struct");
+    assert.ok(result.includes("b: 2"), "Should include second struct");
+});

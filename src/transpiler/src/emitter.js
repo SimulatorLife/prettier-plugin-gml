@@ -529,6 +529,30 @@ export function emitJavaScript(ast) {
         return `(${emitJavaScript(ast.expression)})`;
     }
 
+    // Handle array literals
+    if (ast.type === "ArrayExpression") {
+        if (!ast.elements || ast.elements.length === 0) {
+            return "[]";
+        }
+        const elements = ast.elements.map(emitJavaScript).join(", ");
+        return `[${elements}]`;
+    }
+
+    // Handle struct literals (convert to JavaScript object literals)
+    if (ast.type === "StructExpression") {
+        if (!ast.properties || ast.properties.length === 0) {
+            return "{}";
+        }
+        const properties = ast.properties
+            .map((prop) => {
+                const key = prop.name;
+                const value = emitJavaScript(prop.value);
+                return `${key}: ${value}`;
+            })
+            .join(", ");
+        return `{${properties}}`;
+    }
+
     // Default: return empty string for unsupported nodes
     return "";
 }
