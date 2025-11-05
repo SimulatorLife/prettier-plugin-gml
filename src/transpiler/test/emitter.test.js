@@ -129,3 +129,55 @@ test("emitJavaScript returns empty string for unsupported node types", () => {
     const result = emitJavaScript(ast);
     assert.equal(result, "");
 });
+
+test("emitJavaScript handles array access (MemberIndexExpression)", () => {
+    const source = "x = arr[0]";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("arr[0]"), "Should emit array access syntax");
+    assert.ok(result.includes("="), "Should include assignment");
+});
+
+test("emitJavaScript handles multi-dimensional array access", () => {
+    const source = "x = matrix[i][j]";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(
+        result.includes("matrix[") && result.includes("]["),
+        "Should emit nested array access"
+    );
+});
+
+test("emitJavaScript handles property access (MemberDotExpression)", () => {
+    const source = "x = obj.prop";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(
+        result.includes("obj.prop"),
+        "Should emit property access syntax"
+    );
+});
+
+test("emitJavaScript handles function calls (CallExpression)", () => {
+    const source = "result = func()";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("func()"), "Should emit function call syntax");
+});
+
+test("emitJavaScript handles function calls with arguments", () => {
+    const source = "result = func(1, 2, 3)";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(
+        result.includes("func(") &&
+            result.includes("1") &&
+            result.includes("2"),
+        "Should emit function call with arguments"
+    );
+});
