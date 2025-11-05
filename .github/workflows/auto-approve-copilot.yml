@@ -3,7 +3,6 @@ name: Auto-approve Copilot workflow runs
 on:
   workflow_run:
     workflows:
-      - Auto-approve Copilot workflow runs
       - Auto merge codex/copilot branches
     types:
       - requested
