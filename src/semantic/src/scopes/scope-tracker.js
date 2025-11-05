@@ -105,6 +105,7 @@ export default class ScopeTracker {
         this.rootScope = null;
         this.scopesById = new Map();
         this.symbolToScopesIndex = new Map();
+        this.scopeStackIndices = new Map();
     }
 
     isEnabled() {
@@ -123,6 +124,7 @@ export default class ScopeTracker {
             parent
         );
         this.scopeStack.push(scope);
+        this.scopeStackIndices.set(scope.id, this.scopeStack.length - 1);
         this.scopesById.set(scope.id, scope);
         if (!this.rootScope) {
             this.rootScope = scope;
@@ -135,7 +137,10 @@ export default class ScopeTracker {
             return;
         }
 
-        this.scopeStack.pop();
+        const scope = this.scopeStack.pop();
+        if (scope) {
+            this.scopeStackIndices.delete(scope.id);
+        }
     }
 
     currentScope() {
@@ -503,12 +508,7 @@ export default class ScopeTracker {
             return null;
         }
 
-        const scopeIndices = new Map();
-        this.scopeStack.forEach((scope, index) => {
-            scopeIndices.set(scope.id, index);
-        });
-
-        const startIndex = scopeIndices.get(startScope.id);
+        const startIndex = this.scopeStackIndices.get(startScope.id);
         if (startIndex === undefined) {
             const declaration = startScope.declarations.get(name);
             return declaration ? { ...declaration } : null;

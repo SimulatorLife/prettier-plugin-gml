@@ -85,7 +85,7 @@ function buildManualCommandContext({
     userAgent,
     outputFileName,
     repoRootSegments = ["..", ".."],
-    cacheRootSegments = ["scripts", "cache", "manual"],
+    cacheRootSegments = ["src", "cli", "cache", "manual"],
     workflowPathFilter
 } = {}) {
     const normalizedUrl = assertFileUrl(importMetaUrl);

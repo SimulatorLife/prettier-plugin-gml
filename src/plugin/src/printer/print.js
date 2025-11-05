@@ -3666,8 +3666,7 @@ function extractLeadingNonDocCommentLines(comments, options) {
             comment.type === "CommentLine"
         ) {
             const formatted = formatLineComment(comment, lineCommentOptions);
-            const trimmed =
-                typeof formatted === "string" ? formatted.trim() : "";
+            const trimmed = toTrimmedString(formatted);
 
             if (trimmed.length === 0) {
                 comment.printed = true;
@@ -4420,7 +4419,7 @@ function promoteLeadingDocCommentTextToDescription(docLines) {
     }
 
     const nextLine = normalizedLines[leadingCount];
-    const nextLineTrimmed = typeof nextLine === "string" ? nextLine.trim() : "";
+    const nextLineTrimmed = toTrimmedString(nextLine);
     if (
         typeof nextLine !== "string" ||
         (!/^\/\/\/\s*@/i.test(nextLineTrimmed) &&
@@ -4658,8 +4657,7 @@ function mergeSyntheticDocComments(
                 firstParamIndex === -1 ? mergedLines.length : firstParamIndex;
             const precedingLine =
                 insertionIndex > 0 ? mergedLines[insertionIndex - 1] : null;
-            const trimmedPreceding =
-                typeof precedingLine === "string" ? precedingLine.trim() : "";
+            const trimmedPreceding = toTrimmedString(precedingLine);
             const isDocCommentLine =
                 typeof trimmedPreceding === "string" &&
                 /^\/\/\//.test(trimmedPreceding);
@@ -5506,8 +5504,7 @@ function mergeSyntheticDocComments(
         }
 
         const metadata = parseDocCommentMetadata(line);
-        const descriptionText =
-            typeof metadata?.name === "string" ? metadata.name.trim() : "";
+        const descriptionText = toTrimmedString(metadata?.name);
 
         return descriptionText.length > 0;
     });

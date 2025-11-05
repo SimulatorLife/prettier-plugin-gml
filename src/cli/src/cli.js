@@ -9,7 +9,8 @@
  * - Performance benchmarking utilities.
  * - Memory usage benchmarking utilities.
  * - Regression testing utilities.
- * - Generating/retrieving GML identifiers and Feather metadata.
+ * - Generating/retrieving GML identifiers and Feather metadata (via the GameMaker manual).
+ * - Retrieving runtime artifacts from the GameMaker HTML5 runtime repository.
  *
  * This CLI is primarily intended for use in development and CI environments.
  * For formatting GML files, it is recommended to use the Prettier CLI or
@@ -92,6 +93,10 @@ import {
     createFeatherMetadataCommand,
     runGenerateFeatherMetadata
 } from "./commands/generate-feather-metadata.js";
+import {
+    createFetchRuntimeCommand,
+    runFetchRuntimeCommand
+} from "./commands/fetch-runtime.js";
 import { createWatchCommand, runWatchCommand } from "./commands/watch.js";
 import { resolveCliIdentifierCaseCacheClearer } from "./plugin-runtime/services.js";
 import { isCliRunSkipped } from "./shared/dependencies.js";
@@ -1955,6 +1960,16 @@ cliCommandRegistry.registerCommand({
     onError: (error) =>
         handleCliError(error, {
             prefix: "Failed to generate Feather metadata.",
+            exitCode: 1
+        })
+});
+
+cliCommandRegistry.registerCommand({
+    command: createFetchRuntimeCommand(),
+    run: ({ command }) => runFetchRuntimeCommand(command.opts()),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Failed to fetch HTML5 runtime.",
             exitCode: 1
         })
 });

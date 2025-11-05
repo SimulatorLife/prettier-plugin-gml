@@ -1,4 +1,3 @@
-.antlr/
 *.cpuprofile
 tmp/
 
@@ -48,7 +47,7 @@ jspm_packages/
 .husky/_/
 reports/
 
-# Manual cache artefacts
+# CLI cache artefacts
 src/cli/cache/
 
 # Snowpack dependency directory (https://snowpack.dev/)
