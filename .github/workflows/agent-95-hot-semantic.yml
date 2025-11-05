@@ -1,0 +1,20 @@
+name: Agent 95 – Semantic Scope Improvements
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_agent-hot-feature-base.yml
+    secrets: inherit
+    with:
+      component: "semantic analysis (src/semantic)"
+      extra_context: >
+        Target scope tracking, binding resolution, and project graph capabilities that unlock
+        hot reload coordination. Prioritize incremental wins—better symbol metadata, faster
+        invalidation, or richer occurrence exports—and pair every change with focused tests.
