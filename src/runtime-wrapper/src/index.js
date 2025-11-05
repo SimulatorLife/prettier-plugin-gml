@@ -376,3 +376,127 @@ export function createRuntimeWrapper({
         hasEvent
     };
 }
+
+export function createWebSocketClient({
+    url = "ws://127.0.0.1:17890",
+    wrapper,
+    onConnect,
+    onDisconnect,
+    onError,
+    reconnectDelay = 800,
+    autoConnect = true
+} = {}) {
+    const state = {
+        ws: null,
+        isConnected: false,
+        reconnectTimer: null,
+        manuallyDisconnected: false
+    };
+
+    function connect() {
+        if (state.ws && state.isConnected) {
+            return;
+        }
+
+        state.manuallyDisconnected = false;
+
+        try {
+            state.ws = new WebSocket(url);
+
+            state.ws.addEventListener("open", () => {
+                state.isConnected = true;
+                if (onConnect) {
+                    onConnect();
+                }
+            });
+
+            state.ws.addEventListener("message", (event) => {
+                if (!wrapper) {
+                    return;
+                }
+
+                try {
+                    const patch = JSON.parse(event.data);
+                    if (!patch || !patch.kind) {
+                        return;
+                    }
+                    wrapper.applyPatch(patch);
+                } catch (error) {
+                    if (onError) {
+                        onError(error, "patch");
+                    }
+                }
+            });
+
+            state.ws.addEventListener("close", () => {
+                state.isConnected = false;
+                state.ws = null;
+
+                if (onDisconnect) {
+                    onDisconnect();
+                }
+
+                if (!state.manuallyDisconnected && reconnectDelay > 0) {
+                    state.reconnectTimer = setTimeout(() => {
+                        connect();
+                    }, reconnectDelay);
+                }
+            });
+
+            state.ws.addEventListener("error", () => {
+                if (state.ws) {
+                    state.ws.close();
+                }
+            });
+        } catch (error) {
+            if (onError) {
+                onError(error, "connection");
+            }
+        }
+    }
+
+    function disconnect() {
+        state.manuallyDisconnected = true;
+
+        if (state.reconnectTimer) {
+            clearTimeout(state.reconnectTimer);
+            state.reconnectTimer = null;
+        }
+
+        if (state.ws) {
+            state.ws.close();
+            state.ws = null;
+        }
+
+        state.isConnected = false;
+    }
+
+    function isConnected() {
+        return state.isConnected;
+    }
+
+    function send(data) {
+        if (!state.ws || !state.isConnected) {
+            throw new Error("WebSocket is not connected");
+        }
+
+        const message = typeof data === "string" ? data : JSON.stringify(data);
+        state.ws.send(message);
+    }
+
+    function getWebSocket() {
+        return state.ws;
+    }
+
+    if (autoConnect) {
+        connect();
+    }
+
+    return {
+        connect,
+        disconnect,
+        isConnected,
+        send,
+        getWebSocket
+    };
+}
