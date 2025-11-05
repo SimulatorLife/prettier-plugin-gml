@@ -1,6 +1,7 @@
 .DS_Store
 *.cpuprofile
 tmp/
+# src/cli/cache/
 
 # Logs
 logs/
@@ -47,9 +48,6 @@ node_modules/
 jspm_packages/
 .husky/_/
 reports/
-
-# CLI cache artefacts
-src/cli/cache/
 
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/

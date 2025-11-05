@@ -44,7 +44,7 @@
     "node": ">=25.0.0"
   },
   "scripts": {
-    "clean": "rm -rf node_modules src/plugin/node_modules src/cli/node_modules .eslintcache reports",
+    "clean": "rm -rf node_modules src/plugin/node_modules src/cli/node_modules src/cli/cache .eslintcache reports",
     "clean:generated": "rm -rf src/parser/generated",
     "lint": "eslint . --cache --stats",
     "lint:quiet": "eslint . --cache --quiet",

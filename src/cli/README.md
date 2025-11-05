@@ -44,8 +44,8 @@ node src/cli/src/cli.js watch
 # Watch specific directory with verbose output
 node src/cli/src/cli.js watch /path/to/project --verbose
 
-# Serve runtime assets from a custom checkout
-node src/cli/src/cli.js watch /path/to/project --runtime-root ./vendor/gamemaker-html5
+# Skip runtime download (useful in CI environments)
+GML_RUNTIME_SKIP_DOWNLOAD=1 node src/cli/src/cli.js watch /path/to/project
 ```
 
 **Options:**
@@ -54,9 +54,13 @@ node src/cli/src/cli.js watch /path/to/project --runtime-root ./vendor/gamemaker
 - `--polling` - Use polling instead of native file watching
 - `--polling-interval <ms>` - Polling interval in milliseconds (default: 1000)
 - `--verbose` - Enable verbose logging with detailed transpilation output
-- `--runtime-root <path>` - Use a specific runtime directory instead of the installed package
-- `--runtime-package <name>` - Package name that provides the runtime (default: `gamemaker-html5`)
-- `--no-runtime-server` - Skip launching the embedded runtime static server
+- `--runtime-ref <ref>` - Git reference for HTML5 runtime
+- `--runtime-repo <owner/name>` - Repository hosting HTML5 runtime
+- `--runtime-cache <path>` - Override runtime cache directory
+- `--force-runtime-refresh` - Force re-download of runtime archive
+
+**Environment Variables:**
+- `GML_RUNTIME_SKIP_DOWNLOAD` - Set to `1` to skip runtime download (useful for testing transpilation only)
 
 **Example Output:**
 
@@ -122,6 +126,14 @@ node src/cli/src/cli.js generate-feather-metadata
 **Options:**
 - `--ref <branch|tag|commit>` - Target specific manual revision
 - `--force-refresh` - Bypass cached downloads
+
+### `runtime-fetch` - Download HTML5 Runtime
+
+Downloads and caches the GameMaker HTML5 runtime for hot-reload development.
+
+```bash
+node src/cli/src/cli.js runtime-fetch
+```
 
 ### `performance` - Run Performance Benchmarks
 
@@ -200,8 +212,8 @@ npm run test:cli -- --watch
 mkdir -p /tmp/gml-test
 echo "var x = 10; show_debug_message(x);" > /tmp/gml-test/test.gml
 
-# Start watching with verbose runtime logging
-node src/cli/src/cli.js watch /tmp/gml-test --verbose
+# Start watching (skip runtime download for faster testing)
+GML_RUNTIME_SKIP_DOWNLOAD=1 node src/cli/src/cli.js watch /tmp/gml-test --verbose
 
 # In another terminal, modify the file to see transpilation
 echo "var y = 20;" >> /tmp/gml-test/test.gml
