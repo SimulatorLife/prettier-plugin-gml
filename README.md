@@ -545,6 +545,11 @@ layout stays consistent.
 The wrapper honours environment variables so CI systems can tune behaviour
 without editing project scripts:
 
+- `PRETTIER_PLUGIN_GML_DEFAULT_ACTION` &mdash; Controls the default behavior when
+  the CLI is invoked without any command. Set to `format` to run the formatter
+  on the current directory (legacy behavior), or omit to show help text
+  (default). Helps first-time users discover available commands while preserving
+  backward compatibility for existing scripts.
 - `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS` &mdash; Overrides the implicit
   extension list used when `--extensions` is omitted. The wrapper defaults to
   formatting `.gml` only when neither the flag nor the environment variable is
