@@ -1,19 +1,19 @@
 # Contributor onboarding
 
-Use this checklist the first time you contribute to the repository or whenever
-you need to refresh a workstation. It complements the Quick start guidance in
-[the root README](../README.md#quick-start) with contributor-focused sanity
+Use this checklist the first time you contribute to the repository or when
+refreshing a workstation. It complements the Quick start guidance in
+[the root README](../README.md#quick-start) with contributor-focused validation
 checks.
 
 ## 1. Confirm prerequisites
 
 1. Install **Node.js 25.0.0 or newer**. The workspace ships an `.nvmrc`; run
    `nvm install` followed by `nvm use` so local tooling matches CI.
-2. Ensure npm is available (bundled with Node.js). Confirm versions via
+2. Ensure npm is available (bundled with Node.js). Confirm versions with
    `node -v` and `npm -v`.
 3. Optional but recommended: install [Husky](https://typicode.github.io/husky/)
-   Git hooks by keeping `HUSKY` unset. Set `HUSKY=0` when you need to bypass the
-   hooks (for example, in ad-hoc CI jobs).
+   Git hooks by keeping `HUSKY` unset. Set `HUSKY=0` to bypass the hooks (for
+   example, in ad-hoc CI jobs).
 
 ## 2. Install dependencies
 
@@ -45,8 +45,8 @@ npm run lint
 npm run format:check
 ```
 
-Fixtures under `src/plugin/test/` and `src/parser/test/input/` are golden—do
-not edit them unless you are intentionally changing formatter or parser output.
+Fixtures under `src/plugin/test/` and `src/parser/test/input/` are golden—do not
+edit them unless you are intentionally changing formatter or parser output.
 
 ## 4. Sanity-check the formatter
 
@@ -79,8 +79,8 @@ npm run format:gml -- path/to/project
 * Review the [semantic subsystem reference](../src/semantic/README.md) before
   adjusting identifier-case discovery or project-index caching.
 * Keep the archived [legacy identifier-case plan](legacy-identifier-case-plan.md)
-  handy when enabling renames in a project to understand the historical
+  available when enabling renames in a project to understand the historical
   safeguards and rollout steps.
 
-Check back with this document whenever you swap machines or return from a long
-break to stay aligned with the latest workflow expectations.
+Check back with this document when you swap machines or return from a long break
+to stay aligned with the latest workflow expectations.

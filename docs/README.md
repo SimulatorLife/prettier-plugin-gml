@@ -1,11 +1,11 @@
 # Documentation index
 
-Use this index to jump straight to the planning notes and references that shape
+Use this index to jump to the planning notes and references that shape
 prettier-plugin-gml. The summaries below highlight what each guide covers so you
 can pick the right level of detail for your task. Need installation or
-onboarding steps? Start with the [repository README](../README.md) for the
-Quick start workflows, configuration reference, and contributor command cheat
-sheet, then return here when you need deeper context.
+onboarding steps? Start with the [repository README](../README.md) for the quick
+start workflows, configuration reference, and contributor command reference,
+then return here for deeper context.
 
 ## Reference guides
 
@@ -23,16 +23,16 @@ sheet, then return here when you need deeper context.
 - [Locals-first identifier-case configuration](legacy-identifier-case-plan.md#locals-first-configuration-script)
   — Scripted configuration that warms the project-index cache and captures
   dry-run reports for review alongside a sample JSON payload.
-- [Quick start](../README.md#quick-start) — Installation flows for npm
+- [Quick start](../README.md#quick-start) &mdash; Installation flows for npm
   consumers and nightly testers, including side-by-side snippets for the
-  published package versus the Git workspace drop, plus wrapper scripts you can
-  copy into your GameMaker project.
-- [Configuration reference](../README.md#configuration-reference) — Baseline
+  published package versus the Git workspace install, plus wrapper scripts you
+  can copy into your GameMaker project.
+- [Configuration reference](../README.md#configuration-reference) &mdash; Baseline
   Prettier options for `.gml` files, plus the identifier-case defaults surfaced
   by the plugin.
-- [CLI wrapper reference](../README.md#cli-wrapper-environment-knobs) — Quick
-  lookup for environment variables and wrapper behaviour when scripting
-  formatter runs in CI or editor tooling.
+- [CLI wrapper reference](../README.md#cli-wrapper-environment-knobs) &mdash; Quick
+  lookup for environment variables and wrapper behaviour when scripting formatter
+  runs in CI or editor tooling.
 
 ## Contributor workflow
 
@@ -65,12 +65,10 @@ sheet, then return here when you need deeper context.
 
 ## Architecture & planning
 
-- [Architecture audit log](architecture-audit-log.md) — Daily architecture
-  snapshots collected in a single document. The `agent-78-architectural-audit`
-  GitHub Action appends a fresh section to this file for each run. Start with
-  the [October 23, 2025 entry](architecture-audit-log.md#2025-10-23--architecture-audit)
-  for the current layout, then review earlier sections to see how the workspace
-  evolved.
+- [Architecture audit log](architecture-audit-log.md) &mdash; Daily architecture
+  snapshots collected in a single document. The GitHub Action appends a fresh
+  section to this file for each run. Start with the most recent entry for the
+  current layout, then review earlier sections to see how the workspace evolved.
 - [Shared module layout refresh](shared-module-layout.md) — Summary of the
   repository-wide audit that reorganised the `src/shared` helpers into
   focused barrels.
@@ -78,10 +76,11 @@ sheet, then return here when you need deeper context.
   — Research notes that detail why the CLI and plugin expose separate entry
   points, how shared utilities are packaged, and where the CLI wrapper inserts
   additional behaviour such as `.prettierignore` discovery.
-- [Live reloading concept](live-reloading-concept.md) — Exploration of the HTML5
-  runtime fork, watcher pipeline, and runtime integration seams required for
-  hot-reload tooling. Start here when scoping runtime experimentation work or
-  cross-referencing the architecture audits.
+- [Live reloading concept](live-reloading-concept.md) &mdash; Exploration of the
+  HTML5 runtime fork, watcher pipeline, and runtime integration seams required
+  for hot-reload tooling. Start here when scoping runtime experimentation work
+  or cross-referencing the architecture audits. Use the `watch` CLI command to
+  monitor file changes during development.
 - [Semantic scope plan](semantic-scope-plan.md) — Detailed roadmap for the
   ANTLR transpiler, semantic analyzer, IR storage, and SCIP tooling that power
   dependency-aware reloads and editor integrations.
