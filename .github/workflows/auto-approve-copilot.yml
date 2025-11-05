@@ -3,11 +3,9 @@ name: Auto-approve Copilot workflow runs
 on:
   pull_request_target:
     types:
-      - opened
       - reopened
       - ready_for_review
       - review_requested
-      - synchronize
 
 permissions:
   actions: write
