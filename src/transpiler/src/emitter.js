@@ -420,6 +420,80 @@ export function emitJavaScript(ast) {
         return "continue";
     }
 
+    // Handle throw statement
+    if (ast.type === "ThrowStatement") {
+        if (ast.argument) {
+            return `throw ${emitJavaScript(ast.argument)}`;
+        }
+        return "throw";
+    }
+
+    // Handle try-catch-finally statement
+    if (ast.type === "TryStatement") {
+        let result = "try";
+
+        // Handle try block
+        if (ast.block) {
+            result +=
+                ast.block.type === "BlockStatement"
+                    ? ` ${emitJavaScript(ast.block)}`
+                    : ` {\n${emitJavaScript(ast.block)};\n}`;
+        }
+
+        // Handle catch clause
+        if (ast.handler) {
+            result += " catch";
+            // Add parameter if present
+            if (ast.handler.param) {
+                result += ` (${emitJavaScript(ast.handler.param)})`;
+            } else {
+                result += " (err)"; // Default parameter if none specified
+            }
+            result +=
+                ast.handler.body.type === "BlockStatement"
+                    ? ` ${emitJavaScript(ast.handler.body)}`
+                    : ` {\n${emitJavaScript(ast.handler.body)};\n}`;
+        }
+
+        // Handle finally clause
+        if (ast.finalizer) {
+            result += " finally";
+            result +=
+                ast.finalizer.body.type === "BlockStatement"
+                    ? ` ${emitJavaScript(ast.finalizer.body)}`
+                    : ` {\n${emitJavaScript(ast.finalizer.body)};\n}`;
+        }
+
+        return result;
+    }
+
+    // Handle repeat statement - convert to for loop
+    if (ast.type === "RepeatStatement") {
+        let result = "for (let __repeat_count = ";
+
+        // Handle test expression (number of times to repeat)
+        if (ast.test) {
+            result +=
+                ast.test.type === "ParenthesizedExpression"
+                    ? emitJavaScript(ast.test.expression)
+                    : emitJavaScript(ast.test);
+        } else {
+            result += "0";
+        }
+
+        result += "; __repeat_count > 0; __repeat_count--)";
+
+        // Handle body
+        if (ast.body) {
+            result +=
+                ast.body.type === "BlockStatement"
+                    ? ` ${emitJavaScript(ast.body)}`
+                    : ` {\n${emitJavaScript(ast.body)};\n}`;
+        }
+
+        return result;
+    }
+
     // Handle switch statement
     if (ast.type === "SwitchStatement") {
         let result = "switch ";
@@ -439,7 +513,10 @@ export function emitJavaScript(ast) {
             result += ast.cases
                 .map((caseNode) => {
                     let caseStr = "";
-                    caseStr = caseNode.test === null ? "default:\n" : `case ${emitJavaScript(caseNode.test)}:\n`;
+                    caseStr =
+                        caseNode.test === null
+                            ? "default:\n"
+                            : `case ${emitJavaScript(caseNode.test)}:\n`;
 
                     // Handle case body
                     if (caseNode.body && caseNode.body.length > 0) {
@@ -497,6 +574,41 @@ export function emitJavaScript(ast) {
     // Handle parenthesized expressions
     if (ast.type === "ParenthesizedExpression") {
         return `(${emitJavaScript(ast.expression)})`;
+    }
+
+    // Handle ternary expressions (conditional expressions)
+    if (ast.type === "TernaryExpression") {
+        const test =
+            ast.test.type === "ParenthesizedExpression"
+                ? emitJavaScript(ast.test.expression)
+                : emitJavaScript(ast.test);
+        const consequent = emitJavaScript(ast.consequent);
+        const alternate = emitJavaScript(ast.alternate);
+        return `(${test} ? ${consequent} : ${alternate})`;
+    }
+
+    // Handle array literals
+    if (ast.type === "ArrayExpression") {
+        if (!ast.elements || ast.elements.length === 0) {
+            return "[]";
+        }
+        const elements = ast.elements.map(emitJavaScript).join(", ");
+        return `[${elements}]`;
+    }
+
+    // Handle struct literals (convert to JavaScript object literals)
+    if (ast.type === "StructExpression") {
+        if (!ast.properties || ast.properties.length === 0) {
+            return "{}";
+        }
+        const properties = ast.properties
+            .map((prop) => {
+                const key = prop.name;
+                const value = emitJavaScript(prop.value);
+                return `${key}: ${value}`;
+            })
+            .join(", ");
+        return `{${properties}}`;
     }
 
     // Default: return empty string for unsupported nodes

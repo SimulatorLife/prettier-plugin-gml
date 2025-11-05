@@ -66,22 +66,28 @@ const jsCode = emitJavaScript(ast);
 - ✅ Loop control:
   - ✅ break statements
   - ✅ continue statements
+- ✅ repeat loops (converted to for loops with countdown)
 - ✅ return statements (with and without values)
 - ✅ Parenthesized expressions
 - ✅ Block statements
 - ✅ Nested control flow structures
+- ✅ Array literals ([1, 2, 3])
+- ✅ Struct literals ({a: 1, b: 2}) mapped to JavaScript object literals
+- ✅ Ternary expressions (a ? b : c)
+- ✅ Error handling:
+  - ✅ throw statements
+  - ✅ try-catch blocks
+  - ✅ try-finally blocks
+  - ✅ try-catch-finally blocks
 
 ### Planned Features
 
 - [ ] Function declarations
-- [ ] Additional control flow (repeat)
 - [ ] `with` statement lowering
 - [ ] Scope-aware identifier resolution (self, other, global)
 - [ ] Script call indirection through runtime wrapper
 - [ ] Built-in function mapping
-- [ ] Struct and array literals
-- [ ] Advanced expression forms (ternary, compound assignments)
-- [ ] Try-catch-finally error handling
+- [ ] Compound assignment operators (already parsed, may need runtime handling)
 
 ## Operator Mapping
 
