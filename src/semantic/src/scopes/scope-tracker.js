@@ -104,6 +104,7 @@ export default class ScopeTracker {
         this.scopeStack = [];
         this.rootScope = null;
         this.scopesById = new Map();
+        this.symbolToScopesIndex = new Map();
     }
 
     isEnabled() {
@@ -218,6 +219,13 @@ export default class ScopeTracker {
         } else {
             entry.declarations.push(occurrence);
         }
+
+        let scopeSet = this.symbolToScopesIndex.get(name);
+        if (!scopeSet) {
+            scopeSet = new Set();
+            this.symbolToScopesIndex.set(name, scopeSet);
+        }
+        scopeSet.add(scope.id);
     }
 
     lookup(name) {
@@ -419,6 +427,30 @@ export default class ScopeTracker {
         }
 
         return results;
+    }
+
+    /**
+     * Get all scope IDs that contain occurrences (declarations or references) of
+     * a specific symbol. This is optimized using an internal index for O(1)
+     * average case lookup instead of scanning all scopes. Useful for hot reload
+     * invalidation to quickly identify which scopes need recompilation when a
+     * symbol changes.
+     *
+     * @param {string} name The symbol name to look up.
+     * @returns {Array<string>} Array of scope IDs that contain the symbol, or
+     *          empty array if not found or disabled.
+     */
+    getScopesForSymbol(name) {
+        if (!this.enabled || !name) {
+            return [];
+        }
+
+        const scopeSet = this.symbolToScopesIndex.get(name);
+        if (!scopeSet) {
+            return [];
+        }
+
+        return [...scopeSet];
     }
 
     /**
