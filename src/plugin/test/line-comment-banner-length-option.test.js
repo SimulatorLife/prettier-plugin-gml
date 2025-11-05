@@ -64,7 +64,29 @@ describe("line comment banner length option", () => {
             { lineCommentBannerLength: 12 }
         );
 
-        assert.strictEqual(printed, "//////////// Heading");
+        assert.strictEqual(printed, "//////// Heading");
+    });
+
+    it("balances banner padding around the content when width allows", () => {
+        const comment = createBannerComment("//////// Banner comment");
+        const printed = printComment(
+            { getValue: () => comment },
+            { lineCommentBannerLength: 40 }
+        );
+
+        assert.strictEqual(printed, "//////////// Banner comment ////////////");
+    });
+
+    it("assigns remainder padding to the trailing slash run", () => {
+        const comment = createBannerComment(
+            "//////// Move camera //////////////"
+        );
+        const printed = printComment(
+            { getValue: () => comment },
+            { lineCommentBannerLength: 40 }
+        );
+
+        assert.strictEqual(printed, "///////////// Move camera //////////////");
     });
 
     it("preserves the source width when the option is disabled", () => {
