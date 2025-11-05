@@ -34,6 +34,13 @@ jobs:
             }
 
             const { owner, repo } = context.repo;
+            const localFullName = `${owner}/${repo}`.toLowerCase();
+            const headRepoFullName = (run.head_repository?.full_name || '').toLowerCase();
+
+            if (!headRepoFullName || headRepoFullName === localFullName) {
+              core.info(`Workflow run ${run.id} originates from ${headRepoFullName || 'unknown repo'}; skipping approval.`);
+              return;
+            }
 
             try {
               await github.request('POST /repos/{owner}/{repo}/actions/runs/{run_id}/approve', {
