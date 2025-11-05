@@ -62,7 +62,7 @@ function normalizeWrapWidth(value, { fallback }) {
 const docCommentMaxWrapWidthConfig = createEnvConfiguredValueWithFallback({
     defaultValue: DOC_COMMENT_MAX_WRAP_WIDTH_BASELINE,
     envVar: DOC_COMMENT_MAX_WRAP_WIDTH_ENV_VAR,
-    resolve: (value, fallback) => normalizeWrapWidth(value, { fallback })
+    resolve: (value, context) => normalizeWrapWidth(value, context)
 });
 
 /**

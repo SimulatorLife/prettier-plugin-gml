@@ -37,9 +37,9 @@ function createSampleLimitOption({ defaultValue, envVar, subjectLabel }) {
     const state = createEnvConfiguredValue({
         defaultValue,
         envVar,
-        normalize: (value, fallback) =>
+        normalize: (value, { defaultValue: baseline, previousValue }) =>
             resolveIntegerOption(value, {
-                defaultValue: fallback,
+                defaultValue: baseline ?? previousValue,
                 coerce,
                 typeErrorMessage: createTypeError
             })
