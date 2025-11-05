@@ -1,3 +1,6 @@
+const MILLISECOND_PER_SECOND = 1000;
+const SUB_SECOND_THRESHOLD_TOLERANCE_MS = 1e-6;
+
 /**
  * Format the elapsed milliseconds since `startTime` into a human-friendly
  * string. Values under one second remain in milliseconds while longer durations
@@ -10,9 +13,6 @@
  * @param {() => number} [now] Function that returns the current timestamp.
  * @returns {string} Formatted duration label for logs and status messages.
  */
-const MILLISECOND_PER_SECOND = 1000;
-const SUB_SECOND_THRESHOLD_TOLERANCE_MS = 1e-6;
-
 export function formatDuration(startTime, now = Date.now) {
     const deltaMs = now() - startTime;
     // High-resolution timers such as `performance.now()` can report values just
