@@ -2,6 +2,12 @@ name: Agent 85 – Interface Segregation
 
 on:
   workflow_dispatch:
+    inputs:
+      agent:
+        description: "Optional agent override."
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -13,6 +19,7 @@ jobs:
     uses: ./.github/workflows/_agent-open-pr-and-ping.yml
     secrets: inherit
     with:
+      agent: ${{ inputs.agent }}
       pr_title: "Agent: Interface Segregation Sweep"
       pr_body: |
         Seed PR for Agent to inspect oversized interface or type contracts whose

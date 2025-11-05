@@ -1,7 +1,13 @@
 name: Agent 94 – Runtime Wrapper Upgrades
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      agent:
+        description: "Optional agent override."
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -13,6 +19,7 @@ jobs:
     uses: ./.github/workflows/_agent-hot-feature-base.yml
     secrets: inherit
     with:
+      agent: ${{ inputs.agent }}
       component: "runtime wrapper (src/runtime-wrapper)"
       extra_context: >
         Drive incremental improvements to the browser-side hot reload wrapper: WebSocket patch

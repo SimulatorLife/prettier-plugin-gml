@@ -2,6 +2,12 @@ name: Agent 80 – Favor Composition Over Inheritance
 
 on:
   workflow_dispatch:
+    inputs:
+      agent:
+        description: "Optional agent override."
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -13,6 +19,7 @@ jobs:
     uses: ./.github/workflows/_agent-open-pr-and-ping.yml
     secrets: inherit
     with:
+      agent: ${{ inputs.agent }}
       pr_title: "Agent: Promote Composition"
       pr_body: "Seed PR for Agent to replace overgrown inheritance with composition."
       prompt: >

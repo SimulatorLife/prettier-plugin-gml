@@ -1,6 +1,12 @@
 name: Agent 41 – Failing Test Recovery
 on:
   workflow_dispatch:
+    inputs:
+      agent:
+        description: "Optional agent override."
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -46,6 +52,7 @@ jobs:
     uses: ./.github/workflows/_agent-open-pr-and-ping.yml
     secrets: inherit
     with:
+      agent: ${{ inputs.agent }}
       pr_title: "Agent: Recover Failing Test"
       pr_body: "Seed PR for Agent to diagnose a failing test, repair the underlying issue, and re-verify."
       prompt: >

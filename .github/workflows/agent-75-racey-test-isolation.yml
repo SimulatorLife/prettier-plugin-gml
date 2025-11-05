@@ -1,6 +1,12 @@
 name: Agent 75 – Racey Test Isolation
 on:
   workflow_dispatch:
+    inputs:
+      agent:
+        description: "Optional agent override."
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -12,6 +18,7 @@ jobs:
     uses: ./.github/workflows/_agent-open-pr-and-ping.yml
     secrets: inherit
     with:
+      agent: ${{ inputs.agent }}
       pr_title: "Agent: Racey Test Isolation"
       pr_body: >
         Seed PR for Agent to stabilise a flaky test by isolating shared state or

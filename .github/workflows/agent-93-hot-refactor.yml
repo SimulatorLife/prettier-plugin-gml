@@ -1,7 +1,13 @@
 name: Agent 93 – Refactor Engine Enhancements
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      agent:
+        description: "Optional agent override."
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -13,6 +19,7 @@ jobs:
     uses: ./.github/workflows/_agent-hot-feature-base.yml
     secrets: inherit
     with:
+      agent: ${{ inputs.agent }}
       component: "refactor engine (src/refactor)"
       extra_context: >
         Focus on expanding the semantic-safe refactoring workflows, especially rename planning,

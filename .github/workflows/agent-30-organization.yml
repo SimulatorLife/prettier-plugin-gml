@@ -2,6 +2,12 @@ name: Agent 30 – Project Organization
 
 on:
   workflow_dispatch:
+    inputs:
+      agent:
+        description: "Optional agent override."
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -13,6 +19,7 @@ jobs:
     uses: ./.github/workflows/_agent-open-pr-and-ping.yml
     secrets: inherit
     with:
+      agent: ${{ inputs.agent }}
       pr_title: "Agent: Project Organization Sweep"
       pr_body: "Seed PR for Agent to relocate one function, module, or asset to a more coherent home and tidy references while preserving inline documentation."
       prompt: >

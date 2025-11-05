@@ -2,6 +2,12 @@ name: Agent 86 – KISS Sweeper
 
 on:
   workflow_dispatch:
+    inputs:
+      agent:
+        description: "Optional agent override."
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -13,6 +19,7 @@ jobs:
     uses: ./.github/workflows/_agent-open-pr-and-ping.yml
     secrets: inherit
     with:
+      agent: ${{ inputs.agent }}
       pr_title: "Agent: KISS Sweeper"
       pr_body: |
         Seed PR inviting Agent to simplify one overengineered area and document the

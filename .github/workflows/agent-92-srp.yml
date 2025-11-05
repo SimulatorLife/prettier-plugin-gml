@@ -2,6 +2,12 @@ name: Agent 92 – Single Responsibility Guardrail
 
 on:
   workflow_dispatch:
+    inputs:
+      agent:
+        description: "Optional agent override."
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -13,6 +19,7 @@ jobs:
     uses: ./.github/workflows/_agent-open-pr-and-ping.yml
     secrets: inherit
     with:
+      agent: ${{ inputs.agent }}
       pr_title: "Agent: Single Responsibility Sweep"
       pr_body: |
         Agent, please audit the codebase for oversized functions whose names

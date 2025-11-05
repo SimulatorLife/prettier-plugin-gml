@@ -28,7 +28,7 @@ on:
       agent:
         required: false
         type: string
-        default: "copilot"  # Copilot or Codex
+        default: ""  # Optional override; blank => weighted random selection
     outputs:
       pr_number:
         value: ${{ jobs.open_and_ping.outputs.pr_number }}
@@ -48,8 +48,10 @@ jobs:
       branch: ${{ env.BRANCH_NAME }}
     env:
       BASE_BRANCH: ${{ inputs.base_branch }}
+      REQUESTED_AGENT: ${{ inputs.agent }}
+      BRANCH_SUFFIX: ${{ format('task-{0}-{1}', github.run_id, github.run_attempt) }}
       AGENT: ${{ inputs.agent }}
-      BRANCH_NAME: ${{ format('{0}/task-{1}-{2}', inputs.agent, github.run_id, github.run_attempt) }}
+      BRANCH_NAME: ""
 
     steps:
       - name: Validate GH_USER_TOKEN
@@ -70,6 +72,108 @@ jobs:
           ref: ${{ inputs.base_branch }}
           fetch-depth: 0
           token: ${{ secrets.GH_USER_TOKEN }}
+
+      - name: Select agent (weighted random)
+        id: select_agent
+        uses: actions/github-script@v7
+        env:
+          REQUESTED_AGENT: ${{ env.REQUESTED_AGENT }}
+          BRANCH_SUFFIX: ${{ env.BRANCH_SUFFIX }}
+          WEIGHTS_PATH: .github/workflows/weights.json
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const crypto = require('crypto');
+
+            const normalize = (value) => {
+              const trimmed = (value || '').trim();
+              if (!trimmed) return '';
+              return trimmed
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '')
+                || '';
+            };
+
+            const ensureBranchSuffix = () => {
+              const fromEnv = (process.env.BRANCH_SUFFIX || '').trim();
+              if (fromEnv) return fromEnv;
+              return `task-${Date.now()}`;
+            };
+
+            const chooseWeighted = (items) => {
+              const total = items.reduce((sum, item) => sum + item.weight, 0);
+              if (!Number.isFinite(total) || total <= 0) return null;
+
+              const random = parseInt(crypto.randomBytes(6).toString('hex'), 16) / 0xFFFFFFFFFFFF;
+              let threshold = random * total;
+              for (const item of items) {
+                threshold -= item.weight;
+                if (threshold <= 0) {
+                  return { ...item, random, total };
+                }
+              }
+              return { ...items[items.length - 1], random, total };
+            };
+
+            const requested = normalize(process.env.REQUESTED_AGENT);
+            const suffix = ensureBranchSuffix();
+
+            const finalize = (agent, reason) => {
+              const agentSlug = agent || 'copilot';
+              const branchName = `${agentSlug}/${suffix}`;
+
+              core.info(`Using agent "${agentSlug}" (${reason}). Branch name: ${branchName}`);
+
+              core.exportVariable('AGENT', agentSlug);
+              core.exportVariable('BRANCH_NAME', branchName);
+              core.setOutput('agent', agentSlug);
+              core.setOutput('branch', branchName);
+            };
+
+            if (requested) {
+              finalize(requested, 'manual override');
+              return;
+            }
+
+            let candidates = [];
+            try {
+              const weightsPath = path.resolve(process.cwd(), process.env.WEIGHTS_PATH || '.github/workflows/weights.json');
+              const raw = fs.readFileSync(weightsPath, 'utf8');
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed?.agents)) {
+                candidates = parsed.agents
+                  .map((agent) => ({
+                    name: typeof agent?.name === 'string' ? agent.name : '',
+                    weight: Number(agent?.weight),
+                  }))
+                  .filter((agent) => agent.name && Number.isFinite(agent.weight) && agent.weight > 0)
+                  .map((agent) => ({
+                    name: agent.name,
+                    weight: agent.weight,
+                    slug: normalize(agent.name),
+                  }))
+                  .filter((agent) => agent.slug);
+              }
+            } catch (error) {
+              core.warning(`Falling back to default agent due to configuration error: ${error.message}`);
+            }
+
+            if (!candidates.length) {
+              finalize('copilot', 'default fallback');
+              return;
+            }
+
+            const chosen = chooseWeighted(candidates);
+            if (!chosen) {
+              finalize('copilot', 'weighted selection fallback');
+              return;
+            }
+
+            const { slug, name, weight, random, total } = chosen;
+            core.info(`Random draw ${random.toFixed(6)} selected agent "${name}" (slug=${slug}, weight=${weight}) from total weight ${total.toFixed(6)}.`);
+            finalize(slug, 'weighted selection');
 
       - name: Create empty commit on new branch (from latest base)
         run: |

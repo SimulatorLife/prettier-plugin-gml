@@ -1,6 +1,12 @@
 name: Agent 40 – Memory Footprint Control
 on:
   workflow_dispatch:
+    inputs:
+      agent:
+        description: "Optional agent override."
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -12,6 +18,7 @@ jobs:
     uses: ./.github/workflows/_agent-open-pr-and-ping.yml
     secrets: inherit
     with:
+      agent: ${{ inputs.agent }}
       pr_title: "Agent: Memory Footprint Control"
       pr_body: "Seed PR for Agent to pinpoint unnecessary allocations or retention in the codebase and tighten memory usage without breaking functionality."
       prompt: >

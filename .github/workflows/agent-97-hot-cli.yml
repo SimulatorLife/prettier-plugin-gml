@@ -1,7 +1,13 @@
 name: Agent 97 – CLI Hot Reload Integration
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      agent:
+        description: "Optional agent override."
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -13,6 +19,7 @@ jobs:
     uses: ./.github/workflows/_agent-hot-feature-base.yml
     secrets: inherit
     with:
+      agent: ${{ inputs.agent }}
       component: "CLI orchestration (src/cli)"
       extra_context: >
         Focus on developing the CLI for the hot reload pipeline—watch mode coordination, transpiler,

@@ -1,6 +1,12 @@
 name: Agent 20 – Targeted Micro-Optimization
 on:
   workflow_dispatch:
+    inputs:
+      agent:
+        description: "Optional agent override."
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -12,6 +18,7 @@ jobs:
     uses: ./.github/workflows/_agent-open-pr-and-ping.yml
     secrets: inherit
     with:
+      agent: ${{ inputs.agent }}
       pr_title: "Agent: Targeted Micro-Optimization"
       pr_body: "Seed PR for Agent to implement a localized, measurable micro-optimization."
       prompt: >

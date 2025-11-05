@@ -1,6 +1,12 @@
 name: Agent 16 – Dead Code & Asset Audit
 on:
   workflow_dispatch:
+    inputs:
+      agent:
+        description: "Optional agent override."
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -12,6 +18,7 @@ jobs:
     uses: ./.github/workflows/_agent-open-pr-and-ping.yml
     secrets: inherit
     with:
+      agent: ${{ inputs.agent }}
       pr_title: "Agent: Dead Code & Asset Audit"
       pr_body: |
         Automated audit to identify and prune confirmed unused or obsolete code, assets, and documentation.

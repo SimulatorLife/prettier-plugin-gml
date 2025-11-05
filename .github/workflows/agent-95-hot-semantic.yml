@@ -1,7 +1,13 @@
 name: Agent 95 – Semantic Scope Improvements
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      agent:
+        description: "Optional agent override."
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -13,6 +19,7 @@ jobs:
     uses: ./.github/workflows/_agent-hot-feature-base.yml
     secrets: inherit
     with:
+      agent: ${{ inputs.agent }}
       component: "semantic analysis (src/semantic)"
       extra_context: >
         Target scope tracking, binding resolution, and project graph capabilities that unlock

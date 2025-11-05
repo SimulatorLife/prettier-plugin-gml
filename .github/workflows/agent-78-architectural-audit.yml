@@ -2,6 +2,12 @@ name: Agent 78 – Architectural Audit
 
 on:
   workflow_dispatch:
+    inputs:
+      agent:
+        description: "Optional agent override."
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -13,6 +19,7 @@ jobs:
     uses: ./.github/workflows/_agent-open-pr-and-ping.yml
     secrets: inherit
     with:
+      agent: ${{ inputs.agent }}
       pr_title: "Agent: Architectural Audit"
       pr_body: |
         Seed PR asking Agent to audit repository architecture, document findings, and
