@@ -1,15 +1,17 @@
 import {
-    createIntegerOptionCoercer,
-    createIntegerOptionState,
-    createIntegerOptionResolver
-} from "./numeric-option-state.js";
+    assertFunction,
+    resolveIntegerOption,
+    createEnvConfiguredValue,
+    isNonEmptyString,
+    hasOwn,
+    identity
+} from "../shared/dependencies.js";
 import { resolveEnvironmentMap } from "../shared/dependencies.js";
 
 /**
- * Compose a CLI integer option from the shared numeric option primitives.
- * Centralizes the common boilerplate used by modules that expose numeric
- * configuration flags with optional environment overrides so each module can
- * focus on domain-specific messaging.
+ * Create a CLI integer option with validation, environment overrides, and
+ * flexible option aliasing. Simplified from the previous multi-layered
+ * abstraction while preserving all functionality.
  *
  * @param {object} parameters
  * @param {number} parameters.defaultValue Baseline value before overrides.
@@ -21,8 +23,7 @@ import { resolveEnvironmentMap } from "../shared/dependencies.js";
  *        Error message or factory forwarded to the coercer when callers do not
  *        supply one.
  * @param {string | ((type: string) => string)} [parameters.typeErrorMessage]
- *        Error message forwarded to {@link createIntegerOptionState} for type
- *        validation failures.
+ *        Error message for type validation failures.
  * @param {boolean} [parameters.blankStringReturnsDefault]
  *        Whether blank strings should fall back to the default value.
  * @param {(value: number | undefined) => number | undefined} [parameters.finalizeSet]
@@ -30,8 +31,7 @@ import { resolveEnvironmentMap } from "../shared/dependencies.js";
  * @param {(value: number | undefined) => number | null | undefined} [parameters.finalizeResolved]
  *        Mutator applied to resolved values before they are returned.
  * @param {string} [parameters.defaultValueOption]
- *        Alias forwarded to the resolver so callers can expose descriptive
- *        option names while continuing to delegate to the shared state.
+ *        Alias for the defaultValue option (e.g., "defaultWidth" → "defaultValue").
  * @returns {{
  *   coerce: (value: number, context?: object) => number,
  *   getDefault: () => number | undefined,
@@ -47,33 +47,76 @@ export function createIntegerOptionToolkit({
     createErrorMessage,
     typeErrorMessage,
     blankStringReturnsDefault,
-    finalizeSet,
-    finalizeResolved,
+    finalizeSet = identity,
+    finalizeResolved = identity,
     defaultValueOption
 } = {}) {
-    const coerce = createIntegerOptionCoercer({
-        baseCoerce,
-        createErrorMessage
-    });
+    assertFunction(baseCoerce, "baseCoerce");
 
-    const state = createIntegerOptionState({
+    // Create a coercer that injects the default error message if not provided
+    const coerce = (value, context) => {
+        const shouldInjectMessage =
+            createErrorMessage &&
+            (context == null || context.createErrorMessage === undefined);
+
+        const options = shouldInjectMessage
+            ? { ...context, createErrorMessage }
+            : (context ?? {});
+
+        return baseCoerce(value, options);
+    };
+
+    // Create stateful value with environment override support
+    const state = createEnvConfiguredValue({
         defaultValue,
         envVar,
-        coerce,
-        typeErrorMessage,
-        blankStringReturnsDefault,
-        finalizeSet,
-        finalizeResolved
+        normalize: (value, { defaultValue: baseline, previousValue }) => {
+            const fallback = baseline ?? previousValue;
+            const normalized = resolveIntegerOption(value, {
+                defaultValue: fallback,
+                coerce,
+                typeErrorMessage,
+                blankStringReturnsDefault
+            });
+            return finalizeSet(normalized);
+        }
     });
 
-    const resolve = createIntegerOptionResolver(state.resolve, {
-        defaultValueOption
-    });
+    // Create resolver with optional aliasing
+    const alias = isNonEmptyString(defaultValueOption)
+        ? defaultValueOption
+        : null;
+
+    function resolve(rawValue, options = {}) {
+        const normalizedOptions =
+            options && typeof options === "object" ? { ...options } : {};
+
+        // Support option aliasing (e.g., defaultWidth → defaultValue)
+        if (alias && hasOwn(normalizedOptions, alias)) {
+            const aliasDefault = normalizedOptions[alias];
+            delete normalizedOptions[alias];
+            normalizedOptions.defaultValue = aliasDefault;
+        }
+
+        const fallback =
+            normalizedOptions.defaultValue === undefined
+                ? state.get()
+                : normalizedOptions.defaultValue;
+
+        const normalized = resolveIntegerOption(rawValue, {
+            defaultValue: fallback,
+            coerce,
+            typeErrorMessage,
+            blankStringReturnsDefault
+        });
+
+        return finalizeResolved(normalized);
+    }
 
     return {
         coerce,
-        getDefault: state.getDefault,
-        setDefault: state.setDefault,
+        getDefault: state.get,
+        setDefault: state.set,
         applyEnvOverride: state.applyEnvOverride,
         resolve
     };
