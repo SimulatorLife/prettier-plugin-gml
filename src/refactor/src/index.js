@@ -590,6 +590,93 @@ export class RefactorEngine {
     }
 
     /**
+     * Validate that workspace edits won't break hot reload functionality.
+     * Checks for issues that could prevent patches from being applied correctly.
+     * @param {WorkspaceEdit} workspace - The workspace edit to validate
+     * @param {Object} options - Validation options
+     * @param {boolean} options.checkTranspiler - Whether to validate transpiler compatibility
+     * @returns {Promise<{valid: boolean, errors: Array<string>, warnings: Array<string>}>}
+     */
+    async validateHotReloadCompatibility(workspace, options = {}) {
+        const { checkTranspiler = false } = options;
+        const errors = [];
+        const warnings = [];
+
+        if (!workspace || !(workspace instanceof WorkspaceEdit)) {
+            errors.push("Invalid workspace edit");
+            return { valid: false, errors, warnings };
+        }
+
+        if (workspace.edits.length === 0) {
+            warnings.push(
+                "Workspace edit contains no changes - hot reload not needed"
+            );
+            return { valid: true, errors, warnings };
+        }
+
+        // Group edits by file
+        const grouped = workspace.groupByFile();
+
+        // Check each file for hot reload compatibility
+        for (const [filePath, edits] of grouped.entries()) {
+            // Validate file is a GML script (hot reloadable)
+            if (!filePath.endsWith(".gml")) {
+                warnings.push(
+                    `File ${filePath} is not a GML script - hot reload may not apply`
+                );
+            }
+
+            // Check if edits affect critical constructs
+            for (const edit of edits) {
+                // Warn about edits that might break runtime state
+                if (edit.newText.includes("globalvar")) {
+                    warnings.push(
+                        `Edit in ${filePath} introduces 'globalvar' - may require full reload`
+                    );
+                }
+
+                if (edit.newText.includes("#macro")) {
+                    warnings.push(
+                        `Edit in ${filePath} introduces '#macro' - may require full reload`
+                    );
+                }
+
+                if (edit.newText.includes("enum ")) {
+                    warnings.push(
+                        `Edit in ${filePath} introduces 'enum' - may require full reload`
+                    );
+                }
+            }
+
+            // Check for very large edits that might indicate structural changes
+            const totalCharsChanged = edits.reduce(
+                (sum, e) => sum + e.newText.length,
+                0
+            );
+            if (totalCharsChanged > 5000) {
+                warnings.push(
+                    `Large edit in ${filePath} (${totalCharsChanged} characters) - consider full reload`
+                );
+            }
+        }
+
+        // If transpiler check is requested, validate transpilation will work
+        if (
+            checkTranspiler &&
+            this.formatter &&
+            typeof this.formatter.transpileScript === "function"
+        ) {
+            // We'll check if any symbols being edited can be transpiled
+            // This is a placeholder for more sophisticated checks
+            warnings.push(
+                "Transpiler compatibility check requested - ensure changed symbols can be transpiled"
+            );
+        }
+
+        return { valid: errors.length === 0, errors, warnings };
+    }
+
+    /**
      * Prepare integration data for hot reload after a refactor.
      * Analyzes changed files to determine which symbols need recompilation.
      * @param {WorkspaceEdit} workspace - Applied edits

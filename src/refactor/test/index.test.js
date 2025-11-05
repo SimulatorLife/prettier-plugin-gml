@@ -925,3 +925,90 @@ test("analyzeRenameImpact handles errors gracefully", async () => {
     assert.ok(result.conflicts.length > 0);
     assert.equal(result.conflicts[0].type, "analysis_error");
 });
+
+// Hot reload validation tests
+test("validateHotReloadCompatibility requires a WorkspaceEdit", async () => {
+    const engine = new RefactorEngine();
+    const result = await engine.validateHotReloadCompatibility(null);
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.some((e) => e.includes("Invalid workspace")));
+});
+
+test("validateHotReloadCompatibility warns for empty workspace", async () => {
+    const engine = new RefactorEngine();
+    const ws = new WorkspaceEdit();
+    const result = await engine.validateHotReloadCompatibility(ws);
+    assert.equal(result.valid, true);
+    assert.ok(result.warnings.some((w) => w.includes("no changes")));
+});
+
+test("validateHotReloadCompatibility warns about non-GML files", async () => {
+    const engine = new RefactorEngine();
+    const ws = new WorkspaceEdit();
+    ws.addEdit("test.txt", 0, 5, "new");
+    const result = await engine.validateHotReloadCompatibility(ws);
+    assert.ok(result.warnings.some((w) => w.includes("not a GML script")));
+});
+
+test("validateHotReloadCompatibility detects globalvar changes", async () => {
+    const engine = new RefactorEngine();
+    const ws = new WorkspaceEdit();
+    ws.addEdit("test.gml", 0, 5, "globalvar myvar;");
+    const result = await engine.validateHotReloadCompatibility(ws);
+    assert.ok(
+        result.warnings.some((w) => w.includes("globalvar"))
+    );
+});
+
+test("validateHotReloadCompatibility detects macro changes", async () => {
+    const engine = new RefactorEngine();
+    const ws = new WorkspaceEdit();
+    ws.addEdit("test.gml", 0, 5, "#macro MAX_HP 100");
+    const result = await engine.validateHotReloadCompatibility(ws);
+    assert.ok(result.warnings.some((w) => w.includes("#macro")));
+});
+
+test("validateHotReloadCompatibility detects enum changes", async () => {
+    const engine = new RefactorEngine();
+    const ws = new WorkspaceEdit();
+    ws.addEdit("test.gml", 0, 5, "enum State { Idle, Running }");
+    const result = await engine.validateHotReloadCompatibility(ws);
+    assert.ok(result.warnings.some((w) => w.includes("enum")));
+});
+
+test("validateHotReloadCompatibility warns about large edits", async () => {
+    const engine = new RefactorEngine();
+    const ws = new WorkspaceEdit();
+    const largeText = "x".repeat(6000);
+    ws.addEdit("test.gml", 0, 5, largeText);
+    const result = await engine.validateHotReloadCompatibility(ws);
+    assert.ok(result.warnings.some((w) => w.includes("Large edit")));
+});
+
+test("validateHotReloadCompatibility handles transpiler check option", async () => {
+    const mockTranspiler = {
+        transpileScript: async () => ({ kind: "script", js_body: "ok" })
+    };
+    const engine = new RefactorEngine({ formatter: mockTranspiler });
+    const ws = new WorkspaceEdit();
+    ws.addEdit("test.gml", 0, 5, "new code");
+
+    const result = await engine.validateHotReloadCompatibility(ws, {
+        checkTranspiler: true
+    });
+    assert.equal(result.valid, true);
+    assert.ok(
+        result.warnings.some((w) => w.includes("Transpiler compatibility"))
+    );
+});
+
+test("validateHotReloadCompatibility passes for simple renames", async () => {
+    const engine = new RefactorEngine();
+    const ws = new WorkspaceEdit();
+    ws.addEdit("test.gml", 0, 5, "newName");
+    ws.addEdit("test.gml", 50, 55, "newName");
+
+    const result = await engine.validateHotReloadCompatibility(ws);
+    assert.equal(result.valid, true);
+    assert.equal(result.errors.length, 0);
+});
