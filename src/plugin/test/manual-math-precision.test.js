@@ -786,3 +786,66 @@ test("uses tolerance-aware comparison for ratio numerator simplification", async
         ["var result = value * 0.000016666666667; (1/60000)", ""].join("\n")
     );
 });
+
+test("safely handles division by denominator near machine epsilon", async () => {
+    // This test verifies that the tolerance-aware zero check prevents
+    // division by denominators that are extremely close to zero due to
+    // floating-point rounding errors. The fix ensures we use
+    // Math.abs(value) <= computeNumericTolerance(0) instead of value === 0
+    const source = [
+        "function test_tiny_denominator(value) {",
+        "    return value / 0.0000000000000001;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    // The formatter preserves divisions where the denominator is not in a chain
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function test_tiny_denominator",
+            "/// @param value",
+            "function test_tiny_denominator(value) {",
+            "    return value / 0.0000000000000001;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+test("correctly handles multiplicative chain with near-zero factor", async () => {
+    // Tests that the tolerance check prevents treating near-zero values
+    // as exactly zero in multiplicative chains, which was the original bug.
+    // Before the fix, using value === 0 could incorrectly treat floating-point
+    // values extremely close to zero (due to rounding errors) as exactly zero,
+    // leading to incorrect simplifications or division-by-zero scenarios.
+    const source = [
+        "function chain_with_tiny_factor(x) {",
+        "    return x * 2 / 0.000000000000001;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    // The formatter correctly simplifies by converting division to multiplication
+    assert.strictEqual(
+        formatted,
+        [
+            "",
+            "/// @function chain_with_tiny_factor",
+            "/// @param x",
+            "function chain_with_tiny_factor(x) {",
+            "    return x * 2000000000000000;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
