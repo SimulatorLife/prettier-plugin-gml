@@ -24,7 +24,7 @@ export default [
             "*.md",
             "*antlr/*",
             "resources/*",
-            "src/cli/cache/*",
+            "vendor/*",
             "dist/*",
             "reports/*",
             "src/vendor/*.js",
