@@ -229,12 +229,37 @@ export function createRuntimeWrapper({ registry, onPatchApplied } = {}) {
         return stats;
     }
 
+    function getVersion() {
+        return state.registry.version;
+    }
+
+    function getScript(id) {
+        return state.registry.scripts[id];
+    }
+
+    function getEvent(id) {
+        return state.registry.events[id];
+    }
+
+    function hasScript(id) {
+        return id in state.registry.scripts;
+    }
+
+    function hasEvent(id) {
+        return id in state.registry.events;
+    }
+
     return {
         state,
         applyPatch,
         undo,
         getPatchHistory,
         getRegistrySnapshot,
-        getPatchStats
+        getPatchStats,
+        getVersion,
+        getScript,
+        getEvent,
+        hasScript,
+        hasEvent
     };
 }
