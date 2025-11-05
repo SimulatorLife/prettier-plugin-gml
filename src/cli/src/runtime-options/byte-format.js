@@ -4,10 +4,7 @@ import {
     coercePositiveInteger,
     createNumericTypeErrorFormatter
 } from "../shared/dependencies.js";
-import {
-    createIntegerOptionToolkit,
-    applyIntegerOptionToolkitEnvOverride
-} from "../core/integer-option-toolkit.js";
+import { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
 
 const BYTE_UNITS = Object.freeze(["B", "KB", "MB", "GB", "TB", "PB"]);
 const DEFAULT_BYTE_FORMAT_RADIX = 1024;
@@ -25,7 +22,7 @@ const byteFormatToolkit = createIntegerOptionToolkit({
     baseCoerce: coercePositiveInteger,
     createErrorMessage: createRadixErrorMessage,
     typeErrorMessage: createRadixTypeErrorMessage,
-    defaultValueOption: "defaultRadix"
+    optionAlias: "defaultRadix"
 });
 
 const {
@@ -35,7 +32,7 @@ const {
     applyEnvOverride: applyByteFormatRadixEnvOverride
 } = byteFormatToolkit;
 
-applyIntegerOptionToolkitEnvOverride(byteFormatToolkit);
+applyByteFormatRadixEnvOverride();
 
 function normalizeByteCount(value) {
     const numericValue = typeof value === "bigint" ? Number(value) : value;

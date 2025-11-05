@@ -25,7 +25,6 @@ import {
     SuiteOutputFormat,
     applyEnvOptionOverrides,
     applyStandardCommandOptions,
-    applyIntegerOptionToolkitEnvOverride,
     coercePositiveInteger,
     collectSuiteResults,
     createIntegerOptionToolkit,
@@ -165,7 +164,7 @@ const createAstCommonNodeLimitTypeErrorMessage =
 function createMemoryIterationToolkit({
     defaultValue,
     envVar,
-    defaultValueOption
+    optionAlias
 } = {}) {
     return createIntegerOptionToolkit({
         defaultValue,
@@ -173,7 +172,7 @@ function createMemoryIterationToolkit({
         baseCoerce: coercePositiveInteger,
         createErrorMessage: createIterationErrorMessage,
         typeErrorMessage: createIterationTypeErrorMessage,
-        defaultValueOption
+        optionAlias
     });
 }
 
@@ -207,32 +206,22 @@ function logInvalidIterationEnvOverride({ envVar, error, fallback }) {
  * Apply an environment override for a memory iteration toolkit while logging
  * failures.
  *
- * Both parser and format iteration limits follow the same "try the override,
- * fall back to the previous default, and emit a warning" flow. Centralizing
- * the guard keeps the logging consistent and avoids subtle divergences if the
- * override plumbing changes again.
- *
  * @param {{
  *   getDefault: () => number | undefined;
- *   applyEnvOverride: (env?: NodeJS.ProcessEnv | null | undefined) =>
- *       number | undefined;
+ *   applyEnvOverride: (env?: NodeJS.ProcessEnv) => number | undefined;
  * }} toolkit Numeric option toolkit being updated.
  * @param {string} envVar Environment variable powering the override.
  * @param {NodeJS.ProcessEnv | null | undefined} env Environment map to read.
  * @returns {number | undefined}
  */
 function applyIterationToolkitEnvOverride(toolkit, envVar, env) {
-    return applyIntegerOptionToolkitEnvOverride(toolkit, {
-        env,
-        onError: (error, { fallback }) => {
-            logInvalidIterationEnvOverride({
-                envVar,
-                error,
-                fallback
-            });
-            return fallback;
-        }
-    });
+    const fallback = toolkit.getDefault();
+    try {
+        return toolkit.applyEnvOverride(env);
+    } catch (error) {
+        logInvalidIterationEnvOverride({ envVar, error, fallback });
+        return fallback;
+    }
 }
 
 function applyParserMaxIterationsEnvOverride(env) {
