@@ -1,200 +1,53 @@
 {
   "workflows": [
-    {
-      "weight": 1,
-      "name": "codex-02-resolve-merge-conflicts"
-    },
-    {
-      "weight": 1,
-      "name": "codex-03-dry"
-    },
-    {
-      "weight": 0.3,
-      "name": "codex-04-style"
-    },
-    {
-      "weight": 0.16,
-      "name": "codex-06-decouple"
-    },
-    {
-      "weight": 0.014,
-      "name": "codex-09-dependencies"
-    },
-    {
-      "weight": 0.028,
-      "name": "codex-10-documentation"
-    },
-    {
-      "weight": 0.084,
-      "name": "codex-15-parameters"
-    },
-    {
-      "weight": 0.04,
-      "name": "codex-16-dead-code"
-    },
-    {
-      "weight": 0.04,
-      "name": "codex-17-error-handling"
-    },
-    {
-      "weight": 0.2,
-      "name": "codex-18-clarity"
-    },
-    {
-      "weight": 0.334,
-      "name": "codex-20-micro-optimization"
-    },
-    {
-      "weight": 0.016,
-      "name": "codex-21-extensibility"
-    },
-    {
-      "weight": 0.25,
-      "name": "codex-22-bugfix"
-    },
-    {
-      "weight": 0.4,
-      "name": "codex-23-lint"
-    },
-    {
-      "weight": 0.5,
-      "name": "codex-24-simplify"
-    },
-    {
-      "weight": 0.334,
-      "name": "codex-30-organization"
-    },
-    {
-      "weight": 0.16,
-      "name": "codex-36-docstrings"
-    },
-    {
-      "weight": 0.16,
-      "name": "codex-37-helper-substitution"
-    },
-    {
-      "weight": 0.334,
-      "name": "codex-38-logic-deduplicate"
-    },
-    {
-      "weight": 0.084,
-      "name": "codex-40-memory-footprint"
-    },
-    {
-      "weight": 0.5,
-      "name": "codex-41-test-failure"
-    },
-    {
-      "weight": 0.04,
-      "name": "codex-70-null-undefined-guardrails"
-    },
-    {
-      "weight": 0.04,
-      "name": "codex-71-loop-mutability-hazards"
-    },
-    {
-      "weight": 0.084,
-      "name": "codex-72-resource-leak-patrol"
-    },
-    {
-      "weight": 0.04,
-      "name": "codex-73-stringly-typed-flags"
-    },
-    {
-      "weight": 0.04,
-      "name": "codex-74-floating-point-equality"
-    },
-    {
-      "weight": 0.084,
-      "name": "codex-75-racey-test-isolation"
-    },
-    {
-      "weight": 0.084,
-      "name": "codex-76-legacy-api-usage"
-    },
-    {
-      "weight": 0.2,
-      "name": "codex-77-usability"
-    },
-    {
-      "weight": 0.084,
-      "name": "codex-78-architectural-audit"
-    },
-    {
-      "weight": 0.25,
-      "name": "codex-79-cohesion-refactor"
-    },
-    {
-      "weight": 0.084,
-      "name": "codex-80-composition"
-    },
-    {
-      "weight": 0.028,
-      "name": "codex-81-defensive"
-    },
-    {
-      "weight": 0.02,
-      "name": "codex-82-demeter"
-    },
-    {
-      "weight": 0.04,
-      "name": "codex-83-dip"
-    },
-    {
-      "weight": 0.084,
-      "name": "codex-84-document-intent"
-    },
-    {
-      "weight": 0.154,
-      "name": "codex-85-isp"
-    },
-    {
-      "weight": 0.3,
-      "name": "codex-86-kiss-sweeper"
-    },
-    {
-      "weight": 0.16,
-      "name": "codex-87-coupling"
-    },
-    {
-      "weight": 0.04,
-      "name": "codex-88-lsp"
-    },
-    {
-      "weight": 0.084,
-      "name": "codex-89-pola"
-    },
-    {
-      "weight": 0.012,
-      "name": "codex-90-policy-mechanism"
-    },
-    {
-      "weight": 0.25,
-      "name": "codex-91-sla"
-    },
-    {
-      "weight": 0.012,
-      "name": "codex-92-srp"
-    },
-    {
-      "weight": 0.4,
-      "name": "codex-93-hot-refactor"
-    },
-    {
-      "weight": 0.4,
-      "name": "codex-94-hot-runtime-wrapper"
-    },
-    {
-      "weight": 0.4,
-      "name": "codex-95-hot-semantic"
-    },
-    {
-      "weight": 0.4,
-      "name": "codex-96-hot-transpiler"
-    },
-    {
-      "weight": 0.4,
-      "name": "codex-97-hot-cli"
-    }
+    {"weight":1,"name":"codex-02-resolve-merge-conflicts"},
+    {"weight":0.7,"name":"codex-03-dry"},
+    {"weight":0.3,"name":"codex-04-style"},
+    {"weight":0.16,"name":"codex-06-decouple"},
+    {"weight":0.014,"name":"codex-09-dependencies"},
+    {"weight":0.028,"name":"codex-10-documentation"},
+    {"weight":0.084,"name":"codex-15-parameters"},
+    {"weight":0.04,"name":"codex-16-dead-code"},
+    {"weight":0.04,"name":"codex-17-error-handling"},
+    {"weight":0.2,"name":"codex-18-clarity"},
+    {"weight":0.334,"name":"codex-20-micro-optimization"},
+    {"weight":0.016,"name":"codex-21-extensibility"},
+    {"weight":0.25,"name":"codex-22-bugfix"},
+    {"weight":0.45,"name":"codex-23-lint"},
+    {"weight":0.55,"name":"codex-24-simplify"},
+    {"weight":0.334,"name":"codex-30-organization"},
+    {"weight":0.16,"name":"codex-36-docstrings"},
+    {"weight":0.16,"name":"codex-37-helper-substitution"},
+    {"weight":0.334,"name":"codex-38-logic-deduplicate"},
+    {"weight":0.084,"name":"codex-40-memory-footprint"},
+    {"weight":0.4,"name":"codex-41-test-failure"},
+    {"weight":0.04,"name":"codex-70-null-undefined-guardrails"},
+    {"weight":0.04,"name":"codex-71-loop-mutability-hazards"},
+    {"weight":0.084,"name":"codex-72-resource-leak-patrol"},
+    {"weight":0.04,"name":"codex-73-stringly-typed-flags"},
+    {"weight":0.04,"name":"codex-74-floating-point-equality"},
+    {"weight":0.084,"name":"codex-75-racey-test-isolation"},
+    {"weight":0.084,"name":"codex-76-legacy-api-usage"},
+    {"weight":0.2,"name":"codex-77-usability"},
+    {"weight":0.084,"name":"codex-78-architectural-audit"},
+    {"weight":0.25,"name":"codex-79-cohesion-refactor"},
+    {"weight":0.084,"name":"codex-80-composition"},
+    {"weight":0.028,"name":"codex-81-defensive"},
+    {"weight":0.02,"name":"codex-82-demeter"},
+    {"weight":0.04,"name":"codex-83-dip"},
+    {"weight":0.084,"name":"codex-84-document-intent"},
+    {"weight":0.175,"name":"codex-85-isp"},
+    {"weight":0.3,"name":"codex-86-kiss-sweeper"},
+    {"weight":0.16,"name":"codex-87-coupling"},
+    {"weight":0.04,"name":"codex-88-lsp"},
+    {"weight":0.084,"name":"codex-89-pola"},
+    {"weight":0.012,"name":"codex-90-policy-mechanism"},
+    {"weight":0.25,"name":"codex-91-sla"},
+    {"weight":0.012,"name":"codex-92-srp"},
+    {"weight":0.4,"name":"codex-93-hot-refactor"},
+    {"weight":0.4,"name":"codex-94-hot-runtime-wrapper"},
+    {"weight":0.4,"name":"codex-95-hot-semantic"},
+    {"weight":0.4,"name":"codex-96-hot-transpiler"},
+    {"weight":0.4,"name":"codex-97-hot-cli"}
   ]
 }
