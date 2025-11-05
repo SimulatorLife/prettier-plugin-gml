@@ -1,7 +1,7 @@
 .DS_Store
 *.cpuprofile
 tmp/
-# src/cli/cache/
+src/cli/cache/
 
 # Logs
 logs/
