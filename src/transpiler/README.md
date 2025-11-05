@@ -74,6 +74,11 @@ const jsCode = emitJavaScript(ast);
 - ✅ Array literals ([1, 2, 3])
 - ✅ Struct literals ({a: 1, b: 2}) mapped to JavaScript object literals
 - ✅ Ternary expressions (a ? b : c)
+- ✅ Error handling:
+  - ✅ throw statements
+  - ✅ try-catch blocks
+  - ✅ try-finally blocks
+  - ✅ try-catch-finally blocks
 
 ### Planned Features
 
@@ -83,7 +88,6 @@ const jsCode = emitJavaScript(ast);
 - [ ] Script call indirection through runtime wrapper
 - [ ] Built-in function mapping
 - [ ] Compound assignment operators (already parsed, may need runtime handling)
-- [ ] Try-catch-finally error handling
 
 ## Operator Mapping
 

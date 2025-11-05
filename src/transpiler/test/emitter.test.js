@@ -644,3 +644,81 @@ test("emitJavaScript handles ternary with function calls", () => {
         "Should include alternate function"
     );
 });
+
+// Error handling tests
+test("emitJavaScript handles throw statements with string", () => {
+    const source = 'throw "Error message"';
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("throw"), "Should include throw keyword");
+    assert.ok(result.includes("Error message"), "Should include error message");
+});
+
+test("emitJavaScript handles throw statements with expression", () => {
+    const source = "throw new_error(code)";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("throw"), "Should include throw keyword");
+    assert.ok(result.includes("new_error"), "Should include expression");
+});
+
+test("emitJavaScript handles try-catch statements", () => {
+    const source = "try { risky(); } catch (e) { handle(e); }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("try"), "Should include try keyword");
+    assert.ok(result.includes("catch"), "Should include catch keyword");
+    assert.ok(result.includes("risky()"), "Should include try block");
+    assert.ok(result.includes("handle"), "Should include catch block");
+});
+
+test("emitJavaScript handles try-catch without parameter", () => {
+    const source = "try { code(); } catch { recover(); }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("try"), "Should include try keyword");
+    assert.ok(result.includes("catch"), "Should include catch keyword");
+    assert.ok(
+        result.includes("err") || result.includes("("),
+        "Should provide default parameter"
+    );
+});
+
+test("emitJavaScript handles try-finally statements", () => {
+    const source = "try { code(); } finally { cleanup(); }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("try"), "Should include try keyword");
+    assert.ok(result.includes("finally"), "Should include finally keyword");
+    assert.ok(result.includes("cleanup()"), "Should include finally block");
+});
+
+test("emitJavaScript handles try-catch-finally statements", () => {
+    const source =
+        "try { risky(); } catch (e) { handle(e); } finally { cleanup(); }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("try"), "Should include try keyword");
+    assert.ok(result.includes("catch"), "Should include catch keyword");
+    assert.ok(result.includes("finally"), "Should include finally keyword");
+    assert.ok(result.includes("risky()"), "Should include try block");
+    assert.ok(result.includes("handle"), "Should include catch block");
+    assert.ok(result.includes("cleanup()"), "Should include finally block");
+});
+
+test("emitJavaScript handles nested try-catch blocks", () => {
+    const source =
+        "try { try { inner(); } catch (e) { log(e); } } catch (e) { outer(e); }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("try"), "Should include try keywords");
+    assert.ok(result.includes("inner()"), "Should include inner try block");
+    assert.ok(result.includes("outer"), "Should include outer catch block");
+});

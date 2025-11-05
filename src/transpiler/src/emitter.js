@@ -420,6 +420,53 @@ export function emitJavaScript(ast) {
         return "continue";
     }
 
+    // Handle throw statement
+    if (ast.type === "ThrowStatement") {
+        if (ast.argument) {
+            return `throw ${emitJavaScript(ast.argument)}`;
+        }
+        return "throw";
+    }
+
+    // Handle try-catch-finally statement
+    if (ast.type === "TryStatement") {
+        let result = "try";
+
+        // Handle try block
+        if (ast.block) {
+            result +=
+                ast.block.type === "BlockStatement"
+                    ? ` ${emitJavaScript(ast.block)}`
+                    : ` {\n${emitJavaScript(ast.block)};\n}`;
+        }
+
+        // Handle catch clause
+        if (ast.handler) {
+            result += " catch";
+            // Add parameter if present
+            if (ast.handler.param) {
+                result += ` (${emitJavaScript(ast.handler.param)})`;
+            } else {
+                result += " (err)"; // Default parameter if none specified
+            }
+            result +=
+                ast.handler.body.type === "BlockStatement"
+                    ? ` ${emitJavaScript(ast.handler.body)}`
+                    : ` {\n${emitJavaScript(ast.handler.body)};\n}`;
+        }
+
+        // Handle finally clause
+        if (ast.finalizer) {
+            result += " finally";
+            result +=
+                ast.finalizer.body.type === "BlockStatement"
+                    ? ` ${emitJavaScript(ast.finalizer.body)}`
+                    : ` {\n${emitJavaScript(ast.finalizer.body)};\n}`;
+        }
+
+        return result;
+    }
+
     // Handle repeat statement - convert to for loop
     if (ast.type === "RepeatStatement") {
         let result = "for (let __repeat_count = ";
