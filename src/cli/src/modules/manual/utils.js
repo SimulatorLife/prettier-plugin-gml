@@ -56,151 +56,93 @@ const MANUAL_GITHUB_REQUEST_ERROR_CAPABILITY = Symbol.for(
     "prettier-plugin-gml.manual-github-request-error"
 );
 
-function readOptionalTrimmedString(value) {
-    if (value == null) {
-        return;
-    }
-
-    if (typeof value !== "string") {
-        return null;
-    }
-
-    const trimmed = value.trim();
-    return trimmed === "" ? undefined : trimmed;
-}
-
-function readOptionalFiniteNumber(value) {
-    if (value == null) {
-        return;
-    }
-
-    const numeric = Number(value);
-    return Number.isFinite(numeric) ? numeric : null;
-}
-
-function readOptionalString(value) {
-    if (value == null) {
-        return;
-    }
-
-    return typeof value === "string" ? value : null;
-}
-
-function getManualGitHubRequestErrorContract(value) {
-    if (!isErrorLike(value)) {
-        return null;
-    }
-
-    const url = readOptionalTrimmedString(value.url);
-    if (url === null) {
-        return null;
-    }
-
-    const status = readOptionalFiniteNumber(value.status);
-    if (status === null) {
-        return null;
-    }
-
-    const statusText = readOptionalTrimmedString(value.statusText);
-    if (statusText === null) {
-        return null;
-    }
-
-    const responseBody = readOptionalString(value.responseBody);
-    if (responseBody === null) {
-        return null;
-    }
-
-    const details = { url, status, statusText, responseBody };
-
-    if (Object.values(details).every((entry) => entry === undefined)) {
-        return null;
-    }
-
-    const contract = {
-        message: getErrorMessageOrFallback(value)
-    };
-
-    for (const [key, entry] of Object.entries(details)) {
-        if (entry !== undefined) {
-            contract[key] = entry;
-        }
-    }
-
-    if (value.cause !== undefined) {
-        contract.cause = value.cause;
-    }
-
-    return contract;
-}
-
-function tryInstallManualGitHubRequestErrorCapability(value, contract) {
-    if (!value || (typeof value !== "object" && typeof value !== "function")) {
+/**
+ * Check if an error looks like a manual GitHub request error based on its
+ * properties. Returns true if the error has valid url, status, statusText,
+ * or responseBody fields that could be normalized.
+ */
+function hasManualErrorProperties(error) {
+    if (!isErrorLike(error)) {
         return false;
     }
 
-    try {
-        Object.defineProperty(value, MANUAL_GITHUB_REQUEST_ERROR_CAPABILITY, {
-            value: true,
-            enumerable: false,
-            configurable: true
-        });
-    } catch {
-        return false;
-    }
+    const hasUrl = typeof error.url === "string" && error.url.trim() !== "";
+    const hasStatus =
+        typeof error.status === "number" && Number.isFinite(error.status);
+    const hasStatusText =
+        typeof error.statusText === "string" && error.statusText.trim() !== "";
+    const hasResponseBody = typeof error.responseBody === "string";
 
-    if (contract.url !== undefined) {
-        value.url = contract.url;
-    }
-
-    if (contract.status !== undefined) {
-        value.status = contract.status;
-    }
-
-    if (contract.statusText !== undefined) {
-        value.statusText = contract.statusText;
-    }
-
-    if (contract.responseBody !== undefined) {
-        value.responseBody = contract.responseBody;
-    }
-
-    if (contract.cause !== undefined && value.cause === undefined) {
-        value.cause = contract.cause;
-    }
-
-    return true;
+    return hasUrl || hasStatus || hasStatusText || hasResponseBody;
 }
 
+/**
+ * Normalize an error that already has manual error properties. Adds the
+ * capability symbol and normalizes property values in place if possible,
+ * otherwise creates a new ManualGitHubRequestError wrapping the original.
+ */
 function normalizeManualGitHubRequestError(value) {
+    // Already normalized - return as-is
     if (value?.[MANUAL_GITHUB_REQUEST_ERROR_CAPABILITY]) {
         return value;
     }
 
-    const contract = getManualGitHubRequestErrorContract(value);
-    if (!contract) {
+    // Not an error with manual properties - can't normalize
+    if (!hasManualErrorProperties(value)) {
         return null;
     }
 
-    if (tryInstallManualGitHubRequestErrorCapability(value, contract)) {
-        return value;
+    // Try to normalize in place by adding the capability symbol and fixing up properties
+    if (value && (typeof value === "object" || typeof value === "function")) {
+        try {
+            Object.defineProperty(
+                value,
+                MANUAL_GITHUB_REQUEST_ERROR_CAPABILITY,
+                {
+                    value: true,
+                    enumerable: false,
+                    configurable: true
+                }
+            );
+
+            // Normalize properties
+            if (typeof value.url === "string") {
+                value.url = value.url.trim();
+            }
+            if (typeof value.status === "string") {
+                const parsed = Number(value.status);
+                if (Number.isFinite(parsed)) {
+                    value.status = parsed;
+                }
+            }
+            if (typeof value.statusText === "string") {
+                value.statusText = value.statusText.trim();
+            }
+
+            return value;
+        } catch {
+            // Fall through to create new error
+        }
     }
 
-    const { message, cause, ...details } = contract;
-    const normalizedCause = cause === undefined ? value : cause;
-
-    return new ManualGitHubRequestError(message, {
-        ...details,
-        cause: normalizedCause
+    // Couldn't normalize in place - create a new error wrapping the original
+    return new ManualGitHubRequestError(getErrorMessageOrFallback(value), {
+        url: typeof value.url === "string" ? value.url.trim() : undefined,
+        status: typeof value.status === "number" ? value.status : undefined,
+        statusText:
+            typeof value.statusText === "string"
+                ? value.statusText.trim()
+                : undefined,
+        responseBody:
+            typeof value.responseBody === "string"
+                ? value.responseBody
+                : undefined,
+        cause: value
     });
 }
 
 function isManualGitHubRequestError(value) {
-    if (value?.[MANUAL_GITHUB_REQUEST_ERROR_CAPABILITY]) {
-        return true;
-    }
-
-    return getManualGitHubRequestErrorContract(value) !== null;
+    return value?.[MANUAL_GITHUB_REQUEST_ERROR_CAPABILITY] === true;
 }
 
 class ManualGitHubRequestError extends Error {
