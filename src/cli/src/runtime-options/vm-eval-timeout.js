@@ -2,10 +2,7 @@ import {
     coerceNonNegativeInteger,
     createNumericTypeErrorFormatter
 } from "../shared/dependencies.js";
-import {
-    createIntegerOptionToolkit,
-    applyIntegerOptionToolkitEnvOverride
-} from "../core/integer-option-toolkit.js";
+import { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
 
 export const DEFAULT_VM_EVAL_TIMEOUT_MS = 5000;
 export const VM_EVAL_TIMEOUT_ENV_VAR = "GML_VM_EVAL_TIMEOUT_MS";
@@ -23,22 +20,23 @@ const vmEvalTimeoutToolkit = createIntegerOptionToolkit({
     baseCoerce: coerceNonNegativeInteger,
     createErrorMessage: createTimeoutErrorMessage,
     typeErrorMessage: createTimeoutTypeErrorMessage,
-    finalizeResolved: (value) => (value === 0 ? null : value),
-    defaultValueOption: "defaultTimeout"
+    transform: (value) => (value === 0 ? null : value),
+    optionAlias: "defaultTimeout"
 });
 
 const {
     getDefault: getDefaultVmEvalTimeoutMs,
     setDefault: setDefaultVmEvalTimeoutMs,
     resolve: resolveVmEvalTimeout,
-    applyEnvOverride: applyVmEvalTimeoutEnvOverrideInternal
+    applyEnvOverride
 } = vmEvalTimeoutToolkit;
 
 function applyVmEvalTimeoutEnvOverride(env) {
-    return applyIntegerOptionToolkitEnvOverride(vmEvalTimeoutToolkit, {
-        env,
-        onError: () => getDefaultVmEvalTimeoutMs()
-    });
+    try {
+        return applyEnvOverride(env);
+    } catch {
+        return getDefaultVmEvalTimeoutMs();
+    }
 }
 
 applyVmEvalTimeoutEnvOverride();

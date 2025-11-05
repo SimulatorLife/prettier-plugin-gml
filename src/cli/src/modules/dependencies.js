@@ -14,10 +14,7 @@ export {
 
 export { applyEnvOptionOverrides } from "../core/env-overrides.js";
 
-export {
-    createIntegerOptionToolkit,
-    applyIntegerOptionToolkitEnvOverride
-} from "../core/integer-option-toolkit.js";
+export { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
 
 export {
     SuiteOutputFormat,

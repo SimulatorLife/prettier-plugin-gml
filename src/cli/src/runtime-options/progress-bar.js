@@ -3,10 +3,7 @@ import {
     createNumericTypeErrorFormatter,
     isFiniteNumber
 } from "../shared/dependencies.js";
-import {
-    createIntegerOptionToolkit,
-    applyIntegerOptionToolkitEnvOverride
-} from "../core/integer-option-toolkit.js";
+import { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
@@ -131,7 +128,7 @@ const progressBarWidthToolkit = createIntegerOptionToolkit({
     baseCoerce: coercePositiveInteger,
     createErrorMessage: createWidthErrorMessage,
     typeErrorMessage: createWidthTypeErrorMessage,
-    defaultValueOption: "defaultWidth"
+    optionAlias: "defaultWidth"
 });
 
 const {
@@ -141,7 +138,7 @@ const {
     applyEnvOverride: applyProgressBarWidthEnvOverride
 } = progressBarWidthToolkit;
 
-applyIntegerOptionToolkitEnvOverride(progressBarWidthToolkit);
+applyProgressBarWidthEnvOverride();
 
 function disposeProgressBars() {
     for (const [, bar] of activeProgressBars) {
