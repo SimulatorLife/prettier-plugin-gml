@@ -56,17 +56,27 @@ const jsCode = emitJavaScript(ast);
 - ✅ Array indexing (arr[0], matrix[i][j])
 - ✅ Property access (obj.prop, nested.property.access)
 - ✅ Function calls (func(), func(arg1, arg2))
+- ✅ Variable declarations (var x = 10, y = 20)
+- ✅ Control flow statements:
+  - ✅ if/else statements (including else-if chains)
+  - ✅ for loops
+  - ✅ while loops
+- ✅ Parenthesized expressions
+- ✅ Block statements
+- ✅ Nested control flow structures
 
 ### Planned Features
 
 - [ ] Function declarations
-- [ ] Control flow (if/else, while, for, repeat, do-until)
+- [ ] Additional control flow (repeat, do-until, switch)
 - [ ] `with` statement lowering
 - [ ] Scope-aware identifier resolution (self, other, global)
 - [ ] Script call indirection through runtime wrapper
 - [ ] Built-in function mapping
 - [ ] Struct and array literals
 - [ ] Advanced expression forms (ternary, compound assignments)
+- [ ] Break and continue statements
+- [ ] Return statements
 
 ## Operator Mapping
 
