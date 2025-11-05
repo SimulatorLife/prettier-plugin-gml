@@ -5,6 +5,13 @@ import {
     hasSample
 } from "../src/core/bounded-sample-collector.js";
 
+/**
+ * Check object equality by comparing id property.
+ */
+function areObjectsEqualById(a, b) {
+    return a.id === b.id;
+}
+
 describe("bounded-sample-collector", () => {
     describe("tryAddSample", () => {
         it("adds a sample when limit is not reached", () => {
@@ -52,12 +59,11 @@ describe("bounded-sample-collector", () => {
                 { id: 1, name: "Alice" },
                 { id: 2, name: "Bob" }
             ];
-            const isEqual = (a, b) => a.id === b.id;
             const result = tryAddSample(
                 samples,
                 { id: 1, name: "Alice Updated" },
                 5,
-                isEqual
+                areObjectsEqualById
             );
 
             assert.strictEqual(result, false);
@@ -70,12 +76,11 @@ describe("bounded-sample-collector", () => {
                 { id: 1, name: "Alice" },
                 { id: 2, name: "Bob" }
             ];
-            const isEqual = (a, b) => a.id === b.id;
             const result = tryAddSample(
                 samples,
                 { id: 3, name: "Charlie" },
                 5,
-                isEqual
+                areObjectsEqualById
             );
 
             assert.strictEqual(result, true);
@@ -104,11 +109,10 @@ describe("bounded-sample-collector", () => {
                 { id: 1, name: "Alice" },
                 { id: 2, name: "Bob" }
             ];
-            const isEqual = (a, b) => a.id === b.id;
             const result = hasSample(
                 samples,
                 { id: 2, name: "Different" },
-                isEqual
+                areObjectsEqualById
             );
 
             assert.strictEqual(result, true);
@@ -119,11 +123,10 @@ describe("bounded-sample-collector", () => {
                 { id: 1, name: "Alice" },
                 { id: 2, name: "Bob" }
             ];
-            const isEqual = (a, b) => a.id === b.id;
             const result = hasSample(
                 samples,
                 { id: 3, name: "Charlie" },
-                isEqual
+                areObjectsEqualById
             );
 
             assert.strictEqual(result, false);
