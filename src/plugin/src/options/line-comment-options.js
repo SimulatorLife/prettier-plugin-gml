@@ -5,7 +5,7 @@ import {
     isObjectLike,
     isRegExpLike
 } from "../shared/index.js";
-import { createResolverController } from "../shared/resolver-controller.js";
+import { createResolverController } from "@prettier-plugin-gml/shared/utils/resolver-controller.js";
 
 const LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES = 5;
 const DEFAULT_LINE_COMMENT_BANNER_LENGTH = 60;
