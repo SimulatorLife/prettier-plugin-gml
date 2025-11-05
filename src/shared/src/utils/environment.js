@@ -108,15 +108,15 @@ export function applyConfiguredValueEnvOverride(config, env) {
  * environment overrides.
  *
  * Simplified from the previous multi-parameter context approach. The normalize
- * function now receives just the value and a fallback, making the contract
- * clearer and reducing unnecessary parameter passing.
+ * function receives both the original default and the current value, allowing
+ * it to choose the appropriate fallback behavior.
  *
  * @template TValue
  * @param {object} parameters
  * @param {TValue} parameters.defaultValue Baseline value before overrides.
  * @param {string | null | undefined} [parameters.envVar] Environment variable
  *        to read. When omitted, applyEnvOverride is a no-op.
- * @param {(raw: unknown, fallback: TValue) => TValue} parameters.normalize
+ * @param {(raw: unknown, context: { defaultValue: TValue, previousValue: TValue }) => TValue} parameters.normalize
  *        Function that validates and returns the normalized value.
  * @returns {{
  *     get(): TValue;
@@ -134,8 +134,10 @@ export function createEnvConfiguredValue({
     let currentValue = defaultValue;
 
     const set = (value) => {
-        const fallback = currentValue ?? defaultValue;
-        currentValue = normalize(value, fallback);
+        currentValue = normalize(value, {
+            defaultValue,
+            previousValue: currentValue
+        });
         return currentValue;
     };
 
@@ -160,13 +162,16 @@ export function createEnvConfiguredValue({
  *
  * Simplified from the previous wrapper approach. The resolve function attempts
  * normalization and returns null/undefined on failure, triggering fallback.
+ * By default, the fallback prefers the previous value over the default.
  *
  * @template TValue
  * @param {object} parameters
  * @param {TValue} parameters.defaultValue Baseline value.
  * @param {string | null | undefined} [parameters.envVar] Environment variable.
- * @param {(raw: unknown, fallback: TValue) => TValue | null | undefined} parameters.resolve
+ * @param {(raw: unknown, context: { defaultValue: TValue, previousValue: TValue, fallback: TValue }) => TValue | null | undefined} parameters.resolve
  *        Normalizes the value or returns null/undefined to use fallback.
+ * @param {(context: { defaultValue: TValue, previousValue: TValue }) => TValue} [parameters.computeFallback]
+ *        Optional function to compute the fallback value. Defaults to previousValue ?? defaultValue.
  * @returns {{
  *     get(): TValue;
  *     set(value: unknown): TValue;
@@ -176,16 +181,26 @@ export function createEnvConfiguredValue({
 export function createEnvConfiguredValueWithFallback({
     defaultValue,
     envVar,
-    resolve
+    resolve,
+    computeFallback
 } = {}) {
     assertFunction(resolve, "resolve");
+
+    const fallbackFactory =
+        typeof computeFallback === "function"
+            ? computeFallback
+            : (context) => context.previousValue ?? context.defaultValue;
 
     return createEnvConfiguredValue({
         defaultValue,
         envVar,
-        normalize: (rawValue, fallback) => {
+        normalize: (rawValue, context) => {
+            const fallback = fallbackFactory(context);
             try {
-                const resolved = resolve(rawValue, fallback);
+                const resolved = resolve(rawValue, {
+                    ...context,
+                    fallback
+                });
                 if (resolved != null) {
                     return resolved;
                 }
