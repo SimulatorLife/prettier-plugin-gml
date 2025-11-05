@@ -2,7 +2,7 @@ name: scheduler
 
 on:
   schedule:
-    - cron: "*/30 * * * *" # Every 30 minutes
+    - cron: "*/45 * * * *" # Every 45 minutes
   workflow_dispatch:
 
 permissions:
