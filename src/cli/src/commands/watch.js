@@ -18,6 +18,7 @@ import process from "node:process";
 
 import { Command, Option } from "commander";
 
+import { createTranspiler } from "../../../transpiler/src/index.js";
 import { ensureRuntimeArchiveHydrated } from "../modules/runtime/archive.js";
 import { createRuntimeCommandContextOptions } from "../modules/runtime/config.js";
 import { startRuntimeStaticServer } from "../modules/runtime/server.js";
@@ -251,6 +252,8 @@ export async function runWatchCommand(targetPath, options) {
         );
     }
 
+    const transpiler = createTranspiler();
+
     const runtimeContext = runtimeHydration
         ? {
               root: runtimeHydration.runtimeRoot,
@@ -259,7 +262,9 @@ export async function runWatchCommand(targetPath, options) {
               manifestPath: runtimeHydration.manifestPath ?? null,
               manifest: runtimeHydration.manifest ?? null,
               server: null,
-              noticeLogged: Boolean(verbose)
+              noticeLogged: Boolean(verbose),
+              transpiler,
+              patches: []
           }
         : {
               root: null,
@@ -268,7 +273,9 @@ export async function runWatchCommand(targetPath, options) {
               manifestPath: null,
               manifest: null,
               server: null,
-              noticeLogged: Boolean(verbose)
+              noticeLogged: Boolean(verbose),
+              transpiler,
+              patches: []
           };
 
     if (runtimeHydration?.manifestPath && verbose) {
@@ -422,13 +429,14 @@ export async function runWatchCommand(targetPath, options) {
 /**
  * Handles individual file change events.
  *
- * This function will be extended to coordinate with the transpiler, semantic analyzer,
- * and runtime wrapper as the hot-reload pipeline matures.
+ * Coordinates with the transpiler to generate JavaScript patches when GML files change.
+ * Future iterations will add semantic analysis and streaming to the runtime wrapper.
  *
  * @param {string} filePath - Full path to the changed file
  * @param {string} eventType - Type of file system event ('change' or 'rename')
  * @param {object} options - Processing options
  * @param {boolean} options.verbose - Enable verbose logging
+ * @param {object} options.runtimeContext - Runtime context with transpiler and patch storage
  */
 async function handleFileChange(
     filePath,
@@ -455,7 +463,7 @@ async function handleFileChange(
         }
     }
 
-    // For 'change' events, we can attempt to read the file
+    // For 'change' events, read the file and transpile it
     if (eventType === "change") {
         try {
             const content = await readFile(filePath, "utf8");
@@ -465,11 +473,46 @@ async function handleFileChange(
                 console.log(`  ↳ Read ${lines} lines`);
             }
 
-            // Future integration points:
-            // 1. Parse the file using the ANTLR parser (src/parser)
-            // 2. Run semantic analysis (src/semantic)
-            // 3. Generate transpiler patches (src/transpiler)
-            // 4. Stream patches to runtime wrapper (src/runtime-wrapper)
+            // Transpile the GML source to JavaScript
+            if (runtimeContext?.transpiler) {
+                try {
+                    // Generate a script identifier from the file path
+                    const fileName = path.basename(
+                        filePath,
+                        path.extname(filePath)
+                    );
+                    const symbolId = `gml/script/${fileName}`;
+
+                    // Transpile to JavaScript patch
+                    const patch =
+                        await runtimeContext.transpiler.transpileScript({
+                            sourceText: content,
+                            symbolId
+                        });
+
+                    // Store the patch for future streaming
+                    runtimeContext.patches.push(patch);
+
+                    if (verbose) {
+                        console.log(
+                            `  ↳ Transpiled to JavaScript (${patch.js_body.length} chars)`
+                        );
+                        console.log(`  ↳ Patch ID: ${patch.id}`);
+                    } else {
+                        console.log(`  ↳ Generated patch: ${patch.id}`);
+                    }
+
+                    // Future integration points:
+                    // 2. Run semantic analysis to understand scope and dependencies
+                    // 3. Identify dependent scripts that need recompilation
+                    // 4. Stream patches to runtime wrapper via WebSocket
+                } catch (error) {
+                    console.error(`  ↳ Transpilation failed: ${error.message}`);
+                    if (verbose) {
+                        console.error(`     ${error.stack}`);
+                    }
+                }
+            }
         } catch (error) {
             if (verbose) {
                 console.log(`  ↳ Error reading file: ${error.message}`);
