@@ -2,9 +2,6 @@ name: Auto-approve Copilot workflow runs
 
 on:
   workflow_run:
-    workflows:
-      - scheduler
-      - Auto merge codex/copilot branches
     types:
       - requested
 
@@ -13,7 +10,11 @@ permissions:
 
 jobs:
   approve:
-    if: ${{ github.event.workflow_run.actor.login == 'github-copilot[bot]' }}
+    if: >-
+      ${{
+        github.event.workflow_run.actor.login == 'github-copilot[bot]'
+        || github.event.workflow_run.triggering_actor.login == 'github-copilot[bot]'
+      }}
     runs-on: ubuntu-latest
     steps:
       - name: Approve pending run
@@ -60,7 +61,7 @@ jobs:
             const { owner, repo } = context.repo;
             const pull_number = prInfo.number;
 
-            const prefixes = ['agent/', 'copilot/'];
+            const prefixes = ['codex/', 'copilot/'];
             const hasAllowedPrefix = (ref) => typeof ref === 'string' && prefixes.some((prefix) => ref.startsWith(prefix));
 
             const { data: initialPr } = await github.rest.pulls.get({ owner, repo, pull_number });
