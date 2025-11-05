@@ -93,7 +93,6 @@ import {
     runGenerateFeatherMetadata
 } from "./commands/generate-feather-metadata.js";
 import { createWatchCommand, runWatchCommand } from "./commands/watch.js";
-import { clearIdentifierCaseCaches } from "./plugin-runtime/cache-clearer.js";
 import { isCliRunSkipped } from "./shared/dependencies.js";
 import {
     getDefaultIgnoredFileSampleLimit,
@@ -743,7 +742,6 @@ async function resetFormattingSession(onParseError) {
     abortRequested = false;
     revertTriggered = false;
     await discardFormattedFileOriginalContents();
-    clearIdentifierCaseCaches();
     resetSkippedFileSummary();
     resetSkippedDirectorySummary();
     encounteredFormattingError = false;
@@ -1588,7 +1586,6 @@ async function executeFormatCommand(command) {
         });
     } finally {
         await discardFormattedFileOriginalContents();
-        clearIdentifierCaseCaches();
     }
 }
 
