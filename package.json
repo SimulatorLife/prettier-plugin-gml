@@ -51,7 +51,7 @@
     "lint:fix": "eslint . --cache --fix",
     "lint:ci": "eslint . --max-warnings=0 --report-unused-disable-directives",
     "lint:report": "eslint . --format checkstyle --output-file reports/eslint-checkstyle.xml",
-    "report": "npm run lint:report && npm run test:report && npm run test:coverage && npm run memory",
+    "report": "bash -lc 'status=0; npm run lint:report || status=$?; npm run test:report || status=$?; npm run test:coverage || status=$?; npm run memory || status=$?; exit $status'",
     "check": "npm run format:check && npm run lint:ci && npm test",
     "test": "timeout -t 2m -- node --test --test-timeout=10000",
     "test:report": "rm -f reports/tests.xml && mkdir -p reports && node --test --test-reporter=junit --test-reporter-destination=./reports/tests.xml",

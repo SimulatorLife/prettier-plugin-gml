@@ -299,3 +299,274 @@ test("findSymbolAtLocation uses semantic analyzer when available", async () => {
     const result = await engine.findSymbolAtLocation("test.gml", 5);
     assert.deepEqual(result, mockSymbol);
 });
+
+test("applyWorkspaceEdit requires a WorkspaceEdit", async () => {
+    const engine = new RefactorEngine();
+    await assert.rejects(
+        () => engine.applyWorkspaceEdit(null, { readFile: () => {} }),
+        {
+            name: "TypeError",
+            message: /requires a WorkspaceEdit/
+        }
+    );
+});
+
+test("applyWorkspaceEdit requires readFile function", async () => {
+    const engine = new RefactorEngine();
+    const ws = new WorkspaceEdit();
+    await assert.rejects(() => engine.applyWorkspaceEdit(ws, {}), {
+        name: "TypeError",
+        message: /requires a readFile function/
+    });
+});
+
+test("applyWorkspaceEdit requires writeFile when not in dry-run", async () => {
+    const engine = new RefactorEngine();
+    const ws = new WorkspaceEdit();
+    ws.addEdit("test.gml", 0, 5, "new");
+    await assert.rejects(
+        () =>
+            engine.applyWorkspaceEdit(ws, {
+                readFile: () => "old text",
+                dryRun: false
+            }),
+        {
+            name: "TypeError",
+            message: /requires a writeFile function/
+        }
+    );
+});
+
+test("applyWorkspaceEdit applies edits correctly", async () => {
+    const engine = new RefactorEngine();
+    const ws = new WorkspaceEdit();
+    ws.addEdit("test.gml", 0, 3, "new");
+    ws.addEdit("test.gml", 9, 13, "world");
+
+    const readFile = async () => "old text here";
+    const writeFile = async () => {};
+
+    const results = await engine.applyWorkspaceEdit(ws, {
+        readFile,
+        writeFile,
+        dryRun: true
+    });
+
+    assert.equal(results.size, 1);
+    assert.equal(results.get("test.gml"), "new text world");
+});
+
+test("applyWorkspaceEdit handles multiple files", async () => {
+    const engine = new RefactorEngine();
+    const ws = new WorkspaceEdit();
+    ws.addEdit("file1.gml", 0, 3, "abc");
+    ws.addEdit("file2.gml", 0, 3, "xyz");
+
+    const files = {
+        "file1.gml": "old content",
+        "file2.gml": "old content"
+    };
+
+    const readFile = async (path) => files[path];
+    const results = await engine.applyWorkspaceEdit(ws, {
+        readFile,
+        dryRun: true
+    });
+
+    assert.equal(results.size, 2);
+    assert.equal(results.get("file1.gml"), "abc content");
+    assert.equal(results.get("file2.gml"), "xyz content");
+});
+
+test("applyWorkspaceEdit rejects invalid edits", async () => {
+    const engine = new RefactorEngine();
+    const ws = new WorkspaceEdit();
+    ws.addEdit("test.gml", 0, 10, "new");
+    ws.addEdit("test.gml", 5, 15, "conflict"); // Overlapping edit
+
+    const readFile = async () => "some text here";
+
+    await assert.rejects(
+        () => engine.applyWorkspaceEdit(ws, { readFile, dryRun: true }),
+        {
+            message: /Overlapping edits/
+        }
+    );
+});
+
+test("executeRename validates required parameters", async () => {
+    const engine = new RefactorEngine();
+    await assert.rejects(() => engine.executeRename({}), {
+        name: "TypeError",
+        message: /requires symbolId and newName/
+    });
+});
+
+test("executeRename performs complete rename workflow", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => [
+            { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" },
+            { path: "test.gml", start: 16, end: 21, scopeId: "scope-1" }
+        ]
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const files = { "test.gml": "scr_a some code scr_a" };
+    const readFile = async (path) => files[path];
+    const writeFile = async (path, content) => {
+        files[path] = content;
+    };
+
+    const result = await engine.executeRename({
+        symbolId: "gml/script/scr_a",
+        newName: "scr_b",
+        readFile,
+        writeFile
+    });
+
+    assert.ok(result.workspace instanceof WorkspaceEdit);
+    assert.equal(result.applied.size, 1);
+    assert.equal(result.applied.get("test.gml"), "scr_b some code scr_b");
+    assert.equal(files["test.gml"], "scr_b some code scr_b");
+});
+
+test("executeRename prepares hot reload updates when requested", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => [
+            { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }
+        ],
+        getFileSymbols: () => [{ id: "gml/script/scr_test" }]
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const readFile = async () => "scr_a";
+    const writeFile = async () => {};
+
+    const result = await engine.executeRename({
+        symbolId: "gml/script/scr_a",
+        newName: "scr_b",
+        readFile,
+        writeFile,
+        prepareHotReload: true
+    });
+
+    assert.ok(Array.isArray(result.hotReloadUpdates));
+    assert.ok(result.hotReloadUpdates.length > 0);
+    assert.equal(result.hotReloadUpdates[0].action, "recompile");
+});
+
+test("generateTranspilerPatches requires array parameter", async () => {
+    const engine = new RefactorEngine();
+    await assert.rejects(
+        () => engine.generateTranspilerPatches(null, () => {}),
+        {
+            name: "TypeError",
+            message: /requires an array/
+        }
+    );
+});
+
+test("generateTranspilerPatches requires readFile function", async () => {
+    const engine = new RefactorEngine();
+    await assert.rejects(() => engine.generateTranspilerPatches([], null), {
+        name: "TypeError",
+        message: /requires a readFile function/
+    });
+});
+
+test("generateTranspilerPatches creates basic patches without transpiler", async () => {
+    const engine = new RefactorEngine();
+    const updates = [
+        {
+            symbolId: "gml/script/scr_test",
+            action: "recompile",
+            filePath: "test.gml"
+        }
+    ];
+
+    const readFile = async () => "function test() { return 42; }";
+    const patches = await engine.generateTranspilerPatches(updates, readFile);
+
+    assert.equal(patches.length, 1);
+    assert.equal(patches[0].symbolId, "gml/script/scr_test");
+    assert.equal(patches[0].filePath, "test.gml");
+    assert.ok(patches[0].patch);
+    assert.equal(patches[0].patch.kind, "script");
+});
+
+test("generateTranspilerPatches skips non-recompile actions", async () => {
+    const engine = new RefactorEngine();
+    const updates = [
+        {
+            symbolId: "gml/script/scr_test",
+            action: "notify",
+            filePath: "test.gml"
+        }
+    ];
+
+    const readFile = async () => "function test() {}";
+    const patches = await engine.generateTranspilerPatches(updates, readFile);
+
+    assert.equal(patches.length, 0);
+});
+
+test("generateTranspilerPatches uses transpiler when available", async () => {
+    const mockTranspiler = {
+        transpileScript: async ({ sourceText, symbolId }) => ({
+            kind: "script",
+            id: symbolId,
+            js_body: "transpiled code",
+            sourceText,
+            version: 123
+        })
+    };
+    const engine = new RefactorEngine({ formatter: mockTranspiler });
+
+    const updates = [
+        {
+            symbolId: "gml/script/scr_test",
+            action: "recompile",
+            filePath: "test.gml"
+        }
+    ];
+
+    const readFile = async () => "function test() { return 42; }";
+    const patches = await engine.generateTranspilerPatches(updates, readFile);
+
+    assert.equal(patches.length, 1);
+    assert.equal(patches[0].patch.js_body, "transpiled code");
+});
+
+test("generateTranspilerPatches continues on individual errors", async () => {
+    const mockTranspiler = {
+        transpileScript: async ({ symbolId }) => {
+            if (symbolId.includes("fail")) {
+                throw new Error("Transpile failed");
+            }
+            return { kind: "script", id: symbolId, js_body: "ok" };
+        }
+    };
+    const engine = new RefactorEngine({ formatter: mockTranspiler });
+
+    const updates = [
+        {
+            symbolId: "gml/script/scr_fail",
+            action: "recompile",
+            filePath: "fail.gml"
+        },
+        {
+            symbolId: "gml/script/scr_ok",
+            action: "recompile",
+            filePath: "ok.gml"
+        }
+    ];
+
+    const readFile = async () => "function test() {}";
+    const patches = await engine.generateTranspilerPatches(updates, readFile);
+
+    // Should have one successful patch despite one failure
+    assert.equal(patches.length, 1);
+    assert.equal(patches[0].symbolId, "gml/script/scr_ok");
+});
