@@ -8,7 +8,7 @@ import {
     getDefaultUnsupportedExtensionSampleLimit,
     resolveUnsupportedExtensionSampleLimit,
     setDefaultUnsupportedExtensionSampleLimit
-} from "../src/runtime-options/unsupported-extension-sample-limit.js";
+} from "../src/runtime-options/sample-limits.js";
 
 describe("unsupported extension sample limit", () => {
     afterEach(() => {
