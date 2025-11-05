@@ -875,9 +875,7 @@ test("analyzeRenameImpact warns about large renames", async () => {
 
     assert.equal(result.valid, true);
     assert.ok(result.warnings.length > 0);
-    assert.ok(
-        result.warnings.some((w) => w.type === "large_rename")
-    );
+    assert.ok(result.warnings.some((w) => w.type === "large_rename"));
 });
 
 test("analyzeRenameImpact tracks dependent symbols", async () => {
@@ -955,9 +953,7 @@ test("validateHotReloadCompatibility detects globalvar changes", async () => {
     const ws = new WorkspaceEdit();
     ws.addEdit("test.gml", 0, 5, "globalvar myvar;");
     const result = await engine.validateHotReloadCompatibility(ws);
-    assert.ok(
-        result.warnings.some((w) => w.includes("globalvar"))
-    );
+    assert.ok(result.warnings.some((w) => w.includes("globalvar")));
 });
 
 test("validateHotReloadCompatibility detects macro changes", async () => {
