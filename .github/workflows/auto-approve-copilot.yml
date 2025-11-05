@@ -34,3 +34,73 @@ jobs:
             });
 
             core.notice(`Auto-approved run ${run.id} for workflow "${run.name}" triggered by ${run.actor?.login}.`);
+
+      - name: Approve pull request as maintainer
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_USER_TOKEN }}
+          script: |
+            const run = context.payload.workflow_run;
+            if (!run) {
+              core.info('No workflow_run payload; skipping PR approval.');
+              return;
+            }
+
+            if (run.event !== 'pull_request_target') {
+              core.info(`Workflow event ${run.event} is not pull_request_target; skipping PR approval.`);
+              return;
+            }
+
+            const prInfo = Array.isArray(run.pull_requests) ? run.pull_requests[0] : null;
+            if (!prInfo?.number) {
+              core.info('No pull request associated with workflow_run; skipping approval.');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const pull_number = prInfo.number;
+
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
+            if (pr.state !== 'open') {
+              core.info(`PR #${pull_number} is ${pr.state}; skipping approval.`);
+              return;
+            }
+
+            if (pr.draft) {
+              core.info(`PR #${pull_number} is still a draft; skipping approval.`);
+              return;
+            }
+
+            const { data: authUser } = await github.rest.users.getAuthenticated();
+            const reviewerLogin = authUser?.login;
+            if (!reviewerLogin) {
+              core.warning('Unable to resolve authenticated user for review approval.');
+              return;
+            }
+
+            const { data: reviews } = await github.rest.pulls.listReviews({
+              owner,
+              repo,
+              pull_number,
+              per_page: 100,
+            });
+
+            const latestSha = pr.head?.sha;
+            const hasFreshApproval = Array.isArray(reviews)
+              && reviews.some((review) => review.user?.login === reviewerLogin
+                && review.state === 'APPROVED'
+                && review.commit_id === latestSha);
+
+            if (hasFreshApproval) {
+              core.info(`PR #${pull_number} already has an approval from ${reviewerLogin} on the latest commit.`);
+              return;
+            }
+
+            await github.rest.pulls.createReview({
+              owner,
+              repo,
+              pull_number,
+              event: 'APPROVE',
+            });
+
+            core.notice(`Approved PR #${pull_number} as ${reviewerLogin}.`);
