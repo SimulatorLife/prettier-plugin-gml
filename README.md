@@ -135,26 +135,24 @@ for (var i = 0; i < queue_count; i += 1) {
   formatter source. Each entry includes a short synopsis so you can scan for the
   right level of detail.
 - [Sample `.prettierignore`](docs/examples/example.prettierignore) &mdash; Copy-
-  ready ignore rules tuned for common GameMaker metadata folders when you are
+  ready ignore rules tuned for common GameMaker metadata folders when
   bootstrapping a project.
 - [Contributor onboarding checklist](docs/contributor-onboarding.md) &mdash; Step-by-
-  step environment setup, validation commands, and a tour of the core
-  workspace scripts for new teammates.
+  step environment setup, validation commands, and a tour of the workspace
+  scripts for new contributors.
 - [Architecture audit log](docs/architecture-audit-log.md) &mdash; Consolidated
-  repository health checks with dated entries. The scheduled
-  `agent-78-architectural-audit` workflow appends its results here instead of
-  opening per-day files. Review the
+  repository health checks with dated entries. The scheduled workflow appends
+  its results here instead of opening per-day files. Review the
   [shared module layout refresh](docs/shared-module-layout.md) for historical
   context around the `src/shared/src/` consolidation. Pair it with the
   [interface segregation investigation](docs/interface-segregation-investigation.md)
-  when you need a refresher on why the CLI and plugin expose separate entry
-  points.
+  when you need context on why the CLI and plugin expose separate entry points.
 - [Semantic subsystem reference](src/semantic/README.md) &mdash; Details how the
-  scope trackers and project-index coordinator now live in the dedicated
+  scope trackers and project-index coordinator live in the dedicated
   `gamemaker-language-semantic` workspace package.
-- [Transpiler module outline](src/transpiler/README.md) &mdash; Stubbed entry point for
-  the GML → JavaScript emitter that will feed the live reload pipeline as it
-  matures.
+- [Transpiler module outline](src/transpiler/README.md) &mdash; Stubbed entry point
+  for the GML → JavaScript emitter that will feed the live reload pipeline as
+  it matures.
 - [Runtime wrapper plan](src/runtime-wrapper/README.md) &mdash; Notes on the browser
   hooks that accept transpiler patches and swap them into the running HTML5
   export.
@@ -162,38 +160,41 @@ for (var i = 0; i < queue_count; i += 1) {
   semantic-safe rename engine that will orchestrate WorkspaceEdits.
 - [ANTLR regeneration guide](docs/antlr-regeneration.md) &mdash; Walkthrough for
   rebuilding the generated parser sources with the vendored toolchain and
-  understanding where custom extensions live now that the grammar delegates to
-  extracted helpers.
+  understanding where custom extensions live.
 - [Legacy identifier-case plan](docs/legacy-identifier-case-plan.md) &mdash; Archived
   summary of the previous rename pipeline, scope coverage, rollout workflow, and
   tricky identifier examples. Use it for historical context; the current roadmap
-  now spans the [live reloading concept](docs/live-reloading-concept.md) and the
+  spans the [live reloading concept](docs/live-reloading-concept.md) and the
   [semantic scope plan](docs/semantic-scope-plan.md).
-- [Project index cache design](docs/legacy-identifier-case-plan.md#project-index-cache-design) &mdash; design
-  notes and cache architecture guidance for the legacy project index functionality (replaced by the new [semantic scope plan](docs/semantic-scope-plan.md)) preserved alongside the archived
+- [Project index cache design](docs/legacy-identifier-case-plan.md#project-index-cache-design) &mdash; Design
+  notes and cache architecture guidance for the legacy project index
+  functionality (replaced by the new
+  [semantic scope plan](docs/semantic-scope-plan.md)) preserved alongside the
+  archived
   [project index roadmap](docs/legacy-identifier-case-plan.md#archived-project-index-roadmap).
 - [Feather data plan](docs/feather-data-plan.md) &mdash; Scraper workflow for
   keeping the generated metadata in `resources/` current, plus validation steps
-  for reviewing diffs before publishing updates.
+  for reviewing diffs before publishing updates. Use the
+  `generate-feather-metadata` CLI command to refresh the dataset.
 - [Live reloading concept](docs/live-reloading-concept.md) &mdash; Concept brief for
   the HTML5 runtime fork and watcher pipeline that powers in-place code reloads
-  during gameplay. Use it alongside the architecture audits when evaluating
-  runtime tooling work.
+  during gameplay. Use the `watch` CLI command to monitor file changes in
+  development.
 - [Semantic scope plan](docs/semantic-scope-plan.md) &mdash; Roadmap for the
-  ANTLR-based transpiler, semantic analysis, and dependency tracking that feed
-  the live reloading pipeline.
-- Formatter extension hooks &mdash;
-  [line-comment resolver](docs/line-comment-options-resolver-hook.md),
-  [doc comment type normalization hook](docs/doc-comment-type-normalization-hook.md),
-  [statement newline padding extension](docs/statement-newline-padding-extension.md), and
-  [core option overrides resolver](docs/core-option-overrides-hook.md) seams that
-  let integrators run controlled experiments without permanently widening the
-  public option surface. Combine them with targeted
-  `setProjectIndexSourceExtensions` overrides when bespoke suffixes (for
-  example, `.npc.gml`) need to participate in rename plans.
+  ANTLR-based transpiler, semantic analysis, and dependency tracking that will
+  feed the live reloading pipeline.
+- Formatter extension hooks &mdash; The plugin exposes extension hooks for
+  line-comment options, doc comment type normalization, statement newline
+  padding, and core option overrides that let integrators run controlled
+  experiments without permanently widening the public option surface. Use
+  `setProjectIndexSourceExtensions` when bespoke suffixes (for example,
+  `.npc.gml`) need to participate in rename plans. Documentation for these hooks
+  is pending; refer to the source files in `src/plugin/src/options/` and
+  `src/plugin/src/comments/` for implementation details.
 - [Memory experiments](docs/metrics-tracker-finalize-memory.md) &mdash; Captures the
   `node --expose-gc` script and before/after measurements that validate the
-  metrics tracker clean-up path.
+  metrics tracker clean-up path. Run with `npm run memory` to execute the
+  benchmark suite.
 
 ---
 
@@ -354,7 +355,7 @@ nvm alias default node
    elsewhere so the command formats the intended project:
 
    ```bash
-   npm run format:gml -- /absolute/path/to/MyGame --extensions=.gml --extensions=.yy
+   npm run format:gml -- /absolute/path/to/MyGame --extensions .gml --extensions .yy
    ```
 
    The wrapper also accepts an explicit `--path` flag when the target might be
@@ -378,17 +379,18 @@ nvm alias default node
      `--log-level` or their `PRETTIER_PLUGIN_GML_*` counterparts.
    - summarizes parser failures at the end of a run so you know to inspect the
      reported files and adjust the `--on-parse-error` strategy when needed.
-   - respects additional extension lists from repeated `--extensions` flags or
-     `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS`. Leave the flag unset to target
-     `.gml` only.
+   - respects additional extension lists from repeated `--extensions` flags (for
+     example, `--extensions .gml --extensions .yy`) or the
+     `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS` environment variable. Leave the
+     flag unset to target `.gml` files only.
    - accepts either a positional path or the explicit `--path` option when you
      need to format outside the current working directory.
 
    Explore additional helpers with `npm run format:gml -- --help`,
    `npm run cli -- --help`, or the dedicated
    [CLI reference](#cli-wrapper-environment-knobs). Repeat `--extensions` to
-   append more groups alongside the comma- or path-delimiter-separated form, or add `--extensions=.yy`
-   when you also want to process metadata files.
+   include additional file types (for example, `--extensions .gml --extensions .yy`
+   to process both code and metadata files).
 
 <details>
 <summary><strong>Optional: global install</strong></summary>
@@ -405,8 +407,8 @@ folders created by previous installs and retry.
 
 ### 4. Validate your setup
 
-Run these commands after dependency updates or when onboarding a teammate. Add
-`--extensions` only when your project stores `.yy` metadata alongside `.gml`.
+Run these commands after dependency updates or when onboarding a new contributor.
+Add `--extensions` when your project stores `.yy` metadata alongside `.gml`.
 
 _Installed from npm_
 
@@ -428,7 +430,7 @@ plugin resolves correctly. Append `| grep gml-parse` on macOS or Linux, or use
 single-line confirmation.
 
 ```bash
-npm run format:gml -- --extensions=.gml --extensions=.yy
+npm run format:gml -- --extensions .gml --extensions .yy
 node ./node_modules/root/src/cli/src/cli.js --help
 npm run cli -- --help
 ```
@@ -442,7 +444,7 @@ cache hygiene, or dry-run reports. The active scope roadmap now resides in the
 
 Ready to contribute code or documentation changes? Work through the
 [contributor onboarding checklist](docs/contributor-onboarding.md) for a guided
-environment setup, sanity checks, and a tour of the most common workspace
+environment setup, validation commands, and a tour of the most common workspace
 scripts before tackling feature work.
 
 ## Architecture overview
@@ -511,7 +513,7 @@ layout stays consistent.
   Pass the project or file you want to format explicitly:
 
   ```bash
-  node ./node_modules/root/src/cli/src/cli.js format path/to/project --extensions=.gml --extensions=.yy
+  node ./node_modules/root/src/cli/src/cli.js format path/to/project --extensions .gml --extensions .yy
   ```
 
 - Preview formatting changes without writing them back:
@@ -544,7 +546,10 @@ The wrapper honours environment variables so CI systems can tune behaviour
 without editing project scripts:
 
 - `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS` &mdash; Overrides the implicit
-  extension list used when `--extensions` is omitted. The wrapper defaults to formatting `.gml` only when neither the flag nor the environment variable is present.
+  extension list used when `--extensions` is omitted. The wrapper defaults to
+  formatting `.gml` only when neither the flag nor the environment variable is
+  present. Use space-separated values (for example, `export
+  PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS=".gml .yy"`).
 - `PRETTIER_PLUGIN_GML_LOG_LEVEL` &mdash; Sets the default Prettier log level
   when the wrapper runs without `--log-level`. Accepted values mirror Prettier:
   `debug`, `info`, `warn`, `error`, or `silent`.
@@ -561,19 +566,20 @@ without editing project scripts:
 - `PRETTIER_PLUGIN_GML_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT` &mdash; Limits how many
   example files appear in the unsupported-extension summary. Pair with
   `--unsupported-extension-sample-limit` when tuning individual runs.
-- `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` (or the singular `PRETTIER_PLUGIN_GML_PLUGIN_PATH`) &mdash;
-  Adds repository-relative or absolute plugin entry point paths for the wrapper
-  to consider before falling back to its built-in candidates. Useful when CI
-  jobs build the plugin into a temporary directory.
+- `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` (or the singular
+  `PRETTIER_PLUGIN_GML_PLUGIN_PATH`) &mdash; Adds repository-relative or absolute
+  plugin entry point paths for the wrapper to consider before falling back to
+  its built-in candidates. Useful when CI jobs build the plugin into a temporary
+  directory. Separate multiple paths with colons on Unix-like systems or
+  semicolons on Windows.
 - `PRETTIER_PLUGIN_GML_SKIP_CLI_RUN` &mdash; Set to `1` when bundlers or test
-  harnesses import the CLI module but should not automatically execute a
-  command. The wrapper still registers commands so manual runs work once the
-  flag is cleared.
-- `PRETTIER_PLUGIN_GML_PRETTIER_MODULE` &mdash; Overrides the module specifier used
-  to resolve Prettier. Handy when the formatter runs inside a monorepo with a
-  custom Prettier build or when you pin a nightly via a local alias.
+  harnesses import the CLI module but should not automatically execute a command.
+  The wrapper registers commands so manual runs work once the flag is cleared.
+- `PRETTIER_PLUGIN_GML_PRETTIER_MODULE` &mdash; Overrides the module specifier
+  used to resolve Prettier. Useful when the formatter runs inside a monorepo
+  with a custom Prettier build or when you pin a nightly via a local alias.
 - `PRETTIER_PLUGIN_GML_VERSION` &mdash; Injects the version label surfaced by
-  `node ./node_modules/root/src/cli/src/cli.js --version`. Handy when mirroring
+  `node ./node_modules/root/src/cli/src/cli.js --version`. Useful when mirroring
   release tags or packaging nightly builds.
 
 ### Formatter environment knobs
@@ -680,9 +686,14 @@ var enemy = {
 var enemy = {name: "Slime", hp: 5};
 ```
 
-Bare decimal literals are always padded with leading and trailing zeroes to improve readability.
+Bare decimal literals are always padded with leading and trailing zeroes (for
+example, `.5` becomes `0.5` and `1.` becomes `1.0`) to improve readability.
 
-Banner line comments are automatically detected when they contain five or more consecutive `/` characters. Once identified, the formatter rewrites the banner prefix to the `lineCommentBannerLength` setting (60 by default) so mixed-width comment markers settle on a single, readable standard; set the option to `0` to leave banner widths untouched.
+Banner line comments are automatically detected when they contain five or more
+consecutive `/` characters. Once identified, the formatter rewrites the banner
+prefix to the `lineCommentBannerLength` setting (60 by default) so mixed-width
+comment markers settle on a single, readable standard; set the option to `0` to
+leave banner widths untouched.
 
 #### Identifier-case rollout
 
@@ -728,9 +739,11 @@ supported workflows.
 - Formatter fails to load the plugin → confirm the explicit `plugins` entry in your Prettier configuration.
 - Wrapper reports "Unable to locate the Prettier plugin entry point" → point the CLI at additional build locations with `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` or update the script’s `node_modules/root/...` path to match your installation layout.
 - CLI reports `Unable to access <path>` after you typed a subcommand name → the formatter runs by default when no subcommand is specified. Re-run the command with `prettier-plugin-gml --help` to review the available commands or provide a valid file/directory path.
-- `npm install` reports `EBADENGINE` → upgrade Node.js to 25.0.0+.
+- `npm install` reports `EBADENGINE` → upgrade Node.js to 25.0.0+ (or use the
+  version specified in `.nvmrc` with `nvm install && nvm use`).
 - Wrapper skips files unexpectedly → inspect the skipped-file summary and adjust `.prettierignore` or `--extensions` accordingly.
-- Parser errors → rerun with `--on-parse-error=revert` to preserve original files, then report the issue with the offending snippet.
+- Parser errors → rerun with `--on-parse-error revert` to preserve original
+  files, then report the issue with the offending snippet.
 - Identifier-case bootstrap stuck on stale data → delete `.prettier-plugin-gml/project-index-cache.json` or set `gmlIdentifierCaseProjectRoot` explicitly before rerunning.
 
 ---
@@ -752,9 +765,9 @@ prettier-plugin-gml/
 └─ package.json       # Workspace manifest with scripts and shared tooling
 ```
 
-All developer automation should be exposed through the CLI entry points in
-`src/cli/src/commands/`. Avoid adding stand-alone scripts elsewhere in the
-repository so new tooling remains easy to discover and maintain.
+All developer-facing utilities live under `src/cli/src/commands/`. When adding
+new helpers, expose them through the CLI instead of creating stand-alone scripts
+so contributors have a single, discoverable entry point.
 
 ### Set up the workspace
 
@@ -792,7 +805,8 @@ produce the XML file parsed by the GitHub automerge workflow. The formatter is
 available out of the box, so the script works in local development environments
 and CI without any extra packages.
 
-Fixtures under `src/plugin/test` and `src/parser/test/input` are golden. Update them only when deliberately changing formatter output or parser behaviour.
+Fixtures under `src/plugin/test` and `src/parser/test/input` are golden. Update
+them only when deliberately changing formatter output or parser behaviour.
 
 ### Regenerate metadata snapshots
 
