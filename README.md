@@ -178,8 +178,9 @@ for (var i = 0; i < queue_count; i += 1) {
   `generate-feather-metadata` CLI command to refresh the dataset.
 - [Live reloading concept](docs/live-reloading-concept.md) &mdash; Concept brief for
   the HTML5 runtime fork and watcher pipeline that powers in-place code reloads
-  during gameplay. Use the `watch` CLI command to monitor file changes in
-  development.
+  during gameplay. The `watch` CLI command now integrates with the transpiler to
+  generate JavaScript patches when GML files change, providing the foundation for
+  hot-reload development. See [CLI README](src/cli/README.md) for usage details.
 - [Semantic scope plan](docs/semantic-scope-plan.md) &mdash; Roadmap for the
   ANTLR-based transpiler, semantic analysis, and dependency tracking that will
   feed the live reloading pipeline.
