@@ -10,6 +10,20 @@
 - Never add eslint-disable comments to the codebase. If lint errors arise, fix them properly.
 - The plugin/formatter should be opinionated and enforce a single opinionated strategy (for indentation, spacing, blank lines, etc.) – avoid adding overly-configurable options that give users too many choices or lead to inconsistent formatting.
 
+## Avoid Over-Extending the System
+
+When improving extensibility, keep changes narrow, purposeful, and internally focused. Extensions should solve real rigidity without surfacing unnecessary configuration or adding maintenance burden. The following are anti-patterns—examples of what not to do when adding project extensibility.
+
+* **Do not** add an end-user option for custom file extensions in a GML parser.
+Supporting arbitrary extensions like “.gmlx” or “.foo” creates needless surface area and confusion. The parser should only ever handle .gml. Any configurability here just bloats code and dilutes purpose.
+* **Do not** include a fallback custom XML parser if the required XML library is missing.
+This doubles maintenance and behavior variance. The proper fix is to ensure dependency resolution at install or build time, not duplicate functionality inside your project.
+* **Do not** introduce a general “strategy” or “plugin” system for a single rigid branch.
+Turning one fixed if/else into a generic framework leads to abstraction creep. Add only a narrow seam where flexibility is genuinely needed.
+* **Do not** expose internal toggles as runtime configuration (env vars, CLI flags, etc.).
+Developer-facing switches should stay private. End users should never see or need to set them; use internal hooks or parameters instead.
+* **Do not** implement autodetection for formats the tool already controls. For example, if the system already mandates .gml and UTF-8, there is no value in guessing encoding or line endings. Keep expectations strict and predictable.
+
 ## Repository & Commit Conflict Resolution Strategy
 To ensure smooth collaboration and maintain a healthy commit history, follow this structured process whenever you encounter merge, rebase, or commit conflicts within this repository:
 
