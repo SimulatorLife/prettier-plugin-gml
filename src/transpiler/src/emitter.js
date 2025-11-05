@@ -1,5 +1,5 @@
 /**
- * Basic GML to JavaScript emitter that handles simple expressions and statements.
+ * GML to JavaScript emitter that handles expressions and statements.
  * This provides utilities for mapping GML operators to JavaScript.
  */
 export class GmlEmitter {
