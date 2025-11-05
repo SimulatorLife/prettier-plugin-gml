@@ -39,8 +39,8 @@ test("applyPatch handles script patches", () => {
     const result = wrapper.applyPatch(patch);
     assert.ok(result.success);
     assert.strictEqual(result.version, 1);
-    assert.strictEqual(wrapper.state.registry.version, 1);
-    assert.ok(wrapper.state.registry.scripts["script:test_func"]);
+    assert.strictEqual(wrapper.getVersion(), 1);
+    assert.ok(wrapper.hasScript("script:test_func"));
 });
 
 test("script patch function executes correctly", () => {
@@ -52,7 +52,7 @@ test("script patch function executes correctly", () => {
     };
 
     wrapper.applyPatch(patch);
-    const fn = wrapper.state.registry.scripts["script:add"];
+    const fn = wrapper.getScript("script:add");
     const result = fn(null, null, [5, 3]);
     assert.strictEqual(result, 8);
 });
@@ -68,7 +68,7 @@ test("applyPatch handles event patches", () => {
     const result = wrapper.applyPatch(patch);
     assert.ok(result.success);
     assert.strictEqual(result.version, 1);
-    assert.ok(wrapper.state.registry.events["obj_player#Step"]);
+    assert.ok(wrapper.hasEvent("obj_player#Step"));
 });
 
 test("event patch function executes correctly", () => {
@@ -80,7 +80,7 @@ test("event patch function executes correctly", () => {
     };
 
     wrapper.applyPatch(patch);
-    const fn = wrapper.state.registry.events["obj_test#Create"];
+    const fn = wrapper.getEvent("obj_test#Create");
     const context = { initialized: false };
     const result = fn.call(context);
     assert.strictEqual(result, true);
@@ -110,21 +110,21 @@ test("applyPatch requires js_body for event patches", () => {
 
 test("applyPatch increments version on each patch", () => {
     const wrapper = createRuntimeWrapper();
-    assert.strictEqual(wrapper.state.registry.version, 0);
+    assert.strictEqual(wrapper.getVersion(), 0);
 
     wrapper.applyPatch({
         kind: "script",
         id: "script:a",
         js_body: "return 1;"
     });
-    assert.strictEqual(wrapper.state.registry.version, 1);
+    assert.strictEqual(wrapper.getVersion(), 1);
 
     wrapper.applyPatch({
         kind: "script",
         id: "script:b",
         js_body: "return 2;"
     });
-    assert.strictEqual(wrapper.state.registry.version, 2);
+    assert.strictEqual(wrapper.getVersion(), 2);
 });
 
 test("applyPatch calls onPatchApplied callback", () => {
@@ -158,11 +158,11 @@ test("undo reverts last patch", () => {
     };
 
     wrapper.applyPatch(patch);
-    assert.ok(wrapper.state.registry.scripts["script:test"]);
+    assert.ok(wrapper.hasScript("script:test"));
 
     const result = wrapper.undo();
     assert.ok(result.success);
-    assert.ok(!wrapper.state.registry.scripts["script:test"]);
+    assert.ok(!wrapper.hasScript("script:test"));
 });
 
 test("undo handles multiple patches", () => {
@@ -180,15 +180,15 @@ test("undo handles multiple patches", () => {
         js_body: "return 2;"
     });
 
-    assert.ok(wrapper.state.registry.scripts["script:a"]);
-    assert.ok(wrapper.state.registry.scripts["script:b"]);
+    assert.ok(wrapper.hasScript("script:a"));
+    assert.ok(wrapper.hasScript("script:b"));
 
     wrapper.undo();
-    assert.ok(wrapper.state.registry.scripts["script:a"]);
-    assert.ok(!wrapper.state.registry.scripts["script:b"]);
+    assert.ok(wrapper.hasScript("script:a"));
+    assert.ok(!wrapper.hasScript("script:b"));
 
     wrapper.undo();
-    assert.ok(!wrapper.state.registry.scripts["script:a"]);
+    assert.ok(!wrapper.hasScript("script:a"));
 });
 
 test("undo fails when nothing to undo", () => {
@@ -207,7 +207,7 @@ test("undo restores previous version of patched script", () => {
         js_body: "return 1;"
     });
 
-    const fn1 = wrapper.state.registry.scripts["script:test"];
+    const fn1 = wrapper.getScript("script:test");
     assert.strictEqual(fn1(null, null, []), 1);
 
     wrapper.applyPatch({
@@ -216,11 +216,11 @@ test("undo restores previous version of patched script", () => {
         js_body: "return 2;"
     });
 
-    const fn2 = wrapper.state.registry.scripts["script:test"];
+    const fn2 = wrapper.getScript("script:test");
     assert.strictEqual(fn2(null, null, []), 2);
 
     wrapper.undo();
-    const fn3 = wrapper.state.registry.scripts["script:test"];
+    const fn3 = wrapper.getScript("script:test");
     assert.strictEqual(fn3(null, null, []), 1);
     assert.strictEqual(fn3, fn1);
 });

@@ -13,10 +13,6 @@ on:
       prompt:
         required: true
         type: string
-      branch_prefix:
-        required: false
-        type: string
-        default: "agent"
       base_branch:
         required: false
         type: string
@@ -52,8 +48,8 @@ jobs:
       branch: ${{ env.BRANCH_NAME }}
     env:
       BASE_BRANCH: ${{ inputs.base_branch }}
-      BRANCH_NAME: ${{ inputs.branch_prefix }}/task-${{ github.run_id }}-${{ github.run_attempt }}
-      AGENT: ${{ inputs.agent || 'copilot' }}
+      AGENT: ${{ inputs.agent }}
+      BRANCH_NAME: ${{ format('{0}/task-{1}-{2}', inputs.agent, github.run_id, github.run_attempt) }}
 
     steps:
       - name: Validate GH_USER_TOKEN
@@ -96,7 +92,7 @@ jobs:
         run: |
           set -euo pipefail
           agent_lower=${AGENT,,}
-          if [ "$agent_lower" != "agent" ] && [ "$agent_lower" != "copilot" ]; then
+          if [ "$agent_lower" != "copilot" ] && [ "$agent_lower" != "codex" ] && [ "$agent_lower" != "agent" ]; then
             echo "Unsupported agent value: $AGENT" >&2
             exit 1
           fi
@@ -166,7 +162,7 @@ jobs:
             const repo   = context.repo.repo;
             const branch = process.env.BRANCH_NAME;
             const agent = (process.env.AGENT || 'copilot').toLowerCase();
-            const mention = agent === 'agent' ? '@agent' : '@copilot';
+            const mention = agent === 'codex' ? '@codex' : agent === 'agent' ? '@agent' : '@copilot';
 
             const preInstruction = "Begin by surveying the entire codebase before narrowing to this task.";
             const postInstruction = "Ensure changes are self-contained, tested, and documented as needed, with no reduction in test coverage. Ensure the diff is minimal, readable, and well-commented; never sacrifice clarity for cleverness. There is no time constraint or specific allotted time for this task; prioritize quality and correctness over speed and take as much time as needed. You may **NOT** respond with \"no issues found\", \"didn't find any major issues\", or similar—if no obvious implementation exists, choose the most plausible area and apply a singular, safe, minimal improvement.";
