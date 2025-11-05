@@ -23,6 +23,8 @@ jobs:
             const prefixes = ['copilot/', 'codex/'];
             const isAgentBranch = (ref) => typeof ref === 'string' && prefixes.some((prefix) => ref.startsWith(prefix));
             const allowedAuthors = new Set([
+              'copilot',
+              'copilot[bot]',
               'github-copilot[bot]',
               'github-copilot-code-assistant[bot]',
               'copilot-bot',
