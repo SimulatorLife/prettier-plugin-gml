@@ -614,6 +614,8 @@ jobs:
             }
 
             const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number });
+            const branchLower = (pr.head?.ref || '').toLowerCase();
+            const agentMention = branchLower.startsWith('codex/') ? '@codex' : '@copilot';
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner,
               repo,
@@ -626,7 +628,7 @@ jobs:
             const lines = [
               marker,
               '',
-              `@agent The auto-merge workflow detected test regressions on this PR while comparing \`${pr.head.ref}\` against \`${pr.base.ref}\`. Please review the failing suites, identify the root cause, and provide the fixes so this change can be merged.`,
+              `${agentMention} The auto-merge workflow detected test regressions on this PR while comparing \`${pr.head.ref}\` against \`${pr.base.ref}\`. Please review the failing suites, identify the root cause, and provide the fixes so this change can be merged.`,
               '',
               'Suggested next steps:',
               '1. Review the "Node.js regression test summary" comment and the uploaded junit-* artifacts for detailed failure reports.',
