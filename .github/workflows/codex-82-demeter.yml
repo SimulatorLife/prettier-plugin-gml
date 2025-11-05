@@ -1,6 +1,5 @@
 name: Codex 82 – Law of Demeter Guardrails
 on:
-  - cron: "7 6 3-31/4 * *"  # every four days at 06:07 UTC (days 3,7,...)
   workflow_dispatch:
 
 permissions:

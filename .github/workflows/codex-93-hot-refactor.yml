@@ -1,7 +1,6 @@
 name: Codex 93 – Refactor Engine Enhancements
 
 on:
-  - cron: "5 */5 * * *" # Every 5 hours at minute 5
   workflow_dispatch: {}
 
 permissions:

@@ -1,6 +1,5 @@
 name: Codex 16 – Dead Code & Asset Audit
 on:
-  - cron: "10 9 1-31/2 * *" # 09:10 UTC every two days (odd days)
   workflow_dispatch:
 
 permissions:

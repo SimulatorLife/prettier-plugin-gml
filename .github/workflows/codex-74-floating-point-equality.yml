@@ -1,6 +1,5 @@
 name: Codex 74 – Floating-Point Equality Pitfalls
 on:
-  - cron: "21 10 6-31/2 * *"  # every 2 days at 10:21 (days 6,8,...)
   workflow_dispatch:
 
 permissions:

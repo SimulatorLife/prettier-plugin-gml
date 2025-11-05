@@ -1,7 +1,6 @@
 name: Codex 95 – Semantic Scope Improvements
 
 on:
-  - cron: "5 2/5 * * *" # Every 5 hours starting at 02:05 UTC (offset ~2 hours)
   workflow_dispatch: {}
 
 permissions:

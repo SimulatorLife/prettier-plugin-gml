@@ -1,6 +1,5 @@
 name: Codex 73 – Stringly Typed Flags
 on:
-  - cron: "45 8 5-31/2 * *"  # every 2 days at 08:45 (days 5,7,...)
   workflow_dispatch:
 
 permissions:

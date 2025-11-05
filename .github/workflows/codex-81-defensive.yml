@@ -1,7 +1,6 @@
 name: Codex 81 – Defensive Input Hardening
 
 on:
-  - cron: "21 4 2-31/3 * *"  # every three days at 04:21 (days 2,5,...)
   workflow_dispatch:
 
 permissions:

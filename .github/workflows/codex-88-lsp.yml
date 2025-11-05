@@ -1,7 +1,6 @@
 name: Codex 88 – Polymorphic Collaborators
 
 on:
-  - cron: "5 4 8-31/2 * *" # every 2 days at 04:05 UTC (days 8,10,...)
   workflow_dispatch:
 
 permissions:
