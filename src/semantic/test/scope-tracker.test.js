@@ -541,3 +541,47 @@ test("getScopeDefinitions returns cloned metadata", () => {
 
     assert.strictEqual(defs2[0].metadata.mutated, undefined);
 });
+
+test("resolveIdentifier uses cached scope indices for efficient lookups", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+
+    tracker.enterScope("root");
+    tracker.declare("rootVar", {
+        start: { line: 1, index: 0 },
+        end: { line: 1, index: 7 }
+    });
+
+    const deepScopes = [];
+    for (let i = 0; i < 50; i++) {
+        const scope = tracker.enterScope(`scope-${i}`);
+        deepScopes.push(scope);
+    }
+
+    const deepestScope = tracker.enterScope("deepest");
+    tracker.declare("localVar", {
+        start: { line: 100, index: 0 },
+        end: { line: 100, index: 8 }
+    });
+
+    const iterations = 1000;
+    const startTime = Date.now();
+
+    for (let i = 0; i < iterations; i++) {
+        const result = tracker.resolveIdentifier("rootVar", deepestScope.id);
+        assert.strictEqual(result.name, "rootVar");
+
+        const localResult = tracker.resolveIdentifier(
+            "localVar",
+            deepestScope.id
+        );
+        assert.strictEqual(localResult.name, "localVar");
+    }
+
+    const endTime = Date.now();
+    const elapsedMs = endTime - startTime;
+
+    assert.ok(
+        elapsedMs < 100,
+        `${iterations} resolveIdentifier calls took ${elapsedMs}ms with 50+ nested scopes. Expected < 100ms with cached indices.`
+    );
+});
