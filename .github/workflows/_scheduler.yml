@@ -59,19 +59,16 @@ jobs:
               }
             }
 
-            const [quotaEnv, minIntervalMinutesEnv, tickMinutesEnv] = await Promise.all([
+            const [quotaEnv, minIntervalMinutesEnv] = await Promise.all([
               getRepoVariable('QUOTA_PER_HOUR'),
               getRepoVariable('SCHEDULER_MIN_INTERVAL_MINUTES'),
-              getRepoVariable('SCHEDULER_TICK_MINUTES'),
             ]);
 
             const quota = Number.isFinite(Number(quotaEnv)) && Number(quotaEnv) >= 0 ? Number(quotaEnv) : 12;
             const minIntervalMinutes = Number.isFinite(Number(minIntervalMinutesEnv)) && Number(minIntervalMinutesEnv) > 0
               ? Number(minIntervalMinutesEnv)
               : 1;
-            const tickMinutes = Number.isFinite(Number(tickMinutesEnv)) && Number(tickMinutesEnv) > 0
-              ? Number(tickMinutesEnv)
-              : 5;
+            const tickMinutes = 5;
 
             const tickMs = tickMinutes * 60 * 1000;
             const perTickBudget = quota * (tickMinutes / 60);
@@ -91,13 +88,19 @@ jobs:
             const eligible = [];
 
             for (const workflow of workflows) {
-              if (!workflow || typeof workflow.file !== 'string') {
+              if (!workflow || typeof workflow.name !== 'string') {
                 continue;
               }
 
+              const workflowName = workflow.name;
+              const workflowFileName = workflowName.endsWith('.yml') ? workflowName : `${workflowName}.yml`;
+              const workflowPath = workflowFileName.startsWith('.github/workflows/')
+                ? workflowFileName
+                : `.github/workflows/${workflowFileName}`;
+
               const weightValue = Number(workflow.weight);
               if (!Number.isFinite(weightValue) || weightValue <= 0) {
-                core.warning(`Skipping workflow ${workflow.file} due to invalid weight.`);
+                core.warning(`Skipping workflow ${workflowPath} due to invalid weight.`);
                 continue;
               }
 
@@ -106,7 +109,7 @@ jobs:
                 const { data } = await github.rest.actions.listWorkflowRuns({
                   owner,
                   repo,
-                  workflow_id: workflow.file,
+                  workflow_id: workflowPath,
                   per_page: 1
                 });
                 const run = data.workflow_runs?.[0];
@@ -120,7 +123,7 @@ jobs:
                   }
                 }
               } catch (error) {
-                core.warning(`Failed to query runs for ${workflow.file}: ${error.message}`);
+                core.warning(`Failed to query runs for ${workflowPath}: ${error.message}`);
               }
 
               if (lastRunTs && now - lastRunTs < minIntervalMs) {
@@ -128,7 +131,8 @@ jobs:
               }
 
               eligible.push({
-                file: workflow.file,
+                name: workflowName,
+                path: workflowPath,
                 weight: weightValue,
                 topic: workflow.topic ?? null
               });
@@ -168,11 +172,11 @@ jobs:
             for (const workflow of eligible) {
               const probability = Math.min(1, (workflow.weight / totalWeight) * effectiveBudget);
               const hash = crypto.createHash('sha256')
-                .update(`${workflow.file}:${windowKey}`)
+                .update(`${workflow.path}:${windowKey}`)
                 .digest('hex');
               const rand = parseInt(hash.substring(0, 8), 16) / 0xFFFFFFFF;
               if (rand < probability) {
-                chosen.push({ file: workflow.file, topic: workflow.topic });
+                chosen.push({ name: workflow.name, path: workflow.path, topic: workflow.topic });
               }
             }
 
@@ -191,17 +195,50 @@ jobs:
         with:
           github-token: ${{ github.token }}
           script: |
+            const core = require('@actions/core');
+            const path = require('path');
+
             const chosen = JSON.parse(process.env.CHOSEN_JSON || '[]');
-            for (const workflow of chosen) {
-              await github.rest.repos.createDispatchEvent({
+            if (!Array.isArray(chosen) || chosen.length === 0) {
+              core.info('No workflows selected for dispatch.');
+              return;
+            }
+
+            let ref = context.ref;
+            if (!ref) {
+              const { data } = await github.rest.repos.get({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                event_type: 'run_scheduled',
-                client_payload: {
-                  workflow_file: workflow.file,
-                  topic: workflow.topic,
-                },
               });
-              core.info(`Dispatched ${workflow.file}`);
+              ref = data?.default_branch;
+            }
+
+            if (!ref) {
+              throw new Error('Unable to determine reference for workflow dispatch.');
+            }
+
+            if (ref.startsWith('refs/heads/')) {
+              ref = ref.replace('refs/heads/', '');
+            } else if (ref.startsWith('refs/tags/')) {
+              ref = ref.replace('refs/tags/', '');
+            }
+
+            for (const workflow of chosen) {
+              const workflowPath = workflow.path || (workflow.name?.endsWith('.yml') ? workflow.name : `${workflow.name}.yml`);
+              const workflowId = workflowPath.startsWith('.github/workflows/')
+                ? workflowPath.slice('.github/workflows/'.length)
+                : path.basename(workflowPath);
+
+              try {
+                await github.rest.actions.createWorkflowDispatch({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: workflowId,
+                  ref,
+                });
+                core.info(`Dispatched ${workflowPath} via workflow_dispatch on ref ${ref}`);
+              } catch (error) {
+                core.warning(`Failed to dispatch ${workflowPath}: ${error.message}`);
+              }
             }
 

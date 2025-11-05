@@ -1,8 +1,6 @@
 name: Codex 88 – Polymorphic Collaborators
 
 on:
-  repository_dispatch:
-    types: [run_scheduled]
   - cron: "5 4 8-31/2 * *" # every 2 days at 04:05 UTC (days 8,10,...)
   workflow_dispatch:
 
@@ -13,7 +11,6 @@ permissions:
 
 jobs:
   run:
-    if: ${{ (github.event_name == 'workflow_dispatch' || (github.event_name == 'repository_dispatch' && github.event.action == 'run_scheduled' && github.event.client_payload.workflow_file == '.github/workflows/codex-88-lsp.yml')) }}
     uses: ./.github/workflows/_codex-open-pr-and-ping.yml
     secrets: inherit
     with:

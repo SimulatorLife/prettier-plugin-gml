@@ -1,8 +1,6 @@
 name: Codex 86 – KISS Sweeper
 
 on:
-  repository_dispatch:
-    types: [run_scheduled]
   workflow_dispatch:
 
 permissions:
@@ -12,7 +10,6 @@ permissions:
 
 jobs:
   run:
-    if: ${{ (github.event_name == 'workflow_dispatch' || (github.event_name == 'repository_dispatch' && github.event.action == 'run_scheduled' && github.event.client_payload.workflow_file == '.github/workflows/codex-86-kiss-sweeper.yml')) }}
     uses: ./.github/workflows/_codex-open-pr-and-ping.yml
     secrets: inherit
     with:

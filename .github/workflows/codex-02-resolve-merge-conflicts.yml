@@ -1,8 +1,6 @@
 name: Codex 02 – Resolve Merge Conflicts
 
 on:
-  repository_dispatch:
-    types: [run_scheduled]
   workflow_dispatch:
     inputs:
       target_pr_number:
@@ -21,7 +19,6 @@ concurrency:
 
 jobs:
   resolve_conflicts_comment:
-    if: ${{ (github.event_name == 'workflow_dispatch' || (github.event_name == 'repository_dispatch' && github.event.action == 'run_scheduled' && github.event.client_payload.workflow_file == '.github/workflows/codex-02-resolve-merge-conflicts.yml')) }}
     runs-on: ubuntu-latest
     outputs:
       pr_number: ${{ steps.select_pr.outputs.pr_number }}

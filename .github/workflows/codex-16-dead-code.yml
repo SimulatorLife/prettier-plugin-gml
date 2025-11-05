@@ -1,7 +1,5 @@
 name: Codex 16 – Dead Code & Asset Audit
 on:
-  repository_dispatch:
-    types: [run_scheduled]
   - cron: "10 9 1-31/2 * *" # 09:10 UTC every two days (odd days)
   workflow_dispatch:
 
@@ -12,7 +10,6 @@ permissions:
 
 jobs:
   run:
-    if: ${{ (github.event_name == 'workflow_dispatch' || (github.event_name == 'repository_dispatch' && github.event.action == 'run_scheduled' && github.event.client_payload.workflow_file == '.github/workflows/codex-16-dead-code.yml')) }}
     uses: ./.github/workflows/_codex-open-pr-and-ping.yml
     secrets: inherit
     with:
