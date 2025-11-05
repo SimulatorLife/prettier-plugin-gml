@@ -94,27 +94,22 @@ describe("watch command integration", () => {
                 "../src/commands/watch.js"
             );
 
-            // Create a promise that will resolve when we stop the watcher
-            let stopWatcher;
-            const _watchPromise = new Promise((resolve, reject) => {
-                stopWatcher = () => {
-                    resolve();
-                };
+            const abortController = new AbortController();
 
-                // Start the watch command in the background
-                runWatchCommand(testDir, {
-                    extensions: ["gml", ".yy"],
-                    polling: false,
-                    pollingInterval: 1000,
-                    verbose: false
-                }).catch(reject);
+            const watchPromise = runWatchCommand(testDir, {
+                extensions: ["gml", ".yy"],
+                polling: false,
+                pollingInterval: 1000,
+                verbose: false,
+                abortSignal: abortController.signal
             });
 
             // Give it a moment to start
             await sleep(100);
 
-            // Stop the watcher
-            stopWatcher();
+            abortController.abort();
+
+            await watchPromise;
 
             // Clean up
             await rm(testDir, { recursive: true, force: true });
