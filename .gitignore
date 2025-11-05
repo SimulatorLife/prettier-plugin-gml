@@ -50,6 +50,9 @@ reports/
 # Manual cache artefacts
 src/cli/cache/
 
+# Runtime cache artefacts
+scripts/cache/
+
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/
 
