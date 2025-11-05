@@ -227,13 +227,20 @@ In other words:
 **`cli` is both your dev server AND your command surface.**  
 It is the thing that glues parsing, semantic analysis, project graph, transpilation, runtime patch streaming, refactoring, and formatting into a usable workflow.
 
+#### YoYo HTML5 runtime acquisition
+- **Pinned source of truth:** The CLI treats the open-source HTML5 runner repository as a remote artefact, similar to how the manual commands consume `YoYoGames/GameMaker-Manual`. A new `runtime` helper reuses the `manual` module patterns (`buildManualRepositoryEndpoints`, `createManualGitHubFileClient`, cache guards) to resolve a repository + ref, fetch the archive, and unpack only the runtime payload required by the dev server and browser wrapper.
+- **Deterministic caching:** Runtime downloads land in a sibling cache root (e.g. `src/cli/cache/runtime`).
+- **Version negotiation:** Hot-reload commands accept `--runtime-ref` with defaults defined in project metadata (likely the `resources/feather-metadata.json` channel). On first use, the CLI resolves the ref to a commit SHA, records the pairing inside the cache manifest, and surfaces a friendly message when the local cache is stale. `--force-refresh` invalidates the cached archive, matching the manual download ergonomics. TODO: Remove `--runtime-ref`; always use project metadata.
+- **Archive handling:** After fetching the GitHub archive (zip or tarball), the CLI extracts only the runtime directories (engine JS, asset tables, template HTML). We intentionally expose a focused `fetchRuntimeFiles` helper that mirrors `resolveManualFileFetcher`, returning a narrow API rather than a monolith.
+- **Downstream wiring:** The dev server refuses to boot until the runtime cache is hydrated. During startup it calls the shared fetcher, waits for completion, then mounts the extracted runner into `runtime-wrapper/`’s static server pipeline.
+
 ---
 
 ### Putting it all together in one “mental pipeline”
 
 #### During normal dev / hot reload
 1. Source file changes.
-2. `parser` turns that file into AST (+ spans).
+2. `parser` turns that file into AST (+ spans). The parser minimizes the diff by reusing unchanged subtrees. Optionally, the parser minimizes the code by removing comments, function docs, extraneous whitespace, etc.
 3. `semantic` (file-level) annotates that AST with scope/binding + generates per-file symbol occurrences.
 4. `semantic` (project-wide graph) updates its global view of all defs/refs and tells us what symbols are now dirty and what depends on them.
 5. `cli` asks `transpiler` to generate JS patches for those dirty symbols.

@@ -18,6 +18,15 @@ import process from "node:process";
 
 import { Command, Option } from "commander";
 
+import { ensureRuntimeArchiveHydrated } from "../modules/runtime/archive.js";
+
+const RUNTIME_CONTEXT_OPTIONS = Object.freeze({
+    importMetaUrl: import.meta.url,
+    userAgent: "prettier-plugin-gml watch runtime hydrator",
+    repoRootSegments: ["..", "..", "..", ".."],
+    cacheRootSegments: ["src", "cli", "cache", "runtime"]
+});
+
 /**
  * Creates the watch command for monitoring GML source files.
  *
@@ -65,6 +74,30 @@ export function createWatchCommand() {
         )
         .addOption(
             new Option("--verbose", "Enable verbose logging").default(false)
+        )
+        .addOption(
+            new Option(
+                "--runtime-ref <ref>",
+                "Git reference (branch, tag, or commit) for the HTML5 runtime"
+            )
+        )
+        .addOption(
+            new Option(
+                "--runtime-repo <owner/name>",
+                "Repository hosting the HTML5 runtime"
+            )
+        )
+        .addOption(
+            new Option(
+                "--runtime-cache <path>",
+                "Override the runtime cache directory"
+            )
+        )
+        .addOption(
+            new Option(
+                "--force-runtime-refresh",
+                "Force re-download of the runtime archive"
+            ).default(false)
         )
         .action(runWatchCommand);
 
@@ -140,7 +173,11 @@ export async function runWatchCommand(targetPath, options) {
         polling = false,
         pollingInterval = 1000,
         verbose = false,
-        abortSignal
+        abortSignal,
+        runtimeRef,
+        runtimeRepo,
+        runtimeCache,
+        forceRuntimeRefresh = false
     } = options;
 
     const normalizedPath = await validateTargetPath(targetPath);
@@ -148,6 +185,23 @@ export async function runWatchCommand(targetPath, options) {
     const extensionSet = new Set(
         extensions.map((ext) => (ext.startsWith(".") ? ext : `.${ext}`))
     );
+
+    const runtimeHydration = await ensureRuntimeArchiveHydrated({
+        runtimeRef,
+        runtimeRepo,
+        cacheRoot: runtimeCache,
+        userAgent: RUNTIME_CONTEXT_OPTIONS.userAgent,
+        forceRefresh: forceRuntimeRefresh,
+        verbose: verbose ? { all: true } : undefined,
+        contextOptions: RUNTIME_CONTEXT_OPTIONS
+    });
+
+    if (verbose) {
+        const status = runtimeHydration.downloaded ? "downloaded" : "cached";
+        console.log(
+            `Runtime archive ${status} at ${runtimeHydration.archivePath}`
+        );
+    }
 
     logWatchStartup(
         normalizedPath,
