@@ -1,4 +1,4 @@
 export {
-    writeFileArtifact as writeManualFile,
-    writeJsonArtifact as writeManualJsonArtifact
+    writeFileArtefact as writeManualFile,
+    writeJsonArtefact as writeManualJsonArtefact
 } from "../dependencies.js";

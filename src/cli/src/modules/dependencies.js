@@ -57,6 +57,6 @@ export {
 } from "../workflow/fixture-roots.js";
 
 export {
-    writeFileArtifact,
-    writeJsonArtifact
-} from "../shared/fs-artifacts.js";
+    writeFileArtefact,
+    writeJsonArtefact
+} from "../shared/fs-artefacts.js";

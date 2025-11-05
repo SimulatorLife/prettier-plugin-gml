@@ -42,7 +42,7 @@ import { importPluginModule } from "../plugin-runtime-dependencies.js";
 import {
     REPO_ROOT,
     resolveFromRepoRoot,
-    writeJsonArtifact
+    writeJsonArtefact
 } from "../dependencies.js";
 
 export const DEFAULT_ITERATIONS = 500_000;
@@ -1056,7 +1056,7 @@ function createMemoryReportWriter({ reportPath, customWriteFile }) {
         typeof customWriteFile === "function" ? customWriteFile : undefined;
 
     return async function writeMemoryReport({ payload }) {
-        await writeJsonArtifact({
+        await writeJsonArtefact({
             outputPath: reportPath,
             payload,
             space: 2,
