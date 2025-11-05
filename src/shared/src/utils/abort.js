@@ -7,12 +7,7 @@ const DEFAULT_ABORT_MESSAGE = "Operation aborted.";
 const ERROR_METADATA_KEYS = ["message", "name", "stack"];
 
 function shouldReuseAbortReason(value) {
-    if (value == null) {
-        return false;
-    }
-
-    const valueType = typeof value;
-    if (valueType !== "object" && valueType !== "function") {
+    if (!isObjectOrFunction(value)) {
         return false;
     }
 
@@ -38,6 +33,22 @@ function toAbortMessage(value) {
     }
 }
 
+function brandAbortError(error, fallbackMessage) {
+    if (!getNonEmptyString(error.name)) {
+        error.name = "AbortError";
+    }
+
+    if (!getNonEmptyString(error.message)) {
+        error.message = fallbackMessage;
+    }
+
+    if (isObjectOrFunction(error)) {
+        abortErrorBrand.add(error);
+    }
+
+    return error;
+}
+
 function normalizeAbortError(reason, fallbackMessage) {
     const fallback =
         getNonEmptyString(fallbackMessage) ?? DEFAULT_ABORT_MESSAGE;
@@ -45,22 +56,7 @@ function normalizeAbortError(reason, fallbackMessage) {
         ? reason
         : new Error(getNonEmptyString(toAbortMessage(reason)) ?? fallback);
 
-    if (!getNonEmptyString(error.name)) {
-        error.name = "AbortError";
-    }
-
-    if (!getNonEmptyString(error.message)) {
-        error.message = fallback;
-    }
-
-    if (
-        (typeof error === "object" && error !== null) ||
-        typeof error === "function"
-    ) {
-        abortErrorBrand.add(error);
-    }
-
-    return error;
+    return brandAbortError(error, fallback);
 }
 
 /**

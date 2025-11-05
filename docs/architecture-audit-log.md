@@ -4,7 +4,7 @@ This log consolidates each architecture audit so contributors can scan the
 ongoing refactors in one place. When running a new audit, append a section to
 this file with the latest date and keep the prior entries intact for context.
 
-> NOTE: The scheduled `codex-78-architectural-audit` workflow and any manual
+> NOTE: The scheduled `agent-78-architectural-audit` workflow and any manual
 > audit runs must append their findings here. Include a `## YYYY-MM-DD — …`
 > heading so each entry remains easy to cross-reference.
 

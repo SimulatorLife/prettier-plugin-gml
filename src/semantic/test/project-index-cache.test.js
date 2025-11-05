@@ -403,7 +403,7 @@ test("createProjectIndexCoordinator serialises builds for the same project", asy
             const projectIndex = {
                 ...payload.projectIndex
             };
-            if (payload.metricsSummary != undefined) {
+            if (payload.metricsSummary !== undefined) {
                 projectIndex.metrics = payload.metricsSummary;
             }
 

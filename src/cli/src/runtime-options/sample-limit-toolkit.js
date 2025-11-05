@@ -1,83 +1,100 @@
-import { coerceNonNegativeInteger } from "../shared/dependencies.js";
-import { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
+import {
+    coerceNonNegativeInteger,
+    resolveIntegerOption,
+    createEnvConfiguredValue
+} from "../shared/dependencies.js";
 
 /**
- * Create a CLI sample limit toolkit that mirrors the previous standalone
- * modules while centralizing the error messaging and coercion boilerplate.
+ * Create a sample limit configuration with environment variable support.
  *
- * @param {object} parameters
- * @param {number} parameters.defaultValue Baseline limit before overrides.
- * @param {string} [parameters.envVar] Environment variable that overrides the
- *        default when defined.
- * @param {string} parameters.subjectLabel Descriptive label used in error
- *        messages (e.g. "Skipped directory").
- * @param {string} [parameters.defaultValueOption="defaultLimit"] Alias passed
- *        to the resolver so commands can customise option names.
+ * Simplified from the over-abstracted toolkit/state/coercer/resolver hierarchy.
+ * Does exactly what's needed: parse integers from strings or env vars, validate
+ * they're non-negative, and provide getter/setter access.
+ *
+ * @param {object} params
+ * @param {number} params.defaultValue Initial value
+ * @param {string} params.envVar Environment variable name
+ * @param {string} params.subjectLabel Label for error messages
  * @returns {{
  *   getDefault: () => number | undefined,
  *   setDefault: (value: unknown) => number | undefined,
- *   resolve: (value: unknown, options?: Record<string, unknown>) =>
- *       number | null | undefined,
- *   applyEnvOverride: (env?: NodeJS.ProcessEnv | null | undefined) =>
- *       number | undefined
+ *   resolve: (value: unknown, options?: { defaultLimit?: number }) => number | null | undefined,
+ *   applyEnvOverride: (env?: NodeJS.ProcessEnv) => number | undefined
  * }}
  */
-export function createSampleLimitToolkit({
-    defaultValue,
-    envVar,
-    subjectLabel,
-    defaultValueOption = "defaultLimit"
-} = {}) {
-    const normalizedLabel = subjectLabel ?? "Sample";
+function createSampleLimitOption({ defaultValue, envVar, subjectLabel }) {
+    const label = subjectLabel ?? "Sample";
 
-    const createSampleLimitErrorMessage = (received) =>
-        `${normalizedLabel} sample limit must be a non-negative integer (received ${received}). Provide 0 to suppress the sample list.`;
+    const createErrorMessage = (received) =>
+        `${label} sample limit must be a non-negative integer (received ${received}). Provide 0 to suppress the sample list.`;
 
-    const createSampleLimitTypeErrorMessage = (type) =>
-        `${normalizedLabel} sample limit must be provided as a number (received type '${type}').`;
+    const createTypeError = (type) =>
+        `${label} sample limit must be provided as a number (received type '${type}').`;
 
-    return createIntegerOptionToolkit({
+    const coerce = (value, context) =>
+        coerceNonNegativeInteger(value, { ...context, createErrorMessage });
+
+    const state = createEnvConfiguredValue({
         defaultValue,
         envVar,
-        baseCoerce: coerceNonNegativeInteger,
-        createErrorMessage: createSampleLimitErrorMessage,
-        typeErrorMessage: createSampleLimitTypeErrorMessage,
-        defaultValueOption
+        normalize: (value, { defaultValue: baseline, previousValue }) => {
+            const fallback = baseline ?? previousValue;
+            return resolveIntegerOption(value, {
+                defaultValue: fallback,
+                coerce,
+                typeErrorMessage: createTypeError
+            });
+        }
     });
+
+    function resolve(rawValue, options = {}) {
+        const defaultLimit = options.defaultLimit ?? options.defaultValue;
+        const fallback =
+            defaultLimit === undefined ? state.get() : defaultLimit;
+        return resolveIntegerOption(rawValue, {
+            defaultValue: fallback,
+            coerce,
+            typeErrorMessage: createTypeError
+        });
+    }
+
+    return {
+        getDefault: state.get,
+        setDefault: state.set,
+        resolve,
+        applyEnvOverride: state.applyEnvOverride
+    };
 }
 
 /**
- * Bundle the common sample limit runtime option exports so the individual
- * modules do not have to repeat the "declare constants, create toolkit, export
- * members" ceremony. The helper applies the environment override during
- * initialization and returns an `applyEnvOverride` function that reuses the
- * initially provided environment map when invoked without arguments.
+ * Create and initialize a sample limit option with environment override applied.
  *
- * @param {Parameters<typeof createSampleLimitToolkit>[0]} parameters
- * @param {{ env?: NodeJS.ProcessEnv | null | undefined }} [options]
+ * @param {Parameters<typeof createSampleLimitOption>[0]} params
+ * @param {{ env?: NodeJS.ProcessEnv }} [options]
  * @returns {{
  *   defaultValue: number | undefined,
  *   envVar: string | undefined,
- *   getDefault: ReturnType<typeof createSampleLimitToolkit>["getDefault"],
- *   setDefault: ReturnType<typeof createSampleLimitToolkit>["setDefault"],
- *   resolve: ReturnType<typeof createSampleLimitToolkit>["resolve"],
- *   applyEnvOverride: ReturnType<typeof createSampleLimitToolkit>["applyEnvOverride"]
+ *   getDefault: () => number | undefined,
+ *   setDefault: (value: unknown) => number | undefined,
+ *   resolve: (value: unknown, options?: Record<string, unknown>) => number | null | undefined,
+ *   applyEnvOverride: (env?: NodeJS.ProcessEnv) => number | undefined
  * }}
  */
-export function createSampleLimitRuntimeOption(parameters = {}, { env } = {}) {
-    const { defaultValue, envVar } = parameters;
-    const toolkit = createSampleLimitToolkit(parameters);
+export function createSampleLimitRuntimeOption(params, { env } = {}) {
+    const { defaultValue, envVar } = params;
+    const option = createSampleLimitOption(params);
+
     const applyEnvOverride = (overrideEnv) =>
-        toolkit.applyEnvOverride(overrideEnv ?? env);
+        option.applyEnvOverride(overrideEnv ?? env);
 
     applyEnvOverride();
 
     return Object.freeze({
         defaultValue,
         envVar,
-        getDefault: toolkit.getDefault,
-        setDefault: toolkit.setDefault,
-        resolve: toolkit.resolve,
+        getDefault: option.getDefault,
+        setDefault: option.setDefault,
+        resolve: option.resolve,
         applyEnvOverride
     });
 }

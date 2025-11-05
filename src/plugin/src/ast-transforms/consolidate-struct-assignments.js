@@ -679,21 +679,25 @@ class CommentTracker {
         }
 
         const results = [];
-        let index = this.firstGreaterThan(left);
+        const indicesToRemove = [];
+        const startIndex = this.firstGreaterThan(left);
 
-        while (index < this.entries.length) {
+        for (let index = startIndex; index < this.entries.length; index++) {
             const entry = this.entries[index];
             if (entry.index >= upperBound) {
                 break;
             }
 
             if (predicate && !predicate(entry.comment)) {
-                index += 1;
                 continue;
             }
 
             results.push(entry.comment);
-            this.entries.splice(index, 1);
+            indicesToRemove.push(index);
+        }
+
+        for (let i = indicesToRemove.length - 1; i >= 0; i--) {
+            this.entries.splice(indicesToRemove[i], 1);
         }
 
         return results;

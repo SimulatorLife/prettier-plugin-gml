@@ -4,6 +4,8 @@
  * Commands provided include:
  * - A wrapper around the GML-Prettier plugin to provide a convenient
  *   way to format GameMaker Language files.
+ * - Watch mode for monitoring GML source files and coordinating the
+ *   hot-reload pipeline (transpiler, semantic analysis, patch streaming).
  * - Performance benchmarking utilities.
  * - Memory usage benchmarking utilities.
  * - Regression testing utilities.
@@ -89,6 +91,7 @@ import {
     createFeatherMetadataCommand,
     runGenerateFeatherMetadata
 } from "./commands/generate-feather-metadata.js";
+import { createWatchCommand, runWatchCommand } from "./commands/watch.js";
 import { resolveCliIdentifierCaseCacheClearer } from "./plugin-runtime/services.js";
 import { isCliRunSkipped } from "./shared/dependencies.js";
 import {
@@ -1941,6 +1944,16 @@ cliCommandRegistry.registerCommand({
     onError: (error) =>
         handleCliError(error, {
             prefix: "Failed to generate Feather metadata.",
+            exitCode: 1
+        })
+});
+
+cliCommandRegistry.registerCommand({
+    command: createWatchCommand(),
+    run: ({ command }) => runWatchCommand(command.args[0], command.opts()),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Failed to start watch mode.",
             exitCode: 1
         })
 });

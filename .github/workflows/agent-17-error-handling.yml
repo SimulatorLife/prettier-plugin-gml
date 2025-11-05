@@ -1,0 +1,22 @@
+name: Agent 17 – Error Handling Consistency
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_agent-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "Agent: Error Handling Consistency"
+      pr_body: "Seed PR for Agent to standardize error handling."
+      prompt: >
+        Review the codebase and pinpoint an area where error handling is inconsistent,
+        ad-hoc, or missing. Refactor that area to align with a consistent project-wide
+        pattern—whether through standardized logging, safe fallbacks, or structured
+        error reporting—so issues are easier to diagnose and handle without unnecessary
+        complexity.

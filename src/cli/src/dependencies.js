@@ -1,4 +1,5 @@
 export {
+    appendToCollection,
     applyEnvironmentOverride,
     asArray,
     assertArray,
@@ -13,6 +14,7 @@ export {
     createEnvConfiguredValue,
     createEnvConfiguredValueWithFallback,
     createListSplitPattern,
+    createNumericTypeErrorFormatter,
     describeValueForError,
     describeValueWithArticle,
     ensureMap,
@@ -82,7 +84,5 @@ export {
     formatDuration,
     timeSync
 } from "./shared/reporting/time.js";
-
-export { appendToCollection } from "./shared/collection.js";
 
 export { createEnumeratedOptionHelpers } from "./shared/enumerated-option-helpers.js";

@@ -11,7 +11,8 @@ export {
     mergeUniqueValues,
     pushUnique,
     toArray,
-    toArrayFromIterable
+    toArrayFromIterable,
+    toMutableArray
 } from "@prettier-plugin-gml/shared/utils/array.js";
 export {
     areNumbersApproximatelyEqual,

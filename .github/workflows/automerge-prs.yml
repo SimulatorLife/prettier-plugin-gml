@@ -599,21 +599,23 @@ jobs:
             // Set output for auto-merge gate
             core.setOutput('all_green', allGreenFlag ? 'true' : 'false');
 
-      - name: Request Codex help for regressions
+      - name: Request Agent help for regressions
         if: ${{ github.event_name == 'pull_request' && steps.regress.outputs.status == 'regressions' && env.GH_USER_TOKEN != '' }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ env.GH_USER_TOKEN }}
           script: |
-            const marker = '<!-- automerge-pr-regression-codex -->';
+            const marker = '<!-- automerge-pr-regression-agent -->';
             const { owner, repo } = context.repo;
             const number = context.payload.pull_request?.number;
             if (!number) {
-              core.notice('No PR number; skipping Codex regression comment.');
+              core.notice('No PR number; skipping Agent regression comment.');
               return;
             }
 
             const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number });
+            const branchLower = (pr.head?.ref || '').toLowerCase();
+            const agentMention = branchLower.startsWith('codex/') ? '@codex' : '@copilot';
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner,
               repo,
@@ -626,7 +628,7 @@ jobs:
             const lines = [
               marker,
               '',
-              `@codex The auto-merge workflow detected test regressions on this PR while comparing \`${pr.head.ref}\` against \`${pr.base.ref}\`. Please review the failing suites, identify the root cause, and provide the fixes or guidance needed so this change can be merged.`,
+              `${agentMention} The auto-merge workflow detected test regressions on this PR while comparing \`${pr.head.ref}\` against \`${pr.base.ref}\`. Please review the failing suites, identify the root cause, and provide the fixes so this change can be merged.`,
               '',
               'Suggested next steps:',
               '1. Review the "Node.js regression test summary" comment and the uploaded junit-* artifacts for detailed failure reports.',
@@ -636,16 +638,16 @@ jobs:
               `Once done, ensure all changes are pushed to remote branch **${pr.head.ref}** on base **${pr.base.ref}** and keep all commits tied to PR #${number}; do not open new branches or PRs. As the final step (even after running 'make_pr'), run the following exact command(s) to guarantee your changes are pushed:`,
               '',
               '```bash',
-              'git config user.name  "codex-bot"',
-              'git config user.email "codex@example.com"',
+              'git config user.name  "agent-bot"',
+              'git config user.email "agent@example.com"',
               'git -c credential.helper= \\',
-              `    -c 'credential.helper=store --file .git/codex-cred' \\',`,
+              `    -c 'credential.helper=store --file .git/agent-cred' \\',`,
               `    push "https://henrylkirk@github.com/${owner}/${repo}.git" "HEAD:${pr.head.ref}"`,
               '```',
               '',
               'Context for this request:',
               '```yaml',
-              'codex_task:',
+              'agent_task:',
               `  branch: "${pr.head.ref}"`,
               `  pr_number: ${number}`,
               `  base: "${pr.base.ref}"`,
@@ -662,12 +664,12 @@ jobs:
               await github.rest.issues.createComment({ owner, repo, issue_number: number, body });
             }
 
-            core.notice(`Requested Codex assistance for regressions on PR #${number}.`);
+            core.notice(`Requested Agent assistance for regressions on PR #${number}.`);
 
-      - name: Warn when Codex user token missing
+      - name: Warn when Agent user token missing
         if: ${{ github.event_name == 'pull_request' && steps.regress.outputs.status == 'regressions' && env.GH_USER_TOKEN == '' }}
         run: |
-          echo "::warning::GH_USER_TOKEN secret is not configured; skipping Codex regression comment."
+          echo "::warning::GH_USER_TOKEN secret is not configured; skipping Agent regression comment."
 
   auto-merge:
     name: Auto-merge when green
