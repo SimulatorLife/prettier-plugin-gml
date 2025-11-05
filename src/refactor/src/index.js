@@ -955,6 +955,178 @@ export class RefactorEngine {
     }
 
     /**
+     * Compute the full dependency cascade for hot reload operations.
+     * Takes a set of changed symbols and computes all transitive dependents
+     * that need to be reloaded, ordered for safe application.
+     * @param {Array<string>} changedSymbolIds - Symbol IDs that have changed
+     * @returns {Promise<{
+     *   cascade: Array<{symbolId: string, distance: number, reason: string}>,
+     *   order: Array<string>,
+     *   circular: Array<Array<string>>,
+     *   metadata: {totalSymbols: number, maxDistance: number, hasCircular: boolean}
+     * }>}
+     */
+    async computeHotReloadCascade(changedSymbolIds) {
+        if (!Array.isArray(changedSymbolIds)) {
+            throw new TypeError(
+                "computeHotReloadCascade requires an array of symbol IDs"
+            );
+        }
+
+        if (changedSymbolIds.length === 0) {
+            return {
+                cascade: [],
+                order: [],
+                circular: [],
+                metadata: {
+                    totalSymbols: 0,
+                    maxDistance: 0,
+                    hasCircular: false
+                }
+            };
+        }
+
+        // Track visited symbols to detect cycles and compute transitive closure
+        const visited = new Set();
+        const visiting = new Set(); // For cycle detection
+        const cascade = new Map(); // symbolId -> {distance, reason}
+        const circular = [];
+        const dependencyGraph = new Map(); // symbolId -> [dependent IDs]
+
+        // Initialize changed symbols at distance 0
+        for (const symbolId of changedSymbolIds) {
+            cascade.set(symbolId, { symbolId, distance: 0, reason: "direct change" });
+            visited.add(symbolId);
+        }
+
+        // Helper to explore dependencies recursively
+        const exploreDependents = async (symbolId, currentDistance, parentReason) => {
+            // Check if we're already exploring this symbol (cycle detection)
+            if (visiting.has(symbolId)) {
+                // Found a cycle - trace it back
+                const cycle = [symbolId];
+                // We'll mark this as a circular dependency
+                return { cycleDetected: true, cycle };
+            }
+
+            visiting.add(symbolId);
+
+            try {
+                // Query semantic analyzer for symbols that depend on this one
+                if (this.semantic && typeof this.semantic.getDependents === "function") {
+                    const dependents = await this.semantic.getDependents([symbolId]);
+
+                    for (const dep of dependents) {
+                        const depId = dep.symbolId;
+                        
+                        // Track the dependency edge for topological sort
+                        if (!dependencyGraph.has(symbolId)) {
+                            dependencyGraph.set(symbolId, []);
+                        }
+                        dependencyGraph.get(symbolId).push(depId);
+
+                        // If we haven't visited this dependent yet, explore it
+                        if (!visited.has(depId)) {
+                            const newDistance = currentDistance + 1;
+                            const reason = `depends on ${symbolId.split("/").pop()} (${parentReason})`;
+                            
+                            cascade.set(depId, {
+                                symbolId: depId,
+                                distance: newDistance,
+                                reason
+                            });
+                            visited.add(depId);
+
+                            // Recursively explore this dependent's dependents
+                            const result = await exploreDependents(depId, newDistance, reason);
+                            if (result && result.cycleDetected) {
+                                circular.push(result.cycle);
+                            }
+                        }
+                    }
+                }
+            } finally {
+                visiting.delete(symbolId);
+            }
+
+            return { cycleDetected: false };
+        };
+
+        // Explore from each changed symbol
+        for (const symbolId of changedSymbolIds) {
+            await exploreDependents(symbolId, 0, "initial change");
+        }
+
+        // Convert cascade to array and compute topological order
+        const cascadeArray = Array.from(cascade.values());
+        
+        // Topological sort using Kahn's algorithm
+        // Build in-degree map
+        const inDegree = new Map();
+        for (const item of cascadeArray) {
+            inDegree.set(item.symbolId, 0);
+        }
+        
+        for (const [from, toList] of dependencyGraph.entries()) {
+            for (const to of toList) {
+                if (inDegree.has(to)) {
+                    inDegree.set(to, inDegree.get(to) + 1);
+                }
+            }
+        }
+
+        // Process symbols with no incoming edges first (leaves of dependency tree)
+        const queue = [];
+        for (const [symbolId, degree] of inDegree.entries()) {
+            if (degree === 0) {
+                queue.push(symbolId);
+            }
+        }
+
+        const order = [];
+        while (queue.length > 0) {
+            const current = queue.shift();
+            order.push(current);
+
+            // Reduce in-degree for dependents
+            const dependents = dependencyGraph.get(current) || [];
+            for (const dep of dependents) {
+                if (inDegree.has(dep)) {
+                    const newDegree = inDegree.get(dep) - 1;
+                    inDegree.set(dep, newDegree);
+                    if (newDegree === 0) {
+                        queue.push(dep);
+                    }
+                }
+            }
+        }
+
+        // If order doesn't include all symbols, we have cycles
+        const hasUnorderedSymbols = order.length < cascadeArray.length;
+        
+        // Add any remaining symbols (those in cycles) to the end of the order
+        for (const item of cascadeArray) {
+            if (!order.includes(item.symbolId)) {
+                order.push(item.symbolId);
+            }
+        }
+
+        // Compute metadata
+        const maxDistance = cascadeArray.reduce((max, item) => Math.max(max, item.distance), 0);
+
+        return {
+            cascade: cascadeArray,
+            order,
+            circular,
+            metadata: {
+                totalSymbols: cascadeArray.length,
+                maxDistance,
+                hasCircular: circular.length > 0 || hasUnorderedSymbols
+            }
+        };
+    }
+
+    /**
      * Integrate refactor results with the transpiler for hot reload.
      * Takes hot reload updates and generates transpiled patches.
      * @param {Array<{symbolId: string, action: string, filePath: string}>} hotReloadUpdates - Updates from prepareHotReloadUpdates
