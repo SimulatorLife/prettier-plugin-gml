@@ -510,8 +510,15 @@ export default class ScopeTracker {
 
         const startIndex = this.scopeStackIndices.get(startScope.id);
         if (startIndex === undefined) {
-            const declaration = startScope.declarations.get(name);
-            return declaration ? { ...declaration } : null;
+            let current = startScope;
+            while (current) {
+                const declaration = current.declarations.get(name);
+                if (declaration) {
+                    return { ...declaration };
+                }
+                current = current.parent;
+            }
+            return null;
         }
 
         for (let i = startIndex; i >= 0; i -= 1) {
@@ -586,5 +593,75 @@ export default class ScopeTracker {
         }
 
         return definitions;
+    }
+
+    /**
+     * Get all external references from a specific scope - references to symbols
+     * declared in parent or ancestor scopes. This is crucial for hot reload
+     * coordination because it identifies cross-scope dependencies: when a scope
+     * is modified, any scope that references its symbols needs to be invalidated.
+     *
+     * Each external reference includes:
+     * - The symbol name being referenced
+     * - The scope where it was declared (or null if undeclared)
+     * - All occurrence records where it's referenced in the queried scope
+     *
+     * This enables efficient dependency tracking: when editing a file/scope,
+     * query its external references to know which parent symbols it depends on,
+     * then update only the affected code paths during hot reload.
+     *
+     * @param {string} scopeId The scope identifier to query.
+     * @returns {Array<{name: string, declaringScopeId: string | null, referencingScopeId: string, occurrences: Array<object>}>}
+     *          Array of external reference records grouped by symbol name.
+     */
+    getScopeExternalReferences(scopeId) {
+        if (!this.enabled || !scopeId) {
+            return [];
+        }
+
+        const scope = this.scopesById.get(scopeId);
+        if (!scope) {
+            return [];
+        }
+
+        const externalRefs = [];
+        const processedSymbols = new Set();
+
+        for (const [name, entry] of scope.occurrences) {
+            if (processedSymbols.has(name)) {
+                continue;
+            }
+
+            if (entry.references.length === 0) {
+                continue;
+            }
+
+            const declaration = scope.declarations.get(name);
+            if (declaration) {
+                continue;
+            }
+
+            const resolvedDeclaration = this.resolveIdentifier(name, scopeId);
+            const declaringScopeId = resolvedDeclaration?.scopeId ?? null;
+
+            if (declaringScopeId === scopeId) {
+                continue;
+            }
+
+            const occurrences = entry.references.map((occurrence) =>
+                cloneOccurrence(occurrence)
+            );
+
+            externalRefs.push({
+                name,
+                declaringScopeId,
+                referencingScopeId: scopeId,
+                occurrences
+            });
+
+            processedSymbols.add(name);
+        }
+
+        return externalRefs;
     }
 }

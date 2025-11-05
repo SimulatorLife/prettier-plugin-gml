@@ -84,6 +84,24 @@ const scopeIds = tracker.getScopesForSymbol("myVariable");
 
 **Use case:** Hot reload invalidation optimization. When a symbol changes, quickly identify all scopes that need recompilation without iterating through the entire scope tree. This is particularly valuable for large projects where linear scans would be prohibitively expensive. The index-based lookup provides near-constant-time performance regardless of project size.
 
+### `getScopeExternalReferences(scopeId)`
+
+Get all external references from a specific scope—references to symbols declared in parent or ancestor scopes. Returns an array where each entry includes the symbol name, the scope where it was declared (or `null` if undeclared), and all occurrence records.
+
+```javascript
+const externalRefs = tracker.getScopeExternalReferences("scope-1");
+// Returns: [
+//   { 
+//     name: "globalVar", 
+//     declaringScopeId: "scope-0", 
+//     referencingScopeId: "scope-1",
+//     occurrences: [{kind: "reference", name: "globalVar", scopeId: "scope-1", ...}]
+//   }
+// ]
+```
+
+**Use case:** Cross-scope dependency tracking for hot reload coordination. When editing a file/scope, query its external references to understand which parent symbols it depends on. This enables precise invalidation: if a parent scope's symbol changes, you can quickly identify all child scopes that reference it and selectively recompile only the affected code paths. This is essential for efficient hot reload in large projects where rebuilding everything would be prohibitively slow.
+
 ## Identifier Case Bootstrap Controls
 
 Formatter options that tune project discovery and cache behaviour now live in
