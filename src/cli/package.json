@@ -11,11 +11,9 @@
   "dependencies": {
     "@prettier-plugin-gml/shared": "file:../shared",
     "commander": "^14.0.2",
-    "fflate": "^0.8.2",
     "linkedom": "^0.18.12",
-    "prettier-plugin-gamemaker": "file:../plugin"
-  },
-  "optionalDependencies": {
+    "prettier-plugin-gamemaker": "file:../plugin",
+    "gamemaker-html5": "github:YoYoGames/GameMaker-HTML5#develop",
     "fast-xml-parser": "^5.3.0"
   },
   "engines": {

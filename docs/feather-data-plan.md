@@ -7,9 +7,8 @@
 
 ## Current implementation
 - [`src/cli/src/commands/generate-feather-metadata.js`](../src/cli/src/commands/generate-feather-metadata.js) implements the scraper and defaults to writing `resources/feather-metadata.json`, keeping the generated dataset beside the identifier snapshot for easy consumption. All tooling now lives under the CLI—do not add stand-alone scripts when expanding the pipeline.
-- Manual content fetched for a specific ref is cached under `src/cli/cache/manual/<sha>/…` by default, so repeated runs avoid redundant network calls while iterating on the parser. The cache directory can be overridden via `--cache-root` or the `GML_MANUAL_CACHE_ROOT` environment variable when local storage needs to live elsewhere. TODO: Remove the cache root override; always use the standard location.
-- The CLI accepts the same ergonomics as the identifier generator: `--ref/-r` picks the manual revision, `--output/-o` controls the destination path, `--force-refresh` re-downloads upstream files, `--progress-bar-width` resizes the terminal progress indicator, `--manual-repo` targets a different GitHub repository, the `--cache-root` flag relocates cached artefacts, and `--help/-h` prints the usage summary. TODO: Remove `--manual-repo`; always use the standard/latest available version of the repository.
-- Set `GML_MANUAL_REF` to steer CI or local scripts toward a known GameMaker release without passing extra flags each time, `GML_PROGRESS_BAR_WIDTH` to change the default progress bar width globally, `GML_MANUAL_REPO` to point at a forked manual repository, `GML_MANUAL_CACHE_ROOT` to move the manual cache without editing the scripts, `GML_PROJECT_INDEX_CONCURRENCY` to raise or lower the default identifier-case project index concurrency within the configured worker cap (defaults to `16`; override via `GML_PROJECT_INDEX_MAX_CONCURRENCY`), and `GML_VM_EVAL_TIMEOUT_MS` (or the command-scoped `GML_IDENTIFIER_VM_TIMEOUT_MS`) to relax or tighten the VM evaluation timeout shared with the identifier harvester.
+- Manual content now lives in the `vendor/GameMaker-Manual` git submodule, eliminating bespoke GitHub downloads and caches. When iterating on unpublished builds, pass `--manual-root` to point at an alternate snapshot or `--manual-package` to fall back to an npm package if needed.
+- The CLI surface is intentionally small: `--output` selects the destination file (defaulting to `resources/feather-metadata.json`), the manual source flags above control the asset location, and `--quiet` suppresses status logging for CI and scripted runs.
 
 ## Upstream sources worth harvesting
 1. **GameMaker Manual (YoYoGames/GameMaker-Manual)**
@@ -19,13 +18,13 @@
    - `Feather_Directives` explains project-level overrides (`// Feather ignore …`, `// Feather use …`) including path glob syntax, so we can understand how to map diagnostics to suppressions and profiles.【40be1b†L1-L44】
    - `Feather_Data_Types` details the base types, specifiers, and collection syntax recognised by the language server, which we can lift to inform formatter-aware type hints later.【ec129e†L1-L80】
 2. **Existing identifier harvesting command**
-- [`src/cli/src/commands/generate-gml-identifiers.js`](../src/cli/src/commands/generate-gml-identifiers.js) already solves the hard problems of manual ref resolution, caching, authenticated GitHub fetching, and file staging, so a Feather pipeline should reuse its helpers rather than reimplementing HTTP/caching logic.
+- [`src/cli/src/commands/generate-gml-identifiers.js`](../src/cli/src/commands/generate-gml-identifiers.js) shares the same manual source resolver, so both artefact generators operate against the installed package or any explicit manual root supplied by the caller.
 
 ## Extraction pipeline outline
-1. **Version selection & caching**
-- Follow the identifier command's pattern: accept an explicit manual ref (flag + `GML_MANUAL_REF` env) or fall back to the latest release tag, resolve to a commit SHA, and reuse the manual cache tree (`src/cli/cache/manual/<sha>/…`) so repeated runs are offline-friendly.
+1. **Version selection & sourcing**
+- Pin the target manual revision via the `vendor/GameMaker-Manual` submodule. Local development can temporarily override the root by passing `--manual-root <path>` when experimenting with unpacked archives, and CI can rely on the checked-in submodule pointer for reproducibility.
 2. **Data acquisition**
-- Fetch the Feather HTML topics listed above via `fetchManualFile`, storing the raw HTML alongside the existing cached artefacts to avoid re-downloading when only parsing logic changes.【6f027d†L1-L10】
+- Read the Feather HTML topics listed above straight from the submodule (or the override root) so regeneration remains a pure filesystem operation.【6f027d†L1-L10】
    - Keep the fetch list configurable so we can add/remove topics without touching code (e.g. JSON manifest describing each page and the section(s) to extract).
 3. **HTML parsing**
    - Use a resilient HTML parser (Cheerio or `linkedom`) to traverse headings, paragraphs, tables, and code blocks. RoboHelp exports are consistent (nested `<h3>`, `<p class="code">`, `<table>` blocks), so we can map DOM structures to structured records.
@@ -34,15 +33,15 @@
    - For `Feather_Directives`, capture directive keywords (`ignore`, `use`), valid scope patterns, and documented examples so we can validate suppression comments and propose quick fixes.【40be1b†L1-L44】
    - For `Feather_Data_Types`, extract the base type list, specifier examples, and explanatory text so we can normalise Feather type annotations when generating documentation or enforcing formatter-aware heuristics.【ec129e†L1-L80】
 4. **Normalisation & schema**
-   - Define a JSON schema that groups diagnostics under `{ id, title, defaultSeverity?, description, notes[], examples[], strictModeOnly }`. Severity is not spelled out in the HTML, so leave it optional for now and plan a follow-up investigation into IDE config files once we locate them.
-   - Emit separate top-level sections for `diagnostics`, `namingRules`, `directives`, and `types`. Include metadata (`manualRef`, `commitSha`, `generatedAt`, `source`) mirroring the identifier artefact for traceability.
+      - Define a JSON schema that groups diagnostics under `{ id, title, defaultSeverity?, description, notes[], examples[], strictModeOnly }`. Severity is not spelled out in the HTML, so leave it optional for now and plan a follow-up investigation into IDE config files once we locate them.
+      - Emit separate top-level sections for `diagnostics`, `namingRules`, `directives`, and `types`. Include metadata (`manualRoot`, `packageName`, `packageVersion`, `generatedAt`, `source`) mirroring the identifier artefact for traceability.
 5. **Tooling integration**
   - Expose a dedicated CLI entry point in `src/cli/src/commands/generate-feather-metadata.js`, sharing ergonomics with the identifier generator and wiring it into `npm run build:feather-metadata` for easy regeneration and CI checks. Document the regeneration workflow alongside the identifier snapshot instructions in the [README](../README.md#regenerate-metadata-snapshots).
   - Write smoke tests that parse the generated JSON and assert that key sentinel rules (e.g. GM2017 naming rule) are present, flagging upstream changes early.
 
 ## Regeneration helper
-- Run `npm run build:feather-metadata` to download the latest Feather topics into `resources/feather-metadata.json` using the cached manual snapshot under `src/cli/cache/`.
-- Pass `--ref <branch|tag|commit>` to target a specific manual revision, or `--force-refresh` to bypass the cache when fetching upstream files.
+- Run `npm run build:feather-metadata` to load the Feather topics from `vendor/GameMaker-Manual` and write them to `resources/feather-metadata.json`.
+- Update the submodule to the desired revision (for example, `git submodule update --remote vendor/GameMaker-Manual`) or pass `--manual-root <path>` when working against a local unpacked build. If you prefer to source from npm instead, install the package and pass `--manual-package <name>`.
 - See the [README regeneration guide](../README.md#regenerate-metadata-snapshots) for a condensed workflow and related tooling entry points.
 
 ## Open questions / future research

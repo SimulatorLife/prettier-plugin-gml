@@ -12,88 +12,28 @@ import {
     getNonEmptyTrimmedString,
     isNonEmptyArray,
     isNonEmptyString,
-    resolveCommandUsage,
     timeSync,
     toNormalizedLowerCaseSet
 } from "../shared/dependencies.js";
+import { resolveFromRepoRoot } from "../shared/workspace-paths.js";
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
-import { disposeProgressBars } from "../runtime-options/progress-bar.js";
 import { writeManualJsonArtifact } from "../modules/manual/file-helpers.js";
 import {
-    MANUAL_CACHE_ROOT_ENV_VAR,
-    DEFAULT_MANUAL_REPO,
-    MANUAL_REPO_ENV_VAR,
-    buildManualRepositoryEndpoints,
-    downloadManualEntryPayloads,
-    ensureManualRefHasSha
-} from "../modules/manual/utils.js";
-import {
-    MANUAL_REF_ENV_VAR,
-    PROGRESS_BAR_WIDTH_ENV_VAR,
-    applyManualEnvOptionOverrides
-} from "../modules/manual/environment.js";
-import { applyStandardCommandOptions } from "../core/command-standard-options.js";
-import { createCliCommandManager } from "../core/command-manager.js";
-import { handleCliError } from "../core/errors.js";
-import {
-    applySharedManualCommandOptions,
-    resolveManualCommandOptions
-} from "../modules/manual/command-options.js";
-import {
-    createManualEnvironmentContext,
-    createManualReferenceAccessContext,
-    resolveManualFileFetcher
-} from "../modules/manual/context.js";
+    describeManualSource,
+    readManualText,
+    resolveManualSource
+} from "../modules/manual/source.js";
 import {
     createWorkflowPathFilter,
     ensureManualWorkflowArtifactsAllowed
 } from "../workflow/path-filter.js";
+import { applyStandardCommandOptions } from "../core/command-standard-options.js";
+import { createCliCommandManager } from "../core/command-manager.js";
+import { handleCliError } from "../core/errors.js";
 
-/** @typedef {ReturnType<typeof resolveManualCommandOptions>} ManualCommandOptions */
-
-const ENVIRONMENT_VARIABLE_HELP_ENTRIES = [
-    [MANUAL_REPO_ENV_VAR, "Override the manual repository (owner/name)."],
-    [
-        MANUAL_CACHE_ROOT_ENV_VAR,
-        "Override the cache directory for manual artefacts."
-    ],
-    [
-        MANUAL_REF_ENV_VAR,
-        "Set the default manual ref (tag, branch, or commit)."
-    ],
-    [PROGRESS_BAR_WIDTH_ENV_VAR, "Override the progress bar width."]
-];
-
-function formatEnvironmentVariableHelp(entries) {
-    const labelWidth = entries.reduce(
-        (max, [name]) => Math.max(max, name.length),
-        0
-    );
-
-    return entries.map(([name, description]) => {
-        const paddedName = name.padEnd(labelWidth);
-        return `  ${paddedName}  ${description}`;
-    });
-}
-
-const MANUAL_CONTEXT_OPTIONS = Object.freeze({
-    importMetaUrl: import.meta.url,
-    userAgent: "prettier-plugin-gml feather metadata generator",
-    outputFileName: "feather-metadata.json",
-    repoRootSegments: ["..", "..", "..", ".."],
-    cacheRootSegments: ["src", "cli", "cache", "manual"]
-});
-
-const {
-    environment: {
-        repoRoot: REPO_ROOT,
-        defaultCacheRoot: DEFAULT_CACHE_ROOT,
-        defaultOutputPath: OUTPUT_DEFAULT
-    }
-} = createManualEnvironmentContext(MANUAL_CONTEXT_OPTIONS);
-
-const { resolveManualRef } = createManualReferenceAccessContext(
-    MANUAL_CONTEXT_OPTIONS
+const DEFAULT_OUTPUT_PATH = resolveFromRepoRoot(
+    "resources",
+    "feather-metadata.json"
 );
 
 const FEATHER_PAGES = {
@@ -112,7 +52,7 @@ const FEATHER_PAGES = {
  * @param {{ env?: NodeJS.ProcessEnv }} [options]
  * @returns {import("commander").Command}
  */
-export function createFeatherMetadataCommand({ env = process.env } = {}) {
+export function createFeatherMetadataCommand() {
     const command = applyStandardCommandOptions(
         new Command()
             .name("generate-feather-metadata")
@@ -120,29 +60,23 @@ export function createFeatherMetadataCommand({ env = process.env } = {}) {
             .description(
                 "Generate feather-metadata.json from the GameMaker manual."
             )
-    ).option("-r, --ref <git-ref>", "Manual git ref (tag, branch, or commit).");
-
-    applySharedManualCommandOptions(command, {
-        outputPath: { defaultValue: OUTPUT_DEFAULT },
-        cacheRoot: { defaultValue: DEFAULT_CACHE_ROOT },
-        manualRepo: { defaultValue: DEFAULT_MANUAL_REPO },
-        quietDescription: "Suppress progress output (useful in CI)."
-    });
-
-    const environmentVariableHelp = formatEnvironmentVariableHelp(
-        ENVIRONMENT_VARIABLE_HELP_ENTRIES
     );
 
-    command.addHelpText(
-        "after",
-        ["", "Environment variables:", ...environmentVariableHelp].join("\n")
-    );
-
-    applyManualEnvOptionOverrides({
-        command,
-        env,
-        getUsage: resolveCommandUsage(command)
-    });
+    command
+        .option(
+            "--output <path>",
+            "Path to write feather-metadata.json.",
+            DEFAULT_OUTPUT_PATH
+        )
+        .option(
+            "--manual-root <path>",
+            "Override the manual asset root (defaults to vendor/GameMaker-Manual)."
+        )
+        .option(
+            "--manual-package <name>",
+            "Manual npm package name used when neither --manual-root nor the vendor submodule is available."
+        )
+        .option("--quiet", "Suppress progress output (useful in CI).");
 
     return command;
 }
@@ -154,17 +88,19 @@ export function createFeatherMetadataCommand({ env = process.env } = {}) {
  * @returns {ManualCommandOptions}
  */
 function resolveFeatherMetadataOptions(command) {
-    return resolveManualCommandOptions(command, {
-        defaults: {
-            ref: null,
-            outputPath: OUTPUT_DEFAULT,
-            cacheRoot: DEFAULT_CACHE_ROOT,
-            manualRepo: DEFAULT_MANUAL_REPO
-        }
-    });
+    const options = command?.opts?.() ?? {};
+
+    return {
+        outputPath: options.output ?? DEFAULT_OUTPUT_PATH,
+        manualRoot: options.manualRoot ?? null,
+        manualPackage: options.manualPackage ?? null,
+        quiet: Boolean(options.quiet)
+    };
 }
 
-// Manual fetching helpers are wired via the shared manual command context.
+function createVerboseState({ quiet }) {
+    return quiet ? { parsing: false } : { parsing: true };
+}
 
 function normalizeMultilineText(text) {
     if (!isNonEmptyString(text)) {
@@ -1159,46 +1095,32 @@ function parseTypeSystem(html) {
     };
 }
 
-function createFeatherManualMetadataPayload({
-    manualRef,
-    manualRepo,
-    sections
-}) {
+function createFeatherManualMetadataPayload({ manualSource, sections }) {
     return {
         meta: {
-            manualRef: manualRef.ref,
-            commitSha: manualRef.sha,
+            manualRoot: manualSource.root,
+            packageName: manualSource.packageName,
+            packageVersion: manualSource.packageJson?.version ?? null,
             generatedAt: new Date().toISOString(),
-            source: manualRepo,
+            source: describeManualSource(manualSource),
             manualPaths: { ...FEATHER_PAGES }
         },
         ...sections
     };
 }
 
-async function fetchFeatherManualPayloads({
-    manualRef,
-    fetchManualFile: fetchManualFileFn,
-    forceRefresh,
-    verbose,
-    cacheRoot,
-    rawRoot,
-    progressBarWidth
-}) {
-    const manualEntries = Object.entries(FEATHER_PAGES);
+async function readFeatherManualPayloads({ manualSource, onRead }) {
+    const payloads = Object.create(null);
 
-    return downloadManualEntryPayloads({
-        entries: manualEntries,
-        manualRefSha: manualRef.sha,
-        fetchManualFile: fetchManualFileFn,
-        forceRefresh,
-        verbose,
-        cacheRoot,
-        rawRoot,
-        progressBarWidth,
-        description: "manual page",
-        progressLabel: "Downloading manual pages"
-    });
+    for (const [key, manualPath] of Object.entries(FEATHER_PAGES)) {
+        if (typeof onRead === "function") {
+            onRead(manualPath);
+        }
+
+        payloads[key] = await readManualText(manualSource.root, manualPath);
+    }
+
+    return payloads;
 }
 
 /**
@@ -1241,31 +1163,16 @@ function parseFeatherManualPayloads(htmlPayloads, { verbose }) {
  * artefact. Returning the final payload keeps the command runner free from
  * low-level payload maps and section assembly concerns.
  */
-async function buildFeatherMetadataPayload({
-    manualRef,
-    manualRepo,
-    fetchManualFile: fetchManualFileFn,
-    forceRefresh,
-    verbose,
-    cacheRoot,
-    rawRoot,
-    progressBarWidth
-}) {
-    const htmlPayloads = await fetchFeatherManualPayloads({
-        manualRef,
-        fetchManualFile: fetchManualFileFn,
-        forceRefresh,
-        verbose,
-        cacheRoot,
-        rawRoot,
-        progressBarWidth
+async function buildFeatherMetadataPayload({ manualSource, verbose, onRead }) {
+    const htmlPayloads = await readFeatherManualPayloads({
+        manualSource,
+        onRead
     });
 
     const sections = parseFeatherManualPayloads(htmlPayloads, { verbose });
 
     return createFeatherManualMetadataPayload({
-        manualRef,
-        manualRepo,
+        manualSource,
         sections
     });
 }
@@ -1285,65 +1192,52 @@ async function buildFeatherMetadataPayload({
  * @returns {Promise<number>}
  */
 export async function runGenerateFeatherMetadata({ command, workflow } = {}) {
-    try {
-        assertSupportedNodeVersion();
+    assertSupportedNodeVersion();
 
-        const {
-            ref,
-            outputPath,
-            forceRefresh,
-            verbose,
-            progressBarWidth,
-            cacheRoot,
-            manualRepo,
-            usage
-        } = resolveFeatherMetadataOptions(command);
+    const { outputPath, manualRoot, manualPackage, quiet } =
+        resolveFeatherMetadataOptions(command);
+    const verbose = createVerboseState({ quiet });
+    const workflowPathFilter = createWorkflowPathFilter(workflow);
 
-        const workflowPathFilter = createWorkflowPathFilter(workflow);
+    ensureManualWorkflowArtifactsAllowed(workflowPathFilter, {
+        outputPath
+    });
 
-        ensureManualWorkflowArtifactsAllowed(workflowPathFilter, {
-            cacheRoot,
-            outputPath
-        });
+    const manualSource = await resolveManualSource({
+        manualRoot,
+        manualPackage
+    });
 
-        const fetchManualFile = resolveManualFileFetcher({
-            ...MANUAL_CONTEXT_OPTIONS,
-            workflowPathFilter
-        });
+    if (!quiet) {
+        console.log(
+            `Using manual assets from ${describeManualSource(manualSource)}.`
+        );
+    }
 
-        const { apiRoot, rawRoot } = buildManualRepositoryEndpoints(manualRepo);
-        const logCompletion = createVerboseDurationLogger({ verbose });
-        const unresolvedManualRef = await resolveManualRef(ref, {
-            verbose,
-            apiRoot
-        });
-        const manualRef = ensureManualRefHasSha(unresolvedManualRef, { usage });
-        console.log(`Using manual ref '${manualRef.ref}' (${manualRef.sha}).`);
+    const logCompletion = createVerboseDurationLogger({ verbose });
+    const payload = await buildFeatherMetadataPayload({
+        manualSource,
+        verbose,
+        onRead: quiet
+            ? undefined
+            : (manualPath) => {
+                  console.log(`Reading ${manualPath}`);
+              }
+    });
 
-        const payload = await buildFeatherMetadataPayload({
-            manualRef,
-            manualRepo,
-            fetchManualFile,
-            forceRefresh,
-            verbose,
-            cacheRoot,
-            rawRoot,
-            progressBarWidth
-        });
-
-        await writeManualJsonArtifact({
-            outputPath,
-            payload,
-            pathFilter: workflowPathFilter,
-            onAfterWrite: () => {
+    await writeManualJsonArtifact({
+        outputPath,
+        payload,
+        pathFilter: workflowPathFilter,
+        onAfterWrite: () => {
+            if (!quiet) {
                 console.log(`Wrote Feather metadata to ${outputPath}`);
             }
-        });
-        logCompletion();
-        return 0;
-    } finally {
-        disposeProgressBars();
-    }
+        }
+    });
+
+    logCompletion();
+    return 0;
 }
 
 const isMainModule = process.argv[1]
@@ -1360,7 +1254,7 @@ if (isMainModule) {
         });
 
     registry.registerDefaultCommand({
-        command: createFeatherMetadataCommand({ env: process.env }),
+        command: createFeatherMetadataCommand(),
         run: ({ command }) => runGenerateFeatherMetadata({ command }),
         onError: handleError
     });

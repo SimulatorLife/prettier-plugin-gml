@@ -3,7 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { Command } from "commander";
+import { Command, Option } from "commander";
 
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import {
@@ -19,61 +19,38 @@ import {
 } from "../shared/dependencies.js";
 import { writeManualJsonArtifact } from "../modules/manual/file-helpers.js";
 import {
-    DEFAULT_MANUAL_REPO,
-    buildManualRepositoryEndpoints,
-    downloadManualEntryPayloads,
-    ensureManualRefHasSha
-} from "../modules/manual/utils.js";
-import { disposeProgressBars } from "../runtime-options/progress-bar.js";
-import {
     resolveVmEvalTimeout,
     getDefaultVmEvalTimeoutMs
 } from "../runtime-options/vm-eval-timeout.js";
-import {
-    applyManualEnvOptionOverrides,
-    IDENTIFIER_VM_TIMEOUT_ENV_VAR
-} from "../modules/manual/environment.js";
 import { applyStandardCommandOptions } from "../core/command-standard-options.js";
 import { createCliCommandManager } from "../core/command-manager.js";
 import { handleCliError } from "../core/errors.js";
-import {
-    applySharedManualCommandOptions,
-    resolveManualCommandOptions
-} from "../modules/manual/command-options.js";
 import { wrapInvalidArgumentResolver } from "../core/command-parsing.js";
-import {
-    createManualEnvironmentContext,
-    createManualReferenceAccessContext,
-    resolveManualFileFetcher
-} from "../modules/manual/context.js";
 import {
     decodeManualKeywordsPayload,
     decodeManualTagsPayload
 } from "../modules/manual/payload-validation.js";
 import {
+    describeManualSource,
+    readManualText,
+    resolveManualSource
+} from "../modules/manual/source.js";
+import {
     createWorkflowPathFilter,
     ensureManualWorkflowArtifactsAllowed
 } from "../workflow/path-filter.js";
+import { resolveFromRepoRoot } from "../shared/workspace-paths.js";
 
-const MANUAL_CONTEXT_OPTIONS = Object.freeze({
-    importMetaUrl: import.meta.url,
-    userAgent: "prettier-plugin-gml identifier generator",
-    outputFileName: "gml-identifiers.json",
-    repoRootSegments: ["..", "..", "..", ".."],
-    cacheRootSegments: ["src", "cli", "cache", "manual"]
-});
-
-const {
-    environment: {
-        repoRoot: REPO_ROOT,
-        defaultCacheRoot: DEFAULT_CACHE_ROOT,
-        defaultOutputPath: OUTPUT_DEFAULT
-    }
-} = createManualEnvironmentContext(MANUAL_CONTEXT_OPTIONS);
-
-const { resolveManualRef } = createManualReferenceAccessContext(
-    MANUAL_CONTEXT_OPTIONS
+const DEFAULT_OUTPUT_PATH = resolveFromRepoRoot(
+    "resources",
+    "gml-identifiers.json"
 );
+
+const DEFAULT_GML_SOURCE_PATH = "Manual/contents/assets/scripts/gml.js";
+const DEFAULT_KEYWORDS_PATH = "ZeusDocs_keywords.json";
+const DEFAULT_TAGS_PATH = "ZeusDocs_tags.json";
+
+const IDENTIFIER_VM_TIMEOUT_ENV_VAR = "GML_IDENTIFIER_VM_TIMEOUT_MS";
 
 export function createGenerateIdentifiersCommand({ env = process.env } = {}) {
     const command = applyStandardCommandOptions(
@@ -83,65 +60,73 @@ export function createGenerateIdentifiersCommand({ env = process.env } = {}) {
             .description(
                 "Generate the gml-identifiers.json artefact from the GameMaker manual."
             )
-    ).option("-r, --ref <git-ref>", "Manual git ref (tag, branch, or commit).");
+    );
 
     const defaultVmTimeout = getDefaultVmEvalTimeoutMs();
+    const envVmTimeout = env?.[IDENTIFIER_VM_TIMEOUT_ENV_VAR];
+    const resolvedVmTimeout =
+        envVmTimeout === undefined
+            ? defaultVmTimeout
+            : resolveVmEvalTimeout(envVmTimeout);
 
-    applySharedManualCommandOptions(command, {
-        outputPath: { defaultValue: OUTPUT_DEFAULT },
-        cacheRoot: { defaultValue: DEFAULT_CACHE_ROOT },
-        manualRepo: { defaultValue: DEFAULT_MANUAL_REPO },
-        quietDescription: "Suppress progress logging (useful in CI).",
-        optionOrder: [
-            "outputPath",
-            "forceRefresh",
-            "quiet",
-            "vmEvalTimeout",
-            "progressBarWidth",
-            "manualRepo",
-            "cacheRoot"
-        ],
-        customOptions: {
-            vmEvalTimeout(cmd) {
-                cmd.option(
-                    "--vm-eval-timeout-ms <ms>",
-                    "Maximum time in milliseconds to evaluate manual identifier arrays. Set to 0 to disable the timeout.",
-                    wrapInvalidArgumentResolver(resolveVmEvalTimeout),
-                    defaultVmTimeout
-                );
-            }
-        }
-    });
-
-    applyManualEnvOptionOverrides({
-        command,
-        env,
-        additionalOverrides: [
-            {
-                envVar: IDENTIFIER_VM_TIMEOUT_ENV_VAR,
-                optionName: "vmEvalTimeoutMs",
-                resolveValue: resolveVmEvalTimeout
-            }
-        ]
-    });
+    command
+        .option(
+            "--output <path>",
+            "Path to write gml-identifiers.json.",
+            DEFAULT_OUTPUT_PATH
+        )
+        .option(
+            "--manual-root <path>",
+            "Override the manual asset root (defaults to vendor/GameMaker-Manual)."
+        )
+        .option(
+            "--manual-package <name>",
+            "Manual npm package name used when neither --manual-root nor the vendor submodule is available."
+        )
+        .addOption(
+            new Option(
+                "--vm-eval-timeout-ms <ms>",
+                "Maximum time in milliseconds to evaluate manual identifier arrays. Provide 0 to disable the timeout."
+            )
+                .argParser(wrapInvalidArgumentResolver(resolveVmEvalTimeout))
+                .default(resolvedVmTimeout, String(resolvedVmTimeout))
+        )
+        .option("--quiet", "Suppress progress logging (useful in CI).")
+        .option(
+            "--manual-gml-path <path>",
+            "Relative path to the manual gml.js source file.",
+            DEFAULT_GML_SOURCE_PATH
+        )
+        .option(
+            "--manual-keywords-path <path>",
+            "Relative path to the manual keywords JSON file.",
+            DEFAULT_KEYWORDS_PATH
+        )
+        .option(
+            "--manual-tags-path <path>",
+            "Relative path to the manual tags JSON file.",
+            DEFAULT_TAGS_PATH
+        );
 
     return command;
 }
 
 function resolveGenerateIdentifierOptions(command) {
-    return resolveManualCommandOptions(command, {
-        defaults: {
-            outputPath: OUTPUT_DEFAULT,
-            cacheRoot: DEFAULT_CACHE_ROOT,
-            manualRepo: DEFAULT_MANUAL_REPO
-        },
-        mapExtras: ({ options }) => ({
-            vmEvalTimeoutMs:
-                options.vmEvalTimeoutMs === undefined
-                    ? getDefaultVmEvalTimeoutMs()
-                    : options.vmEvalTimeoutMs
-        })
-    });
+    const options = command?.opts?.() ?? {};
+
+    return {
+        outputPath: options.output ?? DEFAULT_OUTPUT_PATH,
+        manualRoot: options.manualRoot ?? null,
+        manualPackage: options.manualPackage ?? null,
+        manualGmlPath: options.manualGmlPath ?? DEFAULT_GML_SOURCE_PATH,
+        manualKeywordsPath: options.manualKeywordsPath ?? DEFAULT_KEYWORDS_PATH,
+        manualTagsPath: options.manualTagsPath ?? DEFAULT_TAGS_PATH,
+        vmEvalTimeoutMs:
+            options.vmEvalTimeoutMs === undefined
+                ? getDefaultVmEvalTimeoutMs()
+                : options.vmEvalTimeoutMs,
+        quiet: Boolean(options.quiet)
+    };
 }
 
 function parseArrayLiteral(source, identifier, { timeoutMs } = {}) {
@@ -615,8 +600,7 @@ function classifyManualIdentifierMetadata({
 
 function createIdentifierArtifactPayload({
     identifierMap,
-    manualRef,
-    manualRepo,
+    manualSource,
     verbose
 }) {
     const sortedIdentifiers = timeSync(
@@ -643,10 +627,11 @@ function createIdentifierArtifactPayload({
     return {
         payload: {
             meta: {
-                manualRef: manualRef.ref,
-                commitSha: manualRef.sha,
+                manualRoot: manualSource.root,
+                packageName: manualSource.packageName,
+                packageVersion: manualSource.packageJson?.version ?? null,
                 generatedAt: new Date().toISOString(),
-                source: manualRepo
+                source: describeManualSource(manualSource)
             },
             identifiers
         },
@@ -661,8 +646,7 @@ function createIdentifierArtifactPayload({
  */
 function buildIdentifierArtifact({
     payloads,
-    manualRef,
-    manualRepo,
+    manualSource,
     vmEvalTimeoutMs,
     verbose
 }) {
@@ -686,8 +670,7 @@ function buildIdentifierArtifact({
 
     return createIdentifierArtifactPayload({
         identifierMap,
-        manualRef,
-        manualRepo,
+        manualSource,
         verbose
     });
 }
@@ -723,62 +706,19 @@ function sortIdentifierEntries(identifierMap) {
         .sort(([a], [b]) => a.localeCompare(b));
 }
 
-const DOWNLOAD_PROGRESS_LABEL = "Downloading manual assets";
-
-function createManualAssetDescriptors() {
-    return [
-        {
-            key: "gmlSource",
-            path: "Manual/contents/assets/scripts/gml.js",
-            label: "gml.js"
-        },
-        { key: "keywords", path: "ZeusDocs_keywords.json", label: "keywords" },
-        { key: "tags", path: "ZeusDocs_tags.json", label: "tags" }
-    ];
-}
-
-/**
- * Resolve and fetch the manual assets required to build identifier metadata.
- * The helper keeps the command runner focused on orchestration by hiding the
- * asset descriptor bookkeeping and download progress wiring.
- *
- * @param {{
- *   manualRef: { sha: string },
- *   fetchManualFile?: ReturnType<typeof resolveManualFileFetcher>,
- *   forceRefresh: boolean,
- *   verbose: Record<string, boolean>,
- *   cacheRoot: string,
- *   rawRoot: string,
- *   progressBarWidth: number
- * }} context
- * @returns {Promise<Record<string, string>>}
- */
-async function fetchIdentifierManualPayloads({
-    manualRef,
-    fetchManualFile: fetchManualFileFn = resolveManualFileFetcher(
-        MANUAL_CONTEXT_OPTIONS
-    ),
-    forceRefresh,
-    verbose,
-    cacheRoot,
-    rawRoot,
-    progressBarWidth
+async function loadManualPayloads({
+    manualSource,
+    manualGmlPath,
+    manualKeywordsPath,
+    manualTagsPath
 }) {
-    const manualAssets = createManualAssetDescriptors();
-    const entries = manualAssets.map((asset) => [asset.key, asset.path]);
+    const [gmlSource, keywords, tags] = await Promise.all([
+        readManualText(manualSource.root, manualGmlPath),
+        readManualText(manualSource.root, manualKeywordsPath),
+        readManualText(manualSource.root, manualTagsPath)
+    ]);
 
-    return downloadManualEntryPayloads({
-        entries,
-        manualRefSha: manualRef.sha,
-        fetchManualFile: fetchManualFileFn,
-        forceRefresh,
-        verbose,
-        cacheRoot,
-        rawRoot,
-        progressBarWidth,
-        description: "manual asset",
-        progressLabel: DOWNLOAD_PROGRESS_LABEL
-    });
+    return { gmlSource, keywords, tags };
 }
 
 /**
@@ -796,73 +736,63 @@ async function fetchIdentifierManualPayloads({
  * @returns {Promise<number>}
  */
 export async function runGenerateGmlIdentifiers({ command, workflow } = {}) {
-    try {
-        assertSupportedNodeVersion();
+    assertSupportedNodeVersion();
 
-        const {
-            ref,
-            outputPath,
-            forceRefresh,
-            verbose,
-            vmEvalTimeoutMs,
-            progressBarWidth,
-            cacheRoot,
-            manualRepo,
-            usage
-        } = resolveGenerateIdentifierOptions(command);
+    const {
+        outputPath,
+        manualRoot,
+        manualPackage,
+        manualGmlPath,
+        manualKeywordsPath,
+        manualTagsPath,
+        vmEvalTimeoutMs,
+        quiet
+    } = resolveGenerateIdentifierOptions(command);
 
-        const workflowPathFilter = createWorkflowPathFilter(workflow);
+    const verboseState = quiet ? {} : { parsing: true };
+    const workflowPathFilter = createWorkflowPathFilter(workflow);
 
-        ensureManualWorkflowArtifactsAllowed(workflowPathFilter, {
-            cacheRoot,
-            outputPath
-        });
+    ensureManualWorkflowArtifactsAllowed(workflowPathFilter, {
+        outputPath
+    });
 
-        const fetchManualFile = resolveManualFileFetcher({
-            ...MANUAL_CONTEXT_OPTIONS,
-            workflowPathFilter
-        });
+    const manualSource = await resolveManualSource({
+        manualRoot,
+        manualPackage
+    });
 
-        const { apiRoot, rawRoot } = buildManualRepositoryEndpoints(manualRepo);
-        const logCompletion = createVerboseDurationLogger({ verbose });
-
-        const unresolvedManualRef = await resolveManualRef(ref, {
-            verbose,
-            apiRoot
-        });
-        const manualRef = ensureManualRefHasSha(unresolvedManualRef, { usage });
-
-        console.log(`Using manual ref '${manualRef.ref}' (${manualRef.sha}).`);
-
-        const fetchedPayloads = await fetchIdentifierManualPayloads({
-            manualRef,
-            fetchManualFile,
-            forceRefresh,
-            verbose,
-            cacheRoot,
-            rawRoot,
-            progressBarWidth
-        });
-
-        const { payload, entryCount } = buildIdentifierArtifact({
-            payloads: fetchedPayloads,
-            manualRef,
-            manualRepo,
-            vmEvalTimeoutMs,
-            verbose
-        });
-
-        await writeIdentifierArtifact({
-            outputPath,
-            payload,
-            entryCount,
-            pathFilter: workflowPathFilter
-        });
-        logCompletion();
-        return 0;
-    } finally {
-        disposeProgressBars();
+    if (!quiet) {
+        console.log(
+            `Using manual assets from ${describeManualSource(manualSource)}`
+        );
     }
+
+    const payloads = await loadManualPayloads({
+        manualSource,
+        manualGmlPath,
+        manualKeywordsPath,
+        manualTagsPath
+    });
+
+    const logCompletion = createVerboseDurationLogger({
+        verbose: verboseState
+    });
+
+    const { payload, entryCount } = buildIdentifierArtifact({
+        payloads,
+        manualSource,
+        vmEvalTimeoutMs,
+        verbose: verboseState
+    });
+
+    await writeIdentifierArtifact({
+        outputPath,
+        payload,
+        entryCount,
+        pathFilter: workflowPathFilter
+    });
+    logCompletion();
+    return 0;
 }
 
 export const __test__ = Object.freeze({

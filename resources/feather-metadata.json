@@ -1,9 +1,10 @@
 {
   "meta": {
-    "manualRef": "develop",
-    "commitSha": "407cee4c375ec440be3e8eca8229e10210bf3ae5",
-    "generatedAt": "2025-11-02T01:33:49.800Z",
-    "source": "YoYoGames/GameMaker-Manual",
+    "manualRoot": "/Users/henrykirk/gamemaker-language-parser/vendor/GameMaker-Manual",
+    "packageName": null,
+    "packageVersion": null,
+    "generatedAt": "2025-11-05T22:17:36.304Z",
+    "source": "/Users/henrykirk/gamemaker-language-parser/vendor/GameMaker-Manual",
     "manualPaths": {
       "diagnostics": "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Messages.htm",
       "directives": "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Directives.htm",

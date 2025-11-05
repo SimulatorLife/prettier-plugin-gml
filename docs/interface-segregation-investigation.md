@@ -257,6 +257,8 @@ no code changes were required.
   Updated the manual context factory to stop constructing the intermediate
   service bundles and adjusted the unit test to assert against the specialised
   helpers so each call site depends solely on the collaborator it invokes.
+  _Update (2025-11-05): The GitHub-oriented helpers have since been replaced by
+  a vendor submodule/manual resolver and were removed from the codebase._
 
 ## Follow-up audit (2026-08-14)
 
@@ -270,6 +272,8 @@ no code changes were required.
   `ManualGitHubRequestExecutor` function type. Updated the manual utilities,
   context factory, and unit tests to accept the plain executor function so each
   collaborator depends only on the HTTP behaviour it actually invokes.
+  _Update (2025-11-05): The GitHub request layer has now been deleted entirely
+  because manual assets load from the checked-in vendor submodule._
 
 ## Follow-up audit (2026-12-11)
 

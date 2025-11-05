@@ -1,0 +1,4 @@
+[submodule "vendor/GameMaker-Manual"]
+	path = vendor/GameMaker-Manual
+	url = https://github.com/YoYoGames/GameMaker-Manual.git
+	branch = develop

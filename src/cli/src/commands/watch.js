@@ -19,27 +19,11 @@ import process from "node:process";
 import { Command, Option } from "commander";
 
 import { createTranspiler } from "../../../transpiler/src/index.js";
-import { ensureRuntimeArchiveHydrated } from "../modules/runtime/archive.js";
-import { createRuntimeCommandContextOptions } from "../modules/runtime/config.js";
+import {
+    describeRuntimeSource,
+    resolveRuntimeSource
+} from "../modules/runtime/source.js";
 import { startRuntimeStaticServer } from "../modules/runtime/server.js";
-
-const RUNTIME_CONTEXT_OPTIONS = createRuntimeCommandContextOptions({
-    importMetaUrl: import.meta.url,
-    userAgent: "prettier-plugin-gml watch runtime hydrator"
-});
-
-function interpretTruthy(value) {
-    if (typeof value !== "string") {
-        return false;
-    }
-
-    const normalized = value.trim().toLowerCase();
-    if (normalized.length === 0) {
-        return false;
-    }
-
-    return normalized === "1" || normalized === "true" || normalized === "yes";
-}
 
 /**
  * Creates the watch command for monitoring GML source files.
@@ -91,27 +75,19 @@ export function createWatchCommand() {
         )
         .addOption(
             new Option(
-                "--runtime-ref <ref>",
-                "Git reference (branch, tag, or commit) for the HTML5 runtime"
+                "--runtime-root <path>",
+                "Path to the HTML5 runtime assets (defaults to the installed runtime package)."
             )
         )
         .addOption(
             new Option(
-                "--runtime-repo <owner/name>",
-                "Repository hosting the HTML5 runtime"
-            )
+                "--runtime-package <name>",
+                "Package name used to resolve the HTML5 runtime."
+            ).default("gamemaker-html5")
         )
-        .addOption(
-            new Option(
-                "--runtime-cache <path>",
-                "Override the runtime cache directory"
-            )
-        )
-        .addOption(
-            new Option(
-                "--force-runtime-refresh",
-                "Force re-download of the runtime archive"
-            ).default(false)
+        .option(
+            "--no-runtime-server",
+            "Disable starting the HTML5 runtime static server."
         )
         .action(runWatchCommand);
 
@@ -188,12 +164,12 @@ export async function runWatchCommand(targetPath, options) {
         pollingInterval = 1000,
         verbose = false,
         abortSignal,
-        runtimeRef,
-        runtimeRepo,
-        runtimeCache,
-        forceRuntimeRefresh = false,
+        runtimeRoot,
+        runtimePackage = "gamemaker-html5",
+        runtimeServer,
         hydrateRuntime,
-        runtimeHydrator = ensureRuntimeArchiveHydrated,
+        runtimeResolver = resolveRuntimeSource,
+        runtimeDescriptor = describeRuntimeSource,
         runtimeServerStarter = startRuntimeStaticServer
     } = options;
 
@@ -203,90 +179,42 @@ export async function runWatchCommand(targetPath, options) {
         extensions.map((ext) => (ext.startsWith(".") ? ext : `.${ext}`))
     );
 
-    const skipRuntimeHydrationEnv = interpretTruthy(
-        process.env.GML_RUNTIME_SKIP_DOWNLOAD
-    );
-    const shouldHydrateRuntime =
+    const shouldServeRuntime =
         hydrateRuntime === undefined
-            ? !skipRuntimeHydrationEnv
+            ? runtimeServer !== false
             : Boolean(hydrateRuntime);
 
-    let runtimeHydration = null;
+    const transpiler = createTranspiler();
+    const runtimeContext = {
+        root: null,
+        packageName: null,
+        packageJson: null,
+        server: null,
+        noticeLogged: Boolean(verbose),
+        transpiler,
+        patches: []
+    };
+
     let runtimeServerController = null;
 
-    if (shouldHydrateRuntime) {
-        runtimeHydration = await runtimeHydrator({
-            runtimeRef,
-            runtimeRepo,
-            cacheRoot: runtimeCache,
-            userAgent: RUNTIME_CONTEXT_OPTIONS.userAgent,
-            forceRefresh: forceRuntimeRefresh,
-            verbose: verbose ? { all: true } : undefined,
-            contextOptions: RUNTIME_CONTEXT_OPTIONS
+    if (shouldServeRuntime) {
+        const runtimeSource = await runtimeResolver({
+            runtimeRoot,
+            runtimePackage
         });
 
+        runtimeContext.root = runtimeSource.root;
+        runtimeContext.packageName = runtimeSource.packageName;
+        runtimeContext.packageJson = runtimeSource.packageJson;
+
         if (verbose) {
-            const archiveStatus = runtimeHydration.downloaded
-                ? "downloaded"
-                : "cached";
             console.log(
-                `Runtime archive ${archiveStatus} at ${runtimeHydration.archivePath}`
+                `Using HTML5 runtime from ${runtimeDescriptor(runtimeSource)}`
             );
-
-            if (runtimeHydration.runtimeRoot) {
-                const extractStatus = runtimeHydration.extracted
-                    ? "extracted"
-                    : "ready";
-                const runtimeRefLabel = runtimeHydration.runtimeRef?.ref
-                    ? `${runtimeHydration.runtimeRef.ref}@${runtimeHydration.runtimeRef.sha}`
-                    : runtimeHydration.runtimeRef?.sha;
-
-                console.log(
-                    `Runtime files ${extractStatus} under ${runtimeHydration.runtimeRoot}${runtimeRefLabel ? ` (${runtimeRefLabel})` : ""}`
-                );
-            }
         }
-    } else if (verbose) {
-        console.log(
-            "Skipping runtime hydration (GML_RUNTIME_SKIP_DOWNLOAD set)"
-        );
-    }
 
-    const transpiler = createTranspiler();
-
-    const runtimeContext = runtimeHydration
-        ? {
-              root: runtimeHydration.runtimeRoot,
-              repo: runtimeHydration.runtimeRepo,
-              ref: runtimeHydration.runtimeRef,
-              manifestPath: runtimeHydration.manifestPath ?? null,
-              manifest: runtimeHydration.manifest ?? null,
-              server: null,
-              noticeLogged: Boolean(verbose),
-              transpiler,
-              patches: []
-          }
-        : {
-              root: null,
-              repo: runtimeRepo ?? null,
-              ref: null,
-              manifestPath: null,
-              manifest: null,
-              server: null,
-              noticeLogged: Boolean(verbose),
-              transpiler,
-              patches: []
-          };
-
-    if (runtimeHydration?.manifestPath && verbose) {
-        console.log(
-            `Runtime manifest recorded at ${runtimeHydration.manifestPath}`
-        );
-    }
-
-    if (runtimeContext.root) {
         runtimeServerController = await runtimeServerStarter({
-            runtimeRoot: runtimeContext.root,
+            runtimeRoot: runtimeSource.root,
             verbose
         });
 
@@ -299,6 +227,8 @@ export async function runWatchCommand(targetPath, options) {
         console.log(
             `Runtime static server ready at ${runtimeServerController.url}`
         );
+    } else if (verbose) {
+        console.log("Runtime static server disabled.");
     }
 
     logWatchStartup(

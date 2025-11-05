@@ -10,7 +10,6 @@
  * - Memory usage benchmarking utilities.
  * - Regression testing utilities.
  * - Generating/retrieving GML identifiers and Feather metadata (via the GameMaker manual).
- * - Retrieving runtime artifacts from the GameMaker HTML5 runtime repository.
  *
  * This CLI is primarily intended for use in development and CI environments.
  * For formatting GML files, it is recommended to use the Prettier CLI or
@@ -93,10 +92,6 @@ import {
     createFeatherMetadataCommand,
     runGenerateFeatherMetadata
 } from "./commands/generate-feather-metadata.js";
-import {
-    createFetchRuntimeCommand,
-    runFetchRuntimeCommand
-} from "./commands/fetch-runtime.js";
 import { createWatchCommand, runWatchCommand } from "./commands/watch.js";
 import { resolveCliIdentifierCaseCacheClearer } from "./plugin-runtime/services.js";
 import { isCliRunSkipped } from "./shared/dependencies.js";
@@ -118,7 +113,7 @@ const PLUGIN_PATH = resolveCliPluginEntryPoint();
 const IGNORE_PATH = path.resolve(WRAPPER_DIRECTORY, ".prettierignore");
 const INITIAL_WORKING_DIRECTORY = path.resolve(process.cwd());
 
-const FALLBACK_EXTENSIONS = Object.freeze([".gml"]);
+const FALLBACK_EXTENSIONS = Object.freeze([".gml"]); // TODO: We ONLY need to handle this extension; should not be considered 'fallback' we should remove the rest and user-option(s) to configure others
 
 const ParseErrorAction = Object.freeze({
     REVERT: "revert",
@@ -1971,16 +1966,6 @@ cliCommandRegistry.registerCommand({
     onError: (error) =>
         handleCliError(error, {
             prefix: "Failed to generate Feather metadata.",
-            exitCode: 1
-        })
-});
-
-cliCommandRegistry.registerCommand({
-    command: createFetchRuntimeCommand(),
-    run: ({ command }) => runFetchRuntimeCommand(command.opts()),
-    onError: (error) =>
-        handleCliError(error, {
-            prefix: "Failed to fetch HTML5 runtime.",
             exitCode: 1
         })
 });
