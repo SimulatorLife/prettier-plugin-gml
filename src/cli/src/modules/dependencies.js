@@ -28,7 +28,10 @@ export {
 
 // Plugin runtime helpers live in ./plugin-runtime-dependencies.js to keep this
 // bundle focused on shared CLI utilities.
-export { formatByteSize, formatBytes } from "../runtime-options/byte-format.js";
+export {
+    formatByteSize,
+    formatBytes
+} from "../shared/reporting/byte-format.js";
 
 export {
     DEFAULT_PROGRESS_BAR_WIDTH,

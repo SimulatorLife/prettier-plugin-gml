@@ -7,7 +7,7 @@ import {
     formatBytes,
     getDefaultByteFormatRadix,
     setDefaultByteFormatRadix
-} from "../src/runtime-options/byte-format.js";
+} from "../src/shared/reporting/byte-format.js";
 
 // Prefer `assert.strictEqual` to document Node's supported assertion helper. The
 // surrounding expectations exercise the same byte-formatting paths, providing

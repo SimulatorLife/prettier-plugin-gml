@@ -1,10 +1,10 @@
 import { Buffer } from "node:buffer";
-import { isFiniteNumber } from "../dependencies.js";
+import { isFiniteNumber } from "../../dependencies.js";
 import {
     coercePositiveInteger,
     createNumericTypeErrorFormatter
-} from "../shared/dependencies.js";
-import { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
+} from "../dependencies.js";
+import { createIntegerOptionToolkit } from "../../core/integer-option-toolkit.js";
 
 const BYTE_UNITS = Object.freeze(["B", "KB", "MB", "GB", "TB", "PB"]);
 const DEFAULT_BYTE_FORMAT_RADIX = 1024;
@@ -58,11 +58,12 @@ function resolveRadixOverride(radix, defaultRadix) {
 }
 
 /**
- * Format a byte count using human-readable units. The helper previously lived
- * in the shared numeric utilities even though only CLI reporting paths relied
- * on it. Co-locating the formatter with the rest of the CLI byte helpers keeps
- * the shared bundle focused on cross-environment primitives while retaining
- * backwards-compatible behaviour for command modules.
+ * Format a byte count using human-readable units. The helper lives in
+ * the CLI reporting utilities directory alongside time formatting helpers,
+ * keeping output formatting concerns grouped together. This separation from
+ * runtime options maintains a clear distinction between configuration and
+ * presentation logic while retaining backwards-compatible behaviour for
+ * command modules.
  *
  * @param {number | bigint | unknown} bytes Amount of data to format.
  * @param {object} [options]
@@ -113,12 +114,12 @@ function formatByteSize(
 }
 
 /**
- * Format UTF-8 text size using the CLI byte formatter. The helper previously
- * lived in the shared number utilities even though it relies on Node's
- * `Buffer` API, which is only available in the CLI/runtime tooling layer.
- * Co-locating it with the rest of the CLI byte helpers keeps the shared bundle
- * environment-agnostic while preserving the existing ergonomics for command
- * modules.
+ * Format UTF-8 text size using the CLI byte formatter. The helper lives in
+ * the CLI reporting utilities directory since it's used exclusively for
+ * output formatting. It relies on Node's `Buffer` API, which is only available
+ * in the CLI/runtime tooling layer. Co-locating it with other formatting
+ * utilities like time formatting keeps the shared bundle environment-agnostic
+ * while preserving the existing ergonomics for command modules.
  *
  * @param {string} text Text to measure.
  * @returns {string} Human-readable byte size string.
