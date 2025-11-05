@@ -2086,7 +2086,9 @@ function computeScalarRatioMetadata(
         return null;
     }
 
-    if (Math.abs(simplifiedNumerator) !== 1) {
+    const unitTolerance = computeNumericTolerance(1);
+    const absNumerator = Math.abs(simplifiedNumerator);
+    if (absNumerator < 1 - unitTolerance || absNumerator > 1 + unitTolerance) {
         return null;
     }
 
