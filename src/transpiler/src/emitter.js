@@ -420,6 +420,33 @@ export function emitJavaScript(ast) {
         return "continue";
     }
 
+    // Handle repeat statement - convert to for loop
+    if (ast.type === "RepeatStatement") {
+        let result = "for (let __repeat_count = ";
+
+        // Handle test expression (number of times to repeat)
+        if (ast.test) {
+            result +=
+                ast.test.type === "ParenthesizedExpression"
+                    ? emitJavaScript(ast.test.expression)
+                    : emitJavaScript(ast.test);
+        } else {
+            result += "0";
+        }
+
+        result += "; __repeat_count > 0; __repeat_count--)";
+
+        // Handle body
+        if (ast.body) {
+            result +=
+                ast.body.type === "BlockStatement"
+                    ? ` ${emitJavaScript(ast.body)}`
+                    : ` {\n${emitJavaScript(ast.body)};\n}`;
+        }
+
+        return result;
+    }
+
     // Handle switch statement
     if (ast.type === "SwitchStatement") {
         let result = "switch ";
@@ -439,7 +466,10 @@ export function emitJavaScript(ast) {
             result += ast.cases
                 .map((caseNode) => {
                     let caseStr = "";
-                    caseStr = caseNode.test === null ? "default:\n" : `case ${emitJavaScript(caseNode.test)}:\n`;
+                    caseStr =
+                        caseNode.test === null
+                            ? "default:\n"
+                            : `case ${emitJavaScript(caseNode.test)}:\n`;
 
                     // Handle case body
                     if (caseNode.body && caseNode.body.length > 0) {

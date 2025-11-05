@@ -66,6 +66,7 @@ const jsCode = emitJavaScript(ast);
 - ✅ Loop control:
   - ✅ break statements
   - ✅ continue statements
+- ✅ repeat loops (converted to for loops with countdown)
 - ✅ return statements (with and without values)
 - ✅ Parenthesized expressions
 - ✅ Block statements
@@ -74,7 +75,6 @@ const jsCode = emitJavaScript(ast);
 ### Planned Features
 
 - [ ] Function declarations
-- [ ] Additional control flow (repeat)
 - [ ] `with` statement lowering
 - [ ] Scope-aware identifier resolution (self, other, global)
 - [ ] Script call indirection through runtime wrapper
