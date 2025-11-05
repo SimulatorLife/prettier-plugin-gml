@@ -537,9 +537,14 @@ const skippedDirectorySummary = {
 
 let checkModeEnabled = false;
 let pendingFormatCount = 0;
+let formattedFileCount = 0;
 
 function resetCheckModeTracking() {
     pendingFormatCount = 0;
+}
+
+function resetFormattedFileTracking() {
+    formattedFileCount = 0;
 }
 
 function configureCheckMode(enabled) {
@@ -756,6 +761,7 @@ async function resetFormattingSession(onParseError) {
     resetIgnoreRuleNegations();
     encounteredFormattableFile = false;
     resetCheckModeTracking();
+    resetFormattedFileTracking();
 }
 
 /**
@@ -1262,6 +1268,7 @@ async function processFile(filePath, activeIgnorePaths = []) {
 
         await recordFormattedFileOriginalContents(filePath, data);
         await writeFile(filePath, formatted);
+        formattedFileCount += 1;
         console.log(`Formatted ${filePath}`);
     } catch (error) {
         await handleFormattingError(error, filePath);
@@ -1498,6 +1505,8 @@ function finalizeFormattingRun({
     if (encounteredFormattableFile) {
         if (checkModeEnabled) {
             logCheckModeSummary();
+        } else {
+            logWriteModeSummary();
         }
         logSkippedFileSummary();
     } else {
@@ -1684,6 +1693,16 @@ function logCheckModeSummary() {
     console.log(
         `${pendingFormatCount} ${label} formatting. Re-run without --check to write changes.`
     );
+}
+
+function logWriteModeSummary() {
+    if (formattedFileCount === 0) {
+        console.log("All matched files are already formatted.");
+        return;
+    }
+
+    const label = formattedFileCount === 1 ? "file" : "files";
+    console.log(`Formatted ${formattedFileCount} ${label}.`);
 }
 
 function logFormattingErrorSummary() {
