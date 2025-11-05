@@ -86,6 +86,7 @@ jobs:
             }
 
             const eligible = [];
+            let newestRunTs = null;
 
             for (const workflow of workflows) {
               if (!workflow || typeof workflow.name !== 'string') {
@@ -126,6 +127,10 @@ jobs:
                 core.warning(`Failed to query runs for ${workflowPath}: ${error.message}`);
               }
 
+              if (lastRunTs && (!newestRunTs || lastRunTs > newestRunTs)) {
+                newestRunTs = lastRunTs;
+              }
+
               if (lastRunTs && now - lastRunTs < minIntervalMs) {
                 continue;
               }
@@ -140,6 +145,16 @@ jobs:
 
             if (eligible.length === 0) {
               core.info('No workflows eligible this tick.');
+              core.setOutput('chosen_json', '[]');
+              core.setOutput('run_count', '0');
+              core.exportVariable('SCHEDULER_CHOSEN_JSON', '[]');
+              core.exportVariable('SCHEDULER_RUN_COUNT', '0');
+              return;
+            }
+
+            if (newestRunTs && now - newestRunTs < minIntervalMs) {
+              const minutesRemaining = ((minIntervalMs - (now - newestRunTs)) / 60000).toFixed(1);
+              core.info(`Global cooldown active for another ~${minutesRemaining} minutes; skipping dispatch.`);
               core.setOutput('chosen_json', '[]');
               core.setOutput('run_count', '0');
               core.exportVariable('SCHEDULER_CHOSEN_JSON', '[]');
