@@ -73,6 +73,17 @@ const definitions = tracker.getScopeDefinitions("scope-1");
 
 **Use case:** Identify what symbols are defined in a particular file or scope unit for hot reload coordination. When a file changes, query its scope's definitions to determine which symbols need to be recompiled and which dependent files need to be invalidated.
 
+### `getScopesForSymbol(name)`
+
+Get all scope IDs that contain occurrences (declarations or references) of a specific symbol. This method uses an internal index for O(1) average-case lookup, making it significantly faster than scanning all scopes.
+
+```javascript
+const scopeIds = tracker.getScopesForSymbol("myVariable");
+// Returns: ["scope-0", "scope-2", "scope-5"]
+```
+
+**Use case:** Hot reload invalidation optimization. When a symbol changes, quickly identify all scopes that need recompilation without iterating through the entire scope tree. This is particularly valuable for large projects where linear scans would be prohibitively expensive. The index-based lookup provides near-constant-time performance regardless of project size.
+
 ## Identifier Case Bootstrap Controls
 
 Formatter options that tune project discovery and cache behaviour now live in
