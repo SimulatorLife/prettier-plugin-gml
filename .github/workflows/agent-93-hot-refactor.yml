@@ -1,0 +1,21 @@
+name: Agent 93 – Refactor Engine Enhancements
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_agent-hot-feature-base.yml
+    secrets: inherit
+    with:
+      component: "refactor engine (src/refactor)"
+      extra_context: >
+        Focus on expanding the semantic-safe refactoring workflows, especially rename planning,
+        validation, and integration hooks needed for hot reload. Coordinate with the semantic
+        and transpiler packages where necessary, add targeted tests, and keep scope small but
+        meaningful.

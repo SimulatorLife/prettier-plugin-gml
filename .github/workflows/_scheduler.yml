@@ -1,0 +1,171 @@
+name: scheduler
+
+on:
+  schedule:
+    - cron: "*/30 * * * *" # Every 30 minutes
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  plan-and-dispatch:
+    runs-on: ubuntu-latest
+    env:
+      SCHEDULER_RUN_COUNT: '0'
+      SCHEDULER_CHOSEN_JSON: '[]'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Load workflow configuration
+        id: cfg
+        run: |
+          if [ ! -f .github/workflows/weights.json ]; then
+            echo "Configuration file .github/workflows/weights.json is missing" >&2
+            exit 1
+          fi
+          echo "cfg=$(jq -c . .github/workflows/weights.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Compute dispatch plan
+        id: plan
+        uses: actions/github-script@v7
+        env:
+          CFG_JSON: ${{ steps.cfg.outputs.cfg }}
+        with:
+          script: |
+            const crypto = require('crypto');
+
+            const cfgRaw = process.env.CFG_JSON;
+            const cfg = cfgRaw ? JSON.parse(cfgRaw) : {};
+            const workflows = Array.isArray(cfg.workflows) ? cfg.workflows : [];
+
+            core.exportVariable('SCHEDULER_CHOSEN_JSON', '[]');
+            core.exportVariable('SCHEDULER_RUN_COUNT', '0');
+
+            const candidates = [];
+
+            for (const workflow of workflows) {
+              if (!workflow || typeof workflow.name !== 'string') {
+                continue;
+              }
+
+              const workflowName = workflow.name;
+              const workflowFileName = workflowName.endsWith('.yml') ? workflowName : `${workflowName}.yml`;
+              const workflowPath = workflowFileName.startsWith('.github/workflows/')
+                ? workflowFileName
+                : `.github/workflows/${workflowFileName}`;
+
+              const weightValue = Number(workflow.weight);
+              if (!Number.isFinite(weightValue) || weightValue <= 0) {
+                core.warning(`Skipping workflow ${workflowPath} due to invalid weight.`);
+                continue;
+              }
+              candidates.push({
+                name: workflowName,
+                path: workflowPath,
+                weight: weightValue,
+                topic: workflow.topic ?? null,
+              });
+            }
+
+            if (candidates.length === 0) {
+              core.info('No eligible workflows in configuration.');
+              core.setOutput('chosen_json', '[]');
+              core.setOutput('run_count', '0');
+              core.exportVariable('SCHEDULER_CHOSEN_JSON', '[]');
+              core.exportVariable('SCHEDULER_RUN_COUNT', '0');
+              return;
+            }
+
+            const totalWeight = candidates.reduce((sum, item) => sum + item.weight, 0);
+            if (!Number.isFinite(totalWeight) || totalWeight <= 0) {
+              core.info('Aggregate weight of eligible workflows is zero; nothing to schedule.');
+              core.setOutput('chosen_json', '[]');
+              core.setOutput('run_count', '0');
+              core.exportVariable('SCHEDULER_CHOSEN_JSON', '[]');
+              core.exportVariable('SCHEDULER_RUN_COUNT', '0');
+              return;
+            }
+
+            const randomBytes = crypto.randomBytes(6);
+            const random = parseInt(randomBytes.toString('hex'), 16) / 0xFFFFFFFFFFFF;
+            let threshold = random * totalWeight;
+            let cumulative = 0;
+            let selected = null;
+            for (const workflow of candidates) {
+              cumulative += workflow.weight;
+              if (threshold <= cumulative) {
+                selected = workflow;
+                break;
+              }
+            }
+
+            if (!selected) {
+              selected = candidates[candidates.length - 1];
+            }
+
+            core.info(`Selected workflow ${selected.path} (weight=${selected.weight}) from total weight ${totalWeight.toFixed(6)} with draw ${random.toFixed(6)}.`);
+
+            const chosen = [selected];
+            core.setOutput('chosen_json', JSON.stringify(chosen));
+            core.setOutput('run_count', '1');
+            core.exportVariable('SCHEDULER_CHOSEN_JSON', JSON.stringify(chosen));
+            core.exportVariable('SCHEDULER_RUN_COUNT', '1');
+
+      - name: Dispatch workflows
+        if: ${{ env.SCHEDULER_RUN_COUNT != '' && env.SCHEDULER_RUN_COUNT != '0' }}
+        uses: actions/github-script@v7
+        env:
+          CHOSEN_JSON: ${{ env.SCHEDULER_CHOSEN_JSON || '[]' }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const chosen = JSON.parse(process.env.CHOSEN_JSON || '[]');
+            if (!Array.isArray(chosen) || chosen.length === 0) {
+              core.info('No workflows selected for dispatch.');
+              return;
+            }
+
+            let ref = context.ref;
+            if (!ref) {
+              const { data } = await github.rest.repos.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+              });
+              ref = data?.default_branch;
+            }
+
+            if (!ref) {
+              throw new Error('Unable to determine reference for workflow dispatch.');
+            }
+
+            if (ref.startsWith('refs/heads/')) {
+              ref = ref.replace('refs/heads/', '');
+            } else if (ref.startsWith('refs/tags/')) {
+              ref = ref.replace('refs/tags/', '');
+            }
+
+            for (const workflow of chosen) {
+              const baseDir = '.github/workflows/';
+              const workflowName = workflow.name || '';
+              const resolvedPath = workflow.path
+                || (workflowName.endsWith('.yml') ? `${baseDir}${workflowName}` : `${baseDir}${workflowName}.yml`);
+              const workflowId = resolvedPath.startsWith(baseDir)
+                ? resolvedPath.slice(baseDir.length)
+                : resolvedPath;
+
+              try {
+                await github.rest.actions.createWorkflowDispatch({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: workflowId,
+                  ref,
+                });
+                core.info(`Dispatched ${resolvedPath} via workflow_dispatch on ref ${ref}`);
+              } catch (error) {
+                core.warning(`Failed to dispatch ${resolvedPath}: ${error.message}`);
+              }
+            }
+

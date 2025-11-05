@@ -66,7 +66,7 @@ sheet, then return here when you need deeper context.
 ## Architecture & planning
 
 - [Architecture audit log](architecture-audit-log.md) — Daily architecture
-  snapshots collected in a single document. The `codex-78-architectural-audit`
+  snapshots collected in a single document. The `agent-78-architectural-audit`
   GitHub Action appends a fresh section to this file for each run. Start with
   the [October 23, 2025 entry](architecture-audit-log.md#2025-10-23--architecture-audit)
   for the current layout, then review earlier sections to see how the workspace
