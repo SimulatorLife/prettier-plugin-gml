@@ -1,11 +1,13 @@
-name: Auto merge agent/copilot branches
+name: Auto merge codex/copilot branches
 
 on:
-  workflow_run:
-    workflows:
-      - Auto-approve Copilot workflow runs
+  pull_request_target:
     types:
-      - completed
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+      - review_requested
   workflow_dispatch:
     inputs:
       pull_number:
@@ -24,7 +26,7 @@ jobs:
       - name: Attempt auto-merge
         uses: actions/github-script@v7
         env:
-          DISPATCH_PULL_NUMBER: ${{ inputs.pull_number || '' }}
+          DISPATCH_PULL_NUMBER: ${{ github.event.inputs.pull_number || '' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -40,30 +42,19 @@ jobs:
               if (dispatched) {
                 pull_number = Number(dispatched);
               }
-            } else if (eventName === 'workflow_run') {
-              const run = context.payload.workflow_run;
-              if (!run) {
-                core.info('No workflow_run payload; skipping auto-merge.');
+            } else if (eventName === 'pull_request_target') {
+              const prEvent = context.payload.pull_request;
+              if (!prEvent) {
+                core.info('No pull request in payload; skipping auto-merge.');
                 return;
               }
 
-              if (run.conclusion && run.conclusion !== 'success') {
-                core.info(`Upstream workflow concluded with status ${run.conclusion}; skipping auto-merge.`);
+              if (context.payload.action === 'closed') {
+                core.info('Pull request event is closed; skipping auto-merge.');
                 return;
               }
 
-              if (run.event !== 'pull_request_target') {
-                core.info(`Upstream workflow run event ${run.event} is not pull_request_target; skipping.`);
-                return;
-              }
-
-              const prInfo = Array.isArray(run.pull_requests) ? run.pull_requests[0] : null;
-              if (!prInfo?.number) {
-                core.info('No pull request associated with workflow_run; skipping auto-merge.');
-                return;
-              }
-
-              pull_number = prInfo.number;
+              pull_number = prEvent.number;
             }
 
             if (!pull_number) {
@@ -91,7 +82,7 @@ jobs:
               return;
             }
 
-            const prefixes = ['agent/', 'copilot/'];
+            const prefixes = ['codex/', 'copilot/'];
             const hasAllowedPrefix = (ref) => typeof ref === 'string' && prefixes.some((prefix) => ref.startsWith(prefix));
             if (!hasAllowedPrefix(pr.head?.ref) || !hasAllowedPrefix(pr.base?.ref)) {
               core.info('Branch prefixes do not match auto-merge policy; skipping.');

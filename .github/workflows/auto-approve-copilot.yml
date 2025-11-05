@@ -4,7 +4,7 @@ on:
   workflow_run:
     workflows:
       - scheduler
-      - Auto merge agent/copilot branches
+      - Auto merge codex/copilot branches
     types:
       - requested
 
