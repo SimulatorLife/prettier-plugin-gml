@@ -326,11 +326,10 @@ export function emitJavaScript(ast) {
         // `else` clause follows. JavaScript parsers can misassociate else clauses
         // with nested if-statements if braces are omitted.
         if (ast.consequent) {
-            if (ast.consequent.type === "BlockStatement") {
-                result += ` ${emitJavaScript(ast.consequent)}`;
-            } else {
-                result += ` {\n${emitJavaScript(ast.consequent)};\n}`;
-            }
+            result +=
+                ast.consequent.type === "BlockStatement"
+                    ? ` ${emitJavaScript(ast.consequent)}`
+                    : ` {\n${emitJavaScript(ast.consequent)};\n}`;
         }
 
         // Emit the alternate (the "else" branch) if present. We preserve `else if`
@@ -494,11 +493,9 @@ export function emitJavaScript(ast) {
         // valid JavaScript syntax and give the exception a named binding.
         if (ast.handler) {
             result += " catch";
-            if (ast.handler.param) {
-                result += ` (${emitJavaScript(ast.handler.param)})`;
-            } else {
-                result += " (err)";
-            }
+            result += ast.handler.param
+                ? ` (${emitJavaScript(ast.handler.param)})`
+                : " (err)";
             result +=
                 ast.handler.body.type === "BlockStatement"
                     ? ` ${emitJavaScript(ast.handler.body)}`

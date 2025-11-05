@@ -766,7 +766,11 @@ describe("Prettier wrapper CLI", () => {
             await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
 
             await execFileAsync("node", [wrapperPath], {
-                cwd: projectDirectory
+                cwd: projectDirectory,
+                env: {
+                    ...process.env,
+                    PRETTIER_PLUGIN_GML_DEFAULT_ACTION: "format"
+                }
             });
 
             const formatted = await fs.readFile(targetFile, "utf8");
@@ -1169,7 +1173,11 @@ describe("Prettier wrapper CLI", () => {
                 "node",
                 [wrapperPath],
                 {
-                    cwd: tempDirectory
+                    cwd: tempDirectory,
+                    env: {
+                        ...process.env,
+                        PRETTIER_PLUGIN_GML_DEFAULT_ACTION: "format"
+                    }
                 }
             );
 
@@ -1234,7 +1242,11 @@ describe("Prettier wrapper CLI", () => {
                 "node",
                 [wrapperPath],
                 {
-                    cwd: tempDirectory
+                    cwd: tempDirectory,
+                    env: {
+                        ...process.env,
+                        PRETTIER_PLUGIN_GML_DEFAULT_ACTION: "format"
+                    }
                 }
             );
 
@@ -1265,7 +1277,11 @@ describe("Prettier wrapper CLI", () => {
 
     it("describes the invocation directory explicitly when run from the repository root", async () => {
         const { stdout, stderr } = await execFileAsync("node", [wrapperPath], {
-            cwd: repoRootDirectory
+            cwd: repoRootDirectory,
+            env: {
+                ...process.env,
+                PRETTIER_PLUGIN_GML_DEFAULT_ACTION: "format"
+            }
         });
 
         assert.strictEqual(stderr, "", "Expected stderr to be empty");
@@ -1288,6 +1304,45 @@ describe("Prettier wrapper CLI", () => {
             ),
             "Expected stdout to repeat the CLI guidance when invoked from the repository root"
         );
+    });
+
+    it("shows help when invoked without arguments by default", async () => {
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            const { stdout, stderr } = await execFileAsync(
+                "node",
+                [wrapperPath],
+                {
+                    cwd: tempDirectory
+                }
+            );
+
+            assert.strictEqual(stderr, "", "Expected stderr to be empty");
+            assert.match(
+                stdout,
+                /Usage: prettier-plugin-gml \[command\] \[options\]/,
+                "Expected stdout to show help usage"
+            );
+            assert.match(
+                stdout,
+                /Commands:/,
+                "Expected stdout to list available commands"
+            );
+            assert.match(
+                stdout,
+                /format \[options\] \[targetPath\]/,
+                "Expected stdout to include format command"
+            );
+            assert.ok(
+                stdout.includes(
+                    "Run with a command name to get started (e.g., 'format --help' for formatting"
+                ),
+                "Expected stdout to guide users on how to get started"
+            );
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
     });
 
     it("surfaces common format examples in the help output", async () => {

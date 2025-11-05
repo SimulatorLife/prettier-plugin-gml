@@ -301,6 +301,11 @@ const DEFAULT_PRETTIER_LOG_LEVEL =
         fallback: "warn"
     }) ?? "warn";
 
+const DEFAULT_ACTION =
+    process.env.PRETTIER_PLUGIN_GML_DEFAULT_ACTION === "format"
+        ? "format"
+        : "help";
+
 const program = applyStandardCommandOptions(new Command())
     .name("prettier-plugin-gml")
     .usage("[command] [options]")
@@ -308,7 +313,9 @@ const program = applyStandardCommandOptions(new Command())
         [
             "Utilities for working with the prettier-plugin-gml project.",
             "Provides formatting, benchmarking, and manual data generation commands.",
-            "Defaults to running the format command when no command is provided."
+            DEFAULT_ACTION === "format"
+                ? "Defaults to running the format command when no command is provided."
+                : "Run with a command name to get started (e.g., 'format --help' for formatting options)."
         ].join(" \n")
     )
     .version(
@@ -1889,7 +1896,11 @@ function buildSkippedDirectorySummaryMessage() {
 
 function normalizeCommandLineArguments(argv) {
     if (!isNonEmptyArray(argv)) {
-        return [];
+        // When no arguments are provided, default behavior depends on
+        // PRETTIER_PLUGIN_GML_DEFAULT_ACTION environment variable.
+        // Default is to show help (user-friendly for first-time users).
+        // Set PRETTIER_PLUGIN_GML_DEFAULT_ACTION=format for legacy behavior.
+        return DEFAULT_ACTION === "format" ? [] : ["--help"];
     }
 
     if (argv[0] !== "help") {
