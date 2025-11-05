@@ -722,3 +722,118 @@ test("emitJavaScript handles nested try-catch blocks", () => {
     assert.ok(result.includes("inner()"), "Should include inner try block");
     assert.ok(result.includes("outer"), "Should include outer catch block");
 });
+
+test("emitJavaScript handles function declarations without parameters", () => {
+    const source = "function myFunction() { return 42; }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(
+        result.includes("function myFunction"),
+        "Should include function keyword and name"
+    );
+    assert.ok(result.includes("()"), "Should include empty parameter list");
+    assert.ok(result.includes("return 42"), "Should include function body");
+});
+
+test("emitJavaScript handles function declarations with parameters", () => {
+    const source = "function add(a, b) { return a + b; }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(
+        result.includes("function add"),
+        "Should include function keyword and name"
+    );
+    assert.ok(result.includes("(a, b)"), "Should include parameters");
+    assert.ok(result.includes("return"), "Should include return statement");
+    assert.ok(
+        result.includes("a + b") || result.includes("(a + b)"),
+        "Should include addition operation"
+    );
+});
+
+test("emitJavaScript handles function declarations with multiple statements", () => {
+    const source = "function process(x) { var y = x * 2; return y; }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(
+        result.includes("function process"),
+        "Should include function name"
+    );
+    assert.ok(result.includes("(x)"), "Should include parameter");
+    assert.ok(result.includes("var y"), "Should include variable declaration");
+    assert.ok(result.includes("return y"), "Should include return statement");
+});
+
+test("emitJavaScript handles function declarations with empty body", () => {
+    const source = "function emptyFunc() {}";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(
+        result.includes("function emptyFunc"),
+        "Should include function name"
+    );
+    assert.ok(result.includes("()"), "Should include empty parameter list");
+    assert.ok(
+        result.includes("{") && result.includes("}"),
+        "Should include braces for body"
+    );
+});
+
+test("emitJavaScript handles function declarations with control flow", () => {
+    const source =
+        "function checkValue(val) { if (val > 0) { return true; } return false; }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(
+        result.includes("function checkValue"),
+        "Should include function name"
+    );
+    assert.ok(result.includes("if"), "Should include if statement");
+    assert.ok(
+        result.includes("return true"),
+        "Should include conditional return"
+    );
+    assert.ok(result.includes("return false"), "Should include default return");
+});
+
+test("emitJavaScript handles nested function declarations", () => {
+    const source =
+        "function outer() { function inner() { return 1; } return inner(); }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(
+        result.includes("function outer"),
+        "Should include outer function"
+    );
+    assert.ok(
+        result.includes("function inner"),
+        "Should include inner function"
+    );
+    assert.ok(
+        result.includes("return inner()"),
+        "Should include inner function call"
+    );
+});
+
+test("emitJavaScript handles function with many parameters", () => {
+    const source =
+        "function multiParam(a, b, c, d, e) { return a + b + c + d + e; }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(
+        result.includes("function multiParam"),
+        "Should include function name"
+    );
+    assert.ok(
+        result.includes("a, b, c, d, e"),
+        "Should include all parameters"
+    );
+    assert.ok(result.includes("return"), "Should include return statement");
+});

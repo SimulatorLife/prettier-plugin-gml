@@ -611,6 +611,39 @@ export function emitJavaScript(ast) {
         return `{${properties}}`;
     }
 
+    // Handle function declarations
+    if (ast.type === "FunctionDeclaration") {
+        let result = "function ";
+
+        // Handle function name
+        if (ast.id) {
+            result +=
+                typeof ast.id === "string" ? ast.id : emitJavaScript(ast.id);
+        }
+
+        // Handle parameters
+        result += "(";
+        if (ast.params && ast.params.length > 0) {
+            const params = ast.params
+                .map((param) =>
+                    typeof param === "string" ? param : emitJavaScript(param)
+                )
+                .join(", ");
+            result += params;
+        }
+        result += ")";
+
+        // Handle body
+        if (ast.body) {
+            result +=
+                ast.body.type === "BlockStatement"
+                    ? ` ${emitJavaScript(ast.body)}`
+                    : ` {\n${emitJavaScript(ast.body)};\n}`;
+        }
+
+        return result;
+    }
+
     // Default: return empty string for unsupported nodes
     return "";
 }
