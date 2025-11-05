@@ -5,7 +5,6 @@ src/parser/node_modules/
 src/plugin/node_modules/
 src/cli/node_modules/
 src/parser/generated/
-src/cli/cache/
 dist/
 build/
 coverage/

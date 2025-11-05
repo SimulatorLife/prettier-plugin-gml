@@ -43,9 +43,6 @@ node src/cli/src/cli.js watch
 
 # Watch specific directory with verbose output
 node src/cli/src/cli.js watch /path/to/project --verbose
-
-# Skip runtime download (useful in CI environments)
-GML_RUNTIME_SKIP_DOWNLOAD=1 node src/cli/src/cli.js watch /path/to/project
 ```
 
 **Options:**
@@ -54,13 +51,6 @@ GML_RUNTIME_SKIP_DOWNLOAD=1 node src/cli/src/cli.js watch /path/to/project
 - `--polling` - Use polling instead of native file watching
 - `--polling-interval <ms>` - Polling interval in milliseconds (default: 1000)
 - `--verbose` - Enable verbose logging with detailed transpilation output
-- `--runtime-ref <ref>` - Git reference for HTML5 runtime
-- `--runtime-repo <owner/name>` - Repository hosting HTML5 runtime
-- `--runtime-cache <path>` - Override runtime cache directory
-- `--force-runtime-refresh` - Force re-download of runtime archive
-
-**Environment Variables:**
-- `GML_RUNTIME_SKIP_DOWNLOAD` - Set to `1` to skip runtime download (useful for testing transpilation only)
 
 **Example Output:**
 
@@ -111,28 +101,12 @@ Generates GML identifier metadata from the GameMaker manual repository.
 node src/cli/src/cli.js generate-gml-identifiers
 ```
 
-**Options:**
-- `--ref <branch|tag|commit>` - Target specific manual revision
-- `--force-refresh` - Bypass cached downloads
-
 ### `generate-feather-metadata` - Generate Feather Metadata
 
 Generates Feather metadata for GameMaker's static analysis.
 
 ```bash
 node src/cli/src/cli.js generate-feather-metadata
-```
-
-**Options:**
-- `--ref <branch|tag|commit>` - Target specific manual revision
-- `--force-refresh` - Bypass cached downloads
-
-### `runtime-fetch` - Download HTML5 Runtime
-
-Downloads and caches the GameMaker HTML5 runtime for hot-reload development.
-
-```bash
-node src/cli/src/cli.js runtime-fetch
 ```
 
 ### `performance` - Run Performance Benchmarks
@@ -211,9 +185,6 @@ npm run test:cli -- --watch
 # Create a test directory
 mkdir -p /tmp/gml-test
 echo "var x = 10; show_debug_message(x);" > /tmp/gml-test/test.gml
-
-# Start watching (skip runtime download for faster testing)
-GML_RUNTIME_SKIP_DOWNLOAD=1 node src/cli/src/cli.js watch /tmp/gml-test --verbose
 
 # In another terminal, modify the file to see transpilation
 echo "var y = 20;" >> /tmp/gml-test/test.gml
