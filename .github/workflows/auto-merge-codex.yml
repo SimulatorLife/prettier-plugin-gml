@@ -89,22 +89,43 @@ jobs:
             core.notice(`Marked PR #${pr.number} as ready for review after reviewer assignment.`);
 
   auto-merge:
-    if: >-
-      github.event.action != 'closed' &&
-      github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - name: Attempt auto-merge
-        if: ${{ github.event.pull_request.head.repo.full_name != '' && github.event.pull_request.base.repo.full_name != '' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.base.repo.full_name == github.repository && (startsWith(github.event.pull_request.head.ref, 'codex/') || startsWith(github.event.pull_request.head.ref, 'copilot/')) && (startsWith(github.event.pull_request.base.ref, 'codex/') || startsWith(github.event.pull_request.base.ref, 'copilot/')) && (github.event.action != 'ready_for_review' || (github.event.pull_request.changed_files != null && github.event.pull_request.changed_files > 0)) }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const pr = context.payload.pull_request;
+            if (!pr) {
+              core.info('No pull request in payload; skipping auto-merge.');
+              return;
+            }
+
             const repoContext = context.repo;
             const owner = repoContext.owner;
             const repo = repoContext.repo;
             const pull_number = pr.number;
+
+            if (context.payload.action === 'closed') {
+              core.info('Pull request event is for a closed PR; skipping auto-merge.');
+              return;
+            }
+
+            const repoFull = `${owner}/${repo}`.toLowerCase();
+            const headRepoFull = pr.head?.repo?.full_name?.toLowerCase() || '';
+            const baseRepoFull = pr.base?.repo?.full_name?.toLowerCase() || '';
+            if (headRepoFull !== repoFull || baseRepoFull !== repoFull) {
+              core.info('PR is not from this repository; skipping auto-merge.');
+              return;
+            }
+
+            const prefixes = ['codex/', 'copilot/'];
+            const hasAllowedPrefix = (ref) => typeof ref === 'string' && prefixes.some((prefix) => ref.startsWith(prefix));
+            if (!hasAllowedPrefix(pr.head?.ref) || !hasAllowedPrefix(pr.base?.ref)) {
+              core.info('Branch prefixes do not match auto-merge policy; skipping.');
+              return;
+            }
 
             function sleep(ms) {
               return new Promise(function (resolve) {
@@ -140,6 +161,16 @@ jobs:
 
             if (current.state !== 'open') {
               core.info('PR #' + pull_number + ' is no longer open.');
+              return;
+            }
+
+            if (current.draft) {
+              core.info('PR #' + pull_number + ' is still a draft; skipping merge.');
+              return;
+            }
+
+            if (!Number.isFinite(current.changed_files) || current.changed_files <= 0) {
+              core.info('PR #' + pull_number + ' has no changed files; skipping merge.');
               return;
             }
 
