@@ -263,8 +263,240 @@ export function emitJavaScript(ast) {
     }
 
     if (ast.type === "BlockStatement" && ast.body) {
-        const body = ast.body.map(emitJavaScript).filter(Boolean).join("\n");
+        const body = ast.body
+            .map((stmt) => {
+                const code = emitJavaScript(stmt);
+                // Add semicolon if not already present and not a block-like statement
+                if (
+                    code &&
+                    !code.endsWith(";") &&
+                    !code.endsWith("}") &&
+                    !code.trim().startsWith("if") &&
+                    !code.trim().startsWith("for") &&
+                    !code.trim().startsWith("while")
+                ) {
+                    return code + ";";
+                }
+                return code;
+            })
+            .filter(Boolean)
+            .join("\n");
         return `{\n${body}\n}`;
+    }
+
+    // Handle control flow statements
+    if (ast.type === "IfStatement") {
+        let result = "if ";
+
+        // Handle test condition
+        if (ast.test) {
+            result +=
+                ast.test.type === "ParenthesizedExpression"
+                    ? `(${emitJavaScript(ast.test.expression)})`
+                    : `(${emitJavaScript(ast.test)})`;
+        }
+
+        // Handle consequent
+        if (ast.consequent) {
+            if (ast.consequent.type === "BlockStatement") {
+                result += ` ${emitJavaScript(ast.consequent)}`;
+            } else {
+                // Single statement without braces
+                result += ` {\n${emitJavaScript(ast.consequent)};\n}`;
+            }
+        }
+
+        // Handle alternate (else clause)
+        if (ast.alternate) {
+            if (ast.alternate.type === "IfStatement") {
+                // else if
+                result += ` else ${emitJavaScript(ast.alternate)}`;
+            } else if (ast.alternate.type === "BlockStatement") {
+                result += ` else ${emitJavaScript(ast.alternate)}`;
+            } else {
+                // Single statement without braces
+                result += ` else {\n${emitJavaScript(ast.alternate)};\n}`;
+            }
+        }
+
+        return result;
+    }
+
+    if (ast.type === "ForStatement") {
+        let result = "for (";
+
+        // Handle init
+        if (ast.init) {
+            result += emitJavaScript(ast.init);
+        }
+        result += "; ";
+
+        // Handle test
+        if (ast.test) {
+            result += emitJavaScript(ast.test);
+        }
+        result += "; ";
+
+        // Handle update
+        if (ast.update) {
+            result += emitJavaScript(ast.update);
+        }
+        result += ")";
+
+        // Handle body
+        if (ast.body) {
+            result +=
+                ast.body.type === "BlockStatement"
+                    ? ` ${emitJavaScript(ast.body)}`
+                    : ` {\n${emitJavaScript(ast.body)};\n}`;
+        }
+
+        return result;
+    }
+
+    if (ast.type === "WhileStatement") {
+        let result = "while ";
+
+        // Handle test condition
+        if (ast.test) {
+            result +=
+                ast.test.type === "ParenthesizedExpression"
+                    ? `(${emitJavaScript(ast.test.expression)})`
+                    : `(${emitJavaScript(ast.test)})`;
+        }
+
+        // Handle body
+        if (ast.body) {
+            result +=
+                ast.body.type === "BlockStatement"
+                    ? ` ${emitJavaScript(ast.body)}`
+                    : ` {\n${emitJavaScript(ast.body)};\n}`;
+        }
+
+        return result;
+    }
+
+    if (ast.type === "DoUntilStatement") {
+        let result = "do";
+
+        // Handle body
+        if (ast.body) {
+            result +=
+                ast.body.type === "BlockStatement"
+                    ? ` ${emitJavaScript(ast.body)}`
+                    : ` {\n${emitJavaScript(ast.body)};\n}`;
+        }
+
+        result += " while (";
+
+        // Handle test condition - note: do-until is do-while with negated condition
+        if (ast.test) {
+            const testExpr =
+                ast.test.type === "ParenthesizedExpression"
+                    ? emitJavaScript(ast.test.expression)
+                    : emitJavaScript(ast.test);
+            result += `!(${testExpr})`;
+        }
+        result += ")";
+
+        return result;
+    }
+
+    // Handle return statement
+    if (ast.type === "ReturnStatement") {
+        if (ast.argument) {
+            return `return ${emitJavaScript(ast.argument)}`;
+        }
+        return "return";
+    }
+
+    // Handle break statement
+    if (ast.type === "BreakStatement") {
+        return "break";
+    }
+
+    // Handle continue statement
+    if (ast.type === "ContinueStatement") {
+        return "continue";
+    }
+
+    // Handle switch statement
+    if (ast.type === "SwitchStatement") {
+        let result = "switch ";
+
+        // Handle discriminant
+        if (ast.discriminant) {
+            result +=
+                ast.discriminant.type === "ParenthesizedExpression"
+                    ? `(${emitJavaScript(ast.discriminant.expression)})`
+                    : `(${emitJavaScript(ast.discriminant)})`;
+        }
+
+        result += " {\n";
+
+        // Handle cases
+        if (ast.cases && ast.cases.length > 0) {
+            result += ast.cases
+                .map((caseNode) => {
+                    let caseStr = "";
+                    caseStr = caseNode.test === null ? "default:\n" : `case ${emitJavaScript(caseNode.test)}:\n`;
+
+                    // Handle case body
+                    if (caseNode.body && caseNode.body.length > 0) {
+                        caseStr += caseNode.body
+                            .map((stmt) => {
+                                const code = emitJavaScript(stmt);
+                                // Add semicolon if not already present and not a break/continue/return
+                                if (
+                                    code &&
+                                    !code.endsWith(";") &&
+                                    !code.endsWith("}") &&
+                                    code !== "break" &&
+                                    code !== "continue" &&
+                                    !code.startsWith("return")
+                                ) {
+                                    return code + ";";
+                                }
+                                return code;
+                            })
+                            .filter(Boolean)
+                            .join("\n");
+                    }
+
+                    return caseStr;
+                })
+                .join("\n");
+        }
+
+        result += "\n}";
+        return result;
+    }
+
+    // Handle variable declarations
+    if (ast.type === "VariableDeclaration") {
+        const declarations = ast.declarations
+            .map((decl) => {
+                let result = emitJavaScript(decl.id);
+                if (decl.init) {
+                    result += ` = ${emitJavaScript(decl.init)}`;
+                }
+                return result;
+            })
+            .join(", ");
+        return `${ast.kind} ${declarations}`;
+    }
+
+    if (ast.type === "VariableDeclarator") {
+        let result = emitJavaScript(ast.id);
+        if (ast.init) {
+            result += ` = ${emitJavaScript(ast.init)}`;
+        }
+        return result;
+    }
+
+    // Handle parenthesized expressions
+    if (ast.type === "ParenthesizedExpression") {
+        return `(${emitJavaScript(ast.expression)})`;
     }
 
     // Default: return empty string for unsupported nodes
