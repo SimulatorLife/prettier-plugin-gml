@@ -6203,7 +6203,11 @@ function sanitizeMacroDeclaration(node, sourceText, diagnostic) {
 
     const originalText = sourceText.slice(startIndex, endIndex + 1);
 
-    // Only strip semicolons that appear at the end of the macro definition.
+    // Remove trailing semicolons from Feather macro definitions because the macro
+    // preprocessor already appends a semicolon during expansion. Leaving the source
+    // semicolon in place would double-terminate statements, causing syntax errors
+    // or unexpected expression boundaries. We only strip semicolons at the macro's
+    // end to preserve semicolons that appear within the macro body itself.
     const sanitizedText = originalText.replace(
         TRAILING_MACRO_SEMICOLON_PATTERN,
         ""

@@ -7871,7 +7871,11 @@ function shouldOmitSyntheticParens(path) {
         return false;
     }
 
-    // Only process synthetic parentheses for most cases
+    // Focus on synthetic parentheses (those inserted by the parser or formatter for
+    // precedence disambiguation) rather than explicit parentheses written by the
+    // user. Removing user-written parentheses could alter intended grouping or
+    // emphasis, while synthetic ones exist solely to clarify operator precedence
+    // and can be safely omitted when the context makes precedence unambiguous.
     const isSynthetic = node.synthetic === true;
 
     const parent = callPathMethod(path, "getParentNode", {

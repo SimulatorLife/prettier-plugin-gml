@@ -295,13 +295,19 @@ export class RefactorEngine {
             );
         }
 
-        // Extract symbol name from ID (e.g., "gml/script/scr_foo" -> "scr_foo")
+        // Extract the symbol's base name from its fully-qualified ID by taking the
+        // last path component. For example, "gml/script/scr_foo" becomes "scr_foo",
+        // which we use to search for all occurrences in the codebase.
         const symbolName = symbolId.split("/").pop();
 
-        // Gather all occurrences of this symbol
+        // Collect all occurrences (definitions and references) of the symbol across
+        // the workspace. This includes every location where the symbol appears, so
+        // the rename operation can update all references simultaneously.
         const occurrences = await this.gatherSymbolOccurrences(symbolName);
 
-        // Check for conflicts
+        // Detect potential conflicts (shadowing, reserved keywords, etc.) before
+        // applying edits. If conflicts exist, we abort the rename to prevent
+        // introducing scope errors or breaking existing code.
         const conflicts = await this.detectRenameConflicts(
             symbolName,
             newName,
@@ -315,10 +321,10 @@ export class RefactorEngine {
             );
         }
 
-        // Create workspace edit for the rename
+        // Build a workspace edit containing text edits for every occurrence. Each
+        // edit replaces the old symbol name with the new name at its source location.
         const workspace = new WorkspaceEdit();
 
-        // Generate edits for all safe rename sites
         for (const occurrence of occurrences) {
             workspace.addEdit(
                 occurrence.path,
@@ -351,18 +357,21 @@ export class RefactorEngine {
             return { valid: false, errors, warnings };
         }
 
-        // Group edits by file for validation
+        // Organize edits by file path so we can validate that edits within the same
+        // file don't overlap or conflict. Overlapping edits would produce ambiguous
+        // results (which edit wins?) and likely indicate a logic error in the rename.
         const grouped = workspace.groupByFile();
 
-        // Validate each file's edits don't overlap
+        // Examine each file's edit list for overlapping ranges. Since edits are
+        // sorted in descending order by start position, we can detect overlaps by
+        // checking whether the next edit's end position exceeds the current edit's
+        // start position. Overlaps indicate that two edits target overlapping or
+        // adjacent text spans, which would corrupt the output if applied naively.
         for (const [filePath, edits] of grouped.entries()) {
             for (let i = 0; i < edits.length - 1; i++) {
                 const current = edits[i];
                 const next = edits[i + 1];
 
-                // Check for overlapping ranges (edits are sorted descending by start)
-                // current.start >= next.start (since descending)
-                // Overlap occurs if next.end > current.start
                 if (next.end > current.start) {
                     errors.push(
                         `Overlapping edits detected in ${filePath} at positions ${current.start}-${next.end}`
@@ -370,7 +379,9 @@ export class RefactorEngine {
                 }
             }
 
-            // Warn if file has many edits (potential large-scale rename)
+            // Warn when a single file receives an unusually large number of edits,
+            // which could indicate that the rename is broader than intended (e.g.,
+            // renaming a common identifier like "i" across an entire project).
             if (edits.length > 50) {
                 warnings.push(
                     `Large number of edits (${edits.length}) planned for ${filePath}. ` +
@@ -428,7 +439,9 @@ export class RefactorEngine {
             );
         }
 
-        // Validate edits before applying
+        // Verify the workspace edit is structurally sound and free of conflicts
+        // before modifying any files. This prevents partial application of invalid
+        // edits that could leave the codebase in an inconsistent state.
         const validation = await this.validateRename(workspace);
         if (!validation.valid) {
             throw new Error(
@@ -436,16 +449,21 @@ export class RefactorEngine {
             );
         }
 
-        // Group edits by file
+        // Organize edits by file so we can process each file independently. This
+        // allows us to load, edit, and save one file at a time, reducing memory
+        // usage and enabling incremental progress reporting.
         const grouped = workspace.groupByFile();
         const results = new Map();
 
-        // Apply edits to each file
+        // Process each file by loading its current content, applying all edits for
+        // that file, and optionally writing the modified content back to disk.
         for (const [filePath, edits] of grouped.entries()) {
-            // Read current file content
             const originalContent = await readFile(filePath);
 
-            // Apply edits in reverse order (high to low offset) to maintain positions
+            // Apply edits from high to low offset (reverse order) so that earlier
+            // edits don't invalidate the offsets of later edits. When edits are
+            // sorted descending, modifying the end of the file first keeps positions
+            // at the beginning stable, eliminating the need to recalculate offsets.
             let newContent = originalContent;
             for (const edit of edits) {
                 newContent =
@@ -456,7 +474,8 @@ export class RefactorEngine {
 
             results.set(filePath, newContent);
 
-            // Write file if not in dry-run mode
+            // Write the modified content to disk unless we're in dry-run mode, which
+            // lets callers preview changes before committing them.
             if (!dryRun) {
                 await writeFile(filePath, newContent);
             }
@@ -501,7 +520,11 @@ export class RefactorEngine {
             }
         }
 
-        // Check for duplicate new names that would conflict
+        // Ensure no two renames target the same new name, which would cause
+        // multiple symbols to collide after the refactoring. For example, renaming
+        // both `foo` and `bar` to `baz` would leave only one symbol named `baz`,
+        // breaking references to the other. We detect this early to avoid
+        // generating a corrupted workspace edit.
         const newNames = new Set();
         for (const rename of renames) {
             const symbolName = rename.symbolId.split("/").pop();
@@ -513,14 +536,18 @@ export class RefactorEngine {
             newNames.add(rename.newName);
         }
 
-        // Plan each rename individually
+        // Plan each rename independently, collecting the resulting workspace edits.
+        // We defer merging until all renames are validated so that a single invalid
+        // rename doesn't invalidate the entire batch.
         const workspaces = [];
         for (const rename of renames) {
             const workspace = await this.planRename(rename);
             workspaces.push(workspace);
         }
 
-        // Merge all workspace edits
+        // Combine all workspace edits into a single merged edit that can be applied
+        // atomically. This ensures either all renames succeed together or none are
+        // applied, maintaining consistency.
         const merged = new WorkspaceEdit();
         for (const workspace of workspaces) {
             for (const edit of workspace.edits) {
