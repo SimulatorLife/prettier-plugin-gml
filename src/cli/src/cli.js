@@ -98,7 +98,7 @@ import {
     runFetchRuntimeCommand
 } from "./commands/fetch-runtime.js";
 import { createWatchCommand, runWatchCommand } from "./commands/watch.js";
-import { resolveCliIdentifierCaseCacheClearer } from "./plugin-runtime/services.js";
+import { clearIdentifierCaseCaches } from "./plugin-runtime/cache-clearer.js";
 import { isCliRunSkipped } from "./shared/dependencies.js";
 import {
     getDefaultIgnoredFileSampleLimit,
@@ -631,11 +631,6 @@ let revertSnapshotDirectoryPromise = null;
 let revertSnapshotDirectory = null;
 let revertSnapshotFileCount = 0;
 let encounteredFormattableFile = false;
-
-function clearIdentifierCaseCaches() {
-    const clearCaches = resolveCliIdentifierCaseCacheClearer();
-    clearCaches();
-}
 
 async function ensureRevertSnapshotDirectory() {
     if (revertSnapshotDirectory) {
