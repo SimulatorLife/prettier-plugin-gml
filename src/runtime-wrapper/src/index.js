@@ -95,7 +95,39 @@ function restoreSnapshot(registry, snapshot) {
     return registry;
 }
 
-export function createRuntimeWrapper({ registry, onPatchApplied } = {}) {
+function testPatchInShadow(patch) {
+    const shadowRegistry = {
+        version: 0,
+        scripts: Object.create(null),
+        events: Object.create(null),
+        closures: Object.create(null)
+    };
+
+    try {
+        switch (patch.kind) {
+            case "script": {
+                applyScriptPatch(shadowRegistry, patch);
+                break;
+            }
+            case "event": {
+                applyEventPatch(shadowRegistry, patch);
+                break;
+            }
+            default: {
+                throw new Error(`Unsupported patch kind: ${patch.kind}`);
+            }
+        }
+        return { valid: true };
+    } catch (error) {
+        return { valid: false, error: error.message };
+    }
+}
+
+export function createRuntimeWrapper({
+    registry,
+    onPatchApplied,
+    validateBeforeApply = false
+} = {}) {
     const state = {
         registry: registry ?? {
             version: 0,
@@ -104,11 +136,23 @@ export function createRuntimeWrapper({ registry, onPatchApplied } = {}) {
             closures: Object.create(null)
         },
         undoStack: [],
-        patchHistory: []
+        patchHistory: [],
+        options: {
+            validateBeforeApply
+        }
     };
 
     function applyPatch(patch) {
         validatePatch(patch);
+
+        if (state.options.validateBeforeApply) {
+            const testResult = testPatchInShadow(patch);
+            if (!testResult.valid) {
+                throw new Error(
+                    `Patch validation failed for ${patch.id}: ${testResult.error}`
+                );
+            }
+        }
 
         const snapshot = captureSnapshot(state.registry, patch);
         const timestamp = Date.now();
@@ -182,6 +226,74 @@ export function createRuntimeWrapper({ registry, onPatchApplied } = {}) {
         return { success: true, version: state.registry.version };
     }
 
+    function trySafeApply(patch, onValidate) {
+        validatePatch(patch);
+
+        const testResult = testPatchInShadow(patch);
+        if (!testResult.valid) {
+            return {
+                success: false,
+                error: testResult.error,
+                message: `Shadow validation failed: ${testResult.error}`
+            };
+        }
+
+        if (onValidate && typeof onValidate === "function") {
+            try {
+                const validationResult = onValidate(patch);
+                if (validationResult === false) {
+                    return {
+                        success: false,
+                        error: "Custom validation rejected patch",
+                        message: "Custom validation callback returned false"
+                    };
+                }
+            } catch (error) {
+                return {
+                    success: false,
+                    error: error.message,
+                    message: `Custom validation failed: ${error.message}`
+                };
+            }
+        }
+
+        const snapshot = captureSnapshot(state.registry, patch);
+        const previousVersion = state.registry.version;
+
+        try {
+            const result = applyPatch(patch);
+            return {
+                success: true,
+                version: result.version,
+                rolledBack: false
+            };
+        } catch (error) {
+            const restoredRegistry = restoreSnapshot(state.registry, snapshot);
+            state.registry = {
+                ...restoredRegistry,
+                version: previousVersion
+            };
+
+            state.patchHistory.push({
+                patch: {
+                    kind: patch.kind,
+                    id: patch.id
+                },
+                version: state.registry.version,
+                timestamp: Date.now(),
+                action: "rollback",
+                error: error.message
+            });
+
+            return {
+                success: false,
+                error: error.message,
+                message: `Patch failed and was rolled back: ${error.message}`,
+                rolledBack: true
+            };
+        }
+    }
+
     function getPatchHistory() {
         return [...state.patchHistory];
     }
@@ -252,6 +364,7 @@ export function createRuntimeWrapper({ registry, onPatchApplied } = {}) {
     return {
         state,
         applyPatch,
+        trySafeApply,
         undo,
         getPatchHistory,
         getRegistrySnapshot,
