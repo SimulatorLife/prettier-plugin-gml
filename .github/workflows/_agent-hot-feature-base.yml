@@ -1,0 +1,24 @@
+name: Agent – Hot Feature Base
+
+on:
+  workflow_call:
+    inputs:
+      component:
+        required: true
+        type: string
+      extra_context:
+        required: false
+        type: string
+        default: ""
+
+jobs:
+  run:
+    uses: ./.github/workflows/_agent-open-pr-and-ping.yml
+    secrets: inherit
+    with:
+      pr_title: "${{ format('Agent: Advance {0}', inputs.component) }}"
+      prompt: >
+        This project aims to deliver software through small, incremental improvements that each contributor can complete in a short session. The goal is to understand the project’s objectives, assess its current state, identify a manageable, high-impact task, and implement it fully with clean, maintainable code that advances the project. Work should align with the established architecture, follow existing coding standards, maintain consistency with the stack and dependencies, and preserve build and testing integrity. Each contributor begins by reviewing documentation, exploring the codebase, and verifying that the application builds and tests successfully. After familiarization, a contributor should identify several potential improvements, choose one that is small, valuable, and achievable within a session, and describe a brief plan before implementing it. Changes should be minimal in scope, focusing on correctness, readability, and stability. New code should include appropriate testing and documentation updates, and any modifications should not introduce new dependencies or break existing behavior. All code must meet formatting and linting rules, pass the full test suite, and improve or maintain performance. Tasks should target immediate roadmap goals, resolve bugs, or remove technical debt in the areas being touched. If a task cannot be completed confidently, stop early and clearly document the blockers or next steps. Each change should leave the repository better organized and more stable, allowing the next contributor to easily continue progress.
+
+        Focus area: ${{ inputs.component }}.
+        ${{ inputs.extra_context }}

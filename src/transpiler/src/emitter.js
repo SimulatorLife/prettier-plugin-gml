@@ -1,5 +1,3 @@
-import { GameMakerLanguageParserVisitor } from "gamemaker-language-parser";
-
 /**
  * Basic GML to JavaScript emitter that handles simple expressions and statements.
  * This provides utilities for mapping GML operators to JavaScript.
@@ -66,14 +64,14 @@ export class GmlEmitter {
      */
     visitBinaryExpression(ctx) {
         if (!ctx) return "";
-        
+
         const left = this.visit(ctx.left || ctx.getChild(0));
         const operator = ctx.op ? ctx.op.text : ctx.getChild(1).getText();
         const right = this.visit(ctx.right || ctx.getChild(2));
 
         // Handle GML-specific operators
         const jsOperator = this.mapOperator(operator);
-        
+
         return `(${left} ${jsOperator} ${right})`;
     }
 
@@ -82,10 +80,10 @@ export class GmlEmitter {
      */
     visitUnaryExpression(ctx) {
         if (!ctx) return "";
-        
+
         const operator = ctx.op ? ctx.op.text : ctx.getChild(0).getText();
         const operand = this.visit(ctx.expr || ctx.getChild(1));
-        
+
         const jsOperator = this.mapUnaryOperator(operator);
         return `${jsOperator}(${operand})`;
     }
@@ -95,7 +93,9 @@ export class GmlEmitter {
      */
     visitParenthesizedExpression(ctx) {
         if (!ctx) return "";
-        const expr = this.visit(ctx.expr || ctx.expression?.() || ctx.getChild(1));
+        const expr = this.visit(
+            ctx.expr || ctx.expression?.() || ctx.getChild(1)
+        );
         return `(${expr})`;
     }
 
@@ -104,12 +104,12 @@ export class GmlEmitter {
      */
     mapOperator(op) {
         const mapping = {
-            "div": "/",
-            "mod": "%",
-            "and": "&&",
-            "or": "||",
-            "xor": "^",
-            "not": "!",
+            div: "/",
+            mod: "%",
+            and: "&&",
+            or: "||",
+            xor: "^",
+            not: "!",
             "==": "===",
             "!=": "!=="
         };
@@ -121,7 +121,7 @@ export class GmlEmitter {
      */
     mapUnaryOperator(op) {
         const mapping = {
-            "not": "!",
+            not: "!",
             "~": "~",
             "-": "-",
             "+": "+"
@@ -134,11 +134,13 @@ export class GmlEmitter {
      */
     visitAssignmentExpression(ctx) {
         if (!ctx) return "";
-        
+
         const left = this.visit(ctx.left || ctx.lvalue?.() || ctx.getChild(0));
         const operator = ctx.op ? ctx.op.text : "=";
-        const right = this.visit(ctx.right || ctx.expression?.() || ctx.getChild(2));
-        
+        const right = this.visit(
+            ctx.right || ctx.expression?.() || ctx.getChild(2)
+        );
+
         return `${left} ${operator} ${right}`;
     }
 
@@ -147,7 +149,7 @@ export class GmlEmitter {
      */
     visitExpressionStatement(ctx) {
         if (!ctx) return "";
-        
+
         const expr = this.visit(ctx.expression?.() || ctx.getChild(0));
         this.emit(`${expr};`);
         return "";
@@ -158,7 +160,7 @@ export class GmlEmitter {
      */
     visitChildren(ctx) {
         if (!ctx) return "";
-        
+
         let result = "";
         for (let i = 0; i < ctx.getChildCount(); i++) {
             const child = ctx.getChild(i);
@@ -181,22 +183,22 @@ export class GmlEmitter {
 export function emitJavaScript(ast) {
     const emitter = new GmlEmitter();
     if (!ast) return "";
-    
+
     // Handle literal nodes
     if (ast.type === "Literal") {
         // GML parser returns literals as strings, emit them as-is
         return String(ast.value);
     }
-    
+
     if (ast.type === "Identifier") {
         return ast.name;
     }
-    
+
     // Handle identifier statement (bareword identifier as a statement)
     if (ast.type === "IdentifierStatement") {
         return emitJavaScript(ast.name) + ";";
     }
-    
+
     // Handle expression nodes
     if (ast.type === "BinaryExpression") {
         const left = emitJavaScript(ast.left);
@@ -204,24 +206,20 @@ export function emitJavaScript(ast) {
         const op = emitter.mapOperator(ast.operator);
         return `(${left} ${op} ${right})`;
     }
-    
+
     if (ast.type === "UnaryExpression") {
         const operand = emitJavaScript(ast.argument);
         const op = emitter.mapUnaryOperator(ast.operator);
-        if (ast.prefix !== false) {
-            return `${op}(${operand})`;
-        } else {
-            return `(${operand})${op}`;
-        }
+        return ast.prefix === false ? `(${operand})${op}` : `${op}(${operand})`;
     }
-    
+
     if (ast.type === "AssignmentExpression") {
         const left = emitJavaScript(ast.left);
         const right = emitJavaScript(ast.right);
         // Check if this is a statement-level assignment
         return `${left} ${ast.operator} ${right}`;
     }
-    
+
     if (ast.type === "ExpressionStatement") {
         return emitJavaScript(ast.expression) + ";";
     }
@@ -268,21 +266,24 @@ export function emitJavaScript(ast) {
     
     // Handle program/block nodes
     if (ast.type === "Program" && ast.body) {
-        return ast.body.map(stmt => {
-            const code = emitJavaScript(stmt);
-            // Add semicolon if not already present and not a block
-            if (code && !code.endsWith(";") && !code.endsWith("}")) {
-                return code + ";";
-            }
-            return code;
-        }).filter(Boolean).join("\n");
+        return ast.body
+            .map((stmt) => {
+                const code = emitJavaScript(stmt);
+                // Add semicolon if not already present and not a block
+                if (code && !code.endsWith(";") && !code.endsWith("}")) {
+                    return code + ";";
+                }
+                return code;
+            })
+            .filter(Boolean)
+            .join("\n");
     }
-    
+
     if (ast.type === "BlockStatement" && ast.body) {
         const body = ast.body.map(emitJavaScript).filter(Boolean).join("\n");
         return `{\n${body}\n}`;
     }
-    
+
     // Default: return empty string for unsupported nodes
     return "";
 }

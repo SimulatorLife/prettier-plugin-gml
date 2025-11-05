@@ -773,3 +773,16 @@ test("downgrades numbered triple-slash headings to standard comments", async () 
         )
     );
 });
+
+test("uses tolerance-aware comparison for ratio numerator simplification", async () => {
+    const source = ["var result = value / 1000 / 60;", ""].join("\n");
+
+    const formatted = await format(source, {
+        convertManualMathToBuiltins: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        ["var result = value * 0.000016666666667; (1/60000)", ""].join("\n")
+    );
+});

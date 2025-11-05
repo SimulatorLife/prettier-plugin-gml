@@ -103,13 +103,15 @@ export function createRuntimeWrapper({ registry, onPatchApplied } = {}) {
             events: Object.create(null),
             closures: Object.create(null)
         },
-        undoStack: []
+        undoStack: [],
+        patchHistory: []
     };
 
     function applyPatch(patch) {
         validatePatch(patch);
 
         const snapshot = captureSnapshot(state.registry, patch);
+        const timestamp = Date.now();
 
         try {
             let updatedRegistry;
@@ -132,6 +134,15 @@ export function createRuntimeWrapper({ registry, onPatchApplied } = {}) {
                 version: updatedRegistry.version + 1
             };
             state.undoStack.push(snapshot);
+            state.patchHistory.push({
+                patch: {
+                    kind: patch.kind,
+                    id: patch.id
+                },
+                version: state.registry.version,
+                timestamp,
+                action: "apply"
+            });
 
             if (onPatchApplied) {
                 onPatchApplied(patch, state.registry.version);
@@ -158,12 +169,72 @@ export function createRuntimeWrapper({ registry, onPatchApplied } = {}) {
             version: updatedRegistry.version + 1
         };
 
+        state.patchHistory.push({
+            patch: {
+                kind: snapshot.kind,
+                id: snapshot.id
+            },
+            version: state.registry.version,
+            timestamp: Date.now(),
+            action: "undo"
+        });
+
         return { success: true, version: state.registry.version };
+    }
+
+    function getPatchHistory() {
+        return [...state.patchHistory];
+    }
+
+    function getRegistrySnapshot() {
+        return {
+            version: state.registry.version,
+            scriptCount: Object.keys(state.registry.scripts).length,
+            eventCount: Object.keys(state.registry.events).length,
+            closureCount: Object.keys(state.registry.closures).length,
+            scripts: Object.keys(state.registry.scripts),
+            events: Object.keys(state.registry.events),
+            closures: Object.keys(state.registry.closures)
+        };
+    }
+
+    function getPatchStats() {
+        const stats = {
+            totalPatches: state.patchHistory.length,
+            appliedPatches: 0,
+            undonePatches: 0,
+            scriptPatches: 0,
+            eventPatches: 0,
+            uniqueIds: new Set()
+        };
+
+        for (const entry of state.patchHistory) {
+            if (entry.action === "apply") {
+                stats.appliedPatches++;
+            } else if (entry.action === "undo") {
+                stats.undonePatches++;
+            }
+
+            if (entry.patch.kind === "script") {
+                stats.scriptPatches++;
+            } else if (entry.patch.kind === "event") {
+                stats.eventPatches++;
+            }
+
+            stats.uniqueIds.add(entry.patch.id);
+        }
+
+        stats.uniqueIds = stats.uniqueIds.size;
+
+        return stats;
     }
 
     return {
         state,
         applyPatch,
-        undo
+        undo,
+        getPatchHistory,
+        getRegistrySnapshot,
+        getPatchStats
     };
 }
