@@ -224,6 +224,29 @@ export function emitJavaScript(ast) {
         return emitJavaScript(ast.expression) + ";";
     }
 
+    // Handle member access expressions
+    if (ast.type === "MemberIndexExpression") {
+        const object = emitJavaScript(ast.object);
+        // property is an array of index expressions
+        const indices = ast.property
+            .map((prop) => `[${emitJavaScript(prop)}]`)
+            .join("");
+        return `${object}${indices}`;
+    }
+
+    if (ast.type === "MemberDotExpression") {
+        const object = emitJavaScript(ast.object);
+        const property = emitJavaScript(ast.property);
+        return `${object}.${property}`;
+    }
+
+    // Handle function calls
+    if (ast.type === "CallExpression") {
+        const callee = emitJavaScript(ast.object);
+        const args = ast.arguments.map(emitJavaScript).join(", ");
+        return `${callee}(${args})`;
+    }
+
     // Handle program/block nodes
     if (ast.type === "Program" && ast.body) {
         return ast.body
