@@ -1,6 +1,12 @@
 name: Auto-approve Copilot workflow runs
 
 on:
+  workflow_run:
+    workflows:
+      - Auto-approve Copilot workflow runs
+      - Auto merge codex/copilot branches
+    types:
+      - requested
   pull_request_target:
     types:
       - reopened
@@ -13,13 +19,38 @@ permissions:
   pull-requests: write
 
 jobs:
+  authorize_run:
+    if: ${{ github.event_name == 'workflow_run' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Approve pending workflow run
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_USER_TOKEN }}
+          script: |
+            const run = context.payload.workflow_run;
+            if (!run?.id) {
+              core.info('No workflow_run.id; nothing to approve.');
+              return;
+            }
+
+            await github.request('POST /repos/{owner}/{repo}/actions/runs/{run_id}/approve', {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: run.id,
+            });
+
+            core.notice(`Auto-approved workflow run ${run.id} for "${run.name}" triggered by ${run.actor?.login}.`);
+
   approve:
+    # Allow both fork and same-repo PRs; guard by branch prefix only
     if: >-
       ${{
-        github.event.pull_request.head.repo.full_name == github.repository
-        && github.event.pull_request.base.repo.full_name == github.repository
-        && (startsWith(github.event.pull_request.head.ref, 'copilot/')
-          || startsWith(github.event.pull_request.head.ref, 'codex/'))
+        github.event_name == 'pull_request_target'
+        && (
+          startsWith(github.event.pull_request.head.ref, 'copilot/')
+          || startsWith(github.event.pull_request.head.ref, 'codex/')
+        )
       }}
     runs-on: ubuntu-latest
     steps:
