@@ -26,7 +26,8 @@ import {
     getNodeStartIndex,
     getNodeEndIndex,
     toMutableArray,
-    visitChildNodes
+    visitChildNodes,
+    isNonEmptyTrimmedString
 } from "../shared/index.js";
 import { annotateStaticFunctionOverrides } from "../ast-transforms/annotate-static-overrides.js";
 import {
@@ -1132,7 +1133,7 @@ function shouldPreserveCallWithMissingSeparators(node, originalText) {
             nextStart < originalText.length ? originalText[nextStart] : "";
 
         if (
-            between.trim().length === 0 &&
+            !isNonEmptyTrimmedString(between) &&
             isNumericBoundaryCharacter(previousChar) &&
             isNumericBoundaryCharacter(nextChar)
         ) {

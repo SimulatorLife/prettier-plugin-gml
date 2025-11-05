@@ -53,6 +53,7 @@ export {
     Option,
     parseJsonObjectWithContext,
     parseJsonWithContext,
+    pushUnique,
     resolveContainedRelativePath,
     resolveIntegerOption,
     resolveEnvironmentMap,

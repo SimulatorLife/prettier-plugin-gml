@@ -31,6 +31,7 @@ import {
     toTrimmedString,
     isFiniteNumber,
     asArray,
+    compactArray,
     isArrayIndex,
     isNonEmptyArray,
     ensureSet,
@@ -6078,7 +6079,7 @@ function extractFeatherPreprocessMetadata(metadata, key) {
 
     const entries = metadata[key];
 
-    return asArray(entries).filter(Boolean);
+    return compactArray(entries);
 }
 
 function normalizePreprocessedRange(entry) {
@@ -9011,7 +9012,7 @@ function extractConsequentAssignment(consequent) {
     }
 
     if (consequent.type === "BlockStatement") {
-        const statements = getBodyStatements(consequent).filter(Boolean);
+        const statements = compactArray(getBodyStatements(consequent));
 
         if (statements.length !== 1) {
             return null;
@@ -16007,7 +16008,7 @@ function createPrimitiveBeginCall(template) {
     const callExpression = {
         type: "CallExpression",
         object: identifier,
-        arguments: [primitiveType].filter(Boolean)
+        arguments: compactArray([primitiveType])
     };
 
     if (Object.hasOwn(template, "start")) {
