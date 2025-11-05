@@ -367,6 +367,115 @@ export class RefactorEngine {
     }
 
     /**
+     * Apply workspace edits to files.
+     * This method executes the planned changes, applying edits to source files.
+     * @param {WorkspaceEdit} workspace - The edits to apply
+     * @param {Object} options - Application options
+     * @param {boolean} options.dryRun - If true, return modified content without writing files
+     * @param {Function} options.readFile - Function to read file content (path) => string
+     * @param {Function} options.writeFile - Function to write file content (path, content) => void
+     * @returns {Promise<Map<string, string>>} Map of file paths to their new content
+     */
+    async applyWorkspaceEdit(workspace, options = {}) {
+        const { dryRun = false, readFile, writeFile } = options;
+
+        if (!workspace || !(workspace instanceof WorkspaceEdit)) {
+            throw new TypeError("applyWorkspaceEdit requires a WorkspaceEdit");
+        }
+
+        if (!readFile || typeof readFile !== "function") {
+            throw new TypeError(
+                "applyWorkspaceEdit requires a readFile function"
+            );
+        }
+
+        if (!dryRun && (!writeFile || typeof writeFile !== "function")) {
+            throw new TypeError(
+                "applyWorkspaceEdit requires a writeFile function when not in dry-run mode"
+            );
+        }
+
+        // Validate edits before applying
+        const validation = await this.validateRename(workspace);
+        if (!validation.valid) {
+            throw new Error(
+                `Cannot apply workspace edit: ${validation.errors.join("; ")}`
+            );
+        }
+
+        // Group edits by file
+        const grouped = workspace.groupByFile();
+        const results = new Map();
+
+        // Apply edits to each file
+        for (const [filePath, edits] of grouped.entries()) {
+            // Read current file content
+            const originalContent = await readFile(filePath);
+
+            // Apply edits in reverse order (high to low offset) to maintain positions
+            let newContent = originalContent;
+            for (const edit of edits) {
+                newContent =
+                    newContent.slice(0, edit.start) +
+                    edit.newText +
+                    newContent.slice(edit.end);
+            }
+
+            results.set(filePath, newContent);
+
+            // Write file if not in dry-run mode
+            if (!dryRun) {
+                await writeFile(filePath, newContent);
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * Execute a rename refactoring with optional hot reload integration.
+     * This is a high-level method that combines planning, validation, application, and hot reload preparation.
+     * @param {Object} request - Rename request
+     * @param {string} request.symbolId - Symbol to rename
+     * @param {string} request.newName - New name for the symbol
+     * @param {Function} request.readFile - Function to read file content
+     * @param {Function} request.writeFile - Function to write file content
+     * @param {boolean} request.prepareHotReload - Whether to prepare hot reload updates
+     * @returns {Promise<{workspace: WorkspaceEdit, applied: Map<string, string>, hotReloadUpdates: Array}>}
+     */
+    async executeRename(request) {
+        const {
+            symbolId,
+            newName,
+            readFile,
+            writeFile,
+            prepareHotReload = false
+        } = request ?? {};
+
+        if (!symbolId || !newName) {
+            throw new TypeError("executeRename requires symbolId and newName");
+        }
+
+        // Plan the rename
+        const workspace = await this.planRename({ symbolId, newName });
+
+        // Apply the edits
+        const applied = await this.applyWorkspaceEdit(workspace, {
+            readFile,
+            writeFile,
+            dryRun: false
+        });
+
+        // Prepare hot reload updates if requested
+        let hotReloadUpdates = [];
+        if (prepareHotReload) {
+            hotReloadUpdates = await this.prepareHotReloadUpdates(workspace);
+        }
+
+        return { workspace, applied, hotReloadUpdates };
+    }
+
+    /**
      * Prepare integration data for hot reload after a refactor.
      * Analyzes changed files to determine which symbols need recompilation.
      * @param {WorkspaceEdit} workspace - Applied edits
@@ -442,6 +551,79 @@ export class RefactorEngine {
         }
 
         return updates;
+    }
+
+    /**
+     * Integrate refactor results with the transpiler for hot reload.
+     * Takes hot reload updates and generates transpiled patches.
+     * @param {Array<{symbolId: string, action: string, filePath: string}>} hotReloadUpdates - Updates from prepareHotReloadUpdates
+     * @param {Function} readFile - Function to read file content
+     * @returns {Promise<Array<{symbolId: string, patch: Object, filePath: string}>>}
+     */
+    async generateTranspilerPatches(hotReloadUpdates, readFile) {
+        if (!Array.isArray(hotReloadUpdates)) {
+            throw new TypeError(
+                "generateTranspilerPatches requires an array of hot reload updates"
+            );
+        }
+
+        if (!readFile || typeof readFile !== "function") {
+            throw new TypeError(
+                "generateTranspilerPatches requires a readFile function"
+            );
+        }
+
+        const patches = [];
+
+        for (const update of hotReloadUpdates) {
+            // Only generate patches for recompile actions
+            if (update.action !== "recompile") {
+                continue;
+            }
+
+            try {
+                // Read the updated file content
+                const sourceText = await readFile(update.filePath);
+
+                // Generate transpiler patch if transpiler is available
+                if (
+                    this.formatter &&
+                    typeof this.formatter.transpileScript === "function"
+                ) {
+                    const patch = await this.formatter.transpileScript({
+                        sourceText,
+                        symbolId: update.symbolId
+                    });
+
+                    patches.push({
+                        symbolId: update.symbolId,
+                        patch,
+                        filePath: update.filePath
+                    });
+                } else {
+                    // Create a basic patch structure without transpilation
+                    patches.push({
+                        symbolId: update.symbolId,
+                        patch: {
+                            kind: "script",
+                            id: update.symbolId,
+                            sourceText,
+                            version: Date.now()
+                        },
+                        filePath: update.filePath
+                    });
+                }
+            } catch (error) {
+                // Log error but continue processing other updates
+                if (typeof console !== "undefined" && console.warn) {
+                    console.warn(
+                        `Failed to generate patch for ${update.symbolId}: ${error.message}`
+                    );
+                }
+            }
+        }
+
+        return patches;
     }
 }
 
