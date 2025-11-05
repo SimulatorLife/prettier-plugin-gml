@@ -142,7 +142,7 @@ for (var i = 0; i < queue_count; i += 1) {
   workspace scripts for new teammates.
 - [Architecture audit log](docs/architecture-audit-log.md) &mdash; Consolidated
   repository health checks with dated entries. The scheduled
-  `codex-78-architectural-audit` workflow appends its results here instead of
+  `agent-78-architectural-audit` workflow appends its results here instead of
   opening per-day files. Review the
   [shared module layout refresh](docs/shared-module-layout.md) for historical
   context around the `src/shared/src/` consolidation. Pair it with the

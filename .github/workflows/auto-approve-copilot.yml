@@ -1,0 +1,187 @@
+name: Auto-approve Copilot workflow runs
+
+on:
+  workflow_run:
+    workflows:
+      - Auto merge codex/copilot branches
+    types:
+      - requested
+  pull_request_target:
+    types:
+      - reopened
+      - ready_for_review
+      - review_requested
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+
+jobs:
+  authorize_run:
+    if: ${{ github.event_name == 'workflow_run' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Approve pending workflow run
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_USER_TOKEN }}
+          script: |
+            const run = context.payload.workflow_run;
+            if (!run?.id) {
+              core.info('No workflow_run.id; nothing to approve.');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const localFullName = `${owner}/${repo}`.toLowerCase();
+            const headRepoFullName = (run.head_repository?.full_name || '').toLowerCase();
+
+            if (!headRepoFullName || headRepoFullName === localFullName) {
+              core.info(`Workflow run ${run.id} originates from ${headRepoFullName || 'unknown repo'}; skipping approval.`);
+              return;
+            }
+
+            try {
+              await github.request('POST /repos/{owner}/{repo}/actions/runs/{run_id}/approve', {
+                owner,
+                repo,
+                run_id: run.id,
+              });
+              core.notice(`Auto-approved workflow run ${run.id} for "${run.name}" triggered by ${run.actor?.login}.`);
+            } catch (error) {
+              const message = error?.response?.data?.message || error?.message || '';
+              if (error?.status === 403 && message.includes('not waiting for approval')) {
+                core.info(`Workflow run ${run.id} is not awaiting approval; skipping.`);
+                return;
+              }
+              throw error;
+            }
+
+  approve:
+    # Allow both fork and same-repo PRs; guard by branch prefix only
+    if: >-
+      ${{
+        github.event_name == 'pull_request_target'
+        && (
+          startsWith(github.event.pull_request.head.ref, 'copilot/')
+          || startsWith(github.event.pull_request.head.ref, 'codex/')
+        )
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Approve pull request as maintainer
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_USER_TOKEN }}
+          script: |
+            const action = context.payload.action;
+            const { pull_request: prEvent, requested_reviewer } = context.payload;
+            if (!prEvent?.number) {
+              core.info('No pull request payload; skipping.');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const pull_number = prEvent.number;
+
+            const prefixes = ['codex/', 'copilot/'];
+            const hasAllowedPrefix = (ref) => typeof ref === 'string' && prefixes.some((prefix) => ref.startsWith(prefix));
+
+            const { data: initialPr } = await github.rest.pulls.get({ owner, repo, pull_number });
+            if (initialPr.state !== 'open') {
+              core.info(`PR #${pull_number} is ${initialPr.state}; skipping approval.`);
+              return;
+            }
+
+            const { data: authUser } = await github.rest.users.getAuthenticated();
+            const reviewerLogin = authUser?.login;
+            if (!reviewerLogin) {
+              core.warning('Unable to resolve authenticated user for review approval.');
+              return;
+            }
+
+            const reviewerLower = reviewerLogin.toLowerCase();
+            const wasExplicitRequest = action === 'review_requested'
+              ? (requested_reviewer?.login || '').toLowerCase() === reviewerLower
+              : (Array.isArray(initialPr.requested_reviewers)
+                && initialPr.requested_reviewers.some((user) => user?.login?.toLowerCase() === reviewerLower));
+
+            if (!wasExplicitRequest) {
+              core.info(`Authenticated user ${reviewerLogin} was not requested for PR #${pull_number}; skipping.`);
+              return;
+            }
+
+            let pr = initialPr;
+
+            const publishDraftIfPossible = async (candidate) => {
+              if (!candidate?.draft) {
+                return candidate;
+              }
+
+              const repoFull = `${owner}/${repo}`.toLowerCase();
+              const headRepoFull = candidate.head?.repo?.full_name?.toLowerCase() || '';
+              const baseRepoFull = candidate.base?.repo?.full_name?.toLowerCase() || '';
+              const hasChangedFiles = Number.isFinite(candidate.changed_files) && candidate.changed_files > 0;
+              const eligiblePrefixes = hasAllowedPrefix(candidate.head?.ref);
+              const sameRepo = headRepoFull === repoFull && baseRepoFull === repoFull;
+
+              if (!(hasChangedFiles && eligiblePrefixes && sameRepo)) {
+                core.info(
+                  `PR #${pull_number} draft skipped auto-publish (eligiblePrefixes=${eligiblePrefixes}, sameRepo=${sameRepo}, changedFiles=${hasChangedFiles}).`
+                );
+                return candidate;
+              }
+
+              try {
+                await github.graphql(
+                  `mutation($pullRequestId: ID!) {
+                    markPullRequestReadyForReview(input: { pullRequestId: $pullRequestId }) {
+                      pullRequest { number }
+                    }
+                  }`,
+                  { pullRequestId: candidate.node_id }
+                );
+                core.notice(`Marked PR #${pull_number} ready for review.`);
+
+                const refreshed = await github.rest.pulls.get({ owner, repo, pull_number });
+                return refreshed.data;
+              } catch (error) {
+                core.warning(`Unable to publish PR #${pull_number}: ${error.message}`);
+                return candidate;
+              }
+            };
+
+            const { data: reviews } = await github.rest.pulls.listReviews({
+              owner,
+              repo,
+              pull_number,
+              per_page: 100,
+            });
+
+            const latestSha = pr.head?.sha;
+            const hasFreshApproval = Array.isArray(reviews)
+              && reviews.some((review) => review.user?.login === reviewerLogin
+                && review.state === 'APPROVED'
+                && review.commit_id === latestSha);
+
+            if (hasFreshApproval) {
+              core.info(`PR #${pull_number} already has an approval from ${reviewerLogin} on the latest commit.`);
+            } else {
+              await github.rest.pulls.createReview({
+                owner,
+                repo,
+                pull_number,
+                event: 'APPROVE',
+              });
+
+              core.notice(`Approved PR #${pull_number} as ${reviewerLogin}.`);
+            }
+
+            pr = await publishDraftIfPossible(pr);
+
+            if (pr.draft) {
+              core.warning(`PR #${pull_number} remains a draft after auto-publish attempt.`);
+            } else {
+              core.info(`PR #${pull_number} is ready for review.`);
+            }

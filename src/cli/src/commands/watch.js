@@ -139,7 +139,8 @@ export async function runWatchCommand(targetPath, options) {
         extensions = [".gml"],
         polling = false,
         pollingInterval = 1000,
-        verbose = false
+        verbose = false,
+        abortSignal
     } = options;
 
     const normalizedPath = await validateTargetPath(targetPath);
@@ -160,53 +161,97 @@ export async function runWatchCommand(targetPath, options) {
         recursive: true,
         ...(polling && { persistent: true })
     };
+    let watcher;
+    let resolved = false;
 
-    const watcher = watch(
-        normalizedPath,
-        watchOptions,
-        (eventType, filename) => {
-            if (!filename || !extensionSet.has(path.extname(filename))) {
+    return new Promise((resolve) => {
+        let removeAbortListener = () => {};
+
+        const cleanup = (exitCode = 0) => {
+            if (resolved) {
+                return;
+            }
+            resolved = true;
+
+            if (verbose) {
+                console.log("\nStopping watcher...");
+            }
+
+            if (watcher) {
+                watcher.close();
+            }
+
+            process.off("SIGINT", handleSigint);
+            process.off("SIGTERM", handleSigterm);
+            removeAbortListener();
+
+            if (abortSignal) {
+                resolve();
                 return;
             }
 
-            const fullPath = path.join(normalizedPath, filename);
+            resolve();
+            process.exit(exitCode);
+        };
 
-            if (verbose) {
-                console.log(
-                    `[${new Date().toISOString()}] ${eventType}: ${filename}`
-                );
-            } else {
-                console.log(`Changed: ${filename}`);
+        const handleSigint = () => cleanup(0);
+        const handleSigterm = () => cleanup(0);
+
+        process.on("SIGINT", handleSigint);
+        process.on("SIGTERM", handleSigterm);
+
+        if (abortSignal) {
+            if (abortSignal.aborted) {
+                cleanup(0);
+                return;
             }
 
-            // Future: Trigger transpiler, semantic analysis, and patch streaming
-            // For now, we just detect and report changes
-            handleFileChange(fullPath, eventType, { verbose }).catch(
-                (error) => {
-                    console.error(
-                        `Error processing ${filename}:`,
-                        error.message
-                    );
+            const abortHandler = () => {
+                cleanup(0);
+            };
+
+            abortSignal.addEventListener("abort", abortHandler, {
+                once: true
+            });
+
+            removeAbortListener = () => {
+                abortSignal.removeEventListener("abort", abortHandler);
+            };
+        }
+
+        watcher = watch(
+            normalizedPath,
+            {
+                ...watchOptions,
+                ...(abortSignal && { signal: abortSignal })
+            },
+            (eventType, filename) => {
+                if (!filename || !extensionSet.has(path.extname(filename))) {
+                    return;
                 }
-            );
-        }
-    );
 
-    // Handle termination
-    const cleanup = () => {
-        if (verbose) {
-            console.log("\nStopping watcher...");
-        }
-        watcher.close();
-        process.exit(0);
-    };
+                const fullPath = path.join(normalizedPath, filename);
 
-    process.on("SIGINT", cleanup);
-    process.on("SIGTERM", cleanup);
+                if (verbose) {
+                    console.log(
+                        `[${new Date().toISOString()}] ${eventType}: ${filename}`
+                    );
+                } else {
+                    console.log(`Changed: ${filename}`);
+                }
 
-    // Keep the process alive
-    return new Promise(() => {
-        // This promise never resolves; the watcher runs until interrupted
+                // Future: Trigger transpiler, semantic analysis, and patch streaming
+                // For now, we just detect and report changes
+                handleFileChange(fullPath, eventType, { verbose }).catch(
+                    (error) => {
+                        console.error(
+                            `Error processing ${filename}:`,
+                            error.message
+                        );
+                    }
+                );
+            }
+        );
     });
 }
 

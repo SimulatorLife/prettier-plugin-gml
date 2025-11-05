@@ -39,8 +39,8 @@ test("applyPatch handles script patches", () => {
     const result = wrapper.applyPatch(patch);
     assert.ok(result.success);
     assert.strictEqual(result.version, 1);
-    assert.strictEqual(wrapper.state.registry.version, 1);
-    assert.ok(wrapper.state.registry.scripts["script:test_func"]);
+    assert.strictEqual(wrapper.getVersion(), 1);
+    assert.ok(wrapper.hasScript("script:test_func"));
 });
 
 test("script patch function executes correctly", () => {
@@ -52,7 +52,7 @@ test("script patch function executes correctly", () => {
     };
 
     wrapper.applyPatch(patch);
-    const fn = wrapper.state.registry.scripts["script:add"];
+    const fn = wrapper.getScript("script:add");
     const result = fn(null, null, [5, 3]);
     assert.strictEqual(result, 8);
 });
@@ -68,7 +68,7 @@ test("applyPatch handles event patches", () => {
     const result = wrapper.applyPatch(patch);
     assert.ok(result.success);
     assert.strictEqual(result.version, 1);
-    assert.ok(wrapper.state.registry.events["obj_player#Step"]);
+    assert.ok(wrapper.hasEvent("obj_player#Step"));
 });
 
 test("event patch function executes correctly", () => {
@@ -80,7 +80,7 @@ test("event patch function executes correctly", () => {
     };
 
     wrapper.applyPatch(patch);
-    const fn = wrapper.state.registry.events["obj_test#Create"];
+    const fn = wrapper.getEvent("obj_test#Create");
     const context = { initialized: false };
     const result = fn.call(context);
     assert.strictEqual(result, true);
@@ -110,21 +110,21 @@ test("applyPatch requires js_body for event patches", () => {
 
 test("applyPatch increments version on each patch", () => {
     const wrapper = createRuntimeWrapper();
-    assert.strictEqual(wrapper.state.registry.version, 0);
+    assert.strictEqual(wrapper.getVersion(), 0);
 
     wrapper.applyPatch({
         kind: "script",
         id: "script:a",
         js_body: "return 1;"
     });
-    assert.strictEqual(wrapper.state.registry.version, 1);
+    assert.strictEqual(wrapper.getVersion(), 1);
 
     wrapper.applyPatch({
         kind: "script",
         id: "script:b",
         js_body: "return 2;"
     });
-    assert.strictEqual(wrapper.state.registry.version, 2);
+    assert.strictEqual(wrapper.getVersion(), 2);
 });
 
 test("applyPatch calls onPatchApplied callback", () => {
@@ -158,11 +158,11 @@ test("undo reverts last patch", () => {
     };
 
     wrapper.applyPatch(patch);
-    assert.ok(wrapper.state.registry.scripts["script:test"]);
+    assert.ok(wrapper.hasScript("script:test"));
 
     const result = wrapper.undo();
     assert.ok(result.success);
-    assert.ok(!wrapper.state.registry.scripts["script:test"]);
+    assert.ok(!wrapper.hasScript("script:test"));
 });
 
 test("undo handles multiple patches", () => {
@@ -180,15 +180,15 @@ test("undo handles multiple patches", () => {
         js_body: "return 2;"
     });
 
-    assert.ok(wrapper.state.registry.scripts["script:a"]);
-    assert.ok(wrapper.state.registry.scripts["script:b"]);
+    assert.ok(wrapper.hasScript("script:a"));
+    assert.ok(wrapper.hasScript("script:b"));
 
     wrapper.undo();
-    assert.ok(wrapper.state.registry.scripts["script:a"]);
-    assert.ok(!wrapper.state.registry.scripts["script:b"]);
+    assert.ok(wrapper.hasScript("script:a"));
+    assert.ok(!wrapper.hasScript("script:b"));
 
     wrapper.undo();
-    assert.ok(!wrapper.state.registry.scripts["script:a"]);
+    assert.ok(!wrapper.hasScript("script:a"));
 });
 
 test("undo fails when nothing to undo", () => {
@@ -207,7 +207,7 @@ test("undo restores previous version of patched script", () => {
         js_body: "return 1;"
     });
 
-    const fn1 = wrapper.state.registry.scripts["script:test"];
+    const fn1 = wrapper.getScript("script:test");
     assert.strictEqual(fn1(null, null, []), 1);
 
     wrapper.applyPatch({
@@ -216,11 +216,183 @@ test("undo restores previous version of patched script", () => {
         js_body: "return 2;"
     });
 
-    const fn2 = wrapper.state.registry.scripts["script:test"];
+    const fn2 = wrapper.getScript("script:test");
     assert.strictEqual(fn2(null, null, []), 2);
 
     wrapper.undo();
-    const fn3 = wrapper.state.registry.scripts["script:test"];
+    const fn3 = wrapper.getScript("script:test");
     assert.strictEqual(fn3(null, null, []), 1);
     assert.strictEqual(fn3, fn1);
+});
+
+test("getPatchHistory returns diagnostic information", () => {
+    const wrapper = createRuntimeWrapper();
+    assert.strictEqual(typeof wrapper.getPatchHistory, "function");
+
+    const history = wrapper.getPatchHistory();
+    assert.ok(Array.isArray(history));
+    assert.strictEqual(history.length, 0);
+});
+
+test("getPatchHistory tracks applied patches", () => {
+    const wrapper = createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test",
+        js_body: "return 1;"
+    });
+
+    const history = wrapper.getPatchHistory();
+    assert.strictEqual(history.length, 1);
+    assert.strictEqual(history[0].patch.kind, "script");
+    assert.strictEqual(history[0].patch.id, "script:test");
+    assert.strictEqual(history[0].version, 1);
+    assert.strictEqual(history[0].action, "apply");
+    assert.ok(typeof history[0].timestamp === "number");
+});
+
+test("getPatchHistory tracks multiple patches in order", () => {
+    const wrapper = createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:a",
+        js_body: "return 1;"
+    });
+
+    wrapper.applyPatch({
+        kind: "event",
+        id: "obj_test#Create",
+        js_body: "this.x = 0;"
+    });
+
+    const history = wrapper.getPatchHistory();
+    assert.strictEqual(history.length, 2);
+    assert.strictEqual(history[0].patch.id, "script:a");
+    assert.strictEqual(history[1].patch.id, "obj_test#Create");
+    assert.ok(history[0].timestamp <= history[1].timestamp);
+});
+
+test("getPatchHistory tracks undo operations", () => {
+    const wrapper = createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test",
+        js_body: "return 1;"
+    });
+
+    wrapper.undo();
+
+    const history = wrapper.getPatchHistory();
+    assert.strictEqual(history.length, 2);
+    assert.strictEqual(history[0].action, "apply");
+    assert.strictEqual(history[1].action, "undo");
+    assert.strictEqual(history[1].patch.id, "script:test");
+});
+
+test("getRegistrySnapshot returns diagnostic information", () => {
+    const wrapper = createRuntimeWrapper();
+    assert.strictEqual(typeof wrapper.getRegistrySnapshot, "function");
+
+    const snapshot = wrapper.getRegistrySnapshot();
+    assert.strictEqual(typeof snapshot, "object");
+    assert.strictEqual(snapshot.version, 0);
+    assert.strictEqual(snapshot.scriptCount, 0);
+    assert.strictEqual(snapshot.eventCount, 0);
+    assert.strictEqual(snapshot.closureCount, 0);
+});
+
+test("getRegistrySnapshot reflects current registry state", () => {
+    const wrapper = createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:a",
+        js_body: "return 1;"
+    });
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:b",
+        js_body: "return 2;"
+    });
+
+    wrapper.applyPatch({
+        kind: "event",
+        id: "obj_test#Create",
+        js_body: "this.x = 0;"
+    });
+
+    const snapshot = wrapper.getRegistrySnapshot();
+    assert.strictEqual(snapshot.version, 3);
+    assert.strictEqual(snapshot.scriptCount, 2);
+    assert.strictEqual(snapshot.eventCount, 1);
+    assert.ok(snapshot.scripts.includes("script:a"));
+    assert.ok(snapshot.scripts.includes("script:b"));
+    assert.ok(snapshot.events.includes("obj_test#Create"));
+});
+
+test("getPatchStats returns diagnostic information", () => {
+    const wrapper = createRuntimeWrapper();
+    assert.strictEqual(typeof wrapper.getPatchStats, "function");
+
+    const stats = wrapper.getPatchStats();
+    assert.strictEqual(typeof stats, "object");
+    assert.strictEqual(stats.totalPatches, 0);
+    assert.strictEqual(stats.appliedPatches, 0);
+    assert.strictEqual(stats.undonePatches, 0);
+});
+
+test("getPatchStats calculates statistics correctly", () => {
+    const wrapper = createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:a",
+        js_body: "return 1;"
+    });
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:b",
+        js_body: "return 2;"
+    });
+
+    wrapper.applyPatch({
+        kind: "event",
+        id: "obj_test#Create",
+        js_body: "this.x = 0;"
+    });
+
+    wrapper.undo();
+
+    const stats = wrapper.getPatchStats();
+    assert.strictEqual(stats.totalPatches, 4);
+    assert.strictEqual(stats.appliedPatches, 3);
+    assert.strictEqual(stats.undonePatches, 1);
+    assert.strictEqual(stats.scriptPatches, 2);
+    assert.strictEqual(stats.eventPatches, 2);
+    assert.strictEqual(stats.uniqueIds, 3);
+});
+
+test("getPatchStats tracks unique patch IDs correctly", () => {
+    const wrapper = createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test",
+        js_body: "return 1;"
+    });
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test",
+        js_body: "return 2;"
+    });
+
+    const stats = wrapper.getPatchStats();
+    assert.strictEqual(stats.totalPatches, 2);
+    assert.strictEqual(stats.uniqueIds, 1);
 });
