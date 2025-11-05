@@ -95,20 +95,16 @@ import { createWatchCommand, runWatchCommand } from "./commands/watch.js";
 import { resolveCliIdentifierCaseCacheClearer } from "./plugin-runtime/services.js";
 import { isCliRunSkipped } from "./shared/dependencies.js";
 import {
-    getDefaultSkippedDirectorySampleLimit,
-    resolveSkippedDirectorySampleLimit,
-    SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR
-} from "./runtime-options/skipped-directory-sample-limit.js";
-import {
     getDefaultIgnoredFileSampleLimit,
-    resolveIgnoredFileSampleLimit,
-    IGNORED_FILE_SAMPLE_LIMIT_ENV_VAR
-} from "./runtime-options/ignored-file-sample-limit.js";
-import {
+    getDefaultSkippedDirectorySampleLimit,
     getDefaultUnsupportedExtensionSampleLimit,
+    IGNORED_FILE_SAMPLE_LIMIT_ENV_VAR,
+    resolveIgnoredFileSampleLimit,
+    resolveSkippedDirectorySampleLimit,
     resolveUnsupportedExtensionSampleLimit,
+    SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR,
     UNSUPPORTED_EXTENSION_SAMPLE_LIMIT_ENV_VAR
-} from "./runtime-options/unsupported-extension-sample-limit.js";
+} from "./runtime-options/sample-limits.js";
 import { normalizeExtensions } from "./core/extension-normalizer.js";
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
