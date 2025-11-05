@@ -41,52 +41,11 @@ jobs:
             const cfgRaw = process.env.CFG_JSON;
             const cfg = cfgRaw ? JSON.parse(cfgRaw) : {};
             const workflows = Array.isArray(cfg.workflows) ? cfg.workflows : [];
-            const now = Date.now();
-
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-
-            async function getRepoVariable(name) {
-              try {
-                const { data } = await github.rest.actions.getRepoVariable({ owner, repo, name });
-                return data?.value ?? null;
-              } catch (error) {
-                if (error.status === 404) {
-                  return null;
-                }
-                core.warning(`Failed to read repository variable "${name}": ${error.message}`);
-                return null;
-              }
-            }
-
-            const [quotaEnv, minIntervalMinutesEnv] = await Promise.all([
-              getRepoVariable('QUOTA_PER_HOUR'),
-              getRepoVariable('SCHEDULER_MIN_INTERVAL_MINUTES'),
-            ]);
-
-            const quota = Number.isFinite(Number(quotaEnv)) && Number(quotaEnv) >= 0 ? Number(quotaEnv) : 12;
-            const minIntervalMinutes = Number.isFinite(Number(minIntervalMinutesEnv)) && Number(minIntervalMinutesEnv) > 0
-              ? Number(minIntervalMinutesEnv)
-              : 1;
-            const tickMinutes = 5;
-
-            const tickMs = tickMinutes * 60 * 1000;
-            const perTickBudget = quota * (tickMinutes / 60);
-            const windowKey = Math.floor(now / tickMs);
-            const minIntervalMs = minIntervalMinutes * 60 * 1000;
 
             core.exportVariable('SCHEDULER_CHOSEN_JSON', '[]');
             core.exportVariable('SCHEDULER_RUN_COUNT', '0');
 
-            if (!Number.isFinite(perTickBudget) || perTickBudget <= 0) {
-              core.info(`Per-tick budget (${perTickBudget}) is not positive; skipping dispatch.`);
-              core.setOutput('chosen_json', '[]');
-              core.setOutput('run_count', '0');
-              return;
-            }
-
-            const eligible = [];
-            let newestRunTs = null;
+            const candidates = [];
 
             for (const workflow of workflows) {
               if (!workflow || typeof workflow.name !== 'string') {
@@ -104,47 +63,16 @@ jobs:
                 core.warning(`Skipping workflow ${workflowPath} due to invalid weight.`);
                 continue;
               }
-
-              let lastRunTs = null;
-              try {
-                const { data } = await github.rest.actions.listWorkflowRuns({
-                  owner,
-                  repo,
-                  workflow_id: workflowPath,
-                  per_page: 1
-                });
-                const run = data.workflow_runs?.[0];
-                if (run) {
-                  const ts = run.run_started_at || run.created_at || run.updated_at;
-                  if (ts) {
-                    const parsed = Date.parse(ts);
-                    if (Number.isFinite(parsed)) {
-                      lastRunTs = parsed;
-                    }
-                  }
-                }
-              } catch (error) {
-                core.warning(`Failed to query runs for ${workflowPath}: ${error.message}`);
-              }
-
-              if (lastRunTs && (!newestRunTs || lastRunTs > newestRunTs)) {
-                newestRunTs = lastRunTs;
-              }
-
-              if (lastRunTs && now - lastRunTs < minIntervalMs) {
-                continue;
-              }
-
-              eligible.push({
+              candidates.push({
                 name: workflowName,
                 path: workflowPath,
                 weight: weightValue,
-                topic: workflow.topic ?? null
+                topic: workflow.topic ?? null,
               });
             }
 
-            if (eligible.length === 0) {
-              core.info('No workflows eligible this tick.');
+            if (candidates.length === 0) {
+              core.info('No eligible workflows in configuration.');
               core.setOutput('chosen_json', '[]');
               core.setOutput('run_count', '0');
               core.exportVariable('SCHEDULER_CHOSEN_JSON', '[]');
@@ -152,17 +80,7 @@ jobs:
               return;
             }
 
-            if (newestRunTs && now - newestRunTs < minIntervalMs) {
-              const minutesRemaining = ((minIntervalMs - (now - newestRunTs)) / 60000).toFixed(1);
-              core.info(`Global cooldown active for another ~${minutesRemaining} minutes; skipping dispatch.`);
-              core.setOutput('chosen_json', '[]');
-              core.setOutput('run_count', '0');
-              core.exportVariable('SCHEDULER_CHOSEN_JSON', '[]');
-              core.exportVariable('SCHEDULER_RUN_COUNT', '0');
-              return;
-            }
-
-            const totalWeight = eligible.reduce((sum, item) => sum + item.weight, 0);
+            const totalWeight = candidates.reduce((sum, item) => sum + item.weight, 0);
             if (!Number.isFinite(totalWeight) || totalWeight <= 0) {
               core.info('Aggregate weight of eligible workflows is zero; nothing to schedule.');
               core.setOutput('chosen_json', '[]');
@@ -172,35 +90,30 @@ jobs:
               return;
             }
 
-            const desiredPerTickTotal = totalWeight * (tickMinutes / 60);
-            const effectiveBudget = Math.min(perTickBudget, desiredPerTickTotal);
-            if (!Number.isFinite(effectiveBudget) || effectiveBudget <= 0) {
-              core.info('Effective per-tick budget is not positive after normalisation; skipping dispatch.');
-              core.setOutput('chosen_json', '[]');
-              core.setOutput('run_count', '0');
-              core.exportVariable('SCHEDULER_CHOSEN_JSON', '[]');
-              core.exportVariable('SCHEDULER_RUN_COUNT', '0');
-              return;
-            }
-
-            const chosen = [];
-            for (const workflow of eligible) {
-              const probability = Math.min(1, (workflow.weight / totalWeight) * effectiveBudget);
-              const hash = crypto.createHash('sha256')
-                .update(`${workflow.path}:${windowKey}`)
-                .digest('hex');
-              const rand = parseInt(hash.substring(0, 8), 16) / 0xFFFFFFFF;
-              if (rand < probability) {
-                chosen.push({ name: workflow.name, path: workflow.path, topic: workflow.topic });
+            const randomBytes = crypto.randomBytes(6);
+            const random = parseInt(randomBytes.toString('hex'), 16) / 0xFFFFFFFFFFFF;
+            let threshold = random * totalWeight;
+            let cumulative = 0;
+            let selected = null;
+            for (const workflow of candidates) {
+              cumulative += workflow.weight;
+              if (threshold <= cumulative) {
+                selected = workflow;
+                break;
               }
             }
 
-            core.info(`Eligible workflows: ${eligible.length}`);
-            core.info(`Selected workflows: ${chosen.length}`);
+            if (!selected) {
+              selected = candidates[candidates.length - 1];
+            }
+
+            core.info(`Selected workflow ${selected.path} (weight=${selected.weight}) from total weight ${totalWeight.toFixed(6)} with draw ${random.toFixed(6)}.`);
+
+            const chosen = [selected];
             core.setOutput('chosen_json', JSON.stringify(chosen));
-            core.setOutput('run_count', String(chosen.length));
+            core.setOutput('run_count', '1');
             core.exportVariable('SCHEDULER_CHOSEN_JSON', JSON.stringify(chosen));
-            core.exportVariable('SCHEDULER_RUN_COUNT', String(chosen.length));
+            core.exportVariable('SCHEDULER_RUN_COUNT', '1');
 
       - name: Dispatch workflows
         if: ${{ env.SCHEDULER_RUN_COUNT != '' && env.SCHEDULER_RUN_COUNT != '0' }}
@@ -211,7 +124,6 @@ jobs:
           github-token: ${{ github.token }}
           script: |
             const core = require('@actions/core');
-            const path = require('path');
 
             const chosen = JSON.parse(process.env.CHOSEN_JSON || '[]');
             if (!Array.isArray(chosen) || chosen.length === 0) {
@@ -239,10 +151,13 @@ jobs:
             }
 
             for (const workflow of chosen) {
-              const workflowPath = workflow.path || (workflow.name?.endsWith('.yml') ? workflow.name : `${workflow.name}.yml`);
-              const workflowId = workflowPath.startsWith('.github/workflows/')
-                ? workflowPath.slice('.github/workflows/'.length)
-                : path.basename(workflowPath);
+              const baseDir = '.github/workflows/';
+              const workflowName = workflow.name || '';
+              const resolvedPath = workflow.path
+                || (workflowName.endsWith('.yml') ? `${baseDir}${workflowName}` : `${baseDir}${workflowName}.yml`);
+              const workflowId = resolvedPath.startsWith(baseDir)
+                ? resolvedPath.slice(baseDir.length)
+                : resolvedPath;
 
               try {
                 await github.rest.actions.createWorkflowDispatch({
@@ -251,9 +166,9 @@ jobs:
                   workflow_id: workflowId,
                   ref,
                 });
-                core.info(`Dispatched ${workflowPath} via workflow_dispatch on ref ${ref}`);
+                core.info(`Dispatched ${resolvedPath} via workflow_dispatch on ref ${ref}`);
               } catch (error) {
-                core.warning(`Failed to dispatch ${workflowPath}: ${error.message}`);
+                core.warning(`Failed to dispatch ${resolvedPath}: ${error.message}`);
               }
             }
 
