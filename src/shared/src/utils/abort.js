@@ -175,7 +175,7 @@ export function throwIfAborted(signal, fallbackMessage) {
  *     key?: string | number | symbol,
  *     fallbackMessage?: string | null | undefined
  * }} [config]
- * @returns {{ signal: AbortSignal | null, ensureNotAborted(): AbortSignal | null }}
+ * @returns {{ signal: AbortSignal | null, ensureNotAborted(): void }}
  *          Guard exposing the normalized signal and a checkpoint callback.
  */
 export function createAbortGuard(options, { key, fallbackMessage } = {}) {
@@ -184,12 +184,7 @@ export function createAbortGuard(options, { key, fallbackMessage } = {}) {
         fallbackMessage
     });
 
-    function ensureNotAborted() {
-        throwIfAborted(signal, fallbackMessage);
-        return signal;
-    }
-
-    ensureNotAborted();
+    const ensureNotAborted = () => throwIfAborted(signal, fallbackMessage);
 
     return { signal, ensureNotAborted };
 }
