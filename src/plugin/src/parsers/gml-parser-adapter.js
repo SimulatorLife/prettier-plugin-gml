@@ -1104,7 +1104,6 @@ function shouldPreserveCallWithMissingSeparators(node, originalText) {
         return true;
     }
 
-    const callee = node.object;
     if (args.length < 2) {
         return false;
     }
