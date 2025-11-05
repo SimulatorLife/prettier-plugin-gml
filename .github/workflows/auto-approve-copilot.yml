@@ -4,7 +4,7 @@ on:
   workflow_run:
     workflows:
       - scheduler
-      - Auto merge codex/copilot branches
+      - Auto merge agent/copilot branches
     types:
       - requested
 
@@ -60,7 +60,7 @@ jobs:
             const { owner, repo } = context.repo;
             const pull_number = prInfo.number;
 
-            const prefixes = ['codex/', 'copilot/'];
+            const prefixes = ['agent/', 'copilot/'];
             const hasAllowedPrefix = (ref) => typeof ref === 'string' && prefixes.some((prefix) => ref.startsWith(prefix));
 
             const { data: initialPr } = await github.rest.pulls.get({ owner, repo, pull_number });
