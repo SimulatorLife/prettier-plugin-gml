@@ -1012,19 +1012,16 @@ test("validateHotReloadCompatibility passes for simple renames", async () => {
 // Hot reload cascade tests
 test("computeHotReloadCascade requires array parameter", async () => {
     const engine = new RefactorEngine();
-    await assert.rejects(
-        () => engine.computeHotReloadCascade(null),
-        {
-            name: "TypeError",
-            message: /requires an array/
-        }
-    );
+    await assert.rejects(() => engine.computeHotReloadCascade(null), {
+        name: "TypeError",
+        message: /requires an array/
+    });
 });
 
 test("computeHotReloadCascade returns empty for no changes", async () => {
     const engine = new RefactorEngine();
     const result = await engine.computeHotReloadCascade([]);
-    
+
     assert.ok(Array.isArray(result.cascade));
     assert.equal(result.cascade.length, 0);
     assert.ok(Array.isArray(result.order));
@@ -1039,9 +1036,11 @@ test("computeHotReloadCascade handles single symbol with no dependents", async (
         getDependents: async () => [] // No dependents
     };
     const engine = new RefactorEngine({ semantic: mockSemantic });
-    
-    const result = await engine.computeHotReloadCascade(["gml/script/scr_leaf"]);
-    
+
+    const result = await engine.computeHotReloadCascade([
+        "gml/script/scr_leaf"
+    ]);
+
     assert.equal(result.cascade.length, 1);
     assert.equal(result.cascade[0].symbolId, "gml/script/scr_leaf");
     assert.equal(result.cascade[0].distance, 0);
@@ -1063,18 +1062,20 @@ test("computeHotReloadCascade computes single-level dependencies", async () => {
         }
     };
     const engine = new RefactorEngine({ semantic: mockSemantic });
-    
-    const result = await engine.computeHotReloadCascade(["gml/script/scr_base"]);
-    
+
+    const result = await engine.computeHotReloadCascade([
+        "gml/script/scr_base"
+    ]);
+
     assert.equal(result.cascade.length, 3);
     assert.equal(result.metadata.totalSymbols, 3);
     assert.equal(result.metadata.maxDistance, 1);
-    
+
     // Check that dependents are at distance 1
-    const deps = result.cascade.filter(c => c.distance === 1);
+    const deps = result.cascade.filter((c) => c.distance === 1);
     assert.equal(deps.length, 2);
-    assert.ok(deps.some(d => d.symbolId === "gml/script/scr_dep1"));
-    assert.ok(deps.some(d => d.symbolId === "gml/script/scr_dep2"));
+    assert.ok(deps.some((d) => d.symbolId === "gml/script/scr_dep1"));
+    assert.ok(deps.some((d) => d.symbolId === "gml/script/scr_dep2"));
 });
 
 test("computeHotReloadCascade computes multi-level transitive closure", async () => {
@@ -1094,18 +1095,28 @@ test("computeHotReloadCascade computes multi-level transitive closure", async ()
         }
     };
     const engine = new RefactorEngine({ semantic: mockSemantic });
-    
-    const result = await engine.computeHotReloadCascade(["gml/script/scr_root"]);
-    
+
+    const result = await engine.computeHotReloadCascade([
+        "gml/script/scr_root"
+    ]);
+
     assert.equal(result.cascade.length, 4); // root + middle + 2 leaves
     assert.equal(result.metadata.maxDistance, 2);
-    
+
     // Verify distances
-    const root = result.cascade.find(c => c.symbolId === "gml/script/scr_root");
-    const middle = result.cascade.find(c => c.symbolId === "gml/script/scr_middle");
-    const leaf1 = result.cascade.find(c => c.symbolId === "gml/script/scr_leaf1");
-    const leaf2 = result.cascade.find(c => c.symbolId === "gml/script/scr_leaf2");
-    
+    const root = result.cascade.find(
+        (c) => c.symbolId === "gml/script/scr_root"
+    );
+    const middle = result.cascade.find(
+        (c) => c.symbolId === "gml/script/scr_middle"
+    );
+    const leaf1 = result.cascade.find(
+        (c) => c.symbolId === "gml/script/scr_leaf1"
+    );
+    const leaf2 = result.cascade.find(
+        (c) => c.symbolId === "gml/script/scr_leaf2"
+    );
+
     assert.equal(root.distance, 0);
     assert.equal(middle.distance, 1);
     assert.equal(leaf1.distance, 2);
@@ -1126,18 +1137,18 @@ test("computeHotReloadCascade orders symbols in dependency order", async () => {
         }
     };
     const engine = new RefactorEngine({ semantic: mockSemantic });
-    
+
     const result = await engine.computeHotReloadCascade(["gml/script/scr_a"]);
-    
+
     // Order should be: leaves first (c), then middle (b), then root (a)
     // Because c depends on nothing in our set, b depends on a, c depends on b
     assert.equal(result.order.length, 3);
-    
+
     // Find positions in the order
     const posA = result.order.indexOf("gml/script/scr_a");
     const posB = result.order.indexOf("gml/script/scr_b");
     const posC = result.order.indexOf("gml/script/scr_c");
-    
+
     // A should come before B, B should come before C (in hot reload order)
     assert.ok(posA < posB, "A should be reloaded before B");
     assert.ok(posB < posC, "B should be reloaded before C");
@@ -1157,20 +1168,24 @@ test("computeHotReloadCascade handles multiple changed symbols", async () => {
         }
     };
     const engine = new RefactorEngine({ semantic: mockSemantic });
-    
+
     const result = await engine.computeHotReloadCascade([
         "gml/script/scr_a",
         "gml/script/scr_b"
     ]);
-    
+
     // Should include both roots and the shared dependent (only once)
     assert.equal(result.cascade.length, 3);
-    assert.ok(result.cascade.some(c => c.symbolId === "gml/script/scr_a"));
-    assert.ok(result.cascade.some(c => c.symbolId === "gml/script/scr_b"));
-    assert.ok(result.cascade.some(c => c.symbolId === "gml/script/scr_shared"));
-    
+    assert.ok(result.cascade.some((c) => c.symbolId === "gml/script/scr_a"));
+    assert.ok(result.cascade.some((c) => c.symbolId === "gml/script/scr_b"));
+    assert.ok(
+        result.cascade.some((c) => c.symbolId === "gml/script/scr_shared")
+    );
+
     // Shared dependent should be at distance 1
-    const shared = result.cascade.find(c => c.symbolId === "gml/script/scr_shared");
+    const shared = result.cascade.find(
+        (c) => c.symbolId === "gml/script/scr_shared"
+    );
     assert.equal(shared.distance, 1);
 });
 
@@ -1192,15 +1207,15 @@ test("computeHotReloadCascade detects circular dependencies", async () => {
         }
     };
     const engine = new RefactorEngine({ semantic: mockSemantic });
-    
+
     const result = await engine.computeHotReloadCascade(["gml/script/scr_a"]);
-    
+
     // Should include all three symbols
     assert.equal(result.cascade.length, 3);
-    
+
     // Should detect the circular dependency
     assert.equal(result.metadata.hasCircular, true);
-    
+
     // All symbols should still be in the order (possibly with cycles broken)
     assert.equal(result.order.length, 3);
 });
@@ -1223,24 +1238,26 @@ test("computeHotReloadCascade handles diamond dependencies", async () => {
         }
     };
     const engine = new RefactorEngine({ semantic: mockSemantic });
-    
-    const result = await engine.computeHotReloadCascade(["gml/script/scr_root"]);
-    
+
+    const result = await engine.computeHotReloadCascade([
+        "gml/script/scr_root"
+    ]);
+
     // Should include all 4 symbols
     assert.equal(result.cascade.length, 4);
-    
+
     // Bottom should appear only once despite multiple paths
     const bottomOccurrences = result.cascade.filter(
-        c => c.symbolId === "gml/script/scr_bottom"
+        (c) => c.symbolId === "gml/script/scr_bottom"
     );
     assert.equal(bottomOccurrences.length, 1);
-    
+
     // Root should come before left and right
     const posRoot = result.order.indexOf("gml/script/scr_root");
     const posLeft = result.order.indexOf("gml/script/scr_left");
     const posRight = result.order.indexOf("gml/script/scr_right");
     const posBottom = result.order.indexOf("gml/script/scr_bottom");
-    
+
     assert.ok(posRoot < posLeft);
     assert.ok(posRoot < posRight);
     assert.ok(posLeft < posBottom);
@@ -1257,12 +1274,16 @@ test("computeHotReloadCascade provides reason metadata", async () => {
         }
     };
     const engine = new RefactorEngine({ semantic: mockSemantic });
-    
-    const result = await engine.computeHotReloadCascade(["gml/script/scr_base"]);
-    
-    const base = result.cascade.find(c => c.symbolId === "gml/script/scr_base");
-    const dep = result.cascade.find(c => c.symbolId === "gml/script/scr_dep");
-    
+
+    const result = await engine.computeHotReloadCascade([
+        "gml/script/scr_base"
+    ]);
+
+    const base = result.cascade.find(
+        (c) => c.symbolId === "gml/script/scr_base"
+    );
+    const dep = result.cascade.find((c) => c.symbolId === "gml/script/scr_dep");
+
     assert.equal(base.reason, "direct change");
     assert.ok(dep.reason.includes("depends on"));
     assert.ok(dep.reason.includes("scr_base"));
@@ -1270,9 +1291,11 @@ test("computeHotReloadCascade provides reason metadata", async () => {
 
 test("computeHotReloadCascade works without semantic analyzer", async () => {
     const engine = new RefactorEngine(); // No semantic analyzer
-    
-    const result = await engine.computeHotReloadCascade(["gml/script/scr_test"]);
-    
+
+    const result = await engine.computeHotReloadCascade([
+        "gml/script/scr_test"
+    ]);
+
     // Should only include the changed symbol, no dependents
     assert.equal(result.cascade.length, 1);
     assert.equal(result.cascade[0].symbolId, "gml/script/scr_test");
