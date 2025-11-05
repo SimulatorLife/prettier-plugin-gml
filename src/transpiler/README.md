@@ -61,6 +61,12 @@ const jsCode = emitJavaScript(ast);
   - ✅ if/else statements (including else-if chains)
   - ✅ for loops
   - ✅ while loops
+  - ✅ do-until loops (converted to do-while with negated condition)
+  - ✅ switch statements with case and default
+- ✅ Loop control:
+  - ✅ break statements
+  - ✅ continue statements
+- ✅ return statements (with and without values)
 - ✅ Parenthesized expressions
 - ✅ Block statements
 - ✅ Nested control flow structures
@@ -68,15 +74,14 @@ const jsCode = emitJavaScript(ast);
 ### Planned Features
 
 - [ ] Function declarations
-- [ ] Additional control flow (repeat, do-until, switch)
+- [ ] Additional control flow (repeat)
 - [ ] `with` statement lowering
 - [ ] Scope-aware identifier resolution (self, other, global)
 - [ ] Script call indirection through runtime wrapper
 - [ ] Built-in function mapping
 - [ ] Struct and array literals
 - [ ] Advanced expression forms (ternary, compound assignments)
-- [ ] Break and continue statements
-- [ ] Return statements
+- [ ] Try-catch-finally error handling
 
 ## Operator Mapping
 

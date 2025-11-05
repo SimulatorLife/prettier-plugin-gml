@@ -323,3 +323,87 @@ test("emitJavaScript handles parenthesized expressions in assignments", () => {
     assert.ok(result.includes("(x + y)"), "Should preserve parenthesization");
     assert.ok(result.includes("* z"), "Should include multiplication");
 });
+
+test("emitJavaScript handles return statements with value", () => {
+    const source = "return x + y";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("return"), "Should include return keyword");
+    assert.ok(result.includes("x + y"), "Should include return value");
+});
+
+test("emitJavaScript handles return statement without value", () => {
+    const source = "return";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.equal(result.trim(), "return;", "Should emit return statement");
+});
+
+test("emitJavaScript handles break statements", () => {
+    const source = "break";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.equal(result.trim(), "break;", "Should emit break statement");
+});
+
+test("emitJavaScript handles continue statements", () => {
+    const source = "continue";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.equal(result.trim(), "continue;", "Should emit continue statement");
+});
+
+test("emitJavaScript handles do-until loops", () => {
+    const source = "do { x += 1; } until (x > 10)";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("do"), "Should include do keyword");
+    assert.ok(result.includes("while"), "Should convert until to while");
+    assert.ok(result.includes("!"), "Should negate the condition");
+    assert.ok(result.includes("x += 1"), "Should include body");
+});
+
+test("emitJavaScript handles switch statements", () => {
+    const source = "switch (x) { case 1: y = 1; break; case 2: y = 2; break; }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("switch"), "Should include switch keyword");
+    assert.ok(result.includes("case 1"), "Should include first case");
+    assert.ok(result.includes("case 2"), "Should include second case");
+    assert.ok(result.includes("break"), "Should include break statements");
+});
+
+test("emitJavaScript handles switch with default case", () => {
+    const source = "switch (x) { case 1: y = 1; break; default: y = 0; }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("switch"), "Should include switch keyword");
+    assert.ok(result.includes("case 1"), "Should include case");
+    assert.ok(result.includes("default"), "Should include default case");
+});
+
+test("emitJavaScript handles for loop with break", () => {
+    const source = "for (var i = 0; i < 10; i += 1) { if (i == 5) break; }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("for"), "Should include for keyword");
+    assert.ok(result.includes("if"), "Should include if keyword");
+    assert.ok(result.includes("break"), "Should include break");
+});
+
+test("emitJavaScript handles while loop with continue", () => {
+    const source = "while (x > 0) { if (x % 2 == 0) continue; x -= 1; }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("while"), "Should include while keyword");
+    assert.ok(result.includes("continue"), "Should include continue");
+});

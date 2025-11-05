@@ -376,6 +376,102 @@ export function emitJavaScript(ast) {
         return result;
     }
 
+    if (ast.type === "DoUntilStatement") {
+        let result = "do";
+
+        // Handle body
+        if (ast.body) {
+            result +=
+                ast.body.type === "BlockStatement"
+                    ? ` ${emitJavaScript(ast.body)}`
+                    : ` {\n${emitJavaScript(ast.body)};\n}`;
+        }
+
+        result += " while (";
+
+        // Handle test condition - note: do-until is do-while with negated condition
+        if (ast.test) {
+            const testExpr =
+                ast.test.type === "ParenthesizedExpression"
+                    ? emitJavaScript(ast.test.expression)
+                    : emitJavaScript(ast.test);
+            result += `!(${testExpr})`;
+        }
+        result += ")";
+
+        return result;
+    }
+
+    // Handle return statement
+    if (ast.type === "ReturnStatement") {
+        if (ast.argument) {
+            return `return ${emitJavaScript(ast.argument)}`;
+        }
+        return "return";
+    }
+
+    // Handle break statement
+    if (ast.type === "BreakStatement") {
+        return "break";
+    }
+
+    // Handle continue statement
+    if (ast.type === "ContinueStatement") {
+        return "continue";
+    }
+
+    // Handle switch statement
+    if (ast.type === "SwitchStatement") {
+        let result = "switch ";
+
+        // Handle discriminant
+        if (ast.discriminant) {
+            result +=
+                ast.discriminant.type === "ParenthesizedExpression"
+                    ? `(${emitJavaScript(ast.discriminant.expression)})`
+                    : `(${emitJavaScript(ast.discriminant)})`;
+        }
+
+        result += " {\n";
+
+        // Handle cases
+        if (ast.cases && ast.cases.length > 0) {
+            result += ast.cases
+                .map((caseNode) => {
+                    let caseStr = "";
+                    caseStr = caseNode.test === null ? "default:\n" : `case ${emitJavaScript(caseNode.test)}:\n`;
+
+                    // Handle case body
+                    if (caseNode.body && caseNode.body.length > 0) {
+                        caseStr += caseNode.body
+                            .map((stmt) => {
+                                const code = emitJavaScript(stmt);
+                                // Add semicolon if not already present and not a break/continue/return
+                                if (
+                                    code &&
+                                    !code.endsWith(";") &&
+                                    !code.endsWith("}") &&
+                                    code !== "break" &&
+                                    code !== "continue" &&
+                                    !code.startsWith("return")
+                                ) {
+                                    return code + ";";
+                                }
+                                return code;
+                            })
+                            .filter(Boolean)
+                            .join("\n");
+                    }
+
+                    return caseStr;
+                })
+                .join("\n");
+        }
+
+        result += "\n}";
+        return result;
+    }
+
     // Handle variable declarations
     if (ast.type === "VariableDeclaration") {
         const declarations = ast.declarations
