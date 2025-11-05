@@ -66,6 +66,7 @@ import {
 } from "./core/errors.js";
 import { applyStandardCommandOptions } from "./core/command-standard-options.js";
 import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "./plugin-runtime/entry-point.js";
+import { tryAddSample } from "./core/bounded-sample-collector.js";
 import {
     hasRegisteredIgnorePath,
     registerIgnorePath,
@@ -602,16 +603,8 @@ function resetSkippedDirectorySummary() {
 
 function recordSkippedDirectory(directory) {
     skippedDirectorySummary.ignored += 1;
-
     const limit = getSkippedDirectorySampleLimit();
-
-    if (
-        limit > 0 &&
-        skippedDirectorySummary.ignoredSamples.length < limit &&
-        !skippedDirectorySummary.ignoredSamples.includes(directory)
-    ) {
-        skippedDirectorySummary.ignoredSamples.push(directory);
-    }
+    tryAddSample(skippedDirectorySummary.ignoredSamples, directory, limit);
 }
 let baseProjectIgnorePaths = [];
 const baseProjectIgnorePathSet = new Set();
@@ -1985,44 +1978,43 @@ if (!isCliRunSkipped()) {
         });
     });
 }
+/**
+ * Check equality of ignored file samples by comparing both path and source description.
+ *
+ * @param {object} existing - The existing sample
+ * @param {object} candidate - The candidate sample
+ * @returns {boolean} True if samples are equal
+ */
+function areIgnoredFileSamplesEqual(existing, candidate) {
+    return (
+        existing?.filePath === candidate?.filePath &&
+        existing?.sourceDescription === candidate?.sourceDescription
+    );
+}
+
 function recordIgnoredFile({ filePath, sourceDescription }) {
     skippedFileSummary.ignored += 1;
 
     const limit = getIgnoredFileSampleLimit();
+    const sample = { filePath, sourceDescription };
 
-    if (limit <= 0 || skippedFileSummary.ignoredSamples.length >= limit) {
-        return;
+    if (
+        tryAddSample(
+            skippedFileSummary.ignoredSamples,
+            sample,
+            limit,
+            areIgnoredFileSamplesEqual
+        )
+    ) {
+        console.log(`Skipping ${filePath} (${sourceDescription})`);
     }
-
-    const existingSample = skippedFileSummary.ignoredSamples.find(
-        (sample) =>
-            sample?.filePath === filePath &&
-            sample?.sourceDescription === sourceDescription
-    );
-
-    if (existingSample) {
-        return;
-    }
-
-    skippedFileSummary.ignoredSamples.push({
-        filePath,
-        sourceDescription
-    });
-    console.log(`Skipping ${filePath} (${sourceDescription})`);
 }
 function recordUnsupportedExtension(filePath) {
     skippedFileSummary.unsupportedExtension += 1;
-
     const limit = getUnsupportedExtensionSampleLimit();
-
-    if (
-        limit <= 0 ||
-        skippedFileSummary.unsupportedExtensionSamples.length >= limit
-    ) {
-        return;
-    }
-
-    if (!skippedFileSummary.unsupportedExtensionSamples.includes(filePath)) {
-        skippedFileSummary.unsupportedExtensionSamples.push(filePath);
-    }
+    tryAddSample(
+        skippedFileSummary.unsupportedExtensionSamples,
+        filePath,
+        limit
+    );
 }
