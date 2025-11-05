@@ -26,7 +26,7 @@ import { ensureWorkflowPathsAllowed } from "../workflow/path-filter.js";
  * }} options
  * @returns {Promise<void>}
  */
-export async function writeFileArtifact({
+export async function writeFileArtefact({
     outputPath,
     contents,
     encoding = "utf8",
@@ -36,7 +36,7 @@ export async function writeFileArtifact({
 }) {
     if (!isNonEmptyString(outputPath)) {
         throw new TypeError(
-            "outputPath must be provided to writeFileArtifact."
+            "outputPath must be provided to writeFileArtefact."
         );
     }
 
@@ -64,7 +64,7 @@ export async function writeFileArtifact({
 }
 
 /**
- * Serialize a payload as JSON and persist it via {@link writeFileArtifact}.
+ * Serialize a payload as JSON and persist it via {@link writeFileArtefact}.
  * Callers can override the JSON formatting knobs while reusing the shared
  * filesystem ceremony around directory creation and write hooks.
  *
@@ -74,14 +74,14 @@ export async function writeFileArtifact({
  *   replacer?: Parameters<typeof JSON.stringify>[1],
  *   space?: Parameters<typeof JSON.stringify>[2],
  *   includeTrailingNewline?: boolean,
- *   onAfterWrite?: Parameters<typeof writeFileArtifact>[0]["onAfterWrite"],
+ *   onAfterWrite?: Parameters<typeof writeFileArtefact>[0]["onAfterWrite"],
  *   encoding?: BufferEncoding,
  *   writeFile?: typeof writeFileAsync,
  *   pathFilter?: Parameters<typeof ensureWorkflowPathsAllowed>[0]
  * }} options
  * @returns {Promise<void>}
  */
-export async function writeJsonArtifact({
+export async function writeJsonArtefact({
     outputPath,
     payload,
     replacer,
@@ -98,7 +98,7 @@ export async function writeJsonArtifact({
         includeTrailingNewline
     });
 
-    await writeFileArtifact({
+    await writeFileArtefact({
         outputPath,
         contents,
         encoding,

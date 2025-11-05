@@ -34,7 +34,7 @@ import {
     SuiteOutputFormat,
     toNormalizedInteger,
     wrapInvalidArgumentResolver,
-    writeJsonArtifact
+    writeJsonArtefact
 } from "../dependencies.js";
 import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "../plugin-runtime-dependencies.js";
 import {
@@ -690,7 +690,7 @@ async function writeReport(report, options, { pathFilter } = {}) {
     }
 
     const spacing = options.pretty ? 2 : 0;
-    await writeJsonArtifact({
+    await writeJsonArtefact({
         outputPath: targetFile,
         payload: report,
         space: spacing,
