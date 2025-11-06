@@ -229,7 +229,7 @@ mode TEMPLATE_STRING;
 TemplateStringEnd: '"' {this.templateDepth--} -> popMode;
 TemplateStringStartExpression: '{' -> pushMode(DEFAULT_MODE);
 TemplateStringText
-    : (~('{' | '\\' | '"' | [\r\n\u2028\u2029]))+
+    : (~('{' | '\\' | '"'))+
     | '\\' SingleEscapeCharacter
-    | '\\' ~[\r\n\u2028\u2029]
+    | '\\' .
     ;
