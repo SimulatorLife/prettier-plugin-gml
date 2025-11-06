@@ -131,6 +131,51 @@ test("WebSocket client applies patches from messages", async () => {
     delete globalThis.WebSocket;
 });
 
+test("WebSocket client prefers trySafeApply when available", async () => {
+    const wrapper = createRuntimeWrapper();
+    const originalTrySafeApply = wrapper.trySafeApply;
+    let trySafeApplyCalled = false;
+    let errorTriggered = false;
+
+    wrapper.trySafeApply = function (patch) {
+        trySafeApplyCalled = true;
+        return originalTrySafeApply.call(this, patch);
+    };
+
+    globalThis.WebSocket = MockWebSocket;
+
+    const client = createWebSocketClient({
+        wrapper,
+        onError: () => {
+            errorTriggered = true;
+        },
+        autoConnect: true
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const ws = client.getWebSocket();
+    assert.ok(ws, "WebSocket should be available");
+
+    ws.simulateMessage(
+        JSON.stringify({
+            kind: "script",
+            id: "script:trySafe",
+            js_body: "return 7;"
+        })
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    assert.ok(wrapper.hasScript("script:trySafe"));
+    assert.ok(trySafeApplyCalled);
+    assert.strictEqual(errorTriggered, false);
+
+    wrapper.trySafeApply = originalTrySafeApply;
+    client.disconnect();
+    delete globalThis.WebSocket;
+});
+
 test("WebSocket client handles invalid JSON gracefully", async () => {
     const wrapper = createRuntimeWrapper();
     let errorCalled = false;
@@ -156,6 +201,44 @@ test("WebSocket client handles invalid JSON gracefully", async () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
 
     assert.ok(errorCalled);
+
+    client.disconnect();
+    delete globalThis.WebSocket;
+});
+
+test("WebSocket client reports trySafeApply failures", async () => {
+    const wrapper = createRuntimeWrapper();
+    let reportedError = null;
+
+    globalThis.WebSocket = MockWebSocket;
+
+    const client = createWebSocketClient({
+        wrapper,
+        onError: (error, context) => {
+            reportedError = { error, context };
+        },
+        autoConnect: true
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const ws = client.getWebSocket();
+    assert.ok(ws, "WebSocket should be available");
+
+    ws.simulateMessage(
+        JSON.stringify({
+            kind: "script",
+            id: "script:invalid",
+            js_body: "}"
+        })
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    assert.strictEqual(wrapper.hasScript("script:invalid"), false);
+    assert.ok(reportedError);
+    assert.strictEqual(reportedError.context, "patch");
+    assert.match(reportedError.error.message, /Shadow validation failed/);
 
     client.disconnect();
     delete globalThis.WebSocket;

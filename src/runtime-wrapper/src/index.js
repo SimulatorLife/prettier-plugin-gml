@@ -71,22 +71,22 @@ function captureSnapshot(registry, patch) {
     };
 
     switch (patch.kind) {
-    case "script": {
-        snapshot.previous = registry.scripts[patch.id] || null;
-    
-    break;
-    }
-    case "event": {
-        snapshot.previous = registry.events[patch.id] || null;
-    
-    break;
-    }
-    case "closure": {
-        snapshot.previous = registry.closures[patch.id] || null;
-    
-    break;
-    }
-    // No default
+        case "script": {
+            snapshot.previous = registry.scripts[patch.id] || null;
+
+            break;
+        }
+        case "event": {
+            snapshot.previous = registry.events[patch.id] || null;
+
+            break;
+        }
+        case "closure": {
+            snapshot.previous = registry.closures[patch.id] || null;
+
+            break;
+        }
+        // No default
     }
 
     return snapshot;
@@ -377,22 +377,22 @@ export function createRuntimeWrapper({
             }
 
             switch (entry.patch.kind) {
-            case "script": {
-                stats.scriptPatches++;
-            
-            break;
-            }
-            case "event": {
-                stats.eventPatches++;
-            
-            break;
-            }
-            case "closure": {
-                stats.closurePatches++;
-            
-            break;
-            }
-            // No default
+                case "script": {
+                    stats.scriptPatches++;
+
+                    break;
+                }
+                case "event": {
+                    stats.eventPatches++;
+
+                    break;
+                }
+                case "closure": {
+                    stats.closurePatches++;
+
+                    break;
+                }
+                // No default
             }
 
             stats.uniqueIds.add(entry.patch.id);
@@ -487,12 +487,39 @@ export function createWebSocketClient({
                     return;
                 }
 
+                let patch;
+
                 try {
-                    const patch = JSON.parse(event.data);
-                    if (!patch || !patch.kind) {
+                    patch = JSON.parse(event.data);
+                } catch (error) {
+                    if (onError) {
+                        onError(error, "patch");
+                    }
+                    return;
+                }
+
+                if (!patch || typeof patch !== "object" || !patch.kind) {
+                    return;
+                }
+
+                try {
+                    if (typeof wrapper.trySafeApply === "function") {
+                        const result = wrapper.trySafeApply(patch);
+
+                        if ((!result || result.success !== true) && onError) {
+                            const message =
+                                result?.message ||
+                                result?.error ||
+                                `Patch ${patch.id ?? "<unknown>"} failed`;
+                            onError(new Error(message), "patch");
+                        }
+
                         return;
                     }
-                    wrapper.applyPatch(patch);
+
+                    if (typeof wrapper.applyPatch === "function") {
+                        wrapper.applyPatch(patch);
+                    }
                 } catch (error) {
                     if (onError) {
                         onError(error, "patch");
