@@ -21,7 +21,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Promote Composition"
-      pr_body: "Seed PR for Agent to replace overgrown inheritance with composition."
       prompt: >
         Locate the class that most egregiously subclasses another type (uses `extends`)
         while overriding at least three methods from the parent. Study the inheritance

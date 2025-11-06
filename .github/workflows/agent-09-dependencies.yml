@@ -20,7 +20,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Dependency Hygiene"
-      pr_body: "Seed PR for Agent to streamline runtime and dev dependencies."
       prompt: >
         Audit package.json (and the lockfile) for outdated, unused, or redundant
         dependencies. Remove packages that are no longer referenced, collapse duplicate

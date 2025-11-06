@@ -20,7 +20,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Decouple Architecture"
-      pr_body: "Seed PR for Agent to implement the intended architecture-decoupling refactor."
       prompt: >
         Review the architecture and select ONE overly coupled area (a module cluster,
         package, or dependency cycle) that, if refactored, will materially improve

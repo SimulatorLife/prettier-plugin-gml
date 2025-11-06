@@ -21,7 +21,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Overengineered Block Cleanup"
-      pr_body: "Seed PR for Agent to condense an overly bespoke or long-winded code path into something idiomatic."
       prompt: |
         Locate a single block, function, or file whose implementation is noticeably over-engineered: bespoke helpers,
         verbose control flow, redundant state tracking, or other non-Pythonic patterns that obscure the intent. Refactor

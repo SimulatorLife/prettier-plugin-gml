@@ -20,9 +20,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Add Extensibility Hook"
-      pr_body: |
-        Seed PR for Agent to implement a targeted extensibility improvement while
-        keeping the defaults opinionated.
       prompt: >
         Identify a single hard-coded decision point that limits flexibility *or* 
         detect an existing over-engineered extensibility anti-pattern and 

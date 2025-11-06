@@ -20,9 +20,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Stringly Typed Flags"
-      pr_body: >
-        Seed PR for Agent to replace a brittle magic string flag with a safer
-        enum/constant approach and validation.
       prompt: >
         Locate code that branches on raw string literals to determine behaviour.
         Introduce a typed alternative (enum object, constant map, schema) that

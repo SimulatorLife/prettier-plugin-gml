@@ -20,7 +20,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Helper Substitution"
-      pr_body: "Seed PR for Agent to replace manual logic with existing helpers."
       prompt: >
         Identify code that reimplements behaviour already provided by a shared helper or
         well-supported platform API (serialization, cloning, range checks, deep merges,

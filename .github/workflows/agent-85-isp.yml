@@ -21,10 +21,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Interface Segregation Sweep"
-      pr_body: |
-        Seed PR for Agent to inspect oversized interface or type contracts whose
-        names hint at overly broad responsibilities (for example, `*Service` or
-        `*Manager`).
       prompt: >
         Audit the repository for TypeScript or JavaScript interface/type
         definitions that accumulate many members (properties or methods) and use

@@ -54,7 +54,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Recover Failing Test"
-      pr_body: "Seed PR for Agent to diagnose a failing test, repair the underlying issue, and re-verify."
       prompt: >
         There is at least one failing unit test in the codebase. Start by running the
         full automated test suite (npm test). Then, identify a single failing test

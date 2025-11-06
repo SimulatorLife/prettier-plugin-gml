@@ -20,7 +20,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Memory Footprint Control"
-      pr_body: "Seed PR for Agent to pinpoint unnecessary allocations or retention in the codebase and tighten memory usage without breaking functionality."
       prompt: >
         Audit allocation-heavy paths (e.g. cached lookup tables, unintended global variables, 
         misused closures, unbounded caches, not releasing memory when not needed anymore, 

@@ -21,9 +21,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Low Coupling Guardrail"
-      pr_body: |
-        Seed PR for Agent to reduce deep peer coupling by replacing fragile deep imports
-        with stable abstractions and dependency boundaries.
       prompt: >
         Audit the repository for modules that import peers using deep relative paths
         ("../.." or deeper) or paths containing "/internal/" segments. For each finding,

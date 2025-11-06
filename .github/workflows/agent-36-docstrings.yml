@@ -20,7 +20,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Docstrings & Comments"
-      pr_body: "Seed PR for Agent to tighten inline documentation."
       prompt: >
         Concentrate on inline documentation—JSDoc blocks, function/module comments,
         README-style API tables embedded in source, and other code-adjacent explanations.

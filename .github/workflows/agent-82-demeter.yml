@@ -20,9 +20,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Law of Demeter Guardrails"
-      pr_body: |
-        Seed PR for Agent to rein in long-reaching property access and reinforce the
-        Law of Demeter across the codebase.
       prompt: >
         Search the repository for property chains longer than three segments (for example,
         patterns like `alpha.beta.gamma.delta`). Highlight the exact lines you choose in your

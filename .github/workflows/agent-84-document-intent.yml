@@ -20,7 +20,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Document Intent"
-      pr_body: "Seed PR prompting Agent to clarify terse comments with intent and context."
       prompt: >
         Audit the repository for inline comments that describe changes as "no-op," "do X," or
         similarly terse directives without giving the reader enough context to trust the change.

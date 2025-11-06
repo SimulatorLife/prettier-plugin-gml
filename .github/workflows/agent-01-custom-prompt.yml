@@ -25,9 +25,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Implement custom feature"
-      pr_body: |
-        Seed PR for **Agent** to implement a custom feature.
-
       prompt: >
         Implement the following feature request in a safe, minimal, and well-tested way. If any ambiguity 
         exists, resolve it with in-code comments and choose the least risky interpretation. Avoid 

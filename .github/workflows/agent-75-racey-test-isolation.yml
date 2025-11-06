@@ -20,9 +20,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Racey Test Isolation"
-      pr_body: >
-        Seed PR for Agent to stabilise a flaky test by isolating shared state or
-        timing assumptions.
       prompt: >
         Identify a test known to be flaky (shared globals, timing reliance,
         leaking timers, real network calls) and refactor it for determinism. Apply fixes such as

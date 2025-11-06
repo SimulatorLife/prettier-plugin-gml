@@ -21,7 +21,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Project Organization Sweep"
-      pr_body: "Seed PR for Agent to relocate one function, module, or asset to a more coherent home and tidy references while preserving inline documentation."
       prompt: >
         Perform a focused organization pass. Locate one function, module, or file/asset that
         currently lives in an ill-fitting directory or file (e.g., UI helper in core

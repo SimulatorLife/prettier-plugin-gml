@@ -21,17 +21,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: LSP Polymorphism Guardrails"
-      pr_body: |
-        Seed PR for Agent to remove brittle collaborator type checks and reinforce
-        Liskov Substitution Principle expectations.
-
-        ### Acceptable substitution checks
-        - Probe for required capabilities by verifying the presence of a method or
-          property before use (e.g., `typeof transport.send === "function"`).
-        - Feature-detect optional behaviour (flags, version markers) instead of
-          comparing constructor names or prototypes.
-        - Guard result shape by routing collaborators through a shared adapter or
-          contract test that normalizes outputs.
       prompt: >
         Search for explicit type discrimination against collaborators that are meant
         to be polymorphic—such as `instanceof` checks, constructor name comparisons,

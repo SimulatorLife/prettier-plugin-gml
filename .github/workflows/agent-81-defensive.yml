@@ -21,11 +21,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Defensive Input Hardening"
-      pr_body: >
-        Seed PR for Agent to reinforce defensive programming anywhere external
-        data is accepted without validation or functions rely on `any`/loosely
-        typed parameters. Tighten inputs before they can propagate invalid
-        states.
       prompt: >
         Identify a concrete hotspot where we deserialize external data or call a
         function typed as `any`, `unknown`, or otherwise loosely typed without

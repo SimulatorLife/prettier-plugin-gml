@@ -21,9 +21,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Dependency Inversion Guardrails"
-      pr_body: |
-        Seed PR for Agent to eliminate dependency-inversion violations where high-level modules
-        reach for concrete adapters or construct their own dependencies.
       prompt: >
         Audit the high-level orchestration layers first: src/plugin/src/gml.js, the CLI entry
         point in src/cli/prettier-wrapper.js, and related glue modules that compose parser,

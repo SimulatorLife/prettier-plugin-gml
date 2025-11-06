@@ -20,7 +20,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Lint Fixes"
-      pr_body: "Seed PR for Agent to refactor and fix lint warnings and errors."
       prompt: >
         Run `npm run lint` and parse its output. Identify all ESLint warnings and errors, then select
         one single instance to fix. Prioritize errors over warnings, and choose a target that is 

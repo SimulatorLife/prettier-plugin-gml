@@ -20,9 +20,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Legacy API Usage"
-      pr_body: >
-        Seed PR for Agent to migrate a deprecated or legacy API to its supported
-        successor while preserving behaviour.
       prompt: >
         Detect a call site using a deprecated library/API or internal module
         slated for removal. Replace it with the recommended modern equivalent,

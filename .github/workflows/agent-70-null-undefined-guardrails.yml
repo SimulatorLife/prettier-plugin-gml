@@ -20,9 +20,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Null/Undefined Guardrails"
-      pr_body: >
-        Seed PR for Agent to tighten defensive programming around nullable
-        values by adding targeted null/undefined guards where they are missing.
       prompt: >
         Locate a concrete instance where unchecked property access, missing
         optional chaining, or implicit assumptions about non-null values can

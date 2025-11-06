@@ -20,7 +20,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Style Consistency Pass"
-      pr_body: "Seed PR for Agent to normalize naming and formatting conventions."
       prompt: >
         Pick a focused area (module, component, helper, or small file cluster) where
         mechanical style has drifted—think indentation, spacing, casing, import/order

@@ -20,9 +20,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: POLA Behaviour Audit"
-      pr_body: >
-        Seed PR for Agent to reconcile option documentation and inline comments
-        with the behaviours the formatter actually ships.
       prompt: >
         Hunt for places where our documentation, option descriptions, or inline
         comments promise one behaviour but the implementation does something

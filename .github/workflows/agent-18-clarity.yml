@@ -20,7 +20,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Control-Flow Clarity"
-      pr_body: "Seed PR for Agent to simplify control flow while preserving behaviour."
       prompt: >
         Locate a bite-sized logic path (function, reducer, effect handler, or small
         module) where the control flow is harder to read than it needs to be, and

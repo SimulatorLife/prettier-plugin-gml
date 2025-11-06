@@ -21,14 +21,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Single Responsibility Sweep"
-      pr_body: |
-        Agent, please audit the codebase for oversized functions whose names
-        combine multiple verbs. Suggest helper extractions that reinforce the
-        single-responsibility principle so that follow-up changes only need to
-        touch one focused unit.
-
-        Share a short before/after summary in the PR description and note any
-        areas that still require human follow-up.
       prompt: >
         Run a repository-wide guardrail pass to enforce the single-responsibility
         principle. Identify one function whose body is extremely long

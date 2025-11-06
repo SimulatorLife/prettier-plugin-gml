@@ -20,9 +20,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Floating-Point Equality Pitfalls"
-      pr_body: >
-        Seed PR for Agent to replace an unsafe floating-point equality check
-        with a tolerance-aware comparison backed by tests.
       prompt: >
         Find code comparing non-integer numbers using strict equality or
         inequality that can fail due to rounding error. Replace it with a

@@ -21,9 +21,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: KISS Sweeper"
-      pr_body: |
-        Seed PR inviting Agent to simplify one overengineered area and document the
-        resulting regression coverage.
       prompt: >
         Locate one pocket of unnecessary complexity—an unused abstraction layer, a factory
         pattern used only once, or a redundant configuration toggle. Replace it with the

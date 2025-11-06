@@ -21,9 +21,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Architectural Audit"
-      pr_body: |
-        Seed PR asking Agent to audit repository architecture, document findings, and
-        land a focused first-step refactor that keeps the codebase cohesive.
       prompt: >
         Perform a daily architectural audit of the repository to identify and correct structural inefficiencies while preserving public
         APIs and system behavior. Scan for redundant or fragmented top-level concepts, such as duplicated CLI entry points, overly deep

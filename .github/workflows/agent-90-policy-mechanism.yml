@@ -20,13 +20,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Separate policy evaluators from mechanisms"
-      pr_body: |
-        ## Summary
-        * Identify formatter modules where policy heuristics are intertwined with operational logic.
-        * Extract policy evaluators or strategy objects so that formatting actions can delegate to them.
-
-        ## Testing
-        * npm test
       prompt: >
         Inspect modules where policy decisions (flags, thresholds, cache sizing, heuristic lookups, or other
         conditional rules) are implemented in the same place that performs operational side effects. Look for

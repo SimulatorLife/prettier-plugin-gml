@@ -21,9 +21,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Cohesion Refactor"
-      pr_body: |
-        Seed PR prompting Agent to consolidate duplicate helpers and boost module cohesion
-        without overhauling the entire codebase.
       prompt: >
         Hunt for fragmented helpers or duplicated utilities that should live together.
         Extract or merge them into a shared module with clear ownership so related code

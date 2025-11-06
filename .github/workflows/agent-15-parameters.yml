@@ -20,7 +20,6 @@ jobs:
     with:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Parameter Flexibility"
-      pr_body: "Seed PR for Agent to refactor a rigid constant into a configurable parameter."
       prompt: >
         Search for hardcoded constants or magic numbers that could instead be configuration/parameters.
         Refactor one meaningful value into a configurable parameter. Integrate it
