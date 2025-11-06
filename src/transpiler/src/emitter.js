@@ -463,6 +463,15 @@ export function emitJavaScript(ast) {
         return "continue";
     }
 
+    // GML's `exit` statement terminates the current script or event immediately,
+    // equivalent to returning early without a value. We emit a bare `return`
+    // statement so control flow stops at the same point in the generated
+    // JavaScript, which matches the runtime wrapper's expectations for script
+    // completion.
+    if (ast.type === "ExitStatement") {
+        return "return";
+    }
+
     // Emit throw statements with an exception argument. GML's exception model
     // closely mirrors JavaScript's, allowing any value to be thrown.
     if (ast.type === "ThrowStatement") {
