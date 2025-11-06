@@ -6,15 +6,15 @@ import { createResolverController } from "../src/shared/resolver-controller.js";
 describe("createResolverController", () => {
     it("returns defaults when no resolver is installed", () => {
         let defaultCalls = 0;
-        const { resolution, registry } = createResolverController({
+        const controller = createResolverController({
             defaultFactory() {
                 defaultCalls += 1;
                 return { marker: defaultCalls };
             }
         });
 
-        const first = resolution.resolve();
-        const second = resolution.resolve();
+        const first = controller.resolve();
+        const second = controller.resolve();
 
         assert.deepEqual(first, { marker: 2 });
         assert.deepEqual(second, { marker: 3 });
@@ -23,7 +23,7 @@ describe("createResolverController", () => {
 
     it("reuses the cached default when configured", () => {
         let defaultCalls = 0;
-        const { resolution } = createResolverController({
+        const controller = createResolverController({
             reuseDefaultValue: true,
             defaultFactory() {
                 defaultCalls += 1;
@@ -31,8 +31,8 @@ describe("createResolverController", () => {
             }
         });
 
-        const first = resolution.resolve();
-        const second = resolution.resolve();
+        const first = controller.resolve();
+        const second = controller.resolve();
 
         assert.deepEqual(first, { marker: 1 });
         assert.strictEqual(first, second);
@@ -41,7 +41,7 @@ describe("createResolverController", () => {
 
     it("passes the previous value through the resolver pipeline", () => {
         const seen = [];
-        const { resolution, registry } = createResolverController({
+        const controller = createResolverController({
             defaultFactory: () => ({ version: "baseline" }),
             invoke(resolver, options, previous) {
                 seen.push({ phase: "invoke", previous });
@@ -53,13 +53,13 @@ describe("createResolverController", () => {
             }
         });
 
-        registry.set((options, previous) => ({
+        controller.set((options, previous) => ({
             version: `${previous.version}-${options?.suffix ?? "initial"}`
         }));
 
         seen.length = 0;
 
-        const resolved = resolution.resolve({ suffix: "next" });
+        const resolved = controller.resolve({ suffix: "next" });
 
         assert.deepEqual(resolved, { version: "baseline-initial-next" });
         assert.equal(seen.length, 2);
@@ -75,15 +75,15 @@ describe("createResolverController", () => {
     });
 
     it("restores the default state after clearing the resolver", () => {
-        const { resolution, registry } = createResolverController({
+        const controller = createResolverController({
             defaultFactory: () => ({ value: "default" })
         });
 
-        registry.set(() => ({ value: "custom" }));
-        assert.deepEqual(resolution.resolve(), { value: "custom" });
+        controller.set(() => ({ value: "custom" }));
+        assert.deepEqual(controller.resolve(), { value: "custom" });
 
-        const restored = registry.restore();
+        const restored = controller.restore();
         assert.deepEqual(restored, { value: "default" });
-        assert.deepEqual(resolution.resolve(), { value: "default" });
+        assert.deepEqual(controller.resolve(), { value: "default" });
     });
 });
