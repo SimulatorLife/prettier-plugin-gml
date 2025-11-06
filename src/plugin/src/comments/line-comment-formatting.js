@@ -64,6 +64,18 @@ const JSDOC_REPLACEMENT_RULES = Object.entries(JSDOC_REPLACEMENTS).map(
     })
 );
 
+const BANNER_DECORATION_CLASS = "[-=_~*#<>|:.]";
+const LEADING_BANNER_DECORATION_PATTERN = new RegExp(
+    String.raw`^(?:${BANNER_DECORATION_CLASS}{2,}\s*)+`
+);
+const TRAILING_BANNER_DECORATION_PATTERN = new RegExp(
+    String.raw`(?:\s*${BANNER_DECORATION_CLASS}{2,})+$`
+);
+const INNER_BANNER_DECORATION_PATTERN = new RegExp(
+    `${BANNER_DECORATION_CLASS}{2,}`,
+    "g"
+);
+
 const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION = Object.freeze({
     synonyms: Object.freeze([
         ["void", "undefined"],
@@ -355,6 +367,31 @@ function getLineCommentRawText(comment) {
             : String(comment.value);
 
     return `//${fallbackValue}`;
+}
+
+function normalizeBannerCommentText(candidate) {
+    if (typeof candidate !== "string") {
+        return null;
+    }
+
+    let text = candidate.trim();
+    if (text.length === 0) {
+        return null;
+    }
+
+    text = text.replace(/\/{2,}\s*$/, "").trim();
+    if (text.length === 0) {
+        return null;
+    }
+
+    text = text.replace(LEADING_BANNER_DECORATION_PATTERN, "");
+    text = text.replace(TRAILING_BANNER_DECORATION_PATTERN, "");
+
+    text = text.replaceAll(INNER_BANNER_DECORATION_PATTERN, " ");
+    text = text.replaceAll(/\s+/g, " ");
+
+    const normalized = text.trim();
+    return normalized.length > 0 ? normalized : null;
 }
 
 function formatLineComment(
@@ -831,6 +868,7 @@ export {
     applyInlinePadding,
     formatLineComment,
     getLineCommentRawText,
+    normalizeBannerCommentText,
     normalizeDocCommentTypeAnnotations,
     resolveDocCommentTypeNormalization,
     restoreDefaultDocCommentTypeNormalizationResolver,

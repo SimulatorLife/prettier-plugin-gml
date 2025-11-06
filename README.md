@@ -663,7 +663,6 @@ Template strings that never interpolate expressions automatically collapse back 
 | `preserveGlobalVarStatements` | `true` | Keeps `globalvar` declarations while still prefixing later assignments with `global.`. |
 | `alignAssignmentsMinGroupSize` | `3` | Aligns simple assignment operators across consecutive lines once the group size threshold is met. |
 | `variableBlockSpacingMinDeclarations` | `4` | Inserts a blank line after runs of local declarations once the specified length is met; set to `0` to disable the spacing entirely. |
-| `lineCommentBannerLength` | `60` | Sets the normalized width for banner line comments; set to `0` to keep the original slash run. |
 | `maxParamsPerLine` | `0` | Forces argument wrapping after the specified count (set to `0` to remove the numeric limit; nested callbacks may still wrap for readability). |
 | `applyFeatherFixes` | `false` | Applies opt-in fixes backed by GameMaker Feather metadata (e.g. drop trailing semicolons from `#macro`). |
 | `useStringInterpolation` | `false` | Upgrades eligible string concatenations to template strings (`$"Hello {name}"`). |
@@ -695,11 +694,12 @@ var enemy = {name: "Slime", hp: 5};
 Bare decimal literals are always padded with leading and trailing zeroes (for
 example, `.5` becomes `0.5` and `1.` becomes `1.0`) to improve readability.
 
-Banner line comments are automatically detected when they contain five or more
-consecutive `/` characters. Once identified, the formatter rewrites the banner
-prefix to the `lineCommentBannerLength` setting (60 by default) so mixed-width
-comment markers settle on a single, readable standard; set the option to `0` to
-leave banner widths untouched.
+Banner line comments that open with long runs of `/` characters are rewritten
+into concise `//` comments. The formatter strips decorative separators (for
+example `-----` or `====`) and collapses the remaining text to a single line;
+rows that contain only decoration disappear. This mirrors Prettier's handling of
+ASCII art headers so the output emphasizes the descriptive message instead of
+banner scaffolding.
 
 #### Identifier-case rollout
 

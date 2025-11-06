@@ -7,13 +7,12 @@ import {
     splitLines
 } from "./comment-boundary.js";
 import {
-    applyInlinePadding,
     formatLineComment,
-    getLineCommentRawText
+    getLineCommentRawText,
+    normalizeBannerCommentText
 } from "./line-comment-formatting.js";
 import {
     LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,
-    resolveLineCommentBannerLength,
     resolveLineCommentOptions
 } from "../options/line-comment-options.js";
 
@@ -175,7 +174,6 @@ function printComment(commentPath, options) {
         }
         case "CommentLine": {
             const lineCommentOptions = resolveLineCommentOptions(options);
-            const bannerLength = resolveLineCommentBannerLength(options);
             const rawText = getLineCommentRawText(comment);
             const bannerMatch = rawText.match(/^\s*(\/{2,})/);
 
@@ -200,12 +198,19 @@ function printComment(commentPath, options) {
                 return formatLineComment(comment, lineCommentOptions);
             }
 
-            const normalizedSlashRun =
-                bannerLength <= 0 ? slashRun : "".padStart(bannerLength, "/");
-            const normalizedBanner =
-                `${normalizedSlashRun}${remainder}`.trimEnd();
+            const normalizedText = normalizeBannerCommentText(remainderTrimmed);
+            if (normalizedText === null) {
+                return "";
+            }
 
-            return applyInlinePadding(comment, normalizedBanner);
+            const normalizedComment = {
+                ...comment,
+                value: ` ${normalizedText}`,
+                raw: `// ${normalizedText}`,
+                leadingText: `// ${normalizedText}`
+            };
+
+            return formatLineComment(normalizedComment, lineCommentOptions);
         }
         default: {
             throw new Error(`Not a comment: ${JSON.stringify(comment)}`);
