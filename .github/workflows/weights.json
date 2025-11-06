@@ -52,6 +52,7 @@
     {"weight":0.4,"name":"agent-94-hot-runtime-wrapper"},
     {"weight":0.4,"name":"agent-95-hot-semantic"},
     {"weight":0.4,"name":"agent-96-hot-transpiler"},
-    {"weight":0.4,"name":"agent-97-hot-cli"}
+    {"weight":0.4,"name":"agent-97-hot-cli"},
+    {"weight":0.1,"name":"agent-98-hot-integration"}
   ]
 }

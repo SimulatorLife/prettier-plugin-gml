@@ -1,0 +1,28 @@
+name: Agent 98 – Hot Reload Integration
+
+on:
+  workflow_dispatch:
+    inputs:
+      agent:
+        description: "Optional agent override."
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run:
+    uses: ./.github/workflows/_agent-hot-feature-base.yml
+    secrets: inherit
+    with:
+      agent: ${{ inputs.agent }}
+      component: "hot reload integration loop"
+      extra_context: >
+        Connect the CLI watch pipeline, transpiler, and runtime wrapper into a working hot reload loop.
+        Focus on wiring event flow, incremental transpilation, runtime patch delivery, and the developer
+        experience needed to test it end-to-end. Keep changes incremental, add targeted tests, and align
+        with the live reloading concept docs.
