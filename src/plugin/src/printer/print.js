@@ -881,7 +881,7 @@ export function print(path, options, print) {
                 parts.push(printEmptyParens(path, print, options));
             }
 
-            if (node.type == "ConstructorDeclaration") {
+            if (node.type === "ConstructorDeclaration") {
                 if (node.parent) {
                     parts.push(print("parent"));
                 } else {
