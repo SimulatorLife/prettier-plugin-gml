@@ -51,6 +51,9 @@ node src/cli/src/cli.js watch /path/to/project --verbose
 - `--polling` - Use polling instead of native file watching
 - `--polling-interval <ms>` - Polling interval in milliseconds (default: 1000)
 - `--verbose` - Enable verbose logging with detailed transpilation output
+- `--websocket-port <port>` - WebSocket server port for streaming patches (default: 17890)
+- `--websocket-host <host>` - WebSocket server host for streaming patches (default: 127.0.0.1)
+- `--no-websocket-server` - Disable WebSocket server for patch streaming
 
 **Example Output:**
 
@@ -59,12 +62,14 @@ Watching: /path/to/project
 Extensions: .gml
 Mode: native
 
+WebSocket patch server ready at ws://127.0.0.1:17890
+
 Waiting for file changes... (Press Ctrl+C to stop)
 
 [2025-11-05T18:28:54.771Z] change: example.gml
   ↳ Read 7 lines
-  ↳ Transpiled to JavaScript (97 chars)
-  ↳ Patch ID: gml/script/example
+  ↳ Generated patch: gml/script/example
+  ↳ Streamed to 1 client(s)
 ```
 
 **Hot-Reload Integration:**
@@ -85,11 +90,12 @@ The watch command now integrates with the transpiler module (`src/transpiler`) t
 ✅ Patch generation with script IDs
 ✅ Runtime context initialization
 ✅ Basic error handling and logging
+✅ **WebSocket server for patch streaming** ✨ NEW
+✅ **Real-time patch broadcast to connected clients** ✨ NEW
 
 🚧 Future Enhancements:
 - Semantic analysis integration for scope-aware transpilation
 - Dependency tracking to rebuild dependent scripts
-- WebSocket streaming to runtime wrapper
 - Event transpilation (not just scripts)
 - Shader and asset hot-reloading
 
@@ -136,8 +142,9 @@ The CLI package serves as the orchestration layer for the hot-reload development
 │  │                   watch command                       │  │
 │  │  • File system monitoring                             │  │
 │  │  • Change detection                                   │  │
-│  │  • Transpiler coordination ✅ NEW                     │  │
-│  │  • Patch generation ✅ NEW                            │  │
+│  │  • Transpiler coordination ✅                         │  │
+│  │  • Patch generation ✅                                │  │
+│  │  • WebSocket streaming ✅ NEW                         │  │
 │  │  • Runtime context management                         │  │
 │  └───────────────────────────────────────────────────────┘  │
 │                            ↓                                │
@@ -146,6 +153,13 @@ The CLI package serves as the orchestration layer for the hot-reload development
 │  │  • GML → JavaScript conversion ✅                     │  │
 │  │  • Patch object generation ✅                         │  │
 │  │  • Error handling ✅                                  │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                            ↓                                │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │              WebSocket Server ✅ NEW                  │  │
+│  │  • Real-time patch broadcasting                       │  │
+│  │  • Client connection management                       │  │
+│  │  • Automatic reconnection support                     │  │
 │  └───────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
                            ↓
@@ -157,9 +171,10 @@ The CLI package serves as the orchestration layer for the hot-reload development
           └────────────────────────────────┘
                            ↓
           ┌────────────────────────────────┐
-          │  Runtime Wrapper (future)      │
-          │  • Patch application           │
-          │  • Hot function swapping       │
+          │  Runtime Wrapper               │
+          │  • WebSocket client ✅         │
+          │  • Patch application ✅        │
+          │  • Hot function swapping ✅    │
           │  • State preservation          │
           └────────────────────────────────┘
 ```
@@ -215,13 +230,13 @@ console.log(patch.js_body);
 Provides ANTLR-based GML parsing used by the transpiler.
 
 ### Transpiler (`src/transpiler`)
-✅ **Now integrated** - Converts GML AST to JavaScript for hot-reload patches.
+✅ **Integrated** - Converts GML AST to JavaScript for hot-reload patches.
 
 ### Semantic (`src/semantic`)
 🚧 Future - Will provide scope analysis and dependency tracking.
 
 ### Runtime Wrapper (`src/runtime-wrapper`)
-🚧 Future - Will receive and apply patches via WebSocket.
+✅ **Ready** - Has WebSocket client and patch application, ready to receive patches.
 
 ### Refactor (`src/refactor`)
 🚧 Future - Will coordinate with watch command for safe renames.
@@ -237,6 +252,13 @@ Provides ANTLR-based GML parsing used by the transpiler.
 
 ### Recent Updates
 
+- **2025-11-06**: Completed hot-reload integration loop
+  - Added WebSocket server to watch command for real-time patch streaming
+  - Integrated patch broadcasting to all connected runtime wrapper clients
+  - Added connection management and client tracking
+  - Created end-to-end integration test for patch delivery
+  - Updated documentation with WebSocket configuration options
+  - Watch command now provides complete hot-reload pipeline from file change to patch delivery
 - **2025-11-05**: Integrated transpiler into watch command for hot-reload pipeline
   - Watch command now transpiles GML files to JavaScript on change
   - Generates patch objects with script IDs

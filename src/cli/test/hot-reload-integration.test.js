@@ -1,0 +1,101 @@
+/**
+ * Integration test for hot-reload patch streaming.
+ *
+ * Validates the complete pipeline from file change detection through transpilation
+ * to WebSocket patch delivery.
+ */
+
+import { describe, it, before, after } from "node:test";
+import assert from "node:assert";
+import { writeFile, mkdir, rm } from "node:fs/promises";
+import path from "node:path";
+import WebSocket from "ws";
+
+import { runWatchCommand } from "../src/commands/watch.js";
+
+describe("Hot reload integration loop", () => {
+    let testDir;
+    let testFile;
+    let watchController;
+    let websocketClient;
+    let receivedPatches;
+
+    before(async () => {
+        testDir = path.join(process.cwd(), "tmp", `test-watch-${Date.now()}`);
+        await mkdir(testDir, { recursive: true });
+        testFile = path.join(testDir, "test_script.gml");
+        await writeFile(testFile, "// Initial content\nvar x = 10;", "utf8");
+        receivedPatches = [];
+    });
+
+    after(async () => {
+        if (websocketClient) {
+            websocketClient.close();
+        }
+        if (testDir) {
+            await rm(testDir, { recursive: true, force: true });
+        }
+    });
+
+    it("should stream patches via WebSocket when files change", async () => {
+        const abortController = new AbortController();
+
+        const watchPromise = runWatchCommand(testDir, {
+            extensions: [".gml"],
+            verbose: false,
+            websocketPort: 17_891,
+            websocketHost: "127.0.0.1",
+            runtimeServer: false,
+            abortSignal: abortController.signal
+        });
+
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        await new Promise((resolve, reject) => {
+            websocketClient = new WebSocket("ws://127.0.0.1:17891");
+
+            websocketClient.on("open", () => {
+                resolve();
+            });
+
+            websocketClient.on("error", (error) => {
+                reject(error);
+            });
+
+            websocketClient.on("message", (data) => {
+                try {
+                    const patch = JSON.parse(data.toString());
+                    receivedPatches.push(patch);
+                } catch (error) {
+                    console.error("Failed to parse patch:", error);
+                }
+            });
+        });
+
+        await writeFile(testFile, "// Updated content\nvar y = 20;", "utf8");
+
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        abortController.abort();
+
+        try {
+            await watchPromise;
+        } catch {
+            // Expected when aborting
+        }
+
+        assert.ok(
+            receivedPatches.length > 0,
+            `Should receive at least one patch (received ${receivedPatches.length})`
+        );
+
+        const patch = receivedPatches.at(-1);
+        assert.strictEqual(patch.kind, "script", "Patch should be a script");
+        assert.ok(patch.id, "Patch should have an ID");
+        assert.ok(patch.js_body, "Patch should have JavaScript body");
+        assert.ok(
+            patch.id.includes("test_script"),
+            "Patch ID should reference the script name"
+        );
+    });
+});

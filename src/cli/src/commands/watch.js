@@ -25,6 +25,7 @@ import {
     DEFAULT_RUNTIME_PACKAGE
 } from "../modules/runtime/source.js";
 import { startRuntimeStaticServer } from "../modules/runtime/server.js";
+import { startPatchWebSocketServer } from "../modules/websocket/server.js";
 
 /**
  * Creates the watch command for monitoring GML source files.
@@ -73,6 +74,30 @@ export function createWatchCommand() {
         )
         .addOption(
             new Option("--verbose", "Enable verbose logging").default(false)
+        )
+        .addOption(
+            new Option(
+                "--websocket-port <port>",
+                "WebSocket server port for streaming patches"
+            )
+                .argParser((value) => {
+                    const parsed = Number.parseInt(value, 10);
+                    if (Number.isNaN(parsed) || parsed < 1 || parsed > 65_535) {
+                        throw new Error("Port must be between 1 and 65535");
+                    }
+                    return parsed;
+                })
+                .default(17_890)
+        )
+        .addOption(
+            new Option(
+                "--websocket-host <host>",
+                "WebSocket server host for streaming patches"
+            ).default("127.0.0.1")
+        )
+        .option(
+            "--no-websocket-server",
+            "Disable starting the WebSocket server for patch streaming."
         )
         .addOption(
             new Option(
@@ -157,6 +182,9 @@ function logWatchStartup(
  * @param {boolean} options.polling - Use polling instead of native watching
  * @param {number} options.pollingInterval - Polling interval in milliseconds
  * @param {boolean} options.verbose - Enable verbose logging
+ * @param {number} options.websocketPort - WebSocket server port
+ * @param {string} options.websocketHost - WebSocket server host
+ * @param {boolean} options.websocketServer - Enable WebSocket server
  */
 export async function runWatchCommand(targetPath, options) {
     const {
@@ -164,6 +192,9 @@ export async function runWatchCommand(targetPath, options) {
         polling = false,
         pollingInterval = 1000,
         verbose = false,
+        websocketPort = 17_890,
+        websocketHost = "127.0.0.1",
+        websocketServer: enableWebSocket = true,
         abortSignal,
         runtimeRoot,
         runtimePackage = DEFAULT_RUNTIME_PACKAGE,
@@ -193,10 +224,12 @@ export async function runWatchCommand(targetPath, options) {
         server: null,
         noticeLogged: Boolean(verbose),
         transpiler,
-        patches: []
+        patches: [],
+        websocketServer: null
     };
 
     let runtimeServerController = null;
+    let websocketServerController = null;
 
     if (shouldServeRuntime) {
         const runtimeSource = await runtimeResolver({
@@ -230,6 +263,50 @@ export async function runWatchCommand(targetPath, options) {
         );
     } else if (verbose) {
         console.log("Runtime static server disabled.");
+    }
+
+    if (enableWebSocket) {
+        try {
+            websocketServerController = await startPatchWebSocketServer({
+                host: websocketHost,
+                port: websocketPort,
+                verbose,
+                onClientConnect: (clientId) => {
+                    if (verbose) {
+                        console.log(
+                            `Patch streaming client connected: ${clientId}`
+                        );
+                    }
+                },
+                onClientDisconnect: (clientId) => {
+                    if (verbose) {
+                        console.log(
+                            `Patch streaming client disconnected: ${clientId}`
+                        );
+                    }
+                }
+            });
+
+            runtimeContext.websocketServer = {
+                host: websocketServerController.host,
+                port: websocketServerController.port,
+                url: websocketServerController.url,
+                broadcast: websocketServerController.broadcast,
+                getClientCount: websocketServerController.getClientCount
+            };
+
+            console.log(
+                `WebSocket patch server ready at ${websocketServerController.url}`
+            );
+        } catch (error) {
+            console.error(`Failed to start WebSocket server: ${error.message}`);
+            if (verbose) {
+                console.error(error.stack);
+            }
+            process.exit(1);
+        }
+    } else if (verbose) {
+        console.log("WebSocket patch server disabled.");
     }
 
     logWatchStartup(
@@ -274,6 +351,16 @@ export async function runWatchCommand(targetPath, options) {
                 } catch (error) {
                     console.error(
                         `Failed to stop runtime static server: ${error.message}`
+                    );
+                }
+            }
+
+            if (websocketServerController) {
+                try {
+                    await websocketServerController.stop();
+                } catch (error) {
+                    console.error(
+                        `Failed to stop WebSocket server: ${error.message}`
                     );
                 }
             }
@@ -424,6 +511,27 @@ async function handleFileChange(
                     // Store the patch for future streaming
                     runtimeContext.patches.push(patch);
 
+                    // Broadcast the patch to all connected WebSocket clients
+                    if (runtimeContext.websocketServer) {
+                        const broadcastResult =
+                            runtimeContext.websocketServer.broadcast(patch);
+
+                        if (verbose) {
+                            console.log(
+                                `  ↳ Broadcasted to ${broadcastResult.successCount} clients`
+                            );
+                            if (broadcastResult.failureCount > 0) {
+                                console.log(
+                                    `  ↳ Failed to send to ${broadcastResult.failureCount} clients`
+                                );
+                            }
+                        } else if (broadcastResult.successCount > 0) {
+                            console.log(
+                                `  ↳ Streamed to ${broadcastResult.successCount} client(s)`
+                            );
+                        }
+                    }
+
                     if (verbose) {
                         console.log(
                             `  ↳ Transpiled to JavaScript (${patch.js_body.length} chars)`
@@ -434,9 +542,8 @@ async function handleFileChange(
                     }
 
                     // Future integration points:
-                    // 2. Run semantic analysis to understand scope and dependencies
-                    // 3. Identify dependent scripts that need recompilation
-                    // 4. Stream patches to runtime wrapper via WebSocket
+                    // 1. Run semantic analysis to understand scope and dependencies
+                    // 2. Identify dependent scripts that need recompilation
                 } catch (error) {
                     console.error(`  ↳ Transpilation failed: ${error.message}`);
                     if (verbose) {

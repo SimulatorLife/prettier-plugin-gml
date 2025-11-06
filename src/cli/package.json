@@ -13,7 +13,8 @@
     "commander": "^14.0.2",
     "linkedom": "^0.18.12",
     "prettier-plugin-gamemaker": "file:../plugin",
-    "fast-xml-parser": "^5.3.0"
+    "fast-xml-parser": "^5.3.0",
+    "ws": "^8.18.0"
   },
   "engines": {
     "node": ">=25.0.0"
