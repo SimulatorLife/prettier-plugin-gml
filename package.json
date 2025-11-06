@@ -76,7 +76,7 @@
     "build:feather-metadata": "node ./src/cli/src/cli.js generate-feather-metadata --quiet",
     "memory": "node --expose-gc ./src/cli/src/cli.js memory --format human",
     "example:plugin": "cd src/plugin && npm run example",
-    "postinstall": "git submodule update --init --recursive && git update-index --skip-worktree vendor/GameMaker-HTML5 vendor/GameMaker-Manual || echo \"Skipping vendor submodules\"",
+    "postinstall": "git submodule update --init --recursive && git update-index --skip-worktree vendor/* && chmod -R a-w vendor && chmod -R a+X vendor || echo \"Skipping vendor submodules\"",
     "prepare": "husky",
     "cli": "node ./src/cli/src/cli.js"
   },
