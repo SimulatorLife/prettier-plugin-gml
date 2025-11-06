@@ -57,7 +57,7 @@ function extractOperations(plan) {
         return plan;
     }
 
-    if (!plan || typeof plan !== "object") {
+    if (!isObjectLike(plan)) {
         return [];
     }
 

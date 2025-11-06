@@ -245,7 +245,7 @@ function ensureIdentifierEntryWithRole({
 }
 
 function assignIdentifierEntryMetadata(entry, metadata) {
-    if (!entry || typeof entry !== "object") {
+    if (!isObjectLike(entry)) {
         return entry;
     }
 
