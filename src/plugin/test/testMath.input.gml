@@ -8,9 +8,7 @@ var curr_val = myStruct[$ "the_key"]
 
 myArray[@3] = 9999
 
-///--------------------------------------------------------------
-/// eAIState
-///--------------------------------------------------------------
+// eAIState
 
 enum eAIState {
 	idle, // no AI direction currently

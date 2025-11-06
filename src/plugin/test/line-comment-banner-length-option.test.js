@@ -1,11 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import {
-    DEFAULT_LINE_COMMENT_BANNER_LENGTH,
-    printComment,
-    resolveLineCommentBannerLength
-} from "../src/comments/index.js";
+import { printComment } from "../src/comments/index.js";
 
 function createBannerComment(leadingText) {
     return {
@@ -16,64 +12,25 @@ function createBannerComment(leadingText) {
     };
 }
 
-describe("line comment banner length option", () => {
-    it("falls back to the default when the option is omitted", () => {
-        assert.strictEqual(
-            resolveLineCommentBannerLength(),
-            DEFAULT_LINE_COMMENT_BANNER_LENGTH
-        );
-        assert.strictEqual(
-            resolveLineCommentBannerLength({}),
-            DEFAULT_LINE_COMMENT_BANNER_LENGTH
-        );
+describe("line comment banner handling", () => {
+    it("collapses banner comments into a minimal single-line comment", () => {
+        const comment = createBannerComment("//////// Heading ////////");
+        const printed = printComment({ getValue: () => comment }, {});
+
+        assert.strictEqual(printed, "// Heading");
     });
 
-    it("coerces numeric and string overrides", () => {
-        assert.strictEqual(
-            resolveLineCommentBannerLength({ lineCommentBannerLength: 12 }),
-            12
-        );
-        assert.strictEqual(
-            resolveLineCommentBannerLength({ lineCommentBannerLength: "8" }),
-            8
-        );
+    it("drops decorative banners that have no descriptive text", () => {
+        const comment = createBannerComment("////////////////////////");
+        const printed = printComment({ getValue: () => comment }, {});
+
+        assert.strictEqual(printed, "");
     });
 
-    it("treats zero as a signal to preserve the original banner length", () => {
-        assert.strictEqual(
-            resolveLineCommentBannerLength({ lineCommentBannerLength: 0 }),
-            0
-        );
-    });
+    it("preserves regular comments that do not resemble banners", () => {
+        const comment = createBannerComment("// Standard comment");
+        const printed = printComment({ getValue: () => comment }, {});
 
-    it("ignores invalid overrides", () => {
-        assert.strictEqual(
-            resolveLineCommentBannerLength({ lineCommentBannerLength: -4 }),
-            DEFAULT_LINE_COMMENT_BANNER_LENGTH
-        );
-        assert.strictEqual(
-            resolveLineCommentBannerLength({ lineCommentBannerLength: null }),
-            DEFAULT_LINE_COMMENT_BANNER_LENGTH
-        );
-    });
-
-    it("normalizes banner comments to the configured width", () => {
-        const comment = createBannerComment("//////// Heading");
-        const printed = printComment(
-            { getValue: () => comment },
-            { lineCommentBannerLength: 12 }
-        );
-
-        assert.strictEqual(printed, "//////////// Heading");
-    });
-
-    it("preserves the source width when the option is disabled", () => {
-        const comment = createBannerComment("//////// Heading");
-        const printed = printComment(
-            { getValue: () => comment },
-            { lineCommentBannerLength: 0 }
-        );
-
-        assert.strictEqual(printed, "//////// Heading");
+        assert.strictEqual(printed, "// Standard comment");
     });
 });

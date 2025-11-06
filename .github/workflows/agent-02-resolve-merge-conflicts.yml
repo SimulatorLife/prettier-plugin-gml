@@ -202,6 +202,7 @@ jobs:
           MERGEABLE_STATE: ${{ steps.select_pr.outputs.mergeable_state }}
           MANUAL_RUN: ${{ steps.select_pr.outputs.manual_run }}
           ALLOW_REPEAT: ${{ steps.select_pr.outputs.allow_repeat }}
+          AGENT: ${{ github.event.inputs.agent }}
         with:
           github-token: ${{ secrets.GH_USER_TOKEN }}
           script: |
@@ -280,24 +281,24 @@ jobs:
               core.info(`Manual run requested another conflict resolution comment on PR #${prNumber}.`);
             }
 
+            const rawAgent = (process.env.AGENT || "").trim();
+            const agent = rawAgent ? rawAgent.toLowerCase() : "copilot";
+            const mention = `@${rawAgent || agent}`;
+
             const lines = [
               marker,
               "",
-              `@agent This PR currently has merge conflicts between \`${pr.head.ref}\` and \`${pr.base.ref}\`. Please resolve them and push the fixes back to this branch with the smallest possible diff.`,
+              `${mention} This PR currently has merge conflicts between \`${pr.head.ref}\` and \`${pr.base.ref}\`. Please resolve them and push the fixes back to this branch with the smallest possible diff.`,
               "",
               "Follow these steps:",
               "1. Identify the remote that points at this repository (`git remote -v` shows it; call it `<remote>`), then fetch:",
               "```bash",
-              "git -c credential.helper= \\",
-              "    -c 'credential.helper=store --file .git/agent-cred' \\",
-              "    fetch <remote>",
+              "git fetch <remote>",
               "```",
               `2. Normalize formatter/lint configuration so both branches share the same tooling baseline:`,
               "   - Create a disposable worktree for the base branch and run the formatters there:",
               "```bash",
-              "git -c credential.helper= \\",
-              "    -c 'credential.helper=store --file .git/agent-cred' \\",
-              "    worktree add ../base-format <remote>/${pr.base.ref}",
+              "git worktree add ../base-format <remote>/${pr.base.ref}",
               "(cd ../base-format && npm ci && npm run format && npm run lint -- --fix)",
               "```",
               "   - Copy the authoritative formatter/lint configs onto the PR branch (adjust the file list as needed):",
@@ -319,25 +320,17 @@ jobs:
               "7. Stage files incrementally, verify `git diff` to ensure only intentional edits remain, then complete the merge commit (or `git rebase --continue`).",
               "8. Run the relevant tests. Afterwards confirm the diff is still narrow: `git diff --stat <remote>/${pr.base.ref}...HEAD` should only list conflict files.",
               "9. Fetch once more and ensure the branch stays cleanly mergeable (`git fetch <remote>` then `git merge --ff-only <remote>/${pr.base.ref}` should say \"Already up to date\").",
-              "10. Push your updates using the exact commands below so credentials and remotes are configured correctly:",
-              "",
-              "```bash",
-              `git config user.name  "agent-bot"`,
-              `git config user.email "agent@example.com"`,
-              `git -c credential.helper= \\`,
-              `    -c 'credential.helper=store --file .git/agent-cred' \\`,
-              `    push "https://henrylkirk@github.com/${owner}/${repo}.git" "HEAD:${pr.head.ref}"`,
-              "Additional context for this task:",
-              "```yaml",
-              "agent_task:",
-              `  branch: "${pr.head.ref}"`,
-              `  pr_number: ${pr.number}`,
-              `  base: "${pr.base.ref}"`,
-              `  head_sha: "${pr.head.sha}"`,
-              `  mergeable_state: "${mergeableState}"`,
             ];
 
-            lines.push("```");
+            if (agent !== "copilot") {
+              lines.push(
+                "10. Push your updates using the exact commands below so credentials and remotes are configured correctly:",
+                "",
+                "```bash",
+                `git push "https://github.com/${owner}/${repo}.git" "HEAD:${pr.head.ref}"`,
+                "```"
+              );
+            }
 
             const body = lines.join("\n");
 

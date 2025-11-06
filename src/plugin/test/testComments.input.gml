@@ -5,7 +5,9 @@
 // 	show_debug_message("Caught exception while trying to update crab foot speed: " + string(ex));
 // }
 
-// Make body wobble up and down
+//
+
+// Make body wobble up and down // This is a trailing comment
 z_wobble = ((sin(current_time * 0.004) + 1) * 2) + 2;  // value between 0 and 2, this is subtracted from crabs height
 
 // / Emulation of string_height(), but using Scribble for calculating the width
@@ -33,4 +35,25 @@ function string_height_scribble(_string) {
 
 function scribble_font_has_character(_font_name, _character) {
     return ds_map_exists(__scribble_get_font_data(_font_name).__glyphs_map, ord(_character));
+}
+
+// Script assets have changed for v2.3.0 see
+// https://help.yoyogames.com/hc/en-us/articles/360005277377 for more information
+function twojointik(x1, y1, z1, x2dir, y2dir, z2dir, x3, y3, z3, length1, length2){
+	/// @description twojointik(x1, y1, z1, x2dir, y2dir, z2dir, x3, y3, z3, length1, length2)
+	/*
+	    This function calculates the position of a two jointed IK chain.
+        It returns an array with the position of the joint and the end effector.
+        x1, y1, z1 : The position of the root of the chain
+        x2dir, y2dir, z2dir : The direction the first joint should face
+        x3, y3, z3 : The target position of the end effector
+        length1 : The length of the first bone
+        length2 : The length of the second bone
+        unrelated : comment to test
+        unrelated2 another comment to test
+	*/
+	/*////////////////////////////////////////////////////
+	        Return an array
+	*/////////////////////////////////////////////////////
+	return [x2, y2, z2, x3, y3, z3];
 }

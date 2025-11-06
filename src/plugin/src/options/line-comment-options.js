@@ -1,15 +1,15 @@
 import {
-    coalesceOption,
-    coercePositiveIntegerOption,
     isNonEmptyString,
     isObjectLike,
     isRegExpLike
 } from "../shared/index.js";
 import { createResolverController } from "../shared/resolver-controller.js";
 
-const LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES = 5;
-const DEFAULT_LINE_COMMENT_BANNER_LENGTH = 60;
-const LINE_COMMENT_BANNER_LENGTH_OPTION = "lineCommentBannerLength";
+// Any line comment that starts with at least this many consecutive `/`
+// characters is considered a "banner" comment for formatting purposes.
+// 2 slashes is the minimum to form a valid line comment in GML.
+// 3 slashes is for doc-comments. Anything 4 or more is considered decorative.
+const LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES = 4;
 
 const DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS = Object.freeze([
     // YoYo Games injects this banner while exporting assets; stripping it keeps
@@ -126,16 +126,6 @@ function resolveLineCommentOptions(options = {}) {
     return lineCommentOptionsResolution.resolve(options);
 }
 
-function resolveLineCommentBannerLength(options) {
-    const override = coalesceOption(options, LINE_COMMENT_BANNER_LENGTH_OPTION);
-
-    return coercePositiveIntegerOption(
-        override,
-        DEFAULT_LINE_COMMENT_BANNER_LENGTH,
-        { zeroReplacement: 0 }
-    );
-}
-
 /**
  * Registers a custom resolver for the line comment heuristics. Intended for
  * host integrations that need to extend the boilerplate detection rules
@@ -154,13 +144,10 @@ function restoreDefaultLineCommentOptionsResolver() {
 }
 
 export {
-    DEFAULT_LINE_COMMENT_BANNER_LENGTH,
     DEFAULT_LINE_COMMENT_OPTIONS,
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,
-    LINE_COMMENT_BANNER_LENGTH_OPTION,
     normalizeLineCommentOptions,
-    resolveLineCommentBannerLength,
     resolveLineCommentOptions,
     restoreDefaultLineCommentOptionsResolver,
     setLineCommentOptionsResolver

@@ -13,10 +13,8 @@ export {
     isLineComment
 } from "./comment-boundary.js";
 export {
-    DEFAULT_LINE_COMMENT_BANNER_LENGTH,
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     DEFAULT_LINE_COMMENT_OPTIONS,
-    resolveLineCommentBannerLength,
     normalizeLineCommentOptions,
     resolveLineCommentOptions,
     restoreDefaultLineCommentOptionsResolver,

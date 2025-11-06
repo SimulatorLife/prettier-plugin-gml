@@ -1,5 +1,4 @@
 import { resolveGmlPluginComponentDependencies } from "./gml-plugin-component-dependency-registry.js";
-import { DEFAULT_LINE_COMMENT_BANNER_LENGTH } from "../options/line-comment-options.js";
 import { DEFAULT_MIN_DECLARATION_RUN_LENGTH } from "../options/variable-block-spacing-options.js";
 
 export function createDefaultGmlPluginComponents() {
@@ -118,16 +117,7 @@ export function createDefaultGmlPluginComponents() {
                 default: DEFAULT_MIN_DECLARATION_RUN_LENGTH,
                 range: { start: 0, end: Infinity },
                 description:
-                    "Minimum number of consecutive 'var' or 'let' declarations required before the formatter inserts a blank line ahead of the next statement. Set to 0 to disable the automatic spacing."
-            },
-            lineCommentBannerLength: {
-                since: "0.0.0",
-                type: "int",
-                category: "gml",
-                default: DEFAULT_LINE_COMMENT_BANNER_LENGTH,
-                range: { start: 0, end: Infinity },
-                description:
-                    "Normalized width applied to banner line comments. Increase or decrease to match house styles; set to 0 to preserve the original slash run."
+                    "Minimum number of consecutive variable declarations/assignments required before the formatter inserts a blank line ahead of the next statement. Set to 0 to disable the automatic spacing."
             },
             maxParamsPerLine: {
                 since: "0.0.0",
