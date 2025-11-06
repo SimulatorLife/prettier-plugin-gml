@@ -457,6 +457,93 @@ test("executeRename prepares hot reload updates when requested", async () => {
     assert.equal(result.hotReloadUpdates[0].action, "recompile");
 });
 
+test("prepareRenamePlan aggregates planning, validation, and analysis", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => [
+            {
+                path: "scripts/player.gml",
+                start: 0,
+                end: 6,
+                scopeId: "scope-1",
+                kind: "definition"
+            },
+            {
+                path: "scripts/player.gml",
+                start: 20,
+                end: 26,
+                scopeId: "scope-1",
+                kind: "reference"
+            }
+        ],
+        validateEdits: async () => ({
+            errors: [],
+            warnings: ["semantic warning"]
+        }),
+        getDependents: async () => [{ symbolId: "gml/script/scr_helper" }]
+    };
+
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const result = await engine.prepareRenamePlan({
+        symbolId: "gml/script/scr_player",
+        newName: "scr_player_new"
+    });
+
+    assert.ok(result.workspace instanceof WorkspaceEdit);
+    assert.equal(result.validation.valid, true);
+    assert.ok(result.validation.warnings.includes("semantic warning"));
+    assert.equal(result.hotReload, null);
+    assert.equal(result.analysis.valid, true);
+    assert.equal(result.analysis.summary.newName, "scr_player_new");
+    assert.ok(
+        result.analysis.summary.dependentSymbols.includes(
+            "gml/script/scr_helper"
+        )
+    );
+});
+
+test("prepareRenamePlan optionally validates hot reload compatibility", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => [
+            {
+                path: "scripts/player.gml",
+                start: 0,
+                end: 6,
+                scopeId: "scope-1",
+                kind: "definition"
+            }
+        ]
+    };
+
+    const mockFormatter = {
+        transpileScript: async () => ({ kind: "script" })
+    };
+
+    const engine = new RefactorEngine({
+        semantic: mockSemantic,
+        formatter: mockFormatter
+    });
+
+    const result = await engine.prepareRenamePlan(
+        {
+            symbolId: "gml/script/scr_player",
+            newName: "scr_player_new"
+        },
+        { validateHotReload: true, hotReloadOptions: { checkTranspiler: true } }
+    );
+
+    assert.equal(result.validation.valid, true);
+    assert.ok(result.hotReload);
+    assert.equal(result.hotReload.valid, true);
+    assert.ok(
+        result.hotReload.warnings.some((warning) =>
+            warning.includes("Transpiler compatibility check requested")
+        )
+    );
+});
+
 test("generateTranspilerPatches requires array parameter", async () => {
     const engine = new RefactorEngine();
     await assert.rejects(

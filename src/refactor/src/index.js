@@ -650,6 +650,52 @@ export class RefactorEngine {
     }
 
     /**
+     * Prepare a rename plan with validation and optional hot reload checks.
+     * Bundles the planning, validation, and impact analysis phases so callers
+     * can present a complete preview before writing any files.
+     *
+     * @param {Object} request - Rename request forwarded to {@link planRename}.
+     * @param {string} request.symbolId - Symbol identifier to rename.
+     * @param {string} request.newName - Proposed new identifier name.
+     * @param {Object} [options] - Additional validation controls.
+     * @param {boolean} [options.validateHotReload=false] - Whether to perform hot reload compatibility checks.
+     * @param {Object} [options.hotReloadOptions] - Options forwarded to {@link validateHotReloadCompatibility}.
+     * @returns {Promise<{workspace: WorkspaceEdit, validation: {valid: boolean, errors: Array<string>, warnings: Array<string>}, hotReload: {valid: boolean, errors: Array<string>, warnings: Array<string>} | null, analysis: {valid: boolean, summary: Object, conflicts: Array, warnings: Array}}>} Aggregated rename plan data.
+     */
+    async prepareRenamePlan(request, options = {}) {
+        const { validateHotReload = false, hotReloadOptions = {} } = options;
+
+        // Plan the rename to capture all edits up front.
+        const workspace = await this.planRename(request);
+
+        // Run structural validation so callers can surface blocking issues
+        // without attempting to apply the edits.
+        const validation = await this.validateRename(workspace);
+
+        // Only perform the more expensive hot reload compatibility checks when
+        // explicitly requested. This keeps the helper lightweight for callers
+        // that only need static validation feedback.
+        let hotReloadValidation = null;
+        if (validateHotReload) {
+            hotReloadValidation = await this.validateHotReloadCompatibility(
+                workspace,
+                hotReloadOptions
+            );
+        }
+
+        // Provide an impact analysis snapshot so UIs can preview how many files
+        // will change and whether dependent symbols need attention.
+        const analysis = await this.analyzeRenameImpact(request);
+
+        return {
+            workspace,
+            validation,
+            hotReload: hotReloadValidation,
+            analysis
+        };
+    }
+
+    /**
      * Validate that workspace edits won't break hot reload functionality.
      * Checks for issues that could prevent patches from being applied correctly.
      * @param {WorkspaceEdit} workspace - The workspace edit to validate
