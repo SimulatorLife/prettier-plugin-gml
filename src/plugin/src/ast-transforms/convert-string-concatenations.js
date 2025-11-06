@@ -302,7 +302,8 @@ function isSafeInterpolatedExpression(node) {
         case "CallExpression":
         case "NewExpression":
         case "ThisExpression":
-        case "SuperExpression": {
+        case "SuperExpression":
+        case "TernaryExpression": {
             return true;
         }
         case PARENTHESIZED_EXPRESSION: {
