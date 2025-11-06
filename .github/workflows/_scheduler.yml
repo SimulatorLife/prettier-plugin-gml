@@ -33,40 +33,10 @@ jobs:
         with:
           script: |
             const crypto = require('crypto');
-            const fs = require('fs');
-            const path = require('path');
 
             const cfgRaw = process.env.CFG_JSON;
             const cfg = cfgRaw ? JSON.parse(cfgRaw) : {};
             const workflows = Array.isArray(cfg.workflows) ? cfg.workflows : [];
-
-            const normalize = (value) => {
-              const trimmed = (value || '').trim();
-              if (!trimmed) return '';
-              return trimmed
-                .toLowerCase()
-                .replace(/[^a-z0-9]+/g, '-')
-                .replace(/^-+|-+$/g, '')
-                || '';
-            };
-
-            const chooseWeighted = (items) => {
-              const total = items.reduce((sum, item) => sum + item.weight, 0);
-              if (!Number.isFinite(total) || total <= 0) {
-                return null;
-              }
-
-              const random = parseInt(crypto.randomBytes(6).toString('hex'), 16) / 0xFFFFFFFFFFFF;
-              let threshold = random * total;
-              for (const item of items) {
-                threshold -= item.weight;
-                if (threshold <= 0) {
-                  return { item, random, total };
-                }
-              }
-
-              return { item: items[items.length - 1], random, total };
-            };
 
             const candidates = [];
 
@@ -129,53 +99,12 @@ jobs:
 
             core.info(`Selected workflow ${selected.path} (weight=${selected.weight}) from total weight ${totalWeight.toFixed(6)} with draw ${random.toFixed(6)}.`);
 
-            let agentSelection = null;
-            try {
-              const weightsPath = path.resolve(process.cwd(), '.github/workflows/weights.json');
-              const raw = fs.readFileSync(weightsPath, 'utf8');
-              const parsed = JSON.parse(raw);
-              if (Array.isArray(parsed?.agents)) {
-                const agentCandidates = parsed.agents
-                  .map((agent) => ({
-                    name: typeof agent?.name === 'string' ? agent.name : '',
-                    weight: Number(agent?.weight),
-                  }))
-                  .filter((agent) => agent.name && Number.isFinite(agent.weight) && agent.weight > 0)
-                  .map((agent) => ({
-                    ...agent,
-                    slug: normalize(agent.name),
-                  }))
-                  .filter((agent) => agent.slug);
-
-                if (agentCandidates.length) {
-                  agentSelection = chooseWeighted(agentCandidates);
-                }
-              }
-            } catch (error) {
-              core.warning(`Unable to load agent weights: ${error.message}`);
-            }
-
-            let agentSlug = 'copilot';
-            let agentName = 'copilot';
-            let agentWeight = '';
-            if (agentSelection?.item) {
-              agentSlug = agentSelection.item.slug;
-              agentName = agentSelection.item.name;
-              agentWeight = `${agentSelection.item.weight}`;
-              core.info(`Selected agent ${agentName} (slug=${agentSlug}, weight=${agentSelection.item.weight}) with draw ${agentSelection.random.toFixed(6)} from total weight ${agentSelection.total.toFixed(6)}.`);
-            } else {
-              core.info('Defaulting to agent "copilot" (no valid weighted agent configuration found).');
-            }
-
             return {
               workflow_name: selected.name,
               workflow_path: selected.path,
               workflow_id: workflowId,
               random_draw: random.toFixed(6),
               total_weight: totalWeight.toFixed(6),
-              agent: agentSlug,
-              agent_name: agentName,
-              agent_weight: agentWeight,
             };
 
       - name: Dispatch workflow
@@ -191,7 +120,6 @@ jobs:
 
             const workflowId = plan?.workflow_id;
             const workflowPath = plan?.workflow_path || workflowId;
-            const agent = plan?.agent;
 
             if (!workflowId) {
               core.info('No workflow selected for dispatch.');
@@ -218,19 +146,13 @@ jobs:
             }
 
             try {
-              const inputs = {};
-              if (agent) {
-                inputs.agent = agent;
-              }
-
               await github.rest.actions.createWorkflowDispatch({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 workflow_id: workflowId,
                 ref,
-                inputs: Object.keys(inputs).length ? inputs : undefined,
               });
-              core.info(`Dispatched ${workflowPath} via workflow_dispatch on ref ${ref}${agent ? ` (agent=${agent})` : ''}`);
+              core.info(`Dispatched ${workflowPath} via workflow_dispatch on ref ${ref}`);
             } catch (error) {
               core.warning(`Failed to dispatch ${workflowPath}: ${error.message}`);
             }

@@ -86,6 +86,8 @@ jobs:
             const path = require('path');
             const crypto = require('crypto');
 
+            const DEFAULT_AGENT = 'copilot';
+
             const normalize = (value) => {
               const trimmed = (value || '').trim();
               if (!trimmed) return '';
@@ -121,7 +123,7 @@ jobs:
             const suffix = ensureBranchSuffix();
 
             const finalize = (agent, reason) => {
-              const agentSlug = agent || 'copilot';
+              const agentSlug = agent;
               const branchName = `${agentSlug}/${suffix}`;
 
               core.info(`Using agent "${agentSlug}" (${reason}). Branch name: ${branchName}`);
@@ -161,13 +163,13 @@ jobs:
             }
 
             if (!candidates.length) {
-              finalize('copilot', 'default fallback');
+              finalize(DEFAULT_AGENT, 'default fallback');
               return;
             }
 
             const chosen = chooseWeighted(candidates);
             if (!chosen) {
-              finalize('copilot', 'weighted selection fallback');
+              finalize(DEFAULT_AGENT, 'weighted selection fallback');
               return;
             }
 
@@ -238,7 +240,7 @@ jobs:
           github-token: ${{ secrets.GH_USER_TOKEN }}
           script: |
             try {
-              const agent = (process.env.AGENT || 'copilot').toLowerCase();
+              const agent = process.env.AGENT.toLowerCase();
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -265,7 +267,7 @@ jobs:
             const owner  = context.repo.owner;
             const repo   = context.repo.repo;
             const branch = process.env.BRANCH_NAME;
-            const agent = (process.env.AGENT || 'copilot').toLowerCase();
+            const agent = process.env.AGENT.toLowerCase();
             const mention = agent === 'codex' ? '@codex' : agent === 'agent' ? '@agent' : '@copilot';
 
             const preInstruction = "Begin by surveying the entire codebase before narrowing to this task.";
