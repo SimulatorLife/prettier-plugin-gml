@@ -7,24 +7,10 @@ import { assertFunction } from "@prettier-plugin-gml/shared/utils/object.js";
 /**
  * @template TOptions
  * @template TResult
- * @typedef {object} ResolverResolution
+ * @typedef {object} ResolverController
  * @property {(options?: TOptions) => TResult} resolve
- */
-
-/**
- * @template TOptions
- * @template TResult
- * @typedef {object} ResolverRegistry
  * @property {(candidate: unknown) => TResult} set
  * @property {() => TResult} restore
- */
-
-/**
- * @template TOptions
- * @template TResult
- * @typedef {object} ResolverControls
- * @property {ResolverResolution<TOptions, TResult>} resolution
- * @property {ResolverRegistry<TOptions, TResult>} registry
  */
 
 /**
@@ -53,7 +39,7 @@ import { assertFunction } from "@prettier-plugin-gml/shared/utils/object.js";
  *     ) => TResult,
  *     reuseDefaultValue?: boolean
  * }} config
- * @returns {ResolverControls<TOptions, TResult>}
+ * @returns {ResolverController<TOptions, TResult>}
  */
 export function createResolverController({
     name = "resolver",
@@ -118,8 +104,5 @@ export function createResolverController({
         return resetToDefault();
     }
 
-    const resolution = Object.freeze({ resolve });
-    const registry = Object.freeze({ set, restore });
-
-    return Object.freeze({ resolution, registry });
+    return Object.freeze({ resolve, set, restore });
 }

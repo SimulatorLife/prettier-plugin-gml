@@ -28,10 +28,7 @@ const ARROW_PARENS_VALUES = new Set(["always", "avoid"]);
 const PROSE_WRAP_VALUES = new Set(["always", "never", "preserve"]);
 const HTML_WHITESPACE_SENSITIVITY_VALUES = new Set(["css", "strict", "ignore"]);
 
-const {
-    resolution: coreOptionOverridesResolution,
-    registry: coreOptionOverridesRegistry
-} = createResolverController({
+const coreOptionOverridesController = createResolverController({
     defaultFactory: () => DEFAULT_CORE_OPTION_OVERRIDES,
     normalize(result) {
         return normalizeCoreOptionOverrides(
@@ -141,15 +138,15 @@ function normalizeCoreOptionOverrides(overrides) {
  *          safe to reuse across print invocations.
  */
 function resolveCoreOptionOverrides(options = {}) {
-    return coreOptionOverridesResolution.resolve(options);
+    return coreOptionOverridesController.resolve(options);
 }
 
 function setCoreOptionOverridesResolver(resolver) {
-    return coreOptionOverridesRegistry.set(resolver);
+    return coreOptionOverridesController.set(resolver);
 }
 
 function restoreDefaultCoreOptionOverridesResolver() {
-    return coreOptionOverridesRegistry.restore();
+    return coreOptionOverridesController.restore();
 }
 
 export {

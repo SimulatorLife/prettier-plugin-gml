@@ -38,10 +38,7 @@ const DEFAULT_LINE_COMMENT_OPTIONS = Object.freeze({
     codeDetectionPatterns: DEFAULT_COMMENTED_OUT_CODE_PATTERNS
 });
 
-const {
-    resolution: lineCommentOptionsResolution,
-    registry: lineCommentOptionsRegistry
-} = createResolverController({
+const lineCommentOptionsController = createResolverController({
     defaultFactory: () => DEFAULT_LINE_COMMENT_OPTIONS,
     normalize: normalizeLineCommentOptions,
     errorMessage:
@@ -123,7 +120,7 @@ function normalizeLineCommentOptions(options) {
 }
 
 function resolveLineCommentOptions(options = {}) {
-    return lineCommentOptionsResolution.resolve(options);
+    return lineCommentOptionsController.resolve(options);
 }
 
 /**
@@ -132,7 +129,7 @@ function resolveLineCommentOptions(options = {}) {
  * without exposing additional end-user configuration.
  */
 function setLineCommentOptionsResolver(resolver) {
-    return lineCommentOptionsRegistry.set(resolver);
+    return lineCommentOptionsController.set(resolver);
 }
 
 /**
@@ -140,7 +137,7 @@ function setLineCommentOptionsResolver(resolver) {
  * customizations and return to the opinionated defaults.
  */
 function restoreDefaultLineCommentOptionsResolver() {
-    return lineCommentOptionsRegistry.restore();
+    return lineCommentOptionsController.restore();
 }
 
 export {
