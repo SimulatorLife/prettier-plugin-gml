@@ -1,4 +1,4 @@
-import { createMetricsTracker, noop } from "../dependencies.js";
+import { createMetricsTracker, isObjectLike, noop } from "../dependencies.js";
 
 const PROJECT_INDEX_METRICS_CATEGORY = "project-index";
 const REQUIRED_RECORDING_GROUPS = Object.freeze({
@@ -17,37 +17,33 @@ const REQUIRED_REPORTING_GROUPS = Object.freeze({
 function hasMetricGroup(candidate, groupName, methodNames) {
     const group = candidate?.[groupName];
     return (
-        group &&
-        typeof group === "object" &&
+        isObjectLike(group) &&
         methodNames.every((method) => typeof group[method] === "function")
     );
 }
 
 function isMetricsRecordingSuite(candidate) {
-    return (
-        candidate &&
-        typeof candidate === "object" &&
-        typeof candidate.category === "string" &&
-        Object.entries(REQUIRED_RECORDING_GROUPS).every(
-            ([groupName, methods]) =>
-                hasMetricGroup(candidate, groupName, methods)
-        )
+    if (!isObjectLike(candidate) || typeof candidate.category !== "string") {
+        return false;
+    }
+
+    return Object.entries(REQUIRED_RECORDING_GROUPS).every(
+        ([groupName, methods]) => hasMetricGroup(candidate, groupName, methods)
     );
 }
 
 function isMetricsReportingSuite(candidate) {
-    return (
-        candidate &&
-        typeof candidate === "object" &&
-        Object.entries(REQUIRED_REPORTING_GROUPS).every(
-            ([groupName, methods]) =>
-                hasMetricGroup(candidate, groupName, methods)
-        )
+    if (!isObjectLike(candidate)) {
+        return false;
+    }
+
+    return Object.entries(REQUIRED_REPORTING_GROUPS).every(
+        ([groupName, methods]) => hasMetricGroup(candidate, groupName, methods)
     );
 }
 
 function isMetricsContracts(candidate) {
-    if (!candidate || typeof candidate !== "object") {
+    if (!isObjectLike(candidate)) {
         return false;
     }
 

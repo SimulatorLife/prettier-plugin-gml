@@ -38,7 +38,7 @@ import { getDefaultIdentifierCaseFsFacade } from "./fs-facade.js";
 import { evaluateIdentifierCaseAssetRenamePolicy } from "./asset-rename-policy.js";
 
 function getScopeDisplayName(scopeRecord, fallback = "<unknown>") {
-    if (!scopeRecord || typeof scopeRecord !== "object") {
+    if (!isObjectLike(scopeRecord)) {
         return fallback;
     }
 
