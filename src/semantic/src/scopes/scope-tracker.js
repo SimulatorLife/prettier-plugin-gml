@@ -404,9 +404,19 @@ export default class ScopeTracker {
             return [];
         }
 
+        const scopeSet = this.symbolToScopesIndex.get(name);
+        if (!scopeSet || scopeSet.size === 0) {
+            return [];
+        }
+
         const results = [];
 
-        for (const scope of this.scopesById.values()) {
+        for (const scopeId of scopeSet) {
+            const scope = this.scopesById.get(scopeId);
+            if (!scope) {
+                continue;
+            }
+
             const entry = scope.occurrences.get(name);
             if (!entry) {
                 continue;
