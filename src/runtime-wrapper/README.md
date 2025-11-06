@@ -34,7 +34,7 @@ Creates a new runtime wrapper instance with hot-reload capabilities.
 
 Applies a patch to the runtime registry. The patch object must have:
 
-- `kind`: Either `"script"` or `"event"`
+- `kind`: Either `"script"`, `"event"`, or `"closure"`
 - `id`: Unique identifier for the patch
 - `js_body`: JavaScript function body as a string
 
@@ -102,6 +102,7 @@ Returns aggregate statistics about patch operations:
 - `undonePatches`: Number of undo operations
 - `scriptPatches`: Number of script-related operations
 - `eventPatches`: Number of event-related operations
+- `closurePatches`: Number of closure-related operations
 - `uniqueIds`: Number of unique patch IDs
 
 ## Error Recovery and Safe Patch Application
@@ -181,6 +182,14 @@ Checks if a script with the given ID exists. Returns `true` if present, `false` 
 
 Checks if an event with the given ID exists. Returns `true` if present, `false` otherwise.
 
+#### `getClosure(id)`
+
+Retrieves a specific closure function by ID. Returns the function or `undefined` if not found.
+
+#### `hasClosure(id)`
+
+Checks if a closure with the given ID exists. Returns `true` if present, `false` otherwise.
+
 ### `createWebSocketClient(options)`
 
 Creates a WebSocket client for receiving live patches from a development server. The client automatically reconnects on connection loss and integrates with a runtime wrapper to apply patches.
@@ -237,6 +246,29 @@ const client = createWebSocketClient({
     onDisconnect: () => console.log("Disconnected from dev server"),
     onError: (error, context) => console.error(`Error (${context}):`, error)
 });
+
+// Apply various patch types
+wrapper.applyPatch({
+    kind: "script",
+    id: "script:calculate_damage",
+    js_body: "return args[0] * 1.5;"
+});
+
+wrapper.applyPatch({
+    kind: "event",
+    id: "obj_player#Step",
+    js_body: "this.x += 1;"
+});
+
+wrapper.applyPatch({
+    kind: "closure",
+    id: "closure:make_counter",
+    js_body: "let count = 0; return () => ++count;"
+});
+
+const counter = wrapper.getClosure("closure:make_counter")();
+console.log(counter()); // 1
+console.log(counter()); // 2
 
 // Client will automatically reconnect on connection loss
 // Disconnect manually when done

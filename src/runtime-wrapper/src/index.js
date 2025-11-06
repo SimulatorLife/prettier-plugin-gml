@@ -49,6 +49,20 @@ function applyEventPatch(registry, patch) {
     };
 }
 
+function applyClosurePatch(registry, patch) {
+    if (!patch.js_body || typeof patch.js_body !== "string") {
+        throw new TypeError("Closure patch must have a 'js_body' string");
+    }
+
+    const fn = new Function("...args", patch.js_body);
+    const updatedClosures = { ...registry.closures, [patch.id]: fn };
+
+    return {
+        ...registry,
+        closures: updatedClosures
+    };
+}
+
 function captureSnapshot(registry, patch) {
     const snapshot = {
         id: patch.id,
@@ -56,10 +70,23 @@ function captureSnapshot(registry, patch) {
         version: registry.version
     };
 
-    if (patch.kind === "script") {
+    switch (patch.kind) {
+    case "script": {
         snapshot.previous = registry.scripts[patch.id] || null;
-    } else if (patch.kind === "event") {
+    
+    break;
+    }
+    case "event": {
         snapshot.previous = registry.events[patch.id] || null;
+    
+    break;
+    }
+    case "closure": {
+        snapshot.previous = registry.closures[patch.id] || null;
+    
+    break;
+    }
+    // No default
     }
 
     return snapshot;
@@ -92,6 +119,19 @@ function restoreSnapshot(registry, snapshot) {
         };
     }
 
+    if (snapshot.kind === "closure") {
+        const updatedClosures = { ...registry.closures };
+        if (snapshot.previous) {
+            updatedClosures[snapshot.id] = snapshot.previous;
+        } else {
+            delete updatedClosures[snapshot.id];
+        }
+        return {
+            ...registry,
+            closures: updatedClosures
+        };
+    }
+
     return registry;
 }
 
@@ -111,6 +151,10 @@ function testPatchInShadow(patch) {
             }
             case "event": {
                 applyEventPatch(shadowRegistry, patch);
+                break;
+            }
+            case "closure": {
+                applyClosurePatch(shadowRegistry, patch);
                 break;
             }
             default: {
@@ -166,6 +210,10 @@ export function createRuntimeWrapper({
                 }
                 case "event": {
                     updatedRegistry = applyEventPatch(state.registry, patch);
+                    break;
+                }
+                case "closure": {
+                    updatedRegistry = applyClosurePatch(state.registry, patch);
                     break;
                 }
                 default: {
@@ -317,6 +365,7 @@ export function createRuntimeWrapper({
             undonePatches: 0,
             scriptPatches: 0,
             eventPatches: 0,
+            closurePatches: 0,
             uniqueIds: new Set()
         };
 
@@ -327,10 +376,23 @@ export function createRuntimeWrapper({
                 stats.undonePatches++;
             }
 
-            if (entry.patch.kind === "script") {
+            switch (entry.patch.kind) {
+            case "script": {
                 stats.scriptPatches++;
-            } else if (entry.patch.kind === "event") {
+            
+            break;
+            }
+            case "event": {
                 stats.eventPatches++;
+            
+            break;
+            }
+            case "closure": {
+                stats.closurePatches++;
+            
+            break;
+            }
+            // No default
             }
 
             stats.uniqueIds.add(entry.patch.id);
@@ -361,6 +423,14 @@ export function createRuntimeWrapper({
         return id in state.registry.events;
     }
 
+    function getClosure(id) {
+        return state.registry.closures[id];
+    }
+
+    function hasClosure(id) {
+        return id in state.registry.closures;
+    }
+
     return {
         state,
         applyPatch,
@@ -373,7 +443,9 @@ export function createRuntimeWrapper({
         getScript,
         getEvent,
         hasScript,
-        hasEvent
+        hasEvent,
+        getClosure,
+        hasClosure
     };
 }
 
