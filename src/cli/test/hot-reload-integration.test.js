@@ -16,7 +16,6 @@ import { runWatchCommand } from "../src/commands/watch.js";
 describe("Hot reload integration loop", () => {
     let testDir;
     let testFile;
-    let watchController;
     let websocketClient;
     let receivedPatches;
 
