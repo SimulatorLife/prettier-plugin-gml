@@ -259,6 +259,33 @@ test("getSymbolOccurrences returns empty array for non-existent symbol", () => {
     assert.deepStrictEqual(result, []);
 });
 
+test("getSymbolOccurrences returns cloned occurrence metadata", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    tracker.enterScope("root");
+
+    tracker.declare(
+        "shared",
+        { start: { line: 1, index: 0 }, end: { line: 1, index: 6 } },
+        { kind: "variable", tags: ["global"] }
+    );
+
+    tracker.reference(
+        "shared",
+        { start: { line: 2, index: 0 }, end: { line: 2, index: 6 } },
+        { kind: "variable" }
+    );
+
+    tracker.exitScope();
+
+    const occurrences = tracker.getSymbolOccurrences("shared");
+    const snapshot = structuredClone(occurrences);
+
+    occurrences[0].occurrence.classifications.push("mutated");
+    occurrences[0].occurrence.start.line = 99;
+
+    assert.deepStrictEqual(tracker.getSymbolOccurrences("shared"), snapshot);
+});
+
 test("getScopeSymbols returns all unique symbol names in a scope", () => {
     const tracker = new ScopeTracker({ enabled: true });
     const scope = tracker.enterScope("function");
