@@ -621,3 +621,212 @@ test("trySafeApply catches event syntax errors in shadow validation", () => {
     assert.ok(!wrapper.hasEvent("obj_enemy#Step"));
     assert.ok(wrapper.hasEvent("obj_player#Step"));
 });
+
+test("applyPatch handles closure patches", () => {
+    const wrapper = createRuntimeWrapper();
+    const patch = {
+        kind: "closure",
+        id: "closure:make_counter",
+        js_body: "let count = 0; return () => ++count;"
+    };
+
+    const result = wrapper.applyPatch(patch);
+    assert.ok(result.success);
+    assert.strictEqual(result.version, 1);
+    assert.strictEqual(wrapper.getVersion(), 1);
+    assert.ok(wrapper.hasClosure("closure:make_counter"));
+});
+
+test("closure patch function executes correctly", () => {
+    const wrapper = createRuntimeWrapper();
+    const patch = {
+        kind: "closure",
+        id: "closure:multiplier",
+        js_body: "const factor = args[0]; return (x) => x * factor;"
+    };
+
+    wrapper.applyPatch(patch);
+    const fn = wrapper.getClosure("closure:multiplier");
+    const multiply = fn(5);
+    assert.strictEqual(multiply(3), 15);
+    assert.strictEqual(multiply(7), 35);
+});
+
+test("applyPatch requires js_body for closure patches", () => {
+    const wrapper = createRuntimeWrapper();
+    assert.throws(() => wrapper.applyPatch({ kind: "closure", id: "test" }), {
+        message: /Closure patch must have a 'js_body' string/
+    });
+});
+
+test("undo reverts closure patch", () => {
+    const wrapper = createRuntimeWrapper();
+    const patch = {
+        kind: "closure",
+        id: "closure:test",
+        js_body: "return () => 42;"
+    };
+
+    wrapper.applyPatch(patch);
+    assert.ok(wrapper.hasClosure("closure:test"));
+
+    const result = wrapper.undo();
+    assert.ok(result.success);
+    assert.ok(!wrapper.hasClosure("closure:test"));
+});
+
+test("undo restores previous version of patched closure", () => {
+    const wrapper = createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "closure",
+        id: "closure:test",
+        js_body: "return () => 1;"
+    });
+
+    const fn1 = wrapper.getClosure("closure:test");
+    assert.strictEqual(fn1()(), 1);
+
+    wrapper.applyPatch({
+        kind: "closure",
+        id: "closure:test",
+        js_body: "return () => 2;"
+    });
+
+    const fn2 = wrapper.getClosure("closure:test");
+    assert.strictEqual(fn2()(), 2);
+
+    wrapper.undo();
+    const fn3 = wrapper.getClosure("closure:test");
+    assert.strictEqual(fn3()(), 1);
+    assert.strictEqual(fn3, fn1);
+});
+
+test("getPatchHistory tracks closure patches", () => {
+    const wrapper = createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "closure",
+        id: "closure:test",
+        js_body: "return () => 1;"
+    });
+
+    const history = wrapper.getPatchHistory();
+    assert.strictEqual(history.length, 1);
+    assert.strictEqual(history[0].patch.kind, "closure");
+    assert.strictEqual(history[0].patch.id, "closure:test");
+    assert.strictEqual(history[0].version, 1);
+    assert.strictEqual(history[0].action, "apply");
+});
+
+test("getRegistrySnapshot includes closure count", () => {
+    const wrapper = createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:a",
+        js_body: "return 1;"
+    });
+
+    wrapper.applyPatch({
+        kind: "closure",
+        id: "closure:b",
+        js_body: "return () => 2;"
+    });
+
+    const snapshot = wrapper.getRegistrySnapshot();
+    assert.strictEqual(snapshot.version, 2);
+    assert.strictEqual(snapshot.scriptCount, 1);
+    assert.strictEqual(snapshot.closureCount, 1);
+    assert.ok(snapshot.scripts.includes("script:a"));
+    assert.ok(snapshot.closures.includes("closure:b"));
+});
+
+test("getPatchStats tracks closure patches", () => {
+    const wrapper = createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:a",
+        js_body: "return 1;"
+    });
+
+    wrapper.applyPatch({
+        kind: "closure",
+        id: "closure:b",
+        js_body: "return () => 2;"
+    });
+
+    wrapper.applyPatch({
+        kind: "closure",
+        id: "closure:c",
+        js_body: "return () => 3;"
+    });
+
+    const stats = wrapper.getPatchStats();
+    assert.strictEqual(stats.totalPatches, 3);
+    assert.strictEqual(stats.scriptPatches, 1);
+    assert.strictEqual(stats.closurePatches, 2);
+    assert.strictEqual(stats.uniqueIds, 3);
+});
+
+test("trySafeApply validates closure patches", () => {
+    const wrapper = createRuntimeWrapper();
+
+    const patch = {
+        kind: "closure",
+        id: "closure:test",
+        js_body: "return (x) => x * 2;"
+    };
+
+    const result = wrapper.trySafeApply(patch);
+    assert.ok(result.success);
+    assert.strictEqual(result.version, 1);
+    assert.strictEqual(result.rolledBack, false);
+
+    const fn = wrapper.getClosure("closure:test");
+    assert.strictEqual(fn()(5), 10);
+});
+
+test("trySafeApply catches closure syntax errors", () => {
+    const wrapper = createRuntimeWrapper();
+
+    const badPatch = {
+        kind: "closure",
+        id: "closure:bad",
+        js_body: "return {{ invalid syntax"
+    };
+
+    const result = wrapper.trySafeApply(badPatch);
+    assert.strictEqual(result.success, false);
+    assert.ok(result.message.includes("Shadow validation failed"));
+    assert.ok(!wrapper.hasClosure("closure:bad"));
+});
+
+test("validateBeforeApply validates closure patches", () => {
+    const wrapper = createRuntimeWrapper({ validateBeforeApply: true });
+
+    const patch = {
+        kind: "closure",
+        id: "closure:test",
+        js_body: "return () => 42;"
+    };
+
+    const result = wrapper.applyPatch(patch);
+    assert.ok(result.success);
+    assert.ok(wrapper.hasClosure("closure:test"));
+});
+
+test("validateBeforeApply rejects invalid closure patches", () => {
+    const wrapper = createRuntimeWrapper({ validateBeforeApply: true });
+
+    const patch = {
+        kind: "closure",
+        id: "closure:test",
+        js_body: ""
+    };
+
+    assert.throws(() => wrapper.applyPatch(patch), {
+        message: /Patch validation failed/
+    });
+});
