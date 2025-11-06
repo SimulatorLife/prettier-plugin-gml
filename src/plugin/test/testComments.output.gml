@@ -33,28 +33,20 @@ function scribble_font_has_character(_font_name, _character) {
 }
 
 /// @function twojointik
-/// @param x1
-/// @param y1
-/// @param z1
-/// @param x2dir
-/// @param y2dir
-/// @param z2dir
-/// @param x3
-/// @param y3
-/// @param z3
-/// @param length1
-/// @param length2
+/// @param x1 - The position of the root of the chain
+/// @param y1 - The position of the root of the chain
+/// @param z1 - The position of the root of the chain
+/// @param x2dir - The direction the first joint should face
+/// @param y2dir - The direction the first joint should face
+/// @param z2dir - The direction the first joint should face
+/// @param x3 - The target position of the end effector
+/// @param y3 - The target position of the end effector
+/// @param z3 - The target position of the end effector
+/// @param length1 - The length of the first bone
+/// @param length2 - The length of the second bone
+/// @description This function calculates the position of a two jointed IK chain.
+/// @returns It returns an array with the position of the joint and the end effector.
 function twojointik(x1, y1, z1, x2dir, y2dir, z2dir, x3, y3, z3, length1, length2) {
-    /*
-     * This function calculates the position of a two jointed IK chain.
-     * It returns an array with the position of the joint and the end effector.
-     * x1, y1, z1 : The position of the root of the chain
-     * x2dir, y2dir, z2dir : The direction the first joint should face
-     * x3, y3, z3 : The target position of the end effector
-     * length1 : The length of the first bone
-     * length2 : The length of the second bone
-     */
-
     // Return an array
     return [x2, y2, z2, x3, y3, z3];
 }

@@ -47,6 +47,8 @@ function twojointik(x1, y1, z1, x2dir, y2dir, z2dir, x3, y3, z3, length1, length
         x3, y3, z3 : The target position of the end effector
         length1 : The length of the first bone
         length2 : The length of the second bone
+        unrelated : comment to test
+        unrelated2 another comment to test
 	*/
 	/*////////////////////////////////////////////////////
 	        Return an array
