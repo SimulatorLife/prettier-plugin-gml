@@ -54,7 +54,7 @@ function twojointik(x1, y1, z1, x2dir, y2dir, z2dir, x3, y3, z3, length1, length
      * length1 : The length of the first bone
      * length2 : The length of the second bone
      */
-    // Return an array
 
+    // Return an array
     return [x2, y2, z2, x3, y3, z3];
 }
