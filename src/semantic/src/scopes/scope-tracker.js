@@ -225,12 +225,26 @@ export default class ScopeTracker {
             entry.declarations.push(occurrence);
         }
 
-        let scopeSet = this.symbolToScopesIndex.get(name);
-        if (!scopeSet) {
-            scopeSet = new Set();
-            this.symbolToScopesIndex.set(name, scopeSet);
+        let scopeSummaryMap = this.symbolToScopesIndex.get(name);
+        if (!scopeSummaryMap) {
+            scopeSummaryMap = new Map();
+            this.symbolToScopesIndex.set(name, scopeSummaryMap);
         }
-        scopeSet.add(scope.id);
+
+        let scopeSummary = scopeSummaryMap.get(scope.id);
+        if (!scopeSummary) {
+            scopeSummary = {
+                hasDeclaration: false,
+                hasReference: false
+            };
+            scopeSummaryMap.set(scope.id, scopeSummary);
+        }
+
+        if (occurrence.kind === "reference") {
+            scopeSummary.hasReference = true;
+        } else {
+            scopeSummary.hasDeclaration = true;
+        }
     }
 
     lookup(name) {
@@ -404,14 +418,14 @@ export default class ScopeTracker {
             return [];
         }
 
-        const scopeSet = this.symbolToScopesIndex.get(name);
-        if (!scopeSet || scopeSet.size === 0) {
+        const scopeSummaryMap = this.symbolToScopesIndex.get(name);
+        if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
             return [];
         }
 
         const results = [];
 
-        for (const scopeId of scopeSet) {
+        for (const scopeId of scopeSummaryMap.keys()) {
             const scope = this.scopesById.get(scopeId);
             if (!scope) {
                 continue;
@@ -460,12 +474,52 @@ export default class ScopeTracker {
             return [];
         }
 
-        const scopeSet = this.symbolToScopesIndex.get(name);
-        if (!scopeSet) {
+        const scopeSummaryMap = this.symbolToScopesIndex.get(name);
+        if (!scopeSummaryMap) {
             return [];
         }
 
-        return [...scopeSet];
+        return [...scopeSummaryMap.keys()];
+    }
+
+    /**
+     * Get per-scope summary metadata for a specific symbol. Each summary entry
+     * indicates whether the symbol is declared and/or referenced within the
+     * scope. This supports hot reload invalidation by distinguishing definition
+     * scopes from dependent scopes without requiring callers to walk occurrence
+     * lists manually.
+     *
+     * @param {string} name The symbol name to summarise.
+     * @returns {Array<{scopeId: string, scopeKind: string, hasDeclaration: boolean, hasReference: boolean}>}
+     *          Array of summary records for each scope containing the symbol.
+     */
+    getSymbolScopeSummary(name) {
+        if (!this.enabled || !name) {
+            return [];
+        }
+
+        const scopeSummaryMap = this.symbolToScopesIndex.get(name);
+        if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
+            return [];
+        }
+
+        const summaries = [];
+
+        for (const [scopeId, summary] of scopeSummaryMap) {
+            const scope = this.scopesById.get(scopeId);
+            if (!scope) {
+                continue;
+            }
+
+            summaries.push({
+                scopeId,
+                scopeKind: scope.kind,
+                hasDeclaration: Boolean(summary.hasDeclaration),
+                hasReference: Boolean(summary.hasReference)
+            });
+        }
+
+        return summaries;
     }
 
     /**
