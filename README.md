@@ -778,6 +778,7 @@ so contributors have a single, discoverable entry point.
 ### Set up the workspace
 
 ```bash
+git submodule update --init --recursive # pulls vendor/GameMaker-* runtime assets
 nvm use # aligns your Node.js version with the workspace baseline
 npm ci # installs dependencies from package-lock.json
 ```

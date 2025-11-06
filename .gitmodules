@@ -2,3 +2,7 @@
 	path = vendor/GameMaker-Manual
 	url = https://github.com/YoYoGames/GameMaker-Manual.git
 	branch = develop
+[submodule "vendor/GameMaker-HTML5"]
+	path = vendor/GameMaker-HTML5
+	url = https://github.com/YoYoGames/GameMaker-HTML5.git
+	branch = develop

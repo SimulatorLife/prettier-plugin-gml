@@ -21,7 +21,8 @@ import { Command, Option } from "commander";
 import { createTranspiler } from "../../../transpiler/src/index.js";
 import {
     describeRuntimeSource,
-    resolveRuntimeSource
+    resolveRuntimeSource,
+    DEFAULT_RUNTIME_PACKAGE
 } from "../modules/runtime/source.js";
 import { startRuntimeStaticServer } from "../modules/runtime/server.js";
 
@@ -76,14 +77,14 @@ export function createWatchCommand() {
         .addOption(
             new Option(
                 "--runtime-root <path>",
-                "Path to the HTML5 runtime assets (defaults to the installed runtime package)."
+                "Path to the HTML5 runtime assets (defaults to the vendor/GameMaker-HTML5 submodule when present, otherwise the installed runtime package)."
             )
         )
         .addOption(
             new Option(
                 "--runtime-package <name>",
                 "Package name used to resolve the HTML5 runtime."
-            ).default("gamemaker-html5")
+            ).default(DEFAULT_RUNTIME_PACKAGE)
         )
         .option(
             "--no-runtime-server",
@@ -165,7 +166,7 @@ export async function runWatchCommand(targetPath, options) {
         verbose = false,
         abortSignal,
         runtimeRoot,
-        runtimePackage = "gamemaker-html5",
+        runtimePackage = DEFAULT_RUNTIME_PACKAGE,
         runtimeServer,
         hydrateRuntime,
         runtimeResolver = resolveRuntimeSource,

@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import process from "node:process";
 import { createRequire } from "node:module";
 
 import {
@@ -8,6 +9,13 @@ import {
 } from "../dependencies.js";
 
 const require = createRequire(import.meta.url);
+const DEFAULT_VENDOR_RUNTIME_PATH = path.resolve(
+    process.cwd(),
+    "vendor",
+    "GameMaker-HTML5"
+);
+
+export const DEFAULT_RUNTIME_PACKAGE = "gamemaker-html5";
 
 function resolveCandidateRoot(runtimeRoot) {
     if (!runtimeRoot) {
@@ -34,9 +42,39 @@ async function readPackageJson(packageJsonPath) {
     return JSON.parse(contents);
 }
 
+async function resolveVendorRuntimeRoot() {
+    try {
+        const stats = await fs.stat(DEFAULT_VENDOR_RUNTIME_PATH);
+        if (!stats.isDirectory()) {
+            return null;
+        }
+    } catch {
+        return null;
+    }
+
+    let packageJson = null;
+    try {
+        packageJson = await readPackageJson(
+            path.join(DEFAULT_VENDOR_RUNTIME_PATH, "package.json")
+        );
+    } catch (error) {
+        // Ignore missing or invalid package metadata in vendor checkout.
+        if (process.env.DEBUG_RUNTIME_RESOLUTION === "1") {
+            const message = getErrorMessageOrFallback(error);
+            console.debug(`Skipped runtime package metadata: ${message}`);
+        }
+    }
+
+    return {
+        root: DEFAULT_VENDOR_RUNTIME_PATH,
+        packageName: null,
+        packageJson
+    };
+}
+
 export async function resolveRuntimeSource({
     runtimeRoot,
-    runtimePackage = "gamemaker-html5"
+    runtimePackage = DEFAULT_RUNTIME_PACKAGE
 } = {}) {
     const candidate = resolveCandidateRoot(runtimeRoot);
     if (candidate) {
@@ -54,6 +92,11 @@ export async function resolveRuntimeSource({
         }
 
         return candidate;
+    }
+
+    const vendorRuntime = await resolveVendorRuntimeRoot();
+    if (vendorRuntime) {
+        return vendorRuntime;
     }
 
     const normalizedPackageName = assertNonEmptyString(runtimePackage, {
