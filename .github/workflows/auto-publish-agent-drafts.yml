@@ -27,6 +27,7 @@ jobs:
               'copilot[bot]',
               'github-copilot[bot]',
               'github-copilot-code-assistant[bot]',
+              'chatgpt-codex-connector[bot]',
               'copilot-bot',
               'copilot-bot[bot]',
               'codex-bot',
