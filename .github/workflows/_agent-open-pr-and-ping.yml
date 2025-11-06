@@ -273,17 +273,6 @@ jobs:
               );
             }
 
-            lines.push(
-              "Here is some additional context for your task:",
-              "```yaml",
-              "task_context:",
-              `  branch: "${branch}"`,
-              `  pr_number: ${prNumber}`,
-              `  base: "${process.env.BASE_BRANCH}"`,
-              `  head_sha: "${process.env.HEAD_SHA}"`,
-              "```"
-            );
-
             const body = lines.join("\n");
 
             await github.rest.issues.createComment({ 

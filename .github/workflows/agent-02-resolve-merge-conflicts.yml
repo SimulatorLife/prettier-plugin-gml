@@ -332,19 +332,6 @@ jobs:
               );
             }
 
-            lines.push(
-              "Additional context for this task:",
-              "```yaml",
-              "agent_task:",
-              `  branch: "${pr.head.ref}"`,
-              `  pr_number: ${pr.number}`,
-              `  base: "${pr.base.ref}"`,
-              `  head_sha: "${pr.head.sha}"`,
-              `  mergeable_state: "${mergeableState}"`
-            );
-
-            lines.push("```");
-
             const body = lines.join("\n");
 
             await github.rest.issues.createComment({

@@ -652,19 +652,6 @@ jobs:
               );
             }
 
-            lines.push(
-              '',
-              'Context for this request:',
-              '```yaml',
-              'agent_task:',
-              `  branch: "${pr.head.ref}"`,
-              `  pr_number: ${number}`,
-              `  base: "${pr.base.ref}"`,
-              `  head_sha: "${pr.head.sha}"`,
-              '  reason: "automerge regression gate failure"',
-              '```'
-            );
-
             const body = lines.join('\n');
 
             if (existing) {
