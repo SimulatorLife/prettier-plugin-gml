@@ -131,6 +131,45 @@ test("WebSocket client applies patches from messages", async () => {
     delete globalThis.WebSocket;
 });
 
+test("WebSocket client applies batch patches from messages", async () => {
+    const wrapper = createRuntimeWrapper();
+
+    globalThis.WebSocket = MockWebSocket;
+
+    const client = createWebSocketClient({
+        wrapper,
+        autoConnect: true
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const patches = [
+        {
+            kind: "script",
+            id: "script:batch_one",
+            js_body: "return 21;"
+        },
+        {
+            kind: "event",
+            id: "obj_batch#Create",
+            js_body: "this.created = true;"
+        }
+    ];
+
+    const ws = client.getWebSocket();
+    assert.ok(ws, "WebSocket should be available");
+
+    ws.simulateMessage(JSON.stringify(patches));
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    assert.ok(wrapper.hasScript("script:batch_one"));
+    assert.ok(wrapper.hasEvent("obj_batch#Create"));
+
+    client.disconnect();
+    delete globalThis.WebSocket;
+});
+
 test("WebSocket client handles invalid JSON gracefully", async () => {
     const wrapper = createRuntimeWrapper();
     let errorCalled = false;
@@ -216,6 +255,79 @@ test("WebSocket client reconnects after connection loss", async () => {
 
     client.disconnect();
     delete globalThis.WebSocket;
+});
+
+test("WebSocket client clears pending reconnect timer on manual reconnect", async () => {
+    const wrapper = createRuntimeWrapper();
+
+    globalThis.WebSocket = MockWebSocket;
+
+    const originalSetTimeout = globalThis.setTimeout;
+    const originalClearTimeout = globalThis.clearTimeout;
+    const trackedTimers = new Map();
+    let client;
+
+    try {
+        globalThis.setTimeout = (fn, delay, ...args) => {
+            const handle = originalSetTimeout(() => {
+                trackedTimers.delete(handle);
+                fn(...args);
+            }, delay);
+
+            trackedTimers.set(handle, { cleared: false, delay });
+            return handle;
+        };
+
+        globalThis.clearTimeout = (handle) => {
+            const meta = trackedTimers.get(handle);
+            if (meta) {
+                meta.cleared = true;
+            }
+
+            return originalClearTimeout(handle);
+        };
+
+        client = createWebSocketClient({
+            wrapper,
+            autoConnect: false,
+            reconnectDelay: 50
+        });
+
+        client.connect();
+        await new Promise((resolve) => setImmediate(resolve));
+
+        const initialSocket = client.getWebSocket();
+        assert.ok(initialSocket, "Initial WebSocket should be available");
+
+        initialSocket.close();
+        await new Promise((resolve) => setImmediate(resolve));
+
+        const timers = [...trackedTimers.entries()];
+        assert.strictEqual(timers.length, 1);
+
+        const [handle, meta] = timers[0];
+        assert.ok(handle, "Expected reconnect timer handle to be tracked");
+        assert.strictEqual(meta.cleared, false);
+
+        client.connect();
+        await new Promise((resolve) => setImmediate(resolve));
+
+        assert.strictEqual(
+            meta.cleared,
+            true,
+            "Reconnect timer should be cleared on reconnect"
+        );
+        assert.ok(
+            client.isConnected(),
+            "Client should be connected after manual reconnect"
+        );
+
+        client.disconnect();
+    } finally {
+        globalThis.setTimeout = originalSetTimeout;
+        globalThis.clearTimeout = originalClearTimeout;
+        delete globalThis.WebSocket;
+    }
 });
 
 test("WebSocket client does not reconnect after manual disconnect", async () => {
