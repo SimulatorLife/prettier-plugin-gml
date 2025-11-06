@@ -37,8 +37,8 @@ function applyEventPatch(registry, patch) {
     const argsDecl = patch.js_args || "";
     const fn = new Function(thisName, argsDecl, patch.js_body);
 
-    const eventWrapper = function () {
-        return fn.call(this);
+    const eventWrapper = function (...incomingArgs) {
+        return fn.call(this, this, ...incomingArgs);
     };
 
     const updatedEvents = { ...registry.events, [patch.id]: eventWrapper };

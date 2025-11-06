@@ -87,6 +87,26 @@ test("event patch function executes correctly", () => {
     assert.strictEqual(context.initialized, true);
 });
 
+test("event patch receives instance context and arguments", () => {
+    const wrapper = createRuntimeWrapper();
+    const patch = {
+        kind: "event",
+        id: "obj_test#Async",
+        this_name: "self",
+        js_args: "eventData",
+        js_body:
+            "self.touched = eventData.value; return `${self.name}:${eventData.value}`;"
+    };
+
+    wrapper.applyPatch(patch);
+    const fn = wrapper.getEvent("obj_test#Async");
+    const context = { name: "player", touched: null };
+    const result = fn.call(context, { value: 99 });
+
+    assert.strictEqual(result, "player:99");
+    assert.strictEqual(context.touched, 99);
+});
+
 test("applyPatch rejects unsupported patch kinds", () => {
     const wrapper = createRuntimeWrapper();
     assert.throws(() => wrapper.applyPatch({ kind: "unknown", id: "test" }), {
