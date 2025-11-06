@@ -357,6 +357,14 @@ test("emitJavaScript handles continue statements", () => {
     assert.equal(result.trim(), "continue;", "Should emit continue statement");
 });
 
+test("emitJavaScript lowers exit statements to return", () => {
+    const source = "exit";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.equal(result.trim(), "return;", "Should emit return for exit");
+});
+
 test("emitJavaScript handles do-until loops", () => {
     const source = "do { x += 1; } until (x > 10)";
     const parser = new GMLParser(source);
