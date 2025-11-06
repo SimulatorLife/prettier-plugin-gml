@@ -200,98 +200,10 @@ function printComment(commentPath, options) {
                 return formatLineComment(comment, lineCommentOptions);
             }
 
-            let normalizedBanner;
-            if (bannerLength <= 0) {
-                // Preserve original format when banner length is disabled
-                normalizedBanner = `${slashRun}${remainder}`.trimEnd();
-            } else {
-                // Center the text within the banner length
-                let textContent = remainder.trimStart();
-
-                if (textContent.length === 0) {
-                    // Pure banner line with no text - fill with slashes
-                    normalizedBanner = "".padStart(bannerLength, "/");
-                } else {
-                    // Check if there are trailing slashes to preserve
-                    const trailingSlashMatch = textContent.match(/\/+$/);
-                    const hasTrailingSlashes = trailingSlashMatch !== null;
-                    const trailingSlashCount = hasTrailingSlashes
-                        ? trailingSlashMatch[0].length
-                        : 0;
-
-                    // Check if there's decoration (non-letter/space chars before text)
-                    const hasDecoration = /^[-=_*]+/.test(textContent);
-
-                    if (hasDecoration) {
-                        // Extract text from decorated banners (e.g., "---Text---//")
-                        // Remove trailing slashes
-                        textContent = textContent.replace(/\/+$/, "");
-                        // Remove leading and trailing decoration (dashes, equals, etc.)
-                        textContent = textContent
-                            .replace(/^[-=_*]+/, "")
-                            .replace(/[-=_*]+$/, "");
-                        // Trim any remaining whitespace
-                        textContent = textContent.trim();
-
-                        if (textContent.length === 0) {
-                            // After cleaning, no text remains - treat as pure banner
-                            normalizedBanner = "".padStart(bannerLength, "/");
-                        } else {
-                            // Calculate space for text (include spaces on both sides)
-                            const textWithSpaces = ` ${textContent} `;
-                            const textLength = textWithSpaces.length;
-
-                            // Calculate slashes needed on each side to center
-                            const remainingSpace = Math.max(
-                                0,
-                                bannerLength - textLength
-                            );
-                            const leadingSlashes = Math.floor(
-                                remainingSpace / 2
-                            );
-                            const trailingSlashes =
-                                remainingSpace - leadingSlashes;
-
-                            normalizedBanner =
-                                "".padStart(leadingSlashes, "/") +
-                                textWithSpaces +
-                                "".padStart(trailingSlashes, "/");
-                        }
-                    } else if (hasTrailingSlashes) {
-                        // Banner with trailing slashes - normalize leading slashes and preserve the rest
-                        const textWithoutTrailingSlashes = textContent.slice(
-                            0,
-                            -trailingSlashCount
-                        );
-                        // Add back the leading space that was trimmed
-                        const textPart = remainder.startsWith(" ")
-                            ? ` ${textWithoutTrailingSlashes.trimStart()}`
-                            : textWithoutTrailingSlashes;
-                        const leadingSlashes = bannerLength;
-                        normalizedBanner =
-                            "".padStart(leadingSlashes, "/") +
-                            textPart +
-                            trailingSlashMatch[0];
-                    } else {
-                        // Simple text - center it
-                        const textWithSpaces = ` ${textContent} `;
-                        const textLength = textWithSpaces.length;
-
-                        // Calculate slashes needed on each side to center
-                        const remainingSpace = Math.max(
-                            0,
-                            bannerLength - textLength
-                        );
-                        const leadingSlashes = Math.floor(remainingSpace / 2);
-                        const trailingSlashes = remainingSpace - leadingSlashes;
-
-                        normalizedBanner =
-                            "".padStart(leadingSlashes, "/") +
-                            textWithSpaces +
-                            "".padStart(trailingSlashes, "/");
-                    }
-                }
-            }
+            const normalizedSlashRun =
+                bannerLength <= 0 ? slashRun : "".padStart(bannerLength, "/");
+            const normalizedBanner =
+                `${normalizedSlashRun}${remainder}`.trimEnd();
 
             return applyInlinePadding(comment, normalizedBanner);
         }
