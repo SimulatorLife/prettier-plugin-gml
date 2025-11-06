@@ -5,7 +5,11 @@ import {
 } from "../shared/index.js";
 import { createResolverController } from "../shared/resolver-controller.js";
 
-const LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES = 5;
+// Any line comment that starts with at least this many consecutive `/`
+// characters is considered a "banner" comment for formatting purposes.
+// 2 slashes is the minimum to form a valid line comment in GML.
+// 3 slashes is for doc-comments. Anything 4 or more is considered decorative.
+const LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES = 4;
 
 const DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS = Object.freeze([
     // YoYo Games injects this banner while exporting assets; stripping it keeps
