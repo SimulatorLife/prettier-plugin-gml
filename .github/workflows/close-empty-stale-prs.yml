@@ -22,7 +22,7 @@ jobs:
         with:
           # Uses the default GITHUB_TOKEN with the above permissions
           script: |
-            const STALE_THRESHOLD_MS = 2 * 60 * 60 * 1000; // PRs older than 2 hours are considered stale
+            const STALE_THRESHOLD_MS = 3 * 60 * 60 * 1000; // PRs older than 3 hours are considered stale
             const now = Date.now();
             const owner = context.repo.owner;
             const repo  = context.repo.repo;
