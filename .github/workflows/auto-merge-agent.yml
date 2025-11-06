@@ -1,4 +1,4 @@
-name: Auto merge codex/copilot branches
+name: Auto merge agent branches
 
 on:
   pull_request_target:
