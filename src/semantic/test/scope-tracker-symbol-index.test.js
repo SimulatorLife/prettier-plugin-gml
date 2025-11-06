@@ -162,3 +162,87 @@ test("getScopesForSymbol handles symbols with both declarations and references",
     assert.ok(result.includes(scope1.id));
     assert.ok(result.includes(scope2.id));
 });
+
+test("getSymbolScopeSummary distinguishes declarations and references", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    const programScope = tracker.enterScope("program");
+
+    tracker.declare(
+        "alpha",
+        { start: { line: 1, index: 0 }, end: { line: 1, index: 5 } },
+        { kind: "variable", tags: ["global"] }
+    );
+
+    const functionScope = tracker.enterScope("function");
+
+    tracker.reference(
+        "alpha",
+        { start: { line: 3, index: 0 }, end: { line: 3, index: 5 } },
+        { kind: "variable" }
+    );
+
+    tracker.declare(
+        "alpha",
+        { start: { line: 4, index: 0 }, end: { line: 4, index: 5 } },
+        { kind: "variable", tags: ["local"] }
+    );
+
+    tracker.exitScope();
+
+    const blockScope = tracker.enterScope("block");
+
+    tracker.reference(
+        "alpha",
+        { start: { line: 6, index: 0 }, end: { line: 6, index: 5 } },
+        { kind: "variable" }
+    );
+
+    tracker.exitScope();
+    tracker.exitScope();
+
+    const summary = tracker.getSymbolScopeSummary("alpha");
+
+    const programSummary = summary.find(
+        (entry) => entry.scopeId === programScope.id
+    );
+    assert.deepStrictEqual(programSummary, {
+        scopeId: programScope.id,
+        scopeKind: "program",
+        hasDeclaration: true,
+        hasReference: false
+    });
+
+    const functionSummary = summary.find(
+        (entry) => entry.scopeId === functionScope.id
+    );
+    assert.deepStrictEqual(functionSummary, {
+        scopeId: functionScope.id,
+        scopeKind: "function",
+        hasDeclaration: true,
+        hasReference: true
+    });
+
+    const blockSummary = summary.find(
+        (entry) => entry.scopeId === blockScope.id
+    );
+    assert.deepStrictEqual(blockSummary, {
+        scopeId: blockScope.id,
+        scopeKind: "block",
+        hasDeclaration: false,
+        hasReference: true
+    });
+});
+
+test("getSymbolScopeSummary returns empty array for disabled tracker", () => {
+    const tracker = new ScopeTracker({ enabled: false });
+
+    assert.deepStrictEqual(tracker.getSymbolScopeSummary("anything"), []);
+});
+
+test("getSymbolScopeSummary returns empty array for unknown symbol", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    tracker.enterScope("program");
+    tracker.exitScope();
+
+    assert.deepStrictEqual(tracker.getSymbolScopeSummary("missing"), []);
+});
