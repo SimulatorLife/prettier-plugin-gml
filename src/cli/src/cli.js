@@ -1881,6 +1881,46 @@ function buildSkippedDirectorySummaryMessage() {
     return `Skipped ${ignored} ${label} ignored by .prettierignore (e.g., ${sampleList}${suffix}).`;
 }
 
+function isRegisteredCommandName(name) {
+    if (typeof name !== "string" || name.length === 0) {
+        return false;
+    }
+
+    for (const command of program.commands ?? []) {
+        const names = compactArray([
+            command.name?.() ?? command.name,
+            ...(typeof command.aliases === "function"
+                ? command.aliases()
+                : (command.aliases ?? []))
+        ]);
+
+        if (names.includes(name)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function isLikelySubcommandToken(token) {
+    return (
+        typeof token === "string" && token.length > 0 && !token.startsWith("-")
+    );
+}
+
+function detectUnknownSubcommand(argv) {
+    if (
+        DEFAULT_ACTION === "format" ||
+        !isNonEmptyArray(argv) ||
+        !isLikelySubcommandToken(argv[0]) ||
+        argv[0] === "help"
+    ) {
+        return null;
+    }
+
+    return isRegisteredCommandName(argv[0]) ? null : argv[0];
+}
+
 function normalizeCommandLineArguments(argv) {
     if (!isNonEmptyArray(argv)) {
         // When no arguments are provided, default behavior depends on
@@ -1888,6 +1928,16 @@ function normalizeCommandLineArguments(argv) {
         // Default is to show help (user-friendly for first-time users).
         // Set PRETTIER_PLUGIN_GML_DEFAULT_ACTION=format for legacy behavior.
         return DEFAULT_ACTION === "format" ? [] : ["--help"];
+    }
+
+    const unknownSubcommand = detectUnknownSubcommand(argv);
+    if (unknownSubcommand) {
+        const instructions =
+            'Run "prettier-plugin-gml --help" to review available commands.';
+        throw new CliUsageError(
+            `Unknown command "${unknownSubcommand}". ${instructions}`,
+            { usage: program.helpInformation?.() ?? undefined }
+        );
     }
 
     if (argv[0] !== "help") {
@@ -1973,16 +2023,28 @@ cliCommandRegistry.registerCommand({
 });
 
 if (!isCliRunSkipped()) {
-    const normalizedArguments = normalizeCommandLineArguments(
-        process.argv.slice(2)
-    );
+    let normalizedArguments;
 
-    cliCommandRunner.run(normalizedArguments).catch((error) => {
+    try {
+        normalizedArguments = normalizeCommandLineArguments(
+            process.argv.slice(2)
+        );
+    } catch (error) {
         handleCliError(error, {
             prefix: "Failed to run prettier-plugin-gml CLI.",
             exitCode: 1
         });
-    });
+        normalizedArguments = null;
+    }
+
+    if (normalizedArguments) {
+        cliCommandRunner.run(normalizedArguments).catch((error) => {
+            handleCliError(error, {
+                prefix: "Failed to run prettier-plugin-gml CLI.",
+                exitCode: 1
+            });
+        });
+    }
 }
 /**
  * Check equality of ignored file samples by comparing both path and source description.
