@@ -1,3 +1,35 @@
+const IDENTIFIER_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+function assertValidIdentifierName(name) {
+    if (typeof name !== "string") {
+        throw new TypeError(
+            `Identifier names must be strings. Received ${typeof name}.`
+        );
+    }
+
+    const trimmed = name.trim();
+
+    if (trimmed.length === 0) {
+        throw new Error(
+            "Identifier names must not be empty or whitespace-only"
+        );
+    }
+
+    if (trimmed !== name) {
+        throw new Error(
+            "Identifier names must not include leading or trailing whitespace"
+        );
+    }
+
+    if (!IDENTIFIER_NAME_PATTERN.test(name)) {
+        throw new Error(
+            `Identifier '${name}' is not a valid GML identifier (expected [A-Za-z_][A-Za-z0-9_]*)`
+        );
+    }
+
+    return name;
+}
+
 /**
  * WorkspaceEdit represents a set of text edits across one or more files.
  * Each edit specifies a file path, a range (start/end offset), and replacement text.
@@ -190,6 +222,17 @@ export class RefactorEngine {
      */
     async detectRenameConflicts(oldName, newName, occurrences) {
         const conflicts = [];
+        let normalizedNewName;
+
+        try {
+            normalizedNewName = assertValidIdentifierName(newName);
+        } catch (error) {
+            conflicts.push({
+                type: "invalid_identifier",
+                message: error.message
+            });
+            return conflicts;
+        }
 
         // Test whether renaming would introduce shadowing conflicts where the new
         // name collides with an existing symbol in the same scope. For example,
@@ -201,13 +244,13 @@ export class RefactorEngine {
                 // site. If we find an existing binding that isn't the symbol we're
                 // renaming, record a conflict so the user can resolve it manually.
                 const existing = await this.semantic.lookup(
-                    newName,
+                    normalizedNewName,
                     occurrence.scopeId
                 );
                 if (existing && existing.name !== oldName) {
                     conflicts.push({
                         type: "shadow",
-                        message: `Renaming '${oldName}' to '${newName}' would shadow existing symbol in scope`,
+                        message: `Renaming '${oldName}' to '${normalizedNewName}' would shadow existing symbol in scope`,
                         path: occurrence.path
                     });
                 }
@@ -245,10 +288,10 @@ export class RefactorEngine {
             "global"
         ]);
 
-        if (reservedKeywords.has(newName)) {
+        if (reservedKeywords.has(normalizedNewName.toLowerCase())) {
             conflicts.push({
                 type: "reserved",
-                message: `'${newName}' is a reserved keyword and cannot be used as an identifier`
+                message: `'${normalizedNewName}' is a reserved keyword and cannot be used as an identifier`
             });
         }
 
@@ -278,11 +321,7 @@ export class RefactorEngine {
             );
         }
 
-        if (typeof newName !== "string") {
-            throw new TypeError(
-                `newName must be a string, got ${typeof newName}`
-            );
-        }
+        const normalizedNewName = assertValidIdentifierName(newName);
 
         // Confirm the symbol exists in the semantic index before proceeding. This
         // prevents wasted work gathering occurrences for non-existent symbols and
@@ -300,6 +339,12 @@ export class RefactorEngine {
         // which we use to search for all occurrences in the codebase.
         const symbolName = symbolId.split("/").pop();
 
+        if (symbolName === normalizedNewName) {
+            throw new Error(
+                `The new name '${normalizedNewName}' matches the existing identifier`
+            );
+        }
+
         // Collect all occurrences (definitions and references) of the symbol across
         // the workspace. This includes every location where the symbol appears, so
         // the rename operation can update all references simultaneously.
@@ -310,14 +355,14 @@ export class RefactorEngine {
         // introducing scope errors or breaking existing code.
         const conflicts = await this.detectRenameConflicts(
             symbolName,
-            newName,
+            normalizedNewName,
             occurrences
         );
 
         if (conflicts.length > 0) {
             const messages = conflicts.map((c) => c.message).join("; ");
             throw new Error(
-                `Cannot rename '${symbolName}' to '${newName}': ${messages}`
+                `Cannot rename '${symbolName}' to '${normalizedNewName}': ${messages}`
             );
         }
 
@@ -330,7 +375,7 @@ export class RefactorEngine {
                 occurrence.path,
                 occurrence.start,
                 occurrence.end,
-                newName
+                normalizedNewName
             );
         }
 
@@ -513,11 +558,7 @@ export class RefactorEngine {
                 );
             }
 
-            if (typeof rename.newName !== "string") {
-                throw new TypeError(
-                    `newName must be a string, got ${typeof rename.newName}`
-                );
-            }
+            assertValidIdentifierName(rename.newName);
         }
 
         // Ensure no two renames target the same new name, which would cause
@@ -527,13 +568,13 @@ export class RefactorEngine {
         // generating a corrupted workspace edit.
         const newNames = new Set();
         for (const rename of renames) {
-            const symbolName = rename.symbolId.split("/").pop();
-            if (newNames.has(rename.newName)) {
+            const normalizedNewName = assertValidIdentifierName(rename.newName);
+            if (newNames.has(normalizedNewName)) {
                 throw new Error(
-                    `Cannot rename multiple symbols to '${rename.newName}'`
+                    `Cannot rename multiple symbols to '${normalizedNewName}'`
                 );
             }
-            newNames.add(rename.newName);
+            newNames.add(normalizedNewName);
         }
 
         // Plan each rename independently, collecting the resulting workspace edits.
@@ -884,10 +925,18 @@ export class RefactorEngine {
             );
         }
 
+        if (typeof symbolId !== "string") {
+            throw new TypeError(
+                `symbolId must be a string, got ${typeof symbolId}`
+            );
+        }
+
+        const normalizedNewName = assertValidIdentifierName(newName);
+
         const summary = {
             symbolId,
             oldName: symbolId.split("/").pop(),
-            newName,
+            newName: normalizedNewName,
             affectedFiles: new Set(),
             totalOccurrences: 0,
             definitionCount: 0,
@@ -936,7 +985,7 @@ export class RefactorEngine {
             // deciding whether to proceed or adjust the new names.
             const detectedConflicts = await this.detectRenameConflicts(
                 summary.oldName,
-                newName,
+                normalizedNewName,
                 occurrences
             );
             conflicts.push(...detectedConflicts);
