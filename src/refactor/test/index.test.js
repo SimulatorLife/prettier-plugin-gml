@@ -98,7 +98,66 @@ test("planRename validates newName type", async () => {
         () => engine.planRename({ symbolId: "gml/script/foo", newName: 456 }),
         {
             name: "TypeError",
-            message: /newName must be a string/
+            message: /Identifier names must be strings/
+        }
+    );
+});
+
+test("planRename rejects whitespace-padded names", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => []
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    await assert.rejects(
+        () =>
+            engine.planRename({
+                symbolId: "gml/script/scr_test",
+                newName: " scr_new "
+            }),
+        {
+            message: /must not include leading or trailing whitespace/
+        }
+    );
+});
+
+test("planRename rejects invalid identifier characters", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => []
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    await assert.rejects(
+        () =>
+            engine.planRename({
+                symbolId: "gml/script/scr_test",
+                newName: "scr-new"
+            }),
+        {
+            message: /not a valid GML identifier/
+        }
+    );
+});
+
+test("planRename rejects renaming to the existing name", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => [
+            { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }
+        ]
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    await assert.rejects(
+        () =>
+            engine.planRename({
+                symbolId: "gml/script/scr_test",
+                newName: "scr_test"
+            }),
+        {
+            message: /matches the existing identifier/
         }
     );
 });
