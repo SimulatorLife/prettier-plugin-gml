@@ -858,35 +858,6 @@ work than the configured ceiling.
 - [GML Support](https://marketplace.visualstudio.com/items?itemName=electrobrains.gml-support)
 - [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
 
----
-
-## License
-
-[MIT](LICENSE)
-
----
-
-## Contributors
-
-Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
-
-<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
-<!-- prettier-ignore-start -->
-<!-- markdownlint-disable -->
-<table>
-  <tbody>
-    <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/SimulatorLife"><img src="https://avatars.githubusercontent.com/u/10000000?v=4?s=100" width="100px;" alt="SimulatorLife"/><br /><sub><b>SimulatorLife</b></sub></a><br /><a href="https://github.com/SimulatorLife/prettier-plugin-gml/commits?author=SimulatorLife" title="Code">💻</a> <a href="https://github.com/SimulatorLife/prettier-plugin-gml/commits?author=SimulatorLife" title="Documentation">📖</a> <a href="#maintenance-SimulatorLife" title="Maintenance">🚧</a> <a href="#infra-SimulatorLife" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/SimulatorLife/prettier-plugin-gml/pulls?q=is%3Apr+reviewed-by%3ASimulatorLife" title="Reviewed Pull Requests">👀</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/larsjarlvik"><img src="https://avatars.githubusercontent.com/u/10000001?v=4?s=100" width="100px;" alt="Lars Jarlvik"/><br /><sub><b>Lars Jarlvik</b></sub></a><br /><a href="https://github.com/SimulatorLife/prettier-plugin-gml/commits?author=larsjarlvik" title="Code">💻</a> <a href="https://github.com/SimulatorLife/prettier-plugin-gml/commits?author=larsjarlvik" title="Documentation">📖</a> <a href="#maintenance-larsjarlvik" title="Maintenance">🚧</a> <a href="https://github.com/SimulatorLife/prettier-plugin-gml/pulls?q=is%3Apr+reviewed-by%3Alarsjarlvik" title="Reviewed Pull Requests">👀</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/gmclan-bot"><img src="https://avatars.githubusercontent.com/u/10000002?v=4?s=100" width="100px;" alt="GMClan Bot"/><br /><sub><b>GMClan Bot</b></sub></a><br /><a href="https://github.com/SimulatorLife/prettier-plugin-gml/commits?author=gmclan-bot" title="Code">💻</a> <a href="https://github.com/SimulatorLife/prettier-plugin-gml/commits?author=gmclan-bot" title="Documentation">📖</a> <a href="#maintenance-gmclan-bot" title="Maintenance">🚧</a> <a href="#infra-gmclan-bot" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/SimulatorLife/prettier-plugin-gml/pulls?q=is%3Apr+reviewed-by%3Agmclan-bot" title="Reviewed Pull Requests">👀</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/GameMakerDiscordBot"><img src="https://avatars.githubusercontent.com/u/10000003?v=4?s=100" width="100px;" alt="GameMaker Discord Bot"/><br /><sub><b>GameMaker Discord Bot</b></sub></a><br /><a href="https://github.com/SimulatorLife/prettier-plugin-gml/commits?author=GameMakerDiscordBot" title="Code">💻</a> <a href="https://github.com/SimulatorLife/prettier-plugin-gml/commits?author=GameMakerDiscordBot" title="Documentation">📖</a> <a href="#maintenance-GameMakerDiscordBot" title="Maintenance">🚧</a> <a href="#infra-GameMakerDiscordBot" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/SimulatorLife/prettier-plugin-gml/pulls?q=is%3Apr+reviewed-by%3AGameMakerDiscordBot" title="Reviewed Pull Requests">👀</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/GameMakerCommunityBot"><img src="https://avatars.githubusercontent.com/u/10000004?v=4?s=100" width="100px;" alt="GameMaker Community Bot"/><br /><sub><b>GameMaker Community Bot</b></sub></a><br /><a href="https://github.com/SimulatorLife/prettier-plugin-gml/commits?author=GameMakerCommunityBot" title="Code">💻</a> <a href="https://github.com/SimulatorLife/prettier-plugin-gml/commits?author=GameMakerCommunityBot" title="Documentation">📖</a> <a href="#maintenance-GameMakerCommunityBot" title="Maintenance">🚧</a> <a href="#infra-GameMakerCommunityBot" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/SimulatorLife/prettier-plugin-gml/pulls?q=is%3Apr+reviewed-by%3AGameMakerCommunityBot" title="Reviewed Pull Requests">👀</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/GameMakerMarketplaceBot"><img src="https://avatars.githubusercontent.com/u/10000005?v=4?s=100" width="100px;" alt="GameMaker Marketplace Bot"/><br /><sub><b>GameMaker Marketplace Bot</b></sub></a><br /><a href="https://github.com/SimulatorLife/prettier-plugin-gml/commits?author=GameMakerMarketplaceBot" title="Code">💻</a> <a href="https://github.com/SimulatorLife/prettier-plugin-gml/commits?author=GameMakerMarketplaceBot" title="Documentation">📖</a> <a href="#maintenance-GameMakerMarketplaceBot" title="Maintenance">🚧</a> <a href="#infra-GameMakerMarketplaceBot" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/SimulatorLife/prettier-plugin-gml/pulls?q=is%3Apr+reviewed-by%3AGameMakerMarketplaceBot" title="Reviewed Pull Requests">👀</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/GameMakerStudioBot"><img src="https://avatars.githubusercontent.com/u/10000006?v=4?s=100" width="100px;" alt="GameMaker Studio Bot"/><br /><sub><b>GameMaker Studio Bot</b></sub></a><br /><a href="https://github.com/SimulatorLife/prettier-plugin-gml/commits?author=GameMakerStudioBot" title="Code">💻</a> <a href="https://github.com/SimulatorLife/prettier-plugin-gml/commits?author=GameMakerStudioBot" title="Documentation">📖</a> <a href="#maintenance-GameMakerStudioBot" title="Maintenance">🚧</a> <a href="#infra-GameMakerStudioBot" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/SimulatorLife/prettier-plugin-gml/pulls?q=is%3Apr+reviewed-by%3AGameMakerStudioBot" title="Reviewed Pull Requests">👀</a></td>
-    </tr>
-  </tbody>
-</table>
-
 <!-- markdownlint-enable -->
 <!-- prettier-ignore-end -->
 <!-- ALL-CONTRIBUTORS-LIST:END -->
