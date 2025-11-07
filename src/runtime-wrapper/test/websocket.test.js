@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { mock } from "node:test";
 import { createRuntimeWrapper, createWebSocketClient } from "../src/index.js";
 
 class MockWebSocket {
@@ -225,6 +225,9 @@ test("WebSocket client disconnects cleanly", async () => {
 });
 
 test("WebSocket client reconnects after connection loss", async () => {
+    // Real timers occasionally exceeded the 200ms allowance, causing flaky reconnect assertions.
+    mock.timers.enable({ apis: ["setTimeout"] });
+
     let reconnectCount = 0;
 
     globalThis.WebSocket = MockWebSocket;
@@ -237,24 +240,31 @@ test("WebSocket client reconnects after connection loss", async () => {
         autoConnect: true
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    try {
+        await new Promise((resolve) => setImmediate(resolve));
 
-    assert.strictEqual(reconnectCount, 1);
+        assert.strictEqual(reconnectCount, 1);
 
-    const ws = client.getWebSocket();
-    assert.ok(ws, "WebSocket should be available");
+        const ws = client.getWebSocket();
+        assert.ok(ws, "WebSocket should be available");
 
-    ws.close();
+        ws.close();
 
-    await new Promise((resolve) => setTimeout(resolve, 200));
+        await new Promise((resolve) => setImmediate(resolve));
 
-    assert.ok(
-        reconnectCount >= 2,
-        `Expected at least 2 reconnects, got ${reconnectCount}`
-    );
+        mock.timers.tick(100);
 
-    client.disconnect();
-    delete globalThis.WebSocket;
+        await new Promise((resolve) => setImmediate(resolve));
+
+        assert.ok(
+            reconnectCount >= 2,
+            `Expected at least 2 reconnects, got ${reconnectCount}`
+        );
+    } finally {
+        client.disconnect();
+        mock.timers.reset();
+        delete globalThis.WebSocket;
+    }
 });
 
 test("WebSocket client clears pending reconnect timer on manual reconnect", async () => {
