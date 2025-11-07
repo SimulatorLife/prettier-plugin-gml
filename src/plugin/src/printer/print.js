@@ -3195,7 +3195,7 @@ export function applyAssignmentAlignment(
     childrenAttribute = null
 ) {
     const minGroupSize = getAssignmentAlignmentMinimum(options);
-    /** @type {Array<{ node: any, nameLength: number, isSelfMember: boolean }>} */
+    /** @type {Array<{ node: any, nameLength: number, prefixLength: number, isSelfMember: boolean }>} */
     const currentGroup = [];
     // Tracking the longest identifier as we build the group avoids mapping over
     // the nodes and spreading into Math.max during every flush. This helper
@@ -3253,8 +3253,9 @@ export function applyAssignmentAlignment(
         }
 
         const targetLength = currentGroupMaxLength;
-        for (const { node, nameLength } of groupEntries) {
-            node._alignAssignmentPadding = targetLength - nameLength;
+        for (const { node, nameLength, prefixLength } of groupEntries) {
+            node._alignAssignmentPadding =
+                targetLength - (nameLength + prefixLength);
         }
 
         resetGroup();
@@ -3286,13 +3287,16 @@ export function applyAssignmentAlignment(
             }
 
             const isSelfMember = entry.isSelfMemberAssignment === true;
+            const prefixLength = entry.prefixLength ?? 0;
             currentGroup.push({
                 node: entry.paddingTarget,
                 nameLength: entry.nameLength,
+                prefixLength,
                 isSelfMember
             });
-            if (entry.nameLength > currentGroupMaxLength) {
-                currentGroupMaxLength = entry.nameLength;
+            const printedWidth = entry.nameLength + prefixLength;
+            if (printedWidth > currentGroupMaxLength) {
+                currentGroupMaxLength = printedWidth;
             }
             if (entry.enablesAlignment) {
                 currentGroupHasAlias = true;
@@ -3323,19 +3327,36 @@ function isPathInsideFunctionBody(path, childrenAttribute) {
         return false;
     }
 
-    const parentNode = callPathMethod(path, "getParentNode", {
-        defaultValue: null
-    });
-    if (!parentNode || typeof parentNode.type !== "string") {
+    const functionNode = findEnclosingFunctionNode(path);
+    if (!functionNode || !functionNode.body) {
         return false;
     }
 
-    if (
-        parentNode.type === "FunctionDeclaration" ||
-        parentNode.type === "FunctionExpression" ||
-        parentNode.type === "ConstructorDeclaration"
-    ) {
-        return parentNode.body === containerNode;
+    if (functionNode.body === containerNode) {
+        return true;
+    }
+
+    const getParentNode = path?.getParentNode;
+    if (typeof getParentNode !== "function") {
+        return false;
+    }
+
+    for (let depth = 0; ; depth += 1) {
+        const ancestor =
+            depth === 0
+                ? getParentNode.call(path)
+                : getParentNode.call(path, depth);
+        if (!ancestor) {
+            break;
+        }
+
+        if (ancestor === functionNode.body) {
+            return true;
+        }
+
+        if (ancestor === functionNode) {
+            break;
+        }
     }
 
     return false;
@@ -3355,6 +3376,7 @@ function getSimpleAssignmentLikeEntry(
             paddingTarget: statement,
             nameLength: memberLength,
             enablesAlignment: true,
+            prefixLength: 0,
             isSelfMemberAssignment:
                 statement.left?.object?.type === "Identifier" &&
                 statement.left.object.name === "self"
@@ -3371,16 +3393,17 @@ function getSimpleAssignmentLikeEntry(
             locationNode: statement,
             paddingTarget: statement,
             nameLength: identifier.name.length,
-            enablesAlignment: true
+            enablesAlignment: true,
+            prefixLength: 0
         };
-    }
-
-    if (!insideFunctionBody) {
-        return null;
     }
 
     const declarator = getSingleVariableDeclarator(statement);
     if (!declarator) {
+        return null;
+    }
+
+    if (!insideFunctionBody) {
         return null;
     }
 
@@ -3397,15 +3420,22 @@ function getSimpleAssignmentLikeEntry(
     let enablesAlignment = false;
     if (init.type === "Identifier" && typeof init.name === "string") {
         const argumentIndex = getArgumentIndexFromIdentifier(init.name);
-        const hasNamedParameters =
-            functionParameterNames && functionParameterNames.size > 0;
 
-        if (argumentIndex !== null) {
-            if (!options?.applyFeatherFixes || hasNamedParameters) {
+        if (!insideFunctionBody && argumentIndex !== null) {
+            return null;
+        }
+
+        if (insideFunctionBody) {
+            const hasNamedParameters =
+                functionParameterNames && functionParameterNames.size > 0;
+
+            if (argumentIndex !== null) {
+                if (!options?.applyFeatherFixes || hasNamedParameters) {
+                    enablesAlignment = true;
+                }
+            } else if (functionParameterNames?.has(init.name)) {
                 enablesAlignment = true;
             }
-        } else if (functionParameterNames?.has(init.name)) {
-            enablesAlignment = true;
         }
     }
 
@@ -3415,22 +3445,25 @@ function getSimpleAssignmentLikeEntry(
         options
     );
 
+    const keyword =
+        typeof statement.kind === "string" && statement.kind.length > 0
+            ? statement.kind
+            : "var";
+    const prefixLength = keyword.length + 1;
+
     return {
         locationNode: statement,
         paddingTarget: declarator,
         nameLength: id.name.length,
         enablesAlignment,
-        skipBreakAfter
+        skipBreakAfter,
+        prefixLength
     };
 }
 
 function getFunctionParameterNameSetFromPath(path) {
-    if (!path || typeof path.getParentNode !== "function") {
-        return null;
-    }
-
-    const functionNode = path.getParentNode();
-    if (!functionNode || typeof functionNode !== "object") {
+    const functionNode = findEnclosingFunctionNode(path);
+    if (!functionNode) {
         return null;
     }
 
