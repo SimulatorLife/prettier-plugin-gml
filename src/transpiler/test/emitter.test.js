@@ -83,6 +83,31 @@ test("GmlEmitter maps != to !== for strict inequality", () => {
     assert.equal(emitter.mapOperator("!="), "!==");
 });
 
+test("GmlEmitter maps bitwise AND operator", () => {
+    const emitter = new GmlEmitter();
+    assert.equal(emitter.mapOperator("&"), "&");
+});
+
+test("GmlEmitter maps bitwise OR operator", () => {
+    const emitter = new GmlEmitter();
+    assert.equal(emitter.mapOperator("|"), "|");
+});
+
+test("GmlEmitter maps bitwise XOR operator", () => {
+    const emitter = new GmlEmitter();
+    assert.equal(emitter.mapOperator("xor"), "^");
+});
+
+test("GmlEmitter maps left shift operator", () => {
+    const emitter = new GmlEmitter();
+    assert.equal(emitter.mapOperator("<<"), "<<");
+});
+
+test("GmlEmitter maps right shift operator", () => {
+    const emitter = new GmlEmitter();
+    assert.equal(emitter.mapOperator(">>"), ">>");
+});
+
 test("GmlEmitter preserves standard JavaScript operators", () => {
     const emitter = new GmlEmitter();
     assert.equal(emitter.mapOperator("+"), "+");
