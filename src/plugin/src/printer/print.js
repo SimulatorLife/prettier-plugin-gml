@@ -3403,6 +3403,10 @@ function getSimpleAssignmentLikeEntry(
         return null;
     }
 
+    if (!insideFunctionBody) {
+        return null;
+    }
+
     const id = declarator.id;
     if (!id || id.type !== "Identifier" || typeof id.name !== "string") {
         return null;
@@ -3416,15 +3420,22 @@ function getSimpleAssignmentLikeEntry(
     let enablesAlignment = false;
     if (init.type === "Identifier" && typeof init.name === "string") {
         const argumentIndex = getArgumentIndexFromIdentifier(init.name);
-        const hasNamedParameters =
-            functionParameterNames && functionParameterNames.size > 0;
 
-        if (argumentIndex !== null) {
-            if (!options?.applyFeatherFixes || hasNamedParameters) {
+        if (!insideFunctionBody && argumentIndex !== null) {
+            return null;
+        }
+
+        if (insideFunctionBody) {
+            const hasNamedParameters =
+                functionParameterNames && functionParameterNames.size > 0;
+
+            if (argumentIndex !== null) {
+                if (!options?.applyFeatherFixes || hasNamedParameters) {
+                    enablesAlignment = true;
+                }
+            } else if (functionParameterNames?.has(init.name)) {
                 enablesAlignment = true;
             }
-        } else if (functionParameterNames?.has(init.name)) {
-            enablesAlignment = true;
         }
     }
 
