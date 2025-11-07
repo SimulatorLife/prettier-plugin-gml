@@ -124,7 +124,7 @@ for (var i = 0; i < queue_count; i += 1) {
 </tbody>
 </table>
 
-<p align="right"><sub><a href="src/plugin/test/testHoist.input.gml#L1-L6">Input fixture</a> · <a href="src/plugin/test/testHoist.output.gml#L1-L6">Output fixture</a></sub></p>
+<p align="right"><sub><a href="src/plugin/test/testHoist.input.gml">Input fixture</a> · <a href="src/plugin/test/testHoist.output.gml">Output fixture</a></sub></p>
 
 ---
 
@@ -668,8 +668,8 @@ Template strings that never interpolate expressions automatically collapse back 
 | `useStringInterpolation` | `false` | Upgrades eligible string concatenations to template strings (`$"Hello {name}"`). |
 | `convertDivisionToMultiplication` | `false` | Rewrites division by literals into multiplication by the reciprocal when safe. |
 | `convertManualMathToBuiltins` | `false` | Collapses bespoke math expressions into their equivalent built-in helpers (for example, turn repeated multiplication into `sqr()`). |
-| `condenseUnaryBooleanReturns` | `false` | Reserved for future unary boolean condensation logic; currently exposed but has no effect. |
-| `condenseReturnStatements` | `false` | Reserved placeholder for boolean return condensation and presently a no-op. |
+| `condenseUnaryBooleanReturns` | `false` | Reserved for future unary boolean condensation logic; currently has no effect. |
+| `condenseReturnStatements` | `false` | Reserved placeholder for boolean return condensation; currently has no effect. |
 
 Line comments automatically drop YoYo Games' generated banner message (`Script assets have changed for v2.3.0 ... for more information`) and the default IDE stubs (`/// @description Insert description here`, `// You can write your code in this editor`) so repository diffs stay focused on deliberate edits instead of generated scaffolding.
 
@@ -721,10 +721,10 @@ monorepos predictable:
 
 | Option | Default | Summary |
 | --- | --- | --- |
-| `gmlIdentifierCaseDiscoverProject` | `true` | Auto-detect the nearest `.yyp` manifest when bootstrapping the project index. Disable when callers manage discovery manually. TODO: deprecate this in foavour of new scoping/semantic plan. |
-| `gmlIdentifierCaseProjectRoot` | `""` | Pin project discovery to an explicit directory. Helpful when formatting files outside the GameMaker project tree or when CI runs from ephemeral workspaces. TODO: deprecate this option in favour of new scoping/semantic plan in [docs/semantic-scope-plan.md](docs/semantic-scope-plan.md). |
-| `gmlIdentifierCaseProjectIndexCacheMaxBytes` | `8 MiB` | Cap the on-disk cache size written to `.prettier-plugin-gml/project-index-cache.json`. Increase alongside `GML_PROJECT_INDEX_CACHE_MAX_SIZE` when coordinating cache pruning yourself. **TODO**: deprecate this option in favour of new scoping/semantic plan in [docs/semantic-scope-plan.md](docs/semantic-scope-plan.md). |
-| `gmlIdentifierCaseProjectIndexConcurrency` | `4` | Control how many files the bootstrap parses in parallel. Combine with `GML_PROJECT_INDEX_CONCURRENCY` and `GML_PROJECT_INDEX_MAX_CONCURRENCY` to tune CI throughput without starving local machines. **TODO**: deprecate this option in favour of new scoping/semantic plan in [docs/semantic-scope-plan.md](docs/semantic-scope-plan.md). |
+| `gmlIdentifierCaseDiscoverProject` | `true` | Auto-detect the nearest `.yyp` manifest when bootstrapping the project index. Disable when callers manage discovery manually. This option is deprecated in favor of the new scoping/semantic plan described in [docs/semantic-scope-plan.md]. |
+| `gmlIdentifierCaseProjectRoot` | `""` | Pin project discovery to an explicit directory. Helpful when formatting files outside the GameMaker project tree or when CI runs from ephemeral workspaces. This option is deprecated in favor of the new scoping/semantic plan described in [docs/semantic-scope-plan.md]. |
+| `gmlIdentifierCaseProjectIndexCacheMaxBytes` | `8 MiB` | Cap the on-disk cache size written to `.prettier-plugin-gml/project-index-cache.json`. Increase alongside `GML_PROJECT_INDEX_CACHE_MAX_SIZE` when coordinating cache pruning yourself. This option is deprecated in favor of the new scoping/semantic plan described in [docs/semantic-scope-plan.md]. |
+| `gmlIdentifierCaseProjectIndexConcurrency` | `4` | Control how many files the bootstrap parses in parallel. Combine with `GML_PROJECT_INDEX_CONCURRENCY` and `GML_PROJECT_INDEX_MAX_CONCURRENCY` to tune CI throughput without starving local machines. This option is deprecated in favor of the new scoping/semantic plan described in [docs/semantic-scope-plan.md]. |
 
 Project index discovery, cache tuning, and concurrency controls now live under
 the [semantic subsystem](src/semantic/README.md) alongside the new scope-tracking
@@ -856,3 +856,4 @@ work than the configured ceiling.
 
 - [ANTLR4 Grammar Syntax Support](https://marketplace.visualstudio.com/items?itemName=mike-lischke.vscode-antlr4)
 - [GML Support](https://marketplace.visualstudio.com/items?itemName=electrobrains.gml-support)
+- [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
