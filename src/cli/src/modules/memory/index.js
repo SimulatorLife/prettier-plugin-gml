@@ -6,6 +6,7 @@ import { performance } from "node:perf_hooks";
 import {
     appendToCollection,
     Command,
+    callWithFallback,
     createEnvConfiguredValue,
     createStringEnumeratedOptionHelpers,
     describeValueWithArticle,
@@ -216,12 +217,11 @@ function logInvalidIterationEnvOverride({ envVar, error, fallback }) {
  */
 function applyIterationToolkitEnvOverride(toolkit, envVar, env) {
     const fallback = toolkit.getDefault();
-    try {
-        return toolkit.applyEnvOverride(env);
-    } catch (error) {
-        logInvalidIterationEnvOverride({ envVar, error, fallback });
-        return fallback;
-    }
+    return callWithFallback(() => toolkit.applyEnvOverride(env), {
+        fallback,
+        onError: (error) =>
+            logInvalidIterationEnvOverride({ envVar, error, fallback })
+    });
 }
 
 function applyParserMaxIterationsEnvOverride(env) {

@@ -2,7 +2,8 @@ import { Buffer } from "node:buffer";
 import { isFiniteNumber } from "../../dependencies.js";
 import {
     coercePositiveInteger,
-    createNumericTypeErrorFormatter
+    createNumericTypeErrorFormatter,
+    callWithFallback
 } from "../dependencies.js";
 import { createIntegerOptionToolkit } from "../../core/integer-option-toolkit.js";
 
@@ -49,12 +50,13 @@ function resolveRadixOverride(radix, defaultRadix) {
         return defaultRadix;
     }
 
-    try {
-        const resolved = resolveByteFormatRadix(radix, { defaultRadix });
-        return typeof resolved === "number" ? resolved : defaultRadix;
-    } catch {
-        return defaultRadix;
-    }
+    return callWithFallback(
+        () => {
+            const resolved = resolveByteFormatRadix(radix, { defaultRadix });
+            return typeof resolved === "number" ? resolved : defaultRadix;
+        },
+        { fallback: defaultRadix }
+    );
 }
 
 /**

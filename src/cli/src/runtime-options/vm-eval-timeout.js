@@ -1,6 +1,7 @@
 import {
     coerceNonNegativeInteger,
-    createNumericTypeErrorFormatter
+    createNumericTypeErrorFormatter,
+    callWithFallback
 } from "../shared/dependencies.js";
 import { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
 
@@ -32,11 +33,9 @@ const {
 } = vmEvalTimeoutToolkit;
 
 function applyVmEvalTimeoutEnvOverride(env) {
-    try {
-        return applyEnvOverride(env);
-    } catch {
-        return getDefaultVmEvalTimeoutMs();
-    }
+    return callWithFallback(() => applyEnvOverride(env), {
+        fallback: () => getDefaultVmEvalTimeoutMs()
+    });
 }
 
 applyVmEvalTimeoutEnvOverride();
