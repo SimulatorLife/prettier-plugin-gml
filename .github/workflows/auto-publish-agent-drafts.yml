@@ -20,7 +20,7 @@ jobs:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const prefixes = ['copilot/', 'codex/', 'gemini/'];
+            const prefixes = ['copilot/', 'codex/', 'gemini-cli/'];
             const isAgentBranch = (ref) => typeof ref === 'string' && prefixes.some((prefix) => ref.startsWith(prefix));
             const allowedAuthors = new Set([
               'copilot',
