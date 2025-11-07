@@ -114,7 +114,11 @@ export class GmlEmitter {
             xor: "^",
             not: "!",
             "==": "===",
-            "!=": "!=="
+            "!=": "!==",
+            "&": "&",
+            "|": "|",
+            "<<": "<<",
+            ">>": ">>"
         };
         return mapping[op] || op;
     }
@@ -688,7 +692,7 @@ export function emitJavaScript(ast) {
     if (ast.type === "FunctionDeclaration") {
         let result = "function ";
 
-        // Emit the function name. The parser may provide it as a string or as an
+        // Emit the function name.. The parser may provide it as a string or as an
         // identifier node, so we handle both cases to support different AST shapes.
         if (ast.id) {
             result +=
