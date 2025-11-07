@@ -615,7 +615,7 @@ jobs:
 
             const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number });
             const branchLower = (pr.head?.ref || '').toLowerCase();
-            const agentMention = branchLower.startsWith('codex/') ? '@codex' : '@copilot';
+            const agentMention = branchLower.startsWith('codex/') ? '@codex' : (branchLower.startsWith('gemini-cli/') ? '@gemini-cli' : '@copilot');
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner,
               repo,
