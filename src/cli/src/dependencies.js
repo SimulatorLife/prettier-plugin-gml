@@ -27,6 +27,7 @@ export {
     getOrCreateMapEntry,
     getObjectTagName,
     hasOwn,
+    callWithFallback,
     identity,
     incrementMapValue,
     isAggregateErrorLike,
