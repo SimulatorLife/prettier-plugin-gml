@@ -262,7 +262,7 @@ jobs:
               ""
             ];
 
-            if (agent !== 'copilot') {
+            if (agent === 'codex') {
               lines.push(
                 `Once done, ensure all changes are pushed to remote branch **${branch}** on base **${process.env.BASE_BRANCH}** and keep all commits tied to PR #${prNumber}; do not open new branches or PRs. As the final step (even after running 'make_pr'), run the following exact command(s) to guarantee your changes are pushed:`,
                 "",

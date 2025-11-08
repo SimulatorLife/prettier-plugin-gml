@@ -64,7 +64,7 @@ jobs:
           settings: |-
             {
               "model": {
-                "maxSessionTurns": 25
+                "maxSessionTurns": 15
               },
               "telemetry": {
                 "enabled": ${{ vars.GOOGLE_CLOUD_PROJECT != '' }},
@@ -82,24 +82,20 @@ jobs:
                     "ghcr.io/github/github-mcp-server:v0.18.0"
                   ],
                   "includeTools": [
+                    "pull_request_read",
                     "add_issue_comment",
                     "get_issue",
                     "get_issue_comments",
                     "list_issues",
-                    "search_issues",
-                    "create_pull_request",
-                    "pull_request_read",
-                    "list_pull_requests",
-                    "search_pull_requests",
-                    "create_branch",
                     "create_or_update_file",
                     "delete_file",
-                    "fork_repository",
                     "get_commit",
                     "get_file_contents",
-                    "list_commits",
                     "push_files",
-                    "search_code"
+                    "search_code",
+                    "read_many_files",
+                    "run_shell_command",
+                    "list_directory"
                   ],
                   "env": {
                     "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
