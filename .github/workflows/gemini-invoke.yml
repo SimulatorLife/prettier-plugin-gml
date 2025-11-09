@@ -164,6 +164,7 @@ jobs:
                   "run_shell_command(git restore)",
                   "run_shell_command(git status)",
                   "run_shell_command(git diff)",
+                  "run_shell_command(exit)",
                   "files.read",
                   "files.list",
                   "files.write"
@@ -222,7 +223,7 @@ jobs:
 
             -----
 
-            ## Step 2: Core Workflow (Plan -> Execute -> Report)
+            ## Step 2: Core Workflow (Plan -> Execute -> Report --> Exit)
 
             ### A. Plan of Action
 
@@ -260,7 +261,7 @@ jobs:
 
             ### C. Final Report
 
-            1. **Compose & Post Report**: After successfully completing all steps, use `mcp__github__add_issue_comment` to post a final summary.
+            1. **Compose & Post Report**: After successfully completing previous steps, use `mcp__github__add_issue_comment` to post a final summary.
 
                 - **Report Template:**
 
@@ -273,11 +274,11 @@ jobs:
                   * [Briefly describe the first major change.]
                   * [Briefly describe the second major change.]
 
-                  **Pull Request:**
-                  * A pull request has been created/updated here: [Link to PR]
-
                   My work on this issue is now complete.
                   ```
+            ### D. Exit Gracefully
+
+            1. **Conclude your operation**: run command `exit 0` to indicate successful completion. Do not attempt further actions. Do not wait for new commands or user instructions.
 
             -----
 
