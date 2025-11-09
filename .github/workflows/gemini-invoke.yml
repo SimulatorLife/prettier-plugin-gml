@@ -172,10 +172,11 @@ jobs:
                   "run_shell_command(git status)",
                   "run_shell_command(git diff)",
                   "run_shell_command(exit)",
+                  "run_shell_command(printf)",
                   // Direct style (newer/flattened style some builds use)
                   "cat", "cd", "echo", "grep", "head", "tail", "timeout", "mkdir", "rm",
                   "cp", "mv", "awk", "sed", "pwd", "node", "npm", "ls", "find", "sleep",
-                  "file", "git add", "git commit", "git status", "git diff", "exit",
+                  "file", "git add", "git commit", "git status", "git diff", "exit", "printf",
                   // Local FS tools
                   "files.read",
                   "files.list",
