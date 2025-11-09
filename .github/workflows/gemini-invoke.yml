@@ -151,7 +151,9 @@ jobs:
                   "run_shell_command(ls)",
                   "run_shell_command(find)",
                   "run_shell_command(sleep)",
-                  "run_shell_command(file)"
+                  "run_shell_command(file)",
+                  "files.read",
+                  "files.list"
                 ]
               }
             }
