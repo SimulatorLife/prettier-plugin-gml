@@ -21,7 +21,7 @@ const defaultIdentifierCaseFsFacade = Object.freeze({
         nodeRenameSync(fromPath, toPath);
     },
     accessSync(targetPath, mode = DEFAULT_WRITE_ACCESS_MODE) {
-        if (mode == undefined) {
+        if (mode === undefined) {
             nodeAccessSync(targetPath);
         } else {
             nodeAccessSync(targetPath, mode);
