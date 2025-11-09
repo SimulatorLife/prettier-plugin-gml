@@ -44,6 +44,24 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref || github.ref }}
           submodules: recursive
 
+      - name: Use Node from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            **/package-lock.json
+
+      - name: Show Node & npm versions
+        run: |
+          node -v;
+          npm -v;
+
+      - name: Install dependencies (root/workspaces)
+        run: |
+          npm ci;
+
       - name: 'Run Gemini CLI'
         id: 'run_gemini'
         uses: 'google-github-actions/run-gemini-cli@v0' # ratchet:exclude
@@ -108,10 +126,12 @@ jobs:
               "tools": {
                 "core": [
                   "run_shell_command(cat)",
+                  "run_shell_command(cd)",
                   "run_shell_command(echo)",
                   "run_shell_command(grep)",
                   "run_shell_command(head)",
                   "run_shell_command(tail)",
+                  "run_shell_command(timeout)",
                   "run_shell_command(mkdir)",
                   "run_shell_command(rm)",
                   "run_shell_command(cp)",
