@@ -53,14 +53,22 @@ jobs:
             package-lock.json
             **/package-lock.json
 
-      - name: Show Node & npm versions
-        run: |
-          node -v;
-          npm -v;
-
       - name: Install dependencies (root/workspaces)
         run: |
           npm ci;
+
+      - name: Pick Gemini API key
+        id: pick_gemini_key
+        run: |
+          # Pick 1–3 randomly
+          key_num=$((1 + RANDOM % 3))
+
+          echo "Selected key number: $key_num"
+          case $key_num in
+            1) echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> $GITHUB_ENV ;;
+            2) echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY2 }}" >> $GITHUB_ENV ;;
+            3) echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY3 }}" >> $GITHUB_ENV ;;
+          esac
 
       - name: 'Run Gemini CLI'
         id: 'run_gemini'
@@ -78,7 +86,7 @@ jobs:
           gcp_project_id: '${{ vars.GOOGLE_CLOUD_PROJECT }}'
           gcp_service_account: '${{ vars.SERVICE_ACCOUNT_EMAIL }}'
           gcp_workload_identity_provider: '${{ vars.GCP_WIF_PROVIDER }}'
-          gemini_api_key: '${{ secrets.GEMINI_API_KEY }}'
+          gemini_api_key: '${{ env.GEMINI_API_KEY }}'   # <-- uses the picked key
           gemini_cli_version: '${{ vars.GEMINI_CLI_VERSION }}'
           gemini_debug: '${{ fromJSON(vars.DEBUG || vars.ACTIONS_STEP_DEBUG || false) }}'
           gemini_model: '${{ vars.GEMINI_MODEL }}'
@@ -88,7 +96,7 @@ jobs:
           settings: |-
             {
               "model": {
-                "maxSessionTurns": 15
+                "maxSessionTurns": 25
               },
               "telemetry": {
                 "enabled": ${{ vars.GOOGLE_CLOUD_PROJECT != '' }},
@@ -112,7 +120,6 @@ jobs:
                     "get_issue_comments",
                     "create_or_update_file",
                     "delete_file",
-                    "get_commit",
                     "get_file_contents",
                     "push_files",
                     "read_many_files",
