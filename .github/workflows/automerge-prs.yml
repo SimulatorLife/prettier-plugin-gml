@@ -615,7 +615,14 @@ jobs:
 
             const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number });
             const branchLower = (pr.head?.ref || '').toLowerCase();
-            const agentMention = branchLower.startsWith('codex/') ? '@codex' : '@copilot';
+            // Extract the agent prefix (the part before the first '/') and require it to be present
+            const rawPrefix = (branchLower.split('/')[0] || '').replace(/^@/, '').trim();
+            if (!rawPrefix) {
+              core.info('No agent prefix found on branch name; skipping agent regression request.');
+              return;
+            }
+            const agentPrefix = rawPrefix;
+            const agentMention = `@${agentPrefix}`;
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner,
               repo,
@@ -643,7 +650,7 @@ jobs:
                 `Once done, ensure all changes are pushed to remote branch **${pr.head.ref}** on base **${pr.base.ref}** and keep all commits tied to PR #${number}; do not open new branches or PRs. As the final step (even after running 'make_pr'), run the following exact command(s) to guarantee your changes are pushed:`,
                 '',
                 '```bash',
-                'git push "https://github.com/${owner}/${repo}.git" "HEAD:${pr.head.ref}"',
+                `git push "https://github.com/${owner}/${repo}.git" "HEAD:${pr.head.ref}"`,
                 '```'
               );
             }

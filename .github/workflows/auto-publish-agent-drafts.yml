@@ -20,7 +20,7 @@ jobs:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const prefixes = ['copilot/', 'codex/'];
+            const prefixes = ['copilot/', 'codex/', 'gemini-cli/'];
             const isAgentBranch = (ref) => typeof ref === 'string' && prefixes.some((prefix) => ref.startsWith(prefix));
             const allowedAuthors = new Set([
               'copilot',
@@ -31,7 +31,10 @@ jobs:
               'copilot-bot',
               'copilot-bot[bot]',
               'codex-bot',
-              'codex-bot[bot]'
+              'codex-bot[bot]',
+              'gemini',
+              'gemini[bot]',
+              'google-gemini[bot]'
             ].map((login) => login.toLowerCase()));
 
             const { data: authUser } = await github.rest.users.getAuthenticated();
