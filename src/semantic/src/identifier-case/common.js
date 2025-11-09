@@ -106,7 +106,7 @@ export function resolveIdentifierConfigurationConflict({
     filePath
 }) {
     if (
-        identifierName != undefined &&
+        identifierName !== undefined &&
         typeof preservedSet?.has === "function" &&
         preservedSet.has(identifierName)
     ) {
