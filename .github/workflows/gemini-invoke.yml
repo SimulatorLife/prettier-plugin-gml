@@ -68,15 +68,16 @@ jobs:
       - name: Pick Gemini API key
         id: pick_gemini_key
         run: |
-          # Pick 1–4 randomly
-          key_num=$((1 + RANDOM % 4))
+          # Pick 1–5 randomly
+          key_num=$((1 + RANDOM % 5))
 
           echo "Selected key number: $key_num"
           case $key_num in
             1) echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> $GITHUB_ENV ;;
             2) echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY2 }}" >> $GITHUB_ENV ;;
             3) echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY3 }}" >> $GITHUB_ENV ;;
-            *) echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY4 }}" >> $GITHUB_ENV ;;
+            4) echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY4 }}" >> $GITHUB_ENV ;;
+            5) echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY5 }}" >> $GITHUB_ENV ;;
           esac
 
       - name: Add PATH shims to throttle common CLIs
