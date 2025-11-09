@@ -7,6 +7,14 @@ on:
         type: 'string'
         description: 'Any additional context from the request'
         required: false
+      target_ref:
+        type: 'string'
+        description: 'Target branch name (PR head branch)'
+        required: true
+      target_sha:
+        type: 'string'
+        description: 'Target commit SHA (PR head commit)'
+        required: true
 
 concurrency:
   group: '${{ github.workflow }}-invoke-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.issue.number }}'
@@ -37,20 +45,33 @@ jobs:
           permission-issues: 'write'
           permission-pull-requests: 'write'
 
-      - name: 'Checkout PR head branch'
+      - name: 'Checkout target commit (by SHA)'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+          ref: ${{ inputs.target_sha }}
           submodules: recursive
 
-      - name: Verify PR head branch
+      - name: 'Create local branch matching target_ref'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -B "${{ inputs.target_ref }}" "${{ inputs.target_sha }}"
+          echo "WORKING_BRANCH=${{ inputs.target_ref }}" >> "$GITHUB_ENV"
+
+      - name: Verify working branch
         shell: bash
         run: |
           set -euo pipefail
           cur=$(git rev-parse --abbrev-ref HEAD)
           echo "Current branch: ${cur}"
           echo "WORKING_BRANCH=${cur}" >> "$GITHUB_ENV"
+      
+      - name: Configure git identity
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Use Node from .nvmrc
         uses: actions/setup-node@v4

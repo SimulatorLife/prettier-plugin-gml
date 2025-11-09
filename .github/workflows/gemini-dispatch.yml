@@ -163,6 +163,8 @@ jobs:
       pull-requests: 'write'
     with:
       additional_context: '${{ needs.dispatch.outputs.additional_context }}'
+      target_ref: '${{ github.event.pull_request.head.ref || github.ref_name }}'
+      target_sha: '${{ github.event.pull_request.head.sha || github.sha }}'
     secrets: 'inherit'
 
   fallthrough:
