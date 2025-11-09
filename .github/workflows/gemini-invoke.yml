@@ -125,6 +125,59 @@ jobs:
           # Prepend to PATH so shims take precedence
           echo "PATH=$shim_dir:$PATH" >> "$GITHUB_ENV"
 
+      - name: Build and validate Gemini settings JSON
+        id: build_settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          settings_file="$RUNNER_TEMP/gemini-settings.json"
+
+          cat <<'EOF' > "$settings_file"
+          {
+            "model": { "maxSessionTurns": 25 },
+            "telemetry": {
+              "enabled": true,
+              "target": "gcp"
+            },
+            "mcpServers": {
+              "github": {
+                "command": "docker",
+                "args": [
+                  "run", "-i", "--rm",
+                  "-e", "GITHUB_PERSONAL_ACCESS_TOKEN",
+                  "ghcr.io/github/github-mcp-server:v0.18.0"
+                ],
+                "includeTools": ["add_issue_comment"],
+                "env": {
+                  "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+                }
+              }
+            },
+            "tools": {
+              "core": [
+                "run_shell_command(cat)", "run_shell_command(cd)", "run_shell_command(echo)",
+                "run_shell_command(grep)", "run_shell_command(head)", "run_shell_command(tail)",
+                "run_shell_command(timeout)", "run_shell_command(mkdir)", "run_shell_command(rm)",
+                "run_shell_command(cp)", "run_shell_command(mv)", "run_shell_command(awk)",
+                "run_shell_command(sed)", "run_shell_command(pwd)", "run_shell_command(node)",
+                "run_shell_command(npm)", "run_shell_command(ls)", "run_shell_command(find)",
+                "run_shell_command(sleep)", "run_shell_command(file)", "run_shell_command(git add)",
+                "run_shell_command(git commit)", "run_shell_command(git push)",
+                "run_shell_command(git status)", "run_shell_command(git diff)",
+                "run_shell_command(exit)", "run_shell_command(pgrep)",
+                "cat", "cd", "echo", "grep", "head", "tail", "timeout", "mkdir", "rm", "cp",
+                "mv", "awk", "sed", "pwd", "node", "npm", "ls", "find", "sleep", "pgrep", "file",
+                "git add", "git commit", "git push", "git status", "git diff", "exit",
+                "files.read", "files.list", "files.write"
+              ]
+            }
+          }
+          EOF
+
+          jq -e . "$settings_file" >/dev/null
+          echo "Settings JSON validated successfully."
+          echo "SETTINGS_JSON=$(jq -c . "$settings_file")" >> "$GITHUB_ENV"
+
       - name: 'Run Gemini CLI'
         id: 'run_gemini'
         uses: 'google-github-actions/run-gemini-cli@v0' # ratchet:exclude
@@ -145,72 +198,7 @@ jobs:
           google_api_key: '${{ secrets.GOOGLE_API_KEY }}'
           use_gemini_code_assist: '${{ vars.GOOGLE_GENAI_USE_GCA }}'
           use_vertex_ai: '${{ vars.GOOGLE_GENAI_USE_VERTEXAI }}'
-          settings: |-
-            {
-              "model": {
-                "maxSessionTurns": 25
-              },
-              "telemetry": {
-                "enabled": ${{ vars.GOOGLE_CLOUD_PROJECT != '' }},
-                "target": "gcp"
-              },
-              "mcpServers": {
-                "github": {
-                  "command": "docker",
-                  "args": [
-                    "run",
-                    "-i",
-                    "--rm",
-                    "-e",
-                    "GITHUB_PERSONAL_ACCESS_TOKEN",
-                    "ghcr.io/github/github-mcp-server:v0.18.0"
-                  ],
-                  "includeTools": [
-                    "add_issue_comment"
-                  ],
-                  "env": {
-                    "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
-                  }
-                }
-              },
-              "tools": {
-                "core": [
-                  "run_shell_command(cat)",
-                  "run_shell_command(cd)",
-                  "run_shell_command(echo)",
-                  "run_shell_command(grep)",
-                  "run_shell_command(head)",
-                  "run_shell_command(tail)",
-                  "run_shell_command(timeout)",
-                  "run_shell_command(mkdir)",
-                  "run_shell_command(rm)",
-                  "run_shell_command(cp)",
-                  "run_shell_command(mv)",
-                  "run_shell_command(awk)",
-                  "run_shell_command(sed)",
-                  "run_shell_command(pwd)",
-                  "run_shell_command(node)",
-                  "run_shell_command(npm)",
-                  "run_shell_command(ls)",
-                  "run_shell_command(find)",
-                  "run_shell_command(sleep)",
-                  "run_shell_command(file)",
-                  "run_shell_command(git add)",
-                  "run_shell_command(git commit)",
-                  "run_shell_command(git push)",
-                  "run_shell_command(git status)",
-                  "run_shell_command(git diff)",
-                  "run_shell_command(exit)",
-                  "run_shell_command(pgrep)",
-                  "cat", "cd", "echo", "grep", "head", "tail", "timeout", "mkdir", "rm",
-                  "cp", "mv", "awk", "sed", "pwd", "node", "npm", "ls", "find", "sleep", "pgrep",
-                  "file", "git add", "git commit", "git push", "git status", "git diff", "exit",
-                  "files.read",
-                  "files.list",
-                  "files.write"
-                ]
-              }
-            }
+          settings: '${{ env.SETTINGS_JSON }}'
           prompt: |-
             ## Persona and Guiding Principles
 
