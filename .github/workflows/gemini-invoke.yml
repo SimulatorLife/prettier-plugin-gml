@@ -70,6 +70,13 @@ jobs:
             3) echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY3 }}" >> $GITHUB_ENV ;;
           esac
 
+      - name: Auto-sleep after every command (for rate limiting)
+        run: |
+          echo 'trap "sleep ${CMD_DELAY_SEC:-2}" DEBUG' >> $BASH_ENV
+          echo "Auto-sleep trap injected. Commands will pause ${CMD_DELAY_SEC:-2}s after each command."
+        env:
+          CMD_DELAY_SEC: '5'
+
       - name: 'Run Gemini CLI'
         id: 'run_gemini'
         uses: 'google-github-actions/run-gemini-cli@v0' # ratchet:exclude
@@ -190,7 +197,7 @@ jobs:
 
             5. **Mandatory Sanity Check**: Before finalizing your plan, you **MUST** perform a final review. Compare your proposed plan against the user's original request. If the plan deviates significantly, seems destructive, or is outside the original scope, you **MUST** halt and ask for human clarification instead of posting the plan.
 
-            6. **Resource Consciousness**: Be mindful of the number of operations you perform. Your plans should be efficient. Avoid proposing actions that would result in an excessive number of tool calls (e.g., > 25).
+            6. **Resource Consciousness**: Be mindful of the number of operations you perform. Your plans should be efficient. Avoid proposing actions that would result in an excessive number of tool calls (e.g., > 20).
 
             7. **Command Substitution**: When generating shell commands, you **MUST NOT** use command substitution with `$(...)`, `<(...)`, or `>(...)`. This is a security measure to prevent unintended command execution.
 
