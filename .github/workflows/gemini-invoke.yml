@@ -71,7 +71,7 @@ jobs:
         run: |
           set -euo pipefail
           git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Use Node from .nvmrc
         uses: actions/setup-node@v4
@@ -204,7 +204,7 @@ jobs:
                   "run_shell_command(pgrep)",
                   "cat", "cd", "echo", "grep", "head", "tail", "timeout", "mkdir", "rm",
                   "cp", "mv", "awk", "sed", "pwd", "node", "npm", "ls", "find", "sleep", "pgrep",
-                  "file", "git add", "git commit", "git push", "git status", "git diff", "exit", "printf",
+                  "file", "git add", "git commit", "git push", "git status", "git diff", "exit",
                   "files.read",
                   "files.list",
                   "files.write"
