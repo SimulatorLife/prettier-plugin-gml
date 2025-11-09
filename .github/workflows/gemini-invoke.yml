@@ -146,6 +146,7 @@ jobs:
               },
               "tools": {
                 "core": [
+                  // Wrapped style (older/explicit style)
                   "run_shell_command(cat)",
                   "run_shell_command(cd)",
                   "run_shell_command(echo)",
@@ -166,18 +167,22 @@ jobs:
                   "run_shell_command(find)",
                   "run_shell_command(sleep)",
                   "run_shell_command(file)",
-
                   "run_shell_command(git add)",
                   "run_shell_command(git commit)",
                   "run_shell_command(git status)",
                   "run_shell_command(git diff)",
-
                   "run_shell_command(exit)",
+                  // Direct style (newer/flattened style some builds use)
+                  "cat", "cd", "echo", "grep", "head", "tail", "timeout", "mkdir", "rm",
+                  "cp", "mv", "awk", "sed", "pwd", "node", "npm", "ls", "find", "sleep",
+                  "file", "git add", "git commit", "git status", "git diff", "exit",
+                  // Local FS tools
                   "files.read",
                   "files.list",
                   "files.write"
                 ]
               }
+
             }
           prompt: |-
             ## Persona and Guiding Principles
