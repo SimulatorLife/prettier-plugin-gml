@@ -79,15 +79,29 @@ jobs:
             *) echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY4 }}" >> $GITHUB_ENV ;;
           esac
 
-      - name: Throttle common CLIs by PATH shims
+      - name: Add PATH shims to throttle common CLIs
         shell: bash
         env:
-          CMD_DELAY_SEC: '5'
+          CMD_DELAY_SEC: '5'   # adjust delay (seconds)
         run: |
           set -euo pipefail
-          : "${BASH_ENV:=$RUNNER_TEMP/bash_env}"
-          echo 'trap "sleep ${CMD_DELAY_SEC:-2}" DEBUG' >> "$BASH_ENV"
-          echo "BASH_ENV=$BASH_ENV" >> "$GITHUB_ENV"
+
+          # Create a temporary shim directory
+          shim_dir="$RUNNER_TEMP/cmd_shims"
+          mkdir -p "$shim_dir"
+
+          # Wrap selected commands with a sleep delay
+          for cmd in npm node git grep find ls; do
+            if command -v "$cmd" >/dev/null 2>&1; then
+              echo "#!/usr/bin/env bash" > "$shim_dir/$cmd"
+              echo "sleep ${CMD_DELAY_SEC:-2}" >> "$shim_dir/$cmd"
+              echo "exec $(command -v "$cmd") \"\$@\"" >> "$shim_dir/$cmd"
+              chmod +x "$shim_dir/$cmd"
+            fi
+          done
+
+          # Prepend to PATH so shims take precedence
+          echo "PATH=$shim_dir:$PATH" >> "$GITHUB_ENV"
 
       - name: 'Run Gemini CLI'
         id: 'run_gemini'
