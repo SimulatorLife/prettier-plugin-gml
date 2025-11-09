@@ -33,6 +33,12 @@ jobs:
       issues: 'write'
       pull-requests: 'write'
     steps:
+      - name: Assert PR context
+        if: ${{ inputs.target_ref == '' || inputs.target_sha == '' }}
+        run: |
+          echo "Missing target_ref/target_sha; this workflow expects to be called from a PR."
+          exit 1
+
       - name: 'Mint identity token'
         id: 'mint_identity_token'
         if: |-
@@ -52,19 +58,30 @@ jobs:
           ref: ${{ inputs.target_sha }}
           submodules: recursive
 
-      - name: 'Create local branch matching target_ref'
+      - name: Create local branch & verify
         shell: bash
         run: |
           set -euo pipefail
-          git checkout -B "${{ inputs.target_ref }}" "${{ inputs.target_sha }}"
-          echo "WORKING_BRANCH=${{ inputs.target_ref }}" >> "$GITHUB_ENV"
 
-      - name: Verify working branch
-        shell: bash
-        run: |
-          set -euo pipefail
-          cur=$(git rev-parse --abbrev-ref HEAD)
-          echo "Current branch: ${cur}"
+          # Sanitize branch name (strip common prefixes)
+          raw="${{ inputs.target_ref }}"
+          branch="${raw#refs/heads/}"
+          branch="${branch#origin/}"
+
+          echo "Target ref (raw): ${raw}"
+          echo "Target branch (normalized): ${branch}"
+          echo "Target SHA: ${{ inputs.target_sha }}"
+
+          # Checkout the exact commit and attach a local branch name
+          git checkout -B "${branch}" "${{ inputs.target_sha }}"
+
+          # Show where we are now
+          cur_branch=$(git rev-parse --abbrev-ref HEAD)
+          cur_sha=$(git rev-parse HEAD)
+          echo "Now on branch: ${cur_branch} @ ${cur_sha}"
+
+          # Export for later steps / prompt
+          echo "WORKING_BRANCH=${branch}" >> "$GITHUB_ENV"
       
       - name: Configure git identity
         run: |
