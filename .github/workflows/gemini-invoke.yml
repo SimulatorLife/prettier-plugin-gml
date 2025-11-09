@@ -72,11 +72,16 @@ jobs:
           esac
 
       - name: Auto-sleep after every command (for rate limiting)
-        run: |
-          echo 'trap "sleep ${CMD_DELAY_SEC:-2}" DEBUG' >> $BASH_ENV
-          echo "Auto-sleep trap injected. Commands will pause ${CMD_DELAY_SEC:-2}s after each command."
+        shell: bash
         env:
           CMD_DELAY_SEC: '5'
+        run: |
+          set -euo pipefail
+          # Ensure BASH_ENV points to a real file and persists for later steps
+          : "${BASH_ENV:=$RUNNER_TEMP/bash_env}"
+          echo 'trap "sleep ${CMD_DELAY_SEC:-2}" DEBUG' >> "$BASH_ENV"
+          echo "BASH_ENV=$BASH_ENV" >> "$GITHUB_ENV"
+          echo "Auto-sleep trap injected. Commands will pause ${CMD_DELAY_SEC:-2}s after each command."
 
       - name: 'Run Gemini CLI'
         id: 'run_gemini'
