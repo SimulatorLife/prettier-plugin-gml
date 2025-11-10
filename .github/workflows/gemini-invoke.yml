@@ -146,7 +146,7 @@ jobs:
                   "-e", "GITHUB_PERSONAL_ACCESS_TOKEN",
                   "ghcr.io/github/github-mcp-server:v0.18.0"
                 ],
-                "includeTools": ["add_issue_comment"],
+                "includeTools": ["add_issue_comment", "run_shell_command"],
                 "env": {
                   "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
                 }
@@ -164,9 +164,6 @@ jobs:
                 "run_shell_command(git commit)", "run_shell_command(git push)",
                 "run_shell_command(git status)", "run_shell_command(git diff)",
                 "run_shell_command(exit)", "run_shell_command(pgrep)",
-                "cat", "cd", "echo", "grep", "head", "tail", "timeout", "mkdir", "rm", "cp",
-                "mv", "awk", "sed", "pwd", "node", "npm", "ls", "find", "sleep", "pgrep", "file",
-                "git add", "git commit", "git push", "git status", "git diff", "exit",
                 "files.read", "files.list", "files.write"
               ]
             }
@@ -220,14 +217,14 @@ jobs:
 
                 2. **Read/Navigate Locally**: Navigate and inspect the repository using local tools only:
                   - Read files with `files.read` and list directories with `files.list`.
-                  - You **may** use read-only shell utilities to navigate (`ls`, `grep`, `find`, `cat`, `head`, `tail`) but **never** to write files or generate code.
+                  - You **may** use read-only shell utilities to navigate (`run_shell_command(grep)`, `run_shell_command(find)`, `run_shell_command(cat)`, `run_shell_command(head)`, `run_shell_command(tail)`).
 
                 3. **No Branch Switching**: The correct PR branch is already checked out (`${WORKING_BRANCH}`). Do **not** attempt `git checkout` or `git branch`. All commits and pushes **must** target this branch.
 
                 4. **Commit & Push Policy**:
-                  - Commit locally with `git add` and `git commit` using Conventional Commits.
-                  - Push **only** to `origin/${WORKING_BRANCH}` using `git push origin "${WORKING_BRANCH}"`.
-                  - If the upstream is not set, use `git push -u origin "${WORKING_BRANCH}"`.
+                  - Commit locally with `run_shell_command(git add)` and `run_shell_command(git commit)` using Conventional Commits.
+                  - Push **only** to `origin/${WORKING_BRANCH}` using `run_shell_command(git push origin "${WORKING_BRANCH}")`.
+                  - If the upstream is not set, use `run_shell_command(git push -u origin "${WORKING_BRANCH}")`.
                   - Never create new branches or force-push.
 
                 5. **No Direct Execution**: Never use shell commands like `eval` that execute raw user input.
@@ -255,7 +252,7 @@ jobs:
 
                 2. **Deepen Context with Tools**:
                 - Use `files.list` to enumerate relevant paths and `files.read` to open only necessary files.
-                - You may use `ls`, `grep`, `find`, and `cat` for quick inspection, but do **not** use shell to write files.
+                - You may use `run_shell_command(ls)`, `run_shell_command(grep)`, `run_shell_command(find)`, and `run_shell_command(cat)` for quick inspection, but do **not** use shell to write files.
 
 
                 -----
@@ -289,15 +286,15 @@ jobs:
 
                 1. **Perform Each Step Locally**:
                   - Read and write files with `files.read` / `files.write` (always write complete updated file contents)
-                  - Run checks with `npm run lint` and/or `npm test` as needed.
+                  - Run checks with `run_shell_command(npm run lint)` and/or `run_shell_command(npm test)` as needed.
 
                 2. **Iterate**:
                   - Make small, scoped changes.
 
                 3. **Commit & Push Your Work**:
-                  - Stage files: `git add <files>`
-                  - Commit with Conventional Commit style: `git commit -m "fix: description"`
-                  - Push to the target branch: `git push origin "${WORKING_BRANCH}"`
+                  - Stage files: `run_shell_command(git add <files>)`
+                  - Commit with Conventional Commit style: `run_shell_command(git commit -m "fix: description")`
+                  - Push to the target branch: `run_shell_command(git push origin "${WORKING_BRANCH}")`
 
                 4. **Error Handling**:
                   - If a command fails, analyze the error.
@@ -332,7 +329,6 @@ jobs:
 
                   - **Safe Tool Usage**:
                     * `files.list` to explore directories, `files.read` to open files. `files.write` to make changes.
-                    * Optional read-only shell helpers: `ls`, `grep`, `find`, `cat`, `head`, `tail`.
                     * `run_shell_command(npm)` — run linters, tests, and builds.
                     * `run_shell_command(git add|commit|push|status|diff)` — local version control operations.
 
@@ -349,4 +345,4 @@ jobs:
                     All commits must follow the Conventional Commits format (`fix:`, `feat:`, `chore:`, `docs:`).
 
                   - **Exit Behavior**:
-                    Always call `exit 0` when your work is complete. Do not loop indefinitely or await further commands.
+                    Always call `run_shell_command(exit 0)` when your work is complete. Do not loop indefinitely or await further commands.
