@@ -102,7 +102,7 @@ jobs:
         run: |
           npm ci;
 
-      - name: Shim smoke test (no heredocs)
+      - name: Add PATH shims (stop step after successful git push)
         shell: bash
         run: |
           set -euo pipefail
@@ -110,33 +110,65 @@ jobs:
           shim_dir="$RUNNER_TEMP/cmd_shims"
           mkdir -p "$shim_dir"
 
-          # Resolve the real git path BEFORE shadowing it
           real_git="$(command -v git)"
 
-          # Write a minimal git shim (no heredocs)
-          echo '#!/usr/bin/env bash' > "$shim_dir/git"
-          echo 'echo SHIM_OK' >> "$shim_dir/git"
-          echo "exec \"$real_git\" \"\$@\"" >> "$shim_dir/git"
+          # git shim: on successful `git push`, write sentinel and kill the process group
+          {
+            echo '#!/usr/bin/env bash'
+            echo "REAL_GIT=\"$real_git\""
+            echo 'SENTINEL="${RUNNER_TEMP:-/tmp}/.gemini_push_succeeded"'
+            echo '"$REAL_GIT" "$@"'
+            echo 'code=$?'
+            echo 'if [ $code -eq 0 ] && [ "$1" = "push" ]; then'
+            echo '  date +"%F %T" > "$SENTINEL"'
+            echo '  pgid="$(ps -o pgid= $$ | tr -d " ")"'
+            echo '  if [ -n "$pgid" ]; then'
+            echo '    echo "git push succeeded; stopping process group PGID=$pgid"'
+            echo '    kill -TERM -"$pgid" 2>/dev/null || true'
+            echo '    sleep 2'
+            echo '    kill -KILL -"$pgid" 2>/dev/null || true'
+            echo '  fi'
+            echo 'fi'
+            echo 'exit $code'
+          } > "$shim_dir/git"
           chmod +x "$shim_dir/git"
 
-          # Prepend to PATH so our shim wins
+          # put shims first
           echo "PATH=$shim_dir:$PATH" >> "$GITHUB_ENV"
 
-          # Prove the shim is active
-          export PATH="$shim_dir:$PATH"
-          which git
-          out="$(git --version || true)"
-          echo "git --version output:"
-          echo "$out"
+      - name: PAT push smoke test (inside Docker)
+        env:
+          WORKING_BRANCH: ${{ env.WORKING_BRANCH }}
+          GH_USER_NAME:  ${{ vars.GH_USER_NAME }}
+          GH_USER_EMAIL: ${{ vars.GH_USER_EMAIL }}
+        run: |
+          set -euo pipefail
 
-          # The first line should be from the shim
-          first_line="$(printf '%s\n' "$out" | head -n1)"
-          if [ "$first_line" != "SHIM_OK" ]; then
-            echo "ERROR: shim not taking effect (expected first line SHIM_OK)"; exit 1
-          fi
+          # Use a tiny image with git; bind-mount the repo
+          docker run --rm \
+            -e GIT_AUTHOR_NAME="${GH_USER_NAME}" \
+            -e GIT_AUTHOR_EMAIL="${GH_USER_EMAIL}" \
+            -e GIT_COMMITTER_NAME="${GH_USER_NAME}" \
+            -e GIT_COMMITTER_EMAIL="${GH_USER_EMAIL}" \
+            -e WORKING_BRANCH="${WORKING_BRANCH}" \
+            -v "$PWD":/work -w /work \
+            alpine/git:latest sh -lc '
+              set -euo pipefail
+              git config --global --add safe.directory /work
+              git config user.name  "$GIT_AUTHOR_NAME"
+              git config user.email "$GIT_AUTHOR_EMAIL"
 
-          echo "Shim OK and taking precedence."
-          exit 0
+              # Make a minimal, harmless README change
+              printf "\n<!-- ci smoke: %s UTC -->\n" "$(date -u +"%F %T")" >> README.md
+
+              git add README.md
+              # Use [skip ci] to avoid triggering other CIs if you want
+              git commit -m "chore(ci): PAT push smoke test [skip ci]"
+              # Push to the branch already checked out and whose origin was rewritten with your PAT
+              git push -u origin "$WORKING_BRANCH"
+            '
+
+          echo "Smoke push succeeded."
 
       - name: Pick Gemini API key
         id: pick_gemini_key
@@ -171,7 +203,7 @@ jobs:
                   "-e", "GITHUB_PERSONAL_ACCESS_TOKEN",
                   "ghcr.io/github/github-mcp-server:v0.18.0"
                 ],
-                "includeTools": ["add_issue_comment", "run_shell_command"],
+                "includeTools": ["add_issue_comment"],
                 "env": {
                   "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
                 }
@@ -371,3 +403,12 @@ jobs:
 
                   - **Exit Behavior**:
                     Always call `run_shell_command(exit 0)` when your work is complete. Do not loop indefinitely or await further commands.
+
+      - name: Report if push sentinel was triggered
+        if: always()
+        run: |
+          if [ -f "${RUNNER_TEMP}/.gemini_push_succeeded" ]; then
+            echo "Push sentinel present: workflow stopped immediately after push."
+          else
+            echo "No push sentinel detected during the CLI step."
+          fi
