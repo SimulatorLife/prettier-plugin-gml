@@ -38,6 +38,9 @@ jobs:
           echo "Missing target_ref/target_sha; this workflow expects to be called from a PR."
           exit 1
 
+      - name: Verify gh CLI available
+        run: gh --version
+
       - name: 'Checkout target commit (by SHA)'
         uses: actions/checkout@v4
         with:
@@ -80,28 +83,6 @@ jobs:
           git config user.name  "${GH_USER_NAME}"
           git config user.email "${GH_USER_EMAIL}"
 
-      - name: Use PAT for pushes
-        env:
-          GH_USER_TOKEN: ${{ secrets.GH_USER_TOKEN }}
-        run: |
-          set -euo pipefail
-          git config --local --unset-all http.https://github.com/.extraheader || true
-          git remote set-url origin "https://x-access-token:${GH_USER_TOKEN}@github.com/${{ github.repository }}.git"
-          git remote -v
-
-      - name: Use Node from .nvmrc
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: '.nvmrc'
-          cache: 'npm'
-          cache-dependency-path: |
-            package-lock.json
-            **/package-lock.json
-
-      - name: Install dependencies (root/workspaces)
-        run: |
-          npm ci;
-
       - name: Add PATH shims (stop step after successful git push)
         shell: bash
         run: |
@@ -136,35 +117,36 @@ jobs:
           # put shims first
           echo "PATH=$shim_dir:$PATH" >> "$GITHUB_ENV"
 
-      - name: PAT push smoke test (inside Docker)
+      - name: Use PAT for pushes
         env:
-          WORKING_BRANCH: ${{ env.WORKING_BRANCH }}
-          GH_USER_NAME:  ${{ vars.GH_USER_NAME }}
-          GH_USER_EMAIL: ${{ vars.GH_USER_EMAIL }}
+          GH_USER_TOKEN: ${{ secrets.GH_USER_TOKEN }}
         run: |
           set -euo pipefail
-          docker run --rm \
-            --entrypoint /bin/sh \                # ← override ENTRYPOINT ["git"]
-            -e GIT_AUTHOR_NAME="${GH_USER_NAME}" \
-            -e GIT_AUTHOR_EMAIL="${GH_USER_EMAIL}" \
-            -e GIT_COMMITTER_NAME="${GH_USER_NAME}" \
-            -e GIT_COMMITTER_EMAIL="${GH_USER_EMAIL}" \
-            -e WORKING_BRANCH="${WORKING_BRANCH}" \
-            -v "$PWD":/work -w /work \
-            alpine/git:latest -lc '
-              set -euo pipefail
-              git config --global --add safe.directory /work
-              git config user.name  "$GIT_AUTHOR_NAME"
-              git config user.email "$GIT_AUTHOR_EMAIL"
+          git config --local --unset-all http.https://github.com/.extraheader || true
+          git remote set-url origin "https://x-access-token:${GH_USER_TOKEN}@github.com/${{ github.repository }}.git"
+          git remote -v
 
-              printf "\n<!-- ci smoke: %s UTC -->\n" "$(date -u +"%F %T")" >> README.md
+      - name: Host push smoke test
+        if: ${{ vars.TEST_MODE == 'true' }}
+        run: |
+          set -euo pipefail
+          printf "\n<!-- host smoke: %s UTC -->\n" "$(date -u +"%F %T")" >> README.md
+          git add README.md
+          git commit -m "chore(ci): PAT push smoke test [skip ci]" || { echo "No changes to commit"; exit 0; }
+          git push -u origin "${WORKING_BRANCH}"
 
-              git add README.md
-              git commit -m "chore(ci): PAT push smoke test [skip ci]" || exit 0
-              git push -u origin "$WORKING_BRANCH"
-            '
+      - name: Use Node from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            **/package-lock.json
 
-          echo "Smoke push succeeded."
+      - name: Install dependencies (root/workspaces)
+        run: |
+          npm ci;
 
       - name: Pick Gemini API key
         id: pick_gemini_key
@@ -191,20 +173,6 @@ jobs:
           cat <<'EOF' > "$settings_file"
           {
             "model": { "maxSessionTurns": 25 },
-            "mcpServers": {
-              "github": {
-                "command": "docker",
-                "args": [
-                  "run", "-i", "--rm",
-                  "-e", "GITHUB_PERSONAL_ACCESS_TOKEN",
-                  "ghcr.io/github/github-mcp-server:v0.18.0"
-                ],
-                "includeTools": ["add_issue_comment"],
-                "env": {
-                  "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
-                }
-              }
-            },
             "tools": {
               "core": [
                 "run_shell_command(cat)", "run_shell_command(cd)", "run_shell_command(echo)",
@@ -218,6 +186,7 @@ jobs:
                 "run_shell_command(git commit)", "run_shell_command(git push)",
                 "run_shell_command(git status)", "run_shell_command(git diff)",
                 "run_shell_command(exit)", "run_shell_command(pgrep)",
+                "run_shell_command(gh)",
                 "read_file", "write_file", "replace", "list_directory", "glob", "search_file_content"
               ]
             }
@@ -229,12 +198,14 @@ jobs:
           echo "SETTINGS_JSON=$(jq -c . "$settings_file")" >> "$GITHUB_ENV"
 
       - name: 'Run Gemini CLI'
+        if: ${{ vars.TEST_MODE != 'true' }}
         id: 'run_gemini'
         uses: 'google-github-actions/run-gemini-cli@v0' # ratchet:exclude
         timeout-minutes: 30
         env:
           TITLE: '${{ github.event.pull_request.title || github.event.issue.title }}'
-          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN || github.token }}'
+          PR_NUMBER: '${{ github.event.pull_request.number }}'
+          GITHUB_TOKEN: '${{ github.token || secrets.GITHUB_TOKEN }}'
           REPOSITORY: '${{ github.repository }}'
           ADDITIONAL_CONTEXT: '${{ inputs.additional_context }}'
         with:
@@ -269,7 +240,7 @@ jobs:
                 These rules are absolute and must be followed without exception.
 
                 1. **Local-First Mode**: 
-                  - Use `write_file` when you’re comfortable generating the entire updated file and replacing it wholesale (ex. write_file { path: "src/foo.js", content: "<entire file>" })
+                  - Use `write_file` when you're comfortable generating the entire updated file and replacing it wholesale (ex. write_file { path: "src/foo.js", content: "<entire file>" })
                   - Use `replace` only for surgical, literal edits (you must supply an exact old_string; the tool attempts to ensure uniqueness and may still fail if ambiguous)
 
                 2. **Read/Navigate Locally**: Navigate and inspect the repository using local tools only:
@@ -296,6 +267,10 @@ jobs:
 
                 9. **Command Substitution**: Do **not** use `$(...)`, `<(...)`, or `>(...)` in shell commands.
 
+                10. **Posting Comments**: To comment on the PR, use:
+                  - `run_shell_command(gh pr comment "${PR_NUMBER}" --body-file "$RUNNER_TEMP/agent-comment.md")`
+                  - Create the file first with `write_file { path: "$RUNNER_TEMP/agent-comment.md", content: "..." }`
+
                 -----
 
                 ## Step 1: Context Gathering & Initial Analysis
@@ -310,7 +285,6 @@ jobs:
                 2. **Deepen Context with Tools**:
                 - Use `files.list` to enumerate relevant paths and `read_file` to open only necessary files.
                 - You may use `run_shell_command(ls)`, `run_shell_command(grep)`, `run_shell_command(find)`, and `run_shell_command(cat)` for quick inspection, but do **not** use shell to write files.
-
 
                 -----
 
@@ -337,7 +311,7 @@ jobs:
                       - [ ] Step 2: ...
                       ```
 
-                3. **Post the Plan**: Use `mcp__github__add_issue_comment` to post your plan.
+                3. **Post the Plan**: Use `run_shell_command(gh pr comment ...)` to post your plan.
 
                 ### B. Execute the Plan (Iterative Local Development Loop)
 
@@ -352,7 +326,7 @@ jobs:
                   - Stage: `run_shell_command(git add <files>)`
                   - Commit: `run_shell_command(git commit -m "fix: description")`
                   - Push: `run_shell_command(git push -u origin "${WORKING_BRANCH}")`
-                  - **After a successful push:** immediately post the final report via `mcp__github__add_issue_comment` and then call `run_shell_command(exit 0)`. Do not start a new plan.
+                  - **After a successful push:** immediately post the final report via `run_shell_command(gh pr comment ...)` and then call `run_shell_command(exit 0)`. Do not start a new plan.
 
                 ### C. Final Report
 
