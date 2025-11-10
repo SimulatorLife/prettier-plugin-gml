@@ -137,7 +137,6 @@ jobs:
           echo "PATH=$shim_dir:$PATH" >> "$GITHUB_ENV"
 
       - name: PAT push smoke test (inside Docker)
-        if: ${{ inputs.test_mode }}
         env:
           WORKING_BRANCH: ${{ env.WORKING_BRANCH }}
           GH_USER_NAME:  ${{ vars.GH_USER_NAME }}
