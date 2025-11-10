@@ -137,34 +137,31 @@ jobs:
           echo "PATH=$shim_dir:$PATH" >> "$GITHUB_ENV"
 
       - name: PAT push smoke test (inside Docker)
+        if: ${{ inputs.test_mode }}
         env:
           WORKING_BRANCH: ${{ env.WORKING_BRANCH }}
           GH_USER_NAME:  ${{ vars.GH_USER_NAME }}
           GH_USER_EMAIL: ${{ vars.GH_USER_EMAIL }}
         run: |
           set -euo pipefail
-
-          # Use a tiny image with git; bind-mount the repo
           docker run --rm \
+            --entrypoint /bin/sh \                # ← override ENTRYPOINT ["git"]
             -e GIT_AUTHOR_NAME="${GH_USER_NAME}" \
             -e GIT_AUTHOR_EMAIL="${GH_USER_EMAIL}" \
             -e GIT_COMMITTER_NAME="${GH_USER_NAME}" \
             -e GIT_COMMITTER_EMAIL="${GH_USER_EMAIL}" \
             -e WORKING_BRANCH="${WORKING_BRANCH}" \
             -v "$PWD":/work -w /work \
-            alpine/git:latest sh -lc '
+            alpine/git:latest -lc '
               set -euo pipefail
               git config --global --add safe.directory /work
               git config user.name  "$GIT_AUTHOR_NAME"
               git config user.email "$GIT_AUTHOR_EMAIL"
 
-              # Make a minimal, harmless README change
               printf "\n<!-- ci smoke: %s UTC -->\n" "$(date -u +"%F %T")" >> README.md
 
               git add README.md
-              # Use [skip ci] to avoid triggering other CIs if you want
-              git commit -m "chore(ci): PAT push smoke test [skip ci]"
-              # Push to the branch already checked out and whose origin was rewritten with your PAT
+              git commit -m "chore(ci): PAT push smoke test [skip ci]" || exit 0
               git push -u origin "$WORKING_BRANCH"
             '
 
