@@ -9,11 +9,13 @@ import {
 } from "../src/core/command-parsing.js";
 import { isCliUsageError } from "../src/core/errors.js";
 
+const createTestCommand = () => {
+    return new Command().exitOverride().allowExcessArguments(false);
+};
+
 describe("parseCommandLine", () => {
     it("parses arguments and exposes command state", () => {
-        const command = new Command()
-            .exitOverride()
-            .allowExcessArguments(false)
+        const command = createTestCommand()
             .argument("<value>")
             .option("--flag");
 
@@ -29,10 +31,7 @@ describe("parseCommandLine", () => {
     });
 
     it("returns help metadata when the user requests help", () => {
-        const command = new Command()
-            .exitOverride()
-            .allowExcessArguments(false)
-            .option("--flag");
+        const command = createTestCommand().option("--flag");
 
         const result = parseCommandLine(command, ["--help"]);
 
@@ -41,10 +40,7 @@ describe("parseCommandLine", () => {
     });
 
     it("wraps Commander usage errors as CliUsageError instances", () => {
-        const command = new Command()
-            .exitOverride()
-            .allowExcessArguments(false)
-            .option("--flag");
+        const command = createTestCommand().option("--flag");
 
         assert.throws(
             () => parseCommandLine(command, ["--unknown", "value"]),
