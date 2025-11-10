@@ -29,7 +29,6 @@ jobs:
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'write'
-      id-token: 'write'
       issues: 'write'
       pull-requests: 'write'
     steps:
@@ -38,18 +37,6 @@ jobs:
         run: |
           echo "Missing target_ref/target_sha; this workflow expects to be called from a PR."
           exit 1
-
-      - name: 'Mint identity token'
-        id: 'mint_identity_token'
-        if: |-
-          ${{ vars.APP_ID }}
-        uses: 'actions/create-github-app-token@a8d616148505b5069dccd32f177bb87d7f39123b' # ratchet:actions/create-github-app-token@v2
-        with:
-          app-id: '${{ vars.APP_ID }}'
-          private-key: '${{ secrets.APP_PRIVATE_KEY }}'
-          permission-contents: 'write'
-          permission-issues: 'write'
-          permission-pull-requests: 'write'
 
       - name: 'Checkout target commit (by SHA)'
         uses: actions/checkout@v4
@@ -151,10 +138,6 @@ jobs:
           cat <<'EOF' > "$settings_file"
           {
             "model": { "maxSessionTurns": 25 },
-            "telemetry": {
-              "enabled": true,
-              "target": "gcp"
-            },
             "mcpServers": {
               "github": {
                 "command": "docker",
@@ -199,7 +182,7 @@ jobs:
         uses: 'google-github-actions/run-gemini-cli@v0' # ratchet:exclude
         env:
           TITLE: '${{ github.event.pull_request.title || github.event.issue.title }}'
-          GITHUB_TOKEN: '${{ steps.mint_identity_token.outputs.token || secrets.GH_USER_TOKEN || secrets.GITHUB_TOKEN || github.token }}'
+          GITHUB_TOKEN: '${{ secrets.GH_USER_TOKEN || secrets.GITHUB_TOKEN || github.token }}'
           REPOSITORY: '${{ github.repository }}'
           ADDITIONAL_CONTEXT: '${{ inputs.additional_context }}'
         with:
