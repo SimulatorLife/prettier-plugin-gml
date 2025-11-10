@@ -16,7 +16,7 @@ on:
       author_name:
         required: false
         type: string
-        default: "henrylkirk"         # e.g., "Your Name"
+        default: ${{ vars.GH_USER_NAME }}
       author_email:
         required: false
         type: string
