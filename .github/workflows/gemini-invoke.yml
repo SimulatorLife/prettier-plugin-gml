@@ -205,7 +205,8 @@ jobs:
         env:
           TITLE: '${{ github.event.pull_request.title || github.event.issue.title }}'
           PR_NUMBER: '${{ github.event.pull_request.number }}'
-          GITHUB_TOKEN: '${{ github.token || secrets.GITHUB_TOKEN }}'
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}   # gh will pick this up
           REPOSITORY: '${{ github.repository }}'
           ADDITIONAL_CONTEXT: '${{ inputs.additional_context }}'
         with:
