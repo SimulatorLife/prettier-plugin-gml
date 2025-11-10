@@ -102,6 +102,42 @@ jobs:
         run: |
           npm ci;
 
+      - name: Shim smoke test (no heredocs)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          shim_dir="$RUNNER_TEMP/cmd_shims"
+          mkdir -p "$shim_dir"
+
+          # Resolve the real git path BEFORE shadowing it
+          real_git="$(command -v git)"
+
+          # Write a minimal git shim (no heredocs)
+          echo '#!/usr/bin/env bash' > "$shim_dir/git"
+          echo 'echo SHIM_OK' >> "$shim_dir/git"
+          echo "exec \"$real_git\" \"\$@\"" >> "$shim_dir/git"
+          chmod +x "$shim_dir/git"
+
+          # Prepend to PATH so our shim wins
+          echo "PATH=$shim_dir:$PATH" >> "$GITHUB_ENV"
+
+          # Prove the shim is active
+          export PATH="$shim_dir:$PATH"
+          which git
+          out="$(git --version || true)"
+          echo "git --version output:"
+          echo "$out"
+
+          # The first line should be from the shim
+          first_line="$(printf '%s\n' "$out" | head -n1)"
+          if [ "$first_line" != "SHIM_OK" ]; then
+            echo "ERROR: shim not taking effect (expected first line SHIM_OK)"; exit 1
+          fi
+
+          echo "Shim OK and taking precedence."
+          exit 0
+
       - name: Pick Gemini API key
         id: pick_gemini_key
         run: |
@@ -167,6 +203,7 @@ jobs:
       - name: 'Run Gemini CLI'
         id: 'run_gemini'
         uses: 'google-github-actions/run-gemini-cli@v0' # ratchet:exclude
+        timeout-minutes: 30
         env:
           TITLE: '${{ github.event.pull_request.title || github.event.issue.title }}'
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN || github.token }}'
@@ -284,14 +321,10 @@ jobs:
                   - Make small, scoped changes.
 
                 3. **Commit & Push Your Work**:
-                  - Stage files: `run_shell_command(git add <files>)`
-                  - Commit with Conventional Commit style: `run_shell_command(git commit -m "fix: description")`
-                  - Push to the target branch: `run_shell_command(git push origin "${WORKING_BRANCH}")`
-
-                4. **Error Handling**:
-                  - If a command fails, analyze the error.
-                  - Retry once if the cause is clear (e.g., missing dependency).
-                  - If it still fails, halt and report via `mcp__github__add_issue_comment`.
+                  - Stage: `run_shell_command(git add <files>)`
+                  - Commit: `run_shell_command(git commit -m "fix: description")`
+                  - Push: `run_shell_command(git push -u origin "${WORKING_BRANCH}")`
+                  - **After a successful push:** immediately post the final report via `mcp__github__add_issue_comment` and then call `run_shell_command(exit 0)`. Do not start a new plan.
 
                 ### C. Final Report
 
