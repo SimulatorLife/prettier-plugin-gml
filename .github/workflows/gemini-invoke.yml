@@ -155,6 +155,7 @@ jobs:
             "tools": {
               "core": [
                 "run_shell_command(cat)", "run_shell_command(cd)", "run_shell_command(echo)",
+                "run_shell_command(sort)", "run_shell_command(uniq)", 
                 "run_shell_command(grep)", "run_shell_command(head)", "run_shell_command(tail)",
                 "run_shell_command(timeout)", "run_shell_command(mkdir)", "run_shell_command(rm)",
                 "run_shell_command(cp)", "run_shell_command(mv)", "run_shell_command(awk)",
