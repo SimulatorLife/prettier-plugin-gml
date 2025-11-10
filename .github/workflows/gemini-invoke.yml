@@ -200,6 +200,7 @@ jobs:
       - name: 'Run Gemini CLI'
         if: ${{ vars.TEST_MODE != 'true' }}
         id: 'run_gemini'
+        continue-on-error: true
         uses: 'google-github-actions/run-gemini-cli@v0' # ratchet:exclude
         timeout-minutes: 30
         env:
@@ -375,11 +376,26 @@ jobs:
                   - **Exit Behavior**:
                     Always call `run_shell_command(exit 0)` when your work is complete. Do not loop indefinitely or await further commands.
 
-      - name: Report if push sentinel was triggered
+      - name: Report Outcome
         if: always()
+        env:
+          RUN_GEMINI_OUTCOME:   ${{ steps.run_gemini.outcome   || '' }}
+          RUN_GEMINI_CONCLUSION: ${{ steps.run_gemini.conclusion || '' }}
         run: |
-          if [ -f "${RUNNER_TEMP}/.gemini_push_succeeded" ]; then
-            echo "Push sentinel present: workflow stopped immediately after push."
-          else
-            echo "No push sentinel detected during the CLI step."
+          set -euo pipefail
+
+          SENTINEL="${RUNNER_TEMP}/.gemini_push_succeeded"
+
+          if [ -f "$SENTINEL" ]; then
+            echo "Push detected → SUCCESS."
+            exit 0
           fi
+
+          # If the CLI ran and succeeded, or it was skipped (e.g., TEST_MODE), treat as success.
+          if [ "$RUN_GEMINI_OUTCOME" = "success" ] || [ "$RUN_GEMINI_CONCLUSION" = "skipped" ]; then
+            echo "No push; CLI outcome: ${RUN_GEMINI_CONCLUSION}/${RUN_GEMINI_OUTCOME} → SUCCESS."
+            exit 0
+          fi
+
+          echo "No push and CLI failed/cancelled → FAIL."
+          exit 1
