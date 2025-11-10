@@ -15,7 +15,7 @@ class Scope {
         this.id = id;
         this.kind = kind;
         this.parent = parent;
-        this.declarations = new Map();
+        this.symbolMetadata = new Map();
         this.occurrences = new Map();
     }
 }
@@ -209,7 +209,7 @@ export default class ScopeTracker {
             return;
         }
 
-        scope.declarations.set(name, metadata);
+        scope.symbolMetadata.set(name, metadata);
     }
 
     recordScopeOccurrence(scope, name, occurrence) {
@@ -254,7 +254,7 @@ export default class ScopeTracker {
 
         for (let i = this.scopeStack.length - 1; i >= 0; i--) {
             const scope = this.scopeStack[i];
-            const metadata = scope.declarations.get(name);
+            const metadata = scope.symbolMetadata.get(name);
             if (metadata) {
                 return metadata;
             }
@@ -576,7 +576,7 @@ export default class ScopeTracker {
         if (startIndex === undefined) {
             let current = startScope;
             while (current) {
-                const declaration = current.declarations.get(name);
+                const declaration = current.symbolMetadata.get(name);
                 if (declaration) {
                     return { ...declaration };
                 }
@@ -587,7 +587,7 @@ export default class ScopeTracker {
 
         for (let i = startIndex; i >= 0; i -= 1) {
             const scope = this.scopeStack[i];
-            const declaration = scope.declarations.get(name);
+            const declaration = scope.symbolMetadata.get(name);
             if (declaration) {
                 return { ...declaration };
             }
@@ -649,7 +649,7 @@ export default class ScopeTracker {
         }
 
         const definitions = [];
-        for (const [name, metadata] of scope.declarations) {
+        for (const [name, metadata] of scope.symbolMetadata) {
             definitions.push({
                 name,
                 metadata: { ...metadata }
@@ -700,7 +700,7 @@ export default class ScopeTracker {
                 continue;
             }
 
-            const declaration = scope.declarations.get(name);
+            const declaration = scope.symbolMetadata.get(name);
             if (declaration) {
                 continue;
             }
