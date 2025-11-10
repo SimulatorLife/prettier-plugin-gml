@@ -87,6 +87,7 @@ function resolveStringScopeOverride(tracker, scopeOverride, currentScope) {
     const found = tracker.scopeStack.find(
         (scope) => scope.id === scopeOverride
     );
+    
     if (found) {
         return found;
     }
