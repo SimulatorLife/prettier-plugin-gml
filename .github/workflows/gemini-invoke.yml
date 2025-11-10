@@ -44,6 +44,7 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.target_sha }}
           submodules: recursive
+          persist-credentials: false   # ← prevent bot creds from being written
 
       - name: Create local branch & verify
         shell: bash
@@ -71,10 +72,22 @@ jobs:
           echo "WORKING_BRANCH=${branch}" >> "$GITHUB_ENV"
       
       - name: Configure git identity
+        env:
+          GH_USER_NAME:  ${{ vars.GH_USER_NAME }}
+          GH_USER_EMAIL: ${{ vars.GH_USER_EMAIL }}
         run: |
           set -euo pipefail
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name  "${GH_USER_NAME}"
+          git config user.email "${GH_USER_EMAIL}"
+
+      - name: Use PAT for pushes
+        env:
+          GH_USER_TOKEN: ${{ secrets.GH_USER_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config --local --unset-all http.https://github.com/.extraheader || true
+          git remote set-url origin "https://x-access-token:${GH_USER_TOKEN}@github.com/${{ github.repository }}.git"
+          git remote -v
 
       - name: Use Node from .nvmrc
         uses: actions/setup-node@v4
@@ -103,30 +116,6 @@ jobs:
             4) echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY4 }}" >> $GITHUB_ENV ;;
             5) echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY5 }}" >> $GITHUB_ENV ;;
           esac
-
-      - name: Add PATH shims to throttle common CLIs
-        shell: bash
-        env:
-          CMD_DELAY_SEC: '5'   # adjust delay (seconds)
-        run: |
-          set -euo pipefail
-
-          # Create a temporary shim directory
-          shim_dir="$RUNNER_TEMP/cmd_shims"
-          mkdir -p "$shim_dir"
-
-          # Wrap selected commands with a sleep delay
-          for cmd in npm node git grep find ls; do
-            if command -v "$cmd" >/dev/null 2>&1; then
-              echo "#!/usr/bin/env bash" > "$shim_dir/$cmd"
-              echo "sleep ${CMD_DELAY_SEC:-2}" >> "$shim_dir/$cmd"
-              echo "exec $(command -v "$cmd") \"\$@\"" >> "$shim_dir/$cmd"
-              chmod +x "$shim_dir/$cmd"
-            fi
-          done
-
-          # Prepend to PATH so shims take precedence
-          echo "PATH=$shim_dir:$PATH" >> "$GITHUB_ENV"
 
       - name: Build and validate Gemini settings JSON
         id: build_settings
@@ -180,7 +169,7 @@ jobs:
         uses: 'google-github-actions/run-gemini-cli@v0' # ratchet:exclude
         env:
           TITLE: '${{ github.event.pull_request.title || github.event.issue.title }}'
-          GITHUB_TOKEN: '${{ secrets.GH_USER_TOKEN || secrets.GITHUB_TOKEN || github.token }}'
+          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN || github.token }}'
           REPOSITORY: '${{ github.repository }}'
           ADDITIONAL_CONTEXT: '${{ inputs.additional_context }}'
         with:
