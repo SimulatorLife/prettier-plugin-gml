@@ -261,7 +261,7 @@ export class RefactorEngine {
         // `function`) or built-in identifiers (like `self`, `global`). Allowing
         // such renames would cause syntax errors or silently bind user symbols to
         // language constructs, breaking both the parser and runtime semantics.
-        const reservedKeywords = new Set([
+        let reservedKeywords = new Set([
             "if",
             "else",
             "while",
@@ -287,6 +287,17 @@ export class RefactorEngine {
             "noone",
             "global"
         ]);
+
+        if (
+            this.semantic &&
+            typeof this.semantic.getReservedKeywords === "function"
+        ) {
+            const semanticReserved = await this.semantic.getReservedKeywords();
+            reservedKeywords = new Set([
+                ...reservedKeywords,
+                ...semanticReserved
+            ]);
+        }
 
         if (reservedKeywords.has(normalizedNewName.toLowerCase())) {
             conflicts.push({
