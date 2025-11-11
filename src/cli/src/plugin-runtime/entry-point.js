@@ -165,8 +165,8 @@ function findFirstExistingPath(candidates) {
 
 function createMissingEntryPointError(resolvedCandidates) {
     return new Error(
-        "Unable to locate the Prettier plugin entry point. Expected one of: " +
-            resolvedCandidates.join(", ")
+        `Unable to locate the Prettier plugin entry point. Expected one of: ${ 
+            resolvedCandidates.join(", ")}`
     );
 }
 

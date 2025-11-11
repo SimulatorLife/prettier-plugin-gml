@@ -63,7 +63,7 @@ function firstNumber(...values) {
         }
     }
 
-    return;
+    
 }
 
 function getTokenStream(recognizer) {

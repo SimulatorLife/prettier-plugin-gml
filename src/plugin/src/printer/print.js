@@ -1064,7 +1064,7 @@ export function print(path, options, print) {
             ]);
         }
         case "BinaryExpression": {
-            let left = print("left");
+            const left = print("left");
             let operator = node.operator;
             let right;
             const logicalOperatorsStyle = resolveLogicalOperatorsStyle(options);
@@ -1366,7 +1366,7 @@ export function print(path, options, print) {
             if (accessor.length > 1) {
                 accessor += " ";
             }
-            let property = printCommaSeparatedList(
+            const property = printCommaSeparatedList(
                 path,
                 print,
                 "property",
@@ -1604,7 +1604,7 @@ export function print(path, options, print) {
                     // idempotence guarantees exercised by
                     // `src/plugin/test/fix-missing-decimal-zeroes-option.test.js` and
                     // causes needless diffs in format-on-save flows.
-                    value = "0" + value;
+                    value = `0${  value}`;
                 }
 
                 const decimalMatch = value.match(/^([-+]?\d+)\.(\d*)$/);
@@ -1697,8 +1697,7 @@ export function print(path, options, print) {
             return concat("undefined");
         }
         case "NewExpression": {
-            let argsPrinted;
-            argsPrinted =
+            const argsPrinted =
                 node.arguments.length === 0
                     ? [printEmptyParens(path, print, options)]
                     : [
@@ -1781,7 +1780,7 @@ export function print(path, options, print) {
         }
         default: {
             console.warn(
-                "Print.js:print encountered unhandled node type: " + node.type,
+                `Print.js:print encountered unhandled node type: ${  node.type}`,
                 node
             );
         }
@@ -1962,7 +1961,7 @@ function synthesizeMissingCallArgumentSeparators(
                 isNumericLiteralBoundaryCharacter(previousChar) &&
                 isNumericLiteralBoundaryCharacter(nextChar)
             ) {
-                normalizedText += "," + between;
+                normalizedText += `,${  between}`;
                 cursor = nextStart;
                 insertedSeparator = true;
                 continue;
@@ -3865,7 +3864,7 @@ function getSyntheticDocCommentForFunctionAssignment(node, options) {
     }
 
     let assignment = null;
-    let commentTarget = node;
+    const commentTarget = node;
 
     if (node.type === "ExpressionStatement") {
         assignment = node.expression;
@@ -4547,7 +4546,7 @@ function mergeSyntheticDocComments(
     normalizedExistingLines = promoteLeadingDocCommentTextToDescription(
         normalizedExistingLines
     );
-    let preserveDescriptionBreaks =
+    const preserveDescriptionBreaks =
         normalizedExistingLines?._preserveDescriptionBreaks === true;
 
     normalizedExistingLines = reorderDescriptionLinesAfterFunction(
@@ -5378,7 +5377,7 @@ function mergeSyntheticDocComments(
                     if (lastSegment.length <= maxSingleWordLength) {
                         const penultimateIndex = lastIndex - 1;
                         const mergedSegment =
-                            segments[penultimateIndex] + ` ${lastSegment}`;
+                            `${segments[penultimateIndex]  } ${lastSegment}`;
 
                         segments[penultimateIndex] = mergedSegment;
                         segments.pop();
@@ -5419,7 +5418,7 @@ function mergeSyntheticDocComments(
 
                 const prefix = prefixMatch[1];
                 const continuationPrefix =
-                    "/// " + " ".repeat(Math.max(prefix.length - 4, 0));
+                    `/// ${  " ".repeat(Math.max(prefix.length - 4, 0))}`;
                 const descriptionText = blockLines
                     .map((docLine, blockIndex) => {
                         if (blockIndex === 0) {

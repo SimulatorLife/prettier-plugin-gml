@@ -409,7 +409,7 @@ function extractText(element, { preserveLineBreaks = false } = {}) {
     const clone = element.cloneNode(true);
     replaceBreaksWithNewlines(clone);
 
-    let text = getNormalizedTextContent(clone);
+    const text = getNormalizedTextContent(clone);
     if (preserveLineBreaks) {
         return text
             .split("\n")

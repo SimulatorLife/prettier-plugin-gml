@@ -2030,8 +2030,8 @@ async function processProjectGmlFilesForIndex({
     await processWithConcurrency(
         gmlFiles,
         gmlConcurrency,
-        async (file) =>
-            processProjectGmlFile({
+        async (file) => {
+            await processProjectGmlFile({
                 file,
                 fsFacade,
                 metrics,
@@ -2044,7 +2044,8 @@ async function processProjectGmlFilesForIndex({
                 relationships,
                 builtInNames,
                 projectRoot
-            }),
+            });
+        },
         { signal }
     );
 

@@ -788,7 +788,7 @@ function readIdentifierBefore(sourceText, index) {
         return null;
     }
 
-    let end = current + 1;
+    const end = current + 1;
 
     while (current >= 0 && isIdentifierCharacter(sourceText[current])) {
         current -= 1;

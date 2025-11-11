@@ -65,7 +65,7 @@ test("bootstrapProjectIndex normalizes cache max size overrides", async () => {
         {
             const { options, descriptor } = await runCase(" ");
             assert.equal(
-                Object.prototype.hasOwnProperty.call(
+                Object.hasOwn(
                     options,
                     "__identifierCaseProjectIndexCacheMaxBytes"
                 ),
@@ -126,7 +126,7 @@ test("bootstrapProjectIndex normalizes concurrency overrides", async () => {
         {
             const { options, descriptor } = await runCase("   ");
             assert.equal(
-                Object.prototype.hasOwnProperty.call(
+                Object.hasOwn(
                     options,
                     "__identifierCaseProjectIndexConcurrency"
                 ),

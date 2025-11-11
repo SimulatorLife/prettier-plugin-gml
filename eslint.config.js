@@ -54,10 +54,10 @@ export default [
             ecmaVersion: 2022,
             sourceType: "module",
             globals: {
-                ...globals.node,
-                ...globals.browser
+                ...globals.node
             }
         },
+        linterOptions: { reportUnusedDisableDirectives: true },
 
         /* Needed for plugin rules */
         plugins: {
@@ -78,9 +78,7 @@ export default [
         },
 
         rules: {
-            indent: ["error", 4, { SwitchCase: 1 }],
-            quotes: ["warn", "double", { avoidEscape: true }],
-            semi: ["error", "always"],
+            // We don't include formatting rules removed; Prettier disables them anyway
             "no-unused-vars": "off",
             "unused-imports/no-unused-imports": "error",
             "unused-imports/no-unused-vars": [
@@ -93,11 +91,62 @@ export default [
                 }
             ],
             "no-console": ["off"],
-            "comma-dangle": ["off", "never"],
             "no-prototype-builtins": ["warn"],
             "no-useless-escape": ["warn"],
             "no-with": ["error"],
             "no-undef": ["error"],
+
+            // built-in additions
+            "no-shadow": "warn",
+            "no-misleading-character-class": "error",
+            "no-loss-of-precision": "error",
+            "no-new-native-nonconstructor": "error",
+            "prefer-regex-literals": "warn",
+
+            /* --- Correctness / bug-prevention --- */
+            "array-callback-return": ["error", { allowImplicit: true }],   // map/filter/etc. must return
+            "default-param-last": "error",                                 // avoid surprising param order
+            "dot-notation": "error",                                       // prefer obj.prop over obj["prop"]
+            "no-await-in-loop": "warn",                                    // agents love to do this
+            "no-constant-binary-expression": "error",                      // 1 + 2 === 3 style mistakes
+            "no-constructor-return": "warn",                               // you already have this (ok to keep)
+            "no-new-wrappers": "error",                                    // new String(), etc.
+            "no-promise-executor-return": "error",                         // returning inside new Promise((res) => ...)
+            "no-self-compare": "error",                                    // x === x is almost always a smell
+            "no-unmodified-loop-condition": "warn",                        // loop condition never changes
+            "no-unsafe-optional-chaining": "error",                        // e.g. foo?.bar()
+            "prefer-object-has-own": "error",                              // use Object.hasOwn over hasOwnProperty
+
+            // --- Async / performance hygiene ---
+            "require-await": "warn",                                       // async fn must actually await
+            "no-return-await": "warn",                                     // return await → return (unless needed)
+            "prefer-named-capture-group": "warn",                          // clearer regexes for agents
+
+            // --- Maintainability / ergonomics ---
+            "no-multi-assign": "warn",                                     // a = b = c; is hard to read
+            "no-useless-catch": "error",                                   // catch that just rethrows
+            "no-useless-constructor": "error",                             // empty class constructors
+            "no-useless-return": "warn",                                   // last line `return;`
+            "object-shorthand": ["warn", "always"],                        // { foo: foo } → { foo }
+            "prefer-const": ["error", { destructuring: "all" }],           // stabilize bindings
+            "no-var": "error",                                             // always use let/const
+            "prefer-template": "warn",                                     // "a " + b → `a ${b}`
+
+            // --- Policy guard rails (blocks risky APIs at lint-time) ---
+            "no-restricted-imports": ["error", {
+            "paths": [
+                { "name": "child_process", "message": "Use a vetted wrapper or remove." },
+                { "name": "vm", "message": "Avoid sandbox foot-guns." }
+            ],
+            "patterns": [
+                // block deep imports the agent might guess at:
+                "fs/*", "path/*"
+            ]
+            }],
+            "no-restricted-globals": ["error",
+            // common foot-gun in browser contexts; harmless in Node but cheap safeguard
+            { "name": "event", "message": "Pass the event as a parameter instead." }
+            ],
 
             /* --- core "bad practice" rules --- */
             complexity: ["warn", { max: 12 }],
@@ -129,7 +178,6 @@ export default [
             "no-return-assign": ["error", "always"],
             "no-throw-literal": "error",
             "no-debugger": "error",
-            "no-constructor-return": "warn",
             "no-dupe-keys": "error",
             "no-duplicate-case": "error",
             "no-duplicate-imports": "error",
@@ -259,7 +307,9 @@ export default [
             "sonarjs/no-duplicate-string": "off",
             complexity: ["warn", { max: 35 }],
             "no-restricted-syntax": "off",
-            "no-throw-literal": "warn"
+            "no-throw-literal": "warn",
+            "require-await": "off",
+            "no-promise-executor-return": "off"
         }
     },
 

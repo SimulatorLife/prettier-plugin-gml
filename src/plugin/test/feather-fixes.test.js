@@ -2024,7 +2024,7 @@ describe("applyFeatherFixes transform", () => {
 
         for (const entry of ast._appliedFeatherDiagnostics) {
             assert.strictEqual(
-                Object.prototype.hasOwnProperty.call(entry, "automatic"),
+                Object.hasOwn(entry, "automatic"),
                 true,
                 "Each Feather fix entry should indicate whether it was applied automatically."
             );

@@ -21,7 +21,7 @@ async function createCollisionProject() {
 
     await writeFile(
         "MyGame.yyp",
-        JSON.stringify(
+        `${JSON.stringify(
             {
                 name: "MyGame",
                 resourceType: "GMProject",
@@ -42,12 +42,12 @@ async function createCollisionProject() {
             },
             null,
             4
-        ) + "\n"
+        )  }\n`
     );
 
     await writeFile(
         "scripts/demo_script/demo_script.yy",
-        JSON.stringify(
+        `${JSON.stringify(
             {
                 resourceType: "GMScript",
                 name: "demo_script",
@@ -55,12 +55,12 @@ async function createCollisionProject() {
             },
             null,
             4
-        ) + "\n"
+        )  }\n`
     );
 
     await writeFile(
         "scripts/demo_script/DemoScriptExisting.yy",
-        JSON.stringify(
+        `${JSON.stringify(
             {
                 resourceType: "GMScript",
                 name: "DemoScript",
@@ -68,7 +68,7 @@ async function createCollisionProject() {
             },
             null,
             4
-        ) + "\n"
+        )  }\n`
     );
 
     const scriptPath = await writeFile(

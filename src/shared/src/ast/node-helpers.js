@@ -161,7 +161,7 @@ const identifierResolvers = Object.freeze({
             return null;
         }
 
-        return object.name + "_" + property.name;
+        return `${object.name  }_${  property.name}`;
     },
     MemberIndexExpression: (expression) => {
         const { object, property } = expression;
@@ -174,7 +174,7 @@ const identifierResolvers = Object.freeze({
         }
 
         const indexText = getMemberIndexText(property[0]);
-        return indexText === null ? null : object.name + "_" + indexText;
+        return indexText === null ? null : `${object.name  }_${  indexText}`;
     }
 });
 

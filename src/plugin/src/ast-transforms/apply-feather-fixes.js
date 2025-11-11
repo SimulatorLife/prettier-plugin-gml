@@ -10738,7 +10738,7 @@ function ensureHalignResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    let insertionIndex =
+    const insertionIndex =
         typeof insertionInfo.index === "number"
             ? insertionInfo.index
             : siblings.length;
@@ -11394,7 +11394,7 @@ function ensureCullModeResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    let insertionIndex =
+    const insertionIndex =
         typeof insertionInfo.index === "number"
             ? insertionInfo.index
             : siblings.length;
@@ -18459,7 +18459,7 @@ function relocateArgumentReferencesInsideFunctions({ ast, diagnostic }) {
             continue;
         }
 
-        let nextIndex = index + 1;
+        const nextIndex = index + 1;
 
         while (nextIndex < programBody.length) {
             const candidate = programBody[nextIndex];

@@ -37,7 +37,7 @@ async function createAssetRenameProject() {
 
     await writeFile(
         "MyGame.yyp",
-        JSON.stringify(
+        `${JSON.stringify(
             {
                 name: "MyGame",
                 resourceType: "GMProject",
@@ -52,12 +52,12 @@ async function createAssetRenameProject() {
             },
             null,
             4
-        ) + "\n"
+        )  }\n`
     );
 
     await writeFile(
         "scripts/demo_script/demo_script.yy",
-        JSON.stringify(
+        `${JSON.stringify(
             {
                 resourceType: "GMScript",
                 name: "demo_script",
@@ -65,7 +65,7 @@ async function createAssetRenameProject() {
             },
             null,
             4
-        ) + "\n"
+        )  }\n`
     );
 
     const source = "function demo_script() {\n    return 42;\n}\n";
@@ -76,7 +76,7 @@ async function createAssetRenameProject() {
 
     await writeFile(
         "objects/obj_controller/obj_controller.yy",
-        JSON.stringify(
+        `${JSON.stringify(
             {
                 resourceType: "GMObject",
                 name: "obj_controller",
@@ -87,7 +87,7 @@ async function createAssetRenameProject() {
             },
             null,
             4
-        ) + "\n"
+        )  }\n`
     );
 
     const projectIndex = await buildProjectIndex(projectRoot);
@@ -107,7 +107,7 @@ async function createAssetCollisionProject() {
 
     await writeFile(
         "MyGame.yyp",
-        JSON.stringify(
+        `${JSON.stringify(
             {
                 name: "MyGame",
                 resourceType: "GMProject",
@@ -128,12 +128,12 @@ async function createAssetCollisionProject() {
             },
             null,
             4
-        ) + "\n"
+        )  }\n`
     );
 
     await writeFile(
         "scripts/demo_script/demo_script.yy",
-        JSON.stringify(
+        `${JSON.stringify(
             {
                 resourceType: "GMScript",
                 name: "demo_script",
@@ -141,12 +141,12 @@ async function createAssetCollisionProject() {
             },
             null,
             4
-        ) + "\n"
+        )  }\n`
     );
 
     await writeFile(
         "scripts/demo_script/DemoScriptExisting.yy",
-        JSON.stringify(
+        `${JSON.stringify(
             {
                 resourceType: "GMScript",
                 name: "DemoScript",
@@ -154,7 +154,7 @@ async function createAssetCollisionProject() {
             },
             null,
             4
-        ) + "\n"
+        )  }\n`
     );
 
     const primarySource = "function demo_script() {\n    return 1;\n}\n";
@@ -185,7 +185,7 @@ async function createAssetReservedProject() {
 
     await writeFile(
         "MyGame.yyp",
-        JSON.stringify(
+        `${JSON.stringify(
             {
                 name: "MyGame",
                 resourceType: "GMProject",
@@ -200,12 +200,12 @@ async function createAssetReservedProject() {
             },
             null,
             4
-        ) + "\n"
+        )  }\n`
     );
 
     await writeFile(
         "scripts/move_contact/MoveContactSolid.yy",
-        JSON.stringify(
+        `${JSON.stringify(
             {
                 resourceType: "GMScript",
                 name: "MoveContactSolid",
@@ -213,7 +213,7 @@ async function createAssetReservedProject() {
             },
             null,
             4
-        ) + "\n"
+        )  }\n`
     );
 
     const source = "function MoveContactSolid() {\n    return 3;\n}\n";

@@ -498,7 +498,7 @@ function formatLineComment(
           : null;
     if (docTagSource) {
         let formattedCommentLine =
-            "///" + docTagSource.replace(DOC_TAG_LINE_PREFIX_PATTERN, " @");
+            `///${  docTagSource.replace(DOC_TAG_LINE_PREFIX_PATTERN, " @")}`;
         formattedCommentLine = applyJsDocReplacements(formattedCommentLine);
         return applyInlinePadding(comment, formattedCommentLine);
     }
@@ -535,7 +535,7 @@ function formatLineComment(
         );
     }
 
-    return applyInlinePadding(comment, "// " + trimmedValue);
+    return applyInlinePadding(comment, `// ${  trimmedValue}`);
 }
 
 function applyInlinePadding(comment, formattedText) {
