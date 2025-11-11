@@ -1604,7 +1604,7 @@ export function print(path, options, print) {
                     // idempotence guarantees exercised by
                     // `src/plugin/test/fix-missing-decimal-zeroes-option.test.js` and
                     // causes needless diffs in format-on-save flows.
-                    value = `0${  value}`;
+                    value = `0${value}`;
                 }
 
                 const decimalMatch = value.match(/^([-+]?\d+)\.(\d*)$/);
@@ -1780,7 +1780,7 @@ export function print(path, options, print) {
         }
         default: {
             console.warn(
-                `Print.js:print encountered unhandled node type: ${  node.type}`,
+                `Print.js:print encountered unhandled node type: ${node.type}`,
                 node
             );
         }
@@ -1961,7 +1961,7 @@ function synthesizeMissingCallArgumentSeparators(
                 isNumericLiteralBoundaryCharacter(previousChar) &&
                 isNumericLiteralBoundaryCharacter(nextChar)
             ) {
-                normalizedText += `,${  between}`;
+                normalizedText += `,${between}`;
                 cursor = nextStart;
                 insertedSeparator = true;
                 continue;
@@ -3399,10 +3399,6 @@ function getSimpleAssignmentLikeEntry(
 
     const declarator = getSingleVariableDeclarator(statement);
     if (!declarator) {
-        return null;
-    }
-
-    if (!insideFunctionBody) {
         return null;
     }
 
@@ -5376,8 +5372,7 @@ function mergeSyntheticDocComments(
 
                     if (lastSegment.length <= maxSingleWordLength) {
                         const penultimateIndex = lastIndex - 1;
-                        const mergedSegment =
-                            `${segments[penultimateIndex]  } ${lastSegment}`;
+                        const mergedSegment = `${segments[penultimateIndex]} ${lastSegment}`;
 
                         segments[penultimateIndex] = mergedSegment;
                         segments.pop();
@@ -5417,8 +5412,7 @@ function mergeSyntheticDocComments(
                 }
 
                 const prefix = prefixMatch[1];
-                const continuationPrefix =
-                    `/// ${  " ".repeat(Math.max(prefix.length - 4, 0))}`;
+                const continuationPrefix = `/// ${" ".repeat(Math.max(prefix.length - 4, 0))}`;
                 const descriptionText = blockLines
                     .map((docLine, blockIndex) => {
                         if (blockIndex === 0) {
