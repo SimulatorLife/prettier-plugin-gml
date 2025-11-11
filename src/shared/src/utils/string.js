@@ -540,24 +540,14 @@ export function normalizeStringList(
 }
 
 function collectUniqueTrimmedStrings(entries) {
-    const uniqueEntries = [];
     const seen = new Set();
-
-    for (const entry of entries) {
-        if (typeof entry !== "string") {
-            continue;
-        }
-
-        const trimmed = entry.trim();
-        if (!trimmed || seen.has(trimmed)) {
-            continue;
-        }
-
-        seen.add(trimmed);
-        uniqueEntries.push(trimmed);
-    }
-
-    return uniqueEntries;
+    return entries
+        .filter((entry) => typeof entry === "string")
+        .map((entry) => entry.trim())
+        .filter(
+            (trimmed) =>
+                trimmed.length > 0 && !seen.has(trimmed) && seen.add(trimmed)
+        );
 }
 
 /**
