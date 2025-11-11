@@ -126,11 +126,13 @@ jobs:
           git remote set-url origin "https://x-access-token:${GH_USER_TOKEN}@github.com/${{ github.repository }}.git"
           git remote -v
 
-      - name: Git push smoke test
+      - name: Host push smoke test
         if: ${{ vars.TEST_MODE == 'true' }}
-        continue-on-error: true
         run: |
           set -euo pipefail
+          # If the shim sends SIGTERM to the process group, exit this step cleanly.
+          trap 'echo "smoke: caught TERM → exiting 0"; exit 0' TERM INT
+
           printf "\n<!-- host smoke: %s UTC -->\n" "$(date -u +"%F %T")" >> README.md
           git add README.md
           git commit -m "chore(ci): PAT push smoke test [skip ci]" || { echo "No changes to commit"; exit 0; }
