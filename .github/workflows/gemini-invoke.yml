@@ -1,23 +1,11 @@
 name: '▶️ Gemini Invoke'
 
 on:
-  workflow_call:
-    inputs:
-      additional_context:
-        type: 'string'
-        description: 'Any additional context from the request'
-        required: false
-      target_ref:
-        type: 'string'
-        description: 'Target branch name (PR head branch)'
-        required: true
-      target_sha:
-        type: 'string'
-        description: 'Target commit SHA (PR head commit)'
-        required: true
+  issue_comment:
+    types: [created]
 
 concurrency:
-  group: '${{ github.workflow }}-invoke-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.issue.number }}'
+  group: '${{ github.workflow }}-invoke-${{ github.event_name }}-${{ github.event.issue.number }}'
   cancel-in-progress: false
 
 defaults:
@@ -32,11 +20,46 @@ jobs:
       issues: 'write'
       pull-requests: 'write'
     steps:
-      - name: Assert PR context
-        if: ${{ inputs.target_ref == '' || inputs.target_sha == '' }}
+      - name: Validate comment & fetch PR info
+        id: parse_comment
+        shell: bash
         run: |
-          echo "Missing target_ref/target_sha; this workflow expects to be called from a PR."
-          exit 1
+          set -euo pipefail
+
+          echo "Comment body: '${{ github.event.comment.body }}'"
+
+          # Ensure the comment mentions the bot
+          if ! echo "${{ github.event.comment.body }}" | grep -q "@gemini-cli"; then
+            echo "Comment did not mention @gemini-cli; ignoring.";
+            exit 78
+          fi
+
+          # Ensure this comment is on a pull request (issue.pull_request exists)
+          if [ -z "${{ toJson(github.event.issue.pull_request) }}" ] || [ "${{ github.event.issue.pull_request }}" == "null" ]; then
+            echo "Comment is not on a Pull Request; aborting.";
+            exit 78
+          fi
+
+          PR_NUMBER=${{ github.event.issue.number }}
+          echo "PR_NUMBER=${PR_NUMBER}" >> "$GITHUB_ENV"
+
+          # Extract additional context: text after the mention
+          ADDITIONAL_CTX=$(echo "${{ github.event.comment.body }}" | sed -E 's/^.*@gemini-cli\s*//')
+          echo "ADDITIONAL_CONTEXT=${ADDITIONAL_CTX}" >> "$GITHUB_ENV"
+
+          # Fetch PR head ref and sha using gh
+          echo "Fetching PR details for #${PR_NUMBER}"
+          gh pr view ${PR_NUMBER} --repo "${{ github.repository }}" --json headRefName,headRefOid,title -q '.headRefName + "\n" + .headRefOid + "\n" + .title' > "$RUNNER_TEMP/_pr_meta.txt"
+          read -r HEAD_REF < "$RUNNER_TEMP/_pr_meta.txt"
+          read -r HEAD_SHA < <(sed -n '2p' "$RUNNER_TEMP/_pr_meta.txt")
+          read -r PR_TITLE < <(sed -n '3p' "$RUNNER_TEMP/_pr_meta.txt")
+
+          # Normalize and export
+          BRANCH_NAME="${HEAD_REF}"
+          echo "WORKING_BRANCH=${BRANCH_NAME}" >> "$GITHUB_ENV"
+          echo "TARGET_SHA=${HEAD_SHA}" >> "$GITHUB_ENV"
+          echo "TITLE=${PR_TITLE}" >> "$GITHUB_ENV"
+          echo "Fetched PR head: ${BRANCH_NAME} @ ${HEAD_SHA}"
 
       - name: Verify gh CLI available
         run: gh --version
@@ -45,7 +68,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ inputs.target_sha }}
+          ref: ${{ env.TARGET_SHA }}
           submodules: recursive
           persist-credentials: false   # ← prevent bot creds from being written
 
@@ -55,16 +78,16 @@ jobs:
           set -euo pipefail
 
           # Sanitize branch name (strip common prefixes)
-          raw="${{ inputs.target_ref }}"
+          raw="${WORKING_BRANCH}"
           branch="${raw#refs/heads/}"
           branch="${branch#origin/}"
 
           echo "Target ref (raw): ${raw}"
           echo "Target branch (normalized): ${branch}"
-          echo "Target SHA: ${{ inputs.target_sha }}"
+          echo "Target SHA: ${TARGET_SHA}"
 
           # Checkout the exact commit and attach a local branch name
-          git checkout -B "${branch}" "${{ inputs.target_sha }}"
+          git checkout -B "${branch}" "${TARGET_SHA}"
 
           # Show where we are now
           cur_branch=$(git rev-parse --abbrev-ref HEAD)
@@ -204,6 +227,21 @@ jobs:
           echo "Settings JSON validated successfully."
           echo "SETTINGS_JSON=$(jq -c . "$settings_file")" >> "$GITHUB_ENV"
 
+      - name: Acknowledge request
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: '${{ env.PR_NUMBER }}'
+          MESSAGE: |-
+            🤖 Hi @${{ github.actor }}, I've received your request, and I'm working on it now! You can track my progress [in the logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more details.
+          REPOSITORY: '${{ github.repository }}'
+        run: |-
+          set -euo pipefail
+          # Post an acknowledgement comment on the PR/issue
+          gh issue comment "${ISSUE_NUMBER}" \
+            --body "${MESSAGE}" \
+            --repo "${REPOSITORY}"
+
       - name: 'Run Gemini CLI'
         if: ${{ vars.TEST_MODE != 'true' }}
         id: 'run_gemini'
@@ -211,12 +249,12 @@ jobs:
         uses: 'google-github-actions/run-gemini-cli@v0' # ratchet:exclude
         timeout-minutes: 30
         env:
-          TITLE: '${{ github.event.pull_request.title || github.event.issue.title }}'
-          PR_NUMBER: '${{ github.event.pull_request.number }}'
+          TITLE: '${{ env.TITLE }}'
+          PR_NUMBER: '${{ env.PR_NUMBER }}'
           GITHUB_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ github.token }}   # gh will pick this up
           REPOSITORY: '${{ github.repository }}'
-          ADDITIONAL_CONTEXT: '${{ inputs.additional_context }}'
+          ADDITIONAL_CONTEXT: '${{ env.ADDITIONAL_CONTEXT }}'
         with:
           gcp_location: '${{ vars.GOOGLE_CLOUD_LOCATION }}'
           gcp_project_id: '${{ vars.GOOGLE_CLOUD_PROJECT }}'
@@ -388,6 +426,11 @@ jobs:
         env:
           RUN_GEMINI_OUTCOME:    ${{ steps.run_gemini.outcome    || '' }}
           RUN_GEMINI_CONCLUSION: ${{ steps.run_gemini.conclusion || '' }}
+          GITHUB_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: '${{ env.PR_NUMBER }}'
+          REPOSITORY: '${{ github.repository }}'
+          MESSAGE: |-
+            🤖 I'm sorry @${{ github.actor }}, but I was unable to process your request. Please [see the logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more details.
         run: |
           set -euo pipefail
           SENTINEL="${RUNNER_TEMP}/.gemini_push_succeeded"
@@ -399,4 +442,11 @@ jobs:
 
           echo "No push sentinel found → FAIL."
           echo "CLI outcome (for diagnostics): conclusion=${RUN_GEMINI_CONCLUSION} outcome=${RUN_GEMINI_OUTCOME}"
+
+          # Post a failure comment on the PR/issue for visibility
+          gh issue comment "${ISSUE_NUMBER}" \
+            --body "${MESSAGE}" \
+            --repo "${REPOSITORY}" || true
+
           exit 1
+
