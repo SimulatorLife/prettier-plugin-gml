@@ -397,10 +397,6 @@ jobs:
             exit 0
           fi
 
-          if [ "$RUN_GEMINI_CONCLUSION" = "skipped" ] || [ "$RUN_GEMINI_CONCLUSION" = "success" ] || [ "$RUN_GEMINI_OUTCOME" = "success" ]; then
-            echo "No push; CLI outcome ${RUN_GEMINI_CONCLUSION}/${RUN_GEMINI_OUTCOME} → SUCCESS."
-            exit 0
-          fi
-
-          echo "No push and CLI failed/cancelled → FAIL."
+          echo "No push sentinel found → FAIL."
+          echo "CLI outcome (for diagnostics): conclusion=${RUN_GEMINI_CONCLUSION} outcome=${RUN_GEMINI_OUTCOME}"
           exit 1
