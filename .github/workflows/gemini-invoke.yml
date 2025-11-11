@@ -179,7 +179,7 @@ jobs:
 
           cat <<'EOF' > "$settings_file"
           {
-            "model": { "maxSessionTurns": 25 },
+            "model": { "maxSessionTurns": 35 },
             "tools": {
               "core": [
                 "run_shell_command(cat)", "run_shell_command(cd)", "run_shell_command(echo)",
