@@ -89,10 +89,17 @@ jobs:
           set -euo pipefail
           shim_dir="$RUNNER_TEMP/cmd_shims"
           mkdir -p "$shim_dir"
+
+          # Resolve the real git BEFORE adding shim_dir to PATH
           real_git="$(command -v git)"
+          if [ -z "$real_git" ]; then
+            echo "Could not locate real git"; exit 1
+          fi
+
+          # Write shim that calls the real git path directly (no command -v inside)
           {
             echo '#!/usr/bin/env bash'
-            echo 'REAL_GIT="$(command -v git)"'
+            echo "REAL_GIT=\"$real_git\""
             echo 'SENTINEL="${RUNNER_TEMP:-/tmp}/.gemini_push_succeeded"'
             echo '"$REAL_GIT" "$@"'
             echo 'code=$?'
@@ -104,6 +111,8 @@ jobs:
             echo 'exit $code'
           } > "$shim_dir/git"
           chmod +x "$shim_dir/git"
+
+          # Prepend shim dir to PATH AFTER capturing real_git
           echo "PATH=$shim_dir:$PATH" >> "$GITHUB_ENV"
 
       - name: Use PAT for pushes
