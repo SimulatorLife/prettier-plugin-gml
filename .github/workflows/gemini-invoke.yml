@@ -22,23 +22,12 @@ jobs:
     steps:
       - name: Validate comment & fetch PR info
         id: parse_comment
+        if: ${{ github.event.issue.pull_request && contains(github.event.comment.body || '', '@gemini-cli') }}
         shell: bash
         run: |
           set -euo pipefail
 
           echo "Comment body: '${{ github.event.comment.body }}'"
-
-          # Ensure the comment mentions the bot
-          if ! echo "${{ github.event.comment.body }}" | grep -q "@gemini-cli"; then
-            echo "Comment did not mention @gemini-cli; ignoring.";
-            exit 78
-          fi
-
-          # Ensure this comment is on a pull request (issue.pull_request exists)
-          if [ -z "${{ toJson(github.event.issue.pull_request) }}" ] || [ "${{ github.event.issue.pull_request }}" == "null" ]; then
-            echo "Comment is not on a Pull Request; aborting.";
-            exit 78
-          fi
 
           PR_NUMBER=${{ github.event.issue.number }}
           echo "PR_NUMBER=${PR_NUMBER}" >> "$GITHUB_ENV"
@@ -50,9 +39,9 @@ jobs:
           # Fetch PR head ref and sha using gh
           echo "Fetching PR details for #${PR_NUMBER}"
           gh pr view ${PR_NUMBER} --repo "${{ github.repository }}" --json headRefName,headRefOid,title -q '.headRefName + "\n" + .headRefOid + "\n" + .title' > "$RUNNER_TEMP/_pr_meta.txt"
-          read -r HEAD_REF < "$RUNNER_TEMP/_pr_meta.txt"
-          read -r HEAD_SHA < <(sed -n '2p' "$RUNNER_TEMP/_pr_meta.txt")
-          read -r PR_TITLE < <(sed -n '3p' "$RUNNER_TEMP/_pr_meta.txt")
+          HEAD_REF=$(sed -n '1p' "$RUNNER_TEMP/_pr_meta.txt")
+          HEAD_SHA=$(sed -n '2p' "$RUNNER_TEMP/_pr_meta.txt")
+          PR_TITLE=$(sed -n '3p' "$RUNNER_TEMP/_pr_meta.txt")
 
           # Normalize and export
           BRANCH_NAME="${HEAD_REF}"
