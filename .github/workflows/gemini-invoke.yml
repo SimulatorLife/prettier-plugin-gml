@@ -83,38 +83,27 @@ jobs:
           git config user.name  "${GH_USER_NAME}"
           git config user.email "${GH_USER_EMAIL}"
 
-      - name: Add PATH shims (stop step after successful git push)
+      - name: Add PATH shims (return 99 after successful git push)
         shell: bash
         run: |
           set -euo pipefail
-
           shim_dir="$RUNNER_TEMP/cmd_shims"
           mkdir -p "$shim_dir"
-
           real_git="$(command -v git)"
-
-          # git shim: on successful `git push`, write sentinel and kill the process group
           {
             echo '#!/usr/bin/env bash'
-            echo "REAL_GIT=\"$real_git\""
+            echo 'REAL_GIT="$(command -v git)"'
             echo 'SENTINEL="${RUNNER_TEMP:-/tmp}/.gemini_push_succeeded"'
             echo '"$REAL_GIT" "$@"'
             echo 'code=$?'
             echo 'if [ $code -eq 0 ] && [ "$1" = "push" ]; then'
             echo '  date +"%F %T" > "$SENTINEL"'
-            echo '  pgid="$(ps -o pgid= $$ | tr -d " ")"'
-            echo '  if [ -n "$pgid" ]; then'
-            echo '    echo "git push succeeded; stopping process group PGID=$pgid"'
-            echo '    kill -TERM -"$pgid" 2>/dev/null || true'
-            echo '    sleep 2'
-            echo '    kill -KILL -"$pgid" 2>/dev/null || true'
-            echo '  fi'
+            echo '  echo "shim: push succeeded → wrote $SENTINEL; returning 99 to stop caller"'
+            echo '  exit 99'
             echo 'fi'
             echo 'exit $code'
           } > "$shim_dir/git"
           chmod +x "$shim_dir/git"
-
-          # put shims first
           echo "PATH=$shim_dir:$PATH" >> "$GITHUB_ENV"
 
       - name: Use PAT for pushes
@@ -128,16 +117,21 @@ jobs:
 
       - name: Host push smoke test
         if: ${{ vars.TEST_MODE == 'true' }}
-        continue-on-error: true
         run: |
           set -euo pipefail
-          # If the shim sends SIGTERM to the process group, exit this step cleanly.
-          trap 'echo "smoke: caught TERM → exiting 0"; exit 0' TERM INT
-
           printf "\n<!-- host smoke: %s UTC -->\n" "$(date -u +"%F %T")" >> README.md
           git add README.md
           git commit -m "chore(ci): PAT push smoke test [skip ci]" || { echo "No changes to commit"; exit 0; }
+
+          set +e
           git push -u origin "${WORKING_BRANCH}"
+          rc=$?
+          set -e
+          if [ $rc -eq 99 ]; then
+            echo "smoke: shim signaled successful push → treating as success"
+            exit 0
+          fi
+          exit $rc
 
       - name: Use Node from .nvmrc
         uses: actions/setup-node@v4
@@ -394,9 +388,8 @@ jobs:
             exit 0
           fi
 
-          # If CLI was skipped (test mode) or concluded success, keep green.
           if [ "$RUN_GEMINI_CONCLUSION" = "skipped" ] || [ "$RUN_GEMINI_CONCLUSION" = "success" ] || [ "$RUN_GEMINI_OUTCOME" = "success" ]; then
-            echo "No push; CLI outcome: ${RUN_GEMINI_CONCLUSION}/${RUN_GEMINI_OUTCOME} → SUCCESS."
+            echo "No push; CLI outcome ${RUN_GEMINI_CONCLUSION}/${RUN_GEMINI_OUTCOME} → SUCCESS."
             exit 0
           fi
 
