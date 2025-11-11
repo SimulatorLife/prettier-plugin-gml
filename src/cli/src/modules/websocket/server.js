@@ -109,7 +109,11 @@ export async function startPatchWebSocketServer({
 
         for (const ws of clients) {
             try {
-                if (ws.readyState === ws.OPEN) {
+                // Compare against numeric READY_STATE constant for OPEN (1).
+                // Some ws client instances do not expose the static OPEN property
+                // on the instance, so using the numeric value avoids undefined
+                // comparisons that would prevent sending messages.
+                if (ws.readyState === 1) {
                     ws.send(message);
                     successCount += 1;
                 } else {

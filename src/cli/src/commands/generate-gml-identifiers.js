@@ -235,7 +235,8 @@ function classifyFromPath(manualPath, tagList) {
         segments.some((segment) => segment.includes(needle));
     const tagMatches = (needle) => normalizedTags.has(needle);
 
-    const matchesAny = (needles = [], matcher) => needles.some(matcher);
+    const matchesAny = (needles, matcher = () => false) =>
+        (needles ?? []).some(matcher);
     const matchesAllGroups = (groups = []) =>
         groups.length > 0 &&
         groups.every((needles) => matchesAny(needles, segmentMatches));

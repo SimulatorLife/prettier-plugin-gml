@@ -408,7 +408,11 @@ function finalizeBootstrapSuccess(
     return result;
 }
 
-export async function bootstrapProjectIndex(options = {}, storeOption) {
+export async function bootstrapProjectIndex(options, storeOption) {
+    if (options == null) {
+        options = {};
+    }
+
     if (!isObjectLike(options)) {
         return createSkipResult("invalid-options");
     }

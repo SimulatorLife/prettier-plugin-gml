@@ -466,10 +466,16 @@ async function handleFileChange(
         runtimeContext.noticeLogged = true;
     }
 
+    // File was created, deleted, or renamed. On some platforms (notably macOS)
+    // a write can surface as a 'rename' event. If the file exists after the
+    // rename, treat it as a change and continue to transpile. If the file was
+    // removed, bail out early.
+    let shouldTranspile = false;
+
     if (eventType === "rename") {
-        // File was created, deleted, or renamed
         try {
             await stat(filePath);
+            shouldTranspile = true;
             if (verbose) {
                 console.log(`  ↳ File exists (created or renamed)`);
             }
@@ -481,8 +487,9 @@ async function handleFileChange(
         }
     }
 
-    // For 'change' events, read the file and transpile it
-    if (eventType === "change") {
+    // For 'change' events, read the file and transpile it. Also transpile when
+    // a 'rename' event left the file in place (see comment above).
+    if (eventType === "change" || shouldTranspile) {
         try {
             const content = await readFile(filePath, "utf8");
             const lines = content.split("\n").length;

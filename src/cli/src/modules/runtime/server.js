@@ -201,9 +201,16 @@ export async function startRuntimeStaticServer({
 
     const address = server.address();
     if (!address || typeof address !== "object" || !("port" in address)) {
-        await new Promise((resolve, reject) =>
-            server.close((error) => (error ? reject(error) : resolve()))
-        );
+        await new Promise((resolve, reject) => {
+            server.close((error) => {
+                if (error) {
+                    reject(error);
+                } else {
+                    resolve();
+                }
+            });
+        });
+
         throw new Error("Failed to determine runtime static server address.");
     }
 
