@@ -857,3 +857,5 @@ work than the configured ceiling.
 - [ANTLR4 Grammar Syntax Support](https://marketplace.visualstudio.com/items?itemName=mike-lischke.vscode-antlr4)
 - [GML Support](https://marketplace.visualstudio.com/items?itemName=electrobrains.gml-support)
 - [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
+
+<!-- host smoke: 2025-11-11 01:34:24 UTC -->
