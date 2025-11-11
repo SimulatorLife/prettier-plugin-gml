@@ -13,7 +13,13 @@
     "./identifier-case": "./src/identifier-case/index.js",
     "./identifier-case/*": "./src/identifier-case/*",
     "./identifier-case.js": "./src/identifier-case.js",
-    "./resources/*": "./src/resources/*"
+    "./resources/*": "./src/resources/*",
+    "./scip-types": "./src/scip-types.js",
+    "./scip-types/*": "./src/scip-types/*",
+    "./scip-symbols": "./src/scip-symbols.js",
+    "./scip-symbols/*": "./src/scip-symbols/*",
+    "./sem-oracle": "./src/sem-oracle.js",
+    "./sem-oracle/*": "./src/sem-oracle/*"
   },
   "dependencies": {
     "@prettier-plugin-gml/shared": "file:../shared"
