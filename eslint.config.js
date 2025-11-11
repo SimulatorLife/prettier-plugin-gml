@@ -104,48 +104,59 @@ export default [
             "prefer-regex-literals": "warn",
 
             /* --- Correctness / bug-prevention --- */
-            "array-callback-return": ["error", { allowImplicit: true }],   // map/filter/etc. must return
-            "default-param-last": "error",                                 // avoid surprising param order
-            "dot-notation": "error",                                       // prefer obj.prop over obj["prop"]
-            "no-await-in-loop": "warn",                                    // agents love to do this
-            "no-constant-binary-expression": "error",                      // 1 + 2 === 3 style mistakes
-            "no-constructor-return": "warn",                               // you already have this (ok to keep)
-            "no-new-wrappers": "error",                                    // new String(), etc.
-            "no-promise-executor-return": "error",                         // returning inside new Promise((res) => ...)
-            "no-self-compare": "error",                                    // x === x is almost always a smell
-            "no-unmodified-loop-condition": "warn",                        // loop condition never changes
-            "no-unsafe-optional-chaining": "error",                        // e.g. foo?.bar()
-            "prefer-object-has-own": "error",                              // use Object.hasOwn over hasOwnProperty
+            "array-callback-return": ["error", { allowImplicit: true }], // map/filter/etc. must return
+            "default-param-last": "error", // avoid surprising param order
+            "dot-notation": "error", // prefer obj.prop over obj["prop"]
+            "no-await-in-loop": "warn", // agents love to do this
+            "no-constant-binary-expression": "error", // 1 + 2 === 3 style mistakes
+            "no-constructor-return": "warn", // you already have this (ok to keep)
+            "no-new-wrappers": "error", // new String(), etc.
+            "no-promise-executor-return": "error", // returning inside new Promise((res) => ...)
+            "no-self-compare": "error", // x === x is almost always a smell
+            "no-unmodified-loop-condition": "warn", // loop condition never changes
+            "no-unsafe-optional-chaining": "error", // e.g. foo?.bar()
+            "prefer-object-has-own": "error", // use Object.hasOwn over hasOwnProperty
 
             // --- Async / performance hygiene ---
-            "require-await": "warn",                                       // async fn must actually await
-            "no-return-await": "warn",                                     // return await → return (unless needed)
-            "prefer-named-capture-group": "warn",                          // clearer regexes for agents
+            "require-await": "warn", // async fn must actually await
+            "no-return-await": "warn", // return await → return (unless needed)
+            "prefer-named-capture-group": "warn", // clearer regexes for agents
 
             // --- Maintainability / ergonomics ---
-            "no-multi-assign": "warn",                                     // a = b = c; is hard to read
-            "no-useless-catch": "error",                                   // catch that just rethrows
-            "no-useless-constructor": "error",                             // empty class constructors
-            "no-useless-return": "warn",                                   // last line `return;`
-            "object-shorthand": ["warn", "always"],                        // { foo: foo } → { foo }
-            "prefer-const": ["error", { destructuring: "all" }],           // stabilize bindings
-            "no-var": "error",                                             // always use let/const
-            "prefer-template": "warn",                                     // "a " + b → `a ${b}`
+            "no-multi-assign": "warn", // a = b = c; is hard to read
+            "no-useless-catch": "error", // catch that just rethrows
+            "no-useless-constructor": "error", // empty class constructors
+            "no-useless-return": "warn", // last line `return;`
+            "object-shorthand": ["warn", "always"], // { foo: foo } → { foo }
+            "prefer-const": ["error", { destructuring: "all" }], // stabilize bindings
+            "no-var": "error", // always use let/const
+            "prefer-template": "warn", // "a " + b → `a ${b}`
 
             // --- Policy guard rails (blocks risky APIs at lint-time) ---
-            "no-restricted-imports": ["error", {
-            "paths": [
-                { "name": "child_process", "message": "Use a vetted wrapper or remove." },
-                { "name": "vm", "message": "Avoid sandbox foot-guns." }
+            "no-restricted-imports": [
+                "error",
+                {
+                    paths: [
+                        {
+                            name: "child_process",
+                            message: "Use a vetted wrapper or remove."
+                        },
+                        { name: "vm", message: "Avoid sandbox foot-guns." }
+                    ],
+                    patterns: [
+                        // block deep imports the agent might guess at:
+                        "fs/*",
+                        "path/*"
+                    ]
+                }
             ],
-            "patterns": [
-                // block deep imports the agent might guess at:
-                "fs/*", "path/*"
-            ]
-            }],
-            "no-restricted-globals": ["error",
-            // common foot-gun in browser contexts; harmless in Node but cheap safeguard
-            { "name": "event", "message": "Pass the event as a parameter instead." }
+            "no-restricted-globals": [
+                "error",
+                // common foot-gun in browser contexts; harmless in Node but cheap safeguard
+                {
+                    name: "event",
+                    message: "Pass the event as a parameter instead."
+                }
             ],
 
             /* --- core "bad practice" rules --- */

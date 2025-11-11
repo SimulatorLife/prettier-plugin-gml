@@ -42,7 +42,7 @@ async function createCollisionProject() {
             },
             null,
             4
-        )  }\n`
+        )}\n`
     );
 
     await writeFile(
@@ -55,7 +55,7 @@ async function createCollisionProject() {
             },
             null,
             4
-        )  }\n`
+        )}\n`
     );
 
     await writeFile(
@@ -68,7 +68,7 @@ async function createCollisionProject() {
             },
             null,
             4
-        )  }\n`
+        )}\n`
     );
 
     const scriptPath = await writeFile(

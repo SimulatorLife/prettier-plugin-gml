@@ -581,8 +581,9 @@ describe("Prettier wrapper CLI", () => {
             const ignorePath = path.join(tempDirectory, ".prettierignore");
             await fs.writeFile(
                 ignorePath,
-                `${["ignored-one/", "ignored-two/", "ignored-three/"].join("\n") 
-                    }\n`,
+                `${["ignored-one/", "ignored-two/", "ignored-three/"].join(
+                    "\n"
+                )}\n`,
                 "utf8"
             );
 

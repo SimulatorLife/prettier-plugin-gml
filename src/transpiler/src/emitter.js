@@ -208,7 +208,7 @@ export function emitJavaScript(ast) {
     // for function calls, but we preserve this as a simple identifier statement
     // and append a semicolon to meet JavaScript's statement termination rules.
     if (ast.type === "IdentifierStatement") {
-        return `${emitJavaScript(ast.name)  };`;
+        return `${emitJavaScript(ast.name)};`;
     }
 
     // Transform binary expressions (arithmetic, logical, comparison) into
@@ -238,7 +238,7 @@ export function emitJavaScript(ast) {
     }
 
     if (ast.type === "ExpressionStatement") {
-        return `${emitJavaScript(ast.expression)  };`;
+        return `${emitJavaScript(ast.expression)};`;
     }
 
     // Convert GML's bracket-based member access (e.g., `array[0][1]` or
@@ -277,7 +277,7 @@ export function emitJavaScript(ast) {
             .map((stmt) => {
                 const code = emitJavaScript(stmt);
                 if (code && !code.endsWith(";") && !code.endsWith("}")) {
-                    return `${code  };`;
+                    return `${code};`;
                 }
                 return code;
             })
@@ -301,7 +301,7 @@ export function emitJavaScript(ast) {
                     !code.trim().startsWith("for") &&
                     !code.trim().startsWith("while")
                 ) {
-                    return `${code  };`;
+                    return `${code};`;
                 }
                 return code;
             })
@@ -609,7 +609,7 @@ export function emitJavaScript(ast) {
                                     code !== "continue" &&
                                     !code.startsWith("return")
                                 ) {
-                                    return `${code  };`;
+                                    return `${code};`;
                                 }
                                 return code;
                             })

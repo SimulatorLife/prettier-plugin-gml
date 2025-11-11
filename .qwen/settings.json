@@ -1,0 +1,12 @@
+{
+  "tools": {
+    "approvalMode": "auto-edit"
+  },
+  "model": {
+    "sessionTokenLimit": 128000
+  },
+  "experimental": {
+    "visionModelPreview": false
+  },
+  "$version": 2
+}

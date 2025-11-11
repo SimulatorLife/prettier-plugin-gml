@@ -147,7 +147,7 @@ export default class GMLParser {
     }
 
     printTokens(text) {
-        console.log(`===== TOKEN =====${  " ".repeat(14)  }===== TEXT =====`);
+        console.log(`===== TOKEN =====${" ".repeat(14)}===== TEXT =====`);
 
         const chars = new antlr4.InputStream(text);
         const lexer = new GameMakerLanguageLexer(chars);

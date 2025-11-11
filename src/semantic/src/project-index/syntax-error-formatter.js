@@ -59,9 +59,9 @@ export function formatProjectIndexSyntaxError(error, sourceText, context) {
     const excerpt = formatSourceExcerpt(sourceText, lineNumber, columnNumber);
 
     const originalMessage = getNonEmptyString(normalizedError.message) ?? "";
-    const formattedMessage =
-        `Syntax Error${locationSuffix}: ${baseDescription}${ 
-        excerpt ? `\n\n${excerpt}` : ""}`;
+    const formattedMessage = `Syntax Error${locationSuffix}: ${baseDescription}${
+        excerpt ? `\n\n${excerpt}` : ""
+    }`;
 
     normalizedError.message = formattedMessage;
     normalizedError.originalMessage = originalMessage;
@@ -143,7 +143,7 @@ function formatSourceExcerpt(sourceText, lineNumber, columnNumber) {
         return contentLine;
     }
 
-    const indicatorSpacing = `${" ".repeat(lineNumberWidth)  } | `;
+    const indicatorSpacing = `${" ".repeat(lineNumberWidth)} | `;
     const pointerLine = `${indicatorSpacing}${" ".repeat(pointerOffset)}^`;
 
     return `${contentLine}\n${pointerLine}`;

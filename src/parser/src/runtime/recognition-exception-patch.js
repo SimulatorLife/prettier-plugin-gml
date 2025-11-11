@@ -62,8 +62,6 @@ function firstNumber(...values) {
             return value;
         }
     }
-
-    
 }
 
 function getTokenStream(recognizer) {

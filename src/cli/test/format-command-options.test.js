@@ -13,9 +13,7 @@ test("collectFormatCommandOptions tolerates commands without option state", () =
     let helpCalled = false;
     const command = {
         args: [],
-        opts() {
-            
-        },
+        opts() {},
         helpInformation() {
             helpCalled = true;
             return "usage";

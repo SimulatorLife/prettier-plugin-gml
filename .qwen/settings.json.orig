@@ -1,0 +1,7 @@
+{
+  "approvalMode": "auto-edit",
+  "sessionTokenLimit": 128000,
+  "experimental": {
+    "vlmSwitchMode": "once"
+  }
+}

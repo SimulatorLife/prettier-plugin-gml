@@ -52,7 +52,7 @@ async function createAssetRenameProject() {
             },
             null,
             4
-        )  }\n`
+        )}\n`
     );
 
     await writeFile(
@@ -65,7 +65,7 @@ async function createAssetRenameProject() {
             },
             null,
             4
-        )  }\n`
+        )}\n`
     );
 
     const source = "function demo_script() {\n    return 42;\n}\n";
@@ -87,7 +87,7 @@ async function createAssetRenameProject() {
             },
             null,
             4
-        )  }\n`
+        )}\n`
     );
 
     const projectIndex = await buildProjectIndex(projectRoot);
@@ -128,7 +128,7 @@ async function createAssetCollisionProject() {
             },
             null,
             4
-        )  }\n`
+        )}\n`
     );
 
     await writeFile(
@@ -141,7 +141,7 @@ async function createAssetCollisionProject() {
             },
             null,
             4
-        )  }\n`
+        )}\n`
     );
 
     await writeFile(
@@ -154,7 +154,7 @@ async function createAssetCollisionProject() {
             },
             null,
             4
-        )  }\n`
+        )}\n`
     );
 
     const primarySource = "function demo_script() {\n    return 1;\n}\n";
@@ -200,7 +200,7 @@ async function createAssetReservedProject() {
             },
             null,
             4
-        )  }\n`
+        )}\n`
     );
 
     await writeFile(
@@ -213,7 +213,7 @@ async function createAssetReservedProject() {
             },
             null,
             4
-        )  }\n`
+        )}\n`
     );
 
     const source = "function MoveContactSolid() {\n    return 3;\n}\n";

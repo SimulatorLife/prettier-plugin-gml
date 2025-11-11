@@ -26,7 +26,6 @@ function createProjectTreeCollector(metrics = null) {
         if (normalizedCategory === ProjectFileCategory.SOURCE) {
             gmlFiles.push(record);
             metrics?.counters?.increment("files.gmlDiscovered");
-            
         }
     }
 

@@ -1,0 +1,204 @@
+name: '▶️ Qwen Invoke'
+
+on:
+  workflow_call:
+    inputs:
+      additional_context:
+        type: 'string'
+        description: 'Any additional context from the request'
+        required: false
+      target_ref:
+        type: 'string'
+        description: 'Target branch name (PR head branch)'
+        required: true
+      target_sha:
+        type: 'string'
+        description: 'Target commit SHA (PR head commit)'
+        required: true
+
+concurrency:
+  group: '${{ github.workflow }}-invoke-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.issue.number }}'
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: 'bash'
+
+jobs:
+  invoke:
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'write'
+      issues: 'write'
+      pull-requests: 'write'
+    steps:
+      - name: Assert PR context
+        if: ${{ inputs.target_ref == '' || inputs.target_sha == '' }}
+        run: |
+          echo "Missing target_ref/target_sha; this workflow expects to be called from a PR."
+          exit 1
+
+      - name: Verify gh CLI available
+        run: gh --version
+
+      - name: 'Checkout target commit (by SHA)'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.target_sha }}
+          submodules: recursive
+          persist-credentials: false   # ← prevent bot creds from being written
+
+      - name: Create local branch & verify
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Sanitize branch name (strip common prefixes)
+          raw="${{ inputs.target_ref }}"
+          branch="${raw#refs/heads/}"
+          branch="${branch#origin/}"
+
+          echo "Target ref (raw): ${raw}"
+          echo "Target branch (normalized): ${branch}"
+          echo "Target SHA: ${{ inputs.target_sha }}"
+
+          # Checkout the exact commit and attach a local branch name
+          git checkout -B "${branch}" "${{ inputs.target_sha }}"
+
+          # Show where we are now
+          cur_branch=$(git rev-parse --abbrev-ref HEAD)
+          cur_sha=$(git rev-parse HEAD)
+          echo "Now on branch: ${cur_branch} @ ${cur_sha}"
+
+          # Export for later steps / prompt
+          echo "WORKING_BRANCH=${branch}" >> "$GITHUB_ENV"
+
+      - name: Configure git identity
+        env:
+          GH_USER_NAME:  ${{ vars.GH_USER_NAME }}
+          GH_USER_EMAIL: ${{ vars.GH_USER_EMAIL }}
+        run: |
+          set -euo pipefail
+          git config user.name  "${GH_USER_NAME}"
+          git config user.email "${GH_USER_EMAIL}"
+
+      - name: Add PATH shims (return 99 after successful git push)
+        shell: bash
+        run: |
+          set -euo pipefail
+          shim_dir="$RUNNER_TEMP/cmd_shims"
+          mkdir -p "$shim_dir"
+
+          # Resolve the real git BEFORE adding shim_dir to PATH
+          real_git="$(command -v git)"
+          if [ -z "$real_git" ]; then
+            echo "Could not locate real git"; exit 1
+          fi
+
+          # Write shim that calls the real git path directly (no command -v inside)
+          {
+            echo '#!/usr/bin/env bash'
+            echo "REAL_GIT=\"$real_git\""
+            echo 'SENTINEL="${RUNNER_TEMP:-/tmp}/.qwen_push_succeeded"'
+            echo '"$REAL_GIT" "$@"'
+            echo 'code=$?'
+            echo 'if [ $code -eq 0 ] && [ "$1" = "push" ]; then'
+            echo '  date +"%F %T" > "$SENTINEL"'
+            echo '  echo "shim: push succeeded → wrote $SENTINEL; returning 99 to stop caller"'
+            echo '  exit 99'
+            echo 'fi'
+            echo 'exit $code'
+          } > "$shim_dir/git"
+          chmod +x "$shim_dir/git"
+
+          # Prepend shim dir to PATH AFTER capturing real_git
+          echo "PATH=$shim_dir:$PATH" >> "$GITHUB_ENV"
+
+      - name: Use PAT for pushes
+        env:
+          GH_USER_TOKEN: ${{ secrets.GH_USER_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config --local --unset-all http.https://github.com/.extraheader || true
+          git remote set-url origin "https://x-access-token:${GH_USER_TOKEN}@github.com/${{ github.repository }}.git"
+          git remote -v
+
+      - name: Host push smoke test
+        if: ${{ vars.TEST_MODE == 'true' }}
+        run: |
+          set -euo pipefail
+          printf "\n<!-- host smoke: %s UTC -->\n" "$(date -u +"%F %T")" >> README.md
+          git add README.md
+          git commit -m "chore(ci): PAT push smoke test [skip ci]" || { echo "No changes to commit"; exit 0; }
+
+          set +e
+          git push -u origin "${WORKING_BRANCH}"
+          rc=$?
+          set -e
+          if [ $rc -eq 99 ]; then
+            echo "smoke: shim signaled successful push → treating as success"
+            exit 0
+          fi
+          exit $rc
+
+      - name: Use Node from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            **/package-lock.json
+
+      - name: Install dependencies (root/workspaces)
+        run: |
+          npm ci;
+
+      - name: Install Qwen CLI
+        run: npm install -g @qwen-code/qwen-code
+
+      - name: 'Run Qwen CLI'
+        if: ${{ vars.TEST_MODE != 'true' }}
+        id: 'run_qwen'
+        continue-on-error: true
+        env:
+          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+          OPENAI_BASE_URL: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+          TITLE: '${{ github.event.pull_request.title || github.event.issue.title }}'
+          PR_NUMBER: '${{ github.event.pull_request.number }}'
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}   # gh will pick this up
+          REPOSITORY: '${{ github.repository }}'
+          ADDITIONAL_CONTEXT: '${{ inputs.additional_context }}'
+        run: |
+          # Example “single-shot” task prompt (simple & non-interactive):
+          qwen -y <<'EOF'
+          You are a coding agent running in CI.
+          - Read the repository.
+          - Look for any mention of '@qwen' in the PR title, description, or comments to understand the requested changes.
+          - Implement the requested fixes/features as specified by the user.
+          - Keep changes minimal; prefer targeted edits.
+          - After changes, run npm test; if it fails, fix the issues and retry once.
+          - Create conventional commits (feat:, fix:, chore:).
+          EOF
+
+          # If the CLI doesn't auto-commit, you can do it here:
+          git add -A
+          git diff --quiet || git commit -m "chore(qwen): apply automated improvements"
+
+          # Push using your PAT (so downstream workflows trigger)
+          git push -u origin "${WORKING_BRANCH}"
+
+      - name: Report Outcome
+        if: always()
+        run: |
+          set -euo pipefail
+          SENTINEL="${RUNNER_TEMP}/.qwen_push_succeeded"
+          if [ -f "$SENTINEL" ]; then
+          echo "Push detected → SUCCESS."
+          exit 0
+          fi
+          echo "No push sentinel found → FAIL."
+          exit 1
