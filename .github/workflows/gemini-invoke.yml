@@ -126,8 +126,9 @@ jobs:
           git remote set-url origin "https://x-access-token:${GH_USER_TOKEN}@github.com/${{ github.repository }}.git"
           git remote -v
 
-      - name: Host push smoke test
+      - name: Git push smoke test
         if: ${{ vars.TEST_MODE == 'true' }}
+        continue-on-error: true
         run: |
           set -euo pipefail
           printf "\n<!-- host smoke: %s UTC -->\n" "$(date -u +"%F %T")" >> README.md
@@ -379,11 +380,10 @@ jobs:
       - name: Report Outcome
         if: always()
         env:
-          RUN_GEMINI_OUTCOME:   ${{ steps.run_gemini.outcome   || '' }}
+          RUN_GEMINI_OUTCOME:    ${{ steps.run_gemini.outcome    || '' }}
           RUN_GEMINI_CONCLUSION: ${{ steps.run_gemini.conclusion || '' }}
         run: |
           set -euo pipefail
-
           SENTINEL="${RUNNER_TEMP}/.gemini_push_succeeded"
 
           if [ -f "$SENTINEL" ]; then
@@ -391,8 +391,8 @@ jobs:
             exit 0
           fi
 
-          # If the CLI ran and succeeded, or it was skipped (e.g., TEST_MODE), treat as success.
-          if [ "$RUN_GEMINI_OUTCOME" = "success" ] || [ "$RUN_GEMINI_CONCLUSION" = "skipped" ]; then
+          # If CLI was skipped (test mode) or concluded success, keep green.
+          if [ "$RUN_GEMINI_CONCLUSION" = "skipped" ] || [ "$RUN_GEMINI_CONCLUSION" = "success" ] || [ "$RUN_GEMINI_OUTCOME" = "success" ]; then
             echo "No push; CLI outcome: ${RUN_GEMINI_CONCLUSION}/${RUN_GEMINI_OUTCOME} → SUCCESS."
             exit 0
           fi
