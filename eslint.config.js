@@ -105,7 +105,7 @@ export default [
             "max-lines": [
                 "warn",
                 {
-                    max: 500,
+                    max: 600,
                     skipBlankLines: true,
                     skipComments: true
                 }
@@ -113,7 +113,7 @@ export default [
             "max-lines-per-function": [
                 "warn",
                 {
-                    max: 100,
+                    max: 150,
                     skipBlankLines: true,
                     skipComments: true
                 }
@@ -128,7 +128,11 @@ export default [
             "no-param-reassign": ["warn", { props: true }],
             "no-return-assign": ["error", "always"],
             "no-throw-literal": "error",
+            "no-debugger": "error",
             "no-constructor-return": "warn",
+            "no-dupe-keys": "error",
+            "no-duplicate-case": "error",
+            "no-duplicate-imports": "error",
             "no-warning-comments": [
                 "warn",
                 { terms: ["todo", "fixme"], location: "start" }

@@ -20,9 +20,7 @@ import {
     Option,
     resolveModuleDefaultExport,
     parseJsonObjectWithContext,
-    splitLines
-} from "../dependencies.js";
-import {
+    splitLines,
     SuiteOutputFormat,
     applyEnvOptionOverrides,
     applyStandardCommandOptions,
@@ -35,15 +33,13 @@ import {
     ensureSuitesAreKnown,
     resolveRequestedSuites,
     resolveSuiteOutputFormatOrThrow,
-    wrapInvalidArgumentResolver
-} from "../dependencies.js";
-import { loadGmlParser } from "./gml-parser.js";
-import { importPluginModule } from "../plugin-runtime-dependencies.js";
-import {
+    wrapInvalidArgumentResolver,
     REPO_ROOT,
     resolveFromRepoRoot,
     writeJsonArtifact
 } from "../dependencies.js";
+import { loadGmlParser } from "./gml-parser.js";
+import { importPluginModule } from "../plugin-runtime-dependencies.js";
 
 export const DEFAULT_ITERATIONS = 500_000;
 export const MEMORY_ITERATIONS_ENV_VAR = "GML_MEMORY_ITERATIONS";
