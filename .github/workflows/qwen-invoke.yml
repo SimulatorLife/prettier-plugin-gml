@@ -20,7 +20,7 @@ jobs:
       pr_number: ${{ steps.set_pr.outputs.pr_number }}
       additional_context: ${{ steps.set_pr.outputs.additional_context }}
       api_key: ${{ steps.pick_key.outputs.api_key }}
-      settings_json: ${{ steps.build_settings.outputs.settings_json }}
+      agent_command: ${{ steps.build_agent_command.outputs.agent_command }}
     steps:
       - name: Set PR metadata
         id: set_pr
@@ -67,8 +67,25 @@ jobs:
             }
           }
           EOF
-          SJSON=$(jq -c . "$settings_file")
-          echo "settings_json=${SJSON}" >> "$GITHUB_OUTPUT"
+          # settings file is written on the child runner; its contents will be embedded
+          # into the agent_command produced below so the parent runner can write it.
+
+      - name: Build agent command
+        id: build_agent_command
+        shell: bash
+        run: |
+          set -euo pipefail
+          API_KEY='${{ steps.pick_key.outputs.api_key }}'
+          SETTINGS_FILE="$RUNNER_TEMP/.qwen/settings.json"
+          SETTINGS_JSON=$(cat "$SETTINGS_FILE")
+          # Escape single quotes in JSON for safe single-quoted embedding
+          ESCAPED=$(printf '%s' "$SETTINGS_JSON" | sed "s/'/'\\''/g")
+          # Assume a `qwen` CLI is provided via npm package '@qwen/cli' exposing `qwen` binary.
+          AGENT_CMD="mkdir -p \"$RUNNER_TEMP/.qwen\" && printf '%s' '$ESCAPED' > \"$RUNNER_TEMP/.qwen/settings.json\" && if ! command -v qwen >/dev/null 2>&1; then npm install -g @qwen/cli@latest || true; fi && export QWEN_API_KEY='$API_KEY' && qwen run --settings \"$RUNNER_TEMP/.qwen/settings.json\" --context \"\$ADDITIONAL_CONTEXT\" --title \"\$TITLE\""
+          echo "agent_command<<EOF" >> "$GITHUB_OUTPUT"
+          printf '%s' "$AGENT_CMD" >> "$GITHUB_OUTPUT"
+          echo >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
 
   invoke:
     needs: prepare
@@ -78,5 +95,5 @@ jobs:
       additional_context: ${{ needs.prepare.outputs.additional_context }}
       agent: 'qwen'
       api_key: ${{ needs.prepare.outputs.api_key }}
-      settings_json: ${{ needs.prepare.outputs.settings_json }}
+      agent_command: ${{ needs.prepare.outputs.agent_command }}
     secrets: inherit

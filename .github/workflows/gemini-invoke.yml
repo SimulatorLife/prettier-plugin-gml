@@ -14,16 +14,6 @@ defaults:
 
 
 jobs:
-  invoke:
-    needs: prepare
-    uses: ./.github/workflows/agent-invoke.yml
-    with:
-      pr_number: ${{ needs.prepare.outputs.pr_number }}
-      additional_context: ${{ needs.prepare.outputs.additional_context }}
-      agent: 'gemini'
-      api_key: ${{ needs.prepare.outputs.api_key }}
-      settings_json: ${{ needs.prepare.outputs.settings_json }}
-    secrets: inherit
 
   prepare:
     if: ${{ github.event.issue.pull_request && contains(github.event.comment.body || '', '@gemini') }}
@@ -32,7 +22,6 @@ jobs:
       pr_number: ${{ steps.set_pr.outputs.pr_number }}
       additional_context: ${{ steps.set_pr.outputs.additional_context }}
       api_key: ${{ steps.pick_key.outputs.api_key }}
-      settings_json: ${{ steps.build_settings.outputs.settings_json }}
     steps:
       - name: Set PR metadata
         id: set_pr
@@ -45,6 +34,7 @@ jobs:
           printf '%s' "${{ github.event.comment.body }}" >> "$GITHUB_OUTPUT"
           echo >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
+
       - name: Pick API key
         id: pick_key
         shell: bash
@@ -60,15 +50,33 @@ jobs:
           esac
           echo "api_key=${selected}" >> "$GITHUB_OUTPUT"
 
-      - name: Build and validate settings JSON
-        id: build_settings
-        shell: bash
+      - name: Install gemini CLI
         run: |
-          set -euo pipefail
-          settings_file="$RUNNER_TEMP/.gemini/settings.json"
-          cat <<'EOF' > "$settings_file"
-          { "model": { "maxSessionTurns": 35 } }
-          EOF
-          SJSON=$(jq -c . "$settings_file")
-          echo "settings_json=${SJSON}" >> "$GITHUB_OUTPUT"
+          if ! command -v gemini >/dev/null 2>&1; then
+            npm install -g @google/gemini-cli@latest
+          fi
+  
+  invoke:
+    needs: prepare
+    uses: ./.github/workflows/agent-invoke.yml
+    secrets: inherit
+    with:
+      pr_number: ${{ needs.prepare.outputs.pr_number }}
+      additional_context: ${{ needs.prepare.outputs.additional_context }}
+      agent: gemini
+      settings_json: |
+        { "model": { "maxSessionTurns": 35 } }
+      agent_command: |
+        set -euo pipefail
+        if ! command -v gemini >/dev/null 2>&1; then
+          npm install -g @google/gemini-cli@latest
+        fi
 
+        # Write settings to a file (the parent already exposes $RUNNER_TEMP)
+        echo '${{ inputs.settings_json }}' > "$RUNNER_TEMP/.gemini/settings.json"
+
+        # Optional: export path for Gemini CLI to use
+        export GEMINI_CLI_SYSTEM_SETTINGS_PATH="$RUNNER_TEMP/.gemini/settings.json"
+
+        echo "Running gemini CLI..."
+        gemini ${{ inputs.additional_context }}

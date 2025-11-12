@@ -59,32 +59,27 @@ jobs:
         run: |
           set -euo pipefail
 
-          # If a raw comment body was provided, ensure it mentions the agent and extract the
-          # additional context payload. This centralizes the parsing logic for callers that
-          # pass the raw comment body through the workflow_call input `additional_context`.
+          # If a raw comment body was provided, validate it mentions the agent and extract
+          # the additional context. We expect callers to pass the raw comment body; the
+          # mention token is simply @<agent> (e.g. @gemini, @qwen).
           if [ -n "${RAW_COMMENT}" ]; then
-            # The expected mention token is e.g. @qwen or @gemini
             mention="@${AGENT_NAME}"
             if ! printf '%s' "${RAW_COMMENT}" | grep -qF "${mention}"; then
               echo "Comment does not mention ${mention}; aborting." >&2
               exit 1
             fi
-            # Extract everything after the mention as additional_context
             ADDITIONAL_CTX=$(printf '%s' "${RAW_COMMENT}" | sed -E "s/^.*${mention}\s*//")
             echo "additional_context<<EOF" >> "$GITHUB_OUTPUT"
-            printf '%s' "${ADDITIONAL_CTX}" >> "$GITHUB_OUTPUT"
+            printf '%s' "$ADDITIONAL_CTX" >> "$GITHUB_OUTPUT"
             echo >> "$GITHUB_OUTPUT"
             echo "EOF" >> "$GITHUB_OUTPUT"
           fi
 
-          # Ensure the PR exists and fetch head ref/sha and title
-          gh pr view "${PR_NUMBER}" --repo "${REPOSITORY}" --json headRefName,headRefOid,title -q '.' > "$RUNNER_TEMP/_pr_meta.json"
-          jq -r '.headRefName // empty' "$RUNNER_TEMP/_pr_meta.json" > "$RUNNER_TEMP/_pr_head_ref.txt"
-          jq -r '.headRefOid // empty'   "$RUNNER_TEMP/_pr_meta.json" > "$RUNNER_TEMP/_pr_head_sha.txt"
-          jq -r '.title // empty'        "$RUNNER_TEMP/_pr_meta.json" > "$RUNNER_TEMP/_pr_title.txt"
-          PR_HEAD_REF=$(cat "$RUNNER_TEMP/_pr_head_ref.txt")
-          PR_HEAD_SHA=$(cat "$RUNNER_TEMP/_pr_head_sha.txt")
-          PR_TITLE=$(cat "$RUNNER_TEMP/_pr_title.txt")
+          # Fetch PR metadata directly and emit outputs (avoid temporary files)
+          PR_JSON=$(gh pr view "${PR_NUMBER}" --repo "${REPOSITORY}" --json headRefName,headRefOid,title -q '.')
+          PR_HEAD_REF=$(jq -r '.headRefName // empty' <<<"$PR_JSON")
+          PR_HEAD_SHA=$(jq -r '.headRefOid // empty' <<<"$PR_JSON")
+          PR_TITLE=$(jq -r '.title // empty' <<<"$PR_JSON")
           if [ -z "$PR_HEAD_REF" ] || [ -z "$PR_HEAD_SHA" ]; then
             echo "Failed to determine PR head ref/sha for PR #${PR_NUMBER}" >&2
             exit 1
@@ -201,35 +196,11 @@ jobs:
           ADDITIONAL_CONTEXT: ${{ inputs.additional_context }}
         run: |
           set -euo pipefail
-          if [ "${{ inputs.agent }}" = 'gemini' ] && [ -z "${{ inputs.agent_command }}" ]; then
-            echo "Invoking gemini CLI directly"
-            # Write settings JSON to a temp file if provided
-            if [ -n "${{ inputs.settings_json }}" ]; then
-              settings_file="$RUNNER_TEMP/.gemini/settings.json"
-              printf '%s' "${{ inputs.settings_json }}" > "$settings_file"
-              SETTINGS_ARG="--settings-file $settings_file"
-            else
-              SETTINGS_ARG=""
-            fi
-
-            # Ensure the gemini CLI is available; install via npm if needed
-            if ! command -v gemini >/dev/null 2>&1; then
-              echo "gemini CLI not found, installing @google/gemini-cli via npm (this may take a moment)"
-              npm install -g @google/gemini-cli@latest
-            fi
-
-            # Export API key for the CLI
-            export GEMINI_API_KEY="${{ inputs.api_key }}"
-
-            # Run the gemini CLI. We attempt to provide the same inputs the action would have
-            # received: API key and settings. Additional context and title are passed via
-            # environment or flags where supported.
-            # The CLI will pick up ./.gemini/settings.json automatically
-            gemini "$ADDITIONAL_CONTEXT" || true
-          else
-            echo "Running custom agent command"
-            eval "${{ inputs.agent_command }}"
-          fi
+          echo "Running agent command"
+          script="$RUNNER_TEMP/agent_cmd.sh"
+          printf '%s\n' "${{ inputs.agent_command }}" > "$script"
+          chmod +x "$script"
+          bash "$script"
 
       - name: Report outcome
         if: always()
