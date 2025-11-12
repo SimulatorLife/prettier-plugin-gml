@@ -64,9 +64,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          settings_file="$RUNNER_TEMP/qwen-settings.json"
+          settings_file="$RUNNER_TEMP/.qwen/settings.json"
           cat <<'EOF' > "$settings_file"
-          { "model": { "maxTokens": 8192 } }
+          {
+            "general": {
+              "checkpointing": {
+                "enabled": true
+              }
+            },
+            "tools": {
+              "approvalMode": "auto-edit"
+            },
+            "model": {
+              "sessionTokenLimit": 128000
+            },
+            "experimental": {
+              "visionModelPreview": false
+            }
+          }
           EOF
           SJSON=$(jq -c . "$settings_file")
           echo "settings_json=${SJSON}" >> "$GITHUB_OUTPUT"
