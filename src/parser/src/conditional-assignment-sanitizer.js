@@ -106,6 +106,7 @@ export function sanitizeConditionalAssignments(sourceText) {
     let escapeNext = false;
     let justSawIfKeyword = false;
     let ifConditionDepth = 0;
+    let insertionsSoFar = 0;
 
     const append = (character) => {
         parts.push(character);
@@ -252,9 +253,10 @@ export function sanitizeConditionalAssignments(sourceText) {
                     ASSIGNMENT_GUARD_CHARACTERS.has(prevCharacter);
 
                 if (!shouldSkip) {
-                    append("=");
-                    append("=");
-                    adjustmentPositions.push(parts.length - 1);
+                    append(character); // original '='
+                    append("="); // extra '=' to make '=='
+                    adjustmentPositions.push(index + insertionsSoFar + 1); // record position of new character in modified string
+                    insertionsSoFar += 1;
                     index += 1;
                     modified = true;
                     continue;
