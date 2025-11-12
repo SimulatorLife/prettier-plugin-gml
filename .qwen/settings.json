@@ -8,10 +8,25 @@
     "approvalMode": "auto-edit"
   },
   "model": {
-    "sessionTokenLimit": 128000
+    "sessionTokenLimit": 128000,
+    "maxSessionTurns": 50
   },
   "experimental": {
     "visionModelPreview": false
+  },
+  "privacy": {
+    "usageStatisticsEnabled": false
+  },
+  "context": {
+    "fileName": "AGENTS.md"
+  },
+  "shell": {
+    "enableInteractiveShell": false
+  },
+  "ui":{
+    "accessibility": {
+      "disableLoadingPhrases": true
+    }
   },
   "$version": 2
 }
