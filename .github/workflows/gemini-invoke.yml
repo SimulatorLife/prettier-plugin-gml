@@ -13,50 +13,26 @@ defaults:
     shell: 'bash'
 
 jobs:
-  prepare:
-    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body || '', '@gemini') }}
-    runs-on: ubuntu-latest
-    outputs:
-      pr_number: ${{ github.event.issue.number }}
-      additional_context: ${{ github.event.comment.body }}
-      api_key: ${{ steps.pick_key.outputs.api_key }}
-    steps:
-      - name: Pick API key
-        id: pick_key
-        shell: bash
-        run: |
-          set -euo pipefail
-          key_num=$((1 + RANDOM % 5))
-          case $key_num in
-            1) selected="${{ secrets.GEMINI_API_KEY }}" ;;
-            2) selected="${{ secrets.GEMINI_API_KEY2 }}" ;;
-            3) selected="${{ secrets.GEMINI_API_KEY3 }}" ;;
-            4) selected="${{ secrets.GEMINI_API_KEY4 }}" ;;
-            5) selected="${{ secrets.GEMINI_API_KEY5 }}" ;;
-          esac
-          echo "api_key=${selected}" >> "$GITHUB_OUTPUT"
-          echo "Selected Gemini API key #${key_num} with length ${#selected}" >&2
-
   invoke:
-    needs: prepare
+    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body || '', '@gemini') }}
     uses: ./.github/workflows/agent-invoke.yml
     secrets:
-      api_key: ${{ secrets.GEMINI_API_KEY3 }}
+      api_key: ${{ secrets.GEMINI_API_KEY }}
     with:
-      pr_number: ${{ needs.prepare.outputs.pr_number }}
-      additional_context: ${{ needs.prepare.outputs.additional_context }}
+      pr_number: ${{ github.event.issue.number }}
+      additional_context: ${{ github.event.comment.body }}
       agent: gemini
       npm_package: '@google/gemini-cli@latest'
       agent_command: |
         set -euo pipefail
 
         # Resolve and export API key
-        export GEMINI_API_KEY="${API_KEY}"
-
         if [ -z "${API_KEY:-}" ]; then
           echo "❌ Missing API_KEY!"
-          # exit 1
+          exit 1
         fi
+        export GEMINI_API_KEY="${API_KEY}"
+        echo "GEMINI_API_KEY length: ${#GEMINI_API_KEY}"
 
         # Run the CLI
         gemini "${ADDITIONAL_CONTEXT}"

@@ -13,24 +13,21 @@ defaults:
     shell: 'bash'
 
 jobs:
-  prepare:
-    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body || '', '@qwen') }}
-    runs-on: ubuntu-latest
-    outputs:
+  invoke:
+    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body || '', '@qwen') }}
+    uses: ./.github/workflows/agent-invoke.yml
+    secrets:
+      api_key: ${{ secrets.DASHSCOPE_API_KEY }}
+    with:
       pr_number: ${{ github.event.issue.number }}
       additional_context: ${{ github.event.comment.body }}
-      api_key: ${{ secrets.DASHSCOPE_API_KEY }}
-
-  invoke:
-    needs: prepare
-    uses: ./.github/workflows/agent-invoke.yml
-    secrets: inherit
-    with:
-      pr_number: ${{ needs.prepare.outputs.pr_number }}
-      additional_context: ${{ needs.prepare.outputs.additional_context }}
-      api_key: ${{ needs.prepare.outputs.api_key }}
       agent: qwen
       npm_package: '@qwen/cli@latest'
       agent_command: |
         set -euo pipefail
+        # Resolve API key
+        if [ -z "${API_KEY:-}" ]; then
+          echo "❌ Missing API_KEY!"
+          exit 1
+        fi
         qwen --openai-api-key "${API_KEY}" "${ADDITIONAL_CONTEXT}"
