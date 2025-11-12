@@ -48,7 +48,19 @@ jobs:
       npm_package: '@google/gemini-cli@latest'
       agent_command: |
         set -euo pipefail
-        echo "Gemini API key with length ${#API_KEY}"
+
+        # Just for debugging purposes, verify we have an API key
+        if [ -z "${API_KEY:-}" ]; then
+          echo "❌ No API_KEY defined!"
+          exit 1
+        fi
+
+        echo "Gemini API key length: ${#API_KEY}"
+
+        # Export for the Gemini CLI to pick up
         export GEMINI_API_KEY="${API_KEY}"
+
+        # Run the CLI
         gemini "${ADDITIONAL_CONTEXT}"
+
 
