@@ -206,10 +206,27 @@ jobs:
         run: |
           set -euo pipefail
           echo "Running agent command"
+
           script="$RUNNER_TEMP/agent_cmd.sh"
-          printf '%s\n' "${{ inputs.agent_command }}" > "$script"
-          chmod +x "$script"
-          bash "$script"
+          # Write the command exactly as-is (no interpolation)
+          cat >"$script" <<'SCRIPT'
+          ${{ inputs.agent_command }}
+          SCRIPT
+
+          # Normalize CRLF if someone pasted Windows newlines (harmless otherwise)
+          sed -i 's/\r$//' "$script"
+
+          chmod 700 "$script"
+
+          # Optional: show the script in debug logs
+          if [ "${ACTIONS_STEP_DEBUG:-}" = "true" ]; then
+            echo "---- agent_cmd.sh ----"
+            nl -ba "$script"
+            echo "----------------------"
+          fi
+
+          # Replace the current shell so the exit code is from the script itself
+          exec bash "$script"
 
       - name: Report outcome
         if: always()
