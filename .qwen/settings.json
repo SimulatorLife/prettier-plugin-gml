@@ -5,7 +5,8 @@
     }
   },
   "tools": {
-    "approvalMode": "auto-edit"
+    "approvalMode": "auto-edit",
+    "exclude": ["web_search", "web_fetch"]
   },
   "model": {
     "sessionTokenLimit": 128000,
