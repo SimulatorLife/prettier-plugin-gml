@@ -51,7 +51,7 @@ jobs:
 
         # Just for debugging purposes, verify we have an API key
         if [ -z "${API_KEY:-}" ]; then
-          echo "❌ No API_KEY defined!"
+          echo "❌ No API key defined!"
           exit 1
         fi
 
