@@ -24,8 +24,8 @@ on:
       npm_package:
         type: string
         required: false
+    secrets:
       api_key:
-        type: string
         required: false
 
 concurrency:
@@ -201,7 +201,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          API_KEY: ${{ inputs.api_key || '' }}
+          API_KEY: ${{ secrets.api_key }}
           ADDITIONAL_CONTEXT: ${{ steps.validate_pr.outputs.additional_context || '' }}
         run: |
           set -euo pipefail
