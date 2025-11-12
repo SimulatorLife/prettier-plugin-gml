@@ -21,9 +21,6 @@ on:
       agent_command:
         type: string
         required: false
-      api_key:
-        type: string
-        required: false
       npm_package:
         type: string
         required: false
@@ -202,7 +199,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           ADDITIONAL_CONTEXT: ${{ steps.validate_pr.outputs.additional_context || '' }}
-          API_KEY: ${{ inputs.api_key }}           # <-- make key available to script
         run: |
           set -euo pipefail
           echo "Running agent command"

@@ -44,22 +44,18 @@ jobs:
     with:
       pr_number: ${{ needs.prepare.outputs.pr_number }}
       additional_context: ${{ needs.prepare.outputs.additional_context }}
-      api_key: ${{ needs.prepare.outputs.api_key }}
       agent: gemini
       npm_package: '@google/gemini-cli@latest'
       agent_command: |
         set -euo pipefail
 
-        # Just for debugging purposes, verify we have an API key
-        if [ -z "${API_KEY:-}" ]; then
-          echo "❌ No API key defined!"
+        # Resolve and export API key directly from secrets
+        export GEMINI_API_KEY="${{ needs.prepare.outputs.api_key }}"
+
+        if [ -z "${GEMINI_API_KEY:-}" ]; then
+          echo "❌ Missing GEMINI_API_KEY secret!"
           exit 1
         fi
-
-        echo "Gemini API key length: ${#API_KEY}"
-
-        # Export for the Gemini CLI to pick up
-        export GEMINI_API_KEY="${API_KEY}"
 
         # Run the CLI
         gemini "${ADDITIONAL_CONTEXT}"
