@@ -50,11 +50,23 @@ jobs:
           BRANCH_NAME="${HEAD_REF}"
 
           # Emit outputs for downstream steps
+          # Use multiline-safe output syntax for values that may contain newlines or special
+          # characters. The $GITHUB_OUTPUT file accepts the following format for multiline
+          # values: key<<EOF\n<value>\nEOF
           echo "pr_number=${PR_NUMBER}" >> "$GITHUB_OUTPUT"
-          echo "additional_context=${ADDITIONAL_CTX}" >> "$GITHUB_OUTPUT"
+
+          echo "additional_context<<EOF" >> "$GITHUB_OUTPUT"
+          printf '%s' "$ADDITIONAL_CTX" >> "$GITHUB_OUTPUT"
+          echo >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
           echo "working_branch=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
           echo "target_sha=${HEAD_SHA}" >> "$GITHUB_OUTPUT"
-          echo "title=${PR_TITLE}" >> "$GITHUB_OUTPUT"
+
+          echo "title<<EOF" >> "$GITHUB_OUTPUT"
+          printf '%s' "$PR_TITLE" >> "$GITHUB_OUTPUT"
+          echo >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
           echo "Fetched PR head: ${BRANCH_NAME} @ ${HEAD_SHA}"
 
       - name: Verify gh CLI available
