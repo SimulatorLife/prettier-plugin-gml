@@ -447,6 +447,80 @@ export function emitJavaScript(ast) {
         return result;
     }
 
+    // Lower GML `with` statements into explicit loops that iterate over the
+    // resolved instance targets. GameMaker temporarily rebinds `self` to each
+    // target and exposes the previous `self` value as `other`. We emulate that by
+    // saving the incoming bindings, iterating the resolved targets, and
+    // reassigning the parameters for the duration of the loop body.
+    if (ast.type === "WithStatement") {
+        const testExpr = ast.test
+            ? ast.test.type === "ParenthesizedExpression"
+                ? emitJavaScript(ast.test.expression)
+                : emitJavaScript(ast.test)
+            : "undefined";
+
+        const rawBody = (() => {
+            if (!ast.body) {
+                return "{\n}";
+            }
+
+            if (ast.body.type === "BlockStatement") {
+                return emitJavaScript(ast.body);
+            }
+
+            let statement = emitJavaScript(ast.body);
+            if (statement && !statement.trim().endsWith(";")) {
+                statement += ";";
+            }
+            return `{\n${statement}\n}`;
+        })();
+
+        const indentedBody = rawBody
+            .split("\n")
+            .map((line) => (line ? `        ${line}` : ""))
+            .join("\n");
+
+        return [
+            "{",
+            "    const __with_prev_self = self;",
+            "    const __with_prev_other = other;",
+            `    const __with_value = ${testExpr};`,
+            "    const __with_targets = (() => {",
+            "        if (",
+            '            typeof globalThis.__resolve_with_targets === "function"',
+            "        ) {",
+            "            return globalThis.__resolve_with_targets(",
+            "                __with_value,",
+            "                __with_prev_self,",
+            "                __with_prev_other",
+            "            );",
+            "        }",
+            "        if (__with_value == null) {",
+            "            return [];",
+            "        }",
+            "        if (Array.isArray(__with_value)) {",
+            "            return __with_value;",
+            "        }",
+            "        return [__with_value];",
+            "    })();",
+            "    for (",
+            "        let __with_index = 0;",
+            "        __with_index < __with_targets.length;",
+            "        __with_index += 1",
+            "    ) {",
+            "        const __with_self = __with_targets[__with_index];",
+            "        self = __with_self;",
+            "        other = __with_prev_self;",
+            indentedBody,
+            "    }",
+            "    self = __with_prev_self;",
+            "    other = __with_prev_other;",
+            "}"
+        ]
+            .filter(Boolean)
+            .join("\n");
+    }
+
     // Emit return statements with an optional return value. GML permits bare
     // `return` without an argument, which maps directly to JavaScript's `return`.
     if (ast.type === "ReturnStatement") {

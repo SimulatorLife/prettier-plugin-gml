@@ -300,6 +300,47 @@ test("emitJavaScript handles while loop without braces", () => {
     );
 });
 
+test("emitJavaScript handles with statements with block bodies", () => {
+    const source = "with (obj_enemy) { hp -= 1; }";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+
+    assert.ok(
+        result.includes("__resolve_with_targets"),
+        "Should resolve with targets through helper"
+    );
+    assert.ok(
+        result.includes("const __with_prev_self = self"),
+        "Should capture previous self binding"
+    );
+    assert.ok(
+        result.includes("self = __with_self"),
+        "Should assign new self value for each target"
+    );
+    assert.ok(
+        result.includes("other = __with_prev_self"),
+        "Should expose previous self as other"
+    );
+    assert.ok(result.includes("hp -= 1"), "Should emit loop body");
+});
+
+test("emitJavaScript wraps with statements without braces", () => {
+    const source = "with (obj_enemy) hp -= 1";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+
+    assert.ok(
+        result.includes("with_prev_self"),
+        "Should manage scope bindings"
+    );
+    assert.ok(
+        result.includes("        {\n        hp -= 1;\n        }"),
+        "Should wrap single statements in a block"
+    );
+});
+
 test("emitJavaScript handles variable declarations", () => {
     const source = "var x = 10";
     const parser = new GMLParser(source);
