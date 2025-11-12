@@ -201,6 +201,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
+          API_KEY: ${{ inputs.api_key || '' }}
           ADDITIONAL_CONTEXT: ${{ steps.validate_pr.outputs.additional_context || '' }}
         run: |
           set -euo pipefail
