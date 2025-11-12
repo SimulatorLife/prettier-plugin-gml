@@ -170,6 +170,45 @@ test("WebSocket client applies batch patches from messages", async () => {
     delete globalThis.WebSocket;
 });
 
+test("WebSocket client prefers trySafeApply when available", async () => {
+    const wrapper = createRuntimeWrapper();
+    const originalTrySafeApply = wrapper.trySafeApply;
+    let trySafeApplyCalls = 0;
+
+    wrapper.trySafeApply = (...args) => {
+        trySafeApplyCalls++;
+        return originalTrySafeApply(...args);
+    };
+
+    globalThis.WebSocket = MockWebSocket;
+
+    const client = createWebSocketClient({
+        wrapper,
+        autoConnect: true
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const patch = {
+        kind: "script",
+        id: "script:prefers_safe",
+        js_body: "return 7;"
+    };
+
+    const ws = client.getWebSocket();
+    assert.ok(ws, "WebSocket should be available");
+
+    ws.simulateMessage(JSON.stringify(patch));
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    assert.strictEqual(trySafeApplyCalls, 1);
+    assert.ok(wrapper.hasScript("script:prefers_safe"));
+
+    client.disconnect();
+    delete globalThis.WebSocket;
+});
+
 test("WebSocket client handles invalid JSON gracefully", async () => {
     const wrapper = createRuntimeWrapper();
     let errorCalled = false;
@@ -195,6 +234,55 @@ test("WebSocket client handles invalid JSON gracefully", async () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
 
     assert.ok(errorCalled);
+
+    client.disconnect();
+    delete globalThis.WebSocket;
+});
+
+test("WebSocket client surfaces trySafeApply failures", async () => {
+    let capturedError = null;
+    let capturedContext = null;
+
+    const wrapper = {
+        trySafeApply: () => ({
+            success: false,
+            message: "Shadow validation failed: syntax error",
+            error: "syntax error",
+            rolledBack: true
+        })
+    };
+
+    globalThis.WebSocket = MockWebSocket;
+
+    const client = createWebSocketClient({
+        wrapper,
+        onError: (error, context) => {
+            capturedError = error;
+            capturedContext = context;
+        },
+        autoConnect: true
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const ws = client.getWebSocket();
+    assert.ok(ws, "WebSocket should be available");
+
+    const failingPatch = {
+        kind: "script",
+        id: "script:bad",
+        js_body: "return 42;"
+    };
+
+    ws.simulateMessage(JSON.stringify(failingPatch));
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    assert.ok(capturedError);
+    assert.strictEqual(capturedContext, "patch");
+    assert.ok(capturedError.message.includes("Shadow validation failed"));
+    assert.deepEqual(capturedError.patch, failingPatch);
+    assert.strictEqual(capturedError.rolledBack, true);
 
     client.disconnect();
     delete globalThis.WebSocket;

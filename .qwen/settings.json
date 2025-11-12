@@ -1,17 +1,33 @@
 {
   "general": {
     "checkpointing": {
-      "enabled": true
+      "enabled": false
     }
   },
   "tools": {
-    "approvalMode": "auto-edit"
+    "approvalMode": "auto-edit",
+    "exclude": ["web_search", "web_fetch"]
   },
   "model": {
-    "sessionTokenLimit": 128000
+    "sessionTokenLimit": 128000,
+    "maxSessionTurns": 50
   },
   "experimental": {
     "visionModelPreview": false
+  },
+  "privacy": {
+    "usageStatisticsEnabled": false
+  },
+  "context": {
+    "fileName": "AGENTS.md"
+  },
+  "shell": {
+    "enableInteractiveShell": false
+  },
+  "ui":{
+    "accessibility": {
+      "disableLoadingPhrases": true
+    }
   },
   "$version": 2
 }

@@ -25,8 +25,8 @@ on:
         type: string
         required: false
     secrets:
-      api_key:
-        required: false
+      api_key: # may contain one key OR multiple newline-separated keys
+        required: true
 
 concurrency:
   group: '${{ github.workflow }}-invoke-${{ inputs.pr_number }}'
@@ -189,6 +189,41 @@ jobs:
             echo "${{ inputs.agent }} CLI already installed at: $(command -v ${{ inputs.agent }})"
           fi
 
+      - name: Resolve API key (single or multi-line)
+        shell: bash
+        env:
+          RAW_API_KEYS: ${{ secrets.api_key }}
+        run: |
+          set -euo pipefail
+
+          # Normalize CRLF and split into non-empty lines
+          mapfile -t _keys < <(printf '%s\n' "$RAW_API_KEYS" \
+                              | tr -d '\r' \
+                              | awk 'length($0) > 0')
+
+          if [ "${#_keys[@]}" -eq 0 ]; then
+            echo "No API keys provided in secret 'api_key'." >&2
+            exit 1
+          fi
+
+          if [ "${#_keys[@]}" -eq 1 ]; then
+            picked="${_keys[0]}"
+            echo "Selected 1/1 key."
+          else
+            idx=$(( RANDOM % ${#_keys[@]} ))
+            picked="${_keys[$idx]}"
+            echo "Selected 1/${#_keys[@]} keys at random."
+          fi
+
+          # Export for all later steps (multiline-safe syntax, even though it's one line)
+          {
+            echo 'API_KEY<<EOF'
+            printf '%s\n' "$picked"
+            echo 'EOF'
+          } >> "$GITHUB_ENV"
+
+          echo "API_KEY length: ${#picked}"
+
       - name: Run agent custom command
         if: ${{ inputs.agent_command != '' }}
         shell: bash
@@ -201,7 +236,6 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          API_KEY: ${{ secrets.api_key }}
           ADDITIONAL_CONTEXT: ${{ steps.validate_pr.outputs.additional_context || '' }}
         run: |
           set -euo pipefail
