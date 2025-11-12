@@ -13,42 +13,26 @@ defaults:
     shell: 'bash'
 
 jobs:
-  parse:
-    runs-on: ubuntu-latest
-    outputs:
-      pr_number: ${{ steps.parse_comment.outputs.pr_number }}
-      additional_context: ${{ steps.parse_comment.outputs.additional_context }}
-    steps:
-      - name: Validate comment & fetch PR info
-        id: parse_comment
-        if: ${{ github.event.issue.pull_request && contains(github.event.comment.body || '', '@qwen-cli') }}
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-
-          EVENT_FILE="${GITHUB_EVENT_PATH:-/github/workflow/event.json}"
-          COMMENT_BODY=$(jq -r '.comment.body // empty' "$EVENT_FILE")
-          PR_NUMBER=$(jq -r '.issue.number' "$EVENT_FILE")
-
-          # Extract additional context only; PR metadata will be fetched by the parent workflow
-          ADDITIONAL_CTX=$(echo "$COMMENT_BODY" | sed -E 's/^.*@qwen-cli\s*//')
-          echo "pr_number=${PR_NUMBER}" >> "$GITHUB_OUTPUT"
-          echo "additional_context<<EOF" >> "$GITHUB_OUTPUT"
-          printf '%s' "$ADDITIONAL_CTX" >> "$GITHUB_OUTPUT"
-          echo >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
-
   prepare:
+    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body || '', '@qwen-cli') }}
     runs-on: ubuntu-latest
-    needs: parse
     outputs:
-      pr_number: ${{ needs.parse.outputs.pr_number }}
-      additional_context: ${{ needs.parse.outputs.additional_context }}
+      pr_number: ${{ steps.set_pr.outputs.pr_number }}
+      additional_context: ${{ steps.set_pr.outputs.additional_context }}
       api_key: ${{ steps.pick_key.outputs.api_key }}
       settings_json: ${{ steps.build_settings.outputs.settings_json }}
     steps:
+      - name: Set PR metadata
+        id: set_pr
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Pass the raw event values through to the parent workflow; parent will validate mention and fetch PR meta
+          echo "pr_number=${{ github.event.issue.number }}" >> "$GITHUB_OUTPUT"
+          echo "additional_context<<EOF" >> "$GITHUB_OUTPUT"
+          printf '%s' "${{ github.event.comment.body }}" >> "$GITHUB_OUTPUT"
+          echo >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
       - name: Pick API key
         id: pick_key
         shell: bash
