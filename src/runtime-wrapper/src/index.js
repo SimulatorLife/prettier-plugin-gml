@@ -488,6 +488,80 @@ export function createWebSocketClient({
                 }
             });
 
+            const applyIncomingPatch = (patch) => {
+                if (!patch || typeof patch !== "object" || !patch.kind) {
+                    return true;
+                }
+
+                if (wrapper && typeof wrapper.trySafeApply === "function") {
+                    try {
+                        const result = wrapper.trySafeApply(patch);
+
+                        if (!result || result.success !== true) {
+                            const errorMessage =
+                                result?.message ||
+                                result?.error ||
+                                `Failed to apply patch ${patch.id ?? "<unknown>"}`;
+                            const safeError = new Error(errorMessage);
+                            safeError.patch = patch;
+                            if (result && "rolledBack" in result) {
+                                safeError.rolledBack = result.rolledBack;
+                            }
+
+                            if (onError) {
+                                onError(safeError, "patch");
+                            }
+
+                            return false;
+                        }
+
+                        return true;
+                    } catch (error) {
+                        if (
+                            error &&
+                            typeof error === "object" &&
+                            !("patch" in error)
+                        ) {
+                            error.patch = patch;
+                        }
+
+                        if (onError) {
+                            onError(error, "patch");
+                        }
+
+                        return false;
+                    }
+                }
+
+                if (!wrapper || typeof wrapper.applyPatch !== "function") {
+                    const missing = new Error(
+                        "Runtime wrapper does not expose applyPatch"
+                    );
+                    missing.patch = patch;
+
+                    if (onError) {
+                        onError(missing, "patch");
+                    }
+
+                    return false;
+                }
+
+                try {
+                    wrapper.applyPatch(patch);
+                    return true;
+                } catch (error) {
+                    if (
+                        error &&
+                        typeof error === "object" &&
+                        !("patch" in error)
+                    ) {
+                        error.patch = patch;
+                    }
+
+                    throw error;
+                }
+            };
+
             state.ws.addEventListener("message", (event) => {
                 if (!wrapper) {
                     return;
@@ -508,12 +582,11 @@ export function createWebSocketClient({
                 const patches = Array.isArray(payload) ? payload : [payload];
 
                 for (const patch of patches) {
-                    if (!patch || typeof patch !== "object" || !patch.kind) {
-                        continue;
-                    }
-
                     try {
-                        wrapper.applyPatch(patch);
+                        const applied = applyIncomingPatch(patch);
+                        if (!applied) {
+                            break;
+                        }
                     } catch (error) {
                         if (onError) {
                             onError(error, "patch");
