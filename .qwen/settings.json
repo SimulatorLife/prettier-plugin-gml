@@ -1,4 +1,9 @@
 {
+  "general": {
+    "checkpointing": {
+      "enabled": true
+    }
+  },
   "tools": {
     "approvalMode": "auto-edit"
   },

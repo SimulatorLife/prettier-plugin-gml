@@ -5,6 +5,9 @@ tmp/
 # gemini-cli settings
 .gemini/
 
+.qwen/
+!.qwen/settings.json
+
 # GitHub App credentials
 gha-creds-*.json
 
