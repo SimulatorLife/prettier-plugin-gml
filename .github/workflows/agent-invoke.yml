@@ -223,8 +223,7 @@ jobs:
           nl -ba "$script"
           echo "----------------------"
 
-          # Replace the current shell so the exit code is from the script itself
-          exec bash "$script"
+          bash "$script"
 
       - name: Report outcome
         if: always()
