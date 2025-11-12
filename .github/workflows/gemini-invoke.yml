@@ -50,8 +50,20 @@ jobs:
       agent_command: |
         set -euo pipefail
         mkdir -p "$RUNNER_TEMP/.gemini"
-        printf '%s' '{"model":{"maxSessionTurns":35}}' > "$RUNNER_TEMP/.gemini/settings.json"
+
+        # Generate JSON with jq (avoids heredoc/printf pitfalls)
+        jq -n '{model:{maxSessionTurns:35}}' > "$RUNNER_TEMP/.gemini/settings.json"
+
+        # Sanity-check
         jq -e . "$RUNNER_TEMP/.gemini/settings.json" >/dev/null
+
+        echo "---- settings.json ----"
+        cat "$RUNNER_TEMP/.gemini/settings.json"
+        echo "-----------------------"
+
+        # Wire auth + settings
         export GEMINI_API_KEY="${API_KEY}"
         export GEMINI_CLI_SYSTEM_SETTINGS_PATH="$RUNNER_TEMP/.gemini/settings.json"
+
         gemini "${ADDITIONAL_CONTEXT}"
+
