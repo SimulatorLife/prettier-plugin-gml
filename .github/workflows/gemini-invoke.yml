@@ -35,6 +35,7 @@ jobs:
             5) selected="${{ secrets.GEMINI_API_KEY5 }}" ;;
           esac
           echo "api_key=${selected}" >> "$GITHUB_OUTPUT"
+          echo "Selected Gemini API key #${key_num} with length ${#selected}" >&2
 
   invoke:
     needs: prepare
