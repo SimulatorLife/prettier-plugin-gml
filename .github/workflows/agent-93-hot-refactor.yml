@@ -1,4 +1,4 @@
-name: Agent 93 – Refactor Engine Enhancements
+name: "Agent 93 – Refactor Engine Enhancements"
 
 on:
   workflow_dispatch:

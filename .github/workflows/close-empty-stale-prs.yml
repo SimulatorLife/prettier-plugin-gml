@@ -1,4 +1,4 @@
-name: PR Janitor – Close Empty Stale PRs
+name: "PR Janitor – Close Empty Stale PRs"
 
 on:
   schedule:

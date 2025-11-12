@@ -1,4 +1,4 @@
-name: Agent 84 – Document Intent
+name: "Agent 84 – Document Intent"
 on:
   workflow_dispatch:
     inputs:

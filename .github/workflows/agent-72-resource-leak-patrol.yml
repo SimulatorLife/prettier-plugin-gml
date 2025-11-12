@@ -1,4 +1,4 @@
-name: Agent 72 – Resource Leak Patrol
+name: "Agent 72 - Resource Leak Patrol"
 on:
   workflow_dispatch:
     inputs:

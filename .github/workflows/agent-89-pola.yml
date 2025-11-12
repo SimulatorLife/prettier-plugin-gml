@@ -1,4 +1,4 @@
-name: Agent 89 – POLA Behaviour Audit
+name: "Agent 89 – POLA Behaviour Audit"
 on:
   workflow_dispatch:
     inputs:

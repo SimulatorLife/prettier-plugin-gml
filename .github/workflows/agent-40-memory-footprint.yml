@@ -1,4 +1,4 @@
-name: Agent 40 – Memory Footprint Control
+name: "Agent 40 - Memory Footprint Control"
 on:
   workflow_dispatch:
     inputs:

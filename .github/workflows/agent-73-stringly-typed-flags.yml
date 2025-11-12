@@ -1,4 +1,4 @@
-name: Agent 73 – Stringly Typed Flags
+name: "Agent 73 - Stringly Typed Flags"
 on:
   workflow_dispatch:
     inputs:

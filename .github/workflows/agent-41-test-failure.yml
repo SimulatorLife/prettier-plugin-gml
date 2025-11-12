@@ -1,4 +1,4 @@
-name: Agent 41 – Failing Test Recovery
+name: "Agent 41 - Failing Test Recovery"
 on:
   workflow_dispatch:
     inputs:

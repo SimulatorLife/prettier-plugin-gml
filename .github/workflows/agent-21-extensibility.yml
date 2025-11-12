@@ -1,4 +1,4 @@
-name: Agent 21 – Extensibility Hooks
+name: "Agent 21 - Extensibility Hooks"
 on:
   workflow_dispatch:
     inputs:

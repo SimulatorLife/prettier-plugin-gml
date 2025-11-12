@@ -1,4 +1,4 @@
-name: Agent 30 – Project Organization
+name: "Agent 30 - Project Organization"
 
 on:
   workflow_dispatch:

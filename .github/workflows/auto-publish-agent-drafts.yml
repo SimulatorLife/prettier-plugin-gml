@@ -1,4 +1,4 @@
-name: Auto-publish agent drafts
+name: "Auto-publish agent drafts"
 
 on:
   schedule:

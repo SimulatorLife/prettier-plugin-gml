@@ -1,0 +1,213 @@
+name: '▶️ Agent Invoke (parent)'
+
+on:
+  workflow_call:
+    inputs:
+      pr_number:
+        type: string
+        required: true
+      target_sha:
+        type: string
+        required: false
+      working_branch:
+        type: string
+        required: false
+      title:
+        type: string
+        required: false
+      additional_context:
+        type: string
+        required: false
+      agent:
+        type: string
+        required: true
+      agent_command:
+        type: string
+        required: false
+      api_key:
+        type: string
+        required: false
+      settings_json:
+        type: string
+        required: false
+
+concurrency:
+  group: '${{ github.workflow }}-invoke-${{ inputs.pr_number }}'
+  cancel-in-progress: false
+
+jobs:
+  invoke:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Verify gh CLI available
+        run: gh --version
+
+      - name: Validate comment & fetch PR info
+        id: validate_pr
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # Ensure the PR exists and fetch head ref/sha and title
+          gh pr view "${PR_NUMBER}" --repo "${REPOSITORY}" --json headRefName,headRefOid,title -q '.' > "$RUNNER_TEMP/_pr_meta.json"
+          jq -r '.headRefName // empty' "$RUNNER_TEMP/_pr_meta.json" > "$RUNNER_TEMP/_pr_head_ref.txt"
+          jq -r '.headRefOid // empty'   "$RUNNER_TEMP/_pr_meta.json" > "$RUNNER_TEMP/_pr_head_sha.txt"
+          jq -r '.title // empty'        "$RUNNER_TEMP/_pr_meta.json" > "$RUNNER_TEMP/_pr_title.txt"
+          PR_HEAD_REF=$(cat "$RUNNER_TEMP/_pr_head_ref.txt")
+          PR_HEAD_SHA=$(cat "$RUNNER_TEMP/_pr_head_sha.txt")
+          PR_TITLE=$(cat "$RUNNER_TEMP/_pr_title.txt")
+          if [ -z "$PR_HEAD_REF" ] || [ -z "$PR_HEAD_SHA" ]; then
+            echo "Failed to determine PR head ref/sha for PR #${PR_NUMBER}" >&2
+            exit 1
+          fi
+          echo "pr_title<<EOF" >> "$GITHUB_OUTPUT"
+          printf '%s' "$PR_TITLE" >> "$GITHUB_OUTPUT"
+          echo >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          echo "head_ref=${PR_HEAD_REF}" >> "$GITHUB_OUTPUT"
+          echo "head_sha=${PR_HEAD_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Acknowledge request
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ inputs.pr_number }}
+          AGENT_NAME: ${{ inputs.agent }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_LINK: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          MESSAGE: |-
+            **[🤖 ${{ inputs.agent }}]** Hi, I've received your request and will begin working on it now. See the [logs for progress](${{ env.RUN_LINK }}).
+        run: |
+          set -euo pipefail
+          gh issue comment "${ISSUE_NUMBER}" --body "${MESSAGE}" --repo "${REPOSITORY}"
+
+      - name: Checkout target commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Use the SHA fetched by the validate_pr step (prefer step output to inputs)
+          ref: ${{ steps.validate_pr.outputs.head_sha }}
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Create local branch & verify
+        shell: bash
+        env:
+          WORKING_BRANCH: ${{ steps.validate_pr.outputs.head_ref }}
+          TARGET_SHA: ${{ steps.validate_pr.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          raw="${WORKING_BRANCH}"
+          branch="${raw#refs/heads/}"
+          branch="${branch#origin/}"
+          git checkout -B "${branch}" "${TARGET_SHA}"
+          echo "WORKING_BRANCH=${branch}" >> "$GITHUB_ENV"
+
+      - name: Configure git identity
+        env:
+          GH_USER_NAME: ${{ vars.GH_USER_NAME }}
+          GH_USER_EMAIL: ${{ vars.GH_USER_EMAIL }}
+        run: |
+          set -euo pipefail
+          git config user.name "${GH_USER_NAME}"
+          git config user.email "${GH_USER_EMAIL}"
+
+      - name: Add PATH shims (return 99 after successful git push)
+        shell: bash
+        run: |
+          set -euo pipefail
+          shim_dir="$RUNNER_TEMP/cmd_shims"
+          mkdir -p "$shim_dir"
+          real_git="$(command -v git)"
+          if [ -z "$real_git" ]; then echo "Could not locate real git"; exit 1; fi
+          {
+            echo '#!/usr/bin/env bash'
+            echo "REAL_GIT=\"$real_git\""
+            echo 'SENTINEL="${RUNNER_TEMP:-/tmp}/.agent_push_succeeded"'
+            echo '"$REAL_GIT" "$@"'
+            echo 'code=$?'
+            echo 'if [ $code -eq 0 ] && [ "$1" = "push" ]; then'
+            echo '  date +"%F %T" > "$SENTINEL"'
+            echo '  exit 99'
+            echo 'fi'
+            echo 'exit $code'
+          } > "$shim_dir/git"
+          chmod +x "$shim_dir/git"
+          echo "PATH=$shim_dir:$PATH" >> "$GITHUB_ENV"
+
+      - name: Use PAT for pushes
+        env:
+          GH_USER_TOKEN: ${{ secrets.GH_USER_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config --local --unset-all http.https://github.com/.extraheader || true
+          git remote set-url origin "https://x-access-token:${GH_USER_TOKEN}@github.com/${{ github.repository }}.git"
+
+      - name: Use Node from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            **/package-lock.json
+
+      - name: Install dependencies (root/workspaces)
+        run: npm ci
+
+      - name: Run agent invocation (gemini)
+        if: ${{ inputs.agent == 'gemini' }}
+        id: run_agent
+        uses: 'google-github-actions/run-gemini-cli@v0'
+        continue-on-error: true
+        timeout-minutes: 30
+        env:
+          # Prefer an explicitly-passed title, otherwise use the PR title fetched earlier
+          TITLE: ${{ inputs.title || steps.validate_pr.outputs.pr_title }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          ADDITIONAL_CONTEXT: ${{ inputs.additional_context }}
+        with:
+          gemini_api_key: ${{ inputs.api_key }}
+          settings: '${{ inputs.settings_json }}'
+
+      - name: Run agent custom command
+        if: ${{ inputs.agent != 'gemini' && inputs.agent_command != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Running custom agent command"
+          eval "${{ inputs.agent_command }}"
+
+      - name: Report outcome
+        if: always()
+        env:
+          RUN_AGENT_OUTCOME: ${{ steps.run_agent.outcome || '' }}
+          RUN_AGENT_CONCLUSION: ${{ steps.run_agent.conclusion || '' }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ inputs.pr_number }}
+          REPOSITORY: ${{ github.repository }}
+          MESSAGE: |-
+            **[🤖 ${{ inputs.agent }}]** I'm sorry, but I was unable to complete the requested action. See the logs for details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          SENTINEL="${RUNNER_TEMP}/.agent_push_succeeded"
+          if [ -f "$SENTINEL" ]; then
+            echo "Push detected → SUCCESS."
+            exit 0
+          fi
+          echo "No push sentinel found → FAIL."
+          gh issue comment "${ISSUE_NUMBER}" --body "${MESSAGE}" --repo "${REPOSITORY}" || true
+          exit 1

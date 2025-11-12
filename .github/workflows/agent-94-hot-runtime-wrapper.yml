@@ -1,4 +1,4 @@
-name: Agent 94 – Runtime Wrapper Upgrades
+name: "Agent 94 – Runtime Wrapper Upgrades"
 
 on:
   workflow_dispatch:

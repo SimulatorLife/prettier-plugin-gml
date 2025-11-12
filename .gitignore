@@ -8,6 +8,10 @@ tmp/
 # GitHub App credentials
 gha-creds-*.json
 
+# AI agents sometimes add scripts
+# We don't want to commit these by accident
+scripts/
+
 # Logs
 logs/
 *.log

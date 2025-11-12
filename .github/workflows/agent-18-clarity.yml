@@ -1,4 +1,4 @@
-name: Agent 18 – Control-Flow Clarity
+name: "Agent 18 - Control-Flow Clarity"
 on:
   workflow_dispatch:
     inputs:

@@ -1,4 +1,4 @@
-name: Agent 04 – Style Consistency Pass
+name: "Agent 04 - Style Consistency Pass"
 on:
   workflow_dispatch:
     inputs:

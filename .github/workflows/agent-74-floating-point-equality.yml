@@ -1,4 +1,4 @@
-name: Agent 74 – Floating-Point Equality Pitfalls
+name: "Agent 74 - Floating-Point Equality Pitfalls"
 on:
   workflow_dispatch:
     inputs:

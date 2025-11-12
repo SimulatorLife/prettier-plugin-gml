@@ -1,4 +1,4 @@
-name: Agent 98 – Hot Reload Integration
+name: "Agent 98 – Hot Reload Integration"
 
 on:
   workflow_dispatch:

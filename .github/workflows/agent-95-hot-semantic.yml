@@ -1,4 +1,4 @@
-name: Agent 95 – Semantic Scope Improvements
+name: "Agent 95 – Semantic Scope Improvements"
 
 on:
   workflow_dispatch:

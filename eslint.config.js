@@ -12,6 +12,7 @@ import pluginNoSecrets from "eslint-plugin-no-secrets";
 import pluginEslintComments from "eslint-plugin-eslint-comments";
 import pluginUnusedImports from "eslint-plugin-unused-imports";
 import deMorgan from "eslint-plugin-de-morgan";
+import pluginYml from "eslint-plugin-yml";
 
 /* Config */
 import eslintConfigPrettier from "eslint-config-prettier";
@@ -32,9 +33,24 @@ export default [
             "*.gml",
             ".DS_Store",
             "LICENSE",
-            ".github/**",
-            "*.g4"
+            // NOTE: Do not ignore `.github/**` here because we want to lint
+            // workflow YAML files (GH Actions) with eslint-plugin-yml. Workflows
+            // are validated by the YAML rule set defined below (files: **/*.yml)
+            // Removing the blanket ignore allows the `.github/*.yml` files to
+            // be picked up by `npm run lint:yaml` and by CI checks.
+            "*.g4",
+            "tmp/*"
         ]
+    },
+    /* GitHub workflow files commonly use empty mapping keys (e.g. `workflow_dispatch:`
+     * and `on:` triggers). The yml/no-empty-mapping-value rule is useful generally
+     * but is noisy for GitHub Actions templates; relax it for `.github/workflows`.
+     */
+    {
+        files: [".github/workflows/**"],
+        rules: {
+            "yml/no-empty-mapping-value": "off"
+        }
     },
 
     /* Base ESLint recommended */
@@ -67,7 +83,8 @@ export default [
             regexp: pluginRegexp,
             "no-secrets": pluginNoSecrets,
             "eslint-comments": pluginEslintComments,
-            "unused-imports": pluginUnusedImports
+            "unused-imports": pluginUnusedImports,
+            yml: pluginYml
         },
 
         /* Helpful for import/plugin-import */
@@ -300,6 +317,17 @@ export default [
             "eslint-comments/no-unused-disable": "error"
         }
     },
+
+    // YAML: use the plugin’s flat preset (scoped to *.yml/*.yaml)
+    ...pluginYml.configs["flat/recommended"],
+    {
+        files: [".github/workflows/**"],
+        rules: {
+            // workflows often use keys without values (e.g. `workflow_dispatch:`)
+            "yml/no-empty-mapping-value": "off"
+        }
+    },
+
     /* CLI: allow process.exit */
     {
         files: ["src/cli/**"],

@@ -1,4 +1,4 @@
-name: Agent 92 – Single Responsibility Guardrail
+name: "Agent 92 – Single Responsibility Guardrail"
 
 on:
   workflow_dispatch:

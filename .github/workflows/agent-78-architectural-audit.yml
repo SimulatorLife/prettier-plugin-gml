@@ -1,4 +1,4 @@
-name: Agent 78 – Architectural Audit
+name: "Agent 78 - Architectural Audit"
 
 on:
   workflow_dispatch:

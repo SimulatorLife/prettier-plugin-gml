@@ -1,4 +1,4 @@
-name: Agent 37 – Helper Substitution
+name: "Agent 37 - Helper Substitution"
 on:
   workflow_dispatch:
     inputs:

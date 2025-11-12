@@ -1,4 +1,4 @@
-name: Agent 38 – Logic Deduplication
+name: "Agent 38 - Logic Deduplication"
 on:
   workflow_dispatch:
     inputs:

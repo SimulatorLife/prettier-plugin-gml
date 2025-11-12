@@ -1,4 +1,4 @@
-name: Agent 80 – Favor Composition Over Inheritance
+name: "Agent 80 - Favor Composition Over Inheritance"
 
 on:
   workflow_dispatch:

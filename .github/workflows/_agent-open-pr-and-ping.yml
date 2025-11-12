@@ -1,4 +1,4 @@
-name: Agent – Open PR and Ping
+name: "Agent - Open PR and Ping"
 
 on:
   workflow_call:

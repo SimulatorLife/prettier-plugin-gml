@@ -1,4 +1,4 @@
-name: Agent 82 – Law of Demeter Guardrails
+name: "Agent 82 - Law of Demeter Guardrails"
 on:
   workflow_dispatch:
     inputs:

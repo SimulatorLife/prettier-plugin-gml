@@ -1,4 +1,4 @@
-name: Agent 83 – Dependency Inversion Patrol (DIP)
+name: "Agent 83 - Dependency Inversion Patrol (DIP)"
 
 on:
   workflow_dispatch:

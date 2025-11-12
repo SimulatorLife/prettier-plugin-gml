@@ -1,4 +1,4 @@
-name: Agent 90 – Policy Mechanism Separation
+name: "Agent 90 – Policy Mechanism Separation"
 on:
   workflow_dispatch:
     inputs:

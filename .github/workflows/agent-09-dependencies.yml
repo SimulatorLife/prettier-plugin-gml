@@ -1,4 +1,4 @@
-name: Agent 09 – Dependency Hygiene
+name: "Agent 09 - Dependency Hygiene"
 on:
   workflow_dispatch:
     inputs:

@@ -1,4 +1,4 @@
-name: Agent 10 – Core Documentation Refresh
+name: "Agent 10 - Core Documentation Refresh"
 on:
   workflow_dispatch:
     inputs:

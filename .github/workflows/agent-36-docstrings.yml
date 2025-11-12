@@ -1,4 +1,4 @@
-name: Agent 36 – Docstrings & Comments
+name: "Agent 36 - Docstrings & Comments"
 on:
   workflow_dispatch:
     inputs:

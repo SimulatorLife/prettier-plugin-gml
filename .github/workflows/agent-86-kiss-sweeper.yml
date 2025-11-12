@@ -1,4 +1,4 @@
-name: Agent 86 – KISS Sweeper
+name: "Agent 86 – KISS Sweeper"
 
 on:
   workflow_dispatch:

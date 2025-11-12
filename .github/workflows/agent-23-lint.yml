@@ -1,4 +1,4 @@
-name: Agent 23 – Lint Fixes
+name: "Agent 23 - Lint Fixes"
 on:
   workflow_dispatch:
     inputs:

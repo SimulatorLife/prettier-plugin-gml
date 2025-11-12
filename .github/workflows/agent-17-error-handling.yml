@@ -1,4 +1,4 @@
-name: Agent 17 – Error Handling Consistency
+name: "Agent 17 - Error Handling Consistency"
 on:
   workflow_dispatch:
     inputs:

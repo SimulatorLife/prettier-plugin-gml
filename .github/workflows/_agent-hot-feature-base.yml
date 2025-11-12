@@ -1,4 +1,4 @@
-name: Agent – Hot Feature Base
+name: "Agent - Hot Feature Base"
 
 on:
   workflow_call:

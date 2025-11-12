@@ -1,4 +1,4 @@
-name: scheduler
+name: "scheduler"
 
 on:
   schedule:

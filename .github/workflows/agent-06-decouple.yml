@@ -1,4 +1,4 @@
-name: Agent 06 – Decouple Architecture
+name: "Agent 06 - Decouple Architecture"
 on:
   workflow_dispatch:
     inputs:

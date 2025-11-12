@@ -1,4 +1,4 @@
-name: Agent 77 – Usability Exerciser
+name: "Agent 77 - Usability Exerciser"
 on:
   workflow_dispatch:
     inputs:

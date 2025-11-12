@@ -1,4 +1,4 @@
-name: Agent 88 – Polymorphic Collaborators
+name: "Agent 88 – Polymorphic Collaborators"
 
 on:
   workflow_dispatch:

@@ -1,4 +1,4 @@
-name: Agent 81 – Defensive Input Hardening
+name: "Agent 81 - Defensive Input Hardening"
 
 on:
   workflow_dispatch:

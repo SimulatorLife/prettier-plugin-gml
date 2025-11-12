@@ -1,4 +1,4 @@
-name: Agent 22 – Bug Fix
+name: "Agent 22 - Bug Fix"
 on:
   workflow_dispatch:
     inputs:

@@ -1,4 +1,4 @@
-name: Agent 96 – Transpiler Development
+name: "Agent 96 – Transpiler Development"
 
 on:
   workflow_dispatch:

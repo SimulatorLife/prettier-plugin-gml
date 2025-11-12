@@ -1,4 +1,4 @@
-name: Agent 91 – Abstraction Layer Stewardship (SLA)
+name: "Agent 91 – Abstraction Layer Stewardship (SLA)"
 
 on:
   workflow_dispatch:

@@ -1,4 +1,4 @@
-name: Agent 02 – Resolve Merge Conflicts
+name: "Agent 02 - Resolve Merge Conflicts"
 
 on:
   workflow_dispatch:

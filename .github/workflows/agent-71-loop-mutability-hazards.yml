@@ -1,4 +1,4 @@
-name: Agent 71 – Loop Mutability Hazards
+name: "Agent 71 - Loop Mutability Hazards"
 on:
   workflow_dispatch:
     inputs:

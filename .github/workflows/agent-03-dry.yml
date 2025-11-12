@@ -1,4 +1,4 @@
-name: Agent 03 – DRY
+name: "Agent 03 - DRY"
 on:
   workflow_dispatch:
     inputs:
