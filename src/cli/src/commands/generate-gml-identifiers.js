@@ -32,13 +32,9 @@ import {
 } from "../modules/manual/payload-validation.js";
 import {
     describeManualSource,
-    readManualText,
-    resolveManualSource
+    readManualText
 } from "../modules/manual/source.js";
-import {
-    createWorkflowPathFilter,
-    ensureManualWorkflowArtifactsAllowed
-} from "../workflow/path-filter.js";
+import { prepareManualWorkflow } from "../modules/manual/workflow.js";
 import { resolveFromRepoRoot } from "../shared/workspace-paths.js";
 
 const DEFAULT_OUTPUT_PATH = resolveFromRepoRoot(
@@ -751,22 +747,15 @@ export async function runGenerateGmlIdentifiers({ command, workflow } = {}) {
     } = resolveGenerateIdentifierOptions(command);
 
     const verboseState = quiet ? {} : { parsing: true };
-    const workflowPathFilter = createWorkflowPathFilter(workflow);
-
-    ensureManualWorkflowArtifactsAllowed(workflowPathFilter, {
-        outputPath
-    });
-
-    const manualSource = await resolveManualSource({
+    const { workflowPathFilter, manualSource } = await prepareManualWorkflow({
+        workflow,
+        outputPath,
         manualRoot,
-        manualPackage
+        manualPackage,
+        quiet,
+        formatManualSourceMessage: ({ manualSourceDescription }) =>
+            `Using manual assets from ${manualSourceDescription}`
     });
-
-    if (!quiet) {
-        console.log(
-            `Using manual assets from ${describeManualSource(manualSource)}`
-        );
-    }
 
     const payloads = await loadManualPayloads({
         manualSource,
