@@ -48,6 +48,7 @@ jobs:
       npm_package: '@google/gemini-cli@latest'
       agent_command: |
         set -euo pipefail
+        echo "Gemini API key with length ${#API_KEY}"
         export GEMINI_API_KEY="${API_KEY}"
         gemini "${ADDITIONAL_CONTEXT}"
 
