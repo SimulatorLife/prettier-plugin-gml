@@ -97,9 +97,8 @@ jobs:
           ISSUE_NUMBER: ${{ inputs.pr_number }}
           AGENT_NAME: ${{ inputs.agent }}
           REPOSITORY: ${{ github.repository }}
-          RUN_LINK: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           MESSAGE: |-
-            **[🤖 ${{ inputs.agent }}]** Hi, I've received your request and will begin working on it now. See the [logs for progress](${{ env.RUN_LINK }}).
+            **[🤖 ${{ inputs.agent }}]** Hi, I've received your request and will begin working on it now. See the [logs for progress](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).
         run: |
           set -euo pipefail
           gh issue comment "${ISSUE_NUMBER}" --body "${MESSAGE}" --repo "${REPOSITORY}"
@@ -222,7 +221,7 @@ jobs:
           ISSUE_NUMBER: ${{ inputs.pr_number }}
           REPOSITORY: ${{ github.repository }}
           MESSAGE: |-
-            **[🤖 ${{ inputs.agent }}]** I'm sorry, but I was unable to complete the requested action. See the logs for details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            **[🤖 ${{ inputs.agent }}]** I'm sorry, but I was unable to complete the requested action. See [the logs for details](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).
         run: |
           set -euo pipefail
           SENTINEL="${RUNNER_TEMP}/.agent_push_succeeded"
