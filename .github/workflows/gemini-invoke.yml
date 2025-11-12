@@ -27,27 +27,32 @@ jobs:
         run: |
           set -euo pipefail
 
-          echo "Comment body: '${{ github.event.comment.body }}'"
+          # Read event payload safely from GITHUB_EVENT_PATH to avoid unescaped injections
+          EVENT_FILE="${GITHUB_EVENT_PATH:-/github/workflow/event.json}"
+          COMMENT_BODY=$(jq -r '.comment.body // empty' "$EVENT_FILE")
+          PR_NUMBER=$(jq -r '.issue.number' "$EVENT_FILE")
 
-          PR_NUMBER=${{ github.event.issue.number }}
-          echo "PR_NUMBER=${PR_NUMBER}" >> "$GITHUB_ENV"
+          echo "Comment body (len=$(echo -n "$COMMENT_BODY" | wc -c)): [redacted]"
 
           # Extract additional context: text after the mention
-          ADDITIONAL_CTX=$(echo "${{ github.event.comment.body }}" | sed -E 's/^.*@gemini-cli\s*//')
-          echo "ADDITIONAL_CONTEXT=${ADDITIONAL_CTX}" >> "$GITHUB_ENV"
+          ADDITIONAL_CTX=$(echo "$COMMENT_BODY" | sed -E 's/^.*@gemini-cli\s*//')
 
-          # Fetch PR head ref and sha using gh
+          # Fetch PR head ref and sha using gh and parse JSON with jq to avoid quoting issues
           echo "Fetching PR details for #${PR_NUMBER}"
-          gh pr view ${PR_NUMBER} --repo "${{ github.repository }}" --json headRefName,headRefOid,title -q '.headRefName + "\n" + .headRefOid + "\n" + .title' > "$RUNNER_TEMP/_pr_meta.txt"
-          HEAD_REF=$(sed -n '1p' "$RUNNER_TEMP/_pr_meta.txt")
-          HEAD_SHA=$(sed -n '2p' "$RUNNER_TEMP/_pr_meta.txt")
-          PR_TITLE=$(sed -n '3p' "$RUNNER_TEMP/_pr_meta.txt")
+          gh pr view ${PR_NUMBER} --repo "${{ github.repository }}" --json headRefName,headRefOid,title -q '.' > "$RUNNER_TEMP/_pr_meta.json"
+          HEAD_REF=$(jq -r '.headRefName' "$RUNNER_TEMP/_pr_meta.json")
+          HEAD_SHA=$(jq -r '.headRefOid' "$RUNNER_TEMP/_pr_meta.json")
+          PR_TITLE=$(jq -r '.title' "$RUNNER_TEMP/_pr_meta.json")
 
-          # Normalize and export
+          # Normalize values
           BRANCH_NAME="${HEAD_REF}"
-          echo "WORKING_BRANCH=${BRANCH_NAME}" >> "$GITHUB_ENV"
-          echo "TARGET_SHA=${HEAD_SHA}" >> "$GITHUB_ENV"
-          echo "TITLE=${PR_TITLE}" >> "$GITHUB_ENV"
+
+          # Emit outputs for downstream steps
+          echo "pr_number=${PR_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "additional_context=${ADDITIONAL_CTX}" >> "$GITHUB_OUTPUT"
+          echo "working_branch=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
+          echo "target_sha=${HEAD_SHA}" >> "$GITHUB_OUTPUT"
+          echo "title=${PR_TITLE}" >> "$GITHUB_OUTPUT"
           echo "Fetched PR head: ${BRANCH_NAME} @ ${HEAD_SHA}"
 
       - name: Verify gh CLI available
@@ -57,12 +62,15 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ env.TARGET_SHA }}
+          ref: ${{ steps.parse_comment.outputs.target_sha }}
           submodules: recursive
           persist-credentials: false   # ← prevent bot creds from being written
 
       - name: Create local branch & verify
         shell: bash
+        env:
+          WORKING_BRANCH: ${{ steps.parse_comment.outputs.working_branch }}
+          TARGET_SHA: ${{ steps.parse_comment.outputs.target_sha }}
         run: |
           set -euo pipefail
 
@@ -220,7 +228,7 @@ jobs:
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: '${{ env.PR_NUMBER }}'
+          ISSUE_NUMBER: ${{ steps.parse_comment.outputs.pr_number }}
           MESSAGE: |-
             🤖 Hi @${{ github.actor }}, I've received your request, and I'm working on it now! You can track my progress [in the logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more details.
           REPOSITORY: '${{ github.repository }}'
@@ -238,12 +246,12 @@ jobs:
         uses: 'google-github-actions/run-gemini-cli@v0' # ratchet:exclude
         timeout-minutes: 30
         env:
-          TITLE: '${{ env.TITLE }}'
-          PR_NUMBER: '${{ env.PR_NUMBER }}'
+          TITLE: ${{ steps.parse_comment.outputs.title }}
+          PR_NUMBER: ${{ steps.parse_comment.outputs.pr_number }}
           GITHUB_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ github.token }}   # gh will pick this up
           REPOSITORY: '${{ github.repository }}'
-          ADDITIONAL_CONTEXT: '${{ env.ADDITIONAL_CONTEXT }}'
+          ADDITIONAL_CONTEXT: ${{ steps.parse_comment.outputs.additional_context }}
         with:
           gcp_location: '${{ vars.GOOGLE_CLOUD_LOCATION }}'
           gcp_project_id: '${{ vars.GOOGLE_CLOUD_PROJECT }}'
@@ -416,7 +424,7 @@ jobs:
           RUN_GEMINI_OUTCOME:    ${{ steps.run_gemini.outcome    || '' }}
           RUN_GEMINI_CONCLUSION: ${{ steps.run_gemini.conclusion || '' }}
           GITHUB_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: '${{ env.PR_NUMBER }}'
+          ISSUE_NUMBER: ${{ steps.parse_comment.outputs.pr_number }}
           REPOSITORY: '${{ github.repository }}'
           MESSAGE: |-
             🤖 I'm sorry @${{ github.actor }}, but I was unable to process your request. Please [see the logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more details.
