@@ -22,7 +22,7 @@ jobs:
       pr_number: ${{ github.event.issue.number }}
       additional_context: ${{ github.event.comment.body }}
       agent: qwen
-      npm_package: '@qwen/cli@latest'
+      npm_package: '@qwen-code/qwen-code@latest'
       agent_command: |
         set -euo pipefail
         # Resolve API key
