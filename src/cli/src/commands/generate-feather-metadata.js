@@ -20,13 +20,9 @@ import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import { writeManualJsonArtifact } from "../modules/manual/file-helpers.js";
 import {
     describeManualSource,
-    readManualText,
-    resolveManualSource
+    readManualText
 } from "../modules/manual/source.js";
-import {
-    createWorkflowPathFilter,
-    ensureManualWorkflowArtifactsAllowed
-} from "../workflow/path-filter.js";
+import { prepareManualWorkflow } from "../modules/manual/workflow.js";
 import { applyStandardCommandOptions } from "../core/command-standard-options.js";
 import { createCliCommandManager } from "../core/command-manager.js";
 import { handleCliError } from "../core/errors.js";
@@ -1197,22 +1193,13 @@ export async function runGenerateFeatherMetadata({ command, workflow } = {}) {
     const { outputPath, manualRoot, manualPackage, quiet } =
         resolveFeatherMetadataOptions(command);
     const verbose = createVerboseState({ quiet });
-    const workflowPathFilter = createWorkflowPathFilter(workflow);
-
-    ensureManualWorkflowArtifactsAllowed(workflowPathFilter, {
-        outputPath
-    });
-
-    const manualSource = await resolveManualSource({
+    const { workflowPathFilter, manualSource } = await prepareManualWorkflow({
+        workflow,
+        outputPath,
         manualRoot,
-        manualPackage
+        manualPackage,
+        quiet
     });
-
-    if (!quiet) {
-        console.log(
-            `Using manual assets from ${describeManualSource(manualSource)}.`
-        );
-    }
 
     const logCompletion = createVerboseDurationLogger({ verbose });
     const payload = await buildFeatherMetadataPayload({
