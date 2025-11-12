@@ -201,7 +201,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          ADDITIONAL_CONTEXT: ${{ inputs.additional_context }}
+          ADDITIONAL_CONTEXT: ${{ steps.validate_pr.outputs.additional_context || '' }}
           API_KEY: ${{ inputs.api_key }}           # <-- make key available to script
         run: |
           set -euo pipefail
@@ -219,11 +219,9 @@ jobs:
           chmod 700 "$script"
 
           # Optional: show the script in debug logs
-          if [ "${ACTIONS_STEP_DEBUG:-}" = "true" ]; then
-            echo "---- agent_cmd.sh ----"
-            nl -ba "$script"
-            echo "----------------------"
-          fi
+          echo "---- agent_cmd.sh ----"
+          nl -ba "$script"
+          echo "----------------------"
 
           # Replace the current shell so the exit code is from the script itself
           exec bash "$script"
