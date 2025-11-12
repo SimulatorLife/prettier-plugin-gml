@@ -24,6 +24,8 @@ jobs:
         id: parse_comment
         if: ${{ github.event.issue.pull_request && contains(github.event.comment.body || '', '@gemini-cli') }}
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
@@ -183,12 +185,15 @@ jobs:
 
           echo "Selected key number: $key_num"
           case $key_num in
-            1) echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> $GITHUB_ENV ;;
-            2) echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY2 }}" >> $GITHUB_ENV ;;
-            3) echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY3 }}" >> $GITHUB_ENV ;;
-            4) echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY4 }}" >> $GITHUB_ENV ;;
-            5) echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY5 }}" >> $GITHUB_ENV ;;
+            1) selected="${{ secrets.GEMINI_API_KEY }}" ;;
+            2) selected="${{ secrets.GEMINI_API_KEY2 }}" ;;
+            3) selected="${{ secrets.GEMINI_API_KEY3 }}" ;;
+            4) selected="${{ secrets.GEMINI_API_KEY4 }}" ;;
+            5) selected="${{ secrets.GEMINI_API_KEY5 }}" ;;
           esac
+
+          # Emit as a step output to avoid runtime-only env references
+          echo "gemini_api_key=${selected}" >> "$GITHUB_OUTPUT"
 
       - name: Build and validate Gemini settings JSON
         id: build_settings
@@ -222,12 +227,15 @@ jobs:
 
           jq -e . "$settings_file" >/dev/null
           echo "Settings JSON validated successfully."
-          echo "SETTINGS_JSON=$(jq -c . "$settings_file")" >> "$GITHUB_ENV"
+          SJSON=$(jq -c . "$settings_file")
+          # Emit settings JSON as a step output
+          echo "settings_json=${SJSON}" >> "$GITHUB_OUTPUT"
 
       - name: Acknowledge request
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ steps.parse_comment.outputs.pr_number }}
           MESSAGE: |-
             🤖 Hi @${{ github.actor }}, I've received your request, and I'm working on it now! You can track my progress [in the logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more details.
@@ -257,14 +265,14 @@ jobs:
           gcp_project_id: '${{ vars.GOOGLE_CLOUD_PROJECT }}'
           gcp_service_account: '${{ vars.SERVICE_ACCOUNT_EMAIL }}'
           gcp_workload_identity_provider: '${{ vars.GCP_WIF_PROVIDER }}'
-          gemini_api_key: '${{ env.GEMINI_API_KEY }}'   # <-- uses the picked key
+          gemini_api_key: '${{ steps.pick_gemini_key.outputs.gemini_api_key }}'   # <-- uses the picked key
           gemini_cli_version: '${{ vars.GEMINI_CLI_VERSION }}'
           gemini_debug: '${{ fromJSON(vars.DEBUG || vars.ACTIONS_STEP_DEBUG || false) }}'
           gemini_model: '${{ vars.GEMINI_MODEL }}'
           google_api_key: '${{ secrets.GOOGLE_API_KEY }}'
           use_gemini_code_assist: '${{ vars.GOOGLE_GENAI_USE_GCA }}'
           use_vertex_ai: '${{ vars.GOOGLE_GENAI_USE_VERTEXAI }}'
-          settings: '${{ env.SETTINGS_JSON }}'
+          settings: '${{ steps.build_settings.outputs.settings_json }}'
           prompt: |-
             ## Persona and Guiding Principles
 
@@ -424,6 +432,7 @@ jobs:
           RUN_GEMINI_OUTCOME:    ${{ steps.run_gemini.outcome    || '' }}
           RUN_GEMINI_CONCLUSION: ${{ steps.run_gemini.conclusion || '' }}
           GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ steps.parse_comment.outputs.pr_number }}
           REPOSITORY: '${{ github.repository }}'
           MESSAGE: |-
