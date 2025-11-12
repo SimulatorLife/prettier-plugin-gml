@@ -49,11 +49,13 @@ jobs:
       agent_command: |
         set -euo pipefail
 
+        echo "Additional context: ${ADDITIONAL_CONTEXT}"
+
         # Resolve and export API key directly from secrets
-        export GEMINI_API_KEY="${{ needs.prepare.outputs.api_key }}"
+        export GEMINI_API_KEY="${API_KEY}"
 
         if [ -z "${GEMINI_API_KEY:-}" ]; then
-          echo "❌ Missing GEMINI_API_KEY secret!"
+          echo "❌ Missing GEMINI_API_KEY!"
           exit 1
         fi
 
