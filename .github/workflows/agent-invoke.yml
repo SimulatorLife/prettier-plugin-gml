@@ -133,6 +133,8 @@ jobs:
           set -euo pipefail
           git config user.name "${GH_USER_NAME}"
           git config user.email "${GH_USER_EMAIL}"
+          git config --global user.name "${GH_USER_NAME}"
+          git config --global user.email "${GH_USER_EMAIL}"
 
       - name: Add PATH shims (return 99 after successful git push)
         shell: bash
