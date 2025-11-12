@@ -12,9 +12,6 @@ on:
       working_branch:
         type: string
         required: false
-      title:
-        type: string
-        required: false
       additional_context:
         type: string
         required: false
@@ -24,10 +21,7 @@ on:
       agent_command:
         type: string
         required: false
-      api_key:
-        type: string
-        required: false
-      settings_json:
+      npm_package:
         type: string
         required: false
 
@@ -180,6 +174,18 @@ jobs:
 
       - name: Install dependencies (root/workspaces)
         run: npm ci
+
+      - name: Install agent CLI (from child)
+        if: ${{ inputs.npm_package != '' }}
+        run: |
+          echo "Checking for CLI: ${{ inputs.agent }} (from npm package: ${{ inputs.npm_package }})"
+          if ! command -v ${{ inputs.agent }} >/dev/null 2>&1; then
+            echo "Not found, installing ${{ inputs.npm_package }} via npm..."
+            npm install -g ${{ inputs.npm_package }}
+            echo "Installed ${{ inputs.npm_package }}. CLI location: $(command -v ${{ inputs.agent }})"
+          else
+            echo "${{ inputs.agent }} CLI already installed at: $(command -v ${{ inputs.agent }})"
+          fi
 
       - name: Run agent custom command
         if: ${{ inputs.agent_command != '' }}

@@ -12,29 +12,16 @@ defaults:
   run:
     shell: 'bash'
 
-
 jobs:
-
   prepare:
     if: ${{ github.event.issue.pull_request && contains(github.event.comment.body || '', '@gemini') }}
     runs-on: ubuntu-latest
     outputs:
-      pr_number: ${{ steps.set_pr.outputs.pr_number }}
-      additional_context: ${{ steps.set_pr.outputs.additional_context }}
+      pr_number: ${{ github.event.issue.number }}
+      additional_context: ${{ github.event.comment.body }}
       api_key: ${{ steps.pick_key.outputs.api_key }}
+      npm_package: '@google/gemini-cli@latest'
     steps:
-      - name: Set PR metadata
-        id: set_pr
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Pass the raw event values through to the parent workflow; parent will validate mention and fetch PR meta
-          echo "pr_number=${{ github.event.issue.number }}" >> "$GITHUB_OUTPUT"
-          echo "additional_context<<EOF" >> "$GITHUB_OUTPUT"
-          printf '%s' "${{ github.event.comment.body }}" >> "$GITHUB_OUTPUT"
-          echo >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
-
       - name: Pick API key
         id: pick_key
         shell: bash
@@ -50,12 +37,6 @@ jobs:
           esac
           echo "api_key=${selected}" >> "$GITHUB_OUTPUT"
 
-      - name: Install gemini CLI
-        run: |
-          if ! command -v gemini >/dev/null 2>&1; then
-            npm install -g @google/gemini-cli@latest
-          fi
-  
   invoke:
     needs: prepare
     uses: ./.github/workflows/agent-invoke.yml
@@ -64,19 +45,11 @@ jobs:
       pr_number: ${{ needs.prepare.outputs.pr_number }}
       additional_context: ${{ needs.prepare.outputs.additional_context }}
       agent: gemini
-      settings_json: |
-        { "model": { "maxSessionTurns": 35 } }
+      npm_package: ${{ needs.prepare.outputs.npm_package }}
       agent_command: |
         set -euo pipefail
-        if ! command -v gemini >/dev/null 2>&1; then
-          npm install -g @google/gemini-cli@latest
-        fi
-
-        # Write settings to a file (the parent already exposes $RUNNER_TEMP)
-        echo '${{ inputs.settings_json }}' > "$RUNNER_TEMP/.gemini/settings.json"
-
-        # Optional: export path for Gemini CLI to use
+        echo '{ "model": { "maxSessionTurns": 35 } }' > "$RUNNER_TEMP/.gemini/settings.json"
+        export GEMINI_API_KEY="${{ needs.prepare.outputs.api_key }}"
         export GEMINI_CLI_SYSTEM_SETTINGS_PATH="$RUNNER_TEMP/.gemini/settings.json"
-
         echo "Running gemini CLI..."
-        gemini ${{ inputs.additional_context }}
+        gemini ${{ needs.prepare.outputs.additional_context }}
