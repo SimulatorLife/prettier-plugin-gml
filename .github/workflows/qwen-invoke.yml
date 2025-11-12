@@ -14,86 +14,23 @@ defaults:
 
 jobs:
   prepare:
-    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body || '', '@qwen-cli') }}
+    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body || '', '@qwen') }}
     runs-on: ubuntu-latest
     outputs:
-      pr_number: ${{ steps.set_pr.outputs.pr_number }}
-      additional_context: ${{ steps.set_pr.outputs.additional_context }}
-      api_key: ${{ steps.pick_key.outputs.api_key }}
-      agent_command: ${{ steps.build_agent_command.outputs.agent_command }}
-    steps:
-      - name: Set PR metadata
-        id: set_pr
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Pass the raw event values through to the parent workflow; parent will validate mention and fetch PR meta
-          echo "pr_number=${{ github.event.issue.number }}" >> "$GITHUB_OUTPUT"
-          echo "additional_context<<EOF" >> "$GITHUB_OUTPUT"
-          printf '%s' "${{ github.event.comment.body }}" >> "$GITHUB_OUTPUT"
-          echo >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
-      - name: Pick API key
-        id: pick_key
-        shell: bash
-        env:
-          QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
-        run: |
-          set -euo pipefail
-          # Qwen uses a single API key (secrets.QWEN_API_KEY)
-          echo "api_key=${QWEN_API_KEY}" >> "$GITHUB_OUTPUT"
-
-      - name: Build and validate settings JSON
-        id: build_settings
-        shell: bash
-        run: |
-          set -euo pipefail
-          settings_file="$RUNNER_TEMP/.qwen/settings.json"
-          cat <<'EOF' > "$settings_file"
-          {
-            "general": {
-              "checkpointing": {
-                "enabled": true
-              }
-            },
-            "tools": {
-              "approvalMode": "auto-edit"
-            },
-            "model": {
-              "sessionTokenLimit": 128000
-            },
-            "experimental": {
-              "visionModelPreview": false
-            }
-          }
-          EOF
-          # settings file is written on the child runner; its contents will be embedded
-          # into the agent_command produced below so the parent runner can write it.
-
-      - name: Build agent command
-        id: build_agent_command
-        shell: bash
-        run: |
-          set -euo pipefail
-          API_KEY='${{ steps.pick_key.outputs.api_key }}'
-          SETTINGS_FILE="$RUNNER_TEMP/.qwen/settings.json"
-          SETTINGS_JSON=$(cat "$SETTINGS_FILE")
-          # Escape single quotes in JSON for safe single-quoted embedding
-          ESCAPED=$(printf '%s' "$SETTINGS_JSON" | sed "s/'/'\\''/g")
-          # Assume a `qwen` CLI is provided via npm package '@qwen/cli' exposing `qwen` binary.
-          AGENT_CMD="mkdir -p \"$RUNNER_TEMP/.qwen\" && printf '%s' '$ESCAPED' > \"$RUNNER_TEMP/.qwen/settings.json\" && if ! command -v qwen >/dev/null 2>&1; then npm install -g @qwen/cli@latest || true; fi && export QWEN_API_KEY='$API_KEY' && qwen run --settings \"$RUNNER_TEMP/.qwen/settings.json\" --context \"\$ADDITIONAL_CONTEXT\" --title \"\$TITLE\""
-          echo "agent_command<<EOF" >> "$GITHUB_OUTPUT"
-          printf '%s' "$AGENT_CMD" >> "$GITHUB_OUTPUT"
-          echo >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+      pr_number: ${{ github.event.issue.number }}
+      additional_context: ${{ github.event.comment.body }}
+      api_key: ${{ secrets.DASHSCOPE_API_KEY }}
 
   invoke:
     needs: prepare
     uses: ./.github/workflows/agent-invoke.yml
+    secrets: inherit
     with:
       pr_number: ${{ needs.prepare.outputs.pr_number }}
       additional_context: ${{ needs.prepare.outputs.additional_context }}
-      agent: 'qwen'
       api_key: ${{ needs.prepare.outputs.api_key }}
-      agent_command: ${{ needs.prepare.outputs.agent_command }}
-    secrets: inherit
+      agent: qwen
+      npm_package: '@qwen/cli@latest'
+      agent_command: |
+        set -euo pipefail
+        qwen --openai-api-key "${API_KEY}" "${ADDITIONAL_CONTEXT}"

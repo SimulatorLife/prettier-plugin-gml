@@ -2,10 +2,11 @@
 *.cpuprofile
 tmp/
 
-# gemini-cli settings
-.gemini/
+# gemini-cli
+.gemini/*
+!.gemini/settings.json
 
-.qwen/
+.qwen/*
 !.qwen/settings.json
 
 # GitHub App credentials

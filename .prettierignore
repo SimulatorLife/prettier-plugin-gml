@@ -17,4 +17,3 @@ coverage/
 *.gml
 *.json
 *.g4
-src/plugin/src/comments/line-comment-formatting.js
