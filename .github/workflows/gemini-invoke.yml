@@ -46,10 +46,13 @@ jobs:
       additional_context: ${{ needs.prepare.outputs.additional_context }}
       agent: gemini
       npm_package: ${{ needs.prepare.outputs.npm_package }}
+      api_key: ${{ needs.prepare.outputs.api_key }}  # <-- pass it up
       agent_command: |
         set -euo pipefail
+        mkdir -p "$RUNNER_TEMP/.gemini"                                    # <-- ensure dir exists
         echo '{ "model": { "maxSessionTurns": 35 } }' > "$RUNNER_TEMP/.gemini/settings.json"
         export GEMINI_API_KEY="${{ needs.prepare.outputs.api_key }}"
+        export GEMINI_API_KEY="${API_KEY}"                 # <-- use env provided by parent
         export GEMINI_CLI_SYSTEM_SETTINGS_PATH="$RUNNER_TEMP/.gemini/settings.json"
         echo "Running gemini CLI..."
         gemini ${{ needs.prepare.outputs.additional_context }}
