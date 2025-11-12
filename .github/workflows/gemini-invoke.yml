@@ -72,7 +72,23 @@ jobs:
       - name: Verify gh CLI available
         run: gh --version
 
-      - name: 'Checkout target commit (by SHA)'
+      - name: Acknowledge request
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ steps.parse_comment.outputs.pr_number }}
+          MESSAGE: |-
+            **[gemini-cli]** Hi @${{ github.actor }}, I've received your request, and I'm working on it now! You can track my progress [in the logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more details.
+          REPOSITORY: '${{ github.repository }}'
+        run: |-
+          set -euo pipefail
+          # Post an acknowledgement comment on the PR/issue
+          gh issue comment "${ISSUE_NUMBER}" \
+            --body "${MESSAGE}" \
+            --repo "${REPOSITORY}"
+
+      - name: Checkout target commit
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -158,7 +174,7 @@ jobs:
           git remote set-url origin "https://x-access-token:${GH_USER_TOKEN}@github.com/${{ github.repository }}.git"
           git remote -v
 
-      - name: Host push smoke test
+      - name: Git push smoke test
         if: ${{ vars.TEST_MODE == 'true' }}
         run: |
           set -euo pipefail
@@ -243,23 +259,8 @@ jobs:
           # Emit settings JSON as a step output
           echo "settings_json=${SJSON}" >> "$GITHUB_OUTPUT"
 
-      - name: Acknowledge request
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GH_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: ${{ steps.parse_comment.outputs.pr_number }}
-          MESSAGE: |-
-            🤖 Hi @${{ github.actor }}, I've received your request, and I'm working on it now! You can track my progress [in the logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more details.
-          REPOSITORY: '${{ github.repository }}'
-        run: |-
-          set -euo pipefail
-          # Post an acknowledgement comment on the PR/issue
-          gh issue comment "${ISSUE_NUMBER}" \
-            --body "${MESSAGE}" \
-            --repo "${REPOSITORY}"
 
-      - name: 'Run Gemini CLI'
+      - name: Run Gemini CLI
         if: ${{ vars.TEST_MODE != 'true' }}
         id: 'run_gemini'
         continue-on-error: true
@@ -438,7 +439,7 @@ jobs:
                   - **Exit Behavior**:
                     Always call `run_shell_command(exit 0)` when your work is complete. Do not loop indefinitely or await further commands.
 
-      - name: Report Outcome
+      - name: Report outcome
         if: always()
         env:
           RUN_GEMINI_OUTCOME:    ${{ steps.run_gemini.outcome    || '' }}
@@ -448,7 +449,7 @@ jobs:
           ISSUE_NUMBER: ${{ steps.parse_comment.outputs.pr_number }}
           REPOSITORY: '${{ github.repository }}'
           MESSAGE: |-
-            🤖 I'm sorry @${{ github.actor }}, but I was unable to process your request. Please [see the logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more details.
+           🤖 **[gemini-cli]** I'm sorry @${{ github.actor }}, but I was unable to process your request. Please [see the logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more details.
         run: |
           set -euo pipefail
           SENTINEL="${RUNNER_TEMP}/.gemini_push_succeeded"
