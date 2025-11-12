@@ -30,4 +30,5 @@ jobs:
           echo "❌ Missing API_KEY!"
           exit 1
         fi
-        qwen --openai-api-key "${API_KEY}" "${ADDITIONAL_CONTEXT}"
+        export OPENAI_API_KEY="${API_KEY}"
+        qwen "${ADDITIONAL_CONTEXT}"
