@@ -183,10 +183,6 @@ function printComment(commentPath, options) {
 
             const slashRun = bannerMatch[1];
             const slashCount = slashRun.length;
-            if (slashCount < LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES) {
-                return formatLineComment(comment, lineCommentOptions);
-            }
-
             const bannerStart =
                 typeof bannerMatch.index === "number"
                     ? bannerMatch.index
@@ -194,11 +190,23 @@ function printComment(commentPath, options) {
             const safeBannerStart = Math.max(bannerStart, 0);
             const remainder = rawText.slice(safeBannerStart + slashCount);
             const remainderTrimmed = remainder.trimStart();
+
             if (remainderTrimmed.startsWith("@")) {
                 return formatLineComment(comment, lineCommentOptions);
             }
 
+            const trimmedRemainder = remainderTrimmed.trim();
             const normalizedText = normalizeBannerCommentText(remainderTrimmed);
+            const shouldTreatAsBanner =
+                slashCount >= LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES ||
+                trimmedRemainder.length === 0 ||
+                normalizedText === null ||
+                normalizedText !== trimmedRemainder;
+
+            if (!shouldTreatAsBanner) {
+                return formatLineComment(comment, lineCommentOptions);
+            }
+
             if (normalizedText === null) {
                 return "";
             }
