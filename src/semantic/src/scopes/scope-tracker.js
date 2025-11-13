@@ -42,6 +42,23 @@ function createOccurrence(kind, metadata, source, declarationMetadata) {
     );
 }
 
+function cloneDeclarationMetadata(metadata) {
+    if (!metadata) {
+        return null;
+    }
+
+    return assignClonedLocation(
+        {
+            name: metadata.name ?? null,
+            scopeId: metadata.scopeId ?? null,
+            classifications: toMutableArray(metadata.classifications, {
+                clone: true
+            })
+        },
+        metadata
+    );
+}
+
 function cloneOccurrence(occurrence) {
     const declaration = occurrence.declaration
         ? assignClonedLocation(
@@ -406,6 +423,60 @@ export default class ScopeTracker {
     }
 
     /**
+     * Export declaration and reference occurrences for a specific scope. The
+     * structure mirrors {@link exportOccurrences} but narrows the output to a
+     * single scope so consumers do not need to scan the entire project graph
+     * when responding to focused hot reload events.
+     *
+     * @param {string} scopeId The scope identifier to export.
+     * @param {{ includeReferences?: boolean }} [options]
+     *        Controls whether reference occurrences should be included.
+     * @returns {{scopeId: string, scopeKind: string, identifiers: Array}} | null
+     *          Scope occurrence payload or null if the tracker is disabled or
+     *          the scope is unknown.
+     */
+    getScopeOccurrences(scopeId, { includeReferences = true } = {}) {
+        if (!this.enabled || !scopeId) {
+            return null;
+        }
+
+        const scope = this.scopesById.get(scopeId);
+        if (!scope) {
+            return null;
+        }
+
+        const includeRefs = Boolean(includeReferences);
+        const identifiers = [];
+
+        for (const [name, entry] of scope.occurrences) {
+            const declarations = entry.declarations.map((occurrence) =>
+                cloneOccurrence(occurrence)
+            );
+            const references = includeRefs
+                ? entry.references.map((occurrence) =>
+                      cloneOccurrence(occurrence)
+                  )
+                : [];
+
+            if (declarations.length === 0 && references.length === 0) {
+                continue;
+            }
+
+            identifiers.push({
+                name,
+                declarations,
+                references
+            });
+        }
+
+        return {
+            scopeId: scope.id,
+            scopeKind: scope.kind,
+            identifiers
+        };
+    }
+
+    /**
      * Find all occurrences (declarations and references) of a specific symbol
      * across all scopes. This supports hot reload coordination by identifying
      * what needs to be recompiled when a symbol changes.
@@ -669,6 +740,7 @@ export default class ScopeTracker {
      * Each external reference includes:
      * - The symbol name being referenced
      * - The scope where it was declared (or null if undeclared)
+     * - Cloned declaration metadata for the resolved symbol (or null)
      * - All occurrence records where it's referenced in the queried scope
      *
      * This enables efficient dependency tracking: when editing a file/scope,
@@ -676,7 +748,7 @@ export default class ScopeTracker {
      * then update only the affected code paths during hot reload.
      *
      * @param {string} scopeId The scope identifier to query.
-     * @returns {Array<{name: string, declaringScopeId: string | null, referencingScopeId: string, occurrences: Array<object>}>}
+     * @returns {Array<{name: string, declaringScopeId: string | null, referencingScopeId: string, declaration: object | null, occurrences: Array<object>}>}
      *          Array of external reference records grouped by symbol name.
      */
     getScopeExternalReferences(scopeId) {
@@ -707,7 +779,9 @@ export default class ScopeTracker {
             }
 
             const resolvedDeclaration = this.resolveIdentifier(name, scopeId);
-            const declaringScopeId = resolvedDeclaration?.scopeId ?? null;
+            const resolvedDeclarationClone =
+                cloneDeclarationMetadata(resolvedDeclaration);
+            const declaringScopeId = resolvedDeclarationClone?.scopeId ?? null;
 
             if (declaringScopeId === scopeId) {
                 continue;
@@ -721,6 +795,7 @@ export default class ScopeTracker {
                 name,
                 declaringScopeId,
                 referencingScopeId: scopeId,
+                declaration: resolvedDeclarationClone,
                 occurrences
             });
 

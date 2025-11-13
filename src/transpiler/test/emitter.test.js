@@ -423,6 +423,30 @@ test("emitJavaScript handles continue statements", () => {
     assert.equal(result.trim(), "continue;", "Should emit continue statement");
 });
 
+test("emitJavaScript handles postfix increment statements", () => {
+    const source = "i++";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.equal(result.trim(), "i++;", "Should emit postfix increment");
+});
+
+test("emitJavaScript handles prefix increment expressions", () => {
+    const source = "var x = ++i";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("var x = ++i"), "Should emit prefix increment");
+});
+
+test("emitJavaScript handles postfix decrement on member access", () => {
+    const source = "arr[i]--";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("arr[i]--"), "Should emit member decrement");
+});
+
 test("emitJavaScript lowers exit statements to return", () => {
     const source = "exit";
     const parser = new GMLParser(source);
@@ -661,6 +685,50 @@ test("emitJavaScript handles arrays with struct elements", () => {
     const result = emitJavaScript(ast);
     assert.ok(result.includes("a: 1"), "Should include first struct");
     assert.ok(result.includes("b: 2"), "Should include second struct");
+});
+
+// Enum declaration tests
+test("emitJavaScript handles enum declarations with implicit values", () => {
+    const source = `enum Colors { red, green = 5, blue }`;
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast).trim();
+
+    const expected = [
+        "const Colors = (() => {",
+        "    const __enum = {};",
+        "    let __value = -1;",
+        "    __value += 1;",
+        "    __enum.red = __value;",
+        "    __value = 5;",
+        "    __enum.green = __value;",
+        "    __value += 1;",
+        "    __enum.blue = __value;",
+        "    return __enum;",
+        "})();"
+    ].join("\n");
+
+    assert.equal(result, expected);
+});
+
+test("emitJavaScript handles enum declarations with expressions", () => {
+    const source = `enum Foo { bar = 1 + 2, baz, qux = "hi" }`;
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+
+    assert.ok(
+        result.includes("__value = (1 + 2);"),
+        "Should emit initializer expression"
+    );
+    assert.ok(
+        result.includes("__value += 1;\n    __enum.baz = __value;"),
+        "Should increment implicit enum value"
+    );
+    assert.ok(
+        result.includes('__value = "hi";'),
+        "Should emit string initializer verbatim"
+    );
 });
 
 // Ternary expression tests

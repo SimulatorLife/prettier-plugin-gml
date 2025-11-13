@@ -237,6 +237,19 @@ export function emitJavaScript(ast) {
         return `${left} ${ast.operator} ${right}`;
     }
 
+    // ++/-- expressions are represented as IncDecStatement nodes in the parser
+    // regardless of whether they appear as standalone statements or within a
+    // larger expression. We emit the operator either before or after the
+    // argument based on the prefix flag to preserve increment/decrement
+    // semantics.
+    if (ast.type === "IncDecStatement") {
+        const argument = emitJavaScript(ast.argument);
+        if (ast.prefix) {
+            return `${ast.operator}${argument}`;
+        }
+        return `${argument}${ast.operator}`;
+    }
+
     if (ast.type === "ExpressionStatement") {
         return `${emitJavaScript(ast.expression)};`;
     }
@@ -760,6 +773,47 @@ export function emitJavaScript(ast) {
             })
             .join(", ");
         return `{${properties}}`;
+    }
+
+    // Emit enum declarations by lowering them into an IIFE that builds a
+    // JavaScript object containing the computed member values. GML enums assign
+    // implicit integer values when an initializer is omitted, so we mirror that
+    // behaviour by tracking the last assigned value in `__value` and incrementing
+    // it for uninitialised members.
+    if (ast.type === "EnumDeclaration") {
+        const name = emitJavaScript(ast.name);
+        const lines = [
+            `const ${name} = (() => {`,
+            "    const __enum = {};",
+            "    let __value = -1;"
+        ];
+
+        if (ast.members && ast.members.length > 0) {
+            for (const member of ast.members) {
+                const memberName =
+                    typeof member.name === "string"
+                        ? member.name
+                        : emitJavaScript(member.name);
+
+                if (
+                    member.initializer !== undefined &&
+                    member.initializer !== null
+                ) {
+                    const initializer =
+                        typeof member.initializer === "string"
+                            ? member.initializer
+                            : emitJavaScript(member.initializer);
+                    lines.push(`    __value = ${initializer};`);
+                } else {
+                    lines.push("    __value += 1;");
+                }
+
+                lines.push(`    __enum.${memberName} = __value;`);
+            }
+        }
+
+        lines.push("    return __enum;", "})();");
+        return lines.join("\n");
     }
 
     // Handle function declarations

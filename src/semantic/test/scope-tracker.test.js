@@ -192,6 +192,134 @@ test("exportOccurrences can omit references and returns cloned metadata", () => 
     );
 });
 
+test("getScopeOccurrences exports a single scope payload", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    const programScope = tracker.enterScope("program");
+    const declarationNode = {
+        start: { line: 1, index: 0 },
+        end: { line: 1, index: 3 }
+    };
+
+    tracker.declare("foo", declarationNode, {
+        kind: "variable",
+        tags: ["local"]
+    });
+
+    const blockScope = tracker.enterScope("block");
+    const referenceNode = {
+        start: { line: 2, index: 4 },
+        end: { line: 2, index: 7 }
+    };
+
+    tracker.reference("foo", referenceNode, { kind: "variable" });
+
+    tracker.exitScope();
+    tracker.exitScope();
+
+    const result = tracker.getScopeOccurrences(blockScope.id);
+
+    assert.deepStrictEqual(result, {
+        scopeId: blockScope.id,
+        scopeKind: "block",
+        identifiers: [
+            {
+                name: "foo",
+                declarations: [],
+                references: [
+                    {
+                        kind: "reference",
+                        name: "foo",
+                        scopeId: blockScope.id,
+                        classifications: [
+                            "identifier",
+                            "reference",
+                            "variable",
+                            "local"
+                        ],
+                        declaration: {
+                            scopeId: programScope.id,
+                            start: { line: 1, index: 0 },
+                            end: { line: 1, index: 3 }
+                        },
+                        start: { line: 2, index: 4 },
+                        end: { line: 2, index: 7 }
+                    }
+                ]
+            }
+        ]
+    });
+});
+
+test("getScopeOccurrences omits references when requested and clones metadata", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    const scope = tracker.enterScope("program");
+    const declarationNode = {
+        start: { line: 1, index: 0 },
+        end: { line: 1, index: 3 }
+    };
+
+    tracker.declare("bar", declarationNode);
+
+    const referenceNode = {
+        start: { line: 2, index: 1 },
+        end: { line: 2, index: 4 }
+    };
+
+    tracker.reference("bar", referenceNode);
+
+    tracker.exitScope();
+
+    const occurrences = tracker.getScopeOccurrences(scope.id, {
+        includeReferences: false
+    });
+
+    const expected = {
+        scopeId: scope.id,
+        scopeKind: "program",
+        identifiers: [
+            {
+                name: "bar",
+                declarations: [
+                    {
+                        kind: "declaration",
+                        name: "bar",
+                        scopeId: scope.id,
+                        classifications: ["identifier", "declaration"],
+                        declaration: {
+                            scopeId: scope.id,
+                            start: { line: 1, index: 0 },
+                            end: { line: 1, index: 3 }
+                        },
+                        start: { line: 1, index: 0 },
+                        end: { line: 1, index: 3 }
+                    }
+                ],
+                references: []
+            }
+        ]
+    };
+
+    assert.deepStrictEqual(occurrences, expected);
+
+    occurrences.identifiers[0].declarations[0].classifications.push("mutated");
+
+    assert.deepStrictEqual(
+        tracker.getScopeOccurrences(scope.id, { includeReferences: false }),
+        expected
+    );
+});
+
+test("getScopeOccurrences returns null for disabled or unknown scopes", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    tracker.enterScope("program");
+    tracker.exitScope();
+
+    assert.strictEqual(tracker.getScopeOccurrences("unknown"), null);
+
+    const disabled = new ScopeTracker({ enabled: false });
+    assert.strictEqual(disabled.getScopeOccurrences("anything"), null);
+});
+
 test("getSymbolOccurrences finds all occurrences of a symbol across scopes", () => {
     const tracker = new ScopeTracker({ enabled: true });
     tracker.enterScope("root");

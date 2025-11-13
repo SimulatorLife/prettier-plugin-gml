@@ -42,6 +42,13 @@ test("getScopeExternalReferences returns references to symbols declared outside 
     assert.strictEqual(externalRefs[0].name, "globalVar");
     assert.strictEqual(externalRefs[0].declaringScopeId, rootScope.id);
     assert.strictEqual(externalRefs[0].referencingScopeId, funcScope.id);
+    assert.deepStrictEqual(externalRefs[0].declaration, {
+        name: "globalVar",
+        scopeId: rootScope.id,
+        classifications: ["identifier", "declaration", "variable", "global"],
+        start: { line: 1, index: 0 },
+        end: { line: 1, index: 9 }
+    });
     assert.ok(externalRefs[0].occurrences.length > 0);
 });
 
@@ -94,9 +101,23 @@ test("getScopeExternalReferences handles nested scopes correctly", () => {
 
     assert.ok(topLevelRef);
     assert.strictEqual(topLevelRef.declaringScopeId, rootScope.id);
+    assert.deepStrictEqual(topLevelRef.declaration, {
+        name: "topLevel",
+        scopeId: rootScope.id,
+        classifications: ["identifier", "declaration", "variable"],
+        start: { line: 1, index: 0 },
+        end: { line: 1, index: 8 }
+    });
 
     assert.ok(outerVarRef);
     assert.strictEqual(outerVarRef.declaringScopeId, outerScope.id);
+    assert.deepStrictEqual(outerVarRef.declaration, {
+        name: "outerVar",
+        scopeId: outerScope.id,
+        classifications: ["identifier", "declaration", "variable"],
+        start: { line: 3, index: 0 },
+        end: { line: 3, index: 8 }
+    });
 });
 
 test("getScopeExternalReferences returns empty array when all references are local", () => {
@@ -181,6 +202,13 @@ test("getScopeExternalReferences groups multiple references to same external sym
     assert.strictEqual(externalRefs.length, 1);
     assert.strictEqual(externalRefs[0].name, "shared");
     assert.strictEqual(externalRefs[0].occurrences.length, 3);
+    assert.deepStrictEqual(externalRefs[0].declaration, {
+        name: "shared",
+        scopeId: rootScope.id,
+        classifications: ["identifier", "declaration", "variable"],
+        start: { line: 1, index: 0 },
+        end: { line: 1, index: 6 }
+    });
 });
 
 test("getScopeExternalReferences handles unresolved references gracefully", () => {
@@ -202,6 +230,76 @@ test("getScopeExternalReferences handles unresolved references gracefully", () =
     assert.strictEqual(externalRefs.length, 1);
     assert.strictEqual(externalRefs[0].name, "undeclared");
     assert.strictEqual(externalRefs[0].declaringScopeId, null);
+    assert.strictEqual(externalRefs[0].declaration, null);
+});
+
+test("getScopeExternalReferences returns cloned declaration metadata", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    const rootScope = tracker.enterScope("program");
+
+    tracker.declare(
+        "shared",
+        { start: { line: 1, index: 0 }, end: { line: 1, index: 6 } },
+        { kind: "variable" }
+    );
+
+    const funcScope = tracker.enterScope("function");
+
+    tracker.reference(
+        "shared",
+        { start: { line: 2, index: 0 }, end: { line: 2, index: 6 } },
+        { kind: "variable" }
+    );
+
+    tracker.exitScope();
+    tracker.exitScope();
+
+    const firstResult = tracker.getScopeExternalReferences(funcScope.id);
+    firstResult[0].declaration.classifications.push("mutated");
+    firstResult[0].declaration.start.line = 999;
+    firstResult[0].occurrences[0].classifications.push("changed");
+    firstResult[0].occurrences[0].start.line = 777;
+
+    const secondResult = tracker.getScopeExternalReferences(funcScope.id);
+
+    assert.deepStrictEqual(secondResult, [
+        {
+            name: "shared",
+            declaringScopeId: rootScope.id,
+            referencingScopeId: funcScope.id,
+            declaration: {
+                name: "shared",
+                scopeId: rootScope.id,
+                classifications: ["identifier", "declaration", "variable"],
+                start: { line: 1, index: 0 },
+                end: { line: 1, index: 6 }
+            },
+            occurrences: [
+                {
+                    kind: "reference",
+                    name: "shared",
+                    scopeId: funcScope.id,
+                    classifications: ["identifier", "reference", "variable"],
+                    declaration: {
+                        scopeId: rootScope.id,
+                        start: { line: 1, index: 0 },
+                        end: { line: 1, index: 6 }
+                    },
+                    start: { line: 2, index: 0 },
+                    end: { line: 2, index: 6 }
+                }
+            ]
+        }
+    ]);
+
+    assert.notStrictEqual(
+        secondResult[0].occurrences,
+        firstResult[0].occurrences
+    );
+    assert.notStrictEqual(
+        secondResult[0].occurrences[0],
+        firstResult[0].occurrences[0]
+    );
 });
 
 test("getScopeExternalReferences performance is efficient for many references", () => {
@@ -243,6 +341,13 @@ test("getScopeExternalReferences performance is efficient for many references", 
     externalRefs.forEach((ref, idx) => {
         assert.strictEqual(ref.name, `global${idx}`);
         assert.strictEqual(ref.occurrences.length, 5);
+        assert.deepStrictEqual(ref.declaration, {
+            name: `global${idx}`,
+            scopeId: rootScope.id,
+            classifications: ["identifier", "declaration", "variable"],
+            start: { line: idx, index: 0 },
+            end: { line: idx, index: 10 }
+        });
     });
 
     const lookupTime = endTime - startTime;
