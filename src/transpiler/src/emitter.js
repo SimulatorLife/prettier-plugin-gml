@@ -775,6 +775,47 @@ export function emitJavaScript(ast) {
         return `{${properties}}`;
     }
 
+    // Emit enum declarations by lowering them into an IIFE that builds a
+    // JavaScript object containing the computed member values. GML enums assign
+    // implicit integer values when an initializer is omitted, so we mirror that
+    // behaviour by tracking the last assigned value in `__value` and incrementing
+    // it for uninitialised members.
+    if (ast.type === "EnumDeclaration") {
+        const name = emitJavaScript(ast.name);
+        const lines = [
+            `const ${name} = (() => {`,
+            "    const __enum = {};",
+            "    let __value = -1;"
+        ];
+
+        if (ast.members && ast.members.length > 0) {
+            for (const member of ast.members) {
+                const memberName =
+                    typeof member.name === "string"
+                        ? member.name
+                        : emitJavaScript(member.name);
+
+                if (
+                    member.initializer !== undefined &&
+                    member.initializer !== null
+                ) {
+                    const initializer =
+                        typeof member.initializer === "string"
+                            ? member.initializer
+                            : emitJavaScript(member.initializer);
+                    lines.push(`    __value = ${initializer};`);
+                } else {
+                    lines.push("    __value += 1;");
+                }
+
+                lines.push(`    __enum.${memberName} = __value;`);
+            }
+        }
+
+        lines.push("    return __enum;", "})();");
+        return lines.join("\n");
+    }
+
     // Handle function declarations
     if (ast.type === "FunctionDeclaration") {
         let result = "function ";

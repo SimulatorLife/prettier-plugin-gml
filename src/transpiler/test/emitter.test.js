@@ -687,6 +687,50 @@ test("emitJavaScript handles arrays with struct elements", () => {
     assert.ok(result.includes("b: 2"), "Should include second struct");
 });
 
+// Enum declaration tests
+test("emitJavaScript handles enum declarations with implicit values", () => {
+    const source = `enum Colors { red, green = 5, blue }`;
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast).trim();
+
+    const expected = [
+        "const Colors = (() => {",
+        "    const __enum = {};",
+        "    let __value = -1;",
+        "    __value += 1;",
+        "    __enum.red = __value;",
+        "    __value = 5;",
+        "    __enum.green = __value;",
+        "    __value += 1;",
+        "    __enum.blue = __value;",
+        "    return __enum;",
+        "})();"
+    ].join("\n");
+
+    assert.equal(result, expected);
+});
+
+test("emitJavaScript handles enum declarations with expressions", () => {
+    const source = `enum Foo { bar = 1 + 2, baz, qux = "hi" }`;
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+
+    assert.ok(
+        result.includes("__value = (1 + 2);"),
+        "Should emit initializer expression"
+    );
+    assert.ok(
+        result.includes("__value += 1;\n    __enum.baz = __value;"),
+        "Should increment implicit enum value"
+    );
+    assert.ok(
+        result.includes('__value = "hi";'),
+        "Should emit string initializer verbatim"
+    );
+});
+
 // Ternary expression tests
 test("emitJavaScript handles simple ternary expressions", () => {
     const source = "x = a > b ? a : b";
