@@ -346,6 +346,36 @@ export default class GameMakerASTBuilder {
         return object;
     }
 
+    astNodeFromToken(token, object) {
+        if (token && token.symbol) {
+            object.start = {
+                line: token.symbol.line,
+                index: token.symbol.start
+            };
+            object.end = {
+                line:
+                    token.symbol.line +
+                    getLineBreakCount(token.symbol.text || ""),
+                index: token.symbol.stop
+            };
+        } else if (token && token.start && token.stop) {
+            object.start = {
+                line: token.start.line,
+                index: token.start.start
+            };
+            object.end = {
+                line:
+                    token.stop.line + getLineBreakCount(token.stop.text || ""),
+                index: token.stop.stop
+            };
+        } else {
+            // Fallback - use current context if token is invalid
+            return this.astNode(this, object);
+        }
+
+        return object;
+    }
+
     createIdentifierLocation(token) {
         return this.identifierLocations.createIdentifierLocation(token);
     }
@@ -1153,8 +1183,10 @@ export default class GameMakerASTBuilder {
             this.collectArguments(argumentListCtx, argList);
 
             if (hasLeadingComma) {
+                // Use the first comma token for location of the leading missing argument
+                const commaToken = children[0];
                 argList.unshift(
-                    this.astNode(argumentListCtx, {
+                    this.astNodeFromToken(commaToken, {
                         type: "MissingOptionalArgument"
                     })
                 );
@@ -1162,8 +1194,11 @@ export default class GameMakerASTBuilder {
         }
         // check if trailingComma exists
         if (ctx.trailingComma()) {
+            // Use the trailing comma context for location of the trailing missing argument
             argList.push(
-                this.astNode(ctx, { type: "MissingOptionalArgument" })
+                this.astNode(ctx.trailingComma(), {
+                    type: "MissingOptionalArgument"
+                })
             );
         }
         return argList;
@@ -1176,9 +1211,14 @@ export default class GameMakerASTBuilder {
             if (arg.UndefinedLiteral()) {
                 argList.push(this.visit(arg));
             } else if (!arg.expressionOrFunction()) {
-                argList.push(
-                    this.astNode(arg, { type: "MissingOptionalArgument" })
-                );
+                // Instead of using the potentially incorrect arg context,
+                // we need to look for a comma that might indicate this missing argument.
+                // For now, create the missing argument node without relying on incorrect context
+                argList.push({
+                    type: "MissingOptionalArgument"
+                    // We'll let the caller handle location info properly
+                    // by reorganizing the arguments based on comma positions
+                });
             } else if (arg.expressionOrFunction()) {
                 argList.push(this.visit(arg.expressionOrFunction()));
             }

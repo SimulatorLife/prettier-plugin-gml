@@ -8,7 +8,6 @@ import { isObjectLike } from "./comment-boundary.js";
 import { getCommentValue } from "@prettier-plugin-gml/shared/ast/comments.js";
 import {
     getNonEmptyTrimmedString,
-    trimStringEntries,
     toTrimmedString
 } from "@prettier-plugin-gml/shared/utils/string.js";
 import { hasOwn } from "@prettier-plugin-gml/shared/utils/object.js";
@@ -150,12 +149,18 @@ function normalizeDocCommentLookupKey(identifier) {
 
 function createDocCommentTypeNormalization(candidate) {
     const synonyms = new Map();
-    for (const [key, value] of DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.synonyms) {
+    for (const [
+        key,
+        value
+    ] of DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.synonyms) {
         synonyms.set(key.toLowerCase(), value);
     }
 
     const canonicalSpecifierNames = new Map();
-    for (const [key, value] of DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.canonicalSpecifierNames) {
+    for (const [
+        key,
+        value
+    ] of DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.canonicalSpecifierNames) {
         canonicalSpecifierNames.set(key.toLowerCase(), value);
     }
 
@@ -376,18 +381,46 @@ function normalizeBannerCommentText(candidate) {
         return null;
     }
 
-    text = text.replace(/\/{2,}\s*$/, "").trim();
+    // Check if original text contains decoration characters before processing
+    const hasDecorationChars = INNER_BANNER_DECORATION_PATTERN.test(text);
+    if (
+        !hasDecorationChars && // Also check for slash patterns at the end and multi-slash patterns
+        !/\/{2,}\s*$/.test(text) &&
+        !/\/{4,}/.test(text)
+    ) {
+        return null; // No decorations found, not a banner
+    }
+
+    // Process the text to remove decorations, including multi-slash patterns
+    const originalLength = text.length;
+    text = text.replace(/\/{2,}\s*$/, "").trim(); // Remove trailing slash patterns
     if (text.length === 0) {
         return null;
     }
 
-    text = text.replace(LEADING_BANNER_DECORATION_PATTERN, "");
-    text = text.replace(TRAILING_BANNER_DECORATION_PATTERN, "");
+    // Remove leading multi-slash decorations (4+ slashes)
+    text = text.replace(/^\/{4,}\s*/, "");
 
-    text = text.replaceAll(INNER_BANNER_DECORATION_PATTERN, " ");
+    text = text.replace(LEADING_BANNER_DECORATION_PATTERN, ""); // Remove character decorations at start
+    text = text.replace(TRAILING_BANNER_DECORATION_PATTERN, ""); // Remove character decorations at end
+
+    // For inner decorations, only replace if all characters in the match are the same
+    // This prevents GML operators like <=, >= from being treated as decorations
+    const innerMatches = text.match(INNER_BANNER_DECORATION_PATTERN) || [];
+    for (const match of innerMatches) {
+        const firstChar = match[0];
+        if (match.split("").every((char) => char === firstChar)) {
+            // This is a genuine repeated character decoration, replace with space
+            text = text.replaceAll(match, " ");
+        }
+        // Note: GML operators like <=, >= won't be replaced because they have different characters
+    }
+
     text = text.replaceAll(/\s+/g, " ");
 
     const normalized = text.trim();
+    // Only return content if original text actually contained decorations
+    // We know it did if we got this far due to our checks above
     return normalized.length > 0 ? normalized : null;
 }
 
@@ -402,7 +435,8 @@ function formatLineComment(
     const rawValue = getCommentValue(comment);
     const trimmedValue = getCommentValue(comment, { trim: true });
     const startsWithTripleSlash = trimmedOriginal.startsWith("///");
-    const isPlainTripleSlash = startsWithTripleSlash && !trimmedOriginal.includes("@");
+    const isPlainTripleSlash =
+        startsWithTripleSlash && !trimmedOriginal.includes("@");
 
     const leadingSlashMatch = trimmedOriginal.match(/^\/+/);
     const leadingSlashCount = leadingSlashMatch
@@ -439,7 +473,41 @@ function formatLineComment(
         slashesMatch &&
         slashesMatch[1].length >= LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES
     ) {
-        return applyInlinePadding(comment, original.trim());
+        // For comments with 4+ leading slashes, normalize the content and return as regular comment
+        const bannerContent = normalizeBannerCommentText(trimmedValue);
+        if (bannerContent) {
+            return applyInlinePadding(comment, `// ${bannerContent}`);
+        }
+        // If normalization fails, return as regular comment without extra slashes
+        return applyInlinePadding(
+            comment,
+            `// ${trimmedValue.replace(/^\/+\s*/, "")}`
+        );
+    }
+
+    // Check if this is a banner-style comment with decorations (even with 2-3 leading slashes)
+    // But avoid affecting doc comments that start with /// patterns or doc-like patterns
+    if (slashesMatch && !isPlainTripleSlash) {
+        // Check for doc-like patterns that should remain as doc comments, not banner comments
+        // Only process if it starts with exactly one slash (like "/ @tag"), not multiple slashes
+        if (trimmedValue.startsWith("/") && !trimmedValue.startsWith("//")) {
+            const remainder = trimmedValue.slice(1); // Remove just the first slash
+            if (remainder.trim().startsWith("@")) {
+                const shouldInsertSpace =
+                    remainder.length > 0 &&
+                    /\w/.test(remainder.charAt(1) || "");
+                const formatted = applyJsDocReplacements(
+                    `///${shouldInsertSpace ? " " : ""}${remainder}`
+                );
+                return applyInlinePadding(comment, formatted);
+            }
+        } else if (normalizeBannerCommentText(trimmedValue)) {
+            // Only apply banner normalization if it doesn't look like a doc comment
+            const bannerContent = normalizeBannerCommentText(trimmedValue);
+            if (bannerContent) {
+                return applyInlinePadding(comment, `// ${bannerContent}`);
+            }
+        }
     }
 
     if (isInlineComment && isPlainTripleSlash) {
@@ -456,10 +524,7 @@ function formatLineComment(
             return applyInlinePadding(comment, formatted);
         }
 
-        if (
-            !isInlineComment &&
-            /^\d+\s*[).:-]/.test(remainder)
-        ) {
+        if (!isInlineComment && /^\d+\s*[).:-]/.test(remainder)) {
             const formatted = `// ${remainder}`;
             return applyInlinePadding(comment, formatted);
         }
@@ -478,14 +543,21 @@ function formatLineComment(
         return applyInlinePadding(comment, trimmedOriginal);
     }
 
-    const docLikeMatch = trimmedValue.match(/^\/\s*(.*)$/);
-    if (docLikeMatch) {
-        const remainder = docLikeMatch[1] ?? "";
-        if (!remainder.startsWith("/")) {
+    // Check if comment starts with @ tag but needs to be promoted to doc comment format
+    // For example: "/ @description" or "// @description" should become "/// @description"
+    if (
+        !trimmedOriginal.startsWith("///") &&
+        trimmedOriginal.startsWith("/") &&
+        trimmedOriginal.includes("@")
+    ) {
+        // Find where the leading slashes end and @ tag begins
+        const afterSlashes = trimmedOriginal.replace(/^\/+\s*/, "");
+        if (afterSlashes.startsWith("@")) {
             const shouldInsertSpace =
-                remainder.length > 0 && /\w/.test(remainder);
+                afterSlashes.length > 0 &&
+                /\w/.test(afterSlashes.charAt(1) || "");
             const formatted = applyJsDocReplacements(
-                `///${shouldInsertSpace ? " " : ""}${remainder}`
+                `///${shouldInsertSpace ? " " : ""}${afterSlashes}`
             );
             return applyInlinePadding(comment, formatted);
         }
@@ -497,8 +569,7 @@ function formatLineComment(
           ? trimmedOriginal
           : null;
     if (docTagSource) {
-        let formattedCommentLine =
-            `///${  docTagSource.replace(DOC_TAG_LINE_PREFIX_PATTERN, " @")}`;
+        let formattedCommentLine = `///${docTagSource.replace(DOC_TAG_LINE_PREFIX_PATTERN, " @")}`;
         formattedCommentLine = applyJsDocReplacements(formattedCommentLine);
         return applyInlinePadding(comment, formattedCommentLine);
     }
@@ -535,12 +606,12 @@ function formatLineComment(
         );
     }
 
-    return applyInlinePadding(comment, `// ${  trimmedValue}`);
+    return applyInlinePadding(comment, `// ${trimmedValue}`);
 }
 
 function applyInlinePadding(comment, formattedText) {
     const normalizedText = formattedText.includes("\t")
-        ? formattedText.replaceAll('\t', "    ")
+        ? formattedText.replaceAll("\t", "    ")
         : formattedText;
 
     const paddingWidth = resolveInlinePaddingWidth(comment);
@@ -702,11 +773,7 @@ function normalizeGameMakerType(typeText) {
     const isDotSeparatedTypeSpecifierPrefix = (prefixIndex) => {
         let sawDot = false;
 
-        for (
-            let index = prefixIndex + 1;
-            index < segments.length;
-            index += 1
-        ) {
+        for (let index = prefixIndex + 1; index < segments.length; index += 1) {
             const candidate = segments[index];
             if (!candidate) {
                 continue;
@@ -752,7 +819,10 @@ function normalizeGameMakerType(typeText) {
                         normalizedValue
                     );
 
-                if (canonicalPrefix && isDotSeparatedTypeSpecifierPrefix(index)) {
+                if (
+                    canonicalPrefix &&
+                    isDotSeparatedTypeSpecifierPrefix(index)
+                ) {
                     normalizedValue = canonicalPrefix;
                 }
             }
@@ -791,7 +861,9 @@ function normalizeGameMakerType(typeText) {
             }
 
             if (
-                docCommentTypeNormalization.hasSpecifierPrefix(previousIdentifier)
+                docCommentTypeNormalization.hasSpecifierPrefix(
+                    previousIdentifier
+                )
             ) {
                 const canonicalPrefix =
                     docCommentTypeNormalization.getCanonicalSpecifierName(
@@ -826,6 +898,11 @@ function looksLikeCommentedOutCode(text, codeDetectionPatterns) {
         return false;
     }
 
+    // Remove potential comment prefixes before testing patterns
+    // For example: "// if (condition)" becomes "if (condition)"
+    // This allows the patterns to match the actual code content
+    const contentWithoutCommentPrefix = trimmed.replace(/^\/+\s*/, "");
+
     const patterns = Array.isArray(codeDetectionPatterns)
         ? codeDetectionPatterns
         : DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
@@ -839,7 +916,7 @@ function looksLikeCommentedOutCode(text, codeDetectionPatterns) {
             pattern.lastIndex = 0;
         }
 
-        if (pattern.test(trimmed)) {
+        if (pattern.test(contentWithoutCommentPrefix)) {
             return true;
         }
     }
@@ -852,12 +929,26 @@ function splitCommentIntoSentences(text) {
         return [text];
     }
 
-    const splitPattern = /(?<=\.)\s+(?=[A-Z])/g;
-    const segments = trimStringEntries(text.split(splitPattern)).filter(
-        (segment) => segment.length > 0
-    );
+    const sentences = [];
+    let currentIndex = 0;
+    let nextIndex;
 
-    return segments.length > 0 ? segments : [text];
+    while ((nextIndex = text.indexOf(". ", currentIndex)) !== -1) {
+        // Extract sentence including the period (but not the space)
+        sentences.push(text.slice(currentIndex, nextIndex + 1).trim());
+        // Move past the ". " to start the next sentence
+        currentIndex = nextIndex + 2; // Skip ". "
+    }
+
+    // Add the remaining part if any
+    if (currentIndex < text.length) {
+        const remaining = text.slice(Math.max(0, currentIndex)).trim();
+        if (remaining.length > 0) {
+            sentences.push(remaining);
+        }
+    }
+
+    return sentences;
 }
 
 export {

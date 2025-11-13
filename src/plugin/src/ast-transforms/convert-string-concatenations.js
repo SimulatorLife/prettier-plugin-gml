@@ -5,6 +5,7 @@ import {
 import {
     asArray,
     getNodeType,
+    getIdentifierText,
     isObjectLike,
     stripStringQuotes,
     unwrapParenthesizedExpression
@@ -260,7 +261,19 @@ function buildTemplateAtoms(parts) {
         }
 
         flushPendingText();
-        atoms.push(core);
+
+        // Check if this is a string conversion call like string(fps) and unwrap it
+        // You never need to use string() inside an interpolated string in GML – it is fully redundant
+        if (core.type === "CallExpression" && isStringFunctionCall(core)) {
+            // Use the first argument of the string function call, or the original if no args
+            const firstArg =
+                Array.isArray(core.arguments) && core.arguments.length > 0
+                    ? core.arguments[0]
+                    : core;
+            atoms.push(firstArg);
+        } else {
+            atoms.push(core);
+        }
     }
 
     flushPendingText();
@@ -290,6 +303,27 @@ function hasConcatenationAncestor(stack) {
     }
 
     return false;
+}
+
+/**
+ * Check if the CallExpression is a string conversion function like string(fps), string_int(fps), etc.
+ * @param {unknown} node The CallExpression node to check
+ * @returns {boolean} True if this is a string conversion function call
+ */
+function isStringFunctionCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    // Use the same logic as expressionIsStringLike function to extract function name
+    // In GML AST, the function name is in the 'object' property, not 'callee'
+    const calleeName = getIdentifierText(node.object);
+    if (typeof calleeName !== "string") {
+        return false;
+    }
+
+    const normalized = calleeName.toLowerCase();
+    return normalized === "string" || normalized.startsWith("string_");
 }
 
 function isSafeInterpolatedExpression(node) {
