@@ -44,7 +44,7 @@
     "node": ">=25.0.0"
   },
   "scripts": {
-    "clean": "rm -rf node_modules src/plugin/node_modules src/cli/node_modules .eslintcache reports",
+    "clean": "rm -rf node_modules src/plugin/node_modules src/cli/node_modules .eslintcache reports tmp",
     "clean:generated": "rm -rf src/parser/generated",
     "lint": "eslint . --ext .yml,.yaml --cache --stats",
     "lint:quiet": "eslint . --ext .yml,.yaml --cache --quiet",
