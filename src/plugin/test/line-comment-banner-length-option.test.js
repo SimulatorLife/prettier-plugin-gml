@@ -42,4 +42,13 @@ describe("line comment banner handling", () => {
 
         assert.strictEqual(printed, "// Move camera");
     });
+
+    it("preserves repeated punctuation inside ordinary comments", () => {
+        const comment = createBannerComment(
+            "// Use --help to view CLI options"
+        );
+        const printed = printComment({ getValue: () => comment }, {});
+
+        assert.strictEqual(printed, "// Use --help to view CLI options");
+    });
 });

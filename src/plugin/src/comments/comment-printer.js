@@ -9,6 +9,7 @@ import {
 import {
     formatLineComment,
     getLineCommentRawText,
+    hasBannerEdgeDecorations,
     normalizeBannerCommentText
 } from "./line-comment-formatting.js";
 import {
@@ -197,17 +198,22 @@ function printComment(commentPath, options) {
 
             const trimmedRemainder = remainderTrimmed.trim();
             const normalizedText = normalizeBannerCommentText(remainderTrimmed);
+            const hasEdgeDecorations =
+                hasBannerEdgeDecorations(trimmedRemainder);
             const shouldTreatAsBanner =
                 slashCount >= LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES ||
                 trimmedRemainder.length === 0 ||
                 normalizedText === null ||
-                normalizedText !== trimmedRemainder;
+                (hasEdgeDecorations && normalizedText !== trimmedRemainder);
 
             if (!shouldTreatAsBanner) {
                 return formatLineComment(comment, lineCommentOptions);
             }
 
             if (normalizedText === null) {
+                if (typeof comment.leadingWS === "string") {
+                    comment.leadingWS = "";
+                }
                 return "";
             }
 
@@ -217,6 +223,19 @@ function printComment(commentPath, options) {
                 raw: `// ${normalizedText}`,
                 leadingText: `// ${normalizedText}`
             };
+
+            if (typeof normalizedComment.leadingWS === "string") {
+                const lastNewlineIndex =
+                    normalizedComment.leadingWS.lastIndexOf("\n");
+
+                if (lastNewlineIndex !== -1) {
+                    const trailingIndent = normalizedComment.leadingWS.slice(
+                        lastNewlineIndex + 1
+                    );
+
+                    normalizedComment.leadingWS = `\n\n${trailingIndent}`;
+                }
+            }
 
             return formatLineComment(normalizedComment, lineCommentOptions);
         }
