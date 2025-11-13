@@ -423,6 +423,30 @@ test("emitJavaScript handles continue statements", () => {
     assert.equal(result.trim(), "continue;", "Should emit continue statement");
 });
 
+test("emitJavaScript handles postfix increment statements", () => {
+    const source = "i++";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.equal(result.trim(), "i++;", "Should emit postfix increment");
+});
+
+test("emitJavaScript handles prefix increment expressions", () => {
+    const source = "var x = ++i";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("var x = ++i"), "Should emit prefix increment");
+});
+
+test("emitJavaScript handles postfix decrement on member access", () => {
+    const source = "arr[i]--";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+    assert.ok(result.includes("arr[i]--"), "Should emit member decrement");
+});
+
 test("emitJavaScript lowers exit statements to return", () => {
     const source = "exit";
     const parser = new GMLParser(source);
