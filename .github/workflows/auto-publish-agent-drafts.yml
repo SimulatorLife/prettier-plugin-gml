@@ -20,7 +20,7 @@ jobs:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const prefixes = ['copilot/', 'codex/', 'gemini/', ''qwen/'];
+            const prefixes = ['copilot/', 'codex/', 'gemini/', 'qwen/'];
             const isAgentBranch = (ref) => typeof ref === 'string' && prefixes.some((prefix) => ref.startsWith(prefix));
             const allowedAuthors = new Set([
               'copilot',
@@ -33,6 +33,7 @@ jobs:
               'codex-bot',
               'codex-bot[bot]',
               'gemini',
+              'qwen',
               'gemini[bot]',
               'google-gemini[bot]'
             ].map((login) => login.toLowerCase()));
