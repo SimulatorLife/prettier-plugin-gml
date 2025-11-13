@@ -17,7 +17,7 @@ jobs:
     if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body || '', '@qwen') }}
     uses: ./.github/workflows/agent-invoke.yml
     secrets:
-      api_key: ${{ secrets.DASHSCOPE_API_KEY }}
+      api_key: ${{ secrets.OPENROUTER_API_KEY }}
     with:
       pr_number: ${{ github.event.issue.number }}
       additional_context: ${{ github.event.comment.body }}
@@ -30,5 +30,12 @@ jobs:
           echo "❌ Missing API_KEY!"
           exit 1
         fi
+        
+        # export OPENAI_BASE_URL="https://dashscope.aliyuncs.com/compatible-mode/v1"
+        # export OPENAI_MODEL="qwen3-coder-plus"
+
         export OPENAI_API_KEY="${API_KEY}"
-        qwen "${ADDITIONAL_CONTEXT}"
+        export OPENAI_BASE_URL="https://openrouter.ai/api/v1"
+        export OPENAI_MODEL="qwen/qwen3-coder:free"
+
+        qwen --openai-api-key "${OPENAI_API_KEY}" --openai-base-url="${OPENAI_BASE_URL}" --model="${OPENAI_MODEL}" --debug "${ADDITIONAL_CONTEXT}"

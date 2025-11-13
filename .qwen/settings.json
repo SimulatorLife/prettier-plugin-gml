@@ -1,33 +1,42 @@
 {
   "general": {
     "checkpointing": {
-      "enabled": false
+      "enabled": true
     }
   },
   "tools": {
-    "approvalMode": "auto-edit",
-    "exclude": ["web_search", "web_fetch"]
-  },
-  "model": {
-    "sessionTokenLimit": 128000,
-    "maxSessionTurns": 50
+    "approvalMode": "yolo",
+    "exclude": [
+      "web_search",
+      "web_fetch"
+    ]
   },
   "experimental": {
+    "vlmSwitchMode": "persist",
     "visionModelPreview": false
   },
   "privacy": {
     "usageStatisticsEnabled": false
   },
+  "security": {
+    "auth": {
+      "selectedType": "qwen-oauth"
+    }
+  },
   "context": {
     "fileName": "AGENTS.md"
   },
   "shell": {
-    "enableInteractiveShell": false
+    "enableInteractiveShell": true
   },
-  "ui":{
+  "ui": {
     "accessibility": {
       "disableLoadingPhrases": true
     }
   },
-  "$version": 2
+  "$version": 2,
+  "approvalMode": "yolo",
+  "model": {
+    "skipLoopDetection": true
+  }
 }

@@ -676,19 +676,21 @@ jobs:
     if: ${{ github.event_name == 'pull_request' && needs.summarize.outputs.all_green == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Merge PR (and delete branch if safe)
+      - name: Prepare PR & wait for mergeability
+        id: prepare
         uses: actions/github-script@v7
         with:
           script: |
             const { owner, repo } = context.repo;
-            const number = context.payload.pull_request.number;
+            const number = context.payload.pull_request?.number;
+            if (!number) { core.setOutput('proceed', 'false'); return; }
             const loadPr = async () => (await github.rest.pulls.get({ owner, repo, pull_number: number })).data;
             const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
             const allowedStates = new Set(['clean','unstable','blocked','has_hooks']);
 
             let pr = await loadPr();
-
-            if (pr.draft) { core.notice(`Skip merge #${number}: draft.`); return; }
+            if (pr.draft) { core.notice(`Skip merge #${number}: draft.`); core.setOutput('proceed','false'); return; }
 
             const maxAttempts = 6;
             for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -698,6 +700,7 @@ jobs:
 
               if (attempt === maxAttempts) {
                 core.notice(`Skip merge #${number}: mergeability unresolved after ${maxAttempts} attempts (mergeable=${pr.mergeable}, state=${pr.mergeable_state}).`);
+                core.setOutput('proceed','false');
                 return;
               }
 
@@ -708,28 +711,113 @@ jobs:
 
             const state = String(pr.mergeable_state || '').toLowerCase();
             const ok = pr.mergeable === true && allowedStates.has(state);
-            if (!ok) { core.notice(`Skip merge #${number}: mergeable=${pr.mergeable}, state=${pr.mergeable_state}.`); return; }
+            if (!ok) { core.notice(`Skip merge #${number}: mergeable=${pr.mergeable}, state=${pr.mergeable_state}.`); core.setOutput('proceed','false'); return; }
 
-            await github.rest.pulls.merge({ owner, repo, pull_number: number, merge_method: 'squash' });
-            core.notice(`Auto-merged PR #${number}.`);
+            core.setOutput('proceed','true');
+            core.setOutput('pr', JSON.stringify(pr));
 
-            // Delete head branch if safe
+      - name: Update PR branch from base (attempt updateBranch, fallback to server-side merge)
+        id: update
+        if: ${{ steps.prepare.outputs.proceed == 'true' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const number = context.payload.pull_request.number;
+            const pr = JSON.parse(process.env.PREPARE_PR || '{}');
+            const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+            const MARKER = '<!-- automerge-branch-update -->';
+
+            const upsert = async (text) => {
+              try {
+                const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: number, per_page: 100 });
+                const existing = comments.find(c => c.body && c.body.includes(MARKER));
+                const body = [MARKER, text].join('\n\n');
+                if (existing) {
+                  await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+                } else {
+                  await github.rest.issues.createComment({ owner, repo, issue_number: number, body });
+                }
+              } catch (err) {
+                core.warning(`Failed to upsert branch-update comment: ${err?.message || err}`);
+              }
+            };
+
+            await upsert('Auto-merge preparing: ensuring PR branch is up-to-date with base branch.');
+
+            try {
+              await github.rest.pulls.updateBranch({ owner, repo, pull_number: number });
+              await upsert('Requested branch update via GitHub API (pulls.updateBranch). Waiting for the update to apply...');
+              core.info('Requested branch update via pulls.updateBranch()');
+              await wait(5000);
+              core.setOutput('updated','true');
+              return;
+            } catch (ubErr) {
+              core.warning(`pulls.updateBranch failed: ${ubErr?.message || ubErr}`);
+              await upsert(`pulls.updateBranch failed: ${ubErr?.message || ubErr}. Attempting fallback server-side merge of base into PR branch.`);
+            }
+
+            try {
+              const baseRef = pr.base.ref;
+              const headRef = pr.head.ref;
+              core.info(`Attempting server-side merge of base '${baseRef}' into head '${headRef}' via repos.merge()`);
+              await github.rest.repos.merge({ owner, repo, base: headRef, head: baseRef, commit_message: `chore: sync ${headRef} with ${baseRef}` });
+              await upsert('Fallback server-side merge performed: base was merged into the PR branch. Waiting for refs to update...');
+              await wait(3000);
+              core.setOutput('updated','true');
+              return;
+            } catch (srvErr) {
+              core.warning(`Server-side repos.merge fallback failed: ${srvErr?.message || srvErr}`);
+              await upsert(`Fallback server-side merge failed: ${srvErr?.message || srvErr}. Manual intervention required.`);
+              core.setOutput('updated','false');
+              core.setOutput('update_error', String(srvErr?.message || srvErr));
+              return;
+            }
+        env:
+          PREPARE_PR: ${{ steps.prepare.outputs.pr }}
+
+      - name: Attempt merge
+        id: attempt
+        if: ${{ steps.prepare.outputs.proceed == 'true' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const number = context.payload.pull_request.number;
+            try {
+              await github.rest.pulls.merge({ owner, repo, pull_number: number, merge_method: 'squash' });
+              core.notice(`Auto-merged PR #${number}.`);
+              core.setOutput('merged','true');
+            } catch (e) {
+              core.warning(`Merge attempt failed: ${e?.message || e}`);
+              core.setOutput('merged','false');
+              core.setOutput('merge_error', String(e?.message || ''));
+            }
+
+      - name: Delete head branch (if merged)
+        if: ${{ steps.attempt.outputs.merged == 'true' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const number = context.payload.pull_request.number;
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number });
             try {
               const headRef = pr.head?.ref;
               const headRepoFull = pr.head?.repo?.full_name?.toLowerCase() || '';
               const thisFull = `${owner}/${repo}`.toLowerCase();
               if (!headRef || headRepoFull !== thisFull) {
                 core.info(`Not deleting branch: different repo or missing ref (head=${headRepoFull}, this=${thisFull}, ref=${headRef}).`);
-              } else {
-                const { data: rinfo } = await github.rest.repos.get({ owner, repo });
-                const defaultBranch = rinfo.default_branch;
-                if (headRef === defaultBranch) {
-                  core.info(`Not deleting branch: ${headRef} is the default branch.`);
-                } else {
-                  await github.rest.git.deleteRef({ owner, repo, ref: `heads/${headRef}` });
-                  core.notice(`Deleted branch ${headRef} after merge.`);
-                }
+                return;
               }
+              const { data: rinfo } = await github.rest.repos.get({ owner, repo });
+              const defaultBranch = rinfo.default_branch;
+              if (headRef === defaultBranch) {
+                core.info(`Not deleting branch: ${headRef} is the default branch.`);
+                return;
+              }
+              await github.rest.git.deleteRef({ owner, repo, ref: `heads/${headRef}` });
+              core.notice(`Deleted branch ${headRef} after merge.`);
             } catch (e) {
               core.warning(`Unable to delete head branch: ${e.message}`);
             }
