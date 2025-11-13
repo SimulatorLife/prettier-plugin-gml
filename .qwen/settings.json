@@ -24,7 +24,7 @@
     }
   },
   "context": {
-    "fileName": "AGENTS.md"
+    "fileName": ["AGENTS.md", "docs/README.md"]
   },
   "shell": {
     "enableInteractiveShell": true
@@ -38,5 +38,8 @@
   "approvalMode": "yolo",
   "model": {
     "skipLoopDetection": true
+  },
+  "advanced": {
+    "excludedEnvVars": []
   }
 }

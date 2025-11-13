@@ -1,16 +1,20 @@
 {
   "model": {
-    "maxSessionTurns": 35
+    "maxSessionTurns": 35,
+    "compressionThreshold": 0.6
   },
-  "contextFileName": "AGENTS.md",
+  "contextFileName": ["AGENTS.md", "docs/README.md"],
+  "context": {
+    "fileName": ["AGENTS.md", "docs/README.md"]
+  },
   "general": {
     "checkpointing": {
       "enabled": true
     }
   },
   "usageStatisticsEnabled": false,
-  "autoAccept": true,
   "tools": {
+    "autoAccept": true,
     "core": [
       "run_shell_command(cat)",
       "run_shell_command(cd)",
@@ -50,5 +54,11 @@
       "glob",
       "search_file_content"
     ]
+  },
+  "experimental":{
+    "codebaseInvestigatorSettings": {
+      "maxTimeMinutes": 5,
+      "thinkingBudget": 12288
+    }
   }
 }
