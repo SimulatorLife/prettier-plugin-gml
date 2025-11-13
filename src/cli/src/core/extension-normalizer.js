@@ -5,7 +5,6 @@ import {
     createListSplitPattern,
     normalizeExtensionSuffix,
     normalizeStringList,
-    toArrayFromIterable,
     uniqueArray
 } from "../shared/dependencies.js";
 
@@ -47,16 +46,20 @@ function collectExtensionCandidates(rawExtensions) {
         return normalizeExtensionFragments(rawExtensions);
     }
 
-    if (Array.isArray(rawExtensions)) {
-        return rawExtensions.flatMap((candidate) =>
-            typeof candidate === "string"
-                ? normalizeExtensionFragments(candidate)
-                : []
-        );
-    }
+    if (
+        rawExtensions &&
+        typeof rawExtensions !== "string" &&
+        typeof rawExtensions[Symbol.iterator] === "function"
+    ) {
+        const fragments = [];
 
-    if (rawExtensions && typeof rawExtensions[Symbol.iterator] === "function") {
-        return collectExtensionCandidates(toArrayFromIterable(rawExtensions));
+        for (const candidate of rawExtensions) {
+            if (typeof candidate === "string") {
+                fragments.push(...normalizeExtensionFragments(candidate));
+            }
+        }
+
+        return fragments;
     }
 
     return normalizeExtensionFragments(rawExtensions);
@@ -64,7 +67,9 @@ function collectExtensionCandidates(rawExtensions) {
 
 export function normalizeExtensions(rawExtensions, fallbackExtensions = []) {
     const candidates = collectExtensionCandidates(rawExtensions);
-    const coercedValues = candidates.map(coerceExtensionValue);
+    const coercedValues = candidates.map((candidate) =>
+        coerceExtensionValue(candidate)
+    );
     const filteredValues = compactArray(coercedValues);
     const normalized = uniqueArray(filteredValues);
 
