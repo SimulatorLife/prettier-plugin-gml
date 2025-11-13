@@ -406,6 +406,60 @@ export default class ScopeTracker {
     }
 
     /**
+     * Export declaration and reference occurrences for a specific scope. The
+     * structure mirrors {@link exportOccurrences} but narrows the output to a
+     * single scope so consumers do not need to scan the entire project graph
+     * when responding to focused hot reload events.
+     *
+     * @param {string} scopeId The scope identifier to export.
+     * @param {{ includeReferences?: boolean }} [options]
+     *        Controls whether reference occurrences should be included.
+     * @returns {{scopeId: string, scopeKind: string, identifiers: Array}} | null
+     *          Scope occurrence payload or null if the tracker is disabled or
+     *          the scope is unknown.
+     */
+    getScopeOccurrences(scopeId, { includeReferences = true } = {}) {
+        if (!this.enabled || !scopeId) {
+            return null;
+        }
+
+        const scope = this.scopesById.get(scopeId);
+        if (!scope) {
+            return null;
+        }
+
+        const includeRefs = Boolean(includeReferences);
+        const identifiers = [];
+
+        for (const [name, entry] of scope.occurrences) {
+            const declarations = entry.declarations.map((occurrence) =>
+                cloneOccurrence(occurrence)
+            );
+            const references = includeRefs
+                ? entry.references.map((occurrence) =>
+                      cloneOccurrence(occurrence)
+                  )
+                : [];
+
+            if (declarations.length === 0 && references.length === 0) {
+                continue;
+            }
+
+            identifiers.push({
+                name,
+                declarations,
+                references
+            });
+        }
+
+        return {
+            scopeId: scope.id,
+            scopeKind: scope.kind,
+            identifiers
+        };
+    }
+
+    /**
      * Find all occurrences (declarations and references) of a specific symbol
      * across all scopes. This supports hot reload coordination by identifying
      * what needs to be recompiled when a symbol changes.

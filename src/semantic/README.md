@@ -6,6 +6,34 @@ This `src/semantic` subsystem is a semantic layer that annotates parse tree(s) t
 
 The `ScopeTracker` provides query methods that enable hot reload coordination and dependency tracking:
 
+### `getScopeOccurrences(scopeId, options)`
+
+Export declaration and reference metadata for a single scope without scanning
+the entire graph. Useful when responding to focused hot reload events that only
+touch one file.
+
+```javascript
+const result = tracker.getScopeOccurrences("scope-1", {
+    includeReferences: false
+});
+// Returns:
+// {
+//   scopeId: "scope-1",
+//   scopeKind: "block",
+//   identifiers: [
+//     {
+//       name: "localVar",
+//       declarations: [...],
+//       references: []
+//     }
+//   ]
+// }
+```
+
+**Use case:** Emit targeted invalidation payloads for a single scope. The method
+mirrors `exportOccurrences` but avoids iterating through every scope in the
+tracker, making per-file queries cheaper during hot reload.
+
 ### `getSymbolOccurrences(name)`
 
 Find all occurrences (declarations and references) of a specific symbol across all scopes. Returns an array of occurrence records with scope context.
