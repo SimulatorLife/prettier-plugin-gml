@@ -12,9 +12,9 @@ repeat (array_length(arr2)) {
     k += 1;
 }
 
-var apple = "apple";
+var apple     = "apple";
 var apple_len = string_length(apple);
-apple = ["granny smith", "fuji", "gala"];
+apple         = ["granny smith", "fuji", "gala"];
 
 // If renaming would cause a naming conflict, do not hoist
 for (var index = 0; index < array_length(apple); index += 1) {
