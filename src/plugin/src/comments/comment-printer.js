@@ -9,7 +9,8 @@ import {
 import {
     formatLineComment,
     getLineCommentRawText,
-    normalizeBannerCommentText
+    normalizeBannerCommentText,
+    looksLikeCommentedOutCode
 } from "./line-comment-formatting.js";
 import {
     LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,
@@ -33,6 +34,44 @@ const EMPTY_LITERAL_TARGETS = [
     { type: "StructExpression", property: "properties" },
     { type: "EnumDeclaration", property: "members" }
 ];
+
+function hasEmbeddedDecorationSequence(text) {
+    if (typeof text !== "string" || text.length === 0) {
+        return false;
+    }
+
+    const pattern = /[-=_~*#<>|:.]{2,}/g;
+    let match;
+
+    while ((match = pattern.exec(text)) !== null) {
+        const beforeIndex = match.index - 1;
+        const afterIndex = match.index + match[0].length;
+        const beforeChar = beforeIndex >= 0 ? text[beforeIndex] : "";
+        const afterChar = afterIndex < text.length ? text[afterIndex] : "";
+
+        if (/\w/.test(beforeChar) && /\w/.test(afterChar)) {
+            return true;
+        }
+
+        const isHyphenSequence = /^-+$/.test(match[0]);
+        if (isHyphenSequence) {
+            if (beforeIndex >= 0 && /\w/.test(afterChar)) {
+                return true;
+            }
+
+            if (
+                afterIndex < text.length &&
+                /\w/.test(beforeChar) &&
+                afterChar !== "/" &&
+                afterChar !== ""
+            ) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
 
 function attachDanglingCommentToEmptyNode(comment, descriptors) {
     const node = comment.enclosingNode;
@@ -197,18 +236,42 @@ function printComment(commentPath, options) {
 
             const trimmedRemainder = remainderTrimmed.trim();
             const normalizedText = normalizeBannerCommentText(remainderTrimmed);
+            const hasEmbeddedDecorations =
+                hasEmbeddedDecorationSequence(trimmedRemainder);
+            const looksLikeCode = looksLikeCommentedOutCode(
+                trimmedRemainder,
+                lineCommentOptions.codeDetectionPatterns
+            );
             const shouldTreatAsBanner =
                 slashCount >= LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES ||
                 trimmedRemainder.length === 0 ||
                 normalizedText === null ||
-                normalizedText !== trimmedRemainder;
+                (!hasEmbeddedDecorations &&
+                    !looksLikeCode &&
+                    normalizedText !== trimmedRemainder);
 
             if (!shouldTreatAsBanner) {
                 return formatLineComment(comment, lineCommentOptions);
             }
 
             if (normalizedText === null) {
+                if (typeof comment.leadingWS === "string") {
+                    comment.leadingWS = "";
+                }
+
+                if (typeof comment.trailingWS === "string") {
+                    comment.trailingWS = "";
+                }
+
                 return "";
+            }
+
+            if (typeof comment.leadingWS === "string") {
+                comment.leadingWS = "";
+            }
+
+            if (typeof comment.trailingWS === "string") {
+                comment.trailingWS = "";
             }
 
             const normalizedComment = {
@@ -217,6 +280,14 @@ function printComment(commentPath, options) {
                 raw: `// ${normalizedText}`,
                 leadingText: `// ${normalizedText}`
             };
+
+            if (typeof normalizedComment.leadingWS === "string") {
+                normalizedComment.leadingWS = "";
+            }
+
+            if (typeof normalizedComment.trailingWS === "string") {
+                normalizedComment.trailingWS = "";
+            }
 
             return formatLineComment(normalizedComment, lineCommentOptions);
         }

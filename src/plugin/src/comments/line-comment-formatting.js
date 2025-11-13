@@ -150,12 +150,18 @@ function normalizeDocCommentLookupKey(identifier) {
 
 function createDocCommentTypeNormalization(candidate) {
     const synonyms = new Map();
-    for (const [key, value] of DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.synonyms) {
+    for (const [
+        key,
+        value
+    ] of DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.synonyms) {
         synonyms.set(key.toLowerCase(), value);
     }
 
     const canonicalSpecifierNames = new Map();
-    for (const [key, value] of DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.canonicalSpecifierNames) {
+    for (const [
+        key,
+        value
+    ] of DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.canonicalSpecifierNames) {
         canonicalSpecifierNames.set(key.toLowerCase(), value);
     }
 
@@ -402,7 +408,8 @@ function formatLineComment(
     const rawValue = getCommentValue(comment);
     const trimmedValue = getCommentValue(comment, { trim: true });
     const startsWithTripleSlash = trimmedOriginal.startsWith("///");
-    const isPlainTripleSlash = startsWithTripleSlash && !trimmedOriginal.includes("@");
+    const isPlainTripleSlash =
+        startsWithTripleSlash && !trimmedOriginal.includes("@");
 
     const leadingSlashMatch = trimmedOriginal.match(/^\/+/);
     const leadingSlashCount = leadingSlashMatch
@@ -456,10 +463,7 @@ function formatLineComment(
             return applyInlinePadding(comment, formatted);
         }
 
-        if (
-            !isInlineComment &&
-            /^\d+\s*[).:-]/.test(remainder)
-        ) {
+        if (!isInlineComment && /^\d+\s*[).:-]/.test(remainder)) {
             const formatted = `// ${remainder}`;
             return applyInlinePadding(comment, formatted);
         }
@@ -497,8 +501,7 @@ function formatLineComment(
           ? trimmedOriginal
           : null;
     if (docTagSource) {
-        let formattedCommentLine =
-            `///${  docTagSource.replace(DOC_TAG_LINE_PREFIX_PATTERN, " @")}`;
+        let formattedCommentLine = `///${docTagSource.replace(DOC_TAG_LINE_PREFIX_PATTERN, " @")}`;
         formattedCommentLine = applyJsDocReplacements(formattedCommentLine);
         return applyInlinePadding(comment, formattedCommentLine);
     }
@@ -535,12 +538,12 @@ function formatLineComment(
         );
     }
 
-    return applyInlinePadding(comment, `// ${  trimmedValue}`);
+    return applyInlinePadding(comment, `// ${trimmedValue}`);
 }
 
 function applyInlinePadding(comment, formattedText) {
     const normalizedText = formattedText.includes("\t")
-        ? formattedText.replaceAll('\t', "    ")
+        ? formattedText.replaceAll("\t", "    ")
         : formattedText;
 
     const paddingWidth = resolveInlinePaddingWidth(comment);
@@ -702,11 +705,7 @@ function normalizeGameMakerType(typeText) {
     const isDotSeparatedTypeSpecifierPrefix = (prefixIndex) => {
         let sawDot = false;
 
-        for (
-            let index = prefixIndex + 1;
-            index < segments.length;
-            index += 1
-        ) {
+        for (let index = prefixIndex + 1; index < segments.length; index += 1) {
             const candidate = segments[index];
             if (!candidate) {
                 continue;
@@ -752,7 +751,10 @@ function normalizeGameMakerType(typeText) {
                         normalizedValue
                     );
 
-                if (canonicalPrefix && isDotSeparatedTypeSpecifierPrefix(index)) {
+                if (
+                    canonicalPrefix &&
+                    isDotSeparatedTypeSpecifierPrefix(index)
+                ) {
                     normalizedValue = canonicalPrefix;
                 }
             }
@@ -791,7 +793,9 @@ function normalizeGameMakerType(typeText) {
             }
 
             if (
-                docCommentTypeNormalization.hasSpecifierPrefix(previousIdentifier)
+                docCommentTypeNormalization.hasSpecifierPrefix(
+                    previousIdentifier
+                )
             ) {
                 const canonicalPrefix =
                     docCommentTypeNormalization.getCanonicalSpecifierName(
@@ -869,5 +873,6 @@ export {
     normalizeDocCommentTypeAnnotations,
     resolveDocCommentTypeNormalization,
     restoreDefaultDocCommentTypeNormalizationResolver,
-    setDocCommentTypeNormalizationResolver
+    setDocCommentTypeNormalizationResolver,
+    looksLikeCommentedOutCode
 };

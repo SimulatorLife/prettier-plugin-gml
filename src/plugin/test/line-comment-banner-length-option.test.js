@@ -42,4 +42,29 @@ describe("line comment banner handling", () => {
 
         assert.strictEqual(printed, "// Move camera");
     });
+
+    it("clears surrounding whitespace when normalizing banner text", () => {
+        const comment = {
+            ...createBannerComment(
+                "//-------------------Move camera-----------------------//"
+            ),
+            leadingWS: "\n\n",
+            trailingWS: "\n\n"
+        };
+
+        const printed = printComment({ getValue: () => comment }, {});
+
+        assert.strictEqual(printed, "// Move camera");
+        assert.strictEqual(comment.leadingWS, "");
+        assert.strictEqual(comment.trailingWS, "");
+    });
+
+    it("preserves repeated punctuation inside ordinary comments", () => {
+        const comment = createBannerComment(
+            "// Use --help to view CLI options"
+        );
+        const printed = printComment({ getValue: () => comment }, {});
+
+        assert.strictEqual(printed, "// Use --help to view CLI options");
+    });
 });
