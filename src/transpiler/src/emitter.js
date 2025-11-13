@@ -713,6 +713,35 @@ export function emitJavaScript(ast) {
         return result;
     }
 
+    // Handle global variable declarations. GML's `globalvar` keyword exposes
+    // bare identifiers as entries on the global scope so subsequent reads and
+    // writes interact with `global.<name>`. We seed those globals on
+    // `globalThis` so the generated script can access them without throwing a
+    // ReferenceError. Existing values are preserved to avoid clobbering data
+    // initialised elsewhere in the runtime.
+    if (ast.type === "GlobalVarStatement") {
+        if (!ast.declarations || ast.declarations.length === 0) {
+            return "";
+        }
+
+        const statements = ast.declarations
+            .map((decl) => {
+                if (!decl || !decl.id) {
+                    return "";
+                }
+
+                const identifier = emitJavaScript(decl.id);
+                if (!identifier) {
+                    return "";
+                }
+
+                return `if (!Object.prototype.hasOwnProperty.call(globalThis, "${identifier}")) { globalThis.${identifier} = undefined; }`;
+            })
+            .filter(Boolean);
+
+        return statements.join("\n");
+    }
+
     // Handle variable declarations
     if (ast.type === "VariableDeclaration") {
         const declarations = ast.declarations
