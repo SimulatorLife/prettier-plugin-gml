@@ -371,6 +371,46 @@ test("emitJavaScript handles variable declaration without initialization", () =>
     assert.ok(result.includes("x"), "Should include variable name");
 });
 
+test("emitJavaScript lowers globalvar declarations into guarded globals", () => {
+    const source = "globalvar foo, bar;";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+
+    assert.match(
+        result,
+        /Object\.prototype\.hasOwnProperty\.call\(globalThis, "foo"\)/,
+        "Should guard against reinitialising foo"
+    );
+    assert.match(
+        result,
+        /globalThis\.foo = undefined;/,
+        "Should initialise foo on the global object"
+    );
+    assert.match(
+        result,
+        /Object\.prototype\.hasOwnProperty\.call\(globalThis, "bar"\)/,
+        "Should guard against reinitialising bar"
+    );
+    assert.match(
+        result,
+        /globalThis\.bar = undefined;/,
+        "Should initialise bar on the global object"
+    );
+});
+
+test("emitJavaScript preserves subsequent statements after globalvar", () => {
+    const source = "globalvar foo;\nfoo = 5;";
+    const parser = new GMLParser(source);
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+
+    assert.ok(
+        result.includes("foo = 5"),
+        "Should keep assignments following the globalvar declaration"
+    );
+});
+
 test("emitJavaScript handles nested control flow", () => {
     const source = "if (x > 0) { for (var i = 0; i < x; i += 1) { y += i; } }";
     const parser = new GMLParser(source);
