@@ -237,6 +237,19 @@ export function emitJavaScript(ast) {
         return `${left} ${ast.operator} ${right}`;
     }
 
+    // ++/-- expressions are represented as IncDecStatement nodes in the parser
+    // regardless of whether they appear as standalone statements or within a
+    // larger expression. We emit the operator either before or after the
+    // argument based on the prefix flag to preserve increment/decrement
+    // semantics.
+    if (ast.type === "IncDecStatement") {
+        const argument = emitJavaScript(ast.argument);
+        if (ast.prefix) {
+            return `${ast.operator}${argument}`;
+        }
+        return `${argument}${ast.operator}`;
+    }
+
     if (ast.type === "ExpressionStatement") {
         return `${emitJavaScript(ast.expression)};`;
     }
