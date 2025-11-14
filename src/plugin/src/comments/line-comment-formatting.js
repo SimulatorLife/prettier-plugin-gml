@@ -424,6 +424,23 @@ function normalizeBannerCommentText(candidate) {
     return normalized.length > 0 ? normalized : null;
 }
 
+function hasBannerDecorations(candidate) {
+    if (typeof candidate !== "string") {
+        return false;
+    }
+
+    if (LEADING_BANNER_DECORATION_PATTERN.test(candidate)) {
+        return true;
+    }
+
+    if (TRAILING_BANNER_DECORATION_PATTERN.test(candidate)) {
+        return true;
+    }
+
+    INNER_BANNER_DECORATION_PATTERN.lastIndex = 0;
+    return INNER_BANNER_DECORATION_PATTERN.test(candidate);
+}
+
 function formatLineComment(
     comment,
     lineCommentOptions = DEFAULT_LINE_COMMENT_OPTIONS
@@ -1001,6 +1018,7 @@ export {
     applyInlinePadding,
     formatLineComment,
     getLineCommentRawText,
+    hasBannerDecorations,
     normalizeBannerCommentText,
     normalizeDocCommentTypeAnnotations,
     resolveDocCommentTypeNormalization,

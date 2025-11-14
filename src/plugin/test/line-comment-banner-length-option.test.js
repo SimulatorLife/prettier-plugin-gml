@@ -33,4 +33,13 @@ describe("line comment banner handling", () => {
 
         assert.strictEqual(printed, "// Standard comment");
     });
+
+    it("normalizes decorated banners with minimal slash prefixes", () => {
+        const comment = createBannerComment(
+            "//-------------------Move camera-----------------------//"
+        );
+        const printed = printComment({ getValue: () => comment }, {});
+
+        assert.strictEqual(printed, "// Move camera");
+    });
 });

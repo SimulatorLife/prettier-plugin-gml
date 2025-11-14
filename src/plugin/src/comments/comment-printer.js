@@ -9,6 +9,7 @@ import {
 import {
     formatLineComment,
     getLineCommentRawText,
+    hasBannerDecorations,
     normalizeBannerCommentText
 } from "./line-comment-formatting.js";
 import {
@@ -183,10 +184,6 @@ function printComment(commentPath, options) {
 
             const slashRun = bannerMatch[1];
             const slashCount = slashRun.length;
-            if (slashCount < LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES) {
-                return formatLineComment(comment, lineCommentOptions);
-            }
-
             const bannerStart =
                 typeof bannerMatch.index === "number"
                     ? bannerMatch.index
@@ -195,6 +192,13 @@ function printComment(commentPath, options) {
             const remainder = rawText.slice(safeBannerStart + slashCount);
             const remainderTrimmed = remainder.trimStart();
             if (remainderTrimmed.startsWith("@")) {
+                return formatLineComment(comment, lineCommentOptions);
+            }
+
+            const hasDecorations =
+                slashCount >= LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES ||
+                hasBannerDecorations(remainderTrimmed);
+            if (!hasDecorations) {
                 return formatLineComment(comment, lineCommentOptions);
             }
 
