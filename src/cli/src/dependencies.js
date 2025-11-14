@@ -1,5 +1,4 @@
 export {
-    appendToCollection,
     applyEnvironmentOverride,
     asArray,
     assertArray,
@@ -73,6 +72,8 @@ export {
 } from "@prettier-plugin-gml/shared";
 
 export { Command, InvalidArgumentError, Option } from "commander";
+
+export { appendToCollection } from "./core/collection-utils.js";
 
 export {
     isMissingModuleDependency,
