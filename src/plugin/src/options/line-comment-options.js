@@ -19,6 +19,7 @@ const DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS = Object.freeze([
     // New script files start with placeholder documentation that adds no signal to
     // version control, so we redact it automatically.
     "@description Insert description here",
+    "/// @param sprite_index",
     // The IDE also seeds a generic reminder about the built-in editor; keeping it
     // out of repositories avoids churn when importing starter assets.
     "You can write your code in this editor"

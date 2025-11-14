@@ -447,7 +447,8 @@ export default class GameMakerASTBuilder {
             "regionStatement",
             "deleteStatement",
             "literalStatement",
-            "identifierStatement"
+            "identifierStatement",
+            "malformedDocComment"
         ]);
     }
 

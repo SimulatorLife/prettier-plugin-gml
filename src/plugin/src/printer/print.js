@@ -1779,6 +1779,9 @@ export function print(path, options, print) {
 
             return concat(buildTemplateStringParts(atoms, path, print));
         }
+        case "MalformedDocComment": {
+            return print(node);
+        }
         default: {
             console.warn(
                 `Print.js:print encountered unhandled node type: ${node.type}`,

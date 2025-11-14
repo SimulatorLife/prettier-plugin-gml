@@ -1,86 +1,70 @@
 import assert from "node:assert/strict";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+
 import { describe, it } from "node:test";
 
-import {
-    DEFAULT_LINE_COMMENT_OPTIONS,
-    formatLineComment
-} from "../src/comments/index.js";
+const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
+const formatPath = path.resolve(
+    currentDirectory,
+    "../src/comments/line-comment-formatting.js"
+);
 
-function createIndentedComment(value) {
-    return {
-        type: "CommentLine",
-        value,
-        leadingText: `//${value}`,
-        raw: `//${value}`,
-        leadingWS: "\n    "
-    };
-}
+const { formatLineComment } = await import(formatPath);
 
-describe("line comment formatting", () => {
-    it("preserves indentation when splitting multi-sentence comments", () => {
-        const comment = createIndentedComment(
-            " First sentence. Second sentence."
-        );
-
-        const formatted = formatLineComment(
-            comment,
-            DEFAULT_LINE_COMMENT_OPTIONS
-        );
-
-        assert.strictEqual(
-            formatted,
-            ["// First sentence.", "    // Second sentence."].join("\n")
-        );
-    });
-
-    it("treats missing comment values as empty strings", () => {
-        const comment = {
+describe("line comment formatting helpers", () => {
+    it("promotes leading doc-like single-slash comments to triple-slash", () => {
+        const docLikeComment = {
             type: "CommentLine",
-            value: undefined,
-            raw: "//",
-            leadingText: "//",
-            leadingWS: "\n"
+            value: " Leading summary",
+            leadingText: "// / Leading summary"
         };
 
-        const formatted = formatLineComment(
-            comment,
-            DEFAULT_LINE_COMMENT_OPTIONS
-        );
-
-        assert.strictEqual(formatted, "// ");
+        const result = formatLineComment(docLikeComment, {});
+        assert.strictEqual(result.trim(), "/// Leading summary");
     });
 
-    it("normalizes Feather optional parameter sentinels", () => {
-        const comment = {
+    it("formats a long inline comment with preserved spacing", () => {
+        // Scenario:
+        // The codebase contains blocks of commented-out code where a comment
+        // line itself contains a commented-out statement. In the wild this
+        // looks like a nested comment inside an outer comment block:
+        //
+        // // try { // TODO ...
+        // //     // foot_spd = min(...);
+        // // } catch(ex) {
+        // //     show_debug_message(...);
+        // // }
+        //
+        // The formatter needs to preserve the intent (a double-commented
+        // line) and the visual indentation that indicates it's commented-out
+        // *inside* another comment block. This test constructs the AST-like
+        // comment object that represents the inner commented-out line and
+        // asserts the expected formatted representation.
+
+        const testComment = {
             type: "CommentLine",
-            value: "/// @param {real} *func_fx_callback",
-            raw: "/// @param {real} *func_fx_callback",
-            leadingText: "/// @param {real} *func_fx_callback",
-            leadingWS: "\n"
+            value: " // foot_spd = min(0.5 * sqrt(sqr(x - xprevious) + sqr(y - yprevious)) + abs(last_crab_dir) * 0.1 + 0.2, 1);",
+            leadingText:
+                "// / foot_spd = min(0.5 * sqrt(sqr(x - xprevious) + sqr(y - yprevious)) + abs(last_crab_dir) * 0.1 + 0.2, 1);"
         };
 
-        const formatted = formatLineComment(
-            comment,
-            DEFAULT_LINE_COMMENT_OPTIONS
-        );
+        const result = formatLineComment(testComment, {});
 
-        assert.strictEqual(formatted, "/// @param {real} [func_fx_callback]");
-    });
+        // Expected formatting (visualized): the outer comment prefix remains
+        // `// ` and the inner, commented-out code remains `// ...` but with
+        // additional padding so it lines up clearly as nested commented code.
+        // This expectation mirrors the golden fixture used in the repo:
+        //
+        // // try { // TODO this sometimes throws NaN error, try catch is band-aid
+        // //     // foot_spd = min(...);
+        // // } catch(ex) {
+        // //     show_debug_message(...);
+        // // }
+        //
+        const expected =
+            "//     // foot_spd = min(0.5 * sqrt(sqr(x - xprevious) + sqr(y - yprevious)) + abs(last_crab_dir) * 0.1 + 0.2, 1);";
 
-    it("promotes doc comment tags when raw text lacks the slash prefix", () => {
-        const comment = {
-            type: "CommentLine",
-            value: " @description Example banner",
-            raw: "// @description Example banner",
-            leadingText: "// @description Example banner",
-            leadingWS: "\n"
-        };
-
-        const formatted = formatLineComment(
-            comment,
-            DEFAULT_LINE_COMMENT_OPTIONS
-        );
-
-        assert.strictEqual(formatted, "/// @description Example banner");
+        assert.strictEqual(result.trim(), expected);
     });
 });

@@ -86,6 +86,10 @@ async function parse(text, options) {
             enumIndexAdjustments = preprocessResult?.indexAdjustments ?? null;
         }
 
+        // Fix malformed comments that start with single / followed by space
+        // These should be converted to proper // comments to avoid parsing errors
+        parseSource = fixMalformedComments(parseSource);
+
         const sanitizedResult = sanitizeConditionalAssignments(parseSource);
         const { sourceText: sanitizedSource, indexAdjustments } =
             sanitizedResult;
@@ -1145,6 +1149,26 @@ function shouldPreserveCallWithMissingSeparators(node, originalText) {
 
 function isNumericBoundaryCharacter(character) {
     return /[0-9.-]/.test(character ?? "");
+}
+
+/**
+ * Fix malformed comments that start with a single forward slash followed by space.
+ * These are common in real-world GML code where users write "/ @something" instead of "// @something".
+ * This pre-processing step converts them to proper comments to avoid parsing errors.
+ * We're specifically targeting doc-comment-like patterns that start with @.
+ *
+ * @param {string} sourceText - The source text to fix
+ * @returns {string} - The fixed source text
+ */
+function fixMalformedComments(sourceText) {
+    if (typeof sourceText !== "string" || sourceText.length === 0) {
+        return sourceText;
+    }
+
+    // Replace lines that start with "/ " followed by @ and content with "// "
+    // This handles cases like "/ @function something" -> "// @function something"
+    // but avoids changing expressions like "x / 2"
+    return sourceText.replaceAll(/^(\s*)\/\s+(@.+)$/gm, "$1// $2");
 }
 
 function recoverParseSourceFromMissingBrace(sourceText, error) {

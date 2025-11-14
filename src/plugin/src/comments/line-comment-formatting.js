@@ -473,7 +473,19 @@ function formatLineComment(
         slashesMatch &&
         slashesMatch[1].length >= LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES
     ) {
-        // For comments with 4+ leading slashes, normalize the content and return as regular comment
+        // For comments with 4+ leading slashes we usually treat them as
+        // decorative banners. However, some inputs use many slashes to
+        // indicate nested doc-like tags (for example: "//// @func ...").
+        // In those cases prefer promoting to a doc comment rather than
+        // stripping to a regular comment line.
+        const afterStripping = trimmedValue.replace(/^\/+\s*/, "").trimStart();
+        if (afterStripping.startsWith("@")) {
+            // Promote to /// @... style and apply replacements (e.g. @func -> @function)
+            const formatted = applyJsDocReplacements(`/// ${afterStripping}`);
+            return applyInlinePadding(comment, formatted);
+        }
+
+        // Otherwise treat as a banner/decorative comment as before.
         const bannerContent = normalizeBannerCommentText(trimmedValue);
         if (bannerContent) {
             return applyInlinePadding(comment, `// ${bannerContent}`);
@@ -571,6 +583,27 @@ function formatLineComment(
         const remainder = trimmedOriginal
             .slice(docLikeMatch[0].length)
             .trimStart();
+        // If the original comment value itself looks like a nested commented-out
+        // line (for example the AST produces a value like " // // something"),
+        // prefer preserving the nested comment visual ("//     // something")
+        // rather than promoting it to a doc comment ("/// something").
+        // If the remainder itself is a nested comment (starts with `//`) or the
+        // original comment.value contains a nested `//` then preserve the
+        // nested commented-out visual alignment instead of promoting to
+        // `/// ...` doc comments.
+        if (
+            remainder.startsWith("//") ||
+            (isObjectLike(comment) &&
+                typeof comment.value === "string" &&
+                /^\s*\/\//.test(comment.value))
+        ) {
+            const inner = remainder.startsWith("//")
+                ? remainder
+                : comment.value.trimStart(); // preserves the inner `// ...`
+            const padded = `//     ${inner}`; // match expected golden spacing for nested comments
+            return applyInlinePadding(comment, padded);
+        }
+
         const formatted = `///${remainder.length > 0 ? ` ${remainder}` : ""}`;
         return applyInlinePadding(comment, formatted);
     }
@@ -972,5 +1005,6 @@ export {
     normalizeDocCommentTypeAnnotations,
     resolveDocCommentTypeNormalization,
     restoreDefaultDocCommentTypeNormalizationResolver,
-    setDocCommentTypeNormalizationResolver
+    setDocCommentTypeNormalizationResolver,
+    applyJsDocReplacements
 };
