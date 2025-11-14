@@ -188,6 +188,61 @@ test("emitJavaScript handles function calls with arguments", () => {
     );
 });
 
+test("GmlToJsEmitter routes script calls through the wrapper helper", () => {
+    const source = "result = scr_attack(target)";
+    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const ast = parser.parse();
+    const sem = {
+        ...makeDummyOracle(),
+        callTargetKind(node) {
+            if (node.object?.name === "scr_attack") {
+                return "script";
+            }
+            return "unknown";
+        },
+        callTargetSymbol(node) {
+            if (node.object?.name === "scr_attack") {
+                return "gml/script/scr_attack";
+            }
+            return null;
+        }
+    };
+    const emitter = new GmlToJsEmitter(sem);
+    const result = emitter.emit(ast);
+
+    assert.ok(
+        result.includes(
+            '__call_script("gml/script/scr_attack", self, other, [target])'
+        ),
+        "Should call scripts through __call_script helper"
+    );
+});
+
+test("GmlToJsEmitter allows overriding the script call helper name", () => {
+    const source = "scr_attack()";
+    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const ast = parser.parse();
+    const sem = {
+        ...makeDummyOracle(),
+        callTargetKind() {
+            return "script";
+        },
+        callTargetSymbol() {
+            return "gml/script/scr_attack";
+        }
+    };
+    const emitter = new GmlToJsEmitter(sem, {
+        callScriptIdent: "__runtime_call"
+    });
+    const result = emitter.emit(ast);
+
+    assert.ok(
+        result.includes('__runtime_call("gml/script/scr_attack", self, other,'),
+        "Should respect the configured script call helper"
+    );
+    assert.ok(result.includes("[]"), "Should pass an empty argument array");
+});
+
 test("emitJavaScript qualifies global identifiers using the global struct", () => {
     const source = "globalvar foo; foo = 1;";
     const parser = new GMLParser(source, { getIdentifierMetadata: true });

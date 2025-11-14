@@ -74,6 +74,7 @@ export class GmlToJsEmitter {
         this.sem = sem;
         this.options = {
             globalsIdent: "global",
+            callScriptIdent: "__call_script",
             ...options
         };
     }
@@ -280,9 +281,23 @@ export class GmlToJsEmitter {
     visitCallExpression(ast) {
         const callee = this.visit(ast.object);
         const args = ast.arguments.map((arg) => this.visit(arg));
+        const kind = this.sem.callTargetKind(ast);
 
-        if (this.sem.callTargetKind(ast) === "builtin") {
+        if (kind === "builtin") {
             return builtInFunctions[ast.object.name](args);
+        }
+
+        if (kind === "script") {
+            const scriptSymbol = this.sem.callTargetSymbol(ast);
+            const fallbackName =
+                typeof this.sem.nameOfIdent === "function"
+                    ? this.sem.nameOfIdent(ast.object)
+                    : (ast.object?.name ?? callee);
+            const scriptId = scriptSymbol || fallbackName;
+            const argsList = args.join(", ");
+            return `${this.options.callScriptIdent}(${JSON.stringify(
+                scriptId
+            )}, self, other, [${argsList}])`;
         }
 
         return `${callee}(${args.join(", ")})`;
