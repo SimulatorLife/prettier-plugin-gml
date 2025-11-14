@@ -83,7 +83,7 @@ const jsCode = emitJavaScript(ast);
 
 ### Planned Features
 
-- [ ] `with` statement lowering
+- [x] `with` statement lowering
 - [ ] Scope-aware identifier resolution (self, other, global)
 - [ ] Script call indirection through runtime wrapper
 - [ ] Built-in function mapping

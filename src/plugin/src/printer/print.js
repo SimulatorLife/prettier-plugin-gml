@@ -33,6 +33,7 @@ import {
 } from "../comments/comment-printer.js";
 import {
     formatLineComment,
+    getLineCommentRawText,
     normalizeDocCommentTypeAnnotations
 } from "../comments/line-comment-formatting.js";
 import { normalizeOptionalParamToken } from "../comments/optional-param-normalization.js";
@@ -3659,10 +3660,18 @@ function collectSyntheticDocCommentLines(node, options) {
         }
 
         const formatted = formatLineComment(comment, lineCommentOptions);
-        if (
-            typeof formatted !== "string" ||
-            !formatted.trim().startsWith("///")
-        ) {
+        // Check if comment is either /// style or // / style (doc-like)
+        const rawText = getLineCommentRawText(comment);
+        const trimmedRaw = typeof rawText === "string" ? rawText.trim() : "";
+
+        // A comment should be treated as a doc comment if:
+        // 1. It results in a formatted text starting with ///, OR
+        // 2. Its raw text matches the doc-like pattern (// /)
+        const isFormattedDocStyle =
+            typeof formatted === "string" && formatted.trim().startsWith("///");
+        const isRawDocLike = /^\/\/\s*\//.test(trimmedRaw);
+
+        if (!isFormattedDocStyle && !isRawDocLike) {
             remainingComments.push(comment);
             continue;
         }
@@ -3701,7 +3710,13 @@ function extractLeadingNonDocCommentLines(comments, options) {
                 continue;
             }
 
-            if (trimmed.startsWith("//") && !trimmed.startsWith("///")) {
+            // Include regular // comments that don't start with /// or // / in leading lines
+            // But exclude // / style comments which are doc-like and should be handled with doc comments
+            if (
+                trimmed.startsWith("//") &&
+                !trimmed.startsWith("///") &&
+                !/^\/\/\s*\//.test(trimmed)
+            ) {
                 comment.printed = true;
                 leadingLines.push(formatted);
                 continue;
@@ -3749,11 +3764,21 @@ function buildSyntheticDocComment(
         return null;
     }
 
+    // Apply doc comment promotion to the combined lines if both leading comments and synthetic lines exist
+    // This enables cases where doc-like comments (// / or /// without @) appear before actual doc comments (@param, @function, etc.)
+    const potentiallyPromotableLines =
+        leadingCommentLines.length > 0 && syntheticLines.length > 0
+            ? promoteLeadingDocCommentTextToDescription([
+                  ...leadingCommentLines,
+                  syntheticLines[0]
+              ]).slice(0, leadingCommentLines.length) // Take only the part corresponding to leadingCommentLines
+            : leadingCommentLines;
+
     const docLines =
         leadingCommentLines.length === 0
             ? syntheticLines
             : [
-                  ...leadingCommentLines,
+                  ...potentiallyPromotableLines,
                   ...(syntheticLines.length > 0 ? ["", ...syntheticLines] : [])
               ];
 

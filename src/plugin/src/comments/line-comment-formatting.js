@@ -563,6 +563,18 @@ function formatLineComment(
         }
     }
 
+    // Handle doc-like comment prefix normalization: convert "// / text" to "/// text"
+    // This handles doc comments that start with "// /" (two slashes, space, slash) but don't have an @ tag yet
+    // The pattern ensures it's "//" + whitespace + "/" but NOT "//" + whitespace + "//" (which would be commented-out code)
+    const docLikeMatch = trimmedOriginal.match(/^\/\/\s+\/(?![\/])/); // Match "//" followed by whitespace and single "/" (not double "//")
+    if (docLikeMatch) {
+        const remainder = trimmedOriginal
+            .slice(docLikeMatch[0].length)
+            .trimStart();
+        const formatted = `///${remainder.length > 0 ? ` ${remainder}` : ""}`;
+        return applyInlinePadding(comment, formatted);
+    }
+
     const docTagSource = DOC_TAG_LINE_PREFIX_PATTERN.test(trimmedValue)
         ? trimmedValue
         : DOC_TAG_LINE_PREFIX_PATTERN.test(trimmedOriginal)

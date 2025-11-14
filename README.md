@@ -852,8 +852,9 @@ work than the configured ceiling.
 
 ---
 
-## Useful VS Code extensions
+## References / Tools / Docs
 
 - [ANTLR4 Grammar Syntax Support](https://marketplace.visualstudio.com/items?itemName=mike-lischke.vscode-antlr4)
 - [GML Support](https://marketplace.visualstudio.com/items?itemName=electrobrains.gml-support)
 - [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
+- [Gemini CLI Configuration](https://github.com/google-gemini/gemini-cli/blob/main/docs/get-started/configuration.md)

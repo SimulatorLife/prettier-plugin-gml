@@ -35,6 +35,6 @@ jobs:
         echo "GEMINI_API_KEY length: ${#GEMINI_API_KEY}"
 
         # Run the CLI
-        gemini --prompt "${ADDITIONAL_CONTEXT}"
+        gemini --debug --yolo --prompt "${ADDITIONAL_CONTEXT}"
 
 

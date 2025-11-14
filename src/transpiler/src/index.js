@@ -1,5 +1,5 @@
 import GMLParser from "gamemaker-language-parser";
-import { emitJavaScript } from "./emitter.js";
+import { GmlToJsEmitter, makeDummyOracle } from "./emitter.js";
 
 /**
  * GML → JavaScript transpiler.
@@ -31,13 +31,17 @@ export class GmlTranspiler {
             // Parse the GML source code into an abstract syntax tree (AST) using the
             // GML parser. This AST captures the script's structure in a format that
             // the JavaScript emitter can traverse and transform.
-            const parser = new GMLParser(sourceText);
+            const parser = new GMLParser(sourceText, {
+                getIdentifierMetadata: true
+            });
             const ast = parser.parse();
 
             // Generate JavaScript code from the AST by walking the tree and emitting
             // equivalent JavaScript constructs. The emitter handles GML-specific
             // operators, control flow, and syntax that differ from JavaScript.
-            const jsBody = emitJavaScript(ast);
+            const oracle = this.semantic || makeDummyOracle();
+            const emitter = new GmlToJsEmitter(oracle);
+            const jsBody = emitter.emit(ast);
 
             // Return a hot-reload patch object containing the transpiled JavaScript
             // body, the original GML source (for debugging), and a version timestamp.
@@ -65,7 +69,9 @@ export class GmlTranspiler {
     transpileExpression(sourceText) {
         const parser = new GMLParser(sourceText);
         const ast = parser.parse();
-        return emitJavaScript(ast);
+        const oracle = this.semantic || makeDummyOracle();
+        const emitter = new GmlToJsEmitter(oracle);
+        return emitter.emit(ast);
     }
 }
 
