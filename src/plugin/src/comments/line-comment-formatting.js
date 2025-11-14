@@ -371,56 +371,48 @@ function getLineCommentRawText(comment) {
     return `//${fallbackValue}`;
 }
 
-function normalizeBannerCommentText(candidate) {
+function normalizeBannerCommentText(candidate, options = {}) {
     if (typeof candidate !== "string") {
         return null;
     }
 
-    let text = candidate.trim();
+    const raw = candidate;
+    let text = raw.trim();
     if (text.length === 0) {
         return null;
     }
 
-    // Check if original text contains decoration characters before processing
-    const hasDecorationChars = INNER_BANNER_DECORATION_PATTERN.test(text);
-    if (
-        !hasDecorationChars && // Also check for slash patterns at the end and multi-slash patterns
-        !/\/{2,}\s*$/.test(text) &&
-        !/\/{4,}/.test(text)
-    ) {
-        return null; // No decorations found, not a banner
+    const { assumeDecorated = false } = options;
+    const sawDecoration =
+        assumeDecorated ||
+        INNER_BANNER_DECORATION_PATTERN.test(raw) ||
+        /\/{2,}\s*$/.test(raw) ||
+        /\/{4,}/.test(raw);
+
+    if (!sawDecoration) {
+        return null;
     }
 
-    // Process the text to remove decorations, including multi-slash patterns
-    const originalLength = text.length;
-    text = text.replace(/\/{2,}\s*$/, "").trim(); // Remove trailing slash patterns
+    text = text.replace(/\/{2,}\s*$/, "").trim();
     if (text.length === 0) {
         return null;
     }
 
-    // Remove leading multi-slash decorations (4+ slashes)
     text = text.replace(/^\/{4,}\s*/, "");
+    text = text.replace(LEADING_BANNER_DECORATION_PATTERN, "");
+    text = text.replace(TRAILING_BANNER_DECORATION_PATTERN, "");
 
-    text = text.replace(LEADING_BANNER_DECORATION_PATTERN, ""); // Remove character decorations at start
-    text = text.replace(TRAILING_BANNER_DECORATION_PATTERN, ""); // Remove character decorations at end
-
-    // For inner decorations, only replace if all characters in the match are the same
-    // This prevents GML operators like <=, >= from being treated as decorations
     const innerMatches = text.match(INNER_BANNER_DECORATION_PATTERN) || [];
     for (const match of innerMatches) {
         const firstChar = match[0];
         if (match.split("").every((char) => char === firstChar)) {
-            // This is a genuine repeated character decoration, replace with space
             text = text.replaceAll(match, " ");
         }
-        // Note: GML operators like <=, >= won't be replaced because they have different characters
     }
 
     text = text.replaceAll(/\s+/g, " ");
 
     const normalized = text.trim();
-    // Only return content if original text actually contained decorations
-    // We know it did if we got this far due to our checks above
     return normalized.length > 0 ? normalized : null;
 }
 

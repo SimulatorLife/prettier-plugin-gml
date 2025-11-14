@@ -198,7 +198,10 @@ function printComment(commentPath, options) {
                 return formatLineComment(comment, lineCommentOptions);
             }
 
-            const normalizedText = normalizeBannerCommentText(remainderTrimmed);
+            const normalizedText = normalizeBannerCommentText(
+                remainderTrimmed,
+                { assumeDecorated: true }
+            );
             if (normalizedText === null) {
                 return "";
             }
