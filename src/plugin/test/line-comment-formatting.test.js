@@ -10,7 +10,9 @@ const formatPath = path.resolve(
     "../src/comments/line-comment-formatting.js"
 );
 
-const { formatLineComment } = await import(formatPath);
+const { formatLineComment, normalizeBannerCommentText } = await import(
+    formatPath
+);
 
 describe("line comment formatting helpers", () => {
     it("promotes leading doc-like single-slash comments to triple-slash", () => {
@@ -66,5 +68,13 @@ describe("line comment formatting helpers", () => {
             "//     // foot_spd = min(0.5 * sqrt(sqr(x - xprevious) + sqr(y - yprevious)) + abs(last_crab_dir) * 0.1 + 0.2, 1);";
 
         assert.strictEqual(result.trim(), expected);
+    });
+
+    it("retains banner content when decorations were stripped upstream", () => {
+        const normalized = normalizeBannerCommentText("Heading", {
+            assumeDecorated: true
+        });
+
+        assert.strictEqual(normalized, "Heading");
     });
 });
