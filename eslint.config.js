@@ -237,7 +237,7 @@ export default [
             /* unicorn plugin tweaks beyond the preset */
             "unicorn/no-empty-file": "error",
             "unicorn/consistent-function-scoping": "warn",
-            "unicorn/no-abusive-eslint-disable": "warn",
+            "unicorn/no-abusive-eslint-disable": "error",
             "unicorn/error-message": "error",
             "unicorn/no-useless-length-check": "error",
             "unicorn/no-array-push-push": "error",
@@ -275,9 +275,9 @@ export default [
             "sonarjs/cognitive-complexity": ["warn", 15],
             "sonarjs/no-duplicate-string": ["warn", { threshold: 3 }],
             "sonarjs/no-identical-functions": "error",
-            "sonarjs/no-inverted-boolean-check": "warn",
-            "sonarjs/no-redundant-boolean": "warn",
-            "sonarjs/no-small-switch": "warn",
+            "sonarjs/no-inverted-boolean-check": "error",
+            "sonarjs/no-redundant-boolean": "error",
+            "sonarjs/no-small-switch": "error",
 
             /* --- plugin: regexp (regex safety/perf) --- */
             "regexp/no-super-linear-backtracking": "warn",
