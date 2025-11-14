@@ -21,13 +21,20 @@ import { builtInFunctions } from "./builtins.js";
 export function makeDummyOracle() {
     return {
         kindOfIdent(node) {
+            if (!node || typeof node !== "object") {
+                return "local";
+            }
+
             const name = node.name;
+
+            if (node.isGlobalIdentifier) {
+                return "global_field";
+            }
+
             if (name === "self" || name === "other") {
                 return "local";
             }
-            if (node.isGlobal) {
-                return "global_field";
-            }
+
             // A real implementation would check variable declarations.
             // For now, assume it's a local variable unless otherwise specified.
             return "local";
@@ -585,8 +592,11 @@ export class GmlToJsEmitter {
                 if (!decl || !decl.id) {
                     return "";
                 }
-                const identifier = this.visit(decl.id);
-                if (!identifier) {
+                const identifier =
+                    typeof this.sem.nameOfIdent === "function"
+                        ? this.sem.nameOfIdent(decl.id)
+                        : (decl.id.name ?? decl.id);
+                if (!identifier || typeof identifier !== "string") {
                     return "";
                 }
                 return `if (!Object.prototype.hasOwnProperty.call(globalThis, "${identifier}")) { globalThis.${identifier} = undefined; }`;

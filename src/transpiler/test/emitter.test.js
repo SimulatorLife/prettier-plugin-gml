@@ -188,6 +188,46 @@ test("emitJavaScript handles function calls with arguments", () => {
     );
 });
 
+test("emitJavaScript qualifies global identifiers using the global struct", () => {
+    const source = "globalvar foo; foo = 1;";
+    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const ast = parser.parse();
+    const result = emitJavaScript(ast);
+
+    assert.ok(
+        result.includes(
+            'if (!Object.prototype.hasOwnProperty.call(globalThis, "foo"))'
+        ),
+        "Should guard access on the global object"
+    );
+
+    assert.ok(
+        result.includes("globalThis.foo = undefined;"),
+        "Should register global variables on globalThis"
+    );
+
+    assert.ok(
+        result.includes("global.foo = 1"),
+        "Should qualify global identifier references"
+    );
+});
+
+test("GmlToJsEmitter allows overriding the globals identifier", () => {
+    const source = "globalvar foo; foo = 1;";
+    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const ast = parser.parse();
+    const emitter = new GmlToJsEmitter(makeDummyOracle(), {
+        globalsIdent: "__globals"
+    });
+
+    const result = emitter.emit(ast);
+
+    assert.ok(
+        result.includes("__globals.foo = 1"),
+        "Should respect the configured globals identifier"
+    );
+});
+
 // Control flow tests
 test("emitJavaScript handles if statements", () => {
     const source = "if (x > 10) { y = 5; }";
