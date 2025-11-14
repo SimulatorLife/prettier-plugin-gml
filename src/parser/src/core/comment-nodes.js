@@ -28,6 +28,12 @@ function assignCommentBookends(node, { leadingWS, leadingChar }) {
 
 function createCommentValue(type, tokenText) {
     if (type === "CommentLine") {
+        // Preserve prior behaviour: strip exactly the first two leading
+        // slash characters when present. The formatter and downstream
+        // comment-printing logic rely on a stable relationship between the
+        // raw token text and the normalized `value`. Aggressively removing
+        // all leading slashes broke detection/printing of banner and doc
+        // comments and caused widespread fixture failures.
         return tokenText.replace(/^[\\/][\\/]/, "");
     }
 

@@ -63,7 +63,12 @@ const JSDOC_REPLACEMENT_RULES = Object.entries(JSDOC_REPLACEMENTS).map(
     })
 );
 
-const BANNER_DECORATION_CLASS = "[-=_~*#<>|:.]";
+// Note: '=' is intentionally omitted from the decoration class to avoid
+// treating the equality operator '==' inside commented-out code as a
+// decorative banner sequence. Keeping '=' here caused valid code like
+// "if (room == rm_island)" to have its '==' collapsed during banner
+// normalization.
+const BANNER_DECORATION_CLASS = "[-_~*#<>|:.]";
 const LEADING_BANNER_DECORATION_PATTERN = new RegExp(
     String.raw`^(?:${BANNER_DECORATION_CLASS}{2,}\s*)+`
 );

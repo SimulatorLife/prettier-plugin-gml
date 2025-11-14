@@ -161,5 +161,11 @@ export function isDocCommentLine(comment) {
         return false;
     }
 
-    return /^\/\s*@/.test(comment.value);
+    // Allow optional leading slash so comments that were normalized from
+    // malformed single-slash doc lines (for example "/ @param") still
+    // qualify as doc-style comments after the lexer/comment-node normalization
+    // step. We only care about the presence of an '@' following optional
+    // whitespace so this remains conservative and won't match ordinary
+    // non-doc comments.
+    return /^\s*(?:\/\s*)?@/.test(comment.value);
 }
