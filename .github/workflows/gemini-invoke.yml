@@ -34,7 +34,79 @@ jobs:
         export GEMINI_API_KEY="${API_KEY}"
         echo "GEMINI_API_KEY length: ${#GEMINI_API_KEY}"
 
-        # Run the CLI
-        gemini --debug --yolo --prompt "${ADDITIONAL_CONTEXT}"
+          # Run the CLI with retries/backoff to handle transient rate limits or quota errors.
+          # Strategy:
+          # - Try up to MAX_ATTEMPTS
+          # - If the CLI error output contains a server-suggested retry (e.g. "Suggested retry after 60s"), honor it
+          # - If it contains "Please retry in XXXms", honor that
+          # - Otherwise use exponential backoff starting at INITIAL_DELAY
+
+          MAX_ATTEMPTS=6
+          INITIAL_DELAY=2
+          BACKOFF_FACTOR=2
+          attempt=1
+          delay=${INITIAL_DELAY}
+
+          while [ $attempt -le $MAX_ATTEMPTS ]; do
+            echo "[gemini] attempt ${attempt}/${MAX_ATTEMPTS}"
+            errfile="$(mktemp /tmp/gemini-err.XXXXXX)"
+
+            if gemini --debug --yolo --prompt "${ADDITIONAL_CONTEXT}" 2>"$errfile"; then
+              echo "[gemini] succeeded"
+              rm -f "$errfile"
+              exit 0
+            fi
+
+            rc=$?
+            echo "[gemini] exited $rc; inspecting error output..."
+            sed -n '1,200p' "$errfile" || true
+
+            # Look for a server-suggested retry in seconds: "Suggested retry after 60s"
+            suggested_s=$(grep -Eo 'Suggested retry after [0-9]+s' "$errfile" | grep -Eo '[0-9]+' | head -n1 || true)
+            if [ -n "$suggested_s" ]; then
+              echo "[gemini] server suggested retry after ${suggested_s}s"
+              sleep "$suggested_s"
+              attempt=$((attempt+1))
+              rm -f "$errfile"
+              continue
+            fi
+
+            # Look for a millisecond suggestion: "Please retry in 449.409574ms." -> convert to seconds
+            suggested_ms=$(grep -Eo 'Please retry in [0-9]+(\.[0-9]+)?ms' "$errfile" | grep -Eo '[0-9]+(\.[0-9]+)?' | head -n1 || true)
+            if [ -n "$suggested_ms" ]; then
+              # Use awk to convert to seconds (supports decimals)
+              suggested_sec=$(awk "BEGIN{printf \"%.3f\", ${suggested_ms}/1000}")
+              echo "[gemini] server suggested retry after ${suggested_sec}s (from ${suggested_ms}ms)"
+              sleep "$suggested_sec"
+              attempt=$((attempt+1))
+              rm -f "$errfile"
+              continue
+            fi
+
+            # Look for quota/rate-limit hints and increase wait if found
+            if grep -qiE 'quota|rate limit|quota exceeded|rate limit exceeded' "$errfile"; then
+              echo "[gemini] detected quota/rate-limit error; sleeping ${delay}s before retry"
+              sleep "$delay"
+              delay=$((delay * BACKOFF_FACTOR))
+              attempt=$((attempt+1))
+              rm -f "$errfile"
+              continue
+            fi
+
+            # Default: exponential backoff
+            if [ $attempt -lt $MAX_ATTEMPTS ]; then
+              echo "[gemini] transient failure; sleeping ${delay}s before retry"
+              sleep "$delay"
+              delay=$((delay * BACKOFF_FACTOR))
+              attempt=$((attempt+1))
+              rm -f "$errfile"
+              continue
+            else
+              echo "[gemini] all ${MAX_ATTEMPTS} attempts failed; dumping error and exiting"
+              cat "$errfile" >&2 || true
+              rm -f "$errfile"
+              exit $rc
+            fi
+          done
 
 
