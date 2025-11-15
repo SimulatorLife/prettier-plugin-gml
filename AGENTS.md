@@ -19,6 +19,7 @@
 - When exporting a module’s public API, use named wildcard exports to provide clear namespace grouping (e.g., export * as AST from "./ast"; export * as Parser from "./parser"; export * as Transforms from "./transforms";).
 - Do not use .mjs or .cjs files anywhere in the codebase; all code must be authored as .js files, and packages should rely on "type": "module" to enable ESM behavior consistently throughout the monorepo.
 - Each package and major internal directory must include an index.js file that serves exclusively as the public export surface for that module; index.js files should contain only exports, no runtime logic, and must re-export all intended public functionality so that consumers import solely from the package root (e.g., @gml-modules/core) rather than deep relative paths or subdirectories.
+- Use a consistent module directory structure across the monorepo, where each package contains a top-level package.json, a top-level index.js that exposes the module’s entire public API, and separate src/ and test/ directories for implementation and tests; index.js should contain no implementation logic and must only re-export public symbols (preferably using named wildcard exports such as export * as AST from "./src/ast/index.js";), all internal code must live inside src/, tests must live inside test/, and consumers must always import from the module root rather than deep paths.
 
 
 ## Avoid Over-Extending the System
