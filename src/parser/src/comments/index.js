@@ -1,26 +1,18 @@
 import { Core } from "@gml-modules/core";
-import {
-    collectCommentNodes,
-    getCommentArray,
-    hasComment,
-    isBlockComment,
-    isCommentNode,
-    isDocCommentLine,
-    isLineComment
-} from "./comment-boundary.js";
+
 
 const {
     AST: { getCommentValue }
 } = Core;
 
 export {
-    collectCommentNodes,
-    getCommentArray,
-    hasComment,
-    isBlockComment,
-    isCommentNode,
-    isDocCommentLine,
-    isLineComment,
+    
+    
+    
+    
+    
+    
+    
     getCommentValue
 };
 
@@ -66,3 +58,4 @@ export {
 } from "./doc-comment-manager.js";
 
 export { normalizeOptionalParamToken } from "./optional-param-normalization.js";
+export {collectCommentNodes, getCommentArray, hasComment, isBlockComment, isCommentNode, isDocCommentLine, isLineComment} from "./comment-boundary.js";

@@ -23,8 +23,6 @@ import { normalizeOptionalParamToken } from "../comments/optional-param-normaliz
 import { resolveLineCommentOptions } from "../options/line-comment-options.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
 import { DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH } from "./doc-comment-wrap-width.js";
-const {
-    getCommentArray, isCommentNode, coercePositiveIntegerOption, getNonEmptyString, getNonEmptyTrimmedString, capitalize, isNonEmptyString, isNonEmptyTrimmedString, isObjectOrFunction, toTrimmedString, asArray, isNonEmptyArray, getNodeType, toMutableArray, ensureSet, getNodeStartIndex, getNodeEndIndex, getNodeRangeIndices, getBodyStatements, getCallExpressionArguments, getCallExpressionIdentifier, getIdentifierText, getSingleVariableDeclarator, isCallExpressionIdentifierMatch, isBooleanLiteral, isUndefinedSentinel, enqueueObjectChildValues, isFunctionLikeNode, forEachNodeChild } = Core;
 
 import {
     maybeReportIdentifierCaseDryRun,
@@ -40,6 +38,9 @@ import {
     ObjectWrapOption,
     resolveObjectWrapOption
 } from "../options/object-wrap-option.js";
+
+const {
+    getCommentArray, isCommentNode, coercePositiveIntegerOption, getNonEmptyString, getNonEmptyTrimmedString, capitalize, isNonEmptyString, isNonEmptyTrimmedString, isObjectOrFunction, toTrimmedString, asArray, isNonEmptyArray, getNodeType, toMutableArray, ensureSet, getNodeStartIndex, getNodeEndIndex, getNodeRangeIndices, getBodyStatements, getCallExpressionArguments, getCallExpressionIdentifier, getIdentifierText, getSingleVariableDeclarator, isCallExpressionIdentifierMatch, isBooleanLiteral, isUndefinedSentinel, enqueueObjectChildValues, isFunctionLikeNode, forEachNodeChild } = Core;
 
 const {
     breakParent,

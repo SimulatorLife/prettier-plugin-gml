@@ -1,11 +1,12 @@
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
+
+import { ProjectIndexCacheStatus } from "./cache.js";
+
 const {
     Utils: { assertFunction, throwIfAborted, toTrimmedString }
 } = Core;
-
-import { ProjectIndexCacheStatus } from "./cache.js";
 
 function assertCoordinatorFunction(value, name) {
     const normalizedName = toTrimmedString(name) || "dependency";

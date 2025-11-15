@@ -1,4 +1,5 @@
 import { Core } from "@gml-modules/core";
+
 const {
     Utils: { normalizeEnumeratedOption }
 } = Core;

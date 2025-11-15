@@ -3,6 +3,7 @@
 // alongside other printer optimizations instead of the main print pipeline.
 
 import { Core } from "@gml-modules/core";
+
 const {
     AST: {
         getIdentifierText,

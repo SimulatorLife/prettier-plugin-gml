@@ -7,8 +7,6 @@ import { util } from "prettier";
 import GMLParser, {
     sanitizeConditionalAssignments, applySanitizedIndexAdjustments, consolidateStructAssignments, applyFeatherFixes, preprocessSourceForFeatherFixes, applyRemovedIndexAdjustments, preprocessFunctionArgumentDefaults, enforceVariableBlockSpacing, convertStringConcatenations, condenseLogicalExpressions, convertManualMathExpressions, condenseScalarMultipliers, convertUndefinedGuardAssignments, annotateStaticFunctionOverrides
 } from "@gml-modules/parser";
-const {
-    getNodeStartIndex, getNodeEndIndex, toMutableArray, visitChildNodes, isNonEmptyTrimmedString } = Core;
 
 import {
     prepareIdentifierCaseEnvironment,
@@ -16,6 +14,9 @@ import {
     teardownIdentifierCaseEnvironment
 } from "@gml-modules/semantic";
 import { prepareDocCommentEnvironment } from "../comments/index.js";
+
+const {
+    getNodeStartIndex, getNodeEndIndex, toMutableArray, visitChildNodes, isNonEmptyTrimmedString } = Core;
 
 const { addTrailingComment } = util;
 

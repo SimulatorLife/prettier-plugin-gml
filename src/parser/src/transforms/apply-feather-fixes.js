@@ -1,5 +1,14 @@
 import GMLParser from "../gml-parser.js";
 import { Core } from "@gml-modules/core";
+import {
+    collectCommentNodes,
+    getCommentArray,
+    hasComment,
+    resolveDocCommentTraversalService,
+    getCommentValue
+} from "../comments/index.js";
+import { loadReservedIdentifierNames } from "@gml-modules/semantic/resources/reserved-identifiers.js";
+
 const {
     AST: {
         getNodeEndIndex,
@@ -55,14 +64,6 @@ const {
         getFeatherMetadata
     }
 } = Core;
-import {
-    collectCommentNodes,
-    getCommentArray,
-    hasComment,
-    resolveDocCommentTraversalService,
-    getCommentValue
-} from "../comments/index.js";
-import { loadReservedIdentifierNames } from "@gml-modules/semantic/resources/reserved-identifiers.js";
 
 function walkAstNodes(root, visitor) {
     const visit = (node, parent, key) => {
@@ -6658,7 +6659,7 @@ function recordDeprecatedCallMetadata(node, deprecatedFunctions, diagnostic) {
         return null;
     }
 
-    const fixDetail = createFeatherFixDetail(diagnostic, {
+    return createFeatherFixDetail(diagnostic, {
         target: functionName,
         range: {
             start: startIndex,
@@ -6666,8 +6667,6 @@ function recordDeprecatedCallMetadata(node, deprecatedFunctions, diagnostic) {
         },
         automatic: false
     });
-
-    return fixDetail;
 }
 
 function collectDeprecatedFunctionNames(ast, sourceText, docCommentTraversal) {
@@ -8615,15 +8614,13 @@ function createTemporaryVariableDeclaration(name, init) {
         end: cloneLocation(init.end)
     };
 
-    const declaration = {
+    return {
         type: "VariableDeclaration",
         declarations: [declarator],
         kind: "var",
         start: cloneLocation(init.start),
         end: cloneLocation(init.end)
     };
-
-    return declaration;
 }
 
 function getStatementInsertionInfo(state, statements, baseIndex) {
@@ -13260,15 +13257,13 @@ function createRealCoercionCall(literal) {
 
     const identifier = createIdentifierFromTemplate("real", literal);
 
-    const callExpression = {
+    return {
         type: "CallExpression",
         object: identifier,
         arguments: [argument],
         start: cloneLocation(literal.start),
         end: cloneLocation(literal.end)
     };
-
-    return callExpression;
 }
 
 function addMissingEnumMembers({ ast, diagnostic }) {

@@ -3,13 +3,14 @@ import { bootstrapIdentifierCaseProjectIndex } from "./project-index-gateway.js"
 import {
     prepareIdentifierCasePlan, captureIdentifierCasePlanSnapshot
 } from "./plan-service.js";
-const { Utils: { isObjectLike, noop, withObjectLike } } = Core;
 
 import {
     setIdentifierCaseOption,
     deleteIdentifierCaseOption
 } from "./option-store.js";
 import { warnWithReason } from "./logger.js";
+
+const { Utils: { isObjectLike, noop, withObjectLike } } = Core;
 
 const IDENTIFIER_CASE_LOGGER_NAMESPACE = "identifier-case";
 

@@ -1,10 +1,11 @@
 import { Core } from "@gml-modules/core";
+
+import { resolveVariableBlockSpacingMinDeclarations } from "../../options/variable-block-spacing-options.js";
+
 const {
     AST: { getNodeType },
     Utils: { isNonEmptyArray }
 } = Core;
-
-import { resolveVariableBlockSpacingMinDeclarations } from "../../options/variable-block-spacing-options.js";
 
 export function enforceVariableBlockSpacing(ast, options) {
     if (!ast || typeof ast !== "object") {

@@ -1,10 +1,11 @@
 import { Core } from "@gml-modules/core";
+
+import { setIdentifierCaseOption } from "./option-store.js";
+
 const {
     AST: { buildLocationKey },
     Utils: { isMapLike, withObjectLike }
 } = Core;
-
-import { setIdentifierCaseOption } from "./option-store.js";
 
 function buildRenameKey(_scopeId, location) {
     const locationKey = buildLocationKey(location);

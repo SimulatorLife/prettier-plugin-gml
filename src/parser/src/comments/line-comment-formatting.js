@@ -6,6 +6,9 @@ import {
     normalizeLineCommentOptions
 } from "../options/line-comment-options.js";
 import { isObjectLike } from "./comment-boundary.js";
+
+import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
+
 const {
     AST: { getCommentValue },
     Utils: {
@@ -16,8 +19,6 @@ const {
         createResolverController
     }
 } = Core;
-
-import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
 
 function normalizeEntryPair(entry) {
     if (Array.isArray(entry)) {

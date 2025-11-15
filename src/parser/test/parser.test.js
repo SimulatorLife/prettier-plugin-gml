@@ -8,11 +8,12 @@ import { describe, it } from "node:test";
 import GMLParser from "../gml-parser.js";
 import GameMakerASTBuilder from "../src/gml-ast-builder.js";
 import { Core } from "@gml-modules/core";
+import { ScopeTracker } from "@gml-modules/semantic";
+
 const {
     Utils: { getLineBreakCount },
     AST: { getNodeStartIndex }
 } = Core;
-import { ScopeTracker } from "@gml-modules/semantic";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixturesDirectory = path.join(currentDirectory, "input");

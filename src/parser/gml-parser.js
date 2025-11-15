@@ -1,4 +1,4 @@
-import ParserImpl, { getLineBreakCount } from "./src/gml-parser.js";
+
 import { Core } from "@gml-modules/core";
 
 const {
@@ -9,8 +9,8 @@ const {
     Utils: { createResolverController }
 } = Core;
 
-export default ParserImpl;
-export { getLineBreakCount };
+
+
 export { GameMakerSyntaxError } from "./src/gml-syntax-error.js";
 export {
     sanitizeConditionalAssignments,
@@ -46,3 +46,4 @@ export {
     getStructPropertyAccess,
     isBinaryOperator
 } from "./src/ast/node-helpers.js";
+export {default, getLineBreakCount} from "./src/gml-parser.js";

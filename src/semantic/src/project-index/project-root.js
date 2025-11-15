@@ -1,9 +1,6 @@
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
-const {
-    FS: { walkAncestorDirectories }
-} = Core;
 
 import {
     PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE,
@@ -12,6 +9,10 @@ import {
 import { isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { listDirectory } from "./fs-helpers.js";
+
+const {
+    FS: { walkAncestorDirectories }
+} = Core;
 
 export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
     const filepath = options?.filepath;

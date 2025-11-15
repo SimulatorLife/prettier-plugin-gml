@@ -1,6 +1,7 @@
 // Delegate capability probes to @gml-modules/core to avoid diverging logic
 // between packages.
 import { Core } from "@gml-modules/core";
+
 const {
     Utils: {
         hasFunction,

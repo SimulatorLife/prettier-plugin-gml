@@ -1,9 +1,10 @@
 import { Core } from "@gml-modules/core";
+
+import { resolveProjectDisplayPath } from "./path-normalization.js";
+
 const {
     Utils: { getNonEmptyString, isFiniteNumber, splitLines, toFiniteNumber }
 } = Core;
-
-import { resolveProjectDisplayPath } from "./path-normalization.js";
 
 /**
  * Normalize thrown values into an error-like object the formatter can mutate

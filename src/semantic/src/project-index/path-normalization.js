@@ -1,12 +1,13 @@
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
+
+import { resolveProjectPathInfo } from "./path-info.js";
+
 const {
     FS: { toPosixPath },
     Utils: { assertFunction, getNonEmptyString, isNonEmptyString }
 } = Core;
-
-import { resolveProjectPathInfo } from "./path-info.js";
 
 /** @typedef {NonNullable<ReturnType<typeof resolveProjectPathInfo>>} ProjectPathInfo */
 

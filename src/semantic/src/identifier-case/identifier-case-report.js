@@ -10,13 +10,14 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 import { setIdentifierCaseOption } from "./option-store.js";
-const {
-    asArray, compactArray, coalesceOption, coalesceTrimmedString, incrementMapValue, isNonEmptyArray, isObjectLike, toArray, withObjectLike } = Core;
 
 import { warnWithReason } from "./logger.js";
 
 import { consumeIdentifierCaseDryRunContext } from "./identifier-case-context.js";
 import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
+
+const {
+    asArray, compactArray, coalesceOption, coalesceTrimmedString, incrementMapValue, isNonEmptyArray, isObjectLike, toArray, withObjectLike } = Core;
 
 const REPORT_NAMESPACE = "gml-identifier-case";
 const LOG_VERSION = 1;

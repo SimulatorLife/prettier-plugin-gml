@@ -6,6 +6,8 @@ import {
     LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,
     normalizeLineCommentOptions
 } from "../options/line-comment-options.js";
+import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
+
 const {
     AST: { getCommentValue },
     Utils: {
@@ -16,7 +18,6 @@ const {
         createResolverController
     }
 } = Core;
-import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
 
 function normalizeEntryPair(entry) {
     if (Array.isArray(entry)) {

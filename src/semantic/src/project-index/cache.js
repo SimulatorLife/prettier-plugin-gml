@@ -2,12 +2,12 @@ import path from "node:path";
 import { Core } from "@gml-modules/core";
 import { createHash, randomUUID } from "node:crypto";
 
-const {
-    parseJsonWithContext, areNumbersApproximatelyEqual, toFiniteNumber, isObjectLike, createEnvConfiguredValueWithFallback, createAbortGuard, describeValueForError, getNonEmptyTrimmedString, isFsErrorCode, applyConfiguredValueEnvOverride } = Core;
-
 import { isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { getFileMtime, listDirectory } from "./fs-helpers.js";
+
+const {
+    parseJsonWithContext, areNumbersApproximatelyEqual, toFiniteNumber, isObjectLike, createEnvConfiguredValueWithFallback, createAbortGuard, describeValueForError, getNonEmptyTrimmedString, isFsErrorCode, applyConfiguredValueEnvOverride } = Core;
 
 export const PROJECT_INDEX_CACHE_SCHEMA_VERSION = 1;
 export const PROJECT_INDEX_CACHE_DIRECTORY = ".prettier-plugin-gml";

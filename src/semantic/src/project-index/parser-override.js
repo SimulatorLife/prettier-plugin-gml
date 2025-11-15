@@ -1,9 +1,10 @@
 import { Core } from "@gml-modules/core";
+
+import { getDefaultProjectIndexParser } from "./gml-parser-facade.js";
+
 const {
     Utils: { isObjectLike }
 } = Core;
-
-import { getDefaultProjectIndexParser } from "./gml-parser-facade.js";
 
 const defaultProjectIndexParser = getDefaultProjectIndexParser();
 

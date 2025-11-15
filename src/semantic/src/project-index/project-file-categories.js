@@ -1,12 +1,13 @@
 import { Core } from "@gml-modules/core";
-const {
-    Utils: { assertArray, normalizeExtensionSuffix }
-} = Core;
 
 import {
     isProjectManifestPath,
     isProjectResourceMetadataPath
 } from "./constants.js";
+
+const {
+    Utils: { assertArray, normalizeExtensionSuffix }
+} = Core;
 
 const DEFAULT_PROJECT_SOURCE_EXTENSIONS = Object.freeze([".gml"]);
 let projectSourceExtensions = DEFAULT_PROJECT_SOURCE_EXTENSIONS;

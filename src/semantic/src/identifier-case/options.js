@@ -5,14 +5,15 @@
 // single source of truth.
 
 import { Core } from "@gml-modules/core";
-const {
-    Utils: { capitalize, createListSplitPattern, normalizeStringList }
-} = Core;
 
 import { getIdentifierCaseStyleMetadata } from "./identifier-case-utils.js";
 import { getDefaultProjectIndexCacheMaxSize } from "../project-index/cache.js";
 import { getDefaultProjectIndexGmlConcurrency } from "../project-index/concurrency.js";
 import { DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES } from "./option-store-defaults.js";
+
+const {
+    Utils: { capitalize, createListSplitPattern, normalizeStringList }
+} = Core;
 
 export { DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES } from "./option-store-defaults.js";
 

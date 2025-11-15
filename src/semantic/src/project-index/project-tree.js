@@ -1,9 +1,6 @@
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
-const {
-    FS: { isFsErrorCode, toPosixPath }
-} = Core;
 
 import { createProjectIndexAbortGuard } from "./abort-guard.js";
 import {
@@ -12,6 +9,10 @@ import {
     ProjectFileCategory
 } from "./project-file-categories.js";
 import { listDirectory } from "./fs-helpers.js";
+
+const {
+    FS: { isFsErrorCode, toPosixPath }
+} = Core;
 
 function createProjectTreeCollector(metrics = null) {
     const yyFiles = [];

@@ -3,9 +3,10 @@
 // layer the plugin should own.
 
 import { Core } from "@gml-modules/core";
-const { parse: coreParse } = Core;
 
 import { applyTransforms } from "@gml-modules/parser";
+
+const { parse: coreParse } = Core;
 
 export function makeParserConfig(prettierOptions = {}) {
     return {

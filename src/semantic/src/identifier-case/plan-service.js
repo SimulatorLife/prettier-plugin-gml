@@ -1,7 +1,4 @@
 import { Core } from "@gml-modules/core";
-const {
-    Utils: { assertFunction, assertPlainObject }
-} = Core;
 
 import { prepareIdentifierCasePlan as defaultPrepareIdentifierCasePlan } from "./local-plan.js";
 import {
@@ -9,6 +6,10 @@ import {
     captureIdentifierCasePlanSnapshot as defaultCaptureIdentifierCasePlanSnapshot,
     applyIdentifierCasePlanSnapshot as defaultApplyIdentifierCasePlanSnapshot
 } from "./plan-state.js";
+
+const {
+    Utils: { assertFunction, assertPlainObject }
+} = Core;
 
 /**
  * The original IdentifierCasePlanService bundled plan preparation, rename

@@ -1,11 +1,12 @@
 import { Core } from "@gml-modules/core";
-const {
-    Utils: { hasOwn, createResolverController }
-} = Core;
 import {
     TRAILING_COMMA,
     assertTrailingCommaValue
 } from "./trailing-comma-option.js";
+
+const {
+    Utils: { hasOwn, createResolverController }
+} = Core;
 
 // Hard overrides for GML regardless of incoming config. These knobs either map
 // to syntax that GameMaker never emits (for example JSX attributes) or would let

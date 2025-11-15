@@ -1,6 +1,7 @@
 import { Core } from "@gml-modules/core";
 import { DefineReplacementDirective, getNormalizedDefineReplacementDirective, isFunctionLikeDeclaration
 } from "./util.js";
+
 const { getBooleanLiteralValue } = Core;
 
 

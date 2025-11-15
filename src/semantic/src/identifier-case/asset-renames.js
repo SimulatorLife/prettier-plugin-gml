@@ -2,8 +2,6 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 import { formatIdentifierCase } from "./identifier-case-utils.js";
-const {
-    getOrCreateMapEntry, isNonEmptyArray, isNonEmptyString, toNormalizedLowerCaseString } = Core;
 
 import { loadReservedIdentifierNames } from "../resources/reserved-identifiers.js";
 import {
@@ -19,6 +17,9 @@ import {
     IdentifierCaseStyle,
     normalizeIdentifierCaseAssetStyle
 } from "./options.js";
+
+const {
+    getOrCreateMapEntry, isNonEmptyArray, isNonEmptyString, toNormalizedLowerCaseString } = Core;
 
 const RESERVED_IDENTIFIER_NAMES = loadReservedIdentifierNames();
 

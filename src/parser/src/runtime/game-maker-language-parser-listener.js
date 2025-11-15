@@ -4,6 +4,7 @@ import { VISIT_METHOD_NAMES } from "./game-maker-language-parser-visitor.js";
 import {
     definePrototypeMethods, deriveListenerMethodNames, toDelegate
 } from "./parse-tree-helpers.js";
+
 const { Utils: { noop } } = Core;
 
 

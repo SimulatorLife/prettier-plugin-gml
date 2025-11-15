@@ -1,5 +1,6 @@
 import { Core } from "@gml-modules/core";
 import { walkObjectGraph } from "../ast/object-graph.js";
+
 const {
     AST: { isCommentNode }
 } = Core;

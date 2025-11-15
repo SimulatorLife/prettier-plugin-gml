@@ -1,6 +1,10 @@
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
+
+import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
+import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
+
 const {
     Utils: {
         assertPlainObject,
@@ -14,9 +18,6 @@ const {
     },
     FS: { fromPosixPath, isFsErrorCode }
 } = Core;
-
-import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
-import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
 
 const DEFAULT_WRITE_ACCESS_ARGS =
     DEFAULT_WRITE_ACCESS_MODE === undefined ? [] : [DEFAULT_WRITE_ACCESS_MODE];

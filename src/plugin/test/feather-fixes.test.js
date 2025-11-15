@@ -9,11 +9,6 @@ import { describe, it } from "node:test";
 import GMLParser from "@gml-modules/parser";
 import prettier from "prettier";
 
-const {
-    AST: { getNodeEndIndex, getNodeStartIndex },
-    Resources: { getFeatherMetadata, getFeatherDiagnosticById }
-} = Core;
-
 import {
     applyFeatherFixes,
     getFeatherDiagnosticFixers,
@@ -21,6 +16,11 @@ import {
     preprocessSourceForFeatherFixes,
     ROOM_NAVIGATION_DIRECTION
 } from "@gml-modules/parser";
+
+const {
+    AST: { getNodeEndIndex, getNodeStartIndex },
+    Resources: { getFeatherMetadata, getFeatherDiagnosticById }
+} = Core;
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const pluginPath = path.resolve(currentDirectory, "../src/gml.js");

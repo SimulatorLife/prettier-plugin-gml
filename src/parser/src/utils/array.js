@@ -8,6 +8,7 @@
 // implementation lives only in `src/core` and there are no fragile relative
 // cross-package paths.
 import { Core } from "@gml-modules/core";
+
 const {
     Utils: {
         toArrayFromIterable,

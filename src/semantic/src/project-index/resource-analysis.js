@@ -1,6 +1,14 @@
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
+
+import {
+    PROJECT_MANIFEST_EXTENSION,
+    isProjectManifestPath,
+    matchProjectResourceMetadataExtension
+} from "./constants.js";
+import { normalizeProjectResourcePath } from "./path-normalization.js";
+
 const {
     Utils: {
         isNonEmptyArray,
@@ -15,13 +23,6 @@ const {
     },
     FS: { isFsErrorCode }
 } = Core;
-
-import {
-    PROJECT_MANIFEST_EXTENSION,
-    isProjectManifestPath,
-    matchProjectResourceMetadataExtension
-} from "./constants.js";
-import { normalizeProjectResourcePath } from "./path-normalization.js";
 
 const RESOURCE_ANALYSIS_ABORT_MESSAGE = "Project index build was aborted.";
 

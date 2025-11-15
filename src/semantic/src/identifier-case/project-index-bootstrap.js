@@ -1,6 +1,16 @@
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
+
+import {
+    clampConcurrency,
+    createProjectIndexBuildOptions,
+    createProjectIndexCoordinator,
+    createProjectIndexDescriptor,
+    findProjectRoot,
+    getProjectIndexParserOverride
+} from "../project-index/index.js";
+
 const {
     Utils: {
         assertFunction,
@@ -14,15 +24,6 @@ const {
         withDefinedValue
     }
 } = Core;
-
-import {
-    clampConcurrency,
-    createProjectIndexBuildOptions,
-    createProjectIndexCoordinator,
-    createProjectIndexDescriptor,
-    findProjectRoot,
-    getProjectIndexParserOverride
-} from "../project-index/index.js";
 
 const PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME =
     "__identifierCaseProjectIndexCacheMaxBytes";

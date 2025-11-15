@@ -1,14 +1,15 @@
 import { Core } from "@gml-modules/core";
-const {
-    AST: { assignClonedLocation },
-    Utils: { isObjectLike, toArray, toMutableArray }
-} = Core;
 
 import {
     ScopeOverrideKeyword,
     formatKnownScopeOverrideKeywords,
     isScopeOverrideKeyword
 } from "./scope-override-keywords.js";
+
+const {
+    AST: { assignClonedLocation },
+    Utils: { isObjectLike, toArray, toMutableArray }
+} = Core;
 
 class Scope {
     constructor(id, kind, parent = null) {

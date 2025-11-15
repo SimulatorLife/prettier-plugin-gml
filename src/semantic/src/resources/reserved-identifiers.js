@@ -1,13 +1,14 @@
 import { Core } from "@gml-modules/core";
-const {
-    Utils: { isObjectLike, noop, toNormalizedLowerCaseSet },
-    IdentifierMetadata: { normalizeIdentifierMetadataEntries }
-} = Core;
 
 import {
     GML_IDENTIFIER_METADATA_PATH,
     loadBundledIdentifierMetadata
 } from "./bundled-resources.js";
+
+const {
+    Utils: { isObjectLike, noop, toNormalizedLowerCaseSet },
+    IdentifierMetadata: { normalizeIdentifierMetadataEntries }
+} = Core;
 
 const DEFAULT_EXCLUDED_TYPES = new Set(["literal", "keyword"]);
 const DEFAULT_IDENTIFIER_METADATA_PATH = GML_IDENTIFIER_METADATA_PATH;
