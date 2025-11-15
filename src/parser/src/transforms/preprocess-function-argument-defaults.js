@@ -1,22 +1,9 @@
-import {
-    hasComment as sharedHasComment,
-    getHasCommentHelper
+import { Core } from "@gml-modules/core";
+const { hasComment: sharedHasComment, getHasCommentHelper
 } from "../comments/index.js";
 import {
-    getSingleVariableDeclarator as sharedGetSingleVariableDeclarator,
-    getIdentifierText as sharedGetIdentifierText,
-    isUndefinedSentinel as sharedIsUndefinedSentinel,
-    getSingleMemberIndexPropertyEntry as sharedGetSingleMemberIndexPropertyEntry,
-    unwrapParenthesizedExpression,
-    getBodyStatements,
-    toMutableArray,
-    isObjectLike,
-    forEachNodeChild,
-    getNodeEndIndex,
-    getNodeStartIndex,
-    assignClonedLocation,
-    resolveHelperOverride
-} from "@gml-modules/core";
+    getSingleVariableDeclarator as sharedGetSingleVariableDeclarator, getIdentifierText: sharedGetIdentifierText, isUndefinedSentinel: sharedIsUndefinedSentinel, getSingleMemberIndexPropertyEntry: sharedGetSingleMemberIndexPropertyEntry, unwrapParenthesizedExpression, getBodyStatements, toMutableArray, isObjectLike, forEachNodeChild, getNodeEndIndex, getNodeStartIndex, assignClonedLocation, resolveHelperOverride } = Core;
+
 
 // Re-export selected core helpers into local scope for convenience. Some
 // matcher logic expects these helpers to exist as local identifiers.

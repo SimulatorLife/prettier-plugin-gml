@@ -1,12 +1,10 @@
 import path from "node:path";
 
-import { formatIdentifierCase } from "./identifier-case-utils.js";
+import { Core } from "@gml-modules/core";
+const { formatIdentifierCase } from "./identifier-case-utils.js";
 import {
-    getOrCreateMapEntry,
-    isNonEmptyArray,
-    isNonEmptyString,
-    toNormalizedLowerCaseString
-} from "@gml-modules/core";
+    getOrCreateMapEntry, isNonEmptyArray, isNonEmptyString, toNormalizedLowerCaseString } = Core;
+
 import { loadReservedIdentifierNames } from "../resources/reserved-identifiers.js";
 import {
     COLLISION_CONFLICT_CODE,

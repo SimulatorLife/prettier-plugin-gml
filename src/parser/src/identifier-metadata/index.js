@@ -1,4 +1,6 @@
-import { isObjectLike, toArray } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { isObjectLike, toArray } = Core;
+
 
 /**
  * The previous IdentifierMetadataManager bundled scope management, role tracking,

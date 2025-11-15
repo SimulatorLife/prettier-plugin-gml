@@ -1,4 +1,6 @@
-import { hasFunction, isErrorLike, isObjectLike } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { hasFunction, isErrorLike, isObjectLike } = Core;
+
 
 function hasOffendingTokenProbe(value) {
     if (value?.offendingToken !== undefined) {

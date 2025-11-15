@@ -1,4 +1,6 @@
-import { assertArray, normalizeExtensionSuffix } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { assertArray, normalizeExtensionSuffix } = Core;
+
 import {
     isProjectManifestPath,
     isProjectResourceMetadataPath

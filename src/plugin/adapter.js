@@ -2,7 +2,9 @@
 // Transform options. This is intentionally small; it demonstrates the mapping
 // layer the plugin should own.
 
-import { parse as coreParse } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { parse: coreParse } = Core;
+
 import { applyTransforms } from "@gml-modules/parser";
 
 export function makeParserConfig(prettierOptions = {}) {

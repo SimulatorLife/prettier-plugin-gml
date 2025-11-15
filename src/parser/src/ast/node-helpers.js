@@ -1,35 +1,7 @@
 // AST helpers are now provided by @gml-modules/core. Keep this shim so parser
 // internals and downstream consumers can continue importing from the original
 // location without duplicating the implementations.
-export {
-    cloneAstNode,
-    getSingleVariableDeclarator,
-    getVariableDeclarationKind,
-    getIdentifierText,
-    getCallExpressionArguments,
-    getCallExpressionIdentifier,
-    getCallExpressionIdentifierName,
-    isCallExpressionIdentifierMatch,
-    forEachNodeChild,
-    getArrayProperty,
-    hasArrayPropertyEntries,
-    getBodyStatements,
-    hasBodyStatements,
-    isProgramOrBlockStatement,
-    getSingleMemberIndexPropertyEntry,
-    getBooleanLiteralValue,
-    isBooleanLiteral,
-    isUndefinedLiteral,
-    isUndefinedSentinel,
-    getNodeType,
-    isNode,
-    isFunctionLikeNode,
-    visitChildNodes,
-    enqueueObjectChildValues,
-    unwrapParenthesizedExpression,
-    isVariableDeclarationOfKind,
-    isVarVariableDeclaration,
-    createIdentifierNode,
-    isBinaryOperator,
-    getStructPropertyAccess
-} from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { cloneAstNode, getSingleVariableDeclarator, getVariableDeclarationKind, getIdentifierText, getCallExpressionArguments, getCallExpressionIdentifier, getCallExpressionIdentifierName, isCallExpressionIdentifierMatch, forEachNodeChild, getArrayProperty, hasArrayPropertyEntries, getBodyStatements, hasBodyStatements, isProgramOrBlockStatement, getSingleMemberIndexPropertyEntry, getBooleanLiteralValue, isBooleanLiteral, isUndefinedLiteral, isUndefinedSentinel, getNodeType, isNode, isFunctionLikeNode, visitChildNodes, enqueueObjectChildValues, unwrapParenthesizedExpression, isVariableDeclarationOfKind, isVarVariableDeclaration, createIdentifierNode, isBinaryOperator, getStructPropertyAccess } = Core;
+export { cloneAstNode, getSingleVariableDeclarator, getVariableDeclarationKind, getIdentifierText, getCallExpressionArguments, getCallExpressionIdentifier, getCallExpressionIdentifierName, isCallExpressionIdentifierMatch, forEachNodeChild, getArrayProperty, hasArrayPropertyEntries, getBodyStatements, hasBodyStatements, isProgramOrBlockStatement, getSingleMemberIndexPropertyEntry, getBooleanLiteralValue, isBooleanLiteral, isUndefinedLiteral, isUndefinedSentinel, getNodeType, isNode, isFunctionLikeNode, visitChildNodes, enqueueObjectChildValues, unwrapParenthesizedExpression, isVariableDeclarationOfKind, isVarVariableDeclaration, createIdentifierNode, isBinaryOperator, getStructPropertyAccess };
+

@@ -1,4 +1,6 @@
-import { noop } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+
+const { noop } = Core;
 
 const DEFAULT_FUNCTION_NAME = "parser";
 

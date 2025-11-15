@@ -1,8 +1,6 @@
-import {
-    applyConfiguredValueEnvOverride,
-    createEnvConfiguredValueWithFallback,
-    toFiniteNumber
-} from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { applyConfiguredValueEnvOverride, createEnvConfiguredValueWithFallback, toFiniteNumber } = Core;
+
 
 const DOC_COMMENT_MAX_WRAP_WIDTH_ENV_VAR =
     "PRETTIER_PLUGIN_GML_DOC_COMMENT_MAX_WRAP_WIDTH";

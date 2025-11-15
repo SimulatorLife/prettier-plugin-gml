@@ -1,4 +1,6 @@
-import { assertFunction } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { assertFunction } = Core;
+
 
 // Option resolver plumbing now lives alongside the plugin so shared bundles stay
 // focused on cross-environment primitives. The implementation remains unchanged

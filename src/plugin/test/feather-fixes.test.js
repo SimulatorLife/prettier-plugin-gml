@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { Core } from "@gml-modules/core";
+const { fileURLToPath } from "node:url";
 
 import { describe, it } from "node:test";
 
@@ -11,9 +12,8 @@ import prettier from "prettier";
 import { getNodeEndIndex, getNodeStartIndex } from "../src/shared/index.js";
 
 import {
-    getFeatherMetadata,
-    getFeatherDiagnosticById
-} from "@gml-modules/core";
+    getFeatherMetadata, getFeatherDiagnosticById } = Core;
+
 import {
     applyFeatherFixes,
     getFeatherDiagnosticFixers,

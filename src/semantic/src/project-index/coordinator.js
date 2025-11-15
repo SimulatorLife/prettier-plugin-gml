@@ -1,10 +1,8 @@
 import path from "node:path";
 
-import {
-    assertFunction,
-    throwIfAborted,
-    toTrimmedString
-} from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { assertFunction, throwIfAborted, toTrimmedString } = Core;
+
 import { ProjectIndexCacheStatus } from "./cache.js";
 
 function assertCoordinatorFunction(value, name) {

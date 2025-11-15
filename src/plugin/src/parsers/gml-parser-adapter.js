@@ -2,30 +2,14 @@
 // parser implementation. Keeping this logic in one place avoids sprinkling
 // knowledge of the parser's option shape and location metadata across the
 // rest of the plugin configuration.
-import { util } from "prettier";
+import { Core } from "@gml-modules/core";
+const { util } from "prettier";
 import GMLParser, {
-    sanitizeConditionalAssignments,
-    applySanitizedIndexAdjustments,
-    consolidateStructAssignments,
-    applyFeatherFixes,
-    preprocessSourceForFeatherFixes,
-    applyRemovedIndexAdjustments,
-    preprocessFunctionArgumentDefaults,
-    enforceVariableBlockSpacing,
-    convertStringConcatenations,
-    condenseLogicalExpressions,
-    convertManualMathExpressions,
-    condenseScalarMultipliers,
-    convertUndefinedGuardAssignments,
-    annotateStaticFunctionOverrides
+    sanitizeConditionalAssignments, applySanitizedIndexAdjustments, consolidateStructAssignments, applyFeatherFixes, preprocessSourceForFeatherFixes, applyRemovedIndexAdjustments, preprocessFunctionArgumentDefaults, enforceVariableBlockSpacing, convertStringConcatenations, condenseLogicalExpressions, convertManualMathExpressions, condenseScalarMultipliers, convertUndefinedGuardAssignments, annotateStaticFunctionOverrides
 } from "@gml-modules/parser";
 import {
-    getNodeStartIndex,
-    getNodeEndIndex,
-    toMutableArray,
-    visitChildNodes,
-    isNonEmptyTrimmedString
-} from "@gml-modules/core";
+    getNodeStartIndex, getNodeEndIndex, toMutableArray, visitChildNodes, isNonEmptyTrimmedString } = Core;
+
 import {
     prepareIdentifierCaseEnvironment,
     attachIdentifierCasePlanSnapshot,

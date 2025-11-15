@@ -1,4 +1,6 @@
-import { withDefinedValue } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { withDefinedValue } = Core;
+
 
 export function createProjectIndexBuildOptions({
     logger = null,

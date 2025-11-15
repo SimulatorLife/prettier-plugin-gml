@@ -1,9 +1,10 @@
+import { Core } from "@gml-modules/core";
 import { bootstrapIdentifierCaseProjectIndex } from "./project-index-gateway.js";
 import {
-    prepareIdentifierCasePlan,
-    captureIdentifierCasePlanSnapshot
+    prepareIdentifierCasePlan, captureIdentifierCasePlanSnapshot
 } from "./plan-service.js";
-import { isObjectLike, noop, withObjectLike } from "@gml-modules/core";
+import { isObjectLike, noop, withObjectLike } = Core;
+
 import {
     setIdentifierCaseOption,
     deleteIdentifierCaseOption

@@ -1,15 +1,6 @@
-import {
-    assignClonedLocation,
-    cloneAstNode,
-    forEachNodeChild,
-    getIdentifierText as sharedGetIdentifierText,
-    hasComment as sharedHasComment,
-    isObjectLike,
-    isUndefinedSentinel as sharedIsUndefinedSentinel,
-    resolveHelperOverride,
-    toMutableArray,
-    unwrapParenthesizedExpression
-} from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { assignClonedLocation, cloneAstNode, forEachNodeChild, getIdentifierText: sharedGetIdentifierText, hasComment: sharedHasComment, isObjectLike, isUndefinedSentinel: sharedIsUndefinedSentinel, resolveHelperOverride, toMutableArray, unwrapParenthesizedExpression } = Core;
+
 
 const DEFAULT_HELPERS = Object.freeze({
     hasComment: sharedHasComment,

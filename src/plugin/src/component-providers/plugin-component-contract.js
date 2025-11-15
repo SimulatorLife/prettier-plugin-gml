@@ -1,4 +1,6 @@
-import { assertFunction, assertPlainObject, hasOwn } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { assertFunction, assertPlainObject, hasOwn } = Core;
+
 
 const REQUIRED_COMPONENT_DESCRIPTORS = Object.freeze([
     { name: "gmlParserAdapter", category: "object" },

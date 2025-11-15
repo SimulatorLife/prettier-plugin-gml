@@ -1,6 +1,8 @@
 import path from "node:path";
 
-import { walkAncestorDirectories } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { walkAncestorDirectories } = Core;
+
 import {
     PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE,
     createProjectIndexAbortGuard

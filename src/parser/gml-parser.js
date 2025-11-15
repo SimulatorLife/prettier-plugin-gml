@@ -3,7 +3,7 @@ export { GameMakerSyntaxError } from "./src/gml-syntax-error.js";
 export {
     sanitizeConditionalAssignments,
     applySanitizedIndexAdjustments
-} from "./src/ast/conditional-assignment-sanitizer.js";
+} from "./src/conditional-assignment-sanitizer.js";
 export { isSyntaxErrorWithLocation } from "./src/utils/syntax-error-guards.js";
 export { convertToESTree } from "./src/utils/estree-converter.js";
 export {

@@ -1,9 +1,8 @@
-import {
-    DefineReplacementDirective,
-    getNormalizedDefineReplacementDirective,
-    isFunctionLikeDeclaration
+import { Core } from "@gml-modules/core";
+const { DefineReplacementDirective, getNormalizedDefineReplacementDirective, isFunctionLikeDeclaration
 } from "./util.js";
-import { getBooleanLiteralValue } from "@gml-modules/core";
+import { getBooleanLiteralValue } = Core;
+
 
 function isMacroLikeStatement(node) {
     const nodeType = node?.type;

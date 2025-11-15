@@ -3,21 +3,11 @@
 // import path used by many parser modules while centralizing the implementation
 // in `src/core`.
 
-export * from "../../../core/src/utils/array.js";
-// Delegate to the canonical array utilities housed in @gml-modules/core so we
-// avoid maintaining duplicate implementations inside the parser package.
-// TODO: Refactor to directly use the @gml-modules/core package wherever needed and remove this file.
-export {
-    toArrayFromIterable,
-    toArray,
-    assertArray,
-    asArray,
-    toMutableArray,
-    isNonEmptyArray,
-    isArrayIndex,
-    uniqueArray,
-    compactArray,
-    pushUnique,
-    mergeUniqueValues,
-    appendToCollection
-} from "@gml-modules/core";
+// Expose the canonical array helpers from the `@gml-modules/core` package.
+// Parser code should import these helpers from the package namespace so the
+// implementation lives only in `src/core` and there are no fragile relative
+// cross-package paths.
+import { Core } from "@gml-modules/core";
+const { toArrayFromIterable, toArray, assertArray, asArray, toMutableArray, isNonEmptyArray, isArrayIndex, uniqueArray, compactArray, pushUnique, mergeUniqueValues, appendToCollection } = Core;
+export { toArrayFromIterable, toArray, assertArray, asArray, toMutableArray, isNonEmptyArray, isArrayIndex, uniqueArray, compactArray, pushUnique, mergeUniqueValues, appendToCollection };
+

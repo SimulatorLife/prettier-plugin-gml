@@ -1,4 +1,6 @@
-import { isObjectLike } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+
+const { isObjectLike } = Core;
 
 /**
  * Iteratively walk every object and array reachable from {@link root}, invoking

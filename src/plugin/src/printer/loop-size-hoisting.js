@@ -2,16 +2,9 @@
 // This logic analyzes the AST rather than producing Prettier docs, so it lives
 // alongside other printer optimizations instead of the main print pipeline.
 
-import {
-    getIdentifierText,
-    getCallExpressionArguments,
-    getCallExpressionIdentifierName,
-    normalizeStringList,
-    toNormalizedLowerCaseString,
-    coalesceOption,
-    hasOwn,
-    isObjectLike
-} from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { getIdentifierText, getCallExpressionArguments, getCallExpressionIdentifierName, normalizeStringList, toNormalizedLowerCaseString, coalesceOption, hasOwn, isObjectLike } = Core;
+
 
 const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
     ["array_length", "len"],

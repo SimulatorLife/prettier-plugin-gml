@@ -1,5 +1,5 @@
 import { isObjectLike } from "../utils/object.js";
-import { enqueueObjectChildValues } from "./node-helpers.js";
+import { enqueueObjectChildValues } from "../ast/node-helpers.js";
 
 const EMPTY_COMMENT_ARRAY = Object.freeze([]);
 

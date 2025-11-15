@@ -1,76 +1,31 @@
-import { builders, utils } from "prettier/doc";
+import { Core } from "@gml-modules/core";
+const { builders, utils } from "prettier/doc";
 
 import {
-    DefineReplacementDirective,
-    isLastStatement,
-    optionalSemicolon,
-    isNextLineEmpty,
-    isPreviousLineEmpty,
-    shouldAddNewlinesAroundStatement,
-    hasComment,
-    getNormalizedDefineReplacementDirective,
-    isFunctionLikeDeclaration
+    DefineReplacementDirective, isLastStatement, optionalSemicolon, isNextLineEmpty, isPreviousLineEmpty, shouldAddNewlinesAroundStatement, hasComment, getNormalizedDefineReplacementDirective, isFunctionLikeDeclaration
 } from "./util.js";
 import {
-    buildCachedSizeVariableName,
-    getLoopLengthHoistInfo,
-    getSizeRetrievalFunctionSuffixes
+    buildCachedSizeVariableName, getLoopLengthHoistInfo, getSizeRetrievalFunctionSuffixes
 } from "./loop-size-hoisting.js";
 import {
-    getEnumNameAlignmentPadding,
-    prepareEnumMembersForPrinting
+    getEnumNameAlignmentPadding, prepareEnumMembersForPrinting
 } from "./enum-alignment.js";
 import {
-    isMacroLikeStatement,
-    shouldForceBlankLineBetweenReturnPaths,
-    shouldForceTrailingBlankLineForNestedFunction,
-    shouldSuppressEmptyLineBetween
+    isMacroLikeStatement, shouldForceBlankLineBetweenReturnPaths, shouldForceTrailingBlankLineForNestedFunction, shouldSuppressEmptyLineBetween
 } from "./statement-spacing-policy.js";
 import {
-    printDanglingComments,
-    printDanglingCommentsAsGroup,
-    printComment
+    printDanglingComments, printDanglingCommentsAsGroup, printComment
 } from "../comments/comment-printer.js";
 import {
-    formatLineComment,
-    getLineCommentRawText,
-    normalizeDocCommentTypeAnnotations
+    formatLineComment, getLineCommentRawText, normalizeDocCommentTypeAnnotations
 } from "../comments/line-comment-formatting.js";
 import { normalizeOptionalParamToken } from "../comments/optional-param-normalization.js";
 import { resolveLineCommentOptions } from "../options/line-comment-options.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
 import { DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH } from "./doc-comment-wrap-width.js";
 import {
-    getCommentArray,
-    isCommentNode,
-    coercePositiveIntegerOption,
-    getNonEmptyString,
-    getNonEmptyTrimmedString,
-    capitalize,
-    isNonEmptyString,
-    isNonEmptyTrimmedString,
-    isObjectOrFunction,
-    toTrimmedString,
-    asArray,
-    isNonEmptyArray,
-    getNodeType,
-    toMutableArray,
-    ensureSet,
-    getNodeStartIndex,
-    getNodeEndIndex,
-    getNodeRangeIndices,
-    getBodyStatements,
-    getCallExpressionArguments,
-    getCallExpressionIdentifier,
-    getIdentifierText,
-    getSingleVariableDeclarator,
-    isCallExpressionIdentifierMatch,
-    isBooleanLiteral,
-    isUndefinedSentinel,
-    enqueueObjectChildValues,
-    isFunctionLikeNode,
-    forEachNodeChild
-} from "@gml-modules/core";
+    getCommentArray, isCommentNode, coercePositiveIntegerOption, getNonEmptyString, getNonEmptyTrimmedString, capitalize, isNonEmptyString, isNonEmptyTrimmedString, isObjectOrFunction, toTrimmedString, asArray, isNonEmptyArray, getNodeType, toMutableArray, ensureSet, getNodeStartIndex, getNodeEndIndex, getNodeRangeIndices, getBodyStatements, getCallExpressionArguments, getCallExpressionIdentifier, getIdentifierText, getSingleVariableDeclarator, isCallExpressionIdentifierMatch, isBooleanLiteral, isUndefinedSentinel, enqueueObjectChildValues, isFunctionLikeNode, forEachNodeChild } = Core;
+
 import {
     maybeReportIdentifierCaseDryRun,
     getIdentifierCaseRenameForNode,

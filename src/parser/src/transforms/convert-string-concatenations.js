@@ -1,15 +1,9 @@
-import {
-    hasComment as sharedHasComment,
-    normalizeHasCommentHelpers
+import { Core } from "@gml-modules/core";
+const { hasComment: sharedHasComment, normalizeHasCommentHelpers
 } from "../comments/index.js";
 import {
-    asArray,
-    getNodeType,
-    getIdentifierText,
-    isObjectLike,
-    stripStringQuotes,
-    unwrapParenthesizedExpression
-} from "@gml-modules/core";
+    asArray, getNodeType, getIdentifierText, isObjectLike, stripStringQuotes, unwrapParenthesizedExpression } = Core;
+
 
 const DEFAULT_HELPERS = Object.freeze({
     hasComment: sharedHasComment

@@ -1,4 +1,6 @@
-import { assertFunction } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { assertFunction } = Core;
+
 
 /**
  * Creates an immutable singleton registry around a bundle factory.

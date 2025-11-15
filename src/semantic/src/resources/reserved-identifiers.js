@@ -1,9 +1,6 @@
-import {
-    isObjectLike,
-    normalizeIdentifierMetadataEntries,
-    noop,
-    toNormalizedLowerCaseSet
-} from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { isObjectLike, normalizeIdentifierMetadataEntries, noop, toNormalizedLowerCaseSet } = Core;
+
 import {
     GML_IDENTIFIER_METADATA_PATH,
     loadBundledIdentifierMetadata

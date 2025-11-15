@@ -1,4 +1,6 @@
-import { isErrorLike } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { isErrorLike } = Core;
+
 
 /**
  * Determine whether a thrown value exposes the location-rich fields emitted by

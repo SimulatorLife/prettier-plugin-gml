@@ -1,20 +1,7 @@
 import path from "node:path";
-import {
-    asArray,
-    assertFunction,
-    buildFileLocationKey,
-    buildLocationKey,
-    cloneLocation,
-    getCallExpressionIdentifier,
-    getLineBreakSpans,
-    getOrCreateMapEntry,
-    hasOwn,
-    isFsErrorCode,
-    isNonEmptyArray,
-    isObjectLike,
-    isWordChar,
-    pushUnique
-} from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { asArray, assertFunction, buildFileLocationKey, buildLocationKey, cloneLocation, getCallExpressionIdentifier, getLineBreakSpans, getOrCreateMapEntry, hasOwn, isFsErrorCode, isNonEmptyArray, isObjectLike, isWordChar, pushUnique } = Core;
+
 import { defaultFsFacade } from "./fs-facade.js";
 import { clampConcurrency } from "./concurrency.js";
 import { resolveProjectIndexParser } from "./parser-override.js";

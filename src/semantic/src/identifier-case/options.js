@@ -4,11 +4,9 @@
 // place so the CLI, documentation, and project-index pipeline can share a
 // single source of truth.
 
-import {
-    capitalize,
-    createListSplitPattern,
-    normalizeStringList
-} from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { capitalize, createListSplitPattern, normalizeStringList } = Core;
+
 import { getIdentifierCaseStyleMetadata } from "./identifier-case-utils.js";
 import { getDefaultProjectIndexCacheMaxSize } from "../project-index/cache.js";
 import { getDefaultProjectIndexGmlConcurrency } from "../project-index/concurrency.js";

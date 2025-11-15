@@ -1,4 +1,6 @@
-import { buildLocationKey, isMapLike, withObjectLike } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { buildLocationKey, isMapLike, withObjectLike } = Core;
+
 import { setIdentifierCaseOption } from "./option-store.js";
 
 function buildRenameKey(_scopeId, location) {

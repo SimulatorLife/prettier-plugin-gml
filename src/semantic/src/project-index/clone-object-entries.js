@@ -1,4 +1,6 @@
-import { isNonEmptyArray } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { isNonEmptyArray } = Core;
+
 
 /**
  * Create shallow clones of object-like entries in an array.

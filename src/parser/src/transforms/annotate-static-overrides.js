@@ -1,8 +1,6 @@
-import {
-    isNonEmptyArray,
-    getBodyStatements,
-    getNonEmptyString
-} from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { isNonEmptyArray, getBodyStatements, getNonEmptyString } = Core;
+
 
 function getStaticFunctionDeclarator(statement) {
     if (!statement || statement.type !== "VariableDeclaration") {

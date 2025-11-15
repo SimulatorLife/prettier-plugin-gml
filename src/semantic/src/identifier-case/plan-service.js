@@ -1,4 +1,6 @@
-import { assertFunction, assertPlainObject } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { assertFunction, assertPlainObject } = Core;
+
 import { prepareIdentifierCasePlan as defaultPrepareIdentifierCasePlan } from "./local-plan.js";
 import {
     getIdentifierCaseRenameForNode as defaultGetIdentifierCaseRenameForNode,

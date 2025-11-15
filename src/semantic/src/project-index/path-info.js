@@ -1,9 +1,8 @@
 import path from "node:path";
 
-import {
-    isNonEmptyString,
-    resolveContainedRelativePath
-} from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { isNonEmptyString, resolveContainedRelativePath } = Core;
+
 
 /**
  * Resolve high-level metadata about how {@link filePath} relates to

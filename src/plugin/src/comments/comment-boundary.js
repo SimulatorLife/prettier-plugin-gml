@@ -1,10 +1,8 @@
-export {
-    collectCommentNodes,
-    getCommentArray,
-    hasComment,
-    isBlockComment,
-    isCommentNode,
-    isDocCommentLine,
-    isLineComment
-} from "@gml-modules/core";
-export { getLineBreakCount, splitLines, isObjectLike } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { collectCommentNodes, getCommentArray, hasComment, isBlockComment, isCommentNode, isDocCommentLine, isLineComment } = Core;
+export { collectCommentNodes, getCommentArray, hasComment, isBlockComment, isCommentNode, isDocCommentLine, isLineComment };
+
+import { Core } from "@gml-modules/core";
+const { getLineBreakCount, splitLines, isObjectLike } = Core;
+export { getLineBreakCount, splitLines, isObjectLike };
+

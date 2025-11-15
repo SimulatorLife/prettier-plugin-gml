@@ -8,18 +8,11 @@
 
 import path from "node:path";
 
-import { setIdentifierCaseOption } from "./option-store.js";
+import { Core } from "@gml-modules/core";
+const { setIdentifierCaseOption } from "./option-store.js";
 import {
-    asArray,
-    compactArray,
-    coalesceOption,
-    coalesceTrimmedString,
-    incrementMapValue,
-    isNonEmptyArray,
-    isObjectLike,
-    toArray,
-    withObjectLike
-} from "@gml-modules/core";
+    asArray, compactArray, coalesceOption, coalesceTrimmedString, incrementMapValue, isNonEmptyArray, isObjectLike, toArray, withObjectLike } = Core;
+
 import { warnWithReason } from "./logger.js";
 
 import { consumeIdentifierCaseDryRunContext } from "./identifier-case-context.js";

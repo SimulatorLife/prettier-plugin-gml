@@ -4,17 +4,16 @@ import {
     getNodeStartLine,
     getNodeEndLine,
     cloneLocation,
-    getPreferredLocation,
     getSingleVariableDeclarator,
     isNode,
+    getSingleMemberIndexPropertyEntry,
     getCommentArray,
     isLineComment,
     asArray,
     isNonEmptyArray,
     stripStringQuotes,
     forEachNodeChild
-} from "@gml-modules/core";
-import { getStructPropertyAccess } from "@gml-modules/parser";
+} from "../shared/index.js";
 
 const FALLBACK_COMMENT_TOOLS = Object.freeze({
     addTrailingComment() {}
@@ -31,166 +30,6 @@ function normalizeCommentTools(commentTools) {
     return commentTools;
 }
 
-export class CommentTracker {
-    constructor(ownerOrComments) {
-        const sourceComments = (() => {
-            if (typeof getCommentArray === "function") {
-                const normalized = getCommentArray(ownerOrComments);
-                if (Array.isArray(normalized)) {
-                    return normalized;
-                }
-            }
-
-            if (Array.isArray(ownerOrComments)) {
-                return ownerOrComments;
-            }
-
-            if (!ownerOrComments || typeof ownerOrComments !== "object") {
-                return [];
-            }
-
-            const { comments } = ownerOrComments;
-            return asArray(comments);
-        })();
-        this.comments = sourceComments;
-        this.entries = sourceComments
-            .map((comment) => ({ index: getNodeStartIndex(comment), comment }))
-            .filter((entry) => typeof entry.index === "number")
-            .sort((a, b) => a.index - b.index);
-    }
-
-    hasBetween(left, right) {
-        if (
-            this.entries.length === 0 ||
-            left == undefined ||
-            right == undefined ||
-            left >= right
-        ) {
-            return false;
-        }
-        let index = this.firstGreaterThan(left);
-        while (index < this.entries.length) {
-            const entry = this.entries[index];
-            if (entry.index >= right) {
-                return false;
-            }
-            if (!entry.consumed) {
-                return true;
-            }
-            index++;
-        }
-        return false;
-    }
-
-    hasAfter(position) {
-        if (this.entries.length === 0 || position == undefined) {
-            return false;
-        }
-        const index = this.firstGreaterThan(position);
-        while (index < this.entries.length) {
-            if (!this.entries[index].consumed) {
-                return true;
-            }
-        }
-        const upperBound =
-            right == undefined ? Number.POSITIVE_INFINITY : right;
-        if (left >= upperBound) {
-            return [];
-        }
-
-        const results = [];
-        const indicesToRemove = [];
-        const startIndex = this.firstGreaterThan(left);
-
-        for (let index = startIndex; index < this.entries.length; index++) {
-            const entry = this.entries[index];
-            if (entry.index >= upperBound) {
-                break;
-            }
-
-            if (predicate && !predicate(entry.comment)) {
-                continue;
-            }
-
-            results.push(entry.comment);
-            indicesToRemove.push(index);
-        }
-
-        for (let i = indicesToRemove.length - 1; i >= 0; i--) {
-            this.entries.splice(indicesToRemove[i], 1);
-        }
-
-        return results;
-    }
-
-    firstGreaterThan(target) {
-        let low = 0;
-        let high = this.entries.length - 1;
-        while (low <= high) {
-            const mid = (low + high) >> 1;
-            if (this.entries[mid].index <= target) {
-                low = mid + 1;
-            } else {
-                high = mid - 1;
-            }
-        }
-        return low;
-    }
-
-    getEntriesBetween(left, right) {
-        if (
-            this.entries.length === 0 ||
-            left == undefined ||
-            right == undefined ||
-            left >= right
-        ) {
-            return [];
-        }
-
-        const startIndex = this.firstGreaterThan(left);
-        const collected = [];
-
-        for (let index = startIndex; index < this.entries.length; index++) {
-            const entry = this.entries[index];
-            if (entry.index >= right) {
-                break;
-            }
-            if (!entry.consumed) {
-                collected.push(entry);
-            }
-        }
-
-        return collected;
-    }
-
-    consumeEntries(entries) {
-        for (const entry of entries) {
-            entry.consumed = true;
-            if (entry.comment) {
-                entry.comment._removedByConsolidation = true;
-            }
-        }
-    }
-
-    removeConsumedComments() {
-        if (this.comments.length === 0) {
-            return;
-        }
-
-        let writeIndex = 0;
-        for (let readIndex = 0; readIndex < this.comments.length; readIndex++) {
-            const comment = this.comments[readIndex];
-            if (comment && comment._removedByConsolidation) {
-                continue;
-            }
-            this.comments[writeIndex] = comment;
-            writeIndex++;
-        }
-
-        this.comments.length = writeIndex;
-    }
-}
-
 const STRUCT_EXPRESSION = "StructExpression";
 const VARIABLE_DECLARATION = "VariableDeclaration";
 const ASSIGNMENT_EXPRESSION = "AssignmentExpression";
@@ -199,7 +38,7 @@ const MEMBER_INDEX_EXPRESSION = "MemberIndexExpression";
 const IDENTIFIER = "Identifier";
 const LITERAL = "Literal";
 
-export function transform(ast, commentTools) {
+export function consolidateStructAssignments(ast, commentTools) {
     if (!isNode(ast)) {
         return ast;
     }
@@ -210,8 +49,6 @@ export function transform(ast, commentTools) {
     tracker.removeConsumedComments();
     return ast;
 }
-
-export { transform as consolidateStructAssignments };
 
 function visit(node, tracker, commentTools) {
     if (!isNode(node)) {
@@ -431,65 +268,6 @@ function collectPropertyAssignments({
     };
 }
 
-function allowTrailingCommentsBetween({
-    tracker,
-    left,
-    right,
-    precedingStatement,
-    precedingProperty,
-    commentTools
-}) {
-    const commentEntries = tracker.getEntriesBetween(left, right);
-    if (commentEntries.length === 0) {
-        return true;
-    }
-
-    if (!precedingStatement) {
-        return false;
-    }
-
-    const expectedLine = getNodeEndLine(precedingStatement);
-    if (typeof expectedLine !== "number") {
-        return false;
-    }
-
-    if (
-        commentEntries.some(
-            ({ comment }) => !isTrailingLineCommentOnLine(comment, expectedLine)
-        )
-    ) {
-        return false;
-    }
-
-    const commentTarget = precedingProperty
-        ? (precedingProperty.value ?? precedingProperty)
-        : null;
-    for (const { comment } of commentEntries) {
-        if (comment.leadingChar === ";") {
-            comment.leadingChar = ",";
-        }
-
-        if (commentTarget) {
-            comment.enclosingNode = commentTarget;
-        }
-    }
-
-    if (commentTarget) {
-        precedingProperty._hasTrailingInlineComment = true;
-    }
-
-    tracker.consumeEntries(commentEntries);
-    return true;
-}
-
-function isTrailingLineCommentOnLine(comment, expectedLine) {
-    if (!isLineComment(comment)) {
-        return false;
-    }
-
-    return getNodeStartLine(comment) === expectedLine;
-}
-
 function getStructInitializer(statement) {
     if (!isNode(statement)) {
         return null;
@@ -601,6 +379,57 @@ function buildPropertyFromAssignment(assignmentDetails) {
     };
 }
 
+function getStructPropertyAssignmentDetails(statement, identifierName) {
+    if (!isNode(statement) || statement.type !== ASSIGNMENT_EXPRESSION) {
+        return null;
+    }
+
+    if (statement.operator !== "=") {
+        return null;
+    }
+
+    const propertyAccess = getStructPropertyAccess(
+        statement.left,
+        identifierName
+    );
+    if (!propertyAccess) {
+        return null;
+    }
+
+    return { assignment: statement, propertyAccess };
+}
+
+function getStructPropertyAccess(left, identifierName) {
+    if (!isNode(left)) {
+        return null;
+    }
+
+    if (!isIdentifierRoot(left.object, identifierName)) {
+        return null;
+    }
+
+    if (left.type === MEMBER_DOT_EXPRESSION && isNode(left.property)) {
+        return {
+            propertyNode: left.property,
+            propertyStart: left.property?.start
+        };
+    }
+
+    if (left.type === MEMBER_INDEX_EXPRESSION) {
+        const propertyNode = getSingleMemberIndexPropertyEntry(left);
+        if (!isNode(propertyNode)) {
+            return null;
+        }
+
+        return {
+            propertyNode,
+            propertyStart: propertyNode?.start
+        };
+    }
+
+    return null;
+}
+
 function getPropertyKeyInfo(propertyNode) {
     if (!isNode(propertyNode)) {
         return null;
@@ -638,11 +467,6 @@ function buildPropertyNameNode(propertyKey) {
     if (!propertyKey) {
         return null;
     }
-    const IDENTIFIER_SAFE_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
-
-    function isIdentifierSafe(name) {
-        return typeof name === "string" && IDENTIFIER_SAFE_PATTERN.test(name);
-    }
 
     const identifierName = propertyKey.identifierName;
     if (identifierName && isIdentifierSafe(identifierName)) {
@@ -666,22 +490,283 @@ function buildPropertyNameNode(propertyKey) {
     return null;
 }
 
-function getStructPropertyAssignmentDetails(statement, identifierName) {
-    if (!isNode(statement) || statement.type !== ASSIGNMENT_EXPRESSION) {
-        return null;
+function allowTrailingCommentsBetween({
+    tracker,
+    left,
+    right,
+    precedingStatement,
+    precedingProperty,
+    commentTools
+}) {
+    const commentEntries = tracker.getEntriesBetween(left, right);
+    if (commentEntries.length === 0) {
+        return true;
     }
 
-    if (statement.operator !== "=") {
-        return null;
+    if (!precedingStatement) {
+        return false;
     }
 
-    const propertyAccess = getStructPropertyAccess(
-        statement.left,
-        identifierName
-    );
-    if (!propertyAccess) {
-        return null;
+    const expectedLine = getNodeEndLine(precedingStatement);
+    if (typeof expectedLine !== "number") {
+        return false;
     }
 
-    return { assignment: statement, propertyAccess };
+    if (
+        commentEntries.some(
+            ({ comment }) => !isTrailingLineCommentOnLine(comment, expectedLine)
+        )
+    ) {
+        return false;
+    }
+
+    const commentTarget = precedingProperty
+        ? (precedingProperty.value ?? precedingProperty)
+        : null;
+    for (const { comment } of commentEntries) {
+        if (comment.leadingChar === ";") {
+            comment.leadingChar = ",";
+        }
+
+        if (commentTarget) {
+            // Preserve historical metadata so the comment remains discoverable
+            // without registering it with Prettier's default trailing comment
+            // machinery. The printer renders these comments directly to avoid
+            // introducing additional line breaks while consolidating struct
+            // assignments.
+            comment.enclosingNode = commentTarget;
+        }
+    }
+
+    if (commentTarget) {
+        precedingProperty._hasTrailingInlineComment = true;
+    }
+
+    tracker.consumeEntries(commentEntries);
+    return true;
+}
+
+function isTrailingLineCommentOnLine(comment, expectedLine) {
+    if (!isLineComment(comment)) {
+        return false;
+    }
+
+    return getNodeStartLine(comment) === expectedLine;
+}
+
+function getPreferredLocation(primary, fallback) {
+    if (isNode(primary)) {
+        return primary;
+    }
+    if (isNode(fallback)) {
+        return fallback;
+    }
+    return null;
+}
+
+function isAttachableTrailingComment(comment, statement) {
+    if (!isLineComment(comment)) {
+        return false;
+    }
+
+    const commentStart = comment.start;
+    if (!isNode(commentStart) || typeof commentStart.line !== "number") {
+        return false;
+    }
+
+    const statementEndLine = getNodeEndLine(statement);
+    if (typeof statementEndLine !== "number") {
+        return false;
+    }
+
+    if (commentStart.line !== statementEndLine) {
+        return false;
+    }
+
+    const commentStartIndex = getNodeStartIndex(comment);
+    const statementEndIndex = getNodeEndIndex(statement);
+    if (
+        typeof commentStartIndex === "number" &&
+        typeof statementEndIndex === "number" &&
+        commentStartIndex <= statementEndIndex
+    ) {
+        return false;
+    }
+
+    return true;
+}
+
+const IDENTIFIER_SAFE_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+function isIdentifierSafe(name) {
+    return typeof name === "string" && IDENTIFIER_SAFE_PATTERN.test(name);
+}
+
+class CommentTracker {
+    constructor(ownerOrComments) {
+        const sourceComments = (() => {
+            if (typeof getCommentArray === "function") {
+                const normalized = getCommentArray(ownerOrComments);
+                if (Array.isArray(normalized)) {
+                    return normalized;
+                }
+            }
+
+            if (Array.isArray(ownerOrComments)) {
+                return ownerOrComments;
+            }
+
+            if (!ownerOrComments || typeof ownerOrComments !== "object") {
+                return [];
+            }
+
+            const { comments } = ownerOrComments;
+            return asArray(comments);
+        })();
+        this.comments = sourceComments;
+        this.entries = sourceComments
+            .map((comment) => ({ index: getNodeStartIndex(comment), comment }))
+            .filter((entry) => typeof entry.index === "number")
+            .sort((a, b) => a.index - b.index);
+    }
+
+    hasBetween(left, right) {
+        if (
+            this.entries.length === 0 ||
+            left == undefined ||
+            right == undefined ||
+            left >= right
+        ) {
+            return false;
+        }
+        let index = this.firstGreaterThan(left);
+        while (index < this.entries.length) {
+            const entry = this.entries[index];
+            if (entry.index >= right) {
+                return false;
+            }
+            if (!entry.consumed) {
+                return true;
+            }
+            index++;
+        }
+        return false;
+    }
+
+    hasAfter(position) {
+        if (this.entries.length === 0 || position == undefined) {
+            return false;
+        }
+        let index = this.firstGreaterThan(position);
+        while (index < this.entries.length) {
+            if (!this.entries[index].consumed) {
+                return true;
+            }
+            index++;
+        }
+        return false;
+    }
+
+    takeBetween(left, right, predicate) {
+        if (this.entries.length === 0 || left == undefined) {
+            return [];
+        }
+
+        const upperBound =
+            right == undefined ? Number.POSITIVE_INFINITY : right;
+        if (left >= upperBound) {
+            return [];
+        }
+
+        const results = [];
+        const indicesToRemove = [];
+        const startIndex = this.firstGreaterThan(left);
+
+        for (let index = startIndex; index < this.entries.length; index++) {
+            const entry = this.entries[index];
+            if (entry.index >= upperBound) {
+                break;
+            }
+
+            if (predicate && !predicate(entry.comment)) {
+                continue;
+            }
+
+            results.push(entry.comment);
+            indicesToRemove.push(index);
+        }
+
+        for (let i = indicesToRemove.length - 1; i >= 0; i--) {
+            this.entries.splice(indicesToRemove[i], 1);
+        }
+
+        return results;
+    }
+
+    firstGreaterThan(target) {
+        let low = 0;
+        let high = this.entries.length - 1;
+        while (low <= high) {
+            const mid = (low + high) >> 1;
+            if (this.entries[mid].index <= target) {
+                low = mid + 1;
+            } else {
+                high = mid - 1;
+            }
+        }
+        return low;
+    }
+
+    getEntriesBetween(left, right) {
+        if (
+            this.entries.length === 0 ||
+            left == undefined ||
+            right == undefined ||
+            left >= right
+        ) {
+            return [];
+        }
+
+        const startIndex = this.firstGreaterThan(left);
+        const collected = [];
+
+        for (let index = startIndex; index < this.entries.length; index++) {
+            const entry = this.entries[index];
+            if (entry.index >= right) {
+                break;
+            }
+            if (!entry.consumed) {
+                collected.push(entry);
+            }
+        }
+
+        return collected;
+    }
+
+    consumeEntries(entries) {
+        for (const entry of entries) {
+            entry.consumed = true;
+            if (entry.comment) {
+                entry.comment._removedByConsolidation = true;
+            }
+        }
+    }
+
+    removeConsumedComments() {
+        if (this.comments.length === 0) {
+            return;
+        }
+
+        let writeIndex = 0;
+        for (let readIndex = 0; readIndex < this.comments.length; readIndex++) {
+            const comment = this.comments[readIndex];
+            if (comment && comment._removedByConsolidation) {
+                continue;
+            }
+            this.comments[writeIndex] = comment;
+            writeIndex++;
+        }
+
+        this.comments.length = writeIndex;
+    }
 }

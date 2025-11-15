@@ -1,13 +1,9 @@
-import { getCommentArray, isDocCommentLine } from "./comment-boundary.js";
+import { Core } from "@gml-modules/core";
+const { getCommentArray, isDocCommentLine } from "./comment-boundary.js";
 
 import {
-    getNodeStartIndex,
-    isFunctionLikeNode,
-    isNode,
-    isNonEmptyArray,
-    toMutableArray,
-    isNonEmptyTrimmedString
-} from "@gml-modules/core";
+    getNodeStartIndex, isFunctionLikeNode, isNode, isNonEmptyArray, toMutableArray, isNonEmptyTrimmedString } = Core;
+
 
 /**
  * The legacy doc comment "manager" facade bundled traversal helpers with

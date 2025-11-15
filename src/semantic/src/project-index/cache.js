@@ -1,18 +1,10 @@
 import path from "node:path";
-import { createHash, randomUUID } from "node:crypto";
+import { Core } from "@gml-modules/core";
+const { createHash, randomUUID } from "node:crypto";
 
 import {
-    parseJsonWithContext,
-    areNumbersApproximatelyEqual,
-    toFiniteNumber,
-    isObjectLike,
-    createEnvConfiguredValueWithFallback,
-    createAbortGuard,
-    describeValueForError,
-    getNonEmptyTrimmedString,
-    isFsErrorCode,
-    applyConfiguredValueEnvOverride
-} from "@gml-modules/core";
+    parseJsonWithContext, areNumbersApproximatelyEqual, toFiniteNumber, isObjectLike, createEnvConfiguredValueWithFallback, createAbortGuard, describeValueForError, getNonEmptyTrimmedString, isFsErrorCode, applyConfiguredValueEnvOverride } = Core;
+
 import { isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { getFileMtime, listDirectory } from "./fs-helpers.js";

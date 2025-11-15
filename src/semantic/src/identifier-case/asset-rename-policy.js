@@ -1,4 +1,6 @@
-import { asArray, isNonEmptyArray } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { asArray, isNonEmptyArray } = Core;
+
 
 // The asset rename mechanism (filesystem mutations, logging, metrics) depends
 // on this policy object to decide if it should run. Keeping the rules here lets

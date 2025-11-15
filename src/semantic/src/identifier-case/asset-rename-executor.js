@@ -1,17 +1,8 @@
 import path from "node:path";
 
-import {
-    assertPlainObject,
-    fromPosixPath,
-    getErrorMessageOrFallback,
-    getOrCreateMapEntry,
-    isFsErrorCode,
-    isNonEmptyString,
-    isObjectLike,
-    parseJsonWithContext,
-    stringifyJsonForFile,
-    trimStringEntries
-} from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { assertPlainObject, fromPosixPath, getErrorMessageOrFallback, getOrCreateMapEntry, isFsErrorCode, isNonEmptyString, isObjectLike, parseJsonWithContext, stringifyJsonForFile, trimStringEntries } = Core;
+
 import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
 import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
 

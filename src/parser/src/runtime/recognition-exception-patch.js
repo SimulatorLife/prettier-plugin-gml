@@ -1,6 +1,8 @@
 import antlr4 from "antlr4";
 
-import { hasFunction, isErrorLike, isObjectLike } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { hasFunction, isErrorLike, isObjectLike } = Core;
+
 
 const INVALID_INDEX_FALLBACK = -1;
 function hasOffendingTokenProbe(value) {

@@ -1,9 +1,6 @@
-import {
-    assignClonedLocation,
-    isObjectLike,
-    toArray,
-    toMutableArray
-} from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { assignClonedLocation, isObjectLike, toArray, toMutableArray } = Core;
+
 import {
     ScopeOverrideKeyword,
     formatKnownScopeOverrideKeywords,

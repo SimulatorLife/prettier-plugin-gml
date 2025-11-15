@@ -1,4 +1,6 @@
-import { isObjectLike } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { isObjectLike } = Core;
+
 import { getDefaultProjectIndexParser } from "./gml-parser-facade.js";
 
 const defaultProjectIndexParser = getDefaultProjectIndexParser();

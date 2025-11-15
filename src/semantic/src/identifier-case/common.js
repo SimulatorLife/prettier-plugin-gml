@@ -1,11 +1,9 @@
-import { constants as fsConstants } from "node:fs";
+import { Core } from "@gml-modules/core";
+const { constants as fsConstants } from "node:fs";
 
 import {
-    escapeRegExp,
-    incrementMapValue,
-    isNonEmptyArray,
-    isNonEmptyString
-} from "@gml-modules/core";
+    escapeRegExp, incrementMapValue, isNonEmptyArray, isNonEmptyString } = Core;
+
 
 export const COLLISION_CONFLICT_CODE = "collision";
 export const PRESERVE_CONFLICT_CODE = "preserve";

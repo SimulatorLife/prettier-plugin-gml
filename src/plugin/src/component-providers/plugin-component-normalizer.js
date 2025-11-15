@@ -1,4 +1,6 @@
-import { assertPlainObject } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { assertPlainObject } = Core;
+
 
 export function normalizeGmlPluginComponents(components) {
     assertPlainObject(components, {

@@ -1,4 +1,6 @@
-import { isObjectLike } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { isObjectLike } = Core;
+
 
 const COMMENT_TYPE_MAP = new Map([
     ["CommentLine", "Line"],

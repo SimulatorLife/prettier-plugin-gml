@@ -1,18 +1,10 @@
-import { formatIdentifierCase } from "./identifier-case-utils.js";
+import { Core } from "@gml-modules/core";
+const { formatIdentifierCase } from "./identifier-case-utils.js";
 import { peekIdentifierCaseDryRunContext } from "./identifier-case-context.js";
 import { buildRenameKey } from "./plan-state.js";
 import {
-    asArray,
-    coalesceOption,
-    createMetricsTracker,
-    getIterableSize,
-    getNonEmptyString,
-    getOrCreateMapEntry,
-    isNonEmptyArray,
-    isNonEmptyString,
-    isObjectLike,
-    toNormalizedLowerCaseString
-} from "@gml-modules/core";
+    asArray, coalesceOption, createMetricsTracker, getIterableSize, getNonEmptyString, getOrCreateMapEntry, isNonEmptyArray, isNonEmptyString, isObjectLike, toNormalizedLowerCaseString } = Core;
+
 import {
     normalizeIdentifierCaseOptions,
     IdentifierCaseStyle,

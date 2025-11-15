@@ -2,106 +2,82 @@
 // modules rely on an explicit contract instead of the entire shared surface.
 // Narrowing the re-exported API keeps the plugin decoupled from unrelated CLI
 // helpers while still allowing imports to remain stable.
-export {
-    getCommentArray,
-    hasComment,
-    isCommentNode,
-    isLineComment
-} from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { getCommentArray, hasComment, isCommentNode, isLineComment } = Core;
+export { getCommentArray, hasComment, isCommentNode, isLineComment };
 
-export {
-    assignClonedLocation,
-    cloneLocation,
-    getNodeStartIndex,
-    getNodeEndIndex,
-    getNodeRangeIndices,
-    getNodeStartLine,
-    getNodeEndLine
-} from "@gml-modules/core";
 
-export {
-    cloneAstNode,
-    createIdentifierNode,
-    enqueueObjectChildValues,
-    forEachNodeChild,
-    getArrayProperty,
-    getBodyStatements,
-    getBooleanLiteralValue,
-    getCallExpressionArguments,
-    getCallExpressionIdentifier,
-    getCallExpressionIdentifierName,
-    getIdentifierText,
-    getNodeType,
-    getSingleMemberIndexPropertyEntry,
-    getSingleVariableDeclarator,
-    isBooleanLiteral,
-    isCallExpressionIdentifierMatch,
-    isFunctionLikeNode,
-    isNode,
-    isProgramOrBlockStatement,
-    isUndefinedSentinel,
-    isVarVariableDeclaration,
-    unwrapParenthesizedExpression,
-    visitChildNodes
-} from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { assignClonedLocation, cloneLocation, getNodeStartIndex, getNodeEndIndex, getNodeRangeIndices, getNodeStartLine, getNodeEndLine } = Core;
+export { assignClonedLocation, cloneLocation, getNodeStartIndex, getNodeEndIndex, getNodeRangeIndices, getNodeStartLine, getNodeEndLine };
 
-export {
-    asArray,
-    compactArray,
-    isArrayIndex,
-    isNonEmptyArray,
-    toMutableArray
-} from "@gml-modules/core";
 
-export {
-    assertFunction,
-    assertPlainObject,
-    coalesceOption,
-    getOrCreateMapEntry,
-    hasOwn,
-    isObjectLike,
-    isObjectOrFunction,
-    resolveHelperOverride
-} from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { cloneAstNode, createIdentifierNode, enqueueObjectChildValues, forEachNodeChild, getArrayProperty, getBodyStatements, getBooleanLiteralValue, getCallExpressionArguments, getCallExpressionIdentifier, getCallExpressionIdentifierName, getIdentifierText, getNodeType, getSingleMemberIndexPropertyEntry, getSingleVariableDeclarator, isBooleanLiteral, isCallExpressionIdentifierMatch, isFunctionLikeNode, isNode, isProgramOrBlockStatement, isUndefinedSentinel, isVarVariableDeclaration, unwrapParenthesizedExpression, visitChildNodes } = Core;
+export { cloneAstNode, createIdentifierNode, enqueueObjectChildValues, forEachNodeChild, getArrayProperty, getBodyStatements, getBooleanLiteralValue, getCallExpressionArguments, getCallExpressionIdentifier, getCallExpressionIdentifierName, getIdentifierText, getNodeType, getSingleMemberIndexPropertyEntry, getSingleVariableDeclarator, isBooleanLiteral, isCallExpressionIdentifierMatch, isFunctionLikeNode, isNode, isProgramOrBlockStatement, isUndefinedSentinel, isVarVariableDeclaration, unwrapParenthesizedExpression, visitChildNodes };
 
-export {
-    capitalize,
-    describeValueForError,
-    getNonEmptyString,
-    getNonEmptyTrimmedString,
-    isNonEmptyString,
-    isNonEmptyTrimmedString,
-    normalizeStringList,
-    stripStringQuotes,
-    toNormalizedLowerCaseString,
-    toTrimmedString
-} from "@gml-modules/core";
 
-export { coercePositiveIntegerOption } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { asArray, compactArray, isArrayIndex, isNonEmptyArray, toMutableArray } = Core;
+export { asArray, compactArray, isArrayIndex, isNonEmptyArray, toMutableArray };
 
-export { isFiniteNumber, toFiniteNumber } from "@gml-modules/core";
 
-export { escapeRegExp } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { assertFunction, assertPlainObject, coalesceOption, getOrCreateMapEntry, hasOwn, isObjectLike, isObjectOrFunction, resolveHelperOverride } = Core;
+export { assertFunction, assertPlainObject, coalesceOption, getOrCreateMapEntry, hasOwn, isObjectLike, isObjectOrFunction, resolveHelperOverride };
 
-export {
-    ensureSet,
-    hasIterableItems,
-    isMapLike,
-    isRegExpLike,
-    isSetLike
-} from "@gml-modules/core";
 
-export {
-    applyConfiguredValueEnvOverride,
-    createEnvConfiguredValueWithFallback
-} from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { capitalize, describeValueForError, getNonEmptyString, getNonEmptyTrimmedString, isNonEmptyString, isNonEmptyTrimmedString, normalizeStringList, stripStringQuotes, toNormalizedLowerCaseString, toTrimmedString } = Core;
+export { capitalize, describeValueForError, getNonEmptyString, getNonEmptyTrimmedString, isNonEmptyString, isNonEmptyTrimmedString, normalizeStringList, stripStringQuotes, toNormalizedLowerCaseString, toTrimmedString };
 
-export { isAbortError, resolveAbortSignalFromOptions } from "@gml-modules/core";
 
-export { noop } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { coercePositiveIntegerOption } = Core;
+export { coercePositiveIntegerOption };
 
-export { normalizeEnumeratedOption } from "@gml-modules/core";
 
-export { createMetricsTracker } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { isFiniteNumber, toFiniteNumber } = Core;
+export { isFiniteNumber, toFiniteNumber };
 
-export { fromPosixPath } from "@gml-modules/core";
+
+import { Core } from "@gml-modules/core";
+const { escapeRegExp } = Core;
+export { escapeRegExp };
+
+
+import { Core } from "@gml-modules/core";
+const { ensureSet, hasIterableItems, isMapLike, isRegExpLike, isSetLike } = Core;
+export { ensureSet, hasIterableItems, isMapLike, isRegExpLike, isSetLike };
+
+
+import { Core } from "@gml-modules/core";
+const { applyConfiguredValueEnvOverride, createEnvConfiguredValueWithFallback } = Core;
+export { applyConfiguredValueEnvOverride, createEnvConfiguredValueWithFallback };
+
+
+import { Core } from "@gml-modules/core";
+const { isAbortError, resolveAbortSignalFromOptions } = Core;
+export { isAbortError, resolveAbortSignalFromOptions };
+
+
+import { Core } from "@gml-modules/core";
+const { noop } = Core;
+export { noop };
+
+
+import { Core } from "@gml-modules/core";
+const { normalizeEnumeratedOption } = Core;
+export { normalizeEnumeratedOption };
+
+
+import { Core } from "@gml-modules/core";
+const { createMetricsTracker } = Core;
+export { createMetricsTracker };
+
+
+import { Core } from "@gml-modules/core";
+const { fromPosixPath } = Core;
+export { fromPosixPath };
+

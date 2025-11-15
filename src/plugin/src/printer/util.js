@@ -1,5 +1,7 @@
-import { util } from "prettier";
-import { getNodeType, getNonEmptyTrimmedString } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { util } from "prettier";
+import { getNodeType, getNonEmptyTrimmedString } = Core;
+
 
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
 

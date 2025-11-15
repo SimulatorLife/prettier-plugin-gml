@@ -1,4 +1,6 @@
-import { getNodeType, isNonEmptyArray } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { getNodeType, isNonEmptyArray } = Core;
+
 import { resolveVariableBlockSpacingMinDeclarations } from "../../options/variable-block-spacing-options.js";
 
 export function enforceVariableBlockSpacing(ast, options) {

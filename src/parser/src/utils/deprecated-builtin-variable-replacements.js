@@ -1,4 +1,6 @@
-import { getFeatherDiagnosticById } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+const { getFeatherDiagnosticById } = Core;
+
 
 const IDENTIFIER_TOKEN_PATTERN = /\\b[A-Za-z_][A-Za-z0-9_]*\\b/g;
 const RESERVED_KEYWORD_TOKENS = new Set([
