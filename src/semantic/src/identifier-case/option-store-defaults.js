@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { applyConfiguredValueEnvOverride, createEnvConfiguredValueWithFallback, toFiniteNumber } = Core;
+const { Utils: { applyConfiguredValueEnvOverride, createEnvConfiguredValueWithFallback, toFiniteNumber } } = Core;
 
 
 const IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_ENV_VAR =

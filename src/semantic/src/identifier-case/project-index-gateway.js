@@ -1,7 +1,7 @@
 import { Core } from "@gml-modules/core";
 const { bootstrapProjectIndex, applyBootstrappedProjectIndex
 } from "./project-index-bootstrap.js";
-import { coalesceOption } = Core;
+const { coalesceOption } = Core;
 
 import { setIdentifierCaseOption } from "./option-store.js";
 

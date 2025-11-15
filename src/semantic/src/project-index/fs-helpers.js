@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { createAbortGuard, isFsErrorCode, toArrayFromIterable } = Core;
+const { Utils: { createAbortGuard, toArrayFromIterable }, FS: { isFsErrorCode } } = Core;
 
 
 /**

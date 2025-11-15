@@ -10,7 +10,7 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 const { setIdentifierCaseOption } from "./option-store.js";
-import {
+const {
     asArray, compactArray, coalesceOption, coalesceTrimmedString, incrementMapValue, isNonEmptyArray, isObjectLike, toArray, withObjectLike } = Core;
 
 import { warnWithReason } from "./logger.js";

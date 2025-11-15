@@ -1,8 +1,8 @@
 import { Core } from "@gml-modules/core";
 const { DEFAULT_COMMENTED_OUT_CODE_PATTERNS, DEFAULT_LINE_COMMENT_OPTIONS, LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES, normalizeLineCommentOptions
 } from "../options/line-comment-options.js";
-import { isObjectLike } from "./comment-boundary.js";
-import { getCommentValue } = Core;
+const { isObjectLike } from "./comment-boundary.js";
+const { getCommentValue } = Core;
 
 import { getNonEmptyTrimmedString, toTrimmedString } from "../utils/string.js";
 import { hasOwn } from "../utils/object.js";

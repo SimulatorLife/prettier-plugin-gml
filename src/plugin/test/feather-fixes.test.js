@@ -4,14 +4,14 @@ import path from "node:path";
 import { Core } from "@gml-modules/core";
 const { fileURLToPath } from "node:url";
 
-import { describe, it } from "node:test";
+const { describe, it } from "node:test";
 
 import GMLParser from "@gml-modules/parser";
 import prettier from "prettier";
 
-import { getNodeEndIndex, getNodeStartIndex } from "../src/shared/index.js";
+const { getNodeEndIndex, getNodeStartIndex } from "../src/shared/index.js";
 
-import {
+const {
     getFeatherMetadata, getFeatherDiagnosticById } = Core;
 
 import {

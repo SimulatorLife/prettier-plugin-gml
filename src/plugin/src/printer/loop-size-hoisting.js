@@ -3,7 +3,7 @@
 // alongside other printer optimizations instead of the main print pipeline.
 
 import { Core } from "@gml-modules/core";
-const { getIdentifierText, getCallExpressionArguments, getCallExpressionIdentifierName, normalizeStringList, toNormalizedLowerCaseString, coalesceOption, hasOwn, isObjectLike } = Core;
+const { AST: { getIdentifierText, getCallExpressionArguments, getCallExpressionIdentifierName }, Utils: { normalizeStringList, toNormalizedLowerCaseString, coalesceOption, hasOwn, isObjectLike } } = Core;
 
 
 const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([

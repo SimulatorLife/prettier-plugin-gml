@@ -4,6 +4,6 @@
 // sibling workspaces) to rely on a stable module path instead of importing
 // files from the internal directory layout.
 import { Core } from "@gml-modules/core";
-const { createMetricsTracker } = Core;
+const { Reporting: { createMetricsTracker } } = Core;
 export { createMetricsTracker };
 

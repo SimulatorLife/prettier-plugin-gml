@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { describeValueForError, normalizeEnumeratedOption, toNormalizedLowerCaseString } = Core;
+const { Utils: { describeValueForError, normalizeEnumeratedOption, toNormalizedLowerCaseString } } = Core;
 
 
 /**

@@ -1,6 +1,9 @@
 import path from "node:path";
 import { Core } from "@gml-modules/core";
-const { asArray, assertFunction, buildFileLocationKey, buildLocationKey, cloneLocation, getCallExpressionIdentifier, getLineBreakSpans, getOrCreateMapEntry, hasOwn, isFsErrorCode, isNonEmptyArray, isObjectLike, isWordChar, pushUnique } = Core;
+const {
+    Utils: { asArray, assertFunction, getLineBreakSpans, getOrCreateMapEntry, hasOwn, isNonEmptyArray, isObjectLike, isWordChar, pushUnique },
+    AST: { buildFileLocationKey, buildLocationKey, cloneLocation, getCallExpressionIdentifier },
+    FS: { isFsErrorCode } } = Core;
 
 import { defaultFsFacade } from "./fs-facade.js";
 import { clampConcurrency } from "./concurrency.js";
@@ -45,7 +48,7 @@ function cloneEntryCollections(entry, ...keys) {
 }
 
 export function createProjectIndexCoordinator(options = {}) {
-    const {
+    import {
         fsFacade = defaultFsFacade,
         loadCache = loadProjectIndexCache,
         saveCache = saveProjectIndexCache,
@@ -161,7 +164,7 @@ function ensureIdentifierCollectionEntry({
     return ensureCollectionEntry(collection, key, () => {
         const initializerValue =
             typeof initializer === "function" ? initializer() : initializer;
-        const {
+        import {
             declarations: initialDeclarations,
             references: initialReferences,
             ...rest

@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { createAbortGuard } = Core;
+const { Utils: { createAbortGuard } } = Core;
 
 
 export const PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE =

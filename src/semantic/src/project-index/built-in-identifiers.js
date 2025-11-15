@@ -1,5 +1,7 @@
 import { Core } from "@gml-modules/core";
-const { parseJsonWithContext, normalizeIdentifierMetadataEntries, areNumbersApproximatelyEqual, isPlainObject } = Core;
+const {
+    Utils: { parseJsonWithContext, areNumbersApproximatelyEqual, isPlainObject },
+    IdentifierMetadata: { normalizeIdentifierMetadataEntries } } = Core;
 
 import { GML_IDENTIFIER_METADATA_PATH } from "../resources/bundled-resources.js";
 

@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { assertFunction } = Core;
+const { Utils: { assertFunction } } = Core;
 
 
 /**

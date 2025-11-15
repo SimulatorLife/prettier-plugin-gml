@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { applyConfiguredValueEnvOverride, createEnvConfiguredValueWithFallback, toFiniteNumber } = Core;
+const { Utils: { applyConfiguredValueEnvOverride, createEnvConfiguredValueWithFallback, toFiniteNumber } } = Core;
 
 
 const PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR = "GML_PROJECT_INDEX_CONCURRENCY";

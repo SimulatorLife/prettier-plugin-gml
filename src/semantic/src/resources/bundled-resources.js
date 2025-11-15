@@ -1,8 +1,8 @@
 import { Core } from "@gml-modules/core";
-const { GML_IDENTIFIER_METADATA_PATH, GML_IDENTIFIER_METADATA_URL, loadBundledIdentifierMetadata } = Core;
+const { Resources: { GML_IDENTIFIER_METADATA_PATH, GML_IDENTIFIER_METADATA_URL, loadBundledIdentifierMetadata } } = Core;
 export { GML_IDENTIFIER_METADATA_PATH, GML_IDENTIFIER_METADATA_URL, loadBundledIdentifierMetadata };
 
 import { Core } from "@gml-modules/core";
-const { FEATHER_METADATA_PATH, loadBundledFeatherMetadata } = Core;
+const { Resources: { FEATHER_METADATA_PATH, loadBundledFeatherMetadata } } = Core;
 export { FEATHER_METADATA_PATH, loadBundledFeatherMetadata };
 

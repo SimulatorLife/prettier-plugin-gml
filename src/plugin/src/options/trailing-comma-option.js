@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { describeValueForError } = Core;
+const { Utils: { describeValueForError } } = Core;
 
 
 const TRAILING_COMMA = Object.freeze({

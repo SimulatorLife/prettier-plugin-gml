@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { isNonEmptyArray, getCommentArray } = Core;
+const { Utils: { isNonEmptyArray }, AST: { getCommentArray } } = Core;
 
 
 const ENUM_INITIALIZER_OPERATOR_WIDTH = " = ".length;

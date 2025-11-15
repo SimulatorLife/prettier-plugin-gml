@@ -227,7 +227,7 @@ export default class GMLParser {
     // Populates the comments array and whitespaces array.
     // Comments are annotated with surrounding whitespace and characters.
     getHiddenNodes(lexer) {
-        const {
+        import {
             EOF,
             SingleLineComment,
             MultiLineComment,

@@ -1,7 +1,7 @@
 import { Core } from "@gml-modules/core";
 const { hasComment: sharedHasComment, normalizeHasCommentHelpers
 } from "../comments/index.js";
-import {
+const {
     assignClonedLocation, cloneAstNode, getNodeEndIndex, getNodeStartIndex, getCallExpressionArguments, toMutableArray, createIdentifierNode } = Core;
 
 

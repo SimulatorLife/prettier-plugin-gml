@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { assignClonedLocation, cloneAstNode, forEachNodeChild, getIdentifierText: sharedGetIdentifierText, hasComment: sharedHasComment, isObjectLike, isUndefinedSentinel: sharedIsUndefinedSentinel, resolveHelperOverride, toMutableArray, unwrapParenthesizedExpression } = Core;
+const { AST: { assignClonedLocation, cloneAstNode, forEachNodeChild, getIdentifierText: sharedGetIdentifierText, hasComment: sharedHasComment, isUndefinedSentinel: sharedIsUndefinedSentinel, unwrapParenthesizedExpression }, Utils: { isObjectLike, resolveHelperOverride, toMutableArray } } = Core;
 
 
 const DEFAULT_HELPERS = Object.freeze({

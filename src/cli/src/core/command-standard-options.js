@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { noop } = Core;
+const { Utils: { noop } } = Core;
 
 
 const DEFAULT_HELP_FLAG = "-h, --help";

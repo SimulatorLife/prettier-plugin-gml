@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { isObjectLike, toArray } = Core;
+const { Utils: { isObjectLike, toArray } } = Core;
 
 
 /**

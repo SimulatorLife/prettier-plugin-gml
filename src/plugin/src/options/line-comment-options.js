@@ -1,7 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { isNonEmptyString, isObjectLike, isRegExpLike } = Core;
-
-import { createResolverController } from "../shared/resolver-controller.js";
+const { Utils: { isNonEmptyString, isObjectLike, isRegExpLike, createResolverController } } = Core;
 
 // Any line comment that starts with at least this many consecutive `/`
 // characters is considered a "banner" comment for formatting purposes.

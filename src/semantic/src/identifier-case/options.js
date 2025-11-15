@@ -5,7 +5,7 @@
 // single source of truth.
 
 import { Core } from "@gml-modules/core";
-const { capitalize, createListSplitPattern, normalizeStringList } = Core;
+const { Utils: { capitalize, createListSplitPattern, normalizeStringList } } = Core;
 
 import { getIdentifierCaseStyleMetadata } from "./identifier-case-utils.js";
 import { getDefaultProjectIndexCacheMaxSize } from "../project-index/cache.js";

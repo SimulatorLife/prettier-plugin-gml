@@ -1,7 +1,7 @@
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
-const { assertFunction, coalesceOption, coerceNonNegativeInteger, coercePositiveInteger, isNonEmptyTrimmedString, isObjectLike, noop, normalizeNumericOption, withDefinedValue } = Core;
+const { Utils: { assertFunction, coalesceOption, coerceNonNegativeInteger, coercePositiveInteger, isNonEmptyTrimmedString, isObjectLike, noop, normalizeNumericOption, withDefinedValue } } = Core;
 
 import {
     clampConcurrency,

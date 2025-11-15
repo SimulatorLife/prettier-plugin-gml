@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { isErrorLike } = Core;
+const { Utils: { isErrorLike } } = Core;
 
 
 /**

@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { asArray, isNonEmptyArray } = Core;
+const { Utils: { asArray, isNonEmptyArray } } = Core;
 
 
 // The asset rename mechanism (filesystem mutations, logging, metrics) depends

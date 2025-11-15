@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { getLineBreakCount } = Core;
+const { Utils: { getLineBreakCount } } = Core;
 
 
 function normalizeTokenText(tokenText) {

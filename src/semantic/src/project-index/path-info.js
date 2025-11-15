@@ -1,7 +1,7 @@
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
-const { isNonEmptyString, resolveContainedRelativePath } = Core;
+const { Utils: { isNonEmptyString }, FS: { resolveContainedRelativePath } } = Core;
 
 
 /**

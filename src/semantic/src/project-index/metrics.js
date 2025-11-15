@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { createMetricsTracker, isObjectLike, noop } = Core;
+const { Reporting: { createMetricsTracker }, Utils: { isObjectLike, noop } } = Core;
 
 
 const PROJECT_INDEX_METRICS_CATEGORY = "project-index";

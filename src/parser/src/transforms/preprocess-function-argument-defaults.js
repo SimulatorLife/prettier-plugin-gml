@@ -1,7 +1,7 @@
 import { Core } from "@gml-modules/core";
 const { hasComment: sharedHasComment, getHasCommentHelper
 } from "../comments/index.js";
-import {
+const {
     getSingleVariableDeclarator as sharedGetSingleVariableDeclarator, getIdentifierText: sharedGetIdentifierText, isUndefinedSentinel: sharedIsUndefinedSentinel, getSingleMemberIndexPropertyEntry: sharedGetSingleMemberIndexPropertyEntry, unwrapParenthesizedExpression, getBodyStatements, toMutableArray, isObjectLike, forEachNodeChild, getNodeEndIndex, getNodeStartIndex, assignClonedLocation, resolveHelperOverride } = Core;
 
 

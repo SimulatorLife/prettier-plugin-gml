@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { isNonEmptyArray } = Core;
+const { Utils: { isNonEmptyArray } } = Core;
 
 
 /**

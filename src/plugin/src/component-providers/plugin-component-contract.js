@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { assertFunction, assertPlainObject, hasOwn } = Core;
+const { Utils: { assertFunction, assertPlainObject, hasOwn } } = Core;
 
 
 const REQUIRED_COMPONENT_DESCRIPTORS = Object.freeze([

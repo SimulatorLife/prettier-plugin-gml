@@ -7,7 +7,7 @@ const { util } from "prettier";
 import GMLParser, {
     sanitizeConditionalAssignments, applySanitizedIndexAdjustments, consolidateStructAssignments, applyFeatherFixes, preprocessSourceForFeatherFixes, applyRemovedIndexAdjustments, preprocessFunctionArgumentDefaults, enforceVariableBlockSpacing, convertStringConcatenations, condenseLogicalExpressions, convertManualMathExpressions, condenseScalarMultipliers, convertUndefinedGuardAssignments, annotateStaticFunctionOverrides
 } from "@gml-modules/parser";
-import {
+const {
     getNodeStartIndex, getNodeEndIndex, toMutableArray, visitChildNodes, isNonEmptyTrimmedString } = Core;
 
 import {

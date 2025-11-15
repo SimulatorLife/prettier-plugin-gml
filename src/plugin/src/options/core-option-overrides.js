@@ -1,5 +1,5 @@
-import { hasOwn } from "../shared/index.js";
-import { createResolverController } from "../shared/resolver-controller.js";
+import { Core } from "@gml-modules/core";
+const { Utils: { hasOwn, createResolverController } } = Core;
 import {
     TRAILING_COMMA,
     assertTrailingCommaValue

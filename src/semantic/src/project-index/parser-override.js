@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { isObjectLike } = Core;
+const { Utils: { isObjectLike } } = Core;
 
 import { getDefaultProjectIndexParser } from "./gml-parser-facade.js";
 

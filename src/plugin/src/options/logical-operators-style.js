@@ -1,4 +1,5 @@
-import { normalizeEnumeratedOption } from "../shared/index.js";
+import { Core } from "@gml-modules/core";
+const { Utils: { normalizeEnumeratedOption } } = Core;
 
 const LogicalOperatorsStyle = Object.freeze({
     KEYWORDS: "keywords",

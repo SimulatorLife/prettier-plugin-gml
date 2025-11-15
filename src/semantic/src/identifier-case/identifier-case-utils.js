@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { capitalize, normalizeStringList, toArrayFromIterable, trimStringEntries } = Core;
+const { Utils: { capitalize, normalizeStringList, toArrayFromIterable, trimStringEntries } } = Core;
 
 
 const RESERVED_PREFIX_PATTERN =

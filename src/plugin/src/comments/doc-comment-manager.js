@@ -1,7 +1,7 @@
 import { Core } from "@gml-modules/core";
 const { getCommentArray, isDocCommentLine } from "./comment-boundary.js";
 
-import {
+const {
     getNodeStartIndex, isFunctionLikeNode, isNode, isNonEmptyArray, toMutableArray, isNonEmptyTrimmedString } = Core;
 
 

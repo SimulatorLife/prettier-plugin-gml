@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { isNonEmptyString, isObjectLike, isRegExpLike } = Core;
+const { Utils: { isNonEmptyString, isObjectLike, isRegExpLike } } = Core;
 
 import { createResolverController } from "../utils/resolver-controller.js";
 

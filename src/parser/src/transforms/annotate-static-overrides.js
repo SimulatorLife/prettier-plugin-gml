@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { isNonEmptyArray, getBodyStatements, getNonEmptyString } = Core;
+const { Utils: { isNonEmptyArray, getNonEmptyString }, AST: { getBodyStatements } } = Core;
 
 
 function getStaticFunctionDeclarator(statement) {

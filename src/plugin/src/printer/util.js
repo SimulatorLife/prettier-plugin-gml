@@ -1,9 +1,9 @@
 import { Core } from "@gml-modules/core";
 const { util } from "prettier";
-import { getNodeType, getNonEmptyTrimmedString } = Core;
+const { getNodeType, getNonEmptyTrimmedString } = Core;
 
 
-const { isNextLineEmpty, isPreviousLineEmpty } = util;
+import { isNextLineEmpty, isPreviousLineEmpty } = util;
 
 // Using a Set avoids re-allocating the list for every membership check when
 // these helpers run inside tight printer loops.

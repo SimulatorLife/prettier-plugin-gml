@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { applyConfiguredValueEnvOverride, createEnvConfiguredValueWithFallback, toFiniteNumber } = Core;
+const { Utils: { applyConfiguredValueEnvOverride, createEnvConfiguredValueWithFallback, toFiniteNumber } } = Core;
 
 
 const DOC_COMMENT_MAX_WRAP_WIDTH_ENV_VAR =

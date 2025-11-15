@@ -8,6 +8,6 @@
 // implementation lives only in `src/core` and there are no fragile relative
 // cross-package paths.
 import { Core } from "@gml-modules/core";
-const { toArrayFromIterable, toArray, assertArray, asArray, toMutableArray, isNonEmptyArray, isArrayIndex, uniqueArray, compactArray, pushUnique, mergeUniqueValues, appendToCollection } = Core;
+const { Utils: { toArrayFromIterable, toArray, assertArray, asArray, toMutableArray, isNonEmptyArray, isArrayIndex, uniqueArray, compactArray, pushUnique, mergeUniqueValues, appendToCollection } } = Core;
 export { toArrayFromIterable, toArray, assertArray, asArray, toMutableArray, isNonEmptyArray, isArrayIndex, uniqueArray, compactArray, pushUnique, mergeUniqueValues, appendToCollection };
 

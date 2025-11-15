@@ -1,7 +1,7 @@
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
-const { isFsErrorCode, toPosixPath } = Core;
+const { FS: { isFsErrorCode, toPosixPath } } = Core;
 
 
 import { createProjectIndexAbortGuard } from "./abort-guard.js";

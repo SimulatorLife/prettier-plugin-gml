@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { assertNonEmptyString, getErrorMessage, isErrorWithCode, isObjectOrFunction } = Core;
+const { Utils: { assertNonEmptyString, getErrorMessage, isErrorWithCode, isObjectOrFunction } } = Core;
 
 
 /**
