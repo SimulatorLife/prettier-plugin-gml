@@ -1,8 +1,8 @@
 import { Core } from "@gml-modules/core";
-const { hasComment: sharedHasComment, getHasCommentHelper
+import { hasComment as sharedHasComment, getHasCommentHelper
 } from "../comments/index.js";
 const {
-    getSingleVariableDeclarator as sharedGetSingleVariableDeclarator, getIdentifierText: sharedGetIdentifierText, isUndefinedSentinel: sharedIsUndefinedSentinel, getSingleMemberIndexPropertyEntry: sharedGetSingleMemberIndexPropertyEntry, unwrapParenthesizedExpression, getBodyStatements, toMutableArray, isObjectLike, forEachNodeChild, getNodeEndIndex, getNodeStartIndex, assignClonedLocation, resolveHelperOverride } = Core;
+    getSingleVariableDeclarator: sharedGetSingleVariableDeclarator, getIdentifierText: sharedGetIdentifierText, isUndefinedSentinel: sharedIsUndefinedSentinel, getSingleMemberIndexPropertyEntry: sharedGetSingleMemberIndexPropertyEntry, unwrapParenthesizedExpression, getBodyStatements, toMutableArray, isObjectLike, forEachNodeChild, getNodeEndIndex, getNodeStartIndex, assignClonedLocation, resolveHelperOverride } = Core;
 
 
 // Re-export selected core helpers into local scope for convenience. Some

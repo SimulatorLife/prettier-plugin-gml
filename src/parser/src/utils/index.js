@@ -1,10 +1,3 @@
-// Re-export parser-local shared helpers so the parser package does not depend
-// on the top-level shared package at runtime. As more helpers are ported from
-// `src/shared/src`, add them here so transforms can import from `../shared`.
-
-export * from "./deprecated-builtin-variable-replacements.js";
-export * from "./resolver-controller.js";
-
 // Utilities
 export * from "./array.js";
 export * from "./function.js";

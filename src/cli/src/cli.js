@@ -105,12 +105,15 @@ import {
     SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR,
     UNSUPPORTED_EXTENSION_SAMPLE_LIMIT_ENV_VAR
 } from "./runtime-options/sample-limits.js";
+import { normalizeExtensions } from "./core/extension-normalizer.js";
+
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolveCliPluginEntryPoint();
 const IGNORE_PATH = path.resolve(WRAPPER_DIRECTORY, ".prettierignore");
 const INITIAL_WORKING_DIRECTORY = path.resolve(process.cwd());
 
-const SUPPORTED_EXTENSIONS = Object.freeze([".gml"]);
+const GML_EXTENSION = ".gml";
+const FALLBACK_EXTENSIONS = Object.freeze([GML_EXTENSION]); // Fallback exists for legacy env vars; only the GML extension is supported.
 
 const ParseErrorAction = Object.freeze({
     REVERT: "revert",
@@ -144,8 +147,7 @@ const FORMAT_COMMAND_CLI_EXAMPLE =
     "npx prettier-plugin-gml format path/to/project";
 const FORMAT_COMMAND_WORKSPACE_EXAMPLE =
     "npm run format:gml -- path/to/project";
-const FORMAT_COMMAND_CHECK_EXAMPLE =
-    "npx prettier-plugin-gml format --check path/to/script.gml";
+const FORMAT_COMMAND_CHECK_EXAMPLE = `npx prettier-plugin-gml format --check path/to/script${GML_EXTENSION}`;
 
 const PRETTIER_MODULE_ID =
     process.env.PRETTIER_PLUGIN_GML_PRETTIER_MODULE ?? "prettier";
@@ -253,7 +255,7 @@ function isMissingPrettierDependency(error) {
 
 let prettierModulePromise = null;
 
-async function resolvePrettier() {
+function resolvePrettier() {
     if (!prettierModulePromise) {
         prettierModulePromise = import(PRETTIER_MODULE_ID)
             .then(resolveModuleDefaultExport)
@@ -330,7 +332,7 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
     const extensionsOption = new Option(
         "--extensions <list>",
         [
-            "Comma- or path-delimiter-separated list of file extensions to format (e.g., .gml,.yy or .gml;.yy on Windows).",
+            `Comma- or path-delimiter-separated list of file extensions to format (e.g., ${GML_EXTENSION},.yy or ${GML_EXTENSION};.yy on Windows).`,
             `Defaults to ${formatExtensionListForDisplay(DEFAULT_EXTENSIONS)}.`,
             "Respects PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS when set."
         ].join(" ")
@@ -482,7 +484,7 @@ function createTargetExtensionSet(extensions) {
 
 let targetExtensionSet = createTargetExtensionSet(targetExtensions);
 let placeholderExtension =
-    targetExtensions[0] ?? DEFAULT_EXTENSIONS[0] ?? FALLBACK_EXTENSIONS[0];
+    targetExtensions[0] ?? DEFAULT_EXTENSIONS[0];
 
 /**
  * Apply CLI configuration that influences which files are formatted.
@@ -496,7 +498,7 @@ function configureTargetExtensionState(configuredExtensions) {
             : DEFAULT_EXTENSIONS;
     targetExtensionSet = createTargetExtensionSet(targetExtensions);
     placeholderExtension =
-        targetExtensions[0] ?? DEFAULT_EXTENSIONS[0] ?? FALLBACK_EXTENSIONS[0];
+        targetExtensions[0] ?? DEFAULT_EXTENSIONS[0];
 }
 
 function shouldFormatFile(filePath) {
@@ -624,7 +626,7 @@ let revertSnapshotDirectory = null;
 let revertSnapshotFileCount = 0;
 let encounteredFormattableFile = false;
 
-async function ensureRevertSnapshotDirectory() {
+function ensureRevertSnapshotDirectory() {
     if (revertSnapshotDirectory) {
         return revertSnapshotDirectory;
     }

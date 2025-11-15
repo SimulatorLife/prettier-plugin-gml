@@ -1,3 +1,5 @@
+// TODO: This file should not be at the top-level of `src/core`
+
 import { getFeatherMetadata } from "./resources/feather-metadata.js";
 import { asArray } from "./utils/array.js";
 import { toTrimmedString } from "./utils/string.js";

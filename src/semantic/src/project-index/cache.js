@@ -1,6 +1,6 @@
 import path from "node:path";
 import { Core } from "@gml-modules/core";
-const { createHash, randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 const {
     parseJsonWithContext, areNumbersApproximatelyEqual, toFiniteNumber, isObjectLike, createEnvConfiguredValueWithFallback, createAbortGuard, describeValueForError, getNonEmptyTrimmedString, isFsErrorCode, applyConfiguredValueEnvOverride } = Core;

@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { util } from "prettier";
+import { util } from "prettier";
 const { getNodeType, getNonEmptyTrimmedString } = Core;
 
 

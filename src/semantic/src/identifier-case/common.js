@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { constants as fsConstants } from "node:fs";
+import { constants as fsConstants } from "node:fs";
 
 const {
     escapeRegExp, incrementMapValue, isNonEmptyArray, isNonEmptyString } = Core;

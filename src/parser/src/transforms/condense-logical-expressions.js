@@ -1,8 +1,27 @@
 import { Core } from "@gml-modules/core";
-const { hasComment: sharedHasComment, normalizeHasCommentHelpers, resolveDocCommentPresenceService, resolveDocCommentDescriptionService, resolveDocCommentUpdateService
+import {
+    hasComment as sharedHasComment,
+    normalizeHasCommentHelpers,
+    resolveDocCommentPresenceService,
+    resolveDocCommentDescriptionService,
+    resolveDocCommentUpdateService
 } from "../comments/index.js";
 const {
-    asArray, cloneAstNode, cloneLocation, getBodyStatements, getOrCreateMapEntry, isNode, isNonEmptyArray, isNonEmptyString, toNormalizedLowerCaseString, forEachNodeChild } = Core;
+    AST: {
+        cloneAstNode,
+        cloneLocation,
+        getBodyStatements,
+        isNode,
+        forEachNodeChild
+    },
+    Utils: {
+        asArray,
+        getOrCreateMapEntry,
+        isNonEmptyArray,
+        isNonEmptyString,
+        toNormalizedLowerCaseString
+    }
+} = Core;
 
 
 const BOOLEAN_NODE_TYPES = Object.freeze({

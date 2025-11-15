@@ -1,4 +1,4 @@
-import GMLParser from "gamemaker-language-parser";
+import GMLParser from "../gml-parser.js";
 import { Core } from "@gml-modules/core";
 const {
     AST: {
@@ -62,7 +62,7 @@ import {
     resolveDocCommentTraversalService,
     getCommentValue
 } from "../comments/index.js";
-import { loadReservedIdentifierNames } from "gamemaker-language-semantic/resources/reserved-identifiers.js";
+import { loadReservedIdentifierNames } from "@gml-modules/semantic/resources/reserved-identifiers.js";
 
 function walkAstNodes(root, visitor) {
     const visit = (node, parent, key) => {

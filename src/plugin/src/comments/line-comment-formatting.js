@@ -1,6 +1,6 @@
 import { Core } from "@gml-modules/core";
 import { isObjectLike } from "./comment-boundary.js";
-const {
+import {
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     DEFAULT_LINE_COMMENT_OPTIONS,
     LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,

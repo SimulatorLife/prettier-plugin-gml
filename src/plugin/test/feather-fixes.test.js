@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 
 import path from "node:path";
 import { Core } from "@gml-modules/core";
-const { fileURLToPath } from "node:url";
+import { fileURLToPath } from "node:url";
 
 import { describe, it } from "node:test";
 

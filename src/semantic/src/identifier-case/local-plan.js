@@ -1,7 +1,7 @@
 import { Core } from "@gml-modules/core";
-const { formatIdentifierCase } from "./identifier-case-utils.js";
-const { peekIdentifierCaseDryRunContext } from "./identifier-case-context.js";
-const { buildRenameKey } from "./plan-state.js";
+import { formatIdentifierCase } from "./identifier-case-utils.js";
+import { peekIdentifierCaseDryRunContext } from "./identifier-case-context.js";
+import { buildRenameKey } from "./plan-state.js";
 const {
     asArray, coalesceOption, createMetricsTracker, getIterableSize, getNonEmptyString, getOrCreateMapEntry, isNonEmptyArray, isNonEmptyString, isObjectLike, toNormalizedLowerCaseString } = Core;
 

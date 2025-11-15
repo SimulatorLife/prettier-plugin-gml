@@ -1,7 +1,7 @@
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
-const { formatIdentifierCase } from "./identifier-case-utils.js";
+import { formatIdentifierCase } from "./identifier-case-utils.js";
 const {
     getOrCreateMapEntry, isNonEmptyArray, isNonEmptyString, toNormalizedLowerCaseString } = Core;
 

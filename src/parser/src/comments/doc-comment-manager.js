@@ -1,7 +1,7 @@
 import { Core } from "@gml-modules/core";
-const { getCommentArray, isDocCommentLine } from "./comment-boundary.js";
-const { getNodeStartIndex } from "../ast/locations.js";
-const { isFunctionLikeNode, isNode } from "../ast/node-helpers.js";
+import { getCommentArray, isDocCommentLine } from "./comment-boundary.js";
+import { getNodeStartIndex } from "../ast/locations.js";
+import { isFunctionLikeNode, isNode } from "../ast/node-helpers.js";
 const { isNonEmptyArray, toMutableArray } = Core;
 
 import { isNonEmptyTrimmedString } from "../utils/string.js";

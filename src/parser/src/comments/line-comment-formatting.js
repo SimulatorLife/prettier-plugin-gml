@@ -1,13 +1,22 @@
 import { Core } from "@gml-modules/core";
-const { DEFAULT_COMMENTED_OUT_CODE_PATTERNS, DEFAULT_LINE_COMMENT_OPTIONS, LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES, normalizeLineCommentOptions
+import {
+    DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
+    DEFAULT_LINE_COMMENT_OPTIONS,
+    LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,
+    normalizeLineCommentOptions
 } from "../options/line-comment-options.js";
-const { isObjectLike } from "./comment-boundary.js";
-const { getCommentValue } = Core;
+import { isObjectLike } from "./comment-boundary.js";
+const {
+    AST: { getCommentValue },
+    Utils: {
+        getNonEmptyTrimmedString,
+        toTrimmedString,
+        hasOwn,
+        isRegExpLike,
+        createResolverController
+    }
+} = Core;
 
-import { getNonEmptyTrimmedString, toTrimmedString } from "../utils/string.js";
-import { hasOwn } from "../utils/object.js";
-import { isRegExpLike } from "../utils/capability-probes.js";
-import { createResolverController } from "../utils/resolver-controller.js";
 import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
 
 function normalizeEntryPair(entry) {

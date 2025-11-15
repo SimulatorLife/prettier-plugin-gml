@@ -1,28 +1,28 @@
 import { Core } from "@gml-modules/core";
-const { builders, utils } from "prettier/doc";
+import { builders, utils } from "prettier/doc";
 
-const {
+import {
     DefineReplacementDirective, isLastStatement, optionalSemicolon, isNextLineEmpty, isPreviousLineEmpty, shouldAddNewlinesAroundStatement, hasComment, getNormalizedDefineReplacementDirective, isFunctionLikeDeclaration
 } from "./util.js";
-const {
+import {
     buildCachedSizeVariableName, getLoopLengthHoistInfo, getSizeRetrievalFunctionSuffixes
 } from "./loop-size-hoisting.js";
-const {
+import {
     getEnumNameAlignmentPadding, prepareEnumMembersForPrinting
 } from "./enum-alignment.js";
-const {
+import {
     isMacroLikeStatement, shouldForceBlankLineBetweenReturnPaths, shouldForceTrailingBlankLineForNestedFunction, shouldSuppressEmptyLineBetween
 } from "./statement-spacing-policy.js";
-const {
+import {
     printDanglingComments, printDanglingCommentsAsGroup, printComment
 } from "../comments/comment-printer.js";
-const {
+import {
     formatLineComment, getLineCommentRawText, normalizeDocCommentTypeAnnotations
 } from "../comments/line-comment-formatting.js";
-const { normalizeOptionalParamToken } from "../comments/optional-param-normalization.js";
-const { resolveLineCommentOptions } from "../options/line-comment-options.js";
-const { TRAILING_COMMA } from "../options/trailing-comma-option.js";
-const { DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH } from "./doc-comment-wrap-width.js";
+import { normalizeOptionalParamToken } from "../comments/optional-param-normalization.js";
+import { resolveLineCommentOptions } from "../options/line-comment-options.js";
+import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
+import { DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH } from "./doc-comment-wrap-width.js";
 const {
     getCommentArray, isCommentNode, coercePositiveIntegerOption, getNonEmptyString, getNonEmptyTrimmedString, capitalize, isNonEmptyString, isNonEmptyTrimmedString, isObjectOrFunction, toTrimmedString, asArray, isNonEmptyArray, getNodeType, toMutableArray, ensureSet, getNodeStartIndex, getNodeEndIndex, getNodeRangeIndices, getBodyStatements, getCallExpressionArguments, getCallExpressionIdentifier, getIdentifierText, getSingleVariableDeclarator, isCallExpressionIdentifierMatch, isBooleanLiteral, isUndefinedSentinel, enqueueObjectChildValues, isFunctionLikeNode, forEachNodeChild } = Core;
 

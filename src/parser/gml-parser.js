@@ -1,4 +1,16 @@
-export { default, getLineBreakCount } from "./src/gml-parser.js";
+import ParserImpl, { getLineBreakCount } from "./src/gml-parser.js";
+import { Core } from "@gml-modules/core";
+
+const {
+    DeprecatedBuiltinVariables: {
+        buildDeprecatedBuiltinVariableReplacements,
+        getDeprecatedBuiltinReplacementEntry
+    },
+    Utils: { createResolverController }
+} = Core;
+
+export default ParserImpl;
+export { getLineBreakCount };
 export { GameMakerSyntaxError } from "./src/gml-syntax-error.js";
 export {
     sanitizeConditionalAssignments,
@@ -25,8 +37,11 @@ export * from "./src/transforms/convert-undefined-guard-assignments.js";
 export * from "./src/transforms/enforce-variable-block-spacing.js";
 export * from "./src/transforms/preprocess-function-argument-defaults.js";
 export * from "./src/transforms/strip-comments.js";
-export * from "./src/utils/deprecated-builtin-variable-replacements.js";
-export * from "./src/utils/resolver-controller.js";
+export {
+    buildDeprecatedBuiltinVariableReplacements,
+    getDeprecatedBuiltinReplacementEntry,
+    createResolverController
+};
 export {
     getStructPropertyAccess,
     isBinaryOperator

@@ -22,6 +22,7 @@
 - Use a consistent module directory structure across the monorepo, where each package contains a top-level package.json, a top-level index.js, and separate src/ and test/ directories; all implementation code must reside in src/, all tests must reside in test/, and consumers must always import from the module root rather than deep internal paths.
 - Each top-level module's root index.js must serve as the sole public API surface and should export **one namespace** (e.g., export * as Transpiler from "./src/transpiler/index.js";) with no implementation logic; internal files must never import through this public namespace layer and should instead use direct relative imports, reserving namespace-style exports exclusively for the external API shape.
 - Do not create “pass-through” modules that simply import symbols from another package and re-export them; files should always import the specific functions or values they need directly at the point of use rather than acting as proxy exporters, ensuring each module exposes only its own public API and avoiding unnecessary indirection, and if you encounter an existing pass-through file, remove it and update callers to import the required symbols directly.
+- Avoid legacy-behaior support; always implement the current, forward-looking design without adding compatibility layers or transitional code.
 
 ## Avoid Over-Extending the System
 

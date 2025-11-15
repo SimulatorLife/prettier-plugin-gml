@@ -1,7 +1,7 @@
 import { Core } from "@gml-modules/core";
-const { GameMakerLanguageParserListenerBase } from "../generated-bindings.js";
-const { VISIT_METHOD_NAMES } from "./game-maker-language-parser-visitor.js";
-const {
+import { GameMakerLanguageParserListenerBase } from "../generated-bindings.js";
+import { VISIT_METHOD_NAMES } from "./game-maker-language-parser-visitor.js";
+import {
     definePrototypeMethods, deriveListenerMethodNames, toDelegate
 } from "./parse-tree-helpers.js";
 const { Utils: { noop } } = Core;

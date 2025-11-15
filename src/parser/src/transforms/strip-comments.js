@@ -1,7 +1,8 @@
 import { Core } from "@gml-modules/core";
-const { walkObjectGraph } from "../ast/object-graph.js";
-const { isCommentNode } = Core;.AST;
-
+import { walkObjectGraph } from "../ast/object-graph.js";
+const {
+    AST: { isCommentNode }
+} = Core;
 
 export function transform(ast, opts = {}) {
     const cfg = Object.assign(

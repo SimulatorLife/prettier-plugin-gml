@@ -1,3 +1,4 @@
+export { default } from "./gml-parser.js";
 export * from "./gml-parser.js";
 
 export * as Transforms from "./src/transforms/index.js";

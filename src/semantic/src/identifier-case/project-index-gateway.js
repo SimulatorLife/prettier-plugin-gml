@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-const { bootstrapProjectIndex, applyBootstrappedProjectIndex
+import { bootstrapProjectIndex, applyBootstrappedProjectIndex
 } from "./project-index-bootstrap.js";
 const { coalesceOption } = Core;
 

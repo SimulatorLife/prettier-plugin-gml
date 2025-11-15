@@ -4,7 +4,7 @@
 // sibling workspaces) to rely on a stable module path instead of importing
 // files from the internal directory layout.
 import { Core } from "@gml-modules/core";
-const { collectCommentNodes, getCommentArray, hasComment, isBlockComment, isCommentNode, isDocCommentLine, isLineComment
+import { collectCommentNodes, getCommentArray, hasComment, isBlockComment, isCommentNode, isDocCommentLine, isLineComment
 } from "./comment-boundary.js";
 export {
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS, DEFAULT_LINE_COMMENT_OPTIONS, normalizeLineCommentOptions, resolveLineCommentOptions, restoreDefaultLineCommentOptionsResolver, setLineCommentOptionsResolver

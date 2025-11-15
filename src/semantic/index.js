@@ -1,5 +1,3 @@
-export * from "./src/index.js";
-
 export * as IdentifierCase from "./src/identifier-case/index.js";
 export * as ProjectIndex from "./src/project-index/index.js";
 export * as Scopes from "./src/scopes/index.js";

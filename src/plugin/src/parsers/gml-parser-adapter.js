@@ -3,7 +3,7 @@
 // knowledge of the parser's option shape and location metadata across the
 // rest of the plugin configuration.
 import { Core } from "@gml-modules/core";
-const { util } from "prettier";
+import { util } from "prettier";
 import GMLParser, {
     sanitizeConditionalAssignments, applySanitizedIndexAdjustments, consolidateStructAssignments, applyFeatherFixes, preprocessSourceForFeatherFixes, applyRemovedIndexAdjustments, preprocessFunctionArgumentDefaults, enforceVariableBlockSpacing, convertStringConcatenations, condenseLogicalExpressions, convertManualMathExpressions, condenseScalarMultipliers, convertUndefinedGuardAssignments, annotateStaticFunctionOverrides
 } from "@gml-modules/parser";
