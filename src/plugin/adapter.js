@@ -55,6 +55,5 @@ function runPipeline(source, pipelineConfig, transformOptions) {
         return ast;
     }
 
-    return applyTransforms(ast, transformNames, transformOptions);
+return applyTransforms(ast, transformNames, transformOptions);
 }
-export {parse} from "@gml-modules/core";

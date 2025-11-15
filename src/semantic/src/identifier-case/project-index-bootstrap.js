@@ -10,7 +10,7 @@ import {
     noop,
     normalizeNumericOption,
     withDefinedValue
-} from "./dependencies.js";
+} from "@gml-modules/core";
 import {
     clampConcurrency,
     createProjectIndexBuildOptions,

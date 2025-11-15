@@ -1,4 +1,4 @@
-import { getErrorMessage } from "./dependencies.js";
+import { getErrorMessage } from "@gml-modules/core";
 
 const DEFAULT_WARNING_FALLBACK = "Unknown error";
 

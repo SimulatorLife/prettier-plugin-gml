@@ -9,10 +9,10 @@ export * from "./ast/comments.js";
 export * from "./ast/location-keys.js";
 export * from "./resources/feather-metadata.js";
 export * from "./resources/gml-identifiers.js";
-export * from "./resolver-controller.js";
 export * from "./fs/index.js";
 export * from "./parser/index.js";
 export * from "./reporting/index.js";
+export * from "./deprecated-builtin-variable-replacements.js";
 
 // Temporary re-exports of parser-local helpers that haven't been ported into
 // core yet. These unblock consumers during the migration and will be removed
@@ -21,4 +21,3 @@ export * from "./reporting/index.js";
 // while the full migration completes. These are intentionally short-lived
 // compatibility exports and will be moved into `src/core/src` permanently
 // in a follow-up cleanup.
-export { getStructPropertyAccess, isBinaryOperator } from "@gml-modules/parser";

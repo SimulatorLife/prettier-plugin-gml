@@ -1,4 +1,4 @@
-import { assertArray, normalizeExtensionSuffix } from "../dependencies.js";
+import { assertArray, normalizeExtensionSuffix } from "@gml-modules/core";
 import {
     isProjectManifestPath,
     isProjectResourceMetadataPath

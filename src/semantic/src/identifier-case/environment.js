@@ -3,7 +3,7 @@ import {
     prepareIdentifierCasePlan,
     captureIdentifierCasePlanSnapshot
 } from "./plan-service.js";
-import { isObjectLike, noop, withObjectLike } from "./dependencies.js";
+import { isObjectLike, noop, withObjectLike } from "@gml-modules/core";
 import {
     setIdentifierCaseOption,
     deleteIdentifierCaseOption

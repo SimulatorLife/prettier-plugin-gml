@@ -1,63 +1,11 @@
 /**
- * Facade exposing the shared helpers consumed by the semantic package.
- * Narrowing the export surface avoids the previous "export everything" coupling
- * that made it difficult to reason about which utilities project-index modules
- * actually relied on.
+ * Shared semantic type stubs.
+ *
+ * Identifier-case modules and scope trackers reference the GameMaker AST node
+ * structure in JSDoc comments via `import("../dependencies.js").GameMakerAstNode`.
+ * Keep the definition centralized here so the type reference continues to work
+ * without depending on any runtime re-exports.
  */
-export {
-    assertArray,
-    asArray,
-    isNonEmptyArray,
-    mergeUniqueValues,
-    pushUnique,
-    toArray,
-    toArrayFromIterable,
-    toMutableArray
-} from "@gml-modules/core";
-export {
-    areNumbersApproximatelyEqual,
-    isFiniteNumber,
-    toFiniteNumber
-} from "@gml-modules/core";
-export {
-    assertFunction,
-    getOrCreateMapEntry,
-    hasOwn,
-    isObjectLike,
-    isPlainObject,
-    withDefinedValue
-} from "@gml-modules/core";
-export { assignClonedLocation, cloneLocation } from "@gml-modules/core";
-export { buildFileLocationKey, buildLocationKey } from "@gml-modules/core";
-export { getCallExpressionIdentifier } from "@gml-modules/core";
-export { createAbortGuard, throwIfAborted } from "@gml-modules/core";
-export {
-    applyConfiguredValueEnvOverride,
-    createEnvConfiguredValueWithFallback,
-    resolveEnvironmentMap
-} from "@gml-modules/core";
-export { createMetricsTracker } from "@gml-modules/core";
-export { noop } from "@gml-modules/core";
-export {
-    describeValueForError,
-    getNonEmptyString,
-    getNonEmptyTrimmedString,
-    isNonEmptyString,
-    isNonEmptyTrimmedString,
-    normalizeExtensionSuffix,
-    isWordChar,
-    toNormalizedLowerCaseSet,
-    toTrimmedString
-} from "@gml-modules/core";
-export { isJsonParseError, parseJsonWithContext } from "@gml-modules/core";
-export { getLineBreakSpans, splitLines } from "@gml-modules/core";
-export { isFsErrorCode } from "@gml-modules/core";
-export {
-    resolveContainedRelativePath,
-    toPosixPath,
-    walkAncestorDirectories
-} from "@gml-modules/core";
-export { normalizeIdentifierMetadataEntries } from "@gml-modules/core";
 
 /**
  * @typedef {object} GameMakerAstLocation

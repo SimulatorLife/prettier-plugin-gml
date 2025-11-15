@@ -77,9 +77,9 @@ export { Command, InvalidArgumentError, Option } from "commander";
 export {
     isMissingModuleDependency,
     resolveModuleDefaultExport
-} from "./core/module.js";
+} from "./shared/module.js";
 
-export { ensureDir } from "./core/ensure-dir.js";
+export { ensureDir } from "./shared/ensure-dir.js";
 
 export {
     createVerboseDurationLogger,

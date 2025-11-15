@@ -1,4 +1,4 @@
-import { withDefinedValue } from "../dependencies.js";
+import { withDefinedValue } from "@gml-modules/core";
 
 export function createProjectIndexBuildOptions({
     logger = null,

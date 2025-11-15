@@ -11,7 +11,7 @@ import {
     parseJsonWithContext,
     stringifyJsonForFile,
     trimStringEntries
-} from "./dependencies.js";
+} from "@gml-modules/core";
 import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
 import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
 

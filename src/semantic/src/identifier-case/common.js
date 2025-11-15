@@ -5,7 +5,7 @@ import {
     incrementMapValue,
     isNonEmptyArray,
     isNonEmptyString
-} from "./dependencies.js";
+} from "@gml-modules/core";
 
 export const COLLISION_CONFLICT_CODE = "collision";
 export const PRESERVE_CONFLICT_CODE = "preserve";

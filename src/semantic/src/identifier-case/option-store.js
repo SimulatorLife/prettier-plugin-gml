@@ -3,7 +3,7 @@ import {
     isFiniteNumber,
     isNonEmptyString,
     isObjectLike
-} from "./dependencies.js";
+} from "@gml-modules/core";
 import { IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME } from "./options.js";
 import { getDefaultIdentifierCaseOptionStoreMaxEntries } from "./option-store-defaults.js";
 

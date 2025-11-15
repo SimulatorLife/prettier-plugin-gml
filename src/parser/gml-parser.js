@@ -26,7 +26,6 @@ export * from "./src/transforms/enforce-variable-block-spacing.js";
 export * from "./src/transforms/preprocess-function-argument-defaults.js";
 export * from "./src/transforms/strip-comments.js";
 export * from "./src/utils/deprecated-builtin-variable-replacements.js";
-export * from "./src/utils/feather-type-system.js";
 export * from "./src/utils/resolver-controller.js";
 export {
     getStructPropertyAccess,

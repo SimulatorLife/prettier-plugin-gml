@@ -14,5 +14,7 @@ export * from "./asset-rename-policy.js";
 export * from "./asset-rename-executor.js";
 export * from "./common.js";
 export * from "./fs-facade.js";
-export * from "./plan-state.js";
+// plan-state exports are intentionally kept internal to avoid duplicating
+// names that the public service facade already provides. Import specific
+// helpers from plan-state only when needed by internal modules.
 export * from "./logger.js";

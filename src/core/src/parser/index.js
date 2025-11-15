@@ -7,6 +7,3 @@ import GMLParser from "@gml-modules/parser";
 export function parse(text, options = {}) {
     return GMLParser.parse(text, options);
 }
-
-
-export {default as GMLParser} from "@gml-modules/parser";

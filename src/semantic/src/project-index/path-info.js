@@ -3,7 +3,7 @@ import path from "node:path";
 import {
     isNonEmptyString,
     resolveContainedRelativePath
-} from "../dependencies.js";
+} from "@gml-modules/core";
 
 /**
  * Resolve high-level metadata about how {@link filePath} relates to

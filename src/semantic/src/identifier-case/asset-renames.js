@@ -6,7 +6,7 @@ import {
     isNonEmptyArray,
     isNonEmptyString,
     toNormalizedLowerCaseString
-} from "./dependencies.js";
+} from "@gml-modules/core";
 import { loadReservedIdentifierNames } from "../resources/reserved-identifiers.js";
 import {
     COLLISION_CONFLICT_CODE,

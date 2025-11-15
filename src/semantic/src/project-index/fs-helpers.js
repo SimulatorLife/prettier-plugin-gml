@@ -2,7 +2,7 @@ import {
     createAbortGuard,
     isFsErrorCode,
     toArrayFromIterable
-} from "../dependencies.js";
+} from "@gml-modules/core";
 
 /**
  * Enumerate the entries in {@link directoryPath} while respecting the abort

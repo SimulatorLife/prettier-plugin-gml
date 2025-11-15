@@ -178,6 +178,39 @@ function getNodeRangeIndices(node) {
     };
 }
 
+/**
+ * Select the preferred location object from a list of candidates.
+ *
+ * Many transforms supply multiple possible location sources (for example a
+ * computed property start and the assignment's start) and expect a single
+ * location-like value that can be cloned and assigned to a synthesized node.
+ * This helper returns the first concrete candidate it finds. Numeric indices
+ * are normalized to a `{ index: number }` shape for callers that expect an
+ * object-like location.
+ *
+ * @param {...(object|number|null|undefined)} candidates Potential location
+ *        values ordered by preference.
+ * @returns {object | null} The chosen location object or `null` when none
+ *                         were provided.
+ */
+function getPreferredLocation(...candidates) {
+    for (const candidate of candidates) {
+        if (candidate === null || candidate === undefined) {
+            continue;
+        }
+
+        if (isObjectLike(candidate)) {
+            return candidate;
+        }
+
+        if (typeof candidate === "number") {
+            return { index: candidate };
+        }
+    }
+
+    return null;
+}
+
 function getNodeLocationLine(node, key) {
     return withObjectLike(
         node,
@@ -230,6 +263,7 @@ export {
     getNodeRangeIndices,
     getNodeStartLine,
     getNodeEndLine,
+    getPreferredLocation,
     cloneLocation,
     assignClonedLocation
 };

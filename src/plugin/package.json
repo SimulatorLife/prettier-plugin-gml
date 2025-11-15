@@ -2,8 +2,9 @@
   "name": "@gml-modules/plugin",
   "version": "0.0.0",
   "type": "module",
+  "main": "./index.js",
   "exports": {
-    ".": "./src/gml.js",
+    ".": "./index.js",
     "./parsers": "./src/parsers/index.js"
   },
   "config": {

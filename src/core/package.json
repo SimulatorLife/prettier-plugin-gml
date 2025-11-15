@@ -2,8 +2,9 @@
   "name": "@gml-modules/core",
   "version": "0.0.0",
   "type": "module",
+  "main": "./index.js",
   "exports": {
-    ".": "./src/index.js",
+    ".": "./index.js",
     "./*": "./src/*"
   }
 }

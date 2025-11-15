@@ -322,6 +322,24 @@ function getCallExpressionIdentifierName(callExpression) {
     return identifier ? identifier.name : null;
 }
 
+function getIdentifierDetails(node) {
+    if (!isNode(node) || node.type !== "Identifier") {
+        return null;
+    }
+
+    const name = resolveNodeName(node);
+    if (typeof name !== "string") {
+        return null;
+    }
+
+    return { identifier: node, name };
+}
+
+function getIdentifierName(node) {
+    const details = getIdentifierDetails(node);
+    return details ? details.name : null;
+}
+
 function isCallExpressionIdentifierMatch(
     callExpression,
     expectedName,
@@ -657,6 +675,59 @@ function unwrapParenthesizedExpression(node) {
     return current;
 }
 
+// Small binary-operator predicate used by multiple math transforms.
+function isBinaryOperator(node, operator) {
+    return (
+        node &&
+        node.type === "BinaryExpression" &&
+        typeof node.operator === "string" &&
+        node.operator.toLowerCase() === operator
+    );
+}
+
+/**
+ * Inspect a left-hand member expression and, when it references a property on
+ * the provided identifier root, return a compact descriptor for the property
+ * node and its start index. This mirrors the canonical helper used by the
+ * plugin transforms and keeps the parser-local transform logic
+ * self-contained.
+ */
+function getStructPropertyAccess(left, identifierName) {
+    if (!isNode(left)) {
+        return null;
+    }
+
+    const object = left.object;
+    if (!isNode(object) || object.type !== "Identifier") {
+        return null;
+    }
+
+    if (identifierName !== undefined && object.name !== identifierName) {
+        return null;
+    }
+
+    if (left.type === "MemberDotExpression" && isNode(left.property)) {
+        return {
+            propertyNode: left.property,
+            propertyStart: left.property?.start
+        };
+    }
+
+    if (left.type === "MemberIndexExpression") {
+        const propertyNode = getSingleMemberIndexPropertyEntry(left);
+        if (!isNode(propertyNode)) {
+            return null;
+        }
+
+        return {
+            propertyNode,
+            propertyStart: propertyNode?.start
+        };
+    }
+
+    return null;
+}
+
 export {
     cloneAstNode,
     getSingleVariableDeclarator,
@@ -686,4 +757,8 @@ export {
     isVariableDeclarationOfKind,
     isVarVariableDeclaration,
     createIdentifierNode
+    ,getIdentifierDetails
+    ,getIdentifierName
+    ,isBinaryOperator
+    ,getStructPropertyAccess
 };

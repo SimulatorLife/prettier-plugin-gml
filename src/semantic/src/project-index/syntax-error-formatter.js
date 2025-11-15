@@ -3,7 +3,7 @@ import {
     isFiniteNumber,
     splitLines,
     toFiniteNumber
-} from "../dependencies.js";
+} from "@gml-modules/core";
 import { resolveProjectDisplayPath } from "./path-normalization.js";
 
 /**

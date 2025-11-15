@@ -1,4 +1,4 @@
-import { createMetricsTracker, isObjectLike, noop } from "../dependencies.js";
+import { createMetricsTracker, isObjectLike, noop } from "@gml-modules/core";
 
 const PROJECT_INDEX_METRICS_CATEGORY = "project-index";
 const REQUIRED_RECORDING_GROUPS = Object.freeze({

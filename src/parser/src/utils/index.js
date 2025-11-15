@@ -3,7 +3,6 @@
 // `src/shared/src`, add them here so transforms can import from `../shared`.
 
 export * from "./deprecated-builtin-variable-replacements.js";
-export * from "./feather-type-system.js";
 export * from "./resolver-controller.js";
 
 // Utilities

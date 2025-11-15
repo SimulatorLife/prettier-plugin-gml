@@ -4,6 +4,7 @@ import {
     getNodeStartLine,
     getNodeEndLine,
     cloneLocation,
+    getPreferredLocation,
     getSingleVariableDeclarator,
     isNode,
     getCommentArray,

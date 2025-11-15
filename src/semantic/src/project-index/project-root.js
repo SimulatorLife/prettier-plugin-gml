@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { walkAncestorDirectories } from "../dependencies.js";
+import { walkAncestorDirectories } from "@gml-modules/core";
 import {
     PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE,
     createProjectIndexAbortGuard

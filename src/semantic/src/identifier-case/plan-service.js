@@ -1,4 +1,4 @@
-import { assertFunction, assertPlainObject } from "./dependencies.js";
+import { assertFunction, assertPlainObject } from "@gml-modules/core";
 import { prepareIdentifierCasePlan as defaultPrepareIdentifierCasePlan } from "./local-plan.js";
 import {
     getIdentifierCaseRenameForNode as defaultGetIdentifierCaseRenameForNode,
@@ -23,7 +23,7 @@ import {
 
 /**
  * @typedef {object} IdentifierCaseRenameLookupService
- * @property {(node: import("./dependencies.js").GameMakerAstNode | null, options: Record<string, unknown> | null | undefined) => string | null} getIdentifierCaseRenameForNode
+ * @property {(node: import("../dependencies.js").GameMakerAstNode | null, options: Record<string, unknown> | null | undefined) => string | null} getIdentifierCaseRenameForNode
  */
 
 /**
@@ -344,7 +344,7 @@ export function prepareIdentifierCasePlan(options) {
  * Look up the rename to apply for a given AST node using the registered
  * lookup service.
  *
- * @param {import("./dependencies.js").GameMakerAstNode | null} node
+ * @param {import("../dependencies.js").GameMakerAstNode | null} node
  * @param {Record<string, unknown> | null | undefined} options
  * @returns {string | null}
  */

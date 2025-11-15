@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { isFsErrorCode, toPosixPath } from "../dependencies.js";
+import { isFsErrorCode, toPosixPath } from "@gml-modules/core";
 
 import { createProjectIndexAbortGuard } from "./abort-guard.js";
 import {

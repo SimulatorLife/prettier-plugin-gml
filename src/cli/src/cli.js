@@ -105,14 +105,12 @@ import {
     SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR,
     UNSUPPORTED_EXTENSION_SAMPLE_LIMIT_ENV_VAR
 } from "./runtime-options/sample-limits.js";
-import { normalizeExtensions } from "./core/extension-normalizer.js";
-
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolveCliPluginEntryPoint();
 const IGNORE_PATH = path.resolve(WRAPPER_DIRECTORY, ".prettierignore");
 const INITIAL_WORKING_DIRECTORY = path.resolve(process.cwd());
 
-const FALLBACK_EXTENSIONS = Object.freeze([".gml"]); // TODO: We ONLY need to handle this extension; should not be considered 'fallback' we should remove the rest and user-option(s) to configure others
+const SUPPORTED_EXTENSIONS = Object.freeze([".gml"]);
 
 const ParseErrorAction = Object.freeze({
     REVERT: "revert",
@@ -1091,8 +1089,7 @@ async function resolveTargetStats(target, { usage } = {}) {
             messageParts.push(guidance);
         }
 
-        const cliError = new CliUsageError(messageParts.join(" "), { usage });
-        throw cliError;
+        throw new CliUsageError(messageParts.join(" "), { usage });
     }
 }
 

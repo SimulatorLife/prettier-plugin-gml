@@ -2,9 +2,9 @@
   "name": "@gml-modules/semantic",
   "version": "0.0.1",
   "type": "module",
-  "main": "./src/index.js",
+  "main": "./index.js",
   "exports": {
-    ".": "./src/index.js",
+    ".": "./index.js",
     "./scopes": "./src/scopes/index.js",
     "./scopes/*": "./src/scopes/*",
     "./project-index": "./src/project-index/index.js",

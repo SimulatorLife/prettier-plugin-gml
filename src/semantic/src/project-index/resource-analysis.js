@@ -11,7 +11,7 @@ import {
     isFsErrorCode,
     isJsonParseError,
     parseJsonWithContext
-} from "../dependencies.js";
+} from "@gml-modules/core";
 import {
     PROJECT_MANIFEST_EXTENSION,
     isProjectManifestPath,
@@ -190,11 +190,10 @@ function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
         return null;
     }
 
-    const guessed = path.posix.join(
+    return path.posix.join(
         resourceRelativeDir,
         `${resourceRecord.name}_${displayName}.gml`
     );
-    return guessed;
 }
 
 function pushChildNode(stack, parentPath, key, candidate) {

@@ -19,7 +19,7 @@ import {
     isObjectLike,
     toArray,
     withObjectLike
-} from "./dependencies.js";
+} from "@gml-modules/core";
 import { warnWithReason } from "./logger.js";
 
 import { consumeIdentifierCaseDryRunContext } from "./identifier-case-context.js";

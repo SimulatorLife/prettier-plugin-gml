@@ -1,4 +1,4 @@
-import { createAbortGuard } from "../dependencies.js";
+import { createAbortGuard } from "@gml-modules/core";
 
 export const PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE =
     "Project root discovery was aborted.";

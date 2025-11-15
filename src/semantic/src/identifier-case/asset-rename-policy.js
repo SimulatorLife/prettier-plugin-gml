@@ -1,4 +1,4 @@
-import { asArray, isNonEmptyArray } from "./dependencies.js";
+import { asArray, isNonEmptyArray } from "@gml-modules/core";
 
 // The asset rename mechanism (filesystem mutations, logging, metrics) depends
 // on this policy object to decide if it should run. Keeping the rules here lets

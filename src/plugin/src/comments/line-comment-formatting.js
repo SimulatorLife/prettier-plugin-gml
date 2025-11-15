@@ -6,13 +6,13 @@ import {
 } from "../options/line-comment-options.js";
 import { isObjectLike } from "./comment-boundary.js";
 import {
-    createResolverController,
     getCommentValue,
     getNonEmptyTrimmedString,
     toTrimmedString,
     hasOwn,
     isRegExpLike
 } from "@gml-modules/core";
+import { createResolverController } from "../shared/resolver-controller.js";
 import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
 
 function normalizeEntryPair(entry) {

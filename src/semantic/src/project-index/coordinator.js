@@ -4,7 +4,7 @@ import {
     assertFunction,
     throwIfAborted,
     toTrimmedString
-} from "../dependencies.js";
+} from "@gml-modules/core";
 import { ProjectIndexCacheStatus } from "./cache.js";
 
 function assertCoordinatorFunction(value, name) {

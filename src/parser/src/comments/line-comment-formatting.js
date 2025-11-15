@@ -9,7 +9,7 @@ import { getCommentValue } from "@gml-modules/core";
 import { getNonEmptyTrimmedString, toTrimmedString } from "../utils/string.js";
 import { hasOwn } from "../utils/object.js";
 import { isRegExpLike } from "../utils/capability-probes.js";
-import { createResolverController } from "@gml-modules/core";
+import { createResolverController } from "../utils/resolver-controller.js";
 import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
 
 function normalizeEntryPair(entry) {

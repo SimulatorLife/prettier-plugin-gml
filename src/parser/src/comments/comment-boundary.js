@@ -1,5 +1,4 @@
-// TODO: Exports should be done from index.js
-export {
+import {
     collectCommentNodes,
     getCommentArray,
     hasComment,
@@ -7,6 +6,19 @@ export {
     isCommentNode,
     isDocCommentLine,
     isLineComment
-} from "@gml-modules/core";
-export { getLineBreakCount, splitLines } from "../utils/line-breaks.js";
-export { isObjectLike } from "../utils/object.js";
+} from "./comments.js";
+import { getLineBreakCount, splitLines } from "../utils/line-breaks.js";
+import { isObjectLike } from "../utils/object.js";
+
+export {
+    collectCommentNodes,
+    getCommentArray,
+    hasComment,
+    isBlockComment,
+    isCommentNode,
+    isDocCommentLine,
+    isLineComment,
+    getLineBreakCount,
+    splitLines,
+    isObjectLike
+};

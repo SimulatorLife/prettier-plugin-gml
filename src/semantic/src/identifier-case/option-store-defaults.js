@@ -2,7 +2,7 @@ import {
     applyConfiguredValueEnvOverride,
     createEnvConfiguredValueWithFallback,
     toFiniteNumber
-} from "./dependencies.js";
+} from "@gml-modules/core";
 
 const IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_ENV_VAR =
     "GML_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES";

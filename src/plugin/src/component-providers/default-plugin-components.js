@@ -1,4 +1,4 @@
-import { resolveGmlPluginComponentDependencies } from "./gml-plugin-component-dependency-registry.js";
+import { resolveGmlPluginComponentDependencies } from "./plugin-component-bundles.js";
 import { DEFAULT_MIN_DECLARATION_RUN_LENGTH } from "../options/variable-block-spacing-options.js";
 
 export function createDefaultGmlPluginComponents() {

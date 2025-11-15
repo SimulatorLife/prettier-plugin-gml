@@ -3,7 +3,7 @@ import {
     isObjectLike,
     toArray,
     toMutableArray
-} from "../dependencies.js";
+} from "@gml-modules/core";
 import {
     ScopeOverrideKeyword,
     formatKnownScopeOverrideKeywords,

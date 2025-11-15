@@ -14,7 +14,7 @@ import {
     isObjectLike,
     isWordChar,
     pushUnique
-} from "../dependencies.js";
+} from "@gml-modules/core";
 import { defaultFsFacade } from "./fs-facade.js";
 import { clampConcurrency } from "./concurrency.js";
 import { resolveProjectIndexParser } from "./parser-override.js";

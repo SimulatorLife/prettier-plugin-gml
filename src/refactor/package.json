@@ -2,9 +2,9 @@
   "name": "@gml-modules/refactor",
   "version": "0.0.1",
   "type": "module",
-  "main": "./src/index.js",
+  "main": "./index.js",
   "exports": {
-    ".": "./src/index.js"
+    ".": "./index.js"
   },
   "dependencies": {
     "@gml-modules/core": "0.0.0",

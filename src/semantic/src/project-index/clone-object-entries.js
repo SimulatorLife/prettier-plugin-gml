@@ -1,4 +1,4 @@
-import { isNonEmptyArray } from "../dependencies.js";
+import { isNonEmptyArray } from "@gml-modules/core";
 
 /**
  * Create shallow clones of object-like entries in an array.

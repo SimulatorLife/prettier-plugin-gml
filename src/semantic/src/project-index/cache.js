@@ -12,7 +12,7 @@ import {
     getNonEmptyTrimmedString,
     isFsErrorCode,
     applyConfiguredValueEnvOverride
-} from "../dependencies.js";
+} from "@gml-modules/core";
 import { isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { getFileMtime, listDirectory } from "./fs-helpers.js";

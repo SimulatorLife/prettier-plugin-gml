@@ -4,7 +4,7 @@ import test from "node:test";
 import {
     gmlPluginComponentImplementations,
     resolveGmlPluginComponentImplementations
-} from "../src/component-providers/gml-plugin-component-implementation-registry.js";
+} from "../src/component-providers/plugin-component-bundles.js";
 import { gmlParserAdapter } from "../src/parsers/index.js";
 import { print } from "../src/printer/index.js";
 import { handleComments, printComment } from "../src/comments/public-api.js";

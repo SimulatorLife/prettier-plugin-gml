@@ -12,7 +12,7 @@ import {
     isNonEmptyString,
     isObjectLike,
     toNormalizedLowerCaseString
-} from "./dependencies.js";
+} from "@gml-modules/core";
 import {
     normalizeIdentifierCaseOptions,
     IdentifierCaseStyle,

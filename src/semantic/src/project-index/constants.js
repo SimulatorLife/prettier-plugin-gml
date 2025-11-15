@@ -1,7 +1,7 @@
 import {
     mergeUniqueValues,
     normalizeExtensionSuffix
-} from "../dependencies.js";
+} from "@gml-modules/core";
 
 export const PROJECT_MANIFEST_EXTENSION = ".yyp";
 

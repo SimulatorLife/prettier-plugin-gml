@@ -5,7 +5,7 @@ import {
     assertFunction,
     getNonEmptyString,
     isNonEmptyString
-} from "../dependencies.js";
+} from "@gml-modules/core";
 import { resolveProjectPathInfo } from "./path-info.js";
 
 /** @typedef {NonNullable<ReturnType<typeof resolveProjectPathInfo>>} ProjectPathInfo */

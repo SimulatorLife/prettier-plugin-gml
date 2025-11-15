@@ -3,7 +3,7 @@ import {
     normalizeIdentifierMetadataEntries,
     noop,
     toNormalizedLowerCaseSet
-} from "../dependencies.js";
+} from "@gml-modules/core";
 import {
     GML_IDENTIFIER_METADATA_PATH,
     loadBundledIdentifierMetadata

@@ -8,7 +8,7 @@ import {
     capitalize,
     createListSplitPattern,
     normalizeStringList
-} from "./dependencies.js";
+} from "@gml-modules/core";
 import { getIdentifierCaseStyleMetadata } from "./identifier-case-utils.js";
 import { getDefaultProjectIndexCacheMaxSize } from "../project-index/cache.js";
 import { getDefaultProjectIndexGmlConcurrency } from "../project-index/concurrency.js";
