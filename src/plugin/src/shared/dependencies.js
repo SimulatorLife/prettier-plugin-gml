@@ -7,7 +7,7 @@ export {
     hasComment,
     isCommentNode,
     isLineComment
-} from "@prettier-plugin-gml/shared/ast/comments.js";
+} from "@gml-modules/core";
 
 export {
     assignClonedLocation,
@@ -17,7 +17,7 @@ export {
     getNodeRangeIndices,
     getNodeStartLine,
     getNodeEndLine
-} from "@prettier-plugin-gml/shared/ast/locations.js";
+} from "@gml-modules/core";
 
 export {
     cloneAstNode,
@@ -43,7 +43,7 @@ export {
     isVarVariableDeclaration,
     unwrapParenthesizedExpression,
     visitChildNodes
-} from "@prettier-plugin-gml/shared/ast/node-helpers.js";
+} from "@gml-modules/core";
 
 export {
     asArray,
@@ -51,7 +51,7 @@ export {
     isArrayIndex,
     isNonEmptyArray,
     toMutableArray
-} from "@prettier-plugin-gml/shared/utils/array.js";
+} from "@gml-modules/core";
 
 export {
     assertFunction,
@@ -62,7 +62,7 @@ export {
     isObjectLike,
     isObjectOrFunction,
     resolveHelperOverride
-} from "@prettier-plugin-gml/shared/utils/object.js";
+} from "@gml-modules/core";
 
 export {
     capitalize,
@@ -75,16 +75,13 @@ export {
     stripStringQuotes,
     toNormalizedLowerCaseString,
     toTrimmedString
-} from "@prettier-plugin-gml/shared/utils/string.js";
+} from "@gml-modules/core";
 
-export { coercePositiveIntegerOption } from "@prettier-plugin-gml/shared/utils/numeric-options.js";
+export { coercePositiveIntegerOption } from "@gml-modules/core";
 
-export {
-    isFiniteNumber,
-    toFiniteNumber
-} from "@prettier-plugin-gml/shared/utils/number.js";
+export { isFiniteNumber, toFiniteNumber } from "@gml-modules/core";
 
-export { escapeRegExp } from "@prettier-plugin-gml/shared/utils/regexp.js";
+export { escapeRegExp } from "@gml-modules/core";
 
 export {
     ensureSet,
@@ -92,22 +89,19 @@ export {
     isMapLike,
     isRegExpLike,
     isSetLike
-} from "@prettier-plugin-gml/shared/utils/capability-probes.js";
+} from "@gml-modules/core";
 
 export {
     applyConfiguredValueEnvOverride,
     createEnvConfiguredValueWithFallback
-} from "@prettier-plugin-gml/shared/utils/environment.js";
+} from "@gml-modules/core";
 
-export {
-    isAbortError,
-    resolveAbortSignalFromOptions
-} from "@prettier-plugin-gml/shared/utils/abort.js";
+export { isAbortError, resolveAbortSignalFromOptions } from "@gml-modules/core";
 
-export { noop } from "@prettier-plugin-gml/shared/utils/function.js";
+export { noop } from "@gml-modules/core";
 
-export { normalizeEnumeratedOption } from "@prettier-plugin-gml/shared/utils/enumerated-options.js";
+export { normalizeEnumeratedOption } from "@gml-modules/core";
 
-export { createMetricsTracker } from "@prettier-plugin-gml/shared/reporting/metrics.js";
+export { createMetricsTracker } from "@gml-modules/core";
 
-export { fromPosixPath } from "@prettier-plugin-gml/shared/fs/path.js";
+export { fromPosixPath } from "@gml-modules/core";

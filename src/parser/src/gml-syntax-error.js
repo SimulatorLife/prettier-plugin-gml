@@ -1,6 +1,6 @@
 import antlr4 from "antlr4";
 
-import { isNonEmptyString } from "./shared/index.js";
+import { isNonEmptyString } from "./utils/index.js";
 
 const { ErrorListener } = antlr4.error;
 

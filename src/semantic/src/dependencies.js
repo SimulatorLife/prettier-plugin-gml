@@ -13,12 +13,12 @@ export {
     toArray,
     toArrayFromIterable,
     toMutableArray
-} from "@prettier-plugin-gml/shared/utils/array.js";
+} from "@gml-modules/core";
 export {
     areNumbersApproximatelyEqual,
     isFiniteNumber,
     toFiniteNumber
-} from "@prettier-plugin-gml/shared/utils/number.js";
+} from "@gml-modules/core";
 export {
     assertFunction,
     getOrCreateMapEntry,
@@ -26,27 +26,18 @@ export {
     isObjectLike,
     isPlainObject,
     withDefinedValue
-} from "@prettier-plugin-gml/shared/utils/object.js";
-export {
-    assignClonedLocation,
-    cloneLocation
-} from "@prettier-plugin-gml/shared/ast/locations.js";
-export {
-    buildFileLocationKey,
-    buildLocationKey
-} from "@prettier-plugin-gml/shared/ast/location-keys.js";
-export { getCallExpressionIdentifier } from "@prettier-plugin-gml/shared/ast/node-helpers.js";
-export {
-    createAbortGuard,
-    throwIfAborted
-} from "@prettier-plugin-gml/shared/utils/abort.js";
+} from "@gml-modules/core";
+export { assignClonedLocation, cloneLocation } from "@gml-modules/core";
+export { buildFileLocationKey, buildLocationKey } from "@gml-modules/core";
+export { getCallExpressionIdentifier } from "@gml-modules/core";
+export { createAbortGuard, throwIfAborted } from "@gml-modules/core";
 export {
     applyConfiguredValueEnvOverride,
     createEnvConfiguredValueWithFallback,
     resolveEnvironmentMap
-} from "@prettier-plugin-gml/shared/utils/environment.js";
-export { createMetricsTracker } from "@prettier-plugin-gml/shared/reporting/metrics.js";
-export { noop } from "@prettier-plugin-gml/shared/utils/function.js";
+} from "@gml-modules/core";
+export { createMetricsTracker } from "@gml-modules/core";
+export { noop } from "@gml-modules/core";
 export {
     describeValueForError,
     getNonEmptyString,
@@ -57,22 +48,16 @@ export {
     isWordChar,
     toNormalizedLowerCaseSet,
     toTrimmedString
-} from "@prettier-plugin-gml/shared/utils/string.js";
-export {
-    isJsonParseError,
-    parseJsonWithContext
-} from "@prettier-plugin-gml/shared/utils/json.js";
-export {
-    getLineBreakSpans,
-    splitLines
-} from "@prettier-plugin-gml/shared/utils/line-breaks.js";
-export { isFsErrorCode } from "@prettier-plugin-gml/shared/fs/index.js";
+} from "@gml-modules/core";
+export { isJsonParseError, parseJsonWithContext } from "@gml-modules/core";
+export { getLineBreakSpans, splitLines } from "@gml-modules/core";
+export { isFsErrorCode } from "@gml-modules/core";
 export {
     resolveContainedRelativePath,
     toPosixPath,
     walkAncestorDirectories
-} from "@prettier-plugin-gml/shared/fs/path.js";
-export { normalizeIdentifierMetadataEntries } from "@prettier-plugin-gml/shared/identifier-metadata/index.js";
+} from "@gml-modules/core";
+export { normalizeIdentifierMetadataEntries } from "@gml-modules/core";
 
 /**
  * @typedef {object} GameMakerAstLocation

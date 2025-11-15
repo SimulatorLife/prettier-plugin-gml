@@ -9,7 +9,7 @@ import {
     isObjectLike,
     stripStringQuotes,
     unwrapParenthesizedExpression
-} from "../shared/index.js";
+} from "@gml-modules/core";
 
 const DEFAULT_HELPERS = Object.freeze({
     hasComment: sharedHasComment
@@ -380,4 +380,8 @@ function extractLiteralText(node) {
     }
 
     return stripStringQuotes(raw) ?? "";
+}
+export function transform(ast, opts = {}) {
+    // Use the local convertStringConcatenations implementation in the parser
+    return convertStringConcatenations(ast, opts.helpers ?? opts);
 }

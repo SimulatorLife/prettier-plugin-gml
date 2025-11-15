@@ -16,7 +16,7 @@ import {
     isNonEmptyString,
     toNormalizedLowerCaseString,
     forEachNodeChild
-} from "../shared/index.js";
+} from "@gml-modules/core";
 
 const BOOLEAN_NODE_TYPES = Object.freeze({
     CONST: "CONST",

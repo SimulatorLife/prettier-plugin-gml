@@ -1,5 +1,5 @@
 {
-  "name": "@prettier-plugin-gml/shared",
+  "name": "@gml-modules/core",
   "version": "0.0.0",
   "type": "module",
   "exports": {

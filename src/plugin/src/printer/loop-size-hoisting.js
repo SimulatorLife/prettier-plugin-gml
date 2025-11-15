@@ -11,7 +11,7 @@ import {
     coalesceOption,
     hasOwn,
     isObjectLike
-} from "../shared/index.js";
+} from "@gml-modules/core";
 
 const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
     ["array_length", "len"],

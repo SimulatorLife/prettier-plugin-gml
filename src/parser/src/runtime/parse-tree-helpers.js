@@ -1,4 +1,4 @@
-import { noop } from "../shared/index.js";
+import { noop } from "@gml-modules/core";
 
 const DEFAULT_FUNCTION_NAME = "parser";
 

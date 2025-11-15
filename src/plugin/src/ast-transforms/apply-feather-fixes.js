@@ -1,64 +1,16 @@
-import GMLParser from "gamemaker-language-parser";
-
-import {
-    getNodeEndIndex,
-    getNodeStartIndex,
-    getNodeEndLine,
-    getNodeStartLine,
-    cloneLocation,
-    cloneAstNode,
-    assignClonedLocation,
-    getArrayProperty,
-    getBodyStatements,
-    getCallExpressionArguments,
-    getCallExpressionIdentifier,
-    getCallExpressionIdentifierName,
-    isCallExpressionIdentifierMatch,
-    isBooleanLiteral,
-    isUndefinedSentinel,
-    isProgramOrBlockStatement,
-    isVarVariableDeclaration,
-    isNode,
-    forEachNodeChild,
-    visitChildNodes,
-    unwrapParenthesizedExpression,
-    getNonEmptyString,
-    getNonEmptyTrimmedString,
-    isNonEmptyString,
-    isNonEmptyTrimmedString,
-    stripStringQuotes,
-    toNormalizedLowerCaseString,
-    toTrimmedString,
-    isFiniteNumber,
-    asArray,
-    compactArray,
-    isArrayIndex,
-    isNonEmptyArray,
-    ensureSet,
-    getOrCreateMapEntry,
-    hasOwn,
-    isObjectLike,
-    escapeRegExp,
-    hasIterableItems,
-    isMapLike,
-    isSetLike,
-    getSingleVariableDeclarator as sharedGetSingleVariableDeclarator,
-    createIdentifierNode,
-    isFunctionLikeNode
-} from "../shared/index.js";
-import {
-    collectCommentNodes,
-    getCommentArray,
-    hasComment,
-    resolveDocCommentTraversalService,
-    getCommentValue
-} from "../comments/index.js";
-import {
-    getFeatherDiagnosticById,
-    getFeatherDiagnostics,
-    getFeatherMetadata
-} from "@prettier-plugin-gml/shared/resources/feather-metadata.js";
-import { loadReservedIdentifierNames } from "gamemaker-language-semantic/resources/reserved-identifiers.js";
+// Re-export the canonical implementation from the parser transforms so the
+// plugin-side module does not duplicate logic. The parser provides the
+// authoritative `apply-feather-fixes` transform; keep this file as a thin
+// compatibility re-export to avoid breaking imports during the migration.
+export {
+    ROOM_NAVIGATION_DIRECTION,
+    getRoomNavigationHelpers,
+    preprocessSourceForFeatherFixes,
+    applyRemovedIndexAdjustments,
+    getFeatherDiagnosticFixers,
+    applyFeatherFixes
+} from "@gml-modules/parser";
+import { loadReservedIdentifierNames } from "@gml-modules/semantic";
 
 function walkAstNodes(root, visitor) {
     const visit = (node, parent, key) => {

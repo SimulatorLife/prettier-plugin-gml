@@ -18,7 +18,7 @@ import process from "node:process";
 
 import { Command, Option } from "commander";
 
-import { createTranspiler } from "../../../transpiler/src/index.js";
+import { createTranspiler } from "@gml-modules/transpiler";
 import {
     describeRuntimeSource,
     resolveRuntimeSource,

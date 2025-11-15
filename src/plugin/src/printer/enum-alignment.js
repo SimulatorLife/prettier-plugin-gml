@@ -1,4 +1,4 @@
-import { isNonEmptyArray, getCommentArray } from "../shared/index.js";
+import { isNonEmptyArray, getCommentArray } from "@gml-modules/core";
 
 const ENUM_INITIALIZER_OPERATOR_WIDTH = " = ".length;
 

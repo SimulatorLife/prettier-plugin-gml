@@ -1,4 +1,4 @@
-import { isObjectLike, toArray } from "../shared/index.js";
+import { isObjectLike, toArray } from "@gml-modules/core";
 
 /**
  * The previous IdentifierMetadataManager bundled scope management, role tracking,

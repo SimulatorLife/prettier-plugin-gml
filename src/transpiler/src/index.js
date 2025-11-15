@@ -1,4 +1,4 @@
-import GMLParser from "gamemaker-language-parser";
+import GMLParser from "@gml-modules/parser";
 import { GmlToJsEmitter, makeDummyOracle } from "./emitter.js";
 
 /**

@@ -1,4 +1,4 @@
-import { identifierCaseOptions } from "gamemaker-language-semantic/identifier-case/options.js";
+import { identifierCaseOptions } from "@gml-modules/semantic";
 
 import { handleComments, printComment } from "../comments/public-api.js";
 import { LogicalOperatorsStyle } from "../options/logical-operators-style.js";

@@ -70,16 +70,16 @@ export {
     uniqueArray,
     walkAncestorDirectories,
     withObjectLike
-} from "@prettier-plugin-gml/shared";
+} from "@gml-modules/core";
 
 export { Command, InvalidArgumentError, Option } from "commander";
 
 export {
     isMissingModuleDependency,
     resolveModuleDefaultExport
-} from "./shared/module.js";
+} from "./core/module.js";
 
-export { ensureDir } from "./shared/ensure-dir.js";
+export { ensureDir } from "./core/ensure-dir.js";
 
 export {
     createVerboseDurationLogger,

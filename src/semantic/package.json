@@ -1,5 +1,5 @@
 {
-  "name": "gamemaker-language-semantic",
+  "name": "@gml-modules/semantic",
   "version": "0.0.1",
   "type": "module",
   "main": "./src/index.js",
@@ -22,7 +22,7 @@
     "./sem-oracle/*": "./src/sem-oracle/*"
   },
   "dependencies": {
-    "@prettier-plugin-gml/shared": "file:../shared"
+    "@gml-modules/core": "0.0.0"
   },
   "scripts": {
     "test": "node --test test/*.test.js"

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { convertUndefinedGuardAssignments } from "../src/ast-transforms/convert-undefined-guard-assignments.js";
+import { convertUndefinedGuardAssignments } from "@gml-modules/parser";
 
 function createIdentifier(name) {
     return { type: "Identifier", name };

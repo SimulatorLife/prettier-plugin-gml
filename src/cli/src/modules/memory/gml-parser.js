@@ -4,7 +4,7 @@ let gmlParserPromise = null;
 
 export function loadGmlParser() {
     if (!gmlParserPromise) {
-        gmlParserPromise = import("gamemaker-language-parser").then(
+        gmlParserPromise = import("@gml-modules/parser").then(
             resolveModuleDefaultExport
         );
     }

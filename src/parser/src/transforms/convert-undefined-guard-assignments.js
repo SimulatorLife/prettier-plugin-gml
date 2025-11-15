@@ -9,7 +9,7 @@ import {
     resolveHelperOverride,
     toMutableArray,
     unwrapParenthesizedExpression
-} from "../shared/index.js";
+} from "@gml-modules/core";
 
 const DEFAULT_HELPERS = Object.freeze({
     hasComment: sharedHasComment,
@@ -366,4 +366,8 @@ function unwrapSyntheticParentheses(node, parent, property) {
     }
 
     return false;
+}
+
+export function transform(ast, opts = {}) {
+    return convertUndefinedGuardAssignments(ast, opts.helpers ?? opts);
 }

@@ -1,5 +1,5 @@
 import { util } from "prettier";
-import { getNodeType, getNonEmptyTrimmedString } from "../shared/index.js";
+import { getNodeType, getNonEmptyTrimmedString } from "@gml-modules/core";
 
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
 

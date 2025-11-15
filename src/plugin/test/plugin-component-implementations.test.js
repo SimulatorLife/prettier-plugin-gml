@@ -8,7 +8,7 @@ import {
 import { gmlParserAdapter } from "../src/parsers/index.js";
 import { print } from "../src/printer/index.js";
 import { handleComments, printComment } from "../src/comments/public-api.js";
-import { identifierCaseOptions } from "gamemaker-language-semantic/identifier-case/options.js";
+import { identifierCaseOptions } from "@gml-modules/semantic";
 import { LogicalOperatorsStyle } from "../src/options/logical-operators-style.js";
 
 test("default implementation bundle is frozen and reuses canonical references", () => {

@@ -1,4 +1,4 @@
-import { isErrorLike } from "../shared/index.js";
+import { isErrorLike } from "@gml-modules/core";
 
 /**
  * Determine whether a thrown value exposes the location-rich fields emitted by

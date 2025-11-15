@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { preprocessFunctionArgumentDefaults } from "../src/ast-transforms/preprocess-function-argument-defaults.js";
+import { preprocessFunctionArgumentDefaults } from "@gml-modules/parser";
 
 function createFunctionDeclaration(params) {
     return {

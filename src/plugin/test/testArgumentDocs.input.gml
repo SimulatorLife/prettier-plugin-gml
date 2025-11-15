@@ -61,7 +61,7 @@ function scr_bezier_4(argument0, argument1, argument2, argument3, argument4, arg
 // @param sprite_index
 //// @param {real} fx_x
 ///// @param {real} fx_y*
-/// @param {real} [fx_z=0]
+/// @param {int} [fx_z=0]
 /// @param {Constant.Colour} [colour=c_white]
 /// @param {function} *func_fx_callback - A function to call after the animation has completed
 /* @description Create an effect */

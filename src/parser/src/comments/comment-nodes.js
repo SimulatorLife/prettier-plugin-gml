@@ -1,4 +1,4 @@
-import { getLineBreakCount } from "../shared/index.js";
+import { getLineBreakCount } from "@gml-modules/core";
 
 function normalizeTokenText(tokenText) {
     return typeof tokenText === "string" ? tokenText : "";

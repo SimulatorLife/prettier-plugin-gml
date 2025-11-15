@@ -1,6 +1,6 @@
 import GameMakerLanguageParserVisitor from "./runtime/game-maker-language-parser-visitor.js";
-import { getLineBreakCount, getNonEmptyTrimmedString } from "./shared/index.js";
-import BinaryExpressionDelegate from "./binary-expression-delegate.js";
+import { getLineBreakCount, getNonEmptyTrimmedString } from "./utils/index.js";
+import BinaryExpressionDelegate from "./ast/binary-expression-delegate.js";
 import {
     IdentifierRoleTracker,
     IdentifierScopeCoordinator,
@@ -416,12 +416,10 @@ export default class GameMakerASTBuilder {
             }
             return [];
         });
-        const ast = this.astNode(ctx, {
+        return this.astNode(ctx, {
             type: "Program",
             body: body ?? []
         });
-
-        return ast;
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#statementList.

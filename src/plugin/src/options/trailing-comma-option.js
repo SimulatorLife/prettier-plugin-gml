@@ -1,4 +1,4 @@
-import { describeValueForError } from "../shared/index.js";
+import { describeValueForError } from "@gml-modules/core";
 
 const TRAILING_COMMA = Object.freeze({
     NONE: "none",

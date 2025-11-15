@@ -3,7 +3,7 @@ import {
     getNormalizedDefineReplacementDirective,
     isFunctionLikeDeclaration
 } from "./util.js";
-import { getBooleanLiteralValue } from "../shared/index.js";
+import { getBooleanLiteralValue } from "@gml-modules/core";
 
 function isMacroLikeStatement(node) {
     const nodeType = node?.type;

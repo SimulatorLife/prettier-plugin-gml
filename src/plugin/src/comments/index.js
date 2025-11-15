@@ -48,5 +48,5 @@ export {
     resolveDocCommentTraversalService,
     resolveDocCommentUpdateService
 } from "./doc-comment-manager.js";
-export { getCommentValue } from "@prettier-plugin-gml/shared/ast/comments.js";
+export { getCommentValue } from "@gml-modules/core";
 export { normalizeOptionalParamToken } from "./optional-param-normalization.js";

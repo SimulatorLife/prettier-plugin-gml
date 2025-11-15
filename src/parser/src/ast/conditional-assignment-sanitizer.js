@@ -4,8 +4,8 @@ import {
     isNonEmptyTrimmedString,
     isWordChar,
     identity
-} from "./shared/index.js";
-import { remapLocationMetadata } from "./ast/location-manipulation.js";
+} from "../utils/index.js";
+import { remapLocationMetadata } from "./location-manipulation.js";
 
 const ASSIGNMENT_GUARD_CHARACTERS = new Set([
     "*",
@@ -174,8 +174,8 @@ export function sanitizeConditionalAssignments(sourceText) {
         }
 
         if (
-            (character === "i" || character === "I") &&
-            (nextCharacter === "f" || nextCharacter === "F")
+            character.toLowerCase() === "i" &&
+            nextCharacter.toLowerCase() === "f"
         ) {
             const prevCharacter = index > 0 ? sourceText[index - 1] : "";
             const followingCharacter =

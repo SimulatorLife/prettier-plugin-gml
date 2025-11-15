@@ -3,7 +3,7 @@ export { GameMakerSyntaxError } from "./src/gml-syntax-error.js";
 export {
     sanitizeConditionalAssignments,
     applySanitizedIndexAdjustments
-} from "./src/conditional-assignment-sanitizer.js";
+} from "./src/ast/conditional-assignment-sanitizer.js";
 export { isSyntaxErrorWithLocation } from "./src/utils/syntax-error-guards.js";
 export { convertToESTree } from "./src/utils/estree-converter.js";
 export {
@@ -14,3 +14,21 @@ export {
     default as GameMakerLanguageParserListener,
     LISTENER_METHOD_NAMES
 } from "./src/runtime/game-maker-language-parser-listener.js";
+export * from "./src/transforms/index.js";
+export * from "./src/transforms/annotate-static-overrides.js";
+export * from "./src/transforms/apply-feather-fixes.js";
+export * from "./src/transforms/condense-logical-expressions.js";
+export * from "./src/transforms/consolidate-struct-assignments.js";
+export * from "./src/transforms/convert-manual-math.js";
+export * from "./src/transforms/convert-string-concatenations.js";
+export * from "./src/transforms/convert-undefined-guard-assignments.js";
+export * from "./src/transforms/enforce-variable-block-spacing.js";
+export * from "./src/transforms/preprocess-function-argument-defaults.js";
+export * from "./src/transforms/strip-comments.js";
+export * from "./src/utils/deprecated-builtin-variable-replacements.js";
+export * from "./src/utils/feather-type-system.js";
+export * from "./src/utils/resolver-controller.js";
+export {
+    getStructPropertyAccess,
+    isBinaryOperator
+} from "./src/ast/node-helpers.js";

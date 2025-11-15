@@ -2,7 +2,7 @@ import {
     applyConfiguredValueEnvOverride,
     createEnvConfiguredValueWithFallback,
     toFiniteNumber
-} from "../shared/index.js";
+} from "@gml-modules/core";
 
 const DOC_COMMENT_MAX_WRAP_WIDTH_ENV_VAR =
     "PRETTIER_PLUGIN_GML_DOC_COMMENT_MAX_WRAP_WIDTH";

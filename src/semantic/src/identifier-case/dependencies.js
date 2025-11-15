@@ -12,7 +12,7 @@ export {
     isNonEmptyArray,
     toArray,
     toArrayFromIterable
-} from "@prettier-plugin-gml/shared/utils/array.js";
+} from "@gml-modules/core";
 export {
     capitalize,
     coalesceTrimmedString,
@@ -23,7 +23,7 @@ export {
     normalizeStringList,
     toNormalizedLowerCaseString,
     trimStringEntries
-} from "@prettier-plugin-gml/shared/utils/string.js";
+} from "@gml-modules/core";
 export {
     assertFunction,
     assertPlainObject,
@@ -33,37 +33,25 @@ export {
     isObjectLike,
     withDefinedValue,
     withObjectLike
-} from "@prettier-plugin-gml/shared/utils/object.js";
-export {
-    isFiniteNumber,
-    toFiniteNumber
-} from "@prettier-plugin-gml/shared/utils/number.js";
+} from "@gml-modules/core";
+export { isFiniteNumber, toFiniteNumber } from "@gml-modules/core";
 export {
     coerceNonNegativeInteger,
     coercePositiveInteger,
     normalizeNumericOption
-} from "@prettier-plugin-gml/shared/utils/numeric-options.js";
-export {
-    getIterableSize,
-    isMapLike
-} from "@prettier-plugin-gml/shared/utils/capability-probes.js";
-export {
-    parseJsonWithContext,
-    stringifyJsonForFile
-} from "@prettier-plugin-gml/shared/utils/json.js";
-export {
-    getErrorMessage,
-    getErrorMessageOrFallback
-} from "@prettier-plugin-gml/shared/utils/error.js";
-export { escapeRegExp } from "@prettier-plugin-gml/shared/utils/regexp.js";
-export { noop } from "@prettier-plugin-gml/shared/utils/function.js";
+} from "@gml-modules/core";
+export { getIterableSize, isMapLike } from "@gml-modules/core";
+export { parseJsonWithContext, stringifyJsonForFile } from "@gml-modules/core";
+export { getErrorMessage, getErrorMessageOrFallback } from "@gml-modules/core";
+export { escapeRegExp } from "@gml-modules/core";
+export { noop } from "@gml-modules/core";
 export {
     applyConfiguredValueEnvOverride,
     createEnvConfiguredValueWithFallback
-} from "@prettier-plugin-gml/shared/utils/environment.js";
-export { createMetricsTracker } from "@prettier-plugin-gml/shared/reporting/metrics.js";
-export { isFsErrorCode } from "@prettier-plugin-gml/shared/fs/index.js";
-export { fromPosixPath } from "@prettier-plugin-gml/shared/fs/path.js";
-export { buildLocationKey } from "@prettier-plugin-gml/shared/ast/location-keys.js";
+} from "@gml-modules/core";
+export { createMetricsTracker } from "@gml-modules/core";
+export { isFsErrorCode } from "@gml-modules/core";
+export { fromPosixPath } from "@gml-modules/core";
+export { buildLocationKey } from "@gml-modules/core";
 
 export { GameMakerAstNode } from "../dependencies.js";

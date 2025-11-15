@@ -1,14 +1,13 @@
 import { getCommentArray, isDocCommentLine } from "./comment-boundary.js";
-import { getNodeStartIndex } from "@prettier-plugin-gml/shared/ast/locations.js";
+
 import {
+    getNodeStartIndex,
     isFunctionLikeNode,
-    isNode
-} from "@prettier-plugin-gml/shared/ast/node-helpers.js";
-import {
+    isNode,
     isNonEmptyArray,
-    toMutableArray
-} from "@prettier-plugin-gml/shared/utils/array.js";
-import { isNonEmptyTrimmedString } from "@prettier-plugin-gml/shared/utils/string.js";
+    toMutableArray,
+    isNonEmptyTrimmedString
+} from "@gml-modules/core";
 
 /**
  * The legacy doc comment "manager" facade bundled traversal helpers with

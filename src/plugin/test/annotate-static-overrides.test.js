@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { annotateStaticFunctionOverrides } from "../src/ast-transforms/annotate-static-overrides.js";
+import { annotateStaticFunctionOverrides } from "@gml-modules/parser";
 
 function createStaticFunctionStatement(name, overrides = {}) {
     return {

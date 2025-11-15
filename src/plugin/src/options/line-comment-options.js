@@ -1,9 +1,9 @@
 import {
+    createResolverController,
     isNonEmptyString,
     isObjectLike,
     isRegExpLike
-} from "../shared/index.js";
-import { createResolverController } from "../shared/resolver-controller.js";
+} from "@gml-modules/core";
 
 // Any line comment that starts with at least this many consecutive `/`
 // characters is considered a "banner" comment for formatting purposes.

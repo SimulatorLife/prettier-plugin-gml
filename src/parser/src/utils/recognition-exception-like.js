@@ -1,4 +1,4 @@
-import { hasFunction, isErrorLike, isObjectLike } from "../shared/index.js";
+import { hasFunction, isErrorLike, isObjectLike } from "@gml-modules/core";
 
 function hasOffendingTokenProbe(value) {
     if (value?.offendingToken !== undefined) {

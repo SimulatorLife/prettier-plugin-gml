@@ -2,7 +2,7 @@ import {
     describeValueForError,
     normalizeEnumeratedOption,
     toNormalizedLowerCaseString
-} from "@prettier-plugin-gml/shared";
+} from "@gml-modules/core";
 
 /**
  * Create helper functions that normalize and validate enumerated CLI options

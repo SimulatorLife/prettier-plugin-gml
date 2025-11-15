@@ -6,8 +6,8 @@
     "src/cli",
     "src/plugin",
     "src/parser",
+    "src/core",
     "src/semantic",
-    "src/shared",
     "src/transpiler",
     "src/runtime-wrapper",
     "src/refactor"
@@ -20,7 +20,8 @@
     "semantic_path": "src/semantic",
     "transpiler_path": "src/transpiler",
     "runtime_wrapper_path": "src/runtime-wrapper",
-    "refactor_path": "src/refactor"
+    "refactor_path": "src/refactor",
+    "core_path": "src/core"
   },
   "type": "module",
   "repository": {
@@ -37,7 +38,9 @@
     "game-maker-language",
     "parser",
     "formatter",
-    "cli"
+    "cli",
+    "transpiler",
+    "feather"
   ],
   "author": "Two Scoop Studio",
   "engines": {

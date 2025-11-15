@@ -1,5 +1,5 @@
 {
-  "name": "gamemaker-language-transpiler",
+  "name": "@gml-modules/transpiler",
   "version": "0.0.1",
   "type": "module",
   "main": "./src/index.js",
@@ -7,9 +7,9 @@
     ".": "./src/index.js"
   },
   "dependencies": {
-    "@prettier-plugin-gml/shared": "file:../shared",
-    "gamemaker-language-parser": "file:../parser",
-    "gamemaker-language-semantic": "file:../semantic"
+    "@gml-modules/core": "0.0.0",
+    "@gml-modules/parser": "0.0.1",
+    "@gml-modules/semantic": "0.0.1"
   },
   "scripts": {
     "test": "node --test test/*.test.js"

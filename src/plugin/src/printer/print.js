@@ -70,13 +70,13 @@ import {
     enqueueObjectChildValues,
     isFunctionLikeNode,
     forEachNodeChild
-} from "../shared/index.js";
-import { maybeReportIdentifierCaseDryRun } from "gamemaker-language-semantic/identifier-case/identifier-case-report.js";
+} from "@gml-modules/core";
 import {
+    maybeReportIdentifierCaseDryRun,
     getIdentifierCaseRenameForNode,
-    applyIdentifierCasePlanSnapshot
-} from "gamemaker-language-semantic/identifier-case/plan-service.js";
-import { teardownIdentifierCaseEnvironment } from "gamemaker-language-semantic/identifier-case/environment.js";
+    applyIdentifierCasePlanSnapshot,
+    teardownIdentifierCaseEnvironment
+} from "@gml-modules/semantic";
 import {
     LogicalOperatorsStyle,
     normalizeLogicalOperatorsStyle
@@ -591,16 +591,13 @@ export function print(path, options, print) {
             return concat(parts);
         }
         case "TernaryExpression": {
+            const testDoc = print("test");
+            const consequentDoc = print("consequent");
+            const alternateDoc = print("alternate");
+
             const ternaryDoc = group([
-                print("test"),
-                indent([
-                    line,
-                    "? ",
-                    print("consequent"),
-                    line,
-                    ": ",
-                    print("alternate")
-                ])
+                testDoc,
+                indent([line, "? ", consequentDoc, line, ": ", alternateDoc])
             ]);
 
             return shouldWrapTernaryExpression(path)
@@ -9338,7 +9335,7 @@ function getFunctionParams(functionNode) {
 
 // prints empty parens with dangling comments
 function printEmptyParens(path, _print, options) {
-    const printed = group(
+    return group(
         [
             "(",
             indent([
@@ -9353,7 +9350,6 @@ function printEmptyParens(path, _print, options) {
         ],
         { id: "emptyparen" }
     );
-    return printed;
 }
 
 // prints an empty block with dangling comments

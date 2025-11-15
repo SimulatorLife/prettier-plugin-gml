@@ -5,7 +5,7 @@ import {
     loadReservedIdentifierNames,
     resetReservedIdentifierMetadataLoader,
     setReservedIdentifierMetadataLoader
-} from "gamemaker-language-semantic/resources/reserved-identifiers.js";
+} from "@gml-modules/semantic";
 
 test("loadReservedIdentifierNames returns lowercase reserved names", () => {
     const reserved = loadReservedIdentifierNames();

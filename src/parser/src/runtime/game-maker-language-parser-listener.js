@@ -5,7 +5,7 @@ import {
     deriveListenerMethodNames,
     toDelegate
 } from "./parse-tree-helpers.js";
-import { noop } from "../shared/index.js";
+import { noop } from "@gml-modules/core";
 
 const DEFAULT_LISTENER_DELEGATE = ({ fallback = noop }) => fallback();
 

@@ -1,5 +1,5 @@
 {
-  "name": "prettier-plugin-gamemaker",
+  "name": "@gml-modules/plugin",
   "version": "0.0.0",
   "type": "module",
   "exports": {
@@ -16,9 +16,9 @@
     "prettier:plugin": "node ../cli/src/cli.js $npm_config_path"
   },
   "dependencies": {
-    "@prettier-plugin-gml/shared": "file:../shared",
-    "gamemaker-language-parser": "file:../parser",
-    "gamemaker-language-semantic": "file:../semantic"
+    "@gml-modules/core": "0.0.0",
+    "@gml-modules/parser": "0.0.1",
+    "@gml-modules/semantic": "0.0.1"
   },
   "engines": {
     "node": ">=25.0.0"

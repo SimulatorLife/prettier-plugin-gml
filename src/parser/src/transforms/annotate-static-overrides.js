@@ -2,7 +2,7 @@ import {
     isNonEmptyArray,
     getBodyStatements,
     getNonEmptyString
-} from "../shared/index.js";
+} from "@gml-modules/core";
 
 function getStaticFunctionDeclarator(statement) {
     if (!statement || statement.type !== "VariableDeclaration") {
@@ -138,4 +138,8 @@ export function annotateStaticFunctionOverrides(ast) {
             }
         }
     }
+}
+
+export function transform(ast, opts = {}) {
+    return annotateStaticFunctionOverrides(ast, opts);
 }

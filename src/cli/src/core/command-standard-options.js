@@ -1,4 +1,4 @@
-import { noop } from "@prettier-plugin-gml/shared/utils/function.js";
+import { noop } from "@gml-modules/core";
 
 const DEFAULT_HELP_FLAG = "-h, --help";
 const DEFAULT_HELP_DESCRIPTION = "Show this help message.";

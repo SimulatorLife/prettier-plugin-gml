@@ -5,36 +5,32 @@
 import { util } from "prettier";
 import GMLParser, {
     sanitizeConditionalAssignments,
-    applySanitizedIndexAdjustments
-} from "gamemaker-language-parser";
-import { consolidateStructAssignments } from "../ast-transforms/consolidate-struct-assignments.js";
-import {
+    applySanitizedIndexAdjustments,
+    consolidateStructAssignments,
     applyFeatherFixes,
     preprocessSourceForFeatherFixes,
-    applyRemovedIndexAdjustments
-} from "../ast-transforms/apply-feather-fixes.js";
-import { preprocessFunctionArgumentDefaults } from "../ast-transforms/preprocess-function-argument-defaults.js";
-import { enforceVariableBlockSpacing } from "../ast-transforms/enforce-variable-block-spacing.js";
-import { convertStringConcatenations } from "../ast-transforms/convert-string-concatenations.js";
-import { condenseLogicalExpressions } from "../ast-transforms/condense-logical-expressions.js";
-import {
+    applyRemovedIndexAdjustments,
+    preprocessFunctionArgumentDefaults,
+    enforceVariableBlockSpacing,
+    convertStringConcatenations,
+    condenseLogicalExpressions,
     convertManualMathExpressions,
-    condenseScalarMultipliers
-} from "../ast-transforms/convert-manual-math.js";
-import { convertUndefinedGuardAssignments } from "../ast-transforms/convert-undefined-guard-assignments.js";
+    condenseScalarMultipliers,
+    convertUndefinedGuardAssignments,
+    annotateStaticFunctionOverrides
+} from "@gml-modules/parser";
 import {
     getNodeStartIndex,
     getNodeEndIndex,
     toMutableArray,
     visitChildNodes,
     isNonEmptyTrimmedString
-} from "../shared/index.js";
-import { annotateStaticFunctionOverrides } from "../ast-transforms/annotate-static-overrides.js";
+} from "@gml-modules/core";
 import {
     prepareIdentifierCaseEnvironment,
     attachIdentifierCasePlanSnapshot,
     teardownIdentifierCaseEnvironment
-} from "gamemaker-language-semantic/identifier-case/environment.js";
+} from "@gml-modules/semantic";
 import { prepareDocCommentEnvironment } from "../comments/index.js";
 
 const { addTrailingComment } = util;

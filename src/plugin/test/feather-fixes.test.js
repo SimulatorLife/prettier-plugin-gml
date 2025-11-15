@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, it } from "node:test";
 
-import GMLParser from "gamemaker-language-parser";
+import GMLParser from "@gml-modules/parser";
 import prettier from "prettier";
 
 import { getNodeEndIndex, getNodeStartIndex } from "../src/shared/index.js";
@@ -13,14 +13,14 @@ import { getNodeEndIndex, getNodeStartIndex } from "../src/shared/index.js";
 import {
     getFeatherMetadata,
     getFeatherDiagnosticById
-} from "@prettier-plugin-gml/shared/resources/feather-metadata.js";
+} from "@gml-modules/core";
 import {
     applyFeatherFixes,
     getFeatherDiagnosticFixers,
     getRoomNavigationHelpers,
     preprocessSourceForFeatherFixes,
     ROOM_NAVIGATION_DIRECTION
-} from "../src/ast-transforms/apply-feather-fixes.js";
+} from "@gml-modules/parser";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const pluginPath = path.resolve(currentDirectory, "../src/gml.js");

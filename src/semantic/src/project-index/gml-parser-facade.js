@@ -1,6 +1,4 @@
-import GMLParser, {
-    isSyntaxErrorWithLocation
-} from "gamemaker-language-parser";
+import GMLParser, { isSyntaxErrorWithLocation } from "@gml-modules/parser";
 import { ScopeTracker } from "../scopes/index.js";
 import { formatProjectIndexSyntaxError } from "./syntax-error-formatter.js";
 

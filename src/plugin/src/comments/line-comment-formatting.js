@@ -5,14 +5,14 @@ import {
     normalizeLineCommentOptions
 } from "../options/line-comment-options.js";
 import { isObjectLike } from "./comment-boundary.js";
-import { getCommentValue } from "@prettier-plugin-gml/shared/ast/comments.js";
 import {
+    createResolverController,
+    getCommentValue,
     getNonEmptyTrimmedString,
-    toTrimmedString
-} from "@prettier-plugin-gml/shared/utils/string.js";
-import { hasOwn } from "@prettier-plugin-gml/shared/utils/object.js";
-import { isRegExpLike } from "@prettier-plugin-gml/shared/utils/capability-probes.js";
-import { createResolverController } from "../shared/resolver-controller.js";
+    toTrimmedString,
+    hasOwn,
+    isRegExpLike
+} from "@gml-modules/core";
 import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
 
 function normalizeEntryPair(entry) {
@@ -221,8 +221,7 @@ function withNormalizedDocCommentLookup(identifier, handler, fallbackValue) {
         return fallbackValue;
     }
 
-    const result = handler(normalized);
-    return result;
+    return handler(normalized);
 }
 
 function mergeNormalizationEntries(target, entries) {

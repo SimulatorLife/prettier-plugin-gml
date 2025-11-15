@@ -1,4 +1,4 @@
-import { assertPlainObject } from "../shared/index.js";
+import { assertPlainObject } from "@gml-modules/core";
 
 export function normalizeGmlPluginComponents(components) {
     assertPlainObject(components, {

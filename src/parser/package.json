@@ -1,5 +1,5 @@
 {
-  "name": "gamemaker-language-parser",
+  "name": "@gml-modules/parser",
   "version": "0.0.1",
   "main": "gml-parser.js",
   "type": "module",
@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "antlr4": "^4.13.2",
-    "@prettier-plugin-gml/shared": "file:../shared"
+    "@gml-modules/core": "0.0.0"
   },
   "engines": {
     "node": ">=25.0.0"

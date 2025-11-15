@@ -1,5 +1,5 @@
 {
-  "name": "gamemaker-language-runtime-wrapper",
+  "name": "@gml-modules/runtime-wrapper",
   "version": "0.0.1",
   "type": "module",
   "main": "./src/index.js",
@@ -7,7 +7,7 @@
     ".": "./src/index.js"
   },
   "dependencies": {
-    "@prettier-plugin-gml/shared": "file:../shared"
+    "@gml-modules/core": "0.0.0"
   },
   "scripts": {
     "test": "node --test test/*.test.js"

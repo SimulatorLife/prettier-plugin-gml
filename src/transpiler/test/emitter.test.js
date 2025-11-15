@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import GMLParser from "gamemaker-language-parser";
+import GMLParser from "@gml-modules/parser";
 import {
     emitJavaScript,
     GmlToJsEmitter,

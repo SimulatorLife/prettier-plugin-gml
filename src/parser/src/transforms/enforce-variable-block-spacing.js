@@ -1,5 +1,5 @@
-import { getNodeType, isNonEmptyArray } from "../shared/index.js";
-import { resolveVariableBlockSpacingMinDeclarations } from "../options/variable-block-spacing-options.js";
+import { getNodeType, isNonEmptyArray } from "@gml-modules/core";
+import { resolveVariableBlockSpacingMinDeclarations } from "../../options/variable-block-spacing-options.js";
 
 export function enforceVariableBlockSpacing(ast, options) {
     if (!ast || typeof ast !== "object") {

@@ -3,11 +3,12 @@ import antlr4, { PredictionMode } from "antlr4";
 import GameMakerLanguageLexer from "../generated/GameMakerLanguageLexer.js";
 import GameMakerLanguageParser from "../generated/GameMakerLanguageParser.js";
 import GameMakerASTBuilder from "./gml-ast-builder.js";
+import { applyTransforms } from "./transforms/index.js";
 import GameMakerParseErrorListener, {
     GameMakerLexerErrorListener
 } from "./gml-syntax-error.js";
-import { createHiddenNodeProcessor } from "./core/hidden-node-processor.js";
-import { isObjectLike, isErrorLike } from "./shared/index.js";
+import { createHiddenNodeProcessor } from "./ast/hidden-node-processor.js";
+import { isObjectLike, isErrorLike } from "./utils/index.js";
 import { walkObjectGraph } from "./ast/object-graph.js";
 import {
     removeLocationMetadata,
@@ -114,6 +115,18 @@ export default class GMLParser {
 
         if (this.options.getComments) {
             astTree.comments = this.comments;
+        }
+
+        // Optionally apply parser-level transforms (internal opt-in).
+        if (
+            Array.isArray(this.options.transforms) &&
+            this.options.transforms.length > 0
+        ) {
+            astTree = applyTransforms(
+                astTree,
+                this.options.transforms,
+                this.options.transformOptions || {}
+            );
         }
 
         const shouldConvertToESTree =
@@ -247,4 +260,4 @@ export default class GMLParser {
     }
 }
 
-export { getLineBreakCount } from "./shared/index.js";
+export { getLineBreakCount } from "./utils/index.js";
