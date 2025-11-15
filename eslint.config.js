@@ -42,16 +42,6 @@ export default [
             "tmp/*"
         ]
     },
-    /* GitHub workflow files commonly use empty mapping keys (e.g. `workflow_dispatch:`
-     * and `on:` triggers). The yml/no-empty-mapping-value rule is useful generally
-     * but is noisy for GitHub Actions templates; relax it for `.github/workflows`.
-     */
-    {
-        files: [".github/workflows/**"],
-        rules: {
-            "yml/no-empty-mapping-value": "off"
-        }
-    },
 
     /* Base ESLint recommended */
     js.configs.recommended,
@@ -83,19 +73,17 @@ export default [
             regexp: pluginRegexp,
             "no-secrets": pluginNoSecrets,
             "eslint-comments": pluginEslintComments,
-            "unused-imports": pluginUnusedImports,
-            yml: pluginYml
+            "unused-imports": pluginUnusedImports
         },
 
         /* Helpful for import/plugin-import */
         settings: {
             "import/resolver": {
-                node: { extensions: [".js", ".cjs", ".mjs"] }
+                node: { extensions: [".js"] }
             }
         },
 
         rules: {
-            // We don't include formatting rules removed; Prettier disables them anyway
             "no-unused-vars": "off",
             "unused-imports/no-unused-imports": "error",
             "unused-imports/no-unused-vars": [
@@ -126,13 +114,15 @@ export default [
             "dot-notation": "error", // prefer obj.prop over obj["prop"]
             "no-await-in-loop": "warn", // agents love to do this
             "no-constant-binary-expression": "error", // 1 + 2 === 3 style mistakes
-            "no-constructor-return": "warn", // you already have this (ok to keep)
+            "no-constructor-return": "warn",
             "no-new-wrappers": "error", // new String(), etc.
             "no-promise-executor-return": "error", // returning inside new Promise((res) => ...)
             "no-self-compare": "error", // x === x is almost always a smell
             "no-unmodified-loop-condition": "warn", // loop condition never changes
             "no-unsafe-optional-chaining": "error", // e.g. foo?.bar()
             "prefer-object-has-own": "error", // use Object.hasOwn over hasOwnProperty
+            "no-unassigned-vars": "error", // vars that are never assigned a value
+            "no-useless-assignment": "error", // x = x;
 
             // --- Async / performance hygiene ---
             "require-await": "warn", // async fn must actually await
@@ -140,14 +130,14 @@ export default [
             "prefer-named-capture-group": "warn", // clearer regexes for agents
 
             // --- Maintainability / ergonomics ---
-            "no-multi-assign": "warn", // a = b = c; is hard to read
+            "no-multi-assign": "error", // a = b = c; is hard to read
             "no-useless-catch": "error", // catch that just rethrows
             "no-useless-constructor": "error", // empty class constructors
-            "no-useless-return": "warn", // last line `return;`
+            "no-useless-return": "error", // last line `return;`
             "object-shorthand": ["warn", "always"], // { foo: foo } → { foo }
             "prefer-const": ["error", { destructuring: "all" }], // stabilize bindings
             "no-var": "error", // always use let/const
-            "prefer-template": "warn", // "a " + b → `a ${b}`
+            "prefer-template": "error", // "a " + b → `a ${b}`
 
             // --- Policy guard rails (blocks risky APIs at lint-time) ---
             "no-restricted-imports": [
@@ -207,6 +197,7 @@ export default [
             "no-throw-literal": "error",
             "no-debugger": "error",
             "no-dupe-keys": "error",
+            "no-dupe-else-if": "error",
             "no-duplicate-case": "error",
             "no-duplicate-imports": "error",
             "no-warning-comments": [
@@ -275,9 +266,22 @@ export default [
             "sonarjs/cognitive-complexity": ["warn", 15],
             "sonarjs/no-duplicate-string": ["warn", { threshold: 3 }],
             "sonarjs/no-identical-functions": "error",
+            "sonarjs/no-identical-expressions": "error",
             "sonarjs/no-inverted-boolean-check": "error",
             "sonarjs/no-redundant-boolean": "error",
             "sonarjs/no-small-switch": "error",
+            "sonarjs/declarations-in-global-scope": "warn",
+            "sonarjs/no-unused-variables": "off", // covered by unused-imports/no-unused-vars
+            "sonarjs/no-collapsible-if": "error",
+            "sonarjs/no-implicit-dependencies": "error",
+            "sonarjs/no-implicit-global": "error",
+            "sonarjs/no-internal-api-use": "error",
+            "sonarjs/no-ignored-return": "warn",
+            "sonarjs/no-ignored-exceptions": "warn",
+            "sonarjs/no-require-or-define": "error",
+            "sonarjs/no-sonar-comments": "error",
+            "sonarjs/prefer-immediate-return": "error",
+            "sonarjs/strings-comparison": "error",
 
             /* --- plugin: regexp (regex safety/perf) --- */
             "regexp/no-super-linear-backtracking": "warn",
@@ -328,6 +332,22 @@ export default [
         }
     },
 
+    /* Disallow .mjs and .cjs files */
+    {
+        files: ["**/*.mjs", "**/*.cjs"],
+        rules: {
+            // Block the entire file
+            "no-restricted-syntax": [
+                "error",
+                {
+                    selector: "Program",
+                    message:
+                        "Use .js files only. .mjs and .cjs files are not allowed."
+                }
+            ]
+        }
+    },
+
     /* CLI: allow process.exit */
     {
         files: ["src/cli/**"],
@@ -335,6 +355,7 @@ export default [
             "unicorn/no-process-exit": "off"
         }
     },
+
     /* Tests: relax a few noisy limits */
     {
         files: ["**/test/**", "*.test.*js", "*.spec.js"],
