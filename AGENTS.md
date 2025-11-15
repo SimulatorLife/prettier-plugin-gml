@@ -12,6 +12,15 @@
 - Never add eslint-disable comments to the codebase. If lint errors arise, fix them properly.
 - The plugin/formatter should be opinionated and enforce a single opinionated strategy (for indentation, spacing, blank lines, etc.) – avoid adding overly-configurable options that give users too many choices or lead to inconsistent formatting.
 
+## Code Style & Quality
+- Use named package scopes for all inter-package imports, always referencing modules by their declared package name rather than relative paths, and ensure that each package re-exports its public API at the top level so consumers import only from the package root (e.g., use @gml-modules/core instead of deep paths like "../../../src/core/src/ast/comments.js"); this rule also applies in package.json, where dependencies must always be listed by package name rather than filesystem paths.
+- When considering adding new dependencies, prefer packages that are already in use within the monorepo to minimize bloat.
+- Do not import functionality from another module solely to re-export it; each module should only export its own unique public API rather than acting as a pass-through for other packages.
+- When exporting a module’s public API, use named wildcard exports to provide clear namespace grouping (e.g., export * as AST from "./ast"; export * as Parser from "./parser"; export * as Transforms from "./transforms";).
+- Do not use .mjs or .cjs files anywhere in the codebase; all code must be authored as .js files, and packages should rely on "type": "module" to enable ESM behavior consistently throughout the monorepo.
+- Each package and major internal directory must include an index.js file that serves exclusively as the public export surface for that module; index.js files should contain only exports, no runtime logic, and must re-export all intended public functionality so that consumers import solely from the package root (e.g., @gml-modules/core) rather than deep relative paths or subdirectories.
+
+
 ## Avoid Over-Extending the System
 
 When improving extensibility, keep changes narrow, purposeful, and internally focused. Extensions should solve real rigidity without surfacing unnecessary configuration or adding maintenance burden. The following are anti-patterns—examples of what not to do when adding project extensibility.
