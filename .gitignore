@@ -2,6 +2,7 @@
 *.cpuprofile
 tmp/
 src/parser/.antlr/
+.tools/
 
 # gemini-cli
 .gemini/*
