@@ -1,5 +1,7 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { hasOwn, createResolverController } } = Core;
+const {
+    Utils: { hasOwn, createResolverController }
+} = Core;
 import {
     TRAILING_COMMA,
     assertTrailingCommaValue

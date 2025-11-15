@@ -1,6 +1,7 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { getErrorMessage } } = Core;
-
+const {
+    Utils: { getErrorMessage }
+} = Core;
 
 const DEFAULT_WARNING_FALLBACK = "Unknown error";
 

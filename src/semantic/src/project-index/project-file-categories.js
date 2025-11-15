@@ -1,5 +1,7 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { assertArray, normalizeExtensionSuffix } } = Core;
+const {
+    Utils: { assertArray, normalizeExtensionSuffix }
+} = Core;
 
 import {
     isProjectManifestPath,

@@ -1,5 +1,7 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { assertFunction, assertPlainObject } } = Core;
+const {
+    Utils: { assertFunction, assertPlainObject }
+} = Core;
 
 import { prepareIdentifierCasePlan as defaultPrepareIdentifierCasePlan } from "./local-plan.js";
 import {

@@ -1,6 +1,11 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { describeValueForError, normalizeEnumeratedOption, toNormalizedLowerCaseString } } = Core;
-
+const {
+    Utils: {
+        describeValueForError,
+        normalizeEnumeratedOption,
+        toNormalizedLowerCaseString
+    }
+} = Core;
 
 /**
  * Create helper functions that normalize and validate enumerated CLI options

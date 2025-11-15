@@ -1,7 +1,8 @@
 import { Core } from "@gml-modules/core";
 const {
     AST: { getNodeType },
-    Utils: { isNonEmptyArray } } = Core;
+    Utils: { isNonEmptyArray }
+} = Core;
 
 import { resolveVariableBlockSpacingMinDeclarations } from "../../options/variable-block-spacing-options.js";
 

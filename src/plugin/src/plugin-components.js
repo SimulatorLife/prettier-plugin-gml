@@ -1,9 +1,7 @@
-import {
-    assertFunction,
-    isAbortError,
-    noop,
-    resolveAbortSignalFromOptions
-} from "./shared/index.js";
+import { Core } from "@gml-modules/core";
+const {
+    Utils: { assertFunction, isAbortError, noop, resolveAbortSignalFromOptions }
+} = Core;
 import { createDefaultGmlPluginComponents } from "./component-providers/default-plugin-components.js";
 import { normalizeGmlPluginComponents } from "./component-providers/plugin-component-normalizer.js";
 

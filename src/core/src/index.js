@@ -10,14 +10,20 @@ export * from "./ast/location-keys.js";
 export * from "./resources/feather-metadata.js";
 export * from "./resources/gml-identifiers.js";
 export * from "./fs/index.js";
-export * from "./parser/index.js";
 export * from "./reporting/index.js";
 export * from "./deprecated-builtin-variable-replacements.js";
+export * from "./feather-type-system.js";
+export * from "./identifier-metadata/index.js";
 
-// Temporary re-exports of parser-local helpers that haven't been ported into
-// core yet. These unblock consumers during the migration and will be removed
-// once the canonical implementations are moved into `src/core/src`.
-// Re-export small helpers directly from the parser-local implementations
-// while the full migration completes. These are intentionally short-lived
-// compatibility exports and will be moved into `src/core/src` permanently
-// in a follow-up cleanup.
+// Namespaced exports expose the structured, forward-looking API surface
+// expected by callers (for example `Core.AST` or `Core.Utils`). Retain the
+// flat compatibility exports above so existing imports continue to work
+// while packages migrate to the namespaced contract.
+export * as AST from "./ast/index.js";
+export * as Utils from "./utils/index.js";
+export * as Resources from "./resources/index.js";
+export * as IdentifierMetadata from "./identifier-metadata/index.js";
+export * as FS from "./fs/index.js";
+export * as Reporting from "./reporting/index.js";
+export * as FeatherTypeSystem from "./feather-type-system.js";
+export * as DeprecatedBuiltinVariables from "./deprecated-builtin-variable-replacements.js";

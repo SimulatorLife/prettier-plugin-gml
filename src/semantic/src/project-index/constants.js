@@ -1,6 +1,7 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { mergeUniqueValues, normalizeExtensionSuffix } } = Core;
-
+const {
+    Utils: { mergeUniqueValues, normalizeExtensionSuffix }
+} = Core;
 
 export const PROJECT_MANIFEST_EXTENSION = ".yyp";
 

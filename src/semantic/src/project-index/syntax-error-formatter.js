@@ -1,5 +1,7 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { getNonEmptyString, isFiniteNumber, splitLines, toFiniteNumber } } = Core;
+const {
+    Utils: { getNonEmptyString, isFiniteNumber, splitLines, toFiniteNumber }
+} = Core;
 
 import { resolveProjectDisplayPath } from "./path-normalization.js";
 

@@ -6,7 +6,10 @@ import { describe, it } from "node:test";
 
 import { buildProjectIndex } from "@gml-modules/semantic";
 import { planAssetRenames, applyAssetRenames } from "@gml-modules/semantic";
-import { fromPosixPath } from "../src/shared/index.js";
+import { Core } from "@gml-modules/core";
+const {
+    FS: { fromPosixPath }
+} = Core;
 
 describe("asset rename utilities", () => {
     it("renames script assets and updates dependent resource metadata atomically", async () => {

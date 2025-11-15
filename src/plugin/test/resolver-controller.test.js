@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { createResolverController } from "../src/shared/resolver-controller.js";
+import { Core } from "@gml-modules/core";
+const {
+    Utils: { createResolverController }
+} = Core;
 
 describe("createResolverController", () => {
     it("returns defaults when no resolver is installed", () => {

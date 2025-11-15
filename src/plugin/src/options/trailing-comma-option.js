@@ -1,6 +1,7 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { describeValueForError } } = Core;
-
+const {
+    Utils: { describeValueForError }
+} = Core;
 
 const TRAILING_COMMA = Object.freeze({
     NONE: "none",

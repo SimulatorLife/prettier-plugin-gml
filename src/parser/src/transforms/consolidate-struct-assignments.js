@@ -1,19 +1,20 @@
-import {
-    getNodeStartIndex,
-    getNodeEndIndex,
-    getNodeStartLine,
-    getNodeEndLine,
-    cloneLocation,
-    getSingleVariableDeclarator,
-    isNode,
-    getSingleMemberIndexPropertyEntry,
-    getCommentArray,
-    isLineComment,
-    asArray,
-    isNonEmptyArray,
-    stripStringQuotes,
-    forEachNodeChild
-} from "../shared/index.js";
+import { Core } from "@gml-modules/core";
+const {
+    AST: {
+        getNodeStartIndex,
+        getNodeEndIndex,
+        getNodeStartLine,
+        getNodeEndLine,
+        cloneLocation,
+        getSingleVariableDeclarator,
+        isNode,
+        getSingleMemberIndexPropertyEntry,
+        getCommentArray,
+        isLineComment,
+        forEachNodeChild
+    },
+    Utils: { asArray, isNonEmptyArray, stripStringQuotes }
+} = Core;
 
 const FALLBACK_COMMENT_TOOLS = Object.freeze({
     addTrailingComment() {}

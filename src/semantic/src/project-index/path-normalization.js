@@ -3,7 +3,8 @@ import path from "node:path";
 import { Core } from "@gml-modules/core";
 const {
     FS: { toPosixPath },
-    Utils: { assertFunction, getNonEmptyString, isNonEmptyString } } = Core;
+    Utils: { assertFunction, getNonEmptyString, isNonEmptyString }
+} = Core;
 
 import { resolveProjectPathInfo } from "./path-info.js";
 

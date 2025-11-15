@@ -1,7 +1,8 @@
 import { Core } from "@gml-modules/core";
 const {
     AST: { assignClonedLocation },
-    Utils: { isObjectLike, toArray, toMutableArray } } = Core;
+    Utils: { isObjectLike, toArray, toMutableArray }
+} = Core;
 
 import {
     ScopeOverrideKeyword,

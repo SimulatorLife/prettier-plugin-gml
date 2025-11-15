@@ -1,6 +1,11 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { applyConfiguredValueEnvOverride, createEnvConfiguredValueWithFallback, toFiniteNumber } } = Core;
-
+const {
+    Utils: {
+        applyConfiguredValueEnvOverride,
+        createEnvConfiguredValueWithFallback,
+        toFiniteNumber
+    }
+} = Core;
 
 const IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_ENV_VAR =
     "GML_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES";

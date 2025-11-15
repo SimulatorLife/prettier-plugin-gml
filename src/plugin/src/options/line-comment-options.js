@@ -1,5 +1,12 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { isNonEmptyString, isObjectLike, isRegExpLike, createResolverController } } = Core;
+const {
+    Utils: {
+        isNonEmptyString,
+        isObjectLike,
+        isRegExpLike,
+        createResolverController
+    }
+} = Core;
 
 // Any line comment that starts with at least this many consecutive `/`
 // characters is considered a "banner" comment for formatting purposes.

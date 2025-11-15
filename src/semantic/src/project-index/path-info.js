@@ -1,8 +1,10 @@
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
-const { Utils: { isNonEmptyString }, FS: { resolveContainedRelativePath } } = Core;
-
+const {
+    Utils: { isNonEmptyString },
+    FS: { resolveContainedRelativePath }
+} = Core;
 
 /**
  * Resolve high-level metadata about how {@link filePath} relates to

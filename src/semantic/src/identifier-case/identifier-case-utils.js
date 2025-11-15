@@ -1,6 +1,12 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { capitalize, normalizeStringList, toArrayFromIterable, trimStringEntries } } = Core;
-
+const {
+    Utils: {
+        capitalize,
+        normalizeStringList,
+        toArrayFromIterable,
+        trimStringEntries
+    }
+} = Core;
 
 const RESERVED_PREFIX_PATTERN =
     /^(?<prefix>(?:global|other|self|local|with|noone)\.|argument(?:_(?:local|relative))?(?:\[\d+\]|\d+)?\.?)/;

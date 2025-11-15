@@ -1,51 +1,60 @@
 import GMLParser from "gamemaker-language-parser";
-
-import {
-    getNodeEndIndex,
-    getNodeStartIndex,
-    getNodeEndLine,
-    getNodeStartLine,
-    cloneLocation,
-    cloneAstNode,
-    assignClonedLocation,
-    getArrayProperty,
-    getBodyStatements,
-    getCallExpressionArguments,
-    getCallExpressionIdentifier,
-    getCallExpressionIdentifierName,
-    isCallExpressionIdentifierMatch,
-    isBooleanLiteral,
-    isUndefinedSentinel,
-    isProgramOrBlockStatement,
-    isVarVariableDeclaration,
-    isNode,
-    forEachNodeChild,
-    visitChildNodes,
-    unwrapParenthesizedExpression,
-    getNonEmptyString,
-    getNonEmptyTrimmedString,
-    isNonEmptyString,
-    isNonEmptyTrimmedString,
-    stripStringQuotes,
-    toNormalizedLowerCaseString,
-    toTrimmedString,
-    isFiniteNumber,
-    asArray,
-    compactArray,
-    isArrayIndex,
-    isNonEmptyArray,
-    ensureSet,
-    getOrCreateMapEntry,
-    hasOwn,
-    isObjectLike,
-    escapeRegExp,
-    hasIterableItems,
-    isMapLike,
-    isSetLike,
-    getSingleVariableDeclarator as sharedGetSingleVariableDeclarator,
-    createIdentifierNode,
-    isFunctionLikeNode
-} from "../shared/index.js";
+import { Core } from "@gml-modules/core";
+const {
+    AST: {
+        getNodeEndIndex,
+        getNodeStartIndex,
+        getNodeEndLine,
+        getNodeStartLine,
+        cloneLocation,
+        cloneAstNode,
+        assignClonedLocation,
+        getArrayProperty,
+        getBodyStatements,
+        getCallExpressionArguments,
+        getCallExpressionIdentifier,
+        getCallExpressionIdentifierName,
+        isCallExpressionIdentifierMatch,
+        isBooleanLiteral,
+        isUndefinedSentinel,
+        isProgramOrBlockStatement,
+        isVarVariableDeclaration,
+        isNode,
+        forEachNodeChild,
+        visitChildNodes,
+        unwrapParenthesizedExpression,
+        getSingleVariableDeclarator: sharedGetSingleVariableDeclarator,
+        createIdentifierNode,
+        isFunctionLikeNode
+    },
+    Utils: {
+        getNonEmptyString,
+        getNonEmptyTrimmedString,
+        isNonEmptyString,
+        isNonEmptyTrimmedString,
+        stripStringQuotes,
+        toNormalizedLowerCaseString,
+        toTrimmedString,
+        isFiniteNumber,
+        asArray,
+        compactArray,
+        isArrayIndex,
+        isNonEmptyArray,
+        ensureSet,
+        getOrCreateMapEntry,
+        hasOwn,
+        isObjectLike,
+        escapeRegExp,
+        hasIterableItems,
+        isMapLike,
+        isSetLike
+    },
+    Resources: {
+        getFeatherDiagnosticById,
+        getFeatherDiagnostics,
+        getFeatherMetadata
+    }
+} = Core;
 import {
     collectCommentNodes,
     getCommentArray,
@@ -53,11 +62,6 @@ import {
     resolveDocCommentTraversalService,
     getCommentValue
 } from "../comments/index.js";
-import {
-    getFeatherDiagnosticById,
-    getFeatherDiagnostics,
-    getFeatherMetadata
-} from "@prettier-plugin-gml/shared/resources/feather-metadata.js";
 import { loadReservedIdentifierNames } from "gamemaker-language-semantic/resources/reserved-identifiers.js";
 
 function walkAstNodes(root, visitor) {

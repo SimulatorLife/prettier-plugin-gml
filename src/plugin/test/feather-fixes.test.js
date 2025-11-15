@@ -4,15 +4,15 @@ import path from "node:path";
 import { Core } from "@gml-modules/core";
 const { fileURLToPath } from "node:url";
 
-const { describe, it } from "node:test";
+import { describe, it } from "node:test";
 
 import GMLParser from "@gml-modules/parser";
 import prettier from "prettier";
 
-const { getNodeEndIndex, getNodeStartIndex } from "../src/shared/index.js";
-
 const {
-    getFeatherMetadata, getFeatherDiagnosticById } = Core;
+    AST: { getNodeEndIndex, getNodeStartIndex },
+    Resources: { getFeatherMetadata, getFeatherDiagnosticById }
+} = Core;
 
 import {
     applyFeatherFixes,

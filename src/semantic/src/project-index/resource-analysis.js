@@ -2,8 +2,19 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 const {
-    Utils: { isNonEmptyArray, pushUnique, isNonEmptyTrimmedString, getOrCreateMapEntry, isObjectLike, createAbortGuard, throwIfAborted, isJsonParseError, parseJsonWithContext },
-    FS: { isFsErrorCode } } = Core;
+    Utils: {
+        isNonEmptyArray,
+        pushUnique,
+        isNonEmptyTrimmedString,
+        getOrCreateMapEntry,
+        isObjectLike,
+        createAbortGuard,
+        throwIfAborted,
+        isJsonParseError,
+        parseJsonWithContext
+    },
+    FS: { isFsErrorCode }
+} = Core;
 
 import {
     PROJECT_MANIFEST_EXTENSION,

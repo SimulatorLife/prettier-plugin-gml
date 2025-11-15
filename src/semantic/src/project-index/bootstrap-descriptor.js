@@ -1,6 +1,7 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { withDefinedValue } } = Core;
-
+const {
+    Utils: { withDefinedValue }
+} = Core;
 
 export function createProjectIndexBuildOptions({
     logger = null,

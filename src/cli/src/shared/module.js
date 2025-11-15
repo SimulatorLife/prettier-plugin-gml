@@ -1,6 +1,12 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { assertNonEmptyString, getErrorMessage, isErrorWithCode, isObjectOrFunction } } = Core;
-
+const {
+    Utils: {
+        assertNonEmptyString,
+        getErrorMessage,
+        isErrorWithCode,
+        isObjectOrFunction
+    }
+} = Core;
 
 /**
  * Normalize dynamically imported modules to their default export when

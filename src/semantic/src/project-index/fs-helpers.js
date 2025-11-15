@@ -1,6 +1,8 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { createAbortGuard, toArrayFromIterable }, FS: { isFsErrorCode } } = Core;
-
+const {
+    Utils: { createAbortGuard, toArrayFromIterable },
+    FS: { isFsErrorCode }
+} = Core;
 
 /**
  * Enumerate the entries in {@link directoryPath} while respecting the abort

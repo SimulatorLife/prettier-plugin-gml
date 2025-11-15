@@ -7,7 +7,11 @@ import { describe, it } from "node:test";
 
 import GMLParser from "../gml-parser.js";
 import GameMakerASTBuilder from "../src/gml-ast-builder.js";
-import { getLineBreakCount, getNodeStartIndex } from "../src/shared/index.js";
+import { Core } from "@gml-modules/core";
+const {
+    Utils: { getLineBreakCount },
+    AST: { getNodeStartIndex }
+} = Core;
 import { ScopeTracker } from "@gml-modules/semantic";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));

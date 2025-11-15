@@ -1,7 +1,8 @@
 import { Core } from "@gml-modules/core";
 const {
     AST: { buildLocationKey },
-    Utils: { isMapLike, withObjectLike } } = Core;
+    Utils: { isMapLike, withObjectLike }
+} = Core;
 
 import { setIdentifierCaseOption } from "./option-store.js";
 

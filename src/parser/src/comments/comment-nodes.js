@@ -1,6 +1,7 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { getLineBreakCount } } = Core;
-
+const {
+    Utils: { getLineBreakCount }
+} = Core;
 
 function normalizeTokenText(tokenText) {
     return typeof tokenText === "string" ? tokenText : "";

@@ -1,7 +1,9 @@
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
-const { FS: { walkAncestorDirectories } } = Core;
+const {
+    FS: { walkAncestorDirectories }
+} = Core;
 
 import {
     PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE,

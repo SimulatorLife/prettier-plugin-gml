@@ -1,6 +1,7 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { createAbortGuard } } = Core;
-
+const {
+    Utils: { createAbortGuard }
+} = Core;
 
 export const PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE =
     "Project root discovery was aborted.";

@@ -1,6 +1,8 @@
 import { Core } from "@gml-modules/core";
-const { Reporting: { createMetricsTracker }, Utils: { isObjectLike, noop } } = Core;
-
+const {
+    Reporting: { createMetricsTracker },
+    Utils: { isObjectLike, noop }
+} = Core;
 
 const PROJECT_INDEX_METRICS_CATEGORY = "project-index";
 const REQUIRED_RECORDING_GROUPS = Object.freeze({
