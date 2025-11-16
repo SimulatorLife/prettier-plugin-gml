@@ -2733,7 +2733,7 @@ function printStatements(path, options, print, childrenAttribute) {
 
     // Cache frequently used option lookups to avoid re-evaluating them in the tight map loop.
     const sourceMetadata = resolvePrinterSourceMetadata(options);
-    const { locStart, locEnd } = sourceMetadata;
+    const { locStart: _locStart, locEnd: _locEnd } = sourceMetadata;
     const originalTextCache =
         sourceMetadata.originalText ?? options?.originalText ?? null;
 
@@ -6381,7 +6381,17 @@ function computeSyntheticFunctionDocLines(
             typeof parameterSourceText === "string" &&
             parameterSourceText.includes("=");
         let shouldMarkOptional =
-            Boolean(paramInfo.optional) || hasOptionalDocName;
+            Boolean(paramInfo.optional) ||
+            hasOptionalDocName ||
+            // If the parameter's default is an `undefined` sentinel and the
+            // parser/transforms or the declaration shape indicate the
+            // default should be preserved (e.g. constructor or an explicit
+            // parser-intent marker), treat it as optional for synthesized
+            // docs so doc-bracketing matches the retained signature.
+            (param?.type === "DefaultParameter" &&
+                isUndefinedSentinel(param.right) &&
+                (param._featherOptionalParameter === true ||
+                    node?.type === "ConstructorDeclaration"));
         const hasSiblingExplicitDefault = Array.isArray(node?.params)
             ? node.params.some((candidate, candidateIndex) => {
                   if (candidateIndex === paramIndex || !candidate) {
@@ -6709,7 +6719,7 @@ function getArgumentIndexFromIdentifier(name) {
         return null;
     }
 
-    const parsed = Number.parseInt(match[1], 10);
+    const parsed = Number.parseInt(match[1]);
     return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
@@ -7049,7 +7059,7 @@ function inlineArgumentCountFallbacks(functionNode) {
                     right.property[0]?.type === "Literal"
                 ) {
                     const literal = right.property[0];
-                    const parsed = Number.parseInt(literal.value, 10);
+                    const parsed = Number.parseInt(literal.value);
                     if (Number.isInteger(parsed) && parsed === argIndex) {
                         fromArg = right;
                         break;
@@ -7285,10 +7295,8 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
                         }
                         case "==":
                         case "===": {
-                            {
-                                argIndex = rightNumber;
-                                // No default
-                            }
+                            argIndex = rightNumber;
+                            // No default
                             break;
                         }
                     }
@@ -7338,7 +7346,7 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
                             rightExpr.property[0]?.type === "Literal"
                         ) {
                             const literal = rightExpr.property[0];
-                            const parsed = Number.parseInt(literal.value, 10);
+                            const parsed = Number.parseInt(literal.value);
                             if (
                                 Number.isInteger(parsed) &&
                                 parsed === argIndex
@@ -7671,7 +7679,16 @@ function getParameterDocInfo(paramNode, functionNode, options) {
         // source text alone; downstream doc/printing logic will consult
         // existing doc metadata and parser-intent flags to decide whether to
         // retain or omit an `= undefined` default.
-        const optional = defaultIsUndefined ? optionalOverride : true;
+        // For undefined defaults, prefer the parser's explicit optionality
+        // override. However, for constructor-like functions where the
+        // signature intentionally preserves `= undefined`, treat the
+        // parameter as optional for synthesized docs even if the parser
+        // didn't set an explicit override.
+        const optional = defaultIsUndefined
+            ? isConstructorLike
+                ? true
+                : optionalOverride
+            : true;
 
         return {
             name: docName,
@@ -7717,12 +7734,15 @@ function shouldOmitDefaultValueForParameter(path, options) {
             if (lastDocIndex !== -1) {
                 const docBlock = prefix.slice(lastDocIndex);
                 const lines = docBlock.split(/\r\n|\n|\r/);
-                const paramName = node.left && node.left.name ? node.left.name : null;
+                const paramName =
+                    node.left && node.left.name ? node.left.name : null;
                 if (paramName) {
                     // search from the bottom (closest to function)
                     for (let i = lines.length - 1; i >= 0; i -= 1) {
                         const line = lines[i];
-                        const m = line.match(/\/\/\/\s*@param\s*(?:\{[^}]+\}\s*)?(\[[^\]]+\]|\S+)/i);
+                        const m = line.match(
+                            /\/\/\/\s*@param\s*(?:\{[^}]+\}\s*)?(\[[^\]]+\]|\S+)/i
+                        );
                         if (!m) continue;
                         const raw = m[1];
                         const name = raw.replace(/^\[|\]$/g, "").trim(); // eslint-disable-line unicorn/prefer-string-replace-all
@@ -9859,7 +9879,7 @@ function resolveArgumentAliasInitializerDoc(path) {
         return null;
     }
 
-    const argumentIndex = Number.parseInt(match[1], 10);
+    const argumentIndex = Number.parseInt(match[1]);
     if (!Number.isInteger(argumentIndex) || argumentIndex < 0) {
         return null;
     }

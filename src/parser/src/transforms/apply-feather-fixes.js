@@ -4702,7 +4702,7 @@ function getArgumentIdentifierIndex(node) {
         return null;
     }
 
-    const parsed = Number.parseInt(match[1], 10);
+    const parsed = Number.parseInt(match[1]);
 
     if (!Number.isInteger(parsed) || parsed < 0) {
         return null;
@@ -15815,7 +15815,7 @@ function resolveUserEventIndex(node) {
             return null;
         }
 
-        const numericValue = Number.parseInt(match[1], 10);
+        const numericValue = Number.parseInt(match[1]);
 
         if (
             !Number.isInteger(numericValue) ||

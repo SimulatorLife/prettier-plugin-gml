@@ -14,16 +14,37 @@
 
 ## Code Style & Quality
 - When considering adding new dependencies, prefer packages that are already in use within the monorepo to minimize bloat.
-- Use named package scopes for all inter-package imports, always referencing modules by their declared package name rather than relative paths, and ensure that each package re-exports its public API at the top level so consumers import only from the package root (e.g., use @gml-modules/core instead of deep paths like "../../../src/core/src/ast/comments.js"); this rule also applies in package.json, where dependencies must always be listed by package name rather than filesystem paths.
+- Use named package scopes for all inter-package imports, always referencing modules by their declared package name rather than relative paths, and ensure that each package re-exports its public API at the top level so consumers import only from the package root (e.g., use `@gml-modules/core` instead of deep paths like `"../../../src/core/src/ast/comments.js"`); this rule also applies in `package.json`, where dependencies must always be listed by package name rather than filesystem paths.
 - Do not import functionality from another module solely to re-export it; each module should only export its own unique public API rather than acting as a pass-through for other packages.
-- When exporting a module’s public API, use named wildcard exports to provide clear namespace grouping (e.g., export * as AST from "./ast"; export * as Parser from "./parser"; export * as Transforms from "./transforms";).
-- Do **NOT** use .mjs or .cjs files anywhere in the codebase; all code must be authored as .js files, and packages should rely on "type": "module" to enable ESM behavior consistently throughout the monorepo. If you encounter existing .mjs or .cjs files, refactor them to .js and adjust imports/exports accordingly.
-- Each package/module and major internal directory must include an index.js file that serves exclusively as the public export surface for that module; index.js files should contain only exports, no runtime logic, and must re-export all intended public functionality so that consumers import solely from the package root (e.g., @gml-modules/core) rather than deep relative paths or subdirectories.
-- Use a consistent module directory structure across the monorepo, where each package contains a top-level package.json, a top-level index.js, and separate src/ and test/ directories; all implementation code must reside in src/, all tests must reside in test/, and consumers must always import from the module root rather than deep internal paths.
-- Each top-level module's root index.js must serve as the sole public API surface and should export **one namespace** (e.g., export * as Transpiler from "./src/transpiler/index.js";) with no implementation logic; internal files must never import through this public namespace layer and should instead use direct relative imports, reserving namespace-style exports exclusively for the external API shape.
+- When exporting a module’s public API, use named wildcard exports to provide clear namespace grouping (e.g., `export * as AST from "./ast"; export * as Parser from "./parser"; export * as Transforms from "./transforms";`).
+- Do **NOT** use `.mjs` or `.cjs` files anywhere in the codebase; all code must be authored as `.js` files, and packages should rely on `"type": "module"` to enable ESM behavior consistently throughout the monorepo. If you encounter existing `.mjs` or `.cjs` files, refactor them to `.js` and adjust imports/exports accordingly.
+- Each package/module and major internal directory must include an `index.js` file that serves exclusively as the public export surface for that module; `index.js` files should contain only exports, no runtime logic, and must re-export all intended public functionality so that consumers import solely from the package root (e.g., `@gml-modules/core`) rather than deep relative paths or subdirectories.
+- Use a consistent module directory structure across the monorepo, where each package contains a top-level `package.json`, a top-level `index.js`, and separate `src/` and `test/` directories; all implementation code must reside in `src/`, all tests must reside in `test/`, and consumers must always import from the module root rather than deep internal paths.
+- Each top-level module's root `index.js` must serve as the sole public API surface and must export **exactly one named namespace** (e.g., `export * as Transpiler from "./src/transpiler/index.js";` or `export const Semantic = Object.freeze({ ... });`) with no implementation logic. **Default exports are not allowed** at the package root. Internal files must never import through this public namespace layer and should instead use direct relative imports, reserving namespace-style exports exclusively for the external API shape.
 - Do not create “pass-through” modules that simply import symbols from another package and re-export them; files should always import the specific functions or values they need directly at the point of use rather than acting as proxy exporters, ensuring each module exposes only its own public API and avoiding unnecessary indirection, and if you encounter an existing pass-through file, remove it and update callers to import the required symbols directly.
-- Avoid legacy-behaior support; always implement the current, forward-looking design without adding compatibility layers or transitional code.
-- When importing from another top-level package, always import the package’s **single exported namespace** (e.g., import * as Core from "@gml-modules/core"), and **do not destructure** that namespace into individual symbols; external consumers must always call functions or access exports via the namespace object (e.g., Core.toMutableArray(...)). Destructuring is allowed only for internal imports within the same package, where direct relative paths must be used instead of importing through the package’s public namespace.
+- Avoid legacy-behavior support; always implement the current, forward-looking design without adding compatibility layers or transitional code.
+- When importing from another top-level package, always import the package’s **single exported namespace** (e.g., `import * as Core from "@gml-modules/core"`), and **do not destructure** that namespace into individual symbols; external consumers must always call functions or access exports via the namespace object (e.g., `Core.toMutableArray(...)`). Destructuring is allowed only for internal imports within the same package, where direct relative paths must be used instead of importing through the package’s public namespace.
+- The public namespace for a package (e.g., `Semantic`) should be assembled by **flattening curated submodule public APIs** exported from `src/`-level indices, using object spread from internal namespaces, for example:
+  ```js
+  import * as IdentifierCase from "./src/identifier-case/index.js";
+  import * as ProjectIndex from "./src/project-index/index.js";
+  import * as Scopes from "./src/scopes/index.js";
+  import * as Resources from "./src/resources/index.js";
+  import * as SemOracle from "./src/sem-oracle.js";
+  import * as SCIPTypes from "./src/scip-types.js";
+  import * as SCIPSymbols from "./src/scip-symbols.js";
+
+  export const Semantic = Object.freeze({
+      ...IdentifierCase,
+      ...ProjectIndex,
+      ...Scopes,
+      ...Resources,
+      ...SemOracle,
+      ...SCIPTypes,
+      ...SCIPSymbols
+  });
+   ```
+
 
 ## Avoid Over-Extending the System
 

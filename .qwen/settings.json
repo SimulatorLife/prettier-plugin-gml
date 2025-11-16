@@ -1,7 +1,7 @@
 {
   "general": {
     "checkpointing": {
-      "enabled": true
+      "enabled": false
     }
   },
   "tools": {

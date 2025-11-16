@@ -4,9 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { ProjectIndex } from "@gml-modules/semantic";
-
-const { bootstrapProjectIndex } = ProjectIndex;
+import * as Semantic from "@gml-modules/semantic";
+import { bootstrapProjectIndex } from "@gml-modules/identifier-case";
 
 async function withTempDir(run) {
     const tempRoot = await mkdtemp(path.join(os.tmpdir(), "gml-bootstrap-"));
@@ -44,7 +43,7 @@ test("bootstrapProjectIndex normalizes cache max size overrides", async () => {
                 options.gmlIdentifierCaseProjectIndexCacheMaxBytes = rawValue;
             }
 
-            await bootstrapProjectIndex(options);
+            await Semantic.bootstrapProjectIndex(options);
 
             return { options, descriptor: descriptors[0] ?? {} };
         }

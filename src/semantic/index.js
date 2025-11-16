@@ -1,29 +1,18 @@
-import * as _IdentifierCase from "./src/identifier-case/index.js";
-import {
-    getIdentifierCaseRenameForNode,
-    captureIdentifierCasePlanSnapshot,
-    applyIdentifierCasePlanSnapshot,
-    maybeReportIdentifierCaseDryRun,
-    teardownIdentifierCaseEnvironment
-} from "./src/index.js";
+import * as IdentifierCase from "./src/identifier-case/index.js";
+import * as ProjectIndex from "./src/project-index/index.js";
+import * as Scopes from "./src/scopes/index.js";
+import * as Resources from "./src/resources/index.js";
+import * as SemOracle from "./src/sem-oracle.js";
+import * as SCIPTypes from "./src/scip-types.js";
+import * as SCIPSymbols from "./src/scip-symbols.js";
 
-// Build a stable, frozen IdentifierCase namespace that merges the richer
-// internal identifier-case surface with a few explicitly exported helpers
-// from the authoritative semantic source surface. This ensures consumers
-// that destructure helpers (printer/tests) always see the expected symbols
-// available at import time.
-export const IdentifierCase = Object.freeze(
-    Object.assign({}, _IdentifierCase, {
-        getIdentifierCaseRenameForNode,
-        captureIdentifierCasePlanSnapshot,
-        applyIdentifierCasePlanSnapshot,
-        maybeReportIdentifierCaseDryRun,
-        teardownIdentifierCaseEnvironment
-    })
-);
-export * as ProjectIndex from "./src/project-index/index.js";
-export * as Scopes from "./src/scopes/index.js";
-export * as Resources from "./src/resources/index.js";
-export * as SemOracle from "./src/sem-oracle.js";
-export * as SCIPTypes from "./src/scip-types.js";
-export * as SCIPSymbols from "./src/scip-symbols.js";
+// Export a singular namespace for the package
+export const Semantic = Object.freeze({
+    ...IdentifierCase,
+    ...ProjectIndex,
+    ...Scopes,
+    ...Resources,
+    ...SemOracle,
+    ...SCIPTypes,
+    ...SCIPSymbols
+});

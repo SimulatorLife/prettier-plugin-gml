@@ -61,7 +61,11 @@ export function preprocessFunctionArgumentDefaults(
     };
 
     traverse(ast, (node) => {
-        if (!node || node.type !== "FunctionDeclaration") {
+        if (
+            !node ||
+            (node.type !== "FunctionDeclaration" &&
+                node.type !== "ConstructorDeclaration")
+        ) {
             return;
         }
 
@@ -101,7 +105,11 @@ function traverse(node, visitor, seen = new Set()) {
 }
 
 function preprocessFunctionDeclaration(node, helpers) {
-    if (!node || node.type !== "FunctionDeclaration") {
+    if (
+        !node ||
+        (node.type !== "FunctionDeclaration" &&
+            node.type !== "ConstructorDeclaration")
+    ) {
         return;
     }
 
@@ -449,16 +457,23 @@ function preprocessFunctionDeclaration(node, helpers) {
                 } else {
                     // If a DefaultParameter already has a concrete right-hand
                     // side but lacks an explicit `_featherOptionalParameter`
-                    // annotation, treat it as a parser-intended optional
-                    // parameter. This covers cases where an upstream parser
-                    // transform produced a complete DefaultParameter node
-                    // but didn't set the flag—such parameters should be
-                    // considered authoritative for downstream printing and
-                    // doc generation. Do not override an explicit boolean
-                    // value if present.
+                    // annotation, infer optionality conservatively: treat
+                    // non-`undefined` defaults as parser-intended optional
+                    // parameters, but do NOT automatically mark parameters
+                    // whose right-hand side is the `undefined` sentinel as
+                    // optional. The latter case should be decided by more
+                    // explicit transforms or doc cues to avoid preserving
+                    // redundant `= undefined` signatures unintentionally.
                     try {
                         if (param._featherOptionalParameter == null) {
-                            param._featherOptionalParameter = true;
+                            // Use the provided helper so we correctly detect
+                            // the parser's undefined sentinel node shape.
+                            const hasUndefinedDefault =
+                                typeof isUndefinedLiteral === "function" &&
+                                isUndefinedLiteral(param.right);
+
+                            param._featherOptionalParameter =
+                                !hasUndefinedDefault;
                         }
                     } catch {}
                 }
@@ -542,7 +557,9 @@ function preprocessFunctionDeclaration(node, helpers) {
         if (Array.isArray(comments) && comments.length > 0) {
             for (const comment of comments) {
                 if (!comment || typeof comment.value !== "string") continue;
-                const m = comment.value.match(/@param\s*(?:\{[^}]*\}\s*)?(\[[^\]]+\]|\S+)/i);
+                const m = comment.value.match(
+                    /@param\s*(?:\{[^}]*\}\s*)?(\[[^\]]+\]|\S+)/i
+                );
                 if (!m) continue;
                 const raw = m[1];
                 const name = raw ? raw.replace(/^\[|\]$/g, "").trim() : null; // eslint-disable-line unicorn/prefer-string-replace-all
@@ -557,18 +574,19 @@ function preprocessFunctionDeclaration(node, helpers) {
         // sentinel. Constructors prefer to preserve optional syntax by
         // default; plain functions omit unless the doc indicates optional.
         const params = toMutableArray(node.params);
-        for (let i = 0; i < params.length; i += 1) {
-            const p = params[i];
+        for (const p of params) {
             if (!p) continue;
 
             // Handle both DefaultParameter and AssignmentPattern shapes.
             let leftName = null;
             let rightNode = null;
             if (p.type === "DefaultParameter") {
-                leftName = p.left && p.left.type === "Identifier" ? p.left.name : null;
+                leftName =
+                    p.left && p.left.type === "Identifier" ? p.left.name : null;
                 rightNode = p.right;
             } else if (p.type === "AssignmentPattern") {
-                leftName = p.left && p.left.type === "Identifier" ? p.left.name : null;
+                leftName =
+                    p.left && p.left.type === "Identifier" ? p.left.name : null;
                 rightNode = p.right;
             } else {
                 continue;
@@ -577,13 +595,16 @@ function preprocessFunctionDeclaration(node, helpers) {
             // Use the helper so we correctly detect the parser's undefined
             // sentinel regardless of the exact node shape (Identifier vs
             // Literal placeholder passed through by upstream transforms).
-            const isUndefined = typeof isUndefinedLiteral === "function" && isUndefinedLiteral(rightNode);
+            const isUndefined =
+                typeof isUndefinedLiteral === "function" &&
+                isUndefinedLiteral(rightNode);
             if (!isUndefined) continue;
 
             // If doc explicitly marks optional, respect that.
             if (leftName && paramDocMap.has(leftName)) {
                 try {
-                    p._featherOptionalParameter = paramDocMap.get(leftName) === true;
+                    p._featherOptionalParameter =
+                        paramDocMap.get(leftName) === true;
                 } catch {}
                 continue;
             }
@@ -931,7 +952,8 @@ function preprocessFunctionDeclaration(node, helpers) {
                     node.id?.type === "Identifier" &&
                     !aliasByIndex.has(aliasIndex)
                 ) {
-                    const aliasName = node.id.name && String(node.id.name).trim();
+                    const aliasName =
+                        node.id.name && String(node.id.name).trim();
                     if (aliasName && aliasName.length > 0) {
                         aliasByIndex.set(aliasIndex, aliasName);
                         referencedIndices.add(aliasIndex);
@@ -972,7 +994,8 @@ function preprocessFunctionDeclaration(node, helpers) {
                 (typeof docName === "string" && docName.toLowerCase()) ||
                 docName;
             const fallbackCanonical =
-                (typeof fallbackName === "string" && fallbackName.toLowerCase()) ||
+                (typeof fallbackName === "string" &&
+                    fallbackName.toLowerCase()) ||
                 fallbackName;
 
             return {
@@ -1012,7 +1035,7 @@ function preprocessFunctionDeclaration(node, helpers) {
         if (typeof name !== "string") return null;
         const match = name.match(/^argument(\d+)$/);
         if (!match) return null;
-        const parsed = Number.parseInt(match[1], 10);
+        const parsed = Number.parseInt(match[1]);
         return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
     }
 }
