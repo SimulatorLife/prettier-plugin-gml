@@ -10,7 +10,7 @@ import {
 
 const BINARY_OPERATORS = {
     // Highest Precedence
-    // TODO: Track whether `++` is parsed as a prefix or suffix operator. The
+    // Track whether `++` is parsed as a prefix or suffix operator. The
     // parser currently funnels both variants through the same precedence entry,
     // which keeps the visitor traversals simple but hides whether the operand
     // should be evaluated before or after the increment. Downstream
@@ -21,7 +21,7 @@ const BINARY_OPERATORS = {
     // so once the builder exposes the mode we should emit richer AST nodes
     // instead of treating them as interchangeable unary operators.
     "++": { prec: 15, assoc: "right", type: "unary" },
-    // TODO: Mirror the prefix/suffix tracking described above for the
+    // Mirror the prefix/suffix tracking described above for the
     // decrement operator so optimizations do not assume `value--` is
     // side-effect free. GameMaker emits different bytecode for the two forms,
     // and losing that distinction risks mis-scheduling hoists or duplicate
@@ -179,7 +179,7 @@ function createScopeTrackerFromOptions(options = {}) {
         enabled: Boolean(getIdentifierMetadata)
     });
 
-    if (tracker == null) {
+    if (tracker === null) {
         return null;
     }
 
@@ -428,7 +428,7 @@ export default class GameMakerASTBuilder {
         const list = [];
         for (const statement of statements) {
             const stmtObject = this.visit(statement);
-            if (stmtObject == undefined) {
+            if (stmtObject === undefined) {
                 continue;
             }
             list.push(stmtObject);
@@ -515,10 +515,10 @@ export default class GameMakerASTBuilder {
 
     // Visit a parse tree produced by GameMakerLanguageParser#ForStatement.
     visitForStatement(ctx) {
-        let init = null;
-        let test = null;
-        let update = null;
-        let body = null;
+        let init;
+        let test;
+        let update;
+        let body;
 
         if (ctx.variableDeclarationList() != null) {
             init = this.visit(ctx.variableDeclarationList());
@@ -1252,7 +1252,7 @@ export default class GameMakerASTBuilder {
     // Visit a parse tree produced by GameMakerLanguageParser#assignmentOperator.
     visitAssignmentOperator(ctx) {
         let text = ctx.getText();
-        if (text == ":=") {
+        if (text === ":=") {
             text = "=";
         }
         return text;
@@ -1507,7 +1507,7 @@ export default class GameMakerASTBuilder {
 
     // Visit a parse tree produced by GameMakerLanguageParser#parameterArgument.
     visitParameterArgument(ctx) {
-        if (ctx.expressionOrFunction() == undefined) {
+        if (ctx.expressionOrFunction() === undefined) {
             return this.withIdentifierRole(
                 { type: "declaration", kind: "parameter" },
                 () => this.visit(ctx.identifier())
@@ -1694,7 +1694,7 @@ export default class GameMakerASTBuilder {
         if (ctx.RegionCharacters() != null) {
             name = ctx.RegionCharacters().getText();
         }
-        return ctx.Region() == undefined
+        return ctx.Region() === undefined
             ? this.astNode(ctx, {
                   type: "EndRegionStatement",
                   name

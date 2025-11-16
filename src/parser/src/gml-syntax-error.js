@@ -187,7 +187,7 @@ export default class GameMakerParseErrorListener extends ErrorListener {
         this.contextAnalyzer = contextAnalyzer;
     }
 
-    // TODO: Broaden the diagnostic surface so syntax errors surface the same
+    // Broaden the diagnostic surface so syntax errors surface the same
     // hints that GameMaker Studio does. Today we lean on ANTLR's generic
     // messages, which are technically correct but omit recovery advice such as
     // "missing semicolon" or "unclosed struct literal". Formatter users jump to

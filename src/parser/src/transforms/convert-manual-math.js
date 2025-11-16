@@ -1,10 +1,18 @@
 import { Core } from "@gml-modules/core";
-import { hasComment as sharedHasComment, normalizeHasCommentHelpers
+import {
+    hasComment as sharedHasComment,
+    normalizeHasCommentHelpers
 } from "../comments/index.js";
 
 const {
-    assignClonedLocation, cloneAstNode, getNodeEndIndex, getNodeStartIndex, getCallExpressionArguments, toMutableArray, createIdentifierNode } = Core;
-
+    assignClonedLocation,
+    cloneAstNode,
+    getNodeEndIndex,
+    getNodeStartIndex,
+    getCallExpressionArguments,
+    toMutableArray,
+    createIdentifierNode
+} = Core;
 
 const DEFAULT_HELPERS = Object.freeze({
     hasComment: sharedHasComment
@@ -735,8 +743,8 @@ function matchIdentifierTimesFactor(expression, identifierName, helpers) {
             ? unwrapped.operator.toLowerCase()
             : null;
 
-    let factorNode = null;
-    let factorValue = null;
+    let factorNode;
+    let factorValue;
 
     if (operator === "*") {
         if (isIdentifierNamed(unwrapped.left, identifierName)) {
@@ -1700,7 +1708,7 @@ function attemptCancelReciprocalRatios(node, helpers, context) {
         remainingTerms.push(clone);
     }
 
-    let replacement = null;
+    let replacement;
 
     if (remainingTerms.length === 0) {
         replacement = createNumericLiteral(1, node);
@@ -2441,8 +2449,8 @@ function attemptConvertMean(node, helpers) {
         return false;
     }
 
-    let addition = null;
-    let divisor = null;
+    let addition;
+    let divisor;
 
     if (expression.operator === "/") {
         addition = unwrapExpression(expression.left);
@@ -2632,7 +2640,7 @@ function attemptConvertPointDistanceCall(node, helpers) {
     const calleeName = getIdentifierName(node.object);
     const callArguments = getCallExpressionArguments(node);
 
-    let distanceExpression = null;
+    let distanceExpression;
     if (calleeName === "sqrt") {
         if (callArguments.length !== 1) {
             return false;

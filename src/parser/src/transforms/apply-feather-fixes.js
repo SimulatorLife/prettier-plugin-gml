@@ -1380,7 +1380,7 @@ function buildFeatherFixImplementations(diagnostics) {
         if (diagnosticId === "GM2040") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
                 const fixes = removeInvalidEventInheritedCalls({
-                    // TODO: Once the identifier-case project index can expose event
+                    // Once the identifier-case project index can expose event
                     // ancestry we should query it here instead of trusting the
                     // diagnostic payload alone. GM2040 only fires when
                     // `event_inherited()` is orphaned, but without project-scope

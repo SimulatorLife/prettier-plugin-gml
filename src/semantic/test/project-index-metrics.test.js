@@ -67,7 +67,7 @@ class TestMetricsTracker {
             category: this.category,
             timers: Object.freeze({
                 startTimer,
-                timeAsync: async (_label, callback) => await callback(),
+                timeAsync: async (_label, callback) => callback(),
                 timeSync: (_label, callback) => callback()
             }),
             counters: Object.freeze({

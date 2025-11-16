@@ -55,7 +55,7 @@ export class IdentifierRoleTracker {
 
         const cloned = { ...role };
 
-        if (role.tags != undefined) {
+        if (role.tags !== undefined) {
             cloned.tags = [...toArray(role.tags)];
         }
 
@@ -176,13 +176,13 @@ export function createIdentifierLocation(token) {
     const stopIndex = token.stop ?? token.stopIndex ?? startIndex ?? null;
     const startColumn = token.column ?? null;
     const identifierLength =
-        startIndex != undefined && stopIndex != undefined
+        startIndex !== undefined && stopIndex !== undefined
             ? stopIndex - startIndex + 1
             : null;
 
     const buildPoint = (index, column) => {
         const point = { line, index };
-        if (column != undefined) {
+        if (column !== undefined) {
             point.column = column;
         }
 
@@ -192,8 +192,8 @@ export function createIdentifierLocation(token) {
     return {
         start: buildPoint(startIndex, startColumn),
         end: buildPoint(
-            stopIndex == undefined ? null : stopIndex + 1,
-            startColumn != undefined && identifierLength != undefined
+            stopIndex === undefined ? null : stopIndex + 1,
+            startColumn !== undefined && identifierLength !== undefined
                 ? startColumn + identifierLength
                 : null
         )

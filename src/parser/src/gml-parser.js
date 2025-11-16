@@ -110,7 +110,7 @@ export default class GMLParser {
         }
 
         const builder = new GameMakerASTBuilder(this.options, this.whitespaces);
-        let astTree = {};
+        let astTree;
         astTree = builder.build(tree);
 
         if (this.options.getComments) {

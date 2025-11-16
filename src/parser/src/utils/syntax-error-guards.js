@@ -31,15 +31,15 @@ export function isSyntaxErrorWithLocation(value) {
 
     const { rule, wrongSymbol, offendingText } = value;
 
-    if (rule != undefined && typeof rule !== "string") {
+    if (rule !== undefined && typeof rule !== "string") {
         return false;
     }
 
-    if (wrongSymbol != undefined && typeof wrongSymbol !== "string") {
+    if (wrongSymbol !== undefined && typeof wrongSymbol !== "string") {
         return false;
     }
 
-    if (offendingText != undefined && typeof offendingText !== "string") {
+    if (offendingText !== undefined && typeof offendingText !== "string") {
         return false;
     }
 

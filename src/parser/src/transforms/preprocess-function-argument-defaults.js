@@ -1,10 +1,24 @@
 import { Core } from "@gml-modules/core";
-import { hasComment as sharedHasComment, getHasCommentHelper
+import {
+    hasComment as sharedHasComment,
+    getHasCommentHelper
 } from "../comments/index.js";
 
 const {
-    getSingleVariableDeclarator: sharedGetSingleVariableDeclarator, getIdentifierText: sharedGetIdentifierText, isUndefinedSentinel: sharedIsUndefinedSentinel, getSingleMemberIndexPropertyEntry: sharedGetSingleMemberIndexPropertyEntry, unwrapParenthesizedExpression, getBodyStatements, toMutableArray, isObjectLike, forEachNodeChild, getNodeEndIndex, getNodeStartIndex, assignClonedLocation, resolveHelperOverride } = Core;
-
+    getSingleVariableDeclarator: sharedGetSingleVariableDeclarator,
+    getIdentifierText: sharedGetIdentifierText,
+    isUndefinedSentinel: sharedIsUndefinedSentinel,
+    getSingleMemberIndexPropertyEntry: sharedGetSingleMemberIndexPropertyEntry,
+    unwrapParenthesizedExpression,
+    getBodyStatements,
+    toMutableArray,
+    isObjectLike,
+    forEachNodeChild,
+    getNodeEndIndex,
+    getNodeStartIndex,
+    assignClonedLocation,
+    resolveHelperOverride
+} = Core;
 
 // Re-export selected core helpers into local scope for convenience. Some
 // matcher logic expects these helpers to exist as local identifiers.
@@ -345,7 +359,6 @@ function preprocessFunctionDeclaration(node, helpers) {
 
         // Assign the default value on the parameter node.
         currentParam.default = match.fallbackExpression;
-        appliedChanges = true;
     }
 
     // Remove matched fallback statements in reverse order to keep indices stable.
@@ -497,7 +510,7 @@ function preprocessFunctionDeclaration(node, helpers) {
         // or the AssignmentExpression node itself. This covers parser shapes
         // where single-line `if (cond) a = b;` may produce the assignment
         // directly as the consequent.
-        let assignment = null;
+        let assignment;
         if (
             node.type === "ExpressionStatement" &&
             node.expression &&

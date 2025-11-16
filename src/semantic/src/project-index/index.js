@@ -383,7 +383,7 @@ function findIdentifierLocation({
     const effectiveStart = Math.max(0, searchStart ?? 0);
     const effectiveEnd = Math.min(
         source.length,
-        searchEnd == undefined ? source.length : searchEnd
+        searchEnd === undefined ? source.length : searchEnd
     );
 
     let index = source.indexOf(name, effectiveStart);

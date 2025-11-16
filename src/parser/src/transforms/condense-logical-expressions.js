@@ -24,7 +24,6 @@ const {
     }
 } = Core;
 
-
 const BOOLEAN_NODE_TYPES = Object.freeze({
     CONST: "CONST",
     VAR: "VAR",
@@ -502,8 +501,8 @@ function tryCondenseIfStatement(
         return false;
     }
 
-    let alternateExpression = null;
-    let alternateSourceNode = null;
+    let alternateExpression;
+    let alternateSourceNode;
     let removeFollowingReturn = false;
 
     if (statement.alternate) {

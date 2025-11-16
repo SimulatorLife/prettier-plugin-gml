@@ -2,22 +2,40 @@ import { Core } from "@gml-modules/core";
 import { builders, utils } from "prettier/doc";
 
 import {
-    DefineReplacementDirective, isLastStatement, optionalSemicolon, isNextLineEmpty, isPreviousLineEmpty, shouldAddNewlinesAroundStatement, hasComment, getNormalizedDefineReplacementDirective, isFunctionLikeDeclaration
+    DefineReplacementDirective,
+    isLastStatement,
+    optionalSemicolon,
+    isNextLineEmpty,
+    isPreviousLineEmpty,
+    shouldAddNewlinesAroundStatement,
+    hasComment,
+    getNormalizedDefineReplacementDirective,
+    isFunctionLikeDeclaration
 } from "./util.js";
 import {
-    buildCachedSizeVariableName, getLoopLengthHoistInfo, getSizeRetrievalFunctionSuffixes
+    buildCachedSizeVariableName,
+    getLoopLengthHoistInfo,
+    getSizeRetrievalFunctionSuffixes
 } from "./loop-size-hoisting.js";
 import {
-    getEnumNameAlignmentPadding, prepareEnumMembersForPrinting
+    getEnumNameAlignmentPadding,
+    prepareEnumMembersForPrinting
 } from "./enum-alignment.js";
 import {
-    isMacroLikeStatement, shouldForceBlankLineBetweenReturnPaths, shouldForceTrailingBlankLineForNestedFunction, shouldSuppressEmptyLineBetween
+    isMacroLikeStatement,
+    shouldForceBlankLineBetweenReturnPaths,
+    shouldForceTrailingBlankLineForNestedFunction,
+    shouldSuppressEmptyLineBetween
 } from "./statement-spacing-policy.js";
 import {
-    printDanglingComments, printDanglingCommentsAsGroup, printComment
+    printDanglingComments,
+    printDanglingCommentsAsGroup,
+    printComment
 } from "../comments/comment-printer.js";
 import {
-    formatLineComment, getLineCommentRawText, normalizeDocCommentTypeAnnotations
+    formatLineComment,
+    getLineCommentRawText,
+    normalizeDocCommentTypeAnnotations
 } from "../comments/line-comment-formatting.js";
 import { normalizeOptionalParamToken } from "../comments/optional-param-normalization.js";
 import { resolveLineCommentOptions } from "../options/line-comment-options.js";
@@ -40,7 +58,36 @@ import {
 } from "../options/object-wrap-option.js";
 
 const {
-    getCommentArray, isCommentNode, coercePositiveIntegerOption, getNonEmptyString, getNonEmptyTrimmedString, capitalize, isNonEmptyString, isNonEmptyTrimmedString, isObjectOrFunction, toTrimmedString, asArray, isNonEmptyArray, getNodeType, toMutableArray, ensureSet, getNodeStartIndex, getNodeEndIndex, getNodeRangeIndices, getBodyStatements, getCallExpressionArguments, getCallExpressionIdentifier, getIdentifierText, getSingleVariableDeclarator, isCallExpressionIdentifierMatch, isBooleanLiteral, isUndefinedSentinel, enqueueObjectChildValues, isFunctionLikeNode, forEachNodeChild } = Core;
+    getCommentArray,
+    isCommentNode,
+    coercePositiveIntegerOption,
+    getNonEmptyString,
+    getNonEmptyTrimmedString,
+    capitalize,
+    isNonEmptyString,
+    isNonEmptyTrimmedString,
+    isObjectOrFunction,
+    toTrimmedString,
+    asArray,
+    isNonEmptyArray,
+    getNodeType,
+    toMutableArray,
+    ensureSet,
+    getNodeStartIndex,
+    getNodeEndIndex,
+    getNodeRangeIndices,
+    getBodyStatements,
+    getCallExpressionArguments,
+    getCallExpressionIdentifier,
+    getIdentifierText,
+    getSingleVariableDeclarator,
+    isCallExpressionIdentifierMatch,
+    isBooleanLiteral,
+    isUndefinedSentinel,
+    enqueueObjectChildValues,
+    isFunctionLikeNode,
+    forEachNodeChild
+} = Core;
 
 const {
     breakParent,
@@ -700,7 +747,7 @@ export function print(path, options, print) {
             const { startIndex: nodeStartIndex } =
                 resolveNodeIndexRangeWithSource(node, sourceMetadata);
 
-            let docCommentDocs = [];
+            let docCommentDocs;
             const lineCommentOptions = resolveLineCommentOptions(options);
             let needsLeadingBlankLine = false;
 
@@ -919,8 +966,7 @@ export function print(path, options, print) {
                 return null;
             }
 
-            let decls = [];
-            decls =
+            const decls =
                 node.declarations.length > 1
                     ? printCommaSeparatedList(
                           path,
@@ -978,8 +1024,7 @@ export function print(path, options, print) {
                 }
             }
 
-            let decls = [];
-            decls =
+            const decls =
                 node.declarations.length > 1
                     ? printCommaSeparatedList(
                           path,
@@ -1174,7 +1219,7 @@ export function print(path, options, print) {
             }
 
             applyTrigonometricFunctionSimplification(path);
-            let printedArgs = [];
+            let printedArgs;
 
             if (node.arguments.length === 0) {
                 printedArgs = [printEmptyParens(path, print, options)];
@@ -1359,7 +1404,7 @@ export function print(path, options, print) {
                             node.hasTrailingComma ||
                             shouldForceBreakStruct ||
                             shouldPreserveStructWrap,
-                        // TODO: Keep struct literals flush with their braces for
+                        // Keep struct literals flush with their braces for
                         // now. GameMaker's runtime formatter and the examples in
                         // the manual (https://manual.gamemaker.io/monthly/en/#t=GameMaker_Language%2FGML_Reference%2FVariable_Functions%2FStructs.htm)
                         // render `{foo: 1}` without internal padding, and our
@@ -4616,7 +4661,7 @@ function mergeSyntheticDocComments(
     let otherLines = syntheticLines.filter((line) => !isFunctionLine(line));
     const overrideLines = otherLines.filter(isOverrideLine);
     otherLines = otherLines.filter((line) => !isOverrideLine(line));
-    let returnsLines = [];
+    let returnsLines;
 
     // Cache canonical names so we only parse each doc comment line at most once.
     const paramCanonicalNameCache = new Map();
@@ -4956,7 +5001,7 @@ function mergeSyntheticDocComments(
         }
     }
 
-    let orderedParamDocs = [];
+    let orderedParamDocs;
     if (Array.isArray(node.params)) {
         for (const param of node.params) {
             const paramInfo = getParameterDocInfo(param, node, options);
