@@ -8,10 +8,8 @@ import {
 import { gmlParserAdapter } from "../src/parsers/index.js";
 import { print } from "../src/printer/index.js";
 import { handleComments, printComment } from "../src/comments/public-api.js";
-import { IdentifierCase } from "@gml-modules/semantic";
+import { Semantic } from "@gml-modules/semantic";
 import { LogicalOperatorsStyle } from "../src/options/logical-operators-style.js";
-
-const { identifierCaseOptions } = IdentifierCase;
 
 test("default implementation bundle is frozen and reuses canonical references", () => {
     assert.ok(
@@ -34,7 +32,7 @@ test("default implementation bundle is frozen and reuses canonical references", 
     );
     assert.strictEqual(
         gmlPluginComponentImplementations.identifierCaseOptions,
-        identifierCaseOptions
+        Semantic.identifierCaseOptions
     );
     assert.strictEqual(
         gmlPluginComponentImplementations.LogicalOperatorsStyle,

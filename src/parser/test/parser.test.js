@@ -8,9 +8,7 @@ import { describe, it } from "node:test";
 import GMLParser from "../gml-parser.js";
 import GameMakerASTBuilder from "../src/gml-ast-builder.js";
 import { Core } from "@gml-modules/core";
-import { Scopes } from "@gml-modules/semantic";
-
-const { ScopeTracker } = Scopes;
+import { Semantic } from "@gml-modules/semantic";
 
 const {
     Utils: { getLineBreakCount },
@@ -180,7 +178,7 @@ function parseWithMetadata(source) {
         getIdentifierMetadata: true,
         simplifyLocations: false,
         createScopeTracker: ({ enabled }) =>
-            enabled ? new ScopeTracker({ enabled }) : null
+            enabled ? new Semantic.ScopeTracker({ enabled }) : null
     });
 }
 

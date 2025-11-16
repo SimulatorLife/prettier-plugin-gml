@@ -4,11 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { ProjectIndex, IdentifierCase } from "@gml-modules/semantic";
+import { Semantic } from "@gml-modules/semantic";
 import { Core } from "@gml-modules/core";
-
-const { buildProjectIndex } = ProjectIndex;
-const { planAssetRenames, applyAssetRenames } = IdentifierCase;
 
 const {
     FS: { fromPosixPath }
@@ -19,9 +16,9 @@ describe("asset rename utilities", () => {
         const projectRoot = await createSyntheticProject();
 
         try {
-            const projectIndex = await buildProjectIndex(projectRoot);
+            const projectIndex = await Semantic.buildProjectIndex(projectRoot);
 
-            const { renames, conflicts } = planAssetRenames({
+            const { renames, conflicts } = Semantic.planAssetRenames({
                 projectIndex,
                 assetStyle: "pascal"
             });
@@ -29,7 +26,10 @@ describe("asset rename utilities", () => {
             assert.deepStrictEqual(conflicts, []);
             assert.strictEqual(renames.length, 1);
 
-            const result = applyAssetRenames({ projectIndex, renames });
+            const result = Semantic.applyAssetRenames({
+                projectIndex,
+                renames
+            });
 
             assert.ok(
                 result.renames.length > 0,

@@ -644,7 +644,7 @@ class CommentTracker {
                 // small comment-like objects). Fall back to the canonical
                 // helper when the simple shape is not present so the tracker
                 // remains tolerant across runtime import contexts.
-                let index = null;
+                let index;
                 const maybeStart = comment && comment.start;
                 if (maybeStart && typeof maybeStart.index === "number") {
                     index = maybeStart.index;

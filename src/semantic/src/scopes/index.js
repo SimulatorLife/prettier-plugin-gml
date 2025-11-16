@@ -1,4 +1,4 @@
-export { default as ScopeTracker } from "./scope-tracker.js";
+export { ScopeTracker } from "./scope-tracker.js";
 export {
     ScopeOverrideKeyword,
     isScopeOverrideKeyword,

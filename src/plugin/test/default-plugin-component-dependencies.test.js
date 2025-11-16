@@ -5,10 +5,8 @@ import { defaultGmlPluginComponentDependencies } from "../src/component-provider
 import { gmlParserAdapter } from "../src/parsers/index.js";
 import { print } from "../src/printer/index.js";
 import { handleComments, printComment } from "../src/comments/public-api.js";
-import { IdentifierCase } from "@gml-modules/semantic";
+import { Semantic } from "@gml-modules/semantic";
 import { LogicalOperatorsStyle } from "../src/options/logical-operators-style.js";
-
-const { identifierCaseOptions } = IdentifierCase;
 
 const REQUIRED_KEYS = [
     "gmlParserAdapter",
@@ -31,7 +29,10 @@ test("default dependency bundle exposes canonical components", () => {
     assert.strictEqual(resolved.print, print);
     assert.strictEqual(resolved.printComment, printComment);
     assert.strictEqual(resolved.handleComments, handleComments);
-    assert.strictEqual(resolved.identifierCaseOptions, identifierCaseOptions);
+    assert.strictEqual(
+        resolved.identifierCaseOptions,
+        Semantic.identifierCaseOptions
+    );
     assert.strictEqual(resolved.LogicalOperatorsStyle, LogicalOperatorsStyle);
 
     for (const key of REQUIRED_KEYS) {

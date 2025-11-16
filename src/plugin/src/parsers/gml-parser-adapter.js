@@ -21,14 +21,8 @@ import GMLParser, {
     annotateStaticFunctionOverrides
 } from "@gml-modules/parser";
 
-import { IdentifierCase } from "@gml-modules/semantic";
+import { Semantic } from "@gml-modules/semantic";
 import { prepareDocCommentEnvironment } from "../comments/index.js";
-
-const {
-    prepareIdentifierCaseEnvironment,
-    attachIdentifierCasePlanSnapshot,
-    teardownIdentifierCaseEnvironment
-} = IdentifierCase;
 
 const {
     getNodeStartIndex,
@@ -69,7 +63,7 @@ async function parse(text, options) {
 
     try {
         if (options) {
-            await prepareIdentifierCaseEnvironment(options);
+            await Semantic.prepareIdentifierCaseEnvironment(options);
             environmentPrepared = true;
         }
 
@@ -141,7 +135,7 @@ async function parse(text, options) {
             });
         }
 
-        attachIdentifierCasePlanSnapshot(ast, options);
+        Semantic.attachIdentifierCasePlanSnapshot(ast, options);
 
         if (!ast || typeof ast !== "object") {
             throw new Error(
@@ -218,7 +212,7 @@ async function parse(text, options) {
         return ast;
     } catch (error) {
         if (environmentPrepared) {
-            teardownIdentifierCaseEnvironment(options);
+            Semantic.teardownIdentifierCaseEnvironment(options);
         }
         throw error;
     }

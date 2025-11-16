@@ -116,7 +116,7 @@ function resolveStringScopeOverride(tracker, scopeOverride, currentScope) {
     );
 }
 
-export default class ScopeTracker {
+export class ScopeTracker {
     constructor({ enabled = false } = {}) {
         this.enabled = Boolean(enabled);
         this.scopeCounter = 0;
