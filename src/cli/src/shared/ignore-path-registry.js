@@ -39,21 +39,3 @@ export function registerIgnorePath(ignorePath) {
 export function resetRegisteredIgnorePaths() {
     registeredIgnorePaths.clear();
 }
-
-/**
- * Count the number of active ignore path registrations.
- *
- * @returns {number} Total registered ignore paths.
- */
-export function getRegisteredIgnorePathCount() {
-    return registeredIgnorePaths.size;
-}
-
-/**
- * Take a snapshot of the registered ignore paths.
- *
- * @returns {Array<string>} Ordered list of tracked paths.
- */
-export function getRegisteredIgnorePathsSnapshot() {
-    return [...registeredIgnorePaths];
-}
