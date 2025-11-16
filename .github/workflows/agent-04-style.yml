@@ -25,8 +25,9 @@ jobs:
         mechanical style has drifted—think indentation, spacing, casing, import/order
         conventions, filename alignment, or mismatched naming patterns—and bring it back
         to project standards. Normalize identifiers, comment tone/format, file headers, 
-        etc. to match established conventions, and lean on tools like Prettier/ESLint 
-        settings where possible/applicable. Avoid touching control flow or behavioural 
-        logic; those tweaks live in a separate workflow. Always ship at least one 
-        tangible correction, keep the diff small and reviewable, and ensure 
-        linters and tests still pass after the tidy-up.
+        imports/exports, namespacing, etc. to match established conventions, and lean on 
+        tools like Prettier/ESLint settings where possible/applicable. The project must 
+        adhere strictly to the style guide defined in AGENTS.md. Avoid touching control 
+        flow or behavioural logic; those tweaks live in a separate workflow. Always ship 
+        at least one tangible correction, keep the diff small and reviewable, and ensure 
+        there are no linting or test regressions after the tidy-up.

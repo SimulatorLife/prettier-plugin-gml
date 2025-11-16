@@ -23,6 +23,7 @@
 - Each top-level module's root index.js must serve as the sole public API surface and should export **one namespace** (e.g., export * as Transpiler from "./src/transpiler/index.js";) with no implementation logic; internal files must never import through this public namespace layer and should instead use direct relative imports, reserving namespace-style exports exclusively for the external API shape.
 - Do not create “pass-through” modules that simply import symbols from another package and re-export them; files should always import the specific functions or values they need directly at the point of use rather than acting as proxy exporters, ensuring each module exposes only its own public API and avoiding unnecessary indirection, and if you encounter an existing pass-through file, remove it and update callers to import the required symbols directly.
 - Avoid legacy-behaior support; always implement the current, forward-looking design without adding compatibility layers or transitional code.
+- When importing from another top-level package, always import the package’s **single exported namespace** (e.g., import * as Core from "@gml-modules/core"), and **do not destructure** that namespace into individual symbols; external consumers must always call functions or access exports via the namespace object (e.g., Core.toMutableArray(...)). Destructuring is allowed only for internal imports within the same package, where direct relative paths must be used instead of importing through the package’s public namespace.
 
 ## Avoid Over-Extending the System
 
