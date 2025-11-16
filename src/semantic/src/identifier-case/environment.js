@@ -1,7 +1,8 @@
 import { Core } from "@gml-modules/core";
 import { bootstrapIdentifierCaseProjectIndex } from "./project-index-gateway.js";
 import {
-    prepareIdentifierCasePlan, captureIdentifierCasePlanSnapshot
+    prepareIdentifierCasePlan,
+    captureIdentifierCasePlanSnapshot
 } from "./plan-service.js";
 
 import {
@@ -10,7 +11,9 @@ import {
 } from "./option-store.js";
 import { warnWithReason } from "./logger.js";
 
-const { Utils: { isObjectLike, noop, withObjectLike } } = Core;
+const {
+    Utils: { isObjectLike, noop, withObjectLike }
+} = Core;
 
 const IDENTIFIER_CASE_LOGGER_NAMESPACE = "identifier-case";
 

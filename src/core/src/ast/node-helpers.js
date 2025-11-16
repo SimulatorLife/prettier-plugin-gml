@@ -756,9 +756,9 @@ export {
     unwrapParenthesizedExpression,
     isVariableDeclarationOfKind,
     isVarVariableDeclaration,
-    createIdentifierNode
-    ,getIdentifierDetails
-    ,getIdentifierName
-    ,isBinaryOperator
-    ,getStructPropertyAccess
+    createIdentifierNode,
+    getIdentifierDetails,
+    getIdentifierName,
+    isBinaryOperator,
+    getStructPropertyAccess
 };

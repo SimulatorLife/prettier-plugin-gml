@@ -1,4 +1,3 @@
-
 import { Core } from "@gml-modules/core";
 
 const {
@@ -8,8 +7,6 @@ const {
     },
     Utils: { createResolverController }
 } = Core;
-
-
 
 export { GameMakerSyntaxError } from "./src/gml-syntax-error.js";
 export {
@@ -46,4 +43,4 @@ export {
     getStructPropertyAccess,
     isBinaryOperator
 } from "./src/ast/node-helpers.js";
-export {default, getLineBreakCount} from "./src/gml-parser.js";
+export { default, getLineBreakCount } from "./src/gml-parser.js";

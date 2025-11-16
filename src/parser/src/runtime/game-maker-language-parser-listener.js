@@ -2,11 +2,14 @@ import { Core } from "@gml-modules/core";
 import { GameMakerLanguageParserListenerBase } from "../generated-bindings.js";
 import { VISIT_METHOD_NAMES } from "./game-maker-language-parser-visitor.js";
 import {
-    definePrototypeMethods, deriveListenerMethodNames, toDelegate
+    definePrototypeMethods,
+    deriveListenerMethodNames,
+    toDelegate
 } from "./parse-tree-helpers.js";
 
-const { Utils: { noop } } = Core;
-
+const {
+    Utils: { noop }
+} = Core;
 
 const DEFAULT_LISTENER_DELEGATE = ({ fallback = noop }) => fallback();
 

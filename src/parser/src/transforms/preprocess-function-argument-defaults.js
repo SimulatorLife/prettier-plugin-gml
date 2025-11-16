@@ -365,10 +365,29 @@ function preprocessFunctionDeclaration(node, helpers) {
             type: "DefaultParameter",
             left: currentParam,
             right: match.fallbackExpression,
-            _featherOptionalParameter: false
+            // When the parser detected a fallbackExpression from an
+            // argument_count guard, that indicates the parameter was
+            // intended as optional by the parser/transforms. Preserve
+            // that intent so downstream consumers print accordingly.
+            _featherOptionalParameter: true
         };
 
         node.params[paramInfo.index] = defaultParamNode;
+    }
+
+    // When we've converted an in-body argument_count fallback into a
+    // DefaultParameter, remove the original guard statement so the
+    // function body no longer contains the redundant assignment/if.
+    // This mirrors the behavior already applied for the var+if
+    // condensation earlier and keeps the AST canonical.
+    for (const match of matches) {
+        if (!match || !match.statementNode) {
+            continue;
+        }
+
+        statementsToRemove.add(match.statementNode);
+        appliedChanges = true;
+        body._gmlForceInitialBlankLine = true;
     }
 
     // Remove matched fallback statements in reverse order to keep indices stable.
@@ -400,19 +419,57 @@ function preprocessFunctionDeclaration(node, helpers) {
                 continue;
             }
 
-            // If a prior transform already produced a DefaultParameter node but
-            // left the `right` slot null, materialize it as `undefined` and
-            // mark it as feather-optional. That counts as a default for
+            // If a prior transform already produced a DefaultParameter node
+            // but left the `right` slot null, materialize it as `undefined`
+            // and mark it as feather-optional. That counts as a default for
             // subsequent identifiers to the right.
+            // Also treat AssignmentPattern (e.g. `x = 1`) as an explicit
+            // default to the left so that trailing identifiers are
+            // materialized as optional as expected by the plugin tests.
             if (param.type === "DefaultParameter") {
                 if (param.right == null) {
+                    // Materialize a missing right-hand side as an `undefined`
+                    // identifier. This is a synthetic placeholder and should
+                    // NOT be treated as an authoritative parser-intent
+                    // optional marker. Only parameters that were explicitly
+                    // intended as optional by the parser/transforms should
+                    // carry `_featherOptionalParameter = true`.
                     param.right = { type: "Identifier", name: "undefined" };
                     try {
-                        param._featherOptionalParameter = true;
+                        // Materialized missing RHS is a synthetic placeholder
+                        // and should NOT be treated as an authoritative
+                        // parser-intent optional marker. Leave the flag
+                        // unset or false so downstream printers omit
+                        // optional syntax unless the parser explicitly
+                        // declared the parameter optional.
+                        param._featherOptionalParameter = false;
                     } catch {}
                     changed = true;
+                } else {
+                    // If a DefaultParameter already has a concrete right-hand
+                    // side but lacks an explicit `_featherOptionalParameter`
+                    // annotation, treat it as a parser-intended optional
+                    // parameter. This covers cases where an upstream parser
+                    // transform produced a complete DefaultParameter node
+                    // but didn't set the flag—such parameters should be
+                    // considered authoritative for downstream printing and
+                    // doc generation. Do not override an explicit boolean
+                    // value if present.
+                    try {
+                        if (param._featherOptionalParameter == null) {
+                            param._featherOptionalParameter = true;
+                        }
+                    } catch {}
                 }
+                seenDefaultToLeft = true;
+                continue;
+            }
 
+            // Treat source-level assignment patterns (e.g. `param = 1`) as an
+            // explicit default to the left so trailing bare identifiers are
+            // materialized. Do not mutate AssignmentPattern nodes themselves;
+            // just record that we've seen a default to the left.
+            if (param.type === "AssignmentPattern") {
                 seenDefaultToLeft = true;
                 continue;
             }
@@ -427,6 +484,13 @@ function preprocessFunctionDeclaration(node, helpers) {
                         type: "DefaultParameter",
                         left: param,
                         right: { type: "Identifier", name: "undefined" },
+                        // Trailing parameters that follow an explicit
+                        // DefaultParameter are intended to be optional by
+                        // the parser's transformation (they were materialized
+                        // to preserve call-site positions). Mark these as
+                        // parser-intended optional so downstream printers
+                        // and doc generators emit the expected optional
+                        // syntax.
                         _featherOptionalParameter: true
                     };
 
@@ -577,7 +641,43 @@ function preprocessFunctionDeclaration(node, helpers) {
             return null;
         }
 
-        // Pattern A: assignment writes into an `argumentN` target (e.g. `argument0 = foo;`)
+        // Pattern B (prefer): assignment reads from an `argument[index]` on
+        // the RHS and assigns into a local variable (e.g.
+        // `setting = argument[1];`). Detect this first so we don't
+        // mis-classify such assignments as Pattern A (assignment into a
+        // local identifier whose RHS may also look like an argument
+        // projection).
+        if (right && right.type === "MemberIndexExpression") {
+            const single = getSingleMemberIndexPropertyEntry(right);
+            if (single) {
+                const indexText = helpers.getIdentifierText(single);
+                const indexNumber = Number(indexText);
+                if (
+                    !Number.isNaN(indexNumber) &&
+                    indexNumber === argumentIndex
+                ) {
+                    // If the LHS is a local identifier, expose it as the
+                    // targetName so callers can map this projection back
+                    // to a parameter with the same name.
+                    if (left && left.type === "Identifier") {
+                        const leftName = getIdentifierText(left);
+                        return {
+                            argumentExpression: right,
+                            targetName: leftName
+                        };
+                    }
+
+                    return { argumentExpression: right };
+                }
+            }
+        }
+
+        // Pattern A: assignment writes into an `argumentN` target
+        // (e.g. `argument0 = foo;`) or into a local identifier
+        // (e.g. `arg = foo;`). When the left-hand side is a plain
+        // identifier that is NOT an `argumentN` target, treat that
+        // identifier as the projected parameter name (`targetName`) so
+        // downstream logic can match it against declared parameters.
         if (left.type === "Identifier") {
             const name = getIdentifierText(left);
             if (name && name.toLowerCase().startsWith("argument")) {
@@ -586,6 +686,12 @@ function preprocessFunctionDeclaration(node, helpers) {
                 if (!Number.isNaN(idx) && idx === argumentIndex) {
                     return { fallbackExpression: right };
                 }
+            } else if (name) {
+                // Assignment into a local identifier that projects the
+                // argument value (or a fallback) — capture the local
+                // identifier name so we can correlate it with a
+                // parameter of the same name.
+                return { fallbackExpression: right, targetName: name };
             }
         }
 
@@ -599,22 +705,6 @@ function preprocessFunctionDeclaration(node, helpers) {
             const indexNumber = Number(indexText);
             if (!Number.isNaN(indexNumber) && indexNumber === argumentIndex) {
                 return { fallbackExpression: right };
-            }
-        }
-
-        // Pattern B: assignment reads from an `argument[index]` on the RHS
-        // and assigns into a local variable (e.g. `setting = argument[1];`).
-        if (right && right.type === "MemberIndexExpression") {
-            const single = getSingleMemberIndexPropertyEntry(right);
-            if (single) {
-                const indexText = helpers.getIdentifierText(single);
-                const indexNumber = Number(indexText);
-                if (
-                    !Number.isNaN(indexNumber) &&
-                    indexNumber === argumentIndex
-                ) {
-                    return { argumentExpression: right };
-                }
             }
         }
 
@@ -647,30 +737,37 @@ function preprocessFunctionDeclaration(node, helpers) {
         // equality/inequality so a broader set of real-world parser
         // patterns are recognized.
         switch (operator) {
-            case "<":
+            case "<": {
                 // e.g. if (argument_count < 2) => missing argument index 1
                 return { argumentIndex: rightNumber - 1 };
-            case "<=":
+            }
+            case "<=": {
                 // e.g. if (argument_count <= 1) => missing argument index 1
                 return { argumentIndex: rightNumber };
-            case ">":
+            }
+            case ">": {
                 // e.g. if (argument_count > 0) => presence of argument 0
                 return { argumentIndex: rightNumber };
-            case ">=":
+            }
+            case ">=": {
                 // e.g. if (argument_count >= 1) => presence of argument 1
                 return { argumentIndex: rightNumber - 1 };
+            }
             case "==":
-            case "===":
+            case "===": {
                 return { argumentIndex: rightNumber };
+            }
             case "!=":
-            case "!==":
+            case "!==": {
                 // Negated equality commonly guards the opposite branch; map
                 // to the same index so callers can reason about the guarded
                 // argument position and then inspect the consequent/alternate
                 // forms to determine fallback vs argument projection.
                 return { argumentIndex: rightNumber };
-            default:
+            }
+            default: {
                 return null;
+            }
         }
     }
 

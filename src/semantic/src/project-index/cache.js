@@ -246,8 +246,11 @@ function validateCachePayload(payload) {
         return false;
     }
 
+    // Allow `metricsSummary` to be omitted, to be an object, or explicitly
+    // `null` (null indicates no metrics were collected). Treat any other
+    // non-object value as invalid.
     if (
-        payload.metricsSummary !== undefined &&
+        payload.metricsSummary != null &&
         !isObjectLike(payload.metricsSummary)
     ) {
         return false;

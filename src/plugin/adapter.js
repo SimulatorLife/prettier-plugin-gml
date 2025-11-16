@@ -45,8 +45,6 @@ export function parseForPrettier(source, prettierOptions = {}) {
     return runPipeline(source, pipelineConfig, transformOpts);
 }
 
-
-
 function runPipeline(source, pipelineConfig, transformOptions) {
     const ast = coreParse(source, pipelineConfig?.parser);
     const transformEntries = pipelineConfig?.transforms ?? {};
@@ -58,5 +56,5 @@ function runPipeline(source, pipelineConfig, transformOptions) {
         return ast;
     }
 
-return applyTransforms(ast, transformNames, transformOptions);
+    return applyTransforms(ast, transformNames, transformOptions);
 }

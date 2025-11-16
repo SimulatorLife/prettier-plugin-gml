@@ -93,6 +93,18 @@ export class GmlToJsEmitter {
         if (!ast) return "";
 
         switch (ast.type) {
+            case "DefaultParameter": {
+                // Parameters with defaults: emit as `left = right` so the
+                // generated JavaScript keeps the default initializer. Both
+                // left and right may be AST nodes (identifiers or expressions).
+                if (ast.right == null) {
+                    // Some parser outputs use DefaultParameter with a null
+                    // `right` when no explicit default was present in the
+                    // source. Treat that as a plain identifier parameter.
+                    return this.visit(ast.left);
+                }
+                return `${this.visit(ast.left)} = ${this.visit(ast.right)}`;
+            }
             case "Literal": {
                 return String(ast.value);
             }

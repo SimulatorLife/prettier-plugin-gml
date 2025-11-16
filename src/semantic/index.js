@@ -1,10 +1,10 @@
 import * as _IdentifierCase from "./src/identifier-case/index.js";
 import {
-	getIdentifierCaseRenameForNode,
-	captureIdentifierCasePlanSnapshot,
-	applyIdentifierCasePlanSnapshot,
-	maybeReportIdentifierCaseDryRun,
-	teardownIdentifierCaseEnvironment
+    getIdentifierCaseRenameForNode,
+    captureIdentifierCasePlanSnapshot,
+    applyIdentifierCasePlanSnapshot,
+    maybeReportIdentifierCaseDryRun,
+    teardownIdentifierCaseEnvironment
 } from "./src/index.js";
 
 // Build a stable, frozen IdentifierCase namespace that merges the richer
@@ -13,13 +13,13 @@ import {
 // that destructure helpers (printer/tests) always see the expected symbols
 // available at import time.
 export const IdentifierCase = Object.freeze(
-	Object.assign({}, _IdentifierCase, {
-		getIdentifierCaseRenameForNode,
-		captureIdentifierCasePlanSnapshot,
-		applyIdentifierCasePlanSnapshot,
-		maybeReportIdentifierCaseDryRun,
-		teardownIdentifierCaseEnvironment
-	})
+    Object.assign({}, _IdentifierCase, {
+        getIdentifierCaseRenameForNode,
+        captureIdentifierCasePlanSnapshot,
+        applyIdentifierCasePlanSnapshot,
+        maybeReportIdentifierCaseDryRun,
+        teardownIdentifierCaseEnvironment
+    })
 );
 export * as ProjectIndex from "./src/project-index/index.js";
 export * as Scopes from "./src/scopes/index.js";

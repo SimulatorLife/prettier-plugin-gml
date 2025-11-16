@@ -486,8 +486,7 @@ function createTargetExtensionSet(extensions) {
 }
 
 let targetExtensionSet = createTargetExtensionSet(targetExtensions);
-let placeholderExtension =
-    targetExtensions[0] ?? DEFAULT_EXTENSIONS[0];
+let placeholderExtension = targetExtensions[0] ?? DEFAULT_EXTENSIONS[0];
 
 /**
  * Apply CLI configuration that influences which files are formatted.
@@ -500,8 +499,7 @@ function configureTargetExtensionState(configuredExtensions) {
             ? configuredExtensions
             : DEFAULT_EXTENSIONS;
     targetExtensionSet = createTargetExtensionSet(targetExtensions);
-    placeholderExtension =
-        targetExtensions[0] ?? DEFAULT_EXTENSIONS[0];
+    placeholderExtension = targetExtensions[0] ?? DEFAULT_EXTENSIONS[0];
 }
 
 function shouldFormatFile(filePath) {

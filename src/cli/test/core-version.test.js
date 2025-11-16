@@ -8,7 +8,10 @@ import path from "node:path";
 
 // Read package.json synchronously to avoid using `require` in ESM modules.
 const cliPackageVersion = JSON.parse(
-    fs.readFileSync(path.resolve(new URL("../package.json", import.meta.url)), "utf8")
+    fs.readFileSync(
+        path.resolve(new URL("../package.json", import.meta.url)),
+        "utf8"
+    )
 ).version;
 
 describe("resolveCliVersion", { concurrency: 1 }, () => {

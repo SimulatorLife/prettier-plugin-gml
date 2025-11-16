@@ -12,7 +12,7 @@
  * @param {string} name
  */
 export function sym(kind, name) {
-  return `gml/${kind}/${name}`;
+    return `gml/${kind}/${name}`;
 }
 
 export default { sym };

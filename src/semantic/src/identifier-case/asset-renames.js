@@ -19,7 +19,11 @@ import {
 } from "./options.js";
 
 const {
-    getOrCreateMapEntry, isNonEmptyArray, isNonEmptyString, toNormalizedLowerCaseString } = Core;
+    getOrCreateMapEntry,
+    isNonEmptyArray,
+    isNonEmptyString,
+    toNormalizedLowerCaseString
+} = Core;
 
 const RESERVED_IDENTIFIER_NAMES = loadReservedIdentifierNames();
 
