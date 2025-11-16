@@ -8,7 +8,8 @@ import {
 import { gmlParserAdapter } from "../src/parsers/index.js";
 import { print } from "../src/printer/index.js";
 import { handleComments, printComment } from "../src/comments/public-api.js";
-import { identifierCaseOptions } from "@gml-modules/semantic";
+import { IdentifierCase } from "@gml-modules/semantic";
+const { identifierCaseOptions } = IdentifierCase;
 import { LogicalOperatorsStyle } from "../src/options/logical-operators-style.js";
 
 test("default implementation bundle is frozen and reuses canonical references", () => {
