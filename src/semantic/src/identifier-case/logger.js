@@ -7,7 +7,10 @@ const {
 const DEFAULT_WARNING_FALLBACK = "Unknown error";
 
 function resolveWarningReason(candidates, fallback = DEFAULT_WARNING_FALLBACK) {
-    const stack = [...candidates].reverse();
+    const stack = [];
+    for (let i = candidates.length - 1; i >= 0; i--) {
+        stack.push(candidates[i]);
+    }
 
     while (stack.length > 0) {
         const candidate = stack.pop();

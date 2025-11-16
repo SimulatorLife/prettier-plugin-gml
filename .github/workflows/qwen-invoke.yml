@@ -38,4 +38,4 @@ jobs:
         export OPENAI_BASE_URL="https://openrouter.ai/api/v1"
         export OPENAI_MODEL="qwen/qwen3-coder:free"
 
-        qwen --openai-api-key "${OPENAI_API_KEY}" --openai-base-url="${OPENAI_BASE_URL}" --model="${OPENAI_MODEL}" --prompt "${ADDITIONAL_CONTEXT}"
+        qwen --yolo --openai-api-key "${OPENAI_API_KEY}" --openai-base-url="${OPENAI_BASE_URL}" --model="${OPENAI_MODEL}" --prompt "${ADDITIONAL_CONTEXT}"

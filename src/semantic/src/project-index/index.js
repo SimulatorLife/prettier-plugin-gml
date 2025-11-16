@@ -1,9 +1,5 @@
 import path from "node:path";
 import { Core } from "@gml-modules/core";
-const {
-    Utils: { asArray, assertFunction, getLineBreakSpans, getOrCreateMapEntry, hasOwn, isNonEmptyArray, isObjectLike, isWordChar, pushUnique },
-    AST: { buildFileLocationKey, buildLocationKey, cloneLocation, getCallExpressionIdentifier },
-    FS: { isFsErrorCode } } = Core;
 
 import { defaultFsFacade } from "./fs-facade.js";
 import { clampConcurrency } from "./concurrency.js";
@@ -34,6 +30,27 @@ import {
     assertValidIdentifierRole
 } from "./identifier-roles.js";
 
+const {
+    Utils: {
+        asArray,
+        assertFunction,
+        getLineBreakSpans,
+        getOrCreateMapEntry,
+        hasOwn,
+        isNonEmptyArray,
+        isObjectLike,
+        isWordChar,
+        pushUnique
+    },
+    AST: {
+        buildFileLocationKey,
+        buildLocationKey,
+        cloneLocation,
+        getCallExpressionIdentifier
+    },
+    FS: { isFsErrorCode }
+} = Core;
+
 /**
  * Create shallow clones of common entry collections stored on project index
  * records (for example declaration/reference lists). Guarding against
@@ -48,7 +65,7 @@ function cloneEntryCollections(entry, ...keys) {
 }
 
 export function createProjectIndexCoordinator(options = {}) {
-    import {
+    const {
         fsFacade = defaultFsFacade,
         loadCache = loadProjectIndexCache,
         saveCache = saveProjectIndexCache,
@@ -164,7 +181,7 @@ function ensureIdentifierCollectionEntry({
     return ensureCollectionEntry(collection, key, () => {
         const initializerValue =
             typeof initializer === "function" ? initializer() : initializer;
-        import {
+        const {
             declarations: initialDeclarations,
             references: initialReferences,
             ...rest

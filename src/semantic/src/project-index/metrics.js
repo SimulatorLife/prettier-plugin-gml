@@ -87,7 +87,7 @@ function createMetricsSnapshot(extra = {}) {
 const NOOP_METRIC_RECORDING_GROUPS = Object.freeze({
     timers: Object.freeze({
         startTimer: () => () => {},
-        timeAsync: async (_label, callback) => await callback(),
+        timeAsync: async (_label, callback) => callback(),
         timeSync: (_label, callback) => callback()
     }),
     counters: Object.freeze({

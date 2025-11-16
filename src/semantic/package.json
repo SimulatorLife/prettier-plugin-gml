@@ -22,7 +22,11 @@
     "./sem-oracle/*": "./src/sem-oracle/*"
   },
   "dependencies": {
-    "@gml-modules/core": "0.0.0"
+    "@gml-modules/core": "0.0.0",
+    "@gml-modules/parser": "0.0.1"
+  },
+  "devDependencies": {
+    "prettier-plugin-gamemaker": "0.0.0"
   },
   "scripts": {
     "test": "node --test test/*.test.js"

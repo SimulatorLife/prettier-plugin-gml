@@ -435,7 +435,13 @@ test("getScopeSymbols returns all unique symbol names in a scope", () => {
 
     const symbols = tracker.getScopeSymbols(scope.id);
 
-    assert.deepStrictEqual([...symbols].sort(), ["param1", "param2"]);
+    const sortedSymbols = [...symbols].reduce((acc, item) => {
+        const insertIndex = acc.findIndex((existing) => existing > item);
+        return insertIndex === -1
+            ? [...acc, item]
+            : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
+    }, []);
+    assert.deepStrictEqual(sortedSymbols, ["param1", "param2"]);
 });
 
 test("getScopeSymbols returns empty array for non-existent scope", () => {
@@ -659,7 +665,18 @@ test("getScopeDefinitions returns declarations defined in specific scope", () =>
     assert.strictEqual(outerDefs[0].metadata.scopeId, outerScope.id);
 
     assert.strictEqual(innerDefs.length, 2);
-    const innerNames = innerDefs.map((d) => d.name).sort();
+    const innerNames = innerDefs
+        .map((d) => d.name)
+        .reduce((acc, item) => {
+            const insertIndex = acc.findIndex((existing) => existing > item);
+            return insertIndex === -1
+                ? [...acc, item]
+                : [
+                      ...acc.slice(0, insertIndex),
+                      item,
+                      ...acc.slice(insertIndex)
+                  ];
+        }, []);
     assert.deepStrictEqual(innerNames, ["anotherInner", "innerVar"]);
 });
 

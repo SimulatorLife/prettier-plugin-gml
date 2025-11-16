@@ -2,8 +2,6 @@ import { Core } from "@gml-modules/core";
 import { formatIdentifierCase } from "./identifier-case-utils.js";
 import { peekIdentifierCaseDryRunContext } from "./identifier-case-context.js";
 import { buildRenameKey } from "./plan-state.js";
-const {
-    asArray, coalesceOption, createMetricsTracker, getIterableSize, getNonEmptyString, getOrCreateMapEntry, isNonEmptyArray, isNonEmptyString, isObjectLike, toNormalizedLowerCaseString } = Core;
 
 import {
     normalizeIdentifierCaseOptions,
@@ -28,6 +26,19 @@ import {
 import { planAssetRenames, applyAssetRenames } from "./asset-renames.js";
 import { getDefaultIdentifierCaseFsFacade } from "./fs-facade.js";
 import { evaluateIdentifierCaseAssetRenamePolicy } from "./asset-rename-policy.js";
+
+const {
+    asArray,
+    coalesceOption,
+    createMetricsTracker,
+    getIterableSize,
+    getNonEmptyString,
+    getOrCreateMapEntry,
+    isNonEmptyArray,
+    isNonEmptyString,
+    isObjectLike,
+    toNormalizedLowerCaseString
+} = Core;
 
 function getScopeDisplayName(scopeRecord, fallback = "<unknown>") {
     if (!isObjectLike(scopeRecord)) {
@@ -1133,7 +1144,7 @@ export async function prepareIdentifierCasePlan(options) {
 
     for (const candidate of appliedCandidates) {
         metrics.counters.increment("locals.operations", 1);
-        import { declaration, convertedName, references } = candidate;
+        const { declaration, convertedName, references } = candidate;
         const scopeDescriptor = createScopeDescriptor(
             projectIndex,
             fileRecord,

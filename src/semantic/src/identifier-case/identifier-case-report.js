@@ -17,7 +17,16 @@ import { consumeIdentifierCaseDryRunContext } from "./identifier-case-context.js
 import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
 
 const {
-    asArray, compactArray, coalesceOption, coalesceTrimmedString, incrementMapValue, isNonEmptyArray, isObjectLike, toArray, withObjectLike } = Core;
+    asArray,
+    compactArray,
+    coalesceOption,
+    coalesceTrimmedString,
+    incrementMapValue,
+    isNonEmptyArray,
+    isObjectLike,
+    toArray,
+    withObjectLike
+} = Core;
 
 const REPORT_NAMESPACE = "gml-identifier-case";
 const LOG_VERSION = 1;
@@ -137,9 +146,19 @@ function normalizeOperation(rawOperation) {
             const referenceCandidates = compactArray(
                 toArray(operation.references).map(normalizeReference)
             );
-            const references = [...referenceCandidates].sort((a, b) =>
-                a.filePath.localeCompare(b.filePath)
-            );
+            const references = referenceCandidates.reduce((acc, item) => {
+                const insertIndex = acc.findIndex(
+                    (existing) =>
+                        existing.filePath.localeCompare(item.filePath) > 0
+                );
+                return insertIndex === -1
+                    ? [...acc, item]
+                    : [
+                          ...acc.slice(0, insertIndex),
+                          item,
+                          ...acc.slice(insertIndex)
+                      ];
+            }, []);
 
             const occurrenceCount = references.reduce(
                 (total, reference) => total + (reference.occurrences ?? 0),
@@ -219,23 +238,29 @@ function normalizeConflict(rawConflict) {
 }
 
 function sortOperations(operations) {
-    return [...operations].sort((left, right) => {
-        const scopeCompare = (left.scopeName ?? "").localeCompare(
-            right.scopeName ?? ""
-        );
-        if (scopeCompare !== 0) {
-            return scopeCompare;
-        }
+    return operations.reduce((acc, item) => {
+        const insertIndex = acc.findIndex((existing) => {
+            const scopeCompare = (existing.scopeName ?? "").localeCompare(
+                item.scopeName ?? ""
+            );
+            if (scopeCompare !== 0) {
+                return scopeCompare > 0;
+            }
 
-        const fromCompare = (left.fromName ?? "").localeCompare(
-            right.fromName ?? ""
-        );
-        if (fromCompare !== 0) {
-            return fromCompare;
-        }
+            const fromCompare = (existing.fromName ?? "").localeCompare(
+                item.fromName ?? ""
+            );
+            if (fromCompare !== 0) {
+                return fromCompare > 0;
+            }
 
-        return (left.toName ?? "").localeCompare(right.toName ?? "");
-    });
+            return (existing.toName ?? "").localeCompare(item.toName ?? "") > 0;
+        });
+
+        return insertIndex === -1
+            ? [...acc, item]
+            : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
+    }, []);
 }
 
 function sortConflicts(conflicts) {
@@ -245,22 +270,28 @@ function sortConflicts(conflicts) {
         ["info", 2]
     ]);
 
-    return [...conflicts].sort((left, right) => {
-        const severityA = severityOrder.get(left.severity) ?? 99;
-        const severityB = severityOrder.get(right.severity) ?? 99;
-        if (severityA !== severityB) {
-            return severityA - severityB;
-        }
+    return conflicts.reduce((acc, item) => {
+        const itemSeverity = severityOrder.get(item.severity) ?? 99;
+        const insertIndex = acc.findIndex((existing) => {
+            const existingSeverity = severityOrder.get(existing.severity) ?? 99;
+            if (existingSeverity !== itemSeverity) {
+                return existingSeverity > itemSeverity;
+            }
 
-        const scopeCompare = (left.scope.displayName ?? "").localeCompare(
-            right.scope.displayName ?? ""
-        );
-        if (scopeCompare !== 0) {
-            return scopeCompare;
-        }
+            const scopeCompare = (
+                existing.scope.displayName ?? ""
+            ).localeCompare(item.scope.displayName ?? "");
+            if (scopeCompare !== 0) {
+                return scopeCompare > 0;
+            }
 
-        return left.message.localeCompare(right.message);
-    });
+            return existing.message.localeCompare(item.message) > 0;
+        });
+
+        return insertIndex === -1
+            ? [...acc, item]
+            : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
+    }, []);
 }
 
 function pluralize(value, suffix = "s") {

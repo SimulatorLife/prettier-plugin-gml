@@ -566,7 +566,7 @@ export class GmlToJsEmitter {
         if (ast.cases && ast.cases.length > 0) {
             result += ast.cases
                 .map((caseNode) => {
-                    let caseStr = "";
+                    let caseStr;
                     caseStr =
                         caseNode.test === null
                             ? "default:\n"

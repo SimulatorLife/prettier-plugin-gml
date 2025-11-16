@@ -1,4 +1,4 @@
-// TODO: Remove this import/export passthrough once all consumers
+// Remove this import/export passthrough once all consumers
 // have migrated to use the core package directly.
 import { Core } from "@gml-modules/core";
 

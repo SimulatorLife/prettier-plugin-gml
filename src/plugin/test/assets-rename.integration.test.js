@@ -4,8 +4,11 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { buildProjectIndex } from "@gml-modules/semantic";
-import { planAssetRenames, applyAssetRenames } from "@gml-modules/semantic";
+import {
+    buildProjectIndex,
+    planAssetRenames,
+    applyAssetRenames
+} from "@gml-modules/semantic";
 import { Core } from "@gml-modules/core";
 
 const {

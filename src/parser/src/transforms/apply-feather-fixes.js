@@ -1,4 +1,16 @@
-import GMLParser from "../gml-parser.js";
+// Avoid importing the top-level gml-parser which re-exports transforms
+// (including this module) — that creates a static dependency cycle with
+// the transforms index. For the small example-parsing needs in this
+// module we use the lexer+parser+AST builder directly so we can parse
+// example snippets synchronously without pulling in the transforms
+// registry.
+import antlr4, { PredictionMode } from "antlr4";
+import GameMakerLanguageLexer from "../generated/GameMakerLanguageLexer.js";
+import GameMakerLanguageParser from "../generated/GameMakerLanguageParser.js";
+import GameMakerASTBuilder from "../gml-ast-builder.js";
+import GameMakerParseErrorListener, {
+    GameMakerLexerErrorListener
+} from "../gml-syntax-error.js";
 import { Core } from "@gml-modules/core";
 import {
     collectCommentNodes,
@@ -125,6 +137,36 @@ function resolveCallExpressionArrayContext(node, parent, property) {
         siblings: parent,
         index: property
     };
+}
+
+function parseExample(sourceText) {
+    if (typeof sourceText !== "string" || sourceText.length === 0) {
+        return null;
+    }
+
+    try {
+        const chars = new antlr4.InputStream(sourceText);
+        const lexer = new GameMakerLanguageLexer(chars);
+        lexer.removeErrorListeners();
+        lexer.addErrorListener(new GameMakerLexerErrorListener());
+        lexer.strictMode = false;
+        const tokens = new antlr4.CommonTokenStream(lexer);
+        const parser = new GameMakerLanguageParser(tokens);
+
+        parser._interp.predictionMode = PredictionMode.SLL;
+        parser.removeErrorListeners();
+        parser.addErrorListener(new GameMakerParseErrorListener());
+
+        const tree = parser.program();
+        const builder = new GameMakerASTBuilder(
+            { getLocations: true, simplifyLocations: false },
+            []
+        );
+        return builder.build(tree);
+    } catch {
+        // Parsing example failed — return null and let caller handle absence
+        return null;
+    }
 }
 
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
@@ -7600,8 +7642,6 @@ function ensureVertexBatchesClosed(statements, diagnostic) {
                     fixes.push(fixDetail);
                     index += 1;
                 }
-
-                lastBeginCall = null;
             }
 
             lastBeginCall = statement;
@@ -11932,7 +11972,7 @@ function createVertexBeginCallTemplateFromDiagnostic(diagnostic) {
     }
 
     try {
-        const exampleAst = GMLParser.parse(example, {
+        const exampleAst = parseExample(example, {
             getLocations: true,
             simplifyLocations: false
         });
@@ -13027,7 +13067,7 @@ function createFunctionCallTemplateFromDiagnostic(diagnostic) {
     }
 
     try {
-        const exampleAst = GMLParser.parse(example, {
+        const exampleAst = parseExample(example, {
             getLocations: true,
             simplifyLocations: false
         });

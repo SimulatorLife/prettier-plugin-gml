@@ -6,10 +6,8 @@ import { fileURLToPath } from "node:url";
 
 import { describe, it } from "node:test";
 
-import GMLParser from "@gml-modules/parser";
 import prettier from "prettier";
-
-import {
+import GMLParser, {
     applyFeatherFixes,
     getFeatherDiagnosticFixers,
     getRoomNavigationHelpers,

@@ -8,7 +8,12 @@ import {
 } from "../src/resources/reserved-identifiers.js";
 
 function toSortedArray(set) {
-    return Array.from(set).sort();
+    return Array.from(set).reduce((acc, item) => {
+        const insertIndex = acc.findIndex((existing) => existing > item);
+        return insertIndex === -1
+            ? [...acc, item]
+            : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
+    }, []);
 }
 
 test.afterEach(() => {

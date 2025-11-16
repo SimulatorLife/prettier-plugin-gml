@@ -1,8 +1,16 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { getOrCreateMapEntry, isFiniteNumber, isNonEmptyString, isObjectLike } } = Core;
 
 import { IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME } from "./options.js";
 import { getDefaultIdentifierCaseOptionStoreMaxEntries } from "./option-store-defaults.js";
+
+const {
+    Utils: {
+        getOrCreateMapEntry,
+        isFiniteNumber,
+        isNonEmptyString,
+        isObjectLike
+    }
+} = Core;
 
 const optionStoreMap = new Map();
 const STORE_BLOCKLIST = new Set([
@@ -24,7 +32,7 @@ function trimOptionStoreMap(
     }
 
     while (optionStoreMap.size > limit) {
-        import { value, done } = optionStoreMap.keys().next();
+        const { value, done } = optionStoreMap.keys().next();
         if (done) {
             break;
         }
@@ -74,7 +82,7 @@ function getStoreKey(options) {
         return null;
     }
 
-    if (options.__identifierCaseOptionsStoreKey != undefined) {
+    if (options.__identifierCaseOptionsStoreKey !== undefined) {
         return options.__identifierCaseOptionsStoreKey;
     }
 
@@ -108,7 +116,7 @@ function updateStore(options, key, value) {
     }
 
     const storeKey = getStoreKey(options);
-    if (storeKey == undefined) {
+    if (storeKey === undefined) {
         return;
     }
 
@@ -122,7 +130,7 @@ function updateStore(options, key, value) {
 }
 
 function deleteFromStore(storeKey, key) {
-    if (storeKey == undefined) {
+    if (storeKey === undefined) {
         return;
     }
 
@@ -148,7 +156,7 @@ export function setIdentifierCaseOption(options, key, value) {
 }
 
 export function deleteIdentifierCaseOption(options, key) {
-    if (!isObjectLike(options) || key == undefined) {
+    if (!isObjectLike(options) || key === undefined) {
         return;
     }
 
@@ -165,7 +173,7 @@ export function deleteIdentifierCaseOption(options, key) {
 }
 
 export function getIdentifierCaseOptionStore(storeKey) {
-    if (storeKey == undefined) {
+    if (storeKey === undefined) {
         return null;
     }
 
@@ -173,7 +181,7 @@ export function getIdentifierCaseOptionStore(storeKey) {
 }
 
 export function clearIdentifierCaseOptionStore(storeKey) {
-    if (storeKey == undefined) {
+    if (storeKey === undefined) {
         optionStoreMap.clear();
         return;
     }

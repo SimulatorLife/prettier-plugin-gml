@@ -7,7 +7,17 @@ import { defaultFsFacade } from "./fs-facade.js";
 import { getFileMtime, listDirectory } from "./fs-helpers.js";
 
 const {
-    parseJsonWithContext, areNumbersApproximatelyEqual, toFiniteNumber, isObjectLike, createEnvConfiguredValueWithFallback, createAbortGuard, describeValueForError, getNonEmptyTrimmedString, isFsErrorCode, applyConfiguredValueEnvOverride } = Core;
+    parseJsonWithContext,
+    areNumbersApproximatelyEqual,
+    toFiniteNumber,
+    isObjectLike,
+    createEnvConfiguredValueWithFallback,
+    createAbortGuard,
+    describeValueForError,
+    getNonEmptyTrimmedString,
+    isFsErrorCode,
+    applyConfiguredValueEnvOverride
+} = Core;
 
 export const PROJECT_INDEX_CACHE_SCHEMA_VERSION = 1;
 export const PROJECT_INDEX_CACHE_DIRECTORY = ".prettier-plugin-gml";
@@ -237,7 +247,7 @@ function validateCachePayload(payload) {
     }
 
     if (
-        payload.metricsSummary != undefined &&
+        payload.metricsSummary !== undefined &&
         !isObjectLike(payload.metricsSummary)
     ) {
         return false;
@@ -371,7 +381,7 @@ export async function loadProjectIndexCache(
     const projectIndex = {
         ...parsed.projectIndex
     };
-    if (parsed.metricsSummary != undefined) {
+    if (parsed.metricsSummary !== undefined) {
         projectIndex.metrics = parsed.metricsSummary;
     }
 
@@ -496,7 +506,18 @@ export async function deriveCacheKey(
         const entries = await listDirectory(fsFacade, resolvedRoot);
         const manifestNames = entries
             .filter(isProjectManifestPath)
-            .sort((a, b) => a.localeCompare(b));
+            .reduce((acc, item) => {
+                const insertIndex = acc.findIndex(
+                    (existing) => existing.localeCompare(item) > 0
+                );
+                return insertIndex === -1
+                    ? [...acc, item]
+                    : [
+                          ...acc.slice(0, insertIndex),
+                          item,
+                          ...acc.slice(insertIndex)
+                      ];
+            }, []);
 
         for (const manifestName of manifestNames) {
             const manifestPath = path.join(resolvedRoot, manifestName);

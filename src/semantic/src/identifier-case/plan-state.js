@@ -164,8 +164,8 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
         defineHiddenOption(object, "__identifierCasePlanSnapshot", snapshot);
 
         if (
-            snapshot.assetRenamesApplied != undefined &&
-            object.__identifierCaseAssetRenamesApplied == undefined
+            snapshot.assetRenamesApplied !== undefined &&
+            object.__identifierCaseAssetRenamesApplied === undefined
         ) {
             setIdentifierCaseOption(
                 object,

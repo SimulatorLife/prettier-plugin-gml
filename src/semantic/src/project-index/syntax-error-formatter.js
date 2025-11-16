@@ -100,7 +100,7 @@ function buildLocationSuffix(displayPath, lineNumber, columnNumber) {
 
     if (lineNumber !== undefined && lineNumber !== null) {
         const location =
-            columnNumber == undefined
+            columnNumber === undefined
                 ? `line ${lineNumber}`
                 : `line ${lineNumber}, column ${columnNumber}`;
 
@@ -116,7 +116,7 @@ function buildLocationSuffix(displayPath, lineNumber, columnNumber) {
 
 function formatSourceExcerpt(sourceText, lineNumber, columnNumber) {
     if (
-        lineNumber == undefined ||
+        lineNumber === undefined ||
         lineNumber < 1 ||
         typeof sourceText !== "string"
     ) {

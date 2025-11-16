@@ -280,10 +280,19 @@ function normalizeReservedPrefixOverrides(overrides) {
 
     const entries = normalizeStringList(toArrayFromIterable(overrides));
 
-    return entries.sort((a, b) => {
-        const lengthDifference = b.length - a.length;
-        return lengthDifference || (a < b ? -1 : a > b ? 1 : 0);
-    });
+    return entries.reduce((acc, item) => {
+        const insertIndex = acc.findIndex((existing) => {
+            const lengthDifference = existing.length - item.length;
+            if (lengthDifference !== 0) {
+                return lengthDifference < 0;
+            }
+            return existing < item;
+        });
+
+        return insertIndex === -1
+            ? [...acc, item]
+            : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
+    }, []);
 }
 
 function extractReservedPrefixWithOverrides(identifier, overrides) {
