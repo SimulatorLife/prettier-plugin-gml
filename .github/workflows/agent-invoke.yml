@@ -196,7 +196,7 @@ jobs:
         shell: bash
         id: run_agent
         continue-on-error: true
-        timeout-minutes: 50
+        timeout-minutes: 59
         env:
           TITLE: ${{ steps.validate_pr.outputs.pr_title }}
           PR_NUMBER: ${{ inputs.pr_number }}
@@ -226,6 +226,62 @@ jobs:
           echo "----------------------"
 
           bash "$script"
+
+      - name: Auto-commit and push agent changes if needed
+        if: ${{ steps.run_agent.outcome == 'success' }}
+        shell: bash
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          AGENT_NAME: ${{ inputs.agent }}
+          WORKING_BRANCH: ${{ env.WORKING_BRANCH }}
+        run: |
+          set -euo pipefail
+
+          SENTINEL="${RUNNER_TEMP:-/tmp}/.agent_push_succeeded"
+
+          # If the shim already saw a successful git push, don't do anything.
+          if [ -f "$SENTINEL" ]; then
+            echo "[agent] Push sentinel already present; skipping auto-commit/push."
+            exit 0
+          fi
+
+          # Check for any uncommitted changes (staged or unstaged)
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "[agent] No changes detected; nothing to commit."
+            exit 0
+          fi
+
+          echo "[agent] Changes detected; committing and pushing."
+
+          git status
+
+          # Stage everything the agent changed
+          git add -A
+
+          commit_message="chore: apply @${AGENT_NAME} changes for PR #${PR_NUMBER}"
+
+          # Commit may fail if there is nothing staged; treat that as "nothing to do".
+          if git commit -m "$commit_message"; then
+            echo "[agent] Created commit: ${commit_message}"
+          else
+            echo "[agent] git commit failed (likely nothing to commit); aborting auto-push."
+            exit 0
+          fi
+
+          echo "[agent] Pushing branch ${WORKING_BRANCH}..."
+
+          # Because of the git shim, a successful push returns 99, not 0.
+          if git push origin "${WORKING_BRANCH}"; then
+            echo "[agent] git push completed with exit 0 (no shim?)."
+          else
+            code=$?
+            if [ "$code" -eq 99 ]; then
+              echo "[agent] git push succeeded via shim (exit 99)."
+            else
+              echo "[agent] git push failed with code $code"
+              exit $code
+            fi
+          fi
 
       - name: Report outcome
         if: always()
