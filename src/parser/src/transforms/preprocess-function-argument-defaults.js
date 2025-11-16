@@ -452,7 +452,9 @@ function preprocessFunctionDeclaration(node, helpers) {
                         // optional syntax unless the parser explicitly
                         // declared the parameter optional.
                         param._featherOptionalParameter = false;
-                    } catch {}
+                    } catch {
+                        // Swallow errors
+                    }
                     changed = true;
                 } else {
                     // If a DefaultParameter already has a concrete right-hand
@@ -475,7 +477,9 @@ function preprocessFunctionDeclaration(node, helpers) {
                             param._featherOptionalParameter =
                                 !hasUndefinedDefault;
                         }
-                    } catch {}
+                    } catch {
+                        // Swallow errors
+                    }
                 }
                 seenDefaultToLeft = true;
                 continue;
@@ -541,7 +545,9 @@ function preprocessFunctionDeclaration(node, helpers) {
             // minimal plumbing is required downstream.
             node._featherImplicitArgumentDocEntries = implicitInfo;
         }
-    } catch {}
+    } catch {
+        // Swallow errors; this is a best-effort enhancement.
+    }
 
     // Consult any doc comments attached to this function and mark
     // DefaultParameter nodes that have `undefined` on the right with a
@@ -605,7 +611,9 @@ function preprocessFunctionDeclaration(node, helpers) {
                 try {
                     p._featherOptionalParameter =
                         paramDocMap.get(leftName) === true;
-                } catch {}
+                } catch {
+                    // Swallow errors
+                }
                 continue;
             }
 
@@ -614,7 +622,9 @@ function preprocessFunctionDeclaration(node, helpers) {
             if (node.type === "ConstructorDeclaration") {
                 try {
                     p._featherOptionalParameter = true;
-                } catch {}
+                } catch {
+                    // Swallow errors
+                }
                 continue;
             }
 
@@ -623,9 +633,13 @@ function preprocessFunctionDeclaration(node, helpers) {
             // intended them to be optional.
             try {
                 p._featherOptionalParameter = false;
-            } catch {}
+            } catch {
+                // Swallow errors
+            }
         }
-    } catch {}
+    } catch {
+        // Swallow errors
+    }
 
     function matchArgumentCountFallbackVarThenIf(
         varStatement,
