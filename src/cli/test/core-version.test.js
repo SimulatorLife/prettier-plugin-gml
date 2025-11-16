@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
 import { describe, test } from "node:test";
 
 import { resolveCliVersion } from "../src/core/version.js";
 
-const require = createRequire(import.meta.url);
-const { version: cliPackageVersion } = require("../package.json");
+import fs from "node:fs";
+import path from "node:path";
+
+// Read package.json synchronously to avoid using `require` in ESM modules.
+const cliPackageVersion = JSON.parse(
+    fs.readFileSync(path.resolve(new URL("../package.json", import.meta.url)), "utf8")
+).version;
 
 describe("resolveCliVersion", { concurrency: 1 }, () => {
     test("resolveCliVersion prefers the PRETTIER_PLUGIN_GML_VERSION override", () => {

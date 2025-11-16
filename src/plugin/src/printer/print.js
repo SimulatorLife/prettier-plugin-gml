@@ -2713,7 +2713,7 @@ function printStatements(path, options, print, childrenAttribute) {
         const isTopLevel = childPath.parent?.type === "Program";
         const printed = print();
 
-        if (printed == undefined) {
+        if (printed === undefined) {
             return [];
         }
 
@@ -3284,7 +3284,6 @@ export function applyAssignmentAlignment(
                 )
             ) {
                 flushGroup();
-                previousEntry = null;
             }
 
             const isSelfMember = entry.isSelfMemberAssignment === true;
@@ -3885,7 +3884,7 @@ function getSyntheticDocCommentForFunctionAssignment(node, options) {
         return null;
     }
 
-    let assignment = null;
+    let assignment;
     const commentTarget = node;
 
     if (node.type === "ExpressionStatement") {
@@ -4578,7 +4577,7 @@ function mergeSyntheticDocComments(
     if (preserveDescriptionBreaks) {
         normalizedExistingLines._preserveDescriptionBreaks = true;
     }
-    let removedExistingReturnDuplicates = false;
+    let removedExistingReturnDuplicates;
     ({
         lines: normalizedExistingLines,
         removed: removedExistingReturnDuplicates
@@ -4699,7 +4698,6 @@ function mergeSyntheticDocComments(
 
             for (let i = duplicateIndices.length - 1; i >= 0; i--) {
                 mergedLines.splice(duplicateIndices[i], 1);
-                removedAnyLine = true;
             }
 
             mergedLines.splice(firstIndex, 1, ...functionLines);
@@ -4767,7 +4765,6 @@ function mergeSyntheticDocComments(
 
             for (let i = duplicateOverrideIndices.length - 1; i >= 0; i -= 1) {
                 mergedLines.splice(duplicateOverrideIndices[i], 1);
-                removedAnyLine = true;
             }
 
             mergedLines.splice(firstOverrideIndex, 1, ...overrideLines);
@@ -5295,7 +5292,7 @@ function mergeSyntheticDocComments(
 
         if (hasDescription) {
             const hyphenMatch = remainingRemainder.match(/^(\s*-\s*)(.*)$/);
-            let normalizedDescription = "";
+            let normalizedDescription;
             let hyphenSpacing = " - ";
 
             if (hyphenMatch) {
@@ -7261,7 +7258,7 @@ function buildIfStatementDoc(path, options, print, node) {
 }
 
 function buildIfAlternateDoc(path, options, print, node) {
-    if (!node || node.alternate == null) {
+    if (!node || node.alternate === null) {
         return null;
     }
 
@@ -7909,7 +7906,7 @@ function printWithoutExtraParens(path, print, ...keys) {
 }
 
 function getBinaryOperatorInfo(operator) {
-    return operator == undefined
+    return operator === undefined
         ? undefined
         : BINARY_OPERATOR_INFO.get(operator);
 }
@@ -8015,11 +8012,11 @@ function shouldOmitSyntheticParens(path) {
         return true;
     }
 
-    if (expression?.type === "BinaryExpression" && parentInfo != undefined) {
+    if (expression?.type === "BinaryExpression" && parentInfo !== undefined) {
         const childInfo = getBinaryOperatorInfo(expression.operator);
 
         if (
-            childInfo != undefined &&
+            childInfo !== undefined &&
             childInfo.precedence > parentInfo.precedence
         ) {
             if (
@@ -8936,8 +8933,8 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
         const blockStartLine = inlineCandidate.start?.line;
         const blockEndLine = inlineCandidate.end?.line;
         if (
-            blockStartLine == null ||
-            blockEndLine == null ||
+            blockStartLine === null ||
+            blockEndLine === null ||
             blockStartLine !== blockEndLine
         ) {
             return false;
@@ -9059,8 +9056,8 @@ function printSingleClauseStatement(
                     blockSource.includes(";");
                 const canInlineBlock =
                     onlyStatement.type === "ExitStatement" ||
-                    (startLine != undefined &&
-                        endLine != undefined &&
+                    (startLine !== undefined &&
+                        endLine !== undefined &&
                         startLine === endLine);
 
                 if (blockContainsSemicolon && canInlineBlock) {
