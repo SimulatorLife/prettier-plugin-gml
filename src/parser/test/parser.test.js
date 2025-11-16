@@ -8,7 +8,8 @@ import { describe, it } from "node:test";
 import GMLParser from "../gml-parser.js";
 import GameMakerASTBuilder from "../src/gml-ast-builder.js";
 import { Core } from "@gml-modules/core";
-import { ScopeTracker } from "@gml-modules/semantic";
+import { Scopes } from "@gml-modules/semantic";
+const { ScopeTracker } = Scopes;
 
 const {
     Utils: { getLineBreakCount },

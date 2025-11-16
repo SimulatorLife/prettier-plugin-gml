@@ -5,8 +5,8 @@
 // example snippets synchronously without pulling in the transforms
 // registry.
 import antlr4, { PredictionMode } from "antlr4";
-import GameMakerLanguageLexer from "../generated/GameMakerLanguageLexer.js";
-import GameMakerLanguageParser from "../generated/GameMakerLanguageParser.js";
+import GameMakerLanguageLexer from "../../generated/GameMakerLanguageLexer.js";
+import GameMakerLanguageParser from "../../generated/GameMakerLanguageParser.js";
 import GameMakerASTBuilder from "../gml-ast-builder.js";
 import GameMakerParseErrorListener, {
     GameMakerLexerErrorListener
@@ -2761,7 +2761,7 @@ function sanitizeEnumMember(node, diagnostic) {
 }
 
 function hasInvalidEnumInitializer(initializer) {
-    if (initializer == undefined) {
+    if (initializer === undefined) {
         return false;
     }
 
@@ -4506,7 +4506,7 @@ function extractDocumentedParamNames(functionNode, docComments, sourceText) {
             const leftStart = getCommentStartIndex(left);
             const rightStart = getCommentStartIndex(right);
 
-            if (leftStart == null && rightStart == null) {
+            if (leftStart === null && rightStart === null) {
                 return 0;
             }
 
@@ -6503,7 +6503,7 @@ function preserveTrailingCommentAlignmentForVarDeclaration({
         sourceText
     );
 
-    if (commentStartIndex == undefined) {
+    if (commentStartIndex === undefined) {
         return;
     }
 
@@ -7556,7 +7556,7 @@ function replaceNodeInParent(parent, property, replacement) {
         return true;
     }
 
-    if (parent && typeof parent === "object" && property != undefined) {
+    if (parent && typeof parent === "object" && property !== undefined) {
         parent[property] = replacement;
         return true;
     }
@@ -13275,7 +13275,7 @@ function isCoercibleStringLiteral(node) {
         }
     }
 
-    if (literalText == undefined) {
+    if (literalText === undefined) {
         return false;
     }
 
@@ -13743,7 +13743,7 @@ function hasOriginalBlankLineBetween(beforeNode, afterNode) {
     const beforeEndLine = getNodeEndLine(beforeNode);
     const afterStartLine = getNodeStartLine(afterNode);
 
-    if (beforeEndLine == undefined || afterStartLine == undefined) {
+    if (beforeEndLine === undefined || afterStartLine === undefined) {
         return false;
     }
 
