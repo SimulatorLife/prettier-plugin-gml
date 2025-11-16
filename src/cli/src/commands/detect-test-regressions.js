@@ -72,10 +72,10 @@ function decodeEntities(value) {
         return value ?? "";
     }
     return value
-        .replaceAll(/&#x([0-9a-fA-F]+);/g, (_, hex) =>
+        .replaceAll(/&#x(?<hex>[0-9a-fA-F]+);/g, (match, hex) =>
             String.fromCodePoint(Number.parseInt(hex, 16))
         )
-        .replaceAll(/&#([0-9]+);/g, (_, dec) =>
+        .replaceAll(/&#(?<dec>[0-9]+);/g, (match, dec) =>
             String.fromCodePoint(Number.parseInt(dec, 10))
         )
         .replaceAll("&lt;", "<")

@@ -389,36 +389,59 @@ function preprocessFunctionDeclaration(node, helpers) {
         }
 
         let changed = false;
-        for (let i = params.length - 1; i >= 0; i -= 1) {
+        // Materialize identifier parameters that come after (to the right of)
+        // any explicit DefaultParameter. Scan left-to-right and remember when
+        // we've encountered a default so subsequent identifiers can be
+        // converted into DefaultParameter nodes with an `undefined` right.
+        let seenDefaultToLeft = false;
+        for (let i = 0; i < params.length; i += 1) {
             const param = params[i];
             if (!param) {
                 continue;
             }
 
-            // If we have a bare identifier and it lacks an explicit default,
-            // convert it into a DefaultParameter node with an `undefined`
-            // initializer. Tests expect trailing optional parameters to be
-            // represented as DefaultParameter nodes and for the transform to
-            // mark them as feather-optional parameters.
+            // If a prior transform already produced a DefaultParameter node but
+            // left the `right` slot null, materialize it as `undefined` and
+            // mark it as feather-optional. That counts as a default for
+            // subsequent identifiers to the right.
+            if (param.type === "DefaultParameter") {
+                if (param.right == null) {
+                    param.right = { type: "Identifier", name: "undefined" };
+                    try {
+                        param._featherOptionalParameter = true;
+                    } catch {}
+                    changed = true;
+                }
+
+                seenDefaultToLeft = true;
+                continue;
+            }
+
+            // If we've already encountered a DefaultParameter to the left
+            // then bare identifiers to the right should be treated as
+            // implicitly optional and materialized with an explicit
+            // `undefined` initializer.
             if (param.type === "Identifier") {
-                if (param.default === undefined) {
+                if (seenDefaultToLeft) {
                     const defaultParam = {
                         type: "DefaultParameter",
                         left: param,
                         right: { type: "Identifier", name: "undefined" },
-                        // Preserve a marker used by other transforms/tests.
                         _featherOptionalParameter: true
                     };
 
-                    // Replace in-place so callers that read `params` see the
-                    // DefaultParameter shape expected by later logic.
                     params[i] = defaultParam;
                     changed = true;
                 }
+
+                // If we haven't yet seen a default to the left, this
+                // identifier remains required; continue scanning.
                 continue;
             }
 
-            // Already a defaulted parameter or other form; stop scanning backwards.
+            // Any other parameter form stops the left-to-right scanning; it
+            // indicates a non-standard parameter (rest, pattern, etc.) that
+            // should prevent later implicit materialization.
             break;
         }
 
@@ -618,19 +641,37 @@ function preprocessFunctionDeclaration(node, helpers) {
             return null;
         }
 
-        if (operator === "<") {
-            return { argumentIndex: rightNumber - 1 };
+        // Normalize common relational operators into an argument index
+        // that the rest of the matcher logic can use. The mapping below
+        // intentionally covers <= and >= as well as loose/strict
+        // equality/inequality so a broader set of real-world parser
+        // patterns are recognized.
+        switch (operator) {
+            case "<":
+                // e.g. if (argument_count < 2) => missing argument index 1
+                return { argumentIndex: rightNumber - 1 };
+            case "<=":
+                // e.g. if (argument_count <= 1) => missing argument index 1
+                return { argumentIndex: rightNumber };
+            case ">":
+                // e.g. if (argument_count > 0) => presence of argument 0
+                return { argumentIndex: rightNumber };
+            case ">=":
+                // e.g. if (argument_count >= 1) => presence of argument 1
+                return { argumentIndex: rightNumber - 1 };
+            case "==":
+            case "===":
+                return { argumentIndex: rightNumber };
+            case "!=":
+            case "!==":
+                // Negated equality commonly guards the opposite branch; map
+                // to the same index so callers can reason about the guarded
+                // argument position and then inspect the consequent/alternate
+                // forms to determine fallback vs argument projection.
+                return { argumentIndex: rightNumber };
+            default:
+                return null;
         }
-
-        if (operator === ">") {
-            return { argumentIndex: rightNumber };
-        }
-
-        if (operator === "==" || operator === "===") {
-            return { argumentIndex: rightNumber };
-        }
-
-        return null;
     }
 
     function resolveNodeToArgumentCountSubject(node) {

@@ -16,18 +16,18 @@ const IDENTIFIER_CASE_LOGGER_NAMESPACE = "identifier-case";
 
 const managedBootstraps = new WeakSet();
 
-function clearOwnProperty(target, propertyName, { value = null } = {}) {
-    if (!isObjectLike(target)) {
+function clearOwnProperty(_target, propertyName, { value = null } = {}) {
+    if (!isObjectLike(_target)) {
         return;
     }
 
-    if (!Object.hasOwn(target, propertyName)) {
+    if (!Object.hasOwn(_target, propertyName)) {
         return;
     }
 
     const nextValue =
-        typeof value === "function" ? value(target[propertyName]) : value;
-    target[propertyName] = nextValue;
+        typeof value === "function" ? value(_target[propertyName]) : value;
+    _target[propertyName] = nextValue;
 }
 
 function sanitizeBootstrapResult(bootstrap) {
@@ -143,7 +143,19 @@ export function attachIdentifierCasePlanSnapshot(ast, options) {
 export function teardownIdentifierCaseEnvironment(options) {
     const bootstrap = options?.__identifierCaseProjectIndexBootstrap ?? null;
     disposeBootstrap(bootstrap, options?.logger ?? null);
-    sanitizeBootstrapResult(bootstrap);
+    try {
+        sanitizeBootstrapResult(bootstrap);
+    } catch (error) {
+        // Defensive: if sanitation throws for unexpected bootstrap shapes or
+        // getters with side-effects, log and continue to avoid crashing the
+        // caller (printer) during best-effort teardown.
+        warnWithReason(
+            options?.logger ?? null,
+            IDENTIFIER_CASE_LOGGER_NAMESPACE,
+            "Failed to sanitize identifier-case bootstrap during teardown",
+            error
+        );
+    }
     deleteIdentifierCaseOption(options, "__identifierCaseProjectIndex");
     deleteIdentifierCaseOption(options, "__identifierCasePlanSnapshot");
     deleteIdentifierCaseOption(options, "__identifierCaseRenameMap");

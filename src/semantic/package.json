@@ -26,7 +26,7 @@
     "@gml-modules/parser": "0.0.1"
   },
   "devDependencies": {
-    "prettier-plugin-gamemaker": "0.0.0"
+    "@gml-modules/plugin": "0.0.0"
   },
   "scripts": {
     "test": "node --test test/*.test.js"

@@ -7150,6 +7150,23 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
                     defaultNode.trailingComments = param.trailingComments;
                 }
 
+                // Preserve parser/transforms-provided marker if present. Also
+                // explicitly mark parameters whose default expression is an
+                // `undefined` sentinel as optional so downstream omission
+                // heuristics prefer to preserve the explicit `= undefined`
+                // form in printed signatures.
+                try {
+                    // Preserve parser/transforms-provided marker if present.
+                    // Do NOT automatically mark a parameter optional just because
+                    // its default expression is the `undefined` sentinel here;
+                    // the parser transform is the authoritative source of that
+                    // intent. Only propagate an existing marker from the
+                    // original param node.
+                    if (param._featherOptionalParameter === true) {
+                        defaultNode._featherOptionalParameter = true;
+                    }
+                } catch {}
+
                 functionNode.params[i] = defaultNode;
             } catch {
                 // Non-fatal: if conversion fails, leave param alone.
@@ -7264,6 +7281,11 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
                         if (matchedFallback && matchedFallback.end !== null) {
                             param.end = matchedFallback.end;
                         }
+                        try {
+                            if (isUndefinedSentinel(matchedFallback)) {
+                                param._featherOptionalParameter = true;
+                            }
+                        } catch {}
                         // Remove the matched statement from the body
                         const idx = body.body.indexOf(stmt);
                         if (idx !== -1) {
@@ -7571,6 +7593,22 @@ function getParameterDocInfo(paramNode, functionNode, options) {
 function shouldOmitDefaultValueForParameter(path) {
     const node = path.getValue();
     if (!node || node.type !== "DefaultParameter") {
+        return false;
+    }
+
+    // If a parameter was explicitly marked by parser-side transforms as
+    // an optional parameter (the `_featherOptionalParameter` marker), prefer
+    // to preserve its explicit default in the printed signature rather than
+    // omitting it via heuristic parent-function rules. This makes parser- and
+    // transform-produced defaults visible to the printer.
+    if (node._featherOptionalParameter === true) {
+        return false;
+    }
+
+    // If the parameter currently has no `right` expression it is a parser-
+    // side placeholder for a default. Treat this as an explicit undefined
+    // default for printing purposes so the signature remains explicit.
+    if (node.right == null) {
         return false;
     }
 
