@@ -93,7 +93,7 @@ jobs:
         # - Otherwise, use exponential backoff
         #
         MAX_ATTEMPTS=6
-        INITIAL_DELAY=2
+        INITIAL_DELAY=30
         BACKOFF_FACTOR=2
         attempt=1
         delay=${INITIAL_DELAY}

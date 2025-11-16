@@ -62,7 +62,7 @@ export function createWatchCommand() {
                 "Polling interval in milliseconds"
             )
                 .argParser((value) => {
-                    const parsed = Number.parseInt(value, 10);
+                    const parsed = Number.parseInt(value);
                     if (Number.isNaN(parsed) || parsed < 100) {
                         throw new Error(
                             "Polling interval must be at least 100ms"
@@ -81,7 +81,7 @@ export function createWatchCommand() {
                 "WebSocket server port for streaming patches"
             )
                 .argParser((value) => {
-                    const parsed = Number.parseInt(value, 10);
+                    const parsed = Number.parseInt(value);
                     if (Number.isNaN(parsed) || parsed < 1 || parsed > 65_535) {
                         throw new Error("Port must be between 1 and 65535");
                     }

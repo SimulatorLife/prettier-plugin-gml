@@ -958,7 +958,7 @@ export function print(path, options, print) {
             return concat([" : ", print("id"), params, " constructor"]);
         }
         case "DefaultParameter": {
-            if (shouldOmitDefaultValueForParameter(path)) {
+            if (shouldOmitDefaultValueForParameter(path, options)) {
                 return concat(print("left"));
             }
             return concat(
@@ -6514,6 +6514,28 @@ function collectImplicitArgumentDocNames(functionNode, options) {
         return [];
     }
 
+    // If the parser transform precomputed implicit argument doc entries,
+    // prefer that authoritative data rather than re-traversing the AST or
+    // inspecting original source text. This keeps the plugin lightweight
+    // and lets parser transforms control doc synthesis.
+    if (Array.isArray(functionNode._featherImplicitArgumentDocEntries)) {
+        const entries = functionNode._featherImplicitArgumentDocEntries;
+        const suppressedCanonicals =
+            suppressedImplicitDocCanonicalByNode.get(functionNode);
+
+        if (!suppressedCanonicals || suppressedCanonicals.size === 0) {
+            return entries;
+        }
+
+        return entries.filter((entry) => {
+            if (!entry || !entry.canonical) {
+                return true;
+            }
+
+            return !suppressedCanonicals.has(entry.canonical);
+        });
+    }
+
     const referenceInfo = gatherImplicitArgumentReferences(functionNode);
     const entries = buildImplicitArgumentDocEntries(referenceInfo);
     const suppressedCanonicals =
@@ -6670,7 +6692,7 @@ function getArgumentIndexFromNode(node) {
         node.property[0]?.type === "Literal"
     ) {
         const literal = node.property[0];
-        const parsed = Number.parseInt(literal.value, 10);
+        const parsed = Number.parseInt(literal.value);
         return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
     }
 
@@ -7641,14 +7663,15 @@ function getParameterDocInfo(paramNode, functionNode, options) {
             typeof options?.originalText === "string" &&
             options.originalText.includes(`${searchName} = undefined`);
         // Treat undefined defaults as optional only when the parser/transform
-        // explicitly declared the parameter optional (optionalOverride) or
-        // when the original source explicitly contained `= undefined`.
-        // Otherwise, do not infer optionality from an `undefined` RHS so
-        // that synthetic placeholders don't produce bracketed doc params
-        // or spurious `= undefined` signatures.
-        const optional = defaultIsUndefined
-            ? optionalOverride || explicitUndefinedDefaultFromSource
-            : true;
+        // explicitly declared the parameter optional (optionalOverride).
+        // Historically we also treated an explicit source `= undefined` as
+        // evidence of optionality, but that causes the printer to preserve
+        // redundant `= undefined` signatures even when doc-comments mark a
+        // parameter as required. Avoid inferring optionality from the raw
+        // source text alone; downstream doc/printing logic will consult
+        // existing doc metadata and parser-intent flags to decide whether to
+        // retain or omit an `= undefined` default.
+        const optional = defaultIsUndefined ? optionalOverride : true;
 
         return {
             name: docName,
@@ -7673,19 +7696,44 @@ function getParameterDocInfo(paramNode, functionNode, options) {
         : null;
 }
 
-function shouldOmitDefaultValueForParameter(path) {
+function shouldOmitDefaultValueForParameter(path, options) {
     const node = path.getValue();
     if (!node || node.type !== "DefaultParameter") {
         return false;
     }
 
-    // If a parameter was explicitly marked by parser-side transforms as
-    // an optional parameter (the `_featherOptionalParameter` marker), prefer
-    // to preserve its explicit default in the printed signature rather than
-    // omitting it via heuristic parent-function rules. This makes parser- and
-    // transform-produced defaults visible to the printer.
-    if (node._featherOptionalParameter === true) {
-        return false;
+    // If original source text is available, prefer explicit doc comment
+    // cues directly preceding the function declaration. A doc-line
+    // `/// @param name` (without brackets) should cause an accompanying
+    // `= undefined` default to be omitted; if the doc-line marks the
+    // parameter as optional (e.g. `/// @param [name]`) preserve it.
+    const functionNode = findEnclosingFunctionDeclaration(path);
+    if (functionNode) {
+        const { originalText } = resolvePrinterSourceMetadata(options);
+        if (typeof originalText === "string" && originalText.length > 0) {
+            const fnStart = getNodeStartIndex(functionNode) ?? 0;
+            const prefix = originalText.slice(0, fnStart);
+            const lastDocIndex = prefix.lastIndexOf("///");
+            if (lastDocIndex !== -1) {
+                const docBlock = prefix.slice(lastDocIndex);
+                const lines = docBlock.split(/\r\n|\n|\r/);
+                const paramName = node.left && node.left.name ? node.left.name : null;
+                if (paramName) {
+                    // search from the bottom (closest to function)
+                    for (let i = lines.length - 1; i >= 0; i -= 1) {
+                        const line = lines[i];
+                        const m = line.match(/\/\/\/\s*@param\s*(?:\{[^}]+\}\s*)?(\[[^\]]+\]|\S+)/i);
+                        if (!m) continue;
+                        const raw = m[1];
+                        const name = raw.replace(/^\[|\]$/g, "").trim(); // eslint-disable-line unicorn/prefer-string-replace-all
+                        if (name === paramName) {
+                            const isOptional = /^\[.*\]$/.test(raw);
+                            return !isOptional;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // If the parameter currently has no `right` expression it is a parser-
@@ -7696,10 +7744,16 @@ function shouldOmitDefaultValueForParameter(path) {
     }
 
     if (
-        preservedUndefinedDefaultParameters.has(node) ||
         !isUndefinedSentinel(node.right) ||
         typeof path.getParentNode !== "function"
     ) {
+        return false;
+    }
+
+    // fallback: follow the existing ancestor-based heuristic when no
+    // explicit doc cue is available. If a parameter was explicitly marked
+    // by parser-side transforms as optional, preserve it.
+    if (node._featherOptionalParameter === true) {
         return false;
     }
 
@@ -7712,6 +7766,9 @@ function shouldOmitDefaultValueForParameter(path) {
         }
 
         if (shouldOmitUndefinedDefaultForFunctionNode(ancestor)) {
+            // Omit undefined defaults for plain function declarations by
+            // default unless they were intentionally preserved via parser
+            // intent (the `_featherOptionalParameter` marker handled above)
             return true;
         }
 

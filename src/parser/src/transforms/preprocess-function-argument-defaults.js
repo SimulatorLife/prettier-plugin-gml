@@ -1,7 +1,8 @@
 import { Core } from "@gml-modules/core";
 import {
     hasComment as sharedHasComment,
-    getHasCommentHelper
+    getHasCommentHelper,
+    prepareDocCommentEnvironment
 } from "../comments/index.js";
 
 const {
@@ -512,6 +513,99 @@ function preprocessFunctionDeclaration(node, helpers) {
         return changed;
     }
 
+    // After we've canonicalized DefaultParameter nodes, collect implicit
+    // `argumentN` references for the function and attach a compact summary
+    // onto the node so downstream consumers can make decisions without
+    // re-traversing the function body or inspecting raw source text. This
+    // keeps the doc-comment synthesis logic within parser transforms.
+    try {
+        const implicitInfo = collectImplicitArgumentReferences(node, helpers);
+        if (implicitInfo && Array.isArray(implicitInfo)) {
+            // Attach as a durable property the parser-side implicit doc
+            // entries. Each entry mirrors the shape used by the printer so
+            // minimal plumbing is required downstream.
+            node._featherImplicitArgumentDocEntries = implicitInfo;
+        }
+    } catch {}
+
+    // Consult any doc comments attached to this function and mark
+    // DefaultParameter nodes that have `undefined` on the right with a
+    // durable `_featherOptionalParameter` flag that encodes whether the
+    // parameter should be treated as intentionally optional (true) or
+    // omitted by the printer where appropriate (false). This shifts the
+    // structural decision into the parser so the plugin can remain a
+    // view-layer consumer.
+    try {
+        const docManager = prepareDocCommentEnvironment(ast);
+        const comments = docManager.getComments(node);
+        const paramDocMap = new Map();
+        if (Array.isArray(comments) && comments.length > 0) {
+            for (const comment of comments) {
+                if (!comment || typeof comment.value !== "string") continue;
+                const m = comment.value.match(/@param\s*(?:\{[^}]*\}\s*)?(\[[^\]]+\]|\S+)/i);
+                if (!m) continue;
+                const raw = m[1];
+                const name = raw ? raw.replace(/^\[|\]$/g, "").trim() : null; // eslint-disable-line unicorn/prefer-string-replace-all
+                const isOptional = raw ? /^\[.*\]$/.test(raw) : false;
+                if (name) {
+                    paramDocMap.set(name, isOptional);
+                }
+            }
+        }
+
+        // Walk parameters and set the flag where the RHS is an `undefined`
+        // sentinel. Constructors prefer to preserve optional syntax by
+        // default; plain functions omit unless the doc indicates optional.
+        const params = toMutableArray(node.params);
+        for (let i = 0; i < params.length; i += 1) {
+            const p = params[i];
+            if (!p) continue;
+
+            // Handle both DefaultParameter and AssignmentPattern shapes.
+            let leftName = null;
+            let rightNode = null;
+            if (p.type === "DefaultParameter") {
+                leftName = p.left && p.left.type === "Identifier" ? p.left.name : null;
+                rightNode = p.right;
+            } else if (p.type === "AssignmentPattern") {
+                leftName = p.left && p.left.type === "Identifier" ? p.left.name : null;
+                rightNode = p.right;
+            } else {
+                continue;
+            }
+
+            // Use the helper so we correctly detect the parser's undefined
+            // sentinel regardless of the exact node shape (Identifier vs
+            // Literal placeholder passed through by upstream transforms).
+            const isUndefined = typeof isUndefinedLiteral === "function" && isUndefinedLiteral(rightNode);
+            if (!isUndefined) continue;
+
+            // If doc explicitly marks optional, respect that.
+            if (leftName && paramDocMap.has(leftName)) {
+                try {
+                    p._featherOptionalParameter = paramDocMap.get(leftName) === true;
+                } catch {}
+                continue;
+            }
+
+            // Constructors keep optional syntax by default when the signature
+            // contains explicit undefined defaults.
+            if (node.type === "ConstructorDeclaration") {
+                try {
+                    p._featherOptionalParameter = true;
+                } catch {}
+                continue;
+            }
+
+            // Otherwise plain function declarations should omit redundant
+            // `= undefined` signatures unless parser transforms explicitly
+            // intended them to be optional.
+            try {
+                p._featherOptionalParameter = false;
+            } catch {}
+        }
+    } catch {}
+
     function matchArgumentCountFallbackVarThenIf(
         varStatement,
         ifStatement,
@@ -803,5 +897,122 @@ function preprocessFunctionDeclaration(node, helpers) {
         }
 
         return null;
+    }
+
+    // --- Implicit argument doc collection (parser-side) ---
+    function collectImplicitArgumentReferences(functionNode, helpers) {
+        if (!functionNode || functionNode.type !== "FunctionDeclaration") {
+            return [];
+        }
+
+        const referencedIndices = new Set();
+        const aliasByIndex = new Map();
+        const directReferenceIndices = new Set();
+
+        function visit(node, parent, property) {
+            if (!node || typeof node !== "object") return;
+
+            // Don't descend into nested functions
+            if (
+                node !== functionNode &&
+                (node.type === "FunctionDeclaration" ||
+                    node.type === "StructFunctionDeclaration" ||
+                    node.type === "FunctionExpression" ||
+                    node.type === "ConstructorDeclaration")
+            ) {
+                return;
+            }
+
+            // Variable declarator alias: `var two = argument[2];`
+            if (node.type === "VariableDeclarator") {
+                const aliasIndex = getArgumentIndexFromNode(node.init);
+                if (
+                    aliasIndex !== null &&
+                    node.id?.type === "Identifier" &&
+                    !aliasByIndex.has(aliasIndex)
+                ) {
+                    const aliasName = node.id.name && String(node.id.name).trim();
+                    if (aliasName && aliasName.length > 0) {
+                        aliasByIndex.set(aliasIndex, aliasName);
+                        referencedIndices.add(aliasIndex);
+                    }
+                }
+            }
+
+            const directIndex = getArgumentIndexFromNode(node);
+            if (directIndex !== null) {
+                referencedIndices.add(directIndex);
+                // If this is not the initializer of an alias we counted above
+                // mark it as a direct reference.
+                directReferenceIndices.add(directIndex);
+            }
+
+            forEachNodeChild(node, (value, key) => {
+                // If we detected an alias on this node, don't traverse its
+                // initializer twice for direct references.
+                if (node.type === "VariableDeclarator" && key === "init") {
+                    const aliasIndex = getArgumentIndexFromNode(node.init);
+                    if (aliasIndex !== null) return;
+                }
+
+                visit(value, node, key);
+            });
+        }
+
+        visit(functionNode.body, functionNode, "body");
+
+        if (!referencedIndices || referencedIndices.size === 0) return [];
+
+        const sorted = [...referencedIndices].sort((a, b) => a - b);
+        return sorted.map((index) => {
+            const fallbackName = `argument${index}`;
+            const alias = aliasByIndex.get(index);
+            const docName = alias && alias.length > 0 ? alias : fallbackName;
+            const canonical =
+                (typeof docName === "string" && docName.toLowerCase()) ||
+                docName;
+            const fallbackCanonical =
+                (typeof fallbackName === "string" && fallbackName.toLowerCase()) ||
+                fallbackName;
+
+            return {
+                name: docName,
+                canonical,
+                fallbackCanonical,
+                index,
+                hasDirectReference: directReferenceIndices.has(index) === true
+            };
+        });
+    }
+
+    function getArgumentIndexFromNode(node) {
+        if (!node || typeof node !== "object") return null;
+
+        if (node.type === "Identifier") {
+            return getArgumentIndexFromIdentifier(node.name);
+        }
+
+        if (
+            node.type === "MemberIndexExpression" &&
+            node.object?.type === "Identifier" &&
+            node.object.name === "argument" &&
+            Array.isArray(node.property) &&
+            node.property.length === 1 &&
+            node.property[0]?.type === "Literal"
+        ) {
+            const literal = node.property[0];
+            const parsed = Number.parseInt(literal.value, 10);
+            return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+        }
+
+        return null;
+    }
+
+    function getArgumentIndexFromIdentifier(name) {
+        if (typeof name !== "string") return null;
+        const match = name.match(/^argument(\d+)$/);
+        if (!match) return null;
+        const parsed = Number.parseInt(match[1], 10);
+        return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
     }
 }
