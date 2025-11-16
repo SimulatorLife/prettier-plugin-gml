@@ -5,11 +5,12 @@ import { resolveCliVersion } from "../src/core/version.js";
 
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 // Read package.json synchronously to avoid using `require` in ESM modules.
 const cliPackageVersion = JSON.parse(
     fs.readFileSync(
-        path.resolve(new URL("../package.json", import.meta.url)),
+        path.resolve(fileURLToPath(new URL("../package.json", import.meta.url))),
         "utf8"
     )
 ).version;

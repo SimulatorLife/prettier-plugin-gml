@@ -23,9 +23,7 @@
   },
   "dependencies": {
     "@gml-modules/core": "0.0.0",
-    "@gml-modules/parser": "0.0.1"
-  },
-  "devDependencies": {
+    "@gml-modules/parser": "0.0.1",
     "@gml-modules/plugin": "0.0.0"
   },
   "scripts": {

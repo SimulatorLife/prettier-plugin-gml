@@ -70,10 +70,11 @@ export function createEnumeratedOptionHelpers(
             throw new ErrorConstructor(message);
         }
 
-        if (createErrorMessage !== null) {
-            throw new ErrorConstructor(String(createErrorMessage));
-        }
-
+        // If a string-formatting callback is provided, prefer it next. This
+        // branch ensures callers who provide a formatErrorMessage function
+        // receive a descriptive error message. Avoid throwing raw
+        // non-function values (which produced the previous 'undefined'
+        // message).
         if (typeof formatErrorMessage === "function") {
             const message = formatErrorMessage({
                 list: listLabel,

@@ -270,7 +270,7 @@ export default [
             "sonarjs/no-inverted-boolean-check": "error",
             "sonarjs/no-redundant-boolean": "error",
             "sonarjs/no-small-switch": "error",
-            "sonarjs/declarations-in-global-scope": "warn",
+            "sonarjs/declarations-in-global-scope": "off", // Disable for this project as module-level declarations are common and appropriate
             "sonarjs/no-unused-variables": "off", // covered by unused-imports/no-unused-vars
             "sonarjs/no-collapsible-if": "error",
             "sonarjs/no-implicit-dependencies": "error",

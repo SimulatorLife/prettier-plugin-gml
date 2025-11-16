@@ -7106,7 +7106,9 @@ function inlineArgumentCountFallbacks(functionNode) {
                         if (param && param.leadingComments) {
                             defaultNode.leadingComments = param.leadingComments;
                         }
-                    } catch {}
+                    } catch {
+                        // Ignore errors when copying leading comments
+                    }
 
                     params[pi] = defaultNode;
                     // debug instrumentation removed
@@ -7195,7 +7197,9 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
                     if (param._featherOptionalParameter === true) {
                         defaultNode._featherOptionalParameter = true;
                     }
-                } catch {}
+                } catch {
+                    // Ignore errors when copying optional parameter marker
+                }
 
                 functionNode.params[i] = defaultNode;
             } catch {
@@ -7359,7 +7363,9 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
                             if (isUndefinedSentinel(matchedFallback)) {
                                 param._featherOptionalParameter = true;
                             }
-                        } catch {}
+                        } catch {
+                            // Ignore errors when setting optional parameter marker
+                        }
                         // Remove the matched statement from the body
                         const idx = body.body.indexOf(stmt);
                         if (idx !== -1) {
