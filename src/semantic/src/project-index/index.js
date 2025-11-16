@@ -128,7 +128,6 @@ export {
     clampConcurrency
 } from "./concurrency.js";
 
-
 function cloneIdentifierDeclaration(declaration) {
     if (!isObjectLike(declaration)) {
         return null;
