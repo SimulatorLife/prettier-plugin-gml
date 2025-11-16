@@ -172,13 +172,16 @@ export function createIdentifierLocation(token) {
     }
 
     const { line } = token;
-    const startIndex = token.start ?? token.startIndex ?? null;
-    const stopIndex = token.stop ?? token.stopIndex ?? startIndex ?? null;
-    const startColumn = token.column ?? null;
+    const startIndex = token.start ?? token.startIndex;
+    const stopIndex = token.stop ?? token.stopIndex ?? startIndex;
+    // Preserve `undefined` for missing column so we don't emit `column: null` in
+    // the location objects. Tests and consumers expect the `column` property to
+    // be omitted when not available from the token metadata.
+    const startColumn = token.column;
     const identifierLength =
-        startIndex !== undefined && stopIndex !== undefined
+        Number.isInteger(startIndex) && Number.isInteger(stopIndex)
             ? stopIndex - startIndex + 1
-            : null;
+            : undefined;
 
     const buildPoint = (index, column) => {
         const point = { line, index };
@@ -192,10 +195,10 @@ export function createIdentifierLocation(token) {
     return {
         start: buildPoint(startIndex, startColumn),
         end: buildPoint(
-            stopIndex === undefined ? null : stopIndex + 1,
+            stopIndex === undefined ? undefined : stopIndex + 1,
             startColumn !== undefined && identifierLength !== undefined
                 ? startColumn + identifierLength
-                : null
+                : undefined
         )
     };
 }

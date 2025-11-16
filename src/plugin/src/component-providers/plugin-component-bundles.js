@@ -1,4 +1,4 @@
-import { identifierCaseOptions } from "@gml-modules/semantic";
+import { IdentifierCase } from "@gml-modules/semantic";
 
 import { handleComments, printComment } from "../comments/public-api.js";
 import { LogicalOperatorsStyle } from "../options/logical-operators-style.js";
@@ -6,6 +6,8 @@ import { gmlParserAdapter } from "../parsers/index.js";
 import { print } from "../printer/index.js";
 import { createSingletonComponentRegistry } from "./component-registry.js";
 import { selectPluginComponentContractEntries } from "./plugin-component-contract.js";
+
+const { identifierCaseOptions } = IdentifierCase;
 
 /**
  * Builds the canonical component implementation bundle. Keeping the constructor
@@ -42,14 +44,12 @@ const dependencyRegistry = createSingletonComponentRegistry({
         )
 });
 
-export const gmlPluginComponentImplementations =
-    implementationRegistry.bundle;
+export const gmlPluginComponentImplementations = implementationRegistry.bundle;
 export const resolveGmlPluginComponentImplementations =
     implementationRegistry.resolve;
 
 export const gmlPluginComponentDependencies = dependencyRegistry.bundle;
-export const resolveGmlPluginComponentDependencies =
-    dependencyRegistry.resolve;
+export const resolveGmlPluginComponentDependencies = dependencyRegistry.resolve;
 
 export const defaultGmlPluginComponentImplementations =
     gmlPluginComponentImplementations;

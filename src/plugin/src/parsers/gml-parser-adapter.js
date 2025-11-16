@@ -5,18 +5,38 @@
 import { Core } from "@gml-modules/core";
 import { util } from "prettier";
 import GMLParser, {
-    sanitizeConditionalAssignments, applySanitizedIndexAdjustments, consolidateStructAssignments, applyFeatherFixes, preprocessSourceForFeatherFixes, applyRemovedIndexAdjustments, preprocessFunctionArgumentDefaults, enforceVariableBlockSpacing, convertStringConcatenations, condenseLogicalExpressions, convertManualMathExpressions, condenseScalarMultipliers, convertUndefinedGuardAssignments, annotateStaticFunctionOverrides
+    sanitizeConditionalAssignments,
+    applySanitizedIndexAdjustments,
+    consolidateStructAssignments,
+    applyFeatherFixes,
+    preprocessSourceForFeatherFixes,
+    applyRemovedIndexAdjustments,
+    preprocessFunctionArgumentDefaults,
+    enforceVariableBlockSpacing,
+    convertStringConcatenations,
+    condenseLogicalExpressions,
+    convertManualMathExpressions,
+    condenseScalarMultipliers,
+    convertUndefinedGuardAssignments,
+    annotateStaticFunctionOverrides
 } from "@gml-modules/parser";
 
-import {
-    prepareIdentifierCaseEnvironment,
-    attachIdentifierCasePlanSnapshot,
-    teardownIdentifierCaseEnvironment
-} from "@gml-modules/semantic";
+import { IdentifierCase } from "@gml-modules/semantic";
 import { prepareDocCommentEnvironment } from "../comments/index.js";
 
 const {
-    getNodeStartIndex, getNodeEndIndex, toMutableArray, visitChildNodes, isNonEmptyTrimmedString } = Core;
+    prepareIdentifierCaseEnvironment,
+    attachIdentifierCasePlanSnapshot,
+    teardownIdentifierCaseEnvironment
+} = IdentifierCase;
+
+const {
+    getNodeStartIndex,
+    getNodeEndIndex,
+    toMutableArray,
+    visitChildNodes,
+    isNonEmptyTrimmedString
+} = Core;
 
 const { addTrailingComment } = util;
 

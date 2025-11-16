@@ -4510,11 +4510,11 @@ function extractDocumentedParamNames(functionNode, docComments, sourceText) {
                 return 0;
             }
 
-            if (leftStart == null) {
+            if (leftStart === null) {
                 return -1;
             }
 
-            if (rightStart == null) {
+            if (rightStart === null) {
                 return 1;
             }
 
@@ -11221,7 +11221,9 @@ function attachLeadingCommentsToWrappedPrimitive({
         insertionIndex > 0 ? (statements[insertionIndex - 1] ?? null) : null;
 
     const previousEndIndex =
-        precedingStatement == null ? null : getNodeEndIndex(precedingStatement);
+        precedingStatement === null
+            ? null
+            : getNodeEndIndex(precedingStatement);
 
     for (const comment of comments) {
         if (!comment || comment.type !== "CommentLine") {
@@ -12666,7 +12668,9 @@ function attachLeadingCommentsToHoistedDeclaration({
     }
 
     const previousEndIndex =
-        precedingStatement == null ? null : getNodeEndIndex(precedingStatement);
+        precedingStatement === null
+            ? null
+            : getNodeEndIndex(precedingStatement);
 
     let attachedComment = false;
 

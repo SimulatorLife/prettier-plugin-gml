@@ -42,12 +42,7 @@ import { resolveLineCommentOptions } from "../options/line-comment-options.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
 import { DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH } from "./doc-comment-wrap-width.js";
 
-import {
-    maybeReportIdentifierCaseDryRun,
-    getIdentifierCaseRenameForNode,
-    applyIdentifierCasePlanSnapshot,
-    teardownIdentifierCaseEnvironment
-} from "@gml-modules/semantic";
+import { IdentifierCase } from "@gml-modules/semantic";
 import {
     LogicalOperatorsStyle,
     normalizeLogicalOperatorsStyle
@@ -56,6 +51,13 @@ import {
     ObjectWrapOption,
     resolveObjectWrapOption
 } from "../options/object-wrap-option.js";
+
+const {
+    maybeReportIdentifierCaseDryRun,
+    getIdentifierCaseRenameForNode,
+    applyIdentifierCasePlanSnapshot,
+    teardownIdentifierCaseEnvironment
+} = IdentifierCase;
 
 const {
     getCommentArray,
