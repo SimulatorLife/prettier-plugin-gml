@@ -1,6 +1,6 @@
 {
   "name": "@gml-modules/cli",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "type": "module",
   "main": "./index.js",
   "exports": {
@@ -13,8 +13,8 @@
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
-    "@gml-modules/core": "0.0.0",
-    "@gml-modules/plugin": "0.0.0",
+    "@gml-modules/core": "0.0.1",
+    "@gml-modules/plugin": "0.0.1",
     "@gml-modules/transpiler": "0.0.1",
     "commander": "^14.0.2",
     "linkedom": "^0.18.12",

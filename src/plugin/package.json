@@ -1,6 +1,6 @@
 {
   "name": "@gml-modules/plugin",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "type": "module",
   "main": "./index.js",
   "exports": {
@@ -17,7 +17,7 @@
     "prettier:plugin": "node ../cli/src/cli.js $npm_config_path"
   },
   "dependencies": {
-    "@gml-modules/core": "0.0.0",
+    "@gml-modules/core": "0.0.1",
     "@gml-modules/parser": "0.0.1",
     "@gml-modules/semantic": "0.0.1"
   },

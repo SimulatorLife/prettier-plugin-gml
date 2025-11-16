@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "antlr4": "^4.13.2",
-    "@gml-modules/core": "0.0.0",
+    "@gml-modules/core": "0.0.1",
     "@gml-modules/semantic": "0.0.1"
   },
   "engines": {

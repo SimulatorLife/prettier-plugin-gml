@@ -7,7 +7,7 @@
     ".": "./index.js"
   },
   "dependencies": {
-    "@gml-modules/core": "0.0.0"
+    "@gml-modules/core": "0.0.1"
   },
   "scripts": {
     "test": "node --test test/*.test.js"

@@ -7,7 +7,7 @@
     ".": "./index.js"
   },
   "dependencies": {
-    "@gml-modules/core": "0.0.0",
+    "@gml-modules/core": "0.0.1",
     "@gml-modules/parser": "0.0.1",
     "@gml-modules/semantic": "0.0.1"
   },
