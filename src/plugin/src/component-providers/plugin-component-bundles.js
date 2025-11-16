@@ -1,13 +1,10 @@
-import { IdentifierCase } from "@gml-modules/semantic";
-
+import { Semantic } from "@gml-modules/semantic";
 import { handleComments, printComment } from "../comments/public-api.js";
 import { LogicalOperatorsStyle } from "../options/logical-operators-style.js";
 import { gmlParserAdapter } from "../parsers/index.js";
 import { print } from "../printer/index.js";
 import { createSingletonComponentRegistry } from "./component-registry.js";
 import { selectPluginComponentContractEntries } from "./plugin-component-contract.js";
-
-const { identifierCaseOptions } = IdentifierCase;
 
 /**
  * Builds the canonical component implementation bundle. Keeping the constructor
@@ -20,7 +17,7 @@ export function createDefaultGmlPluginComponentImplementations() {
         print,
         handleComments,
         printComment,
-        identifierCaseOptions,
+        identifierCaseOptions: Semantic.identifierCaseOptions,
         LogicalOperatorsStyle
     });
 }
