@@ -99,7 +99,7 @@ function consolidateBlock(statements, tracker, commentTools) {
 
         const { identifierName, structNode } = initializer;
         const structEndIndex = getNodeEndIndex(structNode);
-        if (structEndIndex == undefined) {
+        if (structEndIndex === undefined) {
             continue;
         }
 
@@ -155,7 +155,7 @@ function collectPropertyAssignments({
 
         const start = getNodeStartIndex(statement);
         const end = getNodeEndIndex(statement);
-        if (start == undefined || end == undefined) {
+        if (start === undefined || end === undefined) {
             break;
         }
 
@@ -222,7 +222,7 @@ function collectPropertyAssignments({
             property._hasTrailingInlineComment = true;
             const lastComment = attachableComments.at(-1);
             const commentEnd = getNodeEndIndex(lastComment);
-            lastEnd = commentEnd == undefined ? end : commentEnd;
+            lastEnd = commentEnd === undefined ? end : commentEnd;
         } else {
             lastEnd = end;
         }
@@ -607,15 +607,20 @@ function isIdentifierSafe(name) {
 class CommentTracker {
     constructor(ownerOrComments) {
         const sourceComments = (() => {
+            // If the caller provided a raw array of comments, prefer that
+            // directly. Some consumers construct tracker instances with
+            // lightweight arrays in tests and transform helpers; using the
+            // explicit array avoids ambiguous behaviour when the generic
+            // `getCommentArray` helper is invoked with non-program shapes.
+            if (Array.isArray(ownerOrComments)) {
+                return ownerOrComments;
+            }
+
             if (typeof getCommentArray === "function") {
                 const normalized = getCommentArray(ownerOrComments);
                 if (Array.isArray(normalized)) {
                     return normalized;
                 }
-            }
-
-            if (Array.isArray(ownerOrComments)) {
-                return ownerOrComments;
             }
 
             if (!ownerOrComments || typeof ownerOrComments !== "object") {
@@ -627,7 +632,29 @@ class CommentTracker {
         })();
         this.comments = sourceComments;
         this.entries = sourceComments
-            .map((comment) => ({ index: getNodeStartIndex(comment), comment }))
+            .map((comment) => {
+                // Prefer the canonical helper but fall back to direct shape
+                // inspection when the helper cannot resolve the index. Some
+                // test fixtures and early transform phases present bare
+                // comment-like objects that still include a `start` index
+                // but may not be recognized by the AST helper in all
+                // import/resolve contexts. Be conservative and accept both
+                // so the tracker remains resilient across consumers.
+                // Prefer direct, simple shapes first (tests commonly provide
+                // small comment-like objects). Fall back to the canonical
+                // helper when the simple shape is not present so the tracker
+                // remains tolerant across runtime import contexts.
+                let index = null;
+                const maybeStart = comment && comment.start;
+                if (maybeStart && typeof maybeStart.index === "number") {
+                    index = maybeStart.index;
+                } else if (typeof maybeStart === "number") {
+                    index = maybeStart;
+                } else {
+                    index = getNodeStartIndex(comment);
+                }
+                return { index, comment };
+            })
             .filter((entry) => typeof entry.index === "number")
             .sort((a, b) => a.index - b.index);
     }
@@ -635,8 +662,8 @@ class CommentTracker {
     hasBetween(left, right) {
         if (
             this.entries.length === 0 ||
-            left == undefined ||
-            right == undefined ||
+            left === undefined ||
+            right === undefined ||
             left >= right
         ) {
             return false;
@@ -656,7 +683,7 @@ class CommentTracker {
     }
 
     hasAfter(position) {
-        if (this.entries.length === 0 || position == undefined) {
+        if (this.entries.length === 0 || position === undefined) {
             return false;
         }
         let index = this.firstGreaterThan(position);
@@ -670,12 +697,12 @@ class CommentTracker {
     }
 
     takeBetween(left, right, predicate) {
-        if (this.entries.length === 0 || left == undefined) {
+        if (this.entries.length === 0 || left === undefined) {
             return [];
         }
 
         const upperBound =
-            right == undefined ? Number.POSITIVE_INFINITY : right;
+            right === undefined ? Number.POSITIVE_INFINITY : right;
         if (left >= upperBound) {
             return [];
         }
@@ -722,8 +749,8 @@ class CommentTracker {
     getEntriesBetween(left, right) {
         if (
             this.entries.length === 0 ||
-            left == undefined ||
-            right == undefined ||
+            left === undefined ||
+            right === undefined ||
             left >= right
         ) {
             return [];
@@ -747,9 +774,32 @@ class CommentTracker {
 
     consumeEntries(entries) {
         for (const entry of entries) {
-            entry.consumed = true;
-            if (entry.comment) {
-                entry.comment._removedByConsolidation = true;
+            if (!entry) {
+                // Defensive: skip nullish values.
+                continue;
+            }
+
+            // Support two shapes: callers may pass the internal { index, comment }
+            // entry objects (from getEntriesBetween) or raw comment nodes
+            // (from takeBetween which returns comments). Handle both so tests
+            // and callers behave consistently.
+            if (entry && entry.comment) {
+                // entry is { index, comment }
+                entry.consumed = true;
+                if (entry.comment) {
+                    entry.comment._removedByConsolidation = true;
+                }
+            } else {
+                // entry is a plain comment node
+                const commentNode = entry;
+                commentNode._removedByConsolidation = true;
+                // Find the corresponding tracker entry and mark it consumed if present
+                for (const e of this.entries) {
+                    if (e && e.comment === commentNode) {
+                        e.consumed = true;
+                        break;
+                    }
+                }
             }
         }
     }
@@ -772,3 +822,9 @@ class CommentTracker {
         this.comments.length = writeIndex;
     }
 }
+
+// Expose the tracker for tests that assert on its behaviour. The class is
+// intentionally not part of the public parser runtime API but tests rely on
+// inspecting its behaviour directly; exporting here keeps the implementation
+// local while satisfying the test-suite.
+export { CommentTracker };

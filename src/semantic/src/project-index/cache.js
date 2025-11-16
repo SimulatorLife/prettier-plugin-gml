@@ -153,7 +153,7 @@ function resolveCacheFilePath(projectRoot, cacheFilePath) {
 }
 
 function normalizeMaxSizeBytes(maxSizeBytes) {
-    if (maxSizeBytes == null) {
+    if (maxSizeBytes === null) {
         return null;
     }
 

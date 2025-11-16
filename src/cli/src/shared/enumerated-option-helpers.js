@@ -70,7 +70,7 @@ export function createEnumeratedOptionHelpers(
             throw new ErrorConstructor(message);
         }
 
-        if (createErrorMessage != null) {
+        if (createErrorMessage !== null) {
             throw new ErrorConstructor(String(createErrorMessage));
         }
 

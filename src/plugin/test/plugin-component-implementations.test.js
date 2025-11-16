@@ -9,8 +9,9 @@ import { gmlParserAdapter } from "../src/parsers/index.js";
 import { print } from "../src/printer/index.js";
 import { handleComments, printComment } from "../src/comments/public-api.js";
 import { IdentifierCase } from "@gml-modules/semantic";
-const { identifierCaseOptions } = IdentifierCase;
 import { LogicalOperatorsStyle } from "../src/options/logical-operators-style.js";
+
+const { identifierCaseOptions } = IdentifierCase;
 
 test("default implementation bundle is frozen and reuses canonical references", () => {
     assert.ok(

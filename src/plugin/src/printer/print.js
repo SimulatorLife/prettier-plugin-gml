@@ -27,6 +27,14 @@ import {
     shouldForceTrailingBlankLineForNestedFunction,
     shouldSuppressEmptyLineBetween
 } from "./statement-spacing-policy.js";
+
+// String constants to avoid duplication warnings
+const STRING_TYPE = "string";
+const FUNCTION_TYPE = "function";
+const OBJECT_TYPE = "object";
+const NUMBER_TYPE = "number";
+const BOOLEAN_TYPE = "boolean";
+const UNDEFINED_TYPE = "undefined";
 import {
     printDanglingComments,
     printDanglingCommentsAsGroup,
@@ -123,7 +131,7 @@ const forcedStructArgumentBreaks = new WeakMap();
 const LEGACY_RETURNS_DESCRIPTION_PATTERN = /^Returns?\s*:(.*)$/i;
 
 function stripTrailingLineTerminators(value) {
-    if (typeof value !== "string") {
+    if (typeof value !== STRING_TYPE) {
         return value;
     }
 
@@ -151,10 +159,10 @@ function resolvePrinterSourceMetadata(options) {
     }
 
     const originalText =
-        typeof options.originalText === "string" ? options.originalText : null;
+        typeof options.originalText === STRING_TYPE ? options.originalText : null;
     const locStart =
-        typeof options.locStart === "function" ? options.locStart : null;
-    const locEnd = typeof options.locEnd === "function" ? options.locEnd : null;
+        typeof options.locStart === FUNCTION_TYPE ? options.locStart : null;
+    const locEnd = typeof options.locEnd === FUNCTION_TYPE ? options.locEnd : null;
 
     return { originalText, locStart, locEnd };
 }
@@ -185,11 +193,11 @@ function resolveNodeIndexRangeWithSource(node, sourceMetadata = {}) {
 }
 
 function sliceOriginalText(originalText, startIndex, endIndex) {
-    if (typeof originalText !== "string" || originalText.length === 0) {
+    if (typeof originalText !== STRING_TYPE || originalText.length === 0) {
         return null;
     }
 
-    if (typeof startIndex !== "number" || typeof endIndex !== "number") {
+    if (typeof startIndex !== NUMBER_TYPE || typeof endIndex !== NUMBER_TYPE) {
         return null;
     }
 
@@ -749,7 +757,7 @@ export function print(path, options, print) {
             const { startIndex: nodeStartIndex } =
                 resolveNodeIndexRangeWithSource(node, sourceMetadata);
 
-            let docCommentDocs;
+            let docCommentDocs = [];
             const lineCommentOptions = resolveLineCommentOptions(options);
             let needsLeadingBlankLine = false;
 
@@ -772,6 +780,23 @@ export function print(path, options, print) {
                     .filter(
                         (text) => typeof text === "string" && text.trim() !== ""
                     );
+            }
+
+            // Inline small argument_count -> default conversions at print time
+            // if the parser/transform pipeline did not already materialize
+            // them as DefaultParameter nodes. This is a conservative, local
+            // heuristic that mirrors the preprocess transform so synthethic
+            // docs and compact signatures appear as expected in output.
+            try {
+                // First prefer materializing any parser-side `.default` entries
+                // present on identifier params (set by preprocessFunctionArgumentDefaults).
+                materializeParamDefaultsFromParamDefault(node);
+                // Greedy fallback: attempt to detect and inline simple
+                // argument_count fallback patterns if the parser didn't set
+                // param.default for some reason.
+                inlineArgumentCountFallbacks(node);
+            } catch {
+                // Non-fatal heuristic failures should not abort printing.
             }
 
             if (
@@ -2712,6 +2737,12 @@ function printStatements(path, options, print, childrenAttribute) {
     return path.map((childPath, index) => {
         const parts = [];
         const node = childPath.getValue();
+        // Defensive: some transforms may leave holes or null entries in the
+        // statements array. Skip nullish nodes rather than attempting to
+        // dereference their type (which previously caused a TypeError).
+        if (!node) {
+            return [];
+        }
         const isTopLevel = childPath.parent?.type === "Program";
         const printed = print();
 
@@ -4901,7 +4932,7 @@ function mergeSyntheticDocComments(
         ...mergedLines.slice(insertionIndex)
     ];
 
-    if (returnsLines.length > 0) {
+    if (Array.isArray(returnsLines) && returnsLines.length > 0) {
         const { lines: dedupedReturns } = dedupeReturnDocLines(returnsLines, {
             includeNonReturnLine: (line, trimmed) => trimmed.length > 0
         });
@@ -5000,7 +5031,7 @@ function mergeSyntheticDocComments(
         }
     }
 
-    let orderedParamDocs;
+    let orderedParamDocs = [];
     if (Array.isArray(node.params)) {
         for (const param of node.params) {
             const paramInfo = getParameterDocInfo(param, node, options);
@@ -6847,6 +6878,408 @@ function getSourceTextForNode(node, options) {
     return originalText.slice(startIndex, endIndex).trim();
 }
 
+// Opportunistically convert detected `argument_count` fallback patterns into
+// DefaultParameter nodes when the upstream parser transforms did not
+// materialize them. This is intentionally conservative: it only converts
+// straightforward `if (argument_count > N) { param = argument[N]; } else { param = <fallback>; }`
+// patterns where the assignment target matches a declared parameter.
+function inlineArgumentCountFallbacks(functionNode) {
+    if (!functionNode || functionNode.type !== "FunctionDeclaration") {
+        return;
+    }
+
+    const params = Array.isArray(functionNode.params)
+        ? functionNode.params
+        : [];
+
+    const body = functionNode.body;
+    if (!body || body.type !== "BlockStatement" || !Array.isArray(body.body)) {
+        return;
+    }
+
+    const statements = body.body;
+    const removals = new Set();
+
+    // debug instrumentation removed
+
+    for (const stmt of statements) {
+        if (!stmt || stmt.type !== "IfStatement") {
+            continue;
+        }
+        const cond = stmt.test;
+
+        // The test may be either a BinaryExpression or a ParenthesizedExpression
+        // wrapping a BinaryExpression. Accept both shapes.
+        let binaryExpr = null;
+        if (cond && cond.type === "BinaryExpression") {
+            binaryExpr = cond;
+        } else if (
+            cond &&
+            cond.type === "ParenthesizedExpression" &&
+            cond.expression &&
+            cond.expression.type === "BinaryExpression"
+        ) {
+            binaryExpr = cond.expression;
+        }
+
+        if (!binaryExpr) {
+            continue;
+        }
+
+        // Compute the argument index targeted by the guard `argument_count <|>|== N`.
+        let argIndex = null;
+        try {
+            const left = binaryExpr.left;
+            const right = binaryExpr.right;
+            let rightText = null;
+            if (right && right.type === "Literal") {
+                rightText = String(right.value);
+            }
+            const rightNumber = rightText === null ? Number.NaN : Number(rightText);
+            if (!Number.isNaN(rightNumber)) {
+                switch (binaryExpr.operator) {
+                case "<": {
+                    argIndex = rightNumber - 1;
+                
+                break;
+                }
+                case ">": {
+                    argIndex = rightNumber;
+                
+                break;
+                }
+                case "==": 
+                case "===": {
+                    argIndex = rightNumber;
+                
+                break;
+                }
+                // No default
+                }
+            }
+        } catch {
+            argIndex = null;
+        }
+
+        // debug instrumentation removed
+
+        if (!Number.isInteger(argIndex) || argIndex < 0) {
+            continue;
+        }
+
+        const consequentStmts = stmt.consequent
+            ? stmt.consequent.type === "BlockStatement"
+                ? (Array.isArray(stmt.consequent.body) ? stmt.consequent.body : [])
+                : [stmt.consequent]
+            : [];
+        const alternateStmts = stmt.alternate
+            ? stmt.alternate.type === "BlockStatement"
+                ? (Array.isArray(stmt.alternate.body) ? stmt.alternate.body : [])
+                : [stmt.alternate]
+            : [];
+
+        // Look for param assignments matching the pattern `param = argument[argIndex]` in the
+        // consequent and `param = <fallback>` in the alternate.
+        for (let pi = 0; pi < params.length; pi += 1) {
+            const param = params[pi];
+            const paramName = getIdentifierText(param);
+            if (!paramName) {
+                continue;
+            }
+
+            // Extra debug for the specific failing test case to inspect statement shapes
+            // debug instrumentation removed
+
+            let fromArg = null;
+            let fallbackExpr = null;
+
+            for (const cs of consequentStmts) {
+                if (!cs) continue;
+                const assign = cs.type === "ExpressionStatement" && cs.expression && cs.expression.type === "AssignmentExpression"
+                    ? cs.expression
+                    : cs.type === "AssignmentExpression"
+                    ? cs
+                    : null;
+                if (!assign) continue;
+                const left = assign.left;
+                const right = assign.right;
+                if (left && left.type === "Identifier" && left.name === paramName && // Check argument[index]
+                    
+                        right &&
+                        right.type === "MemberIndexExpression" &&
+                        right.object?.type === "Identifier" &&
+                        right.object.name === "argument" &&
+                        Array.isArray(right.property) &&
+                        right.property.length === 1 &&
+                        right.property[0]?.type === "Literal"
+                    ) {
+                        const literal = right.property[0];
+                        const parsed = Number.parseInt(literal.value, 10);
+                        if (Number.isInteger(parsed) && parsed === argIndex) {
+                            fromArg = right;
+                            break;
+                        }
+                    }
+            }
+
+            if (!fromArg) continue;
+
+            for (const as of alternateStmts) {
+                if (!as) continue;
+                const assign = as.type === "ExpressionStatement" && as.expression && as.expression.type === "AssignmentExpression" ? as.expression : as.type === "AssignmentExpression" ? as : null;
+                if (!assign) continue;
+                const left = assign.left;
+                const right = assign.right;
+                if (left && left.type === "Identifier" && left.name === paramName && // Accept any RHS (literal or expression) that is not argument[...] as the fallback
+                    (!right || right.type !== "MemberIndexExpression")) {
+                        fallbackExpr = right;
+                        
+                        break;
+                    }
+            }
+
+            if (fromArg && fallbackExpr) {
+                // Support two cases:
+                // 1) The parser left an Identifier param (no DefaultParameter yet) -> create a DefaultParameter node.
+                // 2) The parser already created a DefaultParameter with a null `right` (meaning the default was supplied
+                //    by an in-body argument_count fallback). In that case, fill in the `right` slot rather than replacing
+                //    the param node entirely so we preserve any existing metadata.
+                const isIdentifier = param && param.type === "Identifier";
+                const isDefaultWithMissingRight =
+                    param && param.type === "DefaultParameter" && (param.right == null);
+
+                if (!isIdentifier && !isDefaultWithMissingRight) {
+                    continue;
+                }
+
+                if (isDefaultWithMissingRight) {
+                    try {
+                        // Fill the existing DefaultParameter.right with the fallback expression
+                        param.right = fallbackExpr;
+                        // Update end index if available
+                        if (fallbackExpr && fallbackExpr.end !== null) {
+                            param.end = fallbackExpr.end;
+                        }
+                        // debug instrumentation removed
+                    } catch {
+                        // Non-fatal: if we can't mutate in place, fall back to replacing the node below.
+                        // (We'll let the replacement logic run by treating it as an Identifier.)
+                         
+                    }
+                } else {
+                    // Create a new DefaultParameter node from the Identifier
+                    const identifier = param;
+                    const defaultNode = {
+                        type: "DefaultParameter",
+                        left: { type: "Identifier", name: identifier.name },
+                        right: fallbackExpr,
+                        start: identifier.start ?? undefined,
+                        end: fallbackExpr.end ?? identifier.end
+                    };
+
+                    try {
+                        if (param && param.leadingComments) {
+                            defaultNode.leadingComments = param.leadingComments;
+                        }
+                    } catch {}
+
+                    params[pi] = defaultNode;
+                    // debug instrumentation removed
+                }
+
+                removals.add(stmt);
+                break;
+            }
+        }
+    }
+
+    if (removals.size > 0) {
+        // Remove matched statements from the body in reverse order to keep indices stable
+        const toRemove = [...removals].sort((a, b) => getNodeStartIndex(b) - getNodeStartIndex(a));
+        for (const r of toRemove) {
+            const idx = statements.indexOf(r);
+            if (idx !== -1) {
+                statements.splice(idx, 1);
+            }
+        }
+        // If body now empty, leave an empty block so printing can compact the function
+        if (statements.length === 0) {
+            functionNode.body.body = [];
+        }
+    }
+}
+
+// Convert parser-side `param.default` assignments into explicit
+// DefaultParameter nodes so downstream printing and doc-synthesis logic
+// sees the parameter as defaulted. The parser transform `preprocessFunctionArgumentDefaults`
+// sets `param.default` on Identifier params; materialize those here.
+function materializeParamDefaultsFromParamDefault(functionNode) {
+    if (!functionNode || functionNode.type !== "FunctionDeclaration") {
+        return;
+    }
+
+    if (!Array.isArray(functionNode.params) || functionNode.params.length === 0) {
+        return;
+    }
+
+    for (let i = 0; i < functionNode.params.length; i += 1) {
+        const param = functionNode.params[i];
+        if (!param || typeof param !== "object") {
+            continue;
+        }
+
+        // If the parser stored a `.default` on an Identifier param, convert
+        // it into a DefaultParameter node that the printer already knows how
+        // to consume. Avoid touching nodes that are already DefaultParameter.
+        if (param.type === "Identifier" && param.default !== null) {
+            try {
+                const defaultExpr = param.default;
+                const defaultNode = {
+                    type: "DefaultParameter",
+                    left: { type: "Identifier", name: param.name },
+                    right: defaultExpr,
+                    start: param.start ?? (defaultExpr && defaultExpr.start),
+                    end: defaultExpr?.end ?? param.end
+                };
+
+                // preserve any comment metadata if present (best-effort)
+                if (param.leadingComments) {
+                    defaultNode.leadingComments = param.leadingComments;
+                }
+                if (param.trailingComments) {
+                    defaultNode.trailingComments = param.trailingComments;
+                }
+
+                functionNode.params[i] = defaultNode;
+            } catch {
+                // Non-fatal: if conversion fails, leave param alone.
+            }
+        }
+
+        // If the parser already created a DefaultParameter but left the `right`
+        // slot null (common when the parser emits an in-body argument_count
+        // fallback rather than materializing the default expression), try to
+        // locate the fallback in the function body and fill it in so the
+        // printer and doc synthesizer can observe the default value.
+        if (param.type === "DefaultParameter" && param.right == null) {
+            try {
+                const paramName = param.left && param.left.type === "Identifier" ? param.left.name : null;
+                if (!paramName) continue;
+
+                const body = functionNode.body;
+                if (!body || body.type !== "BlockStatement" || !Array.isArray(body.body)) {
+                    continue;
+                }
+
+                for (const stmt of body.body) {
+                    if (!stmt || stmt.type !== "IfStatement") continue;
+
+                    // Accept either a BinaryExpression test or a ParenthesizedExpression wrapping one.
+                    const test = stmt.test && (stmt.test.type === "BinaryExpression" ? stmt.test : stmt.test.type === "ParenthesizedExpression" ? stmt.test.expression : null);
+                    if (!test || test.type !== "BinaryExpression") continue;
+
+                    // We only handle guards of the form `argument_count > N` or
+                    // related variants where the consequent assigns from
+                    // argument[index] and the alternate assigns a fallback.
+                    const right = test.right;
+                    if (!right || right.type !== "Literal") continue;
+                    const rightNumber = Number(String(right.value));
+                    if (!Number.isInteger(rightNumber)) continue;
+
+                    // Determine the expected argument index for the guard
+                    let argIndex = null;
+                    switch (test.operator) {
+                    case ">": {
+                    argIndex = rightNumber;
+                    break;
+                    }
+                    case "<": {
+                    argIndex = rightNumber - 1;
+                    break;
+                    }
+                    case "==": 
+                    case "===": { {
+                    argIndex = rightNumber;
+                    // No default
+                    }
+                    break;
+                    }
+                    }
+                    if (!Number.isInteger(argIndex) || argIndex < 0) continue;
+
+                    const consequentStmts = stmt.consequent
+                        ? stmt.consequent.type === "BlockStatement"
+                            ? (Array.isArray(stmt.consequent.body) ? stmt.consequent.body : [])
+                            : [stmt.consequent]
+                        : [];
+                    const alternateStmts = stmt.alternate
+                        ? stmt.alternate.type === "BlockStatement"
+                            ? (Array.isArray(stmt.alternate.body) ? stmt.alternate.body : [])
+                            : [stmt.alternate]
+                        : [];
+
+                    let matchedFromArg = false;
+                    let matchedFallback = null;
+
+                    for (const cs of consequentStmts) {
+                        if (!cs) continue;
+                        const assign = cs.type === "ExpressionStatement" && cs.expression && cs.expression.type === "AssignmentExpression" ? cs.expression : cs.type === "AssignmentExpression" ? cs : null;
+                        if (!assign) continue;
+                        const left = assign.left;
+                        const rightExpr = assign.right;
+                        if (left && left.type === "Identifier" && left.name === paramName && 
+                                rightExpr &&
+                                rightExpr.type === "MemberIndexExpression" &&
+                                rightExpr.object?.type === "Identifier" &&
+                                rightExpr.object.name === "argument" &&
+                                Array.isArray(rightExpr.property) &&
+                                rightExpr.property.length === 1 &&
+                                rightExpr.property[0]?.type === "Literal"
+                            ) {
+                                const literal = rightExpr.property[0];
+                                const parsed = Number.parseInt(literal.value, 10);
+                                if (Number.isInteger(parsed) && parsed === argIndex) {
+                                    matchedFromArg = true;
+                                }
+                            }
+                    }
+
+                    if (!matchedFromArg) continue;
+
+                    for (const as of alternateStmts) {
+                        if (!as) continue;
+                        const assign = as.type === "ExpressionStatement" && as.expression && as.expression.type === "AssignmentExpression" ? as.expression : as.type === "AssignmentExpression" ? as : null;
+                        if (!assign) continue;
+                        const left = assign.left;
+                        const rightExpr = assign.right;
+                        if (left && left.type === "Identifier" && left.name === paramName && (!rightExpr || rightExpr.type !== "MemberIndexExpression")) {
+                                matchedFallback = rightExpr;
+                                break;
+                            }
+                    }
+
+                    if (matchedFromArg && matchedFallback) {
+                        // Fill in the missing right side of the DefaultParameter
+                        param.right = matchedFallback;
+                        if (matchedFallback && matchedFallback.end !== null) {
+                            param.end = matchedFallback.end;
+                        }
+                        // Remove the matched statement from the body
+                        const idx = body.body.indexOf(stmt);
+                        if (idx !== -1) {
+                            body.body.splice(idx, 1);
+                        }
+                        break;
+                    }
+                }
+            } catch {
+                // Non-fatal — leave the param as-is.
+            }
+        }
+    }
+}
+
+
 function shouldPreserveCompactUpdateAssignmentSpacing(path, options) {
     if (
         !path ||
@@ -7056,6 +7489,23 @@ function getParameterDocInfo(paramNode, functionNode, options) {
     }
 
     if (paramNode.type === "DefaultParameter") {
+        // Some AST transforms may wrap parameters in a DefaultParameter node
+        // but leave the `right` side null when no actual default value was
+        // provided. Treat those cases like a plain identifier so we don't
+        // incorrectly mark the parameter as optional (which would produce
+        // bracketed `@param [name]` entries in synthetic docs).
+        if (paramNode.right == null) {
+            const name = getNormalizedParameterName(paramNode.left);
+            return name
+                ? {
+                      name,
+                      optional: false,
+                      optionalOverride: false,
+                      explicitUndefinedDefault: false
+                  }
+                : null;
+        }
+
         const name = getNormalizedParameterName(paramNode.left);
         if (!name) {
             return null;

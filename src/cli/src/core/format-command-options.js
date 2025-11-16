@@ -60,7 +60,7 @@ export function collectFormatCommandOptions(
         if (trimmedTarget !== null && trimmedTarget !== rawTarget) {
             rawTargetPathInput = rawTarget;
         }
-    } else if (rawTarget != null) {
+    } else if (rawTarget !== null) {
         targetPathInput = rawTarget;
         targetPathProvided = true;
     }

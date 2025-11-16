@@ -332,9 +332,9 @@ export default [
         }
     },
 
-    /* Disallow .mjs and .cjs files */
+    /* Disallow .mjs, .cjs, and .ts files */
     {
-        files: ["**/*.mjs", "**/*.cjs"],
+        files: ["**/*.mjs", "**/*.cjs", "**/*.ts"],
         rules: {
             // Block the entire file
             "no-restricted-syntax": [

@@ -2765,6 +2765,13 @@ function hasInvalidEnumInitializer(initializer) {
         return false;
     }
 
+    // Guard against explicit `null` which typeof reports as "object" but
+    // cannot be dereferenced. Treat `null` as an invalid initializer so
+    // downstream logic can handle it consistently without throwing.
+    if (initializer === null) {
+        return true;
+    }
+
     if (typeof initializer === "string") {
         const normalized = initializer.trim();
 
@@ -11248,7 +11255,7 @@ function attachLeadingCommentsToWrappedPrimitive({
             continue;
         }
 
-        if (previousEndIndex != null && commentStartIndex < previousEndIndex) {
+        if (previousEndIndex !== null && commentStartIndex < previousEndIndex) {
             continue;
         }
 
@@ -12697,7 +12704,7 @@ function attachLeadingCommentsToHoistedDeclaration({
             continue;
         }
 
-        if (previousEndIndex != null && commentStartIndex < previousEndIndex) {
+        if (previousEndIndex !== null && commentStartIndex < previousEndIndex) {
             continue;
         }
 

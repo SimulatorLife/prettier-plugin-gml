@@ -52,7 +52,7 @@ function applyIndexAdjustmentsIfPresent(
 
     applyAdjustments(target, adjustments);
 
-    if (metadata != null) {
+    if (metadata !== null) {
         applyAdjustments(metadata, adjustments);
     }
 }

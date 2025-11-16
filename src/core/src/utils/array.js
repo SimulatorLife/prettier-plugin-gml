@@ -164,7 +164,7 @@ export function isArrayIndex(container, index) {
  */
 export function uniqueArray(values, { freeze = false } = {}) {
     const uniqueValues =
-        values != null && typeof values?.[Symbol.iterator] === "function"
+        values !== null && typeof values?.[Symbol.iterator] === "function"
             ? Array.from(new Set(values))
             : [];
 

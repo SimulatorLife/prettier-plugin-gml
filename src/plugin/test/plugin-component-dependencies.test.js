@@ -4,7 +4,7 @@ import test from "node:test";
 import {
     gmlPluginComponentDependencies,
     resolveGmlPluginComponentDependencies
-} from "../src/component-providers/gml-plugin-component-dependency-registry.js";
+} from "../src/component-providers/plugin-component-bundles.js";
 import { createDefaultGmlPluginComponents } from "../src/component-providers/default-plugin-components.js";
 
 const SAMPLE_SOURCE = "function example() { return 1; }";

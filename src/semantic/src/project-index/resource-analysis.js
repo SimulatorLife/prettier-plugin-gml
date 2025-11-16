@@ -123,11 +123,11 @@ function resolveEventMetadata(event) {
         return { eventType, eventNum, displayName: event.name };
     }
 
-    if (eventType == null && eventNum == null) {
+    if (eventType === null && eventNum === null) {
         return { eventType, eventNum, displayName: "event" };
     }
 
-    if (eventNum == null) {
+    if (eventNum === null) {
         return { eventType, eventNum, displayName: String(eventType) };
     }
 

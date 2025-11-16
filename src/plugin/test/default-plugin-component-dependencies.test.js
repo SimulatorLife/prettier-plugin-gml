@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { defaultGmlPluginComponentDependencies } from "../src/component-providers/default-plugin-component-dependencies.js";
+import { defaultGmlPluginComponentDependencies } from "../src/component-providers/plugin-component-bundles.js";
 import { gmlParserAdapter } from "../src/parsers/index.js";
 import { print } from "../src/printer/index.js";
 import { handleComments, printComment } from "../src/comments/public-api.js";
 import { IdentifierCase } from "@gml-modules/semantic";
-const { identifierCaseOptions } = IdentifierCase;
 import { LogicalOperatorsStyle } from "../src/options/logical-operators-style.js";
+
+const { identifierCaseOptions } = IdentifierCase;
 
 const REQUIRED_KEYS = [
     "gmlParserAdapter",

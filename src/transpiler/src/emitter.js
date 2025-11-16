@@ -466,7 +466,7 @@ export class GmlToJsEmitter {
             "                __with_prev_other",
             "            );",
             "        }",
-            "        if (__with_value == null) {",
+            "        if (__with_value === null) {",
             "            return [];",
             "        }",
             "        if (Array.isArray(__with_value)) {",

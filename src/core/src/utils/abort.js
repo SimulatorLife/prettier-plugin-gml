@@ -12,7 +12,7 @@ function shouldReuseAbortReason(value) {
     }
 
     return (
-        ERROR_METADATA_KEYS.some((key) => value[key] != null) ||
+        ERROR_METADATA_KEYS.some((key) => value[key] !== null) ||
         "cause" in value
     );
 }
@@ -22,7 +22,7 @@ function toAbortMessage(value) {
         return value;
     }
 
-    if (value == null) {
+    if (value === null) {
         return null;
     }
 
@@ -105,7 +105,7 @@ const DOM_EXCEPTION_ABORT_ERR_CODE =
         : null;
 
 export function isAbortError(value) {
-    if (value == null) {
+    if (value === null) {
         return false;
     }
 
@@ -191,7 +191,7 @@ export function createAbortGuard(options, { key, fallbackMessage } = {}) {
 
 function isAbortSignalLike(value) {
     return (
-        value != null &&
+        value !== null &&
         (typeof value === "object" || typeof value === "function") &&
         typeof value.aborted === "boolean"
     );

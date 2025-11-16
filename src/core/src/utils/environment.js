@@ -228,7 +228,7 @@ export function createEnvConfiguredValueWithFallback({
                     fallback
                 });
 
-                if (resolved != null) {
+                if (resolved !== null) {
                     return resolved;
                 }
             } catch {

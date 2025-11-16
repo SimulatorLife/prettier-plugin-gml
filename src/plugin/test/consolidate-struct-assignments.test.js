@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import {
     CommentTracker,
     consolidateStructAssignments
-} from "@gml-modules/parser";
+} from "../../parser/src/transforms/consolidate-struct-assignments.js";
 
 describe("CommentTracker", () => {
     it("ignores consumed comments when checking for later comments", () => {

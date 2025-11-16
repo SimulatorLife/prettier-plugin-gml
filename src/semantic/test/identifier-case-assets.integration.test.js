@@ -7,13 +7,15 @@ import { fileURLToPath } from "node:url";
 
 import prettier from "prettier";
 
-import { buildProjectIndex } from "../src/project-index.js";
+import { buildProjectIndex } from "../src/project-index/index.js";
 import {
     clearIdentifierCaseDryRunContexts,
     setIdentifierCaseDryRunContext
 } from "../src/identifier-case/identifier-case-context.js";
 import { prepareIdentifierCasePlan } from "../src/identifier-case/plan-service.js";
-import { fromPosixPath } from "../src/shared/index.js";
+import { Core } from "../src/shared/index.js";
+
+const { fromPosixPath } = Core;
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const pluginPath = path.resolve(currentDirectory, "../../plugin/src/gml.js");

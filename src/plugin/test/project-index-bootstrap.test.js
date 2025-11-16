@@ -4,7 +4,9 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { bootstrapProjectIndex } from "@gml-modules/semantic";
+import { ProjectIndex } from "@gml-modules/semantic";
+
+const { bootstrapProjectIndex } = ProjectIndex;
 
 async function withTempDir(run) {
     const tempRoot = await mkdtemp(path.join(os.tmpdir(), "gml-bootstrap-"));

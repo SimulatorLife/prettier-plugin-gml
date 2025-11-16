@@ -22,7 +22,7 @@ function hasJsonParseErrorContract(value) {
     }
 
     const { source } = value;
-    if (source != null && typeof source !== "string") {
+    if (source !== null && typeof source !== "string") {
         return false;
     }
 

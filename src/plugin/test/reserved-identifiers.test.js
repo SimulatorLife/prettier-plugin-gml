@@ -1,11 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import {
+import { Resources } from "@gml-modules/semantic";
+
+const {
     loadReservedIdentifierNames,
     resetReservedIdentifierMetadataLoader,
     setReservedIdentifierMetadataLoader
-} from "@gml-modules/semantic";
+} = Resources;
 
 test("loadReservedIdentifierNames returns lowercase reserved names", () => {
     const reserved = loadReservedIdentifierNames();

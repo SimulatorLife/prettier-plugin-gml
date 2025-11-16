@@ -197,7 +197,7 @@ export function describeValueWithArticle(
  * @returns {boolean} `true` when {@link value} can be treated as an object or function.
  */
 export function isObjectOrFunction(value) {
-    if (value == null) {
+    if (value === null) {
         return false;
     }
 
@@ -229,7 +229,7 @@ export function assertFunctionProperties(
     { name = "value", errorMessage } = {}
 ) {
     const requiredMethods =
-        methodNames == null
+        methodNames === null
             ? []
             : Array.isArray(methodNames)
               ? methodNames
@@ -417,7 +417,7 @@ export function coalesceOption(
 
     const normalizedKeys = Array.isArray(keys)
         ? keys
-        : keys == null
+        : keys === null
           ? []
           : [keys];
 

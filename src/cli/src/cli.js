@@ -295,10 +295,13 @@ const DEFAULT_PRETTIER_LOG_LEVEL =
         fallback: "warn"
     }) ?? "warn";
 
+const FORMAT_ACTION = "format";
+const HELP_ACTION = "help";
+
 const DEFAULT_ACTION =
-    process.env.PRETTIER_PLUGIN_GML_DEFAULT_ACTION === "format"
-        ? "format"
-        : "help";
+    process.env.PRETTIER_PLUGIN_GML_DEFAULT_ACTION === FORMAT_ACTION
+        ? FORMAT_ACTION
+        : HELP_ACTION;
 
 const program = applyStandardCommandOptions(new Command())
     .name("prettier-plugin-gml")
@@ -307,9 +310,9 @@ const program = applyStandardCommandOptions(new Command())
         [
             "Utilities for working with the prettier-plugin-gml project.",
             "Provides formatting, benchmarking, and manual data generation commands.",
-            DEFAULT_ACTION === "format"
-                ? "Defaults to running the format command when no command is provided."
-                : "Run with a command name to get started (e.g., 'format --help' for formatting options)."
+            DEFAULT_ACTION === FORMAT_ACTION
+                ? `Defaults to running the ${FORMAT_ACTION} command when no command is provided.`
+                : `Run with a command name to get started (e.g., '${FORMAT_ACTION} --help' for formatting options).`
         ].join(" \n")
     )
     .version(
@@ -717,7 +720,7 @@ async function readSnapshotContents(snapshot) {
 
     const { inlineContents, snapshotPath } = snapshot;
 
-    if (inlineContents != null) {
+    if (inlineContents !== null) {
         return inlineContents;
     }
 
@@ -1886,7 +1889,7 @@ function normalizeCommandLineArguments(argv) {
         // PRETTIER_PLUGIN_GML_DEFAULT_ACTION environment variable.
         // Default is to show help (user-friendly for first-time users).
         // Set PRETTIER_PLUGIN_GML_DEFAULT_ACTION=format for legacy behavior.
-        return DEFAULT_ACTION === "format" ? [] : ["--help"];
+        return DEFAULT_ACTION === FORMAT_ACTION ? [] : ["--help"];
     }
 
     if (argv[0] !== "help") {
@@ -1909,7 +1912,7 @@ export const __test__ = Object.freeze({
     resolveTargetPathFromInputForTests: resolveTargetPathFromInput
 });
 
-const formatCommand = createFormatCommand({ name: "format" });
+const formatCommand = createFormatCommand({ name: FORMAT_ACTION });
 
 cliCommandRegistry.registerDefaultCommand({
     command: formatCommand,

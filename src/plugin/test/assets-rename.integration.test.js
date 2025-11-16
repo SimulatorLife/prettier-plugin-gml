@@ -5,9 +5,10 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { ProjectIndex, IdentifierCase } from "@gml-modules/semantic";
+import { Core } from "@gml-modules/core";
+
 const { buildProjectIndex } = ProjectIndex;
 const { planAssetRenames, applyAssetRenames } = IdentifierCase;
-import { Core } from "@gml-modules/core";
 
 const {
     FS: { fromPosixPath }

@@ -13,7 +13,7 @@ import { getCommanderUsage } from "./commander-contract.js";
  */
 export function resolveCommandUsage(command, { fallback } = {}) {
     const usage = getCommanderUsage(command);
-    if (usage != null) {
+    if (usage !== null) {
         return usage;
     }
 

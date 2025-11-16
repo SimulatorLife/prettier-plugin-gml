@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { parseFormatterOptionsFixture } from "../src/modules/memory/index.js";
-import { JsonParseError } from "../src/shared/index.js";
+import { Core } from "../src/shared/index.js";
+
+const { JsonParseError } = Core;
 
 describe("parseFormatterOptionsFixture", () => {
     it("parses formatter options objects", () => {

@@ -357,8 +357,18 @@ function preprocessFunctionDeclaration(node, helpers) {
             continue;
         }
 
-        // Assign the default value on the parameter node.
-        currentParam.default = match.fallbackExpression;
+        // Replace the bare identifier parameter with an explicit
+        // DefaultParameter node so downstream consumers (printer,
+        // doc generators) can rely on a single canonical shape for
+        // defaulted parameters.
+        const defaultParamNode = {
+            type: "DefaultParameter",
+            left: currentParam,
+            right: match.fallbackExpression,
+            _featherOptionalParameter: false
+        };
+
+        node.params[paramInfo.index] = defaultParamNode;
     }
 
     // Remove matched fallback statements in reverse order to keep indices stable.
@@ -385,9 +395,24 @@ function preprocessFunctionDeclaration(node, helpers) {
                 continue;
             }
 
+            // If we have a bare identifier and it lacks an explicit default,
+            // convert it into a DefaultParameter node with an `undefined`
+            // initializer. Tests expect trailing optional parameters to be
+            // represented as DefaultParameter nodes and for the transform to
+            // mark them as feather-optional parameters.
             if (param.type === "Identifier") {
                 if (param.default === undefined) {
-                    param.default = { type: "Identifier", name: "undefined" };
+                    const defaultParam = {
+                        type: "DefaultParameter",
+                        left: param,
+                        right: { type: "Identifier", name: "undefined" },
+                        // Preserve a marker used by other transforms/tests.
+                        _featherOptionalParameter: true
+                    };
+
+                    // Replace in-place so callers that read `params` see the
+                    // DefaultParameter shape expected by later logic.
+                    params[i] = defaultParam;
                     changed = true;
                 }
                 continue;
@@ -631,6 +656,11 @@ function preprocessFunctionDeclaration(node, helpers) {
 
         // Optional parameter with default: `param = <expr>`
         if (param.type === "AssignmentPattern") {
+            return param.left;
+        }
+
+        // Parser-side synthesized defaults use DefaultParameter nodes.
+        if (param.type === "DefaultParameter") {
             return param.left;
         }
 
