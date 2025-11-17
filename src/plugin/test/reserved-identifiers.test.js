@@ -12,7 +12,9 @@ test("Semantic.loadReservedIdentifierNames returns lowercase reserved names", ()
 });
 
 test("Semantic.loadReservedIdentifierNames respects custom disallowed types", () => {
-    const reserved = Semantic.loadReservedIdentifierNames({ disallowedTypes: [] });
+    const reserved = Semantic.loadReservedIdentifierNames({
+        disallowedTypes: []
+    });
 
     assert.equal(reserved.has("if"), true);
 });

@@ -2515,7 +2515,12 @@ function attemptConvertLog2(node, helpers) {
         return false;
     }
 
-    mutateToCallExpression(node, "log2", [Core.cloneAstNode(numeratorArg)], node);
+    mutateToCallExpression(
+        node,
+        "log2",
+        [Core.cloneAstNode(numeratorArg)],
+        node
+    );
     return true;
 }
 
@@ -2554,7 +2559,10 @@ function attemptConvertLengthDir(node, helpers) {
             mutateToCallExpression(
                 node,
                 "lengthdir_x",
-                [Core.cloneAstNode(lengthNode), Core.cloneAstNode(trigInfo.argument)],
+                [
+                    Core.cloneAstNode(lengthNode),
+                    Core.cloneAstNode(trigInfo.argument)
+                ],
                 node
             );
             return true;
@@ -2568,7 +2576,10 @@ function attemptConvertLengthDir(node, helpers) {
             mutateToCallExpression(
                 node,
                 "lengthdir_y",
-                [Core.cloneAstNode(lengthNode), Core.cloneAstNode(trigInfo.argument)],
+                [
+                    Core.cloneAstNode(lengthNode),
+                    Core.cloneAstNode(trigInfo.argument)
+                ],
                 node
             );
             return true;
@@ -2784,7 +2795,11 @@ function attemptConvertTrigDegreeArguments(node, helpers) {
     }
 
     node.arguments = [
-        createCallExpressionNode("degtorad", [Core.cloneAstNode(angle)], argument)
+        createCallExpressionNode(
+            "degtorad",
+            [Core.cloneAstNode(angle)],
+            argument
+        )
     ];
 
     return true;

@@ -96,13 +96,15 @@ const {
 // fallbacks so printing remains robust.
 function getSemanticIdentifierCaseRenameForNode(node, options) {
     try {
-        if (Semantic && typeof Semantic.getIdentifierCaseRenameForNode === "function") {
-        return Semantic.getIdentifierCaseRenameForNode(node, options);
+        if (
+            Semantic &&
+            typeof Semantic.getIdentifierCaseRenameForNode === "function"
+        ) {
+            return Semantic.getIdentifierCaseRenameForNode(node, options);
         }
     } catch {}
     return null;
 }
-
 
 let {
     breakParent,
@@ -157,7 +159,11 @@ try {
         return _origIndent.call(this, _sanitizeArrayArg(parts));
     };
     builders.conditionalGroup = function (parts, options) {
-        return _origConditionalGroup.call(this, _sanitizeArrayArg(parts), options);
+        return _origConditionalGroup.call(
+            this,
+            _sanitizeArrayArg(parts),
+            options
+        );
     };
     builders.ifBreak = function (parts, options) {
         return _origIfBreak.call(this, _sanitizeArrayArg(parts), options);
@@ -175,9 +181,15 @@ try {
         if (parts === null || parts === undefined) {
             return _origJoin.call(this, sep, []);
         }
-        return _origJoin.call(this, sep, Array.isArray(parts) ? parts.map(_sanitizeDocChild) : _sanitizeDocChild(parts));
+        return _origJoin.call(
+            this,
+            sep,
+            Array.isArray(parts)
+                ? parts.map(_sanitizeDocChild)
+                : _sanitizeDocChild(parts)
+        );
     };
-} catch (e) {
+} catch {
     // If the monkey-patch fails for any environment, do not break printing;
     // the wrappers above are defensive only.
 }
@@ -192,7 +204,7 @@ try {
     conditionalGroup = builders.conditionalGroup;
     ifBreak = builders.ifBreak;
     lineSuffix = builders.lineSuffix;
-} catch (e) {
+} catch {
     // ignore - maintain best-effort compatibility
 }
 
@@ -210,14 +222,14 @@ function _sanitizeDocChild(child) {
         try {
             if (!globalThis.__prettier_gml_logged_null_doc_child) {
                 globalThis.__prettier_gml_logged_null_doc_child = true;
-                // eslint-disable-next-line no-console
+                 
                 console.warn(
                     "[feather:diagnostic] printer: encountered null/undefined doc child - logging stack to locate producer"
                 );
-                // eslint-disable-next-line no-console
+                 
                 console.warn(new Error().stack);
             }
-        } catch (e) {}
+        } catch {}
 
         return "";
     }
@@ -598,7 +610,8 @@ function _printImpl(path, options, print) {
                 try {
                     if (
                         Semantic &&
-                        typeof Semantic.applyIdentifierCasePlanSnapshot === "function"
+                        typeof Semantic.applyIdentifierCasePlanSnapshot ===
+                            "function"
                     ) {
                         Semantic.applyIdentifierCasePlanSnapshot(
                             node.__identifierCasePlanSnapshot,
@@ -616,7 +629,8 @@ function _printImpl(path, options, print) {
                 try {
                     if (
                         Semantic &&
-                        typeof Semantic.maybeReportIdentifierCaseDryRun === "function"
+                        typeof Semantic.maybeReportIdentifierCaseDryRun ===
+                            "function"
                     ) {
                         Semantic.maybeReportIdentifierCaseDryRun(options);
                     }
@@ -630,7 +644,8 @@ function _printImpl(path, options, print) {
                 try {
                     if (
                         Semantic &&
-                        typeof Semantic.teardownIdentifierCaseEnvironment === "function"
+                        typeof Semantic.teardownIdentifierCaseEnvironment ===
+                            "function"
                     ) {
                         Semantic.teardownIdentifierCaseEnvironment(options);
                     }
@@ -1017,7 +1032,7 @@ function _printImpl(path, options, print) {
             let functionNameDoc = "";
             if (isNonEmptyString(node.id)) {
                 let renamed = null;
-                    if (node.idLocation && node.idLocation.start) {
+                if (node.idLocation && node.idLocation.start) {
                     renamed = getSemanticIdentifierCaseRenameForNode(
                         {
                             start: node.idLocation.start,
@@ -6555,14 +6570,16 @@ function computeSyntheticFunctionDocLines(
             defaultIsUndefined &&
             typeof parameterSourceText === STRING_TYPE &&
             parameterSourceText.includes("=");
-    const materializedTrailing = param?._featherMaterializedTrailingUndefined === true;
-    // Use the parser-provided explicit optional marker when present.
-    // The parser transform is responsible for setting
-    // `_featherOptionalParameter` to encode explicit optional intent for
-    // parameters (including materialized defaults when appropriate). The
-    // printer should consume that intent directly rather than masking it
-    // for materialized nodes.
-    const explicitOptionalMarker = param?._featherOptionalParameter === true;
+        const materializedTrailing =
+            param?._featherMaterializedTrailingUndefined === true;
+        // Use the parser-provided explicit optional marker when present.
+        // The parser transform is responsible for setting
+        // `_featherOptionalParameter` to encode explicit optional intent for
+        // parameters (including materialized defaults when appropriate). The
+        // printer should consume that intent directly rather than masking it
+        // for materialized nodes.
+        const explicitOptionalMarker =
+            param?._featherOptionalParameter === true;
 
         let shouldMarkOptional =
             Boolean(paramInfo.optional) ||
@@ -6574,7 +6591,8 @@ function computeSyntheticFunctionDocLines(
             // docs so doc-bracketing matches the retained signature.
             (param?.type === "DefaultParameter" &&
                 isUndefinedSentinel(param.right) &&
-                (explicitOptionalMarker || node?.type === "ConstructorDeclaration"));
+                (explicitOptionalMarker ||
+                    node?.type === "ConstructorDeclaration"));
         const hasSiblingExplicitDefault = Array.isArray(node?.params)
             ? node.params.some((candidate, candidateIndex) => {
                   if (candidateIndex === paramIndex || !candidate) {
@@ -6604,7 +6622,8 @@ function computeSyntheticFunctionDocLines(
         // sibling/prior-default heuristic. Materialized placeholders
         // should be treated conservatively unless the parser or docs
         // explicitly mark them optional.
-        const materializedFromExplicitLeft = param?._featherMaterializedFromExplicitLeft === true;
+        const materializedFromExplicitLeft =
+            param?._featherMaterializedFromExplicitLeft === true;
         if (
             !shouldMarkOptional &&
             !hasExistingMetadata &&
@@ -7436,7 +7455,10 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
         // explicit `= undefined` DefaultParameter node. This mirrors the
         // conservative parser transform behaviour but acts as a local
         // safeguard when the parser pipeline didn't materialize the node.
-        if (param.type === "Identifier" && (param.default === null || param.default === undefined)) {
+        if (
+            param.type === "Identifier" &&
+            (param.default === null || param.default === undefined)
+        ) {
             try {
                 // Look left for an explicit default
                 let seenExplicitDefaultToLeft = false;
@@ -7444,7 +7466,10 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
                     const left = functionNode.params[j];
                     if (!left) continue;
                     if (left.type === "DefaultParameter") {
-                        const isUndef = typeof Core.isUndefinedSentinel === "function" ? Core.isUndefinedSentinel(left.right) : false;
+                        const isUndef =
+                            typeof Core.isUndefinedSentinel === "function"
+                                ? Core.isUndefinedSentinel(left.right)
+                                : false;
                         if (!isUndef) {
                             seenExplicitDefaultToLeft = true;
                             break;
@@ -7899,7 +7924,8 @@ function getParameterDocInfo(paramNode, functionNode, options) {
         // materialized defaults: the parser may mark materialized nodes as
         // explicitly optional when appropriate and the printer should
         // consume that intent rather than masking it.
-        const materializedTrailing = paramNode?._featherMaterializedTrailingUndefined === true;
+        const materializedTrailing =
+            paramNode?._featherMaterializedTrailingUndefined === true;
         const optionalOverride = paramNode?._featherOptionalParameter === true;
         const searchName = getNormalizedParameterName(
             paramNode.left ?? paramNode

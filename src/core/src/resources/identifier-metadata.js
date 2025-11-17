@@ -21,7 +21,10 @@ export function normalizeIdentifierMetadataEntries(metadata) {
             continue;
         }
 
-        const type = typeof descriptor.type === "string" ? descriptor.type.toLowerCase() : "";
+        const type =
+            typeof descriptor.type === "string"
+                ? descriptor.type.toLowerCase()
+                : "";
 
         entries.push({ name, type, descriptor });
     }

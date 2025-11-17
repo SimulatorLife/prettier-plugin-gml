@@ -399,17 +399,22 @@ describe("GameMaker parser fixtures", () => {
             "function demo(first, second = 1, third) {",
             "    return [first, second, third];",
             "}",
-            "",
+            ""
         ].join("\n");
 
         const ast = parseFixture(source);
-        const decl = ast.body && ast.body.find((n) => n.type === "FunctionDeclaration");
+        const decl =
+            ast.body && ast.body.find((n) => n.type === "FunctionDeclaration");
         assert.ok(decl, "Expected a FunctionDeclaration");
         const params = Array.isArray(decl.params) ? decl.params : [];
         // third should be materialized into a DefaultParameter with undefined RHS
         const third = params[2];
         assert.ok(third, "Expected third parameter to exist");
-        assert.strictEqual(third.type, "DefaultParameter", "Third param should be DefaultParameter");
+        assert.strictEqual(
+            third.type,
+            "DefaultParameter",
+            "Third param should be DefaultParameter"
+        );
         // right should ideally be an Identifier named 'undefined'. Some
         // upstream parser shapes may leave the `right` slot null until a
         // later canonicalization pass fills it; accept either form here
@@ -418,9 +423,9 @@ describe("GameMaker parser fixtures", () => {
             assert.strictEqual(third.right.type, "Identifier");
             assert.strictEqual(third.right.name, "undefined");
         }
-    // optionality is determined by doc-driven reconciliation; the
-    // transform materializes the DefaultParameter and leaves
-    // `_featherOptionalParameter` for the later pass to decide.
+        // optionality is determined by doc-driven reconciliation; the
+        // transform materializes the DefaultParameter and leaves
+        // `_featherOptionalParameter` for the later pass to decide.
     });
 
     it("builds identifier locations from available token offsets", () => {
