@@ -240,9 +240,13 @@ function preprocessFunctionDeclaration(node, helpers) {
     // conservative behavior while avoiding premature finalization in
     // more complex match paths.
     try {
-        if (statements.length === 0 && !appliedChanges && finalizeTrailingUndefinedDefaults(params, helpers)) {
-                appliedChanges = true;
-            }
+        if (
+            statements.length === 0 &&
+            !appliedChanges &&
+            finalizeTrailingUndefinedDefaults(params, helpers)
+        ) {
+            appliedChanges = true;
+        }
     } catch {
         // swallow
     }
@@ -839,7 +843,6 @@ function preprocessFunctionDeclaration(node, helpers) {
     try {
         // Diagnostic: show initial param summary before finalization
         try {
-             
             console.error(
                 `[feather:diagnostic] finalization-start params=${params.length}`
             );
@@ -872,7 +875,6 @@ function preprocessFunctionDeclaration(node, helpers) {
 
         if (lastExplicitDefaultIndex >= 0) {
             try {
-                 
                 console.warn(
                     `[feather:diagnostic] finalization-found-explicit idx=${lastExplicitDefaultIndex}`
                 );
@@ -887,7 +889,6 @@ function preprocessFunctionDeclaration(node, helpers) {
                 const param = params[i];
                 if (!param) continue;
                 try {
-                     
                     console.warn(
                         `[feather:diagnostic] finalization-loop idx=${i} type=${param.type} right=${param && param.right ? param.right.type || typeof param.right : "<null>"} lastExplicit=${lastExplicitDefaultIndex}`
                     );
@@ -913,7 +914,6 @@ function preprocessFunctionDeclaration(node, helpers) {
                         param._featherOptionalParameter = true;
                         appliedChanges = true;
                         try {
-                             
                             console.error(
                                 `[feather:diagnostic] finalization-materialized index=${i} name=${param.left && param.left.name}`
                             );
@@ -953,7 +953,6 @@ function preprocessFunctionDeclaration(node, helpers) {
     // Ensure we wrote back any mutated params array so the canonical node
     // reflects our finalization changes for downstream passes.
     try {
-         
         console.error(
             `[feather:diagnostic] writing-back-params len=${params && params.length}`
         );
@@ -1177,7 +1176,7 @@ function preprocessFunctionDeclaration(node, helpers) {
                     const raw = m[1];
                     const name = raw
                         ? raw.replaceAll(/^\[|\]$/g, "").trim()
-                        : null;  
+                        : null;
                     const isOptional = raw ? /^\[.*\]$/.test(raw) : false;
                     if (name) {
                         paramDocMap.set(name, isOptional);
@@ -1292,7 +1291,7 @@ function preprocessFunctionDeclaration(node, helpers) {
                                         ? paramsList
                                               .map(
                                                   (x, ii) =>
-                                                      `${ii}:${x && x.type}${x && x.left && x.left.name ? `(${  x.left.name  })` : ""}`
+                                                      `${ii}:${x && x.type}${x && x.left && x.left.name ? `(${x.left.name})` : ""}`
                                               )
                                               .join(",")
                                         : String(paramsList);

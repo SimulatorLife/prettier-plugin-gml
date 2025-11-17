@@ -222,11 +222,11 @@ function _sanitizeDocChild(child) {
         try {
             if (!globalThis.__prettier_gml_logged_null_doc_child) {
                 globalThis.__prettier_gml_logged_null_doc_child = true;
-                 
+
                 console.warn(
                     "[feather:diagnostic] printer: encountered null/undefined doc child - logging stack to locate producer"
                 );
-                 
+
                 console.warn(new Error().stack);
             }
         } catch {}
@@ -6603,11 +6603,14 @@ function computeSyntheticFunctionDocLines(
                       return false;
                   }
 
-                // Treat a missing RHS (`null`/`undefined`) as a non-
-                // explicit default (i.e. not a concrete default). Only
-                // consider it an explicit default when the RHS exists and
-                // is not the `undefined` sentinel.
-                return candidate.right != null && !isUndefinedSentinel(candidate.right);
+                  // Treat a missing RHS (`null`/`undefined`) as a non-
+                  // explicit default (i.e. not a concrete default). Only
+                  // consider it an explicit default when the RHS exists and
+                  // is not the `undefined` sentinel.
+                  return (
+                      candidate.right != null &&
+                      !isUndefinedSentinel(candidate.right)
+                  );
               })
             : false;
         const hasPriorExplicitDefault = Array.isArray(node?.params)
@@ -6618,7 +6621,10 @@ function computeSyntheticFunctionDocLines(
 
                   // See above: require a present RHS before treating the
                   // candidate as a concrete explicit default.
-                  return candidate.right != null && !isUndefinedSentinel(candidate.right);
+                  return (
+                      candidate.right != null &&
+                      !isUndefinedSentinel(candidate.right)
+                  );
               })
             : false;
         const shouldApplyOptionalSuppression =
