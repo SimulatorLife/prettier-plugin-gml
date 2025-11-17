@@ -6,7 +6,7 @@ import { Core } from "@gml-modules/core";
 
 import { applyTransforms } from "@gml-modules/parser";
 
-const { parse: coreParse } = Core;
+// Use Core.parse directly rather than destructuring the Core namespace.
 
 export function makeParserConfig(prettierOptions = {}) {
     return {
@@ -50,7 +50,7 @@ export function parseForPrettier(source, prettierOptions = {}) {
 }
 
 function runPipeline(source, pipelineConfig, transformOptions) {
-    const ast = coreParse(source, pipelineConfig?.parser);
+    const ast = Core.parse(source, pipelineConfig?.parser);
     const transformEntries = pipelineConfig?.transforms ?? {};
     const transformNames = Object.entries(transformEntries)
         .filter(([, enabled]) => enabled)

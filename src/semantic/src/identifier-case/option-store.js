@@ -3,14 +3,12 @@ import { Core } from "@gml-modules/core";
 import { IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME } from "./options.js";
 import { getDefaultIdentifierCaseOptionStoreMaxEntries } from "./option-store-defaults.js";
 
-const {
-    Utils: {
-        getOrCreateMapEntry,
-        isFiniteNumber,
-        isNonEmptyString,
-        isObjectLike
-    }
-} = Core;
+// Use canonical Core namespace instead of destructuring
+// Helpers used from Core.Utils:
+// - Core.Utils.getOrCreateMapEntry
+// - Core.Utils.isFiniteNumber
+// - Core.Utils.isNonEmptyString
+// - Core.Utils.isObjectLike
 
 const optionStoreMap = new Map();
 const STORE_BLOCKLIST = new Set([
@@ -55,7 +53,7 @@ function trimOptionStoreMap(
  * baseline when the caller omits or misconfigures the override.
  */
 function resolveMaxOptionStoreEntries(options) {
-    if (!isObjectLike(options)) {
+    if (!Core.Utils.isObjectLike(options)) {
         return getDefaultIdentifierCaseOptionStoreMaxEntries();
     }
 
@@ -66,7 +64,7 @@ function resolveMaxOptionStoreEntries(options) {
         return configured;
     }
 
-    if (!isFiniteNumber(configured)) {
+    if (!Core.Utils.isFiniteNumber(configured)) {
         return getDefaultIdentifierCaseOptionStoreMaxEntries();
     }
 
@@ -78,7 +76,7 @@ function resolveMaxOptionStoreEntries(options) {
 }
 
 function getStoreKey(options) {
-    if (!isObjectLike(options)) {
+    if (!Core.Utils.isObjectLike(options)) {
         return null;
     }
 
@@ -86,7 +84,7 @@ function getStoreKey(options) {
         return options.__identifierCaseOptionsStoreKey;
     }
 
-    if (isNonEmptyString(options.filepath)) {
+    if (Core.Utils.isNonEmptyString(options.filepath)) {
         return options.filepath;
     }
 
@@ -95,7 +93,11 @@ function getStoreKey(options) {
 
 function getOrCreateStoreEntry(storeKey) {
     const existed = optionStoreMap.has(storeKey);
-    const entry = getOrCreateMapEntry(optionStoreMap, storeKey, () => ({}));
+    const entry = Core.Utils.getOrCreateMapEntry(
+        optionStoreMap,
+        storeKey,
+        () => ({})
+    );
 
     if (existed) {
         optionStoreMap.delete(storeKey);
@@ -106,17 +108,21 @@ function getOrCreateStoreEntry(storeKey) {
 }
 
 function updateStore(options, key, value) {
-    if (!isObjectLike(options)) {
+    if (!Core.Utils.isObjectLike(options)) {
         return;
     }
 
     const store = options.__identifierCaseOptionsStore;
-    if (isObjectLike(store)) {
+    if (Core.Utils.isObjectLike(store)) {
         store[key] = value;
     }
 
     const storeKey = getStoreKey(options);
-    if (storeKey === undefined) {
+    // treat both `null` and `undefined` as "no store key" so callers that
+    // explicitly pass `null` (test helpers use `clearIdentifierCaseOptionStore(null)`)
+    // behave as expected. Using loose equality here intentionally covers both
+    // `null` and `undefined` without changing external contracts.
+    if (storeKey == null) {
         return;
     }
 
@@ -124,13 +130,18 @@ function updateStore(options, key, value) {
         return;
     }
 
-    const entry = getOrCreateStoreEntry(storeKey);
+    const entry = Core.Utils.getOrCreateMapEntry(
+        optionStoreMap,
+        storeKey,
+        () => ({})
+    );
     entry[key] = value;
     trimOptionStoreMap(resolveMaxOptionStoreEntries(options));
 }
 
 function deleteFromStore(storeKey, key) {
-    if (storeKey === undefined) {
+    // treat null/undefined as "no-op" for deletions
+    if (storeKey == null) {
         return;
     }
 
@@ -147,27 +158,33 @@ function deleteFromStore(storeKey, key) {
 }
 
 export function setIdentifierCaseOption(options, key, value) {
-    if (!isObjectLike(options)) {
+    if (!Core.Utils.isObjectLike(options)) {
         return;
     }
 
     try {
         if (key === "__identifierCaseRenameMap") {
             const prev = options[key];
-            const prevSize = prev && typeof prev.size === 'number' ? prev.size : null;
+            const prevSize =
+                prev && typeof prev.size === "number" ? prev.size : null;
             const prevId = prev && prev.__dbgId ? prev.__dbgId : null;
-            const newSize = value && typeof value.size === 'number' ? value.size : null;
+            const newSize =
+                value && typeof value.size === "number" ? value.size : null;
             const newId = value && value.__dbgId ? value.__dbgId : null;
-            console.error(`[DBG] setIdentifierCaseOption: writing ${key} prevId=${prevId} prevSize=${String(prevSize)} newId=${newId} newSize=${String(newSize)} filepath=${options?.filepath ?? null}`);
+            console.debug(
+                `[DBG] setIdentifierCaseOption: writing ${key} prevId=${prevId} prevSize=${String(prevSize)} newId=${newId} newSize=${String(newSize)} filepath=${options?.filepath ?? null}`
+            );
         }
-    } catch {}
+    } catch {
+        /* ignore */
+    }
 
     options[key] = value;
     updateStore(options, key, value);
 }
 
 export function deleteIdentifierCaseOption(options, key) {
-    if (!isObjectLike(options) || key === undefined) {
+    if (!Core.Utils.isObjectLike(options) || key === undefined) {
         return;
     }
 
@@ -184,6 +201,8 @@ export function deleteIdentifierCaseOption(options, key) {
 }
 
 export function getIdentifierCaseOptionStore(storeKey) {
+    // accept null as a valid lookup key ({tests sometimes pass null explicitly}),
+    // but reject undefined which indicates the caller forgot to provide arg.
     if (storeKey === undefined) {
         return null;
     }
@@ -192,7 +211,9 @@ export function getIdentifierCaseOptionStore(storeKey) {
 }
 
 export function clearIdentifierCaseOptionStore(storeKey) {
-    if (storeKey === undefined) {
+    // callers may pass `null` intentionally to mean "clear everything" in
+    // test helpers; accept either `null` or `undefined` for that behavior.
+    if (storeKey == null) {
         optionStoreMap.clear();
         return;
     }

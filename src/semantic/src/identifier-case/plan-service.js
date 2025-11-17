@@ -7,9 +7,10 @@ import {
     applyIdentifierCasePlanSnapshot as defaultApplyIdentifierCasePlanSnapshot
 } from "./plan-state.js";
 
-const {
-    Utils: { assertFunction, assertPlainObject }
-} = Core;
+// Use canonical Core namespace instead of destructuring
+// Helpers used from Core.Utils:
+// - Core.Utils.assertFunction
+// - Core.Utils.assertPlainObject
 
 /**
  * The original IdentifierCasePlanService bundled plan preparation, rename
@@ -141,26 +142,30 @@ function createIdentifierCaseServiceRegistry({
             // helps correlate runtime behaviour with the provider identity.
             try {
                 const prov = provider;
-                console.error(
+                console.debug(
                     `[DBG] createIdentifierCaseServiceRegistry.resolve: resolving provider for ${providerTypeErrorMessage}`
                 );
-            } catch {}
+            } catch {
+                /* ignore */
+            }
 
             cachedService = normalize(provider());
 
             try {
                 const sampleKeys = Object.keys(cachedService).slice(0, 5);
-                console.error(
+                console.debug(
                     `[DBG] createIdentifierCaseServiceRegistry.resolve: cachedService keys=${JSON.stringify(sampleKeys)}`
                 );
-            } catch {}
+            } catch {
+                /* ignore */
+            }
         }
 
         return cachedService;
     }
 
     function register(nextProvider) {
-        provider = assertFunction(nextProvider, "provider", {
+        provider = Core.Utils.assertFunction(nextProvider, "provider", {
             errorMessage: providerTypeErrorMessage
         });
 
@@ -187,7 +192,7 @@ function normalizeIdentifierCaseServiceFunctions(
     service,
     { serviceErrorMessage, functionDescriptors }
 ) {
-    const normalized = assertPlainObject(service, {
+    const normalized = Core.Utils.assertPlainObject(service, {
         errorMessage: serviceErrorMessage
     });
 
@@ -195,7 +200,7 @@ function normalizeIdentifierCaseServiceFunctions(
         Object.fromEntries(
             functionDescriptors.map(({ property, errorMessage }) => [
                 property,
-                assertFunction(normalized[property], property, {
+                Core.Utils.assertFunction(normalized[property], property, {
                     errorMessage
                 })
             ])
@@ -373,10 +378,12 @@ export function prepareIdentifierCasePlan(options) {
  */
 export function getIdentifierCaseRenameForNode(node, options) {
     try {
-        console.error(
+        console.debug(
             `[DBG] plan-service:getIdentifierCaseRenameForNode: enter nodeStart=${JSON.stringify(node?.start ?? null)} filepath=${options?.filepath ?? null}`
         );
-    } catch {}
+    } catch {
+        /* ignore */
+    }
 
     return resolveIdentifierCaseRenameLookupService().getIdentifierCaseRenameForNode(
         node,

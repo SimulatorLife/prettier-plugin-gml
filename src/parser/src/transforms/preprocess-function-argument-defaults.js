@@ -69,7 +69,7 @@ export function preprocessFunctionArgumentDefaults(
             return;
         }
 
-        preprocessFunctionDeclaration(node, normalizedHelpers);
+        preprocessFunctionDeclaration(node, normalizedHelpers, ast);
     });
 
     return ast;
@@ -109,7 +109,7 @@ function traverse(node, visitor, seen = new Set()) {
     });
 }
 
-function preprocessFunctionDeclaration(node, helpers) {
+function preprocessFunctionDeclaration(node, helpers, ast) {
     if (
         !node ||
         (node.type !== "FunctionDeclaration" &&
@@ -846,7 +846,9 @@ function preprocessFunctionDeclaration(node, helpers) {
             console.error(
                 `[feather:diagnostic] finalization-start params=${params.length}`
             );
-        } catch {}
+        } catch {
+            /* swallow */
+        }
 
         // Find the highest index of a concrete explicit default to the left.
         let lastExplicitDefaultIndex = -1;
@@ -878,7 +880,9 @@ function preprocessFunctionDeclaration(node, helpers) {
                 console.warn(
                     `[feather:diagnostic] finalization-found-explicit idx=${lastExplicitDefaultIndex}`
                 );
-            } catch {}
+            } catch {
+                /* swallow */
+            }
         }
 
         // Only materialize trailing placeholders when we actually found an
@@ -892,7 +896,9 @@ function preprocessFunctionDeclaration(node, helpers) {
                     console.warn(
                         `[feather:diagnostic] finalization-loop idx=${i} type=${param.type} right=${param && param.right ? param.right.type || typeof param.right : "<null>"} lastExplicit=${lastExplicitDefaultIndex}`
                     );
-                } catch {}
+                } catch {
+                    /* swallow */
+                }
 
                 if (i <= lastExplicitDefaultIndex) {
                     // Nothing to do for parameters up to and including the last
@@ -917,7 +923,9 @@ function preprocessFunctionDeclaration(node, helpers) {
                             console.error(
                                 `[feather:diagnostic] finalization-materialized index=${i} name=${param.left && param.left.name}`
                             );
-                        } catch {}
+                        } catch {
+                            /* swallow */
+                        }
                     }
                     continue;
                 }
@@ -954,7 +962,7 @@ function preprocessFunctionDeclaration(node, helpers) {
     // reflects our finalization changes for downstream passes.
     try {
         console.error(
-            `[feather:diagnostic] writing-back-params len=${params && params.length}`
+            `[feather:diagnostic] writing-back-params len=${params?.length ?? 0}`
         );
         node.params = params;
     } catch {
@@ -1127,7 +1135,9 @@ function preprocessFunctionDeclaration(node, helpers) {
                 console.warn(
                     `[feather:diagnostic] reconcile: entering fn=${node && node.id && node.id.name ? node.id.name : "<anon>"} params=${Array.isArray(node.params) ? node.params.length : "na"}`
                 );
-            } catch {}
+            } catch {
+                /* swallow */
+            }
             // Snapshot params before calling into doc manager (which may throw
             // in edge cases). This helps us diagnose whether the materialized
             // flags exist before further processing.
@@ -1145,7 +1155,9 @@ function preprocessFunctionDeclaration(node, helpers) {
                 console.warn(
                     `[feather:diagnostic] reconcile: pre-doc-manager params-snapshot=${lines.join("|")}`
                 );
-            } catch {}
+            } catch {
+                /* swallow */
+            }
 
             const docManager = prepareDocCommentEnvironment(ast);
             const comments = docManager.getComments(node);
@@ -1164,7 +1176,9 @@ function preprocessFunctionDeclaration(node, helpers) {
                 console.warn(
                     `[feather:diagnostic] reconcile: params-snapshot=${lines.join("|")}`
                 );
-            } catch {}
+            } catch {
+                /* swallow */
+            }
             const paramDocMap = new Map();
             if (Array.isArray(comments) && comments.length > 0) {
                 for (const comment of comments) {
@@ -1199,7 +1213,9 @@ function preprocessFunctionDeclaration(node, helpers) {
                     console.warn(
                         `[feather:diagnostic] reconcile: iter-param left=${lname} type=${p && p.type} matFromLeft=${p && p._featherMaterializedFromExplicitLeft} matTrailing=${p && p._featherMaterializedTrailingUndefined}`
                     );
-                } catch {}
+                } catch {
+                    /* swallow */
+                }
                 if (!p) continue;
 
                 // Handle both DefaultParameter and AssignmentPattern shapes.
@@ -1298,8 +1314,12 @@ function preprocessFunctionDeclaration(node, helpers) {
                                     console.warn(
                                         `[feather:diagnostic] reconcile: paramsListSummary=${summary} idx=${idx}`
                                     );
-                                } catch {}
-                            } catch {}
+                                } catch {
+                                    /* swallow */
+                                }
+                            } catch {
+                                /* swallow */
+                            }
                             if (idx > 0) {
                                 for (let k = 0; k < idx; k += 1) {
                                     const leftParam = paramsList[k];
@@ -1344,7 +1364,9 @@ function preprocessFunctionDeclaration(node, helpers) {
                                     console.warn(
                                         `[feather:diagnostic] reconcile: marking-optional idx=${idx} param=${leftName || (p && p.left && p.left.name)} foundRealExplicitToLeft=${foundRealExplicitToLeft}`
                                     );
-                                } catch {}
+                                } catch {
+                                    /* swallow */
+                                }
                                 p._featherOptionalParameter = true;
                                 continue;
                             }
@@ -1693,7 +1715,7 @@ function preprocessFunctionDeclaration(node, helpers) {
         // parsers produce a Literal node for the numeric bound while
         // others use an Identifier-like node. Try literal first then
         // fall back to the helper extraction.
-        let rightNumber = Number.NaN;
+        let rightNumber;
         try {
             if (
                 numericNode &&

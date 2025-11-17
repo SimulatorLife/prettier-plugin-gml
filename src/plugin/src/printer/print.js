@@ -97,12 +97,14 @@ const {
 function getSemanticIdentifierCaseRenameForNode(node, options) {
     try {
         try {
-            console.error(
+            console.debug(
                 `[DBG] semantic-lookup-enter: filepath=${options?.filepath ?? null} nodeStart=${JSON.stringify(
                     node?.start
                 )} scopeId=${String(node?.scopeId ?? null)} renameMapId=${options?.__identifierCaseRenameMap?.__dbgId ?? null} renameMapSize=${options?.__identifierCaseRenameMap?.size ?? null}`
             );
-        } catch {}
+        } catch {
+            /* ignore */
+        }
 
         try {
             // Emit a small view of the Semantic namespace so we can detect if
@@ -111,21 +113,27 @@ function getSemanticIdentifierCaseRenameForNode(node, options) {
             const semanticKeys = [];
             try {
                 semanticKeys.push(...Object.keys(Semantic).slice(0, 10));
-            } catch {}
-            console.error(
+            } catch {
+                /* ignore */
+            }
+            console.debug(
                 `[DBG] semantic-namespace-keys: ${JSON.stringify(semanticKeys)}`
             );
-        } catch {}
+        } catch {
+            /* ignore */
+        }
 
         // If the caller requested a dry-run for identifier-case, do not
         // apply or consult the rename snapshot when printing — dry-run
         // should only report planned changes, not rewrite source text.
         if (options?.__identifierCaseDryRun === true) {
             try {
-                console.error(
+                console.debug(
                     `[DBG] semantic-lookup: dry-run mode active, skipping rename lookup for filepath=${options?.filepath ?? null}`
                 );
-            } catch {}
+            } catch {
+                /* ignore */
+            }
             return null;
         }
 
@@ -147,7 +155,9 @@ function getSemanticIdentifierCaseRenameForNode(node, options) {
                     options
                 );
             }
-        } catch {}
+        } catch {
+            /* ignore */
+        }
 
         // If the facade lookup did not produce a rename, attempt a narrow
         // direct lookup against the captured renameMap. This mirrors the
@@ -162,10 +172,15 @@ function getSemanticIdentifierCaseRenameForNode(node, options) {
                     node &&
                     node.start
                 ) {
-                    const loc = typeof node.start === "number" ? { index: node.start } : node.start;
+                    const loc =
+                        typeof node.start === "number"
+                            ? { index: node.start }
+                            : node.start;
                     const key = Core.AST.buildLocationKey(loc);
                     try {
-                        const hasKey = key ? Boolean(renameMap.has(key)) : false;
+                        const hasKey = key
+                            ? Boolean(renameMap.has(key))
+                            : false;
                         const samples = [];
                         let c = 0;
                         for (const k of renameMap.keys()) {
@@ -173,10 +188,12 @@ function getSemanticIdentifierCaseRenameForNode(node, options) {
                             c += 1;
                             if (c >= 6) break;
                         }
-                        console.error(
+                        console.debug(
                             `[DBG] semantic-lookup-fallback-attempt: filepath=${options?.filepath ?? null} computedKey=${String(key)} hasKey=${String(hasKey)} renameMapId=${renameMap.__dbgId ?? null} renameMapSize=${renameMap.size} samples=${JSON.stringify(samples)}`
                         );
-                    } catch {}
+                    } catch {
+                        /* ignore */
+                    }
 
                     if (key) {
                         finalResult = renameMap.get(key) ?? finalResult;
@@ -196,33 +213,41 @@ function getSemanticIdentifierCaseRenameForNode(node, options) {
                                     i += 1;
                                     if (i >= 8) break;
                                 }
-                                console.error(
+                                console.debug(
                                     `[DBG] semantic-lookup-fallback-equality: filepath=${options?.filepath ?? null} computedKey=${String(key)} renameMapId=${renameMap.__dbgId ?? null} renameMapSize=${renameMap.size} comparisons=${JSON.stringify(comparisons)}`
                                 );
-                            } catch {}
+                            } catch {
+                                /* ignore */
+                            }
                         }
                     }
                 }
             }
-        } catch {}
+        } catch {
+            /* ignore */
+        }
 
         try {
-            console.error(
+            console.debug(
                 `[DBG] semantic-lookup: filepath=${options?.filepath ?? null} nodeStart=${JSON.stringify(
                     node?.start
                 )} scopeId=${String(node?.scopeId ?? null)} result=${String(
                     finalResult ?? null
                 )} renameMapId=${options?.__identifierCaseRenameMap?.__dbgId ?? null}`
             );
-        } catch {}
+        } catch {
+            /* ignore */
+        }
 
         return finalResult;
     } catch (error) {
         try {
-            console.error(
+            console.debug(
                 `[DBG] semantic-lookup-exception: ${String(error && error.stack ? error.stack : error)}`
             );
-        } catch {}
+        } catch {
+            /* ignore */
+        }
     }
     return null;
 }
@@ -348,9 +373,11 @@ function _sanitizeDocChild(child) {
                     "[feather:diagnostic] printer: encountered null/undefined doc child - logging stack to locate producer"
                 );
 
-                console.warn(new Error().stack);
+                console.warn(new Error("printer: null doc child").stack);
             }
-        } catch {}
+        } catch {
+            /* ignore */
+        }
 
         return "";
     }
@@ -730,10 +757,12 @@ function _printImpl(path, options, print) {
             if (node && node.__identifierCasePlanSnapshot) {
                 try {
                     try {
-                        console.error(
+                        console.debug(
                             `[DBG] printer: about to apply snapshot for filepath=${options?.filepath ?? null} snapshotPresent=${Boolean(node.__identifierCasePlanSnapshot)}`
                         );
-                    } catch {}
+                    } catch {
+                        /* ignore */
+                    }
                     if (
                         Semantic &&
                         typeof Semantic.applyIdentifierCasePlanSnapshot ===
@@ -745,14 +774,20 @@ function _printImpl(path, options, print) {
                         );
                     }
                     try {
-                        console.error(
-                            `[DBG] printer: post-apply options.renameMapPresent=${Boolean(options?.__identifierCaseRenameMap)} size=${options?.__identifierCaseRenameMap?.size ?? 'n/a'} renameMapId=${options?.__identifierCaseRenameMap?.__dbgId ?? null} filepath=${options?.filepath ?? null}`
+                        console.debug(
+                            `[DBG] printer: post-apply options.renameMapPresent=${Boolean(options?.__identifierCaseRenameMap)} size=${options?.__identifierCaseRenameMap?.size ?? "n/a"} renameMapId=${options?.__identifierCaseRenameMap?.__dbgId ?? null} filepath=${options?.filepath ?? null}`
                         );
-                    } catch {}
+                    } catch {
+                        /* ignore */
+                    }
                 } catch (error) {
                     try {
-                        console.error(`[DBG] printer: failed to apply snapshot: ${String(error)}`);
-                    } catch {}
+                        console.debug(
+                            `[DBG] printer: failed to apply snapshot: ${String(error)}`
+                        );
+                    } catch {
+                        /* ignore */
+                    }
                     // Non-fatal: identifier case snapshot application is
                     // optional for printing. If the Semantic API isn't
                     // available, continue without it.
@@ -768,7 +803,9 @@ function _printImpl(path, options, print) {
                     ) {
                         Semantic.maybeReportIdentifierCaseDryRun(options);
                     }
-                } catch {}
+                } catch {
+                    /* ignore */
+                }
 
                 if (node.body.length === 0) {
                     return concat(printDanglingCommentsAsGroup(path, options));
@@ -783,7 +820,9 @@ function _printImpl(path, options, print) {
                     ) {
                         Semantic.teardownIdentifierCaseEnvironment(options);
                     }
-                } catch {}
+                } catch {
+                    /* ignore */
+                }
             }
         }
         case "BlockStatement": {
@@ -1984,20 +2023,24 @@ function _printImpl(path, options, print) {
             }
 
             try {
-                console.error(
+                console.debug(
                     `[DBG] identifier-print: filepath=${options?.filepath ?? null} nodeStart=${JSON.stringify(node?.start)} scopeId=${String(node?.scopeId ?? null)} renameMapPresent=${Boolean(options?.__identifierCaseRenameMap)} renameMapId=${options?.__identifierCaseRenameMap?.__dbgId ?? null}`
                 );
-            } catch {}
+            } catch {
+                /* ignore */
+            }
 
             const renamed = getSemanticIdentifierCaseRenameForNode(
                 node,
                 options
             );
             try {
-                console.error(
+                console.debug(
                     `[DBG] identifier-print: semantic-rename-result filepath=${options?.filepath ?? null} nodeStart=${JSON.stringify(node?.start)} renamed=${String(renamed ?? null)} renameMapId=${options?.__identifierCaseRenameMap?.__dbgId ?? null}`
                 );
-            } catch {}
+            } catch {
+                /* ignore */
+            }
             if (isNonEmptyString(renamed)) {
                 identifierName = renamed;
             }
@@ -6787,7 +6830,7 @@ function computeSyntheticFunctionDocLines(
             hasSiblingExplicitDefault &&
             hasPriorExplicitDefault &&
             !materializedFromExplicitLeft &&
-            !(param?._featherMaterializedTrailingUndefined === true)
+            param?._featherMaterializedTrailingUndefined !== true
         ) {
             shouldMarkOptional = true;
         }

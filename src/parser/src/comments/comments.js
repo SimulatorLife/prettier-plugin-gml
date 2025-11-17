@@ -17,8 +17,6 @@
 import { enqueueObjectChildValues } from "../ast/node-helpers.js";
 import { Core } from "@gml-modules/core";
 
-const { isObjectLike } = Core.Utils;
-
 /**
  * Frozen reusable empty array so repeated `getCommentArray` calls do not
  * allocate. Mirrors the shared array utilities while letting the hot comment
@@ -35,7 +33,7 @@ const EMPTY_COMMENT_ARRAY = Object.freeze([]);
  */
 export function isCommentNode(node) {
     return (
-        isObjectLike(node) &&
+        Core.Utils.isObjectLike(node) &&
         (node.type === "CommentBlock" || node.type === "CommentLine")
     );
 }
@@ -102,7 +100,7 @@ export function hasComment(node) {
  *          collection exists.
  */
 export function getCommentArray(owner) {
-    if (!isObjectLike(owner)) {
+    if (!Core.Utils.isObjectLike(owner)) {
         return EMPTY_COMMENT_ARRAY;
     }
 
@@ -128,7 +126,10 @@ export function getCommentValue(comment, { trim = false } = {}) {
         return trim ? comment.trim() : comment;
     }
 
-    if (!isObjectLike(comment) || typeof comment?.value !== "string") {
+    if (
+        !Core.Utils.isObjectLike(comment) ||
+        typeof comment?.value !== "string"
+    ) {
         return "";
     }
 
@@ -151,7 +152,7 @@ export function getCommentValue(comment, { trim = false } = {}) {
  *          Flat list of comment nodes discovered anywhere within the supplied root.
  */
 export function collectCommentNodes(root) {
-    if (!isObjectLike(root)) {
+    if (!Core.Utils.isObjectLike(root)) {
         return [];
     }
 
@@ -161,7 +162,7 @@ export function collectCommentNodes(root) {
 
     while (stack.length > 0) {
         const current = stack.pop();
-        if (!isObjectLike(current) || visited.has(current)) {
+        if (!Core.Utils.isObjectLike(current) || visited.has(current)) {
             continue;
         }
 

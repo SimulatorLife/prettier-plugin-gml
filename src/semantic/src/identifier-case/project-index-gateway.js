@@ -6,10 +6,8 @@ import {
 
 import { setIdentifierCaseOption } from "./option-store.js";
 
-const { coalesceOption } = Core;
-
 function getExistingProjectIndex(options) {
-    return coalesceOption(
+    return Core.coalesceOption(
         options,
         ["__identifierCaseProjectIndex", "identifierCaseProjectIndex"],
         { fallback: null }

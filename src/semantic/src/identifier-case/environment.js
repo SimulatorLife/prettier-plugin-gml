@@ -11,16 +11,21 @@ import {
 } from "./option-store.js";
 import { warnWithReason } from "./logger.js";
 
-const {
-    Utils: { isObjectLike, isMapLike, noop, withObjectLike }
-} = Core;
+// Use the canonical Core namespace for helpers per AGENTS.md
+// (avoid destructuring from the package namespace)
+
+// Helpers used from Core:
+// - Core.Utils.isObjectLike
+// - Core.Utils.isMapLike
+// - Core.Utils.noop
+// - Core.withObjectLike
 
 const IDENTIFIER_CASE_LOGGER_NAMESPACE = "identifier-case";
 
 const managedBootstraps = new WeakSet();
 
 function clearOwnProperty(_target, propertyName, { value = null } = {}) {
-    if (!isObjectLike(_target)) {
+    if (!Core.Utils.isObjectLike(_target)) {
         return;
     }
 
@@ -34,7 +39,7 @@ function clearOwnProperty(_target, propertyName, { value = null } = {}) {
 }
 
 function sanitizeBootstrapResult(bootstrap) {
-    if (!isObjectLike(bootstrap)) {
+    if (!Core.Utils.isObjectLike(bootstrap)) {
         return;
     }
 
@@ -53,7 +58,7 @@ function sanitizeBootstrapResult(bootstrap) {
         // Deleting the method or leaving the original callback in place would
         // cause those consumers to either crash (missing method) or double-free
         // resources that were never designed to be re-disposed.
-        bootstrap.dispose = noop;
+        bootstrap.dispose = Core.Utils.noop;
     }
 
     const { cache } = bootstrap;
@@ -96,9 +101,13 @@ function disposeBootstrap(bootstrapResult, logger = null) {
 
 export async function prepareIdentifierCaseEnvironment(options) {
     try {
-        console.error(`[DBG] prepareIdentifierCaseEnvironment: enter filepath=${options?.filepath ?? null}`);
-    } catch {}
-    return withObjectLike(options, async (object) => {
+        console.debug(
+            `[DBG] prepareIdentifierCaseEnvironment: enter filepath=${options?.filepath ?? null}`
+        );
+    } catch {
+        /* ignore */
+    }
+    return Core.withObjectLike(options, async (object) => {
         const bootstrapResult =
             await bootstrapIdentifierCaseProjectIndex(object);
         registerBootstrapCleanup(bootstrapResult);
@@ -132,7 +141,7 @@ export async function prepareIdentifierCaseEnvironment(options) {
 }
 
 export function attachIdentifierCasePlanSnapshot(ast, options) {
-    withObjectLike(ast, (objectAst) => {
+    Core.withObjectLike(ast, (objectAst) => {
         const snapshot = captureIdentifierCasePlanSnapshot(options);
         // Only attach snapshots that carry meaningful planning state.
         // Empty snapshots (no renameMap and no planGenerated) are common
@@ -141,13 +150,14 @@ export function attachIdentifierCasePlanSnapshot(ast, options) {
         // inert snapshots which strip rename data from downstream printers.
         if (
             !snapshot ||
-            (snapshot.planGenerated !== true && !isMapLike(snapshot.renameMap))
+            (snapshot.planGenerated !== true &&
+                !Core.Utils.isMapLike(snapshot.renameMap))
         ) {
             return;
         }
 
         try {
-            if (isMapLike(snapshot.renameMap)) {
+            if (Core.Utils.isMapLike(snapshot.renameMap)) {
                 const samples = [];
                 let c = 0;
                 for (const k of snapshot.renameMap.keys()) {
@@ -155,15 +165,17 @@ export function attachIdentifierCasePlanSnapshot(ast, options) {
                     c += 1;
                     if (c >= 5) break;
                 }
-                console.error(
+                console.debug(
                     `[DBG] attachIdentifierCasePlanSnapshot: attaching snapshot for filepath=${options?.filepath ?? null} planGenerated=${Boolean(snapshot.planGenerated)} renameMapSize=${snapshot.renameMap.size} renameMapId=${snapshot.renameMap.__dbgId ?? null} samples=${JSON.stringify(samples)}`
                 );
             } else {
-                console.error(
+                console.debug(
                     `[DBG] attachIdentifierCasePlanSnapshot: attaching snapshot for filepath=${options?.filepath ?? null} planGenerated=${Boolean(snapshot.planGenerated)} renameMapSize=0 renameMapId=${null}`
                 );
             }
-        } catch {}
+        } catch {
+            /* ignore */
+        }
 
         Object.defineProperty(objectAst, "__identifierCasePlanSnapshot", {
             value: snapshot,

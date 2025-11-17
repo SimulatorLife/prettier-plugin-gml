@@ -96,7 +96,10 @@ export function collectCommentNodes(root) {
 }
 
 export function isDocCommentLine(comment) {
-    if (!commentTypeMatches(comment, "CommentLine") || typeof comment?.value !== "string") {
+    if (
+        !commentTypeMatches(comment, "CommentLine") ||
+        typeof comment?.value !== "string"
+    ) {
         return false;
     }
 

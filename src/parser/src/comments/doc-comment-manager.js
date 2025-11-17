@@ -130,7 +130,7 @@ function createDocCommentManager(ast) {
         },
         getComments(functionNode) {
             const comments = commentGroups.get(functionNode);
-                return Core.toMutableArray(comments);
+            return Core.toMutableArray(comments);
         },
         extractDescription(functionNode) {
             return extractFunctionDescription(commentGroups, functionNode);
@@ -310,7 +310,7 @@ function applyDescriptionCommentUpdate(descriptionComment, update) {
         update.expression
     );
 
-    if (!isNonEmptyTrimmedString(updatedDescription)) {
+    if (!Core.isNonEmptyTrimmedString(updatedDescription)) {
         return;
     }
 
@@ -369,7 +369,7 @@ function buildUpdatedDescription(existing, expression) {
 
     const normalizedExpression = expression.trim();
 
-    if (!isNonEmptyTrimmedString(existing)) {
+    if (!Core.isNonEmptyTrimmedString(existing)) {
         return `Simplified: ${normalizedExpression}`;
     }
 

@@ -1,8 +1,6 @@
 import { Core } from "@gml-modules/core";
 import { util } from "prettier";
 
-const { getNodeType, getNonEmptyTrimmedString } = Core;
-
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
 
 // Using a Set avoids re-allocating the list for every membership check when
@@ -153,7 +151,7 @@ function registerSurroundingNewlineNodeTypes(...nodeTypes) {
             continue;
         }
 
-        const normalized = getNonEmptyTrimmedString(entry);
+        const normalized = Core.getNonEmptyTrimmedString(entry);
         if (!normalized) {
             continue;
         }
@@ -195,7 +193,7 @@ const FUNCTION_LIKE_DECLARATION_TYPES = new Set([
  * @returns {boolean} `true` when the node is a function-like declaration.
  */
 function isFunctionLikeDeclaration(node) {
-    const type = getNodeType(node);
+    const type = Core.getNodeType(node);
     return type !== null && FUNCTION_LIKE_DECLARATION_TYPES.has(type);
 }
 

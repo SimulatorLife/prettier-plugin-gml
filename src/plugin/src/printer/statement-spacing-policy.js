@@ -5,7 +5,7 @@ import {
     isFunctionLikeDeclaration
 } from "./util.js";
 
-const { getBooleanLiteralValue } = Core;
+// Use Core.getBooleanLiteralValue per AGENTS.md rather than destructuring.
 
 function isMacroLikeStatement(node) {
     const nodeType = node?.type;
@@ -97,8 +97,10 @@ function shouldForceBlankLineBetweenReturnPaths(currentNode, nextNode) {
         return false;
     }
 
-    const consequentBoolean = getBooleanLiteralValue(lastStatement.argument);
-    const fallbackBoolean = getBooleanLiteralValue(nextNode.argument);
+    const consequentBoolean = Core.getBooleanLiteralValue(
+        lastStatement.argument
+    );
+    const fallbackBoolean = Core.getBooleanLiteralValue(nextNode.argument);
 
     if (consequentBoolean === null || fallbackBoolean === null) {
         return false;

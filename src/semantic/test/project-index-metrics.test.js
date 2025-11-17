@@ -7,7 +7,7 @@ import test from "node:test";
 import { buildProjectIndex } from "../src/project-index/index.js";
 import { Core } from "@gml-modules/core";
 
-const { createMetricsTracker } = Core.Reporting;
+// Use Core.Reporting.createMetricsTracker instead of destructuring the namespace.
 
 async function writeProjectFile(rootDir, relativePath, contents) {
     const absolutePath = path.join(rootDir, relativePath);
@@ -165,7 +165,7 @@ test("buildProjectIndex reuses a provided metrics tracker", async () => {
 });
 
 test("createMetricsTracker trims and deduplicates configured cache keys", () => {
-    const tracker = createMetricsTracker({
+    const tracker = Core.Reporting.createMetricsTracker({
         cacheKeys: new Set([
             " hits ",
             "Misses",
@@ -188,7 +188,9 @@ test("createMetricsTracker trims and deduplicates configured cache keys", () => 
 });
 
 test("createMetricsTracker falls back to default cache keys when normalization is empty", () => {
-    const tracker = createMetricsTracker({ cacheKeys: [null, "   "] });
+    const tracker = Core.Reporting.createMetricsTracker({
+        cacheKeys: [null, "   "]
+    });
 
     tracker.recording.caches.recordMetric("demo", "custom", 0);
 
@@ -201,7 +203,7 @@ test("createMetricsTracker falls back to default cache keys when normalization i
 });
 
 test("createMetricsTracker falls back to default cache keys when option is invalid", () => {
-    const tracker = createMetricsTracker({ cacheKeys: 42 });
+    const tracker = Core.Reporting.createMetricsTracker({ cacheKeys: 42 });
 
     tracker.recording.caches.recordMetric("demo", "custom", 0);
 

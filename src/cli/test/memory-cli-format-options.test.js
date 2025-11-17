@@ -3,8 +3,7 @@ import { describe, it } from "node:test";
 
 import { parseFormatterOptionsFixture } from "../src/modules/memory/index.js";
 import { Core } from "../src/shared/index.js";
-
-const { JsonParseError } = Core;
+// Use Core.JsonParseError per AGENTS.md rather than destructuring
 
 describe("parseFormatterOptionsFixture", () => {
     it("parses formatter options objects", () => {
@@ -25,7 +24,7 @@ describe("parseFormatterOptionsFixture", () => {
             error = error_;
         }
 
-        assert.ok(error instanceof JsonParseError);
+        assert.ok(error instanceof Core.JsonParseError);
         assert.match(
             error.message,
             /Failed to parse formatter options fixture from \/tmp\/formatter\/options\.json/i

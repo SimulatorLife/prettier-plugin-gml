@@ -15,7 +15,7 @@ import {
 import { prepareIdentifierCasePlan } from "../src/identifier-case/plan-service.js";
 import { Core } from "../src/shared/index.js";
 
-const { fromPosixPath } = Core;
+// Use Core.* calls per AGENTS.md rather than destructuring the namespace.
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const pluginPath = path.resolve(currentDirectory, "../../plugin/src/gml.js");
@@ -267,11 +267,11 @@ describe("asset rename execution", () => {
             const newGmlRelative = "scripts/demo_script/DemoScript.gml";
             const newYyPath = path.join(
                 projectRoot,
-                fromPosixPath(newYyRelative)
+                Core.fromPosixPath(newYyRelative)
             );
             const newGmlPath = path.join(
                 projectRoot,
-                fromPosixPath(newGmlRelative)
+                Core.fromPosixPath(newGmlRelative)
             );
 
             await assertPathMissing(
@@ -289,7 +289,7 @@ describe("asset rename execution", () => {
                 await fs.readFile(
                     path.join(
                         projectRoot,
-                        fromPosixPath(
+                        Core.fromPosixPath(
                             "objects/obj_controller/obj_controller.yy"
                         )
                     ),

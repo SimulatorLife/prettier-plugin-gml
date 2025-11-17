@@ -16,7 +16,7 @@ import { prepareIdentifierCasePlan } from "../src/identifier-case/plan-service.j
 import { maybeReportIdentifierCaseDryRun } from "../src/identifier-case/identifier-case-report.js";
 import { Core } from "../src/shared/index.js";
 
-const { isNonEmptyArray } = Core;
+// Use Core.* per AGENTS.md rather than destructuring the namespace.
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const pluginPath = path.resolve(currentDirectory, "../../plugin/src/gml.js");
@@ -138,7 +138,7 @@ describe("identifier case local renaming", { concurrency: false }, () => {
             assert.match(summaryText, /counter_value -> counterValue/);
 
             const codes = new Set();
-            if (isNonEmptyArray(diagnostics)) {
+            if (Core.isNonEmptyArray(diagnostics)) {
                 const summaryDiagnostic = diagnostics.find(
                     (entry) => entry?.code === "gml-identifier-case-summary"
                 );

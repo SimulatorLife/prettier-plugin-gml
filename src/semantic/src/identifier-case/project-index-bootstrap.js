@@ -143,10 +143,12 @@ function storeBootstrapResult(
     writeOption = DEFAULT_OPTION_WRITER
 ) {
     try {
-        console.error(
+        console.debug(
             `[DBG] storeBootstrapResult: filepath=${options?.filepath ?? null} resultStatus=${result?.status ?? null} reason=${result?.reason ?? null} source=${result?.source ?? null}`
         );
-    } catch {}
+    } catch {
+        /* ignore */
+    }
 
     writeOption(options, "__identifierCaseProjectIndexBootstrap", result);
     return result;
@@ -463,10 +465,12 @@ export async function bootstrapProjectIndex(options, storeOption) {
 
     if (skipResult) {
         try {
-            console.error(
+            console.debug(
                 `[DBG] bootstrapProjectIndex: skipping project discovery for filepath=${options?.filepath ?? null} reason=${skipResult?.reason ?? null}`
             );
-        } catch {}
+        } catch {
+            /* ignore */
+        }
         return storeBootstrapResult(options, skipResult, writeOption);
     }
 
@@ -497,10 +501,12 @@ export async function bootstrapProjectIndex(options, storeOption) {
         ready = await coordinator.ensureReady(descriptor);
     } catch (error) {
         try {
-            console.error(
+            console.debug(
                 `[DBG] bootstrapProjectIndex: coordinator.ensureReady threw for projectRoot=${projectRoot} error=${error?.stack ?? String(error)}`
             );
-        } catch {}
+        } catch {
+            /* ignore */
+        }
 
         const failureResult = createFailureResult({
             reason: "build-error",

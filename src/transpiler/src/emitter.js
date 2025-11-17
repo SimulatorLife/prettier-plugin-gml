@@ -43,6 +43,7 @@ export function makeDummyOracle() {
             return node.name;
         },
         qualifiedSymbol(node) {
+             
             return null;
         },
         callTargetKind(node) {
@@ -55,6 +56,7 @@ export function makeDummyOracle() {
             return "unknown";
         },
         callTargetSymbol(node) {
+             
             return null;
         }
     };

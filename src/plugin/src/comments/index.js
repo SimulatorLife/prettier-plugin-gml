@@ -56,10 +56,8 @@ export {
     resolveDocCommentUpdateService
 } from "./doc-comment-manager.js";
 
-// Re-export the small helper from the canonical core package. Use a local
-// const binding so we avoid invalid `export =` assignment syntax and keep the
-// export explicit and easy to find.
-const { getCommentValue } = Core;
-export { getCommentValue };
+// Re-export the small helper from the canonical core package. Export via a
+// direct const alias to avoid destructuring the `Core` namespace (AGENTS.md).
+export const getCommentValue = Core.getCommentValue;
 
 export { normalizeOptionalParamToken } from "./optional-param-normalization.js";
