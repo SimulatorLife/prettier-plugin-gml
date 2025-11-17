@@ -172,19 +172,27 @@ function preprocessFunctionDeclaration(node, helpers) {
                 if (!param) continue;
 
                 if (param.type === "DefaultParameter") {
-                    if (param.right != null) {
+                    if (param.right == null) {
+                        if (seenExplicitDefaultToLeft) {
+                            param.right = {
+                                type: "Identifier",
+                                name: "undefined"
+                            };
+                            param._featherMaterializedTrailingUndefined = true;
+                            param._featherMaterializedFromExplicitLeft = true;
+                            // Historical behaviour: when materializing a trailing
+                            // undefined because there was an explicit default to
+                            // the left, treat the parameter as optional by
+                            // default so downstream phases preserve `= undefined`.
+                            param._featherOptionalParameter = true;
+                            changed = true;
+                        }
+                    } else {
                         const isUndef =
                             typeof helpers.isUndefinedLiteral === "function" &&
                             helpers.isUndefinedLiteral(param.right);
                         if (!isUndef) {
                             seenExplicitDefaultToLeft = true;
-                        }
-                    } else {
-                        if (seenExplicitDefaultToLeft) {
-                            param.right = { type: "Identifier", name: "undefined" };
-                            param._featherMaterializedTrailingUndefined = true;
-                            param._featherMaterializedFromExplicitLeft = true;
-                            changed = true;
                         }
                     }
                     continue;
@@ -232,11 +240,9 @@ function preprocessFunctionDeclaration(node, helpers) {
     // conservative behavior while avoiding premature finalization in
     // more complex match paths.
     try {
-        if (statements.length === 0 && !appliedChanges) {
-            if (finalizeTrailingUndefinedDefaults(params, helpers)) {
+        if (statements.length === 0 && !appliedChanges && finalizeTrailingUndefinedDefaults(params, helpers)) {
                 appliedChanges = true;
             }
-        }
     } catch {
         // swallow
     }
@@ -357,7 +363,6 @@ function preprocessFunctionDeclaration(node, helpers) {
                 const cond = unwrapParenthesizedExpression(statement.test);
                 const maybeGuard = matchArgumentCountGuard(cond);
                 if (maybeGuard) {
-                     
                     console.warn(
                         `[feather:diagnostic] missed-strict-match fn=${node && node.id && node.id.name ? node.id.name : "<anon>"} stmtIndex=${statementIndex} argIdx=${maybeGuard.argumentIndex}`
                     );
@@ -467,7 +472,6 @@ function preprocessFunctionDeclaration(node, helpers) {
                     helpers
                 );
                 if (fallBackIdentifier) {
-                     
                     console.warn(
                         `[feather:diagnostic] relaxed-match targetName=${targetName} index=${argumentIndex} paramName=${getIdentifierText(fallBackIdentifier)}`
                     );
@@ -491,7 +495,7 @@ function preprocessFunctionDeclaration(node, helpers) {
         try {
             // Diagnostic: log the raw match object so we can see what the
             // matcher produced for each IfStatement.
-             
+
             console.warn(
                 `[feather:diagnostic] processing match targetName=${match.targetName} argumentIndex=${match.argumentIndex} hasFallback=${!!match.fallbackExpression} hasArgumentExpr=${!!match.argumentExpression}`
             );
@@ -503,7 +507,7 @@ function preprocessFunctionDeclaration(node, helpers) {
         try {
             // Diagnostic: report whether we found a parameter mapping
             // for this match.
-             
+
             console.warn(
                 `[feather:diagnostic] paramInfo for match: ${paramInfo ? `index=${paramInfo.index} id=${paramInfo.identifier && paramInfo.identifier.name}` : "<none>"}`
             );
@@ -590,7 +594,7 @@ function preprocessFunctionDeclaration(node, helpers) {
                 // Diagnostic: report what fallback expression we're using
                 // when creating a default param so we can trace missed
                 // literal fallbacks in fixtures.
-                 
+
                 console.warn(
                     `[feather:diagnostic] creating DefaultParameter at index=${paramInfo.index} fallbackType=${match.fallbackExpression && match.fallbackExpression.type}`
                 );
@@ -604,7 +608,7 @@ function preprocessFunctionDeclaration(node, helpers) {
                 // Diagnostic: report what we're attempting to fill into the
                 // existing DefaultParameter.right so we can see why some
                 // placeholder `undefined` values remain.
-                 
+
                 console.warn(
                     `[feather:diagnostic] filling DefaultParameter.right index=${paramInfo.index} fallbackType=${match.fallbackExpression && match.fallbackExpression.type}`
                 );
@@ -725,7 +729,6 @@ function preprocessFunctionDeclaration(node, helpers) {
                     paramIndex < 0 ||
                     paramIndex >= params.length)
             ) {
-                 
                 console.warn(
                     `[feather:diagnostic] unmatched-argguard fn=${node && node.id && node.id.name ? node.id.name : "<anon>"} sidx=${sidx} argIdx=${argumentIndex} hadArg=${!!argMatch} hadFallback=${!!fallbackMatch} targetName=${String(targetName)} paramIndex=${paramIndex} paramsLen=${params.length}`
                 );
@@ -836,20 +839,21 @@ function preprocessFunctionDeclaration(node, helpers) {
     try {
         // Diagnostic: show initial param summary before finalization
         try {
-            // eslint-disable-next-line no-console
-            console.error(`[feather:diagnostic] finalization-start params=${params.length}`);
+             
+            console.error(
+                `[feather:diagnostic] finalization-start params=${params.length}`
+            );
         } catch {}
 
         // Find the highest index of a concrete explicit default to the left.
         let lastExplicitDefaultIndex = -1;
-        for (let i = 0; i < params.length; i += 1) {
-            const param = params[i];
+        for (const [i, param] of params.entries()) {
             if (!param) continue;
 
-            if (param.type === 'DefaultParameter') {
+            if (param.type === "DefaultParameter") {
                 if (param.right != null) {
                     const isUndef =
-                        typeof helpers.isUndefinedLiteral === 'function' &&
+                        typeof helpers.isUndefinedLiteral === "function" &&
                         helpers.isUndefinedLiteral(param.right);
                     if (!isUndef) {
                         lastExplicitDefaultIndex = i;
@@ -858,7 +862,7 @@ function preprocessFunctionDeclaration(node, helpers) {
                 continue;
             }
 
-            if (param.type === 'AssignmentPattern') {
+            if (param.type === "AssignmentPattern") {
                 lastExplicitDefaultIndex = i;
                 continue;
             }
@@ -868,8 +872,10 @@ function preprocessFunctionDeclaration(node, helpers) {
 
         if (lastExplicitDefaultIndex >= 0) {
             try {
-                // eslint-disable-next-line no-console
-                console.warn(`[feather:diagnostic] finalization-found-explicit idx=${lastExplicitDefaultIndex}`);
+                 
+                console.warn(
+                    `[feather:diagnostic] finalization-found-explicit idx=${lastExplicitDefaultIndex}`
+                );
             } catch {}
         }
 
@@ -881,8 +887,10 @@ function preprocessFunctionDeclaration(node, helpers) {
                 const param = params[i];
                 if (!param) continue;
                 try {
-                    // eslint-disable-next-line no-console
-                    console.warn(`[feather:diagnostic] finalization-loop idx=${i} type=${param.type} right=${param && param.right ? (param.right.type || typeof param.right) : '<null>'} lastExplicit=${lastExplicitDefaultIndex}`);
+                     
+                    console.warn(
+                        `[feather:diagnostic] finalization-loop idx=${i} type=${param.type} right=${param && param.right ? param.right.type || typeof param.right : "<null>"} lastExplicit=${lastExplicitDefaultIndex}`
+                    );
                 } catch {}
 
                 if (i <= lastExplicitDefaultIndex) {
@@ -891,28 +899,30 @@ function preprocessFunctionDeclaration(node, helpers) {
                     continue;
                 }
 
-                if (param.type === 'DefaultParameter') {
+                if (param.type === "DefaultParameter") {
                     if (param.right == null) {
                         // Materialize placeholder RHS as `undefined`.
-                        param.right = { type: 'Identifier', name: 'undefined' };
+                        param.right = { type: "Identifier", name: "undefined" };
                         param._featherMaterializedTrailingUndefined = true;
                         param._featherMaterializedFromExplicitLeft = true;
                         appliedChanges = true;
                         try {
-                            // eslint-disable-next-line no-console
-                            console.error(`[feather:diagnostic] finalization-materialized index=${i} name=${param.left && param.left.name}`);
+                             
+                            console.error(
+                                `[feather:diagnostic] finalization-materialized index=${i} name=${param.left && param.left.name}`
+                            );
                         } catch {}
                     }
                     continue;
                 }
 
-                if (param.type === 'Identifier') {
+                if (param.type === "Identifier") {
                     // Materialize bare identifier to DefaultParameter with
                     // undefined RHS.
                     const defaultParam = {
-                        type: 'DefaultParameter',
+                        type: "DefaultParameter",
                         left: param,
-                        right: { type: 'Identifier', name: 'undefined' },
+                        right: { type: "Identifier", name: "undefined" },
                         _featherMaterializedTrailingUndefined: true,
                         _featherMaterializedFromExplicitLeft: true
                     };
@@ -924,7 +934,7 @@ function preprocessFunctionDeclaration(node, helpers) {
                 // Stop on non-standard parameter forms.
                 break;
             }
-    }
+        }
 
         if (appliedChanges) {
             body._gmlForceInitialBlankLine = true;
@@ -936,11 +946,32 @@ function preprocessFunctionDeclaration(node, helpers) {
     // Ensure we wrote back any mutated params array so the canonical node
     // reflects our finalization changes for downstream passes.
     try {
-        // eslint-disable-next-line no-console
-        console.error(`[feather:diagnostic] writing-back-params len=${params && params.length}`);
+         
+        console.error(
+            `[feather:diagnostic] writing-back-params len=${params && params.length}`
+        );
         node.params = params;
     } catch {
         // ignore
+    }
+
+    // Post-finalization sweep: ensure materializations that originated from
+    // an explicit left-side default are marked optional by default. This
+    // preserves the historical printing behaviour expected by plugin tests
+    // where trailing parameters following an explicit default are treated
+    // as optional (i.e. printed as `= undefined`) unless docs or parser
+    // annotations explicitly override that intent.
+    // Post-finalization: do not force `_featherOptionalParameter` here. Leave
+    // optionality decisions to the doc-driven reconciliation pass which runs
+    // immediately after finalization and has authoritative doc-comment data.
+
+    // After finalization and writing back params, run reconciliation again
+    // so any `_featherMaterializedFromExplicitLeft` or related flags that
+    // were set during finalization are respected when deciding optionality.
+    try {
+        reconcileDocOptionality();
+    } catch {
+        // swallow
     }
 
     // Helpers
@@ -1078,146 +1109,288 @@ function preprocessFunctionDeclaration(node, helpers) {
         // Swallow errors; this is a best-effort enhancement.
     }
 
-    // Consult any doc comments attached to this function and mark
-    // DefaultParameter nodes that have `undefined` on the right with a
-    // durable `_featherOptionalParameter` flag that encodes whether the
-    // parameter should be treated as intentionally optional (true) or
-    // omitted by the printer where appropriate (false). This shifts the
-    // structural decision into the parser so the plugin can remain a
-    // view-layer consumer.
-    try {
-        const docManager = prepareDocCommentEnvironment(ast);
-        const comments = docManager.getComments(node);
-        const paramDocMap = new Map();
-        if (Array.isArray(comments) && comments.length > 0) {
-            for (const comment of comments) {
-                if (!comment || typeof comment.value !== "string") continue;
-                const m = comment.value.match(
-                    /@param\s*(?:\{[^}]*\}\s*)?(\[[^\]]+\]|\S+)/i
+    // Helper: run doc-driven reconciliation to set `_featherOptionalParameter`
+    // for parameters whose RHS is the parser `undefined` sentinel. We may
+    // invoke this both before and *after* finalization because some
+    // materializations that indicate explicit-left origins are created in a
+    // later pass; running the reconciliation again ensures those durable
+    // flags are honored.
+    function reconcileDocOptionality() {
+        try {
+            try {
+                console.warn(
+                    `[feather:diagnostic] reconcile: entering fn=${node && node.id && node.id.name ? node.id.name : "<anon>"} params=${Array.isArray(node.params) ? node.params.length : "na"}`
                 );
-                if (!m) continue;
-                const raw = m[1];
-                const name = raw ? raw.replace(/^\[|\]$/g, "").trim() : null; // eslint-disable-line unicorn/prefer-string-replace-all
-                const isOptional = raw ? /^\[.*\]$/.test(raw) : false;
-                if (name) {
-                    paramDocMap.set(name, isOptional);
+            } catch {}
+            // Snapshot params before calling into doc manager (which may throw
+            // in edge cases). This helps us diagnose whether the materialized
+            // flags exist before further processing.
+            try {
+                const snap = toMutableArray(node.params || []);
+                const lines = snap.map((pp, ii) => {
+                    const left =
+                        pp && pp.left && pp.left.name
+                            ? pp.left.name
+                            : pp && pp.name
+                              ? pp.name
+                              : "<anon>";
+                    return `${ii}:${pp && pp.type} left=${left} optional=${pp && pp._featherOptionalParameter} matTrailing=${pp && pp._featherMaterializedTrailingUndefined} matFromLeft=${pp && pp._featherMaterializedFromExplicitLeft}`;
+                });
+                console.warn(
+                    `[feather:diagnostic] reconcile: pre-doc-manager params-snapshot=${lines.join("|")}`
+                );
+            } catch {}
+
+            const docManager = prepareDocCommentEnvironment(ast);
+            const comments = docManager.getComments(node);
+            try {
+                // Diagnostic: print per-param flag summary at reconcile start
+                const snap = toMutableArray(node.params);
+                const lines = snap.map((pp, ii) => {
+                    const left =
+                        pp && pp.left && pp.left.name
+                            ? pp.left.name
+                            : pp && pp.name
+                              ? pp.name
+                              : "<anon>";
+                    return `${ii}:${pp && pp.type} left=${left} optional=${pp && pp._featherOptionalParameter} matTrailing=${pp && pp._featherMaterializedTrailingUndefined} matFromLeft=${pp && pp._featherMaterializedFromExplicitLeft}`;
+                });
+                console.warn(
+                    `[feather:diagnostic] reconcile: params-snapshot=${lines.join("|")}`
+                );
+            } catch {}
+            const paramDocMap = new Map();
+            if (Array.isArray(comments) && comments.length > 0) {
+                for (const comment of comments) {
+                    if (!comment || typeof comment.value !== "string") continue;
+                    const m = comment.value.match(
+                        /@param\s*(?:\{[^}]*\}\s*)?(\[[^\]]+\]|\S+)/i
+                    );
+                    if (!m) continue;
+                    const raw = m[1];
+                    const name = raw
+                        ? raw.replaceAll(/^\[|\]$/g, "").trim()
+                        : null;  
+                    const isOptional = raw ? /^\[.*\]$/.test(raw) : false;
+                    if (name) {
+                        paramDocMap.set(name, isOptional);
+                    }
                 }
             }
-        }
 
-        // Walk parameters and set the flag where the RHS is an `undefined`
-        // sentinel. Constructors prefer to preserve optional syntax by
-        // default; plain functions omit unless the doc indicates optional.
-        const params = toMutableArray(node.params);
-        for (const p of params) {
-            if (!p) continue;
-
-            // Handle both DefaultParameter and AssignmentPattern shapes.
-            let leftName = null;
-            let rightNode = null;
-            if (p.type === "DefaultParameter") {
-                leftName =
-                    p.left && p.left.type === "Identifier" ? p.left.name : null;
-                rightNode = p.right;
-            } else if (p.type === "AssignmentPattern") {
-                leftName =
-                    p.left && p.left.type === "Identifier" ? p.left.name : null;
-                rightNode = p.right;
-            } else {
-                continue;
-            }
-
-            // Use the helper so we correctly detect the parser's undefined
-            // sentinel regardless of the exact node shape (Identifier vs
-            // Literal placeholder passed through by upstream transforms).
-            const isUndefined =
-                typeof isUndefinedLiteral === "function" &&
-                isUndefinedLiteral(rightNode);
-            if (!isUndefined) continue;
-
-            // If doc explicitly marks optional, respect that and override any
-            // parser-provided intent. Otherwise, prefer an existing parser
-            // annotation (from earlier canonicalization) and only fall back to
-            // the conservative defaults below when no parser or doc guidance
-            // exists. This avoids accidentally discarding parser-intended
-            // optional markers produced by earlier transforms.
-            if (leftName && paramDocMap.has(leftName)) {
+            // Walk parameters and set the flag where the RHS is an `undefined`
+            // sentinel. Constructors prefer to preserve optional syntax by
+            // default; plain functions omit unless the doc indicates optional.
+            const params = toMutableArray(node.params);
+            for (const p of params) {
                 try {
-                    p._featherOptionalParameter =
-                        paramDocMap.get(leftName) === true;
+                    const lname =
+                        p && p.left && p.left.name
+                            ? p.left.name
+                            : p && p.name
+                              ? p.name
+                              : "<anon>";
+                    console.warn(
+                        `[feather:diagnostic] reconcile: iter-param left=${lname} type=${p && p.type} matFromLeft=${p && p._featherMaterializedFromExplicitLeft} matTrailing=${p && p._featherMaterializedTrailingUndefined}`
+                    );
+                } catch {}
+                if (!p) continue;
+
+                // Handle both DefaultParameter and AssignmentPattern shapes.
+                let leftName = null;
+                let rightNode = null;
+                if (p.type === "DefaultParameter") {
+                    leftName =
+                        p.left && p.left.type === "Identifier"
+                            ? p.left.name
+                            : null;
+                    rightNode = p.right;
+                } else if (p.type === "AssignmentPattern") {
+                    leftName =
+                        p.left && p.left.type === "Identifier"
+                            ? p.left.name
+                            : null;
+                    rightNode = p.right;
+                } else {
+                    continue;
+                }
+
+                // Use the helper so we correctly detect the parser's undefined
+                // sentinel regardless of the exact node shape (Identifier vs
+                // Literal placeholder passed through by upstream transforms).
+                const isUndefined =
+                    typeof isUndefinedLiteral === "function" &&
+                    isUndefinedLiteral(rightNode);
+                if (!isUndefined) continue;
+
+                // If doc explicitly marks optional, respect that and override any
+                // parser-provided intent. Otherwise, prefer an existing parser
+                // annotation (from earlier canonicalization) and only fall back to
+                // the conservative defaults below when no parser or doc guidance
+                // exists. This avoids accidentally discarding parser-intended
+                // optional markers produced by earlier transforms.
+                if (leftName && paramDocMap.has(leftName)) {
+                    try {
+                        p._featherOptionalParameter =
+                            paramDocMap.get(leftName) === true;
+                    } catch {
+                        // Swallow errors
+                    }
+                    continue;
+                }
+
+                // If a prior transform already annotated this parameter with a
+                // concrete intent, preserve that intent rather than overwriting
+                // it here. Doc comments may explicitly override above.
+                try {
+                    if (
+                        p._featherOptionalParameter === true ||
+                        p._featherOptionalParameter === false
+                    ) {
+                        continue;
+                    }
                 } catch {
                     // Swallow errors
                 }
-                continue;
-            }
 
-            // If a prior transform already annotated this parameter with a
-            // concrete intent, preserve that intent rather than overwriting
-            // it here. Doc comments may explicitly override above.
-            try {
-                if (
-                    p._featherOptionalParameter === true ||
-                    p._featherOptionalParameter === false
-                ) {
+                // If this parameter was materialized by an earlier pass as a
+                // trailing `undefined` default, prefer to mark it explicitly as
+                // optional so downstream printer logic can decide whether to
+                // omit or emit the `= undefined` signature. Preserve any
+                // existing explicit annotations above first.
+                try {
+                    // If this parameter was materialized from an explicit
+                    // left-side default (e.g. `a, b = 1, c` -> `c = undefined`)
+                    // treat it as intentionally optional by default so that
+                    // downstream consumers preserve the historical behaviour
+                    // expected by the plugin tests. Materializations that
+                    // originate from other sources (in-body argument_count
+                    // fallbacks) remain conservative unless docs or earlier
+                    // transforms indicate optionality.
+                    if (p._featherMaterializedFromExplicitLeft === true) {
+                        // Only treat materializations as intentionally optional
+                        // when there exists a concrete, non-materialized explicit
+                        // default to the left. This prevents marking parameters
+                        // optional when the "materialized from explicit left"
+                        // flag was set due to earlier conservative passes where
+                        // the left-side default itself was synthesized.
+                        try {
+                            const paramsList = toMutableArray(node.params);
+                            const idx = paramsList.indexOf(p);
+                            let foundRealExplicitToLeft = false;
+                            try {
+                                // Diagnostic: show params list identities and the index we found
+                                try {
+                                    const summary = Array.isArray(paramsList)
+                                        ? paramsList
+                                              .map(
+                                                  (x, ii) =>
+                                                      `${ii}:${x && x.type}${x && x.left && x.left.name ? `(${  x.left.name  })` : ""}`
+                                              )
+                                              .join(",")
+                                        : String(paramsList);
+                                    console.warn(
+                                        `[feather:diagnostic] reconcile: paramsListSummary=${summary} idx=${idx}`
+                                    );
+                                } catch {}
+                            } catch {}
+                            if (idx > 0) {
+                                for (let k = 0; k < idx; k += 1) {
+                                    const leftParam = paramsList[k];
+                                    if (!leftParam) continue;
+                                    if (
+                                        leftParam.type === "DefaultParameter" &&
+                                        leftParam.right != null
+                                    ) {
+                                        // If the left param was itself materialized as
+                                        // a trailing undefined, prefer not to treat it
+                                        // as a real explicit default.
+                                        if (
+                                            leftParam._featherMaterializedTrailingUndefined
+                                        ) {
+                                            continue;
+                                        }
+                                        // If the RHS is a non-undefined literal/expression
+                                        // treat this as a true explicit default.
+                                        const isUndef =
+                                            typeof isUndefinedLiteral ===
+                                                "function" &&
+                                            isUndefinedLiteral(leftParam.right);
+                                        if (!isUndef) {
+                                            foundRealExplicitToLeft = true;
+                                            break;
+                                        }
+                                    }
+                                    if (
+                                        leftParam.type === "AssignmentPattern"
+                                    ) {
+                                        // Assignment patterns are source-level defaults
+                                        // and count as a real explicit default.
+                                        foundRealExplicitToLeft = true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (foundRealExplicitToLeft) {
+                                try {
+                                    // Diagnostic: log why we're marking optional
+                                    console.warn(
+                                        `[feather:diagnostic] reconcile: marking-optional idx=${idx} param=${leftName || (p && p.left && p.left.name)} foundRealExplicitToLeft=${foundRealExplicitToLeft}`
+                                    );
+                                } catch {}
+                                p._featherOptionalParameter = true;
+                                continue;
+                            }
+                        } catch {
+                            // swallow errors and fall through to conservative behavior
+                        }
+                    }
+
+                    if (p._featherMaterializedTrailingUndefined === true) {
+                        // Materialized trailing undefined defaults that did NOT
+                        // originate from an explicit left-side default are
+                        // treated conservatively (required) unless docs or the
+                        // parser explicitly mark them optional.
+                        p._featherOptionalParameter = false;
+                        continue;
+                    }
+                } catch {
+                    // Swallow errors
+                }
+
+                // Constructors keep optional syntax by default when the signature
+                // contains explicit undefined defaults.
+                if (node.type === "ConstructorDeclaration") {
+                    try {
+                        p._featherOptionalParameter = true;
+                    } catch {
+                        // Swallow errors
+                    }
                     continue;
                 }
-            } catch {
-                // Swallow errors
-            }
 
-            // If this parameter was materialized by an earlier pass as a
-            // trailing `undefined` default, prefer to mark it explicitly as
-            // optional so downstream printer logic can decide whether to
-            // omit or emit the `= undefined` signature. Preserve any
-            // existing explicit annotations above first.
-            try {
-                // If this parameter was materialized from an explicit
-                // left-side default (e.g. `a, b = 1, c` -> `c = undefined`)
-                // treat it as intentionally optional by default so that
-                // downstream consumers preserve the historical behaviour
-                // expected by the plugin tests. Materializations that
-                // originate from other sources (in-body argument_count
-                // fallbacks) remain conservative unless docs or earlier
-                // transforms indicate optionality.
-                if (p._featherMaterializedFromExplicitLeft === true) {
-                    p._featherOptionalParameter = true;
-                    continue;
-                }
-
-                if (p._featherMaterializedTrailingUndefined === true) {
-                    // Materialized trailing undefined defaults that did NOT
-                    // originate from an explicit left-side default are
-                    // treated conservatively (required) unless docs or the
-                    // parser explicitly mark them optional.
+                // Otherwise plain function declarations should omit redundant
+                // `= undefined` signatures unless parser transforms explicitly
+                // intended them to be optional.
+                try {
                     p._featherOptionalParameter = false;
-                    continue;
-                }
-            } catch {
-                // Swallow errors
-            }
-
-            // Constructors keep optional syntax by default when the signature
-            // contains explicit undefined defaults.
-            if (node.type === "ConstructorDeclaration") {
-                try {
-                    p._featherOptionalParameter = true;
                 } catch {
                     // Swallow errors
                 }
-                continue;
             }
-
-            // Otherwise plain function declarations should omit redundant
-            // `= undefined` signatures unless parser transforms explicitly
-            // intended them to be optional.
-            try {
-                p._featherOptionalParameter = false;
-            } catch {
-                // Swallow errors
-            }
+        } catch {
+            // Swallow errors
         }
+    }
+
+    // Run reconciliation early to pick up explicit doc overrides that apply
+    // to any materialized placeholders produced so far. We'll run it again
+    // after finalization to honor flags created later in the transform.
+    try {
+        reconcileDocOptionality();
     } catch {
-        // Swallow errors
+        // swallow
     }
 
     function matchArgumentCountFallbackVarThenIf(
@@ -1346,7 +1519,7 @@ function preprocessFunctionDeclaration(node, helpers) {
                 try {
                     // Diagnostic: report when we detect a match for an
                     // argument_count fallback so we can confirm detection.
-                     
+
                     console.warn(
                         `[feather:diagnostic] match detected argumentIndex=${argumentIndex} argMatch=${!!foundArgMatch} fallbackMatch=${!!foundFallbackMatch}`
                     );

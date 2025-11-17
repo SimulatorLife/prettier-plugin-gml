@@ -31,11 +31,11 @@ const NORMALIZATION_CASES = [
     },
     {
         input: "/// @param {Constant Color} value",
-        expected: "/// @param {constant.Color} value"
+        expected: "/// @param {Constant.Color} value"
     },
     {
         input: "/// @param {Constant.Colour} value",
-        expected: "/// @param {constant.Colour} value"
+        expected: "/// @param {Constant.Colour} value"
     },
     {
         input: "/// @param {Struct Weapon} value",

@@ -1,9 +1,5 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: { isObjectLike }
-} = Core;
-
 /**
  * Iteratively walk every object and array reachable from {@link root}, invoking
  * the provided callbacks for each entry. The traversal guards against cyclic
@@ -21,7 +17,7 @@ const {
  * }} [options]
  */
 export function walkObjectGraph(root, options = {}) {
-    if (!isObjectLike(root) && !Array.isArray(root)) {
+    if (!Core.isObjectLike(root) && !Array.isArray(root)) {
         return;
     }
 

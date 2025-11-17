@@ -10,6 +10,7 @@ import { isObjectLike } from "./comment-boundary.js";
 import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
 
 const {
+    // TODO: Flatten this
     AST: { getCommentValue },
     Utils: {
         getNonEmptyTrimmedString,
@@ -85,31 +86,15 @@ const INNER_BANNER_DECORATION_PATTERN = new RegExp(
     "g"
 );
 
+// TODO: Move all doc-comment handling into doc-comment-manager.js
 const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION = Object.freeze({
     synonyms: Object.freeze([
         ["void", "undefined"],
-        ["undefined", "undefined"],
-        ["real", "real"],
-        ["bool", "bool"],
-        ["boolean", "boolean"],
-        ["string", "string"],
-        ["array", "array"],
-        ["struct", "struct"],
-        ["enum", "enum"],
-        ["pointer", "pointer"],
-        ["method", "method"],
-        ["asset", "asset"],
-        ["constant", "constant"],
-        ["any", "any"],
-        ["var", "var"],
-        ["int64", "int64"],
-        ["int32", "int32"],
-        ["int16", "int16"],
-        ["int8", "int8"],
-        ["uint64", "uint64"],
-        ["uint32", "uint32"],
-        ["uint16", "uint16"],
-        ["uint8", "uint8"]
+        ["null", "undefined"],
+        ["number", "real"],
+        ["boolean", "bool"],
+        ["str", "string"],
+        ["*", "any"]
     ]),
     specifierPrefixes: Object.freeze([
         "asset",
@@ -119,8 +104,9 @@ const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION = Object.freeze({
         "struct"
     ]),
     canonicalSpecifierNames: Object.freeze([
+        // TODO: We can eliminate this and just capitalize the first letter for the 'specifierPrefixes'
         ["asset", "Asset"],
-        ["constant", "constant"],
+        ["constant", "Constant"],
         ["enum", "Enum"],
         ["id", "Id"],
         ["struct", "Struct"]

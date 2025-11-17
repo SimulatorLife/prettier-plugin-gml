@@ -1,6 +1,5 @@
-// AST helpers are now provided by @gml-modules/core. Keep this shim so parser
-// internals and downstream consumers can continue importing from the original
-// location without duplicating the implementations.
+// AST helpers are now provided by @gml-modules/core
+// TODO: Remove this import-export shim; migrate callers to import directly/properly
 import { Core } from "@gml-modules/core";
 
 const {

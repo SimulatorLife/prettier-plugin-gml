@@ -25,7 +25,7 @@ function isIdentifierNode(node) {
  * @property {() => object | null} getCurrentRole
  * @property {(role: object | null | undefined) => object} cloneRole
  */
-
+// TODO: This should probably live in 'semantic'
 export class IdentifierRoleTracker {
     constructor() {
         this.identifierRoles = [];

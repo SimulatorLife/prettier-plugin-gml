@@ -1,3 +1,8 @@
+/**
+ * Normalize an optional parameter token by ensuring it is wrapped in brackets.
+ * @param {*} token - The token to normalize.
+ * @returns {*} - The normalized token.
+ */
 export function normalizeOptionalParamToken(token) {
     if (typeof token !== "string") {
         return token;

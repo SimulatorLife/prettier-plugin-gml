@@ -5,7 +5,7 @@ import {
     createCommentBlockNode,
     createCommentLineNode,
     createWhitespaceNode
-} from "../src/core/comment-nodes.js";
+} from "../src/comments/comment-nodes.js";
 import { createHiddenNodeProcessor } from "../src/core/hidden-node-processor.js";
 
 test("createCommentLineNode strips leading markers and records metadata", () => {

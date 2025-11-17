@@ -1,3 +1,4 @@
+// TODO: This function is duplicated in src/plugin/src/comments/optional-param-normalization.js
 export function normalizeOptionalParamToken(token) {
     if (typeof token !== "string") {
         return token;
