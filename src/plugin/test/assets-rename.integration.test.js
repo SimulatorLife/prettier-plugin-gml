@@ -128,7 +128,7 @@ describe("asset rename utilities", () => {
     });
 
     it("skips rename execution when renames input is empty", () => {
-        const resultWithEmptyArray = applyAssetRenames({
+        const resultWithEmptyArray = Semantic.applyAssetRenames({
             projectIndex: { resources: {} },
             renames: []
         });
@@ -138,7 +138,7 @@ describe("asset rename utilities", () => {
             renames: []
         });
 
-        const resultWithoutRenames = applyAssetRenames({
+        const resultWithoutRenames = Semantic.applyAssetRenames({
             projectIndex: { resources: {} }
         });
 

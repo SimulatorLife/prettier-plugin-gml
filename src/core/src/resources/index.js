@@ -17,3 +17,5 @@ export {
     resolveBundledResourcePath,
     resolveBundledResourceUrl
 } from "./resource-locator.js";
+export * from "./feather-type-system.js";
+export * from "./identifier-metadata.js";

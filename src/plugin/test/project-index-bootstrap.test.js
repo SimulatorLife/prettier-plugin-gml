@@ -4,8 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import * as Semantic from "@gml-modules/semantic";
-import { bootstrapProjectIndex } from "@gml-modules/identifier-case";
+import { Semantic } from "@gml-modules/semantic";
 
 async function withTempDir(run) {
     const tempRoot = await mkdtemp(path.join(os.tmpdir(), "gml-bootstrap-"));
@@ -16,7 +15,7 @@ async function withTempDir(run) {
     }
 }
 
-test("bootstrapProjectIndex normalizes cache max size overrides", async () => {
+test("Semantic.bootstrapProjectIndex normalizes cache max size overrides", async () => {
     await withTempDir(async (projectRoot) => {
         const manifestPath = path.join(projectRoot, "project.yyp");
         await writeFile(manifestPath, "{}");
@@ -77,7 +76,7 @@ test("bootstrapProjectIndex normalizes cache max size overrides", async () => {
     });
 });
 
-test("bootstrapProjectIndex normalizes concurrency overrides", async () => {
+test("Semantic.bootstrapProjectIndex normalizes concurrency overrides", async () => {
     await withTempDir(async (projectRoot) => {
         const manifestPath = path.join(projectRoot, "project.yyp");
         await writeFile(manifestPath, "{}");
@@ -105,7 +104,7 @@ test("bootstrapProjectIndex normalizes concurrency overrides", async () => {
                 options.gmlIdentifierCaseProjectIndexConcurrency = rawValue;
             }
 
-            await bootstrapProjectIndex(options);
+            await Semantic.bootstrapProjectIndex(options);
 
             return { options, descriptor: descriptors[0] ?? {} };
         }
@@ -141,7 +140,7 @@ test("bootstrapProjectIndex normalizes concurrency overrides", async () => {
     });
 });
 
-test("bootstrapProjectIndex records build failures without throwing", async () => {
+test("Semantic.bootstrapProjectIndex records build failures without throwing", async () => {
     await withTempDir(async (projectRoot) => {
         const manifestPath = path.join(projectRoot, "project.yyp");
         await writeFile(manifestPath, "{}");
@@ -163,7 +162,7 @@ test("bootstrapProjectIndex records build failures without throwing", async () =
             __identifierCaseProjectIndexCoordinator: coordinator
         };
 
-        const result = await bootstrapProjectIndex(options);
+        const result = await Semantic.bootstrapProjectIndex(options);
 
         assert.equal(result.status, "failed");
         assert.equal(result.reason, "build-error");

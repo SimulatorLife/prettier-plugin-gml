@@ -1,4 +1,4 @@
-import { getFeatherDiagnosticById } from "./resources/feather-metadata.js";
+import { getFeatherDiagnosticById } from "../resources/feather-metadata.js";
 
 const IDENTIFIER_TOKEN_PATTERN = /\b[A-Za-z_][A-Za-z0-9_]*\b/g;
 const RESERVED_KEYWORD_TOKENS = new Set([

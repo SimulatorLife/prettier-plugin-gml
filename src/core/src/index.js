@@ -1,29 +1,17 @@
-// Compatibility re-exports so code that expects `src/core/src/*` can find
-// the parser-local `shared` helpers while we finish the migration.
-// Expose the core package's utilities, AST helpers and resources. During the
-// migration callers should prefer importing directly from `src/core/src/*`.
-export * from "./utils/index.js";
-export * from "./ast/locations.js";
-export * from "./ast/node-helpers.js";
-export * from "./ast/comments.js";
-export * from "./ast/location-keys.js";
-export * from "./resources/feather-metadata.js";
-export * from "./resources/gml-identifiers.js";
-export * from "./fs/index.js";
-export * from "./reporting/index.js";
-export * from "./deprecated-builtin-variable-replacements.js";
-export * from "./feather-type-system.js";
-export * from "./identifier-metadata/index.js";
-
-// Namespaced exports expose the structured, forward-looking API surface
-// expected by callers (for example `Core.AST` or `Core.Utils`). Retain the
-// flat compatibility exports above so existing imports continue to work
-// while packages migrate to the namespaced contract.
 export * as AST from "./ast/index.js";
-export * as Utils from "./utils/index.js";
-export * as Resources from "./resources/index.js";
-export * as IdentifierMetadata from "./identifier-metadata/index.js";
+export * from "./ast/index.js";
 export * as FS from "./fs/index.js";
 export * as Reporting from "./reporting/index.js";
-export * as FeatherTypeSystem from "./feather-type-system.js";
-export * as DeprecatedBuiltinVariables from "./deprecated-builtin-variable-replacements.js";
+// Also re-export reporting named helpers at the package root so legacy callers
+// that destructure functions from `Core` (e.g. `const { createMetricsTracker } = Core;`)
+// continue to work. These are pure exports (no runtime logic).
+export * from "./reporting/index.js";
+export * as Utils from "./utils/index.js";
+// Also re-export utils' named helpers at the package root so legacy callers
+// that destructure functions from `Core` (e.g. `Core.createEnvConfiguredValueWithFallback`)
+// continue to work. These are pure exports (no runtime logic) and follow the
+// project's public API composition pattern.
+export * from "./utils/index.js";
+export * as Resources from "./resources/index.js";
+export * as IdentifierMetadata from "./resources/identifier-metadata.js";
+export * as DeprecatedBuiltinVariables from "./utils/deprecated-builtin-variable-replacements.js";

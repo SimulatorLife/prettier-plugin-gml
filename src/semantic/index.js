@@ -16,3 +16,4 @@ export const Semantic = Object.freeze({
     ...SCIPTypes,
     ...SCIPSymbols
 });
+

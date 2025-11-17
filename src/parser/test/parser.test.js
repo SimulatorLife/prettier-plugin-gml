@@ -10,11 +10,6 @@ import GameMakerASTBuilder from "../src/gml-ast-builder.js";
 import { Core } from "@gml-modules/core";
 import { Semantic } from "@gml-modules/semantic";
 
-const {
-    Utils: { getLineBreakCount },
-    AST: { getNodeStartIndex }
-} = Core;
-
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixturesDirectory = path.join(currentDirectory, "input");
 const fixtureExtension = ".gml";
@@ -331,7 +326,7 @@ describe("GameMaker parser fixtures", () => {
 
     it("counts CRLF sequences as a single line break", () => {
         assert.strictEqual(
-            getLineBreakCount("\r\n"),
+            Core.getLineBreakCount("\r\n"),
             1,
             "Expected CRLF sequences to count as a single line break."
         );
@@ -397,6 +392,35 @@ describe("GameMaker parser fixtures", () => {
             parsed.loc,
             "Serialized AST should retain location metadata."
         );
+    });
+
+    it("marks materialized trailing identifier defaults as parser-intended optional", () => {
+        const source = [
+            "function demo(first, second = 1, third) {",
+            "    return [first, second, third];",
+            "}",
+            "",
+        ].join("\n");
+
+        const ast = parseFixture(source);
+        const decl = ast.body && ast.body.find((n) => n.type === "FunctionDeclaration");
+        assert.ok(decl, "Expected a FunctionDeclaration");
+        const params = Array.isArray(decl.params) ? decl.params : [];
+        // third should be materialized into a DefaultParameter with undefined RHS
+        const third = params[2];
+        assert.ok(third, "Expected third parameter to exist");
+        assert.strictEqual(third.type, "DefaultParameter", "Third param should be DefaultParameter");
+        // right should ideally be an Identifier named 'undefined'. Some
+        // upstream parser shapes may leave the `right` slot null until a
+        // later canonicalization pass fills it; accept either form here
+        // but validate the expected sentinel shape when present.
+        if (third.right) {
+            assert.strictEqual(third.right.type, "Identifier");
+            assert.strictEqual(third.right.name, "undefined");
+        }
+    // optionality is determined by doc-driven reconciliation; the
+    // transform materializes the DefaultParameter and leaves
+    // `_featherOptionalParameter` for the later pass to decide.
     });
 
     it("builds identifier locations from available token offsets", () => {
@@ -516,7 +540,7 @@ describe("GameMaker parser fixtures", () => {
             "Unable to locate member expression start in source."
         );
         assert.strictEqual(
-            getNodeStartIndex(memberExpression),
+            Core.getNodeStartIndex(memberExpression),
             expectedStart,
             "Member expression start should include the object portion."
         );

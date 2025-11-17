@@ -1,14 +1,5 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: {
-        isNonEmptyString,
-        isObjectLike,
-        isRegExpLike,
-        createResolverController
-    }
-} = Core;
-
 // Any line comment that starts with at least this many consecutive `/`
 // characters is considered a "banner" comment for formatting purposes.
 // 2 slashes is the minimum to form a valid line comment in GML.
@@ -23,7 +14,6 @@ const DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS = Object.freeze([
     // New script files start with placeholder documentation that adds no signal to
     // version control, so we redact it automatically.
     "@description Insert description here",
-    "/// @param sprite_index",
     // The IDE also seeds a generic reminder about the built-in editor; keeping it
     // out of repositories avoids churn when importing starter assets.
     "You can write your code in this editor"
@@ -43,7 +33,7 @@ const DEFAULT_LINE_COMMENT_OPTIONS = Object.freeze({
     codeDetectionPatterns: DEFAULT_COMMENTED_OUT_CODE_PATTERNS
 });
 
-const lineCommentOptionsController = createResolverController({
+const lineCommentOptionsController = Core.createResolverController({
     defaultFactory: () => DEFAULT_LINE_COMMENT_OPTIONS,
     normalize: normalizeLineCommentOptions,
     errorMessage:
@@ -81,7 +71,7 @@ function normalizeArrayOption(
 function normalizeBoilerplateFragments(fragments) {
     return normalizeArrayOption(fragments, {
         defaultValue: DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments,
-        filter: isNonEmptyString,
+        filter: Core.isNonEmptyString,
         map: String
     });
 }
@@ -89,7 +79,7 @@ function normalizeBoilerplateFragments(fragments) {
 function normalizeCodeDetectionPatterns(patterns) {
     return normalizeArrayOption(patterns, {
         defaultValue: DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns,
-        filter: isRegExpLike
+        filter: Core.isRegExpLike
     });
 }
 
@@ -98,7 +88,7 @@ function normalizeLineCommentOptions(options) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
 
-    if (!isObjectLike(options)) {
+    if (!Core.isObjectLike(options)) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
 

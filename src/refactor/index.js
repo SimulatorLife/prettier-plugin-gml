@@ -1,1 +1,1 @@
-export * from "./src/index.js";
+export * as Refactor from "./src/index.js";

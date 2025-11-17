@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { normalizeIdentifierMetadataEntries } from "../src/utils/identifier-metadata.js";
+import { normalizeIdentifierMetadataEntries } from "../src/resources/identifier-metadata.js";
 
 const sampleDescriptor = { type: "Function", tags: ["function"] };
 

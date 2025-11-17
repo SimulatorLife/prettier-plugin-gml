@@ -1,5 +1,4 @@
 import * as stripComments from "./strip-comments.js";
-
 import * as consolidateStructAssignments from "./consolidate-struct-assignments.js";
 import * as applyFeatherFixes from "./apply-feather-fixes.js";
 import * as preprocessFunctionArgumentDefaults from "./preprocess-function-argument-defaults.js";
@@ -10,10 +9,10 @@ import * as convertManualMathExpressions from "./convert-manual-math.js";
 import * as convertUndefinedGuardAssignments from "./convert-undefined-guard-assignments.js";
 import * as annotateStaticFunctionOverrides from "./annotate-static-overrides.js";
 
+// Plugin AST transforms exposed via the parser transform registry.
+// Wrappers follow the parser transform signature: (ast, opts = {}) => ast
 const TRANSFORM_REGISTRY = Object.freeze({
     "strip-comments": stripComments.transform,
-    // Plugin AST transforms exposed via the parser transform registry.
-    // Wrappers follow the parser transform signature: (ast, opts = {}) => ast
     "consolidate-struct-assignments": (ast, opts = {}) =>
         consolidateStructAssignments.transform(ast, opts.commentTools),
     "apply-feather-fixes": (ast, opts = {}) =>

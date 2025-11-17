@@ -37,8 +37,12 @@ export function parseForPrettier(source, prettierOptions = {}) {
     const pipelineConfig = {
         parser: parserConfig,
         transforms: {
-            // enable semantic transforms by name if desired
-            // e.g. "convert-manual-math": true
+            // enable parser-side transforms by name. The plugin adopts a
+            // "parser-first" approach: the parser is authoritative for
+            // doc-comment and parameter-default heuristics. Enable the
+            // preprocess transform so DefaultParameter nodes and the
+            // _feather* metadata are produced before printing.
+            "preprocess-function-argument-defaults": true
         }
     };
 

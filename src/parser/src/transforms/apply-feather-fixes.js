@@ -19,7 +19,7 @@ import {
     resolveDocCommentTraversalService,
     getCommentValue
 } from "../comments/index.js";
-import { loadReservedIdentifierNames } from "@gml-modules/semantic/resources/reserved-identifiers.js";
+import { Semantic } from "@gml-modules/semantic";
 
 const {
     AST: {
@@ -291,7 +291,13 @@ const RESERVED_KEYWORD_TOKENS = new Set([
     "while",
     "with"
 ]);
-const RESERVED_IDENTIFIER_NAMES = loadReservedIdentifierNames();
+let RESERVED_IDENTIFIER_NAMES = null;
+function getReservedIdentifierNames() {
+    if (!RESERVED_IDENTIFIER_NAMES) {
+        RESERVED_IDENTIFIER_NAMES = Semantic.loadReservedIdentifierNames();
+    }
+    return RESERVED_IDENTIFIER_NAMES;
+}
 const DEPRECATED_BUILTIN_VARIABLE_REPLACEMENTS =
     buildDeprecatedBuiltinVariableReplacements();
 const ARGUMENT_IDENTIFIER_PATTERN = /^argument(\d+)$/;
@@ -17746,7 +17752,7 @@ function renameReservedIdentifiers({ ast, diagnostic, sourceText }) {
         !diagnostic ||
         !ast ||
         typeof ast !== "object" ||
-        RESERVED_IDENTIFIER_NAMES.size === 0
+        getReservedIdentifierNames().size === 0
     ) {
         return [];
     }
@@ -17919,7 +17925,7 @@ function isReservedIdentifier(name) {
         return false;
     }
 
-    return RESERVED_IDENTIFIER_NAMES.has(name.toLowerCase());
+    return getReservedIdentifierNames().has(name.toLowerCase());
 }
 
 function getReplacementIdentifierName(originalName) {

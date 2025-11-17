@@ -4,16 +4,6 @@ import {
     normalizeHasCommentHelpers
 } from "../comments/index.js";
 
-const {
-    assignClonedLocation,
-    cloneAstNode,
-    getNodeEndIndex,
-    getNodeStartIndex,
-    getCallExpressionArguments,
-    toMutableArray,
-    createIdentifierNode
-} = Core;
-
 const DEFAULT_HELPERS = Object.freeze({
     hasComment: sharedHasComment
 });
@@ -469,7 +459,7 @@ function removeMultiplicativeIdentityOperand(
         ? unwrapExpression(other)
         : other;
 
-    const replacement = cloneAstNode(sanitizedOperand);
+    const replacement = Core.cloneAstNode(sanitizedOperand);
     if (!replaceNodeWith(node, replacement)) {
         return false;
     }
@@ -568,7 +558,7 @@ function combineLengthdirScalarAssignments(ast, helpers) {
             continue;
         }
 
-        const initClone = cloneAstNode(declarator.init);
+        const initClone = Core.cloneAstNode(declarator.init);
         if (!initClone) {
             continue;
         }
@@ -608,7 +598,7 @@ function combineLengthdirScalarAssignments(ast, helpers) {
 
         const lengthdirCall = createCallExpressionNode(
             match.functionName,
-            [callOneLiteral, cloneAstNode(match.angle)],
+            [callOneLiteral, Core.cloneAstNode(match.angle)],
             match.callExpression
         );
         if (!lengthdirCall) {
@@ -796,7 +786,7 @@ function createBinaryExpressionNode(operator, left, right, template) {
         right
     };
 
-    assignClonedLocation(expression, template);
+    Core.assignClonedLocation(expression, template);
 
     return expression;
 }
@@ -811,7 +801,7 @@ function createParenthesizedExpressionNode(expression, template) {
         expression
     };
 
-    assignClonedLocation(node, template);
+    Core.assignClonedLocation(node, template);
 
     return node;
 }
@@ -1105,7 +1095,7 @@ function attemptCondenseSimpleScalarProduct(node, helpers, context) {
 
     const unitTolerance = computeNumericTolerance(1);
     if (Math.abs(normalizedCoefficient - 1) <= unitTolerance) {
-        const originalExpression = cloneAstNode(node);
+        const originalExpression = Core.cloneAstNode(node);
 
         if (!replaceNodeWith(node, operand)) {
             return false;
@@ -1508,10 +1498,10 @@ function attemptSimplifyDivisionByReciprocal(node, helpers, context) {
         return false;
     }
 
-    const leftClone = cloneAstNode(node.left);
+    const leftClone = Core.cloneAstNode(node.left);
     const rightClone =
-        cloneAstNode(rawReciprocalFactor) ??
-        cloneAstNode(reciprocalFactor) ??
+        Core.cloneAstNode(rawReciprocalFactor) ??
+        Core.cloneAstNode(reciprocalFactor) ??
         reciprocalFactor;
 
     if (!leftClone || !rightClone) {
@@ -1688,7 +1678,7 @@ function attemptCancelReciprocalRatios(node, helpers, context) {
             const replacements = replacementsByIndex.get(index);
             if (replacements) {
                 for (const replacement of replacements) {
-                    const clone = cloneAstNode(replacement);
+                    const clone = Core.cloneAstNode(replacement);
                     if (!clone) {
                         return false;
                     }
@@ -1700,7 +1690,7 @@ function attemptCancelReciprocalRatios(node, helpers, context) {
             continue;
         }
 
-        const clone = cloneAstNode(term.raw);
+        const clone = Core.cloneAstNode(term.raw);
         if (!clone) {
             return false;
         }
@@ -1725,7 +1715,7 @@ function attemptCancelReciprocalRatios(node, helpers, context) {
                 right: remainingTerms[index]
             };
 
-            assignClonedLocation(product, node);
+            Core.assignClonedLocation(product, node);
             combined = product;
         }
 
@@ -1822,7 +1812,7 @@ function attemptSimplifyNegativeDivisionProduct(node, helpers, context) {
             continue;
         }
 
-        const baseClone = cloneAstNode(numerator);
+        const baseClone = Core.cloneAstNode(numerator);
         const literal = createNumericLiteral(
             normalizedCoefficient,
             denominator
@@ -2296,7 +2286,7 @@ function attemptCollectDistributedScalars(node, helpers, context) {
     }
 
     if (Math.abs(coefficient - 1) <= unitTolerance) {
-        const baseClone = cloneAstNode(baseDetails.rawBase);
+        const baseClone = Core.cloneAstNode(baseDetails.rawBase);
         if (!baseClone) {
             return false;
         }
@@ -2306,7 +2296,7 @@ function attemptCollectDistributedScalars(node, helpers, context) {
     }
 
     if (Math.abs(coefficient + 1) <= unitTolerance) {
-        const baseClone = cloneAstNode(baseDetails.rawBase);
+        const baseClone = Core.cloneAstNode(baseDetails.rawBase);
         if (!baseClone) {
             return false;
         }
@@ -2325,7 +2315,7 @@ function attemptCollectDistributedScalars(node, helpers, context) {
         return false;
     }
 
-    const baseClone = cloneAstNode(baseDetails.rawBase);
+    const baseClone = Core.cloneAstNode(baseDetails.rawBase);
     const literal = createNumericLiteral(normalizedCoefficient, node);
 
     if (!baseClone || !literal) {
@@ -2352,7 +2342,7 @@ function attemptConvertDegreesToRadians(node, helpers, context) {
         return false;
     }
 
-    mutateToCallExpression(node, "degtorad", [cloneAstNode(angle)], node);
+    mutateToCallExpression(node, "degtorad", [Core.cloneAstNode(angle)], node);
     return true;
 }
 
@@ -2398,7 +2388,7 @@ function attemptConvertSquare(node, helpers, context) {
         return false;
     }
 
-    mutateToCallExpression(node, "sqr", [cloneAstNode(left)], node);
+    mutateToCallExpression(node, "sqr", [Core.cloneAstNode(left)], node);
     return true;
 }
 
@@ -2432,7 +2422,7 @@ function attemptConvertRepeatedPower(node, helpers) {
     mutateToCallExpression(
         node,
         "power",
-        [cloneAstNode(base), exponentLiteral],
+        [Core.cloneAstNode(base), exponentLiteral],
         node
     );
     return true;
@@ -2496,7 +2486,7 @@ function attemptConvertMean(node, helpers) {
     mutateToCallExpression(
         node,
         "mean",
-        [cloneAstNode(leftTerm), cloneAstNode(rightTerm)],
+        [Core.cloneAstNode(leftTerm), Core.cloneAstNode(rightTerm)],
         node
     );
     return true;
@@ -2525,7 +2515,7 @@ function attemptConvertLog2(node, helpers) {
         return false;
     }
 
-    mutateToCallExpression(node, "log2", [cloneAstNode(numeratorArg)], node);
+    mutateToCallExpression(node, "log2", [Core.cloneAstNode(numeratorArg)], node);
     return true;
 }
 
@@ -2564,7 +2554,7 @@ function attemptConvertLengthDir(node, helpers) {
             mutateToCallExpression(
                 node,
                 "lengthdir_x",
-                [cloneAstNode(lengthNode), cloneAstNode(trigInfo.argument)],
+                [Core.cloneAstNode(lengthNode), Core.cloneAstNode(trigInfo.argument)],
                 node
             );
             return true;
@@ -2578,7 +2568,7 @@ function attemptConvertLengthDir(node, helpers) {
             mutateToCallExpression(
                 node,
                 "lengthdir_y",
-                [cloneAstNode(lengthNode), cloneAstNode(trigInfo.argument)],
+                [Core.cloneAstNode(lengthNode), Core.cloneAstNode(trigInfo.argument)],
                 node
             );
             return true;
@@ -2617,8 +2607,8 @@ function attemptConvertDotProducts(node, helpers) {
             return false;
         }
 
-        leftVector.push(cloneAstNode(left));
-        rightVector.push(cloneAstNode(right));
+        leftVector.push(Core.cloneAstNode(left));
+        rightVector.push(Core.cloneAstNode(right));
     }
 
     const functionName = terms.length === 2 ? "dot_product" : "dot_product_3d";
@@ -2638,7 +2628,7 @@ function attemptConvertPointDistanceCall(node, helpers) {
     }
 
     const calleeName = getIdentifierName(node.object);
-    const callArguments = getCallExpressionArguments(node);
+    const callArguments = Core.getCallExpressionArguments(node);
 
     let distanceExpression;
     if (calleeName === "sqrt") {
@@ -2669,10 +2659,10 @@ function attemptConvertPointDistanceCall(node, helpers) {
 
     const args = [];
     for (const difference of match) {
-        args.push(cloneAstNode(difference.subtrahend));
+        args.push(Core.cloneAstNode(difference.subtrahend));
     }
     for (const difference of match) {
-        args.push(cloneAstNode(difference.minuend));
+        args.push(Core.cloneAstNode(difference.minuend));
     }
 
     const functionName =
@@ -2692,7 +2682,7 @@ function attemptConvertPowerToSqrt(node, helpers) {
         return false;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
     if (args.length !== 2) {
         return false;
     }
@@ -2702,7 +2692,7 @@ function attemptConvertPowerToSqrt(node, helpers) {
         return false;
     }
 
-    mutateToCallExpression(node, "sqrt", [cloneAstNode(args[0])], node);
+    mutateToCallExpression(node, "sqrt", [Core.cloneAstNode(args[0])], node);
     return true;
 }
 
@@ -2716,7 +2706,7 @@ function attemptConvertPowerToExp(node, helpers) {
         return false;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
     if (args.length !== 2) {
         return false;
     }
@@ -2728,7 +2718,7 @@ function attemptConvertPowerToExp(node, helpers) {
         return false;
     }
 
-    mutateToCallExpression(node, "exp", [cloneAstNode(exponent)], node);
+    mutateToCallExpression(node, "exp", [Core.cloneAstNode(exponent)], node);
     return true;
 }
 
@@ -2742,7 +2732,7 @@ function attemptConvertPointDirection(node, helpers) {
         return false;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
     if (args.length !== 2) {
         return false;
     }
@@ -2761,10 +2751,10 @@ function attemptConvertPointDirection(node, helpers) {
         node,
         "point_direction",
         [
-            cloneAstNode(dxDiff.subtrahend),
-            cloneAstNode(dyDiff.subtrahend),
-            cloneAstNode(dxDiff.minuend),
-            cloneAstNode(dyDiff.minuend)
+            Core.cloneAstNode(dxDiff.subtrahend),
+            Core.cloneAstNode(dyDiff.subtrahend),
+            Core.cloneAstNode(dxDiff.minuend),
+            Core.cloneAstNode(dyDiff.minuend)
         ],
         node
     );
@@ -2781,7 +2771,7 @@ function attemptConvertTrigDegreeArguments(node, helpers) {
         return false;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
     if (args.length !== 1) {
         return false;
     }
@@ -2794,7 +2784,7 @@ function attemptConvertTrigDegreeArguments(node, helpers) {
     }
 
     node.arguments = [
-        createCallExpressionNode("degtorad", [cloneAstNode(angle)], argument)
+        createCallExpressionNode("degtorad", [Core.cloneAstNode(angle)], argument)
     ];
 
     return true;
@@ -2989,7 +2979,7 @@ function matchLengthdirScaledOperand(node, helpers, context) {
         return null;
     }
 
-    const args = getCallExpressionArguments(expression);
+    const args = Core.getCallExpressionArguments(expression);
     if (args.length !== 2) {
         return null;
     }
@@ -3201,7 +3191,7 @@ function attemptSimplifyLengthdirHalfDifference(node, helpers, context) {
         return false;
     }
 
-    const baseClone = cloneAstNode(leftExpression.left);
+    const baseClone = Core.cloneAstNode(leftExpression.left);
     if (!baseClone) {
         return false;
     }
@@ -3226,7 +3216,7 @@ function attemptSimplifyLengthdirHalfDifference(node, helpers, context) {
         return false;
     }
 
-    const angleClone = cloneAstNode(lengthDirInfo.angle);
+    const angleClone = Core.cloneAstNode(lengthDirInfo.angle);
     if (!angleClone) {
         return false;
     }
@@ -3256,14 +3246,14 @@ function attemptSimplifyLengthdirHalfDifference(node, helpers, context) {
         right: normalizedLengthCall
     };
 
-    assignClonedLocation(difference, node);
+    Core.assignClonedLocation(difference, node);
 
     const groupedDifference = {
         type: PARENTHESIZED_EXPRESSION,
         expression: difference
     };
 
-    assignClonedLocation(groupedDifference, node);
+    Core.assignClonedLocation(groupedDifference, node);
 
     const baseTimesCoefficient = createMultiplicationNode(
         baseClone,
@@ -3342,12 +3332,12 @@ function promoteLengthdirHalfDifference(
         return;
     }
 
-    const baseClone = cloneAstNode(declarator.init);
+    const baseClone = Core.cloneAstNode(declarator.init);
     if (!baseClone) {
         return;
     }
 
-    const differenceClone = cloneAstNode(groupedDifference);
+    const differenceClone = Core.cloneAstNode(groupedDifference);
     if (!differenceClone) {
         return;
     }
@@ -3364,7 +3354,7 @@ function promoteLengthdirHalfDifference(
                 normalizeNumericCoefficient(combinedValue);
 
             if (combinedLiteralText !== null) {
-                const baseNodeClone = cloneAstNode(baseInfo.rawBase);
+                const baseNodeClone = Core.cloneAstNode(baseInfo.rawBase);
                 const literalClone = createNumericLiteral(
                     combinedLiteralText,
                     baseInfo.rawBase
@@ -3513,7 +3503,7 @@ function cloneMultiplicativeTerms(terms, template) {
     }
 
     const first = terms[0];
-    const baseClone = cloneAstNode(first?.raw ?? first?.expression);
+    const baseClone = Core.cloneAstNode(first?.raw ?? first?.expression);
     if (!baseClone) {
         return null;
     }
@@ -3522,7 +3512,7 @@ function cloneMultiplicativeTerms(terms, template) {
 
     for (let index = 1; index < terms.length; index += 1) {
         const current = terms[index];
-        const operand = cloneAstNode(current?.raw ?? current?.expression);
+        const operand = Core.cloneAstNode(current?.raw ?? current?.expression);
 
         if (!operand) {
             return null;
@@ -3551,7 +3541,7 @@ function createMultiplicationNode(left, right, template) {
         right
     };
 
-    assignClonedLocation(expression, template);
+    Core.assignClonedLocation(expression, template);
 
     return expression;
 }
@@ -3568,7 +3558,7 @@ function createUnaryNegationNode(argument, template) {
         argument
     };
 
-    assignClonedLocation(expression, template);
+    Core.assignClonedLocation(expression, template);
 
     return expression;
 }
@@ -4372,13 +4362,13 @@ function createNegatedExpression(argument, template) {
         argument
     };
 
-    assignClonedLocation(unary, template);
+    Core.assignClonedLocation(unary, template);
 
     return unary;
 }
 
 function createCallExpressionNode(name, args, template) {
-    const identifier = createIdentifierNode(name, template);
+    const identifier = Core.createIdentifierNode(name, template);
     if (!identifier) {
         return null;
     }
@@ -4386,10 +4376,10 @@ function createCallExpressionNode(name, args, template) {
     const call = {
         type: CALL_EXPRESSION,
         object: identifier,
-        arguments: toMutableArray(args)
+        arguments: Core.toMutableArray(args)
     };
 
-    assignClonedLocation(call, template);
+    Core.assignClonedLocation(call, template);
 
     return call;
 }
@@ -4400,13 +4390,13 @@ function createNumericLiteral(value, template) {
         value: String(value)
     };
 
-    assignClonedLocation(literal, template);
+    Core.assignClonedLocation(literal, template);
 
     return literal;
 }
 
 function replaceNodeWith(target, source) {
-    const replacement = cloneAstNode(source) ?? source;
+    const replacement = Core.cloneAstNode(source) ?? source;
     if (!replacement || typeof replacement !== "object") {
         return false;
     }
@@ -4459,7 +4449,7 @@ function recordManualMathOriginalAssignment(context, node, originalExpression) {
         return;
     }
 
-    const originalDeclaration = cloneAstNode(declaration);
+    const originalDeclaration = Core.cloneAstNode(declaration);
     if (!originalDeclaration) {
         return;
     }
@@ -4473,7 +4463,7 @@ function recordManualMathOriginalAssignment(context, node, originalExpression) {
 
     const [originalDeclarator] = declarators;
     originalDeclarator.init =
-        cloneAstNode(originalExpression) ?? originalExpression;
+        Core.cloneAstNode(originalExpression) ?? originalExpression;
 
     originalDeclaration._gmlManualMathOriginal = true;
     originalDeclaration._gmlManualMathOriginalComment = "original";
@@ -4699,8 +4689,8 @@ function shouldPreserveRemovedBlankLine(removedNode, nextNode, sourceText) {
         return false;
     }
 
-    const removedEnd = getNodeEndIndex(removedNode);
-    const nextStart = getNodeStartIndex(nextNode);
+    const removedEnd = Core.getNodeEndIndex(removedNode);
+    const nextStart = Core.getNodeStartIndex(nextNode);
 
     if (
         removedEnd == undefined ||
@@ -4939,8 +4929,8 @@ function hasInlineCommentBetween(left, right, context) {
         return false;
     }
 
-    const leftEnd = getNodeEndIndex(left);
-    const rightStart = getNodeStartIndex(right);
+    const leftEnd = Core.getNodeEndIndex(left);
+    const rightStart = Core.getNodeStartIndex(right);
 
     if (
         leftEnd == undefined ||

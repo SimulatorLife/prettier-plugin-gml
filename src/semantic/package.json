@@ -4,22 +4,7 @@
   "type": "module",
   "main": "./index.js",
   "exports": {
-    ".": "./index.js",
-    "./scopes": "./src/scopes/index.js",
-    "./scopes/*": "./src/scopes/*",
-    "./project-index": "./src/project-index/index.js",
-    "./project-index/*": "./src/project-index/*",
-    "./project-index.js": "./src/project-index.js",
-    "./identifier-case": "./src/identifier-case/index.js",
-    "./identifier-case/*": "./src/identifier-case/*",
-    "./identifier-case.js": "./src/identifier-case.js",
-    "./resources/*": "./src/resources/*",
-    "./scip-types": "./src/scip-types.js",
-    "./scip-types/*": "./src/scip-types/*",
-    "./scip-symbols": "./src/scip-symbols.js",
-    "./scip-symbols/*": "./src/scip-symbols/*",
-    "./sem-oracle": "./src/sem-oracle.js",
-    "./sem-oracle/*": "./src/sem-oracle/*"
+    ".": "./index.js"
   },
   "dependencies": {
     "@gml-modules/core": "0.0.1",
