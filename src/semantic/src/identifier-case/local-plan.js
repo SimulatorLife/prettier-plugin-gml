@@ -40,6 +40,13 @@ const {
     toNormalizedLowerCaseString
 } = Core;
 
+// Diagnostic counter used during triage to tag generated rename maps so they
+// can be correlated across the prepare->capture->attach->apply lifecycle in
+// test logs. This is deliberately minimal, non-functional, and attaches a
+// non-enumerable property to the Map instance so it does not affect normal
+// behavior. Remove once the failing fixtures are resolved.
+let DBG_RENAME_MAP_COUNTER = 1;
+
 function getScopeDisplayName(scopeRecord, fallback = "<unknown>") {
     if (!isObjectLike(scopeRecord)) {
         return fallback;
@@ -735,6 +742,13 @@ export async function prepareIdentifierCasePlan(options) {
     // rename planner so we can generate dry-run diagnostics, collision reports,
     // and rename maps without mutating sources when the style is disabled.
 
+    try {
+        console.error('[DBG] prepareIdentifierCasePlan start', {
+            filepath: options?.filepath ?? null,
+            dryRun: options?.__identifierCaseDryRun
+        });
+    } catch {}
+
     const normalizedOptions = normalizeIdentifierCaseOptions(options);
     const localStyle =
         normalizedOptions.scopeStyles?.locals ?? IdentifierCaseStyle.OFF;
@@ -887,11 +901,35 @@ export async function prepareIdentifierCasePlan(options) {
     }
 
     if (!fileRecord) {
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseRenameMap",
-            renameMap
-        );
+        try {
+            if (
+                renameMap &&
+                typeof Object.defineProperty === "function" &&
+                !Object.hasOwn(renameMap, "__dbgId")
+            ) {
+                Object.defineProperty(renameMap, "__dbgId", {
+                    value: `rm-${DBG_RENAME_MAP_COUNTER++}`,
+                    enumerable: false,
+                    configurable: true,
+                    writable: false
+                });
+            }
+        } catch {}
+
+        // Only persist a rename map when it contains at least one entry.
+        // Avoid writing an empty Map in no-op planning paths (for example
+        // when project discovery is skipped) because it would overwrite a
+        // previously-captured non-empty plan and cause lookups to miss at
+        // print time. applyIdentifierCasePlanSnapshot already guards this
+        // at snapshot-apply time; keep the same invariant here to prevent
+        // transient empty maps from being observed by consumers.
+        if (renameMap && typeof renameMap.size === "number" && renameMap.size > 0) {
+            setIdentifierCaseOption(
+                options,
+                "__identifierCaseRenameMap",
+                renameMap
+            );
+        }
         if (assetRenames.length > 0) {
             setIdentifierCaseOption(
                 options,
@@ -1189,7 +1227,31 @@ export async function prepareIdentifierCasePlan(options) {
         }
     }
 
-    setIdentifierCaseOption(options, "__identifierCaseRenameMap", renameMap);
+        // Tag the generated rename map with a debug id to help trace whether
+        // the same Map instance flows through capture/attach/apply or if new
+        // instances are created/overwritten. This metadata is non-enumerable
+        // and purely diagnostic; remove it after triage is complete.
+        try {
+            if (
+                renameMap &&
+                typeof Object.defineProperty === "function" &&
+                !Object.hasOwn(renameMap, "__dbgId")
+            ) {
+                Object.defineProperty(renameMap, "__dbgId", {
+                    value: `rm-${DBG_RENAME_MAP_COUNTER++}`,
+                    enumerable: false,
+                    configurable: true,
+                    writable: false
+                });
+            }
+        } catch {}
+
+        setIdentifierCaseOption(options, "__identifierCaseRenameMap", renameMap);
+        try {
+            console.error(
+                `[DBG] prepareIdentifierCasePlan set renameMap id=${renameMap?.__dbgId ?? null} size=${renameMap.size} operations=${operations.length} conflicts=${conflicts.length}`
+            );
+        } catch {}
     if (assetRenames.length > 0) {
         setIdentifierCaseOption(
             options,
@@ -1204,6 +1266,9 @@ export async function prepareIdentifierCasePlan(options) {
             "__identifierCasePlanGeneratedInternally",
             true
         );
+        try {
+            console.error('[DBG] prepareIdentifierCasePlan set planGenerated=true');
+        } catch {}
     } else {
         setIdentifierCaseOption(options, "__identifierCaseRenamePlan", {
             operations

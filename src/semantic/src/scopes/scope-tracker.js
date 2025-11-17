@@ -806,3 +806,7 @@ export class ScopeTracker {
         return externalRefs;
     }
 }
+
+// Provide a default export for backwards-compatible imports that import the
+// module file directly (tests and some callers use a default import).
+export default ScopeTracker;

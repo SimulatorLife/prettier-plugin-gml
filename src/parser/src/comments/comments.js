@@ -14,8 +14,10 @@
  * @property {number} [end]
  */
 
-import { isObjectLike } from "../utils/object.js";
 import { enqueueObjectChildValues } from "../ast/node-helpers.js";
+import { Core } from "@gml-modules/core";
+
+const { isObjectLike } = Core.Utils;
 
 /**
  * Frozen reusable empty array so repeated `getCommentArray` calls do not

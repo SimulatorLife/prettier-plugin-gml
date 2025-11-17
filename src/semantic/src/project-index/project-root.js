@@ -32,6 +32,12 @@ export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
         const entries = await listDirectory(fsFacade, directory, { signal });
         ensureNotAborted();
 
+        try {
+            const sample = (entries || []).slice(0, 20).map(String);
+            const matched = (entries || []).some(isProjectManifestPath);
+            console.error(`[DBG] findProjectRoot: grep dir=${directory} entriesCount=${(entries||[]).length} matched=${matched} sample=${JSON.stringify(sample)}`);
+        } catch {}
+
         if (entries.some(isProjectManifestPath)) {
             return directory;
         }

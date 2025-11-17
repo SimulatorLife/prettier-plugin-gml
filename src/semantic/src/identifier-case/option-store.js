@@ -151,6 +151,17 @@ export function setIdentifierCaseOption(options, key, value) {
         return;
     }
 
+    try {
+        if (key === "__identifierCaseRenameMap") {
+            const prev = options[key];
+            const prevSize = prev && typeof prev.size === 'number' ? prev.size : null;
+            const prevId = prev && prev.__dbgId ? prev.__dbgId : null;
+            const newSize = value && typeof value.size === 'number' ? value.size : null;
+            const newId = value && value.__dbgId ? value.__dbgId : null;
+            console.error(`[DBG] setIdentifierCaseOption: writing ${key} prevId=${prevId} prevSize=${String(prevSize)} newId=${newId} newSize=${String(newSize)} filepath=${options?.filepath ?? null}`);
+        }
+    } catch {}
+
     options[key] = value;
     updateStore(options, key, value);
 }

@@ -135,7 +135,25 @@ function createIdentifierCaseServiceRegistry({
         }
 
         if (!cachedService) {
+            // Emit a defensive debug record to help triage which provider was
+            // used to resolve this service during tests. Tests sometimes swap
+            // providers and the global registry can be mutated; logging here
+            // helps correlate runtime behaviour with the provider identity.
+            try {
+                const prov = provider;
+                console.error(
+                    `[DBG] createIdentifierCaseServiceRegistry.resolve: resolving provider for ${providerTypeErrorMessage}`
+                );
+            } catch {}
+
             cachedService = normalize(provider());
+
+            try {
+                const sampleKeys = Object.keys(cachedService).slice(0, 5);
+                console.error(
+                    `[DBG] createIdentifierCaseServiceRegistry.resolve: cachedService keys=${JSON.stringify(sampleKeys)}`
+                );
+            } catch {}
         }
 
         return cachedService;
@@ -354,6 +372,12 @@ export function prepareIdentifierCasePlan(options) {
  * @returns {string | null}
  */
 export function getIdentifierCaseRenameForNode(node, options) {
+    try {
+        console.error(
+            `[DBG] plan-service:getIdentifierCaseRenameForNode: enter nodeStart=${JSON.stringify(node?.start ?? null)} filepath=${options?.filepath ?? null}`
+        );
+    } catch {}
+
     return resolveIdentifierCaseRenameLookupService().getIdentifierCaseRenameForNode(
         node,
         options

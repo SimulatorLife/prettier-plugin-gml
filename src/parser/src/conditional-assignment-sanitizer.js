@@ -19,7 +19,7 @@ const ASSIGNMENT_GUARD_CHARACTERS = new Set([
 
 function createIndexMapper(insertPositions) {
     if (!Core.isNonEmptyArray(insertPositions)) {
-        return identity;
+        return Core.Utils.identity;
     }
 
     const offsets = Array.from(
@@ -27,7 +27,7 @@ function createIndexMapper(insertPositions) {
     ).sort((a, b) => a - b);
 
     if (offsets.length === 0) {
-        return identity;
+        return Core.Utils.identity;
     }
 
     return (index) => {

@@ -12,7 +12,7 @@ import {
 import { warnWithReason } from "./logger.js";
 
 const {
-    Utils: { isObjectLike, noop, withObjectLike }
+    Utils: { isObjectLike, isMapLike, noop, withObjectLike }
 } = Core;
 
 const IDENTIFIER_CASE_LOGGER_NAMESPACE = "identifier-case";
@@ -95,6 +95,9 @@ function disposeBootstrap(bootstrapResult, logger = null) {
 }
 
 export async function prepareIdentifierCaseEnvironment(options) {
+    try {
+        console.error(`[DBG] prepareIdentifierCaseEnvironment: enter filepath=${options?.filepath ?? null}`);
+    } catch {}
     return withObjectLike(options, async (object) => {
         const bootstrapResult =
             await bootstrapIdentifierCaseProjectIndex(object);
@@ -131,9 +134,36 @@ export async function prepareIdentifierCaseEnvironment(options) {
 export function attachIdentifierCasePlanSnapshot(ast, options) {
     withObjectLike(ast, (objectAst) => {
         const snapshot = captureIdentifierCasePlanSnapshot(options);
-        if (!snapshot) {
+        // Only attach snapshots that carry meaningful planning state.
+        // Empty snapshots (no renameMap and no planGenerated) are common
+        // when callers omit a filepath and would otherwise overwrite a
+        // previously-captured plan. Guarding here prevents attachment of
+        // inert snapshots which strip rename data from downstream printers.
+        if (
+            !snapshot ||
+            (snapshot.planGenerated !== true && !isMapLike(snapshot.renameMap))
+        ) {
             return;
         }
+
+        try {
+            if (isMapLike(snapshot.renameMap)) {
+                const samples = [];
+                let c = 0;
+                for (const k of snapshot.renameMap.keys()) {
+                    samples.push(String(k));
+                    c += 1;
+                    if (c >= 5) break;
+                }
+                console.error(
+                    `[DBG] attachIdentifierCasePlanSnapshot: attaching snapshot for filepath=${options?.filepath ?? null} planGenerated=${Boolean(snapshot.planGenerated)} renameMapSize=${snapshot.renameMap.size} renameMapId=${snapshot.renameMap.__dbgId ?? null} samples=${JSON.stringify(samples)}`
+                );
+            } else {
+                console.error(
+                    `[DBG] attachIdentifierCasePlanSnapshot: attaching snapshot for filepath=${options?.filepath ?? null} planGenerated=${Boolean(snapshot.planGenerated)} renameMapSize=0 renameMapId=${null}`
+                );
+            }
+        } catch {}
 
         Object.defineProperty(objectAst, "__identifierCasePlanSnapshot", {
             value: snapshot,

@@ -3,10 +3,6 @@ import { getCommentArray, isDocCommentLine } from "./comment-boundary.js";
 import { getNodeStartIndex } from "../ast/locations.js";
 import { isFunctionLikeNode, isNode } from "../ast/node-helpers.js";
 
-import { isNonEmptyTrimmedString } from "../utils/string.js";
-
-const { isNonEmptyArray, toMutableArray } = Core;
-
 /**
  * The legacy doc comment "manager" facade bundled traversal helpers with
  * mutation operations. That wide surface forced transforms that only needed
@@ -134,14 +130,14 @@ function createDocCommentManager(ast) {
         },
         getComments(functionNode) {
             const comments = commentGroups.get(functionNode);
-            return toMutableArray(comments);
+                return Core.toMutableArray(comments);
         },
         extractDescription(functionNode) {
             return extractFunctionDescription(commentGroups, functionNode);
         },
         hasDocComment(functionNode) {
             const comments = commentGroups.get(functionNode);
-            return isNonEmptyArray(comments);
+            return Core.isNonEmptyArray(comments);
         }
     };
 }
@@ -285,7 +281,7 @@ function isDocCommentUpdateEligible(update) {
     return (
         !!update &&
         !update.hasDocComment &&
-        isNonEmptyTrimmedString(update.expression)
+        Core.isNonEmptyTrimmedString(update.expression)
     );
 }
 
@@ -367,7 +363,7 @@ function extractDescriptionContent(value) {
 function buildUpdatedDescription(existing, expression) {
     const originalDescription = existing ?? "";
 
-    if (!isNonEmptyTrimmedString(expression)) {
+    if (!Core.isNonEmptyTrimmedString(expression)) {
         return originalDescription;
     }
 
