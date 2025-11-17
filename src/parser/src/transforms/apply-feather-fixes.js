@@ -16808,7 +16808,6 @@ function convertParameterToUndefinedDefault(parameter) {
         right: undefinedLiteral,
         start: cloneLocation(parameter.start ?? identifier.start),
         end: cloneLocation(parameter.end ?? identifier.end),
-        _featherOptionalParameter: true
     };
 
     copyCommentMetadata(parameter, defaultParameter);

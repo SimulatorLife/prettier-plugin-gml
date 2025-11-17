@@ -4,7 +4,12 @@
   "type": "module",
   "main": "./index.js",
   "exports": {
-    ".": "./index.js",
-    "./*": "./src/*"
+    ".": "./index.js"
+  },
+  "engines": {
+    "node": ">=25.0.0"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
   }
 }

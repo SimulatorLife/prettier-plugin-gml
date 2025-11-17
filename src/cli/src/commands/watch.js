@@ -18,7 +18,7 @@ import process from "node:process";
 
 import { Command, Option } from "commander";
 
-import { createTranspiler } from "@gml-modules/transpiler";
+import { Transpiler } from "@gml-modules/transpiler";
 import {
     describeRuntimeSource,
     resolveRuntimeSource,
@@ -216,7 +216,7 @@ export async function runWatchCommand(targetPath, options) {
             ? runtimeServer !== false
             : Boolean(hydrateRuntime);
 
-    const transpiler = createTranspiler();
+    const transpiler = Transpiler.createTranspiler();
     const runtimeContext = {
         root: null,
         packageName: null,

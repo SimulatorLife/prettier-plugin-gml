@@ -158,6 +158,89 @@ function preprocessFunctionDeclaration(node, helpers) {
         appliedChanges = true;
     }
 
+    // Finalization helper: materialize any trailing DefaultParameter nodes
+    // that were left with a null `right` after we've attempted to apply
+    // in-body fallbacks. Run this *before* we early-return so the
+    // conservative materialization occurs even when no in-body matches
+    // were detected.
+    function finalizeTrailingUndefinedDefaults(params, helpers) {
+        let changed = false;
+        try {
+            let seenExplicitDefaultToLeft = false;
+            for (let i = 0; i < params.length; i += 1) {
+                const param = params[i];
+                if (!param) continue;
+
+                if (param.type === "DefaultParameter") {
+                    if (param.right != null) {
+                        const isUndef =
+                            typeof helpers.isUndefinedLiteral === "function" &&
+                            helpers.isUndefinedLiteral(param.right);
+                        if (!isUndef) {
+                            seenExplicitDefaultToLeft = true;
+                        }
+                    } else {
+                        if (seenExplicitDefaultToLeft) {
+                            param.right = { type: "Identifier", name: "undefined" };
+                            param._featherMaterializedTrailingUndefined = true;
+                            param._featherMaterializedFromExplicitLeft = true;
+                            changed = true;
+                        }
+                    }
+                    continue;
+                }
+
+                if (param.type === "AssignmentPattern") {
+                    seenExplicitDefaultToLeft = true;
+                    continue;
+                }
+
+                if (param.type === "Identifier") {
+                    if (seenExplicitDefaultToLeft) {
+                        const defaultParam = {
+                            type: "DefaultParameter",
+                            left: param,
+                            right: { type: "Identifier", name: "undefined" },
+                            _featherMaterializedTrailingUndefined: true,
+                            _featherMaterializedFromExplicitLeft: true
+                        };
+                        params[i] = defaultParam;
+                        changed = true;
+                    }
+                    continue;
+                }
+
+                break;
+            }
+        } catch {
+            // swallow
+        }
+
+        return changed;
+    }
+
+    // Defer finalization until after we've attempted to convert any
+    // in-body fallback patterns into DefaultParameter nodes. Running
+    // the conservative trailing-undefined materialization earlier had
+    // subtle interactions with the argument_count condensing logic and
+    // produced unexpected DefaultParameter nodes in some fixtures.
+    // We'll invoke finalization once we've processed any matches below.
+
+    // If there are no body statements left, run finalization so that
+    // trailing placeholders are still materialized in the simple case
+    // where no in-body matches exist. This mirrors the previous
+    // conservative behavior while avoiding premature finalization in
+    // more complex match paths.
+    try {
+        if (statements.length === 0 && !appliedChanges) {
+            if (finalizeTrailingUndefinedDefaults(params, helpers)) {
+                appliedChanges = true;
+            }
+        }
+    } catch {
+        // swallow
+    }
+
     if (statements.length === 0 && !appliedChanges) {
         return;
     }
@@ -298,9 +381,13 @@ function preprocessFunctionDeclaration(node, helpers) {
         appliedChanges = true;
     }
 
-    if (matches.length === 0 && !appliedChanges) {
-        return;
-    }
+    // Always proceed to the finalization pass even when no in-body
+    // matches were detected. The finalization step materializes
+    // trailing placeholder parameters into explicit `= undefined`
+    // defaults when a concrete default appears to the left. Running
+    // the finalization unconditionally avoids missing cases where the
+    // function body contains unrelated statements but no argument_count
+    // fallback matches.
 
     matches.sort((a, b) => {
         if (a.argumentIndex !== b.argumentIndex) {
@@ -724,83 +811,120 @@ function preprocessFunctionDeclaration(node, helpers) {
         }
     }
 
-    // Final pass: materialize any trailing DefaultParameter nodes that were
-    // left with a null `right` after we've attempted to apply in-body
-    // fallbacks. If we've seen an explicit default to the left then a
-    // trailing parameter without a filled RHS should be concretized to an
-    // `undefined` Identifier so downstream printing phases emit
-    // `= undefined` where historically expected. We avoid doing this
-    // earlier to allow body-based fallbacks to fill the RHS when present;
-    // at this point those matches have already been applied so it's safe
-    // to materialize the remaining placeholders.
+    // After we've processed all in-body fallback matches and removals,
+    // run the trailing undefined finalization to materialize any
+    // remaining placeholders conservatively.
     try {
-        let seenExplicitDefaultToLeft = false;
+        if (finalizeTrailingUndefinedDefaults(params, helpers)) {
+            appliedChanges = true;
+        }
+    } catch {
+        // swallow
+    }
+
+    // Final pass: materialize any trailing DefaultParameter or Identifier
+    // parameters that were left without a concrete RHS after we've
+    // attempted to apply in-body fallbacks. Historically the formatter
+    // emitted `= undefined` for trailing parameters when a concrete
+    // default appeared to the left (e.g. `a, b = 1, c` -> `c = undefined`).
+    // Here we conservatively reproduce that behavior by locating the
+    // last explicit default to the left and materializing all subsequent
+    // bare or placeholder parameters to DefaultParameter nodes with an
+    // `undefined` Identifier RHS. This deterministic pass avoids
+    // reliance on traversal order while remaining safe for non-standard
+    // parameter forms.
+    try {
         // Diagnostic: show initial param summary before finalization
         try {
-             
-            console.warn(
-                `[feather:diagnostic] finalization-start params=${params.length}`
-            );
+            // eslint-disable-next-line no-console
+            console.error(`[feather:diagnostic] finalization-start params=${params.length}`);
         } catch {}
+
+        // Find the highest index of a concrete explicit default to the left.
+        let lastExplicitDefaultIndex = -1;
         for (let i = 0; i < params.length; i += 1) {
             const param = params[i];
             if (!param) continue;
 
-            if (param.type === "DefaultParameter") {
-                if (param.right == null) {
-                    // param.right is null/undefined and therefore a placeholder
-                    // left for potential body fallback fill. If we've already
-                    // seen an explicit default to the left then materialize
-                    // this placeholder as `= undefined` so printers can
-                    // reproduce historical optional-parameter signatures.
-                    if (seenExplicitDefaultToLeft) {
-                        param.right = { type: "Identifier", name: "undefined" };
-                        param._featherMaterializedTrailingUndefined = true;
-                        param._featherMaterializedFromExplicitLeft = true;
-                        appliedChanges = true;
-                        try {
-                             
-                            console.warn(
-                                `[feather:diagnostic] finalization-materialized index=${i} name=${param.left && param.left.name}`
-                            );
-                        } catch {}
-                    }
-                } else {
+            if (param.type === 'DefaultParameter') {
+                if (param.right != null) {
                     const isUndef =
-                        typeof helpers.isUndefinedLiteral === "function" &&
+                        typeof helpers.isUndefinedLiteral === 'function' &&
                         helpers.isUndefinedLiteral(param.right);
                     if (!isUndef) {
-                        seenExplicitDefaultToLeft = true;
+                        lastExplicitDefaultIndex = i;
                     }
                 }
                 continue;
             }
 
-            if (param.type === "AssignmentPattern") {
-                seenExplicitDefaultToLeft = true;
+            if (param.type === 'AssignmentPattern') {
+                lastExplicitDefaultIndex = i;
                 continue;
             }
 
-            if (param.type === "Identifier") {
-                if (seenExplicitDefaultToLeft) {
+            // Other forms don't affect explicit defaults
+        }
+
+        if (lastExplicitDefaultIndex >= 0) {
+            try {
+                // eslint-disable-next-line no-console
+                console.warn(`[feather:diagnostic] finalization-found-explicit idx=${lastExplicitDefaultIndex}`);
+            } catch {}
+        }
+
+        // Only materialize trailing placeholders when we actually found an
+        // explicit default to the left; otherwise leave placeholders for
+        // other passes to decide.
+        if (lastExplicitDefaultIndex >= 0) {
+            for (let i = 0; i < params.length; i += 1) {
+                const param = params[i];
+                if (!param) continue;
+                try {
+                    // eslint-disable-next-line no-console
+                    console.warn(`[feather:diagnostic] finalization-loop idx=${i} type=${param.type} right=${param && param.right ? (param.right.type || typeof param.right) : '<null>'} lastExplicit=${lastExplicitDefaultIndex}`);
+                } catch {}
+
+                if (i <= lastExplicitDefaultIndex) {
+                    // Nothing to do for parameters up to and including the last
+                    // explicit default.
+                    continue;
+                }
+
+                if (param.type === 'DefaultParameter') {
+                    if (param.right == null) {
+                        // Materialize placeholder RHS as `undefined`.
+                        param.right = { type: 'Identifier', name: 'undefined' };
+                        param._featherMaterializedTrailingUndefined = true;
+                        param._featherMaterializedFromExplicitLeft = true;
+                        appliedChanges = true;
+                        try {
+                            // eslint-disable-next-line no-console
+                            console.error(`[feather:diagnostic] finalization-materialized index=${i} name=${param.left && param.left.name}`);
+                        } catch {}
+                    }
+                    continue;
+                }
+
+                if (param.type === 'Identifier') {
                     // Materialize bare identifier to DefaultParameter with
-                    // undefined RHS as previously implemented.
+                    // undefined RHS.
                     const defaultParam = {
-                        type: "DefaultParameter",
+                        type: 'DefaultParameter',
                         left: param,
-                        right: { type: "Identifier", name: "undefined" },
+                        right: { type: 'Identifier', name: 'undefined' },
                         _featherMaterializedTrailingUndefined: true,
                         _featherMaterializedFromExplicitLeft: true
                     };
                     params[i] = defaultParam;
                     appliedChanges = true;
+                    continue;
                 }
-                continue;
-            }
 
-            // Non-standard parameter forms stop materialization scanning
-            break;
-        }
+                // Stop on non-standard parameter forms.
+                break;
+            }
+    }
 
         if (appliedChanges) {
             body._gmlForceInitialBlankLine = true;
@@ -812,6 +936,8 @@ function preprocessFunctionDeclaration(node, helpers) {
     // Ensure we wrote back any mutated params array so the canonical node
     // reflects our finalization changes for downstream passes.
     try {
+        // eslint-disable-next-line no-console
+        console.error(`[feather:diagnostic] writing-back-params len=${params && params.length}`);
         node.params = params;
     } catch {
         // ignore
@@ -1045,18 +1171,24 @@ function preprocessFunctionDeclaration(node, helpers) {
             // omit or emit the `= undefined` signature. Preserve any
             // existing explicit annotations above first.
             try {
+                // If this parameter was materialized from an explicit
+                // left-side default (e.g. `a, b = 1, c` -> `c = undefined`)
+                // treat it as intentionally optional by default so that
+                // downstream consumers preserve the historical behaviour
+                // expected by the plugin tests. Materializations that
+                // originate from other sources (in-body argument_count
+                // fallbacks) remain conservative unless docs or earlier
+                // transforms indicate optionality.
+                if (p._featherMaterializedFromExplicitLeft === true) {
+                    p._featherOptionalParameter = true;
+                    continue;
+                }
+
                 if (p._featherMaterializedTrailingUndefined === true) {
-                    // Treat materialized trailing `undefined` defaults as
-                    // conservative (required) by default for doc emission.
-                    // The parser should only mark intentionally optional
-                    // parameters via an explicit doc comment or by setting
-                    // `_featherOptionalParameter` elsewhere. Historically
-                    // some materializations originating from an explicit
-                    // left-side default were treated as optional, but that
-                    // led to surprising bracketed `@param` output in many
-                    // fixtures. Prefer the conservative behaviour so
-                    // printers only emit bracketed params when the parser
-                    // or docs explicitly indicate optionality.
+                    // Materialized trailing undefined defaults that did NOT
+                    // originate from an explicit left-side default are
+                    // treated conservatively (required) unless docs or the
+                    // parser explicitly mark them optional.
                     p._featherOptionalParameter = false;
                     continue;
                 }
