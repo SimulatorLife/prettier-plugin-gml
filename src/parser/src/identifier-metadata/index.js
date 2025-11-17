@@ -1,9 +1,5 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: { isObjectLike, toArray }
-} = Core;
-
 /**
  * The previous IdentifierMetadataManager bundled scope management, role tracking,
  * and global identifier bookkeeping behind a single "manager" contract. That
@@ -56,7 +52,7 @@ export class IdentifierRoleTracker {
         const cloned = { ...role };
 
         if (role.tags !== undefined) {
-            cloned.tags = [...toArray(role.tags)];
+            cloned.tags = [...Core.toArray(role.tags)];
         }
 
         return cloned;
@@ -142,7 +138,7 @@ export class GlobalIdentifierRegistry {
     }
 
     markIdentifier(node) {
-        if (!isIdentifierNode(node) || !isObjectLike(node)) {
+        if (!isIdentifierNode(node) || !Core.isObjectLike(node)) {
             return;
         }
 

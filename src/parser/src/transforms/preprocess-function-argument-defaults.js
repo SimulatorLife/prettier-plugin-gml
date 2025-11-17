@@ -905,6 +905,12 @@ function preprocessFunctionDeclaration(node, helpers) {
                         param.right = { type: "Identifier", name: "undefined" };
                         param._featherMaterializedTrailingUndefined = true;
                         param._featherMaterializedFromExplicitLeft = true;
+                        // Preserve historical behaviour: when materializing a
+                        // trailing `= undefined` default due to an explicit
+                        // default to the left, mark the parameter as optional
+                        // so downstream phases observe the explicit optional
+                        // intent.
+                        param._featherOptionalParameter = true;
                         appliedChanges = true;
                         try {
                              
@@ -924,7 +930,8 @@ function preprocessFunctionDeclaration(node, helpers) {
                         left: param,
                         right: { type: "Identifier", name: "undefined" },
                         _featherMaterializedTrailingUndefined: true,
-                        _featherMaterializedFromExplicitLeft: true
+                        _featherMaterializedFromExplicitLeft: true,
+                        _featherOptionalParameter: true
                     };
                     params[i] = defaultParam;
                     appliedChanges = true;

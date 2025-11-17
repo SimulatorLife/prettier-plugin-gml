@@ -6603,7 +6603,11 @@ function computeSyntheticFunctionDocLines(
                       return false;
                   }
 
-                  return !isUndefinedSentinel(candidate.right);
+                // Treat a missing RHS (`null`/`undefined`) as a non-
+                // explicit default (i.e. not a concrete default). Only
+                // consider it an explicit default when the RHS exists and
+                // is not the `undefined` sentinel.
+                return candidate.right != null && !isUndefinedSentinel(candidate.right);
               })
             : false;
         const hasPriorExplicitDefault = Array.isArray(node?.params)
@@ -6612,7 +6616,9 @@ function computeSyntheticFunctionDocLines(
                       return false;
                   }
 
-                  return !isUndefinedSentinel(candidate.right);
+                  // See above: require a present RHS before treating the
+                  // candidate as a concrete explicit default.
+                  return candidate.right != null && !isUndefinedSentinel(candidate.right);
               })
             : false;
         const shouldApplyOptionalSuppression =

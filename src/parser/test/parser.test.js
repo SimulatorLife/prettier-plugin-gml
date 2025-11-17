@@ -2,9 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-
 import { describe, it } from "node:test";
-
 import GMLParser from "../gml-parser.js";
 import GameMakerASTBuilder from "../src/gml-ast-builder.js";
 import { Core } from "@gml-modules/core";

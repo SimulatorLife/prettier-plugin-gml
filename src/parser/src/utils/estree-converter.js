@@ -1,9 +1,5 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: { isObjectLike }
-} = Core;
-
 const COMMENT_TYPE_MAP = new Map([
     ["CommentLine", "Line"],
     ["CommentBlock", "Block"],
@@ -76,7 +72,7 @@ function convertNode(value, state) {
         return value.map((item) => convertNode(item, state));
     }
 
-    if (!isObjectLike(value)) {
+    if (!Core.isObjectLike(value)) {
         return value;
     }
 

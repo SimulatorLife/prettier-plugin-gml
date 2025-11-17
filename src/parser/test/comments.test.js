@@ -10,7 +10,7 @@ import {
     isCommentNode,
     isDocCommentLine,
     isLineComment
-} from "../src/ast/comments.js";
+} from "../src/comments/comments.js";
 
 test("isCommentNode differentiates comment nodes", () => {
     assert.equal(isCommentNode(null), false);

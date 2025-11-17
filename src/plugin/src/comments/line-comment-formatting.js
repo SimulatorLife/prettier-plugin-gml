@@ -119,7 +119,7 @@ const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION = Object.freeze({
     ]),
     canonicalSpecifierNames: Object.freeze([
         ["asset", "Asset"],
-        ["constant", "constant"],
+        ["constant", "Constant"],
         ["enum", "Enum"],
         ["id", "Id"],
         ["struct", "Struct"]
