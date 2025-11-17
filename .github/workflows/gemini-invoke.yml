@@ -94,7 +94,7 @@ jobs:
         #
         MAX_ATTEMPTS=6
         INITIAL_DELAY=30
-        BACKOFF_FACTOR=2.5
+        BACKOFF_FACTOR=3
         attempt=1
         delay=${INITIAL_DELAY}
 
