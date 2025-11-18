@@ -858,3 +858,4 @@ work than the configured ceiling.
 - [GML Support](https://marketplace.visualstudio.com/items?itemName=electrobrains.gml-support)
 - [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
 - [Gemini CLI Configuration](https://github.com/google-gemini/gemini-cli/blob/main/docs/get-started/configuration.md)
+- [jscpd CLI](https://github.com/kucherenko/jscpd/tree/master/apps/jscpd)
