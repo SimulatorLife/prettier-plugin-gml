@@ -1730,8 +1730,13 @@ function _printImpl(path, options, print) {
         }
         case "MemberIndexExpression": {
             let accessor = print("accessor");
-            if (accessor.length > 1) {
-                accessor += " ";
+            // `accessor` is usually a plain string (e.g. "[", "[?", "[#").
+            // Be defensive: only append a trailing space when we actually
+            // received a string accessor longer than one character so we
+            // preserve the historical spacing for special accessors like
+            // "[?" or "[#" while leaving normal "[" unchanged.
+            if (typeof accessor === "string" && accessor.length > 1) {
+                accessor = accessor + " ";
             }
             const property = printCommaSeparatedList(
                 path,
@@ -7685,7 +7690,9 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
                     const defaultNode = {
                         type: "DefaultParameter",
                         left: { type: "Identifier", name: param.name },
-                        right: { type: "Identifier", name: "undefined" }
+                        // Use a Literal sentinel here so the printed shape
+                        // and downstream checks observe `value: "undefined"`.
+                        right: { type: "Literal", value: "undefined" }
                     };
                     // Do not mark synthesized trailing `= undefined` defaults
                     // as optional here; optionality should come from parser

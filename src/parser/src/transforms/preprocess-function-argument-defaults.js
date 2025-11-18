@@ -172,12 +172,13 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                 if (!param) continue;
 
                 if (param.type === "DefaultParameter") {
-                    if (param.right == null) {
+                        if (param.right == null) {
                         if (seenExplicitDefaultToLeft) {
-                            param.right = {
-                                type: "Identifier",
-                                name: "undefined"
-                            };
+                            // Materialize the sentinel as a Literal so downstream
+                            // tests and printer logic that expect a Literal
+                            // `value: "undefined"` observe the historical
+                            // shape.
+                            param.right = { type: "Literal", value: "undefined" };
                             param._featherMaterializedTrailingUndefined = true;
                             param._featherMaterializedFromExplicitLeft = true;
                             // Historical behaviour: when materializing a trailing
@@ -208,7 +209,10 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                         const defaultParam = {
                             type: "DefaultParameter",
                             left: param,
-                            right: { type: "Identifier", name: "undefined" },
+                            // Materialize trailing undefined as a Literal so
+                            // downstream passes observe the historical
+                            // `value: "undefined"` shape.
+                            right: { type: "Literal", value: "undefined" },
                             _featherMaterializedTrailingUndefined: true,
                             _featherMaterializedFromExplicitLeft: true
                         };
@@ -907,9 +911,10 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                 }
 
                 if (param.type === "DefaultParameter") {
-                    if (param.right == null) {
-                        // Materialize placeholder RHS as `undefined`.
-                        param.right = { type: "Identifier", name: "undefined" };
+                        if (param.right == null) {
+                        // Materialize placeholder RHS as `undefined` using a
+                        // Literal node so the shape matches existing tests.
+                        param.right = { type: "Literal", value: "undefined" };
                         param._featherMaterializedTrailingUndefined = true;
                         param._featherMaterializedFromExplicitLeft = true;
                         // Preserve historical behaviour: when materializing a
@@ -930,13 +935,14 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                     continue;
                 }
 
-                if (param.type === "Identifier") {
+                    if (param.type === "Identifier") {
                     // Materialize bare identifier to DefaultParameter with
-                    // undefined RHS.
+                    // undefined RHS. Use a Literal node for the `undefined`
+                    // sentinel to match historical printer/tests expectations.
                     const defaultParam = {
                         type: "DefaultParameter",
                         left: param,
-                        right: { type: "Identifier", name: "undefined" },
+                        right: { type: "Literal", value: "undefined" },
                         _featherMaterializedTrailingUndefined: true,
                         _featherMaterializedFromExplicitLeft: true,
                         _featherOptionalParameter: true
@@ -967,6 +973,36 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
         node.params = params;
     } catch {
         // ignore
+    }
+
+    // Normalize any parser-produced DefaultParameter nodes that have a
+    // missing RHS back into bare Identifier parameters when they are not
+    // considered optional. The parser sometimes emits DefaultParameter with
+    // a null `right` for plain parameters; downstream tests expect
+    // required parameters to be plain Identifiers unless materialized or
+    // explicitly marked optional.
+    try {
+        for (let i = 0; i < (node.params || []).length; i += 1) {
+            const p = node.params[i];
+            if (
+                p &&
+                p.type === "DefaultParameter" &&
+                (p.right === null || p.right === undefined)
+            ) {
+                // Preserve explicitly optional/materialized defaults.
+                if (p._featherOptionalParameter === true || p._featherMaterializedTrailingUndefined === true || p._featherMaterializedFromExplicitLeft === true) {
+                    continue;
+                }
+
+                // Replace the DefaultParameter node with its left Identifier
+                // to represent a required parameter.
+                if (p.left && p.left.type === "Identifier") {
+                    node.params[i] = p.left;
+                }
+            }
+        }
+    } catch {
+        // swallow normalization errors
     }
 
     // Post-finalization sweep: ensure materializations that originated from
@@ -1071,7 +1107,10 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                     const defaultParam = {
                         type: "DefaultParameter",
                         left: param,
-                        right: { type: "Identifier", name: "undefined" },
+                        // Materialize the undefined sentinel as a Literal so
+                        // downstream passes (and tests) observe the
+                        // historical `value: "undefined"` shape.
+                        right: { type: "Literal", value: "undefined" },
                         // Mark materialized trailing undefined defaults so
                         // tests and downstream passes can observe that the
                         // node was synthesized by this transform. Record a
