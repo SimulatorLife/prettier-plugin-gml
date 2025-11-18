@@ -15,7 +15,7 @@ import { assignClonedLocation } from "./locations.js";
  * @returns {object | null} The single declarator when present, otherwise
  *     `null`.
  */
-function getSingleVariableDeclarator(node) {
+export function getSingleVariableDeclarator(node) {
     if (!node || node.type !== "VariableDeclaration") {
         return null;
     }
@@ -46,7 +46,7 @@ function getSingleVariableDeclarator(node) {
  *                    when cloning is unnecessary. `null` and `undefined`
  *                    resolve to `null` for easier downstream checks.
  */
-function cloneAstNode(node) {
+export function cloneAstNode(node) {
     if (node === null || node === undefined) {
         return null;
     }
@@ -65,7 +65,7 @@ function cloneAstNode(node) {
  * @param {(child: object, key: string) => void} callback Invoked for each
  *        enumerable own property whose value is object-like.
  */
-function forEachNodeChild(node, callback) {
+export function forEachNodeChild(node, callback) {
     if (!isObjectLike(node)) {
         return;
     }
@@ -100,7 +100,7 @@ function forEachNodeChild(node, callback) {
  *     printer can surface new keywords added by the parser without needing a
  *     project-wide update.
  */
-function getVariableDeclarationKind(node) {
+export function getVariableDeclarationKind(node) {
     if (!node || node.type !== "VariableDeclaration") {
         return null;
     }
@@ -123,7 +123,7 @@ function getVariableDeclarationKind(node) {
  * @returns {boolean} `true` when `node.kind` resolves to the
  *     provided keyword.
  */
-function isVariableDeclarationOfKind(node, expectedKind) {
+export function isVariableDeclarationOfKind(node, expectedKind) {
     if (!isNonEmptyString(expectedKind)) {
         return false;
     }
@@ -136,7 +136,7 @@ function isVariableDeclarationOfKind(node, expectedKind) {
     return normalizedKind === expectedKind.toLowerCase();
 }
 
-function isVarVariableDeclaration(node) {
+export function isVarVariableDeclaration(node) {
     return isVariableDeclarationOfKind(node, "var");
 }
 
@@ -178,15 +178,20 @@ const identifierResolvers = Object.freeze({
     }
 });
 
-function resolveNodeName(node) {
+export function resolveNodeName(node) {
     return typeof node?.name === "string" ? node.name : null;
 }
 
-function isIdentifierNode(candidate) {
-    return Boolean(candidate && candidate.type === "Identifier");
+export function isIdentifierNode(node) {
+    return node && typeof node === "object" && node.type === "Identifier";
 }
 
-function getIdentifierText(node) {
+export function isIdentifierWithName(node, name) {
+    const identifierDetails = getIdentifierDetails(node);
+    return identifierDetails?.name === name;
+}
+
+export function getIdentifierText(node) {
     if (node === undefined || node === null) {
         return null;
     }
@@ -218,7 +223,7 @@ function getIdentifierText(node) {
  *          cloned locations when {@link name} is a non-empty string; otherwise
  *          `null` to signal that construction failed.
  */
-function createIdentifierNode(name, template) {
+export function createIdentifierNode(name, template) {
     if (!isNonEmptyString(name)) {
         return null;
     }
@@ -245,7 +250,7 @@ function createIdentifierNode(name, template) {
  *     defensive guards let callers gracefully skip edge cases without
  *     introducing conditional branches at the call site.
  */
-function getMemberIndexText(indexNode) {
+export function getMemberIndexText(indexNode) {
     if (typeof indexNode === "string") {
         return indexNode;
     }
@@ -271,7 +276,7 @@ function getMemberIndexText(indexNode) {
  * @param {unknown} node Candidate member index expression.
  * @returns {unknown | null} The single property entry or `null` when missing.
  */
-function getSingleMemberIndexPropertyEntry(node) {
+export function getSingleMemberIndexPropertyEntry(node) {
     if (!isNode(node) || node.type !== "MemberIndexExpression") {
         return null;
     }
@@ -296,7 +301,7 @@ function getSingleMemberIndexPropertyEntry(node) {
  */
 // Delegate to the shared array normalizer so call-expression traversals always
 // reuse the same frozen empty array rather than recreating bespoke helpers.
-function getCallExpressionArguments(callExpression) {
+export function getCallExpressionArguments(callExpression) {
     if (!isNode(callExpression)) {
         return asArray();
     }
@@ -304,7 +309,7 @@ function getCallExpressionArguments(callExpression) {
     return asArray(callExpression.arguments);
 }
 
-function getCallExpressionIdentifier(callExpression) {
+export function getCallExpressionIdentifier(callExpression) {
     if (!isNode(callExpression) || callExpression.type !== "CallExpression") {
         return null;
     }
@@ -317,12 +322,12 @@ function getCallExpressionIdentifier(callExpression) {
     return resolveNodeName(callee) === null ? null : callee;
 }
 
-function getCallExpressionIdentifierName(callExpression) {
+export function getCallExpressionIdentifierName(callExpression) {
     const identifier = getCallExpressionIdentifier(callExpression);
     return identifier ? identifier.name : null;
 }
 
-function getIdentifierDetails(node) {
+export function getIdentifierDetails(node) {
     if (!isNode(node) || node.type !== "Identifier") {
         return null;
     }
@@ -335,12 +340,12 @@ function getIdentifierDetails(node) {
     return { identifier: node, name };
 }
 
-function getIdentifierName(node) {
+export function getIdentifierName(node) {
     const details = getIdentifierDetails(node);
     return details ? details.name : null;
 }
 
-function isCallExpressionIdentifierMatch(
+export function isCallExpressionIdentifierMatch(
     callExpression,
     expectedName,
     { caseInsensitive = false } = {}
@@ -362,7 +367,7 @@ function isCallExpressionIdentifierMatch(
     return identifierName === expectedName;
 }
 
-function getArrayProperty(node, propertyName) {
+export function getArrayProperty(node, propertyName) {
     if (!isNode(node)) {
         return [];
     }
@@ -374,7 +379,7 @@ function getArrayProperty(node, propertyName) {
     return asArray(node[propertyName]);
 }
 
-function hasArrayPropertyEntries(node, propertyName) {
+export function hasArrayPropertyEntries(node, propertyName) {
     if (!isNode(node)) {
         return false;
     }
@@ -386,7 +391,7 @@ function hasArrayPropertyEntries(node, propertyName) {
     return isNonEmptyArray(node[propertyName]);
 }
 
-function getBodyStatements(node) {
+export function getBodyStatements(node) {
     if (!isNode(node)) {
         return [];
     }
@@ -398,11 +403,11 @@ function getBodyStatements(node) {
     return asArray(node.body);
 }
 
-function hasBodyStatements(node) {
+export function hasBodyStatements(node) {
     return hasArrayPropertyEntries(node, "body");
 }
 
-function isProgramOrBlockStatement(node) {
+export function isProgramOrBlockStatement(node) {
     if (!isNode(node)) {
         return false;
     }
@@ -415,7 +420,7 @@ function isProgramOrBlockStatement(node) {
     return type === "Program" || type === "BlockStatement";
 }
 
-function getLiteralStringValue(node) {
+export function getLiteralStringValue(node) {
     if (!isNode(node) || node.type !== "Literal") {
         return null;
     }
@@ -428,7 +433,7 @@ function getLiteralStringValue(node) {
     return value.toLowerCase();
 }
 
-function getBooleanLiteralValue(node, options = {}) {
+export function getBooleanLiteralValue(node, options = {}) {
     if (!isNode(node) || node.type !== "Literal") {
         return null;
     }
@@ -455,15 +460,15 @@ function getBooleanLiteralValue(node, options = {}) {
     return value ? "true" : "false";
 }
 
-function isBooleanLiteral(node, options) {
+export function isBooleanLiteral(node, options) {
     return getBooleanLiteralValue(node, options) !== null;
 }
 
-function isUndefinedLiteral(node) {
+export function isUndefinedLiteral(node) {
     return getLiteralStringValue(node) === "undefined";
 }
 
-function isUndefinedSentinel(node) {
+export function isUndefinedSentinel(node) {
     if (isUndefinedLiteral(node)) {
         return true;
     }
@@ -498,7 +503,7 @@ function isUndefinedSentinel(node) {
  * @param {unknown} node Candidate AST node-like value.
  * @returns {string | null} The node's `type` when available, otherwise `null`.
  */
-function getNodeType(node) {
+export function getNodeType(node) {
     if (node == null || typeof node !== "object") {
         return null;
     }
@@ -507,7 +512,7 @@ function getNodeType(node) {
     return typeof type === "string" ? type : null;
 }
 
-function isNode(value) {
+export function isNode(value) {
     return value !== undefined && value !== null && typeof value === "object";
 }
 
@@ -523,7 +528,7 @@ const FUNCTION_LIKE_NODE_TYPES = Object.freeze([
 
 const FUNCTION_LIKE_NODE_TYPE_SET = new Set(FUNCTION_LIKE_NODE_TYPES);
 
-function isFunctionLikeNode(node) {
+export function isFunctionLikeNode(node) {
     if (!isNode(node)) {
         return false;
     }
@@ -556,11 +561,11 @@ function isFunctionLikeNode(node) {
 const visitChildNodesValuePool = [];
 const VISIT_CHILD_NODES_VALUE_POOL_MAX_SIZE = 32;
 
-function borrowVisitChildNodesValueBuffer() {
+export function borrowVisitChildNodesValueBuffer() {
     return visitChildNodesValuePool.pop() ?? [];
 }
 
-function releaseVisitChildNodesValueBuffer(buffer) {
+export function releaseVisitChildNodesValueBuffer(buffer) {
     buffer.length = 0;
     if (
         visitChildNodesValuePool.length < VISIT_CHILD_NODES_VALUE_POOL_MAX_SIZE
@@ -569,7 +574,7 @@ function releaseVisitChildNodesValueBuffer(buffer) {
     }
 }
 
-function visitChildNodes(node, callback) {
+export function visitChildNodes(node, callback) {
     if (node === undefined || node === null) {
         return;
     }
@@ -634,7 +639,7 @@ function visitChildNodes(node, callback) {
  * @param {Array<unknown>} stack
  * @param {unknown} value
  */
-function enqueueObjectChildValues(stack, value) {
+export function enqueueObjectChildValues(stack, value) {
     if (!value || typeof value !== "object") {
         return;
     }
@@ -659,7 +664,7 @@ function enqueueObjectChildValues(stack, value) {
     stack.push(value);
 }
 
-function unwrapParenthesizedExpression(node) {
+export function unwrapParenthesizedExpression(node) {
     let current = node;
 
     while (isNode(current) && current.type === "ParenthesizedExpression") {
@@ -676,7 +681,7 @@ function unwrapParenthesizedExpression(node) {
 }
 
 // Small binary-operator predicate used by multiple math transforms.
-function isBinaryOperator(node, operator) {
+export function isBinaryOperator(node, operator) {
     return (
         node &&
         node.type === "BinaryExpression" &&
@@ -692,7 +697,7 @@ function isBinaryOperator(node, operator) {
  * plugin transforms and keeps the parser-local transform logic
  * self-contained.
  */
-function getStructPropertyAccess(left, identifierName) {
+export function getStructPropertyAccess(left, identifierName) {
     if (!isNode(left)) {
         return null;
     }
@@ -727,38 +732,3 @@ function getStructPropertyAccess(left, identifierName) {
 
     return null;
 }
-
-export {
-    cloneAstNode,
-    getSingleVariableDeclarator,
-    getVariableDeclarationKind,
-    getIdentifierText,
-    getCallExpressionArguments,
-    getCallExpressionIdentifier,
-    getCallExpressionIdentifierName,
-    isCallExpressionIdentifierMatch,
-    forEachNodeChild,
-    getArrayProperty,
-    hasArrayPropertyEntries,
-    getBodyStatements,
-    hasBodyStatements,
-    isProgramOrBlockStatement,
-    getSingleMemberIndexPropertyEntry,
-    getBooleanLiteralValue,
-    isBooleanLiteral,
-    isUndefinedLiteral,
-    isUndefinedSentinel,
-    getNodeType,
-    isNode,
-    isFunctionLikeNode,
-    visitChildNodes,
-    enqueueObjectChildValues,
-    unwrapParenthesizedExpression,
-    isVariableDeclarationOfKind,
-    isVarVariableDeclaration,
-    createIdentifierNode,
-    getIdentifierDetails,
-    getIdentifierName,
-    isBinaryOperator,
-    getStructPropertyAccess
-};

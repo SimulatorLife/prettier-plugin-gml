@@ -1,12 +1,4 @@
 import { Core } from "@gml-modules/core";
-import {
-    hasComment as sharedHasComment,
-    normalizeHasCommentHelpers
-} from "../comments/index.js";
-
-const DEFAULT_HELPERS = Object.freeze({
-    hasComment: sharedHasComment
-});
 
 const ASSIGNMENT_EXPRESSION = "AssignmentExpression";
 const BINARY_EXPRESSION = "BinaryExpression";
@@ -29,28 +21,22 @@ const VARIABLE_DECLARATION = "VariableDeclaration";
  * so the printer emits the builtin helper instead of the verbose expression.
  *
  * @param {unknown} ast - Parsed AST to rewrite in place.
- * @param {{ hasComment?: (node: unknown) => boolean }} helpers - Optional
- *     helper overrides for comment detection.
  * @param {{ sourceText?: string, originalText?: string } | null} context
  *     Additional source context used to detect inline comments between nodes.
  */
 export function convertManualMathExpressions(
     ast,
-    helpers = DEFAULT_HELPERS,
     context = null
 ) {
     if (!ast || typeof ast !== "object") {
         return ast;
     }
-
-    const normalizedHelpers = normalizeHasCommentHelpers(helpers);
     const traversalContext = normalizeTraversalContext(ast, context);
 
-    traverse(ast, normalizedHelpers, new Set(), traversalContext);
-    combineLengthdirScalarAssignments(ast, normalizedHelpers);
+    traverse(ast, new Set(), traversalContext);
+    combineLengthdirScalarAssignments(ast);
     cleanupMultiplicativeIdentityParentheses(
         ast,
-        normalizedHelpers,
         traversalContext
     );
 
@@ -59,32 +45,28 @@ export function convertManualMathExpressions(
 
 export function condenseScalarMultipliers(
     ast,
-    helpers = DEFAULT_HELPERS,
     context = null
 ) {
     if (!ast || typeof ast !== "object") {
         return ast;
     }
 
-    const normalizedHelpers = normalizeHasCommentHelpers(helpers);
     const traversalContext = normalizeTraversalContext(ast, context);
 
     traverseForScalarCondense(
         ast,
-        normalizedHelpers,
         new Set(),
         traversalContext
     );
     cleanupMultiplicativeIdentityParentheses(
         ast,
-        normalizedHelpers,
         traversalContext
     );
 
     return ast;
 }
 
-function traverse(node, helpers, seen, context) {
+function traverse(node, seen, context) {
     if (!node || typeof node !== "object") {
         return;
     }
@@ -101,7 +83,7 @@ function traverse(node, helpers, seen, context) {
 
     if (Array.isArray(node)) {
         for (const element of node) {
-            traverse(element, helpers, seen, context);
+            traverse(element, seen, context);
         }
         return;
     }
@@ -111,49 +93,49 @@ function traverse(node, helpers, seen, context) {
         changed = false;
 
         if (node.type === BINARY_EXPRESSION) {
-            if (attemptSimplifyOneMinusFactor(node, helpers, context)) {
+            if (attemptSimplifyOneMinusFactor(node, context)) {
                 changed = true;
                 continue;
             }
 
-            if (attemptRemoveMultiplicativeIdentity(node, helpers, context)) {
+            if (attemptRemoveMultiplicativeIdentity(node, context)) {
                 changed = true;
                 continue;
             }
 
-            if (attemptReplaceMultiplicationWithZero(node, helpers, context)) {
+            if (attemptReplaceMultiplicationWithZero(node, context)) {
                 changed = true;
                 continue;
             }
 
-            if (attemptRemoveAdditiveIdentity(node, helpers, context)) {
+            if (attemptRemoveAdditiveIdentity(node, context)) {
                 changed = true;
                 continue;
             }
 
-            if (attemptConvertDegreesToRadians(node, helpers, context)) {
+            if (attemptConvertDegreesToRadians(node, context)) {
                 changed = true;
                 continue;
             }
 
-            if (attemptSimplifyDivisionByReciprocal(node, helpers, context)) {
+            if (attemptSimplifyDivisionByReciprocal(node, context)) {
                 changed = true;
                 continue;
             }
 
-            if (attemptCancelReciprocalRatios(node, helpers, context)) {
+            if (attemptCancelReciprocalRatios(node, context)) {
                 changed = true;
                 continue;
             }
 
             if (
-                attemptSimplifyNegativeDivisionProduct(node, helpers, context)
+                attemptSimplifyNegativeDivisionProduct(node, context)
             ) {
                 changed = true;
                 continue;
             }
 
-            if (attemptCondenseScalarProduct(node, helpers, context)) {
+            if (attemptCondenseScalarProduct(node, context)) {
                 changed = true;
                 continue;
             }
@@ -161,7 +143,6 @@ function traverse(node, helpers, seen, context) {
             if (
                 attemptCondenseNumericChainWithMultipleBases(
                     node,
-                    helpers,
                     context
                 )
             ) {
@@ -169,71 +150,71 @@ function traverse(node, helpers, seen, context) {
                 continue;
             }
 
-            if (attemptCollectDistributedScalars(node, helpers, context)) {
+            if (attemptCollectDistributedScalars(node, context)) {
                 changed = true;
                 continue;
             }
 
             if (
-                attemptSimplifyLengthdirHalfDifference(node, helpers, context)
+                attemptSimplifyLengthdirHalfDifference(node, context)
             ) {
                 changed = true;
                 continue;
             }
 
-            if (attemptConvertRepeatedPower(node, helpers)) {
+            if (attemptConvertRepeatedPower(node)) {
                 changed = true;
                 continue;
             }
 
-            if (attemptConvertSquare(node, helpers, context)) {
+            if (attemptConvertSquare(node, context)) {
                 changed = true;
                 continue;
             }
 
-            if (attemptConvertMean(node, helpers)) {
+            if (attemptConvertMean(node)) {
                 changed = true;
                 continue;
             }
 
-            if (attemptConvertLog2(node, helpers)) {
+            if (attemptConvertLog2(node)) {
                 changed = true;
                 continue;
             }
 
-            if (attemptConvertLengthDir(node, helpers)) {
+            if (attemptConvertLengthDir(node)) {
                 changed = true;
                 continue;
             }
 
-            if (attemptConvertDotProducts(node, helpers)) {
+            if (attemptConvertDotProducts(node)) {
                 changed = true;
                 continue;
             }
         }
 
         if (node.type === CALL_EXPRESSION) {
-            if (attemptConvertPointDistanceCall(node, helpers)) {
+            if (attemptConvertPointDistanceCall(node)) {
                 changed = true;
                 continue;
             }
 
-            if (attemptConvertPowerToSqrt(node, helpers)) {
+            if (attemptConvertPowerToSqrt(node)) {
                 changed = true;
                 continue;
             }
 
-            if (attemptConvertPowerToExp(node, helpers)) {
+            if (attemptConvertPowerToExp(node)) {
                 changed = true;
                 continue;
             }
 
-            if (attemptConvertPointDirection(node, helpers)) {
+            if (attemptConvertPointDirection(node)) {
                 changed = true;
                 continue;
             }
 
-            if (attemptConvertTrigDegreeArguments(node, helpers)) {
+            if (attemptConvertTrigDegreeArguments(node)) {
                 changed = true;
                 continue;
             }
@@ -244,12 +225,12 @@ function traverse(node, helpers, seen, context) {
                 continue;
             }
 
-            traverse(value, helpers, seen, context);
+            traverse(value, seen, context);
         }
     }
 }
 
-function traverseForScalarCondense(node, helpers, seen, context) {
+function traverseForScalarCondense(node, seen, context) {
     if (!node || typeof node !== "object") {
         return;
     }
@@ -266,31 +247,31 @@ function traverseForScalarCondense(node, helpers, seen, context) {
 
     if (Array.isArray(node)) {
         for (const element of node) {
-            traverseForScalarCondense(element, helpers, seen, context);
+            traverseForScalarCondense(element, seen, context);
         }
         return;
     }
 
     if (node.type === BINARY_EXPRESSION) {
-        attemptSimplifyOneMinusFactor(node, helpers, context);
-        attemptRemoveMultiplicativeIdentity(node, helpers, context);
-        attemptRemoveAdditiveIdentity(node, helpers, context);
+        attemptSimplifyOneMinusFactor(node, context);
+        attemptRemoveMultiplicativeIdentity(node, context);
+        attemptRemoveAdditiveIdentity(node, context);
 
-        if (attemptConvertDegreesToRadians(node, helpers, context)) {
+        if (attemptConvertDegreesToRadians(node, context)) {
             return;
         }
 
-        if (attemptSimplifyDivisionByReciprocal(node, helpers, context)) {
+        if (attemptSimplifyDivisionByReciprocal(node, context)) {
             return;
         }
 
-        attemptCancelReciprocalRatios(node, helpers, context);
+        attemptCancelReciprocalRatios(node, context);
 
-        attemptSimplifyNegativeDivisionProduct(node, helpers, context);
+        attemptSimplifyNegativeDivisionProduct(node, context);
 
-        attemptCondenseScalarProduct(node, helpers, context);
-        attemptCondenseNumericChainWithMultipleBases(node, helpers, context);
-        attemptCollectDistributedScalars(node, helpers, context);
+        attemptCondenseScalarProduct(node, context);
+        attemptCondenseNumericChainWithMultipleBases(node, context);
+        attemptCollectDistributedScalars(node, context);
     }
 
     for (const [key, value] of Object.entries(node)) {
@@ -298,36 +279,36 @@ function traverseForScalarCondense(node, helpers, seen, context) {
             continue;
         }
 
-        traverseForScalarCondense(value, helpers, seen, context);
+        traverseForScalarCondense(value, seen, context);
     }
 }
 
-function attemptSimplifyOneMinusFactor(node, helpers, context) {
+function attemptSimplifyOneMinusFactor(node, context) {
     if (!isBinaryOperator(node, "*")) {
         return false;
     }
 
     let modified = false;
 
-    if (simplifyOneMinusOperand(node, "left", helpers, context)) {
+    if (simplifyOneMinusOperand(node, "left", context)) {
         modified = true;
     }
 
-    if (simplifyOneMinusOperand(node, "right", helpers, context)) {
+    if (simplifyOneMinusOperand(node, "right", context)) {
         modified = true;
     }
 
     return modified;
 }
 
-function simplifyOneMinusOperand(node, key, helpers, context) {
+function simplifyOneMinusOperand(node, key, context) {
     const rawOperand = node[key];
-    if (!rawOperand || helpers.hasComment(rawOperand)) {
+    if (!rawOperand || Core.hasComment(rawOperand)) {
         return false;
     }
 
     const expression = unwrapExpression(rawOperand);
-    if (!expression || helpers.hasComment(expression)) {
+    if (!expression || Core.hasComment(expression)) {
         return false;
     }
 
@@ -369,7 +350,7 @@ function simplifyOneMinusOperand(node, key, helpers, context) {
     return true;
 }
 
-function attemptRemoveMultiplicativeIdentity(node, helpers, context) {
+function attemptRemoveMultiplicativeIdentity(node, context) {
     if (!isBinaryOperator(node, "*")) {
         return false;
     }
@@ -382,12 +363,11 @@ function attemptRemoveMultiplicativeIdentity(node, helpers, context) {
         node,
         "right",
         "left",
-        helpers,
         context
     );
 }
 
-function attemptReplaceMultiplicationWithZero(node, helpers, context) {
+function attemptReplaceMultiplicationWithZero(node, context) {
     if (!isBinaryOperator(node, "*")) {
         return false;
     }
@@ -401,7 +381,6 @@ function attemptReplaceMultiplicationWithZero(node, helpers, context) {
             node,
             "left",
             "right",
-            helpers,
             context
         )
     ) {
@@ -413,7 +392,6 @@ function attemptReplaceMultiplicationWithZero(node, helpers, context) {
             node,
             "right",
             "left",
-            helpers,
             context
         )
     ) {
@@ -427,7 +405,6 @@ function removeMultiplicativeIdentityOperand(
     node,
     key,
     otherKey,
-    helpers,
     context
 ) {
     const operand = node[key];
@@ -437,7 +414,7 @@ function removeMultiplicativeIdentityOperand(
         return false;
     }
 
-    if (helpers.hasComment(operand) || helpers.hasComment(other)) {
+    if (Core.hasComment(operand) || Core.hasComment(other)) {
         return false;
     }
 
@@ -465,18 +442,18 @@ function removeMultiplicativeIdentityOperand(
     }
 
     node.__fromMultiplicativeIdentity = true;
-    unwrapIdentityReplacementResult(node, helpers);
-    unwrapEnclosingParentheses(node, helpers, context);
+    unwrapIdentityReplacementResult(node);
+    unwrapEnclosingParentheses(node, context);
 
     return true;
 }
 
-function unwrapIdentityReplacementResult(node, helpers) {
+function unwrapIdentityReplacementResult(node) {
     while (
         node &&
         node.type === PARENTHESIZED_EXPRESSION &&
         node.expression &&
-        isIdentityReplacementSafeExpression(node.expression, helpers)
+        isIdentityReplacementSafeExpression(node.expression)
     ) {
         if (!replaceNodeWith(node, node.expression)) {
             break;
@@ -486,7 +463,7 @@ function unwrapIdentityReplacementResult(node, helpers) {
     }
 }
 
-function combineLengthdirScalarAssignments(ast, helpers) {
+function combineLengthdirScalarAssignments(ast) {
     if (!ast || typeof ast !== "object") {
         return;
     }
@@ -498,7 +475,7 @@ function combineLengthdirScalarAssignments(ast, helpers) {
                 continue;
             }
 
-            combineLengthdirScalarAssignments(value, helpers);
+            combineLengthdirScalarAssignments(value);
         }
         return;
     }
@@ -512,7 +489,7 @@ function combineLengthdirScalarAssignments(ast, helpers) {
             declaration.type !== VARIABLE_DECLARATION ||
             !Array.isArray(declaration.declarations) ||
             declaration.declarations.length !== 1 ||
-            helpers.hasComment(declaration)
+            Core.hasComment(declaration)
         ) {
             continue;
         }
@@ -520,9 +497,9 @@ function combineLengthdirScalarAssignments(ast, helpers) {
         const [declarator] = declaration.declarations;
         if (
             !declarator ||
-            helpers.hasComment(declarator) ||
+            Core.hasComment(declarator) ||
             !declarator.init ||
-            helpers.hasComment(declarator.init)
+            Core.hasComment(declarator.init)
         ) {
             continue;
         }
@@ -537,8 +514,8 @@ function combineLengthdirScalarAssignments(ast, helpers) {
             !assignment ||
             assignment.type !== ASSIGNMENT_EXPRESSION ||
             assignment.operator !== "=" ||
-            helpers.hasComment(next) ||
-            helpers.hasComment(assignment)
+            Core.hasComment(next) ||
+            Core.hasComment(assignment)
         ) {
             continue;
         }
@@ -550,8 +527,7 @@ function combineLengthdirScalarAssignments(ast, helpers) {
 
         const match = matchLengthdirReassignment(
             assignment.right,
-            baseName,
-            helpers
+            baseName
         );
 
         if (!match) {
@@ -627,7 +603,7 @@ function combineLengthdirScalarAssignments(ast, helpers) {
             assignment.right
         );
 
-        condenseScalarMultipliers(finalExpression, helpers);
+        condenseScalarMultipliers(finalExpression);
 
         declarator.init = finalExpression;
         body.splice(index + 1, 1);
@@ -639,11 +615,11 @@ function combineLengthdirScalarAssignments(ast, helpers) {
             continue;
         }
 
-        combineLengthdirScalarAssignments(element, helpers);
+        combineLengthdirScalarAssignments(element);
     }
 }
 
-function matchLengthdirReassignment(expression, identifierName, helpers) {
+function matchLengthdirReassignment(expression, identifierName) {
     const root = unwrapExpression(expression);
     if (!root || root.type !== BINARY_EXPRESSION || root.operator !== "-") {
         return null;
@@ -654,7 +630,7 @@ function matchLengthdirReassignment(expression, identifierName, helpers) {
         return null;
     }
 
-    if (helpers.hasComment(callExpression)) {
+    if (Core.hasComment(callExpression)) {
         return null;
     }
 
@@ -673,8 +649,7 @@ function matchLengthdirReassignment(expression, identifierName, helpers) {
 
     const magnitudeInfo = matchIdentifierTimesFactor(
         args[0],
-        identifierName,
-        helpers
+        identifierName
     );
     if (!magnitudeInfo) {
         return null;
@@ -696,8 +671,7 @@ function matchLengthdirReassignment(expression, identifierName, helpers) {
 
     const subtractInfo = matchIdentifierTimesFactor(
         difference.right,
-        identifierName,
-        helpers
+        identifierName
     );
 
     if (!subtractInfo) {
@@ -718,9 +692,9 @@ function matchLengthdirReassignment(expression, identifierName, helpers) {
     };
 }
 
-function matchIdentifierTimesFactor(expression, identifierName, helpers) {
+function matchIdentifierTimesFactor(expression, identifierName) {
     const unwrapped = unwrapExpression(expression);
-    if (!unwrapped || helpers.hasComment(unwrapped)) {
+    if (!unwrapped || Core.hasComment(unwrapped)) {
         return null;
     }
 
@@ -868,12 +842,12 @@ function isIdentifierNamed(node, name) {
     return typeof identifierName === "string" && identifierName === name;
 }
 
-function isIdentityReplacementSafeExpression(node, helpers) {
+function isIdentityReplacementSafeExpression(node) {
     if (!node || typeof node !== "object") {
         return false;
     }
 
-    if (helpers.hasComment(node)) {
+    if (Core.hasComment(node)) {
         return false;
     }
 
@@ -887,8 +861,7 @@ function isIdentityReplacementSafeExpression(node, helpers) {
         }
         case PARENTHESIZED_EXPRESSION: {
             return isIdentityReplacementSafeExpression(
-                node.expression,
-                helpers
+                node.expression
             );
         }
         default: {
@@ -899,7 +872,6 @@ function isIdentityReplacementSafeExpression(node, helpers) {
 
 function cleanupMultiplicativeIdentityParentheses(
     node,
-    helpers,
     context,
     parent = null
 ) {
@@ -915,7 +887,6 @@ function cleanupMultiplicativeIdentityParentheses(
         for (const element of node) {
             cleanupMultiplicativeIdentityParentheses(
                 element,
-                helpers,
                 context,
                 parent
             );
@@ -928,14 +899,13 @@ function cleanupMultiplicativeIdentityParentheses(
         node.expression &&
         typeof node.expression === "object" &&
         node.expression.__fromMultiplicativeIdentity === true &&
-        isIdentityReplacementSafeExpression(node.expression, helpers) &&
+        isIdentityReplacementSafeExpression(node.expression) &&
         !shouldPreserveIdentityParenthesesForAncestor(parent) &&
         replaceNodeWith(node, node.expression)
     ) {
         node.__fromMultiplicativeIdentity = true;
         cleanupMultiplicativeIdentityParentheses(
             node,
-            helpers,
             context,
             parent
         );
@@ -951,7 +921,6 @@ function cleanupMultiplicativeIdentityParentheses(
             for (const element of value) {
                 cleanupMultiplicativeIdentityParentheses(
                     element,
-                    helpers,
                     context,
                     node
                 );
@@ -959,7 +928,6 @@ function cleanupMultiplicativeIdentityParentheses(
         } else {
             cleanupMultiplicativeIdentityParentheses(
                 value,
-                helpers,
                 context,
                 node
             );
@@ -968,9 +936,9 @@ function cleanupMultiplicativeIdentityParentheses(
 
     if (
         node.type === BINARY_EXPRESSION &&
-        !attemptCondenseScalarProduct(node, helpers, context)
+        !attemptCondenseScalarProduct(node, context)
     ) {
-        attemptCondenseSimpleScalarProduct(node, helpers, context);
+        attemptCondenseSimpleScalarProduct(node, context);
     }
 }
 
@@ -998,13 +966,13 @@ function shouldPreserveIdentityParenthesesForAncestor(ancestor) {
     return false;
 }
 
-function attemptCondenseSimpleScalarProduct(node, helpers, context) {
+function attemptCondenseSimpleScalarProduct(node, context) {
     if (!isBinaryOperator(node, "*")) {
         return false;
     }
 
     const chain = { numerators: [], denominators: [] };
-    if (!collectMultiplicativeChain(node, helpers, chain, false, null)) {
+    if (!collectMultiplicativeChain(node, chain, false, null)) {
         return false;
     }
 
@@ -1013,7 +981,7 @@ function attemptCondenseSimpleScalarProduct(node, helpers, context) {
     let hasNumericContribution = false;
 
     for (const term of chain.numerators) {
-        if (helpers.hasComment(term.expression)) {
+        if (Core.hasComment(term.expression)) {
             return false;
         }
 
@@ -1028,8 +996,7 @@ function attemptCondenseSimpleScalarProduct(node, helpers, context) {
     }
 
     const cancelledReciprocalTerms = cancelSimpleReciprocalNumeratorPairs(
-        nonNumericTerms,
-        helpers
+        nonNumericTerms
     );
 
     if (cancelledReciprocalTerms) {
@@ -1049,7 +1016,7 @@ function attemptCondenseSimpleScalarProduct(node, helpers, context) {
     }
 
     for (const term of chain.denominators) {
-        if (helpers.hasComment(term.expression)) {
+        if (Core.hasComment(term.expression)) {
             return false;
         }
 
@@ -1120,7 +1087,7 @@ function attemptCondenseSimpleScalarProduct(node, helpers, context) {
     return true;
 }
 
-function cancelSimpleReciprocalNumeratorPairs(terms, helpers) {
+function cancelSimpleReciprocalNumeratorPairs(terms) {
     if (!Array.isArray(terms) || terms.length < 2) {
         return false;
     }
@@ -1161,7 +1128,7 @@ function cancelSimpleReciprocalNumeratorPairs(terms, helpers) {
             if (
                 candidateIndex === index ||
                 consumed.has(candidateIndex) ||
-                helpers.hasComment(candidate.expression)
+                Core.hasComment(candidate.expression)
             ) {
                 return false;
             }
@@ -1206,7 +1173,7 @@ function areSimpleExpressionsEquivalent(left, right) {
     return areNodesApproximatelyEquivalent(left, right);
 }
 
-function unwrapEnclosingParentheses(node, helpers, context) {
+function unwrapEnclosingParentheses(node, context) {
     if (!node || typeof node !== "object") {
         return;
     }
@@ -1237,7 +1204,7 @@ function unwrapEnclosingParentheses(node, helpers, context) {
             break;
         }
 
-        if (helpers.hasComment(parent) || helpers.hasComment(expression)) {
+        if (Core.hasComment(parent) || Core.hasComment(expression)) {
             break;
         }
 
@@ -1290,7 +1257,6 @@ function replaceMultiplicationWithZeroOperand(
     node,
     key,
     otherKey,
-    helpers,
     context
 ) {
     const operand = node[key];
@@ -1300,7 +1266,7 @@ function replaceMultiplicationWithZeroOperand(
         return false;
     }
 
-    if (helpers.hasComment(operand) || helpers.hasComment(other)) {
+    if (Core.hasComment(operand) || Core.hasComment(other)) {
         return false;
     }
 
@@ -1332,7 +1298,7 @@ function replaceMultiplicationWithZeroOperand(
     return true;
 }
 
-function isMultiplicationAnnihilatedByZero(node, helpers, context) {
+function isMultiplicationAnnihilatedByZero(node, context) {
     if (!isBinaryOperator(node, "*")) {
         return false;
     }
@@ -1343,11 +1309,11 @@ function isMultiplicationAnnihilatedByZero(node, helpers, context) {
         return false;
     }
 
-    if (helpers.hasComment(node) || helpers.hasComment(left)) {
+    if (Core.hasComment(node) || Core.hasComment(left)) {
         return false;
     }
 
-    if (helpers.hasComment(right)) {
+    if (Core.hasComment(right)) {
         return false;
     }
 
@@ -1370,7 +1336,7 @@ function isNumericZeroLiteral(node) {
     return Math.abs(literalValue) <= computeNumericTolerance(0);
 }
 
-function attemptRemoveAdditiveIdentity(node, helpers, context) {
+function attemptRemoveAdditiveIdentity(node, context) {
     if (!isBinaryOperator(node, "+")) {
         return false;
     }
@@ -1380,13 +1346,13 @@ function attemptRemoveAdditiveIdentity(node, helpers, context) {
     }
 
     if (
-        removeAdditiveIdentityOperand(node, "left", "right", helpers, context)
+        removeAdditiveIdentityOperand(node, "left", "right", context)
     ) {
         return true;
     }
 
     if (
-        removeAdditiveIdentityOperand(node, "right", "left", helpers, context)
+        removeAdditiveIdentityOperand(node, "right", "left", context)
     ) {
         return true;
     }
@@ -1394,7 +1360,7 @@ function attemptRemoveAdditiveIdentity(node, helpers, context) {
     return false;
 }
 
-function removeAdditiveIdentityOperand(node, key, otherKey, helpers, context) {
+function removeAdditiveIdentityOperand(node, key, otherKey, context) {
     const operand = node[key];
     const other = node[otherKey];
 
@@ -1402,7 +1368,7 @@ function removeAdditiveIdentityOperand(node, key, otherKey, helpers, context) {
         return false;
     }
 
-    if (helpers.hasComment(other)) {
+    if (Core.hasComment(other)) {
         return false;
     }
 
@@ -1415,7 +1381,7 @@ function removeAdditiveIdentityOperand(node, key, otherKey, helpers, context) {
 
     if (
         value === null &&
-        isMultiplicationAnnihilatedByZero(expression, helpers, context)
+        isMultiplicationAnnihilatedByZero(expression, context)
     ) {
         value = 0;
     }
@@ -1440,15 +1406,15 @@ function removeAdditiveIdentityOperand(node, key, otherKey, helpers, context) {
     return true;
 }
 
-function attemptSimplifyDivisionByReciprocal(node, helpers, context) {
+function attemptSimplifyDivisionByReciprocal(node, context) {
     if (!isBinaryOperator(node, "/")) {
         return false;
     }
 
     if (
-        helpers.hasComment(node) ||
-        helpers.hasComment(node.left) ||
-        helpers.hasComment(node.right)
+        Core.hasComment(node) ||
+        Core.hasComment(node.left) ||
+        Core.hasComment(node.right)
     ) {
         return false;
     }
@@ -1467,9 +1433,9 @@ function attemptSimplifyDivisionByReciprocal(node, helpers, context) {
     }
 
     if (
-        helpers.hasComment(denominator) ||
-        helpers.hasComment(denominator.left) ||
-        helpers.hasComment(denominator.right)
+        Core.hasComment(denominator) ||
+        Core.hasComment(denominator.left) ||
+        Core.hasComment(denominator.right)
     ) {
         return false;
     }
@@ -1515,7 +1481,7 @@ function attemptSimplifyDivisionByReciprocal(node, helpers, context) {
     return true;
 }
 
-function attemptCancelReciprocalRatios(node, helpers, context) {
+function attemptCancelReciprocalRatios(node, context) {
     if (!node) {
         return false;
     }
@@ -1529,7 +1495,7 @@ function attemptCancelReciprocalRatios(node, helpers, context) {
         denominators: []
     };
 
-    if (!collectMultiplicativeChain(node, helpers, chain, false, context)) {
+    if (!collectMultiplicativeChain(node, chain, false, context)) {
         return false;
     }
 
@@ -1541,8 +1507,8 @@ function attemptCancelReciprocalRatios(node, helpers, context) {
 
     for (const [index, term] of chain.numerators.entries()) {
         if (
-            helpers.hasComment(term.raw) ||
-            helpers.hasComment(term.expression)
+            Core.hasComment(term.raw) ||
+            Core.hasComment(term.expression)
         ) {
             return false;
         }
@@ -1564,8 +1530,8 @@ function attemptCancelReciprocalRatios(node, helpers, context) {
         }
 
         if (
-            helpers.hasComment(expression.left) ||
-            helpers.hasComment(expression.right)
+            Core.hasComment(expression.left) ||
+            Core.hasComment(expression.right)
         ) {
             return false;
         }
@@ -1638,8 +1604,8 @@ function attemptCancelReciprocalRatios(node, helpers, context) {
             }
 
             if (
-                helpers.hasComment(term.raw) ||
-                helpers.hasComment(term.expression)
+                Core.hasComment(term.raw) ||
+                Core.hasComment(term.expression)
             ) {
                 continue;
             }
@@ -1729,12 +1695,12 @@ function attemptCancelReciprocalRatios(node, helpers, context) {
     return replaceNodeWith(node, replacement);
 }
 
-function attemptSimplifyNegativeDivisionProduct(node, helpers, context) {
+function attemptSimplifyNegativeDivisionProduct(node, context) {
     if (!isBinaryOperator(node, "*")) {
         return false;
     }
 
-    if (helpers.hasComment(node)) {
+    if (Core.hasComment(node)) {
         return false;
     }
 
@@ -1755,7 +1721,7 @@ function attemptSimplifyNegativeDivisionProduct(node, helpers, context) {
             continue;
         }
 
-        if (helpers.hasComment(signNode)) {
+        if (Core.hasComment(signNode)) {
             continue;
         }
 
@@ -1768,7 +1734,7 @@ function attemptSimplifyNegativeDivisionProduct(node, helpers, context) {
             continue;
         }
 
-        if (helpers.hasComment(fractionExpression)) {
+        if (Core.hasComment(fractionExpression)) {
             continue;
         }
 
@@ -1780,8 +1746,8 @@ function attemptSimplifyNegativeDivisionProduct(node, helpers, context) {
         }
 
         if (
-            helpers.hasComment(fractionExpression.left) ||
-            helpers.hasComment(fractionExpression.right)
+            Core.hasComment(fractionExpression.left) ||
+            Core.hasComment(fractionExpression.right)
         ) {
             continue;
         }
@@ -1831,7 +1797,7 @@ function attemptSimplifyNegativeDivisionProduct(node, helpers, context) {
     return false;
 }
 
-function attemptCondenseScalarProduct(node, helpers, context) {
+function attemptCondenseScalarProduct(node, context) {
     if (!node) {
         return false;
     }
@@ -1845,7 +1811,7 @@ function attemptCondenseScalarProduct(node, helpers, context) {
         denominators: []
     };
 
-    if (!collectMultiplicativeChain(node, helpers, chain, false, context)) {
+    if (!collectMultiplicativeChain(node, chain, false, context)) {
         return false;
     }
 
@@ -1866,8 +1832,8 @@ function attemptCondenseScalarProduct(node, helpers, context) {
 
     for (const term of chain.numerators) {
         if (
-            helpers.hasComment(term.expression) ||
-            (term.raw && helpers.hasComment(term.raw))
+            Core.hasComment(term.expression) ||
+            (term.raw && Core.hasComment(term.raw))
         ) {
             return false;
         }
@@ -1897,8 +1863,8 @@ function attemptCondenseScalarProduct(node, helpers, context) {
 
     for (const term of chain.denominators) {
         if (
-            helpers.hasComment(term.expression) ||
-            (term.raw && helpers.hasComment(term.raw))
+            Core.hasComment(term.expression) ||
+            (term.raw && Core.hasComment(term.raw))
         ) {
             return false;
         }
@@ -1959,7 +1925,7 @@ function attemptCondenseScalarProduct(node, helpers, context) {
             return false;
         }
 
-        unwrapEnclosingParentheses(node, helpers, context);
+        unwrapEnclosingParentheses(node, context);
 
         return true;
     }
@@ -2103,7 +2069,7 @@ function computeScalarRatioMetadata(
     };
 }
 
-function attemptCondenseNumericChainWithMultipleBases(node, helpers, context) {
+function attemptCondenseNumericChainWithMultipleBases(node, context) {
     if (!node) {
         return false;
     }
@@ -2117,7 +2083,7 @@ function attemptCondenseNumericChainWithMultipleBases(node, helpers, context) {
         denominators: []
     };
 
-    if (!collectMultiplicativeChain(node, helpers, chain, false, context)) {
+    if (!collectMultiplicativeChain(node, chain, false, context)) {
         return false;
     }
 
@@ -2133,8 +2099,8 @@ function attemptCondenseNumericChainWithMultipleBases(node, helpers, context) {
 
     for (const term of chain.numerators) {
         if (
-            helpers.hasComment(term.expression) ||
-            (term.raw && helpers.hasComment(term.raw))
+            Core.hasComment(term.expression) ||
+            (term.raw && Core.hasComment(term.raw))
         ) {
             return false;
         }
@@ -2162,8 +2128,8 @@ function attemptCondenseNumericChainWithMultipleBases(node, helpers, context) {
 
     for (const term of chain.denominators) {
         if (
-            helpers.hasComment(term.expression) ||
-            (term.raw && helpers.hasComment(term.raw))
+            Core.hasComment(term.expression) ||
+            (term.raw && Core.hasComment(term.raw))
         ) {
             return false;
         }
@@ -2230,8 +2196,8 @@ function attemptCondenseNumericChainWithMultipleBases(node, helpers, context) {
     return true;
 }
 
-function attemptCollectDistributedScalars(node, helpers, context) {
-    if (!isBinaryOperator(node, "+") || helpers.hasComment(node)) {
+function attemptCollectDistributedScalars(node, context) {
+    if (!isBinaryOperator(node, "+") || Core.hasComment(node)) {
         return false;
     }
 
@@ -2250,7 +2216,7 @@ function attemptCollectDistributedScalars(node, helpers, context) {
     let coefficient = 0;
 
     for (const term of terms) {
-        const details = extractScalarAdditionTerm(term, helpers, context);
+        const details = extractScalarAdditionTerm(term, context);
         if (
             !details ||
             !details.base ||
@@ -2329,10 +2295,10 @@ function attemptCollectDistributedScalars(node, helpers, context) {
     return true;
 }
 
-function attemptConvertDegreesToRadians(node, helpers, context) {
+function attemptConvertDegreesToRadians(node, context) {
     if (
         (!isBinaryOperator(node, "*") && !isBinaryOperator(node, "/")) ||
-        hasCommentsInDegreesToRadiansPattern(node, helpers, context, true)
+        hasCommentsInDegreesToRadiansPattern(node, context, true)
     ) {
         return false;
     }
@@ -2346,8 +2312,8 @@ function attemptConvertDegreesToRadians(node, helpers, context) {
     return true;
 }
 
-function attemptConvertSquare(node, helpers, context) {
-    if (!isBinaryOperator(node, "*") || helpers.hasComment(node)) {
+function attemptConvertSquare(node, context) {
+    if (!isBinaryOperator(node, "*") || Core.hasComment(node)) {
         return false;
     }
 
@@ -2358,7 +2324,7 @@ function attemptConvertSquare(node, helpers, context) {
         return false;
     }
 
-    if (helpers.hasComment(rawLeft) || helpers.hasComment(rawRight)) {
+    if (Core.hasComment(rawLeft) || Core.hasComment(rawRight)) {
         return false;
     }
 
@@ -2369,7 +2335,7 @@ function attemptConvertSquare(node, helpers, context) {
         return false;
     }
 
-    if (helpers.hasComment(left) || helpers.hasComment(right)) {
+    if (Core.hasComment(left) || Core.hasComment(right)) {
         return false;
     }
 
@@ -2392,13 +2358,13 @@ function attemptConvertSquare(node, helpers, context) {
     return true;
 }
 
-function attemptConvertRepeatedPower(node, helpers) {
-    if (!isBinaryOperator(node, "*") || helpers.hasComment(node)) {
+function attemptConvertRepeatedPower(node) {
+    if (!isBinaryOperator(node, "*") || Core.hasComment(node)) {
         return false;
     }
 
     const factors = [];
-    if (!collectProductOperands(node, factors, helpers)) {
+    if (!collectProductOperands(node, factors)) {
         return false;
     }
 
@@ -2428,8 +2394,8 @@ function attemptConvertRepeatedPower(node, helpers) {
     return true;
 }
 
-function attemptConvertMean(node, helpers) {
-    if (helpers.hasComment(node)) {
+function attemptConvertMean(node) {
+    if (Core.hasComment(node)) {
         return false;
     }
 
@@ -2468,7 +2434,7 @@ function attemptConvertMean(node, helpers) {
         return false;
     }
 
-    if (helpers.hasComment(addition)) {
+    if (Core.hasComment(addition)) {
         return false;
     }
 
@@ -2492,8 +2458,8 @@ function attemptConvertMean(node, helpers) {
     return true;
 }
 
-function attemptConvertLog2(node, helpers) {
-    if (!isBinaryOperator(node, "/") || helpers.hasComment(node)) {
+function attemptConvertLog2(node) {
+    if (!isBinaryOperator(node, "/") || Core.hasComment(node)) {
         return false;
     }
 
@@ -2524,8 +2490,8 @@ function attemptConvertLog2(node, helpers) {
     return true;
 }
 
-function attemptConvertLengthDir(node, helpers) {
-    if (!isBinaryOperator(node, "*") || helpers.hasComment(node)) {
+function attemptConvertLengthDir(node) {
+    if (!isBinaryOperator(node, "*") || Core.hasComment(node)) {
         return false;
     }
 
@@ -2589,8 +2555,8 @@ function attemptConvertLengthDir(node, helpers) {
     return false;
 }
 
-function attemptConvertDotProducts(node, helpers) {
-    if (!isBinaryOperator(node, "+") || helpers.hasComment(node)) {
+function attemptConvertDotProducts(node) {
+    if (!isBinaryOperator(node, "+") || Core.hasComment(node)) {
         return false;
     }
 
@@ -2607,7 +2573,7 @@ function attemptConvertDotProducts(node, helpers) {
     for (const term of terms) {
         const expr = unwrapExpression(term);
 
-        if (!isBinaryOperator(expr, "*") || helpers.hasComment(expr)) {
+        if (!isBinaryOperator(expr, "*") || Core.hasComment(expr)) {
             return false;
         }
 
@@ -2633,8 +2599,8 @@ function attemptConvertDotProducts(node, helpers) {
     return true;
 }
 
-function attemptConvertPointDistanceCall(node, helpers) {
-    if (helpers.hasComment(node)) {
+function attemptConvertPointDistanceCall(node) {
+    if (Core.hasComment(node)) {
         return false;
     }
 
@@ -2663,7 +2629,7 @@ function attemptConvertPointDistanceCall(node, helpers) {
         return false;
     }
 
-    const match = matchSquaredDifferences(distanceExpression, helpers);
+    const match = matchSquaredDifferences(distanceExpression);
     if (!match) {
         return false;
     }
@@ -2683,8 +2649,8 @@ function attemptConvertPointDistanceCall(node, helpers) {
     return true;
 }
 
-function attemptConvertPowerToSqrt(node, helpers) {
-    if (helpers.hasComment(node)) {
+function attemptConvertPowerToSqrt(node) {
+    if (Core.hasComment(node)) {
         return false;
     }
 
@@ -2707,8 +2673,8 @@ function attemptConvertPowerToSqrt(node, helpers) {
     return true;
 }
 
-function attemptConvertPowerToExp(node, helpers) {
-    if (helpers.hasComment(node)) {
+function attemptConvertPowerToExp(node) {
+    if (Core.hasComment(node)) {
         return false;
     }
 
@@ -2733,8 +2699,8 @@ function attemptConvertPowerToExp(node, helpers) {
     return true;
 }
 
-function attemptConvertPointDirection(node, helpers) {
-    if (helpers.hasComment(node)) {
+function attemptConvertPointDirection(node) {
+    if (Core.hasComment(node)) {
         return false;
     }
 
@@ -2772,8 +2738,8 @@ function attemptConvertPointDirection(node, helpers) {
     return true;
 }
 
-function attemptConvertTrigDegreeArguments(node, helpers) {
-    if (helpers.hasComment(node)) {
+function attemptConvertTrigDegreeArguments(node) {
+    if (Core.hasComment(node)) {
         return false;
     }
 
@@ -2805,7 +2771,7 @@ function attemptConvertTrigDegreeArguments(node, helpers) {
     return true;
 }
 
-function matchSquaredDifferences(expression, helpers) {
+function matchSquaredDifferences(expression) {
     const terms = [];
     collectAdditionTerms(expression, terms);
 
@@ -2817,7 +2783,7 @@ function matchSquaredDifferences(expression, helpers) {
 
     for (const term of terms) {
         const product = unwrapExpression(term);
-        if (!isBinaryOperator(product, "*") || helpers.hasComment(product)) {
+        if (!isBinaryOperator(product, "*") || Core.hasComment(product)) {
             return null;
         }
 
@@ -2880,13 +2846,13 @@ function collectAdditionTerms(node, output) {
     output.push(expression);
 }
 
-function matchScaledOperand(node, helpers, context) {
+function matchScaledOperand(node, context) {
     const expression = unwrapExpression(node);
     if (!expression) {
         return null;
     }
 
-    if (helpers.hasComment(expression)) {
+    if (Core.hasComment(expression)) {
         return null;
     }
 
@@ -2894,7 +2860,6 @@ function matchScaledOperand(node, helpers, context) {
         if (expression.operator === "-" || expression.operator === "+") {
             const inner = matchScaledOperand(
                 expression.argument,
-                helpers,
                 context
             );
 
@@ -2926,8 +2891,8 @@ function matchScaledOperand(node, helpers, context) {
         }
 
         if (
-            helpers.hasComment(rawLeft) ||
-            helpers.hasComment(rawRight) ||
+            Core.hasComment(rawLeft) ||
+            Core.hasComment(rawRight) ||
             (context && hasInlineCommentBetween(rawLeft, rawRight, context))
         ) {
             return null;
@@ -2983,7 +2948,7 @@ function matchScaledOperand(node, helpers, context) {
     return null;
 }
 
-function matchLengthdirScaledOperand(node, helpers, context) {
+function matchLengthdirScaledOperand(node, context) {
     const expression = unwrapExpression(node);
     if (!expression || expression.type !== CALL_EXPRESSION) {
         return null;
@@ -3006,14 +2971,14 @@ function matchLengthdirScaledOperand(node, helpers, context) {
     }
 
     if (
-        helpers.hasComment(rawLength) ||
-        helpers.hasComment(rawAngle) ||
+        Core.hasComment(rawLength) ||
+        Core.hasComment(rawAngle) ||
         (context && hasInlineCommentBetween(rawLength, rawAngle, context))
     ) {
         return null;
     }
 
-    const scaledInfo = matchScaledOperand(rawLength, helpers, context);
+    const scaledInfo = matchScaledOperand(rawLength, context);
     if (!scaledInfo || !scaledInfo.base) {
         return null;
     }
@@ -3027,8 +2992,8 @@ function matchLengthdirScaledOperand(node, helpers, context) {
     };
 }
 
-function extractScalarAdditionTerm(expression, helpers, context) {
-    if (!expression || helpers.hasComment(expression)) {
+function extractScalarAdditionTerm(expression, context) {
+    if (!expression || Core.hasComment(expression)) {
         return null;
     }
 
@@ -3041,8 +3006,8 @@ function extractScalarAdditionTerm(expression, helpers, context) {
         }
 
         if (
-            helpers.hasComment(rawLeft) ||
-            helpers.hasComment(rawRight) ||
+            Core.hasComment(rawLeft) ||
+            Core.hasComment(rawRight) ||
             (context && hasInlineCommentBetween(rawLeft, rawRight, context))
         ) {
             return null;
@@ -3055,7 +3020,7 @@ function extractScalarAdditionTerm(expression, helpers, context) {
             return null;
         }
 
-        if (helpers.hasComment(left) || helpers.hasComment(right)) {
+        if (Core.hasComment(left) || Core.hasComment(right)) {
             return null;
         }
 
@@ -3105,8 +3070,8 @@ function extractScalarAdditionTerm(expression, helpers, context) {
     };
 }
 
-function attemptSimplifyLengthdirHalfDifference(node, helpers, context) {
-    if (!isBinaryOperator(node, "-") || helpers.hasComment(node)) {
+function attemptSimplifyLengthdirHalfDifference(node, context) {
+    if (!isBinaryOperator(node, "-") || Core.hasComment(node)) {
         return false;
     }
 
@@ -3118,8 +3083,8 @@ function attemptSimplifyLengthdirHalfDifference(node, helpers, context) {
     }
 
     if (
-        helpers.hasComment(rawLeft) ||
-        helpers.hasComment(rawRight) ||
+        Core.hasComment(rawLeft) ||
+        Core.hasComment(rawRight) ||
         (context && hasInlineCommentBetween(rawLeft, rawRight, context))
     ) {
         return false;
@@ -3133,15 +3098,15 @@ function attemptSimplifyLengthdirHalfDifference(node, helpers, context) {
     }
 
     if (
-        helpers.hasComment(leftExpression) ||
-        helpers.hasComment(rightExpression)
+        Core.hasComment(leftExpression) ||
+        Core.hasComment(rightExpression)
     ) {
         return false;
     }
 
     if (
         !isBinaryOperator(leftExpression, "-") ||
-        helpers.hasComment(leftExpression) ||
+        Core.hasComment(leftExpression) ||
         (context &&
             hasInlineCommentBetween(
                 leftExpression.left,
@@ -3156,7 +3121,6 @@ function attemptSimplifyLengthdirHalfDifference(node, helpers, context) {
     const identifierName = getIdentifierName(minuend);
     const scaledOperandInfo = matchScaledOperand(
         leftExpression.right,
-        helpers,
         context
     );
 
@@ -3170,7 +3134,6 @@ function attemptSimplifyLengthdirHalfDifference(node, helpers, context) {
 
     const lengthDirInfo = matchLengthdirScaledOperand(
         rightExpression,
-        helpers,
         context
     );
 
@@ -3294,7 +3257,6 @@ function attemptSimplifyLengthdirHalfDifference(node, helpers, context) {
 
     promoteLengthdirHalfDifference(
         context,
-        helpers,
         node,
         identifierName,
         normalizedCoefficient,
@@ -3305,7 +3267,6 @@ function attemptSimplifyLengthdirHalfDifference(node, helpers, context) {
 
 function promoteLengthdirHalfDifference(
     context,
-    helpers,
     expressionNode,
     identifierName,
     normalizedCoefficient,
@@ -3358,7 +3319,7 @@ function promoteLengthdirHalfDifference(
     }
 
     let leftProduct = null;
-    const baseInfo = matchScaledOperand(declarator.init, helpers, context);
+    const baseInfo = matchScaledOperand(declarator.init, context);
 
     if (baseInfo && baseInfo.coefficient !== null && baseInfo.rawBase) {
         const combinedValue =
@@ -3419,9 +3380,9 @@ function promoteLengthdirHalfDifference(
 
     replaceNode(declarator.init, newInit);
 
-    attemptCondenseScalarProduct(newInit, helpers, context);
-    attemptCondenseNumericChainWithMultipleBases(newInit, helpers, context);
-    attemptCollectDistributedScalars(newInit, helpers, context);
+    attemptCondenseScalarProduct(newInit, context);
+    attemptCondenseNumericChainWithMultipleBases(newInit, context);
+    attemptCollectDistributedScalars(newInit, context);
 
     markPreviousSiblingForBlankLine(root, assignment, context);
     removeNodeFromAst(root, assignment);
@@ -3429,12 +3390,11 @@ function promoteLengthdirHalfDifference(
 
 function collectMultiplicativeChain(
     node,
-    helpers,
     output,
     includeInDenominator,
     context
 ) {
-    collapseUnitMinusHalfFactor(node, helpers, context);
+    collapseUnitMinusHalfFactor(node, context);
 
     const expression = unwrapExpression(node);
     if (!expression) {
@@ -3475,7 +3435,6 @@ function collectMultiplicativeChain(
             if (
                 !collectMultiplicativeChain(
                     expression.left,
-                    helpers,
                     output,
                     includeInDenominator,
                     context
@@ -3487,7 +3446,6 @@ function collectMultiplicativeChain(
             if (operator === "/") {
                 return collectMultiplicativeChain(
                     expression.right,
-                    helpers,
                     output,
                     !includeInDenominator,
                     context
@@ -3496,7 +3454,6 @@ function collectMultiplicativeChain(
 
             return collectMultiplicativeChain(
                 expression.right,
-                helpers,
                 output,
                 includeInDenominator,
                 context
@@ -3578,12 +3535,12 @@ function createUnaryNegationNode(argument, template) {
     return expression;
 }
 
-function collapseUnitMinusHalfFactor(node, helpers, context) {
+function collapseUnitMinusHalfFactor(node, context) {
     if (!node || typeof node !== "object") {
         return false;
     }
 
-    if (node.type !== PARENTHESIZED_EXPRESSION || helpers.hasComment(node)) {
+    if (node.type !== PARENTHESIZED_EXPRESSION || Core.hasComment(node)) {
         return false;
     }
 
@@ -3597,7 +3554,7 @@ function collapseUnitMinusHalfFactor(node, helpers, context) {
         return false;
     }
 
-    if (helpers.hasComment(difference)) {
+    if (Core.hasComment(difference)) {
         return false;
     }
 
@@ -3608,7 +3565,7 @@ function collapseUnitMinusHalfFactor(node, helpers, context) {
         return false;
     }
 
-    if (helpers.hasComment(rawLeft) || helpers.hasComment(rawRight)) {
+    if (Core.hasComment(rawLeft) || Core.hasComment(rawRight)) {
         return false;
     }
 
@@ -3638,7 +3595,7 @@ function collapseUnitMinusHalfFactor(node, helpers, context) {
     return true;
 }
 
-function collectProductOperands(node, output, helpers) {
+function collectProductOperands(node, output) {
     const expression = unwrapExpression(node);
     if (!expression) {
         return false;
@@ -3649,13 +3606,13 @@ function collectProductOperands(node, output, helpers) {
         return true;
     }
 
-    if (helpers.hasComment(expression)) {
+    if (Core.hasComment(expression)) {
         return false;
     }
 
     return (
-        collectProductOperands(expression.left, output, helpers) &&
-        collectProductOperands(expression.right, output, helpers)
+        collectProductOperands(expression.left, output) &&
+        collectProductOperands(expression.right, output)
     );
 }
 
@@ -3797,7 +3754,6 @@ function matchDegreesToRadians(node) {
 
 function hasCommentsInDegreesToRadiansPattern(
     node,
-    helpers,
     context,
     skipSelfCheck = false
 ) {
@@ -3823,9 +3779,9 @@ function hasCommentsInDegreesToRadiansPattern(
     }
 
     if (
-        (!skipSelfCheck && helpers.hasComment(expression)) ||
-        helpers.hasComment(rawLeft) ||
-        helpers.hasComment(rawRight)
+        (!skipSelfCheck && Core.hasComment(expression)) ||
+        Core.hasComment(rawLeft) ||
+        Core.hasComment(rawRight)
     ) {
         return true;
     }
@@ -3835,8 +3791,8 @@ function hasCommentsInDegreesToRadiansPattern(
     }
 
     return (
-        hasCommentsInDegreesToRadiansPattern(rawLeft, helpers, context) ||
-        hasCommentsInDegreesToRadiansPattern(rawRight, helpers, context)
+        hasCommentsInDegreesToRadiansPattern(rawLeft, context) ||
+        hasCommentsInDegreesToRadiansPattern(rawRight, context)
     );
 }
 

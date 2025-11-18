@@ -22,61 +22,61 @@ import {
 } from "../comments/index.js";
 import { Semantic } from "@gml-modules/semantic";
 
-const {
-    AST: {
-        getNodeEndIndex,
-        getNodeStartIndex,
-        getNodeEndLine,
-        getNodeStartLine,
-        cloneLocation,
-        cloneAstNode,
-        assignClonedLocation,
-        getArrayProperty,
-        getBodyStatements,
-        getCallExpressionArguments,
-        getCallExpressionIdentifier,
-        getCallExpressionIdentifierName,
-        isCallExpressionIdentifierMatch,
-        isBooleanLiteral,
-        isUndefinedSentinel,
-        isProgramOrBlockStatement,
-        isVarVariableDeclaration,
-        isNode,
-        forEachNodeChild,
-        visitChildNodes,
-        unwrapParenthesizedExpression,
-        getSingleVariableDeclarator: sharedGetSingleVariableDeclarator,
-        createIdentifierNode,
-        isFunctionLikeNode
-    },
-    Utils: {
-        getNonEmptyString,
-        getNonEmptyTrimmedString,
-        isNonEmptyString,
-        isNonEmptyTrimmedString,
-        stripStringQuotes,
-        toNormalizedLowerCaseString,
-        toTrimmedString,
-        isFiniteNumber,
-        asArray,
-        compactArray,
-        isArrayIndex,
-        isNonEmptyArray,
-        ensureSet,
-        getOrCreateMapEntry,
-        hasOwn,
-        isObjectLike,
-        escapeRegExp,
-        hasIterableItems,
-        isMapLike,
-        isSetLike
-    },
-    Resources: {
-        getFeatherDiagnosticById,
-        getFeatherDiagnostics,
-        getFeatherMetadata
-    }
-} = Core;
+// const {
+//     AST: {
+//         getNodeEndIndex,
+//         getNodeStartIndex,
+//         getNodeEndLine,
+//         getNodeStartLine,
+//         cloneLocation,
+//         cloneAstNode,
+//         Core.assignClonedLocation,
+//         getArrayProperty,
+//         getBodyStatements,
+//         getCallExpressionArguments,
+//         getCallExpressionIdentifier,
+//         getCallExpressionIdentifierName,
+//         isCallExpressionIdentifierMatch,
+//         isBooleanLiteral,
+//         isUndefinedSentinel,
+//         isProgramOrBlockStatement,
+//         isVarVariableDeclaration,
+//         isNode,
+//         forEachNodeChild,
+//         visitChildNodes,
+//         unwrapParenthesizedExpression,
+//         getSingleVariableDeclarator: sharedGetSingleVariableDeclarator,
+//         createIdentifierNode,
+//         isFunctionLikeNode
+//     },
+//     Utils: {
+//         getNonEmptyString,
+//         getNonEmptyTrimmedString,
+//         isNonEmptyString,
+//         isNonEmptyTrimmedString,
+//         stripStringQuotes,
+//         toNormalizedLowerCaseString,
+//         toTrimmedString,
+//         isFiniteNumber,
+//         asArray,
+//         compactArray,
+//         isArrayIndex,
+//         isNonEmptyArray,
+//         ensureSet,
+//         getOrCreateMapEntry,
+//         hasOwn,
+//         isObjectLike,
+//         escapeRegExp,
+//         hasIterableItems,
+//         isMapLike,
+//         isSetLike
+//     },
+//     Resources: {
+//         getFeatherDiagnosticById,
+//         getFeatherDiagnostics,
+//         getFeatherMetadata
+//     }
+// } = Core;
 
 function walkAstNodes(root, visitor) {
     const visit = (node, parent, key) => {
@@ -129,7 +129,7 @@ function resolveCallExpressionArrayContext(node, parent, property) {
         return null;
     }
 
-    if (!isNode(node) || node.type !== "CallExpression") {
+    if (!Core.isNode(node) || node.type !== "CallExpression") {
         return null;
     }
 
@@ -904,7 +904,7 @@ export function applyFeatherFixes(
                     }
                 }
             }
-        } catch (err) {
+        } catch {
             // Be conservative: don't let the post-processing fail the entire
             // fix application. The original appliedFixes will still be
             // attached.
@@ -918,12 +918,12 @@ export function applyFeatherFixes(
                     ? appliedFixes.map((f) => `${String(f?.id)}@${String(f?.target)}`).join(",")
                     : String(appliedFixes);
                 console.warn(`[feather:diagnostic] appliedFixes summary=${listed}`);
-            } catch (err) {
+            } catch {
                 void 0;
             }
 
             attachFeatherFixMetadata(ast, appliedFixes);
-        } catch (err) {
+        } catch {
             // swallow: attachment logging shouldn't break transforms
             void 0;
         }
@@ -950,7 +950,7 @@ export function applyFeatherFixes(
                         console.warn(
                             `[feather:diagnostic] reattach-guard fix=${fix.id} target=${String(fix.target)}`
                         );
-                    } catch (err) {
+                    } catch {
                         void 0;
                     }
 
@@ -1011,7 +1011,7 @@ export function applyFeatherFixes(
                         console.warn(
                             `[feather:diagnostic] reattach-guard-range fix=${fix.id} target=<range:${fix.range.start}-${fix.range.end}>`
                         );
-                    } catch (err) {
+                    } catch {
                         void 0;
                     }
 
@@ -1117,7 +1117,7 @@ export function applyFeatherFixes(
                                                 : [fix];
 
                                             attachFeatherFixMetadata(node, toAttach);
-                                        } catch (err) {
+                                        } catch {
                                             attachFeatherFixMetadata(node, [fix]);
                                         }
                                         return false; // stop walking once attached
@@ -1128,11 +1128,11 @@ export function applyFeatherFixes(
                             });
                         }
                     }
-                } catch (err) {
+                } catch {
                     void 0;
                 }
             }
-        } catch (err) {
+        } catch {
             // Non-fatal: don't let this guard step break the transform.
             void 0;
         }
@@ -1159,13 +1159,13 @@ export function applyFeatherFixes(
                     console.warn(
                         `[feather:diagnostic] function-node name=${String(name)} start=${String(start)} end=${String(end)} ids=${ids}`
                     );
-                } catch (err) {
+                } catch {
                     void 0;
                 }
 
                 
             });
-        } catch (err) {
+        } catch {
             void 0;
         }
     }
@@ -2358,7 +2358,7 @@ function isWithStatementTargetingOther(node) {
             ? node.test.expression
             : node.test;
 
-    return isIdentifierWithName(testExpression, "other");
+    return Core.isIdentifierWithName(testExpression, "other");
 }
 
 function shouldConvertIdentifierInWith(identifier, parent, property) {
@@ -2416,11 +2416,11 @@ function shouldConvertIdentifierInWith(identifier, parent, property) {
 function createOtherMemberExpression(identifier) {
     const memberExpression = {
         type: "MemberDotExpression",
-        object: createIdentifier("other"),
+        object: Core.createIdentifierNode("other"),
         property: cloneIdentifier(identifier)
     };
 
-    assignClonedLocation(memberExpression, identifier);
+    Core.assignClonedLocation(memberExpression, identifier);
 
     return memberExpression;
 }
@@ -2750,7 +2750,7 @@ function convertLengthAccess(node, parent, property, diagnostic) {
 
     const propertyIdentifier = node.property;
 
-    if (!isIdentifierWithName(propertyIdentifier, "length")) {
+    if (!Core.isIdentifierWithName(propertyIdentifier, "length")) {
         return null;
     }
 
@@ -2764,7 +2764,7 @@ function convertLengthAccess(node, parent, property, diagnostic) {
         return null;
     }
 
-    const stringLengthIdentifier = createIdentifier(
+    const stringLengthIdentifier = Core.createIdentifierNode(
         "string_length",
         propertyIdentifier
     );
@@ -2933,7 +2933,7 @@ function convertStringLiteralArgumentToIdentifier({
         name: identifierName
     };
 
-    assignClonedLocation(identifierNode, argument);
+    Core.assignClonedLocation(identifierNode, argument);
 
     copyCommentMetadata(argument, identifierNode);
 
@@ -4080,7 +4080,7 @@ function rewriteRoomNavigationBinaryExpression({
 
     const { direction, baseIdentifier } = navigation;
     const { binary: replacementName } = getRoomNavigationHelpers(direction);
-    const calleeIdentifier = createIdentifier(replacementName, baseIdentifier);
+    const calleeIdentifier = Core.createIdentifierNode(replacementName, baseIdentifier);
     const argumentIdentifier = cloneIdentifier(baseIdentifier);
 
     if (!calleeIdentifier || !argumentIdentifier) {
@@ -4093,7 +4093,7 @@ function rewriteRoomNavigationBinaryExpression({
         arguments: [argumentIdentifier]
     };
 
-    assignClonedLocation(callExpression, node);
+    Core.assignClonedLocation(callExpression, node);
 
     copyCommentMetadata(node, callExpression);
 
@@ -4140,7 +4140,7 @@ function rewriteRoomGotoCall({ node, diagnostic, sourceText }) {
         return null;
     }
 
-    if (!isIdentifierWithName(node.object, "room_goto")) {
+    if (!Core.isIdentifierWithName(node.object, "room_goto")) {
         return null;
     }
 
@@ -4187,7 +4187,7 @@ function rewriteRoomGotoCall({ node, diagnostic, sourceText }) {
 
     fixDetail.replacement = replacementName;
 
-    const updatedCallee = createIdentifier(replacementName, node.object);
+    const updatedCallee = Core.createIdentifierNode(replacementName, node.object);
 
     if (!updatedCallee) {
         return null;
@@ -4211,7 +4211,7 @@ function resolveRoomNavigationFromBinaryExpression(node) {
     const leftLiteral = unwrapLiteralFromExpression(node.left);
     const rightLiteral = unwrapLiteralFromExpression(node.right);
 
-    if (isIdentifierWithName(leftIdentifier, "room")) {
+    if (Core.isIdentifierWithName(leftIdentifier, "room")) {
         if (node.operator === "+") {
             if (isLiteralOne(rightLiteral)) {
                 return {
@@ -4245,7 +4245,7 @@ function resolveRoomNavigationFromBinaryExpression(node) {
         }
     }
 
-    if (isIdentifierWithName(rightIdentifier, "room")) {
+    if (Core.isIdentifierWithName(rightIdentifier, "room")) {
         if (node.operator === "+") {
             if (isLiteralOne(leftLiteral)) {
                 return {
@@ -5468,7 +5468,7 @@ function rewritePostfixStatement(node, parent, property, diagnostic) {
     }
 
     const initializer = cloneAstNode(argument);
-    const declarationIdentifier = createIdentifier(temporaryName, argument);
+    const declarationIdentifier = Core.createIdentifierNode(temporaryName, argument);
 
     if (!initializer || !declarationIdentifier) {
         return null;
@@ -5502,7 +5502,7 @@ function rewritePostfixStatement(node, parent, property, diagnostic) {
         variableDeclaration.end = cloneLocation(node.end);
     }
 
-    const temporaryIdentifier = createIdentifier(temporaryName, argument);
+    const temporaryIdentifier = Core.createIdentifierNode(temporaryName, argument);
 
     if (!temporaryIdentifier) {
         return null;
@@ -7829,8 +7829,8 @@ function convertDeleteStatementToUndefinedAssignment(
     // possible so downstream printers and tests can observe a concrete
     // position. Use the shared helper to defensively copy start/end.
     try {
-        if (assignment.right && typeof assignClonedLocation === "function") {
-            assignClonedLocation(assignment.right, node.argument || node);
+        if (assignment.right && typeof Core.assignClonedLocation === "function") {
+            Core.assignClonedLocation(assignment.right, node.argument || node);
         }
     } catch {
         // Best-effort only; don't fail the transform on location copy errors.
@@ -7862,20 +7862,11 @@ function isValidDeleteTarget(node) {
         return false;
     }
 
-    if (isIdentifierNode(node)) {
+    if (Core.isIdentifierNode(node)) {
         return true;
     }
 
     return ALLOWED_DELETE_MEMBER_TYPES.has(node.type);
-}
-
-function isIdentifierNode(node) {
-    return (
-        node &&
-        node.type === "Identifier" &&
-        typeof node.name === "string" &&
-        node.name.length > 0
-    );
 }
 
 function getDeleteTargetName(node) {
@@ -7883,7 +7874,7 @@ function getDeleteTargetName(node) {
         return null;
     }
 
-    if (isIdentifierNode(node)) {
+    if (Core.isIdentifierNode(node)) {
         return node.name;
     }
 
@@ -8013,7 +8004,7 @@ function isVertexBeginCallNode(node) {
         return false;
     }
 
-    return isIdentifierWithName(node.object, "vertex_begin");
+    return Core.isIdentifierWithName(node.object, "vertex_begin");
 }
 
 function isVertexEndCallNode(node) {
@@ -8021,7 +8012,7 @@ function isVertexEndCallNode(node) {
         return false;
     }
 
-    return isIdentifierWithName(node.object, "vertex_end");
+    return Core.isIdentifierWithName(node.object, "vertex_end");
 }
 
 function getVertexBatchTarget(callExpression) {
@@ -8034,7 +8025,7 @@ function getVertexBatchTarget(callExpression) {
     if (args.length > 0) {
         const firstArgument = args[0];
 
-        if (isIdentifier(firstArgument)) {
+        if (Core.isIdentifierNode(firstArgument)) {
             return firstArgument.name ?? null;
         }
     }
@@ -8047,7 +8038,7 @@ function createVertexEndCallFromBegin(template) {
         return null;
     }
 
-    const identifier = createIdentifier("vertex_end", template.object);
+    const identifier = Core.createIdentifierNode("vertex_end", template.object);
 
     if (!identifier) {
         return null;
@@ -8067,7 +8058,7 @@ function createVertexEndCallFromBegin(template) {
         }
     }
 
-    assignClonedLocation(callExpression, template);
+    Core.assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -8151,7 +8142,7 @@ function convertAssignmentToLocalVariable({
 
     const left = node.left;
 
-    if (!isIdentifier(left)) {
+    if (!Core.isIdentifierNode(left)) {
         return null;
     }
 
@@ -8597,7 +8588,7 @@ function getLoopIndexInfo(init) {
         const identifier = declaration?.id;
         const initializer = declaration?.init;
 
-        if (!isIdentifier(identifier) || !isLiteralZero(initializer)) {
+        if (!Core.isIdentifierNode(identifier) || !isLiteralZero(initializer)) {
             return null;
         }
 
@@ -8609,7 +8600,7 @@ function getLoopIndexInfo(init) {
             return null;
         }
 
-        if (!isIdentifier(init.left) || !isLiteralZero(init.right)) {
+        if (!Core.isIdentifierNode(init.left) || !isLiteralZero(init.right)) {
             return null;
         }
 
@@ -8632,7 +8623,7 @@ function getRepeatTestExpression(test, indexName) {
         return null;
     }
 
-    if (!isIdentifierWithName(test.left, indexName)) {
+    if (!Core.isIdentifierWithName(test.left, indexName)) {
         return null;
     }
 
@@ -8651,7 +8642,7 @@ function isRepeatCompatibleUpdate(update, indexName) {
     }
 
     if (update.type === "AssignmentExpression") {
-        if (!isIdentifierWithName(update.left, indexName)) {
+        if (!Core.isIdentifierWithName(update.left, indexName)) {
             return false;
         }
 
@@ -8670,7 +8661,7 @@ function isRepeatCompatibleUpdate(update, indexName) {
                 return false;
             }
 
-            if (!isIdentifierWithName(left, indexName)) {
+            if (!Core.isIdentifierWithName(left, indexName)) {
                 return false;
             }
 
@@ -8685,7 +8676,7 @@ function isRepeatCompatibleUpdate(update, indexName) {
             return false;
         }
 
-        return isIdentifierWithName(update.argument, indexName);
+        return Core.isIdentifierWithName(update.argument, indexName);
     }
 
     return false;
@@ -8919,7 +8910,7 @@ function normalizeCallExpressionArguments({
 
     for (const { argument, index } of callArgumentInfos) {
         const tempName = buildTemporaryIdentifierName(state);
-        const tempIdentifier = createIdentifier(tempName, argument);
+        const tempIdentifier = Core.createIdentifierNode(tempName, argument);
 
         if (!tempIdentifier) {
             continue;
@@ -8952,7 +8943,7 @@ function normalizeCallExpressionArguments({
     }
 
     for (const { declaration, index, identifier } of temporaryDeclarations) {
-        node.arguments[index] = createIdentifier(identifier.name, identifier);
+        node.arguments[index] = Core.createIdentifierNode(identifier.name, identifier);
     }
 
     const declarations = temporaryDeclarations.map(
@@ -8992,7 +8983,7 @@ function createTemporaryVariableDeclaration(name, init) {
         return null;
     }
 
-    const id = createIdentifier(name, init);
+    const id = Core.createIdentifierNode(name, init);
 
     if (!id) {
         return null;
@@ -9275,7 +9266,7 @@ function convertNullishIfStatement(node, parent, property, diagnostic) {
     const assignmentIdentifier = consequentAssignment.left;
 
     if (
-        !isIdentifier(assignmentIdentifier) ||
+        !Core.isIdentifierNode(assignmentIdentifier) ||
         assignmentIdentifier.name !== identifierInfo.name
     ) {
         return null;
@@ -9293,7 +9284,7 @@ function convertNullishIfStatement(node, parent, property, diagnostic) {
         previousNode &&
         previousNode.type === "AssignmentExpression" &&
         previousNode.operator === "=" &&
-        isIdentifier(previousNode.left) &&
+        Core.isIdentifierNode(previousNode.left) &&
         previousNode.left.name === identifierInfo.name &&
         previousNode.right
     ) {
@@ -9388,11 +9379,11 @@ function extractUndefinedComparisonIdentifier(expression) {
 
     const { left, right } = expression;
 
-    if (isIdentifier(left) && isUndefinedSentinel(right)) {
+    if (Core.isIdentifierNode(left) && isUndefinedSentinel(right)) {
         return { node: left, name: left.name };
     }
 
-    if (isIdentifier(right) && isUndefinedSentinel(left)) {
+    if (Core.isIdentifierNode(right) && isUndefinedSentinel(left)) {
         return { node: right, name: right.name };
     }
 
@@ -9486,7 +9477,7 @@ function ensureShaderResetAfterSet(
         return null;
     }
 
-    if (!isIdentifierWithName(node.object, "shader_set")) {
+    if (!Core.isIdentifierWithName(node.object, "shader_set")) {
         return null;
     }
 
@@ -9506,7 +9497,7 @@ function ensureShaderResetAfterSet(
             break;
         }
 
-        if (isIdentifierWithName(candidate.object, "shader_set")) {
+        if (Core.isIdentifierWithName(candidate.object, "shader_set")) {
             break;
         }
 
@@ -9598,7 +9589,7 @@ function ensureFogResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    if (!isIdentifierWithName(node.object, "gpu_set_fog")) {
+    if (!Core.isIdentifierWithName(node.object, "gpu_set_fog")) {
         return null;
     }
 
@@ -9715,7 +9706,7 @@ function ensureSurfaceTargetResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    if (!isIdentifierWithName(node.object, "surface_set_target")) {
+    if (!Core.isIdentifierWithName(node.object, "surface_set_target")) {
         return null;
     }
 
@@ -9838,7 +9829,7 @@ function ensureBlendEnableResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    if (!isIdentifierWithName(node.object, "gpu_set_blendenable")) {
+    if (!Core.isIdentifierWithName(node.object, "gpu_set_blendenable")) {
         return null;
     }
 
@@ -9976,7 +9967,7 @@ function ensureBlendModeResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    if (!isIdentifierWithName(node.object, "gpu_set_blendmode")) {
+    if (!Core.isIdentifierWithName(node.object, "gpu_set_blendmode")) {
         return null;
     }
 
@@ -10130,7 +10121,7 @@ function ensureFileFindFirstBeforeCloseCall(
         return null;
     }
 
-    if (!isIdentifierWithName(node.object, "file_find_close")) {
+    if (!Core.isIdentifierWithName(node.object, "file_find_close")) {
         return null;
     }
 
@@ -10198,7 +10189,7 @@ function containsFileFindFirstCall(node) {
 
     if (
         node.type === "CallExpression" &&
-        isIdentifierWithName(node.object, "file_find_first")
+        Core.isIdentifierWithName(node.object, "file_find_first")
     ) {
         return true;
     }
@@ -10999,7 +10990,7 @@ function ensureAlphaTestEnableResetAfterCall(
         return null;
     }
 
-    if (!isIdentifierWithName(node.object, "gpu_set_alphatestenable")) {
+    if (!Core.isIdentifierWithName(node.object, "gpu_set_alphatestenable")) {
         return null;
     }
 
@@ -11089,7 +11080,7 @@ function ensureHalignResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    if (!isIdentifierWithName(node.object, "draw_set_halign")) {
+    if (!Core.isIdentifierWithName(node.object, "draw_set_halign")) {
         return null;
     }
 
@@ -11099,7 +11090,7 @@ function ensureHalignResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    if (isIdentifierWithName(args[0], "fa_left")) {
+    if (Core.isIdentifierWithName(args[0], "fa_left")) {
         return null;
     }
 
@@ -11164,7 +11155,7 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    if (!isIdentifierWithName(node.object, "gpu_set_alphatestref")) {
+    if (!Core.isIdentifierWithName(node.object, "gpu_set_alphatestref")) {
         return null;
     }
 
@@ -11742,7 +11733,7 @@ function ensureCullModeResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    if (!isIdentifierWithName(node.object, "gpu_set_cullmode")) {
+    if (!Core.isIdentifierWithName(node.object, "gpu_set_cullmode")) {
         return null;
     }
 
@@ -11754,11 +11745,11 @@ function ensureCullModeResetAfterCall(node, parent, property, diagnostic) {
 
     const [modeArgument] = args;
 
-    if (!isIdentifier(modeArgument)) {
+    if (!Core.isIdentifierNode(modeArgument)) {
         return null;
     }
 
-    if (isIdentifierWithName(modeArgument, "cull_noculling")) {
+    if (Core.isIdentifierWithName(modeArgument, "cull_noculling")) {
         return null;
     }
 
@@ -11875,7 +11866,7 @@ function ensureVertexBeginBeforeVertexEndCall(
         return null;
     }
 
-    if (!isIdentifierWithName(node.object, "vertex_end")) {
+    if (!Core.isIdentifierWithName(node.object, "vertex_end")) {
         return null;
     }
 
@@ -11887,7 +11878,7 @@ function ensureVertexBeginBeforeVertexEndCall(
 
     const bufferArgument = args[0];
 
-    if (!isIdentifier(bufferArgument)) {
+    if (!Core.isIdentifierNode(bufferArgument)) {
         return null;
     }
 
@@ -11949,7 +11940,7 @@ function isVertexBeginCallForBuffer(node, bufferName) {
         return false;
     }
 
-    if (!isIdentifierWithName(node.object, "vertex_begin")) {
+    if (!Core.isIdentifierWithName(node.object, "vertex_begin")) {
         return false;
     }
 
@@ -11961,7 +11952,7 @@ function isVertexBeginCallForBuffer(node, bufferName) {
 
     const firstArgument = args[0];
 
-    if (!isIdentifier(firstArgument)) {
+    if (!Core.isIdentifierNode(firstArgument)) {
         return false;
     }
 
@@ -12026,7 +12017,7 @@ function ensureVertexEndInserted(node, parent, property, diagnostic) {
         return null;
     }
 
-    if (!isIdentifierWithName(node.object, "vertex_begin")) {
+    if (!Core.isIdentifierWithName(node.object, "vertex_begin")) {
         return null;
     }
 
@@ -12038,7 +12029,7 @@ function ensureVertexEndInserted(node, parent, property, diagnostic) {
 
     const bufferArgument = args[0];
 
-    if (!isIdentifier(bufferArgument)) {
+    if (!Core.isIdentifierNode(bufferArgument)) {
         return null;
     }
 
@@ -12170,7 +12161,7 @@ function hasFirstArgumentIdentifier(node, name) {
 
     const firstArg = args[0];
 
-    if (!isIdentifier(firstArg)) {
+    if (!Core.isIdentifierNode(firstArg)) {
         return false;
     }
 
@@ -12186,7 +12177,7 @@ function isVertexSubmitCallForBuffer(node, bufferName) {
         return false;
     }
 
-    if (!isIdentifierWithName(node.object, "vertex_submit")) {
+    if (!Core.isIdentifierWithName(node.object, "vertex_submit")) {
         return false;
     }
 
@@ -12198,7 +12189,7 @@ function isVertexEndCallForBuffer(node, bufferName) {
         return false;
     }
 
-    if (!isIdentifierWithName(node.object, "vertex_end")) {
+    if (!Core.isIdentifierWithName(node.object, "vertex_end")) {
         return false;
     }
 
@@ -12214,7 +12205,7 @@ function isVertexEndCallForBuffer(node, bufferName) {
 
     const firstArg = args[0];
 
-    return isIdentifier(firstArg) && firstArg.name === bufferName;
+    return Core.isIdentifierNode(firstArg) && firstArg.name === bufferName;
 }
 
 function createVertexEndCall(template, bufferIdentifier) {
@@ -12222,17 +12213,17 @@ function createVertexEndCall(template, bufferIdentifier) {
         return null;
     }
 
-    if (!isIdentifier(bufferIdentifier)) {
+    if (!Core.isIdentifierNode(bufferIdentifier)) {
         return null;
     }
 
     const callExpression = {
         type: "CallExpression",
-        object: createIdentifier("vertex_end"),
+        object: Core.createIdentifierNode("vertex_end"),
         arguments: [cloneIdentifier(bufferIdentifier)]
     };
 
-    assignClonedLocation(callExpression, template);
+    Core.assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -12242,17 +12233,17 @@ function createVertexBeginCall({
     referenceCall,
     bufferIdentifier
 }) {
-    if (!isIdentifier(bufferIdentifier)) {
+    if (!Core.isIdentifierNode(bufferIdentifier)) {
         return null;
     }
 
     const callExpression = {
         type: "CallExpression",
-        object: createIdentifier("vertex_begin", referenceCall?.object),
+        object: Core.createIdentifierNode("vertex_begin", referenceCall?.object),
         arguments: []
     };
 
-    if (!isIdentifier(callExpression.object)) {
+    if (!Core.isIdentifierNode(callExpression.object)) {
         return null;
     }
 
@@ -12282,8 +12273,8 @@ function createVertexBeginCall({
 
     if (callExpression.arguments.length === 1) {
         const fallbackArgument =
-            createIdentifier("format", referenceCall?.object) ||
-            createIdentifier("format");
+            Core.createIdentifierNode("format", referenceCall?.object) ||
+            Core.createIdentifierNode("format");
 
         if (fallbackArgument) {
             callExpression.arguments.push(fallbackArgument);
@@ -12291,11 +12282,11 @@ function createVertexBeginCall({
     }
 
     if (template) {
-        assignClonedLocation(callExpression, template);
+        Core.assignClonedLocation(callExpression, template);
     }
 
     if (!hasOwn(callExpression, "start") || !hasOwn(callExpression, "end")) {
-        assignClonedLocation(callExpression, referenceCall);
+        Core.assignClonedLocation(callExpression, referenceCall);
     }
 
     return callExpression;
@@ -12336,7 +12327,7 @@ function createVertexBeginCallTemplateFromDiagnostic(diagnostic) {
             return null;
         }
 
-        if (!isIdentifierWithName(callExpression.object, "vertex_begin")) {
+        if (!Core.isIdentifierWithName(callExpression.object, "vertex_begin")) {
             return null;
         }
 
@@ -13233,7 +13224,7 @@ function ensureColourWriteEnableResetAfterCall(
         return null;
     }
 
-    if (!isIdentifierWithName(node.object, "gpu_set_colourwriteenable")) {
+    if (!Core.isIdentifierWithName(node.object, "gpu_set_colourwriteenable")) {
         return null;
     }
 
@@ -13380,7 +13371,7 @@ function ensureCallHasRequiredArgument(node, diagnostic, callTemplate) {
         return null;
     }
 
-    if (!isIdentifierWithName(node.object, callTemplate.functionName)) {
+    if (!Core.isIdentifierWithName(node.object, callTemplate.functionName)) {
         return null;
     }
 
@@ -13429,7 +13420,7 @@ function createFunctionCallTemplateFromDiagnostic(diagnostic) {
         });
         const callExpression = findFirstCallExpression(exampleAst);
 
-        if (!callExpression || !isIdentifier(callExpression.object)) {
+        if (!callExpression || !Core.isIdentifierNode(callExpression.object)) {
             return null;
         }
 
@@ -13938,7 +13929,7 @@ function ensureTextureRepeatResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    if (!isIdentifierWithName(node.object, "gpu_set_texrepeat")) {
+    if (!Core.isIdentifierWithName(node.object, "gpu_set_texrepeat")) {
         return null;
     }
 
@@ -14074,7 +14065,7 @@ function isTriviallyIgnorableStatement(node) {
 function createEmptyStatementLike(template) {
     const empty = { type: "EmptyStatement" };
 
-    assignClonedLocation(empty, template);
+    Core.assignClonedLocation(empty, template);
 
     return empty;
 }
@@ -14446,7 +14437,7 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
 
         switch (statement.type) {
             case "CallExpression": {
-                return isIdentifierWithName(statement.object, "file_find_first")
+                return Core.isIdentifierWithName(statement.object, "file_find_first")
                     ? statement
                     : null;
             }
@@ -14487,7 +14478,7 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
         }
 
         if (expression.type === "CallExpression") {
-            return isIdentifierWithName(expression.object, "file_find_first")
+            return Core.isIdentifierWithName(expression.object, "file_find_first")
                 ? expression
                 : null;
         }
@@ -14550,7 +14541,7 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
         }
 
         if (statement.type === "CallExpression") {
-            return isIdentifierWithName(statement.object, "file_find_close");
+            return Core.isIdentifierWithName(statement.object, "file_find_close");
         }
 
         if (statement.type === "ExpressionStatement") {
@@ -14596,7 +14587,7 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
     }
 
     function createFileFindCloseCall(template) {
-        const identifier = createIdentifier(
+        const identifier = Core.createIdentifierNode(
             "file_find_close",
             template?.object ?? template
         );
@@ -14611,7 +14602,7 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
             arguments: []
         };
 
-        assignClonedLocation(callExpression, template);
+        Core.assignClonedLocation(callExpression, template);
 
         return callExpression;
     }
@@ -14630,7 +14621,7 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
             body: [statement]
         };
 
-        assignClonedLocation(block, statement);
+        Core.assignClonedLocation(block, statement);
 
         parent[key] = block;
 
@@ -14737,7 +14728,7 @@ function moveGpuPopStateCallOutOfConditional(
 
     if (
         !callExpression ||
-        !isIdentifierWithName(callExpression.object, "gpu_pop_state")
+        !Core.isIdentifierWithName(callExpression.object, "gpu_pop_state")
     ) {
         return null;
     }
@@ -14862,7 +14853,7 @@ function isGpuStateCall(node, expectedName, { allowStatements = false } = {}) {
         return false;
     }
 
-    return isIdentifierWithName(expression.object, expectedName);
+    return Core.isIdentifierWithName(expression.object, expectedName);
 }
 
 function isGpuPopStateCallStatement(node) {
@@ -15548,7 +15539,7 @@ function ensureVertexFormatDefinitionIsClosed(
         return null;
     }
 
-    if (!isIdentifierWithName(node.object, "vertex_format_begin")) {
+    if (!Core.isIdentifierWithName(node.object, "vertex_format_begin")) {
         return null;
     }
 
@@ -15711,7 +15702,7 @@ function isVertexFormatEndCall(node) {
     return (
         !!node &&
         node.type === "CallExpression" &&
-        isIdentifierWithName(node.object, "vertex_format_end")
+        Core.isIdentifierWithName(node.object, "vertex_format_end")
     );
 }
 
@@ -15719,7 +15710,7 @@ function isVertexFormatBeginCall(node) {
     return (
         !!node &&
         node.type === "CallExpression" &&
-        isIdentifierWithName(node.object, "vertex_format_begin")
+        Core.isIdentifierWithName(node.object, "vertex_format_begin")
     );
 }
 
@@ -15790,7 +15781,7 @@ function createVertexFormatEndCall(template) {
         return null;
     }
 
-    const identifier = createIdentifier("vertex_format_end", template.object);
+    const identifier = Core.createIdentifierNode("vertex_format_end", template.object);
 
     if (!identifier) {
         return null;
@@ -15802,7 +15793,7 @@ function createVertexFormatEndCall(template) {
         arguments: []
     };
 
-    assignClonedLocation(callExpression, template);
+    Core.assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -16092,7 +16083,7 @@ function getUserEventReference(node) {
     const callee = getCallExpressionIdentifier(node);
     const args = getCallExpressionArguments(node);
 
-    if (isIdentifierWithName(callee, "event_user")) {
+    if (Core.isIdentifierWithName(callee, "event_user")) {
         const eventIndex = resolveUserEventIndex(args[0]);
 
         if (eventIndex === null) {
@@ -16102,8 +16093,8 @@ function getUserEventReference(node) {
         return { index: eventIndex, name: formatUserEventName(eventIndex) };
     }
 
-    if (isIdentifierWithName(callee, "event_perform")) {
-        if (args.length < 2 || !isIdentifierWithName(args[0], "ev_user")) {
+    if (Core.isIdentifierWithName(callee, "event_perform")) {
+        if (args.length < 2 || !Core.isIdentifierWithName(args[0], "ev_user")) {
             return null;
         }
 
@@ -16116,7 +16107,7 @@ function getUserEventReference(node) {
         return { index: eventIndex, name: formatUserEventName(eventIndex) };
     }
 
-    if (isIdentifierWithName(callee, "event_perform_object")) {
+    if (Core.isIdentifierWithName(callee, "event_perform_object")) {
         if (args.length < 3) {
             return null;
         }
@@ -16206,7 +16197,7 @@ function harmonizeTexturePointerTernary(node, parent, property, diagnostic) {
         return null;
     }
 
-    const pointerIdentifier = createIdentifier("pointer_null", alternate);
+    const pointerIdentifier = Core.createIdentifierNode("pointer_null", alternate);
 
     if (!pointerIdentifier) {
         return null;
@@ -16216,7 +16207,7 @@ function harmonizeTexturePointerTernary(node, parent, property, diagnostic) {
     node.alternate = pointerIdentifier;
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: isIdentifier(parent.left) ? parent.left.name : null,
+        target: Core.isIdentifierNode(parent.left) ? parent.left.name : null,
         range: {
             start: getNodeStartIndex(node),
             end: getNodeEndIndex(node)
@@ -16239,7 +16230,7 @@ function createAssignmentFromDeclarator(declarator, declarationNode) {
 
     const identifier = declarator.id;
 
-    if (!isIdentifier(identifier)) {
+    if (!Core.isIdentifierNode(identifier)) {
         return null;
     }
 
@@ -16270,14 +16261,14 @@ function getFunctionParameterNames(node) {
             continue;
         }
 
-        if (isIdentifier(param)) {
+        if (Core.isIdentifierNode(param)) {
             if (param.name) {
                 names.push(param.name);
             }
             continue;
         }
 
-        if (param.type === "DefaultParameter" && isIdentifier(param.left)) {
+        if (param.type === "DefaultParameter" && Core.isIdentifierNode(param.left)) {
             if (param.left.name) {
                 names.push(param.left.name);
             }
@@ -16295,7 +16286,7 @@ function getVariableDeclaratorName(declarator) {
 
     const identifier = declarator.id;
 
-    if (!isIdentifier(identifier)) {
+    if (!Core.isIdentifierNode(identifier)) {
         return null;
     }
 
@@ -16312,7 +16303,7 @@ function cloneLiteral(node) {
         value: node.value
     };
 
-    assignClonedLocation(cloned, node);
+    Core.assignClonedLocation(cloned, node);
 
     return cloned;
 }
@@ -16332,7 +16323,7 @@ function cloneIdentifier(node) {
         name: identifierDetails.name
     };
 
-    assignClonedLocation(cloned, identifierDetails.identifier);
+    Core.assignClonedLocation(cloned, identifierDetails.identifier);
 
     return cloned;
 }
@@ -16371,15 +16362,6 @@ function extractIdentifierNameFromLiteral(value) {
     return stripped;
 }
 
-function isIdentifierWithName(node, name) {
-    const identifierDetails = getIdentifierDetails(node);
-    return identifierDetails?.name === name;
-}
-
-function isIdentifier(node) {
-    return !!node && node.type === "Identifier";
-}
-
 function isDrawPrimitiveBeginCall(node) {
     return isCallExpressionIdentifierMatch(node, "draw_primitive_begin");
 }
@@ -16393,7 +16375,7 @@ function createPrimitiveBeginCall(template) {
         return null;
     }
 
-    const identifier = createIdentifier(
+    const identifier = Core.createIdentifierNode(
         "draw_primitive_begin",
         template.object
     );
@@ -16402,7 +16384,7 @@ function createPrimitiveBeginCall(template) {
         return null;
     }
 
-    const primitiveType = createIdentifier("pr_linelist");
+    const primitiveType = Core.createIdentifierNode("pr_linelist");
 
     const callExpression = {
         type: "CallExpression",
@@ -16490,7 +16472,7 @@ function isShaderResetCall(node) {
         return false;
     }
 
-    if (!isIdentifierWithName(node.object, "shader_reset")) {
+    if (!Core.isIdentifierWithName(node.object, "shader_reset")) {
         return false;
     }
 
@@ -16504,7 +16486,7 @@ function isFogResetCall(node) {
         return false;
     }
 
-    if (!isIdentifierWithName(node.object, "gpu_set_fog")) {
+    if (!Core.isIdentifierWithName(node.object, "gpu_set_fog")) {
         return false;
     }
 
@@ -16516,7 +16498,7 @@ function isFogResetCall(node) {
 
     return (
         isLiteralFalse(args[0]) &&
-        isIdentifierWithName(args[1], "c_black") &&
+        Core.isIdentifierWithName(args[1], "c_black") &&
         isLiteralZero(args[2]) &&
         isLiteralOne(args[3])
     );
@@ -16527,7 +16509,7 @@ function isAlphaTestEnableResetCall(node) {
         return false;
     }
 
-    if (!isIdentifierWithName(node.object, "gpu_set_alphatestenable")) {
+    if (!Core.isIdentifierWithName(node.object, "gpu_set_alphatestenable")) {
         return false;
     }
 
@@ -16545,7 +16527,7 @@ function isAlphaTestRefResetCall(node) {
         return false;
     }
 
-    if (!isIdentifierWithName(node.object, "gpu_set_alphatestref")) {
+    if (!Core.isIdentifierWithName(node.object, "gpu_set_alphatestref")) {
         return false;
     }
 
@@ -16563,7 +16545,7 @@ function isHalignResetCall(node) {
         return false;
     }
 
-    if (!isIdentifierWithName(node.object, "draw_set_halign")) {
+    if (!Core.isIdentifierWithName(node.object, "draw_set_halign")) {
         return false;
     }
 
@@ -16573,7 +16555,7 @@ function isHalignResetCall(node) {
         return false;
     }
 
-    return isIdentifierWithName(args[0], "fa_left");
+    return Core.isIdentifierWithName(args[0], "fa_left");
 }
 
 function isCullModeResetCall(node) {
@@ -16581,7 +16563,7 @@ function isCullModeResetCall(node) {
         return false;
     }
 
-    if (!isIdentifierWithName(node.object, "gpu_set_cullmode")) {
+    if (!Core.isIdentifierWithName(node.object, "gpu_set_cullmode")) {
         return false;
     }
 
@@ -16591,7 +16573,7 @@ function isCullModeResetCall(node) {
         return false;
     }
 
-    return isIdentifierWithName(args[0], "cull_noculling");
+    return Core.isIdentifierWithName(args[0], "cull_noculling");
 }
 
 function isColourWriteEnableResetCall(node) {
@@ -16599,7 +16581,7 @@ function isColourWriteEnableResetCall(node) {
         return false;
     }
 
-    if (!isIdentifierWithName(node.object, "gpu_set_colourwriteenable")) {
+    if (!Core.isIdentifierWithName(node.object, "gpu_set_colourwriteenable")) {
         return false;
     }
 
@@ -16619,7 +16601,7 @@ function isAlphaTestDisableCall(node) {
         return false;
     }
 
-    if (!isIdentifierWithName(node.object, "gpu_set_alphatestenable")) {
+    if (!Core.isIdentifierWithName(node.object, "gpu_set_alphatestenable")) {
         return false;
     }
 
@@ -16653,7 +16635,7 @@ function createAlphaTestEnableResetCall(template) {
         arguments: [literalFalse]
     };
 
-    assignClonedLocation(callExpression, template);
+    Core.assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -16677,7 +16659,7 @@ function createAlphaTestRefResetCall(template) {
         arguments: [literalZero]
     };
 
-    assignClonedLocation(callExpression, template);
+    Core.assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -16693,7 +16675,7 @@ function createBlendModeResetCall(template) {
         return null;
     }
 
-    const blendModeIdentifier = createIdentifier(
+    const blendModeIdentifier = Core.createIdentifierNode(
         "bm_normal",
         template.arguments?.[0]
     );
@@ -16708,7 +16690,7 @@ function createBlendModeResetCall(template) {
         arguments: [blendModeIdentifier]
     };
 
-    assignClonedLocation(callExpression, template);
+    Core.assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -16718,7 +16700,7 @@ function isSurfaceSetTargetCall(node) {
         return false;
     }
 
-    return isIdentifierWithName(node.object, "surface_set_target");
+    return Core.isIdentifierWithName(node.object, "surface_set_target");
 }
 
 function createHalignResetCall(template) {
@@ -16732,7 +16714,7 @@ function createHalignResetCall(template) {
         return null;
     }
 
-    const faLeft = createIdentifier("fa_left", template.arguments?.[0]);
+    const faLeft = Core.createIdentifierNode("fa_left", template.arguments?.[0]);
 
     if (!faLeft) {
         return null;
@@ -16744,7 +16726,7 @@ function createHalignResetCall(template) {
         arguments: [faLeft]
     };
 
-    assignClonedLocation(callExpression, template);
+    Core.assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -16760,7 +16742,7 @@ function createCullModeResetCall(template) {
         return null;
     }
 
-    const resetArgument = createIdentifier(
+    const resetArgument = Core.createIdentifierNode(
         "cull_noculling",
         template.arguments?.[0]
     );
@@ -16775,7 +16757,7 @@ function createCullModeResetCall(template) {
         arguments: [resetArgument]
     };
 
-    assignClonedLocation(callExpression, template);
+    Core.assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -16809,7 +16791,7 @@ function createColourWriteEnableResetCall(template) {
         arguments: argumentsList
     };
 
-    assignClonedLocation(callExpression, template);
+    Core.assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -16819,7 +16801,7 @@ function isBlendModeNormalArgument(node) {
         return false;
     }
 
-    if (isIdentifierWithName(node, "bm_normal")) {
+    if (Core.isIdentifierWithName(node, "bm_normal")) {
         return true;
     }
 
@@ -16855,7 +16837,7 @@ function isTextureRepeatResetCall(node) {
         return false;
     }
 
-    if (!isIdentifierWithName(node.object, "gpu_set_texrepeat")) {
+    if (!Core.isIdentifierWithName(node.object, "gpu_set_texrepeat")) {
         return false;
     }
 
@@ -16889,7 +16871,7 @@ function createTextureRepeatResetCall(template) {
         arguments: [literalFalse]
     };
 
-    assignClonedLocation(callExpression, template);
+    Core.assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -16899,7 +16881,7 @@ function isBlendModeResetCall(node) {
         return false;
     }
 
-    if (!isIdentifierWithName(node.object, "gpu_set_blendmode")) {
+    if (!Core.isIdentifierWithName(node.object, "gpu_set_blendmode")) {
         return false;
     }
 
@@ -16917,7 +16899,7 @@ function isBlendEnableResetCall(node) {
         return false;
     }
 
-    if (!isIdentifierWithName(node.object, "gpu_set_blendenable")) {
+    if (!Core.isIdentifierWithName(node.object, "gpu_set_blendenable")) {
         return false;
     }
 
@@ -16937,7 +16919,7 @@ function createShaderResetCall(template) {
         return null;
     }
 
-    const identifier = createIdentifier("shader_reset", template.object);
+    const identifier = Core.createIdentifierNode("shader_reset", template.object);
 
     if (!identifier) {
         return null;
@@ -16949,7 +16931,7 @@ function createShaderResetCall(template) {
         arguments: []
     };
 
-    assignClonedLocation(callExpression, template);
+    Core.assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -16972,7 +16954,7 @@ function createFogResetCall(template) {
         : [];
 
     const falseLiteral = createLiteral("false", argument0);
-    const colorIdentifier = createIdentifier("c_black", argument1);
+    const colorIdentifier = Core.createIdentifierNode("c_black", argument1);
     const zeroLiteral = createLiteral("0", argument2);
     const oneLiteral = createLiteral("1", argument3);
 
@@ -16986,7 +16968,7 @@ function createFogResetCall(template) {
         arguments: [falseLiteral, colorIdentifier, zeroLiteral, oneLiteral]
     };
 
-    assignClonedLocation(callExpression, template);
+    Core.assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -17010,7 +16992,7 @@ function createBlendEnableResetCall(template) {
         arguments: [literalTrue]
     };
 
-    assignClonedLocation(callExpression, template);
+    Core.assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -17023,7 +17005,7 @@ function createLiteral(value, template) {
         value: literalValue
     };
 
-    assignClonedLocation(literal, template);
+    Core.assignClonedLocation(literal, template);
 
     return literal;
 }
@@ -17131,7 +17113,7 @@ function reorderFunctionOptionalParameters(node, diagnostic, ast) {
         console.warn(
             `[feather:diagnostic] reorderFunctionOptionalParameters fnName=${getFunctionIdentifierName(node)} fixTarget=${String(fixDetail.target)}`
         );
-    } catch (err) {
+    } catch {
         void 0;
     }
 
@@ -17146,7 +17128,7 @@ function reorderFunctionOptionalParameters(node, diagnostic, ast) {
         if (ast && typeof ast === "object") {
             attachFeatherFixMetadata(ast, [fixDetail]);
         }
-    } catch (err) {
+    } catch {
         // non-fatal: don't break the fix application if program-level attach fails
         void 0;
     }
@@ -17237,8 +17219,8 @@ function sanitizeMalformedJsDocTypes({ ast, diagnostic, typeSystemInfo }) {
         const fixDetail = createFeatherFixDetail(diagnostic, {
             target: result.target ?? null,
             range: {
-                start: getNodeStartIndex(comment),
-                end: getNodeEndIndex(comment)
+                start: Core.getNodeStartIndex(comment),
+                end: Core.getNodeEndIndex(comment)
             }
         });
 
@@ -17916,39 +17898,12 @@ function collectIdentifierNames(node, registry) {
     }
 }
 
-function getIdentifierDetails(node) {
-    if (!node || typeof node !== "object") {
-        return null;
-    }
-
-    if (node.type !== "Identifier") {
-        return null;
-    }
-
-    const { name } = node;
-    if (typeof name !== "string") {
-        return null;
-    }
-
-    return { identifier: node, name };
-}
-
-function getIdentifierName(node) {
-    const details = getIdentifierDetails(node);
-
-    return details ? details.name : null;
-}
-
-function createIdentifier(name, template) {
-    return createIdentifierNode(name, template);
-}
-
 function isSpriteGetTextureCall(node) {
     if (!node || node.type !== "CallExpression") {
         return false;
     }
 
-    return isIdentifierWithName(node.object, "sprite_get_texture");
+    return Core.isIdentifierWithName(node.object, "sprite_get_texture");
 }
 
 function isSurfaceResetTargetCall(node) {
@@ -17956,7 +17911,7 @@ function isSurfaceResetTargetCall(node) {
         return false;
     }
 
-    return isIdentifierWithName(node.object, "surface_reset_target");
+    return Core.isIdentifierWithName(node.object, "surface_reset_target");
 }
 
 function createSurfaceResetTargetCall(template) {
@@ -17964,7 +17919,7 @@ function createSurfaceResetTargetCall(template) {
         return null;
     }
 
-    const identifier = createIdentifier(
+    const identifier = Core.createIdentifierNode(
         "surface_reset_target",
         template.object
     );
@@ -17979,7 +17934,7 @@ function createSurfaceResetTargetCall(template) {
         arguments: []
     };
 
-    assignClonedLocation(callExpression, template);
+    Core.assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -17991,7 +17946,7 @@ function isDrawFunctionCall(node) {
 
     const identifier = node.object;
 
-    if (!isIdentifier(identifier)) {
+    if (!Core.isIdentifierNode(identifier)) {
         return false;
     }
 
@@ -18006,7 +17961,7 @@ function isVertexSubmitCallUsingActiveTarget(node) {
         return false;
     }
 
-    if (!isIdentifierWithName(node.object, "vertex_submit")) {
+    if (!Core.isIdentifierWithName(node.object, "vertex_submit")) {
         return false;
     }
 
@@ -18026,7 +17981,7 @@ function extractSurfaceTargetName(node) {
 
     const args = getCallExpressionArguments(node);
 
-    if (args.length > 0 && isIdentifier(args[0])) {
+    if (args.length > 0 && Core.isIdentifierNode(args[0])) {
         return args[0].name;
     }
 
@@ -18064,7 +18019,7 @@ function isEventInheritedCall(node) {
         return false;
     }
 
-    if (!isIdentifierWithName(node.object, "event_inherited")) {
+    if (!Core.isIdentifierWithName(node.object, "event_inherited")) {
         return false;
     }
 
@@ -18649,7 +18604,7 @@ function createGpuStateCall(name, template) {
         return null;
     }
 
-    const identifier = createIdentifier(name, template?.object);
+    const identifier = Core.createIdentifierNode(name, template?.object);
 
     if (!identifier) {
         return null;
@@ -18661,7 +18616,7 @@ function createGpuStateCall(name, template) {
         arguments: []
     };
 
-    assignClonedLocation(callExpression, template);
+    Core.assignClonedLocation(callExpression, template);
 
     return callExpression;
 }
@@ -19063,7 +19018,7 @@ function findArgumentReferenceOutsideFunctions(node) {
 
         if (
             current.type === "MemberIndexExpression" &&
-            isIdentifierWithName(current.object, "argument")
+            Core.isIdentifierWithName(current.object, "argument")
         ) {
             match = { name: "argument" };
             return;
@@ -19071,7 +19026,7 @@ function findArgumentReferenceOutsideFunctions(node) {
 
         if (
             current.type === "MemberDotExpression" &&
-            isIdentifierWithName(current.object, "argument")
+            Core.isIdentifierWithName(current.object, "argument")
         ) {
             match = { name: "argument" };
             return;

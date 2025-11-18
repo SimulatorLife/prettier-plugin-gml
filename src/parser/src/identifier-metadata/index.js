@@ -11,10 +11,6 @@ import { Core } from "@gml-modules/core";
  * collaborators can depend only on the behaviour they require.
  */
 
-function isIdentifierNode(node) {
-    return node && typeof node === "object" && node.type === "Identifier";
-}
-
 /**
  * @typedef {object} IdentifierRoleTrackerInterface
  * @property {(role: object | null | undefined, callback: () => any) => any} withRole

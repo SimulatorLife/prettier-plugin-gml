@@ -210,7 +210,7 @@ function buildTemplateAtoms(parts) {
         }
 
         if (core.type === TEMPLATE_STRING_EXPRESSION) {
-            const nestedAtoms = asArray(core.atoms);
+            const nestedAtoms = Core.asArray(core.atoms);
             if (nestedAtoms.length === 0) {
                 return null;
             }

@@ -70,8 +70,8 @@ function createIndexMapper(insertPositions) {
     };
 }
 
-function isQuoteCharacter(character) {
-    return character === '"' || character === "'" || character === "`";
+function isQuoteCharacter(char) {
+    return `"'\``.includes(char);
 }
 
 /**

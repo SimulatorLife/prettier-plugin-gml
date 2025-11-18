@@ -5016,9 +5016,9 @@ function mergeSyntheticDocComments(
                     `[feather:debug] top-level syntheticLines(${String(fname)}):`,
                     _computedSynthetic
                 );
-            } catch {}
+            } catch { void 0; }
         }
-    } catch {}
+    } catch { void 0; }
     const syntheticLines = reorderDescriptionLinesAfterFunction(_computedSynthetic);
 
     const implicitDocEntries =
@@ -6697,9 +6697,9 @@ function computeSyntheticFunctionDocLines(
                     `[feather:debug] computeSyntheticFunctionDocLines(${fname}): suppressedCanonicals=`,
                     Array.from(suppressed || [])
                 );
-            } catch {}
+            } catch { void 0; }
         }
-    } catch {}
+    } catch { void 0; }
     const implicitDocEntryByIndex = new Map();
 
     for (const entry of implicitArgumentDocNames) {
