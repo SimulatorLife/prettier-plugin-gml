@@ -896,7 +896,7 @@ export function applyFeatherFixes(
                         // Replace any GM1033 entries lacking ranges with the
                         // regenerated, range-bearing fixes.
                         const kept = appliedFixes.filter(
-                            (f) => !(f?.id === "GM1033" && (f.range == null || typeof f.range.start !== "number" || typeof f.range.end !== "number"))
+                            (f) => f?.id !== "GM1033" || f.range != null && typeof f.range.start === "number" && typeof f.range.end === "number"
                         );
 
                         appliedFixes.length = 0;
@@ -904,7 +904,7 @@ export function applyFeatherFixes(
                     }
                 }
             }
-        } catch (e) {
+        } catch {
             // Be conservative: don't let the post-processing fail the entire
             // fix application. The original appliedFixes will still be
             // attached.
@@ -920,7 +920,7 @@ export function applyFeatherFixes(
             } catch {}
 
             attachFeatherFixMetadata(ast, appliedFixes);
-        } catch (e) {
+        } catch {
             // swallow: attachment logging shouldn't break transforms
         }
 
@@ -1116,7 +1116,7 @@ export function applyFeatherFixes(
                                     }
                                 }
 
-                                return;
+                                
                             });
                         }
                     }
@@ -1150,7 +1150,7 @@ export function applyFeatherFixes(
                     );
                 } catch {}
 
-                return;
+                
             });
         } catch {}
     }
@@ -18390,7 +18390,7 @@ function registerManualFeatherFix({ ast, diagnostic, sourceText }) {
                 return regenerated;
             }
         }
-    } catch (err) {
+    } catch {
         // Fall through to create a manual placeholder if regeneration fails.
     }
 
@@ -18427,7 +18427,7 @@ function registerManualFeatherFix({ ast, diagnostic, sourceText }) {
                 }
             }
         }
-    } catch (err) {
+    } catch {
         // ignore and fall back to null-range placeholder
     }
 

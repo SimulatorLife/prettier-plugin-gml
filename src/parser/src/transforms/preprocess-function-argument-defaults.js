@@ -1918,9 +1918,25 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
             const directIndex = getArgumentIndexFromNode(node);
             if (directIndex !== null) {
                 referencedIndices.add(directIndex);
-                // If this is not the initializer of an alias we counted above
-                // mark it as a direct reference.
-                directReferenceIndices.add(directIndex);
+                // By default we consider direct occurrences of `argumentN`
+                // to be explicit references. However, when the occurrence is
+                // the initializer of a VariableDeclarator that we just
+                // recorded as an alias (e.g. `var two = argument2;`), treat
+                // that occurrence as an alias initializer only and do NOT
+                // count it as a direct reference. Tests expect alias
+                // initializers to allow the alias to supersede the
+                // fallback `argumentN` doc line, so avoid marking those
+                // initializers as direct references here. For all other
+                // contexts, record the direct reference normally.
+                const isInitializerOfAlias =
+                    parent &&
+                    parent.type === "VariableDeclarator" &&
+                    property === "init" &&
+                    aliasByIndex.has(directIndex);
+
+                if (!isInitializerOfAlias) {
+                    directReferenceIndices.add(directIndex);
+                }
             }
 
             forEachNodeChild(node, (value, key) => {

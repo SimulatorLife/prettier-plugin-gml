@@ -945,7 +945,7 @@ function looksLikeCommentedOutCode(text, codeDetectionPatterns) {
 
     const patterns = Array.isArray(codeDetectionPatterns)
         ? codeDetectionPatterns
-        : DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
+        : Parser.Options.DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
 
     for (const pattern of patterns) {
         if (!isRegExpLike(pattern)) {

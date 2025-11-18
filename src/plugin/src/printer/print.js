@@ -1736,7 +1736,7 @@ function _printImpl(path, options, print) {
             // preserve the historical spacing for special accessors like
             // "[?" or "[#" while leaving normal "[" unchanged.
             if (typeof accessor === "string" && accessor.length > 1) {
-                accessor = accessor + " ";
+                accessor = `${accessor  } `;
             }
             const property = printCommaSeparatedList(
                 path,
@@ -5002,14 +5002,24 @@ function mergeSyntheticDocComments(
         normalizedExistingLines._preserveDescriptionBreaks = true;
     }
 
-    const syntheticLines = reorderDescriptionLinesAfterFunction(
-        computeSyntheticFunctionDocLines(
-            node,
-            existingDocLines,
-            options,
-            overrides
-        )
+    const _computedSynthetic = computeSyntheticFunctionDocLines(
+        node,
+        existingDocLines,
+        options,
+        overrides
     );
+    try {
+        const fname = getNodeName(node);
+        if (typeof fname === "string" && fname.includes("sample")) {
+            try {
+                console.error(
+                    `[feather:debug] top-level syntheticLines(${String(fname)}):`,
+                    _computedSynthetic
+                );
+            } catch {}
+        }
+    } catch {}
+    const syntheticLines = reorderDescriptionLinesAfterFunction(_computedSynthetic);
 
     const implicitDocEntries =
         node?.type === "FunctionDeclaration" ||
@@ -5408,9 +5418,15 @@ function mergeSyntheticDocComments(
         }
 
         for (const fallbackCanonical of fallbackCanonicalsToRemove) {
-            if (!canonicalNames.has(fallbackCanonical)) {
-                paramDocsByCanonical.delete(fallbackCanonical);
-            }
+            // When an implicit alias entry indicates a different canonical
+            // name for the same index (e.g. alias `two` for `argument2`),
+            // prefer the alias and remove any stale fallback `argumentN`
+            // doc line. Previously we avoided deleting the fallback when a
+            // canonical with the same name was present; that prevented
+            // alias-driven suppression from removing an explicit
+            // `argumentN` doc line. Always remove the fallback canonical
+            // here when it's marked for removal so aliases win.
+            paramDocsByCanonical.delete(fallbackCanonical);
         }
     }
 
@@ -6517,10 +6533,173 @@ function computeSyntheticFunctionDocLines(
         lines.push(`/// @function ${functionName}`);
     }
 
+    // Precompute any suppressed canonical names that are derivable from
+    // existing doc-order/ordinal metadata without consulting implicit
+    // argument entries. Some suppression rules (e.g. documented ordinal
+    // names that conflict with declared param names) are independent of
+    // implicit entries and must be available when the parser-provided
+    // implicit entries are consulted. Compute an initial suppressed set
+    // and attach it to the node so `collectImplicitArgumentDocNames` can
+    // consult it while producing entries.
+    try {
+        const initialSuppressed = new Set();
+        if (Array.isArray(node?.params)) {
+            for (const [paramIndex, param] of node.params.entries()) {
+                const ordinalMetadata =
+                    Number.isInteger(paramIndex) && paramIndex >= 0
+                        ? orderedParamMetadata[paramIndex] ?? null
+                        : null;
+                const rawOrdinalName =
+                    typeof ordinalMetadata?.name === STRING_TYPE &&
+                    ordinalMetadata.name.length > 0
+                        ? ordinalMetadata.name
+                        : null;
+                const canonicalOrdinal = rawOrdinalName
+                    ? getCanonicalParamNameFromText(rawOrdinalName)
+                    : null;
+
+                const paramInfo = getParameterDocInfo(param, node, options);
+                const paramIdentifier = getIdentifierFromParameterNode(param);
+                const paramIdentifierName =
+                    typeof paramIdentifier?.name === STRING_TYPE
+                        ? paramIdentifier.name
+                        : null;
+                const canonicalParamName = paramInfo?.name
+                    ? getCanonicalParamNameFromText(paramInfo.name)
+                    : null;
+
+                const isGenericArgumentName =
+                    typeof paramIdentifierName === STRING_TYPE &&
+                    getArgumentIndexFromIdentifier(paramIdentifierName) !== null;
+
+                const canonicalOrdinalMatchesParam =
+                    Boolean(canonicalOrdinal) &&
+                    Boolean(canonicalParamName) &&
+                    (canonicalOrdinal === canonicalParamName ||
+                        docParamNamesLooselyEqual(
+                            canonicalOrdinal,
+                            canonicalParamName
+                        ));
+
+                const shouldAdoptOrdinalName =
+                    Boolean(rawOrdinalName) &&
+                    (canonicalOrdinalMatchesParam || isGenericArgumentName);
+
+                if (
+                    !shouldAdoptOrdinalName &&
+                    canonicalOrdinal &&
+                    canonicalParamName &&
+                    canonicalOrdinal !== canonicalParamName &&
+                    !paramMetadataByCanonical.has(canonicalParamName)
+                ) {
+                    const canonicalOrdinalMatchesDeclaredParam = Array.isArray(
+                        node?.params
+                    )
+                        ? node.params.some((candidate, candidateIndex) => {
+                              if (candidateIndex === paramIndex) return false;
+                              const candidateInfo = getParameterDocInfo(
+                                  candidate,
+                                  node,
+                                  options
+                              );
+                              const candidateCanonical = candidateInfo?.name
+                                  ? getCanonicalParamNameFromText(candidateInfo.name)
+                                  : null;
+                              return candidateCanonical === canonicalOrdinal;
+                          })
+                        : false;
+
+                    if (!canonicalOrdinalMatchesDeclaredParam) {
+                        initialSuppressed.add(canonicalOrdinal);
+                    }
+                }
+            }
+        }
+
+        if (initialSuppressed.size > 0) {
+            suppressedImplicitDocCanonicalByNode.set(node, initialSuppressed);
+        }
+        // Additional pre-pass: if existing doc comments mention bare fallback
+        // `argumentN` names but the function body defines a local alias for
+        // that argument (e.g. `var two = argument2;`), treat the fallback
+        // canonical as suppressed so the alias doc line can replace it.
+        try {
+            const refInfo = gatherImplicitArgumentReferences(node);
+            if (refInfo && refInfo.aliasByIndex && refInfo.aliasByIndex.size > 0) {
+                for (const rawDocName of documentedParamNames) {
+                    try {
+                        // documentedParamNames contains tokenized doc names
+                        // (optional tokens preserved). Normalize optional
+                        // wrappers and test for an `argumentN` shape.
+                        const normalizedDocName =
+                            typeof rawDocName === "string"
+                                ? rawDocName.replaceAll(/^\[|\]$/g, "")
+                                : rawDocName;
+                        const maybeIndex = getArgumentIndexFromIdentifier(
+                            normalizedDocName
+                        );
+                        if (
+                            maybeIndex !== null &&
+                            refInfo.aliasByIndex.has(maybeIndex)
+                        ) {
+                            const fallbackCanonical =
+                                getCanonicalParamNameFromText(
+                                    `argument${maybeIndex}`
+                                ) ?? `argument${maybeIndex}`;
+                            initialSuppressed.add(fallbackCanonical);
+                        }
+                    } catch {
+                        /* ignore per-doc errors */
+                    }
+                }
+                if (initialSuppressed.size > 0) {
+                    suppressedImplicitDocCanonicalByNode.set(
+                        node,
+                        initialSuppressed
+                    );
+                }
+            }
+        } catch {
+            /* ignore gather errors */
+        }
+    } catch {
+        /* ignore pre-pass errors */
+    }
+
     const implicitArgumentDocNames = collectImplicitArgumentDocNames(
         node,
         options
     );
+    try {
+        const fname = getNodeName(node);
+        if (typeof fname === "string" && fname.includes("sample")) {
+            try {
+                const brief = (arr) =>
+                    (arr || []).map((e) =>
+                        e && typeof e === "object"
+                            ? {
+                                  name: e.name,
+                                  index: e.index,
+                                  canonical: e.canonical,
+                                  fallbackCanonical: e.fallbackCanonical,
+                                  hasDirectReference: e.hasDirectReference,
+                                  _suppressDocLine: e._suppressDocLine
+                              }
+                            : e
+                    );
+
+                const suppressed = suppressedImplicitDocCanonicalByNode.get(node);
+                console.error(
+                    `[feather:debug] computeSyntheticFunctionDocLines(${fname}): implicitArgumentDocNames=`,
+                    brief(implicitArgumentDocNames)
+                );
+                console.error(
+                    `[feather:debug] computeSyntheticFunctionDocLines(${fname}): suppressedCanonicals=`,
+                    Array.from(suppressed || [])
+                );
+            } catch {}
+        }
+    } catch {}
     const implicitDocEntryByIndex = new Map();
 
     for (const entry of implicitArgumentDocNames) {
@@ -6947,12 +7126,280 @@ function collectImplicitArgumentDocNames(functionNode, options) {
         const suppressedCanonicals =
             suppressedImplicitDocCanonicalByNode.get(functionNode);
 
+        // If the parser gave us entries but did not mark direct references,
+        // run a lightweight traversal to detect direct references and
+        // augment the entries. This keeps the parser authoritative for
+        // names/indices while allowing the plugin to respect direct
+        // usages (e.g. `argument2` referenced in the body) when deciding
+        // whether to preserve an entry despite suppression rules.
+        try {
+            // Gather reference info to detect explicit `argumentN` usages.
+            const referenceInfo = gatherImplicitArgumentReferences(functionNode);
+            try {
+                const fname = functionNode.id?.name || functionNode.name || null;
+                    if (typeof fname === "string" && fname.includes("sample")) {
+                    const briefRef = referenceInfo
+                        ? {
+                              referencedIndices: Array.from(
+                                  referenceInfo.referencedIndices || []
+                              ),
+                              aliasByIndex: referenceInfo.aliasByIndex
+                                  ? Array.from(referenceInfo.aliasByIndex.entries())
+                                  : [],
+                              directReferenceIndices: Array.from(
+                                  referenceInfo.directReferenceIndices || []
+                              )
+                          }
+                        : null;
+                    console.error(
+                        `[feather:debug] gatherImplicitArgumentReferences(${fname}):`,
+                        briefRef
+                    );
+                }
+            } catch {
+                /* ignore */
+            }
+            // The parser is authoritative for names/indices. If the parser
+            // omitted marking `hasDirectReference`, attempt a conservative
+            // detection that matches on canonical names rather than numeric
+            // indices. Matching by canonical avoids sensistivity to any
+            // identifier-case renames or other transformations that can
+            // permute numeric argument identifiers before printing.
+            if (referenceInfo) {
+                try {
+                    const directSet = referenceInfo.directReferenceIndices;
+                    // First prefer numeric index matches (fast-path)
+                    if (directSet && directSet.size > 0) {
+                        for (const entry of entries) {
+                            if (entry && entry.index != null && !entry.hasDirectReference && directSet.has(entry.index)) {
+                                    entry.hasDirectReference = true;
+                                }
+                        }
+                    }
+
+                    // If some entries still lack explicit marking, fall
+                    // back to a canonical-name based scan to avoid relying
+                    // on numeric indices which may have been renamed.
+                    const needsCanonicalScan = entries.some(
+                        (e) => e && !e.hasDirectReference
+                    );
+                    if (needsCanonicalScan) {
+                        const canonicalToEntries = new Map();
+                        for (const e of entries) {
+                            if (!e) continue;
+                            const key = e.canonical || e.fallbackCanonical || e.name;
+                            if (!canonicalToEntries.has(key)) canonicalToEntries.set(key, []);
+                            canonicalToEntries.get(key).push(e);
+                        }
+
+                        // Traverse the function body and mark entries when we
+                        // encounter an identifier or argument member whose
+                        // canonical equals an entry's canonical.
+                        const markMatches = (node) => {
+                            if (!node || typeof node !== OBJECT_TYPE) return;
+
+                            if (node.type === "Identifier" && typeof node.name === STRING_TYPE) {
+                                const observed = getCanonicalParamNameFromText(node.name) || node.name;
+                                const list = canonicalToEntries.get(observed);
+                                if (Array.isArray(list)) {
+                                    for (const ent of list) ent.hasDirectReference = true;
+                                }
+                            }
+
+                            if (
+                                node.type === "MemberIndexExpression" &&
+                                node.object?.type === "Identifier" &&
+                                node.object.name === "argument" &&
+                                Array.isArray(node.property) &&
+                                node.property.length === 1 &&
+                                node.property[0]?.type === "Literal"
+                            ) {
+                                const parsed = Number.parseInt(String(node.property[0].value));
+                                if (Number.isInteger(parsed) && parsed >= 0) {
+                                    const observed = getCanonicalParamNameFromText(`argument${parsed}`) || `argument${parsed}`;
+                                    const list = canonicalToEntries.get(observed);
+                                    if (Array.isArray(list)) {
+                                        for (const ent of list) ent.hasDirectReference = true;
+                                    }
+                                }
+                            }
+
+                            forEachNodeChild(node, (value) => markMatches(value));
+                        };
+
+                        try {
+                            markMatches(functionNode.body);
+                        } catch {
+                            /* ignore */
+                        }
+                    }
+                } catch {
+                    /* ignore detection errors - keep parser data conservative */
+                }
+            }
+        } catch {
+            // Keep behavior conservative on error: fall back to parser data
+        }
+
+        // Final fallback: if the parser did not mark entries as direct
+        // references and AST-based detection did not find them, scan the
+        // original source slice for `argument<index>` tokens. This is a
+        // conservative heuristic that preserves explicit `argumentN`
+        // references written in source even if later transforms or
+        // identifier-case renames change AST identifier names before
+        // printing.
+        try {
+            const functionSource = getSourceTextForNode(functionNode, options);
+            if (typeof functionSource === STRING_TYPE && functionSource.length > 0) {
+                for (const entry of entries) {
+                    if (!entry || entry.hasDirectReference) continue;
+                    if (Number.isInteger(entry.index) && entry.index >= 0) {
+                        const re = new RegExp(String.raw`\bargument${entry.index}\b`);
+                        if (re.test(functionSource)) {
+                            entry.hasDirectReference = true;
+                        }
+                    }
+                }
+            }
+        } catch {
+            /* ignore */
+        }
+
         if (!suppressedCanonicals || suppressedCanonicals.size === 0) {
+            try {
+                const fname = functionNode.id?.name || functionNode.name || null;
+                if (typeof fname === "string" && fname.includes("sample")) {
+                    try {
+                        const brief = (arr) =>
+                            (arr || []).map((e) =>
+                                e && typeof e === "object"
+                                    ? {
+                                          name: e.name,
+                                          index: e.index,
+                                          canonical: e.canonical,
+                                          fallbackCanonical: e.fallbackCanonical,
+                                          hasDirectReference: e.hasDirectReference
+                                      }
+                                    : e
+                            );
+
+                        console.error(
+                            `[feather:debug] collectImplicitArgumentDocNames(${fname}): parserEntries=`,
+                            brief(entries)
+                        );
+
+                        // Provide detailed per-entry filter decisions so we can
+                        // see why the printer keeps or drops parser-provided
+                        // implicit entries. Limit output to functions named
+                        // like 'sample' to avoid flooding test logs.
+                        const result = entries.filter((entry) => {
+                            if (!entry) return false;
+                            if (entry.hasDirectReference === true) return true;
+                            const key = entry.canonical || entry.fallbackCanonical;
+                            if (!key) return true;
+                            return !suppressedCanonicals.has(key);
+                        });
+
+                        const decisions = entries.map((e) => ({
+                            name: e?.name,
+                            index: e?.index,
+                            canonical: e?.canonical,
+                            fallbackCanonical: e?.fallbackCanonical,
+                            hasDirectReference: e?.hasDirectReference,
+                            kept: result.includes(e)
+                        }));
+
+                        console.error(
+                            `[feather:debug] collectImplicitArgumentDocNames(${fname}): filter-decisions=`,
+                            decisions
+                        );
+
+                        return result;
+                    } catch {
+                        /* ignore */
+                    }
+                }
+            } catch {
+                /* ignore */
+            }
             return entries;
+        }
+        try {
+            const fname =
+                functionNode && (typeof functionNode.id === "string"
+                    ? functionNode.id
+                    : functionNode.id && typeof functionNode.id.name === "string"
+                    ? functionNode.id.name
+                    : typeof functionNode.name === "string"
+                    ? functionNode.name
+                    : functionNode.key && typeof functionNode.key.name === "string"
+                    ? functionNode.key.name
+                    : null);
+            if (typeof fname === "string" && fname.includes("sample")) {
+                try {
+                    console.debug(
+                        `[feather:debug] collectImplicitArgumentDocNames(${fname}): suppressedCanonicals=`,
+                        Array.from(suppressedCanonicals || [])
+                    );
+                } catch {
+                    /* ignore */
+                }
+            }
+        } catch {
+            /* ignore */
+        }
+
+        // At this point we have parser-provided entries and a suppression
+        // set. Filter conservatively: always keep entries that have an
+        // explicit direct reference, otherwise drop entries whose canonical
+        // is in the suppressed set. When debugging, emit a per-entry
+        // decision map so we can triage mismatches between parser metadata
+        // and AST-based detection.
+        try {
+            const fname =
+                functionNode && (typeof functionNode.id === "string"
+                    ? functionNode.id
+                    : functionNode.id && typeof functionNode.id.name === "string"
+                    ? functionNode.id.name
+                    : typeof functionNode.name === "string"
+                    ? functionNode.name
+                    : functionNode.key && typeof functionNode.key.name === "string"
+                    ? functionNode.key.name
+                    : null);
+            if (typeof fname === "string" && fname.includes("sample")) {
+                const result = entries.filter((entry) => {
+                    if (!entry) return false;
+                    if (entry.hasDirectReference === true) return true;
+                    const key = entry.canonical || entry.fallbackCanonical;
+                    if (!key) return true;
+                    return !suppressedCanonicals.has(key);
+                });
+
+                const decisions = entries.map((e) => ({
+                    name: e?.name,
+                    index: e?.index,
+                    canonical: e?.canonical,
+                    fallbackCanonical: e?.fallbackCanonical,
+                    hasDirectReference: e?.hasDirectReference,
+                    kept: result.includes(e)
+                }));
+
+                console.error(
+                    `[feather:debug] collectImplicitArgumentDocNames(${fname}): filter-decisions=`,
+                    decisions
+                );
+
+                return result;
+            }
+        } catch {
+            /* ignore */
         }
 
         return entries.filter((entry) => {
-            if (!entry || !entry.canonical) {
+            if (!entry) return false;
+            if (entry.hasDirectReference === true) return true;
+
+            if (!entry.canonical) {
                 return true;
             }
 
@@ -6964,17 +7411,64 @@ function collectImplicitArgumentDocNames(functionNode, options) {
     const entries = buildImplicitArgumentDocEntries(referenceInfo);
     const suppressedCanonicals =
         suppressedImplicitDocCanonicalByNode.get(functionNode);
+    try {
+        const fname =
+            functionNode && (typeof functionNode.id === "string"
+                ? functionNode.id
+                : functionNode.id && typeof functionNode.id.name === "string"
+                ? functionNode.id.name
+                : typeof functionNode.name === "string"
+                ? functionNode.name
+                : functionNode.key && typeof functionNode.key.name === "string"
+                ? functionNode.key.name
+                : null);
+        if (typeof fname === "string" && fname.includes("sample")) {
+            try {
+                const brief = (arr) =>
+                    (arr || []).map((e) =>
+                        e && typeof e === "object"
+                            ? {
+                                  name: e.name,
+                                  index: e.index,
+                                  canonical: e.canonical,
+                                  fallbackCanonical: e.fallbackCanonical,
+                                  hasDirectReference: e.hasDirectReference
+                              }
+                            : e
+                    );
+
+                console.error(
+                    `[feather:debug] collectImplicitArgumentDocNames(${fname}): builtEntries=`,
+                    brief(entries)
+                );
+                console.error(
+                    `[feather:debug] collectImplicitArgumentDocNames(${fname}): suppressedCanonicals=`,
+                    Array.from(suppressedCanonicals || [])
+                );
+            } catch {
+                /* ignore */
+            }
+        }
+    } catch {
+        /* ignore */
+    }
 
     if (!suppressedCanonicals || suppressedCanonicals.size === 0) {
         return entries;
     }
 
     return entries.filter((entry) => {
-        if (!entry || !entry.canonical) {
-            return true;
-        }
+        if (!entry) return false;
+        // Always preserve explicit direct references even when a
+        // canonical has been marked suppressed. This mirrors the
+        // parser-backed branch above and ensures explicitly referenced
+        // `argumentN` usages still produce doc entries as expected by
+        // tests.
+        if (entry.hasDirectReference === true) return true;
 
-        return !suppressedCanonicals.has(entry.canonical);
+        const key = entry.canonical || entry.fallbackCanonical;
+        if (!key) return true;
+        return !suppressedCanonicals.has(key);
     });
 }
 
@@ -7016,7 +7510,16 @@ function gatherImplicitArgumentReferences(functionNode) {
             return;
         }
 
-        let skipAliasInitializer = false;
+        // Track alias declarations like `var two = argument2;` and also
+        // ensure that argument initializers are counted as direct
+        // references. Historically we attempted to avoid traversing an
+        // alias initializer twice; that prevention suppressed marking
+        // direct references for argument initializers (so
+        // `var second = argument3;` would set an alias but not mark
+        // `argument3` as a direct reference). Tests expect alias
+        // initializers to still count as direct references, so we record
+        // the alias and then continue traversal into the initializer so
+        // direct usages are captured.
         if (node.type === "VariableDeclarator") {
             const aliasIndex = getArgumentIndexFromNode(node.init);
             if (
@@ -7028,7 +7531,6 @@ function gatherImplicitArgumentReferences(functionNode) {
                 if (isNonEmptyString(aliasName)) {
                     aliasByIndex.set(aliasIndex, aliasName);
                     referencedIndices.add(aliasIndex);
-                    skipAliasInitializer = true;
                 }
             }
         }
@@ -7036,16 +7538,28 @@ function gatherImplicitArgumentReferences(functionNode) {
         const directIndex = getArgumentIndexFromNode(node);
         if (directIndex !== null) {
             referencedIndices.add(directIndex);
-            if (!skipAliasInitializer || property !== "init") {
+            // By default we consider direct occurrences of `argumentN`
+            // to be explicit references. However, when the occurrence is
+            // the initializer of a VariableDeclarator that we just
+            // recorded as an alias (e.g. `var two = argument2;`), treat
+            // that occurrence as an alias initializer only and do NOT
+            // count it as a direct reference. Tests expect alias
+            // initializers to allow the alias to supersede the
+            // fallback `argumentN` doc line, so avoid marking those
+            // initializers as direct references here. For all other
+            // contexts, record the direct reference normally.
+            const isInitializerOfAlias =
+                parent &&
+                parent.type === "VariableDeclarator" &&
+                property === "init" &&
+                aliasByIndex.has(directIndex);
+
+            if (!isInitializerOfAlias) {
                 directReferenceIndices.add(directIndex);
             }
         }
 
         forEachNodeChild(node, (value, key) => {
-            if (skipAliasInitializer && key === "init") {
-                return;
-            }
-
             visit(value, node, key);
         });
     };
