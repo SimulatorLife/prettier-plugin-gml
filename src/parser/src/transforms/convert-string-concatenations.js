@@ -1,21 +1,4 @@
 import { Core } from "@gml-modules/core";
-import {
-    hasComment as sharedHasComment,
-    normalizeHasCommentHelpers
-} from "../comments/index.js";
-
-const {
-    asArray,
-    getNodeType,
-    getIdentifierText,
-    isObjectLike,
-    stripStringQuotes,
-    unwrapParenthesizedExpression
-} = Core;
-
-const DEFAULT_HELPERS = Object.freeze({
-    hasComment: sharedHasComment
-});
 
 const BINARY_EXPRESSION = "BinaryExpression";
 const TEMPLATE_STRING_EXPRESSION = "TemplateStringExpression";
@@ -25,18 +8,14 @@ const PARENTHESIZED_EXPRESSION = "ParenthesizedExpression";
 
 /**
  * Convert chains of string concatenations into template string expressions.
- *
  * @param {unknown} ast
- * @param {{ hasComment?: (node: unknown) => boolean }} helpers
  */
-export function convertStringConcatenations(ast, helpers = DEFAULT_HELPERS) {
-    if (!isObjectLike(ast)) {
+export function convertStringConcatenations(ast) {
+    if (!Core.isObjectLike(ast)) {
         return ast;
     }
 
-    const normalizedHelpers = normalizeHasCommentHelpers(helpers);
-
-    traverse(ast, null, null, normalizedHelpers);
+    traverse(ast, null, null);
 
     return ast;
 }
@@ -48,8 +27,8 @@ function createTraversalState() {
     };
 }
 
-function traverse(node, parent, key, helpers, state = null) {
-    if (!isObjectLike(node)) {
+function traverse(node, parent, key, state = null) {
+    if (!Core.isObjectLike(node)) {
         return;
     }
 
@@ -66,7 +45,7 @@ function traverse(node, parent, key, helpers, state = null) {
 
     if (Array.isArray(node)) {
         for (let index = 0; index < node.length; index += 1) {
-            traverse(node[index], node, index, helpers, traversalState);
+            traverse(node[index], node, index, traversalState);
         }
 
         stack.pop();
@@ -78,19 +57,19 @@ function traverse(node, parent, key, helpers, state = null) {
             continue;
         }
 
-        if (isObjectLike(value)) {
-            traverse(value, node, childKey, helpers, traversalState);
+        if (Core.isObjectLike(value)) {
+            traverse(value, node, childKey, traversalState);
         }
     }
 
     if (node.type === BINARY_EXPRESSION) {
-        attemptConvertConcatenation(node, parent, key, helpers, stack);
+        attemptConvertConcatenation(node, parent, key, stack);
     }
 
     stack.pop();
 }
 
-function attemptConvertConcatenation(node, parent, key, helpers, stack) {
+function attemptConvertConcatenation(node, parent, key, stack) {
     if (!node || node.type !== BINARY_EXPRESSION || node.operator !== "+") {
         return;
     }
@@ -100,7 +79,7 @@ function attemptConvertConcatenation(node, parent, key, helpers, stack) {
     }
 
     const parts = [];
-    if (!collectConcatenationParts(node, helpers, parts)) {
+    if (!collectConcatenationParts(node, parts)) {
         return;
     }
 
@@ -124,21 +103,21 @@ function attemptConvertConcatenation(node, parent, key, helpers, stack) {
     }
 }
 
-function collectConcatenationParts(node, helpers, output) {
-    if (!isObjectLike(node)) {
+function collectConcatenationParts(node, output) {
+    if (!Core.isObjectLike(node)) {
         return false;
     }
 
     if (node.type === BINARY_EXPRESSION && node.operator === "+") {
-        if (helpers.hasComment(node)) {
+        if (Core.hasComment(node)) {
             return false;
         }
 
-        if (!collectConcatenationParts(node.left, helpers, output)) {
+        if (!collectConcatenationParts(node.left, output)) {
             return false;
         }
 
-        if (!collectConcatenationParts(node.right, helpers, output)) {
+        if (!collectConcatenationParts(node.right, output)) {
             return false;
         }
 
@@ -146,30 +125,30 @@ function collectConcatenationParts(node, helpers, output) {
     }
 
     if (node.type === PARENTHESIZED_EXPRESSION) {
-        if (helpers.hasComment(node)) {
+        if (Core.hasComment(node)) {
             return false;
         }
 
         const expression = node.expression;
         if (
-            isObjectLike(expression) &&
+            Core.isObjectLike(expression) &&
             expression.type === BINARY_EXPRESSION &&
             expression.operator === "+"
         ) {
-            return collectConcatenationParts(expression, helpers, output);
+            return collectConcatenationParts(expression, output);
         }
     }
 
     if (Array.isArray(node)) {
         for (const child of node) {
-            if (!collectConcatenationParts(child, helpers, output)) {
+            if (!collectConcatenationParts(child, output)) {
                 return false;
             }
         }
         return true;
     }
 
-    if (helpers.hasComment(node)) {
+    if (Core.hasComment(node)) {
         return false;
     }
 
@@ -214,7 +193,7 @@ function buildTemplateAtoms(parts) {
             return null;
         }
 
-        const core = unwrapParenthesizedExpression(part);
+        const core = Core.unwrapParenthesizedExpression(part);
         if (!core || typeof core !== "object") {
             return null;
         }
@@ -319,7 +298,7 @@ function isStringFunctionCall(node) {
 
     // Use the same logic as expressionIsStringLike function to extract function name
     // In GML AST, the function name is in the 'object' property, not 'callee'
-    const calleeName = getIdentifierText(node.object);
+    const calleeName = Core.getIdentifierText(node.object);
     if (typeof calleeName !== "string") {
         return false;
     }
@@ -329,7 +308,7 @@ function isStringFunctionCall(node) {
 }
 
 function isSafeInterpolatedExpression(node) {
-    const nodeType = getNodeType(node);
+    const nodeType = Core.getNodeType(node);
 
     switch (nodeType) {
         case "Identifier":
@@ -344,7 +323,7 @@ function isSafeInterpolatedExpression(node) {
         }
         case PARENTHESIZED_EXPRESSION: {
             return isSafeInterpolatedExpression(
-                unwrapParenthesizedExpression(node)
+                Core.unwrapParenthesizedExpression(node)
             );
         }
         default: {
@@ -381,9 +360,8 @@ function extractLiteralText(node) {
         return "";
     }
 
-    return stripStringQuotes(raw) ?? "";
+    return Core.stripStringQuotes(raw) ?? "";
 }
-export function transform(ast, opts = {}) {
-    // Use the local convertStringConcatenations implementation in the parser
-    return convertStringConcatenations(ast, opts.helpers ?? opts);
+export function transform(ast) {
+    return convertStringConcatenations(ast);
 }
