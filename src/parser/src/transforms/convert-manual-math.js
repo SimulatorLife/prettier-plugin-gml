@@ -24,10 +24,7 @@ const VARIABLE_DECLARATION = "VariableDeclaration";
  * @param {{ sourceText?: string, originalText?: string } | null} context
  *     Additional source context used to detect inline comments between nodes.
  */
-export function convertManualMathExpressions(
-    ast,
-    context = null
-) {
+export function convertManualMathExpressions(ast, context = null) {
     if (!ast || typeof ast !== "object") {
         return ast;
     }
@@ -35,33 +32,20 @@ export function convertManualMathExpressions(
 
     traverse(ast, new Set(), traversalContext);
     combineLengthdirScalarAssignments(ast);
-    cleanupMultiplicativeIdentityParentheses(
-        ast,
-        traversalContext
-    );
+    cleanupMultiplicativeIdentityParentheses(ast, traversalContext);
 
     return ast;
 }
 
-export function condenseScalarMultipliers(
-    ast,
-    context = null
-) {
+export function condenseScalarMultipliers(ast, context = null) {
     if (!ast || typeof ast !== "object") {
         return ast;
     }
 
     const traversalContext = normalizeTraversalContext(ast, context);
 
-    traverseForScalarCondense(
-        ast,
-        new Set(),
-        traversalContext
-    );
-    cleanupMultiplicativeIdentityParentheses(
-        ast,
-        traversalContext
-    );
+    traverseForScalarCondense(ast, new Set(), traversalContext);
+    cleanupMultiplicativeIdentityParentheses(ast, traversalContext);
 
     return ast;
 }
@@ -128,9 +112,7 @@ function traverse(node, seen, context) {
                 continue;
             }
 
-            if (
-                attemptSimplifyNegativeDivisionProduct(node, context)
-            ) {
+            if (attemptSimplifyNegativeDivisionProduct(node, context)) {
                 changed = true;
                 continue;
             }
@@ -140,12 +122,7 @@ function traverse(node, seen, context) {
                 continue;
             }
 
-            if (
-                attemptCondenseNumericChainWithMultipleBases(
-                    node,
-                    context
-                )
-            ) {
+            if (attemptCondenseNumericChainWithMultipleBases(node, context)) {
                 changed = true;
                 continue;
             }
@@ -155,9 +132,7 @@ function traverse(node, seen, context) {
                 continue;
             }
 
-            if (
-                attemptSimplifyLengthdirHalfDifference(node, context)
-            ) {
+            if (attemptSimplifyLengthdirHalfDifference(node, context)) {
                 changed = true;
                 continue;
             }
@@ -359,12 +334,7 @@ function attemptRemoveMultiplicativeIdentity(node, context) {
         return false;
     }
 
-    return removeMultiplicativeIdentityOperand(
-        node,
-        "right",
-        "left",
-        context
-    );
+    return removeMultiplicativeIdentityOperand(node, "right", "left", context);
 }
 
 function attemptReplaceMultiplicationWithZero(node, context) {
@@ -376,37 +346,18 @@ function attemptReplaceMultiplicationWithZero(node, context) {
         return false;
     }
 
-    if (
-        replaceMultiplicationWithZeroOperand(
-            node,
-            "left",
-            "right",
-            context
-        )
-    ) {
+    if (replaceMultiplicationWithZeroOperand(node, "left", "right", context)) {
         return true;
     }
 
-    if (
-        replaceMultiplicationWithZeroOperand(
-            node,
-            "right",
-            "left",
-            context
-        )
-    ) {
+    if (replaceMultiplicationWithZeroOperand(node, "right", "left", context)) {
         return true;
     }
 
     return false;
 }
 
-function removeMultiplicativeIdentityOperand(
-    node,
-    key,
-    otherKey,
-    context
-) {
+function removeMultiplicativeIdentityOperand(node, key, otherKey, context) {
     const operand = node[key];
     const other = node[otherKey];
 
@@ -525,10 +476,7 @@ function combineLengthdirScalarAssignments(ast) {
             continue;
         }
 
-        const match = matchLengthdirReassignment(
-            assignment.right,
-            baseName
-        );
+        const match = matchLengthdirReassignment(assignment.right, baseName);
 
         if (!match) {
             continue;
@@ -647,10 +595,7 @@ function matchLengthdirReassignment(expression, identifierName) {
         return null;
     }
 
-    const magnitudeInfo = matchIdentifierTimesFactor(
-        args[0],
-        identifierName
-    );
+    const magnitudeInfo = matchIdentifierTimesFactor(args[0], identifierName);
     if (!magnitudeInfo) {
         return null;
     }
@@ -860,9 +805,7 @@ function isIdentityReplacementSafeExpression(node) {
             return true;
         }
         case PARENTHESIZED_EXPRESSION: {
-            return isIdentityReplacementSafeExpression(
-                node.expression
-            );
+            return isIdentityReplacementSafeExpression(node.expression);
         }
         default: {
             return false;
@@ -885,11 +828,7 @@ function cleanupMultiplicativeIdentityParentheses(
 
     if (Array.isArray(node)) {
         for (const element of node) {
-            cleanupMultiplicativeIdentityParentheses(
-                element,
-                context,
-                parent
-            );
+            cleanupMultiplicativeIdentityParentheses(element, context, parent);
         }
         return;
     }
@@ -904,11 +843,7 @@ function cleanupMultiplicativeIdentityParentheses(
         replaceNodeWith(node, node.expression)
     ) {
         node.__fromMultiplicativeIdentity = true;
-        cleanupMultiplicativeIdentityParentheses(
-            node,
-            context,
-            parent
-        );
+        cleanupMultiplicativeIdentityParentheses(node, context, parent);
         return;
     }
 
@@ -926,11 +861,7 @@ function cleanupMultiplicativeIdentityParentheses(
                 );
             }
         } else {
-            cleanupMultiplicativeIdentityParentheses(
-                value,
-                context,
-                node
-            );
+            cleanupMultiplicativeIdentityParentheses(value, context, node);
         }
     }
 
@@ -995,9 +926,8 @@ function attemptCondenseSimpleScalarProduct(node, context) {
         hasNumericContribution = true;
     }
 
-    const cancelledReciprocalTerms = cancelSimpleReciprocalNumeratorPairs(
-        nonNumericTerms
-    );
+    const cancelledReciprocalTerms =
+        cancelSimpleReciprocalNumeratorPairs(nonNumericTerms);
 
     if (cancelledReciprocalTerms) {
         hasNumericContribution = true;
@@ -1253,12 +1183,7 @@ function findParentEntry(root, target) {
     return null;
 }
 
-function replaceMultiplicationWithZeroOperand(
-    node,
-    key,
-    otherKey,
-    context
-) {
+function replaceMultiplicationWithZeroOperand(node, key, otherKey, context) {
     const operand = node[key];
     const other = node[otherKey];
 
@@ -1345,15 +1270,11 @@ function attemptRemoveAdditiveIdentity(node, context) {
         return false;
     }
 
-    if (
-        removeAdditiveIdentityOperand(node, "left", "right", context)
-    ) {
+    if (removeAdditiveIdentityOperand(node, "left", "right", context)) {
         return true;
     }
 
-    if (
-        removeAdditiveIdentityOperand(node, "right", "left", context)
-    ) {
+    if (removeAdditiveIdentityOperand(node, "right", "left", context)) {
         return true;
     }
 
@@ -1506,10 +1427,7 @@ function attemptCancelReciprocalRatios(node, context) {
     const ratioTerms = [];
 
     for (const [index, term] of chain.numerators.entries()) {
-        if (
-            Core.hasComment(term.raw) ||
-            Core.hasComment(term.expression)
-        ) {
+        if (Core.hasComment(term.raw) || Core.hasComment(term.expression)) {
             return false;
         }
 
@@ -1603,10 +1521,7 @@ function attemptCancelReciprocalRatios(node, context) {
                 continue;
             }
 
-            if (
-                Core.hasComment(term.raw) ||
-                Core.hasComment(term.expression)
-            ) {
+            if (Core.hasComment(term.raw) || Core.hasComment(term.expression)) {
                 continue;
             }
 
@@ -2858,10 +2773,7 @@ function matchScaledOperand(node, context) {
 
     if (expression.type === UNARY_EXPRESSION) {
         if (expression.operator === "-" || expression.operator === "+") {
-            const inner = matchScaledOperand(
-                expression.argument,
-                context
-            );
+            const inner = matchScaledOperand(expression.argument, context);
 
             if (!inner) {
                 return null;
@@ -3097,10 +3009,7 @@ function attemptSimplifyLengthdirHalfDifference(node, context) {
         return false;
     }
 
-    if (
-        Core.hasComment(leftExpression) ||
-        Core.hasComment(rightExpression)
-    ) {
+    if (Core.hasComment(leftExpression) || Core.hasComment(rightExpression)) {
         return false;
     }
 
@@ -3119,10 +3028,7 @@ function attemptSimplifyLengthdirHalfDifference(node, context) {
 
     const minuend = unwrapExpression(leftExpression.left);
     const identifierName = getIdentifierName(minuend);
-    const scaledOperandInfo = matchScaledOperand(
-        leftExpression.right,
-        context
-    );
+    const scaledOperandInfo = matchScaledOperand(leftExpression.right, context);
 
     if (!minuend || !scaledOperandInfo || !scaledOperandInfo.base) {
         return false;
@@ -3132,10 +3038,7 @@ function attemptSimplifyLengthdirHalfDifference(node, context) {
         return false;
     }
 
-    const lengthDirInfo = matchLengthdirScaledOperand(
-        rightExpression,
-        context
-    );
+    const lengthDirInfo = matchLengthdirScaledOperand(rightExpression, context);
 
     if (!lengthDirInfo || !lengthDirInfo.base) {
         return false;

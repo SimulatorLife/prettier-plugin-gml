@@ -1099,7 +1099,8 @@ function _printImpl(path, options, print) {
                 resolveNodeIndexRangeWithSource(node, sourceMetadata);
 
             let docCommentDocs = [];
-            const lineCommentOptions = Parser.Options.resolveLineCommentOptions(options);
+            const lineCommentOptions =
+                Parser.Options.resolveLineCommentOptions(options);
             let needsLeadingBlankLine = false;
 
             if (isNonEmptyArray(node.docComments)) {
@@ -1736,7 +1737,7 @@ function _printImpl(path, options, print) {
             // preserve the historical spacing for special accessors like
             // "[?" or "[#" while leaving normal "[" unchanged.
             if (typeof accessor === "string" && accessor.length > 1) {
-                accessor = `${accessor  } `;
+                accessor = `${accessor} `;
             }
             const property = printCommaSeparatedList(
                 path,
@@ -2924,9 +2925,9 @@ function buildStructPropertyCommentSuffix(path, options) {
     for (const comment of comments) {
         if (comment?._structPropertyTrailing === true) {
             const formatted = formatLineComment(
-                    comment,
-                    Parser.Options.resolveLineCommentOptions(options)
-                );
+                comment,
+                Parser.Options.resolveLineCommentOptions(options)
+            );
             if (formatted) {
                 commentDocs.push(formatted);
             }
@@ -4063,7 +4064,8 @@ function collectSyntheticDocCommentLines(node, options) {
         };
     }
 
-    const lineCommentOptions = Parser.Options.resolveLineCommentOptions(options);
+    const lineCommentOptions =
+        Parser.Options.resolveLineCommentOptions(options);
     const existingDocLines = [];
     const remainingComments = [];
 
@@ -4106,7 +4108,8 @@ function extractLeadingNonDocCommentLines(comments, options) {
         };
     }
 
-    const lineCommentOptions = Parser.Options.resolveLineCommentOptions(options);
+    const lineCommentOptions =
+        Parser.Options.resolveLineCommentOptions(options);
     const leadingLines = [];
     const remainingComments = [];
     let scanningLeadingComments = true;
@@ -5016,10 +5019,15 @@ function mergeSyntheticDocComments(
                     `[feather:debug] top-level syntheticLines(${String(fname)}):`,
                     _computedSynthetic
                 );
-            } catch { void 0; }
+            } catch {
+                void 0;
+            }
         }
-    } catch { void 0; }
-    const syntheticLines = reorderDescriptionLinesAfterFunction(_computedSynthetic);
+    } catch {
+        void 0;
+    }
+    const syntheticLines =
+        reorderDescriptionLinesAfterFunction(_computedSynthetic);
 
     const implicitDocEntries =
         node?.type === "FunctionDeclaration" ||
@@ -6547,7 +6555,7 @@ function computeSyntheticFunctionDocLines(
             for (const [paramIndex, param] of node.params.entries()) {
                 const ordinalMetadata =
                     Number.isInteger(paramIndex) && paramIndex >= 0
-                        ? orderedParamMetadata[paramIndex] ?? null
+                        ? (orderedParamMetadata[paramIndex] ?? null)
                         : null;
                 const rawOrdinalName =
                     typeof ordinalMetadata?.name === STRING_TYPE &&
@@ -6570,7 +6578,8 @@ function computeSyntheticFunctionDocLines(
 
                 const isGenericArgumentName =
                     typeof paramIdentifierName === STRING_TYPE &&
-                    getArgumentIndexFromIdentifier(paramIdentifierName) !== null;
+                    getArgumentIndexFromIdentifier(paramIdentifierName) !==
+                        null;
 
                 const canonicalOrdinalMatchesParam =
                     Boolean(canonicalOrdinal) &&
@@ -6603,7 +6612,9 @@ function computeSyntheticFunctionDocLines(
                                   options
                               );
                               const candidateCanonical = candidateInfo?.name
-                                  ? getCanonicalParamNameFromText(candidateInfo.name)
+                                  ? getCanonicalParamNameFromText(
+                                        candidateInfo.name
+                                    )
                                   : null;
                               return candidateCanonical === canonicalOrdinal;
                           })
@@ -6625,7 +6636,11 @@ function computeSyntheticFunctionDocLines(
         // canonical as suppressed so the alias doc line can replace it.
         try {
             const refInfo = gatherImplicitArgumentReferences(node);
-            if (refInfo && refInfo.aliasByIndex && refInfo.aliasByIndex.size > 0) {
+            if (
+                refInfo &&
+                refInfo.aliasByIndex &&
+                refInfo.aliasByIndex.size > 0
+            ) {
                 for (const rawDocName of documentedParamNames) {
                     try {
                         // documentedParamNames contains tokenized doc names
@@ -6635,9 +6650,8 @@ function computeSyntheticFunctionDocLines(
                             typeof rawDocName === "string"
                                 ? rawDocName.replaceAll(/^\[|\]$/g, "")
                                 : rawDocName;
-                        const maybeIndex = getArgumentIndexFromIdentifier(
-                            normalizedDocName
-                        );
+                        const maybeIndex =
+                            getArgumentIndexFromIdentifier(normalizedDocName);
                         if (
                             maybeIndex !== null &&
                             refInfo.aliasByIndex.has(maybeIndex)
@@ -6688,7 +6702,8 @@ function computeSyntheticFunctionDocLines(
                             : e
                     );
 
-                const suppressed = suppressedImplicitDocCanonicalByNode.get(node);
+                const suppressed =
+                    suppressedImplicitDocCanonicalByNode.get(node);
                 console.error(
                     `[feather:debug] computeSyntheticFunctionDocLines(${fname}): implicitArgumentDocNames=`,
                     brief(implicitArgumentDocNames)
@@ -6697,9 +6712,13 @@ function computeSyntheticFunctionDocLines(
                     `[feather:debug] computeSyntheticFunctionDocLines(${fname}): suppressedCanonicals=`,
                     Array.from(suppressed || [])
                 );
-            } catch { void 0; }
+            } catch {
+                void 0;
+            }
         }
-    } catch { void 0; }
+    } catch {
+        void 0;
+    }
     const implicitDocEntryByIndex = new Map();
 
     for (const entry of implicitArgumentDocNames) {
@@ -7134,17 +7153,21 @@ function collectImplicitArgumentDocNames(functionNode, options) {
         // whether to preserve an entry despite suppression rules.
         try {
             // Gather reference info to detect explicit `argumentN` usages.
-            const referenceInfo = gatherImplicitArgumentReferences(functionNode);
+            const referenceInfo =
+                gatherImplicitArgumentReferences(functionNode);
             try {
-                const fname = functionNode.id?.name || functionNode.name || null;
-                    if (typeof fname === "string" && fname.includes("sample")) {
+                const fname =
+                    functionNode.id?.name || functionNode.name || null;
+                if (typeof fname === "string" && fname.includes("sample")) {
                     const briefRef = referenceInfo
                         ? {
                               referencedIndices: Array.from(
                                   referenceInfo.referencedIndices || []
                               ),
                               aliasByIndex: referenceInfo.aliasByIndex
-                                  ? Array.from(referenceInfo.aliasByIndex.entries())
+                                  ? Array.from(
+                                        referenceInfo.aliasByIndex.entries()
+                                    )
                                   : [],
                               directReferenceIndices: Array.from(
                                   referenceInfo.directReferenceIndices || []
@@ -7171,9 +7194,14 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                     // First prefer numeric index matches (fast-path)
                     if (directSet && directSet.size > 0) {
                         for (const entry of entries) {
-                            if (entry && entry.index != null && !entry.hasDirectReference && directSet.has(entry.index)) {
-                                    entry.hasDirectReference = true;
-                                }
+                            if (
+                                entry &&
+                                entry.index != null &&
+                                !entry.hasDirectReference &&
+                                directSet.has(entry.index)
+                            ) {
+                                entry.hasDirectReference = true;
+                            }
                         }
                     }
 
@@ -7187,8 +7215,10 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                         const canonicalToEntries = new Map();
                         for (const e of entries) {
                             if (!e) continue;
-                            const key = e.canonical || e.fallbackCanonical || e.name;
-                            if (!canonicalToEntries.has(key)) canonicalToEntries.set(key, []);
+                            const key =
+                                e.canonical || e.fallbackCanonical || e.name;
+                            if (!canonicalToEntries.has(key))
+                                canonicalToEntries.set(key, []);
                             canonicalToEntries.get(key).push(e);
                         }
 
@@ -7198,11 +7228,17 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                         const markMatches = (node) => {
                             if (!node || typeof node !== OBJECT_TYPE) return;
 
-                            if (node.type === "Identifier" && typeof node.name === STRING_TYPE) {
-                                const observed = getCanonicalParamNameFromText(node.name) || node.name;
+                            if (
+                                node.type === "Identifier" &&
+                                typeof node.name === STRING_TYPE
+                            ) {
+                                const observed =
+                                    getCanonicalParamNameFromText(node.name) ||
+                                    node.name;
                                 const list = canonicalToEntries.get(observed);
                                 if (Array.isArray(list)) {
-                                    for (const ent of list) ent.hasDirectReference = true;
+                                    for (const ent of list)
+                                        ent.hasDirectReference = true;
                                 }
                             }
 
@@ -7214,17 +7250,26 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                                 node.property.length === 1 &&
                                 node.property[0]?.type === "Literal"
                             ) {
-                                const parsed = Number.parseInt(String(node.property[0].value));
+                                const parsed = Number.parseInt(
+                                    String(node.property[0].value)
+                                );
                                 if (Number.isInteger(parsed) && parsed >= 0) {
-                                    const observed = getCanonicalParamNameFromText(`argument${parsed}`) || `argument${parsed}`;
-                                    const list = canonicalToEntries.get(observed);
+                                    const observed =
+                                        getCanonicalParamNameFromText(
+                                            `argument${parsed}`
+                                        ) || `argument${parsed}`;
+                                    const list =
+                                        canonicalToEntries.get(observed);
                                     if (Array.isArray(list)) {
-                                        for (const ent of list) ent.hasDirectReference = true;
+                                        for (const ent of list)
+                                            ent.hasDirectReference = true;
                                     }
                                 }
                             }
 
-                            forEachNodeChild(node, (value) => markMatches(value));
+                            forEachNodeChild(node, (value) =>
+                                markMatches(value)
+                            );
                         };
 
                         try {
@@ -7250,11 +7295,16 @@ function collectImplicitArgumentDocNames(functionNode, options) {
         // printing.
         try {
             const functionSource = getSourceTextForNode(functionNode, options);
-            if (typeof functionSource === STRING_TYPE && functionSource.length > 0) {
+            if (
+                typeof functionSource === STRING_TYPE &&
+                functionSource.length > 0
+            ) {
                 for (const entry of entries) {
                     if (!entry || entry.hasDirectReference) continue;
                     if (Number.isInteger(entry.index) && entry.index >= 0) {
-                        const re = new RegExp(String.raw`\bargument${entry.index}\b`);
+                        const re = new RegExp(
+                            String.raw`\bargument${entry.index}\b`
+                        );
                         if (re.test(functionSource)) {
                             entry.hasDirectReference = true;
                         }
@@ -7267,7 +7317,8 @@ function collectImplicitArgumentDocNames(functionNode, options) {
 
         if (!suppressedCanonicals || suppressedCanonicals.size === 0) {
             try {
-                const fname = functionNode.id?.name || functionNode.name || null;
+                const fname =
+                    functionNode.id?.name || functionNode.name || null;
                 if (typeof fname === "string" && fname.includes("sample")) {
                     try {
                         const brief = (arr) =>
@@ -7277,8 +7328,10 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                                           name: e.name,
                                           index: e.index,
                                           canonical: e.canonical,
-                                          fallbackCanonical: e.fallbackCanonical,
-                                          hasDirectReference: e.hasDirectReference
+                                          fallbackCanonical:
+                                              e.fallbackCanonical,
+                                          hasDirectReference:
+                                              e.hasDirectReference
                                       }
                                     : e
                             );
@@ -7295,7 +7348,8 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                         const result = entries.filter((entry) => {
                             if (!entry) return false;
                             if (entry.hasDirectReference) return true;
-                            const key = entry.canonical || entry.fallbackCanonical;
+                            const key =
+                                entry.canonical || entry.fallbackCanonical;
                             if (!key) return true;
                             return !suppressedCanonicals.has(key);
                         });
@@ -7314,7 +7368,8 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                             // emit a clear error so tests can capture the
                             // mismatch state for triage.
                             const droppedDirect = decisions.filter(
-                                (d) => !!d.hasDirectReference && d.kept === false
+                                (d) =>
+                                    !!d.hasDirectReference && d.kept === false
                             );
                             if (droppedDirect.length > 0) {
                                 console.error(
@@ -7343,15 +7398,18 @@ function collectImplicitArgumentDocNames(functionNode, options) {
         }
         try {
             const fname =
-                functionNode && (typeof functionNode.id === "string"
+                functionNode &&
+                (typeof functionNode.id === "string"
                     ? functionNode.id
-                    : functionNode.id && typeof functionNode.id.name === "string"
-                    ? functionNode.id.name
-                    : typeof functionNode.name === "string"
-                    ? functionNode.name
-                    : functionNode.key && typeof functionNode.key.name === "string"
-                    ? functionNode.key.name
-                    : null);
+                    : functionNode.id &&
+                        typeof functionNode.id.name === "string"
+                      ? functionNode.id.name
+                      : typeof functionNode.name === "string"
+                        ? functionNode.name
+                        : functionNode.key &&
+                            typeof functionNode.key.name === "string"
+                          ? functionNode.key.name
+                          : null);
             if (typeof fname === "string" && fname.includes("sample")) {
                 try {
                     console.debug(
@@ -7374,15 +7432,18 @@ function collectImplicitArgumentDocNames(functionNode, options) {
         // and AST-based detection.
         try {
             const fname =
-                functionNode && (typeof functionNode.id === "string"
+                functionNode &&
+                (typeof functionNode.id === "string"
                     ? functionNode.id
-                    : functionNode.id && typeof functionNode.id.name === "string"
-                    ? functionNode.id.name
-                    : typeof functionNode.name === "string"
-                    ? functionNode.name
-                    : functionNode.key && typeof functionNode.key.name === "string"
-                    ? functionNode.key.name
-                    : null);
+                    : functionNode.id &&
+                        typeof functionNode.id.name === "string"
+                      ? functionNode.id.name
+                      : typeof functionNode.name === "string"
+                        ? functionNode.name
+                        : functionNode.key &&
+                            typeof functionNode.key.name === "string"
+                          ? functionNode.key.name
+                          : null);
             if (typeof fname === "string" && fname.includes("sample")) {
                 const result = entries.filter((entry) => {
                     if (!entry) return false;
@@ -7430,15 +7491,17 @@ function collectImplicitArgumentDocNames(functionNode, options) {
         suppressedImplicitDocCanonicalByNode.get(functionNode);
     try {
         const fname =
-            functionNode && (typeof functionNode.id === "string"
+            functionNode &&
+            (typeof functionNode.id === "string"
                 ? functionNode.id
                 : functionNode.id && typeof functionNode.id.name === "string"
-                ? functionNode.id.name
-                : typeof functionNode.name === "string"
-                ? functionNode.name
-                : functionNode.key && typeof functionNode.key.name === "string"
-                ? functionNode.key.name
-                : null);
+                  ? functionNode.id.name
+                  : typeof functionNode.name === "string"
+                    ? functionNode.name
+                    : functionNode.key &&
+                        typeof functionNode.key.name === "string"
+                      ? functionNode.key.name
+                      : null);
         if (typeof fname === "string" && fname.includes("sample")) {
             try {
                 const brief = (arr) =>

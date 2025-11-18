@@ -24,18 +24,18 @@ import { Semantic } from "@gml-modules/semantic";
 
 // const {
 //     AST: {
-//         getNodeEndIndex,
-//         getNodeStartIndex,
+//         Core.getNodeEndIndex,
+//         Core.getNodeStartIndex,
 //         getNodeEndLine,
 //         getNodeStartLine,
-//         cloneLocation,
+//         Core.cloneLocation,
 //         cloneAstNode,
 //         Core.assignClonedLocation,
 //         getArrayProperty,
 //         getBodyStatements,
 //         getCallExpressionArguments,
 //         getCallExpressionIdentifier,
-//         getCallExpressionIdentifierName,
+//         Core.getCallExpressionIdentifierName,
 //         isCallExpressionIdentifierMatch,
 //         isBooleanLiteral,
 //         isUndefinedSentinel,
@@ -52,19 +52,19 @@ import { Semantic } from "@gml-modules/semantic";
 //     Utils: {
 //         getNonEmptyString,
 //         getNonEmptyTrimmedString,
-//         isNonEmptyString,
+//         Core.isNonEmptyString,
 //         isNonEmptyTrimmedString,
 //         stripStringQuotes,
 //         toNormalizedLowerCaseString,
-//         toTrimmedString,
+//         Core.toTrimmedString,
 //         isFiniteNumber,
-//         asArray,
+//         Core.asArray,
 //         compactArray,
 //         isArrayIndex,
-//         isNonEmptyArray,
+//         Core.isNonEmptyArray,
 //         ensureSet,
 //         getOrCreateMapEntry,
-//         hasOwn,
+//         Core.hasOwn,
 //         isObjectLike,
 //         escapeRegExp,
 //         hasIterableItems,
@@ -74,7 +74,7 @@ import { Semantic } from "@gml-modules/semantic";
 //     Resources: {
 //         getFeatherDiagnosticById,
 //         getFeatherDiagnostics,
-//         getFeatherMetadata
+//         Core.getFeatherMetadata
 //     }
 // } = Core;
 
@@ -321,7 +321,7 @@ const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers(
 );
 
 export function preprocessSourceForFeatherFixes(sourceText) {
-    if (!isNonEmptyString(sourceText)) {
+    if (!Core.isNonEmptyString(sourceText)) {
         return {
             sourceText,
             metadata: null
@@ -339,7 +339,7 @@ export function preprocessSourceForFeatherFixes(sourceText) {
     const processLine = (line) => {
         const indentationMatch = line.match(/^\s*/);
         const indentation = indentationMatch ? indentationMatch[0] : "";
-        const trimmed = toTrimmedString(line);
+        const trimmed = Core.toTrimmedString(line);
 
         if (trimmed.length === 0) {
             return { line, context: pendingGM1100Context };
@@ -478,7 +478,7 @@ export function preprocessSourceForFeatherFixes(sourceText) {
 
     const hasMetadata = Object.keys(metadata).length > 0;
     const sourceChanged = enumSanitizedSourceText !== sourceText;
-    const hasIndexAdjustments = isNonEmptyArray(enumIndexAdjustments);
+    const hasIndexAdjustments = Core.isNonEmptyArray(enumIndexAdjustments);
 
     if (!hasMetadata && !sourceChanged) {
         return {
@@ -496,7 +496,7 @@ export function preprocessSourceForFeatherFixes(sourceText) {
 }
 
 function sanitizeEnumInitializerStrings(sourceText) {
-    if (!isNonEmptyString(sourceText)) {
+    if (!Core.isNonEmptyString(sourceText)) {
         return { sourceText, adjustments: null };
     }
 
@@ -565,7 +565,7 @@ function sanitizeEnumBodyInitializerStrings(
     bodyStartIndex,
     totalRemoved
 ) {
-    if (!isNonEmptyString(body)) {
+    if (!Core.isNonEmptyString(body)) {
         return { sanitizedBody: body, adjustments: [], removedCount: 0 };
     }
 
@@ -658,7 +658,7 @@ function normalizeRemovalAdjustments(adjustments) {
 }
 
 function adjustLocationForRemoval(node, property, adjustments) {
-    if (!Object.hasOwn(node, property)) {
+    if (!Object.Core.hasOwn(node, property)) {
         return;
     }
 
@@ -863,7 +863,7 @@ export function applyFeatherFixes(
             options
         });
 
-        if (isNonEmptyArray(fixes)) {
+        if (Core.isNonEmptyArray(fixes)) {
             appliedFixes.push(...fixes);
         }
     }
@@ -877,7 +877,11 @@ export function applyFeatherFixes(
     if (appliedFixes.length > 0) {
         try {
             const hasBadGM1033 = appliedFixes.some(
-                (f) => f?.id === "GM1033" && (f.range == null || typeof f.range.start !== "number" || typeof f.range.end !== "number")
+                (f) =>
+                    f?.id === "GM1033" &&
+                    (f.range == null ||
+                        typeof f.range.start !== "number" ||
+                        typeof f.range.end !== "number")
             );
 
             if (hasBadGM1033 && Array.isArray(FEATHER_DIAGNOSTICS)) {
@@ -892,11 +896,15 @@ export function applyFeatherFixes(
                         diagnostic: gm1033Diagnostic
                     });
 
-                    if (isNonEmptyArray(regenerated)) {
+                    if (Core.isNonEmptyArray(regenerated)) {
                         // Replace any GM1033 entries lacking ranges with the
                         // regenerated, range-bearing fixes.
                         const kept = appliedFixes.filter(
-                            (f) => f?.id !== "GM1033" || f.range != null && typeof f.range.start === "number" && typeof f.range.end === "number"
+                            (f) =>
+                                f?.id !== "GM1033" ||
+                                (f.range != null &&
+                                    typeof f.range.start === "number" &&
+                                    typeof f.range.end === "number")
                         );
 
                         appliedFixes.length = 0;
@@ -915,9 +923,13 @@ export function applyFeatherFixes(
             // Debug: list applied fixes (id and target) before attaching to the program
             try {
                 const listed = Array.isArray(appliedFixes)
-                    ? appliedFixes.map((f) => `${String(f?.id)}@${String(f?.target)}`).join(",")
+                    ? appliedFixes
+                          .map((f) => `${String(f?.id)}@${String(f?.target)}`)
+                          .join(",")
                     : String(appliedFixes);
-                console.warn(`[feather:diagnostic] appliedFixes summary=${listed}`);
+                console.warn(
+                    `[feather:diagnostic] appliedFixes summary=${listed}`
+                );
             } catch {
                 void 0;
             }
@@ -928,7 +940,7 @@ export function applyFeatherFixes(
             void 0;
         }
 
-    // Some fixer implementations create or replace nodes later in the
+        // Some fixer implementations create or replace nodes later in the
         // pipeline which can cause non-enumerable per-node metadata to be
         // lost if it was attached to an earlier object instance. Tests and
         // consumers expect per-function metadata (e.g. GM1056) to be present
@@ -976,11 +988,14 @@ export function applyFeatherFixes(
                             ? targetNode._appliedFeatherDiagnostics
                             : [];
 
-                        const already = existing.some((entry) =>
-                            entry && entry.id === fix.id &&
-                            entry.range && fix.range &&
-                            entry.range.start === fix.range.start &&
-                            entry.range.end === fix.range.end
+                        const already = existing.some(
+                            (entry) =>
+                                entry &&
+                                entry.id === fix.id &&
+                                entry.range &&
+                                fix.range &&
+                                entry.range.start === fix.range.start &&
+                                entry.range.end === fix.range.end
                         );
 
                         if (!already) {
@@ -988,10 +1003,12 @@ export function applyFeatherFixes(
                             // the live function name so per-node metadata
                             // records a usable target value for consumers/tests.
                             try {
-                                const nodeName = getFunctionIdentifierName(targetNode);
-                                const toAttach = (!fix.target && nodeName)
-                                    ? [{ ...fix, target: nodeName }]
-                                    : [fix];
+                                const nodeName =
+                                    getFunctionIdentifierName(targetNode);
+                                const toAttach =
+                                    !fix.target && nodeName
+                                        ? [{ ...fix, target: nodeName }]
+                                        : [fix];
 
                                 attachFeatherFixMetadata(targetNode, toAttach);
                             } catch {
@@ -1006,7 +1023,11 @@ export function applyFeatherFixes(
                 // Fallback: some fixers attach a range but omit a human-friendly
                 // target name (target === null). Attempt to match on the numeric
                 // range to attach the fix to the live FunctionDeclaration node.
-                if (fix.range && typeof fix.range.start === "number" && typeof fix.range.end === "number") {
+                if (
+                    fix.range &&
+                    typeof fix.range.start === "number" &&
+                    typeof fix.range.end === "number"
+                ) {
                     try {
                         console.warn(
                             `[feather:diagnostic] reattach-guard-range fix=${fix.id} target=<range:${fix.range.start}-${fix.range.end}>`
@@ -1022,8 +1043,8 @@ export function applyFeatherFixes(
                             return;
                         }
 
-                        const start = getNodeStartIndex(node);
-                        const end = getNodeEndIndex(node);
+                        const start = Core.getNodeStartIndex(node);
+                        const end = Core.getNodeEndIndex(node);
 
                         // Prefer an exact match but also accept containment matches
                         // where the live node fully encompasses the original fix
@@ -1031,8 +1052,12 @@ export function applyFeatherFixes(
                         // downstream transforms (comments, minor rewrites) which
                         // would otherwise prevent exact equality from succeeding.
                         if (
-                            start === fix.range.start && end === fix.range.end ||
-                            (typeof start === "number" && typeof end === "number" && start <= fix.range.start && end >= fix.range.end)
+                            (start === fix.range.start &&
+                                end === fix.range.end) ||
+                            (typeof start === "number" &&
+                                typeof end === "number" &&
+                                start <= fix.range.start &&
+                                end >= fix.range.end)
                         ) {
                             targetNode = node;
                             return false;
@@ -1046,19 +1071,24 @@ export function applyFeatherFixes(
                             ? targetNode._appliedFeatherDiagnostics
                             : [];
 
-                        const already = existing.some((entry) =>
-                            entry && entry.id === fix.id &&
-                            entry.range && fix.range &&
-                            entry.range.start === fix.range.start &&
-                            entry.range.end === fix.range.end
+                        const already = existing.some(
+                            (entry) =>
+                                entry &&
+                                entry.id === fix.id &&
+                                entry.range &&
+                                fix.range &&
+                                entry.range.start === fix.range.start &&
+                                entry.range.end === fix.range.end
                         );
 
                         if (!already) {
                             try {
-                                const nodeName = getFunctionIdentifierName(targetNode);
-                                const toAttach = (!fix.target && nodeName)
-                                    ? [{ ...fix, target: nodeName }]
-                                    : [fix];
+                                const nodeName =
+                                    getFunctionIdentifierName(targetNode);
+                                const toAttach =
+                                    !fix.target && nodeName
+                                        ? [{ ...fix, target: nodeName }]
+                                        : [fix];
 
                                 attachFeatherFixMetadata(targetNode, toAttach);
                             } catch {
@@ -1089,11 +1119,17 @@ export function applyFeatherFixes(
                                 return;
                             }
 
-                            const existing = Array.isArray(node._appliedFeatherDiagnostics)
+                            const existing = Array.isArray(
+                                node._appliedFeatherDiagnostics
+                            )
                                 ? node._appliedFeatherDiagnostics
                                 : [];
 
-                            if (existing.some((entry) => entry && entry.id === fix.id)) {
+                            if (
+                                existing.some(
+                                    (entry) => entry && entry.id === fix.id
+                                )
+                            ) {
                                 alreadyAttached = true;
                                 return false;
                             }
@@ -1101,30 +1137,49 @@ export function applyFeatherFixes(
 
                         if (!alreadyAttached) {
                             walkAstNodes(ast, (node) => {
-                                if (!node || node.type !== "FunctionDeclaration") {
+                                if (
+                                    !node ||
+                                    node.type !== "FunctionDeclaration"
+                                ) {
                                     return;
                                 }
 
-                                const params = Array.isArray(node.params) ? node.params : [];
+                                const params = Array.isArray(node.params)
+                                    ? node.params
+                                    : [];
                                 for (const p of params) {
                                     if (
-                                        p && p.type === "DefaultParameter" && p.right && p.right.type === "Literal" && String(p.right.value) === "undefined"
+                                        p &&
+                                        p.type === "DefaultParameter" &&
+                                        p.right &&
+                                        p.right.type === "Literal" &&
+                                        String(p.right.value) === "undefined"
                                     ) {
                                         try {
-                                            const nodeName = getFunctionIdentifierName(node);
-                                            const toAttach = (!fix.target && nodeName)
-                                                ? [{ ...fix, target: nodeName }]
-                                                : [fix];
+                                            const nodeName =
+                                                getFunctionIdentifierName(node);
+                                            const toAttach =
+                                                !fix.target && nodeName
+                                                    ? [
+                                                          {
+                                                              ...fix,
+                                                              target: nodeName
+                                                          }
+                                                      ]
+                                                    : [fix];
 
-                                            attachFeatherFixMetadata(node, toAttach);
+                                            attachFeatherFixMetadata(
+                                                node,
+                                                toAttach
+                                            );
                                         } catch {
-                                            attachFeatherFixMetadata(node, [fix]);
+                                            attachFeatherFixMetadata(node, [
+                                                fix
+                                            ]);
                                         }
                                         return false; // stop walking once attached
                                     }
                                 }
-
-                                
                             });
                         }
                     }
@@ -1150,10 +1205,12 @@ export function applyFeatherFixes(
 
                 try {
                     const name = getFunctionIdentifierName(node) ?? "<anon>";
-                    const start = getNodeStartIndex(node);
-                    const end = getNodeEndIndex(node);
+                    const start = Core.getNodeStartIndex(node);
+                    const end = Core.getNodeEndIndex(node);
                     const ids = Array.isArray(node._appliedFeatherDiagnostics)
-                        ? node._appliedFeatherDiagnostics.map((f) => (f && f.id ? f.id : String(f))).join(",")
+                        ? node._appliedFeatherDiagnostics
+                              .map((f) => (f && f.id ? f.id : String(f)))
+                              .join(",")
                         : "";
 
                     console.warn(
@@ -1162,8 +1219,6 @@ export function applyFeatherFixes(
                 } catch {
                     void 0;
                 }
-
-                
             });
         } catch {
             void 0;
@@ -1176,7 +1231,7 @@ export function applyFeatherFixes(
 function buildFeatherDiagnosticFixers(diagnostics, implementationRegistry) {
     const registry = new Map();
 
-    for (const diagnostic of asArray(diagnostics)) {
+    for (const diagnostic of Core.asArray(diagnostics)) {
         const diagnosticId = diagnostic?.id;
 
         if (!diagnosticId || registry.has(diagnosticId)) {
@@ -1225,7 +1280,7 @@ function createFixerForDiagnostic(diagnostic, implementationRegistry) {
             options: context?.options
         });
 
-        return asArray(fixes);
+        return Core.asArray(fixes);
     };
 }
 
@@ -1306,7 +1361,7 @@ function removeDuplicateEnumMembers({ ast, diagnostic, sourceText }) {
         }
 
         if (node.type === "EnumDeclaration") {
-            const members = asArray(node.members);
+            const members = Core.asArray(node.members);
 
             if (members.length > 1) {
                 const seen = new Map();
@@ -1334,8 +1389,8 @@ function removeDuplicateEnumMembers({ ast, diagnostic, sourceText }) {
                     const fixDetail = createFeatherFixDetail(diagnostic, {
                         target: name,
                         range: {
-                            start: getNodeStartIndex(member),
-                            end: getNodeEndIndex(member)
+                            start: Core.getNodeStartIndex(member),
+                            end: Core.getNodeEndIndex(member)
                         }
                     });
 
@@ -1368,7 +1423,11 @@ function removeDuplicateEnumMembers({ ast, diagnostic, sourceText }) {
     // ranges for GM1033 fixes expected by tests. Reuse the dedicated
     // duplicate-semicolon scanner to produce proper fix details.
     if (fixes.length === 0 && typeof sourceText === "string") {
-        const dupFixes = removeDuplicateSemicolons({ ast, sourceText, diagnostic });
+        const dupFixes = removeDuplicateSemicolons({
+            ast,
+            sourceText,
+            diagnostic
+        });
         if (Array.isArray(dupFixes) && dupFixes.length > 0) {
             fixes.push(...dupFixes);
         }
@@ -1428,8 +1487,8 @@ function removeBreakStatementsWithoutEnclosingLoops({ ast, diagnostic }) {
             const fixDetail = createFeatherFixDetail(diagnostic, {
                 target: "break",
                 range: {
-                    start: getNodeStartIndex(node),
-                    end: getNodeEndIndex(node)
+                    start: Core.getNodeStartIndex(node),
+                    end: Core.getNodeEndIndex(node)
                 }
             });
 
@@ -1499,7 +1558,7 @@ function isBreakableConstruct(node) {
 function buildFeatherFixImplementations(diagnostics) {
     const registry = new Map();
 
-    for (const diagnostic of asArray(diagnostics)) {
+    for (const diagnostic of Core.asArray(diagnostics)) {
         const diagnosticId = diagnostic?.id;
 
         if (!diagnosticId) {
@@ -1948,7 +2007,7 @@ function registerManualOnlyFeatherFix({ registry, diagnostic }) {
 }
 
 function resolveAutomaticFixes(fixes, context) {
-    if (isNonEmptyArray(fixes)) {
+    if (Core.isNonEmptyArray(fixes)) {
         return fixes;
     }
 
@@ -2072,7 +2131,7 @@ function recordVariableDeclaration(registry, context) {
         return;
     }
 
-    const declarations = asArray(declaration?.declarations);
+    const declarations = Core.asArray(declaration?.declarations);
 
     if (declarations.length !== 1) {
         return;
@@ -2094,7 +2153,7 @@ function recordVariableDeclaration(registry, context) {
         return;
     }
 
-    const startIndex = getNodeStartIndex(declaration);
+    const startIndex = Core.getNodeStartIndex(declaration);
     const entry = {
         declaration,
         declarator,
@@ -2149,11 +2208,11 @@ function convertIdentifierReference({
     }
 
     const candidates = variableDeclarations.get(identifier.name);
-    const hasCandidates = isNonEmptyArray(candidates);
+    const hasCandidates = Core.isNonEmptyArray(candidates);
 
-    const withBodies = asArray(context?.withBodies);
-    const identifierStart = getNodeStartIndex(identifier);
-    const identifierEnd = getNodeEndIndex(identifier);
+    const withBodies = Core.asArray(context?.withBodies);
+    const identifierStart = Core.getNodeStartIndex(identifier);
+    const identifierEnd = Core.getNodeEndIndex(identifier);
 
     let matchedContext = null;
     let sawUnpromotableCandidate = false;
@@ -2302,16 +2361,16 @@ function promoteVariableDeclaration(context, diagnostic, fixes) {
         operator: "=",
         left: cloneIdentifier(declarator.id),
         right: declarator.init,
-        start: cloneLocation(declaration.start),
-        end: cloneLocation(declaration.end)
+        start: Core.cloneLocation(declaration.start),
+        end: Core.cloneLocation(declaration.end)
     };
 
     copyCommentMetadata(declaration, assignment);
 
     context.parent[context.property] = assignment;
 
-    const startIndex = getNodeStartIndex(declaration);
-    const endIndex = getNodeEndIndex(declaration);
+    const startIndex = Core.getNodeStartIndex(declaration);
+    const endIndex = Core.getNodeEndIndex(declaration);
     const range =
         typeof startIndex === "number" && typeof endIndex === "number"
             ? { start: startIndex, end: endIndex }
@@ -2439,7 +2498,7 @@ function createAutomaticFeatherFixHandlers() {
                     }
                 );
 
-                if (isNonEmptyArray(attributeFixes)) {
+                if (Core.isNonEmptyArray(attributeFixes)) {
                     fixes.push(...attributeFixes);
                 }
 
@@ -2449,7 +2508,7 @@ function createAutomaticFeatherFixHandlers() {
                     sourceText
                 });
 
-                if (isNonEmptyArray(roomFixes)) {
+                if (Core.isNonEmptyArray(roomFixes)) {
                     fixes.push(...roomFixes);
                 }
 
@@ -2779,12 +2838,12 @@ function convertLengthAccess(node, parent, property, diagnostic) {
         arguments: [argumentExpression]
     };
 
-    if (hasOwn(node, "start")) {
-        callExpression.start = cloneLocation(node.start);
+    if (Core.hasOwn(node, "start")) {
+        callExpression.start = Core.cloneLocation(node.start);
     }
 
-    if (hasOwn(node, "end")) {
-        callExpression.end = cloneLocation(node.end);
+    if (Core.hasOwn(node, "end")) {
+        callExpression.end = Core.cloneLocation(node.end);
     }
 
     copyCommentMetadata(node, callExpression);
@@ -2792,8 +2851,8 @@ function convertLengthAccess(node, parent, property, diagnostic) {
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: propertyIdentifier?.name ?? null,
         range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
+            start: Core.getNodeStartIndex(node),
+            end: Core.getNodeEndIndex(node)
         }
     });
 
@@ -2820,7 +2879,7 @@ function isStringReturningExpression(node) {
     }
 
     if (node.type === "CallExpression") {
-        const calleeName = getCallExpressionIdentifierName(node);
+        const calleeName = Core.getCallExpressionIdentifierName(node);
         if (!calleeName) {
             return false;
         }
@@ -2865,7 +2924,7 @@ function convertAssetArgumentStringsToIdentifiers({ ast, diagnostic }) {
         }
 
         if (node.type === "CallExpression") {
-            const calleeName = getCallExpressionIdentifierName(node);
+            const calleeName = Core.getCallExpressionIdentifierName(node);
 
             if (calleeName && GM1041_CALL_ARGUMENT_TARGETS.has(calleeName)) {
                 const argumentIndexes =
@@ -2940,8 +2999,8 @@ function convertStringLiteralArgumentToIdentifier({
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: identifierName,
         range: {
-            start: getNodeStartIndex(argument),
-            end: getNodeEndIndex(argument)
+            start: Core.getNodeStartIndex(argument),
+            end: Core.getNodeEndIndex(argument)
         }
     });
 
@@ -2956,17 +3015,17 @@ function convertStringLiteralArgumentToIdentifier({
 }
 
 function buildFeatherTypeSystemInfo() {
-    const metadata = getFeatherMetadata();
+    const metadata = Core.getFeatherMetadata();
     const typeSystem = metadata?.typeSystem;
 
     const baseTypes = new Set();
     const baseTypesLowercase = new Set();
     const specifierBaseTypes = new Set();
 
-    const entries = asArray(typeSystem?.baseTypes);
+    const entries = Core.asArray(typeSystem?.baseTypes);
 
     for (const entry of entries) {
-        const name = toTrimmedString(entry?.name);
+        const name = Core.toTrimmedString(entry?.name);
 
         if (!name) {
             continue;
@@ -2975,7 +3034,7 @@ function buildFeatherTypeSystemInfo() {
         baseTypes.add(name);
         baseTypesLowercase.add(name.toLowerCase());
 
-        const specifierExamples = asArray(entry?.specifierExamples);
+        const specifierExamples = Core.asArray(entry?.specifierExamples);
         const hasDotSpecifier = specifierExamples.some((example) => {
             if (typeof example !== "string") {
                 return false;
@@ -3064,14 +3123,14 @@ function sanitizeEnumMember(node, diagnostic) {
         return null;
     }
 
-    const originalEnd = getNodeEndIndex(node);
-    const startIndex = getNodeStartIndex(node);
+    const originalEnd = Core.getNodeEndIndex(node);
+    const startIndex = Core.getNodeStartIndex(node);
 
     node._featherOriginalInitializer = initializer ?? null;
     node.initializer = null;
 
-    if (hasOwn(node.name ?? {}, "end")) {
-        node.end = cloneLocation(node.name.end);
+    if (Core.hasOwn(node.name ?? {}, "end")) {
+        node.end = Core.cloneLocation(node.name.end);
     }
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
@@ -3194,7 +3253,7 @@ function splitGlobalVarInlineInitializers({ ast, diagnostic }) {
                 diagnostic
             });
 
-            if (isNonEmptyArray(fixDetails)) {
+            if (Core.isNonEmptyArray(fixDetails)) {
                 fixes.push(...fixDetails);
             }
 
@@ -3303,18 +3362,18 @@ function createAssignmentFromGlobalVarDeclarator({
         right: initializer
     };
 
-    if (hasOwn(declarator, "start")) {
-        assignment.start = cloneLocation(declarator.start);
-    } else if (hasOwn(statement, "start")) {
-        assignment.start = cloneLocation(statement.start);
+    if (Core.hasOwn(declarator, "start")) {
+        assignment.start = Core.cloneLocation(declarator.start);
+    } else if (Core.hasOwn(statement, "start")) {
+        assignment.start = Core.cloneLocation(statement.start);
     }
 
-    if (hasOwn(initializer, "end")) {
-        assignment.end = cloneLocation(initializer.end);
-    } else if (hasOwn(declarator, "end")) {
-        assignment.end = cloneLocation(declarator.end);
-    } else if (hasOwn(statement, "end")) {
-        assignment.end = cloneLocation(statement.end);
+    if (Core.hasOwn(initializer, "end")) {
+        assignment.end = Core.cloneLocation(initializer.end);
+    } else if (Core.hasOwn(declarator, "end")) {
+        assignment.end = Core.cloneLocation(declarator.end);
+    } else if (Core.hasOwn(statement, "end")) {
+        assignment.end = Core.cloneLocation(statement.end);
     }
 
     copyCommentMetadata(declarator, assignment);
@@ -3323,8 +3382,8 @@ function createAssignmentFromGlobalVarDeclarator({
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: identifier?.name ?? null,
         range: {
-            start: getNodeStartIndex(declarator),
-            end: getNodeEndIndex(declarator)
+            start: Core.getNodeStartIndex(declarator),
+            end: Core.getNodeEndIndex(declarator)
         }
     });
 
@@ -3345,9 +3404,9 @@ function clearGlobalVarDeclaratorInitializer(declarator) {
     if (
         declarator.id &&
         typeof declarator.id === "object" &&
-        hasOwn(declarator.id, "end")
+        Core.hasOwn(declarator.id, "end")
     ) {
-        declarator.end = cloneLocation(declarator.id.end);
+        declarator.end = Core.cloneLocation(declarator.id.end);
     }
 }
 
@@ -3530,8 +3589,8 @@ function flagInvalidAssignmentTarget(node, diagnostic, sourceText) {
         return null;
     }
 
-    const startIndex = getNodeStartIndex(left);
-    const endIndex = getNodeEndIndex(left);
+    const startIndex = Core.getNodeStartIndex(left);
+    const endIndex = Core.getNodeEndIndex(left);
 
     const range =
         typeof startIndex === "number" && typeof endIndex === "number"
@@ -3694,16 +3753,16 @@ function convertReadOnlyAssignment(
         type: "VariableDeclarator",
         id: replacementIdentifier,
         init: node.right,
-        start: cloneLocation(node.start),
-        end: cloneLocation(node.end)
+        start: Core.cloneLocation(node.start),
+        end: Core.cloneLocation(node.end)
     };
 
     const declaration = {
         type: "VariableDeclaration",
         declarations: [declarator],
         kind: "var",
-        start: cloneLocation(node.start),
-        end: cloneLocation(node.end)
+        start: Core.cloneLocation(node.start),
+        end: Core.cloneLocation(node.end)
     };
 
     copyCommentMetadata(node, declaration);
@@ -3713,8 +3772,8 @@ function convertReadOnlyAssignment(
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: identifier.name ?? null,
         range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
+            start: Core.getNodeStartIndex(node),
+            end: Core.getNodeEndIndex(node)
         }
     });
 
@@ -3958,8 +4017,8 @@ function normalizeFileAttributeAddition(node, diagnostic) {
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: originalOperator ?? null,
         range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
+            start: Core.getNodeStartIndex(node),
+            end: Core.getNodeEndIndex(node)
         }
     });
 
@@ -4080,7 +4139,10 @@ function rewriteRoomNavigationBinaryExpression({
 
     const { direction, baseIdentifier } = navigation;
     const { binary: replacementName } = getRoomNavigationHelpers(direction);
-    const calleeIdentifier = Core.createIdentifierNode(replacementName, baseIdentifier);
+    const calleeIdentifier = Core.createIdentifierNode(
+        replacementName,
+        baseIdentifier
+    );
     const argumentIdentifier = cloneIdentifier(baseIdentifier);
 
     if (!calleeIdentifier || !argumentIdentifier) {
@@ -4097,8 +4159,8 @@ function rewriteRoomNavigationBinaryExpression({
 
     copyCommentMetadata(node, callExpression);
 
-    const startIndex = getNodeStartIndex(node);
-    const endIndex = getNodeEndIndex(node);
+    const startIndex = Core.getNodeStartIndex(node);
+    const endIndex = Core.getNodeEndIndex(node);
     const range =
         typeof startIndex === "number" && typeof endIndex === "number"
             ? { start: startIndex, end: endIndex }
@@ -4160,8 +4222,8 @@ function rewriteRoomGotoCall({ node, diagnostic, sourceText }) {
         navigation.direction
     );
 
-    const startIndex = getNodeStartIndex(node);
-    const endIndex = getNodeEndIndex(node);
+    const startIndex = Core.getNodeStartIndex(node);
+    const endIndex = Core.getNodeEndIndex(node);
     const range =
         typeof startIndex === "number" && typeof endIndex === "number"
             ? { start: startIndex, end: endIndex }
@@ -4187,7 +4249,10 @@ function rewriteRoomGotoCall({ node, diagnostic, sourceText }) {
 
     fixDetail.replacement = replacementName;
 
-    const updatedCallee = Core.createIdentifierNode(replacementName, node.object);
+    const updatedCallee = Core.createIdentifierNode(
+        replacementName,
+        node.object
+    );
 
     if (!updatedCallee) {
         return null;
@@ -4380,8 +4445,8 @@ function normalizeDivisionBinaryExpression(node, diagnostic) {
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: literal?.value ?? null,
         range: {
-            start: getNodeStartIndex(literal),
-            end: getNodeEndIndex(literal)
+            start: Core.getNodeStartIndex(literal),
+            end: Core.getNodeEndIndex(literal)
         }
     });
 
@@ -4425,8 +4490,8 @@ function normalizeDivisionAssignmentExpression(node, diagnostic) {
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: literal?.value ?? null,
         range: {
-            start: getNodeStartIndex(literal),
-            end: getNodeEndIndex(literal)
+            start: Core.getNodeStartIndex(literal),
+            end: Core.getNodeEndIndex(literal)
         }
     });
 
@@ -4563,7 +4628,7 @@ function normalizeArgumentBuiltinReferences({ ast, diagnostic, sourceText }) {
                 documentedParamNames
             );
 
-            if (isNonEmptyArray(functionFixes)) {
+            if (Core.isNonEmptyArray(functionFixes)) {
                 fixes.push(...functionFixes);
             }
 
@@ -4632,7 +4697,7 @@ function fixArgumentReferencesWithinFunction(
                 documentedParamNames
             );
 
-            if (isNonEmptyArray(nestedFixes)) {
+            if (Core.isNonEmptyArray(nestedFixes)) {
                 fixes.push(...nestedFixes);
             }
 
@@ -4684,8 +4749,8 @@ function fixArgumentReferencesWithinFunction(
         const fixDetail = createFeatherFixDetail(diagnostic, {
             target: newName,
             range: {
-                start: getNodeStartIndex(reference.node),
-                end: getNodeEndIndex(reference.node)
+                start: Core.getNodeStartIndex(reference.node),
+                end: Core.getNodeEndIndex(reference.node)
             }
         });
 
@@ -4758,8 +4823,8 @@ function fixArgumentReferencesWithinFunction(
                     continue;
                 }
 
-                const aliasStart = getNodeStartIndex(alias.declarator);
-                const referenceStart = getNodeStartIndex(reference.node);
+                const aliasStart = Core.getNodeStartIndex(alias.declarator);
+                const referenceStart = Core.getNodeStartIndex(reference.node);
 
                 if (
                     typeof aliasStart === "number" &&
@@ -4772,8 +4837,8 @@ function fixArgumentReferencesWithinFunction(
                 const aliasFixDetail = createFeatherFixDetail(diagnostic, {
                     target: alias.name,
                     range: {
-                        start: getNodeStartIndex(reference.node),
-                        end: getNodeEndIndex(reference.node)
+                        start: Core.getNodeStartIndex(reference.node),
+                        end: Core.getNodeEndIndex(reference.node)
                     }
                 });
 
@@ -4825,11 +4890,11 @@ function extractDocumentedParamNames(functionNode, docComments, sourceText) {
         return documentedNames;
     }
 
-    if (!isNonEmptyArray(docComments)) {
+    if (!Core.isNonEmptyArray(docComments)) {
         return documentedNames;
     }
 
-    const functionStart = getNodeStartIndex(functionNode);
+    const functionStart = Core.getNodeStartIndex(functionNode);
 
     if (typeof functionStart !== "number") {
         return documentedNames;
@@ -4983,7 +5048,7 @@ function normalizeDocParamNameForComparison(name) {
 }
 
 function createArgumentIndexMapping(indices) {
-    if (!isNonEmptyArray(indices)) {
+    if (!Core.isNonEmptyArray(indices)) {
         return null;
     }
 
@@ -5094,8 +5159,8 @@ function removeDuplicateMacroDeclarations({ ast, diagnostic }) {
             const fixDetail = createFeatherFixDetail(diagnostic, {
                 target: macroName,
                 range: {
-                    start: getNodeStartIndex(node),
-                    end: getNodeEndIndex(node)
+                    start: Core.getNodeStartIndex(node),
+                    end: Core.getNodeEndIndex(node)
                 }
             });
 
@@ -5224,8 +5289,8 @@ function replaceDeprecatedIdentifier(
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: replacementEntry.deprecated ?? originalName,
         range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
+            start: Core.getNodeStartIndex(node),
+            end: Core.getNodeEndIndex(node)
         }
     });
 
@@ -5468,7 +5533,10 @@ function rewritePostfixStatement(node, parent, property, diagnostic) {
     }
 
     const initializer = cloneAstNode(argument);
-    const declarationIdentifier = Core.createIdentifierNode(temporaryName, argument);
+    const declarationIdentifier = Core.createIdentifierNode(
+        temporaryName,
+        argument
+    );
 
     if (!initializer || !declarationIdentifier) {
         return null;
@@ -5480,12 +5548,12 @@ function rewritePostfixStatement(node, parent, property, diagnostic) {
         init: initializer
     };
 
-    if (hasOwn(argument, "start")) {
-        declarator.start = cloneLocation(argument.start);
+    if (Core.hasOwn(argument, "start")) {
+        declarator.start = Core.cloneLocation(argument.start);
     }
 
-    if (hasOwn(argument, "end")) {
-        declarator.end = cloneLocation(argument.end);
+    if (Core.hasOwn(argument, "end")) {
+        declarator.end = Core.cloneLocation(argument.end);
     }
 
     const variableDeclaration = {
@@ -5494,15 +5562,18 @@ function rewritePostfixStatement(node, parent, property, diagnostic) {
         kind: "var"
     };
 
-    if (hasOwn(node, "start")) {
-        variableDeclaration.start = cloneLocation(node.start);
+    if (Core.hasOwn(node, "start")) {
+        variableDeclaration.start = Core.cloneLocation(node.start);
     }
 
-    if (hasOwn(node, "end")) {
-        variableDeclaration.end = cloneLocation(node.end);
+    if (Core.hasOwn(node, "end")) {
+        variableDeclaration.end = Core.cloneLocation(node.end);
     }
 
-    const temporaryIdentifier = Core.createIdentifierNode(temporaryName, argument);
+    const temporaryIdentifier = Core.createIdentifierNode(
+        temporaryName,
+        argument
+    );
 
     if (!temporaryIdentifier) {
         return null;
@@ -5515,12 +5586,12 @@ function rewritePostfixStatement(node, parent, property, diagnostic) {
         argument: temporaryIdentifier
     };
 
-    if (hasOwn(node, "start")) {
-        rewrittenStatement.start = cloneLocation(node.start);
+    if (Core.hasOwn(node, "start")) {
+        rewrittenStatement.start = Core.cloneLocation(node.start);
     }
 
-    if (hasOwn(node, "end")) {
-        rewrittenStatement.end = cloneLocation(node.end);
+    if (Core.hasOwn(node, "end")) {
+        rewrittenStatement.end = Core.cloneLocation(node.end);
     }
 
     copyCommentMetadata(node, variableDeclaration);
@@ -5529,8 +5600,8 @@ function rewritePostfixStatement(node, parent, property, diagnostic) {
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: getIdentifierName(argument),
         range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
+            start: Core.getNodeStartIndex(node),
+            end: Core.getNodeEndIndex(node)
         }
     });
 
@@ -5642,8 +5713,8 @@ function convertMultidimensionalMemberIndex(
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: getMemberExpressionRootIdentifier(node) ?? null,
         range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
+            start: Core.getNodeStartIndex(node),
+            end: Core.getNodeEndIndex(node)
         }
     });
 
@@ -5665,7 +5736,7 @@ function convertMultidimensionalMemberIndex(
 }
 
 function buildNestedMemberIndexExpression({ object, indices, template }) {
-    if (!object || !isNonEmptyArray(indices)) {
+    if (!object || !Core.isNonEmptyArray(indices)) {
         return null;
     }
 
@@ -5679,12 +5750,12 @@ function buildNestedMemberIndexExpression({ object, indices, template }) {
         accessor
     };
 
-    if (Object.hasOwn(template, "start")) {
-        current.start = cloneLocation(template.start);
+    if (Object.Core.hasOwn(template, "start")) {
+        current.start = Core.cloneLocation(template.start);
     }
 
-    if (remaining.length === 0 && Object.hasOwn(template, "end")) {
-        current.end = cloneLocation(template.end);
+    if (remaining.length === 0 && Object.Core.hasOwn(template, "end")) {
+        current.end = Core.cloneLocation(template.end);
     }
 
     for (let index = 0; index < remaining.length; index += 1) {
@@ -5697,12 +5768,12 @@ function buildNestedMemberIndexExpression({ object, indices, template }) {
             accessor
         };
 
-        if (Object.hasOwn(template, "start")) {
-            next.start = cloneLocation(template.start);
+        if (Object.Core.hasOwn(template, "start")) {
+            next.start = Core.cloneLocation(template.start);
         }
 
-        if (index === remaining.length - 1 && Object.hasOwn(template, "end")) {
-            next.end = cloneLocation(template.end);
+        if (index === remaining.length - 1 && Object.Core.hasOwn(template, "end")) {
+            next.end = Core.cloneLocation(template.end);
         }
 
         current = next;
@@ -5771,7 +5842,7 @@ function removeDuplicateSemicolons({ ast, sourceText, diagnostic }) {
     };
 
     const processStatementList = (container, statements) => {
-        if (!isNonEmptyArray(statements)) {
+        if (!Core.isNonEmptyArray(statements)) {
             return;
         }
 
@@ -5780,8 +5851,8 @@ function removeDuplicateSemicolons({ ast, sourceText, diagnostic }) {
         let previousEnd = bounds.start;
 
         for (const statement of statements) {
-            const statementStart = getNodeStartIndex(statement);
-            const statementEnd = getNodeEndIndex(statement);
+            const statementStart = Core.getNodeStartIndex(statement);
+            const statementEnd = Core.getNodeEndIndex(statement);
 
             if (
                 typeof previousEnd === "number" &&
@@ -5817,7 +5888,7 @@ function removeDuplicateSemicolons({ ast, sourceText, diagnostic }) {
             return;
         }
 
-        if (isNonEmptyArray(node.body)) {
+        if (Core.isNonEmptyArray(node.body)) {
             processStatementList(node, node.body);
         }
 
@@ -5838,8 +5909,8 @@ function getStatementListBounds(node, sourceText) {
         return { start: null, end: null };
     }
 
-    let start = getNodeStartIndex(node);
-    let end = getNodeEndIndex(node);
+    let start = Core.getNodeStartIndex(node);
+    let end = Core.getNodeEndIndex(node);
 
     switch (node.type) {
         case "Program": {
@@ -5878,7 +5949,7 @@ function getStatementListBounds(node, sourceText) {
         // Omit a default case because this switch only adjusts the start/end
         // boundaries for specific node types (Program, BlockStatement,
         // SwitchCase). All other AST nodes retain their original indices from
-        // getNodeStartIndex/getNodeEndIndex, which are initialized above the
+        // Core.getNodeStartIndex/Core.getNodeEndIndex, which are initialized above the
         // switch. Adding a redundant default branch would obscure the
         // intentional pass-through for the majority of statement containers.
     }
@@ -6028,7 +6099,7 @@ function normalizeObviousSyntaxErrors({ ast, diagnostic, metadata }) {
         return [];
     }
 
-    const gm1100Entries = asArray(metadata?.GM1100);
+    const gm1100Entries = Core.asArray(metadata?.GM1100);
 
     if (gm1100Entries.length === 0) {
         return [];
@@ -6069,8 +6140,8 @@ function normalizeObviousSyntaxErrors({ ast, diagnostic, metadata }) {
         const fixDetail = createFeatherFixDetail(diagnostic, {
             target: entry?.identifier ?? null,
             range: {
-                start: getNodeStartIndex(node),
-                end: getNodeEndIndex(node)
+                start: Core.getNodeStartIndex(node),
+                end: Core.getNodeEndIndex(node)
             }
         });
 
@@ -6239,8 +6310,8 @@ function removeBooleanLiteralStatements({ ast, diagnostic, metadata }) {
         const fixDetail = createFeatherFixDetail(diagnostic, {
             target: null,
             range: {
-                start: getNodeStartIndex(node),
-                end: getNodeEndIndex(node)
+                start: Core.getNodeStartIndex(node),
+                end: Core.getNodeEndIndex(node)
             }
         });
 
@@ -6296,8 +6367,8 @@ function replaceDeprecatedConstantReferences({ ast, diagnostic }) {
         }
 
         if (node.type === "Identifier" && node.name === deprecatedConstant) {
-            const start = getNodeStartIndex(node);
-            const end = getNodeEndIndex(node);
+            const start = Core.getNodeStartIndex(node);
+            const end = Core.getNodeEndIndex(node);
 
             const fixDetail = createFeatherFixDetail(diagnostic, {
                 target: replacementConstant,
@@ -6511,8 +6582,8 @@ function findInnermostBlockForRange(ast, startIndex, endIndex) {
             return;
         }
 
-        const nodeStart = getNodeStartIndex(node);
-        const nodeEnd = getNodeEndIndex(node);
+        const nodeStart = Core.getNodeStartIndex(node);
+        const nodeEnd = Core.getNodeEndIndex(node);
 
         if (
             typeof nodeStart !== "number" ||
@@ -6525,8 +6596,8 @@ function findInnermostBlockForRange(ast, startIndex, endIndex) {
 
         if (node.type === "BlockStatement") {
             if (bestMatch) {
-                const bestStart = getNodeStartIndex(bestMatch);
-                const bestEnd = getNodeEndIndex(bestMatch);
+                const bestStart = Core.getNodeStartIndex(bestMatch);
+                const bestEnd = Core.getNodeEndIndex(bestMatch);
 
                 if (
                     typeof bestStart === "number" &&
@@ -6611,8 +6682,8 @@ function sanitizeMacroDeclaration(node, sourceText, diagnostic) {
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: node.name?.name ?? null,
         range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
+            start: Core.getNodeStartIndex(node),
+            end: Core.getNodeEndIndex(node)
         }
     });
 
@@ -6702,8 +6773,8 @@ function ensureVarDeclarationIsTerminated(node, ast, sourceText, diagnostic) {
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target,
         range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
+            start: Core.getNodeStartIndex(node),
+            end: Core.getNodeEndIndex(node)
         }
     });
 
@@ -6759,7 +6830,7 @@ function variableDeclarationHasTerminatingSemicolon(node, sourceText) {
         return true;
     }
 
-    const searchStart = getNodeEndIndex(node);
+    const searchStart = Core.getNodeEndIndex(node);
 
     if (typeof searchStart !== "number") {
         return true;
@@ -6858,7 +6929,7 @@ function preserveTrailingCommentAlignmentForVarDeclaration({
 }
 
 function findLineCommentStartIndexAfterDeclaration(declaration, sourceText) {
-    const endIndex = getNodeEndIndex(declaration);
+    const endIndex = Core.getNodeEndIndex(declaration);
 
     if (typeof endIndex !== "number") {
         return null;
@@ -6908,7 +6979,7 @@ function findLineCommentStartingAt(ast, startIndex) {
             continue;
         }
 
-        const commentStartIndex = getNodeStartIndex(comment);
+        const commentStartIndex = Core.getNodeStartIndex(comment);
 
         if (typeof commentStartIndex !== "number") {
             continue;
@@ -7029,14 +7100,14 @@ function recordDeprecatedCallMetadata(node, deprecatedFunctions, diagnostic) {
         return null;
     }
 
-    const functionName = getCallExpressionIdentifierName(node);
+    const functionName = Core.getCallExpressionIdentifierName(node);
 
     if (!functionName || !deprecatedFunctions.has(functionName)) {
         return null;
     }
 
-    const startIndex = getNodeStartIndex(node);
-    const endIndex = getNodeEndIndex(node);
+    const startIndex = Core.getNodeStartIndex(node);
+    const endIndex = Core.getNodeEndIndex(node);
 
     if (typeof startIndex !== "number" || typeof endIndex !== "number") {
         return null;
@@ -7061,7 +7132,7 @@ function collectDeprecatedFunctionNames(ast, sourceText, docCommentTraversal) {
 
     const body = getBodyStatements(ast);
 
-    if (!isNonEmptyArray(body)) {
+    if (!Core.isNonEmptyArray(body)) {
         return names;
     }
 
@@ -7086,7 +7157,7 @@ function collectDeprecatedFunctionNames(ast, sourceText, docCommentTraversal) {
             return;
         }
 
-        const startIndex = getNodeStartIndex(node);
+        const startIndex = Core.getNodeStartIndex(node);
 
         if (typeof startIndex !== "number") {
             return;
@@ -7114,7 +7185,7 @@ function collectDeprecatedFunctionNames(ast, sourceText, docCommentTraversal) {
 }
 
 function findDeprecatedDocComment(docComments, functionStart, sourceText) {
-    if (!isNonEmptyArray(docComments)) {
+    if (!Core.isNonEmptyArray(docComments)) {
         return null;
     }
 
@@ -7246,8 +7317,8 @@ function convertNumericStringLiteral(argument, diagnostic) {
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: numericText,
         range: {
-            start: getNodeStartIndex(literal),
-            end: getNodeEndIndex(literal)
+            start: Core.getNodeStartIndex(literal),
+            end: Core.getNodeEndIndex(literal)
         }
     });
 
@@ -7382,8 +7453,8 @@ function convertFunctionDeclarationToConstructor(functionNode, diagnostic) {
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: typeof functionNode.id === "string" ? functionNode.id : null,
         range: {
-            start: getNodeStartIndex(functionNode),
-            end: getNodeEndIndex(functionNode)
+            start: Core.getNodeStartIndex(functionNode),
+            end: Core.getNodeEndIndex(functionNode)
         }
     });
 
@@ -7393,7 +7464,7 @@ function convertFunctionDeclarationToConstructor(functionNode, diagnostic) {
 
     functionNode.type = "ConstructorDeclaration";
 
-    if (!Object.hasOwn(functionNode, "parent")) {
+    if (!Object.Core.hasOwn(functionNode, "parent")) {
         functionNode.parent = null;
     }
 
@@ -7415,7 +7486,7 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
 
         if (Array.isArray(initialNames)) {
             for (const name of initialNames) {
-                if (isNonEmptyString(name)) {
+                if (Core.isNonEmptyString(name)) {
                     scope.set(name, true);
                 }
             }
@@ -7429,7 +7500,7 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
     };
 
     const declareLocal = (name) => {
-        if (!isNonEmptyString(name)) {
+        if (!Core.isNonEmptyString(name)) {
             return true;
         }
 
@@ -7499,8 +7570,8 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
             const fixDetail = createFeatherFixDetail(diagnostic, {
                 target: name,
                 range: {
-                    start: getNodeStartIndex(declarator),
-                    end: getNodeEndIndex(declarator)
+                    start: Core.getNodeStartIndex(declarator),
+                    end: Core.getNodeEndIndex(declarator)
                 }
             });
 
@@ -7584,7 +7655,7 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
                 property
             );
 
-            if (isNonEmptyArray(fixDetails)) {
+            if (Core.isNonEmptyArray(fixDetails)) {
                 fixes.push(...fixDetails);
             }
         }
@@ -7653,7 +7724,7 @@ function renameDuplicateFunctionParameters({ ast, diagnostic, options }) {
                 diagnostic,
                 options
             );
-            if (isNonEmptyArray(functionFixes)) {
+            if (Core.isNonEmptyArray(functionFixes)) {
                 fixes.push(...functionFixes);
             }
         }
@@ -7703,8 +7774,8 @@ function renameDuplicateParametersInFunction(functionNode, diagnostic) {
         }
 
         const range = {
-            start: getNodeStartIndex(identifier),
-            end: getNodeEndIndex(identifier)
+            start: Core.getNodeStartIndex(identifier),
+            end: Core.getNodeEndIndex(identifier)
         };
 
         const fixDetail = createFeatherFixDetail(diagnostic, {
@@ -7819,8 +7890,8 @@ function convertDeleteStatementToUndefinedAssignment(
         operator: "=",
         left: node.argument,
         right: createLiteral("undefined"),
-        start: cloneLocation(node.start),
-        end: cloneLocation(node.end)
+        start: Core.cloneLocation(node.start),
+        end: Core.cloneLocation(node.end)
     };
 
     copyCommentMetadata(node, assignment);
@@ -7829,7 +7900,10 @@ function convertDeleteStatementToUndefinedAssignment(
     // possible so downstream printers and tests can observe a concrete
     // position. Use the shared helper to defensively copy start/end.
     try {
-        if (assignment.right && typeof Core.assignClonedLocation === "function") {
+        if (
+            assignment.right &&
+            typeof Core.assignClonedLocation === "function"
+        ) {
             Core.assignClonedLocation(assignment.right, node.argument || node);
         }
     } catch {
@@ -7839,8 +7913,8 @@ function convertDeleteStatementToUndefinedAssignment(
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: targetName,
         range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
+            start: Core.getNodeStartIndex(node),
+            end: Core.getNodeEndIndex(node)
         }
     });
 
@@ -7926,7 +8000,7 @@ function closeOpenVertexBatches({ ast, diagnostic }) {
                     diagnostic
                 );
 
-                if (isNonEmptyArray(statementFixes)) {
+                if (Core.isNonEmptyArray(statementFixes)) {
                     fixes.push(...statementFixes);
                 }
             }
@@ -7954,7 +8028,7 @@ function closeOpenVertexBatches({ ast, diagnostic }) {
 }
 
 function ensureVertexBatchesClosed(statements, diagnostic) {
-    if (!diagnostic || !isNonEmptyArray(statements)) {
+    if (!diagnostic || !Core.isNonEmptyArray(statements)) {
         return [];
     }
 
@@ -7972,8 +8046,8 @@ function ensureVertexBatchesClosed(statements, diagnostic) {
                 const fixDetail = createFeatherFixDetail(diagnostic, {
                     target: getVertexBatchTarget(lastBeginCall),
                     range: {
-                        start: getNodeStartIndex(lastBeginCall),
-                        end: getNodeEndIndex(lastBeginCall)
+                        start: Core.getNodeStartIndex(lastBeginCall),
+                        end: Core.getNodeEndIndex(lastBeginCall)
                     }
                 });
 
@@ -8050,7 +8124,7 @@ function createVertexEndCallFromBegin(template) {
         arguments: []
     };
 
-    if (isNonEmptyArray(template.arguments)) {
+    if (Core.isNonEmptyArray(template.arguments)) {
         const clonedArgument = cloneAstNode(template.arguments[0]);
 
         if (clonedArgument) {
@@ -8168,13 +8242,13 @@ function convertAssignmentToLocalVariable({
         return null;
     }
 
-    if (!isNonEmptyArray(eventMarkers)) {
+    if (!Core.isNonEmptyArray(eventMarkers)) {
         return null;
     }
 
     const eventMarker = findEventMarkerForIndex(
         eventMarkers,
-        getNodeStartIndex(node)
+        Core.getNodeStartIndex(node)
     );
 
     if (!eventMarker || isCreateEventMarker(eventMarker)) {
@@ -8187,7 +8261,7 @@ function convertAssignmentToLocalVariable({
         return null;
     }
 
-    const assignmentStartIndex = getNodeStartIndex(node);
+    const assignmentStartIndex = Core.getNodeStartIndex(node);
 
     if (
         typeof assignmentStartIndex === "number" &&
@@ -8211,16 +8285,16 @@ function convertAssignmentToLocalVariable({
         type: "VariableDeclarator",
         id: clonedIdentifier,
         init: node.right,
-        start: cloneLocation(left?.start ?? node.start),
-        end: cloneLocation(node.end)
+        start: Core.cloneLocation(left?.start ?? node.start),
+        end: Core.cloneLocation(node.end)
     };
 
     const declaration = {
         type: "VariableDeclaration",
         declarations: [declarator],
         kind: "var",
-        start: cloneLocation(node.start),
-        end: cloneLocation(node.end)
+        start: Core.cloneLocation(node.start),
+        end: Core.cloneLocation(node.end)
     };
 
     copyCommentMetadata(node, declaration);
@@ -8228,8 +8302,8 @@ function convertAssignmentToLocalVariable({
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: left?.name ?? null,
         range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
+            start: Core.getNodeStartIndex(node),
+            end: Core.getNodeEndIndex(node)
         }
     });
 
@@ -8322,7 +8396,7 @@ function getCommentIndex(comment) {
 }
 
 function findEventMarkerForIndex(markers, index) {
-    if (!isNonEmptyArray(markers)) {
+    if (!Core.isNonEmptyArray(markers)) {
         return null;
     }
 
@@ -8404,8 +8478,8 @@ function getOriginalIdentifierName(identifier, sourceText) {
         return null;
     }
 
-    const startIndex = getNodeStartIndex(identifier);
-    const endIndex = getNodeEndIndex(identifier);
+    const startIndex = Core.getNodeStartIndex(identifier);
+    const endIndex = Core.getNodeEndIndex(identifier);
 
     if (typeof startIndex !== "number" || typeof endIndex !== "number") {
         return null;
@@ -8511,8 +8585,8 @@ function convertForLoopToRepeat(node, parent, property, diagnostic) {
         type: "RepeatStatement",
         test: transformation.testExpression,
         body: transformation.body,
-        start: cloneLocation(node.start),
-        end: cloneLocation(node.end)
+        start: Core.cloneLocation(node.start),
+        end: Core.cloneLocation(node.end)
     };
 
     copyCommentMetadata(node, repeatStatement);
@@ -8520,8 +8594,8 @@ function convertForLoopToRepeat(node, parent, property, diagnostic) {
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: transformation.indexName ?? null,
         range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
+            start: Core.getNodeStartIndex(node),
+            end: Core.getNodeEndIndex(node)
         }
     });
 
@@ -8943,7 +9017,10 @@ function normalizeCallExpressionArguments({
     }
 
     for (const { declaration, index, identifier } of temporaryDeclarations) {
-        node.arguments[index] = Core.createIdentifierNode(identifier.name, identifier);
+        node.arguments[index] = Core.createIdentifierNode(
+            identifier.name,
+            identifier
+        );
     }
 
     const declarations = temporaryDeclarations.map(
@@ -8993,16 +9070,16 @@ function createTemporaryVariableDeclaration(name, init) {
         type: "VariableDeclarator",
         id,
         init,
-        start: cloneLocation(init.start),
-        end: cloneLocation(init.end)
+        start: Core.cloneLocation(init.start),
+        end: Core.cloneLocation(init.end)
     };
 
     return {
         type: "VariableDeclaration",
         declarations: [declarator],
         kind: "var",
-        start: cloneLocation(init.start),
-        end: cloneLocation(init.end)
+        start: Core.cloneLocation(init.start),
+        end: Core.cloneLocation(init.end)
     };
 }
 
@@ -9122,38 +9199,38 @@ function convertAllAssignment(node, parent, property, diagnostic) {
         operator: node.operator,
         left: cloneIdentifier(propertyIdentifier),
         right: node.right,
-        start: cloneLocation(node.start),
-        end: cloneLocation(node.end)
+        start: Core.cloneLocation(node.start),
+        end: Core.cloneLocation(node.end)
     };
 
     const assignmentStatement = {
         type: "ExpressionStatement",
         expression: normalizedAssignment,
-        start: cloneLocation(node.start),
-        end: cloneLocation(node.end),
+        start: Core.cloneLocation(node.start),
+        end: Core.cloneLocation(node.end),
         _featherSuppressFollowingEmptyLine: true
     };
 
     const blockStatement = {
         type: "BlockStatement",
         body: [assignmentStatement],
-        start: cloneLocation(node.start),
-        end: cloneLocation(node.end)
+        start: Core.cloneLocation(node.start),
+        end: Core.cloneLocation(node.end)
     };
 
     const parenthesizedExpression = {
         type: "ParenthesizedExpression",
         expression: cloneIdentifier(object),
-        start: cloneLocation(object?.start ?? node.start),
-        end: cloneLocation(object?.end ?? node.end)
+        start: Core.cloneLocation(object?.start ?? node.start),
+        end: Core.cloneLocation(object?.end ?? node.end)
     };
 
     const withStatement = {
         type: "WithStatement",
         test: parenthesizedExpression,
         body: blockStatement,
-        start: cloneLocation(node.start),
-        end: cloneLocation(node.end)
+        start: Core.cloneLocation(node.start),
+        end: Core.cloneLocation(node.end)
     };
 
     copyCommentMetadata(node, assignmentStatement);
@@ -9162,8 +9239,8 @@ function convertAllAssignment(node, parent, property, diagnostic) {
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: propertyIdentifier?.name ?? null,
         range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
+            start: Core.getNodeStartIndex(node),
+            end: Core.getNodeEndIndex(node)
         }
     });
 
@@ -9297,31 +9374,31 @@ function convertNullishIfStatement(node, parent, property, diagnostic) {
             right: fallbackExpression
         };
 
-        if (hasOwn(previousRight, "start")) {
-            binaryExpression.start = cloneLocation(previousRight.start);
-        } else if (hasOwn(previousNode, "start")) {
-            binaryExpression.start = cloneLocation(previousNode.start);
+        if (Core.hasOwn(previousRight, "start")) {
+            binaryExpression.start = Core.cloneLocation(previousRight.start);
+        } else if (Core.hasOwn(previousNode, "start")) {
+            binaryExpression.start = Core.cloneLocation(previousNode.start);
         }
 
-        if (hasOwn(fallbackExpression, "end")) {
-            binaryExpression.end = cloneLocation(fallbackExpression.end);
-        } else if (hasOwn(consequentAssignment, "end")) {
-            binaryExpression.end = cloneLocation(consequentAssignment.end);
+        if (Core.hasOwn(fallbackExpression, "end")) {
+            binaryExpression.end = Core.cloneLocation(fallbackExpression.end);
+        } else if (Core.hasOwn(consequentAssignment, "end")) {
+            binaryExpression.end = Core.cloneLocation(consequentAssignment.end);
         }
 
         previousNode.right = binaryExpression;
 
-        if (hasOwn(node, "end")) {
-            previousNode.end = cloneLocation(node.end);
-        } else if (hasOwn(consequentAssignment, "end")) {
-            previousNode.end = cloneLocation(consequentAssignment.end);
+        if (Core.hasOwn(node, "end")) {
+            previousNode.end = Core.cloneLocation(node.end);
+        } else if (Core.hasOwn(consequentAssignment, "end")) {
+            previousNode.end = Core.cloneLocation(consequentAssignment.end);
         }
 
         const fixDetail = createFeatherFixDetail(diagnostic, {
             target: identifierInfo.name,
             range: {
-                start: getNodeStartIndex(previousNode),
-                end: getNodeEndIndex(previousNode)
+                start: Core.getNodeStartIndex(previousNode),
+                end: Core.getNodeEndIndex(previousNode)
             }
         });
 
@@ -9342,23 +9419,23 @@ function convertNullishIfStatement(node, parent, property, diagnostic) {
         right: fallbackExpression
     };
 
-    if (hasOwn(consequentAssignment, "start")) {
-        nullishAssignment.start = cloneLocation(consequentAssignment.start);
-    } else if (hasOwn(node, "start")) {
-        nullishAssignment.start = cloneLocation(node.start);
+    if (Core.hasOwn(consequentAssignment, "start")) {
+        nullishAssignment.start = Core.cloneLocation(consequentAssignment.start);
+    } else if (Core.hasOwn(node, "start")) {
+        nullishAssignment.start = Core.cloneLocation(node.start);
     }
 
-    if (hasOwn(node, "end")) {
-        nullishAssignment.end = cloneLocation(node.end);
-    } else if (hasOwn(consequentAssignment, "end")) {
-        nullishAssignment.end = cloneLocation(consequentAssignment.end);
+    if (Core.hasOwn(node, "end")) {
+        nullishAssignment.end = Core.cloneLocation(node.end);
+    } else if (Core.hasOwn(consequentAssignment, "end")) {
+        nullishAssignment.end = Core.cloneLocation(consequentAssignment.end);
     }
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: identifierInfo.name,
         range: {
-            start: getNodeStartIndex(nullishAssignment),
-            end: getNodeEndIndex(nullishAssignment)
+            start: Core.getNodeStartIndex(nullishAssignment),
+            end: Core.getNodeEndIndex(nullishAssignment)
         }
     });
 
@@ -9759,8 +9836,8 @@ function ensureSurfaceTargetResetAfterCall(node, parent, property, diagnostic) {
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: extractSurfaceTargetName(node),
         range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
+            start: Core.getNodeStartIndex(node),
+            end: Core.getNodeEndIndex(node)
         }
     });
 
@@ -10343,8 +10420,8 @@ function removeRedeclaredGlobalFunctions({ ast, diagnostic }) {
         }
 
         const range = {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
+            start: Core.getNodeStartIndex(node),
+            end: Core.getNodeEndIndex(node)
         };
 
         const fixDetail = createFeatherFixDetail(diagnostic, {
@@ -10504,7 +10581,7 @@ function ensureConstructorParentsExist({ ast, diagnostic }) {
                 const parentName = parentClause.id;
 
                 if (
-                    isNonEmptyString(parentName) &&
+                    Core.isNonEmptyString(parentName) &&
                     !constructors.has(parentName)
                 ) {
                     const fallback = functions.get(parentName);
@@ -10512,7 +10589,7 @@ function ensureConstructorParentsExist({ ast, diagnostic }) {
                     if (fallback && fallback.type === "FunctionDeclaration") {
                         fallback.type = "ConstructorDeclaration";
 
-                        if (!Object.hasOwn(fallback, "parent")) {
+                        if (!Object.Core.hasOwn(fallback, "parent")) {
                             fallback.parent = null;
                         }
 
@@ -10522,8 +10599,8 @@ function ensureConstructorParentsExist({ ast, diagnostic }) {
                         const fixDetail = createFeatherFixDetail(diagnostic, {
                             target: parentName,
                             range: {
-                                start: getNodeStartIndex(fallback),
-                                end: getNodeEndIndex(fallback)
+                                start: Core.getNodeStartIndex(fallback),
+                                end: Core.getNodeEndIndex(fallback)
                             }
                         });
 
@@ -10535,8 +10612,8 @@ function ensureConstructorParentsExist({ ast, diagnostic }) {
                         const fixDetail = createFeatherFixDetail(diagnostic, {
                             target: parentName,
                             range: {
-                                start: getNodeStartIndex(parentClause),
-                                end: getNodeEndIndex(parentClause)
+                                start: Core.getNodeStartIndex(parentClause),
+                                end: Core.getNodeEndIndex(parentClause)
                             }
                         });
 
@@ -10680,8 +10757,8 @@ function ensurePrimitiveBeginBeforeEnd({
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: endCall?.object?.name ?? null,
         range: {
-            start: getNodeStartIndex(endCall),
-            end: getNodeEndIndex(endCall)
+            start: Core.getNodeStartIndex(endCall),
+            end: Core.getNodeEndIndex(endCall)
         }
     });
 
@@ -10696,7 +10773,7 @@ function ensurePrimitiveBeginBeforeEnd({
 }
 
 function hasAncestorDrawPrimitiveBegin({ ancestors, currentStatements }) {
-    if (!isNonEmptyArray(ancestors)) {
+    if (!Core.isNonEmptyArray(ancestors)) {
         return false;
     }
 
@@ -10821,7 +10898,7 @@ function ensurePrimitiveSequenceBalance(
     fixes,
     diagnostic
 ) {
-    if (!isNonEmptyArray(statements)) {
+    if (!Core.isNonEmptyArray(statements)) {
         return;
     }
 
@@ -10908,8 +10985,8 @@ function liftDrawPrimitiveEndCallFromConditional(
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: callNode.object?.name ?? null,
         range: {
-            start: getNodeStartIndex(callNode),
-            end: getNodeEndIndex(callNode)
+            start: Core.getNodeStartIndex(callNode),
+            end: Core.getNodeEndIndex(callNode)
         }
     });
 
@@ -10931,7 +11008,7 @@ function liftDrawPrimitiveEndCallFromConditional(
 }
 
 function removeSyntheticDrawPrimitiveBeginInsertedByGM2028(statements) {
-    if (!isNonEmptyArray(statements)) {
+    if (!Core.isNonEmptyArray(statements)) {
         return false;
     }
 
@@ -11373,7 +11450,7 @@ function removeRedundantSurfaceResetCalls(statements, startIndex) {
             continue;
         }
 
-        const metadata = asArray(candidate?._appliedFeatherDiagnostics);
+        const metadata = Core.asArray(candidate?._appliedFeatherDiagnostics);
 
         const hasGM2005Metadata = metadata.some(
             (entry) => entry?.id === "GM2005"
@@ -11407,7 +11484,7 @@ function ensureDrawVertexCallsAreWrapped({ ast, diagnostic }) {
                 ast
             );
 
-            if (isNonEmptyArray(normalizedFixes)) {
+            if (Core.isNonEmptyArray(normalizedFixes)) {
                 fixes.push(...normalizedFixes);
             }
 
@@ -11435,7 +11512,7 @@ function ensureDrawVertexCallsAreWrapped({ ast, diagnostic }) {
 }
 
 function normalizeDrawVertexStatements(statements, diagnostic, ast) {
-    if (!isNonEmptyArray(statements)) {
+    if (!Core.isNonEmptyArray(statements)) {
         return [];
     }
 
@@ -11485,8 +11562,8 @@ function normalizeDrawVertexStatements(statements, diagnostic, ast) {
             const fixDetail = createFeatherFixDetail(diagnostic, {
                 target: getDrawCallName(vertex),
                 range: {
-                    start: getNodeStartIndex(vertex),
-                    end: getNodeEndIndex(vertex)
+                    start: Core.getNodeStartIndex(vertex),
+                    end: Core.getNodeEndIndex(vertex)
                 }
             });
 
@@ -11548,13 +11625,13 @@ function attachLeadingCommentsToWrappedPrimitive({
 
     const comments = collectCommentNodes(ast);
 
-    if (!isNonEmptyArray(comments)) {
+    if (!Core.isNonEmptyArray(comments)) {
         return;
     }
 
     const firstVertex = vertexStatements[0];
 
-    const firstVertexStart = getNodeStartIndex(firstVertex);
+    const firstVertexStart = Core.getNodeStartIndex(firstVertex);
 
     if (typeof firstVertexStart !== "number") {
         return;
@@ -11566,7 +11643,7 @@ function attachLeadingCommentsToWrappedPrimitive({
     const previousEndIndex =
         precedingStatement === null
             ? null
-            : getNodeEndIndex(precedingStatement);
+            : Core.getNodeEndIndex(precedingStatement);
 
     for (const comment of comments) {
         if (!comment || comment.type !== "CommentLine") {
@@ -11577,8 +11654,8 @@ function attachLeadingCommentsToWrappedPrimitive({
             continue;
         }
 
-        const commentStartIndex = getNodeStartIndex(comment);
-        const commentEndIndex = getNodeEndIndex(comment);
+        const commentStartIndex = Core.getNodeStartIndex(comment);
+        const commentEndIndex = Core.getNodeEndIndex(comment);
 
         if (
             typeof commentStartIndex !== "number" ||
@@ -11910,8 +11987,8 @@ function ensureVertexBeginBeforeVertexEndCall(
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: typeof bufferName === "string" ? bufferName : null,
         range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
+            start: Core.getNodeStartIndex(node),
+            end: Core.getNodeEndIndex(node)
         }
     });
 
@@ -12059,8 +12136,8 @@ function ensureVertexEndInserted(node, parent, property, diagnostic) {
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: bufferName ?? null,
         range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
+            start: Core.getNodeStartIndex(node),
+            end: Core.getNodeEndIndex(node)
         }
     });
 
@@ -12126,8 +12203,8 @@ function hasOnlyWhitespaceBetweenNodes(previous, next, sourceText) {
         return true;
     }
 
-    const previousEnd = getNodeEndIndex(previous);
-    const nextStart = getNodeStartIndex(next);
+    const previousEnd = Core.getNodeEndIndex(previous);
+    const nextStart = Core.getNodeStartIndex(next);
 
     if (
         typeof previousEnd !== "number" ||
@@ -12239,7 +12316,10 @@ function createVertexBeginCall({
 
     const callExpression = {
         type: "CallExpression",
-        object: Core.createIdentifierNode("vertex_begin", referenceCall?.object),
+        object: Core.createIdentifierNode(
+            "vertex_begin",
+            referenceCall?.object
+        ),
         arguments: []
     };
 
@@ -12285,7 +12365,7 @@ function createVertexBeginCall({
         Core.assignClonedLocation(callExpression, template);
     }
 
-    if (!hasOwn(callExpression, "start") || !hasOwn(callExpression, "end")) {
+    if (!Core.hasOwn(callExpression, "start") || !Core.hasOwn(callExpression, "end")) {
         Core.assignClonedLocation(callExpression, referenceCall);
     }
 
@@ -12595,8 +12675,8 @@ function convertPrecedingAssignmentToVariableDeclaration({
         return null;
     }
 
-    const rangeStart = getNodeStartIndex(assignmentNode);
-    const rangeEnd = getNodeEndIndex(declarationNode);
+    const rangeStart = Core.getNodeStartIndex(assignmentNode);
+    const rangeEnd = Core.getNodeEndIndex(declarationNode);
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: variableName,
@@ -12643,12 +12723,12 @@ function createVariableDeclarationFromAssignment(
     };
 
     if (declaratorTemplate && typeof declaratorTemplate === "object") {
-        if (hasOwn(declaratorTemplate, "start")) {
-            declarator.start = cloneLocation(declaratorTemplate.start);
+        if (Core.hasOwn(declaratorTemplate, "start")) {
+            declarator.start = Core.cloneLocation(declaratorTemplate.start);
         }
 
-        if (hasOwn(declaratorTemplate, "end")) {
-            declarator.end = cloneLocation(declaratorTemplate.end);
+        if (Core.hasOwn(declaratorTemplate, "end")) {
+            declarator.end = Core.cloneLocation(declaratorTemplate.end);
         }
     }
 
@@ -12658,12 +12738,12 @@ function createVariableDeclarationFromAssignment(
         declarations: [declarator]
     };
 
-    if (hasOwn(assignmentNode, "start")) {
-        declaration.start = cloneLocation(assignmentNode.start);
+    if (Core.hasOwn(assignmentNode, "start")) {
+        declaration.start = Core.cloneLocation(assignmentNode.start);
     }
 
-    if (hasOwn(assignmentNode, "end")) {
-        declaration.end = cloneLocation(assignmentNode.end);
+    if (Core.hasOwn(assignmentNode, "end")) {
+        declaration.end = Core.cloneLocation(assignmentNode.end);
     }
 
     return declaration;
@@ -12836,7 +12916,7 @@ function referencesIdentifierBeforePosition(node, variableName, beforeIndex) {
                 parent?.type === "VariableDeclarator" && key === "id";
 
             if (!isDeclaratorId) {
-                const referenceIndex = getNodeStartIndex(value);
+                const referenceIndex = Core.getNodeStartIndex(value);
 
                 if (
                     typeof referenceIndex === "number" &&
@@ -12907,11 +12987,11 @@ function hoistVariableDeclarationOutOfBlock({
         return null;
     }
 
-    const rangeStart = getNodeStartIndex(declarationNode);
+    const rangeStart = Core.getNodeStartIndex(declarationNode);
     const owningStatement = statementContainer[statementIndex];
     const precedingStatement =
         statementIndex > 0 ? statementContainer[statementIndex - 1] : null;
-    const rangeEnd = getNodeEndIndex(owningStatement ?? declarationNode);
+    const rangeEnd = Core.getNodeEndIndex(owningStatement ?? declarationNode);
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: variableName,
@@ -12963,12 +13043,12 @@ function createHoistedVariableDeclaration(declaratorTemplate) {
         init: null
     };
 
-    if (hasOwn(declaratorTemplate, "start")) {
-        declarator.start = cloneLocation(declaratorTemplate.start);
+    if (Core.hasOwn(declaratorTemplate, "start")) {
+        declarator.start = Core.cloneLocation(declaratorTemplate.start);
     }
 
-    if (hasOwn(declaratorTemplate, "end")) {
-        declarator.end = cloneLocation(declaratorTemplate.end);
+    if (Core.hasOwn(declaratorTemplate, "end")) {
+        declarator.end = Core.cloneLocation(declaratorTemplate.end);
     }
 
     const declaration = {
@@ -12977,12 +13057,12 @@ function createHoistedVariableDeclaration(declaratorTemplate) {
         declarations: [declarator]
     };
 
-    if (hasOwn(declaratorTemplate, "start")) {
-        declaration.start = cloneLocation(declaratorTemplate.start);
+    if (Core.hasOwn(declaratorTemplate, "start")) {
+        declaration.start = Core.cloneLocation(declaratorTemplate.start);
     }
 
-    if (hasOwn(declaratorTemplate, "end")) {
-        declaration.end = cloneLocation(declaratorTemplate.end);
+    if (Core.hasOwn(declaratorTemplate, "end")) {
+        declaration.end = Core.cloneLocation(declaratorTemplate.end);
     }
 
     return declaration;
@@ -13000,11 +13080,11 @@ function attachLeadingCommentsToHoistedDeclaration({
 
     const comments = collectCommentNodes(ast);
 
-    if (!isNonEmptyArray(comments)) {
+    if (!Core.isNonEmptyArray(comments)) {
         return;
     }
 
-    const owningStartIndex = getNodeStartIndex(owningStatement);
+    const owningStartIndex = Core.getNodeStartIndex(owningStatement);
 
     if (typeof owningStartIndex !== "number") {
         return;
@@ -13013,7 +13093,7 @@ function attachLeadingCommentsToHoistedDeclaration({
     const previousEndIndex =
         precedingStatement === null
             ? null
-            : getNodeEndIndex(precedingStatement);
+            : Core.getNodeEndIndex(precedingStatement);
 
     let attachedComment = false;
 
@@ -13026,8 +13106,8 @@ function attachLeadingCommentsToHoistedDeclaration({
             continue;
         }
 
-        const commentStartIndex = getNodeStartIndex(comment);
-        const commentEndIndex = getNodeEndIndex(comment);
+        const commentStartIndex = Core.getNodeStartIndex(comment);
+        const commentEndIndex = Core.getNodeEndIndex(comment);
 
         if (
             typeof commentStartIndex !== "number" ||
@@ -13375,7 +13455,7 @@ function ensureCallHasRequiredArgument(node, diagnostic, callTemplate) {
         return null;
     }
 
-    if (isNonEmptyArray(node.arguments)) {
+    if (Core.isNonEmptyArray(node.arguments)) {
         return null;
     }
 
@@ -13581,8 +13661,8 @@ function coerceStringLiteralsInBinaryExpression(node, diagnostic) {
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: node.operator ?? null,
         range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
+            start: Core.getNodeStartIndex(node),
+            end: Core.getNodeEndIndex(node)
         }
     });
 
@@ -13626,7 +13706,7 @@ function isCoercibleStringLiteral(node) {
         return false;
     }
 
-    const trimmed = toTrimmedString(literalText);
+    const trimmed = Core.toTrimmedString(literalText);
 
     if (trimmed.length === 0) {
         return false;
@@ -13648,8 +13728,8 @@ function createRealCoercionCall(literal) {
         type: "CallExpression",
         object: identifier,
         arguments: [argument],
-        start: cloneLocation(literal.start),
-        end: cloneLocation(literal.end)
+        start: Core.cloneLocation(literal.start),
+        end: Core.cloneLocation(literal.end)
     };
 }
 
@@ -13805,8 +13885,8 @@ function addMissingEnumMember(memberExpression, enumRegistry, diagnostic) {
     enumInfo.members.splice(insertIndex, 0, newMember);
     enumInfo.memberNames.add(memberName);
 
-    const start = getNodeStartIndex(memberIdentifier);
-    const end = getNodeEndIndex(memberIdentifier);
+    const start = Core.getNodeStartIndex(memberIdentifier);
+    const end = Core.getNodeEndIndex(memberIdentifier);
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: `${enumName}.${memberName}`,
@@ -13843,7 +13923,7 @@ function createEnumMember(name) {
 }
 
 function getEnumInsertionIndex(members) {
-    if (!isNonEmptyArray(members)) {
+    if (!Core.isNonEmptyArray(members)) {
         return Array.isArray(members) ? members.length : 0;
     }
 
@@ -14182,8 +14262,8 @@ function updateMemberIndexAccessor(
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: typeof node.object?.name === "string" ? node.object.name : null,
         range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
+            start: Core.getNodeStartIndex(node),
+            end: Core.getNodeEndIndex(node)
         }
     });
 
@@ -14412,8 +14492,8 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
         const fixDetail = createFeatherFixDetail(diagnostic, {
             target: callNode?.object?.name ?? null,
             range: {
-                start: getNodeStartIndex(callNode),
-                end: getNodeEndIndex(callNode)
+                start: Core.getNodeStartIndex(callNode),
+                end: Core.getNodeEndIndex(callNode)
             }
         });
 
@@ -14437,7 +14517,10 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
 
         switch (statement.type) {
             case "CallExpression": {
-                return Core.isIdentifierWithName(statement.object, "file_find_first")
+                return Core.isIdentifierWithName(
+                    statement.object,
+                    "file_find_first"
+                )
                     ? statement
                     : null;
             }
@@ -14478,7 +14561,10 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
         }
 
         if (expression.type === "CallExpression") {
-            return Core.isIdentifierWithName(expression.object, "file_find_first")
+            return Core.isIdentifierWithName(
+                expression.object,
+                "file_find_first"
+            )
                 ? expression
                 : null;
         }
@@ -14541,7 +14627,10 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
         }
 
         if (statement.type === "CallExpression") {
-            return Core.isIdentifierWithName(statement.object, "file_find_close");
+            return Core.isIdentifierWithName(
+                statement.object,
+                "file_find_close"
+            );
         }
 
         if (statement.type === "ExpressionStatement") {
@@ -14736,8 +14825,8 @@ function moveGpuPopStateCallOutOfConditional(
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: callExpression.object?.name ?? "gpu_pop_state",
         range: {
-            start: getNodeStartIndex(callExpression),
-            end: getNodeEndIndex(callExpression)
+            start: Core.getNodeStartIndex(callExpression),
+            end: Core.getNodeEndIndex(callExpression)
         }
     });
 
@@ -14774,7 +14863,7 @@ function hasTrailingGpuPopInAlternate(alternate) {
 }
 
 function findTrailingGpuPopIndex(statements) {
-    if (!isNonEmptyArray(statements)) {
+    if (!Core.isNonEmptyArray(statements)) {
         return -1;
     }
 
@@ -14930,7 +15019,7 @@ function sanitizeFileFindCalls(
     diagnostic,
     metadataRoot
 ) {
-    if (!isNonEmptyArray(statements)) {
+    if (!Core.isNonEmptyArray(statements)) {
         return;
     }
 
@@ -14948,8 +15037,8 @@ function sanitizeFileFindCalls(
         const fixDetail = createFeatherFixDetail(diagnostic, {
             target: getCallExpressionCalleeName(statement),
             range: {
-                start: getNodeStartIndex(statement),
-                end: getNodeEndIndex(statement)
+                start: Core.getNodeStartIndex(statement),
+                end: Core.getNodeEndIndex(statement)
             }
         });
 
@@ -15134,7 +15223,7 @@ function ensureVertexFormatsClosedBeforeStartingNewOnes({ ast, diagnostic }) {
 }
 
 function ensureSequentialVertexFormatsAreClosed(statements, diagnostic, fixes) {
-    if (!isNonEmptyArray(statements)) {
+    if (!Core.isNonEmptyArray(statements)) {
         return;
     }
 
@@ -15352,8 +15441,8 @@ function removeDanglingVertexFormatEndCall({
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: getCallExpressionCalleeName(statement),
         range: {
-            start: getNodeStartIndex(statement),
-            end: getNodeEndIndex(statement)
+            start: Core.getNodeStartIndex(statement),
+            end: Core.getNodeEndIndex(statement)
         }
     });
 
@@ -15425,8 +15514,8 @@ function removeEmptyVertexFormatDefinition({
 }
 
 function createRangeFromNodes(startNode, endNode) {
-    const start = getNodeStartIndex(startNode);
-    const end = getNodeEndIndex(endNode);
+    const start = Core.getNodeStartIndex(startNode);
+    const end = Core.getNodeEndIndex(endNode);
 
     if (typeof start === "number" && typeof end === "number" && end >= start) {
         return { start, end };
@@ -15470,8 +15559,8 @@ function insertVertexFormatEndBefore(
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: templateBegin?.object?.name ?? null,
         range: {
-            start: getNodeStartIndex(templateBegin),
-            end: getNodeEndIndex(templateBegin)
+            start: Core.getNodeStartIndex(templateBegin),
+            end: Core.getNodeEndIndex(templateBegin)
         }
     });
 
@@ -15574,8 +15663,8 @@ function ensureVertexFormatDefinitionIsClosed(
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: "vertex_format_end",
         range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
+            start: Core.getNodeStartIndex(node),
+            end: Core.getNodeEndIndex(node)
         }
     });
 
@@ -15613,11 +15702,11 @@ function suppressDuplicateVertexFormatComments(ast, commentTargets, node) {
         return;
     }
 
-    if (!isNonEmptyArray(commentTargets)) {
+    if (!Core.isNonEmptyArray(commentTargets)) {
         return;
     }
 
-    const comments = asArray(ast.comments);
+    const comments = Core.asArray(ast.comments);
 
     if (comments.length === 0) {
         return;
@@ -15628,7 +15717,7 @@ function suppressDuplicateVertexFormatComments(ast, commentTargets, node) {
     for (const target of commentTargets) {
         const text = createCallExpressionCommentText(target);
 
-        if (isNonEmptyString(text)) {
+        if (Core.isNonEmptyString(text)) {
             normalizedTexts.add(`${text};`);
         }
     }
@@ -15660,7 +15749,7 @@ function suppressDuplicateVertexFormatComments(ast, commentTargets, node) {
             continue;
         }
 
-        const normalizedValue = toTrimmedString(comment.value);
+        const normalizedValue = Core.toTrimmedString(comment.value);
 
         if (!normalizedTexts.has(normalizedValue)) {
             continue;
@@ -15745,7 +15834,7 @@ function markCallExpressionForFeatherComment(node) {
         value: true
     });
 
-    if (isNonEmptyString(commentText)) {
+    if (Core.isNonEmptyString(commentText)) {
         Object.defineProperty(node, FEATHER_COMMENT_TEXT_SYMBOL, {
             configurable: true,
             enumerable: false,
@@ -15768,7 +15857,7 @@ function createCallExpressionCommentText(node) {
 
     const args = getCallExpressionArguments(node);
 
-    if (!isNonEmptyArray(args)) {
+    if (!Core.isNonEmptyArray(args)) {
         return `${calleeName}()`;
     }
 
@@ -15781,7 +15870,10 @@ function createVertexFormatEndCall(template) {
         return null;
     }
 
-    const identifier = Core.createIdentifierNode("vertex_format_end", template.object);
+    const identifier = Core.createIdentifierNode(
+        "vertex_format_end",
+        template.object
+    );
 
     if (!identifier) {
         return null;
@@ -15883,7 +15975,7 @@ function annotateInstanceVariableStructAssignments({ ast, diagnostic }) {
         if (node.type === "CallExpression") {
             const callFixes = annotateInstanceCreateCall(node, diagnostic);
 
-            if (isNonEmptyArray(callFixes)) {
+            if (Core.isNonEmptyArray(callFixes)) {
                 fixes.push(...callFixes);
             }
         }
@@ -15932,7 +16024,7 @@ function isInstanceCreateIdentifier(node) {
 }
 
 function findStructArgument(args) {
-    if (!isNonEmptyArray(args)) {
+    if (!Core.isNonEmptyArray(args)) {
         return null;
     }
 
@@ -15991,8 +16083,8 @@ function annotateVariableStructProperty(property, diagnostic) {
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: value.name,
         range: {
-            start: getNodeStartIndex(property),
-            end: getNodeEndIndex(property)
+            start: Core.getNodeStartIndex(property),
+            end: Core.getNodeEndIndex(property)
         },
         automatic: false
     });
@@ -16061,8 +16153,8 @@ function annotateUserEventCall(node, diagnostic) {
         target: eventInfo.name,
         automatic: false,
         range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
+            start: Core.getNodeStartIndex(node),
+            end: Core.getNodeEndIndex(node)
         }
     });
 
@@ -16197,7 +16289,10 @@ function harmonizeTexturePointerTernary(node, parent, property, diagnostic) {
         return null;
     }
 
-    const pointerIdentifier = Core.createIdentifierNode("pointer_null", alternate);
+    const pointerIdentifier = Core.createIdentifierNode(
+        "pointer_null",
+        alternate
+    );
 
     if (!pointerIdentifier) {
         return null;
@@ -16209,8 +16304,8 @@ function harmonizeTexturePointerTernary(node, parent, property, diagnostic) {
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: Core.isIdentifierNode(parent.left) ? parent.left.name : null,
         range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
+            start: Core.getNodeStartIndex(node),
+            end: Core.getNodeEndIndex(node)
         }
     });
 
@@ -16243,8 +16338,8 @@ function createAssignmentFromDeclarator(declarator, declarationNode) {
         operator: "=",
         left: cloneIdentifier(identifier),
         right: declarator.init,
-        start: cloneLocation(declarator.start ?? declarationNode?.start),
-        end: cloneLocation(declarator.end ?? declarationNode?.end)
+        start: Core.cloneLocation(declarator.start ?? declarationNode?.start),
+        end: Core.cloneLocation(declarator.end ?? declarationNode?.end)
     };
 
     copyCommentMetadata(declarator, assignment);
@@ -16268,7 +16363,10 @@ function getFunctionParameterNames(node) {
             continue;
         }
 
-        if (param.type === "DefaultParameter" && Core.isIdentifierNode(param.left)) {
+        if (
+            param.type === "DefaultParameter" &&
+            Core.isIdentifierNode(param.left)
+        ) {
             if (param.left.name) {
                 names.push(param.left.name);
             }
@@ -16339,7 +16437,7 @@ function copyCommentMetadata(source, target) {
         "innerComments",
         "comments"
     ]) {
-        if (Object.hasOwn(source, key)) {
+        if (Object.Core.hasOwn(source, key)) {
             target[key] = source[key];
         }
     }
@@ -16392,15 +16490,15 @@ function createPrimitiveBeginCall(template) {
         arguments: compactArray([primitiveType])
     };
 
-    if (Object.hasOwn(template, "start")) {
-        callExpression.start = cloneLocation(template.start);
+    if (Object.Core.hasOwn(template, "start")) {
+        callExpression.start = Core.cloneLocation(template.start);
     }
 
-    if (Object.hasOwn(template, "end")) {
+    if (Object.Core.hasOwn(template, "end")) {
         const referenceLocation = template.start ?? template.end;
 
         if (referenceLocation) {
-            callExpression.end = cloneLocation(referenceLocation);
+            callExpression.end = Core.cloneLocation(referenceLocation);
         }
     }
 
@@ -16714,7 +16812,10 @@ function createHalignResetCall(template) {
         return null;
     }
 
-    const faLeft = Core.createIdentifierNode("fa_left", template.arguments?.[0]);
+    const faLeft = Core.createIdentifierNode(
+        "fa_left",
+        template.arguments?.[0]
+    );
 
     if (!faLeft) {
         return null;
@@ -16919,7 +17020,10 @@ function createShaderResetCall(template) {
         return null;
     }
 
-    const identifier = Core.createIdentifierNode("shader_reset", template.object);
+    const identifier = Core.createIdentifierNode(
+        "shader_reset",
+        template.object
+    );
 
     if (!identifier) {
         return null;
@@ -17034,7 +17138,11 @@ function reorderOptionalParameters({ ast, diagnostic }) {
         }
 
         if (node.type === "FunctionDeclaration") {
-            const fix = reorderFunctionOptionalParameters(node, diagnostic, ast);
+            const fix = reorderFunctionOptionalParameters(
+                node,
+                diagnostic,
+                ast
+            );
 
             if (fix) {
                 fixes.push(fix);
@@ -17098,8 +17206,8 @@ function reorderFunctionOptionalParameters(node, diagnostic, ast) {
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: getFunctionIdentifierName(node),
         range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
+            start: Core.getNodeStartIndex(node),
+            end: Core.getNodeEndIndex(node)
         }
     });
 
@@ -17151,8 +17259,8 @@ function convertParameterToUndefinedDefault(parameter) {
         type: "DefaultParameter",
         left: identifier,
         right: undefinedLiteral,
-        start: cloneLocation(parameter.start ?? identifier.start),
-        end: cloneLocation(parameter.end ?? identifier.end),
+        start: Core.cloneLocation(parameter.start ?? identifier.start),
+        end: Core.cloneLocation(parameter.end ?? identifier.end)
     };
 
     copyCommentMetadata(parameter, defaultParameter);
@@ -17329,7 +17437,7 @@ function extractTypeAnnotation(value) {
         remainder = afterBrace.slice(closingIndex + 1);
     }
 
-    const trimmedType = toTrimmedString(typeText);
+    const trimmedType = Core.toTrimmedString(typeText);
 
     return {
         beforeBrace,
@@ -18102,7 +18210,7 @@ function renameReservedIdentifiers({ ast, diagnostic, sourceText }) {
                     diagnostic
                 );
 
-            if (isNonEmptyArray(declarationFixes)) {
+            if (Core.isNonEmptyArray(declarationFixes)) {
                 fixes.push(...declarationFixes);
             }
         } else if (node.type === "MacroDeclaration") {
@@ -18188,8 +18296,8 @@ function renameReservedIdentifierNode(identifier, diagnostic, options = {}) {
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: name ?? null,
         range: {
-            start: getNodeStartIndex(identifier),
-            end: getNodeEndIndex(identifier)
+            start: Core.getNodeStartIndex(identifier),
+            end: Core.getNodeEndIndex(identifier)
         }
     });
 
@@ -18281,11 +18389,11 @@ function buildMacroReplacementText({
 
     const baseText = getMacroBaseText(macro, sourceText);
 
-    if (!isNonEmptyString(baseText)) {
+    if (!Core.isNonEmptyString(baseText)) {
         return null;
     }
 
-    if (isNonEmptyString(originalName)) {
+    if (Core.isNonEmptyString(originalName)) {
         const nameIndex = baseText.indexOf(originalName);
 
         if (nameIndex !== -1) {
@@ -18305,7 +18413,7 @@ function getMacroBaseText(macro, sourceText) {
         return null;
     }
 
-    if (isNonEmptyString(macro._featherMacroText)) {
+    if (Core.isNonEmptyString(macro._featherMacroText)) {
         return macro._featherMacroText;
     }
 
@@ -18313,8 +18421,8 @@ function getMacroBaseText(macro, sourceText) {
         return null;
     }
 
-    const startIndex = getNodeStartIndex(macro);
-    const endIndex = getNodeEndIndex(macro);
+    const startIndex = Core.getNodeStartIndex(macro);
+    const endIndex = Core.getNodeEndIndex(macro);
 
     if (
         typeof startIndex !== "number" ||
@@ -18354,7 +18462,7 @@ function registerManualFeatherFix({ ast, diagnostic, sourceText }) {
                 diagnostic
             });
 
-            if (isNonEmptyArray(regenerated)) {
+            if (Core.isNonEmptyArray(regenerated)) {
                 // Attach regenerated fixes and mark as manual (automatic: false)
                 for (const f of regenerated) {
                     if (f && typeof f === "object") {
@@ -18378,11 +18486,15 @@ function registerManualFeatherFix({ ast, diagnostic, sourceText }) {
         if (diagnostic?.id === "GM1033" && typeof ctxSource === "string") {
             const ranges = findDuplicateSemicolonRanges(ctxSource, 0);
 
-            if (isNonEmptyArray(ranges)) {
+            if (Core.isNonEmptyArray(ranges)) {
                 const manualFixes = [];
 
                 for (const range of ranges) {
-                    if (!range || typeof range.start !== "number" || typeof range.end !== "number") {
+                    if (
+                        !range ||
+                        typeof range.start !== "number" ||
+                        typeof range.end !== "number"
+                    ) {
                         continue;
                     }
 
@@ -18519,7 +18631,7 @@ function balanceGpuStateStack({ ast, diagnostic }) {
 }
 
 function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
-    if (!isNonEmptyArray(statements)) {
+    if (!Core.isNonEmptyArray(statements)) {
         return [];
     }
 
@@ -18549,8 +18661,8 @@ function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
             const fixDetail = createFeatherFixDetail(diagnostic, {
                 target: statement.object?.name ?? "gpu_pop_state",
                 range: {
-                    start: getNodeStartIndex(statement),
-                    end: getNodeEndIndex(statement)
+                    start: Core.getNodeStartIndex(statement),
+                    end: Core.getNodeEndIndex(statement)
                 }
             });
 
@@ -18569,8 +18681,8 @@ function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
             const fixDetail = createFeatherFixDetail(diagnostic, {
                 target: entry.node?.object?.name ?? "gpu_push_state",
                 range: {
-                    start: getNodeStartIndex(entry.node),
-                    end: getNodeEndIndex(entry.node)
+                    start: Core.getNodeStartIndex(entry.node),
+                    end: Core.getNodeEndIndex(entry.node)
                 }
             });
 
@@ -18675,8 +18787,8 @@ function createCallExpressionTargetFixDetail(diagnostic, node) {
     return createFeatherFixDetail(diagnostic, {
         target: node.object?.name ?? null,
         range: {
-            start: getNodeStartIndex(node),
-            end: getNodeEndIndex(node)
+            start: Core.getNodeStartIndex(node),
+            end: Core.getNodeEndIndex(node)
         }
     });
 }
@@ -18797,8 +18909,8 @@ function correctMissingFunctionCall(node, replacements, diagnostic) {
         return null;
     }
 
-    const startIndex = getNodeStartIndex(callee);
-    const endIndex = getNodeEndIndex(callee);
+    const startIndex = Core.getNodeStartIndex(callee);
+    const endIndex = Core.getNodeEndIndex(callee);
     const range =
         typeof startIndex === "number" && typeof endIndex === "number"
             ? { start: startIndex, end: endIndex }
@@ -18940,8 +19052,8 @@ function relocateArgumentReferencesInsideFunctions({ ast, diagnostic }) {
             const fixDetail = createFeatherFixDetail(diagnostic, {
                 target: argumentReference?.name ?? null,
                 range: {
-                    start: getNodeStartIndex(candidate),
-                    end: getNodeEndIndex(candidate)
+                    start: Core.getNodeStartIndex(candidate),
+                    end: Core.getNodeEndIndex(candidate)
                 }
             });
 
