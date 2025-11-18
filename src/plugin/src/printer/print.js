@@ -7294,7 +7294,7 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                         // like 'sample' to avoid flooding test logs.
                         const result = entries.filter((entry) => {
                             if (!entry) return false;
-                            if (entry.hasDirectReference === true) return true;
+                            if (entry.hasDirectReference) return true;
                             const key = entry.canonical || entry.fallbackCanonical;
                             if (!key) return true;
                             return !suppressedCanonicals.has(key);
@@ -7308,6 +7308,23 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                             hasDirectReference: e?.hasDirectReference,
                             kept: result.includes(e)
                         }));
+                        try {
+                            // Extra targeted diagnostic: if any entry was marked
+                            // as a direct reference but the filter dropped it,
+                            // emit a clear error so tests can capture the
+                            // mismatch state for triage.
+                            const droppedDirect = decisions.filter(
+                                (d) => !!d.hasDirectReference && d.kept === false
+                            );
+                            if (droppedDirect.length > 0) {
+                                console.error(
+                                    `[feather:debug] collectImplicitArgumentDocNames(${fname}): DROPPED_DIRECT_ENTRIES=`,
+                                    droppedDirect
+                                );
+                            }
+                        } catch {
+                            /* ignore diagnostic errors */
+                        }
 
                         console.error(
                             `[feather:debug] collectImplicitArgumentDocNames(${fname}): filter-decisions=`,
@@ -7369,7 +7386,7 @@ function collectImplicitArgumentDocNames(functionNode, options) {
             if (typeof fname === "string" && fname.includes("sample")) {
                 const result = entries.filter((entry) => {
                     if (!entry) return false;
-                    if (entry.hasDirectReference === true) return true;
+                    if (entry.hasDirectReference) return true;
                     const key = entry.canonical || entry.fallbackCanonical;
                     if (!key) return true;
                     return !suppressedCanonicals.has(key);
@@ -7380,7 +7397,7 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                     index: e?.index,
                     canonical: e?.canonical,
                     fallbackCanonical: e?.fallbackCanonical,
-                    hasDirectReference: e?.hasDirectReference,
+                    hasDirectReference: !!e?.hasDirectReference,
                     kept: result.includes(e)
                 }));
 

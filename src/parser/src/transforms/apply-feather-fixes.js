@@ -904,10 +904,11 @@ export function applyFeatherFixes(
                     }
                 }
             }
-        } catch {
+        } catch (err) {
             // Be conservative: don't let the post-processing fail the entire
             // fix application. The original appliedFixes will still be
             // attached.
+            void 0;
         }
 
         try {
@@ -917,11 +918,14 @@ export function applyFeatherFixes(
                     ? appliedFixes.map((f) => `${String(f?.id)}@${String(f?.target)}`).join(",")
                     : String(appliedFixes);
                 console.warn(`[feather:diagnostic] appliedFixes summary=${listed}`);
-            } catch {}
+            } catch (err) {
+                void 0;
+            }
 
             attachFeatherFixMetadata(ast, appliedFixes);
-        } catch {
+        } catch (err) {
             // swallow: attachment logging shouldn't break transforms
+            void 0;
         }
 
     // Some fixer implementations create or replace nodes later in the
@@ -946,7 +950,9 @@ export function applyFeatherFixes(
                         console.warn(
                             `[feather:diagnostic] reattach-guard fix=${fix.id} target=${String(fix.target)}`
                         );
-                    } catch {}
+                    } catch (err) {
+                        void 0;
+                    }
 
                     const targetName = fix.target;
                     let targetNode = null;
@@ -1005,7 +1011,9 @@ export function applyFeatherFixes(
                         console.warn(
                             `[feather:diagnostic] reattach-guard-range fix=${fix.id} target=<range:${fix.range.start}-${fix.range.end}>`
                         );
-                    } catch {}
+                    } catch (err) {
+                        void 0;
+                    }
 
                     let targetNode = null;
 
@@ -1109,7 +1117,7 @@ export function applyFeatherFixes(
                                                 : [fix];
 
                                             attachFeatherFixMetadata(node, toAttach);
-                                        } catch {
+                                        } catch (err) {
                                             attachFeatherFixMetadata(node, [fix]);
                                         }
                                         return false; // stop walking once attached
@@ -1120,10 +1128,13 @@ export function applyFeatherFixes(
                             });
                         }
                     }
-                } catch {}
+                } catch (err) {
+                    void 0;
+                }
             }
-        } catch {
+        } catch (err) {
             // Non-fatal: don't let this guard step break the transform.
+            void 0;
         }
 
         // Diagnostic snapshot: list every FunctionDeclaration in the final
@@ -1148,11 +1159,15 @@ export function applyFeatherFixes(
                     console.warn(
                         `[feather:diagnostic] function-node name=${String(name)} start=${String(start)} end=${String(end)} ids=${ids}`
                     );
-                } catch {}
+                } catch (err) {
+                    void 0;
+                }
 
                 
             });
-        } catch {}
+        } catch (err) {
+            void 0;
+        }
     }
 
     return ast;
@@ -1269,7 +1284,7 @@ function hasFeatherSourceTextContext(
     return true;
 }
 
-function removeDuplicateEnumMembers({ ast, diagnostic }) {
+function removeDuplicateEnumMembers({ ast, diagnostic, sourceText }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
@@ -1350,10 +1365,12 @@ function removeDuplicateEnumMembers({ ast, diagnostic }) {
     // conservative full-source scan for duplicate-semicolon runs. This
     // captures cases where duplicate semicolons appear within the same
     // statement node (e.g. `var a = 1;;`) and ensures we produce concrete
-    // ranges for GM1033 fixes expected by tests.
+    // ranges for GM1033 fixes expected by tests. Reuse the dedicated
+    // duplicate-semicolon scanner to produce proper fix details.
     if (fixes.length === 0 && typeof sourceText === "string") {
-        for (const range of findDuplicateSemicolonRanges(sourceText, 0)) {
-            recordFix(ast, range);
+        const dupFixes = removeDuplicateSemicolons({ ast, sourceText, diagnostic });
+        if (Array.isArray(dupFixes) && dupFixes.length > 0) {
+            fixes.push(...dupFixes);
         }
     }
 
@@ -17114,7 +17131,9 @@ function reorderFunctionOptionalParameters(node, diagnostic, ast) {
         console.warn(
             `[feather:diagnostic] reorderFunctionOptionalParameters fnName=${getFunctionIdentifierName(node)} fixTarget=${String(fixDetail.target)}`
         );
-    } catch {}
+    } catch (err) {
+        void 0;
+    }
 
     // Attach to the specific function node so callers can inspect per-function
     // applied fixes. Some downstream passes may also rely on program-level
@@ -17127,8 +17146,9 @@ function reorderFunctionOptionalParameters(node, diagnostic, ast) {
         if (ast && typeof ast === "object") {
             attachFeatherFixMetadata(ast, [fixDetail]);
         }
-    } catch {
+    } catch (err) {
         // non-fatal: don't break the fix application if program-level attach fails
+        void 0;
     }
 
     return fixDetail;

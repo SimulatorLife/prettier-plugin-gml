@@ -1,25 +1,5 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    AST: {
-        assignClonedLocation,
-        cloneAstNode,
-        forEachNodeChild,
-        getIdentifierText: sharedGetIdentifierText,
-        hasComment: sharedHasComment,
-        isUndefinedSentinel: sharedIsUndefinedSentinel,
-        unwrapParenthesizedExpression
-    },
-    Utils: { isObjectLike, resolveHelperOverride, toMutableArray }
-} = Core;
-
-const DEFAULT_HELPERS = Object.freeze({
-    hasComment: sharedHasComment,
-    getIdentifierText: sharedGetIdentifierText,
-    isUndefinedLiteral: sharedIsUndefinedSentinel,
-    cloneAstNode
-});
-
 /**
  * Convert simple undefined guard assignments into ternary expressions so they
  * collapse to a single statement during printing. Matches `if` statements that
@@ -28,44 +8,14 @@ const DEFAULT_HELPERS = Object.freeze({
  * helper or an equality comparison).
  *
  * @param {unknown} ast
- * @param {{
- *   hasComment?: (node: unknown) => boolean,
- *   getIdentifierText?: (node: unknown) => string | null,
- *   isUndefinedLiteral?: (node: unknown) => boolean,
- *   cloneAstNode?: (node: unknown) => unknown
- * }} helpers
  * @returns {unknown}
  */
 export function convertUndefinedGuardAssignments(
-    ast,
-    helpers = DEFAULT_HELPERS
+    ast
 ) {
-    if (!isObjectLike(ast)) {
+    if (!Core.isObjectLike(ast)) {
         return ast;
     }
-
-    const normalizedHelpers = {
-        hasComment: resolveHelperOverride(
-            helpers,
-            "hasComment",
-            DEFAULT_HELPERS.hasComment
-        ),
-        getIdentifierText: resolveHelperOverride(
-            helpers,
-            "getIdentifierText",
-            DEFAULT_HELPERS.getIdentifierText
-        ),
-        isUndefinedLiteral: resolveHelperOverride(
-            helpers,
-            "isUndefinedLiteral",
-            DEFAULT_HELPERS.isUndefinedLiteral
-        ),
-        cloneAstNode: resolveHelperOverride(
-            helpers,
-            "cloneAstNode",
-            DEFAULT_HELPERS.cloneAstNode
-        )
-    };
 
     visit(ast, null, null);
 
@@ -79,7 +29,7 @@ export function convertUndefinedGuardAssignments(
             return;
         }
 
-        if (!isObjectLike(node)) {
+        if (!Core.isObjectLike(node)) {
             return;
         }
 
@@ -96,26 +46,25 @@ export function convertUndefinedGuardAssignments(
             const converted = convertIfStatement(
                 node,
                 parent,
-                property,
-                normalizedHelpers
+                property
             );
             if (converted) {
                 return;
             }
         }
 
-        forEachNodeChild(node, (child, key) => {
+        Core.forEachNodeChild(node, (child, key) => {
             visit(child, node, key);
         });
     }
 }
 
-function convertIfStatement(node, parent, property, helpers) {
+function convertIfStatement(node, parent, property) {
     if (!node || !parent) {
         return false;
     }
 
-    if (helpers.hasComment(node)) {
+    if (Core.hasComment(node)) {
         return false;
     }
 
@@ -124,33 +73,31 @@ function convertIfStatement(node, parent, property, helpers) {
     }
 
     const consequentAssignment = extractSoleAssignment(
-        node.consequent,
-        helpers
+        node.consequent
     );
 
     if (!consequentAssignment) {
         return false;
     }
 
-    const targetName = helpers.getIdentifierText(consequentAssignment.left);
+    const targetName = Core.getIdentifierText(consequentAssignment.left);
     if (!targetName) {
         return false;
     }
 
     const guardTest = resolveUndefinedGuardExpression(
         node.test,
-        targetName,
-        helpers
+        targetName
     );
     if (!guardTest) {
         return false;
     }
 
-    const alternateAssignment = extractSoleAssignment(node.alternate, helpers);
+    const alternateAssignment = extractSoleAssignment(node.alternate);
 
     if (alternateAssignment) {
         if (
-            targetName !== helpers.getIdentifierText(alternateAssignment.left)
+            targetName !== Core.getIdentifierText(alternateAssignment.left)
         ) {
             return false;
         }
@@ -186,22 +133,22 @@ function convertIfStatement(node, parent, property, helpers) {
     );
 }
 
-function extractSoleAssignment(branchNode, helpers) {
+function extractSoleAssignment(branchNode) {
     if (!branchNode || branchNode.type !== "BlockStatement") {
         return null;
     }
 
-    if (helpers.hasComment(branchNode)) {
+    if (Core.hasComment(branchNode)) {
         return null;
     }
 
-    const statements = toMutableArray(branchNode.body);
+    const statements = Core.toMutableArray(branchNode.body);
     if (statements.length !== 1) {
         return null;
     }
 
     const [statement] = statements;
-    if (!statement || helpers.hasComment(statement)) {
+    if (!statement || Core.hasComment(statement)) {
         return null;
     }
 
@@ -212,7 +159,7 @@ function extractSoleAssignment(branchNode, helpers) {
     if (
         statement.type === "ExpressionStatement" &&
         statement.expression &&
-        !helpers.hasComment(statement.expression) &&
+        !Core.hasComment(statement.expression) &&
         statement.expression.type === "AssignmentExpression"
     ) {
         return statement.expression.operator === "="
@@ -223,22 +170,22 @@ function extractSoleAssignment(branchNode, helpers) {
     return null;
 }
 
-function resolveUndefinedGuardExpression(testNode, targetName, helpers) {
+function resolveUndefinedGuardExpression(testNode, targetName) {
     if (!testNode) {
         return null;
     }
 
-    if (helpers.hasComment(testNode)) {
+    if (Core.hasComment(testNode)) {
         return null;
     }
 
-    const unwrapped = unwrapParenthesizedExpression(testNode) ?? testNode;
+    const unwrapped = Core.unwrapParenthesizedExpression(testNode) ?? testNode;
 
-    if (helpers.hasComment(unwrapped)) {
+    if (Core.hasComment(unwrapped)) {
         return null;
     }
 
-    if (isIsUndefinedCall(unwrapped, targetName, helpers)) {
+    if (isIsUndefinedCall(unwrapped, targetName)) {
         return unwrapped;
     }
 
@@ -251,26 +198,26 @@ function resolveUndefinedGuardExpression(testNode, targetName, helpers) {
     }
 
     const { left, right } = unwrapped;
-    const leftName = helpers.getIdentifierText(left);
-    const rightName = helpers.getIdentifierText(right);
+    const leftName = Core.getIdentifierText(left);
+    const rightName = Core.getIdentifierText(right);
 
-    if (leftName === targetName && helpers.isUndefinedLiteral(right)) {
-        return createIsUndefinedCall(left, helpers);
+    if (leftName === targetName && Core.isUndefinedLiteral(right)) {
+        return createIsUndefinedCall(left);
     }
 
-    if (rightName === targetName && helpers.isUndefinedLiteral(left)) {
-        return createIsUndefinedCall(right, helpers);
+    if (rightName === targetName && Core.isUndefinedLiteral(left)) {
+        return createIsUndefinedCall(right);
     }
 
     return null;
 }
 
-function isIsUndefinedCall(node, targetName, helpers) {
+function isIsUndefinedCall(node, targetName) {
     if (!node || node.type !== "CallExpression") {
         return false;
     }
 
-    if (helpers.hasComment(node)) {
+    if (Core.hasComment(node)) {
         return false;
     }
 
@@ -283,19 +230,19 @@ function isIsUndefinedCall(node, targetName, helpers) {
         return false;
     }
 
-    const args = toMutableArray(node.arguments);
+    const args = Core.toMutableArray(node.arguments);
     if (args.length !== 1) {
         return false;
     }
 
-    return helpers.getIdentifierText(args[0]) === targetName;
+    return Core.getIdentifierText(args[0]) === targetName;
 }
 
-function createIsUndefinedCall(identifierNode, helpers) {
+function createIsUndefinedCall(identifierNode) {
     return {
         type: "CallExpression",
         object: { type: "Identifier", name: "is_undefined" },
-        arguments: [helpers.cloneAstNode(identifierNode)]
+        arguments: [Core.cloneAstNode(identifierNode)]
     };
 }
 
@@ -311,11 +258,11 @@ function replaceWithAssignmentStatement(
     };
 
     if (assignment.right?.type === "TernaryExpression") {
-        assignClonedLocation(assignment.right, sourceNode.test);
+        Core.assignClonedLocation(assignment.right, sourceNode.test);
     }
 
-    assignClonedLocation(assignment, sourceNode);
-    assignClonedLocation(replacementStatement, sourceNode);
+    Core.assignClonedLocation(assignment, sourceNode);
+    Core.assignClonedLocation(replacementStatement, sourceNode);
 
     if (Array.isArray(parent)) {
         parent[property] = replacementStatement;
@@ -370,6 +317,6 @@ function unwrapSyntheticParentheses(node, parent, property) {
     return false;
 }
 
-export function transform(ast, opts = {}) {
-    return convertUndefinedGuardAssignments(ast, opts.helpers ?? opts);
+export function transform(ast) {
+    return convertUndefinedGuardAssignments(ast);
 }
