@@ -38,7 +38,7 @@ import {
     normalizeDocCommentTypeAnnotations
 } from "../comments/line-comment-formatting.js";
 import { normalizeOptionalParamToken } from "../comments/optional-param-normalization.js";
-import { resolveLineCommentOptions } from "../options/line-comment-options.js";
+import * as Parser from "@gml-modules/parser";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
 import { DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH } from "./doc-comment-wrap-width.js";
 
@@ -1099,7 +1099,7 @@ function _printImpl(path, options, print) {
                 resolveNodeIndexRangeWithSource(node, sourceMetadata);
 
             let docCommentDocs = [];
-            const lineCommentOptions = resolveLineCommentOptions(options);
+            const lineCommentOptions = Parser.Options.resolveLineCommentOptions(options);
             let needsLeadingBlankLine = false;
 
             if (isNonEmptyArray(node.docComments)) {
@@ -2924,9 +2924,9 @@ function buildStructPropertyCommentSuffix(path, options) {
     for (const comment of comments) {
         if (comment?._structPropertyTrailing === true) {
             const formatted = formatLineComment(
-                comment,
-                resolveLineCommentOptions(options)
-            );
+                    comment,
+                    Parser.Options.resolveLineCommentOptions(options)
+                );
             if (formatted) {
                 commentDocs.push(formatted);
             }
@@ -4063,7 +4063,7 @@ function collectSyntheticDocCommentLines(node, options) {
         };
     }
 
-    const lineCommentOptions = resolveLineCommentOptions(options);
+    const lineCommentOptions = Parser.Options.resolveLineCommentOptions(options);
     const existingDocLines = [];
     const remainingComments = [];
 
@@ -4106,7 +4106,7 @@ function extractLeadingNonDocCommentLines(comments, options) {
         };
     }
 
-    const lineCommentOptions = resolveLineCommentOptions(options);
+    const lineCommentOptions = Parser.Options.resolveLineCommentOptions(options);
     const leadingLines = [];
     const remainingComments = [];
     let scanningLeadingComments = true;

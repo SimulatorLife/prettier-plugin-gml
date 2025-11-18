@@ -4,6 +4,7 @@
 // sibling workspaces) to rely on a stable module path instead of importing
 // files from the internal directory layout.
 import { Core } from "@gml-modules/core";
+import * as Parser from "@gml-modules/parser";
 
 export {
     collectCommentNodes,
@@ -15,14 +16,12 @@ export {
     isLineComment
 } from "./comment-boundary.js";
 
-export {
-    DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
-    DEFAULT_LINE_COMMENT_OPTIONS,
-    normalizeLineCommentOptions,
-    resolveLineCommentOptions,
-    restoreDefaultLineCommentOptionsResolver,
-    setLineCommentOptionsResolver
-} from "../options/line-comment-options.js";
+export const DEFAULT_COMMENTED_OUT_CODE_PATTERNS = Parser.Options.DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
+export const DEFAULT_LINE_COMMENT_OPTIONS = Parser.Options.DEFAULT_LINE_COMMENT_OPTIONS;
+export const normalizeLineCommentOptions = Parser.Options.normalizeLineCommentOptions;
+export const resolveLineCommentOptions = Parser.Options.resolveLineCommentOptions;
+export const restoreDefaultLineCommentOptionsResolver = Parser.Options.restoreDefaultLineCommentOptionsResolver;
+export const setLineCommentOptionsResolver = Parser.Options.setLineCommentOptionsResolver;
 
 export {
     DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION,

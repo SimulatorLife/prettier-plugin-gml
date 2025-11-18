@@ -1,6 +1,6 @@
 {
   "statistics": {
-    "detectionDate": "2025-11-18T01:59:08.422Z",
+    "detectionDate": "2025-11-18T02:03:23.440Z",
     "formats": {
       "javascript": {
         "sources": {
@@ -800,11 +800,11 @@
             "lines": 155,
             "tokens": 795,
             "sources": 1,
-            "clones": 0,
-            "duplicatedLines": 0,
-            "duplicatedTokens": 0,
-            "percentage": 0,
-            "percentageTokens": 0,
+            "clones": 2,
+            "duplicatedLines": 93,
+            "duplicatedTokens": 505,
+            "percentage": 60,
+            "percentageTokens": 63.52,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -884,11 +884,11 @@
             "lines": 25,
             "tokens": 177,
             "sources": 1,
-            "clones": 0,
-            "duplicatedLines": 0,
-            "duplicatedTokens": 0,
-            "percentage": 0,
-            "percentageTokens": 0,
+            "clones": 1,
+            "duplicatedLines": 24,
+            "duplicatedTokens": 175,
+            "percentage": 96,
+            "percentageTokens": 98.87,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -967,6 +967,18 @@
           "src/parser/src/utils/recognition-exception.js": {
             "lines": 9,
             "tokens": 27,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "src/parser/src/utils/index.js": {
+            "lines": 7,
+            "tokens": 35,
             "sources": 1,
             "clones": 0,
             "duplicatedLines": 0,
@@ -1124,11 +1136,11 @@
             "lines": 145,
             "tokens": 763,
             "sources": 1,
-            "clones": 0,
-            "duplicatedLines": 0,
-            "duplicatedTokens": 0,
-            "percentage": 0,
-            "percentageTokens": 0,
+            "clones": 2,
+            "duplicatedLines": 93,
+            "duplicatedTokens": 505,
+            "percentage": 64.14,
+            "percentageTokens": 66.19,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -1148,11 +1160,11 @@
             "lines": 29,
             "tokens": 177,
             "sources": 1,
-            "clones": 0,
-            "duplicatedLines": 0,
-            "duplicatedTokens": 0,
-            "percentage": 0,
-            "percentageTokens": 0,
+            "clones": 1,
+            "duplicatedLines": 24,
+            "duplicatedTokens": 175,
+            "percentage": 82.76,
+            "percentageTokens": 98.87,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -1288,6 +1300,18 @@
             "newDuplicatedLines": 0,
             "newClones": 0
           },
+          "src/parser/src/ast/location-manipulation.js": {
+            "lines": 6,
+            "tokens": 53,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
           "src/parser/src/ast/hidden-node-processor.js": {
             "lines": 135,
             "tokens": 983,
@@ -1304,11 +1328,11 @@
             "lines": 298,
             "tokens": 616,
             "sources": 1,
-            "clones": 0,
-            "duplicatedLines": 0,
-            "duplicatedTokens": 0,
-            "percentage": 0,
-            "percentageTokens": 0,
+            "clones": 1,
+            "duplicatedLines": 28,
+            "duplicatedTokens": 204,
+            "percentage": 9.4,
+            "percentageTokens": 33.12,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -1768,6 +1792,18 @@
             "newDuplicatedLines": 0,
             "newClones": 0
           },
+          "src/cli/src/shared/index.js": {
+            "lines": 7,
+            "tokens": 45,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
           "src/cli/src/shared/ignore-rules-negation-tracker.js": {
             "lines": 12,
             "tokens": 68,
@@ -2192,11 +2228,11 @@
             "lines": 758,
             "tokens": 7179,
             "sources": 1,
-            "clones": 0,
-            "duplicatedLines": 0,
-            "duplicatedTokens": 0,
-            "percentage": 0,
-            "percentageTokens": 0,
+            "clones": 10,
+            "duplicatedLines": 224,
+            "duplicatedTokens": 2030,
+            "percentage": 29.55,
+            "percentageTokens": 28.28,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -2360,11 +2396,11 @@
             "lines": 69,
             "tokens": 571,
             "sources": 1,
-            "clones": 0,
-            "duplicatedLines": 0,
-            "duplicatedTokens": 0,
-            "percentage": 0,
-            "percentageTokens": 0,
+            "clones": 2,
+            "duplicatedLines": 40,
+            "duplicatedTokens": 354,
+            "percentage": 57.97,
+            "percentageTokens": 62,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -2384,11 +2420,11 @@
             "lines": 703,
             "tokens": 5360,
             "sources": 1,
-            "clones": 0,
-            "duplicatedLines": 0,
-            "duplicatedTokens": 0,
-            "percentage": 0,
-            "percentageTokens": 0,
+            "clones": 4,
+            "duplicatedLines": 84,
+            "duplicatedTokens": 750,
+            "percentage": 11.95,
+            "percentageTokens": 13.99,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -2528,11 +2564,11 @@
             "lines": 328,
             "tokens": 2497,
             "sources": 1,
-            "clones": 0,
-            "duplicatedLines": 0,
-            "duplicatedTokens": 0,
-            "percentage": 0,
-            "percentageTokens": 0,
+            "clones": 1,
+            "duplicatedLines": 24,
+            "duplicatedTokens": 229,
+            "percentage": 7.32,
+            "percentageTokens": 9.17,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -2552,11 +2588,11 @@
             "lines": 242,
             "tokens": 1885,
             "sources": 1,
-            "clones": 0,
-            "duplicatedLines": 0,
-            "duplicatedTokens": 0,
-            "percentage": 0,
-            "percentageTokens": 0,
+            "clones": 1,
+            "duplicatedLines": 24,
+            "duplicatedTokens": 229,
+            "percentage": 9.92,
+            "percentageTokens": 12.15,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -2564,11 +2600,11 @@
             "lines": 476,
             "tokens": 2796,
             "sources": 1,
-            "clones": 0,
-            "duplicatedLines": 0,
-            "duplicatedTokens": 0,
-            "percentage": 0,
-            "percentageTokens": 0,
+            "clones": 1,
+            "duplicatedLines": 54,
+            "duplicatedTokens": 147,
+            "percentage": 11.34,
+            "percentageTokens": 5.26,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -2612,11 +2648,11 @@
             "lines": 123,
             "tokens": 709,
             "sources": 1,
-            "clones": 0,
-            "duplicatedLines": 0,
-            "duplicatedTokens": 0,
-            "percentage": 0,
-            "percentageTokens": 0,
+            "clones": 1,
+            "duplicatedLines": 54,
+            "duplicatedTokens": 147,
+            "percentage": 43.9,
+            "percentageTokens": 20.73,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -2804,11 +2840,11 @@
             "lines": 97,
             "tokens": 616,
             "sources": 1,
-            "clones": 0,
-            "duplicatedLines": 0,
-            "duplicatedTokens": 0,
-            "percentage": 0,
-            "percentageTokens": 0,
+            "clones": 4,
+            "duplicatedLines": 92,
+            "duplicatedTokens": 792,
+            "percentage": 94.85,
+            "percentageTokens": 128.57,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -2852,11 +2888,11 @@
             "lines": 174,
             "tokens": 1613,
             "sources": 1,
-            "clones": 0,
-            "duplicatedLines": 0,
-            "duplicatedTokens": 0,
-            "percentage": 0,
-            "percentageTokens": 0,
+            "clones": 2,
+            "duplicatedLines": 50,
+            "duplicatedTokens": 520,
+            "percentage": 28.74,
+            "percentageTokens": 32.24,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -3212,11 +3248,11 @@
             "lines": 52,
             "tokens": 366,
             "sources": 1,
-            "clones": 0,
-            "duplicatedLines": 0,
-            "duplicatedTokens": 0,
-            "percentage": 0,
-            "percentageTokens": 0,
+            "clones": 1,
+            "duplicatedLines": 23,
+            "duplicatedTokens": 198,
+            "percentage": 44.23,
+            "percentageTokens": 54.1,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -3272,11 +3308,11 @@
             "lines": 46,
             "tokens": 338,
             "sources": 1,
-            "clones": 0,
-            "duplicatedLines": 0,
-            "duplicatedTokens": 0,
-            "percentage": 0,
-            "percentageTokens": 0,
+            "clones": 1,
+            "duplicatedLines": 23,
+            "duplicatedTokens": 198,
+            "percentage": 50,
+            "percentageTokens": 58.58,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -3332,11 +3368,11 @@
             "lines": 41,
             "tokens": 311,
             "sources": 1,
-            "clones": 0,
-            "duplicatedLines": 0,
-            "duplicatedTokens": 0,
-            "percentage": 0,
-            "percentageTokens": 0,
+            "clones": 2,
+            "duplicatedLines": 48,
+            "duplicatedTokens": 398,
+            "percentage": 117.07,
+            "percentageTokens": 127.97,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -3344,11 +3380,11 @@
             "lines": 256,
             "tokens": 1673,
             "sources": 1,
-            "clones": 0,
-            "duplicatedLines": 0,
-            "duplicatedTokens": 0,
-            "percentage": 0,
-            "percentageTokens": 0,
+            "clones": 4,
+            "duplicatedLines": 130,
+            "duplicatedTokens": 842,
+            "percentage": 50.78,
+            "percentageTokens": 50.33,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -3512,11 +3548,11 @@
             "lines": 35,
             "tokens": 307,
             "sources": 1,
-            "clones": 0,
-            "duplicatedLines": 0,
-            "duplicatedTokens": 0,
-            "percentage": 0,
-            "percentageTokens": 0,
+            "clones": 1,
+            "duplicatedLines": 23,
+            "duplicatedTokens": 198,
+            "percentage": 65.71,
+            "percentageTokens": 64.5,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -3524,11 +3560,11 @@
             "lines": 49,
             "tokens": 347,
             "sources": 1,
-            "clones": 0,
-            "duplicatedLines": 0,
-            "duplicatedTokens": 0,
-            "percentage": 0,
-            "percentageTokens": 0,
+            "clones": 1,
+            "duplicatedLines": 24,
+            "duplicatedTokens": 199,
+            "percentage": 48.98,
+            "percentageTokens": 57.35,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -3536,11 +3572,11 @@
             "lines": 78,
             "tokens": 519,
             "sources": 1,
-            "clones": 0,
-            "duplicatedLines": 0,
-            "duplicatedTokens": 0,
-            "percentage": 0,
-            "percentageTokens": 0,
+            "clones": 1,
+            "duplicatedLines": 24,
+            "duplicatedTokens": 199,
+            "percentage": 30.77,
+            "percentageTokens": 38.34,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -3608,11 +3644,11 @@
             "lines": 57,
             "tokens": 382,
             "sources": 1,
-            "clones": 0,
-            "duplicatedLines": 0,
-            "duplicatedTokens": 0,
-            "percentage": 0,
-            "percentageTokens": 0,
+            "clones": 1,
+            "duplicatedLines": 23,
+            "duplicatedTokens": 198,
+            "percentage": 40.35,
+            "percentageTokens": 51.83,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -4028,11 +4064,11 @@
             "lines": 257,
             "tokens": 1899,
             "sources": 1,
-            "clones": 0,
-            "duplicatedLines": 0,
-            "duplicatedTokens": 0,
-            "percentage": 0,
-            "percentageTokens": 0,
+            "clones": 1,
+            "duplicatedLines": 28,
+            "duplicatedTokens": 204,
+            "percentage": 10.89,
+            "percentageTokens": 10.74,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -5012,11 +5048,11 @@
             "lines": 124,
             "tokens": 1106,
             "sources": 1,
-            "clones": 0,
-            "duplicatedLines": 0,
-            "duplicatedTokens": 0,
-            "percentage": 0,
-            "percentageTokens": 0,
+            "clones": 2,
+            "duplicatedLines": 34,
+            "duplicatedTokens": 332,
+            "percentage": 27.42,
+            "percentageTokens": 30.02,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -5132,11 +5168,11 @@
             "lines": 102,
             "tokens": 1028,
             "sources": 1,
-            "clones": 0,
-            "duplicatedLines": 0,
-            "duplicatedTokens": 0,
-            "percentage": 0,
-            "percentageTokens": 0,
+            "clones": 2,
+            "duplicatedLines": 20,
+            "duplicatedTokens": 344,
+            "percentage": 19.61,
+            "percentageTokens": 33.46,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -5238,31 +5274,932 @@
           }
         },
         "total": {
-          "lines": 60453,
-          "tokens": 413542,
-          "sources": 436,
-          "clones": 0,
-          "duplicatedLines": 0,
-          "duplicatedTokens": 0,
-          "percentage": 0,
-          "percentageTokens": 0,
+          "lines": 60473,
+          "tokens": 413675,
+          "sources": 439,
+          "clones": 25,
+          "duplicatedLines": 654,
+          "duplicatedTokens": 5036,
+          "percentage": 1.08,
+          "percentageTokens": 1.22,
           "newDuplicatedLines": 0,
           "newClones": 0
         }
       }
     },
     "total": {
-      "lines": 60453,
-      "tokens": 413542,
-      "sources": 436,
-      "clones": 0,
-      "duplicatedLines": 0,
-      "duplicatedTokens": 0,
-      "percentage": 0,
-      "percentageTokens": 0,
+      "lines": 60473,
+      "tokens": 413675,
+      "sources": 439,
+      "clones": 25,
+      "duplicatedLines": 654,
+      "duplicatedTokens": 5036,
+      "percentage": 1.08,
+      "percentageTokens": 1.22,
       "newDuplicatedLines": 0,
       "newClones": 0
     }
   },
-  "duplicates": []
+  "duplicates": [
+    {
+      "format": "javascript",
+      "lines": 39,
+      "fragment": "createResolverController({\n    defaultFactory: () => DEFAULT_LINE_COMMENT_OPTIONS,\n    normalize: normalizeLineCommentOptions,\n    errorMessage:\n        \"Line comment option resolvers must be functions that return option objects\"\n});\n\nfunction arraysMatchDefault(normalized, defaultValue) {\n    return (\n        Array.isArray(defaultValue) &&\n        normalized.length === defaultValue.length &&\n        normalized.every((entry, index) => entry === defaultValue[index])\n    );\n}\n\nfunction normalizeArrayOption(\n    candidate,\n    { defaultValue, filter, map = (value) => value }\n) {\n    if (!Array.isArray(candidate)) {\n        return defaultValue;\n    }\n\n    const normalized = candidate.filter(filter).map(map);\n\n    if (\n        normalized.length === 0 ||\n        arraysMatchDefault(normalized, defaultValue)\n    ) {\n        return defaultValue;\n    }\n\n    return Object.freeze(normalized);\n}\n\nfunction normalizeBoilerplateFragments(fragments) {\n    return normalizeArrayOption(fragments, {\n        defaultValue: DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments,\n        filter: Core",
+      "tokens": 0,
+      "firstFile": {
+        "name": "src/parser/src/options/line-comment-options.js",
+        "start": 36,
+        "end": 74,
+        "startLoc": {
+          "line": 36,
+          "column": 2,
+          "position": 156
+        },
+        "endLoc": {
+          "line": 74,
+          "column": 5,
+          "position": 430
+        }
+      },
+      "secondFile": {
+        "name": "src/plugin/src/options/line-comment-options.js",
+        "start": 46,
+        "end": 84,
+        "startLoc": {
+          "line": 46,
+          "column": 2,
+          "position": 194
+        },
+        "endLoc": {
+          "line": 84,
+          "column": 17,
+          "position": 468
+        }
+      }
+    },
+    {
+      "format": "javascript",
+      "lines": 56,
+      "fragment": "isObjectLike(options)) {\n        return DEFAULT_LINE_COMMENT_OPTIONS;\n    }\n\n    const boilerplateFragments = normalizeBoilerplateFragments(\n        options.boilerplateFragments\n    );\n    const codeDetectionPatterns = normalizeCodeDetectionPatterns(\n        options.codeDetectionPatterns\n    );\n\n    if (\n        boilerplateFragments ===\n            DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments &&\n        codeDetectionPatterns ===\n            DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns\n    ) {\n        return DEFAULT_LINE_COMMENT_OPTIONS;\n    }\n\n    return Object.freeze({\n        boilerplateFragments,\n        codeDetectionPatterns\n    });\n}\n\nfunction resolveLineCommentOptions(options = {}) {\n    return lineCommentOptionsController.resolve(options);\n}\n\n/**\n * Registers a custom resolver for the line comment heuristics. Intended for\n * host integrations that need to extend the boilerplate detection rules\n * without exposing additional end-user configuration.\n */\nfunction setLineCommentOptionsResolver(resolver) {\n    return lineCommentOptionsController.set(resolver);\n}\n\n/**\n * Restores the built-in resolver so callers can tear down ad-hoc\n * customizations and return to the opinionated defaults.\n */\nfunction restoreDefaultLineCommentOptionsResolver() {\n    return lineCommentOptionsController.restore();\n}\n\nexport {\n    DEFAULT_LINE_COMMENT_OPTIONS,\n    DEFAULT_COMMENTED_OUT_CODE_PATTERNS,\n    LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,\n    normalizeLineCommentOptions,\n    resolveLineCommentOptions,\n    restoreDefaultLineCommentOptionsResolver,\n    setLineCommentOptionsResolver\n};",
+      "tokens": 0,
+      "firstFile": {
+        "name": "src/parser/src/options/line-comment-options.js",
+        "start": 91,
+        "end": 146,
+        "startLoc": {
+          "line": 91,
+          "column": 2,
+          "position": 532
+        },
+        "endLoc": {
+          "line": 146,
+          "column": 2,
+          "position": 763
+        }
+      },
+      "secondFile": {
+        "name": "src/plugin/src/options/line-comment-options.js",
+        "start": 101,
+        "end": 156,
+        "startLoc": {
+          "line": 101,
+          "column": 2,
+          "position": 564
+        },
+        "endLoc": {
+          "line": 156,
+          "column": 2,
+          "position": 795
+        }
+      }
+    },
+    {
+      "format": "javascript",
+      "lines": 25,
+      "fragment": "export function normalizeOptionalParamToken(token) {\n    if (typeof token !== \"string\") {\n        return token;\n    }\n\n    const trimmed = token.trim();\n\n    if (/^\\[[^\\]]+\\]$/.test(trimmed)) {\n        return trimmed;\n    }\n\n    const stripped = trimmed.replaceAll(/^\\*+|\\*+$/g, \"\");\n\n    if (stripped === trimmed) {\n        return trimmed;\n    }\n\n    const normalized = stripped.trim();\n\n    if (normalized.length === 0) {\n        return stripped.replaceAll(\"*\", \"\");\n    }\n\n    return `[${normalized}]`;\n}",
+      "tokens": 0,
+      "firstFile": {
+        "name": "src/parser/src/comments/optional-param-normalization.js",
+        "start": 6,
+        "end": 30,
+        "startLoc": {
+          "line": 6,
+          "column": 1,
+          "position": 2
+        },
+        "endLoc": {
+          "line": 30,
+          "column": 2,
+          "position": 177
+        }
+      },
+      "secondFile": {
+        "name": "src/plugin/src/comments/optional-param-normalization.js",
+        "start": 2,
+        "end": 26,
+        "startLoc": {
+          "line": 2,
+          "column": 1,
+          "position": 2
+        },
+        "endLoc": {
+          "line": 26,
+          "column": 2,
+          "position": 177
+        }
+      }
+    },
+    {
+      "format": "javascript",
+      "lines": 25,
+      "fragment": ", () => {\n    const tracker = new ScopeTracker({ enabled: true });\n    const programScope = tracker.enterScope(\"program\");\n    const declarationNode = {\n        start: { line: 1, index: 0 },\n        end: { line: 1, index: 3 }\n    };\n\n    tracker.declare(\"foo\", declarationNode, {\n        kind: \"variable\",\n        tags: [\"local\"]\n    });\n\n    const blockScope = tracker.enterScope(\"block\");\n    const referenceNode = {\n        start: { line: 2, index: 4 },\n        end: { line: 2, index: 7 }\n    };\n\n    tracker.reference(\"foo\", referenceNode, { kind: \"variable\" });\n\n    tracker.exitScope();\n    tracker.exitScope();\n\n    const",
+      "tokens": 0,
+      "firstFile": {
+        "name": "src/semantic/test/scope-tracker.test.js",
+        "start": 195,
+        "end": 219,
+        "startLoc": {
+          "line": 195,
+          "column": 53,
+          "position": 1553
+        },
+        "endLoc": {
+          "line": 219,
+          "column": 6,
+          "position": 1795
+        }
+      },
+      "secondFile": {
+        "name": "src/semantic/test/scope-tracker.test.js",
+        "start": 44,
+        "end": 70,
+        "startLoc": {
+          "line": 44,
+          "column": 66,
+          "position": 356
+        },
+        "endLoc": {
+          "line": 70,
+          "column": 7,
+          "position": 600
+        }
+      }
+    },
+    {
+      "format": "javascript",
+      "lines": 30,
+      "fragment": ", {\n        scopeId: blockScope.id,\n        scopeKind: \"block\",\n        identifiers: [\n            {\n                name: \"foo\",\n                declarations: [],\n                references: [\n                    {\n                        kind: \"reference\",\n                        name: \"foo\",\n                        scopeId: blockScope.id,\n                        classifications: [\n                            \"identifier\",\n                            \"reference\",\n                            \"variable\",\n                            \"local\"\n                        ],\n                        declaration: {\n                            scopeId: programScope.id,\n                            start: { line: 1, index: 0 },\n                            end: { line: 1, index: 3 }\n                        },\n                        start: { line: 2, index: 4 },\n                        end: { line: 2, index: 7 }\n                    }\n                ]\n            }\n        ]\n    })",
+      "tokens": 0,
+      "firstFile": {
+        "name": "src/semantic/test/scope-tracker.test.js",
+        "start": 221,
+        "end": 250,
+        "startLoc": {
+          "line": 221,
+          "column": 7,
+          "position": 1818
+        },
+        "endLoc": {
+          "line": 250,
+          "column": 2,
+          "position": 2030
+        }
+      },
+      "secondFile": {
+        "name": "src/semantic/test/scope-tracker.test.js",
+        "start": 100,
+        "end": 131,
+        "startLoc": {
+          "line": 100,
+          "column": 2,
+          "position": 824
+        },
+        "endLoc": {
+          "line": 131,
+          "column": 2,
+          "position": 1039
+        }
+      }
+    },
+    {
+      "format": "javascript",
+      "lines": 20,
+      "fragment": ", () => {\n    const tracker = new ScopeTracker({ enabled: true });\n    const scope = tracker.enterScope(\"program\");\n    const declarationNode = {\n        start: { line: 1, index: 0 },\n        end: { line: 1, index: 3 }\n    };\n\n    tracker.declare(\"bar\", declarationNode);\n\n    const referenceNode = {\n        start: { line: 2, index: 1 },\n        end: { line: 2, index: 4 }\n    };\n\n    tracker.reference(\"bar\", referenceNode);\n\n    tracker.exitScope();\n\n    const occurrences",
+      "tokens": 0,
+      "firstFile": {
+        "name": "src/semantic/test/scope-tracker.test.js",
+        "start": 253,
+        "end": 272,
+        "startLoc": {
+          "line": 253,
+          "column": 74,
+          "position": 2041
+        },
+        "endLoc": {
+          "line": 272,
+          "column": 12,
+          "position": 2231
+        }
+      },
+      "secondFile": {
+        "name": "src/semantic/test/scope-tracker.test.js",
+        "start": 134,
+        "end": 153,
+        "startLoc": {
+          "line": 134,
+          "column": 68,
+          "position": 1051
+        },
+        "endLoc": {
+          "line": 153,
+          "column": 9,
+          "position": 1241
+        }
+      }
+    },
+    {
+      "format": "javascript",
+      "lines": 25,
+      "fragment": "{\n        scopeId: scope.id,\n        scopeKind: \"program\",\n        identifiers: [\n            {\n                name: \"bar\",\n                declarations: [\n                    {\n                        kind: \"declaration\",\n                        name: \"bar\",\n                        scopeId: scope.id,\n                        classifications: [\"identifier\", \"declaration\"],\n                        declaration: {\n                            scopeId: scope.id,\n                            start: { line: 1, index: 0 },\n                            end: { line: 1, index: 3 }\n                        },\n                        start: { line: 1, index: 0 },\n                        end: { line: 1, index: 3 }\n                    }\n                ],\n                references: []\n            }\n        ]\n    };",
+      "tokens": 0,
+      "firstFile": {
+        "name": "src/semantic/test/scope-tracker.test.js",
+        "start": 276,
+        "end": 300,
+        "startLoc": {
+          "line": 276,
+          "column": 2,
+          "position": 2265
+        },
+        "endLoc": {
+          "line": 300,
+          "column": 2,
+          "position": 2462
+        }
+      },
+      "secondFile": {
+        "name": "src/semantic/test/scope-tracker.test.js",
+        "start": 154,
+        "end": 179,
+        "startLoc": {
+          "line": 154,
+          "column": 9,
+          "position": 1248
+        },
+        "endLoc": {
+          "line": 179,
+          "column": 2,
+          "position": 1447
+        }
+      }
+    },
+    {
+      "format": "javascript",
+      "lines": 17,
+      "fragment": ", () => {\n    const tracker = new ScopeTracker({ enabled: true });\n    const outerScope = tracker.enterScope(\"function\");\n\n    tracker.declare(\"outerVar\", {\n        start: { line: 1, index: 0 },\n        end: { line: 1, index: 8 }\n    });\n\n    const innerScope = tracker.enterScope(\"block\");\n\n    tracker.declare(\"innerVar\", {\n        start: { line: 3, index: 0 },\n        end: { line: 3, index: 8 }\n    });\n\n    tracker",
+      "tokens": 0,
+      "firstFile": {
+        "name": "src/semantic/test/scope-tracker.test.js",
+        "start": 639,
+        "end": 655,
+        "startLoc": {
+          "line": 639,
+          "column": 69,
+          "position": 5944
+        },
+        "endLoc": {
+          "line": 655,
+          "column": 8,
+          "position": 6118
+        }
+      },
+      "secondFile": {
+        "name": "src/semantic/test/scope-tracker.test.js",
+        "start": 481,
+        "end": 497,
+        "startLoc": {
+          "line": 481,
+          "column": 61,
+          "position": 4313
+        },
+        "endLoc": {
+          "line": 497,
+          "column": 6,
+          "position": 4487
+        }
+      }
+    },
+    {
+      "format": "javascript",
+      "lines": 21,
+      "fragment": ",\n        loadCache: async () => ({\n            status: \"miss\",\n            cacheFilePath: \"virtual-cache.json\",\n            reason: { type: \"not-found\" }\n        }),\n        saveCache: async (descriptor) => {\n            savedDescriptors.push(descriptor);\n            return {\n                status: \"written\",\n                cacheFilePath: \"virtual-cache.json\",\n                size: 0\n            };\n        },\n        buildIndex: async (root) => createProjectIndex(root)\n    });\n\n    try {\n        await coordinator.ensureReady({ projectRoot: \"/project\" });\n        assert.equal(savedDescriptors.length, 1);\n        assert.equal(savedDescriptors[0].maxSizeBytes, 256",
+      "tokens": 0,
+      "firstFile": {
+        "name": "src/semantic/test/project-index-coordinator.test.js",
+        "start": 46,
+        "end": 66,
+        "startLoc": {
+          "line": 46,
+          "column": 5,
+          "position": 370
+        },
+        "endLoc": {
+          "line": 66,
+          "column": 4,
+          "position": 547
+        }
+      },
+      "secondFile": {
+        "name": "src/semantic/test/project-index-coordinator.test.js",
+        "start": 16,
+        "end": 36,
+        "startLoc": {
+          "line": 16,
+          "column": 4,
+          "position": 113
+        },
+        "endLoc": {
+          "line": 36,
+          "column": 4,
+          "position": 290
+        }
+      }
+    },
+    {
+      "format": "javascript",
+      "lines": 22,
+      "fragment": ", async () => {\n    const savedDescriptors = [];\n    const coordinator = createProjectIndexCoordinator({\n        cacheMaxSizeBytes: 42,\n        loadCache: async () => ({\n            status: ProjectIndexCacheStatus.MISS,\n            cacheFilePath: \"virtual-cache.json\",\n            reason: { type: ProjectIndexCacheMissReason.NOT_FOUND }\n        }),\n        saveCache: async (descriptor) => {\n            savedDescriptors.push(descriptor);\n            return {\n                status: ProjectIndexCacheStatus.WRITTEN,\n                cacheFilePath: descriptor.cacheFilePath ?? \"virtual-cache.json\",\n                size: 0\n            };\n        },\n        buildIndex: async () => createProjectIndex(\"/project\")\n    });\n\n    await coordinator.ensureReady({\n        projectRoot: \"/project\",",
+      "tokens": 0,
+      "firstFile": {
+        "name": "src/semantic/test/project-index-cache.test.js",
+        "start": 571,
+        "end": 592,
+        "startLoc": {
+          "line": 571,
+          "column": 73,
+          "position": 4395
+        },
+        "endLoc": {
+          "line": 592,
+          "column": 2,
+          "position": 4586
+        }
+      },
+      "secondFile": {
+        "name": "src/semantic/test/project-index-cache.test.js",
+        "start": 544,
+        "end": 564,
+        "startLoc": {
+          "line": 544,
+          "column": 70,
+          "position": 4152
+        },
+        "endLoc": {
+          "line": 564,
+          "column": 2,
+          "position": 4343
+        }
+      }
+    },
+    {
+      "format": "javascript",
+      "lines": 22,
+      "fragment": "loadCache: async () => ({\n                        status: ProjectIndexCacheStatus.MISS,\n                        cacheFilePath: \"virtual-cache.json\",\n                        reason: { type: ProjectIndexCacheMissReason.NOT_FOUND }\n                    }),\n                    saveCache: async (descriptor) => {\n                        savedDescriptors.push(descriptor);\n                        return {\n                            status: ProjectIndexCacheStatus.WRITTEN,\n                            cacheFilePath:\n                                descriptor.cacheFilePath ??\n                                \"virtual-cache.json\",\n                            size: 0\n                        };\n                    },\n                    buildIndex: async () => createProjectIndex(\"/project\")\n                });\n\n                await coordinator.ensureReady({ projectRoot: \"/project\" });\n\n                assert.equal(savedDescriptors.length, 1);\n                assert.equal(savedDescriptors[0].maxSizeBytes, 4096",
+      "tokens": 0,
+      "firstFile": {
+        "name": "src/semantic/test/project-index-cache.test.js",
+        "start": 676,
+        "end": 697,
+        "startLoc": {
+          "line": 676,
+          "column": 21,
+          "position": 5137
+        },
+        "endLoc": {
+          "line": 697,
+          "column": 5,
+          "position": 5321
+        }
+      },
+      "secondFile": {
+        "name": "src/semantic/test/project-index-cache.test.js",
+        "start": 548,
+        "end": 567,
+        "startLoc": {
+          "line": 548,
+          "column": 9,
+          "position": 4193
+        },
+        "endLoc": {
+          "line": 567,
+          "column": 3,
+          "position": 4375
+        }
+      }
+    },
+    {
+      "format": "javascript",
+      "lines": 25,
+      "fragment": ")\n    );\n\n    const writeFile = async (relativePath, contents) => {\n        const absolutePath = path.join(tempRoot, relativePath);\n        await fs.mkdir(path.dirname(absolutePath), { recursive: true });\n        await fs.writeFile(absolutePath, contents, \"utf8\");\n        return absolutePath;\n    };\n\n    await writeFile(\n        \"MyGame.yyp\",\n        JSON.stringify({ name: \"MyGame\", resourceType: \"GMProject\" })\n    );\n\n    await writeFile(\n        \"scripts/demo/demo.yy\",\n        JSON.stringify({ resourceType: \"GMScript\", name: \"demo\" })\n    );\n\n    const fixturePath = path.join(fixturesDirectory, fixtureFileName);\n    const fixtureSource = await fs.readFile(fixturePath, \"utf8\");\n    const gmlPath = await writeFile(\"scripts/demo/demo.gml\", fixtureSource);\n\n    return",
+      "tokens": 0,
+      "firstFile": {
+        "name": "src/semantic/test/identifier-case-autodiscovery.integration.test.js",
+        "start": 24,
+        "end": 48,
+        "startLoc": {
+          "line": 24,
+          "column": 37,
+          "position": 208
+        },
+        "endLoc": {
+          "line": 48,
+          "column": 7,
+          "position": 437
+        }
+      },
+      "secondFile": {
+        "name": "src/semantic/test/identifier-case-locals.integration.test.js",
+        "start": 30,
+        "end": 57,
+        "startLoc": {
+          "line": 30,
+          "column": 23,
+          "position": 266
+        },
+        "endLoc": {
+          "line": 57,
+          "column": 6,
+          "position": 498
+        }
+      }
+    },
+    {
+      "format": "javascript",
+      "lines": 55,
+      "fragment": ";\n\n    await writeFile(\n        \"MyGame.yyp\",\n        `${JSON.stringify(\n            {\n                name: \"MyGame\",\n                resourceType: \"GMProject\",\n                resources: [\n                    {\n                        id: {\n                            name: \"demo_script\",\n                            path: \"scripts/demo_script/demo_script.yy\"\n                        }\n                    },\n                    {\n                        id: {\n                            name: \"DemoScript\",\n                            path: \"scripts/demo_script/DemoScriptExisting.yy\"\n                        }\n                    }\n                ]\n            },\n            null,\n            4\n        )}\\n`\n    );\n\n    await writeFile(\n        \"scripts/demo_script/demo_script.yy\",\n        `${JSON.stringify(\n            {\n                resourceType: \"GMScript\",\n                name: \"demo_script\",\n                resourcePath: \"scripts/demo_script/demo_script.yy\"\n            },\n            null,\n            4\n        )}\\n`\n    );\n\n    await writeFile(\n        \"scripts/demo_script/DemoScriptExisting.yy\",\n        `${JSON.stringify(\n            {\n                resourceType: \"GMScript\",\n                name: \"DemoScript\",\n                resourcePath: \"scripts/demo_script/DemoScriptExisting.yy\"\n            },\n            null,\n            4\n        )}\\n`\n    );\n\n    const scriptPath",
+      "tokens": 0,
+      "firstFile": {
+        "name": "src/semantic/test/identifier-case-asset-conflicts.test.js",
+        "start": 20,
+        "end": 74,
+        "startLoc": {
+          "line": 20,
+          "column": 2,
+          "position": 213
+        },
+        "endLoc": {
+          "line": 74,
+          "column": 11,
+          "position": 360
+        }
+      },
+      "secondFile": {
+        "name": "src/semantic/test/identifier-case-assets.integration.test.js",
+        "start": 108,
+        "end": 162,
+        "startLoc": {
+          "line": 108,
+          "column": 2,
+          "position": 637
+        },
+        "endLoc": {
+          "line": 162,
+          "column": 14,
+          "position": 784
+        }
+      }
+    },
+    {
+      "format": "javascript",
+      "lines": 26,
+      "fragment": ", async () => {\n    await withTempDir(async (projectRoot) => {\n        const manifestPath = path.join(projectRoot, \"project.yyp\");\n        await writeFile(manifestPath, \"{}\");\n        const scriptsDir = path.join(projectRoot, \"scripts\");\n        await mkdir(scriptsDir, { recursive: true });\n        const scriptPath = path.join(scriptsDir, \"main.gml\");\n        await writeFile(scriptPath, \"// script\\n\");\n\n        async function runCase(rawValue) {\n            const descriptors = [];\n            const coordinator = {\n                async ensureReady(descriptor) {\n                    descriptors.push(descriptor);\n                    return { projectIndex: null, source: null, cache: null };\n                },\n                dispose() {}\n            };\n\n            const options = {\n                filepath: scriptPath,\n                __identifierCaseProjectIndexCoordinator: coordinator\n            };\n\n            if (rawValue !== undefined) {\n                options.gmlIdentifierCaseProjectIndexConcurrency",
+      "tokens": 0,
+      "firstFile": {
+        "name": "src/plugin/test/project-index-bootstrap.test.js",
+        "start": 79,
+        "end": 104,
+        "startLoc": {
+          "line": 79,
+          "column": 66,
+          "position": 685
+        },
+        "endLoc": {
+          "line": 104,
+          "column": 41,
+          "position": 945
+        }
+      },
+      "secondFile": {
+        "name": "src/plugin/test/project-index-bootstrap.test.js",
+        "start": 18,
+        "end": 42,
+        "startLoc": {
+          "line": 18,
+          "column": 69,
+          "position": 168
+        },
+        "endLoc": {
+          "line": 42,
+          "column": 43,
+          "position": 427
+        }
+      }
+    },
+    {
+      "format": "javascript",
+      "lines": 24,
+      "fragment": "import assert from \"node:assert/strict\";\nimport path from \"node:path\";\nimport { fileURLToPath } from \"node:url\";\nimport { describe, it } from \"node:test\";\nimport prettier from \"prettier\";\n\nconst currentDirectory = fileURLToPath(new URL(\".\", import.meta.url));\nconst pluginPath = path.resolve(currentDirectory, \"../src/gml.js\");\n\nasync function formatWithPlugin(source, overrides) {\n    const formatted = await prettier.format(source, {\n        parser: \"gml-parse\",\n        plugins: [pluginPath],\n        ...overrides\n    });\n\n    if (typeof formatted !== \"string\") {\n        throw new TypeError(\"Expected Prettier to return a string result.\");\n    }\n\n    return formatted;\n}\n\ndescribe(\"GM2007 trailing comment spacing\"",
+      "tokens": 0,
+      "firstFile": {
+        "name": "src/plugin/test/gm2007-comment-spacing.test.js",
+        "start": 1,
+        "end": 24,
+        "startLoc": {
+          "line": 1,
+          "column": 1,
+          "position": 0
+        },
+        "endLoc": {
+          "line": 24,
+          "column": 34,
+          "position": 198
+        }
+      },
+      "secondFile": {
+        "name": "src/plugin/test/static-function-semi.test.js",
+        "start": 1,
+        "end": 24,
+        "startLoc": {
+          "line": 1,
+          "column": 1,
+          "position": 0
+        },
+        "endLoc": {
+          "line": 24,
+          "column": 42,
+          "position": 198
+        }
+      }
+    },
+    {
+      "format": "javascript",
+      "lines": 24,
+      "fragment": "import assert from \"node:assert/strict\";\nimport path from \"node:path\";\nimport { fileURLToPath } from \"node:url\";\nimport { describe, it } from \"node:test\";\nimport prettier from \"prettier\";\n\nconst currentDirectory = fileURLToPath(new URL(\".\", import.meta.url));\nconst pluginPath = path.resolve(currentDirectory, \"../src/gml.js\");\n\nasync function formatWithPlugin(source, overrides) {\n    const formatted = await prettier.format(source, {\n        parser: \"gml-parse\",\n        plugins: [pluginPath],\n        ...overrides\n    });\n\n    if (typeof formatted !== \"string\") {\n        throw new TypeError(\"Expected Prettier to return a string result.\");\n    }\n\n    return formatted;\n}\n\ndescribe(\"function assignment semicolons\"",
+      "tokens": 0,
+      "firstFile": {
+        "name": "src/plugin/test/function-assignment-semi.test.js",
+        "start": 1,
+        "end": 24,
+        "startLoc": {
+          "line": 1,
+          "column": 1,
+          "position": 0
+        },
+        "endLoc": {
+          "line": 24,
+          "column": 33,
+          "position": 198
+        }
+      },
+      "secondFile": {
+        "name": "src/plugin/test/static-function-semi.test.js",
+        "start": 1,
+        "end": 24,
+        "startLoc": {
+          "line": 1,
+          "column": 1,
+          "position": 0
+        },
+        "endLoc": {
+          "line": 24,
+          "column": 42,
+          "position": 198
+        }
+      }
+    },
+    {
+      "format": "javascript",
+      "lines": 32,
+      "fragment": "});\n\n    const lines = formatted.trim().split(\"\\n\");\n    const descriptionIndex = lines.findIndex((line) =>\n        line.startsWith(\"/// @description\")\n    );\n\n    assert.ok(\n        descriptionIndex !== -1,\n        \"Expected formatter to emit a @description doc comment line.\"\n    );\n\n    const [firstLine, secondLine, thirdLine] = lines.slice(\n        descriptionIndex,\n        descriptionIndex + 3\n    );\n\n    assert.strictEqual(\n        firstLine,\n        \"/// @description Base class for all shapes. Shapes can be solid or not solid.\"\n    );\n    assert.strictEqual(\n        secondLine,\n        \"///              Solid shapes will collide with other solid shapes, and\"\n    );\n    assert.strictEqual(\n        thirdLine,\n        \"///              non-solid shapes will not collide with anything.\"\n    );\n});\n\ntest(\"wraps @description doc comments when printWidth is narrow but prevents a single word from being wrapped\"",
+      "tokens": 0,
+      "firstFile": {
+        "name": "src/plugin/test/doc-comment-wrapping.test.js",
+        "start": 65,
+        "end": 96,
+        "startLoc": {
+          "line": 65,
+          "column": 5,
+          "position": 428
+        },
+        "endLoc": {
+          "line": 96,
+          "column": 106,
+          "position": 599
+        }
+      },
+      "secondFile": {
+        "name": "src/plugin/test/doc-comment-wrapping.test.js",
+        "start": 23,
+        "end": 54,
+        "startLoc": {
+          "line": 23,
+          "column": 5,
+          "position": 170
+        },
+        "endLoc": {
+          "line": 54,
+          "column": 75,
+          "position": 341
+        }
+      }
+    },
+    {
+      "format": "javascript",
+      "lines": 35,
+      "fragment": ",\n        \"function describe_triangular_prism() {}\",\n        \"\"\n    ].join(\"\\n\");\n\n    const formatted = await prettier.format(source, {\n        parser: \"gml-parse\",\n        plugins: [pluginPath]\n    });\n\n    const lines = formatted.trim().split(\"\\n\");\n    const descriptionIndex = lines.findIndex((line) =>\n        line.startsWith(\"/// @description\")\n    );\n\n    assert.ok(\n        descriptionIndex !== -1,\n        \"Expected formatter to emit a @description doc comment line.\"\n    );\n\n    const continuationLines = [];\n    for (let index = descriptionIndex + 1; index < lines.length; index += 1) {\n        const line = lines[index];\n        if (!line.startsWith(\"///\")) {\n            break;\n        }\n\n        if (line.startsWith(\"/// @\")) {\n            continue;\n        }\n\n        continuationLines.push(line);\n    }\n\n    assert.strictEqual",
+      "tokens": 0,
+      "firstFile": {
+        "name": "src/plugin/test/doc-comment-wrapping.test.js",
+        "start": 213,
+        "end": 247,
+        "startLoc": {
+          "line": 213,
+          "column": 105,
+          "position": 1380
+        },
+        "endLoc": {
+          "line": 247,
+          "column": 12,
+          "position": 1630
+        }
+      },
+      "secondFile": {
+        "name": "src/plugin/test/doc-comment-wrapping.test.js",
+        "start": 145,
+        "end": 179,
+        "startLoc": {
+          "line": 145,
+          "column": 92,
+          "position": 904
+        },
+        "endLoc": {
+          "line": 179,
+          "column": 3,
+          "position": 1154
+        }
+      }
+    },
+    {
+      "format": "javascript",
+      "lines": 24,
+      "fragment": "import assert from \"node:assert/strict\";\nimport path from \"node:path\";\nimport { fileURLToPath } from \"node:url\";\nimport { describe, it } from \"node:test\";\nimport prettier from \"prettier\";\n\nconst currentDirectory = fileURLToPath(new URL(\".\", import.meta.url));\nconst pluginPath = path.resolve(currentDirectory, \"../src/gml.js\");\n\nasync function formatWithPlugin(source, overrides) {\n    const formatted = await prettier.format(source, {\n        parser: \"gml-parse\",\n        plugins: [pluginPath],\n        ...overrides\n    });\n\n    if (typeof formatted !== \"string\") {\n        throw new TypeError(\"Expected Prettier to return a string result.\");\n    }\n\n    return formatted;\n}\n\ndescribe(\"delete statements\"",
+      "tokens": 0,
+      "firstFile": {
+        "name": "src/plugin/test/delete-statement-semi.test.js",
+        "start": 1,
+        "end": 24,
+        "startLoc": {
+          "line": 1,
+          "column": 1,
+          "position": 0
+        },
+        "endLoc": {
+          "line": 24,
+          "column": 20,
+          "position": 198
+        }
+      },
+      "secondFile": {
+        "name": "src/plugin/test/static-function-semi.test.js",
+        "start": 1,
+        "end": 24,
+        "startLoc": {
+          "line": 1,
+          "column": 1,
+          "position": 0
+        },
+        "endLoc": {
+          "line": 24,
+          "column": 42,
+          "position": 198
+        }
+      }
+    },
+    {
+      "format": "javascript",
+      "lines": 25,
+      "fragment": "import assert from \"node:assert/strict\";\nimport path from \"node:path\";\nimport { fileURLToPath } from \"node:url\";\n\nimport prettier from \"prettier\";\nimport { describe, it } from \"node:test\";\n\nconst currentDirectory = fileURLToPath(new URL(\".\", import.meta.url));\nconst pluginPath = path.resolve(currentDirectory, \"../src/gml.js\");\n\nasync function formatWithPlugin(source, overrides) {\n    const formatted = await prettier.format(source, {\n        parser: \"gml-parse\",\n        plugins: [pluginPath],\n        ...overrides\n    });\n\n    if (typeof formatted !== \"string\") {\n        throw new TypeError(\"Expected Prettier to return a string result.\");\n    }\n\n    return formatted;\n}\n\ndescribe(\"legacy define region normalization\"",
+      "tokens": 0,
+      "firstFile": {
+        "name": "src/plugin/test/define-region-newlines.test.js",
+        "start": 1,
+        "end": 25,
+        "startLoc": {
+          "line": 1,
+          "column": 1,
+          "position": 0
+        },
+        "endLoc": {
+          "line": 25,
+          "column": 37,
+          "position": 199
+        }
+      },
+      "secondFile": {
+        "name": "src/plugin/test/empty-block-comments.test.js",
+        "start": 1,
+        "end": 25,
+        "startLoc": {
+          "line": 1,
+          "column": 1,
+          "position": 0
+        },
+        "endLoc": {
+          "line": 25,
+          "column": 23,
+          "position": 199
+        }
+      }
+    },
+    {
+      "format": "javascript",
+      "lines": 25,
+      "fragment": "import assert from \"node:assert/strict\";\nimport path from \"node:path\";\nimport { fileURLToPath } from \"node:url\";\n\nimport prettier from \"prettier\";\nimport { describe, it } from \"node:test\";\n\nconst currentDirectory = fileURLToPath(new URL(\".\", import.meta.url));\nconst pluginPath = path.resolve(currentDirectory, \"../src/gml.js\");\n\nasync function formatWithPlugin(source, overrides) {\n    const formatted = await prettier.format(source, {\n        parser: \"gml-parse\",\n        plugins: [pluginPath],\n        ...overrides\n    });\n\n    if (typeof formatted !== \"string\") {\n        throw new TypeError(\"Expected Prettier to return a string result.\");\n    }\n\n    return formatted;\n}\n\ndescribe(\"define normalization spacing\"",
+      "tokens": 0,
+      "firstFile": {
+        "name": "src/plugin/test/define-normalization-spacing.test.js",
+        "start": 1,
+        "end": 25,
+        "startLoc": {
+          "line": 1,
+          "column": 1,
+          "position": 0
+        },
+        "endLoc": {
+          "line": 25,
+          "column": 31,
+          "position": 199
+        }
+      },
+      "secondFile": {
+        "name": "src/plugin/test/empty-block-comments.test.js",
+        "start": 1,
+        "end": 25,
+        "startLoc": {
+          "line": 1,
+          "column": 1,
+          "position": 0
+        },
+        "endLoc": {
+          "line": 25,
+          "column": 23,
+          "position": 199
+        }
+      }
+    },
+    {
+      "format": "javascript",
+      "lines": 24,
+      "fragment": "import assert from \"node:assert/strict\";\nimport path from \"node:path\";\nimport { fileURLToPath } from \"node:url\";\nimport { describe, it } from \"node:test\";\nimport prettier from \"prettier\";\n\nconst currentDirectory = fileURLToPath(new URL(\".\", import.meta.url));\nconst pluginPath = path.resolve(currentDirectory, \"../src/gml.js\");\n\nasync function formatWithPlugin(source, overrides) {\n    const formatted = await prettier.format(source, {\n        parser: \"gml-parse\",\n        plugins: [pluginPath],\n        ...overrides\n    });\n\n    if (typeof formatted !== \"string\") {\n        throw new TypeError(\"Expected Prettier to return a string result.\");\n    }\n\n    return formatted;\n}\n\ndescribe(\"constructor instance method semicolons\"",
+      "tokens": 0,
+      "firstFile": {
+        "name": "src/plugin/test/constructor-instance-methods.test.js",
+        "start": 1,
+        "end": 24,
+        "startLoc": {
+          "line": 1,
+          "column": 1,
+          "position": 0
+        },
+        "endLoc": {
+          "line": 24,
+          "column": 41,
+          "position": 198
+        }
+      },
+      "secondFile": {
+        "name": "src/plugin/test/static-function-semi.test.js",
+        "start": 1,
+        "end": 24,
+        "startLoc": {
+          "line": 1,
+          "column": 1,
+          "position": 0
+        },
+        "endLoc": {
+          "line": 24,
+          "column": 42,
+          "position": 198
+        }
+      }
+    },
+    {
+      "format": "javascript",
+      "lines": 29,
+      "fragment": "identity;\n    }\n\n    return (index) => {\n        if (typeof index !== \"number\") {\n            return index;\n        }\n\n        let left = 0;\n        let right = offsets.length;\n\n        while (left < right) {\n            const middle = (left + right) >> 1;\n            if (index <= offsets[middle]) {\n                right = middle;\n            } else {\n                left = middle + 1;\n            }\n        }\n\n        return index - left;\n    };\n}\n\nfunction isQuoteCharacter(character) {\n    return character === '\"' || character === \"'\" || character === \"`\";\n}\n\nexport",
+      "tokens": 0,
+      "firstFile": {
+        "name": "src/parser/src/conditional-assignment-sanitizer.js",
+        "start": 30,
+        "end": 58,
+        "startLoc": {
+          "line": 30,
+          "column": 2,
+          "position": 214
+        },
+        "endLoc": {
+          "line": 58,
+          "column": 7,
+          "position": 418
+        }
+      },
+      "secondFile": {
+        "name": "src/parser/src/ast/conditional-assignment-sanitizer.js",
+        "start": 49,
+        "end": 79,
+        "startLoc": {
+          "line": 49,
+          "column": 2,
+          "position": 223
+        },
+        "endLoc": {
+          "line": 79,
+          "column": 5,
+          "position": 426
+        }
+      }
+    },
+    {
+      "format": "javascript",
+      "lines": 18,
+      "fragment": ");\n        const logged = [];\n        const exitCodes = [];\n        const restoreConsole = mock.method(console, \"error\", (...args) => {\n            logged.push(args.join(\" \"));\n        });\n        const restoreExit = mock.method(process, \"exit\", (code) => {\n            exitCodes.push(code);\n        });\n\n        try {\n            handleCliError(error, { prefix: \"Failed.\" });\n        } finally {\n            restoreConsole.mock.restore();\n            restoreExit.mock.restore();\n        }\n\n        assert.equal",
+      "tokens": 0,
+      "firstFile": {
+        "name": "src/cli/test/core-errors.test.js",
+        "start": 65,
+        "end": 82,
+        "startLoc": {
+          "line": 65,
+          "column": 21,
+          "position": 533
+        },
+        "endLoc": {
+          "line": 82,
+          "column": 6,
+          "position": 699
+        }
+      },
+      "secondFile": {
+        "name": "src/cli/test/core-errors.test.js",
+        "start": 41,
+        "end": 58,
+        "startLoc": {
+          "line": 41,
+          "column": 2,
+          "position": 307
+        },
+        "endLoc": {
+          "line": 58,
+          "column": 10,
+          "position": 473
+        }
+      }
+    },
+    {
+      "format": "javascript",
+      "lines": 11,
+      "fragment": ", async () => {\n    const uniqueSuffix = randomUUID();\n    const rawName = ` ${uniqueSuffix}-target`;\n    const sanitizedName = `${uniqueSuffix}-target`;\n    const rawPath = path.resolve(process.cwd(), rawName);\n    const sanitizedPath = path.resolve(process.cwd(), sanitizedName);\n\n    await fs.rm(rawPath, { recursive: true, force: true });\n    await fs.rm(sanitizedPath, { recursive: true, force: true });\n    await fs.mkdir(rawPath, { recursive: true });\n    await",
+      "tokens": 0,
+      "firstFile": {
+        "name": "src/cli/test/cli-target-path-validation.test.js",
+        "start": 82,
+        "end": 92,
+        "startLoc": {
+          "line": 82,
+          "column": 73,
+          "position": 727
+        },
+        "endLoc": {
+          "line": 92,
+          "column": 6,
+          "position": 899
+        }
+      },
+      "secondFile": {
+        "name": "src/cli/test/cli-target-path-validation.test.js",
+        "start": 61,
+        "end": 72,
+        "startLoc": {
+          "line": 61,
+          "column": 88,
+          "position": 468
+        },
+        "endLoc": {
+          "line": 72,
+          "column": 4,
+          "position": 641
+        }
+      }
+    }
+  ]
 }
