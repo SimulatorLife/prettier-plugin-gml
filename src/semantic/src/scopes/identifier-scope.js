@@ -1,23 +1,12 @@
 import { Core } from "@gml-modules/core";
 
 /**
- * The previous IdentifierMetadataManager bundled scope management, role tracking,
- * and global identifier bookkeeping behind a single "manager" contract. That
- * made consumers depend on capabilities they did not always need, so this module
- * exposes smaller, purpose-driven collaborators instead. Earlier iterations
- * continued that pattern with a catch-all `IdentifierScopeCoordinatorInterface`
- * that coupled enablement checks, scope session orchestration, and role
- * application. Those responsibilities now flow through narrower interfaces so
- * collaborators can depend only on the behaviour they require.
- */
-
-/**
  * @typedef {object} IdentifierRoleTrackerInterface
  * @property {(role: object | null | undefined, callback: () => any) => any} withRole
  * @property {() => object | null} getCurrentRole
  * @property {(role: object | null | undefined) => object} cloneRole
  */
-// TODO: This should probably live in 'semantic'
+
 export class IdentifierRoleTracker {
     constructor() {
         this.identifierRoles = [];
@@ -158,6 +147,12 @@ export class GlobalIdentifierRegistry {
     }
 }
 
+/**
+ * Build a `{ start, end }` location object from a token, preserving `line`, `index`,
+ * and optional `column` data. Returns `null` if no token is provided.
+ * @param {object} token
+ * @returns {{start: object, end: object} | null}
+ */
 export function createIdentifierLocation(token) {
     if (!token) {
         return null;

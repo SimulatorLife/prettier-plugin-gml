@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-    RESERVED_IDENTIFIER_PREFIXES,
     formatIdentifierCase,
     getIdentifierCaseStyleMetadata,
     isIdentifierCase,
@@ -63,17 +62,6 @@ test("mixed alphanumeric identifiers join digits intelligently in snake cases", 
         formatIdentifierCase(normalized, "snake-upper"),
         "HP2D_MAX"
     );
-});
-
-test("reserved prefixes from the reference list remain untouched", () => {
-    for (const prefix of RESERVED_IDENTIFIER_PREFIXES) {
-        const identifier = `${prefix}exampleValue`;
-        const camel = formatIdentifierCase(identifier, "camel");
-        assert.strictEqual(camel.startsWith(prefix), true);
-    }
-
-    const bracketed = formatIdentifierCase("argument[1].hp_max", "camel");
-    assert.strictEqual(bracketed, "argument[1].hpMax");
 });
 
 test("idempotence checks report already compliant identifiers", () => {

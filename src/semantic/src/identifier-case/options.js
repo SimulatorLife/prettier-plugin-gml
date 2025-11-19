@@ -1,4 +1,4 @@
-// Identifier-case option metadata and normalization helpers.
+// Identifier-case helpers (e.g. pascal case, camel case).
 //
 // Keeps option names, descriptions, and normalization utilities grouped in one
 // place so the CLI, documentation, and project-index pipeline can share a

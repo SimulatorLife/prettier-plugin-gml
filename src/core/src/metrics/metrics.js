@@ -4,18 +4,6 @@ import { getNonEmptyString, normalizeStringList } from "../utils/string.js";
 
 const hasHrtime = typeof process?.hrtime?.bigint === "function";
 
-function nowMs() {
-    if (hasHrtime) {
-        const ns = process.hrtime.bigint();
-        return Number(ns / 1_000_000n);
-    }
-    return Date.now();
-}
-
-function normalizeLabel(label) {
-    return getNonEmptyString(label) ?? "unknown";
-}
-
 const DEFAULT_CACHE_KEYS = Object.freeze(["hits", "misses", "stale"]);
 const SUMMARY_SECTIONS = Object.freeze([
     "timings",
@@ -24,14 +12,23 @@ const SUMMARY_SECTIONS = Object.freeze([
     "metadata"
 ]);
 
+function nowMs() {
+    if (hasHrtime) {
+        const ns = process.hrtime.bigint();
+        return Number(ns / 1_000_000n);
+    }
+    return Date.now();
+}
+
 /**
- * Historically `createMetricsTracker` returned a monolithic "tracker" object
- * with timing, counter, cache, and reporting helpers all hanging off the same
- * surface. Downstream modules that only needed to bump counters—or simply read
- * the snapshot—still depended on the entire API. Grouping the responsibilities
- * into focused contracts lets call sites depend solely on the collaborators
- * they actually exercise.
+ * Normalize a label string by trimming whitespace and replacing
+ * consecutive spaces with a single space.
+ * @param {string} label - The label to normalize.
+ * @returns {string} The normalized label.
  */
+function normalizeLabel(label) {
+    return getNonEmptyString(label) ?? "unknown";
+}
 
 /**
  * @typedef {object} MetricsSnapshot
@@ -158,10 +155,6 @@ function normalizeIncrementAmount(amount, fallback = 1) {
     return Number.isFinite(numeric) ? numeric : fallback;
 }
 
-function toPlainObject(map) {
-    return Object.fromEntries(map);
-}
-
 function createMapIncrementer(store) {
     return (label, amount = 1) => {
         const normalized = normalizeLabel(label);
@@ -280,10 +273,10 @@ export function createMetricsTracker({
     const incrementTiming = createMapIncrementer(timings);
     const incrementCounterBy = createMapIncrementer(counters);
     const snapshot = (extra = {}) => {
-        const timingsSnapshot = toPlainObject(timings);
-        const countersSnapshot = toPlainObject(counters);
+        const timingsSnapshot = Object.fromEntries(timings);
+        const countersSnapshot = Object.fromEntries(counters);
         const cachesSnapshot = Object.fromEntries(
-            Array.from(caches, ([name, stats]) => [name, toPlainObject(stats)])
+            Array.from(caches, ([name, stats]) => [name, Object.fromEntries(stats)])
         );
         const totalTimeMs = Object.values(timingsSnapshot).reduce(
             (total, value) => total + value,

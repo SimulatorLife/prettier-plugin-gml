@@ -1,24 +1,18 @@
-import { Core } from "@gml-modules/core";
+import { Resources, Utils, IdentifierMetadata } from "@gml-modules/core";
 
-import {
-    GML_IDENTIFIER_METADATA_PATH,
-    loadBundledIdentifierMetadata
-} from "./bundled-resources.js";
-
-const {
-    Utils: { isObjectLike, noop, toNormalizedLowerCaseSet },
-    IdentifierMetadata: { normalizeIdentifierMetadataEntries }
-} = Core;
+// const {
+//     Utils: { isObjectLike, noop, toNormalizedLowerCaseSet },
+//     IdentifierMetadata: { normalizeIdentifierMetadataEntries }
+// } = Core;
 
 const DEFAULT_EXCLUDED_TYPES = new Set(["literal", "keyword"]);
-const DEFAULT_IDENTIFIER_METADATA_PATH = GML_IDENTIFIER_METADATA_PATH;
 
 let metadataLoader = defaultLoadIdentifierMetadata;
 
 function safelyLoadIdentifierMetadata(loader) {
     try {
         const metadata = loader();
-        return isObjectLike(metadata) ? metadata : null;
+        return Utils.isObjectLike(metadata) ? metadata : null;
     } catch {
         return null;
     }
@@ -56,7 +50,7 @@ function setReservedIdentifierMetadataLoader(loader) {
         // keeps those flows balanced and mirrors other cleanup hooks across the
         // codebase; throwing or returning `null` would explode the finally
         // handler and leave the override logic in an indeterminate state.
-        return noop;
+        return Utils.noop;
     }
 
     const previousLoader = metadataLoader;
@@ -84,12 +78,12 @@ function resolveExcludedTypes(types) {
         return new Set(DEFAULT_EXCLUDED_TYPES);
     }
 
-    return toNormalizedLowerCaseSet(types);
+    return Utils.toNormalizedLowerCaseSet(types);
 }
 
 export function loadReservedIdentifierNames({ disallowedTypes } = {}) {
     const metadata = loadIdentifierMetadata();
-    const entries = normalizeIdentifierMetadataEntries(metadata);
+    const entries = IdentifierMetadata.normalizeIdentifierMetadataEntries(metadata);
 
     if (entries.length === 0) {
         return new Set();

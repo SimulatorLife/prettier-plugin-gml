@@ -337,7 +337,6 @@ export function capitalize(value) {
     if (!isNonEmptyString(value)) {
         return value;
     }
-
     return value[0].toUpperCase() + value.slice(1);
 }
 

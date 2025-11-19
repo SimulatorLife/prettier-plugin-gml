@@ -1,6 +1,3 @@
-export { ScopeTracker } from "./scope-tracker.js";
-export {
-    ScopeOverrideKeyword,
-    isScopeOverrideKeyword,
-    formatKnownScopeOverrideKeywords
-} from "./scope-override-keywords.js";
+export * from "./identifier-scope.js";
+export * from "./scope-tracker.js";
+export * from "./scope-override-keywords.js";

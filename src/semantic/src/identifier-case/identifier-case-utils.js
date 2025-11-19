@@ -257,18 +257,6 @@ export function isIdentifierCase(identifier, style) {
     return format(normalized) === identifier;
 }
 
-export const RESERVED_IDENTIFIER_PREFIXES = Object.freeze([
-    "global.",
-    "other.",
-    "self.",
-    "local.",
-    "with.",
-    "noone.",
-    "argument",
-    "argument_local",
-    "argument_relative"
-]);
-
 function normalizeReservedPrefixOverrides(overrides) {
     if (typeof overrides === "string") {
         return [];

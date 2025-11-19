@@ -79,7 +79,7 @@ export default [
         /* Helpful for import/plugin-import */
         settings: {
             "import/resolver": {
-                node: { extensions: [".js"] }
+                node: { extensions: [".js", ".ts"] }
             }
         },
 
@@ -332,9 +332,9 @@ export default [
         }
     },
 
-    /* Disallow .mjs, .cjs, and .ts files */
+    /* Disallow .mjs and .cjs files */
     {
-        files: ["**/*.mjs", "**/*.cjs", "**/*.ts"],
+        files: ["**/*.mjs", "**/*.cjs"],
         rules: {
             // Block the entire file
             "no-restricted-syntax": [
@@ -342,7 +342,7 @@ export default [
                 {
                     selector: "Program",
                     message:
-                        "Use .js files only. .mjs and .cjs files are not allowed."
+                        "Use .ts files only. .mjs and .cjs files are not allowed."
                 }
             ]
         }

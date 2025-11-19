@@ -50,3 +50,39 @@ export function getIdentifierMetadata() {
 export function clearIdentifierMetadataCache() {
     cachedIdentifierMetadata = null;
 }
+
+/**
+ * Normalize the identifier metadata entries by extracting and validating
+ * each entry from the raw payload.
+ * @param {*} metadata
+ * @returns {Array<{ name: string, type: string, descriptor: object }>}
+ */
+export function normalizeIdentifierMetadataEntries(metadata) {
+    const identifiers =
+        metadata &&
+        typeof metadata === "object" &&
+        metadata.identifiers;
+
+    if (!identifiers || typeof identifiers !== "object") {
+        return [];
+    }
+
+    return Object.entries(identifiers).reduce((entries, [name, descriptor]) => {
+        if (!name) {
+            return entries;
+        }
+
+        // Descriptor must be a non-null object
+        if (!descriptor || typeof descriptor !== "object") {
+            return entries;
+        }
+
+        const type =
+            typeof descriptor.type === "string"
+                ? descriptor.type.toLowerCase()
+                : "";
+
+        entries.push({ name, type, descriptor });
+        return entries;
+    }, []);
+}
