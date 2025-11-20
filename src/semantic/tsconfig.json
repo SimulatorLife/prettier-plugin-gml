@@ -6,5 +6,6 @@
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "baseUrl": "."
   },
-  "include": ["*.ts", "src/**/*.ts", "test/**/*.ts"]
+  "include": ["*.ts", "src/**/*.ts", "test/**/*.ts"],
+  "exclude": ["dist"]
 }

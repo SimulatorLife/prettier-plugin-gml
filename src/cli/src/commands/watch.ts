@@ -15,6 +15,7 @@ import { watch } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
+import type { FSWatcher } from "node:fs";
 
 import { Command, Option } from "commander";
 
@@ -27,12 +28,102 @@ import {
 import { startRuntimeStaticServer } from "../modules/runtime/server.js";
 import { startPatchWebSocketServer } from "../modules/websocket/server.js";
 
+interface TranspilerPatch {
+    kind: string;
+    id: string;
+    js_body: string;
+    sourceText: string;
+    version: number;
+}
+
+interface WatchTranspiler {
+    transpileScript(request: {
+        sourceText: string;
+        symbolId: string;
+    }): Promise<TranspilerPatch>;
+}
+
+interface RuntimeServerController {
+    host: string;
+    port: number;
+    url: string;
+    stop(): Promise<void>;
+}
+
+interface WebSocketServerController {
+    host: string;
+    port: number;
+    url: string;
+    broadcast(patch: TranspilerPatch): {
+        successCount: number;
+        failureCount: number;
+        totalClients: number;
+    };
+    stop(): Promise<void>;
+}
+
+interface RuntimeSourceDescriptor {
+    root: string;
+    packageName: string | null;
+    packageJson: Record<string, unknown> | null;
+}
+
+type RuntimeSourceResolver = (options?: {
+    runtimeRoot?: string;
+    runtimePackage?: string;
+}) => Promise<RuntimeSourceDescriptor>;
+
+type RuntimeDescriptorFormatter = (
+    source: RuntimeSourceDescriptor
+) => string;
+
+interface WatchCommandOptions {
+    extensions?: Array<string>;
+    polling?: boolean;
+    pollingInterval?: number;
+    verbose?: boolean;
+    websocketPort?: number;
+    websocketHost?: string;
+    websocketServer?: boolean;
+    runtimeRoot?: string;
+    runtimePackage?: string;
+    runtimeServer?: boolean;
+    hydrateRuntime?: boolean;
+    runtimeResolver?: RuntimeSourceResolver;
+    runtimeDescriptor?: RuntimeDescriptorFormatter;
+    runtimeServerStarter?: (options: {
+        runtimeRoot: string;
+        verbose?: boolean;
+    }) => Promise<RuntimeServerController>;
+    abortSignal?: AbortSignal;
+}
+
+interface RuntimeContext {
+    root: string | null;
+    packageName: string | null;
+    packageJson: Record<string, unknown> | null;
+    server: {
+        host: string;
+        port: number;
+        url: string;
+    } | null;
+    noticeLogged: boolean;
+    transpiler: WatchTranspiler;
+    patches: Array<TranspilerPatch>;
+    websocketServer: WebSocketServerController | null;
+}
+
+interface FileChangeOptions {
+    verbose?: boolean;
+    runtimeContext?: RuntimeContext;
+}
+
 /**
  * Creates the watch command for monitoring GML source files.
  *
  * @returns {Command} Commander command instance
  */
-export function createWatchCommand() {
+export function createWatchCommand(): Command {
     const command = new Command("watch");
 
     command
@@ -126,7 +217,7 @@ export function createWatchCommand() {
  * @param {string} targetPath - Directory to validate
  * @returns {Promise<string>} Resolved absolute path
  */
-async function validateTargetPath(targetPath) {
+async function validateTargetPath(targetPath: string): Promise<string> {
     const normalizedPath = path.resolve(targetPath);
 
     try {
@@ -154,11 +245,11 @@ async function validateTargetPath(targetPath) {
  * @param {boolean} verbose - Whether verbose logging is enabled
  */
 function logWatchStartup(
-    targetPath,
-    extensions,
-    polling,
-    pollingInterval,
-    verbose
+    targetPath: string,
+    extensions: ReadonlySet<string>,
+    polling: boolean,
+    pollingInterval: number,
+    verbose: boolean
 ) {
     if (verbose) {
         console.log(`Watching: ${targetPath}`);
@@ -186,7 +277,10 @@ function logWatchStartup(
  * @param {string} options.websocketHost - WebSocket server host
  * @param {boolean} options.websocketServer - Enable WebSocket server
  */
-export async function runWatchCommand(targetPath, options) {
+export async function runWatchCommand(
+    targetPath: string,
+    options: WatchCommandOptions = {}
+): Promise<void> {
     const {
         extensions = [".gml"],
         polling = false,
@@ -216,8 +310,8 @@ export async function runWatchCommand(targetPath, options) {
             ? runtimeServer !== false
             : Boolean(hydrateRuntime);
 
-    const transpiler = Transpiler.createTranspiler();
-    const runtimeContext = {
+    const transpiler = Transpiler.createTranspiler() as WatchTranspiler;
+    const runtimeContext: RuntimeContext = {
         root: null,
         packageName: null,
         packageJson: null,
@@ -228,8 +322,8 @@ export async function runWatchCommand(targetPath, options) {
         websocketServer: null
     };
 
-    let runtimeServerController = null;
-    let websocketServerController = null;
+    let runtimeServerController: RuntimeServerController | null = null;
+    let websocketServerController: WebSocketServerController | null = null;
 
     if (shouldServeRuntime) {
         const runtimeSource = await runtimeResolver({
@@ -317,11 +411,11 @@ export async function runWatchCommand(targetPath, options) {
         verbose
     );
 
-    const watchOptions = {
+    const watchOptions: { recursive: true; persistent?: boolean } = {
         recursive: true,
         ...(polling && { persistent: true })
     };
-    let watcher;
+    let watcher: FSWatcher | null = null;
     let resolved = false;
 
     return new Promise((resolve) => {
@@ -457,10 +551,10 @@ export async function runWatchCommand(targetPath, options) {
  * @param {object} options.runtimeContext - Runtime context with transpiler and patch storage
  */
 async function handleFileChange(
-    filePath,
-    eventType,
-    { verbose = false, runtimeContext } = {}
-) {
+    filePath: string,
+    eventType: string,
+    { verbose = false, runtimeContext }: FileChangeOptions = {}
+): Promise<void> {
     if (verbose && runtimeContext?.root && !runtimeContext.noticeLogged) {
         console.log(`Runtime target: ${runtimeContext.root}`);
         runtimeContext.noticeLogged = true;

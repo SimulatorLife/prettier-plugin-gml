@@ -11,8 +11,19 @@ const {
     Utils: { isObjectLike, toArray, toMutableArray }
 } = Core;
 
+type IdentifierOccurrences = {
+    declarations: Array<ReturnType<typeof createOccurrence>>;
+    references: Array<ReturnType<typeof createOccurrence>>;
+};
+
 class Scope {
-    constructor(id, kind, parent = null) {
+    public id: string;
+    public kind: string;
+    public parent: Scope | null;
+    public symbolMetadata: Map<string, ReturnType<typeof cloneDeclarationMetadata>>;
+    public occurrences: Map<string, IdentifierOccurrences>;
+
+    constructor(id, kind, parent: Scope | null = null) {
         this.id = id;
         this.kind = kind;
         this.parent = parent;
