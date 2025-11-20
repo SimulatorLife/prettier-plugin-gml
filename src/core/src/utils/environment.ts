@@ -1,6 +1,40 @@
 import { assertFunction, isObjectLike } from "./object.js";
 import { assertNonEmptyString } from "./string.js";
 
+type ApplyEnvironmentOverrideParams = {
+    env?: NodeJS.ProcessEnv | null;
+    envVar?: string | null;
+    applyValue?: (value: string | undefined) => void;
+    includeUndefined?: boolean;
+};
+
+type EnvConfiguredValueParams<TValue> = {
+    defaultValue: TValue;
+    envVar?: string | null;
+    normalize?: (
+        raw: unknown,
+        context: { defaultValue: TValue; previousValue: TValue }
+    ) => TValue;
+    applyOverride?: (params: ApplyEnvironmentOverrideParams) => void;
+};
+
+type EnvConfiguredValueWithFallbackParams<TValue> = {
+    defaultValue: TValue;
+    envVar?: string | null;
+    resolve?: (
+        raw: unknown,
+        context: {
+            defaultValue: TValue;
+            previousValue: TValue;
+            fallback: TValue;
+        }
+    ) => TValue | null | undefined;
+    computeFallback?: (context: {
+        defaultValue: TValue;
+        previousValue: TValue;
+    }) => TValue;
+};
+
 /**
  * Apply an environment-driven override by invoking {@link applyValue} when the
  * referenced variable is defined.
@@ -24,7 +58,7 @@ export function applyEnvironmentOverride({
     envVar,
     applyValue,
     includeUndefined = false
-} = {}) {
+}: ApplyEnvironmentOverrideParams = {}) {
     const variable = assertNonEmptyString(envVar, {
         name: "envVar",
         trim: true
@@ -140,12 +174,12 @@ export function applyConfiguredValueEnvOverride(config, env) {
  *     applyEnvOverride(env?: NodeJS.ProcessEnv | null | undefined): TValue;
  * }} Utility methods for interacting with the configurable value.
  */
-export function createEnvConfiguredValue({
+export function createEnvConfiguredValue<TValue>({
     defaultValue,
     envVar,
     normalize,
     applyOverride = applyEnvironmentOverride
-} = {}) {
+}: EnvConfiguredValueParams<TValue> = {} as EnvConfiguredValueParams<TValue>) {
     assertFunction(normalize, "normalize");
 
     let currentValue = defaultValue;
@@ -202,12 +236,12 @@ export function createEnvConfiguredValue({
  *     applyEnvOverride(env?: NodeJS.ProcessEnv | null | undefined): TValue;
  * }}
  */
-export function createEnvConfiguredValueWithFallback({
+export function createEnvConfiguredValueWithFallback<TValue>({
     defaultValue,
     envVar,
     resolve,
     computeFallback
-} = {}) {
+}: EnvConfiguredValueWithFallbackParams<TValue> = {} as EnvConfiguredValueWithFallbackParams<TValue>) {
     assertFunction(resolve, "resolve");
 
     const fallbackFactory =

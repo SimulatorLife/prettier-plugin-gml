@@ -15,7 +15,6 @@
   "include": [
     "*.ts",
     "src/**/*.ts",
-    "options/**/*.ts",
     "test/**/*.ts",
     "generated/**/*.js"
   ]

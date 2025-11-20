@@ -11,11 +11,11 @@ export {
     getIdentifierMetadata,
     GML_IDENTIFIER_METADATA_PATH,
     GML_IDENTIFIER_METADATA_URL,
-    loadBundledIdentifierMetadata
+    loadBundledIdentifierMetadata,
+    normalizeIdentifierMetadataEntries
 } from "./gml-identifiers.js";
 export {
     resolveBundledResourcePath,
     resolveBundledResourceUrl
 } from "./resource-locator.js";
 export * from "./feather-type-system.js";
-export * from "./identifier-metadata.js";

@@ -181,7 +181,15 @@ export function throwIfAborted(signal, fallbackMessage) {
  * @returns {{ signal: AbortSignal | null, ensureNotAborted(): void }}
  *          Guard exposing the normalized signal and a checkpoint callback.
  */
-export function createAbortGuard(options, { key, fallbackMessage } = {}) {
+type AbortConfig = {
+    key?: string | number | symbol;
+    fallbackMessage?: string | null | undefined;
+};
+
+export function createAbortGuard(
+    options,
+    { key, fallbackMessage }: AbortConfig = {}
+) {
     const signal = resolveAbortSignalFromOptions(options, {
         key,
         fallbackMessage
@@ -226,7 +234,7 @@ function isAbortSignalLike(value) {
  */
 export function resolveAbortSignalFromOptions(
     options,
-    { key = "signal", fallbackMessage } = {}
+    { key = "signal", fallbackMessage }: AbortConfig = {}
 ) {
     if (!isObjectOrFunction(options)) {
         return null;

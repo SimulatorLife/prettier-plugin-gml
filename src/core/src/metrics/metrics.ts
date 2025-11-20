@@ -258,12 +258,23 @@ function createFinalizer({
  * }} [options]
  * @returns {MetricsContracts}
  */
+type MetricsLogger = {
+    debug?: (message: string, payload: unknown) => void;
+};
+
+type MetricsTrackerOptions = {
+    category?: string;
+    logger?: MetricsLogger | null;
+    autoLog?: boolean;
+    cacheKeys?: Iterable<string> | ArrayLike<string>;
+};
+
 export function createMetricsTracker({
     category = "metrics",
     logger = null,
     autoLog = false,
     cacheKeys: cacheKeyOption
-} = {}) {
+}: MetricsTrackerOptions = {}) {
     const timings = new Map();
     const counters = new Map();
     const caches = new Map();
@@ -273,8 +284,12 @@ export function createMetricsTracker({
     const incrementTiming = createMapIncrementer(timings);
     const incrementCounterBy = createMapIncrementer(counters);
     const snapshot = (extra = {}) => {
-        const timingsSnapshot = Object.fromEntries(timings);
-        const countersSnapshot = Object.fromEntries(counters);
+        const timingsSnapshot = Object.fromEntries(
+            timings
+        ) as Record<string, number>;
+        const countersSnapshot = Object.fromEntries(
+            counters
+        ) as Record<string, number>;
         const cachesSnapshot = Object.fromEntries(
             Array.from(caches, ([name, stats]) => [
                 name,

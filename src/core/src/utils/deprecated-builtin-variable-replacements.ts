@@ -129,15 +129,21 @@ function extractIdentifierTokens(text) {
     return tokens;
 }
 
+type DeprecatedReplacementCacheHolder = {
+    _map?: ReturnType<typeof buildDeprecatedBuiltinVariableReplacements>;
+};
+
 export function getDeprecatedBuiltinReplacementEntry(name) {
     if (!name) {
         return null;
     }
 
-    if (!getDeprecatedBuiltinReplacementEntry._map) {
-        getDeprecatedBuiltinReplacementEntry._map =
-            buildDeprecatedBuiltinVariableReplacements();
+    const cache = getDeprecatedBuiltinReplacementEntry as typeof getDeprecatedBuiltinReplacementEntry &
+        DeprecatedReplacementCacheHolder;
+
+    if (!cache._map) {
+        cache._map = buildDeprecatedBuiltinVariableReplacements();
     }
 
-    return getDeprecatedBuiltinReplacementEntry._map.get(name) ?? null;
+    return cache._map.get(name) ?? null;
 }

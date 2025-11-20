@@ -1,5 +1,36 @@
 import { toNormalizedInteger } from "./number.js";
 
+type CoerceIntegerOptions = {
+    min: number;
+    received?: unknown;
+    createErrorMessage?: (received: unknown) => string;
+};
+
+type PositiveIntegerOptionOptions = {
+    zeroReplacement?: number;
+};
+
+type ResolveIntegerOptionOptions = {
+    defaultValue?: number;
+    coerce: (value: number, options: { received: unknown }) => number;
+    parseString?: (text: string, radix: number) => number;
+    typeErrorMessage?: string | ((type: string) => string);
+    blankStringReturnsDefault?: boolean;
+};
+
+type NormalizeNumericOptionOptions = {
+    optionName: string;
+    coerce: (value: number, context: Record<string, unknown>) => number | undefined;
+    formatTypeError: (name: string, type: string) => string;
+};
+
+type ParseStringOptionParams = {
+    defaultValue?: number;
+    coerce: ResolveIntegerOptionOptions["coerce"];
+    parseString: NonNullable<ResolveIntegerOptionOptions["parseString"]>;
+    blankStringReturnsDefault?: boolean;
+};
+
 const DECIMAL_INTEGER_PATTERN = /^[-+]?\d+/u;
 const DECIMAL_RADIX = 10;
 
@@ -13,8 +44,13 @@ function missingOptionValue() {
 }
 
 function parseStringOption(
-    rawValue,
-    { defaultValue, coerce, parseString, blankStringReturnsDefault }
+    rawValue: string,
+    {
+        defaultValue,
+        coerce,
+        parseString,
+        blankStringReturnsDefault
+    }: ParseStringOptionParams
 ) {
     const trimmed = rawValue.trim();
     if (trimmed === "" && blankStringReturnsDefault) {
@@ -37,7 +73,10 @@ function createTypeErrorMessage(typeErrorMessage, type) {
     return `Value must be provided as a number (received type '${type}').`;
 }
 
-function coerceInteger(value, { min, received, createErrorMessage }) {
+function coerceInteger(
+    value: unknown,
+    { min, received, createErrorMessage }: CoerceIntegerOptions
+) {
     const normalized = toNormalizedInteger(value);
     if (normalized !== null && normalized >= min) {
         return normalized;
@@ -54,14 +93,20 @@ function coerceInteger(value, { min, received, createErrorMessage }) {
     throw new TypeError(message);
 }
 
-export function coercePositiveInteger(value, options = {}) {
+export function coercePositiveInteger(
+    value: unknown,
+    options: Partial<CoerceIntegerOptions> = {}
+) {
     return coerceInteger(value, {
         min: 1,
         ...options
     });
 }
 
-export function coerceNonNegativeInteger(value, options = {}) {
+export function coerceNonNegativeInteger(
+    value: unknown,
+    options: Partial<CoerceIntegerOptions> = {}
+) {
     return coerceInteger(value, {
         min: 0,
         ...options
@@ -86,9 +131,9 @@ export function coerceNonNegativeInteger(value, options = {}) {
  *                   replacement, or `defaultValue` when the input is blank.
  */
 export function coercePositiveIntegerOption(
-    value,
-    defaultValue,
-    { zeroReplacement } = {}
+    value: unknown,
+    defaultValue: number,
+    { zeroReplacement }: PositiveIntegerOptionOptions = {}
 ) {
     let candidate = value;
 
@@ -156,14 +201,16 @@ export function coercePositiveIntegerOption(
  * @returns {number | undefined} The coerced numeric option value.
  */
 export function resolveIntegerOption(
-    rawValue,
+    rawValue: unknown,
     {
         defaultValue,
         coerce,
         parseString = DEFAULT_PARSE_STRING,
         typeErrorMessage,
         blankStringReturnsDefault = true
-    } = {}
+    }: ResolveIntegerOptionOptions = {
+        coerce: () => Number.NaN
+    }
 ) {
     if (rawValue === undefined || rawValue === null) {
         return defaultValue;
@@ -210,8 +257,8 @@ export function resolveIntegerOption(
  *          when the input should be treated as absent.
  */
 export function normalizeNumericOption(
-    rawValue,
-    { optionName, coerce, formatTypeError }
+    rawValue: unknown,
+    { optionName, coerce, formatTypeError }: NormalizeNumericOptionOptions
 ) {
     if (rawValue === undefined || rawValue === null) {
         return missingOptionValue();
@@ -224,13 +271,15 @@ export function normalizeNumericOption(
         throw new Error(formatTypeError(optionName, rawType));
     }
 
-    const normalized = isString ? rawValue.trim() : rawValue;
+    const normalized = isString ? (rawValue as string).trim() : rawValue;
     if (isString && normalized === "") {
         return missingOptionValue();
     }
 
     const received = isString ? `'${rawValue}'` : normalized;
-    const numericValue = isString ? Number(normalized) : normalized;
+    const numericValue = isString
+        ? Number(normalized)
+        : (normalized as number);
 
     return coerce(numericValue, {
         optionName,

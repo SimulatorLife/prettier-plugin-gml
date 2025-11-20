@@ -1,7 +1,9 @@
+// @ts-nocheck
+
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createMetricsTracker } from "../src/reporting/index.js";
+import { createMetricsTracker } from "../src/metrics/metrics.js";
 
 test("snapshot exposes accumulated metrics as plain objects", () => {
     const tracker = createMetricsTracker({ category: "demo" });

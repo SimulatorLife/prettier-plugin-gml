@@ -75,9 +75,10 @@ export function normalizeIdentifierMetadataEntries(metadata) {
             return entries;
         }
 
+        const typedDescriptor = descriptor as { type?: unknown };
         const type =
-            typeof descriptor.type === "string"
-                ? descriptor.type.toLowerCase()
+            typeof typedDescriptor.type === "string"
+                ? typedDescriptor.type.toLowerCase()
                 : "";
 
         entries.push({ name, type, descriptor });

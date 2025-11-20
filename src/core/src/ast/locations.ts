@@ -120,7 +120,8 @@ function assignClonedLocation(target, template) {
                 template,
                 (templateNode) => {
                     let shouldAssign = false;
-                    const clonedLocations = {};
+                    const clonedLocations: { start?: unknown; end?: unknown } =
+                        {};
 
                     if (hasOwn(templateNode, "start")) {
                         clonedLocations.start = cloneLocation(

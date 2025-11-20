@@ -43,6 +43,32 @@ function toError(value) {
     return fallback;
 }
 
+type JsonParseErrorOptions = {
+    cause?: unknown;
+    source?: string | null;
+    description?: string | null;
+};
+
+type ParseJsonOptions = {
+    source?: string | unknown;
+    description?: string | unknown;
+    reviver?: (this: unknown, key: string, value: unknown) => unknown;
+};
+
+type ParseJsonObjectOptions = ParseJsonOptions & {
+    assertOptions?: Parameters<typeof assertPlainObject>[1];
+    createAssertOptions?: (payload: unknown) => Parameters<
+        typeof assertPlainObject
+    >[1];
+};
+
+type StringifyJsonForFileOptions = {
+    replacer?: Parameters<typeof JSON.stringify>[1];
+    space?: Parameters<typeof JSON.stringify>[2];
+    includeTrailingNewline?: boolean;
+    newline?: string;
+};
+
 /**
  * Specialized syntax error raised when JSON parsing fails. The wrapper keeps
  * the original `cause` intact (when supported) while also carrying extra
@@ -50,7 +76,10 @@ function toError(value) {
  * error messages without re-threading context through every call site.
  */
 export class JsonParseError extends SyntaxError {
-    constructor(message, { cause, source, description } = {}) {
+    source?: string | null;
+    description?: string;
+
+    constructor(message, { cause, source, description }: JsonParseErrorOptions = {}) {
         super(message, cause ? { cause } : undefined);
         this.name = "JsonParseError";
         if (source !== undefined) {
@@ -165,7 +194,10 @@ function describePayloadForSerializationError(payload) {
  * @throws {JsonParseError} When parsing fails. The error exposes `cause`,
  *     `source`, and `description` properties when available.
  */
-export function parseJsonWithContext(text, options = {}) {
+export function parseJsonWithContext(
+    text,
+    options: ParseJsonOptions = {}
+) {
     const { source, description, reviver } = options;
     try {
         return JSON.parse(text, reviver);
@@ -207,7 +239,10 @@ export function parseJsonWithContext(text, options = {}) {
  * }} [options]
  * @returns {Record<string, unknown>} Parsed JSON object.
  */
-export function parseJsonObjectWithContext(text, options = {}) {
+export function parseJsonObjectWithContext(
+    text,
+    options: ParseJsonObjectOptions = {}
+) {
     const { source, description, reviver, assertOptions, createAssertOptions } =
         options;
 
@@ -248,7 +283,10 @@ export function parseJsonObjectWithContext(text, options = {}) {
  * }} [options]
  * @returns {string} Stringified JSON with optional trailing newline.
  */
-export function stringifyJsonForFile(payload, options = {}) {
+export function stringifyJsonForFile(
+    payload,
+    options: StringifyJsonForFileOptions = {}
+) {
     const {
         replacer = null,
         space = 0,

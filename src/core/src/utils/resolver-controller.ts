@@ -1,5 +1,26 @@
 import { assertFunction } from "./object.js";
 
+type ResolverInvoke<TOptions, TResult> = (
+    resolver: (...args: Array<unknown>) => unknown,
+    options: TOptions,
+    currentValue: TResult
+) => unknown;
+
+type ResolverNormalize<TOptions, TResult> = (
+    result: unknown,
+    options: TOptions,
+    currentValue: TResult
+) => TResult;
+
+type ResolverControllerConfig<TOptions, TResult> = {
+    name?: string;
+    errorMessage?: string;
+    defaultFactory: () => TResult;
+    invoke?: ResolverInvoke<TOptions, TResult>;
+    normalize?: ResolverNormalize<TOptions, TResult>;
+    reuseDefaultValue?: boolean;
+};
+
 // Option resolver plumbing now lives alongside the plugin so shared bundles stay
 // focused on cross-environment primitives. The implementation remains unchanged
 // aside from importing its assertions from the shared object helpers.
@@ -41,14 +62,27 @@ import { assertFunction } from "./object.js";
  * }} config
  * @returns {ResolverController<TOptions, TResult>}
  */
-export function createResolverController({
-    name = "resolver",
-    errorMessage,
-    defaultFactory,
-    invoke = (resolver, options) => resolver(options),
-    normalize = (result) => /** @type {TResult} */ result,
-    reuseDefaultValue = false
-}) {
+export function createResolverController<TOptions, TResult>(
+    config: ResolverControllerConfig<TOptions, TResult>
+) {
+    const {
+        name = "resolver",
+        errorMessage,
+        defaultFactory,
+        invoke = ((
+            resolver,
+            options,
+            previous
+        ) => resolver(options, previous)) as ResolverInvoke<
+            TOptions,
+            TResult
+        >,
+        normalize = ((result) => result as TResult) as ResolverNormalize<
+            TOptions,
+            TResult
+        >,
+        reuseDefaultValue = false
+    } = config;
     if (typeof defaultFactory !== "function") {
         throw new TypeError("defaultFactory must be a function.");
     }
@@ -70,13 +104,18 @@ export function createResolverController({
      * @param {TOptions} [options]
      * @returns {TResult}
      */
-    function resolve(options = /** @type {TOptions} */ {}) {
+    function resolve(options?: TOptions) {
+        const normalizedOptions = (options ?? {}) as TOptions;
         if (!resolver) {
             return reuseDefaultValue ? currentValue : resetToDefault();
         }
 
-        const rawResult = invoke(resolver, options, currentValue);
-        const normalized = normalize(rawResult, options, currentValue);
+        const rawResult = invoke(resolver, normalizedOptions, currentValue);
+        const normalized = normalize(
+            rawResult,
+            normalizedOptions,
+            currentValue
+        );
         currentValue = normalized;
         return normalized;
     }

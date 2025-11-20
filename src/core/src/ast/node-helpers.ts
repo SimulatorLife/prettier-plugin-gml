@@ -433,7 +433,16 @@ export function getLiteralStringValue(node) {
     return value.toLowerCase();
 }
 
-export function getBooleanLiteralValue(node, options = {}) {
+type BooleanLiteralOptions =
+    | boolean
+    | {
+          acceptBooleanPrimitives?: boolean;
+      };
+
+export function getBooleanLiteralValue(
+    node,
+    options: BooleanLiteralOptions = {}
+) {
     if (!isNode(node) || node.type !== "Literal") {
         return null;
     }

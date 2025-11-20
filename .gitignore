@@ -68,8 +68,10 @@ reports/
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/
 
-# TypeScript cache
+# TypeScript
 *.tsbuildinfo
+*.d.ts
+*.js.map
 
 # Optional npm cache directory
 .npm

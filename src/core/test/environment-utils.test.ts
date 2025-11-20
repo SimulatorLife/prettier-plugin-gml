@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import process from "node:process";

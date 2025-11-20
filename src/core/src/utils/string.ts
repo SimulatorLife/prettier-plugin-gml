@@ -1,5 +1,17 @@
 import { escapeRegExp } from "./regexp.js";
 
+type AssertNonEmptyStringOptions = {
+    name?: string;
+    trim?: boolean;
+    errorMessage?: string;
+};
+
+type NormalizeStringListOptions = {
+    splitPattern?: RegExp | null | false;
+    allowInvalidType?: boolean;
+    errorMessage?: string;
+};
+
 /**
  * Determine whether {@link value} is a string containing at least one
  * character.
@@ -139,7 +151,11 @@ export function getNonEmptyString(value) {
  */
 export function assertNonEmptyString(
     value,
-    { name = "value", trim = false, errorMessage } = {}
+    {
+        name = "value",
+        trim = false,
+        errorMessage
+    }: AssertNonEmptyStringOptions = {}
 ) {
     const message =
         errorMessage ?? `${name} must be provided as a non-empty string.`;
@@ -543,7 +559,7 @@ export function normalizeStringList(
         splitPattern = DEFAULT_STRING_LIST_SPLIT_PATTERN,
         allowInvalidType = false,
         errorMessage = "Value must be provided as a string or array of strings."
-    } = {}
+    }: NormalizeStringListOptions = {}
 ) {
     if (value == null) {
         return [];
@@ -600,7 +616,11 @@ function collectUniqueTrimmedStrings(entries) {
  */
 export function toNormalizedLowerCaseSet(
     value,
-    { splitPattern = null, allowInvalidType = true, errorMessage } = {}
+    {
+        splitPattern = null,
+        allowInvalidType = true,
+        errorMessage
+    }: NormalizeStringListOptions = {}
 ) {
     const normalizedValues = normalizeStringList(value, {
         splitPattern,

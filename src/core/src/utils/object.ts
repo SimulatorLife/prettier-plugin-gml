@@ -1,6 +1,10 @@
 import { toFiniteNumber } from "./number.js";
 import { formatWithIndefiniteArticle, isNonEmptyString } from "./string.js";
 
+type AssertFunctionOptions = {
+    errorMessage?: string;
+};
+
 /**
  * Determine whether a value is a plain object (non-null object without an
  * Array instance). Some callers additionally require objects with prototypes
@@ -33,7 +37,11 @@ export function isPlainObject(value, { allowNullPrototype = true } = {}) {
  * @param {string} name Descriptive name used when constructing the error.
  * @returns {TFunction} The validated function reference.
  */
-export function assertFunction(value, name, { errorMessage } = {}) {
+export function assertFunction(
+    value,
+    name,
+    { errorMessage }: AssertFunctionOptions = {}
+) {
     if (typeof value === "function") {
         return /** @type {TFunction} */ value;
     }
@@ -222,10 +230,20 @@ export function isObjectOrFunction(value) {
  * @param {{ name?: string; errorMessage?: string }} [options]
  * @returns {TObject}
  */
+type AssertFunctionPropertiesOptions = {
+    name?: string;
+    errorMessage?: string;
+};
+
+type CoalesceOptionOptions = {
+    fallback?: unknown;
+    acceptNull?: boolean;
+};
+
 export function assertFunctionProperties(
     value,
     methodNames,
-    { name = "value", errorMessage } = {}
+    { name = "value", errorMessage }: AssertFunctionPropertiesOptions = {}
 ) {
     const requiredMethods =
         methodNames === null
@@ -318,9 +336,19 @@ export function getObjectTagName(value, { includePlainObject = false } = {}) {
  * }} [options]
  * @returns {T}
  */
+type AssertPlainObjectOptions = {
+    name?: string;
+    errorMessage?: string;
+    allowNullPrototype?: boolean;
+};
+
 export function assertPlainObject(
     value,
-    { name = "value", errorMessage, allowNullPrototype = true } = {}
+    {
+        name = "value",
+        errorMessage,
+        allowNullPrototype = true
+    }: AssertPlainObjectOptions = {}
 ) {
     const defaultMessage = `${name} must be a plain object`;
 
@@ -411,7 +439,7 @@ export function withDefinedValue(value, onDefined, onUndefined) {
 export function coalesceOption(
     object,
     keys,
-    { fallback, acceptNull = false } = {}
+    { fallback, acceptNull = false }: CoalesceOptionOptions = {}
 ) {
     if (!isObjectLike(object)) {
         return fallback;

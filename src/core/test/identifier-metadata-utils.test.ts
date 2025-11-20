@@ -1,7 +1,9 @@
+// @ts-nocheck
+
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { normalizeIdentifierMetadataEntries } from "../src/resources/identifier-metadata.js";
+import { normalizeIdentifierMetadataEntries } from "../src/resources/gml-identifiers.js";
 
 const sampleDescriptor = { type: "Function", tags: ["function"] };
 

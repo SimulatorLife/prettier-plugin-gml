@@ -5,6 +5,22 @@ import { identity } from "./function.js";
 // development instead of leaking shared state across callers.
 const EMPTY_ARRAY = Object.freeze([]);
 
+type AssertArrayOptions = {
+    name?: string;
+    allowNull?: boolean;
+    errorMessage?: string;
+};
+
+type PushUniqueOptions<T> = {
+    isEqual?: (existing: T, candidate: T) => boolean;
+};
+
+type MergeUniqueValueOptions<T> = {
+    coerce?: (value: unknown) => T | null | undefined;
+    getKey?: (value: T) => unknown;
+    freeze?: boolean;
+};
+
 /**
  * Normalize an iterable (or nullable) input into a concrete array so callers
  * can eagerly snapshot values before mutating the source. Unlike
@@ -18,7 +34,7 @@ const EMPTY_ARRAY = Object.freeze([]);
  * @returns {Array<T>} Array containing the iterable's elements, or an empty
  *          array when the input is nullish or non-iterable.
  */
-export function toArrayFromIterable(values) {
+export function toArrayFromIterable(values = undefined) {
     if (values == null) {
         return [];
     }
@@ -42,7 +58,7 @@ export function toArrayFromIterable(values) {
  * @param {T | Array<T> | null | undefined} value
  * @returns {Array<T>} Normalized array representation of the provided value.
  */
-export function toArray(value) {
+export function toArray(value = undefined) {
     if (value == null) {
         return [];
     }
@@ -58,17 +74,12 @@ export function toArray(value) {
  *
  * @template T
  * @param {Array<T> | null | undefined | unknown} value Candidate value to validate.
- * @param {{
- *   name?: string,
- *   allowNull?: boolean,
- *   errorMessage?: string
- * }} [options]
  * @returns {Array<T>} The validated array or a fresh empty array when
  *                     `allowNull` permits nullable inputs.
  */
 export function assertArray(
     value,
-    { name = "value", allowNull = false, errorMessage } = {}
+    { name = "value", allowNull = false, errorMessage }: AssertArrayOptions = {}
 ) {
     if (Array.isArray(value)) {
         return value;
@@ -91,7 +102,7 @@ export function assertArray(
  * @param {unknown} value
  * @returns {Array<T>} Either the original array or a shared empty array.
  */
-export function asArray(value) {
+export function asArray(value = EMPTY_ARRAY) {
     return Array.isArray(value) ? value : EMPTY_ARRAY;
 }
 
@@ -184,7 +195,7 @@ export function uniqueArray(values, { freeze = false } = {}) {
  * @param {boolean} [options.freeze=false]
  * @returns {Array<T> | ReadonlyArray<T>}
  */
-export function compactArray(values, { freeze = false } = {}) {
+export function compactArray(values = undefined, { freeze = false } = {}) {
     const result = toArrayFromIterable(values).filter(Boolean);
     return freeze ? Object.freeze(result) : result;
 }
@@ -207,7 +218,11 @@ export function compactArray(values, { freeze = false } = {}) {
  *        sufficient.
  * @returns {boolean} `true` when the value was appended.
  */
-export function pushUnique(array, value, { isEqual } = {}) {
+export function pushUnique(
+    array,
+    value,
+    { isEqual }: PushUniqueOptions<any> = {}
+) {
     if (!Array.isArray(array)) {
         throw new TypeError("pushUnique requires an array to append to.");
     }
@@ -253,7 +268,11 @@ export function pushUnique(array, value, { isEqual } = {}) {
 export function mergeUniqueValues(
     defaultValues,
     additionalValues,
-    { coerce, getKey = (value) => value, freeze = true } = {}
+    {
+        coerce,
+        getKey = (value) => value,
+        freeze = true
+    }: MergeUniqueValueOptions<any> = {}
 ) {
     const merged = Array.isArray(defaultValues) ? [...defaultValues] : [];
     const normalize = typeof coerce === "function" ? coerce : identity;

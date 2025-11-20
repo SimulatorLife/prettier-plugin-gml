@@ -26,6 +26,11 @@ export function identity(value) {
 // equality logic.
 const NOOP = () => {};
 
+type CallWithFallbackOptions<TResult> = {
+    fallback?: TResult | ((error: unknown) => TResult);
+    onError?: (error: unknown) => void;
+};
+
 /**
  * Invoke {@link action} while capturing synchronous failures and returning a
  * fallback value instead. Centralizes the "try, catch, fallback" pattern used
@@ -43,12 +48,15 @@ const NOOP = () => {};
  * @returns {TResult | undefined} The callback result or the computed fallback
  *          when {@link action} throws.
  */
-export function callWithFallback(action, { fallback, onError } = {}) {
+export function callWithFallback<TResult>(
+    action: () => TResult,
+    { fallback, onError }: CallWithFallbackOptions<TResult> = {}
+) {
     const invoke = assertFunction(action, "action");
-    const fallbackProvider =
+    const fallbackProvider: (error: unknown) => TResult =
         typeof fallback === "function"
-            ? /** @type {(error: unknown) => TResult} */ fallback
-            : () => /** @type {TResult} */ fallback;
+            ? (fallback as (error: unknown) => TResult)
+            : () => fallback as TResult;
     const errorHandler =
         onError === undefined ? undefined : assertFunction(onError, "onError");
 

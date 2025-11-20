@@ -1,5 +1,18 @@
 import { isNonEmptyString } from "./string.js";
 
+type ErrorMessageFallback =
+    | string
+    | ((value: unknown) => string)
+    | undefined;
+
+type GetErrorMessageOptions = {
+    fallback?: ErrorMessageFallback;
+};
+
+type GetErrorMessageOrFallbackOptions = {
+    fallback?: unknown;
+};
+
 const UNKNOWN_ERROR_FALLBACK = "Unknown error";
 
 /**
@@ -71,7 +84,10 @@ export function isErrorWithCode(error, ...codes) {
  *        Optional fallback handling when the error lacks a usable message.
  * @returns {string} Normalized message string (possibly empty).
  */
-export function getErrorMessage(error, { fallback } = {}) {
+export function getErrorMessage(
+    error,
+    { fallback }: GetErrorMessageOptions = {}
+) {
     if (typeof error?.message === "string") {
         return error.message;
     }
@@ -111,7 +127,10 @@ export function getErrorMessage(error, { fallback } = {}) {
  * @param {{ fallback?: unknown }} [options]
  * @returns {string} Guaranteed non-empty error message string.
  */
-export function getErrorMessageOrFallback(error, { fallback } = {}) {
+export function getErrorMessageOrFallback(
+    error,
+    { fallback }: GetErrorMessageOrFallbackOptions = {}
+) {
     const message = getErrorMessage(error, { fallback: "" });
 
     if (isNonEmptyString(message)) {
