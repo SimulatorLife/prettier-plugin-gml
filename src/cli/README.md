@@ -92,6 +92,7 @@ The watch command now integrates with the transpiler module (`src/transpiler`) t
 ✅ Basic error handling and logging
 ✅ **WebSocket server for patch streaming** ✨ NEW
 ✅ **Real-time patch broadcast to connected clients** ✨ NEW
+✅ **Cached patch replay for newly connected WebSocket clients** ✨ NEW
 
 🚧 Future Enhancements:
 - Semantic analysis integration for scope-aware transpilation

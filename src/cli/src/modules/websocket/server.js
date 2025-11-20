@@ -18,7 +18,7 @@ const DEFAULT_PORT = 17_890;
  * @param {string} [options.host] - Host to bind to
  * @param {number} [options.port] - Port to listen on
  * @param {boolean} [options.verbose] - Enable verbose logging
- * @param {Function} [options.onClientConnect] - Callback when a client connects
+ * @param {Function} [options.onClientConnect] - Callback when a client connects. Receives the client ID and a send function for targeted messages.
  * @param {Function} [options.onClientDisconnect] - Callback when a client disconnects
  * @returns {Promise<object>} Server controller with broadcast and stop methods
  */
@@ -49,12 +49,33 @@ export async function startPatchWebSocketServer({
 
         clients.add(ws);
 
+        const sendPatchToClient = (patch) => {
+            const message =
+                typeof patch === "string" ? patch : JSON.stringify(patch);
+
+            try {
+                if (ws.readyState === 1) {
+                    ws.send(message);
+                    return true;
+                }
+            } catch (error) {
+                if (verbose) {
+                    console.error(
+                        `[WebSocket] Failed to send cached patch to ${clientId}:`,
+                        error.message
+                    );
+                }
+            }
+
+            return false;
+        };
+
         if (verbose) {
             console.log(`[WebSocket] Client connected: ${clientId}`);
         }
 
         if (onClientConnect) {
-            onClientConnect(clientId);
+            onClientConnect(clientId, sendPatchToClient);
         }
 
         ws.on("close", () => {
