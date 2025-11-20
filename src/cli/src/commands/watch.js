@@ -173,6 +173,33 @@ function logWatchStartup(
     }
 }
 
+function replayCachedPatches({ patches, sendPatch, verbose, clientId }) {
+    let replayedCount = 0;
+    const totalPatches = patches.size;
+
+    for (const patch of patches.values()) {
+        try {
+            if (sendPatch(patch)) {
+                replayedCount += 1;
+            }
+        } catch (error) {
+            if (verbose) {
+                console.error(
+                    `  ↳ Failed to replay patch to ${clientId}: ${error.message}`
+                );
+            }
+        }
+    }
+
+    if (verbose && totalPatches > 0 && replayedCount < totalPatches) {
+        console.warn(
+            `  ↳ Replayed ${replayedCount}/${totalPatches} cached patch(es) to ${clientId}`
+        );
+    }
+
+    return replayedCount;
+}
+
 /**
  * Executes the watch command.
  *
@@ -202,7 +229,9 @@ export async function runWatchCommand(targetPath, options) {
         hydrateRuntime,
         runtimeResolver = resolveRuntimeSource,
         runtimeDescriptor = describeRuntimeSource,
-        runtimeServerStarter = startRuntimeStaticServer
+        runtimeServerStarter = startRuntimeStaticServer,
+        websocketServerStarter = startPatchWebSocketServer,
+        transpilerFactory = createTranspiler
     } = options;
 
     const normalizedPath = await validateTargetPath(targetPath);
@@ -216,7 +245,7 @@ export async function runWatchCommand(targetPath, options) {
             ? runtimeServer !== false
             : Boolean(hydrateRuntime);
 
-    const transpiler = createTranspiler();
+    const transpiler = transpilerFactory();
     const runtimeContext = {
         root: null,
         packageName: null,
@@ -224,7 +253,7 @@ export async function runWatchCommand(targetPath, options) {
         server: null,
         noticeLogged: Boolean(verbose),
         transpiler,
-        patches: [],
+        patches: new Map(),
         websocketServer: null
     };
 
@@ -267,15 +296,30 @@ export async function runWatchCommand(targetPath, options) {
 
     if (enableWebSocket) {
         try {
-            websocketServerController = await startPatchWebSocketServer({
+            websocketServerController = await websocketServerStarter({
                 host: websocketHost,
                 port: websocketPort,
                 verbose,
-                onClientConnect: (clientId) => {
+                onClientConnect: (clientId, sendPatch) => {
                     if (verbose) {
                         console.log(
                             `Patch streaming client connected: ${clientId}`
                         );
+                    }
+
+                    if (sendPatch && runtimeContext.patches.size > 0) {
+                        const replayedCount = replayCachedPatches({
+                            patches: runtimeContext.patches,
+                            sendPatch,
+                            verbose,
+                            clientId
+                        });
+
+                        if (verbose && replayedCount > 0) {
+                            console.log(
+                                `  ↳ Replayed ${replayedCount} patch(es) to ${clientId}`
+                            );
+                        }
                     }
                 },
                 onClientDisconnect: (clientId) => {
@@ -515,8 +559,8 @@ async function handleFileChange(
                             symbolId
                         });
 
-                    // Store the patch for future streaming
-                    runtimeContext.patches.push(patch);
+                    // Store the latest patch for future streaming
+                    runtimeContext.patches.set(patch.id, patch);
 
                     // Broadcast the patch to all connected WebSocket clients
                     if (runtimeContext.websocketServer) {

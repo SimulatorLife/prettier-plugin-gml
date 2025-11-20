@@ -205,4 +205,107 @@ describe("watch command integration", () => {
             throw error;
         }
     });
+
+    it("should replay cached patches to new WebSocket clients", async () => {
+        const testDir = path.join(
+            "/tmp",
+            `watch-test-websocket-replay-${Date.now()}-${Math.random()
+                .toString(36)
+                .slice(2, 9)}`
+        );
+
+        await mkdir(testDir, { recursive: true });
+
+        const testFile = path.join(testDir, "replay_test.gml");
+
+        const websocketOptionsHolder = { onClientConnect: null };
+        const broadcastedPatches = [];
+
+        const websocketServerStarter = async (options) => {
+            websocketOptionsHolder.onClientConnect = options.onClientConnect;
+
+            return {
+                host: options.host,
+                port: options.port,
+                url: `ws://${options.host}:${options.port}`,
+                broadcast: (patch) => {
+                    broadcastedPatches.push(patch);
+                    return {
+                        successCount: 0,
+                        failureCount: 0,
+                        totalClients: 0
+                    };
+                },
+                stop: async () => {},
+                getClientCount: () => 0
+            };
+        };
+
+        const transpilerFactory = () => ({
+            async transpileScript({ sourceText, symbolId }) {
+                return {
+                    kind: "script",
+                    id: symbolId,
+                    js_body: sourceText,
+                    sourceText,
+                    version: Date.now()
+                };
+            }
+        });
+
+        const abortController = new AbortController();
+        const replayedPatches = [];
+
+        try {
+            const { runWatchCommand } = await import(
+                "../src/commands/watch.js"
+            );
+
+            const watchPromise = runWatchCommand(testDir, {
+                extensions: [".gml"],
+                polling: false,
+                pollingInterval: 1000,
+                verbose: false,
+                abortSignal: abortController.signal,
+                hydrateRuntime: false,
+                runtimeServer: false,
+                websocketServerStarter,
+                transpilerFactory
+            });
+
+            await sleep(100);
+
+            await writeFile(testFile, "var initial = 1;");
+
+            await sleep(200);
+
+            websocketOptionsHolder.onClientConnect?.("client-1", (patch) => {
+                replayedPatches.push(patch);
+                return true;
+            });
+
+            await writeFile(testFile, "var updated = 2;");
+
+            await sleep(200);
+
+            replayedPatches.length = 0;
+
+            websocketOptionsHolder.onClientConnect?.("client-2", (patch) => {
+                replayedPatches.push(patch);
+                return true;
+            });
+
+            abortController.abort();
+            await watchPromise;
+        } finally {
+            await rm(testDir, { recursive: true, force: true }).catch(() => {
+                // Ignore cleanup errors
+            });
+        }
+
+        assert.equal(replayedPatches.length, 1);
+        assert.match(replayedPatches[0].js_body, /updated/);
+        assert.ok(broadcastedPatches.length >= 2);
+        assert.match(broadcastedPatches.at(-1).js_body, /updated/);
+    });
 });
