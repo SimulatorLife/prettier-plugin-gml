@@ -5,6 +5,16 @@ src/parser/.antlr/
 .tools/
 tools/
 
+# TypeScript
+*.tsbuildinfo
+*.d.ts
+*.js.map
+*.d.ts.map
+
+# Ignore JS (except in src/parser/generated/)
+src/**/*.js
+!src/parser/generated/*.js
+
 # gemini-cli
 .gemini/*
 !.gemini/settings.json
@@ -67,11 +77,6 @@ reports/
 
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/
-
-# TypeScript
-*.tsbuildinfo
-*.d.ts
-*.js.map
 
 # Optional npm cache directory
 .npm
