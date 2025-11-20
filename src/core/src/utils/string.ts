@@ -77,6 +77,37 @@ export function normalizeExtensionSuffix(value) {
 }
 
 /**
+ * Normalize escape sequences in a string to a consistent format.
+ *
+ * @param {string} text The input string to normalize.
+ * @returns {string} The normalized string with consistent escape sequences.
+ */
+export function normalizeSimpleEscapeCase(text) {
+    if (typeof text !== "string" || text.length === 0) {
+        return text;
+    }
+
+    return text.replaceAll(
+        /\\([bfnrtv])/gi,
+        (_match, escape) => `\\${escape.toLowerCase()}`
+    );
+}
+
+/**
+ * Check whether {@link value} is a quoted string (using single or double quotes).
+ * @param {*} value 
+ * @returns {boolean} `true` when {@link value} is a quoted string.
+ */
+export function isQuotedString(value) {
+    if (typeof value !== "string" || value.length < 2) {
+        return false;
+    }
+
+    const first = value[0];
+    return (first === '"' || first === "'") && value.endsWith(first);
+}
+
+/**
  * Return {@link value} when it is a populated string, otherwise yield `null`.
  *
  * This mirrors the trimmed variant above without altering surrounding

@@ -4,7 +4,7 @@ import {
     DEFAULT_LINE_COMMENT_OPTIONS,
     LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,
     normalizeLineCommentOptions
-} from "../options/line-comment-options.js";
+} from "./line-comment-options.js";
 import { isObjectLike } from "./comment-boundary.js";
 
 import { normalizeOptionalParamToken } from "./optional-param-normalization.js";

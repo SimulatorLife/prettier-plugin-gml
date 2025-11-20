@@ -19,26 +19,6 @@ import convertToESTree from "./utils/estree-converter.js";
 
 installRecognitionExceptionLikeGuard();
 
-function normalizeSimpleEscapeCase(text) {
-    if (typeof text !== "string" || text.length === 0) {
-        return text;
-    }
-
-    return text.replaceAll(
-        /\\([bfnrtv])/gi,
-        (_match, escape) => `\\${escape.toLowerCase()}`
-    );
-}
-
-function isQuotedString(value) {
-    if (typeof value !== "string" || value.length < 2) {
-        return false;
-    }
-
-    const first = value[0];
-    return (first === '"' || first === "'") && value.endsWith(first);
-}
-
 function mergeParserOptions(baseOptions, overrides) {
     const overrideObject = isObjectLike(overrides) ? overrides : {};
     return Object.assign({}, baseOptions, overrideObject);
@@ -195,7 +175,7 @@ export default class GMLParser {
                 const endIndex =
                     typeof node.end === "number" ? node.end : node.end?.index;
 
-                if (node.type === "Literal" && isQuotedString(node.value)) {
+                if (node.type === "Literal" && Utils.isQuotedString(node.value)) {
                     if (
                         Number.isInteger(startIndex) &&
                         Number.isInteger(endIndex) &&

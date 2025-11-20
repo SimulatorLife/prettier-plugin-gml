@@ -164,6 +164,6 @@ export {
     createVerboseDurationLogger,
     formatDuration,
     timeSync
-} from "./shared/reporting/time.js";
+} from "./shared/time.js";
 
 export { createEnumeratedOptionHelpers } from "./shared/enumerated-option-helpers.js";

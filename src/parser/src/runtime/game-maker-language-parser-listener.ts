@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-import { GameMakerLanguageParserListenerBase } from "../generated-bindings.js";
+import { default as GameMakerLanguageParserListenerBase } from "../../generated/GameMakerLanguageParserListener.js";
 import { VISIT_METHOD_NAMES } from "./game-maker-language-parser-visitor.js";
 import {
     definePrototypeMethods,

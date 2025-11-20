@@ -14,7 +14,7 @@ import {
 import {
     LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,
     resolveLineCommentOptions
-} from "../options/line-comment-options.js";
+} from "./line-comment-options.js";
 
 const { addDanglingComment, addLeadingComment } = util;
 const { join, hardline } = builders;
