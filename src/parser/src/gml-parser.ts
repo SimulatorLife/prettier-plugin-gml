@@ -1,4 +1,4 @@
-import antlr4, { PredictionMode } from "antlr4";
+import antlr4 from "antlr4";
 
 import GameMakerLanguageLexer from "../generated/GameMakerLanguageLexer.js";
 import GameMakerLanguageParser from "../generated/GameMakerLanguageParser.js";
@@ -13,12 +13,24 @@ import { walkObjectGraph } from "./ast/object-graph.js";
 import {
     removeLocationMetadata,
     simplifyLocationMetadata
-} from "./ast/location-manipulation.js";
+} from "./location-manipulation.js";
 import { installRecognitionExceptionLikeGuard } from "./runtime/recognition-exception-patch.js";
 import convertToESTree from "./utils/estree-converter.js";
 
+const PredictionMode =
+    ((antlr4 as unknown as { atn?: { PredictionMode: unknown } }).atn
+        ?.PredictionMode ?? (antlr4 as any).PredictionMode) ??
+    (antlr4 as any).atn?.PredictionMode;
+
 const {
-    Utils: { isObjectLike, isErrorLike, getLineBreakCount }
+    Utils,
+    Utils: {
+        isObjectLike,
+        isErrorLike,
+        getLineBreakCount,
+        normalizeSimpleEscapeCase,
+        isQuotedString
+    }
 } = Core;
 
 installRecognitionExceptionLikeGuard();
@@ -29,6 +41,12 @@ function mergeParserOptions(baseOptions, overrides) {
 }
 
 export default class GMLParser {
+    public originalText: string;
+    public text: string;
+    public whitespaces: Array<unknown>;
+    public comments: Array<unknown>;
+    public options: Record<string, unknown>;
+
     constructor(text, options = {}) {
         this.originalText = text;
         this.text = normalizeSimpleEscapeCase(text);
@@ -65,7 +83,7 @@ export default class GMLParser {
         lexer.addErrorListener(new GameMakerLexerErrorListener());
         lexer.strictMode = false;
         const tokens = new antlr4.CommonTokenStream(lexer);
-const parser = new GameMakerLanguageParser(tokens);
+        const parser = new GameMakerLanguageParser(tokens);
 
         parser._interp.predictionMode = PredictionMode.SLL;
         parser.removeErrorListeners();
@@ -181,7 +199,7 @@ const parser = new GameMakerLanguageParser(tokens);
 
                 if (
                     node.type === "Literal" &&
-                    Utils.isQuotedString(node.value)
+                    isQuotedString(node.value)
                 ) {
                     if (
                         Number.isInteger(startIndex) &&

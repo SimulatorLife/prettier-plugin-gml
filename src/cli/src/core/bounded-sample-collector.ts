@@ -16,7 +16,12 @@
  * @param {(existing: T, candidate: T) => boolean} [isEqual] - Optional equality check
  * @returns {boolean} True if the sample was added, false otherwise
  */
-export function tryAddSample(samples, sample, limit, isEqual) {
+export function tryAddSample<T>(
+    samples: Array<T>,
+    sample: T,
+    limit: number,
+    isEqual?: (existing: T, candidate: T) => boolean
+): boolean {
     if (limit <= 0 || samples.length >= limit) {
         return false;
     }
@@ -38,7 +43,11 @@ export function tryAddSample(samples, sample, limit, isEqual) {
  * @param {(existing: T, candidate: T) => boolean} [isEqual] - Optional equality check
  * @returns {boolean} True if the sample exists, false otherwise
  */
-export function hasSample(samples, sample, isEqual) {
+export function hasSample<T>(
+    samples: Array<T>,
+    sample: T,
+    isEqual?: (existing: T, candidate: T) => boolean
+): boolean {
     if (isEqual) {
         return samples.some((existing) => isEqual(existing, sample));
     }

@@ -8,6 +8,47 @@ const {
     }
 } = Core;
 
+type EnumeratedValue = string;
+
+interface EnumeratedOptionFormatContext {
+    list: string;
+    value: unknown;
+    received: string;
+}
+
+interface EnumeratedOptionRequireContext {
+    list: string;
+    received: string;
+}
+
+export interface CreateEnumeratedOptionHelpersOptions {
+    coerce?: (value: unknown) => EnumeratedValue;
+    describeValue?: (value: unknown) => string;
+    formatErrorMessage?: (context: EnumeratedOptionFormatContext) => string;
+}
+
+export interface RequireEnumeratedValueOptions {
+    fallback?: EnumeratedValue | null;
+    errorConstructor?: new (message?: string) => Error;
+    createErrorMessage?: (
+        value: unknown,
+        context: EnumeratedOptionRequireContext
+    ) => string;
+}
+
+export interface EnumeratedOptionHelpers {
+    valueSet: ReadonlySet<EnumeratedValue>;
+    formatList(): string;
+    normalize(
+        value: unknown,
+        options?: { fallback?: EnumeratedValue | null }
+    ): EnumeratedValue | null;
+    requireValue(
+        value: unknown,
+        options?: RequireEnumeratedValueOptions
+    ): EnumeratedValue;
+}
+
 /**
  * Create helper functions that normalize and validate enumerated CLI options
  * while keeping error messaging consistent across commands. The returned
@@ -26,8 +67,12 @@ const {
  * }} [options]
  */
 export function createEnumeratedOptionHelpers(
-    values,
-    { coerce, describeValue = describeValueForError, formatErrorMessage } = {}
+    values: Iterable<EnumeratedValue>,
+    {
+        coerce,
+        describeValue = describeValueForError,
+        formatErrorMessage
+    }: CreateEnumeratedOptionHelpersOptions = {}
 ) {
     const entries = Array.from(values ?? []);
     const validValues = new Set(entries);
@@ -40,7 +85,10 @@ export function createEnumeratedOptionHelpers(
         return listLabel;
     }
 
-    function normalize(value, { fallback = null } = {}) {
+    function normalize(
+        value: unknown,
+        { fallback = null }: { fallback?: EnumeratedValue | null } = {}
+): EnumeratedValue | null {
         return normalizeEnumeratedOption(
             value,
             fallback,
@@ -50,9 +98,13 @@ export function createEnumeratedOptionHelpers(
     }
 
     function requireValue(
-        value,
-        { fallback = null, errorConstructor, createErrorMessage } = {}
-    ) {
+        value: unknown,
+        {
+            fallback = null,
+            errorConstructor,
+            createErrorMessage
+        }: RequireEnumeratedValueOptions = {}
+    ): EnumeratedValue {
         const normalized = normalize(value, { fallback });
         if (normalized) {
             return normalized;
@@ -94,10 +146,10 @@ export function createEnumeratedOptionHelpers(
         formatList,
         normalize,
         requireValue
-    });
+    }) as EnumeratedOptionHelpers;
 }
 
-function normalizeValueLabel(valueLabel) {
+function normalizeValueLabel(valueLabel?: string): string {
     if (typeof valueLabel === "string") {
         const trimmed = valueLabel.trim();
         if (trimmed.length > 0) {
@@ -108,10 +160,12 @@ function normalizeValueLabel(valueLabel) {
     return "Value";
 }
 
-function createStringEnumerationCoercer(valueLabel) {
+function createStringEnumerationCoercer(
+    valueLabel?: string
+): (value: unknown) => EnumeratedValue {
     const label = normalizeValueLabel(valueLabel);
 
-    return (value) => {
+    return (value: unknown) => {
         if (typeof value !== "string") {
             throw new TypeError(
                 `${label} must be provided as a string (received type '${typeof value}').`
@@ -123,9 +177,12 @@ function createStringEnumerationCoercer(valueLabel) {
 }
 
 export function createStringEnumeratedOptionHelpers(
-    values,
-    { valueLabel, ...options } = {}
-) {
+    values: Iterable<EnumeratedValue>,
+    {
+        valueLabel,
+        ...options
+    }: CreateEnumeratedOptionHelpersOptions & { valueLabel?: string } = {}
+): EnumeratedOptionHelpers {
     return createEnumeratedOptionHelpers(values, {
         ...options,
         coerce: createStringEnumerationCoercer(valueLabel)

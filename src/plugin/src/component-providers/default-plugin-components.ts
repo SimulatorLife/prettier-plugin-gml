@@ -1,7 +1,8 @@
+import type { GmlPluginComponentBundle } from "../plugin-types.js";
 import { resolveGmlPluginComponentDependencies } from "./plugin-component-bundles.js";
 import { DEFAULT_MIN_DECLARATION_RUN_LENGTH } from "../options/variable-block-spacing-options.js";
 
-export function createDefaultGmlPluginComponents() {
+export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
     const {
         gmlParserAdapter,
         print,
@@ -182,5 +183,5 @@ export function createDefaultGmlPluginComponents() {
             // were intentionally removed so the formatter can enforce a single opinionated
             // indentation strategy. Avoid re-adding escape hatches that contradict that goal.
         }
-    };
+    } as GmlPluginComponentBundle;
 }

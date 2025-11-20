@@ -4,13 +4,41 @@ const {
     Utils: { getLineBreakCount }
 } = Core;
 
+type CommentBoundary = {
+    line?: number;
+    index?: number;
+    column?: number;
+};
+
+type CommentToken = {
+    line?: number;
+    column?: number;
+    [key: string]: any;
+};
+
+type CommentNode = {
+    type: "CommentLine" | "CommentBlock";
+    value: string;
+    start: CommentBoundary;
+    end: CommentBoundary;
+    leadingWS?: string;
+    trailingWS?: string;
+    leadingChar?: string;
+    trailingChar?: string;
+    lineCount?: number;
+};
+
 function normalizeTokenText(tokenText) {
     return typeof tokenText === "string" ? tokenText : "";
 }
 
-function buildBoundary(token, key, lineOffset = 0) {
+function buildBoundary(
+    token: CommentToken | null | undefined,
+    key: string,
+    lineOffset = 0
+): CommentBoundary {
     const rawLine = token?.line;
-    const boundary = {
+    const boundary: CommentBoundary = {
         line: typeof rawLine === "number" ? rawLine + lineOffset : rawLine,
         index: token?.[key]
     };
@@ -22,7 +50,7 @@ function buildBoundary(token, key, lineOffset = 0) {
     return boundary;
 }
 
-function assignCommentBookends(node, { leadingWS, leadingChar }) {
+function assignCommentBookends(node: CommentNode, { leadingWS, leadingChar }) {
     node.leadingWS = typeof leadingWS === "string" ? leadingWS : "";
     node.trailingWS = "";
     node.leadingChar = typeof leadingChar === "string" ? leadingChar : "";
@@ -45,7 +73,20 @@ function createCommentValue(type, tokenText) {
     return withoutStart.replace(/[*][\\/]$/, "");
 }
 
-function createCommentNode(type, { token, tokenText, leadingWS, leadingChar }) {
+function createCommentNode(
+    type: "CommentLine" | "CommentBlock",
+    {
+        token,
+        tokenText,
+        leadingWS,
+        leadingChar
+    }: {
+        token: CommentToken;
+        tokenText: string;
+        leadingWS?: string;
+        leadingChar?: string;
+    }
+) {
     const text = normalizeTokenText(tokenText);
     const comment = assignCommentBookends(
         {

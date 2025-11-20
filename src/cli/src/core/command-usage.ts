@@ -1,18 +1,16 @@
+import type { Command } from "commander";
+
 import { getCommanderUsage } from "./commander-contract.js";
 
-/**
- * Resolve the usage/help text for a Commander command while gracefully
- * tolerating `null`ish values and callers without a `helpInformation` method.
- * When no usage text is available on the command itself, callers can provide a
- * fallback string or thunk to lazily compute the replacement.
- *
- * @param {import("commander").Command | null | undefined} command Commander
- *        instance to inspect for usage text.
- * @param {{ fallback?: (() => string) | string | null }} [options]
- * @returns {string | null | undefined} Normalized usage string when available.
- */
-export function resolveCommandUsage(command, { fallback } = {}) {
-    const usage = getCommanderUsage(command);
+export interface ResolveCommandUsageOptions {
+    fallback?: (() => string) | string | null;
+}
+
+export function resolveCommandUsage(
+    command: Command | null | undefined,
+    { fallback }: ResolveCommandUsageOptions = {}
+): string | null | undefined {
+    const usage = command ? getCommanderUsage(command) : null;
     if (usage !== null) {
         return usage;
     }

@@ -1,14 +1,50 @@
+import type { Command, ParseOptions } from "commander";
+
 import {
     assertFunctionProperties,
     describeValueWithArticle,
     isObjectOrFunction
 } from "../dependencies.js";
 
-function hasFunction(value, property) {
-    return typeof value?.[property] === "function";
+type CommanderParse = (
+    argv?: Array<string>,
+    options?: ParseOptions
+) => Promise<unknown>;
+
+type CommanderHookListener = Parameters<Command["hook"]>[1];
+type CommanderAddCommandOptions = Parameters<Command["addCommand"]>[1];
+type CommanderActionHandler = Parameters<Command["action"]>[0];
+
+interface CommanderCommandContractOptions {
+    name?: string;
+    requireAction?: boolean;
 }
 
-function normalizeUsageResult(output) {
+export interface CommanderProgramContract {
+    raw: Command;
+    parse: CommanderParse;
+    addCommand: (
+        command: Command,
+        options?: CommanderAddCommandOptions
+    ) => Command;
+    hook: (event: string, listener: CommanderHookListener) => Command;
+    getUsage(): string | null;
+}
+
+export interface CommanderCommandContract {
+    raw: Command;
+    action: (handler: CommanderActionHandler) => Command;
+    getUsage(): string | null;
+}
+
+function hasFunction<TValue, TKey extends PropertyKey>(
+    value: TValue,
+    property: TKey
+): value is TValue & Record<TKey, (...args: Array<unknown>) => unknown> {
+    return typeof (value as Record<TKey, unknown>)?.[property] === "function";
+}
+
+function normalizeUsageResult(output: unknown): string | null {
     if (output == null) {
         return null;
     }
@@ -16,7 +52,9 @@ function normalizeUsageResult(output) {
     return typeof output === "string" ? output : String(output);
 }
 
-function createUsageReader(target) {
+function createUsageReader(
+    target: unknown
+): (() => string | null | undefined) | null {
     if (!isObjectOrFunction(target)) {
         return null;
     }
@@ -36,25 +74,28 @@ function createUsageReader(target) {
     return null;
 }
 
-function createProgramParseDelegate(program) {
+function createProgramParseDelegate(program: Command): CommanderParse | null {
     if (hasFunction(program, "parseAsync")) {
         return (argv, options) => program.parseAsync(argv, options);
     }
 
     if (hasFunction(program, "parse")) {
-        return (argv, options) => Promise.resolve(program.parse(argv, options));
+        return (argv, options) =>
+            Promise.resolve(program.parse(argv, options));
     }
 
     return null;
 }
 
-function describeProgramForError(program) {
+function describeProgramForError(program: unknown): string {
     return describeValueWithArticle(program, {
         objectLabel: "a commander-compatible program"
     });
 }
 
-export function createCommanderProgramContract(program) {
+export function createCommanderProgramContract(
+    program: Command
+): CommanderProgramContract {
     const normalizedProgram = assertFunctionProperties(
         program,
         ["addCommand", "hook"],
@@ -85,9 +126,9 @@ export function createCommanderProgramContract(program) {
 }
 
 export function createCommanderCommandContract(
-    command,
-    { name = "Commander command", requireAction = true } = {}
-) {
+    command: Command,
+    { name = "Commander command", requireAction = true }: CommanderCommandContractOptions = {}
+): CommanderCommandContract {
     const methods = requireAction ? ["action"] : [];
     const normalizedCommand = assertFunctionProperties(command, methods, {
         name
@@ -103,7 +144,7 @@ export function createCommanderCommandContract(
                 throw new TypeError(`${name} does not expose action()`);
             }
 
-            return normalizedCommand.action(handler);
+            return normalizedCommand.action(handler as CommanderActionHandler);
         },
         getUsage() {
             return normalizeUsageResult(usageReader?.());
@@ -111,7 +152,10 @@ export function createCommanderCommandContract(
     };
 }
 
-export function tryCreateCommanderCommandContract(command, options) {
+export function tryCreateCommanderCommandContract(
+    command: Command,
+    options?: CommanderCommandContractOptions
+): CommanderCommandContract | null {
     try {
         return createCommanderCommandContract(command, options);
     } catch {
@@ -119,7 +163,7 @@ export function tryCreateCommanderCommandContract(command, options) {
     }
 }
 
-export function isCommanderCommandLike(value) {
+export function isCommanderCommandLike(value: unknown): value is Command {
     if (!isObjectOrFunction(value)) {
         return false;
     }
@@ -127,6 +171,6 @@ export function isCommanderCommandLike(value) {
     return createUsageReader(value) !== null;
 }
 
-export function getCommanderUsage(command) {
+export function getCommanderUsage(command: Command): string | null {
     return normalizeUsageResult(createUsageReader(command)?.());
 }

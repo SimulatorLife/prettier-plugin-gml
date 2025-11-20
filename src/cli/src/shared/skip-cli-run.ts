@@ -5,7 +5,9 @@ const SKIP_ENABLED_VALUE = "1";
 const DEFAULT_RESOLUTION_MESSAGE =
     "Clear the environment variable to continue.";
 
-export function isCliRunSkipped(env) {
+export function isCliRunSkipped(
+    env?: NodeJS.ProcessEnv | null
+): boolean {
     const sourceEnv = resolveEnvironmentMap(env);
     if (!sourceEnv) {
         return false;
@@ -16,9 +18,9 @@ export function isCliRunSkipped(env) {
 }
 
 export function createCliRunSkippedError(
-    actionDescription,
-    { resolution } = {}
-) {
+    actionDescription: string | null | undefined,
+    { resolution }: { resolution?: string | null } = {}
+): Error {
     const normalizedAction = toTrimmedString(actionDescription);
     const actionLabel =
         normalizedAction.length > 0 ? normalizedAction : "perform this action";

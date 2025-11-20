@@ -35,22 +35,25 @@ const ASSIGNMENT_GUARD_CHARACTERS = new Set([
  * Invalid entries (non-numeric or duplicate offsets) are ignored so callers can
  * record adjustments opportunistically without sanitizing the array first.
  *
- * @param {Array<number> | null | undefined} insertPositions Raw indices where
+ * @param {Array<number | null | undefined> | null | undefined} insertPositions Raw indices where
  *     guard characters were inserted.
  * @returns {(index: number) => number} A lookup that translates parser indices
  *     to their original offsets.
  */
-/**
- * @param {Array<number | null | undefined> | null | undefined} insertPositions
- */
-function createIndexMapper(insertPositions) {
+function createIndexMapper(
+    insertPositions: Array<number | null | undefined> | null | undefined
+) {
     if (!isNonEmptyArray(insertPositions)) {
         return identity;
     }
 
-    const offsets: Array<number> = Array.from(
-        new Set(insertPositions.filter((position) => Number.isFinite(position)))
-    ).sort((a, b) => a - b);
+    const numericPositions = insertPositions.filter(
+        (position): position is number =>
+            typeof position === "number" && Number.isFinite(position)
+    );
+    const offsets = Array.from(new Set(numericPositions)).sort(
+        (a, b) => a - b
+    );
 
     if (offsets.length === 0) {
         return identity;

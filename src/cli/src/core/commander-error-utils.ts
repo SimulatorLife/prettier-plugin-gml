@@ -2,7 +2,14 @@ import { isErrorLike } from "../shared/dependencies.js";
 
 const COMMANDER_ERROR_CODE_PREFIX = "commander.";
 
-export function isCommanderErrorLike(value) {
+export interface CommanderErrorLike extends Error {
+    code: string;
+    exitCode?: number;
+}
+
+export function isCommanderErrorLike(
+    value: unknown
+): value is CommanderErrorLike {
     if (!isErrorLike(value)) {
         return false;
     }

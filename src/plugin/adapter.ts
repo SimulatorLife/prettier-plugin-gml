@@ -6,9 +6,27 @@ import { Core } from "@gml-modules/core";
 
 import { applyTransforms } from "@gml-modules/parser";
 
+type PrettierGmlOptions = {
+    gmlLanguageVersion?: string;
+    gmlExperimental?: boolean;
+    gmlRelaxedSemicolons?: boolean;
+    gmlPreserveDocs?: boolean;
+    gmlStrictSemicolons?: boolean;
+};
+
+type ParserConfig = ReturnType<typeof makeParserConfig>;
+type TransformOptions = ReturnType<typeof makeTransformOptions>;
+
+type PipelineConfig = {
+    parser?: ParserConfig;
+    transforms?: Record<string, boolean>;
+};
+
 // Use Core.parse directly rather than destructuring the Core namespace.
 
-export function makeParserConfig(prettierOptions = {}) {
+export function makeParserConfig(
+    prettierOptions: PrettierGmlOptions = {}
+): ParserConfig {
     return {
         languageVersion: prettierOptions.gmlLanguageVersion ?? "1.0",
         allowExperimentalSyntax: !!prettierOptions.gmlExperimental,
@@ -17,7 +35,9 @@ export function makeParserConfig(prettierOptions = {}) {
     };
 }
 
-export function makeTransformOptions(prettierOptions = {}) {
+export function makeTransformOptions(
+    prettierOptions: PrettierGmlOptions = {}
+) {
     return {
         stripComments: {
             preserveDocComments: !!prettierOptions.gmlPreserveDocs
@@ -28,13 +48,16 @@ export function makeTransformOptions(prettierOptions = {}) {
     };
 }
 
-export function parseForPrettier(source, prettierOptions = {}) {
+export function parseForPrettier(
+    source: string,
+    prettierOptions: PrettierGmlOptions = {}
+) {
     const parserConfig = makeParserConfig(prettierOptions);
     const transformOpts = makeTransformOptions(prettierOptions);
 
     // Example pipeline: parse, then run some semantic transforms. The plugin
     // can decide which transforms to run and pass the options it built above.
-    const pipelineConfig = {
+    const pipelineConfig: PipelineConfig = {
         parser: parserConfig,
         transforms: {
             // enable parser-side transforms by name. The plugin adopts a
@@ -49,7 +72,11 @@ export function parseForPrettier(source, prettierOptions = {}) {
     return runPipeline(source, pipelineConfig, transformOpts);
 }
 
-function runPipeline(source, pipelineConfig, transformOptions) {
+function runPipeline(
+    source: string,
+    pipelineConfig: PipelineConfig,
+    transformOptions: TransformOptions
+) {
     const ast = Core.parse(source, pipelineConfig?.parser);
     const transformEntries = pipelineConfig?.transforms ?? {};
     const transformNames = Object.entries(transformEntries)

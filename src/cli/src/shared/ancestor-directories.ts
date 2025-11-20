@@ -4,6 +4,10 @@ import {
     walkAncestorDirectories
 } from "../dependencies.js";
 
+export interface CollectUniqueAncestorDirectoriesOptions {
+    includeSelf?: boolean;
+}
+
 /**
  * Collect the unique ancestor directories for the provided starting
  * directories. Ancestors are returned in the order they were discovered so
@@ -21,10 +25,10 @@ import {
  * @returns {Array<string>} Ordered list of unique ancestor directories.
  */
 export function collectUniqueAncestorDirectories(
-    startingDirectories,
-    { includeSelf = true } = {}
-) {
-    const directories = new Set();
+    startingDirectories: Iterable<string | null | undefined> | string,
+    { includeSelf = true }: CollectUniqueAncestorDirectoriesOptions = {}
+): Array<string> {
+    const directories = new Set<string>();
     const entries =
         typeof startingDirectories === "string"
             ? [startingDirectories]
@@ -56,6 +60,8 @@ export function collectUniqueAncestorDirectories(
  * @returns {Array<string>} Flat list of absolute directories, ordered from each
  *        start path toward the root.
  */
-export function collectAncestorDirectories(...startingDirectories) {
+export function collectAncestorDirectories(
+    ...startingDirectories: Array<string | undefined | null>
+): Array<string> {
     return collectUniqueAncestorDirectories(startingDirectories);
 }

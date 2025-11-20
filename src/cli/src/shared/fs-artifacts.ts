@@ -8,6 +8,23 @@ import {
 } from "./dependencies.js";
 import { ensureWorkflowPathsAllowed } from "../workflow/path-filter.js";
 
+type WorkflowPathFilter = Parameters<typeof ensureWorkflowPathsAllowed>[0];
+
+export interface FileArtifactWriteDetails {
+    outputPath: string;
+    contents: string;
+    encoding: BufferEncoding;
+}
+
+export interface FileArtifactOptions {
+    outputPath: string;
+    contents: string;
+    encoding?: BufferEncoding;
+    onAfterWrite?: (details: FileArtifactWriteDetails) => void;
+    writeFile?: typeof writeFileAsync;
+    pathFilter?: WorkflowPathFilter;
+}
+
 /**
  * Write text contents to disk while guaranteeing the parent directory exists
  * before persisting the payload.
@@ -33,7 +50,7 @@ export async function writeFileArtifact({
     onAfterWrite,
     writeFile = writeFileAsync,
     pathFilter
-}) {
+}: FileArtifactOptions): Promise<void> {
     if (!isNonEmptyString(outputPath)) {
         throw new TypeError(
             "outputPath must be provided to writeFileArtifact."
@@ -81,6 +98,18 @@ export async function writeFileArtifact({
  * }} options
  * @returns {Promise<void>}
  */
+export interface JsonArtifactOptions {
+    outputPath: string;
+    payload: unknown;
+    replacer?: Parameters<typeof JSON.stringify>[1];
+    space?: Parameters<typeof JSON.stringify>[2];
+    includeTrailingNewline?: boolean;
+    onAfterWrite?: FileArtifactOptions["onAfterWrite"];
+    encoding?: BufferEncoding;
+    writeFile?: typeof writeFileAsync;
+    pathFilter?: WorkflowPathFilter;
+}
+
 export async function writeJsonArtifact({
     outputPath,
     payload,
@@ -91,7 +120,7 @@ export async function writeJsonArtifact({
     encoding = "utf8",
     writeFile,
     pathFilter
-}) {
+}: JsonArtifactOptions): Promise<void> {
     const contents = stringifyJsonForFile(payload, {
         replacer,
         space,

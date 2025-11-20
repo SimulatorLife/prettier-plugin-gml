@@ -1,6 +1,27 @@
 const MILLISECOND_PER_SECOND = 1000;
 const SUB_SECOND_THRESHOLD_TOLERANCE_MS = 1e-6;
 
+interface VerboseFlagOptions {
+    parsing?: boolean;
+}
+
+interface VerboseLogger {
+    log?: (message: string) => void;
+}
+
+export interface VerboseDurationLoggerOptions {
+    verbose?: VerboseFlagOptions;
+    formatMessage?: string | ((duration: string) => string);
+    now?: () => number;
+    logger?: VerboseLogger;
+}
+
+export interface TimeSyncOptions {
+    verbose?: VerboseFlagOptions;
+    now?: () => number;
+    logger?: VerboseLogger;
+}
+
 /**
  * Format the elapsed milliseconds since `startTime` into a human-friendly
  * string. Values under one second remain in milliseconds while longer durations
@@ -13,7 +34,10 @@ const SUB_SECOND_THRESHOLD_TOLERANCE_MS = 1e-6;
  * @param {() => number} [now] Function that returns the current timestamp.
  * @returns {string} Formatted duration label for logs and status messages.
  */
-export function formatDuration(startTime, now = Date.now) {
+export function formatDuration(
+    startTime: number,
+    now: () => number = Date.now
+): string {
     const deltaMs = now() - startTime;
     // High-resolution timers such as `performance.now()` can report values just
     // shy of the one-second boundary (for example, 999.9999999997) even when a
@@ -48,7 +72,7 @@ export function createVerboseDurationLogger({
     formatMessage,
     now = Date.now,
     logger = console
-} = {}) {
+}: VerboseDurationLoggerOptions = {}): () => void {
     const startTime = now();
 
     return () => {
@@ -85,11 +109,11 @@ export function createVerboseDurationLogger({
  *   Optional verbose flags, clock override, and logger replacement.
  * @returns {T} Whatever the callback returns.
  */
-export function timeSync(
-    label,
-    callback,
-    { verbose, now, logger = console } = {}
-) {
+export function timeSync<TResult>(
+    label: string,
+    callback: () => TResult,
+    { verbose, now, logger = console }: TimeSyncOptions = {}
+): TResult {
     if (verbose?.parsing && typeof logger?.log === "function") {
         logger.log(`→ ${label}`);
     }

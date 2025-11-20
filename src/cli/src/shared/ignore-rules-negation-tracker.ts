@@ -1,13 +1,13 @@
 let ignoreRulesContainNegations = false;
 
-export function hasIgnoreRuleNegations() {
+export function hasIgnoreRuleNegations(): boolean {
     return ignoreRulesContainNegations;
 }
 
-export function markIgnoreRuleNegationsDetected() {
+export function markIgnoreRuleNegationsDetected(): void {
     ignoreRulesContainNegations = true;
 }
 
-export function resetIgnoreRuleNegations() {
+export function resetIgnoreRuleNegations(): void {
     ignoreRulesContainNegations = false;
 }

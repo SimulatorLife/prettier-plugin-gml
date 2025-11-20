@@ -5,19 +5,28 @@
  * consumers can register the plugin without reaching into internal modules.
  */
 
+import type { SupportLanguage, SupportOptions } from "prettier";
+
+import type {
+    GmlPluginComponentBundle,
+    GmlPluginDefaultOptions
+} from "./plugin-types.js";
 import { resolveGmlPluginComponents } from "./plugin-components.js";
 import { resolveCoreOptionOverrides } from "./options/core-option-overrides.js";
 
-function selectPluginComponents() {
+function selectPluginComponents(): GmlPluginComponentBundle {
     return resolveGmlPluginComponents();
 }
 
-function createReadOnlyView(selector, description) {
+function createReadOnlyView<T extends object>(
+    selector: () => T,
+    description: string
+): Readonly<T> {
     const readOnlyError = new TypeError(
         `${description} cannot be modified once resolved.`
     );
 
-    const ensureSource = () => {
+    const ensureSource = (): T => {
         const source = selector();
         if (source && typeof source === "object") {
             return source;
@@ -26,13 +35,16 @@ function createReadOnlyView(selector, description) {
         throw new TypeError(`${description} must resolve to an object.`);
     };
 
-    const throwReadOnlyError = () => {
+    const withSource = <TReturn>(callback: (source: T) => TReturn): TReturn =>
+        callback(ensureSource());
+
+    const throwReadOnlyError = (): never => {
         throw readOnlyError;
     };
 
-    const withSource = (callback) => callback(ensureSource());
+    const target = Object.create(null) as T;
 
-    return new Proxy(Object.create(null), {
+    return new Proxy(target, {
         get(_target, property, receiver) {
             if (property === Symbol.toStringTag) {
                 return "Object";
@@ -56,7 +68,7 @@ function createReadOnlyView(selector, description) {
                 );
 
                 if (!descriptor) {
-                    return;
+                    return undefined;
                 }
 
                 return {
@@ -70,28 +82,34 @@ function createReadOnlyView(selector, description) {
         getPrototypeOf() {
             return Object.prototype;
         },
-        set: throwReadOnlyError,
-        defineProperty: throwReadOnlyError,
-        deleteProperty: throwReadOnlyError
-    });
+        set() {
+            throwReadOnlyError();
+        },
+        defineProperty() {
+            throwReadOnlyError();
+        },
+        deleteProperty() {
+            throwReadOnlyError();
+        }
+    }) as Readonly<T>;
 }
 
-const parsers = createReadOnlyView(
+const parsers = createReadOnlyView<GmlPluginComponentBundle["parsers"]>(
     () => selectPluginComponents().parsers,
     "GML plugin parsers"
 );
 
-const printers = createReadOnlyView(
+const printers = createReadOnlyView<GmlPluginComponentBundle["printers"]>(
     () => selectPluginComponents().printers,
     "GML plugin printers"
 );
 
-const options = createReadOnlyView(
+const options = createReadOnlyView<SupportOptions>(
     () => selectPluginComponents().options,
     "GML plugin options"
 );
 
-export const languages = [
+export const languages: ReadonlyArray<SupportLanguage> = [
     {
         name: "GameMaker Language",
         extensions: [".gml"],
@@ -100,7 +118,7 @@ export const languages = [
     }
 ];
 
-const BASE_PRETTIER_DEFAULTS = {
+const BASE_PRETTIER_DEFAULTS: Record<string, unknown> = {
     tabWidth: 4,
     semi: true,
     printWidth: 120,
@@ -108,24 +126,26 @@ const BASE_PRETTIER_DEFAULTS = {
     singleQuote: false
 };
 
-function extractOptionDefaults(optionConfigMap) {
-    const defaults = {};
+function extractOptionDefaults(
+    optionConfigMap: SupportOptions
+): Record<string, unknown> {
+    const defaults: Record<string, unknown> = {};
 
     for (const [name, config] of Object.entries(optionConfigMap)) {
         if (config && Object.hasOwn(config, "default")) {
-            defaults[name] = config.default;
+            defaults[name] = (config as { default?: unknown }).default;
         }
     }
 
     return defaults;
 }
 
-function computeOptionDefaults() {
+function computeOptionDefaults(): Record<string, unknown> {
     const components = selectPluginComponents();
     return extractOptionDefaults(components.options);
 }
 
-function createDefaultOptionsSnapshot() {
+function createDefaultOptionsSnapshot(): GmlPluginDefaultOptions {
     const coreOptionOverrides = resolveCoreOptionOverrides();
 
     return {
@@ -137,7 +157,7 @@ function createDefaultOptionsSnapshot() {
     };
 }
 
-const defaultOptions = createReadOnlyView(
+const defaultOptions = createReadOnlyView<GmlPluginDefaultOptions>(
     () => createDefaultOptionsSnapshot(),
     "GML default options"
 );

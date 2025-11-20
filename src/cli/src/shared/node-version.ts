@@ -1,4 +1,4 @@
-const VERSION_REQUIREMENTS = new Map([
+const VERSION_REQUIREMENTS = new Map<number, { minor: number; label: string }>([
     [18, { minor: 18, label: "18.18.0" }],
     [20, { minor: 9, label: "20.9.0" }]
 ]);
@@ -11,22 +11,25 @@ const LOWEST_SUPPORTED_REQUIREMENT = VERSION_REQUIREMENTS.get(
     label: `${LOWEST_SUPPORTED_MAJOR}.0.0`
 };
 
-function parseVersionPart(part) {
+interface NodeEnvironment {
+    version?: string;
+    versions?: {
+        node?: string;
+    };
+}
+
+function parseVersionPart(part: string): number {
     return Number.parseInt(part, 10);
 }
 
-function buildUnsupportedVersionError(label) {
+function buildUnsupportedVersionError(label?: string): Error {
     const requiredLabel = label ?? LOWEST_SUPPORTED_REQUIREMENT.label;
     return new Error(
         `Node.js ${requiredLabel} or newer is required. Detected ${process.version}.`
     );
 }
 
-/**
- * @param {string} rawVersion
- * @returns {string}
- */
-function normalizeVersionString(rawVersion) {
+function normalizeVersionString(rawVersion: string): string {
     if (typeof rawVersion !== "string") {
         return "";
     }
@@ -40,10 +43,10 @@ function normalizeVersionString(rawVersion) {
  * The runtime only interacts with an explicit version string, which keeps
  * callers from depending on the nested `process.versions` object.
  *
- * @param {{ version?: string, versions?: { node?: string } }} environment
- * @returns {{ majorPart: string, minorPart: string }}
  */
-function readNodeVersionParts(environment = process) {
+function readNodeVersionParts(
+    environment: NodeEnvironment = process
+): { majorPart: string; minorPart: string } {
     const { version, versions } = environment;
     const normalized = normalizeVersionString(
         typeof version === "string" ? version : (versions?.node ?? "")
@@ -53,7 +56,7 @@ function readNodeVersionParts(environment = process) {
     return { majorPart, minorPart };
 }
 
-export function assertSupportedNodeVersion() {
+export function assertSupportedNodeVersion(): void {
     const { majorPart, minorPart } = readNodeVersionParts();
     const major = parseVersionPart(majorPart);
     const minor = parseVersionPart(minorPart);

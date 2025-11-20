@@ -1,5 +1,14 @@
 import { Core } from "@gml-modules/core";
 
+const {
+    Utils: {
+        createResolverController,
+        isNonEmptyString,
+        isRegExpLike,
+        isObjectLike
+    }
+} = Core;
+
 // Any line comment that starts with at least this many consecutive `/`
 // characters is considered a "banner" comment for formatting purposes.
 // 2 slashes is the minimum to form a valid line comment in GML.
@@ -33,7 +42,7 @@ const DEFAULT_LINE_COMMENT_OPTIONS = Object.freeze({
     codeDetectionPatterns: DEFAULT_COMMENTED_OUT_CODE_PATTERNS
 });
 
-const lineCommentOptionsController = Core.createResolverController({
+const lineCommentOptionsController = createResolverController({
     defaultFactory: () => DEFAULT_LINE_COMMENT_OPTIONS,
     normalize: normalizeLineCommentOptions,
     errorMessage:
@@ -71,7 +80,7 @@ function normalizeArrayOption(
 function normalizeBoilerplateFragments(fragments) {
     return normalizeArrayOption(fragments, {
         defaultValue: DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments,
-        filter: Core.isNonEmptyString,
+        filter: isNonEmptyString,
         map: String
     });
 }
@@ -79,7 +88,7 @@ function normalizeBoilerplateFragments(fragments) {
 function normalizeCodeDetectionPatterns(patterns) {
     return normalizeArrayOption(patterns, {
         defaultValue: DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns,
-        filter: Core.isRegExpLike
+        filter: isRegExpLike
     });
 }
 
@@ -88,7 +97,7 @@ function normalizeLineCommentOptions(options) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
 
-    if (!Core.isObjectLike(options)) {
+    if (!isObjectLike(options)) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
 

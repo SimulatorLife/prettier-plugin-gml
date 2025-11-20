@@ -4,6 +4,19 @@ const {
     Utils: { isObjectLike }
 } = Core;
 
+type WalkObjectGraphOptions = {
+    enterObject?: (
+        value: Record<string, unknown>,
+        parent: object | Array<unknown> | null,
+        key: string | number | null
+    ) => boolean | void;
+    enterArray?: (
+        value: Array<unknown>,
+        parent: object | Array<unknown> | null,
+        key: string | number | null
+    ) => boolean | void;
+};
+
 /**
  * Iteratively walk every object and array reachable from {@link root}, invoking
  * the provided callbacks for each entry. The traversal guards against cyclic
@@ -20,17 +33,28 @@ const {
  *   enterArray?: (value: Array<unknown>, parent: object | Array<unknown> | null, key: string | number | null) => boolean | void,
  * }} [options]
  */
-export function walkObjectGraph(root, options = {}) {
+export function walkObjectGraph(
+    root: unknown,
+    options: WalkObjectGraphOptions = {}
+) {
     if (!isObjectLike(root) && !Array.isArray(root)) {
         return;
     }
 
     const { enterObject, enterArray } = options;
-    const stack = [{ value: root, parent: null, key: null }];
+    const stack: Array<{
+        value: object | Array<unknown>;
+        parent: object | Array<unknown> | null;
+        key: string | number | null;
+    }> = [{ value: root, parent: null, key: null } as {
+        value: object | Array<unknown>;
+        parent: object | Array<unknown> | null;
+        key: string | number | null;
+    }];
     const seen = new WeakSet();
 
     while (stack.length > 0) {
-        const frame = stack.pop();
+        const frame = stack.pop()!;
         const { value, parent, key } = frame;
 
         if (!value || typeof value !== "object") {

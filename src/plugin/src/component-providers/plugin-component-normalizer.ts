@@ -1,29 +1,35 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: { assertPlainObject }
-} = Core;
+import type { GmlPluginComponentBundle } from "../plugin-types.js";
 
-export function normalizeGmlPluginComponents(components) {
-    assertPlainObject(components, {
+export function normalizeGmlPluginComponents(
+    components: unknown
+): GmlPluginComponentBundle {
+    const normalized = Core.Utils.assertPlainObject(components, {
         errorMessage: "GML plugin components must be an object."
-    });
+    }) as Partial<GmlPluginComponentBundle> & Record<string, unknown>;
 
-    const { parsers, printers, options } = components;
+    const { parsers, printers, options } = normalized;
 
-    assertPlainObject(parsers, {
+    Core.Utils.assertPlainObject(parsers, {
         errorMessage: "GML plugin components must include parsers."
     });
-    assertPlainObject(printers, {
+    Core.Utils.assertPlainObject(printers, {
         errorMessage: "GML plugin components must include printers."
     });
-    assertPlainObject(options, {
+    Core.Utils.assertPlainObject(options, {
         errorMessage: "GML plugin components must include options."
     });
 
     return Object.freeze({
-        parsers: Object.freeze({ ...parsers }),
-        printers: Object.freeze({ ...printers }),
-        options: Object.freeze({ ...options })
+        parsers: Object.freeze(
+            { ...(parsers as GmlPluginComponentBundle["parsers"]) }
+        ),
+        printers: Object.freeze(
+            { ...(printers as GmlPluginComponentBundle["printers"]) }
+        ),
+        options: Object.freeze(
+            { ...(options as GmlPluginComponentBundle["options"]) }
+        )
     });
 }

@@ -1,5 +1,7 @@
 import nodeFs from "node:fs/promises";
 
+type RecursiveMkdirFs = Pick<typeof nodeFs, "mkdir">;
+
 /**
  * Ensure that a directory exists, creating it when absent.
  *
@@ -11,11 +13,10 @@ import nodeFs from "node:fs/promises";
  * focused on cross-environment primitives while preserving the ergonomics the
  * command modules expect.
  *
- * @param {string} dirPath Directory that should exist on disk.
- * @param {{ mkdir(path: string, options?: object): Promise<void> }} [fsModule=nodeFs]
- *        Promise-based filesystem facade exposing a `mkdir` method.
- * @returns {Promise<void>} Resolves once the directory hierarchy exists.
  */
-export async function ensureDir(dirPath, fsModule = nodeFs) {
+export async function ensureDir(
+    dirPath: string,
+    fsModule: RecursiveMkdirFs = nodeFs
+): Promise<void> {
     await fsModule.mkdir(dirPath, { recursive: true });
 }

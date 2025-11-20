@@ -19,6 +19,18 @@ import {
 const { addDanglingComment, addLeadingComment } = util;
 const { join, hardline } = builders;
 
+type PrinterComment = {
+    type?: "CommentLine" | "CommentBlock";
+    value?: string;
+    enclosingNode?: any;
+    precedingNode?: any;
+    followingNode?: any;
+    printed?: boolean;
+    attachToBrace?: boolean;
+    attachToClauseBody?: boolean;
+    [key: string]: any;
+};
+
 const EMPTY_BODY_TARGETS = [{ type: "BlockStatement", property: "body" }];
 
 const EMPTY_PARENS_TARGETS = [
@@ -34,7 +46,10 @@ const EMPTY_LITERAL_TARGETS = [
     { type: "EnumDeclaration", property: "members" }
 ];
 
-function attachDanglingCommentToEmptyNode(comment, descriptors) {
+function attachDanglingCommentToEmptyNode(
+    comment: PrinterComment,
+    descriptors: Array<{ type: string; property: string }>
+) {
     const node = comment.enclosingNode;
     if (!node) {
         return false;
@@ -51,7 +66,7 @@ function attachDanglingCommentToEmptyNode(comment, descriptors) {
         const isCollectionMissing =
             collection === undefined || collection === null;
         if (isEmptyArray || isCollectionMissing) {
-            addDanglingComment(node, comment);
+            addDanglingComment(node, comment, false);
             return true;
         }
     }
@@ -59,7 +74,7 @@ function attachDanglingCommentToEmptyNode(comment, descriptors) {
     return false;
 }
 
-function handleHoistedDeclarationLeadingComment(comment) {
+function handleHoistedDeclarationLeadingComment(comment: PrinterComment) {
     const target = comment?._featherHoistedTarget;
 
     if (!target) {
@@ -473,7 +488,7 @@ function handleCommentAttachedToOpenBrace(
     }
 
     comment.attachToBrace = true;
-    addDanglingComment(enclosingNode, comment);
+    addDanglingComment(enclosingNode, comment, false);
     return true;
 }
 
@@ -513,10 +528,10 @@ function handleClauseBlockIntroComment(
 
     if (bodyNode?.type === "BlockStatement") {
         comment.attachToBrace = true;
-        addDanglingComment(bodyNode, comment);
+        addDanglingComment(bodyNode, comment, false);
     } else {
         comment.attachToClauseBody = true;
-        addDanglingComment(enclosingNode, comment);
+        addDanglingComment(enclosingNode, comment, false);
     }
 
     comment.leading = false;
@@ -695,7 +710,7 @@ function handleOnlyComments(comment, options, ast /*, isLastComment */) {
         comment.followingNode
     );
     if (emptyProgram) {
-        addDanglingComment(emptyProgram, comment);
+        addDanglingComment(emptyProgram, comment, false);
         return true;
     }
 

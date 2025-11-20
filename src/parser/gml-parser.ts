@@ -25,16 +25,29 @@ export {
     LISTENER_METHOD_NAMES
 } from "./src/runtime/game-maker-language-parser-listener.js";
 export * from "./src/transforms/index.js";
-export * from "./src/transforms/annotate-static-overrides.js";
-export * from "./src/transforms/apply-feather-fixes.js";
-export * from "./src/transforms/condense-logical-expressions.js";
-export * from "./src/transforms/consolidate-struct-assignments.js";
-export * from "./src/transforms/convert-manual-math.js";
-export * from "./src/transforms/convert-string-concatenations.js";
-export * from "./src/transforms/convert-undefined-guard-assignments.js";
-export * from "./src/transforms/enforce-variable-block-spacing.js";
-export * from "./src/transforms/preprocess-function-argument-defaults.js";
-export * from "./src/transforms/strip-comments.js";
+export { annotateStaticFunctionOverrides } from "./src/transforms/annotate-static-overrides.js";
+export {
+    ROOM_NAVIGATION_DIRECTION,
+    getRoomNavigationHelpers,
+    preprocessSourceForFeatherFixes,
+    applyRemovedIndexAdjustments,
+    getFeatherDiagnosticFixers,
+    applyFeatherFixes
+} from "./src/transforms/apply-feather-fixes.js";
+export { condenseLogicalExpressions } from "./src/transforms/condense-logical-expressions.js";
+export {
+    consolidateStructAssignments,
+    CommentTracker
+} from "./src/transforms/consolidate-struct-assignments.js";
+export {
+    convertManualMathExpressions,
+    condenseScalarMultipliers
+} from "./src/transforms/convert-manual-math.js";
+export { convertStringConcatenations } from "./src/transforms/convert-string-concatenations.js";
+export { convertUndefinedGuardAssignments } from "./src/transforms/convert-undefined-guard-assignments.js";
+export { enforceVariableBlockSpacing } from "./src/transforms/enforce-variable-block-spacing.js";
+export { preprocessFunctionArgumentDefaults } from "./src/transforms/preprocess-function-argument-defaults.js";
+export { transform as stripCommentsTransform } from "./src/transforms/strip-comments.js";
 export {
     buildDeprecatedBuiltinVariableReplacements,
     getDeprecatedBuiltinReplacementEntry,

@@ -11,7 +11,7 @@ const BYTE_UNITS = Object.freeze(["B", "KB", "MB", "GB", "TB", "PB"]);
 const DEFAULT_BYTE_FORMAT_RADIX = 1024;
 const BYTE_FORMAT_RADIX_ENV_VAR = "PRETTIER_PLUGIN_GML_BYTE_FORMAT_RADIX";
 
-const createRadixErrorMessage = (received) =>
+const createRadixErrorMessage = (received: unknown): string =>
     `Byte format radix must be a positive integer (received ${received}).`;
 
 const createRadixTypeErrorMessage =
@@ -35,7 +35,17 @@ const {
 
 applyByteFormatRadixEnvOverride();
 
-function normalizeByteCount(value) {
+type NumericLike = number | bigint | unknown;
+
+export interface FormatByteSizeOptions {
+    decimals?: number;
+    decimalsForBytes?: number;
+    separator?: string;
+    trimTrailingZeros?: boolean;
+    radix?: number | string;
+}
+
+function normalizeByteCount(value: NumericLike): number {
     const numericValue = typeof value === "bigint" ? Number(value) : value;
 
     if (!isFiniteNumber(numericValue)) {
@@ -45,7 +55,10 @@ function normalizeByteCount(value) {
     return Math.max(numericValue, 0);
 }
 
-function resolveRadixOverride(radix, defaultRadix) {
+function resolveRadixOverride(
+    radix: number | string | undefined,
+    defaultRadix: number
+): number {
     if (radix === undefined) {
         return defaultRadix;
     }
@@ -77,17 +90,18 @@ function resolveRadixOverride(radix, defaultRadix) {
  * @returns {string} Human-readable representation of the byte size.
  */
 function formatByteSize(
-    bytes,
+    bytes: NumericLike,
     {
         decimals = 1,
         decimalsForBytes = 0,
         separator = "",
         trimTrailingZeros = false,
         radix
-    } = {}
-) {
+    }: FormatByteSizeOptions = {}
+): string {
     let value = normalizeByteCount(bytes);
-    const defaultRadix = getDefaultByteFormatRadix();
+    const defaultRadix =
+        getDefaultByteFormatRadix() ?? DEFAULT_BYTE_FORMAT_RADIX;
     const resolvedRadix = resolveRadixOverride(radix, defaultRadix);
     const maxUnitIndex = BYTE_UNITS.length - 1;
     let unitIndex = 0;
@@ -126,7 +140,7 @@ function formatByteSize(
  * @param {string} text Text to measure.
  * @returns {string} Human-readable byte size string.
  */
-function formatBytes(text) {
+function formatBytes(text: string): string {
     const size = Buffer.byteLength(text, "utf8");
     return formatByteSize(size, { decimals: 1 });
 }

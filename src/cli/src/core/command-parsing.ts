@@ -1,3 +1,5 @@
+import type { Command } from "commander";
+
 import { CliUsageError } from "./errors.js";
 import { isCommanderErrorLike } from "./commander-error-utils.js";
 import {
@@ -6,7 +8,22 @@ import {
     getErrorMessage
 } from "../shared/dependencies.js";
 
-function isCommanderError(error) {
+type InvalidArgumentResolver = (
+    value: unknown,
+    ...rest: Array<unknown>
+) => unknown;
+
+interface WrapInvalidArgumentResolverOptions {
+    errorConstructor?: new (message: string) => Error;
+    fallbackMessage?: string;
+}
+
+export interface ParseCommandLineResult {
+    helpRequested: boolean;
+    usage: string;
+}
+
+function isCommanderError(error: unknown) {
     return (
         isCommanderErrorLike(error) && error.code !== "commander.helpDisplayed"
     );
@@ -32,7 +49,10 @@ export {
  * }} [options]
  * @returns {(value: unknown, ...rest: Array<unknown>) => unknown}
  */
-export function wrapInvalidArgumentResolver(resolver, options = {}) {
+export function wrapInvalidArgumentResolver(
+    resolver: InvalidArgumentResolver,
+    options: WrapInvalidArgumentResolverOptions = {}
+): InvalidArgumentResolver {
     assertFunction(resolver, "resolver");
 
     const { errorConstructor, fallbackMessage = "Invalid option value." } =
@@ -43,7 +63,7 @@ export function wrapInvalidArgumentResolver(resolver, options = {}) {
             ? errorConstructor
             : InvalidArgumentError;
 
-    return (...args) => {
+    return (...args: Parameters<InvalidArgumentResolver>) => {
         try {
             return resolver(...args);
         } catch (error) {
@@ -71,7 +91,10 @@ export function wrapInvalidArgumentResolver(resolver, options = {}) {
  * @param {Array<string>} args
  * @returns {{ helpRequested: boolean, usage: string }}
  */
-export function parseCommandLine(command, args) {
+export function parseCommandLine(
+    command: Command,
+    args: Array<string>
+): ParseCommandLineResult {
     try {
         command.parse(args, { from: "user" });
         return {

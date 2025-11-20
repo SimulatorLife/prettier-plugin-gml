@@ -1,3 +1,5 @@
+import type { Command } from "commander";
+
 import { Core } from "@gml-modules/core";
 
 const {
@@ -22,7 +24,9 @@ const DEFAULT_HELP_AFTER_ERROR = "(add --help for usage information)";
  *        help semantics.
  * @returns {TCommand} The original command for fluent chaining.
  */
-export function applyStandardCommandOptions(command) {
+export function applyStandardCommandOptions<TCommand extends Command>(
+    command: TCommand
+): TCommand {
     if (!command || typeof command.exitOverride !== "function") {
         throw new TypeError(
             "applyStandardCommandOptions expects a Commander Command instance."

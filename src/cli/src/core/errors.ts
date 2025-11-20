@@ -14,11 +14,36 @@ const SIMPLE_VALUE_TYPES = new Set(["number", "boolean", "bigint"]);
 
 const CLI_USAGE_ERROR_BRAND = Symbol.for("prettier-plugin-gml/cli-usage-error");
 
-function brandCliUsageError(error) {
-    if (!error || typeof error !== "object") {
-        return;
-    }
+type ErrorWithMetadata = Error & {
+    usage?: string | null;
+    cause?: unknown;
+    stack?: string;
+    [CLI_USAGE_ERROR_BRAND]?: boolean;
+};
 
+interface CliUsageErrorOptions {
+    usage?: string | null;
+}
+
+interface CliErrorDetails {
+    message: string;
+    name: string;
+    code?: string;
+    stack?: Array<string>;
+}
+
+interface CliErrorLinesOptions {
+    prefix?: string;
+    formattedError?: string;
+    usage?: string | null;
+}
+
+export interface HandleCliErrorOptions {
+    exitCode?: number;
+    prefix?: string;
+}
+
+function brandCliUsageError(error: ErrorWithMetadata): void {
     if (error[CLI_USAGE_ERROR_BRAND]) {
         return;
     }
@@ -31,31 +56,35 @@ function brandCliUsageError(error) {
     });
 }
 
-export function markAsCliUsageError(error, { usage } = {}) {
+export function markAsCliUsageError(
+    error: unknown,
+    { usage }: CliUsageErrorOptions = {}
+): ErrorWithMetadata | null {
     if (!isErrorLike(error)) {
         return null;
     }
 
-    brandCliUsageError(error);
-    if (usage !== undefined || !("usage" in error)) {
-        error.usage = usage ?? null;
+    const branded = error as ErrorWithMetadata;
+    brandCliUsageError(branded);
+    if (usage !== undefined || !("usage" in branded)) {
+        branded.usage = usage ?? null;
     }
 
-    return error;
+    return branded;
 }
 
-function indentBlock(text, indent = DEFAULT_INDENT) {
+function indentBlock(text: string, indent = DEFAULT_INDENT): string {
     return text
         .split("\n")
         .map((line) => `${indent}${line}`)
         .join("\n");
 }
 
-export function isCliUsageError(error) {
-    return isErrorLike(error) && Boolean(error[CLI_USAGE_ERROR_BRAND]);
+export function isCliUsageError(error: unknown): error is ErrorWithMetadata {
+    return isErrorLike(error) && Boolean((error as ErrorWithMetadata)[CLI_USAGE_ERROR_BRAND]);
 }
 
-function formatSection(label, content) {
+function formatSection(label: string, content: string | null): string | null {
     if (!content) {
         return null;
     }
@@ -63,7 +92,7 @@ function formatSection(label, content) {
     return `${label}:\n${content}`;
 }
 
-function extractStackBody(stack) {
+function extractStackBody(stack: string | null): string | null {
     if (typeof stack !== "string") {
         return null;
     }
@@ -77,13 +106,17 @@ function extractStackBody(stack) {
     return stackBody || null;
 }
 
-function formatAggregateErrors(error, seen) {
+function formatAggregateErrors(
+    error: unknown,
+    seen: Set<unknown>
+): string | null {
     if (!isAggregateErrorLike(error)) {
         return null;
     }
 
+    const aggregate = error as { errors: Array<unknown> };
     const formatted = compactArray(
-        error.errors.map((entry) => formatErrorValue(entry, seen))
+        aggregate.errors.map((entry) => formatErrorValue(entry, seen))
     ).map((text) => indentBlock(`- ${text.replaceAll("\n", "\n  ")}`));
 
     if (formatted.length === 0) {
@@ -93,7 +126,10 @@ function formatAggregateErrors(error, seen) {
     return formatSection("Errors", formatted.join("\n"));
 }
 
-function formatErrorCause(cause, seen) {
+function formatErrorCause(
+    cause: unknown,
+    seen: Set<unknown>
+): string | null {
     if (!cause) {
         return null;
     }
@@ -102,7 +138,7 @@ function formatErrorCause(cause, seen) {
     return formatSection("Caused by", indentBlock(text));
 }
 
-function formatErrorHeader(error) {
+function formatErrorHeader(error: ErrorWithMetadata): string {
     const name = toTrimmedString(error.name);
     const message = toTrimmedString(error.message);
 
@@ -131,7 +167,10 @@ function formatErrorHeader(error) {
     return "";
 }
 
-function formatErrorObject(error, seen) {
+function formatErrorObject(
+    error: ErrorWithMetadata,
+    seen: Set<unknown>
+): string {
     if (seen.has(error)) {
         return "[Circular error reference]";
     }
@@ -156,7 +195,7 @@ function formatErrorObject(error, seen) {
     return sections.join("\n");
 }
 
-function formatPlainObject(value, seen) {
+function formatPlainObject(value: object, seen: Set<unknown>): string {
     if (seen.has(value)) {
         return "[Circular value reference]";
     }
@@ -170,7 +209,7 @@ function formatPlainObject(value, seen) {
     }
 }
 
-function formatErrorValue(value, seen) {
+function formatErrorValue(value: unknown, seen: Set<unknown>): string {
     if (value == undefined) {
         return "Unknown error";
     }
@@ -184,29 +223,29 @@ function formatErrorValue(value, seen) {
     }
 
     if (isErrorLike(value)) {
-        return formatErrorObject(value, seen);
+        return formatErrorObject(value as ErrorWithMetadata, seen);
     }
 
-    if (typeof value === "object") {
-        return formatPlainObject(value, seen);
+    if (value && typeof value === "object") {
+        return formatPlainObject(value as object, seen);
     }
 
     return String(value);
 }
 
-export function formatCliError(error) {
+export function formatCliError(error: unknown): string {
     return formatErrorValue(error, new Set());
 }
 
 export class CliUsageError extends Error {
-    constructor(message, { usage } = {}) {
+    constructor(message: string, { usage }: CliUsageErrorOptions = {}) {
         super(message);
         this.name = "CliUsageError";
         markAsCliUsageError(this, { usage });
     }
 }
 
-function normalizeStackLines(stack) {
+function normalizeStackLines(stack: string | undefined): Array<string> | null {
     if (typeof stack !== "string") {
         return null;
     }
@@ -215,13 +254,13 @@ function normalizeStackLines(stack) {
     return lines.some((line) => line.length > 0) ? lines : null;
 }
 
-function resolveNameFromTag(value) {
+function resolveNameFromTag(value: unknown): string | null {
     const tagName = getObjectTagName(value);
     return tagName ?? null;
 }
 
-function resolveErrorName(error) {
-    const explicitName = toTrimmedString(error?.name);
+function resolveErrorName(error: unknown): string {
+    const explicitName = toTrimmedString((error as ErrorWithMetadata)?.name);
     if (explicitName) {
         return explicitName;
     }
@@ -235,11 +274,11 @@ function resolveErrorName(error) {
 }
 
 export function createCliErrorDetails(
-    error,
-    { fallbackMessage = "Unknown error" } = {}
-) {
+    error: unknown,
+    { fallbackMessage = "Unknown error" }: { fallbackMessage?: string } = {}
+): CliErrorDetails {
     const message = getErrorMessage(error, { fallback: fallbackMessage });
-    const details = {
+    const details: CliErrorDetails = {
         message,
         name: resolveErrorName(error)
     };
@@ -249,7 +288,7 @@ export function createCliErrorDetails(
         details.code = code;
     }
 
-    const stackLines = normalizeStackLines(error?.stack);
+    const stackLines = normalizeStackLines((error as ErrorWithMetadata)?.stack);
     if (stackLines) {
         details.stack = stackLines;
     }
@@ -257,15 +296,18 @@ export function createCliErrorDetails(
     return details;
 }
 
-function resolveCliErrorUsage(error) {
-    if (error && typeof error === "object" && typeof error.usage === "string") {
-        return error.usage;
+function resolveCliErrorUsage(error: unknown): string | null {
+    if (error && typeof error === "object" && typeof (error as ErrorWithMetadata).usage === "string") {
+        return (error as ErrorWithMetadata).usage ?? null;
     }
 
     return null;
 }
 
-function appendLineIfPresent(lines, value) {
+function appendLineIfPresent(
+    lines: Array<string>,
+    value?: string
+): void {
     if (!value) {
         return;
     }
@@ -273,7 +315,7 @@ function appendLineIfPresent(lines, value) {
     lines.push(value);
 }
 
-function appendUsageSection(lines, usage) {
+function appendUsageSection(lines: Array<string>, usage: string | null): void {
     if (!usage) {
         return;
     }
@@ -285,17 +327,24 @@ function appendUsageSection(lines, usage) {
     lines.push(usage);
 }
 
-function buildCliErrorLines({ prefix, formattedError, usage }) {
-    const lines = [];
+function buildCliErrorLines({
+    prefix,
+    formattedError,
+    usage
+}: CliErrorLinesOptions): Array<string> {
+    const lines: Array<string> = [];
 
     appendLineIfPresent(lines, prefix);
     appendLineIfPresent(lines, formattedError);
-    appendUsageSection(lines, usage);
+    appendUsageSection(lines, usage ?? null);
 
     return lines;
 }
 
-export function handleCliError(error, { exitCode = 1, prefix } = {}) {
+export function handleCliError(
+    error: unknown,
+    { exitCode = 1, prefix }: HandleCliErrorOptions = {}
+): never {
     const normalizedPrefix = isCliUsageError(error) ? undefined : prefix;
     const formatted = formatCliError(error);
     const usage = resolveCliErrorUsage(error);

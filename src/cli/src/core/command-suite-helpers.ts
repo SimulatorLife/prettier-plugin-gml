@@ -1,3 +1,5 @@
+import type { Command } from "commander";
+
 import process from "node:process";
 
 import { CliUsageError, createCliErrorDetails } from "./errors.js";
@@ -14,7 +16,25 @@ import {
 export const SuiteOutputFormat = Object.freeze({
     JSON: "json",
     HUMAN: "human"
-});
+} as const);
+
+export type SuiteOutputFormat =
+    (typeof SuiteOutputFormat)[keyof typeof SuiteOutputFormat];
+
+type SuiteRunner = (options?: unknown) => unknown | Promise<unknown>;
+
+export interface SuitePayloadExtras {
+    payload?: Record<string, unknown>;
+}
+
+export interface EmitSuiteResultsOptions {
+    format?: string;
+    pretty?: boolean;
+}
+
+export interface SuiteResultsPayloadOptions {
+    generatedAt?: string;
+}
 
 const suiteOutputFormatHelpers = createStringEnumeratedOptionHelpers(
     Object.values(SuiteOutputFormat),
@@ -28,14 +48,25 @@ export function formatSuiteOutputFormatList() {
     return suiteOutputFormatHelpers.formatList();
 }
 
-export function normalizeSuiteOutputFormat(value, { fallback } = {}) {
+export function normalizeSuiteOutputFormat(
+    value: unknown,
+    { fallback }: { fallback?: SuiteOutputFormat | null } = {}
+): SuiteOutputFormat | null {
     return suiteOutputFormatHelpers.normalize(value, { fallback });
 }
 
 export function resolveSuiteOutputFormatOrThrow(
-    value,
-    { fallback, errorConstructor, createErrorMessage } = {}
-) {
+    value: unknown,
+    {
+        fallback,
+        errorConstructor,
+        createErrorMessage
+    }: {
+        fallback?: SuiteOutputFormat | null;
+        errorConstructor?: new (message: string) => Error;
+        createErrorMessage?: (value: unknown) => string;
+    } = {}
+): SuiteOutputFormat {
     return suiteOutputFormatHelpers.requireValue(value, {
         fallback,
         errorConstructor,
@@ -50,7 +81,10 @@ export function resolveSuiteOutputFormatOrThrow(
  * @param {Map<string, unknown>} availableSuites
  * @returns {Array<string>}
  */
-export function resolveRequestedSuites(options, availableSuites) {
+export function resolveRequestedSuites(
+    options: { suite?: Array<string> | string } | null | undefined,
+    availableSuites: Map<string, SuiteRunner>
+): Array<string> {
     const suiteOption = toMutableArray(options?.suite);
     const hasExplicitSuites = suiteOption.length > 0;
     const requested = hasExplicitSuites
@@ -67,7 +101,11 @@ export function resolveRequestedSuites(options, availableSuites) {
  * @param {Map<string, unknown>} availableSuites
  * @param {import("commander").Command | undefined} command
  */
-export function ensureSuitesAreKnown(suiteNames, availableSuites, command) {
+export function ensureSuitesAreKnown(
+    suiteNames: Array<string>,
+    availableSuites: Map<string, SuiteRunner>,
+    command: Command | undefined
+): void {
     const unknownSuites = suiteNames.filter(
         (suite) => !availableSuites.has(suite)
     );
@@ -84,7 +122,9 @@ export function ensureSuitesAreKnown(suiteNames, availableSuites, command) {
     );
 }
 
-function assertSuiteRunnerLookup(availableSuites) {
+function assertSuiteRunnerLookup(
+    availableSuites: Map<string, SuiteRunner>
+): void {
     if (!availableSuites || typeof availableSuites.get !== "function") {
         throw new TypeError(
             "availableSuites must provide a get function returning suite runners"
@@ -112,7 +152,12 @@ async function executeSuiteRunner({
     availableSuites,
     runnerOptions,
     handleSuiteError
-}) {
+}: {
+    suiteName: string;
+    availableSuites: Map<string, SuiteRunner>;
+    runnerOptions: unknown;
+    handleSuiteError: (error: unknown, context: { suiteName: string }) => unknown;
+}): Promise<[string, unknown] | null> {
     const runner = availableSuites.get(suiteName);
     if (typeof runner !== "function") {
         return null;
@@ -144,15 +189,22 @@ export async function collectSuiteResults({
     availableSuites,
     runnerOptions,
     onError
-}) {
+}: {
+    suiteNames: Array<string>;
+    availableSuites: Map<string, SuiteRunner>;
+    runnerOptions?: unknown;
+    onError?: (error: unknown, context: { suiteName: string }) => unknown;
+}): Promise<Record<string, unknown>> {
     assertSuiteRunnerLookup(availableSuites);
 
     if (!isNonEmptyArray(suiteNames)) {
         return {};
     }
 
-    const entries = [];
-    const defaultOnError = (error) => ({ error: createCliErrorDetails(error) });
+    const entries: Array<[string, unknown]> = [];
+    const defaultOnError = (error: unknown) => ({
+        error: createCliErrorDetails(error)
+    });
     const handleSuiteError =
         typeof onError === "function" ? onError : defaultOnError;
 
@@ -172,7 +224,10 @@ export async function collectSuiteResults({
     return Object.fromEntries(entries);
 }
 
-export function createSuiteResultsPayload(results, { generatedAt } = {}) {
+export function createSuiteResultsPayload(
+    results: Record<string, unknown>,
+    { generatedAt }: SuiteResultsPayloadOptions = {}
+) {
     return {
         generatedAt: generatedAt ?? new Date().toISOString(),
         environment: {
@@ -194,10 +249,10 @@ export function createSuiteResultsPayload(results, { generatedAt } = {}) {
  * @returns {boolean} `true` when JSON output was emitted.
  */
 export function emitSuiteResults(
-    results,
-    { format, pretty } = {},
-    extras = {}
-) {
+    results: Record<string, unknown>,
+    { format, pretty }: EmitSuiteResultsOptions = {},
+    extras: SuitePayloadExtras = {}
+): boolean {
     const normalizedFormat = resolveSuiteOutputFormatOrThrow(format, {
         fallback: SuiteOutputFormat.JSON,
         errorConstructor: RangeError,

@@ -28,9 +28,9 @@ export {
  * hierarchy derived above. Modules that frequently join segments onto the
  * repo root can delegate to this helper to keep their intent obvious.
  *
- * @param {...string} segments Path segments to resolve from the repo root.
- * @returns {string} Absolute path anchored at the repository root.
+ * @param segments Path segments to resolve from the repo root.
+ * @returns Absolute path anchored at the repository root.
  */
-export function resolveFromRepoRoot(...segments) {
+export function resolveFromRepoRoot(...segments: Array<string>): string {
     return path.resolve(REPO_ROOT, ...segments);
 }

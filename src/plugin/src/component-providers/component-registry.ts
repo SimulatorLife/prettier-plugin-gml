@@ -1,33 +1,23 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: { assertFunction }
-} = Core;
+type RegistryOptions<T> = {
+    description: string;
+    factory: () => T;
+};
 
-/**
- * Creates an immutable singleton registry around a bundle factory.
- *
- * Both the eagerly-computed bundle and the resolver function are returned so
- * callers can expose the snapshot via named exports without re-implementing
- * the same "freeze and re-expose" plumbing for each bundle type.
- *
- * @template T
- * @param {object} options
- * @param {string} options.description
- *        Human-friendly description used in error messages.
- * @param {() => T} options.factory
- *        Function that produces the bundle snapshot.
- */
-export function createSingletonComponentRegistry({ description, factory }) {
-    const normalizedFactory = assertFunction(factory, "factory", {
+export function createSingletonComponentRegistry<T>({
+    description,
+    factory
+}: RegistryOptions<T>) {
+    const normalizedFactory = Core.Utils.assertFunction(factory, "factory", {
         errorMessage: `GML plugin component ${description} factory must be a function.`
-    });
+    }) as () => T;
 
     const bundle = Object.freeze(normalizedFactory());
 
     return Object.freeze({
         bundle,
-        resolve() {
+        resolve(): T {
             return bundle;
         }
     });

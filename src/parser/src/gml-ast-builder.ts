@@ -1,12 +1,13 @@
 import GameMakerLanguageParserVisitor from "./runtime/game-maker-language-parser-visitor.js";
 import { Core } from "@gml-modules/core";
+import { Semantic } from "@gml-modules/semantic";
 import BinaryExpressionDelegate from "./ast/binary-expression-delegate.js";
-import {
+const {
     IdentifierRoleTracker,
     IdentifierScopeCoordinator,
     GlobalIdentifierRegistry,
     createIdentifierLocation
-} from "./identifier-metadata/index.js";
+} = Semantic;
 
 const {
     Utils: { getLineBreakCount, getNonEmptyTrimmedString }
