@@ -91,8 +91,7 @@ describe("watch command integration", () => {
 
         try {
             const { runWatchCommand } = await import(
-                "../src/commands/watch.js"
-            );
+                "../src/commands/watch.js");
 
             const abortController = new AbortController();
 
@@ -136,8 +135,7 @@ describe("watch command integration", () => {
 
         try {
             const { runWatchCommand } = await import(
-                "../src/commands/watch.js"
-            );
+                "../src/commands/watch.js");
 
             const abortController = new AbortController();
             const patches = [];

@@ -34,7 +34,7 @@ prettier_targets=()
 eslint_targets=()
 for file in "${staged_files[@]}"; do
 	case "$file" in
-		*.js|*.cjs|*.mjs)
+		*.ts|*.js|*.cjs|*.mjs)
 			prettier_targets+=("$file")
 			eslint_targets+=("$file")
 			;;
@@ -42,20 +42,20 @@ for file in "${staged_files[@]}"; do
 done
 
 if [ "${#prettier_targets[@]}" -eq 0 ] && [ "${#eslint_targets[@]}" -eq 0 ]; then
-	echo "No staged JavaScript sources to format or lint; skipping."
+	echo "No staged TypeScript sources to format or lint; skipping."
 	exit 0
 fi
 
 files_to_restage=()
 
 if [ "${#prettier_targets[@]}" -gt 0 ]; then
-	echo "Formatting staged JavaScript files with Prettier..."
+	echo "Formatting staged TypeScript files with Prettier..."
 	npm exec -- prettier --ignore-path ./.prettierignore --write "${prettier_targets[@]}"
 	files_to_restage+=("${prettier_targets[@]}")
 fi
 
 if [ "${#eslint_targets[@]}" -gt 0 ]; then
-	echo "Linting staged JavaScript files with ESLint..."
+	echo "Linting staged TypeScript files with ESLint..."
 	npm exec -- eslint --cache --fix "${eslint_targets[@]}"
 	files_to_restage+=("${eslint_targets[@]}")
 fi
@@ -64,4 +64,4 @@ if [ "${#files_to_restage[@]}" -gt 0 ]; then
 	git add -- "${files_to_restage[@]}"
 fi
 
-echo "Pre-commit checks limited to staged JavaScript sources."
+echo "Pre-commit checks limited to staged TypeScript sources."

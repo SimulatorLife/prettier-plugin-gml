@@ -92,7 +92,7 @@
     "cli": "npm run build:types --workspace=@gml-modules/cli && node ./src/cli/dist/cli.js",
     "actionlint:install": "mkdir -p node_modules/.bin && curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash -s -- latest ./node_modules/.bin",
     "lint:actions": "actionlint -color",
-    "lint:duplicates": "jscpd --format \"javascript\" --reporters \"json,console\" --output \"./reports/\" --min-lines 7 --min-tokens 100 src/"
+    "lint:duplicates": "jscpd --noSymlinks --format \"javascript,typescript\" --reporters \"json,console\" --output \"./reports/\" --min-lines 7 --min-tokens 100 src/"
   },
   "jscpd": {
     "threshold": 0.5,

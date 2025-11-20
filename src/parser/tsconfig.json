@@ -5,12 +5,7 @@
     "outDir": "./dist",
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "baseUrl": ".",
-    "allowJs": true,
-    "paths": {
-      "@gml-modules/core": ["../core/index.ts"],
-      "@gml-modules/semantic": ["../semantic/index.ts"],
-      "@gml-modules/parser": ["./index.ts"]
-    }
+    "allowJs": true
   },
   "include": [
     "*.ts",

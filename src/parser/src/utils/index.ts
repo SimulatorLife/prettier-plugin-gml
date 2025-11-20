@@ -1,8 +1,4 @@
-// Utilities
-// Re-export commonly-used helpers from the core package so existing parser
-// modules that import named utilities from "./utils/index.js" keep working
-// without changing every import site. Also preserve parser-local utility
-// re-exports.
-export * from "@gml-modules/core";
+// Parser-local utility exports. Core helpers should be accessed via the
+// `@gml-modules/core` package namespace.
 export * from "./syntax-error-guards.js";
 export * from "./estree-converter.js";

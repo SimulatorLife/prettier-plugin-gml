@@ -12,12 +12,14 @@
 - Never add eslint-disable comments to the codebase. If lint errors arise, fix them properly.
 - The plugin/formatter should be opinionated and enforce a single opinionated strategy (for indentation, spacing, blank lines, etc.) – avoid adding overly-configurable options that give users too many choices or lead to inconsistent formatting.
 
+----
+
 ## Code Style & Quality
 - When considering adding new dependencies, prefer packages that are already in use within the monorepo to minimize bloat.
-- Use named package scopes for all inter-package imports, always referencing modules by their declared package name rather than relative paths, and ensure that each package re-exports its public API at the top level so consumers import only from the package root (e.g., use `@gml-modules/core` instead of deep paths like `"../../../src/core/src/ast/comments.ts"`); this rule also applies in `package.json`, where dependencies must always be listed by package name rather than filesystem paths.
+- Use named package scopes for all inter-package imports, always referencing modules by their declared package name rather than relative paths, and ensure that each package re-exports its public API at the top level so consumers import only from the package root (e.g., use `@gml-modules/core` instead of deep paths like `"../../../src/core/src/ast/comments.js"`); this rule also applies in `package.json`, where dependencies must always be listed by package name rather than filesystem paths.
 - Do not import functionality from another module solely to re-export it; each module should only export its own unique public API rather than acting as a pass-through for other packages.
 - When exporting a module’s public API, use named wildcard exports to provide clear namespace grouping (e.g., `export * as AST from "./ast"; export * as Parser from "./parser"; export * as Transforms from "./transforms";`).
-- Do **NOT** use `.mjs`, `.cjs`. or `.js` files anywhere in the codebase; all code must be authored as **typescript** (`.ts`) files, and packages should rely on `"type": "module"` to enable ESM behavior consistently throughout the monorepo. If you encounter existing `.mjs`, `.cjs`, or `.js` files, refactor them to `.ts` and adjust imports/exports accordingly.
+- This codebase does **NOT** allow `.mjs`, `.cjs`. or `.js` as source files **except for in vendor-code directories and generated code**; all code must be authored as **typescript** (`.ts`) files, and packages should rely on `"type": "module"` to enable ESM behavior consistently throughout the monorepo. If you encounter existing `.mjs`, `.cjs`, or `.js` files, refactor them to `.ts` and adjust imports/exports accordingly. No custom file extensions (e.g., .gmlx, .gmlext, .foo) are permitted; the system recognizes `.ts` for source and `.gml` for GameMaker language files.
 - Each package/module and major internal directory must include an `index.ts` file that serves exclusively as the public export surface for that module; `index.ts` files should contain only exports, no runtime logic, and must re-export all intended public functionality so that consumers import solely from the package root (e.g., `@gml-modules/core`) rather than deep relative paths or subdirectories.
 - Use a consistent module directory structure across the monorepo, where each package contains a top-level `package.json`, a top-level `index.ts`, and separate `src/` and `test/` directories; all implementation code must reside in `src/`, all tests must reside in `test/`, and consumers must always import from the module root rather than deep internal paths.
 - Each top-level module's root `index.ts` must serve as the sole public API surface and must export **exactly one named namespace** (e.g., `export * as Transpiler from "./src/transpiler/index.ts";` or `export const Semantic = Object.freeze({ ... });`) with no implementation logic. **Default exports are not allowed** at the package root. Internal files must never import through this public namespace layer and should instead use direct relative imports, reserving namespace-style exports exclusively for the external API shape.
@@ -26,10 +28,10 @@
 - When importing from another top-level package, always import the package’s **single exported namespace** (e.g., `import * as Core from "@gml-modules/core"`), and **do not destructure** that namespace into individual symbols; external consumers must always call functions or access exports via the namespace object (e.g., `Core.toMutableArray(...)`). Destructuring is allowed only for internal imports within the same package, where direct relative paths must be used instead of importing through the package’s public namespace.
 - The public namespace for a package (e.g., `Semantic`) should be assembled by **flattening curated submodule public APIs** exported from `src/`-level indices, using object spread from internal namespaces, for example:
   ```js
-  import * as IdentifierCase from "./src/identifier-case/index.ts";
-  import * as ProjectIndex from "./src/project-index/index.ts";
-  import * as Scopes from "./src/scopes/index.ts";
-  import * as Resources from "./src/resources/index.ts";
+  import * as IdentifierCase from "./src/identifier-case/index.js";
+  import * as ProjectIndex from "./src/project-index/index.js";
+  import * as Scopes from "./src/scopes/index.js";
+  import * as Resources from "./src/resources/index.js";
   import * as SemOracle from "./src/sem-oracle.js";
   import * as SCIPTypes from "./src/scip-types.js";
   import * as SCIPSymbols from "./src/scip-symbols.js";
@@ -45,6 +47,163 @@
   });
    ```
 
+----
+
+## Module structure, imports, and TypeScript / ESM strategy
+
+This project is a TypeScript monorepo targeting Node’s native ESM loader. The key goals are:
+
+- Source of truth lives in *.ts files under src/…
+- Each workspace builds to its own dist/ directory
+- Runtime always executes built JavaScript from dist/
+- Import paths in the emitted JavaScript are valid Node ESM specifiers
+- TypeScript never needs `allowImportingTsExtensions` (so we can still emit JS)
+
+### Source layout and build output
+
+Each workspace lives under src/ and has its own tsconfig.json that extends a shared base:
+
+````text
+src/
+  core/
+    src/...
+    test/...
+    dist/...
+    tsconfig.json
+    index.ts
+  parser/
+    src/...
+    test/...
+    dist/...
+    tsconfig.json
+    index.ts
+  …etc…
+````
+
+The shared [./tsconfig.base.json](./tsconfig.base.json) defines common compiler options (ES2022, module/moduleResolution = NodeNext, declaration: true, sourceMap: true, etc.), but does not set outDir.
+
+Each workspace’s tsconfig.json is responsible for its own output location, for example:
+````json
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist"
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "**/generated/**"]
+}
+````
+
+The build pipeline runs tsc per workspace and emits:
+
+- `dist/**/*.js` – runnable JavaScript
+- `dist/**/*.d.ts` – type declarations
+- `dist/**/*.js.map` / `dist/**/*.d.ts.map` – source maps (for debugging and tooling)
+
+Tests and downstream consumers always run against the dist/**.js output, not the TypeScript sources.
+
+### Import style inside TypeScript
+
+All internal imports in *.ts files use Node-valid ESM specifiers. The pattern is:
+
+- Use .js extensions in import specifiers, even though the actual source files are .ts.
+- Let TypeScript (with moduleResolution: "NodeNext") resolve those .js specifiers to the corresponding .ts sources at compile time.
+
+Example inside a workspace:
+````ts
+// GOOD: .js in the specifier, .ts on disk
+import { parseNode } from "./parse-node.js";
+import { normalizeComments } from "../comments/comments.js";
+````
+
+On disk, the source files are:
+````text
+src/ast/parse-node.ts
+src/comments/comments.ts
+````
+
+TypeScript understands that `./parse-node.js` should bind to `parse-node.ts` during compilation, then re-emits the same import `./parse-node.js` in the compiled JS. This keeps the emitted JavaScript compatible with Node’s ESM loader.
+
+We do not:
+
+- Import using .ts extensions (e.g. import "./parse-node.ts").
+That would require allowImportingTsExtensions, which in turn forces noEmit or emitDeclarationOnly and would break JS emit for our build.
+
+- Import from dist/ inside source files. All source-level imports stay inside src/ and use relative paths or package specifiers.
+
+### Cross-package imports
+
+Each workspace is a proper Node package with its own package.json, for example:
+
+````json
+{
+  "name": "@gml-modules/core",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  }
+}
+````
+
+The public API of a package is exposed via a barrel file, typically `src/index.ts`, which compiles to `dist/index.js` and `dist/index.d.ts`.
+
+Other workspaces import from the package name, not from dist paths:
+
+````ts
+// In another package:
+import { Core } from "@gml-modules/core";
+````
+
+This keeps boundaries clean:
+- Source code never uses `../core/dist/...` imports.
+- Consumers and tests interact with each package through its public API.
+
+### Module resolution strategy
+
+Codebase uses:
+
+```json
+"type": "module",
+"module": "NodeNext",
+"moduleResolution": "NodeNext"
+```
+
+This combination instructs TypeScript to:
+
+- Treat `.js` specifiers in imports as ESM entry points.
+- Resolve them to .ts sources in the `src/` tree (when compiling).
+- Preserve the `.js` specifiers in the emitted JavaScript so Node can run it directly.
+
+We do not use `allowImportingTsExtensions`, because TypeScript currently only allows that flag when noEmit or emitDeclarationOnly is set. Our build relies on tsc emitting runnable `.js`, so this repo follows the “TS sources with `.js` specifiers” pattern instead.
+
+### File extensions and custom formats
+
+The parser and tooling are intentionally opinionated about file types:
+
+- Source code: `*.ts`
+- Build output: `*.js`, `*.d.ts`, `*.map`
+- GML input: `*.gml`
+
+The project does not support arbitrary custom GML file extensions (e.g. `.gmlx`, `.foo`), and there is no user-facing configuration for that. Matching the real GameMaker environment keeps the parser focused and avoids extra modes, surface area, and confusion.
+
+### Testing and tooling
+
+- Tests run against the compiled output in each workspace:
+  - Build with tsc → run ``node --test`` on `dist/**.test.js`.
+- Type-aware linting, duplicate-code detection, and other static tools operate on the `*.ts` sources.
+- Source maps (`.js.map`) make it possible to debug and interpret runtime stack traces in terms of the original TypeScript files.
+
+This keeps a clear separation:
+- TS and tools work in `src/`.
+- Node and consumers work in `dist/`.
+
+----
 
 ## Avoid Over-Extending the System
 

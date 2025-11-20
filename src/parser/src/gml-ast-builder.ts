@@ -1,5 +1,5 @@
 import GameMakerLanguageParserVisitor from "./runtime/game-maker-language-parser-visitor.js";
-import { getLineBreakCount, getNonEmptyTrimmedString } from "./utils/index.js";
+import { Core } from "@gml-modules/core";
 import BinaryExpressionDelegate from "./ast/binary-expression-delegate.js";
 import {
     IdentifierRoleTracker,
@@ -7,6 +7,10 @@ import {
     GlobalIdentifierRegistry,
     createIdentifierLocation
 } from "./identifier-metadata/index.js";
+
+const {
+    Utils: { getLineBreakCount, getNonEmptyTrimmedString }
+} = Core;
 
 type BinaryOperatorAssoc = "left" | "right";
 type BinaryOperatorType =

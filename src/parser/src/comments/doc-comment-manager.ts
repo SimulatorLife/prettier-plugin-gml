@@ -1,7 +1,14 @@
 import { Core } from "@gml-modules/core";
 import { getCommentArray, isDocCommentLine } from "./comment-boundary.js";
-import { getNodeStartIndex } from "../ast/locations.js";
-import { isFunctionLikeNode, isNode } from "../ast/node-helpers.js";
+
+const {
+    Utils: {
+        toMutableArray,
+        isNonEmptyArray,
+        isNonEmptyTrimmedString
+    },
+    AST: { getNodeStartIndex, isFunctionLikeNode, isNode }
+} = Core;
 
 /**
  * The legacy doc comment "manager" facade bundled traversal helpers with
@@ -130,14 +137,14 @@ function createDocCommentManager(ast) {
         },
         getComments(functionNode) {
             const comments = commentGroups.get(functionNode);
-            return Core.toMutableArray(comments);
+            return toMutableArray(comments);
         },
         extractDescription(functionNode) {
             return extractFunctionDescription(commentGroups, functionNode);
         },
         hasDocComment(functionNode) {
             const comments = commentGroups.get(functionNode);
-            return Core.isNonEmptyArray(comments);
+            return isNonEmptyArray(comments);
         }
     };
 }
@@ -281,7 +288,7 @@ function isDocCommentUpdateEligible(update) {
     return (
         !!update &&
         !update.hasDocComment &&
-        Core.isNonEmptyTrimmedString(update.expression)
+        isNonEmptyTrimmedString(update.expression)
     );
 }
 
@@ -310,7 +317,7 @@ function applyDescriptionCommentUpdate(descriptionComment, update) {
         update.expression
     );
 
-    if (!Core.isNonEmptyTrimmedString(updatedDescription)) {
+    if (!isNonEmptyTrimmedString(updatedDescription)) {
         return;
     }
 
@@ -363,13 +370,13 @@ function extractDescriptionContent(value) {
 function buildUpdatedDescription(existing, expression) {
     const originalDescription = existing ?? "";
 
-    if (!Core.isNonEmptyTrimmedString(expression)) {
+    if (!isNonEmptyTrimmedString(expression)) {
         return originalDescription;
     }
 
     const normalizedExpression = expression.trim();
 
-    if (!Core.isNonEmptyTrimmedString(existing)) {
+    if (!isNonEmptyTrimmedString(existing)) {
         return `Simplified: ${normalizedExpression}`;
     }
 

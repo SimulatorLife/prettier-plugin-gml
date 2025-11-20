@@ -1,6 +1,17 @@
+type BinaryOperatorMeta = {
+    prec: number;
+    assoc: "left" | "right";
+};
+
+type BinaryDelegateConfig = {
+    operators: Record<string, BinaryOperatorMeta>;
+};
+
 export default class BinaryExpressionDelegate {
-    constructor({ operators }) {
-        this.operators = operators;
+    private readonly operators: Record<string, BinaryOperatorMeta>;
+
+    constructor({ operators }: BinaryDelegateConfig) {
+        this.operators = operators ?? {};
     }
 
     handle(ctx, { visit, astNode }, isEmbeddedExpression = false) {

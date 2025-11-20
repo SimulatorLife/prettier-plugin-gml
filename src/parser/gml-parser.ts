@@ -5,7 +5,8 @@ const {
         buildDeprecatedBuiltinVariableReplacements,
         getDeprecatedBuiltinReplacementEntry
     },
-    Utils: { createResolverController }
+    Utils: { createResolverController },
+    AST: { getStructPropertyAccess, isBinaryOperator }
 } = Core;
 
 export { GameMakerSyntaxError } from "./src/gml-syntax-error.js";
@@ -39,8 +40,5 @@ export {
     getDeprecatedBuiltinReplacementEntry,
     createResolverController
 };
-export {
-    getStructPropertyAccess,
-    isBinaryOperator
-} from "./src/ast/node-helpers.js";
+export { getStructPropertyAccess, isBinaryOperator };
 export { default, getLineBreakCount } from "./src/gml-parser.js";

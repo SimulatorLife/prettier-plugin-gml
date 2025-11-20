@@ -8,7 +8,7 @@ import GameMakerParseErrorListener, {
     GameMakerLexerErrorListener
 } from "./gml-syntax-error.js";
 import { createHiddenNodeProcessor } from "./ast/hidden-node-processor.js";
-import { isObjectLike, isErrorLike } from "./utils/index.js";
+import { Core } from "@gml-modules/core";
 import { walkObjectGraph } from "./ast/object-graph.js";
 import {
     removeLocationMetadata,
@@ -16,6 +16,10 @@ import {
 } from "./ast/location-manipulation.js";
 import { installRecognitionExceptionLikeGuard } from "./runtime/recognition-exception-patch.js";
 import convertToESTree from "./utils/estree-converter.js";
+
+const {
+    Utils: { isObjectLike, isErrorLike, getLineBreakCount }
+} = Core;
 
 installRecognitionExceptionLikeGuard();
 
@@ -61,7 +65,7 @@ export default class GMLParser {
         lexer.addErrorListener(new GameMakerLexerErrorListener());
         lexer.strictMode = false;
         const tokens = new antlr4.CommonTokenStream(lexer);
-        const parser = new GameMakerLanguageParser(tokens);
+const parser = new GameMakerLanguageParser(tokens);
 
         parser._interp.predictionMode = PredictionMode.SLL;
         parser.removeErrorListeners();
@@ -243,4 +247,4 @@ export default class GMLParser {
     }
 }
 
-export { getLineBreakCount } from "./utils/index.js";
+export { getLineBreakCount };

@@ -1,11 +1,15 @@
-import {
-    isNonEmptyArray,
-    isNonEmptyString,
-    isNonEmptyTrimmedString,
-    isWordChar,
-    identity
-} from "../utils/index.js";
-import { remapLocationMetadata } from "./location-manipulation.js";
+import { Core } from "@gml-modules/core";
+import { remapLocationMetadata } from "../location-manipulation.js";
+
+const {
+    Utils: {
+        isNonEmptyArray,
+        isNonEmptyString,
+        isNonEmptyTrimmedString,
+        isWordChar,
+        identity
+    }
+} = Core;
 
 const ASSIGNMENT_GUARD_CHARACTERS = new Set([
     "*",
@@ -36,12 +40,15 @@ const ASSIGNMENT_GUARD_CHARACTERS = new Set([
  * @returns {(index: number) => number} A lookup that translates parser indices
  *     to their original offsets.
  */
+/**
+ * @param {Array<number | null | undefined> | null | undefined} insertPositions
+ */
 function createIndexMapper(insertPositions) {
     if (!isNonEmptyArray(insertPositions)) {
         return identity;
     }
 
-    const offsets = Array.from(
+    const offsets: Array<number> = Array.from(
         new Set(insertPositions.filter((position) => Number.isFinite(position)))
     ).sort((a, b) => a - b);
 
@@ -59,7 +66,8 @@ function createIndexMapper(insertPositions) {
 
         while (left < right) {
             const middle = (left + right) >> 1;
-            if (index <= offsets[middle]) {
+            const currentOffset = offsets[middle] ?? Number.NEGATIVE_INFINITY;
+            if (index <= currentOffset) {
                 right = middle;
             } else {
                 left = middle + 1;

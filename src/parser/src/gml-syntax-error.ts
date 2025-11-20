@@ -1,6 +1,10 @@
 import antlr4 from "antlr4";
 
-import { isNonEmptyString } from "./utils/index.js";
+import { Core } from "@gml-modules/core";
+
+const {
+    Utils: { isNonEmptyString }
+} = Core;
 
 const { ErrorListener } = antlr4.error;
 
