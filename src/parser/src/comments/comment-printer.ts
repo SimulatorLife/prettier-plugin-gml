@@ -31,6 +31,10 @@ type PrinterComment = {
     [key: string]: any;
 };
 
+function hasTypeProperty(value: unknown): value is { type?: string } {
+    return value !== null && typeof value === "object";
+}
+
 const EMPTY_BODY_TARGETS = [{ type: "BlockStatement", property: "body" }];
 
 const EMPTY_PARENS_TARGETS = [
@@ -607,13 +611,9 @@ function findBraceOwnerForComment(ast, comment) {
         }
 
         for (const value of Object.values(node)) {
-            if (!value || typeof value !== "object") {
-                continue;
-            }
-
             if (Array.isArray(value)) {
                 for (const entry of value) {
-                    if (entry && typeof entry === "object" && entry.type) {
+                    if (hasTypeProperty(entry) && entry.type) {
                         stack.push(entry);
                     }
                 }
@@ -621,8 +621,7 @@ function findBraceOwnerForComment(ast, comment) {
             }
 
             if (
-                value &&
-                typeof value === "object" &&
+                hasTypeProperty(value) &&
                 value.type &&
                 value.type !== "CommentBlock" &&
                 value.type !== "CommentLine"

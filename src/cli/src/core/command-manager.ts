@@ -1,3 +1,5 @@
+import type { Command } from "commander";
+
 import { CliUsageError, handleCliError } from "./errors.js";
 import { DEFAULT_HELP_AFTER_ERROR } from "./command-standard-options.js";
 import { isCommanderErrorLike } from "./commander-error-utils.js";
@@ -6,62 +8,87 @@ import {
     createCommanderProgramContract,
     isCommanderCommandLike
 } from "./commander-contract.js";
+import type {
+    CommanderProgramContract,
+    CommanderCommandContract
+} from "./commander-contract.js";
 import { compactArray, resolveCommandUsage } from "../shared/dependencies.js";
 
-/**
- * The earlier CLI command "manager" mixed registration APIs with the runner
- * surface. That broad contract forced consumers to depend on both concerns at
- * once even if they only needed to register commands. To honour the Interface
- * Segregation Principle we now expose narrower registry and runner views that
- * sit on top of a shared coordinator.
- */
+type CliCommandRunHandler = (context: {
+    command: Command;
+}) => number | void | Promise<number | void>;
 
-/**
- * @typedef {{
- *   command: import("commander").Command,
- *   run?: (context: { command: import("commander").Command }) =>
- *       Promise<number | void> | number | void,
- *   onError?: (error: unknown, context: { command: import("commander").Command }) => void
- * }} CliCommandRegistrationOptions
- */
+type CliCommandErrorHandler = (
+    error: unknown,
+    context: { command: Command }
+) => void;
 
-/**
- * @typedef {object} CliCommandRegistry
- * @property {(options: CliCommandRegistrationOptions) => object} registerDefaultCommand
- * @property {(options: CliCommandRegistrationOptions) => object} registerCommand
- */
+export interface CliCommandRegistrationOptions {
+    command: Command;
+    run?: CliCommandRunHandler;
+    onError?: CliCommandErrorHandler;
+}
 
-/**
- * @typedef {object} CliCommandRunner
- * @property {(argv: Array<string>) => Promise<void>} run
- */
+export interface CliCommandRegistry {
+    registerDefaultCommand: (
+        options: CliCommandRegistrationOptions
+    ) => CliCommandEntry;
+    registerCommand: (
+        options: CliCommandRegistrationOptions
+    ) => CliCommandEntry;
+}
 
-function resolveContextCommandFromActionArgs(actionArgs, fallbackCommand) {
+export interface CliCommandRunner {
+    run: (argv: Array<string>) => Promise<void>;
+}
+
+interface CliCommandEntry {
+    command: Command;
+    run: CliCommandRunHandler | null;
+    handleError: CliCommandErrorHandler;
+}
+
+interface CliCommandManagerOptions {
+    program: Command;
+    onUnhandledError?: CliCommandErrorHandler;
+}
+
+interface ComposeUsageMessageOptions {
+    defaultHelpText?: string;
+    usage?: string | null | undefined;
+}
+
+function resolveContextCommandFromActionArgs(
+    actionArgs: Array<unknown>,
+    fallbackCommand: Command
+): Command {
     const candidate = actionArgs.at(-1);
     return isCommanderCommandLike(candidate) ? candidate : fallbackCommand;
 }
 
-function composeUsageHelpMessage({ defaultHelpText, usage }) {
-    const sections = compactArray([defaultHelpText, usage]);
-    return sections.length === 0 ? usage : sections.join("\n\n");
+function composeUsageHelpMessage({
+    defaultHelpText,
+    usage
+}: ComposeUsageMessageOptions): string | undefined {
+    const sections = compactArray([defaultHelpText, usage ?? undefined]);
+    return sections.length === 0 ? usage ?? undefined : sections.join("\n\n");
 }
 
 class CliCommandManager {
-    /**
-     * @param {{
-     *   program: import("commander").Command,
-     *   onUnhandledError?: (error: unknown, context: { command: import("commander").Command }) => void
-     * }} options
-     */
-    constructor({ program, onUnhandledError } = {}) {
+    private readonly _program: Command;
+    private readonly _programContract: CommanderProgramContract;
+    private readonly _entries: Set<CliCommandEntry> = new Set();
+    private readonly _commandEntryLookup: WeakMap<Command, CliCommandEntry> =
+        new WeakMap();
+    private _defaultCommandEntry: CliCommandEntry | null = null;
+    private _activeCommand: Command | null = null;
+    private readonly _defaultErrorHandler: CliCommandErrorHandler;
+
+    constructor({ program, onUnhandledError }: CliCommandManagerOptions) {
         const programContract = createCommanderProgramContract(program);
 
         this._program = programContract.raw;
         this._programContract = programContract;
-        this._entries = new Set();
-        this._commandEntryLookup = new WeakMap();
-        this._defaultCommandEntry = null;
-        this._activeCommand = null;
         this._defaultErrorHandler =
             typeof onUnhandledError === "function"
                 ? onUnhandledError
@@ -77,7 +104,7 @@ class CliCommandManager {
 
         this._programContract.hook(
             "preSubcommand",
-            (thisCommand, actionCommand) => {
+            (_thisCommand, actionCommand) => {
                 if (actionCommand) {
                     this._activeCommand = actionCommand;
                 }
@@ -89,12 +116,11 @@ class CliCommandManager {
         });
     }
 
-    /**
-     * Register the default command used when no subcommand is provided.
-     *
-     * @param {CliCommandRegistrationOptions} options
-     */
-    registerDefaultCommand({ command, run, onError } = {}) {
+    registerDefaultCommand({
+        command,
+        run,
+        onError
+    }: CliCommandRegistrationOptions): CliCommandEntry {
         const entry = this._registerEntry(command, {
             run,
             handleError: onError,
@@ -104,12 +130,11 @@ class CliCommandManager {
         return entry;
     }
 
-    /**
-     * Register an additional subcommand with the CLI.
-     *
-     * @param {CliCommandRegistrationOptions} options
-     */
-    registerCommand({ command, run, onError } = {}) {
+    registerCommand({
+        command,
+        run,
+        onError
+    }: CliCommandRegistrationOptions): CliCommandEntry {
         const entry = this._registerEntry(command, {
             run,
             handleError: onError
@@ -118,12 +143,7 @@ class CliCommandManager {
         return entry;
     }
 
-    /**
-     * Execute the registered CLI program with the provided argv.
-     *
-     * @param {Array<string>} argv
-     */
-    async run(argv) {
+    async run(argv: Array<string>): Promise<void> {
         try {
             this._activeCommand = null;
             await this._programContract.parse(argv, { from: "user" });
@@ -135,17 +155,29 @@ class CliCommandManager {
         }
     }
 
-    _registerEntry(command, { run, handleError, isDefault = false } = {}) {
-        const commandContract = createCommanderCommandContract(command, {
-            name: "Commander command",
-            requireAction: Boolean(run)
-        });
+    private _registerEntry(
+        command: Command,
+        {
+            run,
+            handleError,
+            isDefault = false
+        }: {
+            run?: CliCommandRunHandler;
+            handleError?: CliCommandErrorHandler;
+            isDefault?: boolean;
+        } = {}
+    ): CliCommandEntry {
+        const commandContract: CommanderCommandContract =
+            createCommanderCommandContract(command, {
+                name: "Commander command",
+                requireAction: Boolean(run)
+            });
         const normalizedCommand = commandContract.raw;
         if (run && typeof run !== "function") {
             throw new TypeError("Command run handlers must be functions.");
         }
 
-        const entry = {
+        const entry: CliCommandEntry = {
             command: normalizedCommand,
             run: run ?? null,
             handleError:
@@ -169,8 +201,11 @@ class CliCommandManager {
         return entry;
     }
 
-    _createCommandAction(entry, defaultCommand) {
-        return async (...actionArgs) => {
+    private _createCommandAction(
+        entry: CliCommandEntry,
+        defaultCommand: Command
+    ): (...actionArgs: Array<unknown>) => Promise<void> {
+        return async (...actionArgs: Array<unknown>) => {
             const contextCommand = resolveContextCommandFromActionArgs(
                 actionArgs,
                 defaultCommand
@@ -179,7 +214,7 @@ class CliCommandManager {
             this._activeCommand = contextCommand;
 
             try {
-                const result = await entry.run({ command: contextCommand });
+                const result = await entry.run?.({ command: contextCommand });
                 this._applyCommandResult(result);
             } catch (error) {
                 this._handleCommandError(error, contextCommand);
@@ -189,13 +224,13 @@ class CliCommandManager {
         };
     }
 
-    _applyCommandResult(result) {
+    private _applyCommandResult(result: unknown): void {
         if (typeof result === "number") {
             process.exitCode = result;
         }
     }
 
-    _handleCommanderError(error) {
+    private _handleCommanderError(error: unknown): boolean {
         if (!isCommanderErrorLike(error)) {
             return false;
         }
@@ -219,13 +254,15 @@ class CliCommandManager {
         return true;
     }
 
-    _handleCommandError(error, command) {
+    private _handleCommandError(error: unknown, command: Command): void {
         const entry = this._commandEntryLookup.get(command);
         const handler = entry?.handleError ?? this._defaultErrorHandler;
         handler(error, { command });
     }
 
-    _resolveCommandFromCommanderError(commandFromError) {
+    private _resolveCommandFromCommanderError(
+        commandFromError?: Command | null
+    ): Command | null {
         if (
             commandFromError === this._program &&
             this._defaultCommandEntry?.command
@@ -236,7 +273,10 @@ class CliCommandManager {
         return commandFromError ?? this._program;
     }
 
-    _createUsageErrorFromCommanderError(error, resolvedCommand) {
+    private _createUsageErrorFromCommanderError(
+        error: Error & { message: string },
+        resolvedCommand: Command | null
+    ): CliUsageError {
         const usage = resolveCommandUsage(resolvedCommand, {
             fallback: () => this._programContract.getUsage() ?? ""
         });
@@ -253,14 +293,9 @@ class CliCommandManager {
 
 export { CliCommandManager };
 
-/**
- * @param {{
- *   program: import("commander").Command,
- *   onUnhandledError?: (error: unknown, context: { command: import("commander").Command }) => void
- * }} options
- * @returns {{ registry: CliCommandRegistry, runner: CliCommandRunner }}
- */
-export function createCliCommandManager(options) {
+export function createCliCommandManager(
+    options: CliCommandManagerOptions
+): { registry: CliCommandRegistry; runner: CliCommandRunner } {
     const manager = new CliCommandManager(options);
     return Object.freeze({
         registry: Object.freeze({

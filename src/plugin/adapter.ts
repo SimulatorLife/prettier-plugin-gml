@@ -2,9 +2,7 @@
 // Transform options. This is intentionally small; it demonstrates the mapping
 // layer the plugin should own.
 
-import { Core } from "@gml-modules/core";
-
-import { applyTransforms } from "@gml-modules/parser";
+import GMLParser, { applyTransforms } from "@gml-modules/parser";
 
 type PrettierGmlOptions = {
     gmlLanguageVersion?: string;
@@ -14,15 +12,26 @@ type PrettierGmlOptions = {
     gmlStrictSemicolons?: boolean;
 };
 
-type ParserConfig = ReturnType<typeof makeParserConfig>;
-type TransformOptions = ReturnType<typeof makeTransformOptions>;
+type ParserConfig = {
+    languageVersion: string;
+    allowExperimentalSyntax: boolean;
+    recoverFromMissingSemicolons: boolean;
+    collectComments: boolean;
+};
+
+type TransformOptions = {
+    stripComments: {
+        preserveDocComments: boolean;
+    };
+    normalizeSemicolons: {
+        insertMissingSemicolons: boolean;
+    };
+};
 
 type PipelineConfig = {
     parser?: ParserConfig;
     transforms?: Record<string, boolean>;
 };
-
-// Use Core.parse directly rather than destructuring the Core namespace.
 
 export function makeParserConfig(
     prettierOptions: PrettierGmlOptions = {}
@@ -37,7 +46,7 @@ export function makeParserConfig(
 
 export function makeTransformOptions(
     prettierOptions: PrettierGmlOptions = {}
-) {
+): TransformOptions {
     return {
         stripComments: {
             preserveDocComments: !!prettierOptions.gmlPreserveDocs
@@ -77,7 +86,7 @@ function runPipeline(
     pipelineConfig: PipelineConfig,
     transformOptions: TransformOptions
 ) {
-    const ast = Core.parse(source, pipelineConfig?.parser);
+    const ast = GMLParser.parse(source, pipelineConfig?.parser);
     const transformEntries = pipelineConfig?.transforms ?? {};
     const transformNames = Object.entries(transformEntries)
         .filter(([, enabled]) => enabled)

@@ -7,7 +7,7 @@ import { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
-const activeProgressBars = new Map();
+const activeProgressBars = new Map<string, TerminalProgressBar>();
 
 const CURSOR_HIDE_SEQUENCE = "\u001B[?25l";
 const CURSOR_SHOW_SEQUENCE = "\u001B[?25h";
@@ -16,8 +16,31 @@ const CARRIAGE_RETURN = "\r";
 const COMPLETE_CHAR = "█";
 const INCOMPLETE_CHAR = "░";
 
+interface ProgressBarStream {
+    write: (chunk: string) => void;
+    isTTY?: boolean;
+}
+
+interface ProgressBarOptions {
+    stream?: ProgressBarStream;
+}
+
+type ProgressBarFactory = (
+    label: string,
+    width: number,
+    options: ProgressBarOptions
+) => TerminalProgressBar;
+
 class TerminalProgressBar {
-    constructor(label, width, { stream } = {}) {
+    private readonly label: string;
+    private readonly width: number;
+    private readonly stream: ProgressBarStream;
+    private total: number;
+    private current: number;
+    private active: boolean;
+    private cursorHidden: boolean;
+
+    constructor(label: string, width: number, { stream }: ProgressBarOptions = {}) {
         this.label = label;
         this.width = Math.max(0, width);
         this.stream =
@@ -28,7 +51,7 @@ class TerminalProgressBar {
         this.cursorHidden = false;
     }
 
-    start(total, current) {
+    start(total: number, current: number): void {
         this.total = Math.max(1, total);
         this.current = this.#normalizeCurrent(current);
         this.active = true;
@@ -36,7 +59,7 @@ class TerminalProgressBar {
         this.#render();
     }
 
-    setTotal(total) {
+    setTotal(total: number): void {
         this.total = Math.max(1, total);
         this.current = this.#normalizeCurrent(this.current);
         if (this.active) {
@@ -44,14 +67,14 @@ class TerminalProgressBar {
         }
     }
 
-    update(current) {
+    update(current: number): void {
         this.current = this.#normalizeCurrent(current);
         if (this.active) {
             this.#render();
         }
     }
 
-    stop() {
+    stop(): void {
         if (!this.active) {
             return;
         }
@@ -61,7 +84,7 @@ class TerminalProgressBar {
         this.#showCursor();
     }
 
-    #normalizeCurrent(value) {
+    #normalizeCurrent(value: unknown): number {
         if (!isFiniteNumber(value)) {
             return 0;
         }
@@ -69,7 +92,7 @@ class TerminalProgressBar {
         return Math.min(Math.max(0, value), this.total);
     }
 
-    #render() {
+    #render(): void {
         const ratio = this.total > 0 ? this.current / this.total : 0;
         const filled = Math.round(ratio * this.width);
         const complete = COMPLETE_CHAR.repeat(Math.min(filled, this.width));
@@ -82,11 +105,11 @@ class TerminalProgressBar {
         this.#write(`${CARRIAGE_RETURN}${CLEAR_LINE_SEQUENCE}${output}`);
     }
 
-    #clearLine() {
+    #clearLine(): void {
         this.#write(`${CARRIAGE_RETURN}${CLEAR_LINE_SEQUENCE}`);
     }
 
-    #hideCursor() {
+    #hideCursor(): void {
         if (this.cursorHidden) {
             return;
         }
@@ -97,7 +120,7 @@ class TerminalProgressBar {
         }
     }
 
-    #showCursor() {
+    #showCursor(): void {
         if (!this.cursorHidden) {
             return;
         }
@@ -109,14 +132,14 @@ class TerminalProgressBar {
         this.cursorHidden = false;
     }
 
-    #write(chunk) {
+    #write(chunk: string): void {
         if (typeof this.stream?.write === "function") {
             this.stream.write(chunk);
         }
     }
 }
 
-const createWidthErrorMessage = (received) =>
+const createWidthErrorMessage = (received: unknown) =>
     `Progress bar width must be a positive integer (received ${received}).`;
 
 const createWidthTypeErrorMessage =
@@ -140,7 +163,7 @@ const {
 
 applyProgressBarWidthEnvOverride();
 
-function disposeProgressBars() {
+function disposeProgressBars(): void {
     for (const [, bar] of activeProgressBars) {
         try {
             bar.stop();
@@ -151,15 +174,21 @@ function disposeProgressBars() {
     activeProgressBars.clear();
 }
 
-function resetProgressBarRegistryForTesting() {
+function resetProgressBarRegistryForTesting(): void {
     disposeProgressBars();
 }
 
-function shouldRenderProgressBar(stdout, width) {
+function shouldRenderProgressBar(
+    stdout: ProgressBarStream | undefined,
+    width: number
+): boolean {
     return Boolean(stdout?.isTTY) && width > 0;
 }
 
-function stopAndRemoveProgressBar(label, { suppressErrors = false } = {}) {
+function stopAndRemoveProgressBar(
+    label: string,
+    { suppressErrors = false }: { suppressErrors?: boolean } = {}
+): void {
     const bar = activeProgressBars.get(label);
 
     if (!bar) {
@@ -187,7 +216,16 @@ function stopAndRemoveProgressBar(label, { suppressErrors = false } = {}) {
     removeBar();
 }
 
-function renderProgressBar(label, current, total, width, options = {}) {
+function renderProgressBar(
+    label: string,
+    current: number,
+    total: number,
+    width: number,
+    options: {
+        stdout?: ProgressBarStream;
+        createBar?: ProgressBarFactory;
+    } = {}
+): void {
     const { stdout = process.stdout, createBar } = options;
 
     if (!shouldRenderProgressBar(stdout, width)) {
@@ -212,7 +250,7 @@ function renderProgressBar(label, current, total, width, options = {}) {
             throw new TypeError("createBar must be a function when provided.");
         }
 
-        const barFactory = isFactoryProvided
+        const barFactory: ProgressBarFactory = isFactoryProvided
             ? createBar
             : (factoryLabel, factoryWidth, factoryOptions) =>
                   new TerminalProgressBar(
@@ -231,7 +269,9 @@ function renderProgressBar(label, current, total, width, options = {}) {
     }
 }
 
-async function withProgressBarCleanup(callback) {
+async function withProgressBarCleanup<TResult>(
+    callback: () => Promise<TResult> | TResult
+): Promise<TResult> {
     if (typeof callback !== "function") {
         throw new TypeError(
             "withProgressBarCleanup requires a callback function."

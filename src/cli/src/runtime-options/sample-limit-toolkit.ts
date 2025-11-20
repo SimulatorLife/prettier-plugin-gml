@@ -4,37 +4,44 @@ import {
     createEnvConfiguredValue
 } from "../shared/dependencies.js";
 
-/**
- * Create a sample limit configuration with environment variable support.
- *
- * Simplified from the over-abstracted toolkit/state/coercer/resolver hierarchy.
- * Does exactly what's needed: parse integers from strings or env vars, validate
- * they're non-negative, and provide getter/setter access.
- *
- * @param {object} params
- * @param {number} params.defaultValue Initial value
- * @param {string} params.envVar Environment variable name
- * @param {string} params.subjectLabel Label for error messages
- * @returns {{
- *   getDefault: () => number | undefined,
- *   setDefault: (value: unknown) => number | undefined,
- *   resolve: (value: unknown, options?: { defaultLimit?: number }) => number | null | undefined,
- *   applyEnvOverride: (env?: NodeJS.ProcessEnv) => number | undefined
- * }}
- */
-function createSampleLimitOption({ defaultValue, envVar, subjectLabel }) {
+interface SampleLimitOptionParams {
+    defaultValue?: number;
+    envVar?: string;
+    subjectLabel?: string;
+}
+
+interface SampleLimitRuntimeOption {
+    defaultValue?: number;
+    envVar?: string;
+    getDefault: () => number | undefined;
+    setDefault: (value: unknown) => number | undefined;
+    resolve: (
+        value: unknown,
+        options?: { defaultLimit?: number; defaultValue?: number }
+    ) => number | null | undefined;
+    applyEnvOverride: (env?: NodeJS.ProcessEnv) => number | undefined;
+}
+
+function createSampleLimitOption({
+    defaultValue,
+    envVar,
+    subjectLabel
+}: SampleLimitOptionParams) {
     const label = subjectLabel ?? "Sample";
 
-    const createErrorMessage = (received) =>
+    const createErrorMessage = (received: unknown) =>
         `${label} sample limit must be a non-negative integer (received ${received}). Provide 0 to suppress the sample list.`;
 
-    const createTypeError = (type) =>
+    const createTypeError = (type: string) =>
         `${label} sample limit must be provided as a number (received type '${type}').`;
 
-    const coerce = (value, context) =>
+    const coerce = (
+        value: unknown,
+        context: Record<string, unknown>
+    ): number =>
         coerceNonNegativeInteger(value, { ...context, createErrorMessage });
 
-    const state = createEnvConfiguredValue({
+    const state = createEnvConfiguredValue<number | undefined>({
         defaultValue,
         envVar,
         normalize: (value, { defaultValue: baseline, previousValue }) => {
@@ -47,7 +54,10 @@ function createSampleLimitOption({ defaultValue, envVar, subjectLabel }) {
         }
     });
 
-    function resolve(rawValue, options = {}) {
+    function resolve(
+        rawValue: unknown,
+        options: { defaultLimit?: number; defaultValue?: number } = {}
+    ) {
         const defaultLimit = options.defaultLimit ?? options.defaultValue;
         const fallback =
             defaultLimit === undefined ? state.get() : defaultLimit;
@@ -66,25 +76,14 @@ function createSampleLimitOption({ defaultValue, envVar, subjectLabel }) {
     };
 }
 
-/**
- * Create and initialize a sample limit option with environment override applied.
- *
- * @param {Parameters<typeof createSampleLimitOption>[0]} params
- * @param {{ env?: NodeJS.ProcessEnv }} [options]
- * @returns {{
- *   defaultValue: number | undefined,
- *   envVar: string | undefined,
- *   getDefault: () => number | undefined,
- *   setDefault: (value: unknown) => number | undefined,
- *   resolve: (value: unknown, options?: Record<string, unknown>) => number | null | undefined,
- *   applyEnvOverride: (env?: NodeJS.ProcessEnv) => number | undefined
- * }}
- */
-export function createSampleLimitRuntimeOption(params, { env } = {}) {
+export function createSampleLimitRuntimeOption(
+    params: SampleLimitOptionParams,
+    { env }: { env?: NodeJS.ProcessEnv } = {}
+): SampleLimitRuntimeOption {
     const { defaultValue, envVar } = params;
     const option = createSampleLimitOption(params);
 
-    const applyEnvOverride = (overrideEnv) =>
+    const applyEnvOverride = (overrideEnv?: NodeJS.ProcessEnv) =>
         option.applyEnvOverride(overrideEnv ?? env);
 
     applyEnvOverride();

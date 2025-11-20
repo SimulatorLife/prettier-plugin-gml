@@ -113,6 +113,10 @@ const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION = Object.freeze({
     ])
 });
 
+type BannerNormalizationOptions = {
+    assumeDecorated?: boolean;
+};
+
 const docCommentTypeNormalizationController = createResolverController({
     defaultFactory: () => createDocCommentTypeNormalization(),
     reuseDefaultValue: true,
@@ -143,7 +147,7 @@ function normalizeDocCommentLookupKey(identifier) {
     return normalized;
 }
 
-function createDocCommentTypeNormalization(candidate) {
+function createDocCommentTypeNormalization(candidate = {}) {
     const synonyms = new Map();
     for (const [
         key,
@@ -366,7 +370,10 @@ function getLineCommentRawText(comment) {
     return `//${fallbackValue}`;
 }
 
-function normalizeBannerCommentText(candidate, options = {}) {
+function normalizeBannerCommentText(
+    candidate,
+    options: BannerNormalizationOptions = {}
+) {
     if (typeof candidate !== "string") {
         return null;
     }

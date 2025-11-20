@@ -46,11 +46,13 @@ export function walkObjectGraph(
         value: object | Array<unknown>;
         parent: object | Array<unknown> | null;
         key: string | number | null;
-    }> = [{ value: root, parent: null, key: null } as {
-        value: object | Array<unknown>;
-        parent: object | Array<unknown> | null;
-        key: string | number | null;
-    }];
+    }> = [
+        {
+            value: root as object | Array<unknown>,
+            parent: null,
+            key: null
+        }
+    ];
     const seen = new WeakSet();
 
     while (stack.length > 0) {

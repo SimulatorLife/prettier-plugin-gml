@@ -1,3 +1,5 @@
+import type { Command } from "commander";
+
 import { CliUsageError } from "./errors.js";
 import {
     assertArray,
@@ -7,6 +9,23 @@ import {
 } from "../shared/dependencies.js";
 
 const DEFAULT_SOURCE = "env";
+
+type UsageResolver = (() => string) | string | null | undefined;
+
+interface EnvOptionOverride {
+    envVar: string;
+    optionName: string;
+    resolveValue?: (value: string) => unknown;
+    source?: string;
+    getUsage?: UsageResolver;
+}
+
+interface ApplyEnvOverridesOptions {
+    command: Command;
+    env?: NodeJS.ProcessEnv;
+    overrides: Array<EnvOptionOverride>;
+    getUsage?: UsageResolver;
+}
 
 /**
  * Normalize a usage helper into a string Commander can surface when reporting
@@ -18,7 +37,7 @@ const DEFAULT_SOURCE = "env";
  * @returns {string | null} Materialized usage text, or `null` when none was
  *          supplied.
  */
-function resolveUsage(getUsage) {
+function resolveUsage(getUsage: UsageResolver): string | null {
     if (typeof getUsage === "function") {
         return getUsage();
     }
@@ -42,7 +61,15 @@ function resolveUsage(getUsage) {
  * @returns {CliUsageError} Configured usage error with the original cause
  *          attached when available.
  */
-function createOverrideError({ error, envVar, getUsage }) {
+function createOverrideError({
+    error,
+    envVar,
+    getUsage
+}: {
+    error: unknown;
+    envVar?: string;
+    getUsage?: UsageResolver;
+}): CliUsageError {
     const usage = resolveUsage(getUsage);
     const fallbackMessage = envVar
         ? `Invalid value provided for ${envVar}.`
@@ -88,7 +115,7 @@ export function applyEnvOptionOverride({
     resolveValue,
     source = DEFAULT_SOURCE,
     getUsage
-}) {
+}: EnvOptionOverride & { command: Command; env?: NodeJS.ProcessEnv }): void {
     if (!command || typeof command.setOptionValueWithSource !== "function") {
         // Ignore overrides when the target command is missing or lacks the
         // Commander API for setting option values. Downstream callers already
@@ -132,7 +159,12 @@ export function applyEnvOptionOverride({
  *                                                             override fails
  *                                                             without its own.
  */
-export function applyEnvOptionOverrides({ command, env, overrides, getUsage }) {
+export function applyEnvOptionOverrides({
+    command,
+    env,
+    overrides,
+    getUsage
+}: ApplyEnvOverridesOptions): void {
     const overrideEntries = assertArray(overrides, {
         name: "overrides",
         errorMessage: "overrides must be provided as an array"

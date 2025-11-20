@@ -8,6 +8,13 @@ import {
     uniqueArray
 } from "../shared/dependencies.js";
 
+type ExtensionInput =
+    | string
+    | Iterable<string>
+    | Array<string>
+    | null
+    | undefined;
+
 const EXTENSION_LIST_SPLIT_PATTERN = createListSplitPattern(
     compactArray([",", path.delimiter]),
     {
@@ -20,11 +27,11 @@ const NORMALIZE_EXTENSION_LIST_OPTIONS = Object.freeze({
     allowInvalidType: true
 });
 
-function normalizeExtensionFragments(value) {
+function normalizeExtensionFragments(value: unknown): Array<string> {
     return normalizeStringList(value, NORMALIZE_EXTENSION_LIST_OPTIONS);
 }
 
-function coerceExtensionValue(value) {
+function coerceExtensionValue(value: unknown): string | null {
     if (typeof value !== "string") {
         return null;
     }
@@ -41,17 +48,19 @@ function coerceExtensionValue(value) {
     return normalizeExtensionSuffix(cleaned);
 }
 
-function collectExtensionCandidates(rawExtensions) {
+function isIterable(value: unknown): value is Iterable<unknown> {
+    return typeof (value as Iterable<unknown>)?.[Symbol.iterator] === "function";
+}
+
+function collectExtensionCandidates(
+    rawExtensions: ExtensionInput
+): Array<string> {
     if (typeof rawExtensions === "string") {
         return normalizeExtensionFragments(rawExtensions);
     }
 
-    if (
-        rawExtensions &&
-        typeof rawExtensions !== "string" &&
-        typeof rawExtensions[Symbol.iterator] === "function"
-    ) {
-        const fragments = [];
+    if (rawExtensions && typeof rawExtensions !== "string" && isIterable(rawExtensions)) {
+        const fragments: Array<string> = [];
 
         for (const candidate of rawExtensions) {
             if (typeof candidate === "string") {
@@ -65,7 +74,10 @@ function collectExtensionCandidates(rawExtensions) {
     return normalizeExtensionFragments(rawExtensions);
 }
 
-export function normalizeExtensions(rawExtensions, fallbackExtensions = []) {
+export function normalizeExtensions(
+    rawExtensions: ExtensionInput,
+    fallbackExtensions: Array<string> = []
+): Array<string> {
     const candidates = collectExtensionCandidates(rawExtensions);
     const coercedValues = candidates.map((candidate) =>
         coerceExtensionValue(candidate)

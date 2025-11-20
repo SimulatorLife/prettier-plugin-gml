@@ -13,21 +13,21 @@ const PACKAGE_VERSION_CANDIDATES = Object.freeze([
     "../../../plugin/package.json"
 ]);
 
-function normalizeVersionValue(value) {
+function normalizeVersionValue(value: unknown): string | null {
     return getNonEmptyTrimmedString(value);
 }
 
-function readPackageVersion(candidate) {
+function readPackageVersion(candidate: string): string | null {
     try {
-        const packageJson = require(candidate);
+        const packageJson = require(candidate) as { version?: unknown };
         return normalizeVersionValue(packageJson?.version);
     } catch {
         return null;
     }
 }
 
-export function resolveCliVersion() {
-    const envCandidates = [
+export function resolveCliVersion(): string {
+    const envCandidates: Array<string | undefined> = [
         process.env.PRETTIER_PLUGIN_GML_VERSION,
         process.env.npm_package_version
     ];

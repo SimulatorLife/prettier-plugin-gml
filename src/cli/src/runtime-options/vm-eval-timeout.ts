@@ -8,7 +8,7 @@ import { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
 export const DEFAULT_VM_EVAL_TIMEOUT_MS = 5000;
 export const VM_EVAL_TIMEOUT_ENV_VAR = "GML_VM_EVAL_TIMEOUT_MS";
 
-const createTimeoutErrorMessage = (received) =>
+const createTimeoutErrorMessage = (received: unknown) =>
     `VM evaluation timeout must be a non-negative integer (received ${received}). Provide 0 to disable the timeout.`;
 
 const createTimeoutTypeErrorMessage = createNumericTypeErrorFormatter(
@@ -32,7 +32,9 @@ const {
     applyEnvOverride
 } = vmEvalTimeoutToolkit;
 
-function applyVmEvalTimeoutEnvOverride(env) {
+function applyVmEvalTimeoutEnvOverride(
+    env?: NodeJS.ProcessEnv
+): number | undefined {
     return callWithFallback(() => applyEnvOverride(env), {
         fallback: () => getDefaultVmEvalTimeoutMs()
     });
