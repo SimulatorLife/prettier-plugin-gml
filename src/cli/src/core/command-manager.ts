@@ -71,7 +71,7 @@ function composeUsageHelpMessage({
     usage
 }: ComposeUsageMessageOptions): string | undefined {
     const sections = compactArray([defaultHelpText, usage ?? undefined]);
-    return sections.length === 0 ? usage ?? undefined : sections.join("\n\n");
+    return sections.length === 0 ? (usage ?? undefined) : sections.join("\n\n");
 }
 
 class CliCommandManager {
@@ -293,9 +293,10 @@ class CliCommandManager {
 
 export { CliCommandManager };
 
-export function createCliCommandManager(
-    options: CliCommandManagerOptions
-): { registry: CliCommandRegistry; runner: CliCommandRunner } {
+export function createCliCommandManager(options: CliCommandManagerOptions): {
+    registry: CliCommandRegistry;
+    runner: CliCommandRunner;
+} {
     const manager = new CliCommandManager(options);
     return Object.freeze({
         registry: Object.freeze({

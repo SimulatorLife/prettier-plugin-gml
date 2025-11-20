@@ -284,12 +284,14 @@ export function createMetricsTracker({
     const incrementTiming = createMapIncrementer(timings);
     const incrementCounterBy = createMapIncrementer(counters);
     const snapshot = (extra = {}) => {
-        const timingsSnapshot = Object.fromEntries(
-            timings
-        ) as Record<string, number>;
-        const countersSnapshot = Object.fromEntries(
-            counters
-        ) as Record<string, number>;
+        const timingsSnapshot = Object.fromEntries(timings) as Record<
+            string,
+            number
+        >;
+        const countersSnapshot = Object.fromEntries(counters) as Record<
+            string,
+            number
+        >;
         const cachesSnapshot = Object.fromEntries(
             Array.from(caches, ([name, stats]) => [
                 name,

@@ -60,8 +60,9 @@ function resolveFormatCommandSampleLimits(
 ): FormatCommandSampleLimits {
     const source = options ?? {};
     const skipped =
-        (source.ignoredDirectorySamples ??
-            source.ignoredDirectorySampleLimit) ?? undefined;
+        source.ignoredDirectorySamples ??
+        source.ignoredDirectorySampleLimit ??
+        undefined;
     return {
         skippedDirectorySampleLimit: skipped as number | undefined,
         ignoredFileSampleLimit:
@@ -74,11 +75,15 @@ function resolveFormatCommandSampleLimits(
 
 function resolvePrettierConfiguration(
     options: CommandOptionsRecord,
-    { defaultParseErrorAction, defaultPrettierLogLevel }: PrettierConfigurationOptions
+    {
+        defaultParseErrorAction,
+        defaultPrettierLogLevel
+    }: PrettierConfigurationOptions
 ): ResolvedPrettierConfiguration {
     const source = options ?? {};
     return {
-        prettierLogLevel: (source.logLevel as string) ?? defaultPrettierLogLevel,
+        prettierLogLevel:
+            (source.logLevel as string) ?? defaultPrettierLogLevel,
         onParseError:
             (source.onParseError as string) ?? defaultParseErrorAction,
         checkMode: Boolean(source.check)
@@ -96,8 +101,7 @@ export function collectFormatCommandOptions(
     const options = (command?.opts?.() ?? {}) as CommandOptionsRecord;
     const args = Array.isArray(command?.args) ? command.args : [];
     const positionalTarget = args.length > 0 ? args[0] : null;
-    const rawTarget =
-        (options.path as unknown) ?? positionalTarget ?? null;
+    const rawTarget = (options.path as unknown) ?? positionalTarget ?? null;
 
     let targetPathInput: unknown = null;
     let targetPathProvided = false;

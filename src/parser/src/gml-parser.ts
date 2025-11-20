@@ -18,8 +18,9 @@ import { installRecognitionExceptionLikeGuard } from "./runtime/recognition-exce
 import convertToESTree from "./utils/estree-converter.js";
 
 const PredictionMode =
-    ((antlr4 as unknown as { atn?: { PredictionMode: unknown } }).atn
-        ?.PredictionMode ?? (antlr4 as any).PredictionMode) ??
+    (antlr4 as unknown as { atn?: { PredictionMode: unknown } }).atn
+        ?.PredictionMode ??
+    (antlr4 as any).PredictionMode ??
     (antlr4 as any).atn?.PredictionMode;
 
 const {
@@ -197,10 +198,7 @@ export default class GMLParser {
                 const endIndex =
                     typeof node.end === "number" ? node.end : node.end?.index;
 
-                if (
-                    node.type === "Literal" &&
-                    isQuotedString(node.value)
-                ) {
+                if (node.type === "Literal" && isQuotedString(node.value)) {
                     if (
                         Number.isInteger(startIndex) &&
                         Number.isInteger(endIndex) &&

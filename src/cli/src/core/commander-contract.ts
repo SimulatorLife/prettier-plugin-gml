@@ -80,8 +80,7 @@ function createProgramParseDelegate(program: Command): CommanderParse | null {
     }
 
     if (hasFunction(program, "parse")) {
-        return (argv, options) =>
-            Promise.resolve(program.parse(argv, options));
+        return (argv, options) => Promise.resolve(program.parse(argv, options));
     }
 
     return null;
@@ -127,7 +126,10 @@ export function createCommanderProgramContract(
 
 export function createCommanderCommandContract(
     command: Command,
-    { name = "Commander command", requireAction = true }: CommanderCommandContractOptions = {}
+    {
+        name = "Commander command",
+        requireAction = true
+    }: CommanderCommandContractOptions = {}
 ): CommanderCommandContract {
     const methods = requireAction ? ["action"] : [];
     const normalizedCommand = assertFunctionProperties(command, methods, {

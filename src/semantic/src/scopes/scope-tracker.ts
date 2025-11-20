@@ -20,7 +20,10 @@ class Scope {
     public id: string;
     public kind: string;
     public parent: Scope | null;
-    public symbolMetadata: Map<string, ReturnType<typeof cloneDeclarationMetadata>>;
+    public symbolMetadata: Map<
+        string,
+        ReturnType<typeof cloneDeclarationMetadata>
+    >;
     public occurrences: Map<string, IdentifierOccurrences>;
 
     constructor(id, kind, parent: Scope | null = null) {

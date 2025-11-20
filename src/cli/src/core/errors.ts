@@ -81,7 +81,10 @@ function indentBlock(text: string, indent = DEFAULT_INDENT): string {
 }
 
 export function isCliUsageError(error: unknown): error is ErrorWithMetadata {
-    return isErrorLike(error) && Boolean((error as ErrorWithMetadata)[CLI_USAGE_ERROR_BRAND]);
+    return (
+        isErrorLike(error) &&
+        Boolean((error as ErrorWithMetadata)[CLI_USAGE_ERROR_BRAND])
+    );
 }
 
 function formatSection(label: string, content: string | null): string | null {
@@ -126,10 +129,7 @@ function formatAggregateErrors(
     return formatSection("Errors", formatted.join("\n"));
 }
 
-function formatErrorCause(
-    cause: unknown,
-    seen: Set<unknown>
-): string | null {
+function formatErrorCause(cause: unknown, seen: Set<unknown>): string | null {
     if (!cause) {
         return null;
     }
@@ -297,17 +297,18 @@ export function createCliErrorDetails(
 }
 
 function resolveCliErrorUsage(error: unknown): string | null {
-    if (error && typeof error === "object" && typeof (error as ErrorWithMetadata).usage === "string") {
+    if (
+        error &&
+        typeof error === "object" &&
+        typeof (error as ErrorWithMetadata).usage === "string"
+    ) {
         return (error as ErrorWithMetadata).usage ?? null;
     }
 
     return null;
 }
 
-function appendLineIfPresent(
-    lines: Array<string>,
-    value?: string
-): void {
+function appendLineIfPresent(lines: Array<string>, value?: string): void {
     if (!value) {
         return;
     }

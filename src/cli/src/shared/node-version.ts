@@ -44,9 +44,10 @@ function normalizeVersionString(rawVersion: string): string {
  * callers from depending on the nested `process.versions` object.
  *
  */
-function readNodeVersionParts(
-    environment: NodeEnvironment = process
-): { majorPart: string; minorPart: string } {
+function readNodeVersionParts(environment: NodeEnvironment = process): {
+    majorPart: string;
+    minorPart: string;
+} {
     const { version, versions } = environment;
     const normalized = normalizeVersionString(
         typeof version === "string" ? version : (versions?.node ?? "")

@@ -88,7 +88,7 @@ export function createEnumeratedOptionHelpers(
     function normalize(
         value: unknown,
         { fallback = null }: { fallback?: EnumeratedValue | null } = {}
-): EnumeratedValue | null {
+    ): EnumeratedValue | null {
         return normalizeEnumeratedOption(
             value,
             fallback,

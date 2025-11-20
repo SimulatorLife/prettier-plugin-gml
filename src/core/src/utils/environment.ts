@@ -174,12 +174,14 @@ export function applyConfiguredValueEnvOverride(config, env) {
  *     applyEnvOverride(env?: NodeJS.ProcessEnv | null | undefined): TValue;
  * }} Utility methods for interacting with the configurable value.
  */
-export function createEnvConfiguredValue<TValue>({
-    defaultValue,
-    envVar,
-    normalize,
-    applyOverride = applyEnvironmentOverride
-}: EnvConfiguredValueParams<TValue> = {} as EnvConfiguredValueParams<TValue>) {
+export function createEnvConfiguredValue<TValue>(
+    {
+        defaultValue,
+        envVar,
+        normalize,
+        applyOverride = applyEnvironmentOverride
+    }: EnvConfiguredValueParams<TValue> = {} as EnvConfiguredValueParams<TValue>
+) {
     assertFunction(normalize, "normalize");
 
     let currentValue = defaultValue;
@@ -236,12 +238,14 @@ export function createEnvConfiguredValue<TValue>({
  *     applyEnvOverride(env?: NodeJS.ProcessEnv | null | undefined): TValue;
  * }}
  */
-export function createEnvConfiguredValueWithFallback<TValue>({
-    defaultValue,
-    envVar,
-    resolve,
-    computeFallback
-}: EnvConfiguredValueWithFallbackParams<TValue> = {} as EnvConfiguredValueWithFallbackParams<TValue>) {
+export function createEnvConfiguredValueWithFallback<TValue>(
+    {
+        defaultValue,
+        envVar,
+        resolve,
+        computeFallback
+    }: EnvConfiguredValueWithFallbackParams<TValue> = {} as EnvConfiguredValueWithFallbackParams<TValue>
+) {
     assertFunction(resolve, "resolve");
 
     const fallbackFactory =

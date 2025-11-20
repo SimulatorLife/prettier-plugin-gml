@@ -69,14 +69,8 @@ export function createResolverController<TOptions, TResult>(
         name = "resolver",
         errorMessage,
         defaultFactory,
-        invoke = ((
-            resolver,
-            options,
-            previous
-        ) => resolver(options, previous)) as ResolverInvoke<
-            TOptions,
-            TResult
-        >,
+        invoke = ((resolver, options, previous) =>
+            resolver(options, previous)) as ResolverInvoke<TOptions, TResult>,
         normalize = ((result) => result as TResult) as ResolverNormalize<
             TOptions,
             TResult

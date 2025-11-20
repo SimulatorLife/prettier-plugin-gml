@@ -20,7 +20,10 @@ type ResolveIntegerOptionOptions = {
 
 type NormalizeNumericOptionOptions = {
     optionName: string;
-    coerce: (value: number, context: Record<string, unknown>) => number | undefined;
+    coerce: (
+        value: number,
+        context: Record<string, unknown>
+    ) => number | undefined;
     formatTypeError: (name: string, type: string) => string;
 };
 
@@ -277,9 +280,7 @@ export function normalizeNumericOption(
     }
 
     const received = isString ? `'${rawValue}'` : normalized;
-    const numericValue = isString
-        ? Number(normalized)
-        : (normalized as number);
+    const numericValue = isString ? Number(normalized) : (normalized as number);
 
     return coerce(numericValue, {
         optionName,

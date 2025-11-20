@@ -40,7 +40,11 @@ class TerminalProgressBar {
     private active: boolean;
     private cursorHidden: boolean;
 
-    constructor(label: string, width: number, { stream }: ProgressBarOptions = {}) {
+    constructor(
+        label: string,
+        width: number,
+        { stream }: ProgressBarOptions = {}
+    ) {
         this.label = label;
         this.width = Math.max(0, width);
         this.stream =

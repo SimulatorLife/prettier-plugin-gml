@@ -1,7 +1,7 @@
 // eslint.config.ts
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
-import { defineConfig } from 'eslint/config';
+import { defineConfig } from "eslint/config";
 import globals from "globals";
 
 // Plugins (all optional but used for stricter scans)
@@ -239,10 +239,7 @@ const tsConfig = defineConfig({
                     "Use Object.keys/entries with for..of instead of for..in."
             }
         ],
-        "consistent-return": [
-            "warn",
-            { treatUndefinedAsUnspecified: true }
-        ],
+        "consistent-return": ["warn", { treatUndefinedAsUnspecified: true }],
         eqeqeq: ["warn", "always", { null: "ignore" }],
         "default-case-last": "error",
         radix: ["warn", "as-needed"],

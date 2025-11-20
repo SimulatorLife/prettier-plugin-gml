@@ -156,7 +156,10 @@ async function executeSuiteRunner({
     suiteName: string;
     availableSuites: Map<string, SuiteRunner>;
     runnerOptions: unknown;
-    handleSuiteError: (error: unknown, context: { suiteName: string }) => unknown;
+    handleSuiteError: (
+        error: unknown,
+        context: { suiteName: string }
+    ) => unknown;
 }): Promise<[string, unknown] | null> {
     const runner = availableSuites.get(suiteName);
     if (typeof runner !== "function") {

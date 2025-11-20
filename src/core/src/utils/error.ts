@@ -1,9 +1,6 @@
 import { isNonEmptyString } from "./string.js";
 
-type ErrorMessageFallback =
-    | string
-    | ((value: unknown) => string)
-    | undefined;
+type ErrorMessageFallback = string | ((value: unknown) => string) | undefined;
 
 type GetErrorMessageOptions = {
     fallback?: ErrorMessageFallback;

@@ -22,14 +22,14 @@ export function normalizeGmlPluginComponents(
     });
 
     return Object.freeze({
-        parsers: Object.freeze(
-            { ...(parsers as GmlPluginComponentBundle["parsers"]) }
-        ),
-        printers: Object.freeze(
-            { ...(printers as GmlPluginComponentBundle["printers"]) }
-        ),
-        options: Object.freeze(
-            { ...(options as GmlPluginComponentBundle["options"]) }
-        )
+        parsers: Object.freeze({
+            ...(parsers as GmlPluginComponentBundle["parsers"])
+        }),
+        printers: Object.freeze({
+            ...(printers as GmlPluginComponentBundle["printers"])
+        }),
+        options: Object.freeze({
+            ...(options as GmlPluginComponentBundle["options"])
+        })
     });
 }

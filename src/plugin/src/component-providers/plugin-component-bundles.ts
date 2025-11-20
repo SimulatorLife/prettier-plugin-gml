@@ -30,18 +30,20 @@ export function createDefaultGmlPluginComponentDependencies(
     return selectPluginComponentContractEntries(implementations);
 }
 
-const implementationRegistry = createSingletonComponentRegistry<GmlPluginComponentContract>({
-    description: "implementation bundle",
-    factory: createDefaultGmlPluginComponentImplementations
-});
+const implementationRegistry =
+    createSingletonComponentRegistry<GmlPluginComponentContract>({
+        description: "implementation bundle",
+        factory: createDefaultGmlPluginComponentImplementations
+    });
 
-const dependencyRegistry = createSingletonComponentRegistry<GmlPluginComponentContract>({
-    description: "dependency bundle",
-    factory: () =>
-        createDefaultGmlPluginComponentDependencies(
-            implementationRegistry.bundle
-        )
-});
+const dependencyRegistry =
+    createSingletonComponentRegistry<GmlPluginComponentContract>({
+        description: "dependency bundle",
+        factory: () =>
+            createDefaultGmlPluginComponentDependencies(
+                implementationRegistry.bundle
+            )
+    });
 
 export const gmlPluginComponentImplementations = implementationRegistry.bundle;
 export const resolveGmlPluginComponentImplementations =

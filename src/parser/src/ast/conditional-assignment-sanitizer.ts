@@ -51,9 +51,7 @@ function createIndexMapper(
         (position): position is number =>
             typeof position === "number" && Number.isFinite(position)
     );
-    const offsets = Array.from(new Set(numericPositions)).sort(
-        (a, b) => a - b
-    );
+    const offsets = Array.from(new Set(numericPositions)).sort((a, b) => a - b);
 
     if (offsets.length === 0) {
         return identity;

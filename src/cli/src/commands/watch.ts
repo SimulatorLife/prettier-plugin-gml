@@ -73,9 +73,7 @@ type RuntimeSourceResolver = (options?: {
     runtimePackage?: string;
 }) => Promise<RuntimeSourceDescriptor>;
 
-type RuntimeDescriptorFormatter = (
-    source: RuntimeSourceDescriptor
-) => string;
+type RuntimeDescriptorFormatter = (source: RuntimeSourceDescriptor) => string;
 
 interface WatchCommandOptions {
     extensions?: Array<string>;

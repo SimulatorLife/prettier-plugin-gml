@@ -57,9 +57,9 @@ type ParseJsonOptions = {
 
 type ParseJsonObjectOptions = ParseJsonOptions & {
     assertOptions?: Parameters<typeof assertPlainObject>[1];
-    createAssertOptions?: (payload: unknown) => Parameters<
-        typeof assertPlainObject
-    >[1];
+    createAssertOptions?: (
+        payload: unknown
+    ) => Parameters<typeof assertPlainObject>[1];
 };
 
 type StringifyJsonForFileOptions = {
@@ -79,7 +79,10 @@ export class JsonParseError extends SyntaxError {
     source?: string | null;
     description?: string;
 
-    constructor(message, { cause, source, description }: JsonParseErrorOptions = {}) {
+    constructor(
+        message,
+        { cause, source, description }: JsonParseErrorOptions = {}
+    ) {
         super(message, cause ? { cause } : undefined);
         this.name = "JsonParseError";
         if (source !== undefined) {
@@ -194,10 +197,7 @@ function describePayloadForSerializationError(payload) {
  * @throws {JsonParseError} When parsing fails. The error exposes `cause`,
  *     `source`, and `description` properties when available.
  */
-export function parseJsonWithContext(
-    text,
-    options: ParseJsonOptions = {}
-) {
+export function parseJsonWithContext(text, options: ParseJsonOptions = {}) {
     const { source, description, reviver } = options;
     try {
         return JSON.parse(text, reviver);

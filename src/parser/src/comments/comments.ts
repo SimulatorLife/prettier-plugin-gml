@@ -130,10 +130,7 @@ export function getCommentValue(comment, { trim = false } = {}) {
         return trim ? comment.trim() : comment;
     }
 
-    if (
-        !isObjectLike(comment) ||
-        typeof comment?.value !== "string"
-    ) {
+    if (!isObjectLike(comment) || typeof comment?.value !== "string") {
         return "";
     }
 

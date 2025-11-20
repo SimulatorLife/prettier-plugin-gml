@@ -35,10 +35,7 @@ function createSampleLimitOption({
     const createTypeError = (type: string) =>
         `${label} sample limit must be provided as a number (received type '${type}').`;
 
-    const coerce = (
-        value: unknown,
-        context: Record<string, unknown>
-    ): number =>
+    const coerce = (value: unknown, context: Record<string, unknown>): number =>
         coerceNonNegativeInteger(value, { ...context, createErrorMessage });
 
     const state = createEnvConfiguredValue<number | undefined>({

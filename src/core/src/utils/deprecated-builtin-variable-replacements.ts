@@ -138,8 +138,9 @@ export function getDeprecatedBuiltinReplacementEntry(name) {
         return null;
     }
 
-    const cache = getDeprecatedBuiltinReplacementEntry as typeof getDeprecatedBuiltinReplacementEntry &
-        DeprecatedReplacementCacheHolder;
+    const cache =
+        getDeprecatedBuiltinReplacementEntry as typeof getDeprecatedBuiltinReplacementEntry &
+            DeprecatedReplacementCacheHolder;
 
     if (!cache._map) {
         cache._map = buildDeprecatedBuiltinVariableReplacements();

@@ -49,7 +49,9 @@ function coerceExtensionValue(value: unknown): string | null {
 }
 
 function isIterable(value: unknown): value is Iterable<unknown> {
-    return typeof (value as Iterable<unknown>)?.[Symbol.iterator] === "function";
+    return (
+        typeof (value as Iterable<unknown>)?.[Symbol.iterator] === "function"
+    );
 }
 
 function collectExtensionCandidates(
@@ -59,7 +61,11 @@ function collectExtensionCandidates(
         return normalizeExtensionFragments(rawExtensions);
     }
 
-    if (rawExtensions && typeof rawExtensions !== "string" && isIterable(rawExtensions)) {
+    if (
+        rawExtensions &&
+        typeof rawExtensions !== "string" &&
+        isIterable(rawExtensions)
+    ) {
         const fragments: Array<string> = [];
 
         for (const candidate of rawExtensions) {
