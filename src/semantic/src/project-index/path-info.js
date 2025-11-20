@@ -1,6 +1,9 @@
 import path from "node:path";
 import { Core } from "@gml-modules/core";
-const { Utils: { isNonEmptyString }, FS: { resolveContainedRelativePath } } = Core;
+const {
+    Utils: { isNonEmptyString },
+    FS: { resolveContainedRelativePath }
+} = Core;
 /**
  * Resolve high-level metadata about how {@link filePath} relates to
  * {@link projectRoot}.
@@ -40,7 +43,10 @@ export function resolveProjectPathInfo(filePath, projectRoot) {
         };
     }
     const absoluteProjectRoot = path.resolve(projectRoot);
-    const containedRelative = resolveContainedRelativePath(absolutePath, absoluteProjectRoot);
+    const containedRelative = resolveContainedRelativePath(
+        absolutePath,
+        absoluteProjectRoot
+    );
     const isInsideProjectRoot = containedRelative !== null;
     return {
         absolutePath,

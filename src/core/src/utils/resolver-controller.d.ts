@@ -34,7 +34,14 @@
  * }} config
  * @returns {ResolverController<TOptions, TResult>}
  */
-export declare function createResolverController({ name, errorMessage, defaultFactory, invoke, normalize, reuseDefaultValue }: {
+export declare function createResolverController({
+    name,
+    errorMessage,
+    defaultFactory,
+    invoke,
+    normalize,
+    reuseDefaultValue
+}: {
     name?: string;
     errorMessage: any;
     defaultFactory: any;

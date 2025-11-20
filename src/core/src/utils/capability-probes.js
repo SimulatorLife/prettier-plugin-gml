@@ -22,7 +22,8 @@ export function hasFunction(value, property) {
  * @returns {Function | null} Iterator method when present and callable, otherwise `null`.
  */
 function getIteratorMethod(iterable) {
-    const method = iterable?.[Symbol.iterator] ??
+    const method =
+        iterable?.[Symbol.iterator] ??
         iterable?.entries ??
         iterable?.values ??
         null;
@@ -76,7 +77,9 @@ function getFiniteSize(candidate) {
  * @returns {number | null} Finite numeric hint when present, otherwise `null`.
  */
 function getLengthHint(iterable) {
-    return (getFiniteSize(iterable?.size) ?? getFiniteSize(iterable?.length) ?? null);
+    return (
+        getFiniteSize(iterable?.size) ?? getFiniteSize(iterable?.length) ?? null
+    );
 }
 /**
  * Determine whether a value resembles an `Error` object by checking for the
@@ -122,9 +125,11 @@ export function isAggregateErrorLike(value) {
  * @returns {value is RegExp} `true` when the value exposes RegExp methods.
  */
 export function isRegExpLike(value) {
-    return (isObjectLike(value) &&
+    return (
+        isObjectLike(value) &&
         hasFunction(value, "test") &&
-        hasFunction(value, "exec"));
+        hasFunction(value, "exec")
+    );
 }
 /**
  * Determine whether a value implements the `Map` interface by confirming it
@@ -136,11 +141,13 @@ export function isRegExpLike(value) {
  * @returns {value is Map<unknown, unknown>} `true` when the value behaves like a Map.
  */
 export function isMapLike(value) {
-    return (isObjectLike(value) &&
+    return (
+        isObjectLike(value) &&
         hasFunction(value, "get") &&
         hasFunction(value, "set") &&
         hasFunction(value, "has") &&
-        hasIterator(value));
+        hasIterator(value)
+    );
 }
 /**
  * Determine whether a value implements the `Set` interface by confirming it
@@ -152,10 +159,12 @@ export function isMapLike(value) {
  * @returns {value is Set<unknown>} `true` when the value behaves like a Set.
  */
 export function isSetLike(value) {
-    return (isObjectLike(value) &&
+    return (
+        isObjectLike(value) &&
         hasFunction(value, "has") &&
         hasFunction(value, "add") &&
-        hasIterator(value));
+        hasIterator(value)
+    );
 }
 /**
  * Lightweight truthiness probe for collection-like objects. Prefers numeric

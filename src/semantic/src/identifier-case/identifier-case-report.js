@@ -11,7 +11,17 @@ import { setIdentifierCaseOption } from "./option-store.js";
 import { warnWithReason } from "./logger.js";
 import { consumeIdentifierCaseDryRunContext } from "./identifier-case-context.js";
 import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
-const { asArray, compactArray, coalesceOption, coalesceTrimmedString, incrementMapValue, isNonEmptyArray, isObjectLike, toArray, withObjectLike } = Core;
+const {
+    asArray,
+    compactArray,
+    coalesceOption,
+    coalesceTrimmedString,
+    incrementMapValue,
+    isNonEmptyArray,
+    isObjectLike,
+    toArray,
+    withObjectLike
+} = Core;
 const REPORT_NAMESPACE = "gml-identifier-case";
 const LOG_VERSION = 1;
 function defaultNow() {
@@ -27,7 +37,11 @@ function buildIdentifierCaseOptionKeys(baseName) {
     return [`__identifierCase${baseName}`, `identifierCase${baseName}`];
 }
 function getIdentifierCaseOption(options, baseName, coalesceOptions) {
-    return coalesceOption(options, buildIdentifierCaseOptionKeys(baseName), coalesceOptions);
+    return coalesceOption(
+        options,
+        buildIdentifierCaseOptionKeys(baseName),
+        coalesceOptions
+    );
 }
 function extractOperations(plan) {
     if (Array.isArray(plan)) {
@@ -48,11 +62,16 @@ function normalizeReference(reference) {
     if (!isObjectLike(reference)) {
         return null;
     }
-    const filePath = coalesceTrimmedString(reference.filePath, reference.path, reference.file);
+    const filePath = coalesceTrimmedString(
+        reference.filePath,
+        reference.path,
+        reference.file
+    );
     if (!filePath) {
         return null;
     }
-    const occurrenceCandidate = reference.occurrences ?? reference.count ?? reference.references ?? 0;
+    const occurrenceCandidate =
+        reference.occurrences ?? reference.count ?? reference.references ?? 0;
     const occurrences = Number.isFinite(occurrenceCandidate)
         ? Number(occurrenceCandidate)
         : 0;
@@ -65,7 +84,12 @@ function normalizeScope(scope) {
     if (!isObjectLike(scope)) {
         return { id: null, displayName: null, name: null };
     }
-    const displayName = coalesceTrimmedString(scope.displayName, scope.name, scope.scope, scope.path);
+    const displayName = coalesceTrimmedString(
+        scope.displayName,
+        scope.name,
+        scope.scope,
+        scope.path
+    );
     const id = coalesceTrimmedString(scope.id, scope.scopeId);
     return {
         id: id || null,
@@ -74,71 +98,123 @@ function normalizeScope(scope) {
     };
 }
 function normalizeOperation(rawOperation) {
-    return withObjectLike(rawOperation, (operation) => {
-        const scope = normalizeScope(operation.scope ?? {});
-        const fromName = coalesceTrimmedString(operation.from?.name, operation.source?.name, operation.originalName, operation.from, operation.source);
-        const toName = coalesceTrimmedString(operation.to?.name, operation.target?.name, operation.updatedName, operation.to, operation.target);
-        const referenceCandidates = compactArray(toArray(operation.references).map(normalizeReference));
-        const references = referenceCandidates.reduce((acc, item) => {
-            const insertIndex = acc.findIndex((existing) => existing.filePath.localeCompare(item.filePath) > 0);
-            return insertIndex === -1
-                ? [...acc, item]
-                : [
-                    ...acc.slice(0, insertIndex),
-                    item,
-                    ...acc.slice(insertIndex)
-                ];
-        }, []);
-        const occurrenceCount = references.reduce((total, reference) => total + (reference.occurrences ?? 0), 0);
-        const referenceFileCount = new Set(references.map((reference) => reference.filePath)).size;
-        return {
-            id: coalesceTrimmedString(operation.id, operation.identifier) ||
-                null,
-            kind: coalesceTrimmedString(operation.kind, operation.type) ||
-                "identifier",
-            scopeId: scope.id,
-            scopeName: scope.displayName ?? scope.name ?? null,
-            fromName: fromName || null,
-            toName: toName || null,
-            references,
-            occurrenceCount,
-            referenceFileCount
-        };
-    }, null);
+    return withObjectLike(
+        rawOperation,
+        (operation) => {
+            const scope = normalizeScope(operation.scope ?? {});
+            const fromName = coalesceTrimmedString(
+                operation.from?.name,
+                operation.source?.name,
+                operation.originalName,
+                operation.from,
+                operation.source
+            );
+            const toName = coalesceTrimmedString(
+                operation.to?.name,
+                operation.target?.name,
+                operation.updatedName,
+                operation.to,
+                operation.target
+            );
+            const referenceCandidates = compactArray(
+                toArray(operation.references).map(normalizeReference)
+            );
+            const references = referenceCandidates.reduce((acc, item) => {
+                const insertIndex = acc.findIndex(
+                    (existing) =>
+                        existing.filePath.localeCompare(item.filePath) > 0
+                );
+                return insertIndex === -1
+                    ? [...acc, item]
+                    : [
+                          ...acc.slice(0, insertIndex),
+                          item,
+                          ...acc.slice(insertIndex)
+                      ];
+            }, []);
+            const occurrenceCount = references.reduce(
+                (total, reference) => total + (reference.occurrences ?? 0),
+                0
+            );
+            const referenceFileCount = new Set(
+                references.map((reference) => reference.filePath)
+            ).size;
+            return {
+                id:
+                    coalesceTrimmedString(operation.id, operation.identifier) ||
+                    null,
+                kind:
+                    coalesceTrimmedString(operation.kind, operation.type) ||
+                    "identifier",
+                scopeId: scope.id,
+                scopeName: scope.displayName ?? scope.name ?? null,
+                fromName: fromName || null,
+                toName: toName || null,
+                references,
+                occurrenceCount,
+                referenceFileCount
+            };
+        },
+        null
+    );
 }
 function normalizeConflict(rawConflict) {
-    return withObjectLike(rawConflict, (conflict) => {
-        const scope = normalizeScope(conflict.scope ?? {});
-        const severityCandidate = coalesceTrimmedString(conflict.severity);
-        const severity = severityCandidate
-            ? severityCandidate.toLowerCase()
-            : "error";
-        const suggestions = compactArray(toArray(conflict.suggestions ?? conflict.hints).map((entry) => coalesceTrimmedString(entry)));
-        return {
-            code: coalesceTrimmedString(conflict.code, conflict.identifier, conflict.type) || null,
-            message: coalesceTrimmedString(conflict.message, conflict.reason) ||
-                "",
-            severity,
-            scope: {
-                id: scope.id,
-                displayName: scope.displayName ?? scope.name ?? null
-            },
-            identifier: coalesceTrimmedString(conflict.identifier, conflict.name, conflict.originalName) || null,
-            suggestions,
-            details: conflict.details && typeof conflict.details === "object"
-                ? { ...conflict.details }
-                : null
-        };
-    }, null);
+    return withObjectLike(
+        rawConflict,
+        (conflict) => {
+            const scope = normalizeScope(conflict.scope ?? {});
+            const severityCandidate = coalesceTrimmedString(conflict.severity);
+            const severity = severityCandidate
+                ? severityCandidate.toLowerCase()
+                : "error";
+            const suggestions = compactArray(
+                toArray(conflict.suggestions ?? conflict.hints).map((entry) =>
+                    coalesceTrimmedString(entry)
+                )
+            );
+            return {
+                code:
+                    coalesceTrimmedString(
+                        conflict.code,
+                        conflict.identifier,
+                        conflict.type
+                    ) || null,
+                message:
+                    coalesceTrimmedString(conflict.message, conflict.reason) ||
+                    "",
+                severity,
+                scope: {
+                    id: scope.id,
+                    displayName: scope.displayName ?? scope.name ?? null
+                },
+                identifier:
+                    coalesceTrimmedString(
+                        conflict.identifier,
+                        conflict.name,
+                        conflict.originalName
+                    ) || null,
+                suggestions,
+                details:
+                    conflict.details && typeof conflict.details === "object"
+                        ? { ...conflict.details }
+                        : null
+            };
+        },
+        null
+    );
 }
 function sortOperations(operations) {
     return operations.reduce((acc, item) => {
         const insertIndex = acc.findIndex((existing) => {
-            const scopeCompare = (existing.scopeName ?? "").localeCompare(item.scopeName ?? "");
+            const scopeCompare = (existing.scopeName ?? "").localeCompare(
+                item.scopeName ?? ""
+            );
             if (scopeCompare !== 0) {
                 return scopeCompare > 0;
             }
-            const fromCompare = (existing.fromName ?? "").localeCompare(item.fromName ?? "");
+            const fromCompare = (existing.fromName ?? "").localeCompare(
+                item.fromName ?? ""
+            );
             if (fromCompare !== 0) {
                 return fromCompare > 0;
             }
@@ -162,7 +238,9 @@ function sortConflicts(conflicts) {
             if (existingSeverity !== itemSeverity) {
                 return existingSeverity > itemSeverity;
             }
-            const scopeCompare = (existing.scope.displayName ?? "").localeCompare(item.scope.displayName ?? "");
+            const scopeCompare = (
+                existing.scope.displayName ?? ""
+            ).localeCompare(item.scope.displayName ?? "");
             if (scopeCompare !== 0) {
                 return scopeCompare > 0;
             }
@@ -176,9 +254,16 @@ function sortConflicts(conflicts) {
 function pluralize(value, suffix = "s") {
     return value === 1 ? "" : suffix;
 }
-export function summarizeIdentifierCasePlan({ renamePlan, conflicts = [] } = {}) {
-    const normalizedOperations = sortOperations(compactArray(extractOperations(renamePlan).map(normalizeOperation)));
-    const normalizedConflicts = sortConflicts(compactArray(toArray(conflicts).map(normalizeConflict)));
+export function summarizeIdentifierCasePlan({
+    renamePlan,
+    conflicts = []
+} = {}) {
+    const normalizedOperations = sortOperations(
+        compactArray(extractOperations(renamePlan).map(normalizeOperation))
+    );
+    const normalizedConflicts = sortConflicts(
+        compactArray(toArray(conflicts).map(normalizeConflict))
+    );
     const renameSummaries = normalizedOperations.map(buildRenameSummary);
     const impactedFileSet = new Set();
     let totalReferenceCount = 0;
@@ -213,34 +298,42 @@ export function formatIdentifierCaseSummaryText(report) {
     }
     const { summary, operations, conflicts } = report;
     const lines = [`[${REPORT_NAMESPACE}] Identifier case dry-run summary:`];
-    const renameDetails = summary.renameCount > 0
-        ? ` (${summary.totalReferenceCount} reference${pluralize(summary.totalReferenceCount)} across ${summary.impactedFileCount} file${pluralize(summary.impactedFileCount)})`
-        : "";
+    const renameDetails =
+        summary.renameCount > 0
+            ? ` (${summary.totalReferenceCount} reference${pluralize(summary.totalReferenceCount)} across ${summary.impactedFileCount} file${pluralize(summary.impactedFileCount)})`
+            : "";
     lines.push(`  Planned renames: ${summary.renameCount}${renameDetails}`);
     if (summary.conflictCount > 0) {
         const severityParts = Object.entries(summary.severityCounts)
             .filter(([, count]) => count > 0)
-            .map(([severity, count]) => `${count} ${severity}${pluralize(count)}`);
-        const conflictSuffix = severityParts.length > 0 ? ` (${severityParts.join(", ")})` : "";
+            .map(
+                ([severity, count]) => `${count} ${severity}${pluralize(count)}`
+            );
+        const conflictSuffix =
+            severityParts.length > 0 ? ` (${severityParts.join(", ")})` : "";
         lines.push(`  Conflicts: ${summary.conflictCount}${conflictSuffix}`);
-    }
-    else {
+    } else {
         lines.push("  Conflicts: none");
     }
     if (operations.length > 0) {
         lines.push("", "Rename plan:");
         for (const operation of operations) {
-            const referenceSummary = operation.occurrenceCount > 0
-                ? ` (${operation.occurrenceCount} reference${pluralize(operation.occurrenceCount)} across ${operation.referenceFileCount} file${pluralize(operation.referenceFileCount)})`
-                : "";
-            const scopeName = operation.scopeName ?? operation.scopeId ?? "<unknown scope>";
+            const referenceSummary =
+                operation.occurrenceCount > 0
+                    ? ` (${operation.occurrenceCount} reference${pluralize(operation.occurrenceCount)} across ${operation.referenceFileCount} file${pluralize(operation.referenceFileCount)})`
+                    : "";
+            const scopeName =
+                operation.scopeName ?? operation.scopeId ?? "<unknown scope>";
             const fromName = operation.fromName ?? "<unknown>";
             const toName = operation.toName ?? "<unknown>";
-            lines.push(`  - ${scopeName}: ${fromName} -> ${toName}${referenceSummary}`);
+            lines.push(
+                `  - ${scopeName}: ${fromName} -> ${toName}${referenceSummary}`
+            );
             for (const reference of operation.references) {
-                const referenceSuffix = reference.occurrences > 0
-                    ? ` (${reference.occurrences} reference${pluralize(reference.occurrences)})`
-                    : "";
+                const referenceSuffix =
+                    reference.occurrences > 0
+                        ? ` (${reference.occurrences} reference${pluralize(reference.occurrences)})`
+                        : "";
                 lines.push(`      • ${reference.filePath}${referenceSuffix}`);
             }
         }
@@ -248,16 +341,21 @@ export function formatIdentifierCaseSummaryText(report) {
     if (conflicts.length > 0) {
         lines.push("", "Conflicts:");
         for (const conflict of conflicts) {
-            const scopeName = conflict.scope.displayName ??
+            const scopeName =
+                conflict.scope.displayName ??
                 conflict.scope.id ??
                 "<unknown scope>";
             const identifierSuffix = conflict.identifier
                 ? ` (${conflict.identifier})`
                 : "";
             const codeSuffix = conflict.code ? ` [${conflict.code}]` : "";
-            lines.push(`  - [${conflict.severity}]${codeSuffix} ${scopeName}${identifierSuffix}: ${conflict.message}`);
+            lines.push(
+                `  - [${conflict.severity}]${codeSuffix} ${scopeName}${identifierSuffix}: ${conflict.message}`
+            );
             if (conflict.suggestions.length > 0) {
-                lines.push(`      Suggestions: ${conflict.suggestions.join(", ")}`);
+                lines.push(
+                    `      Suggestions: ${conflict.suggestions.join(", ")}`
+                );
             }
         }
     }
@@ -267,11 +365,14 @@ function getNormalizedReportCollections(report) {
     const operations = getNormalizedOperations(report);
     const conflicts = getNormalizedConflicts(report?.conflicts);
     const renamesSource = Array.isArray(report?.renames)
-        ? report.renames.filter((rename) => rename && typeof rename === "object")
+        ? report.renames.filter(
+              (rename) => rename && typeof rename === "object"
+          )
         : null;
-    const renames = renamesSource && renamesSource.length === operations.length
-        ? renamesSource
-        : buildRenameSummaries(operations);
+    const renames =
+        renamesSource && renamesSource.length === operations.length
+            ? renamesSource
+            : buildRenameSummaries(operations);
     return { operations, renames, conflicts };
 }
 function buildRenameSummary(operation) {
@@ -347,7 +448,15 @@ function pushDiagnosticEntry({ diagnostics, report, text }) {
         conflicts
     });
 }
-export function reportIdentifierCasePlan({ renamePlan, conflicts = [], logger = console, diagnostics = null, logFilePath = null, fsFacade = defaultFsFacade, now = defaultNow } = {}) {
+export function reportIdentifierCasePlan({
+    renamePlan,
+    conflicts = [],
+    logger = console,
+    diagnostics = null,
+    logFilePath = null,
+    fsFacade = defaultFsFacade,
+    now = defaultNow
+} = {}) {
     const report = summarizeIdentifierCasePlan({
         renamePlan,
         conflicts
@@ -356,24 +465,33 @@ export function reportIdentifierCasePlan({ renamePlan, conflicts = [], logger = 
     const textBlock = lines.join("\n");
     if (typeof logger?.log === "function") {
         logger.log(textBlock);
-    }
-    else {
+    } else {
         console.log(textBlock);
     }
     pushDiagnosticEntry({ diagnostics, report, text: textBlock });
     if (logFilePath) {
         try {
-            const payload = buildLogPayload(report, new Date(now()).toISOString());
+            const payload = buildLogPayload(
+                report,
+                new Date(now()).toISOString()
+            );
             const directory = path.dirname(logFilePath);
             if (fsFacade?.mkdirSync) {
                 fsFacade.mkdirSync(directory, { recursive: true });
             }
             if (fsFacade?.writeFileSync) {
-                fsFacade.writeFileSync(logFilePath, `${JSON.stringify(payload, null, 2)}\n`);
+                fsFacade.writeFileSync(
+                    logFilePath,
+                    `${JSON.stringify(payload, null, 2)}\n`
+                );
             }
-        }
-        catch (error) {
-            warnWithReason(logger, REPORT_NAMESPACE, "Failed to write identifier case report", error);
+        } catch (error) {
+            warnWithReason(
+                logger,
+                REPORT_NAMESPACE,
+                "Failed to write identifier case report",
+                error
+            );
         }
     }
     return report;
@@ -406,7 +524,10 @@ function resolveInlineReportContext(options, renamePlan) {
         logger: options.logger ?? null,
         diagnostics: toDiagnosticsArray(options.diagnostics),
         fsFacade,
-        now: pickFunction(options.__identifierCaseNow, options.identifierCaseNow)
+        now: pickFunction(
+            options.__identifierCaseNow,
+            options.identifierCaseNow
+        )
     };
 }
 function resolveReportContext(options) {
@@ -431,18 +552,26 @@ function resolveDryRunFlag(options, contextDryRun) {
 function finalizeIdentifierCaseReport(options, result) {
     setIdentifierCaseOption(options, "__identifierCaseReportEmitted", true);
     if (result !== undefined) {
-        setIdentifierCaseOption(options, "__identifierCaseReportResult", result);
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseReportResult",
+            result
+        );
     }
     return result ?? null;
 }
 function resolveReportIo(options, context) {
     const logger = context.logger ?? options.logger ?? console;
-    const diagnostics = context.diagnostics ?? toDiagnosticsArray(options.diagnostics);
-    const logFilePath = context.logFilePath ??
+    const diagnostics =
+        context.diagnostics ?? toDiagnosticsArray(options.diagnostics);
+    const logFilePath =
+        context.logFilePath ??
         getIdentifierCaseOption(options, "ReportLogPath", { fallback: null });
-    const fsFacade = context.fsFacade ??
+    const fsFacade =
+        context.fsFacade ??
         getIdentifierCaseOption(options, "Fs", { fallback: defaultFsFacade });
-    const now = context.now ??
+    const now =
+        context.now ??
         pickFunction(options.__identifierCaseNow, options.identifierCaseNow) ??
         defaultNow;
     return { logger, diagnostics, logFilePath, fsFacade, now };

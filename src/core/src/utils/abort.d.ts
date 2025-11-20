@@ -13,7 +13,10 @@
  * @returns {Error | null} `AbortError` compatible instance when aborted;
  *          otherwise `null`.
  */
-export declare function createAbortError(signal: any, fallbackMessage?: string): any;
+export declare function createAbortError(
+    signal: any,
+    fallbackMessage?: string
+): any;
 export declare function isAbortError(value: any): boolean;
 /**
  * Throw an `AbortError` when the provided signal has been cancelled.
@@ -48,7 +51,10 @@ export declare function throwIfAborted(signal: any, fallbackMessage: any): void;
  * @returns {{ signal: AbortSignal | null, ensureNotAborted(): void }}
  *          Guard exposing the normalized signal and a checkpoint callback.
  */
-export declare function createAbortGuard(options: any, { key, fallbackMessage }?: {}): {
+export declare function createAbortGuard(
+    options: any,
+    { key, fallbackMessage }?: {}
+): {
     signal: any;
     ensureNotAborted: () => void;
 };
@@ -76,6 +82,12 @@ export declare function createAbortGuard(options: any, { key, fallbackMessage }?
  * @returns {AbortSignal | null} Normalized signal instance or `null` when the
  *          options object does not supply one.
  */
-export declare function resolveAbortSignalFromOptions(options: any, { key, fallbackMessage }?: {
-    key?: string;
-}): any;
+export declare function resolveAbortSignalFromOptions(
+    options: any,
+    {
+        key,
+        fallbackMessage
+    }?: {
+        key?: string;
+    }
+): any;

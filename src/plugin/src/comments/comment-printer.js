@@ -5,5 +5,6 @@ import * as Parser from "@gml-modules/parser";
 export const handleComments = Parser.Comments.handleComments;
 export const printComment = Parser.Comments.printComment;
 export const printDanglingComments = Parser.Comments.printDanglingComments;
-export const printDanglingCommentsAsGroup = Parser.Comments.printDanglingCommentsAsGroup;
+export const printDanglingCommentsAsGroup =
+    Parser.Comments.printDanglingCommentsAsGroup;
 //# sourceMappingURL=comment-printer.js.map

@@ -20,7 +20,9 @@ export class GmlTranspiler {
     async transpileScript(request) {
         const { sourceText, symbolId } = request ?? {};
         if (typeof sourceText !== "string" || !symbolId) {
-            throw new TypeError("transpileScript requires sourceText and symbolId");
+            throw new TypeError(
+                "transpileScript requires sourceText and symbolId"
+            );
         }
         try {
             // Parse the GML source code into an abstract syntax tree (AST) using the
@@ -47,9 +49,10 @@ export class GmlTranspiler {
                 sourceText,
                 version: Date.now()
             };
-        }
-        catch (error) {
-            throw new Error(`Failed to transpile script ${symbolId}: ${error.message}`);
+        } catch (error) {
+            throw new Error(
+                `Failed to transpile script ${symbolId}: ${error.message}`
+            );
         }
     }
     /**

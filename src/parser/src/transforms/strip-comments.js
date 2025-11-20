@@ -1,12 +1,17 @@
 import { Core } from "@gml-modules/core";
 import { walkObjectGraph } from "../ast/object-graph.js";
-const { AST: { isCommentNode } } = Core;
+const {
+    AST: { isCommentNode }
+} = Core;
 export function transform(ast, opts = {}) {
-    const cfg = Object.assign({
-        stripComments: true,
-        stripJsDoc: true,
-        dropCommentedOutCode: false
-    }, opts);
+    const cfg = Object.assign(
+        {
+            stripComments: true,
+            stripJsDoc: true,
+            dropCommentedOutCode: false
+        },
+        opts
+    );
     if (!ast || typeof ast !== "object") {
         return ast;
     }
@@ -21,7 +26,9 @@ export function transform(ast, opts = {}) {
                 if (Array.isArray(value.comments)) {
                     // Keep any non-comment entries (defensive) but strip known
                     // comment node shapes.
-                    value.comments = value.comments.filter((c) => !isCommentNode(c));
+                    value.comments = value.comments.filter(
+                        (c) => !isCommentNode(c)
+                    );
                     if (value.comments.length === 0) {
                         delete value.comments;
                     }

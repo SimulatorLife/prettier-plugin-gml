@@ -52,17 +52,21 @@ export function getLineBreakCount(text) {
     for (let index = 0; index < length; index += 1) {
         const code = text.charCodeAt(index);
         if (code === CHAR_CODE_CARRIAGE_RETURN) {
-            if (index + 1 < length &&
-                text.charCodeAt(index + 1) === CHAR_CODE_LINE_FEED) {
+            if (
+                index + 1 < length &&
+                text.charCodeAt(index + 1) === CHAR_CODE_LINE_FEED
+            ) {
                 index += 1;
             }
             count += 1;
             continue;
         }
-        if (code === CHAR_CODE_LINE_FEED ||
+        if (
+            code === CHAR_CODE_LINE_FEED ||
             code === CHAR_CODE_LINE_SEPARATOR ||
             code === CHAR_CODE_PARAGRAPH_SEPARATOR ||
-            code === CHAR_CODE_NEXT_LINE) {
+            code === CHAR_CODE_NEXT_LINE
+        ) {
             count += 1;
         }
     }

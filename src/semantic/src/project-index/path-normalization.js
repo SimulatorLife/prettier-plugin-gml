@@ -1,7 +1,10 @@
 import path from "node:path";
 import { Core } from "@gml-modules/core";
 import { resolveProjectPathInfo } from "./path-info.js";
-const { FS: { toPosixPath }, Utils: { assertFunction, getNonEmptyString, isNonEmptyString } } = Core;
+const {
+    FS: { toPosixPath },
+    Utils: { assertFunction, getNonEmptyString, isNonEmptyString }
+} = Core;
 /** @typedef {NonNullable<ReturnType<typeof resolveProjectPathInfo>>} ProjectPathInfo */
 /**
  * Resolve metadata for {@link filePath} relative to {@link projectRoot} and
@@ -48,7 +51,9 @@ export function normalizeProjectResourcePath(rawPath, { projectRoot } = {}) {
     const absoluteCandidate = path.isAbsolute(normalized)
         ? normalized
         : path.join(projectRoot, normalized);
-    return withProjectPathInfo(absoluteCandidate, projectRoot, (info) => toPosixPath(info.relativePath));
+    return withProjectPathInfo(absoluteCandidate, projectRoot, (info) =>
+        toPosixPath(info.relativePath)
+    );
 }
 /**
  * Resolve the path to {@link absoluteFilePath} relative to {@link projectRoot}
@@ -61,7 +66,9 @@ export function normalizeProjectResourcePath(rawPath, { projectRoot } = {}) {
  *          normalized absolute path when no relationship exists.
  */
 export function resolveProjectRelativeFilePath(projectRoot, absoluteFilePath) {
-    return withProjectPathInfo(absoluteFilePath, projectRoot, (info) => toPosixPath(info.hasProjectRoot ? info.relativePath : info.absolutePath));
+    return withProjectPathInfo(absoluteFilePath, projectRoot, (info) =>
+        toPosixPath(info.hasProjectRoot ? info.relativePath : info.absolutePath)
+    );
 }
 /**
  * Format {@link filePath} for display within logs or diagnostics, collapsing
@@ -80,9 +87,11 @@ export function resolveProjectDisplayPath(filePath, projectRoot) {
         return null;
     }
     return withProjectPathInfo(normalizedFilePath, projectRoot, (info) => {
-        if (!info.inputWasAbsolute ||
+        if (
+            !info.inputWasAbsolute ||
             !info.hasProjectRoot ||
-            !info.isInsideProjectRoot) {
+            !info.isInsideProjectRoot
+        ) {
             return normalizedFilePath;
         }
         return info.relativePath || normalizedFilePath;

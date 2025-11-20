@@ -16,7 +16,12 @@
  * @param {boolean} [parameters.includeUndefined=false] When `true`, invoke the
  *        callback even if the variable is explicitly set to `undefined`.
  */
-export declare function applyEnvironmentOverride({ env, envVar, applyValue, includeUndefined }?: {
+export declare function applyEnvironmentOverride({
+    env,
+    envVar,
+    applyValue,
+    includeUndefined
+}?: {
     includeUndefined?: boolean;
 }): void;
 /**
@@ -51,7 +56,10 @@ export declare function resolveEnvironmentMap(candidate: any): any;
  * @returns {ReturnType<TConfig["applyEnvOverride"]>} Result of invoking
  *          `config.applyEnvOverride` with the normalized environment map.
  */
-export declare function applyConfiguredValueEnvOverride(config: any, env: any): any;
+export declare function applyConfiguredValueEnvOverride(
+    config: any,
+    env: any
+): any;
 /**
  * Create a stateful value that can be configured imperatively and via
  * environment overrides.
@@ -89,7 +97,12 @@ export declare function applyConfiguredValueEnvOverride(config: any, env: any): 
  *     applyEnvOverride(env?: NodeJS.ProcessEnv | null | undefined): TValue;
  * }} Utility methods for interacting with the configurable value.
  */
-export declare function createEnvConfiguredValue({ defaultValue, envVar, normalize, applyOverride }?: {
+export declare function createEnvConfiguredValue({
+    defaultValue,
+    envVar,
+    normalize,
+    applyOverride
+}?: {
     applyOverride?: typeof applyEnvironmentOverride;
 }): {
     get: () => any;
@@ -127,7 +140,12 @@ export declare function createEnvConfiguredValue({ defaultValue, envVar, normali
  *     applyEnvOverride(env?: NodeJS.ProcessEnv | null | undefined): TValue;
  * }}
  */
-export declare function createEnvConfiguredValueWithFallback({ defaultValue, envVar, resolve, computeFallback }?: {}): {
+export declare function createEnvConfiguredValueWithFallback({
+    defaultValue,
+    envVar,
+    resolve,
+    computeFallback
+}?: {}): {
     get: () => any;
     set: (value: any) => any;
     applyEnvOverride: (env: any) => any;

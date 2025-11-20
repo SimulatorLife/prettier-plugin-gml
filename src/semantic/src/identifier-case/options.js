@@ -8,9 +8,12 @@ import { getIdentifierCaseStyleMetadata } from "./identifier-case-utils.js";
 import { getDefaultProjectIndexCacheMaxSize } from "../project-index/cache.js";
 import { getDefaultProjectIndexGmlConcurrency } from "../project-index/concurrency.js";
 import { DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES } from "./option-store-defaults.js";
-const { Utils: { capitalize, createListSplitPattern, normalizeStringList } } = Core;
+const {
+    Utils: { capitalize, createListSplitPattern, normalizeStringList }
+} = Core;
 export { DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES } from "./option-store-defaults.js";
-const IDENTIFIER_CASE_DESCRIPTION = "Sets the preferred casing style to apply when renaming identifiers.";
+const IDENTIFIER_CASE_DESCRIPTION =
+    "Sets the preferred casing style to apply when renaming identifiers.";
 export const IdentifierCaseStyle = Object.freeze({
     OFF: "off",
     CAMEL: "camel",
@@ -19,7 +22,9 @@ export const IdentifierCaseStyle = Object.freeze({
     SNAKE_UPPER: "snake-upper"
 });
 const IDENTIFIER_CASE_STYLE_SET = new Set(Object.values(IdentifierCaseStyle));
-export const IDENTIFIER_CASE_STYLES = Object.freeze(Object.values(IdentifierCaseStyle));
+export const IDENTIFIER_CASE_STYLES = Object.freeze(
+    Object.values(IdentifierCaseStyle)
+);
 const IDENTIFIER_CASE_LIST_SPLIT_PATTERN = createListSplitPattern(["\n", ","]);
 export const IDENTIFIER_CASE_INHERIT_VALUE = "inherit";
 export function isIdentifierCaseStyle(style) {
@@ -27,7 +32,9 @@ export function isIdentifierCaseStyle(style) {
 }
 function createUnknownIdentifierCaseStyleError(style, optionName) {
     const validStyles = Array.from(IDENTIFIER_CASE_STYLE_SET).join(", ");
-    return new RangeError(`Invalid identifier case style '${style}' for ${optionName}. Valid styles: ${validStyles}.`);
+    return new RangeError(
+        `Invalid identifier case style '${style}' for ${optionName}. Valid styles: ${validStyles}.`
+    );
 }
 export function assertIdentifierCaseStyle(style, optionName) {
     if (!isIdentifierCaseStyle(style)) {
@@ -35,7 +42,10 @@ export function assertIdentifierCaseStyle(style, optionName) {
     }
     return style;
 }
-function normalizeIdentifierCaseStyleOption(style, { optionName, defaultValue }) {
+function normalizeIdentifierCaseStyleOption(
+    style,
+    { optionName, defaultValue }
+) {
     if (style === undefined) {
         return defaultValue;
     }
@@ -54,12 +64,18 @@ export const IDENTIFIER_CASE_SCOPE_NAMES = Object.freeze([
 export const IDENTIFIER_CASE_BASE_OPTION_NAME = "gmlIdentifierCase";
 export const IDENTIFIER_CASE_IGNORE_OPTION_NAME = "gmlIdentifierCaseIgnore";
 export const IDENTIFIER_CASE_PRESERVE_OPTION_NAME = "gmlIdentifierCasePreserve";
-export const IDENTIFIER_CASE_ACKNOWLEDGE_ASSETS_OPTION_NAME = "gmlIdentifierCaseAcknowledgeAssetRenames";
-export const IDENTIFIER_CASE_DISCOVER_PROJECT_OPTION_NAME = "gmlIdentifierCaseDiscoverProject";
-export const IDENTIFIER_CASE_PROJECT_ROOT_OPTION_NAME = "gmlIdentifierCaseProjectRoot";
-export const IDENTIFIER_CASE_PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME = "gmlIdentifierCaseProjectIndexCacheMaxBytes";
-export const IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME = "gmlIdentifierCaseOptionStoreMaxEntries";
-export const IDENTIFIER_CASE_PROJECT_INDEX_CONCURRENCY_OPTION_NAME = "gmlIdentifierCaseProjectIndexConcurrency";
+export const IDENTIFIER_CASE_ACKNOWLEDGE_ASSETS_OPTION_NAME =
+    "gmlIdentifierCaseAcknowledgeAssetRenames";
+export const IDENTIFIER_CASE_DISCOVER_PROJECT_OPTION_NAME =
+    "gmlIdentifierCaseDiscoverProject";
+export const IDENTIFIER_CASE_PROJECT_ROOT_OPTION_NAME =
+    "gmlIdentifierCaseProjectRoot";
+export const IDENTIFIER_CASE_PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME =
+    "gmlIdentifierCaseProjectIndexCacheMaxBytes";
+export const IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME =
+    "gmlIdentifierCaseOptionStoreMaxEntries";
+export const IDENTIFIER_CASE_PROJECT_INDEX_CONCURRENCY_OPTION_NAME =
+    "gmlIdentifierCaseProjectIndexConcurrency";
 const IDENTIFIER_CASE_SCOPE_OPTION_PREFIX = "gmlIdentifierCase";
 const BASE_IDENTIFIER_CASE_SINCE = "0.0.0";
 const ASSET_SCOPE_NAME = "assets";
@@ -73,15 +89,21 @@ export function normalizeIdentifierCaseAssetStyle(style) {
 function createChoice(value, description) {
     return { value, description };
 }
-export const IDENTIFIER_CASE_STYLE_CHOICES = IDENTIFIER_CASE_STYLES.map((style) => {
-    const { description = IDENTIFIER_CASE_DESCRIPTION } = getIdentifierCaseStyleMetadata(style);
-    return createChoice(style, description);
-});
+export const IDENTIFIER_CASE_STYLE_CHOICES = IDENTIFIER_CASE_STYLES.map(
+    (style) => {
+        const { description = IDENTIFIER_CASE_DESCRIPTION } =
+            getIdentifierCaseStyleMetadata(style);
+        return createChoice(style, description);
+    }
+);
 function getScopeOptionName(scope) {
     return `${IDENTIFIER_CASE_SCOPE_OPTION_PREFIX}${capitalize(scope)}`;
 }
 function createScopeChoiceEntries() {
-    const inheritChoice = createChoice(IDENTIFIER_CASE_INHERIT_VALUE, "Inherit the default gmlIdentifierCase value.");
+    const inheritChoice = createChoice(
+        IDENTIFIER_CASE_INHERIT_VALUE,
+        "Inherit the default gmlIdentifierCase value."
+    );
     return [inheritChoice, ...IDENTIFIER_CASE_STYLE_CHOICES];
 }
 function createScopeOptionConfig(scope) {
@@ -100,7 +122,8 @@ export const identifierCaseOptions = {
         type: "choice",
         category: "gml",
         default: "off",
-        description: "Configures the default identifier case conversion style applied to eligible declarations.",
+        description:
+            "Configures the default identifier case conversion style applied to eligible declarations.",
         choices: IDENTIFIER_CASE_STYLE_CHOICES
     },
     [IDENTIFIER_CASE_IGNORE_OPTION_NAME]: {
@@ -108,35 +131,40 @@ export const identifierCaseOptions = {
         type: "string",
         category: "gml",
         default: "",
-        description: "Comma- or newline-separated patterns describing identifiers or files to ignore while renaming."
+        description:
+            "Comma- or newline-separated patterns describing identifiers or files to ignore while renaming."
     },
     [IDENTIFIER_CASE_PRESERVE_OPTION_NAME]: {
         since: BASE_IDENTIFIER_CASE_SINCE,
         type: "string",
         category: "gml",
         default: "",
-        description: "Comma- or newline-separated list of identifier names that must be preserved without renaming."
+        description:
+            "Comma- or newline-separated list of identifier names that must be preserved without renaming."
     },
     [IDENTIFIER_CASE_ACKNOWLEDGE_ASSETS_OPTION_NAME]: {
         since: BASE_IDENTIFIER_CASE_SINCE,
         type: "boolean",
         category: "gml",
         default: false,
-        description: "Acknowledges that enabling asset renames may rename files on disk and updates related metadata."
+        description:
+            "Acknowledges that enabling asset renames may rename files on disk and updates related metadata."
     },
     [IDENTIFIER_CASE_DISCOVER_PROJECT_OPTION_NAME]: {
         since: BASE_IDENTIFIER_CASE_SINCE,
         type: "boolean",
         category: "gml",
         default: true,
-        description: "Automatically search for the nearest GameMaker project manifest (.yyp) when preparing identifier case plans."
+        description:
+            "Automatically search for the nearest GameMaker project manifest (.yyp) when preparing identifier case plans."
     },
     [IDENTIFIER_CASE_PROJECT_ROOT_OPTION_NAME]: {
         since: BASE_IDENTIFIER_CASE_SINCE,
         type: "path",
         category: "gml",
         default: "",
-        description: "Overrides automatic discovery with an explicit GameMaker project root directory when building identifier indexes."
+        description:
+            "Overrides automatic discovery with an explicit GameMaker project root directory when building identifier indexes."
     },
     [IDENTIFIER_CASE_PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME]: {
         since: BASE_IDENTIFIER_CASE_SINCE,
@@ -144,7 +172,8 @@ export const identifierCaseOptions = {
         category: "gml",
         default: getDefaultProjectIndexCacheMaxSize(),
         range: { start: 0, end: Infinity },
-        description: "Maximum size in bytes for the project-index cache payload. Set to 0 to disable the limit when coordinating cache writes."
+        description:
+            "Maximum size in bytes for the project-index cache payload. Set to 0 to disable the limit when coordinating cache writes."
     }
 };
 identifierCaseOptions[IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME] = {
@@ -153,7 +182,8 @@ identifierCaseOptions[IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME] = {
     category: "gml",
     default: DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES,
     range: { start: 0, end: Infinity },
-    description: "Maximum number of identifier-case option store entries to retain. Set to 0 to disable eviction entirely."
+    description:
+        "Maximum number of identifier-case option store entries to retain. Set to 0 to disable eviction entirely."
 };
 identifierCaseOptions[IDENTIFIER_CASE_PROJECT_INDEX_CONCURRENCY_OPTION_NAME] = {
     since: BASE_IDENTIFIER_CASE_SINCE,
@@ -161,7 +191,8 @@ identifierCaseOptions[IDENTIFIER_CASE_PROJECT_INDEX_CONCURRENCY_OPTION_NAME] = {
     category: "gml",
     default: getDefaultProjectIndexGmlConcurrency(),
     range: { start: 1, end: Infinity },
-    description: "Maximum number of GameMaker files parsed in parallel while building identifier-case project indexes."
+    description:
+        "Maximum number of GameMaker files parsed in parallel while building identifier-case project indexes."
 };
 for (const scope of IDENTIFIER_CASE_SCOPE_NAMES) {
     const optionName = getScopeOptionName(scope);
@@ -179,11 +210,14 @@ function resolveScopeSettings(options, baseStyle) {
     for (const scope of IDENTIFIER_CASE_SCOPE_NAMES) {
         const optionName = getScopeOptionName(scope);
         const configuredValue = options?.[optionName];
-        const normalizedValue = configuredValue === undefined
-            ? IDENTIFIER_CASE_INHERIT_VALUE
-            : configuredValue;
-        if (scope === "locals" &&
-            normalizedValue !== IDENTIFIER_CASE_INHERIT_VALUE) {
+        const normalizedValue =
+            configuredValue === undefined
+                ? IDENTIFIER_CASE_INHERIT_VALUE
+                : configuredValue;
+        if (
+            scope === "locals" &&
+            normalizedValue !== IDENTIFIER_CASE_INHERIT_VALUE
+        ) {
             assertIdentifierCaseStyle(normalizedValue, optionName);
         }
         scopeSettings[scope] = normalizedValue;
@@ -217,19 +251,37 @@ function resolveScopeSettings(options, baseStyle) {
  * @throws {Error} When asset renames are enabled without acknowledgement.
  */
 export function normalizeIdentifierCaseOptions(options = {}) {
-    const baseStyle = normalizeIdentifierCaseStyleOption(options?.[IDENTIFIER_CASE_BASE_OPTION_NAME], {
-        optionName: IDENTIFIER_CASE_BASE_OPTION_NAME,
-        defaultValue: IdentifierCaseStyle.OFF
-    });
-    const { scopeSettings, scopeStyles } = resolveScopeSettings(options, baseStyle);
-    const ignorePatterns = normalizeList(IDENTIFIER_CASE_IGNORE_OPTION_NAME, options?.[IDENTIFIER_CASE_IGNORE_OPTION_NAME]);
-    const preservedIdentifiers = normalizeList(IDENTIFIER_CASE_PRESERVE_OPTION_NAME, options?.[IDENTIFIER_CASE_PRESERVE_OPTION_NAME]);
-    const assetRenamesAcknowledged = Boolean(options?.[IDENTIFIER_CASE_ACKNOWLEDGE_ASSETS_OPTION_NAME]);
-    const effectiveAssetStyle = normalizeIdentifierCaseAssetStyle(scopeStyles.assets);
+    const baseStyle = normalizeIdentifierCaseStyleOption(
+        options?.[IDENTIFIER_CASE_BASE_OPTION_NAME],
+        {
+            optionName: IDENTIFIER_CASE_BASE_OPTION_NAME,
+            defaultValue: IdentifierCaseStyle.OFF
+        }
+    );
+    const { scopeSettings, scopeStyles } = resolveScopeSettings(
+        options,
+        baseStyle
+    );
+    const ignorePatterns = normalizeList(
+        IDENTIFIER_CASE_IGNORE_OPTION_NAME,
+        options?.[IDENTIFIER_CASE_IGNORE_OPTION_NAME]
+    );
+    const preservedIdentifiers = normalizeList(
+        IDENTIFIER_CASE_PRESERVE_OPTION_NAME,
+        options?.[IDENTIFIER_CASE_PRESERVE_OPTION_NAME]
+    );
+    const assetRenamesAcknowledged = Boolean(
+        options?.[IDENTIFIER_CASE_ACKNOWLEDGE_ASSETS_OPTION_NAME]
+    );
+    const effectiveAssetStyle = normalizeIdentifierCaseAssetStyle(
+        scopeStyles.assets
+    );
     scopeStyles.assets = effectiveAssetStyle;
     const assetRenamesEnabled = effectiveAssetStyle !== IdentifierCaseStyle.OFF;
     if (assetRenamesEnabled && !assetRenamesAcknowledged) {
-        throw new Error("Enabling gmlIdentifierCaseAssets requires acknowledging asset renames via gmlIdentifierCaseAcknowledgeAssetRenames.");
+        throw new Error(
+            "Enabling gmlIdentifierCaseAssets requires acknowledging asset renames via gmlIdentifierCaseAcknowledgeAssetRenames."
+        );
     }
     return {
         baseStyle,

@@ -1,12 +1,21 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { capitalize, normalizeStringList, toArrayFromIterable, trimStringEntries } } = Core;
-const RESERVED_PREFIX_PATTERN = /^(?<prefix>(?:global|other|self|local|with|noone)\.|argument(?:_(?:local|relative))?(?:\[\d+\]|\d+)?\.?)/;
+const {
+    Utils: {
+        capitalize,
+        normalizeStringList,
+        toArrayFromIterable,
+        trimStringEntries
+    }
+} = Core;
+const RESERVED_PREFIX_PATTERN =
+    /^(?<prefix>(?:global|other|self|local|with|noone)\.|argument(?:_(?:local|relative))?(?:\[\d+\]|\d+)?\.?)/;
 // Hoist frequently re-created regular expressions so identifier normalization
 // can reuse them across calls. This helper runs in tight loops while
 // tokenizing identifiers, so avoiding per-call RegExp allocation keeps the hot
 // path allocation-free.
 const CORE_SEGMENT_DELIMITER_PATTERN = /_+/;
-const CASE_SEGMENT_PATTERN = /[A-Z]+(?=[A-Z][a-z0-9])|[A-Z]?[a-z0-9]+|[0-9]+|[A-Z]+/g;
+const CASE_SEGMENT_PATTERN =
+    /[A-Z]+(?=[A-Z][a-z0-9])|[A-Z]?[a-z0-9]+|[0-9]+|[A-Z]+/g;
 const TOKEN_PART_PATTERN = /[A-Za-z]+|[0-9]+/g;
 const NUMBER_ONLY_PATTERN = /^\d+$/;
 function getGlobalMatches(pattern, text) {
@@ -52,7 +61,9 @@ function tokenizeCore(core) {
     if (!core) {
         return [];
     }
-    const rawSegments = trimStringEntries(core.split(CORE_SEGMENT_DELIMITER_PATTERN)).filter(Boolean);
+    const rawSegments = trimStringEntries(
+        core.split(CORE_SEGMENT_DELIMITER_PATTERN)
+    ).filter(Boolean);
     const tokens = [];
     for (const segment of rawSegments) {
         const caseSegments = getGlobalMatches(CASE_SEGMENT_PATTERN, segment);
@@ -72,11 +83,13 @@ function finalizeIdentifier(normalized, base) {
     const suffix = normalized.suffixDigits
         ? normalized.suffixSeparator + normalized.suffixDigits
         : "";
-    return (normalized.prefix +
+    return (
+        normalized.prefix +
         normalized.leadingUnderscores +
         base +
         normalized.trailingUnderscores +
-        suffix);
+        suffix
+    );
 }
 function buildWordCase(normalized, transformToken) {
     const { tokens } = normalized;
@@ -107,13 +120,17 @@ function buildCamelCase(normalized) {
     });
 }
 function buildPascalCase(normalized) {
-    return buildWordCase(normalized, (token) => token.type === "number"
-        ? token.normalized
-        : capitalize(token.normalized));
+    return buildWordCase(normalized, (token) =>
+        token.type === "number"
+            ? token.normalized
+            : capitalize(token.normalized)
+    );
 }
 function shouldJoinForSnake(previousToken, currentToken) {
-    return ((previousToken.type === "word" && currentToken.type === "number") ||
-        (previousToken.type === "number" && currentToken.type === "word"));
+    return (
+        (previousToken.type === "word" && currentToken.type === "number") ||
+        (previousToken.type === "number" && currentToken.type === "word")
+    );
 }
 function buildSnakeCase(normalized, transform) {
     const { tokens } = normalized;
@@ -144,19 +161,23 @@ const IDENTIFIER_CASE_STYLE_METADATA = Object.freeze({
         description: "Disable automatic identifier case rewriting."
     }),
     camel: Object.freeze({
-        description: "Convert identifiers to lower camelCase (e.g. `exampleName`).",
+        description:
+            "Convert identifiers to lower camelCase (e.g. `exampleName`).",
         format: buildCamelCase
     }),
     pascal: Object.freeze({
-        description: "Convert identifiers to Upper PascalCase (e.g. `ExampleName`).",
+        description:
+            "Convert identifiers to Upper PascalCase (e.g. `ExampleName`).",
         format: buildPascalCase
     }),
     "snake-lower": Object.freeze({
-        description: "Convert identifiers to lower snake_case (e.g. `example_name`).",
+        description:
+            "Convert identifiers to lower snake_case (e.g. `example_name`).",
         format: (normalized) => buildSnakeCase(normalized, transformSnakeLower)
     }),
     "snake-upper": Object.freeze({
-        description: "Convert identifiers to UPPER_SNAKE_CASE (e.g. `EXAMPLE_NAME`).",
+        description:
+            "Convert identifiers to UPPER_SNAKE_CASE (e.g. `EXAMPLE_NAME`).",
         format: (normalized) => buildSnakeCase(normalized, transformSnakeUpper)
     })
 });
@@ -182,7 +203,8 @@ export function normalizeIdentifierCase(identifier) {
     return buildNormalizedIdentifier(identifier, match);
 }
 export function formatIdentifierCase(input, style) {
-    const normalized = typeof input === "string" ? normalizeIdentifierCase(input) : input;
+    const normalized =
+        typeof input === "string" ? normalizeIdentifierCase(input) : input;
     const format = getIdentifierCaseFormatter(style);
     return format(normalized);
 }
@@ -225,8 +247,13 @@ function extractReservedPrefixWithOverrides(identifier, overrides) {
     return baseMatch;
 }
 function buildNormalizedIdentifier(identifier, match) {
-    const { core: withoutNumericSuffix, suffixSeparator, suffixDigits } = splitNumericSuffix(match.remainder);
-    const { core, leading, trailing } = stripEdgeUnderscores(withoutNumericSuffix);
+    const {
+        core: withoutNumericSuffix,
+        suffixSeparator,
+        suffixDigits
+    } = splitNumericSuffix(match.remainder);
+    const { core, leading, trailing } =
+        stripEdgeUnderscores(withoutNumericSuffix);
     const tokens = tokenizeCore(core);
     return {
         original: identifier,
@@ -239,7 +266,9 @@ function buildNormalizedIdentifier(identifier, match) {
     };
 }
 export function normalizeIdentifierCaseWithOptions(identifier, options = {}) {
-    const overrides = normalizeReservedPrefixOverrides(options.reservedPrefixes);
+    const overrides = normalizeReservedPrefixOverrides(
+        options.reservedPrefixes
+    );
     if (overrides.length === 0) {
         return normalizeIdentifierCase(identifier);
     }
@@ -250,9 +279,10 @@ export function normalizeIdentifierCaseWithOptions(identifier, options = {}) {
     return buildNormalizedIdentifier(identifier, match);
 }
 export function formatIdentifierCaseWithOptions(input, style, options = {}) {
-    const normalized = typeof input === "string"
-        ? normalizeIdentifierCaseWithOptions(input, options)
-        : input;
+    const normalized =
+        typeof input === "string"
+            ? normalizeIdentifierCaseWithOptions(input, options)
+            : input;
     const format = getIdentifierCaseFormatter(style);
     return format(normalized);
 }

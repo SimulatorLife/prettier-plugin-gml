@@ -1,5 +1,7 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { isErrorLike } } = Core;
+const {
+    Utils: { isErrorLike }
+} = Core;
 /**
  * Determine whether a thrown value exposes the location-rich fields emitted by
  * the ANTLR-generated parser. The guard accepts both native `SyntaxError`

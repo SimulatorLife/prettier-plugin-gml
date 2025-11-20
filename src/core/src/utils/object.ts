@@ -35,7 +35,7 @@ export function isPlainObject(value, { allowNullPrototype = true } = {}) {
  */
 export function assertFunction(value, name, { errorMessage } = {}) {
     if (typeof value === "function") {
-        return /** @type {TFunction} */ (value);
+        return /** @type {TFunction} */ value;
     }
 
     const message =
@@ -86,15 +86,14 @@ export function resolveHelperOverride(helpers, key, fallback) {
         return normalizedFallback;
     }
 
-    const candidate = /** @type {Record<string | number | symbol, unknown>} */ (
-        helpers
-    )[key];
+    const candidate =
+        /** @type {Record<string | number | symbol, unknown>} */ helpers[key];
 
     if (typeof candidate !== "function") {
         return normalizedFallback;
     }
 
-    return /** @type {THelper} */ (candidate);
+    return /** @type {THelper} */ candidate;
 }
 
 const objectPrototypeToString = Object.prototype.toString;
@@ -236,19 +235,22 @@ export function assertFunctionProperties(
               : [methodNames];
 
     if (requiredMethods.length === 0) {
-        return /** @type {TObject} */ (value);
+        return /** @type {TObject} */ value;
     }
 
-    const target = /** @type {Record<PropertyKey, unknown> | undefined} */ (
-        isObjectOrFunction(value) ? value : undefined
-    );
+    const target =
+        /** @type {Record<PropertyKey, unknown> | undefined} */ isObjectOrFunction(
+            value
+        )
+            ? value
+            : undefined;
 
     const missingMethods = requiredMethods
         .filter((methodName) => typeof target?.[methodName] !== "function")
         .map(String);
 
     if (missingMethods.length === 0) {
-        return /** @type {TObject} */ (value);
+        return /** @type {TObject} */ value;
     }
 
     if (errorMessage) {

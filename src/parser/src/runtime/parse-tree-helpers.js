@@ -1,19 +1,28 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { noop } } = Core;
+const {
+    Utils: { noop }
+} = Core;
 const DEFAULT_FUNCTION_NAME = "parser";
 function toQualifiedSymbolKey(name, suffix) {
-    const qualified = typeof name === "string" && name.length > 0
-        ? name
-        : DEFAULT_FUNCTION_NAME;
+    const qualified =
+        typeof name === "string" && name.length > 0
+            ? name
+            : DEFAULT_FUNCTION_NAME;
     return `prettier.gml.${qualified}.${suffix}`;
 }
-export function createWrapperSymbols(name, { hasInstanceSuffix = "hasInstancePatched", wrapperSuffix = "wrapper" } = {}) {
+export function createWrapperSymbols(
+    name,
+    { hasInstanceSuffix = "hasInstancePatched", wrapperSuffix = "wrapper" } = {}
+) {
     return {
         instance: Symbol.for(toQualifiedSymbolKey(name, wrapperSuffix)),
         patchFlag: Symbol.for(toQualifiedSymbolKey(name, hasInstanceSuffix))
     };
 }
-export function ensureHasInstancePatched(BaseClass, { markerSymbol, patchFlagSymbol }) {
+export function ensureHasInstancePatched(
+    BaseClass,
+    { markerSymbol, patchFlagSymbol }
+) {
     if (!BaseClass || typeof BaseClass !== "function") {
         return;
     }

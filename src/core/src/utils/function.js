@@ -22,7 +22,7 @@ export function identity(value) {
 // inline closure—even one that does nothing—would cause those guards to miss the
 // sentinel, leak manual overrides, and require every consumer to grow bespoke
 // equality logic.
-const NOOP = () => { };
+const NOOP = () => {};
 /**
  * Invoke {@link action} while capturing synchronous failures and returning a
  * fallback value instead. Centralizes the "try, catch, fallback" pattern used
@@ -42,14 +42,15 @@ const NOOP = () => { };
  */
 export function callWithFallback(action, { fallback, onError } = {}) {
     const invoke = assertFunction(action, "action");
-    const fallbackProvider = typeof fallback === "function"
-        ? /** @type {(error: unknown) => TResult} */ (fallback)
-        : () => /** @type {TResult} */ (fallback);
-    const errorHandler = onError === undefined ? undefined : assertFunction(onError, "onError");
+    const fallbackProvider =
+        typeof fallback === "function"
+            ? /** @type {(error: unknown) => TResult} */ (fallback)
+            : () => /** @type {TResult} */ (fallback);
+    const errorHandler =
+        onError === undefined ? undefined : assertFunction(onError, "onError");
     try {
         return invoke();
-    }
-    catch (error) {
+    } catch (error) {
         errorHandler?.(error);
         return fallbackProvider(error);
     }

@@ -1,5 +1,8 @@
 import { Core } from "@gml-modules/core";
-const { Reporting: { createMetricsTracker }, Utils: { isObjectLike, noop } } = Core;
+const {
+    Reporting: { createMetricsTracker },
+    Utils: { isObjectLike, noop }
+} = Core;
 const PROJECT_INDEX_METRICS_CATEGORY = "project-index";
 const REQUIRED_RECORDING_GROUPS = Object.freeze({
     timers: ["startTimer", "timeAsync", "timeSync"],
@@ -14,27 +17,35 @@ const REQUIRED_REPORTING_GROUPS = Object.freeze({
 });
 function hasMetricGroup(candidate, groupName, methodNames) {
     const group = candidate?.[groupName];
-    return (isObjectLike(group) &&
-        methodNames.every((method) => typeof group[method] === "function"));
+    return (
+        isObjectLike(group) &&
+        methodNames.every((method) => typeof group[method] === "function")
+    );
 }
 function isMetricsRecordingSuite(candidate) {
     if (!isObjectLike(candidate) || typeof candidate.category !== "string") {
         return false;
     }
-    return Object.entries(REQUIRED_RECORDING_GROUPS).every(([groupName, methods]) => hasMetricGroup(candidate, groupName, methods));
+    return Object.entries(REQUIRED_RECORDING_GROUPS).every(
+        ([groupName, methods]) => hasMetricGroup(candidate, groupName, methods)
+    );
 }
 function isMetricsReportingSuite(candidate) {
     if (!isObjectLike(candidate)) {
         return false;
     }
-    return Object.entries(REQUIRED_REPORTING_GROUPS).every(([groupName, methods]) => hasMetricGroup(candidate, groupName, methods));
+    return Object.entries(REQUIRED_REPORTING_GROUPS).every(
+        ([groupName, methods]) => hasMetricGroup(candidate, groupName, methods)
+    );
 }
 function isMetricsContracts(candidate) {
     if (!isObjectLike(candidate)) {
         return false;
     }
-    return (isMetricsRecordingSuite(candidate.recording) &&
-        isMetricsReportingSuite(candidate.reporting));
+    return (
+        isMetricsRecordingSuite(candidate.recording) &&
+        isMetricsReportingSuite(candidate.reporting)
+    );
 }
 function createMetricsSnapshot(extra = {}) {
     return {
@@ -63,7 +74,7 @@ function createMetricsSnapshot(extra = {}) {
 // that rely on the tracker contract remaining stable even when misconfigured.
 const NOOP_METRIC_RECORDING_GROUPS = Object.freeze({
     timers: Object.freeze({
-        startTimer: () => () => { },
+        startTimer: () => () => {},
         timeAsync: async (_label, callback) => callback(),
         timeSync: (_label, callback) => callback()
     }),
@@ -84,7 +95,7 @@ const NOOP_METRIC_REPORTING_GROUPS = Object.freeze({
     }),
     caches: Object.freeze({
         cachesSnapshot: () => ({}),
-        cacheSnapshot: () => { }
+        cacheSnapshot: () => {}
     }),
     logger: Object.freeze({
         logSummary: noop

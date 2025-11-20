@@ -33,7 +33,10 @@ export declare function fromPosixPath(inputPath: any): any;
  * @returns {string | null} Relative path when the child is contained within the
  *                          parent, otherwise `null`.
  */
-export declare function resolveContainedRelativePath(childPath: any, parentPath: any): any;
+export declare function resolveContainedRelativePath(
+    childPath: any,
+    parentPath: any
+): any;
 /**
  * Yield each ancestor directory for the provided start path, beginning with
  * the resolved start directory and walking toward the file system root.
@@ -51,7 +54,12 @@ export declare function resolveContainedRelativePath(childPath: any, parentPath:
  *        itself.
  * @returns {Generator<string, void, void>} Iterator over ancestor directories.
  */
-export declare function walkAncestorDirectories(startPath: any, { includeSelf }?: {
-    includeSelf?: boolean;
-}): Generator<any, void, unknown>;
+export declare function walkAncestorDirectories(
+    startPath: any,
+    {
+        includeSelf
+    }?: {
+        includeSelf?: boolean;
+    }
+): Generator<any, void, unknown>;
 export declare function isPathInside(childPath: any, parentPath: any): boolean;

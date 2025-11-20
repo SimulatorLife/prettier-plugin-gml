@@ -12,4 +12,8 @@
  * @returns {Record<string, unknown>} Normalized error decorated with display
  *          metadata and canonical messaging.
  */
-export declare function formatProjectIndexSyntaxError(error: any, sourceText: any, context: any): any;
+export declare function formatProjectIndexSyntaxError(
+    error: any,
+    sourceText: any,
+    context: any
+): any;

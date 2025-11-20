@@ -3,11 +3,16 @@ import GameMakerLanguageLexer from "../generated/GameMakerLanguageLexer.js";
 import GameMakerLanguageParser from "../generated/GameMakerLanguageParser.js";
 import GameMakerASTBuilder from "./gml-ast-builder.js";
 import { applyTransforms } from "./transforms/index.js";
-import GameMakerParseErrorListener, { GameMakerLexerErrorListener } from "./gml-syntax-error.js";
+import GameMakerParseErrorListener, {
+    GameMakerLexerErrorListener
+} from "./gml-syntax-error.js";
 import { createHiddenNodeProcessor } from "./ast/hidden-node-processor.js";
 import { isObjectLike, isErrorLike } from "./utils/index.js";
 import { walkObjectGraph } from "./ast/object-graph.js";
-import { removeLocationMetadata, simplifyLocationMetadata } from "./ast/location-manipulation.js";
+import {
+    removeLocationMetadata,
+    simplifyLocationMetadata
+} from "./ast/location-manipulation.js";
 import { installRecognitionExceptionLikeGuard } from "./runtime/recognition-exception-patch.js";
 import convertToESTree from "./utils/estree-converter.js";
 installRecognitionExceptionLikeGuard();
@@ -21,7 +26,8 @@ export default class GMLParser {
         this.text = normalizeSimpleEscapeCase(text);
         this.whitespaces = [];
         this.comments = [];
-        const defaults = this.constructor?.optionDefaults ?? GMLParser.optionDefaults;
+        const defaults =
+            this.constructor?.optionDefaults ?? GMLParser.optionDefaults;
         this.options = mergeParserOptions(defaults, options);
     }
     static optionDefaults = Object.freeze({
@@ -55,10 +61,11 @@ export default class GMLParser {
         let tree;
         try {
             tree = parser.program();
-        }
-        catch (error) {
+        } catch (error) {
             if (!error) {
-                throw new Error("Unknown syntax error while parsing GML source.");
+                throw new Error(
+                    "Unknown syntax error while parsing GML source."
+                );
             }
             if (isErrorLike(error)) {
                 throw error;
@@ -76,16 +83,22 @@ export default class GMLParser {
             astTree.comments = this.comments;
         }
         // Optionally apply parser-level transforms (internal opt-in).
-        if (Array.isArray(this.options.transforms) &&
-            this.options.transforms.length > 0) {
-            astTree = applyTransforms(astTree, this.options.transforms, this.options.transformOptions || {});
+        if (
+            Array.isArray(this.options.transforms) &&
+            this.options.transforms.length > 0
+        ) {
+            astTree = applyTransforms(
+                astTree,
+                this.options.transforms,
+                this.options.transformOptions || {}
+            );
         }
-        const shouldConvertToESTree = typeof this.options.astFormat === "string" &&
+        const shouldConvertToESTree =
+            typeof this.options.astFormat === "string" &&
             this.options.astFormat.toLowerCase() === "estree";
         if (!this.options.getLocations) {
             this.removeLocationInfo(astTree);
-        }
-        else if (!shouldConvertToESTree && this.options.simplifyLocations) {
+        } else if (!shouldConvertToESTree && this.options.simplifyLocations) {
             this.simplifyLocationInfo(astTree);
         }
         if (this.originalText !== this.text) {
@@ -94,7 +107,8 @@ export default class GMLParser {
         if (shouldConvertToESTree) {
             astTree = convertToESTree(astTree, {
                 includeLocations: this.options.getLocations,
-                includeRange: this.options.getLocations && this.options.simplifyLocations,
+                includeRange:
+                    this.options.getLocations && this.options.simplifyLocations,
                 includeComments: this.options.getComments
             });
         }
@@ -109,9 +123,15 @@ export default class GMLParser {
         const lexer = new GameMakerLanguageLexer(chars);
         lexer.strictMode = false;
         const names = GameMakerLanguageLexer.symbolicNames;
-        for (let token = lexer.nextToken(); token.type !== GameMakerLanguageLexer.EOF; token = lexer.nextToken()) {
+        for (
+            let token = lexer.nextToken();
+            token.type !== GameMakerLanguageLexer.EOF;
+            token = lexer.nextToken()
+        ) {
             const name = names[token.type];
-            console.log(`${name}:${" ".repeat(29 - name.length)} '${token.text.replace("\n", String.raw `\n`)}'`);
+            console.log(
+                `${name}:${" ".repeat(29 - name.length)} '${token.text.replace("\n", String.raw`\n`)}'`
+            );
         }
         console.log("");
     }
@@ -121,23 +141,38 @@ export default class GMLParser {
         }
         walkObjectGraph(root, {
             enterObject: (node) => {
-                const startIndex = typeof node.start === "number"
-                    ? node.start
-                    : node.start?.index;
-                const endIndex = typeof node.end === "number" ? node.end : node.end?.index;
-                if (node.type === "Literal" && Utils.isQuotedString(node.value)) {
-                    if (Number.isInteger(startIndex) &&
+                const startIndex =
+                    typeof node.start === "number"
+                        ? node.start
+                        : node.start?.index;
+                const endIndex =
+                    typeof node.end === "number" ? node.end : node.end?.index;
+                if (
+                    node.type === "Literal" &&
+                    Utils.isQuotedString(node.value)
+                ) {
+                    if (
+                        Number.isInteger(startIndex) &&
                         Number.isInteger(endIndex) &&
-                        endIndex >= startIndex) {
-                        node.value = this.originalText.slice(startIndex, endIndex + 1);
+                        endIndex >= startIndex
+                    ) {
+                        node.value = this.originalText.slice(
+                            startIndex,
+                            endIndex + 1
+                        );
                     }
                     return;
                 }
-                if (node.type === "TemplateStringText" &&
+                if (
+                    node.type === "TemplateStringText" &&
                     Number.isInteger(startIndex) &&
                     Number.isInteger(endIndex) &&
-                    endIndex >= startIndex) {
-                    node.value = this.originalText.slice(startIndex, endIndex + 1);
+                    endIndex >= startIndex
+                ) {
+                    node.value = this.originalText.slice(
+                        startIndex,
+                        endIndex + 1
+                    );
                 }
             }
         });
@@ -145,7 +180,13 @@ export default class GMLParser {
     // Populates the comments array and whitespaces array.
     // Comments are annotated with surrounding whitespace and characters.
     getHiddenNodes(lexer) {
-        const { EOF, SingleLineComment, MultiLineComment, WhiteSpaces, LineTerminator } = GameMakerLanguageLexer;
+        const {
+            EOF,
+            SingleLineComment,
+            MultiLineComment,
+            WhiteSpaces,
+            LineTerminator
+        } = GameMakerLanguageLexer;
         const processor = createHiddenNodeProcessor({
             comments: this.comments,
             whitespaces: this.whitespaces,

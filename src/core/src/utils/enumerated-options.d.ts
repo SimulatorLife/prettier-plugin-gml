@@ -20,6 +20,13 @@ import { toNormalizedLowerCaseString } from "./string.js";
  *          when the option is absent/blank, or `null` when the normalized value
  *          is invalid.
  */
-export declare function normalizeEnumeratedOption(value: any, fallbackValue: any, validValues: any, { coerce }?: {
-    coerce?: typeof toNormalizedLowerCaseString;
-}): any;
+export declare function normalizeEnumeratedOption(
+    value: any,
+    fallbackValue: any,
+    validValues: any,
+    {
+        coerce
+    }?: {
+        coerce?: typeof toNormalizedLowerCaseString;
+    }
+): any;

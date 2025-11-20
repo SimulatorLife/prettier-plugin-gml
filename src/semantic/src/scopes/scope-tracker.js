@@ -1,6 +1,13 @@
 import { Core } from "@gml-modules/core";
-import { ScopeOverrideKeyword, formatKnownScopeOverrideKeywords, isScopeOverrideKeyword } from "./scope-override-keywords.js";
-const { AST: { assignClonedLocation }, Utils: { isObjectLike, toArray, toMutableArray } } = Core;
+import {
+    ScopeOverrideKeyword,
+    formatKnownScopeOverrideKeywords,
+    isScopeOverrideKeyword
+} from "./scope-override-keywords.js";
+const {
+    AST: { assignClonedLocation },
+    Utils: { isObjectLike, toArray, toMutableArray }
+} = Core;
 class Scope {
     constructor(id, kind, parent = null) {
         this.id = id;
@@ -12,43 +19,58 @@ class Scope {
 }
 function createOccurrence(kind, metadata, source, declarationMetadata) {
     const declaration = declarationMetadata
-        ? assignClonedLocation({ scopeId: declarationMetadata.scopeId ?? null }, declarationMetadata)
+        ? assignClonedLocation(
+              { scopeId: declarationMetadata.scopeId ?? null },
+              declarationMetadata
+          )
         : null;
-    return assignClonedLocation({
-        kind,
-        name: metadata?.name ?? null,
-        scopeId: metadata?.scopeId ?? null,
-        classifications: toMutableArray(metadata?.classifications, {
-            clone: true
-        }),
-        declaration
-    }, source ?? {});
+    return assignClonedLocation(
+        {
+            kind,
+            name: metadata?.name ?? null,
+            scopeId: metadata?.scopeId ?? null,
+            classifications: toMutableArray(metadata?.classifications, {
+                clone: true
+            }),
+            declaration
+        },
+        source ?? {}
+    );
 }
 function cloneDeclarationMetadata(metadata) {
     if (!metadata) {
         return null;
     }
-    return assignClonedLocation({
-        name: metadata.name ?? null,
-        scopeId: metadata.scopeId ?? null,
-        classifications: toMutableArray(metadata.classifications, {
-            clone: true
-        })
-    }, metadata);
+    return assignClonedLocation(
+        {
+            name: metadata.name ?? null,
+            scopeId: metadata.scopeId ?? null,
+            classifications: toMutableArray(metadata.classifications, {
+                clone: true
+            })
+        },
+        metadata
+    );
 }
 function cloneOccurrence(occurrence) {
     const declaration = occurrence.declaration
-        ? assignClonedLocation({ scopeId: occurrence.declaration.scopeId ?? null }, occurrence.declaration)
+        ? assignClonedLocation(
+              { scopeId: occurrence.declaration.scopeId ?? null },
+              occurrence.declaration
+          )
         : null;
-    return assignClonedLocation({
-        kind: occurrence.kind,
-        name: occurrence.name,
-        scopeId: occurrence.scopeId,
-        classifications: toMutableArray(occurrence.classifications, {
-            clone: true
-        }),
-        declaration
-    }, occurrence);
+    return assignClonedLocation(
+        {
+            kind: occurrence.kind,
+            name: occurrence.name,
+            scopeId: occurrence.scopeId,
+            classifications: toMutableArray(occurrence.classifications, {
+                clone: true
+            }),
+            declaration
+        },
+        occurrence
+    );
 }
 function ensureIdentifierOccurrences(scope, name) {
     let entry = scope.occurrences.get(name);
@@ -67,12 +89,16 @@ function resolveStringScopeOverride(tracker, scopeOverride, currentScope) {
             ? (tracker.rootScope ?? currentScope)
             : currentScope;
     }
-    const found = tracker.scopeStack.find((scope) => scope.id === scopeOverride);
+    const found = tracker.scopeStack.find(
+        (scope) => scope.id === scopeOverride
+    );
     if (found) {
         return found;
     }
     const keywords = formatKnownScopeOverrideKeywords();
-    throw new RangeError(`Unknown scope override string '${scopeOverride}'. Expected one of: ${keywords}, or a known scope identifier.`);
+    throw new RangeError(
+        `Unknown scope override string '${scopeOverride}'. Expected one of: ${keywords}, or a known scope identifier.`
+    );
 }
 export class ScopeTracker {
     constructor({ enabled = false } = {}) {
@@ -92,7 +118,11 @@ export class ScopeTracker {
             return null;
         }
         const parent = this.scopeStack.at(-1) ?? null;
-        const scope = new Scope(`scope-${this.scopeCounter++}`, kind ?? "unknown", parent);
+        const scope = new Scope(
+            `scope-${this.scopeCounter++}`,
+            kind ?? "unknown",
+            parent
+        );
         this.scopeStack.push(scope);
         this.scopeStackIndices.set(scope.id, this.scopeStack.length - 1);
         this.scopesById.set(scope.id, scope);
@@ -127,12 +157,18 @@ export class ScopeTracker {
         if (!scopeOverride) {
             return currentScope;
         }
-        if (isObjectLike(scopeOverride) &&
-            typeof scopeOverride.id === "string") {
+        if (
+            isObjectLike(scopeOverride) &&
+            typeof scopeOverride.id === "string"
+        ) {
             return scopeOverride;
         }
         if (typeof scopeOverride === "string") {
-            return resolveStringScopeOverride(this, scopeOverride, currentScope);
+            return resolveStringScopeOverride(
+                this,
+                scopeOverride,
+                currentScope
+            );
         }
         return currentScope;
     }
@@ -165,8 +201,7 @@ export class ScopeTracker {
         const entry = ensureIdentifierOccurrences(scope, name);
         if (occurrence.kind === "reference") {
             entry.references.push(occurrence);
-        }
-        else {
+        } else {
             entry.declarations.push(occurrence);
         }
         let scopeSummaryMap = this.symbolToScopesIndex.get(name);
@@ -184,8 +219,7 @@ export class ScopeTracker {
         }
         if (occurrence.kind === "reference") {
             scopeSummary.hasReference = true;
-        }
-        else {
+        } else {
             scopeSummary.hasDeclaration = true;
         }
     }
@@ -236,7 +270,12 @@ export class ScopeTracker {
         node.scopeId = scopeId;
         node.declaration = assignClonedLocation({ scopeId }, metadata);
         node.classifications = classifications;
-        const occurrence = createOccurrence("declaration", metadata, metadata, metadata);
+        const occurrence = createOccurrence(
+            "declaration",
+            metadata,
+            metadata,
+            metadata
+        );
         this.recordScopeOccurrence(scope, name, occurrence);
     }
     reference(name, node, role = {}) {
@@ -248,7 +287,9 @@ export class ScopeTracker {
         const declaration = this.lookup(name);
         let derivedTags = [];
         if (declaration?.classifications) {
-            derivedTags = declaration.classifications.filter((tag) => tag !== "identifier" && tag !== "declaration");
+            derivedTags = declaration.classifications.filter(
+                (tag) => tag !== "identifier" && tag !== "declaration"
+            );
         }
         const combinedRole = {
             ...role,
@@ -258,14 +299,22 @@ export class ScopeTracker {
         node.scopeId = scopeId;
         node.classifications = classifications;
         node.declaration = declaration
-            ? assignClonedLocation({ scopeId: declaration.scopeId }, declaration)
+            ? assignClonedLocation(
+                  { scopeId: declaration.scopeId },
+                  declaration
+              )
             : null;
         const occurrenceMetadata = {
             name,
             scopeId,
             classifications
         };
-        const occurrence = createOccurrence("reference", occurrenceMetadata, node, declaration ?? null);
+        const occurrence = createOccurrence(
+            "reference",
+            occurrenceMetadata,
+            node,
+            declaration ?? null
+        );
         this.recordScopeOccurrence(scope, name, occurrence);
     }
     exportOccurrences({ includeReferences = true } = {}) {
@@ -277,9 +326,13 @@ export class ScopeTracker {
         for (const scope of this.scopesById.values()) {
             const identifiers = [];
             for (const [name, entry] of scope.occurrences) {
-                const declarations = entry.declarations.map((occurrence) => cloneOccurrence(occurrence));
+                const declarations = entry.declarations.map((occurrence) =>
+                    cloneOccurrence(occurrence)
+                );
                 const references = includeRefs
-                    ? entry.references.map((occurrence) => cloneOccurrence(occurrence))
+                    ? entry.references.map((occurrence) =>
+                          cloneOccurrence(occurrence)
+                      )
                     : [];
                 if (declarations.length === 0 && references.length === 0) {
                     continue;
@@ -324,9 +377,13 @@ export class ScopeTracker {
         const includeRefs = Boolean(includeReferences);
         const identifiers = [];
         for (const [name, entry] of scope.occurrences) {
-            const declarations = entry.declarations.map((occurrence) => cloneOccurrence(occurrence));
+            const declarations = entry.declarations.map((occurrence) =>
+                cloneOccurrence(occurrence)
+            );
             const references = includeRefs
-                ? entry.references.map((occurrence) => cloneOccurrence(occurrence))
+                ? entry.references.map((occurrence) =>
+                      cloneOccurrence(occurrence)
+                  )
                 : [];
             if (declarations.length === 0 && references.length === 0) {
                 continue;
@@ -482,8 +539,7 @@ export class ScopeTracker {
             if (!startScope) {
                 return null;
             }
-        }
-        else {
+        } else {
             startScope = this.currentScope();
         }
         if (!startScope) {
@@ -607,12 +663,15 @@ export class ScopeTracker {
                 continue;
             }
             const resolvedDeclaration = this.resolveIdentifier(name, scopeId);
-            const resolvedDeclarationClone = cloneDeclarationMetadata(resolvedDeclaration);
+            const resolvedDeclarationClone =
+                cloneDeclarationMetadata(resolvedDeclaration);
             const declaringScopeId = resolvedDeclarationClone?.scopeId ?? null;
             if (declaringScopeId === scopeId) {
                 continue;
             }
-            const occurrences = entry.references.map((occurrence) => cloneOccurrence(occurrence));
+            const occurrences = entry.references.map((occurrence) =>
+                cloneOccurrence(occurrence)
+            );
             externalRefs.push({
                 name,
                 declaringScopeId,

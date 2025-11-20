@@ -5772,7 +5772,10 @@ function buildNestedMemberIndexExpression({ object, indices, template }) {
             next.start = Core.cloneLocation(template.start);
         }
 
-        if (index === remaining.length - 1 && Object.Core.hasOwn(template, "end")) {
+        if (
+            index === remaining.length - 1 &&
+            Object.Core.hasOwn(template, "end")
+        ) {
             next.end = Core.cloneLocation(template.end);
         }
 
@@ -9420,7 +9423,9 @@ function convertNullishIfStatement(node, parent, property, diagnostic) {
     };
 
     if (Core.hasOwn(consequentAssignment, "start")) {
-        nullishAssignment.start = Core.cloneLocation(consequentAssignment.start);
+        nullishAssignment.start = Core.cloneLocation(
+            consequentAssignment.start
+        );
     } else if (Core.hasOwn(node, "start")) {
         nullishAssignment.start = Core.cloneLocation(node.start);
     }
@@ -12365,7 +12370,10 @@ function createVertexBeginCall({
         Core.assignClonedLocation(callExpression, template);
     }
 
-    if (!Core.hasOwn(callExpression, "start") || !Core.hasOwn(callExpression, "end")) {
+    if (
+        !Core.hasOwn(callExpression, "start") ||
+        !Core.hasOwn(callExpression, "end")
+    ) {
         Core.assignClonedLocation(callExpression, referenceCall);
     }
 

@@ -1,4 +1,9 @@
-export declare function createProjectIndexBuildOptions({ logger, logMetrics, projectIndexConcurrency, parserOverride }?: {
+export declare function createProjectIndexBuildOptions({
+    logger,
+    logMetrics,
+    projectIndexConcurrency,
+    parserOverride
+}?: {
     logger?: any;
     logMetrics?: boolean;
     parserOverride?: any;
@@ -6,7 +11,14 @@ export declare function createProjectIndexBuildOptions({ logger, logMetrics, pro
     logger: any;
     logMetrics: boolean;
 };
-export declare function createProjectIndexDescriptor({ projectRoot, cacheMaxSizeBytes, cacheFilePath, formatterVersion, pluginVersion, buildOptions }?: {
+export declare function createProjectIndexDescriptor({
+    projectRoot,
+    cacheMaxSizeBytes,
+    cacheFilePath,
+    formatterVersion,
+    pluginVersion,
+    buildOptions
+}?: {
     cacheFilePath?: any;
 }): {
     projectRoot: any;

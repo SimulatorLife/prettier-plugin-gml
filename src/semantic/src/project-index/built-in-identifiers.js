@@ -3,16 +3,27 @@ import { GML_IDENTIFIER_METADATA_PATH } from "../resources/bundled-resources.js"
 import { defaultFsFacade } from "./fs-facade.js";
 import { createProjectIndexAbortGuard } from "./abort-guard.js";
 import { getFileMtime } from "./fs-helpers.js";
-const { Utils: { parseJsonWithContext, areNumbersApproximatelyEqual, isPlainObject }, IdentifierMetadata: { normalizeIdentifierMetadataEntries } } = Core;
+const {
+    Utils: {
+        parseJsonWithContext,
+        areNumbersApproximatelyEqual,
+        isPlainObject
+    },
+    IdentifierMetadata: { normalizeIdentifierMetadataEntries }
+} = Core;
 const GML_IDENTIFIER_FILE_PATH = GML_IDENTIFIER_METADATA_PATH;
 let cachedBuiltInIdentifiers = null;
 function extractBuiltInIdentifierNames(payload) {
     if (!isPlainObject(payload)) {
-        throw new TypeError("Built-in identifier metadata must be an object payload.");
+        throw new TypeError(
+            "Built-in identifier metadata must be an object payload."
+        );
     }
     const { identifiers } = payload;
     if (!isPlainObject(identifiers)) {
-        throw new TypeError("Built-in identifier metadata must expose an identifiers object.");
+        throw new TypeError(
+            "Built-in identifier metadata must expose an identifiers object."
+        );
     }
     const entries = normalizeIdentifierMetadataEntries(payload);
     const names = new Set();
@@ -40,10 +51,21 @@ function areMtimesEquivalent(cachedMtime, currentMtime) {
     }
     return areNumbersApproximatelyEqual(cachedMtime, currentMtime);
 }
-export async function loadBuiltInIdentifiers(fsFacade = defaultFsFacade, metrics = null, options = {}) {
+export async function loadBuiltInIdentifiers(
+    fsFacade = defaultFsFacade,
+    metrics = null,
+    options = {}
+) {
     const { fallbackMessage, ...guardOptions } = options ?? {};
-    const { signal, ensureNotAborted } = createProjectIndexAbortGuard(guardOptions, { fallbackMessage });
-    const currentMtime = await getFileMtime(fsFacade, GML_IDENTIFIER_FILE_PATH, { signal });
+    const { signal, ensureNotAborted } = createProjectIndexAbortGuard(
+        guardOptions,
+        { fallbackMessage }
+    );
+    const currentMtime = await getFileMtime(
+        fsFacade,
+        GML_IDENTIFIER_FILE_PATH,
+        { signal }
+    );
     ensureNotAborted();
     const cached = cachedBuiltInIdentifiers;
     const cachedMtime = cached?.metadata?.mtimeMs ?? null;
@@ -53,17 +75,18 @@ export async function loadBuiltInIdentifiers(fsFacade = defaultFsFacade, metrics
     }
     if (cached) {
         metrics?.caches?.recordStale("builtInIdentifiers");
-    }
-    else {
+    } else {
         metrics?.caches?.recordMiss("builtInIdentifiers");
     }
     let names = new Set();
     try {
-        const rawContents = await fsFacade.readFile(GML_IDENTIFIER_FILE_PATH, "utf8");
+        const rawContents = await fsFacade.readFile(
+            GML_IDENTIFIER_FILE_PATH,
+            "utf8"
+        );
         ensureNotAborted();
         names = parseBuiltInIdentifierNames(rawContents);
-    }
-    catch {
+    } catch {
         // Built-in identifier metadata ships with the formatter bundle; if the
         // file is missing or unreadable we intentionally degrade to an empty
         // set rather than aborting project indexing. That keeps the CLI usable

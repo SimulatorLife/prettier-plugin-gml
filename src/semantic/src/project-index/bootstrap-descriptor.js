@@ -1,6 +1,13 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { withDefinedValue } } = Core;
-export function createProjectIndexBuildOptions({ logger = null, logMetrics = false, projectIndexConcurrency, parserOverride = null } = {}) {
+const {
+    Utils: { withDefinedValue }
+} = Core;
+export function createProjectIndexBuildOptions({
+    logger = null,
+    logMetrics = false,
+    projectIndexConcurrency,
+    parserOverride = null
+} = {}) {
     const buildOptions = {
         logger,
         logMetrics
@@ -21,7 +28,14 @@ export function createProjectIndexBuildOptions({ logger = null, logMetrics = fal
     buildOptions.parseGml = parse;
     return buildOptions;
 }
-export function createProjectIndexDescriptor({ projectRoot, cacheMaxSizeBytes, cacheFilePath = null, formatterVersion, pluginVersion, buildOptions } = {}) {
+export function createProjectIndexDescriptor({
+    projectRoot,
+    cacheMaxSizeBytes,
+    cacheFilePath = null,
+    formatterVersion,
+    pluginVersion,
+    buildOptions
+} = {}) {
     const descriptor = {
         projectRoot,
         cacheFilePath,

@@ -2,10 +2,17 @@ import { createRequire } from "node:module";
 import { asArray, assertArray } from "../utils/array.js";
 import { assertPlainObject } from "../utils/object.js";
 import { toTrimmedString } from "../utils/string.js";
-import { resolveBundledResourcePath, resolveBundledResourceUrl } from "./resource-locator.js";
+import {
+    resolveBundledResourcePath,
+    resolveBundledResourceUrl
+} from "./resource-locator.js";
 const require = createRequire(import.meta.url);
-export const FEATHER_METADATA_URL = resolveBundledResourceUrl("feather-metadata.json");
-export const FEATHER_METADATA_PATH = resolveBundledResourcePath("feather-metadata.json");
+export const FEATHER_METADATA_URL = resolveBundledResourceUrl(
+    "feather-metadata.json"
+);
+export const FEATHER_METADATA_PATH = resolveBundledResourcePath(
+    "feather-metadata.json"
+);
 export function loadBundledFeatherMetadata() {
     return require(FEATHER_METADATA_PATH);
 }
@@ -15,7 +22,9 @@ function normalizeFeatherDiagnostic(diagnostic, index) {
     });
     const normalizedId = toTrimmedString(normalizedDiagnostic.id);
     if (normalizedId.length === 0) {
-        throw new TypeError(`Feather metadata diagnostics[${index}] must declare a non-empty id.`);
+        throw new TypeError(
+            `Feather metadata diagnostics[${index}] must declare a non-empty id.`
+        );
     }
     if (normalizedDiagnostic.id === normalizedId) {
         return normalizedDiagnostic;
@@ -25,9 +34,12 @@ function normalizeFeatherDiagnostic(diagnostic, index) {
 function normalizeFeatherDiagnostics(diagnostics) {
     const normalizedDiagnostics = assertArray(diagnostics, {
         allowNull: true,
-        errorMessage: "Feather metadata diagnostics must be provided as an array."
+        errorMessage:
+            "Feather metadata diagnostics must be provided as an array."
     });
-    return normalizedDiagnostics.map((diagnostic, index) => normalizeFeatherDiagnostic(diagnostic, index));
+    return normalizedDiagnostics.map((diagnostic, index) =>
+        normalizeFeatherDiagnostic(diagnostic, index)
+    );
 }
 function normalizeFeatherMetadata(payload) {
     const metadata = assertPlainObject(payload, {
@@ -95,7 +107,11 @@ export function getFeatherDiagnosticById(id) {
         return null;
     }
     const diagnostics = getFeatherDiagnostics();
-    return (diagnostics.find((diagnostic) => toTrimmedString(diagnostic?.id) === normalizedId) ?? null);
+    return (
+        diagnostics.find(
+            (diagnostic) => toTrimmedString(diagnostic?.id) === normalizedId
+        ) ?? null
+    );
 }
 export const __normalizeFeatherMetadataForTests = normalizeFeatherMetadata;
 //# sourceMappingURL=feather-metadata.js.map

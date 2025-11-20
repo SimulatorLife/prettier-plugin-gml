@@ -1,18 +1,24 @@
 import { Core } from "@gml-modules/core";
 import { constants as fsConstants } from "node:fs";
-const { escapeRegExp, incrementMapValue, isNonEmptyArray, isNonEmptyString } = Core;
+const { escapeRegExp, incrementMapValue, isNonEmptyArray, isNonEmptyString } =
+    Core;
 export const COLLISION_CONFLICT_CODE = "collision";
 export const PRESERVE_CONFLICT_CODE = "preserve";
 export const IGNORE_CONFLICT_CODE = "ignored";
 export const RESERVED_CONFLICT_CODE = "reserved";
-export function formatConfigurationConflictMessage({ configConflict, identifierName, noun = "Identifier" }) {
+export function formatConfigurationConflictMessage({
+    configConflict,
+    identifierName,
+    noun = "Identifier"
+}) {
     if (!configConflict) {
         return null;
     }
     const labelNoun = isNonEmptyString(noun) ? noun : "Identifier";
-    const labelName = typeof identifierName === "string"
-        ? identifierName
-        : String(identifierName ?? "");
+    const labelName =
+        typeof identifierName === "string"
+            ? identifierName
+            : String(identifierName ?? "");
     const subject = `${labelNoun} '${labelName}'`;
     if (configConflict.code === PRESERVE_CONFLICT_CODE) {
         return `${subject} is preserved by configuration.`;
@@ -40,8 +46,8 @@ export function createPatternRegExp(pattern) {
         return null;
     }
     const wildcardExpanded = escaped
-        .replaceAll(String.raw `\*`, ".*")
-        .replaceAll(String.raw `\?`, ".");
+        .replaceAll(String.raw`\*`, ".*")
+        .replaceAll(String.raw`\?`, ".");
     return new RegExp(`^${wildcardExpanded}$`, "i");
 }
 export function buildPatternMatchers(patterns) {
@@ -68,16 +74,27 @@ export function matchesIgnorePattern(matchers, identifierName, filePath) {
     }
     return null;
 }
-export function resolveIdentifierConfigurationConflict({ preservedSet, identifierName, ignoreMatchers, filePath }) {
-    if (identifierName !== undefined &&
+export function resolveIdentifierConfigurationConflict({
+    preservedSet,
+    identifierName,
+    ignoreMatchers,
+    filePath
+}) {
+    if (
+        identifierName !== undefined &&
         typeof preservedSet?.has === "function" &&
-        preservedSet.has(identifierName)) {
+        preservedSet.has(identifierName)
+    ) {
         return {
             code: PRESERVE_CONFLICT_CODE,
             reason: "preserve"
         };
     }
-    const ignoreMatch = matchesIgnorePattern(ignoreMatchers, identifierName, filePath);
+    const ignoreMatch = matchesIgnorePattern(
+        ignoreMatchers,
+        identifierName,
+        filePath
+    );
     if (ignoreMatch) {
         return {
             code: IGNORE_CONFLICT_CODE,
@@ -87,7 +104,15 @@ export function resolveIdentifierConfigurationConflict({ preservedSet, identifie
     }
     return null;
 }
-export function createConflict({ code, severity, message, scope, identifier, suggestions = [], details = null }) {
+export function createConflict({
+    code,
+    severity,
+    message,
+    scope,
+    identifier,
+    suggestions = [],
+    details = null
+}) {
     return {
         code,
         severity,
@@ -118,7 +143,10 @@ export function incrementFileOccurrence(counts, filePath, fallbackPath) {
     incrementMapValue(counts, key);
     return true;
 }
-export function summarizeReferenceFileOccurrences(references, { fallbackPath = null, includeFilePaths = [] } = {}) {
+export function summarizeReferenceFileOccurrences(
+    references,
+    { fallbackPath = null, includeFilePaths = [] } = {}
+) {
     const counts = new Map();
     for (const extraPath of includeFilePaths ?? []) {
         if (typeof extraPath !== "string" || extraPath.length === 0) {
@@ -138,5 +166,6 @@ export function summarizeFileOccurrences(counts) {
         occurrences
     }));
 }
-export const DEFAULT_WRITE_ACCESS_MODE = typeof fsConstants?.W_OK === "number" ? fsConstants.W_OK : undefined;
+export const DEFAULT_WRITE_ACCESS_MODE =
+    typeof fsConstants?.W_OK === "number" ? fsConstants.W_OK : undefined;
 //# sourceMappingURL=common.js.map

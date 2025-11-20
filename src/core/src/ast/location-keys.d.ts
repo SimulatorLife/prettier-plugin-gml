@@ -23,4 +23,7 @@ export declare function buildLocationKey(location: any): string;
  * @returns {string | null} File-qualified location key, or `null` when no
  *                          usable location data is available.
  */
-export declare function buildFileLocationKey(filePath: any, location: any): string;
+export declare function buildFileLocationKey(
+    filePath: any,
+    location: any
+): string;

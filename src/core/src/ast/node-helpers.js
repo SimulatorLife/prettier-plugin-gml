@@ -133,7 +133,8 @@ export function isVarVariableDeclaration(node) {
  */
 const identifierResolvers = Object.freeze({
     Identifier: resolveNodeName,
-    Literal: (literal) => typeof literal?.value === "string" ? literal.value : null,
+    Literal: (literal) =>
+        typeof literal?.value === "string" ? literal.value : null,
     MemberDotExpression: (expression) => {
         const { object, property } = expression;
         if (!isIdentifierNode(object) || !isIdentifierNode(property)) {
@@ -292,7 +293,11 @@ export function getIdentifierName(node) {
     const details = getIdentifierDetails(node);
     return details ? details.name : null;
 }
-export function isCallExpressionIdentifierMatch(callExpression, expectedName, { caseInsensitive = false } = {}) {
+export function isCallExpressionIdentifierMatch(
+    callExpression,
+    expectedName,
+    { caseInsensitive = false } = {}
+) {
     if (!isNonEmptyString(expectedName)) {
         return false;
     }
@@ -361,9 +366,10 @@ export function getBooleanLiteralValue(node, options = {}) {
     if (!isNode(node) || node.type !== "Literal") {
         return null;
     }
-    const acceptBooleanPrimitives = typeof options === "boolean"
-        ? options
-        : !!options?.acceptBooleanPrimitives;
+    const acceptBooleanPrimitives =
+        typeof options === "boolean"
+            ? options
+            : !!options?.acceptBooleanPrimitives;
     const { value } = node;
     const isBooleanPrimitive = value === true || value === false;
     if (!isBooleanPrimitive) {
@@ -467,7 +473,9 @@ export function borrowVisitChildNodesValueBuffer() {
 }
 export function releaseVisitChildNodesValueBuffer(buffer) {
     buffer.length = 0;
-    if (visitChildNodesValuePool.length < VISIT_CHILD_NODES_VALUE_POOL_MAX_SIZE) {
+    if (
+        visitChildNodesValuePool.length < VISIT_CHILD_NODES_VALUE_POOL_MAX_SIZE
+    ) {
         visitChildNodesValuePool.push(buffer);
     }
 }
@@ -502,9 +510,11 @@ export function visitChildNodes(node, callback) {
                 continue;
             }
             const value = node[key];
-            if (value !== undefined &&
+            if (
+                value !== undefined &&
                 value !== null &&
-                typeof value === "object") {
+                typeof value === "object"
+            ) {
                 values[length] = value;
                 length += 1;
             }
@@ -512,8 +522,7 @@ export function visitChildNodes(node, callback) {
         for (let index = 0; index < length; index += 1) {
             callback(values[index]);
         }
-    }
-    finally {
+    } finally {
         releaseVisitChildNodesValueBuffer(values);
     }
 }
@@ -559,10 +568,12 @@ export function unwrapParenthesizedExpression(node) {
 }
 // Small binary-operator predicate used by multiple math transforms.
 export function isBinaryOperator(node, operator) {
-    return (node &&
+    return (
+        node &&
         node.type === "BinaryExpression" &&
         typeof node.operator === "string" &&
-        node.operator.toLowerCase() === operator);
+        node.operator.toLowerCase() === operator
+    );
 }
 /**
  * Inspect a left-hand member expression and, when it references a property on

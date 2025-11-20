@@ -17,5 +17,11 @@ declare function setReservedIdentifierMetadataLoader(loader: any): () => void;
  * implementation.
  */
 declare function resetReservedIdentifierMetadataLoader(): void;
-export declare function loadReservedIdentifierNames({ disallowedTypes }?: {}): Set<unknown>;
-export { DEFAULT_IDENTIFIER_METADATA_PATH, resetReservedIdentifierMetadataLoader, setReservedIdentifierMetadataLoader };
+export declare function loadReservedIdentifierNames({
+    disallowedTypes
+}?: {}): Set<unknown>;
+export {
+    DEFAULT_IDENTIFIER_METADATA_PATH,
+    resetReservedIdentifierMetadataLoader,
+    setReservedIdentifierMetadataLoader
+};

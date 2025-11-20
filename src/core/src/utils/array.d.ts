@@ -37,10 +37,17 @@ export declare function toArray(value: any): any[];
  * @returns {Array<T>} The validated array or a fresh empty array when
  *                     `allowNull` permits nullable inputs.
  */
-export declare function assertArray(value: any, { name, allowNull, errorMessage }?: {
-    name?: string;
-    allowNull?: boolean;
-}): any[];
+export declare function assertArray(
+    value: any,
+    {
+        name,
+        allowNull,
+        errorMessage
+    }?: {
+        name?: string;
+        allowNull?: boolean;
+    }
+): any[];
 /**
  * Return the provided value when it is already an array, otherwise yield an
  * empty array. Useful for treating optional array-like properties as a safe
@@ -65,9 +72,14 @@ export declare function asArray(value: any): readonly any[];
  * @param {boolean} [options.clone=false]
  * @returns {Array<T>} Mutably safe array representation of {@link value}.
  */
-export declare function toMutableArray(value: any, { clone }?: {
-    clone?: boolean;
-}): any[];
+export declare function toMutableArray(
+    value: any,
+    {
+        clone
+    }?: {
+        clone?: boolean;
+    }
+): any[];
 /**
  * Determine whether the provided value is an array containing at least one
  * element. This check mirrors the defensive guard pattern used throughout the
@@ -99,9 +111,14 @@ export declare function isArrayIndex(container: any, index: any): boolean;
  * @param {boolean} [options.freeze=false]
  * @returns {Array<T> | ReadonlyArray<T>}
  */
-export declare function uniqueArray(values: any, { freeze }?: {
-    freeze?: boolean;
-}): readonly unknown[];
+export declare function uniqueArray(
+    values: any,
+    {
+        freeze
+    }?: {
+        freeze?: boolean;
+    }
+): readonly unknown[];
 /**
  * Remove falsy entries from {@link values} while preserving order. Mirrors the
  * common `array.filter(Boolean)` pattern used across the CLI but centralizes it
@@ -115,9 +132,14 @@ export declare function uniqueArray(values: any, { freeze }?: {
  * @param {boolean} [options.freeze=false]
  * @returns {Array<T> | ReadonlyArray<T>}
  */
-export declare function compactArray(values: any, { freeze }?: {
-    freeze?: boolean;
-}): readonly any[];
+export declare function compactArray(
+    values: any,
+    {
+        freeze
+    }?: {
+        freeze?: boolean;
+    }
+): readonly any[];
 /**
  * Append {@link value} to {@link array} when it is not already present.
  *
@@ -136,7 +158,11 @@ export declare function compactArray(values: any, { freeze }?: {
  *        sufficient.
  * @returns {boolean} `true` when the value was appended.
  */
-export declare function pushUnique(array: any, value: any, { isEqual }?: {}): boolean;
+export declare function pushUnique(
+    array: any,
+    value: any,
+    { isEqual }?: {}
+): boolean;
 /**
  * Merge a collection of additional entries into a default array while
  * preserving order and eliminating duplicates. Callers can optionally supply a
@@ -156,10 +182,18 @@ export declare function pushUnique(array: any, value: any, { isEqual }?: {}): bo
  * @param {boolean} [options.freeze]
  * @returns {ReadonlyArray<T>}
  */
-export declare function mergeUniqueValues(defaultValues: any, additionalValues: any, { coerce, getKey, freeze }?: {
-    getKey?: (value: any) => any;
-    freeze?: boolean;
-}): readonly any[];
+export declare function mergeUniqueValues(
+    defaultValues: any,
+    additionalValues: any,
+    {
+        coerce,
+        getKey,
+        freeze
+    }?: {
+        getKey?: (value: any) => any;
+        freeze?: boolean;
+    }
+): readonly any[];
 /**
  * Normalize the accumulator used by CLI option collectors so commands can
  * accept either a scalar flag (for example `--tag alpha`) or repeated

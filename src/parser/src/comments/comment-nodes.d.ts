@@ -1,6 +1,10 @@
 export declare function createCommentLineNode(options: any): any;
 export declare function createCommentBlockNode(options: any): any;
-export declare function createWhitespaceNode({ token, tokenText, isNewline }: {
+export declare function createWhitespaceNode({
+    token,
+    tokenText,
+    isNewline
+}: {
     token: any;
     tokenText: any;
     isNewline: any;

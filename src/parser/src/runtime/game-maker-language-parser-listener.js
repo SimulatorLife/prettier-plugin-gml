@@ -1,17 +1,30 @@
 import { Core } from "@gml-modules/core";
 import { default as GameMakerLanguageParserListenerBase } from "../../generated/GameMakerLanguageParserListener.js";
 import { VISIT_METHOD_NAMES } from "./game-maker-language-parser-visitor.js";
-import { definePrototypeMethods, deriveListenerMethodNames, toDelegate } from "./parse-tree-helpers.js";
-const { Utils: { noop } } = Core;
+import {
+    definePrototypeMethods,
+    deriveListenerMethodNames,
+    toDelegate
+} from "./parse-tree-helpers.js";
+const {
+    Utils: { noop }
+} = Core;
 const DEFAULT_LISTENER_DELEGATE = ({ fallback = noop }) => fallback();
-export const LISTENER_METHOD_NAMES = Object.freeze(deriveListenerMethodNames(VISIT_METHOD_NAMES));
+export const LISTENER_METHOD_NAMES = Object.freeze(
+    deriveListenerMethodNames(VISIT_METHOD_NAMES)
+);
 function createListenerDelegate(options = {}) {
     const { listenerDelegate, listenerHandlers } = options;
-    const baseDelegate = toDelegate(listenerDelegate, DEFAULT_LISTENER_DELEGATE);
+    const baseDelegate = toDelegate(
+        listenerDelegate,
+        DEFAULT_LISTENER_DELEGATE
+    );
     if (!listenerHandlers || typeof listenerHandlers !== "object") {
         return baseDelegate;
     }
-    const handlerEntries = Object.entries(listenerHandlers).filter(([, value]) => typeof value === "function");
+    const handlerEntries = Object.entries(listenerHandlers).filter(
+        ([, value]) => typeof value === "function"
+    );
     if (handlerEntries.length === 0) {
         return baseDelegate;
     }
@@ -44,7 +57,12 @@ export default class GameMakerLanguageParserListener extends GameMakerLanguagePa
         });
     }
 }
-definePrototypeMethods(GameMakerLanguageParserListener.prototype, LISTENER_METHOD_NAMES, (methodName) => function (ctx) {
-    return this._dispatch(methodName, ctx);
-});
+definePrototypeMethods(
+    GameMakerLanguageParserListener.prototype,
+    LISTENER_METHOD_NAMES,
+    (methodName) =>
+        function (ctx) {
+            return this._dispatch(methodName, ctx);
+        }
+);
 //# sourceMappingURL=game-maker-language-parser-listener.js.map

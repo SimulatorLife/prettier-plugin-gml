@@ -56,4 +56,7 @@ export declare function getErrorMessage(error: any, { fallback }?: {}): any;
  * @param {{ fallback?: unknown }} [options]
  * @returns {string} Guaranteed non-empty error message string.
  */
-export declare function getErrorMessageOrFallback(error: any, { fallback }?: {}): any;
+export declare function getErrorMessageOrFallback(
+    error: any,
+    { fallback }?: {}
+): any;

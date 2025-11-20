@@ -1,4 +1,7 @@
-import { hasComment as sharedHasComment, isObjectLike } from "./comment-boundary.js";
+import {
+    hasComment as sharedHasComment,
+    isObjectLike
+} from "./comment-boundary.js";
 /**
  * Resolve the active `hasComment` helper from the provided helper bag.
  *

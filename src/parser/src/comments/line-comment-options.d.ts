@@ -20,4 +20,12 @@ declare function setLineCommentOptionsResolver(resolver: any): any;
  * customizations and return to the opinionated defaults.
  */
 declare function restoreDefaultLineCommentOptionsResolver(): any;
-export { DEFAULT_LINE_COMMENT_OPTIONS, DEFAULT_COMMENTED_OUT_CODE_PATTERNS, LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES, normalizeLineCommentOptions, resolveLineCommentOptions, restoreDefaultLineCommentOptionsResolver, setLineCommentOptionsResolver };
+export {
+    DEFAULT_LINE_COMMENT_OPTIONS,
+    DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
+    LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,
+    normalizeLineCommentOptions,
+    resolveLineCommentOptions,
+    restoreDefaultLineCommentOptionsResolver,
+    setLineCommentOptionsResolver
+};

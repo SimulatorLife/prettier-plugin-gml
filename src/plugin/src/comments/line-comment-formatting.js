@@ -2,7 +2,16 @@ import { Core } from "@gml-modules/core";
 import { isObjectLike } from "./comment-boundary.js";
 import * as Parser from "@gml-modules/parser";
 import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
-const { AST: { getCommentValue }, Utils: { getNonEmptyTrimmedString, toTrimmedString, hasOwn, isRegExpLike, createResolverController } } = Core;
+const {
+    AST: { getCommentValue },
+    Utils: {
+        getNonEmptyTrimmedString,
+        toTrimmedString,
+        hasOwn,
+        isRegExpLike,
+        createResolverController
+    }
+} = Core;
 function normalizeEntryPair(entry) {
     if (Array.isArray(entry)) {
         return entry.length >= 2 ? [entry[0], entry[1]] : null;
@@ -38,19 +47,28 @@ const JSDOC_REPLACEMENTS = {
     "@private": "@hide",
     "@hidden": "@hide"
 };
-const JSDOC_REPLACEMENT_RULES = Object.entries(JSDOC_REPLACEMENTS).map(([oldWord, newWord]) => ({
-    regex: new RegExp(`(\/\/\/\\s*)${oldWord}\\b`, "gi"),
-    replacement: newWord
-}));
+const JSDOC_REPLACEMENT_RULES = Object.entries(JSDOC_REPLACEMENTS).map(
+    ([oldWord, newWord]) => ({
+        regex: new RegExp(`(\/\/\/\\s*)${oldWord}\\b`, "gi"),
+        replacement: newWord
+    })
+);
 // Note: '=' is intentionally omitted from the decoration class to avoid
 // treating the equality operator '==' inside commented-out code as a
 // decorative banner sequence. Keeping '=' here caused valid code like
 // "if (room == rm_island)" to have its '==' collapsed during banner
 // normalization.
 const BANNER_DECORATION_CLASS = "[-_~*#<>|:.]";
-const LEADING_BANNER_DECORATION_PATTERN = new RegExp(String.raw `^(?:${BANNER_DECORATION_CLASS}{2,}\s*)+`);
-const TRAILING_BANNER_DECORATION_PATTERN = new RegExp(String.raw `(?:\s*${BANNER_DECORATION_CLASS}{2,})+$`);
-const INNER_BANNER_DECORATION_PATTERN = new RegExp(`${BANNER_DECORATION_CLASS}{2,}`, "g");
+const LEADING_BANNER_DECORATION_PATTERN = new RegExp(
+    String.raw`^(?:${BANNER_DECORATION_CLASS}{2,}\s*)+`
+);
+const TRAILING_BANNER_DECORATION_PATTERN = new RegExp(
+    String.raw`(?:\s*${BANNER_DECORATION_CLASS}{2,})+$`
+);
+const INNER_BANNER_DECORATION_PATTERN = new RegExp(
+    `${BANNER_DECORATION_CLASS}{2,}`,
+    "g"
+);
 const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION = Object.freeze({
     synonyms: Object.freeze([
         ["void", "undefined"],
@@ -104,7 +122,8 @@ const docCommentTypeNormalizationController = createResolverController({
     normalize(result) {
         return createDocCommentTypeNormalization(result);
     },
-    errorMessage: "Doc comment type normalization resolvers must be functions that return a normalization descriptor"
+    errorMessage:
+        "Doc comment type normalization resolvers must be functions that return a normalization descriptor"
 });
 function normalizeDocCommentLookupKey(identifier) {
     const trimmed = getNonEmptyTrimmedString(identifier);
@@ -119,34 +138,61 @@ function normalizeDocCommentLookupKey(identifier) {
 }
 function createDocCommentTypeNormalization(candidate) {
     const synonyms = new Map();
-    for (const [key, value] of DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.synonyms) {
+    for (const [
+        key,
+        value
+    ] of DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.synonyms) {
         synonyms.set(key.toLowerCase(), value);
     }
     const canonicalSpecifierNames = new Map();
-    for (const [key, value] of DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.canonicalSpecifierNames) {
+    for (const [
+        key,
+        value
+    ] of DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.canonicalSpecifierNames) {
         canonicalSpecifierNames.set(key.toLowerCase(), value);
     }
-    const specifierPrefixes = new Set(DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.specifierPrefixes.map((value) => value.toLowerCase()));
+    const specifierPrefixes = new Set(
+        DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.specifierPrefixes.map((value) =>
+            value.toLowerCase()
+        )
+    );
     if (candidate && typeof candidate === "object") {
         mergeNormalizationEntries(synonyms, candidate.synonyms);
-        mergeNormalizationEntries(canonicalSpecifierNames, candidate.canonicalSpecifierNames);
+        mergeNormalizationEntries(
+            canonicalSpecifierNames,
+            candidate.canonicalSpecifierNames
+        );
         mergeSpecifierPrefixes(specifierPrefixes, candidate.specifierPrefixes);
     }
     return Object.freeze({
         lookupTypeIdentifier(identifier) {
-            return withNormalizedDocCommentLookup(identifier, (normalized) => synonyms.get(normalized) ?? null, null);
+            return withNormalizedDocCommentLookup(
+                identifier,
+                (normalized) => synonyms.get(normalized) ?? null,
+                null
+            );
         },
         getCanonicalSpecifierName(identifier) {
-            return withNormalizedDocCommentLookup(identifier, (normalized) => canonicalSpecifierNames.get(normalized) ?? null, null);
+            return withNormalizedDocCommentLookup(
+                identifier,
+                (normalized) => canonicalSpecifierNames.get(normalized) ?? null,
+                null
+            );
         },
         hasSpecifierPrefix(identifier) {
-            return withNormalizedDocCommentLookup(identifier, (normalized) => specifierPrefixes.has(normalized), false);
+            return withNormalizedDocCommentLookup(
+                identifier,
+                (normalized) => specifierPrefixes.has(normalized),
+                false
+            );
         }
     });
 }
 function withNormalizedDocCommentLookup(identifier, handler, fallbackValue) {
     if (typeof handler !== "function") {
-        throw new TypeError("Doc comment lookup handler must be provided as a function.");
+        throw new TypeError(
+            "Doc comment lookup handler must be provided as a function."
+        );
     }
     const normalized = normalizeDocCommentLookupKey(identifier);
     if (!normalized) {
@@ -181,9 +227,11 @@ function mergeSpecifierPrefixes(target, candidates) {
     }
 }
 function tryGetEntriesIterator(candidate) {
-    if (!candidate ||
+    if (
+        !candidate ||
         Array.isArray(candidate) ||
-        (typeof candidate !== "object" && typeof candidate !== "function")) {
+        (typeof candidate !== "object" && typeof candidate !== "function")
+    ) {
         return null;
     }
     const { entries } = candidate;
@@ -195,8 +243,7 @@ function tryGetEntriesIterator(candidate) {
         if (iterator && typeof iterator[Symbol.iterator] === "function") {
             return iterator;
         }
-    }
-    catch {
+    } catch {
         return null;
     }
     return null;
@@ -254,7 +301,8 @@ function restoreDefaultDocCommentTypeNormalizationResolver() {
     return docCommentTypeNormalizationController.restore();
 }
 const FUNCTION_LIKE_DOC_TAG_PATTERN = /@(func(?:tion)?|method)\b/i;
-const FUNCTION_SIGNATURE_PATTERN = /(^|\n)(\s*\/\/\/\s*@function\b[^\r\n]*?)(\s*\([^\)]*\))(\s*(?=\n|$))/gi;
+const FUNCTION_SIGNATURE_PATTERN =
+    /(^|\n)(\s*\/\/\/\s*@function\b[^\r\n]*?)(\s*\([^\)]*\))(\s*(?=\n|$))/gi;
 // Hoist frequently used regular expressions so they are compiled once. The
 // formatter hits these helpers while iterating over comment lists, so avoiding
 // per-call RegExp construction keeps the hot path allocation-free.
@@ -270,9 +318,10 @@ function getLineCommentRawText(comment) {
     if (comment.raw) {
         return comment.raw;
     }
-    const fallbackValue = comment.value === undefined || comment.value === null
-        ? ""
-        : String(comment.value);
+    const fallbackValue =
+        comment.value === undefined || comment.value === null
+            ? ""
+            : String(comment.value);
     return `//${fallbackValue}`;
 }
 function normalizeBannerCommentText(candidate, options = {}) {
@@ -285,7 +334,8 @@ function normalizeBannerCommentText(candidate, options = {}) {
         return null;
     }
     const { assumeDecorated = false } = options;
-    const sawDecoration = assumeDecorated ||
+    const sawDecoration =
+        assumeDecorated ||
         INNER_BANNER_DECORATION_PATTERN.test(raw) ||
         /\/{2,}\s*$/.test(raw) ||
         /\/{4,}/.test(raw);
@@ -310,15 +360,20 @@ function normalizeBannerCommentText(candidate, options = {}) {
     const normalized = text.trim();
     return normalized.length > 0 ? normalized : null;
 }
-function formatLineComment(comment, lineCommentOptions = Parser.Options.DEFAULT_LINE_COMMENT_OPTIONS) {
-    const normalizedOptions = Parser.Options.normalizeLineCommentOptions(lineCommentOptions);
+function formatLineComment(
+    comment,
+    lineCommentOptions = Parser.Options.DEFAULT_LINE_COMMENT_OPTIONS
+) {
+    const normalizedOptions =
+        Parser.Options.normalizeLineCommentOptions(lineCommentOptions);
     const { boilerplateFragments, codeDetectionPatterns } = normalizedOptions;
     const original = getLineCommentRawText(comment);
     const trimmedOriginal = original.trim();
     const rawValue = getCommentValue(comment);
     const trimmedValue = getCommentValue(comment, { trim: true });
     const startsWithTripleSlash = trimmedOriginal.startsWith("///");
-    const isPlainTripleSlash = startsWithTripleSlash && !trimmedOriginal.includes("@");
+    const isPlainTripleSlash =
+        startsWithTripleSlash && !trimmedOriginal.includes("@");
     const leadingSlashMatch = trimmedOriginal.match(/^\/+/);
     const leadingSlashCount = leadingSlashMatch
         ? leadingSlashMatch[0].length
@@ -328,22 +383,28 @@ function formatLineComment(comment, lineCommentOptions = Parser.Options.DEFAULT_
             return "";
         }
     }
-    const hasPrecedingLineBreak = isObjectLike(comment) &&
+    const hasPrecedingLineBreak =
+        isObjectLike(comment) &&
         typeof comment.leadingWS === "string" &&
         /\r|\n/.test(comment.leadingWS);
-    const hasInlineLeadingChar = isObjectLike(comment) &&
+    const hasInlineLeadingChar =
+        isObjectLike(comment) &&
         typeof comment.leadingChar === "string" &&
         comment.leadingChar.length > 0 &&
         !/\r|\n/.test(comment.leadingChar);
-    const isInlineComment = isObjectLike(comment) &&
+    const isInlineComment =
+        isObjectLike(comment) &&
         comment.isTopComment !== true &&
         (typeof comment.inlinePadding === "number" ||
             comment.trailing === true ||
             comment.placement === "endOfLine" ||
             (!hasPrecedingLineBreak && hasInlineLeadingChar));
     const slashesMatch = original.match(/^\s*(\/{2,})(.*)$/);
-    if (slashesMatch &&
-        slashesMatch[1].length >= Parser.Options.LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES) {
+    if (
+        slashesMatch &&
+        slashesMatch[1].length >=
+            Parser.Options.LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES
+    ) {
         // For comments with 4+ leading slashes we usually treat them as
         // decorative banners. However, some inputs use many slashes to
         // indicate nested doc-like tags (for example: "//// @func ...").
@@ -361,7 +422,10 @@ function formatLineComment(comment, lineCommentOptions = Parser.Options.DEFAULT_
             return applyInlinePadding(comment, `// ${bannerContent}`);
         }
         // If normalization fails, return as regular comment without extra slashes
-        return applyInlinePadding(comment, `// ${trimmedValue.replace(/^\/+\s*/, "")}`);
+        return applyInlinePadding(
+            comment,
+            `// ${trimmedValue.replace(/^\/+\s*/, "")}`
+        );
     }
     // Check if this is a banner-style comment with decorations (even with 2-3 leading slashes)
     // But avoid affecting doc comments that start with /// patterns or doc-like patterns
@@ -371,13 +435,15 @@ function formatLineComment(comment, lineCommentOptions = Parser.Options.DEFAULT_
         if (trimmedValue.startsWith("/") && !trimmedValue.startsWith("//")) {
             const remainder = trimmedValue.slice(1); // Remove just the first slash
             if (remainder.trim().startsWith("@")) {
-                const shouldInsertSpace = remainder.length > 0 &&
+                const shouldInsertSpace =
+                    remainder.length > 0 &&
                     /\w/.test(remainder.charAt(1) || "");
-                const formatted = applyJsDocReplacements(`///${shouldInsertSpace ? " " : ""}${remainder}`);
+                const formatted = applyJsDocReplacements(
+                    `///${shouldInsertSpace ? " " : ""}${remainder}`
+                );
                 return applyInlinePadding(comment, formatted);
             }
-        }
-        else if (normalizeBannerCommentText(trimmedValue)) {
+        } else if (normalizeBannerCommentText(trimmedValue)) {
             // Only apply banner normalization if it doesn't look like a doc comment
             const bannerContent = normalizeBannerCommentText(trimmedValue);
             if (bannerContent) {
@@ -401,9 +467,12 @@ function formatLineComment(comment, lineCommentOptions = Parser.Options.DEFAULT_
             return applyInlinePadding(comment, formatted);
         }
     }
-    if (isPlainTripleSlash &&
-        leadingSlashCount >= Parser.Options.LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES &&
-        !isInlineComment) {
+    if (
+        isPlainTripleSlash &&
+        leadingSlashCount >=
+            Parser.Options.LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES &&
+        !isInlineComment
+    ) {
         return applyInlinePadding(comment, trimmedOriginal);
     }
     const docContinuationMatch = trimmedValue.match(/^\/\s*(\S.*)$/);
@@ -412,15 +481,20 @@ function formatLineComment(comment, lineCommentOptions = Parser.Options.DEFAULT_
     }
     // Check if comment starts with @ tag but needs to be promoted to doc comment format
     // For example: "/ @description" or "// @description" should become "/// @description"
-    if (!trimmedOriginal.startsWith("///") &&
+    if (
+        !trimmedOriginal.startsWith("///") &&
         trimmedOriginal.startsWith("/") &&
-        trimmedOriginal.includes("@")) {
+        trimmedOriginal.includes("@")
+    ) {
         // Find where the leading slashes end and @ tag begins
         const afterSlashes = trimmedOriginal.replace(/^\/+\s*/, "");
         if (afterSlashes.startsWith("@")) {
-            const shouldInsertSpace = afterSlashes.length > 0 &&
+            const shouldInsertSpace =
+                afterSlashes.length > 0 &&
                 /\w/.test(afterSlashes.charAt(1) || "");
-            const formatted = applyJsDocReplacements(`///${shouldInsertSpace ? " " : ""}${afterSlashes}`);
+            const formatted = applyJsDocReplacements(
+                `///${shouldInsertSpace ? " " : ""}${afterSlashes}`
+            );
             return applyInlinePadding(comment, formatted);
         }
     }
@@ -440,10 +514,12 @@ function formatLineComment(comment, lineCommentOptions = Parser.Options.DEFAULT_
         // original comment.value contains a nested `//` then preserve the
         // nested commented-out visual alignment instead of promoting to
         // `/// ...` doc comments.
-        if (remainder.startsWith("//") ||
+        if (
+            remainder.startsWith("//") ||
             (isObjectLike(comment) &&
                 typeof comment.value === "string" &&
-                /^\s*\/\//.test(comment.value))) {
+                /^\s*\/\//.test(comment.value))
+        ) {
             const inner = remainder.startsWith("//")
                 ? remainder
                 : comment.value.trimStart(); // preserves the inner `// ...`
@@ -456,8 +532,8 @@ function formatLineComment(comment, lineCommentOptions = Parser.Options.DEFAULT_
     const docTagSource = DOC_TAG_LINE_PREFIX_PATTERN.test(trimmedValue)
         ? trimmedValue
         : DOC_TAG_LINE_PREFIX_PATTERN.test(trimmedOriginal)
-            ? trimmedOriginal
-            : null;
+          ? trimmedOriginal
+          : null;
     if (docTagSource) {
         let formattedCommentLine = `///${docTagSource.replace(DOC_TAG_LINE_PREFIX_PATTERN, " @")}`;
         formattedCommentLine = applyJsDocReplacements(formattedCommentLine);
@@ -482,10 +558,15 @@ function formatLineComment(comment, lineCommentOptions = Parser.Options.DEFAULT_
     const coreValue = valueWithoutTrailingWhitespace
         .slice(leadingWhitespace.length)
         .trim();
-    if (coreValue.length > 0 &&
+    if (
+        coreValue.length > 0 &&
         (trimmedValue.startsWith("//") ||
-            looksLikeCommentedOutCode(coreValue, codeDetectionPatterns))) {
-        return applyInlinePadding(comment, `//${leadingWhitespace}${coreValue}`);
+            looksLikeCommentedOutCode(coreValue, codeDetectionPatterns))
+    ) {
+        return applyInlinePadding(
+            comment,
+            `//${leadingWhitespace}${coreValue}`
+        );
     }
     return applyInlinePadding(comment, `// ${trimmedValue}`);
 }
@@ -507,12 +588,15 @@ function resolveInlinePaddingWidth(comment) {
     if (typeof inlinePadding === "number" && inlinePadding > 0) {
         return inlinePadding;
     }
-    if (comment?.isBottomComment !== true ||
+    if (
+        comment?.isBottomComment !== true ||
         (comment.trailing !== true && comment.placement !== "endOfLine") ||
-        comment.leadingChar !== ";") {
+        comment.leadingChar !== ";"
+    ) {
         return 0;
     }
-    const leadingWhitespace = typeof comment.leadingWS === "string" ? comment.leadingWS : "";
+    const leadingWhitespace =
+        typeof comment.leadingWS === "string" ? comment.leadingWS : "";
     if (leadingWhitespace.length >= 2) {
         return 0;
     }
@@ -522,7 +606,8 @@ function extractContinuationIndentation(comment) {
     if (!isObjectLike(comment)) {
         return "";
     }
-    const leadingWhitespace = typeof comment.leadingWS === "string" ? comment.leadingWS : "";
+    const leadingWhitespace =
+        typeof comment.leadingWS === "string" ? comment.leadingWS : "";
     if (leadingWhitespace.length === 0) {
         return "";
     }
@@ -531,7 +616,8 @@ function extractContinuationIndentation(comment) {
     return lastSegment.replaceAll("\t", "    ");
 }
 function applyJsDocReplacements(text) {
-    const shouldStripEmptyParams = typeof text === "string" && FUNCTION_LIKE_DOC_TAG_PATTERN.test(text);
+    const shouldStripEmptyParams =
+        typeof text === "string" && FUNCTION_LIKE_DOC_TAG_PATTERN.test(text);
     let formattedText = shouldStripEmptyParams
         ? text.replace(/\(\)\s*$/, "")
         : text;
@@ -547,13 +633,21 @@ function normalizeFeatherOptionalParamSyntax(text) {
     if (typeof text !== "string" || !/@param\b/i.test(text)) {
         return text;
     }
-    return text.replace(/(\s*\/\/\/\s*@param(?:\s+\{[^}]+\})?\s*)(\S+)/i, (match, prefix, token) => `${prefix}${normalizeOptionalParamToken(token)}`);
+    return text.replace(
+        /(\s*\/\/\/\s*@param(?:\s+\{[^}]+\})?\s*)(\S+)/i,
+        (match, prefix, token) =>
+            `${prefix}${normalizeOptionalParamToken(token)}`
+    );
 }
 function stripTrailingFunctionParameters(text) {
     if (typeof text !== "string" || !/@function\b/i.test(text)) {
         return text;
     }
-    return text.replaceAll(FUNCTION_SIGNATURE_PATTERN, (match, linePrefix, functionPrefix) => `${linePrefix}${functionPrefix.replace(/\s+$/, "")}`);
+    return text.replaceAll(
+        FUNCTION_SIGNATURE_PATTERN,
+        (match, linePrefix, functionPrefix) =>
+            `${linePrefix}${functionPrefix.replace(/\s+$/, "")}`
+    );
 }
 function normalizeDocCommentTypeAnnotations(text) {
     if (typeof text !== "string" || !text.includes("{")) {
@@ -576,7 +670,8 @@ function normalizeGameMakerType(typeText) {
     while ((match = tokenPattern.exec(typeText)) !== null) {
         if (match[1]) {
             const identifier = match[1];
-            const normalizedIdentifier = docCommentTypeNormalization.lookupTypeIdentifier(identifier) ??
+            const normalizedIdentifier =
+                docCommentTypeNormalization.lookupTypeIdentifier(identifier) ??
                 identifier;
             segments.push({
                 type: "identifier",
@@ -591,9 +686,11 @@ function normalizeGameMakerType(typeText) {
     const findNextNonWhitespaceSegment = (startIndex) => {
         for (let index = startIndex; index < segments.length; index += 1) {
             const segment = segments[index];
-            if (segment &&
+            if (
+                segment &&
                 segment.type === "separator" &&
-                /^\s+$/.test(segment.value)) {
+                /^\s+$/.test(segment.value)
+            ) {
                 continue;
             }
             return segment ?? null;
@@ -634,9 +731,14 @@ function normalizeGameMakerType(typeText) {
         if (segment.type === "identifier") {
             let normalizedValue = segment.value;
             if (typeof normalizedValue === "string") {
-                const canonicalPrefix = docCommentTypeNormalization.getCanonicalSpecifierName(normalizedValue);
-                if (canonicalPrefix &&
-                    isDotSeparatedTypeSpecifierPrefix(index)) {
+                const canonicalPrefix =
+                    docCommentTypeNormalization.getCanonicalSpecifierName(
+                        normalizedValue
+                    );
+                if (
+                    canonicalPrefix &&
+                    isDotSeparatedTypeSpecifierPrefix(index)
+                ) {
                     normalizedValue = canonicalPrefix;
                 }
             }
@@ -651,26 +753,36 @@ function normalizeGameMakerType(typeText) {
             const previous = segments[index - 1];
             const next = segments[index + 1];
             const nextToken = findNextNonWhitespaceSegment(index + 1);
-            if (nextToken &&
+            if (
+                nextToken &&
                 nextToken.type === "separator" &&
-                /^[\[\(<>{})]/.test(nextToken.value.trim())) {
+                /^[\[\(<>{})]/.test(nextToken.value.trim())
+            ) {
                 continue;
             }
-            const previousIdentifier = previous && previous.type === "identifier"
-                ? previous.value
-                : null;
-            const nextIdentifier = next && next.type === "identifier" ? next.value : null;
+            const previousIdentifier =
+                previous && previous.type === "identifier"
+                    ? previous.value
+                    : null;
+            const nextIdentifier =
+                next && next.type === "identifier" ? next.value : null;
             if (!previousIdentifier || !nextIdentifier) {
                 continue;
             }
-            if (docCommentTypeNormalization.hasSpecifierPrefix(previousIdentifier)) {
-                const canonicalPrefix = docCommentTypeNormalization.getCanonicalSpecifierName(previousIdentifier);
+            if (
+                docCommentTypeNormalization.hasSpecifierPrefix(
+                    previousIdentifier
+                )
+            ) {
+                const canonicalPrefix =
+                    docCommentTypeNormalization.getCanonicalSpecifierName(
+                        previousIdentifier
+                    );
                 if (canonicalPrefix && outputSegments.length > 0) {
                     outputSegments[outputSegments.length - 1] = canonicalPrefix;
                 }
                 outputSegments.push(".");
-            }
-            else {
+            } else {
                 outputSegments.push(",");
             }
             continue;
@@ -731,5 +843,16 @@ function splitCommentIntoSentences(text) {
     }
     return sentences;
 }
-export { DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION, applyInlinePadding, formatLineComment, getLineCommentRawText, normalizeBannerCommentText, normalizeDocCommentTypeAnnotations, resolveDocCommentTypeNormalization, restoreDefaultDocCommentTypeNormalizationResolver, setDocCommentTypeNormalizationResolver, applyJsDocReplacements };
+export {
+    DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION,
+    applyInlinePadding,
+    formatLineComment,
+    getLineCommentRawText,
+    normalizeBannerCommentText,
+    normalizeDocCommentTypeAnnotations,
+    resolveDocCommentTypeNormalization,
+    restoreDefaultDocCommentTypeNormalizationResolver,
+    setDocCommentTypeNormalizationResolver,
+    applyJsDocReplacements
+};
 //# sourceMappingURL=line-comment-formatting.js.map

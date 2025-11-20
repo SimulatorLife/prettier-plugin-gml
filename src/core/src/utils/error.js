@@ -81,8 +81,7 @@ export function getErrorMessage(error, { fallback } = {}) {
     }
     try {
         return String(error);
-    }
-    catch {
+    } catch {
         return "";
     }
 }
@@ -112,8 +111,7 @@ export function getErrorMessageOrFallback(error, { fallback } = {}) {
     try {
         const normalized = String(fallback);
         return normalized.length > 0 ? normalized : UNKNOWN_ERROR_FALLBACK;
-    }
-    catch {
+    } catch {
         return UNKNOWN_ERROR_FALLBACK;
     }
 }

@@ -59,9 +59,7 @@ export function clearIdentifierMetadataCache() {
  */
 export function normalizeIdentifierMetadataEntries(metadata) {
     const identifiers =
-        metadata &&
-        typeof metadata === "object" &&
-        metadata.identifiers;
+        metadata && typeof metadata === "object" && metadata.identifiers;
 
     if (!identifiers || typeof identifiers !== "object") {
         return [];

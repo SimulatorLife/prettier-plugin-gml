@@ -172,13 +172,16 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                 if (!param) continue;
 
                 if (param.type === "DefaultParameter") {
-                        if (param.right == null) {
+                    if (param.right == null) {
                         if (seenExplicitDefaultToLeft) {
                             // Materialize the sentinel as a Literal so downstream
                             // tests and printer logic that expect a Literal
                             // `value: "undefined"` observe the historical
                             // shape.
-                            param.right = { type: "Literal", value: "undefined" };
+                            param.right = {
+                                type: "Literal",
+                                value: "undefined"
+                            };
                             param._featherMaterializedTrailingUndefined = true;
                             param._featherMaterializedFromExplicitLeft = true;
                             // Historical behaviour: when materializing a trailing
@@ -911,7 +914,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                 }
 
                 if (param.type === "DefaultParameter") {
-                        if (param.right == null) {
+                    if (param.right == null) {
                         // Materialize placeholder RHS as `undefined` using a
                         // Literal node so the shape matches existing tests.
                         param.right = { type: "Literal", value: "undefined" };
@@ -935,7 +938,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                     continue;
                 }
 
-                    if (param.type === "Identifier") {
+                if (param.type === "Identifier") {
                     // Materialize bare identifier to DefaultParameter with
                     // undefined RHS. Use a Literal node for the `undefined`
                     // sentinel to match historical printer/tests expectations.
@@ -990,7 +993,11 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                 (p.right === null || p.right === undefined)
             ) {
                 // Preserve explicitly optional/materialized defaults.
-                if (p._featherOptionalParameter === true || p._featherMaterializedTrailingUndefined === true || p._featherMaterializedFromExplicitLeft === true) {
+                if (
+                    p._featherOptionalParameter === true ||
+                    p._featherMaterializedTrailingUndefined === true ||
+                    p._featherMaterializedFromExplicitLeft === true
+                ) {
                     continue;
                 }
 

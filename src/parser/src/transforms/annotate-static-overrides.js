@@ -1,5 +1,8 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { isNonEmptyArray, getNonEmptyString }, AST: { getBodyStatements } } = Core;
+const {
+    Utils: { isNonEmptyArray, getNonEmptyString },
+    AST: { getBodyStatements }
+} = Core;
 function getStaticFunctionDeclarator(statement) {
     if (!statement || statement.type !== "VariableDeclaration") {
         return null;
@@ -40,9 +43,10 @@ function collectConstructorInfos(ast) {
         if (!name) {
             continue;
         }
-        const parentName = node.parent?.type === "ConstructorParentClause"
-            ? getNonEmptyString(node.parent.id)
-            : null;
+        const parentName =
+            node.parent?.type === "ConstructorParentClause"
+                ? getNonEmptyString(node.parent.id)
+                : null;
         const staticFunctions = new Map();
         for (const statement of getBodyStatements(node.body)) {
             const declarator = getStaticFunctionDeclarator(statement);
@@ -92,7 +96,13 @@ export function annotateStaticFunctionOverrides(ast) {
             continue;
         }
         for (const [staticName, statement] of info.staticFunctions) {
-            if (hasAncestorStaticFunction(constructors, info.parentName, staticName)) {
+            if (
+                hasAncestorStaticFunction(
+                    constructors,
+                    info.parentName,
+                    staticName
+                )
+            ) {
                 statement._overridesStaticFunction = true;
             }
         }

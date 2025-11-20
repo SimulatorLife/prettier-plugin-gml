@@ -26,5 +26,8 @@ declare const NOOP: () => void;
  * @returns {TResult | undefined} The callback result or the computed fallback
  *          when {@link action} throws.
  */
-export declare function callWithFallback(action: any, { fallback, onError }?: {}): any;
+export declare function callWithFallback(
+    action: any,
+    { fallback, onError }?: {}
+): any;
 export { NOOP as noop };

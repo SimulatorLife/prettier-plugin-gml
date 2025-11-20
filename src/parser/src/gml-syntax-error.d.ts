@@ -1,6 +1,13 @@
 declare const ErrorListener: any;
 export declare class GameMakerSyntaxError extends Error {
-    constructor({ message, line, column, wrongSymbol, rule, offendingText }: {
+    constructor({
+        message,
+        line,
+        column,
+        wrongSymbol,
+        rule,
+        offendingText
+    }: {
         message: any;
         line: any;
         column: any;
@@ -18,7 +25,14 @@ declare class SyntaxErrorFormatter {
 }
 declare class ParserContextAnalyzer {
     resolveOpenBlockStartToken(parser: any): any;
-    getSpecificErrorMessage({ parser, stack, currentRule, line, column, wrongSymbol }: {
+    getSpecificErrorMessage({
+        parser,
+        stack,
+        currentRule,
+        line,
+        column,
+        wrongSymbol
+    }: {
         parser: any;
         stack: any;
         currentRule: any;
@@ -28,16 +42,31 @@ declare class ParserContextAnalyzer {
     }): string;
 }
 export default class GameMakerParseErrorListener extends ErrorListener {
-    constructor({ formatter, contextAnalyzer }?: {
+    constructor({
+        formatter,
+        contextAnalyzer
+    }?: {
         formatter?: SyntaxErrorFormatter;
         contextAnalyzer?: ParserContextAnalyzer;
     });
-    syntaxError(recognizer: any, offendingSymbol: any, line: any, column: any, _message: any, _error: any): void;
+    syntaxError(
+        recognizer: any,
+        offendingSymbol: any,
+        line: any,
+        column: any,
+        _message: any,
+        _error: any
+    ): void;
 }
 export declare class GameMakerLexerErrorListener extends ErrorListener {
-    constructor({ formatter }?: {
-        formatter?: SyntaxErrorFormatter;
-    });
-    syntaxError(lexer: any, offendingSymbol: any, line: any, column: any, message: any, _error: any): void;
+    constructor({ formatter }?: { formatter?: SyntaxErrorFormatter });
+    syntaxError(
+        lexer: any,
+        offendingSymbol: any,
+        line: any,
+        column: any,
+        message: any,
+        _error: any
+    ): void;
 }
 export {};

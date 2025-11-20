@@ -1,6 +1,11 @@
 import { Core } from "@gml-modules/core";
-import { isProjectManifestPath, isProjectResourceMetadataPath } from "./constants.js";
-const { Utils: { assertArray, normalizeExtensionSuffix } } = Core;
+import {
+    isProjectManifestPath,
+    isProjectResourceMetadataPath
+} from "./constants.js";
+const {
+    Utils: { assertArray, normalizeExtensionSuffix }
+} = Core;
 const DEFAULT_PROJECT_SOURCE_EXTENSIONS = Object.freeze([".gml"]);
 let projectSourceExtensions = DEFAULT_PROJECT_SOURCE_EXTENSIONS;
 export const ProjectFileCategory = Object.freeze({
@@ -8,18 +13,20 @@ export const ProjectFileCategory = Object.freeze({
     SOURCE: "gml"
 });
 const PROJECT_FILE_CATEGORIES = new Set(Object.values(ProjectFileCategory));
-const PROJECT_FILE_CATEGORY_CHOICES = Object.freeze([...PROJECT_FILE_CATEGORIES]
-    .reduce((acc, item) => {
-    const insertIndex = acc.findIndex((existing) => existing > item);
-    return insertIndex === -1
-        ? [...acc, item]
-        : [
-            ...acc.slice(0, insertIndex),
-            item,
-            ...acc.slice(insertIndex)
-        ];
-}, [])
-    .join(", "));
+const PROJECT_FILE_CATEGORY_CHOICES = Object.freeze(
+    [...PROJECT_FILE_CATEGORIES]
+        .reduce((acc, item) => {
+            const insertIndex = acc.findIndex((existing) => existing > item);
+            return insertIndex === -1
+                ? [...acc, item]
+                : [
+                      ...acc.slice(0, insertIndex),
+                      item,
+                      ...acc.slice(insertIndex)
+                  ];
+        }, [])
+        .join(", ")
+);
 /**
  * Retrieve the ordered list of file extensions treated as GML sources when
  * categorizing project files. The array is frozen so callers can safely rely on
@@ -52,16 +59,21 @@ export function resetProjectIndexSourceExtensions() {
  */
 function normalizeProjectSourceExtensions(extensions) {
     const normalizedExtensions = assertArray(extensions, {
-        errorMessage: "Project source extensions must be provided as an array of strings."
+        errorMessage:
+            "Project source extensions must be provided as an array of strings."
     });
     const normalized = new Set(DEFAULT_PROJECT_SOURCE_EXTENSIONS);
     for (const extension of normalizedExtensions) {
         if (typeof extension !== "string") {
-            throw new TypeError("Project source extensions must be strings (for example '.gml').");
+            throw new TypeError(
+                "Project source extensions must be strings (for example '.gml')."
+            );
         }
         const normalizedExtension = normalizeExtensionSuffix(extension);
         if (!normalizedExtension) {
-            throw new TypeError("Project source extensions cannot be empty strings.");
+            throw new TypeError(
+                "Project source extensions cannot be empty strings."
+            );
         }
         normalized.add(normalizedExtension);
     }
@@ -93,7 +105,9 @@ export function normalizeProjectFileCategory(value) {
         return value;
     }
     const received = value === undefined ? "undefined" : `'${String(value)}'`;
-    throw new RangeError(`Project file category must be one of: ${PROJECT_FILE_CATEGORY_CHOICES}. Received ${received}.`);
+    throw new RangeError(
+        `Project file category must be one of: ${PROJECT_FILE_CATEGORY_CHOICES}. Received ${received}.`
+    );
 }
 /**
  * Determine the project category for a path relative to the project root.
@@ -105,8 +119,10 @@ export function normalizeProjectFileCategory(value) {
  *          path does not fall into a known bucket.
  */
 export function resolveProjectFileCategory(relativePosix) {
-    if (isProjectResourceMetadataPath(relativePosix) ||
-        isProjectManifestPath(relativePosix)) {
+    if (
+        isProjectResourceMetadataPath(relativePosix) ||
+        isProjectManifestPath(relativePosix)
+    ) {
         return ProjectFileCategory.RESOURCE_METADATA;
     }
     const lowerPath = relativePosix.toLowerCase();

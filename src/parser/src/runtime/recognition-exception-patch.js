@@ -1,6 +1,8 @@
 import antlr4 from "antlr4";
 import { Core } from "@gml-modules/core";
-const { Utils: { hasFunction, isErrorLike, isObjectLike } } = Core;
+const {
+    Utils: { hasFunction, isErrorLike, isObjectLike }
+} = Core;
 const INVALID_INDEX_FALLBACK = -1;
 function hasOffendingTokenProbe(value) {
     if (value?.offendingToken !== undefined) {
@@ -74,7 +76,9 @@ function ensureTokenMetadata(token, { fallbackCandidates = [], stream } = {}) {
     const candidates = Array.isArray(fallbackCandidates)
         ? fallbackCandidates
         : [fallbackCandidates];
-    const fallback = candidates.find((candidate) => candidate && typeof candidate === "object");
+    const fallback = candidates.find(
+        (candidate) => candidate && typeof candidate === "object"
+    );
     if (typeof token.type !== "number") {
         token.type =
             typeof fallback?.type === "number"
@@ -82,20 +86,32 @@ function ensureTokenMetadata(token, { fallbackCandidates = [], stream } = {}) {
                 : antlr4.Token.INVALID_TYPE;
     }
     if (typeof token.tokenIndex !== "number") {
-        const fallbackIndex = firstNumber(fallback?.tokenIndex, token.index, token.startIndex);
+        const fallbackIndex = firstNumber(
+            fallback?.tokenIndex,
+            token.index,
+            token.startIndex
+        );
         token.tokenIndex =
             fallbackIndex ??
-                (typeof stream?.index === "number"
-                    ? stream.index
-                    : INVALID_INDEX_FALLBACK);
+            (typeof stream?.index === "number"
+                ? stream.index
+                : INVALID_INDEX_FALLBACK);
     }
     if (typeof token.line !== "number") {
         token.line =
-            firstNumber(fallback?.line, fallback?.start?.line, token.start?.line) ?? INVALID_INDEX_FALLBACK;
+            firstNumber(
+                fallback?.line,
+                fallback?.start?.line,
+                token.start?.line
+            ) ?? INVALID_INDEX_FALLBACK;
     }
     if (typeof token.column !== "number") {
         token.column =
-            firstNumber(fallback?.column, fallback?.start?.column, token.start?.column) ?? INVALID_INDEX_FALLBACK;
+            firstNumber(
+                fallback?.column,
+                fallback?.start?.column,
+                token.start?.column
+            ) ?? INVALID_INDEX_FALLBACK;
     }
     return token;
 }
@@ -104,8 +120,10 @@ function ensureOffendingToken(recognizer, exception) {
         return;
     }
     const stream = getTokenStream(recognizer);
-    const context = exception.ctx ?? exception.context ?? recognizer?._ctx ?? null;
-    let offendingToken = exception.offendingToken ?? exception.offendingSymbol ?? null;
+    const context =
+        exception.ctx ?? exception.context ?? recognizer?._ctx ?? null;
+    let offendingToken =
+        exception.offendingToken ?? exception.offendingSymbol ?? null;
     if (!offendingToken && typeof exception.getOffendingToken === "function") {
         offendingToken = exception.getOffendingToken();
     }
@@ -147,8 +165,10 @@ function ensureStartToken(recognizer, exception) {
         return;
     }
     const stream = getTokenStream(recognizer);
-    const context = exception.ctx ?? exception.context ?? recognizer?._ctx ?? null;
-    let startToken = exception.startToken ??
+    const context =
+        exception.ctx ?? exception.context ?? recognizer?._ctx ?? null;
+    let startToken =
+        exception.startToken ??
         context?.start ??
         exception.offendingToken ??
         context?.stop ??
@@ -162,18 +182,22 @@ function ensureStartToken(recognizer, exception) {
     }
     if (!startToken) {
         startToken = {
-            type: typeof exception.offendingToken?.type === "number"
-                ? exception.offendingToken.type
-                : antlr4.Token.INVALID_TYPE,
-            tokenIndex: typeof exception.offendingToken?.tokenIndex === "number"
-                ? exception.offendingToken.tokenIndex
-                : INVALID_INDEX_FALLBACK,
-            line: typeof exception.offendingToken?.line === "number"
-                ? exception.offendingToken.line
-                : INVALID_INDEX_FALLBACK,
-            column: typeof exception.offendingToken?.column === "number"
-                ? exception.offendingToken.column
-                : INVALID_INDEX_FALLBACK
+            type:
+                typeof exception.offendingToken?.type === "number"
+                    ? exception.offendingToken.type
+                    : antlr4.Token.INVALID_TYPE,
+            tokenIndex:
+                typeof exception.offendingToken?.tokenIndex === "number"
+                    ? exception.offendingToken.tokenIndex
+                    : INVALID_INDEX_FALLBACK,
+            line:
+                typeof exception.offendingToken?.line === "number"
+                    ? exception.offendingToken.line
+                    : INVALID_INDEX_FALLBACK,
+            column:
+                typeof exception.offendingToken?.column === "number"
+                    ? exception.offendingToken.column
+                    : INVALID_INDEX_FALLBACK
         };
     }
     exception.startToken = ensureTokenMetadata(startToken, {
@@ -194,8 +218,10 @@ export function installRecognitionExceptionLikeGuard() {
     Object.defineProperty(recognitionException, Symbol.hasInstance, {
         configurable: true,
         value(candidate) {
-            if (typeof originalHasInstance === "function" &&
-                originalHasInstance.call(this, candidate)) {
+            if (
+                typeof originalHasInstance === "function" &&
+                originalHasInstance.call(this, candidate)
+            ) {
                 return true;
             }
             return isRecognitionExceptionLike(candidate);
@@ -203,17 +229,26 @@ export function installRecognitionExceptionLikeGuard() {
     });
     const defaultErrorStrategy = antlr4?.error?.DefaultErrorStrategy;
     if (typeof defaultErrorStrategy === "function") {
-        const originalReportNoViable = defaultErrorStrategy.prototype.reportNoViableAlternative;
-        Object.defineProperty(defaultErrorStrategy.prototype, "reportNoViableAlternative", {
-            configurable: true,
-            value(recognizer, exception) {
-                if (exception && typeof exception === "object") {
-                    ensureOffendingToken(recognizer, exception);
-                    ensureStartToken(recognizer, exception);
+        const originalReportNoViable =
+            defaultErrorStrategy.prototype.reportNoViableAlternative;
+        Object.defineProperty(
+            defaultErrorStrategy.prototype,
+            "reportNoViableAlternative",
+            {
+                configurable: true,
+                value(recognizer, exception) {
+                    if (exception && typeof exception === "object") {
+                        ensureOffendingToken(recognizer, exception);
+                        ensureStartToken(recognizer, exception);
+                    }
+                    return originalReportNoViable.call(
+                        this,
+                        recognizer,
+                        exception
+                    );
                 }
-                return originalReportNoViable.call(this, recognizer, exception);
             }
-        });
+        );
     }
     isPatched = true;
 }

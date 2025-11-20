@@ -7,9 +7,14 @@
  * @param {{ allowNullPrototype?: boolean }} [options]
  * @returns {value is object} `true` when {@link value} is a plain object.
  */
-export declare function isPlainObject(value: any, { allowNullPrototype }?: {
-    allowNullPrototype?: boolean;
-}): boolean;
+export declare function isPlainObject(
+    value: any,
+    {
+        allowNullPrototype
+    }?: {
+        allowNullPrototype?: boolean;
+    }
+): boolean;
 /**
  * Ensure the provided value is callable. Centralizing this guard keeps
  * defensive checks consistent across modules that accept callbacks while
@@ -21,7 +26,11 @@ export declare function isPlainObject(value: any, { allowNullPrototype }?: {
  * @param {string} name Descriptive name used when constructing the error.
  * @returns {TFunction} The validated function reference.
  */
-export declare function assertFunction(value: any, name: any, { errorMessage }?: {}): any;
+export declare function assertFunction(
+    value: any,
+    name: any,
+    { errorMessage }?: {}
+): any;
 /**
  * Check whether the provided value is an object-like reference. This mirrors
  * Lodash's definition, treating arrays and boxed primitives as object-like
@@ -45,7 +54,11 @@ export declare function isObjectLike(value: any): boolean;
  * @param {THelper} fallback Default helper used when no override is supplied.
  * @returns {THelper}
  */
-export declare function resolveHelperOverride(helpers: any, key: any, fallback: any): any;
+export declare function resolveHelperOverride(
+    helpers: any,
+    key: any,
+    fallback: any
+): any;
 /**
  * Describe {@link value} using terminology appropriate for error messages.
  *
@@ -63,12 +76,20 @@ export declare function resolveHelperOverride(helpers: any, key: any, fallback: 
  * }} [options]
  * @returns {string} Human-readable description of {@link value}.
  */
-export declare function describeValueWithArticle(value: any, { emptyStringLabel, arrayLabel, objectLabel, formatTaggedObjectLabel }?: {
-    emptyStringLabel?: any;
-    arrayLabel?: string;
-    objectLabel?: string;
-    formatTaggedObjectLabel?: (tagName: any) => string;
-}): any;
+export declare function describeValueWithArticle(
+    value: any,
+    {
+        emptyStringLabel,
+        arrayLabel,
+        objectLabel,
+        formatTaggedObjectLabel
+    }?: {
+        emptyStringLabel?: any;
+        arrayLabel?: string;
+        objectLabel?: string;
+        formatTaggedObjectLabel?: (tagName: any) => string;
+    }
+): any;
 /**
  * Determine whether the provided value is an object or function reference.
  *
@@ -95,9 +116,16 @@ export declare function isObjectOrFunction(value: any): boolean;
  * @param {{ name?: string; errorMessage?: string }} [options]
  * @returns {TObject}
  */
-export declare function assertFunctionProperties(value: any, methodNames: any, { name, errorMessage }?: {
-    name?: string;
-}): any;
+export declare function assertFunctionProperties(
+    value: any,
+    methodNames: any,
+    {
+        name,
+        errorMessage
+    }?: {
+        name?: string;
+    }
+): any;
 /**
  * Resolve the built-in `Object.prototype.toString` tag name for {@link value}.
  *
@@ -112,9 +140,14 @@ export declare function assertFunctionProperties(value: any, methodNames: any, {
  * @param {boolean} [options.includePlainObject=false]
  * @returns {string | null} Tag name when resolved, otherwise `null`.
  */
-export declare function getObjectTagName(value: any, { includePlainObject }?: {
-    includePlainObject?: boolean;
-}): string;
+export declare function getObjectTagName(
+    value: any,
+    {
+        includePlainObject
+    }?: {
+        includePlainObject?: boolean;
+    }
+): string;
 /**
  * Validate that {@link value} is a plain object, throwing a descriptive
  * `TypeError` otherwise. Returns the original value to keep call sites terse
@@ -129,10 +162,17 @@ export declare function getObjectTagName(value: any, { includePlainObject }?: {
  * }} [options]
  * @returns {T}
  */
-export declare function assertPlainObject(value: any, { name, errorMessage, allowNullPrototype }?: {
-    name?: string;
-    allowNullPrototype?: boolean;
-}): any;
+export declare function assertPlainObject(
+    value: any,
+    {
+        name,
+        errorMessage,
+        allowNullPrototype
+    }?: {
+        name?: string;
+        allowNullPrototype?: boolean;
+    }
+): any;
 /**
  * Executes the provided callback when `value` is an object-like entity. This
  * avoids repeating the null and type checks that precede many object
@@ -152,7 +192,11 @@ export declare function assertPlainObject(value: any, { name, errorMessage, allo
  * @returns {TResult | undefined} The result of `onObjectLike`, the fallback,
  *                                or `undefined` when no fallback is supplied.
  */
-export declare function withObjectLike(value: any, onObjectLike: any, onNotObjectLike: any): any;
+export declare function withObjectLike(
+    value: any,
+    onObjectLike: any,
+    onNotObjectLike: any
+): any;
 /**
  * Execute {@link onDefined} when {@link value} is not `undefined`. Centralizes
  * the guard around optional values so call sites can focus on their core logic
@@ -172,7 +216,11 @@ export declare function withObjectLike(value: any, onObjectLike: any, onNotObjec
  *        (or invoked) when {@link value} is `undefined`.
  * @returns {TResult | undefined}
  */
-export declare function withDefinedValue(value: any, onDefined: any, onUndefined: any): any;
+export declare function withDefinedValue(
+    value: any,
+    onDefined: any,
+    onUndefined: any
+): any;
 /**
  * Returns the first property value on the provided object that is neither
  * `undefined` nor `null`.
@@ -190,9 +238,16 @@ export declare function withDefinedValue(value: any, onDefined: any, onUndefined
  * @param {boolean} [options.acceptNull=false]
  * @returns {unknown} The first matching property value or the fallback.
  */
-export declare function coalesceOption(object: any, keys: any, { fallback, acceptNull }?: {
-    acceptNull?: boolean;
-}): any;
+export declare function coalesceOption(
+    object: any,
+    keys: any,
+    {
+        fallback,
+        acceptNull
+    }?: {
+        acceptNull?: boolean;
+    }
+): any;
 /**
  * Determine whether `object` defines `key` as an own property. Defers to the
  * intrinsic `Object.prototype.hasOwnProperty` to avoid accidental shadowing by
@@ -228,7 +283,11 @@ export declare function hasOwn(object: any, key: any): boolean;
  *        missing.
  * @returns {TValue} Existing or newly created entry.
  */
-export declare function getOrCreateMapEntry(store: any, key: any, initializer: any): any;
+export declare function getOrCreateMapEntry(
+    store: any,
+    key: any,
+    initializer: any
+): any;
 /**
  * Increment the numeric value stored at {@link key} inside a Map-like
  * collection, defaulting missing or non-numeric entries to {@link fallback}.
@@ -248,6 +307,13 @@ export declare function getOrCreateMapEntry(store: any, key: any, initializer: a
  *        when the current entry is missing or not a finite number.
  * @returns {number} The incremented numeric value stored in the map.
  */
-export declare function incrementMapValue(store: any, key: any, amount?: number, { fallback }?: {
-    fallback?: number;
-}): any;
+export declare function incrementMapValue(
+    store: any,
+    key: any,
+    amount?: number,
+    {
+        fallback
+    }?: {
+        fallback?: number;
+    }
+): any;

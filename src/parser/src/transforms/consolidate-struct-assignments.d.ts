@@ -1,4 +1,7 @@
-export declare function consolidateStructAssignments(ast: any, commentTools: any): any;
+export declare function consolidateStructAssignments(
+    ast: any,
+    commentTools: any
+): any;
 declare class CommentTracker {
     constructor(ownerOrComments: any);
     hasBetween(left: any, right: any): boolean;

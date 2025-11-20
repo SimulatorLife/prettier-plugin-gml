@@ -95,7 +95,7 @@ export function normalizeSimpleEscapeCase(text) {
 
 /**
  * Check whether {@link value} is a quoted string (using single or double quotes).
- * @param {*} value 
+ * @param {*} value
  * @returns {boolean} `true` when {@link value} is a quoted string.
  */
 export function isQuotedString(value) {

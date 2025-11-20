@@ -136,13 +136,20 @@ function createMapIncrementer(store) {
 }
 function ensureCacheStats(caches, cacheKeys, cacheName) {
     const normalized = normalizeLabel(cacheName);
-    return getOrCreateMapEntry(caches, normalized, () => new Map(cacheKeys.map((key) => [key, 0])));
+    return getOrCreateMapEntry(
+        caches,
+        normalized,
+        () => new Map(cacheKeys.map((key) => [key, 0]))
+    );
 }
 function incrementCacheMetric(caches, cacheKeys, cacheName, key, amount = 1) {
     const stats = ensureCacheStats(caches, cacheKeys, cacheName);
     const normalizedKey = normalizeLabel(key);
     getOrCreateMapEntry(stats, normalizedKey, () => 0);
-    const increment = normalizeIncrementAmount(amount, amount === undefined ? 1 : 0);
+    const increment = normalizeIncrementAmount(
+        amount,
+        amount === undefined ? 1 : 0
+    );
     if (increment === 0) {
         return;
     }
@@ -158,13 +165,22 @@ function mergeSummarySections(summary, extra) {
 }
 function createSummaryLogger({ logger, category, snapshot }) {
     if (!logger || typeof logger.debug !== "function") {
-        return () => { };
+        return () => {};
     }
     return (message = "summary", extra = {}) => {
         logger.debug(`[${category}] ${message}`, snapshot(extra));
     };
 }
-function createFinalizer({ autoLog, logger, category, snapshot, timings, counters, caches, metadata }) {
+function createFinalizer({
+    autoLog,
+    logger,
+    category,
+    snapshot,
+    timings,
+    counters,
+    caches,
+    metadata
+}) {
     const hasDebug = typeof logger?.debug === "function";
     let hasLoggedSummary = false;
     return (extra = {}) => {
@@ -201,7 +217,12 @@ function createFinalizer({ autoLog, logger, category, snapshot, timings, counter
  * }} [options]
  * @returns {MetricsContracts}
  */
-export function createMetricsTracker({ category = "metrics", logger = null, autoLog = false, cacheKeys: cacheKeyOption } = {}) {
+export function createMetricsTracker({
+    category = "metrics",
+    logger = null,
+    autoLog = false,
+    cacheKeys: cacheKeyOption
+} = {}) {
     const timings = new Map();
     const counters = new Map();
     const caches = new Map();
@@ -212,8 +233,16 @@ export function createMetricsTracker({ category = "metrics", logger = null, auto
     const snapshot = (extra = {}) => {
         const timingsSnapshot = Object.fromEntries(timings);
         const countersSnapshot = Object.fromEntries(counters);
-        const cachesSnapshot = Object.fromEntries(Array.from(caches, ([name, stats]) => [name, Object.fromEntries(stats)]));
-        const totalTimeMs = Object.values(timingsSnapshot).reduce((total, value) => total + value, 0);
+        const cachesSnapshot = Object.fromEntries(
+            Array.from(caches, ([name, stats]) => [
+                name,
+                Object.fromEntries(stats)
+            ])
+        );
+        const totalTimeMs = Object.values(timingsSnapshot).reduce(
+            (total, value) => total + value,
+            0
+        );
         const summary = {
             category,
             totalTimeMs,
@@ -252,8 +281,7 @@ export function createMetricsTracker({ category = "metrics", logger = null, auto
         const stop = startTimer(label);
         try {
             return callback();
-        }
-        finally {
+        } finally {
             stop();
         }
     }
@@ -261,8 +289,7 @@ export function createMetricsTracker({ category = "metrics", logger = null, auto
         const stop = startTimer(label);
         try {
             return await callback();
-        }
-        finally {
+        } finally {
             stop();
         }
     }

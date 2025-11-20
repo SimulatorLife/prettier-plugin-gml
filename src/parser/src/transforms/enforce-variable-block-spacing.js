@@ -1,12 +1,16 @@
 import { Core } from "@gml-modules/core";
 import { resolveVariableBlockSpacingMinDeclarations } from "../../options/variable-block-spacing-options.js";
-const { AST: { getNodeType }, Utils: { isNonEmptyArray } } = Core;
+const {
+    AST: { getNodeType },
+    Utils: { isNonEmptyArray }
+} = Core;
 export function enforceVariableBlockSpacing(ast, options) {
     if (!ast || typeof ast !== "object") {
         return;
     }
     const visitedNodes = new WeakSet();
-    const minDeclarationRunLength = resolveVariableBlockSpacingMinDeclarations(options);
+    const minDeclarationRunLength =
+        resolveVariableBlockSpacingMinDeclarations(options);
     visitNode(ast, visitedNodes, minDeclarationRunLength);
 }
 function visitNode(node, visitedNodes, minDeclarationRunLength) {
@@ -40,13 +44,17 @@ function enforceSpacingInBlock(statements, minDeclarationRunLength) {
             runLength += 1;
             continue;
         }
-        if (runLength >= minDeclarationRunLength &&
-            shouldForceBlankLineAfter(statement)) {
+        if (
+            runLength >= minDeclarationRunLength &&
+            shouldForceBlankLineAfter(statement)
+        ) {
             const lastDeclaration = statements[index - 1];
-            if (lastDeclaration &&
+            if (
+                lastDeclaration &&
                 typeof lastDeclaration === "object" &&
                 lastDeclaration._gmlForceFollowingEmptyLine !== true &&
-                lastDeclaration._featherForceFollowingEmptyLine !== true) {
+                lastDeclaration._featherForceFollowingEmptyLine !== true
+            ) {
                 lastDeclaration._gmlForceFollowingEmptyLine = true;
             }
         }

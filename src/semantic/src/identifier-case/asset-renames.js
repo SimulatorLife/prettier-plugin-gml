@@ -2,10 +2,25 @@ import path from "node:path";
 import { Core } from "@gml-modules/core";
 import { formatIdentifierCase } from "./identifier-case-utils.js";
 import { loadReservedIdentifierNames } from "../resources/reserved-identifiers.js";
-import { COLLISION_CONFLICT_CODE, RESERVED_CONFLICT_CODE, createConflict, formatConfigurationConflictMessage, resolveIdentifierConfigurationConflict, summarizeReferenceFileOccurrences } from "./common.js";
+import {
+    COLLISION_CONFLICT_CODE,
+    RESERVED_CONFLICT_CODE,
+    createConflict,
+    formatConfigurationConflictMessage,
+    resolveIdentifierConfigurationConflict,
+    summarizeReferenceFileOccurrences
+} from "./common.js";
 import { createAssetRenameExecutor } from "./asset-rename-executor.js";
-import { IdentifierCaseStyle, normalizeIdentifierCaseAssetStyle } from "./options.js";
-const { getOrCreateMapEntry, isNonEmptyArray, isNonEmptyString, toNormalizedLowerCaseString } = Core;
+import {
+    IdentifierCaseStyle,
+    normalizeIdentifierCaseAssetStyle
+} from "./options.js";
+const {
+    getOrCreateMapEntry,
+    isNonEmptyArray,
+    isNonEmptyString,
+    toNormalizedLowerCaseString
+} = Core;
 const RESERVED_IDENTIFIER_NAMES = loadReservedIdentifierNames();
 function isReservedIdentifierName(name) {
     const normalizedName = toNormalizedLowerCaseString(name);
@@ -22,7 +37,9 @@ function buildAssetConflictSuggestions(identifierName) {
     if (isNonEmptyString(identifierName)) {
         suggestions.push(`Add '${identifierName}' to gmlIdentifierCaseIgnore`);
     }
-    suggestions.push('Disable asset renames by setting gmlIdentifierCaseAssets to "off"');
+    suggestions.push(
+        'Disable asset renames by setting gmlIdentifierCaseAssets to "off"'
+    );
     return suggestions;
 }
 function mapRenameConflictDetails(entries) {
@@ -33,32 +50,54 @@ function mapRenameConflictDetails(entries) {
         isRename: entry.isRename
     }));
 }
-function pushAssetRenameConflict({ conflicts, metrics, metricKey, code, severity = "error", message, resourcePath, resourceType, identifierName, details, includeSuggestions = true, suggestions }) {
+function pushAssetRenameConflict({
+    conflicts,
+    metrics,
+    metricKey,
+    code,
+    severity = "error",
+    message,
+    resourcePath,
+    resourceType,
+    identifierName,
+    details,
+    includeSuggestions = true,
+    suggestions
+}) {
     const scope = {
         id: resourcePath,
         displayName: `${resourceType}.${identifierName}`
     };
-    const resolvedSuggestions = suggestions === undefined
-        ? includeSuggestions && isNonEmptyString(identifierName)
-            ? buildAssetConflictSuggestions(identifierName)
-            : null
-        : suggestions;
-    conflicts.push(createConflict({
-        code,
-        severity,
-        message,
-        scope,
-        identifier: identifierName,
-        ...(details !== undefined && { details }),
-        ...(resolvedSuggestions?.length
-            ? { suggestions: resolvedSuggestions }
-            : {})
-    }));
+    const resolvedSuggestions =
+        suggestions === undefined
+            ? includeSuggestions && isNonEmptyString(identifierName)
+                ? buildAssetConflictSuggestions(identifierName)
+                : null
+            : suggestions;
+    conflicts.push(
+        createConflict({
+            code,
+            severity,
+            message,
+            scope,
+            identifier: identifierName,
+            ...(details !== undefined && { details }),
+            ...(resolvedSuggestions?.length
+                ? { suggestions: resolvedSuggestions }
+                : {})
+        })
+    );
     if (metricKey) {
         metrics?.counters?.increment(metricKey);
     }
 }
-function recordAssetRenameCollision({ conflicts, renameEntry, conflictingEntries, message, metrics }) {
+function recordAssetRenameCollision({
+    conflicts,
+    renameEntry,
+    conflictingEntries,
+    message,
+    metrics
+}) {
     pushAssetRenameConflict({
         conflicts,
         metrics,
@@ -85,9 +124,11 @@ function collectDirectoryEntries({ projectIndex, renames }) {
     const resources = projectIndex?.resources ?? {};
     const directories = new Map();
     for (const [resourcePath, resourceRecord] of Object.entries(resources)) {
-        if (!resourceRecord ||
+        if (
+            !resourceRecord ||
             resourceRecord.resourceType !== "GMScript" ||
-            typeof resourceRecord.name !== "string") {
+            typeof resourceRecord.name !== "string"
+        ) {
             continue;
         }
         const rename = renameByResourcePath.get(resourcePath) ?? null;
@@ -134,12 +175,18 @@ function detectAssetRenameConflicts({ projectIndex, renames, metrics = null }) {
                 continue;
             }
             const existingEntries = bucket.filter((entry) => !entry.isRename);
-            const existingCollisionSummary = existingEntries.length > 0
-                ? existingEntries
-                    .map((entry) => `'${entry.originalName}' (${entry.resourcePath})`)
-                    .join(", ")
-                : "";
-            const renameNames = renameEntries.map((entry) => `'${entry.originalName}'`);
+            const existingCollisionSummary =
+                existingEntries.length > 0
+                    ? existingEntries
+                          .map(
+                              (entry) =>
+                                  `'${entry.originalName}' (${entry.resourcePath})`
+                          )
+                          .join(", ")
+                    : "";
+            const renameNames = renameEntries.map(
+                (entry) => `'${entry.originalName}'`
+            );
             for (const [index, renameEntry] of renameEntries.entries()) {
                 if (existingEntries.length > 0) {
                     recordAssetRenameCollision({
@@ -155,7 +202,10 @@ function detectAssetRenameConflicts({ projectIndex, renames, metrics = null }) {
                 }
                 const otherRenames = [];
                 let otherNames = "";
-                for (const [otherIndex, otherEntry] of renameEntries.entries()) {
+                for (const [
+                    otherIndex,
+                    otherEntry
+                ] of renameEntries.entries()) {
                     if (otherIndex === index) {
                         continue;
                     }
@@ -212,7 +262,11 @@ function groupAssetReferencesByTargetPath(assetReferences) {
         if (!reference || typeof reference.targetPath !== "string") {
             continue;
         }
-        const references = getOrCreateMapEntry(referencesByTargetPath, reference.targetPath, () => []);
+        const references = getOrCreateMapEntry(
+            referencesByTargetPath,
+            reference.targetPath,
+            () => []
+        );
         references.push(reference);
     }
     return referencesByTargetPath;
@@ -221,10 +275,10 @@ function collectReferenceMutations(inboundReferences, originalName) {
     return inboundReferences
         .filter((reference) => typeof reference.fromResourcePath === "string")
         .map((reference) => ({
-        filePath: reference.fromResourcePath,
-        propertyPath: reference.propertyPath ?? "",
-        originalName: reference.targetName ?? originalName
-    }));
+            filePath: reference.fromResourcePath,
+            propertyPath: reference.propertyPath ?? "",
+            originalName: reference.targetName ?? originalName
+        }));
 }
 function collectGmlRenames(resourceRecord, originalName, convertedName) {
     const gmlRenames = [];
@@ -234,12 +288,22 @@ function collectGmlRenames(resourceRecord, originalName, convertedName) {
         if (baseName !== originalName) {
             continue;
         }
-        const renamedPath = path.posix.join(path.posix.dirname(gmlFile), `${convertedName}${extension}`);
+        const renamedPath = path.posix.join(
+            path.posix.dirname(gmlFile),
+            `${convertedName}${extension}`
+        );
         gmlRenames.push({ from: gmlFile, to: renamedPath });
     }
     return gmlRenames;
 }
-function planRenamesForResources({ resources, assetStyle, preservedSet, ignoreMatchers, referencesByTargetPath, metrics }) {
+function planRenamesForResources({
+    resources,
+    assetStyle,
+    preservedSet,
+    ignoreMatchers,
+    referencesByTargetPath,
+    metrics
+}) {
     if (!resources) {
         return { operations: [], conflicts: [], renames: [] };
     }
@@ -264,7 +328,19 @@ function planRenamesForResources({ resources, assetStyle, preservedSet, ignoreMa
     }
     return { operations, conflicts, renames };
 }
-function planRenameForResource({ resourcePath, resourceRecord, assetStyle, preservedSet, ignoreMatchers, referencesByTargetPath, namesByDirectory, metrics, operations, conflicts, renames }) {
+function planRenameForResource({
+    resourcePath,
+    resourceRecord,
+    assetStyle,
+    preservedSet,
+    ignoreMatchers,
+    referencesByTargetPath,
+    namesByDirectory,
+    metrics,
+    operations,
+    conflicts,
+    renames
+}) {
     if (!resourceRecord || !resourceRecord.name) {
         return;
     }
@@ -325,9 +401,16 @@ function planRenameForResource({ resourcePath, resourceRecord, assetStyle, prese
         path: resourcePath
     });
     const inboundReferences = referencesByTargetPath.get(resourcePath) ?? [];
-    const referenceMutations = collectReferenceMutations(inboundReferences, originalName);
+    const referenceMutations = collectReferenceMutations(
+        inboundReferences,
+        originalName
+    );
     const newResourcePath = path.posix.join(directory, `${convertedName}.yy`);
-    const gmlRenames = collectGmlRenames(resourceRecord, originalName, convertedName);
+    const gmlRenames = collectGmlRenames(
+        resourceRecord,
+        originalName,
+        convertedName
+    );
     renames.push({
         resourcePath,
         resourceType: resourceRecord.resourceType,
@@ -350,14 +433,24 @@ function planRenameForResource({ resourcePath, resourceRecord, assetStyle, prese
         references: summarizeReferences(referenceMutations, resourcePath)
     });
 }
-export function planAssetRenames({ projectIndex, assetStyle, preservedSet = new Set(), ignoreMatchers = [], metrics = null } = {}) {
+export function planAssetRenames({
+    projectIndex,
+    assetStyle,
+    preservedSet = new Set(),
+    ignoreMatchers = [],
+    metrics = null
+} = {}) {
     const normalizedAssetStyle = normalizeIdentifierCaseAssetStyle(assetStyle);
-    if (!projectIndex ||
+    if (
+        !projectIndex ||
         !projectIndex.resources ||
-        normalizedAssetStyle === IdentifierCaseStyle.OFF) {
+        normalizedAssetStyle === IdentifierCaseStyle.OFF
+    ) {
         return { operations: [], conflicts: [], renames: [] };
     }
-    const referencesByTargetPath = groupAssetReferencesByTargetPath(projectIndex.relationships?.assetReferences ?? []);
+    const referencesByTargetPath = groupAssetReferencesByTargetPath(
+        projectIndex.relationships?.assetReferences ?? []
+    );
     const { operations, conflicts, renames } = planRenamesForResources({
         resources: projectIndex.resources,
         assetStyle: normalizedAssetStyle,
@@ -377,7 +470,12 @@ export function planAssetRenames({ projectIndex, assetStyle, preservedSet = new 
     }
     return { operations, conflicts, renames };
 }
-export function applyAssetRenames({ projectIndex, renames, fsFacade = null, logger = null } = {}) {
+export function applyAssetRenames({
+    projectIndex,
+    renames,
+    fsFacade = null,
+    logger = null
+} = {}) {
     if (!hasPendingAssetRenames(projectIndex, renames)) {
         return { writes: [], renames: [] };
     }

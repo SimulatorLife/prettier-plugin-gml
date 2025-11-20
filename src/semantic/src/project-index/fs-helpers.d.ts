@@ -13,7 +13,11 @@
  * @returns {Promise<Array<string>>} Stable array of directory entries, ordered
  *          according to the underlying iterator.
  */
-export declare function listDirectory(fsFacade: any, directoryPath: any, options?: {}): Promise<any>;
+export declare function listDirectory(
+    fsFacade: any,
+    directoryPath: any,
+    options?: {}
+): Promise<any>;
 /**
  * Resolve the `mtimeMs` value for {@link filePath}, returning `null` when the
  * file cannot be stat'ed (for example when it was deleted mid-flight). The
@@ -28,4 +32,8 @@ export declare function listDirectory(fsFacade: any, directoryPath: any, options
  * @returns {Promise<number | null>} Millisecond precision modified time, or
  *          `null` when unavailable.
  */
-export declare function getFileMtime(fsFacade: any, filePath: any, options?: {}): Promise<any>;
+export declare function getFileMtime(
+    fsFacade: any,
+    filePath: any,
+    options?: {}
+): Promise<any>;

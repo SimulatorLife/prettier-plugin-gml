@@ -32,9 +32,11 @@ export function buildLocationKey(location) {
     const line = getFirstDefined(location, LINE_FIELDS);
     const column = getFirstDefined(location, COLUMN_FIELDS);
     const index = getFirstDefined(location, INDEX_FIELDS);
-    if (isNullOrUndefined(line) &&
+    if (
+        isNullOrUndefined(line) &&
         isNullOrUndefined(column) &&
-        isNullOrUndefined(index)) {
+        isNullOrUndefined(index)
+    ) {
         return null;
     }
     return [line ?? "", column ?? "", index ?? ""].join(":");

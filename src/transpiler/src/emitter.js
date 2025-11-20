@@ -39,8 +39,10 @@ export function makeDummyOracle() {
             return null;
         },
         callTargetKind(node) {
-            if (node.object.type === "Identifier" &&
-                builtInFunctions[node.object.name]) {
+            if (
+                node.object.type === "Identifier" &&
+                builtInFunctions[node.object.name]
+            ) {
                 return "builtin";
             }
             return "unknown";
@@ -74,13 +76,11 @@ export class GmlToJsEmitter {
      * @returns {string} Generated JavaScript code
      */
     emit(ast) {
-        if (!ast)
-            return "";
+        if (!ast) return "";
         return this.visit(ast);
     }
     visit(ast) {
-        if (!ast)
-            return "";
+        if (!ast) return "";
         switch (ast.type) {
             case "DefaultParameter": {
                 // Parameters with defaults: emit as `left = right` so the
@@ -280,9 +280,10 @@ export class GmlToJsEmitter {
         }
         if (kind === "script") {
             const scriptSymbol = this.sem.callTargetSymbol(ast);
-            const fallbackName = typeof this.sem.nameOfIdent === "function"
-                ? this.sem.nameOfIdent(ast.object)
-                : (ast.object?.name ?? callee);
+            const fallbackName =
+                typeof this.sem.nameOfIdent === "function"
+                    ? this.sem.nameOfIdent(ast.object)
+                    : (ast.object?.name ?? callee);
             const scriptId = scriptSymbol || fallbackName;
             const argsList = args.join(", ");
             return `${this.options.callScriptIdent}(${JSON.stringify(scriptId)}, self, other, [${argsList}])`;
@@ -290,35 +291,35 @@ export class GmlToJsEmitter {
         return `${callee}(${args.join(", ")})`;
     }
     visitProgram(ast) {
-        if (!ast.body)
-            return "";
+        if (!ast.body) return "";
         return ast.body
             .map((stmt) => {
-            const code = this.visit(stmt);
-            if (code && !code.endsWith(";") && !code.endsWith("}")) {
-                return `${code};`;
-            }
-            return code;
-        })
+                const code = this.visit(stmt);
+                if (code && !code.endsWith(";") && !code.endsWith("}")) {
+                    return `${code};`;
+                }
+                return code;
+            })
             .filter(Boolean)
             .join("\n");
     }
     visitBlockStatement(ast) {
-        if (!ast.body)
-            return "{}";
+        if (!ast.body) return "{}";
         const body = ast.body
             .map((stmt) => {
-            const code = this.visit(stmt);
-            if (code &&
-                !code.endsWith(";") &&
-                !code.endsWith("}") &&
-                !code.trim().startsWith("if") &&
-                !code.trim().startsWith("for") &&
-                !code.trim().startsWith("while")) {
-                return `${code};`;
-            }
-            return code;
-        })
+                const code = this.visit(stmt);
+                if (
+                    code &&
+                    !code.endsWith(";") &&
+                    !code.endsWith("}") &&
+                    !code.trim().startsWith("if") &&
+                    !code.trim().startsWith("for") &&
+                    !code.trim().startsWith("while")
+                ) {
+                    return `${code};`;
+                }
+                return code;
+            })
             .filter(Boolean)
             .join("\n");
         return `{\n${body}\n}`;
@@ -340,11 +341,9 @@ export class GmlToJsEmitter {
         if (ast.alternate) {
             if (ast.alternate.type === "IfStatement") {
                 result += ` else ${this.visit(ast.alternate)}`;
-            }
-            else if (ast.alternate.type === "BlockStatement") {
+            } else if (ast.alternate.type === "BlockStatement") {
                 result += ` else ${this.visit(ast.alternate)}`;
-            }
-            else {
+            } else {
                 result += ` else {\n${this.visit(ast.alternate)};\n}`;
             }
         }
@@ -398,9 +397,10 @@ export class GmlToJsEmitter {
         }
         result += " while (";
         if (ast.test) {
-            const testExpr = ast.test.type === "ParenthesizedExpression"
-                ? this.visit(ast.test.expression)
-                : this.visit(ast.test);
+            const testExpr =
+                ast.test.type === "ParenthesizedExpression"
+                    ? this.visit(ast.test.expression)
+                    : this.visit(ast.test);
             result += `!(${testExpr})`;
         }
         result += ")";
@@ -515,8 +515,7 @@ export class GmlToJsEmitter {
                 ast.test.type === "ParenthesizedExpression"
                     ? this.visit(ast.test.expression)
                     : this.visit(ast.test);
-        }
-        else {
+        } else {
             result += "0";
         }
         result += "; __repeat_count > 0; __repeat_count--)";
@@ -540,30 +539,32 @@ export class GmlToJsEmitter {
         if (ast.cases && ast.cases.length > 0) {
             result += ast.cases
                 .map((caseNode) => {
-                let caseStr;
-                caseStr =
-                    caseNode.test === null
-                        ? "default:\n"
-                        : `case ${this.visit(caseNode.test)}:\n`;
-                if (caseNode.body && caseNode.body.length > 0) {
-                    caseStr += caseNode.body
-                        .map((stmt) => {
-                        const code = this.visit(stmt);
-                        if (code &&
-                            !code.endsWith(";") &&
-                            !code.endsWith("}") &&
-                            code !== "break" &&
-                            code !== "continue" &&
-                            !code.startsWith("return")) {
-                            return `${code};`;
-                        }
-                        return code;
-                    })
-                        .filter(Boolean)
-                        .join("\n");
-                }
-                return caseStr;
-            })
+                    let caseStr;
+                    caseStr =
+                        caseNode.test === null
+                            ? "default:\n"
+                            : `case ${this.visit(caseNode.test)}:\n`;
+                    if (caseNode.body && caseNode.body.length > 0) {
+                        caseStr += caseNode.body
+                            .map((stmt) => {
+                                const code = this.visit(stmt);
+                                if (
+                                    code &&
+                                    !code.endsWith(";") &&
+                                    !code.endsWith("}") &&
+                                    code !== "break" &&
+                                    code !== "continue" &&
+                                    !code.startsWith("return")
+                                ) {
+                                    return `${code};`;
+                                }
+                                return code;
+                            })
+                            .filter(Boolean)
+                            .join("\n");
+                    }
+                    return caseStr;
+                })
                 .join("\n");
         }
         result += "\n}";
@@ -575,29 +576,30 @@ export class GmlToJsEmitter {
         }
         const statements = ast.declarations
             .map((decl) => {
-            if (!decl || !decl.id) {
-                return "";
-            }
-            const identifier = typeof this.sem.nameOfIdent === "function"
-                ? this.sem.nameOfIdent(decl.id)
-                : (decl.id.name ?? decl.id);
-            if (!identifier || typeof identifier !== "string") {
-                return "";
-            }
-            return `if (!Object.prototype.hasOwnProperty.call(globalThis, "${identifier}")) { globalThis.${identifier} = undefined; }`;
-        })
+                if (!decl || !decl.id) {
+                    return "";
+                }
+                const identifier =
+                    typeof this.sem.nameOfIdent === "function"
+                        ? this.sem.nameOfIdent(decl.id)
+                        : (decl.id.name ?? decl.id);
+                if (!identifier || typeof identifier !== "string") {
+                    return "";
+                }
+                return `if (!Object.prototype.hasOwnProperty.call(globalThis, "${identifier}")) { globalThis.${identifier} = undefined; }`;
+            })
             .filter(Boolean);
         return statements.join("\n");
     }
     visitVariableDeclaration(ast) {
         const declarations = ast.declarations
             .map((decl) => {
-            let result = this.visit(decl.id);
-            if (decl.init) {
-                result += ` = ${this.visit(decl.init)}`;
-            }
-            return result;
-        })
+                let result = this.visit(decl.id);
+                if (decl.init) {
+                    result += ` = ${this.visit(decl.init)}`;
+                }
+                return result;
+            })
             .join(", ");
         return `${ast.kind} ${declarations}`;
     }
@@ -609,9 +611,10 @@ export class GmlToJsEmitter {
         return result;
     }
     visitTernaryExpression(ast) {
-        const test = ast.test.type === "ParenthesizedExpression"
-            ? this.visit(ast.test.expression)
-            : this.visit(ast.test);
+        const test =
+            ast.test.type === "ParenthesizedExpression"
+                ? this.visit(ast.test.expression)
+                : this.visit(ast.test);
         const consequent = this.visit(ast.consequent);
         const alternate = this.visit(ast.alternate);
         return `(${test} ? ${consequent} : ${alternate})`;
@@ -629,10 +632,10 @@ export class GmlToJsEmitter {
         }
         const properties = ast.properties
             .map((prop) => {
-            const key = prop.name;
-            const value = this.visit(prop.value);
-            return `${key}: ${value}`;
-        })
+                const key = prop.name;
+                const value = this.visit(prop.value);
+                return `${key}: ${value}`;
+            })
             .join(", ");
         return `{${properties}}`;
     }
@@ -645,17 +648,20 @@ export class GmlToJsEmitter {
         ];
         if (ast.members && ast.members.length > 0) {
             for (const member of ast.members) {
-                const memberName = typeof member.name === "string"
-                    ? member.name
-                    : this.visit(member.name);
-                if (member.initializer !== undefined &&
-                    member.initializer !== null) {
-                    const initializer = typeof member.initializer === "string"
-                        ? member.initializer
-                        : this.visit(member.initializer);
+                const memberName =
+                    typeof member.name === "string"
+                        ? member.name
+                        : this.visit(member.name);
+                if (
+                    member.initializer !== undefined &&
+                    member.initializer !== null
+                ) {
+                    const initializer =
+                        typeof member.initializer === "string"
+                            ? member.initializer
+                            : this.visit(member.initializer);
                     lines.push(`    __value = ${initializer};`);
-                }
-                else {
+                } else {
                     lines.push("    __value += 1;");
                 }
                 lines.push(`    __enum.${memberName} = __value;`);
@@ -672,7 +678,9 @@ export class GmlToJsEmitter {
         result += "(";
         if (ast.params && ast.params.length > 0) {
             const params = ast.params
-                .map((param) => typeof param === "string" ? param : this.visit(param))
+                .map((param) =>
+                    typeof param === "string" ? param : this.visit(param)
+                )
                 .join(", ");
             result += params;
         }

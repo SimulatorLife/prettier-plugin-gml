@@ -26,9 +26,8 @@ export function resolveModuleDefaultExport(module) {
         return module;
     }
 
-    const { default: defaultExport } = /** @type {{ default?: unknown }} */ (
-        module
-    );
+    const { default: defaultExport } =
+        /** @type {{ default?: unknown }} */ module;
 
     return defaultExport ?? module;
 }

@@ -4,12 +4,38 @@
 // rest of the plugin configuration.
 import { Core } from "@gml-modules/core";
 import { util } from "prettier";
-import GMLParser, { sanitizeConditionalAssignments, applySanitizedIndexAdjustments, consolidateStructAssignments, applyFeatherFixes, preprocessSourceForFeatherFixes, applyRemovedIndexAdjustments, preprocessFunctionArgumentDefaults, enforceVariableBlockSpacing, convertStringConcatenations, condenseLogicalExpressions, convertManualMathExpressions, condenseScalarMultipliers, convertUndefinedGuardAssignments, annotateStaticFunctionOverrides } from "@gml-modules/parser";
+import GMLParser, {
+    sanitizeConditionalAssignments,
+    applySanitizedIndexAdjustments,
+    consolidateStructAssignments,
+    applyFeatherFixes,
+    preprocessSourceForFeatherFixes,
+    applyRemovedIndexAdjustments,
+    preprocessFunctionArgumentDefaults,
+    enforceVariableBlockSpacing,
+    convertStringConcatenations,
+    condenseLogicalExpressions,
+    convertManualMathExpressions,
+    condenseScalarMultipliers,
+    convertUndefinedGuardAssignments,
+    annotateStaticFunctionOverrides
+} from "@gml-modules/parser";
 import { Semantic } from "@gml-modules/semantic";
 import { prepareDocCommentEnvironment } from "../comments/index.js";
-const { getNodeStartIndex, getNodeEndIndex, toMutableArray, visitChildNodes, isNonEmptyTrimmedString } = Core;
+const {
+    getNodeStartIndex,
+    getNodeEndIndex,
+    toMutableArray,
+    visitChildNodes,
+    isNonEmptyTrimmedString
+} = Core;
 const { addTrailingComment } = util;
-function applyIndexAdjustmentsIfPresent(target, adjustments, applyAdjustments, metadata) {
+function applyIndexAdjustmentsIfPresent(
+    target,
+    adjustments,
+    applyAdjustments,
+    metadata
+) {
     if (!Array.isArray(adjustments) || adjustments.length === 0) {
         return;
     }
@@ -33,8 +59,10 @@ async function parse(text, options) {
         }
         if (options?.applyFeatherFixes) {
             const preprocessResult = preprocessSourceForFeatherFixes(text);
-            if (preprocessResult &&
-                typeof preprocessResult.sourceText === "string") {
+            if (
+                preprocessResult &&
+                typeof preprocessResult.sourceText === "string"
+            ) {
                 parseSource = preprocessResult.sourceText;
             }
             preprocessedFixMetadata = preprocessResult?.metadata ?? null;
@@ -44,12 +72,17 @@ async function parse(text, options) {
         // These should be converted to proper // comments to avoid parsing errors
         parseSource = fixMalformedComments(parseSource);
         const sanitizedResult = sanitizeConditionalAssignments(parseSource);
-        const { sourceText: sanitizedSource, indexAdjustments } = sanitizedResult;
+        const { sourceText: sanitizedSource, indexAdjustments } =
+            sanitizedResult;
         if (typeof sanitizedSource === "string") {
             parseSource = sanitizedSource;
         }
-        const callSanitizedResult = sanitizeMissingArgumentSeparators(parseSource);
-        const { sourceText: callSanitizedSource, indexAdjustments: callIndexAdjustments } = callSanitizedResult;
+        const callSanitizedResult =
+            sanitizeMissingArgumentSeparators(parseSource);
+        const {
+            sourceText: callSanitizedSource,
+            indexAdjustments: callIndexAdjustments
+        } = callSanitizedResult;
         if (typeof callSanitizedSource === "string") {
             parseSource = callSanitizedSource;
         }
@@ -59,13 +92,16 @@ async function parse(text, options) {
                 getLocations: true,
                 simplifyLocations: false
             });
-        }
-        catch (error) {
+        } catch (error) {
             if (!options?.applyFeatherFixes) {
                 throw error;
             }
-            const recoveredSource = recoverParseSourceFromMissingBrace(parseSource, error);
-            const hasUsableRecovery = typeof recoveredSource === "string" &&
+            const recoveredSource = recoverParseSourceFromMissingBrace(
+                parseSource,
+                error
+            );
+            const hasUsableRecovery =
+                typeof recoveredSource === "string" &&
                 recoveredSource !== parseSource;
             if (!hasUsableRecovery) {
                 throw error;
@@ -78,7 +114,9 @@ async function parse(text, options) {
         }
         Semantic.attachIdentifierCasePlanSnapshot(ast, options);
         if (!ast || typeof ast !== "object") {
-            throw new Error("GameMaker parser returned no AST for the provided source.");
+            throw new Error(
+                "GameMaker parser returned no AST for the provided source."
+            );
         }
         prepareDocCommentEnvironment(ast);
         if (options?.condenseStructAssignments ?? true) {
@@ -94,9 +132,24 @@ async function parse(text, options) {
                 }
             });
         }
-        applyIndexAdjustmentsIfPresent(ast, callIndexAdjustments, applySanitizedIndexAdjustments, preprocessedFixMetadata);
-        applyIndexAdjustmentsIfPresent(ast, indexAdjustments, applySanitizedIndexAdjustments, preprocessedFixMetadata);
-        applyIndexAdjustmentsIfPresent(ast, enumIndexAdjustments, applyRemovedIndexAdjustments, preprocessedFixMetadata);
+        applyIndexAdjustmentsIfPresent(
+            ast,
+            callIndexAdjustments,
+            applySanitizedIndexAdjustments,
+            preprocessedFixMetadata
+        );
+        applyIndexAdjustmentsIfPresent(
+            ast,
+            indexAdjustments,
+            applySanitizedIndexAdjustments,
+            preprocessedFixMetadata
+        );
+        applyIndexAdjustmentsIfPresent(
+            ast,
+            enumIndexAdjustments,
+            applyRemovedIndexAdjustments,
+            preprocessedFixMetadata
+        );
         if (options?.useStringInterpolation) {
             convertStringConcatenations(ast);
         }
@@ -120,8 +173,7 @@ async function parse(text, options) {
         annotateStaticFunctionOverrides(ast);
         markCallsMissingArgumentSeparators(ast, options?.originalText ?? text);
         return ast;
-    }
-    catch (error) {
+    } catch (error) {
         if (environmentPrepared) {
             Semantic.teardownIdentifierCaseEnvironment(options);
         }
@@ -215,9 +267,11 @@ function sanitizeMissingArgumentSeparators(sourceText) {
             }
             if (inBlockComment) {
                 currentIndex += 1;
-                if (character === "*" &&
+                if (
+                    character === "*" &&
                     currentIndex < length &&
-                    sourceText[currentIndex] === "/") {
+                    sourceText[currentIndex] === "/"
+                ) {
                     currentIndex += 1;
                     inBlockComment = false;
                 }
@@ -252,13 +306,18 @@ function sanitizeMissingArgumentSeparators(sourceText) {
                 currentIndex += 1;
                 continue;
             }
-            if (depth >= 1 &&
+            if (
+                depth >= 1 &&
                 isIdentifierBoundary(sourceText, currentIndex - 1) &&
                 (isIdentifierStartCharacter(sourceText[currentIndex]) ||
-                    sourceText[currentIndex] === "@")) {
+                    sourceText[currentIndex] === "@")
+            ) {
                 const nestedMatch = matchFunctionCall(sourceText, currentIndex);
                 if (nestedMatch) {
-                    const nestedResult = processCall(currentIndex, nestedMatch.openParenIndex);
+                    const nestedResult = processCall(
+                        currentIndex,
+                        nestedMatch.openParenIndex
+                    );
                     currentIndex = nestedResult.index;
                     if (nestedResult.modified) {
                         callModified = true;
@@ -266,16 +325,23 @@ function sanitizeMissingArgumentSeparators(sourceText) {
                     continue;
                 }
             }
-            if (depth === 1 &&
-                isNumericLiteralStart(sourceText, currentIndex)) {
+            if (
+                depth === 1 &&
+                isNumericLiteralStart(sourceText, currentIndex)
+            ) {
                 const literal = readNumericLiteral(sourceText, currentIndex);
                 currentIndex = literal.endIndex;
                 const triviaStart = currentIndex;
-                const trivia = readCallSeparatorTrivia(sourceText, currentIndex);
+                const trivia = readCallSeparatorTrivia(
+                    sourceText,
+                    currentIndex
+                );
                 currentIndex = trivia.endIndex;
-                if (trivia.hasContent &&
+                if (
+                    trivia.hasContent &&
                     currentIndex < length &&
-                    isNumericLiteralStart(sourceText, currentIndex)) {
+                    isNumericLiteralStart(sourceText, currentIndex)
+                ) {
                     ensureCopied(triviaStart);
                     parts.push(",");
                     adjustmentPositions.push(triviaStart + insertedCount);
@@ -372,8 +438,10 @@ function matchFunctionCall(sourceText, startIndex) {
         const character = sourceText[index];
         if (character === "." || character === "@") {
             index += 1;
-            if (index >= length ||
-                !isIdentifierStartCharacter(sourceText[index])) {
+            if (
+                index >= length ||
+                !isIdentifierStartCharacter(sourceText[index])
+            ) {
                 return null;
             }
             lastIdentifierStart = index;
@@ -394,13 +462,18 @@ function matchFunctionCall(sourceText, startIndex) {
         }
         break;
     }
-    const calleeIdentifier = sourceText.slice(lastIdentifierStart, lastIdentifierEnd);
+    const calleeIdentifier = sourceText.slice(
+        lastIdentifierStart,
+        lastIdentifierEnd
+    );
     if (FORBIDDEN_CALLEE_IDENTIFIERS.has(calleeIdentifier)) {
         return null;
     }
     const precedingIdentifier = readIdentifierBefore(sourceText, startIndex);
-    if (precedingIdentifier &&
-        FORBIDDEN_PRECEDING_IDENTIFIERS.has(precedingIdentifier)) {
+    if (
+        precedingIdentifier &&
+        FORBIDDEN_PRECEDING_IDENTIFIERS.has(precedingIdentifier)
+    ) {
         return null;
     }
     const openParenIndex = skipCallTrivia(sourceText, index);
@@ -430,9 +503,11 @@ function skipCallTrivia(sourceText, startIndex) {
             if (nextCharacter === "*") {
                 index += 2;
                 while (index < length) {
-                    if (sourceText[index] === "*" &&
+                    if (
+                        sourceText[index] === "*" &&
                         index + 1 < length &&
-                        sourceText[index + 1] === "/") {
+                        sourceText[index + 1] === "/"
+                    ) {
                         index += 2;
                         break;
                     }
@@ -458,11 +533,9 @@ function skipBalancedSection(sourceText, startIndex, openChar, closeChar) {
         if (stringQuote !== null) {
             if (stringEscape) {
                 stringEscape = false;
-            }
-            else if (character === "\\") {
+            } else if (character === "\\") {
                 stringEscape = true;
-            }
-            else if (character === stringQuote) {
+            } else if (character === stringQuote) {
                 stringQuote = null;
             }
             index += 1;
@@ -476,9 +549,11 @@ function skipBalancedSection(sourceText, startIndex, openChar, closeChar) {
             continue;
         }
         if (inBlockComment) {
-            if (character === "*" &&
+            if (
+                character === "*" &&
                 index + 1 < length &&
-                sourceText[index + 1] === "/") {
+                sourceText[index + 1] === "/"
+            ) {
                 inBlockComment = false;
                 index += 2;
                 continue;
@@ -542,8 +617,10 @@ function readIdentifierBefore(sourceText, index) {
             if (previous === "*") {
                 current -= 2;
                 while (current >= 1) {
-                    if (sourceText[current - 1] === "/" &&
-                        sourceText[current] === "*") {
+                    if (
+                        sourceText[current - 1] === "/" &&
+                        sourceText[current] === "*"
+                    ) {
                         current -= 2;
                         break;
                     }
@@ -577,10 +654,12 @@ function isIdentifierCharacter(character) {
     return /[A-Za-z0-9_]/.test(character ?? "");
 }
 function isWhitespaceCharacter(character) {
-    return (character === " " ||
+    return (
+        character === " " ||
         character === "\t" ||
         character === "\n" ||
-        character === "\r");
+        character === "\r"
+    );
 }
 function isNumericLiteralStart(text, index) {
     if (index >= text.length) {
@@ -598,9 +677,11 @@ function readNumericLiteral(text, startIndex) {
     if (text[index] === "+" || text[index] === "-") {
         index += 1;
     }
-    if (index + 1 < length &&
+    if (
+        index + 1 < length &&
         text[index] === "0" &&
-        (text[index + 1] === "x" || text[index + 1] === "X")) {
+        (text[index + 1] === "x" || text[index + 1] === "X")
+    ) {
         index += 2;
         while (index < length && /[0-9a-fA-F]/.test(text[index])) {
             index += 1;
@@ -610,9 +691,11 @@ function readNumericLiteral(text, startIndex) {
             endIndex: index
         };
     }
-    if (index + 1 < length &&
+    if (
+        index + 1 < length &&
         text[index] === "0" &&
-        (text[index + 1] === "b" || text[index + 1] === "B")) {
+        (text[index + 1] === "b" || text[index + 1] === "B")
+    ) {
         index += 2;
         while (index < length && /[01]/.test(text[index])) {
             index += 1;
@@ -671,10 +754,12 @@ function readCallSeparatorTrivia(text, startIndex) {
             }
             if (nextCharacter === "*") {
                 index += 2;
-                while (index < length &&
+                while (
+                    index < length &&
                     (text[index] !== "*" ||
                         index + 1 >= length ||
-                        text[index + 1] !== "/")) {
+                        text[index + 1] !== "/")
+                ) {
                     index += 1;
                 }
                 if (index < length) {
@@ -711,8 +796,10 @@ function readNonTriviaCharacterBefore(sourceText, index) {
             if (previous === "*") {
                 current -= 2;
                 while (current >= 1) {
-                    if (sourceText[current - 1] === "/" &&
-                        sourceText[current] === "*") {
+                    if (
+                        sourceText[current - 1] === "/" &&
+                        sourceText[current] === "*"
+                    ) {
                         current -= 2;
                         break;
                     }
@@ -735,11 +822,15 @@ function collapseRedundantMissingCallArguments(ast) {
             return;
         }
         visited.add(node);
-        if (node.type === "CallExpression" &&
+        if (
+            node.type === "CallExpression" &&
             Array.isArray(node.arguments) &&
-            node.arguments.length > 1) {
+            node.arguments.length > 1
+        ) {
             const args = toMutableArray(node.arguments);
-            const hasNonMissingArgument = args.some((argument) => argument?.type !== "MissingOptionalArgument");
+            const hasNonMissingArgument = args.some(
+                (argument) => argument?.type !== "MissingOptionalArgument"
+            );
             if (!hasNonMissingArgument) {
                 const [firstMissingArgument] = args;
                 node.arguments = firstMissingArgument
@@ -781,9 +872,14 @@ function shouldPreserveCallWithMissingSeparators(node, originalText) {
         return false;
     }
     const args = toMutableArray(node.arguments);
-    if (args.some((argument) => argument &&
-        typeof argument === "object" &&
-        argument.preserveOriginalCallText === true)) {
+    if (
+        args.some(
+            (argument) =>
+                argument &&
+                typeof argument === "object" &&
+                argument.preserveOriginalCallText === true
+        )
+    ) {
         return true;
     }
     if (args.length < 2) {
@@ -794,9 +890,11 @@ function shouldPreserveCallWithMissingSeparators(node, originalText) {
         const next = args[index + 1];
         const currentEnd = getNodeEndIndex(current);
         const nextStart = getNodeStartIndex(next);
-        if (currentEnd == null ||
+        if (
+            currentEnd == null ||
             nextStart == null ||
-            nextStart <= currentEnd) {
+            nextStart <= currentEnd
+        ) {
             continue;
         }
         const between = originalText.slice(currentEnd, nextStart);
@@ -804,10 +902,13 @@ function shouldPreserveCallWithMissingSeparators(node, originalText) {
             continue;
         }
         const previousChar = currentEnd > 0 ? originalText[currentEnd - 1] : "";
-        const nextChar = nextStart < originalText.length ? originalText[nextStart] : "";
-        if (!isNonEmptyTrimmedString(between) &&
+        const nextChar =
+            nextStart < originalText.length ? originalText[nextStart] : "";
+        if (
+            !isNonEmptyTrimmedString(between) &&
             isNumericBoundaryCharacter(previousChar) &&
-            isNumericBoundaryCharacter(nextChar)) {
+            isNumericBoundaryCharacter(nextChar)
+        ) {
             return true;
         }
     }
@@ -845,11 +946,12 @@ function isMissingClosingBraceError(error) {
     if (!error) {
         return false;
     }
-    const message = typeof error.message === "string"
-        ? error.message
-        : typeof error === "string"
-            ? error
-            : String(error ?? "");
+    const message =
+        typeof error.message === "string"
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : String(error ?? "");
     return message.toLowerCase().includes("missing associated closing brace");
 }
 function appendMissingClosingBraces(sourceText) {

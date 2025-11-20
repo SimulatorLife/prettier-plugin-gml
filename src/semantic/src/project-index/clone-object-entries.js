@@ -1,5 +1,7 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { isNonEmptyArray } } = Core;
+const {
+    Utils: { isNonEmptyArray }
+} = Core;
 /**
  * Create shallow clones of object-like entries in an array.
  *
@@ -18,6 +20,8 @@ export function cloneObjectEntries(entries) {
     if (!isNonEmptyArray(entries)) {
         return [];
     }
-    return entries.map((entry) => entry && typeof entry === "object" ? { ...entry } : entry);
+    return entries.map((entry) =>
+        entry && typeof entry === "object" ? { ...entry } : entry
+    );
 }
 //# sourceMappingURL=clone-object-entries.js.map

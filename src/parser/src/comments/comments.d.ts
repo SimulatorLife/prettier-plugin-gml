@@ -67,9 +67,14 @@ export declare function getCommentArray(owner: any): readonly any[];
  * @param {{ trim?: boolean }} [options]
  * @returns {string} Normalized comment string (trimmed when requested).
  */
-export declare function getCommentValue(comment: any, { trim }?: {
-    trim?: boolean;
-}): any;
+export declare function getCommentValue(
+    comment: any,
+    {
+        trim
+    }?: {
+        trim?: boolean;
+    }
+): any;
 /**
  * Performs a depth-first traversal to find every distinct comment node in the
  * provided AST fragment.

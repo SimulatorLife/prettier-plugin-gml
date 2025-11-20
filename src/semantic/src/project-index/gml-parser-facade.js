@@ -8,10 +8,10 @@ function parseProjectIndexSource(sourceText, context = {}) {
             getLocations: true,
             simplifyLocations: false,
             getIdentifierMetadata: true,
-            createScopeTracker: ({ enabled }) => enabled ? new ScopeTracker({ enabled }) : null
+            createScopeTracker: ({ enabled }) =>
+                enabled ? new ScopeTracker({ enabled }) : null
         });
-    }
-    catch (error) {
+    } catch (error) {
         if (isSyntaxErrorWithLocation(error)) {
             throw formatProjectIndexSyntaxError(error, sourceText, context);
         }

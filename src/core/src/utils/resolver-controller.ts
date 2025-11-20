@@ -46,7 +46,7 @@ export function createResolverController({
     errorMessage,
     defaultFactory,
     invoke = (resolver, options) => resolver(options),
-    normalize = (result) => /** @type {TResult} */ (result),
+    normalize = (result) => /** @type {TResult} */ result,
     reuseDefaultValue = false
 }) {
     if (typeof defaultFactory !== "function") {
@@ -70,7 +70,7 @@ export function createResolverController({
      * @param {TOptions} [options]
      * @returns {TResult}
      */
-    function resolve(options = /** @type {TOptions} */ ({})) {
+    function resolve(options = /** @type {TOptions} */ {}) {
         if (!resolver) {
             return reuseDefaultValue ? currentValue : resetToDefault();
         }

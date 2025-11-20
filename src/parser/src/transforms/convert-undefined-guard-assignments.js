@@ -25,8 +25,10 @@ export function convertUndefinedGuardAssignments(ast) {
         if (!Core.isObjectLike(node)) {
             return;
         }
-        if (node.type === "ParenthesizedExpression" &&
-            unwrapSyntheticParentheses(node, parent, property)) {
+        if (
+            node.type === "ParenthesizedExpression" &&
+            unwrapSyntheticParentheses(node, parent, property)
+        ) {
             const replacement = parent?.[property];
             visit(replacement, parent, property);
             return;
@@ -69,24 +71,34 @@ function convertIfStatement(node, parent, property) {
         if (targetName !== Core.getIdentifierText(alternateAssignment.left)) {
             return false;
         }
-        return replaceWithAssignmentStatement(parent, property, {
-            type: "AssignmentExpression",
-            operator: "=",
-            left: consequentAssignment.left,
-            right: {
-                type: "TernaryExpression",
-                test: guardTest,
-                consequent: consequentAssignment.right,
-                alternate: alternateAssignment.right
-            }
-        }, node);
+        return replaceWithAssignmentStatement(
+            parent,
+            property,
+            {
+                type: "AssignmentExpression",
+                operator: "=",
+                left: consequentAssignment.left,
+                right: {
+                    type: "TernaryExpression",
+                    test: guardTest,
+                    consequent: consequentAssignment.right,
+                    alternate: alternateAssignment.right
+                }
+            },
+            node
+        );
     }
-    return replaceWithAssignmentStatement(parent, property, {
-        type: "AssignmentExpression",
-        operator: "??=",
-        left: consequentAssignment.left,
-        right: consequentAssignment.right
-    }, node);
+    return replaceWithAssignmentStatement(
+        parent,
+        property,
+        {
+            type: "AssignmentExpression",
+            operator: "??=",
+            left: consequentAssignment.left,
+            right: consequentAssignment.right
+        },
+        node
+    );
 }
 function extractSoleAssignment(branchNode) {
     if (!branchNode || branchNode.type !== "BlockStatement") {
@@ -106,10 +118,12 @@ function extractSoleAssignment(branchNode) {
     if (statement.type === "AssignmentExpression") {
         return statement.operator === "=" ? statement : null;
     }
-    if (statement.type === "ExpressionStatement" &&
+    if (
+        statement.type === "ExpressionStatement" &&
         statement.expression &&
         !Core.hasComment(statement.expression) &&
-        statement.expression.type === "AssignmentExpression") {
+        statement.expression.type === "AssignmentExpression"
+    ) {
         return statement.expression.operator === "="
             ? statement.expression
             : null;
@@ -155,9 +169,11 @@ function isIsUndefinedCall(node, targetName) {
         return false;
     }
     const callee = node.object;
-    if (!callee ||
+    if (
+        !callee ||
         callee.type !== "Identifier" ||
-        callee.name !== "is_undefined") {
+        callee.name !== "is_undefined"
+    ) {
         return false;
     }
     const args = Core.toMutableArray(node.arguments);
@@ -173,7 +189,12 @@ function createIsUndefinedCall(identifierNode) {
         arguments: [Core.cloneAstNode(identifierNode)]
     };
 }
-function replaceWithAssignmentStatement(parent, property, assignment, sourceNode) {
+function replaceWithAssignmentStatement(
+    parent,
+    property,
+    assignment,
+    sourceNode
+) {
     const replacementStatement = {
         type: "ExpressionStatement",
         expression: assignment
@@ -210,7 +231,8 @@ function unwrapSyntheticParentheses(node, parent, property) {
     if (!expression || typeof expression !== "object") {
         return false;
     }
-    if (parent.type === "BinaryExpression" &&
+    if (
+        parent.type === "BinaryExpression" &&
         typeof property === "string" &&
         (property === "left" || property === "right") &&
         (parent.operator === "<" ||
@@ -218,7 +240,8 @@ function unwrapSyntheticParentheses(node, parent, property) {
             parent.operator === ">" ||
             parent.operator === ">=") &&
         expression.type === "BinaryExpression" &&
-        (expression.operator === "+" || expression.operator === "-")) {
+        (expression.operator === "+" || expression.operator === "-")
+    ) {
         parent[property] = expression;
         return true;
     }

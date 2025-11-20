@@ -6,7 +6,8 @@ function buildRenameKey(_scopeId, location) {
     // planner uses full location objects; normalize numeric inputs so the
     // resulting location key encoding is consistent between planning and
     // printing.
-    const normalizedLocation = typeof location === "number" ? { index: location } : location;
+    const normalizedLocation =
+        typeof location === "number" ? { index: location } : location;
     const locationKey = Core.AST.buildLocationKey(normalizedLocation);
     if (!locationKey) {
         return null;
@@ -35,18 +36,20 @@ export function getIdentifierCaseRenameForNode(node, options) {
     const renameMap = options.__identifierCaseRenameMap;
     if (!Core.Utils.isMapLike(renameMap)) {
         try {
-            console.debug(`[DBG] getIdentifierCaseRenameForNode: no renameMap present for filepath=${options?.filepath ?? null}`);
-        }
-        catch {
+            console.debug(
+                `[DBG] getIdentifierCaseRenameForNode: no renameMap present for filepath=${options?.filepath ?? null}`
+            );
+        } catch {
             /* ignore */
         }
         return null;
     }
     const key = buildRenameKey(node.scopeId ?? null, node.start ?? null);
     try {
-        console.debug(`[DBG] getIdentifierCaseRenameForNode: lookup key=${String(key)} renameMapSize=${typeof renameMap.size === "number" ? renameMap.size : "n/a"}`);
-    }
-    catch {
+        console.debug(
+            `[DBG] getIdentifierCaseRenameForNode: lookup key=${String(key)} renameMapSize=${typeof renameMap.size === "number" ? renameMap.size : "n/a"}`
+        );
+    } catch {
         /* ignore */
     }
     if (!key) {
@@ -54,9 +57,10 @@ export function getIdentifierCaseRenameForNode(node, options) {
     }
     const renameTarget = renameMap.get(key) ?? null;
     try {
-        console.debug(`[DBG] getIdentifierCaseRenameForNode: renameTargetPresent=${Boolean(renameTarget)}`);
-    }
-    catch {
+        console.debug(
+            `[DBG] getIdentifierCaseRenameForNode: renameTargetPresent=${Boolean(renameTarget)}`
+        );
+    } catch {
         /* ignore */
     }
     if (!renameTarget) {
@@ -70,32 +74,39 @@ export function getIdentifierCaseRenameForNode(node, options) {
                 for (const k of renameMap.keys()) {
                     sample.push(String(k));
                     i += 1;
-                    if (i >= 3)
-                        break;
+                    if (i >= 3) break;
                 }
                 // Also attempt a file-qualified lookup as some planning paths
                 // may persist keys that include the file path. Try the
                 // file-qualified location key before emitting the diagnostic
                 // sample so we can detect which encoding is present.
                 try {
-                    const loc = typeof node.start === "number"
-                        ? { index: node.start }
-                        : node.start;
-                    const fileKey = Core.AST.buildFileLocationKey(options?.filepath ?? null, loc);
-                    if (fileKey &&
+                    const loc =
+                        typeof node.start === "number"
+                            ? { index: node.start }
+                            : node.start;
+                    const fileKey = Core.AST.buildFileLocationKey(
+                        options?.filepath ?? null,
+                        loc
+                    );
+                    if (
+                        fileKey &&
                         typeof renameMap.has === "function" &&
-                        renameMap.has(fileKey)) {
-                        console.debug(`[DBG] getIdentifierCaseRenameForNode: fallback-fileKey-hit fileKey=${String(fileKey)} renameMapId=${renameMap.__dbgId ?? null}`);
+                        renameMap.has(fileKey)
+                    ) {
+                        console.debug(
+                            `[DBG] getIdentifierCaseRenameForNode: fallback-fileKey-hit fileKey=${String(fileKey)} renameMapId=${renameMap.__dbgId ?? null}`
+                        );
                         return renameMap.get(fileKey) ?? null;
                     }
-                }
-                catch {
+                } catch {
                     /* ignore */
                 }
-                console.debug(`[DBG] getIdentifierCaseRenameForNode: lookup-miss key=${String(key)} samples=${JSON.stringify(sample)}`);
+                console.debug(
+                    `[DBG] getIdentifierCaseRenameForNode: lookup-miss key=${String(key)} samples=${JSON.stringify(sample)}`
+                );
             }
-        }
-        catch {
+        } catch {
             /* ignore */
         }
         return null;
@@ -133,56 +144,64 @@ export function getIdentifierCaseRenameForNode(node, options) {
  * }}
  */
 export function captureIdentifierCasePlanSnapshot(options) {
-    return Core.withObjectLike(options, (object) => {
-        const snapshot = {
-            projectIndex: object.__identifierCaseProjectIndex ?? null,
-            projectRoot: object.__identifierCaseProjectRoot ?? null,
-            bootstrap: object.__identifierCaseProjectIndexBootstrap ?? null,
-            renameMap: object.__identifierCaseRenameMap ?? null,
-            renamePlan: object.__identifierCaseRenamePlan ?? null,
-            conflicts: object.__identifierCaseConflicts ?? null,
-            metricsReport: object.__identifierCaseMetricsReport ?? null,
-            metrics: object.__identifierCaseMetrics ?? null,
-            assetRenames: object.__identifierCaseAssetRenames ?? null,
-            assetRenameResult: object.__identifierCaseAssetRenameResult ?? null,
-            assetRenamesApplied: object.__identifierCaseAssetRenamesApplied ?? null,
-            dryRun: object.__identifierCaseDryRun === undefined
-                ? null
-                : object.__identifierCaseDryRun,
-            planGenerated: object.__identifierCasePlanGeneratedInternally === true
-        };
-        try {
-            // If a renameMap exists, emit a small sample of keys to help
-            // diagnose mismatched key encodings between planning and
-            // printing. Keep messages defensive so tests don't crash on
-            // unexpected shapes.
-            if (Core.Utils.isMapLike(snapshot.renameMap)) {
-                const samples = [];
-                let i = 0;
-                for (const k of snapshot.renameMap.keys()) {
-                    let v = null;
-                    try {
-                        v = snapshot.renameMap.get(k);
+    return Core.withObjectLike(
+        options,
+        (object) => {
+            const snapshot = {
+                projectIndex: object.__identifierCaseProjectIndex ?? null,
+                projectRoot: object.__identifierCaseProjectRoot ?? null,
+                bootstrap: object.__identifierCaseProjectIndexBootstrap ?? null,
+                renameMap: object.__identifierCaseRenameMap ?? null,
+                renamePlan: object.__identifierCaseRenamePlan ?? null,
+                conflicts: object.__identifierCaseConflicts ?? null,
+                metricsReport: object.__identifierCaseMetricsReport ?? null,
+                metrics: object.__identifierCaseMetrics ?? null,
+                assetRenames: object.__identifierCaseAssetRenames ?? null,
+                assetRenameResult:
+                    object.__identifierCaseAssetRenameResult ?? null,
+                assetRenamesApplied:
+                    object.__identifierCaseAssetRenamesApplied ?? null,
+                dryRun:
+                    object.__identifierCaseDryRun === undefined
+                        ? null
+                        : object.__identifierCaseDryRun,
+                planGenerated:
+                    object.__identifierCasePlanGeneratedInternally === true
+            };
+            try {
+                // If a renameMap exists, emit a small sample of keys to help
+                // diagnose mismatched key encodings between planning and
+                // printing. Keep messages defensive so tests don't crash on
+                // unexpected shapes.
+                if (Core.Utils.isMapLike(snapshot.renameMap)) {
+                    const samples = [];
+                    let i = 0;
+                    for (const k of snapshot.renameMap.keys()) {
+                        let v = null;
+                        try {
+                            v = snapshot.renameMap.get(k);
+                        } catch {
+                            /* ignore */
+                        }
+                        samples.push(`${String(k)}=>${String(v)}`);
+                        i += 1;
+                        if (i >= 5) break;
                     }
-                    catch {
-                        /* ignore */
-                    }
-                    samples.push(`${String(k)}=>${String(v)}`);
-                    i += 1;
-                    if (i >= 5)
-                        break;
+                    console.debug(
+                        `[DBG] captureIdentifierCasePlanSnapshot: renameMap=true renameMapId=${snapshot?.renameMap?.__dbgId ?? null} size=${snapshot.renameMap.size} samples=${JSON.stringify(samples)} planGenerated=${Boolean(snapshot.planGenerated)}`
+                    );
+                } else {
+                    console.debug(
+                        `[DBG] captureIdentifierCasePlanSnapshot: renameMap=${Boolean(snapshot.renameMap)} renameMapId=${snapshot?.renameMap?.__dbgId ?? null} planGenerated=${Boolean(snapshot.planGenerated)}`
+                    );
                 }
-                console.debug(`[DBG] captureIdentifierCasePlanSnapshot: renameMap=true renameMapId=${snapshot?.renameMap?.__dbgId ?? null} size=${snapshot.renameMap.size} samples=${JSON.stringify(samples)} planGenerated=${Boolean(snapshot.planGenerated)}`);
+            } catch {
+                /* ignore */
             }
-            else {
-                console.debug(`[DBG] captureIdentifierCasePlanSnapshot: renameMap=${Boolean(snapshot.renameMap)} renameMapId=${snapshot?.renameMap?.__dbgId ?? null} planGenerated=${Boolean(snapshot.planGenerated)}`);
-            }
-        }
-        catch {
-            /* ignore */
-        }
-        return snapshot;
-    }, null);
+            return snapshot;
+        },
+        null
+    );
 }
 const SNAPSHOT_OPTION_ENTRIES = Object.freeze([
     ["projectIndex", "__identifierCaseProjectIndex"],
@@ -227,9 +246,10 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
         // Emit this diagnostic via the debug channel so it doesn't pollute
         // stderr during test runs while remaining available for local
         // debugging when users enable debug logging.
-        console.debug(`[DBG] applyIdentifierCasePlanSnapshot called: planGenerated=${Boolean(snapshot.planGenerated)} renameMap=${Boolean(snapshot.renameMap)}`);
-    }
-    catch {
+        console.debug(
+            `[DBG] applyIdentifierCasePlanSnapshot called: planGenerated=${Boolean(snapshot.planGenerated)} renameMap=${Boolean(snapshot.renameMap)}`
+        );
+    } catch {
         /* ignore */
     }
     Core.withObjectLike(options, (object) => {
@@ -241,7 +261,8 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
             // entry. Other snapshot entries follow the existing semantics.
             if (snapshotKey === "renameMap") {
                 const isMap = Core.Utils.isMapLike(value);
-                const size = isMap && typeof value.size === "number" ? value.size : 0;
+                const size =
+                    isMap && typeof value.size === "number" ? value.size : 0;
                 if (isMap && size > 0 && !object[optionKey]) {
                     setIdentifierCaseOption(object, optionKey, value);
                     try {
@@ -254,16 +275,15 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
                             for (const k of value.keys()) {
                                 samples.push(String(k));
                                 c += 1;
-                                if (c >= 3)
-                                    break;
+                                if (c >= 3) break;
                             }
-                            console.debug(`[DBG] applyIdentifierCasePlanSnapshot: set ${optionKey} id=${value.__dbgId ?? null} size=${String(size)} samples=${JSON.stringify(samples)} filepath=${object?.filepath ?? null}`);
-                        }
-                        catch {
+                            console.debug(
+                                `[DBG] applyIdentifierCasePlanSnapshot: set ${optionKey} id=${value.__dbgId ?? null} size=${String(size)} samples=${JSON.stringify(samples)} filepath=${object?.filepath ?? null}`
+                            );
+                        } catch {
                             /* ignore */
                         }
-                    }
-                    catch {
+                    } catch {
                         /* ignore */
                     }
                 }
@@ -278,9 +298,10 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
                     const curSize = Core.Utils.isMapLike(current)
                         ? current.size
                         : null;
-                    console.debug(`[DBG] applyIdentifierCasePlanSnapshot: post-write identity optionKey=${optionKey} snapshotId=${value.__dbgId ?? null} currentId=${current?.__dbgId ?? null} same=${String(same)} currentSize=${String(curSize)} filepath=${object?.filepath ?? null}`);
-                }
-                catch {
+                    console.debug(
+                        `[DBG] applyIdentifierCasePlanSnapshot: post-write identity optionKey=${optionKey} snapshotId=${value.__dbgId ?? null} currentId=${current?.__dbgId ?? null} same=${String(same)} currentSize=${String(curSize)} filepath=${object?.filepath ?? null}`
+                    );
+                } catch {
                     /* ignore */
                 }
                 continue;
@@ -290,15 +311,29 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
             }
         }
         defineHiddenOption(object, "__identifierCasePlanSnapshot", snapshot);
-        if (snapshot.assetRenamesApplied !== undefined &&
-            object.__identifierCaseAssetRenamesApplied === undefined) {
-            setIdentifierCaseOption(object, "__identifierCaseAssetRenamesApplied", snapshot.assetRenamesApplied);
+        if (
+            snapshot.assetRenamesApplied !== undefined &&
+            object.__identifierCaseAssetRenamesApplied === undefined
+        ) {
+            setIdentifierCaseOption(
+                object,
+                "__identifierCaseAssetRenamesApplied",
+                snapshot.assetRenamesApplied
+            );
         }
         if (snapshot.dryRun !== null) {
-            defineHiddenOption(object, "__identifierCaseDryRun", snapshot.dryRun);
+            defineHiddenOption(
+                object,
+                "__identifierCaseDryRun",
+                snapshot.dryRun
+            );
         }
         if (snapshot.planGenerated) {
-            setIdentifierCaseOption(object, "__identifierCasePlanGeneratedInternally", true);
+            setIdentifierCaseOption(
+                object,
+                "__identifierCasePlanGeneratedInternally",
+                true
+            );
         }
     });
 }

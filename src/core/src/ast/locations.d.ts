@@ -92,4 +92,13 @@ declare function getNodeStartLine(node: any): any;
  * @returns {number | null} Line index or `null` when unavailable.
  */
 declare function getNodeEndLine(node: any): any;
-export { getNodeStartIndex, getNodeEndIndex, getNodeRangeIndices, getNodeStartLine, getNodeEndLine, getPreferredLocation, cloneLocation, assignClonedLocation };
+export {
+    getNodeStartIndex,
+    getNodeEndIndex,
+    getNodeRangeIndices,
+    getNodeStartLine,
+    getNodeEndLine,
+    getPreferredLocation,
+    cloneLocation,
+    assignClonedLocation
+};

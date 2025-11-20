@@ -13,8 +13,7 @@ export class IdentifierRoleTracker {
         this.identifierRoles.push(role);
         try {
             return callback();
-        }
-        finally {
+        } finally {
             this.identifierRoles.pop();
         }
     }
@@ -71,8 +70,7 @@ export class IdentifierScopeCoordinator {
         this.scopeTracker.enterScope(kind);
         try {
             return callback();
-        }
-        finally {
+        } finally {
             this.scopeTracker.exitScope();
         }
     }
@@ -80,12 +78,14 @@ export class IdentifierScopeCoordinator {
         if (!this.isEnabled() || !name || !isIdentifierNode(node)) {
             return;
         }
-        const role = this.roleTracker?.cloneRole(this.roleTracker?.getCurrentRole());
-        const roleType = role?.type === "declaration" ? "declaration" : "reference";
+        const role = this.roleTracker?.cloneRole(
+            this.roleTracker?.getCurrentRole()
+        );
+        const roleType =
+            role?.type === "declaration" ? "declaration" : "reference";
         if (roleType === "declaration") {
             this.scopeTracker.declare(name, node, role);
-        }
-        else {
+        } else {
             this.scopeTracker.reference(name, node, role);
         }
     }
@@ -136,9 +136,10 @@ export function createIdentifierLocation(token) {
     // the location objects. Tests and consumers expect the `column` property to
     // be omitted when not available from the token metadata.
     const startColumn = token.column;
-    const identifierLength = Number.isInteger(startIndex) && Number.isInteger(stopIndex)
-        ? stopIndex - startIndex + 1
-        : undefined;
+    const identifierLength =
+        Number.isInteger(startIndex) && Number.isInteger(stopIndex)
+            ? stopIndex - startIndex + 1
+            : undefined;
     const buildPoint = (index, column) => {
         const point = { line, index };
         if (column !== undefined) {
@@ -148,9 +149,12 @@ export function createIdentifierLocation(token) {
     };
     return {
         start: buildPoint(startIndex, startColumn),
-        end: buildPoint(stopIndex === undefined ? undefined : stopIndex + 1, startColumn !== undefined && identifierLength !== undefined
-            ? startColumn + identifierLength
-            : undefined)
+        end: buildPoint(
+            stopIndex === undefined ? undefined : stopIndex + 1,
+            startColumn !== undefined && identifierLength !== undefined
+                ? startColumn + identifierLength
+                : undefined
+        )
     };
 }
 //# sourceMappingURL=identifier-scope.js.map

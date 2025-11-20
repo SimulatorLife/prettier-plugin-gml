@@ -7,8 +7,10 @@ function shouldReuseAbortReason(value) {
     if (!isObjectOrFunction(value)) {
         return false;
     }
-    return (ERROR_METADATA_KEYS.some((key) => value[key] !== null) ||
-        "cause" in value);
+    return (
+        ERROR_METADATA_KEYS.some((key) => value[key] !== null) ||
+        "cause" in value
+    );
 }
 function toAbortMessage(value) {
     if (typeof value === "string") {
@@ -22,8 +24,7 @@ function toAbortMessage(value) {
     }
     try {
         return String(value);
-    }
-    catch {
+    } catch {
         return null;
     }
 }
@@ -40,7 +41,8 @@ function brandAbortError(error, fallbackMessage) {
     return error;
 }
 function normalizeAbortError(reason, fallbackMessage) {
-    const fallback = getNonEmptyString(fallbackMessage) ?? DEFAULT_ABORT_MESSAGE;
+    const fallback =
+        getNonEmptyString(fallbackMessage) ?? DEFAULT_ABORT_MESSAGE;
     const error = shouldReuseAbortReason(reason)
         ? reason
         : new Error(getNonEmptyString(toAbortMessage(reason)) ?? fallback);
@@ -61,7 +63,10 @@ function normalizeAbortError(reason, fallbackMessage) {
  * @returns {Error | null} `AbortError` compatible instance when aborted;
  *          otherwise `null`.
  */
-export function createAbortError(signal, fallbackMessage = DEFAULT_ABORT_MESSAGE) {
+export function createAbortError(
+    signal,
+    fallbackMessage = DEFAULT_ABORT_MESSAGE
+) {
     if (!signal || signal.aborted !== true) {
         return null;
     }
@@ -80,10 +85,11 @@ export function createAbortError(signal, fallbackMessage = DEFAULT_ABORT_MESSAGE
  */
 const ABORT_ERROR_NAME = "aborterror";
 const ABORT_ERROR_STRING_CODE = "ABORT_ERR";
-const DOM_EXCEPTION_ABORT_ERR_CODE = typeof DOMException === "function" &&
+const DOM_EXCEPTION_ABORT_ERR_CODE =
+    typeof DOMException === "function" &&
     typeof DOMException.ABORT_ERR === "number"
-    ? DOMException.ABORT_ERR
-    : null;
+        ? DOMException.ABORT_ERR
+        : null;
 export function isAbortError(value) {
     if (value === null) {
         return false;
@@ -102,9 +108,11 @@ export function isAbortError(value) {
     if (typeof code === "string") {
         return code.toUpperCase() === ABORT_ERROR_STRING_CODE;
     }
-    if (typeof code === "number" &&
+    if (
+        typeof code === "number" &&
         DOM_EXCEPTION_ABORT_ERR_CODE !== null &&
-        code === DOM_EXCEPTION_ABORT_ERR_CODE) {
+        code === DOM_EXCEPTION_ABORT_ERR_CODE
+    ) {
         return true;
     }
     return false;
@@ -156,9 +164,11 @@ export function createAbortGuard(options, { key, fallbackMessage } = {}) {
     return { signal, ensureNotAborted };
 }
 function isAbortSignalLike(value) {
-    return (value !== null &&
+    return (
+        value !== null &&
         (typeof value === "object" || typeof value === "function") &&
-        typeof value.aborted === "boolean");
+        typeof value.aborted === "boolean"
+    );
 }
 /**
  * Extract an `AbortSignal` from an options bag while ensuring it has not
@@ -184,7 +194,10 @@ function isAbortSignalLike(value) {
  * @returns {AbortSignal | null} Normalized signal instance or `null` when the
  *          options object does not supply one.
  */
-export function resolveAbortSignalFromOptions(options, { key = "signal", fallbackMessage } = {}) {
+export function resolveAbortSignalFromOptions(
+    options,
+    { key = "signal", fallbackMessage } = {}
+) {
     if (!isObjectOrFunction(options)) {
         return null;
     }

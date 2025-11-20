@@ -276,7 +276,10 @@ export function createMetricsTracker({
         const timingsSnapshot = Object.fromEntries(timings);
         const countersSnapshot = Object.fromEntries(counters);
         const cachesSnapshot = Object.fromEntries(
-            Array.from(caches, ([name, stats]) => [name, Object.fromEntries(stats)])
+            Array.from(caches, ([name, stats]) => [
+                name,
+                Object.fromEntries(stats)
+            ])
         );
         const totalTimeMs = Object.values(timingsSnapshot).reduce(
             (total, value) => total + value,

@@ -39,9 +39,7 @@ export declare class IdentifierScopeCoordinator {
  * @property {(node: unknown) => void} applyToNode
  */
 export declare class GlobalIdentifierRegistry {
-    constructor({ globalIdentifiers }?: {
-        globalIdentifiers?: Set<unknown>;
-    });
+    constructor({ globalIdentifiers }?: { globalIdentifiers?: Set<unknown> });
     markIdentifier(node: any): void;
     applyToNode(node: any): void;
 }

@@ -67,7 +67,10 @@ export declare function parseJsonWithContext(text: any, options?: {}): any;
  * }} [options]
  * @returns {Record<string, unknown>} Parsed JSON object.
  */
-export declare function parseJsonObjectWithContext(text: any, options?: {}): any;
+export declare function parseJsonObjectWithContext(
+    text: any,
+    options?: {}
+): any;
 /**
  * Serialize a JSON payload for file output while normalizing trailing
  * newlines. Helpers across the CLI and plugin previously reimplemented this
@@ -84,4 +87,7 @@ export declare function parseJsonObjectWithContext(text: any, options?: {}): any
  * }} [options]
  * @returns {string} Stringified JSON with optional trailing newline.
  */
-export declare function stringifyJsonForFile(payload: any, options?: {}): string;
+export declare function stringifyJsonForFile(
+    payload: any,
+    options?: {}
+): string;

@@ -1,8 +1,25 @@
 import path from "node:path";
 import { Core } from "@gml-modules/core";
-import { PROJECT_MANIFEST_EXTENSION, isProjectManifestPath, matchProjectResourceMetadataExtension } from "./constants.js";
+import {
+    PROJECT_MANIFEST_EXTENSION,
+    isProjectManifestPath,
+    matchProjectResourceMetadataExtension
+} from "./constants.js";
 import { normalizeProjectResourcePath } from "./path-normalization.js";
-const { Utils: { isNonEmptyArray, pushUnique, isNonEmptyTrimmedString, getOrCreateMapEntry, isObjectLike, createAbortGuard, throwIfAborted, isJsonParseError, parseJsonWithContext }, FS: { isFsErrorCode } } = Core;
+const {
+    Utils: {
+        isNonEmptyArray,
+        pushUnique,
+        isNonEmptyTrimmedString,
+        getOrCreateMapEntry,
+        isObjectLike,
+        createAbortGuard,
+        throwIfAborted,
+        isJsonParseError,
+        parseJsonWithContext
+    },
+    FS: { isFsErrorCode }
+} = Core;
 const RESOURCE_ANALYSIS_ABORT_MESSAGE = "Project index build was aborted.";
 function normalizeResourceDocumentMetadata(resourceData) {
     if (!isObjectLike(resourceData)) {
@@ -22,7 +39,8 @@ function deriveScopeId(kind, parts) {
     return `scope:${kind}:${suffix}`;
 }
 function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
-    const { name: normalizedName, resourceType: normalizedResourceType } = normalizeResourceDocumentMetadata(resourceData);
+    const { name: normalizedName, resourceType: normalizedResourceType } =
+        normalizeResourceDocumentMetadata(resourceData);
     const record = getOrCreateMapEntry(resourcesMap, resourcePath, () => {
         const defaultName = deriveDefaultResourceName(resourcePath);
         return {
@@ -37,15 +55,18 @@ function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
     if (normalizedName && record.name !== normalizedName) {
         record.name = normalizedName;
     }
-    if (normalizedResourceType &&
-        record.resourceType !== normalizedResourceType) {
+    if (
+        normalizedResourceType &&
+        record.resourceType !== normalizedResourceType
+    ) {
         record.resourceType = normalizedResourceType;
     }
     return record;
 }
 function deriveDefaultResourceName(resourcePath) {
     const baseName = path.posix.basename(resourcePath);
-    const matchedExtension = matchProjectResourceMetadataExtension(resourcePath);
+    const matchedExtension =
+        matchProjectResourceMetadataExtension(resourcePath);
     if (matchedExtension) {
         const trimmed = resourcePath.slice(0, -matchedExtension.length);
         return path.posix.basename(trimmed);
@@ -89,7 +110,11 @@ function resolveEventMetadata(event) {
     }
     return { eventType, eventNum, displayName: `${eventType}_${eventNum}` };
 }
-function createObjectEventScopeDescriptor(resourceRecord, event, gmlRelativePath) {
+function createObjectEventScopeDescriptor(
+    resourceRecord,
+    event,
+    gmlRelativePath
+) {
     const { displayName, eventType, eventNum } = resolveEventMetadata(event);
     const scopeId = deriveScopeId("object", [resourceRecord.name, displayName]);
     return {
@@ -107,7 +132,10 @@ function createObjectEventScopeDescriptor(resourceRecord, event, gmlRelativePath
     };
 }
 export function createFileScopeDescriptor(relativePath) {
-    const fileBaseName = path.posix.basename(relativePath, path.extname(relativePath));
+    const fileBaseName = path.posix.basename(
+        relativePath,
+        path.extname(relativePath)
+    );
     const scopeId = deriveScopeId("file", [relativePath]);
     return {
         id: scopeId,
@@ -138,7 +166,10 @@ function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
     if (!resourceRecord?.name) {
         return null;
     }
-    return path.posix.join(resourceRelativeDir, `${resourceRecord.name}_${displayName}.gml`);
+    return path.posix.join(
+        resourceRelativeDir,
+        `${resourceRecord.name}_${displayName}.gml`
+    );
 }
 function pushChildNode(stack, parentPath, key, candidate) {
     if (!isObjectLike(candidate)) {
@@ -190,8 +221,7 @@ async function loadResourceDocument(file, fsFacade, options = {}) {
     let rawContents;
     try {
         rawContents = await fsFacade.readFile(file.absolutePath, "utf8");
-    }
-    catch (error) {
+    } catch (error) {
         if (isFsErrorCode(error, "ENOENT")) {
             return null;
         }
@@ -203,8 +233,7 @@ async function loadResourceDocument(file, fsFacade, options = {}) {
             source: file.absolutePath ?? file.relativePath,
             description: "resource document"
         });
-    }
-    catch (error) {
+    } catch (error) {
         if (isJsonParseError(error)) {
             return null;
         }
@@ -217,17 +246,33 @@ function ensureResourceRecordForDocument(context, file, parsed) {
         resourceType: parsed?.resourceType
     });
 }
-function attachScopeDescriptor({ context, resourceRecord, gmlRelativePath, descriptor }) {
+function attachScopeDescriptor({
+    context,
+    resourceRecord,
+    gmlRelativePath,
+    descriptor
+}) {
     pushUnique(resourceRecord.gmlFiles, gmlRelativePath);
     context.gmlScopeMap.set(gmlRelativePath, descriptor);
     pushUnique(resourceRecord.scopes, descriptor.id);
 }
-function registerScriptResourceIfNeeded({ context, parsed, resourceRecord, resourceDir }) {
+function registerScriptResourceIfNeeded({
+    context,
+    parsed,
+    resourceRecord,
+    resourceDir
+}) {
     if (parsed?.resourceType !== "GMScript") {
         return;
     }
-    const gmlRelativePath = path.posix.join(resourceDir, `${resourceRecord.name}.gml`);
-    const descriptor = createScriptScopeDescriptor(resourceRecord, gmlRelativePath);
+    const gmlRelativePath = path.posix.join(
+        resourceDir,
+        `${resourceRecord.name}.gml`
+    );
+    const descriptor = createScriptScopeDescriptor(
+        resourceRecord,
+        gmlRelativePath
+    );
     attachScopeDescriptor({
         context,
         resourceRecord,
@@ -235,19 +280,35 @@ function registerScriptResourceIfNeeded({ context, parsed, resourceRecord, resou
         descriptor
     });
     context.scriptNameToScopeId.set(resourceRecord.name, descriptor.id);
-    context.scriptNameToResourcePath.set(resourceRecord.name, resourceRecord.path);
+    context.scriptNameToResourcePath.set(
+        resourceRecord.name,
+        resourceRecord.path
+    );
 }
-function registerResourceEvents({ context, parsed, resourceRecord, resourceDir }) {
+function registerResourceEvents({
+    context,
+    parsed,
+    resourceRecord,
+    resourceDir
+}) {
     const eventList = parsed?.eventList;
     if (!isNonEmptyArray(eventList)) {
         return;
     }
     for (const event of eventList) {
-        const eventGmlPath = extractEventGmlPath(event, resourceRecord, resourceDir);
+        const eventGmlPath = extractEventGmlPath(
+            event,
+            resourceRecord,
+            resourceDir
+        );
         if (!eventGmlPath) {
             continue;
         }
-        const descriptor = createObjectEventScopeDescriptor(resourceRecord, event, eventGmlPath);
+        const descriptor = createObjectEventScopeDescriptor(
+            resourceRecord,
+            event,
+            eventGmlPath
+        );
         attachScopeDescriptor({
             context,
             resourceRecord,
@@ -256,27 +317,42 @@ function registerResourceEvents({ context, parsed, resourceRecord, resourceDir }
         });
     }
 }
-function collectResourceAssetReferences({ context, parsed, resourceRecord, resourcePath, projectRoot }) {
-    collectAssetReferences(parsed, ({ propertyPath, targetPath, targetName }) => {
-        const normalizedTarget = normalizeProjectResourcePath(targetPath, {
-            projectRoot
-        });
-        if (!normalizedTarget) {
-            return;
+function collectResourceAssetReferences({
+    context,
+    parsed,
+    resourceRecord,
+    resourcePath,
+    projectRoot
+}) {
+    collectAssetReferences(
+        parsed,
+        ({ propertyPath, targetPath, targetName }) => {
+            const normalizedTarget = normalizeProjectResourcePath(targetPath, {
+                projectRoot
+            });
+            if (!normalizedTarget) {
+                return;
+            }
+            const referenceRecord = {
+                fromResourcePath: resourcePath,
+                fromResourceName: resourceRecord.name,
+                propertyPath,
+                targetPath: normalizedTarget,
+                targetName: targetName ?? null,
+                targetResourceType: null
+            };
+            context.assetReferences.push(referenceRecord);
+            resourceRecord.assetReferences.push(referenceRecord);
         }
-        const referenceRecord = {
-            fromResourcePath: resourcePath,
-            fromResourceName: resourceRecord.name,
-            propertyPath,
-            targetPath: normalizedTarget,
-            targetName: targetName ?? null,
-            targetResourceType: null
-        };
-        context.assetReferences.push(referenceRecord);
-        resourceRecord.assetReferences.push(referenceRecord);
-    });
+    );
 }
-function processResourceDocument({ context, parsed, resourceRecord, resourcePath, projectRoot }) {
+function processResourceDocument({
+    context,
+    parsed,
+    resourceRecord,
+    resourcePath,
+    projectRoot
+}) {
     const resourceDir = path.posix.dirname(resourcePath);
     registerScriptResourceIfNeeded({
         context,
@@ -309,7 +385,12 @@ function annotateAssetReferenceTargets(assetReferences, resourcesMap) {
         }
     }
 }
-export async function analyseResourceFiles({ projectRoot, yyFiles, fsFacade, signal = null }) {
+export async function analyseResourceFiles({
+    projectRoot,
+    yyFiles,
+    fsFacade,
+    signal = null
+}) {
     const context = createResourceAnalysisContext();
     for (const file of yyFiles) {
         throwIfAborted(signal, RESOURCE_ANALYSIS_ABORT_MESSAGE);
@@ -317,7 +398,11 @@ export async function analyseResourceFiles({ projectRoot, yyFiles, fsFacade, sig
         if (!parsed) {
             continue;
         }
-        const resourceRecord = ensureResourceRecordForDocument(context, file, parsed);
+        const resourceRecord = ensureResourceRecordForDocument(
+            context,
+            file,
+            parsed
+        );
         processResourceDocument({
             context,
             parsed,
@@ -326,7 +411,10 @@ export async function analyseResourceFiles({ projectRoot, yyFiles, fsFacade, sig
             projectRoot
         });
     }
-    annotateAssetReferenceTargets(context.assetReferences, context.resourcesMap);
+    annotateAssetReferenceTargets(
+        context.assetReferences,
+        context.resourcesMap
+    );
     return context;
 }
 //# sourceMappingURL=resource-analysis.js.map

@@ -1,5 +1,7 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { getLineBreakCount } } = Core;
+const {
+    Utils: { getLineBreakCount }
+} = Core;
 function normalizeTokenText(tokenText) {
     return typeof tokenText === "string" ? tokenText : "";
 }
@@ -36,12 +38,15 @@ function createCommentValue(type, tokenText) {
 }
 function createCommentNode(type, { token, tokenText, leadingWS, leadingChar }) {
     const text = normalizeTokenText(tokenText);
-    const comment = assignCommentBookends({
-        type,
-        value: createCommentValue(type, text),
-        start: buildBoundary(token, "start"),
-        end: buildBoundary(token, "stop")
-    }, { leadingWS, leadingChar });
+    const comment = assignCommentBookends(
+        {
+            type,
+            value: createCommentValue(type, text),
+            start: buildBoundary(token, "start"),
+            end: buildBoundary(token, "stop")
+        },
+        { leadingWS, leadingChar }
+    );
     if (type === "CommentBlock") {
         const lineBreakCount = getLineBreakCount(text);
         comment.end = buildBoundary(token, "stop", lineBreakCount);

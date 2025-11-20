@@ -22,8 +22,10 @@ export function buildFeatherTypeSystemInfo() {
             }
             return example.trim().startsWith(".");
         });
-        const description = typeof entry?.description === "string" ? entry.description : "";
-        const requiresSpecifier = /requires specifiers/i.test(description) ||
+        const description =
+            typeof entry?.description === "string" ? entry.description : "";
+        const requiresSpecifier =
+            /requires specifiers/i.test(description) ||
             /constructor/i.test(description);
         if (hasDotSpecifier || requiresSpecifier) {
             specifierBaseTypes.add(name.toLowerCase());

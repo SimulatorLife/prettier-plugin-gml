@@ -14,12 +14,13 @@ export default class BinaryExpressionDelegate {
         let rightNode;
         if (childExpressions.length === 1) {
             leftNode = visit(childExpressions[0]);
-        }
-        else {
+        } else {
             const [leftCtx, rightCtx] = childExpressions;
-            const leftIsBinary = Object.hasOwn(leftCtx, "expression") &&
+            const leftIsBinary =
+                Object.hasOwn(leftCtx, "expression") &&
                 typeof leftCtx.expression === "function";
-            const rightIsBinary = Object.hasOwn(rightCtx, "expression") &&
+            const rightIsBinary =
+                Object.hasOwn(rightCtx, "expression") &&
                 typeof rightCtx.expression === "function";
             leftNode = leftIsBinary
                 ? this.handle(leftCtx, { visit, astNode }, true)
@@ -35,8 +36,10 @@ export default class BinaryExpressionDelegate {
             left: leftNode,
             right: rightNode
         });
-        if (isEmbeddedExpression &&
-            this.needsParentheses(operator, leftNode, rightNode)) {
+        if (
+            isEmbeddedExpression &&
+            this.needsParentheses(operator, leftNode, rightNode)
+        ) {
             node = this.wrapInParentheses(ctx, node, astNode);
         }
         return node;
@@ -45,12 +48,14 @@ export default class BinaryExpressionDelegate {
         if (!operator || !leftNode || !rightNode) {
             return false;
         }
-        const leftOp = leftNode.type === "BinaryExpression"
-            ? this.operators[leftNode.operator]
-            : { prec: 0, assoc: "left" };
-        const rightOp = rightNode.type === "BinaryExpression"
-            ? this.operators[rightNode.operator]
-            : { prec: 0, assoc: "left" };
+        const leftOp =
+            leftNode.type === "BinaryExpression"
+                ? this.operators[leftNode.operator]
+                : { prec: 0, assoc: "left" };
+        const rightOp =
+            rightNode.type === "BinaryExpression"
+                ? this.operators[rightNode.operator]
+                : { prec: 0, assoc: "left" };
         const currOp = this.operators[operator];
         if (currOp.assoc === "left") {
             return leftOp.prec < currOp.prec || rightOp.prec < currOp.prec;

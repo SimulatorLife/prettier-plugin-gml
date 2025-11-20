@@ -83,10 +83,17 @@ export declare function getNonEmptyString(value: any): any;
  * @returns {string} The validated string value (trimmed when requested).
  * @throws {TypeError} When `value` is not a string or is empty after trimming.
  */
-export declare function assertNonEmptyString(value: any, { name, trim, errorMessage }?: {
-    name?: string;
-    trim?: boolean;
-}): string;
+export declare function assertNonEmptyString(
+    value: any,
+    {
+        name,
+        trim,
+        errorMessage
+    }?: {
+        name?: string;
+        trim?: boolean;
+    }
+): string;
 /**
  * Describe an arbitrary {@link value} for use in error messages.
  *
@@ -103,9 +110,14 @@ export declare function assertNonEmptyString(value: any, { name, trim, errorMess
  *        `String(value)`.
  * @returns {string} Human-readable description of {@link value}.
  */
-export declare function describeValueForError(value: any, { stringifyUnknown }?: {
-    stringifyUnknown?: boolean;
-}): any;
+export declare function describeValueForError(
+    value: any,
+    {
+        stringifyUnknown
+    }?: {
+        stringifyUnknown?: boolean;
+    }
+): any;
 /**
  * Prefix {@link label} with an appropriate indefinite article ("a" or "an").
  *
@@ -171,9 +183,14 @@ export declare function capitalize(value: any): any;
  * @returns {RegExp} A character-class-based regular expression suitable for
  *          use with `String#split`.
  */
-export declare function createListSplitPattern(separators: any, { includeWhitespace }?: {
-    includeWhitespace?: boolean;
-}): RegExp;
+export declare function createListSplitPattern(
+    separators: any,
+    {
+        includeWhitespace
+    }?: {
+        includeWhitespace?: boolean;
+    }
+): RegExp;
 /**
  * Trim each string entry in {@link values}, preserving array order. Throws when
  * encountering a non-string entry so call sites relying on `String#split`
@@ -217,11 +234,18 @@ export declare function stripStringQuotes(value: any): string;
  * @throws {TypeError} When `value` is not a string or array and
  *        `allowInvalidType` is `false`.
  */
-export declare function normalizeStringList(value: any, { splitPattern, allowInvalidType, errorMessage }?: {
-    splitPattern?: RegExp;
-    allowInvalidType?: boolean;
-    errorMessage?: string;
-}): any;
+export declare function normalizeStringList(
+    value: any,
+    {
+        splitPattern,
+        allowInvalidType,
+        errorMessage
+    }?: {
+        splitPattern?: RegExp;
+        allowInvalidType?: boolean;
+        errorMessage?: string;
+    }
+): any;
 /**
  * Convert user-provided string-ish options into a case-insensitive lookup set.
  *
@@ -240,7 +264,14 @@ export declare function normalizeStringList(value: any, { splitPattern, allowInv
  *        `normalizeStringList` when raising a `TypeError`.
  * @returns {Set<string>} Lower-cased set of unique entries.
  */
-export declare function toNormalizedLowerCaseSet(value: any, { splitPattern, allowInvalidType, errorMessage }?: {
-    splitPattern?: any;
-    allowInvalidType?: boolean;
-}): Set<unknown>;
+export declare function toNormalizedLowerCaseSet(
+    value: any,
+    {
+        splitPattern,
+        allowInvalidType,
+        errorMessage
+    }?: {
+        splitPattern?: any;
+        allowInvalidType?: boolean;
+    }
+): Set<unknown>;

@@ -77,7 +77,10 @@ export function normalizeSimpleEscapeCase(text) {
     if (typeof text !== "string" || text.length === 0) {
         return text;
     }
-    return text.replaceAll(/\\([bfnrtv])/gi, (_match, escape) => `\\${escape.toLowerCase()}`);
+    return text.replaceAll(
+        /\\([bfnrtv])/gi,
+        (_match, escape) => `\\${escape.toLowerCase()}`
+    );
 }
 /**
  * Check whether {@link value} is a quoted string (using single or double quotes).
@@ -120,8 +123,12 @@ export function getNonEmptyString(value) {
  * @returns {string} The validated string value (trimmed when requested).
  * @throws {TypeError} When `value` is not a string or is empty after trimming.
  */
-export function assertNonEmptyString(value, { name = "value", trim = false, errorMessage } = {}) {
-    const message = errorMessage ?? `${name} must be provided as a non-empty string.`;
+export function assertNonEmptyString(
+    value,
+    { name = "value", trim = false, errorMessage } = {}
+) {
+    const message =
+        errorMessage ?? `${name} must be provided as a non-empty string.`;
     if (typeof value !== "string") {
         throw new TypeError(message);
     }
@@ -185,8 +192,7 @@ export function describeValueForError(value, { stringifyUnknown = true } = {}) {
     if (!stringifyUnknown) {
         try {
             return String(value);
-        }
-        catch {
+        } catch {
             return OBJECT_TO_STRING.call(value);
         }
     }
@@ -195,14 +201,12 @@ export function describeValueForError(value, { stringifyUnknown = true } = {}) {
         if (serialized !== undefined) {
             return serialized;
         }
-    }
-    catch {
+    } catch {
         // Fall back to string coercion below when JSON serialization fails.
     }
     try {
         return String(value);
-    }
-    catch {
+    } catch {
         return OBJECT_TO_STRING.call(value);
     }
 }
@@ -337,7 +341,10 @@ export function capitalize(value) {
  * @returns {RegExp} A character-class-based regular expression suitable for
  *          use with `String#split`.
  */
-export function createListSplitPattern(separators, { includeWhitespace = false } = {}) {
+export function createListSplitPattern(
+    separators,
+    { includeWhitespace = false } = {}
+) {
     /** @type {Array<{ pattern: string, length: number, order: number }>} */
     const entries = [];
     const seenPatterns = new Set();
@@ -367,10 +374,12 @@ export function createListSplitPattern(separators, { includeWhitespace = false }
         addSeparator(candidate);
     }
     if (includeWhitespace) {
-        addEntry(String.raw `\s`, 1);
+        addEntry(String.raw`\s`, 1);
     }
     if (entries.length === 0) {
-        throw new TypeError("createListSplitPattern requires at least one separator or includeWhitespace=true.");
+        throw new TypeError(
+            "createListSplitPattern requires at least one separator or includeWhitespace=true."
+        );
     }
     entries.sort((a, b) => {
         const lengthDifference = b.length - a.length;
@@ -418,8 +427,10 @@ export function stripStringQuotes(value) {
         return null;
     }
     const firstChar = value[0];
-    if (firstChar !== DOUBLE_QUOTE_CHARACTER &&
-        firstChar !== SINGLE_QUOTE_CHARACTER) {
+    if (
+        firstChar !== DOUBLE_QUOTE_CHARACTER &&
+        firstChar !== SINGLE_QUOTE_CHARACTER
+    ) {
         return null;
     }
     if (value[length - 1] !== firstChar) {
@@ -454,7 +465,14 @@ export function stripStringQuotes(value) {
  * @throws {TypeError} When `value` is not a string or array and
  *        `allowInvalidType` is `false`.
  */
-export function normalizeStringList(value, { splitPattern = DEFAULT_STRING_LIST_SPLIT_PATTERN, allowInvalidType = false, errorMessage = "Value must be provided as a string or array of strings." } = {}) {
+export function normalizeStringList(
+    value,
+    {
+        splitPattern = DEFAULT_STRING_LIST_SPLIT_PATTERN,
+        allowInvalidType = false,
+        errorMessage = "Value must be provided as a string or array of strings."
+    } = {}
+) {
     if (value == null) {
         return [];
     }
@@ -462,9 +480,10 @@ export function normalizeStringList(value, { splitPattern = DEFAULT_STRING_LIST_
         return collectUniqueTrimmedStrings(value);
     }
     if (typeof value === "string") {
-        const pattern = splitPattern === undefined
-            ? DEFAULT_STRING_LIST_SPLIT_PATTERN
-            : splitPattern;
+        const pattern =
+            splitPattern === undefined
+                ? DEFAULT_STRING_LIST_SPLIT_PATTERN
+                : splitPattern;
         const entries = pattern ? value.split(pattern) : [value];
         return collectUniqueTrimmedStrings(entries);
     }
@@ -478,7 +497,10 @@ function collectUniqueTrimmedStrings(entries) {
     return entries
         .filter((entry) => typeof entry === "string")
         .map((entry) => entry.trim())
-        .filter((trimmed) => trimmed.length > 0 && !seen.has(trimmed) && seen.add(trimmed));
+        .filter(
+            (trimmed) =>
+                trimmed.length > 0 && !seen.has(trimmed) && seen.add(trimmed)
+        );
 }
 /**
  * Convert user-provided string-ish options into a case-insensitive lookup set.
@@ -498,7 +520,10 @@ function collectUniqueTrimmedStrings(entries) {
  *        `normalizeStringList` when raising a `TypeError`.
  * @returns {Set<string>} Lower-cased set of unique entries.
  */
-export function toNormalizedLowerCaseSet(value, { splitPattern = null, allowInvalidType = true, errorMessage } = {}) {
+export function toNormalizedLowerCaseSet(
+    value,
+    { splitPattern = null, allowInvalidType = true, errorMessage } = {}
+) {
     const normalizedValues = normalizeStringList(value, {
         splitPattern,
         allowInvalidType,

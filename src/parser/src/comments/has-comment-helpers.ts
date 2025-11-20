@@ -35,7 +35,7 @@ export function normalizeHasCommentHelpers(helpers) {
     return {
         ...(isObjectLike(helpers)
             ? helpers
-            : /** @type {Partial<THelpers>} */ ({})),
+            : /** @type {Partial<THelpers>} */ {}),
         hasComment: normalizedHasComment
     };
 }

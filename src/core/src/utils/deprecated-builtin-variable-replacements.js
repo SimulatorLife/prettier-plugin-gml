@@ -35,7 +35,10 @@ export function buildDeprecatedBuiltinVariableReplacements() {
     if (!diagnostic) {
         return replacements;
     }
-    const entries = deriveDeprecatedBuiltinVariableReplacementsFromExamples(diagnostic.badExample, diagnostic.goodExample);
+    const entries = deriveDeprecatedBuiltinVariableReplacementsFromExamples(
+        diagnostic.badExample,
+        diagnostic.goodExample
+    );
     for (const entry of entries) {
         if (!replacements.has(entry.normalized)) {
             replacements.set(entry.normalized, entry);
@@ -43,7 +46,10 @@ export function buildDeprecatedBuiltinVariableReplacements() {
     }
     return replacements;
 }
-function deriveDeprecatedBuiltinVariableReplacementsFromExamples(badExample, goodExample) {
+function deriveDeprecatedBuiltinVariableReplacementsFromExamples(
+    badExample,
+    goodExample
+) {
     const entries = [];
     const badTokens = extractIdentifierTokens(badExample);
     const goodTokens = extractIdentifierTokens(goodExample);
@@ -51,13 +57,20 @@ function deriveDeprecatedBuiltinVariableReplacementsFromExamples(badExample, goo
         return entries;
     }
     const goodTokenSet = new Set(goodTokens.map((token) => token.normalized));
-    const deprecatedTokens = badTokens.filter((token) => !goodTokenSet.has(token.normalized));
+    const deprecatedTokens = badTokens.filter(
+        (token) => !goodTokenSet.has(token.normalized)
+    );
     if (deprecatedTokens.length === 0) {
         return entries;
     }
     const badTokenSet = new Set(badTokens.map((token) => token.normalized));
-    const replacementTokens = goodTokens.filter((token) => !badTokenSet.has(token.normalized));
-    const pairCount = Math.min(deprecatedTokens.length, replacementTokens.length);
+    const replacementTokens = goodTokens.filter(
+        (token) => !badTokenSet.has(token.normalized)
+    );
+    const pairCount = Math.min(
+        deprecatedTokens.length,
+        replacementTokens.length
+    );
     for (let index = 0; index < pairCount; index += 1) {
         const deprecatedToken = deprecatedTokens[index];
         const replacementToken = replacementTokens[index];

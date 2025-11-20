@@ -1,11 +1,28 @@
 import { Core } from "@gml-modules/core";
-const { AST: { getNodeStartIndex, getNodeEndIndex, getNodeStartLine, getNodeEndLine, cloneLocation, getSingleVariableDeclarator, isNode, getSingleMemberIndexPropertyEntry, getCommentArray, isLineComment, forEachNodeChild }, Utils: { asArray, isNonEmptyArray, stripStringQuotes } } = Core;
+const {
+    AST: {
+        getNodeStartIndex,
+        getNodeEndIndex,
+        getNodeStartLine,
+        getNodeEndLine,
+        cloneLocation,
+        getSingleVariableDeclarator,
+        isNode,
+        getSingleMemberIndexPropertyEntry,
+        getCommentArray,
+        isLineComment,
+        forEachNodeChild
+    },
+    Utils: { asArray, isNonEmptyArray, stripStringQuotes }
+} = Core;
 const FALLBACK_COMMENT_TOOLS = Object.freeze({
-    addTrailingComment() { }
+    addTrailingComment() {}
 });
 function normalizeCommentTools(commentTools) {
-    if (!commentTools ||
-        typeof commentTools.addTrailingComment !== "function") {
+    if (
+        !commentTools ||
+        typeof commentTools.addTrailingComment !== "function"
+    ) {
         return FALLBACK_COMMENT_TOOLS;
     }
     return commentTools;
@@ -42,15 +59,16 @@ function visit(node, tracker, commentTools) {
         for (const child of node.body) {
             visit(child, tracker, commentTools);
         }
-    }
-    else if (isNode(node.body)) {
+    } else if (isNode(node.body)) {
         visit(node.body, tracker, commentTools);
     }
     forEachNodeChild(node, (value, key) => {
-        if (key === "body" ||
+        if (
+            key === "body" ||
             key === "start" ||
             key === "end" ||
-            key === "comments") {
+            key === "comments"
+        ) {
             return;
         }
         visit(value, tracker, commentTools);
@@ -91,7 +109,14 @@ function consolidateBlock(statements, tracker, commentTools) {
         statements.splice(index + 1, collected.count);
     }
 }
-function collectPropertyAssignments({ statements, startIndex, identifierName, previousEnd, tracker, commentTools }) {
+function collectPropertyAssignments({
+    statements,
+    startIndex,
+    identifierName,
+    previousEnd,
+    tracker,
+    commentTools
+}) {
     const properties = [];
     let cursor = startIndex;
     let lastEnd = previousEnd;
@@ -99,7 +124,10 @@ function collectPropertyAssignments({ statements, startIndex, identifierName, pr
     let lastProperty = null;
     while (cursor < statements.length) {
         const statement = statements[cursor];
-        const assignmentDetails = getStructPropertyAssignmentDetails(statement, identifierName);
+        const assignmentDetails = getStructPropertyAssignmentDetails(
+            statement,
+            identifierName
+        );
         if (!assignmentDetails) {
             break;
         }
@@ -108,14 +136,16 @@ function collectPropertyAssignments({ statements, startIndex, identifierName, pr
         if (start === undefined || end === undefined) {
             break;
         }
-        if (!allowTrailingCommentsBetween({
-            tracker,
-            left: lastEnd,
-            right: start,
-            precedingStatement: previousStatement,
-            precedingProperty: lastProperty,
-            commentTools
-        })) {
+        if (
+            !allowTrailingCommentsBetween({
+                tracker,
+                left: lastEnd,
+                right: start,
+                precedingStatement: previousStatement,
+                precedingProperty: lastProperty,
+                commentTools
+            })
+        ) {
             break;
         }
         if (tracker.hasBetween(start, end)) {
@@ -127,9 +157,15 @@ function collectPropertyAssignments({ statements, startIndex, identifierName, pr
         }
         const nextStatement = statements[cursor + 1];
         const nextStart = getNodeStartIndex(nextStatement);
-        const attachableComments = tracker.takeBetween(end, nextStart ?? Number.POSITIVE_INFINITY, (comment) => isAttachableTrailingComment(comment, statement));
+        const attachableComments = tracker.takeBetween(
+            end,
+            nextStart ?? Number.POSITIVE_INFINITY,
+            (comment) => isAttachableTrailingComment(comment, statement)
+        );
         if (attachableComments.length > 0) {
-            let trailingComments = Array.isArray(property._structTrailingComments)
+            let trailingComments = Array.isArray(
+                property._structTrailingComments
+            )
                 ? property._structTrailingComments
                 : null;
             if (!trailingComments) {
@@ -160,8 +196,7 @@ function collectPropertyAssignments({ statements, startIndex, identifierName, pr
             const lastComment = attachableComments.at(-1);
             const commentEnd = getNodeEndIndex(lastComment);
             lastEnd = commentEnd === undefined ? end : commentEnd;
-        }
-        else {
+        } else {
             lastEnd = end;
         }
         properties.push(property);
@@ -176,20 +211,24 @@ function collectPropertyAssignments({ statements, startIndex, identifierName, pr
     const nextBoundary = nextStatement
         ? getNodeStartIndex(nextStatement)
         : Number.POSITIVE_INFINITY;
-    if (!allowTrailingCommentsBetween({
-        tracker,
-        left: lastEnd,
-        right: nextBoundary,
-        precedingStatement: previousStatement,
-        precedingProperty: lastProperty,
-        commentTools
-    })) {
+    if (
+        !allowTrailingCommentsBetween({
+            tracker,
+            left: lastEnd,
+            right: nextBoundary,
+            precedingStatement: previousStatement,
+            precedingProperty: lastProperty,
+            commentTools
+        })
+    ) {
         return null;
     }
     if (!nextStatement && tracker.hasAfter(lastEnd)) {
         return null;
     }
-    const shouldForceBreak = properties.some((property) => property?._hasTrailingInlineComment);
+    const shouldForceBreak = properties.some(
+        (property) => property?._hasTrailingInlineComment
+    );
     return {
         properties,
         count: properties.length,
@@ -208,12 +247,16 @@ function getStructInitializer(statement) {
         if (!isNode(declarator.id) || declarator.id.type !== IDENTIFIER) {
             return null;
         }
-        if (!isNode(declarator.init) ||
-            declarator.init.type !== STRUCT_EXPRESSION) {
+        if (
+            !isNode(declarator.init) ||
+            declarator.init.type !== STRUCT_EXPRESSION
+        ) {
             return null;
         }
-        if (Array.isArray(declarator.init.properties) &&
-            declarator.init.properties.length > 0) {
+        if (
+            Array.isArray(declarator.init.properties) &&
+            declarator.init.properties.length > 0
+        ) {
             return null;
         }
         return {
@@ -228,12 +271,16 @@ function getStructInitializer(statement) {
         if (!isNode(statement.left) || statement.left.type !== IDENTIFIER) {
             return null;
         }
-        if (!isNode(statement.right) ||
-            statement.right.type !== STRUCT_EXPRESSION) {
+        if (
+            !isNode(statement.right) ||
+            statement.right.type !== STRUCT_EXPRESSION
+        ) {
             return null;
         }
-        if (Array.isArray(statement.right.properties) &&
-            statement.right.properties.length > 0) {
+        if (
+            Array.isArray(statement.right.properties) &&
+            statement.right.properties.length > 0
+        ) {
             return null;
         }
         return {
@@ -244,7 +291,9 @@ function getStructInitializer(statement) {
     return null;
 }
 function isIdentifierRoot(node, identifierName) {
-    return (isNode(node) && node.type === IDENTIFIER && node.name === identifierName);
+    return (
+        isNode(node) && node.type === IDENTIFIER && node.name === identifierName
+    );
 }
 function buildPropertyFromAssignment(assignmentDetails) {
     if (!assignmentDetails) {
@@ -266,8 +315,17 @@ function buildPropertyFromAssignment(assignmentDetails) {
         type: "Property",
         name: propertyName,
         value: assignment.right,
-        start: cloneLocation(getPreferredLocation(propertyAccess.propertyStart, assignment.start)) ?? null,
-        end: cloneLocation(getPreferredLocation(assignment.right?.end, assignment.end)) ?? null
+        start:
+            cloneLocation(
+                getPreferredLocation(
+                    propertyAccess.propertyStart,
+                    assignment.start
+                )
+            ) ?? null,
+        end:
+            cloneLocation(
+                getPreferredLocation(assignment.right?.end, assignment.end)
+            ) ?? null
     };
 }
 function getStructPropertyAssignmentDetails(statement, identifierName) {
@@ -277,7 +335,10 @@ function getStructPropertyAssignmentDetails(statement, identifierName) {
     if (statement.operator !== "=") {
         return null;
     }
-    const propertyAccess = getStructPropertyAccess(statement.left, identifierName);
+    const propertyAccess = getStructPropertyAccess(
+        statement.left,
+        identifierName
+    );
     if (!propertyAccess) {
         return null;
     }
@@ -312,8 +373,10 @@ function getPropertyKeyInfo(propertyNode) {
     if (!isNode(propertyNode)) {
         return null;
     }
-    if (propertyNode.type === IDENTIFIER &&
-        typeof propertyNode.name === "string") {
+    if (
+        propertyNode.type === IDENTIFIER &&
+        typeof propertyNode.name === "string"
+    ) {
         return {
             identifierName: propertyNode.name,
             raw: propertyNode.name,
@@ -321,8 +384,10 @@ function getPropertyKeyInfo(propertyNode) {
             end: propertyNode.end
         };
     }
-    if (propertyNode.type === LITERAL &&
-        typeof propertyNode.value === "string") {
+    if (
+        propertyNode.type === LITERAL &&
+        typeof propertyNode.value === "string"
+    ) {
         const unquoted = stripStringQuotes(propertyNode.value);
         return {
             identifierName: unquoted,
@@ -356,7 +421,14 @@ function buildPropertyNameNode(propertyKey) {
     }
     return null;
 }
-function allowTrailingCommentsBetween({ tracker, left, right, precedingStatement, precedingProperty, commentTools }) {
+function allowTrailingCommentsBetween({
+    tracker,
+    left,
+    right,
+    precedingStatement,
+    precedingProperty,
+    commentTools
+}) {
     const commentEntries = tracker.getEntriesBetween(left, right);
     if (commentEntries.length === 0) {
         return true;
@@ -368,7 +440,11 @@ function allowTrailingCommentsBetween({ tracker, left, right, precedingStatement
     if (typeof expectedLine !== "number") {
         return false;
     }
-    if (commentEntries.some(({ comment }) => !isTrailingLineCommentOnLine(comment, expectedLine))) {
+    if (
+        commentEntries.some(
+            ({ comment }) => !isTrailingLineCommentOnLine(comment, expectedLine)
+        )
+    ) {
         return false;
     }
     const commentTarget = precedingProperty
@@ -425,9 +501,11 @@ function isAttachableTrailingComment(comment, statement) {
     }
     const commentStartIndex = getNodeStartIndex(comment);
     const statementEndIndex = getNodeEndIndex(statement);
-    if (typeof commentStartIndex === "number" &&
+    if (
+        typeof commentStartIndex === "number" &&
         typeof statementEndIndex === "number" &&
-        commentStartIndex <= statementEndIndex) {
+        commentStartIndex <= statementEndIndex
+    ) {
         return false;
     }
     return true;
@@ -462,38 +540,38 @@ class CommentTracker {
         this.comments = sourceComments;
         this.entries = sourceComments
             .map((comment) => {
-            // Prefer the canonical helper but fall back to direct shape
-            // inspection when the helper cannot resolve the index. Some
-            // test fixtures and early transform phases present bare
-            // comment-like objects that still include a `start` index
-            // but may not be recognized by the AST helper in all
-            // import/resolve contexts. Be conservative and accept both
-            // so the tracker remains resilient across consumers.
-            // Prefer direct, simple shapes first (tests commonly provide
-            // small comment-like objects). Fall back to the canonical
-            // helper when the simple shape is not present so the tracker
-            // remains tolerant across runtime import contexts.
-            let index;
-            const maybeStart = comment && comment.start;
-            if (maybeStart && typeof maybeStart.index === "number") {
-                index = maybeStart.index;
-            }
-            else if (typeof maybeStart === "number") {
-                index = maybeStart;
-            }
-            else {
-                index = getNodeStartIndex(comment);
-            }
-            return { index, comment };
-        })
+                // Prefer the canonical helper but fall back to direct shape
+                // inspection when the helper cannot resolve the index. Some
+                // test fixtures and early transform phases present bare
+                // comment-like objects that still include a `start` index
+                // but may not be recognized by the AST helper in all
+                // import/resolve contexts. Be conservative and accept both
+                // so the tracker remains resilient across consumers.
+                // Prefer direct, simple shapes first (tests commonly provide
+                // small comment-like objects). Fall back to the canonical
+                // helper when the simple shape is not present so the tracker
+                // remains tolerant across runtime import contexts.
+                let index;
+                const maybeStart = comment && comment.start;
+                if (maybeStart && typeof maybeStart.index === "number") {
+                    index = maybeStart.index;
+                } else if (typeof maybeStart === "number") {
+                    index = maybeStart;
+                } else {
+                    index = getNodeStartIndex(comment);
+                }
+                return { index, comment };
+            })
             .filter((entry) => typeof entry.index === "number")
             .sort((a, b) => a.index - b.index);
     }
     hasBetween(left, right) {
-        if (this.entries.length === 0 ||
+        if (
+            this.entries.length === 0 ||
             left === undefined ||
             right === undefined ||
-            left >= right) {
+            left >= right
+        ) {
             return false;
         }
         let index = this.firstGreaterThan(left);
@@ -526,7 +604,8 @@ class CommentTracker {
         if (this.entries.length === 0 || left === undefined) {
             return [];
         }
-        const upperBound = right === undefined ? Number.POSITIVE_INFINITY : right;
+        const upperBound =
+            right === undefined ? Number.POSITIVE_INFINITY : right;
         if (left >= upperBound) {
             return [];
         }
@@ -556,18 +635,19 @@ class CommentTracker {
             const mid = (low + high) >> 1;
             if (this.entries[mid].index <= target) {
                 low = mid + 1;
-            }
-            else {
+            } else {
                 high = mid - 1;
             }
         }
         return low;
     }
     getEntriesBetween(left, right) {
-        if (this.entries.length === 0 ||
+        if (
+            this.entries.length === 0 ||
             left === undefined ||
             right === undefined ||
-            left >= right) {
+            left >= right
+        ) {
             return [];
         }
         const startIndex = this.firstGreaterThan(left);
@@ -599,8 +679,7 @@ class CommentTracker {
                 if (entry.comment) {
                     entry.comment._removedByConsolidation = true;
                 }
-            }
-            else {
+            } else {
                 // entry is a plain comment node
                 const commentNode = entry;
                 commentNode._removedByConsolidation = true;

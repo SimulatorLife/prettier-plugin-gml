@@ -34,8 +34,10 @@ function buildLoc(boundaryStart, boundaryEnd) {
     if (startLine == null && endLine == null) {
         return null;
     }
-    const startColumn = typeof boundaryStart.column === "number" ? boundaryStart.column : null;
-    const endColumn = typeof boundaryEnd.column === "number" ? boundaryEnd.column : null;
+    const startColumn =
+        typeof boundaryStart.column === "number" ? boundaryStart.column : null;
+    const endColumn =
+        typeof boundaryEnd.column === "number" ? boundaryEnd.column : null;
     return {
         start: {
             line: startLine,

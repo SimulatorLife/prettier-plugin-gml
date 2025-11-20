@@ -1,8 +1,15 @@
 import { createRequire } from "node:module";
-import { resolveBundledResourcePath, resolveBundledResourceUrl } from "./resource-locator.js";
+import {
+    resolveBundledResourcePath,
+    resolveBundledResourceUrl
+} from "./resource-locator.js";
 const require = createRequire(import.meta.url);
-export const GML_IDENTIFIER_METADATA_URL = resolveBundledResourceUrl("gml-identifiers.json");
-export const GML_IDENTIFIER_METADATA_PATH = resolveBundledResourcePath("gml-identifiers.json");
+export const GML_IDENTIFIER_METADATA_URL = resolveBundledResourceUrl(
+    "gml-identifiers.json"
+);
+export const GML_IDENTIFIER_METADATA_PATH = resolveBundledResourcePath(
+    "gml-identifiers.json"
+);
 /**
  * Load the bundled identifier metadata JSON artefact.
  *
@@ -41,9 +48,8 @@ export function clearIdentifierMetadataCache() {
  * @returns {Array<{ name: string, type: string, descriptor: object }>}
  */
 export function normalizeIdentifierMetadataEntries(metadata) {
-    const identifiers = metadata &&
-        typeof metadata === "object" &&
-        metadata.identifiers;
+    const identifiers =
+        metadata && typeof metadata === "object" && metadata.identifiers;
     if (!identifiers || typeof identifiers !== "object") {
         return [];
     }
@@ -55,9 +61,10 @@ export function normalizeIdentifierMetadataEntries(metadata) {
         if (!descriptor || typeof descriptor !== "object") {
             return entries;
         }
-        const type = typeof descriptor.type === "string"
-            ? descriptor.type.toLowerCase()
-            : "";
+        const type =
+            typeof descriptor.type === "string"
+                ? descriptor.type.toLowerCase()
+                : "";
         entries.push({ name, type, descriptor });
         return entries;
     }, []);

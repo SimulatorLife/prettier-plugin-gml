@@ -17,7 +17,12 @@
  * }} [options]
  * @returns {MetricsContracts}
  */
-export declare function createMetricsTracker({ category, logger, autoLog, cacheKeys: cacheKeyOption }?: {
+export declare function createMetricsTracker({
+    category,
+    logger,
+    autoLog,
+    cacheKeys: cacheKeyOption
+}?: {
     category?: string;
     logger?: any;
     autoLog?: boolean;

@@ -4,7 +4,18 @@
  * @param {object} context
  * @param {string | null | undefined} [context.filepath]
  */
-export declare function setIdentifierCaseDryRunContext({ filepath, renamePlan, conflicts, dryRun, logFilePath, logger, diagnostics, fsFacade, now, projectIndex }?: {
+export declare function setIdentifierCaseDryRunContext({
+    filepath,
+    renamePlan,
+    conflicts,
+    dryRun,
+    logFilePath,
+    logger,
+    diagnostics,
+    fsFacade,
+    now,
+    projectIndex
+}?: {
     filepath?: any;
     renamePlan?: any;
     conflicts?: any[];

@@ -1,4 +1,8 @@
-import { createCommentBlockNode, createCommentLineNode, createWhitespaceNode } from "../comments/comment-nodes.js";
+import {
+    createCommentBlockNode,
+    createCommentLineNode,
+    createWhitespaceNode
+} from "../comments/comment-nodes.js";
 function createState() {
     return {
         reachedEOF: false,
@@ -68,7 +72,11 @@ function handleEOF(state) {
         state.finalComment.isBottomComment = true;
     }
 }
-export function createHiddenNodeProcessor({ comments, whitespaces, lexerTokens }) {
+export function createHiddenNodeProcessor({
+    comments,
+    whitespaces,
+    lexerTokens
+}) {
     const state = createState();
     const tokens = lexerTokens;
     return {
@@ -90,9 +98,16 @@ export function createHiddenNodeProcessor({ comments, whitespaces, lexerTokens }
                 handleMultiLineComment(token, tokenText, { state, comments });
                 return;
             }
-            if (tokenType === tokens.WhiteSpaces ||
-                tokenType === tokens.LineTerminator) {
-                handleWhitespace(token, tokenText, tokenType === tokens.LineTerminator, { state, whitespaces });
+            if (
+                tokenType === tokens.WhiteSpaces ||
+                tokenType === tokens.LineTerminator
+            ) {
+                handleWhitespace(
+                    token,
+                    tokenText,
+                    tokenType === tokens.LineTerminator,
+                    { state, whitespaces }
+                );
                 return;
             }
             handleSignificantToken(tokenText, state);

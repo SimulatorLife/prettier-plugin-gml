@@ -51,13 +51,20 @@ export default class GameMakerASTBuilder {
      * @returns {object | null} The visited child node or `null` when no
      *     candidates are available.
      */
-    visitFirstChild(ctx: ParserContext | null | undefined, methodNames: string[]): any;
-    astNode<T extends {
-        [key: string]: any;
-    }>(ctx: ParserContext, object: T): T;
-    astNodeFromToken<T extends {
-        [key: string]: any;
-    }>(token: ParserToken, object: T): T;
+    visitFirstChild(
+        ctx: ParserContext | null | undefined,
+        methodNames: string[]
+    ): any;
+    astNode<
+        T extends {
+            [key: string]: any;
+        }
+    >(ctx: ParserContext, object: T): T;
+    astNodeFromToken<
+        T extends {
+            [key: string]: any;
+        }
+    >(token: ParserToken, object: T): T;
     createIdentifierLocation(token: ParserToken): any;
     visitBinaryExpression(ctx: ParserContext): any;
     hasTrailingComma(commaList: any[], itemList: any[]): boolean;

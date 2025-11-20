@@ -10,7 +10,9 @@ declare const DEFAULT_RESOURCE_METADATA_EXTENSIONS: readonly string[];
  * the registered suffixes. The result keeps comparisons case-insensitive while
  * allowing callers to trim the original value predictably.
  */
-export declare function matchProjectResourceMetadataExtension(candidate: any): string;
+export declare function matchProjectResourceMetadataExtension(
+    candidate: any
+): string;
 /**
  * Return the frozen list of recognized resource metadata extensions. The array
  * always exposes the canonical `.yy` suffix first so diagnostics remain
@@ -24,7 +26,9 @@ export declare function getProjectResourceMetadataExtensions(): readonly string[
  * formatter. The override list is normalized, deduplicated, and seeded with the
  * stock `.yy` entry.
  */
-export declare function setProjectResourceMetadataExtensions(extensions: any): readonly string[];
+export declare function setProjectResourceMetadataExtensions(
+    extensions: any
+): readonly string[];
 /**
  * Restore the resource metadata extension list to its default contents. Useful
  * for tests that temporarily override the recognized suffixes.

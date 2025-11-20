@@ -7,7 +7,10 @@
  * @returns {string | null} Normalized resource path or `null` when the input is
  *          empty or outside the project tree.
  */
-export declare function normalizeProjectResourcePath(rawPath: any, { projectRoot }?: {}): any;
+export declare function normalizeProjectResourcePath(
+    rawPath: any,
+    { projectRoot }?: {}
+): any;
 /**
  * Resolve the path to {@link absoluteFilePath} relative to {@link projectRoot}
  * when the file resides inside the project directory tree.
@@ -18,7 +21,10 @@ export declare function normalizeProjectResourcePath(rawPath: any, { projectRoot
  * @returns {string | null} POSIX path relative to {@link projectRoot}, or the
  *          normalized absolute path when no relationship exists.
  */
-export declare function resolveProjectRelativeFilePath(projectRoot: any, absoluteFilePath: any): any;
+export declare function resolveProjectRelativeFilePath(
+    projectRoot: any,
+    absoluteFilePath: any
+): any;
 /**
  * Format {@link filePath} for display within logs or diagnostics, collapsing
  * the path to a project-relative string when the file sits inside
@@ -30,4 +36,7 @@ export declare function resolveProjectRelativeFilePath(projectRoot: any, absolut
  * @returns {string | null} Display-friendly path or `null` when the input is
  *          missing.
  */
-export declare function resolveProjectDisplayPath(filePath: any, projectRoot: any): any;
+export declare function resolveProjectDisplayPath(
+    filePath: any,
+    projectRoot: any
+): any;

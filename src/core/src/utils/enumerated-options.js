@@ -21,7 +21,12 @@ import { isNonEmptyString, toNormalizedLowerCaseString } from "./string.js";
  *          when the option is absent/blank, or `null` when the normalized value
  *          is invalid.
  */
-export function normalizeEnumeratedOption(value, fallbackValue, validValues, { coerce = toNormalizedLowerCaseString } = {}) {
+export function normalizeEnumeratedOption(
+    value,
+    fallbackValue,
+    validValues,
+    { coerce = toNormalizedLowerCaseString } = {}
+) {
     assertFunctionProperties(validValues, ["has"], {
         name: "validValues",
         errorMessage: "validValues must provide a has function"

@@ -27,8 +27,7 @@ const eager = {
 const resolverOrder = [IdentifierCase, ProjectIndex];
 const handler = {
     get(target, prop) {
-        if (prop === "__isProxy")
-            return true;
+        if (prop === "__isProxy") return true;
         if (prop in target) {
             return target[prop];
         }
@@ -43,11 +42,9 @@ const handler = {
         return undefined;
     },
     has(target, prop) {
-        if (prop in target)
-            return true;
+        if (prop in target) return true;
         for (const ns of resolverOrder) {
-            if (ns && prop in ns)
-                return true;
+            if (ns && prop in ns) return true;
         }
         return false;
     }

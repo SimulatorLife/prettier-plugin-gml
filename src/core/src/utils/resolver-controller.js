@@ -38,7 +38,14 @@ import { assertFunction } from "./object.js";
  * }} config
  * @returns {ResolverController<TOptions, TResult>}
  */
-export function createResolverController({ name = "resolver", errorMessage, defaultFactory, invoke = (resolver, options) => resolver(options), normalize = (result) => /** @type {TResult} */ (result), reuseDefaultValue = false }) {
+export function createResolverController({
+    name = "resolver",
+    errorMessage,
+    defaultFactory,
+    invoke = (resolver, options) => resolver(options),
+    normalize = (result) => /** @type {TResult} */ (result),
+    reuseDefaultValue = false
+}) {
     if (typeof defaultFactory !== "function") {
         throw new TypeError("defaultFactory must be a function.");
     }

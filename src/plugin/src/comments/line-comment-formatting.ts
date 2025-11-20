@@ -423,7 +423,8 @@ function formatLineComment(
     comment,
     lineCommentOptions = Parser.Options.DEFAULT_LINE_COMMENT_OPTIONS
 ) {
-    const normalizedOptions = Parser.Options.normalizeLineCommentOptions(lineCommentOptions);
+    const normalizedOptions =
+        Parser.Options.normalizeLineCommentOptions(lineCommentOptions);
     const { boilerplateFragments, codeDetectionPatterns } = normalizedOptions;
     const original = getLineCommentRawText(comment);
     const trimmedOriginal = original.trim();
@@ -466,7 +467,8 @@ function formatLineComment(
     const slashesMatch = original.match(/^\s*(\/{2,})(.*)$/);
     if (
         slashesMatch &&
-        slashesMatch[1].length >= Parser.Options.LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES
+        slashesMatch[1].length >=
+            Parser.Options.LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES
     ) {
         // For comments with 4+ leading slashes we usually treat them as
         // decorative banners. However, some inputs use many slashes to
@@ -539,7 +541,8 @@ function formatLineComment(
 
     if (
         isPlainTripleSlash &&
-        leadingSlashCount >= Parser.Options.LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES &&
+        leadingSlashCount >=
+            Parser.Options.LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES &&
         !isInlineComment
     ) {
         return applyInlinePadding(comment, trimmedOriginal);

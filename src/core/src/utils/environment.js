@@ -18,7 +18,12 @@ import { assertNonEmptyString } from "./string.js";
  * @param {boolean} [parameters.includeUndefined=false] When `true`, invoke the
  *        callback even if the variable is explicitly set to `undefined`.
  */
-export function applyEnvironmentOverride({ env, envVar, applyValue, includeUndefined = false } = {}) {
+export function applyEnvironmentOverride({
+    env,
+    envVar,
+    applyValue,
+    includeUndefined = false
+} = {}) {
     const variable = assertNonEmptyString(envVar, {
         name: "envVar",
         trim: true
@@ -75,7 +80,10 @@ export function resolveEnvironmentMap(candidate) {
  *          `config.applyEnvOverride` with the normalized environment map.
  */
 export function applyConfiguredValueEnvOverride(config, env) {
-    const applyOverride = assertFunction(config?.applyEnvOverride, "config.applyEnvOverride");
+    const applyOverride = assertFunction(
+        config?.applyEnvOverride,
+        "config.applyEnvOverride"
+    );
     const sourceEnv = resolveEnvironmentMap(env);
     if (!sourceEnv) {
         return applyOverride.call(config);
@@ -119,7 +127,12 @@ export function applyConfiguredValueEnvOverride(config, env) {
  *     applyEnvOverride(env?: NodeJS.ProcessEnv | null | undefined): TValue;
  * }} Utility methods for interacting with the configurable value.
  */
-export function createEnvConfiguredValue({ defaultValue, envVar, normalize, applyOverride = applyEnvironmentOverride } = {}) {
+export function createEnvConfiguredValue({
+    defaultValue,
+    envVar,
+    normalize,
+    applyOverride = applyEnvironmentOverride
+} = {}) {
     assertFunction(normalize, "normalize");
     let currentValue = defaultValue;
     const set = (value) => {
@@ -132,9 +145,9 @@ export function createEnvConfiguredValue({ defaultValue, envVar, normalize, appl
     const get = () => currentValue;
     const applyEnvOverride = envVar
         ? (env) => {
-            applyOverride({ env, envVar, applyValue: set });
-            return currentValue;
-        }
+              applyOverride({ env, envVar, applyValue: set });
+              return currentValue;
+          }
         : () => currentValue;
     return { get, set, applyEnvOverride };
 }
@@ -169,11 +182,18 @@ export function createEnvConfiguredValue({ defaultValue, envVar, normalize, appl
  *     applyEnvOverride(env?: NodeJS.ProcessEnv | null | undefined): TValue;
  * }}
  */
-export function createEnvConfiguredValueWithFallback({ defaultValue, envVar, resolve, computeFallback } = {}) {
+export function createEnvConfiguredValueWithFallback({
+    defaultValue,
+    envVar,
+    resolve,
+    computeFallback
+} = {}) {
     assertFunction(resolve, "resolve");
-    const fallbackFactory = typeof computeFallback === "function"
-        ? computeFallback
-        : ({ defaultValue, previousValue }) => previousValue ?? defaultValue;
+    const fallbackFactory =
+        typeof computeFallback === "function"
+            ? computeFallback
+            : ({ defaultValue, previousValue }) =>
+                  previousValue ?? defaultValue;
     return createEnvConfiguredValue({
         defaultValue,
         envVar,
@@ -187,8 +207,7 @@ export function createEnvConfiguredValueWithFallback({ defaultValue, envVar, res
                 if (resolved !== null) {
                     return resolved;
                 }
-            }
-            catch {
+            } catch {
                 // Fall back below when resolution throws.
             }
             return fallback;

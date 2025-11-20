@@ -83,7 +83,8 @@ function resolveExcludedTypes(types) {
 
 export function loadReservedIdentifierNames({ disallowedTypes } = {}) {
     const metadata = loadIdentifierMetadata();
-    const entries = IdentifierMetadata.normalizeIdentifierMetadataEntries(metadata);
+    const entries =
+        IdentifierMetadata.normalizeIdentifierMetadataEntries(metadata);
 
     if (entries.length === 0) {
         return new Set();

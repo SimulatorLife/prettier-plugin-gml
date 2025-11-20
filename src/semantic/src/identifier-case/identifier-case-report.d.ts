@@ -6,7 +6,10 @@
  * consistently shaped metadata regardless of the input source.
  */
 declare function defaultNow(): number;
-export declare function summarizeIdentifierCasePlan({ renamePlan, conflicts }?: {
+export declare function summarizeIdentifierCasePlan({
+    renamePlan,
+    conflicts
+}?: {
     conflicts?: any[];
 }): {
     summary: {
@@ -21,13 +24,24 @@ export declare function summarizeIdentifierCasePlan({ renamePlan, conflicts }?: 
     conflicts: any;
 };
 export declare function formatIdentifierCaseSummaryText(report: any): string[];
-export declare function reportIdentifierCasePlan({ renamePlan, conflicts, logger, diagnostics, logFilePath, fsFacade, now }?: {
+export declare function reportIdentifierCasePlan({
+    renamePlan,
+    conflicts,
+    logger,
+    diagnostics,
+    logFilePath,
+    fsFacade,
+    now
+}?: {
     conflicts?: any[];
     logger?: Console;
     diagnostics?: any;
     logFilePath?: any;
     fsFacade?: Readonly<{
-        readFileSync(targetPath: any, encoding?: string): NonSharedBuffer & string;
+        readFileSync(
+            targetPath: any,
+            encoding?: string
+        ): NonSharedBuffer & string;
         writeFileSync(targetPath: any, contents: any, encoding?: string): void;
         renameSync(fromPath: any, toPath: any): void;
         accessSync(targetPath: any, mode?: number): void;

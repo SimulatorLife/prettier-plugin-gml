@@ -6,7 +6,9 @@
  * @param {IdentifierCasePlanPreparationProvider} provider Factory returning the
  *        preparation service to use for subsequent calls.
  */
-export declare function registerIdentifierCasePlanPreparationProvider(provider: any): void;
+export declare function registerIdentifierCasePlanPreparationProvider(
+    provider: any
+): void;
 /**
  * Register a lookup provider responsible for mapping AST nodes to their case
  * corrections. Consumers typically install this when they need project-aware
@@ -15,7 +17,9 @@ export declare function registerIdentifierCasePlanPreparationProvider(provider: 
  * @param {IdentifierCaseRenameLookupProvider} provider Function returning the
  *        lookup service implementation.
  */
-export declare function registerIdentifierCaseRenameLookupProvider(provider: any): void;
+export declare function registerIdentifierCaseRenameLookupProvider(
+    provider: any
+): void;
 /**
  * Register snapshot orchestration hooks so hosts can persist and restore
  * identifier-case state between formatter runs. Used primarily by long-lived
@@ -24,7 +28,9 @@ export declare function registerIdentifierCaseRenameLookupProvider(provider: any
  * @param {IdentifierCasePlanSnapshotCaptureProvider} provider Factory
  *        returning the snapshot capture service implementation.
  */
-export declare function registerIdentifierCasePlanSnapshotCaptureProvider(provider: any): void;
+export declare function registerIdentifierCasePlanSnapshotCaptureProvider(
+    provider: any
+): void;
 /**
  * Register snapshot rehydration hooks so hosts can restore identifier-case
  * state between formatter runs. Used primarily by long-lived processes that
@@ -33,7 +39,9 @@ export declare function registerIdentifierCasePlanSnapshotCaptureProvider(provid
  * @param {IdentifierCasePlanSnapshotApplyProvider} provider Factory returning
  *        the snapshot apply service implementation.
  */
-export declare function registerIdentifierCasePlanSnapshotApplyProvider(provider: any): void;
+export declare function registerIdentifierCasePlanSnapshotApplyProvider(
+    provider: any
+): void;
 /**
  * Restore the default provider trio. Useful for tests that temporarily swap in
  * bespoke collaborators and need a predictable baseline afterwards.
@@ -73,7 +81,10 @@ export declare function prepareIdentifierCasePlan(options: any): any;
  * @param {Record<string, unknown> | null | undefined} options
  * @returns {string | null}
  */
-export declare function getIdentifierCaseRenameForNode(node: any, options: any): any;
+export declare function getIdentifierCaseRenameForNode(
+    node: any,
+    options: any
+): any;
 /**
  * Capture the identifier-case plan snapshot for later reuse.
  *
@@ -89,4 +100,7 @@ export declare function captureIdentifierCasePlanSnapshot(options: any): any;
  * @param {Record<string, unknown> | null | undefined} options
  * @returns {void}
  */
-export declare function applyIdentifierCasePlanSnapshot(snapshot: any, options: any): any;
+export declare function applyIdentifierCasePlanSnapshot(
+    snapshot: any,
+    options: any
+): any;

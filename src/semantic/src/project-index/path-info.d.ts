@@ -20,7 +20,10 @@
  *   relativePath: string
  * } | null}
  */
-export declare function resolveProjectPathInfo(filePath: any, projectRoot: any): {
+export declare function resolveProjectPathInfo(
+    filePath: any,
+    projectRoot: any
+): {
     absolutePath: any;
     hasProjectRoot: boolean;
     inputWasAbsolute: any;

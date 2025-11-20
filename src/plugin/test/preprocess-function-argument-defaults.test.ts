@@ -37,8 +37,8 @@ describe("preprocessFunctionArgumentDefaults", () => {
         assert.equal(trailingParam?.type, "DefaultParameter");
         assert.equal(trailingParam?.left?.type, "Identifier");
         assert.equal(trailingParam?.left?.name, "trans_mat");
-    assert.equal(trailingParam?.right?.type, "Literal");
-    assert.equal(trailingParam?.right?.value, "undefined");
+        assert.equal(trailingParam?.right?.type, "Literal");
+        assert.equal(trailingParam?.right?.value, "undefined");
         assert.equal(trailingParam?._featherOptionalParameter, true);
     });
 });

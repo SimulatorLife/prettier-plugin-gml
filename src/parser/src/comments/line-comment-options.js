@@ -31,20 +31,28 @@ const DEFAULT_LINE_COMMENT_OPTIONS = Object.freeze({
 const lineCommentOptionsController = Core.createResolverController({
     defaultFactory: () => DEFAULT_LINE_COMMENT_OPTIONS,
     normalize: normalizeLineCommentOptions,
-    errorMessage: "Line comment option resolvers must be functions that return option objects"
+    errorMessage:
+        "Line comment option resolvers must be functions that return option objects"
 });
 function arraysMatchDefault(normalized, defaultValue) {
-    return (Array.isArray(defaultValue) &&
+    return (
+        Array.isArray(defaultValue) &&
         normalized.length === defaultValue.length &&
-        normalized.every((entry, index) => entry === defaultValue[index]));
+        normalized.every((entry, index) => entry === defaultValue[index])
+    );
 }
-function normalizeArrayOption(candidate, { defaultValue, filter, map = (value) => value }) {
+function normalizeArrayOption(
+    candidate,
+    { defaultValue, filter, map = (value) => value }
+) {
     if (!Array.isArray(candidate)) {
         return defaultValue;
     }
     const normalized = candidate.filter(filter).map(map);
-    if (normalized.length === 0 ||
-        arraysMatchDefault(normalized, defaultValue)) {
+    if (
+        normalized.length === 0 ||
+        arraysMatchDefault(normalized, defaultValue)
+    ) {
         return defaultValue;
     }
     return Object.freeze(normalized);
@@ -69,12 +77,18 @@ function normalizeLineCommentOptions(options) {
     if (!Core.isObjectLike(options)) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
-    const boilerplateFragments = normalizeBoilerplateFragments(options.boilerplateFragments);
-    const codeDetectionPatterns = normalizeCodeDetectionPatterns(options.codeDetectionPatterns);
-    if (boilerplateFragments ===
-        DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments &&
+    const boilerplateFragments = normalizeBoilerplateFragments(
+        options.boilerplateFragments
+    );
+    const codeDetectionPatterns = normalizeCodeDetectionPatterns(
+        options.codeDetectionPatterns
+    );
+    if (
+        boilerplateFragments ===
+            DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments &&
         codeDetectionPatterns ===
-            DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns) {
+            DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns
+    ) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
     return Object.freeze({
@@ -100,5 +114,13 @@ function setLineCommentOptionsResolver(resolver) {
 function restoreDefaultLineCommentOptionsResolver() {
     return lineCommentOptionsController.restore();
 }
-export { DEFAULT_LINE_COMMENT_OPTIONS, DEFAULT_COMMENTED_OUT_CODE_PATTERNS, LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES, normalizeLineCommentOptions, resolveLineCommentOptions, restoreDefaultLineCommentOptionsResolver, setLineCommentOptionsResolver };
+export {
+    DEFAULT_LINE_COMMENT_OPTIONS,
+    DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
+    LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,
+    normalizeLineCommentOptions,
+    resolveLineCommentOptions,
+    restoreDefaultLineCommentOptionsResolver,
+    setLineCommentOptionsResolver
+};
 //# sourceMappingURL=line-comment-options.js.map

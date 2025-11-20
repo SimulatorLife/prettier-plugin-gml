@@ -100,9 +100,11 @@ function collectConcatenationParts(node, output) {
             return false;
         }
         const expression = node.expression;
-        if (Core.isObjectLike(expression) &&
+        if (
+            Core.isObjectLike(expression) &&
             expression.type === BINARY_EXPRESSION &&
-            expression.operator === "+") {
+            expression.operator === "+"
+        ) {
             return collectConcatenationParts(expression, output);
         }
     }
@@ -143,8 +145,7 @@ function buildTemplateAtoms(parts) {
         const lastAtom = atoms.at(-1);
         if (lastAtom && lastAtom.type === TEMPLATE_STRING_TEXT) {
             lastAtom.value += pendingText;
-        }
-        else {
+        } else {
             atoms.push({ type: TEMPLATE_STRING_TEXT, value: pendingText });
         }
         pendingText = "";
@@ -196,12 +197,12 @@ function buildTemplateAtoms(parts) {
         // You never need to use string() inside an interpolated string in GML – it is fully redundant
         if (core.type === "CallExpression" && isStringFunctionCall(core)) {
             // Use the first argument of the string function call, or the original if no args
-            const firstArg = Array.isArray(core.arguments) && core.arguments.length > 0
-                ? core.arguments[0]
-                : core;
+            const firstArg =
+                Array.isArray(core.arguments) && core.arguments.length > 0
+                    ? core.arguments[0]
+                    : core;
             atoms.push(firstArg);
-        }
-        else {
+        } else {
             atoms.push(core);
         }
     }
@@ -259,7 +260,9 @@ function isSafeInterpolatedExpression(node) {
             return true;
         }
         case PARENTHESIZED_EXPRESSION: {
-            return isSafeInterpolatedExpression(Core.unwrapParenthesizedExpression(node));
+            return isSafeInterpolatedExpression(
+                Core.unwrapParenthesizedExpression(node)
+            );
         }
         default: {
             return false;

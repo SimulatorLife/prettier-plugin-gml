@@ -175,7 +175,10 @@ export default class GMLParser {
                 const endIndex =
                     typeof node.end === "number" ? node.end : node.end?.index;
 
-                if (node.type === "Literal" && Utils.isQuotedString(node.value)) {
+                if (
+                    node.type === "Literal" &&
+                    Utils.isQuotedString(node.value)
+                ) {
                     if (
                         Number.isInteger(startIndex) &&
                         Number.isInteger(endIndex) &&

@@ -9,7 +9,13 @@ import {
 } from "./identifier-metadata/index.js";
 
 type BinaryOperatorAssoc = "left" | "right";
-type BinaryOperatorType = "unary" | "arithmetic" | "bitwise" | "comparison" | "logical" | "assign";
+type BinaryOperatorType =
+    | "unary"
+    | "arithmetic"
+    | "bitwise"
+    | "comparison"
+    | "logical"
+    | "assign";
 
 interface BinaryOperatorInfo {
     prec: number;
@@ -115,7 +121,9 @@ const GLOBAL_SCOPE_OVERRIDE_KEYWORD = "global" as const;
  *     getIdentifierMetadata?: boolean
  * }} [options]
  */
-function createScopeTrackerFromOptions(options: ScopeTrackerOptions = {}): ScopeTracker | null {
+function createScopeTrackerFromOptions(
+    options: ScopeTrackerOptions = {}
+): ScopeTracker | null {
     const { createScopeTracker, getIdentifierMetadata } = options;
     if (typeof createScopeTracker !== "function") {
         return null;
@@ -199,7 +207,10 @@ export default class GameMakerASTBuilder {
     binaryExpressions: any;
     visitor: any;
 
-    constructor(options: ScopeTrackerOptions = {}, whitespaces: unknown[] = []) {
+    constructor(
+        options: ScopeTrackerOptions = {},
+        whitespaces: unknown[] = []
+    ) {
         this.options = options || {};
         this.whitespaces = whitespaces || [];
         this.operatorStack = [];
@@ -263,7 +274,10 @@ export default class GameMakerASTBuilder {
      * @returns {object | null} The visited child node or `null` when no
      *     candidates are available.
      */
-    visitFirstChild(ctx: ParserContext | null | undefined, methodNames: string[]): any {
+    visitFirstChild(
+        ctx: ParserContext | null | undefined,
+        methodNames: string[]
+    ): any {
         if (!ctx || !Array.isArray(methodNames)) {
             return null;
         }
@@ -292,7 +306,10 @@ export default class GameMakerASTBuilder {
     // their original source positions. We compute the end location by accounting for
     // line breaks within the token's text, which is crucial for multi-line string
     // literals or block comments that span multiple lines.
-    astNode<T extends { [key: string]: any }>(ctx: ParserContext, object: T): T {
+    astNode<T extends { [key: string]: any }>(
+        ctx: ParserContext,
+        object: T
+    ): T {
         object.start = { line: ctx.start.line, index: ctx.start.start };
         object.end = ctx.stop
             ? {
@@ -307,7 +324,10 @@ export default class GameMakerASTBuilder {
         return object;
     }
 
-    astNodeFromToken<T extends { [key: string]: any }>(token: ParserToken, object: T): T {
+    astNodeFromToken<T extends { [key: string]: any }>(
+        token: ParserToken,
+        object: T
+    ): T {
         if (token && token.symbol) {
             const { symbol } = token;
             object.start = {
@@ -324,7 +344,8 @@ export default class GameMakerASTBuilder {
                 index: token.start.start
             };
             object.end = {
-                line: token.stop.line + getLineBreakCount(token.stop.text || ""),
+                line:
+                    token.stop.line + getLineBreakCount(token.stop.text || ""),
                 index: token.stop.stop
             };
         } else {
@@ -342,7 +363,8 @@ export default class GameMakerASTBuilder {
     visitBinaryExpression(ctx: ParserContext): any {
         return this.binaryExpressions.handle(ctx, {
             visit: (node: ParserContext) => this.visit(node),
-            astNode: (context: ParserContext, value: any) => this.astNode(context, value)
+            astNode: (context: ParserContext, value: any) =>
+                this.astNode(context, value)
         });
     }
 
@@ -411,9 +433,7 @@ export default class GameMakerASTBuilder {
 
     // Visit a parse tree produced by GameMakerLanguageParser#block.
     visitBlock(ctx: ParserContext): any {
-        const body = ctx.statementList()
-            ? this.visit(ctx.statementList())
-            : [];
+        const body = ctx.statementList() ? this.visit(ctx.statementList()) : [];
         return this.astNode(ctx, {
             type: "BlockStatement",
             body

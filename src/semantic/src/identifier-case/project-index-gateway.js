@@ -1,8 +1,15 @@
 import { Core } from "@gml-modules/core";
-import { bootstrapProjectIndex, applyBootstrappedProjectIndex } from "./project-index-bootstrap.js";
+import {
+    bootstrapProjectIndex,
+    applyBootstrappedProjectIndex
+} from "./project-index-bootstrap.js";
 import { setIdentifierCaseOption } from "./option-store.js";
 function getExistingProjectIndex(options) {
-    return Core.coalesceOption(options, ["__identifierCaseProjectIndex", "identifierCaseProjectIndex"], { fallback: null });
+    return Core.coalesceOption(
+        options,
+        ["__identifierCaseProjectIndex", "identifierCaseProjectIndex"],
+        { fallback: null }
+    );
 }
 export async function bootstrapIdentifierCaseProjectIndex(options) {
     return bootstrapProjectIndex(options, setIdentifierCaseOption);
@@ -14,7 +21,10 @@ export function resolveIdentifierCaseProjectIndex(options, fallback = null) {
     const projectIndex = getExistingProjectIndex(options);
     return projectIndex ?? fallback ?? null;
 }
-export async function ensureIdentifierCaseProjectIndex(options, fallback = null) {
+export async function ensureIdentifierCaseProjectIndex(
+    options,
+    fallback = null
+) {
     const existing = resolveIdentifierCaseProjectIndex(options, fallback);
     if (existing) {
         return existing;

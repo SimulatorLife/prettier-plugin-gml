@@ -10,9 +10,7 @@ import { Core } from "@gml-modules/core";
  * @param {unknown} ast
  * @returns {unknown}
  */
-export function convertUndefinedGuardAssignments(
-    ast
-) {
+export function convertUndefinedGuardAssignments(ast) {
     if (!Core.isObjectLike(ast)) {
         return ast;
     }
@@ -43,11 +41,7 @@ export function convertUndefinedGuardAssignments(
         }
 
         if (node.type === "IfStatement") {
-            const converted = convertIfStatement(
-                node,
-                parent,
-                property
-            );
+            const converted = convertIfStatement(node, parent, property);
             if (converted) {
                 return;
             }
@@ -72,9 +66,7 @@ function convertIfStatement(node, parent, property) {
         return false;
     }
 
-    const consequentAssignment = extractSoleAssignment(
-        node.consequent
-    );
+    const consequentAssignment = extractSoleAssignment(node.consequent);
 
     if (!consequentAssignment) {
         return false;
@@ -85,10 +77,7 @@ function convertIfStatement(node, parent, property) {
         return false;
     }
 
-    const guardTest = resolveUndefinedGuardExpression(
-        node.test,
-        targetName
-    );
+    const guardTest = resolveUndefinedGuardExpression(node.test, targetName);
     if (!guardTest) {
         return false;
     }
@@ -96,9 +85,7 @@ function convertIfStatement(node, parent, property) {
     const alternateAssignment = extractSoleAssignment(node.alternate);
 
     if (alternateAssignment) {
-        if (
-            targetName !== Core.getIdentifierText(alternateAssignment.left)
-        ) {
+        if (targetName !== Core.getIdentifierText(alternateAssignment.left)) {
             return false;
         }
 

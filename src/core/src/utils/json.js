@@ -2,7 +2,9 @@ import { isErrorLike } from "./capability-probes.js";
 import { getErrorMessageOrFallback } from "./error.js";
 import { assertPlainObject } from "./object.js";
 import { isNonEmptyString, toTrimmedString } from "./string.js";
-const JSON_PARSE_ERROR_CAPABILITY = Symbol.for("prettier-plugin-gml.json-parse-error");
+const JSON_PARSE_ERROR_CAPABILITY = Symbol.for(
+    "prettier-plugin-gml.json-parse-error"
+);
 function hasJsonParseErrorContract(value) {
     if (!isErrorLike(value)) {
         return false;
@@ -25,7 +27,8 @@ function toError(value) {
         return value;
     }
     const message = getErrorMessageOrFallback(value);
-    const normalizedMessage = message === "[object Object]" ? "Unknown error" : message;
+    const normalizedMessage =
+        message === "[object Object]" ? "Unknown error" : message;
     const fallback = new Error(normalizedMessage);
     fallback.name = "NonErrorThrown";
     return fallback;
@@ -87,8 +90,7 @@ function normalizeSource(source) {
     }
     try {
         return String(source);
-    }
-    catch {
+    } catch {
         return "";
     }
 }
@@ -142,8 +144,7 @@ export function parseJsonWithContext(text, options = {}) {
     const { source, description, reviver } = options;
     try {
         return JSON.parse(text, reviver);
-    }
-    catch (error) {
+    } catch (error) {
         const cause = toError(error);
         const normalizedDescription = normalizeDescription(description);
         const normalizedSource = normalizeSource(source);
@@ -181,19 +182,23 @@ export function parseJsonWithContext(text, options = {}) {
  * @returns {Record<string, unknown>} Parsed JSON object.
  */
 export function parseJsonObjectWithContext(text, options = {}) {
-    const { source, description, reviver, assertOptions, createAssertOptions } = options;
+    const { source, description, reviver, assertOptions, createAssertOptions } =
+        options;
     const payload = parseJsonWithContext(text, {
         source,
         description,
         reviver
     });
     const baseOptions = toObjectOrUndefined(assertOptions);
-    const dynamicOptions = toObjectOrUndefined(typeof createAssertOptions === "function"
-        ? createAssertOptions(payload)
-        : undefined);
-    const mergedOptions = baseOptions || dynamicOptions
-        ? { ...baseOptions, ...dynamicOptions }
-        : undefined;
+    const dynamicOptions = toObjectOrUndefined(
+        typeof createAssertOptions === "function"
+            ? createAssertOptions(payload)
+            : undefined
+    );
+    const mergedOptions =
+        baseOptions || dynamicOptions
+            ? { ...baseOptions, ...dynamicOptions }
+            : undefined;
     return assertPlainObject(payload, mergedOptions);
 }
 /**
@@ -213,16 +218,25 @@ export function parseJsonObjectWithContext(text, options = {}) {
  * @returns {string} Stringified JSON with optional trailing newline.
  */
 export function stringifyJsonForFile(payload, options = {}) {
-    const { replacer = null, space = 0, includeTrailingNewline = true, newline = "\n" } = options;
+    const {
+        replacer = null,
+        space = 0,
+        includeTrailingNewline = true,
+        newline = "\n"
+    } = options;
     const serialized = JSON.stringify(payload, replacer, space);
     if (typeof serialized !== "string") {
-        const payloadDescription = describePayloadForSerializationError(payload);
-        throw new TypeError(`Unable to serialize ${payloadDescription} to JSON. JSON.stringify returned undefined.`);
+        const payloadDescription =
+            describePayloadForSerializationError(payload);
+        throw new TypeError(
+            `Unable to serialize ${payloadDescription} to JSON. JSON.stringify returned undefined.`
+        );
     }
     if (!includeTrailingNewline) {
         return serialized;
     }
-    const terminator = typeof newline === "string" && newline.length > 0 ? newline : "\n";
+    const terminator =
+        typeof newline === "string" && newline.length > 0 ? newline : "\n";
     if (serialized.endsWith(terminator)) {
         return serialized;
     }

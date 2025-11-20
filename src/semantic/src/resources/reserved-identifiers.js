@@ -9,8 +9,7 @@ function safelyLoadIdentifierMetadata(loader) {
     try {
         const metadata = loader();
         return Utils.isObjectLike(metadata) ? metadata : null;
-    }
-    catch {
+    } catch {
         return null;
     }
 }
@@ -70,7 +69,8 @@ function resolveExcludedTypes(types) {
 }
 export function loadReservedIdentifierNames({ disallowedTypes } = {}) {
     const metadata = loadIdentifierMetadata();
-    const entries = IdentifierMetadata.normalizeIdentifierMetadataEntries(metadata);
+    const entries =
+        IdentifierMetadata.normalizeIdentifierMetadataEntries(metadata);
     if (entries.length === 0) {
         return new Set();
     }
@@ -84,5 +84,9 @@ export function loadReservedIdentifierNames({ disallowedTypes } = {}) {
     }
     return names;
 }
-export { DEFAULT_IDENTIFIER_METADATA_PATH, resetReservedIdentifierMetadataLoader, setReservedIdentifierMetadataLoader };
+export {
+    DEFAULT_IDENTIFIER_METADATA_PATH,
+    resetReservedIdentifierMetadataLoader,
+    setReservedIdentifierMetadataLoader
+};
 //# sourceMappingURL=reserved-identifiers.js.map

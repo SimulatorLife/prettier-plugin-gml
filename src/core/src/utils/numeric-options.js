@@ -8,7 +8,10 @@ const DEFAULT_PARSE_STRING = (text) => {
 function missingOptionValue() {
     return void 0;
 }
-function parseStringOption(rawValue, { defaultValue, coerce, parseString, blankStringReturnsDefault }) {
+function parseStringOption(
+    rawValue,
+    { defaultValue, coerce, parseString, blankStringReturnsDefault }
+) {
     const trimmed = rawValue.trim();
     if (trimmed === "" && blankStringReturnsDefault) {
         return defaultValue;
@@ -32,9 +35,10 @@ function coerceInteger(value, { min, received, createErrorMessage }) {
     }
     const formattedReceived = received ?? value;
     const fallbackMessage = `Value must be an integer greater than or equal to ${min} (received ${formattedReceived}).`;
-    const message = typeof createErrorMessage === "function"
-        ? createErrorMessage(formattedReceived)
-        : (createErrorMessage ?? fallbackMessage);
+    const message =
+        typeof createErrorMessage === "function"
+            ? createErrorMessage(formattedReceived)
+            : (createErrorMessage ?? fallbackMessage);
     throw new TypeError(message);
 }
 export function coercePositiveInteger(value, options = {}) {
@@ -66,7 +70,11 @@ export function coerceNonNegativeInteger(value, options = {}) {
  * @returns {number} Either the coerced positive integer, the zero
  *                   replacement, or `defaultValue` when the input is blank.
  */
-export function coercePositiveIntegerOption(value, defaultValue, { zeroReplacement } = {}) {
+export function coercePositiveIntegerOption(
+    value,
+    defaultValue,
+    { zeroReplacement } = {}
+) {
     let candidate = value;
     if (typeof candidate === "string") {
         const trimmed = candidate.trim();
@@ -122,7 +130,16 @@ export function coercePositiveIntegerOption(value, defaultValue, { zeroReplaceme
  *        strings short-circuit to the default; otherwise they are parsed.
  * @returns {number | undefined} The coerced numeric option value.
  */
-export function resolveIntegerOption(rawValue, { defaultValue, coerce, parseString = DEFAULT_PARSE_STRING, typeErrorMessage, blankStringReturnsDefault = true } = {}) {
+export function resolveIntegerOption(
+    rawValue,
+    {
+        defaultValue,
+        coerce,
+        parseString = DEFAULT_PARSE_STRING,
+        typeErrorMessage,
+        blankStringReturnsDefault = true
+    } = {}
+) {
     if (rawValue === undefined || rawValue === null) {
         return defaultValue;
     }
@@ -163,7 +180,10 @@ export function resolveIntegerOption(rawValue, { defaultValue, coerce, parseStri
  * @returns {number | undefined} The normalized numeric value, or `undefined`
  *          when the input should be treated as absent.
  */
-export function normalizeNumericOption(rawValue, { optionName, coerce, formatTypeError }) {
+export function normalizeNumericOption(
+    rawValue,
+    { optionName, coerce, formatTypeError }
+) {
     if (rawValue === undefined || rawValue === null) {
         return missingOptionValue();
     }
@@ -198,6 +218,7 @@ export function normalizeNumericOption(rawValue, { optionName, coerce, formatTyp
  *          returns the error message.
  */
 export function createNumericTypeErrorFormatter(label) {
-    return (type) => `${label} must be provided as a number (received type '${type}').`;
+    return (type) =>
+        `${label} must be provided as a number (received type '${type}').`;
 }
 //# sourceMappingURL=numeric-options.js.map

@@ -12,15 +12,24 @@ import * as annotateStaticFunctionOverrides from "./annotate-static-overrides.js
 // Wrappers follow the parser transform signature: (ast, opts = {}) => ast
 const TRANSFORM_REGISTRY = Object.freeze({
     "strip-comments": stripComments.transform,
-    "consolidate-struct-assignments": (ast, opts = {}) => consolidateStructAssignments.transform(ast, opts.commentTools),
-    "apply-feather-fixes": (ast, opts = {}) => applyFeatherFixes.transform(ast, opts),
-    "preprocess-function-argument-defaults": (ast, opts = {}) => preprocessFunctionArgumentDefaults.transform(ast, opts.helpers ?? opts),
-    "enforce-variable-block-spacing": (ast, opts = {}) => enforceVariableBlockSpacing.transform(ast, opts),
-    "convert-string-concatenations": (ast, opts = {}) => convertStringConcatenations.transform(ast, opts.helpers ?? opts),
-    "condense-logical-expressions": (ast, opts = {}) => condenseLogicalExpressions.transform(ast, opts.helpers ?? opts),
-    "convert-manual-math": (ast, opts = {}) => convertManualMathExpressions.transform(ast, opts),
-    "convert-undefined-guard-assignments": (ast, opts = {}) => convertUndefinedGuardAssignments.transform(ast, opts),
-    "annotate-static-overrides": (ast, opts = {}) => annotateStaticFunctionOverrides.transform(ast, opts)
+    "consolidate-struct-assignments": (ast, opts = {}) =>
+        consolidateStructAssignments.transform(ast, opts.commentTools),
+    "apply-feather-fixes": (ast, opts = {}) =>
+        applyFeatherFixes.transform(ast, opts),
+    "preprocess-function-argument-defaults": (ast, opts = {}) =>
+        preprocessFunctionArgumentDefaults.transform(ast, opts.helpers ?? opts),
+    "enforce-variable-block-spacing": (ast, opts = {}) =>
+        enforceVariableBlockSpacing.transform(ast, opts),
+    "convert-string-concatenations": (ast, opts = {}) =>
+        convertStringConcatenations.transform(ast, opts.helpers ?? opts),
+    "condense-logical-expressions": (ast, opts = {}) =>
+        condenseLogicalExpressions.transform(ast, opts.helpers ?? opts),
+    "convert-manual-math": (ast, opts = {}) =>
+        convertManualMathExpressions.transform(ast, opts),
+    "convert-undefined-guard-assignments": (ast, opts = {}) =>
+        convertUndefinedGuardAssignments.transform(ast, opts),
+    "annotate-static-overrides": (ast, opts = {}) =>
+        annotateStaticFunctionOverrides.transform(ast, opts)
 });
 export function applyTransforms(ast, transformNames = [], options = {}) {
     if (!Array.isArray(transformNames) || transformNames.length === 0) {

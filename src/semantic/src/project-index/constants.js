@@ -1,7 +1,10 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { mergeUniqueValues, normalizeExtensionSuffix } } = Core;
+const {
+    Utils: { mergeUniqueValues, normalizeExtensionSuffix }
+} = Core;
 export const PROJECT_MANIFEST_EXTENSION = ".yyp";
-const PROJECT_MANIFEST_EXTENSION_LOWER = PROJECT_MANIFEST_EXTENSION.toLowerCase();
+const PROJECT_MANIFEST_EXTENSION_LOWER =
+    PROJECT_MANIFEST_EXTENSION.toLowerCase();
 /**
  * Canonical suffixes treated as GameMaker resource metadata. The formatter
  * keeps this list opinionated by default and only expands it when callers
@@ -14,10 +17,14 @@ function normalizeResourceMetadataExtension(candidate) {
 }
 function normalizeResourceMetadataExtensions(candidate) {
     const entries = typeof candidate === "string" ? [candidate] : candidate;
-    const normalized = mergeUniqueValues(DEFAULT_RESOURCE_METADATA_EXTENSIONS, entries, {
-        coerce: normalizeResourceMetadataExtension,
-        freeze: false
-    });
+    const normalized = mergeUniqueValues(
+        DEFAULT_RESOURCE_METADATA_EXTENSIONS,
+        entries,
+        {
+            coerce: normalizeResourceMetadataExtension,
+            freeze: false
+        }
+    );
     if (normalized.length === DEFAULT_RESOURCE_METADATA_EXTENSIONS.length) {
         return DEFAULT_RESOURCE_METADATA_EXTENSIONS;
     }

@@ -6,7 +6,12 @@ export declare function createFileScopeDescriptor(relativePath: any): {
     resourcePath: any;
     gmlFile: any;
 };
-export declare function analyseResourceFiles({ projectRoot, yyFiles, fsFacade, signal }: {
+export declare function analyseResourceFiles({
+    projectRoot,
+    yyFiles,
+    fsFacade,
+    signal
+}: {
     projectRoot: any;
     yyFiles: any;
     fsFacade: any;

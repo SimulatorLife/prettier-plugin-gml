@@ -14,8 +14,10 @@ const EMPTY_COMMENT_ARRAY = Object.freeze([]);
  * @returns {node is CommentBlockNode | CommentLineNode}
  */
 export function isCommentNode(node) {
-    return (isObjectLike(node) &&
-        (node.type === "CommentBlock" || node.type === "CommentLine"));
+    return (
+        isObjectLike(node) &&
+        (node.type === "CommentBlock" || node.type === "CommentLine")
+    );
 }
 function commentTypeMatches(comment, expectedType) {
     return isCommentNode(comment) && comment.type === expectedType;
@@ -74,8 +76,10 @@ export function collectCommentNodes(root) {
     return results;
 }
 export function isDocCommentLine(comment) {
-    if (!commentTypeMatches(comment, "CommentLine") ||
-        typeof comment?.value !== "string") {
+    if (
+        !commentTypeMatches(comment, "CommentLine") ||
+        typeof comment?.value !== "string"
+    ) {
         return false;
     }
     return /^\s*(?:\/\s*)?@/.test(comment.value);

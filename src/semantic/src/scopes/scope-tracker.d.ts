@@ -2,9 +2,7 @@ declare class Scope {
     constructor(id: any, kind: any, parent?: any);
 }
 export declare class ScopeTracker {
-    constructor({ enabled }?: {
-        enabled?: boolean;
-    });
+    constructor({ enabled }?: { enabled?: boolean });
     isEnabled(): any;
     enterScope(kind: any): Scope;
     exitScope(): void;
@@ -34,7 +32,9 @@ export declare class ScopeTracker {
      */
     declare(name: any, node: any, role?: {}): void;
     reference(name: any, node: any, role?: {}): void;
-    exportOccurrences({ includeReferences }?: {
+    exportOccurrences({
+        includeReferences
+    }?: {
         includeReferences?: boolean;
     }): any[];
     /**
@@ -50,9 +50,14 @@ export declare class ScopeTracker {
      *          Scope occurrence payload or null if the tracker is disabled or
      *          the scope is unknown.
      */
-    getScopeOccurrences(scopeId: any, { includeReferences }?: {
-        includeReferences?: boolean;
-    }): {
+    getScopeOccurrences(
+        scopeId: any,
+        {
+            includeReferences
+        }?: {
+            includeReferences?: boolean;
+        }
+    ): {
         scopeId: any;
         scopeKind: any;
         identifiers: any[];

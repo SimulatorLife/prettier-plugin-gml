@@ -1,7 +1,9 @@
 import path from "node:path";
 import { Core } from "@gml-modules/core";
 import { ProjectIndexCacheStatus } from "./cache.js";
-const { Utils: { assertFunction, throwIfAborted, toTrimmedString } } = Core;
+const {
+    Utils: { assertFunction, throwIfAborted, toTrimmedString }
+} = Core;
 function assertCoordinatorFunction(value, name) {
     const normalizedName = toTrimmedString(name) || "dependency";
     const errorMessage = `Project index coordinators require a ${normalizedName} function.`;
@@ -17,7 +19,11 @@ function normalizeEnsureReadyDescriptor(descriptor) {
         resolvedRoot: path.resolve(projectRoot)
     };
 }
-function resolveEnsureReadyContext({ descriptor, abortController, disposedMessage }) {
+function resolveEnsureReadyContext({
+    descriptor,
+    abortController,
+    disposedMessage
+}) {
     const { resolvedRoot } = normalizeEnsureReadyDescriptor(descriptor);
     const signal = abortController.signal;
     throwIfAborted(signal, disposedMessage);
@@ -35,17 +41,30 @@ function trackInFlightOperation(map, key, createOperation) {
     const pending = (async () => {
         try {
             return await createOperation();
-        }
-        finally {
+        } finally {
             map.delete(key);
         }
     })();
     map.set(key, pending);
     return pending;
 }
-async function executeEnsureReadyOperation({ descriptor, resolvedRoot, signal, fsFacade, loadCache, saveCache, buildIndex, cacheMaxSizeBytes, disposedMessage }) {
+async function executeEnsureReadyOperation({
+    descriptor,
+    resolvedRoot,
+    signal,
+    fsFacade,
+    loadCache,
+    saveCache,
+    buildIndex,
+    cacheMaxSizeBytes,
+    disposedMessage
+}) {
     const descriptorOptions = descriptor ?? {};
-    const loadResult = await loadCache({ ...descriptorOptions, projectRoot: resolvedRoot }, fsFacade, { signal });
+    const loadResult = await loadCache(
+        { ...descriptorOptions, projectRoot: resolvedRoot },
+        fsFacade,
+        { signal }
+    );
     throwIfAborted(signal, disposedMessage);
     if (loadResult.status === ProjectIndexCacheStatus.HIT) {
         throwIfAborted(signal, disposedMessage);
@@ -60,16 +79,21 @@ async function executeEnsureReadyOperation({ descriptor, resolvedRoot, signal, f
         signal
     });
     throwIfAborted(signal, disposedMessage);
-    const descriptorMaxSizeBytes = descriptorOptions?.maxSizeBytes === undefined
-        ? cacheMaxSizeBytes
-        : descriptorOptions.maxSizeBytes;
-    const saveResult = await saveCache({
-        ...descriptorOptions,
-        projectRoot: resolvedRoot,
-        projectIndex,
-        metricsSummary: projectIndex.metrics,
-        maxSizeBytes: descriptorMaxSizeBytes
-    }, fsFacade, { signal }).catch((error) => {
+    const descriptorMaxSizeBytes =
+        descriptorOptions?.maxSizeBytes === undefined
+            ? cacheMaxSizeBytes
+            : descriptorOptions.maxSizeBytes;
+    const saveResult = await saveCache(
+        {
+            ...descriptorOptions,
+            projectRoot: resolvedRoot,
+            projectIndex,
+            metricsSummary: projectIndex.metrics,
+            maxSizeBytes: descriptorMaxSizeBytes
+        },
+        fsFacade,
+        { signal }
+    ).catch((error) => {
         return {
             status: "failed",
             error,
@@ -86,14 +110,34 @@ async function executeEnsureReadyOperation({ descriptor, resolvedRoot, signal, f
         }
     };
 }
-export function createProjectIndexCoordinator({ fsFacade, loadCache, saveCache, buildIndex, cacheMaxSizeBytes: rawCacheMaxSizeBytes, getDefaultCacheMaxSize } = {}) {
-    const normalizedLoadCache = assertCoordinatorFunction(loadCache, "loadCache");
-    const normalizedSaveCache = assertCoordinatorFunction(saveCache, "saveCache");
-    const normalizedBuildIndex = assertCoordinatorFunction(buildIndex, "buildIndex");
-    const normalizedGetDefaultCacheMaxSize = assertCoordinatorFunction(getDefaultCacheMaxSize, "getDefaultCacheMaxSize");
-    const cacheMaxSizeBytes = rawCacheMaxSizeBytes === undefined
-        ? normalizedGetDefaultCacheMaxSize()
-        : rawCacheMaxSizeBytes;
+export function createProjectIndexCoordinator({
+    fsFacade,
+    loadCache,
+    saveCache,
+    buildIndex,
+    cacheMaxSizeBytes: rawCacheMaxSizeBytes,
+    getDefaultCacheMaxSize
+} = {}) {
+    const normalizedLoadCache = assertCoordinatorFunction(
+        loadCache,
+        "loadCache"
+    );
+    const normalizedSaveCache = assertCoordinatorFunction(
+        saveCache,
+        "saveCache"
+    );
+    const normalizedBuildIndex = assertCoordinatorFunction(
+        buildIndex,
+        "buildIndex"
+    );
+    const normalizedGetDefaultCacheMaxSize = assertCoordinatorFunction(
+        getDefaultCacheMaxSize,
+        "getDefaultCacheMaxSize"
+    );
+    const cacheMaxSizeBytes =
+        rawCacheMaxSizeBytes === undefined
+            ? normalizedGetDefaultCacheMaxSize()
+            : rawCacheMaxSizeBytes;
     const inFlight = new Map();
     let disposed = false;
     const abortController = new AbortController();
@@ -114,17 +158,19 @@ export function createProjectIndexCoordinator({ fsFacade, loadCache, saveCache, 
             abortController,
             disposedMessage: DISPOSED_MESSAGE
         });
-        return trackInFlightOperation(inFlight, context.key, () => executeEnsureReadyOperation({
-            descriptor,
-            resolvedRoot: context.resolvedRoot,
-            signal: context.signal,
-            fsFacade,
-            loadCache: normalizedLoadCache,
-            saveCache: normalizedSaveCache,
-            buildIndex: normalizedBuildIndex,
-            cacheMaxSizeBytes,
-            disposedMessage: DISPOSED_MESSAGE
-        }));
+        return trackInFlightOperation(inFlight, context.key, () =>
+            executeEnsureReadyOperation({
+                descriptor,
+                resolvedRoot: context.resolvedRoot,
+                signal: context.signal,
+                fsFacade,
+                loadCache: normalizedLoadCache,
+                saveCache: normalizedSaveCache,
+                buildIndex: normalizedBuildIndex,
+                cacheMaxSizeBytes,
+                disposedMessage: DISPOSED_MESSAGE
+            })
+        );
     }
     function dispose() {
         if (disposed) {

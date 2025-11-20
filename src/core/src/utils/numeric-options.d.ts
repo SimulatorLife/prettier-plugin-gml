@@ -1,5 +1,8 @@
 export declare function coercePositiveInteger(value: any, options?: {}): number;
-export declare function coerceNonNegativeInteger(value: any, options?: {}): number;
+export declare function coerceNonNegativeInteger(
+    value: any,
+    options?: {}
+): number;
 /**
  * Normalize option values that represent positive integers while handling
  * the frequently used "zero disables" idiom. Unlike {@link
@@ -17,7 +20,11 @@ export declare function coerceNonNegativeInteger(value: any, options?: {}): numb
  * @returns {number} Either the coerced positive integer, the zero
  *                   replacement, or `defaultValue` when the input is blank.
  */
-export declare function coercePositiveIntegerOption(value: any, defaultValue: any, { zeroReplacement }?: {}): any;
+export declare function coercePositiveIntegerOption(
+    value: any,
+    defaultValue: any,
+    { zeroReplacement }?: {}
+): any;
 /**
  * Coerce configuration values into integers while supporting number and
  * string inputs. This underpins option handling across the formatter where
@@ -49,10 +56,19 @@ export declare function coercePositiveIntegerOption(value: any, defaultValue: an
  *        strings short-circuit to the default; otherwise they are parsed.
  * @returns {number | undefined} The coerced numeric option value.
  */
-export declare function resolveIntegerOption(rawValue: any, { defaultValue, coerce, parseString, typeErrorMessage, blankStringReturnsDefault }?: {
-    parseString?: (text: any) => number;
-    blankStringReturnsDefault?: boolean;
-}): any;
+export declare function resolveIntegerOption(
+    rawValue: any,
+    {
+        defaultValue,
+        coerce,
+        parseString,
+        typeErrorMessage,
+        blankStringReturnsDefault
+    }?: {
+        parseString?: (text: any) => number;
+        blankStringReturnsDefault?: boolean;
+    }
+): any;
 /**
  * Normalize numeric Prettier options to a sanitized value or `undefined`.
  * This sits closer to the public API surface than {@link resolveIntegerOption}
@@ -76,11 +92,18 @@ export declare function resolveIntegerOption(rawValue: any, { defaultValue, coer
  * @returns {number | undefined} The normalized numeric value, or `undefined`
  *          when the input should be treated as absent.
  */
-export declare function normalizeNumericOption(rawValue: any, { optionName, coerce, formatTypeError }: {
-    optionName: any;
-    coerce: any;
-    formatTypeError: any;
-}): any;
+export declare function normalizeNumericOption(
+    rawValue: any,
+    {
+        optionName,
+        coerce,
+        formatTypeError
+    }: {
+        optionName: any;
+        coerce: any;
+        formatTypeError: any;
+    }
+): any;
 /**
  * Create a type error message formatter for numeric options. Centralizes the
  * pattern used across CLI modules where option validators need to report when
@@ -92,4 +115,6 @@ export declare function normalizeNumericOption(rawValue: any, { optionName, coer
  * @returns {(type: string) => string} Formatter that accepts a type name and
  *          returns the error message.
  */
-export declare function createNumericTypeErrorFormatter(label: any): (type: any) => string;
+export declare function createNumericTypeErrorFormatter(
+    label: any
+): (type: any) => string;

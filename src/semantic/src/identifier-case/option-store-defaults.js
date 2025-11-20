@@ -1,6 +1,13 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { applyConfiguredValueEnvOverride, createEnvConfiguredValueWithFallback, toFiniteNumber } } = Core;
-const IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_ENV_VAR = "GML_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES";
+const {
+    Utils: {
+        applyConfiguredValueEnvOverride,
+        createEnvConfiguredValueWithFallback,
+        toFiniteNumber
+    }
+} = Core;
+const IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_ENV_VAR =
+    "GML_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES";
 const IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_BASELINE = 128;
 function normalizeMaxEntries(value, { fallback }) {
     if (value == null) {
@@ -39,12 +46,14 @@ function normalizeFiniteMaxEntries(value) {
     }
     return Math.floor(value);
 }
-const identifierCaseOptionStoreMaxEntriesConfig = createEnvConfiguredValueWithFallback({
-    defaultValue: IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_BASELINE,
-    envVar: IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_ENV_VAR,
-    resolve: (raw, context) => normalizeMaxEntries(raw, { fallback: context.fallback }),
-    computeFallback: ({ defaultValue }) => defaultValue
-});
+const identifierCaseOptionStoreMaxEntriesConfig =
+    createEnvConfiguredValueWithFallback({
+        defaultValue: IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_BASELINE,
+        envVar: IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_ENV_VAR,
+        resolve: (raw, context) =>
+            normalizeMaxEntries(raw, { fallback: context.fallback }),
+        computeFallback: ({ defaultValue }) => defaultValue
+    });
 function getDefaultIdentifierCaseOptionStoreMaxEntries() {
     return identifierCaseOptionStoreMaxEntriesConfig.get();
 }
@@ -52,9 +61,20 @@ function setDefaultIdentifierCaseOptionStoreMaxEntries(maxEntries) {
     return identifierCaseOptionStoreMaxEntriesConfig.set(maxEntries);
 }
 function applyIdentifierCaseOptionStoreEnvOverride(env) {
-    applyConfiguredValueEnvOverride(identifierCaseOptionStoreMaxEntriesConfig, env);
+    applyConfiguredValueEnvOverride(
+        identifierCaseOptionStoreMaxEntriesConfig,
+        env
+    );
 }
 applyIdentifierCaseOptionStoreEnvOverride();
-const DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES = getDefaultIdentifierCaseOptionStoreMaxEntries();
-export { DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES, IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_BASELINE, IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_ENV_VAR, applyIdentifierCaseOptionStoreEnvOverride, getDefaultIdentifierCaseOptionStoreMaxEntries, setDefaultIdentifierCaseOptionStoreMaxEntries };
+const DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES =
+    getDefaultIdentifierCaseOptionStoreMaxEntries();
+export {
+    DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES,
+    IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_BASELINE,
+    IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_ENV_VAR,
+    applyIdentifierCaseOptionStoreEnvOverride,
+    getDefaultIdentifierCaseOptionStoreMaxEntries,
+    setDefaultIdentifierCaseOptionStoreMaxEntries
+};
 //# sourceMappingURL=option-store-defaults.js.map

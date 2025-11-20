@@ -26,4 +26,6 @@ export declare function clearIdentifierMetadataCache(): void;
  * @param {*} metadata
  * @returns {Array<{ name: string, type: string, descriptor: object }>}
  */
-export declare function normalizeIdentifierMetadataEntries(metadata: any): any[];
+export declare function normalizeIdentifierMetadataEntries(
+    metadata: any
+): any[];

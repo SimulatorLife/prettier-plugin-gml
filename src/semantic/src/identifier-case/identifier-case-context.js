@@ -18,7 +18,18 @@ function normalizeKey(filepath) {
  * @param {object} context
  * @param {string | null | undefined} [context.filepath]
  */
-export function setIdentifierCaseDryRunContext({ filepath = null, renamePlan = null, conflicts = [], dryRun = true, logFilePath = null, logger = null, diagnostics = null, fsFacade = null, now = null, projectIndex = null } = {}) {
+export function setIdentifierCaseDryRunContext({
+    filepath = null,
+    renamePlan = null,
+    conflicts = [],
+    dryRun = true,
+    logFilePath = null,
+    logger = null,
+    diagnostics = null,
+    fsFacade = null,
+    now = null,
+    projectIndex = null
+} = {}) {
     const key = normalizeKey(filepath);
     contextMap.set(key, {
         renamePlan,

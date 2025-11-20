@@ -1,5 +1,8 @@
 import { Core } from "@gml-modules/core";
-const { Utils: { createAbortGuard, toArrayFromIterable }, FS: { isFsErrorCode } } = Core;
+const {
+    Utils: { createAbortGuard, toArrayFromIterable },
+    FS: { isFsErrorCode }
+} = Core;
 /**
  * Enumerate the entries in {@link directoryPath} while respecting the abort
  * semantics shared by long-running filesystem workflows. Missing directories
@@ -24,8 +27,7 @@ export async function listDirectory(fsFacade, directoryPath, options = {}) {
         const entries = await fsFacade.readDir(directoryPath);
         ensureNotAborted();
         return toArrayFromIterable(entries);
-    }
-    catch (error) {
+    } catch (error) {
         if (isFsErrorCode(error, "ENOENT", "ENOTDIR")) {
             return [];
         }
@@ -55,8 +57,7 @@ export async function getFileMtime(fsFacade, filePath, options = {}) {
         const stats = await fsFacade.stat(filePath);
         ensureNotAborted();
         return typeof stats.mtimeMs === "number" ? stats.mtimeMs : null;
-    }
-    catch (error) {
+    } catch (error) {
         if (isFsErrorCode(error, "ENOENT")) {
             return null;
         }

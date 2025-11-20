@@ -7,7 +7,9 @@
  * @param {string} resourceName Name of the resource file to resolve.
  * @returns {URL} Absolute file URL referencing the bundled artefact.
  */
-export declare function resolveBundledResourceUrl(resourceName: any): import("url").URL;
+export declare function resolveBundledResourceUrl(
+    resourceName: any
+): import("url").URL;
 /**
  * Resolve a filesystem path for a bundled resource artefact.
  *

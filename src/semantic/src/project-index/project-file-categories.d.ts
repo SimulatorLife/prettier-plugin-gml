@@ -27,7 +27,9 @@ export declare function resetProjectIndexSourceExtensions(): readonly string[];
  *        include or omit the leading dot and will be normalized.
  * @returns {readonly string[]} Frozen, normalized extension list.
  */
-export declare function setProjectIndexSourceExtensions(extensions: any): readonly string[];
+export declare function setProjectIndexSourceExtensions(
+    extensions: any
+): readonly string[];
 /**
  * Validate a potential project file category and normalize it to one of the
  * known constants.
@@ -46,4 +48,6 @@ export declare function normalizeProjectFileCategory(value: any): any;
  * @returns {ProjectFileCategory | null} Matching category or `null` when the
  *          path does not fall into a known bucket.
  */
-export declare function resolveProjectFileCategory(relativePosix: any): "gml" | "yy";
+export declare function resolveProjectFileCategory(
+    relativePosix: any
+): "gml" | "yy";

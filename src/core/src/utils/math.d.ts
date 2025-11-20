@@ -17,7 +17,10 @@ export declare function computeNumericTolerance(reference: any): number;
  * @param {number} b
  * @returns {boolean}
  */
-export declare function areLiteralNumbersApproximatelyEqual(a: any, b: any): boolean;
+export declare function areLiteralNumbersApproximatelyEqual(
+    a: any,
+    b: any
+): boolean;
 /**
  * Normalize a numeric coefficient for use in generated numeric literals.
  *

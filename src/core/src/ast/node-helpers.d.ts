@@ -51,7 +51,10 @@ export declare function getVariableDeclarationKind(node: any): any;
  * @returns {boolean} `true` when `node.kind` resolves to the
  *     provided keyword.
  */
-export declare function isVariableDeclarationOfKind(node: any, expectedKind: any): boolean;
+export declare function isVariableDeclarationOfKind(
+    node: any,
+    expectedKind: any
+): boolean;
 export declare function isVarVariableDeclaration(node: any): boolean;
 export declare function resolveNodeName(node: any): any;
 export declare function isIdentifierNode(node: any): boolean;
@@ -71,7 +74,10 @@ export declare function getIdentifierText(node: any): any;
  *          cloned locations when {@link name} is a non-empty string; otherwise
  *          `null` to signal that construction failed.
  */
-export declare function createIdentifierNode(name: any, template: any): {
+export declare function createIdentifierNode(
+    name: any,
+    template: any
+): {
     type: string;
     name: any;
 };
@@ -107,24 +113,43 @@ export declare function getSingleMemberIndexPropertyEntry(node: any): any;
  *     empty array when no arguments exist so callers can iterate without
  *     additional null checks.
  */
-export declare function getCallExpressionArguments(callExpression: any): readonly any[];
+export declare function getCallExpressionArguments(
+    callExpression: any
+): readonly any[];
 export declare function getCallExpressionIdentifier(callExpression: any): any;
-export declare function getCallExpressionIdentifierName(callExpression: any): any;
+export declare function getCallExpressionIdentifierName(
+    callExpression: any
+): any;
 export declare function getIdentifierDetails(node: any): {
     identifier: any;
     name: string;
 };
 export declare function getIdentifierName(node: any): string;
-export declare function isCallExpressionIdentifierMatch(callExpression: any, expectedName: any, { caseInsensitive }?: {
-    caseInsensitive?: boolean;
-}): boolean;
-export declare function getArrayProperty(node: any, propertyName: any): readonly any[];
-export declare function hasArrayPropertyEntries(node: any, propertyName: any): boolean;
+export declare function isCallExpressionIdentifierMatch(
+    callExpression: any,
+    expectedName: any,
+    {
+        caseInsensitive
+    }?: {
+        caseInsensitive?: boolean;
+    }
+): boolean;
+export declare function getArrayProperty(
+    node: any,
+    propertyName: any
+): readonly any[];
+export declare function hasArrayPropertyEntries(
+    node: any,
+    propertyName: any
+): boolean;
 export declare function getBodyStatements(node: any): readonly any[];
 export declare function hasBodyStatements(node: any): boolean;
 export declare function isProgramOrBlockStatement(node: any): boolean;
 export declare function getLiteralStringValue(node: any): string;
-export declare function getBooleanLiteralValue(node: any, options?: {}): "true" | "false";
+export declare function getBooleanLiteralValue(
+    node: any,
+    options?: {}
+): "true" | "false";
 export declare function isBooleanLiteral(node: any, options: any): boolean;
 export declare function isUndefinedLiteral(node: any): boolean;
 export declare function isUndefinedSentinel(node: any): boolean;
@@ -164,7 +189,10 @@ export declare function isBinaryOperator(node: any, operator: any): boolean;
  * plugin transforms and keeps the parser-local transform logic
  * self-contained.
  */
-export declare function getStructPropertyAccess(left: any, identifierName: any): {
+export declare function getStructPropertyAccess(
+    left: any,
+    identifierName: any
+): {
     propertyNode: any;
     propertyStart: any;
 };

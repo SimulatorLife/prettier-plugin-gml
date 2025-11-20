@@ -6,20 +6,37 @@ export declare const IdentifierCaseStyle: Readonly<{
     SNAKE_LOWER: "snake-lower";
     SNAKE_UPPER: "snake-upper";
 }>;
-export declare const IDENTIFIER_CASE_STYLES: readonly ("off" | "camel" | "pascal" | "snake-lower" | "snake-upper")[];
+export declare const IDENTIFIER_CASE_STYLES: readonly (
+    | "off"
+    | "camel"
+    | "pascal"
+    | "snake-lower"
+    | "snake-upper"
+)[];
 export declare const IDENTIFIER_CASE_INHERIT_VALUE = "inherit";
 export declare function isIdentifierCaseStyle(style: any): boolean;
-export declare function assertIdentifierCaseStyle(style: any, optionName: any): any;
+export declare function assertIdentifierCaseStyle(
+    style: any,
+    optionName: any
+): any;
 export declare const IDENTIFIER_CASE_SCOPE_NAMES: readonly string[];
 export declare const IDENTIFIER_CASE_BASE_OPTION_NAME = "gmlIdentifierCase";
-export declare const IDENTIFIER_CASE_IGNORE_OPTION_NAME = "gmlIdentifierCaseIgnore";
-export declare const IDENTIFIER_CASE_PRESERVE_OPTION_NAME = "gmlIdentifierCasePreserve";
-export declare const IDENTIFIER_CASE_ACKNOWLEDGE_ASSETS_OPTION_NAME = "gmlIdentifierCaseAcknowledgeAssetRenames";
-export declare const IDENTIFIER_CASE_DISCOVER_PROJECT_OPTION_NAME = "gmlIdentifierCaseDiscoverProject";
-export declare const IDENTIFIER_CASE_PROJECT_ROOT_OPTION_NAME = "gmlIdentifierCaseProjectRoot";
-export declare const IDENTIFIER_CASE_PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME = "gmlIdentifierCaseProjectIndexCacheMaxBytes";
-export declare const IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME = "gmlIdentifierCaseOptionStoreMaxEntries";
-export declare const IDENTIFIER_CASE_PROJECT_INDEX_CONCURRENCY_OPTION_NAME = "gmlIdentifierCaseProjectIndexConcurrency";
+export declare const IDENTIFIER_CASE_IGNORE_OPTION_NAME =
+    "gmlIdentifierCaseIgnore";
+export declare const IDENTIFIER_CASE_PRESERVE_OPTION_NAME =
+    "gmlIdentifierCasePreserve";
+export declare const IDENTIFIER_CASE_ACKNOWLEDGE_ASSETS_OPTION_NAME =
+    "gmlIdentifierCaseAcknowledgeAssetRenames";
+export declare const IDENTIFIER_CASE_DISCOVER_PROJECT_OPTION_NAME =
+    "gmlIdentifierCaseDiscoverProject";
+export declare const IDENTIFIER_CASE_PROJECT_ROOT_OPTION_NAME =
+    "gmlIdentifierCaseProjectRoot";
+export declare const IDENTIFIER_CASE_PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME =
+    "gmlIdentifierCaseProjectIndexCacheMaxBytes";
+export declare const IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME =
+    "gmlIdentifierCaseOptionStoreMaxEntries";
+export declare const IDENTIFIER_CASE_PROJECT_INDEX_CONCURRENCY_OPTION_NAME =
+    "gmlIdentifierCaseProjectIndexConcurrency";
 export declare function normalizeIdentifierCaseAssetStyle(style: any): any;
 export declare const IDENTIFIER_CASE_STYLE_CHOICES: {
     value: any;

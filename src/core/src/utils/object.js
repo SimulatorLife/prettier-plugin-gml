@@ -33,7 +33,8 @@ export function assertFunction(value, name, { errorMessage } = {}) {
     if (typeof value === "function") {
         return /** @type {TFunction} */ (value);
     }
-    const message = errorMessage ??
+    const message =
+        errorMessage ??
         (isNonEmptyString(name)
             ? `${name} must be a function.`
             : "Value must be a function.");
@@ -65,12 +66,18 @@ export function isObjectLike(value) {
  * @returns {THelper}
  */
 export function resolveHelperOverride(helpers, key, fallback) {
-    const normalizedFallback = assertFunction(fallback, isNonEmptyString(key) ? `${key.toString()} helper` : "helper override");
-    const hasHelperOverrides = helpers && (typeof helpers === "function" || isObjectLike(helpers));
+    const normalizedFallback = assertFunction(
+        fallback,
+        isNonEmptyString(key) ? `${key.toString()} helper` : "helper override"
+    );
+    const hasHelperOverrides =
+        helpers && (typeof helpers === "function" || isObjectLike(helpers));
     if (!hasHelperOverrides) {
         return normalizedFallback;
     }
-    const candidate = /** @type {Record<string | number | symbol, unknown>} */ (helpers)[key];
+    const candidate = /** @type {Record<string | number | symbol, unknown>} */ (
+        helpers
+    )[key];
     if (typeof candidate !== "function") {
         return normalizedFallback;
     }
@@ -99,7 +106,16 @@ const OBJECT_TAG_PATTERN = /^\[object ([^\]]+)\]$/;
  * }} [options]
  * @returns {string} Human-readable description of {@link value}.
  */
-export function describeValueWithArticle(value, { emptyStringLabel = null, arrayLabel = "an array", objectLabel = "an object", formatTaggedObjectLabel = (tagName) => `${formatWithIndefiniteArticle(tagName)} object` } = {}) {
+export function describeValueWithArticle(
+    value,
+    {
+        emptyStringLabel = null,
+        arrayLabel = "an array",
+        objectLabel = "an object",
+        formatTaggedObjectLabel = (tagName) =>
+            `${formatWithIndefiniteArticle(tagName)} object`
+    } = {}
+) {
     if (value === null) {
         return "null";
     }
@@ -175,16 +191,23 @@ export function isObjectOrFunction(value) {
  * @param {{ name?: string; errorMessage?: string }} [options]
  * @returns {TObject}
  */
-export function assertFunctionProperties(value, methodNames, { name = "value", errorMessage } = {}) {
-    const requiredMethods = methodNames === null
-        ? []
-        : Array.isArray(methodNames)
-            ? methodNames
-            : [methodNames];
+export function assertFunctionProperties(
+    value,
+    methodNames,
+    { name = "value", errorMessage } = {}
+) {
+    const requiredMethods =
+        methodNames === null
+            ? []
+            : Array.isArray(methodNames)
+              ? methodNames
+              : [methodNames];
     if (requiredMethods.length === 0) {
         return /** @type {TObject} */ (value);
     }
-    const target = /** @type {Record<PropertyKey, unknown> | undefined} */ (isObjectOrFunction(value) ? value : undefined);
+    const target = /** @type {Record<PropertyKey, unknown> | undefined} */ (
+        isObjectOrFunction(value) ? value : undefined
+    );
     const missingMethods = requiredMethods
         .filter((methodName) => typeof target?.[methodName] !== "function")
         .map(String);
@@ -248,7 +271,10 @@ export function getObjectTagName(value, { includePlainObject = false } = {}) {
  * }} [options]
  * @returns {T}
  */
-export function assertPlainObject(value, { name = "value", errorMessage, allowNullPrototype = true } = {}) {
+export function assertPlainObject(
+    value,
+    { name = "value", errorMessage, allowNullPrototype = true } = {}
+) {
     const defaultMessage = `${name} must be a plain object`;
     if (!isPlainObject(value, { allowNullPrototype })) {
         throw new TypeError(errorMessage ?? defaultMessage);
@@ -326,15 +352,19 @@ export function withDefinedValue(value, onDefined, onUndefined) {
  * @param {boolean} [options.acceptNull=false]
  * @returns {unknown} The first matching property value or the fallback.
  */
-export function coalesceOption(object, keys, { fallback, acceptNull = false } = {}) {
+export function coalesceOption(
+    object,
+    keys,
+    { fallback, acceptNull = false } = {}
+) {
     if (!isObjectLike(object)) {
         return fallback;
     }
     const normalizedKeys = Array.isArray(keys)
         ? keys
         : keys === null
-            ? []
-            : [keys];
+          ? []
+          : [keys];
     for (const key of normalizedKeys) {
         const value = object[key];
         if (value !== undefined && (acceptNull || value !== null)) {
@@ -416,13 +446,19 @@ export function getOrCreateMapEntry(store, key, initializer) {
  *        when the current entry is missing or not a finite number.
  * @returns {number} The incremented numeric value stored in the map.
  */
-export function incrementMapValue(store, key, amount = 1, { fallback = 0 } = {}) {
+export function incrementMapValue(
+    store,
+    key,
+    amount = 1,
+    { fallback = 0 } = {}
+) {
     const mapStore = assertFunctionProperties(store, ["get", "set"], {
         name: "store",
         errorMessage: "store must provide get and set functions"
     });
     const delta = toFiniteNumber(amount) ?? 0;
-    const base = toFiniteNumber(mapStore.get(key)) ?? toFiniteNumber(fallback) ?? 0;
+    const base =
+        toFiniteNumber(mapStore.get(key)) ?? toFiniteNumber(fallback) ?? 0;
     const next = base + delta;
     mapStore.set(key, next);
     return next;

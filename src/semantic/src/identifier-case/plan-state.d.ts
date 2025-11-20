@@ -14,7 +14,10 @@ declare function buildRenameKey(_scopeId: any, location: any): any;
  *        Active plugin options possibly containing rename plan state.
  * @returns {string | null}
  */
-export declare function getIdentifierCaseRenameForNode(node: any, options: any): any;
+export declare function getIdentifierCaseRenameForNode(
+    node: any,
+    options: any
+): any;
 /**
  * Capture a shallow snapshot of the identifier case plan metadata stored on
  * the options bag. Callers can persist the result to survive across formatter
@@ -50,5 +53,8 @@ export declare function captureIdentifierCasePlanSnapshot(options: any): any;
  * @param {Record<string, unknown> | null | undefined} options
  * @returns {void}
  */
-export declare function applyIdentifierCasePlanSnapshot(snapshot: any, options: any): void;
+export declare function applyIdentifierCasePlanSnapshot(
+    snapshot: any,
+    options: any
+): void;
 export { buildRenameKey };

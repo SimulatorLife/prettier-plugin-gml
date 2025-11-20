@@ -27,8 +27,8 @@ function resolveDocCommentService(ast, cache, createService) {
     return service;
 }
 const NOOP_DOC_COMMENT_MANAGER = Object.freeze({
-    applyUpdates() { },
-    forEach() { },
+    applyUpdates() {},
+    forEach() {},
     getComments() {
         return [];
     },
@@ -65,11 +65,31 @@ function createBoundDocCommentServiceResolver(cache, methodName) {
         });
     };
 }
-export const resolveDocCommentTraversalService = createBoundDocCommentServiceResolver(DOC_COMMENT_TRAVERSAL_SERVICES, "forEach");
-export const resolveDocCommentCollectionService = createBoundDocCommentServiceResolver(DOC_COMMENT_COLLECTION_SERVICES, "getComments");
-export const resolveDocCommentPresenceService = createBoundDocCommentServiceResolver(DOC_COMMENT_PRESENCE_SERVICES, "hasDocComment");
-export const resolveDocCommentDescriptionService = createBoundDocCommentServiceResolver(DOC_COMMENT_DESCRIPTION_SERVICES, "extractDescription");
-export const resolveDocCommentUpdateService = createBoundDocCommentServiceResolver(DOC_COMMENT_UPDATE_SERVICES, "applyUpdates");
+export const resolveDocCommentTraversalService =
+    createBoundDocCommentServiceResolver(
+        DOC_COMMENT_TRAVERSAL_SERVICES,
+        "forEach"
+    );
+export const resolveDocCommentCollectionService =
+    createBoundDocCommentServiceResolver(
+        DOC_COMMENT_COLLECTION_SERVICES,
+        "getComments"
+    );
+export const resolveDocCommentPresenceService =
+    createBoundDocCommentServiceResolver(
+        DOC_COMMENT_PRESENCE_SERVICES,
+        "hasDocComment"
+    );
+export const resolveDocCommentDescriptionService =
+    createBoundDocCommentServiceResolver(
+        DOC_COMMENT_DESCRIPTION_SERVICES,
+        "extractDescription"
+    );
+export const resolveDocCommentUpdateService =
+    createBoundDocCommentServiceResolver(
+        DOC_COMMENT_UPDATE_SERVICES,
+        "applyUpdates"
+    );
 function createDocCommentManager(ast) {
     normalizeDocCommentWhitespace(ast);
     const commentGroups = mapDocCommentsToFunctions(ast);
@@ -104,9 +124,13 @@ function normalizeDocCommentWhitespace(ast) {
         return;
     }
     for (const comment of comments) {
-        if (comment?.type === "CommentLine" &&
+        if (
+            comment?.type === "CommentLine" &&
             typeof comment.leadingWS === "string" &&
-            /(?:\r\n|\r|\n|\u2028|\u2029)\s*(?:\r\n|\r|\n|\u2028|\u2029)/.test(comment.leadingWS)) {
+            /(?:\r\n|\r|\n|\u2028|\u2029)\s*(?:\r\n|\r|\n|\u2028|\u2029)/.test(
+                comment.leadingWS
+            )
+        ) {
             comment.leadingWS = "\n";
         }
     }
@@ -175,8 +199,7 @@ function collectFunctionNodes(ast) {
                 for (const child of snapshot) {
                     traverse(child);
                 }
-            }
-            else if (isNode(value)) {
+            } else if (isNode(value)) {
                 traverse(value);
             }
         }
@@ -204,9 +227,11 @@ function applyDocCommentUpdates(commentGroups, docUpdates) {
     }
 }
 function isDocCommentUpdateEligible(update) {
-    return (!!update &&
+    return (
+        !!update &&
         !update.hasDocComment &&
-        Core.isNonEmptyTrimmedString(update.expression));
+        Core.isNonEmptyTrimmedString(update.expression)
+    );
 }
 function resolveDocCommentCollection(commentGroups, fn) {
     const comments = commentGroups.get(fn);
@@ -216,21 +241,35 @@ function resolveDocCommentCollection(commentGroups, fn) {
     return comments;
 }
 function findDescriptionComment(comments) {
-    return (comments.find((comment) => typeof comment?.value === "string" &&
-        /@description\b/i.test(comment.value)) ?? null);
+    return (
+        comments.find(
+            (comment) =>
+                typeof comment?.value === "string" &&
+                /@description\b/i.test(comment.value)
+        ) ?? null
+    );
 }
 function applyDescriptionCommentUpdate(descriptionComment, update) {
-    let updatedDescription = buildUpdatedDescription(update.description, update.expression);
+    let updatedDescription = buildUpdatedDescription(
+        update.description,
+        update.expression
+    );
     if (!Core.isNonEmptyTrimmedString(updatedDescription)) {
         return;
     }
-    const originalDescription = typeof update.description === "string" ? update.description.trim() : "";
-    if (originalDescription.endsWith(".") &&
-        !/[.!?]$/.test(updatedDescription)) {
+    const originalDescription =
+        typeof update.description === "string" ? update.description.trim() : "";
+    if (
+        originalDescription.endsWith(".") &&
+        !/[.!?]$/.test(updatedDescription)
+    ) {
         updatedDescription = `${updatedDescription}.`;
     }
-    const existingDescription = typeof update.description === "string" ? update.description : null;
-    const prefixMatch = descriptionComment.value.match(/^(\s*\/\s*@description\s*)/i);
+    const existingDescription =
+        typeof update.description === "string" ? update.description : null;
+    const prefixMatch = descriptionComment.value.match(
+        /^(\s*\/\s*@description\s*)/i
+    );
     const prefix = prefixMatch ? prefixMatch[1] : "/ @description ";
     descriptionComment.value = `${prefix}${updatedDescription}`;
 }
@@ -240,8 +279,10 @@ function extractFunctionDescription(commentGroups, functionNode) {
         return null;
     }
     for (const comment of comments) {
-        if (typeof comment.value === "string" &&
-            comment.value.includes("@description")) {
+        if (
+            typeof comment.value === "string" &&
+            comment.value.includes("@description")
+        ) {
             return extractDescriptionContent(comment.value);
         }
     }

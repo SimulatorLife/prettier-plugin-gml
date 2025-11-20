@@ -58,7 +58,10 @@ export function toArray(value) {
  * @returns {Array<T>} The validated array or a fresh empty array when
  *                     `allowNull` permits nullable inputs.
  */
-export function assertArray(value, { name = "value", allowNull = false, errorMessage } = {}) {
+export function assertArray(
+    value,
+    { name = "value", allowNull = false, errorMessage } = {}
+) {
     if (Array.isArray(value)) {
         return value;
     }
@@ -142,9 +145,10 @@ export function isArrayIndex(container, index) {
  * @returns {Array<T> | ReadonlyArray<T>}
  */
 export function uniqueArray(values, { freeze = false } = {}) {
-    const uniqueValues = values !== null && typeof values?.[Symbol.iterator] === "function"
-        ? Array.from(new Set(values))
-        : [];
+    const uniqueValues =
+        values !== null && typeof values?.[Symbol.iterator] === "function"
+            ? Array.from(new Set(values))
+            : [];
     return freeze ? Object.freeze(uniqueValues) : uniqueValues;
 }
 /**
@@ -220,7 +224,11 @@ export function pushUnique(array, value, { isEqual } = {}) {
  * @param {boolean} [options.freeze]
  * @returns {ReadonlyArray<T>}
  */
-export function mergeUniqueValues(defaultValues, additionalValues, { coerce, getKey = (value) => value, freeze = true } = {}) {
+export function mergeUniqueValues(
+    defaultValues,
+    additionalValues,
+    { coerce, getKey = (value) => value, freeze = true } = {}
+) {
     const merged = Array.isArray(defaultValues) ? [...defaultValues] : [];
     const normalize = typeof coerce === "function" ? coerce : identity;
     const seen = new Set();

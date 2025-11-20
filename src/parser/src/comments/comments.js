@@ -28,8 +28,10 @@ const EMPTY_COMMENT_ARRAY = Object.freeze([]);
  * @returns {node is CommentBlockNode | CommentLineNode}
  */
 export function isCommentNode(node) {
-    return (Core.Utils.isObjectLike(node) &&
-        (node.type === "CommentBlock" || node.type === "CommentLine"));
+    return (
+        Core.Utils.isObjectLike(node) &&
+        (node.type === "CommentBlock" || node.type === "CommentLine")
+    );
 }
 /**
  * Internal helper to check whether a comment node matches a given type.
@@ -112,8 +114,10 @@ export function getCommentValue(comment, { trim = false } = {}) {
     if (typeof comment === "string") {
         return trim ? comment.trim() : comment;
     }
-    if (!Core.Utils.isObjectLike(comment) ||
-        typeof comment?.value !== "string") {
+    if (
+        !Core.Utils.isObjectLike(comment) ||
+        typeof comment?.value !== "string"
+    ) {
         return "";
     }
     const value = comment.value;
@@ -173,8 +177,10 @@ export function collectCommentNodes(root) {
  * @returns {boolean} `true` if the comment line looks like a doc comment.
  */
 export function isDocCommentLine(comment) {
-    if (!commentTypeMatches(comment, "CommentLine") ||
-        typeof comment?.value !== "string") {
+    if (
+        !commentTypeMatches(comment, "CommentLine") ||
+        typeof comment?.value !== "string"
+    ) {
         return false;
     }
     return /^\s*(?:\/\s*)?@/.test(comment.value);

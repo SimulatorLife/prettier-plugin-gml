@@ -53,9 +53,11 @@ class SyntaxErrorFormatter {
         if (rawText.length === 0) {
             return null;
         }
-        if (rawText.startsWith("'") &&
+        if (
+            rawText.startsWith("'") &&
             rawText.endsWith("'") &&
-            rawText.length >= 2) {
+            rawText.length >= 2
+        ) {
             return this.unescapeLexerToken(rawText.slice(1, -1));
         }
         return rawText;
@@ -94,7 +96,14 @@ class ParserContextAnalyzer {
         const openBlockContext = parentContext.openBlock();
         return openBlockContext?.start ?? null;
     }
-    getSpecificErrorMessage({ parser, stack, currentRule, line, column, wrongSymbol }) {
+    getSpecificErrorMessage({
+        parser,
+        stack,
+        currentRule,
+        line,
+        column,
+        wrongSymbol
+    }) {
         switch (currentRule) {
             case "closeBlock": {
                 if (stack[1] !== "block") {
@@ -104,28 +113,38 @@ class ParserContextAnalyzer {
                 if (!openBraceToken) {
                     return null;
                 }
-                return (`Syntax Error (line ${openBraceToken.line}, column ${openBraceToken.column}): ` +
-                    "missing associated closing brace for this block");
+                return (
+                    `Syntax Error (line ${openBraceToken.line}, column ${openBraceToken.column}): ` +
+                    "missing associated closing brace for this block"
+                );
             }
             case "lValueExpression": {
                 if (stack[1] !== "incDecStatement") {
                     return null;
                 }
-                return (`Syntax Error (line ${line}, column ${column}): ` +
-                    "++, -- can only be used on a variable-addressing expression");
+                return (
+                    `Syntax Error (line ${line}, column ${column}): ` +
+                    "++, -- can only be used on a variable-addressing expression"
+                );
             }
             case "expression": {
-                return (`Syntax Error (line ${line}, column ${column}): ` +
-                    `unexpected ${wrongSymbol} in expression`);
+                return (
+                    `Syntax Error (line ${line}, column ${column}): ` +
+                    `unexpected ${wrongSymbol} in expression`
+                );
             }
             case "statement":
             case "program": {
-                return (`Syntax Error (line ${line}, column ${column}): ` +
-                    `unexpected ${wrongSymbol}`);
+                return (
+                    `Syntax Error (line ${line}, column ${column}): ` +
+                    `unexpected ${wrongSymbol}`
+                );
             }
             case "parameterList": {
-                return (`Syntax Error (line ${line}, column ${column}): ` +
-                    `unexpected ${wrongSymbol} in function parameters, expected an identifier`);
+                return (
+                    `Syntax Error (line ${line}, column ${column}): ` +
+                    `unexpected ${wrongSymbol} in function parameters, expected an identifier`
+                );
             }
             default: {
                 return null;
@@ -134,7 +153,10 @@ class ParserContextAnalyzer {
     }
 }
 export default class GameMakerParseErrorListener extends ErrorListener {
-    constructor({ formatter = new SyntaxErrorFormatter(), contextAnalyzer = new ParserContextAnalyzer() } = {}) {
+    constructor({
+        formatter = new SyntaxErrorFormatter(),
+        contextAnalyzer = new ParserContextAnalyzer()
+    } = {}) {
         super();
         this.formatter = formatter;
         this.contextAnalyzer = contextAnalyzer;
@@ -150,18 +172,20 @@ export default class GameMakerParseErrorListener extends ErrorListener {
     // unhelpful "syntax error" toasts.
     syntaxError(recognizer, offendingSymbol, line, column, _message, _error) {
         const parser = recognizer;
-        const offendingText = this.formatter.resolveOffendingSymbolText(offendingSymbol);
+        const offendingText =
+            this.formatter.resolveOffendingSymbolText(offendingSymbol);
         const wrongSymbol = this.formatter.formatWrongSymbol(offendingText);
         const stack = parser.getRuleInvocationStack();
         const currentRule = stack[0];
-        const createError = (message) => new GameMakerSyntaxError({
-            message,
-            line,
-            column,
-            wrongSymbol,
-            rule: currentRule,
-            offendingText
-        });
+        const createError = (message) =>
+            new GameMakerSyntaxError({
+                message,
+                line,
+                column,
+                wrongSymbol,
+                rule: currentRule,
+                offendingText
+            });
         const specificMessage = this.contextAnalyzer.getSpecificErrorMessage({
             parser,
             stack,
@@ -174,9 +198,11 @@ export default class GameMakerParseErrorListener extends ErrorListener {
             throw createError(specificMessage);
         }
         const currentRuleFormatted = this.formatter.formatRuleName(currentRule);
-        throw createError(`Syntax Error (line ${line}, column ${column}): ` +
-            `unexpected ${wrongSymbol}` +
-            ` while matching rule ${currentRuleFormatted}`);
+        throw createError(
+            `Syntax Error (line ${line}, column ${column}): ` +
+                `unexpected ${wrongSymbol}` +
+                ` while matching rule ${currentRuleFormatted}`
+        );
     }
 }
 export class GameMakerLexerErrorListener extends ErrorListener {
@@ -185,11 +211,13 @@ export class GameMakerLexerErrorListener extends ErrorListener {
         this.formatter = formatter;
     }
     syntaxError(lexer, offendingSymbol, line, column, message, _error) {
-        const offendingText = this.formatter.resolveOffendingSymbolText(offendingSymbol) ??
+        const offendingText =
+            this.formatter.resolveOffendingSymbolText(offendingSymbol) ??
             this.formatter.extractOffendingTextFromLexerMessage(message);
         const wrongSymbol = this.formatter.formatWrongSymbol(offendingText);
         throw new GameMakerSyntaxError({
-            message: `Syntax Error (line ${line}, column ${column}): ` +
+            message:
+                `Syntax Error (line ${line}, column ${column}): ` +
                 `unexpected ${wrongSymbol}`,
             line,
             column,

@@ -1,9 +1,15 @@
 import path from "node:path";
 import { Core } from "@gml-modules/core";
 import { createProjectIndexAbortGuard } from "./abort-guard.js";
-import { normalizeProjectFileCategory, resolveProjectFileCategory, ProjectFileCategory } from "./project-file-categories.js";
+import {
+    normalizeProjectFileCategory,
+    resolveProjectFileCategory,
+    ProjectFileCategory
+} from "./project-file-categories.js";
 import { listDirectory } from "./fs-helpers.js";
-const { FS: { isFsErrorCode, toPosixPath } } = Core;
+const {
+    FS: { isFsErrorCode, toPosixPath }
+} = Core;
 function createProjectTreeCollector(metrics = null) {
     const yyFiles = [];
     const gmlFiles = [];
@@ -72,11 +78,21 @@ function createDirectoryEntryDescriptor(directoryContext, entry, projectRoot) {
         relativePosix: toPosixPath(relativePath)
     };
 }
-async function resolveDirectoryListing({ directoryContext, fsFacade, metrics, ensureNotAborted, signal }) {
+async function resolveDirectoryListing({
+    directoryContext,
+    fsFacade,
+    metrics,
+    ensureNotAborted,
+    signal
+}) {
     ensureNotAborted();
-    const entries = await listDirectory(fsFacade, directoryContext.absolutePath, {
-        signal
-    });
+    const entries = await listDirectory(
+        fsFacade,
+        directoryContext.absolutePath,
+        {
+            signal
+        }
+    );
     ensureNotAborted();
     metrics?.counters?.increment("io.directoriesScanned");
     return entries;
@@ -84,13 +100,18 @@ async function resolveDirectoryListing({ directoryContext, fsFacade, metrics, en
 function isDirectoryStat(stats) {
     return typeof stats?.isDirectory === "function" && stats.isDirectory();
 }
-async function resolveEntryStats({ absolutePath, fsFacade, ensureNotAborted, metrics, signal }) {
+async function resolveEntryStats({
+    absolutePath,
+    fsFacade,
+    ensureNotAborted,
+    metrics,
+    signal
+}) {
     try {
         const stats = await fsFacade.stat(absolutePath);
         ensureNotAborted();
         return stats;
-    }
-    catch (error) {
+    } catch (error) {
         if (isFsErrorCode(error, "ENOENT")) {
             metrics?.counters?.increment("io.skippedMissingEntries");
             return null;
@@ -98,10 +119,24 @@ async function resolveEntryStats({ absolutePath, fsFacade, ensureNotAborted, met
         throw error;
     }
 }
-async function processDirectoryEntries({ entries, directoryContext, traversal, collector, projectRoot, fsFacade, ensureNotAborted, metrics, signal }) {
+async function processDirectoryEntries({
+    entries,
+    directoryContext,
+    traversal,
+    collector,
+    projectRoot,
+    fsFacade,
+    ensureNotAborted,
+    metrics,
+    signal
+}) {
     for (const entry of entries) {
         ensureNotAborted();
-        const descriptor = createDirectoryEntryDescriptor(directoryContext, entry, projectRoot);
+        const descriptor = createDirectoryEntryDescriptor(
+            directoryContext,
+            entry,
+            projectRoot
+        );
         const stats = await resolveEntryStats({
             absolutePath: descriptor.absolutePath,
             fsFacade,
@@ -119,7 +154,12 @@ async function processDirectoryEntries({ entries, directoryContext, traversal, c
         collector.register(descriptor.relativePosix, descriptor.absolutePath);
     }
 }
-export async function scanProjectTree(projectRoot, fsFacade, metrics = null, options = {}) {
+export async function scanProjectTree(
+    projectRoot,
+    fsFacade,
+    metrics = null,
+    options = {}
+) {
     const { signal, ensureNotAborted } = createProjectIndexAbortGuard(options);
     const traversal = createDirectoryTraversal(projectRoot);
     const collector = createProjectTreeCollector(metrics);

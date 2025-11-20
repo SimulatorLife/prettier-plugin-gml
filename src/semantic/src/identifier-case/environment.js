@@ -1,7 +1,13 @@
 import { Core } from "@gml-modules/core";
 import { bootstrapIdentifierCaseProjectIndex } from "./project-index-gateway.js";
-import { prepareIdentifierCasePlan, captureIdentifierCasePlanSnapshot } from "./plan-service.js";
-import { setIdentifierCaseOption, deleteIdentifierCaseOption } from "./option-store.js";
+import {
+    prepareIdentifierCasePlan,
+    captureIdentifierCasePlanSnapshot
+} from "./plan-service.js";
+import {
+    setIdentifierCaseOption,
+    deleteIdentifierCaseOption
+} from "./option-store.js";
 import { warnWithReason } from "./logger.js";
 // Use the canonical Core namespace for helpers per AGENTS.md
 // (avoid destructuring from the package namespace)
@@ -19,7 +25,8 @@ function clearOwnProperty(_target, propertyName, { value = null } = {}) {
     if (!Object.hasOwn(_target, propertyName)) {
         return;
     }
-    const nextValue = typeof value === "function" ? value(_target[propertyName]) : value;
+    const nextValue =
+        typeof value === "function" ? value(_target[propertyName]) : value;
     _target[propertyName] = nextValue;
 }
 function sanitizeBootstrapResult(bootstrap) {
@@ -64,33 +71,48 @@ function disposeBootstrap(bootstrapResult, logger = null) {
     managedBootstraps.delete(bootstrapResult);
     try {
         bootstrapResult.dispose();
-    }
-    catch (error) {
-        warnWithReason(logger, IDENTIFIER_CASE_LOGGER_NAMESPACE, "Failed to dispose identifier case resources", error);
+    } catch (error) {
+        warnWithReason(
+            logger,
+            IDENTIFIER_CASE_LOGGER_NAMESPACE,
+            "Failed to dispose identifier case resources",
+            error
+        );
     }
 }
 export async function prepareIdentifierCaseEnvironment(options) {
     try {
-        console.debug(`[DBG] prepareIdentifierCaseEnvironment: enter filepath=${options?.filepath ?? null}`);
-    }
-    catch {
+        console.debug(
+            `[DBG] prepareIdentifierCaseEnvironment: enter filepath=${options?.filepath ?? null}`
+        );
+    } catch {
         /* ignore */
     }
     return Core.withObjectLike(options, async (object) => {
-        const bootstrapResult = await bootstrapIdentifierCaseProjectIndex(object);
+        const bootstrapResult =
+            await bootstrapIdentifierCaseProjectIndex(object);
         registerBootstrapCleanup(bootstrapResult);
         if (bootstrapResult?.status === "failed") {
             if (object.__identifierCaseProjectIndexFailureLogged !== true) {
                 const logger = object?.logger ?? null;
-                warnWithReason(logger, IDENTIFIER_CASE_LOGGER_NAMESPACE, "Project index bootstrap failed. Identifier case renames will be skipped", bootstrapResult.error, bootstrapResult.reason);
-                setIdentifierCaseOption(object, "__identifierCaseProjectIndexFailureLogged", true);
+                warnWithReason(
+                    logger,
+                    IDENTIFIER_CASE_LOGGER_NAMESPACE,
+                    "Project index bootstrap failed. Identifier case renames will be skipped",
+                    bootstrapResult.error,
+                    bootstrapResult.reason
+                );
+                setIdentifierCaseOption(
+                    object,
+                    "__identifierCaseProjectIndexFailureLogged",
+                    true
+                );
             }
             return;
         }
         try {
             await prepareIdentifierCasePlan(object);
-        }
-        catch (error) {
+        } catch (error) {
             disposeBootstrap(bootstrapResult, object?.logger ?? null);
             throw error;
         }
@@ -104,9 +126,11 @@ export function attachIdentifierCasePlanSnapshot(ast, options) {
         // when callers omit a filepath and would otherwise overwrite a
         // previously-captured plan. Guarding here prevents attachment of
         // inert snapshots which strip rename data from downstream printers.
-        if (!snapshot ||
+        if (
+            !snapshot ||
             (snapshot.planGenerated !== true &&
-                !Core.Utils.isMapLike(snapshot.renameMap))) {
+                !Core.Utils.isMapLike(snapshot.renameMap))
+        ) {
             return;
         }
         try {
@@ -116,16 +140,17 @@ export function attachIdentifierCasePlanSnapshot(ast, options) {
                 for (const k of snapshot.renameMap.keys()) {
                     samples.push(String(k));
                     c += 1;
-                    if (c >= 5)
-                        break;
+                    if (c >= 5) break;
                 }
-                console.debug(`[DBG] attachIdentifierCasePlanSnapshot: attaching snapshot for filepath=${options?.filepath ?? null} planGenerated=${Boolean(snapshot.planGenerated)} renameMapSize=${snapshot.renameMap.size} renameMapId=${snapshot.renameMap.__dbgId ?? null} samples=${JSON.stringify(samples)}`);
+                console.debug(
+                    `[DBG] attachIdentifierCasePlanSnapshot: attaching snapshot for filepath=${options?.filepath ?? null} planGenerated=${Boolean(snapshot.planGenerated)} renameMapSize=${snapshot.renameMap.size} renameMapId=${snapshot.renameMap.__dbgId ?? null} samples=${JSON.stringify(samples)}`
+                );
+            } else {
+                console.debug(
+                    `[DBG] attachIdentifierCasePlanSnapshot: attaching snapshot for filepath=${options?.filepath ?? null} planGenerated=${Boolean(snapshot.planGenerated)} renameMapSize=0 renameMapId=${null}`
+                );
             }
-            else {
-                console.debug(`[DBG] attachIdentifierCasePlanSnapshot: attaching snapshot for filepath=${options?.filepath ?? null} planGenerated=${Boolean(snapshot.planGenerated)} renameMapSize=0 renameMapId=${null}`);
-            }
-        }
-        catch {
+        } catch {
             /* ignore */
         }
         Object.defineProperty(objectAst, "__identifierCasePlanSnapshot", {
@@ -140,12 +165,16 @@ export function teardownIdentifierCaseEnvironment(options) {
     disposeBootstrap(bootstrap, options?.logger ?? null);
     try {
         sanitizeBootstrapResult(bootstrap);
-    }
-    catch (error) {
+    } catch (error) {
         // Defensive: if sanitation throws for unexpected bootstrap shapes or
         // getters with side-effects, log and continue to avoid crashing the
         // caller (printer) during best-effort teardown.
-        warnWithReason(options?.logger ?? null, IDENTIFIER_CASE_LOGGER_NAMESPACE, "Failed to sanitize identifier-case bootstrap during teardown", error);
+        warnWithReason(
+            options?.logger ?? null,
+            IDENTIFIER_CASE_LOGGER_NAMESPACE,
+            "Failed to sanitize identifier-case bootstrap during teardown",
+            error
+        );
     }
     deleteIdentifierCaseOption(options, "__identifierCaseProjectIndex");
     deleteIdentifierCaseOption(options, "__identifierCasePlanSnapshot");
