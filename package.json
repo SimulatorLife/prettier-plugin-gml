@@ -48,6 +48,8 @@
   },
   "scripts": {
     "clean": "rm -rf node_modules src/plugin/node_modules src/cli/node_modules src/cli/dist src/core/dist src/parser/dist src/plugin/dist src/refactor/dist src/runtime-wrapper/dist src/semantic/dist src/transpiler/dist .eslintcache reports tmp",
+    "clean:src-js:preview": "find . -type f -path '*/src/*' -not -path '*/generated/*' -not -path '*/node_modules/*' \\( -name '*.js' -o -name '*.js.map' -o -name '*.d.ts' -o -name '*.d.ts.map' \\)",
+    "clean:src-js": "find . -type f -path '*/src/*' -not -path '*/generated/*' -not -path '*/node_modules/*' \\( -name '*.js' -o -name '*.js.map' -o -name '*.d.ts' -o -name '*.d.ts.map' \\) -delete",
     "clean:generated": "rm -rf src/parser/generated",
     "clean:ts": "npm run clean:types --workspaces --if-present",
     "lint": "eslint . --ext .ts,.yml,.yaml --cache --stats",

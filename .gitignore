@@ -12,8 +12,13 @@ tools/
 *.d.ts.map
 
 # Ignore JS (except in src/parser/generated/)
-src/**/*.js
+./src/**/*.js
 !src/parser/generated/*.js
+
+# Ignore top-level JavaScript files in the repository root, but allow the
+# repository's ESLint config file which is intentionally committed.
+# /*.js
+!/eslint.config.js
 
 # gemini-cli
 .gemini/*
@@ -84,11 +89,6 @@ web_modules/
 # eslint
 .eslintcache
 eslint-suppressions.json
-
-# Ignore top-level JavaScript files in the repository root, but allow the
-# repository's ESLint config file which is intentionally committed.
-/*.js
-!/eslint.config.js
 
 # Optional stylelint cache
 .stylelintcache
