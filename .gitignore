@@ -11,13 +11,14 @@ tools/
 *.js.map
 *.d.ts.map
 
+# Ignore top-level TS files
+./*.ts
+
 # Ignore JS (except in src/parser/generated/)
-./src/**/*.js
+src/**/*.js
 !src/parser/generated/*.js
 
-# Ignore top-level JavaScript files in the repository root, but allow the
-# repository's ESLint config file which is intentionally committed.
-# /*.js
+# Make sure we keep the ESLint config file which is intentionally committed
 !/eslint.config.js
 
 # gemini-cli
