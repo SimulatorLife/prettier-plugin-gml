@@ -27,6 +27,8 @@ export {
     getObjectTagName,
     hasOwn,
     callWithFallback,
+    collectAncestorDirectories,
+    collectUniqueAncestorDirectories,
     identity,
     incrementMapValue,
     isAggregateErrorLike,

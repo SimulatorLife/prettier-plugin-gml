@@ -5,10 +5,15 @@ import test from "node:test";
 import {
     collectAncestorDirectories,
     collectUniqueAncestorDirectories
-} from "../src/shared/dependencies.js";
+} from "../src/fs/ancestor-directories.js";
 
 test("collectUniqueAncestorDirectories deduplicates ancestors across inputs", () => {
-    const base = path.join(process.cwd(), "tmp", "cli-path-utils", "unique");
+    const base = path.join(
+        process.cwd(),
+        "tmp",
+        "shared-ancestor-directories",
+        "unique"
+    );
     const first = path.join(base, "project", "src");
     const second = path.join(base, "project", "test");
 
@@ -24,7 +29,12 @@ test("collectUniqueAncestorDirectories deduplicates ancestors across inputs", ()
 });
 
 test("collectUniqueAncestorDirectories accepts a bare string", () => {
-    const base = path.join(process.cwd(), "tmp", "cli-path-utils", "string");
+    const base = path.join(
+        process.cwd(),
+        "tmp",
+        "shared-ancestor-directories",
+        "string"
+    );
     const nested = path.join(base, "src", "index.gml");
 
     const result = collectUniqueAncestorDirectories(nested);
@@ -37,7 +47,11 @@ test("collectUniqueAncestorDirectories accepts a bare string", () => {
 });
 
 test("collectAncestorDirectories orders and deduplicates ancestors", () => {
-    const projectRoot = path.join(process.cwd(), "tmp", "cli-path-utils");
+    const projectRoot = path.join(
+        process.cwd(),
+        "tmp",
+        "shared-ancestor-directories"
+    );
     const nestedFeature = path.join(projectRoot, "src", "features", "core");
     const nestedSibling = path.join(projectRoot, "src", "features", "extras");
 
@@ -75,7 +89,11 @@ test("collectAncestorDirectories orders and deduplicates ancestors", () => {
 });
 
 test("collectAncestorDirectories skips empty inputs", () => {
-    const projectRoot = path.join(process.cwd(), "tmp", "cli-path-utils");
+    const projectRoot = path.join(
+        process.cwd(),
+        "tmp",
+        "shared-ancestor-directories"
+    );
     const result = collectAncestorDirectories(null, undefined, "", projectRoot);
 
     assert.strictEqual(result[0], path.resolve(projectRoot));
