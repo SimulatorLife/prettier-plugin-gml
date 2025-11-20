@@ -200,6 +200,22 @@ function replayCachedPatches({ patches, sendPatch, verbose, clientId }) {
     return replayedCount;
 }
 
+function buildScriptSymbolId(filePath, rootPath) {
+    const relativePath = rootPath
+        ? path.relative(rootPath, filePath)
+        : path.basename(filePath);
+
+    const safeRelativePath =
+        !relativePath || relativePath.startsWith("..")
+            ? path.basename(filePath)
+            : relativePath;
+
+    const normalized = safeRelativePath.split(path.sep).join("/");
+    const withoutExtension = normalized.replace(/\.[^./]+$/, "");
+
+    return `gml/script/${withoutExtension}`;
+}
+
 /**
  * Executes the watch command.
  *
@@ -476,7 +492,8 @@ export async function runWatchCommand(targetPath, options) {
                 // For now, we just detect and report changes
                 handleFileChange(fullPath, eventType, {
                     verbose,
-                    runtimeContext
+                    runtimeContext,
+                    rootPath: normalizedPath
                 }).catch((error) => {
                     console.error(
                         `Error processing ${filename}:`,
@@ -499,11 +516,12 @@ export async function runWatchCommand(targetPath, options) {
  * @param {object} options - Processing options
  * @param {boolean} options.verbose - Enable verbose logging
  * @param {object} options.runtimeContext - Runtime context with transpiler and patch storage
+ * @param {string} [options.rootPath] - Watch root used to derive script IDs
  */
 async function handleFileChange(
     filePath,
     eventType,
-    { verbose = false, runtimeContext } = {}
+    { verbose = false, runtimeContext, rootPath } = {}
 ) {
     if (verbose && runtimeContext?.root && !runtimeContext.noticeLogged) {
         console.log(`Runtime target: ${runtimeContext.root}`);
@@ -546,11 +564,7 @@ async function handleFileChange(
             if (runtimeContext?.transpiler) {
                 try {
                     // Generate a script identifier from the file path
-                    const fileName = path.basename(
-                        filePath,
-                        path.extname(filePath)
-                    );
-                    const symbolId = `gml/script/${fileName}`;
+                    const symbolId = buildScriptSymbolId(filePath, rootPath);
 
                     // Transpile to JavaScript patch
                     const patch =

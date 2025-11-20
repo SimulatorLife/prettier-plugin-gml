@@ -206,6 +206,70 @@ describe("watch command integration", () => {
         }
     });
 
+    it("should derive script IDs from paths relative to the watch root", async () => {
+        const testDir = path.join(
+            "/tmp",
+            `watch-test-relative-id-${Date.now()}-${Math.random()
+                .toString(36)
+                .slice(2, 9)}`
+        );
+
+        const nestedDir = path.join(testDir, "subdir");
+        const testFile = path.join(nestedDir, "nested_script.gml");
+
+        await mkdir(nestedDir, { recursive: true });
+
+        const abortController = new AbortController();
+        const symbolIds = [];
+
+        try {
+            const { runWatchCommand } = await import(
+                "../src/commands/watch.js"
+            );
+
+            const watchPromise = runWatchCommand(testDir, {
+                extensions: [".gml"],
+                polling: false,
+                pollingInterval: 1000,
+                verbose: false,
+                abortSignal: abortController.signal,
+                hydrateRuntime: false,
+                runtimeServer: false,
+                websocketServer: false,
+                transpilerFactory: () => ({
+                    async transpileScript({ symbolId }) {
+                        symbolIds.push(symbolId);
+                        return {
+                            kind: "script",
+                            id: symbolId,
+                            js_body: "",
+                            sourceText: "",
+                            version: Date.now()
+                        };
+                    }
+                })
+            });
+
+            await sleep(100);
+
+            await writeFile(testFile, "var value = 1;");
+
+            await sleep(200);
+
+            abortController.abort();
+            await watchPromise;
+        } finally {
+            await rm(testDir, { recursive: true, force: true }).catch(() => {
+                // Ignore cleanup errors
+            });
+        }
+
+        assert.ok(
+            symbolIds.includes("gml/script/subdir/nested_script"),
+            "should create script IDs relative to the watch root"
+        );
+    });
+
     it("should replay cached patches to new WebSocket clients", async () => {
         const testDir = path.join(
             "/tmp",
