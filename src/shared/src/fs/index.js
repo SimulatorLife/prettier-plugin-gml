@@ -1,6 +1,7 @@
 import { isErrorWithCode } from "../utils/error.js";
 
 export * from "./path.js";
+export * from "./ancestor-directories.js";
 
 /**
  * Type-safe wrapper over {@link isErrorWithCode} so callers can narrow thrown

@@ -85,7 +85,7 @@ export {
 export {
     collectAncestorDirectories,
     collectUniqueAncestorDirectories
-} from "./ancestor-directories.js";
+} from "../dependencies.js";
 
 export {
     createEnumeratedOptionHelpers,
