@@ -2,17 +2,23 @@
   "name": "@gml-modules/semantic",
   "version": "0.0.1",
   "type": "module",
-  "main": "./index.js",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./index.js"
+    ".": "./dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "dependencies": {
     "@gml-modules/core": "0.0.1",
     "@gml-modules/parser": "0.0.1",
     "@gml-modules/plugin": "0.0.1"
   },
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "build:types": "tsc -p tsconfig.json",
+    "clean:types": "rm -rf dist",
+    "test": "npm run build:types && node --test dist/test/*.test.js"
   },
   "engines": {
     "node": ">=25.0.0"

@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "./dist",
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "baseUrl": ".",
+    "allowJs": true,
+    "paths": {
+      "@gml-modules/core": ["../core/index.ts"],
+      "@gml-modules/semantic": ["../semantic/index.ts"],
+      "@gml-modules/parser": ["./index.ts"]
+    }
+  },
+  "include": [
+    "*.ts",
+    "src/**/*.ts",
+    "options/**/*.ts",
+    "test/**/*.ts",
+    "generated/**/*.js"
+  ]
+}

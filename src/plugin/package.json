@@ -2,19 +2,25 @@
   "name": "@gml-modules/plugin",
   "version": "0.0.1",
   "type": "module",
-  "main": "./index.js",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./index.js",
-    "./parsers": "./src/parsers/index.js"
+    ".": "./dist/index.js",
+    "./parsers": "./dist/src/parsers/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "config": {
     "root_path": "."
   },
   "scripts": {
-    "test": "node --test test/*.test.js",
-    "prettier:plugin:raw": "npx prettier $npm_config_path --plugin=$npm_package_config_root_path/src/gml.js --ignore-path=$npm_package_config_root_path/../cli/.prettierignore --ignore-unknown --log-level=warn --no-error-on-unmatched-pattern",
+    "build:types": "tsc -p tsconfig.json",
+    "clean:types": "rm -rf dist",
+    "test": "npm run build:types && node --test dist/test/*.test.js",
+    "prettier:plugin:raw": "npm run build:types && npx prettier $npm_config_path --plugin=$npm_package_config_root_path/dist/src/gml.js --ignore-path=$npm_package_config_root_path/../cli/.prettierignore --ignore-unknown --log-level=warn --no-error-on-unmatched-pattern",
     "example": "npm run prettier:plugin:raw --path=test/test14.input.gml",
-    "prettier:plugin": "node ../cli/src/cli.js $npm_config_path"
+    "prettier:plugin": "npm run build:types && npm run build:types --workspace=@gml-modules/cli && node ../cli/dist/cli.js $npm_config_path"
   },
   "dependencies": {
     "@gml-modules/core": "0.0.1",

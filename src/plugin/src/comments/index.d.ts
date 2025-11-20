@@ -1,0 +1,13 @@
+export { collectCommentNodes, getCommentArray, hasComment, isBlockComment, isCommentNode, isDocCommentLine, isLineComment } from "./comment-boundary.js";
+export declare const DEFAULT_COMMENTED_OUT_CODE_PATTERNS: any;
+export declare const DEFAULT_LINE_COMMENT_OPTIONS: any;
+export declare const normalizeLineCommentOptions: any;
+export declare const resolveLineCommentOptions: any;
+export declare const restoreDefaultLineCommentOptionsResolver: any;
+export declare const setLineCommentOptionsResolver: any;
+export { DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION, applyInlinePadding, formatLineComment, getLineCommentRawText, normalizeDocCommentTypeAnnotations, resolveDocCommentTypeNormalization, restoreDefaultDocCommentTypeNormalizationResolver, setDocCommentTypeNormalizationResolver } from "./line-comment-formatting.js";
+export { handleComments, printComment, printDanglingComments, printDanglingCommentsAsGroup } from "./comment-printer.js";
+export { getHasCommentHelper, normalizeHasCommentHelpers } from "./has-comment-helpers.js";
+export { prepareDocCommentEnvironment, resolveDocCommentCollectionService, resolveDocCommentDescriptionService, resolveDocCommentPresenceService, resolveDocCommentTraversalService, resolveDocCommentUpdateService } from "./doc-comment-manager.js";
+export declare const getCommentValue: any;
+export { normalizeOptionalParamToken } from "./optional-param-normalization.js";
