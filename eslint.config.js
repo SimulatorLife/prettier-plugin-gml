@@ -1,6 +1,7 @@
 // eslint.config.ts
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
+import { defineConfig } from 'eslint/config';
 import globals from "globals";
 
 // Plugins (all optional but used for stricter scans)
@@ -21,14 +22,14 @@ import eslintConfigPrettier from "eslint-config-prettier";
 
 /**
  * TypeScript configuration:
- * - Scoped to **/*.ts
+ * - Scoped to .ts files
  * - Includes:
  *   - Base ESLint recommended rules
  *   - TypeScript ESLint recommended + type-checked rules
  *   - de-morgan, unicorn, promise presets
  *   - Your custom plugins, settings, and rules
  */
-const tsConfig = tseslint.config({
+const tsConfig = defineConfig({
     files: ["**/*.ts"],
 
     languageOptions: {
