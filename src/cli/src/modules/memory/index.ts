@@ -2,11 +2,15 @@ import path from "node:path";
 import process from "node:process";
 import { readFile } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
+import type { FileHandle } from "node:fs/promises";
+import type { PathLike } from "node:fs";
+import type { WriteFileOptions } from "node:fs";
+import type { Stream } from "node:stream";
 
 import {
     appendToCollection,
-    Command,
     callWithFallback,
+    Command,
     createEnvConfiguredValue,
     createStringEnumeratedOptionHelpers,
     describeValueWithArticle,
@@ -40,6 +44,7 @@ import {
 } from "../dependencies.js";
 import { loadGmlParser } from "./gml-parser.js";
 import { importPluginModule } from "../plugin-runtime-dependencies.js";
+import type { CommanderCommandLike } from "../../core/commander-types.js";
 
 export const DEFAULT_ITERATIONS = 500_000;
 export const MEMORY_ITERATIONS_ENV_VAR = "GML_MEMORY_ITERATIONS";
@@ -145,7 +150,7 @@ interface ResolveMemoryReportDirectoryOptions {
 }
 
 function resolveMemoryReportDirectory(
-    value: string | undefined,
+    value: string | null | undefined = undefined,
     { defaultValue }: ResolveMemoryReportDirectoryOptions = {}
 ) {
     const fallback = normalizeMemoryReportDirectory(
@@ -164,7 +169,16 @@ interface MemoryReportPathOptions {
 
 interface MemoryReportWriterOptions {
     reportPath: string;
-    customWriteFile?: (options: { path: string; data: string }) => Promise<void>;
+    customWriteFile?: (
+        file: PathLike | FileHandle,
+        data:
+            | string
+            | Stream
+            | ArrayBufferView<ArrayBufferLike>
+            | Iterable<string | ArrayBufferView<ArrayBufferLike>>
+            | AsyncIterable<string | ArrayBufferView<ArrayBufferLike>>,
+        options?: WriteFileOptions
+    ) => Promise<void>;
 }
 
 function applyMemoryReportDirectoryEnvOverride(env) {
@@ -684,7 +698,7 @@ export {
 export { resolveMemoryIterations, resolveMemoryReportDirectory };
 
 interface MemoryEnvOptionOverridesContext {
-    command?: Command;
+    command?: CommanderCommandLike;
     env?: NodeJS.ProcessEnv;
 }
 
@@ -786,7 +800,7 @@ interface MemoryCommandOptions {
 }
 
 interface RunMemoryCommandContext {
-    command?: Command;
+    command?: CommanderCommandLike;
     onResults?: (context: {
         payload: ReturnType<typeof createSuiteResultsPayload>;
         suites: Record<string, unknown>;
@@ -801,8 +815,11 @@ function collectSuiteOptions(options: MemoryCommandOptions) {
     };
 }
 
-function createCountingSet(originalSet, allocationCounter) {
-    return class CountingSet extends originalSet {
+function createCountingSet(
+    originalSet: SetConstructor,
+    allocationCounter: { count: number }
+) {
+    return class CountingSet<T = unknown> extends originalSet<T> {
         static get [Symbol.species]() {
             return originalSet;
         }
@@ -1018,10 +1035,21 @@ async function runPluginFormatSuite({ iterations }) {
 AVAILABLE_SUITES.set(MemorySuiteName.PLUGIN_FORMAT, runPluginFormatSuite);
 
 function formatSuiteError(error: unknown) {
-    const name = error?.name ?? error?.constructor?.name ?? "Error";
+    const errorLike =
+        error && typeof error === "object"
+            ? (error as { name?: unknown; stack?: unknown; constructor?: { name?: unknown } })
+            : null;
+    const name =
+        typeof errorLike?.name === "string"
+            ? errorLike.name
+            : typeof errorLike?.constructor?.name === "string"
+              ? errorLike.constructor.name
+              : "Error";
     const message = getErrorMessageOrFallback(error);
     const stackLines =
-        typeof error?.stack === "string" ? error.stack.split("\n") : undefined;
+        typeof errorLike?.stack === "string"
+            ? errorLike.stack.split("\n")
+            : undefined;
 
     return {
         name,
@@ -1150,7 +1178,16 @@ interface MemoryCliOptions {
     cwd?: string;
     reportDir?: string | null;
     reportFileName?: string;
-    writeFile?: (options: { path: string; data: string }) => Promise<void>;
+    writeFile?: (
+        file: PathLike | FileHandle,
+        data:
+            | string
+            | Stream
+            | ArrayBufferView<ArrayBufferLike>
+            | Iterable<string | ArrayBufferView<ArrayBufferLike>>
+            | AsyncIterable<string | ArrayBufferView<ArrayBufferLike>>,
+        options?: WriteFileOptions
+    ) => Promise<void>;
 }
 
 export async function runMemoryCli({

@@ -29,9 +29,14 @@ export interface WorkflowPathFilter {
  * @param {Iterable<unknown> | unknown} paths
  * @returns {Array<string>}
  */
-export function normalizeWorkflowPathList(paths: Iterable<unknown> | unknown) {
-    const trimmed = compactArray(toArray(paths).map(getNonEmptyTrimmedString));
-    return uniqueArray(trimmed.map((candidate) => path.resolve(candidate)));
+export function normalizeWorkflowPathList(
+    paths: Iterable<unknown> | unknown
+): Array<string> {
+    const trimmed = compactArray(
+        toArray(paths).map(getNonEmptyTrimmedString)
+    ).filter((value): value is string => typeof value === "string");
+    const resolved = trimmed.map((candidate) => path.resolve(candidate));
+    return [...(uniqueArray(resolved, { freeze: false }) as Array<string>)];
 }
 
 /**
@@ -60,7 +65,12 @@ export function createWorkflowPathFilter(
         typeof filters.allowsDirectory === "function" &&
         typeof filters.allowsPath === "function"
     ) {
-        return filters;
+        return {
+            allowList: normalizeWorkflowPathList(filters.allowPaths),
+            denyList: normalizeWorkflowPathList(filters.denyPaths),
+            allowsPath: filters.allowsPath,
+            allowsDirectory: filters.allowsDirectory
+        };
     }
 
     const allowList = normalizeWorkflowPathList(filters?.allowPaths);

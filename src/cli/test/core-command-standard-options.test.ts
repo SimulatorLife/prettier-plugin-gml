@@ -4,6 +4,8 @@ import { describe, it } from "node:test";
 import { applyStandardCommandOptions } from "../src/core/command-standard-options.js";
 
 class FakeCommand {
+    calls: Array<[string, ...Array<unknown>]>;
+
     constructor() {
         this.calls = [];
     }
@@ -52,9 +54,11 @@ describe("applyStandardCommandOptions", () => {
         );
 
         const [, options] = configured.calls[4];
-        assert.equal(typeof options.writeErr, "function");
-        assert.equal(typeof options.outputError, "function");
-        assert.strictEqual(options.writeErr, options.outputError);
+        assert.ok(options && typeof options === "object");
+        const outputOptions = options as { writeErr?: unknown; outputError?: unknown };
+        assert.equal(typeof outputOptions.writeErr, "function");
+        assert.equal(typeof outputOptions.outputError, "function");
+        assert.strictEqual(outputOptions.writeErr, outputOptions.outputError);
     });
 
     it("throws when invoked without a valid command", () => {

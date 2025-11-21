@@ -82,16 +82,22 @@ function collectExtensionCandidates(
 
 export function normalizeExtensions(
     rawExtensions: ExtensionInput,
-    fallbackExtensions: Array<string> = []
+    fallbackExtensions: ReadonlyArray<string> = []
 ): Array<string> {
     const candidates = collectExtensionCandidates(rawExtensions);
     const coercedValues = candidates.map((candidate) =>
         coerceExtensionValue(candidate)
     );
-    const filteredValues = compactArray(coercedValues);
-    const normalized = uniqueArray(Array.from(filteredValues));
+    const filteredValues = compactArray(coercedValues).filter(
+        (value): value is string => typeof value === "string"
+    );
+    const normalized = uniqueArray(filteredValues, { freeze: false }) as Array<
+        string
+    >;
 
-    return normalized.length > 0 ? normalized : fallbackExtensions;
+    return normalized.length > 0
+        ? [...normalized]
+        : [...fallbackExtensions.map((value) => String(value))];
 }
 
 export { EXTENSION_LIST_SPLIT_PATTERN };

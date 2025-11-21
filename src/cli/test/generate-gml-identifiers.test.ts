@@ -28,12 +28,12 @@ describe("generate-gml-identifiers", () => {
             assert.throws(
                 () => parseArrayLiteral(SAMPLE_SOURCE, "KEYWORDS"),
                 (error) => {
-                    assert.equal(
-                        error.message,
-                        "Failed to evaluate array literal for KEYWORDS: Unknown error"
+                    return (
+                        error instanceof Error &&
+                        error.message ===
+                            "Failed to evaluate array literal for KEYWORDS: Unknown error" &&
+                        error.cause === thrown
                     );
-                    assert.strictEqual(error.cause, thrown);
-                    return true;
                 }
             );
         } finally {
@@ -53,13 +53,13 @@ describe("generate-gml-identifiers", () => {
                     { identifier: "KEYWORDS" }
                 ),
             (error) => {
-                assert.equal(error.name, "TypeError");
-                assert.match(
-                    error.message,
-                    /Manual identifier array 'manual:gml\.js:KEYWORDS' must evaluate to an array of strings\./
+                return (
+                    error instanceof TypeError &&
+                    /Manual identifier array 'manual:gml\.js:KEYWORDS' must evaluate to an array of strings\./.test(
+                        error.message
+                    ) &&
+                    /Received null/.test(error.message)
                 );
-                assert.match(error.message, /Received null/);
-                return true;
             }
         );
 
@@ -78,13 +78,13 @@ describe("generate-gml-identifiers", () => {
                     { identifier: "KEYWORDS" }
                 ),
             (error) => {
-                assert.equal(error.name, "TypeError");
-                assert.match(
-                    error.message,
-                    /Manual identifier array 'manual:gml\.js:KEYWORDS' must contain only strings\./
+                return (
+                    error instanceof TypeError &&
+                    /Manual identifier array 'manual:gml\.js:KEYWORDS' must contain only strings\./.test(
+                        error.message
+                    ) &&
+                    /Entry at index 1 was a number/.test(error.message)
                 );
-                assert.match(error.message, /Entry at index 1 was a number/);
-                return true;
             }
         );
 

@@ -165,16 +165,12 @@ describe("watch command integration", () => {
                 verbose: false,
                 abortSignal: abortController.signal,
                 hydrateRuntime: false,
-                runtimeHydrator: async () => ({
-                    runtimeRoot: null,
-                    archivePath: null,
-                    downloaded: false,
-                    extracted: false
-                }),
                 runtimeServerStarter: async () => ({
                     stop: async () => {},
                     host: "localhost",
                     port: 0,
+                    root: testDir,
+                    origin: "http://localhost:0",
                     url: "http://localhost:0"
                 })
             });

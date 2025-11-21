@@ -6,7 +6,7 @@
  * wrapper clients when GML source files change.
  */
 
-import { WebSocketServer } from "ws";
+import { WebSocketServer, WebSocket } from "ws";
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 17_890;
@@ -52,14 +52,14 @@ export async function startPatchWebSocketServer({
     onClientConnect,
     onClientDisconnect
 }: PatchWebSocketServerOptions = {}): Promise<PatchWebSocketServerController> {
-    const clients = new Set();
+    const clients = new Set<WebSocket>();
 
     const wss = new WebSocketServer({
         host,
         port
     });
 
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
         wss.once("error", reject);
         wss.once("listening", () => {
             wss.off("error", reject);
@@ -125,7 +125,7 @@ export async function startPatchWebSocketServer({
      *
      * @param {object} patch - Patch object to broadcast
      */
-    function broadcast(patch) {
+    function broadcast(patch: unknown): PatchBroadcastResult {
         const message = JSON.stringify(patch);
         let successCount = 0;
         let failureCount = 0;
@@ -175,7 +175,7 @@ export async function startPatchWebSocketServer({
 
         clients.clear();
 
-        await new Promise((resolve, reject) => {
+        await new Promise<void>((resolve, reject) => {
             wss.close((error) => {
                 if (error) {
                     reject(error);

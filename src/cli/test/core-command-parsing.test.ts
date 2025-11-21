@@ -8,6 +8,7 @@ import {
     wrapInvalidArgumentResolver
 } from "../src/core/command-parsing.js";
 import { isCliUsageError } from "../src/core/errors.js";
+import { isObjectLike } from "../src/shared/dependencies.js";
 
 const createTestCommand = () => {
     return new Command().exitOverride().allowExcessArguments(false);
@@ -113,11 +114,21 @@ describe("wrapInvalidArgumentResolver", () => {
 
         assert.throws(
             () => resolver("value"),
-            (error) =>
-                error instanceof InvalidArgumentError &&
-                error.message === fallback &&
-                error.cause &&
-                error.cause.reason === "bad input"
+            (error) => {
+                if (!(error instanceof InvalidArgumentError)) {
+                    return false;
+                }
+                const causeObject = isObjectLike(error.cause)
+                    ? (error.cause as Record<string, unknown>)
+                    : null;
+                if (!causeObject || !("reason" in causeObject)) {
+                    return false;
+                }
+                return (
+                    (causeObject.reason as string) === "bad input" &&
+                    error.message === fallback
+                );
+            }
         );
     });
 

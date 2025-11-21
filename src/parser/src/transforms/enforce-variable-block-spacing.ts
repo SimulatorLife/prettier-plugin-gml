@@ -1,6 +1,6 @@
 import { Core } from "@gml-modules/core";
 
-import { resolveVariableBlockSpacingMinDeclarations } from "../../options/variable-block-spacing-options.js";
+import { resolveVariableBlockSpacingMinDeclarations } from "../options/variable-block-spacing-options.js";
 
 const {
     AST: { getNodeType },

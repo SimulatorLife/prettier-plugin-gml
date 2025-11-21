@@ -14,7 +14,7 @@ import {
 // assertions to keep this suite locked to the modern API.
 // Manual validation: `npm test -- src/cli/test/plugin-entry-point.test.js` still
 // passes after migrating the call sites, confirming behaviour parity.
-const temporaryDirectories = new Set();
+const temporaryDirectories = new Set<string>();
 
 function createTemporaryPluginFile({ baseDirectory = os.tmpdir() } = {}) {
     const directory = fs.mkdtempSync(

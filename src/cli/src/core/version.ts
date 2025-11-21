@@ -1,16 +1,18 @@
+import path from "node:path";
 import { createRequire } from "node:module";
 import process from "node:process";
 
 import { getNonEmptyTrimmedString } from "../shared/dependencies.js";
+import { CLI_PACKAGE_DIRECTORY, REPO_ROOT } from "../shared/workspace-paths.js";
 
 const require = createRequire(import.meta.url);
 
 const FALLBACK_CLI_VERSION_LABEL = "development build";
 
 const PACKAGE_VERSION_CANDIDATES = Object.freeze([
-    "../../package.json",
-    "../../../../package.json",
-    "../../../plugin/package.json"
+    path.resolve(CLI_PACKAGE_DIRECTORY, "package.json"),
+    path.resolve(REPO_ROOT, "package.json"),
+    path.resolve(REPO_ROOT, "src", "plugin", "package.json")
 ]);
 
 function normalizeVersionValue(value: unknown): string | null {

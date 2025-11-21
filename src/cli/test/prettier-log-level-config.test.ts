@@ -25,6 +25,8 @@ test("configurePrettierOptions applies the log level Prettier expects", (t) => {
 
     configurePrettierOptionsForTests({ logLevel: "silent" });
 
-    assert.strictEqual(getPrettierOptionsForTests().logLevel, "silent");
-    assert.strictEqual(getPrettierOptionsForTests().loglevel, undefined);
+    const options = getPrettierOptionsForTests() as Record<string, unknown>;
+
+    assert.strictEqual(options.logLevel, "silent");
+    assert.strictEqual(options.loglevel, undefined);
 });

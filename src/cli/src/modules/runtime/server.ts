@@ -126,10 +126,10 @@ async function sendFileResponse(res, filePath, { method }) {
         return;
     }
 
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
         const stream = createReadStream(servingPath);
         stream.on("error", reject);
-        stream.on("close", resolve);
+        stream.on("close", () => resolve());
         stream.pipe(res);
     });
 }
@@ -207,7 +207,7 @@ export async function startRuntimeStaticServer({
         });
     });
 
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
         server.once("error", reject);
         server.listen({ host, port }, () => {
             server.off("error", reject);
@@ -217,7 +217,7 @@ export async function startRuntimeStaticServer({
 
     const address = server.address();
     if (!address || typeof address !== "object" || !("port" in address)) {
-        await new Promise((resolve, reject) => {
+        await new Promise<void>((resolve, reject) => {
             server.close((error) => {
                 if (error) {
                     reject(error);
@@ -245,7 +245,7 @@ export async function startRuntimeStaticServer({
             return;
         }
         closed = true;
-        await new Promise((resolve, reject) => {
+        await new Promise<void>((resolve, reject) => {
             server.close((error) => {
                 if (error) {
                     reject(error);

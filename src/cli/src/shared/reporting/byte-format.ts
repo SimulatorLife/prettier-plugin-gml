@@ -53,7 +53,10 @@ function normalizeByteCount(value: NumericLike): number {
         return 0;
     }
 
-    return Math.max(numericValue, 0);
+    const normalizedValue =
+        typeof numericValue === "number" ? numericValue : Number(numericValue);
+
+    return Math.max(normalizedValue, 0);
 }
 
 function resolveRadixOverride(
@@ -103,7 +106,7 @@ function formatByteSize(
 
     if (trimTrailingZeros && decimalPlaces > 0) {
         formattedValue = formattedValue.replace(
-            /(?:\\.0+|(\\.\\d*?[1-9])0+)$/,
+            /(?:\.0+|(\.\d*?[1-9])0+)$/,
             "$1"
         );
     }

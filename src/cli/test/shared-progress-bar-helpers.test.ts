@@ -6,6 +6,7 @@ import {
     renderProgressBar,
     resetProgressBarRegistryForTesting
 } from "../src/runtime-options/progress-bar.js";
+import type { ProgressBarLike } from "../src/runtime-options/progress-bar.js";
 
 const ESCAPE_PREFIX = String.fromCharCode(0x1b);
 const ANSI_ESCAPE_SEQUENCE_PATTERN = new RegExp(
@@ -27,7 +28,7 @@ function createMockStdout() {
         lineWrapping: () => {},
         on: () => {},
         removeListener: () => {},
-        write: () => {}
+        write: (_chunk: string) => {}
     };
 }
 
@@ -62,7 +63,10 @@ describe("manual CLI helpers", () => {
         const stdout = createMockStdout();
 
         assert.throws(() => {
-            renderProgressBar("Task", 0, 1, 5, { stdout, createBar: 42 });
+            renderProgressBar("Task", 0, 1, 5, {
+                stdout,
+                createBar: 42 as unknown as () => never
+            });
         }, /createBar must be a function/);
     });
 
@@ -71,9 +75,11 @@ describe("manual CLI helpers", () => {
         const stopCounts = new Map();
         const stdout = createMockStdout();
         const createBar = mock.fn(() => {
-            const bar = {
+            const bar: ProgressBarLike = {
                 setTotal: () => {},
-                update: () => {}
+                update: () => {},
+                start: () => {},
+                stop: () => {}
             };
 
             bar.start = () => {

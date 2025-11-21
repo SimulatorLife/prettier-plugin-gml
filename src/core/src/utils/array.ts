@@ -313,7 +313,7 @@ export function mergeUniqueValues(
  *        Commander (or similar collectors).
  * @returns {Array<T>} Array containing both prior entries and {@link value}.
  */
-export function appendToCollection(value, collection) {
+export function appendToCollection(value, collection = undefined) {
     if (collection === undefined) {
         return [value];
     }

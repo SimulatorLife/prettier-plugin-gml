@@ -284,7 +284,9 @@ test("ensureResultsAvailability throws when base results are unavailable", () =>
     assert.throws(
         () => ensureResultsAvailability(base, target),
         (error) => {
-            assert.equal(isCliUsageError(error), true);
+            if (!isCliUsageError(error)) {
+                return false;
+            }
             assert.match(error.message, /Unable to locate base test results/i);
             return true;
         }

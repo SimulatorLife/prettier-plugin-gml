@@ -1,12 +1,11 @@
-import type { Command } from "commander";
-
 import { CliUsageError } from "./errors.js";
 import {
     assertArray,
     isNonEmptyString,
-    isObjectLike,
-    isErrorLike
+    isObjectLike
 } from "../shared/dependencies.js";
+import { asErrorLike } from "../shared/error-guards.js";
+import type { CommanderCommandLike } from "./commander-types.js";
 
 const DEFAULT_SOURCE = "env";
 
@@ -21,7 +20,7 @@ interface EnvOptionOverride {
 }
 
 interface ApplyEnvOverridesOptions {
-    command: Command;
+    command: CommanderCommandLike;
     env?: NodeJS.ProcessEnv;
     overrides: Array<EnvOptionOverride>;
     getUsage?: UsageResolver;
@@ -74,7 +73,7 @@ function createOverrideError({
     const fallbackMessage = envVar
         ? `Invalid value provided for ${envVar}.`
         : "Invalid environment variable value provided.";
-    const errorLike = isErrorLike(error) ? error : null;
+    const errorLike = asErrorLike(error);
     const message =
         errorLike &&
         isNonEmptyString(errorLike.message) &&
@@ -83,7 +82,7 @@ function createOverrideError({
             : fallbackMessage;
 
     const cliError = new CliUsageError(message, { usage });
-    cliError.cause = isErrorLike(error) ? error : undefined;
+    cliError.cause = errorLike ?? undefined;
     return cliError;
 }
 
@@ -116,7 +115,10 @@ export function applyEnvOptionOverride({
     resolveValue,
     source = DEFAULT_SOURCE,
     getUsage
-}: EnvOptionOverride & { command: Command; env?: NodeJS.ProcessEnv }): void {
+}: EnvOptionOverride & {
+    command: CommanderCommandLike;
+    env?: NodeJS.ProcessEnv;
+}): void {
     if (!command || typeof command.setOptionValueWithSource !== "function") {
         // Ignore overrides when the target command is missing or lacks the
         // Commander API for setting option values. Downstream callers already

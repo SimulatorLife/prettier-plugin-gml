@@ -14,9 +14,9 @@ export function createPathFilter(filters = {}) {
 }
 
 export function normalizeFixtureRoots(
-    additionalRoots = [],
-    filterOptions = {}
-) {
+    additionalRoots: Iterable<unknown> | Array<unknown> = [],
+    filterOptions: Parameters<typeof createPathFilter>[0] = {}
+): Array<string> {
     const pathFilter = createPathFilter(filterOptions);
     const candidates = [
         ...DEFAULT_FIXTURE_DIRECTORIES,

@@ -22,10 +22,10 @@ export interface IntegerOptionToolkitOptions {
 
 export interface IntegerOptionToolkit {
     getDefault: () => number | undefined;
-    setDefault: (value: unknown) => number | undefined;
+    setDefault: (value?: unknown) => number | undefined;
     applyEnvOverride: (env?: NodeJS.ProcessEnv) => number | undefined;
     resolve: (
-        value: unknown,
+        value?: unknown,
         options?: Record<string, unknown> & { defaultValue?: number }
     ) => number | null | undefined;
 }
@@ -64,7 +64,7 @@ export function createIntegerOptionToolkit({
     });
 
     function resolve(
-        rawValue: unknown,
+        rawValue: unknown = undefined,
         options: Record<string, unknown> & { defaultValue?: number } = {}
     ) {
         let opts = options;
@@ -85,10 +85,12 @@ export function createIntegerOptionToolkit({
         return transform ? transform(normalized) : normalized;
     }
 
-    return {
+    const toolkit: IntegerOptionToolkit = {
         getDefault: state.get,
-        setDefault: state.set,
+        setDefault: (value) => state.set(value),
         applyEnvOverride: state.applyEnvOverride,
         resolve
     };
+
+    return toolkit;
 }

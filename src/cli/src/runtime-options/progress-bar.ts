@@ -7,7 +7,14 @@ import { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
-const activeProgressBars = new Map<string, TerminalProgressBar>();
+export interface ProgressBarLike {
+    start: (total: number, current: number) => void;
+    setTotal: (total: number) => void;
+    update: (current: number) => void;
+    stop: (...args: Array<unknown>) => void;
+}
+
+const activeProgressBars = new Map<string, ProgressBarLike>();
 
 const CURSOR_HIDE_SEQUENCE = "\u001B[?25l";
 const CURSOR_SHOW_SEQUENCE = "\u001B[?25h";
@@ -29,9 +36,9 @@ type ProgressBarFactory = (
     label: string,
     width: number,
     options: ProgressBarOptions
-) => TerminalProgressBar;
+) => ProgressBarLike;
 
-class TerminalProgressBar {
+class TerminalProgressBar implements ProgressBarLike {
     private readonly label: string;
     private readonly width: number;
     private readonly stream: ProgressBarStream;
@@ -78,7 +85,7 @@ class TerminalProgressBar {
         }
     }
 
-    stop(): void {
+    stop(..._args: Array<unknown>): void {
         if (!this.active) {
             return;
         }
@@ -93,7 +100,10 @@ class TerminalProgressBar {
             return 0;
         }
 
-        return Math.min(Math.max(0, value), this.total);
+        const normalizedValue =
+            typeof value === "number" ? value : Number.parseFloat(String(value));
+
+        return Math.min(Math.max(0, normalizedValue), this.total);
     }
 
     #render(): void {

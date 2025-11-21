@@ -5,6 +5,7 @@ import { defineConfig } from "eslint/config";
 import globals from "globals";
 
 // Plugins (all optional but used for stricter scans)
+import pluginBoundaries from "eslint-plugin-boundaries";
 import pluginUnicorn from "eslint-plugin-unicorn";
 import pluginSonarjs from "eslint-plugin-sonarjs";
 import pluginSecurity from "eslint-plugin-security";
@@ -14,7 +15,7 @@ import pluginRegexp from "eslint-plugin-regexp";
 import pluginNoSecrets from "eslint-plugin-no-secrets";
 import pluginEslintComments from "eslint-plugin-eslint-comments";
 import pluginUnusedImports from "eslint-plugin-unused-imports";
-import deMorgan from "eslint-plugin-de-morgan";
+import pluginDeMorgan from "eslint-plugin-de-morgan";
 import pluginYml from "eslint-plugin-yml";
 
 /// Prettier config
@@ -73,7 +74,7 @@ const tsConfig = defineConfig({
         js.configs.recommended,
 
         // ESLint plugin: de-morgan recommended rules
-        deMorgan.configs.recommended,
+        pluginDeMorgan.configs.recommended,
 
         // ESLint plugin: unicorn recommended rules
         pluginUnicorn.configs.recommended,
@@ -379,6 +380,30 @@ export default [
 
     // All TS-related rules, presets, and overrides (scoped to **/*.ts)
     ...tsConfig,
+
+    // boundaries-based directory-depth enforcement for src/**/*.ts
+    // {
+    //     files: ["src/**/*.ts"],
+    //     plugins: {
+    //         boundaries: pluginBoundaries
+    //     },
+    //     settings: {
+            // Define the allowed “layers” under src/.
+            // Anything deeper than src/*/*/*/* (i.e., src/a/b/c/d/e)
+            // will not match any element and will trigger boundaries/no-unknown.
+            // "boundaries/elements": [
+            //     { type: "layer1", pattern: "src/*" },
+                // { type: "layer2", pattern: "src/*/*" },
+                // { type: "layer3", pattern: "src/*/*/*" },
+                // { type: "layer4", pattern: "src/*/*/*/*" }
+        //     ]
+        // },
+    //     rules: {
+    //         // Error when a file doesn’t match any of the defined elements.
+    //         // That effectively disallows directory nesting deeper than layer4.
+    //         "boundaries/no-unknown": "error"
+    //     }
+    // },
 
     // Tests: relax a few noisy limits
     // Goes AFTER the main ts config to override

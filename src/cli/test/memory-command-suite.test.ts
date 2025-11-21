@@ -6,8 +6,9 @@ import {
     MemorySuiteName,
     formatMemorySuiteNameList
 } from "../src/modules/memory/index.js";
+import type { ParseOptions } from "commander";
 
-const USER_PARSE_OPTIONS = { from: "user" };
+const USER_PARSE_OPTIONS: ParseOptions = { from: "user" };
 
 test("memory command accepts known suite names", () => {
     const command = createMemoryCommand({ env: {} });
@@ -33,16 +34,20 @@ test("memory command normalizes suite names", () => {
 test("memory command rejects unknown suite names", () => {
     const command = createMemoryCommand({ env: {} });
 
-    assert.throws(
-        () => command.parse(["--suite", "invalid-suite"], USER_PARSE_OPTIONS),
-        (error) => {
-            assert.equal(error?.code, "commander.invalidArgument");
-            assert.match(error.message, /memory suite must be one of/i);
-            for (const name of formatMemorySuiteNameList().split(/,\s*/)) {
-                assert.match(error.message, new RegExp(name));
+        assert.throws(
+            () => command.parse(["--suite", "invalid-suite"], USER_PARSE_OPTIONS),
+            (error) => {
+                if (!(error instanceof Error)) {
+                    return false;
+                }
+                // Commander sets code on its error instances.
+                assert.equal((error as Error & { code?: string }).code, "commander.invalidArgument");
+                assert.match(error.message, /memory suite must be one of/i);
+                for (const name of formatMemorySuiteNameList().split(/,\s*/)) {
+                    assert.match(error.message, new RegExp(name));
+                }
+                return true;
             }
-            return true;
-        }
     );
 });
 
@@ -60,7 +65,11 @@ test("memory command rejects invalid common node limits", () => {
     assert.throws(
         () => command.parse(["--common-node-limit", "0"], USER_PARSE_OPTIONS),
         (error) => {
-            assert.equal(error?.code, "commander.invalidArgument");
+            if (!(error instanceof Error)) {
+                return false;
+            }
+            const withCode = error as Error & { code?: string };
+            assert.equal(withCode.code, "commander.invalidArgument");
             assert.match(
                 error.message,
                 /common node type limit must be a positive integer/i

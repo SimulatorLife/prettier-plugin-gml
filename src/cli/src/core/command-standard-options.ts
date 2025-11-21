@@ -1,6 +1,5 @@
-import type { Command } from "commander";
-
 import { Core } from "@gml-modules/core";
+import type { CommanderCommandLike } from "./commander-types.js";
 
 const {
     Utils: { noop }
@@ -24,7 +23,7 @@ const DEFAULT_HELP_AFTER_ERROR = "(add --help for usage information)";
  *        help semantics.
  * @returns {TCommand} The original command for fluent chaining.
  */
-export function applyStandardCommandOptions<TCommand extends Command>(
+export function applyStandardCommandOptions<TCommand extends CommanderCommandLike>(
     command: TCommand
 ): TCommand {
     if (!command || typeof command.exitOverride !== "function") {

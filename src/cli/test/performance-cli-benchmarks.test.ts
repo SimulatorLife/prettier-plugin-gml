@@ -6,6 +6,36 @@ import {
     runParserBenchmark
 } from "../src/modules/performance/index.js";
 
+function isCompletedBenchmarkResult(
+    value: unknown
+): value is {
+    iterations: number;
+    durations: Array<number>;
+    totalDurationMs: number;
+    averageDurationMs: number;
+    dataset: { files: number; totalBytes: number };
+    throughput: { filesPerMs: number; bytesPerMs: number };
+} {
+    return Boolean(
+        value &&
+            typeof value === "object" &&
+            "iterations" in value &&
+            "dataset" in value &&
+            "durations" in value &&
+            "totalDurationMs" in value &&
+            "averageDurationMs" in value &&
+            "throughput" in value
+    );
+}
+
+function isSkippedBenchmarkResult(
+    value: unknown
+): value is { skipped: boolean; reason?: unknown } {
+    return Boolean(
+        value && typeof value === "object" && "skipped" in value
+    );
+}
+
 function createNowStub(step) {
     let current = 0;
     return () => {
@@ -32,6 +62,10 @@ describe("performance CLI benchmarks", () => {
             },
             now
         });
+
+        if (!isCompletedBenchmarkResult(result)) {
+            assert.fail("Benchmark result unexpectedly skipped");
+        }
 
         assert.deepEqual(visited, [
             "/tmp/a.gml",
@@ -68,6 +102,10 @@ describe("performance CLI benchmarks", () => {
             now
         });
 
+        if (!isCompletedBenchmarkResult(result)) {
+            assert.fail("Benchmark result unexpectedly skipped");
+        }
+
         assert.deepEqual(formatted, [
             "/tmp/sample.gml",
             "/tmp/sample.gml",
@@ -82,9 +120,11 @@ describe("performance CLI benchmarks", () => {
 
     it("skips benchmarks when the dataset is empty", async () => {
         const parseResult = await runParserBenchmark({ dataset: [] });
+        assert.ok(isSkippedBenchmarkResult(parseResult));
         assert.equal(parseResult.skipped, true);
 
         const formatResult = await runFormatterBenchmark({ dataset: [] });
+        assert.ok(isSkippedBenchmarkResult(formatResult));
         assert.equal(formatResult.skipped, true);
     });
 });

@@ -4,6 +4,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { Command, Option } from "commander";
+import type { CommanderCommandLike } from "../core/commander-types.js";
 
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import {
@@ -74,7 +75,7 @@ interface NormalizedGenerateIdentifiersOptions {
 }
 
 interface RunGenerateIdentifiersContext {
-    command?: Command;
+    command?: CommanderCommandLike;
     workflow?: ManualWorkflowOptions["workflow"];
 }
 
@@ -147,7 +148,7 @@ export function createGenerateIdentifiersCommand({ env = process.env } = {}) {
 }
 
 function resolveGenerateIdentifierOptions(
-    command?: Command
+    command?: CommanderCommandLike
 ): NormalizedGenerateIdentifiersOptions {
     const options: GenerateIdentifiersCommandOptions =
         command?.opts?.() ?? {};

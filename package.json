@@ -94,7 +94,9 @@
     "cli": "npm run build:types --workspace=@gml-modules/cli && node ./src/cli/dist/cli.js",
     "actionlint:install": "mkdir -p node_modules/.bin && curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash -s -- latest ./node_modules/.bin",
     "lint:actions": "actionlint -color",
-    "lint:duplicates": "jscpd --noSymlinks --format \"javascript,typescript\" --reporters \"json,console\" --output \"./reports/\" --min-lines 7 --min-tokens 100 src/"
+    "lint:duplicates": "jscpd --noSymlinks --format \"javascript,typescript\" --reporters \"json,console\" --output \"./reports/\" --min-lines 7 --min-tokens 100 src/",
+    "tree": "tree -F -I \"eslint-suppressions\\.json|.*\\.log$|node_modules|vendor|dist|.*\\.d\\.ts$|.*\\.d\\.ts\\.map$|.*\\.ts\\.map$|.*\\.js\\.map$\" .",
+    "tree:ts": "tree -F -I \"\\.(?!ts$)[^/]+$|node_modules|vendor|dist\" ./src"
   },
   "jscpd": {
     "threshold": 0.5,
@@ -114,9 +116,10 @@
     "@typescript-eslint/eslint-plugin": "^8.47.0",
     "@typescript-eslint/parser": "^8.47.0",
     "c8": "^9.1.0",
-    "eslint": "^9.38.0",
+    "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-formatter-checkstyle": "^9.0.1",
+    "eslint-plugin-boundaries": "^5.2.0",
     "eslint-plugin-de-morgan": "^2.0.0",
     "eslint-plugin-eslint-comments": "^3.2.0",
     "eslint-plugin-import": "^2.32.0",
@@ -133,6 +136,7 @@
     "jscpd": "^4.0.5",
     "prettier": "^3.6.2",
     "timeout-cli": "^0.3.2",
+    "tree-node-cli": "^1.6.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.47.0"
   }

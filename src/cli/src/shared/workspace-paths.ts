@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -11,8 +12,42 @@ import { fileURLToPath } from "node:url";
  */
 
 const SHARED_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
-const CLI_SRC_DIRECTORY = path.resolve(SHARED_DIRECTORY, "..");
-const CLI_PACKAGE_DIRECTORY = path.resolve(CLI_SRC_DIRECTORY, "..");
+
+function readPackageName(candidateDirectory: string): string | null {
+    try {
+        const packageJsonPath = path.resolve(
+            candidateDirectory,
+            "package.json"
+        );
+        const contents = fs.readFileSync(packageJsonPath, "utf8");
+        const parsed = JSON.parse(contents) as { name?: string };
+        return typeof parsed.name === "string" ? parsed.name : null;
+    } catch {
+        return null;
+    }
+}
+
+function resolveCliPackageDirectory(startDirectory: string): string {
+    let current = startDirectory;
+
+    for (let depth = 0; depth < 6; depth += 1) {
+        const packageName = readPackageName(current);
+        if (packageName === "@gml-modules/cli") {
+            return current;
+        }
+
+        const parent = path.dirname(current);
+        if (parent === current) {
+            break;
+        }
+        current = parent;
+    }
+
+    return path.resolve(startDirectory, "..");
+}
+
+const CLI_PACKAGE_DIRECTORY = resolveCliPackageDirectory(SHARED_DIRECTORY);
+const CLI_SRC_DIRECTORY = path.resolve(CLI_PACKAGE_DIRECTORY, "src");
 const WORKSPACE_SOURCE_DIRECTORY = path.resolve(CLI_PACKAGE_DIRECTORY, "..");
 const REPO_ROOT = path.resolve(WORKSPACE_SOURCE_DIRECTORY, "..");
 

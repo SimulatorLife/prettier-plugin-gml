@@ -4,6 +4,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { Command } from "commander";
+import type { CommanderCommandLike } from "../core/commander-types.js";
 
 import {
     compactArray,
@@ -60,7 +61,7 @@ interface NormalizedFeatherMetadataOptions {
 }
 
 interface FeatherMetadataCommandContext {
-    command?: Command;
+    command?: CommanderCommandLike;
     workflow?: ManualWorkflowOptions["workflow"];
 }
 
@@ -102,11 +103,11 @@ export function createFeatherMetadataCommand() {
 /**
  * Resolve normalized CLI options for the Feather metadata command.
  *
- * @param {import("commander").Command} command
+ * @param {CommanderCommandLike | undefined} command
  * @returns {ManualCommandOptions}
  */
 function resolveFeatherMetadataOptions(
-    command?: Command
+    command?: CommanderCommandLike
 ): NormalizedFeatherMetadataOptions {
     const options: FeatherMetadataCommandOptions =
         command?.opts?.() ?? {};

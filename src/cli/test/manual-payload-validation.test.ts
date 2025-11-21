@@ -16,11 +16,16 @@ test("decodeManualKeywordsPayload wraps JSON syntax errors", () => {
     assert.throws(
         () => decodeManualKeywordsPayload("not json"),
         (error) => {
-            assert.ok(isJsonParseError(error));
-            assert.match(
-                error.message,
-                /Failed to parse manual keywords payload/i
-            );
+            if (!isJsonParseError(error)) {
+                return false;
+            }
+            const message =
+                error instanceof Error
+                    ? error.message
+                    : String(
+                          (error as { message?: unknown }).message ?? error
+                      );
+            assert.match(message, /Failed to parse manual keywords payload/i);
             return true;
         }
     );

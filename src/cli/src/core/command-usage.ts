@@ -1,13 +1,12 @@
-import type { Command } from "commander";
-
 import { getCommanderUsage } from "./commander-contract.js";
+import type { CommanderCommandLike } from "./commander-types.js";
 
 export interface ResolveCommandUsageOptions {
     fallback?: (() => string) | string | null;
 }
 
 export function resolveCommandUsage(
-    command: Command | null | undefined,
+    command: CommanderCommandLike | null | undefined,
     { fallback }: ResolveCommandUsageOptions = {}
 ): string | null | undefined {
     const usage = command ? getCommanderUsage(command) : null;

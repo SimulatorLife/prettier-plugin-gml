@@ -50,11 +50,11 @@ describe("Hot reload integration loop", () => {
 
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
-        await new Promise((resolve, reject) => {
+        await new Promise<void>((resolve, reject) => {
             websocketClient = new WebSocket("ws://127.0.0.1:17891");
 
             websocketClient.on("open", () => {
-                resolve();
+                resolve(undefined);
             });
 
             websocketClient.on("error", (error) => {

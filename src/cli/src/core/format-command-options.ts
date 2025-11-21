@@ -1,7 +1,6 @@
-import type { Command } from "commander";
-
 import { asArray, getNonEmptyTrimmedString } from "../shared/dependencies.js";
 import { normalizeExtensions } from "./extension-normalizer.js";
+import type { CommanderCommandLike } from "./commander-types.js";
 
 interface FormatCommandSampleLimits {
     skippedDirectorySampleLimit?: number;
@@ -21,7 +20,7 @@ interface ResolvedPrettierConfiguration {
 }
 
 export interface CollectFormatCommandOptionsParameters {
-    defaultExtensions?: Array<string>;
+    defaultExtensions?: ReadonlyArray<string>;
     defaultParseErrorAction?: string;
     defaultPrettierLogLevel?: string;
 }
@@ -40,9 +39,9 @@ type CommandOptionsRecord = Record<string, unknown>;
 
 function resolveFormatCommandExtensions(
     options: CommandOptionsRecord,
-    defaultExtensions: Array<string>
+    defaultExtensions: ReadonlyArray<string>
 ): Array<string> {
-    const fallback = asArray(defaultExtensions);
+    const fallback = Array.from(asArray(defaultExtensions));
     const raw = options?.extensions;
 
     if (raw == null) {
@@ -91,7 +90,7 @@ function resolvePrettierConfiguration(
 }
 
 export function collectFormatCommandOptions(
-    command: Command,
+    command: CommanderCommandLike,
     {
         defaultExtensions = [],
         defaultParseErrorAction,
@@ -99,7 +98,7 @@ export function collectFormatCommandOptions(
     }: CollectFormatCommandOptionsParameters = {}
 ): FormatCommandOptionsResult {
     const options = (command?.opts?.() ?? {}) as CommandOptionsRecord;
-    const args = Array.isArray(command?.args) ? command.args : [];
+    const args = Array.isArray(command?.args) ? [...command.args] : [];
     const positionalTarget = args.length > 0 ? args[0] : null;
     const rawTarget = (options.path as unknown) ?? positionalTarget ?? null;
 
@@ -136,10 +135,15 @@ export function collectFormatCommandOptions(
             ? command.helpInformation()
             : "";
 
+    const defaultExtensionList = Array.from(defaultExtensions);
+
     return {
         targetPathInput,
         targetPathProvided,
-        extensions: resolveFormatCommandExtensions(options, defaultExtensions),
+        extensions: resolveFormatCommandExtensions(
+            options,
+            defaultExtensionList
+        ),
         prettierLogLevel,
         onParseError,
         checkMode,

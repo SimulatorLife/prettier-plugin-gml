@@ -32,10 +32,10 @@ type ModuleDefaultExport<TValue> = TValue extends {
  *          module reference.
  */
 export function resolveModuleDefaultExport<TModule>(
-    module: TModule
+    module?: TModule
 ): ModuleDefaultExport<TModule> {
     if (module == null || !isObjectOrFunction(module)) {
-        return module;
+        return module as ModuleDefaultExport<TModule>;
     }
 
     const { default: defaultExport } = module as ModuleWithDefault<TModule>;

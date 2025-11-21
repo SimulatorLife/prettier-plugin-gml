@@ -7,6 +7,7 @@ import {
     isAggregateErrorLike,
     isErrorLike
 } from "../shared/dependencies.js";
+import { asErrorLike } from "../shared/error-guards.js";
 
 const DEFAULT_INDENT = "  ";
 
@@ -14,12 +15,13 @@ const SIMPLE_VALUE_TYPES = new Set(["number", "boolean", "bigint"]);
 
 const CLI_USAGE_ERROR_BRAND = Symbol.for("prettier-plugin-gml/cli-usage-error");
 
-type ErrorWithMetadata = Error & {
+export interface ErrorWithMetadata extends Error {
     usage?: string | null;
     cause?: unknown;
     stack?: string;
+    code?: string | number;
     [CLI_USAGE_ERROR_BRAND]?: boolean;
-};
+}
 
 interface CliUsageErrorOptions {
     usage?: string | null;
@@ -60,11 +62,12 @@ export function markAsCliUsageError(
     error: unknown,
     { usage }: CliUsageErrorOptions = {}
 ): ErrorWithMetadata | null {
-    if (!isErrorLike(error)) {
+    const errorLike = asErrorLike(error);
+    if (!errorLike) {
         return null;
     }
 
-    const branded = error as ErrorWithMetadata;
+    const branded = errorLike as ErrorWithMetadata;
     brandCliUsageError(branded);
     if (usage !== undefined || !("usage" in branded)) {
         branded.usage = usage ?? null;
@@ -81,10 +84,8 @@ function indentBlock(text: string, indent = DEFAULT_INDENT): string {
 }
 
 export function isCliUsageError(error: unknown): error is ErrorWithMetadata {
-    return (
-        isErrorLike(error) &&
-        Boolean((error as ErrorWithMetadata)[CLI_USAGE_ERROR_BRAND])
-    );
+    const branded = asErrorLike(error) as ErrorWithMetadata | null;
+    return Boolean(branded?.[CLI_USAGE_ERROR_BRAND]);
 }
 
 function formatSection(label: string, content: string | null): string | null {
@@ -179,8 +180,9 @@ function formatErrorObject(
     seen.add(error);
 
     const errored = error as ErrorWithMetadata;
+    const isUsageError = isCliUsageError(error);
     const stack =
-        !isCliUsageError(errored) && typeof errored.stack === "string"
+        !isUsageError && typeof errored.stack === "string"
             ? errored.stack
             : null;
     const sections = compactArray([
@@ -224,8 +226,9 @@ function formatErrorValue(value: unknown, seen: Set<unknown>): string {
         return String(value);
     }
 
-    if (isErrorLike(value)) {
-        return formatErrorObject(value as ErrorWithMetadata, seen);
+    const errorLike = asErrorLike(value);
+    if (errorLike) {
+        return formatErrorObject(errorLike as ErrorWithMetadata, seen);
     }
 
     if (value && typeof value === "object") {
@@ -240,9 +243,13 @@ export function formatCliError(error: unknown): string {
 }
 
 export class CliUsageError extends Error {
+    usage: string | null;
+    override cause?: unknown;
+
     constructor(message: string, { usage }: CliUsageErrorOptions = {}) {
         super(message);
         this.name = "CliUsageError";
+        this.usage = usage ?? null;
         markAsCliUsageError(this, { usage });
     }
 }
@@ -262,7 +269,8 @@ function resolveNameFromTag(value: unknown): string | null {
 }
 
 function resolveErrorName(error: unknown): string {
-    const explicitName = toTrimmedString((error as ErrorWithMetadata)?.name);
+    const errorLike = asErrorLike(error);
+    const explicitName = toTrimmedString(errorLike?.name);
     if (explicitName) {
         return explicitName;
     }
@@ -290,7 +298,7 @@ export function createCliErrorDetails(
         details.code = code;
     }
 
-    const stackLines = normalizeStackLines((error as ErrorWithMetadata)?.stack);
+    const stackLines = normalizeStackLines(asErrorLike(error)?.stack);
     if (stackLines) {
         details.stack = stackLines;
     }
@@ -299,12 +307,9 @@ export function createCliErrorDetails(
 }
 
 function resolveCliErrorUsage(error: unknown): string | null {
-    if (
-        error &&
-        typeof error === "object" &&
-        typeof (error as ErrorWithMetadata).usage === "string"
-    ) {
-        return (error as ErrorWithMetadata).usage ?? null;
+    const errorLike = asErrorLike(error);
+    if (typeof errorLike?.usage === "string") {
+        return errorLike.usage ?? null;
     }
 
     return null;

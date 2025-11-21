@@ -1,5 +1,3 @@
-import type { Command } from "commander";
-
 import process from "node:process";
 
 import { CliUsageError, createCliErrorDetails } from "./errors.js";
@@ -12,6 +10,7 @@ import {
     toMutableArray,
     stringifyJsonForFile
 } from "../shared/dependencies.js";
+import type { CommanderCommandLike } from "./commander-types.js";
 
 export const SuiteOutputFormat = Object.freeze({
     JSON: "json",
@@ -21,7 +20,7 @@ export const SuiteOutputFormat = Object.freeze({
 export type SuiteOutputFormat =
     (typeof SuiteOutputFormat)[keyof typeof SuiteOutputFormat];
 
-type SuiteRunner = (options?: unknown) => unknown | Promise<unknown>;
+export type SuiteRunner = (options?: unknown) => unknown | Promise<unknown>;
 
 export interface SuitePayloadExtras {
     payload?: Record<string, unknown>;
@@ -107,7 +106,7 @@ export function resolveRequestedSuites(
 export function ensureSuitesAreKnown(
     suiteNames: Array<string>,
     availableSuites: Map<string, SuiteRunner>,
-    command: Command | undefined
+    command: CommanderCommandLike | undefined
 ): void {
     const unknownSuites = suiteNames.filter(
         (suite) => !availableSuites.has(suite)

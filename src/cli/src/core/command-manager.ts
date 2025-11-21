@@ -1,5 +1,3 @@
-import type { Command } from "commander";
-
 import { CliUsageError, handleCliError } from "./errors.js";
 import { DEFAULT_HELP_AFTER_ERROR } from "./command-standard-options.js";
 import { isCommanderErrorLike } from "./commander-error-utils.js";
@@ -12,19 +10,20 @@ import type {
     CommanderProgramContract,
     CommanderCommandContract
 } from "./commander-contract.js";
+import type { CommanderCommandLike, CommanderProgramLike } from "./commander-types.js";
 import { compactArray, resolveCommandUsage } from "../shared/dependencies.js";
 
 type CliCommandRunHandler = (context: {
-    command: Command;
+    command: CommanderCommandLike;
 }) => number | void | Promise<number | void>;
 
 type CliCommandErrorHandler = (
     error: unknown,
-    context: { command: Command }
+    context: { command: CommanderCommandLike }
 ) => void;
 
 export interface CliCommandRegistrationOptions {
-    command: Command;
+    command: CommanderCommandLike;
     run?: CliCommandRunHandler;
     onError?: CliCommandErrorHandler;
 }
@@ -43,13 +42,13 @@ export interface CliCommandRunner {
 }
 
 interface CliCommandEntry {
-    command: Command;
+    command: CommanderCommandLike;
     run: CliCommandRunHandler | null;
     handleError: CliCommandErrorHandler;
 }
 
 interface CliCommandManagerOptions {
-    program: Command;
+    program: CommanderProgramLike;
     onUnhandledError?: CliCommandErrorHandler;
 }
 
@@ -60,8 +59,8 @@ interface ComposeUsageMessageOptions {
 
 function resolveContextCommandFromActionArgs(
     actionArgs: Array<unknown>,
-    fallbackCommand: Command
-): Command {
+    fallbackCommand: CommanderCommandLike
+): CommanderCommandLike {
     const candidate = actionArgs.at(-1);
     return isCommanderCommandLike(candidate) ? candidate : fallbackCommand;
 }
@@ -75,13 +74,13 @@ function composeUsageHelpMessage({
 }
 
 class CliCommandManager {
-    private readonly _program: Command;
+    private readonly _program: CommanderProgramLike;
     private readonly _programContract: CommanderProgramContract;
     private readonly _entries: Set<CliCommandEntry> = new Set();
-    private readonly _commandEntryLookup: WeakMap<Command, CliCommandEntry> =
+    private readonly _commandEntryLookup: WeakMap<CommanderCommandLike, CliCommandEntry> =
         new WeakMap();
     private _defaultCommandEntry: CliCommandEntry | null = null;
-    private _activeCommand: Command | null = null;
+    private _activeCommand: CommanderCommandLike | null = null;
     private readonly _defaultErrorHandler: CliCommandErrorHandler;
 
     constructor({ program, onUnhandledError }: CliCommandManagerOptions) {
@@ -156,7 +155,7 @@ class CliCommandManager {
     }
 
     private _registerEntry(
-        command: Command,
+        command: CommanderCommandLike,
         {
             run,
             handleError,
@@ -203,7 +202,7 @@ class CliCommandManager {
 
     private _createCommandAction(
         entry: CliCommandEntry,
-        defaultCommand: Command
+        defaultCommand: CommanderCommandLike
     ): (...actionArgs: Array<unknown>) => Promise<void> {
         return async (...actionArgs: Array<unknown>) => {
             const contextCommand = resolveContextCommandFromActionArgs(
@@ -254,15 +253,18 @@ class CliCommandManager {
         return true;
     }
 
-    private _handleCommandError(error: unknown, command: Command): void {
+    private _handleCommandError(
+        error: unknown,
+        command: CommanderCommandLike
+    ): void {
         const entry = this._commandEntryLookup.get(command);
         const handler = entry?.handleError ?? this._defaultErrorHandler;
         handler(error, { command });
     }
 
     private _resolveCommandFromCommanderError(
-        commandFromError?: Command | null
-    ): Command | null {
+        commandFromError?: CommanderCommandLike | null
+    ): CommanderCommandLike | null {
         if (
             commandFromError === this._program &&
             this._defaultCommandEntry?.command
@@ -275,7 +277,7 @@ class CliCommandManager {
 
     private _createUsageErrorFromCommanderError(
         error: Error & { message: string },
-        resolvedCommand: Command | null
+        resolvedCommand: CommanderCommandLike | null
     ): CliUsageError {
         const usage = resolveCommandUsage(resolvedCommand, {
             fallback: () => this._programContract.getUsage() ?? ""

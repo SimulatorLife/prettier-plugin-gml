@@ -14,9 +14,9 @@ export interface SampleLimitRuntimeOption {
     defaultValue?: number;
     envVar?: string;
     getDefault: () => number | undefined;
-    setDefault: (value: unknown) => number | undefined;
+    setDefault: (value?: unknown) => number | undefined;
     resolve: (
-        value: unknown,
+        value?: unknown,
         options?: { defaultLimit?: number; defaultValue?: number }
     ) => number | null | undefined;
     applyEnvOverride: (env?: NodeJS.ProcessEnv) => number | undefined;
@@ -52,7 +52,7 @@ function createSampleLimitOption({
     });
 
     function resolve(
-        rawValue: unknown,
+        rawValue: unknown = undefined,
         options: { defaultLimit?: number; defaultValue?: number } = {}
     ) {
         const defaultLimit = options.defaultLimit ?? options.defaultValue;
@@ -67,7 +67,7 @@ function createSampleLimitOption({
 
     return {
         getDefault: state.get,
-        setDefault: state.set,
+        setDefault: (value) => state.set(value),
         resolve,
         applyEnvOverride: state.applyEnvOverride
     };

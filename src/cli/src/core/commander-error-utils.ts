@@ -1,12 +1,12 @@
 import { isErrorLike } from "../shared/dependencies.js";
-import type { Command } from "commander";
+import type { CommanderCommandLike } from "./commander-types.js";
 
 const COMMANDER_ERROR_CODE_PREFIX = "commander.";
 
 export interface CommanderErrorLike extends Error {
     code: string;
     exitCode?: number;
-    command?: Command;
+    command?: CommanderCommandLike;
 }
 
 export function isCommanderErrorLike(

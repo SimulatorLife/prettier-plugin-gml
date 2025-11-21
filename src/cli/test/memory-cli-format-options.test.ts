@@ -24,7 +24,7 @@ describe("parseFormatterOptionsFixture", () => {
             error = error_;
         }
 
-        assert.ok(error instanceof Core.JsonParseError);
+        assert.ok(error instanceof Core.Utils.JsonParseError);
         assert.match(
             error.message,
             /Failed to parse formatter options fixture from \/tmp\/formatter\/options\.json/i

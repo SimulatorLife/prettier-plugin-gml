@@ -67,4 +67,6 @@ export function transform(ast, opts = {}) {
     return ast;
 }
 
+export const stripCommentsTransform = transform;
+
 export default { transform };

@@ -1,5 +1,3 @@
-import type { Command } from "commander";
-
 import { CliUsageError } from "./errors.js";
 import { isCommanderErrorLike } from "./commander-error-utils.js";
 import {
@@ -7,6 +5,7 @@ import {
     InvalidArgumentError,
     getErrorMessage
 } from "../shared/dependencies.js";
+import type { CommanderCommandLike } from "./commander-types.js";
 
 type InvalidArgumentResolver = (
     value: unknown,
@@ -92,9 +91,17 @@ export function wrapInvalidArgumentResolver(
  * @returns {{ helpRequested: boolean, usage: string }}
  */
 export function parseCommandLine(
-    command: Command,
+    command: CommanderCommandLike,
     args: Array<string>
 ): ParseCommandLineResult {
+    if (typeof command.parse !== "function") {
+        throw new TypeError("Command must provide parse().");
+    }
+
+    if (typeof command.helpInformation !== "function") {
+        throw new TypeError("Command must provide helpInformation().");
+    }
+
     try {
         command.parse(args, { from: "user" });
         return {

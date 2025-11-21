@@ -89,7 +89,7 @@ describe("cli error formatting", () => {
 
 describe("cli error details", () => {
     it("normalizes message, name, code, and stack", () => {
-        const error = new Error("kaboom");
+        const error: Error & { code?: string } = new Error("kaboom");
         error.code = "ENOENT";
 
         const details = createCliErrorDetails(error);

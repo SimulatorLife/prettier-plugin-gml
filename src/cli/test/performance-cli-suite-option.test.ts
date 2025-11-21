@@ -5,6 +5,9 @@ import {
     PerformanceSuiteName,
     formatPerformanceSuiteList
 } from "../src/modules/performance/suite-options.js";
+import type { ParseOptions } from "commander";
+
+const USER_PARSE_OPTIONS: ParseOptions = { from: "user" };
 
 describe("performance CLI suite option", () => {
     it("accepts known suite names", () => {
@@ -17,7 +20,7 @@ describe("performance CLI suite option", () => {
                 "--suite",
                 PerformanceSuiteName.FORMATTER
             ],
-            { from: "user" }
+            USER_PARSE_OPTIONS
         );
 
         assert.deepStrictEqual(command.opts().suite, [
@@ -31,12 +34,20 @@ describe("performance CLI suite option", () => {
 
         assert.throws(
             () =>
-                command.parse(["--suite", "unsupported"], {
-                    from: "user"
-                }),
+                command.parse(
+                    ["--suite", "unsupported"],
+                    USER_PARSE_OPTIONS
+                ),
             (error) => {
-                assert.equal(error?.code, "commander.invalidArgument");
-                assert.match(error.message, /benchmark suite must be one of/i);
+                if (!(error instanceof Error)) {
+                    return false;
+                }
+                const withCode = error as Error & { code?: string };
+                assert.equal(withCode.code, "commander.invalidArgument");
+                assert.match(
+                    error.message,
+                    /benchmark suite must be one of/i
+                );
                 return true;
             }
         );

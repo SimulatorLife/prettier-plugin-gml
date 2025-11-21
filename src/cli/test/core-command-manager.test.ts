@@ -12,7 +12,10 @@ function createStubProgram() {
     const registeredCommands = [];
     return {
         parseCalls: [],
-        addCommand(command, options = {}) {
+        addCommand(
+            command,
+            options: { isDefault?: boolean } = {}
+        ): typeof this {
             registeredCommands.push({ command, options });
             if (options.isDefault) {
                 this.defaultCommand = command;

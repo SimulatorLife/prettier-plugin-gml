@@ -32,6 +32,7 @@ import {
     resolveRequestedSuites,
     resolveSuiteOutputFormatOrThrow,
     SuiteOutputFormat,
+    toArray,
     toNormalizedInteger,
     wrapInvalidArgumentResolver,
     writeJsonArtifact
@@ -39,18 +40,21 @@ import {
 import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "../plugin-runtime-dependencies.js";
 import {
     PerformanceSuiteName,
+    type PerformanceSuite,
     formatPerformanceSuiteList,
     isPerformanceThroughputSuite,
     normalizePerformanceSuiteName
 } from "./suite-options.js";
 import { formatMetricValue } from "./metric-formatters.js";
 import type { WorkflowPathFilterOptions } from "../../workflow/path-filter.js";
+import type { SuiteRunner } from "../../core/command-suite-helpers.js";
+import type { CommanderCommandLike } from "../../core/commander-types.js";
 
 export { normalizeFixtureRoots } from "../dependencies.js";
 
 const shouldSkipPerformanceDependencies = isCliRunSkipped();
 
-const AVAILABLE_SUITES = new Map();
+const AVAILABLE_SUITES = new Map<string, SuiteRunner>();
 
 const TEST_RESULTS_DIRECTORY = path.resolve(REPO_ROOT, "reports");
 const DEFAULT_REPORT_FILE = path.join(
@@ -69,7 +73,7 @@ interface PerformanceCommandOptions {
     reportFile?: string | null;
     skipReport?: boolean;
     stdout?: boolean;
-    format?: unknown;
+    format?: SuiteOutputFormat | string;
     pretty?: boolean;
 }
 
@@ -83,7 +87,7 @@ interface PerformanceSuiteExecutionOptions {
 }
 
 interface RunPerformanceCommandContext {
-    command?: Command;
+    command?: CommanderCommandLike;
     workflow?: WorkflowPathFilterOptions;
 }
 
@@ -756,7 +760,17 @@ function createSuiteExecutionOptions(
     };
 }
 
-async function writeReport(report, options, { pathFilter } = {}) {
+async function writeReport(
+    report: unknown,
+    options: {
+        skipReport?: boolean;
+        reportFile?: string | null;
+        pretty?: boolean;
+    },
+    {
+        pathFilter
+    }: { pathFilter?: ReturnType<typeof createPathFilter> } = {}
+) {
     if (options.skipReport) {
         return { skipped: true };
     }
@@ -891,7 +905,7 @@ function printHumanReadable(report) {
 
 interface EmitReportOptions {
     stdout?: boolean;
-    format?: unknown;
+    format?: SuiteOutputFormat | string;
     pretty?: boolean;
 }
 
@@ -943,7 +957,10 @@ function createPerformanceReportPayload(suiteResults) {
     };
 }
 
-function logReportDestination(reportResult, { stdout }) {
+function logReportDestination(
+    reportResult: { path?: string } | null | undefined,
+    { stdout }: PerformanceCommandOptions
+) {
     if (!reportResult?.path) {
         return;
     }
@@ -994,7 +1011,15 @@ function collectSuiteFailureSummaries(results) {
     return createSuiteFailureSummariesFromEntries(entries);
 }
 
-function formatFailureFollowUp({ stdout, format, displayPath }) {
+function formatFailureFollowUp({
+    stdout,
+    format,
+    displayPath
+}: {
+    stdout?: boolean;
+    format?: SuiteOutputFormat | string;
+    displayPath?: string;
+}) {
     if (stdout) {
         if (format === SuiteOutputFormat.HUMAN) {
             const base = "Review the human-readable report above for details.";
@@ -1017,7 +1042,11 @@ function formatFailureFollowUp({ stdout, format, displayPath }) {
     return "Re-run with --stdout human to print a readable summary.";
 }
 
-function logSuiteFailureSummary(suiteResults, options, reportResult) {
+function logSuiteFailureSummary(
+    suiteResults: Record<string, unknown>,
+    options: PerformanceCommandOptions,
+    reportResult: { path?: string } | null | undefined
+) {
     const failures = collectSuiteFailureSummaries(suiteResults);
     if (failures.length === 0) {
         return false;
