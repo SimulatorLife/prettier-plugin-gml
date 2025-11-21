@@ -1,9 +1,10 @@
 import { Buffer } from "node:buffer";
-import { isFiniteNumber } from "../../dependencies.js";
+
+import { isFiniteNumber } from "../dependencies.js";
 import {
+    callWithFallback,
     coercePositiveInteger,
-    createNumericTypeErrorFormatter,
-    callWithFallback
+    createNumericTypeErrorFormatter
 } from "../dependencies.js";
 import { createIntegerOptionToolkit } from "../../core/integer-option-toolkit.js";
 
@@ -72,23 +73,6 @@ function resolveRadixOverride(
     );
 }
 
-/**
- * Format a byte count using human-readable units. The helper lives in
- * the CLI reporting utilities directory alongside time formatting helpers,
- * keeping output formatting concerns grouped together. This separation from
- * runtime options maintains a clear distinction between configuration and
- * presentation logic while retaining backwards-compatible behaviour for
- * command modules.
- *
- * @param {number | bigint | unknown} bytes Amount of data to format.
- * @param {object} [options]
- * @param {number} [options.decimals=1] Decimal places for non-byte units.
- * @param {number} [options.decimalsForBytes=0] Decimal places when the value is below 1 KB.
- * @param {string} [options.separator=""] String inserted between the value and unit.
- * @param {boolean} [options.trimTrailingZeros=false] Remove insignificant zeros from the fractional part.
- * @param {number | string} [options.radix] Override for the unit scaling radix. Falls back to the configured default when invalid.
- * @returns {string} Human-readable representation of the byte size.
- */
 function formatByteSize(
     bytes: NumericLike,
     {
@@ -119,7 +103,7 @@ function formatByteSize(
 
     if (trimTrailingZeros && decimalPlaces > 0) {
         formattedValue = formattedValue.replace(
-            /(?:\.0+|(\.\d*?[1-9])0+)$/,
+            /(?:\\.0+|(\\.\\d*?[1-9])0+)$/,
             "$1"
         );
     }
@@ -129,25 +113,14 @@ function formatByteSize(
     return `${formattedValue}${unitSeparator}${BYTE_UNITS[unitIndex]}`;
 }
 
-/**
- * Format UTF-8 text size using the CLI byte formatter. The helper lives in
- * the CLI reporting utilities directory since it's used exclusively for
- * output formatting. It relies on Node's `Buffer` API, which is only available
- * in the CLI/runtime tooling layer. Co-locating it with other formatting
- * utilities like time formatting keeps the shared bundle environment-agnostic
- * while preserving the existing ergonomics for command modules.
- *
- * @param {string} text Text to measure.
- * @returns {string} Human-readable byte size string.
- */
 function formatBytes(text: string): string {
     const size = Buffer.byteLength(text, "utf8");
     return formatByteSize(size, { decimals: 1 });
 }
 
 export {
-    DEFAULT_BYTE_FORMAT_RADIX,
     BYTE_FORMAT_RADIX_ENV_VAR,
+    DEFAULT_BYTE_FORMAT_RADIX,
     applyByteFormatRadixEnvOverride,
     formatByteSize,
     formatBytes,
