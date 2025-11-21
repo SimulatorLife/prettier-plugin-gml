@@ -40,9 +40,7 @@ function mergeParserOptions(
     baseOptions: ParserOptions,
     overrides: Partial<ParserOptions> | undefined
 ): ParserOptions {
-    const overrideObject = Core.Utils.isObjectLike(overrides)
-        ? overrides
-        : {};
+    const overrideObject = Core.Utils.isObjectLike(overrides) ? overrides : {};
     return Object.assign({}, baseOptions, overrideObject) as ParserOptions;
 }
 
@@ -60,7 +58,10 @@ export default class GMLParser {
         this.comments = [];
         const parserConstructor =
             (this.constructor as typeof GMLParser | undefined) ?? GMLParser;
-        this.options = mergeParserOptions(parserConstructor.optionDefaults, options);
+        this.options = mergeParserOptions(
+            parserConstructor.optionDefaults,
+            options
+        );
     }
 
     static optionDefaults: ParserOptions = Object.freeze({
@@ -203,7 +204,10 @@ export default class GMLParser {
                 const endIndex =
                     typeof node.end === "number" ? node.end : node.end?.index;
 
-                if (node.type === "Literal" && Core.Utils.isQuotedString(node.value)) {
+                if (
+                    node.type === "Literal" &&
+                    Core.Utils.isQuotedString(node.value)
+                ) {
                     if (
                         Number.isInteger(startIndex) &&
                         Number.isInteger(endIndex) &&

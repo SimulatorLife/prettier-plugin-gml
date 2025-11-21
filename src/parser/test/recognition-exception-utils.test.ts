@@ -86,15 +86,9 @@ test("isRecognitionExceptionLike requires contextual hints", () => {
 test("installRecognitionExceptionLikeGuard augments instanceof checks", () => {
     const candidate = new RecognitionAdapter();
 
-    assert.strictEqual(
-        candidate instanceof RecognitionException,
-        false
-    );
+    assert.strictEqual(candidate instanceof RecognitionException, false);
 
     installRecognitionExceptionLikeGuard();
 
-    assert.strictEqual(
-        candidate instanceof RecognitionException,
-        true
-    );
+    assert.strictEqual(candidate instanceof RecognitionException, true);
 });
