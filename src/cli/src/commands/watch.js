@@ -18,7 +18,6 @@ import process from "node:process";
 
 import { Command, Option } from "commander";
 
-import { createTranspiler } from "../../../transpiler/src/index.js";
 import {
     describeRuntimeSource,
     resolveRuntimeSource,
@@ -26,6 +25,7 @@ import {
 } from "../modules/runtime/source.js";
 import { startRuntimeStaticServer } from "../modules/runtime/server.js";
 import { startPatchWebSocketServer } from "../modules/websocket/server.js";
+import { createCliTranspiler } from "../modules/transpiler/factory.js";
 
 /**
  * Creates the watch command for monitoring GML source files.
@@ -247,7 +247,7 @@ export async function runWatchCommand(targetPath, options) {
         runtimeDescriptor = describeRuntimeSource,
         runtimeServerStarter = startRuntimeStaticServer,
         websocketServerStarter = startPatchWebSocketServer,
-        transpilerFactory = createTranspiler
+        transpilerFactory = createCliTranspiler
     } = options;
 
     const normalizedPath = await validateTargetPath(targetPath);
