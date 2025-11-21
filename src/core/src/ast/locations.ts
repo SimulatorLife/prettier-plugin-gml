@@ -4,7 +4,6 @@ type AstNode = Record<string, unknown>;
 type LocationKey = "start" | "end";
 type LocationObject = { index?: number; line?: number };
 
-
 // Shared helpers for working with AST node location metadata.
 // These utilities centralize the logic for reading start/end positions
 // so both the parser and printer can remain consistent without duplicating

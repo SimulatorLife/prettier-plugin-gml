@@ -61,13 +61,13 @@ interface RuntimeWrapperOptions {
     validateBeforeApply?: boolean;
 }
 
-	interface RuntimeWrapper {
-	    state: RuntimeWrapperState;
-	    applyPatch(patch: unknown): { success: true; version: number };
-	    trySafeApply(
-	        patch: unknown,
-	        onValidate?: (patch: Patch) => boolean | void
-	    ): TrySafeApplyResult;
+interface RuntimeWrapper {
+    state: RuntimeWrapperState;
+    applyPatch(patch: unknown): { success: true; version: number };
+    trySafeApply(
+        patch: unknown,
+        onValidate?: (patch: Patch) => boolean | void
+    ): TrySafeApplyResult;
     undo(): { success: boolean; version?: number; message?: string };
     getPatchHistory(): Array<PatchHistoryEntry>;
     getRegistrySnapshot(): {
@@ -125,7 +125,10 @@ interface WebSocketClientOptions {
     wrapper?: RuntimeWrapper | null;
     onConnect?: () => void;
     onDisconnect?: () => void;
-    onError?: (error: Error & { patch?: Patch; rolledBack?: boolean }, phase: "connection" | "patch") => void;
+    onError?: (
+        error: Error & { patch?: Patch; rolledBack?: boolean },
+        phase: "connection" | "patch"
+    ) => void;
     reconnectDelay?: number;
     autoConnect?: boolean;
 }
@@ -171,7 +174,12 @@ function applyScriptPatch(
         throw new TypeError("Script patch must have a 'js_body' string");
     }
 
-    const fn = new Function("self", "other", "args", patch.js_body) as RuntimeFunction;
+    const fn = new Function(
+        "self",
+        "other",
+        "args",
+        patch.js_body
+    ) as RuntimeFunction;
     const updatedScripts = { ...registry.scripts, [patch.id]: fn };
 
     return {
@@ -190,7 +198,11 @@ function applyEventPatch(
 
     const thisName = patch.this_name || "self";
     const argsDecl = patch.js_args || "";
-    const fn = new Function(thisName, argsDecl, patch.js_body) as RuntimeFunction;
+    const fn = new Function(
+        thisName,
+        argsDecl,
+        patch.js_body
+    ) as RuntimeFunction;
 
     const eventWrapper = function (...incomingArgs) {
         return fn.call(this, this, ...incomingArgs);
