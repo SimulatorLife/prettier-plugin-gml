@@ -1,17 +1,13 @@
 import GameMakerLanguageParserVisitor from "../runtime/game-maker-language-parser-visitor.js";
 import { Core } from "@gml-modules/core";
+import type { GameMakerAstNode } from "@gml-modules/core";
 import { Semantic } from "@gml-modules/semantic";
 import BinaryExpressionDelegate from "./binary-expression-delegate.js";
-const {
-    IdentifierRoleTracker,
-    IdentifierScopeCoordinator,
-    GlobalIdentifierRegistry,
-    createIdentifierLocation
-} = Semantic;
-
-const {
-    Utils: { getLineBreakCount, getNonEmptyTrimmedString }
-} = Core;
+import type {
+    ParserContext,
+    ParserToken,
+    ScopeTrackerOptions
+} from "../types/index.js";
 
 type BinaryOperatorAssoc = "left" | "right";
 type BinaryOperatorType =
@@ -28,34 +24,12 @@ interface BinaryOperatorInfo {
     type: BinaryOperatorType;
 }
 
-interface ScopeTrackerContext {
-    enabled: boolean;
-}
-
-interface ScopeTracker {
-    isEnabled(): boolean;
-    enterScope(kind: string): void;
-    exitScope(): void;
-    declare(name: string, meta?: unknown): void;
-    reference(name: string, meta?: unknown): void;
-}
-
-interface ScopeTrackerOptions {
-    createScopeTracker?: (context: ScopeTrackerContext) => ScopeTracker | null;
-    getIdentifierMetadata?: boolean;
-    // Allow extra option flags without failing type-checking
-    [key: string]: unknown;
-}
-
 type IdentifierRole = {
     type: string;
     kind: string;
     tags?: string[];
     scopeOverride?: string;
 };
-
-type ParserContext = any;
-type ParserToken = any;
 
 const BINARY_OPERATORS: Record<string, BinaryOperatorInfo> = {
     // Highest Precedence
@@ -118,6 +92,8 @@ const BINARY_OPERATORS: Record<string, BinaryOperatorInfo> = {
     "??=": { prec: 1, assoc: "right", type: "assign" } // Nullish coalescing assignment
 };
 
+type SemanticScopeTracker = InstanceType<typeof Semantic.ScopeTracker>;
+
 const GLOBAL_SCOPE_OVERRIDE_KEYWORD = "global" as const;
 
 /**
@@ -128,7 +104,7 @@ const GLOBAL_SCOPE_OVERRIDE_KEYWORD = "global" as const;
  */
 function createScopeTrackerFromOptions(
     options: ScopeTrackerOptions = {}
-): ScopeTracker | null {
+): SemanticScopeTracker | null {
     const { createScopeTracker, getIdentifierMetadata } = options;
     if (typeof createScopeTracker !== "function") {
         return null;
@@ -204,7 +180,7 @@ export default class GameMakerASTBuilder {
     whitespaces: unknown[];
     operatorStack: string[];
 
-    scopeTracker: ScopeTracker | null;
+    scopeTracker: SemanticScopeTracker | null;
     identifierRoleTracker: any;
     identifierScopeCoordinator: any;
     globalIdentifierRegistry: any;
@@ -221,8 +197,8 @@ export default class GameMakerASTBuilder {
         this.operatorStack = [];
 
         const scopeTracker = createScopeTrackerFromOptions(this.options);
-        const roleTracker = new (IdentifierRoleTracker as any)();
-        const scopeCoordinator = new (IdentifierScopeCoordinator as any)({
+        const roleTracker = new (Semantic.IdentifierRoleTracker as any)();
+        const scopeCoordinator = new (Semantic.IdentifierScopeCoordinator as any)({
             scopeTracker,
             roleTracker
         });
@@ -230,7 +206,7 @@ export default class GameMakerASTBuilder {
         this.scopeTracker = scopeTracker;
         this.identifierRoleTracker = roleTracker;
         this.identifierScopeCoordinator = scopeCoordinator;
-        this.globalIdentifierRegistry = new (GlobalIdentifierRegistry as any)();
+        this.globalIdentifierRegistry = new (Semantic.GlobalIdentifierRegistry as any)();
 
         this.binaryExpressions = new (BinaryExpressionDelegate as any)({
             operators: BINARY_OPERATORS
@@ -311,38 +287,44 @@ export default class GameMakerASTBuilder {
     // their original source positions. We compute the end location by accounting for
     // line breaks within the token's text, which is crucial for multi-line string
     // literals or block comments that span multiple lines.
-    astNode<T extends { [key: string]: any }>(
+    astNode<T extends GameMakerAstNode>(
         ctx: ParserContext,
         object: T
     ): T {
         object.start = { line: ctx.start.line, index: ctx.start.start };
         object.end = ctx.stop
             ? {
-                  line: ctx.stop.line + getLineBreakCount(ctx.stop.text),
+                  line:
+                      ctx.stop.line +
+                      Core.Utils.getLineBreakCount(ctx.stop.text),
                   index: ctx.stop.stop
               }
             : {
-                  line: ctx.start.line + getLineBreakCount(ctx.start.text),
+                  line:
+                      ctx.start.line +
+                      Core.Utils.getLineBreakCount(ctx.start.text),
                   index: ctx.start.stop
               };
 
         return object;
     }
 
-    astNodeFromToken<T extends { [key: string]: any }>(
+    astNodeFromToken<T extends GameMakerAstNode>(
         token: ParserToken,
         object: T
     ): T {
         if (token && token.symbol) {
-            const { symbol } = token;
-            object.start = {
-                line: symbol.line,
-                index: symbol.start
-            };
-            object.end = {
-                line: symbol.line + getLineBreakCount(symbol.text || ""),
-                index: symbol.stop
-            };
+        const { symbol } = token;
+        object.start = {
+            line: symbol.line,
+            index: symbol.start
+        };
+        object.end = {
+            line:
+                symbol.line +
+                Core.Utils.getLineBreakCount(symbol.text || ""),
+            index: symbol.stop
+        };
         } else if (token && token.start && token.stop) {
             object.start = {
                 line: token.start.line,
@@ -350,7 +332,8 @@ export default class GameMakerASTBuilder {
             };
             object.end = {
                 line:
-                    token.stop.line + getLineBreakCount(token.stop.text || ""),
+                    token.stop.line +
+                    Core.Utils.getLineBreakCount(token.stop.text || ""),
                 index: token.stop.stop
             };
         } else {
@@ -362,7 +345,7 @@ export default class GameMakerASTBuilder {
     }
 
     createIdentifierLocation(token: ParserToken): any {
-        return createIdentifierLocation(token);
+        return Semantic.createIdentifierLocation(token);
     }
 
     visitBinaryExpression(ctx: ParserContext): any {
@@ -1239,7 +1222,9 @@ export default class GameMakerASTBuilder {
                         index: symbol?.start ?? 0
                     },
                     end: {
-                        line: (symbol?.line ?? 0) + getLineBreakCount(value),
+                        line:
+                            (symbol?.line ?? 0) +
+                            Core.Utils.getLineBreakCount(value),
                         index: symbol?.stop ?? symbol?.start ?? 0
                     }
                 });
@@ -1585,7 +1570,7 @@ export default class GameMakerASTBuilder {
     visitDefineStatement(ctx: ParserContext): any {
         const regionCharacters = ctx.RegionCharacters();
         const rawText = regionCharacters ? regionCharacters.getText() : "";
-        const trimmed = getNonEmptyTrimmedString(rawText);
+        const trimmed = Core.Utils.getNonEmptyTrimmedString(rawText);
 
         if (!trimmed) {
             return null;

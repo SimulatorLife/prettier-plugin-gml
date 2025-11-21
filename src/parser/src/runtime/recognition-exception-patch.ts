@@ -1,10 +1,11 @@
-import antlr4 from "antlr4";
-
+import antlr4, {
+    type Recognizer,
+    type RecognitionException,
+    type Token,
+    type TokenStream
+} from "antlr4";
 import { Core } from "@gml-modules/core";
-
-const {
-    Utils: { hasFunction, isErrorLike, isObjectLike }
-} = Core;
+import type { TokenMetadataOptions } from "../types/index.js";
 
 type RecognitionExceptionConstructor = new (...args: unknown[]) => object;
 type DefaultErrorStrategyConstructor = new (...args: unknown[]) => object;
@@ -18,7 +19,7 @@ const typedAntlr4 = antlr4 as typeof antlr4 & {
 
 const INVALID_INDEX_FALLBACK = -1;
 
-function hasOffendingTokenProbe(value) {
+function hasOffendingTokenProbe(value?: any): boolean {
     if (value?.offendingToken !== undefined) {
         return true;
     }
@@ -27,24 +28,24 @@ function hasOffendingTokenProbe(value) {
         return true;
     }
 
-    return hasFunction(value, "getOffendingToken");
+    return Core.hasFunction(value, "getOffendingToken");
 }
 
-function hasExpectedTokensProbe(value) {
+function hasExpectedTokensProbe(value?: any): boolean {
     if (value?.expectedTokens !== undefined) {
         return true;
     }
 
-    return hasFunction(value, "getExpectedTokens");
+    return Core.hasFunction(value, "getExpectedTokens");
 }
 
-function hasContextProbe(value) {
+function hasContextProbe(value?: any): boolean {
     const context = value?.ctx ?? value?.context ?? null;
-    if (isObjectLike(context)) {
+    if (Core.isObjectLike(context)) {
         return true;
     }
 
-    if (isObjectLike(value?.input)) {
+    if (Core.isObjectLike(value?.input)) {
         return true;
     }
 
@@ -59,12 +60,12 @@ function hasContextProbe(value) {
  * relying on `instanceof`.
  *
  * @param {unknown} value Arbitrary error-like object.
- * @returns {value is import("antlr4/error/Errors").RecognitionException}
+ * @returns {boolean}
  *          `true` when {@link value} appears to expose the expected token,
  *          offending token, and context metadata provided by ANTLR.
  */
-export function isRecognitionExceptionLike(value) {
-    if (!isErrorLike(value)) {
+export function isRecognitionExceptionLike(value?: unknown): boolean {
+    if (!value || !Core.isErrorLike(value)) {
         return false;
     }
 
@@ -91,7 +92,9 @@ function firstNumber(...values) {
     }
 }
 
-function getTokenStream(recognizer) {
+function getTokenStream(
+    recognizer: Recognizer | null | undefined
+): TokenStream | null {
     if (recognizer && typeof recognizer.getTokenStream === "function") {
         return recognizer.getTokenStream();
     }
@@ -99,7 +102,10 @@ function getTokenStream(recognizer) {
     return recognizer?._input ?? null;
 }
 
-function ensureTokenMetadata(token, { fallbackCandidates = [], stream } = {}) {
+function ensureTokenMetadata(
+    token: Token | null | undefined,
+    { fallbackCandidates = [], stream }: TokenMetadataOptions = {}
+) {
     if (!token || typeof token !== "object") {
         return null;
     }
@@ -153,7 +159,10 @@ function ensureTokenMetadata(token, { fallbackCandidates = [], stream } = {}) {
     return token;
 }
 
-function ensureOffendingToken(recognizer, exception) {
+function ensureOffendingToken(
+    recognizer: Recognizer | null | undefined,
+    exception: RecognitionException | null | undefined
+) {
     if (!exception || typeof exception !== "object") {
         return;
     }
@@ -209,7 +218,10 @@ function ensureOffendingToken(recognizer, exception) {
     }
 }
 
-function ensureStartToken(recognizer, exception) {
+function ensureStartToken(
+    recognizer: Recognizer | null | undefined,
+    exception: RecognitionException | null | undefined
+) {
     if (!exception || typeof exception !== "object") {
         return;
     }

@@ -15,24 +15,13 @@ import {
 } from "./ast/location-manipulation.js";
 import { installRecognitionExceptionLikeGuard } from "./runtime/index.js";
 import convertToESTree from "./utils/estree-converter.js";
+import type { ParserOptions } from "./types/index.js";
 
 const PredictionMode =
     (antlr4 as unknown as { atn?: { PredictionMode: unknown } }).atn
         ?.PredictionMode ??
     (antlr4 as any).PredictionMode ??
     (antlr4 as any).atn?.PredictionMode;
-
-type ParserOptions = {
-    getComments: boolean;
-    getLocations: boolean;
-    simplifyLocations: boolean;
-    getIdentifierMetadata: boolean;
-    createScopeTracker: unknown;
-    astFormat: string;
-    asJSON: boolean;
-    transforms?: Array<unknown>;
-    transformOptions?: Record<string, unknown>;
-};
 
 installRecognitionExceptionLikeGuard();
 

@@ -1,9 +1,5 @@
-// Avoid importing the top-level gml-parser which re-exports transforms
-// (including this module) — that creates a static dependency cycle with
-// the transforms index. For the small example-parsing needs in this
-// module we use the lexer+parser+AST builder directly so we can parse
-// example snippets synchronously without pulling in the transforms
-// registry.
+import { Core } from "@gml-modules/core";
+import { Semantic } from "@gml-modules/semantic";
 import antlr4, { PredictionMode } from "antlr4";
 import GameMakerLanguageLexer from "../../generated/GameMakerLanguageLexer.js";
 import GameMakerLanguageParser from "../../generated/GameMakerLanguageParser.js";
@@ -11,7 +7,6 @@ import GameMakerASTBuilder from "../ast/gml-ast-builder.js";
 import GameMakerParseErrorListener, {
     GameMakerLexerErrorListener
 } from "../ast/gml-syntax-error.js";
-import { Core as CoreNamespace } from "@gml-modules/core";
 import { preprocessFunctionArgumentDefaults } from "./preprocess-function-argument-defaults.js";
 import {
     collectCommentNodes,
@@ -20,102 +15,6 @@ import {
     resolveDocCommentTraversalService,
     getCommentValue
 } from "../comments/index.js";
-import { Semantic } from "@gml-modules/semantic";
-
-const CORE_COMPAT_NAMESPACES = [
-    "AST",
-    "Utils",
-    "Resources",
-    "IdentifierMetadata",
-    "DeprecatedBuiltinVariables",
-    "Metrics",
-    "FS"
-] as const;
-
-function createCoreCompatibilityLayer(namespace: typeof CoreNamespace) {
-    return new Proxy(namespace, {
-        get(target, prop, receiver) {
-            if (Reflect.has(target, prop)) {
-                return Reflect.get(target, prop, receiver);
-            }
-
-            for (const scopeName of CORE_COMPAT_NAMESPACES) {
-                const scope = Reflect.get(target, scopeName) as
-                    | Record<PropertyKey, unknown>
-                    | undefined;
-                if (scope && Reflect.has(scope, prop)) {
-                    return Reflect.get(scope, prop, receiver);
-                }
-            }
-
-            return undefined;
-        }
-    });
-}
-
-const Core = createCoreCompatibilityLayer(CoreNamespace);
-
-const {
-    Resources: { getFeatherDiagnosticById, getFeatherDiagnostics }
-} = Core;
-
-const sharedGetSingleVariableDeclarator = Core.getSingleVariableDeclarator;
-
-// const {
-//     AST: {
-//         Core.getNodeEndIndex,
-//         Core.getNodeStartIndex,
-//         getNodeEndLine,
-//         getNodeStartLine,
-//         Core.cloneLocation,
-//         cloneAstNode,
-//         Core.assignClonedLocation,
-//         getArrayProperty,
-//         getBodyStatements,
-//         getCallExpressionArguments,
-//         getCallExpressionIdentifier,
-//         Core.getCallExpressionIdentifierName,
-//         isCallExpressionIdentifierMatch,
-//         isBooleanLiteral,
-//         isUndefinedSentinel,
-//         isProgramOrBlockStatement,
-//         isVarVariableDeclaration,
-//         isNode,
-//         forEachNodeChild,
-//         visitChildNodes,
-//         unwrapParenthesizedExpression,
-//         getSingleVariableDeclarator: sharedGetSingleVariableDeclarator,
-//         createIdentifierNode,
-//         isFunctionLikeNode
-//     },
-//     Utils: {
-//         getNonEmptyString,
-//         getNonEmptyTrimmedString,
-//         Core.isNonEmptyString,
-//         isNonEmptyTrimmedString,
-//         stripStringQuotes,
-//         toNormalizedLowerCaseString,
-//         Core.toTrimmedString,
-//         isFiniteNumber,
-//         Core.asArray,
-//         compactArray,
-//         isArrayIndex,
-//         Core.isNonEmptyArray,
-//         ensureSet,
-//         getOrCreateMapEntry,
-//         Core.hasOwn,
-//         isObjectLike,
-//         escapeRegExp,
-//         hasIterableItems,
-//         isMapLike,
-//         isSetLike
-//     },
-//     Resources: {
-//         getFeatherDiagnosticById,
-//         getFeatherDiagnostics,
-//         Core.getFeatherMetadata
-//     }
-// } = Core;
 
 function walkAstNodes(root, visitor) {
     const visit = (node, parent, key) => {
@@ -350,7 +249,7 @@ const GM1041_CALL_ARGUMENT_TARGETS = new Map([
 const IDENTIFIER_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const FEATHER_TYPE_SYSTEM_INFO = buildFeatherTypeSystemInfo();
 const AUTOMATIC_FEATHER_FIX_HANDLERS = createAutomaticFeatherFixHandlers();
-const FEATHER_DIAGNOSTICS = getFeatherDiagnostics();
+const FEATHER_DIAGNOSTICS = Core.getFeatherDiagnostics();
 
 const FEATHER_FIX_IMPLEMENTATIONS =
     buildFeatherFixImplementations(FEATHER_DIAGNOSTICS);
@@ -5389,7 +5288,7 @@ function shouldSkipDeprecatedIdentifierReplacement({
 
 function buildDeprecatedBuiltinVariableReplacements() {
     const replacements = new Map();
-    const diagnostic = getFeatherDiagnosticById("GM1024");
+    const diagnostic = Core.getFeatherDiagnosticById("GM1024");
 
     if (!diagnostic) {
         return replacements;
@@ -12552,7 +12451,7 @@ function handleLocalVariableDeclarationPatterns({
         return null;
     }
 
-    const declarator = sharedGetSingleVariableDeclarator(node);
+    const declarator = Core.getSingleVariableDeclarator(node);
 
     if (!declarator) {
         return null;
@@ -12698,7 +12597,7 @@ function convertPrecedingAssignmentToVariableDeclaration({
         return null;
     }
 
-    const declarator = sharedGetSingleVariableDeclarator(declarationNode);
+    const declarator = Core.getSingleVariableDeclarator(declarationNode);
 
     if (!declarator || !declarator.init) {
         return null;
@@ -13013,7 +12912,7 @@ function hoistVariableDeclarationOutOfBlock({
         return null;
     }
 
-    const declarator = sharedGetSingleVariableDeclarator(declarationNode);
+    const declarator = Core.getSingleVariableDeclarator(declarationNode);
 
     if (!declarator || !declarator.init) {
         return null;

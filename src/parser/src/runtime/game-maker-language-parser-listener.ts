@@ -1,4 +1,11 @@
 import { Core } from "@gml-modules/core";
+import type {
+    ListenerDelegate,
+    ListenerHandler,
+    ListenerOptions,
+    ListenerPayload,
+    ParserContext
+} from "../types/index.js";
 import { default as GameMakerLanguageParserListenerBase } from "../../generated/GameMakerLanguageParserListener.js";
 import { VISIT_METHOD_NAMES } from "./game-maker-language-parser-visitor.js";
 import {
@@ -7,17 +14,15 @@ import {
     toDelegate
 } from "./parse-tree-helpers.js";
 
-const {
-    Utils: { noop }
-} = Core;
-
-const DEFAULT_LISTENER_DELEGATE = ({ fallback = noop }) => fallback();
+const DEFAULT_LISTENER_DELEGATE: ListenerDelegate = ({
+    fallback = Core.Utils.noop
+}) => fallback();
 
 export const LISTENER_METHOD_NAMES = Object.freeze(
     deriveListenerMethodNames(VISIT_METHOD_NAMES)
 );
 
-function createListenerDelegate(options = {}) {
+function createListenerDelegate(options: ListenerOptions = {}) {
     const { listenerDelegate, listenerHandlers } = options;
     const baseDelegate = toDelegate(
         listenerDelegate,
@@ -28,9 +33,9 @@ function createListenerDelegate(options = {}) {
         return baseDelegate;
     }
 
-    const handlerEntries = Object.entries(listenerHandlers).filter(
-        ([, value]) => typeof value === "function"
-    );
+    const handlerEntries = Object.entries(listenerHandlers)
+        .filter(([, value]) => typeof value === "function")
+        .map(([key, value]) => [key, value as ListenerHandler] as const);
 
     if (handlerEntries.length === 0) {
         return baseDelegate;
@@ -54,20 +59,20 @@ function createListenerDelegate(options = {}) {
 }
 
 export default class GameMakerLanguageParserListener extends GameMakerLanguageParserListenerBase {
-    #listenerDelegate;
+    #listenerDelegate: ListenerDelegate;
 
-    constructor(options = {}) {
+    constructor(options: ListenerOptions = {}) {
         super();
         this.#listenerDelegate = createListenerDelegate(options);
     }
 
-    _dispatch(methodName, ctx) {
+    _dispatch(methodName: string, ctx: ParserContext) {
         const phase = methodName.startsWith("enter") ? "enter" : "exit";
         return this.#listenerDelegate({
             methodName,
             phase,
             ctx,
-            fallback: noop
+            fallback: Core.Utils.noop
         });
     }
 }

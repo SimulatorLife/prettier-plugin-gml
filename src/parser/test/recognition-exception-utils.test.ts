@@ -5,7 +5,7 @@ import antlr4 from "antlr4";
 import {
     isRecognitionExceptionLike,
     installRecognitionExceptionLikeGuard
-} from "../src/utils/recognition-exception.js";
+} from "../src/runtime/recognition-exception-patch.js";
 
 type RecognitionExceptionConstructor = new (...args: unknown[]) => object;
 
@@ -23,6 +23,10 @@ if (!RecognitionException) {
 }
 
 class RecognitionAdapter extends Error {
+    readonly ctx: object;
+    readonly expectedTokens: object
+    readonly offendingToken: object
+    
     constructor(message = "adapter failure") {
         super(message);
         this.ctx = {};
@@ -50,6 +54,8 @@ test("isRecognitionExceptionLike accepts objects with expected token probes", ()
 
 test("isRecognitionExceptionLike accepts method-based adapters", () => {
     class RecognitionDelegate extends Error {
+        readonly ctx: object;
+
         constructor() {
             super("delegate failure");
             this.ctx = {};

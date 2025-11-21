@@ -14,15 +14,37 @@ if (typeof ErrorListener !== "function") {
     throw new Error("ANTLR ErrorListener is not available");
 }
 
+interface GameMakerSyntaxErrorOptions {
+    message: string;
+    line?: number | null;
+    column?: number | null;
+    wrongSymbol?: string | null;
+    offendingText?: string | null;
+    rule?: string | null;
+}
+
 export class GameMakerSyntaxError extends Error {
-    constructor({ message, line, column, wrongSymbol, rule, offendingText }) {
+    public line?: number;
+    public column?: number;
+    public wrongSymbol?: string;
+    public offendingText?: string;
+    public rule?: string;
+
+    constructor({
+        message,
+        line,
+        column,
+        wrongSymbol,
+        rule,
+        offendingText
+    }: GameMakerSyntaxErrorOptions) {
         super(message);
         this.name = "GameMakerSyntaxError";
-        if (Number.isFinite(line)) {
-            this.line = line;
+        if (Number.isFinite(line ?? NaN)) {
+            this.line = Number(line);
         }
-        if (Number.isFinite(column)) {
-            this.column = column;
+        if (Number.isFinite(column ?? NaN)) {
+            this.column = Number(column);
         }
         if (typeof wrongSymbol === "string") {
             this.wrongSymbol = wrongSymbol;
@@ -114,6 +136,15 @@ class SyntaxErrorFormatter {
     }
 }
 
+interface GameMakerParseErrorListenerOptions {
+    formatter?: SyntaxErrorFormatter;
+    contextAnalyzer?: ParserContextAnalyzer;
+}
+
+interface GameMakerLexerErrorListenerOptions {
+    formatter?: SyntaxErrorFormatter;
+}
+
 class ParserContextAnalyzer {
     resolveOpenBlockStartToken(parser) {
         const currentContext = parser?._ctx;
@@ -188,10 +219,13 @@ class ParserContextAnalyzer {
 }
 
 export default class GameMakerParseErrorListener extends ErrorListener {
+    public formatter: SyntaxErrorFormatter;
+    public contextAnalyzer: ParserContextAnalyzer;
+
     constructor({
         formatter = new SyntaxErrorFormatter(),
         contextAnalyzer = new ParserContextAnalyzer()
-    } = {}) {
+    }: GameMakerParseErrorListenerOptions = {}) {
         super();
         this.formatter = formatter;
         this.contextAnalyzer = contextAnalyzer;
@@ -249,7 +283,11 @@ export default class GameMakerParseErrorListener extends ErrorListener {
 }
 
 export class GameMakerLexerErrorListener extends ErrorListener {
-    constructor({ formatter = new SyntaxErrorFormatter() } = {}) {
+    public formatter: SyntaxErrorFormatter;
+
+    constructor({
+        formatter = new SyntaxErrorFormatter()
+    }: GameMakerLexerErrorListenerOptions = {}) {
         super();
         this.formatter = formatter;
     }

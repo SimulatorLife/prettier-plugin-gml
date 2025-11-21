@@ -1,4 +1,9 @@
 import { GameMakerLanguageParserVisitorBase } from "../generated-bindings.js";
+import type {
+    ParserContext,
+    VisitorOptions,
+    VisitorPayload
+} from "../types/index.js";
 import {
     collectPrototypeMethodNames,
     collectVisitMethodNames,
@@ -7,7 +12,9 @@ import {
     ensureHasInstancePatched
 } from "./parse-tree-helpers.js";
 
-const DEFAULT_VISIT_CHILDREN_DELEGATE = ({ fallback }) => fallback();
+const DEFAULT_VISIT_CHILDREN_DELEGATE = ({
+    fallback
+}: VisitorPayload) => fallback();
 
 const PARSE_TREE_VISITOR_PROTOTYPE = Object.getPrototypeOf(
     GameMakerLanguageParserVisitorBase.prototype
@@ -39,9 +46,9 @@ ensureHasInstancePatched(GameMakerLanguageParserVisitorBase, {
 });
 
 export default class GameMakerLanguageParserVisitor {
-    #visitChildrenDelegate;
+    #visitChildrenDelegate: (payload: VisitorPayload) => unknown;
 
-    constructor(options = {}) {
+    constructor(options: VisitorOptions = {}) {
         const delegate = options?.visitChildrenDelegate;
         this.#visitChildrenDelegate =
             typeof delegate === "function"
@@ -50,7 +57,7 @@ export default class GameMakerLanguageParserVisitor {
         this[WRAPPER_INSTANCE_MARKER] = true;
     }
 
-    _visitUsingDelegate(methodName, ctx) {
+    _visitUsingDelegate(methodName: string, ctx: ParserContext) {
         return this.#visitChildrenDelegate({
             methodName,
             ctx,

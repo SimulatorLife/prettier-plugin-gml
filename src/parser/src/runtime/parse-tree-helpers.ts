@@ -1,9 +1,5 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: { noop }
-} = Core;
-
 const DEFAULT_FUNCTION_NAME = "parser";
 
 function toQualifiedSymbolKey(name, suffix) {
@@ -125,6 +121,6 @@ export function deriveListenerMethodNames(visitMethodNames) {
     return listenerNames;
 }
 
-export function toDelegate(value, fallback = noop) {
+export function toDelegate(value, fallback = Core.Utils.noop) {
     return typeof value === "function" ? value : fallback;
 }

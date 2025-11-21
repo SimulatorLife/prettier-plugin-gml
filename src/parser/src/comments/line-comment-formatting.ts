@@ -6,7 +6,6 @@ import {
     normalizeLineCommentOptions
 } from "./line-comment-options.js";
 import { isObjectLike } from "./comment-boundary.js";
-
 import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
 
 const {
