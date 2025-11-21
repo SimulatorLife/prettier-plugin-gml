@@ -29,8 +29,7 @@ import {
 } from "../modules/runtime/source.js";
 import {
     startRuntimeStaticServer,
-    type RuntimeServerController,
-    type RuntimeStaticServerOptions
+    type RuntimeServerController
 } from "../modules/runtime/server.js";
 import {
     startPatchWebSocketServer,
@@ -51,7 +50,6 @@ interface WatchTranspiler {
         symbolId: string;
     }): Promise<TranspilerPatch>;
 }
-
 
 type RuntimeDescriptorFormatter = (source: RuntimeSourceDescriptor) => string;
 

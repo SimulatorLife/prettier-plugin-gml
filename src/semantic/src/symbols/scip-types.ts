@@ -1,7 +1,3 @@
-// Minimal JS version of the TypeScript `scip-types.ts` used by the
-// `src/semantic/index.js` barrel. The original is authored in TypeScript; a
-// tiny JS shim is provided during the migration so runtime imports succeed.
-
 // Range tuple: [startLine, startCol, endLine, endCol]
 export const ROLE_DEF = 1;
 export const ROLE_REF = 0;

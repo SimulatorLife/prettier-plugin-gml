@@ -4,8 +4,7 @@ import {
     getErrorCode,
     getErrorMessage,
     getObjectTagName,
-    isAggregateErrorLike,
-    isErrorLike
+    isAggregateErrorLike
 } from "../shared/dependencies.js";
 import { asErrorLike } from "../shared/error-guards.js";
 
@@ -179,7 +178,7 @@ function formatErrorObject(
 
     seen.add(error);
 
-    const errored = error as ErrorWithMetadata;
+    const errored = error;
     const isUsageError = isCliUsageError(error);
     const stack =
         !isUsageError && typeof errored.stack === "string"
@@ -232,7 +231,7 @@ function formatErrorValue(value: unknown, seen: Set<unknown>): string {
     }
 
     if (value && typeof value === "object") {
-        return formatPlainObject(value as object, seen);
+        return formatPlainObject(value, seen);
     }
 
     return String(value);

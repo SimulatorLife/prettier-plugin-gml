@@ -40,7 +40,6 @@ import {
 import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "../plugin-runtime-dependencies.js";
 import {
     PerformanceSuiteName,
-    type PerformanceSuite,
     formatPerformanceSuiteList,
     isPerformanceThroughputSuite,
     normalizePerformanceSuiteName
@@ -439,7 +438,9 @@ function resolveGmlParser() {
             const parserModule = resolveModuleDefaultExport(module);
             if (parserModule && typeof parserModule === "object") {
                 const parserNamespace =
-                    "Parser" in parserModule ? parserModule.Parser : parserModule;
+                    "Parser" in parserModule
+                        ? parserModule.Parser
+                        : parserModule;
                 if (parserNamespace && typeof parserNamespace === "object") {
                     return parserNamespace.GMLParser ?? parserNamespace;
                 }
@@ -767,9 +768,7 @@ async function writeReport(
         reportFile?: string | null;
         pretty?: boolean;
     },
-    {
-        pathFilter
-    }: { pathFilter?: ReturnType<typeof createPathFilter> } = {}
+    { pathFilter }: { pathFilter?: ReturnType<typeof createPathFilter> } = {}
 ) {
     if (options.skipReport) {
         return { skipped: true };

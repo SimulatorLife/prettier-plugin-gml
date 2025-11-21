@@ -100,7 +100,7 @@ export function collectFormatCommandOptions(
     const options = (command?.opts?.() ?? {}) as CommandOptionsRecord;
     const args = Array.isArray(command?.args) ? [...command.args] : [];
     const positionalTarget = args.length > 0 ? args[0] : null;
-    const rawTarget = (options.path as unknown) ?? positionalTarget ?? null;
+    const rawTarget = options.path ?? positionalTarget ?? null;
 
     let targetPathInput: unknown = null;
     let targetPathProvided = false;

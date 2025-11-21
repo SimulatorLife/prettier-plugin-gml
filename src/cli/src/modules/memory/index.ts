@@ -150,7 +150,7 @@ interface ResolveMemoryReportDirectoryOptions {
 }
 
 function resolveMemoryReportDirectory(
-    value: string | null | undefined = undefined,
+    value?: string | null,
     { defaultValue }: ResolveMemoryReportDirectoryOptions = {}
 ) {
     const fallback = normalizeMemoryReportDirectory(
@@ -1037,7 +1037,11 @@ AVAILABLE_SUITES.set(MemorySuiteName.PLUGIN_FORMAT, runPluginFormatSuite);
 function formatSuiteError(error: unknown) {
     const errorLike =
         error && typeof error === "object"
-            ? (error as { name?: unknown; stack?: unknown; constructor?: { name?: unknown } })
+            ? (error as {
+                  name?: unknown;
+                  stack?: unknown;
+                  constructor?: { name?: unknown };
+              })
             : null;
     const name =
         typeof errorLike?.name === "string"

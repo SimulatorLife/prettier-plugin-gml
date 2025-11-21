@@ -54,7 +54,7 @@ describe("Hot reload integration loop", () => {
             websocketClient = new WebSocket("ws://127.0.0.1:17891");
 
             websocketClient.on("open", () => {
-                resolve(undefined);
+                resolve();
             });
 
             websocketClient.on("error", (error) => {

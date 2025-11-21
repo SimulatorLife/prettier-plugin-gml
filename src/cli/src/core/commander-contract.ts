@@ -99,8 +99,7 @@ function createProgramParseDelegate(
     program: CommanderProgramLike
 ): CommanderParse | null {
     if (typeof program.parseAsync === "function") {
-        return (argv, options) =>
-            program.parseAsync?.(argv, options) as Promise<unknown>;
+        return (argv, options) => program.parseAsync?.(argv, options);
     }
 
     if (typeof program.parse === "function") {
@@ -172,11 +171,7 @@ export function createCommanderCommandContract(
                 throw new TypeError(`${name} does not expose action()`);
             }
 
-            return (
-                normalizedCommand.action?.(
-                    handler as CommanderActionHandler
-                ) ?? normalizedCommand
-            );
+            return normalizedCommand.action?.(handler) ?? normalizedCommand;
         },
         getUsage() {
             return normalizeUsageResult(usageReader?.());

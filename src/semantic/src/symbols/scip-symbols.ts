@@ -1,7 +1,3 @@
-// Minimal JavaScript runtime for SCIP symbol helpers. The original source is
-// authored in TypeScript (`scip-symbols.ts`). Provide a tiny JS implementation
-// that mirrors the exported surface so runtime consumers can import it.
-
 /**
  * @typedef {"script"|"event"|"object"|"macro"|"enum"|"var"} GmlSymbolKind
  */

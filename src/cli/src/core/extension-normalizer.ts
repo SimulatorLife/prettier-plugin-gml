@@ -91,13 +91,13 @@ export function normalizeExtensions(
     const filteredValues = compactArray(coercedValues).filter(
         (value): value is string => typeof value === "string"
     );
-    const normalized = uniqueArray(filteredValues, { freeze: false }) as Array<
-        string
-    >;
+    const normalized = uniqueArray(filteredValues, {
+        freeze: false
+    }) as Array<string>;
 
     return normalized.length > 0
         ? [...normalized]
-        : [...fallbackExtensions.map((value) => String(value))];
+        : fallbackExtensions.map(String);
 }
 
 export { EXTENSION_LIST_SPLIT_PATTERN };

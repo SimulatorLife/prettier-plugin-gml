@@ -1,8 +1,3 @@
-// Minimal runtime stub for the SemOracle surface so imports that expect
-// a runtime module exist. The authoritative shape lives elsewhere during the
-// migration; this shim provides safe defaults so test runs fail later in a
-// more actionable place rather than an early module-not-found.
-
 export function kindOfIdent() {
     return "local"; // sensible default
 }

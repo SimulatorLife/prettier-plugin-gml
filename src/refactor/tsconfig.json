@@ -9,7 +9,6 @@
       "@gml-modules/core": ["../core/index.ts"],
       "@gml-modules/parser": ["../parser/index.ts"],
       "@gml-modules/semantic": ["../semantic/index.ts"],
-      "@gml-modules/plugin": ["../plugin/index.ts"],
       "@gml-modules/refactor": ["./index.ts"]
     }
   },

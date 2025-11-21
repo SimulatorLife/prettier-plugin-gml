@@ -52,7 +52,7 @@ function createSampleLimitOption({
     });
 
     function resolve(
-        rawValue: unknown = undefined,
+        rawValue?: unknown,
         options: { defaultLimit?: number; defaultValue?: number } = {}
     ) {
         const defaultLimit = options.defaultLimit ?? options.defaultValue;

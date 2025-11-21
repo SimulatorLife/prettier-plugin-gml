@@ -64,7 +64,7 @@ export function createIntegerOptionToolkit({
     });
 
     function resolve(
-        rawValue: unknown = undefined,
+        rawValue?: unknown,
         options: Record<string, unknown> & { defaultValue?: number } = {}
     ) {
         let opts = options;

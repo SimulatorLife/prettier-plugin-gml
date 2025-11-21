@@ -5,11 +5,7 @@
   "types": "./dist/index.d.ts",
   "type": "module",
   "exports": {
-    ".": "./dist/index.js",
-    "./gml-parser.js": "./dist/gml-parser.js",
-    "./generated/*": "./dist/generated/*",
-    "./src/*": "./dist/src/*",
-    "./utils/recognition-exception.js": "./dist/src/utils/recognition-exception.js"
+    ".": "./dist/index.js"
   },
   "files": [
     "dist"

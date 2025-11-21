@@ -1,1 +1,1 @@
-export { Semantic } from "./src/semantic-namespace.js";
+export * as Semantic from "./src/index.js";

@@ -4,7 +4,13 @@
     "rootDir": ".",
     "outDir": "./dist",
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
-    "baseUrl": "."
+    "baseUrl": ".",
+    "paths": {
+      "@gml-modules/semantic": ["./index.ts"],
+      "@gml-modules/core": ["../core/dist/index.d.ts"],
+      "@gml-modules/parser": ["../parser/dist/index.d.ts"],
+      "@gml-modules/plugin": ["../plugin/dist/index.d.ts"]
+    }
   },
   "include": ["*.ts", "src/**/*.ts", "test/**/*.ts"],
   "exclude": ["dist"]

@@ -677,27 +677,23 @@ async function cleanupRevertSnapshotDirectory() {
 }
 
 async function releaseSnapshot(snapshot) {
-    await withObjectLike(
-        snapshot,
-        async (snapshotObject) => {
-            const { snapshotPath } = snapshotObject;
-            if (!snapshotPath) {
-                return;
-            }
+    await withObjectLike(snapshot, async (snapshotObject) => {
+        const { snapshotPath } = snapshotObject;
+        if (!snapshotPath) {
+            return;
+        }
 
-            try {
-                await rm(snapshotPath, { force: true });
-            } catch {
-                // Ignore individual file cleanup failures to avoid masking the
-                // original error that triggered the revert.
-            } finally {
-                if (revertSnapshotFileCount > 0) {
-                    revertSnapshotFileCount -= 1;
-                }
+        try {
+            await rm(snapshotPath, { force: true });
+        } catch {
+            // Ignore individual file cleanup failures to avoid masking the
+            // original error that triggered the revert.
+        } finally {
+            if (revertSnapshotFileCount > 0) {
+                revertSnapshotFileCount -= 1;
             }
-        },
-        undefined
-    );
+        }
+    });
 }
 
 async function discardFormattedFileOriginalContents() {
