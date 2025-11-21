@@ -5,6 +5,14 @@ import {
     WorkspaceEdit,
     createRefactorEngine
 } from "../src/index.js";
+import type {
+    HotReloadUpdate,
+    ParserBridge,
+    RenameRequest,
+    SemanticAnalyzer,
+    WorkspaceReadFile,
+    WorkspaceWriteFile
+} from "../src/index.js";
 
 test("createRefactorEngine returns a RefactorEngine", () => {
     const engine = createRefactorEngine();
@@ -12,8 +20,10 @@ test("createRefactorEngine returns a RefactorEngine", () => {
 });
 
 test("createRefactorEngine accepts dependencies", () => {
-    const mockParser = { parse: () => {} };
-    const mockSemantic = { analyze: () => {} };
+    const mockParser: ParserBridge = {
+        parse: async () => ({ start: 0, end: 0, type: "root" })
+    };
+    const mockSemantic: SemanticAnalyzer = {};
     const engine = createRefactorEngine({
         parser: mockParser,
         semantic: mockSemantic
@@ -64,16 +74,25 @@ test("WorkspaceEdit sorts edits descending by start position", () => {
 
 test("planRename validates missing symbolId", async () => {
     const engine = new RefactorEngine();
-    await assert.rejects(() => engine.planRename({ newName: "bar" }), {
-        name: "TypeError",
-        message: "planRename requires symbolId and newName"
-    });
+    await assert.rejects(
+        () =>
+            engine.planRename({
+                newName: "bar"
+            } as unknown as RenameRequest),
+        {
+            name: "TypeError",
+            message: "planRename requires symbolId and newName"
+        }
+    );
 });
 
 test("planRename validates missing newName", async () => {
     const engine = new RefactorEngine();
     await assert.rejects(
-        () => engine.planRename({ symbolId: "gml/script/foo" }),
+        () =>
+            engine.planRename({
+                symbolId: "gml/script/foo"
+            } as unknown as RenameRequest),
         {
             name: "TypeError",
             message: "planRename requires symbolId and newName"
@@ -84,7 +103,10 @@ test("planRename validates missing newName", async () => {
 test("planRename validates symbolId type", async () => {
     const engine = new RefactorEngine();
     await assert.rejects(
-        () => engine.planRename({ symbolId: 123, newName: "bar" }),
+        () =>
+            engine.planRename(
+                { symbolId: 123, newName: "bar" } as unknown as RenameRequest
+            ),
         {
             name: "TypeError",
             message: /symbolId must be a string/
@@ -95,7 +117,13 @@ test("planRename validates symbolId type", async () => {
 test("planRename validates newName type", async () => {
     const engine = new RefactorEngine();
     await assert.rejects(
-        () => engine.planRename({ symbolId: "gml/script/foo", newName: 456 }),
+        () =>
+            engine.planRename(
+                {
+                    symbolId: "gml/script/foo",
+                    newName: 456
+                } as unknown as RenameRequest
+            ),
         {
             name: "TypeError",
             message: /Identifier names must be strings/
@@ -362,7 +390,10 @@ test("findSymbolAtLocation uses semantic analyzer when available", async () => {
 test("applyWorkspaceEdit requires a WorkspaceEdit", async () => {
     const engine = new RefactorEngine();
     await assert.rejects(
-        () => engine.applyWorkspaceEdit(null, { readFile: () => {} }),
+        () =>
+            engine.applyWorkspaceEdit(null as unknown as WorkspaceEdit, {
+                readFile: async () => ""
+            }),
         {
             name: "TypeError",
             message: /requires a WorkspaceEdit/
@@ -373,7 +404,10 @@ test("applyWorkspaceEdit requires a WorkspaceEdit", async () => {
 test("applyWorkspaceEdit requires readFile function", async () => {
     const engine = new RefactorEngine();
     const ws = new WorkspaceEdit();
-    await assert.rejects(() => engine.applyWorkspaceEdit(ws, {}), {
+    type ApplyWorkspaceEditParams =
+        Parameters<RefactorEngine["applyWorkspaceEdit"]>[1];
+    const invalidOptions = {} as ApplyWorkspaceEditParams;
+    await assert.rejects(() => engine.applyWorkspaceEdit(ws, invalidOptions), {
         name: "TypeError",
         message: /requires a readFile function/
     });
@@ -386,7 +420,7 @@ test("applyWorkspaceEdit requires writeFile when not in dry-run", async () => {
     await assert.rejects(
         () =>
             engine.applyWorkspaceEdit(ws, {
-                readFile: () => "old text",
+                readFile: async () => "old text",
                 dryRun: false
             }),
         {
@@ -402,8 +436,8 @@ test("applyWorkspaceEdit applies edits correctly", async () => {
     ws.addEdit("test.gml", 0, 3, "new");
     ws.addEdit("test.gml", 9, 13, "world");
 
-    const readFile = async () => "old text here";
-    const writeFile = async () => {};
+    const readFile: WorkspaceReadFile = async () => "old text here";
+    const writeFile: WorkspaceWriteFile = async () => {};
 
     const results = await engine.applyWorkspaceEdit(ws, {
         readFile,
@@ -426,7 +460,7 @@ test("applyWorkspaceEdit handles multiple files", async () => {
         "file2.gml": "old content"
     };
 
-    const readFile = async (path) => files[path];
+    const readFile: WorkspaceReadFile = async (path) => files[path];
     const results = await engine.applyWorkspaceEdit(ws, {
         readFile,
         dryRun: true
@@ -443,7 +477,7 @@ test("applyWorkspaceEdit rejects invalid edits", async () => {
     ws.addEdit("test.gml", 0, 10, "new");
     ws.addEdit("test.gml", 5, 15, "conflict"); // Overlapping edit
 
-    const readFile = async () => "some text here";
+    const readFile: WorkspaceReadFile = async () => "some text here";
 
     await assert.rejects(
         () => engine.applyWorkspaceEdit(ws, { readFile, dryRun: true }),
@@ -455,14 +489,16 @@ test("applyWorkspaceEdit rejects invalid edits", async () => {
 
 test("executeRename validates required parameters", async () => {
     const engine = new RefactorEngine();
-    await assert.rejects(() => engine.executeRename({}), {
+    type ExecuteRenameArgs = Parameters<RefactorEngine["executeRename"]>[0];
+    const invalidRequest = {} as ExecuteRenameArgs;
+    await assert.rejects(() => engine.executeRename(invalidRequest), {
         name: "TypeError",
         message: /requires symbolId and newName/
     });
 });
 
 test("executeRename performs complete rename workflow", async () => {
-    const mockSemantic = {
+    const mockSemantic: SemanticAnalyzer = {
         hasSymbol: () => true,
         getSymbolOccurrences: () => [
             { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" },
@@ -472,8 +508,8 @@ test("executeRename performs complete rename workflow", async () => {
     const engine = new RefactorEngine({ semantic: mockSemantic });
 
     const files = { "test.gml": "scr_a some code scr_a" };
-    const readFile = async (path) => files[path];
-    const writeFile = async (path, content) => {
+    const readFile: WorkspaceReadFile = async (path) => files[path];
+    const writeFile: WorkspaceWriteFile = async (path, content) => {
         files[path] = content;
     };
 
@@ -491,7 +527,7 @@ test("executeRename performs complete rename workflow", async () => {
 });
 
 test("executeRename prepares hot reload updates when requested", async () => {
-    const mockSemantic = {
+    const mockSemantic: SemanticAnalyzer = {
         hasSymbol: () => true,
         getSymbolOccurrences: () => [
             { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }
@@ -500,8 +536,8 @@ test("executeRename prepares hot reload updates when requested", async () => {
     };
     const engine = new RefactorEngine({ semantic: mockSemantic });
 
-    const readFile = async () => "scr_a";
-    const writeFile = async () => {};
+    const readFile: WorkspaceReadFile = async () => "scr_a";
+    const writeFile: WorkspaceWriteFile = async () => {};
 
     const result = await engine.executeRename({
         symbolId: "gml/script/scr_a",
@@ -539,7 +575,9 @@ test("prepareRenamePlan aggregates planning, validation, and analysis", async ()
             errors: [],
             warnings: ["semantic warning"]
         }),
-        getDependents: async () => [{ symbolId: "gml/script/scr_helper" }]
+        getDependents: async () => [
+            { symbolId: "gml/script/scr_helper", filePath: "scripts/helper.gml" }
+        ]
     };
 
     const engine = new RefactorEngine({ semantic: mockSemantic });
@@ -606,7 +644,11 @@ test("prepareRenamePlan optionally validates hot reload compatibility", async ()
 test("generateTranspilerPatches requires array parameter", async () => {
     const engine = new RefactorEngine();
     await assert.rejects(
-        () => engine.generateTranspilerPatches(null, () => {}),
+        () =>
+            engine.generateTranspilerPatches(
+                null as unknown as Array<HotReloadUpdate>,
+                async () => ""
+            ),
         {
             name: "TypeError",
             message: /requires an array/
@@ -616,23 +658,29 @@ test("generateTranspilerPatches requires array parameter", async () => {
 
 test("generateTranspilerPatches requires readFile function", async () => {
     const engine = new RefactorEngine();
-    await assert.rejects(() => engine.generateTranspilerPatches([], null), {
-        name: "TypeError",
-        message: /requires a readFile function/
-    });
+    await assert.rejects(
+        () =>
+            engine.generateTranspilerPatches([], null as unknown as never),
+        {
+            name: "TypeError",
+            message: /requires a readFile function/
+        }
+    );
 });
 
 test("generateTranspilerPatches creates basic patches without transpiler", async () => {
     const engine = new RefactorEngine();
-    const updates = [
+    const updates: Array<HotReloadUpdate> = [
         {
             symbolId: "gml/script/scr_test",
             action: "recompile",
-            filePath: "test.gml"
+            filePath: "test.gml",
+            affectedRanges: []
         }
     ];
 
-    const readFile = async () => "function test() { return 42; }";
+    const readFile: WorkspaceReadFile = async () =>
+        "function test() { return 42; }";
     const patches = await engine.generateTranspilerPatches(updates, readFile);
 
     assert.equal(patches.length, 1);
@@ -644,15 +692,16 @@ test("generateTranspilerPatches creates basic patches without transpiler", async
 
 test("generateTranspilerPatches skips non-recompile actions", async () => {
     const engine = new RefactorEngine();
-    const updates = [
+    const updates: Array<HotReloadUpdate> = [
         {
             symbolId: "gml/script/scr_test",
             action: "notify",
-            filePath: "test.gml"
+            filePath: "test.gml",
+            affectedRanges: []
         }
     ];
 
-    const readFile = async () => "function test() {}";
+    const readFile: WorkspaceReadFile = async () => "function test() {}";
     const patches = await engine.generateTranspilerPatches(updates, readFile);
 
     assert.equal(patches.length, 0);
@@ -670,15 +719,17 @@ test("generateTranspilerPatches uses transpiler when available", async () => {
     };
     const engine = new RefactorEngine({ formatter: mockTranspiler });
 
-    const updates = [
+    const updates: Array<HotReloadUpdate> = [
         {
             symbolId: "gml/script/scr_test",
             action: "recompile",
-            filePath: "test.gml"
+            filePath: "test.gml",
+            affectedRanges: []
         }
     ];
 
-    const readFile = async () => "function test() { return 42; }";
+    const readFile: WorkspaceReadFile = async () =>
+        "function test() { return 42; }";
     const patches = await engine.generateTranspilerPatches(updates, readFile);
 
     assert.equal(patches.length, 1);
@@ -696,20 +747,22 @@ test("generateTranspilerPatches continues on individual errors", async () => {
     };
     const engine = new RefactorEngine({ formatter: mockTranspiler });
 
-    const updates = [
+    const updates: Array<HotReloadUpdate> = [
         {
             symbolId: "gml/script/scr_fail",
             action: "recompile",
-            filePath: "fail.gml"
+            filePath: "fail.gml",
+            affectedRanges: []
         },
         {
             symbolId: "gml/script/scr_ok",
             action: "recompile",
-            filePath: "ok.gml"
+            filePath: "ok.gml",
+            affectedRanges: []
         }
     ];
 
-    const readFile = async () => "function test() {}";
+    const readFile: WorkspaceReadFile = async () => "function test() {}";
     const patches = await engine.generateTranspilerPatches(updates, readFile);
 
     // Should have one successful patch despite one failure
@@ -720,10 +773,16 @@ test("generateTranspilerPatches continues on individual errors", async () => {
 // Batch rename tests
 test("planBatchRename requires an array", async () => {
     const engine = new RefactorEngine();
-    await assert.rejects(() => engine.planBatchRename(null), {
-        name: "TypeError",
-        message: /requires an array/
-    });
+    await assert.rejects(
+        () =>
+            engine.planBatchRename(
+                null as unknown as Array<RenameRequest>
+            ),
+        {
+            name: "TypeError",
+            message: /requires an array/
+        }
+    );
 });
 
 test("planBatchRename requires at least one rename", async () => {
@@ -736,7 +795,10 @@ test("planBatchRename requires at least one rename", async () => {
 test("planBatchRename validates each rename request", async () => {
     const engine = new RefactorEngine();
     await assert.rejects(
-        () => engine.planBatchRename([{ symbolId: "gml/script/foo" }]),
+        () =>
+            engine.planBatchRename(
+                [{ symbolId: "gml/script/foo" }] as unknown as Array<RenameRequest>
+            ),
         {
             name: "TypeError",
             message: /requires symbolId and newName/
@@ -827,7 +889,10 @@ test("planBatchRename validates merged edits for overlaps", async () => {
 
 test("executeBatchRename validates required parameters", async () => {
     const engine = new RefactorEngine();
-    await assert.rejects(() => engine.executeBatchRename({}), {
+    type ExecuteBatchRenameArgs =
+        Parameters<RefactorEngine["executeBatchRename"]>[0];
+    const invalidRequest = {} as ExecuteBatchRenameArgs;
+    await assert.rejects(() => engine.executeBatchRename(invalidRequest), {
         name: "TypeError",
         message: /requires renames array/
     });
@@ -853,8 +918,8 @@ test("executeBatchRename performs complete batch rename workflow", async () => {
     const engine = new RefactorEngine({ semantic: mockSemantic });
 
     const files = { "test.gml": "scr_a some code scr_b" };
-    const readFile = async (path) => files[path];
-    const writeFile = async (path, content) => {
+    const readFile: WorkspaceReadFile = async (path) => files[path];
+    const writeFile: WorkspaceWriteFile = async (path, content) => {
         files[path] = content;
     };
 
@@ -888,8 +953,8 @@ test("executeBatchRename prepares hot reload when requested", async () => {
     };
     const engine = new RefactorEngine({ semantic: mockSemantic });
 
-    const readFile = async () => "scr_a";
-    const writeFile = async () => {};
+    const readFile: WorkspaceReadFile = async () => "scr_a";
+    const writeFile: WorkspaceWriteFile = async () => {};
 
     const result = await engine.executeBatchRename({
         renames: [{ symbolId: "gml/script/scr_a", newName: "scr_x" }],
@@ -907,7 +972,10 @@ test("executeBatchRename prepares hot reload when requested", async () => {
 test("analyzeRenameImpact requires symbolId and newName", async () => {
     const engine = new RefactorEngine();
     await assert.rejects(
-        () => engine.analyzeRenameImpact({ symbolId: "gml/script/foo" }),
+        () =>
+            engine.analyzeRenameImpact(
+                { symbolId: "gml/script/foo" } as unknown as RenameRequest
+            ),
         {
             name: "TypeError",
             message: /requires symbolId and newName/
@@ -1031,8 +1099,14 @@ test("analyzeRenameImpact tracks dependent symbols", async () => {
             { path: "test.gml", start: 0, end: 10, scopeId: "scope-1" }
         ],
         getDependents: async () => [
-            { symbolId: "gml/script/scr_dependent1" },
-            { symbolId: "gml/script/scr_dependent2" }
+            {
+                symbolId: "gml/script/scr_dependent1",
+                filePath: "deps/dependent1.gml"
+            },
+            {
+                symbolId: "gml/script/scr_dependent2",
+                filePath: "deps/dependent2.gml"
+            }
         ]
     };
     const engine = new RefactorEngine({ semantic: mockSemantic });
@@ -1200,8 +1274,14 @@ test("computeHotReloadCascade computes single-level dependencies", async () => {
         getDependents: async (symbolIds) => {
             if (symbolIds[0] === "gml/script/scr_base") {
                 return [
-                    { symbolId: "gml/script/scr_dep1" },
-                    { symbolId: "gml/script/scr_dep2" }
+                    {
+                        symbolId: "gml/script/scr_dep1",
+                        filePath: "deps/dep1.gml"
+                    },
+                    {
+                        symbolId: "gml/script/scr_dep2",
+                        filePath: "deps/dep2.gml"
+                    }
                 ];
             }
             return [];
@@ -1229,12 +1309,23 @@ test("computeHotReloadCascade computes multi-level transitive closure", async ()
         getDependents: async (symbolIds) => {
             const id = symbolIds[0];
             if (id === "gml/script/scr_root") {
-                return [{ symbolId: "gml/script/scr_middle" }];
+                return [
+                    {
+                        symbolId: "gml/script/scr_middle",
+                        filePath: "deps/middle.gml"
+                    }
+                ];
             }
             if (id === "gml/script/scr_middle") {
                 return [
-                    { symbolId: "gml/script/scr_leaf1" },
-                    { symbolId: "gml/script/scr_leaf2" }
+                    {
+                        symbolId: "gml/script/scr_leaf1",
+                        filePath: "deps/leaf1.gml"
+                    },
+                    {
+                        symbolId: "gml/script/scr_leaf2",
+                        filePath: "deps/leaf2.gml"
+                    }
                 ];
             }
             return [];
@@ -1274,10 +1365,20 @@ test("computeHotReloadCascade orders symbols in dependency order", async () => {
         getDependents: async (symbolIds) => {
             const id = symbolIds[0];
             if (id === "gml/script/scr_a") {
-                return [{ symbolId: "gml/script/scr_b" }];
+                return [
+                    {
+                        symbolId: "gml/script/scr_b",
+                        filePath: "deps/b.gml"
+                    }
+                ];
             }
             if (id === "gml/script/scr_b") {
-                return [{ symbolId: "gml/script/scr_c" }];
+                return [
+                    {
+                        symbolId: "gml/script/scr_c",
+                        filePath: "deps/c.gml"
+                    }
+                ];
             }
             return [];
         }
@@ -1305,10 +1406,20 @@ test("computeHotReloadCascade handles multiple changed symbols", async () => {
         getDependents: async (symbolIds) => {
             const id = symbolIds[0];
             if (id === "gml/script/scr_a") {
-                return [{ symbolId: "gml/script/scr_shared" }];
+                return [
+                    {
+                        symbolId: "gml/script/scr_shared",
+                        filePath: "deps/shared.gml"
+                    }
+                ];
             }
             if (id === "gml/script/scr_b") {
-                return [{ symbolId: "gml/script/scr_shared" }];
+                return [
+                    {
+                        symbolId: "gml/script/scr_shared",
+                        filePath: "deps/shared.gml"
+                    }
+                ];
             }
             return [];
         }
@@ -1341,13 +1452,28 @@ test("computeHotReloadCascade detects circular dependencies", async () => {
             const id = symbolIds[0];
             // Create a cycle: a -> b -> c -> a
             if (id === "gml/script/scr_a") {
-                return [{ symbolId: "gml/script/scr_b" }];
+                return [
+                    {
+                        symbolId: "gml/script/scr_b",
+                        filePath: "deps/b.gml"
+                    }
+                ];
             }
             if (id === "gml/script/scr_b") {
-                return [{ symbolId: "gml/script/scr_c" }];
+                return [
+                    {
+                        symbolId: "gml/script/scr_c",
+                        filePath: "deps/c.gml"
+                    }
+                ];
             }
             if (id === "gml/script/scr_c") {
-                return [{ symbolId: "gml/script/scr_a" }];
+                return [
+                    {
+                        symbolId: "gml/script/scr_a",
+                        filePath: "deps/a.gml"
+                    }
+                ];
             }
             return [];
         }
@@ -1373,12 +1499,23 @@ test("computeHotReloadCascade handles diamond dependencies", async () => {
             // Diamond: root -> left + right, left -> bottom, right -> bottom
             if (id === "gml/script/scr_root") {
                 return [
-                    { symbolId: "gml/script/scr_left" },
-                    { symbolId: "gml/script/scr_right" }
+                    {
+                        symbolId: "gml/script/scr_left",
+                        filePath: "deps/left.gml"
+                    },
+                    {
+                        symbolId: "gml/script/scr_right",
+                        filePath: "deps/right.gml"
+                    }
                 ];
             }
             if (id === "gml/script/scr_left" || id === "gml/script/scr_right") {
-                return [{ symbolId: "gml/script/scr_bottom" }];
+                return [
+                    {
+                        symbolId: "gml/script/scr_bottom",
+                        filePath: "deps/bottom.gml"
+                    }
+                ];
             }
             return [];
         }
@@ -1414,7 +1551,12 @@ test("computeHotReloadCascade provides reason metadata", async () => {
     const mockSemantic = {
         getDependents: async (symbolIds) => {
             if (symbolIds[0] === "gml/script/scr_base") {
-                return [{ symbolId: "gml/script/scr_dep" }];
+                return [
+                    {
+                        symbolId: "gml/script/scr_dep",
+                        filePath: "deps/dep.gml"
+                    }
+                ];
             }
             return [];
         }

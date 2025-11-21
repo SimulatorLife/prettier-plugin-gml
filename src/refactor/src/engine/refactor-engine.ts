@@ -1,8 +1,6 @@
 import { WorkspaceEdit } from "./workspace-edit.js";
 import type { GroupedTextEdits } from "./workspace-edit.js";
 
-const IDENTIFIER_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
-
 type MaybePromise<T> = T | Promise<T>;
 
 type Range = { start: number; end: number };
@@ -147,6 +145,31 @@ interface ExecuteRenameResult {
     workspace: WorkspaceEdit;
     applied: Map<string, string>;
     hotReloadUpdates: Array<HotReloadUpdate>;
+}
+
+interface TranspilerPatch {
+    symbolId: string;
+    patch: Record<string, unknown>;
+    filePath: string;
+}
+
+interface CascadeEntry {
+    symbolId: string;
+    distance: number;
+    reason: string;
+}
+
+interface HotReloadCascadeMetadata {
+    totalSymbols: number;
+    maxDistance: number;
+    hasCircular: boolean;
+}
+
+interface HotReloadCascadeResult {
+    cascade: Array<CascadeEntry>;
+    order: Array<string>;
+    circular: Array<Array<string>>;
+    metadata: HotReloadCascadeMetadata;
 }
 
 interface ConflictEntry {
@@ -444,7 +467,8 @@ export class RefactorEngine {
         );
 
         if (semantic && typeof semantic.getReservedKeywords === "function") {
-            const semanticReserved = await semantic.getReservedKeywords();
+            const semanticReserved =
+                (await semantic.getReservedKeywords()) ?? [];
             reservedKeywords = new Set([
                 ...reservedKeywords,
                 ...semanticReserved.map((keyword) => keyword.toLowerCase())
@@ -500,7 +524,7 @@ export class RefactorEngine {
         // Extract the symbol's base name from its fully-qualified ID by taking the
         // last path component. For example, "gml/script/scr_foo" becomes "scr_foo",
         // which we use to search for all occurrences in the codebase.
-        const symbolName = symbolId.split("/").pop();
+        const symbolName = symbolId.split("/").pop() ?? symbolId;
 
         if (symbolName === normalizedNewName) {
             throw new Error(
@@ -734,7 +758,7 @@ export class RefactorEngine {
         // both `foo` and `bar` to `baz` would leave only one symbol named `baz`,
         // breaking references to the other. We detect this early to avoid
         // generating a corrupted workspace edit.
-        const newNames = new Set();
+        const newNames = new Set<string>();
         for (const rename of renames) {
             const normalizedNewName = assertValidIdentifierName(rename.newName);
             if (newNames.has(normalizedNewName)) {
@@ -748,7 +772,7 @@ export class RefactorEngine {
         // Plan each rename independently, collecting the resulting workspace edits.
         // We defer merging until all renames are validated so that a single invalid
         // rename doesn't invalidate the entire batch.
-        const workspaces = [];
+        const workspaces: Array<WorkspaceEdit> = [];
         for (const rename of renames) {
             const workspace = await this.planRename(rename);
             workspaces.push(workspace);
@@ -947,11 +971,14 @@ export class RefactorEngine {
      * @param {boolean} options.checkTranspiler - Whether to validate transpiler compatibility
      * @returns {Promise<{valid: boolean, errors: Array<string>, warnings: Array<string>}>}
      */
-    async validateHotReloadCompatibility(workspace, options = undefined) {
+    async validateHotReloadCompatibility(
+        workspace: WorkspaceEdit,
+        options?: HotReloadValidationOptions
+    ): Promise<ValidationSummary> {
         const opts = options ?? {};
         const { checkTranspiler = false } = opts;
-        const errors = [];
-        const warnings = [];
+        const errors: Array<string> = [];
+        const warnings: Array<string> = [];
 
         if (!workspace || !(workspace instanceof WorkspaceEdit)) {
             errors.push("Invalid workspace edit");
@@ -1040,8 +1067,10 @@ export class RefactorEngine {
      * @param {WorkspaceEdit} workspace - Applied edits
      * @returns {Promise<Array<{symbolId: string, action: string, filePath: string, affectedRanges: Array<{start: number, end: number}>}>>}
      */
-    async prepareHotReloadUpdates(workspace) {
-        const updates = [];
+    async prepareHotReloadUpdates(
+        workspace: WorkspaceEdit
+    ): Promise<Array<HotReloadUpdate>> {
+        const updates: Array<HotReloadUpdate> = [];
 
         if (!workspace || workspace.edits.length === 0) {
             return updates;
@@ -1094,7 +1123,8 @@ export class RefactorEngine {
             typeof this.semantic.getDependents === "function"
         ) {
             const allSymbolIds = updates.map((u) => u.symbolId);
-            const dependents = await this.semantic.getDependents(allSymbolIds);
+            const dependents =
+                (await this.semantic.getDependents(allSymbolIds)) ?? [];
 
             // Add dependent symbols that need hot reload notification
             for (const dependent of dependents) {
@@ -1120,7 +1150,9 @@ export class RefactorEngine {
      * @param {string} request.newName - Proposed new name
      * @returns {Promise<{valid: boolean, summary: Object, conflicts: Array, warnings: Array}>}
      */
-    async analyzeRenameImpact(request) {
+    async analyzeRenameImpact(
+        request: RenameRequest
+    ): Promise<RenameImpactAnalysis> {
         const { symbolId, newName } = request ?? {};
 
         if (!symbolId || !newName) {
@@ -1137,16 +1169,17 @@ export class RefactorEngine {
 
         const normalizedNewName = assertValidIdentifierName(newName);
 
+        const oldName = symbolId.split("/").pop() ?? symbolId;
         const summary = {
             symbolId,
-            oldName: symbolId.split("/").pop(),
+            oldName,
             newName: normalizedNewName,
-            affectedFiles: new Set(),
+            affectedFiles: new Set<string>(),
             totalOccurrences: 0,
             definitionCount: 0,
             referenceCount: 0,
             hotReloadRequired: false,
-            dependentSymbols: new Set()
+            dependentSymbols: new Set<string>()
         };
 
         const serializeSummary = () => ({
@@ -1161,25 +1194,25 @@ export class RefactorEngine {
             dependentSymbols: Array.from(summary.dependentSymbols)
         });
 
-        const conflicts = [];
-        const warnings = [];
+        const conflicts: Array<ConflictEntry> = [];
+        const warnings: Array<ConflictEntry> = [];
 
         try {
             // Validate symbol exists
             const exists = await this.validateSymbolExists(symbolId);
-                if (!exists) {
-                    conflicts.push({
-                        type: "missing_symbol",
-                        message: `Symbol '${symbolId}' not found in semantic index`,
-                        severity: "error"
-                    });
-                    return {
-                        valid: false,
-                        summary: serializeSummary(),
-                        conflicts,
-                        warnings
-                    };
-                }
+            if (!exists) {
+                conflicts.push({
+                    type: "missing_symbol",
+                    message: `Symbol '${symbolId}' not found in semantic index`,
+                    severity: "error"
+                });
+                return {
+                    valid: false,
+                    summary: serializeSummary(),
+                    conflicts,
+                    warnings
+                };
+            }
 
             // Gather occurrences
             const occurrences = await this.gatherSymbolOccurrences(
@@ -1222,9 +1255,8 @@ export class RefactorEngine {
                     this.semantic &&
                     typeof this.semantic.getDependents === "function"
                 ) {
-                    const dependents = await this.semantic.getDependents([
-                        symbolId
-                    ]);
+                    const dependents =
+                        (await this.semantic.getDependents([symbolId])) ?? [];
                     for (const dep of dependents) {
                         summary.dependentSymbols.add(dep.symbolId);
                     }
@@ -1280,7 +1312,9 @@ export class RefactorEngine {
      *   metadata: {totalSymbols: number, maxDistance: number, hasCircular: boolean}
      * }>}
      */
-    async computeHotReloadCascade(changedSymbolIds) {
+    async computeHotReloadCascade(
+        changedSymbolIds: Array<string>
+    ): Promise<HotReloadCascadeResult> {
         if (!Array.isArray(changedSymbolIds)) {
             throw new TypeError(
                 "computeHotReloadCascade requires an array of symbol IDs"
@@ -1301,11 +1335,11 @@ export class RefactorEngine {
         }
 
         // Track visited symbols to detect cycles and compute transitive closure
-        const visited = new Set();
-        const visiting = new Set(); // For cycle detection
-        const cascade = new Map(); // symbolId -> {distance, reason}
-        const circular = [];
-        const dependencyGraph = new Map(); // symbolId -> [dependent IDs]
+        const visited = new Set<string>();
+        const visiting = new Set<string>(); // For cycle detection
+        const cascade = new Map<string, CascadeEntry>(); // symbolId -> entry
+        const circular: Array<Array<string>> = [];
+        const dependencyGraph = new Map<string, Array<string>>();
 
         // Initialize changed symbols at distance 0
         for (const symbolId of changedSymbolIds) {
@@ -1319,10 +1353,10 @@ export class RefactorEngine {
 
         // Helper to explore dependencies recursively
         const exploreDependents = async (
-            symbolId,
-            currentDistance,
-            parentReason
-        ) => {
+            symbolId: string,
+            currentDistance: number,
+            parentReason: string
+        ): Promise<{ cycleDetected: boolean; cycle?: Array<string> }> => {
             // Check if we're already exploring this symbol (cycle detection)
             if (visiting.has(symbolId)) {
                 // Found a cycle - trace it back
@@ -1339,9 +1373,8 @@ export class RefactorEngine {
                     this.semantic &&
                     typeof this.semantic.getDependents === "function"
                 ) {
-                    const dependents = await this.semantic.getDependents([
-                        symbolId
-                    ]);
+                    const dependents =
+                        (await this.semantic.getDependents([symbolId])) ?? [];
 
                     for (const dep of dependents) {
                         const depId = dep.symbolId;
@@ -1407,14 +1440,14 @@ export class RefactorEngine {
         }
 
         // Process symbols with no incoming edges first (leaves of dependency tree)
-        const queue = [];
+        const queue: Array<string> = [];
         for (const [symbolId, degree] of inDegree.entries()) {
             if (degree === 0) {
                 queue.push(symbolId);
             }
         }
 
-        const order = [];
+        const order: Array<string> = [];
         while (queue.length > 0) {
             const current = queue.shift();
             order.push(current);
@@ -1467,7 +1500,10 @@ export class RefactorEngine {
      * @param {Function} readFile - Function to read file content
      * @returns {Promise<Array<{symbolId: string, patch: Object, filePath: string}>>}
      */
-    async generateTranspilerPatches(hotReloadUpdates, readFile) {
+    async generateTranspilerPatches(
+        hotReloadUpdates: Array<HotReloadUpdate>,
+        readFile: WorkspaceReadFile
+    ): Promise<Array<TranspilerPatch>> {
         if (!Array.isArray(hotReloadUpdates)) {
             throw new TypeError(
                 "generateTranspilerPatches requires an array of hot reload updates"
@@ -1480,7 +1516,7 @@ export class RefactorEngine {
             );
         }
 
-        const patches = [];
+        const patches: Array<TranspilerPatch> = [];
 
         for (const update of hotReloadUpdates) {
             // Filter to recompile actions since only script recompilations produce
@@ -1540,6 +1576,22 @@ export class RefactorEngine {
     }
 }
 
-export function createRefactorEngine(dependencies = {}) {
+export function createRefactorEngine(
+    dependencies: Partial<RefactorEngineDependencies> = {}
+): RefactorEngine {
     return new RefactorEngine(dependencies);
 }
+
+export type {
+    ParserBridge,
+    SemanticAnalyzer,
+    WorkspaceReadFile,
+    WorkspaceWriteFile,
+    HotReloadUpdate,
+    ExecuteRenameRequest,
+    ExecuteBatchRenameRequest,
+    RenameRequest,
+    TranspilerPatch,
+    RenameImpactAnalysis,
+    ValidationSummary
+};
