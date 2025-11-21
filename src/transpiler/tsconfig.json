@@ -8,6 +8,7 @@
     "paths": {
       "@gml-modules/transpiler": ["./index.ts"],
       "@gml-modules/core": ["../core/dist/index.d.ts"],
+      "@gml-modules/semantic": ["../semantic/dist/index.d.ts"]
     }
   },
   "include": ["*.ts", "src/**/*.ts", "test/**/*.ts"],
