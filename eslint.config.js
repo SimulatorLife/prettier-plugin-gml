@@ -4,12 +4,17 @@ import tseslint from "typescript-eslint";
 import { defineConfig } from "eslint/config";
 import globals from "globals";
 
-// Plugins (all optional but used for stricter scans)
+import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript';
+
+// YAML parser
+import yamlParser from "yaml-eslint-parser";
+
+// Plugins
 import pluginBoundaries from "eslint-plugin-boundaries";
 import pluginUnicorn from "eslint-plugin-unicorn";
 import pluginSonarjs from "eslint-plugin-sonarjs";
 import pluginSecurity from "eslint-plugin-security";
-import pluginImport from "eslint-plugin-import";
+import pluginImport from "eslint-plugin-import-x";
 import pluginPromise from "eslint-plugin-promise";
 import pluginRegexp from "eslint-plugin-regexp";
 import pluginNoSecrets from "eslint-plugin-no-secrets";
@@ -18,8 +23,65 @@ import pluginUnusedImports from "eslint-plugin-unused-imports";
 import pluginDeMorgan from "eslint-plugin-de-morgan";
 import pluginYml from "eslint-plugin-yml";
 
-/// Prettier config
+// Prettier config
 import eslintConfigPrettier from "eslint-config-prettier";
+
+const tsImportResolver = createTypeScriptImportResolver({
+    project: ["./tsconfig.eslint.json"]
+});
+
+const baseIgnorePatterns = [
+    "**/*.d.ts",
+    "**/*.config.js",
+    "**/node_modules/**",
+    "**/build/**",
+    "**/*.md",
+    "**/*antlr/*",
+    "./resources/**",
+    "**/vendor/**",
+    "**/dist/**",
+    "**/reports/**",
+    "**/*.gml",
+    ".DS_Store",
+    "LICENSE",
+    "**/*.g4",
+    "scripts/**",
+    "tools/**",
+    ".tools/**",
+    "tmp/**"
+    // NOTE: Do not ignore `.github/**` here because we want to lint
+    // workflow YAML files (GH Actions) with eslint-plugin-yml. Workflows
+    // are validated by the YAML rule set defined below (files: **/*.yml)
+    // Removing the blanket ignore allows the `.github/*.yml` files to
+    // be picked up by `npm run lint:yaml` and by CI checks.
+];
+
+// 1) Global settings (no files filter) so they apply everywhere
+// const sharedSettings = {
+//     "import/resolver": {
+//         typescript: tsImportResolver,
+//         node: { extensions: [".js", ".ts"] }
+//     },
+
+//     "boundaries/include": ["src/**/*.{ts,js}"],
+//     "boundaries/ignore": [
+//         "node_modules/**",
+//         "dist/**",
+//         "**/*.d.ts"
+//     ],
+//     "boundaries/elements": [
+//         { type: "test", pattern: "src/**/test/**" }, // tests first
+//         { type: "core", pattern: "src/core/**" },
+//         { type: "parser", pattern: "src/parser/**" },
+//         { type: "parser-generated", pattern: "src/parser/generated/**" },
+//         { type: "transpiler", pattern: "src/transpiler/**" },
+//         { type: "semantic", pattern: "src/semantic/**" },
+//         { type: "plugin", pattern: "src/plugin/**" },
+//         { type: "refactor", pattern: "src/refactor/**" },
+//         { type: "runtime-wrapper", pattern: "src/runtime-wrapper/**" },
+//         { type: "cli", pattern: "src/cli/**" }
+//     ]
+// };
 
 /**
  * TypeScript configuration:
@@ -41,32 +103,10 @@ const tsConfig = defineConfig({
         },
         parser: tseslint.parser,
         parserOptions: {
-            project: "./tsconfig.json" // enable type-aware rules
+            project: "./tsconfig.eslint.json", // enable type-aware rules
+            tsconfigRootDir: import.meta.dirname
         }
     },
-
-    ignores: [
-        "node_modules/*",
-        "build/*",
-        "*.md",
-        "*antlr/*",
-        "resources/*",
-        "vendor/*",
-        "dist/*",
-        "reports/*",
-        "src/vendor/*.js",
-        "src/parser/generated/**/*",
-        "*.gml",
-        ".DS_Store",
-        "LICENSE",
-        // NOTE: Do not ignore `.github/**` here because we want to lint
-        // workflow YAML files (GH Actions) with eslint-plugin-yml. Workflows
-        // are validated by the YAML rule set defined below (files: **/*.yml)
-        // Removing the blanket ignore allows the `.github/*.yml` files to
-        // be picked up by `npm run lint:yaml` and by CI checks.
-        "*.g4",
-        "tmp/*"
-    ],
 
     // Base + plugin presets that should apply to TS files
     extends: [
@@ -89,22 +129,38 @@ const tsConfig = defineConfig({
 
     linterOptions: { reportUnusedDisableDirectives: true },
 
-    /* Needed for plugin rules */
+    // Needed for plugin rules
     plugins: {
         sonarjs: pluginSonarjs,
         security: pluginSecurity,
         import: pluginImport,
         regexp: pluginRegexp,
+        boundaries: pluginBoundaries,
         "no-secrets": pluginNoSecrets,
         "eslint-comments": pluginEslintComments,
         "unused-imports": pluginUnusedImports
     },
 
-    /* Helpful for import/plugin-import */
     settings: {
         "import/resolver": {
+            // TypeScript-aware resolver: maps ./foo.js → ./foo.ts in src
+            typescript: tsImportResolver,
             node: { extensions: [".js", ".ts"] }
-        }
+        },
+        "boundaries/include": ["src/**/*.{ts,js}"],
+        "boundaries/ignore": baseIgnorePatterns, // DO NOT put src/parser/generated/** here
+        "boundaries/elements": [
+            { type: "test", pattern: "src/**/test/**" }, // Put tests first to avoid matching other types
+            { type: "core", pattern: "src/core/**" },
+            { type: "parser", pattern: "src/parser/**" },
+            { type: "parser-generated", pattern: "src/parser/generated/**" },
+            { type: "transpiler", pattern: "src/transpiler/**" },
+            { type: "semantic", pattern: "src/semantic/**" },
+            { type: "plugin", pattern: "src/plugin/**" },
+            { type: "refactor", pattern: "src/refactor/**" },
+            { type: "runtime-wrapper", pattern: "src/runtime-wrapper/**" },
+            { type: "cli", pattern: "src/cli/**" }
+        ],
     },
 
     rules: {
@@ -339,16 +395,58 @@ const tsConfig = defineConfig({
             "warn",
             { ignore: ["eslint-enable", "eslint-env"] }
         ],
-        "eslint-comments/no-unused-disable": "error"
+        "eslint-comments/no-unused-disable": "error",
+
+        // Boundaries plugin (enforce architectural module boundaries)
+        "boundaries/no-unknown": "error",
+        "boundaries/entry-point": [2, {
+            "default": "disallow",
+            "rules": [
+                {
+                    // set the required entry point name
+                    "target": ["cli", "core", "parser", "transpiler", "semantic", "plugin", "refactor", "runtime-wrapper"],
+                    "allow": ["index.ts","index.js"]
+                },
+            ]
+        }],
+        "boundaries/element-types": ["error", {
+            default: "disallow",
+            rules: [
+                { from: "core", allow: ["core"] },
+                { from: "parser", allow: ["core", "parser", "parser-generated"] },
+                { from: "parser-generated", allow: ["core", "parser-generated"] },
+                { from: "transpiler", allow: ["core", "transpiler"] },
+                { from: "semantic", allow: ["core", "parser", "transpiler", "semantic"] },
+                { from: "plugin", allow: ["core", "parser", "plugin"] },
+                { from: "refactor", allow: ["core", "parser", "transpiler", "semantic", "refactor"] },
+                { from: "runtime-wrapper", allow: ["core", "parser", "transpiler", "semantic", "runtime-wrapper"] },
+                { from: "cli", allow: ["core", "parser", "transpiler", "semantic"] },
+                { from: "test", allow: ["*"] }
+            ]
+        }]
     }
 });
 
 export default [
-    // YAML: use the plugin’s flat preset (scoped to *.yml/*.yaml)
-    ...pluginYml.configs["flat/recommended"],
+
     {
-        files: [".github/workflows/**"],
+        // Global ignores
+        ignores: baseIgnorePatterns
+    },
+
+    // YAML: use the plugin’s flat preset (scoped to *.yml/*.yaml)
+    {
+        files: [".github/workflows/**/*.{yml,yaml}"],
+        languageOptions: {
+            parser: yamlParser
+        },
+        plugins: {
+            yml: pluginYml
+        },
         rules: {
+            // start with recommended rules
+            ...pluginYml.configs["flat/recommended"][0].rules,
+
             // workflows often use keys without values (e.g. `workflow_dispatch:`)
             "yml/no-empty-mapping-value": "off"
         }
@@ -381,30 +479,6 @@ export default [
     // All TS-related rules, presets, and overrides (scoped to **/*.ts)
     ...tsConfig,
 
-    // boundaries-based directory-depth enforcement for src/**/*.ts
-    // {
-    //     files: ["src/**/*.ts"],
-    //     plugins: {
-    //         boundaries: pluginBoundaries
-    //     },
-    //     settings: {
-            // Define the allowed “layers” under src/.
-            // Anything deeper than src/*/*/*/* (i.e., src/a/b/c/d/e)
-            // will not match any element and will trigger boundaries/no-unknown.
-            // "boundaries/elements": [
-            //     { type: "layer1", pattern: "src/*" },
-                // { type: "layer2", pattern: "src/*/*" },
-                // { type: "layer3", pattern: "src/*/*/*" },
-                // { type: "layer4", pattern: "src/*/*/*/*" }
-        //     ]
-        // },
-    //     rules: {
-    //         // Error when a file doesn’t match any of the defined elements.
-    //         // That effectively disallows directory nesting deeper than layer4.
-    //         "boundaries/no-unknown": "error"
-    //     }
-    // },
-
     // Tests: relax a few noisy limits
     // Goes AFTER the main ts config to override
     {
@@ -419,7 +493,17 @@ export default [
             "no-restricted-syntax": "off",
             "no-throw-literal": "warn",
             "require-await": "off",
-            "no-promise-executor-return": "off"
+            "boundaries/entry-point": "off",
+
+            // TS-specific overrides:
+            "@typescript-eslint/require-await": "off",
+            "no-promise-executor-return": "off",
+            "@typescript-eslint/no-floating-promises": "warn",
+            "@typescript-eslint/no-unsafe-argument": "warn",
+            "@typescript-eslint/no-unsafe-assignment": "warn",
+            "@typescript-eslint/no-unsafe-call": "warn",
+            "@typescript-eslint/no-unsafe-member-access": "warn",
+            "@typescript-eslint/no-unsafe-return": "warn"
         }
     },
 

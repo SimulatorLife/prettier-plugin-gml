@@ -5,10 +5,11 @@
  * consumers can register the plugin without reaching into internal modules.
  */
 
-import * as Core from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
 import type { SupportLanguage, SupportOptions } from "prettier";
 
 import type {
+    GmlPlugin,
     GmlPluginComponentBundle,
     GmlPluginDefaultOptions
 } from "./plugin-types.js";
@@ -86,3 +87,13 @@ const defaultOptions = Core.Utils.createReadOnlyView<GmlPluginDefaultOptions>(
 );
 
 export { parsers, printers, options, defaultOptions };
+
+const pluginBundle: GmlPlugin = {
+    languages,
+    parsers,
+    printers,
+    options,
+    defaultOptions
+};
+
+export const Plugin = Object.freeze(pluginBundle);

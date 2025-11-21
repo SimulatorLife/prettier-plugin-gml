@@ -1,8 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-
-import ScopeTracker from "../src/scopes/scope-tracker.js";
-import { ScopeOverrideKeyword } from "../src/scopes/scope-override-keywords.js";
+import { ScopeTracker, ScopeOverrideKeyword } from "../src/scopes/index.js";
 
 test("resolveScopeOverride returns the root scope when using the global keyword", () => {
     const tracker = new ScopeTracker({ enabled: true });

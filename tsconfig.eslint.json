@@ -1,0 +1,36 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": true,
+    "baseUrl": ".",
+    "paths": {
+      "@gml-modules/core": ["src/core/src/index.ts"],
+      "@gml-modules/plugin": ["src/plugin/src/index.ts"],
+      "@gml-modules/transpiler": ["src/transpiler/src/index.ts"],
+      "@gml-modules/semantic": ["src/semantic/src/index.ts"],
+      "@gml-modules/parser": ["src/parser/src/index.ts"],
+      "@gml-modules/refactor": ["src/refactor/src/index.ts"],
+      "@gml-modules/runtime-wrapper": ["src/runtime-wrapper/src/index.ts"]
+    }
+  },
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "vendor",
+    "src/**/dist",
+    "src/parser/generated"
+  ],
+  "references": [
+    { "path": "./src/core" },
+    { "path": "./src/parser" },
+    { "path": "./src/transpiler" },
+    { "path": "./src/semantic" },
+    { "path": "./src/plugin" },
+    { "path": "./src/refactor" },
+    { "path": "./src/runtime-wrapper" }
+  ]
+}

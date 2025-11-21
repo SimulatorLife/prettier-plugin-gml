@@ -723,8 +723,8 @@ monorepos predictable:
 | --- | --- | --- |
 | `gmlIdentifierCaseDiscoverProject` | `true` | Auto-detect the nearest `.yyp` manifest when bootstrapping the project index. Disable when callers manage discovery manually. This option is deprecated in favor of the new scoping/semantic plan described in [docs/semantic-scope-plan.md]. |
 | `gmlIdentifierCaseProjectRoot` | `""` | Pin project discovery to an explicit directory. Helpful when formatting files outside the GameMaker project tree or when CI runs from ephemeral workspaces. This option is deprecated in favor of the new scoping/semantic plan described in [docs/semantic-scope-plan.md]. |
-| `gmlIdentifierCaseProjectIndexCacheMaxBytes` | `8 MiB` | Cap the on-disk cache size written to `.prettier-plugin-gml/project-index-cache.json`. Increase alongside `GML_PROJECT_INDEX_CACHE_MAX_SIZE` when coordinating cache pruning yourself. This option is deprecated in favor of the new scoping/semantic plan described in [docs/semantic-scope-plan.md]. |
-| `gmlIdentifierCaseProjectIndexConcurrency` | `4` | Control how many files the bootstrap parses in parallel. Combine with `GML_PROJECT_INDEX_CONCURRENCY` and `GML_PROJECT_INDEX_MAX_CONCURRENCY` to tune CI throughput without starving local machines. This option is deprecated in favor of the new scoping/semantic plan described in [docs/semantic-scope-plan.md]. |
+| `gmlIdentifierCaseProjectIndexCacheMaxBytes` | `8 MiB` | Cap the on-disk cache size written to `.prettier-plugin-gml/project-index-cache.json`. Increase alongside `GML_PROJECT_INDEX_CACHE_MAX_SIZE` when coordinating cache pruning yourself. This option is deprecated in favor of the new scoping/semantic plan described in [docs/semantic-scope-plan.md](docs/semantic-scope-plan.md). |
+| `gmlIdentifierCaseProjectIndexConcurrency` | `4` | Control how many files the bootstrap parses in parallel. Combine with `GML_PROJECT_INDEX_CONCURRENCY` and `GML_PROJECT_INDEX_MAX_CONCURRENCY` to tune CI throughput without starving local machines. This option is deprecated in favor of the new scoping/semantic plan described in [docs/semantic-scope-plan.md](docs/semantic-scope-plan.md). |
 
 Project index discovery, cache tuning, and concurrency controls now live under
 the [semantic subsystem](src/semantic/README.md) alongside the new scope-tracking
@@ -756,19 +756,21 @@ supported workflows.
 
 ## Development
 
-### Repository layout
+### Repository layout (simplified)
 
-```
+```text
 prettier-plugin-gml/
-├─ src/parser/        # ANTLR grammar, generated parser, and parser tests
-├─ src/plugin/        # Prettier plugin source, printer, CLI wrapper, and plugin tests
-├─ src/semantic/      # Scope trackers, project index coordinator, semantic tests
-├─ src/shared/        # Shared utilities (AST helpers, identifier casing, CLI plumbing)
-│  ├─ src/            # Runtime modules consumed by other packages
-│  └─ test/           # Tests covering shared primitives
-├─ resources/         # Generated metadata consumed by the formatter
-├─ docs/              # Design notes and rollout guides
-└─ package.json       # Workspace manifest with scripts and shared tooling
+├─ src/parser/            # ANTLR grammar, generated parser
+├─ src/plugin/            # Prettier plugin source, printer
+├─ src/semantic/          # Scope trackers, project index coordinator
+├─ src/refactor/          # Automated GML-project refactoring utilities (renaming identifiers, etc.)
+├─ src/runtime-wrapper/   # Wraps the GML HTML5 runtime
+├─ src/core/              # Shared/core utilities (AST helpers, string helpers, file helpers, etc.)
+├─ src/cli/               # Command-line interface
+├─ src/transpiler/        # Transpiles/emits JS from GML ASTs
+├─ resources/             # Generated GML data consumed by various modules, ANTLR jar file
+├─ vendor/                # Submodules for GameMaker runtime assets
+└─ docs/                  # Design notes and guides
 ```
 
 All developer-facing utilities live under `src/cli/src/commands/`. When adding

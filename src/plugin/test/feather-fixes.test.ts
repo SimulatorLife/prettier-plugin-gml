@@ -3085,7 +3085,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         const formatted = await prettier.format(source, {
             parser: "gml-parse",
             plugins: [pluginPath],
-            Parser.Transforms.applyFeatherFixes: true
+            "Parser.Transforms.applyFeatherFixes": true
         });
 
         const expected = [
@@ -3155,7 +3155,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         const formatted = await prettier.format(source, {
             parser: "gml-parse",
             plugins: [pluginPath],
-            Parser.Transforms.applyFeatherFixes: true
+            "Parser.Transforms.applyFeatherFixes": true
         });
 
         const expected = [
@@ -3187,7 +3187,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         const formatted = await prettier.format(source, {
             parser: "gml-parse",
             plugins: [pluginPath],
-            Parser.Transforms.applyFeatherFixes: true
+            "Parser.Transforms.applyFeatherFixes": true
         });
 
         const expected = [

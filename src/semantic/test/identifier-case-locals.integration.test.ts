@@ -14,7 +14,7 @@ import {
 } from "../src/identifier-case/identifier-case-context.js";
 import { prepareIdentifierCasePlan } from "../src/identifier-case/plan-service.js";
 import { maybeReportIdentifierCaseDryRun } from "../src/identifier-case/identifier-case-report.js";
-import { Core } from "../src/shared/index.js";
+import { Core } from "@gml-modules/core";
 
 // Use Core.* per AGENTS.md rather than destructuring the namespace.
 
