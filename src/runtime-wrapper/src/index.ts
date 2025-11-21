@@ -21,6 +21,7 @@ export type {
     RuntimeWebSocketClient,
     RuntimeWebSocketConstructor,
     RuntimeWebSocketInstance,
+    WebSocketEvent,
     WebSocketClientOptions,
     WebSocketClientState
 } from "./websocket/index.js";

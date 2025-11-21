@@ -1,72 +1,102 @@
-// @ts-nocheck
 import assert from "node:assert/strict";
-import test, { mock } from "node:test";
-import { createRuntimeWrapper, createWebSocketClient } from "../src/index.js";
+import test from "node:test";
+import { RuntimeWrapper } from "../index.js";
+import type {
+    MessageEventLike,
+    RuntimePatchError,
+    RuntimeWebSocketConstructor,
+    RuntimeWebSocketInstance,
+    WebSocketEvent
+} from "../index.js";
 
-class MockWebSocket {
-    constructor(url) {
-        this.url = url;
-        this.readyState = 0;
-        this._listeners = {
-            open: [],
-            message: [],
-            close: [],
-            error: []
-        };
+const globalWithWebSocket = globalThis as unknown as {
+    WebSocket?: RuntimeWebSocketConstructor;
+};
 
+const wait = (ms: number) =>
+    new Promise<void>((resolve) => {
+        setTimeout(resolve, ms);
+    });
+
+const flush = () =>
+    new Promise<void>((resolve) => {
+        setImmediate(resolve);
+    });
+
+class MockWebSocket implements RuntimeWebSocketInstance {
+    public readyState = 0;
+    private readonly listeners: Record<
+        WebSocketEvent,
+        Array<(event?: unknown) => void>
+    > = {
+        open: [],
+        message: [],
+        close: [],
+        error: []
+    };
+
+    constructor(public readonly url: string) {
         setImmediate(() => {
             this.readyState = 1;
-            for (const handler of this._listeners.open) {
-                handler();
-            }
+            this.dispatch("open");
         });
     }
 
-    addEventListener(event, handler) {
-        if (this._listeners[event]) {
-            this._listeners[event].push(handler);
+    addEventListener(
+        event: WebSocketEvent,
+        handler: (event?: Error | MessageEventLike) => void
+    ) {
+        this.listeners[event]?.push(handler);
+    }
+
+    removeEventListener(
+        event: WebSocketEvent,
+        handler: (event?: Error | MessageEventLike) => void
+    ) {
+        const queue = this.listeners[event];
+        const index = queue?.indexOf(handler);
+        if (queue && typeof index === "number" && index >= 0) {
+            queue.splice(index, 1);
         }
     }
 
-    removeEventListener(event, handler) {
-        if (this._listeners[event]) {
-            const index = this._listeners[event].indexOf(handler);
-            if (index !== -1) {
-                this._listeners[event].splice(index, 1);
-            }
-        }
-    }
-
-    send(_data) {
+    send(_data: string) {
         if (this.readyState !== 1) {
             throw new Error("WebSocket is not open");
         }
     }
 
     close() {
+        if (this.readyState === 3) {
+            return;
+        }
+
         this.readyState = 3;
         setImmediate(() => {
-            for (const handler of this._listeners.close) {
-                handler();
-            }
+            this.dispatch("close");
         });
     }
 
-    simulateMessage(data) {
-        for (const handler of this._listeners.message) {
-            handler({ data });
-        }
+    simulateMessage(data: string) {
+        this.dispatch("message", { data });
     }
 
-    simulateError() {
-        for (const handler of this._listeners.error) {
-            handler(new Error("Connection error"));
+    simulateError(error: Error = new Error("Connection error")) {
+        this.dispatch("error", error);
+    }
+
+    private dispatch(
+        event: WebSocketEvent,
+        payload?: Error | MessageEventLike
+    ) {
+        for (const handler of this.listeners[event] ?? []) {
+            handler(payload);
         }
     }
 }
 
 test("createWebSocketClient returns client interface", () => {
-    const client = createWebSocketClient({ autoConnect: false });
+    const client = RuntimeWrapper.createWebSocketClient({ autoConnect: false });
     assert.strictEqual(typeof client.connect, "function");
     assert.strictEqual(typeof client.disconnect, "function");
     assert.strictEqual(typeof client.isConnected, "function");
@@ -74,17 +104,17 @@ test("createWebSocketClient returns client interface", () => {
 });
 
 test("createWebSocketClient does not auto-connect when autoConnect is false", () => {
-    const client = createWebSocketClient({ autoConnect: false });
+    const client = RuntimeWrapper.createWebSocketClient({ autoConnect: false });
     assert.strictEqual(client.isConnected(), false);
 });
 
 test("WebSocket client connects and receives patches", async () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     let connectCalled = false;
 
-    globalThis.WebSocket = MockWebSocket;
+    globalWithWebSocket.WebSocket = MockWebSocket;
 
-    const client = createWebSocketClient({
+    const client = RuntimeWrapper.createWebSocketClient({
         wrapper,
         onConnect: () => {
             connectCalled = true;
@@ -92,26 +122,26 @@ test("WebSocket client connects and receives patches", async () => {
         autoConnect: true
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await wait(50);
 
     assert.ok(connectCalled);
     assert.ok(client.isConnected());
 
     client.disconnect();
-    delete globalThis.WebSocket;
+    delete globalWithWebSocket.WebSocket;
 });
 
 test("WebSocket client applies patches from messages", async () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
-    globalThis.WebSocket = MockWebSocket;
+    globalWithWebSocket.WebSocket = MockWebSocket;
 
-    const client = createWebSocketClient({
+    const client = RuntimeWrapper.createWebSocketClient({
         wrapper,
         autoConnect: true
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await wait(50);
 
     const patch = {
         kind: "script",
@@ -121,28 +151,29 @@ test("WebSocket client applies patches from messages", async () => {
 
     const ws = client.getWebSocket();
     assert.ok(ws, "WebSocket should be available");
+    const mockSocket = ws as MockWebSocket;
 
-    ws.simulateMessage(JSON.stringify(patch));
+    mockSocket.simulateMessage(JSON.stringify(patch));
 
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await wait(10);
 
     assert.ok(wrapper.hasScript("script:test"));
 
     client.disconnect();
-    delete globalThis.WebSocket;
+    delete globalWithWebSocket.WebSocket;
 });
 
 test("WebSocket client applies batch patches from messages", async () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
-    globalThis.WebSocket = MockWebSocket;
+    globalWithWebSocket.WebSocket = MockWebSocket;
 
-    const client = createWebSocketClient({
+    const client = RuntimeWrapper.createWebSocketClient({
         wrapper,
         autoConnect: true
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await wait(50);
 
     const patches = [
         {
@@ -159,20 +190,21 @@ test("WebSocket client applies batch patches from messages", async () => {
 
     const ws = client.getWebSocket();
     assert.ok(ws, "WebSocket should be available");
+    const mockSocket = ws as MockWebSocket;
 
-    ws.simulateMessage(JSON.stringify(patches));
+    mockSocket.simulateMessage(JSON.stringify(patches));
 
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await wait(10);
 
     assert.ok(wrapper.hasScript("script:batch_one"));
     assert.ok(wrapper.hasEvent("obj_batch#Create"));
 
     client.disconnect();
-    delete globalThis.WebSocket;
+    delete globalWithWebSocket.WebSocket;
 });
 
 test("WebSocket client prefers trySafeApply when available", async () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     const originalTrySafeApply = wrapper.trySafeApply;
     let trySafeApplyCalls = 0;
 
@@ -181,14 +213,14 @@ test("WebSocket client prefers trySafeApply when available", async () => {
         return originalTrySafeApply(...args);
     };
 
-    globalThis.WebSocket = MockWebSocket;
+    globalWithWebSocket.WebSocket = MockWebSocket;
 
-    const client = createWebSocketClient({
+    const client = RuntimeWrapper.createWebSocketClient({
         wrapper,
         autoConnect: true
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await wait(50);
 
     const patch = {
         kind: "script",
@@ -198,25 +230,26 @@ test("WebSocket client prefers trySafeApply when available", async () => {
 
     const ws = client.getWebSocket();
     assert.ok(ws, "WebSocket should be available");
+    const mockSocket = ws as MockWebSocket;
 
-    ws.simulateMessage(JSON.stringify(patch));
+    mockSocket.simulateMessage(JSON.stringify(patch));
 
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await wait(10);
 
     assert.strictEqual(trySafeApplyCalls, 1);
     assert.ok(wrapper.hasScript("script:prefers_safe"));
 
     client.disconnect();
-    delete globalThis.WebSocket;
+    delete globalWithWebSocket.WebSocket;
 });
 
 test("WebSocket client handles invalid JSON gracefully", async () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     let errorCalled = false;
 
-    globalThis.WebSocket = MockWebSocket;
+    globalWithWebSocket.WebSocket = MockWebSocket;
 
-    const client = createWebSocketClient({
+    const client = RuntimeWrapper.createWebSocketClient({
         wrapper,
         onError: (error, context) => {
             errorCalled = true;
@@ -225,37 +258,37 @@ test("WebSocket client handles invalid JSON gracefully", async () => {
         autoConnect: true
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await wait(50);
 
     const ws = client.getWebSocket();
     assert.ok(ws, "WebSocket should be available");
+    const mockSocket = ws as MockWebSocket;
 
-    ws.simulateMessage("invalid json");
+    mockSocket.simulateMessage("invalid json");
 
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await wait(10);
 
     assert.ok(errorCalled);
 
     client.disconnect();
-    delete globalThis.WebSocket;
+    delete globalWithWebSocket.WebSocket;
 });
 
 test("WebSocket client surfaces trySafeApply failures", async () => {
-    let capturedError = null;
-    let capturedContext = null;
+    let capturedError: RuntimePatchError | null = null;
+    let capturedContext: "connection" | "patch" | null = null;
 
-    const wrapper = {
-        trySafeApply: () => ({
-            success: false,
-            message: "Shadow validation failed: syntax error",
-            error: "syntax error",
-            rolledBack: true
-        })
-    };
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+    wrapper.trySafeApply = () => ({
+        success: false,
+        message: "Shadow validation failed: syntax error",
+        error: "syntax error",
+        rolledBack: true
+    });
 
-    globalThis.WebSocket = MockWebSocket;
+    globalWithWebSocket.WebSocket = MockWebSocket;
 
-    const client = createWebSocketClient({
+    const client = RuntimeWrapper.createWebSocketClient({
         wrapper,
         onError: (error, context) => {
             capturedError = error;
@@ -264,10 +297,11 @@ test("WebSocket client surfaces trySafeApply failures", async () => {
         autoConnect: true
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await wait(50);
 
     const ws = client.getWebSocket();
     assert.ok(ws, "WebSocket should be available");
+    const mockSocket = ws as MockWebSocket;
 
     const failingPatch = {
         kind: "script",
@@ -275,9 +309,9 @@ test("WebSocket client surfaces trySafeApply failures", async () => {
         js_body: "return 42;"
     };
 
-    ws.simulateMessage(JSON.stringify(failingPatch));
+    mockSocket.simulateMessage(JSON.stringify(failingPatch));
 
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await wait(10);
 
     assert.ok(capturedError);
     assert.strictEqual(capturedContext, "patch");
@@ -286,51 +320,48 @@ test("WebSocket client surfaces trySafeApply failures", async () => {
     assert.strictEqual(capturedError.rolledBack, true);
 
     client.disconnect();
-    delete globalThis.WebSocket;
+    delete globalWithWebSocket.WebSocket;
 });
 
 test("WebSocket client disconnects cleanly", async () => {
     let disconnectCalled = false;
 
-    globalThis.WebSocket = MockWebSocket;
+    globalWithWebSocket.WebSocket = MockWebSocket;
 
-    const client = createWebSocketClient({
+    const client = RuntimeWrapper.createWebSocketClient({
         onDisconnect: () => {
             disconnectCalled = true;
         },
         autoConnect: true
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await wait(50);
 
     client.disconnect();
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await wait(50);
 
     assert.ok(disconnectCalled);
     assert.strictEqual(client.isConnected(), false);
 
-    delete globalThis.WebSocket;
+    delete globalWithWebSocket.WebSocket;
 });
 
 test("WebSocket client reconnects after connection loss", async () => {
-    // Real timers occasionally exceeded the 200ms allowance, causing flaky reconnect assertions.
-    mock.timers.enable({ apis: ["setTimeout"] });
-
     let reconnectCount = 0;
 
-    globalThis.WebSocket = MockWebSocket;
+    globalWithWebSocket.WebSocket = MockWebSocket;
 
-    const client = createWebSocketClient({
+    const client = RuntimeWrapper.createWebSocketClient({
         onConnect: () => {
             reconnectCount++;
         },
-        reconnectDelay: 100,
+        reconnectDelay: 30,
         autoConnect: true
     });
 
     try {
-        await new Promise((resolve) => setImmediate(resolve));
+        await wait(40);
 
         assert.strictEqual(reconnectCount, 1);
 
@@ -339,67 +370,77 @@ test("WebSocket client reconnects after connection loss", async () => {
 
         ws.close();
 
-        await new Promise((resolve) => setImmediate(resolve));
-
-        mock.timers.tick(100);
-
-        await new Promise((resolve) => setImmediate(resolve));
+        await wait(10);
+        await wait(40);
 
         assert.ok(
             reconnectCount >= 2,
             `Expected at least 2 reconnects, got ${reconnectCount}`
         );
     } finally {
-        client.disconnect();
-        mock.timers.reset();
-        delete globalThis.WebSocket;
+        client?.disconnect();
+        delete globalWithWebSocket.WebSocket;
     }
 });
 
 test("WebSocket client clears pending reconnect timer on manual reconnect", async () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
-    globalThis.WebSocket = MockWebSocket;
+    globalWithWebSocket.WebSocket = MockWebSocket;
 
     const originalSetTimeout = globalThis.setTimeout;
     const originalClearTimeout = globalThis.clearTimeout;
-    const trackedTimers = new Map();
-    let client;
+    const trackedTimers = new Map<
+        ReturnType<typeof originalSetTimeout>,
+        { cleared: boolean; delay: number }
+    >();
+    let client: ReturnType<
+        typeof RuntimeWrapper.createWebSocketClient
+    > | null = null;
 
     try {
-        globalThis.setTimeout = (fn, delay, ...args) => {
+        globalThis.setTimeout = ((
+            fn: (...callbackArgs: Array<unknown>) => void,
+            delay?: number,
+            ...args: Array<unknown>
+        ) => {
             const handle = originalSetTimeout(() => {
                 trackedTimers.delete(handle);
                 fn(...args);
             }, delay);
 
-            trackedTimers.set(handle, { cleared: false, delay });
+            trackedTimers.set(handle, {
+                cleared: false,
+                delay: delay ?? 0
+            });
             return handle;
-        };
+        }) as typeof setTimeout;
 
-        globalThis.clearTimeout = (handle) => {
+        globalThis.clearTimeout = ((
+            handle: ReturnType<typeof originalSetTimeout>
+        ) => {
             const meta = trackedTimers.get(handle);
             if (meta) {
                 meta.cleared = true;
             }
 
             return originalClearTimeout(handle);
-        };
+        }) as typeof clearTimeout;
 
-        client = createWebSocketClient({
+        client = RuntimeWrapper.createWebSocketClient({
             wrapper,
             autoConnect: false,
             reconnectDelay: 50
         });
 
         client.connect();
-        await new Promise((resolve) => setImmediate(resolve));
+        await flush();
 
         const initialSocket = client.getWebSocket();
         assert.ok(initialSocket, "Initial WebSocket should be available");
 
         initialSocket.close();
-        await new Promise((resolve) => setImmediate(resolve));
+        await flush();
 
         const timers = [...trackedTimers.entries()];
         assert.strictEqual(timers.length, 1);
@@ -409,7 +450,7 @@ test("WebSocket client clears pending reconnect timer on manual reconnect", asyn
         assert.strictEqual(meta.cleared, false);
 
         client.connect();
-        await new Promise((resolve) => setImmediate(resolve));
+        await flush();
 
         assert.strictEqual(
             meta.cleared,
@@ -425,16 +466,16 @@ test("WebSocket client clears pending reconnect timer on manual reconnect", asyn
     } finally {
         globalThis.setTimeout = originalSetTimeout;
         globalThis.clearTimeout = originalClearTimeout;
-        delete globalThis.WebSocket;
+        delete globalWithWebSocket.WebSocket;
     }
 });
 
 test("WebSocket client does not reconnect after manual disconnect", async () => {
     let connectCount = 0;
 
-    globalThis.WebSocket = MockWebSocket;
+    globalWithWebSocket.WebSocket = MockWebSocket;
 
-    const client = createWebSocketClient({
+    const client = RuntimeWrapper.createWebSocketClient({
         onConnect: () => {
             connectCount++;
         },
@@ -442,21 +483,21 @@ test("WebSocket client does not reconnect after manual disconnect", async () => 
         autoConnect: true
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await wait(50);
 
     assert.strictEqual(connectCount, 1);
 
     client.disconnect();
 
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    await wait(150);
 
     assert.strictEqual(connectCount, 1);
 
-    delete globalThis.WebSocket;
+    delete globalWithWebSocket.WebSocket;
 });
 
 test("WebSocket send throws when not connected", () => {
-    const client = createWebSocketClient({ autoConnect: false });
+    const client = RuntimeWrapper.createWebSocketClient({ autoConnect: false });
 
     assert.throws(() => client.send({ test: "data" }), {
         message: /WebSocket is not connected/
@@ -464,16 +505,16 @@ test("WebSocket send throws when not connected", () => {
 });
 
 test("WebSocket send works when connected", async () => {
-    globalThis.WebSocket = MockWebSocket;
+    globalWithWebSocket.WebSocket = MockWebSocket;
 
-    const client = createWebSocketClient({ autoConnect: true });
+    const client = RuntimeWrapper.createWebSocketClient({ autoConnect: true });
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await wait(50);
 
     assert.doesNotThrow(() => {
         client.send({ kind: "ping" });
     });
 
     client.disconnect();
-    delete globalThis.WebSocket;
+    delete globalWithWebSocket.WebSocket;
 });

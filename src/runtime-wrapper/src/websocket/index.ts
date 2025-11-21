@@ -4,6 +4,7 @@ export type {
     RuntimeWebSocketClient,
     RuntimeWebSocketConstructor,
     RuntimeWebSocketInstance,
+    WebSocketEvent,
     WebSocketClientOptions,
     WebSocketClientState
 } from "./types.js";

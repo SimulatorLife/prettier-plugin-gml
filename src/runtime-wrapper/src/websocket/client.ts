@@ -40,7 +40,7 @@ export function createWebSocketClient({
             validatePatch(patchCandidate);
         } catch (error) {
             if (onError) {
-                const safeError = toRuntimePatchError(error, patchCandidate);
+                const safeError = toRuntimePatchError(error);
                 onError(safeError, "patch");
             }
             return false;

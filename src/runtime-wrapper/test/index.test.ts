@@ -53,7 +53,8 @@ test("script patch function executes correctly", () => {
 
     wrapper.applyPatch(patch);
     const fn = wrapper.getScript("script:add");
-    const result = fn(null, null, [5, 3]);
+    assert.ok(fn);
+    const result = fn(null, null, [5, 3]) as number;
     assert.strictEqual(result, 8);
 });
 
@@ -81,6 +82,7 @@ test("event patch function executes correctly", () => {
 
     wrapper.applyPatch(patch);
     const fn = wrapper.getEvent("obj_test#Create");
+    assert.ok(fn);
     const context = { initialized: false };
     const result = fn.call(context);
     assert.strictEqual(result, true);
@@ -100,6 +102,7 @@ test("event patch receives instance context and arguments", () => {
 
     wrapper.applyPatch(patch);
     const fn = wrapper.getEvent("obj_test#Async");
+    assert.ok(fn);
     const context = { name: "player", touched: null };
     const result = fn.call(context, { value: 99 });
 
@@ -228,7 +231,8 @@ test("undo restores previous version of patched script", () => {
     });
 
     const fn1 = wrapper.getScript("script:test");
-    assert.strictEqual(fn1(null, null, []), 1);
+    assert.ok(fn1);
+    assert.strictEqual(fn1(null, null, []) as number, 1);
 
     wrapper.applyPatch({
         kind: "script",
@@ -237,11 +241,13 @@ test("undo restores previous version of patched script", () => {
     });
 
     const fn2 = wrapper.getScript("script:test");
-    assert.strictEqual(fn2(null, null, []), 2);
+    assert.ok(fn2);
+    assert.strictEqual(fn2(null, null, []) as number, 2);
 
     wrapper.undo();
     const fn3 = wrapper.getScript("script:test");
-    assert.strictEqual(fn3(null, null, []), 1);
+    assert.ok(fn3);
+    assert.strictEqual(fn3(null, null, []) as number, 1);
     assert.strictEqual(fn3, fn1);
 });
 
@@ -461,7 +467,8 @@ test("trySafeApply applies valid patch to actual registry", () => {
     assert.ok(result.success);
 
     const fn = wrapper.getScript("script:multiply");
-    assert.strictEqual(fn(null, null, [3, 4]), 12);
+    assert.ok(fn);
+    assert.strictEqual(fn(null, null, [3, 4]) as number, 12);
 });
 
 test("trySafeApply supports custom validation callback", () => {
@@ -667,7 +674,8 @@ test("closure patch function executes correctly", () => {
 
     wrapper.applyPatch(patch);
     const fn = wrapper.getClosure("closure:multiplier");
-    const multiply = fn(5);
+    assert.ok(fn);
+    const multiply = fn(5) as (value: number) => number;
     assert.strictEqual(multiply(3), 15);
     assert.strictEqual(multiply(7), 35);
 });
@@ -705,7 +713,9 @@ test("undo restores previous version of patched closure", () => {
     });
 
     const fn1 = wrapper.getClosure("closure:test");
-    assert.strictEqual(fn1()(), 1);
+    assert.ok(fn1);
+    const firstClosure = fn1() as () => number;
+    assert.strictEqual(firstClosure(), 1);
 
     wrapper.applyPatch({
         kind: "closure",
@@ -714,11 +724,15 @@ test("undo restores previous version of patched closure", () => {
     });
 
     const fn2 = wrapper.getClosure("closure:test");
-    assert.strictEqual(fn2()(), 2);
+    assert.ok(fn2);
+    const secondClosure = fn2() as () => number;
+    assert.strictEqual(secondClosure(), 2);
 
     wrapper.undo();
     const fn3 = wrapper.getClosure("closure:test");
-    assert.strictEqual(fn3()(), 1);
+    assert.ok(fn3);
+    const restoredClosure = fn3() as () => number;
+    assert.strictEqual(restoredClosure(), 1);
     assert.strictEqual(fn3, fn1);
 });
 
@@ -805,7 +819,9 @@ test("trySafeApply validates closure patches", () => {
     assert.strictEqual(result.rolledBack, false);
 
     const fn = wrapper.getClosure("closure:test");
-    assert.strictEqual(fn()(5), 10);
+    assert.ok(fn);
+    const closure = fn() as (value: number) => number;
+    assert.strictEqual(closure(5), 10);
 });
 
 test("trySafeApply catches closure syntax errors", () => {

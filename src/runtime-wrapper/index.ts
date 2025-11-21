@@ -16,7 +16,7 @@ export type {
     RuntimeRegistry,
     RuntimeRegistrySnapshot,
     RuntimeRegistryOverrides,
-    RuntimeWrapper,
+    RuntimeWrapper as RuntimeWrapperApi,
     RuntimeWrapperOptions,
     RuntimeWrapperState,
     TrySafeApplyResult,
@@ -24,6 +24,7 @@ export type {
     RuntimeWebSocketClient,
     RuntimeWebSocketConstructor,
     RuntimeWebSocketInstance,
+    WebSocketEvent,
     WebSocketClientOptions,
     WebSocketClientState
 } from "./src/index.js";
