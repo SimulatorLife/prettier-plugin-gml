@@ -147,7 +147,15 @@ function normalizeDocCommentLookupKey(identifier) {
     return normalized;
 }
 
-function createDocCommentTypeNormalization(candidate = {}) {
+type DocCommentNormalizationInput = {
+    synonyms?: Iterable<[string, string]>;
+    canonicalSpecifierNames?: Iterable<[string, string]>;
+    specifierPrefixes?: Iterable<string>;
+};
+
+function createDocCommentTypeNormalization(
+    candidate: DocCommentNormalizationInput = {}
+) {
     const synonyms = new Map();
     for (const [
         key,

@@ -23,31 +23,11 @@
 - This codebase does **NOT** allow `.mjs`, `.cjs`. or `.js` as source files **except for in vendor-code directories and generated code**; all code must be authored as **typescript** (`.ts`) files, and packages should rely on `"type": "module"` to enable ESM behavior consistently throughout the monorepo. If you encounter existing `.mjs`, `.cjs`, or `.js` files, refactor them to `.ts` and adjust imports/exports accordingly. No custom file extensions (e.g., .gmlx, .gmlext, .foo) are permitted; the system recognizes `.ts` for source and `.gml` for GameMaker language files.
 - Each package/module and major internal directory must include an `index.ts` file that serves exclusively as the public export surface for that module; `index.ts` files should contain only exports, no runtime logic, and must re-export all intended public functionality so that consumers import solely from the package root (e.g., `@gml-modules/core`) rather than deep relative paths or subdirectories.
 - Use a consistent module directory structure across the monorepo, where each package contains a top-level `package.json`, a top-level `index.ts`, and separate `src/` and `test/` directories; all implementation code must reside in `src/`, all tests must reside in `test/`, and consumers must always import from the module root rather than deep internal paths.
-- Every package and every subdirectory within `src/` must contain an `index.ts` file that serves only as an export surface, never as a place for runtime logic, helper functions, computations, or side-effects. All `index.ts` files—whether at the package root or inside submodules—must consist exclusively of imports and exports and must re-export the public symbols for that directory. At the package root, the top-level `index.ts` must export exactly one named namespace (e.g., `export * as Transpiler from "./src/transpiler/index.ts`"; or `export const Semantic = Object.freeze({ ... });`) and must not contain default exports. Internal implementation files must never import via these `index.ts` namespace layers; internal code must use direct relative imports only. The namespace exports exist solely for module consumers, not for internal use, and no `index.ts` anywhere in the repo may contain executable code, initialization logic, or helper implementations—only structured exports.
+- Every package and every subdirectory within `src/` must contain an `index.ts` file that serves only as an export surface, never as a place for runtime logic, helper functions, computations, or side-effects. All `index.ts` files—whether at the package root or inside submodules—must consist exclusively of imports and exports and must re-export the public symbols for that directory. At the package root, the top-level `index.ts` must export exactly one named namespace (e.g., `export * as Transpiler from "./src/index.ts`"; or `export const Semantic = Object.freeze({ ... });`) and must not contain default exports. Internal implementation files must never import via these `index.ts` namespace layers; internal code must use direct relative imports only. The namespace exports exist solely for module consumers, not for internal use, and no `index.ts` anywhere in the repo may contain executable code, initialization logic, or helper implementations—only structured exports.
 - Do not create “pass-through” modules/shims/placeholders/wrappers that simply import symbols from another package and re-export them; files should always import the specific functions or values they need directly at the point of use rather than acting as proxy exporters, ensuring each module exposes only its own public API and avoiding unnecessary indirection, and if you encounter an existing pass-through file, remove it and update callers to import the required symbols directly.
 - Avoid legacy-behavior support; always implement the current, forward-looking design without adding compatibility layers or transitional code.
 - When importing from another top-level package, always import the package’s **single exported namespace** (e.g., `import * as Core from "@gml-modules/core"`), and **do not destructure** that namespace into individual symbols; external consumers must always call functions or access exports via the namespace object (e.g., `Core.toMutableArray(...)`). Destructuring is allowed only for internal imports within the same package, where direct relative paths must be used instead of importing through the package’s public namespace.
 - Use optional properties `(foo?: T)`, `T | undefined`, and utility types such as `Partial<T>` **only when the data is truly optional or incomplete by design** (e.g., API responses, incremental builders, or config objects); avoid using optionality as a shortcut to silence type errors, to mask missing initialization, or to represent values that are logically required at runtime. Optionality must reflect real domain behavior, not developer convenience. If only some fields are required, define a narrower type instead of applying broad `Partial<T>` to entire objects, and never rely on non-null assertions (!) to bypass proper typing — they are a strong indicator that the value should not have been optional in the first place. Likewise, do not use type `any` to silence type errors or to bypass proper typing—doing so hides real bugs and defeats the purpose of TypeScript in this codebase. If a value is difficult to type, create a more precise type, narrow the definition, or explicitly model the unknown shape with `unknown` plus safe refinement logic. Avoid both optionality and `any` as shortcuts; they must be used only when required by the problem domain, never as a lazy escape hatch.
-- The public namespace for a package (e.g., `Semantic`) should be assembled by **flattening curated submodule public APIs** exported from `src/`-level indices, using object spread from internal namespaces, for example:
-  ```js
-  import * as IdentifierCase from "./src/identifier-case/index.js";
-  import * as ProjectIndex from "./src/project-index/index.js";
-  import * as Scopes from "./src/scopes/index.js";
-  import * as Resources from "./src/resources/index.js";
-  import * as SemOracle from "./src/sem-oracle.js";
-  import * as SCIPTypes from "./src/scip-types.js";
-  import * as SCIPSymbols from "./src/scip-symbols.js";
-
-  export const Semantic = Object.freeze({
-      ...IdentifierCase,
-      ...ProjectIndex,
-      ...Scopes,
-      ...Resources,
-      ...SemOracle,
-      ...SCIPTypes,
-      ...SCIPSymbols
-  });
-   ```
 
 ----
 

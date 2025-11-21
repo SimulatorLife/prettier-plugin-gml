@@ -59,6 +59,8 @@ const {
     Resources: { getFeatherDiagnosticById, getFeatherDiagnostics }
 } = Core;
 
+const sharedGetSingleVariableDeclarator = Core.getSingleVariableDeclarator;
+
 // const {
 //     AST: {
 //         Core.getNodeEndIndex,
@@ -695,7 +697,7 @@ function normalizeRemovalAdjustments(adjustments) {
 }
 
 function adjustLocationForRemoval(node, property, adjustments) {
-    if (!Object.Core.hasOwn(node, property)) {
+    if (!Core.hasOwn(node, property)) {
         return;
     }
 
@@ -1389,7 +1391,7 @@ function removeDuplicateEnumMembers({ ast, diagnostic, sourceText }) {
         }
 
         if (Array.isArray(node)) {
-            visitChildNodes(node, visit);
+            Core.visitChildNodes(node, visit);
             return;
         }
 
@@ -1446,7 +1448,7 @@ function removeDuplicateEnumMembers({ ast, diagnostic, sourceText }) {
             }
         }
 
-        forEachNodeChild(node, (value) => {
+        Core.forEachNodeChild(node, (value) => {
             visit(value);
         });
     };
@@ -1517,7 +1519,7 @@ function removeBreakStatementsWithoutEnclosingLoops({ ast, diagnostic }) {
         }
 
         if (node.type === "BreakStatement" && breakableDepth === 0) {
-            if (!isArrayIndex(parent, property)) {
+            if (!Core.isArrayIndex(parent, property)) {
                 return false;
             }
 
@@ -1555,7 +1557,7 @@ function removeBreakStatementsWithoutEnclosingLoops({ ast, diagnostic }) {
         const nextBreakableDepth =
             breakableDepth + (isBreakableConstruct(node) ? 1 : 0);
 
-        forEachNodeChild(node, (value, key) => {
+        Core.forEachNodeChild(node, (value, key) => {
             if (Array.isArray(value)) {
                 visitArray(value, node, key, nextBreakableDepth);
                 return;
@@ -2088,7 +2090,7 @@ function resolveWithOtherVariableReferences({ ast, diagnostic }) {
 
         ancestorStack.push(node);
 
-        if (isVarVariableDeclaration(node)) {
+        if (Core.isVarVariableDeclaration(node)) {
             recordVariableDeclaration(variableDeclarations, {
                 declaration: node,
                 parent,
@@ -2164,7 +2166,7 @@ function recordVariableDeclaration(registry, context) {
 
     const { declaration, parent, property, owner } = context;
 
-    if (!isArrayIndex(parent, property)) {
+    if (!Core.isArrayIndex(parent, property)) {
         return;
     }
 
@@ -2817,7 +2819,7 @@ function convertStringLengthPropertyAccesses({ ast, diagnostic }) {
             }
         }
 
-        forEachNodeChild(node, (value, key) => {
+        Core.forEachNodeChild(node, (value, key) => {
             visit(value, node, key);
         });
     };
@@ -2966,7 +2968,7 @@ function convertAssetArgumentStringsToIdentifiers({ ast, diagnostic }) {
             if (calleeName && GM1041_CALL_ARGUMENT_TARGETS.has(calleeName)) {
                 const argumentIndexes =
                     GM1041_CALL_ARGUMENT_TARGETS.get(calleeName) ?? [];
-                const args = getCallExpressionArguments(node);
+                const args = Core.getCallExpressionArguments(node);
 
                 for (const argumentIndex of argumentIndexes) {
                     if (
@@ -2991,7 +2993,7 @@ function convertAssetArgumentStringsToIdentifiers({ ast, diagnostic }) {
             }
         }
 
-        forEachNodeChild(node, (value) => {
+        Core.forEachNodeChild(node, (value) => {
             visit(value);
         });
     };
@@ -3007,7 +3009,7 @@ function convertStringLiteralArgumentToIdentifier({
     index,
     diagnostic
 }) {
-    if (!isArrayIndex(container, index)) {
+    if (!Core.isArrayIndex(container, index)) {
         return null;
     }
 
@@ -3125,7 +3127,7 @@ function sanitizeEnumAssignments({ ast, diagnostic }) {
         }
 
         if (Array.isArray(node)) {
-            visitChildNodes(node, visit);
+            Core.visitChildNodes(node, visit);
             return;
         }
 
@@ -3141,7 +3143,7 @@ function sanitizeEnumAssignments({ ast, diagnostic }) {
             }
         }
 
-        visitChildNodes(node, visit);
+        Core.visitChildNodes(node, visit);
     };
 
     visit(ast);
@@ -3297,7 +3299,7 @@ function splitGlobalVarInlineInitializers({ ast, diagnostic }) {
             return;
         }
 
-        forEachNodeChild(node, (value, key) => {
+        Core.forEachNodeChild(node, (value, key) => {
             visit(value, node, key);
         });
     };
@@ -3582,7 +3584,7 @@ function removeInvalidAssignmentExpression({
 }
 
 function getFiniteIndex(value) {
-    return isFiniteNumber(value) && value >= 0 ? value : null;
+    return Core.isFiniteNumber(value) && value >= 0 ? value : null;
 }
 
 function removeNodeFromContainer(container, index, node) {
@@ -3738,7 +3740,7 @@ function convertReadOnlyBuiltInAssignments({ ast, diagnostic }) {
             }
         }
 
-        forEachNodeChild(node, (value, key) => {
+        Core.forEachNodeChild(node, (value, key) => {
             visit(value, node, key);
         });
     };
@@ -3896,7 +3898,7 @@ function renameIdentifiersInNode(root, originalName, replacementName) {
 
         const nextAncestors = ancestors.concat({ node, parent, property });
 
-        forEachNodeChild(node, (value, key) => {
+        Core.forEachNodeChild(node, (value, key) => {
             stack.push({
                 node: value,
                 parent: node,
@@ -3975,7 +3977,7 @@ function shouldSkipIdentifierReplacement({ parent, property, ancestors }) {
 }
 
 function createReadOnlyReplacementName(originalName, nameRegistry) {
-    const baseName = getNonEmptyString(originalName) ?? "value";
+    const baseName = Core.getNonEmptyString(originalName) ?? "value";
     const sanitized = baseName.replaceAll(/[^a-zA-Z0-9_]/g, "_");
     let candidate = `__feather_${sanitized}`;
     let suffix = 1;
@@ -3994,7 +3996,7 @@ function collectAllIdentifierNames(root) {
     const names = new Set();
 
     walkAstNodes(root, (node) => {
-        const identifierDetails = getIdentifierDetails(node);
+        const identifierDetails = Core.getIdentifierDetails(node);
         if (identifierDetails) {
             names.add(identifierDetails.name);
         }
@@ -4101,7 +4103,7 @@ function unwrapLiteralFromExpression(node) {
 }
 
 function isFileAttributeIdentifier(node) {
-    const identifierDetails = getIdentifierDetails(node);
+    const identifierDetails = Core.getIdentifierDetails(node);
     if (!identifierDetails) {
         return false;
     }
@@ -4243,7 +4245,7 @@ function rewriteRoomGotoCall({ node, diagnostic, sourceText }) {
         return null;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length !== 1) {
         return null;
@@ -4656,7 +4658,7 @@ function normalizeArgumentBuiltinReferences({ ast, diagnostic, sourceText }) {
             return;
         }
 
-        if (isFunctionLikeNode(node)) {
+        if (Core.isFunctionLikeNode(node)) {
             const documentedParamNames =
                 documentedParamNamesByFunction.get(node) ?? new Set();
             const functionFixes = fixArgumentReferencesWithinFunction(
@@ -4727,7 +4729,7 @@ function fixArgumentReferencesWithinFunction(
             }
         }
 
-        if (node !== functionNode && isFunctionLikeNode(node)) {
+        if (node !== functionNode && Core.isFunctionLikeNode(node)) {
             const nestedFixes = fixArgumentReferencesWithinFunction(
                 node,
                 diagnostic,
@@ -4771,7 +4773,7 @@ function fixArgumentReferencesWithinFunction(
         references.map((reference) => reference.index)
     );
 
-    if (!isMapLike(mapping) || !hasIterableItems(mapping)) {
+    if (!Core.isMapLike(mapping) || !Core.hasIterableItems(mapping)) {
         return fixes;
     }
 
@@ -4903,7 +4905,7 @@ function buildDocumentedParamNameLookup(ast, sourceText, docCommentTraversal) {
         docCommentTraversal ?? resolveDocCommentTraversalService(ast);
 
     traversal.forEach((node, comments = []) => {
-        if (!isFunctionLikeNode(node)) {
+        if (!Core.isFunctionLikeNode(node)) {
             return;
         }
 
@@ -5081,7 +5083,7 @@ function normalizeDocParamNameForComparison(name) {
         return "";
     }
 
-    return toNormalizedLowerCaseString(name);
+    return Core.toNormalizedLowerCaseString(name);
 }
 
 function createArgumentIndexMapping(indices) {
@@ -5127,7 +5129,7 @@ function createArgumentIndexMapping(indices) {
 }
 
 function getArgumentIdentifierIndex(node) {
-    const identifierDetails = getIdentifierDetails(node);
+    const identifierDetails = Core.getIdentifierDetails(node);
     if (!identifierDetails) {
         return null;
     }
@@ -5211,7 +5213,7 @@ function removeDuplicateMacroDeclarations({ ast, diagnostic }) {
             return true;
         }
 
-        forEachNodeChild(node, (value, key) => {
+        Core.forEachNodeChild(node, (value, key) => {
             visit(value, node, key);
         });
 
@@ -5267,7 +5269,7 @@ function replaceDeprecatedBuiltinVariables({ ast, diagnostic }) {
             }
         }
 
-        forEachNodeChild(node, (value, key) => {
+        Core.forEachNodeChild(node, (value, key) => {
             visit(value, node, key, node, key);
         });
     };
@@ -5285,12 +5287,12 @@ function replaceDeprecatedIdentifier(
     ownerKey,
     diagnostic
 ) {
-    const identifierDetails = getIdentifierDetails(node);
+    const identifierDetails = Core.getIdentifierDetails(node);
     if (!identifierDetails) {
         return null;
     }
 
-    const normalizedName = toNormalizedLowerCaseString(identifierDetails.name);
+    const normalizedName = Core.toNormalizedLowerCaseString(identifierDetails.name);
 
     if (!normalizedName || normalizedName.length === 0) {
         return null;
@@ -5528,7 +5530,7 @@ function rewriteInvalidPostfixExpressions({ ast, diagnostic }) {
             }
         }
 
-        forEachNodeChild(node, (value, key) => {
+        Core.forEachNodeChild(node, (value, key) => {
             visit(value, node, key);
         });
     };
@@ -5553,7 +5555,7 @@ function rewritePostfixStatement(node, parent, property, diagnostic) {
         return null;
     }
 
-    const argumentName = getIdentifierName(argument);
+    const argumentName = Core.getIdentifierName(argument);
 
     if (
         typeof argumentName === "string" &&
@@ -5569,7 +5571,7 @@ function rewritePostfixStatement(node, parent, property, diagnostic) {
         return null;
     }
 
-    const initializer = cloneAstNode(argument);
+    const initializer = Core.cloneAstNode(argument);
     const declarationIdentifier = Core.createIdentifierNode(
         temporaryName,
         argument
@@ -5635,7 +5637,7 @@ function rewritePostfixStatement(node, parent, property, diagnostic) {
     copyCommentMetadata(node, rewrittenStatement);
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: getIdentifierName(argument),
+        target: Core.getIdentifierName(argument),
         range: {
             start: Core.getNodeStartIndex(node),
             end: Core.getNodeEndIndex(node)
@@ -5763,7 +5765,7 @@ function convertMultidimensionalMemberIndex(
 
     if (Array.isArray(parent)) {
         parent[property] = nestedExpression;
-    } else if (isObjectLike(parent)) {
+    } else if (Core.isObjectLike(parent)) {
         parent[property] = nestedExpression;
     }
 
@@ -5787,11 +5789,11 @@ function buildNestedMemberIndexExpression({ object, indices, template }) {
         accessor
     };
 
-    if (Object.Core.hasOwn(template, "start")) {
+    if (Core.hasOwn(template, "start")) {
         current.start = Core.cloneLocation(template.start);
     }
 
-    if (remaining.length === 0 && Object.Core.hasOwn(template, "end")) {
+    if (remaining.length === 0 && Core.hasOwn(template, "end")) {
         current.end = Core.cloneLocation(template.end);
     }
 
@@ -5805,13 +5807,13 @@ function buildNestedMemberIndexExpression({ object, indices, template }) {
             accessor
         };
 
-        if (Object.Core.hasOwn(template, "start")) {
+        if (Core.hasOwn(template, "start")) {
             next.start = Core.cloneLocation(template.start);
         }
 
         if (
             index === remaining.length - 1 &&
-            Object.Core.hasOwn(template, "end")
+            Core.hasOwn(template, "end")
         ) {
             next.end = Core.cloneLocation(template.end);
         }
@@ -6343,7 +6345,7 @@ function removeBooleanLiteralStatements({ ast, diagnostic, metadata }) {
 
         const expression = node.expression;
 
-        if (!isBooleanLiteral(expression, true)) {
+        if (!Core.isBooleanLiteral(expression, true)) {
             return null;
         }
 
@@ -6578,7 +6580,7 @@ function extractFeatherPreprocessMetadata(metadata, key) {
 
     const entries = metadata[key];
 
-    return compactArray(entries);
+    return Core.compactArray(entries);
 }
 
 function normalizePreprocessedRange(entry) {
@@ -6745,7 +6747,7 @@ function registerSanitizedMacroName(ast, macroName) {
         return;
     }
 
-    const registry = ensureSet(ast._featherSanitizedMacroNames);
+    const registry = Core.ensureSet(ast._featherSanitizedMacroNames);
 
     registry.add(macroName);
     ast._featherSanitizedMacroNames = registry;
@@ -6774,7 +6776,7 @@ function ensureVarDeclarationsAreTerminated({ ast, sourceText, diagnostic }) {
             return;
         }
 
-        if (isVarVariableDeclaration(node)) {
+        if (Core.isVarVariableDeclaration(node)) {
             const fix = ensureVarDeclarationIsTerminated(
                 node,
                 ast,
@@ -7127,7 +7129,7 @@ function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {
             }
         }
 
-        visitChildNodes(node, visit);
+        Core.visitChildNodes(node, visit);
     };
 
     visit(ast);
@@ -7170,7 +7172,7 @@ function collectDeprecatedFunctionNames(ast, sourceText, docCommentTraversal) {
         return names;
     }
 
-    const body = getBodyStatements(ast);
+    const body = Core.getBodyStatements(ast);
 
     if (!Core.isNonEmptyArray(body)) {
         return names;
@@ -7302,7 +7304,7 @@ function convertNumericStringArgumentsToNumbers({ ast, diagnostic }) {
         }
 
         if (node.type === "CallExpression") {
-            const args = getCallExpressionArguments(node);
+            const args = Core.getCallExpressionArguments(node);
 
             for (const argument of args) {
                 const fix = convertNumericStringLiteral(argument, diagnostic);
@@ -7346,7 +7348,7 @@ function convertNumericStringLiteral(argument, diagnostic) {
         return null;
     }
 
-    const numericText = stripStringQuotes(rawValue);
+    const numericText = Core.stripStringQuotes(rawValue);
 
     if (!NUMERIC_STRING_LITERAL_PATTERN.test(numericText)) {
         return null;
@@ -7401,7 +7403,7 @@ function ensureConstructorDeclarationsForNewExpressions({ ast, diagnostic }) {
         }
 
         if (Array.isArray(node)) {
-            visitChildNodes(node, collectFunctions);
+            Core.visitChildNodes(node, collectFunctions);
             return;
         }
 
@@ -7410,14 +7412,14 @@ function ensureConstructorDeclarationsForNewExpressions({ ast, diagnostic }) {
         }
 
         if (node.type === "FunctionDeclaration") {
-            const functionName = getNonEmptyString(node.id);
+            const functionName = Core.getNonEmptyString(node.id);
 
             if (functionName && !functionDeclarations.has(functionName)) {
                 functionDeclarations.set(functionName, node);
             }
         }
 
-        visitChildNodes(node, collectFunctions);
+        Core.visitChildNodes(node, collectFunctions);
     };
 
     collectFunctions(ast);
@@ -7504,7 +7506,7 @@ function convertFunctionDeclarationToConstructor(functionNode, diagnostic) {
 
     functionNode.type = "ConstructorDeclaration";
 
-    if (!Object.Core.hasOwn(functionNode, "parent")) {
+    if (!Core.hasOwn(functionNode, "parent")) {
         functionNode.parent = null;
     }
 
@@ -7673,12 +7675,12 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
             return;
         }
 
-        if (isFunctionLikeNode(node)) {
+        if (Core.isFunctionLikeNode(node)) {
             const paramNames = getFunctionParameterNames(node);
 
             pushScope(paramNames);
 
-            const params = getArrayProperty(node, "params");
+            const params = Core.getArrayProperty(node, "params");
             for (const param of params) {
                 visit(param, node, "params");
             }
@@ -7688,7 +7690,7 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
             return;
         }
 
-        if (isVarVariableDeclaration(node)) {
+        if (Core.isVarVariableDeclaration(node)) {
             const fixDetails = handleVariableDeclaration(
                 node,
                 parent,
@@ -7701,7 +7703,7 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
         }
 
         for (const [key, value] of Object.entries(node)) {
-            if (key === "body" && isFunctionLikeNode(node)) {
+            if (key === "body" && Core.isFunctionLikeNode(node)) {
                 continue;
             }
 
@@ -8134,7 +8136,7 @@ function getVertexBatchTarget(callExpression) {
         return null;
     }
 
-    const args = getCallExpressionArguments(callExpression);
+    const args = Core.getCallExpressionArguments(callExpression);
 
     if (args.length > 0) {
         const firstArgument = args[0];
@@ -8165,7 +8167,7 @@ function createVertexEndCallFromBegin(template) {
     };
 
     if (Core.isNonEmptyArray(template.arguments)) {
-        const clonedArgument = cloneAstNode(template.arguments[0]);
+        const clonedArgument = Core.cloneAstNode(template.arguments[0]);
 
         if (clonedArgument) {
             callExpression.arguments.push(clonedArgument);
@@ -8981,7 +8983,7 @@ function normalizeCallExpressionArguments({
         return null;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
     if (args.length === 0) {
         return null;
     }
@@ -9137,13 +9139,13 @@ function getStatementInsertionInfo(state, statements, baseIndex) {
         state.statementInsertionOffsets = new WeakMap();
     }
 
-    const arrayInfo = getOrCreateMapEntry(
+    const arrayInfo = Core.getOrCreateMapEntry(
         state.statementInsertionOffsets,
         statements,
         () => new Map()
     );
 
-    return getOrCreateMapEntry(arrayInfo, baseIndex, () => ({ offset: 0 }));
+    return Core.getOrCreateMapEntry(arrayInfo, baseIndex, () => ({ offset: 0 }));
 }
 
 function findStatementContext(ancestors) {
@@ -9358,7 +9360,7 @@ function convertNullishIfStatement(node, parent, property, diagnostic) {
         return null;
     }
 
-    const comparison = unwrapParenthesizedExpression(node.test);
+    const comparison = Core.unwrapParenthesizedExpression(node.test);
 
     if (!comparison || comparison.type !== "BinaryExpression") {
         return null;
@@ -9498,11 +9500,11 @@ function extractUndefinedComparisonIdentifier(expression) {
 
     const { left, right } = expression;
 
-    if (Core.isIdentifierNode(left) && isUndefinedSentinel(right)) {
+    if (Core.isIdentifierNode(left) && Core.isUndefinedSentinel(right)) {
         return { node: left, name: left.name };
     }
 
-    if (Core.isIdentifierNode(right) && isUndefinedSentinel(left)) {
+    if (Core.isIdentifierNode(right) && Core.isUndefinedSentinel(left)) {
         return { node: right, name: right.name };
     }
 
@@ -9519,7 +9521,7 @@ function extractConsequentAssignment(consequent) {
     }
 
     if (consequent.type === "BlockStatement") {
-        const statements = compactArray(getBodyStatements(consequent));
+        const statements = Core.compactArray(Core.getBodyStatements(consequent));
 
         if (statements.length !== 1) {
             return null;
@@ -9716,7 +9718,7 @@ function ensureFogResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return null;
@@ -9952,7 +9954,7 @@ function ensureBlendEnableResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return null;
@@ -10090,7 +10092,7 @@ function ensureBlendModeResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return null;
@@ -10429,7 +10431,7 @@ function removeRedeclaredGlobalFunctions({ ast, diagnostic }) {
         return [];
     }
 
-    const body = getBodyStatements(ast);
+    const body = Core.getBodyStatements(ast);
 
     if (body.length === 0) {
         return [];
@@ -10631,7 +10633,7 @@ function ensureConstructorParentsExist({ ast, diagnostic }) {
                     if (fallback && fallback.type === "FunctionDeclaration") {
                         fallback.type = "ConstructorDeclaration";
 
-                        if (!Object.Core.hasOwn(fallback, "parent")) {
+                        if (!Core.hasOwn(fallback, "parent")) {
                             fallback.parent = null;
                         }
 
@@ -11087,7 +11089,7 @@ function getDrawPrimitiveEndCallInfo(block) {
         return null;
     }
 
-    const body = getBodyStatements(block);
+    const body = Core.getBodyStatements(block);
     const matches = [];
 
     for (const [index, statement] of body.entries()) {
@@ -11113,7 +11115,7 @@ function ensureAlphaTestEnableResetAfterCall(
         return null;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return null;
@@ -11203,7 +11205,7 @@ function ensureHalignResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return null;
@@ -11278,7 +11280,7 @@ function ensureAlphaTestRefResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return null;
@@ -11856,7 +11858,7 @@ function ensureCullModeResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return null;
@@ -11989,7 +11991,7 @@ function ensureVertexBeginBeforeVertexEndCall(
         return null;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return null;
@@ -12063,7 +12065,7 @@ function isVertexBeginCallForBuffer(node, bufferName) {
         return false;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return false;
@@ -12140,7 +12142,7 @@ function ensureVertexEndInserted(node, parent, property, diagnostic) {
         return null;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return null;
@@ -12264,7 +12266,7 @@ function hasOnlyWhitespaceBetweenNodes(previous, next, sourceText) {
 
     const sanitized = between.replaceAll(";", "");
 
-    return !isNonEmptyTrimmedString(sanitized);
+    return !Core.isNonEmptyTrimmedString(sanitized);
 }
 
 function hasFirstArgumentIdentifier(node, name) {
@@ -12272,7 +12274,7 @@ function hasFirstArgumentIdentifier(node, name) {
         return false;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return false;
@@ -12316,7 +12318,7 @@ function isVertexEndCallForBuffer(node, bufferName) {
         return true;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return false;
@@ -12385,7 +12387,7 @@ function createVertexBeginCall({
         template.additionalArguments.length > 0
     ) {
         for (const argumentTemplate of template.additionalArguments) {
-            const clonedArgument = cloneAstNode(argumentTemplate);
+            const clonedArgument = Core.cloneAstNode(argumentTemplate);
 
             if (clonedArgument) {
                 callExpression.arguments.push(clonedArgument);
@@ -12456,7 +12458,7 @@ function createVertexBeginCallTemplateFromDiagnostic(diagnostic) {
             return null;
         }
 
-        const args = getCallExpressionArguments(callExpression);
+        const args = Core.getCallExpressionArguments(callExpression);
 
         if (args.length <= 1) {
             return { additionalArguments: [] };
@@ -12893,7 +12895,7 @@ function referencesIdentifier(node, variableName) {
             continue;
         }
 
-        if (isFunctionLikeNode(value)) {
+        if (Core.isFunctionLikeNode(value)) {
             // Nested functions introduce new scopes. References to the same
             // identifier name inside them do not require hoisting the current
             // declaration, so skip descending into those subtrees.
@@ -12945,7 +12947,7 @@ function referencesIdentifierBeforePosition(node, variableName, beforeIndex) {
             continue;
         }
 
-        if (isFunctionLikeNode(value)) {
+        if (Core.isFunctionLikeNode(value)) {
             continue;
         }
 
@@ -13353,7 +13355,7 @@ function ensureColourWriteEnableResetAfterCall(
         return null;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (!hasDisabledColourChannel(args)) {
         return null;
@@ -13549,7 +13551,7 @@ function createFunctionCallTemplateFromDiagnostic(diagnostic) {
             return null;
         }
 
-        const args = getCallExpressionArguments(callExpression);
+        const args = Core.getCallExpressionArguments(callExpression);
 
         if (args.length === 0) {
             return null;
@@ -13743,7 +13745,7 @@ function isCoercibleStringLiteral(node) {
             (startingQuote === '"' || startingQuote === "'") &&
             startingQuote === endingQuote
         ) {
-            literalText = stripStringQuotes(rawValue);
+            literalText = Core.stripStringQuotes(rawValue);
         }
     }
 
@@ -14058,7 +14060,7 @@ function ensureTextureRepeatResetAfterCall(node, parent, property, diagnostic) {
         return null;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return null;
@@ -14212,8 +14214,8 @@ function insertSeparatorStatementBeforeIndex(
 }
 
 function hasOriginalBlankLineBetween(beforeNode, afterNode) {
-    const beforeEndLine = getNodeEndLine(beforeNode);
-    const afterStartLine = getNodeStartLine(afterNode);
+    const beforeEndLine = Core.getNodeEndLine(beforeNode);
+    const afterStartLine = Core.getNodeStartLine(afterNode);
 
     if (beforeEndLine === undefined || afterStartLine === undefined) {
         return false;
@@ -14520,7 +14522,7 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
             return null;
         }
 
-        return getBodyStatements(target);
+        return Core.getBodyStatements(target);
     }
 
     function insertFileFindCloseBefore(statements, index, callNode) {
@@ -14701,7 +14703,7 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
             return node.body;
         }
 
-        return getBodyStatements(node.body);
+        return Core.getBodyStatements(node.body);
     }
 
     function createFileFindState() {
@@ -14831,7 +14833,7 @@ function moveGpuPopStateCallOutOfConditional(
         return null;
     }
 
-    const consequentBody = getBodyStatements(consequentBlock);
+    const consequentBody = Core.getBodyStatements(consequentBlock);
 
     if (consequentBody.length === 0) {
         return null;
@@ -14891,7 +14893,7 @@ function hasTrailingGpuPopInAlternate(alternate) {
     }
 
     if (alternate.type === "BlockStatement") {
-        const body = getBodyStatements(alternate);
+        const body = Core.getBodyStatements(alternate);
 
         if (body.length === 0) {
             return false;
@@ -15110,7 +15112,7 @@ function isStatementList(parent, property) {
     }
 
     if (property === "body") {
-        return isProgramOrBlockStatement(parent);
+        return Core.isProgramOrBlockStatement(parent);
     }
 
     if (property === "consequent" && parent.type === "SwitchCase") {
@@ -15575,7 +15577,7 @@ function shouldProcessStatementSequence(parent, property) {
     }
 
     if (property === "body") {
-        return isProgramOrBlockStatement(parent);
+        return Core.isProgramOrBlockStatement(parent);
     }
 
     return parent.type === "CaseClause" && property === "consequent";
@@ -15771,7 +15773,7 @@ function suppressDuplicateVertexFormatComments(ast, commentTargets, node) {
         return;
     }
 
-    const referenceLine = getNodeStartLine(node);
+    const referenceLine = Core.getNodeStartLine(node);
 
     const removalIndexes = new Set();
 
@@ -15900,7 +15902,7 @@ function createCallExpressionCommentText(node) {
         return null;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (!Core.isNonEmptyArray(args)) {
         return `${calleeName}()`;
@@ -16056,7 +16058,7 @@ function annotateInstanceCreateCall(node, diagnostic) {
 }
 
 function isInstanceCreateIdentifier(node) {
-    const identifierDetails = getIdentifierDetails(node);
+    const identifierDetails = Core.getIdentifierDetails(node);
     if (!identifierDetails) {
         return false;
     }
@@ -16217,8 +16219,8 @@ function getUserEventReference(node) {
         return null;
     }
 
-    const callee = getCallExpressionIdentifier(node);
-    const args = getCallExpressionArguments(node);
+    const callee = Core.getCallExpressionIdentifier(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (Core.isIdentifierWithName(callee, "event_user")) {
         const eventIndex = resolveUserEventIndex(args[0]);
@@ -16393,7 +16395,7 @@ function createAssignmentFromDeclarator(declarator, declarationNode) {
 }
 
 function getFunctionParameterNames(node) {
-    const params = getArrayProperty(node, "params");
+    const params = Core.getArrayProperty(node, "params");
     const names = [];
 
     for (const param of params) {
@@ -16452,11 +16454,11 @@ function cloneLiteral(node) {
 }
 
 function createIdentifierFromTemplate(name, template) {
-    return createIdentifierNode(name, template);
+    return Core.createIdentifierNode(name, template);
 }
 
 function cloneIdentifier(node) {
-    const identifierDetails = getIdentifierDetails(node);
+    const identifierDetails = Core.getIdentifierDetails(node);
     if (!identifierDetails) {
         return null;
     }
@@ -16482,7 +16484,7 @@ function copyCommentMetadata(source, target) {
         "innerComments",
         "comments"
     ]) {
-        if (Object.Core.hasOwn(source, key)) {
+        if (Core.hasOwn(source, key)) {
             target[key] = source[key];
         }
     }
@@ -16493,7 +16495,7 @@ function extractIdentifierNameFromLiteral(value) {
         return null;
     }
 
-    const stripped = stripStringQuotes(value);
+    const stripped = Core.stripStringQuotes(value);
     if (!stripped) {
         return null;
     }
@@ -16506,11 +16508,11 @@ function extractIdentifierNameFromLiteral(value) {
 }
 
 function isDrawPrimitiveBeginCall(node) {
-    return isCallExpressionIdentifierMatch(node, "draw_primitive_begin");
+    return Core.isCallExpressionIdentifierMatch(node, "draw_primitive_begin");
 }
 
 function isDrawPrimitiveEndCall(node) {
-    return isCallExpressionIdentifierMatch(node, "draw_primitive_end");
+    return Core.isCallExpressionIdentifierMatch(node, "draw_primitive_end");
 }
 
 function createPrimitiveBeginCall(template) {
@@ -16532,14 +16534,14 @@ function createPrimitiveBeginCall(template) {
     const callExpression = {
         type: "CallExpression",
         object: identifier,
-        arguments: compactArray([primitiveType])
+        arguments: Core.compactArray([primitiveType])
     };
 
-    if (Object.Core.hasOwn(template, "start")) {
+    if (Core.hasOwn(template, "start")) {
         callExpression.start = Core.cloneLocation(template.start);
     }
 
-    if (Object.Core.hasOwn(template, "end")) {
+    if (Core.hasOwn(template, "end")) {
         const referenceLocation = template.start ?? template.end;
 
         if (referenceLocation) {
@@ -16619,7 +16621,7 @@ function isShaderResetCall(node) {
         return false;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     return args.length === 0;
 }
@@ -16633,7 +16635,7 @@ function isFogResetCall(node) {
         return false;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length < 4) {
         return false;
@@ -16656,7 +16658,7 @@ function isAlphaTestEnableResetCall(node) {
         return false;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return false;
@@ -16674,7 +16676,7 @@ function isAlphaTestRefResetCall(node) {
         return false;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return false;
@@ -16692,7 +16694,7 @@ function isHalignResetCall(node) {
         return false;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return false;
@@ -16710,7 +16712,7 @@ function isCullModeResetCall(node) {
         return false;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return false;
@@ -16728,7 +16730,7 @@ function isColourWriteEnableResetCall(node) {
         return false;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length < 4) {
         return false;
@@ -16736,7 +16738,7 @@ function isColourWriteEnableResetCall(node) {
 
     return args
         .slice(0, 4)
-        .every((argument) => isBooleanLiteral(argument, true));
+        .every((argument) => Core.isBooleanLiteral(argument, true));
 }
 
 function isAlphaTestDisableCall(node) {
@@ -16748,7 +16750,7 @@ function isAlphaTestDisableCall(node) {
         return false;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return false;
@@ -16987,7 +16989,7 @@ function isTextureRepeatResetCall(node) {
         return false;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return false;
@@ -17031,7 +17033,7 @@ function isBlendModeResetCall(node) {
         return false;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return false;
@@ -17049,7 +17051,7 @@ function isBlendEnableResetCall(node) {
         return false;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length === 0) {
         return false;
@@ -17639,14 +17641,14 @@ function fixSpecifierSpacing(typeText, specifierBaseTypes) {
     }
 
     if (
-        !isSetLike(specifierBaseTypes) ||
-        !hasIterableItems(specifierBaseTypes)
+        !Core.isSetLike(specifierBaseTypes) ||
+        !Core.hasIterableItems(specifierBaseTypes)
     ) {
         return typeText;
     }
 
     const patternSource = [...specifierBaseTypes]
-        .map((name) => escapeRegExp(name))
+        .map((name) => Core.escapeRegExp(name))
         .join("|");
 
     if (!patternSource) {
@@ -17805,7 +17807,7 @@ function fixTypeUnionSpacing(typeText, baseTypesLower) {
         return typeText ?? "";
     }
 
-    if (!isSetLike(baseTypesLower) || !hasIterableItems(baseTypesLower)) {
+    if (!Core.isSetLike(baseTypesLower) || !Core.hasIterableItems(baseTypesLower)) {
         return typeText;
     }
 
@@ -17902,7 +17904,7 @@ function splitTypeSegments(text) {
             depthAngle === 0 &&
             depthParen === 0
         ) {
-            if (isNonEmptyTrimmedString(current)) {
+            if (Core.isNonEmptyTrimmedString(current)) {
                 segments.push(current.trim());
             }
             current = "";
@@ -17912,7 +17914,7 @@ function splitTypeSegments(text) {
         current += char;
     }
 
-    if (isNonEmptyTrimmedString(current)) {
+    if (Core.isNonEmptyTrimmedString(current)) {
         segments.push(current.trim());
     }
 
@@ -17924,7 +17926,7 @@ function hasDelimiterOutsideNesting(text, delimiters) {
         return false;
     }
 
-    const delimiterSet = hasIterableItems(delimiters)
+    const delimiterSet = Core.hasIterableItems(delimiters)
         ? new Set(delimiters)
         : new Set();
     let depthSquare = 0;
@@ -17995,7 +17997,7 @@ function createTemporaryIdentifierName(argument, siblings) {
     }
 
     const baseName = sanitizeIdentifierName(
-        getIdentifierName(argument) || "value"
+        Core.getIdentifierName(argument) || "value"
     );
     const prefix = `__featherFix_${baseName}`;
     let candidate = prefix;
@@ -18039,7 +18041,7 @@ function collectIdentifierNames(node, registry) {
         return;
     }
 
-    const identifierDetails = getIdentifierDetails(node);
+    const identifierDetails = Core.getIdentifierDetails(node);
     if (identifierDetails) {
         registry.add(identifierDetails.name);
     }
@@ -18118,7 +18120,7 @@ function isVertexSubmitCallUsingActiveTarget(node) {
         return false;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length < 3) {
         return false;
@@ -18132,7 +18134,7 @@ function extractSurfaceTargetName(node) {
         return null;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     if (args.length > 0 && Core.isIdentifierNode(args[0])) {
         return args[0].name;
@@ -18176,7 +18178,7 @@ function isEventInheritedCall(node) {
         return false;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
     return args.length === 0;
 }
@@ -18187,7 +18189,7 @@ function isStatementContainer(owner, ownerKey) {
     }
 
     if (ownerKey === "body") {
-        return isProgramOrBlockStatement(owner);
+        return Core.isProgramOrBlockStatement(owner);
     }
 
     if (owner.type === "SwitchCase" && ownerKey === "consequent") {
@@ -18289,7 +18291,7 @@ function isSupportedVariableDeclaration(node) {
 
     const kind =
         typeof node.kind === "string"
-            ? toNormalizedLowerCaseString(node.kind)
+            ? Core.toNormalizedLowerCaseString(node.kind)
             : null;
 
     return kind === "var" || kind === "static";
@@ -18595,8 +18597,8 @@ function balanceGpuStateStack({ ast, diagnostic }) {
             return;
         }
 
-        if (isProgramOrBlockStatement(node)) {
-            const statements = getBodyStatements(node);
+        if (Core.isProgramOrBlockStatement(node)) {
+            const statements = Core.getBodyStatements(node);
 
             if (statements.length > 0 && node.type !== "Program") {
                 const blockFixes = balanceGpuStateCallsInStatements(
@@ -18628,7 +18630,7 @@ function balanceGpuStateStack({ ast, diagnostic }) {
         }
 
         if (node.type === "CaseClause") {
-            const statements = getArrayProperty(node, "consequent");
+            const statements = Core.getArrayProperty(node, "consequent");
 
             if (statements.length > 0) {
                 const blockFixes = balanceGpuStateCallsInStatements(
@@ -18789,7 +18791,7 @@ function isGpuPopStateCall(node) {
 function getManualFeatherFixRegistry(ast) {
     let registry = ast[MANUAL_FIX_TRACKING_KEY];
 
-    if (isSetLike(registry)) {
+    if (Core.isSetLike(registry)) {
         return registry;
     }
 
@@ -18886,7 +18888,7 @@ function applyMissingFunctionCallCorrections({ ast, diagnostic }) {
     const replacements =
         extractFunctionCallReplacementsFromExamples(diagnostic);
 
-    if (!isMapLike(replacements) || !hasIterableItems(replacements)) {
+    if (!Core.isMapLike(replacements) || !Core.hasIterableItems(replacements)) {
         return [];
     }
 
@@ -18938,11 +18940,11 @@ function correctMissingFunctionCall(node, replacements, diagnostic) {
         return null;
     }
 
-    if (!isMapLike(replacements) || !hasIterableItems(replacements)) {
+    if (!Core.isMapLike(replacements) || !Core.hasIterableItems(replacements)) {
         return null;
     }
 
-    const callee = getCallExpressionIdentifier(node);
+    const callee = Core.getCallExpressionIdentifier(node);
 
     if (!callee) {
         return null;
@@ -19024,7 +19026,7 @@ function extractFunctionCallNamesFromExample(exampleText) {
         }
 
         const [code] = line.split("//", 1);
-        if (!isNonEmptyTrimmedString(code)) {
+        if (!Core.isNonEmptyTrimmedString(code)) {
             continue;
         }
 
@@ -19050,7 +19052,7 @@ function relocateArgumentReferencesInsideFunctions({ ast, diagnostic }) {
         return [];
     }
 
-    const programBody = getBodyStatements(ast);
+    const programBody = Core.getBodyStatements(ast);
 
     if (programBody.length === 0) {
         return [];
@@ -19160,7 +19162,7 @@ function findArgumentReferenceOutsideFunctions(node) {
             return;
         }
 
-        if (!isRoot && isFunctionLikeNode(current)) {
+        if (!isRoot && Core.isFunctionLikeNode(current)) {
             return;
         }
 
@@ -19244,9 +19246,9 @@ function collectGM1100Candidates(node) {
         if (
             (candidate.type === "VariableDeclaration" ||
                 candidate.type === "AssignmentExpression") &&
-            typeof getNodeStartLine(candidate) === "number"
+            typeof Core.getNodeStartLine(candidate) === "number"
         ) {
-            const line = getNodeStartLine(candidate);
+            const line = Core.getNodeStartLine(candidate);
 
             if (typeof line === "number") {
                 if (!index.has(line)) {
