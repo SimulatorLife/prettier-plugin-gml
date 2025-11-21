@@ -1,13 +1,5 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: {
-        applyConfiguredValueEnvOverride,
-        createEnvConfiguredValueWithFallback,
-        toFiniteNumber
-    }
-} = Core;
-
 const PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR = "GML_PROJECT_INDEX_CONCURRENCY";
 const PROJECT_INDEX_GML_CONCURRENCY_BASELINE = 4;
 const PROJECT_INDEX_GML_MAX_CONCURRENCY_ENV_VAR =
@@ -15,8 +7,8 @@ const PROJECT_INDEX_GML_MAX_CONCURRENCY_ENV_VAR =
 const PROJECT_INDEX_GML_MAX_CONCURRENCY_BASELINE = 16;
 const MIN_CONCURRENCY = 1;
 
-const projectIndexConcurrencyLimitConfig = createEnvConfiguredValueWithFallback(
-    {
+const projectIndexConcurrencyLimitConfig =
+    Core.Utils.createEnvConfiguredValueWithFallback({
         defaultValue: PROJECT_INDEX_GML_MAX_CONCURRENCY_BASELINE,
         envVar: PROJECT_INDEX_GML_MAX_CONCURRENCY_ENV_VAR,
         resolve: (value, { fallback }) =>
@@ -30,7 +22,8 @@ const projectIndexConcurrencyLimitConfig = createEnvConfiguredValueWithFallback(
     }
 );
 
-const projectIndexConcurrencyConfig = createEnvConfiguredValueWithFallback({
+const projectIndexConcurrencyConfig =
+    Core.Utils.createEnvConfiguredValueWithFallback({
     defaultValue: PROJECT_INDEX_GML_CONCURRENCY_BASELINE,
     envVar: PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
     resolve: (value, { fallback }) => {
@@ -96,11 +89,17 @@ function setDefaultProjectIndexGmlConcurrencyLimit(limit) {
 }
 
 function applyProjectIndexConcurrencyEnvOverride(env) {
-    applyConfiguredValueEnvOverride(projectIndexConcurrencyConfig, env);
+    Core.Utils.applyConfiguredValueEnvOverride(
+        projectIndexConcurrencyConfig,
+        env
+    );
 }
 
 function applyProjectIndexConcurrencyLimitEnvOverride(env) {
-    applyConfiguredValueEnvOverride(projectIndexConcurrencyLimitConfig, env);
+    Core.Utils.applyConfiguredValueEnvOverride(
+        projectIndexConcurrencyLimitConfig,
+        env
+    );
 }
 
 applyProjectIndexConcurrencyLimitEnvOverride();
@@ -133,7 +132,7 @@ function normalizeConcurrencyValue(
         return onInvalid;
     }
 
-    const numeric = toFiniteNumber(normalized);
+    const numeric = Core.Utils.toFiniteNumber(normalized);
     if (numeric === null) {
         return onInvalid;
     }

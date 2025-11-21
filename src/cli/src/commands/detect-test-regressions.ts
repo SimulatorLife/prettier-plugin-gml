@@ -730,7 +730,14 @@ function createResultAggregates() {
     };
 }
 
-function readTestResults(candidateDirs, { workspace } = {}) {
+interface DetectTestResultsOptions {
+    workspace?: string;
+}
+
+function readTestResults(
+    candidateDirs,
+    { workspace }: DetectTestResultsOptions = {}
+) {
     const workspaceRoot =
         workspace || process.env.GITHUB_WORKSPACE || process.cwd();
     const directories = normalizeResultDirectories(

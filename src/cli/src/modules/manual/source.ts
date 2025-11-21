@@ -9,6 +9,21 @@ import {
 } from "../dependencies.js";
 import { resolveFromRepoRoot } from "../../shared/workspace-paths.js";
 
+export interface ManualSourceDescriptor {
+    root: string;
+    packageName: string | null;
+    packageJson: Record<string, unknown> | null;
+}
+
+export interface ManualSourceResolverOptions {
+    manualRoot?: string | null | undefined;
+    manualPackage?: string | null | undefined;
+}
+
+export type ManualSourceResolver = (
+    options?: ManualSourceResolverOptions
+) => Promise<ManualSourceDescriptor>;
+
 const require = createRequire(import.meta.url);
 
 const DEFAULT_MANUAL_ROOT = resolveFromRepoRoot("vendor", "GameMaker-Manual");
@@ -55,7 +70,10 @@ async function ensureDirectoryExists(root, { required, label }) {
     }
 }
 
-export async function resolveManualSource({ manualRoot, manualPackage } = {}) {
+export async function resolveManualSource({
+    manualRoot,
+    manualPackage
+}: ManualSourceResolverOptions = {}) {
     const candidate = resolveCandidateRoot(manualRoot);
     if (candidate) {
         await ensureDirectoryExists(candidate.root, {
@@ -125,7 +143,11 @@ export async function readManualJson(root, relativePath) {
     }
 }
 
-export function describeManualSource({ root, packageName, packageJson }) {
+export function describeManualSource(
+    source: ManualSourceDescriptor
+) {
+    const { root, packageName, packageJson } = source;
+
     if (packageName) {
         const version = packageJson?.version;
         return version ? `${packageName}@${version}` : packageName;

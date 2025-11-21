@@ -1,9 +1,5 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: { isNonEmptyArray }
-} = Core;
-
 /**
  * Create shallow clones of object-like entries in an array.
  *
@@ -19,7 +15,7 @@ const {
  * @returns {Array<T>} Array containing shallow clones of object entries.
  */
 export function cloneObjectEntries(entries) {
-    if (!isNonEmptyArray(entries)) {
+    if (!Core.Utils.isNonEmptyArray(entries)) {
         return [];
     }
 

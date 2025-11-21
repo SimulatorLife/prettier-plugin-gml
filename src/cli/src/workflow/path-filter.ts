@@ -9,13 +9,27 @@ import {
     compactArray
 } from "../shared/dependencies.js";
 
+export interface WorkflowPathFilterOptions {
+    allowPaths?: Iterable<unknown>;
+    denyPaths?: Iterable<unknown>;
+    allowsPath?: (candidate: string) => boolean;
+    allowsDirectory?: (candidate: string) => boolean;
+}
+
+export interface WorkflowPathFilter {
+    allowList: Array<string>;
+    denyList: Array<string>;
+    allowsPath: (candidate: string) => boolean;
+    allowsDirectory: (candidate: string) => boolean;
+}
+
 /**
  * Normalize workflow path lists into absolute, deduplicated entries.
  *
  * @param {Iterable<unknown> | unknown} paths
  * @returns {Array<string>}
  */
-export function normalizeWorkflowPathList(paths) {
+export function normalizeWorkflowPathList(paths: Iterable<unknown> | unknown) {
     const trimmed = compactArray(toArray(paths).map(getNonEmptyTrimmedString));
     return uniqueArray(trimmed.map((candidate) => path.resolve(candidate)));
 }
@@ -37,7 +51,9 @@ export function normalizeWorkflowPathList(paths) {
  *   allowsDirectory: (candidate: string) => boolean
  * }}
  */
-export function createWorkflowPathFilter(filters = {}) {
+export function createWorkflowPathFilter(
+    filters: WorkflowPathFilterOptions | null | undefined = {}
+): WorkflowPathFilter {
     if (
         filters &&
         typeof filters === "object" &&
@@ -156,12 +172,17 @@ export function ensureWorkflowPathsAllowed(pathFilter, entries = []) {
  * @returns {void}
  */
 export function ensureManualWorkflowArtifactsAllowed(
-    pathFilter,
+    pathFilter: WorkflowPathFilter | null | undefined,
     {
         cacheRoot,
         outputPath,
         cacheLabel = "Manual cache root",
         outputLabel = "Manual output path"
+    }: {
+        cacheRoot?: string | null;
+        outputPath?: string | null;
+        cacheLabel?: string;
+        outputLabel?: string;
     } = {}
 ) {
     const entries = [];

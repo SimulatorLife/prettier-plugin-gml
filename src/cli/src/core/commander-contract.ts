@@ -60,26 +60,35 @@ function createUsageReader(
     }
 
     if (hasFunction(target, "helpInformation")) {
-        return () => target.helpInformation();
+        const usageTarget = target as {
+            helpInformation(): string;
+        };
+        return () => usageTarget.helpInformation();
     }
 
     if (hasFunction(target, "usage")) {
-        return () => target.usage();
+        const usageTarget = target as {
+            usage(): string;
+        };
+        return () => usageTarget.usage();
     }
 
     if (hasFunction(target, "getUsage")) {
-        return () => target.getUsage();
+        const usageTarget = target as {
+            getUsage(): string;
+        };
+        return () => usageTarget.getUsage();
     }
 
     return null;
 }
 
 function createProgramParseDelegate(program: Command): CommanderParse | null {
-    if (hasFunction(program, "parseAsync")) {
+    if (typeof program.parseAsync === "function") {
         return (argv, options) => program.parseAsync(argv, options);
     }
 
-    if (hasFunction(program, "parse")) {
+    if (typeof program.parse === "function") {
         return (argv, options) => Promise.resolve(program.parse(argv, options));
     }
 

@@ -10,10 +10,6 @@ import {
 } from "./project-file-categories.js";
 import { listDirectory } from "./fs-helpers.js";
 
-const {
-    FS: { isFsErrorCode, toPosixPath }
-} = Core;
-
 function createProjectTreeCollector(metrics = null) {
     const yyFiles = [];
     const gmlFiles = [];
@@ -93,7 +89,7 @@ function createDirectoryEntryDescriptor(directoryContext, entry, projectRoot) {
     return {
         relativePath,
         absolutePath,
-        relativePosix: toPosixPath(relativePath)
+        relativePosix: Core.FS.toPosixPath(relativePath)
     };
 }
 
@@ -133,7 +129,7 @@ async function resolveEntryStats({
         ensureNotAborted();
         return stats;
     } catch (error) {
-        if (isFsErrorCode(error, "ENOENT")) {
+        if (Core.FS.isFsErrorCode(error, "ENOENT")) {
             metrics?.counters?.increment("io.skippedMissingEntries");
             return null;
         }

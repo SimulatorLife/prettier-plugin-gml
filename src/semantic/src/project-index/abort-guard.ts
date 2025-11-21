@@ -1,9 +1,5 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: { createAbortGuard }
-} = Core;
-
 export const PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE =
     "Project root discovery was aborted.";
 export const PROJECT_INDEX_BUILD_ABORT_MESSAGE =
@@ -18,7 +14,7 @@ export function createProjectIndexAbortGuard(
 
     const keyOption = key === undefined || key === null ? {} : { key };
 
-    return createAbortGuard(options, {
+    return Core.Utils.createAbortGuard(options, {
         fallbackMessage: resolvedFallback,
         ...keyOption
     });

@@ -14,8 +14,16 @@ import { isFiniteNumber } from "../dependencies.js";
  * @returns {string} Human-friendly metric label or "n/a" when unavailable.
  */
 export function formatMetricValue(
-    value,
-    { unit, precision = 3, unitSeparator = " " } = {}
+    value: unknown,
+    {
+        unit,
+        precision = 3,
+        unitSeparator = " "
+    }: {
+        unit?: string;
+        precision?: number;
+        unitSeparator?: string;
+    } = {}
 ) {
     if (!isFiniteNumber(value)) {
         return "n/a";

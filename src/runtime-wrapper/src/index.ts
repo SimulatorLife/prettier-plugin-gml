@@ -1,25 +1,177 @@
 // WIP HTML5 runtime hot wrapper
 
-function validatePatch(patch) {
+declare function structuredClone<T>(value: T): T;
+
+type RuntimeFunction = (...args: Array<unknown>) => unknown;
+
+type PatchKind = "script" | "event" | "closure";
+
+interface BasePatch {
+    kind: PatchKind;
+    id: string;
+}
+
+interface ScriptPatch extends BasePatch {
+    kind: "script";
+    js_body: string;
+}
+
+interface EventPatch extends BasePatch {
+    kind: "event";
+    js_body: string;
+    this_name?: string;
+    js_args?: string;
+}
+
+interface ClosurePatch extends BasePatch {
+    kind: "closure";
+    js_body: string;
+}
+
+type Patch = ScriptPatch | EventPatch | ClosurePatch;
+
+interface RuntimeRegistry {
+    version: number;
+    scripts: Record<string, RuntimeFunction>;
+    events: Record<string, RuntimeFunction>;
+    closures: Record<string, RuntimeFunction>;
+}
+
+interface PatchSnapshot {
+    kind: PatchKind;
+    id: string;
+    version: number;
+    previous: RuntimeFunction | null;
+}
+
+type PatchAction = "apply" | "undo" | "rollback";
+
+interface PatchHistoryEntry {
+    patch: Pick<BasePatch, "kind" | "id">;
+    version: number;
+    timestamp: number;
+    action: PatchAction;
+    error?: string;
+    rolledBack?: boolean;
+}
+
+interface RuntimeWrapperOptions {
+    registry?: Partial<RuntimeRegistry>;
+    onPatchApplied?: (patch: Patch, version: number) => void;
+    validateBeforeApply?: boolean;
+}
+
+	interface RuntimeWrapper {
+	    state: RuntimeWrapperState;
+	    applyPatch(patch: unknown): { success: true; version: number };
+	    trySafeApply(
+	        patch: unknown,
+	        onValidate?: (patch: Patch) => boolean | void
+	    ): TrySafeApplyResult;
+    undo(): { success: boolean; version?: number; message?: string };
+    getPatchHistory(): Array<PatchHistoryEntry>;
+    getRegistrySnapshot(): {
+        version: number;
+        scriptCount: number;
+        eventCount: number;
+        closureCount: number;
+        scripts: Array<string>;
+        events: Array<string>;
+        closures: Array<string>;
+    };
+    getPatchStats(): PatchStats;
+    getVersion(): number;
+    getScript(id: string): RuntimeFunction | undefined;
+    getEvent(id: string): RuntimeFunction | undefined;
+    hasScript(id: string): boolean;
+    hasEvent(id: string): boolean;
+    getClosure(id: string): RuntimeFunction | undefined;
+    hasClosure(id: string): boolean;
+}
+
+interface RuntimeWrapperState {
+    registry: RuntimeRegistry;
+    undoStack: Array<PatchSnapshot>;
+    patchHistory: Array<PatchHistoryEntry>;
+    options: {
+        validateBeforeApply: boolean;
+    };
+}
+
+interface PatchStats {
+    totalPatches: number;
+    appliedPatches: number;
+    undonePatches: number;
+    scriptPatches: number;
+    eventPatches: number;
+    closurePatches: number;
+    uniqueIds: number;
+}
+
+interface TrySafeApplyResult {
+    success: boolean;
+    version?: number;
+    error?: string;
+    message?: string;
+    rolledBack?: boolean;
+}
+
+type ApplyPatchResult = { success: true; version: number };
+
+type RuntimePatchError = Error & { patch?: Patch; rolledBack?: boolean };
+
+interface WebSocketClientOptions {
+    url?: string;
+    wrapper?: RuntimeWrapper | null;
+    onConnect?: () => void;
+    onDisconnect?: () => void;
+    onError?: (error: Error & { patch?: Patch; rolledBack?: boolean }, phase: "connection" | "patch") => void;
+    reconnectDelay?: number;
+    autoConnect?: boolean;
+}
+
+interface WebSocketClientState {
+    ws: WebSocket | null;
+    isConnected: boolean;
+    reconnectTimer: ReturnType<typeof setTimeout> | null;
+    manuallyDisconnected: boolean;
+}
+
+function validatePatch(patch: unknown): asserts patch is Patch {
     if (!patch || typeof patch !== "object") {
         throw new TypeError("applyPatch expects a patch object");
     }
 
-    if (!patch.kind) {
+    const candidate = patch as Record<string, unknown>;
+
+    if (!("kind" in candidate)) {
         throw new TypeError("Patch must have a 'kind' field");
     }
 
-    if (!patch.id) {
+    if (!("id" in candidate)) {
         throw new TypeError("Patch must have an 'id' field");
+    }
+
+    const kind = candidate.kind;
+    if (!kind || !["script", "event", "closure"].includes(String(kind))) {
+        throw new TypeError("Patch must specify a supported kind");
+    }
+
+    const idValue = candidate.id;
+    if (!idValue || typeof idValue !== "string") {
+        throw new TypeError("Patch must specify an 'id' string");
     }
 }
 
-function applyScriptPatch(registry, patch) {
+function applyScriptPatch(
+    registry: RuntimeRegistry,
+    patch: ScriptPatch
+): RuntimeRegistry {
     if (!patch.js_body || typeof patch.js_body !== "string") {
         throw new TypeError("Script patch must have a 'js_body' string");
     }
 
-    const fn = new Function("self", "other", "args", patch.js_body);
+    const fn = new Function("self", "other", "args", patch.js_body) as RuntimeFunction;
     const updatedScripts = { ...registry.scripts, [patch.id]: fn };
 
     return {
@@ -28,14 +180,17 @@ function applyScriptPatch(registry, patch) {
     };
 }
 
-function applyEventPatch(registry, patch) {
+function applyEventPatch(
+    registry: RuntimeRegistry,
+    patch: EventPatch
+): RuntimeRegistry {
     if (!patch.js_body || typeof patch.js_body !== "string") {
         throw new TypeError("Event patch must have a 'js_body' string");
     }
 
     const thisName = patch.this_name || "self";
     const argsDecl = patch.js_args || "";
-    const fn = new Function(thisName, argsDecl, patch.js_body);
+    const fn = new Function(thisName, argsDecl, patch.js_body) as RuntimeFunction;
 
     const eventWrapper = function (...incomingArgs) {
         return fn.call(this, this, ...incomingArgs);
@@ -49,12 +204,15 @@ function applyEventPatch(registry, patch) {
     };
 }
 
-function applyClosurePatch(registry, patch) {
+function applyClosurePatch(
+    registry: RuntimeRegistry,
+    patch: ClosurePatch
+): RuntimeRegistry {
     if (!patch.js_body || typeof patch.js_body !== "string") {
         throw new TypeError("Closure patch must have a 'js_body' string");
     }
 
-    const fn = new Function("...args", patch.js_body);
+    const fn = new Function("...args", patch.js_body) as RuntimeFunction;
     const updatedClosures = { ...registry.closures, [patch.id]: fn };
 
     return {
@@ -63,11 +221,15 @@ function applyClosurePatch(registry, patch) {
     };
 }
 
-function captureSnapshot(registry, patch) {
-    const snapshot = {
+function captureSnapshot(
+    registry: RuntimeRegistry,
+    patch: Patch
+): PatchSnapshot {
+    const snapshot: PatchSnapshot = {
         id: patch.id,
         kind: patch.kind,
-        version: registry.version
+        version: registry.version,
+        previous: null
     };
 
     switch (patch.kind) {
@@ -92,7 +254,10 @@ function captureSnapshot(registry, patch) {
     return snapshot;
 }
 
-function restoreSnapshot(registry, snapshot) {
+function restoreSnapshot(
+    registry: RuntimeRegistry,
+    snapshot: PatchSnapshot
+): RuntimeRegistry {
     if (snapshot.kind === "script") {
         const updatedScripts = { ...registry.scripts };
         if (snapshot.previous) {
@@ -135,7 +300,7 @@ function restoreSnapshot(registry, snapshot) {
     return registry;
 }
 
-function testPatchInShadow(patch) {
+function testPatchInShadow(patch: Patch) {
     const shadowRegistry = {
         version: 0,
         scripts: Object.create(null),
@@ -158,7 +323,7 @@ function testPatchInShadow(patch) {
                 break;
             }
             default: {
-                throw new Error(`Unsupported patch kind: ${patch.kind}`);
+                throw new Error("Unsupported patch kind");
             }
         }
         return { valid: true };
@@ -171,14 +336,22 @@ export function createRuntimeWrapper({
     registry,
     onPatchApplied,
     validateBeforeApply = false
-} = {}) {
-    const state = {
-        registry: registry ?? {
-            version: 0,
-            scripts: Object.create(null),
-            events: Object.create(null),
-            closures: Object.create(null)
-        },
+}: RuntimeWrapperOptions = {}): RuntimeWrapper {
+    const baseRegistry: RuntimeRegistry = {
+        version: registry?.version ?? 0,
+        scripts:
+            registry?.scripts ??
+            (Object.create(null) as Record<string, RuntimeFunction>),
+        events:
+            registry?.events ??
+            (Object.create(null) as Record<string, RuntimeFunction>),
+        closures:
+            registry?.closures ??
+            (Object.create(null) as Record<string, RuntimeFunction>)
+    };
+
+    const state: RuntimeWrapperState = {
+        registry: baseRegistry,
         undoStack: [],
         patchHistory: [],
         options: {
@@ -186,7 +359,7 @@ export function createRuntimeWrapper({
         }
     };
 
-    function applyPatch(patch) {
+    function applyPatch(patch: unknown): ApplyPatchResult {
         validatePatch(patch);
 
         if (state.options.validateBeforeApply) {
@@ -202,7 +375,7 @@ export function createRuntimeWrapper({
         const timestamp = Date.now();
 
         try {
-            let updatedRegistry;
+            let updatedRegistry: RuntimeRegistry;
             switch (patch.kind) {
                 case "script": {
                     updatedRegistry = applyScriptPatch(state.registry, patch);
@@ -217,7 +390,7 @@ export function createRuntimeWrapper({
                     break;
                 }
                 default: {
-                    throw new Error(`Unsupported patch kind: ${patch.kind}`);
+                    throw new Error("Unsupported patch kind");
                 }
             }
 
@@ -242,18 +415,20 @@ export function createRuntimeWrapper({
 
             return { success: true, version: state.registry.version };
         } catch (error) {
-            throw new Error(
-                `Failed to apply patch ${patch.id}: ${error.message}`
-            );
+            const message =
+                error instanceof Error
+                    ? error.message
+                    : String(error ?? "Unknown error");
+            throw new Error(`Failed to apply patch ${patch.id}: ${message}`);
         }
     }
 
-    function undo() {
+    function undo(): { success: boolean; version?: number; message?: string } {
         if (state.undoStack.length === 0) {
             return { success: false, message: "Nothing to undo" };
         }
 
-        const snapshot = state.undoStack.pop();
+        const snapshot = state.undoStack.pop()!;
         const updatedRegistry = restoreSnapshot(state.registry, snapshot);
 
         state.registry = {
@@ -274,7 +449,10 @@ export function createRuntimeWrapper({
         return { success: true, version: state.registry.version };
     }
 
-    function trySafeApply(patch, onValidate) {
+    function trySafeApply(
+        patch: unknown,
+        onValidate?: (patch: Patch) => boolean | void
+    ): TrySafeApplyResult {
         validatePatch(patch);
 
         const testResult = testPatchInShadow(patch);
@@ -286,7 +464,7 @@ export function createRuntimeWrapper({
             };
         }
 
-        if (onValidate && typeof onValidate === "function") {
+        if (onValidate) {
             try {
                 const validationResult = onValidate(patch);
                 if (validationResult === false) {
@@ -297,10 +475,14 @@ export function createRuntimeWrapper({
                     };
                 }
             } catch (error) {
+                const message =
+                    error instanceof Error
+                        ? error.message
+                        : String(error ?? "Unknown error");
                 return {
                     success: false,
-                    error: error.message,
-                    message: `Custom validation failed: ${error.message}`
+                    error: message,
+                    message: `Custom validation failed: ${message}`
                 };
             }
         }
@@ -322,6 +504,11 @@ export function createRuntimeWrapper({
                 version: previousVersion
             };
 
+            const message =
+                error instanceof Error
+                    ? error.message
+                    : String(error ?? "Unknown error");
+
             state.patchHistory.push({
                 patch: {
                     kind: patch.kind,
@@ -330,13 +517,13 @@ export function createRuntimeWrapper({
                 version: state.registry.version,
                 timestamp: Date.now(),
                 action: "rollback",
-                error: error.message
+                error: message
             });
 
             return {
                 success: false,
-                error: error.message,
-                message: `Patch failed and was rolled back: ${error.message}`,
+                error: message,
+                message: `Patch failed and was rolled back: ${message}`,
                 rolledBack: true
             };
         }
@@ -358,16 +545,17 @@ export function createRuntimeWrapper({
         };
     }
 
-    function getPatchStats() {
+    function getPatchStats(): PatchStats {
         const stats = {
             totalPatches: state.patchHistory.length,
             appliedPatches: 0,
             undonePatches: 0,
             scriptPatches: 0,
             eventPatches: 0,
-            closurePatches: 0,
-            uniqueIds: new Set()
+            closurePatches: 0
         };
+
+        const uniqueIds = new Set<string>();
 
         for (const entry of state.patchHistory) {
             if (entry.action === "apply") {
@@ -395,12 +583,13 @@ export function createRuntimeWrapper({
                 // No default
             }
 
-            stats.uniqueIds.add(entry.patch.id);
+            uniqueIds.add(entry.patch.id);
         }
 
-        stats.uniqueIds = stats.uniqueIds.size;
-
-        return stats;
+        return {
+            ...stats,
+            uniqueIds: uniqueIds.size
+        };
     }
 
     function getVersion() {
@@ -451,18 +640,111 @@ export function createRuntimeWrapper({
 
 export function createWebSocketClient({
     url = "ws://127.0.0.1:17890",
-    wrapper,
+    wrapper = null,
     onConnect,
     onDisconnect,
     onError,
     reconnectDelay = 800,
     autoConnect = true
-} = {}) {
-    const state = {
+}: WebSocketClientOptions = {}) {
+    const state: WebSocketClientState = {
         ws: null,
         isConnected: false,
         reconnectTimer: null,
         manuallyDisconnected: false
+    };
+
+    const applyIncomingPatch = (incoming: unknown): boolean => {
+        if (
+            !incoming ||
+            typeof incoming !== "object" ||
+            !("kind" in incoming) ||
+            !("id" in incoming)
+        ) {
+            return true;
+        }
+
+        const patchCandidate = incoming as Record<string, unknown>;
+        try {
+            validatePatch(patchCandidate);
+        } catch (error) {
+            if (onError) {
+                onError(
+                    error instanceof Error
+                        ? error
+                        : new Error(String(error ?? "Unknown error")),
+                    "patch"
+                );
+            }
+            return false;
+        }
+
+        const patch = patchCandidate as Patch;
+
+        if (wrapper && wrapper.trySafeApply) {
+            try {
+                const result = wrapper.trySafeApply(patch);
+
+                if (!result || result.success !== true) {
+                    const errorMessage =
+                        result?.message ||
+                        result?.error ||
+                        `Failed to apply patch ${patch.id ?? "<unknown>"}`;
+                    const safeError = new Error(
+                        errorMessage
+                    ) as RuntimePatchError;
+                    safeError.patch = patch;
+                    safeError.rolledBack = result?.rolledBack;
+
+                    if (onError) {
+                        onError(safeError, "patch");
+                    }
+
+                    return false;
+                }
+
+                return true;
+            } catch (error) {
+                const safeError = new Error(
+                    error instanceof Error
+                        ? error.message
+                        : String(error ?? "Unknown error")
+                ) as RuntimePatchError;
+                safeError.patch = patch;
+                safeError.rolledBack =
+                    error && typeof error === "object" && "rolledBack" in error
+                        ? (error as { rolledBack?: boolean }).rolledBack
+                        : undefined;
+
+                if (onError) {
+                    onError(safeError, "patch");
+                }
+
+                return false;
+            }
+        }
+
+        if (wrapper) {
+            try {
+                wrapper.applyPatch(patch);
+                return true;
+            } catch (error) {
+                const safeError = new Error(
+                    error instanceof Error
+                        ? error.message
+                        : String(error ?? "Unknown error")
+                ) as RuntimePatchError;
+                safeError.patch = patch;
+
+                if (onError) {
+                    onError(safeError, "patch");
+                }
+
+                return false;
+            }
+        }
+
+        return true;
     };
 
     function connect() {
@@ -488,92 +770,23 @@ export function createWebSocketClient({
                 }
             });
 
-            const applyIncomingPatch = (patch) => {
-                if (!patch || typeof patch !== "object" || !patch.kind) {
-                    return true;
-                }
-
-                if (wrapper && typeof wrapper.trySafeApply === "function") {
-                    try {
-                        const result = wrapper.trySafeApply(patch);
-
-                        if (!result || result.success !== true) {
-                            const errorMessage =
-                                result?.message ||
-                                result?.error ||
-                                `Failed to apply patch ${patch.id ?? "<unknown>"}`;
-                            const safeError = new Error(errorMessage);
-                            safeError.patch = patch;
-                            if (result && "rolledBack" in result) {
-                                safeError.rolledBack = result.rolledBack;
-                            }
-
-                            if (onError) {
-                                onError(safeError, "patch");
-                            }
-
-                            return false;
-                        }
-
-                        return true;
-                    } catch (error) {
-                        if (
-                            error &&
-                            typeof error === "object" &&
-                            !("patch" in error)
-                        ) {
-                            error.patch = patch;
-                        }
-
-                        if (onError) {
-                            onError(error, "patch");
-                        }
-
-                        return false;
-                    }
-                }
-
-                if (!wrapper || typeof wrapper.applyPatch !== "function") {
-                    const missing = new Error(
-                        "Runtime wrapper does not expose applyPatch"
-                    );
-                    missing.patch = patch;
-
-                    if (onError) {
-                        onError(missing, "patch");
-                    }
-
-                    return false;
-                }
-
-                try {
-                    wrapper.applyPatch(patch);
-                    return true;
-                } catch (error) {
-                    if (
-                        error &&
-                        typeof error === "object" &&
-                        !("patch" in error)
-                    ) {
-                        error.patch = patch;
-                    }
-
-                    throw error;
-                }
-            };
-
             state.ws.addEventListener("message", (event) => {
                 if (!wrapper) {
                     return;
                 }
 
-                let payload;
+                let payload: unknown;
 
                 try {
                     payload = JSON.parse(event.data);
                 } catch (error) {
                     if (onError) {
-                        onError(error, "patch");
+                        onError(
+                            error instanceof Error
+                                ? error
+                                : new Error(String(error ?? "Unknown error")),
+                            "patch"
+                        );
                     }
 
                     return;
@@ -589,7 +802,14 @@ export function createWebSocketClient({
                         }
                     } catch (error) {
                         if (onError) {
-                            onError(error, "patch");
+                            onError(
+                                error instanceof Error
+                                    ? error
+                                    : new Error(
+                                          String(error ?? "Unknown error")
+                                      ),
+                                "patch"
+                            );
                         }
                         break;
                     }
@@ -618,7 +838,12 @@ export function createWebSocketClient({
             });
         } catch (error) {
             if (onError) {
-                onError(error, "connection");
+                onError(
+                    error instanceof Error
+                        ? error
+                        : new Error(String(error ?? "Unknown error")),
+                    "connection"
+                );
             }
         }
     }
@@ -639,11 +864,11 @@ export function createWebSocketClient({
         state.isConnected = false;
     }
 
-    function isConnected() {
+    function isConnected(): boolean {
         return state.isConnected;
     }
 
-    function send(data) {
+    function send(data: string | unknown) {
         if (!state.ws || !state.isConnected) {
             throw new Error("WebSocket is not connected");
         }

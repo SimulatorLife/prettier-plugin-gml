@@ -1,9 +1,5 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: { mergeUniqueValues, normalizeExtensionSuffix }
-} = Core;
-
 export const PROJECT_MANIFEST_EXTENSION = ".yyp";
 
 const PROJECT_MANIFEST_EXTENSION_LOWER =
@@ -19,13 +15,13 @@ const DEFAULT_RESOURCE_METADATA_EXTENSIONS = Object.freeze([".yy"]);
 let projectResourceMetadataExtensions = DEFAULT_RESOURCE_METADATA_EXTENSIONS;
 
 function normalizeResourceMetadataExtension(candidate) {
-    return normalizeExtensionSuffix(candidate);
+    return Core.Utils.normalizeExtensionSuffix(candidate);
 }
 
 function normalizeResourceMetadataExtensions(candidate) {
     const entries = typeof candidate === "string" ? [candidate] : candidate;
 
-    const normalized = mergeUniqueValues(
+    const normalized = Core.Utils.mergeUniqueValues(
         DEFAULT_RESOURCE_METADATA_EXTENSIONS,
         entries,
         {

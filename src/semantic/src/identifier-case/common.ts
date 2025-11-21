@@ -1,8 +1,7 @@
 import { Core } from "@gml-modules/core";
 import { constants as fsConstants } from "node:fs";
 
-const { escapeRegExp, incrementMapValue, isNonEmptyArray, isNonEmptyString } =
-    Core;
+
 
 export const COLLISION_CONFLICT_CODE = "collision";
 export const PRESERVE_CONFLICT_CODE = "preserve";
@@ -18,7 +17,7 @@ export function formatConfigurationConflictMessage({
         return null;
     }
 
-    const labelNoun = isNonEmptyString(noun) ? noun : "Identifier";
+    const labelNoun = Core.Utils.isNonEmptyString(noun) ? noun : "Identifier";
     const labelName =
         typeof identifierName === "string"
             ? identifierName
@@ -30,7 +29,7 @@ export function formatConfigurationConflictMessage({
     }
 
     if (configConflict.code === IGNORE_CONFLICT_CODE) {
-        const ignoreMatch = isNonEmptyString(configConflict.ignoreMatch)
+        const ignoreMatch = Core.Utils.isNonEmptyString(configConflict.ignoreMatch)
             ? ` matches ignore pattern '${configConflict.ignoreMatch}'.`
             : " is ignored by configuration.";
         return `${subject}${ignoreMatch}`;
@@ -44,11 +43,11 @@ export function escapeForRegExp(value) {
         throw new TypeError("Value must be a string");
     }
 
-    return escapeRegExp(value);
+    return Core.Utils.escapeRegExp(value);
 }
 
 export function createPatternRegExp(pattern) {
-    if (!isNonEmptyString(pattern)) {
+    if (!Core.Utils.isNonEmptyString(pattern)) {
         return null;
     }
 
@@ -80,7 +79,7 @@ export function buildPatternMatchers(patterns) {
 }
 
 export function matchesIgnorePattern(matchers, identifierName, filePath) {
-    if (!isNonEmptyArray(matchers)) {
+    if (!Core.Utils.isNonEmptyArray(matchers)) {
         return null;
     }
 
@@ -151,11 +150,11 @@ export function createConflict({
 }
 
 function resolveFileOccurrenceKey(filePath, fallbackPath) {
-    if (isNonEmptyString(filePath)) {
+    if (Core.Utils.isNonEmptyString(filePath)) {
         return filePath;
     }
 
-    if (isNonEmptyString(fallbackPath)) {
+    if (Core.Utils.isNonEmptyString(fallbackPath)) {
         return fallbackPath;
     }
 
@@ -166,13 +165,13 @@ function resolveFileOccurrenceKey(filePath, fallbackPath) {
     return "<unknown>";
 }
 
-export function incrementFileOccurrence(counts, filePath, fallbackPath) {
+export function incrementFileOccurrence(counts, filePath, fallbackPath = null) {
     const key = resolveFileOccurrenceKey(filePath, fallbackPath);
     if (key === null) {
         return false;
     }
 
-    incrementMapValue(counts, key);
+    Core.Utils.incrementMapValue(counts, key);
     return true;
 }
 

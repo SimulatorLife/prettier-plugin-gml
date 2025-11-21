@@ -1,11 +1,38 @@
-import { describeManualSource, resolveManualSource } from "./source.js";
+import {
+    describeManualSource,
+    ManualSourceDescriptor,
+    ManualSourceResolver,
+    resolveManualSource
+} from "./source.js";
 import {
     createWorkflowPathFilter,
-    ensureManualWorkflowArtifactsAllowed
+    ensureManualWorkflowArtifactsAllowed,
+    WorkflowPathFilter,
+    WorkflowPathFilterOptions
 } from "../../workflow/path-filter.js";
 
 const DEFAULT_MESSAGE_FORMATTER = ({ manualSourceDescription }) =>
     `Using manual assets from ${manualSourceDescription}.`;
+
+export interface ManualWorkflowOptions {
+    workflow?: WorkflowPathFilterOptions;
+    outputPath?: string | null;
+    manualRoot?: string | null;
+    manualPackage?: string | null;
+    quiet?: boolean;
+    log?: (message: string) => void;
+    formatManualSourceMessage?: (context: {
+        manualSource: ManualSourceDescriptor;
+        manualSourceDescription: string;
+    }) => string | null | undefined;
+    manualSourceResolver?: ManualSourceResolver;
+    manualSourceDescriber?: (source: ManualSourceDescriptor) => string;
+}
+
+export interface ManualWorkflowResult {
+    workflowPathFilter: WorkflowPathFilter;
+    manualSource: ManualSourceDescriptor;
+}
 
 /**
  * Prepare manual workflow state shared by metadata and identifier generators.
@@ -43,7 +70,7 @@ export async function prepareManualWorkflow({
     formatManualSourceMessage = DEFAULT_MESSAGE_FORMATTER,
     manualSourceResolver = resolveManualSource,
     manualSourceDescriber = describeManualSource
-} = {}) {
+}: ManualWorkflowOptions = {}): Promise<ManualWorkflowResult> {
     const workflowPathFilter = createWorkflowPathFilter(workflow);
 
     ensureManualWorkflowArtifactsAllowed(workflowPathFilter, {

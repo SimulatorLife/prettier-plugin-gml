@@ -1,9 +1,5 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: { getErrorMessage }
-} = Core;
-
 const DEFAULT_WARNING_FALLBACK = "Unknown error";
 
 function resolveWarningReason(candidates, fallback = DEFAULT_WARNING_FALLBACK) {
@@ -22,7 +18,7 @@ function resolveWarningReason(candidates, fallback = DEFAULT_WARNING_FALLBACK) {
             continue;
         }
 
-        const reason = getErrorMessage(candidate, { fallback: "" });
+        const reason = Core.Utils.getErrorMessage(candidate, { fallback: "" });
         if (reason) {
             return reason;
         }

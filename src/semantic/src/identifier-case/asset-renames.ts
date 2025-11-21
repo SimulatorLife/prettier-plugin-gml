@@ -13,22 +13,113 @@ import {
     summarizeReferenceFileOccurrences
 } from "./common.js";
 import { createAssetRenameExecutor } from "./asset-rename-executor.js";
+import { defaultIdentifierCaseFsFacade } from "./fs-facade.js";
 import {
     IdentifierCaseStyle,
     normalizeIdentifierCaseAssetStyle
 } from "./options.js";
 
-const {
-    getOrCreateMapEntry,
-    isNonEmptyArray,
-    isNonEmptyString,
-    toNormalizedLowerCaseString
-} = Core;
-
 const RESERVED_IDENTIFIER_NAMES = loadReservedIdentifierNames();
 
+type AssetReferenceMutation = {
+    filePath?: string;
+    propertyPath?: string;
+    originalName?: string;
+};
+
+type AssetReference = {
+    propertyPath?: string;
+    targetPath?: string;
+    targetName?: string;
+    fromResourcePath?: string;
+};
+
+type AssetGmlRename = {
+    from: string;
+    to: string;
+};
+
+type AssetRename = {
+    resourcePath?: string;
+    resourceType?: string;
+    originalName?: string;
+    finalName?: string;
+    fromName?: string;
+    toName?: string;
+    newResourcePath?: string;
+    gmlRenames?: Array<AssetGmlRename>;
+    referenceMutations?: Array<AssetReferenceMutation>;
+};
+
+type AssetResourceRecord = {
+    name?: string;
+    resourceType?: string;
+    gmlFiles?: Array<string>;
+};
+
+type AssetDirectoryEntry = {
+    directory: string;
+    resourcePath: string;
+    resourceType: string | null;
+    originalName: string | null;
+    finalName: string | null;
+    isRename: boolean;
+    rename: AssetRename | null;
+};
+
+type MetricsRecorder = {
+    counters?: {
+        increment?: (key: string, amount?: number) => void;
+    };
+};
+
+type AssetConflictOptions = {
+    conflicts: Array<unknown>;
+    metrics?: MetricsRecorder | null;
+    metricKey?: string | null;
+    code: string;
+    severity?: string;
+    message: string;
+    resourcePath?: string | null;
+    resourceType?: string | null;
+    identifierName?: string | null;
+    details?: unknown;
+    includeSuggestions?: boolean;
+    suggestions?: Array<string> | null;
+};
+
+type ProjectIndexWithAssets = {
+    projectRoot?: string | null;
+    resources?: Record<string, AssetResourceRecord>;
+    relationships?: {
+        assetReferences?: Array<AssetReference>;
+    };
+};
+
+type IdentifierCaseLogger = {
+    warn?: (message: string) => void;
+};
+
+type IdentifierCaseStyleValue =
+    (typeof IdentifierCaseStyle)[keyof typeof IdentifierCaseStyle];
+
+type PlanAssetRenamesOptions = {
+    projectIndex?: ProjectIndexWithAssets | null;
+    assetStyle?: IdentifierCaseStyleValue | null;
+    preservedSet?: Set<string>;
+    ignoreMatchers?: Array<string>;
+    metrics?: MetricsRecorder | null;
+};
+
+type ApplyAssetRenamesOptions = {
+    projectIndex?: ProjectIndexWithAssets | null;
+    renames?: Array<AssetRename>;
+    fsFacade?: typeof defaultIdentifierCaseFsFacade | null;
+    logger?: IdentifierCaseLogger | null;
+};
+
 function isReservedIdentifierName(name) {
-    const normalizedName = toNormalizedLowerCaseString(name);
+    const normalizedName = Core.Utils.toNormalizedLowerCaseString(name);
     if (!normalizedName) {
         return false;
     }
@@ -43,7 +134,7 @@ function isReservedIdentifierName(name) {
 function buildAssetConflictSuggestions(identifierName) {
     const suggestions = [];
 
-    if (isNonEmptyString(identifierName)) {
+    if (Core.Utils.isNonEmptyString(identifierName)) {
         suggestions.push(`Add '${identifierName}' to gmlIdentifierCaseIgnore`);
     }
 
@@ -76,7 +167,7 @@ function pushAssetRenameConflict({
     details,
     includeSuggestions = true,
     suggestions
-}) {
+}: AssetConflictOptions) {
     const scope = {
         id: resourcePath,
         displayName: `${resourceType}.${identifierName}`
@@ -84,7 +175,7 @@ function pushAssetRenameConflict({
 
     const resolvedSuggestions =
         suggestions === undefined
-            ? includeSuggestions && isNonEmptyString(identifierName)
+            ? includeSuggestions && Core.Utils.isNonEmptyString(identifierName)
                 ? buildAssetConflictSuggestions(identifierName)
                 : null
             : suggestions;
@@ -114,6 +205,12 @@ function recordAssetRenameCollision({
     conflictingEntries,
     message,
     metrics
+}: {
+    conflicts: Array<unknown>;
+    renameEntry: AssetDirectoryEntry;
+    conflictingEntries: Array<AssetDirectoryEntry>;
+    message: string;
+    metrics?: MetricsRecorder | null;
 }) {
     pushAssetRenameConflict({
         conflicts,
@@ -131,8 +228,14 @@ function recordAssetRenameCollision({
     });
 }
 
-function collectDirectoryEntries({ projectIndex, renames }) {
-    const renameByResourcePath = new Map();
+function collectDirectoryEntries({
+    projectIndex,
+    renames
+}: {
+    projectIndex?: ProjectIndexWithAssets | null;
+    renames?: Array<AssetRename>;
+}) {
+    const renameByResourcePath = new Map<string, AssetRename>();
     for (const rename of renames ?? []) {
         if (!rename?.resourcePath) {
             continue;
@@ -141,7 +244,7 @@ function collectDirectoryEntries({ projectIndex, renames }) {
     }
 
     const resources = projectIndex?.resources ?? {};
-    const directories = new Map();
+    const directories = new Map<string, Array<AssetDirectoryEntry>>();
 
     for (const [resourcePath, resourceRecord] of Object.entries(resources)) {
         if (
@@ -152,14 +255,15 @@ function collectDirectoryEntries({ projectIndex, renames }) {
             continue;
         }
 
-        const rename = renameByResourcePath.get(resourcePath) ?? null;
+        const rename =
+            (renameByResourcePath.get(resourcePath) ?? null) as AssetRename | null;
         const finalName = rename?.toName ?? resourceRecord.name;
-        if (!isNonEmptyString(finalName)) {
+        if (!Core.Utils.isNonEmptyString(finalName)) {
             continue;
         }
 
         const directory = path.posix.dirname(resourcePath);
-        const list = getOrCreateMapEntry(directories, directory, () => []);
+        const list = Core.Utils.getOrCreateMapEntry(directories, directory, () => []);
         list.push({
             directory,
             resourcePath,
@@ -175,10 +279,18 @@ function collectDirectoryEntries({ projectIndex, renames }) {
 }
 
 function hasPendingAssetRenames(projectIndex, renames) {
-    return Boolean(projectIndex) && isNonEmptyArray(renames);
+    return Boolean(projectIndex) && Core.Utils.isNonEmptyArray(renames);
 }
 
-function detectAssetRenameConflicts({ projectIndex, renames, metrics = null }) {
+function detectAssetRenameConflicts({
+    projectIndex,
+    renames,
+    metrics = null
+}: {
+    projectIndex?: ProjectIndexWithAssets | null;
+    renames?: Array<AssetRename>;
+    metrics?: MetricsRecorder | null;
+}) {
     if (!hasPendingAssetRenames(projectIndex, renames)) {
         return [];
     }
@@ -189,8 +301,8 @@ function detectAssetRenameConflicts({ projectIndex, renames, metrics = null }) {
     for (const entries of directories.values()) {
         const byLowerName = new Map();
         for (const entry of entries) {
-            const key = toNormalizedLowerCaseString(entry.finalName);
-            const bucket = getOrCreateMapEntry(byLowerName, key, () => []);
+            const key = Core.Utils.toNormalizedLowerCaseString(entry.finalName);
+            const bucket = Core.Utils.getOrCreateMapEntry(byLowerName, key, () => []);
             bucket.push(entry);
         }
 
@@ -288,7 +400,7 @@ function detectAssetRenameConflicts({ projectIndex, renames, metrics = null }) {
 }
 
 function summarizeReferences(referenceMutations, resourcePath) {
-    const includeFilePaths = isNonEmptyString(resourcePath)
+    const includeFilePaths = Core.Utils.isNonEmptyString(resourcePath)
         ? [resourcePath]
         : [];
 
@@ -298,15 +410,17 @@ function summarizeReferences(referenceMutations, resourcePath) {
     });
 }
 
-function groupAssetReferencesByTargetPath(assetReferences) {
-    const referencesByTargetPath = new Map();
+function groupAssetReferencesByTargetPath(
+    assetReferences?: Array<AssetReference> | null
+): Map<string, Array<AssetReference>> {
+    const referencesByTargetPath = new Map<string, Array<AssetReference>>();
 
     for (const reference of assetReferences ?? []) {
         if (!reference || typeof reference.targetPath !== "string") {
             continue;
         }
 
-        const references = getOrCreateMapEntry(
+        const references = Core.Utils.getOrCreateMapEntry(
             referencesByTargetPath,
             reference.targetPath,
             () => []
@@ -317,7 +431,10 @@ function groupAssetReferencesByTargetPath(assetReferences) {
     return referencesByTargetPath;
 }
 
-function collectReferenceMutations(inboundReferences, originalName) {
+function collectReferenceMutations(
+    inboundReferences: Array<AssetReference>,
+    originalName: string
+): Array<AssetReferenceMutation> {
     return inboundReferences
         .filter((reference) => typeof reference.fromResourcePath === "string")
         .map((reference) => ({
@@ -354,17 +471,25 @@ function planRenamesForResources({
     ignoreMatchers,
     referencesByTargetPath,
     metrics
+}: {
+    resources?: Record<string, AssetResourceRecord>;
+    assetStyle: IdentifierCaseStyleValue;
+    preservedSet: Set<string>;
+    ignoreMatchers: Array<string>;
+    referencesByTargetPath: Map<string, Array<AssetReference>>;
+    metrics?: MetricsRecorder | null;
 }) {
     if (!resources) {
         return { operations: [], conflicts: [], renames: [] };
     }
 
-    const namesByDirectory = new Map();
-    const operations = [];
-    const conflicts = [];
-    const renames = [];
+    const namesByDirectory = new Map<string, { name: string; path: string }>();
+    const operations: Array<unknown> = [];
+    const conflicts: Array<unknown> = [];
+    const renames: Array<AssetRename> = [];
 
-    for (const [resourcePath, resourceRecord] of Object.entries(resources)) {
+    for (const [resourcePath, resourceRecordValue] of Object.entries(resources)) {
+        const resourceRecord = resourceRecordValue as AssetResourceRecord;
         planRenameForResource({
             resourcePath,
             resourceRecord,
@@ -395,6 +520,18 @@ function planRenameForResource({
     operations,
     conflicts,
     renames
+}: {
+    resourcePath: string;
+    resourceRecord?: AssetResourceRecord;
+    assetStyle: IdentifierCaseStyleValue;
+    preservedSet: Set<string>;
+    ignoreMatchers: Array<string>;
+    referencesByTargetPath: Map<string, Array<AssetReference>>;
+    namesByDirectory: Map<string, { name: string; path: string }>;
+    metrics?: MetricsRecorder | null;
+    operations: Array<unknown>;
+    conflicts: Array<unknown>;
+    renames: Array<AssetRename>;
 }) {
     if (!resourceRecord || !resourceRecord.name) {
         return;
@@ -511,7 +648,7 @@ export function planAssetRenames({
     preservedSet = new Set(),
     ignoreMatchers = [],
     metrics = null
-} = {}) {
+}: PlanAssetRenamesOptions = {}) {
     const normalizedAssetStyle = normalizeIdentifierCaseAssetStyle(assetStyle);
 
     if (
@@ -554,7 +691,7 @@ export function applyAssetRenames({
     renames,
     fsFacade = null,
     logger = null
-} = {}) {
+}: ApplyAssetRenamesOptions = {}) {
     if (!hasPendingAssetRenames(projectIndex, renames)) {
         return { writes: [], renames: [] };
     }

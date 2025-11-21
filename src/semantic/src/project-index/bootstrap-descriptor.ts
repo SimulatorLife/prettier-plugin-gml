@@ -1,9 +1,5 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: { withDefinedValue }
-} = Core;
-
 export function createProjectIndexBuildOptions({
     logger = null,
     logMetrics = false,
@@ -15,7 +11,7 @@ export function createProjectIndexBuildOptions({
         logMetrics
     };
 
-    withDefinedValue(projectIndexConcurrency, (value) => {
+    Core.Utils.withDefinedValue(projectIndexConcurrency, (value) => {
         buildOptions.concurrency = {
             gml: value,
             gmlParsing: value
@@ -53,7 +49,7 @@ export function createProjectIndexDescriptor({
         buildOptions
     };
 
-    withDefinedValue(cacheMaxSizeBytes, (value) => {
+    Core.Utils.withDefinedValue(cacheMaxSizeBytes, (value) => {
         descriptor.maxSizeBytes = value;
     });
 

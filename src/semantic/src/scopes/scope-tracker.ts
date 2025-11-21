@@ -6,11 +6,6 @@ import {
     isScopeOverrideKeyword
 } from "./scope-override-keywords.js";
 
-const {
-    AST: { assignClonedLocation },
-    Utils: { isObjectLike, toArray, toMutableArray }
-} = Core;
-
 type IdentifierOccurrences = {
     declarations: Array<ReturnType<typeof createOccurrence>>;
     references: Array<ReturnType<typeof createOccurrence>>;
@@ -37,18 +32,18 @@ class Scope {
 
 function createOccurrence(kind, metadata, source, declarationMetadata) {
     const declaration = declarationMetadata
-        ? assignClonedLocation(
+        ? Core.AST.assignClonedLocation(
               { scopeId: declarationMetadata.scopeId ?? null },
               declarationMetadata
           )
         : null;
 
-    return assignClonedLocation(
+    return Core.AST.assignClonedLocation(
         {
             kind,
             name: metadata?.name ?? null,
             scopeId: metadata?.scopeId ?? null,
-            classifications: toMutableArray(metadata?.classifications, {
+            classifications: Core.Utils.toMutableArray(metadata?.classifications, {
                 clone: true
             }),
             declaration
@@ -62,11 +57,11 @@ function cloneDeclarationMetadata(metadata) {
         return null;
     }
 
-    return assignClonedLocation(
+    return Core.AST.assignClonedLocation(
         {
             name: metadata.name ?? null,
             scopeId: metadata.scopeId ?? null,
-            classifications: toMutableArray(metadata.classifications, {
+            classifications: Core.Utils.toMutableArray(metadata.classifications, {
                 clone: true
             })
         },
@@ -76,18 +71,18 @@ function cloneDeclarationMetadata(metadata) {
 
 function cloneOccurrence(occurrence) {
     const declaration = occurrence.declaration
-        ? assignClonedLocation(
+        ? Core.AST.assignClonedLocation(
               { scopeId: occurrence.declaration.scopeId ?? null },
               occurrence.declaration
           )
         : null;
 
-    return assignClonedLocation(
+    return Core.AST.assignClonedLocation(
         {
             kind: occurrence.kind,
             name: occurrence.name,
             scopeId: occurrence.scopeId,
-            classifications: toMutableArray(occurrence.classifications, {
+            classifications: Core.Utils.toMutableArray(occurrence.classifications, {
                 clone: true
             }),
             declaration
@@ -200,7 +195,7 @@ export class ScopeTracker {
         }
 
         if (
-            isObjectLike(scopeOverride) &&
+            Core.Utils.isObjectLike(scopeOverride) &&
             typeof scopeOverride.id === "string"
         ) {
             return scopeOverride;
@@ -228,7 +223,7 @@ export class ScopeTracker {
             tags.add(roleKind);
         }
 
-        for (const tag of toArray(role?.tags)) {
+        for (const tag of Core.Utils.toArray(role?.tags)) {
             if (tag) {
                 tags.add(tag);
             }
@@ -328,12 +323,12 @@ export class ScopeTracker {
             classifications
         };
 
-        assignClonedLocation(metadata, node);
+        Core.AST.assignClonedLocation(metadata, node);
 
         this.storeDeclaration(scope, name, metadata);
 
         node.scopeId = scopeId;
-        node.declaration = assignClonedLocation({ scopeId }, metadata);
+        node.declaration = Core.AST.assignClonedLocation({ scopeId }, metadata);
         node.classifications = classifications;
 
         const occurrence = createOccurrence(
@@ -363,7 +358,7 @@ export class ScopeTracker {
 
         const combinedRole = {
             ...role,
-            tags: [...derivedTags, ...toArray(role?.tags)]
+            tags: [...derivedTags, ...Core.Utils.toArray(role?.tags)]
         };
 
         const classifications = this.buildClassifications(combinedRole, false);
@@ -372,7 +367,7 @@ export class ScopeTracker {
         node.classifications = classifications;
 
         node.declaration = declaration
-            ? assignClonedLocation(
+            ? Core.AST.assignClonedLocation(
                   { scopeId: declaration.scopeId },
                   declaration
               )

@@ -34,7 +34,10 @@ import {
     describeManualSource,
     readManualText
 } from "../modules/manual/source.js";
-import { prepareManualWorkflow } from "../modules/manual/workflow.js";
+import {
+    ManualWorkflowOptions,
+    prepareManualWorkflow
+} from "../modules/manual/workflow.js";
 import { resolveFromRepoRoot } from "../shared/workspace-paths.js";
 
 const DEFAULT_OUTPUT_PATH = resolveFromRepoRoot(
@@ -48,6 +51,42 @@ const DEFAULT_TAGS_PATH = "ZeusDocs_tags.json";
 
 const IDENTIFIER_VM_TIMEOUT_ENV_VAR = "GML_IDENTIFIER_VM_TIMEOUT_MS";
 
+interface GenerateIdentifiersCommandOptions {
+    output?: string;
+    manualRoot?: string;
+    manualPackage?: string;
+    manualGmlPath?: string;
+    manualKeywordsPath?: string;
+    manualTagsPath?: string;
+    vmEvalTimeoutMs?: number;
+    quiet?: boolean;
+}
+
+interface NormalizedGenerateIdentifiersOptions {
+    outputPath: string;
+    manualRoot: string | null;
+    manualPackage: string | null;
+    manualGmlPath: string;
+    manualKeywordsPath: string;
+    manualTagsPath: string;
+    vmEvalTimeoutMs: number;
+    quiet: boolean;
+}
+
+interface RunGenerateIdentifiersContext {
+    command?: Command;
+    workflow?: ManualWorkflowOptions["workflow"];
+}
+
+interface ManualIdentifierArrayDescriptor {
+    identifier?: string;
+    source?: string;
+}
+
+interface ManualIdentifierMetadata {
+    type: string;
+    source: string;
+}
 export function createGenerateIdentifiersCommand({ env = process.env } = {}) {
     const command = applyStandardCommandOptions(
         new Command()
@@ -107,8 +146,11 @@ export function createGenerateIdentifiersCommand({ env = process.env } = {}) {
     return command;
 }
 
-function resolveGenerateIdentifierOptions(command) {
-    const options = command?.opts?.() ?? {};
+function resolveGenerateIdentifierOptions(
+    command?: Command
+): NormalizedGenerateIdentifiersOptions {
+    const options: GenerateIdentifiersCommandOptions =
+        command?.opts?.() ?? {};
 
     return {
         outputPath: options.output ?? DEFAULT_OUTPUT_PATH,
@@ -125,7 +167,15 @@ function resolveGenerateIdentifierOptions(command) {
     };
 }
 
-function parseArrayLiteral(source, identifier, { timeoutMs } = {}) {
+interface ParseArrayLiteralOptions {
+    timeoutMs?: number;
+}
+
+function parseArrayLiteral(
+    source: string,
+    identifier: string,
+    { timeoutMs }: ParseArrayLiteralOptions = {}
+) {
     const declaration = `const ${identifier} = [`;
     const start = source.indexOf(declaration);
     if (start === -1) {
@@ -169,7 +219,7 @@ function parseArrayLiteral(source, identifier, { timeoutMs } = {}) {
     }
 
     const literal = source.slice(bracketStart, index);
-    const vmOptions = {};
+    const vmOptions: { timeout?: number } = {};
     if (typeof timeoutMs === "number" && timeoutMs > 0) {
         vmOptions.timeout = timeoutMs;
     }
@@ -227,13 +277,15 @@ function classifyFromPath(manualPath, tagList) {
     const normalizedTags = toNormalizedLowerCaseSet(tagList);
     const segments = manualPath.split("/").map((part) => part.toLowerCase());
 
-    const segmentMatches = (needle) =>
+    const segmentMatches = (needle: string) =>
         segments.some((segment) => segment.includes(needle));
-    const tagMatches = (needle) => normalizedTags.has(needle);
+    const tagMatches = (needle: string) => normalizedTags.has(needle);
 
-    const matchesAny = (needles, matcher = () => false) =>
-        (needles ?? []).some(matcher);
-    const matchesAllGroups = (groups = []) =>
+    const matchesAny = (
+        needles: Array<string> | undefined,
+        matcher: (value: string) => boolean = (value) => false
+    ) => (needles ?? []).some(matcher);
+    const matchesAllGroups = (groups: Array<Array<string>> = []) =>
         groups.length > 0 &&
         groups.every((needles) => matchesAny(needles, segmentMatches));
 
@@ -328,12 +380,18 @@ function describeManualIdentifierArrayValue(value) {
     });
 }
 
-function formatManualIdentifierArrayLabel({ identifier, source }) {
+function formatManualIdentifierArrayLabel({
+    identifier,
+    source
+}: ManualIdentifierArrayDescriptor) {
     const label = source || identifier;
     return label ? `'${label}'` : "manual identifier array";
 }
 
-function assertManualIdentifierArray(values, { identifier, source }) {
+function assertManualIdentifierArray(
+    values: unknown,
+    { identifier, source }: ManualIdentifierArrayDescriptor
+) {
     const label = formatManualIdentifierArrayLabel({ identifier, source });
 
     if (!Array.isArray(values)) {
@@ -356,10 +414,10 @@ function assertManualIdentifierArray(values, { identifier, source }) {
 }
 
 function collectManualArrayIdentifiers(
-    identifierMap,
-    values,
-    { type, source },
-    { identifier } = {}
+    identifierMap: Map<string, unknown>,
+    values: unknown,
+    { type, source }: ManualIdentifierMetadata,
+    { identifier }: ManualIdentifierArrayDescriptor = {}
 ) {
     const normalizedValues = assertManualIdentifierArray(values, {
         identifier,
@@ -732,7 +790,10 @@ async function loadManualPayloads({
  * }} [context]
  * @returns {Promise<number>}
  */
-export async function runGenerateGmlIdentifiers({ command, workflow } = {}) {
+export async function runGenerateGmlIdentifiers({
+    command,
+    workflow
+}: RunGenerateIdentifiersContext = {}) {
     assertSupportedNodeVersion();
 
     const {

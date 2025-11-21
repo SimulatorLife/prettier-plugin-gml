@@ -107,7 +107,14 @@ export function formatMemorySuiteNameList() {
  * @returns {string} Normalized suite name drawn from {@link MemorySuiteName}.
  * @throws {Error} When {@link value} is not a recognized suite identifier.
  */
-export function normalizeMemorySuiteName(value, { errorConstructor } = {}) {
+interface NormalizeMemorySuiteNameOptions {
+    errorConstructor?: new (...args: Array<any>) => Error;
+}
+
+export function normalizeMemorySuiteName(
+    value: unknown,
+    { errorConstructor }: NormalizeMemorySuiteNameOptions = {}
+) {
     return memorySuiteHelpers.requireValue(value, { errorConstructor });
 }
 
@@ -133,13 +140,31 @@ function setDefaultMemoryReportDirectory(value) {
     return memoryReportDirectoryConfig.set(value);
 }
 
-function resolveMemoryReportDirectory(value, { defaultValue } = {}) {
+interface ResolveMemoryReportDirectoryOptions {
+    defaultValue?: string | null | undefined;
+}
+
+function resolveMemoryReportDirectory(
+    value: string | undefined,
+    { defaultValue }: ResolveMemoryReportDirectoryOptions = {}
+) {
     const fallback = normalizeMemoryReportDirectory(
         defaultValue,
         getDefaultMemoryReportDirectory()
     );
 
     return normalizeMemoryReportDirectory(value, fallback);
+}
+
+interface MemoryReportPathOptions {
+    cwd: string;
+    reportDir?: string | null;
+    reportFileName?: string;
+}
+
+interface MemoryReportWriterOptions {
+    reportPath: string;
+    customWriteFile?: (options: { path: string; data: string }) => Promise<void>;
 }
 
 function applyMemoryReportDirectoryEnvOverride(env) {
@@ -158,11 +183,24 @@ const createAstCommonNodeLimitErrorMessage = (received) =>
 const createAstCommonNodeLimitTypeErrorMessage =
     createNumericTypeErrorFormatter("AST common node type limit");
 
+interface MemoryIterationToolkitOptions {
+    defaultValue?: number;
+    envVar?: string;
+    optionAlias?: string;
+    defaultValueOption?: string;
+}
+
+interface MemoryIterationEnvOverrideOptions {
+    envVar: string;
+    error: unknown;
+    fallback: number | undefined;
+}
+
 function createMemoryIterationToolkit({
     defaultValue,
     envVar,
     optionAlias
-} = {}) {
+}: MemoryIterationToolkitOptions = {}) {
     return createIntegerOptionToolkit({
         defaultValue,
         envVar,
@@ -183,11 +221,14 @@ const {
     setDefault: setMaxParserIterations
 } = parserIterationLimitToolkit;
 
-function logInvalidIterationEnvOverride({ envVar, error, fallback }) {
-    const reason = getErrorMessageOrFallback(
-        error,
-        `Invalid value provided for ${envVar}.`
-    ).trim();
+function logInvalidIterationEnvOverride({
+    envVar,
+    error,
+    fallback
+}: MemoryIterationEnvOverrideOptions) {
+    const reason = getErrorMessageOrFallback(error, {
+        fallback: `Invalid value provided for ${envVar}.`
+    }).trim();
     const suffix = reason.endsWith(".") ? "" : ".";
     const fallbackDetails =
         fallback === undefined
@@ -348,7 +389,14 @@ function buildFormatterOptionsTypeErrorMessage(source, value) {
  * @param {{ source?: string }} [options]
  * @returns {Record<string, unknown>} Normalized option overrides.
  */
-export function parseFormatterOptionsFixture(optionsRaw, { source } = {}) {
+interface FormatterOptionsFixtureContext {
+    source?: string;
+}
+
+export function parseFormatterOptionsFixture(
+    optionsRaw: string,
+    { source }: FormatterOptionsFixtureContext = {}
+) {
     return parseJsonObjectWithContext(optionsRaw, {
         source,
         description: "formatter options fixture",
@@ -635,7 +683,15 @@ export {
 
 export { resolveMemoryIterations, resolveMemoryReportDirectory };
 
-export function applyMemoryEnvOptionOverrides({ command, env } = {}) {
+interface MemoryEnvOptionOverridesContext {
+    command?: Command;
+    env?: NodeJS.ProcessEnv;
+}
+
+export function applyMemoryEnvOptionOverrides({
+    command,
+    env
+}: MemoryEnvOptionOverridesContext = {}) {
     if (!command || typeof command.setOptionValueWithSource !== "function") {
         return;
     }
@@ -658,11 +714,11 @@ export function applyMemoryEnvOptionOverrides({ command, env } = {}) {
     });
 }
 
-applyMemoryIterationsEnvOverride();
-applyParserMaxIterationsEnvOverride();
-applyFormatMaxIterationsEnvOverride();
-applyMemoryReportDirectoryEnvOverride();
-applyAstCommonNodeTypeLimitEnvOverride();
+applyMemoryIterationsEnvOverride(process.env);
+applyParserMaxIterationsEnvOverride(process.env);
+applyFormatMaxIterationsEnvOverride(process.env);
+applyMemoryReportDirectoryEnvOverride(process.env);
+applyAstCommonNodeTypeLimitEnvOverride(process.env);
 
 const AVAILABLE_SUITES = new Map();
 
@@ -721,7 +777,24 @@ export function createMemoryCommand({ env = process.env } = {}) {
     return command;
 }
 
-function collectSuiteOptions(options) {
+interface MemoryCommandOptions {
+    suite?: Array<string> | string;
+    iterations?: unknown;
+    commonNodeLimit?: unknown;
+    format?: string;
+    pretty?: boolean;
+}
+
+interface RunMemoryCommandContext {
+    command?: Command;
+    onResults?: (context: {
+        payload: ReturnType<typeof createSuiteResultsPayload>;
+        suites: Record<string, unknown>;
+        options: MemoryCommandOptions;
+    }) => unknown | Promise<unknown>;
+}
+
+function collectSuiteOptions(options: MemoryCommandOptions) {
     return {
         iterations: options.iterations,
         commonNodeLimit: options.commonNodeLimit
@@ -730,6 +803,10 @@ function collectSuiteOptions(options) {
 
 function createCountingSet(originalSet, allocationCounter) {
     return class CountingSet extends originalSet {
+        static get [Symbol.species]() {
+            return originalSet;
+        }
+
         constructor(...args) {
             super(...args);
             allocationCounter.count += 1;
@@ -940,7 +1017,7 @@ async function runPluginFormatSuite({ iterations }) {
 
 AVAILABLE_SUITES.set(MemorySuiteName.PLUGIN_FORMAT, runPluginFormatSuite);
 
-function formatSuiteError(error) {
+function formatSuiteError(error: unknown) {
     const name = error?.name ?? error?.constructor?.name ?? "Error";
     const message = getErrorMessageOrFallback(error);
     const stackLines =
@@ -953,12 +1030,19 @@ function formatSuiteError(error) {
     };
 }
 
+interface MemorySuitePayload {
+    error?: unknown;
+    [key: string]: unknown;
+}
+
 /**
  * Convert suite results into the newline-delimited lines printed when JSON
  * output is disabled. Keeps the formatting logic centralized without the
  * layering of the previous mini-pipeline helpers.
  */
-function createHumanReadableMemoryLines(results) {
+function createHumanReadableMemoryLines(
+    results: Record<string, MemorySuitePayload> | null | undefined
+) {
     const lines = ["Memory benchmark results:"];
 
     for (const [suite, payload] of Object.entries(results ?? {})) {
@@ -981,8 +1065,11 @@ function printHumanReadable(results) {
     console.log(lines.join("\n"));
 }
 
-export async function runMemoryCommand({ command, onResults } = {}) {
-    const options = command?.opts?.() ?? {};
+export async function runMemoryCommand({
+    command,
+    onResults
+}: RunMemoryCommandContext = {}) {
+    const options: MemoryCommandOptions = command?.opts?.() ?? {};
 
     if (Number.isFinite(options.commonNodeLimit)) {
         setAstCommonNodeTypeLimit(options.commonNodeLimit);
@@ -1023,7 +1110,11 @@ export async function runMemoryCommand({ command, onResults } = {}) {
  * report. Keeps the path arithmetic separate from the high-level orchestration
  * in {@link runMemoryCli} so that entry point focuses on coordinating steps.
  */
-function resolveMemoryReportPath({ cwd, reportDir, reportFileName }) {
+function resolveMemoryReportPath({
+    cwd,
+    reportDir,
+    reportFileName
+}: MemoryReportPathOptions) {
     const effectiveReportDir = resolveMemoryReportDirectory(reportDir);
     const resolvedReportDir = path.resolve(cwd, effectiveReportDir);
     const resolvedReportName = reportFileName ?? DEFAULT_MEMORY_REPORT_FILENAME;
@@ -1036,7 +1127,10 @@ function resolveMemoryReportPath({ cwd, reportDir, reportFileName }) {
  * isolates the conditional writeFile selection, ensuring {@link runMemoryCli}
  * reads as a sequence of delegated operations.
  */
-function createMemoryReportWriter({ reportPath, customWriteFile }) {
+function createMemoryReportWriter({
+    reportPath,
+    customWriteFile
+}: MemoryReportWriterOptions) {
     const writeFile =
         typeof customWriteFile === "function" ? customWriteFile : undefined;
 
@@ -1050,6 +1144,15 @@ function createMemoryReportWriter({ reportPath, customWriteFile }) {
     };
 }
 
+interface MemoryCliOptions {
+    argv?: Array<string>;
+    env?: NodeJS.ProcessEnv;
+    cwd?: string;
+    reportDir?: string | null;
+    reportFileName?: string;
+    writeFile?: (options: { path: string; data: string }) => Promise<void>;
+}
+
 export async function runMemoryCli({
     argv = process.argv.slice(2),
     env = process.env,
@@ -1057,7 +1160,7 @@ export async function runMemoryCli({
     reportDir,
     reportFileName = DEFAULT_MEMORY_REPORT_FILENAME,
     writeFile: customWriteFile
-} = {}) {
+}: MemoryCliOptions = {}) {
     const command = createMemoryCommand({ env });
 
     await command.parseAsync(argv, { from: "user" });

@@ -72,10 +72,25 @@ async function resolveVendorRuntimeRoot() {
     };
 }
 
+export interface RuntimeSourceDescriptor {
+    root: string;
+    packageName: string | null;
+    packageJson: Record<string, unknown> | null;
+}
+
+export interface RuntimeSourceResolverOptions {
+    runtimeRoot?: string | null | undefined;
+    runtimePackage?: string | undefined;
+}
+
+export type RuntimeSourceResolver = (
+    options?: RuntimeSourceResolverOptions
+) => Promise<RuntimeSourceDescriptor>;
+
 export async function resolveRuntimeSource({
     runtimeRoot,
     runtimePackage = DEFAULT_RUNTIME_PACKAGE
-} = {}) {
+}: RuntimeSourceResolverOptions = {}) {
     const candidate = resolveCandidateRoot(runtimeRoot);
     if (candidate) {
         const stats = await fs.stat(candidate.root).catch((error) => {
@@ -115,7 +130,11 @@ export async function resolveRuntimeSource({
     };
 }
 
-export function describeRuntimeSource({ root, packageName, packageJson }) {
+export function describeRuntimeSource(
+    source: RuntimeSourceDescriptor
+) {
+    const { root, packageName, packageJson } = source;
+
     if (packageName) {
         const version = packageJson?.version;
         return version ? `${packageName}@${version}` : packageName;

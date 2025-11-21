@@ -1,13 +1,5 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: {
-        applyConfiguredValueEnvOverride,
-        createEnvConfiguredValueWithFallback,
-        toFiniteNumber
-    }
-} = Core;
-
 const IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_ENV_VAR =
     "GML_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES";
 const IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_BASELINE = 128;
@@ -33,7 +25,7 @@ function normalizeMaxEntries(value, { fallback }) {
             return Infinity;
         }
 
-        const numeric = toFiniteNumber(trimmed);
+        const numeric = Core.Utils.toFiniteNumber(trimmed);
         if (numeric === null) {
             return fallback;
         }
@@ -42,7 +34,7 @@ function normalizeMaxEntries(value, { fallback }) {
     }
 
     if (typeof value === "number") {
-        const numeric = toFiniteNumber(value);
+        const numeric = Core.Utils.toFiniteNumber(value);
         if (numeric === null) {
             return fallback;
         }
@@ -62,7 +54,7 @@ function normalizeFiniteMaxEntries(value) {
 }
 
 const identifierCaseOptionStoreMaxEntriesConfig =
-    createEnvConfiguredValueWithFallback({
+    Core.Utils.createEnvConfiguredValueWithFallback({
         defaultValue: IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_BASELINE,
         envVar: IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_ENV_VAR,
         resolve: (raw, context) =>
@@ -79,7 +71,7 @@ function setDefaultIdentifierCaseOptionStoreMaxEntries(maxEntries) {
 }
 
 function applyIdentifierCaseOptionStoreEnvOverride(env) {
-    applyConfiguredValueEnvOverride(
+    Core.Utils.applyConfiguredValueEnvOverride(
         identifierCaseOptionStoreMaxEntriesConfig,
         env
     );

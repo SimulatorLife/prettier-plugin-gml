@@ -44,6 +44,7 @@ import {
     normalizePerformanceSuiteName
 } from "./suite-options.js";
 import { formatMetricValue } from "./metric-formatters.js";
+import type { WorkflowPathFilterOptions } from "../../workflow/path-filter.js";
 
 export { normalizeFixtureRoots } from "../dependencies.js";
 
@@ -60,6 +61,42 @@ const DATASET_CACHE_KEY = "gml-fixtures";
 const SUPPORTS_WEAK_REF = typeof WeakRef === "function";
 const SKIP_PERFORMANCE_RESOLUTION_MESSAGE =
     "Clear the environment variable to enable CLI performance suites.";
+
+interface PerformanceCommandOptions {
+    suite?: Array<string> | string;
+    iterations?: unknown;
+    fixtureRoot?: Array<string> | string;
+    reportFile?: string | null;
+    skipReport?: boolean;
+    stdout?: boolean;
+    format?: unknown;
+    pretty?: boolean;
+}
+
+interface PerformanceSuiteExecutionOptions {
+    iterations?: unknown;
+    fixtureRoots?: Array<string>;
+    dataset?: unknown;
+    datasetCache?: Map<string, unknown>;
+    pathFilter?: ReturnType<typeof createPathFilter>;
+    now?: unknown;
+}
+
+interface RunPerformanceCommandContext {
+    command?: Command;
+    workflow?: WorkflowPathFilterOptions;
+}
+
+type SuiteExecutionOptions = PerformanceSuiteExecutionOptions & {
+    fixtureRoots: Array<string>;
+    datasetCache: Map<string, unknown>;
+    pathFilter: ReturnType<typeof createPathFilter>;
+};
+
+interface CollectPerformanceSuiteResultsOptions {
+    requestedSuites: Array<string>;
+    runnerOptions: SuiteExecutionOptions;
+}
 
 function resolveCachedDataset(cache) {
     if (!cache || typeof cache.get !== "function") {
@@ -125,7 +162,14 @@ function collectPerformanceSuite(value, previous) {
     return appendToCollection(normalized, previous);
 }
 
-function formatErrorDetails(error, { fallbackMessage } = {}) {
+interface FormatErrorDetailsOptions {
+    fallbackMessage?: string;
+}
+
+function formatErrorDetails(
+    error: unknown,
+    { fallbackMessage }: FormatErrorDetailsOptions = {}
+) {
     return createCliErrorDetails(error, {
         fallbackMessage: fallbackMessage ?? "Unknown error"
     });
@@ -182,7 +226,15 @@ async function collectFixtureFilePaths(directories, pathFilterOptions) {
     return [...fileMap.values()].sort((a, b) => a.localeCompare(b));
 }
 
-async function loadFixtureDataset({ directories, pathFilter } = {}) {
+interface LoadFixtureDatasetOptions {
+    directories?: Iterable<string | null | undefined>;
+    pathFilter?: ReturnType<typeof createPathFilter>;
+}
+
+async function loadFixtureDataset({
+    directories,
+    pathFilter
+}: LoadFixtureDatasetOptions = {}) {
     const fixtureDirectories = normalizeFixtureRoots(
         directories ?? [],
         pathFilter
@@ -247,16 +299,28 @@ async function loadFixtureFiles(fixturePaths) {
 /**
  * Resolve a single fixture file into the canonical dataset record structure.
  */
-async function readFixtureFileRecord(absolutePath) {
+async function readFixtureFileRecord(absolutePath: string) {
     const source = await fs.readFile(absolutePath, "utf8");
     return createFixtureRecord({ absolutePath, source });
+}
+
+interface FixtureRecordInput {
+    absolutePath: string;
+    source: string;
+    size?: number;
+    relativePath?: string;
 }
 
 /**
  * Normalize fixture metadata while enforcing consistent size and relative path
  * semantics regardless of where the record originated.
  */
-function createFixtureRecord({ absolutePath, source, size, relativePath }) {
+function createFixtureRecord({
+    absolutePath,
+    source,
+    size,
+    relativePath
+}: FixtureRecordInput) {
     const resolvedSize = isFiniteNumber(size)
         ? size
         : Buffer.byteLength(source);
@@ -305,7 +369,9 @@ function normalizeCustomDatasetEntry(entry, index) {
     });
 }
 
-async function resolveDatasetFromOptions(options = {}) {
+async function resolveDatasetFromOptions(
+    options: PerformanceSuiteExecutionOptions = {}
+) {
     if (options.dataset) {
         return normalizeCustomDataset(options.dataset);
     }
@@ -665,13 +731,16 @@ export function createPerformanceCommand() {
         .option("--pretty", "Pretty-print JSON output.");
 }
 
-function createSuiteExecutionOptions(options, { workflow } = {}) {
+function createSuiteExecutionOptions(
+    options: PerformanceCommandOptions,
+    { workflow }: { workflow?: WorkflowPathFilterOptions } = {}
+): SuiteExecutionOptions {
     const pathFilter = createPathFilter(workflow);
 
     return {
         iterations: resolveIterationCount(options.iterations),
         fixtureRoots: normalizeFixtureRoots(
-            options.fixtureRoot ?? [],
+            toArray(options.fixtureRoot ?? []),
             pathFilter
         ),
         datasetCache: new Map(),
@@ -812,7 +881,13 @@ function printHumanReadable(report) {
     console.log(lines.join("\n"));
 }
 
-function emitReport(report, options) {
+interface EmitReportOptions {
+    stdout?: boolean;
+    format?: unknown;
+    pretty?: boolean;
+}
+
+function emitReport(report, options: EmitReportOptions) {
     const emittedJson = emitSuiteResults(report.suites, options, {
         payload: report
     });
@@ -828,7 +903,10 @@ function clearDatasetCache(cache) {
     }
 }
 
-async function executeWithDatasetCleanup(runnerOptions, task) {
+async function executeWithDatasetCleanup(
+    runnerOptions: SuiteExecutionOptions,
+    task: () => Promise<Record<string, unknown>>
+) {
     try {
         return await task();
     } finally {
@@ -839,7 +917,7 @@ async function executeWithDatasetCleanup(runnerOptions, task) {
 async function collectPerformanceSuiteResults({
     requestedSuites,
     runnerOptions
-}) {
+}: CollectPerformanceSuiteResultsOptions) {
     return executeWithDatasetCleanup(runnerOptions, () =>
         collectSuiteResults({
             suiteNames: requestedSuites,
@@ -878,7 +956,9 @@ function createSuiteFailureSummary([suite, payload]) {
 
     return {
         suite,
-        message: getErrorMessageOrFallback(payload.error, "Unknown error")
+        message: getErrorMessageOrFallback(payload.error, {
+            fallback: "Unknown error"
+        })
     };
 }
 
@@ -958,7 +1038,7 @@ function logSuiteFailureSummary(suiteResults, options, reportResult) {
     return true;
 }
 
-function emitReportIfRequested(report, options) {
+function emitReportIfRequested(report, options: EmitReportOptions) {
     if (!options.stdout) {
         return;
     }
@@ -966,8 +1046,11 @@ function emitReportIfRequested(report, options) {
     emitReport(report, options);
 }
 
-export async function runPerformanceCommand({ command, workflow } = {}) {
-    const options = command?.opts?.() ?? {};
+export async function runPerformanceCommand({
+    command,
+    workflow
+}: RunPerformanceCommandContext = {}) {
+    const options: PerformanceCommandOptions = command?.opts?.() ?? {};
 
     const requestedSuites = resolveRequestedSuites(options, AVAILABLE_SUITES);
     ensureSuitesAreKnown(requestedSuites, AVAILABLE_SUITES, command);

@@ -27,19 +27,6 @@ import { planAssetRenames, applyAssetRenames } from "./asset-renames.js";
 import { getDefaultIdentifierCaseFsFacade } from "./fs-facade.js";
 import { evaluateIdentifierCaseAssetRenamePolicy } from "./asset-rename-policy.js";
 
-const {
-    asArray,
-    coalesceOption,
-    createMetricsTracker,
-    getIterableSize,
-    getNonEmptyString,
-    getOrCreateMapEntry,
-    isNonEmptyArray,
-    isNonEmptyString,
-    isObjectLike,
-    toNormalizedLowerCaseString
-} = Core;
-
 // Diagnostic counter used during triage to tag generated rename maps so they
 // can be correlated across the prepare->capture->attach->apply lifecycle in
 // test logs. This is deliberately minimal, non-functional, and attaches a
@@ -48,7 +35,7 @@ const {
 let DBG_RENAME_MAP_COUNTER = 1;
 
 function getScopeDisplayName(scopeRecord, fallback = "<unknown>") {
-    if (!isObjectLike(scopeRecord)) {
+    if (!Core.Utils.isObjectLike(scopeRecord)) {
         return fallback;
     }
 
@@ -61,7 +48,7 @@ function getScopeDisplayName(scopeRecord, fallback = "<unknown>") {
 }
 
 function createScopeGroupingKey(scopeId, fallback) {
-    if (isNonEmptyString(scopeId)) {
+    if (Core.Utils.isNonEmptyString(scopeId)) {
         return scopeId;
     }
 
@@ -109,15 +96,15 @@ function summarizeReferencesByFile(relativeFilePath, references) {
 }
 
 function getEntryDeclarations(entry) {
-    return asArray(entry?.declarations);
+    return Core.Utils.asArray(entry?.declarations);
 }
 
 function getEntityClassifications(entity) {
-    return asArray(entity?.classifications);
+    return Core.Utils.asArray(entity?.classifications);
 }
 
 function getEntryDeclarationKinds(entry) {
-    return asArray(entry?.declarationKinds);
+    return Core.Utils.asArray(entry?.declarationKinds);
 }
 
 function applyAssetRenamesIfEligible({
@@ -139,7 +126,7 @@ function applyAssetRenamesIfEligible({
     }
 
     const fsFacade =
-        coalesceOption(options, ["__identifierCaseFs", "identifierCaseFs"]) ??
+        Core.Utils.coalesceOption(options, ["__identifierCaseFs", "identifierCaseFs"]) ??
         getDefaultIdentifierCaseFsFacade();
     const logger = options.logger ?? null;
     const result = applyAssetRenames({
@@ -165,31 +152,31 @@ function applyAssetRenamesIfEligible({
 }
 
 function getObjectValues(object) {
-    if (!isObjectLike(object)) {
+    if (!Core.Utils.isObjectLike(object)) {
         return [];
     }
     return Object.values(object);
 }
 
 function resolveIdentifierEntryName(entry) {
-    if (!isObjectLike(entry)) {
+    if (!Core.Utils.isObjectLike(entry)) {
         return null;
     }
 
     const declarations = getEntryDeclarations(entry);
     for (const declaration of declarations) {
-        const declarationName = getNonEmptyString(declaration?.name);
+        const declarationName = Core.Utils.getNonEmptyString(declaration?.name);
         if (declarationName) {
             return declarationName;
         }
     }
 
-    const entryName = getNonEmptyString(entry?.name);
+    const entryName = Core.Utils.getNonEmptyString(entry?.name);
     if (entryName) {
         return entryName;
     }
 
-    const displayName = getNonEmptyString(entry?.displayName);
+    const displayName = Core.Utils.getNonEmptyString(entry?.displayName);
     if (displayName) {
         return displayName;
     }
@@ -250,7 +237,7 @@ function getDeclarationFilePath(entry) {
 }
 
 function getReferenceLocation(reference) {
-    if (!isObjectLike(reference)) {
+    if (!Core.Utils.isObjectLike(reference)) {
         return null;
     }
     return reference.start ?? reference.location?.start ?? null;
@@ -305,11 +292,11 @@ function createNameCollisionTracker() {
     const entriesById = new Map();
 
     const toKey = (name) =>
-        typeof name === "string" ? toNormalizedLowerCaseString(name) : "";
+        typeof name === "string" ? Core.Utils.toNormalizedLowerCaseString(name) : "";
 
     const addRecord = (record) => {
         const key = toKey(record.name);
-        const bucket = getOrCreateMapEntry(entriesByName, key, () => []);
+        const bucket = Core.Utils.getOrCreateMapEntry(entriesByName, key, () => []);
         bucket.push(record);
         entriesById.set(record.uniqueId, record);
     };
@@ -417,7 +404,7 @@ function planIdentifierRenamesForScope({
     metrics,
     collisionTracker
 }) {
-    if (!isNonEmptyArray(entries)) {
+    if (!Core.Utils.isNonEmptyArray(entries)) {
         return;
     }
 
@@ -724,7 +711,7 @@ export async function prepareIdentifierCasePlan(options) {
     );
 
     const logger = options.logger ?? null;
-    const metricsContracts = createMetricsTracker({
+    const metricsContracts = Core.Utils.createMetricsTracker({
         category: "identifier-case-plan",
         logger,
         autoLog: options.logIdentifierCaseMetrics === true
@@ -1317,7 +1304,7 @@ export async function prepareIdentifierCasePlan(options) {
         renameEntries:
             typeof renameMap.size === "number"
                 ? renameMap.size
-                : getIterableSize(renameMap)
+                : Core.Utils.getIterableSize(renameMap)
     });
 
     if (options.__identifierCaseRenamePlan) {

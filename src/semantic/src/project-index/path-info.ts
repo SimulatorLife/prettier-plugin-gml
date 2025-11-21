@@ -2,11 +2,6 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: { isNonEmptyString },
-    FS: { resolveContainedRelativePath }
-} = Core;
-
 /**
  * Resolve high-level metadata about how {@link filePath} relates to
  * {@link projectRoot}.
@@ -30,14 +25,14 @@ const {
  * } | null}
  */
 export function resolveProjectPathInfo(filePath, projectRoot) {
-    if (!isNonEmptyString(filePath)) {
+    if (!Core.Utils.isNonEmptyString(filePath)) {
         return null;
     }
 
     const absolutePath = path.resolve(filePath);
     const inputWasAbsolute = path.isAbsolute(filePath);
 
-    if (!isNonEmptyString(projectRoot)) {
+    if (!Core.Utils.isNonEmptyString(projectRoot)) {
         return {
             absolutePath,
             hasProjectRoot: false,
@@ -49,7 +44,7 @@ export function resolveProjectPathInfo(filePath, projectRoot) {
     }
 
     const absoluteProjectRoot = path.resolve(projectRoot);
-    const containedRelative = resolveContainedRelativePath(
+    const containedRelative = Core.FS.resolveContainedRelativePath(
         absolutePath,
         absoluteProjectRoot
     );

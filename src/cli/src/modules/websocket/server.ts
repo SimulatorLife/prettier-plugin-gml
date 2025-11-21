@@ -11,6 +11,29 @@ import { WebSocketServer } from "ws";
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 17_890;
 
+export interface PatchWebSocketServerOptions {
+    host?: string;
+    port?: number;
+    verbose?: boolean;
+    onClientConnect?: (clientId: string) => void;
+    onClientDisconnect?: (clientId: string) => void;
+}
+
+export interface PatchBroadcastResult {
+    successCount: number;
+    failureCount: number;
+    totalClients: number;
+}
+
+export interface PatchWebSocketServerController {
+    url: string;
+    host: string;
+    port: number;
+    broadcast(patch: unknown): PatchBroadcastResult;
+    stop(): Promise<void>;
+    getClientCount(): number;
+}
+
 /**
  * Creates and starts a WebSocket server for patch streaming.
  *
@@ -28,7 +51,7 @@ export async function startPatchWebSocketServer({
     verbose = false,
     onClientConnect,
     onClientDisconnect
-} = {}) {
+}: PatchWebSocketServerOptions = {}): Promise<PatchWebSocketServerController> {
     const clients = new Set();
 
     const wss = new WebSocketServer({

@@ -281,7 +281,7 @@ function resolvePrettier() {
 
 const DEFAULT_EXTENSIONS = normalizeExtensions(
     process.env.PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS,
-    FALLBACK_EXTENSIONS
+    [...FALLBACK_EXTENSIONS]
 );
 
 const DEFAULT_PARSE_ERROR_ACTION =
@@ -518,7 +518,11 @@ const options = {
     noErrorOnUnmatchedPattern: true
 };
 
-function configurePrettierOptions({ logLevel } = {}) {
+function configurePrettierOptions({
+    logLevel
+}: {
+    logLevel?: unknown;
+} = {}) {
     const normalized =
         logLevelOption.normalize(logLevel, {
             fallback: DEFAULT_PRETTIER_LOG_LEVEL
@@ -673,23 +677,27 @@ async function cleanupRevertSnapshotDirectory() {
 }
 
 async function releaseSnapshot(snapshot) {
-    await withObjectLike(snapshot, async (snapshotObject) => {
-        const { snapshotPath } = snapshotObject;
-        if (!snapshotPath) {
-            return;
-        }
-
-        try {
-            await rm(snapshotPath, { force: true });
-        } catch {
-            // Ignore individual file cleanup failures to avoid masking the
-            // original error that triggered the revert.
-        } finally {
-            if (revertSnapshotFileCount > 0) {
-                revertSnapshotFileCount -= 1;
+    await withObjectLike(
+        snapshot,
+        async (snapshotObject) => {
+            const { snapshotPath } = snapshotObject;
+            if (!snapshotPath) {
+                return;
             }
-        }
-    });
+
+            try {
+                await rm(snapshotPath, { force: true });
+            } catch {
+                // Ignore individual file cleanup failures to avoid masking the
+                // original error that triggered the revert.
+            } finally {
+                if (revertSnapshotFileCount > 0) {
+                    revertSnapshotFileCount -= 1;
+                }
+            }
+        },
+        undefined
+    );
 }
 
 async function discardFormattedFileOriginalContents() {
@@ -1061,7 +1069,7 @@ async function initializeProjectIgnorePaths(projectRoot) {
     await registerIgnorePaths([IGNORE_PATH, ...projectIgnorePaths]);
 }
 
-async function resolveTargetStats(target, { usage } = {}) {
+async function resolveTargetStats(target, { usage }: { usage?: string } = {}) {
     try {
         return await stat(target);
     } catch (error) {
@@ -1351,7 +1359,7 @@ function validateTargetPathInput({
  */
 function resolveTargetPathFromInput(
     targetPathInput,
-    { rawTargetPathInput } = {}
+    { rawTargetPathInput }: { rawTargetPathInput?: string } = {}
 ) {
     const hasExplicitTarget =
         typeof targetPathInput === "string" && targetPathInput.length > 0;
@@ -1953,7 +1961,7 @@ cliCommandRegistry.registerCommand({
 });
 
 cliCommandRegistry.registerCommand({
-    command: createFeatherMetadataCommand({ env: process.env }),
+    command: createFeatherMetadataCommand(),
     run: ({ command }) => runGenerateFeatherMetadata({ command }),
     onError: (error) =>
         handleCliError(error, {

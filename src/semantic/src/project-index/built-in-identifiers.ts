@@ -6,21 +6,12 @@ import { defaultFsFacade } from "./fs-facade.js";
 import { createProjectIndexAbortGuard } from "./abort-guard.js";
 import { getFileMtime } from "./fs-helpers.js";
 
-const {
-    Utils: {
-        parseJsonWithContext,
-        areNumbersApproximatelyEqual,
-        isPlainObject
-    },
-    IdentifierMetadata: { normalizeIdentifierMetadataEntries }
-} = Core;
-
 const GML_IDENTIFIER_FILE_PATH = GML_IDENTIFIER_METADATA_PATH;
 
 let cachedBuiltInIdentifiers = null;
 
 function extractBuiltInIdentifierNames(payload) {
-    if (!isPlainObject(payload)) {
+    if (!Core.Utils.isPlainObject(payload)) {
         throw new TypeError(
             "Built-in identifier metadata must be an object payload."
         );
@@ -33,7 +24,8 @@ function extractBuiltInIdentifierNames(payload) {
         );
     }
 
-    const entries = normalizeIdentifierMetadataEntries(payload);
+    const entries =
+        Core.IdentifierMetadata.normalizeIdentifierMetadataEntries(payload);
     const names = new Set();
 
     for (const { name, type } of entries) {
@@ -48,7 +40,7 @@ function extractBuiltInIdentifierNames(payload) {
 }
 
 function parseBuiltInIdentifierNames(rawContents) {
-    const payload = parseJsonWithContext(rawContents, {
+    const payload = Core.Utils.parseJsonWithContext(rawContents, {
         source: GML_IDENTIFIER_FILE_PATH,
         description: "built-in identifier metadata"
     });
@@ -65,7 +57,10 @@ function areMtimesEquivalent(cachedMtime, currentMtime) {
         return false;
     }
 
-    return areNumbersApproximatelyEqual(cachedMtime, currentMtime);
+    return Core.Utils.areNumbersApproximatelyEqual(
+        cachedMtime,
+        currentMtime
+    );
 }
 
 export async function loadBuiltInIdentifiers(

@@ -74,11 +74,12 @@ function createOverrideError({
     const fallbackMessage = envVar
         ? `Invalid value provided for ${envVar}.`
         : "Invalid environment variable value provided.";
+    const errorLike = isErrorLike(error) ? error : null;
     const message =
-        isErrorLike(error) &&
-        isNonEmptyString(error.message) &&
-        !/^error\b/i.test(error.message.trim())
-            ? error.message
+        errorLike &&
+        isNonEmptyString(errorLike.message) &&
+        !/^error\b/i.test(errorLike.message.trim())
+            ? errorLike.message
             : fallbackMessage;
 
     const cliError = new CliUsageError(message, { usage });

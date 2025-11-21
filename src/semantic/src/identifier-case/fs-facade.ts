@@ -7,14 +7,22 @@ import {
     mkdirSync as nodeMkdirSync,
     existsSync as nodeExistsSync
 } from "node:fs";
+import type { PathOrFileDescriptor } from "node:fs";
 
 import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
 
 const defaultIdentifierCaseFsFacade = Object.freeze({
-    readFileSync(targetPath, encoding = "utf8") {
+    readFileSync(
+        targetPath: PathOrFileDescriptor,
+        encoding: BufferEncoding = "utf8"
+    ) {
         return nodeReadFileSync(targetPath, encoding);
     },
-    writeFileSync(targetPath, contents, encoding = "utf8") {
+    writeFileSync(
+        targetPath: PathOrFileDescriptor,
+        contents: string | Buffer,
+        encoding: BufferEncoding = "utf8"
+    ) {
         nodeWriteFileSync(targetPath, contents, encoding);
     },
     renameSync(fromPath, toPath) {

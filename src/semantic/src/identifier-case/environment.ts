@@ -18,7 +18,7 @@ import { warnWithReason } from "./logger.js";
 // - Core.Utils.isObjectLike
 // - Core.Utils.isMapLike
 // - Core.Utils.noop
-// - Core.withObjectLike
+// - Core.Utils.withObjectLike
 
 const IDENTIFIER_CASE_LOGGER_NAMESPACE = "identifier-case";
 
@@ -107,42 +107,48 @@ export async function prepareIdentifierCaseEnvironment(options) {
     } catch {
         /* ignore */
     }
-    return Core.withObjectLike(options, async (object) => {
-        const bootstrapResult =
-            await bootstrapIdentifierCaseProjectIndex(object);
-        registerBootstrapCleanup(bootstrapResult);
+    return Core.Utils.withObjectLike(
+        options,
+        async (object) => {
+            const bootstrapResult =
+                await bootstrapIdentifierCaseProjectIndex(object);
+            registerBootstrapCleanup(bootstrapResult);
 
-        if (bootstrapResult?.status === "failed") {
-            if (object.__identifierCaseProjectIndexFailureLogged !== true) {
-                const logger = object?.logger ?? null;
-                warnWithReason(
-                    logger,
-                    IDENTIFIER_CASE_LOGGER_NAMESPACE,
-                    "Project index bootstrap failed. Identifier case renames will be skipped",
-                    bootstrapResult.error,
-                    bootstrapResult.reason
-                );
-                setIdentifierCaseOption(
-                    object,
-                    "__identifierCaseProjectIndexFailureLogged",
-                    true
-                );
+            if (bootstrapResult?.status === "failed") {
+                if (object.__identifierCaseProjectIndexFailureLogged !== true) {
+                    const logger = object?.logger ?? null;
+                    warnWithReason(
+                        logger,
+                        IDENTIFIER_CASE_LOGGER_NAMESPACE,
+                        "Project index bootstrap failed. Identifier case renames will be skipped",
+                        bootstrapResult.error,
+                        bootstrapResult.reason
+                    );
+                    setIdentifierCaseOption(
+                        object,
+                        "__identifierCaseProjectIndexFailureLogged",
+                        true
+                    );
+                }
+                return;
             }
-            return;
-        }
 
-        try {
-            await prepareIdentifierCasePlan(object);
-        } catch (error) {
-            disposeBootstrap(bootstrapResult, object?.logger ?? null);
-            throw error;
-        }
-    });
+            try {
+                await prepareIdentifierCasePlan(object);
+            } catch (error) {
+                disposeBootstrap(bootstrapResult, object?.logger ?? null);
+                throw error;
+            }
+        },
+        () => undefined
+    );
 }
 
 export function attachIdentifierCasePlanSnapshot(ast, options) {
-    Core.withObjectLike(ast, (objectAst) => {
-        const snapshot = captureIdentifierCasePlanSnapshot(options);
+    Core.Utils.withObjectLike(
+        ast,
+        (objectAst) => {
+            const snapshot = captureIdentifierCasePlanSnapshot(options);
         // Only attach snapshots that carry meaningful planning state.
         // Empty snapshots (no renameMap and no planGenerated) are common
         // when callers omit a filepath and would otherwise overwrite a
@@ -182,7 +188,9 @@ export function attachIdentifierCasePlanSnapshot(ast, options) {
             enumerable: false,
             configurable: true
         });
-    });
+        },
+        () => undefined
+    );
 }
 
 export function teardownIdentifierCaseEnvironment(options) {

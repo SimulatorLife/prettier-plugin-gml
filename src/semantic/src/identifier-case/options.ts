@@ -11,10 +11,6 @@ import { getDefaultProjectIndexCacheMaxSize } from "../project-index/cache.js";
 import { getDefaultProjectIndexGmlConcurrency } from "../project-index/concurrency.js";
 import { DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES } from "./option-store-defaults.js";
 
-const {
-    Utils: { capitalize, createListSplitPattern, normalizeStringList }
-} = Core;
-
 export { DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES } from "./option-store-defaults.js";
 
 const IDENTIFIER_CASE_DESCRIPTION =
@@ -34,7 +30,7 @@ export const IDENTIFIER_CASE_STYLES = Object.freeze(
     Object.values(IdentifierCaseStyle)
 );
 
-const IDENTIFIER_CASE_LIST_SPLIT_PATTERN = createListSplitPattern(["\n", ","]);
+const IDENTIFIER_CASE_LIST_SPLIT_PATTERN = Core.Utils.createListSplitPattern(["\n", ","]);
 
 export const IDENTIFIER_CASE_INHERIT_VALUE = "inherit";
 
@@ -125,7 +121,7 @@ export const IDENTIFIER_CASE_STYLE_CHOICES = IDENTIFIER_CASE_STYLES.map(
 );
 
 function getScopeOptionName(scope) {
-    return `${IDENTIFIER_CASE_SCOPE_OPTION_PREFIX}${capitalize(scope)}`;
+    return `${IDENTIFIER_CASE_SCOPE_OPTION_PREFIX}${Core.Utils.capitalize(scope)}`;
 }
 
 function createScopeChoiceEntries() {
@@ -235,7 +231,7 @@ for (const scope of IDENTIFIER_CASE_SCOPE_NAMES) {
 }
 
 function normalizeList(optionName, value) {
-    return normalizeStringList(value, {
+    return Core.Utils.normalizeStringList(value, {
         splitPattern: IDENTIFIER_CASE_LIST_SPLIT_PATTERN,
         errorMessage: `${optionName} must be provided as a string or array of strings.`
     });

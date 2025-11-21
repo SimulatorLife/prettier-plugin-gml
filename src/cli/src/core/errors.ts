@@ -160,8 +160,9 @@ function formatErrorHeader(error: ErrorWithMetadata): string {
         return name;
     }
 
-    if (typeof error.toString === "function") {
-        return error.toString();
+    const headerError = error as ErrorWithMetadata;
+    if (typeof headerError.toString === "function") {
+        return headerError.toString();
     }
 
     return "";
@@ -177,9 +178,10 @@ function formatErrorObject(
 
     seen.add(error);
 
+    const errored = error as ErrorWithMetadata;
     const stack =
-        !isCliUsageError(error) && typeof error.stack === "string"
-            ? error.stack
+        !isCliUsageError(errored) && typeof errored.stack === "string"
+            ? errored.stack
             : null;
     const sections = compactArray([
         formatErrorHeader(error),

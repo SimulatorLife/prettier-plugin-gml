@@ -23,6 +23,22 @@ const MIME_TYPES = new Map([
     [".ico", "image/x-icon"]
 ]);
 
+export interface RuntimeStaticServerOptions {
+    runtimeRoot?: string;
+    host?: string;
+    port?: number;
+    verbose?: boolean;
+}
+
+export interface RuntimeServerController {
+    url: string;
+    origin: string;
+    host: string;
+    port: number;
+    root: string;
+    stop(): Promise<void>;
+}
+
 function resolveMimeType(filePath) {
     const extension = path.extname(filePath).toLowerCase();
     return MIME_TYPES.get(extension) ?? "application/octet-stream";
@@ -129,7 +145,7 @@ export async function startRuntimeStaticServer({
     host = DEFAULT_HOST,
     port = DEFAULT_PORT,
     verbose = false
-} = {}) {
+}: RuntimeStaticServerOptions = {}): Promise<RuntimeServerController> {
     if (!runtimeRoot || typeof runtimeRoot !== "string") {
         throw new TypeError(
             "startRuntimeStaticServer requires a runtimeRoot string."

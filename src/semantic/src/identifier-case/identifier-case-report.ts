@@ -16,17 +16,79 @@ import { warnWithReason } from "./logger.js";
 import { consumeIdentifierCaseDryRunContext } from "./identifier-case-context.js";
 import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
 
-const {
-    asArray,
-    compactArray,
-    coalesceOption,
-    coalesceTrimmedString,
-    incrementMapValue,
-    isNonEmptyArray,
-    isObjectLike,
-    toArray,
-    withObjectLike
-} = Core;
+type IdentifierCaseReportSummary = {
+    renameCount: number;
+    impactedFileCount: number;
+    totalReferenceCount: number;
+    conflictCount: number;
+    severityCounts: Record<string, number>;
+};
+
+type IdentifierCaseReference = {
+    filePath: string;
+    occurrences?: number;
+};
+
+type IdentifierCaseOperation = {
+    id?: string | null;
+    kind?: string | null;
+    scopeId?: string | null;
+    scopeName?: string | null;
+    fromName?: string | null;
+    toName?: string | null;
+    occurrenceCount?: number;
+    referenceFileCount?: number;
+    references?: Array<IdentifierCaseReference>;
+};
+
+type IdentifierCaseConflict = {
+    severity?: string;
+    scope: {
+        displayName?: string | null;
+        id?: string | null;
+    };
+    identifier?: string | null;
+    code?: string | null;
+    message: string;
+    suggestions: Array<string>;
+};
+
+type IdentifierCasePlanData = {
+    renamePlan?: unknown;
+    conflicts?: Array<unknown>;
+};
+
+type IdentifierCaseReportData = {
+    summary?: IdentifierCaseReportSummary;
+    operations?: Array<IdentifierCaseOperation>;
+    conflicts?: Array<IdentifierCaseConflict>;
+    renames?: Array<{
+        id?: string | null;
+        kind?: string | null;
+        scopeId?: string | null;
+        scopeName?: string | null;
+        fromName?: string | null;
+        toName?: string | null;
+        references?: Array<IdentifierCaseReference>;
+    }>;
+};
+
+type IdentifierCaseReportLogger = {
+    log?: (message: string) => void;
+    warn?: (...args: Array<unknown>) => void;
+};
+
+type ReportIdentifierCasePlanOptions = IdentifierCasePlanData & {
+    conflicts?: Array<unknown>;
+    logger?: IdentifierCaseReportLogger;
+    diagnostics?: Array<unknown> | null;
+    logFilePath?: string | null;
+    fsFacade?: {
+        mkdirSync?: (path: string, options?: { recursive?: boolean }) => void;
+        writeFileSync?: (path: string, data: string) => void;
+    };
+    now?: () => number;
+};
 
 const REPORT_NAMESPACE = "gml-identifier-case";
 const LOG_VERSION = 1;
@@ -36,11 +98,11 @@ function defaultNow() {
 }
 
 function getNormalizedOperations(report) {
-    return asArray(report?.operations);
+    return Core.Utils.asArray(report?.operations);
 }
 
 function getNormalizedConflicts(conflicts) {
-    return asArray(conflicts);
+    return Core.Utils.asArray(conflicts);
 }
 
 function buildIdentifierCaseOptionKeys(baseName) {
@@ -48,19 +110,19 @@ function buildIdentifierCaseOptionKeys(baseName) {
 }
 
 function getIdentifierCaseOption(options, baseName, coalesceOptions) {
-    return coalesceOption(
+    return Core.Utils.coalesceOption(
         options,
         buildIdentifierCaseOptionKeys(baseName),
         coalesceOptions
     );
 }
 
-function extractOperations(plan) {
+function extractOperations(plan: unknown) {
     if (Array.isArray(plan)) {
         return plan;
     }
 
-    if (!isObjectLike(plan)) {
+    if (!Core.Utils.isObjectLike(plan)) {
         return [];
     }
 
@@ -76,11 +138,11 @@ function extractOperations(plan) {
 }
 
 function normalizeReference(reference) {
-    if (!isObjectLike(reference)) {
+    if (!Core.Utils.isObjectLike(reference)) {
         return null;
     }
 
-    const filePath = coalesceTrimmedString(
+    const filePath = Core.Utils.coalesceTrimmedString(
         reference.filePath,
         reference.path,
         reference.file
@@ -103,39 +165,39 @@ function normalizeReference(reference) {
 }
 
 function normalizeScope(scope) {
-    if (!isObjectLike(scope)) {
+    if (!Core.Utils.isObjectLike(scope)) {
         return { id: null, displayName: null, name: null };
     }
 
-    const displayName = coalesceTrimmedString(
+    const displayName = Core.Utils.coalesceTrimmedString(
         scope.displayName,
         scope.name,
         scope.scope,
         scope.path
     );
-    const id = coalesceTrimmedString(scope.id, scope.scopeId);
+    const id = Core.Utils.coalesceTrimmedString(scope.id, scope.scopeId);
 
     return {
         id: id || null,
         displayName: displayName || null,
-        name: coalesceTrimmedString(scope.name) || null
+        name: Core.Utils.coalesceTrimmedString(scope.name) || null
     };
 }
 
 function normalizeOperation(rawOperation) {
-    return withObjectLike(
+    return Core.Utils.withObjectLike(
         rawOperation,
         (operation) => {
             const scope = normalizeScope(operation.scope ?? {});
 
-            const fromName = coalesceTrimmedString(
+            const fromName = Core.Utils.coalesceTrimmedString(
                 operation.from?.name,
                 operation.source?.name,
                 operation.originalName,
                 operation.from,
                 operation.source
             );
-            const toName = coalesceTrimmedString(
+            const toName = Core.Utils.coalesceTrimmedString(
                 operation.to?.name,
                 operation.target?.name,
                 operation.updatedName,
@@ -143,8 +205,8 @@ function normalizeOperation(rawOperation) {
                 operation.target
             );
 
-            const referenceCandidates = compactArray(
-                toArray(operation.references).map(normalizeReference)
+            const referenceCandidates = Core.Utils.compactArray(
+                Core.Utils.toArray(operation.references).map(normalizeReference)
             );
             const references = referenceCandidates.reduce((acc, item) => {
                 const insertIndex = acc.findIndex(
@@ -171,10 +233,10 @@ function normalizeOperation(rawOperation) {
 
             return {
                 id:
-                    coalesceTrimmedString(operation.id, operation.identifier) ||
+                    Core.Utils.coalesceTrimmedString(operation.id, operation.identifier) ||
                     null,
                 kind:
-                    coalesceTrimmedString(operation.kind, operation.type) ||
+                    Core.Utils.coalesceTrimmedString(operation.kind, operation.type) ||
                     "identifier",
                 scopeId: scope.id,
                 scopeName: scope.displayName ?? scope.name ?? null,
@@ -190,30 +252,30 @@ function normalizeOperation(rawOperation) {
 }
 
 function normalizeConflict(rawConflict) {
-    return withObjectLike(
+    return Core.Utils.withObjectLike(
         rawConflict,
         (conflict) => {
             const scope = normalizeScope(conflict.scope ?? {});
-            const severityCandidate = coalesceTrimmedString(conflict.severity);
+            const severityCandidate = Core.Utils.coalesceTrimmedString(conflict.severity);
             const severity = severityCandidate
                 ? severityCandidate.toLowerCase()
                 : "error";
 
-            const suggestions = compactArray(
-                toArray(conflict.suggestions ?? conflict.hints).map((entry) =>
-                    coalesceTrimmedString(entry)
+            const suggestions = Core.Utils.compactArray(
+                Core.Utils.toArray(conflict.suggestions ?? conflict.hints).map((entry) =>
+                    Core.Utils.coalesceTrimmedString(entry)
                 )
             );
 
             return {
                 code:
-                    coalesceTrimmedString(
+                    Core.Utils.coalesceTrimmedString(
                         conflict.code,
                         conflict.identifier,
                         conflict.type
                     ) || null,
                 message:
-                    coalesceTrimmedString(conflict.message, conflict.reason) ||
+                    Core.Utils.coalesceTrimmedString(conflict.message, conflict.reason) ||
                     "",
                 severity,
                 scope: {
@@ -221,7 +283,7 @@ function normalizeConflict(rawConflict) {
                     displayName: scope.displayName ?? scope.name ?? null
                 },
                 identifier:
-                    coalesceTrimmedString(
+                    Core.Utils.coalesceTrimmedString(
                         conflict.identifier,
                         conflict.name,
                         conflict.originalName
@@ -301,13 +363,13 @@ function pluralize(value, suffix = "s") {
 export function summarizeIdentifierCasePlan({
     renamePlan,
     conflicts = []
-} = {}) {
+}: IdentifierCasePlanData = {}) {
     const normalizedOperations = sortOperations(
-        compactArray(extractOperations(renamePlan).map(normalizeOperation))
+        Core.Utils.compactArray(extractOperations(renamePlan).map(normalizeOperation))
     );
 
     const normalizedConflicts = sortConflicts(
-        compactArray(toArray(conflicts).map(normalizeConflict))
+        Core.Utils.compactArray(Core.Utils.toArray(conflicts).map(normalizeConflict))
     );
 
     const renameSummaries = normalizedOperations.map(buildRenameSummary);
@@ -325,7 +387,7 @@ export function summarizeIdentifierCasePlan({
     const severityCounts = new Map();
     for (const conflict of normalizedConflicts) {
         const severity = conflict.severity ?? "info";
-        incrementMapValue(severityCounts, severity);
+        Core.Utils.incrementMapValue(severityCounts, severity);
     }
 
     const summary = {
@@ -344,7 +406,9 @@ export function summarizeIdentifierCasePlan({
     };
 }
 
-export function formatIdentifierCaseSummaryText(report) {
+export function formatIdentifierCaseSummaryText(
+    report: IdentifierCaseReportData | null
+) {
     if (!report) {
         return [];
     }
@@ -437,7 +501,7 @@ export function formatIdentifierCaseSummaryText(report) {
     return lines;
 }
 
-function getNormalizedReportCollections(report) {
+function getNormalizedReportCollections(report: IdentifierCaseReportData | null) {
     const operations = getNormalizedOperations(report);
     const conflicts = getNormalizedConflicts(report?.conflicts);
 
@@ -472,8 +536,8 @@ function buildRenameSummaries(operations) {
     return operations.map(buildRenameSummary);
 }
 
-function buildLogPayload(report, generatedAt) {
-    const { summary = {} } = report ?? {};
+function buildLogPayload(report: IdentifierCaseReportData | null, generatedAt) {
+    const { summary = {} as IdentifierCaseReportSummary } = report ?? {};
     const { renames, conflicts } = getNormalizedReportCollections(report);
 
     return {
@@ -504,7 +568,7 @@ function buildLogPayload(report, generatedAt) {
 }
 
 function resolveSummarySeverity(conflicts) {
-    if (!isNonEmptyArray(conflicts)) {
+    if (!Core.Utils.isNonEmptyArray(conflicts)) {
         return "info";
     }
 
@@ -519,7 +583,15 @@ function resolveSummarySeverity(conflicts) {
     return "info";
 }
 
-function pushDiagnosticEntry({ diagnostics, report, text }) {
+function pushDiagnosticEntry({
+    diagnostics,
+    report,
+    text
+}: {
+    diagnostics?: Array<unknown>;
+    report: IdentifierCaseReportData | null;
+    text: string;
+}) {
     if (!Array.isArray(diagnostics)) {
         return;
     }
@@ -547,7 +619,7 @@ export function reportIdentifierCasePlan({
     logFilePath = null,
     fsFacade = defaultFsFacade,
     now = defaultNow
-} = {}) {
+}: ReportIdentifierCasePlanOptions = {}) {
     const report = summarizeIdentifierCasePlan({
         renamePlan,
         conflicts

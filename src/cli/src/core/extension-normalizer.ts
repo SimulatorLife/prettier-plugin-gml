@@ -89,7 +89,7 @@ export function normalizeExtensions(
         coerceExtensionValue(candidate)
     );
     const filteredValues = compactArray(coercedValues);
-    const normalized = uniqueArray(filteredValues);
+    const normalized = uniqueArray(Array.from(filteredValues));
 
     return normalized.length > 0 ? normalized : fallbackExtensions;
 }

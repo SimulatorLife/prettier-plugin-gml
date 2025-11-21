@@ -30,27 +30,6 @@ import {
     assertValidIdentifierRole
 } from "./identifier-roles.js";
 
-const {
-    Utils: {
-        asArray,
-        assertFunction,
-        getLineBreakSpans,
-        getOrCreateMapEntry,
-        hasOwn,
-        isNonEmptyArray,
-        isObjectLike,
-        isWordChar,
-        pushUnique
-    },
-    AST: {
-        buildFileLocationKey,
-        buildLocationKey,
-        cloneLocation,
-        getCallExpressionIdentifier
-    },
-    FS: { isFsErrorCode }
-} = Core;
-
 /**
  * Create shallow clones of common entry collections stored on project index
  * records (for example declaration/reference lists). Guarding against
@@ -58,7 +37,7 @@ const {
  * sourced from partially populated caches.
  */
 function cloneEntryCollections(entry, ...keys) {
-    const source = isObjectLike(entry) ? entry : {};
+    const source = Core.Utils.isObjectLike(entry) ? entry : {};
     return Object.fromEntries(
         keys.map((key) => [key, cloneObjectEntries(source[key])])
     );
@@ -129,13 +108,13 @@ export {
 } from "./concurrency.js";
 
 function cloneIdentifierDeclaration(declaration) {
-    if (!isObjectLike(declaration)) {
+    if (!Core.Utils.isObjectLike(declaration)) {
         return null;
     }
 
     return {
-        start: cloneLocation(declaration.start),
-        end: cloneLocation(declaration.end),
+        start: Core.AST.cloneLocation(declaration.start),
+        end: Core.AST.cloneLocation(declaration.end),
         scopeId: declaration.scopeId ?? null
     };
 }
@@ -143,10 +122,10 @@ function cloneIdentifierDeclaration(declaration) {
 function createIdentifierRecord(node) {
     return {
         name: node?.name ?? null,
-        start: cloneLocation(node?.start),
-        end: cloneLocation(node?.end),
+        start: Core.AST.cloneLocation(node?.start),
+        end: Core.AST.cloneLocation(node?.end),
         scopeId: node?.scopeId ?? null,
-        classifications: [...asArray(node?.classifications)],
+        classifications: [...Core.Utils.asArray(node?.classifications)],
         declaration: cloneIdentifierDeclaration(node?.declaration),
         isGlobalIdentifier: node?.isGlobalIdentifier === true
     };
@@ -157,9 +136,9 @@ function cloneIdentifierForCollections(record, filePath) {
         name: record?.name ?? null,
         filePath: filePath ?? null,
         scopeId: record?.scopeId ?? null,
-        start: cloneLocation(record?.start),
-        end: cloneLocation(record?.end),
-        classifications: [...asArray(record?.classifications)],
+        start: Core.AST.cloneLocation(record?.start),
+        end: Core.AST.cloneLocation(record?.end),
+        classifications: [...Core.Utils.asArray(record?.classifications)],
         declaration: record?.declaration ? { ...record.declaration } : null,
         isBuiltIn: record?.isBuiltIn ?? false,
         reason: record?.reason ?? null,
@@ -169,7 +148,7 @@ function cloneIdentifierForCollections(record, filePath) {
 }
 
 function ensureCollectionEntry(map, key, initializer) {
-    return getOrCreateMapEntry(map, key, initializer);
+    return Core.Utils.getOrCreateMapEntry(map, key, initializer);
 }
 
 function ensureIdentifierCollectionEntry({
@@ -185,7 +164,7 @@ function ensureIdentifierCollectionEntry({
             declarations: initialDeclarations,
             references: initialReferences,
             ...rest
-        } = isObjectLike(initializerValue) ? initializerValue : {};
+        } = Core.Utils.isObjectLike(initializerValue) ? initializerValue : {};
 
         const declarations = Array.isArray(initialDeclarations)
             ? [...initialDeclarations]
@@ -252,7 +231,7 @@ function ensureIdentifierEntryWithRole({
 }
 
 function assignIdentifierEntryMetadata(entry, metadata) {
-    if (!isObjectLike(entry)) {
+    if (!Core.Utils.isObjectLike(entry)) {
         return entry;
     }
 
@@ -327,7 +306,7 @@ function computeLineOffsets(source) {
         return offsets;
     }
 
-    for (const { index, length } of getLineBreakSpans(source)) {
+    for (const { index, length } of Core.Utils.getLineBreakSpans(source)) {
         offsets.push(index + length);
     }
 
@@ -366,7 +345,7 @@ function buildLocationFromIndex(index, lineOffsets) {
 }
 
 function isIdentifierBoundary(character) {
-    return !isWordChar(character);
+    return !Core.Utils.isWordChar(character);
 }
 
 function findIdentifierLocation({
@@ -477,12 +456,12 @@ function createFunctionLikeIdentifierRecord({
     const classificationTags = ["identifier", "declaration"];
     for (const tag of classificationArray) {
         if (tag) {
-            pushUnique(classificationTags, tag);
+            Core.Utils.pushUnique(classificationTags, tag);
         }
     }
 
-    const start = cloneLocation(location.start);
-    const end = cloneLocation(location.end);
+    const start = Core.AST.cloneLocation(location.start);
+    const end = Core.AST.cloneLocation(location.end);
 
     return {
         name: rawName,
@@ -491,8 +470,8 @@ function createFunctionLikeIdentifierRecord({
         scopeId: scopeRecord.id,
         classifications: classificationTags,
         declaration: {
-            start: cloneLocation(start),
-            end: cloneLocation(end),
+            start: Core.AST.cloneLocation(start),
+            end: Core.AST.cloneLocation(end),
             scopeId: scopeRecord.id
         },
         isBuiltIn: false,
@@ -510,7 +489,7 @@ function createEnumLookup(ast, filePath) {
 
     while (visitStack.length > 0) {
         const node = visitStack.pop();
-        if (!isObjectLike(node)) {
+        if (!Core.Utils.isObjectLike(node)) {
             continue;
         }
 
@@ -521,7 +500,7 @@ function createEnumLookup(ast, filePath) {
 
         if (node.type === "EnumDeclaration") {
             const enumIdentifier = node.name;
-            const enumKey = buildFileLocationKey(
+            const enumKey = Core.AST.buildFileLocationKey(
                 filePath,
                 enumIdentifier?.start
             );
@@ -532,12 +511,12 @@ function createEnumLookup(ast, filePath) {
                     filePath: filePath ?? null
                 });
 
-                for (const member of asArray(node.members)) {
+                for (const member of Core.Utils.asArray(node.members)) {
                     const memberIdentifier = member?.name ?? null;
                     if (!memberIdentifier) {
                         continue;
                     }
-                    const memberKey = buildFileLocationKey(
+                    const memberKey = Core.AST.buildFileLocationKey(
                         filePath,
                         memberIdentifier.start
                     );
@@ -560,11 +539,11 @@ function createEnumLookup(ast, filePath) {
             if (Array.isArray(value)) {
                 for (let index = value.length - 1; index >= 0; index -= 1) {
                     const child = value[index];
-                    if (isObjectLike(child)) {
+                    if (Core.Utils.isObjectLike(child)) {
                         visitStack.push(child);
                     }
                 }
-            } else if (isObjectLike(value)) {
+            } else if (Core.Utils.isObjectLike(value)) {
                 visitStack.push(value);
             }
         }
@@ -624,9 +603,9 @@ function registerScriptDeclaration({
             (existing) => existing && existing.isSynthetic !== true
         );
     }
-    const locationKey = buildLocationKey(clone.start);
+    const locationKey = Core.AST.buildLocationKey(clone.start);
     const hasExisting = entry.declarations.some((existing) => {
-        const existingKey = buildLocationKey(existing.start);
+        const existingKey = Core.AST.buildLocationKey(existing.start);
         return existingKey && locationKey && existingKey === locationKey;
     });
 
@@ -634,7 +613,7 @@ function registerScriptDeclaration({
         entry.declarations.push(clone);
     }
 
-    const declarationTags = asArray(clone?.classifications);
+    const declarationTags = Core.Utils.asArray(clone?.classifications);
     for (const tag of declarationTags) {
         if (
             tag &&
@@ -701,8 +680,8 @@ function cloneScriptReference(callRecord) {
         targetName: callRecord.target?.name ?? null,
         targetResourcePath: callRecord.target?.resourcePath ?? null,
         location: {
-            start: cloneLocation(callRecord.location?.start),
-            end: cloneLocation(callRecord.location?.end)
+            start: Core.AST.cloneLocation(callRecord.location?.start),
+            end: Core.AST.cloneLocation(callRecord.location?.end)
         },
         isResolved: Boolean(callRecord.isResolved)
     };
@@ -821,7 +800,7 @@ function registerEnumOccurrence({
             ? identifierRecord?.declaration?.start
             : identifierRecord?.start;
 
-    const enumKey = buildFileLocationKey(filePath, targetLocation);
+    const enumKey = Core.AST.buildFileLocationKey(filePath, targetLocation);
     if (!enumKey) {
         return;
     }
@@ -864,7 +843,7 @@ function registerEnumMemberOccurrence({
             ? identifierRecord?.declaration?.start
             : identifierRecord?.start;
 
-    const memberKey = buildFileLocationKey(filePath, targetLocation);
+    const memberKey = Core.AST.buildFileLocationKey(filePath, targetLocation);
     if (!memberKey) {
         return;
     }
@@ -979,7 +958,7 @@ function shouldTreatAsInstance({ identifierRecord, role, scopeDescriptor }) {
         return false;
     }
 
-    const classifications = asArray(identifierRecord?.classifications);
+    const classifications = Core.Utils.asArray(identifierRecord?.classifications);
 
     if (classifications.includes("global")) {
         return false;
@@ -1014,7 +993,7 @@ function registerIdentifierOccurrence({
 
     const validatedRole = assertValidIdentifierRole(role);
 
-    const classifications = asArray(identifierRecord?.classifications);
+    const classifications = Core.Utils.asArray(identifierRecord?.classifications);
 
     if (
         validatedRole === IdentifierRole.DECLARATION &&
@@ -1121,8 +1100,8 @@ function registerInstanceAssignment({
     const clone = cloneIdentifierForCollections(identifierRecord, filePath);
 
     const hasExisting = entry.declarations.some((existing) => {
-        const existingKey = buildLocationKey(existing.start);
-        const currentKey = buildLocationKey(clone.start);
+        const existingKey = Core.AST.buildLocationKey(existing.start);
+        const currentKey = Core.AST.buildLocationKey(clone.start);
         return existingKey && currentKey && existingKey === currentKey;
     });
 
@@ -1132,7 +1111,7 @@ function registerInstanceAssignment({
 }
 
 function ensureScopeRecord(scopeMap, descriptor) {
-    return getOrCreateMapEntry(scopeMap, descriptor.id, () => ({
+    return Core.Utils.getOrCreateMapEntry(scopeMap, descriptor.id, () => ({
         id: descriptor.id,
         kind: descriptor.kind,
         name: descriptor.name,
@@ -1148,7 +1127,7 @@ function ensureScopeRecord(scopeMap, descriptor) {
 }
 
 function ensureFileRecord(filesMap, relativePath, scopeId) {
-    return getOrCreateMapEntry(filesMap, relativePath, () => ({
+    return Core.Utils.getOrCreateMapEntry(filesMap, relativePath, () => ({
         filePath: relativePath,
         scopeId,
         declarations: [],
@@ -1159,7 +1138,7 @@ function ensureFileRecord(filesMap, relativePath, scopeId) {
 }
 
 function traverseAst(root, visitor) {
-    if (!isObjectLike(root)) {
+    if (!Core.Utils.isObjectLike(root)) {
         return;
     }
 
@@ -1168,7 +1147,7 @@ function traverseAst(root, visitor) {
 
     while (stack.length > 0) {
         const node = stack.pop();
-        if (!isObjectLike(node)) {
+        if (!Core.Utils.isObjectLike(node)) {
             continue;
         }
 
@@ -1180,7 +1159,7 @@ function traverseAst(root, visitor) {
         visitor(node);
 
         for (const key in node) {
-            if (!hasOwn(node, key)) {
+            if (!Core.Utils.hasOwn(node, key)) {
                 continue;
             }
 
@@ -1188,11 +1167,11 @@ function traverseAst(root, visitor) {
             if (Array.isArray(value)) {
                 for (let i = value.length - 1; i >= 0; i -= 1) {
                     const child = value[i];
-                    if (isObjectLike(child)) {
+                    if (Core.Utils.isObjectLike(child)) {
                         stack.push(child);
                     }
                 }
-            } else if (isObjectLike(value)) {
+            } else if (Core.Utils.isObjectLike(value)) {
                 stack.push(value);
             }
         }
@@ -1246,16 +1225,16 @@ function handleScriptScopeFunctionDeclarationNode({
         removalDescriptor
     );
 
-    const declarationKey = buildLocationKey(declarationRecord.start);
+    const declarationKey = Core.AST.buildLocationKey(declarationRecord.start);
     const fileHasExisting = fileRecord.declarations.some(
-        (existing) => buildLocationKey(existing.start) === declarationKey
+        (existing) => Core.AST.buildLocationKey(existing.start) === declarationKey
     );
     if (!fileHasExisting) {
         fileRecord.declarations.push({ ...declarationRecord });
     }
 
     const scopeHasExisting = scopeRecord.declarations.some(
-        (existing) => buildLocationKey(existing.start) === declarationKey
+        (existing) => Core.AST.buildLocationKey(existing.start) === declarationKey
     );
     if (!scopeHasExisting) {
         scopeRecord.declarations.push({ ...declarationRecord });
@@ -1348,7 +1327,7 @@ function handleCallExpressionNode({
         return;
     }
 
-    const callee = getCallExpressionIdentifier(node);
+    const callee = Core.AST.getCallExpressionIdentifier(node);
     const calleeName = callee?.name ?? null;
     if (!calleeName || builtInNames.has(calleeName)) {
         return;
@@ -1372,8 +1351,8 @@ function handleCallExpressionNode({
         },
         isResolved: Boolean(targetScopeId),
         location: {
-            start: cloneLocation(callee?.start),
-            end: cloneLocation(callee?.end)
+            start: Core.AST.cloneLocation(callee?.start),
+            end: Core.AST.cloneLocation(callee?.end)
         }
     };
 
@@ -1424,8 +1403,8 @@ function handleNewExpressionScriptCall({
         },
         isResolved: Boolean(targetScopeId),
         location: {
-            start: cloneLocation(callee.start),
-            end: cloneLocation(callee.end)
+            start: Core.AST.cloneLocation(callee.start),
+            end: Core.AST.cloneLocation(callee.end)
         }
     };
 
@@ -1453,7 +1432,7 @@ function handleObjectEventAssignmentNode({
     }
 
     const leftRecord = createIdentifierRecord(node.left);
-    const classifications = asArray(leftRecord?.classifications);
+    const classifications = Core.Utils.asArray(leftRecord?.classifications);
 
     const isGlobalAssignment =
         classifications.includes("global") || leftRecord.isGlobalIdentifier;
@@ -1565,11 +1544,11 @@ function cloneAssetReference(reference) {
 }
 
 async function processWithConcurrency(items, limit, worker, options = {}) {
-    if (!isNonEmptyArray(items)) {
+    if (!Core.Utils.isNonEmptyArray(items)) {
         return;
     }
 
-    assertFunction(worker, "worker");
+    Core.Utils.assertFunction(worker, "worker");
 
     const { ensureNotAborted } = createProjectIndexAbortGuard(options);
 
@@ -1610,7 +1589,7 @@ async function readProjectGmlFile({ file, fsFacade, metrics }) {
         metrics.counters.increment("io.gmlBytes", Buffer.byteLength(contents));
         return contents;
     } catch (error) {
-        if (isFsErrorCode(error, "ENOENT")) {
+        if (Core.FS.isFsErrorCode(error, "ENOENT")) {
             metrics.counters.increment("files.missingDuringRead");
             return null;
         }
@@ -1623,7 +1602,7 @@ function registerFilePathWithScope(scopeRecord, filePath) {
         return;
     }
 
-    pushUnique(scopeRecord.filePaths, filePath);
+    Core.Utils.pushUnique(scopeRecord.filePaths, filePath);
 }
 
 function prepareProjectIndexRecords({
@@ -1860,7 +1839,7 @@ function createProjectIndexResultSnapshot({
             name: entry.name ?? null,
             displayName: entry.displayName ?? entry.name ?? entry.id,
             resourcePath: entry.resourcePath ?? null,
-            declarationKinds: [...asArray(entry.declarationKinds)],
+            declarationKinds: [...Core.Utils.asArray(entry.declarationKinds)],
             ...cloneEntryCollections(entry, "declarations"),
             references: entry.references.map((reference) => ({
                 filePath: reference.filePath ?? null,
@@ -1869,8 +1848,8 @@ function createProjectIndexResultSnapshot({
                 targetResourcePath: reference.targetResourcePath ?? null,
                 location: reference.location
                     ? {
-                          start: cloneLocation(reference.location.start),
-                          end: cloneLocation(reference.location.end)
+                          start: Core.AST.cloneLocation(reference.location.start),
+                          end: Core.AST.cloneLocation(reference.location.end)
                       }
                     : null,
                 isResolved: reference.isResolved ?? false

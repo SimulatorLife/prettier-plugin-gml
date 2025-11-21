@@ -1,10 +1,5 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    Reporting: { createMetricsTracker },
-    Utils: { isObjectLike, noop }
-} = Core;
-
 const PROJECT_INDEX_METRICS_CATEGORY = "project-index";
 const REQUIRED_RECORDING_GROUPS = Object.freeze({
     timers: ["startTimer", "timeAsync", "timeSync"],
@@ -22,13 +17,16 @@ const REQUIRED_REPORTING_GROUPS = Object.freeze({
 function hasMetricGroup(candidate, groupName, methodNames) {
     const group = candidate?.[groupName];
     return (
-        isObjectLike(group) &&
+        Core.Utils.isObjectLike(group) &&
         methodNames.every((method) => typeof group[method] === "function")
     );
 }
 
 function isMetricsRecordingSuite(candidate) {
-    if (!isObjectLike(candidate) || typeof candidate.category !== "string") {
+    if (
+        !Core.Utils.isObjectLike(candidate) ||
+        typeof candidate.category !== "string"
+    ) {
         return false;
     }
 
@@ -38,7 +36,7 @@ function isMetricsRecordingSuite(candidate) {
 }
 
 function isMetricsReportingSuite(candidate) {
-    if (!isObjectLike(candidate)) {
+    if (!Core.Utils.isObjectLike(candidate)) {
         return false;
     }
 
@@ -48,7 +46,7 @@ function isMetricsReportingSuite(candidate) {
 }
 
 function isMetricsContracts(candidate) {
-    if (!isObjectLike(candidate)) {
+    if (!Core.Utils.isObjectLike(candidate)) {
         return false;
     }
 
@@ -91,14 +89,14 @@ const NOOP_METRIC_RECORDING_GROUPS = Object.freeze({
         timeSync: (_label, callback) => callback()
     }),
     counters: Object.freeze({
-        increment: noop
+        increment: Core.Utils.noop
     }),
-    caches: Object.freeze({
-        recordHit: noop,
-        recordMiss: noop,
-        recordStale: noop,
-        recordMetric: noop
-    })
+        caches: Object.freeze({
+            recordHit: Core.Utils.noop,
+            recordMiss: Core.Utils.noop,
+            recordStale: Core.Utils.noop,
+            recordMetric: Core.Utils.noop
+        })
 });
 
 const NOOP_METRIC_REPORTING_GROUPS = Object.freeze({
@@ -110,9 +108,9 @@ const NOOP_METRIC_REPORTING_GROUPS = Object.freeze({
         cachesSnapshot: () => ({}),
         cacheSnapshot: () => {}
     }),
-    logger: Object.freeze({
-        logSummary: noop
-    })
+        logger: Object.freeze({
+            logSummary: Core.Utils.noop
+        })
 });
 
 function createNoopProjectIndexMetrics() {
@@ -120,9 +118,9 @@ function createNoopProjectIndexMetrics() {
         recording: Object.freeze({
             category: PROJECT_INDEX_METRICS_CATEGORY,
             ...NOOP_METRIC_RECORDING_GROUPS,
-            metadata: Object.freeze({
-                setMetadata: noop
-            })
+                metadata: Object.freeze({
+                    setMetadata: Core.Utils.noop
+                })
         }),
         reporting: Object.freeze({
             ...NOOP_METRIC_REPORTING_GROUPS
@@ -141,7 +139,7 @@ export function createProjectIndexMetrics(options = {}) {
         return createNoopProjectIndexMetrics();
     }
 
-    return createMetricsTracker({
+    return Core.Reporting.createMetricsTracker({
         category: PROJECT_INDEX_METRICS_CATEGORY,
         logger,
         autoLog: logMetrics === true

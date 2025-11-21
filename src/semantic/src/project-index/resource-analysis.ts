@@ -9,31 +9,20 @@ import {
 } from "./constants.js";
 import { normalizeProjectResourcePath } from "./path-normalization.js";
 
-const {
-    Utils: {
-        isNonEmptyArray,
-        pushUnique,
-        isNonEmptyTrimmedString,
-        getOrCreateMapEntry,
-        isObjectLike,
-        createAbortGuard,
-        throwIfAborted,
-        isJsonParseError,
-        parseJsonWithContext
-    },
-    FS: { isFsErrorCode }
-} = Core;
-
 const RESOURCE_ANALYSIS_ABORT_MESSAGE = "Project index build was aborted.";
 
 function normalizeResourceDocumentMetadata(resourceData) {
-    if (!isObjectLike(resourceData)) {
+    if (!Core.Utils.isObjectLike(resourceData)) {
         return { name: null, resourceType: null };
     }
 
     const { name, resourceType } = resourceData;
-    const normalizedName = isNonEmptyTrimmedString(name) ? name : null;
-    const normalizedResourceType = isNonEmptyTrimmedString(resourceType)
+    const normalizedName = Core.Utils.isNonEmptyTrimmedString(name)
+        ? name
+        : null;
+    const normalizedResourceType = Core.Utils.isNonEmptyTrimmedString(
+        resourceType
+    )
         ? resourceType
         : null;
 
@@ -50,18 +39,22 @@ function deriveScopeId(kind, parts) {
 function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
     const { name: normalizedName, resourceType: normalizedResourceType } =
         normalizeResourceDocumentMetadata(resourceData);
-    const record = getOrCreateMapEntry(resourcesMap, resourcePath, () => {
-        const defaultName = deriveDefaultResourceName(resourcePath);
+    const record = Core.Utils.getOrCreateMapEntry(
+        resourcesMap,
+        resourcePath,
+        () => {
+            const defaultName = deriveDefaultResourceName(resourcePath);
 
-        return {
-            path: resourcePath,
-            name: normalizedName ?? defaultName,
-            resourceType: normalizedResourceType ?? "unknown",
-            scopes: [],
-            gmlFiles: [],
-            assetReferences: []
-        };
-    });
+            return {
+                path: resourcePath,
+                name: normalizedName ?? defaultName,
+                resourceType: normalizedResourceType ?? "unknown",
+                scopes: [],
+                gmlFiles: [],
+                assetReferences: []
+            };
+        }
+    );
 
     if (normalizedName && record.name !== normalizedName) {
         record.name = normalizedName;
@@ -202,7 +195,7 @@ function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
 }
 
 function pushChildNode(stack, parentPath, key, candidate) {
-    if (!isObjectLike(candidate)) {
+    if (!Core.Utils.isObjectLike(candidate)) {
         return;
     }
 
@@ -211,7 +204,7 @@ function pushChildNode(stack, parentPath, key, candidate) {
 }
 
 function collectAssetReferences(root, callback) {
-    if (!isObjectLike(root)) {
+    if (!Core.Utils.isObjectLike(root)) {
         return;
     }
 
@@ -254,14 +247,14 @@ function createResourceAnalysisContext() {
 }
 
 async function loadResourceDocument(file, fsFacade, options = {}) {
-    const { ensureNotAborted } = createAbortGuard(options, {
+    const { ensureNotAborted } = Core.Utils.createAbortGuard(options, {
         fallbackMessage: RESOURCE_ANALYSIS_ABORT_MESSAGE
     });
     let rawContents;
     try {
         rawContents = await fsFacade.readFile(file.absolutePath, "utf8");
     } catch (error) {
-        if (isFsErrorCode(error, "ENOENT")) {
+        if (Core.FS.isFsErrorCode(error, "ENOENT")) {
             return null;
         }
         throw error;
@@ -270,12 +263,12 @@ async function loadResourceDocument(file, fsFacade, options = {}) {
     ensureNotAborted();
 
     try {
-        return parseJsonWithContext(rawContents, {
+        return Core.Utils.parseJsonWithContext(rawContents, {
             source: file.absolutePath ?? file.relativePath,
             description: "resource document"
         });
     } catch (error) {
-        if (isJsonParseError(error)) {
+        if (Core.Utils.isJsonParseError(error)) {
             return null;
         }
         throw error;
@@ -295,9 +288,9 @@ function attachScopeDescriptor({
     gmlRelativePath,
     descriptor
 }) {
-    pushUnique(resourceRecord.gmlFiles, gmlRelativePath);
+    Core.Utils.pushUnique(resourceRecord.gmlFiles, gmlRelativePath);
     context.gmlScopeMap.set(gmlRelativePath, descriptor);
-    pushUnique(resourceRecord.scopes, descriptor.id);
+    Core.Utils.pushUnique(resourceRecord.scopes, descriptor.id);
 }
 
 function registerScriptResourceIfNeeded({
@@ -340,7 +333,7 @@ function registerResourceEvents({
     resourceDir
 }) {
     const eventList = parsed?.eventList;
-    if (!isNonEmptyArray(eventList)) {
+    if (!Core.Utils.isNonEmptyArray(eventList)) {
         return;
     }
 
@@ -454,7 +447,7 @@ export async function analyseResourceFiles({
     const context = createResourceAnalysisContext();
 
     for (const file of yyFiles) {
-        throwIfAborted(signal, RESOURCE_ANALYSIS_ABORT_MESSAGE);
+        Core.Utils.throwIfAborted(signal, RESOURCE_ANALYSIS_ABORT_MESSAGE);
         const parsed = await loadResourceDocument(file, fsFacade, { signal });
         if (!parsed) {
             continue;

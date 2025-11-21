@@ -5,10 +5,6 @@ import {
     isProjectResourceMetadataPath
 } from "./constants.js";
 
-const {
-    Utils: { assertArray, normalizeExtensionSuffix }
-} = Core;
-
 const DEFAULT_PROJECT_SOURCE_EXTENSIONS = Object.freeze([".gml"]);
 let projectSourceExtensions = DEFAULT_PROJECT_SOURCE_EXTENSIONS;
 
@@ -67,7 +63,7 @@ export function resetProjectIndexSourceExtensions() {
  *          normalized additions.
  */
 function normalizeProjectSourceExtensions(extensions) {
-    const normalizedExtensions = assertArray(extensions, {
+    const normalizedExtensions = Core.Utils.assertArray(extensions, {
         errorMessage:
             "Project source extensions must be provided as an array of strings."
     });
@@ -81,7 +77,8 @@ function normalizeProjectSourceExtensions(extensions) {
             );
         }
 
-        const normalizedExtension = normalizeExtensionSuffix(extension);
+        const normalizedExtension =
+            Core.Utils.normalizeExtensionSuffix(extension);
         if (!normalizedExtension) {
             throw new TypeError(
                 "Project source extensions cannot be empty strings."

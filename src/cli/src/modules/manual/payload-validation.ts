@@ -1,6 +1,16 @@
 import { parseJsonObjectWithContext } from "../dependencies.js";
 
-function validateManualMapping(record, { valueDescription }) {
+interface ManualPayloadDecoderParameters {
+    payloadDescription: string;
+    payloadErrorMessage: string;
+    valueDescription: string;
+}
+
+interface ManualPayloadReaderContext {
+    source?: string | null;
+}
+
+function validateManualMapping(record: Record<string, unknown>, { valueDescription }: { valueDescription: string }) {
     for (const [key, value] of Object.entries(record)) {
         if (typeof value !== "string") {
             const formattedKey = key ? `'${key}'` : "<empty key>";
@@ -17,8 +27,8 @@ function createManualMappingDecoder({
     payloadDescription,
     payloadErrorMessage,
     valueDescription
-}) {
-    return (jsonText, { source } = {}) => {
+}: ManualPayloadDecoderParameters) {
+    return (jsonText: string, { source }: ManualPayloadReaderContext = {}) => {
         const record = parseJsonObjectWithContext(jsonText, {
             description: payloadDescription,
             source,

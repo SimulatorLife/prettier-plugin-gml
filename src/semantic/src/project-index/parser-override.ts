@@ -2,10 +2,6 @@ import { Core } from "@gml-modules/core";
 
 import { getDefaultProjectIndexParser } from "./gml-parser-facade.js";
 
-const {
-    Utils: { isObjectLike }
-} = Core;
-
 const defaultProjectIndexParser = getDefaultProjectIndexParser();
 
 const PARSER_FACADE_OPTION_KEYS = [
@@ -15,7 +11,7 @@ const PARSER_FACADE_OPTION_KEYS = [
 ];
 
 export function getProjectIndexParserOverride(options) {
-    if (!isObjectLike(options)) {
+    if (!Core.Utils.isObjectLike(options)) {
         return null;
     }
 

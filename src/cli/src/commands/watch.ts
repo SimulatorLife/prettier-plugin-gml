@@ -23,10 +23,19 @@ import { Transpiler } from "@gml-modules/transpiler";
 import {
     describeRuntimeSource,
     resolveRuntimeSource,
-    DEFAULT_RUNTIME_PACKAGE
+    DEFAULT_RUNTIME_PACKAGE,
+    type RuntimeSourceDescriptor,
+    type RuntimeSourceResolver
 } from "../modules/runtime/source.js";
-import { startRuntimeStaticServer } from "../modules/runtime/server.js";
-import { startPatchWebSocketServer } from "../modules/websocket/server.js";
+import {
+    startRuntimeStaticServer,
+    type RuntimeServerController,
+    type RuntimeStaticServerOptions
+} from "../modules/runtime/server.js";
+import {
+    startPatchWebSocketServer,
+    type PatchWebSocketServerController
+} from "../modules/websocket/server.js";
 
 interface TranspilerPatch {
     kind: string;
@@ -43,35 +52,6 @@ interface WatchTranspiler {
     }): Promise<TranspilerPatch>;
 }
 
-interface RuntimeServerController {
-    host: string;
-    port: number;
-    url: string;
-    stop(): Promise<void>;
-}
-
-interface WebSocketServerController {
-    host: string;
-    port: number;
-    url: string;
-    broadcast(patch: TranspilerPatch): {
-        successCount: number;
-        failureCount: number;
-        totalClients: number;
-    };
-    stop(): Promise<void>;
-}
-
-interface RuntimeSourceDescriptor {
-    root: string;
-    packageName: string | null;
-    packageJson: Record<string, unknown> | null;
-}
-
-type RuntimeSourceResolver = (options?: {
-    runtimeRoot?: string;
-    runtimePackage?: string;
-}) => Promise<RuntimeSourceDescriptor>;
 
 type RuntimeDescriptorFormatter = (source: RuntimeSourceDescriptor) => string;
 
@@ -89,10 +69,7 @@ interface WatchCommandOptions {
     hydrateRuntime?: boolean;
     runtimeResolver?: RuntimeSourceResolver;
     runtimeDescriptor?: RuntimeDescriptorFormatter;
-    runtimeServerStarter?: (options: {
-        runtimeRoot: string;
-        verbose?: boolean;
-    }) => Promise<RuntimeServerController>;
+    runtimeServerStarter?: typeof startRuntimeStaticServer;
     abortSignal?: AbortSignal;
 }
 
@@ -100,15 +77,11 @@ interface RuntimeContext {
     root: string | null;
     packageName: string | null;
     packageJson: Record<string, unknown> | null;
-    server: {
-        host: string;
-        port: number;
-        url: string;
-    } | null;
+    server: RuntimeServerController | null;
     noticeLogged: boolean;
     transpiler: WatchTranspiler;
     patches: Array<TranspilerPatch>;
-    websocketServer: WebSocketServerController | null;
+    websocketServer: PatchWebSocketServerController | null;
 }
 
 interface FileChangeOptions {
@@ -321,7 +294,7 @@ export async function runWatchCommand(
     };
 
     let runtimeServerController: RuntimeServerController | null = null;
-    let websocketServerController: WebSocketServerController | null = null;
+    let websocketServerController: PatchWebSocketServerController | null = null;
 
     if (shouldServeRuntime) {
         const runtimeSource = await runtimeResolver({
@@ -344,11 +317,7 @@ export async function runWatchCommand(
             verbose
         });
 
-        runtimeContext.server = {
-            host: runtimeServerController.host,
-            port: runtimeServerController.port,
-            url: runtimeServerController.url
-        };
+        runtimeContext.server = runtimeServerController;
 
         console.log(
             `Runtime static server ready at ${runtimeServerController.url}`
@@ -379,13 +348,7 @@ export async function runWatchCommand(
                 }
             });
 
-            runtimeContext.websocketServer = {
-                host: websocketServerController.host,
-                port: websocketServerController.port,
-                url: websocketServerController.url,
-                broadcast: websocketServerController.broadcast,
-                getClientCount: websocketServerController.getClientCount
-            };
+            runtimeContext.websocketServer = websocketServerController;
 
             console.log(
                 `WebSocket patch server ready at ${websocketServerController.url}`

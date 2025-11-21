@@ -2,10 +2,6 @@ import { Core } from "@gml-modules/core";
 
 import { resolveProjectDisplayPath } from "./path-normalization.js";
 
-const {
-    Utils: { getNonEmptyString, isFiniteNumber, splitLines, toFiniteNumber }
-} = Core;
-
 /**
  * Normalize thrown values into an error-like object the formatter can mutate
  * safely. Preserves existing properties for structured error objects while
@@ -24,7 +20,7 @@ function normalizeSyntaxErrorLike(error) {
         return error;
     }
 
-    const normalizedMessage = getNonEmptyString(error);
+    const normalizedMessage = Core.Utils.getNonEmptyString(error);
     return { message: normalizedMessage ?? "" };
 }
 
@@ -46,8 +42,8 @@ export function formatProjectIndexSyntaxError(error, sourceText, context) {
     const normalizedError = normalizeSyntaxErrorLike(error);
 
     const { filePath, projectRoot } = context ?? {};
-    const lineNumber = toFiniteNumber(normalizedError.line);
-    const columnNumber = toFiniteNumber(normalizedError.column);
+    const lineNumber = Core.Utils.toFiniteNumber(normalizedError.line);
+    const columnNumber = Core.Utils.toFiniteNumber(normalizedError.column);
     const displayPath = resolveProjectDisplayPath(filePath, projectRoot);
 
     const baseDescription = extractBaseDescription(normalizedError.message);
@@ -58,7 +54,8 @@ export function formatProjectIndexSyntaxError(error, sourceText, context) {
     );
     const excerpt = formatSourceExcerpt(sourceText, lineNumber, columnNumber);
 
-    const originalMessage = getNonEmptyString(normalizedError.message) ?? "";
+    const originalMessage =
+        Core.Utils.getNonEmptyString(normalizedError.message) ?? "";
     const formattedMessage = `Syntax Error${locationSuffix}: ${baseDescription}${
         excerpt ? `\n\n${excerpt}` : ""
     }`;
@@ -78,7 +75,7 @@ export function formatProjectIndexSyntaxError(error, sourceText, context) {
 }
 
 function extractBaseDescription(message) {
-    const normalizedMessage = getNonEmptyString(message);
+    const normalizedMessage = Core.Utils.getNonEmptyString(message);
     if (!normalizedMessage) {
         return "";
     }
@@ -123,7 +120,7 @@ function formatSourceExcerpt(sourceText, lineNumber, columnNumber) {
         return "";
     }
 
-    const lines = splitLines(sourceText);
+    const lines = Core.Utils.splitLines(sourceText);
     const lineIndex = Math.min(lineNumber - 1, lines.length - 1);
 
     if (lineIndex < 0 || lineIndex >= lines.length) {
@@ -185,11 +182,11 @@ function expandTabsForDisplay(lineText, columnNumber, tabSize = 4) {
 }
 
 function clampColumnIndex(length, columnNumber) {
-    if (!isFiniteNumber(columnNumber) || columnNumber < 0) {
+    if (!Core.Utils.isFiniteNumber(columnNumber) || columnNumber < 0) {
         return 0;
     }
 
-    if (!isFiniteNumber(length) || length <= 0) {
+    if (!Core.Utils.isFiniteNumber(length) || length <= 0) {
         return 0;
     }
 

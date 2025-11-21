@@ -1,3 +1,4 @@
+// @ts-nocheck
 import assert from "node:assert/strict";
 import test, { mock } from "node:test";
 import { createRuntimeWrapper, createWebSocketClient } from "../src/index.js";

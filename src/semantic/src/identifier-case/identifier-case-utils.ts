@@ -1,14 +1,5 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: {
-        capitalize,
-        normalizeStringList,
-        toArrayFromIterable,
-        trimStringEntries
-    }
-} = Core;
-
 const RESERVED_PREFIX_PATTERN =
     /^(?<prefix>(?:global|other|self|local|with|noone)\.|argument(?:_(?:local|relative))?(?:\[\d+\]|\d+)?\.?)/;
 
@@ -77,7 +68,7 @@ function tokenizeCore(core) {
         return [];
     }
 
-    const rawSegments = trimStringEntries(
+    const rawSegments = Core.Utils.trimStringEntries(
         core.split(CORE_SEGMENT_DELIMITER_PATTERN)
     ).filter(Boolean);
 
@@ -141,7 +132,7 @@ function buildCamelCase(normalized) {
             return token.normalized;
         }
 
-        return capitalize(token.normalized);
+        return Core.Utils.capitalize(token.normalized);
     });
 }
 
@@ -149,7 +140,7 @@ function buildPascalCase(normalized) {
     return buildWordCase(normalized, (token) =>
         token.type === "number"
             ? token.normalized
-            : capitalize(token.normalized)
+            : Core.Utils.capitalize(token.normalized)
     );
 }
 
@@ -266,7 +257,7 @@ function normalizeReservedPrefixOverrides(overrides) {
         return [];
     }
 
-    const entries = normalizeStringList(toArrayFromIterable(overrides));
+    const entries = Core.Utils.normalizeStringList(Core.Utils.toArrayFromIterable(overrides));
 
     return entries.reduce((acc, item) => {
         const insertIndex = acc.findIndex((existing) => {

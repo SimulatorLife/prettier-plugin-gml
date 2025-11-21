@@ -6,19 +6,6 @@ import { isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade } from "./fs-facade.js";
 import { getFileMtime, listDirectory } from "./fs-helpers.js";
 
-const {
-    parseJsonWithContext,
-    areNumbersApproximatelyEqual,
-    toFiniteNumber,
-    isObjectLike,
-    createEnvConfiguredValueWithFallback,
-    createAbortGuard,
-    describeValueForError,
-    getNonEmptyTrimmedString,
-    isFsErrorCode,
-    applyConfiguredValueEnvOverride
-} = Core;
-
 export const PROJECT_INDEX_CACHE_SCHEMA_VERSION = 1;
 export const PROJECT_INDEX_CACHE_DIRECTORY = ".prettier-plugin-gml";
 export const PROJECT_INDEX_CACHE_FILENAME = "project-index-cache.json";
@@ -34,7 +21,8 @@ export const PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR =
 // published guidance so operational runbooks stay trustworthy.
 export const PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE = 8 * 1024 * 1024; // 8 MiB
 
-const projectIndexCacheSizeConfig = createEnvConfiguredValueWithFallback({
+const projectIndexCacheSizeConfig =
+    Core.Utils.createEnvConfiguredValueWithFallback({
     defaultValue: PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE,
     envVar: PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR,
     resolve: (value, { fallback }) => {
@@ -47,10 +35,10 @@ const projectIndexCacheSizeConfig = createEnvConfiguredValueWithFallback({
             return 0;
         }
 
-        const trimmed = getNonEmptyTrimmedString(value);
+        const trimmed = Core.Utils.getNonEmptyTrimmedString(value);
 
         if (trimmed !== null) {
-            const numeric = toFiniteNumber(trimmed);
+            const numeric = Core.Utils.toFiniteNumber(trimmed);
 
             if (numeric === 0) {
                 return 0;
@@ -96,7 +84,9 @@ export function assertProjectIndexCacheStatus(value) {
         return value;
     }
 
-    const received = describeValueForError(value, { stringifyUnknown: false });
+    const received = Core.Utils.describeValueForError(value, {
+        stringifyUnknown: false
+    });
     throw new TypeError(
         `Project index cache status must be one of: ${PROJECT_INDEX_CACHE_STATUS_LIST}. Received: ${received}.`
     );
@@ -136,7 +126,10 @@ function setDefaultProjectIndexCacheMaxSize(size) {
 }
 
 function applyProjectIndexCacheEnvOverride(env) {
-    applyConfiguredValueEnvOverride(projectIndexCacheSizeConfig, env);
+    Core.Utils.applyConfiguredValueEnvOverride(
+        projectIndexCacheSizeConfig,
+        env
+    );
 }
 
 applyProjectIndexCacheEnvOverride();
@@ -157,7 +150,7 @@ function normalizeMaxSizeBytes(maxSizeBytes) {
         return null;
     }
 
-    const numericLimit = toFiniteNumber(maxSizeBytes);
+    const numericLimit = Core.Utils.toFiniteNumber(maxSizeBytes);
     if (numericLimit === null || numericLimit <= 0) {
         return null;
     }
@@ -166,14 +159,14 @@ function normalizeMaxSizeBytes(maxSizeBytes) {
 }
 
 function cloneMtimeMap(source) {
-    if (!isObjectLike(source)) {
+    if (!Core.Utils.isObjectLike(source)) {
         return {};
     }
 
     const normalized = {};
 
     for (const [key, value] of Object.entries(source)) {
-        const numericValue = toFiniteNumber(value);
+        const numericValue = Core.Utils.toFiniteNumber(value);
 
         if (numericValue !== null) {
             normalized[key] = numericValue;
@@ -188,11 +181,11 @@ function areMtimeMapsEqual(expected = {}, actual = {}) {
         return true;
     }
 
-    if (!isObjectLike(expected)) {
+    if (!Core.Utils.isObjectLike(expected)) {
         return false;
     }
 
-    if (!isObjectLike(actual)) {
+    if (!Core.Utils.isObjectLike(actual)) {
         return false;
     }
 
@@ -207,7 +200,7 @@ function areMtimeMapsEqual(expected = {}, actual = {}) {
         const actualValue = actual[key];
 
         if (typeof value === "number" && typeof actualValue === "number") {
-            return areNumbersApproximatelyEqual(value, actualValue);
+            return Core.Utils.areNumbersApproximatelyEqual(value, actualValue);
         }
 
         return actualValue === value;
@@ -215,7 +208,7 @@ function areMtimeMapsEqual(expected = {}, actual = {}) {
 }
 
 function validateCachePayload(payload) {
-    if (!isObjectLike(payload)) {
+    if (!Core.Utils.isObjectLike(payload)) {
         return false;
     }
 
@@ -238,11 +231,11 @@ function validateCachePayload(payload) {
         return false;
     }
 
-    if (!isObjectLike(payload.manifestMtimes)) {
+    if (!Core.Utils.isObjectLike(payload.manifestMtimes)) {
         return false;
     }
 
-    if (!isObjectLike(payload.sourceMtimes)) {
+    if (!Core.Utils.isObjectLike(payload.sourceMtimes)) {
         return false;
     }
 
@@ -251,12 +244,12 @@ function validateCachePayload(payload) {
     // non-object value as invalid.
     if (
         payload.metricsSummary != null &&
-        !isObjectLike(payload.metricsSummary)
+        !Core.Utils.isObjectLike(payload.metricsSummary)
     ) {
         return false;
     }
 
-    if (!isObjectLike(payload.projectIndex)) {
+    if (!Core.Utils.isObjectLike(payload.projectIndex)) {
         return false;
     }
 
@@ -290,7 +283,7 @@ export async function loadProjectIndexCache(
     }
 
     const abortMessage = "Project index cache load was aborted.";
-    const { ensureNotAborted } = createAbortGuard(options, {
+    const { ensureNotAborted } = Core.Utils.createAbortGuard(options, {
         fallbackMessage: abortMessage
     });
 
@@ -301,7 +294,7 @@ export async function loadProjectIndexCache(
     try {
         rawContents = await fsFacade.readFile(cacheFilePath, "utf8");
     } catch (error) {
-        if (isFsErrorCode(error, "ENOENT")) {
+        if (Core.FS.isFsErrorCode(error, "ENOENT")) {
             return createCacheMiss(
                 cacheFilePath,
                 ProjectIndexCacheMissReason.NOT_FOUND
@@ -314,7 +307,7 @@ export async function loadProjectIndexCache(
 
     let parsed;
     try {
-        parsed = parseJsonWithContext(rawContents, {
+        parsed = Core.Utils.parseJsonWithContext(rawContents, {
             source: cacheFilePath,
             description: "project index cache"
         });
@@ -417,14 +410,14 @@ export async function saveProjectIndexCache(
             "projectRoot must be provided to saveProjectIndexCache"
         );
     }
-    if (!isObjectLike(projectIndex)) {
+    if (!Core.Utils.isObjectLike(projectIndex)) {
         throw new Error(
             "projectIndex must be provided to saveProjectIndexCache"
         );
     }
 
     const abortMessage = "Project index cache save was aborted.";
-    const { ensureNotAborted } = createAbortGuard(options, {
+    const { ensureNotAborted } = Core.Utils.createAbortGuard(options, {
         fallbackMessage: abortMessage
     });
 

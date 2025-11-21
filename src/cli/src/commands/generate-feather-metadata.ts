@@ -22,7 +22,10 @@ import {
     describeManualSource,
     readManualText
 } from "../modules/manual/source.js";
-import { prepareManualWorkflow } from "../modules/manual/workflow.js";
+import {
+    ManualWorkflowOptions,
+    prepareManualWorkflow
+} from "../modules/manual/workflow.js";
 import { applyStandardCommandOptions } from "../core/command-standard-options.js";
 import { createCliCommandManager } from "../core/command-manager.js";
 import { handleCliError } from "../core/errors.js";
@@ -41,6 +44,25 @@ const FEATHER_PAGES = {
     typeSystem:
         "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Data_Types.htm"
 };
+
+interface FeatherMetadataCommandOptions {
+    output?: string;
+    manualRoot?: string;
+    manualPackage?: string;
+    quiet?: boolean;
+}
+
+interface NormalizedFeatherMetadataOptions {
+    outputPath: string;
+    manualRoot: string | null;
+    manualPackage: string | null;
+    quiet: boolean;
+}
+
+interface FeatherMetadataCommandContext {
+    command?: Command;
+    workflow?: ManualWorkflowOptions["workflow"];
+}
 
 /**
  * Create the CLI command for generating Feather metadata.
@@ -83,8 +105,11 @@ export function createFeatherMetadataCommand() {
  * @param {import("commander").Command} command
  * @returns {ManualCommandOptions}
  */
-function resolveFeatherMetadataOptions(command) {
-    const options = command?.opts?.() ?? {};
+function resolveFeatherMetadataOptions(
+    command?: Command
+): NormalizedFeatherMetadataOptions {
+    const options: FeatherMetadataCommandOptions =
+        command?.opts?.() ?? {};
 
     return {
         outputPath: options.output ?? DEFAULT_OUTPUT_PATH,
@@ -188,10 +213,14 @@ function getTagName(element) {
     return element?.tagName?.toLowerCase() ?? "";
 }
 
-function getDirectChildren(element, selector) {
+function getDirectChildren(
+    element: Element | null | undefined,
+    selector?: string
+) {
     const predicate = selector
-        ? (child) => child.matches?.(selector) === true
+        ? (child: Element) => child.matches?.(selector) === true
         : () => true;
+
     return Array.from(element?.children ?? []).filter(predicate);
 }
 
@@ -220,7 +249,7 @@ function splitCellLines(element) {
     return compactArray(lines);
 }
 
-function createTableExtractionState() {
+function createTableExtractionState(): ManualTable {
     return { headers: [], rows: [] };
 }
 
@@ -292,7 +321,20 @@ function extractTable(table) {
     return tableState;
 }
 
-function createClassListChecker(element) {
+interface ManualTable {
+    headers: ReadonlyArray<string>;
+    rows: ReadonlyArray<ReadonlyArray<string | null>>;
+}
+
+interface ManualBlock {
+    type: string;
+    text: string;
+    level?: number;
+    items?: ReadonlyArray<string>;
+    table?: ManualTable;
+}
+
+function createClassListChecker(element: Element | null | undefined) {
     const classList = element?.classList;
 
     if (!classList || typeof classList.contains !== "function") {
@@ -373,7 +415,7 @@ function createBlock(node) {
         return null;
     }
 
-    const block = { type, text };
+    const block: ManualBlock = { type, text };
     const headingLevel = getHeadingLevel(tagName);
 
     if (headingLevel !== null) {
@@ -897,7 +939,7 @@ function parseDirectiveSections(html) {
     return sections;
 }
 
-function parseBaseTypeTable(table) {
+function parseBaseTypeTable(table: Element) {
     const baseTypes = [];
     const rowElements = Array.from(
         table.querySelectorAll("tbody > tr, thead + tr")
@@ -925,7 +967,7 @@ function parseBaseTypeTable(table) {
     return baseTypes;
 }
 
-function parseTypeValidationTable(table) {
+function parseTypeValidationTable(table: Element | null) {
     if (!table) {
         return null;
     }
@@ -1187,7 +1229,10 @@ async function buildFeatherMetadataPayload({ manualSource, verbose, onRead }) {
  * }} [context]
  * @returns {Promise<number>}
  */
-export async function runGenerateFeatherMetadata({ command, workflow } = {}) {
+export async function runGenerateFeatherMetadata({
+    command,
+    workflow
+}: FeatherMetadataCommandContext = {}) {
     assertSupportedNodeVersion();
 
     const { outputPath, manualRoot, manualPackage, quiet } =

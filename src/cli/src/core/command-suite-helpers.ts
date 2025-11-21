@@ -52,7 +52,9 @@ export function normalizeSuiteOutputFormat(
     value: unknown,
     { fallback }: { fallback?: SuiteOutputFormat | null } = {}
 ): SuiteOutputFormat | null {
-    return suiteOutputFormatHelpers.normalize(value, { fallback });
+    return suiteOutputFormatHelpers.normalize(value, { fallback }) as
+        | SuiteOutputFormat
+        | null;
 }
 
 export function resolveSuiteOutputFormatOrThrow(
@@ -67,11 +69,12 @@ export function resolveSuiteOutputFormatOrThrow(
         createErrorMessage?: (value: unknown) => string;
     } = {}
 ): SuiteOutputFormat {
-    return suiteOutputFormatHelpers.requireValue(value, {
-        fallback,
-        errorConstructor,
-        createErrorMessage
-    });
+    return suiteOutputFormatHelpers
+        .requireValue(value, {
+            fallback,
+            errorConstructor,
+            createErrorMessage
+        }) as SuiteOutputFormat;
 }
 
 /**

@@ -1,11 +1,16 @@
 import { hasOwn, isObjectLike, withObjectLike } from "../utils/object.js";
 
+type AstNode = Record<string, unknown>;
+type LocationKey = "start" | "end";
+type LocationObject = { index?: number; line?: number };
+
+
 // Shared helpers for working with AST node location metadata.
 // These utilities centralize the logic for reading start/end positions
 // so both the parser and printer can remain consistent without duplicating
 // defensive checks around optional location shapes.
 
-function getLocationIndex(node, key) {
+function getLocationIndex(node: unknown, key: LocationKey): number | null {
     return withObjectLike(
         node,
         (nodeObject) => {
@@ -28,18 +33,32 @@ function getLocationIndex(node, key) {
     );
 }
 
-function getStartIndex(node) {
+function isMemberExpressionNode(
+    node: unknown
+): node is { type?: string; object?: unknown } {
+    if (!isObjectLike(node)) {
+        return false;
+    }
+
+    const nodeObject = node as { type?: unknown };
+    const type = nodeObject.type;
+    return (
+        typeof type === "string" &&
+        (type === "MemberDotExpression" || type === "MemberIndexExpression")
+    );
+}
+
+function getStartIndex(node: unknown): number | null {
     if (!isObjectLike(node)) {
         return null;
     }
 
+    const nodeWithType = node as { type?: string; object?: unknown };
     const isMemberAccess =
-        (node.type === "MemberDotExpression" ||
-            node.type === "MemberIndexExpression") &&
-        node.object;
+        isMemberExpressionNode(nodeWithType) && nodeWithType.object;
 
     if (isMemberAccess) {
-        const objectStart = getStartIndex(node.object);
+        const objectStart = getStartIndex(nodeWithType.object);
         if (typeof objectStart === "number") {
             return objectStart;
         }
@@ -59,7 +78,7 @@ function getStartIndex(node) {
  * @returns {number | null} Zero-based character index or `null` when no
  *                          concrete start position is available.
  */
-function getNodeStartIndex(node) {
+function getNodeStartIndex(node: unknown): number | null {
     const startIndex = getStartIndex(node);
     return typeof startIndex === "number" ? startIndex : null;
 }
@@ -75,7 +94,7 @@ function getNodeStartIndex(node) {
  * @returns {number | null} One-past-the-end index or `null` when the location
  *                          data is unavailable.
  */
-function getNodeEndIndex(node) {
+function getNodeEndIndex(node: unknown): number | null {
     const endIndex = getLocationIndex(node, "end");
     if (typeof endIndex === "number") {
         return endIndex + 1;
@@ -85,7 +104,9 @@ function getNodeEndIndex(node) {
     return typeof fallbackStart === "number" ? fallbackStart : null;
 }
 
-function cloneLocation(location) {
+function cloneLocation<TLocation = unknown>(
+    location: TLocation
+): TLocation | undefined {
     if (isObjectLike(location)) {
         return structuredClone(location);
     }
@@ -112,7 +133,10 @@ function cloneLocation(location) {
  * @returns {TTarget | null | undefined} The original target reference for
  *   chaining.
  */
-function assignClonedLocation(target, template) {
+function assignClonedLocation<TTarget extends AstNode>(
+    target: TTarget | null | undefined,
+    template: AstNode | null | undefined
+): TTarget | null | undefined {
     return withObjectLike(
         target,
         (mutableTarget) =>
@@ -158,7 +182,12 @@ function assignClonedLocation(target, template) {
  * @returns {{ start: number | null, end: number | null }} Character indices
  *          where `end` is exclusive when defined.
  */
-function getNodeRangeIndices(node) {
+type NodeRange = {
+    start: number | null;
+    end: number | null;
+};
+
+function getNodeRangeIndices(node: unknown): NodeRange {
     const start = getNodeStartIndex(node);
     const endLocation = getLocationIndex(node, "end");
 
@@ -194,14 +223,16 @@ function getNodeRangeIndices(node) {
  * @returns {object | null} The chosen location object or `null` when none
  *                         were provided.
  */
-function getPreferredLocation(...candidates) {
+function getPreferredLocation(
+    ...candidates: Array<LocationObject | number | null | undefined>
+): LocationObject | null {
     for (const candidate of candidates) {
         if (candidate === null || candidate === undefined) {
             continue;
         }
 
         if (isObjectLike(candidate)) {
-            return candidate;
+            return candidate as LocationObject;
         }
 
         if (typeof candidate === "number") {

@@ -10,7 +10,7 @@ interface SampleLimitOptionParams {
     subjectLabel?: string;
 }
 
-interface SampleLimitRuntimeOption {
+export interface SampleLimitRuntimeOption {
     defaultValue?: number;
     envVar?: string;
     getDefault: () => number | undefined;

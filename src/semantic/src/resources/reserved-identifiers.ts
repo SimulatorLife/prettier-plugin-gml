@@ -1,25 +1,24 @@
-import { Resources, Utils, IdentifierMetadata } from "@gml-modules/core";
-
-// const {
-//     Utils: { isObjectLike, noop, toNormalizedLowerCaseSet },
-//     IdentifierMetadata: { normalizeIdentifierMetadataEntries }
-// } = Core;
+import { Core } from "@gml-modules/core";
 
 const DEFAULT_EXCLUDED_TYPES = new Set(["literal", "keyword"]);
+const DEFAULT_IDENTIFIER_METADATA_PATH =
+    Core.Resources.GML_IDENTIFIER_METADATA_PATH;
 
 let metadataLoader = defaultLoadIdentifierMetadata;
 
 function safelyLoadIdentifierMetadata(loader) {
     try {
         const metadata = loader();
-        return Utils.isObjectLike(metadata) ? metadata : null;
+        return Core.Utils.isObjectLike(metadata) ? metadata : null;
     } catch {
         return null;
     }
 }
 
 function defaultLoadIdentifierMetadata() {
-    return safelyLoadIdentifierMetadata(loadBundledIdentifierMetadata);
+    return safelyLoadIdentifierMetadata(
+        Core.Resources.loadBundledIdentifierMetadata
+    );
 }
 
 function loadIdentifierMetadata() {
@@ -50,7 +49,7 @@ function setReservedIdentifierMetadataLoader(loader) {
         // keeps those flows balanced and mirrors other cleanup hooks across the
         // codebase; throwing or returning `null` would explode the finally
         // handler and leave the override logic in an indeterminate state.
-        return Utils.noop;
+        return Core.Utils.noop;
     }
 
     const previousLoader = metadataLoader;
@@ -78,13 +77,13 @@ function resolveExcludedTypes(types) {
         return new Set(DEFAULT_EXCLUDED_TYPES);
     }
 
-    return Utils.toNormalizedLowerCaseSet(types);
+    return Core.Utils.toNormalizedLowerCaseSet(types);
 }
 
 export function loadReservedIdentifierNames({ disallowedTypes } = {}) {
     const metadata = loadIdentifierMetadata();
     const entries =
-        IdentifierMetadata.normalizeIdentifierMetadataEntries(metadata);
+        Core.IdentifierMetadata.normalizeIdentifierMetadataEntries(metadata);
 
     if (entries.length === 0) {
         return new Set();

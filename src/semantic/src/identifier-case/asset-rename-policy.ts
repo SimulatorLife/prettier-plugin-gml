@@ -1,12 +1,15 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: { asArray, isNonEmptyArray }
-} = Core;
-
 // The asset rename mechanism (filesystem mutations, logging, metrics) depends
 // on this policy object to decide if it should run. Keeping the rules here lets
 // us exercise and extend the heuristics without touching the operational code.
+
+type AssetRenamePolicyContext = {
+    options?: Record<string, unknown>;
+    projectIndex?: unknown;
+    assetRenames?: Array<unknown>;
+    assetConflicts?: Array<unknown>;
+};
 
 const IdentifierCaseAssetRenamePolicyReason = Object.freeze({
     DRY_RUN_ENABLED: "dry-run-enabled",
@@ -17,7 +20,9 @@ const IdentifierCaseAssetRenamePolicyReason = Object.freeze({
     APPLY: "apply"
 });
 
-export function evaluateIdentifierCaseAssetRenamePolicy(context = {}) {
+export function evaluateIdentifierCaseAssetRenamePolicy(
+    context: AssetRenamePolicyContext = {}
+) {
     const {
         options = {},
         projectIndex = null,
@@ -25,8 +30,8 @@ export function evaluateIdentifierCaseAssetRenamePolicy(context = {}) {
         assetConflicts = []
     } = context;
 
-    const renames = asArray(assetRenames);
-    const conflicts = asArray(assetConflicts);
+    const renames = Core.Utils.asArray(assetRenames);
+    const conflicts = Core.Utils.asArray(assetConflicts);
 
     const createResult = (
         reason,
@@ -48,11 +53,11 @@ export function evaluateIdentifierCaseAssetRenamePolicy(context = {}) {
         );
     }
 
-    if (!isNonEmptyArray(renames)) {
+    if (!Core.Utils.isNonEmptyArray(renames)) {
         return createResult(IdentifierCaseAssetRenamePolicyReason.NO_RENAMES);
     }
 
-    if (isNonEmptyArray(conflicts)) {
+    if (Core.Utils.isNonEmptyArray(conflicts)) {
         return createResult(
             IdentifierCaseAssetRenamePolicyReason.HAS_CONFLICTS,
             { includeConflicts: true }

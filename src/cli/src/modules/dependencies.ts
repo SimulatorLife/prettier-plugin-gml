@@ -31,7 +31,7 @@ export {
 export {
     formatByteSize,
     formatBytes
-} from "../shared/reporting/byte-format.js";
+} from "../shared/byte-format.js";
 
 export {
     DEFAULT_PROGRESS_BAR_WIDTH,

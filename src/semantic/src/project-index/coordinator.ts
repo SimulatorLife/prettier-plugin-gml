@@ -4,15 +4,11 @@ import { Core } from "@gml-modules/core";
 
 import { ProjectIndexCacheStatus } from "./cache.js";
 
-const {
-    Utils: { assertFunction, throwIfAborted, toTrimmedString }
-} = Core;
-
 function assertCoordinatorFunction(value, name) {
-    const normalizedName = toTrimmedString(name) || "dependency";
+    const normalizedName = Core.Utils.toTrimmedString(name) || "dependency";
     const errorMessage = `Project index coordinators require a ${normalizedName} function.`;
 
-    return assertFunction(value, normalizedName, { errorMessage });
+    return Core.Utils.assertFunction(value, normalizedName, { errorMessage });
 }
 
 function normalizeEnsureReadyDescriptor(descriptor) {
@@ -34,7 +30,7 @@ function resolveEnsureReadyContext({
 }) {
     const { resolvedRoot } = normalizeEnsureReadyDescriptor(descriptor);
     const signal = abortController.signal;
-    throwIfAborted(signal, disposedMessage);
+    Core.Utils.throwIfAborted(signal, disposedMessage);
 
     return {
         descriptor,
@@ -78,10 +74,10 @@ async function executeEnsureReadyOperation({
         fsFacade,
         { signal }
     );
-    throwIfAborted(signal, disposedMessage);
+    Core.Utils.throwIfAborted(signal, disposedMessage);
 
     if (loadResult.status === ProjectIndexCacheStatus.HIT) {
-        throwIfAborted(signal, disposedMessage);
+        Core.Utils.throwIfAborted(signal, disposedMessage);
         return {
             source: "cache",
             projectIndex: loadResult.projectIndex,
@@ -93,7 +89,7 @@ async function executeEnsureReadyOperation({
         ...descriptorOptions?.buildOptions,
         signal
     });
-    throwIfAborted(signal, disposedMessage);
+    Core.Utils.throwIfAborted(signal, disposedMessage);
 
     const descriptorMaxSizeBytes =
         descriptorOptions?.maxSizeBytes === undefined
@@ -117,7 +113,7 @@ async function executeEnsureReadyOperation({
             cacheFilePath: loadResult.cacheFilePath
         };
     });
-    throwIfAborted(signal, disposedMessage);
+    Core.Utils.throwIfAborted(signal, disposedMessage);
 
     return {
         source: "build",
@@ -172,7 +168,7 @@ export function createProjectIndexCoordinator({
         if (disposed) {
             throw createDisposedError();
         }
-        throwIfAborted(abortController.signal, DISPOSED_MESSAGE);
+        Core.Utils.throwIfAborted(abortController.signal, DISPOSED_MESSAGE);
     }
 
     async function ensureReady(descriptor) {
