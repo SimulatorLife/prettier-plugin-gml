@@ -1,3 +1,4 @@
+// TODO: Combine/handle this in 'index.ts'
 import * as IdentifierCase from "./identifier-case/index.js";
 import * as ProjectIndex from "./project-index/index.js";
 import * as Scopes from "./scopes/index.js";

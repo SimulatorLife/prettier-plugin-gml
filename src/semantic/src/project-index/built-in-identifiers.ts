@@ -1,12 +1,10 @@
 import { Core } from "@gml-modules/core";
 
-import { GML_IDENTIFIER_METADATA_PATH } from "../resources/bundled-resources.js";
-
 import { defaultFsFacade } from "./fs-facade.js";
 import { createProjectIndexAbortGuard } from "./abort-guard.js";
 import { getFileMtime } from "./fs-helpers.js";
 
-const GML_IDENTIFIER_FILE_PATH = GML_IDENTIFIER_METADATA_PATH;
+const GML_IDENTIFIER_FILE_PATH = Core.GML_IDENTIFIER_METADATA_PATH;
 
 let cachedBuiltInIdentifiers = null;
 

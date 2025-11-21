@@ -1,6 +1,9 @@
 import { fileURLToPath } from "node:url";
 
-const RESOURCES_BASE_URL = new URL("../../../../resources/", import.meta.url);
+const RESOURCES_BASE_URL = new URL(
+    "../../../../../resources/",
+    import.meta.url
+);
 
 /**
  * Resolve a URL pointing at a bundled resource artefact.

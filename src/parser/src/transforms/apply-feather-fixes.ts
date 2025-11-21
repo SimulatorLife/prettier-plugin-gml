@@ -11,7 +11,7 @@ import GameMakerASTBuilder from "../gml-ast-builder.js";
 import GameMakerParseErrorListener, {
     GameMakerLexerErrorListener
 } from "../gml-syntax-error.js";
-import { Core } from "@gml-modules/core";
+import { Core as CoreNamespace } from "@gml-modules/core";
 import { preprocessFunctionArgumentDefaults } from "./preprocess-function-argument-defaults.js";
 import {
     collectCommentNodes,
@@ -21,6 +21,43 @@ import {
     getCommentValue
 } from "../comments/index.js";
 import { Semantic } from "@gml-modules/semantic";
+
+const CORE_COMPAT_NAMESPACES = [
+    "AST",
+    "Utils",
+    "Resources",
+    "IdentifierMetadata",
+    "DeprecatedBuiltinVariables",
+    "Metrics",
+    "FS"
+] as const;
+
+function createCoreCompatibilityLayer(namespace: typeof CoreNamespace) {
+    return new Proxy(namespace, {
+        get(target, prop, receiver) {
+            if (Reflect.has(target, prop)) {
+                return Reflect.get(target, prop, receiver);
+            }
+
+            for (const scopeName of CORE_COMPAT_NAMESPACES) {
+                const scope = Reflect.get(target, scopeName) as
+                    | Record<PropertyKey, unknown>
+                    | undefined;
+                if (scope && Reflect.has(scope, prop)) {
+                    return Reflect.get(scope, prop, receiver);
+                }
+            }
+
+            return undefined;
+        }
+    });
+}
+
+const Core = createCoreCompatibilityLayer(CoreNamespace);
+
+const {
+    Resources: { getFeatherDiagnosticById, getFeatherDiagnostics }
+} = Core;
 
 // const {
 //     AST: {
@@ -3015,7 +3052,7 @@ function convertStringLiteralArgumentToIdentifier({
 }
 
 function buildFeatherTypeSystemInfo() {
-    const metadata = Core.getFeatherMetadata();
+    const metadata = Core.Resources.getFeatherMetadata();
     const typeSystem = metadata?.typeSystem;
 
     const baseTypes = new Set();

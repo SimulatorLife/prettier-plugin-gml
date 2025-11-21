@@ -1,3 +1,4 @@
+// TODO: Remove this facade and make direct calls
 import { promises as fs } from "node:fs";
 
 const defaultFsFacade = {
