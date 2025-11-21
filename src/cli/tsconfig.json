@@ -13,5 +13,6 @@
       "@gml-modules/cli": ["./index.ts"]
     }
   },
-  "include": ["*.ts", "src/**/*.ts", "src/**/*.d.ts", "test/**/*.ts"]
+  "include": ["*.ts", "src/**/*.ts", "test/**/*.ts"],
+  "exclude": ["dist"]
 }

@@ -1,4 +1,4 @@
-import GMLParser from "@gml-modules/parser";
+import { Parser } from "@gml-modules/parser";
 import { GmlToJsEmitter, makeDummyOracle } from "./emitter.js";
 
 /**
@@ -31,7 +31,7 @@ export class GmlTranspiler {
             // Parse the GML source code into an abstract syntax tree (AST) using the
             // GML parser. This AST captures the script's structure in a format that
             // the JavaScript emitter can traverse and transform.
-            const parser = new GMLParser(sourceText, {
+            const parser = new Parser.GMLParser(sourceText, {
                 getIdentifierMetadata: true
             });
             const ast = parser.parse();
@@ -67,7 +67,7 @@ export class GmlTranspiler {
      * @returns {string} Generated JavaScript code
      */
     transpileExpression(sourceText) {
-        const parser = new GMLParser(sourceText);
+        const parser = new Parser.GMLParser(sourceText);
         const ast = parser.parse();
         const oracle = this.semantic || makeDummyOracle();
         const emitter = new GmlToJsEmitter(oracle);

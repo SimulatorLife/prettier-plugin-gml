@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import * as Core from "@gml-modules/core";
 import {
     TRAILING_COMMA,
     assertTrailingCommaValue

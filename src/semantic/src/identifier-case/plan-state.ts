@@ -1,4 +1,5 @@
 import { Core } from "@gml-modules/core";
+import type { GameMakerAstNode } from "@gml-modules/core";
 
 import { setIdentifierCaseOption } from "./option-store.js";
 
@@ -28,13 +29,14 @@ function buildRenameKey(_scopeId, location) {
  * - Dry-run executions and plan snapshots marked as dry-run are ignored to
  *   avoid mutating emitted output.
  *
- * @param {import("../dependencies.js").GameMakerAstNode | null} node
- *        AST node whose identifier may be renamed.
- * @param {Record<string, unknown> | null} options
- *        Active plugin options possibly containing rename plan state.
- * @returns {string | null}
+ * @param node AST node whose identifier may be renamed.
+ * @param options Active plugin options possibly containing rename plan state.
+ * @returns The planned identifier rename when available.
  */
-export function getIdentifierCaseRenameForNode(node, options) {
+export function getIdentifierCaseRenameForNode(
+    node: GameMakerAstNode | null,
+    options: Record<string, unknown> | null
+) {
     if (!node || !options) {
         return null;
     }

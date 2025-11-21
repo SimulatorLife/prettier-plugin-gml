@@ -1,38 +1,26 @@
-import { Core } from "@gml-modules/core";
+import { hasOwn, isObjectLike } from "../utils/object.js";
 
-const {
-    Utils: { isObjectLike }
-} = Core;
+type ObjectRecord = Record<string, unknown>;
 
-type WalkObjectGraphOptions = {
+export type WalkObjectGraphOptions = {
     enterObject?: (
-        value: Record<string, unknown>,
-        parent: object | Array<unknown> | null,
+        value: ObjectRecord,
+        parent: ObjectRecord | Array<unknown> | null,
         key: string | number | null
     ) => boolean | void;
     enterArray?: (
         value: Array<unknown>,
-        parent: object | Array<unknown> | null,
+        parent: ObjectRecord | Array<unknown> | null,
         key: string | number | null
     ) => boolean | void;
 };
 
-/**
- * Iteratively walk every object and array reachable from {@link root}, invoking
- * the provided callbacks for each entry. The traversal guards against cyclic
- * graphs so callers can share the helper across parser transforms without
- * re-implementing stack management on every call site.
- *
- * Returning `false` from either callback skips visiting the current value's
- * children. All other return values are ignored so visitors remain tersely
- * expressed.
- *
- * @param {unknown} root Value to traverse.
- * @param {{
- *   enterObject?: (value: object, parent: object | Array<unknown> | null, key: string | number | null) => boolean | void,
- *   enterArray?: (value: Array<unknown>, parent: object | Array<unknown> | null, key: string | number | null) => boolean | void,
- * }} [options]
- */
+type WalkFrame = {
+    value: object | Array<unknown>;
+    parent: ObjectRecord | Array<unknown> | null;
+    key: string | number | null;
+};
+
 export function walkObjectGraph(
     root: unknown,
     options: WalkObjectGraphOptions = {}
@@ -42,18 +30,14 @@ export function walkObjectGraph(
     }
 
     const { enterObject, enterArray } = options;
-    const stack: Array<{
-        value: object | Array<unknown>;
-        parent: object | Array<unknown> | null;
-        key: string | number | null;
-    }> = [
+    const stack: WalkFrame[] = [
         {
             value: root as object | Array<unknown>,
             parent: null,
             key: null
         }
     ];
-    const seen = new WeakSet();
+    const seen = new WeakSet<object | Array<unknown>>();
 
     while (stack.length > 0) {
         const frame = stack.pop()!;
@@ -71,7 +55,8 @@ export function walkObjectGraph(
 
         if (Array.isArray(value)) {
             if (typeof enterArray === "function") {
-                const shouldTraverse = enterArray(value, parent, key);
+                const arrayValue = value as Array<unknown>;
+                const shouldTraverse = enterArray(arrayValue, parent, key);
                 if (shouldTraverse === false) {
                     continue;
                 }
@@ -83,33 +68,44 @@ export function walkObjectGraph(
                     continue;
                 }
 
-                stack.push({ value: item, parent: value, key: index });
+                const nextValue = item as object | Array<unknown>;
+                stack.push({
+                    value: nextValue,
+                    parent: value as ObjectRecord | Array<unknown>,
+                    key: index
+                });
             }
 
             continue;
         }
 
+        const objectValue = value as ObjectRecord;
+
         if (typeof enterObject === "function") {
-            const shouldTraverse = enterObject(value, parent, key);
+            const shouldTraverse = enterObject(objectValue, parent, key);
             if (shouldTraverse === false) {
                 continue;
             }
         }
 
-        const keys = Object.keys(value);
+        const keys = Object.keys(objectValue);
         for (let index = keys.length - 1; index >= 0; index -= 1) {
             const childKey = keys[index];
-            if (!Object.hasOwn(value, childKey)) {
+            if (!hasOwn(objectValue, childKey)) {
                 continue;
             }
 
-            const childValue = value[childKey];
-
+            const childValue = objectValue[childKey];
             if (!childValue || typeof childValue !== "object") {
                 continue;
             }
 
-            stack.push({ value: childValue, parent: value, key: childKey });
+            const nextValue = childValue as object | Array<unknown>;
+            stack.push({
+                value: nextValue,
+                parent: value as ObjectRecord | Array<unknown>,
+                key: childKey
+            });
         }
     }
 }

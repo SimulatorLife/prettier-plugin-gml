@@ -1,10 +1,10 @@
-import GMLParser, { isSyntaxErrorWithLocation } from "@gml-modules/parser";
+import { Parser } from "@gml-modules/parser";
 import { ScopeTracker } from "../scopes/index.js";
 import { formatProjectIndexSyntaxError } from "./syntax-error-formatter.js";
 
 function parseProjectIndexSource(sourceText, context = {}) {
     try {
-        return GMLParser.parse(sourceText, {
+        return Parser.GMLParser.parse(sourceText, {
             getComments: false,
             getLocations: true,
             simplifyLocations: false,
@@ -13,7 +13,7 @@ function parseProjectIndexSource(sourceText, context = {}) {
                 enabled ? new ScopeTracker({ enabled }) : null
         });
     } catch (error) {
-        if (isSyntaxErrorWithLocation(error)) {
+        if (Parser.Utils.isSyntaxErrorWithLocation(error)) {
             throw formatProjectIndexSyntaxError(error, sourceText, context);
         }
 

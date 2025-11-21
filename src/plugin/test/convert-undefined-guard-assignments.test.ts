@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { convertUndefinedGuardAssignments } from "@gml-modules/parser";
+import { Parser } from "@gml-modules/parser";
 
 function createIdentifier(name) {
     return { type: "Identifier", name };
@@ -60,7 +60,7 @@ describe("convertUndefinedGuardAssignments", () => {
             body: [ifStatement]
         };
 
-        convertUndefinedGuardAssignments(program);
+        Parser.Transforms.convertUndefinedGuardAssignments(program);
 
         assert.equal(program.body.length, 1);
         const [statement] = program.body;

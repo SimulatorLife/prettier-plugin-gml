@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import * as Core from "@gml-modules/core";
 import { builders, utils } from "prettier/doc";
 
 import {
@@ -38,7 +38,7 @@ import {
     normalizeDocCommentTypeAnnotations
 } from "../comments/line-comment-formatting.js";
 import { normalizeOptionalParamToken } from "../comments/optional-param-normalization.js";
-import * as Parser from "@gml-modules/parser";
+import { Parser } from "@gml-modules/parser";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
 import { DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH } from "./doc-comment-wrap-width.js";
 

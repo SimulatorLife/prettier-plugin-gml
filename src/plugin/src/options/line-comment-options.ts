@@ -1,4 +1,4 @@
-import * as Parser from "@gml-modules/parser";
+import { Parser } from "@gml-modules/parser";
 
 export const DEFAULT_LINE_COMMENT_OPTIONS =
     Parser.Options.DEFAULT_LINE_COMMENT_OPTIONS;

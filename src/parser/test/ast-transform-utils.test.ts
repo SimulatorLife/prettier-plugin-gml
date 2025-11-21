@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { walkObjectGraph } from "../src/ast/object-graph.js";
+import { Core } from "@gml-modules/core";
 import {
     removeLocationMetadata,
     simplifyLocationMetadata,
@@ -20,7 +20,7 @@ test("walkObjectGraph visits each object once even with cycles", () => {
 
     const visited = new Set();
 
-    walkObjectGraph(root, {
+    Core.AST.walkObjectGraph(root, {
         enterObject(node) {
             visited.add(node);
         }

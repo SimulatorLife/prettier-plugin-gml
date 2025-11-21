@@ -5,3 +5,4 @@ export * as Utils from "./utils/index.js";
 export * as Resources from "./resources/index.js";
 export * as IdentifierMetadata from "./resources/gml-identifiers.js";
 export * as DeprecatedBuiltinVariables from "./utils/deprecated-builtin-variable-replacements.js";
+export type { GameMakerAstLocation, GameMakerAstNode } from "./ast/types.js";

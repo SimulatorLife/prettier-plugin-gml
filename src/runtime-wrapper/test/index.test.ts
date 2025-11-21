@@ -1,36 +1,35 @@
-// @ts-nocheck
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createRuntimeWrapper } from "../src/index.js";
+import { RuntimeWrapper } from "../index.js";
 
 test("createRuntimeWrapper returns hot wrapper state", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     assert.ok(wrapper.state);
     assert.strictEqual(typeof wrapper.applyPatch, "function");
     assert.strictEqual(typeof wrapper.undo, "function");
 });
 
 test("applyPatch validates its input", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     assert.throws(() => wrapper.applyPatch(null), { name: "TypeError" });
 });
 
 test("applyPatch requires kind field", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     assert.throws(() => wrapper.applyPatch({ id: "test" }), {
         message: /Patch must have a 'kind' field/
     });
 });
 
 test("applyPatch requires id field", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     assert.throws(() => wrapper.applyPatch({ kind: "script" }), {
         message: /Patch must have an 'id' field/
     });
 });
 
 test("applyPatch handles script patches", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     const patch = {
         kind: "script",
         id: "script:test_func",
@@ -45,7 +44,7 @@ test("applyPatch handles script patches", () => {
 });
 
 test("script patch function executes correctly", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     const patch = {
         kind: "script",
         id: "script:add",
@@ -59,7 +58,7 @@ test("script patch function executes correctly", () => {
 });
 
 test("applyPatch handles event patches", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     const patch = {
         kind: "event",
         id: "obj_player#Step",
@@ -73,7 +72,7 @@ test("applyPatch handles event patches", () => {
 });
 
 test("event patch function executes correctly", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     const patch = {
         kind: "event",
         id: "obj_test#Create",
@@ -89,7 +88,7 @@ test("event patch function executes correctly", () => {
 });
 
 test("event patch receives instance context and arguments", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     const patch = {
         kind: "event",
         id: "obj_test#Async",
@@ -109,28 +108,28 @@ test("event patch receives instance context and arguments", () => {
 });
 
 test("applyPatch rejects unsupported patch kinds", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     assert.throws(() => wrapper.applyPatch({ kind: "unknown", id: "test" }), {
         message: /Unsupported patch kind: unknown/
     });
 });
 
 test("applyPatch requires js_body for script patches", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     assert.throws(() => wrapper.applyPatch({ kind: "script", id: "test" }), {
         message: /Script patch must have a 'js_body' string/
     });
 });
 
 test("applyPatch requires js_body for event patches", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     assert.throws(() => wrapper.applyPatch({ kind: "event", id: "test" }), {
         message: /Event patch must have a 'js_body' string/
     });
 });
 
 test("applyPatch increments version on each patch", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     assert.strictEqual(wrapper.getVersion(), 0);
 
     wrapper.applyPatch({
@@ -152,7 +151,7 @@ test("applyPatch calls onPatchApplied callback", () => {
     let callbackPatch = null;
     let callbackVersion = null;
 
-    const wrapper = createRuntimeWrapper({
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
         onPatchApplied: (patch, version) => {
             callbackPatch = patch;
             callbackVersion = version;
@@ -171,7 +170,7 @@ test("applyPatch calls onPatchApplied callback", () => {
 });
 
 test("undo reverts last patch", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     const patch = {
         kind: "script",
         id: "script:test",
@@ -187,7 +186,7 @@ test("undo reverts last patch", () => {
 });
 
 test("undo handles multiple patches", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     wrapper.applyPatch({
         kind: "script",
@@ -213,14 +212,14 @@ test("undo handles multiple patches", () => {
 });
 
 test("undo fails when nothing to undo", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     const result = wrapper.undo();
     assert.strictEqual(result.success, false);
     assert.ok(result.message.includes("Nothing to undo"));
 });
 
 test("undo restores previous version of patched script", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     wrapper.applyPatch({
         kind: "script",
@@ -247,7 +246,7 @@ test("undo restores previous version of patched script", () => {
 });
 
 test("getPatchHistory returns diagnostic information", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     assert.strictEqual(typeof wrapper.getPatchHistory, "function");
 
     const history = wrapper.getPatchHistory();
@@ -256,7 +255,7 @@ test("getPatchHistory returns diagnostic information", () => {
 });
 
 test("getPatchHistory tracks applied patches", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     wrapper.applyPatch({
         kind: "script",
@@ -274,7 +273,7 @@ test("getPatchHistory tracks applied patches", () => {
 });
 
 test("getPatchHistory tracks multiple patches in order", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     wrapper.applyPatch({
         kind: "script",
@@ -296,7 +295,7 @@ test("getPatchHistory tracks multiple patches in order", () => {
 });
 
 test("getPatchHistory tracks undo operations", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     wrapper.applyPatch({
         kind: "script",
@@ -314,7 +313,7 @@ test("getPatchHistory tracks undo operations", () => {
 });
 
 test("getRegistrySnapshot returns diagnostic information", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     assert.strictEqual(typeof wrapper.getRegistrySnapshot, "function");
 
     const snapshot = wrapper.getRegistrySnapshot();
@@ -326,7 +325,7 @@ test("getRegistrySnapshot returns diagnostic information", () => {
 });
 
 test("getRegistrySnapshot reflects current registry state", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     wrapper.applyPatch({
         kind: "script",
@@ -356,7 +355,7 @@ test("getRegistrySnapshot reflects current registry state", () => {
 });
 
 test("getPatchStats returns diagnostic information", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     assert.strictEqual(typeof wrapper.getPatchStats, "function");
 
     const stats = wrapper.getPatchStats();
@@ -367,7 +366,7 @@ test("getPatchStats returns diagnostic information", () => {
 });
 
 test("getPatchStats calculates statistics correctly", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     wrapper.applyPatch({
         kind: "script",
@@ -399,7 +398,7 @@ test("getPatchStats calculates statistics correctly", () => {
 });
 
 test("getPatchStats tracks unique patch IDs correctly", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     wrapper.applyPatch({
         kind: "script",
@@ -419,7 +418,7 @@ test("getPatchStats tracks unique patch IDs correctly", () => {
 });
 
 test("trySafeApply validates patch in shadow registry", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     assert.strictEqual(typeof wrapper.trySafeApply, "function");
 
     const patch = {
@@ -435,7 +434,7 @@ test("trySafeApply validates patch in shadow registry", () => {
 });
 
 test("trySafeApply rejects invalid patch in shadow validation", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     const patch = {
         kind: "script",
@@ -450,7 +449,7 @@ test("trySafeApply rejects invalid patch in shadow validation", () => {
 });
 
 test("trySafeApply applies valid patch to actual registry", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     const patch = {
         kind: "script",
@@ -466,7 +465,7 @@ test("trySafeApply applies valid patch to actual registry", () => {
 });
 
 test("trySafeApply supports custom validation callback", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     const patch = {
         kind: "script",
@@ -483,7 +482,7 @@ test("trySafeApply supports custom validation callback", () => {
 });
 
 test("trySafeApply rejects patch when custom validation fails", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     const patch = {
         kind: "script",
@@ -502,7 +501,7 @@ test("trySafeApply rejects patch when custom validation fails", () => {
 });
 
 test("trySafeApply handles custom validation errors", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     const patch = {
         kind: "script",
@@ -521,7 +520,7 @@ test("trySafeApply handles custom validation errors", () => {
 });
 
 test("trySafeApply catches syntax errors in shadow validation", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     wrapper.applyPatch({
         kind: "script",
@@ -547,7 +546,7 @@ test("trySafeApply catches syntax errors in shadow validation", () => {
 });
 
 test("trySafeApply does not record shadow validation failures in history", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     const badPatch = {
         kind: "script",
@@ -562,7 +561,7 @@ test("trySafeApply does not record shadow validation failures in history", () =>
 });
 
 test("validateBeforeApply option enables shadow validation", () => {
-    const wrapper = createRuntimeWrapper({ validateBeforeApply: true });
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({ validateBeforeApply: true });
 
     const patch = {
         kind: "script",
@@ -576,7 +575,7 @@ test("validateBeforeApply option enables shadow validation", () => {
 });
 
 test("validateBeforeApply rejects invalid patches", () => {
-    const wrapper = createRuntimeWrapper({ validateBeforeApply: true });
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({ validateBeforeApply: true });
 
     const patch = {
         kind: "script",
@@ -590,7 +589,7 @@ test("validateBeforeApply rejects invalid patches", () => {
 });
 
 test("trySafeApply maintains registry state after rollback", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     wrapper.applyPatch({
         kind: "script",
@@ -622,7 +621,7 @@ test("trySafeApply maintains registry state after rollback", () => {
 });
 
 test("trySafeApply catches event syntax errors in shadow validation", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     wrapper.applyPatch({
         kind: "event",
@@ -644,7 +643,7 @@ test("trySafeApply catches event syntax errors in shadow validation", () => {
 });
 
 test("applyPatch handles closure patches", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     const patch = {
         kind: "closure",
         id: "closure:make_counter",
@@ -659,7 +658,7 @@ test("applyPatch handles closure patches", () => {
 });
 
 test("closure patch function executes correctly", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     const patch = {
         kind: "closure",
         id: "closure:multiplier",
@@ -674,14 +673,14 @@ test("closure patch function executes correctly", () => {
 });
 
 test("applyPatch requires js_body for closure patches", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     assert.throws(() => wrapper.applyPatch({ kind: "closure", id: "test" }), {
         message: /Closure patch must have a 'js_body' string/
     });
 });
 
 test("undo reverts closure patch", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
     const patch = {
         kind: "closure",
         id: "closure:test",
@@ -697,7 +696,7 @@ test("undo reverts closure patch", () => {
 });
 
 test("undo restores previous version of patched closure", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     wrapper.applyPatch({
         kind: "closure",
@@ -724,7 +723,7 @@ test("undo restores previous version of patched closure", () => {
 });
 
 test("getPatchHistory tracks closure patches", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     wrapper.applyPatch({
         kind: "closure",
@@ -741,7 +740,7 @@ test("getPatchHistory tracks closure patches", () => {
 });
 
 test("getRegistrySnapshot includes closure count", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     wrapper.applyPatch({
         kind: "script",
@@ -764,7 +763,7 @@ test("getRegistrySnapshot includes closure count", () => {
 });
 
 test("getPatchStats tracks closure patches", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     wrapper.applyPatch({
         kind: "script",
@@ -792,7 +791,7 @@ test("getPatchStats tracks closure patches", () => {
 });
 
 test("trySafeApply validates closure patches", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     const patch = {
         kind: "closure",
@@ -810,7 +809,7 @@ test("trySafeApply validates closure patches", () => {
 });
 
 test("trySafeApply catches closure syntax errors", () => {
-    const wrapper = createRuntimeWrapper();
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     const badPatch = {
         kind: "closure",
@@ -825,7 +824,7 @@ test("trySafeApply catches closure syntax errors", () => {
 });
 
 test("validateBeforeApply validates closure patches", () => {
-    const wrapper = createRuntimeWrapper({ validateBeforeApply: true });
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({ validateBeforeApply: true });
 
     const patch = {
         kind: "closure",
@@ -839,7 +838,7 @@ test("validateBeforeApply validates closure patches", () => {
 });
 
 test("validateBeforeApply rejects invalid closure patches", () => {
-    const wrapper = createRuntimeWrapper({ validateBeforeApply: true });
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({ validateBeforeApply: true });
 
     const patch = {
         kind: "closure",

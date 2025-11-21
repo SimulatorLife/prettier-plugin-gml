@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import GMLParser from "@gml-modules/parser";
+import { Parser } from "@gml-modules/parser";
 import {
     emitJavaScript,
     GmlToJsEmitter,
@@ -9,7 +9,7 @@ import {
 
 test("GmlToJsEmitter handles number literals in AST", () => {
     const source = "42";
-    const parser = new GMLParser(source);
+    const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("42"), "Should include the number 42");
@@ -17,7 +17,7 @@ test("GmlToJsEmitter handles number literals in AST", () => {
 
 test("GmlToJsEmitter handles string literals in AST", () => {
     const source = '"hello world"';
-    const parser = new GMLParser(source);
+    const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(
@@ -28,7 +28,7 @@ test("GmlToJsEmitter handles string literals in AST", () => {
 
 test("GmlToJsEmitter handles boolean literals in AST", () => {
     const source = "true";
-    const parser = new GMLParser(source);
+    const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("true"), "Should include the boolean true");
@@ -36,7 +36,9 @@ test("GmlToJsEmitter handles boolean literals in AST", () => {
 
 test("GmlToJsEmitter handles identifiers in AST", () => {
     const source = "myVariable";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, {
+        getIdentifierMetadata: true
+    });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("myVariable"), "Should include the identifier");
@@ -44,7 +46,7 @@ test("GmlToJsEmitter handles identifiers in AST", () => {
 
 test("GmlToJsEmitter handles simple binary expressions in AST", () => {
     const source = "x = 1 + 2";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(
@@ -138,7 +140,7 @@ test("emitJavaScript returns empty string for unsupported node types", () => {
 
 test("emitJavaScript handles array access (MemberIndexExpression)", () => {
     const source = "x = arr[0]";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("arr[0]"), "Should emit array access syntax");
@@ -147,7 +149,7 @@ test("emitJavaScript handles array access (MemberIndexExpression)", () => {
 
 test("emitJavaScript handles multi-dimensional array access", () => {
     const source = "x = matrix[i][j]";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(
@@ -158,7 +160,7 @@ test("emitJavaScript handles multi-dimensional array access", () => {
 
 test("emitJavaScript handles property access (MemberDotExpression)", () => {
     const source = "x = obj.prop";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(
@@ -169,7 +171,7 @@ test("emitJavaScript handles property access (MemberDotExpression)", () => {
 
 test("emitJavaScript handles function calls (CallExpression)", () => {
     const source = "result = func()";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("func()"), "Should emit function call syntax");
@@ -177,7 +179,7 @@ test("emitJavaScript handles function calls (CallExpression)", () => {
 
 test("emitJavaScript handles function calls with arguments", () => {
     const source = "result = func(1, 2, 3)";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(
@@ -190,7 +192,7 @@ test("emitJavaScript handles function calls with arguments", () => {
 
 test("GmlToJsEmitter routes script calls through the wrapper helper", () => {
     const source = "result = scr_attack(target)";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const sem = {
         ...makeDummyOracle(),
@@ -220,7 +222,7 @@ test("GmlToJsEmitter routes script calls through the wrapper helper", () => {
 
 test("GmlToJsEmitter allows overriding the script call helper name", () => {
     const source = "scr_attack()";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const sem = {
         ...makeDummyOracle(),
@@ -245,7 +247,7 @@ test("GmlToJsEmitter allows overriding the script call helper name", () => {
 
 test("emitJavaScript qualifies global identifiers using the global struct", () => {
     const source = "globalvar foo; foo = 1;";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
 
@@ -269,7 +271,7 @@ test("emitJavaScript qualifies global identifiers using the global struct", () =
 
 test("GmlToJsEmitter allows overriding the globals identifier", () => {
     const source = "globalvar foo; foo = 1;";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const emitter = new GmlToJsEmitter(makeDummyOracle(), {
         globalsIdent: "__globals"
@@ -286,7 +288,7 @@ test("GmlToJsEmitter allows overriding the globals identifier", () => {
 // Control flow tests
 test("emitJavaScript handles if statements", () => {
     const source = "if (x > 10) { y = 5; }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("if"), "Should include if keyword");
@@ -296,7 +298,7 @@ test("emitJavaScript handles if statements", () => {
 
 test("emitJavaScript handles if-else statements", () => {
     const source = "if (x > 10) { y = 5; } else { y = 0; }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("if"), "Should include if keyword");
@@ -308,7 +310,7 @@ test("emitJavaScript handles if-else statements", () => {
 test("emitJavaScript handles else-if chains", () => {
     const source =
         "if (x > 10) { y = 1; } else if (x > 5) { y = 2; } else { y = 3; }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("if"), "Should include if keyword");
@@ -320,7 +322,7 @@ test("emitJavaScript handles else-if chains", () => {
 
 test("emitJavaScript handles if without braces", () => {
     const source = "if (x > 10) y = 5";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("if"), "Should include if keyword");
@@ -333,7 +335,7 @@ test("emitJavaScript handles if without braces", () => {
 
 test("emitJavaScript handles for loops", () => {
     const source = "for (var i = 0; i < 10; i += 1) { x += i; }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("for"), "Should include for keyword");
@@ -345,7 +347,7 @@ test("emitJavaScript handles for loops", () => {
 
 test("emitJavaScript handles for loop without var keyword", () => {
     const source = "for (i = 0; i < 10; i += 1) { x += i; }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("for"), "Should include for keyword");
@@ -355,7 +357,7 @@ test("emitJavaScript handles for loop without var keyword", () => {
 
 test("emitJavaScript handles while loops", () => {
     const source = "while (x > 0) { x -= 1; }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("while"), "Should include while keyword");
@@ -365,7 +367,7 @@ test("emitJavaScript handles while loops", () => {
 
 test("emitJavaScript handles while loop without braces", () => {
     const source = "while (x > 0) x -= 1";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("while"), "Should include while keyword");
@@ -378,7 +380,7 @@ test("emitJavaScript handles while loop without braces", () => {
 
 test("emitJavaScript handles with statements with block bodies", () => {
     const source = "with (obj_enemy) { hp -= 1; }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
 
@@ -403,7 +405,7 @@ test("emitJavaScript handles with statements with block bodies", () => {
 
 test("emitJavaScript wraps with statements without braces", () => {
     const source = "with (obj_enemy) hp -= 1";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
 
@@ -419,7 +421,7 @@ test("emitJavaScript wraps with statements without braces", () => {
 
 test("emitJavaScript handles variable declarations", () => {
     const source = "var x = 10";
-    const parser = new GMLParser(source);
+    const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("var x = 10"), "Should include var declaration");
@@ -427,7 +429,7 @@ test("emitJavaScript handles variable declarations", () => {
 
 test("emitJavaScript handles multiple variable declarations", () => {
     const source = "var x = 10, y = 20, z = 30";
-    const parser = new GMLParser(source);
+    const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("var"), "Should include var keyword");
@@ -438,7 +440,7 @@ test("emitJavaScript handles multiple variable declarations", () => {
 
 test("emitJavaScript handles variable declaration without initialization", () => {
     const source = "var x";
-    const parser = new GMLParser(source);
+    const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("var x"), "Should include variable name");
@@ -446,7 +448,7 @@ test("emitJavaScript handles variable declaration without initialization", () =>
 
 test("emitJavaScript lowers globalvar declarations into guarded globals", () => {
     const source = "globalvar foo, bar;";
-    const parser = new GMLParser(source);
+    const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = emitJavaScript(ast);
 
@@ -474,7 +476,7 @@ test("emitJavaScript lowers globalvar declarations into guarded globals", () => 
 
 test("emitJavaScript preserves subsequent statements after globalvar", () => {
     const source = "globalvar foo;\nfoo = 5;";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
 
@@ -486,7 +488,7 @@ test("emitJavaScript preserves subsequent statements after globalvar", () => {
 
 test("emitJavaScript handles nested control flow", () => {
     const source = "if (x > 0) { for (var i = 0; i < x; i += 1) { y += i; } }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("if"), "Should include if keyword");
@@ -496,7 +498,7 @@ test("emitJavaScript handles nested control flow", () => {
 
 test("emitJavaScript handles parenthesized expressions in assignments", () => {
     const source = "result = (x + y) * z";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("(x + y)"), "Should preserve parenthesization");
@@ -505,7 +507,7 @@ test("emitJavaScript handles parenthesized expressions in assignments", () => {
 
 test("emitJavaScript handles return statements with value", () => {
     const source = "return x + y";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("return"), "Should include return keyword");
@@ -514,7 +516,7 @@ test("emitJavaScript handles return statements with value", () => {
 
 test("emitJavaScript handles return statement without value", () => {
     const source = "return";
-    const parser = new GMLParser(source);
+    const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.equal(result.trim(), "return;", "Should emit return statement");
@@ -522,7 +524,7 @@ test("emitJavaScript handles return statement without value", () => {
 
 test("emitJavaScript handles break statements", () => {
     const source = "break";
-    const parser = new GMLParser(source);
+    const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.equal(result.trim(), "break;", "Should emit break statement");
@@ -530,7 +532,7 @@ test("emitJavaScript handles break statements", () => {
 
 test("emitJavaScript handles continue statements", () => {
     const source = "continue";
-    const parser = new GMLParser(source);
+    const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.equal(result.trim(), "continue;", "Should emit continue statement");
@@ -538,7 +540,7 @@ test("emitJavaScript handles continue statements", () => {
 
 test("emitJavaScript handles postfix increment statements", () => {
     const source = "i++";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.equal(result.trim(), "i++;", "Should emit postfix increment");
@@ -546,7 +548,7 @@ test("emitJavaScript handles postfix increment statements", () => {
 
 test("emitJavaScript handles prefix increment expressions", () => {
     const source = "var x = ++i";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("var x = ++i"), "Should emit prefix increment");
@@ -554,7 +556,7 @@ test("emitJavaScript handles prefix increment expressions", () => {
 
 test("emitJavaScript handles postfix decrement on member access", () => {
     const source = "arr[i]--";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("arr[i]--"), "Should emit member decrement");
@@ -562,7 +564,7 @@ test("emitJavaScript handles postfix decrement on member access", () => {
 
 test("emitJavaScript lowers exit statements to return", () => {
     const source = "exit";
-    const parser = new GMLParser(source);
+    const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.equal(result.trim(), "return;", "Should emit return for exit");
@@ -570,7 +572,7 @@ test("emitJavaScript lowers exit statements to return", () => {
 
 test("emitJavaScript handles do-until loops", () => {
     const source = "do { x += 1; } until (x > 10)";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("do"), "Should include do keyword");
@@ -581,7 +583,7 @@ test("emitJavaScript handles do-until loops", () => {
 
 test("emitJavaScript handles switch statements", () => {
     const source = "switch (x) { case 1: y = 1; break; case 2: y = 2; break; }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("switch"), "Should include switch keyword");
@@ -592,7 +594,7 @@ test("emitJavaScript handles switch statements", () => {
 
 test("emitJavaScript handles switch with default case", () => {
     const source = "switch (x) { case 1: y = 1; break; default: y = 0; }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("switch"), "Should include switch keyword");
@@ -602,7 +604,7 @@ test("emitJavaScript handles switch with default case", () => {
 
 test("emitJavaScript handles for loop with break", () => {
     const source = "for (var i = 0; i < 10; i += 1) { if (i == 5) break; }";
-    const parser = new GMLParser(source);
+    const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("for"), "Should include for keyword");
@@ -612,7 +614,7 @@ test("emitJavaScript handles for loop with break", () => {
 
 test("emitJavaScript handles while loop with continue", () => {
     const source = "while (x > 0) { if (x % 2 == 0) continue; x -= 1; }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("while"), "Should include while keyword");
@@ -622,7 +624,7 @@ test("emitJavaScript handles while loop with continue", () => {
 // Repeat statement tests
 test("emitJavaScript handles repeat statements", () => {
     const source = "repeat (5) { x += 1; }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("for"), "Should convert to for loop");
@@ -636,7 +638,7 @@ test("emitJavaScript handles repeat statements", () => {
 
 test("emitJavaScript handles repeat with variable count", () => {
     const source = "repeat (n) { total += 1; }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("for"), "Should convert to for loop");
@@ -646,7 +648,7 @@ test("emitJavaScript handles repeat with variable count", () => {
 
 test("emitJavaScript handles repeat with expression count", () => {
     const source = "repeat (x + y) { z += 1; }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("for"), "Should convert to for loop");
@@ -658,7 +660,7 @@ test("emitJavaScript handles repeat with expression count", () => {
 
 test("emitJavaScript handles repeat without braces", () => {
     const source = "repeat (3) x += 1";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("for"), "Should convert to for loop");
@@ -670,7 +672,7 @@ test("emitJavaScript handles repeat without braces", () => {
 
 test("emitJavaScript handles nested repeat statements", () => {
     const source = "repeat (x) { repeat (y) { z += 1; } }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("for"), "Should include for loops");
@@ -680,7 +682,7 @@ test("emitJavaScript handles nested repeat statements", () => {
 
 test("emitJavaScript handles repeat with break", () => {
     const source = "repeat (10) { if (x > 5) break; x += 1; }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("for"), "Should convert to for loop");
@@ -689,7 +691,7 @@ test("emitJavaScript handles repeat with break", () => {
 
 test("emitJavaScript handles repeat with continue", () => {
     const source = "repeat (10) { if (x % 2 == 0) continue; x += 1; }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("for"), "Should convert to for loop");
@@ -699,7 +701,7 @@ test("emitJavaScript handles repeat with continue", () => {
 // Array and struct literal tests
 test("emitJavaScript handles empty array literals", () => {
     const source = "x = []";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("x = []"), "Should emit empty array literal");
@@ -707,7 +709,7 @@ test("emitJavaScript handles empty array literals", () => {
 
 test("emitJavaScript handles array literals with elements", () => {
     const source = "x = [1, 2, 3]";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("[1, 2, 3]"), "Should emit array literal");
@@ -715,7 +717,7 @@ test("emitJavaScript handles array literals with elements", () => {
 
 test("emitJavaScript handles array literals with expressions", () => {
     const source = "x = [a + b, c * d, 5]";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(
@@ -727,7 +729,7 @@ test("emitJavaScript handles array literals with expressions", () => {
 
 test("emitJavaScript handles nested array literals", () => {
     const source = "x = [[1, 2], [3, 4]]";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(
@@ -738,7 +740,7 @@ test("emitJavaScript handles nested array literals", () => {
 
 test("emitJavaScript handles empty struct literals", () => {
     const source = "x = {}";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("{}"), "Should emit empty struct literal");
@@ -746,7 +748,7 @@ test("emitJavaScript handles empty struct literals", () => {
 
 test("emitJavaScript handles struct literals with properties", () => {
     const source = "x = {a: 1, b: 2}";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("a: 1"), "Should include first property");
@@ -755,7 +757,7 @@ test("emitJavaScript handles struct literals with properties", () => {
 
 test("emitJavaScript handles struct literals with string keys", () => {
     const source = 'x = {name: "player", hp: 100}';
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("name:"), "Should include name property");
@@ -764,7 +766,7 @@ test("emitJavaScript handles struct literals with string keys", () => {
 
 test("emitJavaScript handles struct literals with expression values", () => {
     const source = "x = {total: a + b, half: n / 2}";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("total:"), "Should include total property");
@@ -773,7 +775,7 @@ test("emitJavaScript handles struct literals with expression values", () => {
 
 test("emitJavaScript handles nested struct literals", () => {
     const source = "x = {outer: {inner: 42}}";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(
@@ -784,7 +786,7 @@ test("emitJavaScript handles nested struct literals", () => {
 
 test("emitJavaScript handles structs with array properties", () => {
     const source = "x = {items: [1, 2, 3], name: val}";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("items:"), "Should include items property");
@@ -793,7 +795,7 @@ test("emitJavaScript handles structs with array properties", () => {
 
 test("emitJavaScript handles arrays with struct elements", () => {
     const source = "x = [{a: 1}, {b: 2}]";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("a: 1"), "Should include first struct");
@@ -803,7 +805,7 @@ test("emitJavaScript handles arrays with struct elements", () => {
 // Enum declaration tests
 test("emitJavaScript handles enum declarations with implicit values", () => {
     const source = `enum Colors { red, green = 5, blue }`;
-    const parser = new GMLParser(source);
+    const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = emitJavaScript(ast).trim();
 
@@ -826,7 +828,7 @@ test("emitJavaScript handles enum declarations with implicit values", () => {
 
 test("emitJavaScript handles enum declarations with expressions", () => {
     const source = `enum Foo { bar = 1 + 2, baz, qux = "hi" }`;
-    const parser = new GMLParser(source);
+    const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = emitJavaScript(ast);
 
@@ -847,7 +849,7 @@ test("emitJavaScript handles enum declarations with expressions", () => {
 // Ternary expression tests
 test("emitJavaScript handles simple ternary expressions", () => {
     const source = "x = a > b ? a : b";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("?"), "Should include ? operator");
@@ -857,7 +859,7 @@ test("emitJavaScript handles simple ternary expressions", () => {
 
 test("emitJavaScript handles ternary with parenthesized test", () => {
     const source = "x = (a > b) ? a : b";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("?"), "Should include ternary operator");
@@ -867,7 +869,7 @@ test("emitJavaScript handles ternary with parenthesized test", () => {
 
 test("emitJavaScript handles nested ternary expressions", () => {
     const source = "x = a > b ? (c > d ? c : d) : b";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("?"), "Should include ternary operators");
@@ -875,7 +877,7 @@ test("emitJavaScript handles nested ternary expressions", () => {
 
 test("emitJavaScript handles ternary with complex expressions", () => {
     const source = "result = (x + y) > 10 ? x * 2 : y / 2";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("?"), "Should include ternary operator");
@@ -886,7 +888,7 @@ test("emitJavaScript handles ternary with complex expressions", () => {
 
 test("emitJavaScript handles ternary with function calls", () => {
     const source = "x = check() ? getValue() : getDefault()";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("check()"), "Should include test function");
@@ -903,7 +905,7 @@ test("emitJavaScript handles ternary with function calls", () => {
 // Error handling tests
 test("emitJavaScript handles throw statements with string", () => {
     const source = 'throw "Error message"';
-    const parser = new GMLParser(source);
+    const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("throw"), "Should include throw keyword");
@@ -912,7 +914,7 @@ test("emitJavaScript handles throw statements with string", () => {
 
 test("emitJavaScript handles throw statements with expression", () => {
     const source = "throw new_error(code)";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("throw"), "Should include throw keyword");
@@ -921,7 +923,7 @@ test("emitJavaScript handles throw statements with expression", () => {
 
 test("emitJavaScript handles try-catch statements", () => {
     const source = "try { risky(); } catch (e) { handle(e); }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("try"), "Should include try keyword");
@@ -932,7 +934,7 @@ test("emitJavaScript handles try-catch statements", () => {
 
 test("emitJavaScript handles try-catch without parameter", () => {
     const source = "try { code(); } catch { recover(); }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("try"), "Should include try keyword");
@@ -945,7 +947,7 @@ test("emitJavaScript handles try-catch without parameter", () => {
 
 test("emitJavaScript handles try-finally statements", () => {
     const source = "try { code(); } finally { cleanup(); }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("try"), "Should include try keyword");
@@ -956,7 +958,7 @@ test("emitJavaScript handles try-finally statements", () => {
 test("emitJavaScript handles try-catch-finally statements", () => {
     const source =
         "try { risky(); } catch (e) { handle(e); } finally { cleanup(); }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("try"), "Should include try keyword");
@@ -970,7 +972,7 @@ test("emitJavaScript handles try-catch-finally statements", () => {
 test("emitJavaScript handles nested try-catch blocks", () => {
     const source =
         "try { try { inner(); } catch (e) { log(e); } } catch (e) { outer(e); }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(result.includes("try"), "Should include try keywords");
@@ -980,7 +982,7 @@ test("emitJavaScript handles nested try-catch blocks", () => {
 
 test("emitJavaScript handles function declarations without parameters", () => {
     const source = "function myFunction() { return 42; }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(
@@ -993,7 +995,7 @@ test("emitJavaScript handles function declarations without parameters", () => {
 
 test("emitJavaScript handles function declarations with parameters", () => {
     const source = "function add(a, b) { return a + b; }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(
@@ -1010,7 +1012,7 @@ test("emitJavaScript handles function declarations with parameters", () => {
 
 test("emitJavaScript handles function declarations with multiple statements", () => {
     const source = "function process(x) { var y = x * 2; return y; }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(
@@ -1024,7 +1026,7 @@ test("emitJavaScript handles function declarations with multiple statements", ()
 
 test("emitJavaScript handles function declarations with empty body", () => {
     const source = "function emptyFunc() {}";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(
@@ -1041,7 +1043,7 @@ test("emitJavaScript handles function declarations with empty body", () => {
 test("emitJavaScript handles function declarations with control flow", () => {
     const source =
         "function checkValue(val) { if (val > 0) { return true; } return false; }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(
@@ -1059,7 +1061,7 @@ test("emitJavaScript handles function declarations with control flow", () => {
 test("emitJavaScript handles nested function declarations", () => {
     const source =
         "function outer() { function inner() { return 1; } return inner(); }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(
@@ -1079,7 +1081,7 @@ test("emitJavaScript handles nested function declarations", () => {
 test("emitJavaScript handles function with many parameters", () => {
     const source =
         "function multiParam(a, b, c, d, e) { return a + b + c + d + e; }";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(
@@ -1095,7 +1097,7 @@ test("emitJavaScript handles function with many parameters", () => {
 
 test("emitJavaScript handles built-in function mapping for point_distance", () => {
     const source = "dist = point_distance(0, 0, 10, 10)";
-    const parser = new GMLParser(source, { getIdentifierMetadata: true });
+    const parser = new Parser.GMLParser(source, { getIdentifierMetadata: true });
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(
@@ -1110,7 +1112,7 @@ test("emitJavaScript handles built-in function mapping for point_distance", () =
 
 test("emitJavaScript handles built-in function mapping for abs", () => {
     const source = "val = abs(-10)";
-    const parser = new GMLParser(source);
+    const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(
@@ -1121,7 +1123,7 @@ test("emitJavaScript handles built-in function mapping for abs", () => {
 
 test("emitJavaScript handles built-in function mapping for min", () => {
     const source = "val = min(1, 2, 3)";
-    const parser = new GMLParser(source);
+    const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(
@@ -1132,7 +1134,7 @@ test("emitJavaScript handles built-in function mapping for min", () => {
 
 test("emitJavaScript handles built-in function mapping for max", () => {
     const source = "val = max(1, 2, 3)";
-    const parser = new GMLParser(source);
+    const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = emitJavaScript(ast);
     assert.ok(

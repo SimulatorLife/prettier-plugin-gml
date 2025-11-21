@@ -4,22 +4,7 @@
 // rest of the plugin configuration.
 import { Core } from "@gml-modules/core";
 import { util } from "prettier";
-import GMLParser, {
-    sanitizeConditionalAssignments,
-    applySanitizedIndexAdjustments,
-    consolidateStructAssignments,
-    applyFeatherFixes,
-    preprocessSourceForFeatherFixes,
-    applyRemovedIndexAdjustments,
-    preprocessFunctionArgumentDefaults,
-    enforceVariableBlockSpacing,
-    convertStringConcatenations,
-    condenseLogicalExpressions,
-    convertManualMathExpressions,
-    condenseScalarMultipliers,
-    convertUndefinedGuardAssignments,
-    annotateStaticFunctionOverrides
-} from "@gml-modules/parser";
+import { Parser } from "@gml-modules/parser";
 
 import { Semantic } from "@gml-modules/semantic";
 import { prepareDocCommentEnvironment } from "../comments/index.js";
@@ -85,7 +70,7 @@ async function parse(text, options) {
         // These should be converted to proper // comments to avoid parsing errors
         parseSource = fixMalformedComments(parseSource);
 
-        const sanitizedResult = sanitizeConditionalAssignments(parseSource);
+        const sanitizedResult = Parser.Utils.sanitizeConditionalAssignments(parseSource);
         const { sourceText: sanitizedSource, indexAdjustments } =
             sanitizedResult;
 
@@ -107,7 +92,7 @@ async function parse(text, options) {
         let ast;
 
         try {
-            ast = GMLParser.parse(parseSource, {
+            ast = Parser.GMLParser.parse(parseSource, {
                 getLocations: true,
                 simplifyLocations: false
             });
@@ -129,7 +114,7 @@ async function parse(text, options) {
             }
 
             parseSource = recoveredSource;
-            ast = GMLParser.parse(parseSource, {
+            ast = Parser.GMLParser.parse(parseSource, {
                 getLocations: true,
                 simplifyLocations: false
             });
@@ -146,11 +131,13 @@ async function parse(text, options) {
         prepareDocCommentEnvironment(ast);
 
         if (options?.condenseStructAssignments ?? true) {
-            consolidateStructAssignments(ast, { addTrailingComment });
+            Parser.Transforms.consolidateStructAssignments(ast, {
+                addTrailingComment
+            });
         }
 
         if (options?.applyFeatherFixes) {
-            applyFeatherFixes(ast, {
+            Parser.Transforms.applyFeatherFixes(ast, {
                 sourceText: parseSource,
                 preprocessedFixMetadata,
                 options: {
@@ -163,49 +150,49 @@ async function parse(text, options) {
         applyIndexAdjustmentsIfPresent(
             ast,
             callIndexAdjustments,
-            applySanitizedIndexAdjustments,
+            Parser.Utils.applySanitizedIndexAdjustments,
             preprocessedFixMetadata
         );
 
         applyIndexAdjustmentsIfPresent(
             ast,
             indexAdjustments,
-            applySanitizedIndexAdjustments,
+            Parser.Utils.applySanitizedIndexAdjustments,
             preprocessedFixMetadata
         );
 
         applyIndexAdjustmentsIfPresent(
             ast,
             enumIndexAdjustments,
-            applyRemovedIndexAdjustments,
+            Parser.Transforms.applyRemovedIndexAdjustments,
             preprocessedFixMetadata
         );
 
         if (options?.useStringInterpolation) {
-            convertStringConcatenations(ast);
+            Parser.Transforms.convertStringConcatenations(ast);
         }
 
         if (options?.condenseLogicalExpressions) {
-            condenseLogicalExpressions(ast);
+            Parser.Transforms.condenseLogicalExpressions(ast);
         }
 
-        condenseScalarMultipliers(ast, undefined, {
+        Parser.Transforms.condenseScalarMultipliers(ast, undefined, {
             sourceText: parseSource,
             originalText: options?.originalText
         });
 
         if (options?.convertManualMathToBuiltins) {
-            convertManualMathExpressions(ast, undefined, {
+            Parser.Transforms.convertManualMathExpressions(ast, undefined, {
                 sourceText: parseSource,
                 originalText: options?.originalText
             });
         }
 
-        convertUndefinedGuardAssignments(ast);
-        preprocessFunctionArgumentDefaults(ast);
+        Parser.Transforms.convertUndefinedGuardAssignments(ast);
+        Parser.Transforms.preprocessFunctionArgumentDefaults(ast);
         collapseRedundantMissingCallArguments(ast);
-        enforceVariableBlockSpacing(ast, options);
-        annotateStaticFunctionOverrides(ast);
+        Parser.Transforms.enforceVariableBlockSpacing(ast, options);
+        Parser.Transforms.annotateStaticFunctionOverrides(ast);
 
         markCallsMissingArgumentSeparators(ast, options?.originalText ?? text);
 
@@ -244,7 +231,7 @@ export const gmlParserAdapter = {
  * When no edits are required (or the input is not a string) the original
  * `sourceText` is returned alongside a `null` adjustment list. Otherwise the
  * sanitized text and the insertion indices are returned so callers can realign
- * node locations via {@link applySanitizedIndexAdjustments}.
+ * node locations via {@link Parser.Utils.applySanitizedIndexAdjustments}.
  *
  * @param {unknown} sourceText Raw source text that may need synthetic commas.
  * @returns {{

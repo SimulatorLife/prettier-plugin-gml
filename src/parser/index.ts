@@ -1,1 +1,3 @@
-export * as Parser from "./src/index.js";
+import * as ParserAPI from "./src/index.js";
+
+export const Parser = Object.freeze(ParserAPI);

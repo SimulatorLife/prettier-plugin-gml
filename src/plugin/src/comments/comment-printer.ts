@@ -1,4 +1,4 @@
-import * as Parser from "@gml-modules/parser";
+import { Parser } from "@gml-modules/parser";
 
 // Delegate comment printing helpers to the parser package's canonical
 // implementation. The plugin facade re-exports these symbols, so keep the

@@ -3,8 +3,8 @@
 // Keeping the exports centralized here allows external consumers (including
 // sibling workspaces) to rely on a stable module path instead of importing
 // files from the internal directory layout.
-import { Core } from "@gml-modules/core";
-import * as Parser from "@gml-modules/parser";
+import * as Core from "@gml-modules/core";
+import { Parser } from "@gml-modules/parser";
 
 export {
     collectCommentNodes,

@@ -87,13 +87,13 @@ export function createReadOnlyView<T extends object>(
             return Object.prototype;
         },
         set() {
-            throwReadOnlyError();
+            return throwReadOnlyError();
         },
         defineProperty() {
-            throwReadOnlyError();
+            return throwReadOnlyError();
         },
         deleteProperty() {
-            throwReadOnlyError();
+            return throwReadOnlyError();
         }
     }) as Readonly<T>;
 }

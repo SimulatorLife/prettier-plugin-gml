@@ -7,13 +7,7 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 
 import prettier from "prettier";
-import GMLParser, {
-    applyFeatherFixes,
-    getFeatherDiagnosticFixers,
-    getRoomNavigationHelpers,
-    preprocessSourceForFeatherFixes,
-    ROOM_NAVIGATION_DIRECTION
-} from "@gml-modules/parser";
+import { Parser } from "@gml-modules/parser";
 
 const {
     AST: { getNodeEndIndex, getNodeStartIndex },
@@ -61,7 +55,7 @@ describe("Feather diagnostic fixer registry", () => {
         const diagnostics = Array.isArray(metadata?.diagnostics)
             ? metadata.diagnostics
             : [];
-        const registry = getFeatherDiagnosticFixers();
+        const registry = Parser.Transforms.getFeatherDiagnosticFixers();
 
         assert.strictEqual(
             registry.size,
@@ -78,19 +72,19 @@ describe("Feather diagnostic fixer registry", () => {
     });
 });
 
-describe("applyFeatherFixes transform", () => {
+describe("Parser.Transforms.applyFeatherFixes transform", () => {
     it("removes trailing macro semicolons and records fix metadata", () => {
         const source = ["#macro SAMPLE value;", "", "var data = SAMPLE;"].join(
             "\n"
         );
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
         const [macro] = ast.body ?? [];
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
         assert.strictEqual(
@@ -123,13 +117,13 @@ describe("applyFeatherFixes transform", () => {
             "var data = SAMPLE;"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
         const [macro] = ast.body ?? [];
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         assert.ok(macro);
         assert.ok(Array.isArray(macro.tokens));
@@ -149,12 +143,12 @@ describe("applyFeatherFixes transform", () => {
     it("removes break statements without enclosing loops and records GM1000 metadata", () => {
         const source = ["break;", "", "var value = 42;"].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         assert.ok(Array.isArray(ast.body));
         assert.strictEqual(
@@ -188,12 +182,12 @@ describe("applyFeatherFixes transform", () => {
         const declarationSource = "globalvar gameManager;";
         const initializerSource = "gameManager = new GameManager();";
 
-        const ast = GMLParser.parse(declarationSource, {
+        const ast = Parser.GMLParser.parse(declarationSource, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        const initializerAst = GMLParser.parse(initializerSource, {
+        const initializerAst = Parser.GMLParser.parse(initializerSource, {
             getLocations: true,
             simplifyLocations: false
         });
@@ -216,7 +210,7 @@ describe("applyFeatherFixes transform", () => {
         declarator.init = initializerExpression;
         declarator.end = initializerExpression?.end ?? declarator.end;
 
-        applyFeatherFixes(ast, {
+        Parser.Transforms.applyFeatherFixes(ast, {
             sourceText: `${declarationSource}\n${initializerSource}`
         });
 
@@ -276,12 +270,12 @@ describe("applyFeatherFixes transform", () => {
             ""
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const allDeclarations = [];
 
@@ -378,12 +372,12 @@ describe("applyFeatherFixes transform", () => {
             "}"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const programBody = Array.isArray(ast.body) ? ast.body : [];
         const repeatStatements = programBody.filter(
@@ -456,12 +450,12 @@ describe("applyFeatherFixes transform", () => {
     it("inserts the missing argument for GM1005 and records fix metadata", () => {
         const source = "draw_set_color();";
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const [firstStatement] = ast.body ?? [];
         const callExpression =
@@ -505,12 +499,12 @@ describe("applyFeatherFixes transform", () => {
             "var result = FRUIT.BANANA;"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const [enumDeclaration] = ast.body ?? [];
         assert.ok(enumDeclaration);
@@ -594,7 +588,7 @@ describe("applyFeatherFixes transform", () => {
             end: { index: 50 }
         };
 
-        applyFeatherFixes(ast, { sourceText: "" });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: "" });
 
         const [enumDeclaration] = ast.body ?? [];
         assert.ok(enumDeclaration);
@@ -629,12 +623,12 @@ describe("applyFeatherFixes transform", () => {
             "}"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const [functionDeclaration] = ast.body ?? [];
         assert.ok(functionDeclaration);
@@ -694,12 +688,12 @@ describe("applyFeatherFixes transform", () => {
             "}"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const [functionDeclaration] = ast.body ?? [];
         assert.ok(functionDeclaration);
@@ -736,12 +730,12 @@ describe("applyFeatherFixes transform", () => {
             "room_goto(room + 1);"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const [nextDeclaration, previousDeclaration, gotoStatement] =
             ast.body ?? [];
@@ -831,8 +825,8 @@ describe("applyFeatherFixes transform", () => {
     });
 
     it("maps room navigation directions to helper names", () => {
-        const nextHelpers = getRoomNavigationHelpers(
-            ROOM_NAVIGATION_DIRECTION.NEXT
+        const nextHelpers = Parser.Transforms.getRoomNavigationHelpers(
+            Parser.Transforms.ROOM_NAVIGATION_DIRECTION.NEXT
         );
 
         assert.deepStrictEqual(nextHelpers, {
@@ -840,8 +834,8 @@ describe("applyFeatherFixes transform", () => {
             goto: "room_goto_next"
         });
 
-        const previousHelpers = getRoomNavigationHelpers(
-            ROOM_NAVIGATION_DIRECTION.PREVIOUS
+        const previousHelpers = Parser.Transforms.getRoomNavigationHelpers(
+            Parser.Transforms.ROOM_NAVIGATION_DIRECTION.PREVIOUS
         );
 
         assert.deepStrictEqual(previousHelpers, {
@@ -853,7 +847,7 @@ describe("applyFeatherFixes transform", () => {
     it("rejects unrecognized room navigation directions", () => {
         assert.throws(
             () => {
-                getRoomNavigationHelpers("sideways");
+                Parser.Transforms.getRoomNavigationHelpers("sideways");
             },
             {
                 name: "RangeError",
@@ -869,12 +863,12 @@ describe("applyFeatherFixes transform", () => {
             "new Point(0, 0) = 1;"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const programFixes = ast._appliedFeatherDiagnostics;
         assert.ok(Array.isArray(programFixes));
@@ -899,12 +893,12 @@ describe("applyFeatherFixes transform", () => {
             "new Point(0, 0) = 1;"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const programBody = Array.isArray(ast.body) ? ast.body : [];
 
@@ -943,12 +937,12 @@ describe("applyFeatherFixes transform", () => {
             "}"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const [promotedAssignment, firstWith, secondWith] = ast.body ?? [];
 
@@ -1023,12 +1017,12 @@ describe("applyFeatherFixes transform", () => {
             ""
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const constructor = ast.body?.[0];
         assert.ok(constructor);
@@ -1062,12 +1056,12 @@ describe("applyFeatherFixes transform", () => {
     it("coerces string literal operands flagged by GM1010", () => {
         const source = 'result = 5 + "5";';
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const [assignment] = ast.body ?? [];
         assert.ok(assignment);
@@ -1112,12 +1106,12 @@ describe("applyFeatherFixes transform", () => {
             'var appended = base + "/Manual";'
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const [, combinedDeclaration, appendedDeclaration] = ast.body ?? [];
 
@@ -1143,7 +1137,7 @@ describe("applyFeatherFixes transform", () => {
     it("converts string length property access into string_length calls", () => {
         const source = "var result = string(value).length;";
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
@@ -1154,7 +1148,7 @@ describe("applyFeatherFixes transform", () => {
         assert.ok(originalInit);
         assert.strictEqual(originalInit.type, "MemberDotExpression");
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const updatedInit = declaration?.init;
 
@@ -1182,12 +1176,12 @@ describe("applyFeatherFixes transform", () => {
             "var _x = clam(x, 0, 100);"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const typoCall = ast.body?.find(
             (node) => node?.type === "CallExpression"
@@ -1244,12 +1238,12 @@ describe("applyFeatherFixes transform", () => {
             "var local_score = score;"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const [
             firstAssignment,
@@ -1305,12 +1299,12 @@ describe("applyFeatherFixes transform", () => {
             ""
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const [ifStatement] = ast.body ?? [];
         const comparison = ifStatement?.test?.expression;
@@ -1349,12 +1343,12 @@ describe("applyFeatherFixes transform", () => {
     it("rewrites postfix increment statements flagged by GM1026", () => {
         const source = "pi++;";
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const [variableDeclaration, incDecStatement] = ast.body ?? [];
 
@@ -1409,12 +1403,12 @@ describe("applyFeatherFixes transform", () => {
             "static draw_text = 2;"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const [macro, varDeclaration, staticDeclaration] = ast.body ?? [];
 
@@ -1474,12 +1468,12 @@ describe("applyFeatherFixes transform", () => {
         const source =
             'draw_sprite(sprite_index, image_index, "1234", "5678");';
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const [callExpression] = ast.body ?? [];
         assert.ok(callExpression);
@@ -1529,12 +1523,12 @@ describe("applyFeatherFixes transform", () => {
             "var nested = matrix[0, 1, 2, 3];"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const functionDeclaration = ast.body?.[0];
         assert.ok(functionDeclaration?.body?.body);
@@ -1594,7 +1588,7 @@ describe("applyFeatherFixes transform", () => {
     it("converts instance creation asset strings to identifiers and records metadata", () => {
         const source = 'instance_create_depth(x, y, -100, "obj_player");';
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
@@ -1605,7 +1599,7 @@ describe("applyFeatherFixes transform", () => {
         assert.ok(originalArgument);
         assert.strictEqual(originalArgument.type, "Literal");
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const updatedArgument = callExpression.arguments?.[3];
         assert.ok(updatedArgument);
@@ -1642,12 +1636,12 @@ describe("applyFeatherFixes transform", () => {
             "delete values;"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         assert.ok(Array.isArray(ast.body));
         assert.strictEqual(ast.body.length >= 2, true);
@@ -1697,7 +1691,7 @@ describe("applyFeatherFixes transform", () => {
             "var sword = new item();"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
@@ -1707,7 +1701,7 @@ describe("applyFeatherFixes transform", () => {
         assert.ok(functionNode);
         assert.strictEqual(functionNode.type, "FunctionDeclaration");
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         assert.strictEqual(functionNode.type, "ConstructorDeclaration");
 
@@ -1738,12 +1732,12 @@ describe("applyFeatherFixes transform", () => {
             "}"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const [fn] = ast.body ?? [];
         assert.ok(fn);
@@ -1783,12 +1777,12 @@ describe("applyFeatherFixes transform", () => {
             "}"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const [ctor] = ast.body ?? [];
         assert.ok(ctor);
@@ -1873,7 +1867,7 @@ describe("applyFeatherFixes transform", () => {
             end: { index: 0 }
         };
 
-        const registry = getFeatherDiagnosticFixers();
+        const registry = Parser.Transforms.getFeatherDiagnosticFixers();
         const gm1059Fixer = registry.get("GM1059");
         assert.ok(gm1059Fixer, "Expected GM1059 fixer to be registered.");
 
@@ -1904,12 +1898,12 @@ describe("applyFeatherFixes transform", () => {
             "var best = FRUIT.KIWI;"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const [enumDeclaration] = ast.body ?? [];
         assert.ok(enumDeclaration);
@@ -1973,7 +1967,7 @@ describe("applyFeatherFixes transform", () => {
             ]
         };
 
-        applyFeatherFixes(ast);
+        Parser.Transforms.applyFeatherFixes(ast);
 
         assert.ok(Array.isArray(enumDeclaration.members));
         assert.deepStrictEqual(
@@ -1992,12 +1986,12 @@ describe("applyFeatherFixes transform", () => {
     it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
 
@@ -2036,12 +2030,12 @@ describe("applyFeatherFixes transform", () => {
             "vertex_submit(vb_my_world_model, pr_trianglelist, -1);"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const body = ast.body ?? [];
         assert.ok(Array.isArray(body));
@@ -2091,12 +2085,12 @@ describe("applyFeatherFixes transform", () => {
             "vertex_submit(vb, pr_trianglelist, surface_get_texture(sf));"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
         const setIndex = body.findIndex(
@@ -2169,12 +2163,12 @@ describe("applyFeatherFixes transform", () => {
             "vertex_submit(vb, pr_trianglelist, -1);"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
         const submitIndex = body.findIndex(
@@ -2213,12 +2207,12 @@ describe("applyFeatherFixes transform", () => {
             "make_game();"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const callExpression = ast.body?.find(
             (node) => node?.type === "CallExpression"
@@ -2292,12 +2286,12 @@ describe("applyFeatherFixes transform", () => {
             "}"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const ifStatement = (ast.body ?? []).find(
             (node) => node?.type === "IfStatement"
@@ -2353,7 +2347,7 @@ describe("applyFeatherFixes transform", () => {
             ""
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
@@ -2396,7 +2390,7 @@ describe("applyFeatherFixes transform", () => {
 
         collectArgumentIdentifiers(ast);
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const changedIdentifiers = trackedIdentifiers.filter(
             (entry) => entry.node.name !== entry.originalName
@@ -2464,12 +2458,12 @@ describe("applyFeatherFixes transform", () => {
             ""
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const [functionDeclaration] = ast.body ?? [];
         assert.strictEqual(functionDeclaration?.type, "FunctionDeclaration");
@@ -2514,12 +2508,12 @@ describe("applyFeatherFixes transform", () => {
             "}"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const metadata = Array.isArray(ast._appliedFeatherDiagnostics)
             ? ast._appliedFeatherDiagnostics
@@ -2552,7 +2546,7 @@ describe("applyFeatherFixes transform", () => {
             "var _argument_total = argument_count;"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
@@ -2565,7 +2559,7 @@ describe("applyFeatherFixes transform", () => {
         assert.strictEqual(typeof firstStatement, "object");
         assert.strictEqual(typeof secondStatement, "object");
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         assert.ok(Array.isArray(ast.body));
         assert.strictEqual(ast.body.length > 0, true);
@@ -2608,12 +2602,12 @@ describe("applyFeatherFixes transform", () => {
             'dbg("hi");'
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const macros = Array.isArray(ast.body)
             ? ast.body.filter((node) => node?.type === "MacroDeclaration")
@@ -2656,7 +2650,7 @@ describe("applyFeatherFixes transform", () => {
             "}"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
@@ -2664,7 +2658,7 @@ describe("applyFeatherFixes transform", () => {
         const [baseFunction, childConstructor, orphanConstructor] =
             ast.body ?? [];
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         assert.ok(baseFunction);
         assert.strictEqual(baseFunction.type, "ConstructorDeclaration");
@@ -2704,12 +2698,12 @@ describe("applyFeatherFixes transform", () => {
             "}"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const [fn] = ast.body ?? [];
         assert.ok(fn);
@@ -2774,12 +2768,12 @@ describe("applyFeatherFixes transform", () => {
             "vertex_submit(vb_world, pr_trianglelist, tex);"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const separatorStatements = (ast.body ?? []).filter(
             (node) => node?.type === "EmptyStatement"
@@ -2836,12 +2830,12 @@ describe("applyFeatherFixes transform", () => {
             'draw_text(0, 0, "Hello!");'
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const statements = (ast.body ?? []).filter(
             (node) => node?.type !== "EmptyStatement"
@@ -2889,12 +2883,12 @@ describe("applyFeatherFixes transform", () => {
             'draw_text(0, 0, "Hello!");'
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const statements = ast.body ?? [];
 
@@ -2922,12 +2916,12 @@ describe("applyFeatherFixes transform", () => {
             "draw_self();"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const statements = (ast.body ?? []).filter(
             (node) => node?.type !== "EmptyStatement"
@@ -2985,12 +2979,12 @@ describe("applyFeatherFixes transform", () => {
             "draw_self();"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const statements = (ast.body ?? []).filter(
             (node) => node?.type !== "EmptyStatement"
@@ -3051,12 +3045,12 @@ describe("applyFeatherFixes transform", () => {
             "draw_self();"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const statements = (ast.body ?? []).filter(
             (node) => node?.type !== "EmptyStatement"
@@ -3091,7 +3085,7 @@ describe("applyFeatherFixes transform", () => {
         const formatted = await prettier.format(source, {
             parser: "gml-parse",
             plugins: [pluginPath],
-            applyFeatherFixes: true
+            Parser.Transforms.applyFeatherFixes: true
         });
 
         const expected = [
@@ -3116,12 +3110,12 @@ describe("applyFeatherFixes transform", () => {
             "vertex_format_add_texcoord();"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
         const insertedCall = body.at(-1);
@@ -3161,7 +3155,7 @@ describe("applyFeatherFixes transform", () => {
         const formatted = await prettier.format(source, {
             parser: "gml-parse",
             plugins: [pluginPath],
-            applyFeatherFixes: true
+            Parser.Transforms.applyFeatherFixes: true
         });
 
         const expected = [
@@ -3193,7 +3187,7 @@ describe("applyFeatherFixes transform", () => {
         const formatted = await prettier.format(source, {
             parser: "gml-parse",
             plugins: [pluginPath],
-            applyFeatherFixes: true
+            Parser.Transforms.applyFeatherFixes: true
         });
 
         const expected = [
@@ -3216,12 +3210,12 @@ describe("applyFeatherFixes transform", () => {
             "format = vertex_format_end();"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const programBody = Array.isArray(ast.body) ? ast.body : [];
         assert.strictEqual(programBody.length, 3);
@@ -3264,12 +3258,12 @@ describe("applyFeatherFixes transform", () => {
             "format = vertex_format_end();"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const programBody = Array.isArray(ast.body) ? ast.body : [];
         const callNames = programBody
@@ -3298,12 +3292,12 @@ describe("applyFeatherFixes transform", () => {
             "format = vertex_format_end();"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const programBody = Array.isArray(ast.body) ? ast.body : [];
         const callNames = programBody
@@ -3336,12 +3330,12 @@ describe("applyFeatherFixes transform", () => {
             "vertex_end(vb);"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const programBody = Array.isArray(ast.body) ? ast.body : [];
         assert.strictEqual(programBody.length, 6);
@@ -3387,7 +3381,7 @@ describe("applyFeatherFixes transform", () => {
             "vertex_submit(vb, pr_trianglelist, tex);"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
@@ -3399,7 +3393,7 @@ describe("applyFeatherFixes transform", () => {
             true
         );
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const fixedTernary = assignment?.right;
         assert.ok(fixedTernary);
@@ -3441,12 +3435,12 @@ describe("applyFeatherFixes transform", () => {
             "vertex_submit(vb, pr_pointlist, -1);"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
         const vertexBeginIndex = body.findIndex(
@@ -3508,12 +3502,12 @@ describe("applyFeatherFixes transform", () => {
             "\n"
         );
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
         assert.strictEqual(body.length, 0);
@@ -3539,12 +3533,12 @@ describe("applyFeatherFixes transform", () => {
             "vertex_submit(vb, pr_trianglelist, tex);"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const body = ast.body ?? [];
         assert.strictEqual(body.length >= 3, true);
@@ -3582,7 +3576,7 @@ describe("applyFeatherFixes transform", () => {
         const source = ["var _this * something;", "", "    = 48;"].join("\n");
 
         const { sourceText, metadata, indexAdjustments } =
-            preprocessSourceForFeatherFixes(source);
+            Parser.Transforms.preprocessSourceForFeatherFixes(source);
 
         assert.notStrictEqual(
             sourceText,
@@ -3594,12 +3588,12 @@ describe("applyFeatherFixes transform", () => {
             "Expected GM1100 metadata to be recorded by the preprocessor."
         );
 
-        const ast = GMLParser.parse(sourceText, {
+        const ast = Parser.GMLParser.parse(sourceText, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, {
+        Parser.Transforms.applyFeatherFixes(ast, {
             sourceText,
             preprocessedFixMetadata: metadata
         });
@@ -3647,12 +3641,12 @@ describe("applyFeatherFixes transform", () => {
             "total %= (-0);"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const [declaration, assignment, moduloAssignment, moduloCompound] =
             ast.body ?? [];
@@ -3724,7 +3718,7 @@ describe("applyFeatherFixes transform", () => {
     it("normalizes zero denominators flagged by GM1015 even when the statement list mutates", () => {
         const source = ["total /= 0;", "other /= 0;"].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
@@ -3755,7 +3749,7 @@ describe("applyFeatherFixes transform", () => {
             }
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         assert.strictEqual(firstAssignment.right?.type, "Literal");
         assert.strictEqual(firstAssignment.right?.value, "1");
@@ -3815,7 +3809,7 @@ describe("applyFeatherFixes transform", () => {
             end: { index: 25 }
         };
 
-        applyFeatherFixes(ast, { sourceText: "true;\nif (true) { false; }" });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: "true;\nif (true) { false; }" });
 
         assert.strictEqual(
             ast.body.length,
@@ -3876,7 +3870,7 @@ describe("applyFeatherFixes transform", () => {
         ].join("\n");
 
         const { sourceText, metadata, indexAdjustments } =
-            preprocessSourceForFeatherFixes(source);
+            Parser.Transforms.preprocessSourceForFeatherFixes(source);
 
         assert.notStrictEqual(
             sourceText,
@@ -3889,12 +3883,12 @@ describe("applyFeatherFixes transform", () => {
             "Expected GM1016 metadata entries for each removed statement."
         );
 
-        const ast = GMLParser.parse(sourceText, {
+        const ast = Parser.GMLParser.parse(sourceText, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, {
+        Parser.Transforms.applyFeatherFixes(ast, {
             sourceText,
             preprocessedFixMetadata: metadata
         });
@@ -3954,7 +3948,7 @@ describe("applyFeatherFixes transform", () => {
         ].join("\n");
 
         const { sourceText, metadata, indexAdjustments } =
-            preprocessSourceForFeatherFixes(source);
+            Parser.Transforms.preprocessSourceForFeatherFixes(source);
 
         assert.notStrictEqual(
             sourceText,
@@ -3989,7 +3983,7 @@ describe("applyFeatherFixes transform", () => {
             "Expected GM1003 preprocessing to record index adjustments for removed quotes."
         );
 
-        const ast = GMLParser.parse(sourceText, {
+        const ast = Parser.GMLParser.parse(sourceText, {
             getLocations: true,
             simplifyLocations: false
         });
@@ -4019,12 +4013,12 @@ describe("applyFeatherFixes transform", () => {
             ""
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const functionNode = ast.body?.[0];
         assert.ok(functionNode?.type === "FunctionDeclaration");
@@ -4097,12 +4091,12 @@ describe("applyFeatherFixes transform", () => {
             "file_find_close();"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(
@@ -4152,12 +4146,12 @@ describe("applyFeatherFixes transform", () => {
             "draw_sprite(sprite_index, 0, x, y);"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
 
@@ -4215,12 +4209,12 @@ describe("applyFeatherFixes transform", () => {
         const source =
             "vertex_position_3d(vb, buffer_read(buff, buffer_f32), buffer_read(buff, buffer_f32), buffer_read(buff, buffer_f32));";
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
 
@@ -4294,12 +4288,12 @@ describe("applyFeatherFixes transform", () => {
     it("maintains GM2023 hoist order for nested call arguments", () => {
         const source = "foo(bar(quux(baz(), qux()), corge()), grault());";
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
 
@@ -4369,12 +4363,12 @@ describe("applyFeatherFixes transform", () => {
             "if (array == undefined) array = [];"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
         assert.strictEqual(body.length, 1);
@@ -4412,12 +4406,12 @@ describe("applyFeatherFixes transform", () => {
     it("replaces undefined guards with nullish assignment for GM2061", () => {
         const source = "if (value == undefined) value = compute();";
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
         assert.strictEqual(body.length, 1);
@@ -4454,12 +4448,12 @@ describe("applyFeatherFixes transform", () => {
             "draw_sprite(sprite_index, 0, x, y);"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const body = (ast.body ?? []).filter(
             (node) => node?.type !== "EmptyStatement"
@@ -4522,12 +4516,12 @@ describe("applyFeatherFixes transform", () => {
             "draw_sprite(sprite_index, 0, x, y);"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const statements = (ast.body ?? []).filter(
             (node) => node?.type !== "EmptyStatement"
@@ -4556,12 +4550,12 @@ describe("applyFeatherFixes transform", () => {
             "vertex_submit(vb, pr_trianglelist, tex);"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const body = ast.body ?? [];
         assert.strictEqual(body.length >= 3, true);
@@ -4610,12 +4604,12 @@ describe("applyFeatherFixes transform", () => {
             'show_debug_message("Ready");'
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const statements = Array.isArray(ast.body) ? ast.body : [];
         assert.strictEqual(
@@ -4683,12 +4677,12 @@ describe("applyFeatherFixes transform", () => {
             "file_find_next();"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const statements = Array.isArray(ast.body) ? ast.body : [];
         assert.strictEqual(
@@ -4721,12 +4715,12 @@ describe("applyFeatherFixes transform", () => {
             'show_debug_message("done");'
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const statements = Array.isArray(ast.body) ? ast.body : [];
         const remainingClosers = statements.filter(
@@ -4774,7 +4768,7 @@ describe("applyFeatherFixes transform", () => {
             'draw_text(0, 0, "done");'
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
@@ -4785,7 +4779,7 @@ describe("applyFeatherFixes transform", () => {
         const conditional = statements[1];
         assert.ok(conditional?.type === "IfStatement");
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const [beginCall, fixedConditional, trailingCall] = ast.body ?? [];
         assert.ok(isCallExpression(beginCall));
@@ -4827,12 +4821,12 @@ describe("applyFeatherFixes transform", () => {
             "draw_primitive_end();"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const statements = Array.isArray(ast.body) ? ast.body : [];
         assert.ok(
@@ -4886,12 +4880,12 @@ describe("applyFeatherFixes transform", () => {
             'draw_text(room_width - 5, 5, "In the top-right corner");'
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const calls = Array.isArray(ast.body)
             ? ast.body.filter((node) => node?.type === "CallExpression")
@@ -4939,12 +4933,12 @@ describe("applyFeatherFixes transform", () => {
             "vertex_submit(vb, pr_pointlist, -1);"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
         const vertexBeginIndex = body.findIndex(
@@ -5004,12 +4998,12 @@ describe("applyFeatherFixes transform", () => {
     it("inserts vertex_begin before vertex_end flagged by GM2009 and records metadata", () => {
         const source = "vertex_end(vb);";
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
         assert.strictEqual(
@@ -5073,12 +5067,12 @@ describe("applyFeatherFixes transform", () => {
             "vertex_end(vb);"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const statements = Array.isArray(ast.body) ? ast.body : [];
         assert.strictEqual(statements.length, 6);
@@ -5118,12 +5112,12 @@ describe("applyFeatherFixes transform", () => {
             "vertex_position_3d(vb, x2, y2, z2);"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const statements = Array.isArray(ast.body) ? ast.body : [];
         assert.strictEqual(statements.length, 6);
@@ -5147,12 +5141,12 @@ describe("applyFeatherFixes transform", () => {
             "draw_rectangle(4, 4, 40, 40);"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
         const setTargetIndex = body.findIndex(
@@ -5218,12 +5212,12 @@ describe("applyFeatherFixes transform", () => {
             "draw_self();"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const statements = Array.isArray(ast.body) ? ast.body : [];
         const callExpressions = statements.filter(
@@ -5298,12 +5292,12 @@ describe("applyFeatherFixes transform", () => {
             ""
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const programBody = Array.isArray(ast.body) ? ast.body : [];
         assert.strictEqual(
@@ -5352,7 +5346,7 @@ describe("applyFeatherFixes transform", () => {
             "}"
         ].join("\n");
 
-        const ast = GMLParser.parse(source, {
+        const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
             simplifyLocations: false
         });
@@ -5361,7 +5355,7 @@ describe("applyFeatherFixes transform", () => {
         const statements = functionNode?.body?.body ?? [];
         const [directCall, performCall, performObjectCall] = statements;
 
-        applyFeatherFixes(ast, { sourceText: source });
+        Parser.Transforms.applyFeatherFixes(ast, { sourceText: source });
 
         const assertUserEventMetadata = (node, expectedTarget) => {
             assert.ok(node, `Expected call expression for ${expectedTarget}.`);

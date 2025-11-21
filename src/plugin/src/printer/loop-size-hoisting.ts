@@ -2,7 +2,7 @@
 // This logic analyzes the AST rather than producing Prettier docs, so it lives
 // alongside other printer optimizations instead of the main print pipeline.
 
-import { Core } from "@gml-modules/core";
+import * as Core from "@gml-modules/core";
 
 const {
     AST: {

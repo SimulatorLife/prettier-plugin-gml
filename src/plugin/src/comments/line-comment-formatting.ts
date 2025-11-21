@@ -1,6 +1,6 @@
-import { Core } from "@gml-modules/core";
+import * as Core from "@gml-modules/core";
 import { isObjectLike } from "./comment-boundary.js";
-import * as Parser from "@gml-modules/parser";
+import { Parser } from "@gml-modules/parser";
 import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
 
 const {

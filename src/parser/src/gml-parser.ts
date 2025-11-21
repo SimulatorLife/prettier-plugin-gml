@@ -9,12 +9,11 @@ import GameMakerParseErrorListener, {
 } from "./gml-syntax-error.js";
 import { createHiddenNodeProcessor } from "./ast/hidden-node-processor.js";
 import { Core } from "@gml-modules/core";
-import { walkObjectGraph } from "./ast/object-graph.js";
 import {
     removeLocationMetadata,
     simplifyLocationMetadata
 } from "./location-manipulation.js";
-import { installRecognitionExceptionLikeGuard } from "./runtime/recognition-exception-patch.js";
+import { installRecognitionExceptionLikeGuard } from "./runtime/index.js";
 import convertToESTree from "./utils/estree-converter.js";
 
 const PredictionMode =
@@ -189,7 +188,7 @@ export default class GMLParser {
             return;
         }
 
-        walkObjectGraph(root, {
+        Core.AST.walkObjectGraph(root, {
             enterObject: (node) => {
                 const startIndex =
                     typeof node.start === "number"

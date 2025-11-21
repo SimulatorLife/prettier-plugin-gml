@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { preprocessFunctionArgumentDefaults } from "@gml-modules/parser";
+import { Parser } from "@gml-modules/parser";
 
 function createFunctionDeclaration(params) {
     return {
@@ -31,7 +31,7 @@ describe("preprocessFunctionArgumentDefaults", () => {
 
         const ast = { type: "Program", body: [functionNode] };
 
-        preprocessFunctionArgumentDefaults(ast);
+        Parser.Transforms.preprocessFunctionArgumentDefaults(ast);
 
         const trailingParam = functionNode.params[3];
         assert.equal(trailingParam?.type, "DefaultParameter");

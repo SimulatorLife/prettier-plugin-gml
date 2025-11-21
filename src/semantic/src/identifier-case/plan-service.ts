@@ -1,4 +1,5 @@
 import { Core } from "@gml-modules/core";
+import type { GameMakerAstNode } from "@gml-modules/core";
 
 import { prepareIdentifierCasePlan as defaultPrepareIdentifierCasePlan } from "./local-plan.js";
 import {
@@ -22,41 +23,36 @@ import {
  * below expose them via focused capture/apply facades.
  */
 
-/**
- * @typedef {object} IdentifierCasePlanPreparationService
- * @property {(options: object | null | undefined) => Promise<void>} prepareIdentifierCasePlan
- */
+export type IdentifierCasePlanPreparationService = {
+    prepareIdentifierCasePlan(
+        options: object | null | undefined
+    ): Promise<void>;
+};
 
-/**
- * @typedef {object} IdentifierCaseRenameLookupService
- * @property {(node: import("../dependencies.js").GameMakerAstNode | null, options: Record<string, unknown> | null | undefined) => string | null} getIdentifierCaseRenameForNode
- */
+export type IdentifierCaseRenameLookupService = {
+    getIdentifierCaseRenameForNode(
+        node: GameMakerAstNode | null,
+        options: Record<string, unknown> | null | undefined
+    ): string | null;
+};
 
-/**
- * @typedef {object} IdentifierCasePlanSnapshotCaptureService
- * @property {(options: unknown) => ReturnType<typeof defaultCaptureIdentifierCasePlanSnapshot>} captureIdentifierCasePlanSnapshot
- */
+export type IdentifierCasePlanSnapshotCaptureService = {
+    captureIdentifierCasePlanSnapshot(
+        options: unknown
+    ): ReturnType<typeof defaultCaptureIdentifierCasePlanSnapshot>;
+};
 
-/**
- * @typedef {object} IdentifierCasePlanSnapshotApplyService
- * @property {(snapshot: ReturnType<typeof defaultCaptureIdentifierCasePlanSnapshot>, options: Record<string, unknown> | null | undefined) => void} applyIdentifierCasePlanSnapshot
- */
+export type IdentifierCasePlanSnapshotApplyService = {
+    applyIdentifierCasePlanSnapshot(
+        snapshot: ReturnType<typeof defaultCaptureIdentifierCasePlanSnapshot>,
+        options: Record<string, unknown> | null | undefined
+    ): void;
+};
 
-/**
- * @typedef {() => IdentifierCasePlanPreparationService} IdentifierCasePlanPreparationProvider
- */
-
-/**
- * @typedef {() => IdentifierCaseRenameLookupService} IdentifierCaseRenameLookupProvider
- */
-
-/**
- * @typedef {() => IdentifierCasePlanSnapshotCaptureService} IdentifierCasePlanSnapshotCaptureProvider
- */
-
-/**
- * @typedef {() => IdentifierCasePlanSnapshotApplyService} IdentifierCasePlanSnapshotApplyProvider
- */
+export type IdentifierCasePlanPreparationProvider = () => IdentifierCasePlanPreparationService;
+export type IdentifierCaseRenameLookupProvider = () => IdentifierCaseRenameLookupService;
+export type IdentifierCasePlanSnapshotCaptureProvider = () => IdentifierCasePlanSnapshotCaptureService;
+export type IdentifierCasePlanSnapshotApplyProvider = () => IdentifierCasePlanSnapshotApplyService;
 
 const defaultPreparationService = Object.freeze({
     prepareIdentifierCasePlan: defaultPrepareIdentifierCasePlan
@@ -372,11 +368,14 @@ export function prepareIdentifierCasePlan(options) {
  * Look up the rename to apply for a given AST node using the registered
  * lookup service.
  *
- * @param {import("../dependencies.js").GameMakerAstNode | null} node
- * @param {Record<string, unknown> | null | undefined} options
- * @returns {string | null}
+ * @param node AST node under consideration.
+ * @param options Identifier-case options bag captured from the formatter.
+ * @returns The rename that should be applied or `null` when none exists.
  */
-export function getIdentifierCaseRenameForNode(node, options) {
+export function getIdentifierCaseRenameForNode(
+    node: GameMakerAstNode | null,
+    options: Record<string, unknown> | null | undefined
+) {
     try {
         console.debug(
             `[DBG] plan-service:getIdentifierCaseRenameForNode: enter nodeStart=${JSON.stringify(node?.start ?? null)} filepath=${options?.filepath ?? null}`

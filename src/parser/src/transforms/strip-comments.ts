@@ -1,5 +1,4 @@
 import { Core } from "@gml-modules/core";
-import { walkObjectGraph } from "../ast/object-graph.js";
 
 const {
     AST: { isCommentNode }
@@ -21,7 +20,7 @@ export function transform(ast, opts = {}) {
 
     // Remove comment nodes from any comments arrays and delete doc-like
     // metadata fields when requested.
-    walkObjectGraph(ast, {
+    Core.AST.walkObjectGraph(ast, {
         enterObject(value) {
             if (!value || typeof value !== "object") {
                 return;

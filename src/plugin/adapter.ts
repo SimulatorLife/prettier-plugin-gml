@@ -2,7 +2,7 @@
 // Transform options. This is intentionally small; it demonstrates the mapping
 // layer the plugin should own.
 
-import GMLParser, { applyTransforms } from "@gml-modules/parser";
+import { Parser } from "@gml-modules/parser";
 
 type PrettierGmlOptions = {
     gmlLanguageVersion?: string;
@@ -86,7 +86,7 @@ function runPipeline(
     pipelineConfig: PipelineConfig,
     transformOptions: TransformOptions
 ) {
-    const ast = GMLParser.parse(source, pipelineConfig?.parser);
+    const ast = Parser.GMLParser.parse(source, pipelineConfig?.parser);
     const transformEntries = pipelineConfig?.transforms ?? {};
     const transformNames = Object.entries(transformEntries)
         .filter(([, enabled]) => enabled)
@@ -96,5 +96,5 @@ function runPipeline(
         return ast;
     }
 
-    return applyTransforms(ast, transformNames, transformOptions);
+    return Parser.Transforms.applyTransforms(ast, transformNames, transformOptions);
 }

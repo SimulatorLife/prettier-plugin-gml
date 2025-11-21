@@ -1,4 +1,5 @@
 import { Core } from "@gml-modules/core";
+import type { GameMakerAstNode } from "@gml-modules/core";
 
 import {
     ScopeOverrideKeyword,
@@ -9,6 +10,12 @@ import {
 type IdentifierOccurrences = {
     declarations: Array<ReturnType<typeof createOccurrence>>;
     references: Array<ReturnType<typeof createOccurrence>>;
+};
+
+type ScopeRole = {
+    scopeOverride?: unknown;
+    tags?: Iterable<string>;
+    kind?: string;
 };
 
 class Scope {
@@ -310,14 +317,15 @@ export class ScopeTracker {
      * tolerates missing identifiers and nodes so callers can guard optional
      * grammar branches without bespoke checks.
      *
-     * @param {string | null | undefined} name Identifier being declared.
-     * @param {import("../dependencies.js").GameMakerAstNode | null | undefined} node
-     *        AST node representing the declaration site. The node is mutated to
-     *        include scope and classification metadata when provided.
-     * @param {{ scopeOverride?: unknown, tags?: Iterable<string>, kind?: string }}
-     *        [role] Classification hints used for semantic tokens.
+     * @param name Identifier being declared.
+     * @param node AST node whose identifier declarations are captured.
+     * @param role Classification hints used for semantic tokens.
      */
-    declare(name, node, role = {}) {
+    declare(
+        name: string | null | undefined,
+        node: GameMakerAstNode | null | undefined,
+        role: ScopeRole = {}
+    ) {
         if (!this.enabled || !name || !node) {
             return;
         }
@@ -349,7 +357,11 @@ export class ScopeTracker {
         this.recordScopeOccurrence(scope, name, occurrence);
     }
 
-    reference(name, node, role = {}) {
+    reference(
+        name: string | null | undefined,
+        node: GameMakerAstNode | null | undefined,
+        role: ScopeRole = {}
+    ) {
         if (!this.enabled || !name || !node) {
             return;
         }

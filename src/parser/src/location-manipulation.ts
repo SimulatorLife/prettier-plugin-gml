@@ -1,4 +1,4 @@
-import { walkObjectGraph } from "./ast/object-graph.js";
+import { Core } from "@gml-modules/core";
 
 function adjustLocationProperty(node, propertyName, mapIndex) {
     if (!Object.hasOwn(node, propertyName)) {
@@ -22,7 +22,7 @@ function adjustLocationProperty(node, propertyName, mapIndex) {
 }
 
 export function removeLocationMetadata(target) {
-    walkObjectGraph(target, {
+    Core.AST.walkObjectGraph(target, {
         enterObject(node) {
             if (Object.hasOwn(node, "start")) {
                 delete node.start;
@@ -36,7 +36,7 @@ export function removeLocationMetadata(target) {
 }
 
 export function simplifyLocationMetadata(target) {
-    walkObjectGraph(target, {
+    Core.AST.walkObjectGraph(target, {
         enterObject(node) {
             if (Object.hasOwn(node, "start")) {
                 const start = node.start;
@@ -60,7 +60,7 @@ export function remapLocationMetadata(target, mapIndex) {
         return;
     }
 
-    walkObjectGraph(target, {
+    Core.AST.walkObjectGraph(target, {
         enterObject(node) {
             adjustLocationProperty(node, "start", mapIndex);
             adjustLocationProperty(node, "end", mapIndex);

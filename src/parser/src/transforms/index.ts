@@ -52,3 +52,29 @@ export function applyTransforms(ast, transformNames = [], options = {}) {
 }
 
 export const availableTransforms = Object.keys(TRANSFORM_REGISTRY);
+
+export {
+    applyFeatherFixes,
+    applyRemovedIndexAdjustments,
+    getFeatherDiagnosticFixers,
+    getRoomNavigationHelpers,
+    preprocessSourceForFeatherFixes,
+    ROOM_NAVIGATION_DIRECTION
+} from "./apply-feather-fixes.js";
+export { condenseLogicalExpressions } from "./condense-logical-expressions.js";
+export {
+    consolidateStructAssignments,
+    CommentTracker
+} from "./consolidate-struct-assignments.js";
+export {
+    convertManualMathExpressions,
+    condenseScalarMultipliers
+} from "./convert-manual-math.js";
+export { convertStringConcatenations } from "./convert-string-concatenations.js";
+export { convertUndefinedGuardAssignments } from "./convert-undefined-guard-assignments.js";
+export { enforceVariableBlockSpacing } from "./enforce-variable-block-spacing.js";
+export { preprocessFunctionArgumentDefaults } from "./preprocess-function-argument-defaults.js";
+export { stripCommentsTransform } from "./strip-comments.js";
+export {
+    annotateStaticFunctionOverrides
+} from "./annotate-static-overrides.js";

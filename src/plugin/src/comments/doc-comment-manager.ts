@@ -1,4 +1,4 @@
-import * as Parser from "@gml-modules/parser";
+import { Parser } from "@gml-modules/parser";
 
 // Delegate plugin-side comment management to the parser's canonical
 // implementation. This removes duplicated source while keeping the plugin
