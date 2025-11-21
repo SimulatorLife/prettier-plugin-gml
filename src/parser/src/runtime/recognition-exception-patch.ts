@@ -6,6 +6,16 @@ const {
     Utils: { hasFunction, isErrorLike, isObjectLike }
 } = Core;
 
+type RecognitionExceptionConstructor = new (...args: unknown[]) => object;
+type DefaultErrorStrategyConstructor = new (...args: unknown[]) => object;
+
+const typedAntlr4 = antlr4 as typeof antlr4 & {
+    error?: {
+        RecognitionException?: RecognitionExceptionConstructor;
+        DefaultErrorStrategy?: DefaultErrorStrategyConstructor;
+    };
+};
+
 const INVALID_INDEX_FALLBACK = -1;
 
 function hasOffendingTokenProbe(value) {
@@ -258,7 +268,7 @@ export function installRecognitionExceptionLikeGuard() {
         return;
     }
 
-    const recognitionException = antlr4?.error?.RecognitionException;
+    const recognitionException = typedAntlr4.error?.RecognitionException;
     if (typeof recognitionException !== "function") {
         return;
     }
@@ -279,7 +289,7 @@ export function installRecognitionExceptionLikeGuard() {
         }
     });
 
-    const defaultErrorStrategy = antlr4?.error?.DefaultErrorStrategy;
+    const defaultErrorStrategy = typedAntlr4.error?.DefaultErrorStrategy;
     if (typeof defaultErrorStrategy === "function") {
         const originalReportNoViable =
             defaultErrorStrategy.prototype.reportNoViableAlternative;

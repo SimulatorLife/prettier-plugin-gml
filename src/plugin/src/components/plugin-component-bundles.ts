@@ -4,7 +4,7 @@ import { handleComments, printComment } from "../comments/public-api.js";
 import { LogicalOperatorsStyle } from "../options/logical-operators-style.js";
 import { gmlParserAdapter } from "../parsers/index.js";
 import { print } from "../printer/index.js";
-import type { GmlPluginComponentContract } from "../plugin-types.js";
+import type { GmlPluginComponentContract } from "./plugin-types.js";
 import { createSingletonComponentRegistry } from "./component-registry.js";
 import { selectPluginComponentContractEntries } from "./plugin-component-contract.js";
 

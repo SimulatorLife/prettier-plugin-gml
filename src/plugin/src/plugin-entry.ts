@@ -12,8 +12,8 @@ import type {
     GmlPlugin,
     GmlPluginComponentBundle,
     GmlPluginDefaultOptions
-} from "./plugin-types.js";
-import { resolveGmlPluginComponents } from "./plugin-components.js";
+} from "./components/plugin-types.js";
+import { resolveGmlPluginComponents } from "./components/plugin-components.js";
 import { resolveCoreOptionOverrides } from "./options/core-option-overrides.js";
 
 function selectPluginComponents(): GmlPluginComponentBundle {

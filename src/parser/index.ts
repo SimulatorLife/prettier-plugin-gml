@@ -1,3 +1,1 @@
-import * as ParserAPI from "./src/index.js";
-
-export const Parser = ParserAPI;
+export * as Parser from "./src/index.js";

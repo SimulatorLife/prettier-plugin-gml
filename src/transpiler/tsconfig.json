@@ -6,7 +6,8 @@
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "baseUrl": ".",
     "paths": {
-      "@gml-modules/transpiler": ["./index.ts"]
+      "@gml-modules/transpiler": ["./index.ts"],
+      "@gml-modules/core": ["../core/dist/index.d.ts"],
     }
   },
   "include": ["*.ts", "src/**/*.ts", "test/**/*.ts"],

@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-
-import { isSyntaxErrorWithLocation } from "../gml-parser.js";
+import { isSyntaxErrorWithLocation } from "../src/utils/syntax-error-guards.js";
 
 describe("isSyntaxErrorWithLocation", () => {
     it("identifies syntax errors with location metadata", () => {

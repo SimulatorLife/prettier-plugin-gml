@@ -3,8 +3,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
-import GMLParser from "../gml-parser.js";
-import GameMakerASTBuilder from "../src/gml-ast-builder.js";
+import GMLParser from "../src/gml-parser.js";
+import GameMakerASTBuilder from "../src/ast/gml-ast-builder.js";
 import { Core } from "@gml-modules/core";
 import { Semantic } from "@gml-modules/semantic";
 

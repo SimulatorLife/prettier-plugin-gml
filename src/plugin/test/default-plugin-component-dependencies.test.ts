@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { defaultGmlPluginComponentDependencies } from "../src/component-providers/plugin-component-bundles.js";
+import { defaultGmlPluginComponentDependencies } from "../src/components/plugin-component-bundles.js";
 import { gmlParserAdapter } from "../src/parsers/index.js";
 import { print } from "../src/printer/index.js";
 import { handleComments, printComment } from "../src/comments/public-api.js";

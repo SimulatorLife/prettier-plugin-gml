@@ -7,6 +7,21 @@ import {
     installRecognitionExceptionLikeGuard
 } from "../src/utils/recognition-exception.js";
 
+type RecognitionExceptionConstructor = new (...args: unknown[]) => object;
+
+const typedAntlr4 = antlr4 as typeof antlr4 & {
+    error?: {
+        RecognitionException?: RecognitionExceptionConstructor;
+    };
+};
+
+const RecognitionException = typedAntlr4.error?.RecognitionException;
+if (!RecognitionException) {
+    throw new Error(
+        "ANTLR RecognitionException class is required for the recognition guard tests"
+    );
+}
+
 class RecognitionAdapter extends Error {
     constructor(message = "adapter failure") {
         super(message);
@@ -72,14 +87,14 @@ test("installRecognitionExceptionLikeGuard augments instanceof checks", () => {
     const candidate = new RecognitionAdapter();
 
     assert.strictEqual(
-        candidate instanceof antlr4.error.RecognitionException,
+        candidate instanceof RecognitionException,
         false
     );
 
     installRecognitionExceptionLikeGuard();
 
     assert.strictEqual(
-        candidate instanceof antlr4.error.RecognitionException,
+        candidate instanceof RecognitionException,
         true
     );
 });

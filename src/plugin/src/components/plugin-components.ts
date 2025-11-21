@@ -1,13 +1,13 @@
 import * as Core from "@gml-modules/core";
 
-import { createDefaultGmlPluginComponents } from "./component-providers/default-plugin-components.js";
-import { normalizeGmlPluginComponents } from "./component-providers/plugin-component-normalizer.js";
+import { createDefaultGmlPluginComponents } from "./default-plugin-components.js";
+import { normalizeGmlPluginComponents } from "./plugin-component-normalizer.js";
 import type {
     GmlPluginComponentBundle,
     GmlPluginComponentObserver,
     GmlPluginComponentProvider,
     ObserverOptions
-} from "./plugin-types.js";
+} from "../plugin-types.js";
 
 const DEFAULT_COMPONENTS = normalizeGmlPluginComponents(
     createDefaultGmlPluginComponents()

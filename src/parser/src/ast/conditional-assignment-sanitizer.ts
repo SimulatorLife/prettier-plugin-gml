@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-import { remapLocationMetadata } from "../location-manipulation.js";
+import { remapLocationMetadata } from "./location-manipulation.js";
 
 const {
     Utils: {

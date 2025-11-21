@@ -1,6 +1,6 @@
 import * as Core from "@gml-modules/core";
 
-import type { GmlPluginComponentContract } from "../plugin-types.js";
+import type { GmlPluginComponentContract } from "./plugin-types.js";
 
 type ComponentDescriptor = Readonly<{
     name: keyof GmlPluginComponentContract;

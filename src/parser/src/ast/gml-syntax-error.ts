@@ -1,12 +1,18 @@
 import antlr4 from "antlr4";
 
 import { Core } from "@gml-modules/core";
+type AntlrErrorListenerConstructor = new (...args: unknown[]) => object;
 
-const {
-    Utils: { isNonEmptyString }
-} = Core;
+const typedAntlr4 = antlr4 as typeof antlr4 & {
+    error?: {
+        ErrorListener?: AntlrErrorListenerConstructor;
+    };
+};
 
-const { ErrorListener } = antlr4.error;
+const ErrorListener = typedAntlr4.error?.ErrorListener;
+if (typeof ErrorListener !== "function") {
+    throw new Error("ANTLR ErrorListener is not available");
+}
 
 export class GameMakerSyntaxError extends Error {
     constructor({ message, line, column, wrongSymbol, rule, offendingText }) {
@@ -36,11 +42,11 @@ class SyntaxErrorFormatter {
             return null;
         }
 
-        if (isNonEmptyString(offendingSymbol?.text)) {
+        if (Core.Utils.isNonEmptyString(offendingSymbol?.text)) {
             return offendingSymbol.text;
         }
 
-        if (isNonEmptyString(offendingSymbol)) {
+        if (Core.Utils.isNonEmptyString(offendingSymbol)) {
             return offendingSymbol;
         }
 
@@ -55,7 +61,7 @@ class SyntaxErrorFormatter {
     }
 
     extractOffendingTextFromLexerMessage(message) {
-        if (!isNonEmptyString(message)) {
+        if (!Core.Utils.isNonEmptyString(message)) {
             return null;
         }
 
@@ -82,7 +88,7 @@ class SyntaxErrorFormatter {
     }
 
     unescapeLexerToken(text) {
-        if (!isNonEmptyString(text)) {
+        if (!Core.Utils.isNonEmptyString(text)) {
             return text;
         }
 
@@ -94,7 +100,7 @@ class SyntaxErrorFormatter {
             return "end of file";
         }
 
-        if (isNonEmptyString(offendingText)) {
+        if (Core.Utils.isNonEmptyString(offendingText)) {
             return `symbol '${offendingText}'`;
         }
 

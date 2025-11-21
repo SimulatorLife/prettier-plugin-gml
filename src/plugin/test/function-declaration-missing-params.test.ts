@@ -7,7 +7,7 @@ import prettier from "prettier";
 import {
     restoreDefaultGmlPluginComponents,
     setGmlPluginComponentProvider
-} from "../src/plugin-components.js";
+} from "../src/components/plugin-components.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const pluginPath = path.resolve(currentDirectory, "../src/gml.js");

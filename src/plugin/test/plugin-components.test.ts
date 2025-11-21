@@ -7,8 +7,8 @@ import {
     resolveGmlPluginComponents,
     restoreDefaultGmlPluginComponents,
     setGmlPluginComponentProvider
-} from "../src/plugin-components.js";
-import * as gmlPlugin from "../src/gml.js";
+} from "../src/components/plugin-components.js";
+import * as gmlPlugin from "../src/index.js";
 
 function createCustomComponents() {
     return {

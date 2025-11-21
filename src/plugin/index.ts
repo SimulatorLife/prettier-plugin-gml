@@ -1,2 +1,1 @@
-export { Plugin } from "./src/gml.js";
-export * from "./src/plugin-types.js";
+export { Plugin } from "./src/index.js";

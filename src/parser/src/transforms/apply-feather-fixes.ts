@@ -7,10 +7,10 @@
 import antlr4, { PredictionMode } from "antlr4";
 import GameMakerLanguageLexer from "../../generated/GameMakerLanguageLexer.js";
 import GameMakerLanguageParser from "../../generated/GameMakerLanguageParser.js";
-import GameMakerASTBuilder from "../gml-ast-builder.js";
+import GameMakerASTBuilder from "../ast/gml-ast-builder.js";
 import GameMakerParseErrorListener, {
     GameMakerLexerErrorListener
-} from "../gml-syntax-error.js";
+} from "../ast/gml-syntax-error.js";
 import { Core as CoreNamespace } from "@gml-modules/core";
 import { preprocessFunctionArgumentDefaults } from "./preprocess-function-argument-defaults.js";
 import {

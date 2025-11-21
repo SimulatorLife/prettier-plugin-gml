@@ -4,8 +4,8 @@ import test from "node:test";
 import {
     restoreDefaultGmlPluginComponents,
     setGmlPluginComponentProvider
-} from "../src/plugin-components.js";
-import * as gmlPlugin from "../src/gml.js";
+} from "../src/components/plugin-components.js";
+import * as gmlPlugin from "../src/index.js";
 
 function createCustomComponentBundle() {
     return {

@@ -2,17 +2,17 @@ import antlr4 from "antlr4";
 
 import GameMakerLanguageLexer from "../generated/GameMakerLanguageLexer.js";
 import GameMakerLanguageParser from "../generated/GameMakerLanguageParser.js";
-import GameMakerASTBuilder from "./gml-ast-builder.js";
+import GameMakerASTBuilder from "./ast/gml-ast-builder.js";
 import { applyTransforms } from "./transforms/index.js";
 import GameMakerParseErrorListener, {
     GameMakerLexerErrorListener
-} from "./gml-syntax-error.js";
+} from "./ast/gml-syntax-error.js";
 import { createHiddenNodeProcessor } from "./ast/hidden-node-processor.js";
 import { Core } from "@gml-modules/core";
 import {
     removeLocationMetadata,
     simplifyLocationMetadata
-} from "./location-manipulation.js";
+} from "./ast/location-manipulation.js";
 import { installRecognitionExceptionLikeGuard } from "./runtime/index.js";
 import convertToESTree from "./utils/estree-converter.js";
 
@@ -22,22 +22,28 @@ const PredictionMode =
     (antlr4 as any).PredictionMode ??
     (antlr4 as any).atn?.PredictionMode;
 
-const {
-    Utils,
-    Utils: {
-        isObjectLike,
-        isErrorLike,
-        getLineBreakCount,
-        normalizeSimpleEscapeCase,
-        isQuotedString
-    }
-} = Core;
+type ParserOptions = {
+    getComments: boolean;
+    getLocations: boolean;
+    simplifyLocations: boolean;
+    getIdentifierMetadata: boolean;
+    createScopeTracker: unknown;
+    astFormat: string;
+    asJSON: boolean;
+    transforms?: Array<unknown>;
+    transformOptions?: Record<string, unknown>;
+};
 
 installRecognitionExceptionLikeGuard();
 
-function mergeParserOptions(baseOptions, overrides) {
-    const overrideObject = isObjectLike(overrides) ? overrides : {};
-    return Object.assign({}, baseOptions, overrideObject);
+function mergeParserOptions(
+    baseOptions: ParserOptions,
+    overrides: Partial<ParserOptions> | undefined
+): ParserOptions {
+    const overrideObject = Core.Utils.isObjectLike(overrides)
+        ? overrides
+        : {};
+    return Object.assign({}, baseOptions, overrideObject) as ParserOptions;
 }
 
 export default class GMLParser {
@@ -45,19 +51,19 @@ export default class GMLParser {
     public text: string;
     public whitespaces: Array<unknown>;
     public comments: Array<unknown>;
-    public options: Record<string, unknown>;
+    public options: ParserOptions;
 
-    constructor(text, options = {}) {
+    constructor(text: string, options: Partial<ParserOptions> = {}) {
         this.originalText = text;
-        this.text = normalizeSimpleEscapeCase(text);
+        this.text = Core.Utils.normalizeSimpleEscapeCase(text);
         this.whitespaces = [];
         this.comments = [];
-        const defaults =
-            this.constructor?.optionDefaults ?? GMLParser.optionDefaults;
-        this.options = mergeParserOptions(defaults, options);
+        const parserConstructor =
+            (this.constructor as typeof GMLParser | undefined) ?? GMLParser;
+        this.options = mergeParserOptions(parserConstructor.optionDefaults, options);
     }
 
-    static optionDefaults = Object.freeze({
+    static optionDefaults: ParserOptions = Object.freeze({
         getComments: true,
         getLocations: true,
         simplifyLocations: true,
@@ -70,9 +76,9 @@ export default class GMLParser {
         // object. This is primarily useful when paired with the ESTree output
         // to feed other tooling or persist snapshots.
         asJSON: false
-    });
+    }) as ParserOptions;
 
-    static parse(text, options) {
+    static parse(text: string, options?: Partial<ParserOptions>) {
         return new this(text, options).parse();
     }
 
@@ -99,7 +105,7 @@ export default class GMLParser {
                 );
             }
 
-            if (isErrorLike(error)) {
+            if (Core.Utils.isErrorLike(error)) {
                 throw error;
             }
 
@@ -197,7 +203,7 @@ export default class GMLParser {
                 const endIndex =
                     typeof node.end === "number" ? node.end : node.end?.index;
 
-                if (node.type === "Literal" && isQuotedString(node.value)) {
+                if (node.type === "Literal" && Core.Utils.isQuotedString(node.value)) {
                     if (
                         Number.isInteger(startIndex) &&
                         Number.isInteger(endIndex) &&
@@ -262,4 +268,4 @@ export default class GMLParser {
     }
 }
 
-export { getLineBreakCount };
+export const getLineBreakCount = Core.Utils.getLineBreakCount;

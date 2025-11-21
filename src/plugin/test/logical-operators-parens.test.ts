@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import prettier from "prettier";
 
-const pluginModule = await import("../src/gml.js");
+const pluginModule = await import("../src/index.js");
 
 function format(source, options = {}) {
     return prettier.format(source, {

@@ -1,4 +1,4 @@
-import type { GmlPluginComponentBundle } from "../plugin-types.js";
+import type { GmlPluginComponentBundle } from "./plugin-types.js";
 import { resolveGmlPluginComponentDependencies } from "./plugin-component-bundles.js";
 import { DEFAULT_MIN_DECLARATION_RUN_LENGTH } from "../options/variable-block-spacing-options.js";
 
