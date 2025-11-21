@@ -101,7 +101,9 @@ class TerminalProgressBar implements ProgressBarLike {
         }
 
         const normalizedValue =
-            typeof value === "number" ? value : Number.parseFloat(String(value));
+            typeof value === "number"
+                ? value
+                : Number.parseFloat(String(value));
 
         return Math.min(Math.max(0, normalizedValue), this.total);
     }

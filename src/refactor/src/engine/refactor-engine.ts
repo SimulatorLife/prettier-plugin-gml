@@ -59,9 +59,13 @@ interface SemanticAnalyzer {
         scopeId?: string
     ): MaybePromise<SymbolLookupResult | null | undefined>;
     getReservedKeywords?(): MaybePromise<Array<string>>;
-    validateEdits?(workspace: WorkspaceEdit): MaybePromise<SemanticValidationResult>;
+    validateEdits?(
+        workspace: WorkspaceEdit
+    ): MaybePromise<SemanticValidationResult>;
     getFileSymbols?(filePath: string): MaybePromise<Array<FileSymbol>>;
-    getDependents?(symbolIds: Array<string>): MaybePromise<Array<DependentSymbol>>;
+    getDependents?(
+        symbolIds: Array<string>
+    ): MaybePromise<Array<DependentSymbol>>;
     getSymbolAtPosition?(
         filePath: string,
         offset: number

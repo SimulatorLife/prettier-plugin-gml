@@ -10,7 +10,10 @@ interface ManualPayloadReaderContext {
     source?: string | null;
 }
 
-function validateManualMapping(record: Record<string, unknown>, { valueDescription }: { valueDescription: string }) {
+function validateManualMapping(
+    record: Record<string, unknown>,
+    { valueDescription }: { valueDescription: string }
+) {
     for (const [key, value] of Object.entries(record)) {
         if (typeof value !== "string") {
             const formattedKey = key ? `'${key}'` : "<empty key>";

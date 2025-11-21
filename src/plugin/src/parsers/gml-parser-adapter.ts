@@ -70,7 +70,8 @@ async function parse(text, options) {
         // These should be converted to proper // comments to avoid parsing errors
         parseSource = fixMalformedComments(parseSource);
 
-        const sanitizedResult = Parser.Utils.sanitizeConditionalAssignments(parseSource);
+        const sanitizedResult =
+            Parser.Utils.sanitizeConditionalAssignments(parseSource);
         const { sourceText: sanitizedSource, indexAdjustments } =
             sanitizedResult;
 

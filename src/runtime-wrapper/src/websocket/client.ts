@@ -261,12 +261,11 @@ function resolveWebSocketConstructor(): RuntimeWebSocketConstructor {
     return ctor;
 }
 
-function toRuntimePatchError(
-    error: unknown,
-    patch?: Patch
-): RuntimePatchError {
+function toRuntimePatchError(error: unknown, patch?: Patch): RuntimePatchError {
     const message =
-        error instanceof Error ? error.message : String(error ?? "Unknown error");
+        error instanceof Error
+            ? error.message
+            : String(error ?? "Unknown error");
     return createRuntimePatchError(message, patch);
 }
 

@@ -6,9 +6,7 @@ import {
     runParserBenchmark
 } from "../src/modules/performance/index.js";
 
-function isCompletedBenchmarkResult(
-    value: unknown
-): value is {
+function isCompletedBenchmarkResult(value: unknown): value is {
     iterations: number;
     durations: Array<number>;
     totalDurationMs: number;
@@ -31,9 +29,7 @@ function isCompletedBenchmarkResult(
 function isSkippedBenchmarkResult(
     value: unknown
 ): value is { skipped: boolean; reason?: unknown } {
-    return Boolean(
-        value && typeof value === "object" && "skipped" in value
-    );
+    return Boolean(value && typeof value === "object" && "skipped" in value);
 }
 
 function createNowStub(step) {

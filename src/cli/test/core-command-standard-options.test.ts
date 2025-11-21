@@ -55,7 +55,10 @@ describe("applyStandardCommandOptions", () => {
 
         const [, options] = configured.calls[4];
         assert.ok(options && typeof options === "object");
-        const outputOptions = options as { writeErr?: unknown; outputError?: unknown };
+        const outputOptions = options as {
+            writeErr?: unknown;
+            outputError?: unknown;
+        };
         assert.equal(typeof outputOptions.writeErr, "function");
         assert.equal(typeof outputOptions.outputError, "function");
         assert.strictEqual(outputOptions.writeErr, outputOptions.outputError);

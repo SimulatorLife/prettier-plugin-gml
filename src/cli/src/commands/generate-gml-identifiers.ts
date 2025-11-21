@@ -150,8 +150,7 @@ export function createGenerateIdentifiersCommand({ env = process.env } = {}) {
 function resolveGenerateIdentifierOptions(
     command?: CommanderCommandLike
 ): NormalizedGenerateIdentifiersOptions {
-    const options: GenerateIdentifiersCommandOptions =
-        command?.opts?.() ?? {};
+    const options: GenerateIdentifiersCommandOptions = command?.opts?.() ?? {};
 
     return {
         outputPath: options.output ?? DEFAULT_OUTPUT_PATH,

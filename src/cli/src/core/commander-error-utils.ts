@@ -22,10 +22,7 @@ export function isCommanderErrorLike(
         return false;
     }
 
-    if (
-        "exitCode" in candidate &&
-        typeof candidate.exitCode !== "number"
-    ) {
+    if ("exitCode" in candidate && typeof candidate.exitCode !== "number") {
         return false;
     }
 

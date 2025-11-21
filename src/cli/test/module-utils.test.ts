@@ -70,9 +70,7 @@ test("isMissingModuleDependency returns false for unrelated errors", () => {
 });
 
 test("isMissingModuleDependency requires a non-empty module identifier", () => {
-    const error: Error & { code?: string } = new Error(
-        "Cannot find module ''"
-    );
+    const error: Error & { code?: string } = new Error("Cannot find module ''");
     error.code = "ERR_MODULE_NOT_FOUND";
 
     assert.throws(() => isMissingModuleDependency(error, "  "), /moduleId/);

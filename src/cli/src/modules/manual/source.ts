@@ -143,9 +143,7 @@ export async function readManualJson(root, relativePath) {
     }
 }
 
-export function describeManualSource(
-    source: ManualSourceDescriptor
-) {
+export function describeManualSource(source: ManualSourceDescriptor) {
     const { root, packageName, packageJson } = source;
 
     if (packageName) {

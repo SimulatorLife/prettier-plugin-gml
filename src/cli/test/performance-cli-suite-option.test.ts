@@ -33,21 +33,14 @@ describe("performance CLI suite option", () => {
         const command = createPerformanceCommand();
 
         assert.throws(
-            () =>
-                command.parse(
-                    ["--suite", "unsupported"],
-                    USER_PARSE_OPTIONS
-                ),
+            () => command.parse(["--suite", "unsupported"], USER_PARSE_OPTIONS),
             (error) => {
                 if (!(error instanceof Error)) {
                     return false;
                 }
                 const withCode = error as Error & { code?: string };
                 assert.equal(withCode.code, "commander.invalidArgument");
-                assert.match(
-                    error.message,
-                    /benchmark suite must be one of/i
-                );
+                assert.match(error.message, /benchmark suite must be one of/i);
                 return true;
             }
         );

@@ -104,9 +104,10 @@ test("planRename validates symbolId type", async () => {
     const engine = new RefactorEngine();
     await assert.rejects(
         () =>
-            engine.planRename(
-                { symbolId: 123, newName: "bar" } as unknown as RenameRequest
-            ),
+            engine.planRename({
+                symbolId: 123,
+                newName: "bar"
+            } as unknown as RenameRequest),
         {
             name: "TypeError",
             message: /symbolId must be a string/
@@ -118,12 +119,10 @@ test("planRename validates newName type", async () => {
     const engine = new RefactorEngine();
     await assert.rejects(
         () =>
-            engine.planRename(
-                {
-                    symbolId: "gml/script/foo",
-                    newName: 456
-                } as unknown as RenameRequest
-            ),
+            engine.planRename({
+                symbolId: "gml/script/foo",
+                newName: 456
+            } as unknown as RenameRequest),
         {
             name: "TypeError",
             message: /Identifier names must be strings/
@@ -404,8 +403,9 @@ test("applyWorkspaceEdit requires a WorkspaceEdit", async () => {
 test("applyWorkspaceEdit requires readFile function", async () => {
     const engine = new RefactorEngine();
     const ws = new WorkspaceEdit();
-    type ApplyWorkspaceEditParams =
-        Parameters<RefactorEngine["applyWorkspaceEdit"]>[1];
+    type ApplyWorkspaceEditParams = Parameters<
+        RefactorEngine["applyWorkspaceEdit"]
+    >[1];
     const invalidOptions = {} as ApplyWorkspaceEditParams;
     await assert.rejects(() => engine.applyWorkspaceEdit(ws, invalidOptions), {
         name: "TypeError",
@@ -576,7 +576,10 @@ test("prepareRenamePlan aggregates planning, validation, and analysis", async ()
             warnings: ["semantic warning"]
         }),
         getDependents: async () => [
-            { symbolId: "gml/script/scr_helper", filePath: "scripts/helper.gml" }
+            {
+                symbolId: "gml/script/scr_helper",
+                filePath: "scripts/helper.gml"
+            }
         ]
     };
 
@@ -659,8 +662,7 @@ test("generateTranspilerPatches requires array parameter", async () => {
 test("generateTranspilerPatches requires readFile function", async () => {
     const engine = new RefactorEngine();
     await assert.rejects(
-        () =>
-            engine.generateTranspilerPatches([], null as unknown as never),
+        () => engine.generateTranspilerPatches([], null as unknown as never),
         {
             name: "TypeError",
             message: /requires a readFile function/
@@ -774,10 +776,7 @@ test("generateTranspilerPatches continues on individual errors", async () => {
 test("planBatchRename requires an array", async () => {
     const engine = new RefactorEngine();
     await assert.rejects(
-        () =>
-            engine.planBatchRename(
-                null as unknown as Array<RenameRequest>
-            ),
+        () => engine.planBatchRename(null as unknown as Array<RenameRequest>),
         {
             name: "TypeError",
             message: /requires an array/
@@ -796,9 +795,9 @@ test("planBatchRename validates each rename request", async () => {
     const engine = new RefactorEngine();
     await assert.rejects(
         () =>
-            engine.planBatchRename(
-                [{ symbolId: "gml/script/foo" }] as unknown as Array<RenameRequest>
-            ),
+            engine.planBatchRename([
+                { symbolId: "gml/script/foo" }
+            ] as unknown as Array<RenameRequest>),
         {
             name: "TypeError",
             message: /requires symbolId and newName/
@@ -889,8 +888,9 @@ test("planBatchRename validates merged edits for overlaps", async () => {
 
 test("executeBatchRename validates required parameters", async () => {
     const engine = new RefactorEngine();
-    type ExecuteBatchRenameArgs =
-        Parameters<RefactorEngine["executeBatchRename"]>[0];
+    type ExecuteBatchRenameArgs = Parameters<
+        RefactorEngine["executeBatchRename"]
+    >[0];
     const invalidRequest = {} as ExecuteBatchRenameArgs;
     await assert.rejects(() => engine.executeBatchRename(invalidRequest), {
         name: "TypeError",
@@ -973,9 +973,9 @@ test("analyzeRenameImpact requires symbolId and newName", async () => {
     const engine = new RefactorEngine();
     await assert.rejects(
         () =>
-            engine.analyzeRenameImpact(
-                { symbolId: "gml/script/foo" } as unknown as RenameRequest
-            ),
+            engine.analyzeRenameImpact({
+                symbolId: "gml/script/foo"
+            } as unknown as RenameRequest),
         {
             name: "TypeError",
             message: /requires symbolId and newName/

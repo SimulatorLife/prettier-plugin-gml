@@ -19,8 +19,7 @@ test("memory command rejects invalid format values", () => {
     const command = createMemoryCommand({ env: {} });
 
     assert.throws(
-        () =>
-            command.parse(["--format", "xml"], USER_PARSE_OPTIONS),
+        () => command.parse(["--format", "xml"], USER_PARSE_OPTIONS),
         (error) => {
             if (!(error instanceof Error)) {
                 return false;

@@ -22,9 +22,7 @@ test("decodeManualKeywordsPayload wraps JSON syntax errors", () => {
             const message =
                 error instanceof Error
                     ? error.message
-                    : String(
-                          (error as { message?: unknown }).message ?? error
-                      );
+                    : String((error as { message?: unknown }).message ?? error);
             assert.match(message, /Failed to parse manual keywords payload/i);
             return true;
         }

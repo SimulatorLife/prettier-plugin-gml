@@ -96,5 +96,9 @@ function runPipeline(
         return ast;
     }
 
-    return Parser.Transforms.applyTransforms(ast, transformNames, transformOptions);
+    return Parser.Transforms.applyTransforms(
+        ast,
+        transformNames,
+        transformOptions
+    );
 }

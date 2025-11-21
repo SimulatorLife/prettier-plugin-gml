@@ -49,10 +49,14 @@ export type IdentifierCasePlanSnapshotApplyService = {
     ): void;
 };
 
-export type IdentifierCasePlanPreparationProvider = () => IdentifierCasePlanPreparationService;
-export type IdentifierCaseRenameLookupProvider = () => IdentifierCaseRenameLookupService;
-export type IdentifierCasePlanSnapshotCaptureProvider = () => IdentifierCasePlanSnapshotCaptureService;
-export type IdentifierCasePlanSnapshotApplyProvider = () => IdentifierCasePlanSnapshotApplyService;
+export type IdentifierCasePlanPreparationProvider =
+    () => IdentifierCasePlanPreparationService;
+export type IdentifierCaseRenameLookupProvider =
+    () => IdentifierCaseRenameLookupService;
+export type IdentifierCasePlanSnapshotCaptureProvider =
+    () => IdentifierCasePlanSnapshotCaptureService;
+export type IdentifierCasePlanSnapshotApplyProvider =
+    () => IdentifierCasePlanSnapshotApplyService;
 
 const defaultPreparationService = Object.freeze({
     prepareIdentifierCasePlan: defaultPrepareIdentifierCasePlan

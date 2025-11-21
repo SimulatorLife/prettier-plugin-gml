@@ -130,9 +130,7 @@ export async function resolveRuntimeSource({
     };
 }
 
-export function describeRuntimeSource(
-    source: RuntimeSourceDescriptor
-) {
+export function describeRuntimeSource(source: RuntimeSourceDescriptor) {
     const { root, packageName, packageJson } = source;
 
     if (packageName) {

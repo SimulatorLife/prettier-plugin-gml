@@ -1,4 +1,8 @@
-import type { Patch, RuntimePatchError, RuntimeWrapper } from "../runtime/types.js";
+import type {
+    Patch,
+    RuntimePatchError,
+    RuntimeWrapper
+} from "../runtime/types.js";
 
 export type WebSocketEvent = "open" | "message" | "close" | "error";
 
@@ -28,10 +32,7 @@ export interface WebSocketClientOptions {
     wrapper?: RuntimeWrapper | null;
     onConnect?: () => void;
     onDisconnect?: () => void;
-    onError?: (
-        error: RuntimePatchError,
-        phase: "connection" | "patch"
-    ) => void;
+    onError?: (error: RuntimePatchError, phase: "connection" | "patch") => void;
     reconnectDelay?: number;
     autoConnect?: boolean;
 }

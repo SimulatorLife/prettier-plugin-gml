@@ -8,7 +8,9 @@ export function loadGmlParser() {
             const parserModule = resolveModuleDefaultExport(module);
             if (parserModule && typeof parserModule === "object") {
                 const parserNamespace =
-                    "Parser" in parserModule ? parserModule.Parser : parserModule;
+                    "Parser" in parserModule
+                        ? parserModule.Parser
+                        : parserModule;
                 if (parserNamespace && typeof parserNamespace === "object") {
                     return parserNamespace.GMLParser ?? parserNamespace;
                 }

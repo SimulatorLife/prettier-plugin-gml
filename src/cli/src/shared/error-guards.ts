@@ -1,8 +1,4 @@
-import {
-    isErrorLike,
-    isErrorWithCode,
-    isObjectLike
-} from "../dependencies.js";
+import { isErrorLike, isErrorWithCode, isObjectLike } from "../dependencies.js";
 
 export interface ErrorLikeDetails {
     name?: string;

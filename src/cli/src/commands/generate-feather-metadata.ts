@@ -109,8 +109,7 @@ export function createFeatherMetadataCommand() {
 function resolveFeatherMetadataOptions(
     command?: CommanderCommandLike
 ): NormalizedFeatherMetadataOptions {
-    const options: FeatherMetadataCommandOptions =
-        command?.opts?.() ?? {};
+    const options: FeatherMetadataCommandOptions = command?.opts?.() ?? {};
 
     return {
         outputPath: options.output ?? DEFAULT_OUTPUT_PATH,

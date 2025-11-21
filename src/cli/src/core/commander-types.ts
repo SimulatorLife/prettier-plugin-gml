@@ -15,10 +15,15 @@ export interface CommanderUsageProvider {
 }
 
 export interface CommanderLifecycle {
-    hook?: (event: string, listener: (...args: Array<unknown>) => unknown) => unknown;
+    hook?: (
+        event: string,
+        listener: (...args: Array<unknown>) => unknown
+    ) => unknown;
 }
 
-export interface CommanderCommandHost extends CommanderUsageProvider, CommanderLifecycle {
+export interface CommanderCommandHost
+    extends CommanderUsageProvider,
+        CommanderLifecycle {
     addCommand?: (
         command: CommanderCommandHost,
         options?: { isDefault?: boolean }
@@ -28,7 +33,10 @@ export interface CommanderCommandHost extends CommanderUsageProvider, CommanderL
 
 export interface CommanderProgramLike extends CommanderCommandHost {
     parse?: (argv?: Array<string>, options?: CommanderParseOptions) => unknown;
-    parseAsync?: (argv?: Array<string>, options?: CommanderParseOptions) => Promise<unknown>;
+    parseAsync?: (
+        argv?: Array<string>,
+        options?: CommanderParseOptions
+    ) => Promise<unknown>;
     args?: Array<string>;
     processedArgs?: Array<string>;
     opts?: () => Record<string, unknown>;

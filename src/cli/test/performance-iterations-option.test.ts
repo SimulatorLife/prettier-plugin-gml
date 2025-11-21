@@ -19,8 +19,7 @@ describe("performance CLI iterations option", () => {
         const command = createPerformanceCommand();
 
         assert.throws(
-            () =>
-                command.parse(["--iterations", "0"], USER_PARSE_OPTIONS),
+            () => command.parse(["--iterations", "0"], USER_PARSE_OPTIONS),
             (error) => {
                 if (!(error instanceof Error)) {
                     return false;

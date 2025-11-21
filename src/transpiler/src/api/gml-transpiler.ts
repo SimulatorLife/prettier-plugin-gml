@@ -29,7 +29,9 @@ export class GmlTranspiler {
         this.emitterOptions = dependencies.emitterOptions;
     }
 
-    async transpileScript(request: TranspileScriptRequest): Promise<ScriptPatch> {
+    async transpileScript(
+        request: TranspileScriptRequest
+    ): Promise<ScriptPatch> {
         if (!request || typeof request !== "object") {
             throw new TypeError("transpileScript requires a request object");
         }
@@ -58,16 +60,22 @@ export class GmlTranspiler {
             };
             return patch;
         } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            throw new Error(`Failed to transpile script ${symbolId}: ${message}`, {
-                cause: error instanceof Error ? error : undefined
-            });
+            const message =
+                error instanceof Error ? error.message : String(error);
+            throw new Error(
+                `Failed to transpile script ${symbolId}: ${message}`,
+                {
+                    cause: error instanceof Error ? error : undefined
+                }
+            );
         }
     }
 
     transpileExpression(sourceText: string): string {
         if (typeof sourceText !== "string" || sourceText.length === 0) {
-            throw new TypeError("transpileExpression requires a sourceText string");
+            throw new TypeError(
+                "transpileExpression requires a sourceText string"
+            );
         }
         const parser = new Parser.GMLParser(sourceText);
         const ast = parser.parse();
@@ -77,6 +85,8 @@ export class GmlTranspiler {
     }
 }
 
-export function createTranspiler(dependencies: TranspilerDependencies = {}): GmlTranspiler {
+export function createTranspiler(
+    dependencies: TranspilerDependencies = {}
+): GmlTranspiler {
     return new GmlTranspiler(dependencies);
 }

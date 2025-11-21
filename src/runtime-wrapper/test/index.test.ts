@@ -568,7 +568,9 @@ test("trySafeApply does not record shadow validation failures in history", () =>
 });
 
 test("validateBeforeApply option enables shadow validation", () => {
-    const wrapper = RuntimeWrapper.createRuntimeWrapper({ validateBeforeApply: true });
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        validateBeforeApply: true
+    });
 
     const patch = {
         kind: "script",
@@ -582,7 +584,9 @@ test("validateBeforeApply option enables shadow validation", () => {
 });
 
 test("validateBeforeApply rejects invalid patches", () => {
-    const wrapper = RuntimeWrapper.createRuntimeWrapper({ validateBeforeApply: true });
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        validateBeforeApply: true
+    });
 
     const patch = {
         kind: "script",
@@ -840,7 +844,9 @@ test("trySafeApply catches closure syntax errors", () => {
 });
 
 test("validateBeforeApply validates closure patches", () => {
-    const wrapper = RuntimeWrapper.createRuntimeWrapper({ validateBeforeApply: true });
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        validateBeforeApply: true
+    });
 
     const patch = {
         kind: "closure",
@@ -854,7 +860,9 @@ test("validateBeforeApply validates closure patches", () => {
 });
 
 test("validateBeforeApply rejects invalid closure patches", () => {
-    const wrapper = RuntimeWrapper.createRuntimeWrapper({ validateBeforeApply: true });
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        validateBeforeApply: true
+    });
 
     const patch = {
         kind: "closure",

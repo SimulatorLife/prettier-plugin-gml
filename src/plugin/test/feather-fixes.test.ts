@@ -3809,7 +3809,9 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
             end: { index: 25 }
         };
 
-        Parser.Transforms.applyFeatherFixes(ast, { sourceText: "true;\nif (true) { false; }" });
+        Parser.Transforms.applyFeatherFixes(ast, {
+            sourceText: "true;\nif (true) { false; }"
+        });
 
         assert.strictEqual(
             ast.body.length,

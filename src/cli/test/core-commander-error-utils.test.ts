@@ -5,8 +5,9 @@ import { isCommanderErrorLike } from "../src/core/commander-error-utils.js";
 
 describe("commander error utils", () => {
     it("recognizes commander-style errors by capability", () => {
-        const error: Error & { code?: string; exitCode?: number } =
-            new Error("bad option");
+        const error: Error & { code?: string; exitCode?: number } = new Error(
+            "bad option"
+        );
         error.code = "commander.invalidOption";
         error.exitCode = 2;
 

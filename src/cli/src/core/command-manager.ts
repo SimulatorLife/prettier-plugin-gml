@@ -10,7 +10,10 @@ import type {
     CommanderProgramContract,
     CommanderCommandContract
 } from "./commander-contract.js";
-import type { CommanderCommandLike, CommanderProgramLike } from "./commander-types.js";
+import type {
+    CommanderCommandLike,
+    CommanderProgramLike
+} from "./commander-types.js";
 import { compactArray, resolveCommandUsage } from "../shared/dependencies.js";
 
 type CliCommandRunHandler = (context: {
@@ -77,8 +80,10 @@ class CliCommandManager {
     private readonly _program: CommanderProgramLike;
     private readonly _programContract: CommanderProgramContract;
     private readonly _entries: Set<CliCommandEntry> = new Set();
-    private readonly _commandEntryLookup: WeakMap<CommanderCommandLike, CliCommandEntry> =
-        new WeakMap();
+    private readonly _commandEntryLookup: WeakMap<
+        CommanderCommandLike,
+        CliCommandEntry
+    > = new WeakMap();
     private _defaultCommandEntry: CliCommandEntry | null = null;
     private _activeCommand: CommanderCommandLike | null = null;
     private readonly _defaultErrorHandler: CliCommandErrorHandler;

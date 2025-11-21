@@ -300,9 +300,15 @@ export interface EmitOptions {
 }
 
 export interface SemOracle {
-    kindOfIdent(node: IdentifierNode | IdentifierMetadata | null | undefined): SemKind;
-    nameOfIdent(node: IdentifierNode | IdentifierMetadata | null | undefined): string;
-    qualifiedSymbol(node: IdentifierNode | IdentifierMetadata | null | undefined): string | null;
+    kindOfIdent(
+        node: IdentifierNode | IdentifierMetadata | null | undefined
+    ): SemKind;
+    nameOfIdent(
+        node: IdentifierNode | IdentifierMetadata | null | undefined
+    ): string;
+    qualifiedSymbol(
+        node: IdentifierNode | IdentifierMetadata | null | undefined
+    ): string | null;
     callTargetKind(node: CallExpressionNode): "script" | "builtin" | "unknown";
     callTargetSymbol(node: CallExpressionNode): string | null;
 }

@@ -34,20 +34,23 @@ test("memory command normalizes suite names", () => {
 test("memory command rejects unknown suite names", () => {
     const command = createMemoryCommand({ env: {} });
 
-        assert.throws(
-            () => command.parse(["--suite", "invalid-suite"], USER_PARSE_OPTIONS),
-            (error) => {
-                if (!(error instanceof Error)) {
-                    return false;
-                }
-                // Commander sets code on its error instances.
-                assert.equal((error as Error & { code?: string }).code, "commander.invalidArgument");
-                assert.match(error.message, /memory suite must be one of/i);
-                for (const name of formatMemorySuiteNameList().split(/,\s*/)) {
-                    assert.match(error.message, new RegExp(name));
-                }
-                return true;
+    assert.throws(
+        () => command.parse(["--suite", "invalid-suite"], USER_PARSE_OPTIONS),
+        (error) => {
+            if (!(error instanceof Error)) {
+                return false;
             }
+            // Commander sets code on its error instances.
+            assert.equal(
+                (error as Error & { code?: string }).code,
+                "commander.invalidArgument"
+            );
+            assert.match(error.message, /memory suite must be one of/i);
+            for (const name of formatMemorySuiteNameList().split(/,\s*/)) {
+                assert.match(error.message, new RegExp(name));
+            }
+            return true;
+        }
     );
 });
 

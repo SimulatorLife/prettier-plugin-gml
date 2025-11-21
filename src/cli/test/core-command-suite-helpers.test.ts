@@ -11,23 +11,25 @@ import { asErrorLike } from "../src/shared/error-guards.js";
 test("collectSuiteResults executes suite runners with shared options", async () => {
     const calls = [];
     const runnerOptions = { iterations: 5 };
-    const availableSuites: Map<string, SuiteRunner> =
-        new Map<string, SuiteRunner>([
-            [
-                "alpha",
-                async (options) => {
-                    calls.push(["alpha", options]);
-                    return { label: "alpha", options };
-                }
-            ],
-            [
-                "beta",
-                (options) => {
-                    calls.push(["beta", options]);
-                    return { label: "beta", options };
-                }
-            ]
-        ]);
+    const availableSuites: Map<string, SuiteRunner> = new Map<
+        string,
+        SuiteRunner
+    >([
+        [
+            "alpha",
+            async (options) => {
+                calls.push(["alpha", options]);
+                return { label: "alpha", options };
+            }
+        ],
+        [
+            "beta",
+            (options) => {
+                calls.push(["beta", options]);
+                return { label: "beta", options };
+            }
+        ]
+    ]);
 
     const results = await collectSuiteResults({
         suiteNames: ["alpha", "beta"],
@@ -46,16 +48,18 @@ test("collectSuiteResults executes suite runners with shared options", async () 
 });
 
 test("collectSuiteResults maps thrown errors using onError callback", async () => {
-    const availableSuites: Map<string, SuiteRunner> =
-        new Map<string, SuiteRunner>([
-            [
-                "alpha",
-                () => {
-                    throw new Error("boom");
-                }
-            ],
-            ["beta", () => ({ status: "ok" })]
-        ]);
+    const availableSuites: Map<string, SuiteRunner> = new Map<
+        string,
+        SuiteRunner
+    >([
+        [
+            "alpha",
+            () => {
+                throw new Error("boom");
+            }
+        ],
+        ["beta", () => ({ status: "ok" })]
+    ]);
 
     const capturedErrors = [];
     const results = await collectSuiteResults({
@@ -80,17 +84,19 @@ test("collectSuiteResults maps thrown errors using onError callback", async () =
 });
 
 test("collectSuiteResults normalizes errors when onError is not provided", async () => {
-    const availableSuites: Map<string, SuiteRunner> =
-        new Map<string, SuiteRunner>([
-            [
-                "alpha",
-                () => {
-                    const error: Error & { code?: string } = new Error("boom");
-                    error.code = "ERR_TEST";
-                    throw error;
-                }
-            ]
-        ]);
+    const availableSuites: Map<string, SuiteRunner> = new Map<
+        string,
+        SuiteRunner
+    >([
+        [
+            "alpha",
+            () => {
+                const error: Error & { code?: string } = new Error("boom");
+                error.code = "ERR_TEST";
+                throw error;
+            }
+        ]
+    ]);
 
     const results = await collectSuiteResults({
         suiteNames: ["alpha"],

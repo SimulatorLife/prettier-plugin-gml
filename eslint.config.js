@@ -4,7 +4,7 @@ import tseslint from "typescript-eslint";
 import { defineConfig } from "eslint/config";
 import globals from "globals";
 
-import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript';
+import { createTypeScriptImportResolver } from "eslint-import-resolver-typescript";
 
 // YAML parser
 import yamlParser from "yaml-eslint-parser";
@@ -160,7 +160,7 @@ const tsConfig = defineConfig({
             { type: "refactor", pattern: "src/refactor/**" },
             { type: "runtime-wrapper", pattern: "src/runtime-wrapper/**" },
             { type: "cli", pattern: "src/cli/**" }
-        ],
+        ]
     },
 
     rules: {
@@ -399,36 +399,80 @@ const tsConfig = defineConfig({
 
         // Boundaries plugin (enforce architectural module boundaries)
         "boundaries/no-unknown": "error",
-        "boundaries/entry-point": [2, {
-            "default": "disallow",
-            "rules": [
-                {
-                    // set the required entry point name
-                    "target": ["cli", "core", "parser", "transpiler", "semantic", "plugin", "refactor", "runtime-wrapper"],
-                    "allow": ["index.ts","index.js"]
-                },
-            ]
-        }],
-        "boundaries/element-types": ["error", {
-            default: "disallow",
-            rules: [
-                { from: "core", allow: ["core"] },
-                { from: "parser", allow: ["core", "parser", "parser-generated"] },
-                { from: "parser-generated", allow: ["core", "parser-generated"] },
-                { from: "transpiler", allow: ["core", "transpiler"] },
-                { from: "semantic", allow: ["core", "parser", "transpiler", "semantic"] },
-                { from: "plugin", allow: ["core", "parser", "plugin"] },
-                { from: "refactor", allow: ["core", "parser", "transpiler", "semantic", "refactor"] },
-                { from: "runtime-wrapper", allow: ["core", "parser", "transpiler", "semantic", "runtime-wrapper"] },
-                { from: "cli", allow: ["core", "parser", "transpiler", "semantic"] },
-                { from: "test", allow: ["*"] }
-            ]
-        }]
+        "boundaries/entry-point": [
+            2,
+            {
+                default: "disallow",
+                rules: [
+                    {
+                        // set the required entry point name
+                        target: [
+                            "cli",
+                            "core",
+                            "parser",
+                            "transpiler",
+                            "semantic",
+                            "plugin",
+                            "refactor",
+                            "runtime-wrapper"
+                        ],
+                        allow: ["index.ts", "index.js"]
+                    }
+                ]
+            }
+        ],
+        "boundaries/element-types": [
+            "error",
+            {
+                default: "disallow",
+                rules: [
+                    { from: "core", allow: ["core"] },
+                    {
+                        from: "parser",
+                        allow: ["core", "parser", "parser-generated"]
+                    },
+                    {
+                        from: "parser-generated",
+                        allow: ["core", "parser-generated"]
+                    },
+                    { from: "transpiler", allow: ["core", "transpiler"] },
+                    {
+                        from: "semantic",
+                        allow: ["core", "parser", "transpiler", "semantic"]
+                    },
+                    { from: "plugin", allow: ["core", "parser", "plugin"] },
+                    {
+                        from: "refactor",
+                        allow: [
+                            "core",
+                            "parser",
+                            "transpiler",
+                            "semantic",
+                            "refactor"
+                        ]
+                    },
+                    {
+                        from: "runtime-wrapper",
+                        allow: [
+                            "core",
+                            "parser",
+                            "transpiler",
+                            "semantic",
+                            "runtime-wrapper"
+                        ]
+                    },
+                    {
+                        from: "cli",
+                        allow: ["core", "parser", "transpiler", "semantic"]
+                    },
+                    { from: "test", allow: ["*"] }
+                ]
+            }
+        ]
     }
 });
 
 export default [
-
     {
         // Global ignores
         ignores: baseIgnorePatterns

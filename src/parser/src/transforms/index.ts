@@ -75,6 +75,4 @@ export { convertUndefinedGuardAssignments } from "./convert-undefined-guard-assi
 export { enforceVariableBlockSpacing } from "./enforce-variable-block-spacing.js";
 export { preprocessFunctionArgumentDefaults } from "./preprocess-function-argument-defaults.js";
 export { stripCommentsTransform } from "./strip-comments.js";
-export {
-    annotateStaticFunctionOverrides
-} from "./annotate-static-overrides.js";
+export { annotateStaticFunctionOverrides } from "./annotate-static-overrides.js";

@@ -394,9 +394,8 @@ test("WebSocket client clears pending reconnect timer on manual reconnect", asyn
         ReturnType<typeof originalSetTimeout>,
         { cleared: boolean; delay: number }
     >();
-    let client: ReturnType<
-        typeof RuntimeWrapper.createWebSocketClient
-    > | null = null;
+    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null =
+        null;
 
     try {
         globalThis.setTimeout = ((
