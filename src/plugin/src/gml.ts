@@ -5,6 +5,7 @@
  * consumers can register the plugin without reaching into internal modules.
  */
 
+import * as Core from "@gml-modules/core";
 import type { SupportLanguage, SupportOptions } from "prettier";
 
 import type {
@@ -18,93 +19,15 @@ function selectPluginComponents(): GmlPluginComponentBundle {
     return resolveGmlPluginComponents();
 }
 
-function createReadOnlyView<T extends object>(
-    selector: () => T,
-    description: string
-): Readonly<T> {
-    const readOnlyError = new TypeError(
-        `${description} cannot be modified once resolved.`
-    );
+const parsers = Core.Utils.createReadOnlyView<
+    GmlPluginComponentBundle["parsers"]
+>(() => selectPluginComponents().parsers, "GML plugin parsers");
 
-    const ensureSource = (): T => {
-        const source = selector();
-        if (source && typeof source === "object") {
-            return source;
-        }
+const printers = Core.Utils.createReadOnlyView<
+    GmlPluginComponentBundle["printers"]
+>(() => selectPluginComponents().printers, "GML plugin printers");
 
-        throw new TypeError(`${description} must resolve to an object.`);
-    };
-
-    const withSource = <TReturn>(callback: (source: T) => TReturn): TReturn =>
-        callback(ensureSource());
-
-    const throwReadOnlyError = (): never => {
-        throw readOnlyError;
-    };
-
-    const target = Object.create(null) as T;
-
-    return new Proxy(target, {
-        get(_target, property, receiver) {
-            if (property === Symbol.toStringTag) {
-                return "Object";
-            }
-
-            return withSource((source) =>
-                Reflect.get(source, property, receiver)
-            );
-        },
-        has(_target, property) {
-            return withSource((source) => Reflect.has(source, property));
-        },
-        ownKeys() {
-            return withSource((source) => Reflect.ownKeys(source));
-        },
-        getOwnPropertyDescriptor(_target, property) {
-            return withSource((source) => {
-                const descriptor = Reflect.getOwnPropertyDescriptor(
-                    source,
-                    property
-                );
-
-                if (!descriptor) {
-                    return undefined;
-                }
-
-                return {
-                    configurable: true,
-                    enumerable: descriptor.enumerable ?? true,
-                    value: descriptor.value,
-                    writable: false
-                };
-            });
-        },
-        getPrototypeOf() {
-            return Object.prototype;
-        },
-        set() {
-            throwReadOnlyError();
-        },
-        defineProperty() {
-            throwReadOnlyError();
-        },
-        deleteProperty() {
-            throwReadOnlyError();
-        }
-    }) as Readonly<T>;
-}
-
-const parsers = createReadOnlyView<GmlPluginComponentBundle["parsers"]>(
-    () => selectPluginComponents().parsers,
-    "GML plugin parsers"
-);
-
-const printers = createReadOnlyView<GmlPluginComponentBundle["printers"]>(
-    () => selectPluginComponents().printers,
-    "GML plugin printers"
-);
-
-const options = createReadOnlyView<SupportOptions>(
+const options = Core.Utils.createReadOnlyView<SupportOptions>(
     () => selectPluginComponents().options,
     "GML plugin options"
 );
@@ -157,7 +80,7 @@ function createDefaultOptionsSnapshot(): GmlPluginDefaultOptions {
     };
 }
 
-const defaultOptions = createReadOnlyView<GmlPluginDefaultOptions>(
+const defaultOptions = Core.Utils.createReadOnlyView<GmlPluginDefaultOptions>(
     () => createDefaultOptionsSnapshot(),
     "GML default options"
 );
