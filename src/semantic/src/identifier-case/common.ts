@@ -1,8 +1,6 @@
 import { Core } from "@gml-modules/core";
 import { constants as fsConstants } from "node:fs";
 
-
-
 export const COLLISION_CONFLICT_CODE = "collision";
 export const PRESERVE_CONFLICT_CODE = "preserve";
 export const IGNORE_CONFLICT_CODE = "ignored";
@@ -29,7 +27,9 @@ export function formatConfigurationConflictMessage({
     }
 
     if (configConflict.code === IGNORE_CONFLICT_CODE) {
-        const ignoreMatch = Core.Utils.isNonEmptyString(configConflict.ignoreMatch)
+        const ignoreMatch = Core.Utils.isNonEmptyString(
+            configConflict.ignoreMatch
+        )
             ? ` matches ignore pattern '${configConflict.ignoreMatch}'.`
             : " is ignored by configuration.";
         return `${subject}${ignoreMatch}`;

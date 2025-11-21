@@ -30,7 +30,10 @@ export const IDENTIFIER_CASE_STYLES = Object.freeze(
     Object.values(IdentifierCaseStyle)
 );
 
-const IDENTIFIER_CASE_LIST_SPLIT_PATTERN = Core.Utils.createListSplitPattern(["\n", ","]);
+const IDENTIFIER_CASE_LIST_SPLIT_PATTERN = Core.Utils.createListSplitPattern([
+    "\n",
+    ","
+]);
 
 export const IDENTIFIER_CASE_INHERIT_VALUE = "inherit";
 

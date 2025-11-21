@@ -255,15 +255,19 @@ function collectDirectoryEntries({
             continue;
         }
 
-        const rename =
-            (renameByResourcePath.get(resourcePath) ?? null) as AssetRename | null;
+        const rename = (renameByResourcePath.get(resourcePath) ??
+            null) as AssetRename | null;
         const finalName = rename?.toName ?? resourceRecord.name;
         if (!Core.Utils.isNonEmptyString(finalName)) {
             continue;
         }
 
         const directory = path.posix.dirname(resourcePath);
-        const list = Core.Utils.getOrCreateMapEntry(directories, directory, () => []);
+        const list = Core.Utils.getOrCreateMapEntry(
+            directories,
+            directory,
+            () => []
+        );
         list.push({
             directory,
             resourcePath,
@@ -302,7 +306,11 @@ function detectAssetRenameConflicts({
         const byLowerName = new Map();
         for (const entry of entries) {
             const key = Core.Utils.toNormalizedLowerCaseString(entry.finalName);
-            const bucket = Core.Utils.getOrCreateMapEntry(byLowerName, key, () => []);
+            const bucket = Core.Utils.getOrCreateMapEntry(
+                byLowerName,
+                key,
+                () => []
+            );
             bucket.push(entry);
         }
 
@@ -488,7 +496,9 @@ function planRenamesForResources({
     const conflicts: Array<unknown> = [];
     const renames: Array<AssetRename> = [];
 
-    for (const [resourcePath, resourceRecordValue] of Object.entries(resources)) {
+    for (const [resourcePath, resourceRecordValue] of Object.entries(
+        resources
+    )) {
         const resourceRecord = resourceRecordValue as AssetResourceRecord;
         planRenameForResource({
             resourcePath,

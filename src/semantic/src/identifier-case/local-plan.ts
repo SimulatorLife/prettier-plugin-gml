@@ -126,8 +126,10 @@ function applyAssetRenamesIfEligible({
     }
 
     const fsFacade =
-        Core.Utils.coalesceOption(options, ["__identifierCaseFs", "identifierCaseFs"]) ??
-        getDefaultIdentifierCaseFsFacade();
+        Core.Utils.coalesceOption(options, [
+            "__identifierCaseFs",
+            "identifierCaseFs"
+        ]) ?? getDefaultIdentifierCaseFsFacade();
     const logger = options.logger ?? null;
     const result = applyAssetRenames({
         projectIndex,
@@ -292,11 +294,17 @@ function createNameCollisionTracker() {
     const entriesById = new Map();
 
     const toKey = (name) =>
-        typeof name === "string" ? Core.Utils.toNormalizedLowerCaseString(name) : "";
+        typeof name === "string"
+            ? Core.Utils.toNormalizedLowerCaseString(name)
+            : "";
 
     const addRecord = (record) => {
         const key = toKey(record.name);
-        const bucket = Core.Utils.getOrCreateMapEntry(entriesByName, key, () => []);
+        const bucket = Core.Utils.getOrCreateMapEntry(
+            entriesByName,
+            key,
+            () => []
+        );
         bucket.push(record);
         entriesById.set(record.uniqueId, record);
     };

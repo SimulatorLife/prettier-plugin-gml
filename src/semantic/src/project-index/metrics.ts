@@ -91,12 +91,12 @@ const NOOP_METRIC_RECORDING_GROUPS = Object.freeze({
     counters: Object.freeze({
         increment: Core.Utils.noop
     }),
-        caches: Object.freeze({
-            recordHit: Core.Utils.noop,
-            recordMiss: Core.Utils.noop,
-            recordStale: Core.Utils.noop,
-            recordMetric: Core.Utils.noop
-        })
+    caches: Object.freeze({
+        recordHit: Core.Utils.noop,
+        recordMiss: Core.Utils.noop,
+        recordStale: Core.Utils.noop,
+        recordMetric: Core.Utils.noop
+    })
 });
 
 const NOOP_METRIC_REPORTING_GROUPS = Object.freeze({
@@ -108,9 +108,9 @@ const NOOP_METRIC_REPORTING_GROUPS = Object.freeze({
         cachesSnapshot: () => ({}),
         cacheSnapshot: () => {}
     }),
-        logger: Object.freeze({
-            logSummary: Core.Utils.noop
-        })
+    logger: Object.freeze({
+        logSummary: Core.Utils.noop
+    })
 });
 
 function createNoopProjectIndexMetrics() {
@@ -118,9 +118,9 @@ function createNoopProjectIndexMetrics() {
         recording: Object.freeze({
             category: PROJECT_INDEX_METRICS_CATEGORY,
             ...NOOP_METRIC_RECORDING_GROUPS,
-                metadata: Object.freeze({
-                    setMetadata: Core.Utils.noop
-                })
+            metadata: Object.freeze({
+                setMetadata: Core.Utils.noop
+            })
         }),
         reporting: Object.freeze({
             ...NOOP_METRIC_REPORTING_GROUPS

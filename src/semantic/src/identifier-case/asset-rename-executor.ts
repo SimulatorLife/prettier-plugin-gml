@@ -62,7 +62,9 @@ function readJsonFile(fsFacade, absolutePath, cache) {
     }
 
     const raw = fsFacade.readFileSync(absolutePath, "utf8");
-    const parsed = Core.Utils.parseJsonWithContext(raw, { source: absolutePath });
+    const parsed = Core.Utils.parseJsonWithContext(raw, {
+        source: absolutePath
+    });
     const resourceJson = Core.Utils.assertPlainObject(parsed, {
         errorMessage: `Resource JSON at ${absolutePath} must be a plain object.`
     });
@@ -77,9 +79,9 @@ function getObjectAtPath(json, propertyPath) {
         return json;
     }
 
-    const segments = Core.Utils.trimStringEntries(propertyPath.split(".")).filter(
-        (segment) => segment.length > 0
-    );
+    const segments = Core.Utils.trimStringEntries(
+        propertyPath.split(".")
+    ).filter((segment) => segment.length > 0);
 
     let current = json;
     for (const segment of segments) {
@@ -122,7 +124,10 @@ function updateReferenceObject(json, propertyPath, newResourcePath, newName) {
 
     let changed = false;
 
-    if (Core.Utils.isNonEmptyString(newResourcePath) && target.path !== newResourcePath) {
+    if (
+        Core.Utils.isNonEmptyString(newResourcePath) &&
+        target.path !== newResourcePath
+    ) {
         target.path = newResourcePath;
         changed = true;
     }
@@ -269,7 +274,8 @@ export function createAssetRenameExecutor({
                     );
                 } catch (error) {
                     if (logger && typeof logger.warn === "function") {
-                        const message = Core.Utils.getErrorMessageOrFallback(error);
+                        const message =
+                            Core.Utils.getErrorMessageOrFallback(error);
                         logger.warn(
                             `Skipping asset reference update for '${filePath}': ${message}`
                         );
@@ -343,7 +349,9 @@ export function createAssetRenameExecutor({
             const writeActions = [...pendingWrites.entries()].map(
                 ([filePath, jsonData]) => ({
                     filePath,
-                    contents: Core.Utils.stringifyJsonForFile(jsonData, { space: 4 })
+                    contents: Core.Utils.stringifyJsonForFile(jsonData, {
+                        space: 4
+                    })
                 })
             );
 

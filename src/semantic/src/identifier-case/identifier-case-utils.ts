@@ -257,7 +257,9 @@ function normalizeReservedPrefixOverrides(overrides) {
         return [];
     }
 
-    const entries = Core.Utils.normalizeStringList(Core.Utils.toArrayFromIterable(overrides));
+    const entries = Core.Utils.normalizeStringList(
+        Core.Utils.toArrayFromIterable(overrides)
+    );
 
     return entries.reduce((acc, item) => {
         const insertIndex = acc.findIndex((existing) => {

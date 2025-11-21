@@ -958,7 +958,9 @@ function shouldTreatAsInstance({ identifierRecord, role, scopeDescriptor }) {
         return false;
     }
 
-    const classifications = Core.Utils.asArray(identifierRecord?.classifications);
+    const classifications = Core.Utils.asArray(
+        identifierRecord?.classifications
+    );
 
     if (classifications.includes("global")) {
         return false;
@@ -993,7 +995,9 @@ function registerIdentifierOccurrence({
 
     const validatedRole = assertValidIdentifierRole(role);
 
-    const classifications = Core.Utils.asArray(identifierRecord?.classifications);
+    const classifications = Core.Utils.asArray(
+        identifierRecord?.classifications
+    );
 
     if (
         validatedRole === IdentifierRole.DECLARATION &&
@@ -1227,14 +1231,16 @@ function handleScriptScopeFunctionDeclarationNode({
 
     const declarationKey = Core.AST.buildLocationKey(declarationRecord.start);
     const fileHasExisting = fileRecord.declarations.some(
-        (existing) => Core.AST.buildLocationKey(existing.start) === declarationKey
+        (existing) =>
+            Core.AST.buildLocationKey(existing.start) === declarationKey
     );
     if (!fileHasExisting) {
         fileRecord.declarations.push({ ...declarationRecord });
     }
 
     const scopeHasExisting = scopeRecord.declarations.some(
-        (existing) => Core.AST.buildLocationKey(existing.start) === declarationKey
+        (existing) =>
+            Core.AST.buildLocationKey(existing.start) === declarationKey
     );
     if (!scopeHasExisting) {
         scopeRecord.declarations.push({ ...declarationRecord });
@@ -1848,7 +1854,9 @@ function createProjectIndexResultSnapshot({
                 targetResourcePath: reference.targetResourcePath ?? null,
                 location: reference.location
                     ? {
-                          start: Core.AST.cloneLocation(reference.location.start),
+                          start: Core.AST.cloneLocation(
+                              reference.location.start
+                          ),
                           end: Core.AST.cloneLocation(reference.location.end)
                       }
                     : null,

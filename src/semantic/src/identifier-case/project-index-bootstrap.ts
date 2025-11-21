@@ -44,9 +44,13 @@ function resolveOptionWithOverride(options, config = {}) {
 }
 
 function getFsFacade(options) {
-    return Core.Utils.coalesceOption(options, ["__identifierCaseFs", "identifierCaseFs"], {
-        fallback: null
-    });
+    return Core.Utils.coalesceOption(
+        options,
+        ["__identifierCaseFs", "identifierCaseFs"],
+        {
+            fallback: null
+        }
+    );
 }
 
 function getFormatterVersion(options) {

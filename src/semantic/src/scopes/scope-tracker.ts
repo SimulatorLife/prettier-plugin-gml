@@ -43,9 +43,12 @@ function createOccurrence(kind, metadata, source, declarationMetadata) {
             kind,
             name: metadata?.name ?? null,
             scopeId: metadata?.scopeId ?? null,
-            classifications: Core.Utils.toMutableArray(metadata?.classifications, {
-                clone: true
-            }),
+            classifications: Core.Utils.toMutableArray(
+                metadata?.classifications,
+                {
+                    clone: true
+                }
+            ),
             declaration
         },
         source ?? {}
@@ -61,9 +64,12 @@ function cloneDeclarationMetadata(metadata) {
         {
             name: metadata.name ?? null,
             scopeId: metadata.scopeId ?? null,
-            classifications: Core.Utils.toMutableArray(metadata.classifications, {
-                clone: true
-            })
+            classifications: Core.Utils.toMutableArray(
+                metadata.classifications,
+                {
+                    clone: true
+                }
+            )
         },
         metadata
     );
@@ -82,9 +88,12 @@ function cloneOccurrence(occurrence) {
             kind: occurrence.kind,
             name: occurrence.name,
             scopeId: occurrence.scopeId,
-            classifications: Core.Utils.toMutableArray(occurrence.classifications, {
-                clone: true
-            }),
+            classifications: Core.Utils.toMutableArray(
+                occurrence.classifications,
+                {
+                    clone: true
+                }
+            ),
             declaration
         },
         occurrence

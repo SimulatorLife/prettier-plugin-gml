@@ -19,34 +19,33 @@ const projectIndexConcurrencyLimitConfig =
                 onInvalid: fallback
             }),
         computeFallback: ({ defaultValue }) => defaultValue
-    }
-);
+    });
 
 const projectIndexConcurrencyConfig =
     Core.Utils.createEnvConfiguredValueWithFallback({
-    defaultValue: PROJECT_INDEX_GML_CONCURRENCY_BASELINE,
-    envVar: PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
-    resolve: (value, { fallback }) => {
-        const limit = Math.max(
-            MIN_CONCURRENCY,
-            getDefaultProjectIndexGmlConcurrencyLimit()
-        );
-        const normalizedFallback = normalizeConcurrencyValue(fallback, {
-            min: MIN_CONCURRENCY,
-            max: limit,
-            fallback: limit,
-            onInvalid: limit
-        });
+        defaultValue: PROJECT_INDEX_GML_CONCURRENCY_BASELINE,
+        envVar: PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
+        resolve: (value, { fallback }) => {
+            const limit = Math.max(
+                MIN_CONCURRENCY,
+                getDefaultProjectIndexGmlConcurrencyLimit()
+            );
+            const normalizedFallback = normalizeConcurrencyValue(fallback, {
+                min: MIN_CONCURRENCY,
+                max: limit,
+                fallback: limit,
+                onInvalid: limit
+            });
 
-        return normalizeConcurrencyValue(value, {
-            min: MIN_CONCURRENCY,
-            max: limit,
-            fallback: normalizedFallback,
-            onInvalid: normalizedFallback
-        });
-    },
-    computeFallback: ({ defaultValue }) => defaultValue
-});
+            return normalizeConcurrencyValue(value, {
+                min: MIN_CONCURRENCY,
+                max: limit,
+                fallback: normalizedFallback,
+                onInvalid: normalizedFallback
+            });
+        },
+        computeFallback: ({ defaultValue }) => defaultValue
+    });
 
 function getDefaultProjectIndexGmlConcurrency() {
     return projectIndexConcurrencyConfig.get();

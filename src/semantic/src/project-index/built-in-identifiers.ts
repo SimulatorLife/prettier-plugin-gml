@@ -57,10 +57,7 @@ function areMtimesEquivalent(cachedMtime, currentMtime) {
         return false;
     }
 
-    return Core.Utils.areNumbersApproximatelyEqual(
-        cachedMtime,
-        currentMtime
-    );
+    return Core.Utils.areNumbersApproximatelyEqual(cachedMtime, currentMtime);
 }
 
 export async function loadBuiltInIdentifiers(

@@ -149,45 +149,45 @@ export function attachIdentifierCasePlanSnapshot(ast, options) {
         ast,
         (objectAst) => {
             const snapshot = captureIdentifierCasePlanSnapshot(options);
-        // Only attach snapshots that carry meaningful planning state.
-        // Empty snapshots (no renameMap and no planGenerated) are common
-        // when callers omit a filepath and would otherwise overwrite a
-        // previously-captured plan. Guarding here prevents attachment of
-        // inert snapshots which strip rename data from downstream printers.
-        if (
-            !snapshot ||
-            (snapshot.planGenerated !== true &&
-                !Core.Utils.isMapLike(snapshot.renameMap))
-        ) {
-            return;
-        }
-
-        try {
-            if (Core.Utils.isMapLike(snapshot.renameMap)) {
-                const samples = [];
-                let c = 0;
-                for (const k of snapshot.renameMap.keys()) {
-                    samples.push(String(k));
-                    c += 1;
-                    if (c >= 5) break;
-                }
-                console.debug(
-                    `[DBG] attachIdentifierCasePlanSnapshot: attaching snapshot for filepath=${options?.filepath ?? null} planGenerated=${Boolean(snapshot.planGenerated)} renameMapSize=${snapshot.renameMap.size} renameMapId=${snapshot.renameMap.__dbgId ?? null} samples=${JSON.stringify(samples)}`
-                );
-            } else {
-                console.debug(
-                    `[DBG] attachIdentifierCasePlanSnapshot: attaching snapshot for filepath=${options?.filepath ?? null} planGenerated=${Boolean(snapshot.planGenerated)} renameMapSize=0 renameMapId=${null}`
-                );
+            // Only attach snapshots that carry meaningful planning state.
+            // Empty snapshots (no renameMap and no planGenerated) are common
+            // when callers omit a filepath and would otherwise overwrite a
+            // previously-captured plan. Guarding here prevents attachment of
+            // inert snapshots which strip rename data from downstream printers.
+            if (
+                !snapshot ||
+                (snapshot.planGenerated !== true &&
+                    !Core.Utils.isMapLike(snapshot.renameMap))
+            ) {
+                return;
             }
-        } catch {
-            /* ignore */
-        }
 
-        Object.defineProperty(objectAst, "__identifierCasePlanSnapshot", {
-            value: snapshot,
-            enumerable: false,
-            configurable: true
-        });
+            try {
+                if (Core.Utils.isMapLike(snapshot.renameMap)) {
+                    const samples = [];
+                    let c = 0;
+                    for (const k of snapshot.renameMap.keys()) {
+                        samples.push(String(k));
+                        c += 1;
+                        if (c >= 5) break;
+                    }
+                    console.debug(
+                        `[DBG] attachIdentifierCasePlanSnapshot: attaching snapshot for filepath=${options?.filepath ?? null} planGenerated=${Boolean(snapshot.planGenerated)} renameMapSize=${snapshot.renameMap.size} renameMapId=${snapshot.renameMap.__dbgId ?? null} samples=${JSON.stringify(samples)}`
+                    );
+                } else {
+                    console.debug(
+                        `[DBG] attachIdentifierCasePlanSnapshot: attaching snapshot for filepath=${options?.filepath ?? null} planGenerated=${Boolean(snapshot.planGenerated)} renameMapSize=0 renameMapId=${null}`
+                    );
+                }
+            } catch {
+                /* ignore */
+            }
+
+            Object.defineProperty(objectAst, "__identifierCasePlanSnapshot", {
+                value: snapshot,
+                enumerable: false,
+                configurable: true
+            });
         },
         () => undefined
     );

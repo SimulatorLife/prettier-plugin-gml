@@ -233,11 +233,15 @@ function normalizeOperation(rawOperation) {
 
             return {
                 id:
-                    Core.Utils.coalesceTrimmedString(operation.id, operation.identifier) ||
-                    null,
+                    Core.Utils.coalesceTrimmedString(
+                        operation.id,
+                        operation.identifier
+                    ) || null,
                 kind:
-                    Core.Utils.coalesceTrimmedString(operation.kind, operation.type) ||
-                    "identifier",
+                    Core.Utils.coalesceTrimmedString(
+                        operation.kind,
+                        operation.type
+                    ) || "identifier",
                 scopeId: scope.id,
                 scopeName: scope.displayName ?? scope.name ?? null,
                 fromName: fromName || null,
@@ -256,14 +260,16 @@ function normalizeConflict(rawConflict) {
         rawConflict,
         (conflict) => {
             const scope = normalizeScope(conflict.scope ?? {});
-            const severityCandidate = Core.Utils.coalesceTrimmedString(conflict.severity);
+            const severityCandidate = Core.Utils.coalesceTrimmedString(
+                conflict.severity
+            );
             const severity = severityCandidate
                 ? severityCandidate.toLowerCase()
                 : "error";
 
             const suggestions = Core.Utils.compactArray(
-                Core.Utils.toArray(conflict.suggestions ?? conflict.hints).map((entry) =>
-                    Core.Utils.coalesceTrimmedString(entry)
+                Core.Utils.toArray(conflict.suggestions ?? conflict.hints).map(
+                    (entry) => Core.Utils.coalesceTrimmedString(entry)
                 )
             );
 
@@ -275,8 +281,10 @@ function normalizeConflict(rawConflict) {
                         conflict.type
                     ) || null,
                 message:
-                    Core.Utils.coalesceTrimmedString(conflict.message, conflict.reason) ||
-                    "",
+                    Core.Utils.coalesceTrimmedString(
+                        conflict.message,
+                        conflict.reason
+                    ) || "",
                 severity,
                 scope: {
                     id: scope.id,
@@ -365,11 +373,15 @@ export function summarizeIdentifierCasePlan({
     conflicts = []
 }: IdentifierCasePlanData = {}) {
     const normalizedOperations = sortOperations(
-        Core.Utils.compactArray(extractOperations(renamePlan).map(normalizeOperation))
+        Core.Utils.compactArray(
+            extractOperations(renamePlan).map(normalizeOperation)
+        )
     );
 
     const normalizedConflicts = sortConflicts(
-        Core.Utils.compactArray(Core.Utils.toArray(conflicts).map(normalizeConflict))
+        Core.Utils.compactArray(
+            Core.Utils.toArray(conflicts).map(normalizeConflict)
+        )
     );
 
     const renameSummaries = normalizedOperations.map(buildRenameSummary);
@@ -501,7 +513,9 @@ export function formatIdentifierCaseSummaryText(
     return lines;
 }
 
-function getNormalizedReportCollections(report: IdentifierCaseReportData | null) {
+function getNormalizedReportCollections(
+    report: IdentifierCaseReportData | null
+) {
     const operations = getNormalizedOperations(report);
     const conflicts = getNormalizedConflicts(report?.conflicts);
 

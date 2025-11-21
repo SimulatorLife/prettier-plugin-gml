@@ -23,32 +23,32 @@ export const PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE = 8 * 1024 * 1024; // 8 MiB
 
 const projectIndexCacheSizeConfig =
     Core.Utils.createEnvConfiguredValueWithFallback({
-    defaultValue: PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE,
-    envVar: PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR,
-    resolve: (value, { fallback }) => {
-        const normalized = normalizeMaxSizeBytes(value);
-        if (normalized !== null) {
-            return normalized;
-        }
+        defaultValue: PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE,
+        envVar: PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR,
+        resolve: (value, { fallback }) => {
+            const normalized = normalizeMaxSizeBytes(value);
+            if (normalized !== null) {
+                return normalized;
+            }
 
-        if (value === 0) {
-            return 0;
-        }
-
-        const trimmed = Core.Utils.getNonEmptyTrimmedString(value);
-
-        if (trimmed !== null) {
-            const numeric = Core.Utils.toFiniteNumber(trimmed);
-
-            if (numeric === 0) {
+            if (value === 0) {
                 return 0;
             }
-        }
 
-        return fallback;
-    },
-    computeFallback: ({ defaultValue }) => defaultValue
-});
+            const trimmed = Core.Utils.getNonEmptyTrimmedString(value);
+
+            if (trimmed !== null) {
+                const numeric = Core.Utils.toFiniteNumber(trimmed);
+
+                if (numeric === 0) {
+                    return 0;
+                }
+            }
+
+            return fallback;
+        },
+        computeFallback: ({ defaultValue }) => defaultValue
+    });
 
 export const DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE =
     PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE;
