@@ -96,12 +96,21 @@ function isAstNode(value: unknown): value is Record<string, unknown> {
     return Core.isNode(value);
 }
 
-function hasType(node: unknown, type: string): node is Record<string, unknown> & { type: string } {
+function hasType(
+    node: unknown,
+    type: string
+): node is Record<string, unknown> & { type: string } {
     return isAstNode(node) && (node as any).type === type;
 }
 
-function isIdentifierNode(node: unknown): node is { type: "Identifier"; name: string } {
-    return isAstNode(node) && (node as any).type === "Identifier" && typeof (node as any).name === "string";
+function isIdentifierNode(
+    node: unknown
+): node is { type: "Identifier"; name: string } {
+    return (
+        isAstNode(node) &&
+        (node as any).type === "Identifier" &&
+        typeof (node as any).name === "string"
+    );
 }
 
 function getStartFromNode(node: unknown) {
@@ -116,7 +125,13 @@ function getEndFromNode(node: unknown) {
     return Core.cloneLocation((node as any).end);
 }
 
-function parseExample(sourceText: string, options: { getLocations?: boolean; simplifyLocations?: boolean } = { getLocations: true, simplifyLocations: false }) {
+function parseExample(
+    sourceText: string,
+    options: { getLocations?: boolean; simplifyLocations?: boolean } = {
+        getLocations: true,
+        simplifyLocations: false
+    }
+) {
     if (typeof sourceText !== "string" || sourceText.length === 0) {
         return null;
     }
@@ -136,7 +151,10 @@ function parseExample(sourceText: string, options: { getLocations?: boolean; sim
 
         const tree = parser.program();
         const builder = new GameMakerASTBuilder(
-            { getLocations: options.getLocations ?? true, simplifyLocations: options.simplifyLocations ?? false },
+            {
+                getLocations: options.getLocations ?? true,
+                simplifyLocations: options.simplifyLocations ?? false
+            },
             []
         );
         return builder.build(tree as ParserContextWithMethods);
@@ -218,16 +236,23 @@ const ROOM_NAVIGATION_HELPERS = Object.freeze({
     })
 });
 
-type RoomNavigationDirection = typeof ROOM_NAVIGATION_DIRECTION[keyof typeof ROOM_NAVIGATION_DIRECTION];
+type RoomNavigationDirection =
+    (typeof ROOM_NAVIGATION_DIRECTION)[keyof typeof ROOM_NAVIGATION_DIRECTION];
 
-function normalizeRoomNavigationDirection(direction: unknown): RoomNavigationDirection {
+function normalizeRoomNavigationDirection(
+    direction: unknown
+): RoomNavigationDirection {
     if (typeof direction !== "string") {
         throw new TypeError(
             "Room navigation direction must be provided as a string."
         );
     }
 
-    if (!ROOM_NAVIGATION_DIRECTION_VALUES.has(direction as RoomNavigationDirection)) {
+    if (
+        !ROOM_NAVIGATION_DIRECTION_VALUES.has(
+            direction as RoomNavigationDirection
+        )
+    ) {
         throw new RangeError(
             `Unsupported room navigation direction: ${direction}. Expected one of: ${ROOM_NAVIGATION_DIRECTION_LABELS}.`
         );
@@ -1612,11 +1637,23 @@ function buildFeatherFixImplementations(diagnostics) {
         }
 
         if (diagnosticId === "GM1004") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast, sourceText }) => {
-                const fixes = removeDuplicateEnumMembers({ ast, diagnostic, sourceText });
+            registerFeatherFixer(
+                registry,
+                diagnosticId,
+                () =>
+                    ({ ast, sourceText }) => {
+                        const fixes = removeDuplicateEnumMembers({
+                            ast,
+                            diagnostic,
+                            sourceText
+                        });
 
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
+                        return resolveAutomaticFixes(fixes, {
+                            ast,
+                            diagnostic
+                        });
+                    }
+            );
             continue;
         }
 
@@ -1995,13 +2032,12 @@ function registerManualOnlyFeatherFix({ registry, diagnostic }) {
     registerFeatherFixer(
         registry,
         diagnostic.id,
-        () =>
-            (context: any) =>
-                registerManualFeatherFix({
-                    ast: context.ast,
-                    diagnostic,
-                    sourceText: context.sourceText
-                })
+        () => (context: any) =>
+            registerManualFeatherFix({
+                ast: context.ast,
+                diagnostic,
+                sourceText: context.sourceText
+            })
     );
 }
 
@@ -2143,11 +2179,18 @@ function recordVariableDeclaration(registry, context) {
     }
 
     const id = declarator.id;
-    if (!isAstNode(id) || (id.type ?? null) !== "Identifier" || !declarator.init) {
+    if (
+        !isAstNode(id) ||
+        (id.type ?? null) !== "Identifier" ||
+        !declarator.init
+    ) {
         return;
     }
 
-    const name = typeof (id as Record<string, unknown>).name === "string" ? (id as Record<string, unknown>).name : null;
+    const name =
+        typeof (id as Record<string, unknown>).name === "string"
+            ? (id as Record<string, unknown>).name
+            : null;
 
     if (!name) {
         return;
@@ -3036,7 +3079,9 @@ function buildFeatherTypeSystemInfo() {
         baseTypes.add(name);
         baseTypesLowercase.add(name.toLowerCase());
 
-        const specifierExamples = Core.asArray(getOptionalArray(entry, "specifierExamples"));
+        const specifierExamples = Core.asArray(
+            getOptionalArray(entry, "specifierExamples")
+        );
         const hasDotSpecifier = specifierExamples.some((example) => {
             if (typeof example !== "string") {
                 return false;
@@ -3045,7 +3090,8 @@ function buildFeatherTypeSystemInfo() {
             return example.trim().startsWith(".");
         });
 
-        const description = Core.toTrimmedString(getOptionalString(entry, "description")) ?? "";
+        const description =
+            Core.toTrimmedString(getOptionalString(entry, "description")) ?? "";
         const requiresSpecifier =
             /requires specifiers/i.test(description) ||
             /constructor/i.test(description);
@@ -3346,7 +3392,10 @@ function createAssignmentFromGlobalVarDeclarator({
         return null;
     }
 
-    const identifier = cloneIdentifier(declarator.id) as Record<string, unknown> | null;
+    const identifier = cloneIdentifier(declarator.id) as Record<
+        string,
+        unknown
+    > | null;
 
     if (!identifier) {
         return null;
@@ -5055,14 +5104,18 @@ function createArgumentIndexMapping(indices: unknown[]) {
         return null;
     }
 
-    const uniqueIndices = ([
-        ...new Set(
-            indices.filter(
-                (index): index is number =>
-                    typeof index === "number" && Number.isInteger(index) && index >= 0
+    const uniqueIndices = (
+        [
+            ...new Set(
+                indices.filter(
+                    (index): index is number =>
+                        typeof index === "number" &&
+                        Number.isInteger(index) &&
+                        index >= 0
+                )
             )
-        )
-    ] as number[]).sort((left, right) => left - right);
+        ] as number[]
+    ).sort((left, right) => left - right);
 
     if (uniqueIndices.length === 0) {
         return null;
@@ -6112,7 +6165,10 @@ function normalizeObviousSyntaxErrors({ ast, diagnostic, metadata }) {
             continue;
         }
 
-        const lineNumber = typeof (entry as any).line === "number" ? (entry as any).line : undefined;
+        const lineNumber =
+            typeof (entry as any).line === "number"
+                ? (entry as any).line
+                : undefined;
         if (lineNumber === undefined) continue;
 
         const candidates = nodeIndex.get(lineNumber) ?? [];
@@ -6555,7 +6611,9 @@ function normalizePreprocessedRange(entry) {
     const startLine = entry?.start?.line;
     const endLine = entry?.end?.line;
 
-    const startLocation: { index: number; line?: number } = { index: startIndex };
+    const startLocation: { index: number; line?: number } = {
+        index: startIndex
+    };
     const endLocation: { index: number; line?: number } = { index: endIndex };
 
     if (typeof startLine === "number") {
@@ -7137,7 +7195,7 @@ function collectDeprecatedFunctionNames(ast, sourceText, docCommentTraversal) {
 
     const topLevelFunctions = new Set(
         body.filter(
-                (node) => isAstNode(node) && node.type === "FunctionDeclaration"
+            (node) => isAstNode(node) && node.type === "FunctionDeclaration"
         )
     );
 
@@ -7901,7 +7959,10 @@ function convertDeleteStatementToUndefinedAssignment(
         ) {
             Core.assignClonedLocation(
                 assignment.right as Record<string, unknown>,
-                (isAstNode(node.argument) ? node.argument : node) as Record<string, unknown>
+                (isAstNode(node.argument) ? node.argument : node) as Record<
+                    string,
+                    unknown
+                >
             );
         }
     } catch {
@@ -8336,7 +8397,9 @@ function buildEventMarkerIndex(ast) {
     const markers = [];
 
     for (const comment of markerComments) {
-        const eventName = extractEventNameFromComment(getOptionalString(comment, "value"));
+        const eventName = extractEventNameFromComment(
+            getOptionalString(comment, "value")
+        );
 
         if (!eventName) {
             continue;
@@ -9379,9 +9442,15 @@ function convertNullishIfStatement(node, parent, property, diagnostic) {
         }
 
         if (Core.hasOwn(fallbackExpression, "end")) {
-            Core.assignClonedLocation(binaryExpression as any, fallbackExpression);
+            Core.assignClonedLocation(
+                binaryExpression as any,
+                fallbackExpression
+            );
         } else if (Core.hasOwn(consequentAssignment, "end")) {
-            Core.assignClonedLocation(binaryExpression as any, consequentAssignment);
+            Core.assignClonedLocation(
+                binaryExpression as any,
+                consequentAssignment
+            );
         }
 
         previousNode.right = binaryExpression;
@@ -9389,7 +9458,10 @@ function convertNullishIfStatement(node, parent, property, diagnostic) {
         if (Core.hasOwn(node, "end")) {
             Core.assignClonedLocation(previousNode as any, node);
         } else if (Core.hasOwn(consequentAssignment, "end")) {
-            Core.assignClonedLocation(previousNode as any, consequentAssignment);
+            Core.assignClonedLocation(
+                previousNode as any,
+                consequentAssignment
+            );
         }
 
         const fixDetail = createFeatherFixDetail(diagnostic, {
@@ -9418,7 +9490,10 @@ function convertNullishIfStatement(node, parent, property, diagnostic) {
     };
 
     if (Core.hasOwn(consequentAssignment, "start")) {
-        Core.assignClonedLocation(nullishAssignment as any, consequentAssignment);
+        Core.assignClonedLocation(
+            nullishAssignment as any,
+            consequentAssignment
+        );
     } else if (Core.hasOwn(node, "start")) {
         Core.assignClonedLocation(nullishAssignment as any, node);
     }
@@ -9426,7 +9501,10 @@ function convertNullishIfStatement(node, parent, property, diagnostic) {
     if (Core.hasOwn(node, "end")) {
         Core.assignClonedLocation(nullishAssignment as any, node);
     } else if (Core.hasOwn(consequentAssignment, "end")) {
-        Core.assignClonedLocation(nullishAssignment as any, consequentAssignment);
+        Core.assignClonedLocation(
+            nullishAssignment as any,
+            consequentAssignment
+        );
     }
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
@@ -10405,7 +10483,8 @@ function removeRedeclaredGlobalFunctions({ ast, diagnostic }) {
         }
 
         const nodeObj = node as Record<string, unknown>;
-        const functionId = typeof nodeObj.id === "string" ? (nodeObj.id as string) : null;
+        const functionId =
+            typeof nodeObj.id === "string" ? (nodeObj.id as string) : null;
 
         if (!functionId) {
             index += 1;
@@ -15723,7 +15802,9 @@ function suppressDuplicateVertexFormatComments(ast, commentTargets, node) {
             continue;
         }
 
-        const commentLine = getStartFromNode(comment) ? (getStartFromNode(comment) as any).line : null;
+        const commentLine = getStartFromNode(comment)
+            ? (getStartFromNode(comment) as any).line
+            : null;
 
         if (
             typeof referenceLine === "number" &&
@@ -15733,7 +15814,9 @@ function suppressDuplicateVertexFormatComments(ast, commentTargets, node) {
             continue;
         }
 
-        const normalizedValue = isAstNode(comment) ? Core.toTrimmedString((comment as any).value) : null;
+        const normalizedValue = isAstNode(comment)
+            ? Core.toTrimmedString((comment as any).value)
+            : null;
 
         if (!normalizedTexts.has(normalizedValue)) {
             continue;
@@ -18260,7 +18343,11 @@ function renameReservedIdentifiersInVariableDeclaration(node, diagnostic) {
     return fixes;
 }
 
-function renameReservedIdentifierNode(identifier, diagnostic, options: RenameOptions = {}) {
+function renameReservedIdentifierNode(
+    identifier,
+    diagnostic,
+    options: RenameOptions = {}
+) {
     if (!identifier || identifier.type !== "Identifier") {
         return null;
     }
@@ -18759,8 +18846,7 @@ function createFeatherFixDetail(
         correction: diagnostic.correction ?? null,
         target,
         range,
-        automatic
-        ,
+        automatic,
         replacement: null
     };
 }

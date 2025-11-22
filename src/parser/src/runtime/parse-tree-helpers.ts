@@ -123,7 +123,7 @@ export function deriveListenerMethodNames(visitMethodNames) {
 
 export function toDelegate<T extends (...args: any[]) => any>(
     value: unknown,
-    fallback: T = (Core.Utils.noop as unknown) as T
+    fallback: T = Core.Utils.noop as unknown as T
 ): T {
     return typeof value === "function" ? (value as T) : fallback;
 }

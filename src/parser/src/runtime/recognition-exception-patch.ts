@@ -126,7 +126,9 @@ function ensureTokenMetadata(
 
     if (typeof token.tokenIndex !== "number") {
         const fallbackIndex = firstNumber(
-            typeof fallback === "object" ? (fallback as any).tokenIndex : undefined,
+            typeof fallback === "object"
+                ? (fallback as any).tokenIndex
+                : undefined,
             token.index,
             token.startIndex
         );
@@ -141,26 +143,34 @@ function ensureTokenMetadata(
     if (typeof token.line !== "number") {
         token.line =
             firstNumber(
-                typeof fallback === "object" ? (fallback as any).line : undefined,
+                typeof fallback === "object"
+                    ? (fallback as any).line
+                    : undefined,
                 typeof fallback === "object"
                     ? typeof (fallback as any).start === "number"
                         ? (fallback as any).start
                         : (fallback as any).start?.line
                     : undefined,
-                typeof token.start === "number" ? token.start : token.start?.line
+                typeof token.start === "number"
+                    ? token.start
+                    : token.start?.line
             ) ?? INVALID_INDEX_FALLBACK;
     }
 
     if (typeof token.column !== "number") {
         token.column =
             firstNumber(
-                typeof fallback === "object" ? (fallback as any).column : undefined,
+                typeof fallback === "object"
+                    ? (fallback as any).column
+                    : undefined,
                 typeof fallback === "object"
                     ? typeof (fallback as any).start === "number"
                         ? (fallback as any).start
                         : (fallback as any).start?.column
                     : undefined,
-                typeof token.start === "number" ? token.start : token.start?.column
+                typeof token.start === "number"
+                    ? token.start
+                    : token.start?.column
             ) ?? INVALID_INDEX_FALLBACK;
     }
 

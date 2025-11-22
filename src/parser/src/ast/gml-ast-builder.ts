@@ -254,7 +254,9 @@ export default class GameMakerASTBuilder {
     visitChildren(node: unknown): any {
         if (node == null) return null;
         if (Array.isArray(node)) {
-            return node.map((n) => this.visitor.visitChildren(n as ParserContextWithMethods));
+            return node.map((n) =>
+                this.visitor.visitChildren(n as ParserContextWithMethods)
+            );
         }
         return this.visitor.visitChildren(node as ParserContextWithMethods);
     }
@@ -278,12 +280,16 @@ export default class GameMakerASTBuilder {
     ensureArray(ctx: unknown): ParserContextWithMethods[] {
         if (!ctx) return [];
         const arr = Array.isArray(ctx) ? ctx : [ctx];
-        return arr.filter((c) => c !== null && c !== undefined) as ParserContextWithMethods[];
+        return arr.filter(
+            (c) => c !== null && c !== undefined
+        ) as ParserContextWithMethods[];
     }
 
     ensureSingle(ctx: unknown): ParserContextWithMethods | null {
         if (!ctx) return null;
-        return Array.isArray(ctx) ? (ctx as ParserContextWithMethods[])[0] : (ctx as ParserContextWithMethods);
+        return Array.isArray(ctx)
+            ? (ctx as ParserContextWithMethods[])[0]
+            : (ctx as ParserContextWithMethods);
     }
 
     ensureToken(t: unknown): { getText: () => string } | null {
@@ -306,7 +312,10 @@ export default class GameMakerASTBuilder {
      * @returns {object | null} The visited child node or `null` when no
      *     candidates are available.
      */
-    visitFirstChild(ctx: unknown | null | undefined, methodNames: string[]): any {
+    visitFirstChild(
+        ctx: unknown | null | undefined,
+        methodNames: string[]
+    ): any {
         if (!ctx || !Array.isArray(methodNames)) {
             return null;
         }
@@ -504,7 +513,9 @@ export default class GameMakerASTBuilder {
 
     // Visit a parse tree produced by GameMakerLanguageParser#block.
     visitBlock(ctx: ParserContext): any {
-        const body = ctx.statementList() ? this.visit(this.ensureSingle(ctx.statementList())) : [];
+        const body = ctx.statementList()
+            ? this.visit(this.ensureSingle(ctx.statementList()))
+            : [];
         return this.astNode(ctx, {
             type: "BlockStatement",
             body
@@ -590,7 +601,9 @@ export default class GameMakerASTBuilder {
         return this.astNode(ctx, {
             type: "WithStatement",
             test: this.visit(ctx.expression()),
-            body: this.withScope("with", () => this.visit(this.ensureSingle(ctx.statement())))
+            body: this.withScope("with", () =>
+                this.visit(this.ensureSingle(ctx.statement()))
+            )
         });
     }
 
@@ -825,7 +838,7 @@ export default class GameMakerASTBuilder {
     // Visit a parse tree produced by GameMakerLanguageParser#globalVarStatement.
     visitGlobalVarStatement(ctx: ParserContext): any {
         const declarations = this.ensureArray(ctx.identifier())
-            
+
             .map((identifierCtx: ParserContext) => {
                 const identifier = this.withIdentifierRole(
                     {
@@ -953,7 +966,9 @@ export default class GameMakerASTBuilder {
 
     // Visit a parse tree produced by GameMakerLanguageParser#expressionSequence.
     visitExpressionSequence(ctx: ParserContext): any[] {
-        return this.ensureArray(ctx.expression()).map((expr: ParserContext) => this.visit(expr));
+        return this.ensureArray(ctx.expression()).map((expr: ParserContext) =>
+            this.visit(expr)
+        );
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#expressionOrFunction.
@@ -1293,7 +1308,9 @@ export default class GameMakerASTBuilder {
                 atomList.push(this.visit(atom.expression()));
             }
             if (atom.TemplateStringText() != null) {
-                const templateText = this.ensureToken(atom.TemplateStringText());
+                const templateText = this.ensureToken(
+                    atom.TemplateStringText()
+                );
                 const value = templateText?.getText() ?? "";
                 const symbol = (templateText as any)?.symbol;
 
@@ -1376,7 +1393,9 @@ export default class GameMakerASTBuilder {
         if (this.ensureToken(ctx.Identifier()) != null) {
             const identifierNode = this.ensureToken(ctx.Identifier())!;
             id = identifierNode.getText();
-            idLocation = this.createIdentifierLocation((identifierNode as any).symbol);
+            idLocation = this.createIdentifierLocation(
+                (identifierNode as any).symbol
+            );
         }
 
         const paramListCtx = this.ensureSingle(ctx.parameterList());
@@ -1434,7 +1453,9 @@ export default class GameMakerASTBuilder {
         const argsCtx = this.ensureSingle(ctx.arguments?.());
         if (argsCtx != null) {
             params = this.visit(argsCtx);
-            hasTrailingComma = Boolean(this.ensureSingle(argsCtx.trailingComma()));
+            hasTrailingComma = Boolean(
+                this.ensureSingle(argsCtx.trailingComma())
+            );
 
             if (hasTrailingComma && params.length > 0) {
                 const lastParam = params.at(-1);
@@ -1564,7 +1585,10 @@ export default class GameMakerASTBuilder {
             type: "EnumDeclaration",
             name,
             members: this.visit(ctx.enumeratorList()),
-            hasTrailingComma: this.ensureArray(this.ensureSingle(ctx.enumeratorList())?.Comma()).length > 0
+            hasTrailingComma:
+                this.ensureArray(
+                    this.ensureSingle(ctx.enumeratorList())?.Comma()
+                ).length > 0
         });
     }
 
@@ -1585,7 +1609,8 @@ export default class GameMakerASTBuilder {
                     if (initializer.type === "Literal") {
                         initializer = initializer.value;
                     } else {
-                        const initializerText = this.ensureToken(expressionContext)?.getText();
+                        const initializerText =
+                            this.ensureToken(expressionContext)?.getText();
                         if (typeof initializerText === "string") {
                             initializer._enumInitializerText =
                                 initializerText.trim();

@@ -182,9 +182,14 @@ export function resolveNodeName(node) {
     return typeof node?.name === "string" ? node.name : null;
 }
 
-export function isIdentifierNode(node: unknown): node is { type: "Identifier"; name: string } {
+export function isIdentifierNode(
+    node: unknown
+): node is { type: "Identifier"; name: string } {
     if (!isNode(node)) return false;
-    return (node as any).type === "Identifier" && typeof (node as any).name === "string";
+    return (
+        (node as any).type === "Identifier" &&
+        typeof (node as any).name === "string"
+    );
 }
 
 export function isIdentifierWithName(node, name) {

@@ -21,7 +21,8 @@ const TRANSFORM_REGISTRY = Object.freeze({
     "strip-comments": stripCommentsTransform,
     "consolidate-struct-assignments": (ast, opts: any = {}) =>
         consolidateStructAssignments(ast, opts.commentTools),
-    "apply-feather-fixes": (ast, opts: any = {}) => applyFeatherFixes(ast, opts),
+    "apply-feather-fixes": (ast, opts: any = {}) =>
+        applyFeatherFixes(ast, opts),
     "preprocess-function-argument-defaults": (ast, opts: any = {}) =>
         preprocessFunctionArgumentDefaults(ast, opts.helpers ?? opts),
     "enforce-variable-block-spacing": (ast, opts: any = {}) =>
@@ -38,7 +39,11 @@ const TRANSFORM_REGISTRY = Object.freeze({
         annotateStaticFunctionOverrides(ast, opts)
 });
 
-export function applyTransforms(ast: any, transformNames: any[] = [], options: any = {}) {
+export function applyTransforms(
+    ast: any,
+    transformNames: any[] = [],
+    options: any = {}
+) {
     if (!Array.isArray(transformNames) || transformNames.length === 0) {
         return ast;
     }

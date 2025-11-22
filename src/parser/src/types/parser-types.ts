@@ -5,9 +5,12 @@ type SemanticScopeTrackerConstructor =
 
 type SemanticScopeTracker = InstanceType<SemanticScopeTrackerConstructor>;
 
-export type ParserContext = ParserRuleContext & {
-    [methodName: string]: (...args: Array<unknown>) => unknown;
-} | null | undefined;
+export type ParserContext =
+    | (ParserRuleContext & {
+          [methodName: string]: (...args: Array<unknown>) => unknown;
+      })
+    | null
+    | undefined;
 
 export type ParserContextMethod = (
     this: ParserRuleContext,

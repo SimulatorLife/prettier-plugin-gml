@@ -184,7 +184,10 @@ export default class GMLParser {
             return;
         }
 
-        const getIndex = (node: Record<string, unknown>, prop: "start" | "end") => {
+        const getIndex = (
+            node: Record<string, unknown>,
+            prop: "start" | "end"
+        ) => {
             const value = node[prop];
             if (typeof value === "number") return value as number;
             if (value && typeof (value as any).index === "number") {

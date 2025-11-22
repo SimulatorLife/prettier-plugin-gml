@@ -64,13 +64,16 @@ function collectConstructorInfos(ast) {
         }
 
         const parentName =
-            isAstNode(node.parent) && node.parent.type === "ConstructorParentClause"
+            isAstNode(node.parent) &&
+            node.parent.type === "ConstructorParentClause"
                 ? getNonEmptyString((node.parent as Record<string, unknown>).id)
                 : null;
 
         const staticFunctions = new Map();
 
-        for (const statement of getBodyStatements((node as Record<string, unknown>).body)) {
+        for (const statement of getBodyStatements(
+            (node as Record<string, unknown>).body
+        )) {
             const declarator = getStaticFunctionDeclarator(statement);
             if (declarator?.init?.type !== "FunctionDeclaration") {
                 continue;

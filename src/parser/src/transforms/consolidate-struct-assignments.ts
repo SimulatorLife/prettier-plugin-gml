@@ -344,7 +344,9 @@ function isIdentifierRoot(node, identifierName) {
     );
 }
 
-function buildPropertyFromAssignment(assignmentDetails): MutableGameMakerAstNode | null {
+function buildPropertyFromAssignment(
+    assignmentDetails
+): MutableGameMakerAstNode | null {
     if (!assignmentDetails) {
         return null;
     }
@@ -607,7 +609,11 @@ function isIdentifierSafe(name) {
 
 class CommentTracker {
     public comments: Array<unknown>;
-    public entries: Array<{ index: number; comment: unknown; consumed?: boolean }>;
+    public entries: Array<{
+        index: number;
+        comment: unknown;
+        consumed?: boolean;
+    }>;
 
     constructor(ownerOrComments) {
         const sourceComments = (() => {
