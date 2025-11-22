@@ -1,4 +1,5 @@
 import { Core } from "@gml-modules/core";
+import type { MutableGameMakerAstNode } from "@gml-modules/core";
 
 const {
     AST: {
@@ -343,7 +344,7 @@ function isIdentifierRoot(node, identifierName) {
     );
 }
 
-function buildPropertyFromAssignment(assignmentDetails) {
+function buildPropertyFromAssignment(assignmentDetails): MutableGameMakerAstNode | null {
     if (!assignmentDetails) {
         return null;
     }
@@ -378,7 +379,7 @@ function buildPropertyFromAssignment(assignmentDetails) {
             cloneLocation(
                 getPreferredLocation(assignment.right?.end, assignment.end)
             ) ?? null
-    };
+    } as MutableGameMakerAstNode;
 }
 
 function getStructPropertyAssignmentDetails(statement, identifierName) {
@@ -605,6 +606,9 @@ function isIdentifierSafe(name) {
 }
 
 class CommentTracker {
+    public comments: Array<unknown>;
+    public entries: Array<{ index: number; comment: unknown; consumed?: boolean }>;
+
     constructor(ownerOrComments) {
         const sourceComments = (() => {
             // If the caller provided a raw array of comments, prefer that

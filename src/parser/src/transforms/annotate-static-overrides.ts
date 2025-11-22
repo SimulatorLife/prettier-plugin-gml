@@ -26,6 +26,10 @@ function getStaticFunctionDeclarator(statement) {
     return declarator;
 }
 
+function isAstNode(value: unknown): value is Record<string, unknown> {
+    return Core.isNode(value);
+}
+
 function isStaticFunctionDeclaration(statement) {
     const declarator = getStaticFunctionDeclarator(statement);
 
@@ -50,7 +54,7 @@ function collectConstructorInfos(ast) {
     const constructors = new Map();
 
     for (const node of getBodyStatements(ast)) {
-        if (!node || node.type !== "ConstructorDeclaration") {
+        if (!isAstNode(node) || node.type !== "ConstructorDeclaration") {
             continue;
         }
 
@@ -60,13 +64,13 @@ function collectConstructorInfos(ast) {
         }
 
         const parentName =
-            node.parent?.type === "ConstructorParentClause"
-                ? getNonEmptyString(node.parent.id)
+            isAstNode(node.parent) && node.parent.type === "ConstructorParentClause"
+                ? getNonEmptyString((node.parent as Record<string, unknown>).id)
                 : null;
 
         const staticFunctions = new Map();
 
-        for (const statement of getBodyStatements(node.body)) {
+        for (const statement of getBodyStatements((node as Record<string, unknown>).body)) {
             const declarator = getStaticFunctionDeclarator(statement);
             if (declarator?.init?.type !== "FunctionDeclaration") {
                 continue;

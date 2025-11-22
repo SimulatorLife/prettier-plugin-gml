@@ -647,7 +647,10 @@ function extractReturnExpression(node, helpers) {
         }
 
         const firstStatement = body[firstStatementIndex];
-        if (firstStatement?.type !== "ReturnStatement") {
+        if (!isNode(firstStatement)) {
+            return null;
+        }
+        if (firstStatement.type !== "ReturnStatement") {
             return null;
         }
 
@@ -672,6 +675,9 @@ function extractReturnExpression(node, helpers) {
         return returnExpression;
     }
 
+    if (!isNode(node)) {
+        return null;
+    }
     if (node.type !== "ReturnStatement") {
         return null;
     }
@@ -689,7 +695,10 @@ function extractReturnExpression(node, helpers) {
 }
 
 function isIgnorableEmptyStatement(node, helpers) {
-    if (!isNode(node) || node.type !== "EmptyStatement") {
+    if (!isNode(node)) {
+        return false;
+    }
+    if (node.type !== "EmptyStatement") {
         return false;
     }
 
@@ -697,7 +706,10 @@ function isIgnorableEmptyStatement(node, helpers) {
 }
 
 function canDropUnreachableStatement(node, helpers) {
-    if (!isNode(node) || typeof node.type !== "string") {
+    if (!isNode(node)) {
+        return false;
+    }
+    if (typeof node.type !== "string") {
         return false;
     }
 
@@ -1060,7 +1072,7 @@ function selectPrimeCover(primes, minterms) {
         }
     }
 
-    const selected = new Set();
+    const selected = new Set<number>();
     const remainingMinterms = new Set(minterms);
 
     for (const minterm of minterms) {
@@ -1078,10 +1090,10 @@ function selectPrimeCover(primes, minterms) {
     }
 
     if (remainingMinterms.size === 0) {
-        return [...selected].map((index) => primes[index]);
+        return [...selected].map((index: number) => primes[index]);
     }
 
-    const remainingIndices = [];
+    const remainingIndices: number[] = [];
     for (let i = 0; i < primes.length; i++) {
         if (!selected.has(i)) {
             remainingIndices.push(i);
@@ -1097,7 +1109,7 @@ function selectPrimeCover(primes, minterms) {
         selected.add(index);
     }
 
-    return [...selected].map((index) => primes[index]);
+    return [...selected].map((index: number) => primes[index]);
 }
 
 function searchMinimalCover(primes, candidateIndices, remainingMinterms) {

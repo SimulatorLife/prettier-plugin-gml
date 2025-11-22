@@ -1,9 +1,19 @@
+type RenameOptions = {
+    onRename?: (payload: {
+        identifier: MutableGameMakerAstNode;
+        originalName: string;
+        replacement: string;
+    }) => void;
+};
+
 import { Core } from "@gml-modules/core";
+import type { MutableGameMakerAstNode } from "@gml-modules/core";
 import { Semantic } from "@gml-modules/semantic";
 import antlr4, { PredictionMode } from "antlr4";
 import GameMakerLanguageLexer from "../../generated/GameMakerLanguageLexer.js";
 import GameMakerLanguageParser from "../../generated/GameMakerLanguageParser.js";
 import GameMakerASTBuilder from "../ast/gml-ast-builder.js";
+import type { ParserContextWithMethods } from "../types/index.js";
 import GameMakerParseErrorListener, {
     GameMakerLexerErrorListener
 } from "../ast/gml-syntax-error.js";
@@ -30,7 +40,7 @@ function walkAstNodes(root, visitor) {
             return;
         }
 
-        if (typeof node !== "object") {
+        if (!isAstNode(node)) {
             return;
         }
 
@@ -78,7 +88,35 @@ function resolveCallExpressionArrayContext(node, parent, property) {
     };
 }
 
-function parseExample(sourceText) {
+// Helper guard used in transforms to narrow unknown node types into
+// object-like AST nodes for safer property access without resorting to
+// 'any'. This complements `Core.isNode` which is a runtime check but not a
+// TypeScript type predicate, so we provide a local predicate here.
+function isAstNode(value: unknown): value is Record<string, unknown> {
+    return Core.isNode(value);
+}
+
+function hasType(node: unknown, type: string): node is Record<string, unknown> & { type: string } {
+    return isAstNode(node) && (node as any).type === type;
+}
+
+function isIdentifierNode(node: unknown): node is { type: "Identifier"; name: string } {
+    return isAstNode(node) && (node as any).type === "Identifier" && typeof (node as any).name === "string";
+}
+
+function getStartFromNode(node: unknown) {
+    if (!isAstNode(node)) return null;
+    if (!Core.hasOwn(node, "start")) return null;
+    return Core.cloneLocation((node as any).start);
+}
+
+function getEndFromNode(node: unknown) {
+    if (!isAstNode(node)) return null;
+    if (!Core.hasOwn(node, "end")) return null;
+    return Core.cloneLocation((node as any).end);
+}
+
+function parseExample(sourceText: string, options: { getLocations?: boolean; simplifyLocations?: boolean } = { getLocations: true, simplifyLocations: false }) {
     if (typeof sourceText !== "string" || sourceText.length === 0) {
         return null;
     }
@@ -98,10 +136,10 @@ function parseExample(sourceText) {
 
         const tree = parser.program();
         const builder = new GameMakerASTBuilder(
-            { getLocations: true, simplifyLocations: false },
+            { getLocations: options.getLocations ?? true, simplifyLocations: options.simplifyLocations ?? false },
             []
         );
-        return builder.build(tree);
+        return builder.build(tree as ParserContextWithMethods);
     } catch {
         // Parsing example failed — return null and let caller handle absence
         return null;
@@ -180,25 +218,43 @@ const ROOM_NAVIGATION_HELPERS = Object.freeze({
     })
 });
 
-function normalizeRoomNavigationDirection(direction) {
+type RoomNavigationDirection = typeof ROOM_NAVIGATION_DIRECTION[keyof typeof ROOM_NAVIGATION_DIRECTION];
+
+function normalizeRoomNavigationDirection(direction: unknown): RoomNavigationDirection {
     if (typeof direction !== "string") {
         throw new TypeError(
             "Room navigation direction must be provided as a string."
         );
     }
 
-    if (!ROOM_NAVIGATION_DIRECTION_VALUES.has(direction)) {
+    if (!ROOM_NAVIGATION_DIRECTION_VALUES.has(direction as RoomNavigationDirection)) {
         throw new RangeError(
             `Unsupported room navigation direction: ${direction}. Expected one of: ${ROOM_NAVIGATION_DIRECTION_LABELS}.`
         );
     }
 
-    return direction;
+    return direction as RoomNavigationDirection;
 }
 
-export function getRoomNavigationHelpers(direction) {
+export function getRoomNavigationHelpers(direction: unknown) {
     const normalizedDirection = normalizeRoomNavigationDirection(direction);
     return ROOM_NAVIGATION_HELPERS[normalizedDirection];
+}
+
+function isFeatherDiagnostic(value: unknown): value is { id: string } {
+    return Core.isObjectLike(value) && typeof (value as any).id === "string";
+}
+
+function getOptionalString(obj: unknown, key: string): string | null {
+    if (!Core.isObjectLike(obj)) return null;
+    const value = (obj as any)[key];
+    return typeof value === "string" ? value : null;
+}
+
+function getOptionalArray(obj: unknown, key: string): unknown[] {
+    if (!Core.isObjectLike(obj)) return [];
+    const value = (obj as any)[key];
+    return Array.isArray(value) ? value : [];
 }
 const IDENTIFIER_TOKEN_PATTERN = /\b[A-Za-z_][A-Za-z0-9_]*\b/g;
 const RESERVED_KEYWORD_TOKENS = new Set([
@@ -1168,9 +1224,11 @@ function buildFeatherDiagnosticFixers(diagnostics, implementationRegistry) {
     const registry = new Map();
 
     for (const diagnostic of Core.asArray(diagnostics)) {
-        const diagnosticId = diagnostic?.id;
-
-        if (!diagnosticId || registry.has(diagnosticId)) {
+        if (!isFeatherDiagnostic(diagnostic)) {
+            continue;
+        }
+        const diagnosticId = diagnostic.id;
+        if (registry.has(diagnosticId)) {
             continue;
         }
 
@@ -1305,11 +1363,13 @@ function removeDuplicateEnumMembers({ ast, diagnostic, sourceText }) {
                 for (let index = 0; index < members.length; index += 1) {
                     const member = members[index];
 
-                    if (!member || typeof member !== "object") {
+                    if (!isAstNode(member)) {
                         continue;
                     }
 
-                    const name = member.name?.name;
+                    const name = isIdentifierNode((member as any).name)
+                        ? (member as any).name.name
+                        : null;
 
                     if (typeof name !== "string" || name.length === 0) {
                         continue;
@@ -1495,11 +1555,10 @@ function buildFeatherFixImplementations(diagnostics) {
     const registry = new Map();
 
     for (const diagnostic of Core.asArray(diagnostics)) {
-        const diagnosticId = diagnostic?.id;
-
-        if (!diagnosticId) {
+        if (!isFeatherDiagnostic(diagnostic)) {
             continue;
         }
+        const diagnosticId = diagnostic.id;
 
         if (diagnosticId === "GM1000") {
             registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
@@ -1553,8 +1612,8 @@ function buildFeatherFixImplementations(diagnostics) {
         }
 
         if (diagnosticId === "GM1004") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = removeDuplicateEnumMembers({ ast, diagnostic });
+            registerFeatherFixer(registry, diagnosticId, () => ({ ast, sourceText }) => {
+                const fixes = removeDuplicateEnumMembers({ ast, diagnostic, sourceText });
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
             });
@@ -2077,17 +2136,18 @@ function recordVariableDeclaration(registry, context) {
         return;
     }
 
-    const declarator = declarations[0];
+    const declarator = declarations[0] as Record<string, unknown>;
 
-    if (
-        !declarator ||
-        declarator.id?.type !== "Identifier" ||
-        !declarator.init
-    ) {
+    if (!isAstNode(declarator)) {
         return;
     }
 
-    const name = declarator.id.name;
+    const id = declarator.id;
+    if (!isAstNode(id) || (id.type ?? null) !== "Identifier" || !declarator.init) {
+        return;
+    }
+
+    const name = typeof (id as Record<string, unknown>).name === "string" ? (id as Record<string, unknown>).name : null;
 
     if (!name) {
         return;
@@ -2296,13 +2356,13 @@ function promoteVariableDeclaration(context, diagnostic, fixes) {
         return null;
     }
 
-    const assignment = {
+    const assignment: Record<string, unknown> = {
         type: "AssignmentExpression",
         operator: "=",
         left: cloneIdentifier(declarator.id),
         right: declarator.init,
-        start: Core.cloneLocation(declaration.start),
-        end: Core.cloneLocation(declaration.end)
+        start: getStartFromNode(declaration),
+        end: getEndFromNode(declaration)
     };
 
     copyCommentMetadata(declaration, assignment);
@@ -2415,7 +2475,7 @@ function shouldConvertIdentifierInWith(identifier, parent, property) {
 function createOtherMemberExpression(identifier) {
     const memberExpression = {
         type: "MemberDotExpression",
-        object: Core.createIdentifierNode("other"),
+        object: Core.createIdentifierNode("other", identifier),
         property: cloneIdentifier(identifier)
     };
 
@@ -2772,18 +2832,20 @@ function convertLengthAccess(node, parent, property, diagnostic) {
         return null;
     }
 
-    const callExpression = {
+    const callExpression: Record<string, unknown> = {
         type: "CallExpression",
         object: stringLengthIdentifier,
         arguments: [argumentExpression]
     };
 
-    if (Core.hasOwn(node, "start")) {
-        callExpression.start = Core.cloneLocation(node.start);
+    const callStart = getStartFromNode(node);
+    if (callStart) {
+        callExpression.start = callStart;
     }
 
-    if (Core.hasOwn(node, "end")) {
-        callExpression.end = Core.cloneLocation(node.end);
+    const callEnd = getEndFromNode(node);
+    if (callEnd) {
+        callExpression.end = callEnd;
     }
 
     copyCommentMetadata(node, callExpression);
@@ -2965,7 +3027,7 @@ function buildFeatherTypeSystemInfo() {
     const entries = Core.asArray(typeSystem?.baseTypes);
 
     for (const entry of entries) {
-        const name = Core.toTrimmedString(entry?.name);
+        const name = Core.toTrimmedString(getOptionalString(entry, "name"));
 
         if (!name) {
             continue;
@@ -2974,7 +3036,7 @@ function buildFeatherTypeSystemInfo() {
         baseTypes.add(name);
         baseTypesLowercase.add(name.toLowerCase());
 
-        const specifierExamples = Core.asArray(entry?.specifierExamples);
+        const specifierExamples = Core.asArray(getOptionalArray(entry, "specifierExamples"));
         const hasDotSpecifier = specifierExamples.some((example) => {
             if (typeof example !== "string") {
                 return false;
@@ -2983,8 +3045,7 @@ function buildFeatherTypeSystemInfo() {
             return example.trim().startsWith(".");
         });
 
-        const description =
-            typeof entry?.description === "string" ? entry.description : "";
+        const description = Core.toTrimmedString(getOptionalString(entry, "description")) ?? "";
         const requiresSpecifier =
             /requires specifiers/i.test(description) ||
             /constructor/i.test(description);
@@ -3070,7 +3131,7 @@ function sanitizeEnumMember(node, diagnostic) {
     node.initializer = null;
 
     if (Core.hasOwn(node.name ?? {}, "end")) {
-        node.end = Core.cloneLocation(node.name.end);
+        node.end = getEndFromNode(node.name) ?? null;
     }
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
@@ -3285,17 +3346,19 @@ function createAssignmentFromGlobalVarDeclarator({
         return null;
     }
 
-    const identifier = cloneIdentifier(declarator.id);
+    const identifier = cloneIdentifier(declarator.id) as Record<string, unknown> | null;
 
     if (!identifier) {
         return null;
     }
 
-    if (declarator.id && declarator.id.isGlobalIdentifier) {
-        identifier.isGlobalIdentifier = true;
+    if (declarator.id && (declarator.id as any).isGlobalIdentifier) {
+        if (isAstNode(identifier)) {
+            (identifier as Record<string, unknown>).isGlobalIdentifier = true;
+        }
     }
 
-    const assignment = {
+    const assignment: Record<string, unknown> = {
         type: "AssignmentExpression",
         operator: "=",
         left: identifier,
@@ -3303,17 +3366,17 @@ function createAssignmentFromGlobalVarDeclarator({
     };
 
     if (Core.hasOwn(declarator, "start")) {
-        assignment.start = Core.cloneLocation(declarator.start);
+        Core.assignClonedLocation(assignment as any, declarator);
     } else if (Core.hasOwn(statement, "start")) {
-        assignment.start = Core.cloneLocation(statement.start);
+        Core.assignClonedLocation(assignment as any, statement);
     }
 
     if (Core.hasOwn(initializer, "end")) {
-        assignment.end = Core.cloneLocation(initializer.end);
+        Core.assignClonedLocation(assignment as any, initializer);
     } else if (Core.hasOwn(declarator, "end")) {
-        assignment.end = Core.cloneLocation(declarator.end);
+        Core.assignClonedLocation(assignment as any, declarator);
     } else if (Core.hasOwn(statement, "end")) {
-        assignment.end = Core.cloneLocation(statement.end);
+        Core.assignClonedLocation(assignment as any, statement);
     }
 
     copyCommentMetadata(declarator, assignment);
@@ -3346,7 +3409,7 @@ function clearGlobalVarDeclaratorInitializer(declarator) {
         typeof declarator.id === "object" &&
         Core.hasOwn(declarator.id, "end")
     ) {
-        declarator.end = Core.cloneLocation(declarator.id.end);
+        Core.assignClonedLocation(declarator as any, declarator.id);
     }
 }
 
@@ -3693,16 +3756,16 @@ function convertReadOnlyAssignment(
         type: "VariableDeclarator",
         id: replacementIdentifier,
         init: node.right,
-        start: Core.cloneLocation(node.start),
-        end: Core.cloneLocation(node.end)
+        start: getStartFromNode(node),
+        end: getEndFromNode(node)
     };
 
     const declaration = {
         type: "VariableDeclaration",
         declarations: [declarator],
         kind: "var",
-        start: Core.cloneLocation(node.start),
-        end: Core.cloneLocation(node.end)
+        start: getStartFromNode(node),
+        end: getEndFromNode(node)
     };
 
     copyCommentMetadata(node, declaration);
@@ -4089,7 +4152,7 @@ function rewriteRoomNavigationBinaryExpression({
         return null;
     }
 
-    const callExpression = {
+    const callExpression: Record<string, unknown> = {
         type: "CallExpression",
         object: calleeIdentifier,
         arguments: [argumentIdentifier]
@@ -4987,16 +5050,19 @@ function normalizeDocParamNameForComparison(name) {
     return Core.toNormalizedLowerCaseString(name);
 }
 
-function createArgumentIndexMapping(indices) {
+function createArgumentIndexMapping(indices: unknown[]) {
     if (!Core.isNonEmptyArray(indices)) {
         return null;
     }
 
-    const uniqueIndices = [
+    const uniqueIndices = ([
         ...new Set(
-            indices.filter((index) => Number.isInteger(index) && index >= 0)
+            indices.filter(
+                (index): index is number =>
+                    typeof index === "number" && Number.isInteger(index) && index >= 0
+            )
         )
-    ].sort((left, right) => left - right);
+    ] as number[]).sort((left, right) => left - right);
 
     if (uniqueIndices.length === 0) {
         return null;
@@ -5490,13 +5556,8 @@ function rewritePostfixStatement(node, parent, property, diagnostic) {
         init: initializer
     };
 
-    if (Core.hasOwn(argument, "start")) {
-        declarator.start = Core.cloneLocation(argument.start);
-    }
-
-    if (Core.hasOwn(argument, "end")) {
-        declarator.end = Core.cloneLocation(argument.end);
-    }
+    // Preserve location metadata from the argument into the declarator
+    Core.assignClonedLocation(declarator as any, argument);
 
     const variableDeclaration = {
         type: "VariableDeclaration",
@@ -5504,13 +5565,8 @@ function rewritePostfixStatement(node, parent, property, diagnostic) {
         kind: "var"
     };
 
-    if (Core.hasOwn(node, "start")) {
-        variableDeclaration.start = Core.cloneLocation(node.start);
-    }
-
-    if (Core.hasOwn(node, "end")) {
-        variableDeclaration.end = Core.cloneLocation(node.end);
-    }
+    // Preserve location metadata from the original node onto the synthetic declaration
+    Core.assignClonedLocation(variableDeclaration as any, node);
 
     const temporaryIdentifier = Core.createIdentifierNode(
         temporaryName,
@@ -5529,11 +5585,11 @@ function rewritePostfixStatement(node, parent, property, diagnostic) {
     };
 
     if (Core.hasOwn(node, "start")) {
-        rewrittenStatement.start = Core.cloneLocation(node.start);
+        Core.assignClonedLocation(rewrittenStatement as any, node);
     }
 
     if (Core.hasOwn(node, "end")) {
-        rewrittenStatement.end = Core.cloneLocation(node.end);
+        Core.assignClonedLocation(rewrittenStatement as any, node);
     }
 
     copyCommentMetadata(node, variableDeclaration);
@@ -5693,11 +5749,11 @@ function buildNestedMemberIndexExpression({ object, indices, template }) {
     };
 
     if (Core.hasOwn(template, "start")) {
-        current.start = Core.cloneLocation(template.start);
+        Core.assignClonedLocation(current as any, template);
     }
 
     if (remaining.length === 0 && Core.hasOwn(template, "end")) {
-        current.end = Core.cloneLocation(template.end);
+        Core.assignClonedLocation(current as any, template);
     }
 
     for (let index = 0; index < remaining.length; index += 1) {
@@ -5711,11 +5767,11 @@ function buildNestedMemberIndexExpression({ object, indices, template }) {
         };
 
         if (Core.hasOwn(template, "start")) {
-            next.start = Core.cloneLocation(template.start);
+            Core.assignClonedLocation(next as any, template);
         }
 
         if (index === remaining.length - 1 && Core.hasOwn(template, "end")) {
-            next.end = Core.cloneLocation(template.end);
+            Core.assignClonedLocation(next as any, template);
         }
 
         current = next;
@@ -6052,21 +6108,22 @@ function normalizeObviousSyntaxErrors({ ast, diagnostic, metadata }) {
     const fixes = [];
 
     for (const entry of gm1100Entries) {
-        const lineNumber = entry?.line;
-
-        if (typeof lineNumber !== "number") {
+        if (!isAstNode(entry)) {
             continue;
         }
+
+        const lineNumber = typeof (entry as any).line === "number" ? (entry as any).line : undefined;
+        if (lineNumber === undefined) continue;
 
         const candidates = nodeIndex.get(lineNumber) ?? [];
         let node = null;
 
-        if (entry.type === "declaration") {
+        if ((entry as any).type === "declaration") {
             node =
                 candidates.find(
                     (candidate) => candidate?.type === "VariableDeclaration"
                 ) ?? null;
-        } else if (entry.type === "assignment") {
+        } else if ((entry as any).type === "assignment") {
             node =
                 candidates.find(
                     (candidate) => candidate?.type === "AssignmentExpression"
@@ -6080,7 +6137,7 @@ function normalizeObviousSyntaxErrors({ ast, diagnostic, metadata }) {
         handledNodes.add(node);
 
         const fixDetail = createFeatherFixDetail(diagnostic, {
-            target: entry?.identifier ?? null,
+            target: (entry as any).identifier ?? null,
             range: {
                 start: Core.getNodeStartIndex(node),
                 end: Core.getNodeEndIndex(node)
@@ -6498,8 +6555,8 @@ function normalizePreprocessedRange(entry) {
     const startLine = entry?.start?.line;
     const endLine = entry?.end?.line;
 
-    const startLocation = { index: startIndex };
-    const endLocation = { index: endIndex };
+    const startLocation: { index: number; line?: number } = { index: startIndex };
+    const endLocation: { index: number; line?: number } = { index: endIndex };
 
     if (typeof startLine === "number") {
         startLocation.line = startLine;
@@ -7080,10 +7137,7 @@ function collectDeprecatedFunctionNames(ast, sourceText, docCommentTraversal) {
 
     const topLevelFunctions = new Set(
         body.filter(
-            (node) =>
-                node &&
-                typeof node === "object" &&
-                node.type === "FunctionDeclaration"
+                (node) => isAstNode(node) && node.type === "FunctionDeclaration"
         )
     );
 
@@ -7663,8 +7717,7 @@ function renameDuplicateFunctionParameters({ ast, diagnostic, options }) {
         ) {
             const functionFixes = renameDuplicateParametersInFunction(
                 node,
-                diagnostic,
-                options
+                diagnostic
             );
             if (Core.isNonEmptyArray(functionFixes)) {
                 fixes.push(...functionFixes);
@@ -7827,11 +7880,11 @@ function convertDeleteStatementToUndefinedAssignment(
     }
 
     const targetName = getDeleteTargetName(node.argument);
-    const assignment = {
+    const assignment: Record<string, unknown> = {
         type: "AssignmentExpression",
         operator: "=",
         left: node.argument,
-        right: createLiteral("undefined"),
+        right: createLiteral("undefined", null),
         start: Core.cloneLocation(node.start),
         end: Core.cloneLocation(node.end)
     };
@@ -7846,7 +7899,10 @@ function convertDeleteStatementToUndefinedAssignment(
             assignment.right &&
             typeof Core.assignClonedLocation === "function"
         ) {
-            Core.assignClonedLocation(assignment.right, node.argument || node);
+            Core.assignClonedLocation(
+                assignment.right as Record<string, unknown>,
+                (isAstNode(node.argument) ? node.argument : node) as Record<string, unknown>
+            );
         }
     } catch {
         // Best-effort only; don't fail the transform on location copy errors.
@@ -7878,7 +7934,7 @@ function isValidDeleteTarget(node) {
         return false;
     }
 
-    if (Core.isIdentifierNode(node)) {
+    if (isIdentifierNode(node)) {
         return true;
     }
 
@@ -7890,7 +7946,7 @@ function getDeleteTargetName(node) {
         return null;
     }
 
-    if (Core.isIdentifierNode(node)) {
+    if (isIdentifierNode(node)) {
         return node.name;
     }
 
@@ -8041,7 +8097,7 @@ function getVertexBatchTarget(callExpression) {
     if (args.length > 0) {
         const firstArgument = args[0];
 
-        if (Core.isIdentifierNode(firstArgument)) {
+        if (isIdentifierNode(firstArgument)) {
             return firstArgument.name ?? null;
         }
     }
@@ -8060,7 +8116,7 @@ function createVertexEndCallFromBegin(template) {
         return null;
     }
 
-    const callExpression = {
+    const callExpression: Record<string, unknown> = {
         type: "CallExpression",
         object: identifier,
         arguments: []
@@ -8070,7 +8126,7 @@ function createVertexEndCallFromBegin(template) {
         const clonedArgument = Core.cloneAstNode(template.arguments[0]);
 
         if (clonedArgument) {
-            callExpression.arguments.push(clonedArgument);
+            (callExpression.arguments as unknown as any[]).push(clonedArgument);
         }
     }
 
@@ -8158,7 +8214,7 @@ function convertAssignmentToLocalVariable({
 
     const left = node.left;
 
-    if (!Core.isIdentifierNode(left)) {
+    if (!isIdentifierNode(left)) {
         return null;
     }
 
@@ -8226,18 +8282,16 @@ function convertAssignmentToLocalVariable({
     const declarator = {
         type: "VariableDeclarator",
         id: clonedIdentifier,
-        init: node.right,
-        start: Core.cloneLocation(left?.start ?? node.start),
-        end: Core.cloneLocation(node.end)
+        init: node.right
     };
+    Core.assignClonedLocation(declarator as any, left ?? node);
 
     const declaration = {
         type: "VariableDeclaration",
         declarations: [declarator],
-        kind: "var",
-        start: Core.cloneLocation(node.start),
-        end: Core.cloneLocation(node.end)
+        kind: "var"
     };
+    Core.assignClonedLocation(declaration as any, node);
 
     copyCommentMetadata(node, declaration);
 
@@ -8282,7 +8336,7 @@ function buildEventMarkerIndex(ast) {
     const markers = [];
 
     for (const comment of markerComments) {
-        const eventName = extractEventNameFromComment(comment?.value);
+        const eventName = extractEventNameFromComment(getOptionalString(comment, "value"));
 
         if (!eventName) {
             continue;
@@ -8306,7 +8360,7 @@ function buildEventMarkerIndex(ast) {
 }
 
 function extractEventNameFromComment(value) {
-    const trimmed = getNonEmptyTrimmedString(value);
+    const trimmed = Core.Utils.getNonEmptyTrimmedString(value);
 
     if (!trimmed || !trimmed.startsWith("/")) {
         return null;
@@ -8604,7 +8658,7 @@ function getLoopIndexInfo(init) {
         const identifier = declaration?.id;
         const initializer = declaration?.init;
 
-        if (!Core.isIdentifierNode(identifier) || !isLiteralZero(initializer)) {
+        if (!isIdentifierNode(identifier) || !isLiteralZero(initializer)) {
             return null;
         }
 
@@ -8616,7 +8670,7 @@ function getLoopIndexInfo(init) {
             return null;
         }
 
-        if (!Core.isIdentifierNode(init.left) || !isLiteralZero(init.right)) {
+        if (!isIdentifierNode(init.left) || !isLiteralZero(init.right)) {
             return null;
         }
 
@@ -8891,7 +8945,7 @@ function normalizeCallExpressionArguments({
     const callArgumentInfos = [];
 
     for (const [index, argument] of args.entries()) {
-        if (!argument || argument.type !== "CallExpression") {
+        if (!isAstNode(argument) || argument.type !== "CallExpression") {
             continue;
         }
 
@@ -9287,7 +9341,7 @@ function convertNullishIfStatement(node, parent, property, diagnostic) {
     const assignmentIdentifier = consequentAssignment.left;
 
     if (
-        !Core.isIdentifierNode(assignmentIdentifier) ||
+        !isIdentifierNode(assignmentIdentifier) ||
         assignmentIdentifier.name !== identifierInfo.name
     ) {
         return null;
@@ -9305,7 +9359,7 @@ function convertNullishIfStatement(node, parent, property, diagnostic) {
         previousNode &&
         previousNode.type === "AssignmentExpression" &&
         previousNode.operator === "=" &&
-        Core.isIdentifierNode(previousNode.left) &&
+        isIdentifierNode(previousNode.left) &&
         previousNode.left.name === identifierInfo.name &&
         previousNode.right
     ) {
@@ -9319,23 +9373,23 @@ function convertNullishIfStatement(node, parent, property, diagnostic) {
         };
 
         if (Core.hasOwn(previousRight, "start")) {
-            binaryExpression.start = Core.cloneLocation(previousRight.start);
+            Core.assignClonedLocation(binaryExpression as any, previousRight);
         } else if (Core.hasOwn(previousNode, "start")) {
-            binaryExpression.start = Core.cloneLocation(previousNode.start);
+            Core.assignClonedLocation(binaryExpression as any, previousNode);
         }
 
         if (Core.hasOwn(fallbackExpression, "end")) {
-            binaryExpression.end = Core.cloneLocation(fallbackExpression.end);
+            Core.assignClonedLocation(binaryExpression as any, fallbackExpression);
         } else if (Core.hasOwn(consequentAssignment, "end")) {
-            binaryExpression.end = Core.cloneLocation(consequentAssignment.end);
+            Core.assignClonedLocation(binaryExpression as any, consequentAssignment);
         }
 
         previousNode.right = binaryExpression;
 
         if (Core.hasOwn(node, "end")) {
-            previousNode.end = Core.cloneLocation(node.end);
+            Core.assignClonedLocation(previousNode as any, node);
         } else if (Core.hasOwn(consequentAssignment, "end")) {
-            previousNode.end = Core.cloneLocation(consequentAssignment.end);
+            Core.assignClonedLocation(previousNode as any, consequentAssignment);
         }
 
         const fixDetail = createFeatherFixDetail(diagnostic, {
@@ -9364,17 +9418,15 @@ function convertNullishIfStatement(node, parent, property, diagnostic) {
     };
 
     if (Core.hasOwn(consequentAssignment, "start")) {
-        nullishAssignment.start = Core.cloneLocation(
-            consequentAssignment.start
-        );
+        Core.assignClonedLocation(nullishAssignment as any, consequentAssignment);
     } else if (Core.hasOwn(node, "start")) {
-        nullishAssignment.start = Core.cloneLocation(node.start);
+        Core.assignClonedLocation(nullishAssignment as any, node);
     }
 
     if (Core.hasOwn(node, "end")) {
-        nullishAssignment.end = Core.cloneLocation(node.end);
+        Core.assignClonedLocation(nullishAssignment as any, node);
     } else if (Core.hasOwn(consequentAssignment, "end")) {
-        nullishAssignment.end = Core.cloneLocation(consequentAssignment.end);
+        Core.assignClonedLocation(nullishAssignment as any, consequentAssignment);
     }
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
@@ -9402,11 +9454,11 @@ function extractUndefinedComparisonIdentifier(expression) {
 
     const { left, right } = expression;
 
-    if (Core.isIdentifierNode(left) && Core.isUndefinedSentinel(right)) {
+    if (isIdentifierNode(left) && Core.isUndefinedSentinel(right)) {
         return { node: left, name: left.name };
     }
 
-    if (Core.isIdentifierNode(right) && Core.isUndefinedSentinel(left)) {
+    if (isIdentifierNode(right) && Core.isUndefinedSentinel(left)) {
         return { node: right, name: right.name };
     }
 
@@ -10347,12 +10399,13 @@ function removeRedeclaredGlobalFunctions({ ast, diagnostic }) {
     for (let index = 0; index < body.length; ) {
         const node = body[index];
 
-        if (!node || node.type !== "FunctionDeclaration") {
+        if (!isAstNode(node) || node.type !== "FunctionDeclaration") {
             index += 1;
             continue;
         }
 
-        const functionId = typeof node.id === "string" ? node.id : null;
+        const nodeObj = node as Record<string, unknown>;
+        const functionId = typeof nodeObj.id === "string" ? (nodeObj.id as string) : null;
 
         if (!functionId) {
             index += 1;
@@ -11401,7 +11454,7 @@ function removeRedundantSurfaceResetCalls(statements, startIndex) {
         const metadata = Core.asArray(candidate?._appliedFeatherDiagnostics);
 
         const hasGM2005Metadata = metadata.some(
-            (entry) => entry?.id === "GM2005"
+            (entry) => isFeatherDiagnostic(entry) && entry.id === "GM2005"
         );
 
         if (!hasGM2005Metadata) {
@@ -11594,7 +11647,7 @@ function attachLeadingCommentsToWrappedPrimitive({
             : Core.getNodeEndIndex(precedingStatement);
 
     for (const comment of comments) {
-        if (!comment || comment.type !== "CommentLine") {
+        if (!isAstNode(comment) || (comment as any).type !== "CommentLine") {
             continue;
         }
 
@@ -11770,7 +11823,7 @@ function ensureCullModeResetAfterCall(node, parent, property, diagnostic) {
 
     const [modeArgument] = args;
 
-    if (!Core.isIdentifierNode(modeArgument)) {
+    if (!isIdentifierNode(modeArgument)) {
         return null;
     }
 
@@ -11903,7 +11956,7 @@ function ensureVertexBeginBeforeVertexEndCall(
 
     const bufferArgument = args[0];
 
-    if (!Core.isIdentifierNode(bufferArgument)) {
+    if (!isIdentifierNode(bufferArgument)) {
         return null;
     }
 
@@ -11977,7 +12030,7 @@ function isVertexBeginCallForBuffer(node, bufferName) {
 
     const firstArgument = args[0];
 
-    if (!Core.isIdentifierNode(firstArgument)) {
+    if (!isIdentifierNode(firstArgument)) {
         return false;
     }
 
@@ -12054,7 +12107,7 @@ function ensureVertexEndInserted(node, parent, property, diagnostic) {
 
     const bufferArgument = args[0];
 
-    if (!Core.isIdentifierNode(bufferArgument)) {
+    if (!isIdentifierNode(bufferArgument)) {
         return null;
     }
 
@@ -12186,7 +12239,7 @@ function hasFirstArgumentIdentifier(node, name) {
 
     const firstArg = args[0];
 
-    if (!Core.isIdentifierNode(firstArg)) {
+    if (!isIdentifierNode(firstArg)) {
         return false;
     }
 
@@ -12230,7 +12283,7 @@ function isVertexEndCallForBuffer(node, bufferName) {
 
     const firstArg = args[0];
 
-    return Core.isIdentifierNode(firstArg) && firstArg.name === bufferName;
+    return isIdentifierNode(firstArg) && firstArg.name === bufferName;
 }
 
 function createVertexEndCall(template, bufferIdentifier) {
@@ -12238,13 +12291,13 @@ function createVertexEndCall(template, bufferIdentifier) {
         return null;
     }
 
-    if (!Core.isIdentifierNode(bufferIdentifier)) {
+    if (!isIdentifierNode(bufferIdentifier)) {
         return null;
     }
 
     const callExpression = {
         type: "CallExpression",
-        object: Core.createIdentifierNode("vertex_end"),
+        object: Core.createIdentifierNode("vertex_end", template),
         arguments: [cloneIdentifier(bufferIdentifier)]
     };
 
@@ -12258,7 +12311,7 @@ function createVertexBeginCall({
     referenceCall,
     bufferIdentifier
 }) {
-    if (!Core.isIdentifierNode(bufferIdentifier)) {
+    if (!isIdentifierNode(bufferIdentifier)) {
         return null;
     }
 
@@ -12271,7 +12324,7 @@ function createVertexBeginCall({
         arguments: []
     };
 
-    if (!Core.isIdentifierNode(callExpression.object)) {
+    if (!isIdentifierNode(callExpression.object)) {
         return null;
     }
 
@@ -12302,7 +12355,7 @@ function createVertexBeginCall({
     if (callExpression.arguments.length === 1) {
         const fallbackArgument =
             Core.createIdentifierNode("format", referenceCall?.object) ||
-            Core.createIdentifierNode("format");
+            Core.createIdentifierNode("format", referenceCall?.object ?? null);
 
         if (fallbackArgument) {
             callExpression.arguments.push(fallbackArgument);
@@ -12674,13 +12727,7 @@ function createVariableDeclarationFromAssignment(
     };
 
     if (declaratorTemplate && typeof declaratorTemplate === "object") {
-        if (Core.hasOwn(declaratorTemplate, "start")) {
-            declarator.start = Core.cloneLocation(declaratorTemplate.start);
-        }
-
-        if (Core.hasOwn(declaratorTemplate, "end")) {
-            declarator.end = Core.cloneLocation(declaratorTemplate.end);
-        }
+        Core.assignClonedLocation(declarator as any, declaratorTemplate);
     }
 
     const declaration = {
@@ -12689,13 +12736,7 @@ function createVariableDeclarationFromAssignment(
         declarations: [declarator]
     };
 
-    if (Core.hasOwn(assignmentNode, "start")) {
-        declaration.start = Core.cloneLocation(assignmentNode.start);
-    }
-
-    if (Core.hasOwn(assignmentNode, "end")) {
-        declaration.end = Core.cloneLocation(assignmentNode.end);
-    }
+    Core.assignClonedLocation(declaration as any, assignmentNode);
 
     return declaration;
 }
@@ -12994,12 +13035,8 @@ function createHoistedVariableDeclaration(declaratorTemplate) {
         init: null
     };
 
-    if (Core.hasOwn(declaratorTemplate, "start")) {
-        declarator.start = Core.cloneLocation(declaratorTemplate.start);
-    }
-
-    if (Core.hasOwn(declaratorTemplate, "end")) {
-        declarator.end = Core.cloneLocation(declaratorTemplate.end);
+    if (Core.isObjectLike(declaratorTemplate)) {
+        Core.assignClonedLocation(declarator as any, declaratorTemplate);
     }
 
     const declaration = {
@@ -13008,12 +13045,8 @@ function createHoistedVariableDeclaration(declaratorTemplate) {
         declarations: [declarator]
     };
 
-    if (Core.hasOwn(declaratorTemplate, "start")) {
-        declaration.start = Core.cloneLocation(declaratorTemplate.start);
-    }
-
-    if (Core.hasOwn(declaratorTemplate, "end")) {
-        declaration.end = Core.cloneLocation(declaratorTemplate.end);
+    if (Core.isObjectLike(declaratorTemplate)) {
+        Core.assignClonedLocation(declaration as any, declaratorTemplate);
     }
 
     return declaration;
@@ -13451,7 +13484,7 @@ function createFunctionCallTemplateFromDiagnostic(diagnostic) {
         });
         const callExpression = findFirstCallExpression(exampleAst);
 
-        if (!callExpression || !Core.isIdentifierNode(callExpression.object)) {
+        if (!callExpression || !isIdentifierNode(callExpression.object)) {
             return null;
         }
 
@@ -14599,7 +14632,7 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
     }
 
     function getProgramStatements(node) {
-        if (!isNode(node)) {
+        if (!isAstNode(node)) {
             return [];
         }
 
@@ -15682,7 +15715,7 @@ function suppressDuplicateVertexFormatComments(ast, commentTargets, node) {
     const removalIndexes = new Set();
 
     for (const [index, comment] of comments.entries()) {
-        if (!comment || comment.type !== "CommentLine") {
+        if (!isAstNode(comment) || comment.type !== "CommentLine") {
             continue;
         }
 
@@ -15690,7 +15723,7 @@ function suppressDuplicateVertexFormatComments(ast, commentTargets, node) {
             continue;
         }
 
-        const commentLine = comment?.start?.line;
+        const commentLine = getStartFromNode(comment) ? (getStartFromNode(comment) as any).line : null;
 
         if (
             typeof referenceLine === "number" &&
@@ -15700,7 +15733,7 @@ function suppressDuplicateVertexFormatComments(ast, commentTargets, node) {
             continue;
         }
 
-        const normalizedValue = Core.toTrimmedString(comment.value);
+        const normalizedValue = isAstNode(comment) ? Core.toTrimmedString((comment as any).value) : null;
 
         if (!normalizedTexts.has(normalizedValue)) {
             continue;
@@ -16253,7 +16286,7 @@ function harmonizeTexturePointerTernary(node, parent, property, diagnostic) {
     node.alternate = pointerIdentifier;
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: Core.isIdentifierNode(parent.left) ? parent.left.name : null,
+        target: isIdentifierNode(parent.left) ? parent.left.name : null,
         range: {
             start: Core.getNodeStartIndex(node),
             end: Core.getNodeEndIndex(node)
@@ -16276,7 +16309,7 @@ function createAssignmentFromDeclarator(declarator, declarationNode) {
 
     const identifier = declarator.id;
 
-    if (!Core.isIdentifierNode(identifier)) {
+    if (!isIdentifierNode(identifier)) {
         return null;
     }
 
@@ -16303,21 +16336,18 @@ function getFunctionParameterNames(node) {
     const names = [];
 
     for (const param of params) {
-        if (!param || typeof param !== "object") {
+        if (!isAstNode(param)) {
             continue;
         }
 
-        if (Core.isIdentifierNode(param)) {
+        if (isIdentifierNode(param)) {
             if (param.name) {
                 names.push(param.name);
             }
             continue;
         }
 
-        if (
-            param.type === "DefaultParameter" &&
-            Core.isIdentifierNode(param.left)
-        ) {
+        if (param.type === "DefaultParameter" && isIdentifierNode(param.left)) {
             if (param.left.name) {
                 names.push(param.left.name);
             }
@@ -16433,23 +16463,23 @@ function createPrimitiveBeginCall(template) {
         return null;
     }
 
-    const primitiveType = Core.createIdentifierNode("pr_linelist");
+    const primitiveType = Core.createIdentifierNode("pr_linelist", null);
 
-    const callExpression = {
+    const callExpression: MutableGameMakerAstNode = {
         type: "CallExpression",
         object: identifier,
-        arguments: Core.compactArray([primitiveType])
+        arguments: Core.compactArray([primitiveType]).slice()
     };
 
     if (Core.hasOwn(template, "start")) {
-        callExpression.start = Core.cloneLocation(template.start);
+        Core.assignClonedLocation(callExpression as any, template);
     }
 
     if (Core.hasOwn(template, "end")) {
         const referenceLocation = template.start ?? template.end;
 
         if (referenceLocation) {
-            callExpression.end = Core.cloneLocation(referenceLocation);
+            callExpression.end = referenceLocation ?? null;
         }
     }
 
@@ -18043,7 +18073,7 @@ function extractSurfaceTargetName(node) {
 
     const args = Core.getCallExpressionArguments(node);
 
-    if (args.length > 0 && Core.isIdentifierNode(args[0])) {
+    if (args.length > 0 && isIdentifierNode(args[0])) {
         return args[0].name;
     }
 
@@ -18230,7 +18260,7 @@ function renameReservedIdentifiersInVariableDeclaration(node, diagnostic) {
     return fixes;
 }
 
-function renameReservedIdentifierNode(identifier, diagnostic, options = {}) {
+function renameReservedIdentifierNode(identifier, diagnostic, options: RenameOptions = {}) {
     if (!identifier || identifier.type !== "Identifier") {
         return null;
     }
@@ -18730,6 +18760,8 @@ function createFeatherFixDetail(
         target,
         range,
         automatic
+        ,
+        replacement: null
     };
 }
 

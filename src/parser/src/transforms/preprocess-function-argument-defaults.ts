@@ -370,7 +370,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
         // we can capture the exact AST shape from failing fixtures. This is
         // temporary and will be removed once matchers are hardened.
         try {
-            if (!match && statement && statement.type === "IfStatement") {
+            if (!match && isNode(statement) && statement.type === "IfStatement") {
                 const cond = unwrapParenthesizedExpression(statement.test);
                 const maybeGuard = matchArgumentCountGuard(cond);
                 if (maybeGuard) {
@@ -1887,9 +1887,9 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
             return [];
         }
 
-        const referencedIndices = new Set();
-        const aliasByIndex = new Map();
-        const directReferenceIndices = new Set();
+        const referencedIndices = new Set<number>();
+        const aliasByIndex = new Map<number, string>();
+        const directReferenceIndices = new Set<number>();
 
         function visit(node, parent, property) {
             if (!node || typeof node !== "object") return;

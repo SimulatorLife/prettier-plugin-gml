@@ -182,8 +182,9 @@ export function resolveNodeName(node) {
     return typeof node?.name === "string" ? node.name : null;
 }
 
-export function isIdentifierNode(node) {
-    return node && typeof node === "object" && node.type === "Identifier";
+export function isIdentifierNode(node: unknown): node is { type: "Identifier"; name: string } {
+    if (!isNode(node)) return false;
+    return (node as any).type === "Identifier" && typeof (node as any).name === "string";
 }
 
 export function isIdentifierWithName(node, name) {
@@ -521,7 +522,7 @@ export function getNodeType(node) {
     return typeof type === "string" ? type : null;
 }
 
-export function isNode(value) {
+export function isNode(value: unknown): value is Record<string, unknown> {
     return value !== undefined && value !== null && typeof value === "object";
 }
 

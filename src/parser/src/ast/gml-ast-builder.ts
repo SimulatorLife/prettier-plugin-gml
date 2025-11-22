@@ -238,7 +238,7 @@ export default class GameMakerASTBuilder {
         return this.globalIdentifierRegistry.globalIdentifiers;
     }
 
-    visit(node: ParserContext | ParserContext[]): any {
+    visit(node: unknown): any {
         if (node == null) return null;
         if (Array.isArray(node)) {
             const results: any[] = [];
@@ -248,15 +248,15 @@ export default class GameMakerASTBuilder {
             }
             return results;
         }
-        return this.visitor.visit(node);
+        return this.visitor.visit(node as ParserContextWithMethods);
     }
 
-    visitChildren(node: ParserContext | ParserContext[]): any {
+    visitChildren(node: unknown): any {
         if (node == null) return null;
         if (Array.isArray(node)) {
-            return node.map((n) => this.visitor.visitChildren(n));
+            return node.map((n) => this.visitor.visitChildren(n as ParserContextWithMethods));
         }
-        return this.visitor.visitChildren(node);
+        return this.visitor.visitChildren(node as ParserContextWithMethods);
     }
 
     isIdentifierMetadataEnabled(): boolean {
@@ -275,24 +275,18 @@ export default class GameMakerASTBuilder {
         return this.identifierRoleTracker.cloneRole(role);
     }
 
-    ensureArray(
-        ctx: ParserContext | ParserContext[] | null | undefined
-    ): ParserContextWithMethods[] {
+    ensureArray(ctx: unknown): ParserContextWithMethods[] {
         if (!ctx) return [];
         const arr = Array.isArray(ctx) ? ctx : [ctx];
         return arr.filter((c) => c !== null && c !== undefined) as ParserContextWithMethods[];
     }
 
-    ensureSingle(
-        ctx: ParserContext | ParserContext[] | null | undefined
-    ): ParserContextWithMethods | null {
+    ensureSingle(ctx: unknown): ParserContextWithMethods | null {
         if (!ctx) return null;
         return Array.isArray(ctx) ? (ctx as ParserContextWithMethods[])[0] : (ctx as ParserContextWithMethods);
     }
 
-    ensureToken(
-        t: unknown
-    ): { getText: () => string } | null {
+    ensureToken(t: unknown): { getText: () => string } | null {
         if (!t) return null;
         const actual = Array.isArray(t) ? (t as any)[0] : (t as any);
         return typeof actual?.getText === "function"
@@ -312,10 +306,7 @@ export default class GameMakerASTBuilder {
      * @returns {object | null} The visited child node or `null` when no
      *     candidates are available.
      */
-    visitFirstChild(
-        ctx: ParserContext | null | undefined,
-        methodNames: string[]
-    ): any {
+    visitFirstChild(ctx: unknown | null | undefined, methodNames: string[]): any {
         if (!ctx || !Array.isArray(methodNames)) {
             return null;
         }
