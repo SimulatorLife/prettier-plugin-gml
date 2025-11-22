@@ -5,8 +5,10 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import GMLParser from "../src/gml-parser.js";
 import GameMakerASTBuilder from "../src/ast/gml-ast-builder.js";
+import { GameMakerSyntaxError } from "../src/ast/gml-syntax-error.js";
 import { Core } from "@gml-modules/core";
 import { Semantic } from "@gml-modules/semantic";
+import type { ParserOptions } from "../src/types/index.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixturesDirectory = path.join(currentDirectory, "input");
@@ -57,7 +59,15 @@ function hasLocationInformation(node) {
     return false;
 }
 
-function parseFixture(source, { suppressErrors = false, options } = {}) {
+type ParserTestHarnessOptions = {
+    suppressErrors?: boolean;
+    options?: Partial<ParserOptions>;
+};
+
+function parseFixture(
+    source: string,
+    { suppressErrors = false, options }: ParserTestHarnessOptions = {}
+) {
     if (!suppressErrors) {
         return GMLParser.parse(source, options);
     }
@@ -460,11 +470,13 @@ describe("GameMaker parser fixtures", () => {
 
         assert.throws(
             () => GMLParser.parse(source),
-            (error) => {
-                assert.ok(
-                    error instanceof Error,
-                    "Expected a syntax error to be thrown for invalid lexer input."
-                );
+            (error: unknown) => {
+                if (!(error instanceof GameMakerSyntaxError)) {
+                    throw new Error(
+                        "Expected a GameMakerSyntaxError for invalid lexer input."
+                    );
+                }
+
                 assert.match(
                     error.message,
                     /Syntax Error \(line 1, column 0\): unexpected symbol '\\'/

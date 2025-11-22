@@ -1,6 +1,9 @@
 import GameMakerLanguageParserVisitor from "../runtime/game-maker-language-parser-visitor.js";
 import { Core } from "@gml-modules/core";
-import type { GameMakerAstNode } from "@gml-modules/core";
+import type {
+    GameMakerAstNode,
+    MutableGameMakerAstNode
+} from "@gml-modules/core";
 import { Semantic } from "@gml-modules/semantic";
 import BinaryExpressionDelegate from "./binary-expression-delegate.js";
 import type {
@@ -29,6 +32,11 @@ type IdentifierRole = {
     kind: string;
     tags?: string[];
     scopeOverride?: string;
+};
+
+type ParserVisitorInstance = InstanceType<typeof GameMakerLanguageParserVisitor>;
+type MutableParserVisitor = ParserVisitorInstance & {
+    [methodName: string]: (...args: Array<unknown>) => unknown;
 };
 
 const BINARY_OPERATORS: Record<string, BinaryOperatorInfo> = {
@@ -145,8 +153,9 @@ function createScopeTrackerFromOptions(
  * @returns {GameMakerLanguageParserVisitor} Visitor wired to delegate all
  *     method calls back to {@link host}.
  */
-function createVisitorDelegate(host: object): any {
-    const visitor: any = new (GameMakerLanguageParserVisitor as any)();
+function createVisitorDelegate(host: object): MutableParserVisitor {
+    const visitorInstance = new GameMakerLanguageParserVisitor();
+    const visitor = visitorInstance as MutableParserVisitor;
     const prototypes: object[] = [];
 
     for (
@@ -186,7 +195,7 @@ export default class GameMakerASTBuilder {
     globalIdentifierRegistry: any;
 
     binaryExpressions: any;
-    visitor: any;
+    visitor: MutableParserVisitor;
 
     constructor(
         options: ScopeTrackerOptions = {},

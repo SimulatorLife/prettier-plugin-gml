@@ -26,3 +26,5 @@ export interface GameMakerAstNode {
     /** Block or list of statements inside structured nodes. */
     body?: Array<unknown> | null;
 }
+
+export type MutableGameMakerAstNode = GameMakerAstNode & Record<string, unknown>;

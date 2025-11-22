@@ -24,8 +24,8 @@ if (!RecognitionException) {
 
 class RecognitionAdapter extends Error {
     readonly ctx: object;
-    readonly expectedTokens: object
-    readonly offendingToken: object
+    readonly expectedTokens: object;
+    readonly offendingToken: object;
     
     constructor(message = "adapter failure") {
         super(message);

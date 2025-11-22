@@ -14,12 +14,14 @@ type SemanticScopeTracker = InstanceType<SemanticScopeTrackerConstructor>;
  * these types keeps the parser implementation and the unit tests aligned while
  * avoiding circular runtime dependencies.
  */
-export type ParserContext = ParserRuleContext | null | undefined;
+interface ParserContextLike extends ParserRuleContext {
+    [methodName: string]: (...args: Array<unknown>) => any;
+}
+
+export type ParserContext = ParserContextLike | null | undefined;
 
 export interface ParserToken extends Token {
     symbol?: Token | null;
-    start?: Token | null;
-    stop?: Token | null;
 }
 
 export type ScopeTrackerContext = {

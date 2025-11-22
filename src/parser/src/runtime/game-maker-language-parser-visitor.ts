@@ -36,7 +36,7 @@ export const VISIT_METHOD_NAMES = Object.freeze(
     collectVisitMethodNames(GameMakerLanguageParserVisitorBase)
 );
 
-function callInheritedVisitChildren(instance, ctx) {
+function callInheritedVisitChildren(instance, ctx: ParserContext) {
     return PARSE_TREE_VISITOR_PROTOTYPE.visitChildren.call(instance, ctx);
 }
 
@@ -45,10 +45,11 @@ ensureHasInstancePatched(GameMakerLanguageParserVisitorBase, {
     patchFlagSymbol: HAS_INSTANCE_PATCHED_MARKER
 });
 
-export default class GameMakerLanguageParserVisitor {
+export default class GameMakerLanguageParserVisitor extends GameMakerLanguageParserVisitorBase {
     #visitChildrenDelegate: (payload: VisitorPayload) => unknown;
 
     constructor(options: VisitorOptions = {}) {
+        super();
         const delegate = options?.visitChildrenDelegate;
         this.#visitChildrenDelegate =
             typeof delegate === "function"

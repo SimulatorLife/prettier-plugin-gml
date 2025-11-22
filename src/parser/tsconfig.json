@@ -16,7 +16,8 @@
     "*.ts",
     "src/**/*.ts",
     "test/**/*.ts",
-    "generated/**/*.js"
+    "generated/**/*.js",
+    "src/**/*.d.ts"
   ],
   "exclude": ["dist"]
 }

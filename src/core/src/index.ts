@@ -27,4 +27,8 @@ export const Core = Object.freeze({
     ...DeprecatedBuiltinVariables
 });
 
-export type { GameMakerAstLocation, GameMakerAstNode } from "./ast/types.js";
+export type {
+    GameMakerAstLocation,
+    GameMakerAstNode,
+    MutableGameMakerAstNode
+} from "./ast/types.js";

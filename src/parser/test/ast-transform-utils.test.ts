@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { Core } from "@gml-modules/core";
+import type { MutableGameMakerAstNode } from "@gml-modules/core";
 import {
     removeLocationMetadata,
     simplifyLocationMetadata,
@@ -9,8 +10,8 @@ import {
 } from "../src/ast/location-manipulation.js";
 
 test("walkObjectGraph visits each object once even with cycles", () => {
-    const shared = { value: 1 };
-    const root = {
+    const shared: MutableGameMakerAstNode = { value: 1 };
+    const root: MutableGameMakerAstNode = {
         left: { nested: shared },
         right: { nested: shared },
         array: [shared]
@@ -32,7 +33,7 @@ test("walkObjectGraph visits each object once even with cycles", () => {
 });
 
 test("location metadata helpers mutate nested structures", () => {
-    const ast = {
+    const ast: MutableGameMakerAstNode = {
         type: "Program",
         start: { index: 0 },
         end: { index: 4 },
