@@ -404,7 +404,7 @@ export function preprocessSourceForFeatherFixes(sourceText) {
         sanitizeEnumInitializerStrings(sanitizedSourceText);
     const enumSanitizedSourceText = enumSanitizedResult.sourceText;
     const enumIndexAdjustments = enumSanitizedResult.adjustments;
-    const metadata = {};
+    const metadata: any = {};
 
     if (gm1100Metadata.length > 0) {
         metadata.GM1100 = gm1100Metadata;
@@ -774,10 +774,8 @@ export function getFeatherDiagnosticFixers() {
     return new Map(FEATHER_DIAGNOSTIC_FIXERS);
 }
 
-export function applyFeatherFixes(
-    ast,
-    { sourceText, preprocessedFixMetadata, options } = {}
-) {
+export function applyFeatherFixes(ast: any, opts: any = {}) {
+    const { sourceText, preprocessedFixMetadata, options } = opts ?? {};
     if (!ast || typeof ast !== "object") {
         return ast;
     }
@@ -1916,7 +1914,7 @@ function registerAutomaticFeatherFix({ registry, diagnostic, handler }) {
         return;
     }
 
-    registerFeatherFixer(registry, diagnostic.id, () => (context = {}) => {
+    registerFeatherFixer(registry, diagnostic.id, () => (context: any = {}) => {
         const fixes = handler({ ...context, diagnostic });
 
         // Preserve sourceText when resolving automatic fixes so that
@@ -1939,8 +1937,12 @@ function registerManualOnlyFeatherFix({ registry, diagnostic }) {
         registry,
         diagnostic.id,
         () =>
-            ({ ast }) =>
-                registerManualFeatherFix({ ast, diagnostic })
+            (context: any) =>
+                registerManualFeatherFix({
+                    ast: context.ast,
+                    diagnostic,
+                    sourceText: context.sourceText
+                })
     );
 }
 

@@ -10,7 +10,7 @@ import { Core } from "@gml-modules/core";
  * @param {unknown} ast
  * @returns {unknown}
  */
-export function convertUndefinedGuardAssignments(ast) {
+export function convertUndefinedGuardAssignments(ast: any) {
     if (!Core.isObjectLike(ast)) {
         return ast;
     }
@@ -304,6 +304,6 @@ function unwrapSyntheticParentheses(node, parent, property) {
     return false;
 }
 
-export function transform(ast) {
+export function transform(ast: any) {
     return convertUndefinedGuardAssignments(ast);
 }

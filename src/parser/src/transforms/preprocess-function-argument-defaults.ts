@@ -34,8 +34,8 @@ const DEFAULT_HELPERS = {
 };
 
 export function preprocessFunctionArgumentDefaults(
-    ast,
-    helpers = DEFAULT_HELPERS
+    ast: any,
+    helpers: any = DEFAULT_HELPERS
 ) {
     if (!isObjectLike(ast)) {
         return ast;

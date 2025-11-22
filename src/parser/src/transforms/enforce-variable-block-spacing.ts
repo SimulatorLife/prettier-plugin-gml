@@ -7,7 +7,7 @@ const {
     Utils: { isNonEmptyArray }
 } = Core;
 
-export function enforceVariableBlockSpacing(ast, options) {
+export function enforceVariableBlockSpacing(ast: any, options?: any) {
     if (!ast || typeof ast !== "object") {
         return;
     }

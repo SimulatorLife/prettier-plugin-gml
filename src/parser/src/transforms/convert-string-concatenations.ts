@@ -10,7 +10,7 @@ const PARENTHESIZED_EXPRESSION = "ParenthesizedExpression";
  * Convert chains of string concatenations into template string expressions.
  * @param {unknown} ast
  */
-export function convertStringConcatenations(ast) {
+export function convertStringConcatenations(ast: any, helpers?: any) {
     if (!Core.isObjectLike(ast)) {
         return ast;
     }
@@ -362,6 +362,6 @@ function extractLiteralText(node) {
 
     return Core.stripStringQuotes(raw) ?? "";
 }
-export function transform(ast) {
+export function transform(ast: any, opts: any = {}) {
     return convertStringConcatenations(ast);
 }

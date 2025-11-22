@@ -54,7 +54,7 @@ const ARITHMETIC_OPERATORS = new Set([
 
 let activeTransformationContext = null;
 
-export function condenseLogicalExpressions(ast, helpers) {
+export function condenseLogicalExpressions(ast: any, helpers?: any) {
     if (!isNode(ast)) {
         return ast;
     }

@@ -184,14 +184,19 @@ export default class GMLParser {
             return;
         }
 
+        const getIndex = (node: Record<string, unknown>, prop: "start" | "end") => {
+            const value = node[prop];
+            if (typeof value === "number") return value as number;
+            if (value && typeof (value as any).index === "number") {
+                return (value as any).index as number;
+            }
+            return undefined;
+        };
+
         Core.AST.walkObjectGraph(root, {
             enterObject: (node) => {
-                const startIndex =
-                    typeof node.start === "number"
-                        ? node.start
-                        : node.start?.index;
-                const endIndex =
-                    typeof node.end === "number" ? node.end : node.end?.index;
+                const startIndex = getIndex(node, "start");
+                const endIndex = getIndex(node, "end");
 
                 if (
                     node.type === "Literal" &&

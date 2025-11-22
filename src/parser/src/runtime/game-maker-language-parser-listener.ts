@@ -22,7 +22,9 @@ export const LISTENER_METHOD_NAMES = Object.freeze(
     deriveListenerMethodNames(VISIT_METHOD_NAMES)
 );
 
-function createListenerDelegate(options: ListenerOptions = {}) {
+function createListenerDelegate(
+    options: ListenerOptions = {}
+): ListenerDelegate {
     const { listenerDelegate, listenerHandlers } = options;
     const baseDelegate = toDelegate(
         listenerDelegate,

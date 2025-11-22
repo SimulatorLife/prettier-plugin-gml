@@ -24,7 +24,7 @@ const VARIABLE_DECLARATION = "VariableDeclaration";
  * @param {{ sourceText?: string, originalText?: string } | null} context
  *     Additional source context used to detect inline comments between nodes.
  */
-export function convertManualMathExpressions(ast, context = null) {
+export function convertManualMathExpressions(ast: any, context: any = null) {
     if (!ast || typeof ast !== "object") {
         return ast;
     }
@@ -37,7 +37,7 @@ export function convertManualMathExpressions(ast, context = null) {
     return ast;
 }
 
-export function condenseScalarMultipliers(ast, context = null) {
+export function condenseScalarMultipliers(ast: any, context: any = null) {
     if (!ast || typeof ast !== "object") {
         return ast;
     }
@@ -3708,7 +3708,7 @@ function isBinaryOperator(node, operator) {
     );
 }
 
-function computeNumericTolerance(expected, providedTolerance) {
+function computeNumericTolerance(expected, providedTolerance?) {
     if (typeof providedTolerance === "number") {
         return providedTolerance;
     }
@@ -3777,7 +3777,7 @@ function areLiteralNumbersApproximatelyEqual(left, right) {
     return Math.abs(left - right) <= tolerance;
 }
 
-function isLiteralNumber(node, expected, tolerance) {
+function isLiteralNumber(node, expected, tolerance?) {
     const value = parseNumericLiteral(node);
     if (value === undefined || value === null) {
         return false;

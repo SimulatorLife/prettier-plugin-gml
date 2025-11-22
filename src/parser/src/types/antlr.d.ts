@@ -25,8 +25,8 @@ declare module "antlr4" {
         line?: number;
         column?: number;
         tokenIndex?: number;
-        start?: Token;
-        stop?: Token;
+        start?: Token | number;
+        stop?: Token | number;
         symbol?: Token;
         startIndex?: number;
         stopIndex?: number;
@@ -37,6 +37,7 @@ declare module "antlr4" {
 
     export class Recognizer<TSymbol = Token> {
         _ctx?: ParserRuleContext | null;
+        _input?: TokenStream | null;
         getTokenStream?(): TokenStream | null;
         getCurrentToken?(): Token | null;
     }
@@ -45,6 +46,8 @@ declare module "antlr4" {
         strictMode: boolean;
         removeErrorListeners(): void;
         addErrorListener(listener: ErrorListener): void;
+        reset?(): void;
+        nextToken?(): Token | null;
         [key: string]: unknown;
     }
 
@@ -67,8 +70,9 @@ declare module "antlr4" {
 
     export class ParserRuleContext {
         parentCtx?: ParserRuleContext | null;
-        start?: Token;
-        stop?: Token;
+        start?: Token | number;
+        stop?: Token | number;
+        getText?(): string;
         openBlock?(): ParserRuleContext | null;
         getRuleInvocationStack(): Array<string>;
         [key: string]: unknown;

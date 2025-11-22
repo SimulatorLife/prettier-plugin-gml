@@ -4,7 +4,7 @@ const {
     AST: { isCommentNode }
 } = Core;
 
-export function transform(ast, opts = {}) {
+export function transform(ast: any, opts: any = {}) {
     const cfg = Object.assign(
         {
             stripComments: true,

@@ -115,7 +115,7 @@ function hasAncestorStaticFunction(constructors, startName, targetName) {
     return false;
 }
 
-export function annotateStaticFunctionOverrides(ast) {
+export function annotateStaticFunctionOverrides(ast: any, opts?: any) {
     const constructors = collectConstructorInfos(ast);
 
     if (constructors.size === 0) {

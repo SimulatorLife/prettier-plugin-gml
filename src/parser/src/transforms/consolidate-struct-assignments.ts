@@ -40,7 +40,7 @@ const MEMBER_INDEX_EXPRESSION = "MemberIndexExpression";
 const IDENTIFIER = "Identifier";
 const LITERAL = "Literal";
 
-export function consolidateStructAssignments(ast, commentTools) {
+export function consolidateStructAssignments(ast: any, commentTools?: any) {
     if (!isNode(ast)) {
         return ast;
     }

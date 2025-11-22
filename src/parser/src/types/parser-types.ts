@@ -5,7 +5,9 @@ type SemanticScopeTrackerConstructor =
 
 type SemanticScopeTracker = InstanceType<SemanticScopeTrackerConstructor>;
 
-export type ParserContext = ParserRuleContext | null | undefined;
+export type ParserContext = ParserRuleContext & {
+    [methodName: string]: ParserContextMethod;
+} | null | undefined;
 
 export type ParserContextMethod = (
     this: ParserRuleContext,
@@ -78,6 +80,6 @@ export interface VisitorOptions {
 }
 
 export interface TokenMetadataOptions {
-    fallbackCandidates?: Array<Token | null | undefined>;
+    fallbackCandidates?: Array<Token | number | null | undefined>;
     stream?: TokenStream | null;
 }

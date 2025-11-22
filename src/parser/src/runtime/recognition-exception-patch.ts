@@ -103,7 +103,7 @@ function getTokenStream(
 }
 
 function ensureTokenMetadata(
-    token: Token | null | undefined,
+    token: Token | number | null | undefined,
     { fallbackCandidates = [], stream }: TokenMetadataOptions = {}
 ) {
     if (!token || typeof token !== "object") {
@@ -119,14 +119,14 @@ function ensureTokenMetadata(
 
     if (typeof token.type !== "number") {
         token.type =
-            typeof fallback?.type === "number"
-                ? fallback.type
+            typeof fallback === "object" && typeof fallback.type === "number"
+                ? (fallback as any).type
                 : antlr4.Token.INVALID_TYPE;
     }
 
     if (typeof token.tokenIndex !== "number") {
         const fallbackIndex = firstNumber(
-            fallback?.tokenIndex,
+            typeof fallback === "object" ? (fallback as any).tokenIndex : undefined,
             token.index,
             token.startIndex
         );
@@ -141,18 +141,26 @@ function ensureTokenMetadata(
     if (typeof token.line !== "number") {
         token.line =
             firstNumber(
-                fallback?.line,
-                fallback?.start?.line,
-                token.start?.line
+                typeof fallback === "object" ? (fallback as any).line : undefined,
+                typeof fallback === "object"
+                    ? typeof (fallback as any).start === "number"
+                        ? (fallback as any).start
+                        : (fallback as any).start?.line
+                    : undefined,
+                typeof token.start === "number" ? token.start : token.start?.line
             ) ?? INVALID_INDEX_FALLBACK;
     }
 
     if (typeof token.column !== "number") {
         token.column =
             firstNumber(
-                fallback?.column,
-                fallback?.start?.column,
-                token.start?.column
+                typeof fallback === "object" ? (fallback as any).column : undefined,
+                typeof fallback === "object"
+                    ? typeof (fallback as any).start === "number"
+                        ? (fallback as any).start
+                        : (fallback as any).start?.column
+                    : undefined,
+                typeof token.start === "number" ? token.start : token.start?.column
             ) ?? INVALID_INDEX_FALLBACK;
     }
 
@@ -171,7 +179,7 @@ function ensureOffendingToken(
     const context =
         exception.ctx ?? exception.context ?? recognizer?._ctx ?? null;
 
-    let offendingToken =
+    let offendingToken: Token | number | null =
         exception.offendingToken ?? exception.offendingSymbol ?? null;
 
     if (!offendingToken && typeof exception.getOffendingToken === "function") {
