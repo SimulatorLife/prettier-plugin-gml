@@ -1,11 +1,11 @@
-import * as Core from "@gml-modules/core";
-import { isObjectLike } from "./comment-boundary.js";
+import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
 import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
 
 const {
     AST: { getCommentValue },
     Utils: {
+        isObjectLike,
         getNonEmptyTrimmedString,
         toTrimmedString,
         hasOwn,
@@ -122,7 +122,7 @@ const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION = Object.freeze({
 });
 
 const docCommentTypeNormalizationController = createResolverController({
-    defaultFactory: () => createDocCommentTypeNormalization(),
+    defaultFactory: () => createDocCommentTypeNormalization(DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION),
     reuseDefaultValue: true,
     invoke(resolver, options) {
         return resolver({
@@ -421,10 +421,10 @@ function normalizeBannerCommentText(candidate, options = {}) {
 
 function formatLineComment(
     comment,
-    lineCommentOptions = Parser.Options.DEFAULT_LINE_COMMENT_OPTIONS
+    lineCommentOptions = Parser.Comments.DEFAULT_LINE_COMMENT_OPTIONS
 ) {
     const normalizedOptions =
-        Parser.Options.normalizeLineCommentOptions(lineCommentOptions);
+        Parser.Comments.normalizeLineCommentOptions(lineCommentOptions);
     const { boilerplateFragments, codeDetectionPatterns } = normalizedOptions;
     const original = getLineCommentRawText(comment);
     const trimmedOriginal = original.trim();
@@ -468,7 +468,7 @@ function formatLineComment(
     if (
         slashesMatch &&
         slashesMatch[1].length >=
-            Parser.Options.LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES
+            Parser.Comments.LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES
     ) {
         // For comments with 4+ leading slashes we usually treat them as
         // decorative banners. However, some inputs use many slashes to

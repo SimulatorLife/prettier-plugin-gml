@@ -1,3 +1,5 @@
+// TODO: This should probably go in @gml-modules/core
+
 import { Core } from "@gml-modules/core";
 
 function adjustLocationProperty(node, propertyName, mapIndex) {

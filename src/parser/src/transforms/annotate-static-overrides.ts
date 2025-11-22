@@ -1,10 +1,5 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: { isNonEmptyArray, getNonEmptyString },
-    AST: { getBodyStatements }
-} = Core;
-
 function getStaticFunctionDeclarator(statement) {
     if (!statement || statement.type !== "VariableDeclaration") {
         return null;
@@ -14,7 +9,7 @@ function getStaticFunctionDeclarator(statement) {
         return null;
     }
 
-    if (!isNonEmptyArray(statement.declarations)) {
+    if (!Core.isNonEmptyArray(statement.declarations)) {
         return null;
     }
 
@@ -26,13 +21,8 @@ function getStaticFunctionDeclarator(statement) {
     return declarator;
 }
 
-function isAstNode(value: unknown): value is Record<string, unknown> {
-    return Core.isNode(value);
-}
-
 function isStaticFunctionDeclaration(statement) {
     const declarator = getStaticFunctionDeclarator(statement);
-
     return declarator?.init?.type === "FunctionDeclaration";
 }
 
@@ -43,7 +33,7 @@ function extractStaticFunctionName(statement) {
         return null;
     }
 
-    return getNonEmptyString(declarator.id.name);
+    return Core.getNonEmptyString(declarator.id.name);
 }
 
 function collectConstructorInfos(ast) {
@@ -53,25 +43,25 @@ function collectConstructorInfos(ast) {
 
     const constructors = new Map();
 
-    for (const node of getBodyStatements(ast)) {
-        if (!isAstNode(node) || node.type !== "ConstructorDeclaration") {
+    for (const node of Core.getBodyStatements(ast)) {
+        if (!Core.isNode(node) || node.type !== "ConstructorDeclaration") {
             continue;
         }
 
-        const name = getNonEmptyString(node.id);
+        const name = Core.getNonEmptyString(node.id);
         if (!name) {
             continue;
         }
 
         const parentName =
-            isAstNode(node.parent) &&
+            Core.isNode(node.parent) &&
             node.parent.type === "ConstructorParentClause"
-                ? getNonEmptyString((node.parent as Record<string, unknown>).id)
+                ? Core.getNonEmptyString((node.parent as Record<string, unknown>).id)
                 : null;
 
         const staticFunctions = new Map();
 
-        for (const statement of getBodyStatements(
+        for (const statement of Core.getBodyStatements(
             (node as Record<string, unknown>).body
         )) {
             const declarator = getStaticFunctionDeclarator(statement);
@@ -79,7 +69,7 @@ function collectConstructorInfos(ast) {
                 continue;
             }
 
-            const staticName = getNonEmptyString(declarator.id.name);
+            const staticName = Core.getNonEmptyString(declarator.id.name);
             if (!staticName || staticFunctions.has(staticName)) {
                 continue;
             }
@@ -99,7 +89,7 @@ function collectConstructorInfos(ast) {
 
 function hasAncestorStaticFunction(constructors, startName, targetName) {
     const visited = new Set();
-    let currentName = getNonEmptyString(startName);
+    let currentName = Core.getNonEmptyString(startName);
 
     while (currentName) {
         if (visited.has(currentName)) {
@@ -116,7 +106,7 @@ function hasAncestorStaticFunction(constructors, startName, targetName) {
             return true;
         }
 
-        currentName = getNonEmptyString(info.parentName);
+        currentName = Core.getNonEmptyString(info.parentName);
     }
 
     return false;

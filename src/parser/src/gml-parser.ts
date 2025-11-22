@@ -33,7 +33,7 @@ function mergeParserOptions(
     return Object.assign({}, baseOptions, overrideObject) as ParserOptions;
 }
 
-export default class GMLParser {
+export class GMLParser {
     public originalText: string;
     public text: string;
     public whitespaces: Array<unknown>;

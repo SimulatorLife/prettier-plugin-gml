@@ -18820,7 +18820,7 @@ function getManualFeatherFixRegistry(ast) {
     return registry;
 }
 
-function createFeatherFixDetail(
+function createFeatherFixDetail( // TODO: Is this duplicated from Core?
     diagnostic,
     { target = null, range = null, automatic = true } = {}
 ) {

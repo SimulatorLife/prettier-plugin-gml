@@ -1,4 +1,5 @@
-// Expose the Core namespace as the sole public surface.
+// Expose the Core namespace as the sole public surface
+// Also re-export relevant types for consumer usage
 export { Core } from "./src/index.js";
 export type {
     FeatherFixDetail,
@@ -6,4 +7,5 @@ export type {
     GameMakerAstLocation,
     GameMakerAstNode,
     MutableGameMakerAstNode
-} from "./src/ast/types.js";
+    // TODO: This may not be a comprehensive list of types to export
+} from "./src/index.js";

@@ -1,13 +1,62 @@
 import { Core } from "@gml-modules/core";
+import { ScopeTracker } from "./scope-tracker.js";
 
-/**
- * @typedef {object} IdentifierRoleTrackerInterface
- * @property {(role: object | null | undefined, callback: () => any) => any} withRole
- * @property {() => object | null} getCurrentRole
- * @property {(role: object | null | undefined) => object} cloneRole
- */
+export class SemanticScopeCoordinator {
 
-export class IdentifierRoleTracker {
+    private scopeTracker: ScopeTracker;
+    private identifierRoleTracker: IdentifierRoleTracker;
+    private globalIdentifierRegistry: GlobalIdentifierRegistry;
+
+    constructor() {
+        this.scopeTracker = new ScopeTracker();
+        this.identifierRoleTracker = new IdentifierRoleTracker();
+        this.globalIdentifierRegistry = new GlobalIdentifierRegistry();
+    }
+
+    get globalIdentifiers() {
+        return this.globalIdentifierRegistry.globalIdentifiers;
+    }
+
+    withScope(kind, callback) {
+        this.scopeTracker.enterScope(kind);
+        try {
+            return callback();
+        } finally {
+            this.scopeTracker.exitScope();
+        }
+    }
+
+    withRole(role, callback) {
+        return this.identifierRoleTracker.withRole(role, callback);
+    }
+
+    cloneRole(role) {
+        return this.identifierRoleTracker.cloneRole(role);
+    }
+
+    applyCurrentRoleToIdentifier(name, node) {
+        if (!name || !Core.isIdentifierNode(node)) {
+            return;
+        }
+
+        const role = this.identifierRoleTracker?.cloneRole(
+            this.identifierRoleTracker?.getCurrentRole()
+        );
+        const roleType =
+            role?.type === "declaration" ? "declaration" : "reference";
+
+        if (roleType === "declaration") {
+            this.scopeTracker.declare(name, node, role);
+        } else {
+            this.scopeTracker.reference(name, node, role);
+        }
+    }
+}
+
+class IdentifierRoleTracker {
+
+    identifierRoles: Array<object>;
+
     constructor() {
         this.identifierRoles = [];
     }
@@ -44,86 +93,15 @@ export class IdentifierRoleTracker {
     }
 }
 
-/**
- * @typedef {object} IdentifierScopeAvailability
- * @property {() => boolean} isEnabled
- */
+class GlobalIdentifierRegistry {
+    globalIdentifiers: Set<unknown>;
 
-/**
- * @typedef {object} IdentifierScopeSession
- * @property {(kind: unknown, callback: () => any) => any} withScope
- */
-
-/**
- * @typedef {object} IdentifierRoleApplication
- * @property {(name: string | null | undefined, node: unknown) => void} applyCurrentRoleToIdentifier
- */
-
-/**
- * @implements {IdentifierScopeAvailability}
- * @implements {IdentifierScopeSession}
- * @implements {IdentifierRoleApplication}
- */
-export class IdentifierScopeCoordinator {
-    constructor({ scopeTracker, roleTracker } = {}) {
-        this.scopeTracker = scopeTracker;
-        this.roleTracker = roleTracker;
-    }
-
-    isEnabled() {
-        const tracker = this.scopeTracker;
-        if (!tracker || typeof tracker.isEnabled !== "function") {
-            return false;
-        }
-
-        return tracker.isEnabled();
-    }
-
-    withScope(kind, callback) {
-        if (!this.isEnabled()) {
-            return callback();
-        }
-
-        this.scopeTracker.enterScope(kind);
-        try {
-            return callback();
-        } finally {
-            this.scopeTracker.exitScope();
-        }
-    }
-
-    applyCurrentRoleToIdentifier(name, node) {
-        if (!this.isEnabled() || !name || !isIdentifierNode(node)) {
-            return;
-        }
-
-        const role = this.roleTracker?.cloneRole(
-            this.roleTracker?.getCurrentRole()
-        );
-        const roleType =
-            role?.type === "declaration" ? "declaration" : "reference";
-
-        if (roleType === "declaration") {
-            this.scopeTracker.declare(name, node, role);
-        } else {
-            this.scopeTracker.reference(name, node, role);
-        }
-    }
-}
-
-/**
- * @typedef {object} GlobalIdentifierRegistryInterface
- * @property {(node: unknown) => void} markIdentifier
- * @property {(node: unknown) => void} applyToNode
- */
-
-export class GlobalIdentifierRegistry {
     constructor({ globalIdentifiers = new Set() } = {}) {
         this.globalIdentifiers = globalIdentifiers;
     }
 
     markIdentifier(node) {
-        if (!isIdentifierNode(node) || !Core.isObjectLike(node)) {
+        if (!Core.isIdentifierNode(node) || !Core.isObjectLike(node)) {
             return;
         }
 
@@ -137,7 +115,7 @@ export class GlobalIdentifierRegistry {
     }
 
     applyToNode(node) {
-        if (!isIdentifierNode(node)) {
+        if (!Core.isIdentifierNode(node)) {
             return;
         }
 

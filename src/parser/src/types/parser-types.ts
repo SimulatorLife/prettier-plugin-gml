@@ -1,9 +1,7 @@
 import type { ParserRuleContext, Token, TokenStream } from "antlr4";
+import type { Semantic } from "@gml-modules/semantic";
 
-type SemanticScopeTrackerConstructor =
-    typeof import("@gml-modules/semantic").Semantic.ScopeTracker;
-
-type SemanticScopeTracker = InstanceType<SemanticScopeTrackerConstructor>;
+type SemanticScopeTracker = InstanceType<typeof Semantic.ScopeTracker>;
 
 export type ParserContext =
     | (ParserRuleContext & {
@@ -25,26 +23,18 @@ export interface ParserToken extends Token {
     symbol?: Token | null;
 }
 
-export type ScopeTrackerContext = {
+export type ScopeTrackerOptions = { // TODO: Combine directly into ParserOptions?
     enabled: boolean;
-};
-
-export type ScopeTrackerOptions = {
-    createScopeTracker?: (
-        context: ScopeTrackerContext
-    ) => SemanticScopeTracker | null;
-    getIdentifierMetadata?: boolean;
-    [key: string]: unknown;
+    createScopeTracker?: () => SemanticScopeTracker;
+    getIdentifierMetadata?: boolean; // TODO: Is this needed? Don't we always want the metadata?
+    [key: string]: unknown; // TODO: Add proper typing here. What is this for?
 };
 
 export interface ParserOptions {
     getComments: boolean;
     getLocations: boolean;
     simplifyLocations: boolean;
-    getIdentifierMetadata: boolean;
-    createScopeTracker:
-        | ((context: ScopeTrackerContext) => SemanticScopeTracker | null)
-        | null;
+    scopeTrackerOptions?: ScopeTrackerOptions;
     astFormat: string;
     asJSON: boolean;
     transforms?: Array<unknown>;

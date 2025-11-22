@@ -39,18 +39,18 @@ class Scope {
 
 function createOccurrence(kind, metadata, source, declarationMetadata) {
     const declaration = declarationMetadata
-        ? Core.AST.assignClonedLocation(
+        ? Core.assignClonedLocation(
               { scopeId: declarationMetadata.scopeId ?? null },
               declarationMetadata
           )
         : null;
 
-    return Core.AST.assignClonedLocation(
+    return Core.assignClonedLocation(
         {
             kind,
             name: metadata?.name ?? null,
             scopeId: metadata?.scopeId ?? null,
-            classifications: Core.Utils.toMutableArray(
+            classifications: Core.toMutableArray(
                 metadata?.classifications,
                 {
                     clone: true
@@ -67,11 +67,11 @@ function cloneDeclarationMetadata(metadata) {
         return null;
     }
 
-    return Core.AST.assignClonedLocation(
+    return Core.assignClonedLocation(
         {
             name: metadata.name ?? null,
             scopeId: metadata.scopeId ?? null,
-            classifications: Core.Utils.toMutableArray(
+            classifications: Core.toMutableArray(
                 metadata.classifications,
                 {
                     clone: true
@@ -84,18 +84,18 @@ function cloneDeclarationMetadata(metadata) {
 
 function cloneOccurrence(occurrence) {
     const declaration = occurrence.declaration
-        ? Core.AST.assignClonedLocation(
+        ? Core.assignClonedLocation(
               { scopeId: occurrence.declaration.scopeId ?? null },
               occurrence.declaration
           )
         : null;
 
-    return Core.AST.assignClonedLocation(
+    return Core.assignClonedLocation(
         {
             kind: occurrence.kind,
             name: occurrence.name,
             scopeId: occurrence.scopeId,
-            classifications: Core.Utils.toMutableArray(
+            classifications: Core.toMutableArray(
                 occurrence.classifications,
                 {
                     clone: true
@@ -142,8 +142,15 @@ function resolveStringScopeOverride(tracker, scopeOverride, currentScope) {
 }
 
 export class ScopeTracker {
-    constructor({ enabled = false } = {}) {
-        this.enabled = Boolean(enabled);
+
+    private scopeCounter: number;
+    private scopeStack: Scope[];
+    private rootScope: Scope | null;
+    private scopesById: Map<string, Scope>;
+    private symbolToScopesIndex: Map<string, Scope>; // TODO: Add new 'ScopeSummary' type for this?
+    private scopeStackIndices: Map<string, number>;
+
+    constructor() {
         this.scopeCounter = 0;
         this.scopeStack = [];
         this.rootScope = null;
@@ -152,14 +159,7 @@ export class ScopeTracker {
         this.scopeStackIndices = new Map();
     }
 
-    isEnabled() {
-        return this.enabled;
-    }
-
     enterScope(kind) {
-        if (!this.enabled) {
-            return null;
-        }
 
         const parent = this.scopeStack.at(-1) ?? null;
         const scope = new Scope(
@@ -177,10 +177,6 @@ export class ScopeTracker {
     }
 
     exitScope() {
-        if (!this.enabled) {
-            return;
-        }
-
         const scope = this.scopeStack.pop();
         if (scope) {
             this.scopeStackIndices.delete(scope.id);
@@ -188,10 +184,6 @@ export class ScopeTracker {
     }
 
     currentScope() {
-        if (!this.enabled) {
-            return null;
-        }
-
         return this.scopeStack.at(-1) ?? null;
     }
 
@@ -200,10 +192,6 @@ export class ScopeTracker {
     }
 
     resolveScopeOverride(scopeOverride) {
-        if (!this.enabled) {
-            return null;
-        }
-
         const currentScope = this.currentScope();
 
         if (!scopeOverride) {
@@ -211,7 +199,7 @@ export class ScopeTracker {
         }
 
         if (
-            Core.Utils.isObjectLike(scopeOverride) &&
+            Core.isObjectLike(scopeOverride) &&
             typeof scopeOverride.id === "string"
         ) {
             return scopeOverride;
@@ -228,7 +216,7 @@ export class ScopeTracker {
         return currentScope;
     }
 
-    buildClassifications(role, isDeclaration) {
+    buildClassifications(role, isDeclaration: boolean) {
         const tags = new Set([
             "identifier",
             isDeclaration ? "declaration" : "reference"
@@ -239,7 +227,9 @@ export class ScopeTracker {
             tags.add(roleKind);
         }
 
-        for (const tag of Core.Utils.toArray(role?.tags)) {
+        Core.toMutableArray
+
+        for (const tag of Core.toArray(role?.tags)) {
             if (tag) {
                 tags.add(tag);
             }
@@ -249,15 +239,14 @@ export class ScopeTracker {
     }
 
     storeDeclaration(scope, name, metadata) {
-        if (!this.enabled || !scope || !name) {
+        if (!scope || !name) {
             return;
         }
-
         scope.symbolMetadata.set(name, metadata);
     }
 
     recordScopeOccurrence(scope, name, occurrence) {
-        if (!this.enabled || !scope || !name || !occurrence) {
+        if (!scope || !name || !occurrence) {
             return;
         }
 
@@ -269,16 +258,14 @@ export class ScopeTracker {
             entry.declarations.push(occurrence);
         }
 
-        let scopeSummaryMap = this.symbolToScopesIndex.get(name);
+        let scopeSummaryMap: Map<string, { hasDeclaration: boolean, hasReference: boolean }> = this.symbolToScopesIndex.get(name);
         if (!scopeSummaryMap) {
-            scopeSummaryMap = new Map();
+            scopeSummaryMap = new Map<string, { hasDeclaration: boolean, hasReference: boolean }>();
             this.symbolToScopesIndex.set(name, scopeSummaryMap);
         }
 
-        let scopeSummary = scopeSummaryMap.get(scope.id);
-        if (!scopeSummary) {
-            scopeSummary = {
-                hasDeclaration: false,
+        const scopeSummaryMap: Map<string, Scope> =
+            this.symbolToScopesIndex.get(name) ?? this.symbolToScopesIndex.set(name, new Map<string, Scope>()).get(name)!;
                 hasReference: false
             };
             scopeSummaryMap.set(scope.id, scopeSummary);
@@ -362,7 +349,7 @@ export class ScopeTracker {
         node: GameMakerAstNode | null | undefined,
         role: ScopeRole = {}
     ) {
-        if (!this.enabled || !name || !node) {
+        if (!name || !node) {
             return;
         }
 
@@ -409,12 +396,8 @@ export class ScopeTracker {
         this.recordScopeOccurrence(scope, name, occurrence);
     }
 
-    exportOccurrences({ includeReferences = true } = {}) {
-        if (!this.enabled) {
-            return [];
-        }
+    exportOccurrences(includeReferences: boolean = true) {
 
-        const includeRefs = Boolean(includeReferences);
         const results = [];
 
         for (const scope of this.scopesById.values()) {
@@ -424,7 +407,7 @@ export class ScopeTracker {
                 const declarations = entry.declarations.map((occurrence) =>
                     cloneOccurrence(occurrence)
                 );
-                const references = includeRefs
+                const references = includeReferences
                     ? entry.references.map((occurrence) =>
                           cloneOccurrence(occurrence)
                       )
@@ -467,7 +450,7 @@ export class ScopeTracker {
      *          the scope is unknown.
      */
     getScopeOccurrences(scopeId, { includeReferences = true } = {}) {
-        if (!this.enabled || !scopeId) {
+        if (!scopeId) {
             return null;
         }
 
@@ -517,7 +500,7 @@ export class ScopeTracker {
      *          Array of occurrence records with scope context.
      */
     getSymbolOccurrences(name) {
-        if (!this.enabled || !name) {
+        if (!name) {
             return [];
         }
 
@@ -573,7 +556,7 @@ export class ScopeTracker {
      *          empty array if not found or disabled.
      */
     getScopesForSymbol(name) {
-        if (!this.enabled || !name) {
+        if (!name) {
             return [];
         }
 
@@ -596,8 +579,8 @@ export class ScopeTracker {
      * @returns {Array<{scopeId: string, scopeKind: string, hasDeclaration: boolean, hasReference: boolean}>}
      *          Array of summary records for each scope containing the symbol.
      */
-    getSymbolScopeSummary(name) {
-        if (!this.enabled || !name) {
+    getSymbolScopeSummary(name: string): Array<Scope> {
+        if (!name) {
             return [];
         }
 
@@ -634,7 +617,7 @@ export class ScopeTracker {
      * @returns {Array<string>} Array of unique identifier names in the scope.
      */
     getScopeSymbols(scopeId) {
-        if (!this.enabled || !scopeId) {
+        if (!scopeId) {
             return [];
         }
 
@@ -657,7 +640,7 @@ export class ScopeTracker {
      * @returns {object | null} The declaration metadata if found, or null.
      */
     resolveIdentifier(name, scopeId) {
-        if (!this.enabled || !name) {
+        if (!name) {
             return null;
         }
 
@@ -709,7 +692,7 @@ export class ScopeTracker {
      *          nearest to root, or empty array if scope not found or disabled.
      */
     getScopeChain(scopeId) {
-        if (!this.enabled || !scopeId) {
+        if (!scopeId) {
             return [];
         }
 
@@ -742,7 +725,7 @@ export class ScopeTracker {
      *          with their names and full metadata.
      */
     getScopeDefinitions(scopeId) {
-        if (!this.enabled || !scopeId) {
+        if (!scopeId) {
             return [];
         }
 
@@ -783,7 +766,7 @@ export class ScopeTracker {
      *          Array of external reference records grouped by symbol name.
      */
     getScopeExternalReferences(scopeId) {
-        if (!this.enabled || !scopeId) {
+        if (!scopeId) {
             return [];
         }
 

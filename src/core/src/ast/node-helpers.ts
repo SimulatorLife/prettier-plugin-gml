@@ -2,6 +2,9 @@ import { asArray, isNonEmptyArray } from "../utils/array.js";
 import { hasOwn, isObjectLike } from "../utils/object.js";
 import { isNonEmptyString } from "../utils/string.js";
 import { assignClonedLocation } from "./locations.js";
+import { GameMakerAstNode } from "./types.js";
+
+//
 
 // Shared AST helper utilities focused on querying common node shapes.
 // Centralizes frequently repeated guards so printer and transform modules
@@ -307,15 +310,15 @@ export function getSingleMemberIndexPropertyEntry(node) {
  */
 // Delegate to the shared array normalizer so call-expression traversals always
 // reuse the same frozen empty array rather than recreating bespoke helpers.
-export function getCallExpressionArguments(callExpression) {
+export function getCallExpressionArguments(callExpression): Array<unknown> {
     if (!isNode(callExpression)) {
         return asArray();
     }
-
-    return asArray(callExpression.arguments);
+    // TODO: Use the proper typing here
+    return asArray(callExpression.arguments as unknown[]);
 }
 
-export function getCallExpressionIdentifier(callExpression) {
+export function getCallExpressionIdentifier(callExpression): Record<string, unknown> | null {
     if (!isNode(callExpression) || callExpression.type !== "CallExpression") {
         return null;
     }
@@ -325,15 +328,14 @@ export function getCallExpressionIdentifier(callExpression) {
         return null;
     }
 
-    return resolveNodeName(callee) === null ? null : callee;
+    return callee;
 }
 
-export function getCallExpressionIdentifierName(callExpression) {
-    const identifier = getCallExpressionIdentifier(callExpression);
-    return identifier ? identifier.name : null;
+export function getCallExpressionIdentifierName(callExpression): string | null {
+    return getCallExpressionIdentifier(callExpression)?.name as string | null;
 }
 
-export function getIdentifierDetails(node) {
+export function getIdentifierDetails(node: GameMakerAstNode) {
     if (!isNode(node) || node.type !== "Identifier") {
         return null;
     }
@@ -355,7 +357,7 @@ export function isCallExpressionIdentifierMatch(
     callExpression,
     expectedName,
     { caseInsensitive = false } = {}
-) {
+): boolean {
     if (!isNonEmptyString(expectedName)) {
         return false;
     }
@@ -373,7 +375,8 @@ export function isCallExpressionIdentifierMatch(
     return identifierName === expectedName;
 }
 
-export function getArrayProperty(node, propertyName) {
+// TODO: Clean up this function and use the correct typing
+export function getArrayProperty(node: Record<string, unknown>, propertyName: string) {
     if (!isNode(node)) {
         return [];
     }
@@ -382,7 +385,7 @@ export function getArrayProperty(node, propertyName) {
         return [];
     }
 
-    return asArray(node[propertyName]);
+    return asArray(node[propertyName] as unknown[] | null | undefined);
 }
 
 export function hasArrayPropertyEntries(node, propertyName) {
@@ -397,23 +400,19 @@ export function hasArrayPropertyEntries(node, propertyName) {
     return isNonEmptyArray(node[propertyName]);
 }
 
-export function getBodyStatements(node) {
+export function getBodyStatements(node: Record<string, unknown>): Array<unknown> {
     if (!isNode(node)) {
         return [];
     }
-
-    // `getArrayProperty` performs a defensive string guard on the property name
-    // before delegating to `asArray`. The printer calls `getBodyStatements`
-    // for nearly every statement it visits, so we can skip the redundant
-    // property validation and go straight to the normalized array lookup.
-    return asArray(node.body);
+    // TODO: Use the proper typing here
+    return asArray(node.body as unknown[] | null | undefined);
 }
 
-export function hasBodyStatements(node) {
+export function hasBodyStatements(node: Record<string, unknown>): boolean {
     return hasArrayPropertyEntries(node, "body");
 }
 
-export function isProgramOrBlockStatement(node) {
+export function isProgramOrBlockStatement(node: Record<string, unknown>): boolean {
     if (!isNode(node)) {
         return false;
     }
@@ -518,20 +517,20 @@ export function isUndefinedSentinel(node) {
  * @param {unknown} node Candidate AST node-like value.
  * @returns {string | null} The node's `type` when available, otherwise `null`.
  */
-export function getNodeType(node) {
-    if (node == null || typeof node !== "object") {
+export function getNodeType(node: unknown | GameMakerAstNode): string | null {
+    if (!isNode(node)) {
         return null;
     }
 
-    const { type } = node;
+    const { type } = node as GameMakerAstNode;
     return typeof type === "string" ? type : null;
 }
 
-export function isNode(value: unknown): value is Record<string, unknown> {
-    return value !== undefined && value !== null && typeof value === "object";
+export function isNode(value: unknown): boolean {
+    return value != null && typeof value === "object";
 }
 
-const FUNCTION_LIKE_NODE_TYPES = Object.freeze([
+const FUNCTION_LIKE_NODE_TYPES: ReadonlyArray<string> = Object.freeze([
     "FunctionDeclaration",
     "FunctionExpression",
     "LambdaExpression",
@@ -543,7 +542,7 @@ const FUNCTION_LIKE_NODE_TYPES = Object.freeze([
 
 const FUNCTION_LIKE_NODE_TYPE_SET = new Set(FUNCTION_LIKE_NODE_TYPES);
 
-export function isFunctionLikeNode(node) {
+export function isFunctionLikeNode(node): boolean {
     if (!isNode(node)) {
         return false;
     }

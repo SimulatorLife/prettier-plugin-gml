@@ -1,3 +1,5 @@
+// TODO: Should this go in @gml-modules/core instead?
+
 /**
  * @typedef {object} CommentLineNode
  * @property {"CommentLine"} type

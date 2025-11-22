@@ -5,6 +5,7 @@ import { Parser } from "@gml-modules/parser";
 // facade stable for consumers. The parser package exports a `Comments`
 // namespace from its package root; re-export the necessary facade names here
 // so existing plugin consumers do not need to change imports.
+// TODO: Consider moving this to @gml-modules/core if other packages need it.
 
 export const prepareDocCommentEnvironment =
     Parser.Comments.prepareDocCommentEnvironment;

@@ -1,11 +1,6 @@
 import { util } from "prettier";
 import { builders } from "prettier/doc";
-import {
-    getLineBreakCount,
-    isCommentNode,
-    isObjectLike,
-    splitLines
-} from "./comment-boundary.js";
+import { Core } from "@gml-modules/core";
 import {
     formatLineComment,
     getLineCommentRawText,
@@ -171,8 +166,8 @@ const handleComments = {
 
 function printComment(commentPath, options) {
     const comment = commentPath.getValue();
-    if (!isCommentNode(comment)) {
-        if (isObjectLike(comment)) {
+    if (!Core.isCommentNode(comment)) {
+        if (Core.isObjectLike(comment)) {
             comment.printed = true;
         }
         return "";
@@ -241,7 +236,7 @@ function printComment(commentPath, options) {
 }
 
 function applySingleLeadingSpacePadding(comment, options) {
-    if (!isObjectLike(comment) || !options) {
+    if (!Core.isObjectLike(comment) || !options) {
         return;
     }
 
@@ -288,7 +283,7 @@ function getCommentStartIndex(comment) {
 }
 
 function applyTrailingCommentPadding(comment) {
-    if (!isObjectLike(comment)) {
+    if (!Core.isObjectLike(comment)) {
         return;
     }
 
@@ -333,7 +328,7 @@ function collectDanglingComments(path, filter) {
     path.each((commentPath) => {
         const comment = commentPath.getValue();
         if (
-            isCommentNode(comment) &&
+            Core.isCommentNode(comment) &&
             !comment.leading &&
             !comment.trailing &&
             (!filter || filter(comment))
@@ -776,12 +771,12 @@ function findEmptyProgramTarget(ast, enclosingNode, followingNode) {
 }
 
 function whitespaceToDoc(text) {
-    const lineBreakCount = getLineBreakCount(text);
+    const lineBreakCount = Core.getLineBreakCount(text);
     if (lineBreakCount === 0) {
         return text;
     }
 
-    const lines = splitLines(text);
+    const lines = Core.splitLines(text);
     return join(hardline, lines);
 }
 

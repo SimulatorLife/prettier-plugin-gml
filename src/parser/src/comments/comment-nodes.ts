@@ -1,9 +1,5 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: { getLineBreakCount }
-} = Core;
-
 type CommentBoundary = {
     line?: number;
     index?: number;
@@ -99,7 +95,7 @@ function createCommentNode(
     );
 
     if (type === "CommentBlock") {
-        const lineBreakCount = getLineBreakCount(text);
+        const lineBreakCount = Core.getLineBreakCount(text);
         comment.end = buildBoundary(token, "stop", lineBreakCount);
         comment.lineCount = lineBreakCount + 1;
     }
@@ -117,7 +113,7 @@ export function createCommentBlockNode(options) {
 
 export function createWhitespaceNode({ token, tokenText, isNewline }) {
     const text = normalizeTokenText(tokenText);
-    const lineBreakCount = getLineBreakCount(text);
+    const lineBreakCount = Core.getLineBreakCount(text);
 
     return {
         type: "Whitespace",

@@ -1,15 +1,7 @@
+// TODO: Should this be a transform?
+
 import { Core } from "@gml-modules/core";
 import { remapLocationMetadata } from "./location-manipulation.js";
-
-const {
-    Utils: {
-        isNonEmptyArray,
-        isNonEmptyString,
-        isNonEmptyTrimmedString,
-        isWordChar,
-        identity
-    }
-} = Core;
 
 const ASSIGNMENT_GUARD_CHARACTERS = new Set([
     "*",
@@ -43,8 +35,8 @@ const ASSIGNMENT_GUARD_CHARACTERS = new Set([
 function createIndexMapper(
     insertPositions: Array<number | null | undefined> | null | undefined
 ) {
-    if (!isNonEmptyArray(insertPositions)) {
-        return identity;
+    if (!Core.isNonEmptyArray(insertPositions)) {
+        return Core.identity;
     }
 
     const numericPositions = insertPositions.filter(
@@ -54,7 +46,7 @@ function createIndexMapper(
     const offsets = Array.from(new Set(numericPositions)).sort((a, b) => a - b);
 
     if (offsets.length === 0) {
-        return identity;
+        return Core.identity;
     }
 
     return (index) => {
@@ -97,7 +89,7 @@ function isQuoteCharacter(char) {
  *     to map parser indices to the original string.
  */
 export function sanitizeConditionalAssignments(sourceText) {
-    if (!isNonEmptyString(sourceText)) {
+    if (!Core.isNonEmptyString(sourceText)) {
         return {
             sourceText,
             indexAdjustments: null
@@ -190,7 +182,7 @@ export function sanitizeConditionalAssignments(sourceText) {
             const followingCharacter =
                 index + 2 < length ? sourceText[index + 2] : "";
 
-            if (!isWordChar(prevCharacter) && !isWordChar(followingCharacter)) {
+            if (!Core.isWordChar(prevCharacter) && !Core.isWordChar(followingCharacter)) {
                 append(character);
                 append(nextCharacter);
                 index += 2;
@@ -200,7 +192,7 @@ export function sanitizeConditionalAssignments(sourceText) {
         }
 
         if (justSawIfKeyword) {
-            if (!isNonEmptyTrimmedString(character)) {
+            if (!Core.isNonEmptyTrimmedString(character)) {
                 append(character);
                 index += 1;
                 continue;

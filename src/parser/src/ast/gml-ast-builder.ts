@@ -2,8 +2,7 @@ import GameMakerLanguageParserVisitor from "../runtime/game-maker-language-parse
 import { Core } from "@gml-modules/core";
 import type {
     GameMakerAstLocation,
-    GameMakerAstNode,
-    MutableGameMakerAstNode
+    GameMakerAstNode
 } from "@gml-modules/core";
 import { Semantic } from "@gml-modules/semantic";
 import BinaryExpressionDelegate from "./binary-expression-delegate.js";
@@ -106,7 +105,7 @@ const BINARY_OPERATORS: Record<string, BinaryOperatorInfo> = {
     "??=": { prec: 1, assoc: "right", type: "assign" } // Nullish coalescing assignment
 };
 
-type SemanticScopeTracker = InstanceType<typeof Semantic.ScopeTracker>;
+type SemanticScopeTracker = InstanceType<typeof Semantic.SemanticScopeCoordinator>;
 
 const GLOBAL_SCOPE_OVERRIDE_KEYWORD = "global" as const;
 
@@ -117,34 +116,16 @@ const GLOBAL_SCOPE_OVERRIDE_KEYWORD = "global" as const;
  * }} [options]
  */
 function createScopeTrackerFromOptions(
-    options: ScopeTrackerOptions = {}
+    options: ScopeTrackerOptions
 ): SemanticScopeTracker | null {
-    const { createScopeTracker, getIdentifierMetadata } = options;
+    const { createScopeTracker, enabled } = options;
+    if (!enabled) {
+        return null;
+    }
     if (typeof createScopeTracker !== "function") {
-        return null;
+        throw new TypeError("Invalid createScopeTracker function.");
     }
-
-    const tracker = createScopeTracker({
-        enabled: Boolean(getIdentifierMetadata)
-    });
-
-    if (tracker === null) {
-        return null;
-    }
-
-    if (
-        typeof tracker.isEnabled !== "function" ||
-        typeof tracker.enterScope !== "function" ||
-        typeof tracker.exitScope !== "function" ||
-        typeof tracker.declare !== "function" ||
-        typeof tracker.reference !== "function"
-    ) {
-        throw new TypeError(
-            "createScopeTracker must return an object implementing the scope tracker interface."
-        );
-    }
-
-    return tracker;
+    return createScopeTracker();
 }
 
 /**
@@ -174,7 +155,12 @@ function createVisitorDelegate(host: object): MutableParserVisitor {
 
     for (const prototype of prototypes) {
         for (const name of Object.getOwnPropertyNames(prototype)) {
-            if (name === "constructor" || !name.startsWith("visit")) {
+            if (
+                name === "constructor" ||
+                name === "visit" ||
+                name === "visitChildren" ||
+                !name.startsWith("visit")
+            ) {
                 continue;
             }
 
@@ -191,43 +177,23 @@ function createVisitorDelegate(host: object): MutableParserVisitor {
 }
 
 export default class GameMakerASTBuilder {
-    options: ParserOptions | ScopeTrackerOptions;
+    options: ParserOptions;
     whitespaces: unknown[];
     operatorStack: string[];
-
-    scopeTracker: SemanticScopeTracker | null;
-    identifierRoleTracker: any;
-    identifierScopeCoordinator: any;
-    globalIdentifierRegistry: any;
-
-    binaryExpressions: any;
-    visitor: MutableParserVisitor;
+    private scopeTracker: SemanticScopeTracker | null;
+    private binaryExpressions: any;
+    private visitor: MutableParserVisitor;
 
     constructor(
-        options: ParserOptions | ScopeTrackerOptions = {},
-        whitespaces: unknown[] = []
+        options: ParserOptions,
+        whitespaces: unknown[] = [] // TODO: What type should this be? Can this be combined into ParserOptions?
     ) {
-        this.options = options || {};
+        this.options = options;
         this.whitespaces = whitespaces || [];
         this.operatorStack = [];
+        this.scopeTracker = createScopeTrackerFromOptions(options.scopeTrackerOptions);
 
-        const scopeTracker = createScopeTrackerFromOptions(
-            this.options as ScopeTrackerOptions
-        );
-        const roleTracker = new (Semantic.IdentifierRoleTracker as any)();
-        const scopeCoordinator =
-            new (Semantic.IdentifierScopeCoordinator as any)({
-                scopeTracker,
-                roleTracker
-            });
-
-        this.scopeTracker = scopeTracker;
-        this.identifierRoleTracker = roleTracker;
-        this.identifierScopeCoordinator = scopeCoordinator;
-        this.globalIdentifierRegistry =
-            new (Semantic.GlobalIdentifierRegistry as any)();
-
-        this.binaryExpressions = new (BinaryExpressionDelegate as any)({
+        this.binaryExpressions = new BinaryExpressionDelegate({
             operators: BINARY_OPERATORS
         });
 
@@ -235,7 +201,7 @@ export default class GameMakerASTBuilder {
     }
 
     get globalIdentifiers(): any {
-        return this.globalIdentifierRegistry.globalIdentifiers;
+        return this.scopeTracker.globalIdentifiers;
     }
 
     visit(node: unknown): any {
@@ -261,20 +227,22 @@ export default class GameMakerASTBuilder {
         return this.visitor.visitChildren(node as ParserContextWithMethods);
     }
 
-    isIdentifierMetadataEnabled(): boolean {
-        return this.identifierScopeCoordinator.isEnabled();
-    }
-
     withScope<T>(kind: string, callback: () => T): T {
-        return this.identifierScopeCoordinator.withScope(kind, callback);
+        return this.scopeTracker.withScope(kind, callback);
     }
 
     withIdentifierRole<T>(role: IdentifierRole, callback: () => T): T {
-        return this.identifierRoleTracker.withRole(role, callback);
+        if (!this.scopeTracker) {
+            throw new Error("Scope tracker is not initialized");
+        }
+        return this.scopeTracker.withRole(role, callback);
     }
 
-    cloneRole(role: IdentifierRole): IdentifierRole {
-        return this.identifierRoleTracker.cloneRole(role);
+    cloneIdentifierRole(role: IdentifierRole): IdentifierRole {
+        if (!this.scopeTracker) {
+            throw new Error("Scope tracker is not initialized");
+        }
+        return this.scopeTracker.cloneRole(role);
     }
 
     ensureArray(ctx: unknown): ParserContextWithMethods[] {
@@ -425,7 +393,7 @@ export default class GameMakerASTBuilder {
                 typeof token.line === "number"
                     ? token.line +
                       (includeLineBreakCount
-                          ? Core.Utils.getLineBreakCount(token.text ?? "")
+                          ? Core.getLineBreakCount(token.text ?? "")
                           : 0)
                     : null;
         }
