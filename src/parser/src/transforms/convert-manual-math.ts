@@ -3721,7 +3721,10 @@ function computeNumericTolerance(expected, providedTolerance?) {
     return Number.EPSILON * magnitude * 4;
 }
 
-function normalizeNumericCoefficient(value: number, precision = 12): string | null {
+function normalizeNumericCoefficient(
+    value: number,
+    precision = 12
+): string | null {
     if (!Number.isFinite(value)) {
         return null;
     }

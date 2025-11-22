@@ -784,7 +784,7 @@ class CommentTracker {
 
     consumeEntries(entries) {
         for (const entry of entries) {
-                if (!entry) {
+            if (!entry) {
                 // Defensive: skip nullish values.
                 continue;
             }

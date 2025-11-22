@@ -375,7 +375,9 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                 statement &&
                 (statement as any).type === "IfStatement"
             ) {
-                const cond = unwrapParenthesizedExpression((statement as any).test);
+                const cond = unwrapParenthesizedExpression(
+                    (statement as any).test
+                );
                 const maybeGuard = matchArgumentCountGuard(cond);
                 if (maybeGuard) {
                     console.warn(
@@ -599,7 +601,9 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                     // `_featherMaterializedTrailingUndefined` to treat
                     // materialized placeholders differently when synthesizing
                     // docs.
-                    (defaultParamNode as any)._featherMaterializedTrailingUndefined = true;
+                    (
+                        defaultParamNode as any
+                    )._featherMaterializedTrailingUndefined = true;
                 }
             } catch {
                 // swallow
@@ -793,7 +797,9 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                     // guard-based materializations; those represent a
                     // different semantic origin and should not imply an
                     // explicit optional intent in all cases.
-                    (defaultParamNode as any)._featherMaterializedTrailingUndefined = true;
+                    (
+                        defaultParamNode as any
+                    )._featherMaterializedTrailingUndefined = true;
                 }
             } catch {
                 // swallow
@@ -817,7 +823,9 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                     // leave the explicit optionality decision to the later
                     // doc-driven reconciliation so plain functions omit
                     // redundant `= undefined` unless docs indicate optional.
-                    (currentParam as any)._featherMaterializedTrailingUndefined = true;
+                    (
+                        currentParam as any
+                    )._featherMaterializedTrailingUndefined = true;
                 }
             } catch {
                 // swallow
@@ -922,7 +930,8 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                         // Materialize placeholder RHS as `undefined` using a
                         // Literal node so the shape matches existing tests.
                         param.right = { type: "Literal", value: "undefined" };
-                        (param as any)._featherMaterializedTrailingUndefined = true;
+                        (param as any)._featherMaterializedTrailingUndefined =
+                            true;
                         param._featherMaterializedFromExplicitLeft = true;
                         // Preserve historical behaviour: when materializing a
                         // trailing `= undefined` default due to an explicit

@@ -167,14 +167,7 @@ function parseExample(
 const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
     ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
 );
-const DATA_STRUCTURE_ACCESSOR_TOKENS = [
-    "?",
-    "|",
-    "#",
-    "@",
-    "$",
-    "%"
-];
+const DATA_STRUCTURE_ACCESSOR_TOKENS = ["?", "|", "#", "@", "$", "%"];
 const NUMERIC_STRING_LITERAL_PATTERN =
     /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 const ALLOWED_DELETE_MEMBER_TYPES = new Set([

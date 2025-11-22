@@ -1,5 +1,7 @@
 import { Core } from "@gml-modules/core";
-const { AST: { isNode } } = Core;
+const {
+    AST: { isNode }
+} = Core;
 const BINARY_EXPRESSION = "BinaryExpression";
 const TEMPLATE_STRING_EXPRESSION = "TemplateStringExpression";
 const TEMPLATE_STRING_TEXT = "TemplateStringText";
