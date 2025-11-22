@@ -12,9 +12,8 @@ import {
     ensureHasInstancePatched
 } from "./parse-tree-helpers.js";
 
-const DEFAULT_VISIT_CHILDREN_DELEGATE = ({
-    fallback
-}: VisitorPayload) => fallback();
+const DEFAULT_VISIT_CHILDREN_DELEGATE = ({ fallback }: VisitorPayload) =>
+    fallback();
 
 const PARSE_TREE_VISITOR_PROTOTYPE = Object.getPrototypeOf(
     GameMakerLanguageParserVisitorBase.prototype

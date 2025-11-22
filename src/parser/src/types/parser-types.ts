@@ -1,24 +1,20 @@
-import type {
-    ParserRuleContext,
-    Token,
-    TokenStream
-} from "antlr4";
+import type { ParserRuleContext, Token, TokenStream } from "antlr4";
 
 type SemanticScopeTrackerConstructor =
     typeof import("@gml-modules/semantic").Semantic.ScopeTracker;
 
 type SemanticScopeTracker = InstanceType<SemanticScopeTrackerConstructor>;
 
-/**
- * Parser runtime contracts exposed to the rest of the workspace. Centralising
- * these types keeps the parser implementation and the unit tests aligned while
- * avoiding circular runtime dependencies.
- */
-interface ParserContextLike extends ParserRuleContext {
-    [methodName: string]: (...args: Array<unknown>) => any;
-}
+export type ParserContext = ParserRuleContext | null | undefined;
 
-export type ParserContext = ParserContextLike | null | undefined;
+export type ParserContextMethod = (
+    this: ParserRuleContext,
+    ...args: Array<unknown>
+) => ParserContext | ParserContext[] | null | undefined;
+
+export type ParserContextWithMethods = ParserRuleContext & {
+    [methodName: string]: ParserContextMethod;
+};
 
 export interface ParserToken extends Token {
     symbol?: Token | null;

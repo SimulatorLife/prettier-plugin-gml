@@ -17,25 +17,25 @@ declare module "antlr4" {
 
     export type LexerState = number;
 
-export class Token {
-    static INVALID_TYPE: number;
-    static EOF: number;
-    type: number;
-    text?: string;
-    line?: number;
-    column?: number;
-    tokenIndex?: number;
-    start?: Token;
-    stop?: Token;
-    symbol?: Token;
-    startIndex?: number;
-    stopIndex?: number;
-    channel?: number;
-    [key: string]: unknown;
-    constructor(source: Lexer | null, type: number, channel?: number);
-}
+    export class Token {
+        static INVALID_TYPE: number;
+        static EOF: number;
+        type: number;
+        text?: string;
+        line?: number;
+        column?: number;
+        tokenIndex?: number;
+        start?: Token;
+        stop?: Token;
+        symbol?: Token;
+        startIndex?: number;
+        stopIndex?: number;
+        channel?: number;
+        [key: string]: unknown;
+        constructor(source: Lexer | null, type: number, channel?: number);
+    }
 
-    export class Recognizer {
+    export class Recognizer<TSymbol = Token> {
         _ctx?: ParserRuleContext | null;
         getTokenStream?(): TokenStream | null;
         getCurrentToken?(): Token | null;
@@ -54,8 +54,15 @@ export class Token {
         [key: string]: unknown;
     }
 
-    export class ErrorListener {
-        syntaxError(): void;
+    export class ErrorListener<TSymbol = Token> {
+        syntaxError(
+            recognizer: Recognizer<TSymbol>,
+            offendingSymbol: TSymbol,
+            line: number,
+            column: number,
+            message: string,
+            error?: RecognitionException | null
+        ): void;
     }
 
     export class ParserRuleContext {

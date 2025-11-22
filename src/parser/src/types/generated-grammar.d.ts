@@ -13,7 +13,8 @@ declare module "../generated/GameMakerLanguageParser.js" {
 declare module "../generated/GameMakerLanguageParserListener.js" {
     import type { ParserRuleContext } from "antlr4";
 
-    export default class GameMakerLanguageParserListener extends antlr4.tree.ParseTreeListener {
+    export default class GameMakerLanguageParserListener extends antlr4.tree
+        .ParseTreeListener {
         enterProgram(ctx: ParserRuleContext): void;
         exitProgram(ctx: ParserRuleContext): void;
         [methodName: string]: ((ctx: ParserRuleContext) => void) | undefined;
@@ -23,7 +24,8 @@ declare module "../generated/GameMakerLanguageParserListener.js" {
 declare module "../generated/GameMakerLanguageParserVisitor.js" {
     import type { ParserRuleContext } from "antlr4";
 
-    export default class GameMakerLanguageParserVisitor extends antlr4.tree.ParseTreeVisitor {
+    export default class GameMakerLanguageParserVisitor extends antlr4.tree
+        .ParseTreeVisitor {
         visit(ctx: ParserRuleContext): unknown;
         visitChildren(ctx: ParserRuleContext): unknown;
         [methodName: string]:

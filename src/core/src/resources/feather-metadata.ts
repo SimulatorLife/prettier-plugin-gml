@@ -18,11 +18,25 @@ export const FEATHER_METADATA_PATH = resolveBundledResourcePath(
     "feather-metadata.json"
 );
 
+export type FeatherDiagnostic = {
+    id?: string | null;
+    [key: string]: unknown;
+};
+
+export type FeatherMetadata = {
+    diagnostics?: Array<FeatherDiagnostic> | null;
+    typeSystem?: unknown;
+    [key: string]: unknown;
+};
+
 export function loadBundledFeatherMetadata() {
     return require(FEATHER_METADATA_PATH);
 }
 
-function normalizeFeatherDiagnostic(diagnostic, index) {
+function normalizeFeatherDiagnostic(
+    diagnostic: unknown,
+    index: number
+): FeatherDiagnostic {
     const normalizedDiagnostic = assertPlainObject(diagnostic, {
         name: `Feather metadata diagnostics[${index}]`
     });
@@ -42,7 +56,7 @@ function normalizeFeatherDiagnostic(diagnostic, index) {
 }
 
 function normalizeFeatherDiagnostics(diagnostics) {
-    const normalizedDiagnostics = assertArray(diagnostics, {
+    const normalizedDiagnostics = assertArray<FeatherDiagnostic>(diagnostics, {
         allowNull: true,
         errorMessage:
             "Feather metadata diagnostics must be provided as an array."
@@ -53,10 +67,10 @@ function normalizeFeatherDiagnostics(diagnostics) {
     );
 }
 
-function normalizeFeatherMetadata(payload) {
+function normalizeFeatherMetadata(payload: unknown) {
     const metadata = assertPlainObject(payload, {
         name: "Feather metadata"
-    });
+    }) as FeatherMetadata;
 
     return {
         ...metadata,
@@ -90,8 +104,7 @@ function loadFeatherMetadata() {
         return cachedMetadata;
     }
 
-    /** @type {FeatherMetadata} */
-    const metadata = loadBundledFeatherMetadata();
+    const metadata = loadBundledFeatherMetadata() as FeatherMetadata;
     const normalizedMetadata = normalizeFeatherMetadata(metadata);
     cachedMetadata = normalizedMetadata;
     return normalizedMetadata;
@@ -114,7 +127,7 @@ export function getFeatherMetadata() {
  */
 export function getFeatherDiagnostics() {
     const metadata = loadFeatherMetadata();
-    return asArray(metadata?.diagnostics);
+    return asArray<FeatherDiagnostic>(metadata?.diagnostics);
 }
 
 /**
@@ -123,7 +136,9 @@ export function getFeatherDiagnostics() {
  * @param {string | null | undefined} id Diagnostic identifier to find.
  * @returns {FeatherDiagnostic | null} Matching diagnostic when found; otherwise `null`.
  */
-export function getFeatherDiagnosticById(id) {
+export function getFeatherDiagnosticById(
+    id: string | null | undefined
+): FeatherDiagnostic | null {
     const normalizedId = toTrimmedString(id);
     if (!normalizedId) {
         return null;

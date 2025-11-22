@@ -1,36 +1,41 @@
-import * as stripComments from "./strip-comments.js";
-import * as consolidateStructAssignments from "./consolidate-struct-assignments.js";
-import * as applyFeatherFixes from "./apply-feather-fixes.js";
-import * as preprocessFunctionArgumentDefaults from "./preprocess-function-argument-defaults.js";
-import * as enforceVariableBlockSpacing from "./enforce-variable-block-spacing.js";
-import * as convertStringConcatenations from "./convert-string-concatenations.js";
-import * as condenseLogicalExpressions from "./condense-logical-expressions.js";
-import * as convertManualMathExpressions from "./convert-manual-math.js";
-import * as convertUndefinedGuardAssignments from "./convert-undefined-guard-assignments.js";
-import * as annotateStaticFunctionOverrides from "./annotate-static-overrides.js";
+import { stripCommentsTransform } from "./strip-comments.js";
+import { consolidateStructAssignments } from "./consolidate-struct-assignments.js";
+import {
+    applyFeatherFixes,
+    applyRemovedIndexAdjustments,
+    getFeatherDiagnosticFixers,
+    getRoomNavigationHelpers,
+    preprocessSourceForFeatherFixes,
+    ROOM_NAVIGATION_DIRECTION
+} from "./apply-feather-fixes.js";
+import { preprocessFunctionArgumentDefaults } from "./preprocess-function-argument-defaults.js";
+import { enforceVariableBlockSpacing } from "./enforce-variable-block-spacing.js";
+import { convertStringConcatenations } from "./convert-string-concatenations.js";
+import { convertManualMathExpressions } from "./convert-manual-math.js";
+import { convertUndefinedGuardAssignments } from "./convert-undefined-guard-assignments.js";
+import { annotateStaticFunctionOverrides } from "./annotate-static-overrides.js";
 
 // Plugin AST transforms exposed via the parser transform registry.
 // Wrappers follow the parser transform signature: (ast, opts = {}) => ast
 const TRANSFORM_REGISTRY = Object.freeze({
-    "strip-comments": stripComments.transform,
+    "strip-comments": stripCommentsTransform,
     "consolidate-struct-assignments": (ast, opts = {}) =>
-        consolidateStructAssignments.transform(ast, opts.commentTools),
-    "apply-feather-fixes": (ast, opts = {}) =>
-        applyFeatherFixes.transform(ast, opts),
+        consolidateStructAssignments(ast, opts.commentTools),
+    "apply-feather-fixes": (ast, opts = {}) => applyFeatherFixes(ast, opts),
     "preprocess-function-argument-defaults": (ast, opts = {}) =>
-        preprocessFunctionArgumentDefaults.transform(ast, opts.helpers ?? opts),
+        preprocessFunctionArgumentDefaults(ast, opts.helpers ?? opts),
     "enforce-variable-block-spacing": (ast, opts = {}) =>
-        enforceVariableBlockSpacing.transform(ast, opts),
+        enforceVariableBlockSpacing(ast, opts),
     "convert-string-concatenations": (ast, opts = {}) =>
-        convertStringConcatenations.transform(ast, opts.helpers ?? opts),
+        convertStringConcatenations(ast, opts.helpers ?? opts),
     "condense-logical-expressions": (ast, opts = {}) =>
-        condenseLogicalExpressions.transform(ast, opts.helpers ?? opts),
+        condenseLogicalExpressions(ast, opts.helpers ?? opts),
     "convert-manual-math": (ast, opts = {}) =>
-        convertManualMathExpressions.transform(ast, opts),
-    "convert-undefined-guard-assignments": (ast, opts = {}) =>
-        convertUndefinedGuardAssignments.transform(ast, opts),
+        convertManualMathExpressions(ast, opts),
+    "convert-undefined-guard-assignments": (ast) =>
+        convertUndefinedGuardAssignments(ast),
     "annotate-static-overrides": (ast, opts = {}) =>
-        annotateStaticFunctionOverrides.transform(ast, opts)
+        annotateStaticFunctionOverrides(ast, opts)
 });
 
 export function applyTransforms(ast, transformNames = [], options = {}) {

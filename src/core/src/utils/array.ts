@@ -3,7 +3,7 @@ import { identity } from "./function.js";
 // Reuse a frozen empty array to avoid allocating a new array on every call to
 // `asArray`. The array is frozen so accidental mutations surface loudly during
 // development instead of leaking shared state across callers.
-const EMPTY_ARRAY = Object.freeze([]);
+const EMPTY_ARRAY: Array<never> = Object.freeze([]) as Array<never>;
 
 type AssertArrayOptions = {
     name?: string;
@@ -77,16 +77,16 @@ export function toArray(value = undefined) {
  * @returns {Array<T>} The validated array or a fresh empty array when
  *                     `allowNull` permits nullable inputs.
  */
-export function assertArray(
-    value,
+export function assertArray<T>(
+    value: unknown,
     { name = "value", allowNull = false, errorMessage }: AssertArrayOptions = {}
-) {
+): Array<T> {
     if (Array.isArray(value)) {
-        return value;
+        return value as Array<T>;
     }
 
     if (allowNull && value == null) {
-        return [];
+        return [] as Array<T>;
     }
 
     const message = errorMessage ?? `${name} must be provided as an array.`;
@@ -102,8 +102,10 @@ export function assertArray(
  * @param {unknown} value
  * @returns {Array<T>} Either the original array or a shared empty array.
  */
-export function asArray(value = EMPTY_ARRAY) {
-    return Array.isArray(value) ? value : EMPTY_ARRAY;
+export function asArray<T>(
+    value: Array<T> | null | undefined = EMPTY_ARRAY
+): Array<T> {
+    return Array.isArray(value) ? value : (EMPTY_ARRAY as Array<T>);
 }
 
 /**

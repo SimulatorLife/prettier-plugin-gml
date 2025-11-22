@@ -1,6 +1,7 @@
 import GameMakerLanguageParserVisitor from "../runtime/game-maker-language-parser-visitor.js";
 import { Core } from "@gml-modules/core";
 import type {
+    GameMakerAstLocation,
     GameMakerAstNode,
     MutableGameMakerAstNode
 } from "@gml-modules/core";
@@ -11,6 +12,7 @@ import type {
     ParserToken,
     ScopeTrackerOptions
 } from "../types/index.js";
+import type { Token } from "antlr4";
 
 type BinaryOperatorAssoc = "left" | "right";
 type BinaryOperatorType =
@@ -34,7 +36,9 @@ type IdentifierRole = {
     scopeOverride?: string;
 };
 
-type ParserVisitorInstance = InstanceType<typeof GameMakerLanguageParserVisitor>;
+type ParserVisitorInstance = InstanceType<
+    typeof GameMakerLanguageParserVisitor
+>;
 type MutableParserVisitor = ParserVisitorInstance & {
     [methodName: string]: (...args: Array<unknown>) => unknown;
 };
@@ -207,15 +211,17 @@ export default class GameMakerASTBuilder {
 
         const scopeTracker = createScopeTrackerFromOptions(this.options);
         const roleTracker = new (Semantic.IdentifierRoleTracker as any)();
-        const scopeCoordinator = new (Semantic.IdentifierScopeCoordinator as any)({
-            scopeTracker,
-            roleTracker
-        });
+        const scopeCoordinator =
+            new (Semantic.IdentifierScopeCoordinator as any)({
+                scopeTracker,
+                roleTracker
+            });
 
         this.scopeTracker = scopeTracker;
         this.identifierRoleTracker = roleTracker;
         this.identifierScopeCoordinator = scopeCoordinator;
-        this.globalIdentifierRegistry = new (Semantic.GlobalIdentifierRegistry as any)();
+        this.globalIdentifierRegistry =
+            new (Semantic.GlobalIdentifierRegistry as any)();
 
         this.binaryExpressions = new (BinaryExpressionDelegate as any)({
             operators: BINARY_OPERATORS
@@ -296,24 +302,21 @@ export default class GameMakerASTBuilder {
     // their original source positions. We compute the end location by accounting for
     // line breaks within the token's text, which is crucial for multi-line string
     // literals or block comments that span multiple lines.
-    astNode<T extends GameMakerAstNode>(
-        ctx: ParserContext,
-        object: T
-    ): T {
-        object.start = { line: ctx.start.line, index: ctx.start.start };
-        object.end = ctx.stop
-            ? {
-                  line:
-                      ctx.stop.line +
-                      Core.Utils.getLineBreakCount(ctx.stop.text),
-                  index: ctx.stop.stop
-              }
-            : {
-                  line:
-                      ctx.start.line +
-                      Core.Utils.getLineBreakCount(ctx.start.text),
-                  index: ctx.start.stop
-              };
+    astNode<T extends GameMakerAstNode>(ctx: ParserContext, object: T): T {
+        const startLocation = this.buildLocationFromToken(ctx?.start);
+        const fallbackEndLocation = this.buildLocationFromToken(ctx?.start, {
+            includeLineBreakCount: true
+        });
+        const endLocation =
+            this.buildLocationFromToken(ctx?.stop ?? ctx?.start, {
+                includeLineBreakCount: true
+            }) ??
+            fallbackEndLocation ??
+            startLocation ??
+            null;
+
+        object.start = startLocation ?? null;
+        object.end = endLocation ?? startLocation ?? null;
 
         return object;
     }
@@ -322,35 +325,65 @@ export default class GameMakerASTBuilder {
         token: ParserToken,
         object: T
     ): T {
-        if (token && token.symbol) {
-        const { symbol } = token;
-        object.start = {
-            line: symbol.line,
-            index: symbol.start
-        };
-        object.end = {
-            line:
-                symbol.line +
-                Core.Utils.getLineBreakCount(symbol.text || ""),
-            index: symbol.stop
-        };
-        } else if (token && token.start && token.stop) {
-            object.start = {
-                line: token.start.line,
-                index: token.start.start
-            };
-            object.end = {
-                line:
-                    token.stop.line +
-                    Core.Utils.getLineBreakCount(token.stop.text || ""),
-                index: token.stop.stop
-            };
-        } else {
-            // Fallback - use current context if token is invalid
+        if (!token) {
             return this.astNode(this as any, object);
         }
 
+        const startTokenCandidate =
+            token.symbol ?? token.start ?? token.stop ?? token;
+        const endTokenCandidate =
+            token.stop ?? token.symbol ?? token.start ?? token;
+
+        const startLocation = this.buildLocationFromToken(startTokenCandidate);
+        const endLocation =
+            this.buildLocationFromToken(endTokenCandidate, {
+                includeLineBreakCount: true
+            }) ??
+            this.buildLocationFromToken(startTokenCandidate, {
+                includeLineBreakCount: true
+            });
+
+        if (!startLocation && !endLocation) {
+            return this.astNode(this as any, object);
+        }
+
+        object.start = startLocation ?? null;
+        object.end = endLocation ?? startLocation ?? null;
+
         return object;
+    }
+
+    private buildLocationFromToken(
+        token: Token | null | undefined,
+        { includeLineBreakCount = false } = {}
+    ): GameMakerAstLocation | null {
+        if (!token) {
+            return null;
+        }
+
+        const index =
+            typeof token.startIndex === "number"
+                ? token.startIndex
+                : typeof token.stopIndex === "number"
+                  ? token.stopIndex
+                  : null;
+
+        if (index === null) {
+            return null;
+        }
+
+        const line =
+            typeof token.line === "number"
+                ? token.line +
+                  (includeLineBreakCount
+                      ? Core.Utils.getLineBreakCount(token.text ?? "")
+                      : 0)
+                : null;
+
+        return {
+            line,
+            index
+        };
     }
 
     createIdentifierLocation(token: ParserToken): any {

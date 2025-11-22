@@ -5191,7 +5191,9 @@ function replaceDeprecatedIdentifier(
         return null;
     }
 
-    const normalizedName = Core.toNormalizedLowerCaseString(identifierDetails.name);
+    const normalizedName = Core.toNormalizedLowerCaseString(
+        identifierDetails.name
+    );
 
     if (!normalizedName || normalizedName.length === 0) {
         return null;
@@ -5710,10 +5712,7 @@ function buildNestedMemberIndexExpression({ object, indices, template }) {
             next.start = Core.cloneLocation(template.start);
         }
 
-        if (
-            index === remaining.length - 1 &&
-            Core.hasOwn(template, "end")
-        ) {
+        if (index === remaining.length - 1 && Core.hasOwn(template, "end")) {
             next.end = Core.cloneLocation(template.end);
         }
 
@@ -9044,7 +9043,9 @@ function getStatementInsertionInfo(state, statements, baseIndex) {
         () => new Map()
     );
 
-    return Core.getOrCreateMapEntry(arrayInfo, baseIndex, () => ({ offset: 0 }));
+    return Core.getOrCreateMapEntry(arrayInfo, baseIndex, () => ({
+        offset: 0
+    }));
 }
 
 function findStatementContext(ancestors) {
@@ -9420,7 +9421,9 @@ function extractConsequentAssignment(consequent) {
     }
 
     if (consequent.type === "BlockStatement") {
-        const statements = Core.compactArray(Core.getBodyStatements(consequent));
+        const statements = Core.compactArray(
+            Core.getBodyStatements(consequent)
+        );
 
         if (statements.length !== 1) {
             return null;
@@ -17706,7 +17709,10 @@ function fixTypeUnionSpacing(typeText, baseTypesLower) {
         return typeText ?? "";
     }
 
-    if (!Core.isSetLike(baseTypesLower) || !Core.hasIterableItems(baseTypesLower)) {
+    if (
+        !Core.isSetLike(baseTypesLower) ||
+        !Core.hasIterableItems(baseTypesLower)
+    ) {
         return typeText;
     }
 
