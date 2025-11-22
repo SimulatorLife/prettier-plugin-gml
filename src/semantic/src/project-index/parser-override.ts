@@ -11,7 +11,7 @@ const PARSER_FACADE_OPTION_KEYS = [
 ];
 
 export function getProjectIndexParserOverride(options) {
-    if (!Core.Utils.isObjectLike(options)) {
+    if (!Core.isObjectLike(options)) {
         return null;
     }
 

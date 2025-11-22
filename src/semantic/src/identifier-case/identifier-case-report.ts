@@ -98,11 +98,11 @@ function defaultNow() {
 }
 
 function getNormalizedOperations(report) {
-    return Core.Utils.asArray(report?.operations);
+    return Core.asArray(report?.operations);
 }
 
 function getNormalizedConflicts(conflicts) {
-    return Core.Utils.asArray(conflicts);
+    return Core.asArray(conflicts);
 }
 
 function buildIdentifierCaseOptionKeys(baseName) {
@@ -110,7 +110,7 @@ function buildIdentifierCaseOptionKeys(baseName) {
 }
 
 function getIdentifierCaseOption(options, baseName, coalesceOptions) {
-    return Core.Utils.coalesceOption(
+    return Core.coalesceOption(
         options,
         buildIdentifierCaseOptionKeys(baseName),
         coalesceOptions
@@ -122,7 +122,7 @@ function extractOperations(plan: unknown) {
         return plan;
     }
 
-    if (!Core.Utils.isObjectLike(plan)) {
+    if (!Core.isObjectLike(plan)) {
         return [];
     }
 
@@ -138,11 +138,11 @@ function extractOperations(plan: unknown) {
 }
 
 function normalizeReference(reference) {
-    if (!Core.Utils.isObjectLike(reference)) {
+    if (!Core.isObjectLike(reference)) {
         return null;
     }
 
-    const filePath = Core.Utils.coalesceTrimmedString(
+    const filePath = Core.coalesceTrimmedString(
         reference.filePath,
         reference.path,
         reference.file
@@ -165,39 +165,39 @@ function normalizeReference(reference) {
 }
 
 function normalizeScope(scope) {
-    if (!Core.Utils.isObjectLike(scope)) {
+    if (!Core.isObjectLike(scope)) {
         return { id: null, displayName: null, name: null };
     }
 
-    const displayName = Core.Utils.coalesceTrimmedString(
+    const displayName = Core.coalesceTrimmedString(
         scope.displayName,
         scope.name,
         scope.scope,
         scope.path
     );
-    const id = Core.Utils.coalesceTrimmedString(scope.id, scope.scopeId);
+    const id = Core.coalesceTrimmedString(scope.id, scope.scopeId);
 
     return {
         id: id || null,
         displayName: displayName || null,
-        name: Core.Utils.coalesceTrimmedString(scope.name) || null
+        name: Core.coalesceTrimmedString(scope.name) || null
     };
 }
 
 function normalizeOperation(rawOperation) {
-    return Core.Utils.withObjectLike(
+    return Core.withObjectLike(
         rawOperation,
         (operation) => {
             const scope = normalizeScope(operation.scope ?? {});
 
-            const fromName = Core.Utils.coalesceTrimmedString(
+            const fromName = Core.coalesceTrimmedString(
                 operation.from?.name,
                 operation.source?.name,
                 operation.originalName,
                 operation.from,
                 operation.source
             );
-            const toName = Core.Utils.coalesceTrimmedString(
+            const toName = Core.coalesceTrimmedString(
                 operation.to?.name,
                 operation.target?.name,
                 operation.updatedName,
@@ -205,8 +205,8 @@ function normalizeOperation(rawOperation) {
                 operation.target
             );
 
-            const referenceCandidates = Core.Utils.compactArray(
-                Core.Utils.toArray(operation.references).map(normalizeReference)
+            const referenceCandidates = Core.compactArray(
+                Core.toArray(operation.references).map(normalizeReference)
             );
             const references = referenceCandidates.reduce((acc, item) => {
                 const insertIndex = acc.findIndex(
@@ -233,12 +233,12 @@ function normalizeOperation(rawOperation) {
 
             return {
                 id:
-                    Core.Utils.coalesceTrimmedString(
+                    Core.coalesceTrimmedString(
                         operation.id,
                         operation.identifier
                     ) || null,
                 kind:
-                    Core.Utils.coalesceTrimmedString(
+                    Core.coalesceTrimmedString(
                         operation.kind,
                         operation.type
                     ) || "identifier",
@@ -256,32 +256,32 @@ function normalizeOperation(rawOperation) {
 }
 
 function normalizeConflict(rawConflict) {
-    return Core.Utils.withObjectLike(
+    return Core.withObjectLike(
         rawConflict,
         (conflict) => {
             const scope = normalizeScope(conflict.scope ?? {});
-            const severityCandidate = Core.Utils.coalesceTrimmedString(
+            const severityCandidate = Core.coalesceTrimmedString(
                 conflict.severity
             );
             const severity = severityCandidate
                 ? severityCandidate.toLowerCase()
                 : "error";
 
-            const suggestions = Core.Utils.compactArray(
-                Core.Utils.toArray(conflict.suggestions ?? conflict.hints).map(
-                    (entry) => Core.Utils.coalesceTrimmedString(entry)
+            const suggestions = Core.compactArray(
+                Core.toArray(conflict.suggestions ?? conflict.hints).map(
+                    (entry) => Core.coalesceTrimmedString(entry)
                 )
             );
 
             return {
                 code:
-                    Core.Utils.coalesceTrimmedString(
+                    Core.coalesceTrimmedString(
                         conflict.code,
                         conflict.identifier,
                         conflict.type
                     ) || null,
                 message:
-                    Core.Utils.coalesceTrimmedString(
+                    Core.coalesceTrimmedString(
                         conflict.message,
                         conflict.reason
                     ) || "",
@@ -291,7 +291,7 @@ function normalizeConflict(rawConflict) {
                     displayName: scope.displayName ?? scope.name ?? null
                 },
                 identifier:
-                    Core.Utils.coalesceTrimmedString(
+                    Core.coalesceTrimmedString(
                         conflict.identifier,
                         conflict.name,
                         conflict.originalName
@@ -373,15 +373,13 @@ export function summarizeIdentifierCasePlan({
     conflicts = []
 }: IdentifierCasePlanData = {}) {
     const normalizedOperations = sortOperations(
-        Core.Utils.compactArray(
+        Core.compactArray(
             extractOperations(renamePlan).map(normalizeOperation)
         )
     );
 
     const normalizedConflicts = sortConflicts(
-        Core.Utils.compactArray(
-            Core.Utils.toArray(conflicts).map(normalizeConflict)
-        )
+        Core.compactArray(Core.toArray(conflicts).map(normalizeConflict))
     );
 
     const renameSummaries = normalizedOperations.map(buildRenameSummary);
@@ -399,7 +397,7 @@ export function summarizeIdentifierCasePlan({
     const severityCounts = new Map();
     for (const conflict of normalizedConflicts) {
         const severity = conflict.severity ?? "info";
-        Core.Utils.incrementMapValue(severityCounts, severity);
+        Core.incrementMapValue(severityCounts, severity);
     }
 
     const summary = {
@@ -582,7 +580,7 @@ function buildLogPayload(report: IdentifierCaseReportData | null, generatedAt) {
 }
 
 function resolveSummarySeverity(conflicts) {
-    if (!Core.Utils.isNonEmptyArray(conflicts)) {
+    if (!Core.isNonEmptyArray(conflicts)) {
         return "info";
     }
 

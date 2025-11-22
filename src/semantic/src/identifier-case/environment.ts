@@ -15,17 +15,17 @@ import { warnWithReason } from "./logger.js";
 // (avoid destructuring from the package namespace)
 
 // Helpers used from Core:
-// - Core.Utils.isObjectLike
-// - Core.Utils.isMapLike
-// - Core.Utils.noop
-// - Core.Utils.withObjectLike
+// - Core.isObjectLike
+// - Core.isMapLike
+// - Core.noop
+// - Core.withObjectLike
 
 const IDENTIFIER_CASE_LOGGER_NAMESPACE = "identifier-case";
 
 const managedBootstraps = new WeakSet();
 
 function clearOwnProperty(_target, propertyName, { value = null } = {}) {
-    if (!Core.Utils.isObjectLike(_target)) {
+    if (!Core.isObjectLike(_target)) {
         return;
     }
 
@@ -39,7 +39,7 @@ function clearOwnProperty(_target, propertyName, { value = null } = {}) {
 }
 
 function sanitizeBootstrapResult(bootstrap) {
-    if (!Core.Utils.isObjectLike(bootstrap)) {
+    if (!Core.isObjectLike(bootstrap)) {
         return;
     }
 
@@ -58,7 +58,7 @@ function sanitizeBootstrapResult(bootstrap) {
         // Deleting the method or leaving the original callback in place would
         // cause those consumers to either crash (missing method) or double-free
         // resources that were never designed to be re-disposed.
-        bootstrap.dispose = Core.Utils.noop;
+        bootstrap.dispose = Core.noop;
     }
 
     const { cache } = bootstrap;
@@ -107,7 +107,7 @@ export async function prepareIdentifierCaseEnvironment(options) {
     } catch {
         /* ignore */
     }
-    return Core.Utils.withObjectLike(
+    return Core.withObjectLike(
         options,
         async (object) => {
             const bootstrapResult =
@@ -145,7 +145,7 @@ export async function prepareIdentifierCaseEnvironment(options) {
 }
 
 export function attachIdentifierCasePlanSnapshot(ast, options) {
-    Core.Utils.withObjectLike(
+    Core.withObjectLike(
         ast,
         (objectAst) => {
             const snapshot = captureIdentifierCasePlanSnapshot(options);
@@ -157,13 +157,13 @@ export function attachIdentifierCasePlanSnapshot(ast, options) {
             if (
                 !snapshot ||
                 (snapshot.planGenerated !== true &&
-                    !Core.Utils.isMapLike(snapshot.renameMap))
+                    !Core.isMapLike(snapshot.renameMap))
             ) {
                 return;
             }
 
             try {
-                if (Core.Utils.isMapLike(snapshot.renameMap)) {
+                if (Core.isMapLike(snapshot.renameMap)) {
                     const samples = [];
                     let c = 0;
                     for (const k of snapshot.renameMap.keys()) {

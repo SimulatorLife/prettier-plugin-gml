@@ -15,7 +15,7 @@ import { Core } from "@gml-modules/core";
  * @returns {Array<T>} Array containing shallow clones of object entries.
  */
 export function cloneObjectEntries(entries) {
-    if (!Core.Utils.isNonEmptyArray(entries)) {
+    if (!Core.isNonEmptyArray(entries)) {
         return [];
     }
 

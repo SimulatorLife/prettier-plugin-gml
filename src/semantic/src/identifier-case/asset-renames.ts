@@ -119,7 +119,7 @@ type ApplyAssetRenamesOptions = {
 };
 
 function isReservedIdentifierName(name) {
-    const normalizedName = Core.Utils.toNormalizedLowerCaseString(name);
+    const normalizedName = Core.toNormalizedLowerCaseString(name);
     if (!normalizedName) {
         return false;
     }
@@ -134,7 +134,7 @@ function isReservedIdentifierName(name) {
 function buildAssetConflictSuggestions(identifierName) {
     const suggestions = [];
 
-    if (Core.Utils.isNonEmptyString(identifierName)) {
+    if (Core.isNonEmptyString(identifierName)) {
         suggestions.push(`Add '${identifierName}' to gmlIdentifierCaseIgnore`);
     }
 
@@ -175,7 +175,7 @@ function pushAssetRenameConflict({
 
     const resolvedSuggestions =
         suggestions === undefined
-            ? includeSuggestions && Core.Utils.isNonEmptyString(identifierName)
+            ? includeSuggestions && Core.isNonEmptyString(identifierName)
                 ? buildAssetConflictSuggestions(identifierName)
                 : null
             : suggestions;
@@ -258,12 +258,12 @@ function collectDirectoryEntries({
         const rename = (renameByResourcePath.get(resourcePath) ??
             null) as AssetRename | null;
         const finalName = rename?.toName ?? resourceRecord.name;
-        if (!Core.Utils.isNonEmptyString(finalName)) {
+        if (!Core.isNonEmptyString(finalName)) {
             continue;
         }
 
         const directory = path.posix.dirname(resourcePath);
-        const list = Core.Utils.getOrCreateMapEntry(
+        const list = Core.getOrCreateMapEntry(
             directories,
             directory,
             () => []
@@ -283,7 +283,7 @@ function collectDirectoryEntries({
 }
 
 function hasPendingAssetRenames(projectIndex, renames) {
-    return Boolean(projectIndex) && Core.Utils.isNonEmptyArray(renames);
+    return Boolean(projectIndex) && Core.isNonEmptyArray(renames);
 }
 
 function detectAssetRenameConflicts({
@@ -305,8 +305,8 @@ function detectAssetRenameConflicts({
     for (const entries of directories.values()) {
         const byLowerName = new Map();
         for (const entry of entries) {
-            const key = Core.Utils.toNormalizedLowerCaseString(entry.finalName);
-            const bucket = Core.Utils.getOrCreateMapEntry(
+            const key = Core.toNormalizedLowerCaseString(entry.finalName);
+            const bucket = Core.getOrCreateMapEntry(
                 byLowerName,
                 key,
                 () => []
@@ -408,7 +408,7 @@ function detectAssetRenameConflicts({
 }
 
 function summarizeReferences(referenceMutations, resourcePath) {
-    const includeFilePaths = Core.Utils.isNonEmptyString(resourcePath)
+    const includeFilePaths = Core.isNonEmptyString(resourcePath)
         ? [resourcePath]
         : [];
 
@@ -428,7 +428,7 @@ function groupAssetReferencesByTargetPath(
             continue;
         }
 
-        const references = Core.Utils.getOrCreateMapEntry(
+        const references = Core.getOrCreateMapEntry(
             referencesByTargetPath,
             reference.targetPath,
             () => []

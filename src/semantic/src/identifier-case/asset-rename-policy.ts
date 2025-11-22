@@ -30,8 +30,8 @@ export function evaluateIdentifierCaseAssetRenamePolicy(
         assetConflicts = []
     } = context;
 
-    const renames = Core.Utils.asArray(assetRenames);
-    const conflicts = Core.Utils.asArray(assetConflicts);
+    const renames = Core.asArray(assetRenames);
+    const conflicts = Core.asArray(assetConflicts);
 
     const createResult = (
         reason,
@@ -53,11 +53,11 @@ export function evaluateIdentifierCaseAssetRenamePolicy(
         );
     }
 
-    if (!Core.Utils.isNonEmptyArray(renames)) {
+    if (!Core.isNonEmptyArray(renames)) {
         return createResult(IdentifierCaseAssetRenamePolicyReason.NO_RENAMES);
     }
 
-    if (Core.Utils.isNonEmptyArray(conflicts)) {
+    if (Core.isNonEmptyArray(conflicts)) {
         return createResult(
             IdentifierCaseAssetRenamePolicyReason.HAS_CONFLICTS,
             { includeConflicts: true }

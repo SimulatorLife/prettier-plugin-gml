@@ -15,13 +15,13 @@ const DEFAULT_RESOURCE_METADATA_EXTENSIONS = Object.freeze([".yy"]);
 let projectResourceMetadataExtensions = DEFAULT_RESOURCE_METADATA_EXTENSIONS;
 
 function normalizeResourceMetadataExtension(candidate) {
-    return Core.Utils.normalizeExtensionSuffix(candidate);
+    return Core.normalizeExtensionSuffix(candidate);
 }
 
 function normalizeResourceMetadataExtensions(candidate) {
     const entries = typeof candidate === "string" ? [candidate] : candidate;
 
-    const normalized = Core.Utils.mergeUniqueValues(
+    const normalized = Core.mergeUniqueValues(
         DEFAULT_RESOURCE_METADATA_EXTENSIONS,
         entries,
         {

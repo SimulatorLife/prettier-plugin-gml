@@ -89,7 +89,7 @@ function createDirectoryEntryDescriptor(directoryContext, entry, projectRoot) {
     return {
         relativePath,
         absolutePath,
-        relativePosix: Core.FS.toPosixPath(relativePath)
+        relativePosix: Core.toPosixPath(relativePath)
     };
 }
 
@@ -129,7 +129,7 @@ async function resolveEntryStats({
         ensureNotAborted();
         return stats;
     } catch (error) {
-        if (Core.FS.isFsErrorCode(error, "ENOENT")) {
+        if (Core.isFsErrorCode(error, "ENOENT")) {
             metrics?.counters?.increment("io.skippedMissingEntries");
             return null;
         }

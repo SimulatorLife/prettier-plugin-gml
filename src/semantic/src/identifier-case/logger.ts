@@ -18,7 +18,7 @@ function resolveWarningReason(candidates, fallback = DEFAULT_WARNING_FALLBACK) {
             continue;
         }
 
-        const reason = Core.Utils.getErrorMessage(candidate, { fallback: "" });
+        const reason = Core.getErrorMessage(candidate, { fallback: "" });
         if (reason) {
             return reason;
         }

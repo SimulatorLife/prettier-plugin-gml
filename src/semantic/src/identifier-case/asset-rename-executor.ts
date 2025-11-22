@@ -36,7 +36,7 @@ function tryAccess(fsFacade, method, targetPath, ...args) {
         const result = fn.call(fsFacade, targetPath, ...args);
         return method === "existsSync" ? Boolean(result) : true;
     } catch (error) {
-        if (Core.FS.isFsErrorCode(error, "ENOENT")) {
+        if (Core.isFsErrorCode(error, "ENOENT")) {
             return false;
         }
         throw error;
@@ -52,7 +52,7 @@ function resolveAbsolutePath(projectRoot, relativePath) {
         return relativePath;
     }
 
-    const systemRelative = Core.FS.fromPosixPath(relativePath);
+    const systemRelative = Core.fromPosixPath(relativePath);
     return path.join(projectRoot, systemRelative);
 }
 
@@ -62,10 +62,10 @@ function readJsonFile(fsFacade, absolutePath, cache) {
     }
 
     const raw = fsFacade.readFileSync(absolutePath, "utf8");
-    const parsed = Core.Utils.parseJsonWithContext(raw, {
+        const parsed = Core.parseJsonWithContext(raw, {
         source: absolutePath
     });
-    const resourceJson = Core.Utils.assertPlainObject(parsed, {
+        const resourceJson = Core.assertPlainObject(parsed, {
         errorMessage: `Resource JSON at ${absolutePath} must be a plain object.`
     });
     if (cache) {
@@ -79,7 +79,7 @@ function getObjectAtPath(json, propertyPath) {
         return json;
     }
 
-    const segments = Core.Utils.trimStringEntries(
+    const segments = Core.trimStringEntries(
         propertyPath.split(".")
     ).filter((segment) => segment.length > 0);
 
@@ -98,7 +98,7 @@ function getObjectAtPath(json, propertyPath) {
             continue;
         }
 
-        if (!Core.Utils.isObjectLike(current)) {
+            if (!Core.isObjectLike(current)) {
             return null;
         }
 
@@ -113,26 +113,26 @@ function getObjectAtPath(json, propertyPath) {
 }
 
 function updateReferenceObject(json, propertyPath, newResourcePath, newName) {
-    if (!Core.Utils.isObjectLike(json)) {
+    if (!Core.isObjectLike(json)) {
         return false;
     }
 
     const target = getObjectAtPath(json, propertyPath);
-    if (!Core.Utils.isObjectLike(target)) {
+    if (!Core.isObjectLike(target)) {
         return false;
     }
 
     let changed = false;
 
     if (
-        Core.Utils.isNonEmptyString(newResourcePath) &&
+            Core.isNonEmptyString(newResourcePath) &&
         target.path !== newResourcePath
     ) {
         target.path = newResourcePath;
         changed = true;
     }
 
-    if (Core.Utils.isNonEmptyString(newName) && target.name !== newName) {
+    if (Core.isNonEmptyString(newName) && target.name !== newName) {
         target.name = newName;
         changed = true;
     }
@@ -182,7 +182,7 @@ export function createAssetRenameExecutor({
     logger = null
 }: AssetRenameExecutorOptions = {}) {
     if (
-        !Core.Utils.isObjectLike(projectIndex) ||
+            !Core.isObjectLike(projectIndex) ||
         typeof projectIndex.projectRoot !== "string"
     ) {
         return {
@@ -206,9 +206,9 @@ export function createAssetRenameExecutor({
     return {
         queueRename(rename) {
             if (
-                !Core.Utils.isObjectLike(rename) ||
-                !Core.Utils.isNonEmptyString(rename.resourcePath) ||
-                !Core.Utils.isNonEmptyString(rename.toName)
+                    !Core.isObjectLike(rename) ||
+                    !Core.isNonEmptyString(rename.resourcePath) ||
+                    !Core.isNonEmptyString(rename.toName)
             ) {
                 return false;
             }
@@ -223,7 +223,7 @@ export function createAssetRenameExecutor({
                 jsonCache
             );
 
-            if (!Core.Utils.isObjectLike(resourceJson)) {
+            if (!Core.isObjectLike(resourceJson)) {
                 throw new Error(
                     `Unable to parse resource metadata at '${rename.resourcePath}'.`
                 );
@@ -236,7 +236,7 @@ export function createAssetRenameExecutor({
             }
 
             if (
-                Core.Utils.isNonEmptyString(rename.newResourcePath) &&
+                    Core.isNonEmptyString(rename.newResourcePath) &&
                 resourceJson.resourcePath !== rename.newResourcePath
             ) {
                 resourceJson.resourcePath = rename.newResourcePath;
@@ -250,12 +250,12 @@ export function createAssetRenameExecutor({
             const groupedReferences = new Map();
             for (const mutation of rename.referenceMutations ?? []) {
                 if (
-                    !Core.Utils.isObjectLike(mutation) ||
-                    !Core.Utils.isNonEmptyString(mutation.filePath)
+                        !Core.isObjectLike(mutation) ||
+                        !Core.isNonEmptyString(mutation.filePath)
                 ) {
                     continue;
                 }
-                const entries = Core.Utils.getOrCreateMapEntry(
+                const entries = Core.getOrCreateMapEntry(
                     groupedReferences,
                     mutation.filePath,
                     () => []
@@ -275,7 +275,7 @@ export function createAssetRenameExecutor({
                 } catch (error) {
                     if (logger && typeof logger.warn === "function") {
                         const message =
-                            Core.Utils.getErrorMessageOrFallback(error);
+                                Core.getErrorMessageOrFallback(error);
                         logger.warn(
                             `Skipping asset reference update for '${filePath}': ${message}`
                         );
@@ -283,7 +283,7 @@ export function createAssetRenameExecutor({
                     continue;
                 }
 
-                if (!Core.Utils.isObjectLike(targetJson)) {
+                if (!Core.isObjectLike(targetJson)) {
                     continue;
                 }
 
@@ -319,9 +319,9 @@ export function createAssetRenameExecutor({
 
             for (const gmlRename of rename.gmlRenames ?? []) {
                 if (
-                    !Core.Utils.isObjectLike(gmlRename) ||
-                    !Core.Utils.isNonEmptyString(gmlRename.from) ||
-                    !Core.Utils.isNonEmptyString(gmlRename.to)
+                        !Core.isObjectLike(gmlRename) ||
+                        !Core.isNonEmptyString(gmlRename.from) ||
+                        !Core.isNonEmptyString(gmlRename.to)
                 ) {
                     continue;
                 }
@@ -349,8 +349,8 @@ export function createAssetRenameExecutor({
             const writeActions = [...pendingWrites.entries()].map(
                 ([filePath, jsonData]) => ({
                     filePath,
-                    contents: Core.Utils.stringifyJsonForFile(jsonData, {
-                        space: 4
+                    contents: Core.stringifyJsonForFile(jsonData, {
+                            space: 4
                     })
                 })
             );
@@ -394,9 +394,9 @@ export function createAssetRenameExecutor({
     };
 }
 
-export const __private__ = {
+export const __private__: any = {
     defaultFsFacade,
-    fromPosixPath: Core.FS.fromPosixPath,
+    fromPosixPath: Core.fromPosixPath,
     resolveAbsolutePath,
     readJsonFile,
     getObjectAtPath,

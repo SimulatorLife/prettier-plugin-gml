@@ -23,12 +23,12 @@ const PROJECT_INDEX_CONCURRENCY_OPTION_NAME =
 function resolveOptionWithOverride(options, config = {}) {
     const { onValue, onMissing, internalKey, externalKey } = config;
 
-    Core.Utils.assertFunction(onValue, "onValue");
+    Core.assertFunction(onValue, "onValue");
 
     const getMissingValue = () =>
         typeof onMissing === "function" ? onMissing() : onMissing;
 
-    if (!Core.Utils.isObjectLike(options)) {
+    if (!Core.isObjectLike(options)) {
         return getMissingValue();
     }
 
@@ -44,7 +44,7 @@ function resolveOptionWithOverride(options, config = {}) {
 }
 
 function getFsFacade(options) {
-    return Core.Utils.coalesceOption(
+    return Core.coalesceOption(
         options,
         ["__identifierCaseFs", "identifierCaseFs"],
         {
@@ -54,7 +54,7 @@ function getFsFacade(options) {
 }
 
 function getFormatterVersion(options) {
-    return Core.Utils.coalesceOption(
+    return Core.coalesceOption(
         options,
         [
             "identifierCaseFormatterVersion",
@@ -67,7 +67,7 @@ function getFormatterVersion(options) {
 }
 
 function getPluginVersion(options) {
-    return Core.Utils.coalesceOption(
+    return Core.coalesceOption(
         options,
         [
             "identifierCasePluginVersion",
@@ -86,7 +86,7 @@ function createSkipResult(reason) {
         projectIndex: null,
         source: null,
         cache: null,
-        dispose: Core.Utils.noop
+        dispose: Core.noop
     };
 }
 
@@ -94,7 +94,7 @@ function createFailureResult({
     reason,
     projectRoot,
     coordinator = null,
-    dispose = Core.Utils.noop,
+    dispose = Core.noop,
     error = null
 }) {
     const result = {
@@ -116,7 +116,7 @@ function createFailureResult({
 }
 
 const DEFAULT_OPTION_WRITER = (options, key, value) => {
-    if (Core.Utils.isObjectLike(options)) {
+    if (Core.isObjectLike(options)) {
         options[key] = value;
     }
 };
@@ -176,7 +176,7 @@ function coerceCacheMaxSize(
         throw new TypeError(formatCacheMaxSizeTypeError(optionName, rawType));
     }
 
-    const normalized = Core.Utils.coerceNonNegativeInteger(numericValue, {
+    const normalized = Core.coerceNonNegativeInteger(numericValue, {
         received,
         createErrorMessage: (value) =>
             formatCacheMaxSizeValueError(optionName, value)
@@ -186,7 +186,7 @@ function coerceCacheMaxSize(
 }
 
 function coerceProjectIndexConcurrency(numericValue, { optionName, received }) {
-    const positiveInteger = Core.Utils.coercePositiveInteger(numericValue, {
+    const positiveInteger = Core.coercePositiveInteger(numericValue, {
         received,
         createErrorMessage: (value) =>
             formatConcurrencyValueError(optionName, value)
@@ -196,7 +196,7 @@ function coerceProjectIndexConcurrency(numericValue, { optionName, received }) {
 }
 
 function normalizeCacheMaxSizeBytes(rawValue, { optionName }) {
-    return Core.Utils.normalizeNumericOption(rawValue, {
+    return Core.normalizeNumericOption(rawValue, {
         optionName,
         coerce: coerceCacheMaxSize,
         formatTypeError: formatCacheMaxSizeTypeError
@@ -220,7 +220,7 @@ function resolveCacheMaxSizeBytes(options) {
 }
 
 function normalizeProjectIndexConcurrency(rawValue, { optionName }) {
-    return Core.Utils.normalizeNumericOption(rawValue, {
+    return Core.normalizeNumericOption(rawValue, {
         optionName,
         coerce: coerceProjectIndexConcurrency,
         formatTypeError: formatConcurrencyTypeError
@@ -245,7 +245,7 @@ function resolveProjectRoot(options) {
         externalKey: "gmlIdentifierCaseProjectRoot",
         onMissing: null,
         onValue(entry) {
-            if (!Core.Utils.isNonEmptyTrimmedString(entry.value)) {
+            if (!Core.isNonEmptyTrimmedString(entry.value)) {
                 return null;
             }
 
@@ -292,7 +292,7 @@ function resolveCoordinatorInputs(options, writeOption) {
     const fsFacade = getFsFacade(options);
 
     const cacheMaxSizeBytes = resolveCacheMaxSizeBytes(options);
-    Core.Utils.withDefinedValue(cacheMaxSizeBytes, (value) => {
+    Core.withDefinedValue(cacheMaxSizeBytes, (value) => {
         writeOption(
             options,
             PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME,
@@ -301,7 +301,7 @@ function resolveCoordinatorInputs(options, writeOption) {
     });
 
     const projectIndexConcurrency = resolveProjectIndexConcurrency(options);
-    Core.Utils.withDefinedValue(projectIndexConcurrency, (value) => {
+    Core.withDefinedValue(projectIndexConcurrency, (value) => {
         writeOption(
             options,
             PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME,
@@ -325,7 +325,7 @@ async function resolveProjectRootContext(
     }
 
     const filepath = options?.filepath ?? null;
-    if (!Core.Utils.isNonEmptyTrimmedString(filepath)) {
+    if (!Core.isNonEmptyTrimmedString(filepath)) {
         return {
             projectRoot: null,
             rootResolution: null,
@@ -361,7 +361,7 @@ function resolveProjectIndexCoordinator(
         options.__identifierCaseProjectIndexCoordinator ?? null;
 
     const coordinatorOptions = { fsFacade: fsFacade ?? undefined };
-    Core.Utils.withDefinedValue(cacheMaxSizeBytes, (value) => {
+    Core.withDefinedValue(cacheMaxSizeBytes, (value) => {
         coordinatorOptions.cacheMaxSizeBytes = value;
     });
 
@@ -416,7 +416,7 @@ export async function bootstrapProjectIndex(options, storeOption) {
         options = {};
     }
 
-    if (!Core.Utils.isObjectLike(options)) {
+    if (!Core.isObjectLike(options)) {
         return createSkipResult("invalid-options");
     }
 
@@ -523,7 +523,7 @@ export async function bootstrapProjectIndex(options, storeOption) {
 }
 
 export function applyBootstrappedProjectIndex(options, storeOption) {
-    if (!Core.Utils.isObjectLike(options)) {
+    if (!Core.isObjectLike(options)) {
         return null;
     }
 

@@ -25,7 +25,7 @@ function normalizeMaxEntries(value, { fallback }) {
             return Infinity;
         }
 
-        const numeric = Core.Utils.toFiniteNumber(trimmed);
+        const numeric = Core.toFiniteNumber(trimmed);
         if (numeric === null) {
             return fallback;
         }
@@ -34,7 +34,7 @@ function normalizeMaxEntries(value, { fallback }) {
     }
 
     if (typeof value === "number") {
-        const numeric = Core.Utils.toFiniteNumber(value);
+        const numeric = Core.toFiniteNumber(value);
         if (numeric === null) {
             return fallback;
         }
@@ -54,7 +54,7 @@ function normalizeFiniteMaxEntries(value) {
 }
 
 const identifierCaseOptionStoreMaxEntriesConfig =
-    Core.Utils.createEnvConfiguredValueWithFallback({
+    Core.createEnvConfiguredValueWithFallback({
         defaultValue: IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_BASELINE,
         envVar: IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_ENV_VAR,
         resolve: (raw, context) =>
@@ -71,7 +71,7 @@ function setDefaultIdentifierCaseOptionStoreMaxEntries(maxEntries) {
 }
 
 function applyIdentifierCaseOptionStoreEnvOverride(env) {
-    Core.Utils.applyConfiguredValueEnvOverride(
+    Core.applyConfiguredValueEnvOverride(
         identifierCaseOptionStoreMaxEntriesConfig,
         env
     );

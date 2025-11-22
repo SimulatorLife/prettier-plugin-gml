@@ -9,7 +9,7 @@ let metadataLoader = defaultLoadIdentifierMetadata;
 function safelyLoadIdentifierMetadata(loader) {
     try {
         const metadata = loader();
-        return Core.Utils.isObjectLike(metadata) ? metadata : null;
+        return Core.isObjectLike(metadata) ? metadata : null;
     } catch {
         return null;
     }
@@ -49,7 +49,7 @@ function setReservedIdentifierMetadataLoader(loader) {
         // keeps those flows balanced and mirrors other cleanup hooks across the
         // codebase; throwing or returning `null` would explode the finally
         // handler and leave the override logic in an indeterminate state.
-        return Core.Utils.noop;
+        return Core.noop;
     }
 
     const previousLoader = metadataLoader;
@@ -77,7 +77,7 @@ function resolveExcludedTypes(types) {
         return new Set(DEFAULT_EXCLUDED_TYPES);
     }
 
-    return Core.Utils.toNormalizedLowerCaseSet(types);
+    return Core.toNormalizedLowerCaseSet(types);
 }
 
 export function loadReservedIdentifierNames({ disallowedTypes } = {}) {

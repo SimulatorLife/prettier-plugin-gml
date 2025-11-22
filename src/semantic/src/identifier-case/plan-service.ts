@@ -10,8 +10,8 @@ import {
 
 // Use canonical Core namespace instead of destructuring
 // Helpers used from Core.Utils:
-// - Core.Utils.assertFunction
-// - Core.Utils.assertPlainObject
+// - Core.assertFunction
+// - Core.assertPlainObject
 
 /**
  * The original IdentifierCasePlanService bundled plan preparation, rename
@@ -165,7 +165,7 @@ function createIdentifierCaseServiceRegistry({
     }
 
     function register(nextProvider) {
-        provider = Core.Utils.assertFunction(nextProvider, "provider", {
+        provider = Core.assertFunction(nextProvider, "provider", {
             errorMessage: providerTypeErrorMessage
         });
 
@@ -192,7 +192,7 @@ function normalizeIdentifierCaseServiceFunctions(
     service,
     { serviceErrorMessage, functionDescriptors }
 ) {
-    const normalized = Core.Utils.assertPlainObject(service, {
+    const normalized = Core.assertPlainObject(service, {
         errorMessage: serviceErrorMessage
     });
 
@@ -200,7 +200,7 @@ function normalizeIdentifierCaseServiceFunctions(
         Object.fromEntries(
             functionDescriptors.map(({ property, errorMessage }) => [
                 property,
-                Core.Utils.assertFunction(normalized[property], property, {
+                Core.assertFunction(normalized[property], property, {
                     errorMessage
                 })
             ])

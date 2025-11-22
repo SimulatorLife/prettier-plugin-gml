@@ -5,10 +5,10 @@ import { getDefaultIdentifierCaseOptionStoreMaxEntries } from "./option-store-de
 
 // Use canonical Core namespace instead of destructuring
 // Helpers used from Core.Utils:
-// - Core.Utils.getOrCreateMapEntry
-// - Core.Utils.isFiniteNumber
-// - Core.Utils.isNonEmptyString
-// - Core.Utils.isObjectLike
+// - Core.getOrCreateMapEntry
+// - Core.isFiniteNumber
+// - Core.isNonEmptyString
+// - Core.isObjectLike
 
 const optionStoreMap = new Map();
 const STORE_BLOCKLIST = new Set([
@@ -53,7 +53,7 @@ function trimOptionStoreMap(
  * baseline when the caller omits or misconfigures the override.
  */
 function resolveMaxOptionStoreEntries(options) {
-    if (!Core.Utils.isObjectLike(options)) {
+    if (!Core.isObjectLike(options)) {
         return getDefaultIdentifierCaseOptionStoreMaxEntries();
     }
 
@@ -64,7 +64,7 @@ function resolveMaxOptionStoreEntries(options) {
         return configured;
     }
 
-    if (!Core.Utils.isFiniteNumber(configured)) {
+    if (!Core.isFiniteNumber(configured)) {
         return getDefaultIdentifierCaseOptionStoreMaxEntries();
     }
 
@@ -76,7 +76,7 @@ function resolveMaxOptionStoreEntries(options) {
 }
 
 function getStoreKey(options) {
-    if (!Core.Utils.isObjectLike(options)) {
+    if (!Core.isObjectLike(options)) {
         return null;
     }
 
@@ -84,7 +84,7 @@ function getStoreKey(options) {
         return options.__identifierCaseOptionsStoreKey;
     }
 
-    if (Core.Utils.isNonEmptyString(options.filepath)) {
+    if (Core.isNonEmptyString(options.filepath)) {
         return options.filepath;
     }
 
@@ -93,7 +93,7 @@ function getStoreKey(options) {
 
 function getOrCreateStoreEntry(storeKey) {
     const existed = optionStoreMap.has(storeKey);
-    const entry = Core.Utils.getOrCreateMapEntry(
+    const entry = Core.getOrCreateMapEntry(
         optionStoreMap,
         storeKey,
         () => ({})
@@ -108,12 +108,12 @@ function getOrCreateStoreEntry(storeKey) {
 }
 
 function updateStore(options, key, value) {
-    if (!Core.Utils.isObjectLike(options)) {
+    if (!Core.isObjectLike(options)) {
         return;
     }
 
     const store = options.__identifierCaseOptionsStore;
-    if (Core.Utils.isObjectLike(store)) {
+    if (Core.isObjectLike(store)) {
         store[key] = value;
     }
 
@@ -130,7 +130,7 @@ function updateStore(options, key, value) {
         return;
     }
 
-    const entry = Core.Utils.getOrCreateMapEntry(
+    const entry = Core.getOrCreateMapEntry(
         optionStoreMap,
         storeKey,
         () => ({})
@@ -158,7 +158,7 @@ function deleteFromStore(storeKey, key) {
 }
 
 export function setIdentifierCaseOption(options, key, value) {
-    if (!Core.Utils.isObjectLike(options)) {
+    if (!Core.isObjectLike(options)) {
         return;
     }
 
@@ -184,7 +184,7 @@ export function setIdentifierCaseOption(options, key, value) {
 }
 
 export function deleteIdentifierCaseOption(options, key) {
-    if (!Core.Utils.isObjectLike(options) || key === undefined) {
+    if (!Core.isObjectLike(options) || key === undefined) {
         return;
     }
 

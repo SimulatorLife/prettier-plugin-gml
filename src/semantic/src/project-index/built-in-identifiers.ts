@@ -9,21 +9,20 @@ const GML_IDENTIFIER_FILE_PATH = Core.GML_IDENTIFIER_METADATA_PATH;
 let cachedBuiltInIdentifiers = null;
 
 function extractBuiltInIdentifierNames(payload) {
-    if (!Core.Utils.isPlainObject(payload)) {
+    if (!Core.isPlainObject(payload)) {
         throw new TypeError(
             "Built-in identifier metadata must be an object payload."
         );
     }
 
     const { identifiers } = payload;
-    if (!isPlainObject(identifiers)) {
+    if (!Core.isPlainObject(identifiers)) {
         throw new TypeError(
             "Built-in identifier metadata must expose an identifiers object."
         );
     }
 
-    const entries =
-        Core.IdentifierMetadata.normalizeIdentifierMetadataEntries(payload);
+    const entries = Core.normalizeIdentifierMetadataEntries(payload);
     const names = new Set();
 
     for (const { name, type } of entries) {
@@ -38,7 +37,7 @@ function extractBuiltInIdentifierNames(payload) {
 }
 
 function parseBuiltInIdentifierNames(rawContents) {
-    const payload = Core.Utils.parseJsonWithContext(rawContents, {
+    const payload = Core.parseJsonWithContext(rawContents, {
         source: GML_IDENTIFIER_FILE_PATH,
         description: "built-in identifier metadata"
     });
@@ -55,13 +54,13 @@ function areMtimesEquivalent(cachedMtime, currentMtime) {
         return false;
     }
 
-    return Core.Utils.areNumbersApproximatelyEqual(cachedMtime, currentMtime);
+    return Core.areNumbersApproximatelyEqual(cachedMtime, currentMtime);
 }
 
 export async function loadBuiltInIdentifiers(
     fsFacade = defaultFsFacade,
     metrics = null,
-    options = {}
+    options: any = {}
 ) {
     const { fallbackMessage, ...guardOptions } = options ?? {};
     const { signal, ensureNotAborted } = createProjectIndexAbortGuard(

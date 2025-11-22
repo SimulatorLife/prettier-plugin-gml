@@ -30,7 +30,7 @@ export const IDENTIFIER_CASE_STYLES = Object.freeze(
     Object.values(IdentifierCaseStyle)
 );
 
-const IDENTIFIER_CASE_LIST_SPLIT_PATTERN = Core.Utils.createListSplitPattern([
+const IDENTIFIER_CASE_LIST_SPLIT_PATTERN = Core.createListSplitPattern([
     "\n",
     ","
 ]);
@@ -124,7 +124,7 @@ export const IDENTIFIER_CASE_STYLE_CHOICES = IDENTIFIER_CASE_STYLES.map(
 );
 
 function getScopeOptionName(scope) {
-    return `${IDENTIFIER_CASE_SCOPE_OPTION_PREFIX}${Core.Utils.capitalize(scope)}`;
+    return `${IDENTIFIER_CASE_SCOPE_OPTION_PREFIX}${Core.capitalize(scope)}`;
 }
 
 function createScopeChoiceEntries() {
@@ -234,7 +234,7 @@ for (const scope of IDENTIFIER_CASE_SCOPE_NAMES) {
 }
 
 function normalizeList(optionName, value) {
-    return Core.Utils.normalizeStringList(value, {
+    return Core.normalizeStringList(value, {
         splitPattern: IDENTIFIER_CASE_LIST_SPLIT_PATTERN,
         errorMessage: `${optionName} must be provided as a string or array of strings.`
     });

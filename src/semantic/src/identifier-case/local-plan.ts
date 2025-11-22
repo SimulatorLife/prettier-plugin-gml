@@ -1,4 +1,23 @@
 import { Core } from "@gml-modules/core";
+
+type IdentifierCaseDeclaration = {
+    name?: string | null;
+    scopeId?: string | null;
+    start?: number | null;
+    uniqueId?: string | null;
+    classifications?: string[] | null;
+};
+
+type IdentifierCaseEntry = {
+    name?: string | null;
+    displayName?: string | null;
+    scopeId?: string | null;
+    declarations?: IdentifierCaseDeclaration[] | null;
+    classifications?: Array<string> | null;
+    declarationKinds?: Array<string> | null;
+    filePath?: string | null;
+    uniqueId?: string | null;
+};
 import { formatIdentifierCase } from "./identifier-case-utils.js";
 import { peekIdentifierCaseDryRunContext } from "./identifier-case-context.js";
 import { buildRenameKey } from "./plan-state.js";
@@ -35,7 +54,7 @@ import { evaluateIdentifierCaseAssetRenamePolicy } from "./asset-rename-policy.j
 let DBG_RENAME_MAP_COUNTER = 1;
 
 function getScopeDisplayName(scopeRecord, fallback = "<unknown>") {
-    if (!Core.Utils.isObjectLike(scopeRecord)) {
+    if (!Core.isObjectLike(scopeRecord)) {
         return fallback;
     }
 
@@ -48,7 +67,7 @@ function getScopeDisplayName(scopeRecord, fallback = "<unknown>") {
 }
 
 function createScopeGroupingKey(scopeId, fallback) {
-    if (Core.Utils.isNonEmptyString(scopeId)) {
+    if (Core.isNonEmptyString(scopeId)) {
         return scopeId;
     }
 
@@ -95,16 +114,21 @@ function summarizeReferencesByFile(relativeFilePath, references) {
     });
 }
 
-function getEntryDeclarations(entry) {
-    return Core.Utils.asArray(entry?.declarations);
+function getEntryDeclarations(entry: IdentifierCaseEntry | null | undefined) {
+    return Core.asArray(entry?.declarations) as IdentifierCaseDeclaration[];
 }
 
-function getEntityClassifications(entity) {
-    return Core.Utils.asArray(entity?.classifications);
+function getEntityClassifications(entity:
+    | IdentifierCaseEntry
+    | IdentifierCaseDeclaration
+    | null
+    | undefined
+) {
+    return Core.asArray(entity?.classifications) as string[];
 }
 
-function getEntryDeclarationKinds(entry) {
-    return Core.Utils.asArray(entry?.declarationKinds);
+function getEntryDeclarationKinds(entry: IdentifierCaseEntry | null | undefined) {
+    return Core.asArray(entry?.declarationKinds) as string[];
 }
 
 function applyAssetRenamesIfEligible({
@@ -126,7 +150,7 @@ function applyAssetRenamesIfEligible({
     }
 
     const fsFacade =
-        Core.Utils.coalesceOption(options, [
+        Core.coalesceOption(options, [
             "__identifierCaseFs",
             "identifierCaseFs"
         ]) ?? getDefaultIdentifierCaseFsFacade();
@@ -154,31 +178,31 @@ function applyAssetRenamesIfEligible({
 }
 
 function getObjectValues(object) {
-    if (!Core.Utils.isObjectLike(object)) {
+    if (!Core.isObjectLike(object)) {
         return [];
     }
     return Object.values(object);
 }
 
 function resolveIdentifierEntryName(entry) {
-    if (!Core.Utils.isObjectLike(entry)) {
+    if (!Core.isObjectLike(entry)) {
         return null;
     }
 
     const declarations = getEntryDeclarations(entry);
     for (const declaration of declarations) {
-        const declarationName = Core.Utils.getNonEmptyString(declaration?.name);
+        const declarationName = Core.getNonEmptyString(declaration?.name);
         if (declarationName) {
             return declarationName;
         }
     }
 
-    const entryName = Core.Utils.getNonEmptyString(entry?.name);
+    const entryName = Core.getNonEmptyString(entry?.name);
     if (entryName) {
         return entryName;
     }
 
-    const displayName = Core.Utils.getNonEmptyString(entry?.displayName);
+    const displayName = Core.getNonEmptyString(entry?.displayName);
     if (displayName) {
         return displayName;
     }
@@ -239,7 +263,7 @@ function getDeclarationFilePath(entry) {
 }
 
 function getReferenceLocation(reference) {
-    if (!Core.Utils.isObjectLike(reference)) {
+    if (!Core.isObjectLike(reference)) {
         return null;
     }
     return reference.start ?? reference.location?.start ?? null;
@@ -295,12 +319,12 @@ function createNameCollisionTracker() {
 
     const toKey = (name) =>
         typeof name === "string"
-            ? Core.Utils.toNormalizedLowerCaseString(name)
+            ? Core.toNormalizedLowerCaseString(name)
             : "";
 
     const addRecord = (record) => {
         const key = toKey(record.name);
-        const bucket = Core.Utils.getOrCreateMapEntry(
+        const bucket = Core.getOrCreateMapEntry(
             entriesByName,
             key,
             () => []
@@ -412,7 +436,7 @@ function planIdentifierRenamesForScope({
     metrics,
     collisionTracker
 }) {
-    if (!Core.Utils.isNonEmptyArray(entries)) {
+    if (!Core.isNonEmptyArray(entries)) {
         return;
     }
 
@@ -719,7 +743,7 @@ export async function prepareIdentifierCasePlan(options) {
     );
 
     const logger = options.logger ?? null;
-    const metricsContracts = Core.Utils.createMetricsTracker({
+    const metricsContracts = Core.createMetricsTracker({
         category: "identifier-case-plan",
         logger,
         autoLog: options.logIdentifierCaseMetrics === true
@@ -746,7 +770,7 @@ export async function prepareIdentifierCasePlan(options) {
         /* ignore */
     }
 
-    const normalizedOptions = normalizeIdentifierCaseOptions(options);
+    const normalizedOptions: any = normalizeIdentifierCaseOptions(options);
     const localStyle =
         normalizedOptions.scopeStyles?.locals ?? IdentifierCaseStyle.OFF;
     const assetStyle = normalizeIdentifierCaseAssetStyle(
@@ -797,10 +821,10 @@ export async function prepareIdentifierCasePlan(options) {
     }
 
     const preservedIdentifiers = normalizedOptions.preservedIdentifiers;
-    const preservedSet =
-        preservedIdentifiers === undefined || preservedIdentifiers === null
-            ? new Set()
-            : new Set(preservedIdentifiers);
+    const preservedSet: Set<string> = new Set(
+        (Array.isArray(preservedIdentifiers) ? preservedIdentifiers : [])
+            .filter((v) => typeof v === "string") as string[]
+    );
     const ignoreMatchers = buildPatternMatchers(
         normalizedOptions.ignorePatterns ?? []
     );
@@ -1254,7 +1278,7 @@ export async function prepareIdentifierCasePlan(options) {
     setIdentifierCaseOption(options, "__identifierCaseRenameMap", renameMap);
     try {
         console.debug(
-            `[DBG] prepareIdentifierCasePlan set renameMap id=${renameMap?.__dbgId ?? null} size=${renameMap.size} operations=${operations.length} conflicts=${conflicts.length}`
+            `[DBG] prepareIdentifierCasePlan set renameMap id=${(renameMap as any)?.__dbgId ?? null} size=${renameMap.size} operations=${operations.length} conflicts=${conflicts.length}`
         );
     } catch {
         /* ignore */
@@ -1312,7 +1336,7 @@ export async function prepareIdentifierCasePlan(options) {
         renameEntries:
             typeof renameMap.size === "number"
                 ? renameMap.size
-                : Core.Utils.getIterableSize(renameMap)
+                : Core.getIterableSize(renameMap)
     });
 
     if (options.__identifierCaseRenamePlan) {

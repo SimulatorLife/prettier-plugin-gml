@@ -12,15 +12,15 @@ import { normalizeProjectResourcePath } from "./path-normalization.js";
 const RESOURCE_ANALYSIS_ABORT_MESSAGE = "Project index build was aborted.";
 
 function normalizeResourceDocumentMetadata(resourceData) {
-    if (!Core.Utils.isObjectLike(resourceData)) {
+    if (!Core.isObjectLike(resourceData)) {
         return { name: null, resourceType: null };
     }
 
     const { name, resourceType } = resourceData;
-    const normalizedName = Core.Utils.isNonEmptyTrimmedString(name)
+    const normalizedName = Core.isNonEmptyTrimmedString(name)
         ? name
         : null;
-    const normalizedResourceType = Core.Utils.isNonEmptyTrimmedString(
+    const normalizedResourceType = Core.isNonEmptyTrimmedString(
         resourceType
     )
         ? resourceType
@@ -39,7 +39,7 @@ function deriveScopeId(kind, parts) {
 function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
     const { name: normalizedName, resourceType: normalizedResourceType } =
         normalizeResourceDocumentMetadata(resourceData);
-    const record = Core.Utils.getOrCreateMapEntry(
+    const record = Core.getOrCreateMapEntry(
         resourcesMap,
         resourcePath,
         () => {
@@ -112,7 +112,7 @@ function resolveEventMetadata(event) {
     const eventType = getNumericEventField(event, ["eventType", "eventtype"]);
     const eventNum = getNumericEventField(event, ["eventNum", "enumb"]);
 
-    if (isNonEmptyTrimmedString(event?.name)) {
+    if (Core.isNonEmptyTrimmedString(event?.name)) {
         return { eventType, eventNum, displayName: event.name };
     }
 
@@ -195,7 +195,7 @@ function extractEventGmlPath(event, resourceRecord, resourceRelativeDir) {
 }
 
 function pushChildNode(stack, parentPath, key, candidate) {
-    if (!Core.Utils.isObjectLike(candidate)) {
+    if (!Core.isObjectLike(candidate)) {
         return;
     }
 
@@ -204,7 +204,7 @@ function pushChildNode(stack, parentPath, key, candidate) {
 }
 
 function collectAssetReferences(root, callback) {
-    if (!Core.Utils.isObjectLike(root)) {
+    if (!Core.isObjectLike(root)) {
         return;
     }
 
@@ -247,14 +247,14 @@ function createResourceAnalysisContext() {
 }
 
 async function loadResourceDocument(file, fsFacade, options = {}) {
-    const { ensureNotAborted } = Core.Utils.createAbortGuard(options, {
+    const { ensureNotAborted } = Core.createAbortGuard(options, {
         fallbackMessage: RESOURCE_ANALYSIS_ABORT_MESSAGE
     });
     let rawContents;
     try {
         rawContents = await fsFacade.readFile(file.absolutePath, "utf8");
     } catch (error) {
-        if (Core.FS.isFsErrorCode(error, "ENOENT")) {
+        if (Core.isFsErrorCode(error, "ENOENT")) {
             return null;
         }
         throw error;
@@ -263,12 +263,12 @@ async function loadResourceDocument(file, fsFacade, options = {}) {
     ensureNotAborted();
 
     try {
-        return Core.Utils.parseJsonWithContext(rawContents, {
+        return Core.parseJsonWithContext(rawContents, {
             source: file.absolutePath ?? file.relativePath,
             description: "resource document"
         });
     } catch (error) {
-        if (Core.Utils.isJsonParseError(error)) {
+        if (Core.isJsonParseError(error)) {
             return null;
         }
         throw error;
@@ -288,9 +288,9 @@ function attachScopeDescriptor({
     gmlRelativePath,
     descriptor
 }) {
-    Core.Utils.pushUnique(resourceRecord.gmlFiles, gmlRelativePath);
+    Core.pushUnique(resourceRecord.gmlFiles, gmlRelativePath);
     context.gmlScopeMap.set(gmlRelativePath, descriptor);
-    Core.Utils.pushUnique(resourceRecord.scopes, descriptor.id);
+    Core.pushUnique(resourceRecord.scopes, descriptor.id);
 }
 
 function registerScriptResourceIfNeeded({
@@ -333,7 +333,7 @@ function registerResourceEvents({
     resourceDir
 }) {
     const eventList = parsed?.eventList;
-    if (!Core.Utils.isNonEmptyArray(eventList)) {
+    if (!Core.isNonEmptyArray(eventList)) {
         return;
     }
 
@@ -447,7 +447,7 @@ export async function analyseResourceFiles({
     const context = createResourceAnalysisContext();
 
     for (const file of yyFiles) {
-        Core.Utils.throwIfAborted(signal, RESOURCE_ANALYSIS_ABORT_MESSAGE);
+        Core.throwIfAborted(signal, RESOURCE_ANALYSIS_ABORT_MESSAGE);
         const parsed = await loadResourceDocument(file, fsFacade, { signal });
         if (!parsed) {
             continue;

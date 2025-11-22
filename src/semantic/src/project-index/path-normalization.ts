@@ -24,7 +24,7 @@ import { resolveProjectPathInfo } from "./path-info.js";
  *          succeeds; otherwise `null` when the path falls outside the project.
  */
 function withProjectPathInfo(filePath, projectRoot, projector) {
-    Core.Utils.assertFunction(projector, "projector");
+    Core.assertFunction(projector, "projector");
 
     const info = resolveProjectPathInfo(filePath, projectRoot);
     if (!info) {
@@ -43,12 +43,15 @@ function withProjectPathInfo(filePath, projectRoot, projector) {
  * @returns {string | null} Normalized resource path or `null` when the input is
  *          empty or outside the project tree.
  */
-export function normalizeProjectResourcePath(rawPath, { projectRoot } = {}) {
-    if (!Core.Utils.isNonEmptyString(rawPath)) {
+export function normalizeProjectResourcePath(
+    rawPath,
+    { projectRoot }: any = {}
+) {
+    if (!Core.isNonEmptyString(rawPath)) {
         return null;
     }
 
-    const normalized = Core.FS.toPosixPath(rawPath).replace(/^\.\//, "");
+    const normalized = Core.toPosixPath(rawPath).replace(/^\.\//, "");
     if (!projectRoot) {
         return normalized;
     }
@@ -58,7 +61,7 @@ export function normalizeProjectResourcePath(rawPath, { projectRoot } = {}) {
         : path.join(projectRoot, normalized);
 
     return withProjectPathInfo(absoluteCandidate, projectRoot, (info) =>
-        Core.FS.toPosixPath(info.relativePath)
+        Core.toPosixPath(info.relativePath)
     );
 }
 
@@ -74,7 +77,7 @@ export function normalizeProjectResourcePath(rawPath, { projectRoot } = {}) {
  */
 export function resolveProjectRelativeFilePath(projectRoot, absoluteFilePath) {
     return withProjectPathInfo(absoluteFilePath, projectRoot, (info) =>
-        Core.FS.toPosixPath(
+        Core.toPosixPath(
             info.hasProjectRoot ? info.relativePath : info.absolutePath
         )
     );
@@ -92,7 +95,7 @@ export function resolveProjectRelativeFilePath(projectRoot, absoluteFilePath) {
  *          missing.
  */
 export function resolveProjectDisplayPath(filePath, projectRoot) {
-    const normalizedFilePath = Core.Utils.getNonEmptyString(filePath);
+    const normalizedFilePath = Core.getNonEmptyString(filePath);
     if (!normalizedFilePath) {
         return null;
     }

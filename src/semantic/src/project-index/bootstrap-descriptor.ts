@@ -11,7 +11,7 @@ export function createProjectIndexBuildOptions({
         logMetrics
     };
 
-    Core.Utils.withDefinedValue(projectIndexConcurrency, (value) => {
+    Core.withDefinedValue(projectIndexConcurrency, (value) => {
         buildOptions.concurrency = {
             gml: value,
             gmlParsing: value
@@ -49,7 +49,7 @@ export function createProjectIndexDescriptor({
         buildOptions
     };
 
-    Core.Utils.withDefinedValue(cacheMaxSizeBytes, (value) => {
+    Core.withDefinedValue(cacheMaxSizeBytes, (value) => {
         descriptor.maxSizeBytes = value;
     });
 

@@ -12,7 +12,7 @@ function buildRenameKey(_scopeId, location) {
     const normalizedLocation =
         typeof location === "number" ? { index: location } : location;
 
-    const locationKey = Core.AST.buildLocationKey(normalizedLocation);
+    const locationKey = Core.buildLocationKey(normalizedLocation);
     if (!locationKey) {
         return null;
     }
@@ -42,7 +42,7 @@ export function getIdentifierCaseRenameForNode(
     }
 
     const renameMap = options.__identifierCaseRenameMap;
-    if (!Core.Utils.isMapLike(renameMap)) {
+    if (!Core.isMapLike(renameMap)) {
         try {
             console.debug(
                 `[DBG] getIdentifierCaseRenameForNode: no renameMap present for filepath=${options?.filepath ?? null}`
@@ -95,7 +95,7 @@ export function getIdentifierCaseRenameForNode(
                         typeof node.start === "number"
                             ? { index: node.start }
                             : node.start;
-                    const fileKey = Core.AST.buildFileLocationKey(
+                    const fileKey = Core.buildFileLocationKey(
                         options?.filepath ?? null,
                         loc
                     );
@@ -190,7 +190,7 @@ export function captureIdentifierCasePlanSnapshot(options) {
                 // diagnose mismatched key encodings between planning and
                 // printing. Keep messages defensive so tests don't crash on
                 // unexpected shapes.
-                if (Core.Utils.isMapLike(snapshot.renameMap)) {
+                    if (Core.isMapLike(snapshot.renameMap)) {
                     const samples = [];
                     let i = 0;
                     for (const k of snapshot.renameMap.keys()) {
@@ -283,7 +283,7 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
             // the renameMap when it is map-like and contains at least one
             // entry. Other snapshot entries follow the existing semantics.
             if (snapshotKey === "renameMap") {
-                const isMap = Core.Utils.isMapLike(value);
+                const isMap = Core.isMapLike(value);
                 const size =
                     isMap && typeof value.size === "number" ? value.size : 0;
                 if (isMap && size > 0 && !object[optionKey]) {
@@ -318,7 +318,7 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
                 try {
                     const current = object[optionKey];
                     const same = current === value;
-                    const curSize = Core.Utils.isMapLike(current)
+                    const curSize = Core.isMapLike(current)
                         ? current.size
                         : null;
                     console.debug(

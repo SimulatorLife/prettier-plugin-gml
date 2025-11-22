@@ -15,7 +15,7 @@ export function formatConfigurationConflictMessage({
         return null;
     }
 
-    const labelNoun = Core.Utils.isNonEmptyString(noun) ? noun : "Identifier";
+    const labelNoun = Core.isNonEmptyString(noun) ? noun : "Identifier";
     const labelName =
         typeof identifierName === "string"
             ? identifierName
@@ -27,7 +27,7 @@ export function formatConfigurationConflictMessage({
     }
 
     if (configConflict.code === IGNORE_CONFLICT_CODE) {
-        const ignoreMatch = Core.Utils.isNonEmptyString(
+        const ignoreMatch = Core.isNonEmptyString(
             configConflict.ignoreMatch
         )
             ? ` matches ignore pattern '${configConflict.ignoreMatch}'.`
@@ -43,11 +43,11 @@ export function escapeForRegExp(value) {
         throw new TypeError("Value must be a string");
     }
 
-    return Core.Utils.escapeRegExp(value);
+    return Core.escapeRegExp(value);
 }
 
 export function createPatternRegExp(pattern) {
-    if (!Core.Utils.isNonEmptyString(pattern)) {
+    if (!Core.isNonEmptyString(pattern)) {
         return null;
     }
 
@@ -79,7 +79,7 @@ export function buildPatternMatchers(patterns) {
 }
 
 export function matchesIgnorePattern(matchers, identifierName, filePath) {
-    if (!Core.Utils.isNonEmptyArray(matchers)) {
+    if (!Core.isNonEmptyArray(matchers)) {
         return null;
     }
 
@@ -150,11 +150,11 @@ export function createConflict({
 }
 
 function resolveFileOccurrenceKey(filePath, fallbackPath) {
-    if (Core.Utils.isNonEmptyString(filePath)) {
+    if (Core.isNonEmptyString(filePath)) {
         return filePath;
     }
 
-    if (Core.Utils.isNonEmptyString(fallbackPath)) {
+    if (Core.isNonEmptyString(fallbackPath)) {
         return fallbackPath;
     }
 
@@ -171,7 +171,7 @@ export function incrementFileOccurrence(counts, filePath, fallbackPath = null) {
         return false;
     }
 
-    Core.Utils.incrementMapValue(counts, key);
+    Core.incrementMapValue(counts, key);
     return true;
 }
 

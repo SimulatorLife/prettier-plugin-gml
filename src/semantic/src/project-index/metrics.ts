@@ -17,14 +17,14 @@ const REQUIRED_REPORTING_GROUPS = Object.freeze({
 function hasMetricGroup(candidate, groupName, methodNames) {
     const group = candidate?.[groupName];
     return (
-        Core.Utils.isObjectLike(group) &&
+        Core.isObjectLike(group) &&
         methodNames.every((method) => typeof group[method] === "function")
     );
 }
 
 function isMetricsRecordingSuite(candidate) {
     if (
-        !Core.Utils.isObjectLike(candidate) ||
+        !Core.isObjectLike(candidate) ||
         typeof candidate.category !== "string"
     ) {
         return false;
@@ -36,7 +36,7 @@ function isMetricsRecordingSuite(candidate) {
 }
 
 function isMetricsReportingSuite(candidate) {
-    if (!Core.Utils.isObjectLike(candidate)) {
+    if (!Core.isObjectLike(candidate)) {
         return false;
     }
 
@@ -46,7 +46,7 @@ function isMetricsReportingSuite(candidate) {
 }
 
 function isMetricsContracts(candidate) {
-    if (!Core.Utils.isObjectLike(candidate)) {
+    if (!Core.isObjectLike(candidate)) {
         return false;
     }
 
@@ -89,13 +89,13 @@ const NOOP_METRIC_RECORDING_GROUPS = Object.freeze({
         timeSync: (_label, callback) => callback()
     }),
     counters: Object.freeze({
-        increment: Core.Utils.noop
+        increment: Core.noop
     }),
     caches: Object.freeze({
-        recordHit: Core.Utils.noop,
-        recordMiss: Core.Utils.noop,
-        recordStale: Core.Utils.noop,
-        recordMetric: Core.Utils.noop
+        recordHit: Core.noop,
+        recordMiss: Core.noop,
+        recordStale: Core.noop,
+        recordMetric: Core.noop
     })
 });
 
@@ -109,7 +109,7 @@ const NOOP_METRIC_REPORTING_GROUPS = Object.freeze({
         cacheSnapshot: () => {}
     }),
     logger: Object.freeze({
-        logSummary: Core.Utils.noop
+        logSummary: Core.noop
     })
 });
 
@@ -119,7 +119,7 @@ function createNoopProjectIndexMetrics() {
             category: PROJECT_INDEX_METRICS_CATEGORY,
             ...NOOP_METRIC_RECORDING_GROUPS,
             metadata: Object.freeze({
-                setMetadata: Core.Utils.noop
+                setMetadata: Core.noop
             })
         }),
         reporting: Object.freeze({

@@ -63,7 +63,7 @@ export function resetProjectIndexSourceExtensions() {
  *          normalized additions.
  */
 function normalizeProjectSourceExtensions(extensions) {
-    const normalizedExtensions = Core.Utils.assertArray(extensions, {
+    const normalizedExtensions = Core.assertArray(extensions, {
         errorMessage:
             "Project source extensions must be provided as an array of strings."
     });
@@ -78,7 +78,7 @@ function normalizeProjectSourceExtensions(extensions) {
         }
 
         const normalizedExtension =
-            Core.Utils.normalizeExtensionSuffix(extension);
+            Core.normalizeExtensionSuffix(extension);
         if (!normalizedExtension) {
             throw new TypeError(
                 "Project source extensions cannot be empty strings."

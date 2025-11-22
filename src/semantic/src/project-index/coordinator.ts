@@ -5,10 +5,10 @@ import { Core } from "@gml-modules/core";
 import { ProjectIndexCacheStatus } from "./cache.js";
 
 function assertCoordinatorFunction(value, name) {
-    const normalizedName = Core.Utils.toTrimmedString(name) || "dependency";
+    const normalizedName = Core.toTrimmedString(name) || "dependency";
     const errorMessage = `Project index coordinators require a ${normalizedName} function.`;
 
-    return Core.Utils.assertFunction(value, normalizedName, { errorMessage });
+    return Core.assertFunction(value, normalizedName, { errorMessage });
 }
 
 function normalizeEnsureReadyDescriptor(descriptor) {
@@ -30,7 +30,7 @@ function resolveEnsureReadyContext({
 }) {
     const { resolvedRoot } = normalizeEnsureReadyDescriptor(descriptor);
     const signal = abortController.signal;
-    Core.Utils.throwIfAborted(signal, disposedMessage);
+        Core.throwIfAborted(signal, disposedMessage);
 
     return {
         descriptor,
@@ -74,10 +74,10 @@ async function executeEnsureReadyOperation({
         fsFacade,
         { signal }
     );
-    Core.Utils.throwIfAborted(signal, disposedMessage);
+        Core.throwIfAborted(signal, disposedMessage);
 
     if (loadResult.status === ProjectIndexCacheStatus.HIT) {
-        Core.Utils.throwIfAborted(signal, disposedMessage);
+            Core.throwIfAborted(signal, disposedMessage);
         return {
             source: "cache",
             projectIndex: loadResult.projectIndex,
@@ -89,7 +89,7 @@ async function executeEnsureReadyOperation({
         ...descriptorOptions?.buildOptions,
         signal
     });
-    Core.Utils.throwIfAborted(signal, disposedMessage);
+        Core.throwIfAborted(signal, disposedMessage);
 
     const descriptorMaxSizeBytes =
         descriptorOptions?.maxSizeBytes === undefined
@@ -113,7 +113,7 @@ async function executeEnsureReadyOperation({
             cacheFilePath: loadResult.cacheFilePath
         };
     });
-    Core.Utils.throwIfAborted(signal, disposedMessage);
+        Core.throwIfAborted(signal, disposedMessage);
 
     return {
         source: "build",
@@ -132,7 +132,7 @@ export function createProjectIndexCoordinator({
     buildIndex,
     cacheMaxSizeBytes: rawCacheMaxSizeBytes,
     getDefaultCacheMaxSize
-} = {}) {
+} : any = {}) {
     const normalizedLoadCache = assertCoordinatorFunction(
         loadCache,
         "loadCache"
@@ -168,7 +168,7 @@ export function createProjectIndexCoordinator({
         if (disposed) {
             throw createDisposedError();
         }
-        Core.Utils.throwIfAborted(abortController.signal, DISPOSED_MESSAGE);
+            Core.throwIfAborted(abortController.signal, DISPOSED_MESSAGE);
     }
 
     async function ensureReady(descriptor) {

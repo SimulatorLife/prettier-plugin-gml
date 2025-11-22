@@ -25,14 +25,14 @@ import { Core } from "@gml-modules/core";
  * } | null}
  */
 export function resolveProjectPathInfo(filePath, projectRoot) {
-    if (!Core.Utils.isNonEmptyString(filePath)) {
+    if (!Core.isNonEmptyString(filePath)) {
         return null;
     }
 
     const absolutePath = path.resolve(filePath);
     const inputWasAbsolute = path.isAbsolute(filePath);
 
-    if (!Core.Utils.isNonEmptyString(projectRoot)) {
+    if (!Core.isNonEmptyString(projectRoot)) {
         return {
             absolutePath,
             hasProjectRoot: false,
@@ -44,7 +44,7 @@ export function resolveProjectPathInfo(filePath, projectRoot) {
     }
 
     const absoluteProjectRoot = path.resolve(projectRoot);
-    const containedRelative = Core.FS.resolveContainedRelativePath(
+    const containedRelative = Core.resolveContainedRelativePath(
         absolutePath,
         absoluteProjectRoot
     );

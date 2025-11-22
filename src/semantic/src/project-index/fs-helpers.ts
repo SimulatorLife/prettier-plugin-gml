@@ -19,7 +19,7 @@ import { Core } from "@gml-modules/core";
  */
 export async function listDirectory(fsFacade, directoryPath, options = {}) {
     const abortMessage = "Directory listing was aborted.";
-    const { ensureNotAborted } = Core.Utils.createAbortGuard(options, {
+    const { ensureNotAborted } = Core.createAbortGuard(options, {
         fallbackMessage: abortMessage
     });
 
@@ -27,9 +27,9 @@ export async function listDirectory(fsFacade, directoryPath, options = {}) {
         const entries = await fsFacade.readDir(directoryPath);
         ensureNotAborted();
 
-        return Core.Utils.toArrayFromIterable(entries);
+        return Core.toArrayFromIterable(entries);
     } catch (error) {
-        if (Core.FS.isFsErrorCode(error, "ENOENT", "ENOTDIR")) {
+        if (Core.isFsErrorCode(error, "ENOENT", "ENOTDIR")) {
             return [];
         }
         throw error;
@@ -52,7 +52,7 @@ export async function listDirectory(fsFacade, directoryPath, options = {}) {
  */
 export async function getFileMtime(fsFacade, filePath, options = {}) {
     const abortMessage = "File metadata read was aborted.";
-    const { ensureNotAborted } = Core.Utils.createAbortGuard(options, {
+    const { ensureNotAborted } = Core.createAbortGuard(options, {
         fallbackMessage: abortMessage
     });
 
@@ -61,7 +61,7 @@ export async function getFileMtime(fsFacade, filePath, options = {}) {
         ensureNotAborted();
         return typeof stats.mtimeMs === "number" ? stats.mtimeMs : null;
     } catch (error) {
-        if (Core.FS.isFsErrorCode(error, "ENOENT")) {
+        if (Core.isFsErrorCode(error, "ENOENT")) {
             return null;
         }
         throw error;

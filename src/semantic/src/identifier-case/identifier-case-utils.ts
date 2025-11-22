@@ -68,7 +68,7 @@ function tokenizeCore(core) {
         return [];
     }
 
-    const rawSegments = Core.Utils.trimStringEntries(
+    const rawSegments = Core.trimStringEntries(
         core.split(CORE_SEGMENT_DELIMITER_PATTERN)
     ).filter(Boolean);
 
@@ -132,7 +132,7 @@ function buildCamelCase(normalized) {
             return token.normalized;
         }
 
-        return Core.Utils.capitalize(token.normalized);
+        return Core.capitalize(token.normalized);
     });
 }
 
@@ -140,7 +140,7 @@ function buildPascalCase(normalized) {
     return buildWordCase(normalized, (token) =>
         token.type === "number"
             ? token.normalized
-            : Core.Utils.capitalize(token.normalized)
+            : Core.capitalize(token.normalized)
     );
 }
 
@@ -257,8 +257,8 @@ function normalizeReservedPrefixOverrides(overrides) {
         return [];
     }
 
-    const entries = Core.Utils.normalizeStringList(
-        Core.Utils.toArrayFromIterable(overrides)
+    const entries = Core.normalizeStringList(
+        Core.toArrayFromIterable(overrides)
     );
 
     return entries.reduce((acc, item) => {

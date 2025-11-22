@@ -22,7 +22,7 @@ export const PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR =
 export const PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE = 8 * 1024 * 1024; // 8 MiB
 
 const projectIndexCacheSizeConfig =
-    Core.Utils.createEnvConfiguredValueWithFallback({
+    Core.createEnvConfiguredValueWithFallback({
         defaultValue: PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE,
         envVar: PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR,
         resolve: (value, { fallback }) => {
@@ -35,10 +35,10 @@ const projectIndexCacheSizeConfig =
                 return 0;
             }
 
-            const trimmed = Core.Utils.getNonEmptyTrimmedString(value);
+            const trimmed = Core.getNonEmptyTrimmedString(value);
 
             if (trimmed !== null) {
-                const numeric = Core.Utils.toFiniteNumber(trimmed);
+                const numeric = Core.toFiniteNumber(trimmed);
 
                 if (numeric === 0) {
                     return 0;
@@ -84,7 +84,7 @@ export function assertProjectIndexCacheStatus(value) {
         return value;
     }
 
-    const received = Core.Utils.describeValueForError(value, {
+    const received = Core.describeValueForError(value, {
         stringifyUnknown: false
     });
     throw new TypeError(
@@ -99,7 +99,7 @@ function createCacheResult(status, details) {
     };
 }
 
-function createCacheMiss(cacheFilePath, type, details) {
+function createCacheMiss(cacheFilePath, type, details = {}) {
     return createCacheResult(ProjectIndexCacheStatus.MISS, {
         cacheFilePath,
         reason: {
@@ -125,8 +125,8 @@ function setDefaultProjectIndexCacheMaxSize(size) {
     return projectIndexCacheSizeConfig.set(size);
 }
 
-function applyProjectIndexCacheEnvOverride(env) {
-    Core.Utils.applyConfiguredValueEnvOverride(
+function applyProjectIndexCacheEnvOverride(env = {}) {
+    Core.applyConfiguredValueEnvOverride(
         projectIndexCacheSizeConfig,
         env
     );
@@ -150,7 +150,7 @@ function normalizeMaxSizeBytes(maxSizeBytes) {
         return null;
     }
 
-    const numericLimit = Core.Utils.toFiniteNumber(maxSizeBytes);
+            const numericLimit = Core.toFiniteNumber(maxSizeBytes);
     if (numericLimit === null || numericLimit <= 0) {
         return null;
     }
@@ -159,14 +159,14 @@ function normalizeMaxSizeBytes(maxSizeBytes) {
 }
 
 function cloneMtimeMap(source) {
-    if (!Core.Utils.isObjectLike(source)) {
+    if (!Core.isObjectLike(source)) {
         return {};
     }
 
     const normalized = {};
 
     for (const [key, value] of Object.entries(source)) {
-        const numericValue = Core.Utils.toFiniteNumber(value);
+        const numericValue = Core.toFiniteNumber(value);
 
         if (numericValue !== null) {
             normalized[key] = numericValue;
@@ -181,11 +181,11 @@ function areMtimeMapsEqual(expected = {}, actual = {}) {
         return true;
     }
 
-    if (!Core.Utils.isObjectLike(expected)) {
+    if (!Core.isObjectLike(expected)) {
         return false;
     }
 
-    if (!Core.Utils.isObjectLike(actual)) {
+    if (!Core.isObjectLike(actual)) {
         return false;
     }
 
@@ -200,7 +200,7 @@ function areMtimeMapsEqual(expected = {}, actual = {}) {
         const actualValue = actual[key];
 
         if (typeof value === "number" && typeof actualValue === "number") {
-            return Core.Utils.areNumbersApproximatelyEqual(value, actualValue);
+            return Core.areNumbersApproximatelyEqual(value, actualValue);
         }
 
         return actualValue === value;
@@ -208,7 +208,7 @@ function areMtimeMapsEqual(expected = {}, actual = {}) {
 }
 
 function validateCachePayload(payload) {
-    if (!Core.Utils.isObjectLike(payload)) {
+    if (!Core.isObjectLike(payload)) {
         return false;
     }
 
@@ -231,11 +231,11 @@ function validateCachePayload(payload) {
         return false;
     }
 
-    if (!Core.Utils.isObjectLike(payload.manifestMtimes)) {
+    if (!Core.isObjectLike(payload.manifestMtimes)) {
         return false;
     }
 
-    if (!Core.Utils.isObjectLike(payload.sourceMtimes)) {
+    if (!Core.isObjectLike(payload.sourceMtimes)) {
         return false;
     }
 
@@ -244,12 +244,12 @@ function validateCachePayload(payload) {
     // non-object value as invalid.
     if (
         payload.metricsSummary != null &&
-        !Core.Utils.isObjectLike(payload.metricsSummary)
+        !Core.isObjectLike(payload.metricsSummary)
     ) {
         return false;
     }
 
-    if (!Core.Utils.isObjectLike(payload.projectIndex)) {
+    if (!Core.isObjectLike(payload.projectIndex)) {
         return false;
     }
 
@@ -283,7 +283,7 @@ export async function loadProjectIndexCache(
     }
 
     const abortMessage = "Project index cache load was aborted.";
-    const { ensureNotAborted } = Core.Utils.createAbortGuard(options, {
+    const { ensureNotAborted } = Core.createAbortGuard(options, {
         fallbackMessage: abortMessage
     });
 
@@ -294,7 +294,7 @@ export async function loadProjectIndexCache(
     try {
         rawContents = await fsFacade.readFile(cacheFilePath, "utf8");
     } catch (error) {
-        if (Core.FS.isFsErrorCode(error, "ENOENT")) {
+        if (Core.isFsErrorCode(error, "ENOENT")) {
             return createCacheMiss(
                 cacheFilePath,
                 ProjectIndexCacheMissReason.NOT_FOUND
@@ -307,7 +307,7 @@ export async function loadProjectIndexCache(
 
     let parsed;
     try {
-        parsed = Core.Utils.parseJsonWithContext(rawContents, {
+        parsed = Core.parseJsonWithContext(rawContents, {
             source: cacheFilePath,
             description: "project index cache"
         });
@@ -410,14 +410,14 @@ export async function saveProjectIndexCache(
             "projectRoot must be provided to saveProjectIndexCache"
         );
     }
-    if (!Core.Utils.isObjectLike(projectIndex)) {
+    if (!Core.isObjectLike(projectIndex)) {
         throw new Error(
             "projectIndex must be provided to saveProjectIndexCache"
         );
     }
 
     const abortMessage = "Project index cache save was aborted.";
-    const { ensureNotAborted } = Core.Utils.createAbortGuard(options, {
+    const { ensureNotAborted } = Core.createAbortGuard(options, {
         fallbackMessage: abortMessage
     });
 
@@ -487,7 +487,7 @@ export async function saveProjectIndexCache(
 }
 
 export async function deriveCacheKey(
-    { filepath, projectRoot, formatterVersion = "dev" } = {},
+    { filepath, projectRoot, formatterVersion = "dev" }: { filepath?: string | null; projectRoot?: string | null; formatterVersion?: string } = {},
     fsFacade = defaultFsFacade
 ) {
     const hash = createHash("sha256");

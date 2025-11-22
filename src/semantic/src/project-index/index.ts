@@ -59,7 +59,7 @@ export * from "./path-normalization.js";
 //  * sourced from partially populated caches.
 //  */
 // function cloneEntryCollections(entry, ...keys) {
-//     const source = Core.Utils.isObjectLike(entry) ? entry : {};
+//     const source = Core.isObjectLike(entry) ? entry : {};
 //     return Object.fromEntries(
 //         keys.map((key) => [key, cloneObjectEntries(source[key])])
 //     );
@@ -130,13 +130,13 @@ export * from "./path-normalization.js";
 // } from "./concurrency.js";
 
 // function cloneIdentifierDeclaration(declaration) {
-//     if (!Core.Utils.isObjectLike(declaration)) {
+//     if (!Core.isObjectLike(declaration)) {
 //         return null;
 //     }
 
 //     return {
-//         start: Core.AST.cloneLocation(declaration.start),
-//         end: Core.AST.cloneLocation(declaration.end),
+//         start: Core.cloneLocation(declaration.start),
+//         end: Core.cloneLocation(declaration.end),
 //         scopeId: declaration.scopeId ?? null
 //     };
 // }
@@ -144,10 +144,10 @@ export * from "./path-normalization.js";
 // function createIdentifierRecord(node) {
 //     return {
 //         name: node?.name ?? null,
-//         start: Core.AST.cloneLocation(node?.start),
-//         end: Core.AST.cloneLocation(node?.end),
+//         start: Core.cloneLocation(node?.start),
+//         end: Core.cloneLocation(node?.end),
 //         scopeId: node?.scopeId ?? null,
-//         classifications: [...Core.Utils.asArray(node?.classifications)],
+//         classifications: [...Core.asArray(node?.classifications)],
 //         declaration: cloneIdentifierDeclaration(node?.declaration),
 //         isGlobalIdentifier: node?.isGlobalIdentifier === true
 //     };
@@ -158,9 +158,9 @@ export * from "./path-normalization.js";
 //         name: record?.name ?? null,
 //         filePath: filePath ?? null,
 //         scopeId: record?.scopeId ?? null,
-//         start: Core.AST.cloneLocation(record?.start),
-//         end: Core.AST.cloneLocation(record?.end),
-//         classifications: [...Core.Utils.asArray(record?.classifications)],
+//         start: Core.cloneLocation(record?.start),
+//         end: Core.cloneLocation(record?.end),
+//         classifications: [...Core.asArray(record?.classifications)],
 //         declaration: record?.declaration ? { ...record.declaration } : null,
 //         isBuiltIn: record?.isBuiltIn ?? false,
 //         reason: record?.reason ?? null,
@@ -170,7 +170,7 @@ export * from "./path-normalization.js";
 // }
 
 // function ensureCollectionEntry(map, key, initializer) {
-//     return Core.Utils.getOrCreateMapEntry(map, key, initializer);
+//     return Core.getOrCreateMapEntry(map, key, initializer);
 // }
 
 // function ensureIdentifierCollectionEntry({
@@ -186,7 +186,7 @@ export * from "./path-normalization.js";
 //             declarations: initialDeclarations,
 //             references: initialReferences,
 //             ...rest
-//         } = Core.Utils.isObjectLike(initializerValue) ? initializerValue : {};
+//         } = Core.isObjectLike(initializerValue) ? initializerValue : {};
 
 //         const declarations = Array.isArray(initialDeclarations)
 //             ? [...initialDeclarations]
@@ -253,7 +253,7 @@ export * from "./path-normalization.js";
 // }
 
 // function assignIdentifierEntryMetadata(entry, metadata) {
-//     if (!Core.Utils.isObjectLike(entry)) {
+//     if (!Core.isObjectLike(entry)) {
 //         return entry;
 //     }
 
@@ -328,7 +328,7 @@ export * from "./path-normalization.js";
 //         return offsets;
 //     }
 
-//     for (const { index, length } of Core.Utils.getLineBreakSpans(source)) {
+//     for (const { index, length } of Core.getLineBreakSpans(source)) {
 //         offsets.push(index + length);
 //     }
 
@@ -367,7 +367,7 @@ export * from "./path-normalization.js";
 // }
 
 // function isIdentifierBoundary(character) {
-//     return !Core.Utils.isWordChar(character);
+//     return !Core.isWordChar(character);
 // }
 
 // function findIdentifierLocation({
@@ -478,12 +478,12 @@ export * from "./path-normalization.js";
 //     const classificationTags = ["identifier", "declaration"];
 //     for (const tag of classificationArray) {
 //         if (tag) {
-//             Core.Utils.pushUnique(classificationTags, tag);
+//             Core.pushUnique(classificationTags, tag);
 //         }
 //     }
 
-//     const start = Core.AST.cloneLocation(location.start);
-//     const end = Core.AST.cloneLocation(location.end);
+//     const start = Core.cloneLocation(location.start);
+//     const end = Core.cloneLocation(location.end);
 
 //     return {
 //         name: rawName,
@@ -492,8 +492,8 @@ export * from "./path-normalization.js";
 //         scopeId: scopeRecord.id,
 //         classifications: classificationTags,
 //         declaration: {
-//             start: Core.AST.cloneLocation(start),
-//             end: Core.AST.cloneLocation(end),
+//             start: Core.cloneLocation(start),
+//             end: Core.cloneLocation(end),
 //             scopeId: scopeRecord.id
 //         },
 //         isBuiltIn: false,
@@ -511,7 +511,7 @@ export * from "./path-normalization.js";
 
 //     while (visitStack.length > 0) {
 //         const node = visitStack.pop();
-//         if (!Core.Utils.isObjectLike(node)) {
+//         if (!Core.isObjectLike(node)) {
 //             continue;
 //         }
 
@@ -522,7 +522,7 @@ export * from "./path-normalization.js";
 
 //         if (node.type === "EnumDeclaration") {
 //             const enumIdentifier = node.name;
-//             const enumKey = Core.AST.buildFileLocationKey(
+//             const enumKey = Core.buildFileLocationKey(
 //                 filePath,
 //                 enumIdentifier?.start
 //             );
@@ -533,12 +533,12 @@ export * from "./path-normalization.js";
 //                     filePath: filePath ?? null
 //                 });
 
-//                 for (const member of Core.Utils.asArray(node.members)) {
+//                 for (const member of Core.asArray(node.members)) {
 //                     const memberIdentifier = member?.name ?? null;
 //                     if (!memberIdentifier) {
 //                         continue;
 //                     }
-//                     const memberKey = Core.AST.buildFileLocationKey(
+//                     const memberKey = Core.buildFileLocationKey(
 //                         filePath,
 //                         memberIdentifier.start
 //                     );
@@ -561,11 +561,11 @@ export * from "./path-normalization.js";
 //             if (Array.isArray(value)) {
 //                 for (let index = value.length - 1; index >= 0; index -= 1) {
 //                     const child = value[index];
-//                     if (Core.Utils.isObjectLike(child)) {
+//                     if (Core.isObjectLike(child)) {
 //                         visitStack.push(child);
 //                     }
 //                 }
-//             } else if (Core.Utils.isObjectLike(value)) {
+//             } else if (Core.isObjectLike(value)) {
 //                 visitStack.push(value);
 //             }
 //         }
@@ -625,9 +625,9 @@ export * from "./path-normalization.js";
 //             (existing) => existing && existing.isSynthetic !== true
 //         );
 //     }
-//     const locationKey = Core.AST.buildLocationKey(clone.start);
+//     const locationKey = Core.buildLocationKey(clone.start);
 //     const hasExisting = entry.declarations.some((existing) => {
-//         const existingKey = Core.AST.buildLocationKey(existing.start);
+//         const existingKey = Core.buildLocationKey(existing.start);
 //         return existingKey && locationKey && existingKey === locationKey;
 //     });
 
@@ -635,7 +635,7 @@ export * from "./path-normalization.js";
 //         entry.declarations.push(clone);
 //     }
 
-//     const declarationTags = Core.Utils.asArray(clone?.classifications);
+//     const declarationTags = Core.asArray(clone?.classifications);
 //     for (const tag of declarationTags) {
 //         if (
 //             tag &&
@@ -702,8 +702,8 @@ export * from "./path-normalization.js";
 //         targetName: callRecord.target?.name ?? null,
 //         targetResourcePath: callRecord.target?.resourcePath ?? null,
 //         location: {
-//             start: Core.AST.cloneLocation(callRecord.location?.start),
-//             end: Core.AST.cloneLocation(callRecord.location?.end)
+//             start: Core.cloneLocation(callRecord.location?.start),
+//             end: Core.cloneLocation(callRecord.location?.end)
 //         },
 //         isResolved: Boolean(callRecord.isResolved)
 //     };
@@ -822,7 +822,7 @@ export * from "./path-normalization.js";
 //             ? identifierRecord?.declaration?.start
 //             : identifierRecord?.start;
 
-//     const enumKey = Core.AST.buildFileLocationKey(filePath, targetLocation);
+//     const enumKey = Core.buildFileLocationKey(filePath, targetLocation);
 //     if (!enumKey) {
 //         return;
 //     }
@@ -865,7 +865,7 @@ export * from "./path-normalization.js";
 //             ? identifierRecord?.declaration?.start
 //             : identifierRecord?.start;
 
-//     const memberKey = Core.AST.buildFileLocationKey(filePath, targetLocation);
+//     const memberKey = Core.buildFileLocationKey(filePath, targetLocation);
 //     if (!memberKey) {
 //         return;
 //     }
@@ -980,7 +980,7 @@ export * from "./path-normalization.js";
 //         return false;
 //     }
 
-//     const classifications = Core.Utils.asArray(
+//     const classifications = Core.asArray(
 //         identifierRecord?.classifications
 //     );
 
@@ -1017,7 +1017,7 @@ export * from "./path-normalization.js";
 
 //     const validatedRole = assertValidIdentifierRole(role);
 
-//     const classifications = Core.Utils.asArray(
+//     const classifications = Core.asArray(
 //         identifierRecord?.classifications
 //     );
 
@@ -1126,8 +1126,8 @@ export * from "./path-normalization.js";
 //     const clone = cloneIdentifierForCollections(identifierRecord, filePath);
 
 //     const hasExisting = entry.declarations.some((existing) => {
-//         const existingKey = Core.AST.buildLocationKey(existing.start);
-//         const currentKey = Core.AST.buildLocationKey(clone.start);
+//         const existingKey = Core.buildLocationKey(existing.start);
+//         const currentKey = Core.buildLocationKey(clone.start);
 //         return existingKey && currentKey && existingKey === currentKey;
 //     });
 
@@ -1137,7 +1137,7 @@ export * from "./path-normalization.js";
 // }
 
 // function ensureScopeRecord(scopeMap, descriptor) {
-//     return Core.Utils.getOrCreateMapEntry(scopeMap, descriptor.id, () => ({
+//     return Core.getOrCreateMapEntry(scopeMap, descriptor.id, () => ({
 //         id: descriptor.id,
 //         kind: descriptor.kind,
 //         name: descriptor.name,
@@ -1153,7 +1153,7 @@ export * from "./path-normalization.js";
 // }
 
 // function ensureFileRecord(filesMap, relativePath, scopeId) {
-//     return Core.Utils.getOrCreateMapEntry(filesMap, relativePath, () => ({
+//     return Core.getOrCreateMapEntry(filesMap, relativePath, () => ({
 //         filePath: relativePath,
 //         scopeId,
 //         declarations: [],
@@ -1164,7 +1164,7 @@ export * from "./path-normalization.js";
 // }
 
 // function traverseAst(root, visitor) {
-//     if (!Core.Utils.isObjectLike(root)) {
+//     if (!Core.isObjectLike(root)) {
 //         return;
 //     }
 
@@ -1173,7 +1173,7 @@ export * from "./path-normalization.js";
 
 //     while (stack.length > 0) {
 //         const node = stack.pop();
-//         if (!Core.Utils.isObjectLike(node)) {
+//         if (!Core.isObjectLike(node)) {
 //             continue;
 //         }
 
@@ -1185,7 +1185,7 @@ export * from "./path-normalization.js";
 //         visitor(node);
 
 //         for (const key in node) {
-//             if (!Core.Utils.hasOwn(node, key)) {
+//             if (!Core.hasOwn(node, key)) {
 //                 continue;
 //             }
 
@@ -1193,11 +1193,11 @@ export * from "./path-normalization.js";
 //             if (Array.isArray(value)) {
 //                 for (let i = value.length - 1; i >= 0; i -= 1) {
 //                     const child = value[i];
-//                     if (Core.Utils.isObjectLike(child)) {
+//                     if (Core.isObjectLike(child)) {
 //                         stack.push(child);
 //                     }
 //                 }
-//             } else if (Core.Utils.isObjectLike(value)) {
+//             } else if (Core.isObjectLike(value)) {
 //                 stack.push(value);
 //             }
 //         }
@@ -1251,10 +1251,10 @@ export * from "./path-normalization.js";
 //         removalDescriptor
 //     );
 
-//     const declarationKey = Core.AST.buildLocationKey(declarationRecord.start);
+//     const declarationKey = Core.buildLocationKey(declarationRecord.start);
 //     const fileHasExisting = fileRecord.declarations.some(
 //         (existing) =>
-//             Core.AST.buildLocationKey(existing.start) === declarationKey
+//             Core.buildLocationKey(existing.start) === declarationKey
 //     );
 //     if (!fileHasExisting) {
 //         fileRecord.declarations.push({ ...declarationRecord });
@@ -1262,7 +1262,7 @@ export * from "./path-normalization.js";
 
 //     const scopeHasExisting = scopeRecord.declarations.some(
 //         (existing) =>
-//             Core.AST.buildLocationKey(existing.start) === declarationKey
+//             Core.buildLocationKey(existing.start) === declarationKey
 //     );
 //     if (!scopeHasExisting) {
 //         scopeRecord.declarations.push({ ...declarationRecord });
@@ -1355,7 +1355,7 @@ export * from "./path-normalization.js";
 //         return;
 //     }
 
-//     const callee = Core.AST.getCallExpressionIdentifier(node);
+//     const callee = Core.getCallExpressionIdentifier(node);
 //     const calleeName = callee?.name ?? null;
 //     if (!calleeName || builtInNames.has(calleeName)) {
 //         return;
@@ -1379,8 +1379,8 @@ export * from "./path-normalization.js";
 //         },
 //         isResolved: Boolean(targetScopeId),
 //         location: {
-//             start: Core.AST.cloneLocation(callee?.start),
-//             end: Core.AST.cloneLocation(callee?.end)
+//             start: Core.cloneLocation(callee?.start),
+//             end: Core.cloneLocation(callee?.end)
 //         }
 //     };
 
@@ -1431,8 +1431,8 @@ export * from "./path-normalization.js";
 //         },
 //         isResolved: Boolean(targetScopeId),
 //         location: {
-//             start: Core.AST.cloneLocation(callee.start),
-//             end: Core.AST.cloneLocation(callee.end)
+//             start: Core.cloneLocation(callee.start),
+//             end: Core.cloneLocation(callee.end)
 //         }
 //     };
 
@@ -1460,7 +1460,7 @@ export * from "./path-normalization.js";
 //     }
 
 //     const leftRecord = createIdentifierRecord(node.left);
-//     const classifications = Core.Utils.asArray(leftRecord?.classifications);
+//     const classifications = Core.asArray(leftRecord?.classifications);
 
 //     const isGlobalAssignment =
 //         classifications.includes("global") || leftRecord.isGlobalIdentifier;
@@ -1572,11 +1572,11 @@ export * from "./path-normalization.js";
 // }
 
 // async function processWithConcurrency(items, limit, worker, options = {}) {
-//     if (!Core.Utils.isNonEmptyArray(items)) {
+//     if (!Core.isNonEmptyArray(items)) {
 //         return;
 //     }
 
-//     Core.Utils.assertFunction(worker, "worker");
+//     Core.assertFunction(worker, "worker");
 
 //     const { ensureNotAborted } = createProjectIndexAbortGuard(options);
 
@@ -1617,7 +1617,7 @@ export * from "./path-normalization.js";
 //         metrics.counters.increment("io.gmlBytes", Buffer.byteLength(contents));
 //         return contents;
 //     } catch (error) {
-//         if (Core.FS.isFsErrorCode(error, "ENOENT")) {
+//         if (Core.isFsErrorCode(error, "ENOENT")) {
 //             metrics.counters.increment("files.missingDuringRead");
 //             return null;
 //         }
@@ -1630,7 +1630,7 @@ export * from "./path-normalization.js";
 //         return;
 //     }
 
-//     Core.Utils.pushUnique(scopeRecord.filePaths, filePath);
+//     Core.pushUnique(scopeRecord.filePaths, filePath);
 // }
 
 // function prepareProjectIndexRecords({
@@ -1867,7 +1867,7 @@ export * from "./path-normalization.js";
 //             name: entry.name ?? null,
 //             displayName: entry.displayName ?? entry.name ?? entry.id,
 //             resourcePath: entry.resourcePath ?? null,
-//             declarationKinds: [...Core.Utils.asArray(entry.declarationKinds)],
+//             declarationKinds: [...Core.asArray(entry.declarationKinds)],
 //             ...cloneEntryCollections(entry, "declarations"),
 //             references: entry.references.map((reference) => ({
 //                 filePath: reference.filePath ?? null,
@@ -1876,10 +1876,10 @@ export * from "./path-normalization.js";
 //                 targetResourcePath: reference.targetResourcePath ?? null,
 //                 location: reference.location
 //                     ? {
-//                           start: Core.AST.cloneLocation(
+//                           start: Core.cloneLocation(
 //                               reference.location.start
 //                           ),
-//                           end: Core.AST.cloneLocation(reference.location.end)
+//                           end: Core.cloneLocation(reference.location.end)
 //                       }
 //                     : null,
 //                 isResolved: reference.isResolved ?? false
