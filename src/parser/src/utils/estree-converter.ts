@@ -77,7 +77,7 @@ function convertNode(value, state) {
     }
 
     const isAstNode = typeof value.type === "string" && value.type.length > 0;
-    const result = isAstNode ? { type: value.type } : {};
+    const result: any = isAstNode ? { type: value.type } : {};
 
     const entries = Object.entries(value);
     for (const [key, child] of entries) {
@@ -123,7 +123,7 @@ function convertNode(value, state) {
     return result;
 }
 
-export function convertToESTree(root, options = {}) {
+export function convertToESTree(root, options: any = {}) {
     const state = {
         includeLocations: options.includeLocations !== false,
         includeRange: options.includeRange !== false,

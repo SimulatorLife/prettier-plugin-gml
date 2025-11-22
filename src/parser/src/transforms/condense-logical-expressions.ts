@@ -650,7 +650,7 @@ function extractReturnExpression(node, helpers) {
         if (!isNode(firstStatement)) {
             return null;
         }
-        if (firstStatement.type !== "ReturnStatement") {
+        if ((firstStatement as any).type !== "ReturnStatement") {
             return null;
         }
 

@@ -14,6 +14,7 @@ const {
     getBodyStatements,
     toMutableArray,
     isObjectLike,
+    isNode,
     forEachNodeChild,
     getNodeEndIndex,
     getNodeStartIndex,
@@ -212,7 +213,6 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                         const defaultParam = {
                             type: "DefaultParameter",
                             left: param,
-                            // Materialize trailing undefined as a Literal so
                             // downstream passes observe the historical
                             // `value: "undefined"` shape.
                             right: { type: "Literal", value: "undefined" },
@@ -372,10 +372,10 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
         try {
             if (
                 !match &&
-                isNode(statement) &&
-                statement.type === "IfStatement"
+                statement &&
+                (statement as any).type === "IfStatement"
             ) {
-                const cond = unwrapParenthesizedExpression(statement.test);
+                const cond = unwrapParenthesizedExpression((statement as any).test);
                 const maybeGuard = matchArgumentCountGuard(cond);
                 if (maybeGuard) {
                     console.warn(
@@ -599,7 +599,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                     // `_featherMaterializedTrailingUndefined` to treat
                     // materialized placeholders differently when synthesizing
                     // docs.
-                    defaultParamNode._featherMaterializedTrailingUndefined = true;
+                    (defaultParamNode as any)._featherMaterializedTrailingUndefined = true;
                 }
             } catch {
                 // swallow
@@ -674,14 +674,14 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
     // confidently map them to existing parameters.
     for (let sidx = 0; sidx < statements.length; sidx += 1) {
         const stmt = statements[sidx];
-        if (!stmt || stmt.type !== "IfStatement") continue;
+        if (!stmt || (stmt as any).type !== "IfStatement") continue;
 
-        const condition = unwrapParenthesizedExpression(stmt.test);
+        const condition = unwrapParenthesizedExpression((stmt as any).test);
         const guard = matchArgumentCountGuard(condition);
         if (!guard) continue;
 
-        const consequent = stmt.consequent;
-        const alternate = stmt.alternate;
+        const consequent = (stmt as any).consequent;
+        const alternate = (stmt as any).alternate;
         const consequentStmt =
             consequent && consequent.type === "BlockStatement"
                 ? getBodyStatements(consequent)[0]
@@ -793,7 +793,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                     // guard-based materializations; those represent a
                     // different semantic origin and should not imply an
                     // explicit optional intent in all cases.
-                    defaultParamNode._featherMaterializedTrailingUndefined = true;
+                    (defaultParamNode as any)._featherMaterializedTrailingUndefined = true;
                 }
             } catch {
                 // swallow
@@ -817,7 +817,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                     // leave the explicit optionality decision to the later
                     // doc-driven reconciliation so plain functions omit
                     // redundant `= undefined` unless docs indicate optional.
-                    currentParam._featherMaterializedTrailingUndefined = true;
+                    (currentParam as any)._featherMaterializedTrailingUndefined = true;
                 }
             } catch {
                 // swallow
@@ -922,7 +922,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                         // Materialize placeholder RHS as `undefined` using a
                         // Literal node so the shape matches existing tests.
                         param.right = { type: "Literal", value: "undefined" };
-                        param._featherMaterializedTrailingUndefined = true;
+                        (param as any)._featherMaterializedTrailingUndefined = true;
                         param._featherMaterializedFromExplicitLeft = true;
                         // Preserve historical behaviour: when materializing a
                         // trailing `= undefined` default due to an explicit

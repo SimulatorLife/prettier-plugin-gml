@@ -27,14 +27,15 @@ export function transform(ast: any, opts: any = {}) {
             }
 
             if (cfg.stripComments) {
-                if (Array.isArray(value.comments)) {
+                const comments = (value as any).comments;
+                if (Array.isArray(comments)) {
                     // Keep any non-comment entries (defensive) but strip known
                     // comment node shapes.
-                    value.comments = value.comments.filter(
-                        (c) => !isCommentNode(c)
-                    );
-                    if (value.comments.length === 0) {
-                        delete value.comments;
+                    const filtered = comments.filter((c) => !isCommentNode(c));
+                    if (filtered.length === 0) {
+                        delete (value as any).comments;
+                    } else {
+                        (value as any).comments = filtered;
                     }
                 }
 

@@ -24,7 +24,7 @@ class SampleVisitor {
     visitExpression() {}
 }
 
-SampleVisitor.prototype.helper = () => "value";
+(SampleVisitor.prototype as any).helper = () => "value";
 
 function createBaseCtor() {}
 
@@ -58,8 +58,8 @@ test("definePrototypeMethods attaches generated methods", () => {
     const target = {};
     definePrototypeMethods(target, ["alpha", "beta"], (name) => () => name);
 
-    assert.equal(target.alpha(), "alpha");
-    assert.equal(target.beta(), "beta");
+    assert.equal((target as any).alpha(), "alpha");
+    assert.equal((target as any).beta(), "beta");
 });
 
 test("createWrapperSymbols produces stable symbol keys", () => {

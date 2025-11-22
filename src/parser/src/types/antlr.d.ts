@@ -20,7 +20,7 @@ declare module "antlr4" {
     export class Token {
         static INVALID_TYPE: number;
         static EOF: number;
-        type: number;
+        type?: number;
         text?: string;
         line?: number;
         column?: number;

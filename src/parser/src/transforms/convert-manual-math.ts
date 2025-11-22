@@ -991,7 +991,12 @@ function attemptCondenseSimpleScalarProduct(node, context) {
     }
 
     const unitTolerance = computeNumericTolerance(1);
-    if (Math.abs(normalizedCoefficient - 1) <= unitTolerance) {
+    const normalizedNumber =
+        typeof normalizedCoefficient === "number"
+            ? normalizedCoefficient
+            : Number(normalizedCoefficient as string);
+    if (!Number.isFinite(normalizedNumber)) return false;
+    if (Math.abs(normalizedNumber - 1) <= unitTolerance) {
         const originalExpression = Core.cloneAstNode(node);
 
         if (!replaceNodeWith(node, operand)) {
@@ -1003,8 +1008,7 @@ function attemptCondenseSimpleScalarProduct(node, context) {
 
         return true;
     }
-
-    const literal = createNumericLiteral(normalizedCoefficient, node);
+    const literal = createNumericLiteral(normalizedCoefficient, node) as any;
     if (!literal) {
         return false;
     }
@@ -1876,7 +1880,7 @@ function attemptCondenseScalarProduct(node, context) {
     }
 
     const clonedOperand = cloneMultiplicativeTerms(nonNumericTerms, node);
-    const literal = createNumericLiteral(normalizedCoefficient, node);
+    const literal = createNumericLiteral(normalizedCoefficient, node) as any;
 
     if (!clonedOperand || !literal) {
         return false;
@@ -3717,7 +3721,7 @@ function computeNumericTolerance(expected, providedTolerance?) {
     return Number.EPSILON * magnitude * 4;
 }
 
-function normalizeNumericCoefficient(value, precision = 12) {
+function normalizeNumericCoefficient(value: number, precision = 12): string | null {
     if (!Number.isFinite(value)) {
         return null;
     }

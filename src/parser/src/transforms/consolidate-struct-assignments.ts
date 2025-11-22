@@ -784,7 +784,7 @@ class CommentTracker {
 
     consumeEntries(entries) {
         for (const entry of entries) {
-            if (!entry) {
+                if (!entry) {
                 // Defensive: skip nullish values.
                 continue;
             }
@@ -797,12 +797,12 @@ class CommentTracker {
                 // entry is { index, comment }
                 entry.consumed = true;
                 if (entry.comment) {
-                    entry.comment._removedByConsolidation = true;
+                    (entry.comment as any)._removedByConsolidation = true;
                 }
             } else {
                 // entry is a plain comment node
                 const commentNode = entry;
-                commentNode._removedByConsolidation = true;
+                (commentNode as any)._removedByConsolidation = true;
                 // Find the corresponding tracker entry and mark it consumed if present
                 for (const e of this.entries) {
                     if (e && e.comment === commentNode) {
@@ -822,7 +822,7 @@ class CommentTracker {
         let writeIndex = 0;
         for (let readIndex = 0; readIndex < this.comments.length; readIndex++) {
             const comment = this.comments[readIndex];
-            if (comment && comment._removedByConsolidation) {
+            if (comment && (comment as any)._removedByConsolidation) {
                 continue;
             }
             this.comments[writeIndex] = comment;

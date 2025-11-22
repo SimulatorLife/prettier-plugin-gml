@@ -172,12 +172,8 @@ const DATA_STRUCTURE_ACCESSOR_TOKENS = [
     "|",
     "#",
     "@",
-    "!",
     "$",
-    "%",
-    "&",
-    "^",
-    "~"
+    "%"
 ];
 const NUMERIC_STRING_LITERAL_PATTERN =
     /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;

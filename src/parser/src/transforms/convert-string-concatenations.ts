@@ -1,10 +1,11 @@
 import { Core } from "@gml-modules/core";
-
+const { AST: { isNode } } = Core;
 const BINARY_EXPRESSION = "BinaryExpression";
 const TEMPLATE_STRING_EXPRESSION = "TemplateStringExpression";
 const TEMPLATE_STRING_TEXT = "TemplateStringText";
 const LITERAL = "Literal";
 const PARENTHESIZED_EXPRESSION = "ParenthesizedExpression";
+// `isNode` is available via `Core.AST.isNode`; we use destructuring below
 
 /**
  * Convert chains of string concatenations into template string expressions.
@@ -220,12 +221,13 @@ function buildTemplateAtoms(parts) {
                     return null;
                 }
 
-                if (nestedAtom.type === TEMPLATE_STRING_TEXT) {
-                    if (typeof nestedAtom.value !== "string") {
+                if (!isNode(nestedAtom)) continue;
+                if ((nestedAtom as any).type === TEMPLATE_STRING_TEXT) {
+                    if (typeof (nestedAtom as any).value !== "string") {
                         return null;
                     }
 
-                    pendingText += nestedAtom.value;
+                    pendingText += (nestedAtom as any).value;
                     containsStringLiteral = true;
                     continue;
                 }

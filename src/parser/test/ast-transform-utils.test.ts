@@ -53,15 +53,15 @@ test("location metadata helpers mutate nested structures", () => {
     simplifyLocationMetadata(ast);
     assert.deepEqual(ast.start, 0);
     assert.deepEqual(ast.end, 4);
-    assert.deepEqual(ast.body[0].extra.start, 10);
+    assert.deepEqual((ast.body[0] as any).extra.start, 10);
 
     remapLocationMetadata(ast, (index) => index + 2);
-    assert.deepEqual(ast.body[0].start, 3);
-    assert.deepEqual(ast.body[0].extra.end, 14);
+    assert.deepEqual((ast.body[0] as any).start, 3);
+    assert.deepEqual((ast.body[0] as any).extra.end, 14);
 
     removeLocationMetadata(ast);
     assert.ok(!Object.hasOwn(ast, "start"));
     assert.ok(!Object.hasOwn(ast, "end"));
-    assert.ok(!Object.hasOwn(ast.body[0], "start"));
-    assert.ok(!Object.hasOwn(ast.body[0], "end"));
+    assert.ok(!Object.hasOwn(ast.body[0] as any, "start"));
+    assert.ok(!Object.hasOwn(ast.body[0] as any, "end"));
 });

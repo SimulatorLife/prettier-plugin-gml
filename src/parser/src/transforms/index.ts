@@ -1,5 +1,6 @@
 import { stripCommentsTransform } from "./strip-comments.js";
 import { consolidateStructAssignments } from "./consolidate-struct-assignments.js";
+import { condenseLogicalExpressions } from "./condense-logical-expressions.js";
 import {
     applyFeatherFixes,
     applyRemovedIndexAdjustments,
