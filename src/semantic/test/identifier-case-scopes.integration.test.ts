@@ -83,7 +83,9 @@ describe("project index scope tracking", () => {
                 "expected DifficultyCopy enum to be present"
             );
 
-            const enumMembers = Object.values(index.identifiers.enumMembers) as any[];
+            const enumMembers = Object.values(
+                index.identifiers.enumMembers
+            ) as any[];
             const hasEasyMember = enumMembers.filter(
                 (entry) => entry.name === "Easy"
             );

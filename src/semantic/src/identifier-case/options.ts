@@ -243,7 +243,10 @@ function normalizeList(optionName, value) {
 function resolveScopeSettings(
     options: any,
     baseStyle: string
-): { scopeSettings: Record<string, string>; scopeStyles: Record<string, string> } {
+): {
+    scopeSettings: Record<string, string>;
+    scopeStyles: Record<string, string>;
+} {
     const scopeSettings: Record<string, string> = {};
     const scopeStyles: Record<string, string> = {};
 

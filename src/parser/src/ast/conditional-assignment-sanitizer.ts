@@ -182,7 +182,10 @@ export function sanitizeConditionalAssignments(sourceText) {
             const followingCharacter =
                 index + 2 < length ? sourceText[index + 2] : "";
 
-            if (!Core.isWordChar(prevCharacter) && !Core.isWordChar(followingCharacter)) {
+            if (
+                !Core.isWordChar(prevCharacter) &&
+                !Core.isWordChar(followingCharacter)
+            ) {
                 append(character);
                 append(nextCharacter);
                 index += 2;

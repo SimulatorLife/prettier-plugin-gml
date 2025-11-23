@@ -150,7 +150,8 @@ export function attachIdentifierCasePlanSnapshot(ast, options) {
     Core.withObjectLike(
         ast,
         (objectAst) => {
-            const snapshot: IdentifierCasePlanSnapshot | null = captureIdentifierCasePlanSnapshot(options);
+            const snapshot: IdentifierCasePlanSnapshot | null =
+                captureIdentifierCasePlanSnapshot(options);
             // Only attach snapshots that carry meaningful planning state.
             // Empty snapshots (no renameMap and no planGenerated) are common
             // when callers omit a filepath and would otherwise overwrite a

@@ -318,7 +318,9 @@ export function getCallExpressionArguments(callExpression): Array<unknown> {
     return asArray(callExpression.arguments as unknown[]);
 }
 
-export function getCallExpressionIdentifier(callExpression): Record<string, unknown> | null {
+export function getCallExpressionIdentifier(
+    callExpression
+): Record<string, unknown> | null {
     if (!isNode(callExpression) || callExpression.type !== "CallExpression") {
         return null;
     }
@@ -376,7 +378,10 @@ export function isCallExpressionIdentifierMatch(
 }
 
 // TODO: Clean up this function and use the correct typing
-export function getArrayProperty(node: Record<string, unknown>, propertyName: string) {
+export function getArrayProperty(
+    node: Record<string, unknown>,
+    propertyName: string
+) {
     if (!isNode(node)) {
         return [];
     }
@@ -400,7 +405,9 @@ export function hasArrayPropertyEntries(node, propertyName) {
     return isNonEmptyArray(node[propertyName]);
 }
 
-export function getBodyStatements(node: Record<string, unknown>): Array<unknown> {
+export function getBodyStatements(
+    node: Record<string, unknown>
+): Array<unknown> {
     if (!isNode(node)) {
         return [];
     }
@@ -412,7 +419,9 @@ export function hasBodyStatements(node: Record<string, unknown>): boolean {
     return hasArrayPropertyEntries(node, "body");
 }
 
-export function isProgramOrBlockStatement(node: Record<string, unknown>): boolean {
+export function isProgramOrBlockStatement(
+    node: Record<string, unknown>
+): boolean {
     if (!isNode(node)) {
         return false;
     }

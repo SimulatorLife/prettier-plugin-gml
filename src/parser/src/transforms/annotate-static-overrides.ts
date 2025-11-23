@@ -56,7 +56,9 @@ function collectConstructorInfos(ast) {
         const parentName =
             Core.isNode(node.parent) &&
             node.parent.type === "ConstructorParentClause"
-                ? Core.getNonEmptyString((node.parent as Record<string, unknown>).id)
+                ? Core.getNonEmptyString(
+                      (node.parent as Record<string, unknown>).id
+                  )
                 : null;
 
         const staticFunctions = new Map();

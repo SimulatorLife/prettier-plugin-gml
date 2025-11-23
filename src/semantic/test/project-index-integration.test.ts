@@ -206,7 +206,9 @@ test("buildProjectIndex collects symbols and relationships across project files"
         assert.equal(difficultyEnum.declarations.length, 1);
         assert.ok(difficultyEnum.references.length > 0);
 
-        const enumMemberEntries = Object.values(index.identifiers.enumMembers) as any[];
+        const enumMemberEntries = Object.values(
+            index.identifiers.enumMembers
+        ) as any[];
         const hardMember = enumMemberEntries.find(
             (entry) => entry.name === "Hard"
         );

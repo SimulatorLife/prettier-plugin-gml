@@ -17,12 +17,8 @@ function normalizeResourceDocumentMetadata(resourceData) {
     }
 
     const { name, resourceType } = resourceData;
-    const normalizedName = Core.isNonEmptyTrimmedString(name)
-        ? name
-        : null;
-    const normalizedResourceType = Core.isNonEmptyTrimmedString(
-        resourceType
-    )
+    const normalizedName = Core.isNonEmptyTrimmedString(name) ? name : null;
+    const normalizedResourceType = Core.isNonEmptyTrimmedString(resourceType)
         ? resourceType
         : null;
 
@@ -39,22 +35,18 @@ function deriveScopeId(kind, parts) {
 function ensureResourceRecord(resourcesMap, resourcePath, resourceData = {}) {
     const { name: normalizedName, resourceType: normalizedResourceType } =
         normalizeResourceDocumentMetadata(resourceData);
-    const record = Core.getOrCreateMapEntry(
-        resourcesMap,
-        resourcePath,
-        () => {
-            const defaultName = deriveDefaultResourceName(resourcePath);
+    const record = Core.getOrCreateMapEntry(resourcesMap, resourcePath, () => {
+        const defaultName = deriveDefaultResourceName(resourcePath);
 
-            return {
-                path: resourcePath,
-                name: normalizedName ?? defaultName,
-                resourceType: normalizedResourceType ?? "unknown",
-                scopes: [],
-                gmlFiles: [],
-                assetReferences: []
-            };
-        }
-    );
+        return {
+            path: resourcePath,
+            name: normalizedName ?? defaultName,
+            resourceType: normalizedResourceType ?? "unknown",
+            scopes: [],
+            gmlFiles: [],
+            assetReferences: []
+        };
+    });
 
     if (normalizedName && record.name !== normalizedName) {
         record.name = normalizedName;

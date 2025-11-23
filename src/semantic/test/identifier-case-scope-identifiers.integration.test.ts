@@ -113,7 +113,9 @@ describe("project index identifier tracking", () => {
                 );
             }
 
-            const enumMembers = Object.values(index.identifiers.enumMembers) as any[];
+            const enumMembers = Object.values(
+                index.identifiers.enumMembers
+            ) as any[];
             const sharedMembers = enumMembers.filter(
                 (entry) => entry.name === "Bronze"
             );

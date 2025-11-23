@@ -219,7 +219,8 @@ function mapDocCommentsToFunctions(ast) {
 function collectFunctionNodes(ast) {
     const functions = [];
 
-    function traverse(node) { // TODO: Is this duplicating Core.walkObjectGraph?
+    function traverse(node) {
+        // TODO: Is this duplicating Core.walkObjectGraph?
         if (!AST.isNode(node)) {
             return;
         }

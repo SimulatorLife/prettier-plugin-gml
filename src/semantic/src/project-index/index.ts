@@ -2084,103 +2084,103 @@ import { defaultFsFacade, ProjectIndexFsFacade } from "./fs-facade.js";
 // }
 
 export async function buildProjectIndex(
-	projectRoot: string,
-	fsFacade: ProjectIndexFsFacade = defaultFsFacade,
-	options: any = {}
- ): Promise<any> {
-//     if (!projectRoot) {
-//         throw new Error("projectRoot must be provided to buildProjectIndex");
-//     }
+    projectRoot: string,
+    fsFacade: ProjectIndexFsFacade = defaultFsFacade,
+    options: any = {}
+): Promise<any> {
+    //     if (!projectRoot) {
+    //         throw new Error("projectRoot must be provided to buildProjectIndex");
+    //     }
 
-//     const resolvedRoot = path.resolve(projectRoot);
-//     const logger = options?.logger ?? null;
-//     const metricsContracts = createProjectIndexMetrics({
-//         metrics: options?.metrics,
-//         logger,
-//         logMetrics: options?.logMetrics
-//     });
-//     const metrics = metricsContracts.recording;
-//     const metricsReporting = metricsContracts.reporting;
+    //     const resolvedRoot = path.resolve(projectRoot);
+    //     const logger = options?.logger ?? null;
+    //     const metricsContracts = createProjectIndexMetrics({
+    //         metrics: options?.metrics,
+    //         logger,
+    //         logMetrics: options?.logMetrics
+    //     });
+    //     const metrics = metricsContracts.recording;
+    //     const metricsReporting = metricsContracts.reporting;
 
-//     const stopTotal = metrics.timers.startTimer("total");
+    //     const stopTotal = metrics.timers.startTimer("total");
 
-//     const { signal, ensureNotAborted } = createProjectIndexAbortGuard(options);
+    //     const { signal, ensureNotAborted } = createProjectIndexAbortGuard(options);
 
-//     const builtInNames = await loadBuiltInNamesForProjectIndex({
-//         fsFacade,
-//         metrics,
-//         signal,
-//         ensureNotAborted
-//     });
+    //     const builtInNames = await loadBuiltInNamesForProjectIndex({
+    //         fsFacade,
+    //         metrics,
+    //         signal,
+    //         ensureNotAborted
+    //     });
 
-//     const { yyFiles, gmlFiles } = await discoverProjectFilesForIndex({
-//         projectRoot: resolvedRoot,
-//         fsFacade,
-//         metrics,
-//         signal,
-//         ensureNotAborted
-//     });
+    //     const { yyFiles, gmlFiles } = await discoverProjectFilesForIndex({
+    //         projectRoot: resolvedRoot,
+    //         fsFacade,
+    //         metrics,
+    //         signal,
+    //         ensureNotAborted
+    //     });
 
-//     const resourceAnalysis = await analyseProjectResourcesForIndex({
-//         projectRoot: resolvedRoot,
-//         yyFiles,
-//         fsFacade,
-//         metrics,
-//         signal,
-//         ensureNotAborted
-//     });
+    //     const resourceAnalysis = await analyseProjectResourcesForIndex({
+    //         projectRoot: resolvedRoot,
+    //         yyFiles,
+    //         fsFacade,
+    //         metrics,
+    //         signal,
+    //         ensureNotAborted
+    //     });
 
-//     const { scopeMap, filesMap, relationships, identifierCollections } =
-//         createProjectIndexAggregationState(resourceAnalysis);
+    //     const { scopeMap, filesMap, relationships, identifierCollections } =
+    //         createProjectIndexAggregationState(resourceAnalysis);
 
-//     const { gmlConcurrency, parseProjectSource } = configureGmlProcessing({
-//         options,
-//         metrics
-//     });
+    //     const { gmlConcurrency, parseProjectSource } = configureGmlProcessing({
+    //         options,
+    //         metrics
+    //     });
 
-//     await processProjectGmlFilesForIndex({
-//         gmlFiles,
-//         gmlConcurrency,
-//         parseProjectSource,
-//         fsFacade,
-//         metrics,
-//         ensureNotAborted,
-//         resourceAnalysis,
-//         scopeMap,
-//         filesMap,
-//         identifierCollections,
-//         relationships,
-//         builtInNames,
-//         projectRoot: resolvedRoot,
-//         signal
-//     });
+    //     await processProjectGmlFilesForIndex({
+    //         gmlFiles,
+    //         gmlConcurrency,
+    //         parseProjectSource,
+    //         fsFacade,
+    //         metrics,
+    //         ensureNotAborted,
+    //         resourceAnalysis,
+    //         scopeMap,
+    //         filesMap,
+    //         identifierCollections,
+    //         relationships,
+    //         builtInNames,
+    //         projectRoot: resolvedRoot,
+    //         signal
+    //     });
 
-//     recordScriptCallMetricsAndReferences({
-//         relationships,
-//         metrics,
-//         identifierCollections
-//     });
+    //     recordScriptCallMetricsAndReferences({
+    //         relationships,
+    //         metrics,
+    //         identifierCollections
+    //     });
 
-//     const projectIndexPayload = createProjectIndexResultSnapshot({
-//         projectRoot: resolvedRoot,
-//         resourceAnalysis,
-//         scopeMap,
-//         filesMap,
-//         identifierCollections,
-//         relationships
-//     });
+    //     const projectIndexPayload = createProjectIndexResultSnapshot({
+    //         projectRoot: resolvedRoot,
+    //         resourceAnalysis,
+    //         scopeMap,
+    //         filesMap,
+    //         identifierCollections,
+    //         relationships
+    //     });
 
-//     stopTotal();
-//     const projectIndex = projectIndexPayload;
+    //     stopTotal();
+    //     const projectIndex = projectIndexPayload;
 
-//     return finalizeProjectIndexResult({
-//         metrics,
-//         metricsReporting,
-//         options,
-//         projectIndex
-//     });
-	return null as any;
- }
+    //     return finalizeProjectIndexResult({
+    //         metrics,
+    //         metricsReporting,
+    //         options,
+    //         projectIndex
+    //     });
+    return null as any;
+}
 // export { defaultFsFacade } from "./fs-facade.js";
 
 // export {

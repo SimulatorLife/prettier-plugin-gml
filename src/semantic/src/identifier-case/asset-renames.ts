@@ -263,11 +263,7 @@ function collectDirectoryEntries({
         }
 
         const directory = path.posix.dirname(resourcePath);
-        const list = Core.getOrCreateMapEntry(
-            directories,
-            directory,
-            () => []
-        );
+        const list = Core.getOrCreateMapEntry(directories, directory, () => []);
         list.push({
             directory,
             resourcePath,
@@ -306,11 +302,7 @@ function detectAssetRenameConflicts({
         const byLowerName = new Map();
         for (const entry of entries) {
             const key = Core.toNormalizedLowerCaseString(entry.finalName);
-            const bucket = Core.getOrCreateMapEntry(
-                byLowerName,
-                key,
-                () => []
-            );
+            const bucket = Core.getOrCreateMapEntry(byLowerName, key, () => []);
             bucket.push(entry);
         }
 

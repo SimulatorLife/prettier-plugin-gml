@@ -373,9 +373,7 @@ export function summarizeIdentifierCasePlan({
     conflicts = []
 }: IdentifierCasePlanData = {}) {
     const normalizedOperations = sortOperations(
-        Core.compactArray(
-            extractOperations(renamePlan).map(normalizeOperation)
-        )
+        Core.compactArray(extractOperations(renamePlan).map(normalizeOperation))
     );
 
     const normalizedConflicts = sortConflicts(
@@ -695,7 +693,9 @@ function resolveInlineReportContext(options, renamePlan) {
     const conflicts = getIdentifierCaseOption(options, "Conflicts", {
         fallback: []
     });
-    const dryRun = getIdentifierCaseOption(options, "DryRun", { fallback: null });
+    const dryRun = getIdentifierCaseOption(options, "DryRun", {
+        fallback: null
+    });
     const logFilePath = getIdentifierCaseOption(options, "ReportLogPath", {
         fallback: null
     });
@@ -729,7 +729,9 @@ function resolveReportContext(options) {
 }
 
 function resolveDryRunFlag(options, contextDryRun) {
-    const explicitDryRun = getIdentifierCaseOption(options, "DryRun", { fallback: null });
+    const explicitDryRun = getIdentifierCaseOption(options, "DryRun", {
+        fallback: null
+    });
     if (explicitDryRun !== undefined) {
         return explicitDryRun !== false;
     }

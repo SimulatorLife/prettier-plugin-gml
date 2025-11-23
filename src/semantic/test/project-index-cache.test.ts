@@ -51,7 +51,10 @@ test("assertProjectIndexCacheStatus validates status strings", () => {
         () => assertProjectIndexCacheStatus("invalid-status"),
         (error) => {
             assert.equal(error instanceof TypeError, true);
-                assert.match((error as any).message, /Project index cache status must be one of:/);
+            assert.match(
+                (error as any).message,
+                /Project index cache status must be one of:/
+            );
             return true;
         }
     );

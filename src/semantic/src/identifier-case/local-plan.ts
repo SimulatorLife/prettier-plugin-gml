@@ -120,16 +120,15 @@ function getEntryDeclarations(entry: IdentifierCaseEntry | null | undefined) {
     return Core.asArray(entry?.declarations) as IdentifierCaseDeclaration[];
 }
 
-function getEntityClassifications(entity:
-    | IdentifierCaseEntry
-    | IdentifierCaseDeclaration
-    | null
-    | undefined
+function getEntityClassifications(
+    entity: IdentifierCaseEntry | IdentifierCaseDeclaration | null | undefined
 ) {
     return Core.asArray(entity?.classifications) as string[];
 }
 
-function getEntryDeclarationKinds(entry: IdentifierCaseEntry | null | undefined) {
+function getEntryDeclarationKinds(
+    entry: IdentifierCaseEntry | null | undefined
+) {
     return Core.asArray(entry?.declarationKinds) as string[];
 }
 
@@ -320,17 +319,11 @@ function createNameCollisionTracker() {
     const entriesById = new Map();
 
     const toKey = (name) =>
-        typeof name === "string"
-            ? Core.toNormalizedLowerCaseString(name)
-            : "";
+        typeof name === "string" ? Core.toNormalizedLowerCaseString(name) : "";
 
     const addRecord = (record) => {
         const key = toKey(record.name);
-        const bucket = Core.getOrCreateMapEntry(
-            entriesByName,
-            key,
-            () => []
-        );
+        const bucket = Core.getOrCreateMapEntry(entriesByName, key, () => []);
         bucket.push(record);
         entriesById.set(record.uniqueId, record);
     };
@@ -493,7 +486,8 @@ function planIdentifierRenamesForScope({
                     message,
                     scope: scopeDescriptor,
                     identifier: currentName
-                }));
+                })
+            );
             metrics?.counters?.increment(
                 `${scopeType}.configurationConflicts`,
                 1
@@ -823,8 +817,10 @@ export async function prepareIdentifierCasePlan(options) {
 
     const preservedIdentifiers = normalizedOptions.preservedIdentifiers;
     const preservedSet: Set<string> = new Set(
-        (Array.isArray(preservedIdentifiers) ? preservedIdentifiers : [])
-            .filter((v) => typeof v === "string") as string[]
+        (Array.isArray(preservedIdentifiers)
+            ? preservedIdentifiers
+            : []
+        ).filter((v) => typeof v === "string") as string[]
     );
     const ignoreMatchers = buildPatternMatchers(
         normalizedOptions.ignorePatterns ?? []

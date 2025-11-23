@@ -291,22 +291,30 @@ function resolveCoordinatorInputs(options, writeOption: any) {
     const fsFacade = getFsFacade(options);
 
     const cacheMaxSizeBytes = resolveCacheMaxSizeBytes(options);
-    Core.withDefinedValue(cacheMaxSizeBytes, (value) => {
-        writeOption(
-            options,
-            PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME,
-            value
-        );
-    }, undefined);
+    Core.withDefinedValue(
+        cacheMaxSizeBytes,
+        (value) => {
+            writeOption(
+                options,
+                PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME,
+                value
+            );
+        },
+        undefined
+    );
 
     const projectIndexConcurrency = resolveProjectIndexConcurrency(options);
-    Core.withDefinedValue(projectIndexConcurrency, (value) => {
-        writeOption(
-            options,
-            PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME,
-            value
-        );
-    }, undefined);
+    Core.withDefinedValue(
+        projectIndexConcurrency,
+        (value) => {
+            writeOption(
+                options,
+                PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME,
+                value
+            );
+        },
+        undefined
+    );
 
     return { fsFacade, cacheMaxSizeBytes, projectIndexConcurrency };
 }
@@ -360,9 +368,13 @@ function resolveProjectIndexCoordinator(
         options.__identifierCaseProjectIndexCoordinator ?? null;
 
     const coordinatorOptions: any = { fsFacade: fsFacade ?? undefined };
-    Core.withDefinedValue(cacheMaxSizeBytes, (value) => {
-        coordinatorOptions.cacheMaxSizeBytes = value;
-    }, undefined);
+    Core.withDefinedValue(
+        cacheMaxSizeBytes,
+        (value) => {
+            coordinatorOptions.cacheMaxSizeBytes = value;
+        },
+        undefined
+    );
 
     const coordinator =
         coordinatorOverride ??

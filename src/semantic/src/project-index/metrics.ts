@@ -129,7 +129,13 @@ function createNoopProjectIndexMetrics() {
 }
 
 export function createProjectIndexMetrics(
-    options: { metrics?: unknown; logger?: { debug?: (message?: string, payload?: unknown) => void } | null; logMetrics?: boolean } = {}
+    options: {
+        metrics?: unknown;
+        logger?: {
+            debug?: (message?: string, payload?: unknown) => void;
+        } | null;
+        logMetrics?: boolean;
+    } = {}
 ) {
     const { metrics, logger = null, logMetrics = false } = options;
 

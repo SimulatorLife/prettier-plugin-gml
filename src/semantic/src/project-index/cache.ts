@@ -21,34 +21,33 @@ export const PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR =
 // published guidance so operational runbooks stay trustworthy.
 export const PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE = 8 * 1024 * 1024; // 8 MiB
 
-const projectIndexCacheSizeConfig =
-    Core.createEnvConfiguredValueWithFallback({
-        defaultValue: PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE,
-        envVar: PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR,
-        resolve: (value, { fallback }) => {
-            const normalized = normalizeMaxSizeBytes(value);
-            if (normalized !== null) {
-                return normalized;
-            }
+const projectIndexCacheSizeConfig = Core.createEnvConfiguredValueWithFallback({
+    defaultValue: PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE,
+    envVar: PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR,
+    resolve: (value, { fallback }) => {
+        const normalized = normalizeMaxSizeBytes(value);
+        if (normalized !== null) {
+            return normalized;
+        }
 
-            if (value === 0) {
+        if (value === 0) {
+            return 0;
+        }
+
+        const trimmed = Core.getNonEmptyTrimmedString(value);
+
+        if (trimmed !== null) {
+            const numeric = Core.toFiniteNumber(trimmed);
+
+            if (numeric === 0) {
                 return 0;
             }
+        }
 
-            const trimmed = Core.getNonEmptyTrimmedString(value);
-
-            if (trimmed !== null) {
-                const numeric = Core.toFiniteNumber(trimmed);
-
-                if (numeric === 0) {
-                    return 0;
-                }
-            }
-
-            return fallback;
-        },
-        computeFallback: ({ defaultValue }) => defaultValue
-    });
+        return fallback;
+    },
+    computeFallback: ({ defaultValue }) => defaultValue
+});
 
 export const DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE =
     PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE;
@@ -126,10 +125,7 @@ function setDefaultProjectIndexCacheMaxSize(size) {
 }
 
 function applyProjectIndexCacheEnvOverride(env = {}) {
-    Core.applyConfiguredValueEnvOverride(
-        projectIndexCacheSizeConfig,
-        env
-    );
+    Core.applyConfiguredValueEnvOverride(projectIndexCacheSizeConfig, env);
 }
 
 applyProjectIndexCacheEnvOverride();
@@ -150,7 +146,7 @@ function normalizeMaxSizeBytes(maxSizeBytes) {
         return null;
     }
 
-            const numericLimit = Core.toFiniteNumber(maxSizeBytes);
+    const numericLimit = Core.toFiniteNumber(maxSizeBytes);
     if (numericLimit === null || numericLimit <= 0) {
         return null;
     }
@@ -487,7 +483,15 @@ export async function saveProjectIndexCache(
 }
 
 export async function deriveCacheKey(
-    { filepath, projectRoot, formatterVersion = "dev" }: { filepath?: string | null; projectRoot?: string | null; formatterVersion?: string } = {},
+    {
+        filepath,
+        projectRoot,
+        formatterVersion = "dev"
+    }: {
+        filepath?: string | null;
+        projectRoot?: string | null;
+        formatterVersion?: string;
+    } = {},
     fsFacade: ProjectIndexFsFacade = defaultFsFacade
 ) {
     const hash = createHash("sha256");

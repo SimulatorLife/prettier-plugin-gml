@@ -27,9 +27,7 @@ export function formatConfigurationConflictMessage({
     }
 
     if (configConflict.code === IGNORE_CONFLICT_CODE) {
-        const ignoreMatch = Core.isNonEmptyString(
-            configConflict.ignoreMatch
-        )
+        const ignoreMatch = Core.isNonEmptyString(configConflict.ignoreMatch)
             ? ` matches ignore pattern '${configConflict.ignoreMatch}'.`
             : " is ignored by configuration.";
         return `${subject}${ignoreMatch}`;

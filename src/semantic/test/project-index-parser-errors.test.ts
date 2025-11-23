@@ -27,12 +27,17 @@ test("project index parser reports syntax errors with context", () => {
                 /Syntax Error \(objects\/example\/Step_0\.gml: line 2, column \d+\): unexpected symbol ';/
             );
             assert.ok((error as any).message.includes("2 |     var value = ;"));
-            assert.strictEqual((error as any).filePath, "objects/example/Step_0.gml");
+            assert.strictEqual(
+                (error as any).filePath,
+                "objects/example/Step_0.gml"
+            );
             assert.strictEqual(
                 (error as any).sourceExcerpt,
                 "2 |     var value = ;\n  |                 ^"
             );
-            assert.ok((error as any).message.includes((error as any).sourceExcerpt));
+            assert.ok(
+                (error as any).message.includes((error as any).sourceExcerpt)
+            );
             assert.ok((error as any).originalMessage?.includes("Syntax Error"));
             return true;
         }

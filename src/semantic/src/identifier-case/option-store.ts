@@ -169,10 +169,16 @@ export function setIdentifierCaseOption(options, key, value) {
             const prev = options[key];
             const prevSize =
                 prev && typeof prev.size === "number" ? prev.size : null;
-            const prevId = prev && (prev as DebuggableMap)?.__dbgId ? (prev as DebuggableMap).__dbgId : null;
+            const prevId =
+                prev && (prev as DebuggableMap)?.__dbgId
+                    ? (prev as DebuggableMap).__dbgId
+                    : null;
             const newSize =
                 value && typeof value.size === "number" ? value.size : null;
-            const newId = value && (value as DebuggableMap)?.__dbgId ? (value as DebuggableMap).__dbgId : null;
+            const newId =
+                value && (value as DebuggableMap)?.__dbgId
+                    ? (value as DebuggableMap).__dbgId
+                    : null;
             console.debug(
                 `[DBG] setIdentifierCaseOption: writing ${key} prevId=${prevId} prevSize=${String(prevSize)} newId=${newId} newSize=${String(newSize)} filepath=${options?.filepath ?? null}`
             );

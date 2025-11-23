@@ -30,7 +30,7 @@ function resolveEnsureReadyContext({
 }) {
     const { resolvedRoot } = normalizeEnsureReadyDescriptor(descriptor);
     const signal = abortController.signal;
-        Core.throwIfAborted(signal, disposedMessage);
+    Core.throwIfAborted(signal, disposedMessage);
 
     return {
         descriptor,
@@ -74,10 +74,10 @@ async function executeEnsureReadyOperation({
         fsFacade,
         { signal }
     );
-        Core.throwIfAborted(signal, disposedMessage);
+    Core.throwIfAborted(signal, disposedMessage);
 
     if (loadResult.status === ProjectIndexCacheStatus.HIT) {
-            Core.throwIfAborted(signal, disposedMessage);
+        Core.throwIfAborted(signal, disposedMessage);
         return {
             source: "cache",
             projectIndex: loadResult.projectIndex,
@@ -89,7 +89,7 @@ async function executeEnsureReadyOperation({
         ...descriptorOptions?.buildOptions,
         signal
     });
-        Core.throwIfAborted(signal, disposedMessage);
+    Core.throwIfAborted(signal, disposedMessage);
 
     const descriptorMaxSizeBytes =
         descriptorOptions?.maxSizeBytes === undefined
@@ -113,7 +113,7 @@ async function executeEnsureReadyOperation({
             cacheFilePath: loadResult.cacheFilePath
         };
     });
-        Core.throwIfAborted(signal, disposedMessage);
+    Core.throwIfAborted(signal, disposedMessage);
 
     return {
         source: "build",
@@ -132,7 +132,7 @@ export function createProjectIndexCoordinator({
     buildIndex,
     cacheMaxSizeBytes: rawCacheMaxSizeBytes,
     getDefaultCacheMaxSize
-} : any = {}) {
+}: any = {}) {
     const normalizedLoadCache = assertCoordinatorFunction(
         loadCache,
         "loadCache"
@@ -168,7 +168,7 @@ export function createProjectIndexCoordinator({
         if (disposed) {
             throw createDisposedError();
         }
-            Core.throwIfAborted(abortController.signal, DISPOSED_MESSAGE);
+        Core.throwIfAborted(abortController.signal, DISPOSED_MESSAGE);
     }
 
     async function ensureReady(descriptor) {

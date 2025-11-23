@@ -122,7 +122,10 @@ const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION = Object.freeze({
 });
 
 const docCommentTypeNormalizationController = createResolverController({
-    defaultFactory: () => createDocCommentTypeNormalization(DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION),
+    defaultFactory: () =>
+        createDocCommentTypeNormalization(
+            DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION
+        ),
     reuseDefaultValue: true,
     invoke(resolver, options) {
         return resolver({

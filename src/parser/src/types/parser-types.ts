@@ -23,7 +23,8 @@ export interface ParserToken extends Token {
     symbol?: Token | null;
 }
 
-export type ScopeTrackerOptions = { // TODO: Combine directly into ParserOptions?
+export type ScopeTrackerOptions = {
+    // TODO: Combine directly into ParserOptions?
     enabled: boolean;
     createScopeTracker?: () => SemanticScopeTracker;
     getIdentifierMetadata?: boolean; // TODO: Is this needed? Don't we always want the metadata?

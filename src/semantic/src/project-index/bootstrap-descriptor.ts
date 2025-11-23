@@ -12,7 +12,10 @@ type ProjectIndexBuildOptions = {
     concurrency?: { gml: number; gmlParsing: number } | null;
     projectIndexConcurrency?: { gml: number; gmlParsing: number } | null;
     gmlParserFacade?: ProjectIndexParserFacade | null;
-    parserOverride?: { facade?: ProjectIndexParserFacade | null; parse?: (text: string, filePath?: string) => unknown } | null;
+    parserOverride?: {
+        facade?: ProjectIndexParserFacade | null;
+        parse?: (text: string, filePath?: string) => unknown;
+    } | null;
     parseGml?: (text: string, filePath?: string) => unknown | null;
 };
 
@@ -27,12 +30,16 @@ export function createProjectIndexBuildOptions({
         logMetrics
     };
 
-    Core.withDefinedValue(projectIndexConcurrency, (value) => {
-        buildOptions.concurrency = {
-            gml: value,
-            gmlParsing: value
-        };
-    }, undefined);
+    Core.withDefinedValue(
+        projectIndexConcurrency,
+        (value) => {
+            buildOptions.concurrency = {
+                gml: value,
+                gmlParsing: value
+            };
+        },
+        undefined
+    );
 
     if (!parserOverride) {
         return buildOptions;
@@ -44,7 +51,9 @@ export function createProjectIndexBuildOptions({
         buildOptions.gmlParserFacade = facade as ProjectIndexParserFacade;
     }
 
-    buildOptions.parseGml = parse as ((text: string, filePath?: string) => unknown) | null;
+    buildOptions.parseGml = parse as
+        | ((text: string, filePath?: string) => unknown)
+        | null;
 
     return buildOptions;
 }
@@ -78,9 +87,13 @@ export function createProjectIndexDescriptor({
         buildOptions
     };
 
-    Core.withDefinedValue(cacheMaxSizeBytes, (value) => {
-        descriptor.maxSizeBytes = value;
-    }, undefined);
+    Core.withDefinedValue(
+        cacheMaxSizeBytes,
+        (value) => {
+            descriptor.maxSizeBytes = value;
+        },
+        undefined
+    );
 
     return descriptor;
 }

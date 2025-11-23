@@ -3,7 +3,6 @@ import { Core } from "@gml-modules/core";
 import { ScopeTracker } from "./scope-tracker.js";
 
 export class SemanticScopeCoordinator {
-
     private scopeTracker: ScopeTracker;
     private identifierRoleTracker: IdentifierRoleTracker;
     private globalIdentifierRegistry: GlobalIdentifierRegistry;
@@ -55,7 +54,6 @@ export class SemanticScopeCoordinator {
 }
 
 class IdentifierRoleTracker {
-
     identifierRoles: Array<object>;
 
     constructor() {
@@ -151,8 +149,14 @@ export function createIdentifierLocation(token) {
             ? stopIndex - startIndex + 1
             : undefined;
 
-    const buildPoint = (index, column): { line: any; index: any; column?: number } => {
-        const point: { line: any; index: any; column?: number } = { line, index } as any;
+    const buildPoint = (
+        index,
+        column
+    ): { line: any; index: any; column?: number } => {
+        const point: { line: any; index: any; column?: number } = {
+            line,
+            index
+        } as any;
         if (column !== undefined) {
             point.column = column;
         }

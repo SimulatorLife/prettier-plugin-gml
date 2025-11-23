@@ -1,5 +1,8 @@
 import { Core } from "@gml-modules/core";
-import type { GameMakerAstNode, MutableGameMakerAstNode } from "@gml-modules/core";
+import type {
+    GameMakerAstNode,
+    MutableGameMakerAstNode
+} from "@gml-modules/core";
 
 import { setIdentifierCaseOption } from "./option-store.js";
 import type { DebuggableMap, IdentifierCasePlanSnapshot } from "./types.js";
@@ -102,15 +105,15 @@ export function getIdentifierCaseRenameForNode(
                         loc
                     );
                     if (
-                            fileKey &&
-                            typeof renameMap.has === "function" &&
-                            renameMap.has(fileKey)
-                        ) {
-                            console.debug(
-                                `[DBG] getIdentifierCaseRenameForNode: fallback-fileKey-hit fileKey=${String(fileKey)} renameMapId=${getDebugId(renameMap)}`
-                            );
-                            return renameMap.get(fileKey) ?? null;
-                        }
+                        fileKey &&
+                        typeof renameMap.has === "function" &&
+                        renameMap.has(fileKey)
+                    ) {
+                        console.debug(
+                            `[DBG] getIdentifierCaseRenameForNode: fallback-fileKey-hit fileKey=${String(fileKey)} renameMapId=${getDebugId(renameMap)}`
+                        );
+                        return renameMap.get(fileKey) ?? null;
+                    }
                 } catch {
                     /* ignore */
                 }
@@ -192,7 +195,7 @@ export function captureIdentifierCasePlanSnapshot(options) {
                 // diagnose mismatched key encodings between planning and
                 // printing. Keep messages defensive so tests don't crash on
                 // unexpected shapes.
-                    if (Core.isMapLike(snapshot.renameMap)) {
+                if (Core.isMapLike(snapshot.renameMap)) {
                     const samples = [];
                     let i = 0;
                     for (const k of snapshot.renameMap.keys()) {
@@ -277,95 +280,105 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
         /* ignore */
     }
 
-    Core.withObjectLike(options, (object) => {
-        for (const [snapshotKey, optionKey] of SNAPSHOT_OPTION_ENTRIES) {
-            const value = snapshot[snapshotKey];
-            // Special-case the renameMap: avoid applying an empty map as that
-            // would overwrite a previously-captured non-empty plan. Only write
-            // the renameMap when it is map-like and contains at least one
-            // entry. Other snapshot entries follow the existing semantics.
-            if (snapshotKey === "renameMap") {
-                const isMap = Core.isMapLike(value);
-                const size =
-                    isMap && typeof value.size === "number" ? value.size : 0;
-                if (isMap && size > 0 && !object[optionKey]) {
-                    setIdentifierCaseOption(object, optionKey, value);
-                    try {
+    Core.withObjectLike(
+        options,
+        (object) => {
+            for (const [snapshotKey, optionKey] of SNAPSHOT_OPTION_ENTRIES) {
+                const value = snapshot[snapshotKey];
+                // Special-case the renameMap: avoid applying an empty map as that
+                // would overwrite a previously-captured non-empty plan. Only write
+                // the renameMap when it is map-like and contains at least one
+                // entry. Other snapshot entries follow the existing semantics.
+                if (snapshotKey === "renameMap") {
+                    const isMap = Core.isMapLike(value);
+                    const size =
+                        isMap && typeof value.size === "number"
+                            ? value.size
+                            : 0;
+                    if (isMap && size > 0 && !object[optionKey]) {
+                        setIdentifierCaseOption(object, optionKey, value);
                         try {
-                            // Log a small sample of map keys to help diagnose
-                            // mismatches between planner-generated keys and the
-                            // keys used by printer lookups.
-                            const samples = [];
-                            let c = 0;
-                            for (const k of value.keys()) {
-                                samples.push(String(k));
-                                c += 1;
-                                if (c >= 3) break;
+                            try {
+                                // Log a small sample of map keys to help diagnose
+                                // mismatches between planner-generated keys and the
+                                // keys used by printer lookups.
+                                const samples = [];
+                                let c = 0;
+                                for (const k of value.keys()) {
+                                    samples.push(String(k));
+                                    c += 1;
+                                    if (c >= 3) break;
+                                }
+                                console.debug(
+                                    `[DBG] applyIdentifierCasePlanSnapshot: set ${optionKey} id=${getDebugId(value as DebuggableMap)} size=${String(size)} samples=${JSON.stringify(samples)} filepath=${object?.filepath ?? null}`
+                                );
+                            } catch {
+                                /* ignore */
                             }
-                            console.debug(
-                                `[DBG] applyIdentifierCasePlanSnapshot: set ${optionKey} id=${getDebugId(value as DebuggableMap)} size=${String(size)} samples=${JSON.stringify(samples)} filepath=${object?.filepath ?? null}`
-                            );
                         } catch {
                             /* ignore */
                         }
+                    }
+                    // After writing the option, emit an identity check to confirm
+                    // whether the snapshot's map instance is the same object that
+                    // now lives on the options bag. This helps detect cases where
+                    // the map may have been cloned, cleared, or replaced between
+                    // capture and apply.
+                    try {
+                        const current = object[optionKey];
+                        const same = current === value;
+                        const curSize = Core.isMapLike(current)
+                            ? current.size
+                            : null;
+                        console.debug(
+                            `[DBG] applyIdentifierCasePlanSnapshot: post-write identity optionKey=${optionKey} snapshotId=${getDebugId(value as DebuggableMap)} currentId=${getDebugId(current as DebuggableMap)} same=${String(same)} currentSize=${String(curSize)} filepath=${object?.filepath ?? null}`
+                        );
                     } catch {
                         /* ignore */
                     }
+                    continue;
                 }
-                // After writing the option, emit an identity check to confirm
-                // whether the snapshot's map instance is the same object that
-                // now lives on the options bag. This helps detect cases where
-                // the map may have been cloned, cleared, or replaced between
-                // capture and apply.
-                try {
-                    const current = object[optionKey];
-                    const same = current === value;
-                    const curSize = Core.isMapLike(current)
-                        ? current.size
-                        : null;
-                    console.debug(
-                        `[DBG] applyIdentifierCasePlanSnapshot: post-write identity optionKey=${optionKey} snapshotId=${getDebugId(value as DebuggableMap)} currentId=${getDebugId(current as DebuggableMap)} same=${String(same)} currentSize=${String(curSize)} filepath=${object?.filepath ?? null}`
-                    );
-                } catch {
-                    /* ignore */
+
+                if (value && !object[optionKey]) {
+                    setIdentifierCaseOption(object, optionKey, value);
                 }
-                continue;
             }
 
-            if (value && !object[optionKey]) {
-                setIdentifierCaseOption(object, optionKey, value);
-            }
-        }
-
-        defineHiddenOption(object, "__identifierCasePlanSnapshot", snapshot);
-
-        if (
-            snapshot.assetRenamesApplied !== undefined &&
-            object.__identifierCaseAssetRenamesApplied === undefined
-        ) {
-            setIdentifierCaseOption(
-                object,
-                "__identifierCaseAssetRenamesApplied",
-                snapshot.assetRenamesApplied
-            );
-        }
-
-        if (snapshot.dryRun !== null) {
             defineHiddenOption(
                 object,
-                "__identifierCaseDryRun",
-                snapshot.dryRun
+                "__identifierCasePlanSnapshot",
+                snapshot
             );
-        }
 
-        if (snapshot.planGenerated) {
-            setIdentifierCaseOption(
-                object,
-                "__identifierCasePlanGeneratedInternally",
-                true
-            );
-        }
-    }, null);
+            if (
+                snapshot.assetRenamesApplied !== undefined &&
+                object.__identifierCaseAssetRenamesApplied === undefined
+            ) {
+                setIdentifierCaseOption(
+                    object,
+                    "__identifierCaseAssetRenamesApplied",
+                    snapshot.assetRenamesApplied
+                );
+            }
+
+            if (snapshot.dryRun !== null) {
+                defineHiddenOption(
+                    object,
+                    "__identifierCaseDryRun",
+                    snapshot.dryRun
+                );
+            }
+
+            if (snapshot.planGenerated) {
+                setIdentifierCaseOption(
+                    object,
+                    "__identifierCasePlanGeneratedInternally",
+                    true
+                );
+            }
+        },
+        null
+    );
 }
 
 export { buildRenameKey };

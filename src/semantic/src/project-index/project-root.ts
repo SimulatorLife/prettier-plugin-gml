@@ -13,7 +13,10 @@ import { listDirectory } from "./fs-helpers.js";
 // Use canonical Core namespace access instead of destructuring
 // - Core.walkAncestorDirectories
 
-export async function findProjectRoot(options, fsFacade: ProjectIndexFsFacade = defaultFsFacade) {
+export async function findProjectRoot(
+    options,
+    fsFacade: ProjectIndexFsFacade = defaultFsFacade
+) {
     const filepath = options?.filepath;
     const { signal, ensureNotAborted } = createProjectIndexAbortGuard(options, {
         message: PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE

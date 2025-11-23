@@ -11,8 +11,16 @@ const defaultFsFacade = {
     async readFile(targetPath, encoding: BufferEncoding | null = "utf8") {
         return fs.readFile(targetPath, encoding as BufferEncoding | null);
     },
-    async writeFile(targetPath, contents, encoding: BufferEncoding | null = "utf8") {
-        return fs.writeFile(targetPath, contents, encoding as BufferEncoding | null);
+    async writeFile(
+        targetPath,
+        contents,
+        encoding: BufferEncoding | null = "utf8"
+    ) {
+        return fs.writeFile(
+            targetPath,
+            contents,
+            encoding as BufferEncoding | null
+        );
     },
     async rename(fromPath, toPath) {
         return fs.rename(fromPath, toPath);
@@ -29,7 +37,11 @@ export type ProjectIndexFsFacade = Partial<{
     readDir(targetPath: any): Promise<string[]>;
     stat(...args: any[]): Promise<any>;
     readFile(targetPath: any, encoding?: BufferEncoding | null): Promise<any>;
-    writeFile(targetPath: any, contents: any, encoding?: BufferEncoding | null): Promise<any>;
+    writeFile(
+        targetPath: any,
+        contents: any,
+        encoding?: BufferEncoding | null
+    ): Promise<any>;
     rename(fromPath: any, toPath: any): Promise<any>;
     mkdir(targetPath: any, options?: { recursive?: boolean }): Promise<any>;
     unlink(targetPath: any): Promise<any>;

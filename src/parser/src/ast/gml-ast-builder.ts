@@ -1,9 +1,6 @@
 import GameMakerLanguageParserVisitor from "../runtime/game-maker-language-parser-visitor.js";
 import { Core } from "@gml-modules/core";
-import type {
-    GameMakerAstLocation,
-    GameMakerAstNode
-} from "@gml-modules/core";
+import type { GameMakerAstLocation, GameMakerAstNode } from "@gml-modules/core";
 import { Semantic } from "@gml-modules/semantic";
 import BinaryExpressionDelegate from "./binary-expression-delegate.js";
 import type {
@@ -105,7 +102,9 @@ const BINARY_OPERATORS: Record<string, BinaryOperatorInfo> = {
     "??=": { prec: 1, assoc: "right", type: "assign" } // Nullish coalescing assignment
 };
 
-type SemanticScopeTracker = InstanceType<typeof Semantic.SemanticScopeCoordinator>;
+type SemanticScopeTracker = InstanceType<
+    typeof Semantic.SemanticScopeCoordinator
+>;
 
 const GLOBAL_SCOPE_OVERRIDE_KEYWORD = "global" as const;
 
@@ -191,7 +190,9 @@ export default class GameMakerASTBuilder {
         this.options = options;
         this.whitespaces = whitespaces || [];
         this.operatorStack = [];
-        this.scopeTracker = createScopeTrackerFromOptions(options.scopeTrackerOptions);
+        this.scopeTracker = createScopeTrackerFromOptions(
+            options.scopeTrackerOptions
+        );
 
         this.binaryExpressions = new BinaryExpressionDelegate({
             operators: BINARY_OPERATORS
@@ -1291,8 +1292,7 @@ export default class GameMakerASTBuilder {
                     },
                     end: {
                         line:
-                            (symbol?.line ?? 0) +
-                            Core.getLineBreakCount(value),
+                            (symbol?.line ?? 0) + Core.getLineBreakCount(value),
                         index: symbol?.stop ?? symbol?.start ?? 0
                     }
                 });

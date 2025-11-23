@@ -77,8 +77,7 @@ function normalizeProjectSourceExtensions(extensions) {
             );
         }
 
-        const normalizedExtension =
-            Core.normalizeExtensionSuffix(extension);
+        const normalizedExtension = Core.normalizeExtensionSuffix(extension);
         if (!normalizedExtension) {
             throw new TypeError(
                 "Project source extensions cannot be empty strings."

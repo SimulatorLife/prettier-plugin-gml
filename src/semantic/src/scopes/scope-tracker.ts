@@ -1,5 +1,8 @@
 import { Core } from "@gml-modules/core";
-import type { GameMakerAstNode, MutableGameMakerAstNode } from "@gml-modules/core";
+import type {
+    GameMakerAstNode,
+    MutableGameMakerAstNode
+} from "@gml-modules/core";
 
 import {
     ScopeOverrideKeyword,
@@ -57,12 +60,9 @@ function createOccurrence(kind, metadata, source, declarationMetadata) {
             kind,
             name: metadata?.name ?? null,
             scopeId: metadata?.scopeId ?? null,
-            classifications: Core.toMutableArray(
-                metadata?.classifications,
-                {
-                    clone: true
-                }
-            ),
+            classifications: Core.toMutableArray(metadata?.classifications, {
+                clone: true
+            }),
             declaration
         },
         source ?? {}
@@ -78,12 +78,9 @@ function cloneDeclarationMetadata(metadata) {
         {
             name: metadata.name ?? null,
             scopeId: metadata.scopeId ?? null,
-            classifications: Core.toMutableArray(
-                metadata.classifications,
-                {
-                    clone: true
-                }
-            )
+            classifications: Core.toMutableArray(metadata.classifications, {
+                clone: true
+            })
         },
         metadata
     );
@@ -102,12 +99,9 @@ function cloneOccurrence(occurrence) {
             kind: occurrence.kind,
             name: occurrence.name,
             scopeId: occurrence.scopeId,
-            classifications: Core.toMutableArray(
-                occurrence.classifications,
-                {
-                    clone: true
-                }
-            ),
+            classifications: Core.toMutableArray(occurrence.classifications, {
+                clone: true
+            }),
             declaration
         },
         occurrence
@@ -149,7 +143,6 @@ function resolveStringScopeOverride(tracker, scopeOverride, currentScope) {
 }
 
 export class ScopeTracker {
-
     private scopeCounter: number;
     private scopeStack: Scope[];
     private rootScope: Scope | null;
@@ -164,13 +157,15 @@ export class ScopeTracker {
         this.rootScope = null;
         this.scopesById = new Map();
         // Map: symbol -> Map<scopeId, { hasDeclaration: boolean, hasReference: boolean }>
-        this.symbolToScopesIndex = new Map<string, Map<string, { hasDeclaration: boolean; hasReference: boolean }>>();
+        this.symbolToScopesIndex = new Map<
+            string,
+            Map<string, { hasDeclaration: boolean; hasReference: boolean }>
+        >();
         this.scopeStackIndices = new Map();
         this.enabled = Boolean(enabled);
     }
 
     enterScope(kind) {
-
         const parent = this.scopeStack.at(-1) ?? null;
         const scope = new Scope(
             `scope-${this.scopeCounter++}`,
@@ -226,7 +221,10 @@ export class ScopeTracker {
         return currentScope;
     }
 
-    buildClassifications(role?: ScopeRole | null, isDeclaration: boolean = false) {
+    buildClassifications(
+        role?: ScopeRole | null,
+        isDeclaration: boolean = false
+    ) {
         const tags = new Set([
             "identifier",
             isDeclaration ? "declaration" : "reference"
@@ -253,7 +251,11 @@ export class ScopeTracker {
         scope.symbolMetadata.set(name, metadata);
     }
 
-    recordScopeOccurrence(scope: Scope | null | undefined, name: string | null | undefined, occurrence: Occurrence) {
+    recordScopeOccurrence(
+        scope: Scope | null | undefined,
+        name: string | null | undefined,
+        occurrence: Occurrence
+    ) {
         if (!scope || !name || !occurrence) {
             return;
         }
@@ -405,7 +407,9 @@ export class ScopeTracker {
         this.recordScopeOccurrence(scope, name, occurrence);
     }
 
-    exportOccurrences(includeReferences: boolean | { includeReferences?: boolean } = true) {
+    exportOccurrences(
+        includeReferences: boolean | { includeReferences?: boolean } = true
+    ) {
         const includeRefs =
             typeof includeReferences === "boolean"
                 ? includeReferences
@@ -461,7 +465,10 @@ export class ScopeTracker {
      *          Scope occurrence payload or null if the tracker is disabled or
      *          the scope is unknown.
      */
-    getScopeOccurrences(scopeId: string | null | undefined, { includeReferences = true } = {}) {
+    getScopeOccurrences(
+        scopeId: string | null | undefined,
+        { includeReferences = true } = {}
+    ) {
         if (!scopeId) {
             return null;
         }
@@ -651,7 +658,10 @@ export class ScopeTracker {
      *        uses the current scope.
      * @returns {object | null} The declaration metadata if found, or null.
      */
-    resolveIdentifier(name: string | null | undefined, scopeId?: string | null | undefined) {
+    resolveIdentifier(
+        name: string | null | undefined,
+        scopeId?: string | null | undefined
+    ) {
         if (!name) {
             return null;
         }

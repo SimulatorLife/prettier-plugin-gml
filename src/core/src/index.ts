@@ -8,18 +8,17 @@ import * as IdentifierMetadata from "./resources/gml-identifiers.js";
 import * as DeprecatedBuiltinVariables from "./utils/deprecated-builtin-variable-replacements.js";
 
 // Define the Core namespace type from existing module types
-type CoreNamespace =
-    & typeof AST
-    & typeof Utils
-    & typeof Metrics
-    & typeof FS
-    & typeof Resources
-    & typeof IdentifierMetadata
-    & typeof Types
-    & typeof DeprecatedBuiltinVariables;
+type CoreNamespace = typeof AST &
+    typeof Utils &
+    typeof Metrics &
+    typeof FS &
+    typeof Resources &
+    typeof IdentifierMetadata &
+    typeof Types &
+    typeof DeprecatedBuiltinVariables;
 
-// Public namespace flattening mirrors the monorepo convention: expose each 
-// helper directly flattened into the Core namespace so consumers always 
+// Public namespace flattening mirrors the monorepo convention: expose each
+// helper directly flattened into the Core namespace so consumers always
 // import from a single entry point without deep paths or re-export shims.
 export const Core: CoreNamespace = Object.freeze({
     ...AST,

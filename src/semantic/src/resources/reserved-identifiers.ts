@@ -15,9 +15,7 @@ function safelyLoadIdentifierMetadata(loader) {
 }
 
 function defaultLoadIdentifierMetadata() {
-    return safelyLoadIdentifierMetadata(
-        Core.loadBundledIdentifierMetadata
-    );
+    return safelyLoadIdentifierMetadata(Core.loadBundledIdentifierMetadata);
 }
 
 function loadIdentifierMetadata() {
@@ -79,10 +77,11 @@ function resolveExcludedTypes(types) {
     return Core.toNormalizedLowerCaseSet(types);
 }
 
-export function loadReservedIdentifierNames({ disallowedTypes }: { disallowedTypes?: string[] } = {}) {
+export function loadReservedIdentifierNames({
+    disallowedTypes
+}: { disallowedTypes?: string[] } = {}) {
     const metadata = loadIdentifierMetadata();
-    const entries =
-        Core.normalizeIdentifierMetadataEntries(metadata);
+    const entries = Core.normalizeIdentifierMetadataEntries(metadata);
 
     if (entries.length === 0) {
         return new Set();
