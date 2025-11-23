@@ -33,6 +33,10 @@ export type ScopeTrackerOptions = { // TODO: Combine directly into ParserOptions
 export interface ParserOptions {
     getComments: boolean;
     getLocations: boolean;
+    // Request that the parser attach identifier metadata when building
+    // the AST. This metadata enables downstream analysis like scope
+    // tracking and identifier indexing.
+    getIdentifierMetadata?: boolean;
     simplifyLocations: boolean;
     scopeTrackerOptions?: ScopeTrackerOptions;
     astFormat: string;

@@ -20,7 +20,7 @@ const PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME =
 const PROJECT_INDEX_CONCURRENCY_OPTION_NAME =
     "gmlIdentifierCaseProjectIndexConcurrency";
 
-function resolveOptionWithOverride(options, config = {}) {
+function resolveOptionWithOverride(options, config: any = {}) {
     const { onValue, onMissing, internalKey, externalKey } = config;
 
     Core.assertFunction(onValue, "onValue");
@@ -97,7 +97,7 @@ function createFailureResult({
     dispose = Core.noop,
     error = null
 }) {
-    const result = {
+    const result: any = {
         status: "failed",
         reason,
         projectRoot,
@@ -160,10 +160,8 @@ function formatConcurrencyValueError(optionName, received) {
     return `${optionName} must be provided as a positive integer (received ${received}).`;
 }
 
-function coerceCacheMaxSize(
-    numericValue,
-    { optionName, received, isString, rawType }
-) {
+function coerceCacheMaxSize(numericValue: any, context: any) {
+    const { optionName, received, isString, rawType } = context || {};
     if (Number.isFinite(numericValue)) {
         const truncated = Math.trunc(numericValue);
 
@@ -185,7 +183,8 @@ function coerceCacheMaxSize(
     return normalized === 0 ? null : normalized;
 }
 
-function coerceProjectIndexConcurrency(numericValue, { optionName, received }) {
+function coerceProjectIndexConcurrency(numericValue: any, context: any) {
+    const { optionName, received } = context || {};
     const positiveInteger = Core.coercePositiveInteger(numericValue, {
         received,
         createErrorMessage: (value) =>
@@ -288,7 +287,7 @@ function shouldSkipProjectDiscovery(options) {
     return options.gmlIdentifierCaseDiscoverProject === false;
 }
 
-function resolveCoordinatorInputs(options, writeOption) {
+function resolveCoordinatorInputs(options, writeOption: any) {
     const fsFacade = getFsFacade(options);
 
     const cacheMaxSizeBytes = resolveCacheMaxSizeBytes(options);
@@ -298,7 +297,7 @@ function resolveCoordinatorInputs(options, writeOption) {
             PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME,
             value
         );
-    });
+    }, undefined);
 
     const projectIndexConcurrency = resolveProjectIndexConcurrency(options);
     Core.withDefinedValue(projectIndexConcurrency, (value) => {
@@ -307,7 +306,7 @@ function resolveCoordinatorInputs(options, writeOption) {
             PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME,
             value
         );
-    });
+    }, undefined);
 
     return { fsFacade, cacheMaxSizeBytes, projectIndexConcurrency };
 }
@@ -360,10 +359,10 @@ function resolveProjectIndexCoordinator(
     const coordinatorOverride =
         options.__identifierCaseProjectIndexCoordinator ?? null;
 
-    const coordinatorOptions = { fsFacade: fsFacade ?? undefined };
+    const coordinatorOptions: any = { fsFacade: fsFacade ?? undefined };
     Core.withDefinedValue(cacheMaxSizeBytes, (value) => {
         coordinatorOptions.cacheMaxSizeBytes = value;
-    });
+    }, undefined);
 
     const coordinator =
         coordinatorOverride ??
@@ -475,7 +474,7 @@ export async function bootstrapProjectIndex(options, storeOption) {
         logMetrics: options?.logIdentifierCaseMetrics === true,
         projectIndexConcurrency,
         parserOverride
-    });
+    } as any);
 
     const descriptor = createProjectIndexDescriptor({
         projectRoot,
@@ -484,7 +483,7 @@ export async function bootstrapProjectIndex(options, storeOption) {
         formatterVersion: getFormatterVersion(options) ?? undefined,
         pluginVersion: getPluginVersion(options) ?? undefined,
         buildOptions
-    });
+    } as any);
 
     let ready;
     try {

@@ -45,6 +45,8 @@ import {
 import { planAssetRenames, applyAssetRenames } from "./asset-renames.js";
 import { getDefaultIdentifierCaseFsFacade } from "./fs-facade.js";
 import { evaluateIdentifierCaseAssetRenamePolicy } from "./asset-rename-policy.js";
+import type { DebuggableMap } from "./types.js";
+import { getDebugId } from "./types.js";
 
 // Diagnostic counter used during triage to tag generated rename maps so they
 // can be correlated across the prepare->capture->attach->apply lifecycle in
@@ -491,8 +493,7 @@ function planIdentifierRenamesForScope({
                     message,
                     scope: scopeDescriptor,
                     identifier: currentName
-                })
-            );
+                }));
             metrics?.counters?.increment(
                 `${scopeType}.configurationConflicts`,
                 1
@@ -1278,7 +1279,7 @@ export async function prepareIdentifierCasePlan(options) {
     setIdentifierCaseOption(options, "__identifierCaseRenameMap", renameMap);
     try {
         console.debug(
-            `[DBG] prepareIdentifierCasePlan set renameMap id=${(renameMap as any)?.__dbgId ?? null} size=${renameMap.size} operations=${operations.length} conflicts=${conflicts.length}`
+            `[DBG] prepareIdentifierCasePlan set renameMap id=${getDebugId(renameMap)} size=${renameMap.size} operations=${operations.length} conflicts=${conflicts.length}`
         );
     } catch {
         /* ignore */

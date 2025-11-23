@@ -47,7 +47,7 @@ export function resolveGmlPluginComponents(): GmlPluginComponentBundle {
 export function setGmlPluginComponentProvider(
     provider: unknown
 ): GmlPluginComponentBundle {
-    const normalizedProvider = Core.Utils.assertFunction(provider, "provider", {
+    const normalizedProvider = Core.assertFunction(provider, "provider", {
         errorMessage:
             "GML plugin component providers must be functions that return component maps"
     }) as GmlPluginComponentProvider;
@@ -71,23 +71,23 @@ export function getGmlPluginComponentProvider(): GmlPluginComponentProvider {
 const OBSERVER_ABORT_MESSAGE =
     "GML plugin component observer registration was aborted.";
 
-const NOOP_UNSUBSCRIBE = Core.Utils.noop;
+const NOOP_UNSUBSCRIBE = Core.noop;
 
 export function addGmlPluginComponentObserver(
     observer: unknown,
     options: ObserverOptions = {}
 ): () => void {
-    const normalizedObserver = Core.Utils.assertFunction(observer, "observer", {
+    const normalizedObserver = Core.assertFunction(observer, "observer", {
         errorMessage: "GML plugin component observers must be functions"
     }) as GmlPluginComponentObserver;
 
     let signal: AbortSignal | null;
     try {
-        signal = Core.Utils.resolveAbortSignalFromOptions(options, {
+        signal = Core.resolveAbortSignalFromOptions(options, {
             fallbackMessage: OBSERVER_ABORT_MESSAGE
         });
     } catch (error) {
-        if (Core.Utils.isAbortError(error)) {
+        if (Core.isAbortError(error)) {
             return NOOP_UNSUBSCRIBE;
         }
 

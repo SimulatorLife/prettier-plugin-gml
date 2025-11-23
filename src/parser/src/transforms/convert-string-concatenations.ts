@@ -7,7 +7,7 @@ const TEMPLATE_STRING_EXPRESSION = "TemplateStringExpression";
 const TEMPLATE_STRING_TEXT = "TemplateStringText";
 const LITERAL = "Literal";
 const PARENTHESIZED_EXPRESSION = "ParenthesizedExpression";
-// `isNode` is available via `Core.AST.isNode`; we use destructuring below
+// `isNode` is available via `Core.isNode`; we use destructuring below
 
 /**
  * Convert chains of string concatenations into template string expressions.

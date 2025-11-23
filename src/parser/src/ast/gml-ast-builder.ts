@@ -1292,7 +1292,7 @@ export default class GameMakerASTBuilder {
                     end: {
                         line:
                             (symbol?.line ?? 0) +
-                            Core.Utils.getLineBreakCount(value),
+                            Core.getLineBreakCount(value),
                         index: symbol?.stop ?? symbol?.start ?? 0
                     }
                 });
@@ -1647,7 +1647,7 @@ export default class GameMakerASTBuilder {
     visitDefineStatement(ctx: ParserContext): any {
         const regionCharacters = this.ensureToken(ctx.RegionCharacters());
         const rawText = regionCharacters ? regionCharacters.getText() : "";
-        const trimmed = Core.Utils.getNonEmptyTrimmedString(rawText);
+        const trimmed = Core.getNonEmptyTrimmedString(rawText);
 
         if (!trimmed) {
             return null;

@@ -46,7 +46,7 @@ describe("project index scope tracking", () => {
         const { projectRoot } = await createScopeFixtureProject();
 
         try {
-            const index = await buildProjectIndex(projectRoot);
+            const index: any = await buildProjectIndex(projectRoot);
 
             const macros = index.identifiers.macros;
             assert.ok(
@@ -70,7 +70,7 @@ describe("project index scope tracking", () => {
                 "expected GLOBAL_SCORE declaration to be tracked"
             );
 
-            const enumEntries = Object.values(index.identifiers.enums);
+            const enumEntries = Object.values(index.identifiers.enums) as any[];
             const difficultyEnum = enumEntries.find(
                 (entry) => entry.name === "Difficulty"
             );
@@ -83,7 +83,7 @@ describe("project index scope tracking", () => {
                 "expected DifficultyCopy enum to be present"
             );
 
-            const enumMembers = Object.values(index.identifiers.enumMembers);
+            const enumMembers = Object.values(index.identifiers.enumMembers) as any[];
             const hasEasyMember = enumMembers.filter(
                 (entry) => entry.name === "Easy"
             );

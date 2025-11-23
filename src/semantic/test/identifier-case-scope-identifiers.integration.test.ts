@@ -76,7 +76,7 @@ describe("project index identifier tracking", () => {
         const { projectRoot } = await createIdentifierFixtureProject();
 
         try {
-            const index = await buildProjectIndex(projectRoot);
+            const index: any = await buildProjectIndex(projectRoot);
 
             const scriptEntry =
                 index.identifiers.scripts["scope:script:scopeCollision"];
@@ -104,7 +104,7 @@ describe("project index identifier tracking", () => {
                 "global:GLOBAL_RATE"
             );
 
-            const enumEntries = Object.values(index.identifiers.enums);
+            const enumEntries = Object.values(index.identifiers.enums) as any[];
             assert.ok(enumEntries.length >= 2, "expected enum entries");
             for (const entry of enumEntries) {
                 assert.ok(
@@ -113,7 +113,7 @@ describe("project index identifier tracking", () => {
                 );
             }
 
-            const enumMembers = Object.values(index.identifiers.enumMembers);
+            const enumMembers = Object.values(index.identifiers.enumMembers) as any[];
             const sharedMembers = enumMembers.filter(
                 (entry) => entry.name === "Bronze"
             );
@@ -127,7 +127,7 @@ describe("project index identifier tracking", () => {
 
             const instanceEntries = Object.values(
                 index.identifiers.instanceVariables
-            );
+            ) as any[];
             const speedBonusNames = instanceEntries.filter((entry) =>
                 ["speed_bonus", "SpeedBonus", "speedBonus"].includes(entry.name)
             );

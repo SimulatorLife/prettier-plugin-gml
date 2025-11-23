@@ -29,7 +29,7 @@ function mergeParserOptions(
     baseOptions: ParserOptions,
     overrides: Partial<ParserOptions> | undefined
 ): ParserOptions {
-    const overrideObject = Core.Utils.isObjectLike(overrides) ? overrides : {};
+    const overrideObject = Core.isObjectLike(overrides) ? overrides : {};
     return Object.assign({}, baseOptions, overrideObject) as ParserOptions;
 }
 
@@ -42,7 +42,7 @@ export class GMLParser {
 
     constructor(text: string, options: Partial<ParserOptions> = {}) {
         this.originalText = text;
-        this.text = Core.Utils.normalizeSimpleEscapeCase(text);
+        this.text = Core.normalizeSimpleEscapeCase(text);
         this.whitespaces = [];
         this.comments = [];
         const parserConstructor =
@@ -95,7 +95,7 @@ export class GMLParser {
                 );
             }
 
-            if (Core.Utils.isErrorLike(error)) {
+            if (Core.isErrorLike(error)) {
                 throw error;
             }
 
@@ -196,14 +196,14 @@ export class GMLParser {
             return undefined;
         };
 
-        Core.AST.walkObjectGraph(root, {
+        Core.walkObjectGraph(root, {
             enterObject: (node) => {
                 const startIndex = getIndex(node, "start");
                 const endIndex = getIndex(node, "end");
 
                 if (
                     node.type === "Literal" &&
-                    Core.Utils.isQuotedString(node.value)
+                    Core.isQuotedString(node.value)
                 ) {
                     if (
                         Number.isInteger(startIndex) &&
@@ -269,4 +269,4 @@ export class GMLParser {
     }
 }
 
-export const getLineBreakCount = Core.Utils.getLineBreakCount;
+export const getLineBreakCount = Core.getLineBreakCount;

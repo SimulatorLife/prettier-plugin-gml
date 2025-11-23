@@ -20,12 +20,12 @@ function createMockFs(entries) {
             const normalizedPath = path.resolve(targetPath);
             const node = normalizedEntries.get(normalizedPath);
             if (!node) {
-                const error = new Error(`No such directory: ${normalizedPath}`);
-                error.code = "ENOENT";
+                    const error: any = new Error(`No such directory: ${normalizedPath}`);
+                    error.code = "ENOENT";
                 throw error;
             }
             if (node.type !== "dir") {
-                const error = new Error(`Not a directory: ${normalizedPath}`);
+                const error: any = new Error(`Not a directory: ${normalizedPath}`);
                 error.code = "ENOTDIR";
                 throw error;
             }
@@ -35,8 +35,8 @@ function createMockFs(entries) {
             const normalizedPath = path.resolve(targetPath);
             const node = normalizedEntries.get(normalizedPath);
             if (!node) {
-                const error = new Error(`No such file: ${normalizedPath}`);
-                error.code = "ENOENT";
+                    const error: any = new Error(`No such file: ${normalizedPath}`);
+                    error.code = "ENOENT";
                 throw error;
             }
             return { mtimeMs: node.mtimeMs ?? 0 };
@@ -137,7 +137,7 @@ test("findProjectRoot surfaces abort message before filesystem access", async ()
             stubFs
         ),
         (error) => {
-            assert.equal(error?.message, "Project root discovery was aborted.");
+            assert.equal((error as any)?.message, "Project root discovery was aborted.");
             return true;
         }
     );
@@ -250,7 +250,7 @@ test("loadBuiltInIdentifiers respects abort guard", async () => {
             signal: controller.signal
         }),
         (error) => {
-            assert.equal(error?.message, "Project index build was aborted.");
+            assert.equal((error as any)?.message, "Project index build was aborted.");
             return true;
         }
     );

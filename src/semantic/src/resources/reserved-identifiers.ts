@@ -1,8 +1,7 @@
 import { Core } from "@gml-modules/core";
 
 const DEFAULT_EXCLUDED_TYPES = new Set(["literal", "keyword"]);
-const DEFAULT_IDENTIFIER_METADATA_PATH =
-    Core.Resources.GML_IDENTIFIER_METADATA_PATH;
+const DEFAULT_IDENTIFIER_METADATA_PATH = Core.GML_IDENTIFIER_METADATA_PATH;
 
 let metadataLoader = defaultLoadIdentifierMetadata;
 
@@ -17,7 +16,7 @@ function safelyLoadIdentifierMetadata(loader) {
 
 function defaultLoadIdentifierMetadata() {
     return safelyLoadIdentifierMetadata(
-        Core.Resources.loadBundledIdentifierMetadata
+        Core.loadBundledIdentifierMetadata
     );
 }
 
@@ -80,10 +79,10 @@ function resolveExcludedTypes(types) {
     return Core.toNormalizedLowerCaseSet(types);
 }
 
-export function loadReservedIdentifierNames({ disallowedTypes } = {}) {
+export function loadReservedIdentifierNames({ disallowedTypes }: { disallowedTypes?: string[] } = {}) {
     const metadata = loadIdentifierMetadata();
     const entries =
-        Core.IdentifierMetadata.normalizeIdentifierMetadataEntries(metadata);
+        Core.normalizeIdentifierMetadataEntries(metadata);
 
     if (entries.length === 0) {
         return new Set();

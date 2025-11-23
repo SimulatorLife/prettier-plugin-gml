@@ -67,7 +67,7 @@ describe("asset rename executor filesystem utilities", () => {
         const ensuredDirectories = [];
         const fsFacade = {
             statSync() {
-                const error = new Error("missing file");
+                const error: any = new Error("missing file");
                 error.code = "ENOENT";
                 throw error;
             },

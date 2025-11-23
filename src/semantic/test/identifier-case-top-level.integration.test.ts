@@ -58,7 +58,7 @@ async function createTempProject({
             JSON.stringify({ resourceType: "GMScript", name: scriptName })
         );
 
-        const scriptFixturePath = path.join(fixturesDirectory, fixtureName);
+        const scriptFixturePath = path.join(fixturesDirectory, String(fixtureName));
         const scriptSource = await fs.readFile(scriptFixturePath, "utf8");
         const scriptPath = await writeFile(
             `scripts/${scriptName}/${scriptName}.gml`,
@@ -155,7 +155,7 @@ describe("identifier case top-level renaming", () => {
                 });
 
                 const diagnostics = [];
-                const options = {
+                const options: any = {
                     ...baseOptions,
                     filepath: script.path,
                     diagnostics
@@ -273,7 +273,7 @@ describe("identifier case top-level renaming", () => {
                 });
 
                 const diagnostics = [];
-                const options = {
+                const options: any = {
                     ...baseOptions,
                     filepath: script.path,
                     diagnostics

@@ -109,7 +109,7 @@ function buildIdentifierCaseOptionKeys(baseName) {
     return [`__identifierCase${baseName}`, `identifierCase${baseName}`];
 }
 
-function getIdentifierCaseOption(options, baseName, coalesceOptions) {
+function getIdentifierCaseOption(options, baseName, coalesceOptions?) {
     return Core.coalesceOption(
         options,
         buildIdentifierCaseOptionKeys(baseName),
@@ -117,7 +117,7 @@ function getIdentifierCaseOption(options, baseName, coalesceOptions) {
     );
 }
 
-function extractOperations(plan: unknown) {
+function extractOperations(plan: any) {
     if (Array.isArray(plan)) {
         return plan;
     }
@@ -695,7 +695,7 @@ function resolveInlineReportContext(options, renamePlan) {
     const conflicts = getIdentifierCaseOption(options, "Conflicts", {
         fallback: []
     });
-    const dryRun = getIdentifierCaseOption(options, "DryRun");
+    const dryRun = getIdentifierCaseOption(options, "DryRun", { fallback: null });
     const logFilePath = getIdentifierCaseOption(options, "ReportLogPath", {
         fallback: null
     });
@@ -729,7 +729,7 @@ function resolveReportContext(options) {
 }
 
 function resolveDryRunFlag(options, contextDryRun) {
-    const explicitDryRun = getIdentifierCaseOption(options, "DryRun");
+    const explicitDryRun = getIdentifierCaseOption(options, "DryRun", { fallback: null });
     if (explicitDryRun !== undefined) {
         return explicitDryRun !== false;
     }
@@ -741,7 +741,7 @@ function resolveDryRunFlag(options, contextDryRun) {
     return false;
 }
 
-function finalizeIdentifierCaseReport(options, result) {
+function finalizeIdentifierCaseReport(options, result? /* optional */) {
     setIdentifierCaseOption(options, "__identifierCaseReportEmitted", true);
 
     if (result !== undefined) {

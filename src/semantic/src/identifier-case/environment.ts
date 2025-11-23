@@ -4,6 +4,8 @@ import {
     prepareIdentifierCasePlan,
     captureIdentifierCasePlanSnapshot
 } from "./plan-service.js";
+import type { IdentifierCasePlanSnapshot } from "./types.js";
+import { getDebugId } from "./types.js";
 
 import {
     setIdentifierCaseOption,
@@ -148,7 +150,7 @@ export function attachIdentifierCasePlanSnapshot(ast, options) {
     Core.withObjectLike(
         ast,
         (objectAst) => {
-            const snapshot = captureIdentifierCasePlanSnapshot(options);
+            const snapshot: IdentifierCasePlanSnapshot | null = captureIdentifierCasePlanSnapshot(options);
             // Only attach snapshots that carry meaningful planning state.
             // Empty snapshots (no renameMap and no planGenerated) are common
             // when callers omit a filepath and would otherwise overwrite a
@@ -172,7 +174,7 @@ export function attachIdentifierCasePlanSnapshot(ast, options) {
                         if (c >= 5) break;
                     }
                     console.debug(
-                        `[DBG] attachIdentifierCasePlanSnapshot: attaching snapshot for filepath=${options?.filepath ?? null} planGenerated=${Boolean(snapshot.planGenerated)} renameMapSize=${snapshot.renameMap.size} renameMapId=${snapshot.renameMap.__dbgId ?? null} samples=${JSON.stringify(samples)}`
+                        `[DBG] attachIdentifierCasePlanSnapshot: attaching snapshot for filepath=${options?.filepath ?? null} planGenerated=${Boolean(snapshot.planGenerated)} renameMapSize=${snapshot.renameMap.size} renameMapId=${getDebugId(snapshot.renameMap)} samples=${JSON.stringify(samples)}`
                     );
                 } else {
                     console.debug(

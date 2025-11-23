@@ -13,10 +13,10 @@ import {
 } from "../src/identifier-case/option-store.js";
 
 function buildOptions(fileIndex, overrides = {}) {
-    return {
+    return ({
         filepath: `/project/scripts/file-${fileIndex}.gml`,
         ...overrides
-    };
+    } as any);
 }
 
 test.afterEach(() => {

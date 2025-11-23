@@ -20,15 +20,15 @@ function selectPluginComponents(): GmlPluginComponentBundle {
     return resolveGmlPluginComponents();
 }
 
-const parsers = Core.Utils.createReadOnlyView<
+const parsers = Core.createReadOnlyView<
     GmlPluginComponentBundle["parsers"]
 >(() => selectPluginComponents().parsers, "GML plugin parsers");
 
-const printers = Core.Utils.createReadOnlyView<
+const printers = Core.createReadOnlyView<
     GmlPluginComponentBundle["printers"]
 >(() => selectPluginComponents().printers, "GML plugin printers");
 
-const options = Core.Utils.createReadOnlyView<SupportOptions>(
+const options = Core.createReadOnlyView<SupportOptions>(
     () => selectPluginComponents().options,
     "GML plugin options"
 );
@@ -81,7 +81,7 @@ function createDefaultOptionsSnapshot(): GmlPluginDefaultOptions {
     };
 }
 
-const defaultOptions = Core.Utils.createReadOnlyView<GmlPluginDefaultOptions>(
+const defaultOptions = Core.createReadOnlyView<GmlPluginDefaultOptions>(
     () => createDefaultOptionsSnapshot(),
     "GML default options"
 );

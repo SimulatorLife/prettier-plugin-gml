@@ -313,7 +313,7 @@ function buildNormalizedIdentifier(identifier, match) {
     };
 }
 
-export function normalizeIdentifierCaseWithOptions(identifier, options = {}) {
+export function normalizeIdentifierCaseWithOptions(identifier, options: any = {}) {
     const overrides = normalizeReservedPrefixOverrides(
         options.reservedPrefixes
     );
@@ -329,7 +329,7 @@ export function normalizeIdentifierCaseWithOptions(identifier, options = {}) {
     return buildNormalizedIdentifier(identifier, match);
 }
 
-export function formatIdentifierCaseWithOptions(input, style, options = {}) {
+export function formatIdentifierCaseWithOptions(input, style, options: any = {}) {
     const normalized =
         typeof input === "string"
             ? normalizeIdentifierCaseWithOptions(input, options)
@@ -339,7 +339,7 @@ export function formatIdentifierCaseWithOptions(input, style, options = {}) {
     return format(normalized);
 }
 
-export function isIdentifierCaseWithOptions(identifier, style, options = {}) {
+export function isIdentifierCaseWithOptions(identifier, style, options: any = {}) {
     const normalized = normalizeIdentifierCaseWithOptions(identifier, options);
     const format = getIdentifierCaseFormatter(style);
     return format(normalized) === identifier;

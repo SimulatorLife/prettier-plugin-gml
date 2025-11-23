@@ -240,9 +240,12 @@ function normalizeList(optionName, value) {
     });
 }
 
-function resolveScopeSettings(options, baseStyle) {
-    const scopeSettings = {};
-    const scopeStyles = {};
+function resolveScopeSettings(
+    options: any,
+    baseStyle: string
+): { scopeSettings: Record<string, string>; scopeStyles: Record<string, string> } {
+    const scopeSettings: Record<string, string> = {};
+    const scopeStyles: Record<string, string> = {};
 
     for (const scope of IDENTIFIER_CASE_SCOPE_NAMES) {
         const optionName = getScopeOptionName(scope);

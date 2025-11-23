@@ -7,13 +7,13 @@ import {
     setReservedIdentifierMetadataLoader
 } from "../src/resources/reserved-identifiers.js";
 
-function toSortedArray(set) {
-    return Array.from(set).reduce((acc, item) => {
+function toSortedArray(set: Set<any>) {
+    return Array.from(set).reduce((acc: any[], item: any) => {
         const insertIndex = acc.findIndex((existing) => existing > item);
         return insertIndex === -1
             ? [...acc, item]
             : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
-    }, []);
+    }, [] as any[]);
 }
 
 test.afterEach(() => {

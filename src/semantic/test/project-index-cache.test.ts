@@ -51,10 +51,7 @@ test("assertProjectIndexCacheStatus validates status strings", () => {
         () => assertProjectIndexCacheStatus("invalid-status"),
         (error) => {
             assert.equal(error instanceof TypeError, true);
-            assert.match(
-                error.message,
-                /Project index cache status must be one of:/
-            );
+                assert.match((error as any).message, /Project index cache status must be one of:/);
             return true;
         }
     );
@@ -497,11 +494,11 @@ test("createProjectIndexCoordinator aborts in-flight builds on dispose", async (
                 size: 1
             };
         },
-        buildIndex: async (root, fsFacade, options = {}) => {
-            buildStarted.resolve(options.signal ?? null);
+        buildIndex: async (root, fsFacade, options: any = {}) => {
+            buildStarted.resolve((options as any).signal ?? null);
 
             await new Promise((_resolve, reject) => {
-                const { signal } = options;
+                const { signal } = options as any;
                 if (!signal) {
                     reject(new Error("Expected abort signal"));
                     return;

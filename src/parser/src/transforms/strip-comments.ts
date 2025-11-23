@@ -20,7 +20,7 @@ export function transform(ast: any, opts: any = {}) {
 
     // Remove comment nodes from any comments arrays and delete doc-like
     // metadata fields when requested.
-    Core.AST.walkObjectGraph(ast, {
+    Core.walkObjectGraph(ast, {
         enterObject(value) {
             if (!value || typeof value !== "object") {
                 return;

@@ -10,7 +10,7 @@ describe("identifier case asset rename planning", () => {
             () =>
                 planAssetRenames({
                     projectIndex: { resources: {} },
-                    assetStyle: "kebab"
+                    assetStyle: "kebab" as any
                 }),
             /invalid identifier case style/i
         );

@@ -120,13 +120,16 @@ class TestMetricsTracker {
         });
     }
     category = "custom-metrics";
+
+    recording: any;
+    reporting: any;
 }
 
 test("buildProjectIndex falls back to a noop metrics tracker when override is invalid", async () => {
     const { projectRoot, cleanup } = await createProjectFixture();
 
     try {
-        const index = await buildProjectIndex(projectRoot, undefined, {
+        const index: any = await buildProjectIndex(projectRoot, undefined, {
             metrics: {}
         });
 
@@ -148,7 +151,7 @@ test("buildProjectIndex reuses a provided metrics tracker", async () => {
     const tracker = new TestMetricsTracker();
 
     try {
-        const index = await buildProjectIndex(projectRoot, undefined, {
+        const index: any = await buildProjectIndex(projectRoot, undefined, {
             metrics: tracker
         });
 
@@ -165,7 +168,7 @@ test("buildProjectIndex reuses a provided metrics tracker", async () => {
 });
 
 test("createMetricsTracker trims and deduplicates configured cache keys", () => {
-    const tracker = Core.Reporting.createMetricsTracker({
+    const tracker = Core.createMetricsTracker({
         cacheKeys: new Set([
             " hits ",
             "Misses",
@@ -179,7 +182,7 @@ test("createMetricsTracker trims and deduplicates configured cache keys", () => 
 
     tracker.recording.caches.recordMetric("demo", "custom", 0);
 
-    assert.deepEqual(tracker.reporting.caches.cacheSnapshot("demo"), {
+    assert.deepEqual(tracker.reporting.caches.cacheSnapshot("demo", {}), {
         hits: 0,
         Misses: 0,
         custom: 0,
@@ -188,13 +191,13 @@ test("createMetricsTracker trims and deduplicates configured cache keys", () => 
 });
 
 test("createMetricsTracker falls back to default cache keys when normalization is empty", () => {
-    const tracker = Core.Reporting.createMetricsTracker({
+    const tracker = Core.createMetricsTracker({
         cacheKeys: [null, "   "]
     });
 
     tracker.recording.caches.recordMetric("demo", "custom", 0);
 
-    assert.deepEqual(tracker.reporting.caches.cacheSnapshot("demo"), {
+    assert.deepEqual(tracker.reporting.caches.cacheSnapshot("demo", {}), {
         hits: 0,
         misses: 0,
         stale: 0,
@@ -203,11 +206,11 @@ test("createMetricsTracker falls back to default cache keys when normalization i
 });
 
 test("createMetricsTracker falls back to default cache keys when option is invalid", () => {
-    const tracker = Core.Reporting.createMetricsTracker({ cacheKeys: 42 });
+    const tracker = Core.createMetricsTracker({ cacheKeys: 42 as any });
 
     tracker.recording.caches.recordMetric("demo", "custom", 0);
 
-    assert.deepEqual(tracker.reporting.caches.cacheSnapshot("demo"), {
+    assert.deepEqual(tracker.reporting.caches.cacheSnapshot("demo", {}), {
         hits: 0,
         misses: 0,
         stale: 0,

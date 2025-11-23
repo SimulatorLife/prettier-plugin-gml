@@ -87,14 +87,14 @@ function setDefaultProjectIndexGmlConcurrencyLimit(limit) {
     return projectIndexConcurrencyLimitConfig.set(limit);
 }
 
-function applyProjectIndexConcurrencyEnvOverride(env) {
+function applyProjectIndexConcurrencyEnvOverride(env?: Record<string, string> | null) {
     Core.applyConfiguredValueEnvOverride(
         projectIndexConcurrencyConfig,
         env
     );
 }
 
-function applyProjectIndexConcurrencyLimitEnvOverride(env) {
+function applyProjectIndexConcurrencyLimitEnvOverride(env?: Record<string, string> | null) {
     Core.applyConfiguredValueEnvOverride(
         projectIndexConcurrencyLimitConfig,
         env

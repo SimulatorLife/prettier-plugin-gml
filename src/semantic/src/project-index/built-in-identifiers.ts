@@ -1,6 +1,6 @@
 import { Core } from "@gml-modules/core";
 
-import { defaultFsFacade } from "./fs-facade.js";
+import { defaultFsFacade, ProjectIndexFsFacade } from "./fs-facade.js";
 import { createProjectIndexAbortGuard } from "./abort-guard.js";
 import { getFileMtime } from "./fs-helpers.js";
 
@@ -58,7 +58,7 @@ function areMtimesEquivalent(cachedMtime, currentMtime) {
 }
 
 export async function loadBuiltInIdentifiers(
-    fsFacade = defaultFsFacade,
+    fsFacade: ProjectIndexFsFacade = defaultFsFacade,
     metrics = null,
     options: any = {}
 ) {

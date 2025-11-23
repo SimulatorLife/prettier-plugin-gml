@@ -42,7 +42,7 @@ function assertHasComponent(
     name: string,
     context: string
 ): void {
-    if (!Core.Utils.hasOwn(components, name)) {
+    if (!Core.hasOwn(components, name)) {
         throw new TypeError(createMissingComponentMessage(context, name));
     }
 }
@@ -67,7 +67,7 @@ export function createPluginComponentContractNormalizer(context?: string) {
     return function normalizePluginComponentContract(
         candidate: unknown
     ): GmlPluginComponentContract {
-        const components = Core.Utils.assertPlainObject(candidate, {
+        const components = Core.assertPlainObject(candidate, {
             errorMessage: `${contextErrorPrefix} must resolve to an object.`
         }) as Record<string, unknown>;
 
@@ -76,7 +76,7 @@ export function createPluginComponentContractNormalizer(context?: string) {
         }
 
         for (const { name } of REQUIRED_OBJECT_COMPONENTS) {
-            Core.Utils.assertPlainObject(components[name], {
+            Core.assertPlainObject(components[name], {
                 name,
                 errorMessage: createMissingComponentMessage(
                     normalizedContext,
@@ -86,7 +86,7 @@ export function createPluginComponentContractNormalizer(context?: string) {
         }
 
         for (const { name } of REQUIRED_FUNCTION_COMPONENTS) {
-            Core.Utils.assertFunction(components[name], name, {
+            Core.assertFunction(components[name], name, {
                 errorMessage: createMissingComponentMessage(
                     normalizedContext,
                     name

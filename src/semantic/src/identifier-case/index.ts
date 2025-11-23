@@ -6,7 +6,8 @@ export * from "./identifier-case-context.js";
 export * from "./identifier-case-report.js";
 export * from "./environment.js";
 export * from "./identifier-case-utils.js";
-export * from "./local-plan.js";
+// Local plan exports are intentionally not re-exported to avoid duplicating
+// public APIs that 'plan-service' already exposes.
 export * from "./project-index-bootstrap.js";
 export * from "./project-index-gateway.js";
 export * from "./asset-renames.js";

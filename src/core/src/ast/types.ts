@@ -8,6 +8,8 @@ export interface GameMakerAstLocation {
     line?: number | null;
     /** Zero-based index when available (typically same as Character/Column). */
     index?: number | null;
+    /** Optional column (human-friendly one-based column) for diagnostics. */
+    column?: number | null;
 }
 
 export interface FeatherFixRange {
@@ -31,10 +33,10 @@ export interface FeatherFixDetail {
 export interface GameMakerAstNode {
     /** AST node kind (e.g., "Identifier", "Literal"). */
     type?: string | null;
-    /** Location of the node’s start. */
-    start?: GameMakerAstLocation | null;
-    /** Location of the node’s end. */
-    end?: GameMakerAstLocation | null;
+    /** Location of the node’s start. Some transforms normalize the start to a numeric index. */
+    start?: number | GameMakerAstLocation | null;
+    /** Location of the node’s end. Some transforms normalize the end to a numeric index. */
+    end?: number | GameMakerAstLocation | null;
     /** Source text captured alongside the node when available. */
     sourceText?: string | null;
     /** Attached comments or documentation metadata. */
@@ -47,6 +49,14 @@ export interface GameMakerAstNode {
     _hasTrailingInlineComment?: boolean;
     _removedByConsolidation?: boolean;
     _featherMaterializedTrailingUndefined?: boolean;
+    /** Opt-in runtime metadata flags used by semantic modules */
+    isGlobalIdentifier?: boolean;
+    /** Scope identifier assigned by semantic scope tracker */
+    scopeId?: string | null;
+    /** Declaration metadata attached to identifier nodes */
+    declaration?: MutableGameMakerAstNode | null;
+    /** Classification tags assigned by semantic passes (e.g., 'declaration', 'reference') */
+    classifications?: Array<string> | null;
     /** Contained sub-node (eg. `foo.bar`). */
     object?: unknown;
     /** Contained sub-node (eg. `foo.bar`). */

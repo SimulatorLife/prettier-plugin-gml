@@ -6,7 +6,7 @@ import {
     prepareIdentifierCaseEnvironment,
     teardownIdentifierCaseEnvironment
 } from "../src/identifier-case/environment.js";
-import * as Plugin from "@gml-modules/plugin";
+import { Plugin } from "@gml-modules/plugin";
 import { clearIdentifierCaseOptionStore } from "../src/identifier-case/option-store.js";
 
 function createBootstrap(dispose) {
@@ -28,7 +28,7 @@ test("identifier case bootstrap disposes when the environment is torn down", asy
         disposeCount += 1;
     });
 
-    const options = {
+    const options: any = {
         filepath,
         __identifierCasePlanGeneratedInternally: true,
         __identifierCaseProjectIndexBootstrap: bootstrap,
@@ -59,15 +59,13 @@ test("identifier case bootstrap is disposed when parsing fails", async () => {
         }
     };
 
-    const options = {
+    const options: any = {
         filepath,
         __identifierCasePlanGeneratedInternally: true,
         __identifierCaseProjectIndexBootstrap: bootstrap
     };
 
-    await assert.rejects(() =>
-        Plugin.Parsers.gmlParserAdapter.parse("if (", options)
-    );
+    assert.throws(() => Plugin.parsers.gmlParserAdapter.parse("if (", options));
 
     assert.equal(disposeCalls, 1);
 

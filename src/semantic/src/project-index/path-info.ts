@@ -24,7 +24,7 @@ import { Core } from "@gml-modules/core";
  *   relativePath: string
  * } | null}
  */
-export function resolveProjectPathInfo(filePath, projectRoot) {
+export function resolveProjectPathInfo(filePath, projectRoot?: string | null) {
     if (!Core.isNonEmptyString(filePath)) {
         return null;
     }

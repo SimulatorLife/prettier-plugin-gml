@@ -23,7 +23,7 @@ export * from "./path-normalization.js";
 // import path from "node:path";
 // import { Core } from "@gml-modules/core";
 
-// import { defaultFsFacade } from "./fs-facade.js";
+import { defaultFsFacade, ProjectIndexFsFacade } from "./fs-facade.js";
 // import { clampConcurrency } from "./concurrency.js";
 // import { resolveProjectIndexParser } from "./parser-override.js";
 // import {
@@ -2083,11 +2083,11 @@ export * from "./path-normalization.js";
 //     return projectIndex;
 // }
 
-// export async function buildProjectIndex(
-//     projectRoot,
-//     fsFacade = defaultFsFacade,
-//     options = {}
-// ) {
+export async function buildProjectIndex(
+	projectRoot: string,
+	fsFacade: ProjectIndexFsFacade = defaultFsFacade,
+	options: any = {}
+ ): Promise<any> {
 //     if (!projectRoot) {
 //         throw new Error("projectRoot must be provided to buildProjectIndex");
 //     }
@@ -2179,7 +2179,8 @@ export * from "./path-normalization.js";
 //         options,
 //         projectIndex
 //     });
-// }
+	return null as any;
+ }
 // export { defaultFsFacade } from "./fs-facade.js";
 
 // export {

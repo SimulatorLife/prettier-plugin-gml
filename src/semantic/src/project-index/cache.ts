@@ -3,7 +3,7 @@ import { Core } from "@gml-modules/core";
 import { createHash, randomUUID } from "node:crypto";
 
 import { isProjectManifestPath } from "./constants.js";
-import { defaultFsFacade } from "./fs-facade.js";
+import { defaultFsFacade, ProjectIndexFsFacade } from "./fs-facade.js";
 import { getFileMtime, listDirectory } from "./fs-helpers.js";
 
 export const PROJECT_INDEX_CACHE_SCHEMA_VERSION = 1;
@@ -264,7 +264,7 @@ export {
 
 export async function loadProjectIndexCache(
     descriptor,
-    fsFacade = defaultFsFacade,
+    fsFacade: ProjectIndexFsFacade = defaultFsFacade,
     options = {}
 ) {
     const {
@@ -390,7 +390,7 @@ export async function loadProjectIndexCache(
 
 export async function saveProjectIndexCache(
     descriptor,
-    fsFacade = defaultFsFacade,
+    fsFacade: ProjectIndexFsFacade = defaultFsFacade,
     options = {}
 ) {
     const {
@@ -488,7 +488,7 @@ export async function saveProjectIndexCache(
 
 export async function deriveCacheKey(
     { filepath, projectRoot, formatterVersion = "dev" }: { filepath?: string | null; projectRoot?: string | null; formatterVersion?: string } = {},
-    fsFacade = defaultFsFacade
+    fsFacade: ProjectIndexFsFacade = defaultFsFacade
 ) {
     const hash = createHash("sha256");
     hash.update(String(formatterVersion));

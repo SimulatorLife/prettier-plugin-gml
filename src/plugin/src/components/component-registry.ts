@@ -9,7 +9,7 @@ export function createSingletonComponentRegistry<T>({
     description,
     factory
 }: RegistryOptions<T>) {
-    const normalizedFactory = Core.Utils.assertFunction(factory, "factory", {
+    const normalizedFactory = Core.assertFunction(factory, "factory", {
         errorMessage: `GML plugin component ${description} factory must be a function.`
     }) as () => T;
 

@@ -1,3 +1,4 @@
+import type { MutableGameMakerAstNode } from "@gml-modules/core";
 import { Core } from "@gml-modules/core";
 import { ScopeTracker } from "./scope-tracker.js";
 
@@ -100,7 +101,7 @@ class GlobalIdentifierRegistry {
         this.globalIdentifiers = globalIdentifiers;
     }
 
-    markIdentifier(node) {
+    markIdentifier(node: MutableGameMakerAstNode | null | undefined) {
         if (!Core.isIdentifierNode(node) || !Core.isObjectLike(node)) {
             return;
         }
@@ -111,16 +112,18 @@ class GlobalIdentifierRegistry {
         }
 
         this.globalIdentifiers.add(name);
-        node.isGlobalIdentifier = true;
+        const mutableNode = node as MutableGameMakerAstNode;
+        mutableNode.isGlobalIdentifier = true;
     }
 
-    applyToNode(node) {
+    applyToNode(node: MutableGameMakerAstNode | null | undefined) {
         if (!Core.isIdentifierNode(node)) {
             return;
         }
 
         if (this.globalIdentifiers.has(node.name)) {
-            node.isGlobalIdentifier = true;
+            const mutableNode = node as MutableGameMakerAstNode;
+            mutableNode.isGlobalIdentifier = true;
         }
     }
 }
@@ -148,8 +151,8 @@ export function createIdentifierLocation(token) {
             ? stopIndex - startIndex + 1
             : undefined;
 
-    const buildPoint = (index, column) => {
-        const point = { line, index };
+    const buildPoint = (index, column): { line: any; index: any; column?: number } => {
+        const point: { line: any; index: any; column?: number } = { line, index } as any;
         if (column !== undefined) {
             point.column = column;
         }

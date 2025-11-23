@@ -13,7 +13,7 @@ import {
     setIdentifierCaseDryRunContext
 } from "../src/identifier-case/identifier-case-context.js";
 import { prepareIdentifierCasePlan } from "../src/identifier-case/plan-service.js";
-import { Core } from "../src/shared/index.js";
+import { Core } from "@gml-modules/core";
 
 // Use Core.* calls per AGENTS.md rather than destructuring the namespace.
 
@@ -322,7 +322,7 @@ describe("asset rename conflict detection", () => {
             await createAssetCollisionProject();
 
         try {
-            const options = {
+            const options: any = {
                 filepath: scriptPath,
                 gmlIdentifierCase: "off",
                 gmlIdentifierCaseAssets: "pascal",
@@ -392,7 +392,7 @@ describe("asset rename conflict detection", () => {
             await createAssetReservedProject();
 
         try {
-            const options = {
+            const options: any = {
                 filepath: scriptPath,
                 gmlIdentifierCase: "off",
                 gmlIdentifierCaseAssets: "snake-lower",

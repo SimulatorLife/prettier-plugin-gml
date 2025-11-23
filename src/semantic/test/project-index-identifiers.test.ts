@@ -87,7 +87,7 @@ test("buildProjectIndex assigns identifier ids for each scope", async () => {
             ].join("\n")
         );
 
-        const index = await buildProjectIndex(tempRoot);
+        const index: any = await buildProjectIndex(tempRoot);
 
         const scriptEntry =
             index.identifiers.scripts["scope:script:scopeCollision"];
@@ -107,7 +107,7 @@ test("buildProjectIndex assigns identifier ids for each scope", async () => {
         const globalUpper = index.identifiers.globalVariables.GLOBAL_RATE;
         assert.equal(globalUpper.identifierId, "global:GLOBAL_RATE");
 
-        const enumEntries = Object.values(index.identifiers.enums);
+        const enumEntries = Object.values(index.identifiers.enums) as any[];
         assert.ok(enumEntries.length > 0);
         for (const entry of enumEntries) {
             assert.ok(entry.identifierId?.startsWith("enum:"));
@@ -115,7 +115,7 @@ test("buildProjectIndex assigns identifier ids for each scope", async () => {
 
         const instanceEntries = Object.values(
             index.identifiers.instanceVariables
-        );
+        ) as any[];
         const instanceIds = instanceEntries.map((entry) => entry.identifierId);
         assert.ok(instanceIds.every((id) => id?.startsWith("instance:")));
         const uniqueInstanceIds = new Set(instanceIds);

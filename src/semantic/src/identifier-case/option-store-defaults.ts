@@ -70,7 +70,7 @@ function setDefaultIdentifierCaseOptionStoreMaxEntries(maxEntries) {
     return identifierCaseOptionStoreMaxEntriesConfig.set(maxEntries);
 }
 
-function applyIdentifierCaseOptionStoreEnvOverride(env) {
+function applyIdentifierCaseOptionStoreEnvOverride(env?: Record<string, string> | null) {
     Core.applyConfiguredValueEnvOverride(
         identifierCaseOptionStoreMaxEntriesConfig,
         env

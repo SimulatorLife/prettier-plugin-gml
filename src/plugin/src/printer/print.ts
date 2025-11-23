@@ -176,7 +176,7 @@ function getSemanticIdentifierCaseRenameForNode(node, options) {
                         typeof node.start === "number"
                             ? { index: node.start }
                             : node.start;
-                    const key = Core.AST.buildLocationKey(loc);
+                    const key = Core.buildLocationKey(loc);
                     try {
                         const hasKey = key
                             ? Boolean(renameMap.has(key))

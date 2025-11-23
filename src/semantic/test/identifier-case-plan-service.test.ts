@@ -125,7 +125,7 @@ test(
         try {
             await prepareIdentifierCasePlan({ flag: "prepare" });
             getIdentifierCaseRenameForNode(
-                { type: "Identifier", name: "value" },
+                { type: "Identifier", name: "value" } as any,
                 { flag: "rename" }
             );
 

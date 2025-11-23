@@ -8412,7 +8412,7 @@ function buildEventMarkerIndex(ast) {
 }
 
 function extractEventNameFromComment(value) {
-    const trimmed = Core.Utils.getNonEmptyTrimmedString(value);
+    const trimmed = Core.getNonEmptyTrimmedString(value);
 
     if (!trimmed || !trimmed.startsWith("/")) {
         return null;

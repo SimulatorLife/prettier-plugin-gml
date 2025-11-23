@@ -91,7 +91,7 @@ describe("identifier case asset conflict planning", () => {
             await createCollisionProject();
 
         try {
-            const options = {
+            const options: any = {
                 filepath: scriptPath,
                 gmlIdentifierCase: "off",
                 gmlIdentifierCaseAssets: "pascal",

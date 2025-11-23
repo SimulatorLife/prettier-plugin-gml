@@ -21,7 +21,7 @@ test("walkObjectGraph visits each object once even with cycles", () => {
 
     const visited = new Set();
 
-    Core.AST.walkObjectGraph(root, {
+    Core.walkObjectGraph(root, {
         enterObject(node) {
             visited.add(node);
         }

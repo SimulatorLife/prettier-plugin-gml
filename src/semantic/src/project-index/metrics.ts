@@ -128,7 +128,9 @@ function createNoopProjectIndexMetrics() {
     });
 }
 
-export function createProjectIndexMetrics(options = {}) {
+export function createProjectIndexMetrics(
+    options: { metrics?: unknown; logger?: { debug?: (message?: string, payload?: unknown) => void } | null; logMetrics?: boolean } = {}
+) {
     const { metrics, logger = null, logMetrics = false } = options;
 
     if (isMetricsContracts(metrics)) {
@@ -139,7 +141,7 @@ export function createProjectIndexMetrics(options = {}) {
         return createNoopProjectIndexMetrics();
     }
 
-    return Core.Reporting.createMetricsTracker({
+    return Core.createMetricsTracker({
         category: PROJECT_INDEX_METRICS_CATEGORY,
         logger,
         autoLog: logMetrics === true

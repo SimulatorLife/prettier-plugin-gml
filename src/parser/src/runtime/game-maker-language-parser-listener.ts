@@ -15,7 +15,7 @@ import {
 } from "./parse-tree-helpers.js";
 
 const DEFAULT_LISTENER_DELEGATE: ListenerDelegate = ({
-    fallback = Core.Utils.noop
+    fallback = Core.noop
 }) => fallback();
 
 export const LISTENER_METHOD_NAMES = Object.freeze(
@@ -74,7 +74,7 @@ export default class GameMakerLanguageParserListener extends GameMakerLanguagePa
             methodName,
             phase,
             ctx,
-            fallback: Core.Utils.noop
+            fallback: Core.noop
         });
     }
 }

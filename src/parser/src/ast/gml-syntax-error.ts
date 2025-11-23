@@ -64,11 +64,11 @@ class SyntaxErrorFormatter {
             return null;
         }
 
-        if (Core.Utils.isNonEmptyString(offendingSymbol?.text)) {
+        if (Core.isNonEmptyString(offendingSymbol?.text)) {
             return offendingSymbol.text;
         }
 
-        if (Core.Utils.isNonEmptyString(offendingSymbol)) {
+        if (Core.isNonEmptyString(offendingSymbol)) {
             return offendingSymbol;
         }
 
@@ -83,7 +83,7 @@ class SyntaxErrorFormatter {
     }
 
     extractOffendingTextFromLexerMessage(message) {
-        if (!Core.Utils.isNonEmptyString(message)) {
+        if (!Core.isNonEmptyString(message)) {
             return null;
         }
 
@@ -110,7 +110,7 @@ class SyntaxErrorFormatter {
     }
 
     unescapeLexerToken(text) {
-        if (!Core.Utils.isNonEmptyString(text)) {
+        if (!Core.isNonEmptyString(text)) {
             return text;
         }
 
@@ -122,7 +122,7 @@ class SyntaxErrorFormatter {
             return "end of file";
         }
 
-        if (Core.Utils.isNonEmptyString(offendingText)) {
+        if (Core.isNonEmptyString(offendingText)) {
             return `symbol '${offendingText}'`;
         }
 

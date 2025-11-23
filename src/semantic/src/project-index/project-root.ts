@@ -7,13 +7,13 @@ import {
     createProjectIndexAbortGuard
 } from "./abort-guard.js";
 import { isProjectManifestPath } from "./constants.js";
-import { defaultFsFacade } from "./fs-facade.js";
+import { defaultFsFacade, ProjectIndexFsFacade } from "./fs-facade.js";
 import { listDirectory } from "./fs-helpers.js";
 
 // Use canonical Core namespace access instead of destructuring
 // - Core.walkAncestorDirectories
 
-export async function findProjectRoot(options, fsFacade = defaultFsFacade) {
+export async function findProjectRoot(options, fsFacade: ProjectIndexFsFacade = defaultFsFacade) {
     const filepath = options?.filepath;
     const { signal, ensureNotAborted } = createProjectIndexAbortGuard(options, {
         message: PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE

@@ -38,7 +38,7 @@ function normalizeSyntaxErrorLike(error) {
  * @returns {Record<string, unknown>} Normalized error decorated with display
  *          metadata and canonical messaging.
  */
-export function formatProjectIndexSyntaxError(error, sourceText, context) {
+export function formatProjectIndexSyntaxError(error, sourceText, context?: { filePath?: string | null; projectRoot?: string | null }) {
     const normalizedError = normalizeSyntaxErrorLike(error);
 
     const { filePath, projectRoot } = context ?? {};

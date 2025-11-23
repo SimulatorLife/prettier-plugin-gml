@@ -24,7 +24,7 @@ function adjustLocationProperty(node, propertyName, mapIndex) {
 }
 
 export function removeLocationMetadata(target) {
-    Core.AST.walkObjectGraph(target, {
+    Core.walkObjectGraph(target, {
         enterObject(node) {
             if (Object.hasOwn(node, "start")) {
                 delete node.start;
@@ -38,7 +38,7 @@ export function removeLocationMetadata(target) {
 }
 
 export function simplifyLocationMetadata(target) {
-    Core.AST.walkObjectGraph(target, {
+    Core.walkObjectGraph(target, {
         enterObject(node) {
             if (Object.hasOwn(node, "start")) {
                 const start = node.start;
@@ -62,7 +62,7 @@ export function remapLocationMetadata(target, mapIndex) {
         return;
     }
 
-    Core.AST.walkObjectGraph(target, {
+    Core.walkObjectGraph(target, {
         enterObject(node) {
             adjustLocationProperty(node, "start", mapIndex);
             adjustLocationProperty(node, "end", mapIndex);

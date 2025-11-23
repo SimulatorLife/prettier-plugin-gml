@@ -7,7 +7,7 @@ export const PROJECT_INDEX_BUILD_ABORT_MESSAGE =
 
 export function createProjectIndexAbortGuard(
     options,
-    { message, fallbackMessage, key } = {}
+    { message, fallbackMessage, key }: any = {}
 ) {
     const resolvedFallback =
         fallbackMessage ?? message ?? PROJECT_INDEX_BUILD_ABORT_MESSAGE;
