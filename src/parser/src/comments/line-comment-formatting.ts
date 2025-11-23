@@ -8,15 +8,12 @@ import {
 import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
 
 const {
-    // TODO: Flatten this
-    AST: { getCommentValue },
-    Utils: {
-        getNonEmptyTrimmedString,
-        toTrimmedString,
-        hasOwn,
-        isRegExpLike,
-        createResolverController
-    }
+    getCommentValue,
+    getNonEmptyTrimmedString,
+    toTrimmedString,
+    hasOwn,
+    isRegExpLike,
+    createResolverController
 } = Core;
 
 function normalizeEntryPair(entry) {
@@ -111,6 +108,7 @@ const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION = Object.freeze({
     ])
 });
 
+// TODO: Banner normalization should probablty be moved to its own directory/file
 type BannerNormalizationOptions = {
     assumeDecorated?: boolean;
 };

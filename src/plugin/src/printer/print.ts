@@ -1,3 +1,8 @@
+// TODO: This file is too large and should be split into multiple smaller files.
+// It also contains functionality for comments and doc-comments, which should be 
+// moved to their respective modules.
+// General, non-printer-related Node utils should be moved into Core.
+
 import { Core } from "@gml-modules/core";
 import { builders, utils } from "prettier/doc";
 
@@ -9712,7 +9717,7 @@ function shouldOmitSyntheticParens(path) {
                     parent.operator === "and" ||
                     parent.operator === "||" ||
                     parent.operator === "or") &&
-                Core.isComparisonOperator(expression.operator) &&
+                Core.isComparisonBinaryOperator(expression.operator) &&
                 isControlFlowLogicalTest(path)
             ) {
                 return true;
@@ -9768,7 +9773,7 @@ function shouldOmitSyntheticParens(path) {
 
                 if (expression.operator === "*") {
                     if (
-                        Core.isComparisonOperator(parent.operator) &&
+                        Core.isComparisonBinaryOperator(parent.operator) &&
                         isSelfMultiplicationExpression(expression) &&
                         isComparisonWithinLogicalChain(path)
                     ) {
@@ -9881,7 +9886,7 @@ function isComparisonWithinLogicalChain(path) {
 
         if (
             ancestor.type === "BinaryExpression" &&
-            Core.isComparisonOperator(ancestor.operator)
+            Core.isComparisonBinaryOperator(ancestor.operator)
         ) {
             currentNode = ancestor;
             depth += 1;
@@ -10387,7 +10392,7 @@ function isNumericComputationNode(node) {
             return isNumericComputationNode(node.expression);
         }
         case "BinaryExpression": {
-            if (!isArithmeticOperator(node.operator)) {
+            if (!isArithmeticBinaryOperator(node.operator)) {
                 return false;
             }
 
@@ -10835,7 +10840,7 @@ function isComparisonExpression(node) {
     const expression = unwrapLogicalClause(node);
     return (
         expression?.type === "BinaryExpression" &&
-        Core.isComparisonOperator(expression.operator)
+        Core.isComparisonBinaryOperator(expression.operator)
     );
 }
 

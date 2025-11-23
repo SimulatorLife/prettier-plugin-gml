@@ -1,8 +1,8 @@
 import * as AST from "./ast/index.js";
+import * as Comments from "./comments/index.js";
 import * as FS from "./fs/index.js";
 import * as Metrics from "./metrics/index.js";
 import * as Utils from "./utils/index.js";
-import * as Types from "./ast/types.js";
 import * as Resources from "./resources/index.js";
 import * as IdentifierMetadata from "./resources/gml-identifiers.js";
 import * as DeprecatedBuiltinVariables from "./utils/deprecated-builtin-variable-replacements.js";
@@ -15,8 +15,9 @@ type CoreNamespace =
     typeof FS &
     typeof Resources &
     typeof IdentifierMetadata &
-    typeof Types &
-    typeof DeprecatedBuiltinVariables;
+    typeof DeprecatedBuiltinVariables &
+    typeof Comments;
+
 
 // Public namespace flattening mirrors the monorepo convention: expose each
 // helper directly flattened into the Core namespace so consumers always
@@ -29,13 +30,5 @@ export const Core: CoreNamespace = Object.freeze({
     ...Resources,
     ...IdentifierMetadata,
     ...DeprecatedBuiltinVariables,
-    ...Types
+    ...Comments
 });
-
-export type {
-    FeatherFixDetail,
-    FeatherFixRange,
-    GameMakerAstLocation,
-    GameMakerAstNode,
-    MutableGameMakerAstNode
-} from "./ast/types.js";

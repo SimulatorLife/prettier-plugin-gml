@@ -1,4 +1,5 @@
-// TODO: Should this go in @gml-modules/core instead?
+import { enqueueObjectChildValues } from "../ast/node-helpers.js";
+import { isObjectLike } from "../utils/object.js";
 
 /**
  * @typedef {object} CommentLineNode
@@ -15,13 +16,6 @@
  * @property {number} [start]
  * @property {number} [end]
  */
-
-import { Core } from "@gml-modules/core";
-
-const {
-    Utils: { isObjectLike },
-    AST: { enqueueObjectChildValues }
-} = Core;
 
 /**
  * Frozen reusable empty array so repeated `getCommentArray` calls do not

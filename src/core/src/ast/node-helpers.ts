@@ -624,11 +624,15 @@ export function borrowVisitChildNodesValueBuffer() {
     return visitChildNodesValuePool.pop() ?? [];
 }
 
-export function isComparisonOperator(operator) {
+export function isComparisonBinaryOperator(operator) {
     return COMPARISON_OPERATORS.has(operator);
 }
 
-export function isArithmeticOperator(operator) {
+export function isLogicalBinaryOperator(operator) {
+    return LOGICAL_OPERATORS.has(operator);
+}
+
+export function isArithmeticBinaryOperator(operator) {
     return ARITHMETIC_OPERATORS.has(operator);
 }
 

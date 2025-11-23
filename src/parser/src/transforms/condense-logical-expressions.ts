@@ -7,20 +7,16 @@ import {
 } from "../comments/index.js";
 
 const {
-    AST: {
-        cloneAstNode,
-        cloneLocation,
-        getBodyStatements,
-        isNode,
-        forEachNodeChild
-    },
-    Utils: {
-        asArray,
-        getOrCreateMapEntry,
-        isNonEmptyArray,
-        isNonEmptyString,
-        toNormalizedLowerCaseString
-    }
+    cloneAstNode,
+    cloneLocation,
+    getBodyStatements,
+    isNode,
+    forEachNodeChild,
+    asArray,
+    getOrCreateMapEntry,
+    isNonEmptyArray,
+    isNonEmptyString,
+    toNormalizedLowerCaseString
 } = Core;
 
 const BOOLEAN_NODE_TYPES = Object.freeze({
@@ -115,14 +111,14 @@ function isBooleanBranchExpression(node, allowValueLiterals = false) {
         case "BinaryExpression": {
             const operator = (node.operator ?? "").toLowerCase();
 
-            if (LOGICAL_OPERATORS.has(operator)) {
+            if (Core.isLogicalBinaryOperator(operator)) {
                 return (
                     isBooleanBranchExpression(node.left, allowValueLiterals) &&
                     isBooleanBranchExpression(node.right, allowValueLiterals)
                 );
             }
 
-            if (COMPARISON_OPERATORS.has(operator)) {
+            if (Core.isComparisonBinaryOperator(operator)) {
                 return (
                     isBooleanBranchExpression(node.left, true) &&
                     isBooleanBranchExpression(node.right, true)
@@ -131,7 +127,7 @@ function isBooleanBranchExpression(node, allowValueLiterals = false) {
 
             if (
                 allowValueLiterals &&
-                (Core.isArithmeticOperator(operator) || operator === "**")
+                (Core.isArithmeticBinaryOperator(operator) || operator === "**")
             ) {
                 return (
                     isBooleanBranchExpression(node.left, true) &&

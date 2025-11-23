@@ -1,9 +1,5 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: { normalizeEnumeratedOption }
-} = Core;
-
 const LogicalOperatorsStyle = Object.freeze({
     KEYWORDS: "keywords",
     SYMBOLS: "symbols"
@@ -58,7 +54,7 @@ export function normalizeLogicalOperatorsStyle(rawStyle) {
         return DEFAULT_LOGICAL_OPERATORS_STYLE;
     }
 
-    const normalized = normalizeEnumeratedOption(
+    const normalized = Core.normalizeEnumeratedOption(
         rawStyle,
         null,
         LOGICAL_OPERATORS_STYLE_SET,

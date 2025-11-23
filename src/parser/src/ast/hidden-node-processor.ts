@@ -2,7 +2,7 @@ import {
     createCommentBlockNode,
     createCommentLineNode,
     createWhitespaceNode
-} from "../comments/comment-nodes.js";
+} from "../../../core/src/comments/comment-nodes.js";
 
 function createState() {
     return {
