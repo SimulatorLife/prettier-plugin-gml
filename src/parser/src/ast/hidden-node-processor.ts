@@ -1,8 +1,4 @@
-import {
-    createCommentBlockNode,
-    createCommentLineNode,
-    createWhitespaceNode
-} from "../../../core/src/comments/comment-nodes.js";
+import { Core } from "@gml-modules/core";
 
 function createState() {
     return {
@@ -32,7 +28,7 @@ function registerComment(state, list, comment) {
 
 function handleSingleLineComment(token, tokenText, context) {
     const { state, comments } = context;
-    const comment = createCommentLineNode({
+    const comment = Core.createCommentLineNode({
         token,
         tokenText,
         leadingWS: state.prevWS,
@@ -43,7 +39,7 @@ function handleSingleLineComment(token, tokenText, context) {
 
 function handleMultiLineComment(token, tokenText, context) {
     const { state, comments } = context;
-    const comment = createCommentBlockNode({
+    const comment = Core.createCommentBlockNode({
         token,
         tokenText,
         leadingWS: state.prevWS,
@@ -54,7 +50,7 @@ function handleMultiLineComment(token, tokenText, context) {
 
 function handleWhitespace(token, tokenText, isNewline, context) {
     const { state, whitespaces } = context;
-    const whitespace = createWhitespaceNode({ token, tokenText, isNewline });
+    const whitespace = Core.createWhitespaceNode({ token, tokenText, isNewline });
     whitespaces.push(whitespace);
 
     if (state.prevComment) {

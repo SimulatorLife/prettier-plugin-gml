@@ -2,6 +2,10 @@ import type { MutableGameMakerAstNode } from "@gml-modules/core";
 import { Core } from "@gml-modules/core";
 import { ScopeTracker } from "./scope-tracker.js";
 
+/**
+ * This is the public facade for external modules to interact with
+ * the 'semantic' layer/module for semantic scope tracking.
+ */
 export class SemanticScopeCoordinator {
     private scopeTracker: ScopeTracker;
     private identifierRoleTracker: IdentifierRoleTracker;

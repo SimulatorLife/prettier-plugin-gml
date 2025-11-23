@@ -1,3 +1,7 @@
+// Do NOT add any additional exports or 'compatibility' layers here
+// This is aligned with the target state and consumers should be updated accordingly
+// Do NOT modify or extend this file to nested namespaces or re-export shims
+
 import * as AST from "./ast/index.js";
 import * as Comments from "./comments/index.js";
 import * as FS from "./fs/index.js";
@@ -18,7 +22,6 @@ type CoreNamespace =
     typeof DeprecatedBuiltinVariables &
     typeof Comments;
 
-
 // Public namespace flattening mirrors the monorepo convention: expose each
 // helper directly flattened into the Core namespace so consumers always
 // import from a single entry point without deep paths or re-export shims.
@@ -32,3 +35,12 @@ export const Core: CoreNamespace = Object.freeze({
     ...DeprecatedBuiltinVariables,
     ...Comments
 });
+
+// Publicly export key AST types at the package root for other packages to
+// import without deep imports. This is the preferred path for type imports
+// across the monorepo.
+export type {
+    GameMakerAstLocation,
+    GameMakerAstNode,
+    MutableGameMakerAstNode
+} from "./ast/types.js";

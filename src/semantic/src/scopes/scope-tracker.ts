@@ -23,6 +23,7 @@ type ScopeSummary = {
 };
 
 type ScopeRole = {
+    type?: string | "declaration" | "reference";
     scopeOverride?: unknown;
     tags?: Iterable<string>;
     kind?: string;
@@ -150,6 +151,8 @@ export class ScopeTracker {
     private symbolToScopesIndex: Map<string, Map<string, ScopeSummary>>; // symbol -> Map<scopeId, ScopeSummary>
     private scopeStackIndices: Map<string, number>;
     private enabled: boolean;
+    private identifierRoleTracker: IdentifierRoleTracker;
+    private globalIdentifierRegistry: GlobalIdentifierRegistry;
 
     constructor({ enabled = true } = {}) {
         this.scopeCounter = 0;
@@ -163,6 +166,17 @@ export class ScopeTracker {
         >();
         this.scopeStackIndices = new Map();
         this.enabled = Boolean(enabled);
+        this.identifierRoleTracker = new IdentifierRoleTracker();
+        this.globalIdentifierRegistry = new GlobalIdentifierRegistry();
+    }
+
+    withScope<T>(kind: string, callback: () => T): T {
+        const scope = this.enterScope(kind);
+        try {
+            return callback();
+        } finally {
+            this.exitScope();
+        }
     }
 
     enterScope(kind) {
@@ -322,7 +336,7 @@ export class ScopeTracker {
     declare(
         name: string | null | undefined,
         node: MutableGameMakerAstNode | null | undefined,
-        role: ScopeRole = {}
+        role: ScopeRole = { type: "declaration" }
     ) {
         if (!this.enabled || !name || !node) {
             return;
@@ -358,7 +372,7 @@ export class ScopeTracker {
     reference(
         name: string | null | undefined,
         node: MutableGameMakerAstNode | null | undefined,
-        role: ScopeRole = {}
+        role: ScopeRole = { type: "reference" }
     ) {
         if (!name || !node) {
             return;
@@ -840,8 +854,179 @@ export class ScopeTracker {
 
         return externalRefs;
     }
+
+    // Role tracking API (previously provided by SemanticScopeCoordinator)
+    withRole(role: ScopeRole | null, callback: () => any) {
+        return this.identifierRoleTracker.withRole(role, callback);
+    }
+
+    cloneRole(role: ScopeRole | null) {
+        return this.identifierRoleTracker.cloneRole(role);
+    }
+
+    getCurrentRole() {
+        return this.identifierRoleTracker.getCurrentRole();
+    }
+
+    // Public helper to apply the current role to an identifier node
+    applyCurrentRoleToIdentifier(name: string | null | undefined, node: GameMakerAstNode | null | undefined) {
+        if (!name || !Core.isIdentifierNode(node)) {
+            return;
+        }
+
+        const role = this.identifierRoleTracker.cloneRole(
+            this.identifierRoleTracker.getCurrentRole()
+        );
+        const roleType = role?.type === "declaration" ? "declaration" : "reference";
+
+        if (roleType === "declaration") {
+            this.declare(name, node as MutableGameMakerAstNode, role);
+        } else {
+            this.reference(name, node as MutableGameMakerAstNode, role);
+        }
+    }
+
+    // Global identifier registry API
+    get globalIdentifiers() {
+        return this.globalIdentifierRegistry.globalIdentifiers;
+    }
+
+    markGlobalIdentifier(node: MutableGameMakerAstNode | null | undefined) {
+        this.globalIdentifierRegistry.markIdentifier(node);
+    }
+
+    applyGlobalIdentifiersToNode(node: MutableGameMakerAstNode | null | undefined) {
+        this.globalIdentifierRegistry.applyToNode(node);
+    }
 }
 
 // Provide a default export for backwards-compatible imports that import the
 // module file directly (tests and some callers use a default import).
 export default ScopeTracker;
+
+// Internal identifier role tracker and registry (extracted from identifier-scope.ts)
+class IdentifierRoleTracker {
+    identifierRoles: Array<ScopeRole>;
+
+    constructor() {
+        this.identifierRoles = [];
+    }
+
+    withRole(role: ScopeRole | null, callback: () => any) {
+        this.identifierRoles.push(role ?? ({} as ScopeRole));
+        try {
+            return callback();
+        } finally {
+            this.identifierRoles.pop();
+        }
+    }
+
+    getCurrentRole() {
+        if (this.identifierRoles.length === 0) {
+            return null;
+        }
+
+        return this.identifierRoles.at(-1) ?? null;
+    }
+
+    cloneRole(role: ScopeRole | null) {
+        if (!role) {
+            return { type: "reference" } as ScopeRole;
+        }
+
+        const cloned = { ...role } as ScopeRole;
+
+        if (role.tags !== undefined) {
+            cloned.tags = [...Core.toArray(role.tags)];
+        }
+
+        // Ensure type is present on the cloned role for callers that expect
+        // a fully formed role (e.g., parser identifier role usage expects a
+        // `type` property to be present). Default to 'reference'.
+        if (cloned.type === undefined) {
+            cloned.type = "reference";
+        }
+
+        return cloned;
+    }
+}
+
+class GlobalIdentifierRegistry {
+    globalIdentifiers: Set<string>;
+
+    constructor({ globalIdentifiers = new Set<string>() } = {}) {
+        this.globalIdentifiers = globalIdentifiers;
+    }
+
+    markIdentifier(node: MutableGameMakerAstNode | null | undefined) {
+        if (!Core.isIdentifierNode(node) || !Core.isObjectLike(node)) {
+            return;
+        }
+
+        const { name } = node as { name?: unknown };
+        if (typeof name !== "string" || name.length === 0) {
+            return;
+        }
+
+        this.globalIdentifiers.add(name);
+        const mutableNode = node as MutableGameMakerAstNode;
+        mutableNode.isGlobalIdentifier = true;
+    }
+
+    applyToNode(node: MutableGameMakerAstNode | null | undefined) {
+        if (!Core.isIdentifierNode(node)) {
+            return;
+        }
+
+        if (this.globalIdentifiers.has(node.name)) {
+            const mutableNode = node as MutableGameMakerAstNode;
+            mutableNode.isGlobalIdentifier = true;
+        }
+    }
+}
+
+/**
+ * Build a `{ start, end }` location object from a token, preserving `line`, `index`,
+ * and optional `column` data. Returns `null` if no token is provided.
+ * @param {object} token
+ * @returns {{start: object, end: object} | null}
+ */
+export function createIdentifierLocation(token: any) {
+    if (!token) {
+        return null;
+    }
+
+    const { line } = token;
+    const startIndex = token.start ?? token.startIndex;
+    const stopIndex = token.stop ?? token.stopIndex ?? startIndex;
+    const startColumn = token.column;
+    const identifierLength =
+        Number.isInteger(startIndex) && Number.isInteger(stopIndex)
+            ? stopIndex - startIndex + 1
+            : undefined;
+
+    const buildPoint = (
+        index: number | undefined,
+        column?: number
+    ): { line: number; index: number; column?: number } => {
+        const point: { line: number; index: number; column?: number } = {
+            line,
+            index: index ?? 0
+        } as any;
+        if (column !== undefined) {
+            point.column = column;
+        }
+
+        return point;
+    };
+
+    return {
+        start: buildPoint(startIndex, startColumn),
+        end: buildPoint(
+            stopIndex === undefined ? undefined : stopIndex + 1,
+            startColumn !== undefined && identifierLength !== undefined
+                ? startColumn + identifierLength
+                : undefined
+        )
+    } as any;
+}
