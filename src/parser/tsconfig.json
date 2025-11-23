@@ -13,11 +13,11 @@
     }
   },
   "include": [
-    "*.ts",
-    "src/**/*.ts",
-    "test/**/*.ts",
-    "generated/**/*.js",
-    "src/**/*.d.ts"
-, "../core/src/comments/comment-nodes.ts"  ],
+  "*.ts",
+  "src/**/*.ts",
+  "test/**/*.ts",
+  "generated/**/*.js",
+  "src/**/*.d.ts"
+],
   "exclude": ["dist"]
 }

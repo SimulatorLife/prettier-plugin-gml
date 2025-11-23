@@ -549,7 +549,7 @@ export function getNodeType(node: unknown | GameMakerAstNode): string | null {
     return typeof type === "string" ? type : null;
 }
 
-export function isNode(value: unknown): boolean {
+export function isNode(value: unknown): value is GameMakerAstNode {
     return value != null && typeof value === "object";
 }
 

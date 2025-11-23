@@ -19,14 +19,10 @@ import GameMakerParseErrorListener, {
 } from "../ast/gml-syntax-error.js";
 import { preprocessFunctionArgumentDefaults } from "./preprocess-function-argument-defaults.js";
 import {
-    collectCommentNodes,
-    getCommentArray,
-    hasComment,
     resolveDocCommentTraversalService,
-    getCommentValue
 } from "../comments/index.js";
 
-function walkAstNodes(root, visitor) {
+function walkAstNodes(root, visitor) { // TODO: I think this is duplicated elsewhere
     const visit = (node, parent, key) => {
         if (!node) {
             return;
@@ -7014,7 +7010,7 @@ function findLineCommentStartingAt(ast, startIndex) {
         return null;
     }
 
-    const comments = collectCommentNodes(ast);
+    const comments = Core.collectCommentNodes(ast);
 
     if (comments.length === 0) {
         return null;
@@ -8377,7 +8373,7 @@ function buildEventMarkerIndex(ast) {
         }
     }
 
-    for (const comment of collectCommentNodes(ast)) {
+    for (const comment of Core.collectCommentNodes(ast)) {
         if (comment) {
             markerComments.add(comment);
         }
@@ -11692,7 +11688,7 @@ function attachLeadingCommentsToWrappedPrimitive({
         return;
     }
 
-    const comments = collectCommentNodes(ast);
+    const comments = Core.collectCommentNodes(ast);
 
     if (!Core.isNonEmptyArray(comments)) {
         return;
@@ -13130,7 +13126,7 @@ function attachLeadingCommentsToHoistedDeclaration({
         return;
     }
 
-    const comments = collectCommentNodes(ast);
+    const comments = Core.collectCommentNodes(ast);
 
     if (!Core.isNonEmptyArray(comments)) {
         return;
@@ -17362,7 +17358,7 @@ function sanitizeMalformedJsDocTypes({ ast, diagnostic, typeSystemInfo }) {
         return [];
     }
 
-    const comments = collectCommentNodes(ast);
+    const comments = Core.collectCommentNodes(ast);
 
     if (comments.length === 0) {
         return [];

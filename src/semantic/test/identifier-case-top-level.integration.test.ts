@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { promises as fs } from "node:fs";
+import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
@@ -19,7 +20,22 @@ import {
 } from "../src/identifier-case/option-store.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../../plugin/src/gml.js");
+const pluginPath = (() => {
+    const candidates = [
+        path.resolve(currentDirectory, "../../plugin/dist/src/gml.js"),
+        path.resolve(currentDirectory, "../../plugin/dist/gml.js"),
+        path.resolve(currentDirectory, "../../plugin/dist/index.js"),
+        path.resolve(currentDirectory, "../../plugin/src/gml.js"),
+        path.resolve(currentDirectory, "../../plugin/src/index.js"),
+        path.resolve(currentDirectory, "../../plugin/src/plugin-entry.ts")
+    ];
+
+    for (const p of candidates) {
+        if (existsSync(p)) return p;
+    }
+
+    return candidates[0];
+})();
 const fixturesDirectory = path.join(
     currentDirectory,
     "identifier-case-fixtures"

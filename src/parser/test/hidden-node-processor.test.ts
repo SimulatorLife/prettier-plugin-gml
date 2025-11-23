@@ -1,16 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-    createCommentBlockNode,
-    createCommentLineNode,
-    createWhitespaceNode
-} from "../../core/src/comments/comment-nodes.js";
+import { Core } from "@gml-modules/core";
 import { createHiddenNodeProcessor } from "../src/ast/hidden-node-processor.js";
 
 test("createCommentLineNode strips leading markers and records metadata", () => {
     const token = { line: 5, start: 10, stop: 18 };
-    const comment = createCommentLineNode({
+    const comment = Core.createCommentLineNode({
         token,
         tokenText: "// example",
         leadingWS: "\n",
@@ -29,7 +25,7 @@ test("createCommentLineNode strips leading markers and records metadata", () => 
 
 test("createCommentBlockNode tracks line count and boundaries", () => {
     const token = { line: 2, start: 4, stop: 25 };
-    const comment = createCommentBlockNode({
+    const comment = Core.createCommentBlockNode({
         token,
         tokenText: "/* multi\nline */",
         leadingWS: "  ",
@@ -47,7 +43,7 @@ test("createCommentBlockNode tracks line count and boundaries", () => {
 
 test("createWhitespaceNode annotates newlines", () => {
     const token = { line: 7, start: 3, stop: 4 };
-    const whitespace = createWhitespaceNode({
+    const whitespace = Core.createWhitespaceNode({
         token,
         tokenText: "\n",
         isNewline: true

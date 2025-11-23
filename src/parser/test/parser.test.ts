@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
-import GMLParser from "../src/gml-parser.js";
+import { GMLParser } from "../src/gml-parser.js";
 import GameMakerASTBuilder from "../src/ast/gml-ast-builder.js";
 import { GameMakerSyntaxError } from "../src/ast/gml-syntax-error.js";
 import { Core } from "@gml-modules/core";
@@ -178,7 +178,6 @@ function groupIdentifiersByName(identifiers) {
 
 function parseWithMetadata(source) {
     return GMLParser.parse(source, {
-        getIdentifierMetadata: true,
         simplifyLocations: false,
         createScopeTracker: ({ enabled }) =>
             enabled ? new Semantic.SemanticScopeCoordinator() : null
