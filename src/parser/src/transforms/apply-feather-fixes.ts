@@ -3049,7 +3049,7 @@ function convertStringLiteralArgumentToIdentifier({
 }
 
 function buildFeatherTypeSystemInfo() {
-    const metadata = Core.Resources.getFeatherMetadata();
+    const metadata = Core.getFeatherMetadata();
     const typeSystem = metadata?.typeSystem;
 
     const baseTypes = new Set();

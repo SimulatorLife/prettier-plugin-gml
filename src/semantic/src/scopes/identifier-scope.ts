@@ -51,6 +51,18 @@ export class SemanticScopeCoordinator {
             this.scopeTracker.reference(name, node, role);
         }
     }
+
+    // Public helper to mark a node as a global identifier, delegated to the
+    // internal GlobalIdentifierRegistry. Exposed so downstream consumers like
+    // the AST builder can invoke it without accessing private fields.
+    markGlobalIdentifier(node) {
+        this.globalIdentifierRegistry.markIdentifier(node);
+    }
+
+    // Public helper to apply global identifier metadata to a node.
+    applyGlobalIdentifiersToNode(node) {
+        this.globalIdentifierRegistry.applyToNode(node);
+    }
 }
 
 class IdentifierRoleTracker {

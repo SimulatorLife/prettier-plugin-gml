@@ -1,4 +1,4 @@
-import * as Core from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
 import { util } from "prettier";
 
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
@@ -198,15 +198,6 @@ function isFunctionLikeDeclaration(node) {
 }
 
 /**
- * Normalizes the `replacementDirective` field on define statements so the
- * printer can reason about region-like directives with case-insensitive
- * comparisons.
- *
- * @param {unknown} node Candidate AST node to inspect.
- * @returns {string | null} Lower-cased directive text when present, otherwise
- *                          `null`.
- */
-/**
  * Normalize a raw define replacement directive into one of the supported
  * directive tokens.
  *
@@ -316,4 +307,3 @@ export {
     resetSurroundingNewlineNodeTypes,
     isFunctionLikeDeclaration
 };
-export { hasComment } from "../comments/index.js";

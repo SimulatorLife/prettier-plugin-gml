@@ -180,8 +180,8 @@ function parseWithMetadata(source) {
     return GMLParser.parse(source, {
         getIdentifierMetadata: true,
         simplifyLocations: false,
-        createScopeTracker: ({ enabled }) =>
-            enabled ? new Semantic.ScopeTracker({ enabled }) : null
+            createScopeTracker: ({ enabled }) =>
+                enabled ? new Semantic.SemanticScopeCoordinator() : null
     });
 }
 

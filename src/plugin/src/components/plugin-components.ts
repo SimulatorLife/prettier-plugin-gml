@@ -1,4 +1,4 @@
-import * as Core from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
 
 import { createDefaultGmlPluginComponents } from "./default-plugin-components.js";
 import { normalizeGmlPluginComponents } from "./plugin-component-normalizer.js";

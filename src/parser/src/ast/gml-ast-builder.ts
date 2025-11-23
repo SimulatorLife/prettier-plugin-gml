@@ -823,7 +823,7 @@ export default class GameMakerASTBuilder {
                     return null;
                 }
 
-                this.globalIdentifierRegistry.markIdentifier(identifier);
+                this.scopeTracker?.markGlobalIdentifier(identifier);
 
                 return this.astNode(identifierCtx, {
                     type: "VariableDeclarator",
@@ -1535,8 +1535,8 @@ export default class GameMakerASTBuilder {
             type: "Identifier",
             name
         });
-        this.globalIdentifierRegistry.applyToNode(node);
-        this.identifierScopeCoordinator.applyCurrentRoleToIdentifier(
+        this.scopeTracker?.applyGlobalIdentifiersToNode(node);
+        this.scopeTracker?.applyCurrentRoleToIdentifier(
             name,
             node
         );

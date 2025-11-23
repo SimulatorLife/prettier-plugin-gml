@@ -1,10 +1,4 @@
 import { Core } from "@gml-modules/core";
-import { getCommentArray, isDocCommentLine } from "./comment-boundary.js";
-
-const {
-    Utils, // : { toMutableArray, isNonEmptyArray, isNonEmptyTrimmedString },
-    AST // : { getNodeStartIndex, isFunctionLikeNode, isNode }
-} = Core;
 
 /**
  * The legacy doc comment "manager" facade bundled traversal helpers with
@@ -50,7 +44,7 @@ const NOOP_DOC_COMMENT_MANAGER = Object.freeze({
 });
 
 export function prepareDocCommentEnvironment(ast) {
-    if (!AST.isNode(ast)) {
+    if (!Core.isNode(ast)) {
         return NOOP_DOC_COMMENT_MANAGER;
     }
 
@@ -133,20 +127,20 @@ function createDocCommentManager(ast) {
         },
         getComments(functionNode) {
             const comments = commentGroups.get(functionNode);
-            return Utils.toMutableArray(comments);
+            return Core.toMutableArray(comments);
         },
         extractDescription(functionNode) {
             return extractFunctionDescription(commentGroups, functionNode);
         },
         hasDocComment(functionNode) {
             const comments = commentGroups.get(functionNode);
-            return Utils.isNonEmptyArray(comments);
+            return Core.isNonEmptyArray(comments);
         }
     };
 }
 
 function normalizeDocCommentWhitespace(ast) {
-    const comments = getCommentArray(ast);
+    const comments = Core.getCommentArray(ast);
 
     if (comments.length === 0) {
         return;
@@ -167,8 +161,8 @@ function normalizeDocCommentWhitespace(ast) {
 
 function mapDocCommentsToFunctions(ast) {
     const functions = collectFunctionNodes(ast).sort((a, b) => {
-        const aStart = AST.getNodeStartIndex(a) ?? 0;
-        const bStart = AST.getNodeStartIndex(b) ?? 0;
+        const aStart = Core.getNodeStartIndex(a) ?? 0;
+        const bStart = Core.getNodeStartIndex(b) ?? 0;
         return aStart - bStart;
     });
 
@@ -177,7 +171,7 @@ function mapDocCommentsToFunctions(ast) {
         groups.set(fn, []);
     }
 
-    const astComments = getCommentArray(ast);
+    const astComments = Core.getCommentArray(ast);
 
     if (astComments.length === 0 || functions.length === 0) {
         return groups;
@@ -185,7 +179,7 @@ function mapDocCommentsToFunctions(ast) {
 
     let functionIndex = 0;
     for (const comment of astComments) {
-        if (!isDocCommentLine(comment)) {
+        if (!Core.isDocCommentLine(comment)) {
             continue;
         }
 
@@ -195,7 +189,7 @@ function mapDocCommentsToFunctions(ast) {
         }
 
         while (functionIndex < functions.length) {
-            const targetStart = AST.getNodeStartIndex(functions[functionIndex]);
+            const targetStart = Core.getNodeStartIndex(functions[functionIndex]);
             if (typeof targetStart !== "number" || targetStart > commentIndex) {
                 break;
             }
@@ -221,11 +215,11 @@ function collectFunctionNodes(ast) {
 
     function traverse(node) {
         // TODO: Is this duplicating Core.walkObjectGraph?
-        if (!AST.isNode(node)) {
+        if (!Core.isNode(node)) {
             return;
         }
 
-        if (AST.isFunctionLikeNode(node)) {
+        if (Core.isFunctionLikeNode(node)) {
             functions.push(node);
         }
 
@@ -247,7 +241,7 @@ function collectFunctionNodes(ast) {
                 for (const child of snapshot) {
                     traverse(child);
                 }
-            } else if (AST.isNode(value)) {
+            } else if (Core.isNode(value)) {
                 traverse(value);
             }
         }
@@ -285,7 +279,7 @@ function isDocCommentUpdateEligible(update) {
     return (
         !!update &&
         !update.hasDocComment &&
-        Utils.isNonEmptyTrimmedString(update.expression)
+        Core.isNonEmptyTrimmedString(update.expression)
     );
 }
 
@@ -314,7 +308,7 @@ function applyDescriptionCommentUpdate(descriptionComment, update) {
         update.expression
     );
 
-    if (!Utils.isNonEmptyTrimmedString(updatedDescription)) {
+    if (!Core.isNonEmptyTrimmedString(updatedDescription)) {
         return;
     }
 
@@ -367,13 +361,13 @@ function extractDescriptionContent(value) {
 function buildUpdatedDescription(existing, expression) {
     const originalDescription = existing ?? "";
 
-    if (!Utils.isNonEmptyTrimmedString(expression)) {
+    if (!Core.isNonEmptyTrimmedString(expression)) {
         return originalDescription;
     }
 
     const normalizedExpression = expression.trim();
 
-    if (!Utils.isNonEmptyTrimmedString(existing)) {
+    if (!Core.isNonEmptyTrimmedString(existing)) {
         return `Simplified: ${normalizedExpression}`;
     }
 

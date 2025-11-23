@@ -1,8 +1,7 @@
 import { Core } from "@gml-modules/core";
 import {
-    hasComment as sharedHasComment,
-    normalizeHasCommentHelpers,
-    resolveDocCommentPresenceService,
+    hasComment,
+    resolveDocCommentPresenceService, // TODO: We should expose a single doc-comment-service instead of exposing all these
     resolveDocCommentDescriptionService,
     resolveDocCommentUpdateService
 } from "../comments/index.js";
@@ -32,26 +31,6 @@ const BOOLEAN_NODE_TYPES = Object.freeze({
     OR: "OR"
 });
 
-const DEFAULT_HELPERS = Object.freeze({
-    hasComment: sharedHasComment
-});
-
-const LOGICAL_OPERATORS = new Set(["and", "&&", "or", "||"]);
-const COMPARISON_OPERATORS = new Set(["==", "!=", "<>", "<=", ">=", "<", ">"]);
-const ARITHMETIC_OPERATORS = new Set([
-    "+",
-    "-",
-    "*",
-    "/",
-    "%",
-    "^",
-    "<<",
-    ">>",
-    ">>>",
-    "|",
-    "&"
-]);
-
 let activeTransformationContext = null;
 
 export function condenseLogicalExpressions(ast: any, helpers?: any) {
@@ -62,7 +41,17 @@ export function condenseLogicalExpressions(ast: any, helpers?: any) {
     const docCommentPresence = resolveDocCommentPresenceService(ast);
     const docCommentDescriptions = resolveDocCommentDescriptionService(ast);
     const docCommentUpdateService = resolveDocCommentUpdateService(ast);
-    const normalizedHelpers = normalizeHasCommentHelpers(helpers);
+    // Resolve a usable hasComment helper without introducing a shared wrapper.
+    const resolvedHasComment =
+        typeof helpers === "function"
+            ? helpers
+            : Core.isObjectLike(helpers) && typeof (helpers as any).hasComment === "function"
+            ? (helpers as any).hasComment
+            : hasComment;
+    const normalizedHelpers = {
+        ...(Core.isObjectLike(helpers) ? (helpers as any) : {}),
+        hasComment: resolvedHasComment
+    };
     const context = {
         ast,
         helpers: normalizedHelpers,
@@ -142,7 +131,7 @@ function isBooleanBranchExpression(node, allowValueLiterals = false) {
 
             if (
                 allowValueLiterals &&
-                (ARITHMETIC_OPERATORS.has(operator) || operator === "**")
+                (Core.isArithmeticOperator(operator) || operator === "**")
             ) {
                 return (
                     isBooleanBranchExpression(node.left, true) &&

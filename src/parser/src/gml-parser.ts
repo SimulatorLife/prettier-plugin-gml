@@ -15,6 +15,7 @@ import {
 } from "./ast/location-manipulation.js";
 import { installRecognitionExceptionLikeGuard } from "./runtime/index.js";
 import convertToESTree from "./utils/estree-converter.js";
+import { defaultParserOptions } from "./types/index.js";
 import type { ParserOptions } from "./types/index.js";
 
 const PredictionMode =
@@ -53,20 +54,7 @@ export class GMLParser {
         );
     }
 
-    static optionDefaults: ParserOptions = Object.freeze({
-        getComments: true,
-        getLocations: true,
-        simplifyLocations: true,
-        getIdentifierMetadata: false,
-        createScopeTracker: null,
-        // Controls the structure of the returned AST. Use "estree" to receive
-        // nodes that align with the ESTree specification used by JS tooling.
-        astFormat: "gml",
-        // When true the parser returns a JSON string rather than a mutable AST
-        // object. This is primarily useful when paired with the ESTree output
-        // to feed other tooling or persist snapshots.
-        asJSON: false
-    }) as ParserOptions;
+    static optionDefaults: ParserOptions = defaultParserOptions;
 
     static parse(text: string, options?: Partial<ParserOptions>) {
         return new this(text, options).parse();

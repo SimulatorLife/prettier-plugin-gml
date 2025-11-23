@@ -1,7 +1,7 @@
 import type { ParserRuleContext, Token, TokenStream } from "antlr4";
 import type { Semantic } from "@gml-modules/semantic";
 
-type SemanticScopeTracker = InstanceType<typeof Semantic.ScopeTracker>;
+type SemanticScopeTracker = InstanceType<typeof Semantic.SemanticScopeCoordinator>;
 
 export type ParserContext =
     | (ParserRuleContext & {
@@ -32,19 +32,31 @@ export type ScopeTrackerOptions = {
 };
 
 export interface ParserOptions {
-    getComments: boolean;
+    getComments: boolean; // We already have a 'transform' to omit comments, is this needed?
     getLocations: boolean;
-    // Request that the parser attach identifier metadata when building
-    // the AST. This metadata enables downstream analysis like scope
-    // tracking and identifier indexing.
-    getIdentifierMetadata?: boolean;
     simplifyLocations: boolean;
-    scopeTrackerOptions?: ScopeTrackerOptions;
-    astFormat: string;
+    scopeTrackerOptions?: ScopeTrackerOptions; // Also handles identifier metadata
+    astFormat: string; // TODO: What are the possible values here?
     asJSON: boolean;
-    transforms?: Array<unknown>;
+
+    // TODO: Combine 'transforms' into 'transformOptions' and give 'transformOptions' a proper type
+    transforms?: Array<unknown>; // TODO: What are the possible values here?
     transformOptions?: Record<string, unknown>;
 }
+
+const DEFAULT_SCOPE_TRACKER_OPTIONS: ScopeTrackerOptions = Object.freeze({
+    enabled: false,
+    getIdentifierMetadata: false
+});
+
+export const defaultParserOptions: ParserOptions = Object.freeze({
+    getComments: true,
+    getLocations: true,
+    simplifyLocations: true,
+    scopeTrackerOptions: DEFAULT_SCOPE_TRACKER_OPTIONS,
+    astFormat: "gml",
+    asJSON: false
+});
 
 export type ListenerPhase = "enter" | "exit";
 

@@ -1,7 +1,6 @@
 import { Core } from "@gml-modules/core";
 import {
     hasComment as sharedHasComment,
-    getHasCommentHelper,
     prepareDocCommentEnvironment
 } from "../comments/index.js";
 
@@ -58,7 +57,12 @@ export function preprocessFunctionArgumentDefaults(
             "getSingleVariableDeclarator",
             DEFAULT_HELPERS.getSingleVariableDeclarator
         ),
-        hasComment: getHasCommentHelper(helpers)
+        hasComment:
+            typeof helpers === "function"
+                ? helpers
+                : Core.isObjectLike(helpers) && typeof (helpers as any).hasComment === "function"
+                ? (helpers as any).hasComment
+                : sharedHasComment
     };
 
     traverse(ast, (node) => {

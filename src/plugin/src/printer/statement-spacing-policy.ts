@@ -1,11 +1,9 @@
-import * as Core from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
 import {
     DefineReplacementDirective,
     getNormalizedDefineReplacementDirective,
     isFunctionLikeDeclaration
 } from "./util.js";
-
-// Use Core.getBooleanLiteralValue per AGENTS.md rather than destructuring.
 
 function isMacroLikeStatement(node) {
     const nodeType = node?.type;
@@ -23,7 +21,7 @@ function isMacroLikeStatement(node) {
             DefineReplacementDirective.MACRO
         );
     }
-
+    
     return false;
 }
 

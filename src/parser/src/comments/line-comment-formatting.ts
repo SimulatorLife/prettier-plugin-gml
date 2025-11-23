@@ -5,7 +5,6 @@ import {
     LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,
     normalizeLineCommentOptions
 } from "./line-comment-options.js";
-import { isObjectLike } from "./comment-boundary.js";
 import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
 
 const {
@@ -357,7 +356,7 @@ const DOC_COMMENT_TYPE_PATTERN = /\{([^}]+)\}/g;
 const DOC_TAG_LINE_PREFIX_PATTERN = /^\/+\(\s*\)@/;
 
 function getLineCommentRawText(comment) {
-    if (!isObjectLike(comment)) {
+    if (!Core.isObjectLike(comment)) {
         return "";
     }
 
@@ -451,18 +450,18 @@ function formatLineComment(
     }
 
     const hasPrecedingLineBreak =
-        isObjectLike(comment) &&
+        Core.isObjectLike(comment) &&
         typeof comment.leadingWS === "string" &&
         /\r|\n/.test(comment.leadingWS);
 
     const hasInlineLeadingChar =
-        isObjectLike(comment) &&
+        Core.isObjectLike(comment) &&
         typeof comment.leadingChar === "string" &&
         comment.leadingChar.length > 0 &&
         !/\r|\n/.test(comment.leadingChar);
 
     const isInlineComment =
-        isObjectLike(comment) &&
+        Core.isObjectLike(comment) &&
         comment.isTopComment !== true &&
         (typeof comment.inlinePadding === "number" ||
             comment.trailing === true ||
@@ -594,7 +593,7 @@ function formatLineComment(
         // `/// ...` doc comments.
         if (
             remainder.startsWith("//") ||
-            (isObjectLike(comment) &&
+            (Core.isObjectLike(comment) &&
                 typeof comment.value === "string" &&
                 /^\s*\/\//.test(comment.value))
         ) {
@@ -670,7 +669,7 @@ function applyInlinePadding(comment, formattedText) {
 }
 
 function resolveInlinePaddingWidth(comment) {
-    if (!isObjectLike(comment)) {
+    if (!Core.isObjectLike(comment)) {
         return 0;
     }
 
@@ -697,7 +696,7 @@ function resolveInlinePaddingWidth(comment) {
 }
 
 function extractContinuationIndentation(comment) {
-    if (!isObjectLike(comment)) {
+    if (!Core.isObjectLike(comment)) {
         return "";
     }
 

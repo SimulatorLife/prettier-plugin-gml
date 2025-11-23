@@ -1,4 +1,4 @@
-import * as Core from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
 
 import type { GmlPluginComponentBundle } from "./plugin-types.js";
 

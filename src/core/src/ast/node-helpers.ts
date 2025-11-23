@@ -4,11 +4,25 @@ import { isNonEmptyString } from "../utils/string.js";
 import { assignClonedLocation } from "./locations.js";
 import { GameMakerAstNode } from "./types.js";
 
-//
-
 // Shared AST helper utilities focused on querying common node shapes.
 // Centralizes frequently repeated guards so printer and transform modules
 // can reuse the same defensive checks without duplicating logic.
+
+const LOGICAL_OPERATORS = new Set(["and", "&&", "or", "||"]);
+const COMPARISON_OPERATORS = new Set(["==", "!=", "<>", "<=", ">=", "<", ">"]);
+const ARITHMETIC_OPERATORS = new Set([
+    "+",
+    "-",
+    "*",
+    "/",
+    "%",
+    "^",
+    "<<",
+    ">>",
+    ">>>",
+    "|",
+    "&"
+]);
 
 /**
  * Retrieve the sole declarator from a variable declaration node.
@@ -564,6 +578,28 @@ export function isFunctionLikeNode(node): boolean {
     return FUNCTION_LIKE_NODE_TYPE_SET.has(type);
 }
 
+export function getNodeName(node): string | null {
+    if (!node) {
+        return null;
+    }
+
+    if (node.id !== undefined) {
+        const idName = getIdentifierText(node.id);
+        if (idName) {
+            return idName;
+        }
+    }
+
+    if (node.key !== undefined) {
+        const keyName = getIdentifierText(node.key);
+        if (keyName) {
+            return keyName;
+        }
+    }
+
+    return getIdentifierText(node);
+}
+
 /**
  * Iterate over child nodes nested within {@link node}, invoking
  * {@link callback} for each descendant that should be inspected.
@@ -586,6 +622,18 @@ const VISIT_CHILD_NODES_VALUE_POOL_MAX_SIZE = 32;
 
 export function borrowVisitChildNodesValueBuffer() {
     return visitChildNodesValuePool.pop() ?? [];
+}
+
+export function isComparisonOperator(operator) {
+    return COMPARISON_OPERATORS.has(operator);
+}
+
+export function isArithmeticOperator(operator) {
+    return ARITHMETIC_OPERATORS.has(operator);
+}
+
+export function isNumericLiteralBoundaryCharacter(character) {
+    return /[0-9.-]/.test(character ?? "");
 }
 
 export function releaseVisitChildNodesValueBuffer(buffer) {

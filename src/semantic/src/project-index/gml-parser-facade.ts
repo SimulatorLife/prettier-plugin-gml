@@ -1,5 +1,5 @@
 import { Parser } from "@gml-modules/parser";
-import { ScopeTracker } from "../scopes/index.js";
+import { SemanticScopeCoordinator } from "../scopes/identifier-scope.js";
 import { formatProjectIndexSyntaxError } from "./syntax-error-formatter.js";
 
 function parseProjectIndexSource(sourceText, context = {}) {
@@ -14,7 +14,7 @@ function parseProjectIndexSource(sourceText, context = {}) {
             simplifyLocations: false,
             getIdentifierMetadata: true,
             createScopeTracker: ({ enabled }) =>
-                enabled ? new ScopeTracker({ enabled }) : null
+                enabled ? new SemanticScopeCoordinator() : null
         } as any);
     } catch (error) {
         if (Parser.isSyntaxErrorWithLocation(error)) {

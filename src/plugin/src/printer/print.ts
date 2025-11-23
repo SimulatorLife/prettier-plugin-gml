@@ -1,4 +1,4 @@
-import * as Core from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
 import { builders, utils } from "prettier/doc";
 
 import {
@@ -8,7 +8,6 @@ import {
     isNextLineEmpty,
     isPreviousLineEmpty,
     shouldAddNewlinesAroundStatement,
-    hasComment,
     getNormalizedDefineReplacementDirective,
     isFunctionLikeDeclaration
 } from "./util.js";
@@ -94,6 +93,7 @@ const {
 // Wrapper helpers around optional Semantic helpers. Some test/runner
 // environments may not expose the full Semantic facade; provide safe
 // fallbacks so printing remains robust.
+// TODO: Consider moving these into Core or Semantic for reuse.
 function getSemanticIdentifierCaseRenameForNode(node, options) {
     try {
         try {
@@ -722,7 +722,6 @@ const BINARY_OPERATOR_INFO = new Map([
     ["??", { precedence: 4, associativity: "right" }]
 ]);
 
-const COMPARISON_OPERATORS = new Set(["<", "<=", ">", ">=", "==", "!=", "<>"]);
 const DOC_COMMENT_OUTPUT_FLAG = "_gmlHasDocCommentOutput";
 
 function resolveLogicalOperatorsStyle(options) {
@@ -1465,8 +1464,8 @@ function _printImpl(path, options, print) {
                 operator === "/" &&
                 node?.right?.type === "Literal" &&
                 node.right.value === "2" &&
-                !hasComment(node) &&
-                !hasComment(node.left);
+                !Core.hasComment(node) &&
+                !Core.hasComment(node.left);
 
             if (canConvertDivisionToHalf) {
                 operator = "*";
@@ -1851,7 +1850,7 @@ function _printImpl(path, options, print) {
             );
         }
         case "EnumDeclaration": {
-            prepareEnumMembersForPrinting(node, getNodeName);
+            prepareEnumMembersForPrinting(node, Core.getNodeName);
             return concat([
                 "enum ",
                 print("name"),
@@ -2367,8 +2366,8 @@ function synthesizeMissingCallArgumentSeparators(
                 nextStart < originalText.length ? originalText[nextStart] : "";
 
             if (
-                isNumericLiteralBoundaryCharacter(previousChar) &&
-                isNumericLiteralBoundaryCharacter(nextChar)
+                Core.isNumericLiteralBoundaryCharacter(previousChar) &&
+                Core.isNumericLiteralBoundaryCharacter(nextChar)
             ) {
                 normalizedText += `,${between}`;
                 cursor = nextStart;
@@ -2384,10 +2383,6 @@ function synthesizeMissingCallArgumentSeparators(
     normalizedText += originalText.slice(cursor, endIndex);
 
     return insertedSeparator ? normalizedText : null;
-}
-
-function isNumericLiteralBoundaryCharacter(character) {
-    return /[0-9.-]/.test(character ?? "");
 }
 
 function shouldAllowTrailingComma(options) {
@@ -2514,7 +2509,7 @@ function shouldForceInlineFunctionParameters(path, options) {
         return false;
     }
 
-    if (node.params.some((param) => hasComment(param))) {
+    if (node.params.some((param) => Core.hasComment(param))) {
         return false;
     }
 
@@ -2554,7 +2549,7 @@ function maybePrintInlineDefaultParameterFunctionBody(path, print) {
         return null;
     }
 
-    if (hasComment(node)) {
+    if (Core.hasComment(node)) {
         return null;
     }
 
@@ -2563,7 +2558,7 @@ function maybePrintInlineDefaultParameterFunctionBody(path, print) {
         return null;
     }
 
-    if (hasComment(bodyNode)) {
+    if (Core.hasComment(bodyNode)) {
         return null;
     }
 
@@ -2573,7 +2568,7 @@ function maybePrintInlineDefaultParameterFunctionBody(path, print) {
     }
 
     const [onlyStatement] = statements;
-    if (!onlyStatement || hasComment(onlyStatement)) {
+    if (!onlyStatement || Core.hasComment(onlyStatement)) {
         return null;
     }
 
@@ -2663,7 +2658,7 @@ function shouldPrintBlockAlternateAsElseIf(node) {
         return false;
     }
 
-    if (hasComment(node)) {
+    if (Core.hasComment(node)) {
         return false;
     }
 
@@ -2758,7 +2753,7 @@ function isSimpleCallExpression(node) {
         return false;
     }
 
-    if (hasComment(onlyArgument)) {
+    if (Core.hasComment(onlyArgument)) {
         return false;
     }
 
@@ -2890,7 +2885,7 @@ function shouldForceBreakStructArgument(argument) {
         return false;
     }
 
-    if (hasComment(argument)) {
+    if (Core.hasComment(argument)) {
         return true;
     }
 
@@ -2903,7 +2898,7 @@ function shouldForceBreakStructArgument(argument) {
     if (
         properties.some(
             (property) =>
-                hasComment(property) || property?._hasTrailingInlineComment
+                Core.hasComment(property) || property?._hasTrailingInlineComment
         )
     ) {
         return true;
@@ -4221,7 +4216,7 @@ function suppressConstructorAssignmentPadding(functionNode) {
             continue;
         }
 
-        if (hasComment(statement)) {
+        if (Core.hasComment(statement)) {
             break;
         }
 
@@ -5012,7 +5007,7 @@ function mergeSyntheticDocComments(
         overrides
     );
     try {
-        const fname = getNodeName(node);
+        const fname = Core.getNodeName(node);
         if (typeof fname === "string" && fname.includes("sample")) {
             try {
                 console.error(
@@ -6490,7 +6485,7 @@ function computeSyntheticFunctionDocLines(
     const documentedParamNames = new Set();
     const paramMetadataByCanonical = new Map();
     const overrideName = overrides?.nameOverride;
-    const functionName = overrideName ?? getNodeName(node);
+    const functionName = overrideName ?? Core.getNodeName(node);
     const existingFunctionMetadata = metadata.find(
         (meta) => meta.tag === "function"
     );
@@ -6685,7 +6680,7 @@ function computeSyntheticFunctionDocLines(
         options
     );
     try {
-        const fname = getNodeName(node);
+        const fname = Core.getNodeName(node);
         if (typeof fname === "string" && fname.includes("sample")) {
             try {
                 const brief = (arr) =>
@@ -8900,7 +8895,7 @@ function printBooleanReturnIf(path, print) {
         node.type !== "IfStatement" ||
         !node.consequent ||
         !node.alternate ||
-        hasComment(node)
+        Core.hasComment(node)
     ) {
         return null;
     }
@@ -8932,7 +8927,7 @@ function printBooleanReturnIf(path, print) {
 }
 
 function getBooleanReturnBranch(branchNode) {
-    if (!branchNode || hasComment(branchNode)) {
+    if (!branchNode || Core.hasComment(branchNode)) {
         return null;
     }
 
@@ -8946,7 +8941,7 @@ function getBooleanReturnBranch(branchNode) {
 
         const [onlyStatement] = statements;
         if (
-            hasComment(onlyStatement) ||
+            Core.hasComment(onlyStatement) ||
             onlyStatement.type !== "ReturnStatement"
         ) {
             return null;
@@ -9017,12 +9012,12 @@ function buildIfAlternateDoc(path, options, print, node) {
 }
 
 function getBooleanReturnStatementInfo(returnNode) {
-    if (!returnNode || hasComment(returnNode)) {
+    if (!returnNode || Core.hasComment(returnNode)) {
         return null;
     }
 
     const argument = returnNode.argument;
-    if (!argument || hasComment(argument) || !isBooleanLiteral(argument)) {
+    if (!argument || Core.hasComment(argument) || !isBooleanLiteral(argument)) {
         return null;
     }
 
@@ -9077,7 +9072,7 @@ function simplifyTrigonometricCall(node) {
         return false;
     }
 
-    if (hasComment(node)) {
+    if (Core.hasComment(node)) {
         return false;
     }
 
@@ -9123,7 +9118,7 @@ function applyInnerDegreeWrapperConversion(node, functionName) {
         return false;
     }
 
-    if (hasComment(firstArg)) {
+    if (Core.hasComment(firstArg)) {
         return false;
     }
 
@@ -9147,7 +9142,7 @@ function applyOuterTrigConversion(node, conversionMap) {
         return false;
     }
 
-    if (hasComment(firstArg)) {
+    if (Core.hasComment(firstArg)) {
         return false;
     }
 
@@ -9213,40 +9208,22 @@ function needsParensForNegation(node) {
 
 function shouldPrefixGlobalIdentifier(path) {
     const node = path.getValue();
-    if (!node || !node.isGlobalIdentifier) {
-        return false;
-    }
+    if (!node || !node.isGlobalIdentifier) return false;
 
     const parent = path.getParentNode();
-    if (!parent) {
-        return true;
-    }
+    if (!parent) return true;
 
-    if (parent.type === "MemberDotExpression" && parent.property === node) {
-        return false;
-    }
+    const type = parent.type;
 
-    if (parent.type === "Property" && parent.name === node) {
-        return false;
-    }
-
-    if (parent.type === "VariableDeclarator" && parent.id === node) {
-        return false;
-    }
-
-    if (parent.type === "FunctionDeclaration" && parent.id === node) {
-        return false;
-    }
-
-    if (parent.type === "ConstructorDeclaration" && parent.id === node) {
-        return false;
-    }
-
-    if (parent.type === "ConstructorParentClause" && parent.id === node) {
-        return false;
-    }
-
-    if (parent.type === "EnumMember" && parent.name === node) {
+    if (type === "MemberDotExpression" && parent.property === node) return false;
+    if ((type === "Property" || type === "EnumMember") && parent.name === node) return false;
+    if (
+        (type === "VariableDeclarator" ||
+            type === "FunctionDeclaration" ||
+            type === "ConstructorDeclaration" ||
+            type === "ConstructorParentClause") &&
+        parent.id === node
+    ) {
         return false;
     }
 
@@ -9470,28 +9447,6 @@ function shouldInsertHoistedLoopSeparator(path, options) {
     }
 
     return options?.optimizeLoopLengthHoisting ?? true;
-}
-
-function getNodeName(node) {
-    if (!node) {
-        return null;
-    }
-
-    if (node.id !== undefined) {
-        const idName = getIdentifierText(node.id);
-        if (idName) {
-            return idName;
-        }
-    }
-
-    if (node.key !== undefined) {
-        const keyName = getIdentifierText(node.key);
-        if (keyName) {
-            return keyName;
-        }
-    }
-
-    return getIdentifierText(node);
 }
 
 function stripSyntheticParameterSentinels(name) {
@@ -9757,7 +9712,7 @@ function shouldOmitSyntheticParens(path) {
                     parent.operator === "and" ||
                     parent.operator === "||" ||
                     parent.operator === "or") &&
-                COMPARISON_OPERATORS.has(expression.operator) &&
+                Core.isComparisonOperator(expression.operator) &&
                 isControlFlowLogicalTest(path)
             ) {
                 return true;
@@ -9813,7 +9768,7 @@ function shouldOmitSyntheticParens(path) {
 
                 if (expression.operator === "*") {
                     if (
-                        COMPARISON_OPERATORS.has(parent.operator) &&
+                        Core.isComparisonOperator(parent.operator) &&
                         isSelfMultiplicationExpression(expression) &&
                         isComparisonWithinLogicalChain(path)
                     ) {
@@ -9926,7 +9881,7 @@ function isComparisonWithinLogicalChain(path) {
 
         if (
             ancestor.type === "BinaryExpression" &&
-            COMPARISON_OPERATORS.has(ancestor.operator)
+            Core.isComparisonOperator(ancestor.operator)
         ) {
             currentNode = ancestor;
             depth += 1;
@@ -10235,6 +10190,8 @@ function areNumericExpressionsEquivalent(left, right) {
     }
 }
 
+// TODO: Remove this function. We don't want ONLY division by two to be special-cased
+// This is already handled by the general numeric expression flattening logic
 function isDivisionByTwoConvertible(node) {
     if (!node || node.type !== "BinaryExpression") {
         return false;
@@ -10248,13 +10205,14 @@ function isDivisionByTwoConvertible(node) {
         return false;
     }
 
-    if (hasComment(node) || hasComment(node.left) || hasComment(node.right)) {
+    if (Core.hasComment(node) || Core.hasComment(node.left) || Core.hasComment(node.right)) {
         return false;
     }
 
     return true;
 }
 
+// TODO: This function uses 'isDivisionByTwoConvertible', but we should not special-case division by two
 function shouldFlattenMultiplicationChain(parent, expression, path) {
     if (
         !parent ||
@@ -10292,12 +10250,6 @@ function shouldFlattenMultiplicationChain(parent, expression, path) {
 
     return true;
 }
-
-// Synthetic parenthesis flattening only treats select call expressions as
-// numeric so we avoid unwrapping macro invocations that expand to complex
-// expressions. The list is intentionally small and can be extended as other
-// numeric helpers require the same treatment.
-const NUMERIC_CALL_IDENTIFIERS = new Set(["sqr", "sqrt"]);
 
 function getSanitizedMacroNames(path) {
     let depth = 1;
@@ -10386,6 +10338,12 @@ function expressionReferencesSanitizedMacro(node, sanitizedMacroNames) {
     return false;
 }
 
+// Synthetic parenthesis flattening only treats select call expressions as
+// numeric so we avoid unwrapping macro invocations that expand to complex
+// expressions. The list is intentionally small and can be extended as other
+// numeric helpers require the same treatment.
+const NUMERIC_CALL_IDENTIFIERS = new Set(["sqr", "sqrt"]);
+
 function isNumericCallExpression(node) {
     if (!node || node.type !== "CallExpression") {
         return false;
@@ -10398,31 +10356,6 @@ function isNumericCallExpression(node) {
     }
 
     return NUMERIC_CALL_IDENTIFIERS.has(calleeName.toLowerCase());
-}
-
-function shouldOmitUnaryPlus(argument) {
-    const candidate = unwrapUnaryPlusCandidate(argument);
-
-    if (!candidate || typeof candidate !== OBJECT_TYPE) {
-        return false;
-    }
-
-    return candidate.type === "Identifier";
-}
-
-function unwrapUnaryPlusCandidate(node) {
-    let current = node;
-
-    while (
-        current &&
-        typeof current === OBJECT_TYPE &&
-        current.type === "ParenthesizedExpression" &&
-        current.expression
-    ) {
-        current = current.expression;
-    }
-
-    return current;
 }
 
 function isNumericComputationNode(node) {
@@ -10454,7 +10387,7 @@ function isNumericComputationNode(node) {
             return isNumericComputationNode(node.expression);
         }
         case "BinaryExpression": {
-            if (!isArithmeticBinaryOperator(node.operator)) {
+            if (!isArithmeticOperator(node.operator)) {
                 return false;
             }
 
@@ -10474,23 +10407,6 @@ function isNumericComputationNode(node) {
                 return false;
             }
 
-            return true;
-        }
-        default: {
-            return false;
-        }
-    }
-}
-
-function isArithmeticBinaryOperator(operator) {
-    switch (operator) {
-        case "+":
-        case "-":
-        case "*":
-        case "/":
-        case "div":
-        case "%":
-        case "mod": {
             return true;
         }
         default: {
@@ -10551,6 +10467,31 @@ function expressionIsStringLike(node) {
     }
 
     return false;
+}
+
+function shouldOmitUnaryPlus(argument) {
+    const candidate = unwrapUnaryPlusCandidate(argument);
+
+    if (!candidate || typeof candidate !== OBJECT_TYPE) {
+        return false;
+    }
+
+    return candidate.type === "Identifier";
+}
+
+function unwrapUnaryPlusCandidate(node) {
+    let current = node;
+
+    while (
+        current &&
+        typeof current === OBJECT_TYPE &&
+        current.type === "ParenthesizedExpression" &&
+        current.expression
+    ) {
+        current = current.expression;
+    }
+
+    return current;
 }
 
 const RADIAN_TRIG_TO_DEGREE = new Map([
@@ -10662,7 +10603,7 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
             return false;
         }
 
-        if (hasComment(onlyStatement)) {
+        if (Core.hasComment(onlyStatement)) {
             return false;
         }
 
@@ -10688,7 +10629,7 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
         return false;
     }
 
-    if (hasComment(bodyNode)) {
+    if (Core.hasComment(bodyNode)) {
         return false;
     }
 
@@ -10768,13 +10709,13 @@ function printSingleClauseStatement(
 
         if (
             INLINEABLE_SINGLE_STATEMENT_TYPES.has(bodyNode.type) &&
-            !hasComment(bodyNode)
+            !Core.hasComment(bodyNode)
         ) {
             inlineReturnDoc = print(bodyKey);
             inlineStatementType = bodyNode.type;
         } else if (
             bodyNode.type === "BlockStatement" &&
-            !hasComment(bodyNode) &&
+            !Core.hasComment(bodyNode) &&
             Array.isArray(bodyNode.body) &&
             bodyNode.body.length === 1
         ) {
@@ -10782,7 +10723,7 @@ function printSingleClauseStatement(
             if (
                 onlyStatement &&
                 INLINEABLE_SINGLE_STATEMENT_TYPES.has(onlyStatement.type) &&
-                !hasComment(onlyStatement)
+                !Core.hasComment(onlyStatement)
             ) {
                 const startLine = bodyNode.start?.line;
                 const endLine = bodyNode.end?.line;
@@ -10894,7 +10835,7 @@ function isComparisonExpression(node) {
     const expression = unwrapLogicalClause(node);
     return (
         expression?.type === "BinaryExpression" &&
-        COMPARISON_OPERATORS.has(expression.operator)
+        Core.isComparisonOperator(expression.operator)
     );
 }
 
