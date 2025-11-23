@@ -12,8 +12,7 @@ import * as IdentifierMetadata from "./resources/gml-identifiers.js";
 import * as DeprecatedBuiltinVariables from "./utils/deprecated-builtin-variable-replacements.js";
 
 // Define the Core namespace type from existing module types
-type CoreNamespace = 
-    typeof AST &
+type CoreNamespace = typeof AST &
     typeof Utils &
     typeof Metrics &
     typeof FS &

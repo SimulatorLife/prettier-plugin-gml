@@ -1536,10 +1536,7 @@ export default class GameMakerASTBuilder {
             name
         });
         this.scopeTracker?.applyGlobalIdentifiersToNode(node);
-        this.scopeTracker?.applyCurrentRoleToIdentifier(
-            name,
-            node
-        );
+        this.scopeTracker?.applyCurrentRoleToIdentifier(name, node);
         return node;
     }
 

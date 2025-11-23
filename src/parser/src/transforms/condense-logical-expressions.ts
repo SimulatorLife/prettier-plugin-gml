@@ -41,9 +41,10 @@ export function condenseLogicalExpressions(ast: any, helpers?: any) {
     const resolvedHasComment =
         typeof helpers === "function"
             ? helpers
-            : Core.isObjectLike(helpers) && typeof (helpers as any).hasComment === "function"
-            ? (helpers as any).hasComment
-            : hasComment;
+            : Core.isObjectLike(helpers) &&
+                typeof (helpers as any).hasComment === "function"
+              ? (helpers as any).hasComment
+              : hasComment;
     const normalizedHelpers = {
         ...(Core.isObjectLike(helpers) ? (helpers as any) : {}),
         hasComment: resolvedHasComment

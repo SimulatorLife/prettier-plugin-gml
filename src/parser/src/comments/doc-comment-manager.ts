@@ -189,7 +189,9 @@ function mapDocCommentsToFunctions(ast) {
         }
 
         while (functionIndex < functions.length) {
-            const targetStart = Core.getNodeStartIndex(functions[functionIndex]);
+            const targetStart = Core.getNodeStartIndex(
+                functions[functionIndex]
+            );
             if (typeof targetStart !== "number" || targetStart > commentIndex) {
                 break;
             }

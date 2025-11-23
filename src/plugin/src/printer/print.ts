@@ -1,5 +1,5 @@
 // TODO: This file is too large and should be split into multiple smaller files.
-// It also contains functionality for comments and doc-comments, which should be 
+// It also contains functionality for comments and doc-comments, which should be
 // moved to their respective modules.
 // General, non-printer-related Node utils should be moved into Core.
 
@@ -9220,8 +9220,10 @@ function shouldPrefixGlobalIdentifier(path) {
 
     const type = parent.type;
 
-    if (type === "MemberDotExpression" && parent.property === node) return false;
-    if ((type === "Property" || type === "EnumMember") && parent.name === node) return false;
+    if (type === "MemberDotExpression" && parent.property === node)
+        return false;
+    if ((type === "Property" || type === "EnumMember") && parent.name === node)
+        return false;
     if (
         (type === "VariableDeclarator" ||
             type === "FunctionDeclaration" ||
@@ -10210,7 +10212,11 @@ function isDivisionByTwoConvertible(node) {
         return false;
     }
 
-    if (Core.hasComment(node) || Core.hasComment(node.left) || Core.hasComment(node.right)) {
+    if (
+        Core.hasComment(node) ||
+        Core.hasComment(node.left) ||
+        Core.hasComment(node.right)
+    ) {
         return false;
     }
 

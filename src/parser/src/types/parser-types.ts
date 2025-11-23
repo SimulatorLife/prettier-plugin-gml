@@ -1,7 +1,9 @@
 import type { ParserRuleContext, Token, TokenStream } from "antlr4";
 import type { Semantic } from "@gml-modules/semantic";
 
-type SemanticScopeTracker = InstanceType<typeof Semantic.SemanticScopeCoordinator>;
+type SemanticScopeTracker = InstanceType<
+    typeof Semantic.SemanticScopeCoordinator
+>;
 
 export type ParserContext =
     | (ParserRuleContext & {

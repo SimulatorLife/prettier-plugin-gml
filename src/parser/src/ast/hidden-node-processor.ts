@@ -50,7 +50,11 @@ function handleMultiLineComment(token, tokenText, context) {
 
 function handleWhitespace(token, tokenText, isNewline, context) {
     const { state, whitespaces } = context;
-    const whitespace = Core.createWhitespaceNode({ token, tokenText, isNewline });
+    const whitespace = Core.createWhitespaceNode({
+        token,
+        tokenText,
+        isNewline
+    });
     whitespaces.push(whitespace);
 
     if (state.prevComment) {

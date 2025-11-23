@@ -869,7 +869,10 @@ export class ScopeTracker {
     }
 
     // Public helper to apply the current role to an identifier node
-    applyCurrentRoleToIdentifier(name: string | null | undefined, node: GameMakerAstNode | null | undefined) {
+    applyCurrentRoleToIdentifier(
+        name: string | null | undefined,
+        node: GameMakerAstNode | null | undefined
+    ) {
         if (!name || !Core.isIdentifierNode(node)) {
             return;
         }
@@ -877,7 +880,8 @@ export class ScopeTracker {
         const role = this.identifierRoleTracker.cloneRole(
             this.identifierRoleTracker.getCurrentRole()
         );
-        const roleType = role?.type === "declaration" ? "declaration" : "reference";
+        const roleType =
+            role?.type === "declaration" ? "declaration" : "reference";
 
         if (roleType === "declaration") {
             this.declare(name, node as MutableGameMakerAstNode, role);
@@ -895,7 +899,9 @@ export class ScopeTracker {
         this.globalIdentifierRegistry.markIdentifier(node);
     }
 
-    applyGlobalIdentifiersToNode(node: MutableGameMakerAstNode | null | undefined) {
+    applyGlobalIdentifiersToNode(
+        node: MutableGameMakerAstNode | null | undefined
+    ) {
         this.globalIdentifierRegistry.applyToNode(node);
     }
 }

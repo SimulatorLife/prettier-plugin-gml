@@ -60,9 +60,10 @@ export function preprocessFunctionArgumentDefaults(
         hasComment:
             typeof helpers === "function"
                 ? helpers
-                : Core.isObjectLike(helpers) && typeof (helpers as any).hasComment === "function"
-                ? (helpers as any).hasComment
-                : sharedHasComment
+                : Core.isObjectLike(helpers) &&
+                    typeof (helpers as any).hasComment === "function"
+                  ? (helpers as any).hasComment
+                  : sharedHasComment
     };
 
     traverse(ast, (node) => {

@@ -21,7 +21,7 @@ function isMacroLikeStatement(node) {
             DefineReplacementDirective.MACRO
         );
     }
-    
+
     return false;
 }
 
