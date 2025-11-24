@@ -1,8 +1,6 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    AST: { isCommentNode }
-} = Core;
+// Use Core.isCommentNode directly rather than destructuring.
 
 export function transform(ast: any, opts: any = {}) {
     const cfg = Object.assign(
@@ -31,7 +29,7 @@ export function transform(ast: any, opts: any = {}) {
                 if (Array.isArray(comments)) {
                     // Keep any non-comment entries (defensive) but strip known
                     // comment node shapes.
-                    const filtered = comments.filter((c) => !isCommentNode(c));
+                    const filtered = comments.filter((c) => !Core.isCommentNode(c));
                     if (filtered.length === 0) {
                         delete (value as any).comments;
                     } else {

@@ -1,22 +1,9 @@
 import { Core } from "@gml-modules/core";
 import type { MutableGameMakerAstNode } from "@gml-modules/core";
 
-const {
-    AST: {
-        getNodeStartIndex,
-        getNodeEndIndex,
-        getNodeStartLine,
-        getNodeEndLine,
-        cloneLocation,
-        getSingleVariableDeclarator,
-        isNode,
-        getSingleMemberIndexPropertyEntry,
-        getCommentArray,
-        isLineComment,
-        forEachNodeChild
-    },
-    Utils: { asArray, isNonEmptyArray, stripStringQuotes }
-} = Core;
+// Avoid destructuring Core across package boundaries; call Core.* functions
+// directly. This prevents assumptions about nested namespaces and matches
+// the monorepo conventions in AGENTS.md.
 
 const FALLBACK_COMMENT_TOOLS = Object.freeze({
     addTrailingComment() {}
@@ -42,7 +29,7 @@ const IDENTIFIER = "Identifier";
 const LITERAL = "Literal";
 
 export function consolidateStructAssignments(ast: any, commentTools?: any) {
-    if (!isNode(ast)) {
+    if (!Core.isNode(ast)) {
         return ast;
     }
 
@@ -54,7 +41,7 @@ export function consolidateStructAssignments(ast: any, commentTools?: any) {
 }
 
 function visit(node, tracker, commentTools) {
-    if (!isNode(node)) {
+    if (!Core.isNode(node)) {
         return;
     }
 
@@ -70,11 +57,11 @@ function visit(node, tracker, commentTools) {
         for (const child of node.body) {
             visit(child, tracker, commentTools);
         }
-    } else if (isNode(node.body)) {
+    } else if (Core.isNode(node.body)) {
         visit(node.body, tracker, commentTools);
     }
 
-    forEachNodeChild(node, (value, key) => {
+    Core.forEachNodeChild(node, (value, key) => {
         if (
             key === "body" ||
             key === "start" ||
@@ -88,7 +75,7 @@ function visit(node, tracker, commentTools) {
 }
 
 function consolidateBlock(statements, tracker, commentTools) {
-    if (!isNonEmptyArray(statements)) {
+    if (!Core.isNonEmptyArray(statements)) {
         return;
     }
 
@@ -99,13 +86,13 @@ function consolidateBlock(statements, tracker, commentTools) {
         }
 
         const { identifierName, structNode } = initializer;
-        const structEndIndex = getNodeEndIndex(structNode);
+        const structEndIndex = Core.getNodeEndIndex(structNode);
         if (structEndIndex === undefined) {
             continue;
         }
 
-        const initializerStart = getNodeStartIndex(statements[index]);
-        const initializerEnd = getNodeEndIndex(statements[index]);
+        const initializerStart = Core.getNodeStartIndex(statements[index]);
+        const initializerEnd = Core.getNodeEndIndex(statements[index]);
         if (tracker.hasBetween(initializerStart, initializerEnd)) {
             continue;
         }
@@ -154,8 +141,8 @@ function collectPropertyAssignments({
             break;
         }
 
-        const start = getNodeStartIndex(statement);
-        const end = getNodeEndIndex(statement);
+        const start = Core.getNodeStartIndex(statement);
+        const end = Core.getNodeEndIndex(statement);
         if (start === undefined || end === undefined) {
             break;
         }
@@ -183,7 +170,7 @@ function collectPropertyAssignments({
         }
 
         const nextStatement = statements[cursor + 1];
-        const nextStart = getNodeStartIndex(nextStatement);
+        const nextStart = Core.getNodeStartIndex(nextStatement);
         const attachableComments = tracker.takeBetween(
             end,
             nextStart ?? Number.POSITIVE_INFINITY,
@@ -222,7 +209,7 @@ function collectPropertyAssignments({
             }
             property._hasTrailingInlineComment = true;
             const lastComment = attachableComments.at(-1);
-            const commentEnd = getNodeEndIndex(lastComment);
+            const commentEnd = Core.getNodeEndIndex(lastComment);
             lastEnd = commentEnd === undefined ? end : commentEnd;
         } else {
             lastEnd = end;
@@ -240,7 +227,7 @@ function collectPropertyAssignments({
 
     const nextStatement = statements[cursor];
     const nextBoundary = nextStatement
-        ? getNodeStartIndex(nextStatement)
+        ? Core.getNodeStartIndex(nextStatement)
         : Number.POSITIVE_INFINITY;
 
     if (
@@ -272,30 +259,30 @@ function collectPropertyAssignments({
 }
 
 function getStructInitializer(statement) {
-    if (!isNode(statement)) {
+    if (!Core.isNode(statement)) {
         return null;
     }
 
     if (statement.type === VARIABLE_DECLARATION) {
-        const declarator = getSingleVariableDeclarator(statement);
-        if (!isNode(declarator)) {
+        const declarator = Core.getSingleVariableDeclarator(statement) as MutableGameMakerAstNode | null;
+        if (!Core.isNode(declarator)) {
+            return null;
+        }
+        if (!Core.isIdentifierNode(declarator.id)) {
             return null;
         }
 
-        if (!isNode(declarator.id) || declarator.id.type !== IDENTIFIER) {
+        if (Core.getNodeType(declarator.init) !== STRUCT_EXPRESSION) {
+            return null;
+        }
+
+        if (Core.getNodeType(declarator.init) !== STRUCT_EXPRESSION) {
             return null;
         }
 
         if (
-            !isNode(declarator.init) ||
-            declarator.init.type !== STRUCT_EXPRESSION
-        ) {
-            return null;
-        }
-
-        if (
-            Array.isArray(declarator.init.properties) &&
-            declarator.init.properties.length > 0
+            Array.isArray((declarator.init as any).properties) &&
+            (declarator.init as any).properties.length > 0
         ) {
             return null;
         }
@@ -311,20 +298,17 @@ function getStructInitializer(statement) {
             return null;
         }
 
-        if (!isNode(statement.left) || statement.left.type !== IDENTIFIER) {
+        if (!Core.isIdentifierNode(statement.left)) {
+            return null;
+        }
+
+        if (Core.getNodeType(statement.right) !== STRUCT_EXPRESSION) {
             return null;
         }
 
         if (
-            !isNode(statement.right) ||
-            statement.right.type !== STRUCT_EXPRESSION
-        ) {
-            return null;
-        }
-
-        if (
-            Array.isArray(statement.right.properties) &&
-            statement.right.properties.length > 0
+            Array.isArray((statement.right as any).properties) &&
+            (statement.right as any).properties.length > 0
         ) {
             return null;
         }
@@ -340,7 +324,7 @@ function getStructInitializer(statement) {
 
 function isIdentifierRoot(node, identifierName) {
     return (
-        isNode(node) && node.type === IDENTIFIER && node.name === identifierName
+        Core.isIdentifierNode(node) && node.name === identifierName
     );
 }
 
@@ -352,9 +336,10 @@ function buildPropertyFromAssignment(
     }
 
     const { assignment, propertyAccess } = assignmentDetails;
-    if (!isNode(assignment) || assignment.type !== ASSIGNMENT_EXPRESSION) {
+    if (!Core.isNode(assignment) || assignment.type !== ASSIGNMENT_EXPRESSION) {
         return null;
     }
+    const assignmentNode = assignment as MutableGameMakerAstNode;
 
     if (!propertyAccess) {
         return null;
@@ -369,23 +354,23 @@ function buildPropertyFromAssignment(
     return {
         type: "Property",
         name: propertyName,
-        value: assignment.right,
+        value: assignmentNode.right,
         start:
-            cloneLocation(
+            Core.cloneLocation(
                 getPreferredLocation(
                     propertyAccess.propertyStart,
-                    assignment.start
+                    assignmentNode.start
                 )
             ) ?? null,
         end:
-            cloneLocation(
-                getPreferredLocation(assignment.right?.end, assignment.end)
+            Core.cloneLocation(
+                getPreferredLocation(assignmentNode.right?.end, assignmentNode.end)
             ) ?? null
     } as MutableGameMakerAstNode;
 }
 
 function getStructPropertyAssignmentDetails(statement, identifierName) {
-    if (!isNode(statement) || statement.type !== ASSIGNMENT_EXPRESSION) {
+    if (!Core.isNode(statement) || statement.type !== ASSIGNMENT_EXPRESSION) {
         return null;
     }
 
@@ -401,11 +386,11 @@ function getStructPropertyAssignmentDetails(statement, identifierName) {
         return null;
     }
 
-    return { assignment: statement, propertyAccess };
+    return { assignment: statement as MutableGameMakerAstNode, propertyAccess };
 }
 
 function getStructPropertyAccess(left, identifierName) {
-    if (!isNode(left)) {
+    if (!Core.isNode(left)) {
         return null;
     }
 
@@ -413,7 +398,7 @@ function getStructPropertyAccess(left, identifierName) {
         return null;
     }
 
-    if (left.type === MEMBER_DOT_EXPRESSION && isNode(left.property)) {
+    if (left.type === MEMBER_DOT_EXPRESSION && Core.isNode(left.property)) {
         return {
             propertyNode: left.property,
             propertyStart: left.property?.start
@@ -421,8 +406,8 @@ function getStructPropertyAccess(left, identifierName) {
     }
 
     if (left.type === MEMBER_INDEX_EXPRESSION) {
-        const propertyNode = getSingleMemberIndexPropertyEntry(left);
-        if (!isNode(propertyNode)) {
+        const propertyNode = Core.getSingleMemberIndexPropertyEntry(left);
+        if (!Core.isNode(propertyNode)) {
             return null;
         }
 
@@ -436,14 +421,11 @@ function getStructPropertyAccess(left, identifierName) {
 }
 
 function getPropertyKeyInfo(propertyNode) {
-    if (!isNode(propertyNode)) {
+    if (!Core.isNode(propertyNode)) {
         return null;
     }
 
-    if (
-        propertyNode.type === IDENTIFIER &&
-        typeof propertyNode.name === "string"
-    ) {
+    if (Core.isIdentifierNode(propertyNode)) {
         return {
             identifierName: propertyNode.name,
             raw: propertyNode.name,
@@ -452,11 +434,8 @@ function getPropertyKeyInfo(propertyNode) {
         };
     }
 
-    if (
-        propertyNode.type === LITERAL &&
-        typeof propertyNode.value === "string"
-    ) {
-        const unquoted = stripStringQuotes(propertyNode.value);
+    if (Core.isLiteralNode(propertyNode) && typeof propertyNode.value === "string") {
+        const unquoted = Core.stripStringQuotes(propertyNode.value as any);
         return {
             identifierName: unquoted,
             raw: propertyNode.value,
@@ -478,8 +457,8 @@ function buildPropertyNameNode(propertyKey) {
         return {
             type: IDENTIFIER,
             name: identifierName,
-            start: cloneLocation(propertyKey.start) ?? null,
-            end: cloneLocation(propertyKey.end) ?? null
+            start: Core.cloneLocation(propertyKey.start) ?? null,
+            end: Core.cloneLocation(propertyKey.end) ?? null
         };
     }
 
@@ -487,8 +466,8 @@ function buildPropertyNameNode(propertyKey) {
         return {
             type: LITERAL,
             value: propertyKey.raw,
-            start: cloneLocation(propertyKey.start) ?? null,
-            end: cloneLocation(propertyKey.end) ?? null
+            start: Core.cloneLocation(propertyKey.start) ?? null,
+            end: Core.cloneLocation(propertyKey.end) ?? null
         };
     }
 
@@ -512,7 +491,7 @@ function allowTrailingCommentsBetween({
         return false;
     }
 
-    const expectedLine = getNodeEndLine(precedingStatement);
+    const expectedLine = Core.getNodeEndLine(precedingStatement);
     if (typeof expectedLine !== "number") {
         return false;
     }
@@ -552,34 +531,34 @@ function allowTrailingCommentsBetween({
 }
 
 function isTrailingLineCommentOnLine(comment, expectedLine) {
-    if (!isLineComment(comment)) {
+    if (!Core.isLineComment(comment)) {
         return false;
     }
 
-    return getNodeStartLine(comment) === expectedLine;
+    return Core.getNodeStartLine(comment) === expectedLine;
 }
 
 function getPreferredLocation(primary, fallback) {
-    if (isNode(primary)) {
+    if (Core.isNode(primary)) {
         return primary;
     }
-    if (isNode(fallback)) {
+    if (Core.isNode(fallback)) {
         return fallback;
     }
     return null;
 }
 
 function isAttachableTrailingComment(comment, statement) {
-    if (!isLineComment(comment)) {
+    if (!Core.isLineComment(comment)) {
         return false;
     }
 
     const commentStart = comment.start;
-    if (!isNode(commentStart) || typeof commentStart.line !== "number") {
+    if (!Core.isObjectLike(commentStart) || typeof (commentStart as any).line !== "number") {
         return false;
     }
 
-    const statementEndLine = getNodeEndLine(statement);
+    const statementEndLine = Core.getNodeEndLine(statement);
     if (typeof statementEndLine !== "number") {
         return false;
     }
@@ -588,8 +567,8 @@ function isAttachableTrailingComment(comment, statement) {
         return false;
     }
 
-    const commentStartIndex = getNodeStartIndex(comment);
-    const statementEndIndex = getNodeEndIndex(statement);
+    const commentStartIndex = Core.getNodeStartIndex(comment);
+    const statementEndIndex = Core.getNodeEndIndex(statement);
     if (
         typeof commentStartIndex === "number" &&
         typeof statementEndIndex === "number" &&
@@ -626,8 +605,8 @@ class CommentTracker {
                 return ownerOrComments;
             }
 
-            if (typeof getCommentArray === "function") {
-                const normalized = getCommentArray(ownerOrComments);
+            {
+                const normalized = Core.getCommentArray(ownerOrComments);
                 if (Array.isArray(normalized)) {
                     return normalized;
                 }
@@ -638,7 +617,7 @@ class CommentTracker {
             }
 
             const { comments } = ownerOrComments;
-            return asArray(comments);
+            return Core.asArray(comments);
         })();
         this.comments = sourceComments;
         this.entries = sourceComments
@@ -661,7 +640,7 @@ class CommentTracker {
                 } else if (typeof maybeStart === "number") {
                     index = maybeStart;
                 } else {
-                    index = getNodeStartIndex(comment);
+                    index = Core.getNodeStartIndex(comment);
                 }
                 return { index, comment };
             })

@@ -1,9 +1,5 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: { isErrorLike }
-} = Core;
-
 /**
  * Determine whether a thrown value exposes the location-rich fields emitted by
  * the ANTLR-generated parser. The guard accepts both native `SyntaxError`
@@ -18,7 +14,7 @@ const {
  *                    with location metadata.
  */
 export function isSyntaxErrorWithLocation(value) {
-    if (!isErrorLike(value)) {
+    if (!Core.isErrorLike(value)) {
         return false;
     }
 

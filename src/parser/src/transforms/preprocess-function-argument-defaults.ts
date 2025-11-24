@@ -1,8 +1,5 @@
 import { Core } from "@gml-modules/core";
-import {
-    hasComment as sharedHasComment,
-    prepareDocCommentEnvironment
-} from "../comments/index.js";
+import { prepareDocCommentEnvironment } from "../comments/doc-comment-manager.js";
 
 const {
     getSingleVariableDeclarator: sharedGetSingleVariableDeclarator,
@@ -30,7 +27,7 @@ const DEFAULT_HELPERS = {
     getIdentifierText: sharedGetIdentifierText,
     isUndefinedLiteral: sharedIsUndefinedSentinel,
     getSingleVariableDeclarator: sharedGetSingleVariableDeclarator,
-    hasComment: sharedHasComment
+    hasComment: Core.hasComment
 };
 
 export function preprocessFunctionArgumentDefaults(
@@ -63,7 +60,7 @@ export function preprocessFunctionArgumentDefaults(
                 : Core.isObjectLike(helpers) &&
                     typeof (helpers as any).hasComment === "function"
                   ? (helpers as any).hasComment
-                  : sharedHasComment
+                  : Core.hasComment
     };
 
     traverse(ast, (node) => {
@@ -156,7 +153,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
         node.params = params;
     }
 
-    const statements = getBodyStatements(body);
+    const statements = Core.getBodyStatements(body as Record<string, unknown>);
     const statementsToRemove = new Set();
     let appliedChanges = false;
 

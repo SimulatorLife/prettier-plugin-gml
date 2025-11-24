@@ -1,6 +1,5 @@
 {
   "model": {
-    "name": "gemini-2.5-pro",
     "maxSessionTurns": -1,
     "compressionThreshold": 0.6
   },

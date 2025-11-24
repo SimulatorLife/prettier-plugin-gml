@@ -1,8 +1,6 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: { coalesceOption, coercePositiveIntegerOption }
-} = Core;
+// Use Core utility helpers directly to avoid destructuring the Core namespace.
 
 const DEFAULT_MIN_DECLARATION_RUN_LENGTH = 4;
 // When users set variableBlockSpacingMinDeclarations to 0 (meaning "disabled"),
@@ -26,12 +24,12 @@ const VARIABLE_BLOCK_SPACING_MIN_DECLARATIONS_OPTION =
  * @returns {number} Minimum declaration count or the disabled sentinel.
  */
 function resolveVariableBlockSpacingMinDeclarations(options) {
-    const override = coalesceOption(
+    const override = Core.coalesceOption(
         options,
         VARIABLE_BLOCK_SPACING_MIN_DECLARATIONS_OPTION
     );
 
-    return coercePositiveIntegerOption(
+    return Core.coercePositiveIntegerOption(
         override,
         DEFAULT_MIN_DECLARATION_RUN_LENGTH,
         { zeroReplacement: VARIABLE_BLOCK_SPACING_DISABLED_VALUE }

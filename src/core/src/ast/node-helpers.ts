@@ -199,14 +199,29 @@ export function resolveNodeName(node) {
     return typeof node?.name === "string" ? node.name : null;
 }
 
-export function isIdentifierNode(
-    node: unknown
-): node is { type: "Identifier"; name: string } {
+export function isIdentifierNode(node: unknown): node is import("./types.js").IdentifierNode {
     if (!isNode(node)) return false;
-    return (
-        (node as any).type === "Identifier" &&
-        typeof (node as any).name === "string"
-    );
+    return (node as import("./types.js").IdentifierNode).type === "Identifier" && typeof (node as import("./types.js").IdentifierNode).name === "string";
+}
+
+export function isLiteralNode(node: unknown): node is import("./types.js").LiteralNode {
+    if (!isNode(node)) return false;
+    return (node as import("./types.js").LiteralNode).type === "Literal";
+}
+
+export function isAssignmentPatternNode(node: unknown): node is import("./types.js").AssignmentPatternNode {
+    if (!isNode(node)) return false;
+    return (node as import("./types.js").AssignmentPatternNode).type === "AssignmentPattern";
+}
+
+export function isCallExpressionNode(node: unknown): node is import("./types.js").CallExpressionNode {
+    if (!isNode(node)) return false;
+    return (node as import("./types.js").CallExpressionNode).type === "CallExpression";
+}
+
+export function isMemberIndexExpressionNode(node: unknown): node is import("./types.js").MemberIndexExpressionNode {
+    if (!isNode(node)) return false;
+    return (node as import("./types.js").MemberIndexExpressionNode).type === "MemberIndexExpression";
 }
 
 export function isIdentifierWithName(node, name) {
@@ -332,15 +347,13 @@ export function getCallExpressionArguments(callExpression): Array<unknown> {
     return asArray(callExpression.arguments as unknown[]);
 }
 
-export function getCallExpressionIdentifier(
-    callExpression
-): Record<string, unknown> | null {
+export function getCallExpressionIdentifier(callExpression): import("./types.js").IdentifierNode | null {
     if (!isNode(callExpression) || callExpression.type !== "CallExpression") {
         return null;
     }
 
     const callee = callExpression.object;
-    if (!isNode(callee) || callee.type !== "Identifier") {
+    if (!isIdentifierNode(callee)) {
         return null;
     }
 
@@ -449,7 +462,7 @@ export function isProgramOrBlockStatement(
 }
 
 export function getLiteralStringValue(node) {
-    if (!isNode(node) || node.type !== "Literal") {
+    if (!isLiteralNode(node)) {
         return null;
     }
 
@@ -471,7 +484,7 @@ export function getBooleanLiteralValue(
     node,
     options: BooleanLiteralOptions = {}
 ) {
-    if (!isNode(node) || node.type !== "Literal") {
+    if (!isLiteralNode(node)) {
         return null;
     }
 
@@ -514,11 +527,11 @@ export function isUndefinedSentinel(node) {
         return false;
     }
 
-    if (node.type === "Literal") {
+    if (isLiteralNode(node)) {
         return node.value === undefined;
     }
 
-    if (node.type === "Identifier") {
+    if (isIdentifierNode(node)) {
         const { name } = node;
         return typeof name === "string" && name.toLowerCase() === "undefined";
     }
@@ -743,8 +756,7 @@ export function unwrapParenthesizedExpression(node) {
     let current = node;
 
     while (isNode(current) && current.type === "ParenthesizedExpression") {
-        const { expression } = current;
-
+        const expression = (current as import("./types.js").ParenthesizedExpressionNode).expression;
         if (!isNode(expression)) {
             break;
         }
@@ -778,7 +790,7 @@ export function getStructPropertyAccess(left, identifierName) {
     }
 
     const object = left.object;
-    if (!isNode(object) || object.type !== "Identifier") {
+    if (!isIdentifierNode(object)) {
         return null;
     }
 

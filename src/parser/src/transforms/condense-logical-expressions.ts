@@ -1,10 +1,9 @@
 import { Core } from "@gml-modules/core";
 import {
-    hasComment,
     resolveDocCommentPresenceService, // TODO: We should expose a single doc-comment-service instead of exposing all these
     resolveDocCommentDescriptionService,
     resolveDocCommentUpdateService
-} from "../comments/index.js";
+} from "../comments/doc-comment-manager.js";
 
 const {
     cloneAstNode,
@@ -44,7 +43,7 @@ export function condenseLogicalExpressions(ast: any, helpers?: any) {
             : Core.isObjectLike(helpers) &&
                 typeof (helpers as any).hasComment === "function"
               ? (helpers as any).hasComment
-              : hasComment;
+              : Core.hasComment;
     const normalizedHelpers = {
         ...(Core.isObjectLike(helpers) ? (helpers as any) : {}),
         hasComment: resolvedHasComment
@@ -407,7 +406,7 @@ function visit(node, helpers, parent) {
         return;
     }
 
-    const bodyStatements = getBodyStatements(node);
+    const bodyStatements = Core.getBodyStatements(node as Record<string, unknown>);
     if (bodyStatements.length > 0) {
         condenseWithinStatements(bodyStatements, helpers, node, parent);
     } else if (isNode(node.body)) {

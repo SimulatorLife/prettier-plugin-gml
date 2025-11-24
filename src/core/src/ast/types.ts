@@ -63,9 +63,69 @@ export interface GameMakerAstNode {
     property?: unknown;
     /** Argument list attached to call/assign nodes. */
     arguments?: Array<unknown> | null;
+    /** Single expression used by return or unary nodes. */
+    argument?: GameMakerAstNode | null;
     /** Block or list of statements inside structured nodes. */
     body?: Array<unknown> | null;
+    /** Variable declarators for declarations. */
+    declarations?: Array<MutableGameMakerAstNode> | null;
+    /** Initializer for variable declarators or assignment right-hand sides */
+    init?: GameMakerAstNode | null;
+    /** Left-hand side of binary/assignment expressions */
+    left?: GameMakerAstNode | null;
+    /** Right-hand side of binary/assignment expressions */
+    right?: GameMakerAstNode | null;
+    /** Operator token for binary/unary/infix nodes */
+    operator?: string | null;
+    /** Function or class identifier node, or id name as a string for historical shapes */
+    id?: string | MutableGameMakerAstNode | null;
+    /** Name for identifiers; included for flexible access in code (may be a node or string) */
+    name?: string | MutableGameMakerAstNode | null;
+    /** Parent pointer for nodes that maintain parent links */
+    parent?: GameMakerAstNode | null;
+    /** Parameters for function declarations or lambdas */
+    params?: Array<GameMakerAstNode> | null;
+    /** Properties for struct-like nodes */
+    properties?: Array<GameMakerAstNode> | null;
+    /** Whether a struct/array/object literal has a trailing comma */
+    hasTrailingComma?: boolean;
+    /** Value for literal nodes */
+    value?: string | number | boolean | null;
 }
 
 export type MutableGameMakerAstNode = GameMakerAstNode &
     Record<string, unknown>;
+
+// Minimal, discriminated node subtypes used by type guards in core helpers.
+export interface IdentifierNode extends GameMakerAstNode {
+    type: "Identifier";
+    name: string;
+}
+
+export interface LiteralNode extends GameMakerAstNode {
+    type: "Literal";
+    value?: string | number | boolean | null;
+}
+
+export interface AssignmentPatternNode extends GameMakerAstNode {
+    type: "AssignmentPattern";
+    left?: GameMakerAstNode;
+    right?: GameMakerAstNode;
+}
+
+export interface MemberIndexExpressionNode extends GameMakerAstNode {
+    type: "MemberIndexExpression";
+    object?: GameMakerAstNode;
+    property?: Array<GameMakerAstNode> | null;
+}
+
+export interface CallExpressionNode extends GameMakerAstNode {
+    type: "CallExpression";
+    object?: GameMakerAstNode;
+    arguments?: Array<GameMakerAstNode> | null;
+}
+
+export interface ParenthesizedExpressionNode extends GameMakerAstNode {
+    type: "ParenthesizedExpression";
+    expression?: GameMakerAstNode;
+}

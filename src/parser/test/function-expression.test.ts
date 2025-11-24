@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-
-import GMLParser from "../gml-parser.js";
+import { GMLParser } from "../src/gml-parser.js";
 
 describe("function expressions", () => {
     it("parses inline functions inside conditional expressions", () => {

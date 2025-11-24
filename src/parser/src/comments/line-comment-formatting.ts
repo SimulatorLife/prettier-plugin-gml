@@ -8,7 +8,6 @@ import {
 import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
 
 const {
-    getCommentValue,
     getNonEmptyTrimmedString,
     toTrimmedString,
     hasOwn,
@@ -430,8 +429,8 @@ function formatLineComment(
     const { boilerplateFragments, codeDetectionPatterns } = normalizedOptions;
     const original = getLineCommentRawText(comment);
     const trimmedOriginal = original.trim();
-    const rawValue = getCommentValue(comment);
-    const trimmedValue = getCommentValue(comment, { trim: true });
+    const rawValue = Core.getCommentValue(comment);
+    const trimmedValue = Core.getCommentValue(comment, { trim: true });
     const startsWithTripleSlash = trimmedOriginal.startsWith("///");
     const isPlainTripleSlash =
         startsWithTripleSlash && !trimmedOriginal.includes("@");

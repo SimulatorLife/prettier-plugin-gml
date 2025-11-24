@@ -1,4 +1,5 @@
 import { Core } from "@gml-modules/core";
+import type { MutableGameMakerAstNode } from "@gml-modules/core";
 
 function getStaticFunctionDeclarator(statement) {
     if (!statement || statement.type !== "VariableDeclaration") {
@@ -33,6 +34,9 @@ function extractStaticFunctionName(statement) {
         return null;
     }
 
+    if (!Core.isIdentifierNode(declarator.id)) {
+        return null;
+    }
     return Core.getNonEmptyString(declarator.id.name);
 }
 
@@ -43,40 +47,47 @@ function collectConstructorInfos(ast) {
 
     const constructors = new Map();
 
-    for (const node of Core.getBodyStatements(ast)) {
+    for (const node of Core.getBodyStatements(ast as Record<string, unknown>)) {
         if (!Core.isNode(node) || node.type !== "ConstructorDeclaration") {
             continue;
         }
 
-        const name = Core.getNonEmptyString(node.id);
+        const name = Core.isIdentifierNode(node.id)
+            ? Core.getNonEmptyString(node.id.name)
+            : null;
         if (!name) {
             continue;
         }
 
-        const parentName =
+        let parentName = null;
+        if (
             Core.isNode(node.parent) &&
             node.parent.type === "ConstructorParentClause"
-                ? Core.getNonEmptyString(
-                      (node.parent as Record<string, unknown>).id
-                  )
+        ) {
+            const parentId = (node.parent as any).id;
+            parentName = Core.isIdentifierNode(parentId)
+                ? Core.getNonEmptyString(parentId.name)
                 : null;
+        }
 
         const staticFunctions = new Map();
 
         for (const statement of Core.getBodyStatements(
-            (node as Record<string, unknown>).body
+            (node as Record<string, unknown>).body as Record<string, unknown>
         )) {
             const declarator = getStaticFunctionDeclarator(statement);
             if (declarator?.init?.type !== "FunctionDeclaration") {
                 continue;
             }
 
-            const staticName = Core.getNonEmptyString(declarator.id.name);
+            const staticName = Core.isIdentifierNode(declarator.id)
+                ? Core.getNonEmptyString(declarator.id.name)
+                : null;
             if (!staticName || staticFunctions.has(staticName)) {
                 continue;
             }
 
-            staticFunctions.set(staticName, statement);
+            staticFunctions.set(staticName, statement as MutableGameMakerAstNode);
         }
 
         constructors.set(name, {

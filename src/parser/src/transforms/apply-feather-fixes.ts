@@ -14,13 +14,12 @@ import GameMakerLanguageLexer from "../../generated/GameMakerLanguageLexer.js";
 import GameMakerLanguageParser from "../../generated/GameMakerLanguageParser.js";
 import GameMakerASTBuilder from "../ast/gml-ast-builder.js";
 import type { ParserContextWithMethods } from "../types/index.js";
+import { defaultParserOptions } from "../types/parser-types.js";
 import GameMakerParseErrorListener, {
     GameMakerLexerErrorListener
 } from "../ast/gml-syntax-error.js";
 import { preprocessFunctionArgumentDefaults } from "./preprocess-function-argument-defaults.js";
-import {
-    resolveDocCommentTraversalService,
-} from "../comments/index.js";
+import { resolveDocCommentTraversalService } from "../comments/doc-comment-manager.js";
 
 function walkAstNodes(root, visitor) { // TODO: I think this is duplicated elsewhere
     const visit = (node, parent, key) => {
@@ -148,6 +147,7 @@ function parseExample(
         const tree = parser.program();
         const builder = new GameMakerASTBuilder(
             {
+                ...defaultParserOptions,
                 getLocations: options.getLocations ?? true,
                 simplifyLocations: options.simplifyLocations ?? false
             },
@@ -8365,7 +8365,7 @@ function buildEventMarkerIndex(ast) {
     }
 
     const markerComments = new Set();
-    const directComments = getCommentArray(ast);
+    const directComments = Core.getCommentArray(ast);
 
     for (const comment of directComments) {
         if (comment) {
@@ -10501,7 +10501,7 @@ function removeRedeclaredGlobalFunctions({ ast, diagnostic }) {
                 originalDeclaration &&
                 typeof originalDeclaration === "object"
             ) {
-                const originalHasComments = hasComment(originalDeclaration);
+                const originalHasComments = Core.hasComment(originalDeclaration);
 
                 attachFeatherFixMetadata(originalDeclaration, [fixDetail]);
 
@@ -11737,7 +11737,7 @@ function attachLeadingCommentsToWrappedPrimitive({
             continue;
         }
 
-        const trimmedValue = getCommentValue(comment, { trim: true });
+        const trimmedValue = Core.getCommentValue(comment, { trim: true });
 
         if (!trimmedValue.startsWith("/")) {
             continue;
@@ -13172,7 +13172,7 @@ function attachLeadingCommentsToHoistedDeclaration({
             continue;
         }
 
-        const trimmedValue = getCommentValue(comment, { trim: true });
+        const trimmedValue = Core.getCommentValue(comment, { trim: true });
 
         if (!trimmedValue.startsWith("/")) {
             continue;
@@ -14704,7 +14704,7 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
             return node.body;
         }
 
-        return Core.getBodyStatements(node.body);
+        return Core.getBodyStatements(node as Record<string, unknown>);
     }
 
     function createFileFindState() {
@@ -16470,7 +16470,10 @@ function cloneIdentifier(node) {
         name: identifierDetails.name
     };
 
-    Core.assignClonedLocation(cloned, identifierDetails.identifier);
+    Core.assignClonedLocation(
+        cloned,
+        identifierDetails.identifier as MutableGameMakerAstNode
+    );
 
     return cloned;
 }
@@ -17397,7 +17400,7 @@ function sanitizeDocCommentType(comment, typeSystemInfo) {
         return null;
     }
 
-    const rawValue = getCommentValue(comment);
+    const rawValue = Core.getCommentValue(comment);
 
     if (!rawValue || !rawValue.includes("@") || !rawValue.includes("{")) {
         return null;

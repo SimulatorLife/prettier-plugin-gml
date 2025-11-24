@@ -1,7 +1,5 @@
 import { Core } from "@gml-modules/core";
-const {
-    AST: { isNode }
-} = Core;
+// Use Core.isNode directly instead of destructuring the Core namespace.
 const BINARY_EXPRESSION = "BinaryExpression";
 const TEMPLATE_STRING_EXPRESSION = "TemplateStringExpression";
 const TEMPLATE_STRING_TEXT = "TemplateStringText";
@@ -223,7 +221,7 @@ function buildTemplateAtoms(parts) {
                     return null;
                 }
 
-                if (!isNode(nestedAtom)) continue;
+                if (!Core.isNode(nestedAtom)) continue;
                 if ((nestedAtom as any).type === TEMPLATE_STRING_TEXT) {
                     if (typeof (nestedAtom as any).value !== "string") {
                         return null;

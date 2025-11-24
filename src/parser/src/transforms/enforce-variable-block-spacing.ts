@@ -2,10 +2,7 @@ import { Core } from "@gml-modules/core";
 
 import { resolveVariableBlockSpacingMinDeclarations } from "../options/variable-block-spacing-options.js";
 
-const {
-    AST: { getNodeType },
-    Utils: { isNonEmptyArray }
-} = Core;
+// Avoid destructuring the Core namespace; call Core functions directly.
 
 export function enforceVariableBlockSpacing(ast: any, options?: any) {
     if (!ast || typeof ast !== "object") {
@@ -37,7 +34,7 @@ function visitNode(node, visitedNodes, minDeclarationRunLength) {
         return;
     }
 
-    if (node.type === "BlockStatement" && isNonEmptyArray(node.body)) {
+    if (node.type === "BlockStatement" && Core.isNonEmptyArray(node.body)) {
         enforceSpacingInBlock(node.body, minDeclarationRunLength);
     }
 
@@ -79,7 +76,7 @@ function enforceSpacingInBlock(statements, minDeclarationRunLength) {
 }
 
 function isVarDeclaration(node) {
-    if (getNodeType(node) !== "VariableDeclaration") {
+    if (Core.getNodeType(node) !== "VariableDeclaration") {
         return false;
     }
 
@@ -88,5 +85,5 @@ function isVarDeclaration(node) {
 }
 
 function shouldForceBlankLineAfter(nextNode) {
-    return getNodeType(nextNode) === "ForStatement";
+    return Core.getNodeType(nextNode) === "ForStatement";
 }

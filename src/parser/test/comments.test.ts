@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
+import { Core } from "@gml-modules/core";
+const {
     collectCommentNodes,
     getCommentArray,
     getCommentValue,
@@ -10,7 +11,7 @@ import {
     isCommentNode,
     isDocCommentLine,
     isLineComment
-} from "../src/comments/comments.js";
+} = Core;
 
 test("isCommentNode differentiates comment nodes", () => {
     assert.equal(isCommentNode(null), false);
