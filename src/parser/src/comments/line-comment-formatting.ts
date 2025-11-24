@@ -10,7 +10,6 @@ import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
 const {
     getNonEmptyTrimmedString,
     toTrimmedString,
-    hasOwn,
     isRegExpLike,
     createResolverController
 } = Core;
@@ -24,11 +23,11 @@ function normalizeEntryPair(entry) {
         return null;
     }
 
-    if (hasOwn(entry, 0) && hasOwn(entry, 1)) {
+    if (Object.hasOwn(entry, 0) && Object.hasOwn(entry, 1)) {
         return [entry[0], entry[1]];
     }
 
-    if (hasOwn(entry, "key") && hasOwn(entry, "value")) {
+    if (Object.hasOwn(entry, "key") && Object.hasOwn(entry, "value")) {
         return [entry.key, entry.value];
     }
 

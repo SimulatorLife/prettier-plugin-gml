@@ -1,4 +1,4 @@
-import { hasOwn, isObjectLike } from "../utils/object.js";
+import { isObjectLike } from "../utils/object.js";
 
 type ObjectRecord = Record<string, unknown>;
 
@@ -91,7 +91,7 @@ export function walkObjectGraph(
         const keys = Object.keys(objectValue);
         for (let index = keys.length - 1; index >= 0; index -= 1) {
             const childKey = keys[index];
-            if (!hasOwn(objectValue, childKey)) {
+            if (!Object.hasOwn(objectValue, childKey)) {
                 continue;
             }
 

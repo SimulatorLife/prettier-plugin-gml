@@ -9,6 +9,7 @@ import { GameMakerSyntaxError } from "../src/ast/gml-syntax-error.js";
 import { Core } from "@gml-modules/core";
 import { Semantic } from "@gml-modules/semantic";
 import type { ParserOptions } from "../src/types/index.js";
+import { defaultParserOptions } from "../src/types/index.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixturesDirectory = path.join(currentDirectory, "input");
@@ -179,8 +180,10 @@ function groupIdentifiersByName(identifiers) {
 function parseWithMetadata(source) {
     return GMLParser.parse(source, {
         simplifyLocations: false,
-        createScopeTracker: ({ enabled }) =>
-            enabled ? new Semantic.SemanticScopeCoordinator() : null
+        scopeTrackerOptions: {
+            enabled: true,
+            createScopeTracker: () => new Semantic.SemanticScopeCoordinator()
+        }
     });
 }
 
@@ -436,7 +439,7 @@ describe("GameMaker parser fixtures", () => {
     });
 
     it("builds identifier locations from available token offsets", () => {
-        const builder = new GameMakerASTBuilder();
+        const builder = new GameMakerASTBuilder(defaultParserOptions);
         const location = builder.createIdentifierLocation({
             line: 3,
             column: 7,
@@ -451,7 +454,7 @@ describe("GameMaker parser fixtures", () => {
     });
 
     it("falls back to startIndex and stopIndex when primary offsets are missing", () => {
-        const builder = new GameMakerASTBuilder();
+        const builder = new GameMakerASTBuilder(defaultParserOptions);
         const location = builder.createIdentifierLocation({
             line: 2,
             startIndex: 5,

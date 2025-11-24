@@ -110,8 +110,11 @@ function consolidateBlock(statements, tracker, commentTools) {
             continue;
         }
 
-        structNode.properties = collected.properties;
-        structNode.hasTrailingComma = collected.shouldForceBreak;
+        // The collected properties are assigned to the struct node; cast to
+        // `MutableGameMakerAstNode` to allow mutation in-place with correct
+        // typing for downstream transforms.
+        (structNode as MutableGameMakerAstNode).properties = collected.properties;
+        (structNode as MutableGameMakerAstNode).hasTrailingComma = collected.shouldForceBreak;
 
         statements.splice(index + 1, collected.count);
     }
@@ -366,7 +369,7 @@ function buildPropertyFromAssignment(
             Core.cloneLocation(
                 getPreferredLocation(assignmentNode.right?.end, assignmentNode.end)
             ) ?? null
-    } as MutableGameMakerAstNode;
+    } as unknown as MutableGameMakerAstNode;
 }
 
 function getStructPropertyAssignmentDetails(statement, identifierName) {

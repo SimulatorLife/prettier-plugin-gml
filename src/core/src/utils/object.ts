@@ -463,19 +463,6 @@ export function coalesceOption(
 }
 
 /**
- * Determine whether `object` defines `key` as an own property. Defers to the
- * intrinsic `Object.prototype.hasOwnProperty` to avoid accidental shadowing by
- * user data, which regularly happens when processing user-authored AST nodes.
- *
- * @param {object} object Object to inspect for the property.
- * @param {string | number | symbol} key Property name or symbol.
- * @returns {boolean} `true` when the property exists directly on `object`.
- */
-export function hasOwn(object, key) {
-    return Object.hasOwn(object, key);
-}
-
-/**
  * Retrieve the entry associated with {@link key} from a `Map`-like store,
  * creating it with {@link initializer} when absent. Consolidates the
  * repetitive pattern of checking for an entry, constructing a default value,

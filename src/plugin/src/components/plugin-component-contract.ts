@@ -42,7 +42,7 @@ function assertHasComponent(
     name: string,
     context: string
 ): void {
-    if (!Core.hasOwn(components, name)) {
+    if (!Object.hasOwn(components, name)) {
         throw new TypeError(createMissingComponentMessage(context, name));
     }
 }

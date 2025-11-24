@@ -2,17 +2,9 @@ import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
 import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
 
-const {
-    AST: { getCommentValue },
-    Utils: {
-        isObjectLike,
-        getNonEmptyTrimmedString,
-        toTrimmedString,
-        hasOwn,
-        isRegExpLike,
-        createResolverController
-    }
-} = Core;
+// Prefer calling into the public Core namespace directly to avoid
+// destructuring the package root across workspace boundaries.
+// Use Core.getCommentValue, Core.isObjectLike, etc. inline.
 
 function normalizeEntryPair(entry) {
     if (Array.isArray(entry)) {
@@ -23,11 +15,11 @@ function normalizeEntryPair(entry) {
         return null;
     }
 
-    if (hasOwn(entry, 0) && hasOwn(entry, 1)) {
+    if (Object.hasOwn(entry, 0) && Object.hasOwn(entry, 1)) {
         return [entry[0], entry[1]];
     }
 
-    if (hasOwn(entry, "key") && hasOwn(entry, "value")) {
+    if (Object.hasOwn(entry, "key") && Object.hasOwn(entry, "value")) {
         return [entry.key, entry.value];
     }
 
@@ -121,7 +113,7 @@ const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION = Object.freeze({
     ])
 });
 
-const docCommentTypeNormalizationController = createResolverController({
+const docCommentTypeNormalizationController = Core.createResolverController({
     defaultFactory: () =>
         createDocCommentTypeNormalization(
             DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION
@@ -141,7 +133,7 @@ const docCommentTypeNormalizationController = createResolverController({
 });
 
 function normalizeDocCommentLookupKey(identifier) {
-    const trimmed = getNonEmptyTrimmedString(identifier);
+    const trimmed = Core.getNonEmptyTrimmedString(identifier);
     if (!trimmed) {
         return null;
     }
@@ -234,7 +226,7 @@ function mergeNormalizationEntries(target, entries) {
     const iterable = getEntryIterable(entries);
     for (const [rawKey, rawValue] of iterable) {
         const key = normalizeDocCommentLookupKey(rawKey);
-        const value = getNonEmptyTrimmedString(rawValue);
+        const value = Core.getNonEmptyTrimmedString(rawValue);
         if (!key || !value) {
             continue;
         }
@@ -357,7 +349,7 @@ const DOC_COMMENT_TYPE_PATTERN = /\{([^}]+)\}/g;
 const DOC_TAG_LINE_PREFIX_PATTERN = /^\/+(\s*)@/;
 
 function getLineCommentRawText(comment) {
-    if (!isObjectLike(comment)) {
+    if (!Core.isObjectLike(comment)) {
         return "";
     }
 
@@ -377,7 +369,7 @@ function getLineCommentRawText(comment) {
     return `//${fallbackValue}`;
 }
 
-function normalizeBannerCommentText(candidate, options = {}) {
+function normalizeBannerCommentText(candidate: unknown, options: { assumeDecorated?: boolean } = {}) {
     if (typeof candidate !== "string") {
         return null;
     }
@@ -431,8 +423,8 @@ function formatLineComment(
     const { boilerplateFragments, codeDetectionPatterns } = normalizedOptions;
     const original = getLineCommentRawText(comment);
     const trimmedOriginal = original.trim();
-    const rawValue = getCommentValue(comment);
-    const trimmedValue = getCommentValue(comment, { trim: true });
+    const rawValue = Core.getCommentValue(comment);
+    const trimmedValue = Core.getCommentValue(comment, { trim: true });
     const startsWithTripleSlash = trimmedOriginal.startsWith("///");
     const isPlainTripleSlash =
         startsWithTripleSlash && !trimmedOriginal.includes("@");
@@ -449,18 +441,18 @@ function formatLineComment(
     }
 
     const hasPrecedingLineBreak =
-        isObjectLike(comment) &&
+        Core.isObjectLike(comment) &&
         typeof comment.leadingWS === "string" &&
         /\r|\n/.test(comment.leadingWS);
 
     const hasInlineLeadingChar =
-        isObjectLike(comment) &&
+        Core.isObjectLike(comment) &&
         typeof comment.leadingChar === "string" &&
         comment.leadingChar.length > 0 &&
         !/\r|\n/.test(comment.leadingChar);
 
     const isInlineComment =
-        isObjectLike(comment) &&
+        Core.isObjectLike(comment) &&
         comment.isTopComment !== true &&
         (typeof comment.inlinePadding === "number" ||
             comment.trailing === true ||
@@ -594,7 +586,7 @@ function formatLineComment(
         // `/// ...` doc comments.
         if (
             remainder.startsWith("//") ||
-            (isObjectLike(comment) &&
+            (Core.isObjectLike(comment) &&
                 typeof comment.value === "string" &&
                 /^\s*\/\//.test(comment.value))
         ) {
@@ -670,7 +662,7 @@ function applyInlinePadding(comment, formattedText) {
 }
 
 function resolveInlinePaddingWidth(comment) {
-    if (!isObjectLike(comment)) {
+    if (!Core.isObjectLike(comment)) {
         return 0;
     }
 
@@ -697,7 +689,7 @@ function resolveInlinePaddingWidth(comment) {
 }
 
 function extractContinuationIndentation(comment) {
-    if (!isObjectLike(comment)) {
+    if (!Core.isObjectLike(comment)) {
         return "";
     }
 
@@ -826,7 +818,7 @@ function normalizeGameMakerType(typeText) {
             }
 
             if (candidate.type === "separator") {
-                const trimmed = getNonEmptyTrimmedString(candidate.value);
+                const trimmed = Core.getNonEmptyTrimmedString(candidate.value);
 
                 if (!trimmed) {
                     continue;
@@ -939,7 +931,7 @@ function normalizeGameMakerType(typeText) {
 }
 
 function looksLikeCommentedOutCode(text, codeDetectionPatterns) {
-    const trimmed = toTrimmedString(text);
+    const trimmed = Core.toTrimmedString(text);
     if (trimmed.length === 0) {
         return false;
     }
@@ -954,7 +946,7 @@ function looksLikeCommentedOutCode(text, codeDetectionPatterns) {
         : Parser.Options.DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
 
     for (const pattern of patterns) {
-        if (!isRegExpLike(pattern)) {
+        if (!Core.isRegExpLike(pattern)) {
             continue;
         }
 

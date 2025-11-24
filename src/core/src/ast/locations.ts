@@ -1,4 +1,4 @@
-import { hasOwn, isObjectLike, withObjectLike } from "../utils/object.js";
+import { isObjectLike, withObjectLike } from "../utils/object.js";
 
 type AstNode = Record<string, unknown>;
 type LocationKey = "start" | "end";
@@ -146,14 +146,14 @@ function assignClonedLocation<TTarget extends AstNode>(
                     const clonedLocations: { start?: unknown; end?: unknown } =
                         {};
 
-                    if (hasOwn(templateNode, "start")) {
+                    if (Object.hasOwn(templateNode, "start")) {
                         clonedLocations.start = cloneLocation(
                             templateNode.start
                         );
                         shouldAssign = true;
                     }
 
-                    if (hasOwn(templateNode, "end")) {
+                    if (Object.hasOwn(templateNode, "end")) {
                         clonedLocations.end = cloneLocation(templateNode.end);
                         shouldAssign = true;
                     }

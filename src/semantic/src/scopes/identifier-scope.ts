@@ -50,9 +50,9 @@ export class SemanticScopeCoordinator {
             role?.type === "declaration" ? "declaration" : "reference";
 
         if (roleType === "declaration") {
-            this.scopeTracker.declare(name, node, role);
+            this.scopeTracker.declare(name, node as MutableGameMakerAstNode, role);
         } else {
-            this.scopeTracker.reference(name, node, role);
+            this.scopeTracker.reference(name, node as MutableGameMakerAstNode, role);
         }
     }
 

@@ -5,7 +5,7 @@ import {
 } from "./trailing-comma-option.js";
 
 const {
-    Utils: { hasOwn, createResolverController }
+    createResolverController
 } = Core;
 
 // Hard overrides for GML regardless of incoming config. These knobs either map
@@ -89,7 +89,7 @@ function normalizeCoreOptionOverrides(overrides) {
     for (const key of CORE_OVERRIDE_KEYS) {
         const defaultValue = DEFAULT_CORE_OPTION_OVERRIDES[key];
 
-        if (!hasOwn(overrides, key)) {
+        if (!Object.hasOwn(overrides, key)) {
             normalizedEntries.push([key, defaultValue]);
             continue;
         }

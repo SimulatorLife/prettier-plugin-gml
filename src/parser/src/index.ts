@@ -15,7 +15,14 @@ type ParserNamespace = typeof GMLParser &
     typeof Options &
     typeof Runtime &
     typeof Transforms &
-    typeof Utils;
+    typeof Utils & {
+        AST: typeof AST;
+        Comments: typeof Comments;
+        Options: typeof Options;
+        Runtime: typeof Runtime;
+        Transforms: typeof Transforms;
+        Utils: typeof Utils;
+    };
 
 // Export the flattened Parser namespace
 // TODO: Should probably only export the GMLParser class itself here, not its internals
@@ -26,5 +33,11 @@ export const Parser: ParserNamespace = Object.freeze({
     ...Options,
     ...Runtime,
     ...Transforms,
-    ...Utils
+    ...Utils,
+    AST,
+    Comments,
+    Options,
+    Runtime,
+    Transforms,
+    Utils
 });

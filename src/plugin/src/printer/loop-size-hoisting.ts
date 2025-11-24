@@ -5,18 +5,13 @@
 import { Core } from "@gml-modules/core";
 
 const {
-    AST: {
-        getIdentifierText,
-        getCallExpressionArguments,
-        getCallExpressionIdentifierName
-    },
-    Utils: {
-        normalizeStringList,
-        toNormalizedLowerCaseString,
-        coalesceOption,
-        hasOwn,
-        isObjectLike
-    }
+    getIdentifierText,
+    getCallExpressionArguments,
+    getCallExpressionIdentifierName,
+    normalizeStringList,
+    toNormalizedLowerCaseString,
+    coalesceOption,
+    isObjectLike
 } = Core;
 
 const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
@@ -38,7 +33,7 @@ function readCachedSuffixes(options) {
         return null;
     }
 
-    if (hasOwn(options, LOOP_SIZE_SUFFIX_CACHE)) {
+    if (Object.hasOwn(options, LOOP_SIZE_SUFFIX_CACHE)) {
         return options[LOOP_SIZE_SUFFIX_CACHE];
     }
 

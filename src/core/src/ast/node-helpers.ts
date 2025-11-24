@@ -1,5 +1,5 @@
 import { asArray, isNonEmptyArray } from "../utils/array.js";
-import { hasOwn, isObjectLike } from "../utils/object.js";
+import { isObjectLike } from "../utils/object.js";
 import { isNonEmptyString } from "../utils/string.js";
 import { assignClonedLocation } from "./locations.js";
 import { GameMakerAstNode } from "./types.js";
@@ -93,7 +93,7 @@ export function forEachNodeChild(node, callback) {
     // existing semantics: only enumerable own properties whose values are
     // object-like are forwarded to the callback.
     for (const key in node) {
-        if (!hasOwn(node, key)) {
+        if (!Object.hasOwn(node, key)) {
             continue;
         }
 
@@ -695,7 +695,7 @@ export function visitChildNodes(node, callback) {
 
     try {
         for (const key in node) {
-            if (!hasOwn(node, key)) {
+            if (!Object.hasOwn(node, key)) {
                 continue;
             }
 

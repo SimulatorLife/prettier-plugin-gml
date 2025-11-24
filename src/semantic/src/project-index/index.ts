@@ -1185,7 +1185,7 @@ import { defaultFsFacade, ProjectIndexFsFacade } from "./fs-facade.js";
 //         visitor(node);
 
 //         for (const key in node) {
-//             if (!Core.hasOwn(node, key)) {
+//             if (!Object.hasOwn(node, key)) {
 //                 continue;
 //             }
 

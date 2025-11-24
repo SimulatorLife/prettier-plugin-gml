@@ -9,7 +9,6 @@ import {
     ensureMap,
     getErrorMessageOrFallback,
     getNonEmptyTrimmedString,
-    hasOwn,
     isMissingModuleDependency,
     isNonEmptyString,
     isNonEmptyTrimmedString,
@@ -36,7 +35,7 @@ try {
 }
 
 function hasAnyOwn(object, keys) {
-    return keys.some((key) => hasOwn(object, key));
+    return keys.some((key) => Object.hasOwn(object, key));
 }
 
 function looksLikeTestCase(node) {
@@ -159,7 +158,7 @@ function appendText(state, text, { preserveWhitespace = false } = {}) {
         return;
     }
     const decoded = decodeEntities(normalized);
-    if (hasOwn(target, "#text")) {
+    if (Object.hasOwn(target, "#text")) {
         target["#text"] = preserveWhitespace
             ? target["#text"] + decoded
             : `${target["#text"]} ${decoded}`.trim();
@@ -384,14 +383,14 @@ function describeTestCase(testNode, suitePath) {
 
 function computeStatus(testNode) {
     const hasFailure =
-        hasOwn(testNode, "failure") ||
-        hasOwn(testNode, "failures") ||
-        hasOwn(testNode, "error") ||
-        hasOwn(testNode, "errors");
+        Object.hasOwn(testNode, "failure") ||
+        Object.hasOwn(testNode, "failures") ||
+        Object.hasOwn(testNode, "error") ||
+        Object.hasOwn(testNode, "errors");
     if (hasFailure) {
         return "failed";
     }
-    if (hasOwn(testNode, "skipped")) {
+    if (Object.hasOwn(testNode, "skipped")) {
         return "skipped";
     }
     return "passed";
@@ -476,8 +475,8 @@ function collectTestCases(root) {
             continue;
         }
 
-        const hasTestcase = hasOwn(node, "testcase");
-        const hasTestsuite = hasOwn(node, "testsuite");
+        const hasTestcase = Object.hasOwn(node, "testcase");
+        const hasTestsuite = Object.hasOwn(node, "testsuite");
         const nextSuitePath = resolveNextSuitePath(node, suitePath, {
             hasTestcase,
             hasTestsuite
@@ -691,9 +690,9 @@ function documentContainsTestElements(document) {
         }
 
         if (
-            hasOwn(current, "testcase") ||
-            hasOwn(current, "testsuite") ||
-            hasOwn(current, "testsuites")
+            Object.hasOwn(current, "testcase") ||
+            Object.hasOwn(current, "testsuite") ||
+            Object.hasOwn(current, "testsuites")
         ) {
             return true;
         }

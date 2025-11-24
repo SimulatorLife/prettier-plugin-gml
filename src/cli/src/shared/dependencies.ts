@@ -28,7 +28,6 @@ export {
     getNonEmptyTrimmedString,
     getOrCreateMapEntry,
     getObjectTagName,
-    hasOwn,
     callWithFallback,
     identity,
     incrementMapValue,

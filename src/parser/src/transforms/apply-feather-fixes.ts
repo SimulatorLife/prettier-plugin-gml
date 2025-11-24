@@ -110,13 +110,13 @@ function isIdentifierNode(
 
 function getStartFromNode(node: unknown) {
     if (!isAstNode(node)) return null;
-    if (!Core.hasOwn(node, "start")) return null;
+    if (!Object.hasOwn(node, "start")) return null;
     return Core.cloneLocation((node as any).start);
 }
 
 function getEndFromNode(node: unknown) {
     if (!isAstNode(node)) return null;
-    if (!Core.hasOwn(node, "end")) return null;
+    if (!Object.hasOwn(node, "end")) return null;
     return Core.cloneLocation((node as any).end);
 }
 
@@ -662,7 +662,7 @@ function normalizeRemovalAdjustments(adjustments) {
 }
 
 function adjustLocationForRemoval(node, property, adjustments) {
-    if (!Core.hasOwn(node, property)) {
+    if (!Object.hasOwn(node, property)) {
         return;
     }
 
@@ -3161,7 +3161,7 @@ function sanitizeEnumMember(node, diagnostic) {
     node._featherOriginalInitializer = initializer ?? null;
     node.initializer = null;
 
-    if (Core.hasOwn(node.name ?? {}, "end")) {
+    if (Object.hasOwn(node.name ?? {}, "end")) {
         node.end = getEndFromNode(node.name) ?? null;
     }
 
@@ -3399,17 +3399,17 @@ function createAssignmentFromGlobalVarDeclarator({
         right: initializer
     };
 
-    if (Core.hasOwn(declarator, "start")) {
+    if (Object.hasOwn(declarator, "start")) {
         Core.assignClonedLocation(assignment as any, declarator);
-    } else if (Core.hasOwn(statement, "start")) {
+    } else if (Object.hasOwn(statement, "start")) {
         Core.assignClonedLocation(assignment as any, statement);
     }
 
-    if (Core.hasOwn(initializer, "end")) {
+    if (Object.hasOwn(initializer, "end")) {
         Core.assignClonedLocation(assignment as any, initializer);
-    } else if (Core.hasOwn(declarator, "end")) {
+    } else if (Object.hasOwn(declarator, "end")) {
         Core.assignClonedLocation(assignment as any, declarator);
-    } else if (Core.hasOwn(statement, "end")) {
+    } else if (Object.hasOwn(statement, "end")) {
         Core.assignClonedLocation(assignment as any, statement);
     }
 
@@ -3441,7 +3441,7 @@ function clearGlobalVarDeclaratorInitializer(declarator) {
     if (
         declarator.id &&
         typeof declarator.id === "object" &&
-        Core.hasOwn(declarator.id, "end")
+        Object.hasOwn(declarator.id, "end")
     ) {
         Core.assignClonedLocation(declarator as any, declarator.id);
     }
@@ -5622,11 +5622,11 @@ function rewritePostfixStatement(node, parent, property, diagnostic) {
         argument: temporaryIdentifier
     };
 
-    if (Core.hasOwn(node, "start")) {
+    if (Object.hasOwn(node, "start")) {
         Core.assignClonedLocation(rewrittenStatement as any, node);
     }
 
-    if (Core.hasOwn(node, "end")) {
+    if (Object.hasOwn(node, "end")) {
         Core.assignClonedLocation(rewrittenStatement as any, node);
     }
 
@@ -5786,11 +5786,11 @@ function buildNestedMemberIndexExpression({ object, indices, template }) {
         accessor
     };
 
-    if (Core.hasOwn(template, "start")) {
+    if (Object.hasOwn(template, "start")) {
         Core.assignClonedLocation(current as any, template);
     }
 
-    if (remaining.length === 0 && Core.hasOwn(template, "end")) {
+    if (remaining.length === 0 && Object.hasOwn(template, "end")) {
         Core.assignClonedLocation(current as any, template);
     }
 
@@ -5804,11 +5804,11 @@ function buildNestedMemberIndexExpression({ object, indices, template }) {
             accessor
         };
 
-        if (Core.hasOwn(template, "start")) {
+        if (Object.hasOwn(template, "start")) {
             Core.assignClonedLocation(next as any, template);
         }
 
-        if (index === remaining.length - 1 && Core.hasOwn(template, "end")) {
+        if (index === remaining.length - 1 && Object.hasOwn(template, "end")) {
             Core.assignClonedLocation(next as any, template);
         }
 
@@ -7503,7 +7503,7 @@ function convertFunctionDeclarationToConstructor(functionNode, diagnostic) {
 
     functionNode.type = "ConstructorDeclaration";
 
-    if (!Core.hasOwn(functionNode, "parent")) {
+    if (!Object.hasOwn(functionNode, "parent")) {
         functionNode.parent = null;
     }
 
@@ -9420,18 +9420,18 @@ function convertNullishIfStatement(node, parent, property, diagnostic) {
             right: fallbackExpression
         };
 
-        if (Core.hasOwn(previousRight, "start")) {
+        if (Object.hasOwn(previousRight, "start")) {
             Core.assignClonedLocation(binaryExpression as any, previousRight);
-        } else if (Core.hasOwn(previousNode, "start")) {
+        } else if (Object.hasOwn(previousNode, "start")) {
             Core.assignClonedLocation(binaryExpression as any, previousNode);
         }
 
-        if (Core.hasOwn(fallbackExpression, "end")) {
+        if (Object.hasOwn(fallbackExpression, "end")) {
             Core.assignClonedLocation(
                 binaryExpression as any,
                 fallbackExpression
             );
-        } else if (Core.hasOwn(consequentAssignment, "end")) {
+        } else if (Object.hasOwn(consequentAssignment, "end")) {
             Core.assignClonedLocation(
                 binaryExpression as any,
                 consequentAssignment
@@ -9440,9 +9440,9 @@ function convertNullishIfStatement(node, parent, property, diagnostic) {
 
         previousNode.right = binaryExpression;
 
-        if (Core.hasOwn(node, "end")) {
+        if (Object.hasOwn(node, "end")) {
             Core.assignClonedLocation(previousNode as any, node);
-        } else if (Core.hasOwn(consequentAssignment, "end")) {
+        } else if (Object.hasOwn(consequentAssignment, "end")) {
             Core.assignClonedLocation(
                 previousNode as any,
                 consequentAssignment
@@ -9474,18 +9474,18 @@ function convertNullishIfStatement(node, parent, property, diagnostic) {
         right: fallbackExpression
     };
 
-    if (Core.hasOwn(consequentAssignment, "start")) {
+    if (Object.hasOwn(consequentAssignment, "start")) {
         Core.assignClonedLocation(
             nullishAssignment as any,
             consequentAssignment
         );
-    } else if (Core.hasOwn(node, "start")) {
+    } else if (Object.hasOwn(node, "start")) {
         Core.assignClonedLocation(nullishAssignment as any, node);
     }
 
-    if (Core.hasOwn(node, "end")) {
+    if (Object.hasOwn(node, "end")) {
         Core.assignClonedLocation(nullishAssignment as any, node);
-    } else if (Core.hasOwn(consequentAssignment, "end")) {
+    } else if (Object.hasOwn(consequentAssignment, "end")) {
         Core.assignClonedLocation(
             nullishAssignment as any,
             consequentAssignment
@@ -10654,7 +10654,7 @@ function ensureConstructorParentsExist({ ast, diagnostic }) {
                     if (fallback && fallback.type === "FunctionDeclaration") {
                         fallback.type = "ConstructorDeclaration";
 
-                        if (!Core.hasOwn(fallback, "parent")) {
+                        if (!Object.hasOwn(fallback, "parent")) {
                             fallback.parent = null;
                         }
 
@@ -12431,8 +12431,8 @@ function createVertexBeginCall({
     }
 
     if (
-        !Core.hasOwn(callExpression, "start") ||
-        !Core.hasOwn(callExpression, "end")
+        !Object.hasOwn(callExpression, "start") ||
+        !Object.hasOwn(callExpression, "end")
     ) {
         Core.assignClonedLocation(callExpression, referenceCall);
     }
@@ -16489,7 +16489,7 @@ function copyCommentMetadata(source, target) {
         "innerComments",
         "comments"
     ]) {
-        if (Core.hasOwn(source, key)) {
+        if (Object.hasOwn(source, key)) {
             target[key] = source[key];
         }
     }
@@ -16542,11 +16542,11 @@ function createPrimitiveBeginCall(template) {
         arguments: Core.compactArray([primitiveType]).slice()
     };
 
-    if (Core.hasOwn(template, "start")) {
+    if (Object.hasOwn(template, "start")) {
         Core.assignClonedLocation(callExpression as any, template);
     }
 
-    if (Core.hasOwn(template, "end")) {
+    if (Object.hasOwn(template, "end")) {
         const referenceLocation = template.start ?? template.end;
 
         if (referenceLocation) {
