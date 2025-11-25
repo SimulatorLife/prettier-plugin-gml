@@ -1,9 +1,9 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: { isNonEmptyArray },
-    AST: { getCommentArray }
-} = Core;
+// Use flattened Core namespace helpers directly to match the Core export shape.
+// Avoid nested destructuring (Core.Utils / Core.AST) per AGENTS.md.
+const isNonEmptyArray = Core.isNonEmptyArray;
+const getCommentArray = Core.getCommentArray;
 
 const ENUM_INITIALIZER_OPERATOR_WIDTH = " = ".length;
 

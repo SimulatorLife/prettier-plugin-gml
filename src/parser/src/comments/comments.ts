@@ -1,4 +1,4 @@
-// Adapter removed: prefer Core.* helpers directly. This file previously
-// re-exported helper functions from @gml-modules/core as a pass-through.
-// The pass-through pattern is not permitted by AGENTS.md; remove the
-// adapter and update consumers to call Core.* directly.
+// This file previously acted as a pass-through adapter for Core comment
+// helpers. The adapter has been removed; consumers should import directly
+// from `@gml-modules/core` (e.g., `Core.prepareDocCommentEnvironment`).
+export {};

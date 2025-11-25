@@ -7,7 +7,9 @@ import { util } from "prettier";
 import { Parser } from "@gml-modules/parser";
 
 import { Semantic } from "@gml-modules/semantic";
-import { prepareDocCommentEnvironment } from "../comments/index.js";
+// Prefer calling Core's doc comment services directly to avoid adapter
+// layers or re-export shims. This keeps the runtime contract stable and
+// avoids added indirection during printing and parsing.
 
 const {
     getNodeStartIndex,
@@ -53,7 +55,9 @@ async function parse(text, options) {
         }
 
         if (options?.applyFeatherFixes) {
-            const preprocessResult = preprocessSourceForFeatherFixes(text);
+            // TODO: 'applyFeatherFixes' should NOT be a separate option but instead one of the transforms
+            const preprocessResult =
+                Parser.Transforms.preprocessSourceForFeatherFixes(text);
 
             if (
                 preprocessResult &&
@@ -71,7 +75,7 @@ async function parse(text, options) {
         parseSource = fixMalformedComments(parseSource);
 
         const sanitizedResult =
-            Parser.Utils.sanitizeConditionalAssignments(parseSource);
+            Parser.AST.sanitizeConditionalAssignments(parseSource);
         const { sourceText: sanitizedSource, indexAdjustments } =
             sanitizedResult;
 
@@ -129,7 +133,7 @@ async function parse(text, options) {
             );
         }
 
-        prepareDocCommentEnvironment(ast);
+        Core.prepareDocCommentEnvironment(ast);
 
         if (options?.condenseStructAssignments ?? true) {
             Parser.Transforms.consolidateStructAssignments(ast, {
@@ -151,14 +155,14 @@ async function parse(text, options) {
         applyIndexAdjustmentsIfPresent(
             ast,
             callIndexAdjustments,
-            Parser.Utils.applySanitizedIndexAdjustments,
+            Parser.AST.applySanitizedIndexAdjustments,
             preprocessedFixMetadata
         );
 
         applyIndexAdjustmentsIfPresent(
             ast,
             indexAdjustments,
-            Parser.Utils.applySanitizedIndexAdjustments,
+            Parser.AST.applySanitizedIndexAdjustments,
             preprocessedFixMetadata
         );
 
@@ -177,13 +181,13 @@ async function parse(text, options) {
             Parser.Transforms.condenseLogicalExpressions(ast);
         }
 
-        Parser.Transforms.condenseScalarMultipliers(ast, undefined, {
+        Parser.Transforms.condenseScalarMultipliers(ast, {
             sourceText: parseSource,
             originalText: options?.originalText
         });
 
         if (options?.convertManualMathToBuiltins) {
-            Parser.Transforms.convertManualMathExpressions(ast, undefined, {
+            Parser.Transforms.convertManualMathExpressions(ast, {
                 sourceText: parseSource,
                 originalText: options?.originalText
             });

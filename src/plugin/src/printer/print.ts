@@ -4,6 +4,10 @@
 // General, non-printer-related Node utils should be moved into Core.
 
 import { Core } from "@gml-modules/core";
+import type {
+    DocCommentLines,
+    MutableDocCommentLines
+} from "@gml-modules/core";
 import { builders, utils } from "prettier/doc";
 
 import {
@@ -41,7 +45,6 @@ import {
     getLineCommentRawText,
     normalizeDocCommentTypeAnnotations
 } from "../comments/line-comment-formatting.js";
-import { normalizeOptionalParamToken } from "../comments/optional-param-normalization.js";
 import { Parser } from "@gml-modules/parser";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
 import { DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH } from "./doc-comment-wrap-width.js";
@@ -63,37 +66,9 @@ const OBJECT_TYPE = "object";
 const NUMBER_TYPE = "number";
 const UNDEFINED_TYPE = "undefined";
 
-const {
-    getCommentArray,
-    isCommentNode,
-    coercePositiveIntegerOption,
-    getNonEmptyString,
-    getNonEmptyTrimmedString,
-    capitalize,
-    isNonEmptyString,
-    isNonEmptyTrimmedString,
-    isObjectOrFunction,
-    toTrimmedString,
-    asArray,
-    isNonEmptyArray,
-    getNodeType,
-    toMutableArray,
-    ensureSet,
-    getNodeStartIndex,
-    getNodeEndIndex,
-    getNodeRangeIndices,
-    getBodyStatements,
-    getCallExpressionArguments,
-    getCallExpressionIdentifier,
-    getIdentifierText,
-    getSingleVariableDeclarator,
-    isCallExpressionIdentifierMatch,
-    isBooleanLiteral,
-    isUndefinedSentinel,
-    enqueueObjectChildValues,
-    isFunctionLikeNode,
-    forEachNodeChild
-} = Core;
+// Use Core.* directly instead of destructuring the Core namespace across
+// package boundaries (see AGENTS.md): e.g., use Core.getCommentArray(...) not
+// `getCommentArray(...)`.
 
 // Wrapper helpers around optional Semantic helpers. Some test/runner
 // environments may not expose the full Semantic facade; provide safe
@@ -268,10 +243,14 @@ let {
     ifBreak,
     hardline,
     softline,
-    concat: _rawConcat,
+    // `concat` is not present on Prettier's TS `builders` type; access it
+    // dynamically to avoid compile time errors and then wrap it further.
     lineSuffix,
     lineSuffixBoundary
 } = builders;
+// Expose `concat` dynamically since Prettier's typing does not declare it as
+// a property on `builders`, but it is present at runtime.
+const _rawConcat = (builders as any).concat;
 const { willBreak } = utils;
 
 // Monkey-patch Prettier builders to defensively sanitize any array children
@@ -286,7 +265,10 @@ try {
     const _origConditionalGroup = builders.conditionalGroup;
     const _origIfBreak = builders.ifBreak;
     const _origLineSuffix = builders.lineSuffix;
-    const _origConcat = builders.concat;
+    // Prettier's doc `builders` type does not expose `concat` in types despite
+    // implementation presence; cast to any to access it safely without changing
+    // runtime behavior. We avoid destructuring `Core` and keep explicit Core.*.
+    const _origConcat = (builders as any).concat;
     const _origJoin = builders.join;
 
     const _sanitizeArrayArg = (arg) => {
@@ -322,7 +304,7 @@ try {
     builders.lineSuffix = function (parts) {
         return _origLineSuffix.call(this, _sanitizeArrayArg(parts));
     };
-    builders.concat = function (parts) {
+    (builders as any).concat = function (parts) {
         return _origConcat.call(this, _sanitizeArrayArg(parts));
     };
     builders.join = function (sep, parts) {
@@ -443,7 +425,7 @@ function stripTrailingLineTerminators(value) {
 }
 
 function resolvePrinterSourceMetadata(options) {
-    if (!isObjectOrFunction(options)) {
+    if (!Core.isObjectOrFunction(options)) {
         return { originalText: null, locStart: null, locEnd: null };
     }
 
@@ -459,9 +441,9 @@ function resolvePrinterSourceMetadata(options) {
     return { originalText, locStart, locEnd };
 }
 
-function resolveNodeIndexRangeWithSource(node, sourceMetadata = {}) {
+function resolveNodeIndexRangeWithSource(node, sourceMetadata: any = {}) {
     const { locStart, locEnd } = sourceMetadata;
-    const { start, end } = getNodeRangeIndices(node);
+    const { start, end } = Core.getNodeRangeIndices(node);
 
     const fallbackStart = typeof start === NUMBER_TYPE ? start : 0;
     let fallbackEnd = fallbackStart;
@@ -556,7 +538,11 @@ function macroTextHasExplicitTrailingBlankLine(text) {
     return false;
 }
 
-function callPathMethod(path, methodName, { args, defaultValue } = {}) {
+function callPathMethod(
+    path: any,
+    methodName: any,
+    { args, defaultValue }: { args?: any[]; defaultValue?: any } = {}
+) {
     if (!path) {
         return defaultValue;
     }
@@ -643,7 +629,7 @@ function hasBlankLineBeforeLeadingComment(
     }
 
     const textBeforeComment = interiorSlice.slice(0, commentMatch.index);
-    if (isNonEmptyTrimmedString(textBeforeComment)) {
+    if (Core.isNonEmptyTrimmedString(textBeforeComment)) {
         return false;
     }
 
@@ -659,13 +645,13 @@ function hasBlankLineBetweenLastCommentAndClosingBrace(
         return false;
     }
 
-    const comments = getCommentArray(blockNode).filter(isCommentNode);
+    const comments = Core.getCommentArray(blockNode).filter(Core.isCommentNode);
     if (comments.length === 0) {
         return false;
     }
 
     const lastComment = comments.at(-1);
-    const commentEndIndex = getNodeEndIndex(lastComment);
+    const commentEndIndex = Core.getNodeEndIndex(lastComment);
     const { endIndex: blockEndIndex } = resolveNodeIndexRangeWithSource(
         blockNode,
         sourceMetadata
@@ -693,7 +679,7 @@ function hasBlankLineBetweenLastCommentAndClosingBrace(
         return false;
     }
 
-    if (isNonEmptyTrimmedString(betweenText)) {
+    if (Core.isNonEmptyTrimmedString(betweenText)) {
         return false;
     }
 
@@ -812,7 +798,13 @@ function _printImpl(path, options, print) {
                 }
 
                 if (node.body.length === 0) {
-                    return concat(printDanglingCommentsAsGroup(path, options));
+                    return concat(
+                        printDanglingCommentsAsGroup(
+                            path,
+                            options,
+                            (comment: any) => true
+                        )
+                    );
                 }
                 return concat(printStatements(path, options, print, "body"));
             } finally {
@@ -864,7 +856,10 @@ function _printImpl(path, options, print) {
                     );
 
                 if (preserveForConstructor || preserveForLeadingComment) {
-                    leadingDocs.push(lineSuffixBoundary, hardline);
+                    leadingDocs.push(
+                        lineSuffixBoundary as any,
+                        hardline as any
+                    );
                 }
             }
 
@@ -891,7 +886,7 @@ function _printImpl(path, options, print) {
             return buildIfStatementDoc(path, options, print, node);
         }
         case "SwitchStatement": {
-            const parts = [];
+            const parts: any[] = [];
             const discriminantDoc = printWithoutExtraParens(
                 path,
                 print,
@@ -936,9 +931,9 @@ function _printImpl(path, options, print) {
         }
         case "SwitchCase": {
             const caseText = node.test === null ? "default" : "case ";
-            const parts = [[hardline, caseText, print("test"), ":"]];
+            const parts: any[] = [[hardline, caseText, print("test"), ":"]];
             const caseBody = node.body;
-            if (isNonEmptyArray(caseBody)) {
+            if (Core.isNonEmptyArray(caseBody)) {
                 parts.push([
                     indent([
                         hardline,
@@ -1095,19 +1090,19 @@ function _printImpl(path, options, print) {
         }
         case "FunctionDeclaration":
         case "ConstructorDeclaration": {
-            const parts = [];
+            const parts: any[] = [];
 
             const sourceMetadata = resolvePrinterSourceMetadata(options);
             const { originalText } = sourceMetadata;
             const { startIndex: nodeStartIndex } =
                 resolveNodeIndexRangeWithSource(node, sourceMetadata);
 
-            let docCommentDocs = [];
+            let docCommentDocs: MutableDocCommentLines = [];
             const lineCommentOptions =
-                Parser.Options.resolveLineCommentOptions(options);
+                Parser.Comments.resolveLineCommentOptions(options);
             let needsLeadingBlankLine = false;
 
-            if (isNonEmptyArray(node.docComments)) {
+            if (Core.isNonEmptyArray(node.docComments)) {
                 const firstDocComment = node.docComments[0];
                 if (
                     firstDocComment &&
@@ -1185,7 +1180,7 @@ function _printImpl(path, options, print) {
                     docCommentDocs._suppressLeadingBlank === true;
 
                 const hasLeadingNonDocComment =
-                    !isNonEmptyArray(node.docComments) &&
+                    !Core.isNonEmptyArray(node.docComments) &&
                     originalText !== null &&
                     typeof nodeStartIndex === NUMBER_TYPE &&
                     hasCommentImmediatelyBefore(originalText, nodeStartIndex);
@@ -1208,7 +1203,7 @@ function _printImpl(path, options, print) {
             }
 
             let functionNameDoc = "";
-            if (isNonEmptyString(node.id)) {
+            if (Core.isNonEmptyString(node.id)) {
                 let renamed = null;
                 if (node.idLocation && node.idLocation.start) {
                     renamed = getSemanticIdentifierCaseRenameForNode(
@@ -1219,14 +1214,14 @@ function _printImpl(path, options, print) {
                         options
                     );
                 }
-                functionNameDoc = getNonEmptyString(renamed) ?? node.id;
+                functionNameDoc = Core.getNonEmptyString(renamed) ?? node.id;
             } else if (node.id) {
                 functionNameDoc = print("id");
             }
 
             const hasFunctionName =
                 typeof functionNameDoc === STRING_TYPE
-                    ? isNonEmptyString(functionNameDoc)
+                    ? Core.isNonEmptyString(functionNameDoc)
                     : Boolean(functionNameDoc);
 
             parts.push([
@@ -1235,7 +1230,7 @@ function _printImpl(path, options, print) {
                 functionNameDoc
             ]);
 
-            const hasParameters = isNonEmptyArray(node.params);
+            const hasParameters = Core.isNonEmptyArray(node.params);
 
             if (hasParameters) {
                 const {
@@ -1276,7 +1271,7 @@ function _printImpl(path, options, print) {
             return concat(parts);
         }
         case "ConstructorParentClause": {
-            const hasParameters = isNonEmptyArray(node.params);
+            const hasParameters = Core.isNonEmptyArray(node.params);
             const params = hasParameters
                 ? printCommaSeparatedList(
                       path,
@@ -1362,7 +1357,7 @@ function _printImpl(path, options, print) {
         }
         case "VariableDeclaration": {
             const functionNode = findEnclosingFunctionNode(path);
-            const declarators = asArray(node.declarations);
+            const declarators = Core.asArray(node.declarations);
             const keptDeclarators = declarators.filter(
                 (declarator) =>
                     !shouldOmitParameterAlias(declarator, functionNode, options)
@@ -1441,8 +1436,8 @@ function _printImpl(path, options, print) {
             let right;
             const logicalOperatorsStyle = resolveLogicalOperatorsStyle(options);
 
-            const leftIsUndefined = isUndefinedSentinel(node.left);
-            const rightIsUndefined = isUndefinedSentinel(node.right);
+            const leftIsUndefined = Core.isUndefinedSentinel(node.left);
+            const rightIsUndefined = Core.isUndefinedSentinel(node.right);
 
             if (
                 (operator === "==" || operator === "!=") &&
@@ -1562,8 +1557,8 @@ function _printImpl(path, options, print) {
                               argument?.preserveOriginalCallText === true
                       )
                     : false;
-                const startIndex = getNodeStartIndex(node);
-                const endIndex = getNodeEndIndex(node);
+                const startIndex = Core.getNodeStartIndex(node);
+                const endIndex = Core.getNodeEndIndex(node);
 
                 if (
                     typeof startIndex === NUMBER_TYPE &&
@@ -1901,9 +1896,9 @@ function _printImpl(path, options, print) {
 
             let textToPrint = macroText;
 
-            const macroStartIndex = getNodeStartIndex(node);
+            const macroStartIndex = Core.getNodeStartIndex(node);
             const { start: nameStartIndex, end: nameEndIndex } =
-                getNodeRangeIndices(node.name);
+                Core.getNodeRangeIndices(node.name);
             if (
                 typeof macroStartIndex === NUMBER_TYPE &&
                 typeof nameStartIndex === NUMBER_TYPE &&
@@ -1915,7 +1910,7 @@ function _printImpl(path, options, print) {
                     node.name,
                     options
                 );
-                if (isNonEmptyString(renamed)) {
+                if (Core.isNonEmptyString(renamed)) {
                     const relativeStart = nameStartIndex - macroStartIndex;
                     const relativeEnd = nameEndIndex - macroStartIndex;
                     const before = textToPrint.slice(0, relativeStart);
@@ -2018,7 +2013,7 @@ function _printImpl(path, options, print) {
                     node.name,
                     options
                 );
-                if (isNonEmptyString(preferredArgumentName)) {
+                if (Core.isNonEmptyString(preferredArgumentName)) {
                     identifierName = preferredArgumentName;
                 }
             }
@@ -2028,7 +2023,7 @@ function _printImpl(path, options, print) {
                 node,
                 options
             );
-            if (isNonEmptyString(preferredParamName)) {
+            if (Core.isNonEmptyString(preferredParamName)) {
                 identifierName = preferredParamName;
             }
 
@@ -2051,7 +2046,7 @@ function _printImpl(path, options, print) {
             } catch {
                 /* ignore */
             }
-            if (isNonEmptyString(renamed)) {
+            if (Core.isNonEmptyString(renamed)) {
                 identifierName = renamed;
             }
 
@@ -2118,7 +2113,7 @@ function _printImpl(path, options, print) {
             );
         }
         case "CatchClause": {
-            const parts = [" catch "];
+            const parts: any[] = [" catch "];
             if (node.param) {
                 parts.push(["(", print("param"), ")"]);
             }
@@ -2128,7 +2123,7 @@ function _printImpl(path, options, print) {
             return concat(parts);
         }
         case "Finalizer": {
-            const parts = [" finally "];
+            const parts: any[] = [" finally "];
             if (node.body) {
                 parts.push(printInBlock(path, options, print, "body"));
             }
@@ -2205,15 +2200,15 @@ function getFeatherCommentCallText(node) {
         return "";
     }
 
-    const calleeName = getIdentifierText(node.object);
+    const calleeName = Core.getIdentifierText(node.object);
 
     if (!calleeName) {
         return "";
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
 
-    if (!isNonEmptyArray(args)) {
+    if (!Core.isNonEmptyArray(args)) {
         return `${calleeName}()`;
     }
 
@@ -2222,7 +2217,7 @@ function getFeatherCommentCallText(node) {
 }
 
 function buildTemplateStringParts(atoms, path, print) {
-    const parts = ['$"'];
+    const parts: any[] = ['$"'];
     const length = atoms.length;
 
     for (let index = 0; index < length; index += 1) {
@@ -2254,7 +2249,9 @@ function printDelimitedList(
     listKey,
     startChar,
     endChar,
-    {
+    overrides: any = {}
+) {
+    const {
         delimiter = ",",
         allowTrailingDelimiter = false,
         leadingNewline = true,
@@ -2265,8 +2262,7 @@ function printDelimitedList(
         groupId,
         forceInline = false,
         maxElementsPerLine = Infinity
-    }
-) {
+    } = overrides;
     const lineBreak = forceBreak ? hardline : line;
     const finalDelimiter = allowTrailingDelimiter ? delimiter : "";
 
@@ -2300,7 +2296,7 @@ function printDelimitedList(
 
     return forceInline
         ? groupElementsNoBreak
-        : group(groupElements, { groupId });
+        : group(groupElements, { id: groupId as any });
 }
 
 function synthesizeMissingCallArgumentSeparators(
@@ -2327,8 +2323,8 @@ function synthesizeMissingCallArgumentSeparators(
 
     for (let index = 0; index < node.arguments.length; index += 1) {
         const argument = node.arguments[index];
-        const argumentStart = getNodeStartIndex(argument);
-        const argumentEnd = getNodeEndIndex(argument);
+        const argumentStart = Core.getNodeStartIndex(argument);
+        const argumentEnd = Core.getNodeEndIndex(argument);
 
         if (
             typeof argumentStart !== NUMBER_TYPE ||
@@ -2348,7 +2344,7 @@ function synthesizeMissingCallArgumentSeparators(
         }
 
         const nextArgument = node.arguments[index + 1];
-        const nextStart = getNodeStartIndex(nextArgument);
+        const nextStart = Core.getNodeStartIndex(nextArgument);
 
         if (typeof nextStart !== NUMBER_TYPE || nextStart < cursor) {
             return null;
@@ -2470,7 +2466,7 @@ function buildCallArgumentsDocs(
     return { inlineDoc, multilineDoc };
 }
 
-function buildFunctionParameterDocs(path, print, options, overrides = {}) {
+function buildFunctionParameterDocs(path, print, options, overrides: any = {}) {
     const forceInline = overrides.forceInline === true;
 
     const inlineDoc = printCommaSeparatedList(
@@ -2510,7 +2506,7 @@ function shouldForceInlineFunctionParameters(path, options) {
         return false;
     }
 
-    if (!isNonEmptyArray(node.params)) {
+    if (!Core.isNonEmptyArray(node.params)) {
         return false;
     }
 
@@ -2522,8 +2518,8 @@ function shouldForceInlineFunctionParameters(path, options) {
 
     const firstParam = node.params[0];
     const lastParam = node.params.at(-1);
-    const startIndex = getNodeStartIndex(firstParam);
-    const endIndex = getNodeEndIndex(lastParam);
+    const startIndex = Core.getNodeStartIndex(firstParam);
+    const endIndex = Core.getNodeEndIndex(lastParam);
 
     const parameterSource = sliceOriginalText(
         originalText,
@@ -2550,7 +2546,7 @@ function maybePrintInlineDefaultParameterFunctionBody(path, print) {
         return null;
     }
 
-    if (isNonEmptyArray(node.docComments)) {
+    if (Core.isNonEmptyArray(node.docComments)) {
         return null;
     }
 
@@ -2567,7 +2563,7 @@ function maybePrintInlineDefaultParameterFunctionBody(path, print) {
         return null;
     }
 
-    const statements = getBodyStatements(bodyNode);
+    const statements = Core.getBodyStatements(bodyNode);
     if (!Array.isArray(statements) || statements.length !== 1) {
         return null;
     }
@@ -2601,7 +2597,7 @@ function printCommaSeparatedList(
     startChar,
     endChar,
     options,
-    overrides = {}
+    overrides: any = {}
 ) {
     const allowTrailingDelimiter =
         overrides.allowTrailingDelimiter === undefined
@@ -2641,7 +2637,8 @@ function printInBlock(path, options, print, expressionKey) {
         (comment) => comment.attachToClauseBody === true
     );
 
-    const hasInlineComments = inlineCommentDocs && inlineCommentDocs !== "";
+    const hasInlineComments =
+        Array.isArray(inlineCommentDocs) && inlineCommentDocs.length > 0;
     const introParts = ["{"];
 
     if (hasInlineComments) {
@@ -2667,7 +2664,7 @@ function shouldPrintBlockAlternateAsElseIf(node) {
         return false;
     }
 
-    const body = getBodyStatements(node);
+    const body = Core.getBodyStatements(node);
     if (body.length !== 1) {
         return false;
     }
@@ -2690,7 +2687,7 @@ function printElements(
     const finalIndex = node[listKey].length - 1;
     let itemsSinceLastBreak = 0;
     return path.map((childPath, index) => {
-        const parts = [];
+        const parts: any[] = [];
         const printed = print();
         const separator = index === finalIndex ? "" : delimiter;
 
@@ -2734,11 +2731,11 @@ function isSimpleCallExpression(node) {
         return false;
     }
 
-    if (!getCallExpressionIdentifier(node)) {
+    if (!Core.getCallExpressionIdentifier(node)) {
         return false;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
     if (args.length === 0) {
         return true;
     }
@@ -2748,7 +2745,7 @@ function isSimpleCallExpression(node) {
     }
 
     const [onlyArgument] = args;
-    const argumentType = getNodeType(onlyArgument);
+    const argumentType = Core.getNodeType(onlyArgument);
 
     if (
         argumentType === "FunctionDeclaration" ||
@@ -2766,7 +2763,7 @@ function isSimpleCallExpression(node) {
 }
 
 function isComplexArgumentNode(node) {
-    const nodeType = getNodeType(node);
+    const nodeType = Core.getNodeType(node);
     if (!nodeType) {
         return false;
     }
@@ -2791,7 +2788,7 @@ const SIMPLE_CALL_ARGUMENT_TYPES = new Set([
 ]);
 
 function isSimpleCallArgument(node) {
-    const nodeType = getNodeType(node);
+    const nodeType = Core.getNodeType(node);
     if (!nodeType) {
         return false;
     }
@@ -2837,8 +2834,8 @@ function buildCallbackArgumentsWithSimplePrefix(
     simplePrefixLength
 ) {
     const node = path.getValue();
-    const args = asArray(node?.arguments);
-    const parts = [];
+    const args = Core.asArray(node?.arguments);
+    const parts: any[] = [];
     const trailingArguments = args.slice(simplePrefixLength);
     const isCallbackArgument = (argument) => {
         const argumentType = argument?.type;
@@ -2894,7 +2891,7 @@ function shouldForceBreakStructArgument(argument) {
         return true;
     }
 
-    const properties = asArray(argument.properties);
+    const properties = Core.asArray(argument.properties);
 
     if (properties.length === 0) {
         return false;
@@ -2903,7 +2900,8 @@ function shouldForceBreakStructArgument(argument) {
     if (
         properties.some(
             (property) =>
-                Core.hasComment(property) || property?._hasTrailingInlineComment
+                Core.hasComment(property) ||
+                (property as any)?._hasTrailingInlineComment
         )
     ) {
         return true;
@@ -2915,7 +2913,7 @@ function shouldForceBreakStructArgument(argument) {
 function buildStructPropertyCommentSuffix(path, options) {
     const node =
         path && typeof path.getValue === "function" ? path.getValue() : null;
-    const comments = asArray(node?._structTrailingComments);
+    const comments = Core.asArray(node?._structTrailingComments);
     if (comments.length === 0) {
         return "";
     }
@@ -2923,16 +2921,16 @@ function buildStructPropertyCommentSuffix(path, options) {
     const commentDocs = [];
 
     for (const comment of comments) {
-        if (comment?._structPropertyTrailing === true) {
+        if ((comment as any)?._structPropertyTrailing === true) {
             const formatted = formatLineComment(
                 comment,
-                Parser.Options.resolveLineCommentOptions(options)
+                Parser.Comments.resolveLineCommentOptions(options)
             );
             if (formatted) {
                 commentDocs.push(formatted);
             }
-            comment._structPropertyHandled = true;
-            comment.printed = true;
+            (comment as any)._structPropertyHandled = true;
+            (comment as any).printed = true;
         }
     }
 
@@ -2951,7 +2949,7 @@ function getStructAlignmentInfo(structNode, options) {
         return null;
     }
 
-    const properties = asArray(structNode.properties);
+    const properties = Core.asArray(structNode.properties);
 
     let maxNameLength = 0;
 
@@ -2984,7 +2982,7 @@ function getStructPropertyNameLength(property, options) {
     }
 
     if (nameNode.type === "Identifier") {
-        const identifierText = getIdentifierText(nameNode);
+        const identifierText = Core.getIdentifierText(nameNode);
         return typeof identifierText === STRING_TYPE
             ? identifierText.length
             : 0;
@@ -3117,7 +3115,7 @@ function printStatements(path, options, print, childrenAttribute) {
         sourceMetadata.originalText ?? options?.originalText ?? null;
 
     return path.map((childPath, index) => {
-        const parts = [];
+        const parts: any[] = [];
         const node = childPath.getValue();
         // Defensive: some transforms may leave holes or null entries in the
         // statements array. Skip nullish nodes rather than attempting to
@@ -3137,7 +3135,7 @@ function printStatements(path, options, print, childrenAttribute) {
             resolveNodeIndexRangeWithSource(node, sourceMetadata);
 
         const currentNodeRequiresNewline =
-            shouldAddNewlinesAroundStatement(node, options) && isTopLevel;
+            shouldAddNewlinesAroundStatement(node) && isTopLevel;
 
         // Determine if a blank line should precede this statement to visually
         // separate distinct logical blocks (function declarations, enum
@@ -3813,7 +3811,7 @@ function getSimpleAssignmentLikeEntry(
         };
     }
 
-    const declarator = getSingleVariableDeclarator(statement);
+    const declarator = Core.getSingleVariableDeclarator(statement);
     if (!declarator) {
         return null;
     }
@@ -3950,7 +3948,7 @@ function getMemberExpressionLength(expression) {
 }
 
 function getAssignmentAlignmentMinimum(options) {
-    return coercePositiveIntegerOption(
+    return Core.coercePositiveIntegerOption(
         options?.alignAssignmentsMinGroupSize,
         3,
         {
@@ -4056,16 +4054,16 @@ function getNodeEndIndexForAlignment(node, locEnd) {
 }
 
 function collectSyntheticDocCommentLines(node, options) {
-    const rawComments = getCommentArray(node);
-    if (!isNonEmptyArray(rawComments)) {
+    const rawComments = Core.getCommentArray(node);
+    if (!Core.isNonEmptyArray(rawComments)) {
         return {
             existingDocLines: [],
-            remainingComments: asArray(rawComments)
+            remainingComments: Core.toMutableArray(rawComments)
         };
     }
 
     const lineCommentOptions =
-        Parser.Options.resolveLineCommentOptions(options);
+        Parser.Comments.resolveLineCommentOptions(options);
     const existingDocLines = [];
     const remainingComments = [];
 
@@ -4101,15 +4099,15 @@ function collectSyntheticDocCommentLines(node, options) {
 }
 
 function extractLeadingNonDocCommentLines(comments, options) {
-    if (!isNonEmptyArray(comments)) {
+    if (!Core.isNonEmptyArray(comments)) {
         return {
             leadingLines: [],
-            remainingComments: asArray(comments)
+            remainingComments: Core.asArray(comments)
         };
     }
 
     const lineCommentOptions =
-        Parser.Options.resolveLineCommentOptions(options);
+        Parser.Comments.resolveLineCommentOptions(options);
     const leadingLines = [];
     const remainingComments = [];
     let scanningLeadingComments = true;
@@ -4121,7 +4119,7 @@ function extractLeadingNonDocCommentLines(comments, options) {
             comment.type === "CommentLine"
         ) {
             const formatted = formatLineComment(comment, lineCommentOptions);
-            const trimmed = toTrimmedString(formatted);
+            const trimmed = Core.toTrimmedString(formatted);
 
             if (trimmed.length === 0) {
                 comment.printed = true;
@@ -4152,7 +4150,7 @@ function buildSyntheticDocComment(
     functionNode,
     existingDocLines,
     options,
-    overrides = {}
+    overrides: any = {}
 ) {
     const hasExistingDocLines = existingDocLines.length > 0;
 
@@ -4172,10 +4170,12 @@ function buildSyntheticDocComment(
               )
           );
 
-    const leadingCommentLines = Array.isArray(overrides?.leadingCommentLines)
-        ? overrides.leadingCommentLines
+    const leadingCommentLines = Array.isArray(
+        (overrides as any)?.leadingCommentLines
+    )
+        ? (overrides as any).leadingCommentLines
               .map((line) => (typeof line === STRING_TYPE ? line : null))
-              .filter((line) => isNonEmptyTrimmedString(line))
+              .filter((line) => Core.isNonEmptyTrimmedString(line))
         : [];
 
     if (syntheticLines.length === 0 && leadingCommentLines.length === 0) {
@@ -4251,7 +4251,7 @@ function getSyntheticDocCommentForStaticVariable(node, options) {
         return null;
     }
 
-    const declarator = getSingleVariableDeclarator(node);
+    const declarator = Core.getSingleVariableDeclarator(node);
     if (!declarator || declarator.id?.type !== "Identifier") {
         return null;
     }
@@ -4280,7 +4280,7 @@ function getSyntheticDocCommentForStaticVariable(node, options) {
 
     const name = declarator.id.name;
     const functionNode = declarator.init;
-    const syntheticOverrides = { nameOverride: name };
+    const syntheticOverrides: any = { nameOverride: name };
     if (node._overridesStaticFunction === true) {
         syntheticOverrides.includeOverrideTag = true;
     }
@@ -4354,7 +4354,7 @@ function getSyntheticDocCommentForFunctionAssignment(node, options) {
         return null;
     }
 
-    const syntheticOverrides = { nameOverride: assignment.left.name };
+    const syntheticOverrides: any = { nameOverride: assignment.left.name };
 
     if (leadingCommentLines.length > 0) {
         syntheticOverrides.leadingCommentLines = leadingCommentLines;
@@ -4479,7 +4479,7 @@ function hasCommentImmediatelyBefore(text, index) {
 
 const RETURN_DOC_TAG_PATTERN = /^\/\/\/\s*@returns\b/i;
 
-function dedupeReturnDocLines(lines, { includeNonReturnLine } = {}) {
+function dedupeReturnDocLines(lines, { includeNonReturnLine }: any = {}) {
     const shouldIncludeNonReturn =
         typeof includeNonReturnLine === "function"
             ? includeNonReturnLine
@@ -4495,7 +4495,7 @@ function dedupeReturnDocLines(lines, { includeNonReturnLine } = {}) {
             continue;
         }
 
-        const trimmed = toTrimmedString(line);
+        const trimmed = Core.toTrimmedString(line);
         if (!RETURN_DOC_TAG_PATTERN.test(trimmed)) {
             if (shouldIncludeNonReturn(line, trimmed)) {
                 deduped.push(line);
@@ -4521,7 +4521,8 @@ function dedupeReturnDocLines(lines, { includeNonReturnLine } = {}) {
 }
 
 function reorderDescriptionLinesAfterFunction(docLines) {
-    const normalizedDocLines = toMutableArray(docLines);
+    const normalizedDocLines: MutableDocCommentLines =
+        Core.toMutableArray(docLines);
 
     if (normalizedDocLines.length === 0) {
         return normalizedDocLines;
@@ -4703,7 +4704,8 @@ function hasLegacyReturnsDescriptionLines(docLines) {
 }
 
 function convertLegacyReturnsDescriptionLinesToMetadata(docLines) {
-    const normalizedLines = toMutableArray(docLines);
+    const normalizedLines: MutableDocCommentLines =
+        Core.toMutableArray(docLines);
 
     if (normalizedLines.length === 0) {
         return normalizedLines;
@@ -4775,7 +4777,7 @@ function convertLegacyReturnsDescriptionLinesToMetadata(docLines) {
         }
 
         if (descriptionText.length > 0 && /^[a-z]/.test(descriptionText)) {
-            descriptionText = capitalize(descriptionText);
+            descriptionText = Core.capitalize(descriptionText);
         }
 
         let normalizedType = typeText.trim();
@@ -4808,7 +4810,7 @@ function convertLegacyReturnsDescriptionLinesToMetadata(docLines) {
         return normalizedLines;
     }
 
-    const resultLines = [...retainedLines];
+    const resultLines: MutableDocCommentLines = [...retainedLines];
 
     let appendIndex = resultLines.length;
     while (
@@ -4833,7 +4835,8 @@ function convertLegacyReturnsDescriptionLinesToMetadata(docLines) {
 }
 
 function promoteLeadingDocCommentTextToDescription(docLines) {
-    const normalizedLines = toMutableArray(docLines);
+    const normalizedLines: MutableDocCommentLines =
+        Core.toMutableArray(docLines);
 
     if (normalizedLines.length === 0) {
         return normalizedLines;
@@ -4882,7 +4885,7 @@ function promoteLeadingDocCommentTextToDescription(docLines) {
     }
 
     const firstContentIndex = segments.findIndex(({ suffix }) =>
-        isNonEmptyTrimmedString(suffix)
+        Core.isNonEmptyTrimmedString(suffix)
     );
 
     if (firstContentIndex === -1) {
@@ -4890,7 +4893,7 @@ function promoteLeadingDocCommentTextToDescription(docLines) {
     }
 
     const nextLine = normalizedLines[leadingCount];
-    const nextLineTrimmed = toTrimmedString(nextLine);
+    const nextLineTrimmed = Core.toTrimmedString(nextLine);
     if (
         typeof nextLine !== STRING_TYPE ||
         (!/^\/\/\/\s*@/i.test(nextLineTrimmed) &&
@@ -4956,11 +4959,11 @@ function promoteLeadingDocCommentTextToDescription(docLines) {
     }
 
     const remainder = normalizedLines.slice(leadingCount);
-    const result = [...promotedLines, ...remainder];
+    const result: MutableDocCommentLines = [...promotedLines, ...remainder];
 
     const hasContinuationSegments = segments.some(
         ({ suffix }, index) =>
-            index > firstContentIndex && isNonEmptyTrimmedString(suffix)
+            index > firstContentIndex && Core.isNonEmptyTrimmedString(suffix)
     );
 
     if (hasContinuationSegments) {
@@ -4978,9 +4981,10 @@ function mergeSyntheticDocComments(
     node,
     existingDocLines,
     options,
-    overrides = {}
+    overrides: any = {}
 ) {
-    let normalizedExistingLines = toMutableArray(existingDocLines);
+    let normalizedExistingLines: MutableDocCommentLines =
+        Core.toMutableArray(existingDocLines);
 
     normalizedExistingLines = promoteLeadingDocCommentTextToDescription(
         normalizedExistingLines
@@ -5043,7 +5047,7 @@ function mergeSyntheticDocComments(
             return false;
         }
 
-        return /^\/\/\/\s*@param\b/i.test(toTrimmedString(line));
+        return /^\/\/\/\s*@param\b/i.test(Core.toTrimmedString(line));
     });
     const shouldForceParamPrune =
         hasParamDocLines && declaredParamCount === 0 && !hasImplicitDocEntries;
@@ -5059,7 +5063,7 @@ function mergeSyntheticDocComments(
     }
 
     const docTagMatches = (line, pattern) => {
-        const trimmed = toTrimmedString(line);
+        const trimmed = Core.toTrimmedString(line);
         if (trimmed.length === 0) {
             return false;
         }
@@ -5098,7 +5102,7 @@ function mergeSyntheticDocComments(
 
     // Cache canonical names so we only parse each doc comment line at most once.
     const paramCanonicalNameCache = new Map();
-    const getParamCanonicalName = (line, metadata) => {
+    const getParamCanonicalName = (line, metadata = undefined) => {
         if (typeof line !== STRING_TYPE) {
             return null;
         }
@@ -5143,7 +5147,7 @@ function mergeSyntheticDocComments(
                 firstParamIndex === -1 ? mergedLines.length : firstParamIndex;
             const precedingLine =
                 insertionIndex > 0 ? mergedLines[insertionIndex - 1] : null;
-            const trimmedPreceding = toTrimmedString(precedingLine);
+            const trimmedPreceding = Core.toTrimmedString(precedingLine);
             const isDocCommentLine =
                 typeof trimmedPreceding === STRING_TYPE &&
                 /^\/\/\//.test(trimmedPreceding);
@@ -5284,7 +5288,7 @@ function mergeSyntheticDocComments(
     const syntheticParamNames = new Set(
         otherLines
             .map((line) => getParamCanonicalName(line))
-            .filter(isNonEmptyString)
+            .filter(Core.isNonEmptyString)
     );
 
     if (syntheticParamNames.size > 0) {
@@ -5306,7 +5310,7 @@ function mergeSyntheticDocComments(
         }
     }
 
-    const lastFunctionIndex = mergedLines.findLastIndex(isFunctionLine);
+    const lastFunctionIndex = Core.findLastIndex(mergedLines, isFunctionLine);
     let insertionIndex = lastFunctionIndex === -1 ? 0 : lastFunctionIndex + 1;
 
     if (lastFunctionIndex === -1) {
@@ -5327,7 +5331,7 @@ function mergeSyntheticDocComments(
         insertionIndex += 1;
     }
 
-    let result = [
+    let result: MutableDocCommentLines = [
         ...mergedLines.slice(0, insertionIndex),
         ...otherLines,
         ...mergedLines.slice(insertionIndex)
@@ -5345,7 +5349,7 @@ function mergeSyntheticDocComments(
             for (const line of result) {
                 if (
                     typeof line === STRING_TYPE &&
-                    /^\/\/\/\s*@returns\b/i.test(toTrimmedString(line))
+                    /^\/\/\/\s*@returns\b/i.test(Core.toTrimmedString(line))
                 ) {
                     removedExistingReturns = true;
                     continue;
@@ -5544,7 +5548,7 @@ function mergeSyntheticDocComments(
         orderedParamDocs = reordered;
     }
 
-    const finalDocs = [];
+    const finalDocs: MutableDocCommentLines = [];
     let insertedParams = false;
 
     for (const line of result) {
@@ -5563,7 +5567,7 @@ function mergeSyntheticDocComments(
         finalDocs.push(...orderedParamDocs);
     }
 
-    let reorderedDocs = finalDocs;
+    let reorderedDocs: MutableDocCommentLines = finalDocs;
 
     const descriptionStartIndex = reorderedDocs.findIndex(isDescriptionLine);
     if (descriptionStartIndex !== -1) {
@@ -5766,7 +5770,7 @@ function mergeSyntheticDocComments(
         result = reorderedDocs;
     } else {
         const wrappedDocs = [];
-        const normalizedPrintWidth = coercePositiveIntegerOption(
+        const normalizedPrintWidth = Core.coercePositiveIntegerOption(
             options?.printWidth,
             120
         );
@@ -5984,20 +5988,22 @@ function mergeSyntheticDocComments(
         result._suppressLeadingBlank = true;
     }
 
-    const filteredResult = result.filter((line) => {
-        if (typeof line !== STRING_TYPE) {
-            return true;
-        }
+    const filteredResult: MutableDocCommentLines = Core.toMutableArray(
+        result.filter((line) => {
+            if (typeof line !== STRING_TYPE) {
+                return true;
+            }
 
-        if (!/^\/\/\/\s*@description\b/i.test(line.trim())) {
-            return true;
-        }
+            if (!/^\/\/\/\s*@description\b/i.test(line.trim())) {
+                return true;
+            }
 
-        const metadata = parseDocCommentMetadata(line);
-        const descriptionText = toTrimmedString(metadata?.name);
+            const metadata = parseDocCommentMetadata(line);
+            const descriptionText = Core.toTrimmedString(metadata?.name);
 
-        return descriptionText.length > 0;
-    });
+            return descriptionText.length > 0;
+        })
+    );
 
     if (result._suppressLeadingBlank) {
         filteredResult._suppressLeadingBlank = true;
@@ -6073,7 +6079,7 @@ function getPreferredFunctionParameterName(path, node, options) {
             options
         );
 
-        if (isNonEmptyString(preferredName)) {
+        if (Core.isNonEmptyString(preferredName)) {
             return preferredName;
         }
 
@@ -6101,7 +6107,7 @@ function getPreferredFunctionParameterName(path, node, options) {
         options
     );
 
-    if (isNonEmptyString(preferredName)) {
+    if (Core.isNonEmptyString(preferredName)) {
         return preferredName;
     }
 
@@ -6249,7 +6255,7 @@ function findFunctionParameterContext(path) {
             parent.type === "FunctionDeclaration" ||
             parent.type === "ConstructorDeclaration"
         ) {
-            const params = toMutableArray(parent.params);
+            const params = Core.toMutableArray(parent.params);
             const index = params.indexOf(candidate);
             if (index !== -1) {
                 return { functionNode: parent, paramIndex: index };
@@ -6472,7 +6478,7 @@ function computeSyntheticFunctionDocLines(
     node,
     existingDocLines,
     options,
-    overrides = {}
+    overrides: any = {}
 ) {
     if (!node) {
         return [];
@@ -6489,19 +6495,19 @@ function computeSyntheticFunctionDocLines(
     const hasOverrideTag = metadata.some((meta) => meta.tag === "override");
     const documentedParamNames = new Set();
     const paramMetadataByCanonical = new Map();
-    const overrideName = overrides?.nameOverride;
+    const overrideName = (overrides as any)?.nameOverride;
     const functionName = overrideName ?? Core.getNodeName(node);
     const existingFunctionMetadata = metadata.find(
         (meta) => meta.tag === "function"
     );
     const normalizedFunctionName =
         typeof functionName === STRING_TYPE &&
-        isNonEmptyTrimmedString(functionName)
+        Core.isNonEmptyTrimmedString(functionName)
             ? normalizeDocMetadataName(functionName)
             : null;
     const normalizedExistingFunctionName =
         typeof existingFunctionMetadata?.name === STRING_TYPE &&
-        isNonEmptyTrimmedString(existingFunctionMetadata.name)
+        Core.isNonEmptyTrimmedString(existingFunctionMetadata.name)
             ? normalizeDocMetadataName(existingFunctionMetadata.name)
             : null;
 
@@ -6524,7 +6530,7 @@ function computeSyntheticFunctionDocLines(
     }
 
     const shouldInsertOverrideTag =
-        overrides?.includeOverrideTag === true && !hasOverrideTag;
+        (overrides as any)?.includeOverrideTag === true && !hasOverrideTag;
 
     const lines = [];
 
@@ -6896,7 +6902,7 @@ function computeSyntheticFunctionDocLines(
                 const ordinalLength = canonicalOrdinal.length;
                 const implicitLength =
                     (canonicalImplicit && canonicalImplicit.length > 0) ||
-                    isNonEmptyTrimmedString(effectiveImplicitName);
+                    Core.isNonEmptyTrimmedString(effectiveImplicitName);
 
                 if (ordinalLength > implicitLength) {
                     effectiveImplicitName = null;
@@ -6942,7 +6948,7 @@ function computeSyntheticFunctionDocLines(
         const optionalOverrideFlag = paramInfo?.optionalOverride === true;
         const defaultIsUndefined =
             param?.type === "DefaultParameter" &&
-            isUndefinedSentinel(param.right);
+            Core.isUndefinedSentinel(param.right);
         const shouldOmitUndefinedDefault =
             defaultIsUndefined &&
             shouldOmitUndefinedDefaultForFunctionNode(node);
@@ -6981,7 +6987,7 @@ function computeSyntheticFunctionDocLines(
             // parser-intent marker), treat it as optional for synthesized
             // docs so doc-bracketing matches the retained signature.
             (param?.type === "DefaultParameter" &&
-                isUndefinedSentinel(param.right) &&
+                Core.isUndefinedSentinel(param.right) &&
                 (explicitOptionalMarker ||
                     node?.type === "ConstructorDeclaration"));
         const hasSiblingExplicitDefault = Array.isArray(node?.params)
@@ -7000,7 +7006,7 @@ function computeSyntheticFunctionDocLines(
                   // is not the `undefined` sentinel.
                   return (
                       candidate.right != null &&
-                      !isUndefinedSentinel(candidate.right)
+                      !Core.isUndefinedSentinel(candidate.right)
                   );
               })
             : false;
@@ -7014,7 +7020,7 @@ function computeSyntheticFunctionDocLines(
                   // candidate as a concrete explicit default.
                   return (
                       candidate.right != null &&
-                      !isUndefinedSentinel(candidate.right)
+                      !Core.isUndefinedSentinel(candidate.right)
                   );
               })
             : false;
@@ -7124,7 +7130,7 @@ function computeSyntheticFunctionDocLines(
 }
 
 function normalizeParamDocType(typeText) {
-    return getNonEmptyTrimmedString(typeText);
+    return Core.getNonEmptyTrimmedString(typeText);
 }
 
 function collectImplicitArgumentDocNames(functionNode, options) {
@@ -7267,7 +7273,7 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                                 }
                             }
 
-                            forEachNodeChild(node, (value) =>
+                            Core.forEachNodeChild(node, (value) =>
                                 markMatches(value)
                             );
                         };
@@ -7608,7 +7614,7 @@ function gatherImplicitArgumentReferences(functionNode) {
                 !aliasByIndex.has(aliasIndex)
             ) {
                 const aliasName = normalizeDocMetadataName(node.id.name);
-                if (isNonEmptyString(aliasName)) {
+                if (Core.isNonEmptyString(aliasName)) {
                     aliasByIndex.set(aliasIndex, aliasName);
                     referencedIndices.add(aliasIndex);
                 }
@@ -7639,7 +7645,7 @@ function gatherImplicitArgumentReferences(functionNode) {
             }
         }
 
-        forEachNodeChild(node, (value, key) => {
+        Core.forEachNodeChild(node, (value, key) => {
             visit(value, node, key);
         });
     };
@@ -7735,13 +7741,13 @@ function maybeAppendReturnsDoc(
     lines,
     functionNode,
     hasReturnsTag,
-    overrides = {}
+    overrides: any = {}
 ) {
     if (!Array.isArray(lines)) {
         return [];
     }
 
-    if (overrides?.suppressReturns === true) {
+    if ((overrides as any)?.suppressReturns === true) {
         return lines;
     }
 
@@ -7811,7 +7817,7 @@ function functionReturnsNonUndefinedValue(functionNode) {
                     continue;
                 }
 
-                if (!isUndefinedSentinel(argument)) {
+                if (!Core.isUndefinedSentinel(argument)) {
                     return true;
                 }
 
@@ -7823,7 +7829,7 @@ function functionReturnsNonUndefinedValue(functionNode) {
         }
 
         for (const value of Object.values(current)) {
-            enqueueObjectChildValues(stack, value);
+            Core.enqueueObjectChildValues(stack, value);
         }
     }
 
@@ -7878,7 +7884,7 @@ function parseDocCommentMetadata(line) {
             name = paramMatch ? paramMatch[1] : null;
         }
         if (typeof name === STRING_TYPE) {
-            name = normalizeOptionalParamToken(name);
+            name = Core.normalizeOptionalParamToken(name);
         }
 
         return {
@@ -7906,9 +7912,11 @@ function getSourceTextForNode(node, options) {
     const startIndex =
         typeof locStart === "function"
             ? locStart(node)
-            : getNodeStartIndex(node);
+            : Core.getNodeStartIndex(node);
     const endIndex =
-        typeof locEnd === "function" ? locEnd(node) : getNodeEndIndex(node);
+        typeof locEnd === "function"
+            ? locEnd(node)
+            : Core.getNodeEndIndex(node);
 
     if (typeof startIndex !== NUMBER_TYPE || typeof endIndex !== NUMBER_TYPE) {
         return null;
@@ -8030,7 +8038,7 @@ function inlineArgumentCountFallbacks(functionNode) {
         // consequent and `param = <fallback>` in the alternate.
         for (let pi = 0; pi < params.length; pi += 1) {
             const param = params[pi];
-            const paramName = getIdentifierText(param);
+            const paramName = Core.getIdentifierText(param);
             if (!paramName) {
                 continue;
             }
@@ -8144,7 +8152,9 @@ function inlineArgumentCountFallbacks(functionNode) {
 
                     try {
                         if (param && param.leadingComments) {
-                            defaultNode.leadingComments = param.leadingComments;
+                            (defaultNode as any).leadingComments = (
+                                param as any
+                            ).leadingComments;
                         }
                     } catch {
                         // Ignore errors when copying leading comments
@@ -8163,7 +8173,7 @@ function inlineArgumentCountFallbacks(functionNode) {
     if (removals.size > 0) {
         // Remove matched statements from the body in reverse order to keep indices stable
         const toRemove = [...removals].sort(
-            (a, b) => getNodeStartIndex(b) - getNodeStartIndex(a)
+            (a, b) => Core.getNodeStartIndex(b) - Core.getNodeStartIndex(a)
         );
         for (const r of toRemove) {
             const idx = statements.indexOf(r);
@@ -8216,10 +8226,14 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
 
                 // preserve any comment metadata if present (best-effort)
                 if (param.leadingComments) {
-                    defaultNode.leadingComments = param.leadingComments;
+                    (defaultNode as any).leadingComments = (
+                        param as any
+                    ).leadingComments;
                 }
                 if (param.trailingComments) {
-                    defaultNode.trailingComments = param.trailingComments;
+                    (defaultNode as any).trailingComments = (
+                        param as any
+                    ).trailingComments;
                 }
 
                 // Preserve parser/transforms-provided marker if present. Also
@@ -8235,7 +8249,7 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
                     // intent. Only propagate an existing marker from the
                     // original param node.
                     if (param._featherOptionalParameter === true) {
-                        defaultNode._featherOptionalParameter = true;
+                        (defaultNode as any)._featherOptionalParameter = true;
                     }
                 } catch {
                     // Ignore errors when copying optional parameter marker
@@ -8526,11 +8540,11 @@ function structLiteralHasLeadingLineBreak(node, options) {
 
     const { originalText } = resolvePrinterSourceMetadata(options);
 
-    if (!isNonEmptyArray(node.properties)) {
+    if (!Core.isNonEmptyArray(node.properties)) {
         return false;
     }
 
-    const { start, end } = getNodeRangeIndices(node);
+    const { start, end } = Core.getNodeRangeIndices(node);
     const source = sliceOriginalText(originalText, start, end);
     if (source === null) {
         return false;
@@ -8624,8 +8638,8 @@ function getStructPropertyPrefix(node, options) {
 
     const { originalText } = resolvePrinterSourceMetadata(options);
 
-    const propertyStart = getNodeStartIndex(node);
-    const valueStart = getNodeStartIndex(node?.value);
+    const propertyStart = Core.getNodeStartIndex(node);
+    const valueStart = Core.getNodeStartIndex(node?.value);
 
     const prefix = sliceOriginalText(originalText, propertyStart, valueStart);
 
@@ -8651,13 +8665,13 @@ function getNormalizedParameterName(paramNode) {
         return null;
     }
 
-    const rawName = getIdentifierText(paramNode);
+    const rawName = Core.getIdentifierText(paramNode);
     if (typeof rawName !== STRING_TYPE || rawName.length === 0) {
         return null;
     }
 
     const normalizedName = normalizeDocMetadataName(rawName);
-    return getNonEmptyString(normalizedName);
+    return Core.getNonEmptyString(normalizedName);
 }
 
 function getParameterDocInfo(paramNode, functionNode, options) {
@@ -8700,7 +8714,7 @@ function getParameterDocInfo(paramNode, functionNode, options) {
             return null;
         }
 
-        const defaultIsUndefined = isUndefinedSentinel(paramNode.right);
+        const defaultIsUndefined = Core.isUndefinedSentinel(paramNode.right);
         const signatureOmitsUndefinedDefault =
             defaultIsUndefined &&
             shouldOmitUndefinedDefaultForFunctionNode(functionNode);
@@ -8795,7 +8809,7 @@ function shouldOmitDefaultValueForParameter(path, options) {
     if (functionNode) {
         const { originalText } = resolvePrinterSourceMetadata(options);
         if (typeof originalText === STRING_TYPE && originalText.length > 0) {
-            const fnStart = getNodeStartIndex(functionNode) ?? 0;
+            const fnStart = Core.getNodeStartIndex(functionNode) ?? 0;
             const prefix = originalText.slice(0, fnStart);
             const lastDocIndex = prefix.lastIndexOf("///");
             if (lastDocIndex !== -1) {
@@ -8844,7 +8858,7 @@ function shouldOmitDefaultValueForParameter(path, options) {
     }
 
     if (
-        !isUndefinedSentinel(node.right) ||
+        !Core.isUndefinedSentinel(node.right) ||
         typeof path.getParentNode !== "function"
     ) {
         return false;
@@ -8968,7 +8982,7 @@ function getBooleanReturnBranch(branchNode) {
  * alternate handling to a single abstraction layer.
  */
 function buildIfStatementDoc(path, options, print, node) {
-    const parts = [
+    const parts: any[] = [
         printSingleClauseStatement(
             path,
             options,
@@ -9022,7 +9036,11 @@ function getBooleanReturnStatementInfo(returnNode) {
     }
 
     const argument = returnNode.argument;
-    if (!argument || Core.hasComment(argument) || !isBooleanLiteral(argument)) {
+    if (
+        !argument ||
+        Core.hasComment(argument) ||
+        !Core.isBooleanLiteral(argument)
+    ) {
         return null;
     }
 
@@ -9038,8 +9056,8 @@ function simplifyBooleanBinaryExpression(path, print, node) {
         return null;
     }
 
-    const leftBoolean = isBooleanLiteral(node.left);
-    const rightBoolean = isBooleanLiteral(node.right);
+    const leftBoolean = Core.isBooleanLiteral(node.left);
+    const rightBoolean = Core.isBooleanLiteral(node.right);
 
     if (!leftBoolean && !rightBoolean) {
         return null;
@@ -9081,7 +9099,7 @@ function simplifyTrigonometricCall(node) {
         return false;
     }
 
-    const identifierName = getIdentifierText(node.object);
+    const identifierName = Core.getIdentifierText(node.object);
     if (!identifierName) {
         return false;
     }
@@ -9109,14 +9127,14 @@ function applyInnerDegreeWrapperConversion(node, functionName) {
         return false;
     }
 
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
     if (args.length !== 1) {
         return false;
     }
 
     const [firstArg] = args;
     if (
-        !isCallExpressionIdentifierMatch(firstArg, "degtorad", {
+        !Core.isCallExpressionIdentifierMatch(firstArg, "degtorad", {
             caseInsensitive: true
         })
     ) {
@@ -9127,7 +9145,7 @@ function applyInnerDegreeWrapperConversion(node, functionName) {
         return false;
     }
 
-    const wrappedArgs = getCallExpressionArguments(firstArg);
+    const wrappedArgs = Core.getCallExpressionArguments(firstArg);
     if (wrappedArgs.length !== 1) {
         return false;
     }
@@ -9137,7 +9155,7 @@ function applyInnerDegreeWrapperConversion(node, functionName) {
 }
 
 function applyOuterTrigConversion(node, conversionMap) {
-    const args = getCallExpressionArguments(node);
+    const args = Core.getCallExpressionArguments(node);
     if (args.length !== 1) {
         return false;
     }
@@ -9151,7 +9169,7 @@ function applyOuterTrigConversion(node, conversionMap) {
         return false;
     }
 
-    const innerName = getIdentifierText(firstArg.object);
+    const innerName = Core.getIdentifierText(firstArg.object);
     if (!innerName) {
         return false;
     }
@@ -9161,7 +9179,7 @@ function applyOuterTrigConversion(node, conversionMap) {
         return false;
     }
 
-    const innerArgs = getCallExpressionArguments(firstArg);
+    const innerArgs = Core.getCallExpressionArguments(firstArg);
     if (
         typeof mapping.expectedArgs === NUMBER_TYPE &&
         innerArgs.length !== mapping.expectedArgs
@@ -9184,7 +9202,7 @@ function updateCallExpressionNameAndArgs(node, newName, newArgs) {
         node.object.name = newName;
     }
 
-    node.arguments = toMutableArray(newArgs, { clone: true });
+    node.arguments = Core.toMutableArray(newArgs, { clone: true });
 }
 
 function negateExpressionDoc(expressionDoc, expressionNode) {
@@ -9282,7 +9300,7 @@ function shouldGenerateSyntheticDocForFunction(
             return false;
         }
 
-        const trimmed = toTrimmedString(line);
+        const trimmed = Core.toTrimmedString(line);
         return /^\/\/\/\s*@param\b/i.test(trimmed);
     });
 
@@ -9387,7 +9405,7 @@ function nodeDeclaresIdentifier(node, identifierName) {
                 continue;
             }
 
-            const declaratorName = getIdentifierText(declarator.id);
+            const declaratorName = Core.getIdentifierText(declarator.id);
             if (declaratorName === identifierName) {
                 return true;
             }
@@ -9400,7 +9418,7 @@ function nodeDeclaresIdentifier(node, identifierName) {
         return nodeDeclaresIdentifier(node.init, identifierName);
     }
 
-    const nodeIdName = getIdentifierText(node.id);
+    const nodeIdName = Core.getIdentifierText(node.id);
     return nodeIdName === identifierName;
 }
 
@@ -9477,7 +9495,7 @@ function normalizeDocMetadataName(name) {
         return name;
     }
 
-    const optionalNormalized = normalizeOptionalParamToken(name);
+    const optionalNormalized = Core.normalizeOptionalParamToken(name);
     if (typeof optionalNormalized === STRING_TYPE) {
         if (/^\[[^\]]+\]$/.test(optionalNormalized)) {
             return optionalNormalized;
@@ -9529,11 +9547,11 @@ function docParamNamesLooselyEqual(left, right) {
 }
 
 function docHasTrailingComment(doc) {
-    if (isNonEmptyArray(doc)) {
+    if (Core.isNonEmptyArray(doc)) {
         const lastItem = doc.at(-1);
-        if (isNonEmptyArray(lastItem)) {
+        if (Core.isNonEmptyArray(lastItem)) {
             const commentArr = lastItem[0];
-            if (isNonEmptyArray(commentArr)) {
+            if (Core.isNonEmptyArray(commentArr)) {
                 return commentArr.some((item) => {
                     return (
                         typeof item === STRING_TYPE &&
@@ -10171,8 +10189,8 @@ function areNumericExpressionsEquivalent(left, right) {
                 return false;
             }
 
-            const leftProps = asArray(left.property);
-            const rightProps = asArray(right.property);
+            const leftProps = Core.asArray(left.property);
+            const rightProps = Core.asArray(right.property);
 
             if (leftProps.length !== rightProps.length) {
                 return false;
@@ -10281,7 +10299,7 @@ function getSanitizedMacroNames(path) {
                 return null;
             }
 
-            const registry = ensureSet(names);
+            const registry = Core.ensureSet(names);
 
             if (registry !== names) {
                 ancestor._featherSanitizedMacroNames = registry;
@@ -10317,7 +10335,7 @@ function expressionReferencesSanitizedMacro(node, sanitizedMacroNames) {
         }
 
         if (current.type === "CallExpression") {
-            const calleeName = getIdentifierText(current.object);
+            const calleeName = Core.getIdentifierText(current.object);
             if (
                 typeof calleeName === STRING_TYPE &&
                 sanitizedMacroNames.has(calleeName)
@@ -10340,7 +10358,7 @@ function expressionReferencesSanitizedMacro(node, sanitizedMacroNames) {
                 continue;
             }
 
-            if (value.type) {
+            if ((value as any).type) {
                 stack.push(value);
             }
         }
@@ -10360,7 +10378,7 @@ function isNumericCallExpression(node) {
         return false;
     }
 
-    const calleeName = getIdentifierText(node.object);
+    const calleeName = Core.getIdentifierText(node.object);
 
     if (typeof calleeName !== STRING_TYPE) {
         return false;
@@ -10376,7 +10394,7 @@ function isNumericComputationNode(node) {
 
     switch (node.type) {
         case "Literal": {
-            const value = toTrimmedString(node.value);
+            const value = Core.toTrimmedString(node.value);
             if (value === "") {
                 return false;
             }
@@ -10398,7 +10416,7 @@ function isNumericComputationNode(node) {
             return isNumericComputationNode(node.expression);
         }
         case "BinaryExpression": {
-            if (!isArithmeticBinaryOperator(node.operator)) {
+            if (!Core.isArithmeticBinaryOperator(node.operator)) {
                 return false;
             }
 
@@ -10465,7 +10483,7 @@ function expressionIsStringLike(node) {
     }
 
     if (node.type === "CallExpression") {
-        const calleeName = getIdentifierText(node.object);
+        const calleeName = Core.getIdentifierText(node.object);
         if (typeof calleeName === STRING_TYPE) {
             const normalized = calleeName.toLowerCase();
             if (
@@ -10791,8 +10809,8 @@ function shouldPreserveClauseBlockAdjacency(options, clauseNode, bodyNode) {
         return false;
     }
 
-    const clauseEndIndex = getNodeEndIndex(clauseNode);
-    const bodyStartIndex = getNodeStartIndex(bodyNode);
+    const clauseEndIndex = Core.getNodeEndIndex(clauseNode);
+    const bodyStartIndex = Core.getNodeStartIndex(bodyNode);
 
     if (
         typeof clauseEndIndex !== NUMBER_TYPE ||
@@ -10913,7 +10931,7 @@ function resolveArgumentAliasInitializerDoc(path) {
     }
 
     const aliasName = aliasIdentifier.name;
-    if (!isNonEmptyString(aliasName)) {
+    if (!Core.isNonEmptyString(aliasName)) {
         return null;
     }
 
@@ -10932,7 +10950,7 @@ function resolveArgumentAliasInitializerDoc(path) {
 
     if (docPreferences && docPreferences.has(argumentIndex)) {
         const preferred = docPreferences.get(argumentIndex);
-        if (isNonEmptyString(preferred)) {
+        if (Core.isNonEmptyString(preferred)) {
             parameterName = preferred;
         }
     }
@@ -10967,7 +10985,7 @@ function findEnclosingFunctionForPath(path) {
             break;
         }
 
-        if (isFunctionLikeNode(parent)) {
+        if (Core.isFunctionLikeNode(parent)) {
             return parent;
         }
     }
@@ -11031,10 +11049,10 @@ function printEmptyParens(path, _print, options) {
                     (comment) => !comment.attachToBrace
                 )
             ]),
-            ifBreak(line, "", { groupId: "emptyparen" }),
+            ifBreak(line, "", { groupId: Symbol.for("emptyparen") }),
             ")"
         ],
-        { id: "emptyparen" }
+        { id: Symbol.for("emptyparen") }
     );
 }
 
@@ -11047,8 +11065,8 @@ function printEmptyBlock(path, options, print) {
         return inlineCommentDoc;
     }
 
-    const comments = getCommentArray(node);
-    const hasPrintableComments = comments.some(isCommentNode);
+    const comments = Core.getCommentArray(node);
+    const hasPrintableComments = comments.some(Core.isCommentNode as any);
 
     if (hasPrintableComments) {
         const sourceMetadata = resolvePrinterSourceMetadata(options);
@@ -11062,7 +11080,7 @@ function printEmptyBlock(path, options, print) {
 
         const trailingDocs = [hardline, "}"];
         if (shouldAddTrailingBlankLine) {
-            trailingDocs.unshift(lineSuffixBoundary, hardline);
+            trailingDocs.unshift(lineSuffixBoundary as any, hardline as any);
         }
 
         // an empty block with comments
@@ -11091,7 +11109,7 @@ function maybePrintInlineEmptyBlockComment(path, options) {
         return null;
     }
 
-    const comments = getCommentArray(node);
+    const comments = Core.getCommentArray(node);
     if (comments.length === 0) {
         return null;
     }
@@ -11126,7 +11144,7 @@ function findInlineBlockCommentIndex(comments) {
     let inlineIndex = -1;
 
     for (const [index, comment] of comments.entries()) {
-        if (!isCommentNode(comment)) {
+        if (!Core.isCommentNode(comment)) {
             continue;
         }
 

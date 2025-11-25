@@ -4,9 +4,7 @@ import {
     assertTrailingCommaValue
 } from "./trailing-comma-option.js";
 
-const {
-    createResolverController
-} = Core;
+// Avoid destructuring Core; use Core.createResolverController to align with AGENTS.md
 
 // Hard overrides for GML regardless of incoming config. These knobs either map
 // to syntax that GameMaker never emits (for example JSX attributes) or would let
@@ -31,7 +29,7 @@ const ARROW_PARENS_VALUES = new Set(["always", "avoid"]);
 const PROSE_WRAP_VALUES = new Set(["always", "never", "preserve"]);
 const HTML_WHITESPACE_SENSITIVITY_VALUES = new Set(["css", "strict", "ignore"]);
 
-const coreOptionOverridesController = createResolverController({
+const coreOptionOverridesController = Core.createResolverController({
     defaultFactory: () => DEFAULT_CORE_OPTION_OVERRIDES,
     normalize(result) {
         return normalizeCoreOptionOverrides(

@@ -1,12 +1,10 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: {
-        applyConfiguredValueEnvOverride,
-        createEnvConfiguredValueWithFallback,
-        toFiniteNumber
-    }
-} = Core;
+// Use the flattened Core namespace to access helper utils.
+const applyConfiguredValueEnvOverride = Core.applyConfiguredValueEnvOverride;
+const createEnvConfiguredValueWithFallback =
+    Core.createEnvConfiguredValueWithFallback;
+const toFiniteNumber = Core.toFiniteNumber;
 
 const DOC_COMMENT_MAX_WRAP_WIDTH_ENV_VAR =
     "PRETTIER_PLUGIN_GML_DOC_COMMENT_MAX_WRAP_WIDTH";
@@ -112,7 +110,7 @@ function setDefaultDocCommentMaxWrapWidth(width) {
  * @param {NodeJS.ProcessEnv | null | undefined} [env] Optional environment map
  *        to source overrides from.
  */
-function applyDocCommentMaxWrapWidthEnvOverride(env) {
+function applyDocCommentMaxWrapWidthEnvOverride(env = process.env) {
     applyConfiguredValueEnvOverride(docCommentMaxWrapWidthConfig, env);
 }
 

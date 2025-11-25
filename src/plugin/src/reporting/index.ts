@@ -1,11 +1,6 @@
-// Public facade for reporting utilities used by the Prettier plugin.
-//
-// Keeping the exports centralized here allows external consumers (including
-// sibling workspaces) to rely on a stable module path instead of importing
-// files from the internal directory layout.
+// TODO: Remove this facade. Consumers should directly use Core.createMetricsTracker
 import { Core } from "@gml-modules/core";
 
-const {
-    Reporting: { createMetricsTracker }
-} = Core;
+// Core exposes helpers on the flattened namespace; avoid nested `Core.Reporting`.
+const createMetricsTracker = Core.createMetricsTracker;
 export { createMetricsTracker };

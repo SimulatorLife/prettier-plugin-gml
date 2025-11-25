@@ -28,6 +28,24 @@ const pluginPath = (() => {
         path.resolve(currentDirectory, "../../plugin/src/index.js"),
         path.resolve(currentDirectory, "../../plugin/src/plugin-entry.ts")
     ];
+    candidates.push(
+        path.resolve(currentDirectory, "../../../plugin/dist/src/gml.js")
+    );
+    candidates.push(
+        path.resolve(currentDirectory, "../../../plugin/dist/gml.js")
+    );
+    candidates.push(
+        path.resolve(currentDirectory, "../../../plugin/dist/index.js")
+    );
+    candidates.push(
+        path.resolve(currentDirectory, "../../../plugin/src/gml.js")
+    );
+    candidates.push(
+        path.resolve(currentDirectory, "../../../plugin/src/index.js")
+    );
+    candidates.push(
+        path.resolve(currentDirectory, "../../../plugin/src/plugin-entry.ts")
+    );
 
     for (const p of candidates) {
         if (existsSync(p)) return p;

@@ -1,55 +1,36 @@
 import { Core } from "@gml-modules/core";
-import { prepareDocCommentEnvironment } from "../comments/doc-comment-manager.js";
 
-const {
-    getSingleVariableDeclarator: sharedGetSingleVariableDeclarator,
-    getIdentifierText: sharedGetIdentifierText,
-    isUndefinedSentinel: sharedIsUndefinedSentinel,
-    getSingleMemberIndexPropertyEntry: sharedGetSingleMemberIndexPropertyEntry,
-    unwrapParenthesizedExpression,
-    getBodyStatements,
-    toMutableArray,
-    isObjectLike,
-    isNode,
-    forEachNodeChild,
-    getNodeEndIndex,
-    getNodeStartIndex,
-    assignClonedLocation,
-    resolveHelperOverride
-} = Core;
+// NOTE: Avoid destructuring the Core namespace — use Core.* directly as per AGENTS.md
+// Local aliases were removed in favor of explicit Core.* usage.
+// Avoid destructuring Core namespace: use Core.* explicitly below
 
-// Re-export selected core helpers into local scope for convenience. Some
-// matcher logic expects these helpers to exist as local identifiers.
-const getSingleMemberIndexPropertyEntry =
-    sharedGetSingleMemberIndexPropertyEntry;
-
-const DEFAULT_HELPERS = {
-    getIdentifierText: sharedGetIdentifierText,
-    isUndefinedLiteral: sharedIsUndefinedSentinel,
-    getSingleVariableDeclarator: sharedGetSingleVariableDeclarator,
+const DEFAULT_HELPERS = { // TODO: Remove this and directly use Core.*
+    getIdentifierText: Core.getIdentifierText,
+    isUndefinedLiteral: Core.isUndefinedSentinel,
+    if (!Core.isObjectLike(ast)) {
     hasComment: Core.hasComment
 };
 
-export function preprocessFunctionArgumentDefaults(
+            Core.resolveHelperOverride(
     ast: any,
     helpers: any = DEFAULT_HELPERS
 ) {
-    if (!isObjectLike(ast)) {
+            Core.resolveHelperOverride(
         return ast;
     }
 
-    const normalizedHelpers = {
-        getIdentifierText: resolveHelperOverride(
+            Core.resolveHelperOverride(
+        getIdentifierText: Core.resolveHelperOverride(
             helpers,
             "getIdentifierText",
             DEFAULT_HELPERS.getIdentifierText
         ),
-        isUndefinedLiteral: resolveHelperOverride(
+        isUndefinedLiteral: Core.resolveHelperOverride(
             helpers,
             "isUndefinedLiteral",
             DEFAULT_HELPERS.isUndefinedLiteral
         ),
-        getSingleVariableDeclarator: resolveHelperOverride(
+        getSingleVariableDeclarator: Core.resolveHelperOverride(
             helpers,
             "getSingleVariableDeclarator",
             DEFAULT_HELPERS.getSingleVariableDeclarator
@@ -84,7 +65,7 @@ export function preprocessFunctionArgumentDefaults(
 export const transform = preprocessFunctionArgumentDefaults;
 
 function traverse(node, visitor, seen = new Set()) {
-    if (!isObjectLike(node)) {
+    if (!Core.isObjectLike(node)) {
         return;
     }
 
@@ -103,7 +84,7 @@ function traverse(node, visitor, seen = new Set()) {
 
     visitor(node);
 
-    forEachNodeChild(node, (value, key) => {
+    Core.forEachNodeChild(node, (value, key) => {
         if (key === "parent") {
             return;
         }
@@ -148,7 +129,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
         return;
     }
 
-    const params = toMutableArray(node.params);
+    const params = Core.toMutableArray(node.params);
     if (!Array.isArray(node.params)) {
         node.params = params;
     }
@@ -311,23 +292,23 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
             return;
         }
 
-        const removalEnd = getNodeEndIndex(removedStatement);
+        const removalEnd = Core.getNodeEndIndex(removedStatement);
         if (removalEnd == null) {
             return;
         }
 
-        const declarationEnd = getNodeEndIndex(targetDeclaration);
+        const declarationEnd = Core.getNodeEndIndex(targetDeclaration);
         if (declarationEnd != null && declarationEnd >= removalEnd) {
             return;
         }
 
-        assignClonedLocation(targetDeclaration, {
+        Core.assignClonedLocation(targetDeclaration, {
             end: removedStatement.end
         });
 
         const removedRangeEnd = Array.isArray(removedStatement.range)
             ? removedStatement.range[1]
-            : getNodeEndIndex(removedStatement);
+            : Core.getNodeEndIndex(removedStatement);
 
         if (typeof removedRangeEnd !== "number") {
             return;
@@ -339,7 +320,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
             return;
         }
 
-        const declarationStart = getNodeStartIndex(targetDeclaration);
+        const declarationStart = Core.getNodeStartIndex(targetDeclaration);
         if (typeof declarationStart !== "number") {
             return;
         }
@@ -377,7 +358,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                 statement &&
                 (statement as any).type === "IfStatement"
             ) {
-                const cond = unwrapParenthesizedExpression(
+                const cond = Core.unwrapParenthesizedExpression(
                     (statement as any).test
                 );
                 const maybeGuard = matchArgumentCountGuard(cond);
@@ -663,7 +644,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
 
     // Remove matched fallback statements in reverse order to keep indices stable.
     const orderedRemovals = Array.from(statementsToRemove);
-    orderedRemovals.sort((a, b) => getNodeStartIndex(b) - getNodeStartIndex(a));
+    orderedRemovals.sort((a, b) => Core.getNodeStartIndex(b) - Core.getNodeStartIndex(a));
 
     for (const removal of orderedRemovals) {
         const index = statements.indexOf(removal);
@@ -682,7 +663,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
         const stmt = statements[sidx];
         if (!stmt || (stmt as any).type !== "IfStatement") continue;
 
-        const condition = unwrapParenthesizedExpression((stmt as any).test);
+        const condition = Core.unwrapParenthesizedExpression((stmt as any).test);
         const guard = matchArgumentCountGuard(condition);
         if (!guard) continue;
 
@@ -690,11 +671,11 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
         const alternate = (stmt as any).alternate;
         const consequentStmt =
             consequent && consequent.type === "BlockStatement"
-                ? getBodyStatements(consequent)[0]
+                ? Core.getBodyStatements(consequent)[0]
                 : consequent;
         const alternateStmt =
             alternate && alternate.type === "BlockStatement"
-                ? getBodyStatements(alternate)[0]
+                ? Core.getBodyStatements(alternate)[0]
                 : alternate;
 
         // Look for an assignment in one branch that assigns an Identifier
@@ -1203,7 +1184,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
             // in edge cases). This helps us diagnose whether the materialized
             // flags exist before further processing.
             try {
-                const snap = toMutableArray(node.params || []);
+                const snap = Core.toMutableArray(node.params || []);
                 const lines = snap.map((pp, ii) => {
                     const left =
                         pp && pp.left && pp.left.name
@@ -1224,7 +1205,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
             const comments = docManager.getComments(node);
             try {
                 // Diagnostic: print per-param flag summary at reconcile start
-                const snap = toMutableArray(node.params);
+                const snap = Core.toMutableArray(node.params);
                 const lines = snap.map((pp, ii) => {
                     const left =
                         pp && pp.left && pp.left.name
@@ -1262,7 +1243,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
             // Walk parameters and set the flag where the RHS is an `undefined`
             // sentinel. Constructors prefer to preserve optional syntax by
             // default; plain functions omit unless the doc indicates optional.
-            const params = toMutableArray(node.params);
+            const params = Core.toMutableArray(node.params);
             for (const p of params) {
                 try {
                     const lname =
@@ -1358,7 +1339,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                         // flag was set due to earlier conservative passes where
                         // the left-side default itself was synthesized.
                         try {
-                            const paramsList = toMutableArray(node.params);
+                            const paramsList = Core.toMutableArray(node.params);
                             const idx = paramsList.indexOf(p);
                             let foundRealExplicitToLeft = false;
                             try {
@@ -1543,7 +1524,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
         // Match `if (argument_count < 2) argument2 = ...;` style guards and
         // `if (argument_count == 0) { argument0 = ... }` forms.
         if (statement.type === "IfStatement") {
-            const condition = unwrapParenthesizedExpression(statement.test);
+            const condition = Core.unwrapParenthesizedExpression(statement.test);
             const result = matchArgumentCountGuard(condition);
             if (!result) {
                 return null;
@@ -1561,13 +1542,13 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
 
             const consequentStatements = consequentBlock
                 ? consequentBlock.type === "BlockStatement"
-                    ? getBodyStatements(consequentBlock)
+                    ? Core.getBodyStatements(consequentBlock)
                     : [consequentBlock]
                 : [];
 
             const alternateStatements = alternateBlock
                 ? alternateBlock.type === "BlockStatement"
-                    ? getBodyStatements(alternateBlock)
+                    ? Core.getBodyStatements(alternateBlock)
                     : [alternateBlock]
                 : [];
 
@@ -1961,7 +1942,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                 }
             }
 
-            forEachNodeChild(node, (value, key) => {
+            Core.forEachNodeChild(node, (value, key) => {
                 // If we detected an alias on this node, don't traverse its
                 // initializer twice for direct references.
                 if (node.type === "VariableDeclarator" && key === "init") {

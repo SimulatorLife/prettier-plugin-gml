@@ -3,6 +3,7 @@
 // layer the plugin should own.
 
 import { Parser } from "@gml-modules/parser";
+import type { ParserOptions } from "@gml-modules/parser";
 
 type PrettierGmlOptions = {
     gmlLanguageVersion?: string;
@@ -12,12 +13,8 @@ type PrettierGmlOptions = {
     gmlStrictSemicolons?: boolean;
 };
 
-type ParserConfig = {
-    languageVersion: string;
-    allowExperimentalSyntax: boolean;
-    recoverFromMissingSemicolons: boolean;
-    collectComments: boolean;
-};
+// Use ParserOptions type from Parser package to ensure compatibility.
+type ParserConfig = ParserOptions;
 
 type TransformOptions = {
     stripComments: {
@@ -37,11 +34,18 @@ export function makeParserConfig(
     prettierOptions: PrettierGmlOptions = {}
 ): ParserConfig {
     return {
-        languageVersion: prettierOptions.gmlLanguageVersion ?? "1.0",
-        allowExperimentalSyntax: !!prettierOptions.gmlExperimental,
-        recoverFromMissingSemicolons: !!prettierOptions.gmlRelaxedSemicolons,
-        collectComments: true
-    };
+        getComments: true,
+        getLocations: true,
+        simplifyLocations: true,
+        scopeTrackerOptions: { enabled: false },
+        astFormat: "gml",
+        asJSON: false,
+        transforms: [],
+        transformOptions: {}
+        // The plugin versions and schema are not provided in the ParserOptions
+        // object; parser-side validation (when added) should respect additional
+        // flags we might pass via transformOptions instead of parser options.
+    } as ParserConfig;
 }
 
 export function makeTransformOptions(

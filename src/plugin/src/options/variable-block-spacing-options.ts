@@ -1,8 +1,7 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: { coalesceOption, coercePositiveIntegerOption }
-} = Core;
+const coalesceOption = Core.coalesceOption;
+const coercePositiveIntegerOption = Core.coercePositiveIntegerOption;
 
 const DEFAULT_MIN_DECLARATION_RUN_LENGTH = 4;
 // When users set variableBlockSpacingMinDeclarations to 0 (meaning "disabled"),

@@ -19,9 +19,10 @@ import GameMakerParseErrorListener, {
     GameMakerLexerErrorListener
 } from "../ast/gml-syntax-error.js";
 import { preprocessFunctionArgumentDefaults } from "./preprocess-function-argument-defaults.js";
-import { resolveDocCommentTraversalService } from "../comments/doc-comment-manager.js";
+// Avoid destructuring the Core namespace; access the helper via Core.resolveDocCommentTraversalService
 
-function walkAstNodes(root, visitor) { // TODO: I think this is duplicated elsewhere
+function walkAstNodes(root, visitor) {
+    // TODO: I think this is duplicated elsewhere
     const visit = (node, parent, key) => {
         if (!node) {
             return;
@@ -4633,7 +4634,7 @@ function normalizeArgumentBuiltinReferences({ ast, diagnostic, sourceText }) {
     }
 
     const fixes = [];
-    const docCommentTraversal = resolveDocCommentTraversalService(ast);
+    const docCommentTraversal = Core.resolveDocCommentTraversalService(ast);
     const documentedParamNamesByFunction = buildDocumentedParamNameLookup(
         ast,
         sourceText,
@@ -4900,7 +4901,7 @@ function buildDocumentedParamNameLookup(ast, sourceText, docCommentTraversal) {
     }
 
     const traversal =
-        docCommentTraversal ?? resolveDocCommentTraversalService(ast);
+        docCommentTraversal ?? Core.resolveDocCommentTraversalService(ast);
 
     traversal.forEach((node, comments = []) => {
         if (!Core.isFunctionLikeNode(node)) {
@@ -7079,7 +7080,7 @@ function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {
         return [];
     }
 
-    const docCommentTraversal = resolveDocCommentTraversalService(ast);
+    const docCommentTraversal = Core.resolveDocCommentTraversalService(ast);
     const deprecatedFunctions = collectDeprecatedFunctionNames(
         ast,
         sourceText,
@@ -7189,7 +7190,7 @@ function collectDeprecatedFunctionNames(ast, sourceText, docCommentTraversal) {
     }
 
     const traversal =
-        docCommentTraversal ?? resolveDocCommentTraversalService(ast);
+        docCommentTraversal ?? Core.resolveDocCommentTraversalService(ast);
 
     traversal.forEach((node, comments = []) => {
         if (!topLevelFunctions.has(node)) {
@@ -10501,7 +10502,8 @@ function removeRedeclaredGlobalFunctions({ ast, diagnostic }) {
                 originalDeclaration &&
                 typeof originalDeclaration === "object"
             ) {
-                const originalHasComments = Core.hasComment(originalDeclaration);
+                const originalHasComments =
+                    Core.hasComment(originalDeclaration);
 
                 attachFeatherFixMetadata(originalDeclaration, [fixDetail]);
 

@@ -43,3 +43,7 @@ export type {
     GameMakerAstNode,
     MutableGameMakerAstNode
 } from "./ast/types.js";
+export type {
+    DocCommentLines,
+    MutableDocCommentLines
+} from "./comments/comment-utils.js";

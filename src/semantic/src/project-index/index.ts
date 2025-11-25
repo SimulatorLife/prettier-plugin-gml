@@ -24,6 +24,12 @@ export * from "./path-normalization.js";
 // import { Core } from "@gml-modules/core";
 
 import { defaultFsFacade, ProjectIndexFsFacade } from "./fs-facade.js";
+import {
+    loadProjectIndexCache,
+    saveProjectIndexCache,
+    getDefaultProjectIndexCacheMaxSize
+} from "./cache.js";
+import { createProjectIndexCoordinator as createProjectIndexCoordinatorCore } from "./coordinator.js";
 // import { clampConcurrency } from "./concurrency.js";
 // import { resolveProjectIndexParser } from "./parser-override.js";
 // import {
@@ -65,25 +71,25 @@ import { defaultFsFacade, ProjectIndexFsFacade } from "./fs-facade.js";
 //     );
 // }
 
-// export function createProjectIndexCoordinator(options = {}) {
-//     const {
-//         fsFacade = defaultFsFacade,
-//         loadCache = loadProjectIndexCache,
-//         saveCache = saveProjectIndexCache,
-//         buildIndex = buildProjectIndex,
-//         cacheMaxSizeBytes,
-//         getDefaultCacheMaxSize = getDefaultProjectIndexCacheMaxSize
-//     } = options;
+export function createProjectIndexCoordinator(options: any = {}) {
+    const {
+        fsFacade = defaultFsFacade,
+        loadCache = loadProjectIndexCache,
+        saveCache = saveProjectIndexCache,
+        buildIndex = buildProjectIndex,
+        cacheMaxSizeBytes,
+        getDefaultCacheMaxSize = getDefaultProjectIndexCacheMaxSize
+    } = options;
 
-//     return createProjectIndexCoordinatorCore({
-//         fsFacade,
-//         loadCache,
-//         saveCache,
-//         buildIndex,
-//         cacheMaxSizeBytes,
-//         getDefaultCacheMaxSize
-//     });
-// }
+    return createProjectIndexCoordinatorCore({
+        fsFacade,
+        loadCache,
+        saveCache,
+        buildIndex,
+        cacheMaxSizeBytes,
+        getDefaultCacheMaxSize
+    });
+}
 
 // export { findProjectRoot } from "./project-root.js";
 

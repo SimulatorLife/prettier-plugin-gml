@@ -29,6 +29,27 @@ const pluginPath = (() => {
         path.resolve(currentDirectory, "../../plugin/src/index.js"),
         path.resolve(currentDirectory, "../../plugin/src/plugin-entry.ts")
     ];
+    // Also accept top-level repo plugin path when tests run inside the
+    // semantic package's dist/test directory (the relative path requires
+    // traversing an extra directory level).
+    candidates.push(
+        path.resolve(currentDirectory, "../../../plugin/dist/src/gml.js")
+    );
+    candidates.push(
+        path.resolve(currentDirectory, "../../../plugin/dist/gml.js")
+    );
+    candidates.push(
+        path.resolve(currentDirectory, "../../../plugin/dist/index.js")
+    );
+    candidates.push(
+        path.resolve(currentDirectory, "../../../plugin/src/gml.js")
+    );
+    candidates.push(
+        path.resolve(currentDirectory, "../../../plugin/src/index.js")
+    );
+    candidates.push(
+        path.resolve(currentDirectory, "../../../plugin/src/plugin-entry.ts")
+    );
 
     for (const p of candidates) {
         if (existsSync(p)) return p;

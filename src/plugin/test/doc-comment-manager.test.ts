@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
+import { Core } from "@gml-modules/core";
+const {
     resolveDocCommentTraversalService,
     resolveDocCommentCollectionService,
     resolveDocCommentPresenceService,
     resolveDocCommentDescriptionService,
     resolveDocCommentUpdateService
-} from "../src/comments/doc-comment-manager.js";
+} = Core;
 
 test("doc comment services expose segregated contracts", () => {
     const ast = { type: "Program", body: [] };

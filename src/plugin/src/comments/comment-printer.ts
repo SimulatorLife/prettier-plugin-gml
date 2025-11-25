@@ -4,8 +4,7 @@ import { Parser } from "@gml-modules/parser";
 // implementation. The plugin facade re-exports these symbols, so keep the
 // exported names identical to avoid changing consumer imports.
 
-export const handleComments = Parser.Comments.handleComments;
-export const printComment = Parser.Comments.printComment;
-export const printDanglingComments = Parser.Comments.printDanglingComments;
-export const printDanglingCommentsAsGroup =
-    Parser.Comments.printDanglingCommentsAsGroup;
+export const handleComments = Parser.handleComments;
+export const printComment = Parser.printComment;
+export const printDanglingComments = Parser.printDanglingComments;
+export const printDanglingCommentsAsGroup = Parser.printDanglingCommentsAsGroup;

@@ -19,7 +19,9 @@ export function createDefaultGmlPluginComponentImplementations(): GmlPluginCompo
         print,
         handleComments,
         printComment,
-        identifierCaseOptions: Semantic.identifierCaseOptions,
+        // Semantic provides identifier case option definitions; cast to satisfy
+        // Prettier's SupportOptions type during migration.
+        identifierCaseOptions: Semantic.identifierCaseOptions as any,
         LogicalOperatorsStyle
     });
 }

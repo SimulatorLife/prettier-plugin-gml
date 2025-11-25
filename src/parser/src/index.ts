@@ -41,3 +41,8 @@ export const Parser: ParserNamespace = Object.freeze({
     Transforms,
     Utils
 });
+
+// Export types from the parser for consumer packages to import without deep
+// imports. This mirrors `Core`'s exported types and keeps package roots
+// stable for other workspaces.
+export type { ParserOptions } from "./types/parser-types.js";

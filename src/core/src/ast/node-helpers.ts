@@ -199,29 +199,51 @@ export function resolveNodeName(node) {
     return typeof node?.name === "string" ? node.name : null;
 }
 
-export function isIdentifierNode(node: unknown): node is import("./types.js").IdentifierNode {
+export function isIdentifierNode(
+    node: unknown
+): node is import("./types.js").IdentifierNode {
     if (!isNode(node)) return false;
-    return (node as import("./types.js").IdentifierNode).type === "Identifier" && typeof (node as import("./types.js").IdentifierNode).name === "string";
+    return (
+        (node as import("./types.js").IdentifierNode).type === "Identifier" &&
+        typeof (node as import("./types.js").IdentifierNode).name === "string"
+    );
 }
 
-export function isLiteralNode(node: unknown): node is import("./types.js").LiteralNode {
+export function isLiteralNode(
+    node: unknown
+): node is import("./types.js").LiteralNode {
     if (!isNode(node)) return false;
     return (node as import("./types.js").LiteralNode).type === "Literal";
 }
 
-export function isAssignmentPatternNode(node: unknown): node is import("./types.js").AssignmentPatternNode {
+export function isAssignmentPatternNode(
+    node: unknown
+): node is import("./types.js").AssignmentPatternNode {
     if (!isNode(node)) return false;
-    return (node as import("./types.js").AssignmentPatternNode).type === "AssignmentPattern";
+    return (
+        (node as import("./types.js").AssignmentPatternNode).type ===
+        "AssignmentPattern"
+    );
 }
 
-export function isCallExpressionNode(node: unknown): node is import("./types.js").CallExpressionNode {
+export function isCallExpressionNode(
+    node: unknown
+): node is import("./types.js").CallExpressionNode {
     if (!isNode(node)) return false;
-    return (node as import("./types.js").CallExpressionNode).type === "CallExpression";
+    return (
+        (node as import("./types.js").CallExpressionNode).type ===
+        "CallExpression"
+    );
 }
 
-export function isMemberIndexExpressionNode(node: unknown): node is import("./types.js").MemberIndexExpressionNode {
+export function isMemberIndexExpressionNode(
+    node: unknown
+): node is import("./types.js").MemberIndexExpressionNode {
     if (!isNode(node)) return false;
-    return (node as import("./types.js").MemberIndexExpressionNode).type === "MemberIndexExpression";
+    return (
+        (node as import("./types.js").MemberIndexExpressionNode).type ===
+        "MemberIndexExpression"
+    );
 }
 
 export function isIdentifierWithName(node, name) {
@@ -339,15 +361,21 @@ export function getSingleMemberIndexPropertyEntry(node) {
  */
 // Delegate to the shared array normalizer so call-expression traversals always
 // reuse the same frozen empty array rather than recreating bespoke helpers.
-export function getCallExpressionArguments(callExpression): Array<unknown> {
+export function getCallExpressionArguments(
+    callExpression
+): Array<GameMakerAstNode> {
     if (!isNode(callExpression)) {
         return asArray();
     }
     // TODO: Use the proper typing here
-    return asArray(callExpression.arguments as unknown[]);
+    return asArray(
+        callExpression.arguments as GameMakerAstNode[] | null | undefined
+    );
 }
 
-export function getCallExpressionIdentifier(callExpression): import("./types.js").IdentifierNode | null {
+export function getCallExpressionIdentifier(
+    callExpression
+): import("./types.js").IdentifierNode | null {
     if (!isNode(callExpression) || callExpression.type !== "CallExpression") {
         return null;
     }
@@ -434,12 +462,12 @@ export function hasArrayPropertyEntries(node, propertyName) {
 
 export function getBodyStatements(
     node: Record<string, unknown>
-): Array<unknown> {
+): Array<GameMakerAstNode> {
     if (!isNode(node)) {
         return [];
     }
     // TODO: Use the proper typing here
-    return asArray(node.body as unknown[] | null | undefined);
+    return asArray(node.body as GameMakerAstNode[] | null | undefined);
 }
 
 export function hasBodyStatements(node: Record<string, unknown>): boolean {
@@ -510,7 +538,7 @@ export function getBooleanLiteralValue(
     return value ? "true" : "false";
 }
 
-export function isBooleanLiteral(node, options) {
+export function isBooleanLiteral(node, options?: BooleanLiteralOptions) {
     return getBooleanLiteralValue(node, options) !== null;
 }
 
@@ -756,7 +784,9 @@ export function unwrapParenthesizedExpression(node) {
     let current = node;
 
     while (isNode(current) && current.type === "ParenthesizedExpression") {
-        const expression = (current as import("./types.js").ParenthesizedExpressionNode).expression;
+        const expression = (
+            current as import("./types.js").ParenthesizedExpressionNode
+        ).expression;
         if (!isNode(expression)) {
             break;
         }

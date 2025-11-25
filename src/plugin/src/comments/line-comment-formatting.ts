@@ -1,58 +1,11 @@
 import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
-import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
+
+// Doc-comment helpers now live inside Core's doc-comment service.
 
 // Prefer calling into the public Core namespace directly to avoid
 // destructuring the package root across workspace boundaries.
 // Use Core.getCommentValue, Core.isObjectLike, etc. inline.
-
-function normalizeEntryPair(entry) {
-    if (Array.isArray(entry)) {
-        return entry.length >= 2 ? [entry[0], entry[1]] : null;
-    }
-
-    if (!entry || typeof entry !== "object") {
-        return null;
-    }
-
-    if (Object.hasOwn(entry, 0) && Object.hasOwn(entry, 1)) {
-        return [entry[0], entry[1]];
-    }
-
-    if (Object.hasOwn(entry, "key") && Object.hasOwn(entry, "value")) {
-        return [entry.key, entry.value];
-    }
-
-    return null;
-}
-
-const JSDOC_REPLACEMENTS = {
-    "@func": "@function",
-    "@method": "@function",
-    "@yield": "@returns",
-    "@yields": "@returns",
-    "@return": "@returns",
-    "@output": "@returns",
-    "@outputs": "@returns",
-    "@desc": "@description",
-    "@arg": "@param",
-    "@argument": "@param",
-    "@params": "@param",
-    "@overrides": "@override",
-    "@overide": "@override",
-    "@overridden": "@override",
-    "@exception": "@throws",
-    "@throw": "@throws",
-    "@private": "@hide",
-    "@hidden": "@hide"
-};
-
-const JSDOC_REPLACEMENT_RULES = Object.entries(JSDOC_REPLACEMENTS).map(
-    ([oldWord, newWord]) => ({
-        regex: new RegExp(`(\/\/\/\\s*)${oldWord}\\b`, "gi"),
-        replacement: newWord
-    })
-);
 
 // Note: '=' is intentionally omitted from the decoration class to avoid
 // treating the equality operator '==' inside commented-out code as a
@@ -71,281 +24,6 @@ const INNER_BANNER_DECORATION_PATTERN = new RegExp(
     "g"
 );
 
-const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION = Object.freeze({
-    synonyms: Object.freeze([
-        ["void", "undefined"],
-        ["undefined", "undefined"],
-        ["real", "real"],
-        ["bool", "bool"],
-        ["boolean", "boolean"],
-        ["string", "string"],
-        ["array", "array"],
-        ["struct", "struct"],
-        ["enum", "enum"],
-        ["pointer", "pointer"],
-        ["method", "method"],
-        ["asset", "asset"],
-        ["constant", "constant"],
-        ["any", "any"],
-        ["var", "var"],
-        ["int64", "int64"],
-        ["int32", "int32"],
-        ["int16", "int16"],
-        ["int8", "int8"],
-        ["uint64", "uint64"],
-        ["uint32", "uint32"],
-        ["uint16", "uint16"],
-        ["uint8", "uint8"]
-    ]),
-    specifierPrefixes: Object.freeze([
-        "asset",
-        "constant",
-        "enum",
-        "id",
-        "struct"
-    ]),
-    canonicalSpecifierNames: Object.freeze([
-        ["asset", "Asset"],
-        ["constant", "Constant"],
-        ["enum", "Enum"],
-        ["id", "Id"],
-        ["struct", "Struct"]
-    ])
-});
-
-const docCommentTypeNormalizationController = Core.createResolverController({
-    defaultFactory: () =>
-        createDocCommentTypeNormalization(
-            DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION
-        ),
-    reuseDefaultValue: true,
-    invoke(resolver, options) {
-        return resolver({
-            defaults: DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION,
-            options
-        });
-    },
-    normalize(result) {
-        return createDocCommentTypeNormalization(result);
-    },
-    errorMessage:
-        "Doc comment type normalization resolvers must be functions that return a normalization descriptor"
-});
-
-function normalizeDocCommentLookupKey(identifier) {
-    const trimmed = Core.getNonEmptyTrimmedString(identifier);
-    if (!trimmed) {
-        return null;
-    }
-
-    const normalized = trimmed.toLowerCase();
-    if (normalized.length === 0) {
-        return null;
-    }
-
-    return normalized;
-}
-
-function createDocCommentTypeNormalization(candidate) {
-    const synonyms = new Map();
-    for (const [
-        key,
-        value
-    ] of DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.synonyms) {
-        synonyms.set(key.toLowerCase(), value);
-    }
-
-    const canonicalSpecifierNames = new Map();
-    for (const [
-        key,
-        value
-    ] of DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.canonicalSpecifierNames) {
-        canonicalSpecifierNames.set(key.toLowerCase(), value);
-    }
-
-    const specifierPrefixes = new Set(
-        DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.specifierPrefixes.map((value) =>
-            value.toLowerCase()
-        )
-    );
-
-    if (candidate && typeof candidate === "object") {
-        mergeNormalizationEntries(synonyms, candidate.synonyms);
-        mergeNormalizationEntries(
-            canonicalSpecifierNames,
-            candidate.canonicalSpecifierNames
-        );
-        mergeSpecifierPrefixes(specifierPrefixes, candidate.specifierPrefixes);
-    }
-
-    return Object.freeze({
-        lookupTypeIdentifier(identifier) {
-            return withNormalizedDocCommentLookup(
-                identifier,
-                (normalized) => synonyms.get(normalized) ?? null,
-                null
-            );
-        },
-        getCanonicalSpecifierName(identifier) {
-            return withNormalizedDocCommentLookup(
-                identifier,
-                (normalized) => canonicalSpecifierNames.get(normalized) ?? null,
-                null
-            );
-        },
-        hasSpecifierPrefix(identifier) {
-            return withNormalizedDocCommentLookup(
-                identifier,
-                (normalized) => specifierPrefixes.has(normalized),
-                false
-            );
-        }
-    });
-}
-
-function withNormalizedDocCommentLookup(identifier, handler, fallbackValue) {
-    if (typeof handler !== "function") {
-        throw new TypeError(
-            "Doc comment lookup handler must be provided as a function."
-        );
-    }
-
-    const normalized = normalizeDocCommentLookupKey(identifier);
-    if (!normalized) {
-        return fallbackValue;
-    }
-
-    return handler(normalized);
-}
-
-function mergeNormalizationEntries(target, entries) {
-    if (!entries) {
-        return;
-    }
-
-    const iterable = getEntryIterable(entries);
-    for (const [rawKey, rawValue] of iterable) {
-        const key = normalizeDocCommentLookupKey(rawKey);
-        const value = Core.getNonEmptyTrimmedString(rawValue);
-        if (!key || !value) {
-            continue;
-        }
-        target.set(key, value);
-    }
-}
-
-function mergeSpecifierPrefixes(target, candidates) {
-    if (!candidates) {
-        return;
-    }
-
-    for (const candidate of toIterable(candidates)) {
-        const normalized = normalizeDocCommentLookupKey(candidate);
-        if (!normalized) {
-            continue;
-        }
-        target.add(normalized);
-    }
-}
-
-function tryGetEntriesIterator(candidate) {
-    if (
-        !candidate ||
-        Array.isArray(candidate) ||
-        (typeof candidate !== "object" && typeof candidate !== "function")
-    ) {
-        return null;
-    }
-
-    const { entries } = candidate;
-    if (typeof entries !== "function") {
-        return null;
-    }
-
-    try {
-        const iterator = entries.call(candidate);
-        if (iterator && typeof iterator[Symbol.iterator] === "function") {
-            return iterator;
-        }
-    } catch {
-        return null;
-    }
-
-    return null;
-}
-
-function* getEntryIterable(value) {
-    if (!value) {
-        return;
-    }
-
-    const entriesIterator = tryGetEntriesIterator(value);
-    if (entriesIterator) {
-        for (const entry of entriesIterator) {
-            const pair = normalizeEntryPair(entry);
-            if (pair) {
-                yield pair;
-            }
-        }
-        return;
-    }
-
-    if (Array.isArray(value)) {
-        for (const entry of value) {
-            const pair = normalizeEntryPair(entry);
-            if (pair) {
-                yield pair;
-            }
-        }
-        return;
-    }
-
-    if (typeof value === "object") {
-        yield* Object.entries(value);
-    }
-}
-
-function* toIterable(value) {
-    if (value === undefined || value === null) {
-        return;
-    }
-
-    if (typeof value === "string") {
-        yield value;
-        return;
-    }
-
-    if (typeof value[Symbol.iterator] === "function") {
-        yield* value;
-        return;
-    }
-
-    if (typeof value === "object") {
-        yield* Object.values(value);
-    }
-}
-
-function resolveDocCommentTypeNormalization(options = {}) {
-    return docCommentTypeNormalizationController.resolve(options);
-}
-
-function setDocCommentTypeNormalizationResolver(resolver) {
-    return docCommentTypeNormalizationController.set(resolver);
-}
-
-function restoreDefaultDocCommentTypeNormalizationResolver() {
-    return docCommentTypeNormalizationController.restore();
-}
-
-const FUNCTION_LIKE_DOC_TAG_PATTERN = /@(func(?:tion)?|method)\b/i;
-
-const FUNCTION_SIGNATURE_PATTERN =
-    /(^|\n)(\s*\/\/\/\s*@function\b[^\r\n]*?)(\s*\([^\)]*\))(\s*(?=\n|$))/gi;
-
-// Hoist frequently used regular expressions so they are compiled once. The
-// formatter hits these helpers while iterating over comment lists, so avoiding
-// per-call RegExp construction keeps the hot path allocation-free.
-const DOC_COMMENT_TYPE_PATTERN = /\{([^}]+)\}/g;
 const DOC_TAG_LINE_PREFIX_PATTERN = /^\/+(\s*)@/;
 
 function getLineCommentRawText(comment) {
@@ -369,7 +47,10 @@ function getLineCommentRawText(comment) {
     return `//${fallbackValue}`;
 }
 
-function normalizeBannerCommentText(candidate: unknown, options: { assumeDecorated?: boolean } = {}) {
+function normalizeBannerCommentText(
+    candidate: unknown,
+    options: { assumeDecorated?: boolean } = {}
+) {
     if (typeof candidate !== "string") {
         return null;
     }
@@ -416,10 +97,10 @@ function normalizeBannerCommentText(candidate: unknown, options: { assumeDecorat
 
 function formatLineComment(
     comment,
-    lineCommentOptions = Parser.Comments.DEFAULT_LINE_COMMENT_OPTIONS
+    lineCommentOptions = Parser.DEFAULT_LINE_COMMENT_OPTIONS
 ) {
     const normalizedOptions =
-        Parser.Comments.normalizeLineCommentOptions(lineCommentOptions);
+        Parser.normalizeLineCommentOptions(lineCommentOptions);
     const { boilerplateFragments, codeDetectionPatterns } = normalizedOptions;
     const original = getLineCommentRawText(comment);
     const trimmedOriginal = original.trim();
@@ -463,7 +144,7 @@ function formatLineComment(
     if (
         slashesMatch &&
         slashesMatch[1].length >=
-            Parser.Comments.LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES
+            Parser.LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES
     ) {
         // For comments with 4+ leading slashes we usually treat them as
         // decorative banners. However, some inputs use many slashes to
@@ -473,7 +154,9 @@ function formatLineComment(
         const afterStripping = trimmedValue.replace(/^\/+\s*/, "").trimStart();
         if (afterStripping.startsWith("@")) {
             // Promote to /// @... style and apply replacements (e.g. @func -> @function)
-            const formatted = applyJsDocReplacements(`/// ${afterStripping}`);
+            const formatted = Core.applyJsDocReplacements(
+                `/// ${afterStripping}`
+            );
             return applyInlinePadding(comment, formatted);
         }
 
@@ -500,7 +183,7 @@ function formatLineComment(
                 const shouldInsertSpace =
                     remainder.length > 0 &&
                     /\w/.test(remainder.charAt(1) || "");
-                const formatted = applyJsDocReplacements(
+                const formatted = Core.applyJsDocReplacements(
                     `///${shouldInsertSpace ? " " : ""}${remainder}`
                 );
                 return applyInlinePadding(comment, formatted);
@@ -536,8 +219,7 @@ function formatLineComment(
 
     if (
         isPlainTripleSlash &&
-        leadingSlashCount >=
-            Parser.Options.LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES &&
+        leadingSlashCount >= Parser.LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES &&
         !isInlineComment
     ) {
         return applyInlinePadding(comment, trimmedOriginal);
@@ -561,7 +243,7 @@ function formatLineComment(
             const shouldInsertSpace =
                 afterSlashes.length > 0 &&
                 /\w/.test(afterSlashes.charAt(1) || "");
-            const formatted = applyJsDocReplacements(
+            const formatted = Core.applyJsDocReplacements(
                 `///${shouldInsertSpace ? " " : ""}${afterSlashes}`
             );
             return applyInlinePadding(comment, formatted);
@@ -608,7 +290,8 @@ function formatLineComment(
           : null;
     if (docTagSource) {
         let formattedCommentLine = `///${docTagSource.replace(DOC_TAG_LINE_PREFIX_PATTERN, " @")}`;
-        formattedCommentLine = applyJsDocReplacements(formattedCommentLine);
+        formattedCommentLine =
+            Core.applyJsDocReplacements(formattedCommentLine);
         return applyInlinePadding(comment, formattedCommentLine);
     }
 
@@ -706,230 +389,6 @@ function extractContinuationIndentation(comment) {
     return lastSegment.replaceAll("\t", "    ");
 }
 
-function applyJsDocReplacements(text) {
-    const shouldStripEmptyParams =
-        typeof text === "string" && FUNCTION_LIKE_DOC_TAG_PATTERN.test(text);
-
-    let formattedText = shouldStripEmptyParams
-        ? text.replace(/\(\)\s*$/, "")
-        : text;
-
-    for (const { regex, replacement } of JSDOC_REPLACEMENT_RULES) {
-        regex.lastIndex = 0;
-        formattedText = formattedText.replace(regex, `$1${replacement}`);
-    }
-
-    formattedText = stripTrailingFunctionParameters(formattedText);
-    formattedText = normalizeFeatherOptionalParamSyntax(formattedText);
-
-    return normalizeDocCommentTypeAnnotations(formattedText);
-}
-
-function normalizeFeatherOptionalParamSyntax(text) {
-    if (typeof text !== "string" || !/@param\b/i.test(text)) {
-        return text;
-    }
-
-    return text.replace(
-        /(\s*\/\/\/\s*@param(?:\s+\{[^}]+\})?\s*)(\S+)/i,
-        (match, prefix, token) =>
-            `${prefix}${normalizeOptionalParamToken(token)}`
-    );
-}
-
-function stripTrailingFunctionParameters(text) {
-    if (typeof text !== "string" || !/@function\b/i.test(text)) {
-        return text;
-    }
-
-    return text.replaceAll(
-        FUNCTION_SIGNATURE_PATTERN,
-        (match, linePrefix, functionPrefix) =>
-            `${linePrefix}${functionPrefix.replace(/\s+$/, "")}`
-    );
-}
-
-function normalizeDocCommentTypeAnnotations(text) {
-    if (typeof text !== "string" || !text.includes("{")) {
-        return text;
-    }
-
-    DOC_COMMENT_TYPE_PATTERN.lastIndex = 0;
-    return text.replace(DOC_COMMENT_TYPE_PATTERN, (match, typeText) => {
-        const normalized = normalizeGameMakerType(typeText);
-        return `{${normalized}}`;
-    });
-}
-
-function normalizeGameMakerType(typeText) {
-    if (typeof typeText !== "string") {
-        return typeText;
-    }
-
-    const docCommentTypeNormalization = resolveDocCommentTypeNormalization();
-    const segments = [];
-    const tokenPattern = /([A-Za-z_][A-Za-z0-9_]*)|([^A-Za-z_]+)/g;
-    let match;
-
-    while ((match = tokenPattern.exec(typeText)) !== null) {
-        if (match[1]) {
-            const identifier = match[1];
-            const normalizedIdentifier =
-                docCommentTypeNormalization.lookupTypeIdentifier(identifier) ??
-                identifier;
-            segments.push({
-                type: "identifier",
-                value: normalizedIdentifier
-            });
-            continue;
-        }
-
-        if (match[2]) {
-            segments.push({ type: "separator", value: match[2] });
-        }
-    }
-
-    const findNextNonWhitespaceSegment = (startIndex) => {
-        for (let index = startIndex; index < segments.length; index += 1) {
-            const segment = segments[index];
-            if (
-                segment &&
-                segment.type === "separator" &&
-                /^\s+$/.test(segment.value)
-            ) {
-                continue;
-            }
-
-            return segment ?? null;
-        }
-
-        return null;
-    };
-
-    const outputSegments = [];
-
-    const isDotSeparatedTypeSpecifierPrefix = (prefixIndex) => {
-        let sawDot = false;
-
-        for (let index = prefixIndex + 1; index < segments.length; index += 1) {
-            const candidate = segments[index];
-            if (!candidate) {
-                continue;
-            }
-
-            if (candidate.type === "separator") {
-                const trimmed = Core.getNonEmptyTrimmedString(candidate.value);
-
-                if (!trimmed) {
-                    continue;
-                }
-
-                if (trimmed.startsWith(".")) {
-                    sawDot = true;
-                    continue;
-                }
-
-                return false;
-            }
-
-            if (candidate.type === "identifier") {
-                return sawDot;
-            }
-
-            return false;
-        }
-
-        return false;
-    };
-
-    for (let index = 0; index < segments.length; index += 1) {
-        const segment = segments[index];
-        if (!segment) {
-            continue;
-        }
-
-        if (segment.type === "identifier") {
-            let normalizedValue = segment.value;
-
-            if (typeof normalizedValue === "string") {
-                const canonicalPrefix =
-                    docCommentTypeNormalization.getCanonicalSpecifierName(
-                        normalizedValue
-                    );
-
-                if (
-                    canonicalPrefix &&
-                    isDotSeparatedTypeSpecifierPrefix(index)
-                ) {
-                    normalizedValue = canonicalPrefix;
-                }
-            }
-
-            outputSegments.push(normalizedValue);
-            continue;
-        }
-
-        const separatorValue = segment.value ?? "";
-        if (separatorValue.length === 0) {
-            continue;
-        }
-
-        if (/^\s+$/.test(separatorValue)) {
-            const previous = segments[index - 1];
-            const next = segments[index + 1];
-            const nextToken = findNextNonWhitespaceSegment(index + 1);
-
-            if (
-                nextToken &&
-                nextToken.type === "separator" &&
-                /^[\[\(<>{})]/.test(nextToken.value.trim())
-            ) {
-                continue;
-            }
-
-            const previousIdentifier =
-                previous && previous.type === "identifier"
-                    ? previous.value
-                    : null;
-            const nextIdentifier =
-                next && next.type === "identifier" ? next.value : null;
-
-            if (!previousIdentifier || !nextIdentifier) {
-                continue;
-            }
-
-            if (
-                docCommentTypeNormalization.hasSpecifierPrefix(
-                    previousIdentifier
-                )
-            ) {
-                const canonicalPrefix =
-                    docCommentTypeNormalization.getCanonicalSpecifierName(
-                        previousIdentifier
-                    );
-                if (canonicalPrefix && outputSegments.length > 0) {
-                    outputSegments[outputSegments.length - 1] = canonicalPrefix;
-                }
-                outputSegments.push(".");
-            } else {
-                outputSegments.push(",");
-            }
-
-            continue;
-        }
-
-        let normalizedSeparator = separatorValue.replaceAll(/\s+/g, "");
-        if (normalizedSeparator.length === 0) {
-            continue;
-        }
-
-        normalizedSeparator = normalizedSeparator.replaceAll("|", ",");
-        outputSegments.push(normalizedSeparator);
-    }
-
-    return outputSegments.join("");
-}
-
 function looksLikeCommentedOutCode(text, codeDetectionPatterns) {
     const trimmed = Core.toTrimmedString(text);
     if (trimmed.length === 0) {
@@ -943,7 +402,7 @@ function looksLikeCommentedOutCode(text, codeDetectionPatterns) {
 
     const patterns = Array.isArray(codeDetectionPatterns)
         ? codeDetectionPatterns
-        : Parser.Options.DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
+        : Parser.DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
 
     for (const pattern of patterns) {
         if (!Core.isRegExpLike(pattern)) {
@@ -988,6 +447,18 @@ function splitCommentIntoSentences(text) {
 
     return sentences;
 }
+
+const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION =
+    Core.DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION;
+const normalizeDocCommentTypeAnnotations =
+    Core.normalizeDocCommentTypeAnnotations;
+const resolveDocCommentTypeNormalization =
+    Core.resolveDocCommentTypeNormalization;
+const setDocCommentTypeNormalizationResolver =
+    Core.setDocCommentTypeNormalizationResolver;
+const restoreDefaultDocCommentTypeNormalizationResolver =
+    Core.restoreDefaultDocCommentTypeNormalizationResolver;
+const applyJsDocReplacements = Core.applyJsDocReplacements;
 
 export {
     DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION,

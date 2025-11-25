@@ -16,18 +16,20 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
         parsers: {
             "gml-parse": {
                 ...gmlParserAdapter,
-                parse: (text, _parsers, options) =>
-                    gmlParserAdapter.parse(text, options)
+                parse: (text, options) => gmlParserAdapter.parse(text, options)
             }
         },
         printers: {
             "gml-ast": {
                 print,
-                isBlockComment: (comment) => comment.type === "CommentBlock",
-                canAttachComment: (node) =>
-                    node.type &&
+                // Accept any for the runtime types coming from the AST and comment
+                // helpers, satisfying TypeScript without adding deep imports.
+                isBlockComment: (comment: any) =>
+                    comment?.type === "CommentBlock",
+                canAttachComment: (node: any) =>
+                    node?.type &&
                     !node.type.includes("Comment") &&
-                    node.type !== "EmptyStatement",
+                    node?.type !== "EmptyStatement",
                 printComment,
                 handleComments
             }
@@ -107,7 +109,7 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                 type: "int",
                 category: "gml",
                 default: 3,
-                range: { start: 0, end: Infinity },
+                range: { start: 0, end: Infinity, step: 1 },
                 description:
                     "Minimum number of consecutive simple assignments required before the formatter aligns their '=' operators. Set to 0 to disable alignment entirely."
             },
@@ -116,7 +118,7 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                 type: "int",
                 category: "gml",
                 default: DEFAULT_MIN_DECLARATION_RUN_LENGTH,
-                range: { start: 0, end: Infinity },
+                range: { start: 0, end: Infinity, step: 1 },
                 description:
                     "Minimum number of consecutive variable declarations/assignments required before the formatter inserts a blank line ahead of the next statement. Set to 0 to disable the automatic spacing."
             },
@@ -125,7 +127,7 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                 type: "int",
                 category: "gml",
                 default: 0,
-                range: { start: 0, end: Infinity },
+                range: { start: 0, end: Infinity, step: 1 },
                 description:
                     "Maximum number of arguments allowed on a single line before a function call is forced to wrap. Set to 0 to disable the numeric limit (nested callback arguments may still wrap for readability)."
             },

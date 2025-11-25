@@ -1,9 +1,10 @@
 import { Core } from "@gml-modules/core";
-import {
+// Doc comment helpers are now available on the top-level Core namespace
+const {
     resolveDocCommentPresenceService, // TODO: We should expose a single doc-comment-service instead of exposing all these
     resolveDocCommentDescriptionService,
     resolveDocCommentUpdateService
-} from "../comments/doc-comment-manager.js";
+} = Core;
 
 const {
     cloneAstNode,
@@ -406,7 +407,9 @@ function visit(node, helpers, parent) {
         return;
     }
 
-    const bodyStatements = Core.getBodyStatements(node as Record<string, unknown>);
+    const bodyStatements = Core.getBodyStatements(
+        node as Record<string, unknown>
+    );
     if (bodyStatements.length > 0) {
         condenseWithinStatements(bodyStatements, helpers, node, parent);
     } else if (isNode(node.body)) {

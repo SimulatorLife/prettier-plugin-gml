@@ -7,7 +7,7 @@ import type {
     GmlPluginComponentObserver,
     GmlPluginComponentProvider,
     ObserverOptions
-} from "../plugin-types.js";
+} from "./plugin-types.js";
 
 const DEFAULT_COMPONENTS = normalizeGmlPluginComponents(
     createDefaultGmlPluginComponents()

@@ -87,7 +87,10 @@ function collectConstructorInfos(ast) {
                 continue;
             }
 
-            staticFunctions.set(staticName, statement as MutableGameMakerAstNode);
+            staticFunctions.set(
+                staticName,
+                statement as MutableGameMakerAstNode
+            );
         }
 
         constructors.set(name, {

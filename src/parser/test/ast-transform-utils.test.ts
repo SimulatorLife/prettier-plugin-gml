@@ -12,8 +12,8 @@ import {
 test("walkObjectGraph visits each object once even with cycles", () => {
     const shared: MutableGameMakerAstNode = { value: 1 };
     const root: MutableGameMakerAstNode = {
-        left: ({ nested: shared } as MutableGameMakerAstNode),
-        right: ({ nested: shared } as MutableGameMakerAstNode),
+        left: { nested: shared } as MutableGameMakerAstNode,
+        right: { nested: shared } as MutableGameMakerAstNode,
         array: [shared]
     };
 

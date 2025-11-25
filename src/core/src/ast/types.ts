@@ -46,9 +46,23 @@ export interface GameMakerAstNode {
     _appliedFeatherDiagnostics?: Array<FeatherFixDetail> | null;
     /** Helper metadata preserved by consolidation utilities. */
     _structTrailingComments?: Array<unknown> | null;
-    _hasTrailingInlineComment?: boolean;
+    // deduped above
     _removedByConsolidation?: boolean;
+    /** Optional boolean used by some transforms to indicate trailing inline comments */
+    _hasTrailingInlineComment?: boolean;
+    /** Optional padding used by assignment alignment transforms */
+    _alignAssignmentPadding?: number | null;
+    /** Optional marker used by annotate-static-overrides transform */
+    _overridesStaticFunction?: boolean;
+    /** Optional marker used by feather fixes to mark optional parameters */
+    _featherOptionalParameter?: boolean;
+    /** Original initializer captured by feather fixes */
+    _featherOriginalInitializer?: string | null;
     _featherMaterializedTrailingUndefined?: boolean;
+    /** Marker set when a trailing undefined value was materialized due to an explicit default on the left */
+    _featherMaterializedFromExplicitLeft?: boolean;
+    /** Internal flag used by transforms to avoid running multiple times on the same node */
+    _hasProcessedArgumentCountDefaults?: boolean;
     /** Opt-in runtime metadata flags used by semantic modules */
     isGlobalIdentifier?: boolean;
     /** Scope identifier assigned by semantic scope tracker */

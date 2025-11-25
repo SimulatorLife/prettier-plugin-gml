@@ -1,32 +1,39 @@
+// TODD: Move these tests into Core since the function lives there
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { normalizeOptionalParamToken } from "../src/comments/index.js";
+import { Core } from "@gml-modules/core";
 
 describe("normalizeOptionalParamToken", () => {
     it("wraps Feather sentinels in brackets", () => {
-        assert.strictEqual(normalizeOptionalParamToken("*value*"), "[value]");
         assert.strictEqual(
-            normalizeOptionalParamToken("* optional *"),
+            Core.normalizeOptionalParamToken("*value*"),
+            "[value]"
+        );
+        assert.strictEqual(
+            Core.normalizeOptionalParamToken("* optional *"),
             "[optional]"
         );
     });
 
     it("preserves already normalized tokens", () => {
         assert.strictEqual(
-            normalizeOptionalParamToken("[existing]"),
+            Core.normalizeOptionalParamToken("[existing]"),
             "[existing]"
         );
     });
 
     it("returns non-string tokens unchanged", () => {
         const sentinel = Symbol("value");
-        assert.strictEqual(normalizeOptionalParamToken(null), null);
-        assert.strictEqual(normalizeOptionalParamToken(42), 42);
-        assert.strictEqual(normalizeOptionalParamToken(sentinel), sentinel);
+        assert.strictEqual(Core.normalizeOptionalParamToken(null), null);
+        assert.strictEqual(Core.normalizeOptionalParamToken(42), 42);
+        assert.strictEqual(
+            Core.normalizeOptionalParamToken(sentinel),
+            sentinel
+        );
     });
 
     it("strips sentinels that contain no identifier", () => {
-        assert.strictEqual(normalizeOptionalParamToken("***"), "");
+        assert.strictEqual(Core.normalizeOptionalParamToken("***"), "");
     });
 });

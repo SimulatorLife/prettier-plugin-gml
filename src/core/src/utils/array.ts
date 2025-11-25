@@ -166,6 +166,30 @@ export function isArrayIndex(container, index) {
 }
 
 /**
+ * Find the index of the last element matching the provided predicate.
+ * This mirrors Array.prototype.findLastIndex but provides compatibility for
+ * targets without the newer lib definitions.
+ *
+ * @template T
+ * @param {ReadonlyArray<T> | null | undefined} array Candidate array.
+ * @param {(value: T, index: number, array: ReadonlyArray<T>) => boolean} predicate
+ * @returns {number} Index of the last matching element or -1.
+ */
+export function findLastIndex(array, predicate) {
+    if (!Array.isArray(array)) {
+        return -1;
+    }
+
+    for (let i = array.length - 1; i >= 0; i -= 1) {
+        if (predicate(array[i], i, array)) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+/**
  * Create a new array containing the first occurrence of each unique value
  * encountered in the provided iterable while preserving the original order.
  *

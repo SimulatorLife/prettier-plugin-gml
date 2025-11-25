@@ -82,7 +82,7 @@ function createCommentNode(
         leadingWS?: string;
         leadingChar?: string;
     }
-) {
+): CommentNode {
     const text = normalizeTokenText(tokenText);
     const comment = assignCommentBookends(
         {

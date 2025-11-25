@@ -113,8 +113,10 @@ function consolidateBlock(statements, tracker, commentTools) {
         // The collected properties are assigned to the struct node; cast to
         // `MutableGameMakerAstNode` to allow mutation in-place with correct
         // typing for downstream transforms.
-        (structNode as MutableGameMakerAstNode).properties = collected.properties;
-        (structNode as MutableGameMakerAstNode).hasTrailingComma = collected.shouldForceBreak;
+        (structNode as MutableGameMakerAstNode).properties =
+            collected.properties;
+        (structNode as MutableGameMakerAstNode).hasTrailingComma =
+            collected.shouldForceBreak;
 
         statements.splice(index + 1, collected.count);
     }
@@ -267,7 +269,9 @@ function getStructInitializer(statement) {
     }
 
     if (statement.type === VARIABLE_DECLARATION) {
-        const declarator = Core.getSingleVariableDeclarator(statement) as MutableGameMakerAstNode | null;
+        const declarator = Core.getSingleVariableDeclarator(
+            statement
+        ) as MutableGameMakerAstNode | null;
         if (!Core.isNode(declarator)) {
             return null;
         }
@@ -326,9 +330,7 @@ function getStructInitializer(statement) {
 }
 
 function isIdentifierRoot(node, identifierName) {
-    return (
-        Core.isIdentifierNode(node) && node.name === identifierName
-    );
+    return Core.isIdentifierNode(node) && node.name === identifierName;
 }
 
 function buildPropertyFromAssignment(
@@ -367,7 +369,10 @@ function buildPropertyFromAssignment(
             ) ?? null,
         end:
             Core.cloneLocation(
-                getPreferredLocation(assignmentNode.right?.end, assignmentNode.end)
+                getPreferredLocation(
+                    assignmentNode.right?.end,
+                    assignmentNode.end
+                )
             ) ?? null
     } as unknown as MutableGameMakerAstNode;
 }
@@ -437,7 +442,10 @@ function getPropertyKeyInfo(propertyNode) {
         };
     }
 
-    if (Core.isLiteralNode(propertyNode) && typeof propertyNode.value === "string") {
+    if (
+        Core.isLiteralNode(propertyNode) &&
+        typeof propertyNode.value === "string"
+    ) {
         const unquoted = Core.stripStringQuotes(propertyNode.value as any);
         return {
             identifierName: unquoted,
@@ -557,7 +565,10 @@ function isAttachableTrailingComment(comment, statement) {
     }
 
     const commentStart = comment.start;
-    if (!Core.isObjectLike(commentStart) || typeof (commentStart as any).line !== "number") {
+    if (
+        !Core.isObjectLike(commentStart) ||
+        typeof (commentStart as any).line !== "number"
+    ) {
         return false;
     }
 

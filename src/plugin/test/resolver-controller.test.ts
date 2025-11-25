@@ -3,9 +3,7 @@ import { describe, it } from "node:test";
 
 import { Core } from "@gml-modules/core";
 
-const {
-    Utils: { createResolverController }
-} = Core;
+const createResolverController = Core.createResolverController;
 
 describe("createResolverController", () => {
     it("returns defaults when no resolver is installed", () => {

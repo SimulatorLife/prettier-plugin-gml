@@ -134,6 +134,17 @@ export function getCommentValue(comment, { trim = false } = {}) {
     return trim ? value.trim() : value;
 }
 
+export type DocCommentLines = ReadonlyArray<string> & {
+    // TODO: We should use common-sense defaults instead of making these configurable
+    _preserveDescriptionBreaks?: boolean;
+    _suppressLeadingBlank?: boolean;
+};
+
+export type MutableDocCommentLines = Array<string> & {
+    _preserveDescriptionBreaks?: boolean;
+    _suppressLeadingBlank?: boolean;
+};
+
 /**
  * Performs a depth-first traversal to find every distinct comment node in the
  * provided AST fragment.

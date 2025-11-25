@@ -48,7 +48,7 @@ function isLastStatement(path) {
     if (!body) {
         return true;
     }
-    const node = path.getValue();
+    const node: any = path.getValue();
 
     // `Array#at` supports negative indices but pays an extra bounds check on
     // every call. The printer hits this helper for nearly every statement
@@ -222,7 +222,7 @@ function normalizeDefineReplacementDirectiveValue(rawDirective) {
 
     const normalizedDirective = trimmedDirective.toLowerCase();
 
-    if (!DEFINE_REPLACEMENT_DIRECTIVE_VALUES.has(normalizedDirective)) {
+    if (!DEFINE_REPLACEMENT_DIRECTIVE_VALUES.has(normalizedDirective as any)) {
         throw new RangeError(
             `Define replacement directive must be one of: ${DEFINE_REPLACEMENT_DIRECTIVE_LIST}. Received: ${JSON.stringify(trimmedDirective)}.`
         );
