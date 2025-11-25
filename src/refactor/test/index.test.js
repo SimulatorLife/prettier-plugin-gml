@@ -162,6 +162,25 @@ test("planRename rejects renaming to the existing name", async () => {
     );
 });
 
+test("planRename rejects when semantic has no occurrences", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => []
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    await assert.rejects(
+        () =>
+            engine.planRename({
+                symbolId: "gml/script/scr_empty",
+                newName: "scr_new"
+            }),
+        {
+            message: /No occurrences found for symbol 'gml\/script\/scr_empty'/
+        }
+    );
+});
+
 test("planRename checks symbol existence with semantic analyzer", async () => {
     const mockSemantic = {
         hasSymbol: (id) => id === "gml/script/exists"
@@ -194,6 +213,28 @@ test("planRename detects reserved keyword conflicts", async () => {
             engine.planRename({
                 symbolId: "gml/script/scr_test",
                 newName: "if"
+            }),
+        {
+            message: /reserved keyword/
+        }
+    );
+});
+
+test("detectRenameConflicts normalizes semantic reserved keywords", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => [
+            { path: "test.gml", start: 0, end: 10, scopeId: "scope-1" }
+        ],
+        getReservedKeywords: () => ["SpecialKeyword"]
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    await assert.rejects(
+        () =>
+            engine.planRename({
+                symbolId: "gml/script/scr_test",
+                newName: "specialkeyword"
             }),
         {
             message: /reserved keyword/
