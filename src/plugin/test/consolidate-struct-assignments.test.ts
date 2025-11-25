@@ -1,10 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import {
-    CommentTracker,
-    consolidateStructAssignments
-} from "../../parser/src/transforms/consolidate-struct-assignments.js";
+import { Parser } from "@gml-modules/parser";
+
+const { CommentTracker, consolidateStructAssignments } = Parser.Transforms;
 
 describe("CommentTracker", () => {
     it("ignores consumed comments when checking for later comments", () => {
@@ -50,7 +49,7 @@ describe("CommentTracker", () => {
             [10, 20, 40, 50]
         );
         assert.equal(tracker.entries.length, 1);
-        assert.equal(tracker.entries[0].comment.start.index, 30);
+        assert.equal((tracker.entries[0].comment as any).start.index, 30);
     });
 });
 
@@ -114,7 +113,7 @@ describe("consolidateStructAssignments", () => {
             value: " property",
             start: location(45, 2),
             end: location(55, 2)
-        };
+        } as any;
 
         const ast = {
             type: "Program",
@@ -126,7 +125,7 @@ describe("consolidateStructAssignments", () => {
 
         assert.equal(structExpression.properties.length, 1);
 
-        const [property] = structExpression.properties;
+        const property = structExpression.properties[0] as any;
         assert.equal(Array.isArray(property._structTrailingComments), true);
         assert.equal(property._structTrailingComments.length, 1);
         assert.equal(property._structTrailingComments[0], trailingComment);

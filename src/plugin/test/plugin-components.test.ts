@@ -335,7 +335,7 @@ test("GML plugin component registry", { concurrency: false }, async (t) => {
                 (components) => {
                     notifications.push(components);
                 },
-                { signal }
+                { signal: signal as any }
             );
 
             try {

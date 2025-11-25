@@ -49,7 +49,7 @@ function createArgumentAliasDeclaration(name, argumentName) {
         type: "VariableDeclaration",
         kind: "var",
         declarations: [declarator]
-    };
+    } as any;
 }
 
 function createSelfAssignment(propertyName) {
@@ -62,7 +62,7 @@ function createSelfAssignment(propertyName) {
             property: { type: "Identifier", name: propertyName }
         },
         right: { type: "Literal", value: 0 }
-    };
+    } as any;
 }
 
 describe("applyAssignmentAlignment", () => {
@@ -86,7 +86,7 @@ describe("applyAssignmentAlignment", () => {
                         capturedGroup.length = 0;
                     }
                 }
-            };
+            } as any;
         }
 
         statements.push(

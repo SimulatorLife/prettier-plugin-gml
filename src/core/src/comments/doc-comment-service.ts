@@ -670,11 +670,13 @@ function normalizeEntryPair(entry: unknown) {
     }
 
     if (Object.hasOwn(entry, 0) && Object.hasOwn(entry, 1)) {
-        return [entry[0], entry[1]];
+        const arr = entry as any;
+        return [arr[0], arr[1]];
     }
 
     if (Object.hasOwn(entry, "key") && Object.hasOwn(entry, "value")) {
-        return [entry.key, entry.value];
+        const obj = entry as Record<string, unknown>;
+        return [obj.key, obj.value];
     }
 
     return null;
@@ -718,12 +720,13 @@ function createDocCommentTypeNormalization(candidate: unknown) {
     );
 
     if (candidate && typeof candidate === "object") {
-        mergeNormalizationEntries(synonyms, candidate.synonyms);
+        const cand = candidate as Record<string, unknown>;
+        mergeNormalizationEntries(synonyms, cand.synonyms);
         mergeNormalizationEntries(
             canonicalSpecifierNames,
-            candidate.canonicalSpecifierNames
+            cand.canonicalSpecifierNames
         );
-        mergeSpecifierPrefixes(specifierPrefixes, candidate.specifierPrefixes);
+        mergeSpecifierPrefixes(specifierPrefixes, cand.specifierPrefixes);
     }
 
     return Object.freeze({
@@ -895,17 +898,23 @@ export function applyJsDocReplacements(text: unknown) {
     const shouldStripEmptyParams =
         typeof text === "string" && FUNCTION_LIKE_DOC_TAG_PATTERN.test(text);
 
-    let formattedText = shouldStripEmptyParams
-        ? text.replace(/\(\)\s*$/, "")
-        : text;
+    let formattedText: unknown = text;
 
-    for (const { regex, replacement } of JSDOC_REPLACEMENT_RULES) {
-        regex.lastIndex = 0;
-        formattedText = formattedText.replace(regex, `$1${replacement}`);
+    if (typeof text === "string") {
+        let stringText: string = shouldStripEmptyParams
+            ? text.replace(/\(\)\s*$/, "")
+            : text;
+
+        for (const { regex, replacement } of JSDOC_REPLACEMENT_RULES) {
+            regex.lastIndex = 0;
+            stringText = stringText.replace(regex, `$1${replacement}`);
+        }
+
+        stringText = stripTrailingFunctionParameters(stringText);
+        stringText = normalizeFeatherOptionalParamSyntax(stringText);
+
+        formattedText = stringText;
     }
-
-    formattedText = stripTrailingFunctionParameters(formattedText);
-    formattedText = normalizeFeatherOptionalParamSyntax(formattedText);
 
     if (typeof formattedText !== "string") {
         return formattedText;
@@ -1039,23 +1048,23 @@ function normalizeGameMakerType(typeText: string) {
         }
 
         if (segment.type === "identifier") {
-            let normalizedValue = segment.value;
+            let normalizedValue: unknown = segment.value;
 
             if (typeof normalizedValue === "string") {
                 const canonicalPrefix =
                     docCommentTypeNormalization.getCanonicalSpecifierName(
                         normalizedValue
-                    );
+                    ) as string | null;
 
                 if (
-                    canonicalPrefix &&
+                    typeof canonicalPrefix === "string" &&
                     isDotSeparatedTypeSpecifierPrefix(index)
                 ) {
                     normalizedValue = canonicalPrefix;
                 }
             }
 
-            outputSegments.push(normalizedValue);
+            outputSegments.push(normalizedValue as string);
             continue;
         }
 
@@ -1098,7 +1107,8 @@ function normalizeGameMakerType(typeText: string) {
                         previousIdentifier
                     );
                 if (canonicalPrefix && outputSegments.length > 0) {
-                    outputSegments[outputSegments.length - 1] = canonicalPrefix;
+                    outputSegments[outputSegments.length - 1] =
+                        canonicalPrefix as string;
                 }
                 outputSegments.push(".");
             } else {

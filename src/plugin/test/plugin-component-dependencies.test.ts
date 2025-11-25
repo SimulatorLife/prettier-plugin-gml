@@ -46,16 +46,12 @@ test("default component factory wires the dependency bundle", async () => {
 
     const dependencyBundle = gmlPluginComponentDependencies;
 
-    const parserResult = await parser.parse(
-        SAMPLE_SOURCE,
-        {},
-        {
-            originalText: SAMPLE_SOURCE
-        }
-    );
+    const parserResult = await parser.parse(SAMPLE_SOURCE, {
+        originalText: SAMPLE_SOURCE
+    } as any);
     const dependencyResult = await dependencyBundle.gmlParserAdapter.parse(
         SAMPLE_SOURCE,
-        { originalText: SAMPLE_SOURCE }
+        { originalText: SAMPLE_SOURCE } as any
     );
 
     assert.deepStrictEqual(

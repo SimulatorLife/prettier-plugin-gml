@@ -49,7 +49,7 @@ describe("createResolverController", () => {
                 seen.push({ phase: "invoke", previous });
                 return resolver(options, previous);
             },
-            normalize(result, options, previous) {
+            normalize(result: any, options: any, previous: any) {
                 seen.push({ phase: "normalize", previous, result });
                 return result;
             }

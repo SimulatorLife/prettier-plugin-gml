@@ -1,2 +1,4 @@
 // Deprecated wrapper for normalizeOptionalParamToken - use Core.normalizeOptionalParamToken directly.
-export { normalizeOptionalParamToken } from "@gml-modules/core";
+import { Core } from "@gml-modules/core";
+export const normalizeOptionalParamToken: (token: any) => any =
+    Core.normalizeOptionalParamToken;

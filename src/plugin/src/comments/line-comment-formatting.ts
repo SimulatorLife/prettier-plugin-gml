@@ -290,8 +290,9 @@ function formatLineComment(
           : null;
     if (docTagSource) {
         let formattedCommentLine = `///${docTagSource.replace(DOC_TAG_LINE_PREFIX_PATTERN, " @")}`;
-        formattedCommentLine =
-            Core.applyJsDocReplacements(formattedCommentLine);
+        formattedCommentLine = Core.applyJsDocReplacements(
+            formattedCommentLine
+        ) as string;
         return applyInlinePadding(comment, formattedCommentLine);
     }
 

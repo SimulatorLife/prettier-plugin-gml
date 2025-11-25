@@ -7,9 +7,7 @@ import { describe, it } from "node:test";
 import { Semantic } from "@gml-modules/semantic";
 import { Core } from "@gml-modules/core";
 
-const {
-    FS: { fromPosixPath }
-} = Core;
+const { fromPosixPath } = Core;
 
 describe("asset rename utilities", () => {
     it("renames script assets and updates dependent resource metadata atomically", async () => {

@@ -389,7 +389,9 @@ export function getCallExpressionIdentifier(
 }
 
 export function getCallExpressionIdentifierName(callExpression): string | null {
-    return getCallExpressionIdentifier(callExpression)?.name as string | null;
+    const id = getCallExpressionIdentifier(callExpression);
+    if (!id) return null;
+    return typeof id.name === "string" ? id.name : null;
 }
 
 export function getIdentifierDetails(node: GameMakerAstNode) {

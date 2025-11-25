@@ -92,7 +92,9 @@ describe("formatLineComment", () => {
             boilerplateFragments: [
                 ...DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments,
                 "AUTO-GENERATED FILE"
-            ]
+            ],
+            codeDetectionPatterns:
+                DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns
         });
 
         assert.equal(formatted, "");

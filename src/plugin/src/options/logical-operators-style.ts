@@ -49,7 +49,7 @@ export function isLogicalOperatorsStyle(value) {
  * @throws {TypeError | RangeError} When the value cannot be coerced into a
  *         supported style label.
  */
-export function normalizeLogicalOperatorsStyle(rawStyle) {
+export function normalizeLogicalOperatorsStyle(rawStyle?: unknown) {
     if (rawStyle === undefined) {
         return DEFAULT_LOGICAL_OPERATORS_STYLE;
     }

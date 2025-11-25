@@ -75,8 +75,8 @@ describe("gml parser adapter", () => {
         await assert.rejects(
             () => gmlParserAdapter.parse(sourceWithMissingBrace, {}),
             (error) =>
-                typeof error?.message === "string" &&
-                error.message
+                typeof (error as any)?.message === "string" &&
+                (error as any).message
                     .toLowerCase()
                     .includes("missing associated closing brace"),
             "Expected parser to report missing closing brace without Feather recovery."

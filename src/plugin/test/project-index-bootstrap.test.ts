@@ -34,7 +34,7 @@ test("Semantic.bootstrapProjectIndex normalizes cache max size overrides", async
                 dispose() {}
             };
 
-            const options = {
+            const options: any = {
                 filepath: scriptPath,
                 __identifierCaseProjectIndexCoordinator: coordinator
             };
@@ -42,7 +42,7 @@ test("Semantic.bootstrapProjectIndex normalizes cache max size overrides", async
                 options.gmlIdentifierCaseProjectIndexCacheMaxBytes = rawValue;
             }
 
-            await Semantic.bootstrapProjectIndex(options);
+            await Semantic.bootstrapProjectIndex(options, null);
 
             return { options, descriptor: descriptors[0] ?? {} };
         }
@@ -95,7 +95,7 @@ test("Semantic.bootstrapProjectIndex normalizes concurrency overrides", async ()
                 dispose() {}
             };
 
-            const options = {
+            const options: any = {
                 filepath: scriptPath,
                 __identifierCaseProjectIndexCoordinator: coordinator
             };
@@ -104,7 +104,7 @@ test("Semantic.bootstrapProjectIndex normalizes concurrency overrides", async ()
                 options.gmlIdentifierCaseProjectIndexConcurrency = rawValue;
             }
 
-            await Semantic.bootstrapProjectIndex(options);
+            await Semantic.bootstrapProjectIndex(options, null);
 
             return { options, descriptor: descriptors[0] ?? {} };
         }
@@ -157,12 +157,12 @@ test("Semantic.bootstrapProjectIndex records build failures without throwing", a
             dispose() {}
         };
 
-        const options = {
+        const options: any = {
             filepath: scriptPath,
             __identifierCaseProjectIndexCoordinator: coordinator
         };
 
-        const result = await Semantic.bootstrapProjectIndex(options);
+        const result = await Semantic.bootstrapProjectIndex(options, null);
 
         assert.equal(result.status, "failed");
         assert.equal(result.reason, "build-error");

@@ -4,22 +4,22 @@ import { Core } from "@gml-modules/core";
 // Local aliases were removed in favor of explicit Core.* usage.
 // Avoid destructuring Core namespace: use Core.* explicitly below
 
-const DEFAULT_HELPERS = { // TODO: Remove this and directly use Core.*
+const DEFAULT_HELPERS = {
     getIdentifierText: Core.getIdentifierText,
     isUndefinedLiteral: Core.isUndefinedSentinel,
-    if (!Core.isObjectLike(ast)) {
+    getSingleVariableDeclarator: Core.getSingleVariableDeclarator,
     hasComment: Core.hasComment
 };
 
-            Core.resolveHelperOverride(
+export function preprocessFunctionArgumentDefaults(
     ast: any,
     helpers: any = DEFAULT_HELPERS
 ) {
-            Core.resolveHelperOverride(
+    if (!Core.isObjectLike(ast)) {
         return ast;
     }
 
-            Core.resolveHelperOverride(
+    const normalizedHelpers = {
         getIdentifierText: Core.resolveHelperOverride(
             helpers,
             "getIdentifierText",
@@ -41,7 +41,7 @@ const DEFAULT_HELPERS = { // TODO: Remove this and directly use Core.*
                 : Core.isObjectLike(helpers) &&
                     typeof (helpers as any).hasComment === "function"
                   ? (helpers as any).hasComment
-                  : Core.hasComment
+                  : DEFAULT_HELPERS.hasComment
     };
 
     traverse(ast, (node) => {
@@ -644,7 +644,9 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
 
     // Remove matched fallback statements in reverse order to keep indices stable.
     const orderedRemovals = Array.from(statementsToRemove);
-    orderedRemovals.sort((a, b) => Core.getNodeStartIndex(b) - Core.getNodeStartIndex(a));
+    orderedRemovals.sort(
+        (a, b) => Core.getNodeStartIndex(b) - Core.getNodeStartIndex(a)
+    );
 
     for (const removal of orderedRemovals) {
         const index = statements.indexOf(removal);
@@ -663,7 +665,9 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
         const stmt = statements[sidx];
         if (!stmt || (stmt as any).type !== "IfStatement") continue;
 
-        const condition = Core.unwrapParenthesizedExpression((stmt as any).test);
+        const condition = Core.unwrapParenthesizedExpression(
+            (stmt as any).test
+        );
         const guard = matchArgumentCountGuard(condition);
         if (!guard) continue;
 
@@ -1201,7 +1205,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                 /* swallow */
             }
 
-            const docManager = prepareDocCommentEnvironment(ast);
+            const docManager = Core.prepareDocCommentEnvironment(ast);
             const comments = docManager.getComments(node);
             try {
                 // Diagnostic: print per-param flag summary at reconcile start
@@ -1524,7 +1528,9 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
         // Match `if (argument_count < 2) argument2 = ...;` style guards and
         // `if (argument_count == 0) { argument0 = ... }` forms.
         if (statement.type === "IfStatement") {
-            const condition = Core.unwrapParenthesizedExpression(statement.test);
+            const condition = Core.unwrapParenthesizedExpression(
+                statement.test
+            );
             const result = matchArgumentCountGuard(condition);
             if (!result) {
                 return null;
@@ -1648,7 +1654,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
         // local identifier whose RHS may also look like an argument
         // projection).
         if (right && right.type === "MemberIndexExpression") {
-            const single = getSingleMemberIndexPropertyEntry(right);
+            const single = Core.getSingleMemberIndexPropertyEntry(right);
             if (single) {
                 const indexText = helpers.getIdentifierText(single);
                 const indexNumber = Number(indexText);
@@ -1696,7 +1702,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
         }
 
         if (left.type === "MemberIndexExpression") {
-            const single = getSingleMemberIndexPropertyEntry(left);
+            const single = Core.getSingleMemberIndexPropertyEntry(left);
             if (!single) {
                 return null;
             }

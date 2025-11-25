@@ -20,8 +20,8 @@ function createStaticFunctionStatement(name, overrides = {}) {
 
 describe("annotateStaticFunctionOverrides", () => {
     it("marks overriding static functions", () => {
-        const parentStatic = createStaticFunctionStatement("build");
-        const childStatic = createStaticFunctionStatement("build");
+        const parentStatic = createStaticFunctionStatement("build") as any;
+        const childStatic = createStaticFunctionStatement("build") as any;
 
         const ast = {
             type: "Program",
@@ -66,7 +66,7 @@ describe("annotateStaticFunctionOverrides", () => {
                     init: { type: "FunctionDeclaration" }
                 }
             ]
-        };
+        } as any;
 
         const ast = {
             type: "Program",
@@ -85,7 +85,7 @@ describe("annotateStaticFunctionOverrides", () => {
             ]
         };
 
-        annotateStaticFunctionOverrides(ast);
+        Parser.Transforms.annotateStaticFunctionOverrides(ast);
 
         assert.equal(invalidStatic._overridesStaticFunction, undefined);
     });

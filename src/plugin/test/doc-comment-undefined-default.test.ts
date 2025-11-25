@@ -3,9 +3,20 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
 import prettier from "prettier";
+import { existsSync } from "node:fs";
 
 const __dirname = import.meta.dirname;
-const pluginPath = path.resolve(__dirname, "../src/gml.js");
+const pluginPath = (() => {
+    const candidates = [
+        path.resolve(__dirname, "../dist/src/index.js"),
+        path.resolve(__dirname, "../dist/index.js"),
+        path.resolve(__dirname, "../src/index.ts"),
+        path.resolve(__dirname, "../src/plugin-entry.ts"),
+        path.resolve(__dirname, "../src/index.js"),
+        path.resolve(__dirname, "../src/gml.js")
+    ];
+    return candidates.find((p) => existsSync(p)) || candidates[0];
+})();
 
 test("treats undefined defaults as required when the signature omits the default", async () => {
     const source = [

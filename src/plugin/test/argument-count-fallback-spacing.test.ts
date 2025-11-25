@@ -6,9 +6,9 @@ import { test } from "node:test";
 import prettier from "prettier";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
+const pluginPath = path.resolve(currentDirectory, "../src/index.js");
 
-async function formatWithPlugin(source) {
+async function formatWithPlugin(source, overrides: any = {}) {
     return prettier.format(source, {
         parser: "gml-parse",
         plugins: [pluginPath]

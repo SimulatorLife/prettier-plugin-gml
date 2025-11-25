@@ -10,8 +10,10 @@ import prettier from "prettier";
 import { Parser } from "@gml-modules/parser";
 
 const {
-    AST: { getNodeEndIndex, getNodeStartIndex },
-    Resources: { getFeatherMetadata, getFeatherDiagnosticById }
+    getNodeEndIndex,
+    getNodeStartIndex,
+    getFeatherMetadata,
+    getFeatherDiagnosticById
 } = Core;
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
@@ -596,18 +598,21 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         const [, appleMember] = enumDeclaration.members ?? [];
         assert.ok(appleMember);
         assert.strictEqual(appleMember.initializer, null);
-        assert.strictEqual(appleMember._featherOriginalInitializer, '"apple"');
+        assert.strictEqual(
+            (appleMember as any)._featherOriginalInitializer,
+            '"apple"'
+        );
 
-        const memberFixes = appleMember._appliedFeatherDiagnostics;
+        const memberFixes = (appleMember as any)._appliedFeatherDiagnostics;
         assert.ok(Array.isArray(memberFixes));
         assert.strictEqual(memberFixes.length, 1);
         assert.strictEqual(memberFixes[0].id, "GM1003");
         assert.strictEqual(memberFixes[0].automatic, true);
 
-        assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
+        assert.ok(Array.isArray((ast as any)._appliedFeatherDiagnostics));
         assert.strictEqual(
-            ast._appliedFeatherDiagnostics.some(
-                (entry) => entry.id === "GM1003"
+            (ast as any)._appliedFeatherDiagnostics.some(
+                (entry: any) => entry.id === "GM1003"
             ),
             true,
             "Expected GM1003 metadata to be recorded on the program node."
@@ -3822,14 +3827,14 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         const [ifStatement] = ast.body;
         assert.ok(ifStatement);
         assert.strictEqual(
-            Array.isArray(ifStatement.consequent?.body)
-                ? ifStatement.consequent.body.length
+            Array.isArray((ifStatement as any).consequent?.body)
+                ? (ifStatement as any).consequent.body.length
                 : -1,
             0,
             "Expected stray boolean literal to be removed from block statements."
         );
 
-        const rootDiagnostics = ast._appliedFeatherDiagnostics ?? [];
+        const rootDiagnostics = (ast as any)._appliedFeatherDiagnostics ?? [];
         const rootGM1016 = rootDiagnostics.filter(
             (entry) => entry.id === "GM1016"
         );
@@ -3840,7 +3845,8 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
 
         const blockDiagnostics =
-            ifStatement.consequent?._appliedFeatherDiagnostics ?? [];
+            ((ifStatement as any).consequent as any)
+                ?._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(
             blockDiagnostics.some((entry) => entry.id === "GM1016"),
             true,

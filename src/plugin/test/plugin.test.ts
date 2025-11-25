@@ -136,7 +136,7 @@ async function loadTestCases() {
     );
 }
 
-async function formatWithPlugin(source, overrides) {
+async function formatWithPlugin(source, overrides: any = {}) {
     const formatted = await prettier.format(source, {
         plugins: [pluginPath],
         parser: "gml-parse",

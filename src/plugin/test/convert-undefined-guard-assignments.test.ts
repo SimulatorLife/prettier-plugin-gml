@@ -63,7 +63,7 @@ describe("convertUndefinedGuardAssignments", () => {
         Parser.Transforms.convertUndefinedGuardAssignments(program);
 
         assert.equal(program.body.length, 1);
-        const [statement] = program.body;
+        const statement = program.body[0] as any;
         assert.equal(statement.type, "ExpressionStatement");
 
         const assignment = statement.expression;

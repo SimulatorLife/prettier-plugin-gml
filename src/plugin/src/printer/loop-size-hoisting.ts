@@ -94,7 +94,7 @@ function createSizeSuffixMap(options) {
  * @param {unknown} options Prettier option bag passed to the printer.
  * @returns {Map<string, string>} Lower-cased function names mapped to suffixes.
  */
-function getSizeRetrievalFunctionSuffixes(options) {
+function getSizeRetrievalFunctionSuffixes(options?: any) {
     const cached = readCachedSuffixes(options);
     if (cached) {
         return cached;

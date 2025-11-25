@@ -55,7 +55,7 @@ export function prepareDocCommentEnvironment(ast) {
 }
 
 function createBoundDocCommentServiceResolver(cache, methodName) {
-    return function resolveBoundDocCommentService(ast) {
+    return function resolveBoundDocCommentService(ast?: any) {
         return resolveDocCommentService(ast, cache, (manager) => {
             const method = manager?.[methodName];
 

@@ -7,7 +7,7 @@ const pluginModule = await import("../src/index.js");
 function format(source, options = {}) {
     return prettier.format(source, {
         parser: "gml-parse",
-        plugins: [pluginModule],
+        plugins: [pluginModule as any],
         ...options
     });
 }
