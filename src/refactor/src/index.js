@@ -295,7 +295,7 @@ export class RefactorEngine {
             const semanticReserved = await this.semantic.getReservedKeywords();
             reservedKeywords = new Set([
                 ...reservedKeywords,
-                ...semanticReserved
+                ...semanticReserved.map((keyword) => keyword.toLowerCase())
             ]);
         }
 
@@ -360,6 +360,13 @@ export class RefactorEngine {
         // the workspace. This includes every location where the symbol appears, so
         // the rename operation can update all references simultaneously.
         const occurrences = await this.gatherSymbolOccurrences(symbolName);
+
+        if (occurrences.length === 0) {
+            throw new Error(
+                `No occurrences found for symbol '${symbolId}'. ` +
+                    `Ensure semantic analysis has been run before renaming.`
+            );
+        }
 
         // Detect potential conflicts (shadowing, reserved keywords, etc.) before
         // applying edits. If conflicts exist, we abort the rename to prevent
