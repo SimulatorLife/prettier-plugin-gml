@@ -27,7 +27,7 @@ function resolveParserNamespace(parser?: ParserNamespace): ParserNamespace {
     }
 
     if (!parserNamespace && Parser.Parser) {
-        parserNamespace = Parser.Parser as ParserNamespace;
+        parserNamespace = Parser.Parser;
     }
 
     if (parserNamespace) {

@@ -466,7 +466,7 @@ export default class GameMakerASTBuilder {
             column: number | undefined
         ) => {
             if (typeof index !== "number") {
-                return undefined;
+                return;
             }
 
             const point: { line?: number; index: number; column?: number } = {
