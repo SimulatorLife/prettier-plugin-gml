@@ -1,6 +1,21 @@
-import { Core } from "@gml-modules/core";
+import { createAbortGuard } from "../utils/abort.js";
+import { toArrayFromIterable } from "../utils/array.js";
+import { isErrorWithCode } from "../utils/error.js";
 
-// TODO: Move these into the 'Core' module
+/**
+ * Type-safe wrapper over {@link isErrorWithCode} so callers can narrow thrown
+ * filesystem errors to specific Node-style `code` strings without repeating the
+ * shared utility import. Accepts the same loose inputs as the underlying
+ * helper, mirroring how error guards are typically used in catch blocks.
+ *
+ * @param {unknown} error Candidate error thrown by the filesystem facade.
+ * @param {...string} codes Node-style error codes (for example `"ENOENT"`).
+ * @returns {error is NodeJS.ErrnoException} `true` when {@link error} exposes a
+ *          matching {@link NodeJS.ErrnoException.code} value.
+ */
+export function isFsErrorCode(error, ...codes) {
+    return isErrorWithCode(error, ...codes);
+}
 
 /**
  * Enumerate the entries in {@link directoryPath} while respecting the abort
@@ -9,17 +24,18 @@ import { Core } from "@gml-modules/core";
  * without branching.
  *
  * @param {{ readDir(path: string): Promise<Iterable<string>> }} fsFacade
- *        Filesystem facade whose `readDir` method mirrors `fs.promises.readdir`.
+ *        Filesystem facade whose `readDir` method mirrors
+ *        `fs.promises.readdir`.
  * @param {string} directoryPath Absolute or relative directory to read.
- * @param {{ signal?: AbortSignal | null }} [options] Optional abort signal bag.
- *        The same object is forwarded to {@link createAbortGuard} so any extra
- *        metadata (like custom fallback messages) is honored.
- * @returns {Promise<Array<string>>} Stable array of directory entries, ordered
- *          according to the underlying iterator.
+ * @param {{ signal?: AbortSignal | null }} [options] Optional abort signal
+ *        bag. The same object is forwarded to {@link createAbortGuard} so any
+ *        extra metadata (like custom fallback messages) is honored.
+ * @returns {Promise<Array<string>>} Stable array of directory entries,
+ *          ordered according to the underlying iterator.
  */
 export async function listDirectory(fsFacade, directoryPath, options = {}) {
     const abortMessage = "Directory listing was aborted.";
-    const { ensureNotAborted } = Core.createAbortGuard(options, {
+    const { ensureNotAborted } = createAbortGuard(options, {
         fallbackMessage: abortMessage
     });
 
@@ -27,9 +43,9 @@ export async function listDirectory(fsFacade, directoryPath, options = {}) {
         const entries = await fsFacade.readDir(directoryPath);
         ensureNotAborted();
 
-        return Core.toArrayFromIterable(entries);
+        return toArrayFromIterable(entries);
     } catch (error) {
-        if (Core.isFsErrorCode(error, "ENOENT", "ENOTDIR")) {
+        if (isFsErrorCode(error, "ENOENT", "ENOTDIR")) {
             return [];
         }
         throw error;
@@ -45,14 +61,14 @@ export async function listDirectory(fsFacade, directoryPath, options = {}) {
  * @param {{ stat(path: string): Promise<{ mtimeMs?: number }> }} fsFacade
  *        Filesystem facade exposing a promise-based `stat` method.
  * @param {string} filePath Absolute or relative file path to inspect.
- * @param {{ signal?: AbortSignal | null }} [options] Optional abort signal bag
- *        forwarded to {@link createAbortGuard}.
+ * @param {{ signal?: AbortSignal | null }} [options] Optional abort signal
+ *        bag forwarded to {@link createAbortGuard}.
  * @returns {Promise<number | null>} Millisecond precision modified time, or
  *          `null` when unavailable.
  */
 export async function getFileMtime(fsFacade, filePath, options = {}) {
     const abortMessage = "File metadata read was aborted.";
-    const { ensureNotAborted } = Core.createAbortGuard(options, {
+    const { ensureNotAborted } = createAbortGuard(options, {
         fallbackMessage: abortMessage
     });
 
@@ -61,7 +77,7 @@ export async function getFileMtime(fsFacade, filePath, options = {}) {
         ensureNotAborted();
         return typeof stats.mtimeMs === "number" ? stats.mtimeMs : null;
     } catch (error) {
-        if (Core.isFsErrorCode(error, "ENOENT")) {
+        if (isFsErrorCode(error, "ENOENT")) {
             return null;
         }
         throw error;

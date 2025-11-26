@@ -19,6 +19,21 @@ const STRING_TYPE = "string";
 const RETURN_DOC_TAG_PATTERN = /^\/\/\/\s*@returns\b/i;
 const LEGACY_RETURNS_DESCRIPTION_PATTERN = /^(.+?)\s*-\s*(.*)$/; // simplified pattern for core
 
+const DOC_COMMENT_TAG_PATTERN = /^\/\/\/\s*@/i;
+const DOC_COMMENT_ALT_TAG_PATTERN = /^\/\/\s*\/\s*@/i;
+
+function isDocCommentTagLine(line: unknown) {
+    if (typeof line !== STRING_TYPE) {
+        return false;
+    }
+
+    const trimmed = toTrimmedString(line);
+    return (
+        DOC_COMMENT_TAG_PATTERN.test(trimmed) ||
+        DOC_COMMENT_ALT_TAG_PATTERN.test(trimmed)
+    );
+}
+
 export function parseDocCommentMetadata(
     line: unknown
 ): DocCommentMetadata | null {
@@ -400,7 +415,8 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
 }
 
 export function promoteLeadingDocCommentTextToDescription(
-    docLines: DocCommentLines | string[]
+    docLines: DocCommentLines | string[],
+    extraTaggedDocLines: DocCommentLines | string[] = []
 ) {
     const normalizedLines = Array.isArray(docLines) ? [...docLines] : [];
 
@@ -459,15 +475,14 @@ export function promoteLeadingDocCommentTextToDescription(
     }
 
     const remainder = normalizedLines.slice(leadingCount);
-    const indexOfFirstTagInRemainder = remainder.findIndex((line) => {
-        if (typeof line !== STRING_TYPE) return false;
-        const trimmed = toTrimmedString(line);
-        return /^\/\/\/\s*@/i.test(trimmed) || /^\/\/\s*\/\s*@/i.test(trimmed);
-    });
-    if (indexOfFirstTagInRemainder === -1) {
+    const remainderContainsTag = remainder.some(isDocCommentTagLine);
+    const extraContainsTag =
+        Array.isArray(extraTaggedDocLines) &&
+        extraTaggedDocLines.some(isDocCommentTagLine);
+
+    if (!remainderContainsTag && !extraContainsTag) {
         return normalizedLines as DocCommentLines;
     }
-    const nextLine = remainder[indexOfFirstTagInRemainder];
 
     const promotedLines: string[] = [];
     const firstSegment = segments[firstContentIndex];

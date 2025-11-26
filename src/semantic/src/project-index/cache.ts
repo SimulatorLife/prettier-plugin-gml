@@ -1,10 +1,11 @@
 import path from "node:path";
+import { promises as fs } from "node:fs";
 import { Core } from "@gml-modules/core";
 import { createHash, randomUUID } from "node:crypto";
 
 import { isProjectManifestPath } from "./constants.js";
-import { defaultFsFacade, ProjectIndexFsFacade } from "./fs-facade.js";
-import { getFileMtime, listDirectory } from "./fs-helpers.js";
+
+type ProjectIndexFsFacade = typeof fs;
 
 export const PROJECT_INDEX_CACHE_SCHEMA_VERSION = 1;
 export const PROJECT_INDEX_CACHE_DIRECTORY = ".prettier-plugin-gml";
@@ -260,7 +261,7 @@ export {
 
 export async function loadProjectIndexCache(
     descriptor,
-    fsFacade: ProjectIndexFsFacade = defaultFsFacade,
+    fsFacade: ProjectIndexFsFacade = fs,
     options = {}
 ) {
     const {
@@ -386,7 +387,7 @@ export async function loadProjectIndexCache(
 
 export async function saveProjectIndexCache(
     descriptor,
-    fsFacade: ProjectIndexFsFacade = defaultFsFacade,
+    fsFacade: ProjectIndexFsFacade = fs,
     options = {}
 ) {
     const {
@@ -492,7 +493,7 @@ export async function deriveCacheKey(
         projectRoot?: string | null;
         formatterVersion?: string;
     } = {},
-    fsFacade: ProjectIndexFsFacade = defaultFsFacade
+    fsFacade: ProjectIndexFsFacade = fs
 ) {
     const hash = createHash("sha256");
     hash.update(String(formatterVersion));
@@ -503,7 +504,7 @@ export async function deriveCacheKey(
     hash.update("\0");
 
     if (resolvedRoot) {
-        const entries = await listDirectory(fsFacade, resolvedRoot);
+        const entries = await Core.listDirectory(fsFacade, resolvedRoot);
         const manifestNames = entries
             .filter(isProjectManifestPath)
             .reduce((acc, item) => {
@@ -521,7 +522,7 @@ export async function deriveCacheKey(
 
         for (const manifestName of manifestNames) {
             const manifestPath = path.join(resolvedRoot, manifestName);
-            const mtime = await getFileMtime(fsFacade, manifestPath);
+            const mtime = await Core.getFileMtime(fsFacade, manifestPath);
             if (mtime !== null) {
                 hash.update(manifestName);
                 hash.update("\0");
@@ -533,7 +534,7 @@ export async function deriveCacheKey(
 
     if (filepath) {
         const resolvedFile = path.resolve(filepath);
-        const mtime = await getFileMtime(fsFacade, resolvedFile);
+        const mtime = await Core.getFileMtime(fsFacade, resolvedFile);
         if (mtime !== null) {
             hash.update(
                 path.relative(

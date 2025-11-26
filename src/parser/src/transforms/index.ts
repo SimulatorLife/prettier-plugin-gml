@@ -15,7 +15,6 @@ import { convertStringConcatenations } from "./convert-string-concatenations.js"
 import { convertManualMathExpressions } from "./convert-manual-math.js";
 import { convertUndefinedGuardAssignments } from "./convert-undefined-guard-assignments.js";
 import { annotateStaticFunctionOverrides } from "./annotate-static-overrides.js";
-
 // Plugin AST transforms exposed via the parser transform registry.
 // Wrappers follow the parser transform signature: (ast, opts = {}) => ast
 const TRANSFORM_REGISTRY = Object.freeze({
@@ -87,3 +86,8 @@ export { enforceVariableBlockSpacing } from "./enforce-variable-block-spacing.js
 export { preprocessFunctionArgumentDefaults } from "./preprocess-function-argument-defaults.js";
 export { stripCommentsTransform } from "./strip-comments.js";
 export { annotateStaticFunctionOverrides } from "./annotate-static-overrides.js";
+export {
+    conditionalAssignmentSanitizerTransform,
+    sanitizeConditionalAssignments,
+    applySanitizedIndexAdjustments
+} from "./conditional-assignment-sanitizer.js";

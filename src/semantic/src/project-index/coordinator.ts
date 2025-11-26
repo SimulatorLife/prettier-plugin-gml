@@ -1,4 +1,5 @@
 import path from "node:path";
+import { promises as fs } from "node:fs";
 
 import { Core } from "@gml-modules/core";
 
@@ -126,7 +127,7 @@ async function executeEnsureReadyOperation({
 }
 
 export function createProjectIndexCoordinator({
-    fsFacade,
+    fsFacade = fs,
     loadCache,
     saveCache,
     buildIndex,

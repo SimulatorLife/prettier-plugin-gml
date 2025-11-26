@@ -1,8 +1,9 @@
+import { promises as fs } from "node:fs";
 import { Core } from "@gml-modules/core";
 
-import { defaultFsFacade, ProjectIndexFsFacade } from "./fs-facade.js";
 import { createProjectIndexAbortGuard } from "./abort-guard.js";
-import { getFileMtime } from "./fs-helpers.js";
+
+type ProjectIndexFsFacade = typeof fs;
 
 const GML_IDENTIFIER_FILE_PATH = Core.GML_IDENTIFIER_METADATA_PATH;
 
@@ -58,7 +59,7 @@ function areMtimesEquivalent(cachedMtime, currentMtime) {
 }
 
 export async function loadBuiltInIdentifiers(
-    fsFacade: ProjectIndexFsFacade = defaultFsFacade,
+    fsFacade: ProjectIndexFsFacade = fs,
     metrics = null,
     options: any = {}
 ) {
@@ -68,7 +69,7 @@ export async function loadBuiltInIdentifiers(
         { fallbackMessage }
     );
 
-    const currentMtime = await getFileMtime(
+    const currentMtime = await Core.getFileMtime(
         fsFacade,
         GML_IDENTIFIER_FILE_PATH,
         { signal }

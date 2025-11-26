@@ -4,8 +4,6 @@ export * from "./cache.js";
 export * from "./coordinator.js";
 export * from "./constants.js";
 export * from "./concurrency.js";
-export * from "./fs-facade.js";
-export * from "./fs-helpers.js";
 export * from "./identifier-roles.js";
 export * from "./path-info.js";
 export * from "./parser-override.js";
@@ -23,13 +21,15 @@ export * from "./path-normalization.js";
 // import path from "node:path";
 // import { Core } from "@gml-modules/core";
 
-import { defaultFsFacade, ProjectIndexFsFacade } from "./fs-facade.js";
+import { promises as fs } from "node:fs";
 import {
     loadProjectIndexCache,
     saveProjectIndexCache,
     getDefaultProjectIndexCacheMaxSize
 } from "./cache.js";
 import { createProjectIndexCoordinator as createProjectIndexCoordinatorCore } from "./coordinator.js";
+
+type ProjectIndexFsFacade = typeof fs;
 // import { clampConcurrency } from "./concurrency.js";
 // import { resolveProjectIndexParser } from "./parser-override.js";
 // import {
@@ -73,7 +73,7 @@ import { createProjectIndexCoordinator as createProjectIndexCoordinatorCore } fr
 
 export function createProjectIndexCoordinator(options: any = {}) {
     const {
-        fsFacade = defaultFsFacade,
+        fsFacade = fs,
         loadCache = loadProjectIndexCache,
         saveCache = saveProjectIndexCache,
         buildIndex = buildProjectIndex,
@@ -2091,7 +2091,7 @@ export function createProjectIndexCoordinator(options: any = {}) {
 
 export async function buildProjectIndex(
     projectRoot: string,
-    fsFacade: ProjectIndexFsFacade = defaultFsFacade,
+    fsFacade: ProjectIndexFsFacade = fs,
     options: any = {}
 ): Promise<any> {
     //     if (!projectRoot) {
@@ -2187,7 +2187,6 @@ export async function buildProjectIndex(
     //     });
     return null as any;
 }
-// export { defaultFsFacade } from "./fs-facade.js";
 
 // export {
 //     ProjectFileCategory,

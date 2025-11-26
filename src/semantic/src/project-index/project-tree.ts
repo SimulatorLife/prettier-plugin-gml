@@ -1,4 +1,5 @@
 import path from "node:path";
+import { promises as fs } from "node:fs";
 
 import { Core } from "@gml-modules/core";
 
@@ -8,7 +9,8 @@ import {
     resolveProjectFileCategory,
     ProjectFileCategory
 } from "./project-file-categories.js";
-import { listDirectory } from "./fs-helpers.js";
+
+type ProjectIndexFsFacade = typeof fs;
 
 function createProjectTreeCollector(metrics = null) {
     const yyFiles = [];
@@ -101,7 +103,7 @@ async function resolveDirectoryListing({
     signal
 }) {
     ensureNotAborted();
-    const entries = await listDirectory(
+    const entries = await Core.listDirectory(
         fsFacade,
         directoryContext.absolutePath,
         {
@@ -178,7 +180,7 @@ async function processDirectoryEntries({
 
 export async function scanProjectTree(
     projectRoot,
-    fsFacade,
+    fsFacade: ProjectIndexFsFacade = fs,
     metrics = null,
     options = {}
 ) {

@@ -1,10 +1,10 @@
 // TODO: This file is too large and should be split into multiple smaller files.
-// TODO: This file contains lots of functionality for comments and doc-comments, which should be moved to their respective modules/managers instead (in Core)
 // General, non-printer-related Node utils should be moved into Core.
+
+// TODO: ALL doc-comment/function-doc functionality here should be extracted and moved to Core's doc-comment manager/module (e.g. computeSyntheticFunctionDocLines, normalizeParamDocType, collectImplicitArgumentDocNames, etc.). Any tests related to doc-comments should also be moved accordingly. Need to be VERY careful that no functionality is lost during the migration. Also be VERY dilligent to ensure that no duplicate functionality is created during the migration.
 
 import { Core } from "@gml-modules/core";
 import type {
-    DocCommentLines,
     MutableDocCommentLines
 } from "@gml-modules/core";
 import { builders, utils } from "prettier/doc";
@@ -398,8 +398,6 @@ const ARGUMENT_IDENTIFIER_PATTERN = /^argument(\d+)$/;
 const suppressedImplicitDocCanonicalByNode = new WeakMap();
 const preferredParamDocNamesByNode = new WeakMap();
 const forcedStructArgumentBreaks = new WeakMap();
-const LEGACY_RETURNS_DESCRIPTION_PATTERN = /^Returns?\s*:(.*)$/i;
-
 function stripTrailingLineTerminators(value) {
     if (typeof value !== STRING_TYPE) {
         return value;
@@ -4464,7 +4462,7 @@ function buildSyntheticDocComment(
               options,
               overrides
           )
-        : reorderDescriptionLinesAfterFunction(
+        : Core.reorderDescriptionLinesAfterFunction(
               computeSyntheticFunctionDocLines(
                   functionNode,
                   [],
@@ -4489,7 +4487,7 @@ function buildSyntheticDocComment(
     // This enables cases where doc-like comments (// / or /// without @) appear before actual doc comments (@param, @function, etc.)
     const potentiallyPromotableLines =
         leadingCommentLines.length > 0 && syntheticLines.length > 0
-            ? promoteLeadingDocCommentTextToDescription([
+            ? Core.promoteLeadingDocCommentTextToDescription([
                   ...leadingCommentLines,
                   syntheticLines[0]
               ]).slice(0, leadingCommentLines.length) // Take only the part corresponding to leadingCommentLines
@@ -4780,541 +4778,6 @@ function hasCommentImmediatelyBefore(text, index) {
     );
 }
 
-const RETURN_DOC_TAG_PATTERN = /^\/\/\/\s*@returns\b/i;
-
-function dedupeReturnDocLines(lines, { includeNonReturnLine }: any = {}) {
-    const shouldIncludeNonReturn =
-        typeof includeNonReturnLine === "function"
-            ? includeNonReturnLine
-            : () => true;
-
-    const deduped = [];
-    const seenReturnLines = new Set();
-    let removedAnyReturnLine = false;
-
-    for (const line of lines) {
-        if (typeof line !== STRING_TYPE) {
-            deduped.push(line);
-            continue;
-        }
-
-        const trimmed = Core.toTrimmedString(line);
-        if (!RETURN_DOC_TAG_PATTERN.test(trimmed)) {
-            if (shouldIncludeNonReturn(line, trimmed)) {
-                deduped.push(line);
-            }
-            continue;
-        }
-
-        if (trimmed.length === 0) {
-            continue;
-        }
-
-        const key = trimmed.toLowerCase();
-        if (seenReturnLines.has(key)) {
-            removedAnyReturnLine = true;
-            continue;
-        }
-
-        seenReturnLines.add(key);
-        deduped.push(line);
-    }
-
-    return { lines: deduped, removed: removedAnyReturnLine };
-}
-
-function reorderDescriptionLinesAfterFunction(docLines) {
-    const normalizedDocLines: MutableDocCommentLines =
-        Core.toMutableArray(docLines);
-
-    if (normalizedDocLines.length === 0) {
-        return normalizedDocLines;
-    }
-
-    const descriptionBlocks = [];
-    let earliestDescriptionIndex = Infinity;
-    for (let index = 0; index < normalizedDocLines.length; index += 1) {
-        const line = normalizedDocLines[index];
-        if (
-            typeof line !== STRING_TYPE ||
-            !/^\/\/\/\s*@description\b/i.test(line.trim())
-        ) {
-            continue;
-        }
-
-        const blockIndices = [index];
-        let lookahead = index + 1;
-        while (lookahead < normalizedDocLines.length) {
-            const nextLine = normalizedDocLines[lookahead];
-            if (
-                typeof nextLine === STRING_TYPE &&
-                nextLine.startsWith("///") &&
-                !parseDocCommentMetadata(nextLine)
-            ) {
-                blockIndices.push(lookahead);
-                lookahead += 1;
-                continue;
-            }
-            break;
-        }
-
-        descriptionBlocks.push(blockIndices);
-        if (index < earliestDescriptionIndex) {
-            earliestDescriptionIndex = index;
-        }
-        if (lookahead > index + 1) {
-            index = lookahead - 1;
-        }
-    }
-
-    if (descriptionBlocks.length === 0) {
-        return normalizedDocLines;
-    }
-
-    const descriptionStartIndices = descriptionBlocks.map((block) => block[0]);
-
-    const functionIndex = normalizedDocLines.findIndex(
-        (line) =>
-            typeof line === STRING_TYPE &&
-            /^\/\/\/\s*@function\b/i.test(line.trim())
-    );
-
-    if (functionIndex === -1) {
-        return normalizedDocLines;
-    }
-
-    const firstReturnsIndex = normalizedDocLines.findIndex(
-        (line, index) =>
-            index > functionIndex &&
-            typeof line === STRING_TYPE &&
-            /^\/\/\/\s*@returns\b/i.test(line.trim())
-    );
-    const allDescriptionsPrecedeReturns = descriptionStartIndices.every(
-        (index) =>
-            index > functionIndex &&
-            (firstReturnsIndex === -1 || index < firstReturnsIndex)
-    );
-
-    if (
-        earliestDescriptionIndex > functionIndex &&
-        allDescriptionsPrecedeReturns
-    ) {
-        return normalizedDocLines;
-    }
-
-    // Membership checks run repeatedly when stripping or re-inserting
-    // description lines. Hoist the indices into a Set so the hot filters avoid
-    // rescanning the array for each element.
-    const descriptionIndices = descriptionBlocks.flat();
-    const descriptionIndexSet = new Set(descriptionIndices);
-
-    const descriptionLines = [];
-    for (const block of descriptionBlocks) {
-        for (const blockIndex of block) {
-            const docLine = normalizedDocLines[blockIndex];
-            if (typeof docLine !== STRING_TYPE) {
-                continue;
-            }
-
-            if (/^\/\/\/\s*@description\b/i.test(docLine.trim())) {
-                const metadata = parseDocCommentMetadata(docLine);
-                const descriptionText =
-                    typeof metadata?.name === STRING_TYPE
-                        ? metadata.name.trim()
-                        : "";
-
-                if (descriptionText.length === 0) {
-                    continue;
-                }
-            }
-
-            descriptionLines.push(docLine);
-        }
-    }
-
-    if (descriptionLines.length === 0) {
-        return normalizedDocLines.filter(
-            (_, index) => !descriptionIndexSet.has(index)
-        );
-    }
-
-    const remainingLines = normalizedDocLines.filter(
-        (_, index) => !descriptionIndexSet.has(index)
-    );
-
-    let lastFunctionIndex = -1;
-    for (let index = remainingLines.length - 1; index >= 0; index -= 1) {
-        const line = remainingLines[index];
-        if (
-            typeof line === STRING_TYPE &&
-            /^\/\/\/\s*@function\b/i.test(line.trim())
-        ) {
-            lastFunctionIndex = index;
-            break;
-        }
-    }
-
-    if (lastFunctionIndex === -1) {
-        return [...remainingLines, ...descriptionLines];
-    }
-
-    let returnsInsertionIndex = remainingLines.length;
-    for (
-        let index = lastFunctionIndex + 1;
-        index < remainingLines.length;
-        index += 1
-    ) {
-        const line = remainingLines[index];
-        if (
-            typeof line === STRING_TYPE &&
-            /^\/\/\/\s*@returns\b/i.test(line.trim())
-        ) {
-            returnsInsertionIndex = index;
-            break;
-        }
-    }
-
-    return [
-        ...remainingLines.slice(0, returnsInsertionIndex),
-        ...descriptionLines,
-        ...remainingLines.slice(returnsInsertionIndex)
-    ];
-}
-
-function hasLegacyReturnsDescriptionLines(docLines) {
-    if (!Array.isArray(docLines)) {
-        return false;
-    }
-
-    return docLines.some((line) => {
-        if (typeof line !== STRING_TYPE) {
-            return false;
-        }
-
-        const match = line.match(/^(\s*\/\/\/)(.*)$/);
-        if (!match) {
-            return false;
-        }
-
-        const suffix = match[2] ?? "";
-        const trimmedSuffix = suffix.trim();
-        if (trimmedSuffix.length === 0) {
-            return false;
-        }
-
-        return LEGACY_RETURNS_DESCRIPTION_PATTERN.test(trimmedSuffix);
-    });
-}
-
-function convertLegacyReturnsDescriptionLinesToMetadata(docLines) {
-    const normalizedLines: MutableDocCommentLines =
-        Core.toMutableArray(docLines);
-
-    if (normalizedLines.length === 0) {
-        return normalizedLines;
-    }
-
-    const preserveLeadingBlank = normalizedLines._suppressLeadingBlank === true;
-    const preserveDescriptionBreaks =
-        normalizedLines._preserveDescriptionBreaks === true;
-
-    const convertedReturns = [];
-    const retainedLines = [];
-
-    for (const line of normalizedLines) {
-        if (typeof line !== STRING_TYPE) {
-            retainedLines.push(line);
-            continue;
-        }
-
-        const match = line.match(/^(\s*\/\/\/)(.*)$/);
-        if (!match) {
-            retainedLines.push(line);
-            continue;
-        }
-
-        const [, prefix = "///", suffix = ""] = match;
-        const trimmedSuffix = suffix.trim();
-        if (trimmedSuffix.length === 0) {
-            retainedLines.push(line);
-            continue;
-        }
-
-        const returnsMatch = trimmedSuffix.match(
-            LEGACY_RETURNS_DESCRIPTION_PATTERN
-        );
-        if (!returnsMatch) {
-            retainedLines.push(line);
-            continue;
-        }
-
-        const payload = returnsMatch[1]?.trim() ?? "";
-
-        let typeText = "";
-        let descriptionText = "";
-
-        const typeAndDescriptionMatch = payload.match(
-            /^([^,–—-]+)[,–—-]\s*(.+)$/
-        );
-
-        if (typeAndDescriptionMatch) {
-            typeText = typeAndDescriptionMatch[1].trim();
-            descriptionText = typeAndDescriptionMatch[2].trim();
-        } else {
-            const candidate = payload.trim();
-            if (candidate.length === 0) {
-                retainedLines.push(line);
-                continue;
-            }
-
-            if (/\s/.test(candidate)) {
-                descriptionText = candidate;
-            } else {
-                typeText = candidate.replace(/[,\.]+$/u, "").trim();
-            }
-        }
-
-        if (typeText.length === 0 && descriptionText.length === 0) {
-            retainedLines.push(line);
-            continue;
-        }
-
-        if (descriptionText.length > 0 && /^[a-z]/.test(descriptionText)) {
-            descriptionText = Core.capitalize(descriptionText);
-        }
-
-        let normalizedType = typeText.trim();
-        if (normalizedType.length > 0 && !/^\{.*\}$/.test(normalizedType)) {
-            normalizedType = `{${normalizedType}}`;
-        }
-
-        let converted = `${prefix} @returns`;
-        if (normalizedType.length > 0) {
-            converted += ` ${normalizedType}`;
-        }
-        if (descriptionText.length > 0) {
-            converted += ` ${descriptionText}`;
-        }
-
-        converted = normalizeDocCommentTypeAnnotations(converted).replaceAll(
-            /\{boolean\}/gi,
-            "{bool}"
-        );
-        convertedReturns.push(converted);
-    }
-
-    if (convertedReturns.length === 0) {
-        if (preserveLeadingBlank) {
-            normalizedLines._suppressLeadingBlank = true;
-        }
-        if (preserveDescriptionBreaks) {
-            normalizedLines._preserveDescriptionBreaks = true;
-        }
-        return normalizedLines;
-    }
-
-    const resultLines: MutableDocCommentLines = [...retainedLines];
-
-    let appendIndex = resultLines.length;
-    while (
-        appendIndex > 0 &&
-        typeof resultLines[appendIndex - 1] === STRING_TYPE &&
-        resultLines[appendIndex - 1].trim() === ""
-    ) {
-        appendIndex -= 1;
-    }
-
-    resultLines.splice(appendIndex, 0, ...convertedReturns);
-
-    if (preserveLeadingBlank) {
-        resultLines._suppressLeadingBlank = true;
-    }
-
-    if (preserveDescriptionBreaks) {
-        resultLines._preserveDescriptionBreaks = true;
-    }
-
-    return resultLines;
-}
-
-function promoteLeadingDocCommentTextToDescription(docLines, extraSyntheticLines?: ReadonlyArray<string>) {
-    const normalizedLines: MutableDocCommentLines =
-        Core.toMutableArray(docLines);
-
-    if (normalizedLines.length === 0) {
-        return normalizedLines;
-    }
-
-    const segments = [];
-    let leadingCount = 0;
-
-    while (leadingCount < normalizedLines.length) {
-        const line = normalizedLines[leadingCount];
-        if (typeof line !== STRING_TYPE) {
-            break;
-        }
-
-        const trimmed = line.trim();
-        const isDocLikeSummary =
-            trimmed.startsWith("///") || /^\/\/\s*\//.test(trimmed);
-        if (!isDocLikeSummary) {
-            break;
-        }
-
-        const isTaggedLine =
-            /^\/\/\/\s*@/i.test(trimmed) || /^\/\/\s*\/\s*@/i.test(trimmed);
-        if (isTaggedLine) {
-            break;
-        }
-
-        let match = line.match(/^(\s*\/\/\/)(.*)$/);
-        if (!match) {
-            const docLikeMatch = line.match(/^(\s*)\/\/\s*\/(.*)$/);
-            if (!docLikeMatch) {
-                break;
-            }
-
-            const [, indent = "", suffix = ""] = docLikeMatch;
-            match = [line, `${indent}///`, suffix];
-        }
-
-        const [, prefix = "///", suffix = ""] = match;
-        segments.push({ prefix, suffix });
-        leadingCount += 1;
-    }
-
-    if (segments.length === 0) {
-        return normalizedLines;
-    }
-
-    // Debugging: Log the segments we found for easier tracing in tests
-    // (This log will be removed when the issue is resolved).
-    if (process.env.GML_PRINTER_DEBUG) {
-        console.debug(
-            "promoteLeadingDocCommentTextToDescription: segments=",
-            JSON.stringify(segments)
-        );
-    }
-
-    const firstContentIndex = segments.findIndex(({ suffix }) =>
-        Core.isNonEmptyTrimmedString(suffix)
-    );
-
-    if (firstContentIndex === -1) {
-        return normalizedLines;
-    }
-
-    const nextLine = normalizedLines[leadingCount];
-    if (process.env.GML_PRINTER_DEBUG) {
-        console.debug(
-            "promoteLeadingDocCommentTextToDescription: nextLine=",
-            JSON.stringify(nextLine),
-            "leadingCount",
-            leadingCount,
-            "normalizedLines.length",
-            normalizedLines.length
-        );
-    }
-    const nextLineTrimmed = Core.toTrimmedString(nextLine);
-    const isNextLineTagged =
-        typeof nextLine === STRING_TYPE &&
-        (/^\/\/\/[\s]*@/i.test(nextLineTrimmed) ||
-            /^\/\/[\s]*\/[\s]*@/i.test(nextLineTrimmed));
-
-    const isSyntheticTagged = Array.isArray(extraSyntheticLines)
-        ? extraSyntheticLines.some((l) => {
-              try {
-                  return Core.toTrimmedString(l).match(/^\/\/\/[\s]*@/i) || Core.toTrimmedString(l).match(/^\/\/[\s]*\/[\s]*@/i);
-              } catch {
-                  return false;
-              }
-          })
-        : false;
-
-    if (!isNextLineTagged && !isSyntheticTagged) {
-        if (process.env.GML_PRINTER_DEBUG) {
-            console.debug(
-                "promoteLeadingDocCommentTextToDescription: nextLine is not a tag or not a string; aborting promotion"
-            );
-        }
-        return normalizedLines;
-    }
-
-    const promotedLines = [];
-    const firstSegment = segments[firstContentIndex];
-    const indent = firstSegment.prefix.slice(
-        0,
-        Math.max(firstSegment.prefix.length - 3, 0)
-    );
-    const normalizedBasePrefix = `${indent}///`;
-    const descriptionLinePrefix = `${normalizedBasePrefix} @description `;
-    const continuationPadding = Math.max(
-        descriptionLinePrefix.length - (indent.length + 4),
-        0
-    );
-    const continuationPrefix = `${indent}/// ${" ".repeat(continuationPadding)}`;
-
-    for (const [index, { prefix, suffix }] of segments.entries()) {
-        const trimmedSuffix = suffix.trim();
-        const hasLeadingWhitespace = suffix.length === 0 || /^\s/.test(suffix);
-
-        if (index < firstContentIndex) {
-            const normalizedSuffix = hasLeadingWhitespace
-                ? suffix
-                : ` ${suffix}`;
-            promotedLines.push(`${prefix}${normalizedSuffix}`);
-            continue;
-        }
-
-        if (index === firstContentIndex) {
-            promotedLines.push(
-                trimmedSuffix.length > 0
-                    ? `${prefix} @description ${trimmedSuffix}`
-                    : `${prefix} @description`
-            );
-            continue;
-        }
-
-        if (trimmedSuffix.length === 0) {
-            // Legacy doc comment blocks frequently include placeholder "// /"
-            // separators that should not survive once the text is promoted to a
-            // structured description. Emitting an empty doc comment line here
-            // introduces stray `///` entries ahead of the actual metadata,
-            // creating the blank line regressions surfaced in testComments.
-            // Skip those placeholder segments so the promoted description stays
-            // contiguous while still respecting continuation padding when real
-            // text follows.
-            continue;
-        }
-
-        const continuationText = trimmedSuffix;
-        const resolvedContinuation =
-            continuationPrefix.length > 0
-                ? `${continuationPrefix}${continuationText}`
-                : `${prefix} ${continuationText}`;
-
-        promotedLines.push(resolvedContinuation);
-    }
-
-    const remainder = normalizedLines.slice(leadingCount);
-    const result: MutableDocCommentLines = [...promotedLines, ...remainder];
-
-    const hasContinuationSegments = segments.some(
-        ({ suffix }, index) =>
-            index > firstContentIndex && Core.isNonEmptyTrimmedString(suffix)
-    );
-
-    if (hasContinuationSegments) {
-        result._preserveDescriptionBreaks = true;
-    }
-
-    if (normalizedLines._suppressLeadingBlank) {
-        result._suppressLeadingBlank = true;
-    }
-
-    return result;
-}
-
 function mergeSyntheticDocComments(
     node,
     existingDocLines,
@@ -5330,7 +4793,7 @@ function mergeSyntheticDocComments(
     const preserveDescriptionBreaks =
         normalizedExistingLines?._preserveDescriptionBreaks === true;
 
-    normalizedExistingLines = reorderDescriptionLinesAfterFunction(
+    normalizedExistingLines = Core.reorderDescriptionLinesAfterFunction(
         normalizedExistingLines
     );
 
@@ -5341,7 +4804,7 @@ function mergeSyntheticDocComments(
     ({
         lines: normalizedExistingLines,
         removed: removedExistingReturnDuplicates
-    } = dedupeReturnDocLines(normalizedExistingLines));
+    } = Core.dedupeReturnDocLines(normalizedExistingLines));
 
     if (preserveDescriptionBreaks) {
         normalizedExistingLines._preserveDescriptionBreaks = true;
@@ -5354,7 +4817,7 @@ function mergeSyntheticDocComments(
         overrides
     );
 
-    normalizedExistingLines = promoteLeadingDocCommentTextToDescription(
+    normalizedExistingLines = Core.promoteLeadingDocCommentTextToDescription(
         normalizedExistingLines,
         _computedSynthetic
     );
@@ -5380,7 +4843,9 @@ function mergeSyntheticDocComments(
     } catch {
         void 0;
     }
-    const syntheticLines = reorderDescriptionLinesAfterFunction(_computedSynthetic);
+    const syntheticLines = Core.reorderDescriptionLinesAfterFunction(
+        _computedSynthetic
+    );
 
     const implicitDocEntries =
         node?.type === "FunctionDeclaration" ||
@@ -5402,13 +4867,15 @@ function mergeSyntheticDocComments(
         hasParamDocLines && declaredParamCount === 0 && !hasImplicitDocEntries;
 
     if (syntheticLines.length === 0 && !shouldForceParamPrune) {
-        return convertLegacyReturnsDescriptionLinesToMetadata(
+        return Core.convertLegacyReturnsDescriptionLinesToMetadata(
             normalizedExistingLines
         );
     }
 
     if (normalizedExistingLines.length === 0) {
-        return convertLegacyReturnsDescriptionLinesToMetadata(syntheticLines);
+        return Core.convertLegacyReturnsDescriptionLinesToMetadata(
+            syntheticLines
+        );
     }
 
     const docTagMatches = (line, pattern) => {
@@ -5435,7 +4902,7 @@ function mergeSyntheticDocComments(
 
     const functionLines = syntheticLines.filter(isFunctionLine);
     const syntheticFunctionMetadata = functionLines
-        .map((line) => parseDocCommentMetadata(line))
+        .map((line) => Core.parseDocCommentMetadata(line))
         .find(
             (meta) =>
                 meta?.tag === "function" && typeof meta.name === STRING_TYPE
@@ -5461,7 +4928,7 @@ function mergeSyntheticDocComments(
         }
 
         const docMetadata =
-            metadata === undefined ? parseDocCommentMetadata(line) : metadata;
+            metadata === undefined ? Core.parseDocCommentMetadata(line) : metadata;
         const canonical =
             docMetadata?.tag === "param"
                 ? getCanonicalParamNameFromText(docMetadata.name)
@@ -5505,7 +4972,7 @@ function mergeSyntheticDocComments(
 
             let precedingDocTag = null;
             if (isDocCommentLine && isDocTagLine) {
-                const metadata = parseDocCommentMetadata(precedingLine);
+                const metadata = Core.parseDocCommentMetadata(precedingLine);
                 if (metadata && typeof metadata.tag === STRING_TYPE) {
                     precedingDocTag = metadata.tag.toLowerCase();
                 }
@@ -5586,7 +5053,7 @@ function mergeSyntheticDocComments(
         const normalizedOtherLines = [];
 
         for (const line of otherLines) {
-            const metadata = parseDocCommentMetadata(line);
+            const metadata = Core.parseDocCommentMetadata(line);
             const canonical = getParamCanonicalName(line, metadata);
 
             if (
@@ -5619,7 +5086,7 @@ function mergeSyntheticDocComments(
         const extractedReturns = [];
 
         for (const line of otherLines) {
-            const metadata = parseDocCommentMetadata(line);
+            const metadata = Core.parseDocCommentMetadata(line);
             if (metadata?.tag === "returns") {
                 extractedReturns.push(line);
                 continue;
@@ -5687,9 +5154,12 @@ function mergeSyntheticDocComments(
     ];
 
     if (Array.isArray(returnsLines) && returnsLines.length > 0) {
-        const { lines: dedupedReturns } = dedupeReturnDocLines(returnsLines, {
-            includeNonReturnLine: (line, trimmed) => trimmed.length > 0
-        });
+        const { lines: dedupedReturns } = Core.dedupeReturnDocLines(
+            returnsLines,
+            {
+                includeNonReturnLine: (line, trimmed) => trimmed.length > 0
+            }
+        );
 
         if (dedupedReturns.length > 0) {
             const filteredResult = [];
@@ -5729,7 +5199,7 @@ function mergeSyntheticDocComments(
         }
     }
 
-    const dedupedResult = dedupeReturnDocLines(result);
+    const dedupedResult = Core.dedupeReturnDocLines(result);
     result = dedupedResult.lines;
     if (dedupedResult.removed) {
         removedAnyLine = true;
@@ -5926,7 +5396,7 @@ function mergeSyntheticDocComments(
             descriptionEndIndex < reorderedDocs.length &&
             typeof reorderedDocs[descriptionEndIndex] === STRING_TYPE &&
             reorderedDocs[descriptionEndIndex].startsWith("///") &&
-            !parseDocCommentMetadata(reorderedDocs[descriptionEndIndex])
+            !Core.parseDocCommentMetadata(reorderedDocs[descriptionEndIndex])
         ) {
             descriptionEndIndex += 1;
         }
@@ -5942,7 +5412,7 @@ function mergeSyntheticDocComments(
 
         let shouldOmitDescriptionBlock = false;
         if (descriptionBlock.length === 1) {
-            const descriptionMetadata = parseDocCommentMetadata(
+            const descriptionMetadata = Core.parseDocCommentMetadata(
                 descriptionBlock[0]
             );
             const descriptionText =
@@ -5994,7 +5464,7 @@ function mergeSyntheticDocComments(
         }
     }
 
-    reorderedDocs = reorderDescriptionLinesAfterFunction(reorderedDocs);
+    reorderedDocs = Core.reorderDescriptionLinesAfterFunction(reorderedDocs);
 
     if (suppressedCanonicals && suppressedCanonicals.size > 0) {
         reorderedDocs = reorderedDocs.filter((line) => {
@@ -6211,7 +5681,7 @@ function mergeSyntheticDocComments(
                     if (
                         typeof nextLine === STRING_TYPE &&
                         nextLine.startsWith("///") &&
-                        !parseDocCommentMetadata(nextLine)
+                        !Core.parseDocCommentMetadata(nextLine)
                     ) {
                         blockLines.push(nextLine);
                         lookahead += 1;
@@ -6287,7 +5757,7 @@ function mergeSyntheticDocComments(
 
                             if (
                                 !docLine.startsWith("///") ||
-                                parseDocCommentMetadata(docLine)
+                                Core.parseDocCommentMetadata(docLine)
                             ) {
                                 return docLine;
                             }
@@ -6347,7 +5817,7 @@ function mergeSyntheticDocComments(
                 return true;
             }
 
-            const metadata = parseDocCommentMetadata(line);
+            const metadata = Core.parseDocCommentMetadata(line);
             const descriptionText = Core.toTrimmedString(metadata?.name);
 
             return descriptionText.length > 0;
@@ -6382,7 +5852,9 @@ function mergeSyntheticDocComments(
         // the original behavior without promotion so we don't throw.
     }
 
-    return convertLegacyReturnsDescriptionLinesToMetadata(filteredResult);
+    return Core.convertLegacyReturnsDescriptionLinesToMetadata(
+        filteredResult
+    );
 }
 
 function getCanonicalParamNameFromText(name) {
@@ -6858,7 +6330,7 @@ function computeSyntheticFunctionDocLines(
     }
 
     const metadata = Array.isArray(existingDocLines)
-        ? existingDocLines.map(parseDocCommentMetadata).filter(Boolean)
+        ? existingDocLines.map(Core.parseDocCommentMetadata).filter(Boolean)
         : [];
     const orderedParamMetadata = metadata.filter(
         (meta) => meta.tag === "param"
@@ -8207,67 +7679,6 @@ function functionReturnsNonUndefinedValue(functionNode) {
     }
 
     return false;
-}
-
-function parseDocCommentMetadata(line) {
-    if (typeof line !== STRING_TYPE) {
-        return null;
-    }
-
-    const trimmed = line.trim();
-    const match = trimmed.match(/^\/\/\/\s*@([a-z]+)\b\s*(.*)$/i);
-    if (!match) {
-        return null;
-    }
-
-    const tag = match[1].toLowerCase();
-    const remainder = match[2].trim();
-
-    if (tag === "param") {
-        let paramSection = remainder;
-        let type = null;
-
-        if (paramSection.startsWith("{")) {
-            const typeMatch = paramSection.match(/^\{([^}]*)\}\s*(.*)$/);
-            if (typeMatch) {
-                type = typeMatch[1]?.trim() ?? null;
-                paramSection = typeMatch[2] ?? "";
-            }
-        }
-
-        let name = null;
-        if (paramSection.startsWith("[")) {
-            let depth = 0;
-            for (let i = 0; i < paramSection.length; i++) {
-                const char = paramSection[i];
-                if (char === "[") {
-                    depth += 1;
-                } else if (char === "]") {
-                    depth -= 1;
-                    if (depth === 0) {
-                        name = paramSection.slice(0, i + 1);
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (!name) {
-            const paramMatch = paramSection.match(/^(\S+)/);
-            name = paramMatch ? paramMatch[1] : null;
-        }
-        if (typeof name === STRING_TYPE) {
-            name = Core.normalizeOptionalParamToken(name);
-        }
-
-        return {
-            tag,
-            name,
-            type: type ?? null
-        };
-    }
-
-    return { tag, name: remainder };
 }
 
 function getSourceTextForNode(node, options) {
@@ -9664,7 +9075,7 @@ function shouldGenerateSyntheticDocForFunction(
         return true;
     }
 
-    if (hasLegacyReturnsDescriptionLines(existingDocLines)) {
+    if (Core.hasLegacyReturnsDescriptionLines(existingDocLines)) {
         return true;
     }
 
