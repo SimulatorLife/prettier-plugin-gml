@@ -12,7 +12,7 @@ import type { ParserOptions } from "../src/types/index.js";
 import { defaultParserOptions } from "../src/types/index.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const fixturesDirectory = path.join(currentDirectory, "input");
+const fixturesDirectory = path.join(currentDirectory, "../../test/input");
 const fixtureExtension = ".gml";
 const fileEncoding = "utf8";
 

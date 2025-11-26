@@ -99,10 +99,7 @@ export function normalizeSimpleEscapeCase(text) {
         return text;
     }
 
-    return text.replaceAll(
-        /\\([bfnrtv])/gi,
-        (_match, escape) => `\\${escape.toLowerCase()}`
-    );
+    return text.replaceAll(/\\([bfnrtv])/g, (_match, escape) => `\\${escape}`);
 }
 
 /**

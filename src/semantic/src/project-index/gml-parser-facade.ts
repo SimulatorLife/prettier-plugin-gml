@@ -1,28 +1,42 @@
 import { SemanticScopeCoordinator } from "../scopes/identifier-scope.js";
 import { formatProjectIndexSyntaxError } from "./syntax-error-formatter.js";
 
-type ParserNamespace = {
-    GMLParser: { parse: (text: string, options?: any) => any };
-    isSyntaxErrorWithLocation: (value: unknown) => boolean;
-};
+// TODO: This is a workaround because currently the parser and 'semantic' depend on each other. Need to properly decouple. Once the parser is fully rebuilt we can likely remove this and directly import from the parser package (or have 'parser' have one-way dependency on 'semantic').
+type ParserNamespace = typeof import("@gml-modules/parser").Parser;
 
 let parserNamespace: ParserNamespace | null = null;
 
-export function setProjectIndexParser(parser: ParserNamespace) {
+export function setProjectIndexParserNamespace(parser: ParserNamespace): void {
     parserNamespace = parser;
 }
 
-function parseProjectIndexSource(sourceText, context = {}) {
-    if (!parserNamespace) {
-        throw new Error("Project index parser is not configured.");
+function resolveParserNamespace(parser?: ParserNamespace): ParserNamespace {
+    if (parser) {
+        return parser;
     }
+
+    if (parserNamespace) {
+        return parserNamespace;
+    }
+
+    throw new Error(
+        "Parser namespace is not initialized; call setProjectIndexParserNamespace first."
+    );
+}
+
+function parseProjectIndexSource(
+    sourceText: string,
+    context = {},
+    parser: ParserNamespace | null = null
+) {
+    const parserApi = resolveParserNamespace(parser);
 
     try {
         // TODO: Fix/correct this. We just casted to 'any' because ParserOptions differs across parser package types in the
         // workspace during incremental refactors, so provided the runtime options we needed
         // while avoiding a compile-time type mismatch until the parser package is
         // fully rebuilt.
-        return parserNamespace.GMLParser.parse(sourceText, {
+        return parserApi.GMLParser.parse(sourceText, {
             getComments: false,
             getLocations: true,
             simplifyLocations: false,
@@ -31,7 +45,7 @@ function parseProjectIndexSource(sourceText, context = {}) {
                 enabled ? new SemanticScopeCoordinator() : null
         } as any);
     } catch (error) {
-        if (parserNamespace.isSyntaxErrorWithLocation(error)) {
+        if (parserApi.isSyntaxErrorWithLocation(error)) {
             throw formatProjectIndexSyntaxError(error, sourceText, context);
         }
 
@@ -39,6 +53,9 @@ function parseProjectIndexSource(sourceText, context = {}) {
     }
 }
 
-export function getDefaultProjectIndexParser() {
-    return parseProjectIndexSource;
+export function getDefaultProjectIndexParser(
+    parser: ParserNamespace | null = null
+) {
+    return (sourceText: string, context = {}) =>
+        parseProjectIndexSource(sourceText, context, parser);
 }

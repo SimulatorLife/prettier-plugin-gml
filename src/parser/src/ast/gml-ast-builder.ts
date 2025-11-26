@@ -397,9 +397,13 @@ export default class GameMakerASTBuilder {
             index =
                 typeof token.startIndex === "number"
                     ? token.startIndex
-                    : typeof token.stopIndex === "number"
-                      ? token.stopIndex
-                      : null;
+                    : typeof token.start === "number"
+                      ? token.start
+                      : typeof token.stopIndex === "number"
+                        ? token.stopIndex
+                        : typeof token.stop === "number"
+                          ? token.stop
+                          : null;
         }
 
         if (index === null) {
@@ -1236,14 +1240,11 @@ export default class GameMakerASTBuilder {
             if (arg.UndefinedLiteral()) {
                 argList.push(this.visit(arg));
             } else if (!arg.expressionOrFunction()) {
-                // Instead of using the potentially incorrect arg context,
-                // we need to look for a comma that might indicate this missing argument.
-                // For now, create the missing argument node without relying on incorrect context
-                argList.push({
-                    type: "MissingOptionalArgument"
-                    // We'll let the caller handle location info properly
-                    // by reorganizing the arguments based on comma positions
-                });
+                argList.push(
+                    this.astNode(arg, {
+                        type: "MissingOptionalArgument"
+                    })
+                );
             } else if (arg.expressionOrFunction()) {
                 argList.push(this.visit(arg.expressionOrFunction()));
             }

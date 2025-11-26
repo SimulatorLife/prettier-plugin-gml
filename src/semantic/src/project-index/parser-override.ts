@@ -1,3 +1,5 @@
+// TODO: Its confusing that we have this and 'src/semantic/src/project-index/gml-parser-facade.ts'. Can they be combined?
+
 import { Core } from "@gml-modules/core";
 
 import { getDefaultProjectIndexParser } from "./gml-parser-facade.js";
