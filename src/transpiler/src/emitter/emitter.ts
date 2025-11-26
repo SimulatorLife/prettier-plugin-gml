@@ -58,10 +58,12 @@ const STATEMENT_KEYWORDS = [
 export class GmlToJsEmitter {
     private readonly sem: SemOracle;
     private readonly options: EmitOptions;
+    private readonly globalVars: Set<string>;
 
     constructor(sem: SemOracle, options: Partial<EmitOptions> = {}) {
         this.sem = sem;
         this.options = { ...DEFAULT_OPTIONS, ...options };
+        this.globalVars = new Set();
     }
 
     emit(ast: StatementLike): string {
@@ -201,6 +203,9 @@ export class GmlToJsEmitter {
     private visitIdentifier(ast: IdentifierNode): string {
         const kind = this.sem.kindOfIdent(ast);
         const name = this.sem.nameOfIdent(ast);
+        if (this.globalVars.has(name)) {
+            return `${this.options.globalsIdent}.${name}`;
+        }
         switch (kind) {
             case "self_field": {
                 return `self.${name}`;
@@ -459,6 +464,7 @@ export class GmlToJsEmitter {
                 if (!identifier) {
                     return "";
                 }
+                this.globalVars.add(identifier);
                 return `if (!Object.prototype.hasOwnProperty.call(globalThis, "${identifier}")) { globalThis.${identifier} = undefined; }`;
             })
             .filter(Boolean)
