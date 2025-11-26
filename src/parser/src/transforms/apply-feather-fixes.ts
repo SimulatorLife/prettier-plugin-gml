@@ -13615,7 +13615,6 @@ function cloneNodeWithoutLocations(node) {
     return clone;
 }
 
-
 function ensureNumericOperationsUseRealLiteralCoercion({ ast, diagnostic }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];

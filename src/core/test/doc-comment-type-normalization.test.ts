@@ -81,7 +81,9 @@ test("doc comment type normalization resolver extends the defaults", () => {
         );
 
         assert.equal(
-            Core.normalizeDocCommentTypeAnnotations("/// @param {Vec3} direction"),
+            Core.normalizeDocCommentTypeAnnotations(
+                "/// @param {Vec3} direction"
+            ),
             "/// @param {vector3} direction"
         );
     } finally {

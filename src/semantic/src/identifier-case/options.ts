@@ -161,10 +161,7 @@ function createScopeOptionConfig(scope): IdentifierCaseOptionConfig {
     };
 }
 
-const baseIdentifierCaseOptions: Record<
-    string,
-    IdentifierCaseOptionConfig
-> = {
+const baseIdentifierCaseOptions: Record<string, IdentifierCaseOptionConfig> = {
     [IDENTIFIER_CASE_BASE_OPTION_NAME]: {
         since: BASE_IDENTIFIER_CASE_SINCE,
         type: "choice",
@@ -233,31 +230,29 @@ const scopeOptions = IDENTIFIER_CASE_SCOPE_NAMES.reduce<
     return optionsByScope;
 }, {});
 
-export const identifierCaseOptions: Record<
-    string,
-    IdentifierCaseOptionConfig
-> = {
-    ...baseIdentifierCaseOptions,
-    [IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME]: {
-        since: BASE_IDENTIFIER_CASE_SINCE,
-        type: "int",
-        category: "gml",
-        default: DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES,
-        range: { start: 0, end: Infinity },
-        description:
-            "Maximum number of identifier-case option store entries to retain. Set to 0 to disable eviction entirely."
-    },
-    [IDENTIFIER_CASE_PROJECT_INDEX_CONCURRENCY_OPTION_NAME]: {
-        since: BASE_IDENTIFIER_CASE_SINCE,
-        type: "int",
-        category: "gml",
-        default: getDefaultProjectIndexGmlConcurrency(),
-        range: { start: 1, end: Infinity },
-        description:
-            "Maximum number of GameMaker files parsed in parallel while building identifier-case project indexes."
-    },
-    ...scopeOptions
-};
+export const identifierCaseOptions: Record<string, IdentifierCaseOptionConfig> =
+    {
+        ...baseIdentifierCaseOptions,
+        [IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME]: {
+            since: BASE_IDENTIFIER_CASE_SINCE,
+            type: "int",
+            category: "gml",
+            default: DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES,
+            range: { start: 0, end: Infinity },
+            description:
+                "Maximum number of identifier-case option store entries to retain. Set to 0 to disable eviction entirely."
+        },
+        [IDENTIFIER_CASE_PROJECT_INDEX_CONCURRENCY_OPTION_NAME]: {
+            since: BASE_IDENTIFIER_CASE_SINCE,
+            type: "int",
+            category: "gml",
+            default: getDefaultProjectIndexGmlConcurrency(),
+            range: { start: 1, end: Infinity },
+            description:
+                "Maximum number of GameMaker files parsed in parallel while building identifier-case project indexes."
+        },
+        ...scopeOptions
+    };
 
 function normalizeList(optionName, value) {
     return Core.normalizeStringList(value, {

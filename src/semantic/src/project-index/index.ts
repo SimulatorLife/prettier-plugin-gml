@@ -27,10 +27,7 @@ import {
     getDefaultProjectIndexCacheMaxSize
 } from "./cache.js";
 import { createProjectIndexCoordinator as createProjectIndexCoordinatorCore } from "./coordinator.js";
-import {
-    defaultFsFacade,
-    type ProjectIndexFsFacade
-} from "./fs-facade.js";
+import { defaultFsFacade, type ProjectIndexFsFacade } from "./fs-facade.js";
 // import { clampConcurrency } from "./concurrency.js";
 // import { resolveProjectIndexParser } from "./parser-override.js";
 // import {

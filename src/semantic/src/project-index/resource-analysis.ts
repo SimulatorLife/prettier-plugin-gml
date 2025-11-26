@@ -8,10 +8,7 @@ import {
     matchProjectResourceMetadataExtension
 } from "./constants.js";
 import { normalizeProjectResourcePath } from "./path-normalization.js";
-import {
-    defaultFsFacade,
-    type ProjectIndexFsFacade
-} from "./fs-facade.js";
+import { defaultFsFacade, type ProjectIndexFsFacade } from "./fs-facade.js";
 
 const RESOURCE_ANALYSIS_ABORT_MESSAGE = "Project index build was aborted.";
 
@@ -244,7 +241,9 @@ function createResourceAnalysisContext() {
 
 async function loadResourceDocument(
     file,
-    fsFacade: Required<Pick<ProjectIndexFsFacade, "readFile">> = defaultFsFacade,
+    fsFacade: Required<
+        Pick<ProjectIndexFsFacade, "readFile">
+    > = defaultFsFacade,
     options = {}
 ) {
     const { ensureNotAborted } = Core.createAbortGuard(options, {

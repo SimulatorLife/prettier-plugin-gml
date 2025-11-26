@@ -7,10 +7,7 @@ import {
     createProjectIndexAbortGuard
 } from "./abort-guard.js";
 import { isProjectManifestPath } from "./constants.js";
-import {
-    defaultFsFacade,
-    type ProjectIndexFsFacade
-} from "./fs-facade.js";
+import { defaultFsFacade, type ProjectIndexFsFacade } from "./fs-facade.js";
 
 // Use canonical Core namespace access instead of destructuring
 // - Core.walkAncestorDirectories

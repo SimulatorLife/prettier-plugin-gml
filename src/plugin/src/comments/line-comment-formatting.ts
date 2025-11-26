@@ -453,5 +453,5 @@ export {
     applyInlinePadding,
     formatLineComment,
     getLineCommentRawText,
-    normalizeBannerCommentText,
+    normalizeBannerCommentText
 };
