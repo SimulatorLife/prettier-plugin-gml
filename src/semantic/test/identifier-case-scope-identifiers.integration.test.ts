@@ -9,6 +9,21 @@ import { buildProjectIndex } from "../src/project-index/index.js";
 
 type IdentifierIndexEntry = { identifierId?: string; name?: string };
 
+type IdentifierCollections = {
+    enums: Record<string, IdentifierIndexEntry>;
+    enumMembers: Record<string, IdentifierIndexEntry>;
+    globalVariables: Record<string, IdentifierIndexEntry>;
+    instanceVariables: Record<string, IdentifierIndexEntry>;
+    macros: Record<string, IdentifierIndexEntry>;
+    scripts: Record<string, IdentifierIndexEntry>;
+};
+
+type ProjectIndexSnapshot = { identifiers: IdentifierCollections };
+
+function valuesAs<T>(record: Record<string, T>): T[] {
+    return Object.values(record);
+}
+
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixturesDirectory = path.join(
     currentDirectory,
@@ -28,7 +43,7 @@ async function createIdentifierFixtureProject() {
         path.join(os.tmpdir(), "gml-scope-identifiers-")
     );
 
-    const writeFile = async (relativePath, contents) => {
+    const writeFile = async (relativePath: string, contents: string) => {
         const absolutePath = path.join(tempRoot, relativePath);
         await fs.mkdir(path.dirname(absolutePath), { recursive: true });
         await fs.writeFile(absolutePath, contents, "utf8");
@@ -78,7 +93,9 @@ describe("project index identifier tracking", () => {
         const { projectRoot } = await createIdentifierFixtureProject();
 
         try {
-            const index: any = await buildProjectIndex(projectRoot);
+            const index = (await buildProjectIndex(
+                projectRoot
+            )) as ProjectIndexSnapshot;
 
             const scriptEntry =
                 index.identifiers.scripts["scope:script:scopeCollision"];
@@ -106,7 +123,7 @@ describe("project index identifier tracking", () => {
                 "global:GLOBAL_RATE"
             );
 
-            const enumEntries = Object.values(
+            const enumEntries = valuesAs<IdentifierIndexEntry>(
                 index.identifiers.enums
             );
             assert.ok(enumEntries.length >= 2, "expected enum entries");
@@ -117,7 +134,7 @@ describe("project index identifier tracking", () => {
                 );
             }
 
-            const enumMembers = Object.values(
+            const enumMembers = valuesAs<IdentifierIndexEntry>(
                 index.identifiers.enumMembers
             );
             const sharedMembers = enumMembers.filter(
@@ -131,7 +148,7 @@ describe("project index identifier tracking", () => {
                 );
             }
 
-            const instanceEntries = Object.values(
+            const instanceEntries = valuesAs<IdentifierIndexEntry>(
                 index.identifiers.instanceVariables
             );
             const speedBonusNames = instanceEntries.filter((entry) =>

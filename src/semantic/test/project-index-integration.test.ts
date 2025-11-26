@@ -8,11 +8,59 @@ import { buildProjectIndex } from "../src/project-index/index.js";
 
 type IdentifierIndexEntry = {
     name?: string;
-    declarations?: Array<unknown>;
-    references?: Array<unknown>;
+    declarations?: Array<{ name?: string }>;
+    references?: Array<{ filePath?: string }>;
 };
 
-async function writeFile(rootDir, relativePath, contents) {
+type IdentifierCollections = {
+    enums: Record<string, IdentifierIndexEntry>;
+    enumMembers: Record<string, IdentifierIndexEntry>;
+    globalVariables: Record<string, IdentifierIndexEntry>;
+    instanceVariables: Record<string, IdentifierIndexEntry>;
+    macros: Record<string, IdentifierIndexEntry>;
+    scripts: Record<string, IdentifierIndexEntry>;
+};
+
+type ScriptCall = { target: { name?: string } };
+
+type ProjectIndexSnapshot = {
+    identifiers: IdentifierCollections;
+    files: Record<
+        string,
+        {
+            scriptCalls: Array<{
+                target: { name: string };
+                isResolved?: boolean;
+            }>;
+            ignoredIdentifiers?: Array<{ name?: string; reason?: string }>;
+        }
+    >;
+    relationships: {
+        assetReferences: Array<{
+            fromResourcePath?: string;
+            targetPath?: string;
+        }>;
+        scriptCalls: ScriptCall[];
+    };
+    resources: Record<string, unknown>;
+    scopes: Record<
+        string,
+        {
+            declarations: Array<{ name?: string }>;
+            scriptCalls: ScriptCall[];
+        }
+    >;
+};
+
+function valuesAs<T>(record: Record<string, T>): T[] {
+    return Object.values(record);
+}
+
+async function writeFile(
+    rootDir: string,
+    relativePath: string,
+    contents: string
+) {
     const absolutePath = path.join(rootDir, relativePath);
     await fs.mkdir(path.dirname(absolutePath), { recursive: true });
     await fs.writeFile(absolutePath, contents, "utf8");
@@ -147,7 +195,9 @@ test("buildProjectIndex collects symbols and relationships across project files"
             ["if (hp <= 0) {", "    instance_destroy();", "}"].join("\n")
         );
 
-        const index: any = await buildProjectIndex(tempRoot);
+        const index = (await buildProjectIndex(
+            tempRoot
+        )) as ProjectIndexSnapshot;
 
         assert.ok(
             index.resources["scripts/attack/attack.yy"],
@@ -204,7 +254,7 @@ test("buildProjectIndex collects symbols and relationships across project files"
         assert.equal(globalIdentifiers.declarations.length, 1);
         assert.ok(globalIdentifiers.references.length > 0);
 
-        const enumEntries = Object.values(
+        const enumEntries = valuesAs<IdentifierIndexEntry>(
             index.identifiers.enums
         );
         const difficultyEnum = enumEntries.find(
@@ -214,7 +264,7 @@ test("buildProjectIndex collects symbols and relationships across project files"
         assert.equal(difficultyEnum.declarations.length, 1);
         assert.ok(difficultyEnum.references.length > 0);
 
-        const enumMemberEntries = Object.values(
+        const enumMemberEntries = valuesAs<IdentifierIndexEntry>(
             index.identifiers.enumMembers
         );
         const hardMember = enumMemberEntries.find(
@@ -231,7 +281,7 @@ test("buildProjectIndex collects symbols and relationships across project files"
         assert.equal(createFile.scriptCalls[0].target.name, "attack");
         assert.equal(createFile.scriptCalls[0].isResolved, true);
 
-        const instanceEntries = Object.values(
+        const instanceEntries = valuesAs<IdentifierIndexEntry>(
             index.identifiers.instanceVariables
         );
         const hpInstance = instanceEntries.find((entry) => entry.name === "hp");

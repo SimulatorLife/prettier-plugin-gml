@@ -13,7 +13,25 @@ type IdentifierIndexEntry = {
     references?: Array<unknown>;
 };
 
-async function writeFile(rootDir, relativePath, contents) {
+type IdentifierCollections = {
+    enums: Record<string, IdentifierIndexEntry>;
+    globalVariables: Record<string, IdentifierIndexEntry>;
+    instanceVariables: Record<string, IdentifierIndexEntry>;
+    macros: Record<string, IdentifierIndexEntry>;
+    scripts: Record<string, IdentifierIndexEntry>;
+};
+
+type ProjectIndexSnapshot = { identifiers: IdentifierCollections };
+
+function valuesAs<T>(record: Record<string, T>): T[] {
+    return Object.values(record);
+}
+
+async function writeFile(
+    rootDir: string,
+    relativePath: string,
+    contents: string
+) {
     const absolutePath = path.join(rootDir, relativePath);
     await fs.mkdir(path.dirname(absolutePath), { recursive: true });
     await fs.writeFile(absolutePath, contents, "utf8");
@@ -94,7 +112,9 @@ test("buildProjectIndex assigns identifier ids for each scope", async () => {
             ].join("\n")
         );
 
-        const index: any = await buildProjectIndex(tempRoot);
+        const index = (await buildProjectIndex(
+            tempRoot
+        )) as ProjectIndexSnapshot;
 
         const scriptEntry =
             index.identifiers.scripts["scope:script:scopeCollision"];
@@ -114,7 +134,7 @@ test("buildProjectIndex assigns identifier ids for each scope", async () => {
         const globalUpper = index.identifiers.globalVariables.GLOBAL_RATE;
         assert.equal(globalUpper.identifierId, "global:GLOBAL_RATE");
 
-        const enumEntries = Object.values(
+        const enumEntries = valuesAs<IdentifierIndexEntry>(
             index.identifiers.enums
         );
         assert.ok(enumEntries.length > 0);
@@ -122,7 +142,7 @@ test("buildProjectIndex assigns identifier ids for each scope", async () => {
             assert.ok(entry.identifierId?.startsWith("enum:"));
         }
 
-        const instanceEntries = Object.values(
+        const instanceEntries = valuesAs<IdentifierIndexEntry>(
             index.identifiers.instanceVariables
         );
         const instanceIds = instanceEntries.map((entry) => entry.identifierId);

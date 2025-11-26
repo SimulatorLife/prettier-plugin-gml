@@ -10,8 +10,22 @@ import { buildProjectIndex } from "../src/project-index/index.js";
 type IdentifierIndexEntry = {
     identifierId?: string;
     name?: string;
-    declarations?: Array<unknown>;
+    declarations?: unknown[];
 };
+
+type IdentifierCollections = {
+    enums: Record<string, IdentifierIndexEntry>;
+    enumMembers: Record<string, IdentifierIndexEntry>;
+    globalVariables: Record<string, IdentifierIndexEntry>;
+    macros: Record<string, IdentifierIndexEntry>;
+    scripts: Record<string, IdentifierIndexEntry>;
+};
+
+type ProjectIndexSnapshot = { identifiers: IdentifierCollections };
+
+function valuesAs<T>(record: Record<string, T>): T[] {
+    return Object.values(record);
+}
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixturesDirectory = path.join(
@@ -24,7 +38,7 @@ async function createScopeFixtureProject() {
     const tempRoot = await fs.mkdtemp(
         path.join(os.tmpdir(), "gml-scope-tests-")
     );
-    const writeFile = async (relativePath, contents) => {
+    const writeFile = async (relativePath: string, contents: string) => {
         const absolutePath = path.join(tempRoot, relativePath);
         await fs.mkdir(path.dirname(absolutePath), { recursive: true });
         await fs.writeFile(absolutePath, contents, "utf8");
@@ -52,7 +66,9 @@ describe("project index scope tracking", () => {
         const { projectRoot } = await createScopeFixtureProject();
 
         try {
-            const index: any = await buildProjectIndex(projectRoot);
+            const index = (await buildProjectIndex(
+                projectRoot
+            )) as ProjectIndexSnapshot;
 
             const macros = index.identifiers.macros;
             assert.ok(
@@ -76,7 +92,7 @@ describe("project index scope tracking", () => {
                 "expected GLOBAL_SCORE declaration to be tracked"
             );
 
-            const enumEntries = Object.values(
+            const enumEntries = valuesAs<IdentifierIndexEntry>(
                 index.identifiers.enums
             );
             const difficultyEnum = enumEntries.find(
@@ -91,7 +107,7 @@ describe("project index scope tracking", () => {
                 "expected DifficultyCopy enum to be present"
             );
 
-            const enumMembers = Object.values(
+            const enumMembers = valuesAs<IdentifierIndexEntry>(
                 index.identifiers.enumMembers
             );
             const hasEasyMember = enumMembers.filter(
