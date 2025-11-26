@@ -2,7 +2,16 @@ import { Core } from "@gml-modules/core";
 
 import { getDefaultProjectIndexParser } from "./gml-parser-facade.js";
 
-const defaultProjectIndexParser = getDefaultProjectIndexParser();
+let defaultProjectIndexParser: ((...args: Array<unknown>) => unknown) | null =
+    null;
+
+function resolveDefaultParser() {
+    if (!defaultProjectIndexParser) {
+        defaultProjectIndexParser = getDefaultProjectIndexParser();
+    }
+
+    return defaultProjectIndexParser;
+}
 
 const PARSER_FACADE_OPTION_KEYS = [
     "identifierCaseProjectIndexParserFacade",
@@ -31,7 +40,6 @@ export function getProjectIndexParserOverride(options) {
 
 export function resolveProjectIndexParser(options) {
     return (
-        getProjectIndexParserOverride(options)?.parse ??
-        defaultProjectIndexParser
+        getProjectIndexParserOverride(options)?.parse ?? resolveDefaultParser()
     );
 }

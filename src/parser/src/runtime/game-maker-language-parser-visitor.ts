@@ -1,4 +1,4 @@
-import { GameMakerLanguageParserVisitorBase } from "../index.js";
+import GameMakerLanguageParserVisitorBase from "../../generated/GameMakerLanguageParserVisitor.js";
 import type {
     ParserContext,
     VisitorOptions,
