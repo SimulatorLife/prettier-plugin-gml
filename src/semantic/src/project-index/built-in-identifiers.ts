@@ -1,9 +1,10 @@
-import { promises as fs } from "node:fs";
 import { Core } from "@gml-modules/core";
 
 import { createProjectIndexAbortGuard } from "./abort-guard.js";
-
-type ProjectIndexFsFacade = typeof fs;
+import {
+    defaultFsFacade,
+    type ProjectIndexFsFacade
+} from "./fs-facade.js";
 
 const GML_IDENTIFIER_FILE_PATH = Core.GML_IDENTIFIER_METADATA_PATH;
 
@@ -59,7 +60,8 @@ function areMtimesEquivalent(cachedMtime, currentMtime) {
 }
 
 export async function loadBuiltInIdentifiers(
-    fsFacade: ProjectIndexFsFacade = fs,
+    fsFacade: Required<Pick<ProjectIndexFsFacade, "readFile" | "stat">> =
+        defaultFsFacade,
     metrics = null,
     options: any = {}
 ) {

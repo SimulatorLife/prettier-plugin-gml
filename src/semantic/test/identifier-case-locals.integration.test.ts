@@ -33,7 +33,10 @@ const pluginPath = (() => {
     // semantic package's dist/test directory (the relative path requires
     // traversing an extra directory level).
     candidates.push(
-        path.resolve(currentDirectory, "../../../plugin/dist/src/plugin-entry.js")
+        path.resolve(
+            currentDirectory,
+            "../../../plugin/dist/src/plugin-entry.js"
+        )
     );
     candidates.push(
         path.resolve(currentDirectory, "../../../plugin/dist/index.js")

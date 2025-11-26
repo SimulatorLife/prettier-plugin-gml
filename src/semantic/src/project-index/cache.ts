@@ -4,8 +4,10 @@ import { Core } from "@gml-modules/core";
 import { createHash, randomUUID } from "node:crypto";
 
 import { isProjectManifestPath } from "./constants.js";
-
-type ProjectIndexFsFacade = typeof fs;
+import {
+    defaultFsFacade,
+    type ProjectIndexFsFacade
+} from "./fs-facade.js";
 
 export const PROJECT_INDEX_CACHE_SCHEMA_VERSION = 1;
 export const PROJECT_INDEX_CACHE_DIRECTORY = ".prettier-plugin-gml";
@@ -261,7 +263,8 @@ export {
 
 export async function loadProjectIndexCache(
     descriptor,
-    fsFacade: ProjectIndexFsFacade = fs,
+    fsFacade: Required<Pick<ProjectIndexFsFacade, "readFile">> =
+        defaultFsFacade,
     options = {}
 ) {
     const {
@@ -387,7 +390,9 @@ export async function loadProjectIndexCache(
 
 export async function saveProjectIndexCache(
     descriptor,
-    fsFacade: ProjectIndexFsFacade = fs,
+    fsFacade: Required<
+        Pick<ProjectIndexFsFacade, "mkdir" | "writeFile" | "rename" | "unlink">
+    > = defaultFsFacade,
     options = {}
 ) {
     const {
@@ -493,7 +498,8 @@ export async function deriveCacheKey(
         projectRoot?: string | null;
         formatterVersion?: string;
     } = {},
-    fsFacade: ProjectIndexFsFacade = fs
+    fsFacade: Required<Pick<ProjectIndexFsFacade, "readDir" | "stat">> =
+        defaultFsFacade
 ) {
     const hash = createHash("sha256");
     hash.update(String(formatterVersion));

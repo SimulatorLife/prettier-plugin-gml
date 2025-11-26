@@ -106,9 +106,13 @@ async function parse(text, options) {
             });
             if (process.env.GML_PRINTER_DEBUG) {
                 try {
-                    const length = Array.isArray(ast?.comments) ? ast.comments.length : 0;
-                    console.debug(`[DBG] gml-parser-adapter: parse called with getComments=true; ast.comments=${length}`);
-                } catch { }
+                    const length = Array.isArray(ast?.comments)
+                        ? ast.comments.length
+                        : 0;
+                    console.debug(
+                        `[DBG] gml-parser-adapter: parse called with getComments=true; ast.comments=${length}`
+                    );
+                } catch {}
             }
         } catch (error) {
             if (!options?.applyFeatherFixes) {
@@ -143,7 +147,6 @@ async function parse(text, options) {
                 "GameMaker parser returned no AST for the provided source."
             );
         }
-
 
         if (options?.condenseStructAssignments ?? true) {
             Parser.Transforms.consolidateStructAssignments(ast, {

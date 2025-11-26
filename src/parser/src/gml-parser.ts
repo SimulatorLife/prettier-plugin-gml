@@ -9,10 +9,6 @@ import GameMakerParseErrorListener, {
 } from "./ast/gml-syntax-error.js";
 import { createHiddenNodeProcessor } from "./ast/hidden-node-processor.js";
 import { Core } from "@gml-modules/core";
-import {
-    removeLocationMetadata,
-    simplifyLocationMetadata
-} from "./ast/location-manipulation.js";
 import { installRecognitionExceptionLikeGuard } from "./runtime/index.js";
 import convertToESTree from "./utils/estree-converter.js";
 import { defaultParserOptions } from "./types/index.js";
@@ -249,11 +245,11 @@ export class GMLParser {
     }
 
     removeLocationInfo(obj) {
-        removeLocationMetadata(obj);
+        Core.removeLocationMetadata(obj);
     }
 
     simplifyLocationInfo(obj) {
-        simplifyLocationMetadata(obj);
+        Core.simplifyLocationMetadata(obj);
     }
 }
 

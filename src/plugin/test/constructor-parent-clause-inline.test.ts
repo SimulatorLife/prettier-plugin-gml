@@ -6,7 +6,9 @@ async function formatWithPlugin(source, options: any = {}) {
     const formatted = await Plugin.format(source, options);
 
     if (typeof formatted !== "string") {
-        throw new TypeError("Expected Plugin.format to return a string result.");
+        throw new TypeError(
+            "Expected Plugin.format to return a string result."
+        );
     }
 
     return formatted.trim();

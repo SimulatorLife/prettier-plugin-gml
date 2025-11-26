@@ -21,15 +21,16 @@ export * from "./path-normalization.js";
 // import path from "node:path";
 // import { Core } from "@gml-modules/core";
 
-import { promises as fs } from "node:fs";
 import {
     loadProjectIndexCache,
     saveProjectIndexCache,
     getDefaultProjectIndexCacheMaxSize
 } from "./cache.js";
 import { createProjectIndexCoordinator as createProjectIndexCoordinatorCore } from "./coordinator.js";
-
-type ProjectIndexFsFacade = typeof fs;
+import {
+    defaultFsFacade,
+    type ProjectIndexFsFacade
+} from "./fs-facade.js";
 // import { clampConcurrency } from "./concurrency.js";
 // import { resolveProjectIndexParser } from "./parser-override.js";
 // import {
@@ -73,7 +74,7 @@ type ProjectIndexFsFacade = typeof fs;
 
 export function createProjectIndexCoordinator(options: any = {}) {
     const {
-        fsFacade = fs,
+        fsFacade = defaultFsFacade,
         loadCache = loadProjectIndexCache,
         saveCache = saveProjectIndexCache,
         buildIndex = buildProjectIndex,
@@ -2091,7 +2092,7 @@ export function createProjectIndexCoordinator(options: any = {}) {
 
 export async function buildProjectIndex(
     projectRoot: string,
-    fsFacade: ProjectIndexFsFacade = fs,
+    fsFacade: ProjectIndexFsFacade = defaultFsFacade,
     options: any = {}
 ): Promise<any> {
     //     if (!projectRoot) {

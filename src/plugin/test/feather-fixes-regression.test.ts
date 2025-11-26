@@ -11,7 +11,9 @@ describe("Feather fix regressions", () => {
             'draw_text(room_width - 5, 5, "In the top-right corner");'
         ].join("\n");
 
-        const formatted = await Plugin.format(source, { applyFeatherFixes: true });
+        const formatted = await Plugin.format(source, {
+            applyFeatherFixes: true
+        });
 
         assert.strictEqual(
             formatted,
@@ -29,7 +31,9 @@ describe("Feather fix regressions", () => {
             "vertex_end(vb);"
         ].join("\n");
 
-        const formatted = await Plugin.format(source, { applyFeatherFixes: true });
+        const formatted = await Plugin.format(source, {
+            applyFeatherFixes: true
+        });
 
         assert.strictEqual(
             formatted,

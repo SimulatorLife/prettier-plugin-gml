@@ -1,5 +1,4 @@
 import path from "node:path";
-import { promises as fs } from "node:fs";
 
 import { Core } from "@gml-modules/core";
 
@@ -8,14 +7,17 @@ import {
     createProjectIndexAbortGuard
 } from "./abort-guard.js";
 import { isProjectManifestPath } from "./constants.js";
-type ProjectIndexFsFacade = typeof fs;
+import {
+    defaultFsFacade,
+    type ProjectIndexFsFacade
+} from "./fs-facade.js";
 
 // Use canonical Core namespace access instead of destructuring
 // - Core.walkAncestorDirectories
 
 export async function findProjectRoot(
     options,
-    fsFacade: ProjectIndexFsFacade = fs
+    fsFacade: Required<Pick<ProjectIndexFsFacade, "readDir">> = defaultFsFacade
 ) {
     const filepath = options?.filepath;
     const { signal, ensureNotAborted } = createProjectIndexAbortGuard(options, {

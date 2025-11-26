@@ -451,27 +451,9 @@ function splitCommentIntoSentences(text) {
     return sentences;
 }
 
-const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION =
-    Core.DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION;
-const normalizeDocCommentTypeAnnotations =
-    Core.normalizeDocCommentTypeAnnotations;
-const resolveDocCommentTypeNormalization =
-    Core.resolveDocCommentTypeNormalization;
-const setDocCommentTypeNormalizationResolver =
-    Core.setDocCommentTypeNormalizationResolver;
-const restoreDefaultDocCommentTypeNormalizationResolver =
-    Core.restoreDefaultDocCommentTypeNormalizationResolver;
-const applyJsDocReplacements = Core.applyJsDocReplacements;
-
 export {
-    DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION,
     applyInlinePadding,
     formatLineComment,
     getLineCommentRawText,
-    normalizeBannerCommentText,
-    normalizeDocCommentTypeAnnotations,
-    resolveDocCommentTypeNormalization,
-    restoreDefaultDocCommentTypeNormalizationResolver,
-    setDocCommentTypeNormalizationResolver,
-    applyJsDocReplacements
+    normalizeBannerCommentText
 };

@@ -1,4 +1,7 @@
 // eslint.config.ts
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import { defineConfig } from "eslint/config";
@@ -26,6 +29,7 @@ import pluginYml from "eslint-plugin-yml";
 // Prettier config
 import eslintConfigPrettier from "eslint-config-prettier";
 
+const tsconfigRootDir = path.dirname(fileURLToPath(import.meta.url));
 const tsImportResolver = createTypeScriptImportResolver({
     project: ["./tsconfig.eslint.json"]
 });
@@ -103,8 +107,8 @@ const tsConfig = defineConfig({
         },
         parser: tseslint.parser,
         parserOptions: {
-            project: "./tsconfig.eslint.json", // enable type-aware rules
-            tsconfigRootDir: import.meta.dirname
+            projectService: true,
+            tsconfigRootDir
         }
     },
 

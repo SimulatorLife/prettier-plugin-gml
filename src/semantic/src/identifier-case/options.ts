@@ -111,7 +111,21 @@ export function normalizeIdentifierCaseAssetStyle(style) {
     return assertIdentifierCaseStyle(style, ASSET_SCOPE_OPTION_NAME);
 }
 
-function createChoice(value, description) {
+type IdentifierCaseOptionChoice = { value: string; description: string };
+type IdentifierCaseOptionConfig = {
+    since: string;
+    type: string;
+    category: "gml";
+    default: unknown;
+    description: string;
+    range?: { start: number; end: number };
+    choices?: IdentifierCaseOptionChoice[];
+};
+
+function createChoice(
+    value: string,
+    description: string
+): IdentifierCaseOptionChoice {
     return { value, description };
 }
 
@@ -136,7 +150,7 @@ function createScopeChoiceEntries() {
     return [inheritChoice, ...IDENTIFIER_CASE_STYLE_CHOICES];
 }
 
-function createScopeOptionConfig(scope) {
+function createScopeOptionConfig(scope): IdentifierCaseOptionConfig {
     return {
         since: BASE_IDENTIFIER_CASE_SINCE,
         type: "choice",
@@ -147,7 +161,10 @@ function createScopeOptionConfig(scope) {
     };
 }
 
-export const identifierCaseOptions = {
+const baseIdentifierCaseOptions: Record<
+    string,
+    IdentifierCaseOptionConfig
+> = {
     [IDENTIFIER_CASE_BASE_OPTION_NAME]: {
         since: BASE_IDENTIFIER_CASE_SINCE,
         type: "choice",
@@ -208,30 +225,39 @@ export const identifierCaseOptions = {
     }
 };
 
-identifierCaseOptions[IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME] = {
-    since: BASE_IDENTIFIER_CASE_SINCE,
-    type: "int",
-    category: "gml",
-    default: DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES,
-    range: { start: 0, end: Infinity },
-    description:
-        "Maximum number of identifier-case option store entries to retain. Set to 0 to disable eviction entirely."
-};
-
-identifierCaseOptions[IDENTIFIER_CASE_PROJECT_INDEX_CONCURRENCY_OPTION_NAME] = {
-    since: BASE_IDENTIFIER_CASE_SINCE,
-    type: "int",
-    category: "gml",
-    default: getDefaultProjectIndexGmlConcurrency(),
-    range: { start: 1, end: Infinity },
-    description:
-        "Maximum number of GameMaker files parsed in parallel while building identifier-case project indexes."
-};
-
-for (const scope of IDENTIFIER_CASE_SCOPE_NAMES) {
+const scopeOptions = IDENTIFIER_CASE_SCOPE_NAMES.reduce<
+    Record<string, IdentifierCaseOptionConfig>
+>((optionsByScope, scope) => {
     const optionName = getScopeOptionName(scope);
-    identifierCaseOptions[optionName] = createScopeOptionConfig(scope);
-}
+    optionsByScope[optionName] = createScopeOptionConfig(scope);
+    return optionsByScope;
+}, {});
+
+export const identifierCaseOptions: Record<
+    string,
+    IdentifierCaseOptionConfig
+> = {
+    ...baseIdentifierCaseOptions,
+    [IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME]: {
+        since: BASE_IDENTIFIER_CASE_SINCE,
+        type: "int",
+        category: "gml",
+        default: DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES,
+        range: { start: 0, end: Infinity },
+        description:
+            "Maximum number of identifier-case option store entries to retain. Set to 0 to disable eviction entirely."
+    },
+    [IDENTIFIER_CASE_PROJECT_INDEX_CONCURRENCY_OPTION_NAME]: {
+        since: BASE_IDENTIFIER_CASE_SINCE,
+        type: "int",
+        category: "gml",
+        default: getDefaultProjectIndexGmlConcurrency(),
+        range: { start: 1, end: Infinity },
+        description:
+            "Maximum number of GameMaker files parsed in parallel while building identifier-case project indexes."
+    },
+    ...scopeOptions
+};
 
 function normalizeList(optionName, value) {
     return Core.normalizeStringList(value, {

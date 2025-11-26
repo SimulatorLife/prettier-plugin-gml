@@ -1,5 +1,4 @@
 import path from "node:path";
-import { promises as fs } from "node:fs";
 
 import { Core } from "@gml-modules/core";
 
@@ -9,8 +8,10 @@ import {
     matchProjectResourceMetadataExtension
 } from "./constants.js";
 import { normalizeProjectResourcePath } from "./path-normalization.js";
-
-type ProjectIndexFsFacade = typeof fs;
+import {
+    defaultFsFacade,
+    type ProjectIndexFsFacade
+} from "./fs-facade.js";
 
 const RESOURCE_ANALYSIS_ABORT_MESSAGE = "Project index build was aborted.";
 
@@ -243,7 +244,7 @@ function createResourceAnalysisContext() {
 
 async function loadResourceDocument(
     file,
-    fsFacade: ProjectIndexFsFacade = fs,
+    fsFacade: Required<Pick<ProjectIndexFsFacade, "readFile">> = defaultFsFacade,
     options = {}
 ) {
     const { ensureNotAborted } = Core.createAbortGuard(options, {
@@ -440,8 +441,13 @@ function annotateAssetReferenceTargets(assetReferences, resourcesMap) {
 export async function analyseResourceFiles({
     projectRoot,
     yyFiles,
-    fsFacade = fs,
+    fsFacade = defaultFsFacade,
     signal = null
+}: {
+    projectRoot: string;
+    yyFiles: Array<{ relativePath: string; absolutePath: string }>;
+    fsFacade?: Required<Pick<ProjectIndexFsFacade, "readFile">>;
+    signal?: AbortSignal | null;
 }) {
     const context = createResourceAnalysisContext();
 

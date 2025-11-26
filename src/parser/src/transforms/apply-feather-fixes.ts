@@ -13611,29 +13611,10 @@ function cloneNodeWithoutLocations(node) {
     }
 
     const clone = structuredClone(node);
-    removeLocationMetadata(clone);
+    Core.removeLocationMetadata(clone);
     return clone;
 }
 
-function removeLocationMetadata(value) {
-    if (!value || typeof value !== "object") {
-        return;
-    }
-
-    if (Array.isArray(value)) {
-        for (const entry of value) {
-            removeLocationMetadata(entry);
-        }
-        return;
-    }
-
-    delete value.start;
-    delete value.end;
-
-    for (const nestedValue of Object.values(value)) {
-        removeLocationMetadata(nestedValue);
-    }
-}
 
 function ensureNumericOperationsUseRealLiteralCoercion({ ast, diagnostic }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {

@@ -1,8 +1,22 @@
-// TODO: This should probably go in @gml-modules/core
+import { walkObjectGraph } from "./object-graph.js";
 
-import { Core } from "@gml-modules/core";
+type LocationKey = "start" | "end";
 
-function adjustLocationProperty(node, propertyName, mapIndex) {
+type LocationValue =
+    | number
+    | {
+          index?: number;
+      }
+    | null
+    | undefined;
+
+type LocationNode = Record<string, LocationValue>;
+
+function adjustLocationProperty(
+    node: LocationNode,
+    propertyName: LocationKey,
+    mapIndex: (index: number) => number
+) {
     if (!Object.hasOwn(node, propertyName)) {
         return;
     }
@@ -18,13 +32,14 @@ function adjustLocationProperty(node, propertyName, mapIndex) {
         return;
     }
 
-    if (typeof location.index === "number") {
-        location.index = mapIndex(location.index);
+    const locationObject = location as { index?: number };
+    if (typeof locationObject.index === "number") {
+        locationObject.index = mapIndex(locationObject.index);
     }
 }
 
-export function removeLocationMetadata(target) {
-    Core.walkObjectGraph(target, {
+export function removeLocationMetadata(target: unknown) {
+    walkObjectGraph(target, {
         enterObject(node) {
             if (Object.hasOwn(node, "start")) {
                 delete node.start;
@@ -37,32 +52,35 @@ export function removeLocationMetadata(target) {
     });
 }
 
-export function simplifyLocationMetadata(target) {
-    Core.walkObjectGraph(target, {
+export function simplifyLocationMetadata(target: unknown) {
+    walkObjectGraph(target, {
         enterObject(node) {
             if (Object.hasOwn(node, "start")) {
                 const start = node.start;
                 if (start && typeof start === "object" && "index" in start) {
-                    node.start = start.index;
+                    node.start = (start as { index?: number }).index;
                 }
             }
 
             if (Object.hasOwn(node, "end")) {
                 const end = node.end;
                 if (end && typeof end === "object" && "index" in end) {
-                    node.end = end.index;
+                    node.end = (end as { index?: number }).index;
                 }
             }
         }
     });
 }
 
-export function remapLocationMetadata(target, mapIndex) {
+export function remapLocationMetadata(
+    target: unknown,
+    mapIndex?: (index: number) => number
+) {
     if (typeof mapIndex !== "function") {
         return;
     }
 
-    Core.walkObjectGraph(target, {
+    walkObjectGraph(target, {
         enterObject(node) {
             adjustLocationProperty(node, "start", mapIndex);
             adjustLocationProperty(node, "end", mapIndex);

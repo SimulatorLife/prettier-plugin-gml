@@ -2,7 +2,6 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
-    "composite": true,
     "baseUrl": ".",
     "paths": {
       "@gml-modules/core": ["src/core/src/index.ts"],
@@ -24,13 +23,4 @@
     "src/**/dist",
     "src/parser/generated"
   ],
-  "references": [
-    { "path": "./src/core" },
-    { "path": "./src/parser" },
-    { "path": "./src/transpiler" },
-    { "path": "./src/semantic" },
-    { "path": "./src/plugin" },
-    { "path": "./src/refactor" },
-    { "path": "./src/runtime-wrapper" }
-  ]
 }

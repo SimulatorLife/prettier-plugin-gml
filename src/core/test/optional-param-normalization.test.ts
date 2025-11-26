@@ -1,7 +1,5 @@
-// TODD: Move these tests into Core since the function lives there
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-
 import { Core } from "@gml-modules/core";
 
 describe("normalizeOptionalParamToken", () => {

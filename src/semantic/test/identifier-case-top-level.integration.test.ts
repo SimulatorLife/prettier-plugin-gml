@@ -30,7 +30,10 @@ const pluginPath = (() => {
         path.resolve(currentDirectory, "../../plugin/src/plugin-entry.ts")
     ];
     candidates.push(
-        path.resolve(currentDirectory, "../../../plugin/dist/src/plugin-entry.js")
+        path.resolve(
+            currentDirectory,
+            "../../../plugin/dist/src/plugin-entry.js"
+        )
     );
     candidates.push(
         path.resolve(currentDirectory, "../../../plugin/dist/index.js")

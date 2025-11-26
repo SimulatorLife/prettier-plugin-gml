@@ -16,7 +16,6 @@ const {
     getFeatherDiagnosticById
 } = Core;
 
-
 function isEventInheritedCall(node) {
     if (!node || node.type !== "CallExpression") {
         return false;

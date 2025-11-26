@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { Plugin } from "../src/index.js";
 import { test } from "node:test";
 
-
 const SOURCE = `/// @function scr_bezier_4
 /// @param x1
 /// @param y1

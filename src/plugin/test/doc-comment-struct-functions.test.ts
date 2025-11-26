@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { Plugin } from "../src/index.js";
 import { test } from "node:test";
 
-
 function extractDocBlocks(text) {
     const blocks = [];
     let currentBlock = [];

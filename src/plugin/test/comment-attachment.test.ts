@@ -16,7 +16,9 @@ describe("comment attachment", () => {
             ""
         ].join("\n");
 
-        const formatted = await Plugin.format(source, { applyFeatherFixes: true });
+        const formatted = await Plugin.format(source, {
+            applyFeatherFixes: true
+        });
 
         assert.match(
             formatted,

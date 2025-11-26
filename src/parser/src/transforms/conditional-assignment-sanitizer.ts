@@ -1,5 +1,4 @@
 import { Core } from "@gml-modules/core";
-import { remapLocationMetadata } from "../ast/location-manipulation.js";
 
 const ASSIGNMENT_GUARD_CHARACTERS = new Set([
     "*",
@@ -237,7 +236,7 @@ export function applySanitizedIndexAdjustments(
     insertPositions: Array<number> | null | undefined
 ) {
     const mapIndex = createIndexMapper(insertPositions);
-    remapLocationMetadata(target, mapIndex);
+    Core.remapLocationMetadata(target, mapIndex);
 }
 
 export const conditionalAssignmentSanitizerTransform = Object.freeze({
