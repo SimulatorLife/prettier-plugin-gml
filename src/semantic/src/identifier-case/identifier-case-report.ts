@@ -732,11 +732,11 @@ function resolveDryRunFlag(options, contextDryRun) {
     const explicitDryRun = getIdentifierCaseOption(options, "DryRun", {
         fallback: null
     });
-    if (explicitDryRun !== undefined) {
+    if (explicitDryRun !== undefined && explicitDryRun !== null) {
         return explicitDryRun !== false;
     }
 
-    if (contextDryRun !== undefined) {
+    if (contextDryRun !== undefined && contextDryRun !== null) {
         return contextDryRun !== false;
     }
 

@@ -62,10 +62,23 @@ const pluginPath = (() => {
     // fallback so errors appear in a consistent place when running tests.
     return candidates[0];
 })();
-const fixturesDirectory = path.join(
-    currentDirectory,
-    "identifier-case-fixtures"
-);
+const fixturesDirectory = resolveFixturesDirectory(currentDirectory);
+
+function resolveFixturesDirectory(baseDirectory: string) {
+    const candidates = [
+        path.join(baseDirectory, "identifier-case-fixtures"),
+        path.resolve(baseDirectory, "../../test/identifier-case-fixtures")
+    ];
+
+    const sampleFixture = "locals.gml";
+    for (const candidate of candidates) {
+        if (existsSync(path.join(candidate, sampleFixture))) {
+            return candidate;
+        }
+    }
+
+    return candidates[0];
+}
 
 async function createTempProject(fixtureFileName = "locals.gml") {
     const tempRoot = await fs.mkdtemp(

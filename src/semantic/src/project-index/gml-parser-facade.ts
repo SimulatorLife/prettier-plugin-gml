@@ -1,4 +1,5 @@
 import { Core } from "@gml-modules/core";
+import * as Parser from "@gml-modules/parser";
 
 import { SemanticScopeCoordinator } from "../scopes/identifier-scope.js";
 import { formatProjectIndexSyntaxError } from "./syntax-error-formatter.js";
@@ -23,6 +24,10 @@ export function setProjectIndexParserNamespace(parser: ParserNamespace): void {
 function resolveParserNamespace(parser?: ParserNamespace): ParserNamespace {
     if (parser) {
         return parser;
+    }
+
+    if (!parserNamespace && Parser.Parser) {
+        parserNamespace = Parser.Parser as ParserNamespace;
     }
 
     if (parserNamespace) {
@@ -50,9 +55,13 @@ function parseProjectIndexSource(
             getComments: false,
             getLocations: true,
             simplifyLocations: false,
-            getIdentifierMetadata: true,
-            createScopeTracker: ({ enabled }) =>
-                enabled ? new SemanticScopeCoordinator() : null
+            astFormat: "gml",
+            asJSON: false,
+            scopeTrackerOptions: {
+                enabled: true,
+                getIdentifierMetadata: true,
+                createScopeTracker: () => new SemanticScopeCoordinator()
+            }
         } as any);
     } catch (error) {
         if (parserApi.isSyntaxErrorWithLocation(error)) {

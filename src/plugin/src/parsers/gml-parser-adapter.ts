@@ -216,11 +216,28 @@ async function parse(text, options) {
 
         return ast;
     } catch (error) {
-        if (environmentPrepared) {
+        if (environmentPrepared || options?.__identifierCaseProjectIndexBootstrap) {
             Semantic.teardownIdentifierCaseEnvironment(options);
         }
         throw error;
     }
+}
+
+function parseSync(text, options) {
+    if (options?.__identifierCasePlanGeneratedInternally === true) {
+        try {
+            return Parser.GMLParser.parse(text, {
+                getLocations: true,
+                simplifyLocations: false,
+                getComments: true
+            });
+        } catch (error) {
+            Semantic.teardownIdentifierCaseEnvironment(options);
+            throw error;
+        }
+    }
+
+    return parse(text, options);
 }
 
 function locStart(node) {

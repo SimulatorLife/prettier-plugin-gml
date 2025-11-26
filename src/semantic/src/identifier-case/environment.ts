@@ -83,11 +83,9 @@ function disposeBootstrap(bootstrapResult, logger = null) {
         return;
     }
 
-    if (!managedBootstraps.has(bootstrapResult)) {
-        return;
+    if (managedBootstraps.has(bootstrapResult)) {
+        managedBootstraps.delete(bootstrapResult);
     }
-
-    managedBootstraps.delete(bootstrapResult);
 
     try {
         bootstrapResult.dispose();

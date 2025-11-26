@@ -17,7 +17,8 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
             "gml-parse": {
                 ...gmlParserAdapter,
                 parse: (text, options) => gmlParserAdapter.parse(text, options)
-            }
+            },
+            gmlParserAdapter
         },
         printers: {
             "gml-ast": {
