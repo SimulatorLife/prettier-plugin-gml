@@ -1,19 +1,7 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
-import prettier from "prettier";
-
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/plugin-entry.js");
-
-async function formatWithPlugin(source, overrides: any = {}) {
-    return Plugin.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
-    });
-}
+import { Plugin } from "../src/index.js";
 
 test("emits a separating blank line after documented nested functions", async () => {
     const source = [
@@ -27,7 +15,7 @@ test("emits a separating blank line after documented nested functions", async ()
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const lines = formatted.trimEnd().split("\n");
     const closingLines = lines.slice(-3);
 

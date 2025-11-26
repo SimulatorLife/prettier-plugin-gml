@@ -1,30 +1,7 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-import prettier from "prettier";
-import { existsSync } from "node:fs";
 
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = (() => {
-    const candidates = [
-        path.resolve(currentDirectory, "../dist/src/index.js"),
-        path.resolve(currentDirectory, "../dist/index.js"),
-        path.resolve(currentDirectory, "../src/index.ts"),
-        path.resolve(currentDirectory, "../src/plugin-entry.ts"),
-        path.resolve(currentDirectory, "../src/index.js"),
-        path.resolve(currentDirectory, "../src/plugin-entry.js")
-    ];
-    return candidates.find((p) => existsSync(p)) || candidates[0];
-})();
-
-async function format(source, options = {}) {
-    return Plugin.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath],
-        ...options
-    });
-}
+import { Plugin } from "../src/index.js";
 
 test("converts manual mean with floating point noise", async () => {
     const source = [
@@ -34,7 +11,7 @@ test("converts manual mean with floating point noise", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -61,7 +38,7 @@ test("converts literal square with floating point noise", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -86,7 +63,7 @@ test("preserves inline comments between manual math operands", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -112,7 +89,7 @@ test("converts distance formula with floating point noise", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -139,7 +116,7 @@ test("condenses chained scalar multipliers into a single coefficient", async () 
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -166,7 +143,7 @@ test("promotes lengthdir half-difference assignments into the declaration", asyn
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -196,7 +173,7 @@ test("combines sequential lengthdir scalar assignments", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -228,7 +205,7 @@ test("preserves blank line before comments when promoting lengthdir assignments"
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -258,7 +235,7 @@ test("simplifies division by a reciprocal denominator", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -285,7 +262,7 @@ test("preserves grouping when simplifying reciprocal denominators with composite
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -313,7 +290,7 @@ test("condenses subtraction-based scalar multipliers", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -340,7 +317,7 @@ test("simplifies negative reciprocal multiplication", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -368,7 +345,7 @@ test("cancels reciprocal factors paired with their denominator", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -396,7 +373,7 @@ test("removes additive identity scalars with trailing comments", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -422,7 +399,7 @@ test("removes multiplicative zero factors inside additive chains", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -453,7 +430,7 @@ test("preserves blank line after removing simplified alias", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -483,7 +460,7 @@ test("condenses chained multipliers with composite operands", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -510,7 +487,7 @@ test("collects shared scalar factors across addition", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -536,7 +513,7 @@ test("reduces shared scalar additions that sum to one", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -562,7 +539,7 @@ test("condenses division by reciprocal scalar multipliers", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -589,7 +566,7 @@ test("condenses subtraction-only scalar factors", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -615,7 +592,7 @@ test("condenses nested ratios that mix scalar and non-scalar factors", async () 
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -642,7 +619,7 @@ test("cancels reciprocal ratio pairs before scalar condensation", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -670,7 +647,7 @@ test("simplifies reciprocal products with unit numerators", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -697,7 +674,7 @@ test("cancels numeric identity factors introduced by scalar condensation", async
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -723,7 +700,7 @@ test("preserves simple division when no scalar condensation is needed", async ()
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -750,7 +727,7 @@ test("converts multiplicative degree ratios into degtorad", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -775,7 +752,7 @@ test("downgrades numbered triple-slash headings to standard comments", async () 
         ""
     ].join("\n");
 
-    const formatted = await format(source);
+    const formatted = await Plugin.format(source);
 
     assert.strictEqual(
         formatted,
@@ -788,7 +765,7 @@ test("downgrades numbered triple-slash headings to standard comments", async () 
 test("uses tolerance-aware comparison for ratio numerator simplification", async () => {
     const source = ["var result = value / 1000 / 60;", ""].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -810,7 +787,7 @@ test("safely handles division by denominator near machine epsilon", async () => 
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 
@@ -842,7 +819,7 @@ test("correctly handles multiplicative chain with near-zero factor", async () =>
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertManualMathToBuiltins: true
     });
 

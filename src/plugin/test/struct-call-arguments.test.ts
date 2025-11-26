@@ -1,20 +1,7 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
-import prettier from "prettier";
-
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/plugin-entry.js");
-
-async function formatWithPlugin(source, overrides: any = {}) {
-    return Plugin.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath],
-        applyFeatherFixes: true
-    });
-}
+import { Plugin } from "../src/index.js";
 
 test("keeps small struct arguments inline", async () => {
     const source = [
@@ -29,7 +16,7 @@ test("keeps small struct arguments inline", async () => {
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
 
     assert.strictEqual(
@@ -51,7 +38,7 @@ test("still breaks struct arguments with many properties", async () => {
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
 
     assert.strictEqual(

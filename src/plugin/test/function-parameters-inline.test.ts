@@ -1,16 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import prettier from "prettier";
 
-const pluginPath = new URL("../src/plugin-entry.js", import.meta.url);
-
-async function format(source, options = {}) {
-    return Plugin.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath],
-        ...options
-    });
-}
+import { Plugin } from "../src/index.js";
 
 test("inlines default parameter functions with single call bodies", async () => {
     const source = [
@@ -25,7 +16,7 @@ test("inlines default parameter functions with single call bodies", async () => 
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         convertDivisionToMultiplication: true
     });
 

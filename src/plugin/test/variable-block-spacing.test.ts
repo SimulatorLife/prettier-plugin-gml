@@ -1,20 +1,7 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
-import prettier from "prettier";
-
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/plugin-entry.js");
-
-async function formatWithPlugin(source, options = {}) {
-    return Plugin.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath],
-        ...options
-    });
-}
+import { Plugin } from "../src/index.js";
 
 test("inserts a blank line between large variable blocks and following loops", async () => {
     const source = [
@@ -30,7 +17,7 @@ test("inserts a blank line between large variable blocks and following loops", a
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
 
     assert.equal(
@@ -54,7 +41,7 @@ test("respects custom minimum declaration run length", async () => {
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source, {
+    const formatted = await Plugin.format(source, {
         variableBlockSpacingMinDeclarations: 6
     });
     const lines = formatted.trim().split("\n");
@@ -80,7 +67,7 @@ test("formats struct static functions without infinite recursion", async () => {
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
 
     assert.equal(typeof formatted, "string");
 });

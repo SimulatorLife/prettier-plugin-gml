@@ -1,19 +1,7 @@
 import assert from "node:assert/strict";
-import path from "node:path";
 import { test } from "node:test";
-import prettier from "prettier";
 
-const __dirname = import.meta.dirname;
-const pluginPath = path.resolve(__dirname, "../src/plugin-entry.js");
-
-async function formatWithPlugin(source, overrides = {}) {
-    return Plugin.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath],
-        ...overrides
-    });
-}
-
+import { Plugin } from "../src/index.js";
 test("merges doc comments without duplicating returns metadata", async () => {
     const source = [
         "function drawer_factory() constructor {",
@@ -28,7 +16,7 @@ test("merges doc comments without duplicating returns metadata", async () => {
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const returnMatches = formatted.match(/\/\/\/ @returns/g) ?? [];
 
     assert.equal(
@@ -55,7 +43,7 @@ test("keeps leading line comments before synthetic doc comments", async () => {
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
 
     assert.ok(
         formatted.includes(
@@ -75,7 +63,7 @@ test("retains documented parameter aliases when canonical names differ", async (
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
 
     assert.ok(
         formatted.includes(
@@ -99,7 +87,7 @@ test("converts legacy Returns description lines into returns metadata", async ()
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
 
     assert.ok(
         formatted.includes(

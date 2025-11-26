@@ -1,21 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import prettier from "prettier";
 
-const pluginPath = new URL("../src/plugin-entry.js", import.meta.url);
-
-async function format(source, options = {}) {
-    return Plugin.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath],
-        ...options
-    });
-}
+import { Plugin } from "../src/index.js";
 
 test("expands single-line if statements by default", async () => {
     const source = "if (global.debug) { exit; }";
 
-    const formatted = await format(source);
+    const formatted = await Plugin.format(source);
 
     assert.strictEqual(
         formatted,
@@ -32,7 +23,7 @@ test("preserves compact return guards inside functions when disabled", async () 
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         allowSingleLineIfStatements: false
     });
 
@@ -59,7 +50,7 @@ test("expands guarded returns with values when single-line is disabled", async (
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         allowSingleLineIfStatements: false
     });
 

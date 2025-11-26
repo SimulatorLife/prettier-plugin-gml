@@ -2,21 +2,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
-import prettier from "prettier";
-import { existsSync } from "node:fs";
+
+import { Plugin } from "../src/index.js";
 
 const __dirname = import.meta.dirname;
-const pluginPath = (() => {
-    const candidates = [
-        path.resolve(__dirname, "../dist/src/index.js"),
-        path.resolve(__dirname, "../dist/index.js"),
-        path.resolve(__dirname, "../src/index.ts"),
-        path.resolve(__dirname, "../src/plugin-entry.ts"),
-        path.resolve(__dirname, "../src/index.js"),
-        path.resolve(__dirname, "../src/plugin-entry.js")
-    ];
-    return candidates.find((p) => existsSync(p)) || candidates[0];
-})();
 
 test("treats undefined defaults as required when the signature omits the default", async () => {
     const source = [
@@ -30,7 +19,6 @@ test("treats undefined defaults as required when the signature omits the default
 
     const formatted = await Plugin.format(source, {
         parser: "gml-parse",
-        plugins: [pluginPath],
         applyFeatherFixes: true
     });
 
@@ -60,7 +48,6 @@ test("preserves optional annotations when parameters are explicitly documented a
 
     const formatted = await Plugin.format(source, {
         parser: "gml-parse",
-        plugins: [pluginPath],
         applyFeatherFixes: true
     });
 
@@ -93,8 +80,7 @@ test("omits optional syntax for synthesized docs with undefined defaults", async
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
+        parser: "gml-parse"
     });
 
     const lines = formatted.split("\n");
@@ -123,8 +109,7 @@ test("retains optional syntax when constructors keep explicit undefined defaults
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
+        parser: "gml-parse"
     });
 
     assert.ok(
@@ -144,7 +129,6 @@ test("synthesized docs mark retained undefined defaults as optional", async () =
     const options = JSON.parse(rawOptions);
     const formatted = await Plugin.format(source, {
         parser: "gml-parse",
-        plugins: [pluginPath],
         ...options
     });
 
