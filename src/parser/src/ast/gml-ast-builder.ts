@@ -444,18 +444,15 @@ export default class GameMakerASTBuilder {
             typeof token.start === "number"
                 ? token.start
                 : typeof token.startIndex === "number"
-                ? token.startIndex
-                : undefined;
+                  ? token.startIndex
+                  : undefined;
         const stopIndex =
             typeof token.stop === "number"
                 ? token.stop
                 : typeof token.stopIndex === "number"
-                ? token.stopIndex
-                : startIndex;
-        const line =
-            typeof token.line === "number"
-                ? token.line
-                : undefined;
+                  ? token.stopIndex
+                  : startIndex;
+        const line = typeof token.line === "number" ? token.line : undefined;
         const startColumn =
             typeof token.column === "number" ? token.column : undefined;
 

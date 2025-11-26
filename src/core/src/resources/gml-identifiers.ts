@@ -97,7 +97,9 @@ type ReservedIdentifierMetadataLoader = () => unknown;
 let metadataLoader: ReservedIdentifierMetadataLoader =
     defaultLoadIdentifierMetadata;
 
-function safelyLoadIdentifierMetadata(loader: ReservedIdentifierMetadataLoader) {
+function safelyLoadIdentifierMetadata(
+    loader: ReservedIdentifierMetadataLoader
+) {
     try {
         const metadata = loader();
         return isObjectLike(metadata) ? metadata : null;

@@ -44,7 +44,14 @@ function cloneEntryCollections(entry, ...keys) {
     );
 }
 export function createProjectIndexCoordinator(options = {}) {
-    const { fsFacade = defaultFsFacade, loadCache = loadProjectIndexCache, saveCache = saveProjectIndexCache, buildIndex = buildProjectIndex, cacheMaxSizeBytes, getDefaultCacheMaxSize = getDefaultProjectIndexCacheMaxSize } = options;
+    const {
+        fsFacade = defaultFsFacade,
+        loadCache = loadProjectIndexCache,
+        saveCache = saveProjectIndexCache,
+        buildIndex = buildProjectIndex,
+        cacheMaxSizeBytes,
+        getDefaultCacheMaxSize = getDefaultProjectIndexCacheMaxSize
+    } = options;
     return createProjectIndexCoordinatorCore({
         fsFacade,
         loadCache,
@@ -789,9 +796,7 @@ function shouldTreatAsInstance({ identifierRecord, role, scopeDescriptor }) {
     if (!scopeDescriptor || scopeDescriptor.kind !== "objectEvent") {
         return false;
     }
-    const classifications = Core.asArray(
-        identifierRecord?.classifications
-    );
+    const classifications = Core.asArray(identifierRecord?.classifications);
     if (classifications.includes("global")) {
         return false;
     }
@@ -818,9 +823,7 @@ function registerIdentifierOccurrence({
         return;
     }
     const validatedRole = assertValidIdentifierRole(role);
-    const classifications = Core.asArray(
-        identifierRecord?.classifications
-    );
+    const classifications = Core.asArray(identifierRecord?.classifications);
     if (
         validatedRole === IdentifierRole.DECLARATION &&
         classifications.includes("script")
@@ -1028,15 +1031,13 @@ function handleScriptScopeFunctionDeclarationNode({
     );
     const declarationKey = Core.buildLocationKey(declarationRecord.start);
     const fileHasExisting = fileRecord.declarations.some(
-        (existing) =>
-            Core.buildLocationKey(existing.start) === declarationKey
+        (existing) => Core.buildLocationKey(existing.start) === declarationKey
     );
     if (!fileHasExisting) {
         fileRecord.declarations.push({ ...declarationRecord });
     }
     const scopeHasExisting = scopeRecord.declarations.some(
-        (existing) =>
-            Core.buildLocationKey(existing.start) === declarationKey
+        (existing) => Core.buildLocationKey(existing.start) === declarationKey
     );
     if (!scopeHasExisting) {
         scopeRecord.declarations.push({ ...declarationRecord });
@@ -1591,9 +1592,7 @@ function createProjectIndexResultSnapshot({
                 targetResourcePath: reference.targetResourcePath ?? null,
                 location: reference.location
                     ? {
-                          start: Core.cloneLocation(
-                              reference.location.start
-                          ),
+                          start: Core.cloneLocation(reference.location.start),
                           end: Core.cloneLocation(reference.location.end)
                       }
                     : null,
@@ -1781,7 +1780,11 @@ function finalizeProjectIndexResult({
     }
     return projectIndex;
 }
-export async function buildProjectIndex(projectRoot, fsFacade = defaultFsFacade, options = {}) {
+export async function buildProjectIndex(
+    projectRoot,
+    fsFacade = defaultFsFacade,
+    options = {}
+) {
     if (!projectRoot) {
         throw new Error("projectRoot must be provided to buildProjectIndex");
     }

@@ -217,7 +217,10 @@ async function parse(text, options) {
 
         return ast;
     } catch (error) {
-        if (environmentPrepared || options?.__identifierCaseProjectIndexBootstrap) {
+        if (
+            environmentPrepared ||
+            options?.__identifierCaseProjectIndexBootstrap
+        ) {
             Semantic.teardownIdentifierCaseEnvironment(options);
         }
         throw error;
