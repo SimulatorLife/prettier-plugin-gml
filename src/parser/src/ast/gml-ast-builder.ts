@@ -1,13 +1,13 @@
 import GameMakerLanguageParserVisitor from "../runtime/game-maker-language-parser-visitor.js";
 import { Core } from "@gml-modules/core";
 import type { GameMakerAstLocation, GameMakerAstNode } from "@gml-modules/core";
-import { Semantic } from "@gml-modules/semantic";
 import BinaryExpressionDelegate from "./binary-expression-delegate.js";
 import type {
     ParserContext,
     ParserContextWithMethods,
     ParserToken,
     ScopeTrackerOptions,
+    ScopeTracker,
     ParserOptions
 } from "../types/index.js";
 import type { Token } from "antlr4";
@@ -102,9 +102,7 @@ const BINARY_OPERATORS: Record<string, BinaryOperatorInfo> = {
     "??=": { prec: 1, assoc: "right", type: "assign" } // Nullish coalescing assignment
 };
 
-type SemanticScopeTracker = InstanceType<
-    typeof Semantic.SemanticScopeCoordinator
->;
+type ParserScopeTracker = ScopeTracker | null;
 
 const GLOBAL_SCOPE_OVERRIDE_KEYWORD = "global" as const;
 
@@ -116,7 +114,7 @@ const GLOBAL_SCOPE_OVERRIDE_KEYWORD = "global" as const;
  */
 function createScopeTrackerFromOptions(
     options: ScopeTrackerOptions
-): SemanticScopeTracker | null {
+): ParserScopeTracker {
     const { createScopeTracker, enabled } = options;
     if (!enabled) {
         return null;
@@ -179,7 +177,7 @@ export default class GameMakerASTBuilder {
     options: ParserOptions;
     whitespaces: unknown[];
     operatorStack: string[];
-    private scopeTracker: SemanticScopeTracker | null;
+    private scopeTracker: ParserScopeTracker;
     private binaryExpressions: any;
     private visitor: MutableParserVisitor;
 
@@ -240,7 +238,10 @@ export default class GameMakerASTBuilder {
         if (!this.scopeTracker) {
             return callback();
         }
-        return this.scopeTracker.withScope(kind, callback);
+        if (typeof this.scopeTracker.withScope === "function") {
+            return this.scopeTracker.withScope(kind, callback);
+        }
+        return callback();
     }
 
     withIdentifierRole<T>(role: IdentifierRole, callback: () => T): T {
@@ -251,7 +252,10 @@ export default class GameMakerASTBuilder {
         if (!this.scopeTracker) {
             return callback();
         }
-        return this.scopeTracker.withRole(role, callback);
+        if (typeof this.scopeTracker.withRole === "function") {
+            return this.scopeTracker.withRole(role, callback);
+        }
+        return callback();
     }
 
     cloneIdentifierRole(role: IdentifierRole): IdentifierRole {
@@ -261,7 +265,11 @@ export default class GameMakerASTBuilder {
             // inadvertently modifying the original object.
             return { ...(role as any) } as IdentifierRole;
         }
-        return this.scopeTracker.cloneRole(role);
+        const clonedRole = this.scopeTracker.cloneRole(role);
+        if (clonedRole) {
+            return clonedRole as IdentifierRole;
+        }
+        return { ...(role as any) } as IdentifierRole;
     }
 
     ensureArray(ctx: unknown): ParserContextWithMethods[] {
@@ -428,7 +436,63 @@ export default class GameMakerASTBuilder {
     }
 
     createIdentifierLocation(token: ParserToken): any {
-        return Semantic.createIdentifierLocation(token);
+        if (!token) {
+            return null;
+        }
+
+        const startIndex =
+            typeof token.start === "number"
+                ? token.start
+                : typeof token.startIndex === "number"
+                ? token.startIndex
+                : undefined;
+        const stopIndex =
+            typeof token.stop === "number"
+                ? token.stop
+                : typeof token.stopIndex === "number"
+                ? token.stopIndex
+                : startIndex;
+        const line =
+            typeof token.line === "number"
+                ? token.line
+                : undefined;
+        const startColumn =
+            typeof token.column === "number" ? token.column : undefined;
+
+        const identifierLength =
+            Number.isInteger(startIndex) && Number.isInteger(stopIndex)
+                ? stopIndex - startIndex + 1
+                : undefined;
+
+        const buildPoint = (
+            index: number | undefined,
+            column: number | undefined
+        ) => {
+            if (typeof index !== "number") {
+                return undefined;
+            }
+
+            const point: { line?: number; index: number; column?: number } = {
+                index
+            };
+            if (typeof line === "number") {
+                point.line = line;
+            }
+            if (typeof column === "number") {
+                point.column = column;
+            }
+            return point;
+        };
+
+        return {
+            start: buildPoint(startIndex, startColumn),
+            end: buildPoint(
+                typeof stopIndex === "number" ? stopIndex + 1 : undefined,
+                startColumn !== undefined && identifierLength !== undefined
+                    ? startColumn + identifierLength
+                    : undefined
+            )
+        };
     }
 
     visitBinaryExpression(ctx: ParserContext): any {

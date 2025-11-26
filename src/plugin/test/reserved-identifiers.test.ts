@@ -1,18 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { Semantic } from "@gml-modules/semantic";
+import { Core } from "@gml-modules/core";
 
-test("Semantic.loadReservedIdentifierNames returns lowercase reserved names", () => {
-    const reserved = Semantic.loadReservedIdentifierNames();
+test("Core.loadReservedIdentifierNames returns lowercase reserved names", () => {
+    const reserved = Core.loadReservedIdentifierNames();
 
     assert.equal(reserved instanceof Set, true);
     assert.equal(reserved.has("abs"), true);
     assert.equal(reserved.has("if"), false);
 });
 
-test("Semantic.loadReservedIdentifierNames respects custom disallowed types", () => {
-    const reserved = Semantic.loadReservedIdentifierNames({
+test("Core.loadReservedIdentifierNames respects custom disallowed types", () => {
+    const reserved = Core.loadReservedIdentifierNames({
         disallowedTypes: []
     });
 
@@ -20,10 +20,10 @@ test("Semantic.loadReservedIdentifierNames respects custom disallowed types", ()
 });
 
 test(
-    "Semantic.loadReservedIdentifierNames allows overriding the metadata loader",
+    "Core.loadReservedIdentifierNames allows overriding the metadata loader",
     { concurrency: 1 },
     () => {
-        const restore = Semantic.setReservedIdentifierMetadataLoader(() => ({
+        const restore = Core.setReservedIdentifierMetadataLoader(() => ({
             identifiers: {
                 custom_keyword: { type: "keyword" },
                 custom_function: { type: "function" }
@@ -31,7 +31,7 @@ test(
         }));
 
         try {
-            const reserved = Semantic.loadReservedIdentifierNames({
+            const reserved = Core.loadReservedIdentifierNames({
                 disallowedTypes: ["keyword"]
             });
 
@@ -40,10 +40,10 @@ test(
             assert.equal(reserved.has("abs"), false);
         } finally {
             restore();
-            Semantic.resetReservedIdentifierMetadataLoader();
+            Core.resetReservedIdentifierMetadataLoader();
         }
 
-        const reserved = Semantic.loadReservedIdentifierNames();
+        const reserved = Core.loadReservedIdentifierNames();
 
         assert.equal(reserved.has("abs"), true);
     }

@@ -5,7 +5,7 @@ import {
     loadReservedIdentifierNames,
     resetReservedIdentifierMetadataLoader,
     setReservedIdentifierMetadataLoader
-} from "../src/resources/reserved-identifiers.js";
+} from "../src/resources/gml-identifiers.js";
 
 function toSortedArray(set: Set<any>) {
     return Array.from(set).reduce((acc: any[], item: any) => {

@@ -1,9 +1,5 @@
 import type { ParserRuleContext, Token, TokenStream } from "antlr4";
-import type { Semantic } from "@gml-modules/semantic";
-
-type SemanticScopeTracker = InstanceType<
-    typeof Semantic.SemanticScopeCoordinator
->;
+import type { MutableGameMakerAstNode } from "@gml-modules/core";
 
 export type ParserContext =
     | (ParserRuleContext & {
@@ -25,12 +21,28 @@ export interface ParserToken extends Token {
     symbol?: Token | null;
 }
 
+export interface ScopeTracker {
+    markGlobalIdentifier(
+        node: MutableGameMakerAstNode | null | undefined
+    ): void;
+    applyGlobalIdentifiersToNode(
+        node: MutableGameMakerAstNode | null | undefined
+    ): void;
+    withRole?<T>(role: object | null, callback: () => T): T;
+    withScope?<T>(kind: string, callback: () => T): T;
+    cloneRole(role: object | null): object | null;
+    applyCurrentRoleToIdentifier(
+        name: string | null | undefined,
+        node: MutableGameMakerAstNode | null | undefined
+    ): void;
+    globalIdentifiers?: Set<unknown> | null;
+}
+
 export type ScopeTrackerOptions = {
-    // TODO: Combine directly into ParserOptions?
     enabled: boolean;
-    createScopeTracker?: () => SemanticScopeTracker;
-    getIdentifierMetadata?: boolean; // TODO: Is this needed? Don't we always want the metadata?
-    [key: string]: unknown; // TODO: Add proper typing here. What is this for?
+    createScopeTracker?: () => ScopeTracker | null;
+    getIdentifierMetadata?: boolean;
+    [key: string]: unknown;
 };
 
 export interface ParserOptions {

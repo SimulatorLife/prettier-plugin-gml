@@ -1,6 +1,5 @@
 import { Core } from "@gml-modules/core";
 import type { MutableGameMakerAstNode } from "@gml-modules/core";
-import { Semantic } from "@gml-modules/semantic";
 import antlr4, { PredictionMode } from "antlr4";
 import GameMakerLanguageLexer from "../../generated/GameMakerLanguageLexer.js";
 import GameMakerLanguageParser from "../../generated/GameMakerLanguageParser.js";
@@ -297,10 +296,10 @@ const RESERVED_KEYWORD_TOKENS = new Set([
     "while",
     "with"
 ]);
-let RESERVED_IDENTIFIER_NAMES = null;
+let RESERVED_IDENTIFIER_NAMES: Set<string> | null = null;
 function getReservedIdentifierNames() {
     if (!RESERVED_IDENTIFIER_NAMES) {
-        RESERVED_IDENTIFIER_NAMES = Semantic.loadReservedIdentifierNames();
+        RESERVED_IDENTIFIER_NAMES = Core.loadReservedIdentifierNames();
     }
     return RESERVED_IDENTIFIER_NAMES;
 }

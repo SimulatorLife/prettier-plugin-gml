@@ -2,8 +2,6 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 import { formatIdentifierCase } from "./identifier-case-utils.js";
-
-import { loadReservedIdentifierNames } from "../resources/reserved-identifiers.js";
 import {
     COLLISION_CONFLICT_CODE,
     RESERVED_CONFLICT_CODE,
@@ -19,7 +17,7 @@ import {
     normalizeIdentifierCaseAssetStyle
 } from "./options.js";
 
-const RESERVED_IDENTIFIER_NAMES = loadReservedIdentifierNames();
+const RESERVED_IDENTIFIER_NAMES = Core.loadReservedIdentifierNames();
 
 type AssetReferenceMutation = {
     filePath?: string;

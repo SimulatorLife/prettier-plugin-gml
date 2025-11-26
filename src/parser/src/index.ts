@@ -1,4 +1,4 @@
-import * as GMLParser from "./gml-parser.js";
+import * as GMLParserModule from "./gml-parser.js";
 import * as AST from "./ast/index.js";
 import * as Comments from "./comments/index.js";
 import * as Options from "./options/index.js";
@@ -10,7 +10,7 @@ export { default as GameMakerLanguageParserListenerBase } from "../generated/Gam
 export { default as GameMakerLanguageParserVisitorBase } from "../generated/GameMakerLanguageParserVisitor.js";
 
 // Define the Parser namespace type from existing module types
-type ParserNamespace = typeof GMLParser &
+type ParserNamespace = typeof GMLParserModule &
     typeof AST &
     typeof Comments &
     typeof Options &
@@ -28,7 +28,7 @@ type ParserNamespace = typeof GMLParser &
 // Export the flattened Parser namespace
 // TODO: Should probably only export the GMLParser class itself here, not its internals
 export const Parser: ParserNamespace = Object.freeze({
-    ...GMLParser,
+    ...GMLParserModule,
     ...AST,
     ...Comments,
     ...Options,
