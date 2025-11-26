@@ -23,13 +23,13 @@ export function normalizeGmlPluginComponents(
 
     return Object.freeze({
         parsers: Object.freeze({
-            ...(parsers as GmlPluginComponentBundle["parsers"])
+            ...parsers
         }),
         printers: Object.freeze({
-            ...(printers as GmlPluginComponentBundle["printers"])
+            ...printers
         }),
         options: Object.freeze({
-            ...(options as GmlPluginComponentBundle["options"])
+            ...options
         })
     });
 }

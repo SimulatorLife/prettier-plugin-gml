@@ -30,16 +30,12 @@ export function createProjectIndexBuildOptions({
         logMetrics
     };
 
-    Core.withDefinedValue(
-        projectIndexConcurrency,
-        (value) => {
-            buildOptions.concurrency = {
-                gml: value,
-                gmlParsing: value
-            };
-        },
-        undefined
-    );
+    Core.withDefinedValue(projectIndexConcurrency, (value) => {
+        buildOptions.concurrency = {
+            gml: value,
+            gmlParsing: value
+        };
+    });
 
     if (!parserOverride) {
         return buildOptions;
@@ -48,7 +44,7 @@ export function createProjectIndexBuildOptions({
     const { facade, parse } = parserOverride;
 
     if (facade) {
-        buildOptions.gmlParserFacade = facade as ProjectIndexParserFacade;
+        buildOptions.gmlParserFacade = facade;
     }
 
     buildOptions.parseGml = parse as
@@ -87,13 +83,9 @@ export function createProjectIndexDescriptor({
         buildOptions
     };
 
-    Core.withDefinedValue(
-        cacheMaxSizeBytes,
-        (value) => {
-            descriptor.maxSizeBytes = value;
-        },
-        undefined
-    );
+    Core.withDefinedValue(cacheMaxSizeBytes, (value) => {
+        descriptor.maxSizeBytes = value;
+    });
 
     return descriptor;
 }

@@ -125,7 +125,7 @@ describe("consolidateStructAssignments", () => {
 
         assert.equal(structExpression.properties.length, 1);
 
-        const property = structExpression.properties[0] as any;
+        const property = structExpression.properties[0];
         assert.equal(Array.isArray(property._structTrailingComments), true);
         assert.equal(property._structTrailingComments.length, 1);
         assert.equal(property._structTrailingComments[0], trailingComment);

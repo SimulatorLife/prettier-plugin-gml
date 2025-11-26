@@ -198,7 +198,7 @@ test("buildProjectIndex collects symbols and relationships across project files"
         assert.equal(globalIdentifiers.declarations.length, 1);
         assert.ok(globalIdentifiers.references.length > 0);
 
-        const enumEntries = Object.values(index.identifiers.enums) as any[];
+        const enumEntries = Object.values(index.identifiers.enums);
         const difficultyEnum = enumEntries.find(
             (entry) => entry.name === "Difficulty"
         );
@@ -206,9 +206,7 @@ test("buildProjectIndex collects symbols and relationships across project files"
         assert.equal(difficultyEnum.declarations.length, 1);
         assert.ok(difficultyEnum.references.length > 0);
 
-        const enumMemberEntries = Object.values(
-            index.identifiers.enumMembers
-        ) as any[];
+        const enumMemberEntries = Object.values(index.identifiers.enumMembers);
         const hardMember = enumMemberEntries.find(
             (entry) => entry.name === "Hard"
         );
@@ -225,7 +223,7 @@ test("buildProjectIndex collects symbols and relationships across project files"
 
         const instanceEntries = Object.values(
             index.identifiers.instanceVariables
-        ) as any[];
+        );
         const hpInstance = instanceEntries.find((entry) => entry.name === "hp");
         assert.ok(hpInstance, "expected hp instance assignment to be tracked");
         assert.ok(hpInstance.declarations.length > 0);

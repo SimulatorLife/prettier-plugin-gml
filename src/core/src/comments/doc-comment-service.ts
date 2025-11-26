@@ -41,7 +41,7 @@ export function parseDocCommentMetadata(
         return null;
     }
 
-    const trimmed = (line as string).trim();
+    const trimmed = line.trim();
     const match = trimmed.match(/^\/\/\/\s*@([a-z]+)\b\s*(.*)$/i);
     if (!match) {
         return null;
@@ -603,7 +603,7 @@ const JSDOC_REPLACEMENTS = {
 
 const JSDOC_REPLACEMENT_RULES = Object.entries(JSDOC_REPLACEMENTS).map(
     ([oldWord, newWord]) => ({
-        regex: new RegExp(`(\\/\\/\\/\\s*)${oldWord}\\b`, "gi"),
+        regex: new RegExp(String.raw`(\/\/\/\s*)${oldWord}\b`, "gi"),
         replacement: newWord
     })
 );

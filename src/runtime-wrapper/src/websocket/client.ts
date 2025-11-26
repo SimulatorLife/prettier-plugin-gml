@@ -1,7 +1,6 @@
 import { validatePatch } from "../runtime/patch-utils.js";
 import type { Patch, RuntimePatchError } from "../runtime/types.js";
 import type {
-    MessageEventLike,
     RuntimeWebSocketClient,
     RuntimeWebSocketConstructor,
     RuntimeWebSocketInstance,
@@ -140,7 +139,7 @@ export function createWebSocketClient({
                         return;
                     }
 
-                    const message = (event as MessageEventLike).data;
+                    const message = event.data;
                     payload = JSON.parse(message);
                 } catch (error) {
                     if (onError) {

@@ -224,7 +224,7 @@ export function createAssetRenameExecutor({
             );
 
             if (!Core.isObjectLike(resourceJson)) {
-                throw new Error(
+                throw new TypeError(
                     `Unable to parse resource metadata at '${rename.resourcePath}'.`
                 );
             }

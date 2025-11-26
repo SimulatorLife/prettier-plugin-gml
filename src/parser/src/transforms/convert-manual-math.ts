@@ -994,7 +994,7 @@ function attemptCondenseSimpleScalarProduct(node, context) {
     const normalizedNumber =
         typeof normalizedCoefficient === "number"
             ? normalizedCoefficient
-            : Number(normalizedCoefficient as string);
+            : Number(normalizedCoefficient);
     if (!Number.isFinite(normalizedNumber)) return false;
     if (Math.abs(normalizedNumber - 1) <= unitTolerance) {
         const originalExpression = Core.cloneAstNode(node);

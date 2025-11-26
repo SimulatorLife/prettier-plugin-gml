@@ -3,8 +3,6 @@ import type {
     ParserOptions,
     Plugin,
     Printer,
-    RequiredOptions,
-    SupportLanguage,
     SupportOptions
 } from "prettier";
 

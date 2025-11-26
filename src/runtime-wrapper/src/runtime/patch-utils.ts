@@ -53,14 +53,18 @@ export function applyPatchToRegistry(
     patch: Patch
 ): RuntimeRegistry {
     switch (patch.kind) {
-        case "script":
+        case "script": {
             return applyScriptPatch(registry, patch);
-        case "event":
+        }
+        case "event": {
             return applyEventPatch(registry, patch);
-        case "closure":
+        }
+        case "closure": {
             return applyClosurePatch(registry, patch);
-        default:
+        }
+        default: {
             return registry;
+        }
     }
 }
 
@@ -76,15 +80,18 @@ export function captureSnapshot(
     };
 
     switch (patch.kind) {
-        case "script":
+        case "script": {
             snapshot.previous = registry.scripts[patch.id] ?? null;
             break;
-        case "event":
+        }
+        case "event": {
             snapshot.previous = registry.events[patch.id] ?? null;
             break;
-        case "closure":
+        }
+        case "closure": {
             snapshot.previous = registry.closures[patch.id] ?? null;
             break;
+        }
         // No default
     }
 
@@ -96,14 +103,18 @@ export function restoreSnapshot(
     snapshot: PatchSnapshot
 ): RuntimeRegistry {
     switch (snapshot.kind) {
-        case "script":
+        case "script": {
             return restoreEntry(registry, snapshot, "scripts");
-        case "event":
+        }
+        case "event": {
             return restoreEntry(registry, snapshot, "events");
-        case "closure":
+        }
+        case "closure": {
             return restoreEntry(registry, snapshot, "closures");
-        default:
+        }
+        default: {
             return registry;
+        }
     }
 }
 

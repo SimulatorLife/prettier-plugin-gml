@@ -498,10 +498,10 @@ test("createProjectIndexCoordinator aborts in-flight builds on dispose", async (
             };
         },
         buildIndex: async (root, fsFacade, options: any = {}) => {
-            buildStarted.resolve((options as any).signal ?? null);
+            buildStarted.resolve(options.signal ?? null);
 
             await new Promise((_resolve, reject) => {
-                const { signal } = options as any;
+                const { signal } = options;
                 if (!signal) {
                     reject(new Error("Expected abort signal"));
                     return;

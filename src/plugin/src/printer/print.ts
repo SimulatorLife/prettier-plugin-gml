@@ -2418,7 +2418,7 @@ function printDelimitedList(
 
     return forceInline
         ? groupElementsNoBreak
-        : group(groupElements, { id: groupId as any });
+        : group(groupElements, { id: groupId });
 }
 
 function synthesizeMissingCallArgumentSeparators(
@@ -4334,9 +4334,9 @@ function collectSyntheticDocCommentLines(
         for (const [idx, rc] of rawComments.entries()) {
             try {
                 console.debug(
-                    `  comment[${idx}] type=${rc?.type} raw=${JSON.stringify(Core.getCommentValue(rc))} placement=${rc?.placement} start=${JSON.stringify(rc?.start)} end=${JSON.stringify(rc?.end)} inlinePadding=${rc?.inlinePadding} leadingWS=${rc?.leadingWS?.replace(/\n/g, "\\n")}`
+                    `  comment[${idx}] type=${rc?.type} raw=${JSON.stringify(Core.getCommentValue(rc))} placement=${rc?.placement} start=${JSON.stringify(rc?.start)} end=${JSON.stringify(rc?.end)} inlinePadding=${rc?.inlinePadding} leadingWS=${rc?.leadingWS?.replaceAll("\n", String.raw`\n`)}`
                 );
-            } catch (e) {
+            } catch {
                 // ignore logging error
             }
         }
@@ -4489,7 +4489,7 @@ function collectSyntheticDocCommentLines(
                     if (!/^\s*\/\//.test(trimmed)) break;
                     // Consider doc-like shapes only (/// or // / or @-leading)
                     const isDocLike =
-                        /^\/\/\/*/.test(trimmed) ||
+                        /^\/{2,}/.test(trimmed) ||
                         /^\/\/\s*\//.test(trimmed) ||
                         /^\/\s*@/.test(trimmed);
                     if (!isDocLike) break;
@@ -4528,7 +4528,7 @@ function collectSyntheticDocCommentLines(
                             );
                         }
                         // Synthesize fallback formatted line
-                        const inner = c.text.replace(/^\s*\/\/*\s*/, "").trim();
+                        const inner = c.text.replace(/^\s*\/+\s*/, "").trim();
                         return inner.length > 0 ? `/// ${inner}` : "///";
                     });
                     if (process.env.GML_PRINTER_DEBUG) {
@@ -4634,10 +4634,8 @@ function buildSyntheticDocComment(
               )
           );
 
-    const leadingCommentLines = Array.isArray(
-        (overrides as any)?.leadingCommentLines
-    )
-        ? (overrides as any).leadingCommentLines
+    const leadingCommentLines = Array.isArray(overrides?.leadingCommentLines)
+        ? overrides.leadingCommentLines
               .map((line) => (typeof line === STRING_TYPE ? line : null))
               .filter((line) => Core.isNonEmptyTrimmedString(line))
         : [];
@@ -5102,7 +5100,7 @@ function mergeSyntheticDocComments(
 
     // Cache canonical names so we only parse each doc comment line at most once.
     const paramCanonicalNameCache = new Map();
-    const getParamCanonicalName = (line, metadata = undefined) => {
+    const getParamCanonicalName = (line, metadata?) => {
         if (typeof line !== STRING_TYPE) {
             return null;
         }
@@ -6524,7 +6522,7 @@ function computeSyntheticFunctionDocLines(
     const hasOverrideTag = metadata.some((meta) => meta.tag === "override");
     const documentedParamNames = new Set();
     const paramMetadataByCanonical = new Map();
-    const overrideName = (overrides as any)?.nameOverride;
+    const overrideName = overrides?.nameOverride;
     const functionName = overrideName ?? Core.getNodeName(node);
     const existingFunctionMetadata = metadata.find(
         (meta) => meta.tag === "function"
@@ -6559,7 +6557,7 @@ function computeSyntheticFunctionDocLines(
     }
 
     const shouldInsertOverrideTag =
-        (overrides as any)?.includeOverrideTag === true && !hasOverrideTag;
+        overrides?.includeOverrideTag === true && !hasOverrideTag;
 
     const lines = [];
 
@@ -7776,7 +7774,7 @@ function maybeAppendReturnsDoc(
         return [];
     }
 
-    if ((overrides as any)?.suppressReturns === true) {
+    if (overrides?.suppressReturns === true) {
         return lines;
     }
 
@@ -8120,9 +8118,8 @@ function inlineArgumentCountFallbacks(functionNode) {
 
                     try {
                         if (param && param.leadingComments) {
-                            (defaultNode as any).leadingComments = (
-                                param as any
-                            ).leadingComments;
+                            (defaultNode as any).leadingComments =
+                                param.leadingComments;
                         }
                     } catch {
                         // Ignore errors when copying leading comments
@@ -8194,14 +8191,12 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
 
                 // preserve any comment metadata if present (best-effort)
                 if (param.leadingComments) {
-                    (defaultNode as any).leadingComments = (
-                        param as any
-                    ).leadingComments;
+                    (defaultNode as any).leadingComments =
+                        param.leadingComments;
                 }
                 if (param.trailingComments) {
-                    (defaultNode as any).trailingComments = (
-                        param as any
-                    ).trailingComments;
+                    (defaultNode as any).trailingComments =
+                        param.trailingComments;
                 }
 
                 // Preserve parser/transforms-provided marker if present. Also

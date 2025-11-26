@@ -104,7 +104,7 @@ describe("project index identifier tracking", () => {
                 "global:GLOBAL_RATE"
             );
 
-            const enumEntries = Object.values(index.identifiers.enums) as any[];
+            const enumEntries = Object.values(index.identifiers.enums);
             assert.ok(enumEntries.length >= 2, "expected enum entries");
             for (const entry of enumEntries) {
                 assert.ok(
@@ -113,9 +113,7 @@ describe("project index identifier tracking", () => {
                 );
             }
 
-            const enumMembers = Object.values(
-                index.identifiers.enumMembers
-            ) as any[];
+            const enumMembers = Object.values(index.identifiers.enumMembers);
             const sharedMembers = enumMembers.filter(
                 (entry) => entry.name === "Bronze"
             );
@@ -129,7 +127,7 @@ describe("project index identifier tracking", () => {
 
             const instanceEntries = Object.values(
                 index.identifiers.instanceVariables
-            ) as any[];
+            );
             const speedBonusNames = instanceEntries.filter((entry) =>
                 ["speed_bonus", "SpeedBonus", "speedBonus"].includes(entry.name)
             );

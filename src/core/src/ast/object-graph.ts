@@ -40,7 +40,7 @@ export function walkObjectGraph(
     const seen = new WeakSet<object | Array<unknown>>();
 
     while (stack.length > 0) {
-        const frame = stack.pop()!;
+        const frame = stack.pop();
         const { value, parent, key } = frame;
 
         if (!value || typeof value !== "object") {

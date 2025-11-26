@@ -14,7 +14,7 @@ import { Core } from "@gml-modules/core";
  * @param {Array<T> | null | undefined} entries Collection of entries to clone.
  * @returns {Array<T>} Array containing shallow clones of object entries.
  */
-export function cloneObjectEntries(entries = undefined) {
+export function cloneObjectEntries(entries?) {
     if (!Core.isNonEmptyArray(entries)) {
         return [];
     }

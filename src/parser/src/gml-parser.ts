@@ -173,11 +173,10 @@ export class GMLParser {
             prop: "start" | "end"
         ) => {
             const value = node[prop];
-            if (typeof value === "number") return value as number;
+            if (typeof value === "number") return value;
             if (value && typeof (value as any).index === "number") {
                 return (value as any).index as number;
             }
-            return undefined;
         };
 
         Core.walkObjectGraph(root, {

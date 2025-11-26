@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { Plugin } from "../src/index.js";
+
 test("merges doc comments without duplicating returns metadata", async () => {
     const source = [
         "function drawer_factory() constructor {",

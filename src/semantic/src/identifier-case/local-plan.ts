@@ -1,23 +1,4 @@
 import { Core } from "@gml-modules/core";
-
-type IdentifierCaseDeclaration = {
-    name?: string | null;
-    scopeId?: string | null;
-    start?: number | null;
-    uniqueId?: string | null;
-    classifications?: string[] | null;
-};
-
-type IdentifierCaseEntry = {
-    name?: string | null;
-    displayName?: string | null;
-    scopeId?: string | null;
-    declarations?: IdentifierCaseDeclaration[] | null;
-    classifications?: Array<string> | null;
-    declarationKinds?: Array<string> | null;
-    filePath?: string | null;
-    uniqueId?: string | null;
-};
 import { formatIdentifierCase } from "./identifier-case-utils.js";
 import { peekIdentifierCaseDryRunContext } from "./identifier-case-context.js";
 import { buildRenameKey } from "./plan-state.js";
@@ -45,8 +26,26 @@ import {
 import { planAssetRenames, applyAssetRenames } from "./asset-renames.js";
 import { getDefaultIdentifierCaseFsFacade } from "./fs-facade.js";
 import { evaluateIdentifierCaseAssetRenamePolicy } from "./asset-rename-policy.js";
-import type { DebuggableMap } from "./types.js";
 import { getDebugId } from "./types.js";
+
+type IdentifierCaseDeclaration = {
+    name?: string | null;
+    scopeId?: string | null;
+    start?: number | null;
+    uniqueId?: string | null;
+    classifications?: string[] | null;
+};
+
+type IdentifierCaseEntry = {
+    name?: string | null;
+    displayName?: string | null;
+    scopeId?: string | null;
+    declarations?: IdentifierCaseDeclaration[] | null;
+    classifications?: Array<string> | null;
+    declarationKinds?: Array<string> | null;
+    filePath?: string | null;
+    uniqueId?: string | null;
+};
 
 // Diagnostic counter used during triage to tag generated rename maps so they
 // can be correlated across the prepare->capture->attach->apply lifecycle in

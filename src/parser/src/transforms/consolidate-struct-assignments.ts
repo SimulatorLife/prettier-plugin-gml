@@ -567,7 +567,7 @@ function isAttachableTrailingComment(comment, statement) {
     const commentStart = comment.start;
     if (
         !Core.isObjectLike(commentStart) ||
-        typeof (commentStart as any).line !== "number"
+        typeof commentStart.line !== "number"
     ) {
         return false;
     }
@@ -790,12 +790,12 @@ class CommentTracker {
                 // entry is { index, comment }
                 entry.consumed = true;
                 if (entry.comment) {
-                    (entry.comment as any)._removedByConsolidation = true;
+                    entry.comment._removedByConsolidation = true;
                 }
             } else {
                 // entry is a plain comment node
                 const commentNode = entry;
-                (commentNode as any)._removedByConsolidation = true;
+                commentNode._removedByConsolidation = true;
                 // Find the corresponding tracker entry and mark it consumed if present
                 for (const e of this.entries) {
                     if (e && e.comment === commentNode) {

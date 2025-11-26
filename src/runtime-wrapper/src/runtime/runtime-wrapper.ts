@@ -37,7 +37,7 @@ export function createRuntimeWrapper(
 
     function applyPatch(patchCandidate: unknown): ApplyPatchResult {
         validatePatch(patchCandidate);
-        const patch = patchCandidate as Patch;
+        const patch = patchCandidate;
 
         if (state.options.validateBeforeApply) {
             const testResult = testPatchInShadow(patch);
@@ -84,7 +84,7 @@ export function createRuntimeWrapper(
             return { success: false, message: "Nothing to undo" };
         }
 
-        const snapshot = state.undoStack.pop()!;
+        const snapshot = state.undoStack.pop();
         const restoredRegistry = restoreSnapshot(state.registry, snapshot);
 
         state.registry = {
@@ -107,7 +107,7 @@ export function createRuntimeWrapper(
         onValidate?: (patch: Patch) => boolean | void
     ): TrySafeApplyResult {
         validatePatch(patchCandidate);
-        const patch = patchCandidate as Patch;
+        const patch = patchCandidate;
 
         const testResult = testPatchInShadow(patch);
         if (!testResult.valid) {
@@ -158,7 +158,7 @@ export function createRuntimeWrapper(
                 version: previousVersion
             };
 
-            const lastSnapshot = state.undoStack[state.undoStack.length - 1];
+            const lastSnapshot = state.undoStack.at(-1);
             if (
                 lastSnapshot &&
                 lastSnapshot.id === patch.id &&
@@ -227,12 +227,23 @@ export function createRuntimeWrapper(
 
             uniqueIds.add(entry.patch.id);
 
-            if (entry.patch.kind === "script") {
-                stats.scriptPatches++;
-            } else if (entry.patch.kind === "event") {
-                stats.eventPatches++;
-            } else if (entry.patch.kind === "closure") {
-                stats.closurePatches++;
+            switch (entry.patch.kind) {
+                case "script": {
+                    stats.scriptPatches++;
+
+                    break;
+                }
+                case "event": {
+                    stats.eventPatches++;
+
+                    break;
+                }
+                case "closure": {
+                    stats.closurePatches++;
+
+                    break;
+                }
+                // No default
             }
         }
 

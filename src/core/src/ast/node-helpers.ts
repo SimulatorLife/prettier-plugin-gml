@@ -588,7 +588,7 @@ export function getNodeType(node: unknown | GameMakerAstNode): string | null {
         return null;
     }
 
-    const { type } = node as GameMakerAstNode;
+    const { type } = node;
     return typeof type === "string" ? type : null;
 }
 

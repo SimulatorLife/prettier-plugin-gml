@@ -144,7 +144,7 @@ function resolveStringScopeOverride(tracker, scopeOverride, currentScope) {
 }
 
 export class ScopeTracker {
-    private scopeCounter: number;
+    private scopeCounter: number = 0;
     private scopeStack: Scope[];
     private rootScope: Scope | null;
     private scopesById: Map<string, Scope>;
@@ -155,7 +155,6 @@ export class ScopeTracker {
     private globalIdentifierRegistry: GlobalIdentifierRegistry;
 
     constructor({ enabled = true } = {}) {
-        this.scopeCounter = 0;
         this.scopeStack = [];
         this.rootScope = null;
         this.scopesById = new Map();
@@ -674,7 +673,7 @@ export class ScopeTracker {
      */
     resolveIdentifier(
         name: string | null | undefined,
-        scopeId?: string | null | undefined
+        scopeId?: string | null
     ) {
         if (!name) {
             return null;

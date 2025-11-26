@@ -142,7 +142,7 @@ export async function prepareIdentifierCaseEnvironment(options) {
                 throw error;
             }
         },
-        () => undefined
+        () => {}
     );
 }
 
@@ -192,7 +192,7 @@ export function attachIdentifierCasePlanSnapshot(ast, options) {
                 configurable: true
             });
         },
-        () => undefined
+        () => {}
     );
 }
 

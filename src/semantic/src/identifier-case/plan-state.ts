@@ -1,11 +1,8 @@
 import { Core } from "@gml-modules/core";
-import type {
-    GameMakerAstNode,
-    MutableGameMakerAstNode
-} from "@gml-modules/core";
+import type { MutableGameMakerAstNode } from "@gml-modules/core";
 
 import { setIdentifierCaseOption } from "./option-store.js";
-import type { DebuggableMap, IdentifierCasePlanSnapshot } from "./types.js";
+import type { DebuggableMap } from "./types.js";
 import { getDebugId } from "./types.js";
 
 function buildRenameKey(_scopeId, location) {

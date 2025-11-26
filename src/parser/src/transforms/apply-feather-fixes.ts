@@ -1,11 +1,3 @@
-type RenameOptions = {
-    onRename?: (payload: {
-        identifier: MutableGameMakerAstNode;
-        originalName: string;
-        replacement: string;
-    }) => void;
-};
-
 import { Core } from "@gml-modules/core";
 import type { MutableGameMakerAstNode } from "@gml-modules/core";
 import { Semantic } from "@gml-modules/semantic";
@@ -19,6 +11,14 @@ import GameMakerParseErrorListener, {
     GameMakerLexerErrorListener
 } from "../ast/gml-syntax-error.js";
 import { preprocessFunctionArgumentDefaults } from "./preprocess-function-argument-defaults.js";
+
+type RenameOptions = {
+    onRename?: (payload: {
+        identifier: MutableGameMakerAstNode;
+        originalName: string;
+        replacement: string;
+    }) => void;
+};
 // Avoid destructuring the Core namespace; access the helper via Core.resolveDocCommentTraversalService
 
 function walkAstNodes(root, visitor) {
@@ -2173,10 +2173,7 @@ function recordVariableDeclaration(registry, context) {
         return;
     }
 
-    const name =
-        typeof (id as Record<string, unknown>).name === "string"
-            ? (id as Record<string, unknown>).name
-            : null;
+    const name = typeof id.name === "string" ? id.name : null;
 
     if (!name) {
         return;
@@ -3387,10 +3384,12 @@ function createAssignmentFromGlobalVarDeclarator({
         return null;
     }
 
-    if (declarator.id && (declarator.id as any).isGlobalIdentifier) {
-        if (isAstNode(identifier)) {
-            (identifier as Record<string, unknown>).isGlobalIdentifier = true;
-        }
+    if (
+        declarator.id &&
+        declarator.id.isGlobalIdentifier &&
+        isAstNode(identifier)
+    ) {
+        identifier.isGlobalIdentifier = true;
     }
 
     const assignment: Record<string, unknown> = {
@@ -3444,7 +3443,7 @@ function clearGlobalVarDeclaratorInitializer(declarator) {
         typeof declarator.id === "object" &&
         Object.hasOwn(declarator.id, "end")
     ) {
-        Core.assignClonedLocation(declarator as any, declarator.id);
+        Core.assignClonedLocation(declarator, declarator.id);
     }
 }
 
@@ -8173,7 +8172,7 @@ function createVertexEndCallFromBegin(template) {
         const clonedArgument = Core.cloneAstNode(template.arguments[0]);
 
         if (clonedArgument) {
-            (callExpression.arguments as unknown as any[]).push(clonedArgument);
+            (callExpression.arguments as any[]).push(clonedArgument);
         }
     }
 
@@ -9442,12 +9441,9 @@ function convertNullishIfStatement(node, parent, property, diagnostic) {
         previousNode.right = binaryExpression;
 
         if (Object.hasOwn(node, "end")) {
-            Core.assignClonedLocation(previousNode as any, node);
+            Core.assignClonedLocation(previousNode, node);
         } else if (Object.hasOwn(consequentAssignment, "end")) {
-            Core.assignClonedLocation(
-                previousNode as any,
-                consequentAssignment
-            );
+            Core.assignClonedLocation(previousNode, consequentAssignment);
         }
 
         const fixDetail = createFeatherFixDetail(diagnostic, {
@@ -10468,9 +10464,8 @@ function removeRedeclaredGlobalFunctions({ ast, diagnostic }) {
             continue;
         }
 
-        const nodeObj = node as Record<string, unknown>;
-        const functionId =
-            typeof nodeObj.id === "string" ? (nodeObj.id as string) : null;
+        const nodeObj = node;
+        const functionId = typeof nodeObj.id === "string" ? nodeObj.id : null;
 
         if (!functionId) {
             index += 1;
@@ -14686,7 +14681,7 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
             return node.body;
         }
 
-        return Core.getBodyStatements(node as Record<string, unknown>);
+        return Core.getBodyStatements(node);
     }
 
     function createFileFindState() {
@@ -15770,7 +15765,7 @@ function suppressDuplicateVertexFormatComments(ast, commentTargets, node) {
         }
 
         const commentLine = getStartFromNode(comment)
-            ? (getStartFromNode(comment) as any).line
+            ? getStartFromNode(comment).line
             : null;
 
         if (

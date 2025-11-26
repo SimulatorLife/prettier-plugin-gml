@@ -73,80 +73,117 @@ export class GmlToJsEmitter {
 
     private visit(ast: GmlNode): string {
         switch (ast.type) {
-            case "DefaultParameter":
+            case "DefaultParameter": {
                 return this.visitDefaultParameter(ast);
-            case "Literal":
+            }
+            case "Literal": {
                 return this.visitLiteral(ast);
-            case "Identifier":
+            }
+            case "Identifier": {
                 return this.visitIdentifier(ast);
-            case "IdentifierStatement":
+            }
+            case "IdentifierStatement": {
                 return `${this.visit(ast.name)};`;
-            case "BinaryExpression":
+            }
+            case "BinaryExpression": {
                 return this.visitBinaryExpression(ast);
-            case "UnaryExpression":
+            }
+            case "UnaryExpression": {
                 return this.visitUnaryExpression(ast);
-            case "AssignmentExpression":
+            }
+            case "AssignmentExpression": {
                 return this.visitAssignmentExpression(ast);
-            case "IncDecStatement":
+            }
+            case "IncDecStatement": {
                 return this.visitIncDecStatement(ast);
-            case "ExpressionStatement":
+            }
+            case "ExpressionStatement": {
                 return `${this.visit(ast.expression)};`;
-            case "MemberIndexExpression":
+            }
+            case "MemberIndexExpression": {
                 return this.visitMemberIndexExpression(ast);
-            case "MemberDotExpression":
+            }
+            case "MemberDotExpression": {
                 return this.visitMemberDotExpression(ast);
-            case "CallExpression":
+            }
+            case "CallExpression": {
                 return this.visitCallExpression(ast);
-            case "Program":
+            }
+            case "Program": {
                 return this.visitProgram(ast);
-            case "BlockStatement":
+            }
+            case "BlockStatement": {
                 return this.visitBlockStatement(ast);
-            case "IfStatement":
+            }
+            case "IfStatement": {
                 return this.visitIfStatement(ast);
-            case "ForStatement":
+            }
+            case "ForStatement": {
                 return this.visitForStatement(ast);
-            case "WhileStatement":
+            }
+            case "WhileStatement": {
                 return this.visitWhileStatement(ast);
-            case "DoUntilStatement":
+            }
+            case "DoUntilStatement": {
                 return this.visitDoUntilStatement(ast);
-            case "WithStatement":
+            }
+            case "WithStatement": {
                 return this.visitWithStatement(ast);
-            case "ReturnStatement":
+            }
+            case "ReturnStatement": {
                 return this.visitReturnStatement(ast);
-            case "BreakStatement":
+            }
+            case "BreakStatement": {
                 return "break";
-            case "ContinueStatement":
+            }
+            case "ContinueStatement": {
                 return "continue";
-            case "ExitStatement":
+            }
+            case "ExitStatement": {
                 return "return";
-            case "ThrowStatement":
+            }
+            case "ThrowStatement": {
                 return this.visitThrowStatement(ast);
-            case "TryStatement":
+            }
+            case "TryStatement": {
                 return this.visitTryStatement(ast);
-            case "RepeatStatement":
+            }
+            case "RepeatStatement": {
                 return this.visitRepeatStatement(ast);
-            case "SwitchStatement":
+            }
+            case "SwitchStatement": {
                 return this.visitSwitchStatement(ast);
-            case "GlobalVarStatement":
+            }
+            case "GlobalVarStatement": {
                 return this.visitGlobalVarStatement(ast);
-            case "VariableDeclaration":
+            }
+            case "VariableDeclaration": {
                 return this.visitVariableDeclaration(ast);
-            case "VariableDeclarator":
+            }
+            case "VariableDeclarator": {
                 return this.visitVariableDeclarator(ast);
-            case "ParenthesizedExpression":
+            }
+            case "ParenthesizedExpression": {
                 return `(${this.visit(ast.expression)})`;
-            case "TernaryExpression":
+            }
+            case "TernaryExpression": {
                 return this.visitTernaryExpression(ast);
-            case "ArrayExpression":
+            }
+            case "ArrayExpression": {
                 return this.visitArrayExpression(ast);
-            case "StructExpression":
+            }
+            case "StructExpression": {
                 return this.visitStructExpression(ast);
-            case "EnumDeclaration":
+            }
+            case "EnumDeclaration": {
                 return this.visitEnumDeclaration(ast);
-            case "FunctionDeclaration":
+            }
+            case "FunctionDeclaration": {
                 return this.visitFunctionDeclaration(ast);
-            default:
+            }
+            default: {
                 return "";
+            }
         }
     }
 
@@ -165,14 +202,18 @@ export class GmlToJsEmitter {
         const kind = this.sem.kindOfIdent(ast);
         const name = this.sem.nameOfIdent(ast);
         switch (kind) {
-            case "self_field":
+            case "self_field": {
                 return `self.${name}`;
-            case "other_field":
+            }
+            case "other_field": {
                 return `other.${name}`;
-            case "global_field":
+            }
+            case "global_field": {
                 return `${this.options.globalsIdent}.${name}`;
-            default:
+            }
+            default: {
                 return name;
+            }
         }
     }
 

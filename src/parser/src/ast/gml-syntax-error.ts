@@ -1,6 +1,7 @@
 import antlr4 from "antlr4";
 
 import { Core } from "@gml-modules/core";
+
 type AntlrErrorListenerConstructor = new (...args: unknown[]) => object;
 
 const typedAntlr4 = antlr4 as typeof antlr4 & {
@@ -11,7 +12,7 @@ const typedAntlr4 = antlr4 as typeof antlr4 & {
 
 const ErrorListener = typedAntlr4.error?.ErrorListener;
 if (typeof ErrorListener !== "function") {
-    throw new Error("ANTLR ErrorListener is not available");
+    throw new TypeError("ANTLR ErrorListener is not available");
 }
 
 interface GameMakerSyntaxErrorOptions {
@@ -40,10 +41,10 @@ export class GameMakerSyntaxError extends Error {
     }: GameMakerSyntaxErrorOptions) {
         super(message);
         this.name = "GameMakerSyntaxError";
-        if (Number.isFinite(line ?? NaN)) {
+        if (Number.isFinite(line ?? Number.NaN)) {
             this.line = Number(line);
         }
-        if (Number.isFinite(column ?? NaN)) {
+        if (Number.isFinite(column ?? Number.NaN)) {
             this.column = Number(column);
         }
         if (typeof wrongSymbol === "string") {

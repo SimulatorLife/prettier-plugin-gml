@@ -1,12 +1,10 @@
 import { Core } from "@gml-modules/core";
 import type {
     ListenerDelegate,
-    ListenerHandler,
     ListenerOptions,
-    ListenerPayload,
     ParserContext
 } from "../types/index.js";
-import { default as GameMakerLanguageParserListenerBase } from "../../generated/GameMakerLanguageParserListener.js";
+import GameMakerLanguageParserListenerBase from "../../generated/GameMakerLanguageParserListener.js";
 import { VISIT_METHOD_NAMES } from "./game-maker-language-parser-visitor.js";
 import {
     definePrototypeMethods,
@@ -37,7 +35,7 @@ function createListenerDelegate(
 
     const handlerEntries = Object.entries(listenerHandlers)
         .filter(([, value]) => typeof value === "function")
-        .map(([key, value]) => [key, value as ListenerHandler] as const);
+        .map(([key, value]) => [key, value] as const);
 
     if (handlerEntries.length === 0) {
         return baseDelegate;

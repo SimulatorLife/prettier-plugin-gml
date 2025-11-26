@@ -1,14 +1,7 @@
 import { stripCommentsTransform } from "./strip-comments.js";
 import { consolidateStructAssignments } from "./consolidate-struct-assignments.js";
 import { condenseLogicalExpressions } from "./condense-logical-expressions.js";
-import {
-    applyFeatherFixes,
-    applyRemovedIndexAdjustments,
-    getFeatherDiagnosticFixers,
-    getRoomNavigationHelpers,
-    preprocessSourceForFeatherFixes,
-    ROOM_NAVIGATION_DIRECTION
-} from "./apply-feather-fixes.js";
+import { applyFeatherFixes } from "./apply-feather-fixes.js";
 import { preprocessFunctionArgumentDefaults } from "./preprocess-function-argument-defaults.js";
 import { enforceVariableBlockSpacing } from "./enforce-variable-block-spacing.js";
 import { convertStringConcatenations } from "./convert-string-concatenations.js";

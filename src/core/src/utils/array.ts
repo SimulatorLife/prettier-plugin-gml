@@ -34,7 +34,7 @@ type MergeUniqueValueOptions<T> = {
  * @returns {Array<T>} Array containing the iterable's elements, or an empty
  *          array when the input is nullish or non-iterable.
  */
-export function toArrayFromIterable(values = undefined) {
+export function toArrayFromIterable(values?) {
     if (values == null) {
         return [];
     }
@@ -58,7 +58,7 @@ export function toArrayFromIterable(values = undefined) {
  * @param {T | Array<T> | null | undefined} value
  * @returns {Array<T>} Normalized array representation of the provided value.
  */
-export function toArray(value = undefined) {
+export function toArray(value?) {
     if (value == null) {
         return [];
     }
@@ -221,7 +221,7 @@ export function uniqueArray(values, { freeze = false } = {}) {
  * @param {boolean} [options.freeze=false]
  * @returns {Array<T> | ReadonlyArray<T>}
  */
-export function compactArray(values = undefined, { freeze = false } = {}) {
+export function compactArray(values?, { freeze = false } = {}) {
     const result = toArrayFromIterable(values).filter(Boolean);
     return freeze ? Object.freeze(result) : result;
 }
@@ -339,7 +339,7 @@ export function mergeUniqueValues(
  *        Commander (or similar collectors).
  * @returns {Array<T>} Array containing both prior entries and {@link value}.
  */
-export function appendToCollection(value, collection = undefined) {
+export function appendToCollection(value, collection?) {
     if (collection === undefined) {
         return [value];
     }

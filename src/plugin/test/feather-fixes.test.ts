@@ -3839,8 +3839,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
 
         const blockDiagnostics =
-            ((ifStatement as any).consequent as any)
-                ?._appliedFeatherDiagnostics ?? [];
+            (ifStatement as any).consequent?._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(
             blockDiagnostics.some((entry) => entry.id === "GM1016"),
             true,

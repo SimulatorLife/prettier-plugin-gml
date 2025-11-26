@@ -70,7 +70,7 @@ describe("project index scope tracking", () => {
                 "expected GLOBAL_SCORE declaration to be tracked"
             );
 
-            const enumEntries = Object.values(index.identifiers.enums) as any[];
+            const enumEntries = Object.values(index.identifiers.enums);
             const difficultyEnum = enumEntries.find(
                 (entry) => entry.name === "Difficulty"
             );
@@ -83,9 +83,7 @@ describe("project index scope tracking", () => {
                 "expected DifficultyCopy enum to be present"
             );
 
-            const enumMembers = Object.values(
-                index.identifiers.enumMembers
-            ) as any[];
+            const enumMembers = Object.values(index.identifiers.enumMembers);
             const hasEasyMember = enumMembers.filter(
                 (entry) => entry.name === "Easy"
             );

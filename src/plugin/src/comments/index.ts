@@ -1,5 +1,4 @@
 import { Parser } from "@gml-modules/parser";
-import { Core } from "@gml-modules/core";
 
 export * from "./line-comment-formatting.js";
 export * from "./comment-printer.js";

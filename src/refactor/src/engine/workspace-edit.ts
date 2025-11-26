@@ -29,7 +29,7 @@ export class WorkspaceEdit {
                 grouped.set(edit.path, []);
             }
 
-            grouped.get(edit.path)!.push({
+            grouped.get(edit.path).push({
                 start: edit.start,
                 end: edit.end,
                 newText: edit.newText

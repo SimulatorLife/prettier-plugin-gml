@@ -9,9 +9,7 @@ const TRAILING_COMMA = Object.freeze({
     ALL: "all"
 } as const) satisfies Record<"NONE" | "ES5" | "ALL", TrailingCommaOption>;
 
-const TRAILING_COMMA_VALUES = Object.freeze(
-    Object.values(TRAILING_COMMA)
-) as readonly TrailingCommaOption[];
+const TRAILING_COMMA_VALUES = Object.freeze(Object.values(TRAILING_COMMA));
 const TRAILING_COMMA_SET = new Set(TRAILING_COMMA_VALUES);
 const TRAILING_COMMA_LIST = TRAILING_COMMA_VALUES.join(", ");
 

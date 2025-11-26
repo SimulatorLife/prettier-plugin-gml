@@ -1,5 +1,4 @@
 import path from "node:path";
-import { promises as fs } from "node:fs";
 import { Core } from "@gml-modules/core";
 import { createHash, randomUUID } from "node:crypto";
 
@@ -411,7 +410,7 @@ export async function saveProjectIndexCache(
         );
     }
     if (!Core.isObjectLike(projectIndex)) {
-        throw new Error(
+        throw new TypeError(
             "projectIndex must be provided to saveProjectIndexCache"
         );
     }

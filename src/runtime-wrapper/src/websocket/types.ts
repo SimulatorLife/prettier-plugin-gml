@@ -1,8 +1,4 @@
-import type {
-    Patch,
-    RuntimePatchError,
-    RuntimeWrapper
-} from "../runtime/types.js";
+import type { RuntimePatchError, RuntimeWrapper } from "../runtime/types.js";
 
 export type WebSocketEvent = "open" | "message" | "close" | "error";
 

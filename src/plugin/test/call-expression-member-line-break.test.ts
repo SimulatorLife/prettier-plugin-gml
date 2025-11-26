@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Plugin } from "../src/index.js";
-import prettier from "prettier";
 
 test("keeps member call property on the same line as the object", async () => {
     const source = [

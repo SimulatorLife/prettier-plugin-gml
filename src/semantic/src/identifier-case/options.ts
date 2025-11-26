@@ -222,37 +222,54 @@ const baseIdentifierCaseOptions: Record<string, IdentifierCaseOptionConfig> = {
     }
 };
 
-const scopeOptions = IDENTIFIER_CASE_SCOPE_NAMES.reduce<
-    Record<string, IdentifierCaseOptionConfig>
->((optionsByScope, scope) => {
-    const optionName = getScopeOptionName(scope);
-    optionsByScope[optionName] = createScopeOptionConfig(scope);
-    return optionsByScope;
-}, {});
+function createIdentifierCaseOptions(): Record<
+    string,
+    IdentifierCaseOptionConfig
+> {
+    const options = Object.create(null) as Record<
+        string,
+        IdentifierCaseOptionConfig
+    >;
+    Object.assign(options, baseIdentifierCaseOptions);
 
-export const identifierCaseOptions: Record<string, IdentifierCaseOptionConfig> =
-    {
-        ...baseIdentifierCaseOptions,
-        [IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME]: {
-            since: BASE_IDENTIFIER_CASE_SINCE,
-            type: "int",
-            category: "gml",
-            default: DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES,
-            range: { start: 0, end: Infinity },
-            description:
-                "Maximum number of identifier-case option store entries to retain. Set to 0 to disable eviction entirely."
-        },
-        [IDENTIFIER_CASE_PROJECT_INDEX_CONCURRENCY_OPTION_NAME]: {
-            since: BASE_IDENTIFIER_CASE_SINCE,
-            type: "int",
-            category: "gml",
-            default: getDefaultProjectIndexGmlConcurrency(),
-            range: { start: 1, end: Infinity },
-            description:
-                "Maximum number of GameMaker files parsed in parallel while building identifier-case project indexes."
-        },
-        ...scopeOptions
+    options[IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME] =
+        createStoreCapacityOptionConfig();
+    options[IDENTIFIER_CASE_PROJECT_INDEX_CONCURRENCY_OPTION_NAME] =
+        createConcurrencyOptionConfig();
+
+    for (const scope of IDENTIFIER_CASE_SCOPE_NAMES) {
+        const optionName = getScopeOptionName(scope);
+        options[optionName] = createScopeOptionConfig(scope);
+    }
+
+    return options;
+}
+
+function createStoreCapacityOptionConfig(): IdentifierCaseOptionConfig {
+    return {
+        since: BASE_IDENTIFIER_CASE_SINCE,
+        type: "int",
+        category: "gml",
+        default: DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES,
+        range: { start: 0, end: Infinity },
+        description:
+            "Maximum number of identifier-case option store entries to retain. Set to 0 to disable eviction entirely."
     };
+}
+
+function createConcurrencyOptionConfig(): IdentifierCaseOptionConfig {
+    return {
+        since: BASE_IDENTIFIER_CASE_SINCE,
+        type: "int",
+        category: "gml",
+        default: getDefaultProjectIndexGmlConcurrency(),
+        range: { start: 1, end: Infinity },
+        description:
+            "Maximum number of GameMaker files parsed in parallel while building identifier-case project indexes."
+    };
+}
+
+export const identifierCaseOptions = createIdentifierCaseOptions();
 
 function normalizeList(optionName, value) {
     return Core.normalizeStringList(value, {

@@ -1,3 +1,14 @@
+// import path from "node:path";
+// import { Core } from "@gml-modules/core";
+
+import {
+    loadProjectIndexCache,
+    saveProjectIndexCache,
+    getDefaultProjectIndexCacheMaxSize
+} from "./cache.js";
+import { createProjectIndexCoordinator as createProjectIndexCoordinatorCore } from "./coordinator.js";
+import { defaultFsFacade, type ProjectIndexFsFacade } from "./fs-facade.js";
+
 export * from "./abort-guard.js";
 export * from "./bootstrap-descriptor.js";
 export * from "./cache.js";
@@ -17,17 +28,6 @@ export * from "./syntax-error-formatter.js";
 export * from "./gml-parser-facade.js";
 export * from "./project-file-categories.js";
 export * from "./path-normalization.js";
-
-// import path from "node:path";
-// import { Core } from "@gml-modules/core";
-
-import {
-    loadProjectIndexCache,
-    saveProjectIndexCache,
-    getDefaultProjectIndexCacheMaxSize
-} from "./cache.js";
-import { createProjectIndexCoordinator as createProjectIndexCoordinatorCore } from "./coordinator.js";
-import { defaultFsFacade, type ProjectIndexFsFacade } from "./fs-facade.js";
 // import { clampConcurrency } from "./concurrency.js";
 // import { resolveProjectIndexParser } from "./parser-override.js";
 // import {

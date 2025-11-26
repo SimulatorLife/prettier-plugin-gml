@@ -39,8 +39,8 @@ export function preprocessFunctionArgumentDefaults(
             typeof helpers === "function"
                 ? helpers
                 : Core.isObjectLike(helpers) &&
-                    typeof (helpers as any).hasComment === "function"
-                  ? (helpers as any).hasComment
+                    typeof helpers.hasComment === "function"
+                  ? helpers.hasComment
                   : DEFAULT_HELPERS.hasComment
     };
 
@@ -810,9 +810,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                     // leave the explicit optionality decision to the later
                     // doc-driven reconciliation so plain functions omit
                     // redundant `= undefined` unless docs indicate optional.
-                    (
-                        currentParam as any
-                    )._featherMaterializedTrailingUndefined = true;
+                    currentParam._featherMaterializedTrailingUndefined = true;
                 }
             } catch {
                 // swallow
@@ -917,8 +915,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                         // Materialize placeholder RHS as `undefined` using a
                         // Literal node so the shape matches existing tests.
                         param.right = { type: "Literal", value: "undefined" };
-                        (param as any)._featherMaterializedTrailingUndefined =
-                            true;
+                        param._featherMaterializedTrailingUndefined = true;
                         param._featherMaterializedFromExplicitLeft = true;
                         // Preserve historical behaviour: when materializing a
                         // trailing `= undefined` default due to an explicit
