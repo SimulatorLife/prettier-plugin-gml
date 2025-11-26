@@ -16,7 +16,7 @@ export {
     normalizeIdentifierMetadataEntries,
     resetReservedIdentifierMetadataLoader,
     setReservedIdentifierMetadataLoader
-} from "./gml-identifiers.js";
+} from "./gml-identifier-loading.js";
 export {
     resolveBundledResourcePath,
     resolveBundledResourceUrl

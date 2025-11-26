@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { normalizeIdentifierMetadataEntries } from "../src/resources/gml-identifiers.js";
+import { normalizeIdentifierMetadataEntries } from "../src/resources/gml-identifier-loading.js";
 
 const sampleDescriptor = { type: "Function", tags: ["function"] };
 

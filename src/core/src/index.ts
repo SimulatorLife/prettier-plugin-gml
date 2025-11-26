@@ -8,7 +8,7 @@ import * as FS from "./fs/index.js";
 import * as Metrics from "./metrics/index.js";
 import * as Utils from "./utils/index.js";
 import * as Resources from "./resources/index.js";
-import * as IdentifierMetadata from "./resources/gml-identifiers.js";
+import * as IdentifierMetadata from "./resources/gml-identifier-loading.js";
 import * as DeprecatedBuiltinVariables from "./utils/deprecated-builtin-variable-replacements.js";
 
 // Define the Core namespace type from existing module types
