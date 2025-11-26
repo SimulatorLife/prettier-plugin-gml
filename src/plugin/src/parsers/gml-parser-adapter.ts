@@ -48,6 +48,18 @@ async function parse(text, options) {
         options.originalText = text;
     }
 
+    // Enable scope tracking so the printer can detect and prefix global identifiers.
+    const parserOptions = {
+        getLocations: true,
+        simplifyLocations: false,
+        getComments: true,
+        scopeTrackerOptions: {
+            enabled: true,
+            getIdentifierMetadata: true,
+            createScopeTracker: () => new Semantic.SemanticScopeCoordinator()
+        }
+    };
+
     try {
         if (options) {
             await Semantic.prepareIdentifierCaseEnvironment(options);
@@ -97,13 +109,7 @@ async function parse(text, options) {
         let ast;
 
         try {
-            ast = Parser.GMLParser.parse(parseSource, {
-                getLocations: true,
-                simplifyLocations: false,
-                // Request comments so top-level and node-level comment arrays
-                // are populated for later scanning and promotion logic.
-                getComments: true
-            });
+            ast = Parser.GMLParser.parse(parseSource, parserOptions);
             if (process.env.GML_PRINTER_DEBUG) {
                 try {
                     const length = Array.isArray(ast?.comments)
@@ -132,12 +138,7 @@ async function parse(text, options) {
             }
 
             parseSource = recoveredSource;
-            ast = Parser.GMLParser.parse(parseSource, {
-                getLocations: true,
-                simplifyLocations: false,
-                // Ensure comments are captured on recovered parse as well.
-                getComments: true
-            });
+            ast = Parser.GMLParser.parse(parseSource, parserOptions);
         }
 
         Semantic.attachIdentifierCasePlanSnapshot(ast, options);

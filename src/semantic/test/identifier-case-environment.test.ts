@@ -65,7 +65,16 @@ test("identifier case bootstrap is disposed when parsing fails", async () => {
         __identifierCaseProjectIndexBootstrap: bootstrap
     };
 
-    assert.throws(() => Plugin.parsers.gmlParserAdapter.parse("if (", options));
+    await assert.rejects(
+        Plugin.parsers.gmlParserAdapter.parse(
+            "if (",
+            options
+        ) as Promise<unknown>,
+        (error) =>
+            typeof error === "object" &&
+            error !== null &&
+            (error as { name?: string }).name === "GameMakerSyntaxError"
+    );
 
     assert.equal(disposeCalls, 1);
 
