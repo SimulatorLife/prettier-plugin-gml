@@ -164,6 +164,14 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                 description:
                     "Convert bespoke math expressions into their builtin GML equivalents (e.g. collapsing repeated multiplication into sqr())."
             },
+            sanitizeMissingArgumentSeparators: {
+                since: "0.0.0",
+                type: "boolean",
+                category: "gml",
+                default: true,
+                description:
+                    "Automatically insert missing commas between adjacent call arguments when safe so parsing and formatting can continue."
+            },
             condenseUnaryBooleanReturns: {
                 since: "0.0.0",
                 type: "boolean",
