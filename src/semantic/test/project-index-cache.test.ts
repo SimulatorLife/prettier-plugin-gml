@@ -542,36 +542,32 @@ test("createProjectIndexCoordinator aborts in-flight builds on dispose", async (
 });
 
 test("createProjectIndexCoordinator forwards configured cacheMaxSizeBytes", async () => {
-    const savedDescriptors = [];
-    const coordinator = createProjectIndexCoordinator({
-        cacheMaxSizeBytes: 42,
-        loadCache: async () => ({
-            status: ProjectIndexCacheStatus.MISS,
-            cacheFilePath: "virtual-cache.json",
-            reason: { type: ProjectIndexCacheMissReason.NOT_FOUND }
-        }),
-        saveCache: async (descriptor) => {
-            savedDescriptors.push(descriptor);
-            return {
-                status: ProjectIndexCacheStatus.WRITTEN,
-                cacheFilePath: descriptor.cacheFilePath ?? "virtual-cache.json",
-                size: 0
-            };
-        },
-        buildIndex: async () => createProjectIndex("/project")
+    await assertCoordinatorMaxSizeScenario({
+        coordinatorOverrides: { cacheMaxSizeBytes: 42 },
+        ensureArgs: { projectRoot: "/project" },
+        expectedMaxSize: 42
     });
-
-    await coordinator.ensureReady({ projectRoot: "/project" });
-
-    assert.equal(savedDescriptors.length, 1);
-    assert.equal(savedDescriptors[0].maxSizeBytes, 42);
-    coordinator.dispose();
 });
 
 test("createProjectIndexCoordinator allows descriptor maxSizeBytes overrides", async () => {
-    const savedDescriptors = [];
+    await assertCoordinatorMaxSizeScenario({
+        coordinatorOverrides: { cacheMaxSizeBytes: 42 },
+        ensureArgs: { projectRoot: "/project", maxSizeBytes: 99 },
+        expectedMaxSize: 99
+    });
+});
+
+async function assertCoordinatorMaxSizeScenario({
+    coordinatorOverrides = {},
+    ensureArgs,
+    expectedMaxSize
+}: {
+    coordinatorOverrides?: Record<string, unknown>;
+    ensureArgs: { projectRoot: string; maxSizeBytes?: number };
+    expectedMaxSize: number;
+}) {
+    const savedDescriptors: Array<{ maxSizeBytes: number }> = [];
     const coordinator = createProjectIndexCoordinator({
-        cacheMaxSizeBytes: 42,
         loadCache: async () => ({
             status: ProjectIndexCacheStatus.MISS,
             cacheFilePath: "virtual-cache.json",
@@ -585,18 +581,18 @@ test("createProjectIndexCoordinator allows descriptor maxSizeBytes overrides", a
                 size: 0
             };
         },
-        buildIndex: async () => createProjectIndex("/project")
+        buildIndex: async () => createProjectIndex("/project"),
+        ...coordinatorOverrides
     });
 
-    await coordinator.ensureReady({
-        projectRoot: "/project",
-        maxSizeBytes: 99
-    });
-
-    assert.equal(savedDescriptors.length, 1);
-    assert.equal(savedDescriptors[0].maxSizeBytes, 99);
-    coordinator.dispose();
-});
+    try {
+        await coordinator.ensureReady(ensureArgs);
+        assert.equal(savedDescriptors.length, 1);
+        assert.equal(savedDescriptors[0].maxSizeBytes, expectedMaxSize);
+    } finally {
+        coordinator.dispose();
+    }
+}
 
 // The tests below all exercise the global default cache size. When they ran in
 // parallel the shared default from one case could bleed into another, leading

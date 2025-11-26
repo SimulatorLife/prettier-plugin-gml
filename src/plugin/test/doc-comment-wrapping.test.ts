@@ -149,19 +149,10 @@ test("preserves doc comment continuation labels without indentation", async () =
         "Expected formatter to emit a @description doc comment line."
     );
 
-    const continuationLines = [];
-    for (let index = descriptionIndex + 1; index < lines.length; index += 1) {
-        const line = lines[index];
-        if (!line.startsWith("///")) {
-            break;
-        }
-
-        if (line.startsWith("/// @")) {
-            continue;
-        }
-
-        continuationLines.push(line);
-    }
+    const continuationLines = collectDescriptionContinuationLines(
+        lines,
+        descriptionIndex
+    );
 
     assert.ok(
         continuationLines.some((line) => line.includes("Local space: ")),
@@ -209,6 +200,24 @@ test("does not expand preformatted doc comment continuations", async () => {
         "Expected formatter to emit a @description doc comment line."
     );
 
+    const continuationLines = collectDescriptionContinuationLines(
+        lines,
+        descriptionIndex
+    );
+
+    assert.strictEqual(
+        continuationLines.length,
+        1,
+        "Expected formatter to preserve the manually wrapped continuation block."
+    );
+
+    assert.strictEqual(
+        continuationLines[0],
+        "///              Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5], base plane at Z=0, apex line at (Y=0,Z=1)."
+    );
+});
+
+function collectDescriptionContinuationLines(lines, descriptionIndex) {
     const continuationLines = [];
     for (let index = descriptionIndex + 1; index < lines.length; index += 1) {
         const line = lines[index];
@@ -223,14 +232,5 @@ test("does not expand preformatted doc comment continuations", async () => {
         continuationLines.push(line);
     }
 
-    assert.strictEqual(
-        continuationLines.length,
-        1,
-        "Expected formatter to preserve the manually wrapped continuation block."
-    );
-
-    assert.strictEqual(
-        continuationLines[0],
-        "///              Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5], base plane at Z=0, apex line at (Y=0,Z=1)."
-    );
-});
+    return continuationLines;
+}

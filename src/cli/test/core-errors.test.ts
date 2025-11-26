@@ -39,21 +39,9 @@ describe("cli error formatting", () => {
         const error = new CliUsageError("Missing project path", {
             usage: "Usage: prettier-wrapper [options] <path>"
         });
-        const logged = [];
-        const exitCodes = [];
-        const restoreConsole = mock.method(console, "error", (...args) => {
-            logged.push(args.join(" "));
-        });
-        const restoreExit = mock.method(process, "exit", (code) => {
-            exitCodes.push(code);
-        });
-
-        try {
+        const { logged, exitCodes } = captureConsoleAndExit(() => {
             handleCliError(error, { prefix: "Failed." });
-        } finally {
-            restoreConsole.mock.restore();
-            restoreExit.mock.restore();
-        }
+        });
 
         assert.deepEqual(logged, [
             "Missing project path\n\nUsage: prettier-wrapper [options] <path>"
@@ -63,21 +51,9 @@ describe("cli error formatting", () => {
 
     it("includes prefixes for non-usage errors", () => {
         const error = new Error("Something exploded");
-        const logged = [];
-        const exitCodes = [];
-        const restoreConsole = mock.method(console, "error", (...args) => {
-            logged.push(args.join(" "));
-        });
-        const restoreExit = mock.method(process, "exit", (code) => {
-            exitCodes.push(code);
-        });
-
-        try {
+        const { logged, exitCodes } = captureConsoleAndExit(() => {
             handleCliError(error, { prefix: "Failed." });
-        } finally {
-            restoreConsole.mock.restore();
-            restoreExit.mock.restore();
-        }
+        });
 
         assert.equal(exitCodes.length, 1);
         assert.equal(exitCodes[0], 1);
@@ -123,3 +99,23 @@ describe("cli error details", () => {
         assert.equal(details.name, "DOMException");
     });
 });
+
+function captureConsoleAndExit(run) {
+    const logged: string[] = [];
+    const exitCodes: number[] = [];
+    const restoreConsole = mock.method(console, "error", (...args) => {
+        logged.push(args.join(" "));
+    });
+    const restoreExit = mock.method(process, "exit", (code) => {
+        exitCodes.push(code);
+    });
+
+    try {
+        run();
+    } finally {
+        restoreConsole.mock.restore();
+        restoreExit.mock.restore();
+    }
+
+    return { logged, exitCodes };
+}

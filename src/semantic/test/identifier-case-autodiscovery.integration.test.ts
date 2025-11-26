@@ -2,7 +2,6 @@
 // We should move any and all integration tests to a top-level 'test/' directory
 import assert from "node:assert/strict";
 import { promises as fs } from "node:fs";
-import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
@@ -14,90 +13,30 @@ import {
     getIdentifierCaseOptionStore,
     clearIdentifierCaseOptionStore
 } from "../src/identifier-case/option-store.js";
+import {
+    createIdentifierCaseProject,
+    resolveIdentifierCaseFixturesDirectory,
+    resolveIdentifierCasePluginPath
+} from "./identifier-case-test-helpers.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = (() => {
-    const candidates = [
-        path.resolve(currentDirectory, "../../plugin/dist/src/plugin-entry.js"),
-        path.resolve(currentDirectory, "../../plugin/dist/index.js"),
-        path.resolve(currentDirectory, "../../plugin/dist/src/index.js"),
-        path.resolve(currentDirectory, "../../plugin/src/plugin-entry.js"),
-        path.resolve(currentDirectory, "../../plugin/src/index.js"),
-        path.resolve(currentDirectory, "../../plugin/src/plugin-entry.ts")
-    ];
-    candidates.push(
-        path.resolve(
-            currentDirectory,
-            "../../../plugin/dist/src/plugin-entry.js"
-        )
-    );
-    candidates.push(
-        path.resolve(currentDirectory, "../../../plugin/dist/index.js")
-    );
-    candidates.push(
-        path.resolve(currentDirectory, "../../../plugin/dist/src/index.js")
-    );
-    candidates.push(
-        path.resolve(currentDirectory, "../../../plugin/src/plugin-entry.js")
-    );
-    candidates.push(
-        path.resolve(currentDirectory, "../../../plugin/src/index.js")
-    );
-    candidates.push(
-        path.resolve(currentDirectory, "../../../plugin/src/plugin-entry.ts")
-    );
-
-    for (const p of candidates) {
-        if (existsSync(p)) return p;
-    }
-
-    return candidates[0];
-})();
-const fixturesDirectory = resolveFixturesDirectory(currentDirectory);
-
-function resolveFixturesDirectory(baseDirectory: string) {
-    const candidates = [
-        path.join(baseDirectory, "identifier-case-fixtures"),
-        path.resolve(baseDirectory, "../../test/identifier-case-fixtures")
-    ];
-    const sampleFixture = "locals.gml";
-
-    for (const candidate of candidates) {
-        if (existsSync(path.join(candidate, sampleFixture))) {
-            return candidate;
-        }
-    }
-
-    return candidates[0];
-}
+const pluginPath = resolveIdentifierCasePluginPath(currentDirectory);
+const fixturesDirectory =
+    resolveIdentifierCaseFixturesDirectory(currentDirectory);
 
 async function createTempProject(fixtureFileName = "locals.gml") {
-    const tempRoot = await fs.mkdtemp(
-        path.join(os.tmpdir(), "gml-identifier-case-autodiscovery-")
-    );
+    const project = await createIdentifierCaseProject({
+        fixturesDirectory,
+        scriptFixtures: [{ name: "demo", fixture: fixtureFileName }],
+        eventFixture: null,
+        projectPrefix: "gml-identifier-case-autodiscovery-"
+    });
 
-    const writeFile = async (relativePath, contents) => {
-        const absolutePath = path.join(tempRoot, relativePath);
-        await fs.mkdir(path.dirname(absolutePath), { recursive: true });
-        await fs.writeFile(absolutePath, contents, "utf8");
-        return absolutePath;
+    return {
+        projectRoot: project.projectRoot,
+        fixtureSource: project.scriptSources[0],
+        gmlPath: project.scriptPaths[0]
     };
-
-    await writeFile(
-        "MyGame.yyp",
-        JSON.stringify({ name: "MyGame", resourceType: "GMProject" })
-    );
-
-    await writeFile(
-        "scripts/demo/demo.yy",
-        JSON.stringify({ resourceType: "GMScript", name: "demo" })
-    );
-
-    const fixturePath = path.join(fixturesDirectory, fixtureFileName);
-    const fixtureSource = await fs.readFile(fixturePath, "utf8");
-    const gmlPath = await writeFile("scripts/demo/demo.gml", fixtureSource);
-
-    return { projectRoot: tempRoot, fixtureSource, gmlPath };
 }
 
 async function fileExists(filePath) {

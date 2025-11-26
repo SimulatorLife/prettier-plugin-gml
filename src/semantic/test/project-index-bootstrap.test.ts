@@ -15,8 +15,10 @@ async function withTempDir(run) {
     }
 }
 
-test("Semantic.bootstrapProjectIndex normalizes cache max size overrides", async () => {
-    await withTempDir(async (projectRoot) => {
+async function withBootstrapProject(
+    run: (context: { projectRoot: string; scriptPath: string }) => Promise<void>
+) {
+    return withTempDir(async (projectRoot) => {
         const manifestPath = path.join(projectRoot, "project.yyp");
         await writeFile(manifestPath, "{}");
         const scriptsDir = path.join(projectRoot, "scripts");
@@ -24,28 +26,48 @@ test("Semantic.bootstrapProjectIndex normalizes cache max size overrides", async
         const scriptPath = path.join(scriptsDir, "main.gml");
         await writeFile(scriptPath, "// script\n");
 
-        async function runCase(rawValue) {
-            const descriptors = [];
-            const coordinator = {
-                async ensureReady(descriptor) {
-                    descriptors.push(descriptor);
-                    return { projectIndex: null, source: null, cache: null };
-                },
-                dispose() {}
-            };
+        await run({ projectRoot, scriptPath });
+    });
+}
 
-            const options: any = {
-                filepath: scriptPath,
-                __identifierCaseProjectIndexCoordinator: coordinator
-            };
-            if (rawValue !== undefined) {
-                options.gmlIdentifierCaseProjectIndexCacheMaxBytes = rawValue;
+function createBootstrapRunCase(
+    scriptPath: string,
+    assignRawValue: (options: any, rawValue: unknown) => void
+) {
+    return async (rawValue: unknown) => {
+        const descriptors = [];
+        const coordinator = {
+            async ensureReady(descriptor) {
+                descriptors.push(descriptor);
+                return { projectIndex: null, source: null, cache: null };
+            },
+            dispose() {}
+        };
+
+        const options: any = {
+            filepath: scriptPath,
+            __identifierCaseProjectIndexCoordinator: coordinator
+        };
+
+        assignRawValue(options, rawValue);
+
+        await Semantic.bootstrapProjectIndex(options, null);
+
+        return { options, descriptor: descriptors[0] ?? {} };
+    };
+}
+
+test("Semantic.bootstrapProjectIndex normalizes cache max size overrides", async () => {
+    await withBootstrapProject(async ({ scriptPath }) => {
+        const runCase = createBootstrapRunCase(
+            scriptPath,
+            (options, rawValue) => {
+                if (rawValue !== undefined) {
+                    options.gmlIdentifierCaseProjectIndexCacheMaxBytes =
+                        rawValue;
+                }
             }
-
-            await Semantic.bootstrapProjectIndex(options, null);
-
-            return { options, descriptor: descriptors[0] ?? {} };
-        }
+        );
 
         {
             const { options, descriptor } = await runCase("16");
@@ -77,37 +99,15 @@ test("Semantic.bootstrapProjectIndex normalizes cache max size overrides", async
 });
 
 test("Semantic.bootstrapProjectIndex normalizes concurrency overrides", async () => {
-    await withTempDir(async (projectRoot) => {
-        const manifestPath = path.join(projectRoot, "project.yyp");
-        await writeFile(manifestPath, "{}");
-        const scriptsDir = path.join(projectRoot, "scripts");
-        await mkdir(scriptsDir, { recursive: true });
-        const scriptPath = path.join(scriptsDir, "main.gml");
-        await writeFile(scriptPath, "// script\n");
-
-        async function runCase(rawValue) {
-            const descriptors = [];
-            const coordinator = {
-                async ensureReady(descriptor) {
-                    descriptors.push(descriptor);
-                    return { projectIndex: null, source: null, cache: null };
-                },
-                dispose() {}
-            };
-
-            const options: any = {
-                filepath: scriptPath,
-                __identifierCaseProjectIndexCoordinator: coordinator
-            };
-
-            if (rawValue !== undefined) {
-                options.gmlIdentifierCaseProjectIndexConcurrency = rawValue;
+    await withBootstrapProject(async ({ scriptPath }) => {
+        const runCase = createBootstrapRunCase(
+            scriptPath,
+            (options, rawValue) => {
+                if (rawValue !== undefined) {
+                    options.gmlIdentifierCaseProjectIndexConcurrency = rawValue;
+                }
             }
-
-            await Semantic.bootstrapProjectIndex(options, null);
-
-            return { options, descriptor: descriptors[0] ?? {} };
-        }
+        );
 
         {
             const { options, descriptor } = await runCase("8");
@@ -141,14 +141,7 @@ test("Semantic.bootstrapProjectIndex normalizes concurrency overrides", async ()
 });
 
 test("Semantic.bootstrapProjectIndex records build failures without throwing", async () => {
-    await withTempDir(async (projectRoot) => {
-        const manifestPath = path.join(projectRoot, "project.yyp");
-        await writeFile(manifestPath, "{}");
-        const scriptsDir = path.join(projectRoot, "scripts");
-        await mkdir(scriptsDir, { recursive: true });
-        const scriptPath = path.join(scriptsDir, "main.gml");
-        await writeFile(scriptPath, "// script\n");
-
+    await withBootstrapProject(async ({ projectRoot, scriptPath }) => {
         const failure = new Error("index build failed");
         const coordinator = {
             async ensureReady() {

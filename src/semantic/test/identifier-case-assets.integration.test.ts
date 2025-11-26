@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { promises as fs } from "node:fs";
-import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
@@ -15,207 +14,18 @@ import {
 } from "../src/identifier-case/identifier-case-context.js";
 import { prepareIdentifierCasePlan } from "../src/identifier-case/plan-service.js";
 import { Core } from "@gml-modules/core";
+import {
+    createAssetCollisionProject,
+    createAssetRenameProject,
+    createTempProjectWorkspace
+} from "./identifier-case-asset-helpers.js";
+import { resolveIdentifierCasePluginPath } from "./identifier-case-test-helpers.js";
 
 // Use Core.* calls per AGENTS.md rather than destructuring the namespace.
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = (() => {
-    const candidates = [
-        path.resolve(currentDirectory, "../../plugin/dist/src/plugin-entry.js"),
-        path.resolve(currentDirectory, "../../plugin/dist/index.js"),
-        path.resolve(currentDirectory, "../../plugin/dist/src/index.js"),
-        path.resolve(currentDirectory, "../../plugin/src/plugin-entry.js"),
-        path.resolve(currentDirectory, "../../plugin/src/index.js"),
-        path.resolve(currentDirectory, "../../plugin/src/plugin-entry.ts")
-    ];
-    candidates.push(
-        path.resolve(
-            currentDirectory,
-            "../../../plugin/dist/src/plugin-entry.js"
-        )
-    );
-    candidates.push(
-        path.resolve(currentDirectory, "../../../plugin/dist/index.js")
-    );
-    candidates.push(
-        path.resolve(currentDirectory, "../../../plugin/dist/src/index.js")
-    );
-    candidates.push(
-        path.resolve(currentDirectory, "../../../plugin/src/plugin-entry.js")
-    );
-    candidates.push(
-        path.resolve(currentDirectory, "../../../plugin/src/index.js")
-    );
-    candidates.push(
-        path.resolve(currentDirectory, "../../../plugin/src/plugin-entry.ts")
-    );
+const pluginPath = resolveIdentifierCasePluginPath(currentDirectory);
 
-    for (const p of candidates) {
-        if (existsSync(p)) return p;
-    }
-
-    return candidates[0];
-})();
-
-async function createTempProjectWorkspace(prefix) {
-    const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), prefix));
-
-    const writeFile = async (relativePath, contents) => {
-        const absolutePath = path.join(projectRoot, relativePath);
-        await fs.mkdir(path.dirname(absolutePath), { recursive: true });
-        await fs.writeFile(absolutePath, contents, "utf8");
-        return absolutePath;
-    };
-
-    return { projectRoot, writeFile };
-}
-
-async function createAssetRenameProject() {
-    const { projectRoot, writeFile } =
-        await createTempProjectWorkspace("gml-asset-rename-");
-
-    await writeFile(
-        "MyGame.yyp",
-        `${JSON.stringify(
-            {
-                name: "MyGame",
-                resourceType: "GMProject",
-                resources: [
-                    {
-                        id: {
-                            name: "demo_script",
-                            path: "scripts/demo_script/demo_script.yy"
-                        }
-                    }
-                ]
-            },
-            null,
-            4
-        )}\n`
-    );
-
-    await writeFile(
-        "scripts/demo_script/demo_script.yy",
-        `${JSON.stringify(
-            {
-                resourceType: "GMScript",
-                name: "demo_script",
-                resourcePath: "scripts/demo_script/demo_script.yy"
-            },
-            null,
-            4
-        )}\n`
-    );
-
-    const source = "function demo_script() {\n    return 42;\n}\n";
-    const gmlPath = await writeFile(
-        "scripts/demo_script/demo_script.gml",
-        source
-    );
-
-    await writeFile(
-        "objects/obj_controller/obj_controller.yy",
-        `${JSON.stringify(
-            {
-                resourceType: "GMObject",
-                name: "obj_controller",
-                scriptExecute: {
-                    path: "scripts/demo_script/demo_script.yy",
-                    name: "demo_script"
-                }
-            },
-            null,
-            4
-        )}\n`
-    );
-
-    const projectIndex = await buildProjectIndex(projectRoot);
-
-    return {
-        projectRoot,
-        projectIndex,
-        scriptSource: source,
-        scriptPath: gmlPath
-    };
-}
-
-async function createAssetCollisionProject() {
-    const { projectRoot, writeFile } = await createTempProjectWorkspace(
-        "gml-asset-collision-"
-    );
-
-    await writeFile(
-        "MyGame.yyp",
-        `${JSON.stringify(
-            {
-                name: "MyGame",
-                resourceType: "GMProject",
-                resources: [
-                    {
-                        id: {
-                            name: "demo_script",
-                            path: "scripts/demo_script/demo_script.yy"
-                        }
-                    },
-                    {
-                        id: {
-                            name: "DemoScript",
-                            path: "scripts/demo_script/DemoScriptExisting.yy"
-                        }
-                    }
-                ]
-            },
-            null,
-            4
-        )}\n`
-    );
-
-    await writeFile(
-        "scripts/demo_script/demo_script.yy",
-        `${JSON.stringify(
-            {
-                resourceType: "GMScript",
-                name: "demo_script",
-                resourcePath: "scripts/demo_script/demo_script.yy"
-            },
-            null,
-            4
-        )}\n`
-    );
-
-    await writeFile(
-        "scripts/demo_script/DemoScriptExisting.yy",
-        `${JSON.stringify(
-            {
-                resourceType: "GMScript",
-                name: "DemoScript",
-                resourcePath: "scripts/demo_script/DemoScriptExisting.yy"
-            },
-            null,
-            4
-        )}\n`
-    );
-
-    const primarySource = "function demo_script() {\n    return 1;\n}\n";
-    const secondarySource = "function DemoScript() {\n    return 2;\n}\n";
-
-    const primaryPath = await writeFile(
-        "scripts/demo_script/demo_script.gml",
-        primarySource
-    );
-    await writeFile(
-        "scripts/demo_script/DemoScriptExisting.gml",
-        secondarySource
-    );
-
-    const projectIndex = await buildProjectIndex(projectRoot);
-
-    return {
-        projectRoot,
-        projectIndex,
-        scriptPath: primaryPath
-    };
-}
 
 async function createAssetReservedProject() {
     const { projectRoot, writeFile } = await createTempProjectWorkspace(

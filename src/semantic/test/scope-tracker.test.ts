@@ -41,140 +41,36 @@ test("resolveScopeOverride throws when given an unknown string keyword", () => {
 });
 
 test("exportOccurrences captures declarations and references by scope", () => {
-    const tracker = new ScopeTracker({ enabled: true });
-    const programScope = tracker.enterScope("program");
-    const declarationNode = {
-        start: { line: 1, index: 0 },
-        end: { line: 1, index: 3 }
-    };
+    const {
+        tracker,
+        programScope,
+        blockScope,
+        declarationRange,
+        referenceRange
+    } = createTrackerWithDeclarationAndReference();
 
-    tracker.declare("foo", declarationNode, {
-        kind: "variable",
-        tags: ["local"]
+    const expected = buildDeclarationAndReferenceSnapshot({
+        name: "foo",
+        programScopeId: programScope.id,
+        blockScopeId: blockScope.id,
+        declarationRange,
+        referenceRange
     });
 
-    const blockScope = tracker.enterScope("block");
-    const referenceNode = {
-        start: { line: 2, index: 4 },
-        end: { line: 2, index: 7 }
-    };
-
-    tracker.reference("foo", referenceNode, {
-        kind: "variable"
-    });
-
-    tracker.exitScope();
-    tracker.exitScope();
-
-    assert.deepStrictEqual(tracker.exportOccurrences(), [
-        {
-            scopeId: programScope.id,
-            scopeKind: "program",
-            identifiers: [
-                {
-                    name: "foo",
-                    declarations: [
-                        {
-                            kind: "declaration",
-                            name: "foo",
-                            scopeId: programScope.id,
-                            classifications: [
-                                "identifier",
-                                "declaration",
-                                "variable",
-                                "local"
-                            ],
-                            declaration: {
-                                scopeId: programScope.id,
-                                start: { line: 1, index: 0 },
-                                end: { line: 1, index: 3 }
-                            },
-                            start: { line: 1, index: 0 },
-                            end: { line: 1, index: 3 }
-                        }
-                    ],
-                    references: []
-                }
-            ]
-        },
-        {
-            scopeId: blockScope.id,
-            scopeKind: "block",
-            identifiers: [
-                {
-                    name: "foo",
-                    declarations: [],
-                    references: [
-                        {
-                            kind: "reference",
-                            name: "foo",
-                            scopeId: blockScope.id,
-                            classifications: [
-                                "identifier",
-                                "reference",
-                                "variable",
-                                "local"
-                            ],
-                            declaration: {
-                                scopeId: programScope.id,
-                                start: { line: 1, index: 0 },
-                                end: { line: 1, index: 3 }
-                            },
-                            start: { line: 2, index: 4 },
-                            end: { line: 2, index: 7 }
-                        }
-                    ]
-                }
-            ]
-        }
-    ]);
+    assert.deepStrictEqual(tracker.exportOccurrences(), expected);
 });
 
 test("exportOccurrences can omit references and returns cloned metadata", () => {
-    const tracker = new ScopeTracker({ enabled: true });
-    const scope = tracker.enterScope("program");
-    const declarationNode = {
-        start: { line: 1, index: 0 },
-        end: { line: 1, index: 3 }
-    };
-
-    tracker.declare("bar", declarationNode);
-
-    const referenceNode = {
-        start: { line: 2, index: 1 },
-        end: { line: 2, index: 4 }
-    };
-
-    tracker.reference("bar", referenceNode);
-
-    tracker.exitScope();
+    const { tracker, scope, declarationRange } = createSingleScopeTracker("bar");
 
     const expected = [
-        {
+        buildDeclarationScopeSnapshot({
             scopeId: scope.id,
             scopeKind: "program",
-            identifiers: [
-                {
-                    name: "bar",
-                    declarations: [
-                        {
-                            kind: "declaration",
-                            name: "bar",
-                            scopeId: scope.id,
-                            classifications: ["identifier", "declaration"],
-                            declaration: {
-                                scopeId: scope.id,
-                                start: { line: 1, index: 0 },
-                                end: { line: 1, index: 3 }
-                            },
-                            start: { line: 1, index: 0 },
-                            end: { line: 1, index: 3 }
-                        }
-                    ],
-                    references: []
-                }
-            ]
-        }
+            name: "bar",
+            declarationRange,
+            classifications: ["identifier", "declaration"]
+        })
     ];
 
     const occurrences = tracker.exportOccurrences({ includeReferences: false });
@@ -192,111 +88,48 @@ test("exportOccurrences can omit references and returns cloned metadata", () => 
 });
 
 test("getScopeOccurrences exports a single scope payload", () => {
-    const tracker = new ScopeTracker({ enabled: true });
-    const programScope = tracker.enterScope("program");
-    const declarationNode = {
-        start: { line: 1, index: 0 },
-        end: { line: 1, index: 3 }
-    };
-
-    tracker.declare("foo", declarationNode, {
-        kind: "variable",
-        tags: ["local"]
-    });
-
-    const blockScope = tracker.enterScope("block");
-    const referenceNode = {
-        start: { line: 2, index: 4 },
-        end: { line: 2, index: 7 }
-    };
-
-    tracker.reference("foo", referenceNode, { kind: "variable" });
-
-    tracker.exitScope();
-    tracker.exitScope();
+    const {
+        tracker,
+        programScope,
+        blockScope,
+        declarationRange,
+        referenceRange
+    } = createTrackerWithDeclarationAndReference();
 
     const result = tracker.getScopeOccurrences(blockScope.id);
 
-    assert.deepStrictEqual(result, {
+    const expected = buildReferenceScopeSnapshot({
         scopeId: blockScope.id,
         scopeKind: "block",
-        identifiers: [
-            {
-                name: "foo",
-                declarations: [],
-                references: [
-                    {
-                        kind: "reference",
-                        name: "foo",
-                        scopeId: blockScope.id,
-                        classifications: [
-                            "identifier",
-                            "reference",
-                            "variable",
-                            "local"
-                        ],
-                        declaration: {
-                            scopeId: programScope.id,
-                            start: { line: 1, index: 0 },
-                            end: { line: 1, index: 3 }
-                        },
-                        start: { line: 2, index: 4 },
-                        end: { line: 2, index: 7 }
-                    }
-                ]
-            }
+        name: "foo",
+        referenceRange,
+        declarationScopeId: programScope.id,
+        declarationRange,
+        classifications: [
+            "identifier",
+            "reference",
+            "variable",
+            "local"
         ]
     });
+
+    assert.deepStrictEqual(result, expected);
 });
 
 test("getScopeOccurrences omits references when requested and clones metadata", () => {
-    const tracker = new ScopeTracker({ enabled: true });
-    const scope = tracker.enterScope("program");
-    const declarationNode = {
-        start: { line: 1, index: 0 },
-        end: { line: 1, index: 3 }
-    };
-
-    tracker.declare("bar", declarationNode);
-
-    const referenceNode = {
-        start: { line: 2, index: 1 },
-        end: { line: 2, index: 4 }
-    };
-
-    tracker.reference("bar", referenceNode);
-
-    tracker.exitScope();
+    const { tracker, scope, declarationRange } = createSingleScopeTracker("bar");
 
     const occurrences = tracker.getScopeOccurrences(scope.id, {
         includeReferences: false
     });
 
-    const expected = {
+    const expected = buildDeclarationScopeSnapshot({
         scopeId: scope.id,
         scopeKind: "program",
-        identifiers: [
-            {
-                name: "bar",
-                declarations: [
-                    {
-                        kind: "declaration",
-                        name: "bar",
-                        scopeId: scope.id,
-                        classifications: ["identifier", "declaration"],
-                        declaration: {
-                            scopeId: scope.id,
-                            start: { line: 1, index: 0 },
-                            end: { line: 1, index: 3 }
-                        },
-                        start: { line: 1, index: 0 },
-                        end: { line: 1, index: 3 }
-                    }
-                ],
-                references: []
-            }
-        ]
-    };
+        name: "bar",
+        declarationRange,
+        classifications: ["identifier", "declaration"]
+    });
 
     assert.deepStrictEqual(occurrences, expected);
 
@@ -478,20 +311,8 @@ test("resolveIdentifier finds declaration in current scope", () => {
 });
 
 test("resolveIdentifier walks up scope chain to find declaration", () => {
-    const tracker = new ScopeTracker({ enabled: true });
-    const outerScope = tracker.enterScope("function");
-
-    tracker.declare("outerVar", {
-        start: { line: 1, index: 0 },
-        end: { line: 1, index: 8 }
-    });
-
-    const innerScope = tracker.enterScope("block");
-
-    tracker.declare("innerVar", {
-        start: { line: 3, index: 0 },
-        end: { line: 3, index: 8 }
-    });
+    const { tracker, outerScope, innerScope } =
+        createNestedFunctionAndBlockScopes();
 
     const outerResult = tracker.resolveIdentifier("outerVar", innerScope.id);
     const innerResult = tracker.resolveIdentifier("innerVar", innerScope.id);
@@ -636,20 +457,8 @@ test("getScopeChain works after exiting scopes", () => {
 });
 
 test("getScopeDefinitions returns declarations defined in specific scope", () => {
-    const tracker = new ScopeTracker({ enabled: true });
-    const outerScope = tracker.enterScope("function");
-
-    tracker.declare("outerVar", {
-        start: { line: 1, index: 0 },
-        end: { line: 1, index: 8 }
-    });
-
-    const innerScope = tracker.enterScope("block");
-
-    tracker.declare("innerVar", {
-        start: { line: 3, index: 0 },
-        end: { line: 3, index: 8 }
-    });
+    const { tracker, outerScope, innerScope } =
+        createNestedFunctionAndBlockScopes();
 
     tracker.declare("anotherInner", {
         start: { line: 4, index: 0 },
@@ -756,3 +565,257 @@ test("resolveIdentifier uses cached scope indices for efficient lookups", () => 
         `${iterations} resolveIdentifier calls took ${elapsedMs}ms with 50+ nested scopes. Expected < 100ms with cached indices.`
     );
 });
+
+type SourceLocation = {
+    line: number;
+    index: number;
+};
+
+type SourceRange = {
+    start: SourceLocation;
+    end: SourceLocation;
+};
+
+type ScopeSnapshot = {
+    scopeId: string;
+    scopeKind: string;
+    identifiers: Array<{
+        name: string;
+        declarations: Array<{
+            kind: string;
+            name: string;
+            scopeId: string;
+            classifications: string[];
+            declaration: {
+                scopeId: string;
+                start: SourceLocation;
+                end: SourceLocation;
+            };
+            start: SourceLocation;
+            end: SourceLocation;
+        }>;
+        references: Array<{
+            kind: string;
+            name: string;
+            scopeId: string;
+            classifications: string[];
+            declaration: {
+                scopeId: string;
+                start: SourceLocation;
+                end: SourceLocation;
+            };
+            start: SourceLocation;
+            end: SourceLocation;
+        }>;
+    }>;
+};
+
+function createRange(
+    startLine: number,
+    startIndex: number,
+    endLine: number,
+    endIndex: number
+): SourceRange {
+    return {
+        start: { line: startLine, index: startIndex },
+        end: { line: endLine, index: endIndex }
+    };
+}
+
+function cloneLocation(location: SourceLocation): SourceLocation {
+    return { line: location.line, index: location.index };
+}
+
+function cloneRange(range: SourceRange): SourceRange {
+    return {
+        start: cloneLocation(range.start),
+        end: cloneLocation(range.end)
+    };
+}
+
+function buildDeclarationScopeSnapshot({
+    scopeId,
+    scopeKind,
+    name,
+    declarationRange,
+    classifications
+}: {
+    scopeId: string;
+    scopeKind: string;
+    name: string;
+    declarationRange: SourceRange;
+    classifications: string[];
+}): ScopeSnapshot {
+    const declarationRangeClone = cloneRange(declarationRange);
+    const metadataRangeClone = cloneRange(declarationRange);
+
+    return {
+        scopeId,
+        scopeKind,
+        identifiers: [
+            {
+                name,
+                declarations: [
+                    {
+                        kind: "declaration",
+                        name,
+                        scopeId,
+                        classifications: [...classifications],
+                        declaration: {
+                            scopeId,
+                            start: cloneLocation(declarationRangeClone.start),
+                            end: cloneLocation(declarationRangeClone.end)
+                        },
+                        start: cloneLocation(metadataRangeClone.start),
+                        end: cloneLocation(metadataRangeClone.end)
+                    }
+                ],
+                references: []
+            }
+        ]
+    };
+}
+
+function buildReferenceScopeSnapshot({
+    scopeId,
+    scopeKind,
+    name,
+    referenceRange,
+    declarationScopeId,
+    declarationRange,
+    classifications
+}: {
+    scopeId: string;
+    scopeKind: string;
+    name: string;
+    referenceRange: SourceRange;
+    declarationScopeId: string;
+    declarationRange: SourceRange;
+    classifications: string[];
+}): ScopeSnapshot {
+    const referenceRangeClone = cloneRange(referenceRange);
+    const declarationRangeClone = cloneRange(declarationRange);
+
+    return {
+        scopeId,
+        scopeKind,
+        identifiers: [
+            {
+                name,
+                declarations: [],
+                references: [
+                    {
+                        kind: "reference",
+                        name,
+                        scopeId,
+                        classifications: [...classifications],
+                        declaration: {
+                            scopeId: declarationScopeId,
+                            start: cloneLocation(declarationRangeClone.start),
+                            end: cloneLocation(declarationRangeClone.end)
+                        },
+                        start: cloneLocation(referenceRangeClone.start),
+                        end: cloneLocation(referenceRangeClone.end)
+                    }
+                ]
+            }
+        ]
+    };
+}
+
+function buildDeclarationAndReferenceSnapshot({
+    name,
+    programScopeId,
+    blockScopeId,
+    declarationRange,
+    referenceRange
+}: {
+    name: string;
+    programScopeId: string;
+    blockScopeId: string;
+    declarationRange: SourceRange;
+    referenceRange: SourceRange;
+}): ScopeSnapshot[] {
+    return [
+        buildDeclarationScopeSnapshot({
+            scopeId: programScopeId,
+            scopeKind: "program",
+            name,
+            declarationRange,
+            classifications: ["identifier", "declaration", "variable", "local"]
+        }),
+        buildReferenceScopeSnapshot({
+            scopeId: blockScopeId,
+            scopeKind: "block",
+            name,
+            referenceRange,
+            declarationScopeId: programScopeId,
+            declarationRange,
+            classifications: [
+                "identifier",
+                "reference",
+                "variable",
+                "local"
+            ]
+        })
+    ];
+}
+
+function createTrackerWithDeclarationAndReference(name = "foo") {
+    const tracker = new ScopeTracker({ enabled: true });
+    const programScope = tracker.enterScope("program");
+    const declarationRange = createRange(1, 0, 1, 3);
+
+    tracker.declare(name, declarationRange, {
+        kind: "variable",
+        tags: ["local"]
+    });
+
+    const blockScope = tracker.enterScope("block");
+    const referenceRange = createRange(2, 4, 2, 7);
+
+    tracker.reference(name, referenceRange, { kind: "variable" });
+
+    tracker.exitScope();
+    tracker.exitScope();
+
+    return {
+        tracker,
+        programScope,
+        blockScope,
+        declarationRange,
+        referenceRange
+    };
+}
+
+function createSingleScopeTracker(name = "bar") {
+    const tracker = new ScopeTracker({ enabled: true });
+    const scope = tracker.enterScope("program");
+    const declarationRange = createRange(1, 0, 1, 3);
+
+    tracker.declare(name, declarationRange);
+
+    const referenceRange = createRange(2, 1, 2, 4);
+    tracker.reference(name, referenceRange);
+
+    tracker.exitScope();
+
+    return {
+        tracker,
+        scope,
+        declarationRange,
+        referenceRange
+    };
+}
+
+function createNestedFunctionAndBlockScopes() {
+    const tracker = new ScopeTracker({ enabled: true });
+    const outerScope = tracker.enterScope("function");
+
+    tracker.declare("outerVar", createRange(1, 0, 1, 8));
+
+    const innerScope = tracker.enterScope("block");
+    tracker.declare("innerVar", createRange(3, 0, 3, 8));
+
+    return { tracker, outerScope, innerScope };
+}

@@ -1,14 +1,10 @@
 import assert from "node:assert/strict";
 import { promises as fs } from "node:fs";
-import { existsSync } from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import prettier from "prettier";
 
-import { buildProjectIndex } from "../src/project-index/index.js";
 import {
     setIdentifierCaseDryRunContext,
     clearIdentifierCaseDryRunContexts
@@ -18,62 +14,16 @@ import {
     getIdentifierCaseOptionStore,
     clearIdentifierCaseOptionStore
 } from "../src/identifier-case/option-store.js";
+import {
+    createIdentifierCaseProject,
+    resolveIdentifierCaseFixturesDirectory,
+    resolveIdentifierCasePluginPath
+} from "./identifier-case-test-helpers.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = (() => {
-    const candidates = [
-        path.resolve(currentDirectory, "../../plugin/dist/src/plugin-entry.js"),
-        path.resolve(currentDirectory, "../../plugin/dist/index.js"),
-        path.resolve(currentDirectory, "../../plugin/dist/src/index.js"),
-        path.resolve(currentDirectory, "../../plugin/src/plugin-entry.js"),
-        path.resolve(currentDirectory, "../../plugin/src/index.js"),
-        path.resolve(currentDirectory, "../../plugin/src/plugin-entry.ts")
-    ];
-    candidates.push(
-        path.resolve(
-            currentDirectory,
-            "../../../plugin/dist/src/plugin-entry.js"
-        )
-    );
-    candidates.push(
-        path.resolve(currentDirectory, "../../../plugin/dist/index.js")
-    );
-    candidates.push(
-        path.resolve(currentDirectory, "../../../plugin/dist/src/index.js")
-    );
-    candidates.push(
-        path.resolve(currentDirectory, "../../../plugin/src/plugin-entry.js")
-    );
-    candidates.push(
-        path.resolve(currentDirectory, "../../../plugin/src/index.js")
-    );
-    candidates.push(
-        path.resolve(currentDirectory, "../../../plugin/src/plugin-entry.ts")
-    );
-
-    for (const p of candidates) {
-        if (existsSync(p)) return p;
-    }
-
-    return candidates[0];
-})();
-const fixturesDirectory = resolveFixturesDirectory(currentDirectory);
-
-function resolveFixturesDirectory(baseDirectory: string) {
-    const candidates = [
-        path.join(baseDirectory, "identifier-case-fixtures"),
-        path.resolve(baseDirectory, "../../test/identifier-case-fixtures")
-    ];
-    const sampleFixture = "locals.gml";
-
-    for (const candidate of candidates) {
-        if (existsSync(path.join(candidate, sampleFixture))) {
-            return candidate;
-        }
-    }
-
-    return candidates[0];
-}
+const pluginPath = resolveIdentifierCasePluginPath(currentDirectory);
+const fixturesDirectory =
+    resolveIdentifierCaseFixturesDirectory(currentDirectory);
 
 async function createTempProject({
     scriptFixtures = [
@@ -82,96 +32,12 @@ async function createTempProject({
     ],
     eventFixture = "top-level-instance.gml"
 } = {}) {
-    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-top-level-"));
-
-    async function writeFile(relativePath, contents) {
-        const absolutePath = path.join(tempRoot, relativePath);
-        await fs.mkdir(path.dirname(absolutePath), { recursive: true });
-        await fs.writeFile(absolutePath, contents, "utf8");
-        return absolutePath;
-    }
-
-    await writeFile(
-        "MyGame.yyp",
-        JSON.stringify({ name: "MyGame", resourceType: "GMProject" })
-    );
-
-    const scripts = [];
-    const scriptPaths = [];
-    const scriptSources = [];
-
-    for (const scriptConfig of scriptFixtures) {
-        const scriptName = scriptConfig?.name ?? "script";
-        const fixtureName = scriptConfig?.fixture ?? scriptConfig;
-        await writeFile(
-            `scripts/${scriptName}/${scriptName}.yy`,
-            JSON.stringify({ resourceType: "GMScript", name: scriptName })
-        );
-
-        const scriptFixturePath = path.join(
-            fixturesDirectory,
-            String(fixtureName)
-        );
-        const scriptSource = await fs.readFile(scriptFixturePath, "utf8");
-        const scriptPath = await writeFile(
-            `scripts/${scriptName}/${scriptName}.gml`,
-            scriptSource
-        );
-        const scriptRecord = {
-            name: scriptName,
-            fixture: fixtureName,
-            path: scriptPath,
-            source: scriptSource
-        };
-        scripts.push(scriptRecord);
-        scriptPaths.push(scriptPath);
-        scriptSources.push(scriptSource);
-    }
-
-    let eventPath = null;
-    let eventSource = null;
-    if (eventFixture) {
-        const eventFixturePath = path.join(fixturesDirectory, eventFixture);
-        eventSource = await fs.readFile(eventFixturePath, "utf8");
-        await writeFile(
-            "objects/obj_scope/obj_scope.yy",
-            JSON.stringify({
-                resourceType: "GMObject",
-                name: "obj_scope",
-                eventList: [
-                    {
-                        resourceType: "GMEvent",
-                        eventType: 0,
-                        eventNum: 0,
-                        eventContents: "objects/obj_scope/obj_scope_Create.gml"
-                    }
-                ]
-            })
-        );
-        eventPath = await writeFile(
-            "objects/obj_scope/obj_scope_Create.gml",
-            eventSource
-        );
-    }
-
-    const projectIndex = await buildProjectIndex(tempRoot);
-
-    return {
-        projectRoot: tempRoot,
-        scripts,
-        scriptPaths,
-        scriptSources,
-        event:
-            eventPath && eventSource
-                ? {
-                      fixture: eventFixture,
-                      path: eventPath,
-                      source: eventSource
-                  }
-                : null,
-        eventPath,
-        projectIndex
-    };
+    return createIdentifierCaseProject({
+        fixturesDirectory,
+        scriptFixtures,
+        eventFixture,
+        projectPrefix: "gml-top-level-"
+    });
 }
 
 describe("identifier case top-level renaming", () => {

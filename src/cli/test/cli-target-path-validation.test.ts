@@ -59,27 +59,49 @@ test("target path helpers normalize valid inputs", () => {
 });
 
 test("resolveTargetPathFromInput falls back to the raw value when sanitized path is missing", async () => {
-    const uniqueSuffix = randomUUID();
-    const rawName = ` ${uniqueSuffix}-target`;
-    const sanitizedName = `${uniqueSuffix}-target`;
-    const rawPath = path.resolve(process.cwd(), rawName);
-    const sanitizedPath = path.resolve(process.cwd(), sanitizedName);
-
-    await fs.rm(rawPath, { recursive: true, force: true });
-    await fs.rm(sanitizedPath, { recursive: true, force: true });
-    await fs.mkdir(rawPath, { recursive: true });
+    const targetPaths = await prepareTargetPathFixture({
+        createRawDirectory: true
+    });
 
     try {
-        const resolved = resolveTargetPathFromInputForTests(sanitizedName, {
-            rawTargetPathInput: rawName
-        });
-        assert.strictEqual(resolved, rawPath);
+        const resolved = resolveTargetPathFromInputForTests(
+            targetPaths.sanitizedName,
+            {
+                rawTargetPathInput: targetPaths.rawName
+            }
+        );
+        assert.strictEqual(resolved, targetPaths.rawPath);
     } finally {
-        await fs.rm(rawPath, { recursive: true, force: true });
+        await targetPaths.cleanup();
     }
 });
 
 test("resolveTargetPathFromInput prefers the raw value when both paths exist", async () => {
+    const targetPaths = await prepareTargetPathFixture({
+        createRawDirectory: true,
+        createSanitizedDirectory: true
+    });
+
+    try {
+        const resolved = resolveTargetPathFromInputForTests(
+            targetPaths.sanitizedName,
+            {
+                rawTargetPathInput: targetPaths.rawName
+            }
+        );
+        assert.strictEqual(resolved, targetPaths.rawPath);
+    } finally {
+        await targetPaths.cleanup();
+    }
+});
+
+async function prepareTargetPathFixture({
+    createRawDirectory = false,
+    createSanitizedDirectory = false
+}: {
+    createRawDirectory?: boolean;
+    createSanitizedDirectory?: boolean;
+}) {
     const uniqueSuffix = randomUUID();
     const rawName = ` ${uniqueSuffix}-target`;
     const sanitizedName = `${uniqueSuffix}-target`;
@@ -88,16 +110,24 @@ test("resolveTargetPathFromInput prefers the raw value when both paths exist", a
 
     await fs.rm(rawPath, { recursive: true, force: true });
     await fs.rm(sanitizedPath, { recursive: true, force: true });
-    await fs.mkdir(rawPath, { recursive: true });
-    await fs.mkdir(sanitizedPath, { recursive: true });
 
-    try {
-        const resolved = resolveTargetPathFromInputForTests(sanitizedName, {
-            rawTargetPathInput: rawName
-        });
-        assert.strictEqual(resolved, rawPath);
-    } finally {
-        await fs.rm(rawPath, { recursive: true, force: true });
-        await fs.rm(sanitizedPath, { recursive: true, force: true });
+    if (createRawDirectory) {
+        await fs.mkdir(rawPath, { recursive: true });
     }
-});
+
+    if (createSanitizedDirectory) {
+        await fs.mkdir(sanitizedPath, { recursive: true });
+    }
+
+    return {
+        rawName,
+        sanitizedName,
+        rawPath,
+        sanitizedPath,
+        cleanup: async () => {
+            await fs.rm(rawPath, { recursive: true, force: true });
+            await fs.rm(sanitizedPath, { recursive: true, force: true });
+        });
+        }
+    };
+}
