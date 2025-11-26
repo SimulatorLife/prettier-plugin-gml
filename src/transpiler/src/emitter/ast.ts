@@ -1,3 +1,5 @@
+// TODO: A lot of this is duplicated from core/parser. Can we consolidate? If reusable, this should live in Core.
+
 export type SemKind =
     | "local"
     | "self_field"

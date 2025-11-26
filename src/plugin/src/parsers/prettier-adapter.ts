@@ -1,3 +1,4 @@
+// TODO: This does not actually seem to be used anywhere yet? Hook this up as/where needed
 // Prettier plugin adapter: map Prettier options to the core ParserConfig and
 // Transform options. This is intentionally small; it demonstrates the mapping
 // layer the plugin should own.

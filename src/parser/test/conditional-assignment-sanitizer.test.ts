@@ -7,7 +7,7 @@ import { describe, it } from "node:test";
 import {
     applySanitizedIndexAdjustments,
     sanitizeConditionalAssignments
-} from "../src/ast/conditional-assignment-sanitizer.js";
+} from "../src/transforms/conditional-assignment-sanitizer.js";
 
 describe("applySanitizedIndexAdjustments", () => {
     it("maps numeric location fields back to their original indices", () => {

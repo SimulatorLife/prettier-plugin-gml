@@ -87,7 +87,7 @@ async function parse(text, options) {
         parseSource = fixMalformedComments(parseSource);
 
         const sanitizedResult =
-            Parser.AST.sanitizeConditionalAssignments(parseSource);
+            Parser.Transforms.sanitizeConditionalAssignments(parseSource);
         const { sourceText: sanitizedSource, indexAdjustments } =
             sanitizedResult;
 
@@ -169,14 +169,14 @@ async function parse(text, options) {
         applyIndexAdjustmentsIfPresent(
             ast,
             callIndexAdjustments,
-            Parser.AST.applySanitizedIndexAdjustments,
+            Parser.Transforms.applySanitizedIndexAdjustments,
             preprocessedFixMetadata
         );
 
         applyIndexAdjustmentsIfPresent(
             ast,
             indexAdjustments,
-            Parser.AST.applySanitizedIndexAdjustments,
+            Parser.Transforms.applySanitizedIndexAdjustments,
             preprocessedFixMetadata
         );
 
