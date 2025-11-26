@@ -175,7 +175,7 @@ test("prioritizes negated guard when condensing guard fallbacks", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         condenseLogicalExpressions: true
     });
 

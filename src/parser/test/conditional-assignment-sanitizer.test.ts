@@ -21,7 +21,7 @@ describe("applySanitizedIndexAdjustments", () => {
             }
         };
 
-        applySanitizedIndexAdjustments(ast, [5, 11, 11, 2, "ignored"]);
+        applySanitizedIndexAdjustments(ast, [5, 11, 11, 2, 15]);
 
         assert.strictEqual(ast.start, 8);
         assert.strictEqual(ast.end, 11);

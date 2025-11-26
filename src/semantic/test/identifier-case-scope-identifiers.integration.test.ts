@@ -7,6 +7,8 @@ import { fileURLToPath } from "node:url";
 
 import { buildProjectIndex } from "../src/project-index/index.js";
 
+type IdentifierIndexEntry = { identifierId?: string; name?: string };
+
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixturesDirectory = path.join(
     currentDirectory,
@@ -104,7 +106,9 @@ describe("project index identifier tracking", () => {
                 "global:GLOBAL_RATE"
             );
 
-            const enumEntries = Object.values(index.identifiers.enums);
+            const enumEntries = Object.values(
+                index.identifiers.enums
+            );
             assert.ok(enumEntries.length >= 2, "expected enum entries");
             for (const entry of enumEntries) {
                 assert.ok(
@@ -113,7 +117,9 @@ describe("project index identifier tracking", () => {
                 );
             }
 
-            const enumMembers = Object.values(index.identifiers.enumMembers);
+            const enumMembers = Object.values(
+                index.identifiers.enumMembers
+            );
             const sharedMembers = enumMembers.filter(
                 (entry) => entry.name === "Bronze"
             );

@@ -314,7 +314,7 @@ test("retains synthetic multiplication grouping when subtracting values", async 
 
     const formatted = await Plugin.format(source, {
         parser: "gml-parse",
-        plugins: [pluginPath]
+        plugins: [Plugin]
     });
 
     const expectedLines = [

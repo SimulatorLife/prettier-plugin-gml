@@ -44,9 +44,7 @@ export class GmlTranspiler {
         }
 
         try {
-            const parser = new Parser.GMLParser(sourceText, {
-                getIdentifierMetadata: true
-            });
+            const parser = new Parser.GMLParser(sourceText, {});
             const ast = parser.parse();
             const oracle = this.semantic ?? makeDummyOracle();
             const emitter = new GmlToJsEmitter(oracle, this.emitterOptions);

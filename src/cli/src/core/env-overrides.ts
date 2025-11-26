@@ -178,7 +178,11 @@ export function applyEnvOptionOverrides({
             continue;
         }
 
-        const { getUsage: overrideGetUsage, ...options } = override;
+        const overrideObject = override as {
+            getUsage?: typeof getUsage;
+        } & EnvOptionOverride;
+
+        const { getUsage: overrideGetUsage, ...options } = overrideObject;
 
         applyEnvOptionOverride({
             command,

@@ -1,11 +1,9 @@
 import { Core } from "@gml-modules/core";
 
 const {
-    Utils: {
-        describeValueForError,
-        normalizeEnumeratedOption,
-        toNormalizedLowerCaseString
-    }
+    describeValueForError,
+    normalizeEnumeratedOption,
+    toNormalizedLowerCaseString
 } = Core;
 
 type EnumeratedValue = string;

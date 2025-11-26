@@ -6,6 +6,12 @@ import test from "node:test";
 
 import { buildProjectIndex } from "../src/project-index/index.js";
 
+type IdentifierIndexEntry = {
+    name?: string;
+    declarations?: Array<unknown>;
+    references?: Array<unknown>;
+};
+
 async function writeFile(rootDir, relativePath, contents) {
     const absolutePath = path.join(rootDir, relativePath);
     await fs.mkdir(path.dirname(absolutePath), { recursive: true });
@@ -198,7 +204,9 @@ test("buildProjectIndex collects symbols and relationships across project files"
         assert.equal(globalIdentifiers.declarations.length, 1);
         assert.ok(globalIdentifiers.references.length > 0);
 
-        const enumEntries = Object.values(index.identifiers.enums);
+        const enumEntries = Object.values(
+            index.identifiers.enums
+        );
         const difficultyEnum = enumEntries.find(
             (entry) => entry.name === "Difficulty"
         );
@@ -206,7 +214,9 @@ test("buildProjectIndex collects symbols and relationships across project files"
         assert.equal(difficultyEnum.declarations.length, 1);
         assert.ok(difficultyEnum.references.length > 0);
 
-        const enumMemberEntries = Object.values(index.identifiers.enumMembers);
+        const enumMemberEntries = Object.values(
+            index.identifiers.enumMembers
+        );
         const hardMember = enumMemberEntries.find(
             (entry) => entry.name === "Hard"
         );

@@ -7,9 +7,7 @@
     "baseUrl": ".",
     "allowJs": true,
     "paths": {
-      "@gml-modules/parser": ["./index.ts"],
-      "@gml-modules/core": ["../core/dist/index.d.ts"],
-      "@gml-modules/semantic": ["../semantic/dist/index.d.ts"]
+      "@gml-modules/parser": ["./index.ts"]
     }
   },
   "include": [

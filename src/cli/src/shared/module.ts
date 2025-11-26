@@ -1,12 +1,10 @@
 import { Core } from "@gml-modules/core";
 
 const {
-    Utils: {
-        assertNonEmptyString,
-        getErrorMessage,
-        isErrorWithCode,
-        isObjectOrFunction
-    }
+    assertNonEmptyString,
+    getErrorMessage,
+    isErrorWithCode,
+    isObjectOrFunction
 } = Core;
 
 type ModuleWithDefault<TValue> = TValue & {

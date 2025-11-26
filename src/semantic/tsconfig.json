@@ -6,10 +6,7 @@
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "baseUrl": ".",
     "paths": {
-      "@gml-modules/semantic": ["./index.ts"],
-      "@gml-modules/core": ["../core/dist/index.d.ts"],
-      "@gml-modules/parser": ["../parser/dist/index.d.ts"],
-      "@gml-modules/plugin": ["../plugin/dist/index.d.ts"]
+      "@gml-modules/semantic": ["./index.ts"]
     }
   },
   "include": ["*.ts", "src/**/*.ts", "test/**/*.ts"],

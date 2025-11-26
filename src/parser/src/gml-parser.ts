@@ -252,4 +252,5 @@ export class GMLParser {
     }
 }
 
-export const getLineBreakCount = Core.getLineBreakCount;
+export const getLineBreakCount: typeof Core.getLineBreakCount =
+    Core.getLineBreakCount;

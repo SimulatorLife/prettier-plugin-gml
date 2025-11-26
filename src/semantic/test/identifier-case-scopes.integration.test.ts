@@ -7,6 +7,12 @@ import { fileURLToPath } from "node:url";
 
 import { buildProjectIndex } from "../src/project-index/index.js";
 
+type IdentifierIndexEntry = {
+    identifierId?: string;
+    name?: string;
+    declarations?: Array<unknown>;
+};
+
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixturesDirectory = path.join(
     currentDirectory,
@@ -70,7 +76,9 @@ describe("project index scope tracking", () => {
                 "expected GLOBAL_SCORE declaration to be tracked"
             );
 
-            const enumEntries = Object.values(index.identifiers.enums);
+            const enumEntries = Object.values(
+                index.identifiers.enums
+            );
             const difficultyEnum = enumEntries.find(
                 (entry) => entry.name === "Difficulty"
             );
@@ -83,7 +91,9 @@ describe("project index scope tracking", () => {
                 "expected DifficultyCopy enum to be present"
             );
 
-            const enumMembers = Object.values(index.identifiers.enumMembers);
+            const enumMembers = Object.values(
+                index.identifiers.enumMembers
+            );
             const hasEasyMember = enumMembers.filter(
                 (entry) => entry.name === "Easy"
             );

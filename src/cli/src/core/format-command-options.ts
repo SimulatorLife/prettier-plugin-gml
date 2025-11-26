@@ -1,4 +1,4 @@
-import { asArray, getNonEmptyTrimmedString } from "../shared/dependencies.js";
+import { getNonEmptyTrimmedString } from "../shared/dependencies.js";
 import { normalizeExtensions } from "./extension-normalizer.js";
 import type { CommanderCommandLike } from "./commander-types.js";
 
@@ -41,7 +41,7 @@ function resolveFormatCommandExtensions(
     options: CommandOptionsRecord,
     defaultExtensions: ReadonlyArray<string>
 ): Array<string> {
-    const fallback = Array.from(asArray(defaultExtensions));
+    const fallback = Array.from(defaultExtensions);
     const raw = options?.extensions;
 
     if (raw == null) {

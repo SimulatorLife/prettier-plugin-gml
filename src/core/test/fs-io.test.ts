@@ -19,7 +19,7 @@ test("listDirectory snapshots iterable results", async () => {
 });
 
 test("listDirectory returns an empty array for missing directories", async () => {
-    const error = new Error("missing");
+    const error = new Error("missing") as NodeJS.ErrnoException;
     error.code = "ENOENT";
     const facade = {
         readDir: async () => {
@@ -44,7 +44,7 @@ test("getFileMtime resolves to numeric mtimes when available", async () => {
 });
 
 test("getFileMtime returns null when file is missing", async () => {
-    const error = new Error("deleted");
+    const error = new Error("deleted") as NodeJS.ErrnoException;
     error.code = "ENOENT";
     const facade = {
         stat: async () => {

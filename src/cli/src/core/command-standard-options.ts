@@ -1,9 +1,7 @@
 import { Core } from "@gml-modules/core";
 import type { CommanderCommandLike } from "./commander-types.js";
 
-const {
-    Utils: { noop }
-} = Core;
+const { noop } = Core;
 
 const DEFAULT_HELP_FLAG = "-h, --help";
 const DEFAULT_HELP_DESCRIPTION = "Show this help message.";

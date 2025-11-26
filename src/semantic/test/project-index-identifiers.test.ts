@@ -6,6 +6,13 @@ import test from "node:test";
 
 import { buildProjectIndex } from "../src/project-index/index.js";
 
+type IdentifierIndexEntry = {
+    identifierId?: string;
+    name?: string;
+    declarations?: Array<unknown>;
+    references?: Array<unknown>;
+};
+
 async function writeFile(rootDir, relativePath, contents) {
     const absolutePath = path.join(rootDir, relativePath);
     await fs.mkdir(path.dirname(absolutePath), { recursive: true });
@@ -107,7 +114,9 @@ test("buildProjectIndex assigns identifier ids for each scope", async () => {
         const globalUpper = index.identifiers.globalVariables.GLOBAL_RATE;
         assert.equal(globalUpper.identifierId, "global:GLOBAL_RATE");
 
-        const enumEntries = Object.values(index.identifiers.enums);
+        const enumEntries = Object.values(
+            index.identifiers.enums
+        );
         assert.ok(enumEntries.length > 0);
         for (const entry of enumEntries) {
             assert.ok(entry.identifierId?.startsWith("enum:"));

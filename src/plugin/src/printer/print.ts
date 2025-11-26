@@ -1211,8 +1211,9 @@ function _printImpl(path, options, print) {
                 ) {
                     // If we found doc lines attached to the program, treat them
                     // as the node's doc comments for the rest of the pipeline.
-                    docCommentDocs =
-                        existingDocLines.length > 0 ? existingDocLines : [];
+                    docCommentDocs = Core.toMutableArray(
+                        existingDocLines.length > 0 ? existingDocLines : []
+                    ) as MutableDocCommentLines;
                     if (
                         leadingCommentLines.length > 0 &&
                         docCommentDocs.length === 0
@@ -1220,12 +1221,14 @@ function _printImpl(path, options, print) {
                         // If we only found leading non-doc comment lines, feed
                         // them as overrides so synthetic tags inserted below can
                         // enable promotion into @description.
-                        docCommentDocs = mergeSyntheticDocComments(
-                            node,
-                            docCommentDocs,
-                            options,
-                            { leadingCommentLines }
-                        );
+                        docCommentDocs = Core.toMutableArray(
+                            mergeSyntheticDocComments(
+                                node,
+                                docCommentDocs,
+                                options,
+                                { leadingCommentLines }
+                            )
+                        ) as MutableDocCommentLines;
                     }
                     if (
                         Array.isArray(updatedComments) &&
@@ -1259,11 +1262,9 @@ function _printImpl(path, options, print) {
                     options
                 )
             ) {
-                docCommentDocs = mergeSyntheticDocComments(
-                    node,
-                    docCommentDocs,
-                    options
-                );
+                docCommentDocs = Core.toMutableArray(
+                    mergeSyntheticDocComments(node, docCommentDocs, options)
+                ) as MutableDocCommentLines;
                 if (Array.isArray(docCommentDocs)) {
                     while (
                         docCommentDocs.length > 0 &&
@@ -4969,18 +4970,19 @@ function mergeSyntheticDocComments(
     const preserveDescriptionBreaks =
         normalizedExistingLines?._preserveDescriptionBreaks === true;
 
-    normalizedExistingLines = Core.reorderDescriptionLinesAfterFunction(
-        normalizedExistingLines
-    );
+    normalizedExistingLines = Core.toMutableArray(
+        Core.reorderDescriptionLinesAfterFunction(normalizedExistingLines)
+    ) as MutableDocCommentLines;
 
     if (preserveDescriptionBreaks) {
         normalizedExistingLines._preserveDescriptionBreaks = true;
     }
     let removedExistingReturnDuplicates;
-    ({
-        lines: normalizedExistingLines,
-        removed: removedExistingReturnDuplicates
-    } = Core.dedupeReturnDocLines(normalizedExistingLines));
+    const dedupedResult = Core.dedupeReturnDocLines(normalizedExistingLines);
+    normalizedExistingLines = Core.toMutableArray(
+        dedupedResult.lines
+    ) as MutableDocCommentLines;
+    removedExistingReturnDuplicates = dedupedResult.removed;
 
     if (preserveDescriptionBreaks) {
         normalizedExistingLines._preserveDescriptionBreaks = true;
@@ -4993,10 +4995,12 @@ function mergeSyntheticDocComments(
         overrides
     );
 
-    normalizedExistingLines = Core.promoteLeadingDocCommentTextToDescription(
-        normalizedExistingLines,
-        _computedSynthetic
-    );
+    normalizedExistingLines = Core.toMutableArray(
+        Core.promoteLeadingDocCommentTextToDescription(
+            normalizedExistingLines,
+            _computedSynthetic
+        )
+    ) as MutableDocCommentLines;
     // Diagnostic log: show before/after merging
     if (
         Array.isArray(normalizedExistingLines) &&
@@ -5383,9 +5387,11 @@ function mergeSyntheticDocComments(
         }
     }
 
-    const dedupedResult = Core.dedupeReturnDocLines(result);
-    result = dedupedResult.lines;
-    if (dedupedResult.removed) {
+    const finalDedupedResult = Core.dedupeReturnDocLines(result);
+    result = Core.toMutableArray(
+        finalDedupedResult.lines
+    ) as MutableDocCommentLines;
+    if (finalDedupedResult.removed) {
         removedAnyLine = true;
     }
 
@@ -5648,7 +5654,9 @@ function mergeSyntheticDocComments(
         }
     }
 
-    reorderedDocs = Core.reorderDescriptionLinesAfterFunction(reorderedDocs);
+    reorderedDocs = Core.toMutableArray(
+        Core.reorderDescriptionLinesAfterFunction(reorderedDocs)
+    ) as MutableDocCommentLines;
 
     if (suppressedCanonicals && suppressedCanonicals.size > 0) {
         reorderedDocs = reorderedDocs.filter((line) => {
