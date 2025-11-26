@@ -1,19 +1,6 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-import prettier from "prettier";
-
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
-
-async function format(source, options = {}) {
-    return prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath],
-        ...options
-    });
-}
+import { Plugin } from "../src/index.js";
 
 test("condenses boolean branches with unreachable statements", async () => {
     const source = [
@@ -29,7 +16,7 @@ test("condenses boolean branches with unreachable statements", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         condenseLogicalExpressions: true
     });
 
@@ -64,7 +51,7 @@ test("preserves guard extraction descriptions when condensing", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         condenseLogicalExpressions: true
     });
 
@@ -94,7 +81,7 @@ test("preserves branching return descriptions without equivalence suffixes", asy
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         condenseLogicalExpressions: true
     });
 
@@ -130,7 +117,7 @@ test("retains original multi-branch descriptions when condensing", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         condenseLogicalExpressions: true
     });
 
@@ -159,7 +146,7 @@ test("preserves distinct functions that condense to the same expression", async 
         ""
     ].join("\n");
 
-    const formatted = await format(source, {
+    const formatted = await Plugin.format(source, {
         condenseLogicalExpressions: true
     });
 

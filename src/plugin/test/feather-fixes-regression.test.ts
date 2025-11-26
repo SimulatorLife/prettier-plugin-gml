@@ -1,27 +1,7 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import prettier from "prettier";
 import { describe, it } from "node:test";
 
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
-
-async function format(source, overrides) {
-    const formatted = await prettier.format(source, {
-        plugins: [pluginPath],
-        parser: "gml-parse",
-        ...overrides
-    });
-
-    if (typeof formatted !== "string") {
-        throw new TypeError(
-            "Prettier returned a non-string result when formatting GML."
-        );
-    }
-
-    return formatted.trim();
-}
+import { Plugin } from "../src/index.js";
 
 describe("Feather fix regressions", () => {
     it("resets draw_set_halign calls without leaving blank separators", async () => {
@@ -31,7 +11,7 @@ describe("Feather fix regressions", () => {
             'draw_text(room_width - 5, 5, "In the top-right corner");'
         ].join("\n");
 
-        const formatted = await format(source, { applyFeatherFixes: true });
+        const formatted = await Plugin.format(source, { applyFeatherFixes: true });
 
         assert.strictEqual(
             formatted,
@@ -49,7 +29,7 @@ describe("Feather fix regressions", () => {
             "vertex_end(vb);"
         ].join("\n");
 
-        const formatted = await format(source, { applyFeatherFixes: true });
+        const formatted = await Plugin.format(source, { applyFeatherFixes: true });
 
         assert.strictEqual(
             formatted,

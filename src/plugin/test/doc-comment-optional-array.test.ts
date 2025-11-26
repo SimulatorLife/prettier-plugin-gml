@@ -1,24 +1,7 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-import prettier from "prettier";
-import { existsSync } from "node:fs";
-
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = (() => {
-    const candidates = [
-        path.resolve(currentDirectory, "../dist/src/index.js"),
-        path.resolve(currentDirectory, "../dist/index.js"),
-        path.resolve(currentDirectory, "../src/index.ts"),
-        path.resolve(currentDirectory, "../src/plugin-entry.ts"),
-        path.resolve(currentDirectory, "../src/index.js"),
-        path.resolve(currentDirectory, "../src/gml.js")
-    ];
-    return candidates.find((p) => existsSync(p)) || candidates[0];
-})();
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
+import { Plugin } from "../src/index.js";
 
 const SOURCE = [
     "/// @function handle_lighting",
@@ -31,9 +14,8 @@ const SOURCE = [
 ].join("\n");
 
 test("doc comments preserve optional parameter defaults with nested brackets", async () => {
-    const formatted = await prettier.format(SOURCE, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
+    const formatted = await Plugin.format(SOURCE, {
+        parser: "gml-parse"
     });
 
     assert.match(
@@ -44,9 +26,8 @@ test("doc comments preserve optional parameter defaults with nested brackets", a
 });
 
 test("doc comment normalization keeps nested optional defaults intact", async () => {
-    const formatted = await prettier.format(SOURCE, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
+    const formatted = await Plugin.format(SOURCE, {
+        parser: "gml-parse"
     });
 
     const docLine = formatted

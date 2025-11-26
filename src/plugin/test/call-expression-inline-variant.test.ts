@@ -1,19 +1,6 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-
-import prettier from "prettier";
-
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
-
-async function formatWithPlugin(source, overrides: any = {}) {
-    return prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
-    });
-}
+import { Plugin } from "../src/index.js";
 
 test("keeps simple leading arguments inline when callbacks follow", async () => {
     const source = [
@@ -21,8 +8,8 @@ test("keeps simple leading arguments inline when callbacks follow", async () => 
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
-    const lines = formatted.trim().split("\n");
+    const formatted = await Plugin.format(source);
+    const lines = formatted.split("\n");
 
     assert.strictEqual(
         lines[0],

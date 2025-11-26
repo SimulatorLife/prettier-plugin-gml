@@ -1,18 +1,6 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
-import prettier from "prettier";
-
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
-
-async function format(source) {
-    return prettier.format(source, {
-        plugins: [pluginPath],
-        parser: "gml-parse"
-    });
-}
+import { Plugin } from "../src/index.js";
 
 describe("block initial static spacing", () => {
     it("keeps the first static declaration adjacent to the opening brace", async () => {
@@ -25,7 +13,7 @@ describe("block initial static spacing", () => {
             ""
         ].join("\n");
 
-        const formatted = await format(source);
+        const formatted = await Plugin.format(source);
 
         const lines = formatted.split("\n");
         const functionIndex = lines.findIndex((line) =>

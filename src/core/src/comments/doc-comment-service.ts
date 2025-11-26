@@ -458,15 +458,16 @@ export function promoteLeadingDocCommentTextToDescription(
         return normalizedLines as DocCommentLines;
     }
 
-    const nextLine = normalizedLines[leadingCount];
-    const nextLineTrimmed = toTrimmedString(nextLine);
-    if (
-        typeof nextLine !== STRING_TYPE ||
-        (!/^\/\/\/\s*@/i.test(nextLineTrimmed) &&
-            !/^\/\/\s*\/\s*@/i.test(nextLineTrimmed))
-    ) {
+    const remainder = normalizedLines.slice(leadingCount);
+    const indexOfFirstTagInRemainder = remainder.findIndex((line) => {
+        if (typeof line !== STRING_TYPE) return false;
+        const trimmed = toTrimmedString(line);
+        return /^\/\/\/\s*@/i.test(trimmed) || /^\/\/\s*\/\s*@/i.test(trimmed);
+    });
+    if (indexOfFirstTagInRemainder === -1) {
         return normalizedLines as DocCommentLines;
     }
+    const nextLine = remainder[indexOfFirstTagInRemainder];
 
     const promotedLines: string[] = [];
     const firstSegment = segments[firstContentIndex];
@@ -516,7 +517,7 @@ export function promoteLeadingDocCommentTextToDescription(
         promotedLines.push(resolvedContinuation);
     }
 
-    const remainder = normalizedLines.slice(leadingCount);
+    // we already computed remainder above
     const result: DocCommentLines = [
         ...promotedLines,
         ...remainder

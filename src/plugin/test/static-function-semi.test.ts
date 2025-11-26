@@ -13,13 +13,13 @@ const pluginPath = (() => {
         path.resolve(currentDirectory, "../src/index.ts"),
         path.resolve(currentDirectory, "../src/plugin-entry.ts"),
         path.resolve(currentDirectory, "../src/index.js"),
-        path.resolve(currentDirectory, "../src/gml.js")
+        path.resolve(currentDirectory, "../src/plugin-entry.js")
     ];
     return candidates.find((p) => existsSync(p)) || candidates[0];
 })();
 
 async function formatWithPlugin(source, overrides: any = {}) {
-    const formatted = await prettier.format(source, {
+    const formatted = await Plugin.format(source, {
         parser: "gml-parse",
         plugins: [pluginPath],
         ...overrides

@@ -13,7 +13,7 @@ const pluginPath = (() => {
         path.resolve(__dirname, "../src/index.ts"),
         path.resolve(__dirname, "../src/plugin-entry.ts"),
         path.resolve(__dirname, "../src/index.js"),
-        path.resolve(__dirname, "../src/gml.js")
+        path.resolve(__dirname, "../src/plugin-entry.js")
     ];
     return candidates.find((p) => existsSync(p)) || candidates[0];
 })();
@@ -28,7 +28,7 @@ test("treats undefined defaults as required when the signature omits the default
         ""
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
+    const formatted = await Plugin.format(source, {
         parser: "gml-parse",
         plugins: [pluginPath],
         applyFeatherFixes: true
@@ -58,7 +58,7 @@ test("preserves optional annotations when parameters are explicitly documented a
         ""
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
+    const formatted = await Plugin.format(source, {
         parser: "gml-parse",
         plugins: [pluginPath],
         applyFeatherFixes: true
@@ -92,7 +92,7 @@ test("omits optional syntax for synthesized docs with undefined defaults", async
         ""
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
+    const formatted = await Plugin.format(source, {
         parser: "gml-parse",
         plugins: [pluginPath]
     });
@@ -122,7 +122,7 @@ test("retains optional syntax when constructors keep explicit undefined defaults
         ""
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
+    const formatted = await Plugin.format(source, {
         parser: "gml-parse",
         plugins: [pluginPath]
     });
@@ -142,7 +142,7 @@ test("synthesized docs mark retained undefined defaults as optional", async () =
     ]);
 
     const options = JSON.parse(rawOptions);
-    const formatted = await prettier.format(source, {
+    const formatted = await Plugin.format(source, {
         parser: "gml-parse",
         plugins: [pluginPath],
         ...options

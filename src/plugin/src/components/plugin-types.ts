@@ -51,6 +51,7 @@ export type GmlPluginDefaultOptions = Record<string, unknown>;
 
 export type GmlPlugin = Omit<Plugin<GmlAst>, "defaultOptions"> & {
     defaultOptions?: GmlPluginDefaultOptions;
+    format: (source: string, options?: Record<string, unknown>) => Promise<string>;
 };
 
 export type GmlParserOptions = ParserOptions<GmlAst>;

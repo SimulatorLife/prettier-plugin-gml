@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
-import prettier from "prettier";
+import { Plugin } from "../src/index.js";
 import { test } from "node:test";
 
-const pluginPath = new URL("../src/gml.js", import.meta.url);
 
 function extractDocBlocks(text) {
     const blocks = [];
@@ -38,10 +37,7 @@ test("struct static functions include @function doc tags", async () => {
     };
 }`;
 
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
-    });
+    const formatted = await Plugin.format(source);
 
     const docLines = formatted
         .split(/\r?\n/)
@@ -65,10 +61,7 @@ test("struct static functions drop stray @param tags when no parameters", async 
     };
 }`;
 
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
-    });
+    const formatted = await Plugin.format(source);
 
     const docBlocks = extractDocBlocks(formatted);
     const generateBlock = docBlocks.find((block) =>
@@ -94,10 +87,7 @@ test("struct static functions keep implicit argument docs", async () => {
     };
 }`;
 
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
-    });
+    const formatted = await Plugin.format(source);
 
     const docBlocks = extractDocBlocks(formatted);
     const dispatchBlock = docBlocks.find((block) =>
@@ -121,10 +111,7 @@ test("struct static function descriptions follow the @function tag", async () =>
     };
 }`;
 
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
-    });
+    const formatted = await Plugin.format(source);
 
     const docLines = formatted
         .split(/\r?\n/)

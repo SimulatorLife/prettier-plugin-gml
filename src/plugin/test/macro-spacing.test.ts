@@ -1,17 +1,11 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-import prettier from "prettier";
-
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
+import { Plugin } from "../src/index.js";
 
 test("macro declarations avoid duplicate blank lines", async () => {
     const source = "#macro FOO 1\n\nvar value = FOO;";
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
+    const formatted = await Plugin.format(source, {
+        parser: "gml-parse"
     });
 
     assert.strictEqual(formatted, "#macro FOO 1\n\nvar value = FOO;\n");
@@ -19,9 +13,8 @@ test("macro declarations avoid duplicate blank lines", async () => {
 
 test("macro declarations add a blank line before following statements", async () => {
     const source = "#macro FOO 1\nvar value = FOO;";
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
+    const formatted = await Plugin.format(source, {
+        parser: "gml-parse"
     });
 
     assert.strictEqual(formatted, "#macro FOO 1\n\nvar value = FOO;\n");
@@ -35,9 +28,8 @@ test("macro declarations stay separated on consecutive lines", async () => {
         "var value = FOO + BAR;"
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
+    const formatted = await Plugin.format(source, {
+        parser: "gml-parse"
     });
 
     assert.strictEqual(
@@ -56,9 +48,8 @@ test("Feather-sanitized macros preserve blank lines before following statements"
         "var result = FOO(1) + BAR;"
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
+    const formatted = await Plugin.format(source, {
         parser: "gml-parse",
-        plugins: [pluginPath],
         applyFeatherFixes: true
     });
 
@@ -80,9 +71,8 @@ test("legacy #define macro replacements keep adjacent statements", async () => {
         "var value = LEGACY_MACRO;"
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
+    const formatted = await Plugin.format(source, {
+        parser: "gml-parse"
     });
 
     assert.strictEqual(

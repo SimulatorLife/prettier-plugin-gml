@@ -1,24 +1,7 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import prettier from "prettier";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
-
-async function formatWithPlugin(source, overrides: any = {}) {
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
-    });
-
-    if (typeof formatted !== "string") {
-        throw new TypeError("Expected Prettier to return a string result.");
-    }
-
-    return formatted.trim();
-}
+import { Plugin } from "../src/index.js";
 
 test("promotes leading doc comment text to description metadata", async () => {
     const source = [
@@ -33,7 +16,7 @@ test("promotes leading doc comment text to description metadata", async () => {
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const lines = formatted.split("\n");
 
     const functionIndex = lines.findIndex((line) =>
@@ -88,7 +71,7 @@ test("keeps a blank separator before synthetic doc tags when leading text lacks 
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const lines = formatted.split("\n");
 
     const summaryIndex = lines.findIndex((line) =>
@@ -121,7 +104,7 @@ test("normalizes doc-like comment prefixes before promoting description metadata
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const lines = formatted.split("\n");
 
     const descriptionIndex = lines.findIndex((line) =>

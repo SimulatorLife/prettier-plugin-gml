@@ -1,22 +1,19 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-import prettier from "prettier";
+import { Plugin } from "../src/index.js";
 
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
+async function formatWithPlugin(source, options: any = {}) {
+    const formatted = await Plugin.format(source, options);
 
-async function format(source, options = {}) {
-    return prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath],
-        ...options
-    });
+    if (typeof formatted !== "string") {
+        throw new TypeError("Expected Plugin.format to return a string result.");
+    }
+
+    return formatted.trim();
 }
 
 test("adds undefined defaults for trailing optional parameters", async () => {
-    const formatted = await format(
+    const formatted = await formatWithPlugin(
         [
             "function demo(first, second = 1, third) {",
             "    return [first, second, third];",

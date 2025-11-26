@@ -1,20 +1,7 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
-import prettier from "prettier";
-
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
-
-async function formatWithPlugin(source, overrides = {}) {
-    return prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath],
-        ...overrides
-    });
-}
+import { Plugin } from "../src/index.js";
 
 test("keeps multi-sentence inline comments on the same line", async () => {
     const source = [
@@ -26,7 +13,7 @@ test("keeps multi-sentence inline comments on the same line", async () => {
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const lines = formatted.split("\n");
     const assignmentLine = lines.find((line) => line.includes("base_atk = 1"));
 
@@ -54,7 +41,7 @@ test("struct property trailing comments remain inline without blank separators",
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
 
     assert.ok(
         formatted.includes("hp: 100, // base health"),

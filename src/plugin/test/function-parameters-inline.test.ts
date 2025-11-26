@@ -1,14 +1,11 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import prettier from "prettier";
 
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
+const pluginPath = new URL("../src/plugin-entry.js", import.meta.url);
 
 async function format(source, options = {}) {
-    return prettier.format(source, {
+    return Plugin.format(source, {
         parser: "gml-parse",
         plugins: [pluginPath],
         ...options

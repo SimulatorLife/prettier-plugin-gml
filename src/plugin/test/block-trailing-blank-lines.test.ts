@@ -1,19 +1,6 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-
-import prettier from "prettier";
-
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
-
-async function formatWithPlugin(source, overrides: any = {}) {
-    return prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
-    });
-}
+import { Plugin } from "../src/index.js";
 
 test("omits blank lines between nested and enclosing block braces", async () => {
     const source = [
@@ -27,7 +14,7 @@ test("omits blank lines between nested and enclosing block braces", async () => 
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
 
     const closingBracePair = lines.slice(-2);
@@ -49,7 +36,7 @@ test("adds a blank line after nested function declarations", async () => {
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
 
     const trailingLines = lines.slice(-3);

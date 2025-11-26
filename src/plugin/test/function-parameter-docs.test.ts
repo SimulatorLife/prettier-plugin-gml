@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
-import prettier from "prettier";
+import { Plugin } from "../src/index.js";
 import { test } from "node:test";
 
-const pluginPath = new URL("../src/gml.js", import.meta.url);
 
 const SOURCE = `/// @function scr_bezier_4
 /// @param x1
@@ -16,9 +15,8 @@ function scr_bezier_4(argument0, argument1, argument2, argument3) {
 }`;
 
 test("formats function parameters using documented argument names", async () => {
-    const formatted = await prettier.format(SOURCE, {
+    const formatted = await Plugin.format(SOURCE, {
         parser: "gml-parse",
-        plugins: [pluginPath],
         applyFeatherFixes: true
     });
 
@@ -30,7 +28,7 @@ test("formats function parameters using documented argument names", async () => 
 });
 
 test("initializes argument aliases using parameter names", async () => {
-    const formatted = await prettier.format(
+    const formatted = await Plugin.format(
         `/// @function scr_example
 /// @param width
 /// @param height
@@ -41,7 +39,6 @@ function scr_example(argument0, argument1) {
 }`,
         {
             parser: "gml-parse",
-            plugins: [pluginPath],
             applyFeatherFixes: true
         }
     );
@@ -59,9 +56,8 @@ function scr_example(argument0, argument1) {
 });
 
 test("replaces argument index references inside function bodies", async () => {
-    const formatted = await prettier.format(SOURCE, {
+    const formatted = await Plugin.format(SOURCE, {
         parser: "gml-parse",
-        plugins: [pluginPath],
         applyFeatherFixes: true
     });
 
@@ -73,7 +69,7 @@ test("replaces argument index references inside function bodies", async () => {
 });
 
 test("reuses renamed parameters when formatting argument references", async () => {
-    const formatted = await prettier.format(
+    const formatted = await Plugin.format(
         `/// @param width
 function demo(argument0) {
     return argument0;
@@ -81,7 +77,6 @@ function demo(argument0) {
 `,
         {
             parser: "gml-parse",
-            plugins: [pluginPath],
             applyFeatherFixes: true
         }
     );
@@ -100,9 +95,8 @@ function example(argument0) {
 }`;
 
 test("omits redundant argument aliases after parameter renaming", async () => {
-    const formatted = await prettier.format(SOURCE_WITH_ALIAS, {
+    const formatted = await Plugin.format(SOURCE_WITH_ALIAS, {
         parser: "gml-parse",
-        plugins: [pluginPath],
         applyFeatherFixes: true
     });
 
@@ -135,9 +129,8 @@ function create_fx(sprite) {
 }`;
 
 test("preserves parameter order when doc comments are misordered", async () => {
-    const formatted = await prettier.format(SOURCE_WITH_NAMED_PARAMS, {
+    const formatted = await Plugin.format(SOURCE_WITH_NAMED_PARAMS, {
         parser: "gml-parse",
-        plugins: [pluginPath],
         applyFeatherFixes: true
     });
 
@@ -157,9 +150,8 @@ test("preserves parameter order when doc comments are misordered", async () => {
 });
 
 test("retains existing parameter names when docs reference other names", async () => {
-    const formatted = await prettier.format(SOURCE_WITH_NAMED_PARAMS, {
+    const formatted = await Plugin.format(SOURCE_WITH_NAMED_PARAMS, {
         parser: "gml-parse",
-        plugins: [pluginPath],
         applyFeatherFixes: true
     });
 
@@ -171,9 +163,8 @@ test("retains existing parameter names when docs reference other names", async (
 });
 
 test("normalizes doc comments that reference renamed parameters", async () => {
-    const formatted = await prettier.format(SOURCE_WITH_DOC_MISMATCH, {
+    const formatted = await Plugin.format(SOURCE_WITH_DOC_MISMATCH, {
         parser: "gml-parse",
-        plugins: [pluginPath],
         applyFeatherFixes: true
     });
 
@@ -193,14 +184,13 @@ test("normalizes doc comments that reference renamed parameters", async () => {
 });
 
 test("preserves doc comment types when renaming parameters", async () => {
-    const formatted = await prettier.format(
+    const formatted = await Plugin.format(
         `/// @param {real} distance
 function spring(dst) {
     return dst;
 }`,
         {
             parser: "gml-parse",
-            plugins: [pluginPath],
             applyFeatherFixes: true
         }
     );

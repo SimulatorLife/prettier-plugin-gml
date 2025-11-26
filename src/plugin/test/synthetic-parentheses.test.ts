@@ -1,11 +1,6 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-import prettier from "prettier";
-
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
+import { Plugin } from "../src/index.js";
 
 test("flatten synthetic addition parentheses from reordered optional parameters", async () => {
     const source = [
@@ -15,9 +10,8 @@ test("flatten synthetic addition parentheses from reordered optional parameters"
         ""
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
+    const formatted = await Plugin.format(source, {
         parser: "gml-parse",
-        plugins: [pluginPath],
         applyFeatherFixes: true
     });
 
@@ -42,10 +36,7 @@ test("flatten synthetic addition parentheses from reordered optional parameters"
 test("flattens synthetic addition parentheses by default", async () => {
     const source = ["var value = a + b + c;", ""].join("\n");
 
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
-    });
+    const formatted = await Plugin.format(source, { parser: "gml-parse" });
 
     assert.strictEqual(
         formatted.trim(),
@@ -57,10 +48,7 @@ test("flattens synthetic addition parentheses by default", async () => {
 test("flattens longer chains of synthetic addition", async () => {
     const source = ["var combined = a + b + c + d;", ""].join("\n");
 
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
-    });
+    const formatted = await Plugin.format(source, { parser: "gml-parse" });
 
     assert.strictEqual(
         formatted.trim(),
@@ -75,10 +63,7 @@ test("flattens additive chains that include call expressions", async () => {
         ""
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
-    });
+    const formatted = await Plugin.format(source, { parser: "gml-parse" });
 
     assert.strictEqual(
         formatted.trim(),
@@ -93,10 +78,7 @@ test("flattens numeric multiplication groups inside addition chains", async () =
         ""
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
-    });
+    const formatted = await Plugin.format(source, { parser: "gml-parse" });
 
     assert.strictEqual(
         formatted.trim(),
@@ -116,9 +98,8 @@ test("flattens chained multiplication operands", async () => {
         ""
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
+    const formatted = await Plugin.format(source, {
         parser: "gml-parse",
-        plugins: [pluginPath],
         applyFeatherFixes: true
     });
 
@@ -150,10 +131,7 @@ test("flattens standalone multiplication groups added together", async () => {
         ""
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
-    });
+    const formatted = await Plugin.format(source, { parser: "gml-parse" });
 
     const expectedLines = [
         "/// @function dot",
@@ -182,11 +160,10 @@ test("flattens squared products outside call contexts", async () => {
         ""
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
+    const formatted = await Plugin.format(source, {
         parser: "gml-parse",
-        plugins: [pluginPath]
+        applyFeatherFixes: true
     });
-
     const expectedLines = [
         "var xoff = a.x - b.x;",
         "var yoff = a.y - b.y;",
@@ -214,10 +191,7 @@ test("flattens forced synthetic multiplication groups outside numeric calls", as
         ""
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
-    });
+    const formatted = await Plugin.format(source, { parser: "gml-parse" });
 
     const expectedLines = [
         "/// @function spring",
@@ -243,11 +217,10 @@ test("flattens forced synthetic multiplication groups outside numeric calls", as
 test("preserves chains of sqr calls without additional parentheses", async () => {
     const source = ["var ll = sqr(dx) + sqr(dy) + sqr(dz);", ""].join("\n");
 
-    const formatted = await prettier.format(source, {
+    const formatted = await Plugin.format(source, {
         parser: "gml-parse",
-        plugins: [pluginPath]
+        applyFeatherFixes: true
     });
-
     assert.strictEqual(
         formatted.trim(),
         "var ll = sqr(dx) + sqr(dy) + sqr(dz);",
@@ -263,10 +236,7 @@ test("flattens synthetic addition within sqrt calls", async () => {
         ""
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
-    });
+    const formatted = await Plugin.format(source, { parser: "gml-parse" });
 
     const expectedLines = [
         "/// @function distance",
@@ -292,10 +262,7 @@ test("flattens squared comparison operands within logical expressions", async ()
         ""
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
-    });
+    const formatted = await Plugin.format(source, { parser: "gml-parse" });
 
     const expectedLines = [
         "var actual_dist = xoff * xoff + yoff * yoff;",
@@ -320,11 +287,10 @@ test("retains synthetic multiplication parentheses within comparisons", async ()
         ""
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
+    const formatted = await Plugin.format(source, {
         parser: "gml-parse",
-        plugins: [pluginPath]
+        applyFeatherFixes: true
     });
-
     const expectedLines = [
         "do {",
         "    value += 1;",
@@ -346,7 +312,7 @@ test("retains synthetic multiplication grouping when subtracting values", async 
         ""
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
+    const formatted = await Plugin.format(source, {
         parser: "gml-parse",
         plugins: [pluginPath]
     });

@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
-import path from "node:path";
 import { test } from "node:test";
-import prettier from "prettier";
+import { Plugin } from "../src/index.js";
+
+// Use Plugin.format to execute formatting in tests.
 
 const __dirname = import.meta.dirname;
-const pluginPath = path.resolve(__dirname, "../src/gml.js");
 
 test("orders doc comments for implicit argument references", async () => {
     const source = [
@@ -22,11 +22,7 @@ test("orders doc comments for implicit argument references", async () => {
         ""
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath],
-        applyFeatherFixes: true
-    });
+    const formatted = await Plugin.format(source, { applyFeatherFixes: true });
 
     const docLines = formatted
         .split("\n")
@@ -54,10 +50,7 @@ test("retains misordered optional parameter docs", async () => {
         ""
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
-    });
+    const formatted = await Plugin.format(source);
 
     const docLines = formatted
         .split("\n")

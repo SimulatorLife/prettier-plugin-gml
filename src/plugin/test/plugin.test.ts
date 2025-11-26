@@ -3,11 +3,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import prettier from "prettier";
+import { Plugin } from "../src/index.js";
 import { describe, it } from "node:test";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
 const fileEncoding = "utf8";
 const fixtureExtension = ".gml";
 
@@ -136,22 +135,6 @@ async function loadTestCases() {
     );
 }
 
-async function formatWithPlugin(source, overrides: any = {}) {
-    const formatted = await prettier.format(source, {
-        plugins: [pluginPath],
-        parser: "gml-parse",
-        ...overrides
-    });
-
-    if (typeof formatted !== "string") {
-        throw new TypeError(
-            "Prettier returned a non-string result when formatting GML."
-        );
-    }
-
-    return formatted.trim();
-}
-
 const testCases = await loadTestCases();
 
 describe("Prettier GameMaker plugin fixtures", () => {
@@ -162,7 +145,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
         options
     } of testCases) {
         it(`formats ${baseName}`, async () => {
-            const formatted = await formatWithPlugin(inputSource, options);
+            const formatted = await Plugin.format(inputSource, options);
             const expected = expectedOutput.trim();
 
             if (formatted === expected) {
@@ -205,7 +188,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "\n"
         );
 
-        const formatted = await formatWithPlugin(source);
+        const formatted = await Plugin.format(source);
 
         assert.ok(
             /globalvar foo, bar;/.test(formatted),
@@ -227,7 +210,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             ""
         ].join("\n");
 
-        const formatted = await formatWithPlugin(source);
+        const formatted = await Plugin.format(source);
 
         assert.ok(
             formatted.includes("/// @description Draw()"),
@@ -247,7 +230,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             ""
         ].join("\n");
 
-        const formatted = await formatWithPlugin(source, {
+        const formatted = await Plugin.format(source, {
             applyFeatherFixes: true
         });
 
@@ -276,7 +259,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             ""
         ].join("\n");
 
-        const formatted = await formatWithPlugin(source);
+        const formatted = await Plugin.format(source);
 
         const lines = formatted.split("\n");
         const macroIndex = lines.findIndex((line) =>
@@ -305,7 +288,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "var value = LEGACY_MACRO;"
         ].join("\n");
 
-        const formatted = await formatWithPlugin(source);
+        const formatted = await Plugin.format(source);
         const lines = formatted.split("\n");
 
         assert.ok(
@@ -347,7 +330,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "}"
         ].join("\n");
 
-        const formatted = await formatWithPlugin(source);
+        const formatted = await Plugin.format(source);
 
         const expected = [
             "/// @function example",
@@ -370,7 +353,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             ""
         ].join("\n");
 
-        const formatted = await formatWithPlugin(source);
+        const formatted = await Plugin.format(source);
 
         assert.match(
             formatted,
@@ -394,7 +377,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "}"
         ].join("\n");
 
-        const formatted = await formatWithPlugin(source);
+        const formatted = await Plugin.format(source);
 
         const expected = [
             "/// @function equalityExample",
@@ -417,7 +400,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "}"
         ].join("\n");
 
-        const formatted = await formatWithPlugin(source);
+        const formatted = await Plugin.format(source);
 
         const expected = [
             "/// @function inequalityExample",
@@ -440,7 +423,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "}"
         ].join("\n");
 
-        const formatted = await formatWithPlugin(source);
+        const formatted = await Plugin.format(source);
 
         const expected = [
             "/// @function equalityExample",
@@ -464,7 +447,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "}"
         ].join("\n");
 
-        const formatted = await formatWithPlugin(source);
+        const formatted = await Plugin.format(source);
 
         const expected = [
             "/// @function inequalityExample",
@@ -500,7 +483,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "}"
         ].join("\n");
 
-        const formatted = await formatWithPlugin(source);
+        const formatted = await Plugin.format(source);
 
         const expected = [
             "/// @function fallbackLeq",
@@ -526,7 +509,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "\n"
         );
 
-        const formatted = await formatWithPlugin(source, {
+        const formatted = await Plugin.format(source, {
             preserveGlobalVarStatements: false
         });
 
@@ -545,7 +528,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             ""
         ].join("\n");
 
-        const formatted = await formatWithPlugin(source);
+        const formatted = await Plugin.format(source);
 
         const leftLine = formatted
             .split("\n")
@@ -573,7 +556,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             ""
         ].join("\n");
 
-        const formatted = await formatWithPlugin(source);
+        const formatted = await Plugin.format(source);
 
         const firstLine = formatted.split("\n")[0];
         const commentIndex = firstLine.indexOf("//");
@@ -601,7 +584,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "var result = FOO(1) + BAR;"
         ].join("\n");
 
-        const formatted = await formatWithPlugin(source, {
+        const formatted = await Plugin.format(source, {
             applyFeatherFixes: true
         });
 
@@ -623,7 +606,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "var result = FOO(3) + BAR;"
         ].join("\n");
 
-        const formatted = await formatWithPlugin(source, {
+        const formatted = await Plugin.format(source, {
             applyFeatherFixes: true
         });
 
@@ -645,7 +628,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "var total = FOO(3) + BAR;"
         ].join("\n");
 
-        const formatted = await formatWithPlugin(source, {
+        const formatted = await Plugin.format(source, {
             applyFeatherFixes: true
         });
 
@@ -665,7 +648,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
         const expected =
             'throw "ERROR obj_item: Must be created with item id as a creation param";';
 
-        const defaultFormatted = await formatWithPlugin(source);
+        const defaultFormatted = await Plugin.format(source);
         assert.strictEqual(
             defaultFormatted,
             expected,
@@ -673,7 +656,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
         );
 
         for (const useStringInterpolation of [true, false]) {
-            const formatted = await formatWithPlugin(source, {
+            const formatted = await Plugin.format(source, {
                 useStringInterpolation
             });
 
@@ -688,7 +671,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
     it("rewrites safe string concatenations into template strings when enabled", async () => {
         const source = 'var message = "Hello " + name + "!";\n';
 
-        const formatted = await formatWithPlugin(source, {
+        const formatted = await Plugin.format(source, {
             useStringInterpolation: true
         });
 
@@ -698,8 +681,8 @@ describe("Prettier GameMaker plugin fixtures", () => {
     it("leaves concatenations unchanged when string interpolation is disabled", async () => {
         const source = 'var message = "Hello " + name + "!";\n';
 
-        const baseline = await formatWithPlugin(source);
-        const formatted = await formatWithPlugin(source, {
+        const baseline = await Plugin.format(source);
+        const formatted = await Plugin.format(source, {
             useStringInterpolation: false
         });
 
@@ -709,8 +692,8 @@ describe("Prettier GameMaker plugin fixtures", () => {
     it("skips concatenations that include non-string expressions", async () => {
         const source = 'var summary = "Score: " + playerName + 42;\n';
 
-        const baseline = await formatWithPlugin(source);
-        const formatted = await formatWithPlugin(source, {
+        const baseline = await Plugin.format(source);
+        const formatted = await Plugin.format(source, {
             useStringInterpolation: true
         });
 

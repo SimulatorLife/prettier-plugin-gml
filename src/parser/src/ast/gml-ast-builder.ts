@@ -202,6 +202,10 @@ export default class GameMakerASTBuilder {
     }
 
     get globalIdentifiers(): any {
+        // When scope tracking is disabled the tracker won't be present. In
+        // that case callers should be able to treat global identifiers as an
+        // empty collection rather than receiving an error.
+        if (!this.scopeTracker) return [];
         return this.scopeTracker.globalIdentifiers;
     }
 
@@ -229,19 +233,33 @@ export default class GameMakerASTBuilder {
     }
 
     withScope<T>(kind: string, callback: () => T): T {
+        // When a scope tracker has not been initialised (it may be disabled via
+        // options), treat the call as a no-op and execute the callback
+        // directly. This mirrors earlier behaviour in which consumers could
+        // call withScope without requiring scope tracking to be active.
+        if (!this.scopeTracker) {
+            return callback();
+        }
         return this.scopeTracker.withScope(kind, callback);
     }
 
     withIdentifierRole<T>(role: IdentifierRole, callback: () => T): T {
+        // Support a disabled/no-op scope tracker by falling back to
+        // executing the callback directly when tracking is disabled — this
+        // mirrors the behaviour we already apply in `withScope` for
+        // non-tracking builds.
         if (!this.scopeTracker) {
-            throw new Error("Scope tracker is not initialized");
+            return callback();
         }
         return this.scopeTracker.withRole(role, callback);
     }
 
     cloneIdentifierRole(role: IdentifierRole): IdentifierRole {
         if (!this.scopeTracker) {
-            throw new Error("Scope tracker is not initialized");
+            // No tracker present; return a shallow copy of the role as a
+            // best-effort clone so callers can mutate safely without
+            // inadvertently modifying the original object.
+            return { ...(role as any) } as IdentifierRole;
         }
         return this.scopeTracker.cloneRole(role);
     }

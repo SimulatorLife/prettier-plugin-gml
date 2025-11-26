@@ -16,7 +16,8 @@ describe("resolveCliPluginEntryPoint", () => {
 
     it("forwards options to the underlying resolver", () => {
         const env = {
-            PRETTIER_PLUGIN_GML_PLUGIN_PATH: "./src/plugin/src/gml.js"
+            PRETTIER_PLUGIN_GML_PLUGIN_PATH:
+                "./src/plugin/src/plugin-entry.js"
         };
 
         const resolved = resolveCliPluginEntryPoint({ env });

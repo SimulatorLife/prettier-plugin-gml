@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import path from "node:path";
 import { test } from "node:test";
-import prettier from "prettier";
+import { Plugin } from "../src/index.js";
+
+// We use Plugin.format to simplify test usage and stay consistent with the
+// plugin's public API exported from `src/index.ts`.
 
 const __dirname = import.meta.dirname;
-const pluginPath = path.resolve(__dirname, "../src/gml.js");
 
 const LONG_DESCRIPTION =
     "Base class for all shapes. Shapes can be solid or not solid. Solid shapes will " +
@@ -17,10 +18,7 @@ test("wraps long @description doc comments at the formatter width", async () => 
         ""
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
-    });
+    const formatted = await Plugin.format(source);
 
     const lines = formatted.trim().split("\n");
     const descriptionIndex = lines.findIndex((line) =>
@@ -58,11 +56,7 @@ test("wraps @description doc comments when printWidth exceeds the wrapping cap",
         ""
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath],
-        printWidth: 200
-    });
+    const formatted = await Plugin.format(source, { printWidth: 200 });
 
     const lines = formatted.trim().split("\n");
     const descriptionIndex = lines.findIndex((line) =>
@@ -100,11 +94,7 @@ test("wraps @description doc comments when printWidth is narrow but prevents a s
         ""
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath],
-        printWidth: 60
-    });
+    const formatted = await Plugin.format(source, { printWidth: 60 });
 
     const lines = formatted.trim().split("\n");
     const descriptionIndex = lines.findIndex((line) =>
@@ -147,10 +137,7 @@ test("preserves doc comment continuation labels without indentation", async () =
         ""
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
-    });
+    const formatted = await Plugin.format(source);
 
     const lines = formatted.trim().split("\n");
     const descriptionIndex = lines.findIndex((line) =>
@@ -190,11 +177,7 @@ test("pads retained @description continuation lines when they lack indentation",
         ""
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
-    });
-
+    const formatted = await Plugin.format(source, { printWidth: 200 });
     const lines = formatted.trim().split("\n");
     const continuationLine = lines.find((line) =>
         line.includes("Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5]")
@@ -215,11 +198,7 @@ test("does not expand preformatted doc comment continuations", async () => {
         ""
     ].join("\n");
 
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
-    });
-
+    const formatted = await Plugin.format(source, { printWidth: 60 });
     const lines = formatted.trim().split("\n");
     const descriptionIndex = lines.findIndex((line) =>
         line.startsWith("/// @description")

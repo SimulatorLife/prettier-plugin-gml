@@ -1,25 +1,12 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
-import prettier from "prettier";
-
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
-
-async function formatWithPlugin(source, overrides: any = {}) {
-    return prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath],
-        maxParamsPerLine: 3
-    });
-}
+import { Plugin } from "../src/index.js";
 
 test("enforces the maxParamsPerLine limit even when inline would fit", async () => {
     const source = ["call(a, b, c, d, e);", ""].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source, { maxParamsPerLine: 3 });
     const trimmed = formatted.trim();
 
     assert.strictEqual(

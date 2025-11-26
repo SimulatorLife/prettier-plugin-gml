@@ -1,25 +1,7 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
-import prettier from "prettier";
 
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
-
-async function formatWithPlugin(source, overrides: any = {}) {
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath],
-        ...overrides
-    });
-
-    if (typeof formatted !== "string") {
-        throw new TypeError("Expected Prettier to return a string result.");
-    }
-
-    return formatted;
-}
+import { Plugin } from "../src/index.js";
 
 describe("function assignment semicolons", () => {
     it("omits semicolons when assigning function declarations", async () => {
@@ -31,7 +13,7 @@ describe("function assignment semicolons", () => {
             ""
         ].join("\n");
 
-        const formatted = await formatWithPlugin(source);
+        const formatted = await Plugin.format(source);
 
         const expected = [
             "",

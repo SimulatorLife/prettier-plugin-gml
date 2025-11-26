@@ -1,15 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import prettier from "prettier";
+import { Plugin } from "../src/index.js";
 
-const pluginModule = await import("../src/index.js");
-
-function format(source, options = {}) {
-    return prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginModule as any],
-        ...options
-    });
+function format(source, options: any = {}) {
+    return Plugin.format(source, options);
 }
 
 test("reformats logical comparisons without introducing synthetic parentheses", async () => {

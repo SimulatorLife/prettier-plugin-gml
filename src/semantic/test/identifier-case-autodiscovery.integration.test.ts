@@ -18,24 +18,24 @@ import {
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const pluginPath = (() => {
     const candidates = [
-        path.resolve(currentDirectory, "../../plugin/dist/src/gml.js"),
-        path.resolve(currentDirectory, "../../plugin/dist/gml.js"),
+        path.resolve(currentDirectory, "../../plugin/dist/src/plugin-entry.js"),
         path.resolve(currentDirectory, "../../plugin/dist/index.js"),
-        path.resolve(currentDirectory, "../../plugin/src/gml.js"),
+        path.resolve(currentDirectory, "../../plugin/dist/src/index.js"),
+        path.resolve(currentDirectory, "../../plugin/src/plugin-entry.js"),
         path.resolve(currentDirectory, "../../plugin/src/index.js"),
         path.resolve(currentDirectory, "../../plugin/src/plugin-entry.ts")
     ];
     candidates.push(
-        path.resolve(currentDirectory, "../../../plugin/dist/src/gml.js")
-    );
-    candidates.push(
-        path.resolve(currentDirectory, "../../../plugin/dist/gml.js")
+        path.resolve(currentDirectory, "../../../plugin/dist/src/plugin-entry.js")
     );
     candidates.push(
         path.resolve(currentDirectory, "../../../plugin/dist/index.js")
     );
     candidates.push(
-        path.resolve(currentDirectory, "../../../plugin/src/gml.js")
+        path.resolve(currentDirectory, "../../../plugin/dist/src/index.js")
+    );
+    candidates.push(
+        path.resolve(currentDirectory, "../../../plugin/src/plugin-entry.js")
     );
     candidates.push(
         path.resolve(currentDirectory, "../../../plugin/src/index.js")

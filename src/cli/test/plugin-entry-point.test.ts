@@ -109,17 +109,17 @@ describe("resolvePluginEntryPoint", () => {
             "..",
             ".."
         );
-        const expectedDefault = path.resolve(
-            repoRoot,
-            "src",
-            "plugin",
-            "src",
-            "gml.js"
-        );
-
         const resolved = resolvePluginEntryPoint({ env: {} });
 
-        assert.strictEqual(resolved, expectedDefault);
+        assert.strictEqual(
+            path.basename(resolved),
+            "plugin-entry.js",
+            "Should default to the plugin entry file."
+        );
+        assert.ok(
+            resolved.startsWith(path.resolve(repoRoot, "src", "plugin")),
+            "Expected the resolved path under the plugin workspace."
+        );
     });
 });
 

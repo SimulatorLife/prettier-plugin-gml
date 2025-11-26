@@ -1,24 +1,11 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
-import prettier from "prettier";
-
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
-
-async function formatWithPlugin(source, overrides = {}) {
-    return prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath],
-        ...overrides
-    });
-}
+import { Plugin } from "../src/index.js";
 
 test("omits synthetic docs for anonymous functions without return value", async () => {
     const source = "var myFunc = function() {\n    var value = 1;\n}\n";
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const trimmed = formatted.trim();
 
     assert.match(
@@ -30,7 +17,7 @@ test("omits synthetic docs for anonymous functions without return value", async 
 
 test("adds synthetic @returns doc for onymous/named functions without return value", async () => {
     const source = "function demo() {\n    var value = 1;\n}\n";
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const trimmed = formatted.trim();
 
     assert.match(
@@ -49,7 +36,7 @@ test("separates synthetic doc comments from preceding line comments", async () =
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
 
     assert.deepStrictEqual(
@@ -67,7 +54,7 @@ test("separates synthetic doc comments from preceding line comments", async () =
 
 test("adds synthetic @returns doc for empty onymous/named function bodies", async () => {
     const source = "function noop() {}\n";
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const trimmed = formatted.trim();
 
     assert.match(
@@ -87,7 +74,7 @@ test("augments static function doc comments with missing @returns metadata", asy
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const trimmed = formatted.trim();
 
     assert.match(
@@ -107,7 +94,7 @@ test("adds synthetic @returns metadata for parameterless static functions", asyn
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const trimmed = formatted.trim();
 
     assert.ok(
@@ -130,7 +117,7 @@ test("adds synthetic docs for named constructor assignments", async () => {
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
 
     assert.deepStrictEqual(
@@ -152,7 +139,7 @@ test("synthetic constructor docs include trailing parameters", async () => {
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
     const docIndex = lines.indexOf("/// @function grandchild");
 
@@ -185,7 +172,7 @@ test("updates existing @function tags to reflect static function names", async (
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source, {
+    const formatted = await Plugin.format(source, {
         applyFeatherFixes: true
     });
     const lines = formatted.trim().split("\n");
@@ -223,7 +210,7 @@ test("annotates overriding static functions with @override metadata", async () =
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
     const derivedIndex = lines.indexOf(
         "function Derived() : Base() constructor {"
@@ -273,7 +260,7 @@ test("adds synthetic @returns metadata when defaults replace argument_count fall
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const trimmed = formatted.trim();
 
     assert.ok(
@@ -300,7 +287,7 @@ test("reorders description doc comments between parameters and returns", async (
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
 
     assert.deepStrictEqual(
@@ -329,7 +316,7 @@ test("omits alias-style description doc comments when synthetic metadata is emit
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
 
     assert.ok(
@@ -357,7 +344,7 @@ test("respects wider printWidth when wrapping description doc comments", async (
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source, { printWidth: 120 });
+    const formatted = await Plugin.format(source, { printWidth: 120 });
     const lines = formatted.trim().split("\n");
 
     assert.deepStrictEqual(
@@ -385,7 +372,7 @@ test("wraps long description doc comments using the formatter cap", async () => 
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
 
     assert.deepStrictEqual(

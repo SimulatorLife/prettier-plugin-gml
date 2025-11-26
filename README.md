@@ -279,13 +279,13 @@ nvm alias default node
    Quote dependency specs in shells such as `zsh` so `^` is not treated as a
    glob. Pin a tag or commit (`#vX.Y.Z`, `#<sha>`) when you need reproducible CI
    builds. The Git dependency ships the same packages as the workspace, so the
-   formatter entry point lives at `node_modules/root/src/plugin/src/gml.js` and
+   formatter entry point lives at `node_modules/root/src/plugin/src/plugin-entry.js` and
    the CLI wrapper at `node_modules/root/src/cli/src/cli.js`.
 
    ```jsonc
    {
      "plugins": [
-       "./node_modules/root/src/plugin/src/gml.js"
+       "./node_modules/root/src/plugin/src/plugin-entry.js"
      ]
    }
    ```
@@ -421,8 +421,8 @@ npx prettier --plugin=prettier-plugin-gamemaker --check "**/*.gml"
 _Installed from Git_
 
 ```bash
-npx prettier --plugin=./node_modules/root/src/plugin/src/gml.js --support-info
-npx prettier --plugin=./node_modules/root/src/plugin/src/gml.js --check "**/*.gml"
+npx prettier --plugin=./node_modules/root/src/plugin/src/plugin-entry.js --support-info
+npx prettier --plugin=./node_modules/root/src/plugin/src/plugin-entry.js --check "**/*.gml"
 ```
 
 The `--support-info` output should list `gml-parse` under "Parsers" when the
@@ -507,7 +507,7 @@ layout stays consistent.
   ```
 
   > **Workspace installs:** Replace the `--plugin` specifier with
-  > `./node_modules/root/src/plugin/src/gml.js` when the repository is vendored
+  > `./node_modules/root/src/plugin/src/plugin-entry.js` when the repository is vendored
   > directly into `node_modules/root/`.
 
 - Use the wrapper helper (accepts the same flags as `npm run format:gml --`).
@@ -641,7 +641,7 @@ Keep overrides scoped to `.gml` files so other languages remain unaffected.
 Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configuration.html) for the complete option list. GameMaker-specific overrides live alongside your `.yyp` so both the CLI and editor integrations share a single source of truth.
 
 > **Workspace installs:** When you track `main` directly from GitHub, swap the
-> plugin entry for `"./node_modules/root/src/plugin/src/gml.js"` so Prettier
+> plugin entry for `"./node_modules/root/src/plugin/src/plugin-entry.js"` so Prettier
 > resolves the bundled workspace build.
 
 ### Plugin-specific options

@@ -17,10 +17,10 @@ import { resolveFromRepoRoot } from "../shared/workspace-paths.js";
 // Default plugin entry points shipped within the workspace. Additional
 // candidates can be provided via environment variables or call-site overrides.
 const DEFAULT_CANDIDATE_PLUGIN_PATHS = Object.freeze([
-    ["src", "plugin", "dist", "gml.js"],
+    ["src", "plugin", "dist", "src", "plugin-entry.js"],
     ["src", "plugin", "dist", "index.js"],
-    ["src", "plugin", "dist", "src", "gml.js"],
-    ["src", "plugin", "src", "gml.js"],
+    ["src", "plugin", "dist", "src", "index.js"],
+    ["src", "plugin", "src", "plugin-entry.js"],
     ["src", "plugin", "src", "index.js"],
     ["src", "plugin", "index.js"]
 ]);

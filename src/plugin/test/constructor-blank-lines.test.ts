@@ -1,19 +1,6 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-
-import prettier from "prettier";
-
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
-
-async function formatWithPlugin(source, overrides: any = {}) {
-    return prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
-    });
-}
+import { Plugin } from "../src/index.js";
 
 test("preserves blank line between constructor header and first statement", async () => {
     const source = [
@@ -24,7 +11,7 @@ test("preserves blank line between constructor header and first statement", asyn
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
 
     assert.equal(
@@ -45,7 +32,7 @@ test("preserves blank line before constructor closing brace", async () => {
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
 
     assert.equal(
@@ -68,7 +55,7 @@ test("preserves blank line after documented static constructor members", async (
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
 
     assert.equal(
@@ -90,7 +77,7 @@ test("preserves blank lines after nested function declarations inside constructo
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
 
     assert.equal(
@@ -110,7 +97,7 @@ test("inserts trailing blank line after nested constructor functions when missin
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
 
     assert.equal(
@@ -130,7 +117,7 @@ test("collapses blank lines between simple constructor assignments", async () =>
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
     const assignmentIndex = lines.indexOf("    self.value = 1;");
 
@@ -156,7 +143,7 @@ test("inserts blank line after synthetic constructor doc comments", async () => 
         ""
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
 
     assert.equal(

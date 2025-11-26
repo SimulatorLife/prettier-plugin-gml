@@ -1,18 +1,15 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-import prettier from "prettier";
+import { Plugin } from "../src/index.js";
 
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
+async function formatWithPlugin(source, options: any = {}) {
+    const formatted = await Plugin.format(source, options);
 
-async function format(source, options = {}) {
-    return prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath],
-        ...options
-    });
+    if (typeof formatted !== "string") {
+        throw new TypeError("Expected Plugin.format to return a string result.");
+    }
+
+    return formatted.trim();
 }
 
 test("keeps constructor parent clauses inline", async () => {
@@ -23,7 +20,7 @@ test("keeps constructor parent clauses inline", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source);
+    const formatted = await formatWithPlugin(source);
     const signatureLine = formatted
         .split("\n")
         .find((line) => line.startsWith("function Derived"));
@@ -42,7 +39,7 @@ test("preserves inline constructor parameters when parent clause is present", as
         ""
     ].join("\n");
 
-    const formatted = await format(source);
+    const formatted = await formatWithPlugin(source);
     const signatureLine = formatted
         .split("\n")
         .find((line) => line.startsWith("function AbstractSkyboxParent"));

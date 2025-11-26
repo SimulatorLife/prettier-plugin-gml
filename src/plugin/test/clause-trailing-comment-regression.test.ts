@@ -1,20 +1,6 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-
-import prettier from "prettier";
-
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
-
-async function formatWithPlugin(source, overrides = {}) {
-    return prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath],
-        ...overrides
-    });
-}
+import { Plugin } from "../src/index.js";
 
 test("prints clause trailing comments with non-block bodies", async () => {
     const source = [
@@ -22,7 +8,7 @@ test("prints clause trailing comments with non-block bodies", async () => {
         "    perform_action();"
     ].join("\n");
 
-    const formatted = await formatWithPlugin(source);
+    const formatted = await Plugin.format(source);
     const [clauseLine] = formatted.split("\n");
 
     assert.ok(

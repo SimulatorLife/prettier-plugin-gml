@@ -408,7 +408,7 @@ try {
 }
 
 export default {
-    plugins: ["./node_modules/root/src/plugin/src/gml.js"],
+    plugins: ["./node_modules/root/src/plugin/src/plugin-entry.js"],
     overrides: [
         {
             files: "*.gml",

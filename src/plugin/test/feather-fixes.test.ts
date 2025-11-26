@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 
-import path from "node:path";
 import { Core } from "@gml-modules/core";
-import { fileURLToPath } from "node:url";
 
 import { describe, it } from "node:test";
 
-import prettier from "prettier";
+import { Plugin } from "../src/index.js";
 import { Parser } from "@gml-modules/parser";
+
+// Using Plugin.format wrapper instead of pluginPath
 
 const {
     getNodeEndIndex,
@@ -16,8 +16,6 @@ const {
     getFeatherDiagnosticById
 } = Core;
 
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
 
 function isEventInheritedCall(node) {
     if (!node || node.type !== "CallExpression") {
@@ -3087,9 +3085,8 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
             "draw_self();"
         ].join("\n");
 
-        const formatted = await prettier.format(source, {
+        const formatted = await Plugin.format(source, {
             parser: "gml-parse",
-            plugins: [pluginPath],
             "Parser.Transforms.applyFeatherFixes": true
         });
 
@@ -3157,9 +3154,8 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
             "vertex_format_add_position_3d();"
         ].join("\n");
 
-        const formatted = await prettier.format(source, {
+        const formatted = await Plugin.format(source, {
             parser: "gml-parse",
-            plugins: [pluginPath],
             "Parser.Transforms.applyFeatherFixes": true
         });
 
@@ -3189,9 +3185,8 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
             "// vertex_format_end();"
         ].join("\n");
 
-        const formatted = await prettier.format(source, {
+        const formatted = await Plugin.format(source, {
             parser: "gml-parse",
-            plugins: [pluginPath],
             "Parser.Transforms.applyFeatherFixes": true
         });
 

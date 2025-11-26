@@ -4,10 +4,10 @@ import { test } from "node:test";
 import prettier from "prettier";
 
 const __dirname = import.meta.dirname;
-const pluginPath = path.resolve(__dirname, "../src/gml.js");
+const pluginPath = path.resolve(__dirname, "../src/plugin-entry.js");
 
 async function formatWithPlugin(source, overrides = {}) {
-    return prettier.format(source, {
+    return Plugin.format(source, {
         parser: "gml-parse",
         plugins: [pluginPath],
         ...overrides

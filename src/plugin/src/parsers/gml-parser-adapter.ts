@@ -99,8 +99,17 @@ async function parse(text, options) {
         try {
             ast = Parser.GMLParser.parse(parseSource, {
                 getLocations: true,
-                simplifyLocations: false
+                simplifyLocations: false,
+                // Request comments so top-level and node-level comment arrays
+                // are populated for later scanning and promotion logic.
+                getComments: true
             });
+            if (process.env.GML_PRINTER_DEBUG) {
+                try {
+                    const length = Array.isArray(ast?.comments) ? ast.comments.length : 0;
+                    console.debug(`[DBG] gml-parser-adapter: parse called with getComments=true; ast.comments=${length}`);
+                } catch { }
+            }
         } catch (error) {
             if (!options?.applyFeatherFixes) {
                 throw error;
@@ -121,7 +130,9 @@ async function parse(text, options) {
             parseSource = recoveredSource;
             ast = Parser.GMLParser.parse(parseSource, {
                 getLocations: true,
-                simplifyLocations: false
+                simplifyLocations: false,
+                // Ensure comments are captured on recovered parse as well.
+                getComments: true
             });
         }
 
@@ -133,7 +144,6 @@ async function parse(text, options) {
             );
         }
 
-        Core.prepareDocCommentEnvironment(ast);
 
         if (options?.condenseStructAssignments ?? true) {
             Parser.Transforms.consolidateStructAssignments(ast, {

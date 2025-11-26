@@ -1,27 +1,12 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import test from "node:test";
-import prettier from "prettier";
-import { existsSync } from "node:fs";
 
 import {
     restoreDefaultGmlPluginComponents,
     setGmlPluginComponentProvider
 } from "../src/components/plugin-components.js";
 
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = (() => {
-    const candidates = [
-        path.resolve(currentDirectory, "../dist/src/index.js"),
-        path.resolve(currentDirectory, "../dist/index.js"),
-        path.resolve(currentDirectory, "../src/index.ts"),
-        path.resolve(currentDirectory, "../src/plugin-entry.ts"),
-        path.resolve(currentDirectory, "../src/index.js"),
-        path.resolve(currentDirectory, "../src/gml.js")
-    ];
-    return candidates.find((p) => existsSync(p)) || candidates[0];
-})();
+import { Plugin } from "../src/index.js";
 
 test(
     "printer tolerates function declarations missing params arrays",
@@ -67,9 +52,8 @@ test(
                 ""
             ].join("\n");
 
-            const formatted = await prettier.format(source, {
-                parser: "gml-parse",
-                plugins: [pluginPath]
+            const formatted = await Plugin.format(source, {
+                parser: "gml-parse"
             });
 
             assert.strictEqual(

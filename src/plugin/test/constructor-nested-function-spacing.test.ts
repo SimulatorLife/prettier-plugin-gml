@@ -1,11 +1,6 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
-import prettier from "prettier";
-
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
+import { Plugin } from "../src/index.js";
 
 describe("constructor nested function spacing", () => {
     it("inserts a blank line after nested functions before closing the constructor", async () => {
@@ -18,8 +13,7 @@ describe("constructor nested function spacing", () => {
             ""
         ].join("\n");
 
-        const formatted = await prettier.format(source, {
-            plugins: [pluginPath],
+        const formatted = await Plugin.format(source, {
             parser: "gml-parse"
         });
 

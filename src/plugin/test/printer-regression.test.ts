@@ -1,24 +1,7 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-import prettier from "prettier";
 
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = path.resolve(currentDirectory, "../src/gml.js");
-
-async function format(source) {
-    const formatted = await prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath]
-    });
-
-    if (typeof formatted !== "string") {
-        throw new TypeError("Expected Prettier to return a string result.");
-    }
-
-    return formatted;
-}
+import { Plugin } from "../src/index.js";
 
 test("prints statements and element lists for GML programs", async () => {
     const source = [
@@ -30,7 +13,7 @@ test("prints statements and element lists for GML programs", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source);
+    const formatted = await Plugin.format(source);
 
     assert.strictEqual(
         formatted,
@@ -55,7 +38,7 @@ test("prints all call arguments in order", async () => {
         ""
     ].join("\n");
 
-    const formatted = await format(source);
+    const formatted = await Plugin.format(source);
 
     assert.strictEqual(
         formatted,
@@ -71,13 +54,13 @@ test("prints all call arguments in order", async () => {
 });
 
 test("omits redundant unary plus before identifiers", async () => {
-    const formatted = await format("var value = +count;\n");
+    const formatted = await Plugin.format("var value = +count;\n");
 
     assert.strictEqual(formatted, "var value = count;\n");
 });
 
 test("preserves unary plus conversions", async () => {
-    const formatted = await format('var value = +"5";\n');
+    const formatted = await Plugin.format('var value = +"5";\n');
 
     assert.strictEqual(formatted, 'var value = +"5";\n');
 });

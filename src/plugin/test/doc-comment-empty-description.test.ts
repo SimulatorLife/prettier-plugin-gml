@@ -1,15 +1,8 @@
 import assert from "node:assert/strict";
-import prettier from "prettier";
+import { Plugin } from "../src/index.js";
 import { test } from "node:test";
 
-const pluginPath = new URL("../src/gml.js", import.meta.url);
-
-const format = (source, options = {}) =>
-    prettier.format(source, {
-        parser: "gml-parse",
-        plugins: [pluginPath],
-        ...options
-    });
+const format = (source, options = {}) => Plugin.format(source, options);
 
 test("omits empty doc descriptions on struct static functions", async () => {
     const source = [
