@@ -1,10 +1,20 @@
+import { Core } from "@gml-modules/core";
+
 import { SemanticScopeCoordinator } from "../scopes/identifier-scope.js";
 import { formatProjectIndexSyntaxError } from "./syntax-error-formatter.js";
 
 // TODO: This is a workaround because currently the parser and 'semantic' depend on each other. Need to properly decouple. Once the parser is fully rebuilt we can likely remove this and directly import from the parser package (or have 'parser' have one-way dependency on 'semantic').
 type ParserNamespace = typeof import("@gml-modules/parser").Parser;
+type ProjectIndexParser = (sourceText: string, context?: unknown) => unknown;
 
 let parserNamespace: ParserNamespace | null = null;
+let defaultProjectIndexParser: ProjectIndexParser | null = null;
+
+const PARSER_FACADE_OPTION_KEYS = [
+    "identifierCaseProjectIndexParserFacade",
+    "gmlParserFacade",
+    "parserFacade"
+];
 
 export function setProjectIndexParserNamespace(parser: ParserNamespace): void {
     parserNamespace = parser;
@@ -53,9 +63,43 @@ function parseProjectIndexSource(
     }
 }
 
+function resolveDefaultProjectIndexParser(): ProjectIndexParser {
+    if (!defaultProjectIndexParser) {
+        defaultProjectIndexParser = getDefaultProjectIndexParser();
+    }
+
+    return defaultProjectIndexParser;
+}
+
 export function getDefaultProjectIndexParser(
     parser: ParserNamespace | null = null
 ) {
     return (sourceText: string, context = {}) =>
         parseProjectIndexSource(sourceText, context, parser);
+}
+
+export function getProjectIndexParserOverride(options) {
+    if (!Core.isObjectLike(options)) {
+        return null;
+    }
+
+    for (const key of PARSER_FACADE_OPTION_KEYS) {
+        const facade = options[key];
+        if (typeof facade?.parse === "function") {
+            return {
+                facade,
+                parse: facade.parse.bind(facade)
+            };
+        }
+    }
+
+    const parse = options.parseGml;
+    return typeof parse === "function" ? { facade: null, parse } : null;
+}
+
+export function resolveProjectIndexParser(options) {
+    return (
+        getProjectIndexParserOverride(options)?.parse ??
+        resolveDefaultProjectIndexParser()
+    );
 }
