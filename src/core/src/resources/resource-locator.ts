@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-const RESOURCE_BASE_PATHS = Object.freeze([
+const RESOURCE_BASE_PATHS = Object.freeze([ // TODO: There must be a better way to do this
     "../../../../resources/",
     "../../../../../resources/"
 ]);

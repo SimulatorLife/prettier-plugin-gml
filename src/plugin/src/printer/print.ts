@@ -37,10 +37,6 @@ import {
     printDanglingCommentsAsGroup,
     printComment
 } from "../comments/comment-printer.js";
-import {
-    formatLineComment,
-    getLineCommentRawText
-} from "../comments/line-comment-formatting.js";
 import { Parser } from "@gml-modules/parser";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
 import { DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH } from "./doc-comment-wrap-width.js";
@@ -1110,7 +1106,7 @@ function _printImpl(path, options, print) {
                 }
                 docCommentDocs = node.docComments
                     .map((comment) =>
-                        formatLineComment(comment, lineCommentOptions)
+                        Parser.formatLineComment(comment, lineCommentOptions)
                     )
                     .filter(
                         (text) =>
@@ -3065,7 +3061,7 @@ function buildStructPropertyCommentSuffix(path, options) {
 
     for (const comment of comments) {
         if ((comment as any)?._structPropertyTrailing === true) {
-            const formatted = formatLineComment(
+            const formatted = Parser.formatLineComment(
                 comment,
                 Parser.Comments.resolveLineCommentOptions(options)
             );
@@ -4261,9 +4257,9 @@ function collectSyntheticDocCommentLines(
             continue;
         }
 
-        let formatted = formatLineComment(comment, lineCommentOptions);
+        let formatted = Parser.formatLineComment(comment, lineCommentOptions);
         // Check if comment is either /// style or // / style (doc-like)
-        const rawText = getLineCommentRawText(comment);
+        const rawText = Parser.getLineCommentRawText(comment);
         const trimmedRaw = typeof rawText === STRING_TYPE ? rawText.trim() : "";
 
         // A comment should be treated as a doc comment if any of the
@@ -4408,11 +4404,11 @@ function collectSyntheticDocCommentLines(
                     )
                         continue;
 
-                    const formatted = formatLineComment(
+                    const formatted = Parser.formatLineComment(
                         pc,
                         Parser.Comments.resolveLineCommentOptions(options)
                     );
-                    const rawText = getLineCommentRawText(pc);
+                    const rawText = Parser.getLineCommentRawText(pc);
                     const trimmedRaw =
                         typeof rawText === STRING_TYPE ? rawText.trim() : "";
                     const isFormattedDocStyle =
@@ -4444,7 +4440,7 @@ function collectSyntheticDocCommentLines(
 
                 if (docCandidates.length > 0) {
                     const collected = docCandidates.map((c) =>
-                        formatLineComment(
+                        Parser.formatLineComment(
                             c,
                             Parser.Comments.resolveLineCommentOptions(options)
                         )
@@ -4541,7 +4537,7 @@ function collectSyntheticDocCommentLines(
                         });
                         if (matchNode) {
                             matchNode.printed = true;
-                            return formatLineComment(
+                            return Parser.formatLineComment(
                                 matchNode,
                                 Parser.Comments.resolveLineCommentOptions(
                                     options
@@ -4589,7 +4585,7 @@ function extractLeadingNonDocCommentLines(comments, options) {
             comment &&
             comment.type === "CommentLine"
         ) {
-            const formatted = formatLineComment(comment, lineCommentOptions);
+            const formatted = Parser.formatLineComment(comment, lineCommentOptions);
             const trimmed = Core.toTrimmedString(formatted);
 
             if (trimmed.length === 0) {

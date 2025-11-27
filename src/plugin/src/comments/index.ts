@@ -1,6 +1,5 @@
 import { Parser } from "@gml-modules/parser";
 
-export * from "./line-comment-formatting.js";
 export * from "./comment-printer.js";
 // NOTE: Doc comment helpers live in @gml-modules/core. Avoid re-exporting
 // Core functions or creating pass-through shims here — consumers should
@@ -23,6 +22,14 @@ const restoreDefaultLineCommentOptionsResolver: typeof Parser.restoreDefaultLine
     Parser.restoreDefaultLineCommentOptionsResolver;
 const setLineCommentOptionsResolver: typeof Parser.setLineCommentOptionsResolver =
     Parser.setLineCommentOptionsResolver;
+const applyInlinePadding: typeof Parser.applyInlinePadding =
+    Parser.applyInlinePadding;
+const formatLineComment: typeof Parser.formatLineComment =
+    Parser.formatLineComment;
+const getLineCommentRawText: typeof Parser.getLineCommentRawText =
+    Parser.getLineCommentRawText;
+const normalizeBannerCommentText: typeof Parser.normalizeBannerCommentText =
+    Parser.normalizeBannerCommentText;
 
 export {
     DEFAULT_LINE_COMMENT_OPTIONS,
@@ -30,5 +37,9 @@ export {
     LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,
     resolveLineCommentOptions,
     restoreDefaultLineCommentOptionsResolver,
-    setLineCommentOptionsResolver
+    setLineCommentOptionsResolver,
+    applyInlinePadding,
+    formatLineComment,
+    getLineCommentRawText,
+    normalizeBannerCommentText
 };

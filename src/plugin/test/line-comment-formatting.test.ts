@@ -1,18 +1,6 @@
 import assert from "node:assert/strict";
-import { fileURLToPath } from "node:url";
-import path from "node:path";
-
 import { describe, it } from "node:test";
-
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const formatPath = path.resolve(
-    currentDirectory,
-    "../src/comments/line-comment-formatting.js"
-);
-
-const { formatLineComment, normalizeBannerCommentText } = await import(
-    formatPath
-);
+import { Parser } from "@gml-modules/parser";
 
 describe("line comment formatting helpers", () => {
     it("promotes leading doc-like single-slash comments to triple-slash", () => {
@@ -22,7 +10,7 @@ describe("line comment formatting helpers", () => {
             leadingText: "// / Leading summary"
         };
 
-        const result = formatLineComment(docLikeComment, {});
+        const result = Parser.formatLineComment(docLikeComment, {});
         assert.strictEqual(result.trim(), "/// Leading summary");
     });
 
@@ -51,7 +39,7 @@ describe("line comment formatting helpers", () => {
                 "// / foot_spd = min(0.5 * sqrt(sqr(x - xprevious) + sqr(y - yprevious)) + abs(last_crab_dir) * 0.1 + 0.2, 1);"
         };
 
-        const result = formatLineComment(testComment, {});
+        const result = Parser.formatLineComment(testComment, {});
 
         // Expected formatting (visualized): the outer comment prefix remains
         // `// ` and the inner, commented-out code remains `// ...` but with
@@ -71,7 +59,7 @@ describe("line comment formatting helpers", () => {
     });
 
     it("retains banner content when decorations were stripped upstream", () => {
-        const normalized = normalizeBannerCommentText("Heading", {
+        const normalized = Parser.normalizeBannerCommentText("Heading", {
             assumeDecorated: true
         });
 
