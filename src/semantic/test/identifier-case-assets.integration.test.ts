@@ -26,7 +26,6 @@ import { resolveIdentifierCasePluginPath } from "./identifier-case-test-helpers.
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const pluginPath = resolveIdentifierCasePluginPath(currentDirectory);
 
-
 async function createAssetReservedProject() {
     const { projectRoot, writeFile } = await createTempProjectWorkspace(
         "gml-asset-reserved-"

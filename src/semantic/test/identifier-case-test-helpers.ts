@@ -89,9 +89,7 @@ export async function createIdentifierCaseProject({
     eventFixture?: string | null;
     projectPrefix?: string;
 }): Promise<IdentifierCaseProject> {
-    const tempRoot = await fs.mkdtemp(
-        path.join(os.tmpdir(), projectPrefix)
-    );
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), projectPrefix));
 
     async function writeFile(relativePath: string, contents: string) {
         const absolutePath = path.join(tempRoot, relativePath);
@@ -114,7 +112,7 @@ export async function createIdentifierCaseProject({
         const scriptName =
             typeof config === "string"
                 ? `script_${index}`
-                : config.name ?? `script_${index}`;
+                : (config.name ?? `script_${index}`);
         const fixtureName =
             typeof config === "string" ? config : config.fixture;
 

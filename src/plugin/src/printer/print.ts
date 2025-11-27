@@ -2523,7 +2523,7 @@ function normalizeCallTextNewlines(text, endOfLineOption) {
     const normalized = text.replaceAll(/\r\n?/g, "\n");
 
     if (endOfLineOption === "crlf") {
-        return normalized.replaceAll('\n', "\r\n");
+        return normalized.replaceAll("\n", "\r\n");
     }
 
     return normalized;

@@ -61,7 +61,8 @@ test("exportOccurrences captures declarations and references by scope", () => {
 });
 
 test("exportOccurrences can omit references and returns cloned metadata", () => {
-    const { tracker, scope, declarationRange } = createSingleScopeTracker("bar");
+    const { tracker, scope, declarationRange } =
+        createSingleScopeTracker("bar");
 
     const expected = [
         buildDeclarationScopeSnapshot({
@@ -105,19 +106,15 @@ test("getScopeOccurrences exports a single scope payload", () => {
         referenceRange,
         declarationScopeId: programScope.id,
         declarationRange,
-        classifications: [
-            "identifier",
-            "reference",
-            "variable",
-            "local"
-        ]
+        classifications: ["identifier", "reference", "variable", "local"]
     });
 
     assert.deepStrictEqual(result, expected);
 });
 
 test("getScopeOccurrences omits references when requested and clones metadata", () => {
-    const { tracker, scope, declarationRange } = createSingleScopeTracker("bar");
+    const { tracker, scope, declarationRange } =
+        createSingleScopeTracker("bar");
 
     const occurrences = tracker.getScopeOccurrences(scope.id, {
         includeReferences: false
@@ -751,12 +748,7 @@ function buildDeclarationAndReferenceSnapshot({
             referenceRange,
             declarationScopeId: programScopeId,
             declarationRange,
-            classifications: [
-                "identifier",
-                "reference",
-                "variable",
-                "local"
-            ]
+            classifications: ["identifier", "reference", "variable", "local"]
         })
     ];
 }
