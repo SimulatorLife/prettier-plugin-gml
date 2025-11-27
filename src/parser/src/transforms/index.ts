@@ -84,4 +84,9 @@ export {
     sanitizeConditionalAssignments,
     applySanitizedIndexAdjustments
 } from "./conditional-assignment-sanitizer.js";
-export { sanitizeMissingArgumentSeparators } from "./missing-argument-separator-sanitizer.js";
+export { applyIndexAdjustmentsIfPresent } from "./index-adjustments.js";
+export {
+    sanitizeMissingArgumentSeparators,
+    collapseRedundantMissingCallArguments,
+    markCallsMissingArgumentSeparators
+} from "./missing-argument-separator-sanitizer.js";

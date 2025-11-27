@@ -127,7 +127,6 @@ async function prepareTargetPathFixture({
         cleanup: async () => {
             await fs.rm(rawPath, { recursive: true, force: true });
             await fs.rm(sanitizedPath, { recursive: true, force: true });
-        });
         }
     };
 }

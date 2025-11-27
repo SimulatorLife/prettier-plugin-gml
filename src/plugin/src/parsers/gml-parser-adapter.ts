@@ -12,32 +12,9 @@ import { Semantic } from "@gml-modules/semantic";
 // layers or re-export shims. This keeps the runtime contract stable and
 // avoids added indirection during printing and parsing.
 
-const {
-    getNodeStartIndex,
-    getNodeEndIndex,
-    toMutableArray,
-    visitChildNodes,
-    isNonEmptyTrimmedString
-} = Core;
+const { getNodeStartIndex, getNodeEndIndex } = Core;
 
 const { addTrailingComment } = util;
-
-function applyIndexAdjustmentsIfPresent(
-    target,
-    adjustments,
-    applyAdjustments,
-    metadata
-) {
-    if (!Array.isArray(adjustments) || adjustments.length === 0) {
-        return;
-    }
-
-    applyAdjustments(target, adjustments);
-
-    if (metadata !== null) {
-        applyAdjustments(metadata, adjustments);
-    }
-}
 
 async function parse(text, options) {
     let parseSource = text;
@@ -85,7 +62,7 @@ async function parse(text, options) {
 
         // Fix malformed comments that start with single / followed by space
         // These should be converted to proper // comments to avoid parsing errors
-        parseSource = fixMalformedComments(parseSource);
+        parseSource = Parser.Utils.fixMalformedComments(parseSource);
 
         const sanitizedResult =
             Parser.Transforms.sanitizeConditionalAssignments(parseSource);
@@ -134,10 +111,11 @@ async function parse(text, options) {
                 throw error;
             }
 
-            const recoveredSource = recoverParseSourceFromMissingBrace(
-                parseSource,
-                error
-            );
+            const recoveredSource =
+                Parser.Utils.recoverParseSourceFromMissingBrace(
+                    parseSource,
+                    error
+                );
 
             const hasUsableRecovery =
                 typeof recoveredSource === "string" &&
@@ -176,7 +154,7 @@ async function parse(text, options) {
         }
 
         if (enableMissingArgumentSeparatorSanitizer) {
-            applyIndexAdjustmentsIfPresent(
+            Parser.Transforms.applyIndexAdjustmentsIfPresent(
                 ast,
                 callIndexAdjustments,
                 Parser.Transforms.applySanitizedIndexAdjustments,
@@ -184,14 +162,14 @@ async function parse(text, options) {
             );
         }
 
-        applyIndexAdjustmentsIfPresent(
+        Parser.Transforms.applyIndexAdjustmentsIfPresent(
             ast,
             indexAdjustments,
             Parser.Transforms.applySanitizedIndexAdjustments,
             preprocessedFixMetadata
         );
 
-        applyIndexAdjustmentsIfPresent(
+        Parser.Transforms.applyIndexAdjustmentsIfPresent(
             ast,
             enumIndexAdjustments,
             Parser.Transforms.applyRemovedIndexAdjustments,
@@ -220,11 +198,14 @@ async function parse(text, options) {
 
         Parser.Transforms.convertUndefinedGuardAssignments(ast);
         Parser.Transforms.preprocessFunctionArgumentDefaults(ast);
-        collapseRedundantMissingCallArguments(ast);
+        Parser.Transforms.collapseRedundantMissingCallArguments(ast);
         Parser.Transforms.enforceVariableBlockSpacing(ast, options);
         Parser.Transforms.annotateStaticFunctionOverrides(ast);
 
-        markCallsMissingArgumentSeparators(ast, options?.originalText ?? text);
+        Parser.Transforms.markCallsMissingArgumentSeparators(
+            ast,
+            options?.originalText ?? text
+        );
 
         return ast;
     } catch (error) {
@@ -269,277 +250,3 @@ export const gmlParserAdapter = {
     locStart,
     locEnd
 };
-
-function collapseRedundantMissingCallArguments(ast) {
-    if (!ast || typeof ast !== "object") {
-        return;
-    }
-
-    const visited = new WeakSet();
-
-    function visit(node) {
-        if (!node || typeof node !== "object" || visited.has(node)) {
-            return;
-        }
-
-        visited.add(node);
-
-        if (
-            node.type === "CallExpression" &&
-            Array.isArray(node.arguments) &&
-            node.arguments.length > 1
-        ) {
-            const args = toMutableArray(node.arguments);
-            const hasNonMissingArgument = args.some(
-                (argument) => argument?.type !== "MissingOptionalArgument"
-            );
-
-            if (!hasNonMissingArgument) {
-                const [firstMissingArgument] = args;
-                node.arguments = firstMissingArgument
-                    ? [firstMissingArgument]
-                    : [];
-            }
-        }
-
-        visitChildNodes(node, visit);
-    }
-
-    visit(ast);
-}
-
-function markCallsMissingArgumentSeparators(ast, originalText) {
-    if (!ast || typeof ast !== "object" || typeof originalText !== "string") {
-        return;
-    }
-
-    const visitedNodes = new WeakSet();
-
-    function visit(node) {
-        if (!node || typeof node !== "object") {
-            return;
-        }
-
-        if (visitedNodes.has(node)) {
-            return;
-        }
-        visitedNodes.add(node);
-
-        visitChildNodes(node, visit);
-
-        if (shouldPreserveCallWithMissingSeparators(node, originalText)) {
-            Object.defineProperty(node, "preserveOriginalCallText", {
-                configurable: true,
-                enumerable: false,
-                writable: true,
-                value: true
-            });
-        }
-    }
-
-    visit(ast);
-}
-
-function shouldPreserveCallWithMissingSeparators(node, originalText) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    const args = toMutableArray(node.arguments);
-
-    if (
-        args.some(
-            (argument) =>
-                argument &&
-                typeof argument === "object" &&
-                argument.preserveOriginalCallText === true
-        )
-    ) {
-        return true;
-    }
-
-    if (args.length < 2) {
-        return false;
-    }
-
-    for (let index = 0; index < args.length - 1; index += 1) {
-        const current = args[index];
-        const next = args[index + 1];
-        const currentEnd = getNodeEndIndex(current);
-        const nextStart = getNodeStartIndex(next);
-
-        if (
-            currentEnd == null ||
-            nextStart == null ||
-            nextStart <= currentEnd
-        ) {
-            continue;
-        }
-
-        const between = originalText.slice(currentEnd, nextStart);
-        if (between.includes(",")) {
-            continue;
-        }
-
-        const previousChar = currentEnd > 0 ? originalText[currentEnd - 1] : "";
-        const nextChar =
-            nextStart < originalText.length ? originalText[nextStart] : "";
-
-        if (
-            !isNonEmptyTrimmedString(between) &&
-            isNumericBoundaryCharacter(previousChar) &&
-            isNumericBoundaryCharacter(nextChar)
-        ) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-function isNumericBoundaryCharacter(character) {
-    return /[0-9.-]/.test(character ?? "");
-}
-
-/**
- * Fix malformed comments that start with a single forward slash followed by space.
- * These are common in real-world GML code where users write "/ @something" instead of "// @something".
- * This pre-processing step converts them to proper comments to avoid parsing errors.
- * We're specifically targeting doc-comment-like patterns that start with @.
- *
- * @param {string} sourceText - The source text to fix
- * @returns {string} - The fixed source text
- */
-function fixMalformedComments(sourceText) {
-    if (typeof sourceText !== "string" || sourceText.length === 0) {
-        return sourceText;
-    }
-
-    // Replace lines that start with "/ " followed by @ and content with "// "
-    // This handles cases like "/ @function something" -> "// @function something"
-    // but avoids changing expressions like "x / 2"
-    return sourceText.replaceAll(/^(\s*)\/\s+(@.+)$/gm, "$1// $2");
-}
-
-function recoverParseSourceFromMissingBrace(sourceText, error) {
-    if (!isMissingClosingBraceError(error)) {
-        return null;
-    }
-
-    const appended = appendMissingClosingBraces(sourceText);
-
-    return appended === sourceText ? null : appended;
-}
-
-function isMissingClosingBraceError(error) {
-    if (!error) {
-        return false;
-    }
-
-    const message =
-        typeof error.message === "string"
-            ? error.message
-            : typeof error === "string"
-              ? error
-              : String(error ?? "");
-
-    return message.toLowerCase().includes("missing associated closing brace");
-}
-
-function appendMissingClosingBraces(sourceText) {
-    if (typeof sourceText !== "string" || sourceText.length === 0) {
-        return sourceText;
-    }
-
-    const missingBraceCount = countUnclosedBraces(sourceText);
-
-    if (missingBraceCount <= 0) {
-        return sourceText;
-    }
-
-    let normalized = sourceText;
-
-    if (!normalized.endsWith("\n")) {
-        normalized += "\n";
-    }
-
-    const closingLines = new Array(missingBraceCount).fill("}").join("\n");
-
-    return `${normalized}${closingLines}`;
-}
-
-function countUnclosedBraces(sourceText) {
-    let depth = 0;
-    let inSingleLineComment = false;
-    let inBlockComment = false;
-    let stringDelimiter = null;
-    let isEscaped = false;
-
-    for (let index = 0; index < sourceText.length; index += 1) {
-        const char = sourceText[index];
-        const nextChar = sourceText[index + 1];
-
-        if (stringDelimiter) {
-            if (isEscaped) {
-                isEscaped = false;
-                continue;
-            }
-
-            if (char === "\\") {
-                isEscaped = true;
-                continue;
-            }
-
-            if (char === stringDelimiter) {
-                stringDelimiter = null;
-            }
-
-            continue;
-        }
-
-        if (inSingleLineComment) {
-            if (char === "\n") {
-                inSingleLineComment = false;
-            }
-
-            continue;
-        }
-
-        if (inBlockComment) {
-            if (char === "*" && nextChar === "/") {
-                inBlockComment = false;
-                index += 1;
-            }
-
-            continue;
-        }
-
-        if (char === "/" && nextChar === "/") {
-            inSingleLineComment = true;
-            index += 1;
-            continue;
-        }
-
-        if (char === "/" && nextChar === "*") {
-            inBlockComment = true;
-            index += 1;
-            continue;
-        }
-
-        if (char === "'" || char === '"') {
-            stringDelimiter = char;
-            continue;
-        }
-
-        if (char === "{") {
-            depth += 1;
-            continue;
-        }
-
-        if (char === "}" && depth > 0) {
-            depth -= 1;
-        }
-    }
-
-    return depth;
-}

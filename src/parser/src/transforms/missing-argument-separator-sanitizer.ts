@@ -773,3 +773,134 @@ function readNonTriviaCharacterBefore(text: string, index: number) {
 
     return null;
 }
+
+export function collapseRedundantMissingCallArguments(ast) {
+    if (!ast || typeof ast !== "object") {
+        return;
+    }
+
+    const visited = new WeakSet();
+
+    function visit(node) {
+        if (!node || typeof node !== "object" || visited.has(node)) {
+            return;
+        }
+
+        visited.add(node);
+
+        if (
+            node.type === "CallExpression" &&
+            Array.isArray(node.arguments) &&
+            node.arguments.length > 1
+        ) {
+            const args = Core.toMutableArray(node.arguments);
+            const hasNonMissingArgument = args.some(
+                (argument) => argument?.type !== "MissingOptionalArgument"
+            );
+
+            if (!hasNonMissingArgument) {
+                const [firstMissingArgument] = args;
+                node.arguments = firstMissingArgument
+                    ? [firstMissingArgument]
+                    : [];
+            }
+        }
+
+        Core.visitChildNodes(node, visit);
+    }
+
+    visit(ast);
+}
+
+export function markCallsMissingArgumentSeparators(ast, originalText) {
+    if (!ast || typeof ast !== "object" || typeof originalText !== "string") {
+        return;
+    }
+
+    const visitedNodes = new WeakSet();
+
+    function visit(node) {
+        if (!node || typeof node !== "object") {
+            return;
+        }
+
+        if (visitedNodes.has(node)) {
+            return;
+        }
+        visitedNodes.add(node);
+
+        Core.visitChildNodes(node, visit);
+
+        if (shouldPreserveCallWithMissingSeparators(node, originalText)) {
+            Object.defineProperty(node, "preserveOriginalCallText", {
+                configurable: true,
+                enumerable: false,
+                writable: true,
+                value: true
+            });
+        }
+    }
+
+    visit(ast);
+}
+
+function shouldPreserveCallWithMissingSeparators(node, originalText) {
+    if (!node || node.type !== "CallExpression") {
+        return false;
+    }
+
+    const args = Core.toMutableArray(node.arguments);
+
+    if (
+        args.some(
+            (argument) =>
+                argument &&
+                typeof argument === "object" &&
+                argument.preserveOriginalCallText === true
+        )
+    ) {
+        return true;
+    }
+
+    if (args.length < 2) {
+        return false;
+    }
+
+    for (let index = 0; index < args.length - 1; index += 1) {
+        const current = args[index];
+        const next = args[index + 1];
+        const currentEnd = Core.getNodeEndIndex(current);
+        const nextStart = Core.getNodeStartIndex(next);
+
+        if (
+            currentEnd == null ||
+            nextStart == null ||
+            nextStart <= currentEnd
+        ) {
+            continue;
+        }
+
+        const between = originalText.slice(currentEnd, nextStart);
+        if (between.includes(",")) {
+            continue;
+        }
+
+        const previousChar = currentEnd > 0 ? originalText[currentEnd - 1] : "";
+        const nextChar =
+            nextStart < originalText.length ? originalText[nextStart] : "";
+
+        if (
+            !Core.isNonEmptyTrimmedString(between) &&
+            isNumericBoundaryCharacter(previousChar) &&
+            isNumericBoundaryCharacter(nextChar)
+        ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function isNumericBoundaryCharacter(character) {
+    return /[0-9.-]/.test(character ?? "");
+}

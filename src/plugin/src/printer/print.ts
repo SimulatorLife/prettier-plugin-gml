@@ -1687,14 +1687,20 @@ function _printImpl(path, options, print) {
                         );
 
                     if (typeof synthesizedText === STRING_TYPE) {
-                        return synthesizedText;
+                        return normalizeCallTextNewlines(
+                            synthesizedText,
+                            options.endOfLine
+                        );
                     }
 
                     if (
                         node.preserveOriginalCallText &&
                         !hasNestedPreservedArguments
                     ) {
-                        return options.originalText.slice(startIndex, endIndex);
+                        return normalizeCallTextNewlines(
+                            options.originalText.slice(startIndex, endIndex),
+                            options.endOfLine
+                        );
                     }
                 }
             }
@@ -2507,6 +2513,20 @@ function synthesizeMissingCallArgumentSeparators(
     normalizedText += originalText.slice(cursor, endIndex);
 
     return insertedSeparator ? normalizedText : null;
+}
+
+function normalizeCallTextNewlines(text, endOfLineOption) {
+    if (typeof text !== STRING_TYPE) {
+        return text;
+    }
+
+    const normalized = text.replaceAll(/\r\n?/g, "\n");
+
+    if (endOfLineOption === "crlf") {
+        return normalized.replaceAll('\n', "\r\n");
+    }
+
+    return normalized;
 }
 
 function shouldAllowTrailingComma(options) {
