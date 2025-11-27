@@ -107,8 +107,7 @@ export async function createIdentifierCaseProject({
     const scriptPaths: string[] = [];
     const scriptSources: string[] = [];
 
-    for (let index = 0; index < scriptFixtures.length; index += 1) {
-        const config = scriptFixtures[index];
+    for (const [index, config] of scriptFixtures.entries()) {
         const scriptName =
             typeof config === "string"
                 ? `script_${index}`
