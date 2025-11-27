@@ -1,4 +1,6 @@
 import { Core } from "@gml-modules/core";
+import type { MutableGameMakerAstNode } from "@gml-modules/core";
+import { FunctionalParserTransform } from "./index.js";
 
 const ASSIGNMENT_EXPRESSION = "AssignmentExpression";
 const BINARY_EXPRESSION = "BinaryExpression";
@@ -12,19 +14,15 @@ const PARENTHESIZED_EXPRESSION = "ParenthesizedExpression";
 const UNARY_EXPRESSION = "UnaryExpression";
 const VARIABLE_DECLARATION = "VariableDeclaration";
 
-/**
- * Convert bespoke math expressions into their builtin GML equivalents.
- *
- * The transformer recognises a curated set of safe patterns such as repeated
- * multiplications, squared distance calculations, manual trigonometry
- * conversions, and logarithm identities. Each match rewrites the AST in place
- * so the printer emits the builtin helper instead of the verbose expression.
- *
- * @param {unknown} ast - Parsed AST to rewrite in place.
- * @param {{ sourceText?: string, originalText?: string } | null} context
- *     Additional source context used to detect inline comments between nodes.
- */
-export function convertManualMathExpressions(ast: any, context: any = null) {
+type ConvertManualMathTransformOptions = {
+    sourceText?: string;
+    originalText?: string;
+};
+
+function convertManualMathExpressionsImpl(
+    ast: any,
+    context: ConvertManualMathTransformOptions | null = null
+) {
     if (!ast || typeof ast !== "object") {
         return ast;
     }
@@ -48,6 +46,31 @@ export function condenseScalarMultipliers(ast: any, context: any = null) {
     cleanupMultiplicativeIdentityParentheses(ast, traversalContext);
 
     return ast;
+}
+
+class ConvertManualMathExpressionsTransform extends FunctionalParserTransform<
+    ConvertManualMathTransformOptions
+> {
+    constructor() {
+        super("convert-manual-math", {});
+    }
+
+    protected execute(
+        ast: MutableGameMakerAstNode,
+        options: ConvertManualMathTransformOptions
+    ): MutableGameMakerAstNode {
+        return convertManualMathExpressionsImpl(ast, options);
+    }
+}
+
+const convertManualMathExpressionsTransform =
+    new ConvertManualMathExpressionsTransform();
+
+export function convertManualMathExpressions(
+    ast: any,
+    context: ConvertManualMathTransformOptions | null = null
+) {
+    return convertManualMathExpressionsTransform.transform(ast, context);
 }
 
 function traverse(node, seen, context) {

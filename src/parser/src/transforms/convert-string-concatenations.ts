@@ -1,17 +1,17 @@
 import { Core } from "@gml-modules/core";
-// Use Core.isNode directly instead of destructuring the Core namespace.
+import { FunctionalParserTransform } from "./index.js";
+
 const BINARY_EXPRESSION = "BinaryExpression";
 const TEMPLATE_STRING_EXPRESSION = "TemplateStringExpression";
 const TEMPLATE_STRING_TEXT = "TemplateStringText";
 const LITERAL = "Literal";
 const PARENTHESIZED_EXPRESSION = "ParenthesizedExpression";
-// `isNode` is available via `Core.isNode`; we use destructuring below
 
-/**
- * Convert chains of string concatenations into template string expressions.
- * @param {unknown} ast
- */
-export function convertStringConcatenations(ast: any, helpers?: any) {
+type ConvertStringConcatenationsTransformOptions = {
+    helpers?: any;
+};
+
+function convertStringConcatenationsImpl(ast: any, helpers?: any) {
     if (!Core.isObjectLike(ast)) {
         return ast;
     }
@@ -19,6 +19,30 @@ export function convertStringConcatenations(ast: any, helpers?: any) {
     traverse(ast, null, null);
 
     return ast;
+}
+
+class ConvertStringConcatenationsTransform extends FunctionalParserTransform<
+    ConvertStringConcatenationsTransformOptions
+> {
+    constructor() {
+        super("convert-string-concatenations", {});
+    }
+
+    protected execute(
+        ast: any,
+        options: ConvertStringConcatenationsTransformOptions
+    ) {
+        return convertStringConcatenationsImpl(ast, options.helpers);
+    }
+}
+
+const convertStringConcatenationsTransform =
+    new ConvertStringConcatenationsTransform();
+
+export function convertStringConcatenations(ast: any, helpers?: any) {
+    return convertStringConcatenationsTransform.transform(ast, {
+        helpers
+    });
 }
 
 function createTraversalState() {

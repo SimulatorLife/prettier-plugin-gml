@@ -1,4 +1,5 @@
 import { Core } from "@gml-modules/core";
+import { FunctionalParserTransform } from "./index.js";
 // Doc comment helpers are now available on the top-level Core namespace
 const {
     resolveDocCommentPresenceService, // TODO: We should expose a single doc-comment-service instead of exposing all these
@@ -29,7 +30,14 @@ const BOOLEAN_NODE_TYPES = Object.freeze({
 
 let activeTransformationContext = null;
 
-export function condenseLogicalExpressions(ast: any, helpers?: any) {
+type CondenseLogicalExpressionsTransformOptions = {
+    helpers?:
+        | { hasComment: (node: unknown) => boolean }
+        | ((node: unknown) => boolean)
+        | null;
+};
+
+function condenseLogicalExpressionsImpl(ast: any, helpers?: any) {
     if (!isNode(ast)) {
         return ast;
     }
@@ -64,6 +72,27 @@ export function condenseLogicalExpressions(ast: any, helpers?: any) {
     removeDuplicateCondensedFunctions(context);
     activeTransformationContext = null;
     return ast;
+}
+
+class CondenseLogicalExpressionsTransform extends FunctionalParserTransform<
+    CondenseLogicalExpressionsTransformOptions
+> {
+    constructor() {
+        super("condense-logical-expressions", {});
+    }
+
+    protected execute(ast: any, options: CondenseLogicalExpressionsTransformOptions) {
+        return condenseLogicalExpressionsImpl(ast, options.helpers);
+    }
+}
+
+const condenseLogicalExpressionsTransform =
+    new CondenseLogicalExpressionsTransform();
+
+export function condenseLogicalExpressions(ast: any, helpers?: any) {
+    return condenseLogicalExpressionsTransform.transform(ast, {
+        helpers
+    });
 }
 
 function isBooleanBranchExpression(node, allowValueLiterals = false) {

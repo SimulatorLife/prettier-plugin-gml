@@ -1,16 +1,8 @@
 import { Core } from "@gml-modules/core";
+import type { MutableGameMakerAstNode } from "@gml-modules/core";
+import { FunctionalParserTransform } from "./index.js";
 
-/**
- * Convert simple undefined guard assignments into ternary expressions so they
- * collapse to a single statement during printing. Matches `if` statements that
- * assign the same identifier in both branches when the guard checks the
- * identifier against the `undefined` sentinel (either via the `is_undefined`
- * helper or an equality comparison).
- *
- * @param {unknown} ast
- * @returns {unknown}
- */
-export function convertUndefinedGuardAssignments(ast: any) {
+function convertUndefinedGuardAssignmentsImpl(ast: any) {
     if (!Core.isObjectLike(ast)) {
         return ast;
     }
@@ -51,6 +43,28 @@ export function convertUndefinedGuardAssignments(ast: any) {
             visit(child, node, key);
         });
     }
+}
+
+class ConvertUndefinedGuardAssignmentsTransform extends FunctionalParserTransform<
+    Record<string, never>
+> {
+    constructor() {
+        super("convert-undefined-guard-assignments", {});
+    }
+
+    protected execute(
+        ast: MutableGameMakerAstNode,
+        _options: Record<string, never>
+    ): MutableGameMakerAstNode {
+        return convertUndefinedGuardAssignmentsImpl(ast);
+    }
+}
+
+const convertUndefinedGuardAssignmentsTransform =
+    new ConvertUndefinedGuardAssignmentsTransform();
+
+export function convertUndefinedGuardAssignments(ast: any) {
+    return convertUndefinedGuardAssignmentsTransform.transform(ast);
 }
 
 function convertIfStatement(node, parent, property) {

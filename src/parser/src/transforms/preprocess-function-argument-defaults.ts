@@ -1,10 +1,10 @@
 import { Core } from "@gml-modules/core";
+import type { MutableGameMakerAstNode } from "@gml-modules/core";
+import { FunctionalParserTransform } from "./index.js";
 
-// NOTE: Avoid destructuring the Core namespace — use Core.* directly as per AGENTS.md
-// Local aliases were removed in favor of explicit Core.* usage.
-// Avoid destructuring Core namespace: use Core.* explicitly below
+type PreprocessFunctionArgumentDefaultsTransformOptions = Record<string, never>;
 
-export function preprocessFunctionArgumentDefaults(ast: any) {
+function preprocessFunctionArgumentDefaultsImpl(ast: any) {
     if (!Core.isObjectLike(ast)) {
         return ast;
     }
@@ -24,9 +24,28 @@ export function preprocessFunctionArgumentDefaults(ast: any) {
     return ast;
 }
 
-// Provide the standard `.transform` alias expected by the transform
-// registry so callers can import this module as a namespace and invoke
-// `preprocessFunctionArgumentDefaults.transform(ast, opts)`.
+class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParserTransform<
+    PreprocessFunctionArgumentDefaultsTransformOptions
+> {
+    constructor() {
+        super("preprocess-function-argument-defaults", {});
+    }
+
+    protected execute(
+        ast: MutableGameMakerAstNode,
+        _options: PreprocessFunctionArgumentDefaultsTransformOptions
+    ) {
+        return preprocessFunctionArgumentDefaultsImpl(ast);
+    }
+}
+
+const preprocessFunctionArgumentDefaultsTransform =
+    new PreprocessFunctionArgumentDefaultsTransform();
+
+export function preprocessFunctionArgumentDefaults(ast: any) {
+    return preprocessFunctionArgumentDefaultsTransform.transform(ast);
+}
+
 export const transform = preprocessFunctionArgumentDefaults;
 
 function traverse(node, visitor, seen = new Set()) {

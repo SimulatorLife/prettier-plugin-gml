@@ -1,5 +1,8 @@
+// TODO: This file is way too big and needs to be split up. Things like 'attachFeatherFixMetadata' can live here, but everything else should be split/moved. Can have a file just for enum handling, one for fixing begin/end vertex, colour, etc.
+
 import { Core } from "@gml-modules/core";
 import type { MutableGameMakerAstNode } from "@gml-modules/core";
+import { FunctionalParserTransform } from "./index.js";
 import antlr4, { PredictionMode } from "antlr4";
 import GameMakerLanguageLexer from "../../generated/GameMakerLanguageLexer.js";
 import GameMakerLanguageParser from "../../generated/GameMakerLanguageParser.js";
@@ -11,14 +14,19 @@ import GameMakerParseErrorListener, {
 } from "../ast/gml-syntax-error.js";
 import { preprocessFunctionArgumentDefaults } from "./preprocess-function-argument-defaults.js";
 
-type RenameOptions = {
+type RenameOptions = { // TODO: This may be duplicated by functionality in the 'refactor' and/or 'semantic' modules. Identifier renaming needs to live in the 'refactor' module, which is built on top of 'semantic' (which handles scope and context) so that identifiers can be renamed properly/safely without introducing conflicts
     onRename?: (payload: {
         identifier: MutableGameMakerAstNode;
         originalName: string;
         replacement: string;
     }) => void;
 };
-// Avoid destructuring the Core namespace; access the helper via Core.resolveDocCommentTraversalService
+
+type ApplyFeatherFixesOptions = {
+    sourceText?: string;
+    preprocessedFixMetadata?: unknown;
+    options?: Record<string, unknown>;
+};
 
 function walkAstNodes(root, visitor) {
     // TODO: I think this is duplicated elsewhere
@@ -35,7 +43,7 @@ function walkAstNodes(root, visitor) {
             return;
         }
 
-        if (!isAstNode(node)) {
+        if (!Core.isNode(node)) {
             return;
         }
 
@@ -83,39 +91,14 @@ function resolveCallExpressionArrayContext(node, parent, property) {
     };
 }
 
-// Helper guard used in transforms to narrow unknown node types into
-// object-like AST nodes for safer property access without resorting to
-// 'any'. This complements `Core.isNode` which is a runtime check but not a
-// TypeScript type predicate, so we provide a local predicate here.
-function isAstNode(value: unknown): value is Record<string, unknown> {
-    return Core.isNode(value);
-}
-
-function hasType(
-    node: unknown,
-    type: string
-): node is Record<string, unknown> & { type: string } {
-    return isAstNode(node) && (node as any).type === type;
-}
-
-function isIdentifierNode(
-    node: unknown
-): node is { type: "Identifier"; name: string } {
-    return (
-        isAstNode(node) &&
-        (node as any).type === "Identifier" &&
-        typeof (node as any).name === "string"
-    );
-}
-
 function getStartFromNode(node: unknown) {
-    if (!isAstNode(node)) return null;
+    if (!Core.isNode(node)) return null;
     if (!Object.hasOwn(node, "start")) return null;
     return Core.cloneLocation((node as any).start);
 }
 
 function getEndFromNode(node: unknown) {
-    if (!isAstNode(node)) return null;
+    if (!Core.isNode(node)) return null;
     if (!Object.hasOwn(node, "end")) return null;
     return Core.cloneLocation((node as any).end);
 }
@@ -840,7 +823,10 @@ export function getFeatherDiagnosticFixers() {
     return new Map(FEATHER_DIAGNOSTIC_FIXERS);
 }
 
-export function applyFeatherFixes(ast: any, opts: any = {}) {
+function applyFeatherFixesImpl(
+    ast: any,
+    opts: ApplyFeatherFixesOptions = {}
+) {
     const { sourceText, preprocessedFixMetadata, options } = opts ?? {};
     if (!ast || typeof ast !== "object") {
         return ast;
@@ -1373,11 +1359,11 @@ function removeDuplicateEnumMembers({ ast, diagnostic, sourceText }) {
                 for (let index = 0; index < members.length; index += 1) {
                     const member = members[index];
 
-                    if (!isAstNode(member)) {
+                    if (!Core.isNode(member)) {
                         continue;
                     }
 
-                    const name = isIdentifierNode((member as any).name)
+                    const name = Core.isIdentifierNode((member as any).name)
                         ? (member as any).name.name
                         : null;
 
@@ -1559,6 +1545,27 @@ function isBreakableConstruct(node) {
             return false;
         }
     }
+}
+
+class ApplyFeatherFixesTransform extends FunctionalParserTransform<
+    ApplyFeatherFixesOptions
+> {
+    constructor() {
+        super("apply-feather-fixes", {});
+    }
+
+    protected execute(ast: MutableGameMakerAstNode, options: ApplyFeatherFixesOptions) {
+        return applyFeatherFixesImpl(ast, options);
+    }
+}
+
+const applyFeatherFixesTransform = new ApplyFeatherFixesTransform();
+
+export function applyFeatherFixes(
+    ast: any,
+    opts: ApplyFeatherFixesOptions = {}
+) {
+    return applyFeatherFixesTransform.transform(ast, opts);
 }
 
 function buildFeatherFixImplementations(diagnostics) {
@@ -2159,13 +2166,13 @@ function recordVariableDeclaration(registry, context) {
 
     const declarator = declarations[0] as Record<string, unknown>;
 
-    if (!isAstNode(declarator)) {
+    if (!Core.isNode(declarator)) {
         return;
     }
 
     const id = declarator.id;
     if (
-        !isAstNode(id) ||
+        !Core.isNode(id) ||
         (id.type ?? null) !== "Identifier" ||
         !declarator.init
     ) {
@@ -2384,7 +2391,7 @@ function promoteVariableDeclaration(context, diagnostic, fixes) {
     const assignment: Record<string, unknown> = {
         type: "AssignmentExpression",
         operator: "=",
-        left: cloneIdentifier(declarator.id),
+        left: Core.cloneIdentifier(declarator.id),
         right: declarator.init,
         start: getStartFromNode(declaration),
         end: getEndFromNode(declaration)
@@ -2501,7 +2508,7 @@ function createOtherMemberExpression(identifier) {
     const memberExpression = {
         type: "MemberDotExpression",
         object: Core.createIdentifierNode("other", identifier),
-        property: cloneIdentifier(identifier)
+        property: Core.cloneIdentifier(identifier)
     };
 
     Core.assignClonedLocation(memberExpression, identifier);
@@ -3374,7 +3381,7 @@ function createAssignmentFromGlobalVarDeclarator({
         return null;
     }
 
-    const identifier = cloneIdentifier(declarator.id) as Record<
+    const identifier = Core.cloneIdentifier(declarator.id) as Record<
         string,
         unknown
     > | null;
@@ -3386,7 +3393,7 @@ function createAssignmentFromGlobalVarDeclarator({
     if (
         declarator.id &&
         declarator.id.isGlobalIdentifier &&
-        isAstNode(identifier)
+        Core.isNode(identifier)
     ) {
         identifier.isGlobalIdentifier = true;
     }
@@ -3780,7 +3787,7 @@ function convertReadOnlyAssignment(
         identifier.name,
         nameRegistry
     );
-    const replacementIdentifier = createIdentifierFromTemplate(
+    const replacementIdentifier = Core.createIdentifierNode(
         replacementName,
         identifier
     );
@@ -3844,6 +3851,7 @@ function replaceReadOnlyIdentifierReferences(
     }
 }
 
+// TODO: This may be duplicated by functionality in the 'refactor' and/or 'semantic' modules
 function renameIdentifiersInNode(root, originalName, replacementName) {
     const stack = [{ node: root, parent: null, property: null, ancestors: [] }];
 
@@ -3881,7 +3889,7 @@ function renameIdentifiersInNode(root, originalName, replacementName) {
                     ancestors
                 })
             ) {
-                const replacement = createIdentifierFromTemplate(
+                const replacement = Core.createIdentifierNode(
                     replacementName,
                     node
                 );
@@ -3919,6 +3927,7 @@ const IDENTIFIER_DECLARATION_CONTEXTS = new Set([
     "DefaultParameter:left"
 ]);
 
+// TODO: This may be duplicated by functionality in the 'refactor' and/or 'semantic' modules
 function shouldSkipIdentifierReplacement({ parent, property, ancestors }) {
     if (!parent) {
         return true;
@@ -3989,6 +3998,7 @@ function createReadOnlyReplacementName(originalName, nameRegistry) {
     return candidate;
 }
 
+// TODO: This may be duplicated by functionality in the 'refactor' and/or 'semantic' modules
 function collectAllIdentifierNames(root) {
     const names = new Set();
 
@@ -4179,7 +4189,7 @@ function rewriteRoomNavigationBinaryExpression({
         replacementName,
         baseIdentifier
     );
-    const argumentIdentifier = cloneIdentifier(baseIdentifier);
+    const argumentIdentifier = Core.cloneIdentifier(baseIdentifier);
 
     if (!calleeIdentifier || !argumentIdentifier) {
         return null;
@@ -4891,6 +4901,7 @@ function fixArgumentReferencesWithinFunction(
     return fixes;
 }
 
+// TODO: Move this to where the other doc-comment utilities are located
 function buildDocumentedParamNameLookup(ast, sourceText, docCommentTraversal) {
     const lookup = new WeakMap();
 
@@ -4920,6 +4931,7 @@ function buildDocumentedParamNameLookup(ast, sourceText, docCommentTraversal) {
     return lookup;
 }
 
+// TODO: Move this to where the other doc-comment utilities are located
 function extractDocumentedParamNames(functionNode, docComments, sourceText) {
     const documentedNames = new Set();
     if (!functionNode || typeof functionNode !== "object") {
@@ -5015,6 +5027,7 @@ function extractDocumentedParamNames(functionNode, docComments, sourceText) {
     return documentedNames;
 }
 
+// TODO: Move this to where the other comment utilities are located
 function getCommentStartIndex(comment) {
     if (!comment || typeof comment !== "object") {
         return null;
@@ -5075,6 +5088,7 @@ function extractParamNameFromComment(value) {
     return name.trim();
 }
 
+// TODO: Move this to where the other doc-comment utilities are located
 function normalizeDocParamNameForComparison(name) {
     if (typeof name !== "string") {
         return "";
@@ -6145,7 +6159,7 @@ function normalizeObviousSyntaxErrors({ ast, diagnostic, metadata }) {
     const fixes = [];
 
     for (const entry of gm1100Entries) {
-        if (!isAstNode(entry)) {
+        if (!Core.isNode(entry)) {
             continue;
         }
 
@@ -7179,7 +7193,7 @@ function collectDeprecatedFunctionNames(ast, sourceText, docCommentTraversal) {
 
     const topLevelFunctions = new Set(
         body.filter(
-            (node) => isAstNode(node) && node.type === "FunctionDeclaration"
+            (node) => Core.isNode(node) && node.type === "FunctionDeclaration"
         )
     );
 
@@ -7250,6 +7264,7 @@ function findDeprecatedDocComment(docComments, functionStart, sourceText) {
     return null;
 }
 
+// TODO: Move this to where the other comment utilities are located
 function getCommentEndIndex(comment) {
     if (!comment) {
         return null;
@@ -7943,7 +7958,7 @@ function convertDeleteStatementToUndefinedAssignment(
         ) {
             Core.assignClonedLocation(
                 assignment.right as Record<string, unknown>,
-                (isAstNode(node.argument) ? node.argument : node) as Record<
+                (Core.isNode(node.argument) ? node.argument : node) as Record<
                     string,
                     unknown
                 >
@@ -7979,7 +7994,7 @@ function isValidDeleteTarget(node) {
         return false;
     }
 
-    if (isIdentifierNode(node)) {
+    if (Core.isIdentifierNode(node)) {
         return true;
     }
 
@@ -7991,7 +8006,7 @@ function getDeleteTargetName(node) {
         return null;
     }
 
-    if (isIdentifierNode(node)) {
+    if (Core.isIdentifierNode(node)) {
         return node.name;
     }
 
@@ -8142,7 +8157,7 @@ function getVertexBatchTarget(callExpression) {
     if (args.length > 0) {
         const firstArgument = args[0];
 
-        if (isIdentifierNode(firstArgument)) {
+        if (Core.isIdentifierNode(firstArgument)) {
             return firstArgument.name ?? null;
         }
     }
@@ -8259,7 +8274,7 @@ function convertAssignmentToLocalVariable({
 
     const left = node.left;
 
-    if (!isIdentifierNode(left)) {
+    if (!Core.isIdentifierNode(left)) {
         return null;
     }
 
@@ -8298,7 +8313,7 @@ function convertAssignmentToLocalVariable({
         return null;
     }
 
-    const clonedIdentifier = cloneIdentifier(left);
+    const clonedIdentifier = Core.cloneIdentifier(left);
 
     if (!clonedIdentifier) {
         return null;
@@ -8422,6 +8437,7 @@ function extractEventNameFromComment(value) {
     return normalized;
 }
 
+// TODO: Move this to where the other comment utilities are located
 function getCommentIndex(comment) {
     if (!comment || typeof comment !== "object") {
         return null;
@@ -8516,6 +8532,7 @@ function collectMemberPropertyNames(ast) {
     return names;
 }
 
+// TODO: Move this to where the other identifier utilities are located
 function getOriginalIdentifierName(identifier, sourceText) {
     if (!identifier || typeof sourceText !== "string") {
         return null;
@@ -8705,7 +8722,7 @@ function getLoopIndexInfo(init) {
         const identifier = declaration?.id;
         const initializer = declaration?.init;
 
-        if (!isIdentifierNode(identifier) || !isLiteralZero(initializer)) {
+        if (!Core.isIdentifierNode(identifier) || !isLiteralZero(initializer)) {
             return null;
         }
 
@@ -8717,7 +8734,7 @@ function getLoopIndexInfo(init) {
             return null;
         }
 
-        if (!isIdentifierNode(init.left) || !isLiteralZero(init.right)) {
+        if (!Core.isIdentifierNode(init.left) || !isLiteralZero(init.right)) {
             return null;
         }
 
@@ -8799,6 +8816,7 @@ function isRepeatCompatibleUpdate(update, indexName) {
     return false;
 }
 
+// TODO: Move this to where the other identifier utilities are located
 function doesNodeUseIdentifier(node, name) {
     if (!node || !name) {
         return false;
@@ -8992,7 +9010,7 @@ function normalizeCallExpressionArguments({
     const callArgumentInfos = [];
 
     for (const [index, argument] of args.entries()) {
-        if (!isAstNode(argument) || argument.type !== "CallExpression") {
+        if (!Core.isNode(argument) || argument.type !== "CallExpression") {
             continue;
         }
 
@@ -9242,7 +9260,7 @@ function convertAllAssignment(node, parent, property, diagnostic) {
     const normalizedAssignment = {
         type: "AssignmentExpression",
         operator: node.operator,
-        left: cloneIdentifier(propertyIdentifier),
+        left: Core.cloneIdentifier(propertyIdentifier),
         right: node.right,
         start: Core.cloneLocation(node.start),
         end: Core.cloneLocation(node.end)
@@ -9265,7 +9283,7 @@ function convertAllAssignment(node, parent, property, diagnostic) {
 
     const parenthesizedExpression = {
         type: "ParenthesizedExpression",
-        expression: cloneIdentifier(object),
+        expression: Core.cloneIdentifier(object),
         start: Core.cloneLocation(object?.start ?? node.start),
         end: Core.cloneLocation(object?.end ?? node.end)
     };
@@ -9388,7 +9406,7 @@ function convertNullishIfStatement(node, parent, property, diagnostic) {
     const assignmentIdentifier = consequentAssignment.left;
 
     if (
-        !isIdentifierNode(assignmentIdentifier) ||
+        !Core.isIdentifierNode(assignmentIdentifier) ||
         assignmentIdentifier.name !== identifierInfo.name
     ) {
         return null;
@@ -9406,7 +9424,7 @@ function convertNullishIfStatement(node, parent, property, diagnostic) {
         previousNode &&
         previousNode.type === "AssignmentExpression" &&
         previousNode.operator === "=" &&
-        isIdentifierNode(previousNode.left) &&
+        Core.isIdentifierNode(previousNode.left) &&
         previousNode.left.name === identifierInfo.name &&
         previousNode.right
     ) {
@@ -9513,11 +9531,11 @@ function extractUndefinedComparisonIdentifier(expression) {
 
     const { left, right } = expression;
 
-    if (isIdentifierNode(left) && Core.isUndefinedSentinel(right)) {
+    if (Core.isIdentifierNode(left) && Core.isUndefinedSentinel(right)) {
         return { node: left, name: left.name };
     }
 
-    if (isIdentifierNode(right) && Core.isUndefinedSentinel(left)) {
+    if (Core.isIdentifierNode(right) && Core.isUndefinedSentinel(left)) {
         return { node: right, name: right.name };
     }
 
@@ -10458,7 +10476,7 @@ function removeRedeclaredGlobalFunctions({ ast, diagnostic }) {
     for (let index = 0; index < body.length; ) {
         const node = body[index];
 
-        if (!isAstNode(node) || node.type !== "FunctionDeclaration") {
+        if (!Core.isNode(node) || node.type !== "FunctionDeclaration") {
             index += 1;
             continue;
         }
@@ -11707,7 +11725,7 @@ function attachLeadingCommentsToWrappedPrimitive({
             : Core.getNodeEndIndex(precedingStatement);
 
     for (const comment of comments) {
-        if (!isAstNode(comment) || (comment as any).type !== "CommentLine") {
+        if (!Core.isNode(comment) || (comment as any).type !== "CommentLine") {
             continue;
         }
 
@@ -11883,7 +11901,7 @@ function ensureCullModeResetAfterCall(node, parent, property, diagnostic) {
 
     const [modeArgument] = args;
 
-    if (!isIdentifierNode(modeArgument)) {
+    if (!Core.isIdentifierNode(modeArgument)) {
         return null;
     }
 
@@ -12016,7 +12034,7 @@ function ensureVertexBeginBeforeVertexEndCall(
 
     const bufferArgument = args[0];
 
-    if (!isIdentifierNode(bufferArgument)) {
+    if (!Core.isIdentifierNode(bufferArgument)) {
         return null;
     }
 
@@ -12090,7 +12108,7 @@ function isVertexBeginCallForBuffer(node, bufferName) {
 
     const firstArgument = args[0];
 
-    if (!isIdentifierNode(firstArgument)) {
+    if (!Core.isIdentifierNode(firstArgument)) {
         return false;
     }
 
@@ -12167,7 +12185,7 @@ function ensureVertexEndInserted(node, parent, property, diagnostic) {
 
     const bufferArgument = args[0];
 
-    if (!isIdentifierNode(bufferArgument)) {
+    if (!Core.isIdentifierNode(bufferArgument)) {
         return null;
     }
 
@@ -12299,7 +12317,7 @@ function hasFirstArgumentIdentifier(node, name) {
 
     const firstArg = args[0];
 
-    if (!isIdentifierNode(firstArg)) {
+    if (!Core.isIdentifierNode(firstArg)) {
         return false;
     }
 
@@ -12343,7 +12361,7 @@ function isVertexEndCallForBuffer(node, bufferName) {
 
     const firstArg = args[0];
 
-    return isIdentifierNode(firstArg) && firstArg.name === bufferName;
+    return Core.isIdentifierNode(firstArg) && firstArg.name === bufferName;
 }
 
 function createVertexEndCall(template, bufferIdentifier) {
@@ -12351,14 +12369,14 @@ function createVertexEndCall(template, bufferIdentifier) {
         return null;
     }
 
-    if (!isIdentifierNode(bufferIdentifier)) {
+    if (!Core.isIdentifierNode(bufferIdentifier)) {
         return null;
     }
 
     const callExpression = {
         type: "CallExpression",
         object: Core.createIdentifierNode("vertex_end", template),
-        arguments: [cloneIdentifier(bufferIdentifier)]
+        arguments: [Core.cloneIdentifier(bufferIdentifier)]
     };
 
     Core.assignClonedLocation(callExpression, template);
@@ -12371,7 +12389,7 @@ function createVertexBeginCall({
     referenceCall,
     bufferIdentifier
 }) {
-    if (!isIdentifierNode(bufferIdentifier)) {
+    if (!Core.isIdentifierNode(bufferIdentifier)) {
         return null;
     }
 
@@ -12384,11 +12402,11 @@ function createVertexBeginCall({
         arguments: []
     };
 
-    if (!isIdentifierNode(callExpression.object)) {
+    if (!Core.isIdentifierNode(callExpression.object)) {
         return null;
     }
 
-    const bufferClone = cloneIdentifier(bufferIdentifier);
+    const bufferClone = Core.cloneIdentifier(bufferIdentifier);
 
     if (!bufferClone) {
         return null;
@@ -12774,7 +12792,7 @@ function createVariableDeclarationFromAssignment(
         return null;
     }
 
-    const identifier = cloneIdentifier(assignmentNode.left);
+    const identifier = Core.cloneIdentifier(assignmentNode.left);
 
     if (!identifier) {
         return null;
@@ -12870,6 +12888,7 @@ function hasVariableDeclarationInContainer(container, variableName, uptoIndex) {
     return false;
 }
 
+// TODO: Move this to where the other identifier utility functions are
 function referencesIdentifierAfterIndex(container, variableName, startIndex) {
     if (!Array.isArray(container) || !variableName) {
         return false;
@@ -12886,6 +12905,7 @@ function referencesIdentifierAfterIndex(container, variableName, startIndex) {
     return false;
 }
 
+// TODO: Move this to where the other identifier utility functions are
 function referencesIdentifier(node, variableName) {
     if (!node || typeof node !== "object") {
         return false;
@@ -12933,6 +12953,7 @@ function referencesIdentifier(node, variableName) {
     return false;
 }
 
+// TODO: Move this to where the other identifier utility functions are
 function referencesIdentifierBeforePosition(node, variableName, beforeIndex) {
     if (
         !node ||
@@ -13083,7 +13104,7 @@ function createHoistedVariableDeclaration(declaratorTemplate) {
         return null;
     }
 
-    const identifier = cloneIdentifier(declaratorTemplate.id);
+    const identifier = Core.cloneIdentifier(declaratorTemplate.id);
 
     if (!identifier) {
         return null;
@@ -13544,7 +13565,7 @@ function createFunctionCallTemplateFromDiagnostic(diagnostic) {
         });
         const callExpression = findFirstCallExpression(exampleAst);
 
-        if (!callExpression || !isIdentifierNode(callExpression.object)) {
+        if (!callExpression || !Core.isIdentifierNode(callExpression.object)) {
             return null;
         }
 
@@ -13599,6 +13620,7 @@ function findFirstCallExpression(node) {
     return null;
 }
 
+// TODO: Move this into Core
 function cloneNodeWithoutLocations(node) {
     if (!node || typeof node !== "object") {
         return node;
@@ -13746,7 +13768,7 @@ function createRealCoercionCall(literal) {
         argument._skipNumericStringCoercion = true;
     }
 
-    const identifier = createIdentifierFromTemplate("real", literal);
+    const identifier = Core.createIdentifierNode("real", literal);
 
     return {
         type: "CallExpression",
@@ -14672,7 +14694,7 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
     }
 
     function getProgramStatements(node) {
-        if (!isAstNode(node)) {
+        if (!Core.isNode(node)) {
             return [];
         }
 
@@ -15755,7 +15777,7 @@ function suppressDuplicateVertexFormatComments(ast, commentTargets, node) {
     const removalIndexes = new Set();
 
     for (const [index, comment] of comments.entries()) {
-        if (!isAstNode(comment) || comment.type !== "CommentLine") {
+        if (!Core.isNode(comment) || comment.type !== "CommentLine") {
             continue;
         }
 
@@ -15775,7 +15797,7 @@ function suppressDuplicateVertexFormatComments(ast, commentTargets, node) {
             continue;
         }
 
-        const normalizedValue = isAstNode(comment)
+        const normalizedValue = Core.isNode(comment)
             ? Core.toTrimmedString((comment as any).value)
             : null;
 
@@ -16067,7 +16089,7 @@ function findStructArgument(args) {
     return null;
 }
 
-function annotateVariableStructProperties(structExpression, diagnostic) {
+function annotateVariableStructProperties(structExpression, diagnostic) { // TODO: We have an existing transform that does this or similar, this should be consolidated
     if (!structExpression || structExpression.type !== "StructExpression") {
         return [];
     }
@@ -16093,7 +16115,7 @@ function annotateVariableStructProperties(structExpression, diagnostic) {
     return fixes;
 }
 
-function annotateVariableStructProperty(property, diagnostic) {
+function annotateVariableStructProperty(property, diagnostic) { // TODO: We have an existing transform that does this or similar, this should be consolidated
     if (!property || property.type !== "Property") {
         return null;
     }
@@ -16126,6 +16148,7 @@ function annotateVariableStructProperty(property, diagnostic) {
     return fixDetail;
 }
 
+// TODO: Make a separate file for all 'user event' functionality
 function annotateMissingUserEvents({ ast, diagnostic }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
@@ -16330,7 +16353,7 @@ function harmonizeTexturePointerTernary(node, parent, property, diagnostic) {
     node.alternate = pointerIdentifier;
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: isIdentifierNode(parent.left) ? parent.left.name : null,
+        target: Core.isIdentifierNode(parent.left) ? parent.left.name : null,
         range: {
             start: Core.getNodeStartIndex(node),
             end: Core.getNodeEndIndex(node)
@@ -16353,7 +16376,7 @@ function createAssignmentFromDeclarator(declarator, declarationNode) {
 
     const identifier = declarator.id;
 
-    if (!isIdentifierNode(identifier)) {
+    if (!Core.isIdentifierNode(identifier)) {
         return null;
     }
 
@@ -16364,7 +16387,7 @@ function createAssignmentFromDeclarator(declarator, declarationNode) {
     const assignment = {
         type: "AssignmentExpression",
         operator: "=",
-        left: cloneIdentifier(identifier),
+        left: Core.cloneIdentifier(identifier),
         right: declarator.init,
         start: Core.cloneLocation(declarator.start ?? declarationNode?.start),
         end: Core.cloneLocation(declarator.end ?? declarationNode?.end)
@@ -16375,23 +16398,23 @@ function createAssignmentFromDeclarator(declarator, declarationNode) {
     return assignment;
 }
 
-function getFunctionParameterNames(node) {
+function getFunctionParameterNames(node) {  // TODO: Make or move this to a standalone function-library utility for handling GML functions (built-in functions, function parameter/arguments handling, etc.)
     const params = Core.getArrayProperty(node, "params");
     const names = [];
 
     for (const param of params) {
-        if (!isAstNode(param)) {
+        if (!Core.isNode(param)) {
             continue;
         }
 
-        if (isIdentifierNode(param)) {
+        if (Core.isIdentifierNode(param)) {
             if (param.name) {
                 names.push(param.name);
             }
             continue;
         }
 
-        if (param.type === "DefaultParameter" && isIdentifierNode(param.left)) {
+        if (param.type === "DefaultParameter" && Core.isIdentifierNode(param.left)) {
             if (param.left.name) {
                 names.push(param.left.name);
             }
@@ -16416,7 +16439,7 @@ function getVariableDeclaratorName(declarator) {
     return identifier.name ?? null;
 }
 
-function cloneLiteral(node) {
+function cloneLiteral(node) { // TODO: Move this into Core and update imports/exports and tests accordingly
     if (!node || node.type !== "Literal") {
         return null;
     }
@@ -16431,29 +16454,7 @@ function cloneLiteral(node) {
     return cloned;
 }
 
-function createIdentifierFromTemplate(name, template) {
-    return Core.createIdentifierNode(name, template);
-}
-
-function cloneIdentifier(node) {
-    const identifierDetails = Core.getIdentifierDetails(node);
-    if (!identifierDetails) {
-        return null;
-    }
-
-    const cloned = {
-        type: "Identifier",
-        name: identifierDetails.name
-    };
-
-    Core.assignClonedLocation(
-        cloned,
-        identifierDetails.identifier as MutableGameMakerAstNode
-    );
-
-    return cloned;
-}
-
+// TODO: Move this to where the other comment utilities are located
 function copyCommentMetadata(source, target) {
     if (!source || !target) {
         return;
@@ -16471,6 +16472,7 @@ function copyCommentMetadata(source, target) {
     }
 }
 
+// TODO: Move this to where the identifier functionality is located
 function extractIdentifierNameFromLiteral(value) {
     if (typeof value !== "string") {
         return null;
@@ -16747,7 +16749,7 @@ function createAlphaTestEnableResetCall(template) {
         return null;
     }
 
-    const identifier = cloneIdentifier(template.object);
+    const identifier = Core.cloneIdentifier(template.object);
 
     if (!identifier || identifier.name !== "gpu_set_alphatestenable") {
         return null;
@@ -16771,7 +16773,7 @@ function createAlphaTestRefResetCall(template) {
         return null;
     }
 
-    const identifier = cloneIdentifier(template.object);
+    const identifier = Core.cloneIdentifier(template.object);
 
     if (!identifier || identifier.name !== "gpu_set_alphatestref") {
         return null;
@@ -16795,7 +16797,7 @@ function createBlendModeResetCall(template) {
         return null;
     }
 
-    const identifier = cloneIdentifier(template.object);
+    const identifier = Core.cloneIdentifier(template.object);
 
     if (!identifier || identifier.name !== "gpu_set_blendmode") {
         return null;
@@ -16834,7 +16836,7 @@ function createHalignResetCall(template) {
         return null;
     }
 
-    const identifier = cloneIdentifier(template.object);
+    const identifier = Core.cloneIdentifier(template.object);
 
     if (!identifier || identifier.name !== "draw_set_halign") {
         return null;
@@ -16865,7 +16867,7 @@ function createCullModeResetCall(template) {
         return null;
     }
 
-    const identifier = cloneIdentifier(template.object);
+    const identifier = Core.cloneIdentifier(template.object);
 
     if (!identifier || identifier.name !== "gpu_set_cullmode") {
         return null;
@@ -16896,7 +16898,7 @@ function createColourWriteEnableResetCall(template) {
         return null;
     }
 
-    const identifier = cloneIdentifier(template.object);
+    const identifier = Core.cloneIdentifier(template.object);
 
     if (!identifier || identifier.name !== "gpu_set_colourwriteenable") {
         return null;
@@ -16986,7 +16988,7 @@ function createTextureRepeatResetCall(template) {
         return null;
     }
 
-    const identifier = cloneIdentifier(template.object);
+    const identifier = Core.cloneIdentifier(template.object);
 
     if (!identifier || identifier.name !== "gpu_set_texrepeat") {
         return null;
@@ -17073,7 +17075,7 @@ function createFogResetCall(template) {
         return null;
     }
 
-    const identifier = cloneIdentifier(template.object);
+    const identifier = Core.cloneIdentifier(template.object);
 
     if (!identifier || identifier.name !== "gpu_set_fog") {
         return null;
@@ -17110,7 +17112,7 @@ function createBlendEnableResetCall(template) {
         return null;
     }
 
-    const identifier = cloneIdentifier(template.object);
+    const identifier = Core.cloneIdentifier(template.object);
 
     if (!identifier || identifier.name !== "gpu_set_blendenable") {
         return null;
@@ -17277,7 +17279,7 @@ function convertParameterToUndefinedDefault(parameter) {
         return null;
     }
 
-    const identifier = cloneIdentifier(parameter) ?? parameter;
+    const identifier = Core.cloneIdentifier(parameter) ?? parameter;
     const undefinedLiteral = createLiteral("undefined", parameter);
     if (!undefinedLiteral) {
         return null;
@@ -17300,6 +17302,7 @@ function isOptionalParameter(parameter) {
     return parameter?.type === "DefaultParameter";
 }
 
+// TODO: Move this to where the identifier functionality is located
 function getFunctionIdentifierName(node) {
     if (!node) {
         return null;
@@ -17332,6 +17335,7 @@ function getFunctionIdentifierName(node) {
     return null;
 }
 
+// TODO: Move this into the doc-comment service/manager in Core
 function sanitizeMalformedJsDocTypes({ ast, diagnostic, typeSystemInfo }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
@@ -17371,6 +17375,7 @@ function sanitizeMalformedJsDocTypes({ ast, diagnostic, typeSystemInfo }) {
     return fixes;
 }
 
+// TODO: Move this into the doc-comment service/manager in Core
 function sanitizeDocCommentType(comment, typeSystemInfo) {
     if (!comment || comment.type !== "CommentLine") {
         return null;
@@ -17436,6 +17441,7 @@ function sanitizeDocCommentType(comment, typeSystemInfo) {
     };
 }
 
+// TODO: Move this into the doc-comment service/manager in Core
 function extractTypeAnnotation(value) {
     if (typeof value !== "string") {
         return null;
@@ -17475,6 +17481,7 @@ function extractTypeAnnotation(value) {
     };
 }
 
+// TODO: Move this into the doc-comment service/manager in Core
 function splitTypeAndRemainder(text) {
     if (typeof text !== "string") {
         return { type: "", remainder: "" };
@@ -17547,6 +17554,7 @@ function splitTypeAndRemainder(text) {
 
 const WHITESPACE_PATTERN = /\s/;
 
+// TODO: Move this into the doc-comment service/manager in Core
 function sanitizeTypeAnnotationText(typeText, typeSystemInfo) {
     if (typeof typeText !== "string" || typeText.length === 0) {
         return typeText ?? "";
@@ -17566,6 +17574,7 @@ function sanitizeTypeAnnotationText(typeText, typeSystemInfo) {
     );
 }
 
+// TODO: Move this into the doc-comment service/manager in Core
 function balanceTypeAnnotationDelimiters(typeText) {
     if (typeof typeText !== "string" || typeText.length === 0) {
         return typeText ?? "";
@@ -17616,6 +17625,7 @@ function balanceTypeAnnotationDelimiters(typeText) {
     return typeText + stack.reverse().join("");
 }
 
+// TODO: Move this into the doc-comment service/manager in Core
 function fixSpecifierSpacing(typeText, specifierBaseTypes) {
     if (typeof typeText !== "string" || typeText.length === 0) {
         return typeText ?? "";
@@ -17667,6 +17677,7 @@ function fixSpecifierSpacing(typeText, specifierBaseTypes) {
     return result;
 }
 
+// TODO: Move this into the doc-comment service/manager in Core
 function readSpecifierToken(text) {
     if (typeof text !== "string" || text.length === 0) {
         return null;
@@ -17783,6 +17794,7 @@ function readSpecifierToken(text) {
     };
 }
 
+// TODO: Move this into the doc-comment service/manager in Core
 function fixTypeUnionSpacing(typeText, baseTypesLower) {
     if (typeof typeText !== "string" || typeText.length === 0) {
         return typeText ?? "";
@@ -17834,6 +17846,7 @@ function fixTypeUnionSpacing(typeText, baseTypesLower) {
     return trimmedSegments.join(",");
 }
 
+// TODO: Move this into the doc-comment service/manager in Core
 function splitTypeSegments(text) {
     const segments = [];
     let current = "";
@@ -17905,6 +17918,7 @@ function splitTypeSegments(text) {
     return segments;
 }
 
+// TODO: Move this into the doc-comment service/manager in Core
 function hasDelimiterOutsideNesting(text, delimiters) {
     if (typeof text !== "string" || text.length === 0) {
         return false;
@@ -17995,6 +18009,7 @@ function createTemporaryIdentifierName(argument, siblings) {
     return candidate;
 }
 
+// TODO: Move this to where the other identifier utilities are located
 function sanitizeIdentifierName(name) {
     if (typeof name !== "string" || name.length === 0) {
         return "value";
@@ -18009,6 +18024,7 @@ function sanitizeIdentifierName(name) {
     return sanitized || "value";
 }
 
+// TODO: Move this to where the other identifier utilities are located
 function collectIdentifierNames(node, registry) {
     if (!node || !registry) {
         return;
@@ -18120,7 +18136,7 @@ function extractSurfaceTargetName(node) {
 
     const args = Core.getCallExpressionArguments(node);
 
-    if (args.length > 0 && isIdentifierNode(args[0])) {
+    if (args.length > 0 && Core.isIdentifierNode(args[0])) {
         return args[0].name;
     }
 
@@ -18183,6 +18199,7 @@ function isStatementContainer(owner, ownerKey) {
     return false;
 }
 
+// TODO: This should be moved into the dedicated doc-comment/JSDoc service/manager in Core
 function extractBaseTypeName(segment) {
     if (typeof segment !== "string") {
         return null;
@@ -18193,6 +18210,7 @@ function extractBaseTypeName(segment) {
     return match ? match[0] : null;
 }
 
+// TODO: This should be moved into the dedicated doc-comment/JSDoc service/manager in Core
 function extractParameterNameFromDocRemainder(remainder) {
     if (typeof remainder !== "string") {
         return null;
@@ -18203,6 +18221,7 @@ function extractParameterNameFromDocRemainder(remainder) {
     return match ? match[1] : null;
 }
 
+// TODO: This may be duplicated by functionality in the 'refactor' and/or 'semantic' modules. Identifier renaming needs to live in the 'refactor' module, which is built on top of 'semantic' (which handles scope and context) so that identifiers can be renamed properly/safely without introducing conflicts
 function renameReservedIdentifiers({ ast, diagnostic, sourceText }) {
     if (
         !diagnostic ||
@@ -18281,6 +18300,7 @@ function isSupportedVariableDeclaration(node) {
     return kind === "var" || kind === "static";
 }
 
+// TODO: This may be duplicated by functionality in the 'refactor' and/or 'semantic' modules. Identifier renaming needs to live in the 'refactor' module, which is built on top of 'semantic' (which handles scope and context) so that identifiers can be renamed properly/safely without introducing conflicts
 function renameReservedIdentifiersInVariableDeclaration(node, diagnostic) {
     const declarations = Array.isArray(node?.declarations)
         ? node.declarations
@@ -18307,6 +18327,7 @@ function renameReservedIdentifiersInVariableDeclaration(node, diagnostic) {
     return fixes;
 }
 
+// TODO: This may be duplicated by functionality in the 'refactor' and/or 'semantic' modules. Identifier renaming needs to live in the 'refactor' module, which is built on top of 'semantic' (which handles scope and context) so that identifiers can be renamed properly/safely without introducing conflicts
 function renameReservedIdentifierNode(
     identifier,
     diagnostic,
@@ -18359,6 +18380,7 @@ function renameReservedIdentifierNode(
     return fixDetail;
 }
 
+// TODO: This may be duplicated by functionality in the 'refactor' and/or 'semantic' modules. Identifier renaming needs to live in the 'refactor' module, which is built on top of 'semantic' (which handles scope and context) so that identifiers can be renamed properly/safely without introducing conflicts
 function renameReservedIdentifierInMacro(node, diagnostic, sourceText) {
     if (!node || node.type !== "MacroDeclaration") {
         return null;
@@ -18380,6 +18402,7 @@ function renameReservedIdentifierInMacro(node, diagnostic, sourceText) {
     });
 }
 
+// TODO: This maybe be duplicated in 'refactor' or 'semantic' or should maybe be moved there
 function isReservedIdentifier(name) {
     if (typeof name !== "string" || name.length === 0) {
         return false;
@@ -19029,7 +19052,7 @@ function extractFunctionCallNamesFromExample(exampleText) {
     return matches;
 }
 
-const ARGUMENT_BUILTINS = new Set([
+const ARGUMENT_BUILTINS = new Set([ // TODO: Make or move this to a standalone function-library utility for handling GML functions (built-in functions, function parameter/arguments handling, etc.)
     "argument",
     "argument_relative",
     "argument_count",

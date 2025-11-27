@@ -1,5 +1,14 @@
 import { Core } from "@gml-modules/core";
 import type { MutableGameMakerAstNode } from "@gml-modules/core";
+import { FunctionalParserTransform } from "./index.js";
+
+type CommentTools = {
+    addTrailingComment: (...args: Array<unknown>) => unknown;
+};
+
+type ConsolidateStructAssignmentsTransformOptions = {
+    commentTools?: CommentTools | null;
+};
 
 // Avoid destructuring Core across package boundaries; call Core.* functions
 // directly. This prevents assumptions about nested namespaces and matches
@@ -28,7 +37,10 @@ const MEMBER_INDEX_EXPRESSION = "MemberIndexExpression";
 const IDENTIFIER = "Identifier";
 const LITERAL = "Literal";
 
-export function consolidateStructAssignments(ast: any, commentTools?: any) {
+function consolidateStructAssignmentsImpl(
+    ast: any,
+    commentTools?: ConsolidateStructAssignmentsTransformOptions["commentTools"]
+) {
     if (!Core.isNode(ast)) {
         return ast;
     }
@@ -36,8 +48,38 @@ export function consolidateStructAssignments(ast: any, commentTools?: any) {
     const normalizedCommentTools = normalizeCommentTools(commentTools);
     const tracker = new CommentTracker(ast);
     visit(ast, tracker, normalizedCommentTools);
-    tracker.removeConsumedComments();
-    return ast;
+        tracker.removeConsumedComments();
+        return ast;
+    }
+
+class ConsolidateStructAssignmentsTransform extends FunctionalParserTransform<
+    ConsolidateStructAssignmentsTransformOptions
+> {
+    constructor() {
+        super("consolidate-struct-assignments", {});
+    }
+
+    protected execute(
+        ast: MutableGameMakerAstNode,
+        options: ConsolidateStructAssignmentsTransformOptions
+    ) {
+        return consolidateStructAssignmentsImpl(
+            ast,
+            options.commentTools
+        );
+    }
+}
+
+const consolidateStructAssignmentsTransform =
+    new ConsolidateStructAssignmentsTransform();
+
+export function consolidateStructAssignments(
+    ast: any,
+    commentTools?: ConsolidateStructAssignmentsTransformOptions["commentTools"]
+) {
+    return consolidateStructAssignmentsTransform.transform(ast, {
+        commentTools
+    });
 }
 
 function visit(node, tracker, commentTools) {

@@ -2,7 +2,7 @@ import { asArray, isNonEmptyArray } from "../utils/array.js";
 import { isObjectLike } from "../utils/object.js";
 import { isNonEmptyString } from "../utils/string.js";
 import { assignClonedLocation } from "./locations.js";
-import { GameMakerAstNode } from "./types.js";
+import type { GameMakerAstNode, IdentifierNode } from "./types.js";
 
 // Shared AST helper utilities focused on querying common node shapes.
 // Centralizes frequently repeated guards so printer and transform modules
@@ -201,11 +201,11 @@ export function resolveNodeName(node) {
 
 export function isIdentifierNode(
     node: unknown
-): node is import("./types.js").IdentifierNode {
+): boolean {
     if (!isNode(node)) return false;
     return (
-        (node as import("./types.js").IdentifierNode).type === "Identifier" &&
-        typeof (node as import("./types.js").IdentifierNode).name === "string"
+        (node as IdentifierNode).type === "Identifier" &&
+        typeof (node as IdentifierNode).name === "string"
     );
 }
 
@@ -296,6 +296,25 @@ export function createIdentifierNode(name, template) {
     assignClonedLocation(identifier, template);
 
     return identifier;
+}
+
+/**
+ * Clone an {@link IdentifierNode} while preserving its location metadata.
+ *
+ * @param {unknown} node Candidate identifier to clone.
+ * @returns {IdentifierNode | null} Cloned identifier or `null` when the
+ *          source node is missing or not an identifier.
+ */
+export function cloneIdentifier(node: unknown): IdentifierNode | null {
+    const identifierDetails = getIdentifierDetails(node);
+    if (!identifierDetails) {
+        return null;
+    }
+
+    return createIdentifierNode(
+        identifierDetails.name,
+        identifierDetails.identifier
+    );
 }
 
 /**
@@ -394,7 +413,7 @@ export function getCallExpressionIdentifierName(callExpression): string | null {
     return typeof id.name === "string" ? id.name : null;
 }
 
-export function getIdentifierDetails(node: GameMakerAstNode) {
+export function getIdentifierDetails(node: unknown) {
     if (!isNode(node) || node.type !== "Identifier") {
         return null;
     }
@@ -570,6 +589,13 @@ export function isUndefinedSentinel(node) {
     return typeof identifierText === "string"
         ? identifierText.toLowerCase() === "undefined"
         : false;
+}
+
+export function hasType(
+    node: unknown,
+    type: string
+): node is Record<string, unknown> & { type: string } {
+    return isNode(node) && (node as any).type === type;
 }
 
 /**

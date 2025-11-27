@@ -1,19 +1,44 @@
 import { Core } from "@gml-modules/core";
-
+import type { MutableGameMakerAstNode } from "@gml-modules/core";
+import { FunctionalParserTransform } from "./index.js";
 import { resolveVariableBlockSpacingMinDeclarations } from "../options/variable-block-spacing-options.js";
 
-// Avoid destructuring the Core namespace; call Core functions directly.
+type EnforceVariableBlockSpacingTransformOptions = {
+    variableBlockSpacingMinDeclarations?: number;
+};
 
-export function enforceVariableBlockSpacing(ast: any, options?: any) {
-    if (!ast || typeof ast !== "object") {
-        return;
+class EnforceVariableBlockSpacingTransform extends FunctionalParserTransform<
+    EnforceVariableBlockSpacingTransformOptions
+> {
+    constructor() {
+        super("enforce-variable-block-spacing", {});
     }
 
-    const visitedNodes = new WeakSet();
-    const minDeclarationRunLength =
-        resolveVariableBlockSpacingMinDeclarations(options);
+    protected execute(
+        ast: MutableGameMakerAstNode,
+        options: EnforceVariableBlockSpacingTransformOptions
+    ): MutableGameMakerAstNode {
+        if (!ast || typeof ast !== "object") {
+            return ast;
+        }
 
-    visitNode(ast, visitedNodes, minDeclarationRunLength);
+        const visitedNodes = new WeakSet();
+        const minDeclarationRunLength =
+            resolveVariableBlockSpacingMinDeclarations(options);
+
+        visitNode(ast, visitedNodes, minDeclarationRunLength);
+        return ast;
+    }
+}
+
+const enforceVariableBlockSpacingTransform =
+    new EnforceVariableBlockSpacingTransform();
+
+export function enforceVariableBlockSpacing(
+    ast: MutableGameMakerAstNode,
+    options: EnforceVariableBlockSpacingTransformOptions = {}
+) {
+    return enforceVariableBlockSpacingTransform.transform(ast, options);
 }
 
 function visitNode(node, visitedNodes, minDeclarationRunLength) {
