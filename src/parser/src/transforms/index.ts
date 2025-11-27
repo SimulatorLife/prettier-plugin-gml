@@ -16,8 +16,8 @@ const TRANSFORM_REGISTRY = Object.freeze({
         consolidateStructAssignments(ast, opts.commentTools),
     "apply-feather-fixes": (ast, opts: any = {}) =>
         applyFeatherFixes(ast, opts),
-    "preprocess-function-argument-defaults": (ast, opts: any = {}) =>
-        preprocessFunctionArgumentDefaults(ast, opts.helpers ?? opts),
+    "preprocess-function-argument-defaults": (ast) =>
+        preprocessFunctionArgumentDefaults(ast),
     "enforce-variable-block-spacing": (ast, opts: any = {}) =>
         enforceVariableBlockSpacing(ast, opts),
     "convert-string-concatenations": (ast, opts: any = {}) =>

@@ -1,9 +1,27 @@
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-const RESOURCES_BASE_URL = new URL(
-    "../../../../../resources/",
-    import.meta.url
-);
+const RESOURCE_BASE_PATHS = Object.freeze([
+    "../../../../resources/",
+    "../../../../../resources/"
+]);
+
+function resolveResourceUrlForExistingBase(resourceName: string): URL {
+    for (const basePath of RESOURCE_BASE_PATHS) {
+        const candidateBaseUrl = new URL(basePath, import.meta.url);
+        const candidateResourceUrl = new URL(resourceName, candidateBaseUrl);
+        const candidatePath = fileURLToPath(candidateResourceUrl);
+
+        if (existsSync(candidatePath)) {
+            return candidateResourceUrl;
+        }
+    }
+
+    return new URL(
+        resourceName,
+        new URL(RESOURCE_BASE_PATHS[0], import.meta.url)
+    );
+}
 
 /**
  * Resolve a URL pointing at a bundled resource artefact.
@@ -14,12 +32,12 @@ const RESOURCES_BASE_URL = new URL(
  * @param {string} resourceName Name of the resource file to resolve.
  * @returns {URL} Absolute file URL referencing the bundled artefact.
  */
-export function resolveBundledResourceUrl(resourceName) {
+export function resolveBundledResourceUrl(resourceName: string): URL {
     if (typeof resourceName !== "string" || resourceName.length === 0) {
         throw new TypeError("Resource name must be a non-empty string.");
     }
 
-    return new URL(resourceName, RESOURCES_BASE_URL);
+    return resolveResourceUrlForExistingBase(resourceName);
 }
 
 /**
@@ -28,6 +46,6 @@ export function resolveBundledResourceUrl(resourceName) {
  * @param {string} resourceName Name of the resource file to resolve.
  * @returns {string} Local filesystem path for the bundled artefact.
  */
-export function resolveBundledResourcePath(resourceName) {
+export function resolveBundledResourcePath(resourceName: string): string {
     return fileURLToPath(resolveBundledResourceUrl(resourceName));
 }
