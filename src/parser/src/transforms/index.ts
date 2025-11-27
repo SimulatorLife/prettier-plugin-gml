@@ -1,5 +1,3 @@
-// TODO: Define a standard interface (an actual typed interface that to implement) for parser transforms and apply to all transforms listed here (all in this directory)
-
 import { stripCommentsTransform } from "./strip-comments.js";
 import { consolidateStructAssignments } from "./consolidate-struct-assignments.js";
 import { condenseLogicalExpressions } from "./condense-logical-expressions.js";
@@ -10,9 +8,16 @@ import { convertStringConcatenations } from "./convert-string-concatenations.js"
 import { convertManualMathExpressions } from "./convert-manual-math.js";
 import { convertUndefinedGuardAssignments } from "./convert-undefined-guard-assignments.js";
 import { annotateStaticFunctionOverrides } from "./annotate-static-overrides.js";
+
+// TODO: This interface should be more specific about AST and options types. It should also be a real interface that each transform implements, rather than a simple function type. It should define what methods each transform must have (transforms may need to be refactored and standardized into classes to support this).
+export interface ParserTransform<AstType = unknown, Options = unknown> {
+    (ast: AstType, options?: Options): AstType;
+}
+
+type ParserTransformRegistry = Readonly<Record<string, ParserTransform>>;
 // Plugin AST transforms exposed via the parser transform registry.
 // Wrappers follow the parser transform signature: (ast, opts = {}) => ast
-const TRANSFORM_REGISTRY = Object.freeze({
+const TRANSFORM_REGISTRY: ParserTransformRegistry = Object.freeze({
     "strip-comments": stripCommentsTransform,
     "consolidate-struct-assignments": (ast, opts: any = {}) =>
         consolidateStructAssignments(ast, opts.commentTools),
@@ -37,7 +42,7 @@ const TRANSFORM_REGISTRY = Object.freeze({
 export function applyTransforms(
     ast: any,
     transformNames: any[] = [],
-    options: any = {}
+    options: Record<string, unknown> = {}
 ) {
     if (!Array.isArray(transformNames) || transformNames.length === 0) {
         return ast;
