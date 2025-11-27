@@ -794,8 +794,7 @@ function preprocessFunctionDeclaration(node, ast) {
 
             if (param.type === "DefaultParameter") {
                 if (param.right != null) {
-                    const isUndef =
-                        Core.isUndefinedSentinel(param.right);
+                    const isUndef = Core.isUndefinedSentinel(param.right);
                     if (!isUndef) {
                         lastExplicitDefaultIndex = i;
                     }
