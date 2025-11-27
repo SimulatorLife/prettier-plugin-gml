@@ -4,45 +4,10 @@ import { Core } from "@gml-modules/core";
 // Local aliases were removed in favor of explicit Core.* usage.
 // Avoid destructuring Core namespace: use Core.* explicitly below
 
-const DEFAULT_HELPERS = {
-    getIdentifierText: Core.getIdentifierText,
-    isUndefinedLiteral: Core.isUndefinedSentinel,
-    getSingleVariableDeclarator: Core.getSingleVariableDeclarator,
-    hasComment: Core.hasComment
-};
-
-export function preprocessFunctionArgumentDefaults(
-    ast: any,
-    helpers: any = DEFAULT_HELPERS
-) {
+export function preprocessFunctionArgumentDefaults(ast: any) {
     if (!Core.isObjectLike(ast)) {
         return ast;
     }
-
-    const normalizedHelpers = {
-        getIdentifierText: Core.resolveHelperOverride(
-            helpers,
-            "getIdentifierText",
-            DEFAULT_HELPERS.getIdentifierText
-        ),
-        isUndefinedLiteral: Core.resolveHelperOverride(
-            helpers,
-            "isUndefinedLiteral",
-            DEFAULT_HELPERS.isUndefinedLiteral
-        ),
-        getSingleVariableDeclarator: Core.resolveHelperOverride(
-            helpers,
-            "getSingleVariableDeclarator",
-            DEFAULT_HELPERS.getSingleVariableDeclarator
-        ),
-        hasComment:
-            typeof helpers === "function"
-                ? helpers
-                : Core.isObjectLike(helpers) &&
-                    typeof helpers.hasComment === "function"
-                  ? helpers.hasComment
-                  : DEFAULT_HELPERS.hasComment
-    };
 
     traverse(ast, (node) => {
         if (
@@ -53,7 +18,7 @@ export function preprocessFunctionArgumentDefaults(
             return;
         }
 
-        preprocessFunctionDeclaration(node, normalizedHelpers, ast);
+        preprocessFunctionDeclaration(node, ast);
     });
 
     return ast;
@@ -93,7 +58,7 @@ function traverse(node, visitor, seen = new Set()) {
     });
 }
 
-function preprocessFunctionDeclaration(node, helpers, ast) {
+function preprocessFunctionDeclaration(node, ast) {
     if (
         !node ||
         (node.type !== "FunctionDeclaration" &&
@@ -103,22 +68,6 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
     }
 
     if (node._hasProcessedArgumentCountDefaults) {
-        return;
-    }
-
-    const {
-        getIdentifierText,
-        isUndefinedLiteral,
-        hasComment,
-        getSingleVariableDeclarator
-    } = helpers;
-
-    if (
-        typeof getIdentifierText !== "function" ||
-        typeof isUndefinedLiteral !== "function" ||
-        typeof hasComment !== "function" ||
-        typeof getSingleVariableDeclarator !== "function"
-    ) {
         return;
     }
 
@@ -147,7 +96,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
     // in-body fallbacks. Run this *before* we early-return so the
     // conservative materialization occurs even when no in-body matches
     // were detected.
-    function finalizeTrailingUndefinedDefaults(params, helpers) {
+    function finalizeTrailingUndefinedDefaults(params) {
         let changed = false;
         try {
             let seenExplicitDefaultToLeft = false;
@@ -176,9 +125,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                             changed = true;
                         }
                     } else {
-                        const isUndef =
-                            typeof helpers.isUndefinedLiteral === "function" &&
-                            helpers.isUndefinedLiteral(param.right);
+                        const isUndef = Core.isUndefinedSentinel(param.right);
                         if (!isUndef) {
                             seenExplicitDefaultToLeft = true;
                         }
@@ -233,7 +180,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
         if (
             statements.length === 0 &&
             !appliedChanges &&
-            finalizeTrailingUndefinedDefaults(params, helpers)
+            finalizeTrailingUndefinedDefaults(params)
         ) {
             appliedChanges = true;
         }
@@ -252,8 +199,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
         const ifStatement = statements[index + 1];
         const condenseMatch = matchArgumentCountFallbackVarThenIf(
             varStatement,
-            ifStatement,
-            helpers
+            ifStatement
         );
 
         if (!condenseMatch) {
@@ -330,12 +276,12 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
 
     const paramInfoByName = new Map();
     for (const [index, param] of params.entries()) {
-        const identifier = getIdentifierFromParameter(param, helpers);
+        const identifier = getIdentifierFromParameter(param);
         if (!identifier) {
             continue;
         }
 
-        const name = getIdentifierText(identifier);
+        const name = Core.getIdentifierText(identifier);
         if (!name) {
             continue;
         }
@@ -346,7 +292,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
     const matches = [];
 
     for (const [statementIndex, statement] of statements.entries()) {
-        const match = matchArgumentCountFallbackStatement(statement, helpers);
+        const match = matchArgumentCountFallbackStatement(statement);
 
         // If this statement looks like an argument_count guard but our
         // stricter matcher didn't recognize it, emit a short diagnostic so
@@ -452,12 +398,12 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
         // be updated. When a targetName is provided, preserve the
         // stricter name-matching behaviour.
         const paramAtIndex = params[argumentIndex];
-        const identifier = getIdentifierFromParameter(paramAtIndex, helpers);
+        const identifier = getIdentifierFromParameter(paramAtIndex);
         if (!identifier) {
             return null;
         }
 
-        const identifierName = getIdentifierText(identifier);
+        const identifierName = Core.getIdentifierText(identifier);
         if (targetName && (!identifierName || identifierName !== targetName)) {
             // If the matcher provided a projected target name that doesn't
             // match the declared parameter name at the same index, fall
@@ -467,13 +413,11 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
             // declared parameter at the index when available.
             try {
                 const paramAtIndex = params[argumentIndex];
-                const fallBackIdentifier = getIdentifierFromParameter(
-                    paramAtIndex,
-                    helpers
-                );
+                const fallBackIdentifier =
+                    getIdentifierFromParameter(paramAtIndex);
                 if (fallBackIdentifier) {
                     console.warn(
-                        `[feather:diagnostic] relaxed-match targetName=${targetName} index=${argumentIndex} paramName=${getIdentifierText(fallBackIdentifier)}`
+                        `[feather:diagnostic] relaxed-match targetName=${targetName} index=${argumentIndex} paramName=${Core.getIdentifierText(fallBackIdentifier)}`
                     );
                     return registerInfo(argumentIndex, fallBackIdentifier);
                 }
@@ -571,10 +515,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
             // signal to avoid treating materialized placeholders as an
             // explicit optional override.
             try {
-                if (
-                    typeof helpers.isUndefinedLiteral === "function" &&
-                    helpers.isUndefinedLiteral(match.fallbackExpression)
-                ) {
+                if (Core.isUndefinedSentinel(match.fallbackExpression)) {
                     // Mark that this DefaultParameter was materialized from
                     // an in-body fallback whose RHS is the parser's
                     // `undefined` sentinel. Do NOT set `_featherOptionalParameter`
@@ -688,13 +629,11 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
         // liberal detection to capture odd parser shapes.
         const a = matchAssignmentToArgumentIndex(
             consequentStmt,
-            guard.argumentIndex,
-            helpers
+            guard.argumentIndex
         );
         const b = matchAssignmentToArgumentIndex(
             alternateStmt,
-            guard.argumentIndex,
-            helpers
+            guard.argumentIndex
         );
 
         let argMatch = null;
@@ -766,10 +705,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                 right: fallbackExpr
             };
             try {
-                if (
-                    typeof helpers.isUndefinedLiteral === "function" &&
-                    helpers.isUndefinedLiteral(fallbackExpr)
-                ) {
+                if (Core.isUndefinedSentinel(fallbackExpr)) {
                     // Mark that this DefaultParameter was materialized by the
                     // parser/transform pass and that its RHS is the
                     // `undefined` sentinel. Record that it was
@@ -800,10 +736,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
         } else if (paramIsEmptyDefault) {
             try {
                 currentParam.right = fallbackExpr;
-                if (
-                    typeof helpers.isUndefinedLiteral === "function" &&
-                    helpers.isUndefinedLiteral(fallbackExpr)
-                ) {
+                if (Core.isUndefinedSentinel(fallbackExpr)) {
                     // Mark that this DefaultParameter's RHS was filled from an
                     // in-body fallback and that it is the `undefined`
                     // sentinel. Only record that this node was materialized;
@@ -826,7 +759,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
     // run the trailing undefined finalization to materialize any
     // remaining placeholders conservatively.
     try {
-        if (finalizeTrailingUndefinedDefaults(params, helpers)) {
+        if (finalizeTrailingUndefinedDefaults(params)) {
             appliedChanges = true;
         }
     } catch {
@@ -862,8 +795,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
             if (param.type === "DefaultParameter") {
                 if (param.right != null) {
                     const isUndef =
-                        typeof helpers.isUndefinedLiteral === "function" &&
-                        helpers.isUndefinedLiteral(param.right);
+                        Core.isUndefinedSentinel(param.right);
                     if (!isUndef) {
                         lastExplicitDefaultIndex = i;
                     }
@@ -1069,9 +1001,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                 // parameters to be implicitly materialized as optional.
                 try {
                     if (param.right != null) {
-                        const isUndef =
-                            typeof helpers.isUndefinedLiteral === "function" &&
-                            helpers.isUndefinedLiteral(param.right);
+                        const isUndef = Core.isUndefinedSentinel(param.right);
                         if (!isUndef) {
                             seenExplicitDefaultToLeft = true;
                         }
@@ -1155,7 +1085,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
     // re-traversing the function body or inspecting raw source text. This
     // keeps the doc-comment synthesis logic within parser transforms.
     try {
-        const implicitInfo = collectImplicitArgumentReferences(node, helpers);
+        const implicitInfo = collectImplicitArgumentReferences(node);
         if (implicitInfo && Array.isArray(implicitInfo)) {
             // Attach as a durable property the parser-side implicit doc
             // entries. Each entry mirrors the shape used by the printer so
@@ -1283,9 +1213,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                 // Use the helper so we correctly detect the parser's undefined
                 // sentinel regardless of the exact node shape (Identifier vs
                 // Literal placeholder passed through by upstream transforms).
-                const isUndefined =
-                    typeof isUndefinedLiteral === "function" &&
-                    isUndefinedLiteral(rightNode);
+                const isUndefined = Core.isUndefinedSentinel(rightNode);
                 if (!isUndefined) continue;
 
                 // If doc explicitly marks optional, respect that and override any
@@ -1382,9 +1310,9 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                                         // If the RHS is a non-undefined literal/expression
                                         // treat this as a true explicit default.
                                         const isUndef =
-                                            typeof isUndefinedLiteral ===
-                                                "function" &&
-                                            isUndefinedLiteral(leftParam.right);
+                                            Core.isUndefinedSentinel(
+                                                leftParam.right
+                                            );
                                         if (!isUndef) {
                                             foundRealExplicitToLeft = true;
                                             break;
@@ -1464,11 +1392,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
         // swallow
     }
 
-    function matchArgumentCountFallbackVarThenIf(
-        varStatement,
-        ifStatement,
-        helpers
-    ) {
+    function matchArgumentCountFallbackVarThenIf(varStatement, ifStatement) {
         if (!varStatement || varStatement.type !== "VariableDeclaration") {
             return null;
         }
@@ -1477,7 +1401,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
             return null;
         }
 
-        const declarator = getSingleVariableDeclarator(varStatement);
+        const declarator = Core.getSingleVariableDeclarator(varStatement);
         if (!declarator) {
             return null;
         }
@@ -1487,7 +1411,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
             return null;
         }
 
-        const match = matchArgumentCountFallbackStatement(ifStatement, helpers);
+        const match = matchArgumentCountFallbackStatement(ifStatement);
         if (!match) {
             return null;
         }
@@ -1517,7 +1441,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
         };
     }
 
-    function matchArgumentCountFallbackStatement(statement, helpers) {
+    function matchArgumentCountFallbackStatement(statement) {
         if (!statement) {
             return null;
         }
@@ -1561,8 +1485,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
             for (const stmt of consequentStatements) {
                 const match = matchAssignmentToArgumentIndex(
                     stmt,
-                    argumentIndex,
-                    helpers
+                    argumentIndex
                 );
                 if (!match) continue;
                 if (match.argumentExpression && !foundArgMatch) {
@@ -1576,8 +1499,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
             for (const stmt of alternateStatements) {
                 const match = matchAssignmentToArgumentIndex(
                     stmt,
-                    argumentIndex,
-                    helpers
+                    argumentIndex
                 );
                 if (!match) continue;
                 if (match.argumentExpression && !foundArgMatch) {
@@ -1616,7 +1538,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
         return null;
     }
 
-    function matchAssignmentToArgumentIndex(node, argumentIndex, helpers) {
+    function matchAssignmentToArgumentIndex(node, argumentIndex) {
         if (!node) {
             return null;
         }
@@ -1653,7 +1575,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
         if (right && right.type === "MemberIndexExpression") {
             const single = Core.getSingleMemberIndexPropertyEntry(right);
             if (single) {
-                const indexText = helpers.getIdentifierText(single);
+                const indexText = Core.getIdentifierText(single);
                 const indexNumber = Number(indexText);
                 if (
                     !Number.isNaN(indexNumber) &&
@@ -1663,7 +1585,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                     // targetName so callers can map this projection back
                     // to a parameter with the same name.
                     if (left && left.type === "Identifier") {
-                        const leftName = getIdentifierText(left);
+                        const leftName = Core.getIdentifierText(left);
                         return {
                             argumentExpression: right,
                             targetName: leftName
@@ -1682,7 +1604,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
         // identifier as the projected parameter name (`targetName`) so
         // downstream logic can match it against declared parameters.
         if (left.type === "Identifier") {
-            const name = getIdentifierText(left);
+            const name = Core.getIdentifierText(left);
             if (name && name.toLowerCase().startsWith("argument")) {
                 const suffix = name.slice(8);
                 const idx = Number(suffix);
@@ -1704,7 +1626,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                 return null;
             }
 
-            const indexText = helpers.getIdentifierText(single);
+            const indexText = Core.getIdentifierText(single);
             const indexNumber = Number(indexText);
             if (!Number.isNaN(indexNumber) && indexNumber === argumentIndex) {
                 return { fallbackExpression: right };
@@ -1771,10 +1693,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
             ) {
                 rightNumber = Number(numericNode.value);
             } else {
-                const txt =
-                    typeof helpers.getIdentifierText === "function"
-                        ? helpers.getIdentifierText(numericNode)
-                        : null;
+                const txt = Core.getIdentifierText(numericNode);
                 rightNumber = Number(txt);
             }
         } catch {
@@ -1814,7 +1733,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
 
     function resolveNodeToArgumentCountSubject(node) {
         try {
-            const text = getIdentifierText(node);
+            const text = Core.getIdentifierText(node);
             if (
                 typeof text === "string" &&
                 text.toLowerCase() === "argument_count"
@@ -1827,7 +1746,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
             // ultimate property name is `argument_count`.
             if (node && typeof node === "object") {
                 if (node.type === "MemberExpression" && node.property) {
-                    const propText = getIdentifierText(node.property);
+                    const propText = Core.getIdentifierText(node.property);
                     if (
                         typeof propText === "string" &&
                         propText.toLowerCase() === "argument_count"
@@ -1842,7 +1761,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
                     node.property.length === 1
                 ) {
                     const prop = node.property[0];
-                    const propText = getIdentifierText(prop);
+                    const propText = Core.getIdentifierText(prop);
                     if (
                         typeof propText === "string" &&
                         propText.toLowerCase() === "argument_count"
@@ -1858,7 +1777,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
         return null;
     }
 
-    function getIdentifierFromParameter(param, helpers) {
+    function getIdentifierFromParameter(param) {
         if (!param) {
             return null;
         }
@@ -1881,7 +1800,7 @@ function preprocessFunctionDeclaration(node, helpers, ast) {
     }
 
     // --- Implicit argument doc collection (parser-side) ---
-    function collectImplicitArgumentReferences(functionNode, helpers) {
+    function collectImplicitArgumentReferences(functionNode) {
         if (!functionNode || functionNode.type !== "FunctionDeclaration") {
             return [];
         }

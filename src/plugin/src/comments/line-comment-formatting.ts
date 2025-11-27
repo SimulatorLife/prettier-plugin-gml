@@ -1,3 +1,5 @@
+// TODO: Remove this wrapper. If the functions imported here are truly just formatting/printing related and not AST/parser functionality, then they (and their tests) should be moved from the parser into this plugin module.
+
 import { Parser } from "@gml-modules/parser";
 
 // The plugin’s legacy API surface historically exposed comment-formatting
