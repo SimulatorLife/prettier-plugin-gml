@@ -1,3 +1,5 @@
+// TODO: Define a standard interface (an actual typed interface that to implement) for parser transforms and apply to all transforms listed here (all in this directory)
+
 import { stripCommentsTransform } from "./strip-comments.js";
 import { consolidateStructAssignments } from "./consolidate-struct-assignments.js";
 import { condenseLogicalExpressions } from "./condense-logical-expressions.js";

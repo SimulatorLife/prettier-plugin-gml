@@ -10,7 +10,7 @@ describe("line comment formatting helpers", () => {
             leadingText: "// / Leading summary"
         };
 
-        const result = Parser.formatLineComment(docLikeComment, {});
+        const result = Parser.formatLineComment(docLikeComment);
         assert.strictEqual(result.trim(), "/// Leading summary");
     });
 
@@ -39,7 +39,7 @@ describe("line comment formatting helpers", () => {
                 "// / foot_spd = min(0.5 * sqrt(sqr(x - xprevious) + sqr(y - yprevious)) + abs(last_crab_dir) * 0.1 + 0.2, 1);"
         };
 
-        const result = Parser.formatLineComment(testComment, {});
+        const result = Parser.formatLineComment(testComment);
 
         // Expected formatting (visualized): the outer comment prefix remains
         // `// ` and the inner, commented-out code remains `// ...` but with
