@@ -270,6 +270,77 @@ describe("watch command integration", () => {
         );
     });
 
+    it("should skip transpiling when repeated events contain identical content", async () => {
+        const testDir = path.join(
+            "/tmp",
+            `watch-test-dedupe-${Date.now()}-${Math.random()
+                .toString(36)
+                .slice(2, 9)}`
+        );
+
+        await mkdir(testDir, { recursive: true });
+
+        const testFile = path.join(testDir, "dedupe.gml");
+
+        const abortController = new AbortController();
+        const transpileRequests = [];
+
+        try {
+            const { runWatchCommand } = await import(
+                "../src/commands/watch.js"
+            );
+
+            const watchPromise = runWatchCommand(testDir, {
+                extensions: [".gml"],
+                polling: false,
+                pollingInterval: 1000,
+                verbose: false,
+                abortSignal: abortController.signal,
+                hydrateRuntime: false,
+                runtimeServer: false,
+                websocketServer: false,
+                transpilerFactory: () => ({
+                    async transpileScript({ sourceText, symbolId }) {
+                        const patch = {
+                            kind: "script",
+                            id: symbolId,
+                            js_body: sourceText,
+                            sourceText,
+                            version: Date.now()
+                        };
+                        transpileRequests.push(patch);
+                        return patch;
+                    }
+                })
+            });
+
+            await sleep(100);
+
+            const content = "var value = 1;";
+
+            await writeFile(testFile, content);
+            await sleep(200);
+
+            // Emit a second write with identical content to simulate duplicate events
+            await writeFile(testFile, content);
+
+            await sleep(200);
+
+            abortController.abort();
+            await watchPromise;
+        } finally {
+            await rm(testDir, { recursive: true, force: true }).catch(() => {
+                // Ignore cleanup errors
+            });
+        }
+
+        assert.strictEqual(
+            transpileRequests.length,
+            1,
+            "should only transpile once for identical content"
+        );
+    });
+
     it("should replay cached patches to new WebSocket clients", async () => {
         const testDir = path.join(
             "/tmp",
