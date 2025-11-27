@@ -270,6 +270,7 @@ export async function runWatchCommand(targetPath, options) {
         noticeLogged: Boolean(verbose),
         transpiler,
         patches: new Map(),
+        sourceTextCache: new Map(),
         websocketServer: null
     };
 
@@ -556,6 +557,32 @@ async function handleFileChange(
             const content = await readFile(filePath, "utf8");
             const lines = content.split("\n").length;
 
+            // Avoid redundant transpilation when the file content has not changed
+            // since the last processed patch. Some file systems emit duplicate
+            // change events for a single write; skipping identical content keeps
+            // the hot reload loop stable and avoids spamming clients with
+            // duplicate patches.
+            const symbolId = buildScriptSymbolId(filePath, rootPath);
+            const previousContent =
+                runtimeContext?.sourceTextCache?.get(symbolId);
+            const previousPatch = runtimeContext?.patches?.get(symbolId);
+
+            if (
+                previousContent === content ||
+                previousPatch?.sourceText === content
+            ) {
+                if (verbose) {
+                    console.log(
+                        "  ↳ No content changes detected; skipping patch"
+                    );
+                }
+                return;
+            }
+
+            if (runtimeContext?.sourceTextCache) {
+                runtimeContext.sourceTextCache.set(symbolId, content);
+            }
+
             if (verbose) {
                 console.log(`  ↳ Read ${lines} lines`);
             }
@@ -611,6 +638,7 @@ async function handleFileChange(
                     // 2. Identify dependent scripts that need recompilation
                 } catch (error) {
                     console.error(`  ↳ Transpilation failed: ${error.message}`);
+                    runtimeContext?.sourceTextCache?.delete(symbolId);
                     if (verbose) {
                         console.error(`     ${error.stack}`);
                     }
