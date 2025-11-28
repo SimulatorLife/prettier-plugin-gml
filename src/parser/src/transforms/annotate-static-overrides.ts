@@ -10,9 +10,7 @@ type ConstructorInfo = {
     staticFunctions: Map<string, MutableGameMakerAstNode>;
 };
 
-class AnnotateStaticFunctionOverridesTransform
-    extends FunctionalParserTransform<AnnotateStaticFunctionOverridesTransformOptions>
-{
+class AnnotateStaticFunctionOverridesTransform extends FunctionalParserTransform<AnnotateStaticFunctionOverridesTransformOptions> {
     constructor() {
         super("annotate-static-overrides", {});
     }
@@ -52,7 +50,9 @@ class AnnotateStaticFunctionOverridesTransform
 
         const constructors = new Map<string, ConstructorInfo>();
 
-        for (const node of Core.getBodyStatements(ast as Record<string, unknown>)) {
+        for (const node of Core.getBodyStatements(
+            ast as Record<string, unknown>
+        )) {
             if (!Core.isNode(node) || node.type !== "ConstructorDeclaration") {
                 continue;
             }
@@ -75,14 +75,16 @@ class AnnotateStaticFunctionOverridesTransform
                     : null;
             }
 
-            const staticFunctions = new Map<
-                string,
-                MutableGameMakerAstNode
-            >();
+            const staticFunctions = new Map<string, MutableGameMakerAstNode>();
 
-            for (const statement of Core.getBodyStatements(
-                (node as Record<string, unknown>).body as Record<string, unknown>
-            )) {
+            const statements = Core.getBodyStatements(
+                (node as Record<string, unknown>).body as Record<
+                    string,
+                    unknown
+                >
+            ) as MutableGameMakerAstNode[];
+
+            for (const statement of statements) {
                 if (!this.isStaticFunctionDeclaration(statement)) {
                     continue;
                 }
@@ -92,14 +94,11 @@ class AnnotateStaticFunctionOverridesTransform
                     continue;
                 }
 
-                staticFunctions.set(
-                    staticName,
-                    statement as MutableGameMakerAstNode
-                );
+                staticFunctions.set(staticName, statement);
             }
 
             constructors.set(name, {
-                node,
+                node: node as MutableGameMakerAstNode,
                 parentName,
                 staticFunctions
             });
@@ -184,7 +183,13 @@ class AnnotateStaticFunctionOverridesTransform
         }
 
         const [declarator] = statement.declarations;
-        if (!declarator || declarator.id?.type !== "Identifier") {
+
+        if (!declarator) {
+            return null;
+        }
+
+        const declaratorId = (declarator as { id?: unknown }).id;
+        if (!Core.isIdentifierNode(declaratorId)) {
             return null;
         }
 

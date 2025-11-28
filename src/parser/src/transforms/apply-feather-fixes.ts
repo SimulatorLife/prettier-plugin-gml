@@ -14,7 +14,8 @@ import GameMakerParseErrorListener, {
 } from "../ast/gml-syntax-error.js";
 import { preprocessFunctionArgumentDefaults } from "./preprocess-function-argument-defaults.js";
 
-type RenameOptions = { // TODO: This may be duplicated by functionality in the 'refactor' and/or 'semantic' modules. Identifier renaming needs to live in the 'refactor' module, which is built on top of 'semantic' (which handles scope and context) so that identifiers can be renamed properly/safely without introducing conflicts
+type RenameOptions = {
+    // TODO: This may be duplicated by functionality in the 'refactor' and/or 'semantic' modules. Identifier renaming needs to live in the 'refactor' module, which is built on top of 'semantic' (which handles scope and context) so that identifiers can be renamed properly/safely without introducing conflicts
     onRename?: (payload: {
         identifier: MutableGameMakerAstNode;
         originalName: string;
@@ -823,10 +824,7 @@ export function getFeatherDiagnosticFixers() {
     return new Map(FEATHER_DIAGNOSTIC_FIXERS);
 }
 
-function applyFeatherFixesImpl(
-    ast: any,
-    opts: ApplyFeatherFixesOptions = {}
-) {
+function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
     const { sourceText, preprocessedFixMetadata, options } = opts ?? {};
     if (!ast || typeof ast !== "object") {
         return ast;
@@ -1547,14 +1545,15 @@ function isBreakableConstruct(node) {
     }
 }
 
-class ApplyFeatherFixesTransform extends FunctionalParserTransform<
-    ApplyFeatherFixesOptions
-> {
+class ApplyFeatherFixesTransform extends FunctionalParserTransform<ApplyFeatherFixesOptions> {
     constructor() {
         super("apply-feather-fixes", {});
     }
 
-    protected execute(ast: MutableGameMakerAstNode, options: ApplyFeatherFixesOptions) {
+    protected execute(
+        ast: MutableGameMakerAstNode,
+        options: ApplyFeatherFixesOptions
+    ) {
         return applyFeatherFixesImpl(ast, options);
     }
 }
@@ -3381,10 +3380,7 @@ function createAssignmentFromGlobalVarDeclarator({
         return null;
     }
 
-    const identifier = Core.cloneIdentifier(declarator.id) as Record<
-        string,
-        unknown
-    > | null;
+    const identifier = Core.cloneIdentifier(declarator.id);
 
     if (!identifier) {
         return null;
@@ -3398,12 +3394,12 @@ function createAssignmentFromGlobalVarDeclarator({
         identifier.isGlobalIdentifier = true;
     }
 
-    const assignment: Record<string, unknown> = {
+    const assignment: MutableGameMakerAstNode = {
         type: "AssignmentExpression",
         operator: "=",
         left: identifier,
         right: initializer
-    };
+    } as MutableGameMakerAstNode;
 
     if (Object.hasOwn(declarator, "start")) {
         Core.assignClonedLocation(assignment as any, declarator);
@@ -11729,7 +11725,9 @@ function attachLeadingCommentsToWrappedPrimitive({
             continue;
         }
 
-        if (comment._featherHoistedTarget) {
+        const mutableComment = comment as MutableGameMakerAstNode;
+
+        if (mutableComment._featherHoistedTarget) {
             continue;
         }
 
@@ -11757,7 +11755,7 @@ function attachLeadingCommentsToWrappedPrimitive({
             continue;
         }
 
-        comment._featherHoistedTarget = primitiveBegin;
+        mutableComment._featherHoistedTarget = primitiveBegin;
     }
 }
 
@@ -15781,7 +15779,9 @@ function suppressDuplicateVertexFormatComments(ast, commentTargets, node) {
             continue;
         }
 
-        if (comment.leadingChar !== ";") {
+        const mutableComment = comment as MutableGameMakerAstNode;
+
+        if (mutableComment.leadingChar !== ";") {
             continue;
         }
 
@@ -16089,7 +16089,8 @@ function findStructArgument(args) {
     return null;
 }
 
-function annotateVariableStructProperties(structExpression, diagnostic) { // TODO: We have an existing transform that does this or similar, this should be consolidated
+function annotateVariableStructProperties(structExpression, diagnostic) {
+    // TODO: We have an existing transform that does this or similar, this should be consolidated
     if (!structExpression || structExpression.type !== "StructExpression") {
         return [];
     }
@@ -16115,7 +16116,8 @@ function annotateVariableStructProperties(structExpression, diagnostic) { // TOD
     return fixes;
 }
 
-function annotateVariableStructProperty(property, diagnostic) { // TODO: We have an existing transform that does this or similar, this should be consolidated
+function annotateVariableStructProperty(property, diagnostic) {
+    // TODO: We have an existing transform that does this or similar, this should be consolidated
     if (!property || property.type !== "Property") {
         return null;
     }
@@ -16398,7 +16400,8 @@ function createAssignmentFromDeclarator(declarator, declarationNode) {
     return assignment;
 }
 
-function getFunctionParameterNames(node) {  // TODO: Make or move this to a standalone function-library utility for handling GML functions (built-in functions, function parameter/arguments handling, etc.)
+function getFunctionParameterNames(node) {
+    // TODO: Make or move this to a standalone function-library utility for handling GML functions (built-in functions, function parameter/arguments handling, etc.)
     const params = Core.getArrayProperty(node, "params");
     const names = [];
 
@@ -16414,7 +16417,10 @@ function getFunctionParameterNames(node) {  // TODO: Make or move this to a stan
             continue;
         }
 
-        if (param.type === "DefaultParameter" && Core.isIdentifierNode(param.left)) {
+        if (
+            param.type === "DefaultParameter" &&
+            Core.isIdentifierNode(param.left)
+        ) {
             if (param.left.name) {
                 names.push(param.left.name);
             }
@@ -16439,7 +16445,8 @@ function getVariableDeclaratorName(declarator) {
     return identifier.name ?? null;
 }
 
-function cloneLiteral(node) { // TODO: Move this into Core and update imports/exports and tests accordingly
+function cloneLiteral(node) {
+    // TODO: Move this into Core and update imports/exports and tests accordingly
     if (!node || node.type !== "Literal") {
         return null;
     }
@@ -19052,7 +19059,8 @@ function extractFunctionCallNamesFromExample(exampleText) {
     return matches;
 }
 
-const ARGUMENT_BUILTINS = new Set([ // TODO: Make or move this to a standalone function-library utility for handling GML functions (built-in functions, function parameter/arguments handling, etc.)
+const ARGUMENT_BUILTINS = new Set([
+    // TODO: Make or move this to a standalone function-library utility for handling GML functions (built-in functions, function parameter/arguments handling, etc.)
     "argument",
     "argument_relative",
     "argument_count",

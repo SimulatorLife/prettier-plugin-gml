@@ -47,3 +47,7 @@ export const Parser: ParserNamespace = Object.freeze({
 // imports. This mirrors `Core`'s exported types and keeps package roots
 // stable for other workspaces.
 export type { ParserOptions } from "./types/parser-types.js";
+export type {
+    ParserTransformName,
+    ParserTransformOptions
+} from "./transforms/index.js";

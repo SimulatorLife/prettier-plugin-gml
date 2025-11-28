@@ -2,7 +2,15 @@ import { asArray, isNonEmptyArray } from "../utils/array.js";
 import { isObjectLike } from "../utils/object.js";
 import { isNonEmptyString } from "../utils/string.js";
 import { assignClonedLocation } from "./locations.js";
-import type { GameMakerAstNode, IdentifierNode } from "./types.js";
+import type {
+    AssignmentPatternNode,
+    CallExpressionNode,
+    GameMakerAstNode,
+    IdentifierNode,
+    LiteralNode,
+    MemberIndexExpressionNode,
+    ParenthesizedExpressionNode
+} from "./types.js";
 
 // Shared AST helper utilities focused on querying common node shapes.
 // Centralizes frequently repeated guards so printer and transform modules
@@ -199,51 +207,38 @@ export function resolveNodeName(node) {
     return typeof node?.name === "string" ? node.name : null;
 }
 
-export function isIdentifierNode(
-    node: unknown
-): boolean {
+export function isIdentifierNode(node: unknown): node is IdentifierNode {
     if (!isNode(node)) return false;
+    const candidate = node as { type?: unknown; name?: unknown };
     return (
-        (node as IdentifierNode).type === "Identifier" &&
-        typeof (node as IdentifierNode).name === "string"
+        candidate.type === "Identifier" && typeof candidate.name === "string"
     );
 }
 
-export function isLiteralNode(
-    node: unknown
-): node is import("./types.js").LiteralNode {
+export function isLiteralNode(node: unknown): node is LiteralNode {
     if (!isNode(node)) return false;
-    return (node as import("./types.js").LiteralNode).type === "Literal";
+    return (node as { type?: unknown }).type === "Literal";
 }
 
 export function isAssignmentPatternNode(
     node: unknown
-): node is import("./types.js").AssignmentPatternNode {
+): node is AssignmentPatternNode {
     if (!isNode(node)) return false;
-    return (
-        (node as import("./types.js").AssignmentPatternNode).type ===
-        "AssignmentPattern"
-    );
+    return (node as { type?: unknown }).type === "AssignmentPattern";
 }
 
 export function isCallExpressionNode(
     node: unknown
-): node is import("./types.js").CallExpressionNode {
+): node is CallExpressionNode {
     if (!isNode(node)) return false;
-    return (
-        (node as import("./types.js").CallExpressionNode).type ===
-        "CallExpression"
-    );
+    return (node as { type?: unknown }).type === "CallExpression";
 }
 
 export function isMemberIndexExpressionNode(
     node: unknown
-): node is import("./types.js").MemberIndexExpressionNode {
+): node is MemberIndexExpressionNode {
     if (!isNode(node)) return false;
-    return (
-        (node as import("./types.js").MemberIndexExpressionNode).type ===
-        "MemberIndexExpression"
-    );
+    return (node as { type?: unknown }).type === "MemberIndexExpression";
 }
 
 export function isIdentifierWithName(node, name) {
@@ -283,12 +278,15 @@ export function getIdentifierText(node) {
  *          cloned locations when {@link name} is a non-empty string; otherwise
  *          `null` to signal that construction failed.
  */
-export function createIdentifierNode(name, template) {
+export function createIdentifierNode(
+    name: unknown,
+    template: GameMakerAstNode | null | undefined
+): IdentifierNode | null {
     if (!isNonEmptyString(name)) {
         return null;
     }
 
-    const identifier = {
+    const identifier: IdentifierNode = {
         type: "Identifier",
         name
     };
@@ -394,7 +392,7 @@ export function getCallExpressionArguments(
 
 export function getCallExpressionIdentifier(
     callExpression
-): import("./types.js").IdentifierNode | null {
+): IdentifierNode | null {
     if (!isNode(callExpression) || callExpression.type !== "CallExpression") {
         return null;
     }
@@ -482,7 +480,7 @@ export function hasArrayPropertyEntries(node, propertyName) {
 }
 
 export function getBodyStatements(
-    node: Record<string, unknown>
+    node: GameMakerAstNode | Record<string, unknown>
 ): Array<GameMakerAstNode> {
     if (!isNode(node)) {
         return [];
@@ -812,9 +810,7 @@ export function unwrapParenthesizedExpression(node) {
     let current = node;
 
     while (isNode(current) && current.type === "ParenthesizedExpression") {
-        const expression = (
-            current as import("./types.js").ParenthesizedExpressionNode
-        ).expression;
+        const expression = (current as ParenthesizedExpressionNode).expression;
         if (!isNode(expression)) {
             break;
         }

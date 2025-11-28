@@ -1,6 +1,7 @@
 import { isObjectLike, withObjectLike } from "../utils/object.js";
+import type { GameMakerAstNode } from "./types.js";
 
-type AstNode = Record<string, unknown>;
+type AstNode = GameMakerAstNode;
 type LocationKey = "start" | "end";
 type LocationObject = { index?: number; line?: number };
 

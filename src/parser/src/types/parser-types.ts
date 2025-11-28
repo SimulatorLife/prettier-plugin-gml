@@ -1,5 +1,9 @@
 import type { ParserRuleContext, Token, TokenStream } from "antlr4";
 import type { MutableGameMakerAstNode } from "@gml-modules/core";
+import type {
+    ParserTransformName,
+    ParserTransformOptions
+} from "../transforms/index.js";
 
 export type ParserContext =
     | (ParserRuleContext & {
@@ -53,9 +57,10 @@ export interface ParserOptions {
     astFormat: string; // TODO: What are the possible values here?
     asJSON: boolean;
 
-    // TODO: Combine 'transforms' into 'transformOptions' and give 'transformOptions' a proper type
-    transforms?: Array<unknown>; // TODO: What are the possible values here?
-    transformOptions?: Record<string, unknown>;
+    transforms?: ReadonlyArray<ParserTransformName>;
+    transformOptions?: Partial<
+        Record<ParserTransformName, ParserTransformOptions>
+    >;
 }
 
 const DEFAULT_SCOPE_TRACKER_OPTIONS: ScopeTrackerOptions = Object.freeze({

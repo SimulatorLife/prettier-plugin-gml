@@ -86,7 +86,7 @@
     "build:antlr": "cd src/parser && npm run antlr",
     "build:gml-identifiers": "npm run build:types --workspace=@gml-modules/cli && node ./src/cli/dist/cli.js generate-gml-identifiers --quiet",
     "build:feather-metadata": "npm run build:types --workspace=@gml-modules/cli && node ./src/cli/dist/cli.js generate-feather-metadata --quiet",
-    "build:ts": "npm run build:types --workspaces --if-present",
+    "build:ts": "npm run build:types --workspace=@gml-modules/core && npm run build:types --workspace=@gml-modules/parser && npm run build:types --workspace=@gml-modules/semantic && npm run build:types --workspace=@gml-modules/transpiler && npm run build:types --workspace=@gml-modules/plugin && npm run build:types --workspace=@gml-modules/cli && npm run build:types --workspace=@gml-modules/runtime-wrapper && npm run build:types --workspace=@gml-modules/refactor",
     "memory": "npm run build:types --workspace=@gml-modules/cli && node --expose-gc ./src/cli/dist/cli.js memory --format human",
     "example:plugin": "cd src/plugin && npm run example",
     "postinstall": "git submodule update --init --recursive && git update-index --skip-worktree vendor/* && chmod -R a-w vendor && chmod -R a+X vendor || echo \"Skipping vendor submodules\"",

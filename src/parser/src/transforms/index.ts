@@ -11,6 +11,7 @@ import { convertUndefinedGuardAssignments } from "./convert-undefined-guard-assi
 import { transform as annotateStaticFunctionOverrides } from "./annotate-static-overrides.js";
 
 type TransformOptions = Record<string, unknown>;
+type EmptyTransformOptions = Record<string, never>;
 
 export interface ParserTransform<
     AstType extends MutableGameMakerAstNode = MutableGameMakerAstNode,
@@ -20,8 +21,6 @@ export interface ParserTransform<
     readonly defaultOptions: Options;
     transform(ast: AstType, options?: Options): AstType;
 }
-
-type EmptyTransformOptions = Record<string, never>;
 
 export abstract class FunctionalParserTransform<
     Options extends TransformOptions = EmptyTransformOptions
@@ -88,8 +87,6 @@ type EnforceVariableBlockSpacingOptions = {
     variableBlockSpacingMinDeclarations?: number;
 };
 
-type EmptyTransformOptions = Record<string, never>;
-
 const EMPTY_OPTIONS: EmptyTransformOptions = Object.freeze({});
 
 class FunctionalParserTransformEntry<
@@ -127,7 +124,7 @@ const TRANSFORM_REGISTRY_ENTRIES = [
         new FunctionalParserTransformEntry<StripCommentsTransformOptions>(
             "strip-comments",
             (ast, options) =>
-                stripCommentsTransform(ast, options) as MutableGameMakerAstNode,
+                stripCommentsTransform(ast, options),
             {
                 stripComments: true,
                 stripJsDoc: true,
@@ -143,7 +140,7 @@ const TRANSFORM_REGISTRY_ENTRIES = [
                 consolidateStructAssignments(
                     ast,
                     options.commentTools
-                ) as MutableGameMakerAstNode,
+                ),
             EMPTY_OPTIONS
         )
     ],
@@ -152,7 +149,7 @@ const TRANSFORM_REGISTRY_ENTRIES = [
         new FunctionalParserTransformEntry<ApplyFeatherFixesOptions>(
             "apply-feather-fixes",
             (ast, options) =>
-                applyFeatherFixes(ast, options) as MutableGameMakerAstNode,
+                applyFeatherFixes(ast, options),
             EMPTY_OPTIONS
         )
     ],
@@ -163,7 +160,7 @@ const TRANSFORM_REGISTRY_ENTRIES = [
             (ast) =>
                 preprocessFunctionArgumentDefaults(
                     ast
-                ) as MutableGameMakerAstNode,
+                ),
             EMPTY_OPTIONS
         )
     ],
@@ -183,7 +180,7 @@ const TRANSFORM_REGISTRY_ENTRIES = [
         new FunctionalParserTransformEntry(
             "convert-string-concatenations",
             (ast) =>
-                convertStringConcatenations(ast) as MutableGameMakerAstNode,
+                convertStringConcatenations(ast),
             EMPTY_OPTIONS
         )
     ],
@@ -195,7 +192,7 @@ const TRANSFORM_REGISTRY_ENTRIES = [
                 condenseLogicalExpressions(
                     ast,
                     options?.helpers ?? options
-                ) as MutableGameMakerAstNode,
+                ),
             EMPTY_OPTIONS
         )
     ],
@@ -207,7 +204,7 @@ const TRANSFORM_REGISTRY_ENTRIES = [
                 convertManualMathExpressions(
                     ast,
                     options
-                ) as MutableGameMakerAstNode,
+                ),
             EMPTY_OPTIONS
         )
     ],
@@ -218,7 +215,7 @@ const TRANSFORM_REGISTRY_ENTRIES = [
             (ast) =>
                 convertUndefinedGuardAssignments(
                     ast
-                ) as MutableGameMakerAstNode,
+                ),
             EMPTY_OPTIONS
         )
     ],
@@ -230,7 +227,7 @@ const TRANSFORM_REGISTRY_ENTRIES = [
                 annotateStaticFunctionOverrides(
                     ast,
                     options
-                ) as MutableGameMakerAstNode,
+                ),
             EMPTY_OPTIONS
         )
     ]
@@ -242,11 +239,23 @@ type TransformValue = ParserTransform<
     TransformOptions
 >;
 
+export type ParserTransformName = TransformName;
+export type ParserTransformOptions = TransformOptions;
+
 const TRANSFORM_REGISTRY = new Map<TransformName, TransformValue>(
     TRANSFORM_REGISTRY_ENTRIES as ReadonlyArray<
         readonly [TransformName, TransformValue]
     >
 );
+
+export function isParserTransformName(
+    value: unknown
+): value is ParserTransformName {
+    return (
+        typeof value === "string" &&
+        TRANSFORM_REGISTRY.has(value as TransformName)
+    );
+}
 
 export function applyTransforms(
     ast: MutableGameMakerAstNode,

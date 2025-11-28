@@ -24,7 +24,7 @@ type NormalizeStringListOptions = {
  * @param {unknown} value Candidate value to evaluate.
  * @returns {value is string} `true` when {@link value} is a non-empty string.
  */
-export function isNonEmptyString(value) {
+export function isNonEmptyString(value: unknown): value is string {
     return typeof value === "string" && value.length > 0;
 }
 
@@ -38,7 +38,7 @@ export function isNonEmptyString(value) {
  * @returns {value is string} `true` when {@link value} is a non-empty string
  *                             after trimming.
  */
-export function isNonEmptyTrimmedString(value) {
+export function isNonEmptyTrimmedString(value: unknown): value is string {
     return typeof value === "string" && value.trim().length > 0;
 }
 

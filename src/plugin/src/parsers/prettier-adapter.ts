@@ -4,7 +4,11 @@
 // layer the plugin should own.
 
 import { Parser } from "@gml-modules/parser";
-import type { ParserOptions } from "@gml-modules/parser";
+import type {
+    ParserOptions,
+    ParserTransformName,
+    ParserTransformOptions
+} from "@gml-modules/parser";
 
 type PrettierGmlOptions = {
     gmlLanguageVersion?: string;
@@ -17,14 +21,9 @@ type PrettierGmlOptions = {
 // Use ParserOptions type from Parser package to ensure compatibility.
 type ParserConfig = ParserOptions;
 
-type TransformOptions = {
-    stripComments: {
-        preserveDocComments: boolean;
-    };
-    normalizeSemicolons: {
-        insertMissingSemicolons: boolean;
-    };
-};
+type TransformOptions = Partial<
+    Record<ParserTransformName, ParserTransformOptions>
+>;
 
 type PipelineConfig = {
     parser?: ParserConfig;
@@ -52,14 +51,15 @@ export function makeParserConfig(
 export function makeTransformOptions(
     prettierOptions: PrettierGmlOptions = {}
 ): TransformOptions {
-    return {
-        stripComments: {
-            preserveDocComments: !!prettierOptions.gmlPreserveDocs
-        },
-        normalizeSemicolons: {
-            insertMissingSemicolons: !prettierOptions.gmlStrictSemicolons
-        }
-    };
+    return prettierOptions.gmlPreserveDocs
+        ? {
+              "strip-comments": {
+                  stripComments: true,
+                  stripJsDoc: !prettierOptions.gmlPreserveDocs,
+                  dropCommentedOutCode: false
+              }
+          }
+        : {};
 }
 
 export function parseForPrettier(
@@ -93,9 +93,15 @@ function runPipeline(
 ) {
     const ast = Parser.GMLParser.parse(source, pipelineConfig?.parser);
     const transformEntries = pipelineConfig?.transforms ?? {};
-    const transformNames = Object.entries(transformEntries)
-        .filter(([, enabled]) => enabled)
-        .map(([name]) => name);
+    const transformNames = Object.entries(transformEntries).reduce<
+        Array<ParserTransformName>
+    >((names, [name, enabled]) => {
+        if (enabled && Parser.Transforms.isParserTransformName(name)) {
+            names.push(name);
+        }
+
+        return names;
+    }, []);
 
     if (transformNames.length === 0) {
         return ast;
