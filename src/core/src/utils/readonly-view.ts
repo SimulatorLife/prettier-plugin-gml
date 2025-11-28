@@ -72,7 +72,7 @@ export function createReadOnlyView<T extends object>(
                 );
 
                 if (!descriptor) {
-                    return undefined;
+                    return;
                 }
 
                 return {

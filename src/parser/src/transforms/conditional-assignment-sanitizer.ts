@@ -69,7 +69,7 @@ export function sanitizeConditionalAssignments(sourceText: unknown) {
 
     const parts: string[] = [];
     const adjustmentPositions: Array<number> = [];
-    const text = sourceText as string;
+    const text = sourceText;
     const length = text.length;
     let index = 0;
     let modified = false;
