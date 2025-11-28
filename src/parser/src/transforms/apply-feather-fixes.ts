@@ -2,7 +2,7 @@
 
 import { Core } from "@gml-modules/core";
 import type { MutableGameMakerAstNode } from "@gml-modules/core";
-import { FunctionalParserTransform } from "./index.js";
+import { FunctionalParserTransform } from "./functional-transform.js";
 import antlr4, { PredictionMode } from "antlr4";
 import GameMakerLanguageLexer from "../../generated/GameMakerLanguageLexer.js";
 import GameMakerLanguageParser from "../../generated/GameMakerLanguageParser.js";

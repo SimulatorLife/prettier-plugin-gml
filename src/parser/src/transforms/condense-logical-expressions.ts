@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-import { FunctionalParserTransform } from "./index.js";
+import { FunctionalParserTransform } from "./functional-transform.js";
 // Doc comment helpers are now available on the top-level Core namespace
 const {
     resolveDocCommentPresenceService, // TODO: We should expose a single doc-comment-service instead of exposing all these

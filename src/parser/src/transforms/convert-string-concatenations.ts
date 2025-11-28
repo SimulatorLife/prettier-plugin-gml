@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-import { FunctionalParserTransform } from "./index.js";
+import { FunctionalParserTransform } from "./functional-transform.js";
 
 const BINARY_EXPRESSION = "BinaryExpression";
 const TEMPLATE_STRING_EXPRESSION = "TemplateStringExpression";

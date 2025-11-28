@@ -1,6 +1,6 @@
 import { Core } from "@gml-modules/core";
 import type { MutableGameMakerAstNode } from "@gml-modules/core";
-import { FunctionalParserTransform } from "./index.js";
+import { FunctionalParserTransform } from "./functional-transform.js";
 
 type PreprocessFunctionArgumentDefaultsTransformOptions = Record<string, never>;
 
