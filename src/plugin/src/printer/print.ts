@@ -4585,7 +4585,10 @@ function extractLeadingNonDocCommentLines(comments, options) {
             comment &&
             comment.type === "CommentLine"
         ) {
-            const formatted = Parser.formatLineComment(comment, lineCommentOptions);
+            const formatted = Parser.formatLineComment(
+                comment,
+                lineCommentOptions
+            );
             const trimmed = Core.toTrimmedString(formatted);
 
             if (trimmed.length === 0) {

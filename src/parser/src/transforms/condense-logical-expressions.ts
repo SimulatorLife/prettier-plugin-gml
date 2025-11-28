@@ -74,14 +74,15 @@ function condenseLogicalExpressionsImpl(ast: any, helpers?: any) {
     return ast;
 }
 
-class CondenseLogicalExpressionsTransform extends FunctionalParserTransform<
-    CondenseLogicalExpressionsTransformOptions
-> {
+class CondenseLogicalExpressionsTransform extends FunctionalParserTransform<CondenseLogicalExpressionsTransformOptions> {
     constructor() {
         super("condense-logical-expressions", {});
     }
 
-    protected execute(ast: any, options: CondenseLogicalExpressionsTransformOptions) {
+    protected execute(
+        ast: any,
+        options: CondenseLogicalExpressionsTransformOptions
+    ) {
         return condenseLogicalExpressionsImpl(ast, options.helpers);
     }
 }

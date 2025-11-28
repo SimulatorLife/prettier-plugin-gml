@@ -8,9 +8,7 @@ type StripCommentsTransformOptions = {
     dropCommentedOutCode: boolean;
 };
 
-class StripCommentsTransform extends FunctionalParserTransform<
-    StripCommentsTransformOptions
-> {
+class StripCommentsTransform extends FunctionalParserTransform<StripCommentsTransformOptions> {
     constructor() {
         super("strip-comments", {
             stripComments: true,

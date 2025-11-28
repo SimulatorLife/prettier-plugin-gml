@@ -7,9 +7,7 @@ type EnforceVariableBlockSpacingTransformOptions = {
     variableBlockSpacingMinDeclarations?: number;
 };
 
-class EnforceVariableBlockSpacingTransform extends FunctionalParserTransform<
-    EnforceVariableBlockSpacingTransformOptions
-> {
+class EnforceVariableBlockSpacingTransform extends FunctionalParserTransform<EnforceVariableBlockSpacingTransformOptions> {
     constructor() {
         super("enforce-variable-block-spacing", {});
     }

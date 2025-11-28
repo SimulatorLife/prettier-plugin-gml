@@ -8,10 +8,7 @@ import { cloneIdentifier } from "../src/ast/node-helpers.js";
 describe("cloneIdentifier", () => {
     it("returns null for non-identifiers", () => {
         assert.equal(cloneIdentifier(undefined), null);
-        assert.equal(
-            cloneIdentifier({ type: "Literal", value: 1 }),
-            null
-        );
+        assert.equal(cloneIdentifier({ type: "Literal", value: 1 }), null);
     });
 
     it("produces a cloned identifier with copied locations", () => {

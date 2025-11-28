@@ -48,13 +48,11 @@ function consolidateStructAssignmentsImpl(
     const normalizedCommentTools = normalizeCommentTools(commentTools);
     const tracker = new CommentTracker(ast);
     visit(ast, tracker, normalizedCommentTools);
-        tracker.removeConsumedComments();
-        return ast;
-    }
+    tracker.removeConsumedComments();
+    return ast;
+}
 
-class ConsolidateStructAssignmentsTransform extends FunctionalParserTransform<
-    ConsolidateStructAssignmentsTransformOptions
-> {
+class ConsolidateStructAssignmentsTransform extends FunctionalParserTransform<ConsolidateStructAssignmentsTransformOptions> {
     constructor() {
         super("consolidate-struct-assignments", {});
     }
@@ -63,10 +61,7 @@ class ConsolidateStructAssignmentsTransform extends FunctionalParserTransform<
         ast: MutableGameMakerAstNode,
         options: ConsolidateStructAssignmentsTransformOptions
     ) {
-        return consolidateStructAssignmentsImpl(
-            ast,
-            options.commentTools
-        );
+        return consolidateStructAssignmentsImpl(ast, options.commentTools);
     }
 }
 

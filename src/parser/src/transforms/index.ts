@@ -123,8 +123,7 @@ const TRANSFORM_REGISTRY_ENTRIES = [
         "strip-comments",
         new FunctionalParserTransformEntry<StripCommentsTransformOptions>(
             "strip-comments",
-            (ast, options) =>
-                stripCommentsTransform(ast, options),
+            (ast, options) => stripCommentsTransform(ast, options),
             {
                 stripComments: true,
                 stripJsDoc: true,
@@ -137,10 +136,7 @@ const TRANSFORM_REGISTRY_ENTRIES = [
         new FunctionalParserTransformEntry<ConsolidateStructAssignmentsOptions>(
             "consolidate-struct-assignments",
             (ast, options) =>
-                consolidateStructAssignments(
-                    ast,
-                    options.commentTools
-                ),
+                consolidateStructAssignments(ast, options.commentTools),
             EMPTY_OPTIONS
         )
     ],
@@ -148,8 +144,7 @@ const TRANSFORM_REGISTRY_ENTRIES = [
         "apply-feather-fixes",
         new FunctionalParserTransformEntry<ApplyFeatherFixesOptions>(
             "apply-feather-fixes",
-            (ast, options) =>
-                applyFeatherFixes(ast, options),
+            (ast, options) => applyFeatherFixes(ast, options),
             EMPTY_OPTIONS
         )
     ],
@@ -157,10 +152,7 @@ const TRANSFORM_REGISTRY_ENTRIES = [
         "preprocess-function-argument-defaults",
         new FunctionalParserTransformEntry(
             "preprocess-function-argument-defaults",
-            (ast) =>
-                preprocessFunctionArgumentDefaults(
-                    ast
-                ),
+            (ast) => preprocessFunctionArgumentDefaults(ast),
             EMPTY_OPTIONS
         )
     ],
@@ -179,8 +171,7 @@ const TRANSFORM_REGISTRY_ENTRIES = [
         "convert-string-concatenations",
         new FunctionalParserTransformEntry(
             "convert-string-concatenations",
-            (ast) =>
-                convertStringConcatenations(ast),
+            (ast) => convertStringConcatenations(ast),
             EMPTY_OPTIONS
         )
     ],
@@ -189,10 +180,7 @@ const TRANSFORM_REGISTRY_ENTRIES = [
         new FunctionalParserTransformEntry<CondenseLogicalExpressionsOptions>(
             "condense-logical-expressions",
             (ast, options) =>
-                condenseLogicalExpressions(
-                    ast,
-                    options?.helpers ?? options
-                ),
+                condenseLogicalExpressions(ast, options?.helpers ?? options),
             EMPTY_OPTIONS
         )
     ],
@@ -200,11 +188,7 @@ const TRANSFORM_REGISTRY_ENTRIES = [
         "convert-manual-math",
         new FunctionalParserTransformEntry<ConvertManualMathTransformOptions>(
             "convert-manual-math",
-            (ast, options) =>
-                convertManualMathExpressions(
-                    ast,
-                    options
-                ),
+            (ast, options) => convertManualMathExpressions(ast, options),
             EMPTY_OPTIONS
         )
     ],
@@ -212,10 +196,7 @@ const TRANSFORM_REGISTRY_ENTRIES = [
         "convert-undefined-guard-assignments",
         new FunctionalParserTransformEntry(
             "convert-undefined-guard-assignments",
-            (ast) =>
-                convertUndefinedGuardAssignments(
-                    ast
-                ),
+            (ast) => convertUndefinedGuardAssignments(ast),
             EMPTY_OPTIONS
         )
     ],
@@ -223,11 +204,7 @@ const TRANSFORM_REGISTRY_ENTRIES = [
         "annotate-static-overrides",
         new FunctionalParserTransformEntry(
             "annotate-static-overrides",
-            (ast, options) =>
-                annotateStaticFunctionOverrides(
-                    ast,
-                    options
-                ),
+            (ast, options) => annotateStaticFunctionOverrides(ast, options),
             EMPTY_OPTIONS
         )
     ]

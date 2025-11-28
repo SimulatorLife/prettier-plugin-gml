@@ -48,9 +48,7 @@ export function condenseScalarMultipliers(ast: any, context: any = null) {
     return ast;
 }
 
-class ConvertManualMathExpressionsTransform extends FunctionalParserTransform<
-    ConvertManualMathTransformOptions
-> {
+class ConvertManualMathExpressionsTransform extends FunctionalParserTransform<ConvertManualMathTransformOptions> {
     constructor() {
         super("convert-manual-math", {});
     }

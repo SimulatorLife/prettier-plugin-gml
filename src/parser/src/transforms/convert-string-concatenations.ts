@@ -21,9 +21,7 @@ function convertStringConcatenationsImpl(ast: any, helpers?: any) {
     return ast;
 }
 
-class ConvertStringConcatenationsTransform extends FunctionalParserTransform<
-    ConvertStringConcatenationsTransformOptions
-> {
+class ConvertStringConcatenationsTransform extends FunctionalParserTransform<ConvertStringConcatenationsTransformOptions> {
     constructor() {
         super("convert-string-concatenations", {});
     }
