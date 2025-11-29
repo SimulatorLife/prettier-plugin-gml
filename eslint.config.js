@@ -526,7 +526,7 @@ export default [
         }
     },
 
-    // Runtime-Wrapper allow eval
+    // Runtime-Wrapper allow eval (needed for patches for dynamic code execution)
     {
         files: ["src/runtime-wrapper/**"],
         rules: {
