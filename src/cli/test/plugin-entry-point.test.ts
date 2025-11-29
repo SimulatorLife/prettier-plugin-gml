@@ -107,6 +107,7 @@ describe("resolvePluginEntryPoint", () => {
             path.dirname(fileURLToPath(import.meta.url)),
             "..",
             "..",
+            "..",
             ".."
         );
         const resolved = resolvePluginEntryPoint({ env: {} });

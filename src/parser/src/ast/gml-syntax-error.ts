@@ -57,6 +57,10 @@ export class GameMakerSyntaxError extends Error {
             this.rule = rule;
         }
     }
+
+    // public static isParseError(error: unknown): error is GameMakerSyntaxError {
+    //     !!(error && (error.name === "GameMakerSyntaxError" || error instanceof Error && error.name === "GameMakerSyntaxError"));
+    // }
 }
 
 class SyntaxErrorFormatter {

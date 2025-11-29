@@ -2,6 +2,7 @@ import { Core } from "@gml-modules/core";
 import type { MutableGameMakerAstNode } from "@gml-modules/core";
 import { FunctionalParserTransform } from "./functional-transform.js";
 
+// TODO: Move ALL constants for node types to one location in Core for reuse. Or, I think these are already defined/created by the generated grammar/parser?
 const ASSIGNMENT_EXPRESSION = "AssignmentExpression";
 const BINARY_EXPRESSION = "BinaryExpression";
 const CALL_EXPRESSION = "CallExpression";
@@ -803,7 +804,7 @@ function findFirstNumericLiteral(node) {
     return null;
 }
 
-function isIdentifierNamed(node, name) {
+function isIdentifierNamed(node, name) { // TODO: Move this helper to where the other identifier functionality lives
     const identifierName = getIdentifierName(node);
     return typeof identifierName === "string" && identifierName === name;
 }
@@ -4223,7 +4224,7 @@ function unwrapExpression(node) {
     return current ?? null;
 }
 
-function getIdentifierName(node) {
+function getIdentifierName(node) { // TODO: This should be moved to where the other identifier utilities are. Also, I think this may be duplciated fucntionality.
     const expression = unwrapExpression(node);
     if (!expression || expression.type !== IDENTIFIER) {
         return null;

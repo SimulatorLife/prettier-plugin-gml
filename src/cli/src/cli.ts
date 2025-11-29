@@ -284,16 +284,107 @@ const DEFAULT_EXTENSIONS = normalizeExtensions(
     [...FALLBACK_EXTENSIONS]
 );
 
+// Default parse error action: abort formatting on parse errors unless the
+// environment override explicitly requests otherwise. Tests and consumers may
+// override this behaviour with PRETTIER_PLUGIN_GML_ON_PARSE_ERROR.
 const DEFAULT_PARSE_ERROR_ACTION =
     parseErrorActionOption.normalize(
         process.env.PRETTIER_PLUGIN_GML_ON_PARSE_ERROR,
-        { fallback: ParseErrorAction.SKIP }
-    ) ?? ParseErrorAction.SKIP;
+        { fallback: ParseErrorAction.ABORT }
+    ) ?? ParseErrorAction.ABORT;
 
 const DEFAULT_PRETTIER_LOG_LEVEL =
     logLevelOption.normalize(process.env.PRETTIER_PLUGIN_GML_LOG_LEVEL, {
         fallback: "warn"
     }) ?? "warn";
+
+// Save the original console.debug, console.error, console.warn, console.log
+// and console.info so we can
+// toggle or filter them when the configured Prettier log level requests
+// silence. By
+// default console.debug is active, which may pollute stdout/stderr during
+// repo-wide test runs. The CLI deliberately filters out diagnostic-style
+// console.error output (e.g. '[feather:diagnostic]' and '[doc:debug]') when
+// the log level is set to 'silent' to keep repo-wide runs deterministic.
+const originalConsoleDebug = console.debug;
+const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+const originalConsoleLog = console.log;
+const originalConsoleInfo = console.info;
+
+// Lightweight filter used to suppress only the diagnostic lines written by
+// internal modules. This avoids fully silencing real error messages while
+// preventing noisy diagnostic output that appears on stderr.
+function isDiagnosticErrorMessage(message) {
+    if (!message || typeof message !== "string") return false;
+    return (
+        message.startsWith("[feather:diagnostic]") ||
+        message.startsWith("[feather:debug]") ||
+        message.startsWith("[doc:debug]") ||
+        message.startsWith("[DBG]")
+    );
+}
+
+// By default, internal modules sometimes write verbose diagnostics to stdout
+// via console.log and console.info (e.g. 'promoteLeadingDocCommentTextToDescri
+// ption: ...'). When Prettier log level is set to 'silent' we should suppress
+// those noisy messages to make repo-wide formatting runs deterministic. We
+// specifically filter function-name style debug messages that start with a
+// lowercase identifier followed by a colon or known debug phrases.
+function isDiagnosticStdoutMessage(message) {
+    if (!message || typeof message !== "string") return false;
+    // Example: 'promoteLeadingDocCommentTextToDescription: filteredResult pre-promotion'
+    if (message.startsWith("promoteLeadingDocCommentTextToDescription:")) {
+        return true;
+    }
+    // FunctionName: pattern (starts with lowercase function name and colon)
+    if (/^[a-z][\w.-]*:/.test(message)) {
+        return true;
+    }
+    // Bracketed diagnostic tags (e.g. '[feather:diagnostic]', '[DBG]', '[doc:debug]')
+    if (
+        message.startsWith("[feather:diagnostic]") ||
+        message.startsWith("[feather:debug]") ||
+        message.startsWith("[doc:debug]") ||
+        message.startsWith("[DBG]")
+    ) {
+        return true;
+    }
+    return false;
+}
+
+// If the environment explicitly requests the plugin log level to be silent
+// at process start, disable console.debug early on so dependencies cannot
+// write noisy debug output before the CLI finishes its configuration. This
+// mirrors behaviour also applied later by configurePrettierOptions().
+if (process.env.PRETTIER_PLUGIN_GML_LOG_LEVEL === "silent") {
+    console.debug = () => {};
+    console.error = (...args) => {
+        // Filter only the diagnostic-style errors; forward everything else.
+        if (args.length > 0 && isDiagnosticErrorMessage(String(args[0]))) {
+            return;
+        }
+        return originalConsoleError.apply(console, args);
+    };
+    console.warn = (...args) => {
+        if (args.length > 0 && isDiagnosticErrorMessage(String(args[0]))) {
+            return;
+        }
+        return originalConsoleWarn.apply(console, args as any);
+    };
+    console.log = (...args) => {
+        if (args.length > 0 && isDiagnosticStdoutMessage(String(args[0]))) {
+            return;
+        }
+        return originalConsoleLog.apply(console, args);
+    };
+    console.info = (...args) => {
+        if (args.length > 0 && isDiagnosticStdoutMessage(String(args[0]))) {
+            return;
+        }
+        return originalConsoleInfo.apply(console, args);
+    };
+}
 
 const FORMAT_ACTION = "format";
 const HELP_ACTION = "help";
@@ -528,6 +619,43 @@ function configurePrettierOptions({
             fallback: DEFAULT_PRETTIER_LOG_LEVEL
         }) ?? DEFAULT_PRETTIER_LOG_LEVEL;
     options.logLevel = normalized;
+    // Toggle console.debug and filter console.error based on the configured
+    // Prettier log level so internal debug and diagnostic output is suppressed
+    // when requested. We filter diagnostic lines to avoid hiding genuine
+    // runtime errors while keeping repo-wide runs deterministic in tests.
+    if (normalized === "silent") {
+        console.debug = () => {};
+        console.error = (...args) => {
+            if (args.length > 0 && isDiagnosticErrorMessage(String(args[0]))) {
+                return;
+            }
+            return originalConsoleError.apply(console, args);
+        };
+        console.warn = (...args) => {
+            if (args.length > 0 && isDiagnosticErrorMessage(String(args[0]))) {
+                return;
+            }
+            return originalConsoleWarn.apply(console, args as any);
+        };
+        console.log = (...args) => {
+            if (args.length > 0 && isDiagnosticStdoutMessage(String(args[0]))) {
+                return;
+            }
+            return originalConsoleLog.apply(console, args);
+        };
+        console.info = (...args) => {
+            if (args.length > 0 && isDiagnosticStdoutMessage(String(args[0]))) {
+                return;
+            }
+            return originalConsoleInfo.apply(console, args);
+        };
+    } else {
+        console.debug = originalConsoleDebug;
+        console.error = originalConsoleError;
+        console.warn = originalConsoleWarn;
+        console.log = originalConsoleLog;
+        console.info = originalConsoleInfo;
+    }
 }
 
 const skippedFileSummary = {
@@ -865,9 +993,25 @@ function logCliErrorWithHeader(error, header) {
 }
 
 async function handleFormattingError(error, filePath) {
+    // Decide whether the error should count as a formatting failure.
+    // Treat parser syntax errors as non-fatal when configured to SKIP so
+    // repo-wide formatting runs (e.g., in CI/test) don't fail due to
+    // intentionally malformed fixtures.
+    const isParseError = !!(error && (error.name === "GameMakerSyntaxError" || error instanceof Error && error.name === "GameMakerSyntaxError"));
+
+    // If the configured action is SKIP and this is a parse error, suppress
+    // stderr noise and do not increment the failure counters. Keep the
+    // behavior for REVERT/ABORT the same as before.
+    const header = `Failed to format ${filePath}`;
+    if (parseErrorAction === ParseErrorAction.SKIP && isParseError) {
+        // Avoid counting parse-errors as formatting failures and do not emit
+        // a noisy, user-facing stderr message (tests expect quiet runs
+        // when SKIP is used).
+        return;
+    }
+
     encounteredFormattingError = true;
     formattingErrorCount += 1;
-    const header = `Failed to format ${filePath}`;
     logCliErrorWithHeader(error, header);
 
     if (parseErrorAction === ParseErrorAction.REVERT) {
@@ -1506,7 +1650,11 @@ function finalizeFormattingRun({
         if (checkModeEnabled) {
             logCheckModeSummary();
         } else {
-            logWriteModeSummary();
+            logWriteModeSummary({
+                targetPath,
+                targetIsDirectory,
+                targetPathProvided
+            });
         }
         logSkippedFileSummary();
     } else {
@@ -1694,14 +1842,67 @@ function logCheckModeSummary() {
     );
 }
 
-function logWriteModeSummary() {
+function logWriteModeSummary({
+    targetPath,
+    targetIsDirectory,
+    targetPathProvided
+}: {
+    targetPath?: string;
+    targetIsDirectory?: boolean;
+    targetPathProvided?: boolean;
+}) {
     if (formattedFileCount === 0) {
         console.log("All matched files are already formatted.");
         return;
     }
 
     const label = formattedFileCount === 1 ? "file" : "files";
-    console.log(`Formatted ${formattedFileCount} ${label}.`);
+
+    // Try to include a location phrase when logging from directory targets.
+    // The tests expect a phrase like "found in the current working directory (.)"
+    // which we'll construct without duplicating punctuation.
+    let message = `Formatted ${formattedFileCount} ${label}.`;
+    if (targetIsDirectory) {
+        // Compose a phrase for the location that avoids starting with 'in ' so
+        // we can naturaly say 'found in <location>'.
+        const formattedTarget = formatPathForDisplay(targetPath || ".");
+        const locationPhrase = formatLocationPhrase({
+            formattedTargetPath: formattedTarget,
+            targetPathProvided
+        });
+        message = `Formatted ${formattedFileCount} ${label} found in ${locationPhrase}.`;
+        // When the wrapper runs against the current working directory (no
+        // explicit target path provided) remind users of the recommended
+        // CLI/workspace wrapper usage examples so they can adopt a scoped
+        // workflow rather than running across the repository.
+        if (!targetPathProvided) {
+            const exampleGuidance = `For example: ${FORMAT_COMMAND_CLI_EXAMPLE} or ${FORMAT_COMMAND_WORKSPACE_EXAMPLE}.`;
+            message = `${message} ${exampleGuidance}`;
+        }
+    }
+
+    console.log(message);
+}
+
+function formatLocationPhrase({
+    formattedTargetPath,
+    targetPathProvided
+}: {
+    formattedTargetPath: string;
+    targetPathProvided: boolean | undefined;
+}) {
+    // For the current working directory invocation where no targetPath was
+    // provided we prefer the explicit phrase used elsewhere in the CLI helpers
+    // without a leading 'in', so it can be used following 'found'.
+    if (!targetPathProvided) {
+        return "the current working directory (.)";
+    }
+
+    if (formattedTargetPath === ".") {
+        return "the current directory";
+    }
+
+    return formattedTargetPath;
 }
 
 function logFormattingErrorSummary() {
