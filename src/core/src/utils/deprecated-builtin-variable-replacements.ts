@@ -53,7 +53,7 @@ export function buildDeprecatedBuiltinVariableReplacements() {
     return replacements;
 }
 
-function deriveDeprecatedBuiltinVariableReplacementsFromExamples(
+function deriveDeprecatedBuiltinVariableReplacementsFromExamples( // TODO: There must be a better way to derive which variables are deprecated from the manual content thn this
     badExample,
     goodExample
 ) {

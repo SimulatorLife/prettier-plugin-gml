@@ -29,7 +29,19 @@ describe("Hot reload integration loop", () => {
 
     after(async () => {
         if (websocketClient) {
-            websocketClient.close();
+            // Ensure the client is closed and we wait for the 'close' event. Closing
+            // the client is asynchronous and leaving it open can keep the Node event
+            // loop alive and cause the test runner to report a pending promise.
+            await new Promise<void>((resolve) => {
+                try {
+                    websocketClient.once("close", () => resolve());
+                    websocketClient.close();
+                } catch {
+                    // If the socket is already closed or an error occurs, resolve
+                    // immediately so the cleanup continues.
+                    resolve();
+                }
+            });
         }
         if (testDir) {
             await rm(testDir, { recursive: true, force: true });

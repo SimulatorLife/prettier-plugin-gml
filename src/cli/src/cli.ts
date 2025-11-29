@@ -113,7 +113,7 @@ const IGNORE_PATH = path.resolve(WRAPPER_DIRECTORY, ".prettierignore");
 const INITIAL_WORKING_DIRECTORY = path.resolve(process.cwd());
 
 const GML_EXTENSION = ".gml";
-const FALLBACK_EXTENSIONS = Object.freeze([GML_EXTENSION]); // Fallback exists for legacy env vars; only the GML extension is supported.
+const FALLBACK_EXTENSIONS = Object.freeze([GML_EXTENSION]); // TODO: Remove this fallback/legacy variable and JUST have GML_EXTENSION
 
 const ParseErrorAction = Object.freeze({
     REVERT: "revert",
@@ -997,7 +997,11 @@ async function handleFormattingError(error, filePath) {
     // Treat parser syntax errors as non-fatal when configured to SKIP so
     // repo-wide formatting runs (e.g., in CI/test) don't fail due to
     // intentionally malformed fixtures.
-    const isParseError = !!(error && (error.name === "GameMakerSyntaxError" || error instanceof Error && error.name === "GameMakerSyntaxError"));
+    const isParseError = !!(
+        error &&
+        (error.name === "GameMakerSyntaxError" ||
+            (error instanceof Error && error.name === "GameMakerSyntaxError"))
+    );
 
     // If the configured action is SKIP and this is a parse error, suppress
     // stderr noise and do not increment the failure counters. Keep the

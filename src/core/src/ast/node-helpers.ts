@@ -480,22 +480,20 @@ export function hasArrayPropertyEntries(node, propertyName) {
 }
 
 export function getBodyStatements(
-    node: GameMakerAstNode | Record<string, unknown>
+    node: GameMakerAstNode
 ): Array<GameMakerAstNode> {
     if (!isNode(node)) {
         return [];
     }
     // TODO: Use the proper typing here
-    return asArray(node.body as GameMakerAstNode[] | null | undefined);
+    return asArray(node.body);
 }
 
-export function hasBodyStatements(node: Record<string, unknown>): boolean {
+export function hasBodyStatements(node: GameMakerAstNode): boolean {
     return hasArrayPropertyEntries(node, "body");
 }
 
-export function isProgramOrBlockStatement(
-    node: Record<string, unknown>
-): boolean {
+export function isProgramOrBlockStatement(node: GameMakerAstNode): boolean {
     if (!isNode(node)) {
         return false;
     }

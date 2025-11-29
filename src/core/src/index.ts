@@ -19,7 +19,12 @@ type CoreNamespace = typeof AST &
     typeof Resources &
     typeof IdentifierMetadata &
     typeof DeprecatedBuiltinVariables &
-    typeof Comments;
+    typeof Comments & {
+        // Explicitly include the repo root helper for cross-package typing
+        // so consumers can call `Core.findRepoRoot` without type errors.
+        findRepoRoot(startDir: string): Promise<string>;
+        findRepoRootSync(startDir: string): string;
+    };
 
 // Public namespace flattening mirrors the monorepo convention: expose each
 // helper directly flattened into the Core namespace so consumers always
@@ -27,6 +32,8 @@ type CoreNamespace = typeof AST &
 export const Core: CoreNamespace = Object.freeze({
     ...AST,
     ...FS,
+    findRepoRoot: FS.findRepoRoot,
+    findRepoRootSync: FS.findRepoRootSync,
     ...Metrics,
     ...Utils,
     ...Resources,

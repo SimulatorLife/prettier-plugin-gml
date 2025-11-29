@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,11 +8,23 @@ import { promisify } from "node:util";
 import { execFile } from "node:child_process";
 
 import { describe, it } from "node:test";
+import { Core } from "@gml-modules/core";
 
 const execFileAsync = promisify(execFile);
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const wrapperPath = path.resolve(currentDirectory, "../src/cli.js");
-const repoRootDirectory = path.resolve(currentDirectory, "../../..");
+// The repository compiles TypeScript into a parallel 'dist' directory; when
+// running tests against compiled JS, prefer the emitted CLI entrypoint
+// (dist/index.js) and fallback to the source-relative path when running
+// tests directly against TypeScript sources.
+const candidateDist = path.resolve(currentDirectory, "../dist/index.js");
+const wrapperPath = fsSync.existsSync(candidateDist)
+    ? candidateDist
+    : path.resolve(currentDirectory, "../src/cli.js");
+// Note: when running compiled tests (dist/*) the test file directory may
+// be nested differently than the TypeScript sources. Resolve the VCS/root
+// directory by walking upward until we find project metadata (package.json)
+// to ensure path computations remain correct regardless of compiled vs
+// source test locations.
 
 // These integration tests intentionally rely on the strict assertion helpers
 // (e.g. assert.strictEqual/assert.deepStrictEqual) to avoid the deprecated
@@ -40,6 +53,50 @@ describe("Prettier wrapper CLI", () => {
             assert.strictEqual(formatted, "var a = 1;\n");
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
+    it("does not mutate tracked repository fixtures when run in write-mode from repo root", async () => {
+        // This test validates that running the CLI in write-mode from the
+        // repository root does not result in silent mutation of tracked
+        // fixture files. If it ever does, the test will fail and restore
+        // the original file contents to avoid leaving the workspace dirty.
+        const repoRootDirectory = await Core.findRepoRoot(currentDirectory);
+        const fixturePath = path.join(
+            repoRootDirectory,
+            "src/plugin/test/testFormatting.input.gml"
+        );
+
+        // Read the baseline content for the tracked fixture and ensure we
+        // restore it after the assertion so test runs remain side-effect
+        // free. If the CLI writes to the fixture, the equality assertion
+        // below will fail and alert reviewers to the regression.
+        const baseline = await fs.readFile(fixturePath, "utf8");
+
+        try {
+            const env = {
+                ...process.env,
+                PRETTIER_PLUGIN_GML_DEFAULT_ACTION: "format",
+                PRETTIER_PLUGIN_GML_ON_PARSE_ERROR: "skip",
+                PRETTIER_PLUGIN_GML_LOG_LEVEL: "silent"
+            };
+
+            await execFileAsync("node", [wrapperPath], {
+                cwd: repoRootDirectory,
+                env,
+                maxBuffer: 1024 * 1024 * 64
+            });
+
+            const after = await fs.readFile(fixturePath, "utf8");
+            assert.strictEqual(
+                after,
+                baseline,
+                "Running the wrapper from the repository root in write-mode mutated a tracked fixture. Tests should never format real repo fixtures in-place."
+            );
+        } finally {
+            // Ensure we always restore the baseline to avoid leaving the
+            // repository in a changed state even when a regression occurs.
+            await fs.writeFile(fixturePath, baseline, "utf8");
         }
     });
 
@@ -345,7 +402,9 @@ describe("Prettier wrapper CLI", () => {
             // style under certain conditions; the purpose of this test is to
             // ensure we used the plugin (not the babel parser), so both are
             // acceptable.
-            const multiLine = ["enum MyEnum {", "    value", "}", ""].join("\n");
+            const multiLine = ["enum MyEnum {", "    value", "}", ""].join(
+                "\n"
+            );
             const singleLine = "enum MyEnum {value}\n";
             assert.ok(
                 formatted === multiLine || formatted === singleLine,
@@ -1292,65 +1351,68 @@ describe("Prettier wrapper CLI", () => {
         const sampleFile = path.join(tempDirectory, "script.gml");
         await fs.writeFile(sampleFile, "var    a=1;\n", "utf8");
         try {
+            // Run the wrapper from the temporary project root. The wrapper will scan and
+            // format files across the temporary directory, and several debug-level
+            // diagnostic services may emit very large numbers of log lines which
+            // can overflow the default child process buffer. Suppress noisy debug
+            // logs and increase the buffer as a safeguard to avoid intermittent
+            // test failures.
+            const env = {
+                ...process.env,
+                PRETTIER_PLUGIN_GML_DEFAULT_ACTION: "format",
+                // Skip parse errors for this repo-wide invocation so tests don't
+                // fail due to sample test inputs intentionally including preprocessor
+                // directives (e.g., `#` tokens in SnowState.gml).
+                PRETTIER_PLUGIN_GML_ON_PARSE_ERROR: "skip",
+                // Silence debug-level noise so the test can reliably parse the
+                // human-facing summary output from stdout.
+                PRETTIER_PLUGIN_GML_LOG_LEVEL: "silent"
+            };
 
-        // Run the wrapper from the temporary project root. The wrapper will scan and
-        // format files across the temporary directory, and several debug-level
-        // diagnostic services may emit very large numbers of log lines which
-        // can overflow the default child process buffer. Suppress noisy debug
-        // logs and increase the buffer as a safeguard to avoid intermittent
-        // test failures.
-        const env = {
-            ...process.env,
-            PRETTIER_PLUGIN_GML_DEFAULT_ACTION: "format",
-            // Skip parse errors for this repo-wide invocation so tests don't
-            // fail due to sample test inputs intentionally including preprocessor
-            // directives (e.g., `#` tokens in SnowState.gml).
-            PRETTIER_PLUGIN_GML_ON_PARSE_ERROR: "skip",
-            // Silence debug-level noise so the test can reliably parse the
-            // human-facing summary output from stdout.
-            PRETTIER_PLUGIN_GML_LOG_LEVEL: "silent"
-        };
+            const { stdout, stderr } = await execFileAsync(
+                "node",
+                [wrapperPath],
+                {
+                    cwd: tempDirectory,
+                    // 8MB max buffer is sufficient in CI for reduced logging; keep it
+                    // modest to avoid masking legitimate issues while still preventing
+                    // intermittent RangeError failures on macOS/Node.
+                    // Increase to 64MB to safely capture expanded output when running
+                    // the wrapper from the repository root. We also explicitly unset
+                    // the DEBUG environment variable below to avoid contaminating
+                    // stdout with other library-level debug streams.
+                    maxBuffer: 1024 * 1024 * 64,
+                    env: {
+                        ...env,
+                        DEBUG: "",
+                        // Some internal tooling or dependencies also respect NODE_DEBUG,
+                        // ensure it is unset for the test run to avoid excessive log
+                        // output in CI.
+                        NODE_DEBUG: ""
+                    }
+                }
+            );
 
-        const { stdout, stderr } = await execFileAsync("node", [wrapperPath], {
-            cwd: tempDirectory,
-            // 8MB max buffer is sufficient in CI for reduced logging; keep it
-            // modest to avoid masking legitimate issues while still preventing
-            // intermittent RangeError failures on macOS/Node.
-            // Increase to 64MB to safely capture expanded output when running
-            // the wrapper from the repository root. We also explicitly unset
-            // the DEBUG environment variable below to avoid contaminating
-            // stdout with other library-level debug streams.
-            maxBuffer: 1024 * 1024 * 64,
-            env: {
-                ...env,
-                DEBUG: "",
-                // Some internal tooling or dependencies also respect NODE_DEBUG,
-                // ensure it is unset for the test run to avoid excessive log
-                // output in CI.
-                NODE_DEBUG: ""
-            }
-        });
-
-        assert.strictEqual(stderr, "", "Expected stderr to be empty");
-        assert.match(
-            stdout,
-            /found in the current (?:working )?directory(?: \(\.\))?\./,
-            "Expected stdout to describe the repository root using the current directory phrasing"
-        );
-        assert.ok(
-            stdout.includes("found in the current working directory (.)"),
-            "Expected stdout to describe the repository root with a clear label"
-        );
-        assert.ok(
-            !stdout.includes("found in .."),
-            "Expected stdout not to include duplicate punctuation when describing the repository root"
-        );
-        assert.ok(
-            stdout.includes(
-                "For example: npx prettier-plugin-gml format path/to/project or npm run format:gml -- path/to/project."
-            ),
-            "Expected stdout to repeat the CLI guidance when invoked from the repository root"
-        );
+            assert.strictEqual(stderr, "", "Expected stderr to be empty");
+            assert.match(
+                stdout,
+                /found in the current (?:working )?directory(?: \(\.\))?\./,
+                "Expected stdout to describe the repository root using the current directory phrasing"
+            );
+            assert.ok(
+                stdout.includes("found in the current working directory (.)"),
+                "Expected stdout to describe the repository root with a clear label"
+            );
+            assert.ok(
+                !stdout.includes("found in .."),
+                "Expected stdout not to include duplicate punctuation when describing the repository root"
+            );
+            assert.ok(
+                stdout.includes(
+                    "For example: npx prettier-plugin-gml format path/to/project or npm run format:gml -- path/to/project."
+                ),
+                "Expected stdout to repeat the CLI guidance when invoked from the repository root"
+            );
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
