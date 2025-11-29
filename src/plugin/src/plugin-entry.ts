@@ -98,7 +98,12 @@ async function format(source, options = {}) {
         throw new TypeError("Expected Prettier to return a string result.");
     }
 
-    return formatted.trim();
+    // Return the formatted source verbatim so we keep precise newline and
+    // whitespace semantics expected by the golden test fixtures. Using
+    // `trim()` previously removed leading/trailing blank lines (including
+    // the canonical trailing newline) which caused a large number of
+    // printing tests to fail. Keep the value as emitted by Prettier.
+    return formatted;
 }
 
 const defaultOptions = Core.createReadOnlyView<GmlPluginDefaultOptions>(

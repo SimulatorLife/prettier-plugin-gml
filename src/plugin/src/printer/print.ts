@@ -4341,7 +4341,15 @@ function collectSyntheticDocCommentLines(
         }
 
         comment.printed = true;
-        existingDocLines.push(formatted);
+        // Split any multi-line formatted comment into separate array entries
+        if (typeof formatted === "string" && formatted.includes("\n")) {
+            const parts = formatted.split(/\r?\n/);
+            for (const part of parts) {
+                existingDocLines.push(part);
+            }
+        } else {
+            existingDocLines.push(formatted);
+        }
     }
     // Diagnostic: log collected doc lines and raw comments for this node to aid debugging
     if (process.env.GML_PRINTER_DEBUG) {
@@ -4445,6 +4453,15 @@ function collectSyntheticDocCommentLines(
                             Parser.Comments.resolveLineCommentOptions(options)
                         )
                     );
+                    // Flatten any multiline entries in the collected set
+                    const flattenedCollected = [] as string[];
+                    for (const entry of collected) {
+                        if (typeof entry === "string" && entry.includes("\n")) {
+                            flattenedCollected.push(...entry.split(/\r?\n/));
+                        } else {
+                            flattenedCollected.push(entry);
+                        }
+                    }
                     for (const c of docCandidates) c.printed = true;
                     if (process.env.GML_PRINTER_DEBUG) {
                         console.debug(
@@ -4452,7 +4469,7 @@ function collectSyntheticDocCommentLines(
                         );
                     }
                     return {
-                        existingDocLines: collected,
+                        existingDocLines: flattenedCollected,
                         remainingComments: Core.toMutableArray(rawComments)
                     };
                 }
@@ -4553,8 +4570,17 @@ function collectSyntheticDocCommentLines(
                             `[doc:debug] collectSyntheticDocCommentLines (raw-source): node=${(node && node.type) || String(node)} promoted=${formatted.length}`
                         );
                     }
+                    // Flatten any multiline entries in the formatted set
+                    const flattenedFormatted = [] as string[];
+                    for (const entry of formatted) {
+                        if (typeof entry === "string" && entry.includes("\n")) {
+                            flattenedFormatted.push(...entry.split(/\r?\n/));
+                        } else {
+                            flattenedFormatted.push(entry);
+                        }
+                    }
                     return {
-                        existingDocLines: formatted,
+                        existingDocLines: flattenedFormatted,
                         remainingComments: Core.toMutableArray(rawComments)
                     };
                 }

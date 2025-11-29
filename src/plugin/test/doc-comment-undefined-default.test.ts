@@ -119,8 +119,44 @@ test("retains optional syntax when constructors keep explicit undefined defaults
 });
 
 test("synthesized docs mark retained undefined defaults as optional", async () => {
-    const fixturePath = path.resolve(__dirname, "testFunctions.input.gml");
-    const optionsPath = path.resolve(__dirname, "testFunctions.options.json");
+    async function resolveFixture(name: string) {
+        const compiledCandidate = path.resolve(__dirname, name);
+        try {
+            // prefer compiled fixtures if present (dist/test). Otherwise, fall back to the
+            // source test fixtures under src/plugin/test for local/source test runs.
+            const stat = await fs.stat(compiledCandidate);
+            if (stat && stat.isFile()) return compiledCandidate;
+        } catch (e) {
+            // compiled fixture not present; try to resolve the source fixture by swapping
+            // a "dist" path component back to "src" — this handles running the compiled
+            // tests in dist/ and falling back to the original sources at src/ during dev.
+            // Replace the compiled test path (dist/test) back to the source test
+            // path (src/plugin/test). The compiled tests live under
+            // src/plugin/dist/test when running compiled artifacts, so moving up
+            // two levels and into the test directory reliably locates the
+            // source fixtures regardless of whether the test runner executes
+            // the compiled or source files.
+            const fallbackCandidate = path.resolve(
+                __dirname,
+                "..",
+                "..",
+                "test",
+                name
+            );
+            try {
+                const stat2 = await fs.stat(fallbackCandidate);
+                if (stat2 && stat2.isFile()) return fallbackCandidate;
+            } catch (e2) {
+                // final fallback: resolve relative to src/plugin/test from whatever __dirname is
+                const finalCandidate = path.resolve(__dirname, "..", "test", name);
+                return finalCandidate;
+            }
+        }
+        return compiledCandidate;
+    }
+
+    const fixturePath = await resolveFixture("testFunctions.input.gml");
+    const optionsPath = await resolveFixture("testFunctions.options.json");
     const [source, rawOptions] = await Promise.all([
         fs.readFile(fixturePath, "utf8"),
         fs.readFile(optionsPath, "utf8")

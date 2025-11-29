@@ -40,7 +40,9 @@
     "formatter",
     "cli",
     "transpiler",
-    "feather"
+    "feather",
+    "2.3+",
+    "refactor"
   ],
   "author": "Two Scoop Studio",
   "engines": {
