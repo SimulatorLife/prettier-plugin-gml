@@ -4,16 +4,16 @@ export type DebuggableMap<K = unknown, V = unknown> = Map<K, V> & {
 };
 
 export type IdentifierCasePlanSnapshot = {
-    projectIndex?: unknown | null;
+    projectIndex?: unknown;
     projectRoot?: string | null;
-    bootstrap?: unknown | null;
+    bootstrap?: unknown;
     renameMap?: DebuggableMap<string, string> | null;
-    renamePlan?: unknown | null;
+    renamePlan?: unknown;
     conflicts?: Array<unknown> | null;
-    metricsReport?: unknown | null;
-    metrics?: unknown | null;
-    assetRenames?: unknown | null;
-    assetRenameResult?: unknown | null;
+    metricsReport?: unknown;
+    metrics?: unknown;
+    assetRenames?: unknown;
+    assetRenameResult?: unknown;
     assetRenamesApplied?: boolean | null;
     dryRun?: boolean | null;
     planGenerated?: boolean;

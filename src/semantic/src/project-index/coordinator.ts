@@ -172,7 +172,7 @@ export function createProjectIndexCoordinator({
         Core.throwIfAborted(abortController.signal, DISPOSED_MESSAGE);
     }
 
-    async function ensureReady(descriptor) {
+    function ensureReady(descriptor) {
         ensureNotDisposed();
         const context = resolveEnsureReadyContext({
             descriptor,

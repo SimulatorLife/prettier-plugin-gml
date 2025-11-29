@@ -1,5 +1,4 @@
-import type { MutableGameMakerAstNode } from "@gml-modules/core";
-import { Core } from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { ScopeTracker } from "./scope-tracker.js";
 
 /**

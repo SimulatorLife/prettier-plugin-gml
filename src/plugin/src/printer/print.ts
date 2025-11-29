@@ -3,8 +3,7 @@
 
 // TODO: ALL doc-comment/function-doc functionality here should be extracted and moved to Core's doc-comment manager/module (e.g. computeSyntheticFunctionDocLines, normalizeParamDocType, collectImplicitArgumentDocNames, etc.). Any tests related to doc-comments should also be moved accordingly. Need to be VERY careful that no functionality is lost during the migration. Also be VERY dilligent to ensure that no duplicate functionality is created during the migration.
 
-import { Core } from "@gml-modules/core";
-import type { MutableDocCommentLines } from "@gml-modules/core";
+import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 import { builders, utils } from "prettier/doc";
 
 import {

@@ -20,7 +20,7 @@ class StripCommentsTransform extends FunctionalParserTransform<StripCommentsTran
     protected execute(
         ast: any,
         options: StripCommentsTransformOptions
-    ): MutableGameMakerAstNode | any {
+    ): MutableGameMakerAstNode {
         if (!ast || typeof ast !== "object") {
             return ast;
         }

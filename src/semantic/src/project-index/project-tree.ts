@@ -123,8 +123,7 @@ async function resolveEntryStats({
     absolutePath,
     fsFacade,
     ensureNotAborted,
-    metrics,
-    signal
+    metrics
 }) {
     try {
         const stats = await fsFacade.stat(absolutePath);
@@ -161,8 +160,7 @@ async function processDirectoryEntries({
             absolutePath: descriptor.absolutePath,
             fsFacade,
             ensureNotAborted,
-            metrics,
-            signal
+            metrics
         });
 
         if (!stats) {

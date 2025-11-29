@@ -10,13 +10,13 @@ import { convertManualMathExpressions } from "./convert-manual-math.js";
 import { convertUndefinedGuardAssignments } from "./convert-undefined-guard-assignments.js";
 import { transform as annotateStaticFunctionOverrides } from "./annotate-static-overrides.js";
 
-type TransformOptions = Record<string, unknown>;
-type EmptyTransformOptions = Record<string, never>;
-
 import {
     ParserTransform,
     FunctionalParserTransform
 } from "./functional-transform.js";
+
+type TransformOptions = Record<string, unknown>;
+type EmptyTransformOptions = Record<string, never>;
 
 type CommentTools = {
     addTrailingComment: (...args: Array<unknown>) => unknown;

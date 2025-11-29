@@ -1,6 +1,5 @@
 import { Parser } from "@gml-modules/parser";
-import type { EmitOptions, SemOracle } from "../emitter/index.js";
-import { GmlToJsEmitter, makeDummyOracle } from "../emitter/index.js";
+import { GmlToJsEmitter, makeDummyOracle, type EmitOptions, type SemOracle } from "../emitter/index.js";
 
 export interface TranspileScriptRequest {
     readonly sourceText: string;
@@ -29,9 +28,9 @@ export class GmlTranspiler {
         this.emitterOptions = dependencies.emitterOptions;
     }
 
-    async transpileScript(
+    transpileScript(
         request: TranspileScriptRequest
-    ): Promise<ScriptPatch> {
+    ): ScriptPatch {
         if (!request || typeof request !== "object") {
             throw new TypeError("transpileScript requires a request object");
         }

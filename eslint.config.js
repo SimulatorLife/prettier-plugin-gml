@@ -107,7 +107,9 @@ const tsConfig = defineConfig({
         },
         parser: tseslint.parser,
         parserOptions: {
-            projectService: true,
+            // Use specific tsconfig instead of project service to avoid
+            // TypeScript overload signature issues with complex function types
+            project: ["./tsconfig.eslint.json"],
             tsconfigRootDir
         }
     },
@@ -306,6 +308,15 @@ const tsConfig = defineConfig({
         radix: ["warn", "as-needed"],
         yoda: ["error", "never", { exceptRange: true }],
 
+        // TypeScript
+        // TODO: Raise some of these to "error" after fixing existing issues
+        "@typescript-eslint/no-unsafe-assignment": "warn",
+        "@typescript-eslint/no-unsafe-member-access": "warn",
+        "@typescript-eslint/no-unsafe-return": "warn",
+        "@typescript-eslint/no-unsafe-argument": "warn",
+        "@typescript-eslint/no-unsafe-call": "warn",
+        "@typescript-eslint/no-explicit-any": "warn",
+
         /* unicorn plugin tweaks beyond the preset */
         "unicorn/no-empty-file": "error",
         "unicorn/consistent-function-scoping": "warn",
@@ -337,7 +348,6 @@ const tsConfig = defineConfig({
         "unicorn/prefer-at": "warn",
         "unicorn/no-new-array": "warn",
         "unicorn/no-array-reverse": "warn",
-
         "unicorn/no-array-reduce": "off",
         "unicorn/prefer-spread": "off",
         "unicorn/no-array-for-each": "off",
@@ -516,6 +526,14 @@ export default [
         }
     },
 
+    // Runtime-Wrapper allow eval
+    {
+        files: ["src/runtime-wrapper/**"],
+        rules: {
+            "@typescript-eslint/no-implied-eval": "off"
+        }
+    },
+
     // CLI: allow process.exit
     {
         files: ["src/cli/**"],
@@ -537,11 +555,26 @@ export default [
             "@typescript-eslint/no-unnecessary-type-assertion": "off"
         }
     },
+    // Additional TypeScript rule relaxations for files that trigger overload signature issues
+    {
+        files: ["src/semantic/test/project-index-defaults.test.ts"],
+        rules: {
+            "@typescript-eslint/no-floating-promises": "off",
+            "@typescript-eslint/no-misused-promises": "off"
+        }
+    },
 
     // Tests: relax a few noisy limits
     // Goes AFTER the main ts config to override
     {
         files: ["**/test/**", "*.test.ts", "*.spec.ts"],
+        languageOptions: {
+            parserOptions: {
+                // Use specific project configuration instead of project service to avoid
+                // TypeScript overload signature issues with node:test functions
+                project: ["./tsconfig.eslint.json"]
+            }
+        },
         rules: {
             quotes: ["off"],
             "max-lines-per-function": "off",
@@ -559,10 +592,12 @@ export default [
             "no-promise-executor-return": "off",
             "@typescript-eslint/no-floating-promises": "warn",
             "@typescript-eslint/no-unsafe-argument": "warn",
-            "@typescript-eslint/no-unsafe-assignment": "warn",
             "@typescript-eslint/no-unsafe-call": "warn",
             "@typescript-eslint/no-unsafe-member-access": "warn",
-            "@typescript-eslint/no-unsafe-return": "warn"
+            "@typescript-eslint/unbound-method": "warn",
+            "@typescript-eslint/no-explicit-any": "warn",
+            "@typescript-eslint/no-unsafe-return": "warn",
+            "@typescript-eslint/no-unsafe-assignment": "warn"
         }
     },
 

@@ -140,14 +140,6 @@ function createIdentifierCaseServiceRegistry({
             // used to resolve this service during tests. Tests sometimes swap
             // providers and the global registry can be mutated; logging here
             // helps correlate runtime behaviour with the provider identity.
-            try {
-                const prov = provider;
-                console.debug(
-                    `[DBG] createIdentifierCaseServiceRegistry.resolve: resolving provider for ${providerTypeErrorMessage}`
-                );
-            } catch {
-                /* ignore */
-            }
 
             cachedService = normalize(provider());
 
@@ -378,16 +370,8 @@ export function prepareIdentifierCasePlan(options) {
  */
 export function getIdentifierCaseRenameForNode(
     node: GameMakerAstNode | null,
-    options: Record<string, unknown> | null | undefined
+    options: Record<string, string> | null | undefined
 ) {
-    try {
-        console.debug(
-            `[DBG] plan-service:getIdentifierCaseRenameForNode: enter nodeStart=${JSON.stringify(node?.start ?? null)} filepath=${options?.filepath ?? null}`
-        );
-    } catch {
-        /* ignore */
-    }
-
     return resolveIdentifierCaseRenameLookupService().getIdentifierCaseRenameForNode(
         node,
         options

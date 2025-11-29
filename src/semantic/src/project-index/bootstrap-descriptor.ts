@@ -16,7 +16,7 @@ type ProjectIndexBuildOptions = {
         facade?: ProjectIndexParserFacade | null;
         parse?: (text: string, filePath?: string) => unknown;
     } | null;
-    parseGml?: (text: string, filePath?: string) => unknown | null;
+    parseGml?: (text: string, filePath?: string) => unknown;
 };
 
 export function createProjectIndexBuildOptions({

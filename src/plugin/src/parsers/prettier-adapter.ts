@@ -3,11 +3,11 @@
 // Transform options. This is intentionally small; it demonstrates the mapping
 // layer the plugin should own.
 
-import { Parser } from "@gml-modules/parser";
-import type {
-    ParserOptions,
-    ParserTransformName,
-    ParserTransformOptions
+import {
+    Parser,
+    type ParserOptions,
+    type ParserTransformName,
+    type ParserTransformOptions
 } from "@gml-modules/parser";
 
 type PrettierGmlOptions = {

@@ -126,7 +126,7 @@ test("synthesized docs mark retained undefined defaults as optional", async () =
             // source test fixtures under src/plugin/test for local/source test runs.
             const stat = await fs.stat(compiledCandidate);
             if (stat && stat.isFile()) return compiledCandidate;
-        } catch (e) {
+        } catch {
             // compiled fixture not present; try to resolve the source fixture by swapping
             // a "dist" path component back to "src" — this handles running the compiled
             // tests in dist/ and falling back to the original sources at src/ during dev.
@@ -146,15 +146,14 @@ test("synthesized docs mark retained undefined defaults as optional", async () =
             try {
                 const stat2 = await fs.stat(fallbackCandidate);
                 if (stat2 && stat2.isFile()) return fallbackCandidate;
-            } catch (e2) {
+            } catch {
                 // final fallback: resolve relative to src/plugin/test from whatever __dirname is
-                const finalCandidate = path.resolve(
+                return path.resolve(
                     __dirname,
                     "..",
                     "test",
                     name
                 );
-                return finalCandidate;
             }
         }
         return compiledCandidate;

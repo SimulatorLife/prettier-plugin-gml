@@ -1,9 +1,8 @@
-import { Core } from "@gml-modules/core";
-import type {
-    GameMakerAstNode,
-    MutableGameMakerAstNode
+import {
+    Core, 
+    type GameMakerAstNode,
+    type MutableGameMakerAstNode
 } from "@gml-modules/core";
-
 import {
     ScopeOverrideKeyword,
     formatKnownScopeOverrideKeywords,
@@ -23,7 +22,7 @@ type ScopeSummary = {
 };
 
 type ScopeRole = {
-    type?: string | "declaration" | "reference";
+    type?: string;
     scopeOverride?: unknown;
     tags?: Iterable<string>;
     kind?: string;
@@ -170,7 +169,7 @@ export class ScopeTracker {
     }
 
     withScope<T>(kind: string, callback: () => T): T {
-        const scope = this.enterScope(kind);
+        this.enterScope(kind);
         try {
             return callback();
         } finally {

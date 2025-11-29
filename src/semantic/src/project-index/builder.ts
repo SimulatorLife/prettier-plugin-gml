@@ -1,4 +1,3 @@
-// @ts-nocheck
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
@@ -1768,7 +1767,6 @@ async function processProjectGmlFilesForIndex({
     ensureNotAborted();
 }
 function finalizeProjectIndexResult({
-    metrics,
     metricsReporting,
     options,
     projectIndex
@@ -1783,7 +1781,7 @@ function finalizeProjectIndexResult({
 export async function buildProjectIndex(
     projectRoot,
     fsFacade = defaultFsFacade,
-    options = {}
+    options = {} as any
 ) {
     if (!projectRoot) {
         throw new Error("projectRoot must be provided to buildProjectIndex");
@@ -1858,7 +1856,6 @@ export async function buildProjectIndex(
     stopTotal();
     const projectIndex = projectIndexPayload;
     return finalizeProjectIndexResult({
-        metrics,
         metricsReporting,
         options,
         projectIndex

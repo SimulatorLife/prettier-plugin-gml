@@ -1,9 +1,6 @@
-import { Core } from "@gml-modules/core";
-import type { MutableGameMakerAstNode } from "@gml-modules/core";
-
+import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { setIdentifierCaseOption } from "./option-store.js";
-import type { DebuggableMap } from "./types.js";
-import { getDebugId } from "./types.js";
+import { getDebugId, type DebuggableMap } from "./types.js";
 
 function buildRenameKey(_scopeId, location) {
     // Accept numeric start indices as well as location objects. Some AST
@@ -37,7 +34,7 @@ function buildRenameKey(_scopeId, location) {
  */
 export function getIdentifierCaseRenameForNode(
     node: MutableGameMakerAstNode | null,
-    options: any | null
+    options: any
 ) {
     if (!node || !options) {
         return null;

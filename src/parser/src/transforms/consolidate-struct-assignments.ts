@@ -1,5 +1,4 @@
-import { Core } from "@gml-modules/core";
-import type { MutableGameMakerAstNode } from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { FunctionalParserTransform } from "./functional-transform.js";
 
 type CommentTools = {
@@ -527,8 +526,7 @@ function allowTrailingCommentsBetween({
     left,
     right,
     precedingStatement,
-    precedingProperty,
-    commentTools
+    precedingProperty
 }) {
     const commentEntries = tracker.getEntriesBetween(left, right);
     if (commentEntries.length === 0) {
