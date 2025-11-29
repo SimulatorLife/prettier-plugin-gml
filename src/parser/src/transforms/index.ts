@@ -13,7 +13,10 @@ import { transform as annotateStaticFunctionOverrides } from "./annotate-static-
 type TransformOptions = Record<string, unknown>;
 type EmptyTransformOptions = Record<string, never>;
 
-import { ParserTransform, FunctionalParserTransform } from "./functional-transform.js";
+import {
+    ParserTransform,
+    FunctionalParserTransform
+} from "./functional-transform.js";
 
 type CommentTools = {
     addTrailingComment: (...args: Array<unknown>) => unknown;
