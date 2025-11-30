@@ -3,7 +3,7 @@ import {
     createNumericTypeErrorFormatter,
     isFiniteNumber
 } from "../shared/dependencies.js";
-import { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
+import { createIntegerOptionToolkit } from "../cli-core/integer-option-toolkit.js";
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";

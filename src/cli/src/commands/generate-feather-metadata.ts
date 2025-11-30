@@ -4,7 +4,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { Command } from "commander";
-import type { CommanderCommandLike } from "../core/commander-types.js";
+import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 
 import {
     compactArray,
@@ -27,9 +27,9 @@ import {
     ManualWorkflowOptions,
     prepareManualWorkflow
 } from "../modules/manual/workflow.js";
-import { applyStandardCommandOptions } from "../core/command-standard-options.js";
-import { createCliCommandManager } from "../core/command-manager.js";
-import { handleCliError } from "../core/errors.js";
+import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
+import { createCliCommandManager } from "../cli-core/command-manager.js";
+import { handleCliError } from "../cli-core/errors.js";
 
 const DEFAULT_OUTPUT_PATH = resolveFromRepoRoot(
     "resources",

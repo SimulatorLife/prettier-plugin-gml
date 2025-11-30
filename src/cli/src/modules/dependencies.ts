@@ -1,20 +1,20 @@
 export * from "../shared/dependencies.js";
 
-export { applyStandardCommandOptions } from "../core/command-standard-options.js";
+export { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 
-export { resolveCommandUsage } from "../core/command-usage.js";
+export { resolveCommandUsage } from "../cli-core/command-usage.js";
 
-export { CliUsageError, createCliErrorDetails } from "../core/errors.js";
+export { CliUsageError, createCliErrorDetails } from "../cli-core/errors.js";
 
 export {
     coercePositiveInteger,
     resolveIntegerOption,
     wrapInvalidArgumentResolver
-} from "../core/command-parsing.js";
+} from "../cli-core/command-parsing.js";
 
-export { applyEnvOptionOverrides } from "../core/env-overrides.js";
+export { applyEnvOptionOverrides } from "../cli-core/env-overrides.js";
 
-export { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
+export { createIntegerOptionToolkit } from "../cli-core/integer-option-toolkit.js";
 
 export {
     SuiteOutputFormat,
@@ -24,7 +24,7 @@ export {
     ensureSuitesAreKnown,
     resolveRequestedSuites,
     resolveSuiteOutputFormatOrThrow
-} from "../core/command-suite-helpers.js";
+} from "../cli-core/command-suite-helpers.js";
 
 // Plugin runtime helpers live in ./plugin-runtime-dependencies.js to keep this
 // bundle focused on shared CLI utilities.

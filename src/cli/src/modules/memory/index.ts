@@ -44,7 +44,7 @@ import {
 } from "../dependencies.js";
 import { loadGmlParser } from "./gml-parser.js";
 import { importPluginModule } from "../plugin-runtime-dependencies.js";
-import type { CommanderCommandLike } from "../../core/commander-types.js";
+import type { CommanderCommandLike } from "../../cli-core/commander-types.js";
 
 export const DEFAULT_ITERATIONS = 500_000;
 export const MEMORY_ITERATIONS_ENV_VAR = "GML_MEMORY_ITERATIONS";

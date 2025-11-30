@@ -46,8 +46,8 @@ import {
 } from "./suite-options.js";
 import { formatMetricValue } from "./metric-formatters.js";
 import type { WorkflowPathFilterOptions } from "../../workflow/path-filter.js";
-import type { SuiteRunner } from "../../core/command-suite-helpers.js";
-import type { CommanderCommandLike } from "../../core/commander-types.js";
+import type { SuiteRunner } from "../../cli-core/command-suite-helpers.js";
+import type { CommanderCommandLike } from "../../cli-core/commander-types.js";
 
 export { normalizeFixtureRoots } from "../dependencies.js";
 

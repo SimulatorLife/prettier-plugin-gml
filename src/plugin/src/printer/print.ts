@@ -5021,9 +5021,19 @@ function mergeSyntheticDocComments(
         normalizedExistingLines._preserveDescriptionBreaks = true;
     }
 
+    // Normalize legacy `Returns:` description lines early so the synthetic
+    // computation sees an existing `@returns` tag when conversion occurs.
+    // This prevents synthetic `@returns` entries from being added and
+    // avoids conversion regressions where a legacy description would be
+    // overwritten or duplicated by a synthetic `@returns` later in the
+    // merging process.
+    const _convertedExisting = Core.convertLegacyReturnsDescriptionLinesToMetadata(
+        normalizedExistingLines
+    );
+
     const _computedSynthetic = computeSyntheticFunctionDocLines(
         node,
-        existingDocLines,
+        _convertedExisting,
         options,
         overrides
     );
@@ -7193,13 +7203,17 @@ function computeSyntheticFunctionDocLines(
                 for (const entry of implicitArgumentDocNames) {
                 if (!entry) continue;
                 const { index, canonical, fallbackCanonical } = entry;
+                const suppressedCanonicals =
+                    suppressedImplicitDocCanonicalByNode.get(node);
+
                 const shouldAddFallback =
                     entry.hasDirectReference === true &&
                     Number.isInteger(index) &&
                     index >= 0 &&
                     fallbackCanonical &&
                     fallbackCanonical !== canonical &&
-                    !documentedParamNames.has(fallbackCanonical);
+                    !documentedParamNames.has(fallbackCanonical) &&
+                    !(suppressedCanonicals && suppressedCanonicals.has(fallbackCanonical));
 
                 // Emit a light debug trace when debugging sample functions so
                 // we can later filter for why a fallback wasn't added.
@@ -7219,7 +7233,8 @@ function computeSyntheticFunctionDocLines(
                     index >= 0 &&
                     fallbackCanonical &&
                     fallbackCanonical !== canonical &&
-                    !documentedParamNames.has(fallbackCanonical)
+                        !documentedParamNames.has(fallbackCanonical) &&
+                        !(suppressedCanonicals && suppressedCanonicals.has(fallbackCanonical))
                 ) {
                     try {
                         if (typeof fname === "string" && fname.includes("sample3")) {
@@ -9905,9 +9920,10 @@ function shouldGenerateSyntheticDocForFunction(
         return false;
     }
 
+    const convertedExistingForSynthetic = Core.convertLegacyReturnsDescriptionLinesToMetadata(existingDocLines);
     const syntheticLines = computeSyntheticFunctionDocLines(
         node,
-        existingDocLines,
+        convertedExistingForSynthetic,
         options
     );
 

@@ -16,7 +16,7 @@ import {
     toArray,
     toTrimmedString
 } from "../shared/dependencies.js";
-import { CliUsageError, handleCliError } from "../core/errors.js";
+import { CliUsageError, handleCliError } from "../cli-core/errors.js";
 
 let parser;
 

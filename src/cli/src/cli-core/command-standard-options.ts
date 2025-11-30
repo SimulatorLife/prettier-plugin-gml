@@ -38,7 +38,7 @@ export function applyStandardCommandOptions<
         // The CLI funnels usage and execution failures through
         // `CliCommandManager`'s `handleCliError` integration so diagnostics are
         // formatted exactly once with the formatter's structured renderer (see
-        // `src/cli/src/core/errors.js`). Commander would otherwise emit its own
+        // `src/cli/src/cli-core/errors.js`). Commander would otherwise emit its own
         // error preface before our handler runs, leading to duplicated stderr
         // output and mismatched help text whenever `exitOverride()` surfaces a
         // usage problem. Returning shared noop callbacks keeps Commander quiet

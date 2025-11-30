@@ -6,7 +6,7 @@ import {
     coercePositiveInteger,
     createNumericTypeErrorFormatter
 } from "../dependencies.js";
-import { createIntegerOptionToolkit } from "../../core/integer-option-toolkit.js";
+import { createIntegerOptionToolkit } from "../../cli-core/integer-option-toolkit.js";
 
 const BYTE_UNITS = Object.freeze(["B", "KB", "MB", "GB", "TB", "PB"]);
 const DEFAULT_BYTE_FORMAT_RADIX = 1024;

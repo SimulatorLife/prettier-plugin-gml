@@ -534,14 +534,6 @@ export default [
         }
     },
 
-    // CLI: allow process.exit
-    {
-        files: ["src/cli/**"],
-        rules: {
-            "unicorn/no-process-exit": "off"
-        }
-    },
-
     // All TS-related rules, presets, and overrides (scoped to **/*.ts)
     ...tsConfig,
 
@@ -598,6 +590,14 @@ export default [
             "@typescript-eslint/no-explicit-any": "warn",
             "@typescript-eslint/no-unsafe-return": "warn",
             "@typescript-eslint/no-unsafe-assignment": "warn"
+        }
+    },
+
+    // CLI: allow process.exit
+    {
+        files: ["src/cli/**"],
+        rules: {
+            "unicorn/no-process-exit": "off"
         }
     },
 

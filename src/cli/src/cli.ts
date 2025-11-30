@@ -63,19 +63,19 @@ import {
     CliUsageError,
     formatCliError,
     handleCliError
-} from "./core/errors.js";
-import { applyStandardCommandOptions } from "./core/command-standard-options.js";
+} from "./cli-core/errors.js";
+import { applyStandardCommandOptions } from "./cli-core/command-standard-options.js";
 import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "./plugin-runtime/entry-point.js";
-import { tryAddSample } from "./core/bounded-sample-collector.js";
+import { tryAddSample } from "./cli-core/bounded-sample-collector.js";
 import {
     hasRegisteredIgnorePath,
     registerIgnorePath,
     resetRegisteredIgnorePaths
 } from "./shared/ignore-path-registry.js";
-import { createCliCommandManager } from "./core/command-manager.js";
-import { resolveCliVersion } from "./core/version.js";
-import { wrapInvalidArgumentResolver } from "./core/command-parsing.js";
-import { collectFormatCommandOptions } from "./core/format-command-options.js";
+import { createCliCommandManager } from "./cli-core/command-manager.js";
+import { resolveCliVersion } from "./cli-core/version.js";
+import { wrapInvalidArgumentResolver } from "./cli-core/command-parsing.js";
+import { collectFormatCommandOptions } from "./cli-core/format-command-options.js";
 import {
     createPerformanceCommand,
     runPerformanceCommand
@@ -105,7 +105,7 @@ import {
     SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR,
     UNSUPPORTED_EXTENSION_SAMPLE_LIMIT_ENV_VAR
 } from "./runtime-options/sample-limits.js";
-import { normalizeExtensions } from "./core/extension-normalizer.js";
+import { normalizeExtensions } from "./cli-core/extension-normalizer.js";
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolveCliPluginEntryPoint();

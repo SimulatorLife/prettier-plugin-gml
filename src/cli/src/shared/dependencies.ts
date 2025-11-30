@@ -73,7 +73,7 @@ export {
     uniqueArray
 } from "../dependencies.js";
 
-export { resolveCommandUsage } from "../core/command-usage.js";
+export { resolveCommandUsage } from "../cli-core/command-usage.js";
 
 export {
     createCliRunSkippedError,

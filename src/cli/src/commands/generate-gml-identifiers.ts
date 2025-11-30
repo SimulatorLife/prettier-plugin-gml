@@ -4,7 +4,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { Command, Option } from "commander";
-import type { CommanderCommandLike } from "../core/commander-types.js";
+import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import {
@@ -23,10 +23,10 @@ import {
     resolveVmEvalTimeout,
     getDefaultVmEvalTimeoutMs
 } from "../runtime-options/vm-eval-timeout.js";
-import { applyStandardCommandOptions } from "../core/command-standard-options.js";
-import { createCliCommandManager } from "../core/command-manager.js";
-import { handleCliError } from "../core/errors.js";
-import { wrapInvalidArgumentResolver } from "../core/command-parsing.js";
+import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
+import { createCliCommandManager } from "../cli-core/command-manager.js";
+import { handleCliError } from "../cli-core/errors.js";
+import { wrapInvalidArgumentResolver } from "../cli-core/command-parsing.js";
 import {
     decodeManualKeywordsPayload,
     decodeManualTagsPayload

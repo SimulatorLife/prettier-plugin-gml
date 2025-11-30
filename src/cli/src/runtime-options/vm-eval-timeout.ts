@@ -3,7 +3,7 @@ import {
     createNumericTypeErrorFormatter,
     callWithFallback
 } from "../shared/dependencies.js";
-import { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
+import { createIntegerOptionToolkit } from "../cli-core/integer-option-toolkit.js";
 
 export const DEFAULT_VM_EVAL_TIMEOUT_MS = 5000;
 export const VM_EVAL_TIMEOUT_ENV_VAR = "GML_VM_EVAL_TIMEOUT_MS";

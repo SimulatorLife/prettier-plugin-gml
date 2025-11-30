@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { runMemoryCli } from "../modules/memory/index.js";
-import { handleCliError } from "../core/errors.js";
+import { handleCliError } from "../cli-core/errors.js";
 
 try {
     const exitCode = await runMemoryCli();
