@@ -10,8 +10,6 @@ import { asErrorLike } from "../shared/error-guards.js";
 
 const DEFAULT_INDENT = "  ";
 
-const SIMPLE_VALUE_TYPES = new Set(["number", "boolean", "bigint"]);
-
 const CLI_USAGE_ERROR_BRAND = Symbol.for("prettier-plugin-gml/cli-usage-error");
 
 export interface ErrorWithMetadata extends Error {
@@ -208,7 +206,8 @@ function formatPlainObject(value: object, seen: Set<unknown>): string {
     try {
         return JSON.stringify(value);
     } catch {
-        return String(value);
+        const tagName = getObjectTagName(value);
+        return tagName ? `[${tagName}]` : "[object Object]";
     }
 }
 
@@ -221,7 +220,11 @@ function formatErrorValue(value: unknown, seen: Set<unknown>): string {
         return value;
     }
 
-    if (SIMPLE_VALUE_TYPES.has(typeof value)) {
+    if (
+        typeof value === "number" ||
+        typeof value === "boolean" ||
+        typeof value === "bigint"
+    ) {
         return String(value);
     }
 
@@ -234,7 +237,15 @@ function formatErrorValue(value: unknown, seen: Set<unknown>): string {
         return formatPlainObject(value, seen);
     }
 
-    return String(value);
+    if (typeof value === "symbol") {
+        return value.toString();
+    }
+
+    if (typeof value === "function") {
+        return value.name ? `[Function ${value.name}]` : "[Function]";
+    }
+
+    return "[unknown value]";
 }
 
 export function formatCliError(error: unknown): string {

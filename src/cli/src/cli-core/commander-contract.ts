@@ -4,7 +4,10 @@ import {
     isObjectOrFunction
 } from "../dependencies.js";
 import type {
+    CommanderAddCommandOptions,
+    CommanderActionHandler,
     CommanderCommandLike,
+    CommanderHookListener,
     CommanderParseOptions,
     CommanderProgramLike
 } from "./commander-types.js";
@@ -13,16 +16,6 @@ type CommanderParse = (
     argv?: Array<string>,
     options?: CommanderParseOptions
 ) => Promise<unknown>;
-
-type CommanderHookListener = Parameters<
-    NonNullable<CommanderProgramLike["hook"]>
->[1];
-type CommanderAddCommandOptions = Parameters<
-    NonNullable<CommanderProgramLike["addCommand"]>
->[1];
-type CommanderActionHandler = Parameters<
-    NonNullable<CommanderCommandLike["action"]>
->[0];
 
 interface CommanderCommandContractOptions {
     name?: string;
@@ -35,17 +28,17 @@ export interface CommanderProgramContract {
     addCommand: (
         command: CommanderCommandLike,
         options?: CommanderAddCommandOptions
-    ) => CommanderCommandLike | unknown;
+    ) => CommanderCommandLike;
     hook: (
         event: string,
         listener: CommanderHookListener
-    ) => CommanderProgramLike | void;
+    ) => CommanderProgramLike;
     getUsage(): string | null;
 }
 
 export interface CommanderCommandContract {
     raw: CommanderCommandLike;
-    action: (handler: CommanderActionHandler) => CommanderCommandLike | unknown;
+    action: (handler: CommanderActionHandler) => CommanderCommandLike;
     getUsage(): string | null;
 }
 
@@ -56,12 +49,41 @@ function hasFunction<TValue, TKey extends PropertyKey>(
     return typeof (value as Record<TKey, unknown>)?.[property] === "function";
 }
 
+function formatValueForUsage(output: unknown): string {
+    if (output == null) {
+        return "Unknown";
+    }
+
+    if (
+        typeof output === "string" ||
+        typeof output === "number" ||
+        typeof output === "boolean" ||
+        typeof output === "bigint"
+    ) {
+        return String(output);
+    }
+
+    if (typeof output === "symbol") {
+        return output.toString();
+    }
+
+    if (typeof output === "function") {
+        return output.name ? `[Function ${output.name}]` : "[Function]";
+    }
+
+    try {
+        return JSON.stringify(output);
+    } catch {
+        return Object.prototype.toString.call(output);
+    }
+}
+
 function normalizeUsageResult(output: unknown): string | null {
     if (output == null) {
         return null;
     }
 
-    return typeof output === "string" ? output : String(output);
+    return formatValueForUsage(output);
 }
 
 function createUsageReader(
@@ -139,10 +161,18 @@ export function createCommanderProgramContract(
     return {
         raw: normalizedProgram,
         parse,
-        addCommand: (command, options) =>
-            normalizedProgram.addCommand?.(command, options) ?? command,
-        hook: (event, listener) =>
-            normalizedProgram.hook?.(event, listener) ?? normalizedProgram,
+        addCommand(command, options) {
+            const added =
+                normalizedProgram.addCommand?.(command, options) ?? command;
+
+            return added as CommanderCommandLike;
+        },
+        hook(event, listener) {
+            const hooked =
+                normalizedProgram.hook?.(event, listener) ?? normalizedProgram;
+
+            return hooked as CommanderProgramLike;
+        },
         getUsage() {
             return normalizeUsageResult(usageReader?.());
         }
@@ -171,7 +201,8 @@ export function createCommanderCommandContract(
                 throw new TypeError(`${name} does not expose action()`);
             }
 
-            return normalizedCommand.action?.(handler) ?? normalizedCommand;
+            return (normalizedCommand.action?.(handler) ??
+                normalizedCommand) as CommanderCommandLike;
         },
         getUsage() {
             return normalizeUsageResult(usageReader?.());

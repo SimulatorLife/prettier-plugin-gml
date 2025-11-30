@@ -283,7 +283,7 @@ function classifyFromPath(manualPath, tagList) {
 
     const matchesAny = (
         needles: Array<string> | undefined,
-        matcher: (value: string) => boolean = (value) => false
+        matcher: (value: string) => boolean = () => false
     ) => (needles ?? []).some(matcher);
     const matchesAllGroups = (groups: Array<Array<string>> = []) =>
         groups.length > 0 &&

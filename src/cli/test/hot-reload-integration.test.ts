@@ -70,7 +70,17 @@ describe("Hot reload integration loop", () => {
             });
 
             websocketClient.on("error", (error) => {
-                reject(error);
+                reject(
+                    error instanceof Error
+                        ? error
+                        : new Error(
+                              `WebSocket error: ${
+                                  error === undefined
+                                      ? "unknown"
+                                      : String(error)
+                              }`
+                          )
+                );
             });
 
             websocketClient.on("message", (data) => {

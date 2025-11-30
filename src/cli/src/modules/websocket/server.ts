@@ -7,6 +7,7 @@
  */
 
 import { WebSocketServer, WebSocket } from "ws";
+import { describeValueForError } from "../dependencies.js";
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 17_890;
@@ -176,12 +177,26 @@ export async function startPatchWebSocketServer({
         clients.clear();
 
         await new Promise<void>((resolve, reject) => {
+            const rejectWithError = (reason: unknown): void => {
+                if (reason instanceof Error) {
+                    reject(reason);
+                    return;
+                }
+
+                const description = describeValueForError(
+                    reason ?? "[WebSocket] Unknown server shutdown failure"
+                );
+
+                reject(new Error(description));
+            };
+
             wss.close((error) => {
                 if (error) {
-                    reject(error);
-                } else {
-                    resolve();
+                    rejectWithError(error);
+                    return;
                 }
+
+                resolve();
             });
         });
 

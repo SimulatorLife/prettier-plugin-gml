@@ -803,7 +803,7 @@ interface RunMemoryCommandContext {
         payload: ReturnType<typeof createSuiteResultsPayload>;
         suites: Record<string, unknown>;
         options: MemoryCommandOptions;
-    }) => unknown | Promise<unknown>;
+    }) => void | Promise<void>;
 }
 
 function collectSuiteOptions(options: MemoryCommandOptions) {

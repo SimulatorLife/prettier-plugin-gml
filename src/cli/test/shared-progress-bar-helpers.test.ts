@@ -4,9 +4,9 @@ import { afterEach, describe, it, mock } from "node:test";
 import {
     disposeProgressBars,
     renderProgressBar,
-    resetProgressBarRegistryForTesting
+    resetProgressBarRegistryForTesting,
+    type ProgressBarLike
 } from "../src/runtime-options/progress-bar.js";
-import type { ProgressBarLike } from "../src/runtime-options/progress-bar.js";
 
 const ESCAPE_PREFIX = String.fromCharCode(0x1b);
 const ANSI_ESCAPE_SEQUENCE_PATTERN = new RegExp(
@@ -28,7 +28,7 @@ function createMockStdout() {
         lineWrapping: () => {},
         on: () => {},
         removeListener: () => {},
-        write: (_chunk: string) => {}
+        write: () => {}
     };
 }
 

@@ -29,8 +29,34 @@ function createSampleLimitOption({
 }: SampleLimitOptionParams) {
     const label = subjectLabel ?? "Sample";
 
+    const formatReceivedValue = (value: unknown): string => {
+        if (value === null) {
+            return "null";
+        }
+        if (value === undefined) {
+            return "undefined";
+        }
+
+        const firstClass =
+            typeof value === "string" ||
+            typeof value === "number" ||
+            typeof value === "boolean" ||
+            typeof value === "bigint";
+        if (firstClass) {
+            return String(value);
+        }
+
+        try {
+            return JSON.stringify(value);
+        } catch {
+            return "[unknown]";
+        }
+    };
+
     const createErrorMessage = (received: unknown) =>
-        `${label} sample limit must be a non-negative integer (received ${received}). Provide 0 to suppress the sample list.`;
+        `${label} sample limit must be a non-negative integer (received ${formatReceivedValue(
+            received
+        )}). Provide 0 to suppress the sample list.`;
 
     const createTypeError = (type: string) =>
         `${label} sample limit must be provided as a number (received type '${type}').`;

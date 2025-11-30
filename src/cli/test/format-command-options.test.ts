@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { collectFormatCommandOptions } from "../src/core/format-command-options.js";
-import type { CommanderCommandLike } from "../src/core/commander-types.js";
+import { collectFormatCommandOptions } from "../src/cli-core/format-command-options.js";
+import type { CommanderCommandLike } from "../src/cli-core/commander-types.js";
 
 const DEFAULTS = Object.freeze({
     defaultExtensions: Object.freeze([".gml"]),

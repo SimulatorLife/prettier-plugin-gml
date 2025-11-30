@@ -72,7 +72,7 @@ interface PerformanceCommandOptions {
     reportFile?: string | null;
     skipReport?: boolean;
     stdout?: boolean;
-    format?: SuiteOutputFormat | string;
+    format?: SuiteOutputFormat;
     pretty?: boolean;
 }
 
@@ -454,11 +454,12 @@ function resolveGmlParser() {
 
 function createDefaultParser() {
     if (shouldSkipPerformanceDependencies) {
-        return async () => {
-            throw createSkippedPerformanceDependencyError(
-                "run parser benchmarks"
+        return () =>
+            Promise.reject(
+                createSkippedPerformanceDependencyError(
+                    "run parser benchmarks"
+                )
             );
-        };
     }
 
     return async (file) => {
@@ -474,7 +475,7 @@ function createDefaultParser() {
 
 let prettierModulePromise = null;
 
-async function resolvePrettier() {
+function resolvePrettier() {
     if (!prettierModulePromise) {
         prettierModulePromise = import("prettier").then(
             resolveModuleDefaultExport
@@ -586,17 +587,17 @@ async function runFixtureDatasetBenchmark(
     return createBenchmarkResult({ dataset, durations, iterations });
 }
 
-export async function runParserBenchmark(options = {}) {
+export function runParserBenchmark(options = {}) {
     return runFixtureDatasetBenchmark(options, {
         skipReason: "No GameMaker fixtures were available to parse.",
-        resolveWorker: async (benchmarkOptions) =>
+        resolveWorker: (benchmarkOptions) =>
             typeof benchmarkOptions.parser === "function"
                 ? benchmarkOptions.parser
                 : createDefaultParser()
     });
 }
 
-export async function runFormatterBenchmark(options = {}) {
+export function runFormatterBenchmark(options = {}) {
     return runFixtureDatasetBenchmark(options, {
         skipReason: "No GameMaker fixtures were available to format.",
         resolveWorker: async (benchmarkOptions) => {
@@ -904,7 +905,7 @@ function printHumanReadable(report) {
 
 interface EmitReportOptions {
     stdout?: boolean;
-    format?: SuiteOutputFormat | string;
+    format?: SuiteOutputFormat;
     pretty?: boolean;
 }
 
@@ -935,7 +936,7 @@ async function executeWithDatasetCleanup(
     }
 }
 
-async function collectPerformanceSuiteResults({
+function collectPerformanceSuiteResults({
     requestedSuites,
     runnerOptions
 }: CollectPerformanceSuiteResultsOptions) {
@@ -1016,7 +1017,7 @@ function formatFailureFollowUp({
     displayPath
 }: {
     stdout?: boolean;
-    format?: SuiteOutputFormat | string;
+    format?: SuiteOutputFormat;
     displayPath?: string;
 }) {
     if (stdout) {

@@ -20,7 +20,7 @@ function createMockStdout() {
         lineWrapping: () => {},
         on: () => {},
         removeListener: () => {},
-        write: (_chunk: string) => {}
+        write: () => {}
     };
 }
 

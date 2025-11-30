@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { resolveCliVersion } from "../src/core/version.js";
+import { resolveCliVersion } from "../src/cli-core/version.js";
 
 import fs from "node:fs";
 import path from "node:path";

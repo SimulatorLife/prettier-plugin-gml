@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
 
-import { CliUsageError } from "../src/core/errors.js";
+import { CliUsageError } from "../src/cli-core/errors.js";
 import { SKIP_CLI_RUN_ENV_VAR } from "../src/shared/dependencies.js";
 
 const originalSkipFlag = process.env[SKIP_CLI_RUN_ENV_VAR];

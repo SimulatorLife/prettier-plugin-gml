@@ -4,6 +4,7 @@ import {
     callWithFallback,
     coercePositiveInteger,
     createNumericTypeErrorFormatter,
+    describeValueForError,
     isFiniteNumber
 } from "../dependencies.js";
 import { createIntegerOptionToolkit } from "../../cli-core/integer-option-toolkit.js";
@@ -13,7 +14,9 @@ const DEFAULT_BYTE_FORMAT_RADIX = 1024;
 const BYTE_FORMAT_RADIX_ENV_VAR = "PRETTIER_PLUGIN_GML_BYTE_FORMAT_RADIX";
 
 const createRadixErrorMessage = (received: unknown): string =>
-    `Byte format radix must be a positive integer (received ${received}).`;
+    `Byte format radix must be a positive integer (received ${describeValueForError(
+        received
+    )}).`;
 
 const createRadixTypeErrorMessage =
     createNumericTypeErrorFormatter("Byte format radix");
@@ -36,7 +39,7 @@ const {
 
 applyByteFormatRadixEnvOverride();
 
-type NumericLike = number | bigint | unknown;
+type NumericLike = number | bigint;
 
 export interface FormatByteSizeOptions {
     decimals?: number;

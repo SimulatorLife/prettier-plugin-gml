@@ -6,8 +6,8 @@ import { Command, InvalidArgumentError } from "commander";
 import {
     parseCommandLine,
     wrapInvalidArgumentResolver
-} from "../src/core/command-parsing.js";
-import { isCliUsageError } from "../src/core/errors.js";
+} from "../src/cli-core/command-parsing.js";
+import { isCliUsageError } from "../src/cli-core/errors.js";
 import { isObjectLike } from "../src/shared/dependencies.js";
 
 const createTestCommand = () => {
@@ -53,13 +53,18 @@ describe("parseCommandLine", () => {
     });
 
     it("supports Commander-style errors without Error prototypes", () => {
+        interface MinimalCommanderError extends Error {
+            code: string;
+        }
+
         const command = {
             parse() {
-                throw {
-                    name: "CommanderError",
-                    code: "commander.invalidOption",
-                    message: "bad option"
-                };
+                const commanderError: MinimalCommanderError = new Error("bad option");
+                commanderError.name = "CommanderError";
+                commanderError.code = "commander.invalidOption";
+                Object.setPrototypeOf(commanderError, null);
+
+                throw commanderError;
             },
             helpInformation() {
                 return "usage info";
@@ -78,8 +83,8 @@ describe("parseCommandLine", () => {
 
 describe("wrapInvalidArgumentResolver", () => {
     it("returns the resolver result when no error is thrown", () => {
-        const resolver = wrapInvalidArgumentResolver((value) =>
-            String(value).toUpperCase()
+        const resolver = wrapInvalidArgumentResolver((value: string) =>
+            value.toUpperCase()
         );
 
         assert.strictEqual(resolver("value"), "VALUE");
@@ -107,7 +112,10 @@ describe("wrapInvalidArgumentResolver", () => {
         const fallback = "Invalid option value.";
         const resolver = wrapInvalidArgumentResolver(
             () => {
-                throw { reason: "bad input" };
+                const reasonError = new Error("bad input");
+                delete (reasonError as Record<string, unknown>).message;
+                (reasonError as Record<string, unknown>).reason = "bad input";
+                throw reasonError;
             },
             { fallbackMessage: fallback }
         );

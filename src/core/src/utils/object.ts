@@ -104,7 +104,8 @@ export function resolveHelperOverride(helpers, key, fallback) {
     return /** @type {THelper} */ candidate;
 }
 
-const objectPrototypeToString = Object.prototype.toString;
+const getObjectPrototypeToString = (value: unknown) =>
+    Object.prototype.toString.call(value);
 const MISSING_METHOD_LIST_FORMATTER = new Intl.ListFormat("en", {
     style: "long",
     type: "conjunction"
@@ -304,7 +305,7 @@ export function getObjectTagName(value, { includePlainObject = false } = {}) {
         return null;
     }
 
-    const tag = objectPrototypeToString.call(value);
+    const tag = getObjectPrototypeToString(value);
     const match = OBJECT_TAG_PATTERN.exec(tag);
     if (!match) {
         return null;

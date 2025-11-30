@@ -5,7 +5,10 @@ import {
     decodeManualKeywordsPayload,
     decodeManualTagsPayload
 } from "../src/modules/manual/payload-validation.js";
-import { isJsonParseError } from "../src/shared/dependencies.js";
+import {
+    getErrorMessageOrFallback,
+    isJsonParseError
+} from "../src/shared/dependencies.js";
 
 test("decodeManualKeywordsPayload validates keyword mappings", () => {
     const payload = decodeManualKeywordsPayload('{"foo": "bar"}');
@@ -19,10 +22,7 @@ test("decodeManualKeywordsPayload wraps JSON syntax errors", () => {
             if (!isJsonParseError(error)) {
                 return false;
             }
-            const message =
-                error instanceof Error
-                    ? error.message
-                    : String((error as { message?: unknown }).message ?? error);
+            const message = getErrorMessageOrFallback(error);
             assert.match(message, /Failed to parse manual keywords payload/i);
             return true;
         }

@@ -135,7 +135,11 @@ export function describeRuntimeSource(source: RuntimeSourceDescriptor) {
 
     if (packageName) {
         const version = packageJson?.version;
-        return version ? `${packageName}@${version}` : packageName;
+        if (typeof version === "string" && version.length > 0) {
+            return `${packageName}@${version}`;
+        }
+
+        return packageName;
     }
 
     return root;

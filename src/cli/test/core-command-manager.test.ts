@@ -3,9 +3,9 @@ import { test } from "node:test";
 
 import { Command } from "commander";
 
-import { createCliCommandManager } from "../src/core/command-manager.js";
-import { CliUsageError } from "../src/core/errors.js";
-import { applyStandardCommandOptions } from "../src/core/command-standard-options.js";
+import { createCliCommandManager } from "../src/cli-core/command-manager.js";
+import { CliUsageError } from "../src/cli-core/errors.js";
+import { applyStandardCommandOptions } from "../src/cli-core/command-standard-options.js";
 
 function createStubProgram() {
     const hooks = new Map();

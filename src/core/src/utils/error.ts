@@ -1,4 +1,4 @@
-import { isNonEmptyString } from "./string.js";
+import { describeValueForError, isNonEmptyString } from "./string.js";
 
 type ErrorMessageFallback = string | ((value: unknown) => string) | undefined;
 
@@ -142,10 +142,6 @@ export function getErrorMessageOrFallback(
         return UNKNOWN_ERROR_FALLBACK;
     }
 
-    try {
-        const normalized = String(fallback);
-        return normalized.length > 0 ? normalized : UNKNOWN_ERROR_FALLBACK;
-    } catch {
-        return UNKNOWN_ERROR_FALLBACK;
-    }
+    const normalized = describeValueForError(fallback);
+    return normalized.length > 0 ? normalized : UNKNOWN_ERROR_FALLBACK;
 }

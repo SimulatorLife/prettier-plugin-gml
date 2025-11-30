@@ -10,7 +10,7 @@ import {
     resolveMemoryIterations,
     setDefaultMemoryIterations
 } from "../src/modules/memory/index.js";
-import { isCliUsageError } from "../src/core/errors.js";
+import { isCliUsageError } from "../src/cli-core/errors.js";
 
 describe("memory iteration configuration", () => {
     afterEach(() => {

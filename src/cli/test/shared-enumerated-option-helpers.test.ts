@@ -3,7 +3,8 @@ import { describe, it } from "node:test";
 
 import {
     createEnumeratedOptionHelpers,
-    createStringEnumeratedOptionHelpers
+    createStringEnumeratedOptionHelpers,
+    describeValueForError
 } from "../src/shared/dependencies.js";
 
 describe("createEnumeratedOptionHelpers", () => {
@@ -59,10 +60,11 @@ describe("createEnumeratedOptionHelpers", () => {
     it("allows overriding error messages per invocation", () => {
         const helpers = createEnumeratedOptionHelpers(["json"]);
         assert.throws(
-            () =>
-                helpers.requireValue("yaml", {
-                    createErrorMessage: (value) => `unsupported: ${value}`
-                }),
+        () =>
+            helpers.requireValue("yaml", {
+                createErrorMessage: (value) =>
+                    `unsupported: ${describeValueForError(value)}`
+            }),
             (error) =>
                 error instanceof Error && error.message === "unsupported: yaml"
         );

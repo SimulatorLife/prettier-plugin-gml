@@ -7,7 +7,7 @@ import {
     handleCliError,
     markAsCliUsageError,
     createCliErrorDetails
-} from "../src/core/errors.js";
+} from "../src/cli-core/errors.js";
 
 describe("cli error formatting", () => {
     it("omits stack traces and prefixes for usage errors", () => {

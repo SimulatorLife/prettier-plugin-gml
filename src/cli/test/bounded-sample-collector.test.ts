@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
     tryAddSample,
     hasSample
-} from "../src/core/bounded-sample-collector.js";
+} from "../src/cli-core/bounded-sample-collector.js";
 
 /**
  * Check object equality by comparing id property.

@@ -147,7 +147,10 @@ export function describeManualSource(source: ManualSourceDescriptor) {
     const { root, packageName, packageJson } = source;
 
     if (packageName) {
-        const version = packageJson?.version;
+        const version =
+            typeof packageJson?.version === "string"
+                ? packageJson.version
+                : undefined;
         return version ? `${packageName}@${version}` : packageName;
     }
 

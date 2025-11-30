@@ -1,5 +1,7 @@
+export type KnownCommanderParseSource = "user" | "node" | "electron";
+
 export interface CommanderParseOptions {
-    from?: "user" | "node" | "electron" | string;
+    from?: KnownCommanderParseSource;
 }
 
 export interface CommanderConfigureOutputOptions {
@@ -14,21 +16,26 @@ export interface CommanderUsageProvider {
     getUsage?: () => string;
 }
 
+export type CommanderHookListener = (...args: Array<unknown>) => unknown;
+
 export interface CommanderLifecycle {
-    hook?: (
-        event: string,
-        listener: (...args: Array<unknown>) => unknown
-    ) => unknown;
+    hook?: (event: string, listener: CommanderHookListener) => unknown;
 }
+
+export interface CommanderAddCommandOptions {
+    isDefault?: boolean;
+}
+
+export type CommanderActionHandler = (...args: Array<unknown>) => unknown;
 
 export interface CommanderCommandHost
     extends CommanderUsageProvider,
         CommanderLifecycle {
     addCommand?: (
         command: CommanderCommandHost,
-        options?: { isDefault?: boolean }
+        options?: CommanderAddCommandOptions
     ) => unknown;
-    action?: (handler: (...args: Array<unknown>) => unknown) => unknown;
+    action?: (handler: CommanderActionHandler) => unknown;
 }
 
 export interface CommanderProgramLike extends CommanderCommandHost {

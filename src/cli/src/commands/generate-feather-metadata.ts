@@ -36,6 +36,32 @@ const DEFAULT_OUTPUT_PATH = resolveFromRepoRoot(
     "feather-metadata.json"
 );
 
+interface ManualElementOwnerDocument {
+    readonly ELEMENT_NODE?: number;
+    createTextNode(text: string): {
+        data: string;
+    };
+}
+
+interface ManualElement {
+    readonly nodeType?: number;
+    readonly ownerDocument?: ManualElementOwnerDocument;
+    readonly parentNode?: ManualElement | null;
+    readonly children?: Array<ManualElement>;
+    tagName?: string;
+    textContent?: string | null;
+    matches?: (selector: string) => boolean;
+    querySelectorAll(selector: string): Array<ManualElement>;
+    cloneNode(deep?: boolean): ManualElement;
+    replaceChild?(
+        newChild: ManualElement,
+        oldChild: ManualElement
+    ): ManualElement | null;
+    nextElementSibling?: ManualElement | null;
+}
+
+type Element = ManualElement;
+
 const FEATHER_PAGES = {
     diagnostics:
         "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Messages.htm",
@@ -613,29 +639,29 @@ function collectNamingListMetadata(mainList) {
 }
 
 const BLOCK_NORMALIZERS = {
-    code(content, block) {
+    code: (content, block) => {
         if (block.text) {
             content.codeExamples.push(block.text);
         }
     },
-    note(content, block) {
+    note: (content, block) => {
         pushNormalizedText(content.notes, block.text);
     },
-    list(content, block) {
+    list: (content, block) => {
         const items = normalizeListItems(block.items);
         if (items.length > 0) {
             content.lists.push(items);
         }
     },
-    table(content, block) {
+    table: (content, block) => {
         if (block.table) {
             content.tables.push(block.table);
         }
     },
-    heading(content, block) {
+    heading: (content, block) => {
         pushNormalizedText(content.headings, block.text);
     },
-    default(content, block) {
+    default: (content, block) => {
         pushNormalizedText(content.paragraphs, block.text);
     }
 };

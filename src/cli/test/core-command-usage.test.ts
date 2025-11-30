@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { resolveCommandUsage } from "../src/core/command-usage.js";
+import { resolveCommandUsage } from "../src/cli-core/command-usage.js";
 
 test("resolveCommandUsage reads usage() when helpInformation is absent", () => {
     const command = {

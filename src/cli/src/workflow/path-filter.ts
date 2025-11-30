@@ -26,11 +26,11 @@ export interface WorkflowPathFilter {
 /**
  * Normalize workflow path lists into absolute, deduplicated entries.
  *
- * @param {Iterable<unknown> | unknown} paths
+ * @param {Iterable<unknown> | null | undefined} paths
  * @returns {Array<string>}
  */
 export function normalizeWorkflowPathList(
-    paths: Iterable<unknown> | unknown
+    paths: Iterable<unknown> | null | undefined
 ): Array<string> {
     const trimmed = compactArray(
         toArray(paths).map(getNonEmptyTrimmedString)

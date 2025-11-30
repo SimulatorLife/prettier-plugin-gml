@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { isCommanderErrorLike } from "../src/core/commander-error-utils.js";
+import { isCommanderErrorLike } from "../src/cli-core/commander-error-utils.js";
 
 describe("commander error utils", () => {
     it("recognizes commander-style errors by capability", () => {

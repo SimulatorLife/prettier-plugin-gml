@@ -1,7 +1,6 @@
 import {
     coercePositiveInteger,
-    createNumericTypeErrorFormatter,
-    isFiniteNumber
+    createNumericTypeErrorFormatter
 } from "../shared/dependencies.js";
 import { createIntegerOptionToolkit } from "../cli-core/integer-option-toolkit.js";
 
@@ -85,7 +84,7 @@ class TerminalProgressBar implements ProgressBarLike {
         }
     }
 
-    stop(..._args: Array<unknown>): void {
+    stop(): void {
         if (!this.active) {
             return;
         }
@@ -96,14 +95,20 @@ class TerminalProgressBar implements ProgressBarLike {
     }
 
     #normalizeCurrent(value: unknown): number {
-        if (!isFiniteNumber(value)) {
-            return 0;
+        let normalizedValue: number | null = null;
+
+        if (typeof value === "number" && Number.isFinite(value)) {
+            normalizedValue = value;
+        } else if (typeof value === "string") {
+            const parsedValue = Number.parseFloat(value);
+            if (Number.isFinite(parsedValue)) {
+                normalizedValue = parsedValue;
+            }
         }
 
-        const normalizedValue =
-            typeof value === "number"
-                ? value
-                : Number.parseFloat(String(value));
+        if (normalizedValue === null) {
+            return 0;
+        }
 
         return Math.min(Math.max(0, normalizedValue), this.total);
     }
@@ -155,8 +160,33 @@ class TerminalProgressBar implements ProgressBarLike {
     }
 }
 
+const formatReceivedValue = (value: unknown): string => {
+    if (value === null) {
+        return "null";
+    }
+    if (value === undefined) {
+        return "undefined";
+    }
+    const primitive =
+        typeof value === "string" ||
+        typeof value === "number" ||
+        typeof value === "boolean" ||
+        typeof value === "bigint";
+    if (primitive) {
+        return String(value);
+    }
+
+    try {
+        return JSON.stringify(value);
+    } catch {
+        return "[unknown]";
+    }
+};
+
 const createWidthErrorMessage = (received: unknown) =>
-    `Progress bar width must be a positive integer (received ${received}).`;
+    `Progress bar width must be a positive integer (received ${formatReceivedValue(
+        received
+    )}).`;
 
 const createWidthTypeErrorMessage =
     createNumericTypeErrorFormatter("Progress bar width");
