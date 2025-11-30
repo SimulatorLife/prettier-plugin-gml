@@ -1,8 +1,25 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { after, before, describe, it } from "node:test";
+import { isCliUsageError } from "../src/core/errors.js";
 
 const SKIP_CLI_ENV_VAR = "PRETTIER_PLUGIN_GML_SKIP_CLI_RUN";
 const SKIP_CLI_ENV_VALUE = "1";
+const DEFAULT_ACTION_ENV_VAR = "PRETTIER_PLUGIN_GML_DEFAULT_ACTION";
+
+let originalDefaultAction;
+
+before(() => {
+    originalDefaultAction = process.env[DEFAULT_ACTION_ENV_VAR];
+    process.env[DEFAULT_ACTION_ENV_VAR] = "help";
+});
+
+after(() => {
+    if (originalDefaultAction === undefined) {
+        delete process.env[DEFAULT_ACTION_ENV_VAR];
+    } else {
+        process.env[DEFAULT_ACTION_ENV_VAR] = originalDefaultAction;
+    }
+});
 
 // The CLI module inspects the environment at import time to decide whether to
 // execute. Keep the skip flag scoped to the import cycle so concurrent test
@@ -67,5 +84,22 @@ describe("cli help command normalization", () => {
         const normalized = normalizeCommandLineArguments(["help", "format"]);
 
         assert.deepEqual(normalized, ["format", "--help"]);
+    });
+
+    it("throws a usage error when the first argument is not a known command", async () => {
+        const { normalizeCommandLineArguments } = await loadCliTestUtilities();
+
+        let thrownError;
+
+        try {
+            normalizeCommandLineArguments(["unknown"]);
+            assert.fail("Expected normalizeCommandLineArguments to throw");
+        } catch (error) {
+            thrownError = error;
+        }
+
+        assert.ok(isCliUsageError(thrownError));
+        assert.match(thrownError.message, /Unknown command "unknown"/u);
+        assert.match(thrownError.usage, /Usage: prettier-plugin-gml/u);
     });
 });
