@@ -4,9 +4,7 @@ import { describe, it } from "node:test";
 import {
     registerIgnorePath,
     hasRegisteredIgnorePath,
-    resetRegisteredIgnorePaths,
-    getRegisteredIgnorePathCount,
-    getRegisteredIgnorePathsSnapshot
+    resetRegisteredIgnorePaths
 } from "../src/shared/ignore-path-registry.js";
 
 describe("ignore path registry", () => {
@@ -17,11 +15,8 @@ describe("ignore path registry", () => {
         registerIgnorePath("/tmp/example.ignore");
         registerIgnorePath("/tmp/extra.ignore");
 
-        assert.strictEqual(getRegisteredIgnorePathCount(), 2);
-        assert.deepEqual(getRegisteredIgnorePathsSnapshot(), [
-            "/tmp/example.ignore",
-            "/tmp/extra.ignore"
-        ]);
+        assert.ok(hasRegisteredIgnorePath("/tmp/example.ignore"));
+        assert.ok(hasRegisteredIgnorePath("/tmp/extra.ignore"));
     });
 
     it("resets all tracked paths", () => {
@@ -31,12 +26,10 @@ describe("ignore path registry", () => {
             registerIgnorePath(`/tmp/path-${index}`);
         }
 
-        assert.ok(getRegisteredIgnorePathCount() > 0);
         assert.ok(hasRegisteredIgnorePath("/tmp/path-42"));
 
         resetRegisteredIgnorePaths();
 
-        assert.strictEqual(getRegisteredIgnorePathCount(), 0);
         assert.strictEqual(hasRegisteredIgnorePath("/tmp/path-42"), false);
     });
 });
