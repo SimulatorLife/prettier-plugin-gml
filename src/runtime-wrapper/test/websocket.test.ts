@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { RuntimeWrapper } from "../index.js";
-import type {
-    MessageEventLike,
-    RuntimePatchError,
-    RuntimeWebSocketConstructor,
-    RuntimeWebSocketInstance,
-    WebSocketEvent
+import  {
+    RuntimeWrapper,
+    type MessageEventLike,
+    type RuntimePatchError,
+    type RuntimeWebSocketConstructor,
+    type RuntimeWebSocketInstance,
+    type WebSocketEvent
 } from "../index.js";
 
 const globalWithWebSocket = globalThis as unknown as {

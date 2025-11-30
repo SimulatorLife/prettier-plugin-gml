@@ -126,10 +126,9 @@ describe("applyEnvOptionOverride", () => {
             }
         };
 
-        const failure = {
-            name: "ResolverFailure",
-            message: "custom failure"
-        };
+        const failure = Object.assign(new Error("custom failure"), {
+            name: "ResolverFailure"
+        });
 
         assert.throws(
             () =>

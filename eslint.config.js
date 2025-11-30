@@ -530,6 +530,9 @@ export default [
         }
     },
 
+    // All TS-related rules, presets, and overrides (scoped to **/*.ts)
+    ...tsConfig,
+
     // Runtime-Wrapper allow eval (needed for patches for dynamic code execution)
     {
         files: ["src/runtime-wrapper/**"],
@@ -537,9 +540,6 @@ export default [
             "@typescript-eslint/no-implied-eval": "off"
         }
     },
-
-    // All TS-related rules, presets, and overrides (scoped to **/*.ts)
-    ...tsConfig,
 
     // Localized TypeScript rule relaxations for files that trigger upstream
     // TypeScript lint engine bugs.
@@ -551,6 +551,7 @@ export default [
             "@typescript-eslint/no-unnecessary-type-assertion": "off"
         }
     },
+    
     // Additional TypeScript rule relaxations for files that trigger overload signature issues
     {
         files: ["src/semantic/test/project-index-defaults.test.ts"],

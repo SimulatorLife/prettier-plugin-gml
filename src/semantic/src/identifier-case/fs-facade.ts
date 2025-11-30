@@ -5,9 +5,9 @@ import {
     accessSync as nodeAccessSync,
     statSync as nodeStatSync,
     mkdirSync as nodeMkdirSync,
-    existsSync as nodeExistsSync
+    existsSync as nodeExistsSync,
+    type PathOrFileDescriptor
 } from "node:fs";
-import type { PathOrFileDescriptor } from "node:fs";
 
 import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
 

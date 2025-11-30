@@ -4,8 +4,7 @@ import {
     prepareIdentifierCasePlan,
     captureIdentifierCasePlanSnapshot
 } from "./plan-service.js";
-import type { IdentifierCasePlanSnapshot } from "./types.js";
-import { getDebugId } from "./types.js";
+import { getDebugId, type IdentifierCasePlanSnapshot } from "./types.js";
 
 import {
     setIdentifierCaseOption,

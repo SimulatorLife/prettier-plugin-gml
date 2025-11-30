@@ -1,5 +1,4 @@
-import { WorkspaceEdit } from "./workspace-edit.js";
-import type { GroupedTextEdits } from "./workspace-edit.js";
+import { WorkspaceEdit, type GroupedTextEdits } from "./workspace-edit.js";
 
 type MaybePromise<T> = T | Promise<T>;
 

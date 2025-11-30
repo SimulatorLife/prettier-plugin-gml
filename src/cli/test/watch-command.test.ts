@@ -140,23 +140,8 @@ describe("watch command integration", () => {
             );
 
             const abortController = new AbortController();
-            const patches = [];
 
             // Mock transpiler to capture patches
-            const mockTranspiler = {
-                async transpileScript({ sourceText, symbolId }) {
-                    const patch = {
-                        kind: "script",
-                        id: symbolId,
-                        js_body: `// Transpiled: ${sourceText.slice(0, 20)}...`,
-                        sourceText,
-                        version: Date.now()
-                    };
-                    patches.push(patch);
-                    return patch;
-                }
-            };
-
             // Start watching
             const watchPromise = runWatchCommand(testDir, {
                 extensions: [".gml"],

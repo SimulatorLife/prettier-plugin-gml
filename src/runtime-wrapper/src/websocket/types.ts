@@ -44,6 +44,6 @@ export interface RuntimeWebSocketClient {
     connect(): void;
     disconnect(): void;
     isConnected(): boolean;
-    send(data: string | unknown): void;
+    send(data: string): void;
     getWebSocket(): RuntimeWebSocketInstance | null;
 }

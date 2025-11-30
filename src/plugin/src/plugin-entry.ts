@@ -6,8 +6,10 @@
  */
 
 import { Core } from "@gml-modules/core";
-import type { SupportLanguage, SupportOptions } from "prettier";
-import prettier from "prettier";
+import prettier, {
+    type SupportLanguage,
+    type SupportOptions
+} from "prettier";
 
 import type {
     GmlPlugin,
@@ -31,7 +33,7 @@ const printers = Core.createReadOnlyView<GmlPluginComponentBundle["printers"]>(
     "GML plugin printers"
 );
 
-const options = Core.createReadOnlyView<SupportOptions>(
+const pluginOptions = Core.createReadOnlyView<SupportOptions>(
     () => selectPluginComponents().options,
     "GML plugin options"
 );
@@ -87,7 +89,10 @@ function createDefaultOptionsSnapshot(): GmlPluginDefaultOptions {
 /**
  * Utility function & entry-point to format GML source code using the plugin.
  */
-async function format(source, options = {}) {
+async function format(
+    source: string,
+    options: SupportOptions = {}
+) {
     const formatted = await prettier.format(source, {
         parser: "gml-parse",
         plugins: [Plugin],
@@ -111,13 +116,13 @@ const defaultOptions = Core.createReadOnlyView<GmlPluginDefaultOptions>(
     "GML default options"
 );
 
-export { parsers, printers, options, defaultOptions };
+export { parsers, printers, pluginOptions, defaultOptions };
 
 const pluginBundle: GmlPlugin = {
     languages: [...languages],
     parsers,
     printers,
-    options,
+        pluginOptions,
     defaultOptions,
     format
 };
