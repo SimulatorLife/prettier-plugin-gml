@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { printComment } from "../src/comments/index.js";
+import { Parser } from "@gml-modules/parser";
 
 function createBannerComment(leadingText) {
     return {
@@ -15,21 +15,21 @@ function createBannerComment(leadingText) {
 describe("line comment banner handling", () => {
     it("collapses banner comments into a minimal single-line comment", () => {
         const comment = createBannerComment("//////// Heading ////////");
-        const printed = printComment({ getValue: () => comment }, {});
+        const printed = Parser.printComment({ getValue: () => comment }, {});
 
         assert.strictEqual(printed, "// Heading");
     });
 
     it("drops decorative banners that have no descriptive text", () => {
         const comment = createBannerComment("////////////////////////");
-        const printed = printComment({ getValue: () => comment }, {});
+        const printed = Parser.printComment({ getValue: () => comment }, {});
 
         assert.strictEqual(printed, "");
     });
 
     it("preserves regular comments that do not resemble banners", () => {
         const comment = createBannerComment("// Standard comment");
-        const printed = printComment({ getValue: () => comment }, {});
+        const printed = Parser.printComment({ getValue: () => comment }, {});
 
         assert.strictEqual(printed, "// Standard comment");
     });

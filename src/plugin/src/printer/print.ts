@@ -31,11 +31,6 @@ import {
     shouldForceTrailingBlankLineForNestedFunction,
     shouldSuppressEmptyLineBetween
 } from "./statement-spacing-policy.js";
-import {
-    printDanglingComments,
-    printDanglingCommentsAsGroup,
-    printComment
-} from "../comments/comment-printer.js";
 import { Parser } from "@gml-modules/parser";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
 import { DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH } from "./doc-comment-wrap-width.js";
@@ -775,7 +770,7 @@ function _printImpl(path, options, print) {
 
                 if (node.body.length === 0) {
                     return concat(
-                        printDanglingCommentsAsGroup(
+                        Parser.printDanglingCommentsAsGroup(
                             path,
                             options,
                             (comment: any) => true
@@ -841,7 +836,7 @@ function _printImpl(path, options, print) {
 
             return concat([
                 "{",
-                printDanglingComments(
+                Parser.printDanglingComments(
                     path,
                     options,
                     (comment) => comment.attachToBrace
@@ -872,7 +867,7 @@ function _printImpl(path, options, print) {
 
             const braceIntro = [
                 "{",
-                printDanglingComments(
+                Parser.printDanglingComments(
                     path,
                     options,
                     (comment) => comment.attachToBrace
@@ -883,7 +878,7 @@ function _printImpl(path, options, print) {
                 parts.push(
                     concat([
                         ...braceIntro,
-                        printDanglingCommentsAsGroup(
+                        Parser.printDanglingCommentsAsGroup(
                             path,
                             options,
                             (comment) => !comment.attachToBrace
@@ -2756,7 +2751,7 @@ function printInBlock(path, options, print, expressionKey) {
         return [print(expressionKey), optionalSemicolon(node.type)];
     }
 
-    const inlineCommentDocs = printDanglingCommentsAsGroup(
+    const inlineCommentDocs = Parser.printDanglingCommentsAsGroup(
         path,
         options,
         (comment) => comment.attachToClauseBody === true
@@ -6923,6 +6918,25 @@ function computeSyntheticFunctionDocLines(
                         /* ignore per-doc errors */
                     }
                 }
+                // When a user has provided ordinal `@param` metadata such as
+                // `@param third` for an otherwise parameterless function,
+                // we should prefer the documented name and suppress the
+                // fallback numeric `argumentN` canonical. Ensure any
+                // documented ordinal metadata causes the numeric fallback
+                // to be suppressed so we don't synthesize `argumentN` lines
+                // alongside a documented ordinal name.
+                try {
+                    for (const [ordIndex, ordMeta] of orderedParamMetadata.entries()) {
+                        if (!ordMeta || typeof ordMeta.name !== STRING_TYPE) continue;
+                        const canonicalOrdinal = getCanonicalParamNameFromText(ordMeta.name);
+                        if (!canonicalOrdinal) continue;
+                        const fallback = getCanonicalParamNameFromText(`argument${ordIndex}`) || `argument${ordIndex}`;
+                        initialSuppressed.add(fallback);
+                    }
+                } catch {
+                    /* ignore */
+                }
+
                 if (initialSuppressed.size > 0) {
                     suppressedImplicitDocCanonicalByNode.set(
                         node,
@@ -6941,6 +6955,45 @@ function computeSyntheticFunctionDocLines(
         node,
         options
     );
+    // Ensure we append numeric fallback entries for any alias that is
+    // directly referenced but did not get a fallback entry added by the
+    // build step or parser-provided entries. This guards against cases
+    // where re-ordering or suppression prevented the apparent fallback
+    // entry from being present downstream.
+    try {
+        const fallbacksToAdd = [];
+        for (const entry of implicitArgumentDocNames) {
+            if (!entry) continue;
+            const { canonical, fallbackCanonical, index, hasDirectReference } = entry;
+            if (
+                canonical &&
+                fallbackCanonical &&
+                canonical !== fallbackCanonical &&
+                hasDirectReference === true &&
+                Number.isInteger(index) &&
+                index >= 0
+            ) {
+                // Check if fallback already present
+                const already = implicitArgumentDocNames.some(
+                    (e) => e && (e.canonical === fallbackCanonical || e.fallbackCanonical === fallbackCanonical || e.name === fallbackCanonical)
+                );
+                if (!already) {
+                    fallbacksToAdd.push({
+                        name: fallbackCanonical,
+                        canonical: fallbackCanonical,
+                        fallbackCanonical: fallbackCanonical,
+                        index,
+                        hasDirectReference: true
+                    });
+                }
+            }
+        }
+        if (fallbacksToAdd.length > 0) {
+            implicitArgumentDocNames.push(...fallbacksToAdd);
+        }
+    } catch {
+        /* best-effort */
+    }
     try {
         const fname = Core.getNodeName(node);
         if (typeof fname === "string" && fname.includes("sample")) {
@@ -6993,14 +7046,207 @@ function computeSyntheticFunctionDocLines(
         }
     }
 
-    if (!Array.isArray(node.params)) {
-        for (const { name: docName } of implicitArgumentDocNames) {
+    // Treat empty params arrays as "no-declared-params" so we can
+    // synthesize fallback `argumentN` docs for functions that have no
+    // declared parameters (they can still reference `argumentN` in the
+    // body and tests expect the numeric fallbacks to be emitted when
+    // directly referenced). This mirrors upstream behavior where an
+    // empty [] means "no declared params" for doc synthesis.
+    if (!Array.isArray(node.params) || (Array.isArray(node.params) && node.params.length === 0)) {
+        for (const entry of implicitArgumentDocNames) {
+            if (!entry) continue;
+            const { name: docName, index, canonical, fallbackCanonical } = entry;
+            try {
+                const fname = Core.getNodeName(node);
+                if (typeof fname === "string" && fname.includes("sample3")) {
+                    console.error(
+                        `[feather:debug] computeSyntheticFunctionDocLines(${fname}): entry debug docName='${String(docName)}' canonical='${String(canonical)}' fallback='${String(fallbackCanonical)}' documentedDocName=${documentedParamNames.has(docName)} documentedFallback=${documentedParamNames.has(fallbackCanonical)} hasDirectReference=${String(entry.hasDirectReference)} index=${String(index)}`
+                    );
+                }
+            } catch {
+                /* ignore */
+            }
             if (documentedParamNames.has(docName)) {
+                try {
+                    const fname = Core.getNodeName(node);
+                    if (typeof fname === "string" && fname.includes("sample3")) {
+                        console.error(
+                            `[feather:debug] computeSyntheticFunctionDocLines(${fname}): skipping adding docName '${String(docName)}' since it's already documented; entry=`,
+                            entry
+                        );
+                    }
+                } catch {
+                    /* ignore */
+                }
+                // If the alias name is already documented but the fallback
+                // numeric `argumentN` is directly referenced inside the
+                // function body, synthesize the numeric `argumentN` doc line
+                // too so direct references are preserved when the function
+                // has no declared params. Do not skip this step just because
+                // the alias is already documented.
+                if (
+                    canonical &&
+                    fallbackCanonical &&
+                    canonical !== fallbackCanonical &&
+                    entry.hasDirectReference === true &&
+                    Number.isInteger(index) &&
+                    index >= 0 &&
+                    !documentedParamNames.has(fallbackCanonical)
+                ) {
+                    try {
+                        const fname = Core.getNodeName(node);
+                        if (typeof fname === "string" && fname.includes("sample3")) {
+                            console.error(
+                                `[feather:debug] computeSyntheticFunctionDocLines(${fname}): considering adding fallback in documented branch docName='${String(docName)}' canonical='${String(canonical)}' fallback='${String(fallbackCanonical)}' hasDirectReference='${String(entry.hasDirectReference)}' documentedFallback='${String(documentedParamNames.has(fallbackCanonical))}'`
+                            );
+                        }
+                    } catch {
+                        /* ignore */
+                    }
+                    documentedParamNames.add(fallbackCanonical);
+                    lines.push(`/// @param ${fallbackCanonical}`);
+                }
                 continue;
             }
 
             documentedParamNames.add(docName);
             lines.push(`/// @param ${docName}`);
+
+            // If the implicit entry indicates a distinct fallback (argumentN)
+            // and the fallback is directly referenced inside the function
+            // body, synthesize the numeric `argumentN` doc line too so direct
+            // references are preserved when the function has no declared
+            // params (i.e., parser/system didn't provide a params array).
+            const shouldAddFallbackInDocumentedBranch =
+                Boolean(canonical && fallbackCanonical) &&
+                canonical !== fallbackCanonical &&
+                entry.hasDirectReference === true &&
+                Number.isInteger(index) &&
+                index >= 0 &&
+                !documentedParamNames.has(fallbackCanonical);
+
+            if (shouldAddFallbackInDocumentedBranch) {
+                try {
+                    const fname = Core.getNodeName(node);
+                    if (typeof fname === "string" && fname.includes("sample3")) {
+                        console.error(
+                            `[feather:debug] computeSyntheticFunctionDocLines(${fname}): adding fallback for docName=${String(docName)} fallbackCanonical=${String(fallbackCanonical)} index=${String(index)} hasDirectReference=${String(entry.hasDirectReference)}`
+                        );
+                    }
+                } catch {
+                    /* ignore */
+                }
+                documentedParamNames.add(fallbackCanonical);
+                lines.push(`/// @param ${fallbackCanonical}`);
+            } else {
+                try {
+                    const fname = Core.getNodeName(node);
+                    if (typeof fname === "string" && fname.includes("sample3")) {
+                        console.error(
+                            `[feather:debug] computeSyntheticFunctionDocLines(${fname}): did NOT add fallback for docName='${String(docName)}' fallback='${String(fallbackCanonical)}' reasons=`,
+                            {
+                                canonical: Boolean(canonical),
+                                fallbackCanonical: Boolean(fallbackCanonical),
+                                canonicalNotEqual: canonical !== fallbackCanonical,
+                                hasDirectReference: entry.hasDirectReference === true,
+                                indexValid: Number.isInteger(index) && index >= 0,
+                                alreadyDocumented: documentedParamNames.has(fallbackCanonical)
+                            }
+                        );
+                    }
+                } catch {
+                    /* ignore */
+                }
+            }
+        }
+
+        try {
+            const fname = Core.getNodeName(node);
+            if (typeof fname === "string" && fname.includes("sample3")) {
+                console.error(
+                    `[feather:debug] computeSyntheticFunctionDocLines(${fname}): lines after initial pass=`,
+                    lines
+                );
+                try {
+                    console.error(
+                        `[feather:debug] computeSyntheticFunctionDocLines(${fname}): documentedParamNames=`,
+                        Array.from(documentedParamNames.values())
+                    );
+                    console.error(
+                        `[feather:debug] computeSyntheticFunctionDocLines(${fname}): lines=`,
+                        lines
+                    );
+                } catch {
+                    /* ignore */
+                }
+            }
+        } catch {
+            /* ignore */
+        }
+        // Second-pass safety-net: ensure numeric fallback `argumentN` docs are
+        // emitted when an implicit entry indicates a direct reference but the
+        // earlier pass didn't add the fallback due to any ordering/suppression
+        // mismatch. This mirrors the tests' expectation that direct numeric
+        // references preserved even when aliases exist.
+        try {
+            const fname = Core.getNodeName(node);
+                for (const entry of implicitArgumentDocNames) {
+                if (!entry) continue;
+                const { index, canonical, fallbackCanonical } = entry;
+                const shouldAddFallback =
+                    entry.hasDirectReference === true &&
+                    Number.isInteger(index) &&
+                    index >= 0 &&
+                    fallbackCanonical &&
+                    fallbackCanonical !== canonical &&
+                    !documentedParamNames.has(fallbackCanonical);
+
+                // Emit a light debug trace when debugging sample functions so
+                // we can later filter for why a fallback wasn't added.
+                try {
+                    if (typeof fname === "string" && fname.includes("sample3")) {
+                        console.error(
+                            `[feather:debug] computeSyntheticFunctionDocLines(${fname}): safety-check entry=index=${String(index)} canonical=${String(canonical)} fallback=${String(fallbackCanonical)} hasDirectReference=${String(entry.hasDirectReference)} documented=${String(documentedParamNames.has(fallbackCanonical))} shouldAdd=${String(shouldAddFallback)}`
+                        );
+                    }
+                } catch {
+                    void 0;
+                }
+
+                    if (
+                    entry.hasDirectReference === true &&
+                    Number.isInteger(index) &&
+                    index >= 0 &&
+                    fallbackCanonical &&
+                    fallbackCanonical !== canonical &&
+                    !documentedParamNames.has(fallbackCanonical)
+                ) {
+                    try {
+                        if (typeof fname === "string" && fname.includes("sample3")) {
+                            console.error(
+                                `[feather:debug] computeSyntheticFunctionDocLines(${fname}): safety-net adding fallback for index=${String(index)} fallback=${String(fallbackCanonical)} canonical=${String(canonical)} hasDirectReference=${String(entry.hasDirectReference)}`
+                            );
+                        }
+                    } catch {
+                        void 0;
+                    }
+                    documentedParamNames.add(fallbackCanonical);
+                    lines.push(`/// @param ${fallbackCanonical}`);
+                }
+            }
+                try {
+                    const fname2 = Core.getNodeName(node);
+                    if (typeof fname2 === "string" && fname2.includes("sample3")) {
+                        console.error(
+                            `[feather:debug] computeSyntheticFunctionDocLines(${fname2}): lines after safety-net pass=`,
+                            lines
+                        );
+                    }
+                } catch {
+                    /* ignore */
+                }
+        } catch {
+            /* best-effort */
         }
 
         return maybeAppendReturnsDoc(lines, node, hasReturnsTag, overrides);
@@ -7336,6 +7582,17 @@ function computeSyntheticFunctionDocLines(
         const docType = normalizedExistingType ?? normalizedOrdinalType;
 
         if (documentedParamNames.has(docName)) {
+            try {
+                const fname = Core.getNodeName(node);
+                if (typeof fname === "string" && fname.includes("sample3")) {
+                    console.error(
+                        `[feather:debug] computeSyntheticFunctionDocLines(${fname}): documentedParamNames snapshot=`,
+                        Array.from(documentedParamNames.values())
+                    );
+                }
+            } catch {
+                /* ignore */
+            }
             if (implicitDocEntry?.name) {
                 documentedParamNames.add(implicitDocEntry.name);
             }
@@ -7355,7 +7612,8 @@ function computeSyntheticFunctionDocLines(
             continue;
         }
 
-        const { name: docName, index, canonical, fallbackCanonical } = entry;
+            const { name: docName, index, canonical, fallbackCanonical } = entry;
+            const isImplicitFallbackEntry = canonical === fallbackCanonical;
         let declaredParamIsGeneric = false;
         if (
             Array.isArray(node?.params) &&
@@ -7404,8 +7662,22 @@ function computeSyntheticFunctionDocLines(
             continue;
         }
 
-        documentedParamNames.add(docName);
-        lines.push(`/// @param ${docName}`);
+            // If this is a fallback `argumentN` entry and an ordered
+            // param metadata entry exists for this index (e.g. `@param
+            // third`), prefer the documented ordinal name and skip
+            // synthesizing the fallback numeric entry.
+            if (
+                isImplicitFallbackEntry &&
+                Number.isInteger(index) &&
+                orderedParamMetadata[index] &&
+                typeof orderedParamMetadata[index].name === STRING_TYPE &&
+                orderedParamMetadata[index].name.length > 0
+            ) {
+                continue;
+            }
+
+            documentedParamNames.add(docName);
+            lines.push(`/// @param ${docName}`);
 
         // If this implicit entry indicates both an alias (canonical) and a
         // distinct fallback (argumentN), and the fallback is directly
@@ -7419,10 +7691,8 @@ function computeSyntheticFunctionDocLines(
             canonical !== fallbackCanonical &&
             entry.hasDirectReference === true &&
             !documentedParamNames.has(fallbackCanonical) &&
-            Array.isArray(node?.params) &&
             Number.isInteger(index) &&
             index >= 0 &&
-            index < node.params.length &&
             !declaredParamIsGeneric
         ) {
             documentedParamNames.add(fallbackCanonical);
@@ -7673,7 +7943,20 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                         // like 'sample' to avoid flooding test logs.
                         const result = entries.filter((entry) => {
                             if (!entry) return false;
-                            if (entry.hasDirectReference) return true;
+                            // Preserve direct references only when the suppression was
+                            // caused by an alias for the same index (i.e., there is an
+                            // aliasByIndex record for this entry). If the suppression
+                            // was caused by a different documented ordinal name, prefer
+                            // the documented name instead of emitting a numeric
+                            // fallback even when there is a direct `argumentN` usage.
+                            if (
+                                entry.hasDirectReference &&
+                                referenceInfo &&
+                                referenceInfo.aliasByIndex &&
+                                referenceInfo.aliasByIndex.has(entry.index)
+                            ) {
+                                return true;
+                            }
                             const key =
                                 entry.canonical || entry.fallbackCanonical;
                             if (!key) return true;
@@ -7811,8 +8094,45 @@ function collectImplicitArgumentDocNames(functionNode, options) {
         });
     }
 
+    // Parser-provided implicit entries will be augmented later; we will
+    // append fallback entries after `entries` is constructed from either
+    // the parser data or the AST-derived build below.
+
     const referenceInfo = gatherImplicitArgumentReferences(functionNode);
     const entries = buildImplicitArgumentDocEntries(referenceInfo);
+    // If parser provided explicit implicit entries, ensure we also add a
+    // fallback numeric `argumentN` entry when an alias exists and a direct
+    // numeric reference is present. This mirrors the behavior used when
+    // building entries from the AST and helps ensure we emit both alias
+    // and numeric doc lines for no-param functions.
+    try {
+        const parserEntries = functionNode._featherImplicitArgumentDocEntries;
+        if (Array.isArray(parserEntries) && parserEntries.length > 0) {
+            for (const pEntry of parserEntries) {
+                if (!pEntry) continue;
+                const { canonical, fallbackCanonical, index, hasDirectReference } = pEntry;
+                if (
+                    canonical &&
+                    fallbackCanonical &&
+                    canonical !== fallbackCanonical &&
+                    hasDirectReference === true
+                ) {
+                    const already = entries.some((e) => e && (e.canonical === fallbackCanonical || e.fallbackCanonical === fallbackCanonical));
+                    if (!already && Number.isInteger(index) && index >= 0) {
+                        entries.push({
+                            name: fallbackCanonical,
+                            canonical: fallbackCanonical,
+                            fallbackCanonical: fallbackCanonical,
+                            index,
+                            hasDirectReference: true
+                        });
+                    }
+                }
+            }
+        }
+    } catch {
+        /* ignore */
+    }
     const suppressedCanonicals =
         suppressedImplicitDocCanonicalByNode.get(functionNode);
     try {
@@ -7865,12 +8185,19 @@ function collectImplicitArgumentDocNames(functionNode, options) {
 
     return entries.filter((entry) => {
         if (!entry) return false;
-        // Always preserve explicit direct references even when a
-        // canonical has been marked suppressed. This mirrors the
-        // parser-backed branch above and ensures explicitly referenced
-        // `argumentN` usages still produce doc entries as expected by
-        // tests.
-        if (entry.hasDirectReference === true) return true;
+        // Only preserve direct references when the suppression stems from an
+        // alias assignment that occupies the same index (aliasByIndex). If
+        // the suppression is due to a documented ordinal name mismatch,
+        // prefer the documented name even if a numeric `argumentN` was used
+        // directly in the function body.
+        if (
+            entry.hasDirectReference === true &&
+            referenceInfo &&
+            referenceInfo.aliasByIndex &&
+            referenceInfo.aliasByIndex.has(entry.index)
+        ) {
+            return true;
+        }
 
         const key = entry.canonical || entry.fallbackCanonical;
         if (!key) return true;
@@ -7954,15 +8281,16 @@ function gatherImplicitArgumentReferences(functionNode) {
             // fallback `argumentN` doc line, so avoid marking those
             // initializers as direct references here. For all other
             // contexts, record the direct reference normally.
-            const isInitializerOfAlias =
-                parent &&
-                parent.type === "VariableDeclarator" &&
-                property === "init" &&
-                aliasByIndex.has(directIndex);
-
-            if (!isInitializerOfAlias) {
-                directReferenceIndices.add(directIndex);
-            }
+            // Always count direct occurrences of `argumentN` as explicit
+            // references. Historically we omitted initializer occurrences
+            // when they were recorded as alias initializers to allow the
+            // alias to completely supersede a fallback numeric doc line.
+            // However, tests expect alias initializers to still cause the
+            // numeric `argumentN` suffix to be preserved (in addition to
+            // the alias) when it is referenced directly. Therefore, do
+            // not suppress direct references for alias initializers; we
+            // record the direct reference in all contexts.
+            directReferenceIndices.add(directIndex);
         }
 
         Core.forEachNodeChild(node, (value, key) => {
@@ -7988,13 +8316,53 @@ function buildImplicitArgumentDocEntries({
         (left, right) => left - right
     );
 
-    return sortedIndices.map((index) =>
-        createImplicitArgumentDocEntry({
+    const result = [];
+    for (const index of sortedIndices) {
+        const entry = createImplicitArgumentDocEntry({
             index,
             aliasByIndex,
             directReferenceIndices
-        })
-    );
+        });
+        if (!entry) continue;
+        // Push the primary entry first (alias if present, otherwise fallback)
+        result.push(entry);
+
+        // If an alias is present and the fallback numeric `argumentN` is
+        // directly referenced, also produce an explicit fallback entry so
+        // both alias and numeric doc lines are available to the printer
+        // in the no-declared-params code path.
+        if (
+            entry.canonical &&
+            entry.fallbackCanonical &&
+            entry.canonical !== entry.fallbackCanonical &&
+            entry.hasDirectReference === true
+        ) {
+            result.push({
+                name: entry.fallbackCanonical,
+                canonical: entry.fallbackCanonical,
+                fallbackCanonical: entry.fallbackCanonical,
+                index: entry.index,
+                hasDirectReference: true
+            });
+        }
+    }
+
+    // Debug: log built entries for sample functions so we can trace why
+    // fallback numeric entries might be absent in downstream steps.
+    try {
+        const interesting = result.some((e) => e && (e.canonical === "argument3" || e.fallbackCanonical === "argument3" || e.canonical === "second"));
+        if (interesting) {
+            try {
+                console.error(`[feather:debug] buildImplicitArgumentDocEntries: builtEntries=`, result);
+            } catch {
+                /* ignore */
+            }
+        }
+    } catch {
+        /* ignore */
+    }
+
+    return result;
 }
 
 function createImplicitArgumentDocEntry({
@@ -11299,7 +11667,7 @@ function printEmptyParens(path, _print, options) {
         [
             "(",
             indent([
-                printDanglingCommentsAsGroup(
+                Parser.printDanglingCommentsAsGroup(
                     path,
                     options,
                     (comment) => !comment.attachToBrace
@@ -11342,12 +11710,12 @@ function printEmptyBlock(path, options, print) {
         // an empty block with comments
         return [
             "{",
-            printDanglingComments(
+            Parser.printDanglingComments(
                 path,
                 options,
                 (comment) => comment.attachToBrace
             ),
-            printDanglingCommentsAsGroup(
+            Parser.printDanglingCommentsAsGroup(
                 path,
                 options,
                 (comment) => !comment.attachToBrace
@@ -11387,7 +11755,7 @@ function maybePrintInlineEmptyBlockComment(path, options) {
         "{",
         leadingSpacing,
         path.call(
-            (commentPath) => printComment(commentPath, options),
+            (commentPath) => Parser.printComment(commentPath, options),
             "comments",
             inlineIndex
         ),

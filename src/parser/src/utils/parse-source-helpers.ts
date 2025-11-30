@@ -1,3 +1,5 @@
+// TODO: We should move actual formatting logic into @gml-modules/plugin. Parser should just handle AST manipulation.
+
 import { Core } from "@gml-modules/core";
 
 export function fixMalformedComments(sourceText) {

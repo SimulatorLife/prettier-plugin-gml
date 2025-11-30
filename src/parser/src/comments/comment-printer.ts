@@ -1,3 +1,5 @@
+// TODO: We should move actual formatting logic into @gml-modules/plugin. Parser should just handle AST manipulation.
+
 import { util } from "prettier";
 import { builders } from "prettier/doc";
 import { Core } from "@gml-modules/core";

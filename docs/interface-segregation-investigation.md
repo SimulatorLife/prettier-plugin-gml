@@ -166,7 +166,7 @@ no code changes were required.
 ## Follow-up audit (2025-10-25)
 
 - Surveyed the doc comment tooling and spotted `getDocCommentManager` in
-  `src/plugin/src/comments/doc-comment-manager.js`. The exported "manager"
+  `src/core/src/comments/doc-comment-manager.ts`. The exported "manager"
   facade surfaced traversal, lookup, description, and update helpers together,
   so call sites that only needed one behaviour had to depend on the entire
   contract.

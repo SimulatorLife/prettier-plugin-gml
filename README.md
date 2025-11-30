@@ -191,7 +191,7 @@ for (var i = 0; i < queue_count; i += 1) {
   `setProjectIndexSourceExtensions` when bespoke suffixes (for example,
   `.npc.gml`) need to participate in rename plans. Documentation for these hooks
   is pending; refer to the source files in `src/plugin/src/options/` and
-  `src/plugin/src/comments/` for implementation details.
+  `src/parser/src/comments/` for implementation details.
 - [Memory experiments](docs/metrics-tracker-finalize-memory.md) &mdash; Captures the
   `node --expose-gc` script and before/after measurements that validate the
   metrics tracker clean-up path. Run with `npm run memory` to execute the

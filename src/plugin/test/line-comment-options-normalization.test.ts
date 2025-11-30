@@ -1,14 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
-import {
-    DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
-    DEFAULT_LINE_COMMENT_OPTIONS,
-    formatLineComment,
-    resolveLineCommentOptions,
-    restoreDefaultLineCommentOptionsResolver,
-    setLineCommentOptionsResolver
-} from "../src/comments/index.js";
+import { Parser } from "@gml-modules/parser";
 
 function createLineComment(value, raw = `//${value}`) {
     return {
@@ -21,49 +14,49 @@ function createLineComment(value, raw = `//${value}`) {
 
 describe("resolveLineCommentOptions", () => {
     afterEach(() => {
-        restoreDefaultLineCommentOptionsResolver();
+        Parser.restoreDefaultLineCommentOptionsResolver();
     });
 
     it("returns the default option object when no resolver is installed", () => {
-        const resolved = resolveLineCommentOptions();
+        const resolved = Parser.resolveLineCommentOptions();
 
-        assert.strictEqual(resolved, DEFAULT_LINE_COMMENT_OPTIONS);
+        assert.strictEqual(resolved, Parser.DEFAULT_LINE_COMMENT_OPTIONS);
         assert.strictEqual(
             resolved.codeDetectionPatterns,
-            DEFAULT_COMMENTED_OUT_CODE_PATTERNS
+            Parser.DEFAULT_COMMENTED_OUT_CODE_PATTERNS
         );
     });
 
     it("allows integrators to extend boilerplate heuristics via resolver hook", () => {
         const customFragment = "// AUTO-GENERATED FILE";
-        setLineCommentOptionsResolver(() => ({
+        Parser.setLineCommentOptionsResolver(() => ({
             boilerplateFragments: [
-                ...DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments,
+                ...Parser.DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments,
                 customFragment
             ]
         }));
 
-        const resolved = resolveLineCommentOptions();
+        const resolved = Parser.resolveLineCommentOptions();
 
-        assert.notStrictEqual(resolved, DEFAULT_LINE_COMMENT_OPTIONS);
+        assert.notStrictEqual(resolved, Parser.DEFAULT_LINE_COMMENT_OPTIONS);
         assert.deepEqual(resolved.boilerplateFragments.slice(-1), [
             customFragment
         ]);
         assert.strictEqual(
             resolved.codeDetectionPatterns,
-            DEFAULT_COMMENTED_OUT_CODE_PATTERNS
+            Parser.DEFAULT_COMMENTED_OUT_CODE_PATTERNS
         );
     });
 
     it("falls back to defaults when the resolver returns invalid data", () => {
-        setLineCommentOptionsResolver(() => ({
+        Parser.setLineCommentOptionsResolver(() => ({
             boilerplateFragments: null,
             codeDetectionPatterns: ["/^SQL:/i"]
         }));
 
-        const resolved = resolveLineCommentOptions();
+        const resolved = Parser.resolveLineCommentOptions();
 
-        assert.strictEqual(resolved, DEFAULT_LINE_COMMENT_OPTIONS);
+        assert.strictEqual(resolved, Parser.DEFAULT_LINE_COMMENT_OPTIONS);
     });
 });
 
@@ -74,9 +67,9 @@ describe("formatLineComment", () => {
             "// if (player.hp <= 0) return;"
         );
 
-        const formatted = formatLineComment(
+        const formatted = Parser.formatLineComment(
             comment,
-            DEFAULT_LINE_COMMENT_OPTIONS
+            Parser.DEFAULT_LINE_COMMENT_OPTIONS
         );
 
         assert.equal(formatted, "// if (player.hp <= 0) return;");
@@ -88,13 +81,13 @@ describe("formatLineComment", () => {
             "// AUTO-GENERATED FILE - do not edit"
         );
 
-        const formatted = formatLineComment(comment, {
+        const formatted = Parser.formatLineComment(comment, {
             boilerplateFragments: [
-                ...DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments,
+                ...Parser.DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments,
                 "AUTO-GENERATED FILE"
             ],
             codeDetectionPatterns:
-                DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns
+                Parser.DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns
         });
 
         assert.equal(formatted, "");

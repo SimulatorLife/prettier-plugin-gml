@@ -7,9 +7,9 @@ import {
 } from "../src/components/plugin-component-bundles.js";
 import { gmlParserAdapter } from "../src/parsers/index.js";
 import { print } from "../src/printer/index.js";
-import { handleComments, printComment } from "../src/comments/public-api.js";
 import { Semantic } from "@gml-modules/semantic";
 import { LogicalOperatorsStyle } from "../src/options/logical-operators-style.js";
+import { Parser } from "@gml-modules/parser";
 
 test("default implementation bundle is frozen and reuses canonical references", () => {
     assert.ok(
@@ -24,11 +24,11 @@ test("default implementation bundle is frozen and reuses canonical references", 
     assert.strictEqual(gmlPluginComponentImplementations.print, print);
     assert.strictEqual(
         gmlPluginComponentImplementations.printComment,
-        printComment
+        Parser.printComment
     );
     assert.strictEqual(
         gmlPluginComponentImplementations.handleComments,
-        handleComments
+        Parser.handleComments
     );
     assert.strictEqual(
         gmlPluginComponentImplementations.identifierCaseOptions,
