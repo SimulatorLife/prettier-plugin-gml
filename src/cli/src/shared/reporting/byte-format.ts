@@ -1,10 +1,10 @@
 import { Buffer } from "node:buffer";
 
-import { isFiniteNumber } from "../dependencies.js";
 import {
     callWithFallback,
     coercePositiveInteger,
-    createNumericTypeErrorFormatter
+    createNumericTypeErrorFormatter,
+    isFiniteNumber
 } from "../dependencies.js";
 import { createIntegerOptionToolkit } from "../../cli-core/integer-option-toolkit.js";
 

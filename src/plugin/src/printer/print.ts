@@ -6991,7 +6991,7 @@ function computeSyntheticFunctionDocLines(
                     fallbacksToAdd.push({
                         name: fallbackCanonical,
                         canonical: fallbackCanonical,
-                        fallbackCanonical: fallbackCanonical,
+                        fallbackCanonical,
                         index,
                         hasDirectReference: true
                     });
@@ -7213,7 +7213,7 @@ function computeSyntheticFunctionDocLines(
                     fallbackCanonical &&
                     fallbackCanonical !== canonical &&
                     !documentedParamNames.has(fallbackCanonical) &&
-                    !(suppressedCanonicals && suppressedCanonicals.has(fallbackCanonical));
+                    (!suppressedCanonicals || !suppressedCanonicals.has(fallbackCanonical));
 
                 // Emit a light debug trace when debugging sample functions so
                 // we can later filter for why a fallback wasn't added.
@@ -7234,7 +7234,7 @@ function computeSyntheticFunctionDocLines(
                     fallbackCanonical &&
                     fallbackCanonical !== canonical &&
                         !documentedParamNames.has(fallbackCanonical) &&
-                        !(suppressedCanonicals && suppressedCanonicals.has(fallbackCanonical))
+                        (!suppressedCanonicals || !suppressedCanonicals.has(fallbackCanonical))
                 ) {
                     try {
                         if (typeof fname === "string" && fname.includes("sample3")) {
@@ -8137,7 +8137,7 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                         entries.push({
                             name: fallbackCanonical,
                             canonical: fallbackCanonical,
-                            fallbackCanonical: fallbackCanonical,
+                            fallbackCanonical,
                             index,
                             hasDirectReference: true
                         });

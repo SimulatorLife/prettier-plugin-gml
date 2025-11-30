@@ -4,11 +4,9 @@ import { isCommanderErrorLike } from "./commander-error-utils.js";
 import {
     createCommanderCommandContract,
     createCommanderProgramContract,
-    isCommanderCommandLike
-} from "./commander-contract.js";
-import type {
-    CommanderProgramContract,
-    CommanderCommandContract
+    isCommanderCommandLike,
+    type CommanderProgramContract,
+    type CommanderCommandContract
 } from "./commander-contract.js";
 import type {
     CommanderCommandLike,

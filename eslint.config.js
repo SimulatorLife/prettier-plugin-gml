@@ -103,7 +103,11 @@ const tsConfig = defineConfig({
         ecmaVersion: 2022,
         sourceType: "module",
         globals: {
-            ...globals.node
+            ...globals.node,
+            NodeJS: "readonly",
+            BufferEncoding: "readonly",
+            Element: "readonly",
+            Document: "readonly"
         },
         parser: tseslint.parser,
         parserOptions: {

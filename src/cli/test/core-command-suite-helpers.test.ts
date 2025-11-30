@@ -3,9 +3,9 @@ import { test } from "node:test";
 
 import {
     collectSuiteResults,
-    resolveRequestedSuites
-} from "../src/core/command-suite-helpers.js";
-import type { SuiteRunner } from "../src/core/command-suite-helpers.js";
+    resolveRequestedSuites,
+    type SuiteRunner
+} from "../src/cli-core/command-suite-helpers.js";
 import { asErrorLike } from "../src/shared/error-guards.js";
 
 test("collectSuiteResults executes suite runners with shared options", async () => {

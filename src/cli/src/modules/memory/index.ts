@@ -1,10 +1,8 @@
 import path from "node:path";
 import process from "node:process";
-import { readFile } from "node:fs/promises";
+import { readFile, type FileHandle } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
-import type { FileHandle } from "node:fs/promises";
-import type { PathLike } from "node:fs";
-import type { WriteFileOptions } from "node:fs";
+import type { PathLike, WriteFileOptions } from "node:fs";
 import type { Stream } from "node:stream";
 
 import {

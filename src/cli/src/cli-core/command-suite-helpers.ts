@@ -20,7 +20,7 @@ export const SuiteOutputFormat = Object.freeze({
 export type SuiteOutputFormat =
     (typeof SuiteOutputFormat)[keyof typeof SuiteOutputFormat];
 
-export type SuiteRunner = (options?: unknown) => unknown | Promise<unknown>;
+export type SuiteRunner = (options?: unknown) => unknown;
 
 export interface SuitePayloadExtras {
     payload?: Record<string, unknown>;
@@ -260,8 +260,8 @@ export function emitSuiteResults(
     const normalizedFormat = resolveSuiteOutputFormatOrThrow(format, {
         fallback: SuiteOutputFormat.JSON,
         errorConstructor: RangeError,
-        createErrorMessage: (received) =>
-            `Unsupported suite output format '${received}'. Valid formats: ${formatSuiteOutputFormatList()}.`
+        createErrorMessage: () =>
+            `Unsupported suite output format. Valid formats: ${formatSuiteOutputFormatList()}.`
     });
 
     if (normalizedFormat === SuiteOutputFormat.HUMAN) {

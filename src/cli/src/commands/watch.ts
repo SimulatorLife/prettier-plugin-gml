@@ -11,11 +11,10 @@
  * wrapper to enable true hot-reloading without game restarts.
  */
 
-import { watch } from "node:fs";
+import { watch, type FSWatcher } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import type { FSWatcher } from "node:fs";
 
 import { Command, Option } from "commander";
 
@@ -439,7 +438,7 @@ export async function runWatchCommand(
 
         if (abortSignal) {
             if (abortSignal.aborted) {
-                cleanup(0);
+            void cleanup(0);
                 return;
             }
 
