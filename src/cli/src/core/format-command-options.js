@@ -35,6 +35,25 @@ function resolvePrettierConfiguration(
     };
 }
 
+function resolveTargetPathInputs(options, args) {
+    const positionalTarget = Array.isArray(args) ? args[0] : undefined;
+    const rawTarget = options.path ?? positionalTarget ?? null;
+
+    const targetPathInput =
+        typeof rawTarget === "string"
+            ? getNonEmptyTrimmedString(rawTarget)
+            : (rawTarget ?? null);
+    const targetPathProvided = rawTarget != null;
+    const rawTargetPathInput =
+        typeof rawTarget === "string" &&
+        targetPathInput !== null &&
+        targetPathInput !== rawTarget
+            ? rawTarget
+            : undefined;
+
+    return { targetPathInput, targetPathProvided, rawTargetPathInput };
+}
+
 export function collectFormatCommandOptions(
     command,
     {
@@ -44,26 +63,8 @@ export function collectFormatCommandOptions(
     } = {}
 ) {
     const options = command?.opts?.() ?? {};
-    const args = Array.isArray(command?.args) ? command.args : [];
-    const positionalTarget = args.length > 0 ? args[0] : null;
-    const rawTarget = options.path ?? positionalTarget ?? null;
-
-    let targetPathInput = null;
-    let targetPathProvided = false;
-    let rawTargetPathInput;
-
-    if (typeof rawTarget === "string") {
-        const trimmedTarget = getNonEmptyTrimmedString(rawTarget);
-        targetPathInput = trimmedTarget ?? null;
-        targetPathProvided = true;
-
-        if (trimmedTarget !== null && trimmedTarget !== rawTarget) {
-            rawTargetPathInput = rawTarget;
-        }
-    } else if (rawTarget != null) {
-        targetPathInput = rawTarget;
-        targetPathProvided = true;
-    }
+    const { targetPathInput, targetPathProvided, rawTargetPathInput } =
+        resolveTargetPathInputs(options, command?.args);
 
     const {
         skippedDirectorySampleLimit,
