@@ -68,16 +68,6 @@ const UNDEFINED_TYPE = "undefined";
 function getSemanticIdentifierCaseRenameForNode(node, options) {
     try {
         try {
-            console.debug(
-                `[DBG] semantic-lookup-enter: filepath=${options?.filepath ?? null} nodeStart=${JSON.stringify(
-                    node?.start
-                )} scopeId=${String(node?.scopeId ?? null)} renameMapId=${options?.__identifierCaseRenameMap?.__dbgId ?? null} renameMapSize=${options?.__identifierCaseRenameMap?.size ?? null}`
-            );
-        } catch {
-            /* ignore */
-        }
-
-        try {
             // Emit a small view of the Semantic namespace so we can detect if
             // the lookup symbol is present at runtime (some lazy proxying
             // paths can hide or delay properties).
@@ -87,9 +77,6 @@ function getSemanticIdentifierCaseRenameForNode(node, options) {
             } catch {
                 /* ignore */
             }
-            console.debug(
-                `[DBG] semantic-namespace-keys: ${JSON.stringify(semanticKeys)}`
-            );
         } catch {
             /* ignore */
         }
@@ -4230,7 +4217,7 @@ function collectSyntheticDocCommentLines(
     sourceText
 ) {
     const rawComments = Core.getCommentArray(node);
-    if (process.env.GML_PRINTER_DEBUG) {
+    if (typeof process !== "undefined" && process.env.GML_PRINTER_DEBUG) {
         const programCommentsCount = Core.isNonEmptyArray(
             Core.getCommentArray(programNode)
         )
@@ -5007,6 +4994,13 @@ function mergeSyntheticDocComments(
 ) {
     let normalizedExistingLines: MutableDocCommentLines =
         Core.toMutableArray(existingDocLines);
+    const originalExistingHasTags =
+        Array.isArray(existingDocLines) &&
+        existingDocLines.some((line) =>
+            typeof line === STRING_TYPE
+                ? Core.parseDocCommentMetadata(line)
+                : false
+        );
 
     // Compute synthetic lines early so promotion can consider synthetic tags
     // such as `/// @function` when deciding whether the file-top doc-like
@@ -5039,12 +5033,25 @@ function mergeSyntheticDocComments(
         overrides
     );
 
-    normalizedExistingLines = Core.toMutableArray(
-        Core.promoteLeadingDocCommentTextToDescription(
-            normalizedExistingLines,
-            _computedSynthetic
-        )
-    ) as MutableDocCommentLines;
+    // Only promote leading doc comment text to @description if the original
+    // set contained tags (e.g., `@param`) or used an alternate doc-like
+    // prefix that should normalize (e.g., `// /`). This prevents synthetic
+    // tags from causing plain leading summaries (/// text) to become
+    // promoted description metadata unexpectedly.
+    const originalExistingHasDocLikePrefixes =
+        Array.isArray(existingDocLines) &&
+        existingDocLines.some((line) =>
+            typeof line === STRING_TYPE ? /^\s*\/\/\s*\/\s*/.test(line) : false
+        );
+
+    if (originalExistingHasTags || originalExistingHasDocLikePrefixes) {
+        normalizedExistingLines = Core.toMutableArray(
+            Core.promoteLeadingDocCommentTextToDescription(
+                normalizedExistingLines,
+                _computedSynthetic
+            )
+        ) as MutableDocCommentLines;
+    }
     // Diagnostic log: show before/after merging
     if (
         Array.isArray(normalizedExistingLines) &&
@@ -5191,8 +5198,14 @@ function mergeSyntheticDocComments(
         } else {
             const firstParamIndex = mergedLines.findIndex(isParamLine);
 
-            const insertionIndex =
-                firstParamIndex === -1 ? mergedLines.length : firstParamIndex;
+            // If the original doc lines did not contain any metadata tags,
+            // prefer to append synthetic `@function` tags after the existing
+            // summary lines rather than inserting them before param tags.
+            const insertionIndex = originalExistingHasTags
+                ? firstParamIndex === -1
+                  ? mergedLines.length
+                  : firstParamIndex
+                : mergedLines.length;
             const precedingLine =
                 insertionIndex > 0 ? mergedLines[insertionIndex - 1] : null;
             const trimmedPreceding = Core.toTrimmedString(precedingLine);
@@ -5456,11 +5469,74 @@ function mergeSyntheticDocComments(
         }
     }
 
+    // Ensure that when the original existing doc lines did NOT include
+    // metadata tags, but we have inserted synthetic tags, we preserve a
+    // blank separator between the original summary and the synthetic tags.
+    try {
+        const hasOriginalTags =
+            Array.isArray(existingDocLines) &&
+            existingDocLines.some((l) =>
+                typeof l === STRING_TYPE
+                    ? Core.parseDocCommentMetadata(l)
+                    : false
+            );
+        if (
+            !hasOriginalTags &&
+            Array.isArray(existingDocLines) &&
+            existingDocLines.length > 0
+        ) {
+            const firstSyntheticIndex = result.findIndex(
+                (ln) =>
+                    isFunctionLine(ln) || isOverrideLine(ln) || isParamLine(ln)
+            );
+            if (firstSyntheticIndex > 0) {
+                const preceding = result[firstSyntheticIndex - 1];
+                if (
+                    typeof preceding === STRING_TYPE &&
+                    preceding.trim() !== "" &&
+                    result[firstSyntheticIndex] &&
+                    typeof result[firstSyntheticIndex] === STRING_TYPE &&
+                    /^\/\/\//.test(result[firstSyntheticIndex].trim())
+                 && // Insert a blank line if we don't already have one
+                    result[firstSyntheticIndex - 1] !== "") {
+                        result = [
+                            ...result.slice(0, firstSyntheticIndex),
+                            "",
+                            ...result.slice(firstSyntheticIndex)
+                        ];
+                    }
+            }
+        }
+    } catch {
+        // best-effort: don't throw if core utilities are unavailable
+    }
+
     const suppressedCanonicals = suppressedImplicitDocCanonicalByNode.get(node);
 
     if (suppressedCanonicals && suppressedCanonicals.size > 0) {
+        // Only delete suppressed fallback doc lines if they are not
+        // explicitly referenced (direct references) in the function body.
+        // This mirrors the logic in `collectImplicitArgumentDocNames` and
+        // ensures that explicitly referenced `argumentN` lines are preserved
+        // even when a canonical was marked suppressed due to an alias.
         for (const canonical of suppressedCanonicals) {
-            paramDocsByCanonical.delete(canonical);
+            const candidate = paramDocsByCanonical.get(canonical);
+            if (!candidate) continue;
+
+            // If there is an implicit doc entry with the same canonical that
+            // indicates a direct reference, keep the doc line. Otherwise remove
+            // the fallback biased doc line so the alias doc comment can win.
+            const directReferenceExists = implicitDocEntries.some((entry) => {
+                if (!entry) return false;
+                const key =
+                    entry.canonical || entry.fallbackCanonical || entry.name;
+                if (!key) return false;
+                return key === canonical && entry.hasDirectReference === true;
+            });
+
+            if (!directReferenceExists) {
+                paramDocsByCanonical.delete(canonical);
+            }
         }
     }
 
@@ -5978,44 +6054,55 @@ function mergeSyntheticDocComments(
                     continue;
                 }
 
-                if (
-                    blockLines.length > 1 &&
-                    segments.length > blockLines.length
-                ) {
-                    const paddedBlockLines = blockLines.map(
-                        (docLine, blockIndex) => {
-                            if (
-                                blockIndex === 0 ||
-                                typeof docLine !== STRING_TYPE
-                            ) {
-                                return docLine;
+                if (blockLines.length > 1) {
+                    if (segments.length > blockLines.length) {
+                        const paddedBlockLines = blockLines.map(
+                            (docLine, blockIndex) => {
+                                if (
+                                    blockIndex === 0 ||
+                                    typeof docLine !== STRING_TYPE
+                                ) {
+                                    return docLine;
+                                }
+
+                                if (
+                                    !docLine.startsWith("///") ||
+                                    Core.parseDocCommentMetadata(docLine)
+                                ) {
+                                    return docLine;
+                                }
+
+                                if (docLine.startsWith(continuationPrefix)) {
+                                    return docLine;
+                                }
+
+                                const trimmedContinuation = docLine
+                                    .slice(3)
+                                    .replace(/^\s+/, "");
+
+                                if (trimmedContinuation.length === 0) {
+                                    return docLine;
+                                }
+
+                                return `${continuationPrefix}${trimmedContinuation}`;
                             }
+                        );
 
-                            if (
-                                !docLine.startsWith("///") ||
-                                Core.parseDocCommentMetadata(docLine)
-                            ) {
-                                return docLine;
-                            }
+                        wrappedDocs.push(...paddedBlockLines);
+                        continue;
+                    }
 
-                            if (docLine.startsWith(continuationPrefix)) {
-                                return docLine;
-                            }
-
-                            const trimmedContinuation = docLine
-                                .slice(3)
-                                .replace(/^\s+/, "");
-
-                            if (trimmedContinuation.length === 0) {
-                                return docLine;
-                            }
-
-                            return `${continuationPrefix}${trimmedContinuation}`;
-                        }
-                    );
-
-                    wrappedDocs.push(...paddedBlockLines);
-                    continue;
+                    // If the description is already expressed as multiple
+                    // block lines and the wrapping computation compresses it
+                    // into fewer segments (or same number), preserve the
+                    // original blockLines rather than collapsing them into a
+                    // single description line. Tests expect explicit
+                    // continuations to remain visible rather than being
+                    // merged into the first line.
+                    if (segments.length <= blockLines.length) {
+                        wrappedDocs.push(...blockLines);
+                        continue;
+                    }
                 }
 
                 wrappedDocs.push(`${prefix}${segments[0]}`);
@@ -6072,22 +6159,104 @@ function mergeSyntheticDocComments(
     // the presence of synthetic tags enables the promotion and avoids leaving
     // the summary as a plain inline/trailing comment.
     try {
-        console.log(
-            "promoteLeadingDocCommentTextToDescription: filteredResult pre-promotion",
-            filteredResult
-        );
-        filteredResult = Core.toMutableArray(
-            Core.promoteLeadingDocCommentTextToDescription(filteredResult)
-        );
-        console.log(
-            "promoteLeadingDocCommentTextToDescription: filteredResult post-promotion",
-            filteredResult
-        );
+        // Only re-run promotion if the original existing doc lines contained
+        // metadata tags or were doc-like (`// /` style). Avoid promoting plain
+        // triple slash summaries that had no metadata in the original source
+        // so synthetic tags do not cause unwanted `@description` promotions.
+        const originalExistingHasTags =
+            Array.isArray(existingDocLines) &&
+            existingDocLines.some((line) =>
+                typeof line === STRING_TYPE
+                    ? Core.parseDocCommentMetadata(line)
+                    : false
+            );
+        const originalExistingHasDocLikePrefixes =
+            Array.isArray(existingDocLines) &&
+            existingDocLines.some((line) =>
+                typeof line === STRING_TYPE
+                    ? /^\s*\/\/\s*\/\s*/.test(line)
+                    : false
+            );
+
+        if (originalExistingHasTags || originalExistingHasDocLikePrefixes) {
+            console.log(
+                "promoteLeadingDocCommentTextToDescription: filteredResult pre-promotion",
+                filteredResult
+            );
+            filteredResult = Core.toMutableArray(
+                Core.promoteLeadingDocCommentTextToDescription(filteredResult)
+            );
+            console.log(
+                "promoteLeadingDocCommentTextToDescription: filteredResult post-promotion",
+                filteredResult
+            );
+        }
     } catch {
         // If the Core service is unavailable (testing contexts), fall back to
         // the original behavior without promotion so we don't throw.
     }
 
+    try {
+        console.error(
+            `[doc:debug] mergeSyntheticDocComments: finalResult=${JSON.stringify(filteredResult)}`
+        );
+    } catch {
+        void 0;
+    }
+
+    // If the original existing doc lines contained plain triple-slash
+    // summary lines but no explicit doc tags, prefer to keep the summary
+    // as plain text rather than a promoted `@description` tag and ensure a
+    // blank line separates the summary from the synthetic metadata.
+    try {
+        const originalHasPlainSummary =
+            Array.isArray(existingDocLines) &&
+            existingDocLines.some((l) =>
+                typeof l === STRING_TYPE
+                    ? /^\/\/\/\s*(?!@).+/.test(l.trim())
+                    : false
+            );
+        const originalHasTags =
+            Array.isArray(existingDocLines) &&
+            existingDocLines.some((l) =>
+                typeof l === STRING_TYPE
+                    ? Core.parseDocCommentMetadata(l)
+                    : false
+            );
+        if (originalHasPlainSummary && !originalHasTags) {
+            const summaryLines = [] as string[];
+            const otherLines = [] as string[];
+
+            for (const ln of filteredResult) {
+                if (typeof ln !== STRING_TYPE) continue;
+                if (/^\/\/\/\s*@description\b/i.test(ln.trim())) {
+                    const meta = Core.parseDocCommentMetadata(ln);
+                    const descriptionText =
+                        typeof meta?.name === STRING_TYPE ? meta.name : "";
+                    summaryLines.push(`/// ${descriptionText}`);
+                    continue;
+                }
+                if (/^\/\/\/\s*@/i.test(ln.trim())) {
+                    otherLines.push(ln);
+                    continue;
+                }
+                // Treat other triple slash lines as summary continuations
+                if (/^\/\/\/\s*/.test(ln.trim())) {
+                    summaryLines.push(ln);
+                    continue;
+                }
+                otherLines.push(ln);
+            }
+
+            if (summaryLines.length > 0 && otherLines.length > 0) {
+                // Ensure a blank separator between summary block and synthetic metadata
+                const combined = [...summaryLines, "", ...otherLines];
+                filteredResult = Core.toMutableArray(combined as any);
+            }
+        }
+    } catch {
+        // Best-effort fallback; do not throw on diagnostic operations
+    }
     return Core.convertLegacyReturnsDescriptionLinesToMetadata(filteredResult);
 }
 
@@ -6563,9 +6732,12 @@ function computeSyntheticFunctionDocLines(
         return [];
     }
 
-    const metadata = Array.isArray(existingDocLines)
-        ? existingDocLines.map(Core.parseDocCommentMetadata).filter(Boolean)
-        : [];
+    type DocMeta = { tag: string; name?: string | null; type?: string | null };
+    const metadata = (
+        Array.isArray(existingDocLines)
+            ? existingDocLines.map(Core.parseDocCommentMetadata).filter(Boolean)
+            : []
+    ) as DocMeta[];
     const orderedParamMetadata = metadata.filter(
         (meta) => meta.tag === "param"
     );
@@ -7184,6 +7356,19 @@ function computeSyntheticFunctionDocLines(
         }
 
         const { name: docName, index, canonical, fallbackCanonical } = entry;
+        let declaredParamIsGeneric = false;
+        if (
+            Array.isArray(node?.params) &&
+            Number.isInteger(index) &&
+            index >= 0
+        ) {
+            const decl = node.params[index];
+            const declId = getIdentifierFromParameterNode(decl);
+            if (declId && typeof declId.name === STRING_TYPE) {
+                declaredParamIsGeneric =
+                    getArgumentIndexFromIdentifier(declId.name) !== null;
+            }
+        }
         const isFallbackEntry = canonical === fallbackCanonical;
         if (
             isFallbackEntry &&
@@ -7196,11 +7381,53 @@ function computeSyntheticFunctionDocLines(
         }
 
         if (documentedParamNames.has(docName)) {
+            // If the alias name is already documented but the fallback
+            // numeric `argumentN` name is directly referenced in the
+            // function body, ensure we still synthesize a fallback doc
+            // entry for the numeric argument so explicit references are
+            // preserved alongside the alias.
+            if (
+                canonical &&
+                fallbackCanonical &&
+                canonical !== fallbackCanonical &&
+                entry.hasDirectReference === true &&
+                !documentedParamNames.has(fallbackCanonical) &&
+                !declaredParamIsGeneric &&
+                Array.isArray(node?.params) &&
+                Number.isInteger(index) &&
+                index >= 0 &&
+                index < node.params.length
+            ) {
+                documentedParamNames.add(fallbackCanonical);
+                lines.push(`/// @param ${fallbackCanonical}`);
+            }
             continue;
         }
 
         documentedParamNames.add(docName);
         lines.push(`/// @param ${docName}`);
+
+        // If this implicit entry indicates both an alias (canonical) and a
+        // distinct fallback (argumentN), and the fallback is directly
+        // referenced in the function body, synthesize an explicit
+        // `argumentN` doc line as well so both the alias and numeric doc
+        // entry are present in the merged output. This preserves direct
+        // numeric argument references that tests expect to be retained.
+        if (
+            canonical &&
+            fallbackCanonical &&
+            canonical !== fallbackCanonical &&
+            entry.hasDirectReference === true &&
+            !documentedParamNames.has(fallbackCanonical) &&
+            Array.isArray(node?.params) &&
+            Number.isInteger(index) &&
+            index >= 0 &&
+            index < node.params.length &&
+            !declaredParamIsGeneric
+        ) {
+            documentedParamNames.add(fallbackCanonical);
+            lines.push(`/// @param ${fallbackCanonical}`);
+        }
     }
 
     return maybeAppendReturnsDoc(lines, node, hasReturnsTag, overrides).map(
@@ -7317,13 +7544,24 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                                 node.type === "Identifier" &&
                                 typeof node.name === STRING_TYPE
                             ) {
-                                const observed =
-                                    getCanonicalParamNameFromText(node.name) ||
-                                    node.name;
-                                const list = canonicalToEntries.get(observed);
-                                if (Array.isArray(list)) {
-                                    for (const ent of list)
-                                        ent.hasDirectReference = true;
+                                // Only treat documented `argumentN` identifiers as
+                                // direct references. Alias names should not cause
+                                // an entry to be considered a direct numeric
+                                // reference because they represent a renamed local
+                                // alias rather than a numeric `argumentN` usage.
+                                const maybeIndex =
+                                    getArgumentIndexFromIdentifier(node.name);
+                                if (maybeIndex !== null) {
+                                    const observed =
+                                        getCanonicalParamNameFromText(
+                                            `argument${maybeIndex}`
+                                        ) || `argument${maybeIndex}`;
+                                    const list =
+                                        canonicalToEntries.get(observed);
+                                    if (Array.isArray(list)) {
+                                        for (const ent of list)
+                                            ent.hasDirectReference = true;
+                                    }
                                 }
                             }
 
@@ -7379,7 +7617,10 @@ function collectImplicitArgumentDocNames(functionNode, options) {
         // identifier-case renames change AST identifier names before
         // printing.
         try {
-            const functionSource = getSourceTextForNode(functionNode, options);
+            const functionSource = getSourceTextForNode(
+                functionNode?.body,
+                options
+            );
             if (
                 typeof functionSource === STRING_TYPE &&
                 functionSource.length > 0

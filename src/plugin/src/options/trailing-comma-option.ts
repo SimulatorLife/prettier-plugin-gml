@@ -31,10 +31,4 @@ function assertTrailingCommaValue(value: unknown): TrailingCommaOption {
     );
 }
 
-export {
-    TRAILING_COMMA,
-    TRAILING_COMMA_LIST,
-    TRAILING_COMMA_VALUES,
-    assertTrailingCommaValue,
-    isTrailingCommaValue
-};
+export { TRAILING_COMMA, assertTrailingCommaValue, isTrailingCommaValue };

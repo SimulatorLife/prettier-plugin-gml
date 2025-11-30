@@ -1,5 +1,5 @@
 import {
-    Core, 
+    Core,
     type GameMakerAstNode,
     type MutableGameMakerAstNode
 } from "@gml-modules/core";

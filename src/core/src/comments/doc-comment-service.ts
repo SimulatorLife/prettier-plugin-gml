@@ -315,15 +315,35 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
             continue;
         }
 
-        const returnsMatch = trimmedSuffix.match(
-            LEGACY_RETURNS_DESCRIPTION_PATTERN
-        );
-        if (!returnsMatch) {
+        // If the line already contains a doc-tag (e.g. `@param`, `@returns`),
+        // treat it as an explicit metadata tag and do not attempt to convert
+        // a legacy "payload - description" style into a @returns tag. This
+        // prevents lines such as `/// @param {real} r -  The radius` from
+        // being misinterpreted as an implicit returns description.
+        if (trimmedSuffix.startsWith('@')) {
             retainedLines.push(line);
             continue;
         }
 
-        const payload = returnsMatch[1]?.trim() ?? "";
+        // Support two common legacy patterns:
+        // 1) "payload - description" (hyphen style)
+        // 2) "Returns: type, description" (colon-style)
+        // Try to recognize the colon-style first to support existing tests
+        // whose sources use the "Returns:" prefix for conversion.
+        const returnsMatch = trimmedSuffix.match(
+            LEGACY_RETURNS_DESCRIPTION_PATTERN
+        );
+        let payload = "";
+
+        const returnsColonMatch = trimmedSuffix.match(/^returns\s*:\s*(.*)$/i);
+        if (returnsColonMatch) {
+            payload = (returnsColonMatch[1] ?? "").trim();
+        } else if (returnsMatch) {
+            payload = returnsMatch[1]?.trim() ?? "";
+        } else {
+            retainedLines.push(line);
+            continue;
+        }
 
         let typeText = "";
         let descriptionText = "";

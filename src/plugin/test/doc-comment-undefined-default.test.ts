@@ -148,12 +148,7 @@ test("synthesized docs mark retained undefined defaults as optional", async () =
                 if (stat2 && stat2.isFile()) return fallbackCandidate;
             } catch {
                 // final fallback: resolve relative to src/plugin/test from whatever __dirname is
-                return path.resolve(
-                    __dirname,
-                    "..",
-                    "test",
-                    name
-                );
+                return path.resolve(__dirname, "..", "test", name);
             }
         }
         return compiledCandidate;

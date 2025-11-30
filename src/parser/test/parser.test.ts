@@ -8,7 +8,10 @@ import GameMakerASTBuilder from "../src/ast/gml-ast-builder.js";
 import { GameMakerSyntaxError } from "../src/ast/gml-syntax-error.js";
 import { Core } from "@gml-modules/core";
 import { Semantic } from "@gml-modules/semantic";
-import { defaultParserOptions, type ParserOptions } from "../src/types/index.js";
+import {
+    defaultParserOptions,
+    type ParserOptions
+} from "../src/types/index.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixturesDirectory = path.join(currentDirectory, "../../test/input");

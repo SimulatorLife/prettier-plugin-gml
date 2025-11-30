@@ -1,3 +1,5 @@
+// TODO: Should this file be moved to src/plugin/src/options?
+
 import { Core } from "@gml-modules/core";
 
 // Use the flattened Core namespace to access helper utils.
