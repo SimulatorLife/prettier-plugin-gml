@@ -6,10 +6,7 @@
  */
 
 import { Core } from "@gml-modules/core";
-import prettier, {
-    type SupportLanguage,
-    type SupportOptions
-} from "prettier";
+import prettier, { type SupportLanguage, type SupportOptions } from "prettier";
 
 import type {
     GmlPlugin,
@@ -89,10 +86,7 @@ function createDefaultOptionsSnapshot(): GmlPluginDefaultOptions {
 /**
  * Utility function & entry-point to format GML source code using the plugin.
  */
-async function format(
-    source: string,
-    options: SupportOptions = {}
-) {
+async function format(source: string, options: SupportOptions = {}) {
     const formatted = await prettier.format(source, {
         parser: "gml-parse",
         plugins: [Plugin],
@@ -122,7 +116,7 @@ const pluginBundle: GmlPlugin = {
     languages: [...languages],
     parsers,
     printers,
-        pluginOptions,
+    pluginOptions,
     defaultOptions,
     format
 };

@@ -5027,9 +5027,10 @@ function mergeSyntheticDocComments(
     // avoids conversion regressions where a legacy description would be
     // overwritten or duplicated by a synthetic `@returns` later in the
     // merging process.
-    const _convertedExisting = Core.convertLegacyReturnsDescriptionLinesToMetadata(
-        normalizedExistingLines
-    );
+    const _convertedExisting =
+        Core.convertLegacyReturnsDescriptionLinesToMetadata(
+            normalizedExistingLines
+        );
 
     const _computedSynthetic = computeSyntheticFunctionDocLines(
         node,
@@ -5208,8 +5209,8 @@ function mergeSyntheticDocComments(
             // summary lines rather than inserting them before param tags.
             const insertionIndex = originalExistingHasTags
                 ? firstParamIndex === -1
-                  ? mergedLines.length
-                  : firstParamIndex
+                    ? mergedLines.length
+                    : firstParamIndex
                 : mergedLines.length;
             const precedingLine =
                 insertionIndex > 0 ? mergedLines[insertionIndex - 1] : null;
@@ -5501,15 +5502,15 @@ function mergeSyntheticDocComments(
                     preceding.trim() !== "" &&
                     result[firstSyntheticIndex] &&
                     typeof result[firstSyntheticIndex] === STRING_TYPE &&
-                    /^\/\/\//.test(result[firstSyntheticIndex].trim())
-                 && // Insert a blank line if we don't already have one
-                    result[firstSyntheticIndex - 1] !== "") {
-                        result = [
-                            ...result.slice(0, firstSyntheticIndex),
-                            "",
-                            ...result.slice(firstSyntheticIndex)
-                        ];
-                    }
+                    /^\/\/\//.test(result[firstSyntheticIndex].trim()) && // Insert a blank line if we don't already have one
+                    result[firstSyntheticIndex - 1] !== ""
+                ) {
+                    result = [
+                        ...result.slice(0, firstSyntheticIndex),
+                        "",
+                        ...result.slice(firstSyntheticIndex)
+                    ];
+                }
             }
         }
     } catch {
@@ -6936,11 +6937,20 @@ function computeSyntheticFunctionDocLines(
                 // to be suppressed so we don't synthesize `argumentN` lines
                 // alongside a documented ordinal name.
                 try {
-                    for (const [ordIndex, ordMeta] of orderedParamMetadata.entries()) {
-                        if (!ordMeta || typeof ordMeta.name !== STRING_TYPE) continue;
-                        const canonicalOrdinal = getCanonicalParamNameFromText(ordMeta.name);
+                    for (const [
+                        ordIndex,
+                        ordMeta
+                    ] of orderedParamMetadata.entries()) {
+                        if (!ordMeta || typeof ordMeta.name !== STRING_TYPE)
+                            continue;
+                        const canonicalOrdinal = getCanonicalParamNameFromText(
+                            ordMeta.name
+                        );
                         if (!canonicalOrdinal) continue;
-                        const fallback = getCanonicalParamNameFromText(`argument${ordIndex}`) || `argument${ordIndex}`;
+                        const fallback =
+                            getCanonicalParamNameFromText(
+                                `argument${ordIndex}`
+                            ) || `argument${ordIndex}`;
                         initialSuppressed.add(fallback);
                     }
                 } catch {
@@ -6974,7 +6984,8 @@ function computeSyntheticFunctionDocLines(
         const fallbacksToAdd = [];
         for (const entry of implicitArgumentDocNames) {
             if (!entry) continue;
-            const { canonical, fallbackCanonical, index, hasDirectReference } = entry;
+            const { canonical, fallbackCanonical, index, hasDirectReference } =
+                entry;
             if (
                 canonical &&
                 fallbackCanonical &&
@@ -6985,7 +6996,11 @@ function computeSyntheticFunctionDocLines(
             ) {
                 // Check if fallback already present
                 const already = implicitArgumentDocNames.some(
-                    (e) => e && (e.canonical === fallbackCanonical || e.fallbackCanonical === fallbackCanonical || e.name === fallbackCanonical)
+                    (e) =>
+                        e &&
+                        (e.canonical === fallbackCanonical ||
+                            e.fallbackCanonical === fallbackCanonical ||
+                            e.name === fallbackCanonical)
                 );
                 if (!already) {
                     fallbacksToAdd.push({
@@ -7062,10 +7077,18 @@ function computeSyntheticFunctionDocLines(
     // body and tests expect the numeric fallbacks to be emitted when
     // directly referenced). This mirrors upstream behavior where an
     // empty [] means "no declared params" for doc synthesis.
-    if (!Array.isArray(node.params) || (Array.isArray(node.params) && node.params.length === 0)) {
+    if (
+        !Array.isArray(node.params) ||
+        (Array.isArray(node.params) && node.params.length === 0)
+    ) {
         for (const entry of implicitArgumentDocNames) {
             if (!entry) continue;
-            const { name: docName, index, canonical, fallbackCanonical } = entry;
+            const {
+                name: docName,
+                index,
+                canonical,
+                fallbackCanonical
+            } = entry;
             try {
                 const fname = Core.getNodeName(node);
                 if (typeof fname === "string" && fname.includes("sample3")) {
@@ -7079,7 +7102,10 @@ function computeSyntheticFunctionDocLines(
             if (documentedParamNames.has(docName)) {
                 try {
                     const fname = Core.getNodeName(node);
-                    if (typeof fname === "string" && fname.includes("sample3")) {
+                    if (
+                        typeof fname === "string" &&
+                        fname.includes("sample3")
+                    ) {
                         console.error(
                             `[feather:debug] computeSyntheticFunctionDocLines(${fname}): skipping adding docName '${String(docName)}' since it's already documented; entry=`,
                             entry
@@ -7105,7 +7131,10 @@ function computeSyntheticFunctionDocLines(
                 ) {
                     try {
                         const fname = Core.getNodeName(node);
-                        if (typeof fname === "string" && fname.includes("sample3")) {
+                        if (
+                            typeof fname === "string" &&
+                            fname.includes("sample3")
+                        ) {
                             console.error(
                                 `[feather:debug] computeSyntheticFunctionDocLines(${fname}): considering adding fallback in documented branch docName='${String(docName)}' canonical='${String(canonical)}' fallback='${String(fallbackCanonical)}' hasDirectReference='${String(entry.hasDirectReference)}' documentedFallback='${String(documentedParamNames.has(fallbackCanonical))}'`
                             );
@@ -7138,7 +7167,10 @@ function computeSyntheticFunctionDocLines(
             if (shouldAddFallbackInDocumentedBranch) {
                 try {
                     const fname = Core.getNodeName(node);
-                    if (typeof fname === "string" && fname.includes("sample3")) {
+                    if (
+                        typeof fname === "string" &&
+                        fname.includes("sample3")
+                    ) {
                         console.error(
                             `[feather:debug] computeSyntheticFunctionDocLines(${fname}): adding fallback for docName=${String(docName)} fallbackCanonical=${String(fallbackCanonical)} index=${String(index)} hasDirectReference=${String(entry.hasDirectReference)}`
                         );
@@ -7151,16 +7183,23 @@ function computeSyntheticFunctionDocLines(
             } else {
                 try {
                     const fname = Core.getNodeName(node);
-                    if (typeof fname === "string" && fname.includes("sample3")) {
+                    if (
+                        typeof fname === "string" &&
+                        fname.includes("sample3")
+                    ) {
                         console.error(
                             `[feather:debug] computeSyntheticFunctionDocLines(${fname}): did NOT add fallback for docName='${String(docName)}' fallback='${String(fallbackCanonical)}' reasons=`,
                             {
                                 canonical: Boolean(canonical),
                                 fallbackCanonical: Boolean(fallbackCanonical),
-                                canonicalNotEqual: canonical !== fallbackCanonical,
-                                hasDirectReference: entry.hasDirectReference === true,
-                                indexValid: Number.isInteger(index) && index >= 0,
-                                alreadyDocumented: documentedParamNames.has(fallbackCanonical)
+                                canonicalNotEqual:
+                                    canonical !== fallbackCanonical,
+                                hasDirectReference:
+                                    entry.hasDirectReference === true,
+                                indexValid:
+                                    Number.isInteger(index) && index >= 0,
+                                alreadyDocumented:
+                                    documentedParamNames.has(fallbackCanonical)
                             }
                         );
                     }
@@ -7200,7 +7239,7 @@ function computeSyntheticFunctionDocLines(
         // references preserved even when aliases exist.
         try {
             const fname = Core.getNodeName(node);
-                for (const entry of implicitArgumentDocNames) {
+            for (const entry of implicitArgumentDocNames) {
                 if (!entry) continue;
                 const { index, canonical, fallbackCanonical } = entry;
                 const suppressedCanonicals =
@@ -7213,12 +7252,16 @@ function computeSyntheticFunctionDocLines(
                     fallbackCanonical &&
                     fallbackCanonical !== canonical &&
                     !documentedParamNames.has(fallbackCanonical) &&
-                    (!suppressedCanonicals || !suppressedCanonicals.has(fallbackCanonical));
+                    (!suppressedCanonicals ||
+                        !suppressedCanonicals.has(fallbackCanonical));
 
                 // Emit a light debug trace when debugging sample functions so
                 // we can later filter for why a fallback wasn't added.
                 try {
-                    if (typeof fname === "string" && fname.includes("sample3")) {
+                    if (
+                        typeof fname === "string" &&
+                        fname.includes("sample3")
+                    ) {
                         console.error(
                             `[feather:debug] computeSyntheticFunctionDocLines(${fname}): safety-check entry=index=${String(index)} canonical=${String(canonical)} fallback=${String(fallbackCanonical)} hasDirectReference=${String(entry.hasDirectReference)} documented=${String(documentedParamNames.has(fallbackCanonical))} shouldAdd=${String(shouldAddFallback)}`
                         );
@@ -7227,17 +7270,21 @@ function computeSyntheticFunctionDocLines(
                     void 0;
                 }
 
-                    if (
+                if (
                     entry.hasDirectReference === true &&
                     Number.isInteger(index) &&
                     index >= 0 &&
                     fallbackCanonical &&
                     fallbackCanonical !== canonical &&
-                        !documentedParamNames.has(fallbackCanonical) &&
-                        (!suppressedCanonicals || !suppressedCanonicals.has(fallbackCanonical))
+                    !documentedParamNames.has(fallbackCanonical) &&
+                    (!suppressedCanonicals ||
+                        !suppressedCanonicals.has(fallbackCanonical))
                 ) {
                     try {
-                        if (typeof fname === "string" && fname.includes("sample3")) {
+                        if (
+                            typeof fname === "string" &&
+                            fname.includes("sample3")
+                        ) {
                             console.error(
                                 `[feather:debug] computeSyntheticFunctionDocLines(${fname}): safety-net adding fallback for index=${String(index)} fallback=${String(fallbackCanonical)} canonical=${String(canonical)} hasDirectReference=${String(entry.hasDirectReference)}`
                             );
@@ -7249,17 +7296,17 @@ function computeSyntheticFunctionDocLines(
                     lines.push(`/// @param ${fallbackCanonical}`);
                 }
             }
-                try {
-                    const fname2 = Core.getNodeName(node);
-                    if (typeof fname2 === "string" && fname2.includes("sample3")) {
-                        console.error(
-                            `[feather:debug] computeSyntheticFunctionDocLines(${fname2}): lines after safety-net pass=`,
-                            lines
-                        );
-                    }
-                } catch {
-                    /* ignore */
+            try {
+                const fname2 = Core.getNodeName(node);
+                if (typeof fname2 === "string" && fname2.includes("sample3")) {
+                    console.error(
+                        `[feather:debug] computeSyntheticFunctionDocLines(${fname2}): lines after safety-net pass=`,
+                        lines
+                    );
                 }
+            } catch {
+                /* ignore */
+            }
         } catch {
             /* best-effort */
         }
@@ -7627,8 +7674,8 @@ function computeSyntheticFunctionDocLines(
             continue;
         }
 
-            const { name: docName, index, canonical, fallbackCanonical } = entry;
-            const isImplicitFallbackEntry = canonical === fallbackCanonical;
+        const { name: docName, index, canonical, fallbackCanonical } = entry;
+        const isImplicitFallbackEntry = canonical === fallbackCanonical;
         let declaredParamIsGeneric = false;
         if (
             Array.isArray(node?.params) &&
@@ -7677,22 +7724,22 @@ function computeSyntheticFunctionDocLines(
             continue;
         }
 
-            // If this is a fallback `argumentN` entry and an ordered
-            // param metadata entry exists for this index (e.g. `@param
-            // third`), prefer the documented ordinal name and skip
-            // synthesizing the fallback numeric entry.
-            if (
-                isImplicitFallbackEntry &&
-                Number.isInteger(index) &&
-                orderedParamMetadata[index] &&
-                typeof orderedParamMetadata[index].name === STRING_TYPE &&
-                orderedParamMetadata[index].name.length > 0
-            ) {
-                continue;
-            }
+        // If this is a fallback `argumentN` entry and an ordered
+        // param metadata entry exists for this index (e.g. `@param
+        // third`), prefer the documented ordinal name and skip
+        // synthesizing the fallback numeric entry.
+        if (
+            isImplicitFallbackEntry &&
+            Number.isInteger(index) &&
+            orderedParamMetadata[index] &&
+            typeof orderedParamMetadata[index].name === STRING_TYPE &&
+            orderedParamMetadata[index].name.length > 0
+        ) {
+            continue;
+        }
 
-            documentedParamNames.add(docName);
-            lines.push(`/// @param ${docName}`);
+        documentedParamNames.add(docName);
+        lines.push(`/// @param ${docName}`);
 
         // If this implicit entry indicates both an alias (canonical) and a
         // distinct fallback (argumentN), and the fallback is directly
@@ -8125,14 +8172,24 @@ function collectImplicitArgumentDocNames(functionNode, options) {
         if (Array.isArray(parserEntries) && parserEntries.length > 0) {
             for (const pEntry of parserEntries) {
                 if (!pEntry) continue;
-                const { canonical, fallbackCanonical, index, hasDirectReference } = pEntry;
+                const {
+                    canonical,
+                    fallbackCanonical,
+                    index,
+                    hasDirectReference
+                } = pEntry;
                 if (
                     canonical &&
                     fallbackCanonical &&
                     canonical !== fallbackCanonical &&
                     hasDirectReference === true
                 ) {
-                    const already = entries.some((e) => e && (e.canonical === fallbackCanonical || e.fallbackCanonical === fallbackCanonical));
+                    const already = entries.some(
+                        (e) =>
+                            e &&
+                            (e.canonical === fallbackCanonical ||
+                                e.fallbackCanonical === fallbackCanonical)
+                    );
                     if (!already && Number.isInteger(index) && index >= 0) {
                         entries.push({
                             name: fallbackCanonical,
@@ -8365,10 +8422,19 @@ function buildImplicitArgumentDocEntries({
     // Debug: log built entries for sample functions so we can trace why
     // fallback numeric entries might be absent in downstream steps.
     try {
-        const interesting = result.some((e) => e && (e.canonical === "argument3" || e.fallbackCanonical === "argument3" || e.canonical === "second"));
+        const interesting = result.some(
+            (e) =>
+                e &&
+                (e.canonical === "argument3" ||
+                    e.fallbackCanonical === "argument3" ||
+                    e.canonical === "second")
+        );
         if (interesting) {
             try {
-                console.error(`[feather:debug] buildImplicitArgumentDocEntries: builtEntries=`, result);
+                console.error(
+                    `[feather:debug] buildImplicitArgumentDocEntries: builtEntries=`,
+                    result
+                );
             } catch {
                 /* ignore */
             }
@@ -9920,7 +9986,8 @@ function shouldGenerateSyntheticDocForFunction(
         return false;
     }
 
-    const convertedExistingForSynthetic = Core.convertLegacyReturnsDescriptionLinesToMetadata(existingDocLines);
+    const convertedExistingForSynthetic =
+        Core.convertLegacyReturnsDescriptionLinesToMetadata(existingDocLines);
     const syntheticLines = computeSyntheticFunctionDocLines(
         node,
         convertedExistingForSynthetic,

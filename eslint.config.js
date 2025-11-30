@@ -551,7 +551,7 @@ export default [
             "@typescript-eslint/no-unnecessary-type-assertion": "off"
         }
     },
-    
+
     // Additional TypeScript rule relaxations for files that trigger overload signature issues
     {
         files: ["src/semantic/test/project-index-defaults.test.ts"],

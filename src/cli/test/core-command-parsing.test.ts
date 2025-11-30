@@ -59,7 +59,9 @@ describe("parseCommandLine", () => {
 
         const command = {
             parse() {
-                const commanderError: MinimalCommanderError = new Error("bad option");
+                const commanderError: MinimalCommanderError = new Error(
+                    "bad option"
+                );
                 commanderError.name = "CommanderError";
                 commanderError.code = "commander.invalidOption";
                 Object.setPrototypeOf(commanderError, null);

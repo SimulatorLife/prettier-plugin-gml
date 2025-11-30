@@ -320,7 +320,7 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
         // a legacy "payload - description" style into a @returns tag. This
         // prevents lines such as `/// @param {real} r -  The radius` from
         // being misinterpreted as an implicit returns description.
-        if (trimmedSuffix.startsWith('@')) {
+        if (trimmedSuffix.startsWith("@")) {
             retainedLines.push(line);
             continue;
         }

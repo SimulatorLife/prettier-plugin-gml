@@ -456,9 +456,7 @@ function createDefaultParser() {
     if (shouldSkipPerformanceDependencies) {
         return () =>
             Promise.reject(
-                createSkippedPerformanceDependencyError(
-                    "run parser benchmarks"
-                )
+                createSkippedPerformanceDependencyError("run parser benchmarks")
             );
     }
 

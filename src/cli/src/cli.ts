@@ -467,31 +467,29 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         .argParser(wrapInvalidArgumentResolver(parseSkippedDirectoryLimit))
         .hideHelp();
 
-    const {
-        option: ignoredFileSampleLimitOption
-    } = createConfiguredSampleLimitOption({
-        flag: "--ignored-file-sample-limit <count>",
-        description: (defaultLimit) => [
-            "Maximum number of ignored files to include in skip logs.",
-            `Defaults to ${defaultLimit}.`,
-            `Respects ${IGNORED_FILE_SAMPLE_LIMIT_ENV_VAR} when set. Provide 0 to suppress the sample list.`
-        ],
-        getDefaultLimit: getDefaultIgnoredFileSampleLimit,
-        resolveLimit: resolveIgnoredFileSampleLimit
-    });
+    const { option: ignoredFileSampleLimitOption } =
+        createConfiguredSampleLimitOption({
+            flag: "--ignored-file-sample-limit <count>",
+            description: (defaultLimit) => [
+                "Maximum number of ignored files to include in skip logs.",
+                `Defaults to ${defaultLimit}.`,
+                `Respects ${IGNORED_FILE_SAMPLE_LIMIT_ENV_VAR} when set. Provide 0 to suppress the sample list.`
+            ],
+            getDefaultLimit: getDefaultIgnoredFileSampleLimit,
+            resolveLimit: resolveIgnoredFileSampleLimit
+        });
 
-    const {
-        option: unsupportedExtensionSampleLimitOption
-    } = createConfiguredSampleLimitOption({
-        flag: "--unsupported-extension-sample-limit <count>",
-        description: (defaultLimit) => [
-            "Maximum number of unsupported files to include in skip summaries.",
-            `Defaults to ${defaultLimit}.`,
-            `Respects ${UNSUPPORTED_EXTENSION_SAMPLE_LIMIT_ENV_VAR} when set. Provide 0 to suppress the sample list.`
-        ],
-        getDefaultLimit: getDefaultUnsupportedExtensionSampleLimit,
-        resolveLimit: resolveUnsupportedExtensionSampleLimit
-    });
+    const { option: unsupportedExtensionSampleLimitOption } =
+        createConfiguredSampleLimitOption({
+            flag: "--unsupported-extension-sample-limit <count>",
+            description: (defaultLimit) => [
+                "Maximum number of unsupported files to include in skip summaries.",
+                `Defaults to ${defaultLimit}.`,
+                `Respects ${UNSUPPORTED_EXTENSION_SAMPLE_LIMIT_ENV_VAR} when set. Provide 0 to suppress the sample list.`
+            ],
+            getDefaultLimit: getDefaultUnsupportedExtensionSampleLimit,
+            resolveLimit: resolveUnsupportedExtensionSampleLimit
+        });
 
     return applyStandardCommandOptions(
         new Command()

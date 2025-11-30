@@ -60,11 +60,11 @@ describe("createEnumeratedOptionHelpers", () => {
     it("allows overriding error messages per invocation", () => {
         const helpers = createEnumeratedOptionHelpers(["json"]);
         assert.throws(
-        () =>
-            helpers.requireValue("yaml", {
-                createErrorMessage: (value) =>
-                    `unsupported: ${describeValueForError(value)}`
-            }),
+            () =>
+                helpers.requireValue("yaml", {
+                    createErrorMessage: (value) =>
+                        `unsupported: ${describeValueForError(value)}`
+                }),
             (error) =>
                 error instanceof Error && error.message === "unsupported: yaml"
         );

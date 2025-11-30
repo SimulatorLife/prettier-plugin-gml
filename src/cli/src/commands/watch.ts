@@ -438,7 +438,7 @@ export async function runWatchCommand(
 
         if (abortSignal) {
             if (abortSignal.aborted) {
-            void cleanup(0);
+                void cleanup(0);
                 return;
             }
 
