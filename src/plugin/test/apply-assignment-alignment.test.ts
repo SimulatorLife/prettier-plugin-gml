@@ -68,11 +68,12 @@ function createSelfAssignment(propertyName) {
 describe("applyAssignmentAlignment", () => {
     it("iterates safely when the active group is mutated during traversal", () => {
         const statements = [];
-        let capturedGroup = null;
+        let capturedGroupRef: WeakRef<Array<unknown>> | null = null;
+        let capturedGroupObserved = false;
 
         function createAssignment(name, shouldMutate = false) {
-            let padding;
-            return {
+                let padding;
+                return {
                 type: "AssignmentExpression",
                 operator: "=",
                 left: { type: "Identifier", name },
@@ -82,8 +83,11 @@ describe("applyAssignmentAlignment", () => {
                 },
                 set _alignAssignmentPadding(value) {
                     padding = value;
-                    if (shouldMutate && capturedGroup) {
-                        capturedGroup.length = 0;
+                    if (shouldMutate && capturedGroupRef) {
+                        const capturedGroup = capturedGroupRef.deref();
+                        if (capturedGroup) {
+                            capturedGroup.length = 0;
+                        }
                     }
                 }
             } as any;
@@ -99,7 +103,7 @@ describe("applyAssignmentAlignment", () => {
         try {
             Array.prototype.push = function (...args) {
                 if (
-                    !capturedGroup &&
+                    !capturedGroupObserved &&
                     this !== statements &&
                     Array.isArray(this) &&
                     args.length === 1 &&
@@ -108,7 +112,8 @@ describe("applyAssignmentAlignment", () => {
                     Object.hasOwn(args[0], "node") &&
                     Object.hasOwn(args[0], "nameLength")
                 ) {
-                    capturedGroup = this;
+                    capturedGroupRef = new WeakRef(this);
+                    capturedGroupObserved = true;
                 }
 
                 return originalPush.apply(this, args);
@@ -122,7 +127,7 @@ describe("applyAssignmentAlignment", () => {
         }
 
         assert.ok(
-            capturedGroup,
+            capturedGroupObserved,
             "Expected to observe the alignment group array."
         );
 

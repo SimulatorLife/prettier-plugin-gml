@@ -468,6 +468,8 @@ function handleCommentAttachedToOpenBrace(
     _options,
     ast /*, isLastComment */
 ) {
+    void _text;
+    void _options;
     let enclosingNode = comment.enclosingNode;
 
     if (!enclosingNode && comment?.leadingChar === "{") {
@@ -499,6 +501,9 @@ function handleClauseBlockIntroComment(
     _options,
     _ast /*, isLastComment */
 ) {
+    void _text;
+    void _options;
+    void _ast;
     const { enclosingNode, precedingNode, followingNode } = comment;
     if (!enclosingNode || !followingNode) {
         return false;

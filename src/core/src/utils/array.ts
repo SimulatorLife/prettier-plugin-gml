@@ -102,9 +102,7 @@ export function assertArray<T>(
  * @param {unknown} value
  * @returns {Array<T>} Either the original array or a shared empty array.
  */
-export function asArray<T>(
-    value: Array<T> | null | undefined = EMPTY_ARRAY
-): Array<T> {
+export function asArray<T>(value: unknown = EMPTY_ARRAY): Array<T> {
     return Array.isArray(value) ? value : (EMPTY_ARRAY as Array<T>);
 }
 

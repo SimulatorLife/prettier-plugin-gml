@@ -1,5 +1,4 @@
-import { Core } from "@gml-modules/core";
-import type { MutableGameMakerAstNode } from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { FunctionalParserTransform } from "./functional-transform.js";
 
 type PreprocessFunctionArgumentDefaultsTransformOptions = Record<string, never>;
@@ -33,6 +32,7 @@ class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParserTransf
         ast: MutableGameMakerAstNode,
         _options: PreprocessFunctionArgumentDefaultsTransformOptions
     ) {
+        void _options;
         return preprocessFunctionArgumentDefaultsImpl(ast);
     }
 }

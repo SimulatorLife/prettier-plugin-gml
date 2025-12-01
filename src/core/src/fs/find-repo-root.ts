@@ -13,7 +13,8 @@ export async function findRepoRoot(startDir: string): Promise<string> {
     for (;;) {
         const agentPath = path.join(dir, "AGENTS.md");
         try {
-            if ((await fs.stat(agentPath)).isFile()) {
+            const agentStat = await fs.stat(agentPath);
+            if (agentStat.isFile()) {
                 return dir;
             }
         } catch {
@@ -22,7 +23,8 @@ export async function findRepoRoot(startDir: string): Promise<string> {
 
         const gitPath = path.join(dir, ".git");
         try {
-            if ((await fs.stat(gitPath)).isDirectory()) {
+            const gitStat = await fs.stat(gitPath);
+            if (gitStat.isDirectory()) {
                 return dir;
             }
         } catch {

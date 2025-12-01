@@ -37,7 +37,11 @@ export function validatePatch(patch: unknown): asserts patch is Patch {
         throw new TypeError("Patch must have an 'id' field");
     }
 
-    const kind = String(candidate.kind);
+    const kindValue = candidate.kind;
+    if (typeof kindValue !== "string") {
+        throw new TypeError("Patch 'kind' must be a string");
+    }
+    const kind = kindValue;
     if (!isSupportedPatchKind(kind)) {
         throw new TypeError(`Unsupported patch kind: ${kind}`);
     }

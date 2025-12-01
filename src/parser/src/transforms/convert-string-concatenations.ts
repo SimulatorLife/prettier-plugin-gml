@@ -16,6 +16,8 @@ function convertStringConcatenationsImpl(ast: any, helpers?: any) {
         return ast;
     }
 
+    void helpers;
+
     traverse(ast, null, null);
 
     return ast;
@@ -387,5 +389,6 @@ function extractLiteralText(node) {
     return Core.stripStringQuotes(raw) ?? "";
 }
 export function transform(ast: any, opts: any = {}) {
+    void opts;
     return convertStringConcatenations(ast);
 }

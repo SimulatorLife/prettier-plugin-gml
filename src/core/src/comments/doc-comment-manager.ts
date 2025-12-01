@@ -1,9 +1,15 @@
-import { toMutableArray, isNonEmptyArray } from "../utils/index.js";
-import { getCommentArray, isDocCommentLine } from "./comment-utils.js";
 import { isFunctionLikeNode, isNode } from "../ast/node-helpers.js";
 import { getNodeStartIndex } from "../ast/locations.js";
-import { isNonEmptyTrimmedString } from "../utils/index.js";
-import type { DocCommentLines } from "./comment-utils.js";
+import {
+    getCommentArray,
+    isDocCommentLine,
+    type DocCommentLines
+} from "./comment-utils.js";
+import {
+    isNonEmptyArray,
+    isNonEmptyTrimmedString,
+    toMutableArray
+} from "../utils/index.js";
 
 const DOC_COMMENT_MANAGERS = new WeakMap();
 const DOC_COMMENT_TRAVERSAL_SERVICES = new WeakMap();
@@ -317,8 +323,6 @@ function applyDescriptionCommentUpdate(descriptionComment, update) {
         updatedDescription = `${updatedDescription}.`;
     }
 
-    const existingDescription =
-        typeof update.description === "string" ? update.description : null;
     const prefixMatch = descriptionComment.value.match(
         /^(\s*\/\s*@description\s*)/i
     );

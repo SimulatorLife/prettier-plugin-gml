@@ -49,10 +49,12 @@ type JsonParseErrorOptions = {
     description?: string | null;
 };
 
+type JsonParseReviver = Parameters<typeof JSON.parse>[1];
+
 type ParseJsonOptions = {
-    source?: string | unknown;
-    description?: string | unknown;
-    reviver?: (this: unknown, key: string, value: unknown) => unknown;
+    source?: unknown;
+    description?: unknown;
+    reviver?: JsonParseReviver;
 };
 
 type ParseJsonObjectOptions = ParseJsonOptions & {
@@ -78,6 +80,7 @@ type StringifyJsonForFileOptions = {
 export class JsonParseError extends SyntaxError {
     source?: string | null;
     description?: string;
+    override cause?: Error;
 
     constructor(
         message,
@@ -274,7 +277,7 @@ export function parseJsonObjectWithContext(
  * the logic ensures all call sites respect the same newline semantics and keeps
  * indentation handling in one place.
  *
- * @param {unknown} payload Data structure to serialize.
+ * @param {unknown} [payload] Data structure to serialize.
  * @param {{
  *   replacer?: Parameters<typeof JSON.stringify>[1],
  *   space?: Parameters<typeof JSON.stringify>[2],
@@ -284,15 +287,15 @@ export function parseJsonObjectWithContext(
  * @returns {string} Stringified JSON with optional trailing newline.
  */
 export function stringifyJsonForFile(
-    payload,
-    options: StringifyJsonForFileOptions = {}
+    payload?: unknown,
+    options?: StringifyJsonForFileOptions
 ) {
     const {
         replacer = null,
         space = 0,
         includeTrailingNewline = true,
         newline = "\n"
-    } = options;
+    } = options ?? {};
 
     const serialized = JSON.stringify(payload, replacer, space);
 

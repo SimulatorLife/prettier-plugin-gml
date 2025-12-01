@@ -3,15 +3,13 @@ import test from "node:test";
 import {
     RefactorEngine,
     WorkspaceEdit,
-    createRefactorEngine
-} from "../src/index.js";
-import type {
-    HotReloadUpdate,
-    ParserBridge,
-    RenameRequest,
-    SemanticAnalyzer,
-    WorkspaceReadFile,
-    WorkspaceWriteFile
+    createRefactorEngine,
+    type HotReloadUpdate,
+    type ParserBridge,
+    type RenameRequest,
+    type SemanticAnalyzer,
+    type WorkspaceReadFile,
+    type WorkspaceWriteFile
 } from "../src/index.js";
 
 test("createRefactorEngine returns a RefactorEngine", () => {

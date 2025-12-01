@@ -16,7 +16,7 @@ const { getNodeStartIndex, getNodeEndIndex } = Core;
 
 const { addTrailingComment } = util;
 
-async function parse(text, options) {
+async function parseImpl(text, options) {
     let parseSource = text;
     let preprocessedFixMetadata = null;
     let enumIndexAdjustments = null;
@@ -104,7 +104,9 @@ async function parse(text, options) {
                     console.debug(
                         `[DBG] gml-parser-adapter: parse called with getComments=true; ast.comments=${length}`
                     );
-                } catch {}
+                } catch (debugError) {
+                    void debugError;
+                }
             }
         } catch (error) {
             if (!options?.applyFeatherFixes) {
@@ -219,21 +221,8 @@ async function parse(text, options) {
     }
 }
 
-function parseSync(text, options) {
-    if (options?.__identifierCasePlanGeneratedInternally === true) {
-        try {
-            return Parser.GMLParser.parse(text, {
-                getLocations: true,
-                simplifyLocations: false,
-                getComments: true
-            });
-        } catch (error) {
-            Semantic.teardownIdentifierCaseEnvironment(options);
-            throw error;
-        }
-    }
-
-    return parse(text, options);
+async function parse(text, options) {
+    return parseImpl(text, options);
 }
 
 function locStart(node) {

@@ -71,7 +71,7 @@ export function getSingleVariableDeclarator(node) {
  *                    when cloning is unnecessary. `null` and `undefined`
  *                    resolve to `null` for easier downstream checks.
  */
-export function cloneAstNode(node) {
+export function cloneAstNode(node?: unknown) {
     if (node === null || node === undefined) {
         return null;
     }
@@ -303,7 +303,7 @@ export function createIdentifierNode(
  * @returns {IdentifierNode | null} Cloned identifier or `null` when the
  *          source node is missing or not an identifier.
  */
-export function cloneIdentifier(node: unknown): IdentifierNode | null {
+export function cloneIdentifier(node?: unknown): IdentifierNode | null {
     const identifierDetails = getIdentifierDetails(node);
     if (!identifierDetails) {
         return null;
@@ -452,10 +452,7 @@ export function isCallExpressionIdentifierMatch(
 }
 
 // TODO: Clean up this function and use the correct typing
-export function getArrayProperty(
-    node: Record<string, unknown>,
-    propertyName: string
-) {
+export function getArrayProperty(node: unknown, propertyName: unknown) {
     if (!isNode(node)) {
         return [];
     }
@@ -464,10 +461,11 @@ export function getArrayProperty(
         return [];
     }
 
-    return asArray(node[propertyName] as unknown[] | null | undefined);
+    const astNode = node as Record<PropertyKey, unknown>;
+    return asArray(astNode[propertyName] as unknown[] | null | undefined);
 }
 
-export function hasArrayPropertyEntries(node, propertyName) {
+export function hasArrayPropertyEntries(node: unknown, propertyName: unknown) {
     if (!isNode(node)) {
         return false;
     }
@@ -476,24 +474,24 @@ export function hasArrayPropertyEntries(node, propertyName) {
         return false;
     }
 
-    return isNonEmptyArray(node[propertyName]);
+    const astNode = node as Record<PropertyKey, unknown>;
+    return isNonEmptyArray(astNode[propertyName]);
 }
 
-export function getBodyStatements(
-    node: GameMakerAstNode
-): Array<GameMakerAstNode> {
+export function getBodyStatements(node: unknown): Array<GameMakerAstNode> {
     if (!isNode(node)) {
         return [];
     }
+
     // TODO: Use the proper typing here
-    return asArray(node.body);
+    return asArray((node as GameMakerAstNode).body);
 }
 
-export function hasBodyStatements(node: GameMakerAstNode): boolean {
+export function hasBodyStatements(node: unknown): boolean {
     return hasArrayPropertyEntries(node, "body");
 }
 
-export function isProgramOrBlockStatement(node: GameMakerAstNode): boolean {
+export function isProgramOrBlockStatement(node: unknown): boolean {
     if (!isNode(node)) {
         return false;
     }
@@ -605,7 +603,7 @@ export function hasType(
  * @param {unknown} node Candidate AST node-like value.
  * @returns {string | null} The node's `type` when available, otherwise `null`.
  */
-export function getNodeType(node: unknown | GameMakerAstNode): string | null {
+export function getNodeType(node?: unknown): string | null {
     if (!isNode(node)) {
         return null;
     }

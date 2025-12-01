@@ -10,7 +10,6 @@ const {
 const {
     cloneAstNode,
     cloneLocation,
-    getBodyStatements,
     isNode,
     forEachNodeChild,
     asArray,

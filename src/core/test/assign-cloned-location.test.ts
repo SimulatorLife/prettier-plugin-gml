@@ -1,16 +1,16 @@
-// @ts-nocheck
 
 import assert from "node:assert/strict";
 import test from "node:test";
 
 import { assignClonedLocation } from "../src/ast/locations.js";
+import type { MutableGameMakerAstNode } from "../src/ast/types.js";
 
 function createLocation(line) {
     return { line, column: line - 1 };
 }
 
 test("assignClonedLocation clones start and end metadata", () => {
-    const target = {};
+    const target: MutableGameMakerAstNode = {};
     const template = {
         start: createLocation(1),
         end: createLocation(2)
@@ -26,7 +26,7 @@ test("assignClonedLocation clones start and end metadata", () => {
 });
 
 test("assignClonedLocation ignores missing boundaries", () => {
-    const target = {};
+    const target: MutableGameMakerAstNode = {};
     const template = { start: createLocation(3) };
 
     assignClonedLocation(target, template);
@@ -45,13 +45,13 @@ test("assignClonedLocation gracefully handles invalid inputs", () => {
     assert.strictEqual(assignClonedLocation(null, template), null);
     assert.strictEqual(assignClonedLocation(undefined, template), undefined);
 
-    const targetWithoutTemplate = {};
+    const targetWithoutTemplate: MutableGameMakerAstNode = {};
     assert.strictEqual(
         assignClonedLocation(targetWithoutTemplate, null),
         targetWithoutTemplate
     );
 
-    const targetWithPrimitiveTemplate = {};
+    const targetWithPrimitiveTemplate: MutableGameMakerAstNode = {};
     assert.strictEqual(
         assignClonedLocation(targetWithPrimitiveTemplate, 42),
         targetWithPrimitiveTemplate

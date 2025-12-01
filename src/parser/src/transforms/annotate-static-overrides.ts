@@ -1,5 +1,4 @@
-import { Core } from "@gml-modules/core";
-import type { MutableGameMakerAstNode } from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { FunctionalParserTransform } from "./functional-transform.js";
 
 type AnnotateStaticFunctionOverridesTransformOptions = Record<string, never>;
@@ -111,6 +110,7 @@ class AnnotateStaticFunctionOverridesTransform extends FunctionalParserTransform
         ast: MutableGameMakerAstNode,
         _options: AnnotateStaticFunctionOverridesTransformOptions
     ): MutableGameMakerAstNode {
+        void _options;
         this.annotateStaticFunctionOverrides(ast);
         return ast;
     }

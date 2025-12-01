@@ -1,4 +1,3 @@
-// @ts-nocheck
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -6,7 +5,7 @@ import test from "node:test";
 import { walkObjectGraph } from "../src/ast/object-graph.js";
 
 test("walkObjectGraph visits each object once even with cycles", () => {
-    const shared = { value: 1 };
+    const shared: Record<string, unknown> & { value: number } = { value: 1 };
     const root = {
         left: { nested: shared },
         right: { nested: shared },

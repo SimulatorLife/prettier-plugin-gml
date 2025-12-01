@@ -91,7 +91,7 @@
     "build:ts": "npm run build:types --workspace=@gml-modules/core && npm run build:types --workspace=@gml-modules/parser && npm run build:types --workspace=@gml-modules/semantic && npm run build:types --workspace=@gml-modules/transpiler && npm run build:types --workspace=@gml-modules/plugin && npm run build:types --workspace=@gml-modules/cli && npm run build:types --workspace=@gml-modules/runtime-wrapper && npm run build:types --workspace=@gml-modules/refactor",
     "memory": "npm run build:types --workspace=@gml-modules/cli && node --expose-gc ./src/cli/dist/index.js memory --format human",
     "example:plugin": "cd src/plugin && npm run example",
-    "postinstall": "git submodule update --init --recursive && git update-index --skip-worktree vendor/* && chmod -R a-w vendor && chmod -R a+X vendor || echo \"Skipping vendor submodules\"",
+    "postinstall": "git submodule update --init --recursive && git update-index --skip-worktree vendor/* && chmod -R a-w vendor && chmod -R a+X vendor || echo \"Skipping vendor submodules\" && patch-package",
     "prepare": "husky",
     "cli": "npm run build:types --workspace=@gml-modules/cli && node ./src/cli/dist/index.js",
     "actionlint:install": "mkdir -p node_modules/.bin && curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash -s -- latest ./node_modules/.bin",
@@ -141,6 +141,7 @@
     "timeout-cli": "^0.3.2",
     "tree-node-cli": "^1.6.0",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.47.0"
+    "typescript-eslint": "^8.47.0",
+    "patch-package": "^8.0.1"
   }
 }

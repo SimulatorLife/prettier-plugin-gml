@@ -105,7 +105,7 @@ function getNodeEndIndex(node: unknown): number | null {
 }
 
 function cloneLocation<TLocation = unknown>(
-    location: TLocation
+    location?: TLocation
 ): TLocation | undefined {
     if (isObjectLike(location)) {
         return structuredClone(location);
@@ -135,7 +135,7 @@ function cloneLocation<TLocation = unknown>(
  */
 function assignClonedLocation<TTarget extends AstNode>(
     target: TTarget | null | undefined,
-    template: AstNode | null | undefined
+    template: unknown
 ): TTarget | null | undefined {
     return withObjectLike(
         target,

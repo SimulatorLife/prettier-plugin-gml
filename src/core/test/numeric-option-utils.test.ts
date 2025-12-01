@@ -1,4 +1,3 @@
-// @ts-nocheck
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -31,7 +30,7 @@ test("coerceNonNegativeInteger enforces a minimum of 0", () => {
     assert.throws(
         () =>
             coerceNonNegativeInteger(-1, {
-                createErrorMessage: (received) => `bad: ${received}`
+                createErrorMessage: (received: string) => `bad: ${received}`
             }),
         new TypeError("bad: -1")
     );

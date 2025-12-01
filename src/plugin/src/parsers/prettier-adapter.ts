@@ -33,6 +33,7 @@ type PipelineConfig = {
 export function makeParserConfig(
     prettierOptions: PrettierGmlOptions = {}
 ): ParserConfig {
+    void prettierOptions;
     return {
         getComments: true,
         getLocations: true,

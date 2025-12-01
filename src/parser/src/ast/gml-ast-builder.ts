@@ -1,6 +1,9 @@
 import GameMakerLanguageParserVisitor from "../runtime/game-maker-language-parser-visitor.js";
-import { Core } from "@gml-modules/core";
-import type { GameMakerAstLocation, GameMakerAstNode } from "@gml-modules/core";
+import {
+    Core,
+    type GameMakerAstLocation,
+    type GameMakerAstNode
+} from "@gml-modules/core";
 import BinaryExpressionDelegate from "./binary-expression-delegate.js";
 import type {
     ParserContext,
@@ -308,7 +311,7 @@ export default class GameMakerASTBuilder {
      *     candidates are available.
      */
     visitFirstChild(
-        ctx: unknown | null | undefined,
+        ctx: ParserContext,
         methodNames: string[]
     ): any {
         if (!ctx || !Array.isArray(methodNames)) {
@@ -398,7 +401,7 @@ export default class GameMakerASTBuilder {
             return null;
         }
 
-        let index: number | null = null;
+        let index: number | null;
         if (typeof token === "number") {
             index = token;
         } else {
@@ -1346,10 +1349,8 @@ export default class GameMakerASTBuilder {
 
     // Visit a parse tree produced by GameMakerLanguageParser#templateStringLiteral.
     visitTemplateStringLiteral(ctx: ParserContext): any {
-        let atoms: any[] = [];
+        const atoms = this.ensureArray(ctx.templateStringAtom());
         const atomList: any[] = [];
-
-        atoms = this.ensureArray(ctx.templateStringAtom());
 
         for (const atom of atoms) {
             if (atom.expression() != null) {

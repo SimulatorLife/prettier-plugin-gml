@@ -508,13 +508,21 @@ test("createProjectIndexCoordinator aborts in-flight builds on dispose", async (
                 }
 
                 if (signal.aborted) {
-                    reject(signal.reason ?? new Error("aborted"));
+                    const reason =
+                        signal.reason instanceof Error
+                            ? signal.reason
+                            : new Error("aborted");
+                    reject(reason);
                     return;
                 }
 
                 const onAbort = () => {
                     signal.removeEventListener("abort", onAbort);
-                    reject(signal.reason ?? new Error("aborted"));
+                    const reason =
+                        signal.reason instanceof Error
+                            ? signal.reason
+                            : new Error("aborted");
+                    reject(reason);
                 };
                 signal.addEventListener("abort", onAbort, { once: true });
             });

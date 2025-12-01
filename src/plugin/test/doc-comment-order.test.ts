@@ -2,10 +2,6 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Plugin } from "../src/index.js";
 
-// Use Plugin.format to execute formatting in tests.
-
-const __dirname = import.meta.dirname;
-
 test("orders doc comments for implicit argument references", async () => {
     const source = [
         "/// @function sample2",

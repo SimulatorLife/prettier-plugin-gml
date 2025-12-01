@@ -60,7 +60,8 @@ class MockWebSocket implements RuntimeWebSocketInstance {
         }
     }
 
-    send(_data: string) {
+    send(data: string) {
+        void data;
         if (this.readyState !== 1) {
             throw new Error("WebSocket is not open");
         }
@@ -394,8 +395,7 @@ test("WebSocket client clears pending reconnect timer on manual reconnect", asyn
         ReturnType<typeof originalSetTimeout>,
         { cleared: boolean; delay: number }
     >();
-    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null =
-        null;
+    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null;
 
     try {
         globalThis.setTimeout = ((

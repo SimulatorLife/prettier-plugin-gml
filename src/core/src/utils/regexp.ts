@@ -7,10 +7,10 @@ const ESCAPE_REGEXP_REPLACEMENT = String.raw`\$&`;
  * without altering the intended match. Non-string inputs are normalized to an
  * empty string so optional values can be passed without defensive guards.
  *
- * @param {unknown} text Candidate text to escape for use in a RegExp pattern.
+ * @param {unknown} [text] Candidate text to escape for use in a RegExp pattern.
  * @returns {string} Escaped string, or an empty string for non-string inputs.
  */
-export function escapeRegExp(text) {
+export function escapeRegExp(text?: unknown) {
     if (typeof text !== "string") {
         return "";
     }

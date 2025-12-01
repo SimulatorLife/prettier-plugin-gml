@@ -58,12 +58,6 @@ describe("workflow path filter helpers", () => {
     });
 
     it("rejects files outside the workflow filters", () => {
-        const workspace = path.resolve(
-            "/tmp",
-            "workflow-path-filter",
-            "workspace"
-        );
-        const outputPath = path.join(workspace, "results", "manual.json");
         const restricted = path.resolve(
             "/tmp",
             "workflow-path-filter",

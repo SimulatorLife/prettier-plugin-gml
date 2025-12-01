@@ -98,7 +98,7 @@ function disposeBootstrap(bootstrapResult, logger = null) {
     }
 }
 
-export async function prepareIdentifierCaseEnvironment(options) {
+export function prepareIdentifierCaseEnvironment(options) {
     try {
         console.debug(
             `[DBG] prepareIdentifierCaseEnvironment: enter filepath=${options?.filepath ?? null}`

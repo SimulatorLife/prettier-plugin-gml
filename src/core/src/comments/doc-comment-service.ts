@@ -333,7 +333,7 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
         const returnsMatch = trimmedSuffix.match(
             LEGACY_RETURNS_DESCRIPTION_PATTERN
         );
-        let payload = "";
+        let payload: string;
 
         const returnsColonMatch = trimmedSuffix.match(/^returns\s*:\s*(.*)$/i);
         if (returnsColonMatch) {

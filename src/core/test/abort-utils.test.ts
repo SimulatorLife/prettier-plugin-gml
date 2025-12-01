@@ -1,4 +1,3 @@
-// @ts-nocheck
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
@@ -42,9 +41,9 @@ describe("createAbortError", () => {
         const reason = { message: "" };
         const signal = { aborted: true, reason };
         const error = createAbortError(signal, "fallback message");
-        assert.strictEqual(error, reason);
         assert.strictEqual(error.name, "AbortError");
         assert.strictEqual(error.message, "fallback message");
+        assert.strictEqual(error, reason);
     });
 
     it("wraps non-error reasons using the fallback message", () => {

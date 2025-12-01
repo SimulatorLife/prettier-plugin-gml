@@ -3574,7 +3574,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
     it("normalizes simple syntax errors flagged by GM1100 and records metadata", () => {
         const source = ["var _this * something;", "", "    = 48;"].join("\n");
 
-        const { sourceText, metadata, indexAdjustments } =
+        const { sourceText, metadata } =
             Parser.Transforms.preprocessSourceForFeatherFixes(source);
 
         assert.notStrictEqual(
@@ -3870,7 +3870,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
             ""
         ].join("\n");
 
-        const { sourceText, metadata, indexAdjustments } =
+        const { sourceText, metadata } =
             Parser.Transforms.preprocessSourceForFeatherFixes(source);
 
         assert.notStrictEqual(

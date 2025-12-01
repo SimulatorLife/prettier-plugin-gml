@@ -974,7 +974,7 @@ export class RefactorEngine {
      * @param {boolean} options.checkTranspiler - Whether to validate transpiler compatibility
      * @returns {Promise<{valid: boolean, errors: Array<string>, warnings: Array<string>}>}
      */
-    async validateHotReloadCompatibility(
+    validateHotReloadCompatibility(
         workspace: WorkspaceEdit,
         options?: HotReloadValidationOptions
     ): Promise<ValidationSummary> {
@@ -985,14 +985,14 @@ export class RefactorEngine {
 
         if (!workspace || !(workspace instanceof WorkspaceEdit)) {
             errors.push("Invalid workspace edit");
-            return { valid: false, errors, warnings };
+            return Promise.resolve({ valid: false, errors, warnings });
         }
 
         if (workspace.edits.length === 0) {
             warnings.push(
                 "Workspace edit contains no changes - hot reload not needed"
             );
-            return { valid: true, errors, warnings };
+            return Promise.resolve({ valid: true, errors, warnings });
         }
 
         // Group edits by file
@@ -1061,7 +1061,7 @@ export class RefactorEngine {
             );
         }
 
-        return { valid: errors.length === 0, errors, warnings };
+        return Promise.resolve({ valid: errors.length === 0, errors, warnings });
     }
 
     /**
@@ -1434,7 +1434,7 @@ export class RefactorEngine {
             inDegree.set(item.symbolId, 0);
         }
 
-        for (const [from, toList] of dependencyGraph.entries()) {
+        for (const [, toList] of dependencyGraph.entries()) {
             for (const to of toList) {
                 if (inDegree.has(to)) {
                     inDegree.set(to, inDegree.get(to) + 1);

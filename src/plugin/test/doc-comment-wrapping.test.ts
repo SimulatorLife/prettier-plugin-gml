@@ -5,8 +5,6 @@ import { Plugin } from "../src/index.js";
 // We use Plugin.format to simplify test usage and stay consistent with the
 // plugin's public API exported from `src/index.ts`.
 
-const __dirname = import.meta.dirname;
-
 const LONG_DESCRIPTION =
     "Base class for all shapes. Shapes can be solid or not solid. Solid shapes will " +
     "collide with other solid shapes, and non-solid shapes will not collide with anything.";

@@ -1,5 +1,4 @@
-import { Core } from "@gml-modules/core";
-import type { GameMakerAstNode } from "@gml-modules/core";
+import { Core, type GameMakerAstNode } from "@gml-modules/core";
 
 import { prepareIdentifierCasePlan as defaultPrepareIdentifierCasePlan } from "./local-plan.js";
 import {

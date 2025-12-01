@@ -126,7 +126,7 @@ export function isQuotedString(value) {
  * @param {unknown} value Candidate value to normalize.
  * @returns {string | null} Original string when populated; otherwise `null`.
  */
-export function getNonEmptyString(value) {
+export function getNonEmptyString(value?: unknown) {
     return isNonEmptyString(value) ? value : null;
 }
 
@@ -178,7 +178,9 @@ const CHAR_CODE_UPPER_END = 90; // Z
 const CHAR_CODE_LOWER_START = 97; // a
 const CHAR_CODE_LOWER_END = 122; // z
 const CHAR_CODE_UNDERSCORE = 95; // _
-const OBJECT_TO_STRING = Object.prototype.toString;
+const OBJECT_TO_STRING = Object.prototype.toString.bind(
+    Object.prototype
+);
 const STARTS_WITH_VOWEL_PATTERN = /^[aeiou]/i;
 
 function normalizeIndefiniteArticle(label) {
@@ -210,7 +212,10 @@ function normalizeIndefiniteArticle(label) {
  *        `String(value)`.
  * @returns {string} Human-readable description of {@link value}.
  */
-export function describeValueForError(value, { stringifyUnknown = true } = {}) {
+export function describeValueForError(
+    value?: unknown,
+    { stringifyUnknown = true } = {}
+) {
     if (value === null) {
         return "null";
     }
@@ -233,7 +238,7 @@ export function describeValueForError(value, { stringifyUnknown = true } = {}) {
         try {
             return String(value);
         } catch {
-            return OBJECT_TO_STRING.call(value);
+            return OBJECT_TO_STRING(value);
         }
     }
 
@@ -249,7 +254,7 @@ export function describeValueForError(value, { stringifyUnknown = true } = {}) {
     try {
         return String(value);
     } catch {
-        return OBJECT_TO_STRING.call(value);
+        return OBJECT_TO_STRING(value);
     }
 }
 
@@ -319,7 +324,7 @@ export function isWordChar(character) {
  * @returns {string} Trimmed string when {@link value} is a string; otherwise
  *                   the empty string.
  */
-export function toTrimmedString(value) {
+export function toTrimmedString(value?: unknown) {
     return typeof value === "string" ? value.trim() : "";
 }
 
@@ -369,7 +374,7 @@ const SINGLE_QUOTE_CHARACTER = "'";
  *                   whitespace removed. Returns `""` when {@link value} is
  *                   `null` or `undefined`.
  */
-export function toNormalizedLowerCaseString(value) {
+export function toNormalizedLowerCaseString(value?: unknown) {
     if (value == null) {
         return "";
     }
@@ -377,9 +382,9 @@ export function toNormalizedLowerCaseString(value) {
     return String(value).trim().toLowerCase();
 }
 
-export function capitalize(value) {
+export function capitalize(value?: unknown): string {
     if (!isNonEmptyString(value)) {
-        return value;
+        return typeof value === "string" ? value : "";
     }
     return value[0].toUpperCase() + value.slice(1);
 }
@@ -612,7 +617,7 @@ function collectUniqueTrimmedStrings(entries) {
  * @returns {Set<string>} Lower-cased set of unique entries.
  */
 export function toNormalizedLowerCaseSet(
-    value,
+    value?: unknown,
     {
         splitPattern = null,
         allowInvalidType = true,

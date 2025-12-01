@@ -400,9 +400,9 @@ export function createMetricsTracker({
         }
     });
 
-    const cachesSnapshot = (extra) => snapshot(extra).caches;
+    const cachesSnapshot = (extra?: unknown) => snapshot(extra).caches;
 
-    function cacheSnapshot(cacheName, extra) {
+    function cacheSnapshot(cacheName?: unknown, extra?: unknown) {
         if (cacheName === undefined) {
             return cachesSnapshot(extra);
         }

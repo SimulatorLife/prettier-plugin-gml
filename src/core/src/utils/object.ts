@@ -65,7 +65,7 @@ export function assertFunction(
  * @param {unknown} value Candidate value to evaluate.
  * @returns {value is object} `true` when `value` can safely accept property access.
  */
-export function isObjectLike(value) {
+export function isObjectLike(value?: unknown) {
     return typeof value === "object" && value !== null;
 }
 
@@ -130,7 +130,7 @@ const OBJECT_TAG_PATTERN = /^\[object ([^\]]+)\]$/;
  * @returns {string} Human-readable description of {@link value}.
  */
 export function describeValueWithArticle(
-    value,
+    value?: unknown,
     {
         emptyStringLabel = null,
         arrayLabel = "an array",
@@ -147,13 +147,13 @@ export function describeValueWithArticle(
         return "undefined";
     }
 
+    const fallbackType = typeof value;
+
     if (Array.isArray(value)) {
         return arrayLabel;
     }
 
-    const type = typeof value;
-
-    if (type === "string") {
+    if (typeof value === "string") {
         if (value.length === 0 && emptyStringLabel) {
             return emptyStringLabel;
         }
@@ -161,27 +161,27 @@ export function describeValueWithArticle(
         return formatWithIndefiniteArticle("string");
     }
 
-    if (type === "boolean") {
+    if (typeof value === "boolean") {
         return formatWithIndefiniteArticle("boolean");
     }
 
-    if (type === "number") {
+    if (typeof value === "number") {
         return formatWithIndefiniteArticle("number");
     }
 
-    if (type === "bigint") {
+    if (typeof value === "bigint") {
         return formatWithIndefiniteArticle("bigint");
     }
 
-    if (type === "function") {
+    if (typeof value === "function") {
         return formatWithIndefiniteArticle("function");
     }
 
-    if (type === "symbol") {
+    if (typeof value === "symbol") {
         return formatWithIndefiniteArticle("symbol");
     }
 
-    if (type === "object") {
+    if (typeof value === "object") {
         const tagName = getObjectTagName(value);
         if (tagName) {
             return formatTaggedObjectLabel(tagName);
@@ -190,7 +190,7 @@ export function describeValueWithArticle(
         return objectLabel;
     }
 
-    return formatWithIndefiniteArticle(type);
+    return formatWithIndefiniteArticle(fallbackType);
 }
 
 /**
@@ -204,7 +204,9 @@ export function describeValueWithArticle(
  * @param {unknown} value Candidate value to inspect.
  * @returns {boolean} `true` when {@link value} can be treated as an object or function.
  */
-export function isObjectOrFunction(value) {
+export function isObjectOrFunction(
+    value: unknown
+): value is object | Function {
     if (value === null) {
         return false;
     }
@@ -410,7 +412,11 @@ export function withObjectLike(value, onObjectLike, onNotObjectLike) {
  *        (or invoked) when {@link value} is `undefined`.
  * @returns {TResult | undefined}
  */
-export function withDefinedValue(value, onDefined, onUndefined) {
+export function withDefinedValue(
+    value,
+    onDefined,
+    onUndefined?: (() => unknown) | unknown
+) {
     assertFunction(onDefined, "onDefined");
 
     if (value === undefined) {

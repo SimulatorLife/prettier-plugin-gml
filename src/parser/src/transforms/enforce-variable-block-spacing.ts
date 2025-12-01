@@ -1,5 +1,4 @@
-import { Core } from "@gml-modules/core";
-import type { MutableGameMakerAstNode } from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { FunctionalParserTransform } from "./functional-transform.js";
 import { resolveVariableBlockSpacingMinDeclarations } from "../options/variable-block-spacing-options.js";
 

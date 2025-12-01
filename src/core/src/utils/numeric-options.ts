@@ -1,4 +1,5 @@
 import { toNormalizedInteger } from "./number.js";
+import { describeValueForError } from "./string.js";
 
 type CoerceIntegerOptions = {
     min: number;
@@ -85,7 +86,7 @@ function coerceInteger(
         return normalized;
     }
 
-    const formattedReceived = received ?? value;
+    const formattedReceived = describeValueForError(received ?? value);
     const fallbackMessage = `Value must be an integer greater than or equal to ${min} (received ${formattedReceived}).`;
 
     const message =
@@ -279,7 +280,7 @@ export function normalizeNumericOption(
         return missingOptionValue();
     }
 
-    const received = isString ? `'${rawValue}'` : normalized;
+    const received = describeValueForError(rawValue);
     const numericValue = isString ? Number(normalized) : (normalized as number);
 
     return coerce(numericValue, {

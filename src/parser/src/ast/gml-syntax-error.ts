@@ -247,6 +247,8 @@ export default class GameMakerParseErrorListener extends ErrorListener {
     // unhelpful "syntax error" toasts.
     syntaxError(recognizer, offendingSymbol, line, column, _message, _error) {
         const parser = recognizer;
+        void _message;
+        void _error;
         const offendingText =
             this.formatter.resolveOffendingSymbolText(offendingSymbol);
         const wrongSymbol = this.formatter.formatWrongSymbol(offendingText);
@@ -298,6 +300,7 @@ export class GameMakerLexerErrorListener extends ErrorListener {
     }
 
     syntaxError(lexer, offendingSymbol, line, column, message, _error) {
+        void _error;
         const offendingText =
             this.formatter.resolveOffendingSymbolText(offendingSymbol) ??
             this.formatter.extractOffendingTextFromLexerMessage(message);

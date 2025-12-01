@@ -149,6 +149,7 @@ async function processDirectoryEntries({
     metrics,
     signal
 }) {
+    void signal;
     for (const entry of entries) {
         ensureNotAborted();
         const descriptor = createDirectoryEntryDescriptor(

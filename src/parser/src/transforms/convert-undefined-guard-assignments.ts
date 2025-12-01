@@ -1,5 +1,4 @@
-import { Core } from "@gml-modules/core";
-import type { MutableGameMakerAstNode } from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { FunctionalParserTransform } from "./functional-transform.js";
 
 function convertUndefinedGuardAssignmentsImpl(ast: any) {
@@ -56,6 +55,7 @@ class ConvertUndefinedGuardAssignmentsTransform extends FunctionalParserTransfor
         ast: MutableGameMakerAstNode,
         _options: Record<string, never>
     ): MutableGameMakerAstNode {
+        void _options;
         return convertUndefinedGuardAssignmentsImpl(ast);
     }
 }

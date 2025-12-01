@@ -1,19 +1,36 @@
 import { isObjectOrFunction } from "./object.js";
 import { getNonEmptyString } from "./string.js";
 
-const abortErrorBrand = new WeakSet();
-
 const DEFAULT_ABORT_MESSAGE = "Operation aborted.";
+
+type AbortErrorMetadata = Record<PropertyKey, unknown> & {
+    name?: string;
+    message?: string;
+    stack?: string;
+    code?: string | number;
+};
+
+type AbortErrorLike = Error | AbortErrorMetadata;
+
+interface AbortSignalLike {
+    readonly aborted: boolean;
+    readonly reason?: unknown;
+}
+
 const ERROR_METADATA_KEYS = ["message", "name", "stack"];
 
-function shouldReuseAbortReason(value) {
+const abortErrorBrand = new WeakSet<AbortErrorLike>();
+
+function shouldReuseAbortReason(value: unknown): value is AbortErrorLike {
     if (!isObjectOrFunction(value)) {
         return false;
     }
 
+    const candidate = value as Record<PropertyKey, unknown>;
     return (
-        ERROR_METADATA_KEYS.some((key) => value[key] !== null) ||
-        "cause" in value
+        ERROR_METADATA_KEYS.some(
+            (key) => candidate[key] !== null && candidate[key] !== undefined
+        ) || "cause" in candidate
     );
 }
 
@@ -36,7 +53,10 @@ function toAbortMessage(value) {
     }
 }
 
-function brandAbortError(error, fallbackMessage) {
+function brandAbortError(
+    error: AbortErrorLike,
+    fallbackMessage: string
+) {
     if (!getNonEmptyString(error.name)) {
         error.name = "AbortError";
     }
@@ -52,14 +72,33 @@ function brandAbortError(error, fallbackMessage) {
     return error;
 }
 
-function normalizeAbortError(reason, fallbackMessage) {
+function normalizeAbortError(
+    reason: unknown,
+    fallbackMessage: string
+): AbortErrorLike {
     const fallback =
         getNonEmptyString(fallbackMessage) ?? DEFAULT_ABORT_MESSAGE;
-    const error = shouldReuseAbortReason(reason)
+    const error: AbortErrorLike = shouldReuseAbortReason(reason)
         ? reason
         : new Error(getNonEmptyString(toAbortMessage(reason)) ?? fallback);
 
     return brandAbortError(error, fallback);
+}
+
+function ensureAbortError(error: AbortErrorLike): Error {
+    if (error instanceof Error) {
+        return error;
+    }
+
+    const normalizedMessage =
+        getNonEmptyString(error.message) ?? DEFAULT_ABORT_MESSAGE;
+    const normalized = new Error(normalizedMessage);
+
+    if (isObjectOrFunction(error)) {
+        Object.assign(normalized, error);
+    }
+
+    return normalized;
 }
 
 /**
@@ -72,15 +111,15 @@ function normalizeAbortError(reason, fallbackMessage) {
  *
  * @param {AbortSignal | null | undefined} signal Signal to inspect for an
  *        aborted state.
- * @param {string | null | undefined} [fallbackMessage] Optional message used
- *        when the signal does not provide a reason value.
+ * @param {string | null} [fallbackMessage] Optional message used when the
+ *        signal does not provide a reason value.
  * @returns {Error | null} `AbortError` compatible instance when aborted;
  *          otherwise `null`.
  */
 export function createAbortError(
-    signal,
-    fallbackMessage = DEFAULT_ABORT_MESSAGE
-) {
+    signal: AbortSignalLike | null | undefined,
+    fallbackMessage: string = DEFAULT_ABORT_MESSAGE
+): AbortErrorLike | null {
     if (!signal || signal.aborted !== true) {
         return null;
     }
@@ -107,25 +146,29 @@ const DOM_EXCEPTION_ABORT_ERR_CODE =
         ? DOMException.ABORT_ERR
         : null;
 
-export function isAbortError(value) {
+export function isAbortError(value: unknown): boolean {
     if (value === null) {
         return false;
-    }
-
-    if (abortErrorBrand.has(value)) {
-        return true;
     }
 
     if (!isObjectOrFunction(value)) {
         return false;
     }
 
-    const name = getNonEmptyString(value.name);
+    const candidate = value as AbortErrorLike;
+
+    if (abortErrorBrand.has(candidate)) {
+        return true;
+    }
+
+    const name = getNonEmptyString(
+        /** @type {{ name?: unknown }} */ (candidate as { name?: unknown }).name
+    );
     if (name?.toLowerCase() === ABORT_ERROR_NAME) {
         return true;
     }
 
-    const code = value.code;
+    const code = (candidate as { code?: unknown }).code;
 
     if (typeof code === "string") {
         return code.toUpperCase() === ABORT_ERROR_STRING_CODE;
@@ -149,14 +192,20 @@ export function isAbortError(value) {
  * convenience wrapper that matches the rest of the shared utilities.
  *
  * @param {AbortSignal | null | undefined} signal Signal guarding the work.
- * @param {string | null | undefined} [fallbackMessage] Optional replacement
- *        message when the signal omits a reason.
+ * @param {string | null} [fallbackMessage] Optional replacement message when
+ *        the signal omits a reason.
  * @returns {void}
  */
-export function throwIfAborted(signal, fallbackMessage) {
-    const error = createAbortError(signal, fallbackMessage);
+export function throwIfAborted(
+    signal: AbortSignalLike | null | undefined,
+    fallbackMessage?: string | null
+) {
+    const error = createAbortError(
+        signal,
+        fallbackMessage ?? DEFAULT_ABORT_MESSAGE
+    );
     if (error) {
-        throw error;
+        throw ensureAbortError(error);
     }
 }
 
@@ -176,20 +225,23 @@ export function throwIfAborted(signal, fallbackMessage) {
  * @param {unknown} options Candidate options object that may expose a signal.
  * @param {{
  *     key?: string | number | symbol,
- *     fallbackMessage?: string | null | undefined
+ *     fallbackMessage?: string | null
  * }} [config]
  * @returns {{ signal: AbortSignal | null, ensureNotAborted(): void }}
  *          Guard exposing the normalized signal and a checkpoint callback.
  */
 type AbortConfig = {
     key?: string | number | symbol;
-    fallbackMessage?: string | null | undefined;
+    fallbackMessage?: string | null;
 };
 
 export function createAbortGuard(
-    options,
+    options: unknown,
     { key, fallbackMessage }: AbortConfig = {}
-) {
+): {
+    signal: AbortSignalLike | null;
+    ensureNotAborted(): void;
+} {
     const signal = resolveAbortSignalFromOptions(options, {
         key,
         fallbackMessage
@@ -200,11 +252,11 @@ export function createAbortGuard(
     return { signal, ensureNotAborted };
 }
 
-function isAbortSignalLike(value) {
+function isAbortSignalLike(value: unknown): value is AbortSignalLike {
     return (
         value !== null &&
         (typeof value === "object" || typeof value === "function") &&
-        typeof value.aborted === "boolean"
+        typeof (value as AbortSignalLike).aborted === "boolean"
     );
 }
 
@@ -233,14 +285,15 @@ function isAbortSignalLike(value) {
  *          options object does not supply one.
  */
 export function resolveAbortSignalFromOptions(
-    options,
+    options: unknown,
     { key = "signal", fallbackMessage }: AbortConfig = {}
-) {
+): AbortSignalLike | null {
     if (!isObjectOrFunction(options)) {
         return null;
     }
 
-    const candidate = options[key] ?? null;
+    const candidate =
+        /** @type {Record<PropertyKey, unknown>} */ (options)[key] ?? null;
     if (!isAbortSignalLike(candidate)) {
         return null;
     }

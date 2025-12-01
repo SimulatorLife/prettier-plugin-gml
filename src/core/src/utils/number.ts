@@ -4,7 +4,7 @@
  * @param {unknown} value Potential numeric value.
  * @returns {value is number} `true` when `value` is a finite number.
  */
-export function isFiniteNumber(value) {
+export function isFiniteNumber(value?: unknown): value is number {
     return typeof value === "number" && Number.isFinite(value);
 }
 
@@ -35,12 +35,13 @@ export function toFiniteNumber(value) {
  * @returns {number | null} Truncated integer when `value` is finite, otherwise
  *          `null`.
  */
-export function toNormalizedInteger(value) {
+export function toNormalizedInteger(value?: unknown) {
     if (!isFiniteNumber(value)) {
         return null;
     }
 
-    const normalized = Math.trunc(value);
+    const finiteValue = value as number;
+    const normalized = Math.trunc(finiteValue);
     return Object.is(normalized, -0) ? 0 : normalized;
 }
 

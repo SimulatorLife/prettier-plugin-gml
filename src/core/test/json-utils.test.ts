@@ -1,4 +1,3 @@
-// @ts-nocheck
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
@@ -8,6 +7,7 @@ import {
     parseJsonWithContext,
     stringifyJsonForFile
 } from "../src/utils/json.js";
+import type { JsonParseError } from "../src/utils/json.js";
 import { isErrorLike } from "../src/utils/capability-probes.js";
 
 describe("parseJsonWithContext", () => {
@@ -15,7 +15,7 @@ describe("parseJsonWithContext", () => {
         const payload = '{"value": 2}';
         const parsed = parseJsonWithContext(payload, {
             reviver(key, value) {
-                return key === "value" ? value * 3 : value;
+                return key === "value" ? (value as number) * 3 : value;
             }
         });
 
@@ -23,7 +23,7 @@ describe("parseJsonWithContext", () => {
     });
 
     it("annotates errors with contextual metadata", () => {
-        let error;
+        let error: unknown;
         try {
             parseJsonWithContext("{ invalid", {
                 source: "demo.json",
@@ -34,15 +34,20 @@ describe("parseJsonWithContext", () => {
         }
 
         assert.ok(isJsonParseError(error));
-        assert.equal(error.name, "JsonParseError");
-        assert.equal(error.source, "demo.json");
-        assert.equal(error.description, "project metadata");
+        const jsonError = error as JsonParseError;
+        assert.equal(jsonError.name, "JsonParseError");
+        assert.equal(jsonError.source, "demo.json");
+        assert.equal(jsonError.description, "project metadata");
         assert.match(
-            error.message,
+            jsonError.message,
             /Failed to parse project metadata from demo\.json: .+/
         );
-        assert.ok(isErrorLike(error.cause));
-        assert.equal(error.cause.name, "SyntaxError");
+        const cause = jsonError.cause;
+        if (!isErrorLike(cause)) {
+            throw new Error("Expected parse error cause to be an Error");
+        }
+
+        assert.equal(cause.name, "SyntaxError");
         assert.equal(isJsonParseError(new Error("nope")), false);
         assert.equal(
             isJsonParseError({ message: "fail", name: "JsonParseError" }),
@@ -74,7 +79,7 @@ describe("parseJsonWithContext", () => {
     });
 
     it("normalizes whitespace-only descriptions and error messages", () => {
-        let error;
+        let error: unknown;
         try {
             parseJsonWithContext('{"value": 1}', {
                 description: "   custom   ",
@@ -92,10 +97,11 @@ describe("parseJsonWithContext", () => {
         }
 
         assert.ok(isJsonParseError(error));
-        assert.equal(error.description, "custom");
-        assert.equal(error.source, "demo.json");
+        const jsonError = error as JsonParseError;
+        assert.equal(jsonError.description, "custom");
+        assert.equal(jsonError.source, "demo.json");
         assert.match(
-            error.message,
+            jsonError.message,
             /Failed to parse custom from demo\.json: spaced message/
         );
     });
@@ -147,7 +153,7 @@ describe("stringifyJsonForFile", () => {
     it("throws a descriptive error when the payload cannot be serialized", () => {
         assert.throws(
             () => stringifyJsonForFile(),
-            (error) => {
+            (error: TypeError) => {
                 assert.equal(error instanceof TypeError, true);
                 assert.match(
                     error.message,

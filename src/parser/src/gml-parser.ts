@@ -11,8 +11,7 @@ import { createHiddenNodeProcessor } from "./ast/hidden-node-processor.js";
 import { Core } from "@gml-modules/core";
 import { installRecognitionExceptionLikeGuard } from "./runtime/index.js";
 import convertToESTree from "./utils/estree-converter.js";
-import { defaultParserOptions } from "./types/index.js";
-import type { ParserOptions } from "./types/index.js";
+import { defaultParserOptions, type ParserOptions } from "./types/index.js";
 
 const PredictionMode =
     (antlr4 as unknown as { atn?: { PredictionMode: unknown } }).atn

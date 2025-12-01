@@ -521,13 +521,24 @@ function buildPropertyNameNode(propertyKey) {
     return null;
 }
 
-function allowTrailingCommentsBetween({
-    tracker,
-    left,
-    right,
-    precedingStatement,
-    precedingProperty
-}) {
+type AllowTrailingCommentsBetweenOptions = {
+    tracker: CommentTracker;
+    left: number | undefined;
+    right: number | undefined;
+    precedingStatement: MutableGameMakerAstNode | null;
+    precedingProperty: MutableGameMakerAstNode | null;
+    commentTools: CommentTools;
+};
+
+function allowTrailingCommentsBetween(options: AllowTrailingCommentsBetweenOptions) {
+    const {
+        tracker,
+        left,
+        right,
+        precedingStatement,
+        precedingProperty,
+        commentTools
+    } = options;
     const commentEntries = tracker.getEntriesBetween(left, right);
     if (commentEntries.length === 0) {
         return true;
@@ -560,11 +571,9 @@ function allowTrailingCommentsBetween({
 
         if (commentTarget) {
             // Preserve historical metadata so the comment remains discoverable
-            // without registering it with Prettier's default trailing comment
-            // machinery. The printer renders these comments directly to avoid
-            // introducing additional line breaks while consolidating struct
-            // assignments.
+            // and mark it as a trailing comment so Prettier keeps it attached.
             comment.enclosingNode = commentTarget;
+            commentTools.addTrailingComment(commentTarget, comment);
         }
     }
 

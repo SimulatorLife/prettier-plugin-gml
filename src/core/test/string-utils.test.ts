@@ -1,4 +1,3 @@
-// @ts-nocheck
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -187,7 +186,7 @@ test("describeValueForError formats primitives and structured values", () => {
         '{"key":"value"}'
     );
 
-    const circular = {};
+    const circular: Record<string, unknown> = {};
     circular.self = circular;
     assert.strictEqual(describeValueForError(circular), "[object Object]");
 });

@@ -131,11 +131,7 @@ function updateStore(options, key, value) {
         return;
     }
 
-    const entry = Core.getOrCreateMapEntry(
-        optionStoreMap,
-        storeKey,
-        () => ({})
-    );
+    const entry = getOrCreateStoreEntry(storeKey);
     entry[key] = value;
     trimOptionStoreMap(resolveMaxOptionStoreEntries(options));
 }

@@ -1875,8 +1875,6 @@ function attemptCondenseScalarProduct(node, context) {
         return false;
     }
 
-    const tolerance = computeNumericTolerance(1);
-
     if (meaningfulNumericFactorCount < 2) {
         const coefficientMagnitude = Math.abs(coefficient);
         if (coefficientMagnitude <= 1 + unitTolerance) {

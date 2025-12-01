@@ -1,7 +1,6 @@
 // TODO: This file is way too big and needs to be split up. Things like 'attachFeatherFixMetadata' can live here, but everything else should be split/moved. Can have a file just for enum handling, one for fixing begin/end vertex, colour, etc.
 
-import { Core } from "@gml-modules/core";
-import type { MutableGameMakerAstNode } from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { FunctionalParserTransform } from "./functional-transform.js";
 import antlr4, { PredictionMode } from "antlr4";
 import GameMakerLanguageLexer from "../../generated/GameMakerLanguageLexer.js";
@@ -490,12 +489,11 @@ function sanitizeEnumInitializerStrings(sourceText) {
 
     const enumPattern = /\benum\b/g;
     let lastIndex = 0;
-    let match;
     let result = "";
     const adjustments = [];
     let totalRemoved = 0;
 
-    while ((match = enumPattern.exec(sourceText)) !== null) {
+    while (enumPattern.exec(sourceText) !== null) {
         const openBraceIndex = findNextOpenBrace(
             sourceText,
             enumPattern.lastIndex
@@ -2291,8 +2289,6 @@ function convertIdentifierReference({
             identifier,
             parent,
             property,
-            arrayOwner,
-            arrayProperty,
             diagnostic,
             fixes,
             identifierStart,
@@ -2331,8 +2327,6 @@ function replaceIdentifierWithOtherMember({
     identifier,
     parent,
     property,
-    arrayOwner,
-    arrayProperty,
     diagnostic,
     fixes,
     identifierStart,
@@ -2816,7 +2810,7 @@ function convertStringLengthPropertyAccesses({ ast, diagnostic }) {
         });
     };
 
-    visit(ast, null, null);
+    visit(ast);
 
     return fixes;
 }
@@ -7729,7 +7723,7 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
     return fixes;
 }
 
-function renameDuplicateFunctionParameters({ ast, diagnostic, options }) {
+function renameDuplicateFunctionParameters({ ast, diagnostic }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
@@ -8191,376 +8185,6 @@ function createVertexEndCallFromBegin(template) {
     return callExpression;
 }
 
-function localizeInstanceVariableAssignments({ ast, diagnostic, sourceText }) {
-    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
-        return [];
-    }
-
-    const fixes = [];
-    const eventMarkers = buildEventMarkerIndex(ast);
-    const memberPropertyNames = collectMemberPropertyNames(ast);
-
-    const visit = (node, parent, property) => {
-        if (!node) {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            for (let index = 0; index < node.length; index += 1) {
-                visit(node[index], node, index);
-            }
-            return;
-        }
-
-        if (typeof node !== "object") {
-            return;
-        }
-
-        if (node.type === "AssignmentExpression") {
-            const fix = convertAssignmentToLocalVariable({
-                node,
-                parent,
-                property,
-                diagnostic,
-                eventMarkers,
-                memberPropertyNames,
-                sourceText,
-                programAst: ast
-            });
-
-            if (fix) {
-                fixes.push(fix);
-                return;
-            }
-        }
-
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
-    };
-
-    visit(ast, null, null);
-
-    return fixes;
-}
-
-function convertAssignmentToLocalVariable({
-    node,
-    parent,
-    property,
-    diagnostic,
-    eventMarkers,
-    memberPropertyNames,
-    sourceText,
-    programAst
-}) {
-    if (!hasArrayParentWithNumericIndex(parent, property)) {
-        return null;
-    }
-
-    if (
-        !node ||
-        node.type !== "AssignmentExpression" ||
-        node.operator !== "="
-    ) {
-        return null;
-    }
-
-    const left = node.left;
-
-    if (!Core.isIdentifierNode(left)) {
-        return null;
-    }
-
-    const identifierName = left?.name;
-    const originalIdentifierName =
-        typeof sourceText === "string"
-            ? getOriginalIdentifierName(left, sourceText)
-            : null;
-
-    if (
-        identifierName &&
-        memberPropertyNames &&
-        memberPropertyNames.has(identifierName)
-    ) {
-        return null;
-    }
-
-    if (
-        originalIdentifierName &&
-        memberPropertyNames &&
-        memberPropertyNames.has(originalIdentifierName)
-    ) {
-        return null;
-    }
-
-    if (!Core.isNonEmptyArray(eventMarkers)) {
-        return null;
-    }
-
-    const eventMarker = findEventMarkerForIndex(
-        eventMarkers,
-        Core.getNodeStartIndex(node)
-    );
-
-    if (!eventMarker || isCreateEventMarker(eventMarker)) {
-        return null;
-    }
-
-    const clonedIdentifier = Core.cloneIdentifier(left);
-
-    if (!clonedIdentifier) {
-        return null;
-    }
-
-    const assignmentStartIndex = Core.getNodeStartIndex(node);
-
-    if (
-        typeof assignmentStartIndex === "number" &&
-        (referencesIdentifierBeforePosition(
-            programAst,
-            identifierName,
-            assignmentStartIndex
-        ) ||
-            (originalIdentifierName &&
-                originalIdentifierName !== identifierName &&
-                referencesIdentifierBeforePosition(
-                    programAst,
-                    originalIdentifierName,
-                    assignmentStartIndex
-                )))
-    ) {
-        return null;
-    }
-
-    const declarator = {
-        type: "VariableDeclarator",
-        id: clonedIdentifier,
-        init: node.right
-    };
-    Core.assignClonedLocation(declarator as any, left ?? node);
-
-    const declaration = {
-        type: "VariableDeclaration",
-        declarations: [declarator],
-        kind: "var"
-    };
-    Core.assignClonedLocation(declaration as any, node);
-
-    copyCommentMetadata(node, declaration);
-
-    const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: left?.name ?? null,
-        range: {
-            start: Core.getNodeStartIndex(node),
-            end: Core.getNodeEndIndex(node)
-        }
-    });
-
-    if (!fixDetail) {
-        return null;
-    }
-
-    parent[property] = declaration;
-    attachFeatherFixMetadata(declaration, [fixDetail]);
-
-    return fixDetail;
-}
-
-function buildEventMarkerIndex(ast) {
-    if (!ast || typeof ast !== "object") {
-        return [];
-    }
-
-    const markerComments = new Set();
-    const directComments = Core.getCommentArray(ast);
-
-    for (const comment of directComments) {
-        if (comment) {
-            markerComments.add(comment);
-        }
-    }
-
-    for (const comment of Core.collectCommentNodes(ast)) {
-        if (comment) {
-            markerComments.add(comment);
-        }
-    }
-
-    const markers = [];
-
-    for (const comment of markerComments) {
-        const eventName = extractEventNameFromComment(
-            getOptionalString(comment, "value")
-        );
-
-        if (!eventName) {
-            continue;
-        }
-
-        const markerIndex = getCommentIndex(comment);
-
-        if (typeof markerIndex !== "number") {
-            continue;
-        }
-
-        markers.push({
-            index: markerIndex,
-            name: eventName
-        });
-    }
-
-    markers.sort((left, right) => left.index - right.index);
-
-    return markers;
-}
-
-function extractEventNameFromComment(value) {
-    const trimmed = Core.getNonEmptyTrimmedString(value);
-
-    if (!trimmed || !trimmed.startsWith("/")) {
-        return null;
-    }
-
-    const normalized = trimmed.replace(/^\/\s*/, "");
-
-    if (!/\bEvent\b/i.test(normalized)) {
-        return null;
-    }
-
-    return normalized;
-}
-
-// TODO: Move this to where the other comment utilities are located
-function getCommentIndex(comment) {
-    if (!comment || typeof comment !== "object") {
-        return null;
-    }
-
-    if (typeof comment.start?.index === "number") {
-        return comment.start.index;
-    }
-
-    if (typeof comment.end?.index === "number") {
-        return comment.end.index;
-    }
-
-    return null;
-}
-
-function findEventMarkerForIndex(markers, index) {
-    if (!Core.isNonEmptyArray(markers)) {
-        return null;
-    }
-
-    if (typeof index !== "number") {
-        return null;
-    }
-
-    let result = null;
-
-    for (const marker of markers) {
-        if (marker.index <= index) {
-            result = marker;
-            continue;
-        }
-
-        break;
-    }
-
-    return result;
-}
-
-function isCreateEventMarker(marker) {
-    if (!marker || typeof marker.name !== "string") {
-        return false;
-    }
-
-    return /\bCreate\s+Event\b/i.test(marker.name);
-}
-
-function collectMemberPropertyNames(ast) {
-    if (!ast || typeof ast !== "object") {
-        return new Set();
-    }
-
-    const names = new Set();
-
-    const visit = (node) => {
-        if (!node || typeof node !== "object") {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            for (const item of node) {
-                visit(item);
-            }
-            return;
-        }
-
-        if (node.type === "MemberDotExpression") {
-            const property = node.property;
-
-            if (property?.type === "Identifier" && property.name) {
-                names.add(property.name);
-            }
-        }
-
-        if (node.type === "MemberIndexExpression") {
-            const property = node.property;
-
-            if (property?.type === "Identifier" && property.name) {
-                names.add(property.name);
-            }
-        }
-
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
-    };
-
-    visit(ast);
-
-    return names;
-}
-
-// TODO: Move this to where the other identifier utilities are located
-function getOriginalIdentifierName(identifier, sourceText) {
-    if (!identifier || typeof sourceText !== "string") {
-        return null;
-    }
-
-    const startIndex = Core.getNodeStartIndex(identifier);
-    const endIndex = Core.getNodeEndIndex(identifier);
-
-    if (typeof startIndex !== "number" || typeof endIndex !== "number") {
-        return null;
-    }
-
-    const slice = sourceText.slice(startIndex, endIndex + 1);
-
-    if (typeof slice !== "string") {
-        return null;
-    }
-
-    const trimmed = slice.trim();
-
-    if (!trimmed) {
-        return null;
-    }
-
-    const match = /^[A-Za-z_][A-Za-z0-9_]*$/.exec(trimmed);
-
-    if (!match) {
-        return null;
-    }
-
-    return match[0];
-}
 
 function convertUnusedIndexForLoops({ ast, diagnostic }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
@@ -8968,8 +8592,6 @@ function normalizeFunctionCallArgumentOrder({ ast, diagnostic }) {
         if (node.type === "CallExpression") {
             const fix = normalizeCallExpressionArguments({
                 node,
-                parent,
-                property,
                 diagnostic,
                 ancestors: nextAncestors,
                 state
@@ -8988,8 +8610,6 @@ function normalizeFunctionCallArgumentOrder({ ast, diagnostic }) {
 
 function normalizeCallExpressionArguments({
     node,
-    parent,
-    property,
     diagnostic,
     ancestors,
     state
@@ -9073,7 +8693,7 @@ function normalizeCallExpressionArguments({
         return null;
     }
 
-    for (const { declaration, index, identifier } of temporaryDeclarations) {
+    for (const { index, identifier } of temporaryDeclarations) {
         node.arguments[index] = Core.createIdentifierNode(
             identifier.name,
             identifier
@@ -11547,7 +11167,7 @@ function ensureDrawVertexCallsAreWrapped({ ast, diagnostic }) {
 
     const fixes = [];
 
-    const visit = (node, parent, property) => {
+    const visit = (node) => {
         if (!node) {
             return;
         }
@@ -11563,8 +11183,8 @@ function ensureDrawVertexCallsAreWrapped({ ast, diagnostic }) {
                 fixes.push(...normalizedFixes);
             }
 
-            for (let index = 0; index < node.length; index += 1) {
-                visit(node[index], node, index);
+            for (const child of node) {
+                visit(child);
             }
 
             return;
@@ -11574,14 +11194,14 @@ function ensureDrawVertexCallsAreWrapped({ ast, diagnostic }) {
             return;
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        for (const value of Object.values(node)) {
             if (value && typeof value === "object") {
-                visit(value, node, key);
+                visit(value);
             }
         }
     };
 
-    visit(ast, null, null);
+    visit(ast);
 
     return fixes;
 }
@@ -12886,131 +12506,7 @@ function hasVariableDeclarationInContainer(container, variableName, uptoIndex) {
     return false;
 }
 
-// TODO: Move this to where the other identifier utility functions are
-function referencesIdentifierAfterIndex(container, variableName, startIndex) {
-    if (!Array.isArray(container) || !variableName) {
-        return false;
-    }
 
-    const initialIndex = typeof startIndex === "number" ? startIndex : 0;
-
-    for (let index = initialIndex; index < container.length; index += 1) {
-        if (referencesIdentifier(container[index], variableName)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-// TODO: Move this to where the other identifier utility functions are
-function referencesIdentifier(node, variableName) {
-    if (!node || typeof node !== "object") {
-        return false;
-    }
-
-    const stack = [{ value: node, parent: null, key: null }];
-
-    while (stack.length > 0) {
-        const { value, parent, key } = stack.pop();
-
-        if (!value || typeof value !== "object") {
-            continue;
-        }
-
-        if (Core.isFunctionLikeNode(value)) {
-            // Nested functions introduce new scopes. References to the same
-            // identifier name inside them do not require hoisting the current
-            // declaration, so skip descending into those subtrees.
-            continue;
-        }
-
-        if (Array.isArray(value)) {
-            for (const item of value) {
-                stack.push({ value: item, parent, key });
-            }
-            continue;
-        }
-
-        if (value.type === "Identifier" && value.name === variableName) {
-            const isDeclaratorId =
-                parent?.type === "VariableDeclarator" && key === "id";
-
-            if (!isDeclaratorId) {
-                return true;
-            }
-        }
-
-        for (const [childKey, childValue] of Object.entries(value)) {
-            if (childValue && typeof childValue === "object") {
-                stack.push({ value: childValue, parent: value, key: childKey });
-            }
-        }
-    }
-
-    return false;
-}
-
-// TODO: Move this to where the other identifier utility functions are
-function referencesIdentifierBeforePosition(node, variableName, beforeIndex) {
-    if (
-        !node ||
-        typeof node !== "object" ||
-        !variableName ||
-        typeof beforeIndex !== "number"
-    ) {
-        return false;
-    }
-
-    const stack = [{ value: node, parent: null, key: null }];
-
-    while (stack.length > 0) {
-        const { value, parent, key } = stack.pop();
-
-        if (!value || typeof value !== "object") {
-            continue;
-        }
-
-        if (Core.isFunctionLikeNode(value)) {
-            continue;
-        }
-
-        if (Array.isArray(value)) {
-            for (const item of value) {
-                stack.push({ value: item, parent, key });
-            }
-            continue;
-        }
-
-        if (value.type === "Identifier" && value.name === variableName) {
-            const isDeclaratorId =
-                parent?.type === "VariableDeclarator" && key === "id";
-
-            if (!isDeclaratorId) {
-                const referenceIndex = Core.getNodeStartIndex(value);
-
-                if (
-                    typeof referenceIndex === "number" &&
-                    referenceIndex < beforeIndex
-                ) {
-                    return true;
-                }
-            }
-        }
-
-        for (const [childKey, childValue] of Object.entries(value)) {
-            if (childValue && typeof childValue === "object") {
-                stack.push({
-                    value: childValue,
-                    parent: value,
-                    key: childKey
-                });
-            }
-        }
-    }
-
-    return false;
-}
 
 function hoistVariableDeclarationOutOfBlock({
     declarationNode,
@@ -13636,14 +13132,14 @@ function ensureNumericOperationsUseRealLiteralCoercion({ ast, diagnostic }) {
 
     const fixes = [];
 
-    const visit = (node, parent, property) => {
+    const visit = (node) => {
         if (!node) {
             return;
         }
 
         if (Array.isArray(node)) {
-            for (let index = 0; index < node.length; index += 1) {
-                visit(node[index], node, index);
+            for (const child of node) {
+                visit(child);
             }
             return;
         }
@@ -13664,14 +13160,14 @@ function ensureNumericOperationsUseRealLiteralCoercion({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        for (const value of Object.values(node)) {
             if (value && typeof value === "object") {
-                visit(value, node, key);
+                visit(value);
             }
         }
     };
 
-    visit(ast, null, null);
+    visit(ast);
 
     return fixes;
 }
@@ -13790,14 +13286,14 @@ function addMissingEnumMembers({ ast, diagnostic }) {
 
     const fixes = [];
 
-    const visit = (node, parent, property) => {
+    const visit = (node) => {
         if (!node) {
             return;
         }
 
         if (Array.isArray(node)) {
-            for (let index = 0; index < node.length; index += 1) {
-                visit(node[index], node, index);
+            for (const child of node) {
+                visit(child);
             }
             return;
         }
@@ -13815,9 +13311,9 @@ function addMissingEnumMembers({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        for (const value of Object.values(node)) {
             if (value && typeof value === "object") {
-                visit(value, node, key);
+                visit(value);
             }
         }
     };
@@ -14241,14 +13737,14 @@ function correctDataStructureAccessorTokens({ ast, diagnostic }) {
 
     const fixes = [];
 
-    const visit = (node, parent, property) => {
+    const visit = (node) => {
         if (!node) {
             return;
         }
 
         if (Array.isArray(node)) {
-            for (let index = 0; index < node.length; index += 1) {
-                visit(node[index], node, index);
+            for (const child of node) {
+                visit(child);
             }
             return;
         }
@@ -14270,14 +13766,14 @@ function correctDataStructureAccessorTokens({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        for (const value of Object.values(node)) {
             if (value && typeof value === "object") {
-                visit(value, node, key);
+                visit(value);
             }
         }
     };
 
-    visit(ast, null, null);
+    visit(ast);
 
     return fixes;
 }
@@ -14963,6 +14459,71 @@ function hasGpuPushStateBeforeIndex(statements, index) {
         }
         if (isGpuPushStateCallStatement(statement)) {
             return true;
+        }
+    }
+
+    return false;
+}
+
+// TODO: Move this to where the other identifier utility functions are
+function referencesIdentifierAfterIndex(container, variableName, startIndex) {
+    if (!Array.isArray(container) || !variableName) {
+        return false;
+    }
+
+    const initialIndex = typeof startIndex === "number" ? startIndex : 0;
+
+    for (let index = initialIndex; index < container.length; index += 1) {
+        if (referencesIdentifier(container[index], variableName)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// TODO: Move this to where the other identifier utility functions are
+function referencesIdentifier(node, variableName) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    const stack = [{ value: node, parent: null, key: null }];
+
+    while (stack.length > 0) {
+        const { value, parent, key } = stack.pop();
+
+        if (!value || typeof value !== "object") {
+            continue;
+        }
+
+        if (Core.isFunctionLikeNode(value)) {
+            // Nested functions introduce new scopes. References to the same
+            // identifier name inside them do not require hoisting the current
+            // declaration, so skip descending into those subtrees.
+            continue;
+        }
+
+        if (Array.isArray(value)) {
+            for (const item of value) {
+                stack.push({ value: item, parent, key });
+            }
+            continue;
+        }
+
+        if (value.type === "Identifier" && value.name === variableName) {
+            const isDeclaratorId =
+                parent?.type === "VariableDeclarator" && key === "id";
+
+            if (!isDeclaratorId) {
+                return true;
+            }
+        }
+
+        for (const [childKey, childValue] of Object.entries(value)) {
+            if (childValue && typeof childValue === "object") {
+                stack.push({ value: childValue, parent: value, key: childKey });
+            }
         }
     }
 
@@ -16503,43 +16064,6 @@ function isDrawPrimitiveBeginCall(node) {
 
 function isDrawPrimitiveEndCall(node) {
     return Core.isCallExpressionIdentifierMatch(node, "draw_primitive_end");
-}
-
-function createPrimitiveBeginCall(template) {
-    if (!template || template.type !== "CallExpression") {
-        return null;
-    }
-
-    const identifier = Core.createIdentifierNode(
-        "draw_primitive_begin",
-        template.object
-    );
-
-    if (!identifier) {
-        return null;
-    }
-
-    const primitiveType = Core.createIdentifierNode("pr_linelist", null);
-
-    const callExpression: MutableGameMakerAstNode = {
-        type: "CallExpression",
-        object: identifier,
-        arguments: Core.compactArray([primitiveType]).slice()
-    };
-
-    if (Object.hasOwn(template, "start")) {
-        Core.assignClonedLocation(callExpression as any, template);
-    }
-
-    if (Object.hasOwn(template, "end")) {
-        const referenceLocation = template.start ?? template.end;
-
-        if (referenceLocation) {
-            callExpression.end = referenceLocation ?? null;
-        }
-    }
-
-    return callExpression;
 }
 
 function isLiteralZero(node) {
@@ -18774,28 +18298,6 @@ function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
     }
 
     return fixes;
-}
-
-function createGpuStateCall(name, template) {
-    if (!name) {
-        return null;
-    }
-
-    const identifier = Core.createIdentifierNode(name, template?.object);
-
-    if (!identifier) {
-        return null;
-    }
-
-    const callExpression = {
-        type: "CallExpression",
-        object: identifier,
-        arguments: []
-    };
-
-    Core.assignClonedLocation(callExpression, template);
-
-    return callExpression;
 }
 
 function isGpuPushStateCall(node) {

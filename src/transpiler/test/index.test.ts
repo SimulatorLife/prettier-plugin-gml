@@ -5,14 +5,14 @@ import { Transpiler } from "../index.js";
 type TranspilerInstance = InstanceType<typeof Transpiler.GmlTranspiler>;
 type TranspileScriptArgs = Parameters<TranspilerInstance["transpileScript"]>[0];
 
-test("createTranspiler returns a GmlTranspiler", () => {
+await test("createTranspiler returns a GmlTranspiler", () => {
     const transpiler = Transpiler.createTranspiler();
     assert.ok(transpiler instanceof Transpiler.GmlTranspiler);
 });
 
-test("transpileScript validates inputs", async () => {
+await test("transpileScript validates inputs", () => {
     const transpiler = new Transpiler.GmlTranspiler();
-    await assert.rejects(
+    assert.throws(
         () =>
             transpiler.transpileScript({
                 symbolId: "gml/script/foo"
@@ -21,9 +21,9 @@ test("transpileScript validates inputs", async () => {
     );
 });
 
-test("transpileScript returns a patch object for simple code", async () => {
+await test("transpileScript returns a patch object for simple code", () => {
     const transpiler = new Transpiler.GmlTranspiler();
-    const result = await transpiler.transpileScript({
+    const result = transpiler.transpileScript({
         sourceText: "42",
         symbolId: "gml/script/test"
     });
@@ -34,10 +34,10 @@ test("transpileScript returns a patch object for simple code", async () => {
     assert.ok(result.version);
 });
 
-test("transpileScript includes source text in result", async () => {
+await test("transpileScript includes source text in result", () => {
     const transpiler = new Transpiler.GmlTranspiler();
     const sourceText = "x = 1 + 2";
-    const result = await transpiler.transpileScript({
+    const result = transpiler.transpileScript({
         sourceText,
         symbolId: "gml/script/test"
     });
@@ -45,16 +45,16 @@ test("transpileScript includes source text in result", async () => {
     assert.equal(result.sourceText, sourceText);
 });
 
-test("transpileExpression generates JavaScript for simple expressions", () => {
+await test("transpileExpression generates JavaScript for simple expressions", () => {
     const transpiler = new Transpiler.GmlTranspiler();
     const result = transpiler.transpileExpression("x = 1 + 2");
     assert.ok(result, "Should generate some output");
 });
 
-test("transpileScript handles parsing errors gracefully", async () => {
+await test("transpileScript handles parsing errors gracefully", () => {
     const transpiler = new Transpiler.GmlTranspiler();
 
-    await assert.rejects(
+    assert.throws(
         () =>
             transpiler.transpileScript({
                 sourceText: "invalid syntax %%%%",
