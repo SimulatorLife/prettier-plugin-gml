@@ -103,11 +103,13 @@ export function isErrorLike(value: unknown): value is Error {
         return false;
     }
 
-    if (typeof value.message !== "string") {
+    const candidate = value as Record<string, unknown>;
+
+    if (typeof candidate.message !== "string") {
         return false;
     }
 
-    const { name } = value;
+    const { name } = candidate;
     if (name !== undefined && name !== null && typeof name !== "string") {
         return false;
     }
@@ -127,7 +129,7 @@ export function isErrorLike(value: unknown): value is Error {
 export function isAggregateErrorLike(
     value: unknown
 ): value is AggregateError {
-    return isErrorLike(value) && Array.isArray(value.errors);
+    return isErrorLike(value) && Array.isArray((value as unknown as { errors: unknown }).errors);
 }
 
 /**

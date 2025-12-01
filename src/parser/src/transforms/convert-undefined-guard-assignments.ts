@@ -143,7 +143,7 @@ function extractSoleAssignment(branchNode) {
         return null;
     }
 
-    const statements = Core.toMutableArray(branchNode.body);
+    const statements = Core.toMutableArray(branchNode.body) as Array<any>;
     if (statements.length !== 1) {
         return null;
     }

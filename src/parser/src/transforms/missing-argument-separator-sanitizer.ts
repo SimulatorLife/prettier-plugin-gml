@@ -793,7 +793,7 @@ export function collapseRedundantMissingCallArguments(ast) {
             Array.isArray(node.arguments) &&
             node.arguments.length > 1
         ) {
-            const args = Core.toMutableArray(node.arguments);
+            const args = Core.toMutableArray(node.arguments) as Array<any>;
             const hasNonMissingArgument = args.some(
                 (argument) => argument?.type !== "MissingOptionalArgument"
             );
@@ -856,7 +856,7 @@ function shouldPreserveCallWithMissingSeparators(node, originalText) {
             (argument) =>
                 argument &&
                 typeof argument === "object" &&
-                argument.preserveOriginalCallText === true
+                (argument as any).preserveOriginalCallText === true
         )
     ) {
         return true;

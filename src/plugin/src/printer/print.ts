@@ -4990,7 +4990,7 @@ function mergeSyntheticDocComments(
     overrides: any = {}
 ) {
     let normalizedExistingLines: MutableDocCommentLines =
-        Core.toMutableArray(existingDocLines);
+        Core.toMutableArray(existingDocLines) as MutableDocCommentLines;
     const originalExistingHasTags =
         Array.isArray(existingDocLines) &&
         existingDocLines.some((line) =>
@@ -6258,7 +6258,7 @@ function mergeSyntheticDocComments(
             if (summaryLines.length > 0 && otherLines.length > 0) {
                 // Ensure a blank separator between summary block and synthetic metadata
                 const combined = [...summaryLines, "", ...otherLines];
-                filteredResult = Core.toMutableArray(combined as any);
+                filteredResult = Core.toMutableArray(combined as any) as MutableDocCommentLines;
             }
         }
     } catch {

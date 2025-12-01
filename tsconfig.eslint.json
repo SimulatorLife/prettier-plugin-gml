@@ -3,6 +3,7 @@
   "compilerOptions": {
     "noEmit": true,
     "baseUrl": ".",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "paths": {
       "@gml-modules/core": ["src/core/src/index.ts"],
       "@gml-modules/plugin": ["src/plugin/src/index.ts"],
@@ -14,7 +15,8 @@
     }
   },
   "include": [
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "src/**/*.d.ts"
   ],
   "exclude": [
     "node_modules",

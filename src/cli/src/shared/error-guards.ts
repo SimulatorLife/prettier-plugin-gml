@@ -21,7 +21,7 @@ export function asErrorLike(error: unknown): ErrorLikeDetails | null {
     return error as ErrorLikeDetails;
 }
 
-export function asErrorWithCode<TCode>(
+export function asErrorWithCode<TCode extends string>(
     error: unknown,
     code?: TCode
 ): ErrorWithCodeDetails<TCode> | null {

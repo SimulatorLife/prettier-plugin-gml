@@ -7,21 +7,23 @@ const JSON_PARSE_ERROR_CAPABILITY = Symbol.for(
     "prettier-plugin-gml.json-parse-error"
 );
 
-function hasJsonParseErrorContract(value) {
+function hasJsonParseErrorContract(value: unknown) {
     if (!isErrorLike(value)) {
         return false;
     }
 
-    if (!isErrorLike(value.cause)) {
+    const candidate = value as Error & { cause?: unknown; description?: unknown; source?: unknown };
+
+    if (!isErrorLike(candidate.cause)) {
         return false;
     }
 
-    const description = toTrimmedString(value.description);
+    const description = toTrimmedString(candidate.description);
     if (description.length === 0) {
         return false;
     }
 
-    const { source } = value;
+    const { source } = candidate;
     if (source !== null && typeof source !== "string") {
         return false;
     }

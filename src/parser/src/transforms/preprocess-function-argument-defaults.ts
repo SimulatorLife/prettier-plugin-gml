@@ -95,7 +95,7 @@ function preprocessFunctionDeclaration(node, ast) {
         return;
     }
 
-    const params = Core.toMutableArray(node.params);
+    const params = Core.toMutableArray(node.params) as Array<any>;
     if (!Array.isArray(node.params)) {
         node.params = params;
     }
@@ -1131,7 +1131,7 @@ function preprocessFunctionDeclaration(node, ast) {
             // in edge cases). This helps us diagnose whether the materialized
             // flags exist before further processing.
             try {
-                const snap = Core.toMutableArray(node.params || []);
+                const snap = Core.toMutableArray(node.params || []) as Array<any>;
                 const lines = snap.map((pp, ii) => {
                     const left =
                         pp && pp.left && pp.left.name
@@ -1152,7 +1152,7 @@ function preprocessFunctionDeclaration(node, ast) {
             const comments = docManager.getComments(node);
             try {
                 // Diagnostic: print per-param flag summary at reconcile start
-                const snap = Core.toMutableArray(node.params);
+                const snap = Core.toMutableArray(node.params) as Array<any>;
                 const lines = snap.map((pp, ii) => {
                     const left =
                         pp && pp.left && pp.left.name
@@ -1190,7 +1190,7 @@ function preprocessFunctionDeclaration(node, ast) {
             // Walk parameters and set the flag where the RHS is an `undefined`
             // sentinel. Constructors prefer to preserve optional syntax by
             // default; plain functions omit unless the doc indicates optional.
-            const params = Core.toMutableArray(node.params);
+            const params = Core.toMutableArray(node.params) as Array<any>;
             for (const p of params) {
                 try {
                     const lname =
@@ -1284,7 +1284,7 @@ function preprocessFunctionDeclaration(node, ast) {
                         // flag was set due to earlier conservative passes where
                         // the left-side default itself was synthesized.
                         try {
-                            const paramsList = Core.toMutableArray(node.params);
+                            const paramsList = Core.toMutableArray(node.params) as Array<any>;
                             const idx = paramsList.indexOf(p);
                             let foundRealExplicitToLeft = false;
                             try {

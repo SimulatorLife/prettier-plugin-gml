@@ -122,11 +122,11 @@ export function asArray<T>(value: unknown = EMPTY_ARRAY): Array<T> {
  */
 export function toMutableArray<T>(
     value: ReadonlyArray<T> | null | undefined,
-    { clone = false }: { clone?: boolean } = {}
+    options?: { clone?: boolean }
 ): Array<T>;
 export function toMutableArray(
     value: unknown,
-    { clone = false }: { clone?: boolean } = {}
+    options?: { clone?: boolean }
 ): Array<unknown>;
 export function toMutableArray<T = unknown>(
     value: unknown,

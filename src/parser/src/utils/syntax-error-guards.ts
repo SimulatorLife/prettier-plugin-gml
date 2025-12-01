@@ -13,19 +13,27 @@ import { Core } from "@gml-modules/core";
  * @returns {boolean} `true` when {@link value} resembles a parser syntax error
  *                    with location metadata.
  */
-export function isSyntaxErrorWithLocation(value) {
+export function isSyntaxErrorWithLocation(value: unknown) {
     if (!Core.isErrorLike(value)) {
         return false;
     }
 
-    const hasFiniteLine = Number.isFinite(Number(value.line));
-    const hasFiniteColumn = Number.isFinite(Number(value.column));
+    const candidate = value as Error & {
+        line?: unknown;
+        column?: unknown;
+        rule?: unknown;
+        wrongSymbol?: unknown;
+        offendingText?: unknown;
+    };
+
+    const hasFiniteLine = Number.isFinite(Number(candidate.line));
+    const hasFiniteColumn = Number.isFinite(Number(candidate.column));
 
     if (!hasFiniteLine && !hasFiniteColumn) {
         return false;
     }
 
-    const { rule, wrongSymbol, offendingText } = value;
+    const { rule, wrongSymbol, offendingText } = candidate;
 
     if (rule !== undefined && typeof rule !== "string") {
         return false;

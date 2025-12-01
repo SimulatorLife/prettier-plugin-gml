@@ -31,7 +31,9 @@ function createMockStdout() {
         lineWrapping: () => {},
         on: noopListener,
         removeListener: noopListener,
-        write: () => {}
+        write: (...args: any[]) => {
+            void args;
+        }
     };
 }
 

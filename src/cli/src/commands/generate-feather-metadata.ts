@@ -1,4 +1,5 @@
 import { parseHTML } from "linkedom";
+import type { Element } from "linkedom/types/interface/element.js";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -214,11 +215,11 @@ function getTagName(element) {
 }
 
 function getDirectChildren(
-    element: ManualElement | null | undefined,
+    element: Element | null | undefined,
     selector?: string
 ) {
     const predicate = selector
-        ? (child: ManualElement) => child.matches?.(selector) === true
+        ? (child: Element) => child.matches?.(selector) === true
         : () => true;
 
     return Array.from(element?.children ?? []).filter(predicate);
@@ -232,7 +233,7 @@ function replaceBreaksWithNewlines(clone) {
     }
 }
 
-function splitCellLines(element: ManualElement | null | undefined) {
+function splitCellLines(element: Element | null | undefined) {
     if (!element) {
         return [];
     }
@@ -334,7 +335,7 @@ interface ManualBlock {
     table?: ManualTable;
 }
 
-function createClassListChecker(element: ManualElement | null | undefined) {
+function createClassListChecker(element: Element | null | undefined) {
     const classList = element?.classList;
 
     if (!classList || typeof classList.contains !== "function") {

@@ -62,7 +62,7 @@ function createOccurrence(kind, metadata, source, declarationMetadata) {
             scopeId: metadata?.scopeId ?? null,
             classifications: Core.toMutableArray(metadata?.classifications, {
                 clone: true
-            }),
+            }) as string[],
             declaration
         },
         source ?? {}
@@ -80,7 +80,7 @@ function cloneDeclarationMetadata(metadata) {
             scopeId: metadata.scopeId ?? null,
             classifications: Core.toMutableArray(metadata.classifications, {
                 clone: true
-            })
+            }) as string[]
         },
         metadata
     );
@@ -101,7 +101,7 @@ function cloneOccurrence(occurrence) {
             scopeId: occurrence.scopeId,
             classifications: Core.toMutableArray(occurrence.classifications, {
                 clone: true
-            }),
+            }) as string[],
             declaration
         },
         occurrence
@@ -364,7 +364,7 @@ export class ScopeTracker {
             metadata,
             metadata
         );
-        this.recordScopeOccurrence(scope, name, occurrence);
+        this.recordScopeOccurrence(scope, name, occurrence as unknown as Occurrence);
     }
 
     reference(
@@ -416,7 +416,7 @@ export class ScopeTracker {
             node,
             declaration ?? null
         );
-        this.recordScopeOccurrence(scope, name, occurrence);
+        this.recordScopeOccurrence(scope, name, occurrence as unknown as Occurrence);
     }
 
     exportOccurrences(

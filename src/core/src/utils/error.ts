@@ -31,7 +31,7 @@ export function getErrorCode(error: unknown): string | null {
         return null;
     }
 
-    const { code } = error;
+    const { code } = error as { code?: unknown };
     if (!isNonEmptyString(code)) {
         return null;
     }
