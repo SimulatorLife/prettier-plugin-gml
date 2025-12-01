@@ -4,6 +4,8 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import net from "node:net";
+import { setTimeout as delay } from "node:timers/promises";
+import { once } from "node:events";
 
 import { startRuntimeStaticServer } from "../src/modules/runtime/server.js";
 
@@ -106,6 +108,49 @@ describe("runtime static server", () => {
 
             assert.equal(statusCode, 403);
         } finally {
+            if (server) {
+                await server.stop();
+            }
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
+
+    it("destroys open sockets when stopping the server", async () => {
+        const tempDir = await mkdtemp(
+            path.join(os.tmpdir(), "gml-runtime-server-open-socket-")
+        );
+        const indexPath = path.join(tempDir, "index.html");
+        await writeFile(indexPath, "<html></html>");
+
+        let server;
+        const socket = new net.Socket();
+
+        try {
+            server = await startRuntimeStaticServer({
+                runtimeRoot: tempDir,
+                host: "127.0.0.1",
+                port: 0,
+                verbose: false
+            });
+
+            socket.connect({ host: server.host, port: server.port });
+            await once(socket, "connect");
+
+            const stopResult = await Promise.race([
+                server.stop().then(() => "stopped"),
+                delay(500, "timed out")
+            ]);
+
+            assert.equal(stopResult, "stopped");
+
+            const socketClosed = await Promise.race([
+                once(socket, "close").then(() => "closed"),
+                delay(200, "still open")
+            ]);
+
+            assert.equal(socketClosed, "closed");
+        } finally {
+            socket.destroy();
             if (server) {
                 await server.stop();
             }
