@@ -168,10 +168,6 @@ function resolveExcludedTypes(types: unknown): Set<string> {
         }
     }
 
-    if (normalized.size === 0) {
-        return new Set(DEFAULT_EXCLUDED_TYPES);
-    }
-
     return normalized;
 }
 

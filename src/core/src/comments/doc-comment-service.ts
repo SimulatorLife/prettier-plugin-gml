@@ -19,7 +19,7 @@ const STRING_TYPE = "string";
 const RETURN_DOC_TAG_PATTERN = /^\/\/\/\s*@returns\b/i;
 const LEGACY_RETURNS_DESCRIPTION_PATTERN = /^(.+?)\s*-\s*(.*)$/; // simplified pattern for core
 
-const KNOWN_TYPES = new Set([
+const KNOWN_TYPE_IDENTIFIERS = Object.freeze([
     "real",
     "string",
     "bool",
@@ -33,9 +33,12 @@ const KNOWN_TYPES = new Set([
     "asset",
     "any",
     "function",
-    "pointer",
     "constant"
 ]);
+
+const KNOWN_TYPES = new Set(
+    KNOWN_TYPE_IDENTIFIERS.map((identifier) => identifier.toLowerCase())
+);
 
 const DOC_COMMENT_TAG_PATTERN = /^\/\/\/\s*@/i;
 const DOC_COMMENT_ALT_TAG_PATTERN = /^\/\/\s*\/\s*@/i;
@@ -314,6 +317,8 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
     const convertedReturns: string[] = [];
     const retainedLines: string[] = [];
 
+    // console.log("convertLegacyReturnsDescriptionLinesToMetadata opts:", opts);
+
     for (const line of normalizedLines) {
         if (typeof line !== STRING_TYPE) {
             retainedLines.push(line);
@@ -328,6 +333,7 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
 
         const [, prefix = "///", suffix = ""] = match;
         const trimmedSuffix = suffix.trim();
+
         if (trimmedSuffix.length === 0) {
             retainedLines.push(line);
             continue;
@@ -360,19 +366,26 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
         } else if (returnsMatch) {
             payload = returnsMatch[1]?.trim() ?? "";
         } else {
+            // console.log("Retaining line (no match):", line);
             retainedLines.push(line);
             continue;
         }
 
         const payloadParts = parseLegacyReturnPayload(payload);
         if (!payloadParts) {
+            // console.log("Retaining line (no payload parts):", line);
             retainedLines.push(line);
             continue;
         }
 
         let { typeText, descriptionText } = payloadParts;
 
+        if (opts.normalizeDocCommentTypeAnnotations && typeText) {
+            typeText = opts.normalizeDocCommentTypeAnnotations(typeText);
+        }
+
         if (typeText.length === 0 && descriptionText.length === 0) {
+            // console.log("Retaining line (empty payload):", line);
             retainedLines.push(line);
             continue;
         }
@@ -394,12 +407,6 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
             converted += ` ${descriptionText}`;
         }
 
-        const typeNormalizer = opts.normalizeDocCommentTypeAnnotations;
-        if (typeof typeNormalizer === "function") {
-            converted = typeNormalizer(converted);
-        }
-
-        converted = converted.replaceAll(/\{boolean\}/gi, "{bool}");
         convertedReturns.push(converted);
     }
 
@@ -645,6 +652,7 @@ export function hasLegacyReturnsDescriptionLines(
         const suffix = (match[2] ?? "").trim();
         if (suffix.length === 0) continue;
         if (LEGACY_RETURNS_DESCRIPTION_PATTERN.test(suffix)) return true;
+        if (/^returns\s*:/i.test(suffix)) return true;
     }
 
     return false;
@@ -686,7 +694,7 @@ const FUNCTION_SIGNATURE_PATTERN =
 const DOC_COMMENT_TYPE_PATTERN = /\{([^}]+)\}/g;
 
 export const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION = Object.freeze({
-    synonyms: Object.freeze([
+    synonyms: Object.freeze([ // TODO: Can this be changed into a Map for performance?
         ["void", "undefined"],
         ["undefined", "undefined"],
         ["real", "real"],
@@ -1045,7 +1053,7 @@ export function normalizeDocCommentTypeAnnotations(text: string) {
     });
 }
 
-function normalizeGameMakerType(typeText: string) {
+export function normalizeGameMakerType(typeText: string) {
     if (typeof typeText !== "string") {
         return typeText;
     }

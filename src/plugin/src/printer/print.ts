@@ -5028,18 +5028,19 @@ function mergeSyntheticDocComments(
     // avoids conversion regressions where a legacy description would be
     // overwritten or duplicated by a synthetic `@returns` later in the
     // merging process.
-    const _convertedExisting =
+    normalizedExistingLines = Core.toMutableArray(
         Core.convertLegacyReturnsDescriptionLinesToMetadata(
             normalizedExistingLines,
             {
                 normalizeDocCommentTypeAnnotations:
                     Core.normalizeGameMakerType
             }
-        );
+        )
+    ) as MutableDocCommentLines;
 
     const _computedSynthetic = computeSyntheticFunctionDocLines(
         node,
-        _convertedExisting,
+        normalizedExistingLines,
         options,
         overrides
     );
