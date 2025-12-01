@@ -252,7 +252,7 @@ function toSafeString(value: unknown) {
 export function describeValueForError(
     value?: unknown,
     { stringifyUnknown = true } = {}
-) {
+): string {
     if (value === null) {
         return "null";
     }

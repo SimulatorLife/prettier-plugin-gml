@@ -98,7 +98,7 @@ function getLengthHint(iterable) {
  * @param {unknown} value Candidate value to inspect.
  * @returns {value is Error} `true` when the value matches the Error shape.
  */
-export function isErrorLike(value) {
+export function isErrorLike(value: unknown): value is Error {
     if (!isObjectLike(value)) {
         return false;
     }
@@ -124,7 +124,9 @@ export function isErrorLike(value) {
  * @param {unknown} value Candidate value to inspect.
  * @returns {value is AggregateError} `true` when the value matches the AggregateError shape.
  */
-export function isAggregateErrorLike(value) {
+export function isAggregateErrorLike(
+    value: unknown
+): value is AggregateError {
     return isErrorLike(value) && Array.isArray(value.errors);
 }
 

@@ -115,17 +115,29 @@ export function asArray<T>(value: unknown = EMPTY_ARRAY): Array<T> {
  * the original array instance.
  *
  * @template T
- * @param {Array<T> | null | undefined | unknown} value
+ * @param {Array<T> | null | undefined | ReadonlyArray<T>} value
  * @param {{ clone?: boolean }} [options]
  * @param {boolean} [options.clone=false]
  * @returns {Array<T>} Mutably safe array representation of {@link value}.
  */
-export function toMutableArray(value, { clone = false } = {}) {
+export function toMutableArray<T>(
+    value: ReadonlyArray<T> | null | undefined,
+    { clone = false }: { clone?: boolean } = {}
+): Array<T>;
+export function toMutableArray(
+    value: unknown,
+    { clone = false }: { clone?: boolean } = {}
+): Array<unknown>;
+export function toMutableArray<T = unknown>(
+    value: unknown,
+    { clone = false }: { clone?: boolean } = {}
+) {
     if (!Array.isArray(value)) {
         return [];
     }
 
-    return clone ? [...value] : value;
+    const arrayValue = value as Array<T>;
+    return clone ? [...arrayValue] : arrayValue;
 }
 
 /**

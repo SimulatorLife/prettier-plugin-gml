@@ -1,5 +1,8 @@
 import { CliUsageError } from "./errors.js";
-import { isCommanderErrorLike } from "./commander-error-utils.js";
+import {
+    isCommanderErrorLike,
+    isCommanderHelpDisplayedError
+} from "./commander-error-utils.js";
 import {
     assertFunction,
     InvalidArgumentError,
@@ -20,12 +23,6 @@ interface WrapInvalidArgumentResolverOptions {
 export interface ParseCommandLineResult {
     helpRequested: boolean;
     usage: string;
-}
-
-function isCommanderError(error: unknown) {
-    return (
-        isCommanderErrorLike(error) && error.code !== "commander.helpDisplayed"
-    );
 }
 
 export {
@@ -65,7 +62,7 @@ export function wrapInvalidArgumentResolver(
     return (...args: Parameters<InvalidArgumentResolver>) => {
         try {
             return resolver(...args);
-        } catch (error) {
+        } catch (error: unknown) {
             const message =
                 getErrorMessage(error, { fallback: fallbackMessage }) ||
                 fallbackMessage;
@@ -108,15 +105,15 @@ export function parseCommandLine(
             helpRequested: false,
             usage: command.helpInformation()
         };
-    } catch (error) {
-        if (error?.code === "commander.helpDisplayed") {
+    } catch (error: unknown) {
+        if (isCommanderHelpDisplayedError(error)) {
             return {
                 helpRequested: true,
                 usage: command.helpInformation()
             };
         }
 
-        if (isCommanderError(error)) {
+        if (isCommanderErrorLike(error)) {
             throw new CliUsageError(error.message.trim(), {
                 usage: command.helpInformation()
             });

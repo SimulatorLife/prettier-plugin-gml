@@ -2,6 +2,7 @@ import { isErrorLike } from "../shared/dependencies.js";
 import type { CommanderCommandLike } from "./commander-types.js";
 
 const COMMANDER_ERROR_CODE_PREFIX = "commander.";
+const COMMANDER_HELP_DISPLAYED_CODE = "commander.helpDisplayed";
 
 export interface CommanderErrorLike extends Error {
     code: string;
@@ -27,4 +28,13 @@ export function isCommanderErrorLike(
     }
 
     return true;
+}
+
+export function isCommanderHelpDisplayedError(
+    value: unknown
+): value is CommanderErrorLike {
+    return (
+        isCommanderErrorLike(value) &&
+        value.code === COMMANDER_HELP_DISPLAYED_CODE
+    );
 }

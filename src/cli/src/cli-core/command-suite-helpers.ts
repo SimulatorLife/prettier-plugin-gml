@@ -43,6 +43,10 @@ const suiteOutputFormatHelpers = createStringEnumeratedOptionHelpers(
     }
 );
 
+const defaultSuiteErrorHandler = (error: unknown) => ({
+    error: createCliErrorDetails(error)
+});
+
 export function formatSuiteOutputFormatList() {
     return suiteOutputFormatHelpers.formatList();
 }
@@ -86,7 +90,10 @@ export function resolveRequestedSuites(
     options: { suite?: Array<string> | string } | null | undefined,
     availableSuites: Map<string, SuiteRunner>
 ): Array<string> {
-    const suiteOption = toMutableArray(options?.suite);
+    const suiteInput = options?.suite;
+    const suiteCollection =
+        typeof suiteInput === "string" ? [suiteInput] : suiteInput ?? [];
+    const suiteOption = toMutableArray(suiteCollection);
     const hasExplicitSuites = suiteOption.length > 0;
     const requested = hasExplicitSuites
         ? suiteOption
@@ -205,25 +212,23 @@ export async function collectSuiteResults({
         return {};
     }
 
-    const entries: Array<[string, unknown]> = [];
-    const defaultOnError = (error: unknown) => ({
-        error: createCliErrorDetails(error)
-    });
     const handleSuiteError =
-        typeof onError === "function" ? onError : defaultOnError;
+        typeof onError === "function" ? onError : defaultSuiteErrorHandler;
 
-    for (const suiteName of suiteNames) {
-        const entry = await executeSuiteRunner({
-            suiteName,
-            availableSuites,
-            runnerOptions,
-            handleSuiteError
-        });
+    const executionResults = await Promise.all(
+        suiteNames.map((suiteName) =>
+            executeSuiteRunner({
+                suiteName,
+                availableSuites,
+                runnerOptions,
+                handleSuiteError
+            })
+        )
+    );
 
-        if (entry) {
-            entries.push(entry);
-        }
-    }
+    const entries = executionResults.filter(
+        (result): result is [string, unknown] => result !== null
+    );
 
     return Object.fromEntries(entries);
 }
