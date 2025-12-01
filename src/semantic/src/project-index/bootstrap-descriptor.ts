@@ -4,13 +4,18 @@ type ProjectIndexParserFacade = {
     parse?: (text: string, filePath?: string) => unknown;
 };
 
+type ProjectIndexConcurrencySettings = {
+    gml: number;
+    gmlParsing: number;
+};
+
 type ProjectIndexBuildOptions = {
     logger?: { debug?: (message?: string, payload?: unknown) => void } | null;
     logMetrics?: boolean;
     // Historical option names accepted by some callers. Keep both names so we
     // can accept either legacy or current option shapes passed by callers.
-    concurrency?: { gml: number; gmlParsing: number } | null;
-    projectIndexConcurrency?: { gml: number; gmlParsing: number } | null;
+    concurrency?: ProjectIndexConcurrencySettings | null;
+    projectIndexConcurrency?: number | ProjectIndexConcurrencySettings | null;
     gmlParserFacade?: ProjectIndexParserFacade | null;
     parserOverride?: {
         facade?: ProjectIndexParserFacade | null;
@@ -33,9 +38,21 @@ export function createProjectIndexBuildOptions({
     Core.withDefinedValue(
         projectIndexConcurrency,
         (value) => {
+            if (value === null) {
+                return;
+            }
+
+            if (typeof value === "number") {
+                buildOptions.concurrency = {
+                    gml: value,
+                    gmlParsing: value
+                };
+                return;
+            }
+
             buildOptions.concurrency = {
-                gml: value,
-                gmlParsing: value
+                gml: value.gml,
+                gmlParsing: value.gmlParsing
             };
         },
         () => {}

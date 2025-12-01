@@ -5,6 +5,8 @@ type AssertFunctionOptions = {
     errorMessage?: string;
 };
 
+type Callable = (...args: unknown[]) => unknown;
+
 /**
  * Determine whether a value is a plain object (non-null object without an
  * Array instance). Some callers additionally require objects with prototypes
@@ -206,7 +208,7 @@ export function describeValueWithArticle(
  */
 export function isObjectOrFunction(
     value: unknown
-): value is object | Function {
+): value is object | Callable {
     if (value === null) {
         return false;
     }
@@ -393,6 +395,12 @@ export function withObjectLike(value, onObjectLike, onNotObjectLike) {
     return onObjectLike(value);
 }
 
+function isFallbackThunk<TResult>(
+    value: (() => TResult) | TResult | undefined
+): value is () => TResult {
+    return typeof value === "function";
+}
+
 /**
  * Execute {@link onDefined} when {@link value} is not `undefined`. Centralizes
  * the guard around optional values so call sites can focus on their core logic
@@ -412,15 +420,19 @@ export function withObjectLike(value, onObjectLike, onNotObjectLike) {
  *        (or invoked) when {@link value} is `undefined`.
  * @returns {TResult | undefined}
  */
-export function withDefinedValue(
-    value,
-    onDefined,
-    onUndefined?: (() => unknown) | unknown
+export function withDefinedValue<TValue, TResult>(
+    value: TValue | undefined,
+    onDefined: (value: TValue) => TResult,
+    onUndefined?: (() => TResult) | TResult
 ) {
     assertFunction(onDefined, "onDefined");
 
     if (value === undefined) {
-        return typeof onUndefined === "function" ? onUndefined() : onUndefined;
+        if (isFallbackThunk(onUndefined)) {
+            return onUndefined();
+        }
+
+        return onUndefined;
     }
 
     return onDefined(value);

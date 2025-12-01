@@ -5,7 +5,8 @@ import {
     disposeProgressBars,
     renderProgressBar,
     resetProgressBarRegistryForTesting,
-    type ProgressBarLike
+    type ProgressBarLike,
+    type ProgressBarStream
 } from "../src/runtime-options/progress-bar.js";
 
 const ESCAPE_PREFIX = String.fromCharCode(0x1b);
@@ -15,6 +16,8 @@ const ANSI_ESCAPE_SEQUENCE_PATTERN = new RegExp(
 );
 
 function createMockStdout() {
+    const noopListener = () => {};
+
     return {
         isTTY: true,
         columns: 80,
@@ -26,8 +29,8 @@ function createMockStdout() {
         cursorTo: () => {},
         moveCursor: () => {},
         lineWrapping: () => {},
-        on: () => {},
-        removeListener: () => {},
+        on: noopListener,
+        removeListener: noopListener,
         write: () => {}
     };
 }
@@ -45,9 +48,15 @@ describe("manual CLI helpers", () => {
             writes.push(chunk);
         };
 
-        renderProgressBar("Task", 0, 3, 5, { stdout });
-        renderProgressBar("Task", 1, 3, 5, { stdout });
-        renderProgressBar("Task", 3, 3, 5, { stdout });
+        renderProgressBar("Task", 0, 3, 5, {
+            stdout: stdout as ProgressBarStream
+        });
+        renderProgressBar("Task", 1, 3, 5, {
+            stdout: stdout as ProgressBarStream
+        });
+        renderProgressBar("Task", 3, 3, 5, {
+            stdout: stdout as ProgressBarStream
+        });
 
         const sanitized = writes
             .join("")

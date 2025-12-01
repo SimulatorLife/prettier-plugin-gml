@@ -28,7 +28,21 @@ describe("normalizeEnumeratedOption", () => {
     it("supports custom coercion callbacks", () => {
         const numbers = new Set(["one", "two"]);
         const result = normalizeEnumeratedOption(2, "one", numbers, {
-            coerce: (value) => (value === 2 ? "two" : String(value))
+            coerce: (value) => {
+                if (value === 2) {
+                    return "two";
+                }
+
+                if (typeof value === "string") {
+                    return value;
+                }
+
+                if (typeof value === "number") {
+                    return value.toString();
+                }
+
+                throw new TypeError("Unexpected enumerated option value");
+            }
         });
         assert.equal(result, "two");
     });

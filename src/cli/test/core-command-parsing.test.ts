@@ -59,9 +59,9 @@ describe("parseCommandLine", () => {
 
         const command = {
             parse() {
-                const commanderError: MinimalCommanderError = new Error(
+                const commanderError = new Error(
                     "bad option"
-                );
+                ) as MinimalCommanderError;
                 commanderError.name = "CommanderError";
                 commanderError.code = "commander.invalidOption";
                 Object.setPrototypeOf(commanderError, null);
@@ -115,8 +115,10 @@ describe("wrapInvalidArgumentResolver", () => {
         const resolver = wrapInvalidArgumentResolver(
             () => {
                 const reasonError = new Error("bad input");
-                delete (reasonError as Record<string, unknown>).message;
-                (reasonError as Record<string, unknown>).reason = "bad input";
+                const reasonObject =
+                    reasonError as unknown as Record<string, unknown>;
+                delete reasonObject.message;
+                reasonObject.reason = "bad input";
                 throw reasonError;
             },
             { fallbackMessage: fallback }

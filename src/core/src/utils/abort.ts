@@ -12,9 +12,23 @@ type AbortErrorMetadata = Record<PropertyKey, unknown> & {
 
 type AbortErrorLike = Error | AbortErrorMetadata;
 
-interface AbortSignalLike {
+type AbortSignalEventListener = (event?: { type?: string }) => unknown;
+
+export interface AbortSignalLike {
     readonly aborted: boolean;
     readonly reason?: unknown;
+    onabort?: AbortSignalEventListener | null;
+    addEventListener?: (
+        type: string,
+        listener: AbortSignalEventListener,
+        options?: boolean | { once?: boolean }
+    ) => void;
+    removeEventListener?: (
+        type: string,
+        listener: AbortSignalEventListener
+    ) => void;
+    dispatchEvent?: (event: { type?: string }) => boolean;
+    throwIfAborted?: () => void;
 }
 
 const ERROR_METADATA_KEYS = ["message", "name", "stack"];
@@ -227,7 +241,7 @@ export function throwIfAborted(
  *     key?: string | number | symbol,
  *     fallbackMessage?: string | null
  * }} [config]
- * @returns {{ signal: AbortSignal | null, ensureNotAborted(): void }}
+ * @returns {{ signal: AbortSignal | null, ensureNotAborted(this: void): void }}
  *          Guard exposing the normalized signal and a checkpoint callback.
  */
 type AbortConfig = {
@@ -240,7 +254,7 @@ export function createAbortGuard(
     { key, fallbackMessage }: AbortConfig = {}
 ): {
     signal: AbortSignalLike | null;
-    ensureNotAborted(): void;
+    ensureNotAborted(this: void): void;
 } {
     const signal = resolveAbortSignalFromOptions(options, {
         key,

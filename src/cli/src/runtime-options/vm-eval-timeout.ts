@@ -3,7 +3,7 @@ import {
     coerceNonNegativeInteger,
     createNumericTypeErrorFormatter,
     describeValueForError
-} from "../shared/dependencies.js";
+} from "../dependencies.js";
 import { createIntegerOptionToolkit } from "../cli-core/integer-option-toolkit.js";
 
 export const DEFAULT_VM_EVAL_TIMEOUT_MS = 5000;

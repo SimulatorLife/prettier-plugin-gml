@@ -344,12 +344,11 @@ function _sanitizeDocChild(child) {
     return child;
 }
 
-function concat(parts) {
-    if (arguments.length === 1 && Array.isArray(parts)) {
-        return _rawConcat(parts.map(_sanitizeDocChild));
+function concat(...parts) {
+    if (parts.length === 1 && Array.isArray(parts[0])) {
+        return _rawConcat(parts[0].map(_sanitizeDocChild));
     }
-    const items = Array.from(arguments).map(_sanitizeDocChild);
-    return _rawConcat(items);
+    return _rawConcat(parts.map(_sanitizeDocChild));
 }
 
 function join(separator, parts) {
@@ -372,6 +371,18 @@ const ARGUMENT_IDENTIFIER_PATTERN = /^argument(\d+)$/;
 const suppressedImplicitDocCanonicalByNode = new WeakMap();
 const preferredParamDocNamesByNode = new WeakMap();
 const forcedStructArgumentBreaks = new WeakMap();
+
+type PrinterSourceMetadataOptions = {
+    originalText?: unknown;
+    locStart?: unknown;
+    locEnd?: unknown;
+};
+
+type PrinterSourceMetadata = {
+    originalText: string | null;
+    locStart: ((node: unknown) => number) | null;
+    locEnd: ((node: unknown) => number) | null;
+};
 function stripTrailingLineTerminators(value) {
     if (typeof value !== STRING_TYPE) {
         return value;
@@ -395,19 +406,25 @@ function stripTrailingLineTerminators(value) {
     return end === value.length ? value : value.slice(0, end);
 }
 
-function resolvePrinterSourceMetadata(options) {
+function resolvePrinterSourceMetadata(options: unknown): PrinterSourceMetadata {
     if (!Core.isObjectOrFunction(options)) {
         return { originalText: null, locStart: null, locEnd: null };
     }
 
+    const metadata = options as PrinterSourceMetadataOptions;
+
     const originalText =
-        typeof options.originalText === STRING_TYPE
-            ? options.originalText
+        typeof metadata.originalText === STRING_TYPE
+            ? (metadata.originalText as string)
             : null;
     const locStart =
-        typeof options.locStart === FUNCTION_TYPE ? options.locStart : null;
+        typeof metadata.locStart === FUNCTION_TYPE
+            ? (metadata.locStart as (node: unknown) => number)
+            : null;
     const locEnd =
-        typeof options.locEnd === FUNCTION_TYPE ? options.locEnd : null;
+        typeof metadata.locEnd === FUNCTION_TYPE
+            ? (metadata.locEnd as (node: unknown) => number)
+            : null;
 
     return { originalText, locStart, locEnd };
 }
@@ -773,7 +790,7 @@ function _printImpl(path, options, print) {
                         Parser.printDanglingCommentsAsGroup(
                             path,
                             options,
-                            (comment: any) => true
+                            () => true
                         )
                     );
                 }
@@ -794,7 +811,7 @@ function _printImpl(path, options, print) {
         }
         case "BlockStatement": {
             if (node.body.length === 0) {
-                return concat(printEmptyBlock(path, options, print));
+                return concat(printEmptyBlock(path, options));
             }
 
             let leadingDocs = [hardline];
@@ -1337,7 +1354,7 @@ function _printImpl(path, options, print) {
                     conditionalGroup([inlineParamDoc, multilineParamDoc])
                 );
             } else {
-                parts.push(printEmptyParens(path, print, options));
+                parts.push(printEmptyParens(path, options));
             }
 
             if (node.type === "ConstructorDeclaration") {
@@ -1382,7 +1399,7 @@ function _printImpl(path, options, print) {
                           forceInline: true
                       }
                   )
-                : printEmptyParens(path, print, options);
+                : printEmptyParens(path, options);
             return concat([" : ", print("id"), params, " constructor"]);
         }
         case "DefaultParameter": {
@@ -1686,7 +1703,7 @@ function _printImpl(path, options, print) {
             let printedArgs;
 
             if (node.arguments.length === 0) {
-                printedArgs = [printEmptyParens(path, print, options)];
+                printedArgs = [printEmptyParens(path, options)];
             } else {
                 const maxParamsPerLine = Number.isFinite(
                     options?.maxParamsPerLine
@@ -1851,7 +1868,7 @@ function _printImpl(path, options, print) {
         }
         case "StructExpression": {
             if (node.properties.length === 0) {
-                return concat(printEmptyBlock(path, options, print));
+                return concat(printEmptyBlock(path, options));
             }
 
             const shouldForceBreakStruct = forcedStructArgumentBreaks.has(node);
@@ -2195,7 +2212,7 @@ function _printImpl(path, options, print) {
         case "NewExpression": {
             const argsPrinted =
                 node.arguments.length === 0
-                    ? [printEmptyParens(path, print, options)]
+                    ? [printEmptyParens(path, options)]
                     : [
                           printCommaSeparatedList(
                               path,
@@ -3238,7 +3255,6 @@ function printStatements(path, options, print, childrenAttribute) {
 
     // Cache frequently used option lookups to avoid re-evaluating them in the tight map loop.
     const sourceMetadata = resolvePrinterSourceMetadata(options);
-    const { locStart: _locStart, locEnd: _locEnd } = sourceMetadata;
     const originalTextCache =
         sourceMetadata.originalText ?? options?.originalText ?? null;
 
@@ -4623,20 +4639,6 @@ function extractLeadingNonDocCommentLines(comments, options) {
     return { leadingLines, remainingComments };
 }
 
-// Diagnostic utility for tracing comment extraction
-// TODO: This is not used; is it needed? Remove if not.
-function __debugExtractLeadingNonDocComments(
-    node,
-    leadingLines,
-    remainingComments
-) {
-    if (leadingLines && leadingLines.length > 0) {
-        console.error(
-            `[doc:debug] extractLeadingNonDocCommentLines: extracted ${leadingLines.length} leading non-doc comment(s)`
-        );
-    }
-}
-
 function buildSyntheticDocComment(
     functionNode,
     existingDocLines,
@@ -5010,12 +5012,11 @@ function mergeSyntheticDocComments(
     if (preserveDescriptionBreaks) {
         normalizedExistingLines._preserveDescriptionBreaks = true;
     }
-    let removedExistingReturnDuplicates;
     const dedupedResult = Core.dedupeReturnDocLines(normalizedExistingLines);
     normalizedExistingLines = Core.toMutableArray(
         dedupedResult.lines
     ) as MutableDocCommentLines;
-    removedExistingReturnDuplicates = dedupedResult.removed;
+    const removedExistingReturnDuplicates = dedupedResult.removed;
 
     if (preserveDescriptionBreaks) {
         normalizedExistingLines._preserveDescriptionBreaks = true;
@@ -7022,27 +7023,16 @@ function computeSyntheticFunctionDocLines(
     try {
         const fname = Core.getNodeName(node);
         if (typeof fname === "string" && fname.includes("sample")) {
-            try {
-                const brief = (arr) =>
-                    (arr || []).map((e) =>
-                        e && typeof e === "object"
-                            ? {
-                                  name: e.name,
-                                  index: e.index,
-                                  canonical: e.canonical,
-                                  fallbackCanonical: e.fallbackCanonical,
-                                  hasDirectReference: e.hasDirectReference,
-                                  _suppressDocLine: e._suppressDocLine
-                              }
-                            : e
+                try {
+                    const suppressed =
+                        suppressedImplicitDocCanonicalByNode.get(node);
+                    console.error(
+                        `[feather:debug] computeSyntheticFunctionDocLines(${fname}): implicitArgumentDocNames=`,
+                        describeImplicitArgumentEntries(
+                            implicitArgumentDocNames,
+                            { includeSuppressDocLine: true }
+                        )
                     );
-
-                const suppressed =
-                    suppressedImplicitDocCanonicalByNode.get(node);
-                console.error(
-                    `[feather:debug] computeSyntheticFunctionDocLines(${fname}): implicitArgumentDocNames=`,
-                    brief(implicitArgumentDocNames)
-                );
                 console.error(
                     `[feather:debug] computeSyntheticFunctionDocLines(${fname}): suppressedCanonicals=`,
                     Array.from(suppressed || [])
@@ -7526,8 +7516,6 @@ function computeSyntheticFunctionDocLines(
             defaultIsUndefined &&
             typeof parameterSourceText === STRING_TYPE &&
             parameterSourceText.includes("=");
-        const materializedTrailing =
-            param?._featherMaterializedTrailingUndefined === true;
         // Use the parser-provided explicit optional marker when present.
         // The parser transform is responsible for setting
         // `_featherOptionalParameter` to encode explicit optional intent for
@@ -7771,6 +7759,28 @@ function normalizeParamDocType(typeText) {
     return Core.getNonEmptyTrimmedString(typeText);
 }
 
+function describeImplicitArgumentEntries(entries, { includeSuppressDocLine = false } = {}) {
+    return (entries || []).map((entry) => {
+        if (!entry || typeof entry !== "object") {
+            return entry;
+        }
+
+        const simplified: Record<string, unknown> = {
+            name: entry.name,
+            index: entry.index,
+            canonical: entry.canonical,
+            fallbackCanonical: entry.fallbackCanonical,
+            hasDirectReference: entry.hasDirectReference
+        };
+
+        if (includeSuppressDocLine) {
+            simplified._suppressDocLine = entry._suppressDocLine;
+        }
+
+        return simplified;
+    });
+}
+
 function collectImplicitArgumentDocNames(functionNode, options) {
     if (
         !functionNode ||
@@ -7979,51 +7989,22 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                     functionNode.id?.name || functionNode.name || null;
                 if (typeof fname === "string" && fname.includes("sample")) {
                     try {
-                        const brief = (arr) =>
-                            (arr || []).map((e) =>
-                                e && typeof e === "object"
-                                    ? {
-                                          name: e.name,
-                                          index: e.index,
-                                          canonical: e.canonical,
-                                          fallbackCanonical:
-                                              e.fallbackCanonical,
-                                          hasDirectReference:
-                                              e.hasDirectReference
-                                      }
-                                    : e
-                            );
-
                         console.error(
                             `[feather:debug] collectImplicitArgumentDocNames(${fname}): parserEntries=`,
-                            brief(entries)
+                            describeImplicitArgumentEntries(entries)
                         );
 
                         // Provide detailed per-entry filter decisions so we can
                         // see why the printer keeps or drops parser-provided
                         // implicit entries. Limit output to functions named
                         // like 'sample' to avoid flooding test logs.
-                        const result = entries.filter((entry) => {
-                            if (!entry) return false;
-                            // Preserve direct references only when the suppression was
-                            // caused by an alias for the same index (i.e., there is an
-                            // aliasByIndex record for this entry). If the suppression
-                            // was caused by a different documented ordinal name, prefer
-                            // the documented name instead of emitting a numeric
-                            // fallback even when there is a direct `argumentN` usage.
-                            if (
-                                entry.hasDirectReference &&
-                                referenceInfo &&
-                                referenceInfo.aliasByIndex &&
-                                referenceInfo.aliasByIndex.has(entry.index)
-                            ) {
-                                return true;
-                            }
-                            const key =
-                                entry.canonical || entry.fallbackCanonical;
-                            if (!key) return true;
-                            return !suppressedCanonicals.has(key);
-                        });
+                        const result = entries.filter((entry) =>
+                            shouldKeepImplicitArgumentDocEntry(
+                                entry,
+                                suppressedCanonicals,
+                                referenceInfo?.aliasByIndex
+                            )
+                        );
 
                         const decisions = entries.map((e) => ({
                             name: e?.name,
@@ -8222,23 +8203,10 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                       : null);
         if (typeof fname === "string" && fname.includes("sample")) {
             try {
-                const brief = (arr) =>
-                    (arr || []).map((e) =>
-                        e && typeof e === "object"
-                            ? {
-                                  name: e.name,
-                                  index: e.index,
-                                  canonical: e.canonical,
-                                  fallbackCanonical: e.fallbackCanonical,
-                                  hasDirectReference: e.hasDirectReference
-                              }
-                            : e
-                    );
-
-                console.error(
-                    `[feather:debug] collectImplicitArgumentDocNames(${fname}): builtEntries=`,
-                    brief(entries)
-                );
+                        console.error(
+                            `[feather:debug] collectImplicitArgumentDocNames(${fname}): builtEntries=`,
+                            describeImplicitArgumentEntries(entries)
+                        );
                 console.error(
                     `[feather:debug] collectImplicitArgumentDocNames(${fname}): suppressedCanonicals=`,
                     Array.from(suppressedCanonicals || [])
@@ -8255,26 +8223,42 @@ function collectImplicitArgumentDocNames(functionNode, options) {
         return entries;
     }
 
-    return entries.filter((entry) => {
-        if (!entry) return false;
-        // Only preserve direct references when the suppression stems from an
-        // alias assignment that occupies the same index (aliasByIndex). If
-        // the suppression is due to a documented ordinal name mismatch,
-        // prefer the documented name even if a numeric `argumentN` was used
-        // directly in the function body.
-        if (
-            entry.hasDirectReference === true &&
-            referenceInfo &&
-            referenceInfo.aliasByIndex &&
-            referenceInfo.aliasByIndex.has(entry.index)
-        ) {
-            return true;
-        }
+    return entries.filter((entry) =>
+        shouldKeepImplicitArgumentDocEntry(
+            entry,
+            suppressedCanonicals,
+            referenceInfo.aliasByIndex
+        )
+    );
+}
 
-        const key = entry.canonical || entry.fallbackCanonical;
-        if (!key) return true;
-        return !suppressedCanonicals.has(key);
-    });
+function shouldKeepImplicitArgumentDocEntry(
+    entry,
+    suppressedCanonicals,
+    aliasByIndex
+) {
+    if (!entry) {
+        return false;
+    }
+
+    if (
+        entry.hasDirectReference &&
+        aliasByIndex &&
+        aliasByIndex.has(entry.index)
+    ) {
+        return true;
+    }
+
+    const key = entry.canonical || entry.fallbackCanonical;
+    if (!key) {
+        return true;
+    }
+
+    if (!suppressedCanonicals) {
+        return true;
+    }
+
+    return !suppressedCanonicals.has(key);
 }
 
 // Collects index/reference bookkeeping for implicit `arguments[index]` usages
@@ -8286,21 +8270,21 @@ function gatherImplicitArgumentReferences(functionNode) {
     const aliasByIndex = new Map();
     const directReferenceIndices = new Set();
 
-    const visit = (node, parent, property) => {
+    const visit = (node, parent) => {
         if (!node || typeof node !== OBJECT_TYPE) {
             return;
         }
 
         if (node === functionNode) {
             if (functionNode.body) {
-                visit(functionNode.body, node, "body");
+            visit(functionNode.body, node);
             }
             return;
         }
 
         if (Array.isArray(node)) {
-            for (const [index, element] of node.entries()) {
-                visit(element, parent, index);
+            for (const element of node) {
+                visit(element, parent);
             }
             return;
         }
@@ -8365,12 +8349,12 @@ function gatherImplicitArgumentReferences(functionNode) {
             directReferenceIndices.add(directIndex);
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
-            visit(value, node, key);
+        Core.forEachNodeChild(node, (value) => {
+            visit(value, node);
         });
     };
 
-    visit(functionNode.body, functionNode, "body");
+    visit(functionNode.body, functionNode);
 
     return { referencedIndices, aliasByIndex, directReferenceIndices };
 }
@@ -8635,264 +8619,6 @@ function getSourceTextForNode(node, options) {
     }
 
     return originalText.slice(startIndex, endIndex).trim();
-}
-
-// Opportunistically convert detected `argument_count` fallback patterns into
-// DefaultParameter nodes when the upstream parser transforms did not
-// materialize them. This is intentionally conservative: it only converts
-// straightforward `if (argument_count > N) { param = argument[N]; } else { param = <fallback>; }`
-// patterns where the assignment target matches a declared parameter.
-function inlineArgumentCountFallbacks(functionNode) {
-    if (!functionNode || functionNode.type !== "FunctionDeclaration") {
-        return;
-    }
-
-    const params = Array.isArray(functionNode.params)
-        ? functionNode.params
-        : [];
-
-    const body = functionNode.body;
-    if (!body || body.type !== "BlockStatement" || !Array.isArray(body.body)) {
-        return;
-    }
-
-    const statements = body.body;
-    const removals = new Set();
-
-    // debug instrumentation removed
-
-    for (const stmt of statements) {
-        if (!stmt || stmt.type !== "IfStatement") {
-            continue;
-        }
-        const cond = stmt.test;
-
-        // The test may be either a BinaryExpression or a ParenthesizedExpression
-        // wrapping a BinaryExpression. Accept both shapes.
-        let binaryExpr = null;
-        if (cond && cond.type === "BinaryExpression") {
-            binaryExpr = cond;
-        } else if (
-            cond &&
-            cond.type === "ParenthesizedExpression" &&
-            cond.expression &&
-            cond.expression.type === "BinaryExpression"
-        ) {
-            binaryExpr = cond.expression;
-        }
-
-        if (!binaryExpr) {
-            continue;
-        }
-
-        // Compute the argument index targeted by the guard `argument_count <|>|== N`.
-        let argIndex = null;
-        try {
-            const left = binaryExpr.left;
-            const right = binaryExpr.right;
-            let rightText = null;
-            if (right && right.type === "Literal") {
-                rightText = String(right.value);
-            }
-            const rightNumber =
-                rightText === null ? Number.NaN : Number(rightText);
-            if (!Number.isNaN(rightNumber)) {
-                switch (binaryExpr.operator) {
-                    case "<": {
-                        argIndex = rightNumber - 1;
-
-                        break;
-                    }
-                    case ">": {
-                        argIndex = rightNumber;
-
-                        break;
-                    }
-                    case "==":
-                    case "===": {
-                        argIndex = rightNumber;
-
-                        break;
-                    }
-                    // No default
-                }
-            }
-        } catch {
-            argIndex = null;
-        }
-
-        // debug instrumentation removed
-
-        if (!Number.isInteger(argIndex) || argIndex < 0) {
-            continue;
-        }
-
-        const consequentStmts = stmt.consequent
-            ? stmt.consequent.type === "BlockStatement"
-                ? Array.isArray(stmt.consequent.body)
-                    ? stmt.consequent.body
-                    : []
-                : [stmt.consequent]
-            : [];
-        const alternateStmts = stmt.alternate
-            ? stmt.alternate.type === "BlockStatement"
-                ? Array.isArray(stmt.alternate.body)
-                    ? stmt.alternate.body
-                    : []
-                : [stmt.alternate]
-            : [];
-
-        // Look for param assignments matching the pattern `param = argument[argIndex]` in the
-        // consequent and `param = <fallback>` in the alternate.
-        for (let pi = 0; pi < params.length; pi += 1) {
-            const param = params[pi];
-            const paramName = Core.getIdentifierText(param);
-            if (!paramName) {
-                continue;
-            }
-
-            // Extra debug for the specific failing test case to inspect statement shapes
-            // debug instrumentation removed
-
-            let fromArg = null;
-            let fallbackExpr = null;
-
-            for (const cs of consequentStmts) {
-                if (!cs) continue;
-                const assign =
-                    cs.type === "ExpressionStatement" &&
-                    cs.expression &&
-                    cs.expression.type === "AssignmentExpression"
-                        ? cs.expression
-                        : cs.type === "AssignmentExpression"
-                          ? cs
-                          : null;
-                if (!assign) continue;
-                const left = assign.left;
-                const right = assign.right;
-                if (
-                    left &&
-                    left.type === "Identifier" &&
-                    left.name === paramName && // Check argument[index]
-                    right &&
-                    right.type === "MemberIndexExpression" &&
-                    right.object?.type === "Identifier" &&
-                    right.object.name === "argument" &&
-                    Array.isArray(right.property) &&
-                    right.property.length === 1 &&
-                    right.property[0]?.type === "Literal"
-                ) {
-                    const literal = right.property[0];
-                    const parsed = Number.parseInt(literal.value);
-                    if (Number.isInteger(parsed) && parsed === argIndex) {
-                        fromArg = right;
-                        break;
-                    }
-                }
-            }
-
-            if (!fromArg) continue;
-
-            for (const as of alternateStmts) {
-                if (!as) continue;
-                const assign =
-                    as.type === "ExpressionStatement" &&
-                    as.expression &&
-                    as.expression.type === "AssignmentExpression"
-                        ? as.expression
-                        : as.type === "AssignmentExpression"
-                          ? as
-                          : null;
-                if (!assign) continue;
-                const left = assign.left;
-                const right = assign.right;
-                if (
-                    left &&
-                    left.type === "Identifier" &&
-                    left.name === paramName && // Accept any RHS (literal or expression) that is not argument[...] as the fallback
-                    (!right || right.type !== "MemberIndexExpression")
-                ) {
-                    fallbackExpr = right;
-
-                    break;
-                }
-            }
-
-            if (fromArg && fallbackExpr) {
-                // Support two cases:
-                // 1) The parser left an Identifier param (no DefaultParameter yet) -> create a DefaultParameter node.
-                // 2) The parser already created a DefaultParameter with a null `right` (meaning the default was supplied
-                //    by an in-body argument_count fallback). In that case, fill in the `right` slot rather than replacing
-                //    the param node entirely so we preserve any existing metadata.
-                const isIdentifier = param && param.type === "Identifier";
-                const isDefaultWithMissingRight =
-                    param &&
-                    param.type === "DefaultParameter" &&
-                    param.right == null;
-
-                if (!isIdentifier && !isDefaultWithMissingRight) {
-                    continue;
-                }
-
-                if (isDefaultWithMissingRight) {
-                    try {
-                        // Fill the existing DefaultParameter.right with the fallback expression
-                        param.right = fallbackExpr;
-                        // Update end index if available
-                        if (fallbackExpr && fallbackExpr.end !== null) {
-                            param.end = fallbackExpr.end;
-                        }
-                        // debug instrumentation removed
-                    } catch {
-                        // Non-fatal: if we can't mutate in place, fall back to replacing the node below.
-                        // (We'll let the replacement logic run by treating it as an Identifier.)
-                    }
-                } else {
-                    // Create a new DefaultParameter node from the Identifier
-                    const identifier = param;
-                    const defaultNode = {
-                        type: "DefaultParameter",
-                        left: { type: "Identifier", name: identifier.name },
-                        right: fallbackExpr,
-                        start: identifier.start ?? undefined,
-                        end: fallbackExpr.end ?? identifier.end
-                    };
-
-                    try {
-                        if (param && param.leadingComments) {
-                            (defaultNode as any).leadingComments =
-                                param.leadingComments;
-                        }
-                    } catch {
-                        // Ignore errors when copying leading comments
-                    }
-
-                    params[pi] = defaultNode;
-                    // debug instrumentation removed
-                }
-
-                removals.add(stmt);
-                break;
-            }
-        }
-    }
-
-    if (removals.size > 0) {
-        // Remove matched statements from the body in reverse order to keep indices stable
-        const toRemove = [...removals].sort(
-            (a, b) => Core.getNodeStartIndex(b) - Core.getNodeStartIndex(a)
-        );
-        for (const r of toRemove) {
-            const idx = statements.indexOf(r);
-            if (idx !== -1) {
-                statements.splice(idx, 1);
-            }
-        }
-        // If body now empty, leave an empty block so printing can compact the function
-        if (statements.length === 0) {
-            functionNode.body.body = [];
-        }
-    }
 }
 
 // Convert parser-side `param.default` assignments into explicit
@@ -9444,8 +9170,6 @@ function getParameterDocInfo(paramNode, functionNode, options) {
         // materialized defaults: the parser may mark materialized nodes as
         // explicitly optional when appropriate and the printer should
         // consume that intent rather than masking it.
-        const materializedTrailing =
-            paramNode?._featherMaterializedTrailingUndefined === true;
         const optionalOverride = paramNode?._featherOptionalParameter === true;
         const searchName = getNormalizedParameterName(
             paramNode.left ?? paramNode
@@ -9531,7 +9255,14 @@ function shouldOmitDefaultValueForParameter(path, options) {
                         );
                         if (!m) continue;
                         const raw = m[1];
-                        const name = raw.replace(/^\[|\]$/g, "").trim(); // eslint-disable-line unicorn/prefer-string-replace-all
+                        let name = raw;
+                        if (name.startsWith("[")) {
+                            name = name.slice(1);
+                        }
+                        if (name.endsWith("]")) {
+                            name = name.slice(0, -1);
+                        }
+                        name = name.trim();
                         if (name === paramName) {
                             const isOptional = /^\[.*\]$/.test(raw);
                             return !isOptional;
@@ -11745,7 +11476,7 @@ function getFunctionParams(functionNode) {
 }
 
 // prints empty parens with dangling comments
-function printEmptyParens(path, _print, options) {
+function printEmptyParens(path, options) {
     return group(
         [
             "(",
@@ -11764,7 +11495,7 @@ function printEmptyParens(path, _print, options) {
 }
 
 // prints an empty block with dangling comments
-function printEmptyBlock(path, options, print) {
+function printEmptyBlock(path, options) {
     const node = path.getValue();
     const inlineCommentDoc = maybePrintInlineEmptyBlockComment(path, options);
 

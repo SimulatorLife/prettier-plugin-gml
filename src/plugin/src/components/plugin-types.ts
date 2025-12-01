@@ -5,6 +5,7 @@ import type {
     Printer,
     SupportOptions
 } from "prettier";
+import type { AbortSignalLike } from "@gml-modules/core";
 
 export type GmlAst = unknown;
 
@@ -42,13 +43,14 @@ export type GmlPluginComponentObserver = (
 ) => void;
 
 export type ObserverOptions = {
-    signal?: AbortSignal;
+    signal?: AbortSignal | AbortSignalLike;
 };
 
 export type GmlPluginDefaultOptions = Record<string, unknown>;
 
 export type GmlPlugin = Omit<Plugin<GmlAst>, "defaultOptions"> & {
     defaultOptions?: GmlPluginDefaultOptions;
+    pluginOptions?: SupportOptions;
     format: (
         source: string,
         options?: Record<string, unknown>

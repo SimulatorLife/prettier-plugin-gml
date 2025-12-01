@@ -36,32 +36,6 @@ const DEFAULT_OUTPUT_PATH = resolveFromRepoRoot(
     "feather-metadata.json"
 );
 
-interface ManualElementOwnerDocument {
-    readonly ELEMENT_NODE?: number;
-    createTextNode(text: string): {
-        data: string;
-    };
-}
-
-interface ManualElement {
-    readonly nodeType?: number;
-    readonly ownerDocument?: ManualElementOwnerDocument;
-    readonly parentNode?: ManualElement | null;
-    readonly children?: Array<ManualElement>;
-    tagName?: string;
-    textContent?: string | null;
-    matches?: (selector: string) => boolean;
-    querySelectorAll(selector: string): Array<ManualElement>;
-    cloneNode(deep?: boolean): ManualElement;
-    replaceChild?(
-        newChild: ManualElement,
-        oldChild: ManualElement
-    ): ManualElement | null;
-    nextElementSibling?: ManualElement | null;
-}
-
-type Element = ManualElement;
-
 const FEATHER_PAGES = {
     diagnostics:
         "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Messages.htm",
@@ -240,11 +214,11 @@ function getTagName(element) {
 }
 
 function getDirectChildren(
-    element: Element | null | undefined,
+    element: ManualElement | null | undefined,
     selector?: string
 ) {
     const predicate = selector
-        ? (child: Element) => child.matches?.(selector) === true
+        ? (child: ManualElement) => child.matches?.(selector) === true
         : () => true;
 
     return Array.from(element?.children ?? []).filter(predicate);
@@ -258,7 +232,7 @@ function replaceBreaksWithNewlines(clone) {
     }
 }
 
-function splitCellLines(element) {
+function splitCellLines(element: ManualElement | null | undefined) {
     if (!element) {
         return [];
     }
@@ -360,7 +334,7 @@ interface ManualBlock {
     table?: ManualTable;
 }
 
-function createClassListChecker(element: Element | null | undefined) {
+function createClassListChecker(element: ManualElement | null | undefined) {
     const classList = element?.classList;
 
     if (!classList || typeof classList.contains !== "function") {

@@ -4352,12 +4352,14 @@ function recordManualMathOriginalAssignment(context, node, originalExpression) {
     }
 
     const originalDeclaration = Core.cloneAstNode(declaration);
-    if (!originalDeclaration) {
+    if (!Core.isNode(originalDeclaration)) {
         return;
     }
 
-    const declarators = Array.isArray(originalDeclaration.declarations)
-        ? originalDeclaration.declarations
+    const clonedDeclaration = originalDeclaration as MutableGameMakerAstNode;
+
+    const declarators = Array.isArray(clonedDeclaration.declarations)
+        ? clonedDeclaration.declarations
         : null;
     if (!declarators || declarators.length === 0) {
         return;
@@ -4367,14 +4369,14 @@ function recordManualMathOriginalAssignment(context, node, originalExpression) {
     originalDeclarator.init =
         Core.cloneAstNode(originalExpression) ?? originalExpression;
 
-    originalDeclaration._gmlManualMathOriginal = true;
-    originalDeclaration._gmlManualMathOriginalComment = "original";
-    if (originalDeclaration._gmlForceFollowingEmptyLine === true) {
-        delete originalDeclaration._gmlForceFollowingEmptyLine;
+    clonedDeclaration._gmlManualMathOriginal = true;
+    clonedDeclaration._gmlManualMathOriginalComment = "original";
+    if (clonedDeclaration._gmlForceFollowingEmptyLine === true) {
+        delete clonedDeclaration._gmlForceFollowingEmptyLine;
     }
-    originalDeclaration._gmlSuppressFollowingEmptyLine = true;
+    clonedDeclaration._gmlSuppressFollowingEmptyLine = true;
 
-    if (!insertNodeBefore(root, declaration, originalDeclaration)) {
+    if (!insertNodeBefore(root, declaration, clonedDeclaration)) {
         return;
     }
 

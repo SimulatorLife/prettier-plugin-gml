@@ -178,9 +178,7 @@ const CHAR_CODE_UPPER_END = 90; // Z
 const CHAR_CODE_LOWER_START = 97; // a
 const CHAR_CODE_LOWER_END = 122; // z
 const CHAR_CODE_UNDERSCORE = 95; // _
-const OBJECT_TO_STRING = Object.prototype.toString.bind(
-    Object.prototype
-);
+const OBJECT_TO_STRING = Object.prototype.toString.bind(Object.prototype);
 const STARTS_WITH_VOWEL_PATTERN = /^[aeiou]/i;
 
 function normalizeIndefiniteArticle(label) {
@@ -194,6 +192,45 @@ function normalizeIndefiniteArticle(label) {
     }
 
     return `${STARTS_WITH_VOWEL_PATTERN.test(normalized) ? "an" : "a"} ${normalized}`;
+}
+
+function toSafeString(value: unknown) {
+    if (value === null) {
+        return "null";
+    }
+
+    if (value === undefined) {
+        return "undefined";
+    }
+
+    if (typeof value === "object") {
+        const candidate = value as { toString?: unknown };
+        const toString = candidate.toString;
+        if (
+            typeof toString !== "function" ||
+            toString === Object.prototype.toString
+        ) {
+            return OBJECT_TO_STRING(value);
+        }
+
+        return (toString as (this: unknown) => string).call(value);
+    }
+
+    if (typeof value === "string") {
+        return value;
+    }
+
+    if (
+        typeof value === "number" ||
+        typeof value === "bigint" ||
+        typeof value === "boolean" ||
+        typeof value === "symbol" ||
+        typeof value === "function"
+    ) {
+        return String(value);
+    }
+
+    return OBJECT_TO_STRING(value);
 }
 
 /**
@@ -224,22 +261,20 @@ export function describeValueForError(
         return "undefined";
     }
 
-    const type = typeof value;
-
-    if (type === "string") {
+    if (typeof value === "string") {
         return JSON.stringify(value);
     }
 
-    if (type === "number" || type === "bigint" || type === "boolean") {
+    if (
+        typeof value === "number" ||
+        typeof value === "bigint" ||
+        typeof value === "boolean"
+    ) {
         return String(value);
     }
 
     if (!stringifyUnknown) {
-        try {
-            return String(value);
-        } catch {
-            return OBJECT_TO_STRING(value);
-        }
+        return toSafeString(value);
     }
 
     try {
@@ -251,11 +286,7 @@ export function describeValueForError(
         // Fall back to string coercion below when JSON serialization fails.
     }
 
-    try {
-        return String(value);
-    } catch {
-        return OBJECT_TO_STRING(value);
-    }
+    return toSafeString(value);
 }
 
 /**
@@ -379,7 +410,7 @@ export function toNormalizedLowerCaseString(value?: unknown) {
         return "";
     }
 
-    return String(value).trim().toLowerCase();
+    return toSafeString(value).trim().toLowerCase();
 }
 
 export function capitalize(value?: unknown): string {

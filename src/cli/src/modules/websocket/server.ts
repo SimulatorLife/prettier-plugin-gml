@@ -7,7 +7,7 @@
  */
 
 import { WebSocketServer, WebSocket } from "ws";
-import { describeValueForError } from "../dependencies.js";
+import { describeValueForError } from "../../dependencies.js";
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 17_890;

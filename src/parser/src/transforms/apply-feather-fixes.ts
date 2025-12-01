@@ -2314,8 +2314,6 @@ function convertIdentifierReference({
         identifier,
         parent,
         property,
-        arrayOwner,
-        arrayProperty,
         diagnostic,
         fixes,
         identifierStart,
@@ -2780,7 +2778,7 @@ function convertStringLengthPropertyAccesses({ ast, diagnostic }) {
 
     const fixes = [];
 
-    const visit = (node, parent, property) => {
+    const visit = (node, parent = null, property = null) => {
         if (!node) {
             return;
         }
@@ -3258,7 +3256,7 @@ function splitGlobalVarInlineInitializers({ ast, diagnostic }) {
 
     const fixes = [];
 
-    const visit = (node, parent, property) => {
+    const visit = (node, parent = null, property = null) => {
         if (!node) {
             return;
         }
@@ -3294,7 +3292,7 @@ function splitGlobalVarInlineInitializers({ ast, diagnostic }) {
         });
     };
 
-    visit(ast, null, null);
+    visit(ast);
 
     return fixes;
 }
@@ -3703,7 +3701,7 @@ function convertReadOnlyBuiltInAssignments({ ast, diagnostic }) {
     const fixes = [];
     const nameRegistry = collectAllIdentifierNames(ast);
 
-    const visit = (node, parent, property) => {
+    const visit = (node, parent = null, property = null) => {
         if (!node) {
             return;
         }
@@ -3739,7 +3737,7 @@ function convertReadOnlyBuiltInAssignments({ ast, diagnostic }) {
         });
     };
 
-    visit(ast, null, null);
+    visit(ast);
 
     return fixes;
 }
@@ -5165,7 +5163,7 @@ function removeDuplicateMacroDeclarations({ ast, diagnostic }) {
     const fixes = [];
     const seenMacros = new Set();
 
-    const visit = (node, parent, property) => {
+    const visit = (node, parent = null, property = null) => {
         if (!node) {
             return false;
         }
@@ -5228,7 +5226,7 @@ function removeDuplicateMacroDeclarations({ ast, diagnostic }) {
         return false;
     };
 
-    visit(ast, null, null);
+    visit(ast);
 
     return fixes;
 }
@@ -5510,7 +5508,7 @@ function rewriteInvalidPostfixExpressions({ ast, diagnostic }) {
 
     const fixes = [];
 
-    const visit = (node, parent, property) => {
+    const visit = (node, parent = null, property = null) => {
         if (!node) {
             return;
         }
@@ -5545,7 +5543,7 @@ function rewriteInvalidPostfixExpressions({ ast, diagnostic }) {
         });
     };
 
-    visit(ast, null, null);
+    visit(ast);
 
     return fixes;
 }
@@ -5663,7 +5661,7 @@ function normalizeMultidimensionalArrayIndexing({ ast, diagnostic }) {
 
     const fixes = [];
 
-    const visit = (node, parent, property) => {
+    const visit = (node, parent = null, property = null) => {
         if (!node) {
             return;
         }
@@ -5700,7 +5698,7 @@ function normalizeMultidimensionalArrayIndexing({ ast, diagnostic }) {
         }
     };
 
-    visit(ast, null, null);
+    visit(ast);
 
     return fixes;
 }
@@ -7723,7 +7721,14 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
     return fixes;
 }
 
-function renameDuplicateFunctionParameters({ ast, diagnostic }) {
+function renameDuplicateFunctionParameters({
+    ast,
+    diagnostic
+}: {
+    ast: unknown;
+    diagnostic: unknown;
+    options?: unknown;
+}) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
@@ -13318,7 +13323,7 @@ function addMissingEnumMembers({ ast, diagnostic }) {
         }
     };
 
-    visit(ast, null, null);
+    visit(ast);
 
     return fixes;
 }

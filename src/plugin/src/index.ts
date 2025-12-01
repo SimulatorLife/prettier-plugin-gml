@@ -1,7 +1,7 @@
 export {
     defaultOptions,
     languages,
-    options,
+    pluginOptions as options,
     parsers,
     Plugin,
     printers

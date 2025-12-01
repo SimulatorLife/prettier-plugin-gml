@@ -9,12 +9,12 @@ import {
 } from "./cache.js";
 import { clampConcurrency } from "./concurrency.js";
 import { createProjectIndexCoordinator as createProjectIndexCoordinatorCore } from "./coordinator.js";
-import { defaultFsFacade } from "./fs-facade.js";
-import { resolveProjectIndexParser } from "./gml-parser-facade.js";
 import {
-    createProjectIndexMetrics,
-    finalizeProjectIndexMetrics
-} from "./metrics.js";
+    defaultFsFacade,
+    type ProjectIndexFsFacade
+} from "./fs-facade.js";
+import { resolveProjectIndexParser } from "./gml-parser-facade.js";
+import { createProjectIndexMetrics, finalizeProjectIndexMetrics } from "./metrics.js";
 import {
     analyseResourceFiles,
     createFileScopeDescriptor
@@ -30,6 +30,22 @@ import {
     IdentifierRole,
     assertValidIdentifierRole
 } from "./identifier-roles.js";
+
+type BuildProjectIndexFunction = (
+    projectRoot: string,
+    fsFacade?: ProjectIndexFsFacade,
+    options?: Record<string, unknown>
+) => Promise<unknown>;
+
+type ProjectIndexCoordinatorOptions = {
+    fsFacade?: ProjectIndexFsFacade | null;
+    loadCache?: typeof loadProjectIndexCache;
+    saveCache?: typeof saveProjectIndexCache;
+    buildIndex?: BuildProjectIndexFunction;
+    cacheMaxSizeBytes?: number | null;
+    getDefaultCacheMaxSize?: typeof getDefaultProjectIndexCacheMaxSize;
+};
+
 /**
  * Create shallow clones of common entry collections stored on project index
  * records (for example declaration/reference lists). Guarding against
@@ -42,7 +58,9 @@ function cloneEntryCollections(entry, ...keys) {
         keys.map((key) => [key, cloneObjectEntries(source[key])])
     );
 }
-export function createProjectIndexCoordinator(options = {}) {
+export function createProjectIndexCoordinator(
+    options: ProjectIndexCoordinatorOptions = {}
+) {
     const {
         fsFacade = defaultFsFacade,
         loadCache = loadProjectIndexCache,
@@ -70,15 +88,34 @@ function cloneIdentifierDeclaration(declaration) {
         scopeId: declaration.scopeId ?? null
     };
 }
-function createIdentifierRecord(node) {
+type IdentifierDeclarationRecord = ReturnType<typeof cloneIdentifierDeclaration>;
+type ProjectIdentifierRecord = {
+    name: string | null;
+    start: ReturnType<typeof Core.cloneLocation>;
+    end: ReturnType<typeof Core.cloneLocation>;
+    scopeId: string | null;
+    classifications: Array<string>;
+    declaration: IdentifierDeclarationRecord;
+    isGlobalIdentifier: boolean;
+    isBuiltIn?: boolean;
+    reason?: string | null;
+    isSynthetic?: boolean;
+    filePath?: string | null;
+};
+function createIdentifierRecord(node): ProjectIdentifierRecord {
     return {
         name: node?.name ?? null,
         start: Core.cloneLocation(node?.start),
         end: Core.cloneLocation(node?.end),
         scopeId: node?.scopeId ?? null,
-        classifications: [...Core.asArray(node?.classifications)],
+        classifications: Core.asArray(node?.classifications).filter(
+            (value) => typeof value === "string"
+        ),
         declaration: cloneIdentifierDeclaration(node?.declaration),
-        isGlobalIdentifier: node?.isGlobalIdentifier === true
+        isGlobalIdentifier: node?.isGlobalIdentifier === true,
+        isBuiltIn: node?.isBuiltIn === true,
+        reason: null,
+        isSynthetic: node?.isSynthetic === true
     };
 }
 function cloneIdentifierForCollections(record, filePath) {
@@ -88,7 +125,9 @@ function cloneIdentifierForCollections(record, filePath) {
         scopeId: record?.scopeId ?? null,
         start: Core.cloneLocation(record?.start),
         end: Core.cloneLocation(record?.end),
-        classifications: [...Core.asArray(record?.classifications)],
+        classifications: Core.asArray(record?.classifications).filter(
+            (value) => typeof value === "string"
+        ),
         declaration: record?.declaration ? { ...record.declaration } : null,
         isBuiltIn: record?.isBuiltIn ?? false,
         reason: record?.reason ?? null,
@@ -391,19 +430,26 @@ function createEnumLookup(ast, filePath) {
         seen.add(node);
         if (node.type === "EnumDeclaration") {
             const enumIdentifier = node.name;
+            if (!Core.isIdentifierNode(enumIdentifier)) {
+                continue;
+            }
             const enumKey = Core.buildFileLocationKey(
                 filePath,
-                enumIdentifier?.start
+                enumIdentifier.start
             );
             if (enumKey) {
                 enumDeclarations.set(enumKey, {
                     key: enumKey,
-                    name: enumIdentifier?.name ?? null,
+                    name: enumIdentifier.name ?? null,
                     filePath: filePath ?? null
                 });
                 for (const member of Core.asArray(node.members)) {
-                    const memberIdentifier = member?.name ?? null;
-                    if (!memberIdentifier) {
+                    if (!Core.isObjectLike(member)) {
+                        continue;
+                    }
+                    const memberNode = member as Record<string, unknown>;
+                    const memberIdentifier = memberNode.name;
+                    if (!Core.isIdentifierNode(memberIdentifier)) {
                         continue;
                     }
                     const memberKey = Core.buildFileLocationKey(
@@ -1337,7 +1383,11 @@ async function processWithConcurrency(items, limit, worker, options = {}) {
             ensureNotAborted();
         }
     };
-    await Promise.all(Array.from({ length: workerCount }, runWorker));
+    const workerHandles = [];
+    for (let index = 0; index < workerCount; index++) {
+        workerHandles.push(runWorker());
+    }
+    await Promise.all(workerHandles);
 }
 /**
  * Process a single GML source file while keeping the high-level project index

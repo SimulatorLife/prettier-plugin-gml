@@ -22,7 +22,7 @@ const CARRIAGE_RETURN = "\r";
 const COMPLETE_CHAR = "█";
 const INCOMPLETE_CHAR = "░";
 
-interface ProgressBarStream {
+export interface ProgressBarStream {
     write: (chunk: string) => void;
     isTTY?: boolean;
 }

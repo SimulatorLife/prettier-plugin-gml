@@ -35,20 +35,11 @@ import {
     type PatchWebSocketServerController
 } from "../modules/websocket/server.js";
 
-interface TranspilerPatch {
-    kind: string;
-    id: string;
-    js_body: string;
-    sourceText: string;
-    version: number;
-}
-
-interface WatchTranspiler {
-    transpileScript(request: {
-        sourceText: string;
-        symbolId: string;
-    }): Promise<TranspilerPatch>;
-}
+type RuntimeTranspiler =
+    ReturnType<typeof Transpiler.createTranspiler>;
+type RuntimeTranspilerPatch = ReturnType<
+    RuntimeTranspiler["transpileScript"]
+>;
 
 type RuntimeDescriptorFormatter = (source: RuntimeSourceDescriptor) => string;
 
@@ -76,8 +67,8 @@ interface RuntimeContext {
     packageJson: Record<string, unknown> | null;
     server: RuntimeServerController | null;
     noticeLogged: boolean;
-    transpiler: WatchTranspiler;
-    patches: Array<TranspilerPatch>;
+    transpiler: RuntimeTranspiler;
+    patches: Array<RuntimeTranspilerPatch>;
     websocketServer: PatchWebSocketServerController | null;
 }
 
@@ -278,7 +269,7 @@ export async function runWatchCommand(
             ? runtimeServer !== false
             : Boolean(hydrateRuntime);
 
-    const transpiler = Transpiler.createTranspiler() as WatchTranspiler;
+    const transpiler = Transpiler.createTranspiler();
     const runtimeContext: RuntimeContext = {
         root: null,
         packageName: null,
@@ -562,7 +553,7 @@ async function handleFileChange(
 
                     // Transpile to JavaScript patch
                     const patch =
-                        await runtimeContext.transpiler.transpileScript({
+                        runtimeContext.transpiler.transpileScript({
                             sourceText: content,
                             symbolId
                         });

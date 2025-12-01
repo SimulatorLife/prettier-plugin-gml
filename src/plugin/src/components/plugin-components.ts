@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { Core, type AbortSignalLike } from "@gml-modules/core";
 
 import { createDefaultGmlPluginComponents } from "./default-plugin-components.js";
 import { normalizeGmlPluginComponents } from "./plugin-component-normalizer.js";
@@ -81,7 +81,7 @@ export function addGmlPluginComponentObserver(
         errorMessage: "GML plugin component observers must be functions"
     }) as GmlPluginComponentObserver;
 
-    let signal: AbortSignal | null;
+    let signal: AbortSignalLike | null;
     try {
         signal = Core.resolveAbortSignalFromOptions(options, {
             fallbackMessage: OBSERVER_ABORT_MESSAGE
@@ -102,15 +102,23 @@ export function addGmlPluginComponentObserver(
         };
     }
 
+    const hasSignalListeners =
+        typeof signal.addEventListener === "function" &&
+        typeof signal.removeEventListener === "function";
+
     const unsubscribe = () => {
         if (!componentObservers.delete(normalizedObserver)) {
             return;
         }
 
-        signal.removeEventListener("abort", unsubscribe);
+        if (hasSignalListeners) {
+            signal.removeEventListener("abort", unsubscribe);
+        }
     };
 
-    signal.addEventListener("abort", unsubscribe, { once: true });
+    if (hasSignalListeners) {
+        signal.addEventListener("abort", unsubscribe, { once: true });
+    }
 
     if (signal.aborted) {
         unsubscribe();

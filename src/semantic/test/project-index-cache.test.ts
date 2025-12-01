@@ -4,6 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import type { AbortSignalLike } from "@gml-modules/core";
+
 import {
     loadProjectIndexCache,
     saveProjectIndexCache,
@@ -497,7 +499,13 @@ test("createProjectIndexCoordinator aborts in-flight builds on dispose", async (
                 size: 1
             };
         },
-        buildIndex: async (root, fsFacade, options: any = {}) => {
+        buildIndex: async (
+            root,
+            fsFacade,
+            options: {
+                signal?: AbortSignalLike | null;
+            } = {}
+        ) => {
             buildStarted.resolve(options.signal ?? null);
 
             await new Promise((_resolve, reject) => {

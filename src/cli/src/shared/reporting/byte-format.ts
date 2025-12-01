@@ -6,7 +6,7 @@ import {
     createNumericTypeErrorFormatter,
     describeValueForError,
     isFiniteNumber
-} from "../dependencies.js";
+} from "../../dependencies.js";
 import { createIntegerOptionToolkit } from "../../cli-core/integer-option-toolkit.js";
 
 const BYTE_UNITS = Object.freeze(["B", "KB", "MB", "GB", "TB", "PB"]);

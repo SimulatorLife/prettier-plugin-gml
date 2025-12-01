@@ -484,7 +484,7 @@ export function getBodyStatements(node: unknown): Array<GameMakerAstNode> {
     }
 
     // TODO: Use the proper typing here
-    return asArray((node as GameMakerAstNode).body);
+    return asArray(node.body);
 }
 
 export function hasBodyStatements(node: unknown): boolean {

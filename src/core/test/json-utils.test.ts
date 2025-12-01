@@ -5,9 +5,9 @@ import { describe, it } from "node:test";
 import {
     isJsonParseError,
     parseJsonWithContext,
-    stringifyJsonForFile
+    stringifyJsonForFile,
+    type JsonParseError
 } from "../src/utils/json.js";
-import type { JsonParseError } from "../src/utils/json.js";
 import { isErrorLike } from "../src/utils/capability-probes.js";
 
 describe("parseJsonWithContext", () => {

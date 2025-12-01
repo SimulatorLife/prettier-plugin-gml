@@ -111,12 +111,13 @@ const defaultOptions = Core.createReadOnlyView<GmlPluginDefaultOptions>(
 );
 
 export { parsers, printers, pluginOptions, defaultOptions };
+export { pluginOptions as options };
 
 const pluginBundle: GmlPlugin = {
     languages: [...languages],
     parsers,
     printers,
-    pluginOptions,
+    options: pluginOptions,
     defaultOptions,
     format
 };

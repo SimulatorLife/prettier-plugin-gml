@@ -14,6 +14,58 @@ const REQUIRED_REPORTING_GROUPS = Object.freeze({
     logger: ["logSummary"]
 });
 
+export type MetricsSnapshot = {
+    category: string;
+    totalTimeMs: number;
+    timings: Record<string, number>;
+    counters: Record<string, number>;
+    caches: Record<string, Record<string, number>>;
+    metadata: Record<string, unknown>;
+};
+
+export type ProjectIndexMetricsRecording = {
+    category: string;
+    timers: {
+        startTimer(label: string): () => void;
+        timeSync<T>(label: string, callback: () => T): T;
+        timeAsync<T>(label: string, callback: () => Promise<T>): Promise<T>;
+    };
+    counters: {
+        increment(label: string, amount?: number): void;
+    };
+    caches: {
+        recordHit(name: string): void;
+        recordMiss(name: string): void;
+        recordStale(name: string): void;
+        recordMetric(name: string, key: string, amount?: number): void;
+    };
+    metadata: {
+        setMetadata(key: string, value: unknown): void;
+    };
+};
+
+export type ProjectIndexMetricsReporting = {
+    summary: {
+        snapshot(extra?: Record<string, unknown>): MetricsSnapshot;
+        finalize(extra?: Record<string, unknown>): MetricsSnapshot;
+    };
+    caches: {
+        cachesSnapshot(extra?: Record<string, unknown>): unknown;
+        cacheSnapshot(
+            cacheName: string,
+            extra?: Record<string, unknown>
+        ): unknown;
+    };
+    logger: {
+        logSummary(message?: string, extra?: Record<string, unknown>): void;
+    };
+};
+
+export type ProjectIndexMetricsContracts = {
+    recording: ProjectIndexMetricsRecording;
+    reporting: ProjectIndexMetricsReporting;
+};
+
 function hasMetricGroup(candidate, groupName, methodNames) {
     const group = candidate?.[groupName];
     return (
@@ -22,41 +74,56 @@ function hasMetricGroup(candidate, groupName, methodNames) {
     );
 }
 
-function isMetricsRecordingSuite(candidate) {
-    if (
-        !Core.isObjectLike(candidate) ||
-        typeof candidate.category !== "string"
-    ) {
+function isMetricsRecordingSuite(
+    candidate: unknown
+): candidate is ProjectIndexMetricsRecording {
+    if (!Core.isObjectLike(candidate)) {
+        return false;
+    }
+
+    const candidateObject = candidate as Record<string, unknown>;
+    if (typeof candidateObject.category !== "string") {
         return false;
     }
 
     return Object.entries(REQUIRED_RECORDING_GROUPS).every(
-        ([groupName, methods]) => hasMetricGroup(candidate, groupName, methods)
+        ([groupName, methods]) => hasMetricGroup(candidateObject, groupName, methods)
     );
 }
 
-function isMetricsReportingSuite(candidate) {
+function isMetricsReportingSuite(
+    candidate: unknown
+): candidate is ProjectIndexMetricsReporting {
     if (!Core.isObjectLike(candidate)) {
         return false;
     }
+
+    const candidateObject = candidate as Record<string, unknown>;
 
     return Object.entries(REQUIRED_REPORTING_GROUPS).every(
-        ([groupName, methods]) => hasMetricGroup(candidate, groupName, methods)
+        ([groupName, methods]) =>
+            hasMetricGroup(candidateObject, groupName, methods)
     );
 }
 
-function isMetricsContracts(candidate) {
+function isMetricsContracts(
+    candidate: unknown
+): candidate is ProjectIndexMetricsContracts {
     if (!Core.isObjectLike(candidate)) {
         return false;
     }
 
+    const candidateObject = candidate as Record<string, unknown>;
+
     return (
-        isMetricsRecordingSuite(candidate.recording) &&
-        isMetricsReportingSuite(candidate.reporting)
+        isMetricsRecordingSuite(candidateObject.recording) &&
+        isMetricsReportingSuite(candidateObject.reporting)
     );
 }
 
-function createMetricsSnapshot(extra = {}) {
+function createMetricsSnapshot(
+    extra: Record<string, unknown> | undefined = {}
+): MetricsSnapshot {
     return {
         category: PROJECT_INDEX_METRICS_CATEGORY,
         totalTimeMs: 0,
@@ -106,14 +173,14 @@ const NOOP_METRIC_REPORTING_GROUPS = Object.freeze({
     }),
     caches: Object.freeze({
         cachesSnapshot: () => ({}),
-        cacheSnapshot: () => {}
+        cacheSnapshot: () => ({} as Record<string, number>)
     }),
     logger: Object.freeze({
         logSummary: Core.noop
     })
 });
 
-function createNoopProjectIndexMetrics() {
+function createNoopProjectIndexMetrics(): ProjectIndexMetricsContracts {
     return Object.freeze({
         recording: Object.freeze({
             category: PROJECT_INDEX_METRICS_CATEGORY,
@@ -136,7 +203,7 @@ export function createProjectIndexMetrics(
         } | null;
         logMetrics?: boolean;
     } = {}
-) {
+ ): ProjectIndexMetricsContracts {
     const { metrics, logger = null, logMetrics = false } = options;
 
     if (isMetricsContracts(metrics)) {
@@ -154,7 +221,7 @@ export function createProjectIndexMetrics(
     });
 }
 
-export function finalizeProjectIndexMetrics(reporting) {
+export function finalizeProjectIndexMetrics(reporting: unknown) {
     if (!isMetricsReportingSuite(reporting)) {
         return null;
     }

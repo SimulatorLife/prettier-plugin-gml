@@ -16,6 +16,7 @@ export {
     createListSplitPattern,
     createNumericTypeErrorFormatter,
     createVerboseDurationLogger,
+    describeValueForError,
     describeValueWithArticle,
     ensureDir,
     ensureMap,

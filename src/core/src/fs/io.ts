@@ -2,6 +2,18 @@ import { createAbortGuard } from "../utils/abort.js";
 import { toArrayFromIterable } from "../utils/array.js";
 import { isErrorWithCode } from "../utils/error.js";
 
+export interface FileSystemDirectoryReader {
+    readonly readDir: (path: string) => Promise<Iterable<string>>;
+}
+
+export interface FileSystemStats {
+    readonly mtimeMs?: number;
+}
+
+export interface FileSystemStatReader {
+    readonly stat: (path: string) => Promise<FileSystemStats | null>;
+}
+
 /**
  * Type-safe wrapper over {@link isErrorWithCode} so callers can narrow thrown
  * filesystem errors to specific Node-style `code` strings without repeating the
@@ -33,15 +45,19 @@ export function isFsErrorCode(error, ...codes) {
  * @returns {Promise<Array<string>>} Stable array of directory entries,
  *          ordered according to the underlying iterator.
  */
-export async function listDirectory(fsFacade, directoryPath, options = {}) {
+export async function listDirectory(
+    fsFacade: FileSystemDirectoryReader,
+    directoryPath: string,
+    options: Parameters<typeof createAbortGuard>[0] = {}
+) {
     const abortMessage = "Directory listing was aborted.";
-    const { ensureNotAborted } = createAbortGuard(options, {
+    const guard = createAbortGuard(options, {
         fallbackMessage: abortMessage
     });
 
     try {
         const entries = await fsFacade.readDir(directoryPath);
-        ensureNotAborted();
+        guard.ensureNotAborted();
 
         return toArrayFromIterable(entries);
     } catch (error) {
@@ -66,15 +82,19 @@ export async function listDirectory(fsFacade, directoryPath, options = {}) {
  * @returns {Promise<number | null>} Millisecond precision modified time, or
  *          `null` when unavailable.
  */
-export async function getFileMtime(fsFacade, filePath, options = {}) {
+export async function getFileMtime(
+    fsFacade: FileSystemStatReader,
+    filePath: string,
+    options: Parameters<typeof createAbortGuard>[0] = {}
+) {
     const abortMessage = "File metadata read was aborted.";
-    const { ensureNotAborted } = createAbortGuard(options, {
+    const guard = createAbortGuard(options, {
         fallbackMessage: abortMessage
     });
 
     try {
         const stats = await fsFacade.stat(filePath);
-        ensureNotAborted();
+        guard.ensureNotAborted();
         return typeof stats.mtimeMs === "number" ? stats.mtimeMs : null;
     } catch (error) {
         if (isFsErrorCode(error, "ENOENT")) {

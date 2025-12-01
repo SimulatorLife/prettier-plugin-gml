@@ -40,8 +40,7 @@ export function toNormalizedInteger(value?: unknown) {
         return null;
     }
 
-    const finiteValue = value as number;
-    const normalized = Math.trunc(finiteValue);
+    const normalized = Math.trunc(value);
     return Object.is(normalized, -0) ? 0 : normalized;
 }
 

@@ -54,3 +54,4 @@ export type {
     DocCommentLines,
     MutableDocCommentLines
 } from "./comments/comment-utils.js";
+export type { AbortSignalLike } from "./utils/abort.js";
