@@ -19,6 +19,24 @@ const STRING_TYPE = "string";
 const RETURN_DOC_TAG_PATTERN = /^\/\/\/\s*@returns\b/i;
 const LEGACY_RETURNS_DESCRIPTION_PATTERN = /^(.+?)\s*-\s*(.*)$/; // simplified pattern for core
 
+const KNOWN_TYPES = new Set([
+    "real",
+    "string",
+    "bool",
+    "boolean",
+    "void",
+    "undefined",
+    "pointer",
+    "array",
+    "struct",
+    "id",
+    "asset",
+    "any",
+    "function",
+    "pointer",
+    "constant"
+]);
+
 const DOC_COMMENT_TAG_PATTERN = /^\/\/\/\s*@/i;
 const DOC_COMMENT_ALT_TAG_PATTERN = /^\/\/\s*\/\s*@/i;
 
@@ -336,6 +354,7 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
         let payload: string;
 
         const returnsColonMatch = trimmedSuffix.match(/^returns\s*:\s*(.*)$/i);
+
         if (returnsColonMatch) {
             payload = (returnsColonMatch[1] ?? "").trim();
         } else if (returnsMatch) {
@@ -345,29 +364,13 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
             continue;
         }
 
-        let typeText = "";
-        let descriptionText = "";
-
-        const typeAndDescriptionMatch = payload.match(
-            /^([^,–—-]+)[,–—-]\s*(.+)$/
-        );
-
-        if (typeAndDescriptionMatch) {
-            typeText = typeAndDescriptionMatch[1].trim();
-            descriptionText = typeAndDescriptionMatch[2].trim();
-        } else {
-            const candidate = payload.trim();
-            if (candidate.length === 0) {
-                retainedLines.push(line);
-                continue;
-            }
-
-            if (/\s/.test(candidate)) {
-                descriptionText = candidate;
-            } else {
-                typeText = candidate.replace(/[,.]+$/u, "").trim();
-            }
+        const payloadParts = parseLegacyReturnPayload(payload);
+        if (!payloadParts) {
+            retainedLines.push(line);
+            continue;
         }
+
+        let { typeText, descriptionText } = payloadParts;
 
         if (typeText.length === 0 && descriptionText.length === 0) {
             retainedLines.push(line);
@@ -432,6 +435,53 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
     }
 
     return resultLines as DocCommentLines;
+}
+
+type LegacyReturnPayload = {
+    typeText: string;
+    descriptionText: string;
+};
+
+/**
+ * Parses legacy return payload strings into discrete type and description
+ * segments so later logic can synthesize proper `@returns` metadata.
+ */
+function parseLegacyReturnPayload(payload: string): LegacyReturnPayload | null {
+    const trimmedPayload = payload.trim();
+    if (trimmedPayload.length === 0) {
+        return null;
+    }
+
+    const typeAndDescriptionMatch = trimmedPayload.match(
+        /^([^,–—-]+)[,–—-]\s*(.+)$/
+    );
+
+    if (typeAndDescriptionMatch) {
+        return {
+            typeText: typeAndDescriptionMatch[1].trim(),
+            descriptionText: typeAndDescriptionMatch[2].trim()
+        };
+    }
+
+    const spaceMatch = trimmedPayload.match(/^(\S+)\s+(.+)$/);
+    if (spaceMatch && KNOWN_TYPES.has(spaceMatch[1].toLowerCase())) {
+        return {
+            typeText: spaceMatch[1],
+            descriptionText: spaceMatch[2]
+        };
+    }
+
+    if (/\s/.test(trimmedPayload)) {
+        return {
+            typeText: "",
+            descriptionText: trimmedPayload
+        };
+    }
+
+    return {
+        typeText: trimmedPayload.replace(/[,.]+$/u, "").trim(),
+        descriptionText: ""
+    };
 }
 
 export function promoteLeadingDocCommentTextToDescription(

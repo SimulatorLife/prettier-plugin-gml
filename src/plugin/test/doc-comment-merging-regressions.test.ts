@@ -90,6 +90,9 @@ test("converts legacy Returns description lines into returns metadata", async ()
 
     const formatted = await Plugin.format(source);
 
+    if (!formatted.includes("/// @returns {bool} Indicating whether conversion occurs")) {
+        console.log("FORMATTED OUTPUT:\n", formatted);
+    }
     assert.ok(
         formatted.includes(
             "/// @returns {bool} Indicating whether conversion occurs"

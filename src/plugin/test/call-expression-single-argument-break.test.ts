@@ -12,11 +12,11 @@ test("wraps single call expression arguments when enforcing maxParamsPerLine", a
 
     assert.strictEqual(
         formatted,
-        [
+        `${[
             "buffer_from_vertex_buffer(",
             "    vertex_buffer_create_triangular_prism(undefined, undefined, false)",
             ");"
-        ].join("\n"),
+        ].join("\n")}\n`,
         "Expected nested call arguments to wrap even when only a single parameter is provided."
     );
 });

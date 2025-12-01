@@ -5030,7 +5030,11 @@ function mergeSyntheticDocComments(
     // merging process.
     const _convertedExisting =
         Core.convertLegacyReturnsDescriptionLinesToMetadata(
-            normalizedExistingLines
+            normalizedExistingLines,
+            {
+                normalizeDocCommentTypeAnnotations:
+                    Core.normalizeDocCommentTypeAnnotations
+            }
         );
 
     const _computedSynthetic = computeSyntheticFunctionDocLines(

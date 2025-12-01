@@ -28,7 +28,7 @@ describe("annotateStaticFunctionOverrides", () => {
             body: [
                 {
                     type: "ConstructorDeclaration",
-                    id: "Parent",
+                    id: { type: "Identifier", name: "Parent" },
                     body: {
                         type: "BlockStatement",
                         body: [parentStatic]
@@ -36,10 +36,10 @@ describe("annotateStaticFunctionOverrides", () => {
                 },
                 {
                     type: "ConstructorDeclaration",
-                    id: "Child",
+                    id: { type: "Identifier", name: "Child" },
                     parent: {
                         type: "ConstructorParentClause",
-                        id: "Parent"
+                        id: { type: "Identifier", name: "Parent" }
                     },
                     body: {
                         type: "BlockStatement",
@@ -73,7 +73,7 @@ describe("annotateStaticFunctionOverrides", () => {
             body: [
                 {
                     type: "ConstructorDeclaration",
-                    id: "Parent",
+                    id: { type: "Identifier", name: "Parent" },
                     body: {
                         type: "BlockStatement",
                         body: [
