@@ -1,3 +1,5 @@
+import { getOrCreateMapEntry } from "@prettier-plugin-gml/shared/utils/object.js";
+
 const IDENTIFIER_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 function assertValidIdentifierName(name) {
@@ -57,10 +59,9 @@ export class WorkspaceEdit {
     groupByFile() {
         const grouped = new Map();
         for (const edit of this.edits) {
-            if (!grouped.has(edit.path)) {
-                grouped.set(edit.path, []);
-            }
-            grouped.get(edit.path).push({
+            const edits = getOrCreateMapEntry(grouped, edit.path, () => []);
+
+            edits.push({
                 start: edit.start,
                 end: edit.end,
                 newText: edit.newText
