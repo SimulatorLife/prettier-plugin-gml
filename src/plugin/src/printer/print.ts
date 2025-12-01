@@ -5033,7 +5033,7 @@ function mergeSyntheticDocComments(
             normalizedExistingLines,
             {
                 normalizeDocCommentTypeAnnotations:
-                    Core.normalizeDocCommentTypeAnnotations
+                    Core.normalizeGameMakerType
             }
         );
 
@@ -5116,13 +5116,19 @@ function mergeSyntheticDocComments(
 
     if (syntheticLines.length === 0 && !shouldForceParamPrune) {
         return Core.convertLegacyReturnsDescriptionLinesToMetadata(
-            normalizedExistingLines
+            normalizedExistingLines,
+            {
+                normalizeDocCommentTypeAnnotations: Core.normalizeGameMakerType
+            }
         );
     }
 
     if (normalizedExistingLines.length === 0) {
         return Core.convertLegacyReturnsDescriptionLinesToMetadata(
-            syntheticLines
+            syntheticLines,
+            {
+                normalizeDocCommentTypeAnnotations: Core.normalizeGameMakerType
+            }
         );
     }
 
@@ -6268,7 +6274,9 @@ function mergeSyntheticDocComments(
     } catch {
         // Best-effort fallback; do not throw on diagnostic operations
     }
-    return Core.convertLegacyReturnsDescriptionLinesToMetadata(filteredResult);
+    return Core.convertLegacyReturnsDescriptionLinesToMetadata(filteredResult, {
+        normalizeDocCommentTypeAnnotations: Core.normalizeGameMakerType
+    });
 }
 
 function getCanonicalParamNameFromText(name) {
@@ -9722,7 +9730,9 @@ function shouldGenerateSyntheticDocForFunction(
     }
 
     const convertedExistingForSynthetic =
-        Core.convertLegacyReturnsDescriptionLinesToMetadata(existingDocLines);
+        Core.convertLegacyReturnsDescriptionLinesToMetadata(existingDocLines, {
+            normalizeDocCommentTypeAnnotations: Core.normalizeGameMakerType
+        });
     const syntheticLines = computeSyntheticFunctionDocLines(
         node,
         convertedExistingForSynthetic,
